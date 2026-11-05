@@ -12,7 +12,7 @@ A recursive call on a part of an argument, such as the tail of a list or the `n`
 ```stitchwort
 def length: List a → Nat
   | [] => 0
-  | Cons _ rest => 1 + length rest
+  | [_, ..rest] => 1 + length rest
 
 def factorial: Nat → Nat
   | 0 => 1
@@ -29,7 +29,7 @@ Extra parameters can change freely, as long as one argument shrinks. An accumula
 ```stitchwort
 def reverseOnto (done: List a): List a → List a
   | [] => done
-  | Cons x rest => reverseOnto (Cons x done) rest
+  | [x, ..rest] => reverseOnto [x, ..done] rest
 
 test "an accumulator" := reverseOnto [] [1, 2, 3] == [3, 2, 1]
 ```

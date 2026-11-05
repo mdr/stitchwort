@@ -56,104 +56,114 @@
   <pre data-src="10-dot-pipes.sw"></pre>
 </section>
 
+<section data-slug="clauses" data-title="Cases as a function, and conditions on cases">
+  <p>A function that only takes its argument apart can be written as its cases: <code>match | A =&gt; … | B =&gt; …</code>. <code>match some</code> keeps only what matches, as Scala's <code>collect</code> does, and <code>matches</code> answers true or false. Any case may have a condition after its patterns, <code>| n if n &gt; 5 =&gt; …</code>; when it is false, the cases below are tried.</p>
+  <pre data-src="11-clauses.sw"></pre>
+</section>
+
 <section data-slug="option-and-list" data-title="Option and List">
   <p>There is no null: a value that may be missing has type <code>Option a</code>, which is <code>Some value</code> or <code>None</code>. Lists are written <code>[1, 2, 3]</code> and come with the usual <code>map</code>, <code>filter</code>, <code>find</code>, <code>sum</code> and many more, called with dot notation.</p>
-  <pre data-src="11-option-list.sw"></pre>
+  <pre data-src="12-option-list.sw"></pre>
 </section>
 
 <section data-slug="map-and-set" data-title="Map and Set">
   <p><code>Map k v</code> and <code>Set k</code> are ordered collections: they keep their keys sorted, so <code>toList</code>, <code>keys</code> and printing come out in a fixed order, and two maps with the same entries are equal. Insert, lookup and remove are logarithmic. They live in <code>Std</code> and need an import.</p>
-  <pre data-src="12-map-set.sw"></pre>
+  <pre data-src="13-map-set.sw"></pre>
 </section>
 
 <section data-slug="namespaces-and-projects" data-title="Namespaces, imports and projects">
   <p>Names live in namespaces. The library is <code>Std</code>; a few things (<code>Nat</code>, <code>List</code>, <code>Option</code>, <code>==</code>) are always in scope, and <code>import Std (Option)</code> brings in the rest of a namespace such as <code>Option.map</code>. A type owns a namespace (<code>Item.cost</code>), and a <code>namespace Shop</code> line at the top of a file puts the whole file in one. A <b>project</b> is a folder with a <code>stitchwort.yaml</code> of such files; try the Advent of Code entries in the Example menu to see one.</p>
-  <pre data-src="13-namespaces.sw"></pre>
+  <pre data-src="14-namespaces.sw"></pre>
 </section>
 
 <section data-slug="tests" data-title="Tests">
   <p>A <code>test</code> is a named <code>Bool</code> that must be <code>True</code>. The Tests tab runs them all, on the same fast runtime as <b>Run</b>; from a terminal, <code>stitchwort test</code> does the same for a whole project. When a comparison fails, it shows both sides:</p>
-  <pre data-src="14-tests.sw"></pre>
+  <pre data-src="15-tests.sw"></pre>
   <p class="guide-note">Running the tests above gives:</p>
-  <pre class="guide-output" data-failure-of="14-tests.sw">✗ 2023 is wrong on purpose  (`==` is False)
+  <pre class="guide-output" data-failure-of="15-tests.sw">✗ 2023 is wrong on purpose  (`==` is False)
     left:  False
     right: True</pre>
 </section>
 
 <section data-slug="abilities" data-title="Abilities and handlers">
   <p>Side effects are described, not hidden. An <b>ability</b> lists operations like <code>say</code>; a function that uses them says so in its type (<code>{Log}</code>), and a <b>handler</b> decides what they mean: print them, collect them, or run them in a test. The code that performs them is plain, straight-line code. <code>IO</code> (printing and reading input) is an ability too.</p>
-  <pre data-src="15-abilities.sw"></pre>
+  <pre data-src="16-abilities.sw"></pre>
 </section>
 
 <section data-slug="each" data-title="Each: trying every combination">
   <p><code>Each</code> is an ability from the library for searching. <code>each</code> chooses an element from a list, <code>require</code> discards a combination that doesn't qualify, and <code>Each.collect</code> returns every combination that survives. It reads like nested loops with a filter.</p>
-  <pre data-src="16-each.sw"></pre>
+  <pre data-src="17-each.sw"></pre>
 </section>
 
 <section data-slug="fail" data-title="Fail: errors with messages">
   <p><code>Fail</code> is an ability for giving up with a reason, so there are no exceptions and the type shows which code can fail. <code>need</code> takes an <code>Option</code> and fails if it is <code>None</code>; <code>fail</code> stops with a message; the handler <code>toResult</code> turns the outcome into <code>Ok</code> or <code>Err</code>. A <code>main</code> of type <code>{IO, Fail} ()</code> may leave <code>Fail</code> unhandled: the message goes to standard error and the exit status is 1. That makes strict input parsing short: read every line, and a bad line stops the run saying which. (<code>Abort</code> is the same without a message.)</p>
-  <pre data-src="17-fail.sw"></pre>
+  <pre data-src="18-fail.sw"></pre>
 </section>
 
 <section data-slug="parse" data-title="Parse: reading structured text">
   <p><code>Parse</code> is an ability for reading text. A parser is ordinary straight-line code: <code>nat()</code> reads a number, <code>char 'x'</code> a given character, and <code>oneOf</code>, <code>optional</code> and <code>many</code> choose and repeat. A runner such as <code>Parse.eachLine</code> gives it the input and turns a failure into a <code>Fail</code> that names the line and column and says what was expected there.</p>
-  <pre data-src="18-parse.sw"></pre>
+  <pre data-src="19-parse.sw"></pre>
 </section>
 
 <section data-slug="effect-polymorphism" data-title="One function for pure and effectful callbacks">
   <p>A function type can say <code>{e}</code> for "whatever effects the callback has". Pass it a pure function and the call is pure; pass it one that can fail and the call can fail, with the same definition. The library does this for <code>List.map</code>, whose callback may perform effects or none.</p>
-  <pre data-src="19-effect-polymorphism.sw"></pre>
+  <pre data-src="20-effect-polymorphism.sw"></pre>
 </section>
 
 <section data-slug="effects-in-types" data-title="Effects as a type parameter">
   <p>When a data type holds callbacks, its effects become a parameter of type <code>Effects</code>, just as an element type is a parameter of <code>List</code>. You never write an <code>Effects</code> value yourself; the compiler works it out from the functions you put in.</p>
-  <pre data-src="20-effects-in-types.sw"></pre>
+  <pre data-src="21-effects-in-types.sw"></pre>
 </section>
 
 <section data-slug="proofs" data-title="Theorems and proofs">
   <p>A <code>theorem</code> states a fact about your programs and the compiler checks the proof. <code>rfl</code> means "both sides compute to the same thing". For a fact about every value of a type, split on the cases like a function does; a call to the theorem on the smaller piece is the induction step.</p>
-  <pre data-src="21-proofs.sw"></pre>
+  <pre data-src="22-proofs.sw"></pre>
 </section>
 
 <section data-slug="omega" data-title="omega: arithmetic proofs">
   <p>For facts about numbers built from <code>+</code>, <code>-</code>, comparisons and multiplication by constants, <code>omega</code> finds the proof itself, using the hypotheses in scope.</p>
-  <pre data-src="22-omega.sw"></pre>
+  <pre data-src="23-omega.sw"></pre>
 </section>
 
 <section data-slug="calc-and-rewrite" data-title="calc and rewrite">
   <p>Two ways to write longer proofs readably. <code>calc</code> is a chain of steps, each related to the one before (<code>=</code>, <code>&lt;=</code>, <code>&lt;</code>), each with its reason. <code>rewrite p in t</code> replaces, in the goal, the left side of the equation <code>p</code> by its right side, so you don't write out the expression around it. When a lemma takes functions as arguments, such as <code>List.mapCong</code>, write <code>_</code> for them and the compiler reads them off the goal.</p>
-  <pre data-src="23-calc-rewrite.sw"></pre>
+  <pre data-src="24-calc-rewrite.sw"></pre>
 </section>
 
 <section data-slug="induct" data-title="Induction that follows a function">
   <p>A recursive function comes with an induction principle shaped like its own equations: one case for each branch, with a hypothesis for each recursive call. <code>match induct (f args)</code> proves a statement about <code>f</code> by those cases, so a proof about a function with an <code>if</code> in it needs no case analysis of its own. The equations are theorems you can name too, such as <code>countAbove.eq2.ifFalse</code>.</p>
-  <pre data-src="24-induct.sw"></pre>
+  <pre data-src="25-induct.sw"></pre>
+</section>
+
+<section data-slug="guard-proofs" data-title="Proofs about cases with conditions">
+  <p>For a proof, a case with a condition is an <code>if</code>. Its equation takes the condition as a hypothesis, the cases below it take that it failed, and <code>match induct</code> splits at each condition. A condition that can be decided is stated as a proposition: <code>n != 3</code> becomes <code>n ≠ 3</code>.</p>
+  <pre data-src="26-guard-proofs.sw"></pre>
 </section>
 
 <section data-slug="proofs-about-effects" data-title="Proofs about effectful code">
   <p>A handler applied to code it can see through just computes, so a proof about it is often <code>rfl</code>. For a fact about <em>any</em> computation, <code>match reify t with</code> splits on what the computation does first, with the clauses written as a handler's. It works only in proofs, so programs can never take a computation apart.</p>
-  <pre data-src="25-reify.sw"></pre>
+  <pre data-src="27-reify.sw"></pre>
 </section>
 
 <section data-slug="termination" data-title="Recursion that must finish">
   <p>Functions must terminate, since that is what makes proofs about them meaningful. Recursion on a piece of an argument is accepted as written; otherwise name the number that shrinks with <code>decreasing</code>. A <code>decreasing</code> function still runs and tests like any other.</p>
-  <pre data-src="26-decreasing.sw"></pre>
+  <pre data-src="28-decreasing.sw"></pre>
 </section>
 
 <section data-slug="mutual" data-title="Any order, and mutual recursion">
   <p>Declarations can come in any order, so <code>main</code> can come first and its helpers below. Definitions may call each other, and types may refer to each other; the compiler checks them together and still requires every cycle of calls to get smaller.</p>
-  <pre data-src="27-mutual.sw"></pre>
+  <pre data-src="29-mutual.sw"></pre>
 </section>
 
 <section data-slug="dependent-types" data-title="Dependent types">
   <p>A type may mention values. <code>Vec a n</code> is a list whose length <code>n</code> is part of its type, so <code>Vec.head</code> can only be given a non-empty vector and <code>Vec.zipWith</code> only vectors of the same length. Mistakes like these become compile errors rather than runtime checks.</p>
-  <pre data-src="28-dependent-types.sw"></pre>
+  <pre data-src="30-dependent-types.sw"></pre>
 </section>
 
 <section data-slug="javascript" data-title="Exporting to JavaScript and TypeScript">
   <p><code>export</code> on a definition makes it part of a generated ES module with TypeScript declarations (the JavaScript tab shows both). Records become plain objects, variants become objects with a <code>tag</code>, <code>Nat</code> is a <code>bigint</code>, and <code>Option a</code> is <code>a | undefined</code>. <code>SafeNat</code> is a whole number that fits a JS <code>number</code>. When a function asks for a proof the caller can't supply, such as <code>percent &lt;= 100</code>, the generated code checks it when called and throws <code>StitchwortInputError</code>. The declarations for the example below:</p>
-  <pre data-src="29-export.sw"></pre>
-  <pre class="guide-output" data-dts-of="29-export.sw">export type Profile = { readonly name: string; readonly nickname?: string };
+  <pre data-src="31-export.sw"></pre>
+  <pre class="guide-output" data-dts-of="31-export.sw">export type Profile = { readonly name: string; readonly nickname?: string };
 export declare function displayName(p: Profile): string;
 export declare function toNumber(n: bigint): number | undefined;
 export declare function percentOf(percent: bigint, total: bigint): bigint;</pre>

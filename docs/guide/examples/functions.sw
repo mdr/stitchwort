@@ -18,7 +18,7 @@ def twice (f: a → a) (x: a): a := f (f x)
 
 def firstOr (fallback: a): List a → a
   | [] => fallback
-  | Cons x _ => x
+  | [x, .._] => x
 
 test "twice" := twice increment 5 == 7
 test "a is Text here" := firstOr "none" ["tea", "milk"] == "tea"
@@ -138,6 +138,10 @@ def bigValue: Reading → Option Nat := match some
   | Valid value if value > 5 => value
 
 test "a condition on a case" := sample.filterMap bigValue == [9]
+
+def isBig: Reading → Bool := matches | Valid value if value > 5
+
+test "a condition alone" := sample.filter isBig == [Valid 9]
 -- end clauses
 
 -- begin higher-order

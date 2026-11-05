@@ -1,5 +1,5 @@
 -- Every function must provably finish. Recursion on a piece of an argument
--- (like `xs` in `Cons x xs`) is accepted as it is. When a call isn't on a
+-- (like `xs` in `[x, ..xs]`) is accepted as it is. When a call isn't on a
 -- piece, say what shrinks with `decreasing`; the `if` supplies the proof
 -- that it does.
 def halvings (n: Nat) (count: Nat): Nat

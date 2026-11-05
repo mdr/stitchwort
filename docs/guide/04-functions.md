@@ -59,7 +59,7 @@ def twice (f: a → a) (x: a): a := f (f x)
 
 def firstOr (fallback: a): List a → a
   | [] => fallback
-  | Cons x _ => x
+  | [x, .._] => x
 
 test "twice" := twice increment 5 == 7
 test "a is Text here" := firstOr "none" ["tea", "milk"] == "tea"
@@ -140,6 +140,35 @@ test "the same call, in full" := Point.manhattan (Point.shift origin 3 (-4)) == 
 ```
 
 `origin.shift 3 (-4)` is `Point.shift origin 3 (-4)`. There are no classes and no methods: dot notation is only a way of writing calls. It works for the library's types too (`xs.map f` is `List.map xs f`), and needs no import: the value's type picks the namespace. Nothing is searched for: if `f`'s first explicit parameter isn't a `Point`, `origin.f` is `E-DOT-NO-RECEIVER`, so a function meant to be called with a dot takes its main value first. A function in `Point`'s namespace that takes a `Point` but not first gets the warning `W-RECEIVER-NOT-FIRST`.
+
+A constructor is a value, but `Key.valid` is the name of a function, and `BirthYear.valid` isn't. The compiler reads `BirthYear.valid` as the name `valid` in a namespace `BirthYear`, and says what to write instead:
+
+<!-- snippet: errors/constructor-dot.sw -->
+```stitchwort
+type Key =
+  | BirthYear
+  | IssueYear
+
+def Key.valid (key: Key) (text: Text): Bool :=
+  match key with
+    | BirthYear => text.length == 4
+    | IssueYear => text.length == 4
+
+def check: Bool := BirthYear.valid "2002"
+```
+
+<!-- output: check errors/constructor-dot.sw -->
+```text
+[E-UNKNOWN-NAME] Error: unknown name `BirthYear.valid`
+    ╭─[ errors/constructor-dot.sw:10:20 ]
+    │
+ 10 │ def check: Bool := BirthYear.valid "2002"
+    │                    ───────┬───────
+    │                           ╰───────── not in scope
+    │
+    │ Note: `BirthYear` is a `Key`: write `Key.valid BirthYear` or `BirthYear |> .valid`
+────╯
+```
 
 A negative number as an argument needs no brackets when the `-` has a space before it and none after it: `f -4` is `f (-4)` and `f -x` is `f (-x)`. `n - 4`, `n-4` and `n- 4` are subtractions, so `n -4` for a number `n` is an error with a note saying so.
 
@@ -245,11 +274,15 @@ def bigValue: Reading → Option Nat := match some
   | Valid value if value > 5 => value
 
 test "a condition on a case" := sample.filterMap bigValue == [9]
+
+def isBig: Reading → Bool := matches | Valid value if value > 5
+
+test "a condition alone" := sample.filter isBig == [Valid 9]
 ```
 
 A plain `match` still has to cover every case; the `some` and `matches` are what say that the values left out are dropped or false. If the cases you write already cover every value, the compiler warns (`W-MATCH-TOTAL`), since a `match` says that better. The words `some` and `matches` are special only in these places, so a variable of that name works anywhere else. On one line, a `|` before `=>` joins patterns, so put cases that give different results on lines of their own.
 
-A case may carry a condition, `| Valid value if value > 5 => value`: it applies only when the condition holds, and when it doesn't, the cases below it are tried. In `match some` and `matches` that means a value no case accepts is dropped or false, as one no pattern matches is; in a plain `match`, a case with a condition covers nothing, so there must still be a case without one for the same values.
+A case may carry a condition, `| Valid value if value > 5 => value`: it applies only when the condition holds, and when it doesn't, the cases below it are tried. [Chapter 3](03-data.md#conditions-on-cases) explains conditions on cases in every kind of `match`; they work the same in these three forms. In `match some` and `matches` a value no case accepts is dropped or false, as one no pattern matches is. In `matches`, a case with a condition and no `=>` is true when the condition holds. In a plain `match`, a case with a condition covers nothing, so there must still be a case without one for the same values.
 
 ## Functions as values
 

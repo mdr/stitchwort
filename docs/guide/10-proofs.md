@@ -48,7 +48,7 @@ theorem doubleFour: double 4 = 9 := rfl
 
 The last note comes from a **counterexample search**: when a proof fails, the checker also tries the statement itself on inputs, small ones first, then random ones. Here there are no inputs to try, and the statement computes to false, so no proof could work. A search that finds nothing says nothing.
 
-A theorem is erased when the program runs: it costs nothing. In a project, `stitchwort run` doesn't even check the namespaces it doesn't need, which is why proofs usually have a namespace of their own.
+Two proofs of the same statement are interchangeable: the checker treats them as equal, so a function that takes a proof gives the same result whichever proof it is handed. A theorem is erased when the program runs: it costs nothing. In a project, `stitchwort run` doesn't even check the namespaces it doesn't need, which is why proofs usually have a namespace of their own.
 
 ## Induction is recursion
 
@@ -117,20 +117,20 @@ The goal is shown computed, as the checker sees it, so it is often a step furthe
 
 ## Proofs about lists
 
-The same pattern works for any recursive type. A proof about lists has a `[]` case and a `Cons` case:
+The same pattern works for any recursive type. A proof about lists has a `[]` case and a `[x, ..rest]` case:
 
 <!-- snippet: proofs.sw#lists -->
 ```stitchwort
 def mapList (f: a → b): List a → List b
   | [] => []
-  | Cons x rest => Cons (f x) (mapList f rest)
+  | [x, ..rest] => [f x, ..mapList f rest]
 
 theorem lengthMapList (f: a → b): (xs: List a) → (mapList f xs).length = xs.length
   | [] => rfl
-  | Cons x rest => Eq.cong Succ (lengthMapList f rest)
+  | [x, ..rest] => Eq.cong Succ (lengthMapList f rest)
 ```
 
-`(mapList f xs).length` in the `Cons` case computes to `Succ (mapList f rest).length`, so `Eq.cong Succ` of the hypothesis is the proof.
+`(mapList f xs).length` in the `[x, ..rest]` case computes to `Succ (mapList f rest).length`, so `Eq.cong Succ` of the hypothesis is the proof.
 
 ## Rewriting and chains
 
@@ -172,9 +172,9 @@ theorem stepBack (n: Nat) (x: Int) (h: x < n.toInt): x - 1 < n.toInt - 1 := omeg
 theorem thirdOfTriple (k: Int): (3 * k) / 3 = k := omega
 ```
 
-On `Int`, an unknown may be negative, while `n.toInt` of a `Nat` is known to be at least 0, so `Nat` and `Int` facts mix; `x / 3` and `x % 3` are unknowns with `3 * (x / 3) + x % 3 = x` and `0 ≤ x % 3 < 3`. `omega [p, q]` adds the facts `p` and `q`, such as lemmas applied to arguments. Anything that isn't linear arithmetic (`x * y`, `xs.length`, a function call) is treated as an unknown number, though a field of a record written out, `{ row = 1, column = 0 }.row`, is computed first.
+On `Int`, an unknown may be negative, while `n.toInt` of a `Nat` is known to be at least 0, so `Nat` and `Int` facts mix; `x / 3` and `x % 3` are unknowns with `3 * (x / 3) + x % 3 = x` and `0 ≤ x % 3 < 3`. If the facts contradict each other, `omega` proves any goal, not only an arithmetic one. `omega [p, q]` adds the facts `p` and `q`, such as lemmas applied to arguments. Anything that isn't linear arithmetic (`x * y`, `xs.length`, a function call) is treated as an unknown number, though a field of a record written out, `{ row = 1, column = 0 }.row`, is computed first.
 
-Comparisons may be joined with `&&`, `||` and `not`, as `Bool`s (`(a == b || a < c) = True`) or as propositions (`Or p q`, `And p q`, `Not p`), and `==` and `!=` on numbers count as comparisons. A fact that is a disjunction is split into its two cases, each proved separately, when the other facts aren't enough (up to 8 splits); a goal that is one is proved by cases on one side, the other side proved where it fails:
+Comparisons may be joined with `&&`, `||` and `not`, as `Bool`s (`(a == b || a < c) = True`) or as propositions (`p ∨ q`, `p ∧ q`, `¬p`), and `==` and `!=` on numbers count as comparisons. A fact that is a disjunction is split into its two cases, each proved separately, when the other facts aren't enough (up to 8 splits); a goal that is one is proved by cases on one side, the other side proved where it fails:
 
 <!-- snippet: proofs.sw#omega-logic -->
 ```stitchwort
@@ -182,7 +182,7 @@ def isNeighbour (a: Nat) (b: Nat): Bool := a + 1 == b || b + 1 == a
 
 theorem neighboursDiffer (a: Nat) (b: Nat) (near: isNeighbour a b = True): a != b := omega
 
-theorem nearZero (a: Nat) (h: a ≤ 1): Or (a = 0) (a = 1) := omega
+theorem nearZero (a: Nat) (h: a ≤ 1): a = 0 ∨ a = 1 := omega
 ```
 
 When `omega` fails, it says which facts it used and gives values that satisfy them but not the goal, which usually points at the missing fact:
@@ -359,8 +359,8 @@ Induction on a list or a number is induction on the type. A function with an `if
 <!-- snippet: proofs.sw#induct -->
 ```stitchwort
 def countAbove (k: Nat): List Nat → Nat
-  | Nil => 0
-  | Cons x xs => if k ≤ x then Succ (countAbove k xs) else countAbove k xs
+  | [] => 0
+  | [x, ..xs] => if k ≤ x then Succ (countAbove k xs) else countAbove k xs
 
 theorem countAboveLe (k: Nat) (xs: List Nat): countAbove k xs ≤ xs.length :=
   match induct (countAbove k xs) with
@@ -368,7 +368,7 @@ theorem countAboveLe (k: Nat) (xs: List Nat): countAbove k xs ≤ xs.length :=
     | eq2IfTrue y ys h ih => ih
     | eq2IfFalse y ys h ih => omega
 
-theorem skipsSmall (k: Nat) (x: Nat) (xs: List Nat) (h: (k <= x) = False): countAbove k (Cons x xs) = countAbove k xs :=
+theorem skipsSmall (k: Nat) (x: Nat) (xs: List Nat) (h: (k <= x) = False): countAbove k [x, ..xs] = countAbove k xs :=
   countAbove.eq2.ifFalse k x xs h
 ```
 
@@ -377,8 +377,8 @@ Leaving an alternative as `?` shows what that branch has to prove, and what it c
 <!-- snippet: errors/induct.sw -->
 ```stitchwort
 def countAbove (k: Nat): List Nat → Nat
-  | Nil => 0
-  | Cons x xs => if k ≤ x then Succ (countAbove k xs) else countAbove k xs
+  | [] => 0
+  | [x, ..xs] => if k ≤ x then Succ (countAbove k xs) else countAbove k xs
 
 theorem countAboveLe (k: Nat) (xs: List Nat): countAbove k xs ≤ xs.length :=
   match induct (countAbove k xs) with
@@ -409,12 +409,87 @@ The names after the case bind its variables, then the condition it was taken und
 
 The pieces are theorems you can use directly. Every arm of a definition gets an equation, `f.eq1`, `f.eq2`, …, and every `if` or `match` in tail position inside it gets one for each way through, named for the split (`countAbove.eq2.ifFalse`, `.some`, `.cons`). Each says what a call is when the branch was taken, taking the fact it was taken under as a hypothesis, as `skipsSmall` above does. These are most useful where the call is stuck on a condition, which `rfl` and `rewrite` can't compute through. The induction principle itself is `f.induct`, and `match induct` is shorthand for applying it. `stitchwort doc f` lists a function's equations, and marks those whose left side is stuck. Not every definition gets them (mutually recursive groups, and arms whose branches can't be stated, say so when named), and a definition that doesn't call itself has no `f.induct`. The rules are in [syntax.md](../syntax.md#generated-equations).
 
+## Cases with conditions
+
+A condition on a case ([chapter 3](03-data.md#conditions-on-cases)) is an `if` as far as proofs go. The arm that has it gets an equation with the condition as its last hypothesis, and each arm below it gets one with the fact that the condition failed:
+
+<!-- snippet: proofs.sw#guard-eqs -->
+```stitchwort
+def cap (limit: Nat): Nat → Nat
+  | n if n <= limit => n
+  | _ => limit
+
+theorem capKeeps (limit: Nat) (n: Nat) (fits: n ≤ limit): cap limit n = n := cap.eq1 limit n fits
+
+theorem capCuts (limit: Nat) (n: Nat) (over: (n <= limit) = False): cap limit n = limit := cap.eq2 limit n over
+
+def skipThree: Nat → Nat
+  | n if n != 3 => n
+  | _ => 0
+
+theorem skipThreeKeeps (n: Nat) (other: n ≠ 3): skipThree n = n := skipThree.eq1 n other
+
+theorem skipThreeDrops: skipThree 3 = 0 := skipThree.eq2 3 (not3 => not3 rfl)
+```
+
+`cap.eq1` has the hypothesis `n ≤ limit`, and `cap.eq2` has `(n <= limit) = False`. A condition on numbers or equality is stated as the proposition it decides, even when the program tests it as a `Bool`: `n != 3` gives `n ≠ 3`, and for the arm below it, `¬(n ≠ 3)`. Another `Bool` is stated as `c = True`, and as `c = False` below. Equations are still numbered by arm, so a condition adds no name.
+
+`match induct` splits at each condition too: the case of a guarded arm knows the condition, and the case of the arms below it knows it failed. The cases are named by arm, `eq1`, `eq2`, `eq3`, and `eq2` and `eq3` each get the fact; leaving `eq2` as `?` shows it:
+
+<!-- snippet: proofs.sw#guard-induct -->
+```stitchwort
+def countBig: List Nat → Nat
+  | [] => 0
+  | [x, ..rest] if x > 3 => 1 + countBig rest
+  | [_, ..rest] => countBig rest
+
+theorem countBigAtMost (xs: List Nat): countBig xs ≤ xs.length :=
+  match induct (countBig xs) with
+    | eq1 => omega
+    | eq2 x rest big ih => omega
+    | eq3 x rest small ih => omega
+```
+
+<!-- snippet: errors/guard-induct.sw -->
+```stitchwort
+def countBig: List Nat → Nat
+  | [] => 0
+  | [x, ..rest] if x > 3 => 1 + countBig rest
+  | [_, ..rest] => countBig rest
+
+theorem countBigAtMost (xs: List Nat): countBig xs ≤ xs.length :=
+  match induct (countBig xs) with
+    | eq1 => omega
+    | eq2 x rest big ih => ?
+    | eq3 x rest small ih => omega
+```
+
+<!-- output: check errors/guard-induct.sw -->
+```text
+[GOAL] Goal: in `countBigAtMost`
+   ╭─[ errors/guard-induct.sw:9:28 ]
+   │
+ 9 │     | eq2 x rest big ih => ?
+   │                            ┬
+   │                            ╰── xs: List Nat
+   │                                x: Nat
+   │                                rest: List Nat
+   │                                big: 4 ≤ x
+   │                                ih: countBig rest ≤ Std.List.length rest
+   │                                ⊢ countBig rest ≤ Std.List.length rest
+───╯
+1 goal open: the declarations with them, and what uses them, aren't finished, so they aren't checked
+```
+
+Not every arm gets an equation. Where the right side uses the proof of a condition (`| (n, len) if n != 0 => len % n` needs `n ≠ 0` for the `%`), the equation isn't generated and naming it says why; prove that case by hand, with `f.unfold` or by matching on the condition. The rules are in [syntax.md](../syntax.md), under "Guards".
+
 ## Decisions and facts
 
 `Bool` and statements are different things. `n == 0` is a `Bool`, a value computed at run time. `n = 0` is a statement, a type whose values are proofs. A statement that can be **decided** (equations on types with `==`, comparisons on numbers) can be used as a condition, and then the branches know which way it went:
 
 - `if n != 0 then a else b` makes the fact `n != 0` available in `a`. That's how `/` found its proof in [chapter 2](02-values-and-definitions.md#division-needs-a-reason).
-- `if h: P then a else b` also names the fact: `h: P` in `a`, and `h: Not P` in `b`.
+- `if a && b then …` gives the branch `a ∧ b`, and `auto` uses each part of a conjunction in scope: `if b != 0 && c != 0 then a % b` checks. (When `b` itself needs the fact from `a`, as in `n != 0 && len % n == 0`, the branch doesn't get the conjunction.)
+- `if h: P then a else b` also names the fact: `h: P` in `a`, and `h: ¬P` in `b`.
 - A parameter `[auto ok: P]` asks the caller for a proof of `P`, found automatically from the facts in scope, or by deciding `P` when its values are known.
 
 <!-- snippet: proofs.sw#decide -->
@@ -483,9 +558,9 @@ Three more forms come up in statements, each with a Unicode spelling you may use
 
 <!-- snippet: proofs.sw#logic -->
 ```stitchwort
-theorem headIn (x: Nat) (rest: List Nat): x ∈ Cons x rest := Inl rfl
+theorem headIn (x: Nat) (rest: List Nat): x ∈ [x, ..rest] := Inl rfl
 
-theorem notInEmpty (x: Nat): x ∉ Nil := none => none
+theorem notInEmpty (x: Nat): x ∉ [] := none => none
 
 theorem bothWays (p: Prop) (q: Prop): p ∧ q ↔ q ∧ p := {
   forward = h => Both (And.right h) (And.left h),

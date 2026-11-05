@@ -5,7 +5,7 @@ def twice (f: a → a) (x: a): a := f (f x)
 -- the list you pass; you never write it.
 def firstOr (fallback: a): List a → a
   | [] => fallback
-  | Cons x _ => x
+  | [x, .._] => x
 
 -- A type with parameters, like `List a` or `Option a`.
 type Swapped (a: Type) (b: Type) = { left: a, right: b }

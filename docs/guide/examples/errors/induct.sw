@@ -1,6 +1,6 @@
 def countAbove (k: Nat): List Nat → Nat
-  | Nil => 0
-  | Cons x xs => if k ≤ x then Succ (countAbove k xs) else countAbove k xs
+  | [] => 0
+  | [x, ..xs] => if k ≤ x then Succ (countAbove k xs) else countAbove k xs
 
 theorem countAboveLe (k: Nat) (xs: List Nat): countAbove k xs ≤ xs.length :=
   match induct (countAbove k xs) with

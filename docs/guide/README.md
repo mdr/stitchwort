@@ -13,14 +13,14 @@ The guide explains how things work and why, shows the idioms, and shows what the
 
 1. [Getting started](01-getting-started.md): installing, the `stitchwort` command, projects, the playground and editor support.
 2. [Values and definitions](02-values-and-definitions.md): definitions, doc comments, blocks, `if`, text and interpolation, numbers.
-3. [Data](03-data.md): variants, records, field defaults, pattern matching and exhaustiveness.
-4. [Functions](04-functions.md): lambdas, type parameters, named arguments and defaults, dot notation, pipes, sections, local definitions.
+3. [Data](03-data.md): variants, records, field defaults, pattern matching, conditions on cases and exhaustiveness.
+4. [Functions](04-functions.md): lambdas, type parameters, named arguments and defaults, dot notation, pipes, sections, local definitions, functions written as their cases (`match |`, `match some |`, `matches |`).
 5. [Interfaces](05-interfaces.md): interfaces and instances, `auto`, and the equality, order and text every type gets.
 6. [Namespaces, projects and the library](06-namespaces-and-library.md): imports, multi-file projects, and a tour of `List`, `Option`, `Result`, `Text`, `Map`, `Set` and `Vec`.
 7. [Recursion and termination](07-recursion.md): structural recursion, `decreasing`, mutual recursion, recursion through containers, `Partial`.
 8. [Abilities](08-abilities.md): declaring and handling effects, effect polymorphism, `Fail`, `Abort`, `Each` and `IO`.
 9. [Testing](09-testing.md): tests, what a failing test tells you, testing effectful code.
-10. [Proofs](10-proofs.md): `theorem`, `rfl`, induction, `rewrite`, `calc`, `omega`, goals, induction that follows a function, `opaque`, dependent types, proofs about effectful code, `audit`, and a worked example.
+10. [Proofs](10-proofs.md): `theorem`, `rfl`, induction, `rewrite`, `calc`, `omega`, goals, induction that follows a function, cases with conditions, `opaque`, dependent types, proofs about effectful code, `audit`, and a worked example.
 11. [Running and shipping](11-running-and-shipping.md): the runtimes, standalone executables, exporting to JavaScript and TypeScript, performance.
 
 ## The examples are checked
