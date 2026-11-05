@@ -7,7 +7,7 @@ import Aoc.Year2020.Day04 (Passport)
 import Std (List, Parse, Text)
 
 --| "Each passport is represented as a sequence of key:value pairs".
-def pairs (passport: Passport): List (Text, Text) := passport.fields.map (field => (field.key.code, field.value))
+def pairs (passport: Passport): List (Text, Text) := passport.fields.toList.map (field => (field.key.code, field.value))
 
 --| The expected fields: "byr (Birth Year), iyr (Issue Year), eyr
 --| (Expiration Year), hgt (Height), hcl (Hair Color), ecl (Eye Color), pid
