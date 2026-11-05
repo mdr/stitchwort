@@ -1,5 +1,5 @@
 {
-  "next": 1314,
+  "next": 1317,
   "tickets": [
     {
       "id": 47,
@@ -5516,14 +5516,14 @@
     {
       "id": 1227,
       "title": "Unifier: unfold a definition one step when compared with a call of a different definition (lazy delta, as Lean), so _ works for named parsers and nothing is restated",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1227",
       "labels": [
         "elab",
         "unify"
       ],
-      "body": "D2341. Matt accepted the plan in docs/proposals/proofs-about-definitions.md (D2340-D2345, 4 Nov 2026). After D2342's lane. Narrowly aimed (a broad version broke Reads.sw:627 and :1712). Merge tier plus a daily-tier run (ask Matt first). Keep examples/reject/not-unfolded-argument.sw from lane/SW-1219 as a test.\n\nStarted 4 Nov 20:37 by mistake ahead of SW-93, against D2348's order (both touch the unifier); paused after ~8 min, WIP commit 3f65d6d2 on lane/SW-1227 (value.rs, unify.rs, Day02 Parse.sw touched; unfold_once in progress). Resume after SW-93 merges, rebased onto it.\n\nResumed 02:48 5 Nov on Opus after SW-93 merged (est. 150 min): rebase onto main first. Merging needs a daily-tier run, which waits for Matt (morning D question).\n\n03:35 5 Nov: rebased onto main (SW-93 kept as is). Narrow rule built in unify.rs (`one_step_apart`): only a call with a whole unknown argument against a call of another definition whose forced forms differ at the outer layer. aoc check --no-cache passes; `_` now works for named parsers (2020 Days 2, 4, 5, 6 and 2021 Day 16 moved to `_`). SW-1219's branch is gone, so not-unfolded-argument.sw was recreated from the note's description. Running the checks.\n",
+      "body": "D2341. Matt accepted the plan in docs/proposals/proofs-about-definitions.md (D2340-D2345, 4 Nov 2026). After D2342's lane. Narrowly aimed (a broad version broke Reads.sw:627 and :1712). Merge tier plus a daily-tier run (ask Matt first). Keep examples/reject/not-unfolded-argument.sw from lane/SW-1219 as a test.\n\nStarted 4 Nov 20:37 by mistake ahead of SW-93, against D2348's order (both touch the unifier); paused after ~8 min, WIP commit 3f65d6d2 on lane/SW-1227 (value.rs, unify.rs, Day02 Parse.sw touched; unfold_once in progress). Resume after SW-93 merges, rebased onto it.\n\nResumed 02:48 5 Nov on Opus after SW-93 merged (est. 150 min): rebase onto main first. Merging needs a daily-tier run, which waits for Matt (morning D question).\n\n03:35 5 Nov: rebased onto main (SW-93 kept as is). Narrow rule built in unify.rs (`one_step_apart`): only a call with a whole unknown argument against a call of another definition whose forced forms differ at the outer layer. aoc check --no-cache passes; `_` now works for named parsers (2020 Days 2, 4, 5, 6 and 2021 Day 16 moved to `_`). SW-1219's branch is gone, so not-unfolded-argument.sw was recreated from the note's description. Running the checks.\n\n\n03:47 5 Nov, in review: commit d2d916c27 on lane/SW-1227 (one commit, on main 5158861c8). Design and measurements in docs/proposals/proofs-about-definitions.md, \"As built: D2341\". 2020 Day 2 readsLine 13.6 M to 0.23 M steps; aoc+std 1,028 M to 1,014 M; no hash moved. Checks passed: elab lane, core/driver proof tests, examples (filtered), hash_stability (full tier, only the two new snapshots), aoc check --no-cache + test Aoc.Common, rogue check, bench (check-* rows equal to main but +403 steps on check-closed-*), task test:merge (1080 passed). Daily tier not run: waits for Matt. Model result: Opus, worked, 60 min (est. 150).\n\nOrchestrator: reviewed the report; merge waits for the daily-tier run the ticket requires (D2373 to Matt in the morning). Follow-ups filed: SW-1314 (std Reads sweep), SW-1315 (comparison gap), SW-1316 (misleading error).",
       "created": "2026-11-04",
       "updated": "2026-11-05",
       "commits": []
@@ -6739,6 +6739,48 @@
         "aoc"
       ],
       "body": "Split from SW-1289 (the survey's Shared 5, grid wrappers). HeightMap, Cave (risk map) and TopographicMap each hold rows and duplicate Grid; make each a record holding grid: Grid Cell and delegating at/step/cells/graph. Add Common Grid.findOnly replacing the identical onlyTile in 2024/16 and 2024/20. D2363; Sonnet; the orchestrator checks each changed statement keeps its meaning.\n\nDone (Sonnet, 11 min, est. 150): HeightMap {grid: Grid (Fin 10)}, TopographicMap {grid: Grid (Option Nat)}, Cave {grid: Grid (Fin 10)}, delegating to Common; Grid.findOnly (and onlyCell for 2024 day 20's ragged rows) replaces onlyTile in 2024 days 16 and 20. Answers unchanged. Statements checked by the orchestrator: re-typing (parseRectangular via Grid.width = firstWidth; heightNotZero's same statement, new helper). Orchestrator's call: days 9 and 10 can no longer hold an empty map (as day 11), fine since every input is non-empty. Open: a shared Maze/Racetrack shape; whether day 20 should accept ragged rows. Model result: Sonnet, worked, 11 min (est. 150).",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1314,
+      "title": "Parse/Reads.sw: drop the copied parser code in std's ~42 readsBind uses now that _ works for named parsers (SW-1227)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "stdlib"
+      ],
+      "body": "From SW-1227: readsSatisfy with _ _ already checks. A sweep; proofs only, statements unchanged.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1315,
+      "title": "With SW-1227's guard off, 2021 day 2's aimedDepthCons fails on two terms that print identically: a gap comparing functions inside them?",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "kernel"
+      ],
+      "body": "From SW-1227: the guard in one_step_apart avoids it, but the unifier failing on two identically printed terms suggests a comparison gap worth a look.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1316,
+      "title": "Under _ in readsThen, a wrong final step reports '?2 () against …' at the first step's Parse.readsNat; and Witness … alone fails where rewrite dash in Witness … checks",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "From SW-1227 (2020 day 2-style proofs).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
