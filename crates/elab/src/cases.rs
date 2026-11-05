@@ -881,6 +881,9 @@ fn take_apart(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>>
         }
         let ctor = &g.data(eq.d).ctors()[eq.left.0];
         for (i, (a, b)) in eq.left.1.iter().zip(&eq.right.1).enumerate() {
+            // `mentions_fields` before `conv`: a field whose type depends on
+            // an earlier field could have different types on the two sides,
+            // and `conv` needs one type, as it skips proofs by position.
             if ctor.field_erased.get(i).copied().unwrap_or(false)
                 || mentions_fields(&ctor.fields[i].1, i)
                 || conv(&g, cx.level(), a, b)?

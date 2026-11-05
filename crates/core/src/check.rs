@@ -612,7 +612,7 @@ fn check_let_value(
 }
 
 /// The universe that `ty` lives in.
-fn sort_of(cx: &mut Ctx, ty: &Value) -> Result<Sort> {
+pub(crate) fn sort_of(cx: &mut Ctx, ty: &Value) -> Result<Sort> {
     match &*force_ref(&cx.g, ty)? {
         Value::Sort(s) => return universe_above(cx, *s),
         // An equation is a proposition. Answered without quoting it: the
@@ -929,13 +929,25 @@ fn check_case(
         // as defined together with (a copy of) that type
         // (docs/proposals/nested-data-types.md §5.4).
         let nested = nested_field(&g, d);
-        let subsingleton = data.group.len() == 1
-            && nested.is_none()
-            && data.ctors.len() <= 1
+        // A proposition with a field holding a proof of itself (`MkLoop
+        // (next: Loop)`) is refused too (D1980, Lean's rule). In the
+        // proof-irrelevant model every `l: Loop` is `MkLoop (Loop.inv l)`, so
+        // data computed by recursion on `l` could always be unfolded once
+        // more, and an irrelevant comparison would be undecidable (Carneiro;
+        // docs/proposals/proof-irrelevance.md §5.1, §7.11).
+        let recursive = data.ctors.iter().enumerate().find_map(|(c, ctor)| {
+            ctor.fields
+                .iter()
+                .position(|(_, ty)| occurs(ty, &[d]).is_some())
+                .map(|f| (c, f))
+        });
+        let only_proofs = data.ctors.len() <= 1
             && data
                 .ctors
                 .iter()
                 .all(|c| c.field_sorts.iter().all(|s| *s == Sort::Prop));
+        let subsingleton =
+            data.group.len() == 1 && nested.is_none() && recursive.is_none() && only_proofs;
         // A case whose every branch is impossible is never reached, so it
         // may produce anything (docs/proposals/indexed-families.md §6.4).
         if !subsingleton && !every_branch_impossible(cx, x, d, &args, branches, &goal_term)? {
@@ -953,6 +965,14 @@ fn check_case(
                      with that type, and matching on a proof of it can only produce another \
                      proof.",
                     data.name, data.ctors[c].fields[f].0, data.ctors[c].name, data.name
+                )
+            } else if let (true, Some((c, f))) = (only_proofs, recursive) {
+                format!(
+                    "`{}` is a proposition, so its proofs are erased at runtime. Its field `{}` \
+                     holds a proof of `{}` itself, and matching on such a proof can only produce \
+                     another proof: otherwise checking whether two of its uses are equal could go \
+                     on forever.",
+                    data.name, data.ctors[c].fields[f].0, data.name
                 )
             } else {
                 format!(
@@ -1704,6 +1724,16 @@ fn install_group(
                 def.body = Some(Rc::new(body));
                 def.state = State::Final;
             }
+            // The inert proof parameters, from the installed bodies, on the
+            // checked and the trusted path alike, so the check cache
+            // needn't store them and can't give a body marks it doesn't
+            // justify. While the group was checked its members had none.
+            let marks = crate::inert::group_marks(&g.ev(), &ids);
+            for (id, marks) in ids.iter().zip(marks) {
+                g.env.defs_mut()[id.0].inert_params = marks;
+            }
+            #[cfg(feature = "reference")]
+            crate::reference::validate_inert(&g.ev(), &ids);
             Ok(())
         }
         Err(e) => fail(g, e),
@@ -1843,6 +1873,7 @@ fn push_def(
         transparent: Rc::default(),
         lift_leaf: false,
         recursive: true,
+        inert_params: Rc::default(),
         export,
         validators: Vec::new(),
         run_body: None,
@@ -2279,6 +2310,8 @@ fn push_data_group(
     sort: Sort,
     members: Vec<DataDecl>,
 ) -> Vec<DataId> {
+    // Both callers refuse an empty group first.
+    let proof_params = proof_params(&g.ev(), &checked, members[0].span);
     let (defs_before, datas_before) = (g.env.defs().len(), g.env.datas().len());
     let group: Rc<[DataId]> = (0..members.len())
         .map(|i| DataId(datas_before + i))
@@ -2303,6 +2336,7 @@ fn push_data_group(
             validators: Vec::new(),
             group: group.clone(),
             nestable: Rc::from([]),
+            proof_params: proof_params.clone(),
             defs_before,
             datas_before,
             state: State::Pending,
@@ -2310,6 +2344,24 @@ fn push_data_group(
         });
     }
     group.to_vec()
+}
+
+/// Which of a data group's checked parameters are proofs (their types are
+/// propositions): none if that can't be worked out within the budget.
+fn proof_params(g: &Ev, params: &[(Name, Term)], span: Span) -> Rc<[bool]> {
+    let mut cx = Ctx::new(g, span);
+    let mut out = Vec::with_capacity(params.len());
+    for (x, ty) in params {
+        let Ok(value) = cx.eval(ty) else {
+            return Rc::from([]);
+        };
+        let Ok(sort) = sort_of(&mut cx, &value) else {
+            return Rc::from([]);
+        };
+        out.push(sort == Sort::Prop);
+        cx.bind(x.clone(), value);
+    }
+    out.into()
 }
 
 pub struct CtorDecl {

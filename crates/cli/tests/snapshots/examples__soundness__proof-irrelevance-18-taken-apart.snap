@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+    ╭─[ soundness/proof-irrelevance-18-taken-apart.sw:14:54 ]
+    │
+ 14 │ theorem t18 (t: Tok): tokNat t 0 = tokNat MkTok 0 := rfl
+    │                                                      ─┬─  
+    │                                                       ╰─── `tokNat t 0` and `tokNat MkTok 0` aren't equal
+    │ 
+    │ Note 1: computing the right side gives `0`
+    │ 
+    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+────╯

@@ -1,0 +1,21 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+   ╭─[ soundness/proof-irrelevance-08-neighbours.sw:9:68 ]
+   │
+ 9 │ theorem t8 (x: Nat) (y: Nat): MkChecked x rfl = MkChecked y rfl := rfl
+   │                                                                    ─┬─  
+   │                                                                     ╰─── `MkChecked x rfl` and `MkChecked y rfl` aren't equal
+   │ 
+   │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
+   │ 
+   │ Note 2: this statement is false; a counterexample:
+   │           x = 0
+   │           y = 1
+   │         `MkChecked x rfl = MkChecked y rfl` is false:
+   │           left:  MkChecked 0 rfl
+   │           right: MkChecked 1 rfl
+   │           first difference at .MkChecked.n: 0 vs 1
+───╯

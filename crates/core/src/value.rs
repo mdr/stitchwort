@@ -16,7 +16,7 @@ use crate::budget::{ResourceError, Result};
 use crate::chars::{self, Chars};
 use crate::erase::{self, erased};
 use crate::native;
-use crate::term::{DataId, DefId, Icit, Name, QuotForm, Sort, Term};
+use crate::term::{Branch, DataId, DefId, Icit, Name, QuotForm, Sort, Term};
 
 #[derive(Clone, Debug)]
 pub enum Value {
@@ -1744,6 +1744,15 @@ pub fn hidden(g: &Ev, id: DefId) -> bool {
     g.def(id).opaque && !g.machine.erasure.program_running() && !g.machine.transparent.contains(id)
 }
 
+/// Whether a call of definition `id` can't unfold here but may elsewhere
+/// or later: it's [`hidden`], or it has no body yet (a member of the group
+/// being checked, or an axiom). Its arguments are compared in shortcut
+/// mode, so that the call's unfolding, wherever it happens, can only add
+/// equalities (docs/proposals/proof-irrelevance.md §7.10, K4).
+pub fn sealed(g: &Ev, id: DefId) -> bool {
+    body_seen(g, id).is_none()
+}
+
 /// Definition `id`'s body, if it has one and it isn't [`hidden`]: what every
 /// path that unfolds a definition, or looks at its case tree, reads.
 #[inline(always)]
@@ -2263,18 +2272,58 @@ fn succ_unglued(g: &Ev, field: &Value) -> Result<Value> {
 /// It doesn't recurse on the Rust stack: the pairs still to compare are kept
 /// on a work list, depth first and left to right, so the first difference
 /// found stops it, as a recursive version would.
+///
+/// **Precondition: homogeneous values.** `a` and `b` have the same type.
+/// Proofs are skipped by position (a constructor's proof field, a data
+/// type's proof parameter, a definition's inert argument), without knowing
+/// what they prove, which is the same proposition on both sides only
+/// because the values have one type; a constructor value doesn't even
+/// carry its type's parameters. Breaking this can be a soundness bug, not
+/// just a wrong `false`: a caller that has two values of possibly
+/// different types compares the types first
+/// (docs/proposals/proof-irrelevance.md §7.4). Inside, parts are taken left
+/// to right, so earlier parts (which later parts' types depend on) are
+/// compared, or are skipped proofs, first.
 pub fn conv(g: &Ev, level: usize, a: &Value, b: &Value) -> Result<bool> {
-    conv_with(g, level, a, b, &mut CallMemo::default())
+    conv_with(g, level, a, b, &mut CallMemo::default(), Mode::Normal)
 }
 
-/// [`conv`], inside an outermost one whose record of glued calls compared
-/// so far is `memo`.
-fn conv_with(g: &Ev, level: usize, a: &Value, b: &Value, memo: &mut CallMemo) -> Result<bool> {
+/// How proofs are compared (docs/proposals/proof-irrelevance.md §7.2,
+/// §7.10). Inert arguments of definitions and data types' proof parameters
+/// are skipped in both modes; constructors' proof fields only in the
+/// normal one.
+///
+/// The *shortcut* mode is for every place that answers "equal" for two
+/// calls of one definition from their arguments while the calls could
+/// still unfold (glued and folded calls, partially applied definitions,
+/// hidden opaque calls). There a skipped field could make two calls equal
+/// whose unfoldings aren't (`Box.unbox (MkBox p)` and `Box.unbox (MkBox
+/// q)` compute to `p` and `q`); with the fields compared, arguments equal in
+/// shortcut mode give unfoldings equal in shortcut mode, so the shortcut
+/// agrees with unfolding. Everything nested inside a shortcut stays in
+/// shortcut mode; when it says "different", the comparison goes on in its
+/// own mode.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Mode {
+    Normal,
+    Shortcut,
+}
+
+/// [`conv`] in `mode`, inside an outermost one whose record of glued calls
+/// compared so far is `memo`.
+fn conv_with(
+    g: &Ev,
+    level: usize,
+    a: &Value,
+    b: &Value,
+    memo: &mut CallMemo,
+    mode: Mode,
+) -> Result<bool> {
     let mut work = vec![ConvTask::Values(level, a.clone(), b.clone())];
     while let Some(task) = work.pop() {
         g.machine.budget.step()?;
         let same = match task {
-            ConvTask::Values(level, a, b) => conv_step(g, level, a, b, &mut work, memo)?,
+            ConvTask::Values(level, a, b) => conv_step(g, level, a, b, &mut work, memo, mode)?,
             // Function types' codomains, compared once their domains are.
             // The same function gives the same codomain (see `same_closure`).
             ConvTask::Codomains(_, b1, b2) if same_closure(&b1, &b2) => true,
@@ -2330,9 +2379,15 @@ enum ConvTask {
 // resource counters stay deterministic.
 
 /// What one outermost [`conv`] has found about pairs of glued calls of the
-/// same definition, by level and the addresses of their unfolding cells.
+/// same definition, by mode, level and the addresses of their unfolding
+/// cells. The mode is part of the key: a pair different in shortcut mode
+/// can be equal in the normal one.
 #[derive(Default)]
-struct CallMemo(HashMap<(usize, usize, usize), (Differ, Value, Value)>);
+struct CallMemo(HashMap<CallKey, (Differ, Value, Value)>);
+
+/// A pair of calls in a [`CallMemo`]: mode, level and the two unfolding
+/// cells' addresses.
+type CallKey = (Mode, usize, usize, usize);
 
 /// How a pair of calls in a [`CallMemo`] differs.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -2344,29 +2399,33 @@ enum Differ {
 }
 
 impl CallMemo {
-    fn key(level: usize, a: &Value, b: &Value) -> Option<(usize, usize, usize)> {
+    fn key(mode: Mode, level: usize, a: &Value, b: &Value) -> Option<CallKey> {
         match (a, b) {
-            (Value::Call(i1, _, u1), Value::Call(i2, _, u2)) if i1 == i2 => {
-                Some((level, Rc::as_ptr(u1) as usize, Rc::as_ptr(u2) as usize))
-            }
+            (Value::Call(i1, _, u1), Value::Call(i2, _, u2)) if i1 == i2 => Some((
+                mode,
+                level,
+                Rc::as_ptr(u1) as usize,
+                Rc::as_ptr(u2) as usize,
+            )),
             _ => None,
         }
     }
 
-    fn get(&self, level: usize, a: &Value, b: &Value) -> Option<Differ> {
-        let key = Self::key(level, a, b)?;
+    fn get(&self, mode: Mode, level: usize, a: &Value, b: &Value) -> Option<Differ> {
+        let key = Self::key(mode, level, a, b)?;
         self.0.get(&key).map(|entry| entry.0)
     }
 
-    fn record(&mut self, level: usize, a: &Value, b: &Value, differ: Differ) {
-        if let Some(key) = Self::key(level, a, b) {
+    fn record(&mut self, mode: Mode, level: usize, a: &Value, b: &Value, differ: Differ) {
+        if let Some(key) = Self::key(mode, level, a, b) {
             self.0.insert(key, (differ, a.clone(), b.clone()));
         }
     }
 }
 
 /// Whether two spines of the same definition are equal argument by argument
-/// (and `J` by `J`), each pair compared by a [`conv`] of its own. This is
+/// (and `J` by `J`), each pair compared by a [`conv`] of its own, in
+/// shortcut mode ([`Mode`]): this is what every shortcut uses. This is
 /// where `conv` recurses on the Rust stack: once per level of calls nested
 /// in arguments, ended by the stack guard (`budget.rs`, E-RESOURCE) if
 /// that's too deep. A pair of glued calls found different is recorded as
@@ -2374,6 +2433,7 @@ impl CallMemo {
 fn same_spines(
     g: &Ev,
     level: usize,
+    head: DefId,
     s1: &[Elim],
     s2: &[Elim],
     memo: &mut CallMemo,
@@ -2381,15 +2441,15 @@ fn same_spines(
     if s1.len() != s2.len() {
         return Ok(false);
     }
-    let Some(pairs) = spine_pairs(level, s1, s2) else {
+    let Some(pairs) = spine_pairs(g, level, Some(head), s1, s2) else {
         return Ok(false);
     };
     for pair in pairs {
         let ConvTask::Values(l, x, y) = pair else {
             unreachable!()
         };
-        if !conv_with(g, l, &x, &y, memo)? {
-            memo.record(l, &x, &y, Differ::Values);
+        if !conv_with(g, l, &x, &y, memo, Mode::Shortcut)? {
+            memo.record(Mode::Shortcut, l, &x, &y, Differ::Values);
             return Ok(false);
         }
     }
@@ -2405,6 +2465,7 @@ fn conv_step(
     b: Value,
     work: &mut Vec<ConvTask>,
     memo: &mut CallMemo,
+    mode: Mode,
 ) -> Result<bool> {
     // Two glued calls of the same definition: their arguments first, then
     // (below) their unfoldings. See `CallMemo`.
@@ -2412,14 +2473,14 @@ fn conv_step(
         && i1 == i2
         && !shortcuts_disabled()
     {
-        match memo.get(level, &a, &b) {
+        match memo.get(mode, level, &a, &b) {
             Some(Differ::Values) => return Ok(false),
             Some(Differ::Arguments) => {}
             None => {
-                if same_spines(g, level, s1, s2, memo)? {
+                if same_spines(g, level, *i1, s1, s2, memo)? {
                     return Ok(true);
                 }
-                memo.record(level, &a, &b, Differ::Arguments);
+                memo.record(mode, level, &a, &b, Differ::Arguments);
             }
         }
     }
@@ -2432,7 +2493,7 @@ fn conv_step(
     if is_folded(g, &a) || is_folded(g, &b) {
         if let (Value::Neutral(Head::Def(i1), s1), Value::Neutral(Head::Def(i2), s2)) = (&a, &b)
             && i1 == i2
-            && same_spines(g, level, s1, s2, memo)?
+            && same_spines(g, level, *i1, s1, s2, memo)?
         {
             return Ok(true);
         }
@@ -2460,8 +2521,8 @@ fn conv_step(
     // Compact lists: two ranges are equal when their characters are (their
     // expansions are then the same), and a range against anything else is
     // expanded one cell, which is then compared as a constructor. So a
-    // compact `"a"` and `Cons (MkChar 97 h) Nil` are equal only if `h` and
-    // `rfl` are.
+    // compact `"a"` and `Cons (MkChar 97 h) Nil` are equal: `h` and `rfl`
+    // are in `MkChar`'s proof field.
     match (&a, &b) {
         (Value::Chars(x), Value::Chars(y)) => return Ok(x.as_slice() == y.as_slice()),
         (Value::Chars(_), _) => {
@@ -2511,18 +2572,31 @@ fn conv_step(
             ));
             true
         }
+        // Proofs are skipped (docs/proposals/proof-irrelevance.md §7.1): a
+        // data type's parameters whose type is a proposition (not its
+        // indices), and, in the normal mode, a constructor's proof fields.
+        // Sound only because both sides have the same type (see `conv`), so
+        // the skipped parts prove the same proposition.
         (Value::Data(d1, a1), Value::Data(d2, a2)) => {
             if d1 != d2 || a1.len() != a2.len() {
                 return Ok(false);
             }
-            push_all(work, a1, a2);
+            for (k, (x, y)) in a1.iter().zip(a2.iter()).enumerate().rev() {
+                if !proof_param(g, *d1, k) {
+                    work.push(ConvTask::Values(level, x.clone(), y.clone()));
+                }
+            }
             true
         }
         (Value::Ctor(d1, c1, a1), Value::Ctor(d2, c2, a2)) => {
             if d1 != d2 || c1 != c2 || a1.len() != a2.len() {
                 return Ok(false);
             }
-            push_all(work, a1, a2);
+            for (k, (x, y)) in a1.iter().zip(a2.iter()).enumerate().rev() {
+                if mode == Mode::Shortcut || !proof_field(g, *d1, *c1, k) {
+                    work.push(ConvTask::Values(level, x.clone(), y.clone()));
+                }
+            }
             true
         }
         (Value::Eq(t1, x1, y1), Value::Eq(t2, x2, y2)) => {
@@ -2535,9 +2609,17 @@ fn conv_step(
         }
         (Value::Refl, Value::Refl) => true,
         (Value::Neutral(h1, s1), Value::Neutral(h2, s2)) if h1 == h2 && s1.len() == s2.len() => {
-            if underapplied(g, &a).is_none() && underapplied(g, &b).is_none() {
+            if let Some(f) = def_head(h1)
+                && sealed(g, f)
+            {
+                // A hidden opaque call never unfolds here, but does where
+                // `f` is transparent, and a pending group member's does once
+                // the group is admitted: compared in shortcut mode, so that
+                // the body being seen only ever adds equalities.
+                same_spines(g, level, f, s1, s2, memo)?
+            } else if underapplied(g, &a).is_none() && underapplied(g, &b).is_none() {
                 // Eta for definitions doesn't apply, so the spines must match.
-                match spine_pairs(level, s1, s2) {
+                match spine_pairs(g, level, def_head(h1), s1, s2) {
                     Some(pairs) => {
                         work.extend(pairs.into_iter().rev());
                         true
@@ -2549,7 +2631,11 @@ fn conv_step(
                 // recurses once per level of nested partially applied
                 // definitions, which is bounded by the program, not by the
                 // size of the data.
-                same_spines(g, level, s1, s2, memo)? || push_eta(g, level, &a, &b, work)?
+                let same = match def_head(h1) {
+                    Some(f) => same_spines(g, level, f, s1, s2, memo)?,
+                    None => false,
+                };
+                same || push_eta(g, level, &a, &b, work)?
             }
         }
         // Two different definitions, each stuck on a `case`: compared by
@@ -2562,8 +2648,8 @@ fn conv_step(
         (Value::Neutral(Head::Def(i1), _), Value::Neutral(Head::Def(i2), _))
             if i1 != i2 && opens_by_tree(g, &a) && opens_by_tree(g, &b) =>
         {
-            same_stuck_trees(g, level, &a, &b, Relation::Conv, &mut |l, x, y| {
-                conv_with(g, l, x, y, memo)
+            same_stuck_trees(g, level, &a, &b, Relation::Conv, mode, &mut |l, x, y| {
+                conv_with(g, l, x, y, memo, mode)
             })?
         }
         // Calls are compared by their unfoldings: two calls of the same
@@ -2580,12 +2666,27 @@ fn conv_step(
 }
 
 /// The pairs of values in two spines of the same length, or `None` if their
-/// eliminations don't match.
-fn spine_pairs(level: usize, s1: &[Elim], s2: &[Elim]) -> Option<Vec<ConvTask>> {
+/// eliminations don't match. For a definition's spine, the arguments at its
+/// inert positions are left out (docs/proposals/proof-irrelevance.md §7.2):
+/// only the leading applications are its arguments, so none after a `J`,
+/// which eliminates its result; and the marks stop at its arity, so none of
+/// the arguments its result is applied to.
+fn spine_pairs(
+    g: &Ev,
+    level: usize,
+    head: Option<DefId>,
+    s1: &[Elim],
+    s2: &[Elim],
+) -> Option<Vec<ConvTask>> {
+    let def = head.map(|f| g.def(f));
+    let mut arguments = true;
     let mut pairs = Vec::new();
-    for pair in s1.iter().zip(s2) {
+    for (k, pair) in s1.iter().zip(s2).enumerate() {
         match pair {
             (Elim::App(x, _), Elim::App(y, _)) => {
+                if arguments && def.is_some_and(|d| d.is_inert(k)) {
+                    continue;
+                }
                 pairs.push(ConvTask::Values(level, x.clone(), y.clone()));
             }
             (
@@ -2598,6 +2699,7 @@ fn spine_pairs(level: usize, s1: &[Elim], s2: &[Elim]) -> Option<Vec<ConvTask>> 
                     base: b2,
                 },
             ) => {
+                arguments = false;
                 pairs.push(ConvTask::Values(level, (**m1).clone(), (**m2).clone()));
                 pairs.push(ConvTask::Values(level, (**b1).clone(), (**b2).clone()));
             }
@@ -2605,6 +2707,34 @@ fn spine_pairs(level: usize, s1: &[Elim], s2: &[Elim]) -> Option<Vec<ConvTask>> 
         }
     }
     Some(pairs)
+}
+
+/// Whether parameter `k` of data type `d` is a proof. A type the
+/// environment doesn't hold (only unit tests build such values) has none.
+pub fn proof_param(g: &Ev, d: DataId, k: usize) -> bool {
+    g.env
+        .datas()
+        .get(d.0)
+        .is_some_and(|data| data.is_proof_param(k))
+}
+
+/// Whether field `k` of constructor `c` of data type `d` is a proof (its
+/// type is in `Prop`; not `field_erased`, which types share). A type the
+/// environment doesn't hold (only unit tests build such values) has none.
+pub fn proof_field(g: &Ev, d: DataId, c: usize, k: usize) -> bool {
+    g.env
+        .datas()
+        .get(d.0)
+        .and_then(|data| data.ctors.get(c))
+        .is_some_and(|ctor| ctor.field_sorts.get(k) == Some(&Sort::Prop))
+}
+
+/// The definition at the head of a neutral value, if it's one.
+fn def_head(head: &Head) -> Option<DefId> {
+    match head {
+        Head::Def(f) => Some(*f),
+        _ => None,
+    }
 }
 
 /// Eta for definitions: a partially applied definition is a function, so it's
@@ -2734,6 +2864,7 @@ pub fn same_stuck_trees(
     a: &Value,
     b: &Value,
     relation: Relation,
+    mode: Mode,
     same: &mut dyn FnMut(usize, &Value, &Value) -> Result<bool>,
 ) -> Result<bool> {
     let tree = |value: &Value| -> (Rc<Term>, Vec<Value>) {
@@ -2751,7 +2882,7 @@ pub fn same_stuck_trees(
             .collect();
         (Term::peel_lams_rc(body, def.arity), args)
     };
-    let memo = TreeMemo::enter(g, level, a, b, relation)?;
+    let memo = TreeMemo::enter(g, level, a, b, relation, mode)?;
     if memo.known_equal() {
         return Ok(true);
     }
@@ -2770,7 +2901,21 @@ pub fn same_stuck_trees(
                 let (Term::Case(_, d1, b1), Term::Case(_, d2, b2)) = (&*n1, &*n2) else {
                     unreachable!("a stuck `case`")
                 };
-                if d1 != d2 || b1.len() != b2.len() || !same(level, &s1, &s2)? {
+                if d1 != d2 || b1.len() != b2.len() {
+                    return Ok(false);
+                }
+                // A `case` with no possible branch on either side never
+                // computes, and its scrutinee has an empty type, so the two
+                // are equal whatever the scrutinees are. Comparing them would
+                // make the relation depend on inert arguments, which only
+                // such a scrutinee can mention (`Void.absurd (p rfl)` against
+                // `myAbsurd (q rfl)`), and break transitivity
+                // (docs/proposals/proof-irrelevance.md §7.2).
+                let impossible = |b: &[Branch]| b.iter().all(|b| b.body.is_none());
+                if impossible(b1) && impossible(b2) {
+                    continue;
+                }
+                if !same(level, &s1, &s2)? {
                     return Ok(false);
                 }
                 for (c, (x, y)) in b1.iter().zip(b2.iter()).enumerate().rev() {
@@ -2855,10 +3000,12 @@ pub enum Relation {
     Unify,
 }
 
-/// What [`TreeMemo`] files a pair under: relation, level, metavariable
-/// epoch, the two definitions and the [`shape_hash`]es of the two calls.
-/// Pairs under one key are told apart by [`identical`].
-type MemoKey = (Relation, usize, u64, DefId, DefId, u64, u64);
+/// What [`TreeMemo`] files a pair under: relation, mode, level,
+/// metavariable epoch, the two definitions and the [`shape_hash`]es of the
+/// two calls. Pairs under one key are told apart by [`identical`]. The mode
+/// is part of it because a pair found equal in the normal mode needn't be
+/// equal in shortcut mode, and one tree comparison can contain both.
+type MemoKey = (Relation, Mode, usize, u64, DefId, DefId, u64, u64);
 
 /// This thread's open tree comparisons: how many, the pairs of calls found
 /// equal since the outermost one started, and the shapes hashed since.
@@ -2883,14 +3030,21 @@ struct TreeMemo {
 }
 
 impl TreeMemo {
-    fn enter(g: &Ev, level: usize, a: &Value, b: &Value, relation: Relation) -> Result<TreeMemo> {
+    fn enter(
+        g: &Ev,
+        level: usize,
+        a: &Value,
+        b: &Value,
+        relation: Relation,
+        mode: Mode,
+    ) -> Result<TreeMemo> {
         let def = |v: &Value| match v {
             Value::Neutral(Head::Def(id), _) => *id,
             _ => unreachable!("checked by opens_by_tree"),
         };
         TREE_MEMO.with(|m| m.borrow_mut().open += 1);
         let mut memo = TreeMemo {
-            key: (relation, level, g.metas.epoch(), def(a), def(b), 0, 0),
+            key: (relation, mode, level, g.metas.epoch(), def(a), def(b), 0, 0),
             a: a.clone(),
             b: b.clone(),
         };
@@ -2899,8 +3053,8 @@ impl TreeMemo {
                 let shapes = &mut m.borrow_mut().shapes;
                 Ok((shape_hash(g, shapes, a)?, shape_hash(g, shapes, b)?))
             })?;
-            memo.key.5 = ha;
-            memo.key.6 = hb;
+            memo.key.6 = ha;
+            memo.key.7 = hb;
         }
         Ok(memo)
     }

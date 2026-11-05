@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+   ╭─[ soundness/proof-irrelevance-12-bare-proofs.sw:5:46 ]
+   │
+ 5 │ theorem pi (a: Prop) (p: a) (q: a): p = q := rfl
+   │                                              ─┬─  
+   │                                               ╰─── `p` and `q` aren't equal
+   │ 
+   │ Note: `rfl` proves `a = b` only when both sides compute to the same value
+───╯

@@ -92,6 +92,14 @@ pub struct Def {
     /// with another by its case tree (`value::same_stuck_trees`). Determined
     /// by the body, so it isn't hashed.
     pub(crate) recursive: bool,
+    /// For each parameter below [`Def::arity`], whether it's *inert*: a
+    /// proof the body never computes with, so comparison skips it in calls
+    /// (`crate::inert`; docs/proposals/proof-irrelevance.md §7.1, §7.3).
+    /// Empty (every argument compared) until the body is installed, and for
+    /// a group whose marks couldn't be computed. Set with the body, from
+    /// it, on the checked and the trusted paths alike; determined by the
+    /// body, so it isn't hashed.
+    pub(crate) inert_params: Rc<[bool]>,
     pub(crate) export: bool,
     /// For an export: how to check each proof parameter at runtime.
     pub(crate) validators: Vec<Validator>,
@@ -245,10 +253,27 @@ impl Def {
     }
 
     /// What admission worked out besides the body, read-only: its
-    /// transparency set, `lift_leaf` and `recursive`. For the check cache's
-    /// differential test, which compares a trusted replay with a full check.
-    pub fn admitted_metadata(&self) -> (&[DefId], bool, bool) {
-        (&self.transparent, self.lift_leaf, self.recursive)
+    /// transparency set, `lift_leaf`, `recursive` and its inert parameters.
+    /// For the check cache's differential test, which compares a trusted
+    /// replay with a full check.
+    pub fn admitted_metadata(&self) -> (&[DefId], bool, bool, &[bool]) {
+        (
+            &self.transparent,
+            self.lift_leaf,
+            self.recursive,
+            &self.inert_params,
+        )
+    }
+
+    /// Which of its parameters below the arity are inert proofs (see the
+    /// field): empty if none is known to be.
+    pub fn inert_params(&self) -> &[bool] {
+        &self.inert_params
+    }
+
+    /// Whether parameter `i` is an inert proof.
+    pub fn is_inert(&self, i: usize) -> bool {
+        self.inert_params.get(i).copied().unwrap_or(false)
     }
 
     /// Bypasses admission: for tests that build deliberately broken states only.
@@ -267,6 +292,13 @@ impl Def {
     #[cfg(feature = "test-bypass")]
     pub fn set_arity_unchecked_for_tests(&mut self, arity: usize) {
         self.arity = arity;
+    }
+
+    /// Bypasses the inert analysis: for tests that build deliberately
+    /// broken states only (a mark the validator must refuse).
+    #[cfg(feature = "test-bypass")]
+    pub fn set_inert_params_unchecked_for_tests(&mut self, marks: Rc<[bool]>) {
+        self.inert_params = marks;
     }
 }
 
@@ -384,6 +416,13 @@ pub struct Data {
     /// only by later groups' positivity checks. Empty until then. Not
     /// hashed: it's a function of what is.
     pub(crate) nestable: Rc<[Result<(), NotNestable>]>,
+    /// For each parameter, whether its declared type is a proposition, so
+    /// comparison skips it (docs/proposals/proof-irrelevance.md §7.1): a
+    /// parameter `p: Prop` is a proposition, not a proof, and isn't marked.
+    /// Indices are never marked. Computed from the checked parameters when
+    /// the group is declared, on both paths; empty if that ran out of budget.
+    /// Not hashed: a function of what is.
+    pub(crate) proof_params: Rc<[bool]>,
     /// How many definitions, and data types, existed when this type's group
     /// was declared. Its fields may only use those (and its group's
     /// members), since anything declared later could mention this type and
@@ -451,6 +490,16 @@ impl Data {
     /// For each parameter of its group, whether it's nestable, or why not.
     pub fn nestable(&self) -> &[Result<(), NotNestable>] {
         &self.nestable
+    }
+
+    /// Which parameters are proofs (see the field).
+    pub fn proof_params(&self) -> &[bool] {
+        &self.proof_params
+    }
+
+    /// Whether parameter `i` is a proof (see the field).
+    pub fn is_proof_param(&self, i: usize) -> bool {
+        self.proof_params.get(i).copied().unwrap_or(false)
     }
 
     /// How many definitions existed when its group was declared.

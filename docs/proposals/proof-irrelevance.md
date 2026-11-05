@@ -1453,9 +1453,10 @@ constructor proof fields compared. Every one of them
 | K4 | the `Neutral` arm, same `Def` head, when `hidden(g, f)` (`value.rs:1743`) | two hidden opaque calls: they never unfold here, but do where `f` is transparent (§5.7) |
 | U1 | `unify.rs:983`, `same_arguments_solving_nothing` | two glued calls |
 | U2 | `unify.rs:999-1004`, `same_arguments` | two folded dictionaries |
-| U3 | `unify.rs:1185-1204`, `blocked(…)` | two calls stuck on a metavariable, which unfold once it's solved: in normal mode `g ?n (MkBox p)` and `g ?n (MkBox q)` would unify, and after `?n := 0` the kernel could reject what the elaborator accepted |
+| U3 | `unify.rs:1185-1204`, `blocked(…)` | two calls stuck on a metavariable, which unfold once it's solved: in normal mode `g ?n (MkBox p)` and `g ?n (MkBox q)` would unify, and after `?n := 0` the kernel could reject what the elaborator accepted. After the final review (F1): any two calls whose spines may mention a metavariable, frozen or not and however deep (`pick2 (S ?n) …`), not only those `blocked` sees; `blocked` only decides whether the pair is put aside. The pairs go on the same work list between `Task::Mode` markers |
 | U4 | `unify.rs:1205-1226`, "the spines, or else eta" | two partially applied definitions |
 | U5 | the unifier's `Neutral` arm when the head is hidden | as K4 |
+| U6 | the unifier's same-metavariable arms (`?m a` against `?m b`) and `first_order`'s last arguments (`?m a` against `f b`, unless `f` is a variable) | arguments that a solution of `?m` may take apart (added after the final review, F1) |
 | R1-R3 | `reference.rs:562-569` (folded), `:650-652` (spines, or else eta), and its hidden calls (`reference.rs:252`) | as K2, K3, K4 |
 
 And two memos must be keyed by the mode, because they remember an answer
@@ -1617,7 +1618,8 @@ and stop at its first `J` entry (§7.2):
   soundness and §7.10 depend on (every mark is justified); it doesn't check
   that the fixed point is the greatest, which only affects what's accepted,
   and which the std listing (§8) checks. The validator runs over std and the
-  test programs in a unit test, and in debug builds on every admitted group.
+  test programs in a unit test, and on every admitted group in builds with
+  the `reference` feature (every test build), not in release binaries.
 
   Like the erasure flags, the marks are a function of the checked
   definition, so they aren't hashed (§7.7). An *opaque* definition's marks come from its hidden
@@ -1767,21 +1769,38 @@ reason.
 
 **Audit of `conv` callers** (all of them outside tests; `grep` for `conv(`
 in `crates/core/src` and `crates/elab/src`; other crates call it only from
-tests; `reference.rs`'s calls are its own recursion; re-checked at
-`bc89481`) **[checked]**:
+tests; `reference.rs`'s calls are its own recursion; refreshed in stage 1
+at `6650398f6`, when the elaborator had grown from four callers to about
+twenty-five) **[checked]**. Most compare types, whose own type is a sort
+(see above):
+
+- *Types:* `core/check.rs:541` (inferred against expected), `core/native.rs:372-374, 463, 520`,
+  `core/nat_add.rs:259`, `core/float.rs:714`, `core/partial.rs:419` (declared
+  types against expected shapes); `elab/cases.rs:673, 685, 912, 1018, 1034,
+  1037` (a hypothesis's type against a goal or a fact); `elab/derive.rs:191`,
+  `elab/congruence.rs:547`, `elab/shared.rs:177`, `elab/dot.rs:263`,
+  `elab/lib.rs:2095`, `elab/partial.rs:735`, `elab/interfaces.rs:762, 1253`
+  (interfaces' first arguments, which are types; both only choose a
+  diagnostic).
+
+The ones that compare other values:
 
 | Call site | Compares | Same type? |
 |---|---|---|
-| `core/check.rs:412` | the two sides `a`, `b` of an expected `Eq(ty, a, b)`, for `rfl` | yes: both `: ty` |
-| `core/check.rs:446` | a term's inferred type against the expected type | types |
-| `core/native.rs:253-255` | `Decidable`'s parameter type against `Prop`; its constructors' field types against `p`, `Not p` | types |
-| `core/native.rs:340`, `:393` | a native's declared type against the expected shape | types |
-| `core/partial.rs:350` | a primitive's declared type against the expected shape | types |
-| `core/value.rs:1313` | recursive, inside `conv` (partially applied definitions) | inherited |
-| `elab/lib.rs:1021` | parameter types of mutually defined data types | types |
-| `elab/lib.rs:2391` (`canonical`) | the two sides of `p : a = b` at `Bool` | yes: both `: Bool` |
-| `elab/partial.rs:700` | parameter types of partial-recursive members | types |
-| `elab/partial.rs:750-751` | the members' rows: `ops` and `res`, arguments 0 and 1 of the same `Comp`/`Delay` type (`partial.rs:629-630`) | yes: same telescope positions **[inferred]** |
+| `core/check.rs:474` | each result index of a constructor against the expected type's, in order, stopping at the first that differs | yes: index `k`'s type depends only on the parameters and the earlier indices, all equal by then |
+| `core/check.rs:507` | the two sides of an expected `Eq(ty, a, b)`, for `rfl` | yes: both `: ty` |
+| `core/unify_index.rs:178, 184` | binder types, then the two sides of a constraint, the sides only when their types agree (`:178` stops it otherwise) | yes |
+| `core/pretty.rs:1551` | a written decision against the computed one, for display only | yes: the same proposition's proofs |
+| `core/value.rs:2451, 2652` | recursive, inside `conv` | inherited |
+| `elab/check.rs:659, 667` (`conv_now`) | its callers' pairs: `elab/cases.rs:653, 1013`, the two sides of an `Eq` | yes |
+| `elab/cases.rs:886` | a constructor equation's fields, pairwise, without stopping at the first difference | yes: a field whose type mentions an earlier field is skipped before `conv` (`mentions_fields`, the `||` before it), so each pair compared has the field's type at the one set of parameters (the equation is at one type, not an indexed family) |
+| `elab/data_auto.rs:211` | a data type's arguments, pairwise, not stopping at a difference | not always: a later parameter's type can depend on an earlier differing one; harmless, as it only words the note of an `E-TYPE-MISMATCH` already reported |
+| `elab/interfaces.rs:690` | the instance written against the one found for the same goal | yes: both `: goal` |
+| `elab/ring.rs:947`, `elab/omega.rs:2099` | an atom against the atoms seen, of the same carrier | yes: the carrier is checked first (`a.sort`, `a.int`) |
+| `elab/omega.rs:236`, `elab/lib.rs:4154`, `elab/counterexample/inputs.rs:453` | the two sides of an `Eq` | yes |
+| `elab/derive_induct.rs:2580` | two predicates' parameters and indices, pairwise, stopping at the first that differs | yes |
+| `elab/partial.rs:785-786` | the members' rows: `ops` and `res`, arguments 0 and 1 of the same `Comp`/`Delay` type | yes: same telescope positions **[inferred]** |
+| `elab/unify.rs:864` | the known part of a sum against a number | yes: both `Nat` |
 
 **Audit of `unify` callers** (the unifier has the same structure,
 `unify.rs:23`; every `unify(` in `crates/elab/src` outside tests, re-checked
@@ -1804,7 +1823,8 @@ compare non-type values **[checked]**:
 | `unify.rs:75, 201, 277` | recursive | inherited |
 
 **Result: the invariant holds today.** No caller compares two values whose
-types could differ.
+types could differ, except `elab/data_auto.rs:211`, which only words a
+note.
 
 **Choice: write the invariant down, rather than pass types or keep
 parameters.** The alternatives the reviewer named:

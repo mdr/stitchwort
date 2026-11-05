@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+    ╭─[ soundness/proof-irrelevance-23-stored-in-a-field.sw:15:92 ]
+    │
+ 15 │ theorem t23 (d: Nat) (p: d ≠ 0) (q: d ≠ 0): Box.unbox (keep d p) = Box.unbox (keep d q) := rfl
+    │                                                                                            ─┬─  
+    │                                                                                             ╰─── `Box.unbox (keep d p)` and `Box.unbox (keep d q)` aren't equal
+    │ 
+    │ Note 1: computing both sides gives `p` and `q`
+    │ 
+    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+────╯

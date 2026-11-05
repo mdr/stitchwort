@@ -130,6 +130,24 @@ impl T {
         }
     }
 
+    /// Whether the two are equal apart from proof fields, which comparison
+    /// skips (docs/proposals/proof-irrelevance.md §7.12): deletion sees the
+    /// masks. `MkT`'s `h` is the signature's only proof field.
+    fn same_but_proofs(&self, other: &T) -> bool {
+        match (self, other) {
+            (T::Mkt(_, n1), T::Mkt(_, n2)) => n1.same_but_proofs(n2),
+            (T::S(x), T::S(y))
+            | (T::G(x), T::G(y))
+            | (T::Fz(x), T::Fz(y))
+            | (T::Hide(x), T::Hide(y))
+            | (T::TyFin(x), T::TyFin(y)) => x.same_but_proofs(y),
+            (T::Fs(x1, y1), T::Fs(x2, y2)) | (T::Mk(x1, y1), T::Mk(x2, y2)) => {
+                x1.same_but_proofs(x2) && y1.same_but_proofs(y2)
+            }
+            _ => self == other,
+        }
+    }
+
     /// The constructor and its fields, with their types (each given the
     /// left and the right fields before it), if it's a constructor.
     fn constructor(&self) -> Option<(&'static str, Vec<T>)> {
@@ -218,7 +236,7 @@ fn reference(problem: &[(Ty, T, T)]) -> (Kind, Vec<T>) {
             return (Kind::Stuck, value);
         }
         let ty = ty_left;
-        if lhs == rhs {
+        if lhs.same_but_proofs(&rhs) {
             continue;
         }
         let flexible = |t: &T| match t {
@@ -659,6 +677,20 @@ fn constructors_are_told_apart_only_in_type() {
     assert_eq!(
         outcome(&sig, &[(Ty::Tt, mk_t(T::A, T::Z), mk_t(T::A, s(T::Z)))]),
         Conflict
+    );
+    // Deletion sees the proof-field mask, so it applies before injectivity
+    // and nothing is solved from inside the proof (proof-irrelevance.md
+    // §7.12): `p` stays a variable.
+    assert_eq!(
+        outcome(
+            &sig,
+            &[(Ty::Tt, mk_t(T::V(4), s(T::Z)), mk_t(T::A, s(T::Z)))]
+        ),
+        Solved
+    );
+    assert_eq!(
+        reference(&[(Ty::Tt, mk_t(T::V(4), s(T::Z)), mk_t(T::A, s(T::Z)))]).1[4],
+        T::V(4)
     );
     // Proofs: deletion and solution only (tests 22, 23).
     assert_eq!(outcome(&sig, &[(Ty::P, T::A, T::B)]), Stuck);

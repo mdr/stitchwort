@@ -1,0 +1,21 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+   ╭─[ soundness/proof-irrelevance-20-relevant-neighbour.sw:7:64 ]
+   │
+ 7 │     Int.modNat x 100 [ok := p] = Int.modNat y 100 [ok := p] := rfl
+   │                                                                ─┬─  
+   │                                                                 ╰─── `Int.modNat x 100` and `Int.modNat y 100` aren't equal
+   │ 
+   │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
+   │ 
+   │ Note 2: this statement is false; a counterexample:
+   │           x = 0
+   │           y = 1
+   │         `100 ≠ 0` holds
+   │         `Int.modNat x 100 = Int.modNat y 100` is false:
+   │           left:  0
+   │           right: 1
+───╯

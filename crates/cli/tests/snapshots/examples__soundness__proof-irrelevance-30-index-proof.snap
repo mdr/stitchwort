@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NOT-EMPTY] Error: `T (MkBox (Inr Trivial))` has values, so this argument can't be `()`
+    ╭─[ soundness/proof-irrelevance-30-index-proof.sw:15:5 ]
+    │
+ 15 │   | ()
+    │     ─┬  
+    │      ╰── `T (MkBox (Inr Trivial))` has values, so this argument can't be `()`
+────╯

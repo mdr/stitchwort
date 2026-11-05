@@ -504,6 +504,13 @@ term, and in the statement of `f.unfold` (§6.3), and any proof may use that equ
 wanting an abstract type in the security sense should not read `opaque` that way; error
 messages and docs/syntax.md say "opaque to the checker", not "private".
 
+One exception, added with proof irrelevance (docs/proposals/proof-irrelevance.md §7.3): an
+opaque definition's inert proof parameters, the proofs its body never computes with, are
+found from the hidden body, and comparison skips them in its calls. So a caller's `rfl`
+(`f x p = f x q`) can come to depend on the body ignoring a proof without `unfolding f`; if
+the body is later changed to use that proof, the `rfl` breaks with the signature unchanged.
+This only ever adds equalities, so it's sound.
+
 ### 6.2 Syntax: a modifier on one definition
 
 ```stitchwort

@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ soundness/proof-irrelevance-13-subject-reduction-gap.sw:6:64 ]
+   │
+ 6 │ def bad (a: Prop) (p: a) (q: a) (f: a → Type) (x: f p): f q := x
+   │                                                                ┬  
+   │                                                                ╰── expected `f q`, but this has type `f p`
+───╯
