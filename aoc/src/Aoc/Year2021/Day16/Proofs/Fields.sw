@@ -76,11 +76,11 @@ theorem readGroupsSome (reader: BitReader) (groups: NonEmptyList Nat) (rest: Bit
               let small: (NonEmptyList.singleton group).all (x => x < 16) = True := omega [fits]
               rewrite <- parts.left, <- parts.right in Both (rewrite bitRead, numberRead.left in rfl) small
 
---| Each operation is read back from its type id.
-theorem operationOfTypeId (operation: Operation): operationOf (typeId operation) = Some operation := cases
+--| Each operator type is read back from its type id.
+theorem operatorTypeOfTypeId (operatorType: OperatorType): operatorTypeOf (typeId operatorType) = Some operatorType := cases
 
---| An operation is read only from its type id.
-theorem operationOfSome (n: Nat) (operation: Operation) (read: operationOf n = Some operation): n = typeId operation :=
+--| An operator type is read only from its type id.
+theorem operatorTypeOfSome (n: Nat) (operatorType: OperatorType) (read: operatorTypeOf n = Some operatorType): n = typeId operatorType :=
   match n with
     | 0 => rewrite <- Option.someInjective _ _ read in rfl
     | 1 => rewrite <- Option.someInjective _ _ read in rfl

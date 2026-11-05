@@ -1,12 +1,10 @@
 --| The parser's guarantees: the input's characters are all hexadecimal
---| digits and the bits read are theirs; the packet read is well formed,
---| its encoding starts those bits, and its operators keep the puzzle's
---| promise.
+--| digits and the bits read are theirs.
 -- (D2108)
 
 namespace Aoc.Year2021.Day16.Proofs
 import Aoc.Year2021.Day16 (..)
-import Aoc.Year2021.Day16.Spec (allPromised, encode, fitsOperation, hexDigitBits, promised, transmissionBits, wellFormed)
+import Aoc.Year2021.Day16.Spec (hexDigitBits, transmissionBits)
 import Std (Bool, Eq, Exists, Fail, List, Nat, Option, Parse, Result, Text, Void)
 
 --| The program's digits are the puzzle's.
@@ -61,31 +59,3 @@ theorem readBitsHex (input: Text) (bits: List Bool) (read: Fail.toResult (() => 
   let split := rewrite Fail.toResultThen (() => readDigits input) (digits => bitsOfDigits digits) at read in read
   Result.flatMapEqOk (Fail.toResult (() => readDigits input)) (digits => Fail.toResult (() => bitsOfDigits digits)) bits split
     (values got made => rewrite <- Result.okInjective _ bits made in readDigitsBits input values got)
-
---| The program's check of an operator's sub-packets is the spec's.
-theorem fitsAgree (operation: Operation) (count: Nat): fitsArity count (arity operation) = fitsOperation operation count :=
-  match operation, count with
-    | Minimum, 0 => rfl
-    | Minimum, Succ _ => rfl
-    | Maximum, 0 => rfl
-    | Maximum, Succ _ => rfl
-    | Sum, _ => rfl
-    | Product, _ => rfl
-    | GreaterThan, _ => rfl
-    | LessThan, _ => rfl
-    | EqualTo, _ => rfl
-
---| An operator the check finds nothing wrong with keeps the promise.
-theorem badOperatorNone: (packet: Packet) → badOperator packet = None → promised packet = True
-  | Literal _ _, none => rfl
-  | Operator version operation lengthType subPackets, none =>
-    match f: fitsArity subPackets.length (arity operation) with
-      | True => Bool.andIntro _ _ (rewrite <- fitsAgree operation subPackets.length in f) (badOperatorInNone subPackets none)
-      | False => cases
-
-theorem badOperatorInNone: (packets: List Packet) → badOperatorIn packets = None → allPromised packets = True
-  | [], none => rfl
-  | [packet, ..rest], none =>
-    match b: badOperator packet with
-      | None => Bool.andIntro _ _ (badOperatorNone packet b) (badOperatorInNone rest none)
-      | Some _ => cases
