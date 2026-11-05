@@ -6858,13 +6858,13 @@
     {
       "id": 1322,
       "title": "Parser: 'Witness { … } arg' is a parse error; a record literal as a call argument needs brackets",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1322",
       "labels": [
         "syntax"
       ],
-      "body": "From SW-1320. Also worth a line in the proving guide or domain-types note: a def alias gives no dot methods, only records do.\n\nStarted 05:0x on DeepSeek in scratch-sw-1322; estimate 30 min (watch at 60).\n\nDeepSeek result on lane/SW-1322 (9e5622d74, 16 min): the failure is only after a capitalised head (a constructor such as Witness): braces after a constructor name its fields and take no further arguments, by design (D605 (a), D1370 (a), docs/proposals/record-argument-braces.md). The change makes 'C { … } x' read as 'C ({ … }) x' when an argument follows. That reverses a decided rule (the meaning of braces would depend on what follows), so not merged: D2374 to Matt. Model result: DeepSeek, worked (code), but the brief's goal ran into a decided rule I missed when filing, 16 min (est. 30).",
+      "body": "From SW-1320. Also worth a line in the proving guide or domain-types note: a def alias gives no dot methods, only records do.\n\nStarted 05:0x on DeepSeek in scratch-sw-1322; estimate 30 min (watch at 60).\n\nDeepSeek result on lane/SW-1322 (9e5622d74, 16 min): the failure is only after a capitalised head (a constructor such as Witness): braces after a constructor name its fields and take no further arguments, by design (D605 (a), D1370 (a), docs/proposals/record-argument-braces.md). The change makes 'C { … } x' read as 'C ({ … }) x' when an argument follows. That reverses a decided rule (the meaning of braces would depend on what follows), so not merged: D2374 to Matt. Model result: DeepSeek, worked (code), but the brief's goal ran into a decided rule I missed when filing, 16 min (est. 30).\n\nD2374 (Matt, 5 Nov): keep D1370 (a) as it is; a record argument after a constructor needs brackets. Branch dropped, not merged.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
