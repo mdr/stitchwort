@@ -71,8 +71,9 @@ test "lets" := lets 4 == "$4"
 test "applied" := applied 4 == "$4"
 test "nat" := showNat 4 == "4"
 
--- The pre-pass can't know which `label` `s.label` means, so it groups
--- `Shape.describe` with every `….label` (§5): here with `Tile.label` too.
+-- `s` has a written type, so the pre-pass links `s.label` to `Shape.label`
+-- alone; `t.shape.describe`'s receiver has none, so it is linked to every
+-- `….describe` (§5). Neither makes a cycle of `Tile.label`.
 type Shape = { name: Text }
 type Tile = { shape: Shape }
 
