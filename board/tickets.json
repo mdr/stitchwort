@@ -7292,7 +7292,7 @@
     {
       "id": 1353,
       "title": "Sweep: method (dot) form where the first argument is the call's subject in aoc and games/rogue (Nat.absDiff level next -> level.absDiff next; value.testBit 3); leave min/max, builders (List.range, List.replicate) and lemmas used as proofs",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1353",
       "labels": [
@@ -7334,7 +7334,7 @@
     {
       "id": 1356,
       "title": "Design note: range syntax (a ..< b, a ..= b, or other), after a thorough survey of other languages (Swift, Rust, Kotlin, Haskell, Python, Scala, Ruby, Julia, Lean, Idris, Agda, F#, Elixir …)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1356",
       "labels": [
