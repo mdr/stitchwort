@@ -1,5 +1,5 @@
 {
-  "next": 1403,
+  "next": 1405,
   "tickets": [
     {
       "id": 47,
@@ -7726,13 +7726,13 @@
     {
       "id": 1384,
       "title": "Playground language server: package as a stitchwort-lsp library crate shared by the CLI and crates/web; projects from memory; searches in a second worker; cancellation (a yielding check, or SharedArrayBuffer under cross-origin isolation); keep YAML out of the web build",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1384",
       "labels": [
         "playground"
       ],
-      "body": "From SW-1375's trial, 5 Nov 2026.",
+      "body": "From SW-1375's trial, 5 Nov 2026.\n\nDone (5991bba6f..e9731cc59): crates/lsp (stitchwort-lsp) used by the CLI and crates/web; Source trait (Disk/Memory), add_project, no YAML in the web build (wasm -0.64 MB pre-gzip); searches as data in a second worker, stale ones stopped; cancellation by a SharedArrayBuffer counter read through Budget::set_cancel_hook (core; native installs none), needs COOP/COEP (coi-serviceworker on Pages: D2428). Project edit 0.31-0.36 s vs 2.2 s for a lone file; hover during a search 0-44 ms. Fixed SW-1377's stray bundles under web/editor/web/dist. Model result: Opus, worked, 30 min (est. 180).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7986,6 +7986,34 @@
         "aoc"
       ],
       "body": "D2426 (Matt, 5 Nov 2026): start after day 6's friction review. Opus. Input: ~/repos/mdr/aoc/2020/src/main/resources/day7.\n\nStarted on Sonnet (D2365: Sonnet first for AoC days; escalate to Opus if stuck), expected: 90 min.\n\nD2427 (Matt, 5 Nov 2026): AoC days on Opus, for the analysis of Stitchwort's gaps the friction notes give. Sonnet lane stopped after ~3 min (only the input copied); restarted on Opus, expected: 90 min.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1403,
+      "title": "Playground language server: a project's first diagnostics take 26-28 s in the browser (LiveProject::new loads the whole library; no check cache in the browser); bundle a check cache for std, or load lazily",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "playground,perf"
+      ],
+      "body": "From SW-1384, 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1404,
+      "title": "Playground: open AoC days as project files, not lone files (an edit re-checks 0.31 s as part of the project vs 2.2 s alone)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "playground,perf"
+      ],
+      "body": "From SW-1384, 5 Nov 2026.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
