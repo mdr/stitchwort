@@ -8888,13 +8888,13 @@
     {
       "id": 1465,
       "title": "omega ignores a fact whose ≤ comes from Ord at Nat (e.g. NonEmptyList.maximumLe), even passed in omega [...]; read it, or say it was skipped",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1465",
       "labels": [
         "omega"
       ],
-      "body": "From 2020 day 10 (SW-1461), 5 Nov 2026. Small improvement.",
+      "body": "From 2020 day 10 (SW-1461), 5 Nov 2026. Small improvement.\n\nStarted on DeepSeek, expected: 40 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8971,7 +8971,7 @@
     },
     {
       "id": 1471,
-      "title": "Editor: in a file whose import failed, hover and go-to-definition are empty until the import is fixed (the dependent is skipped and its earlier answers rewound); keep its last good answers, marked stale, instead|editor",
+      "title": "Editor: in a file whose import failed, hover and go-to-definition are empty until the import is fixed (the dependent is skipped and its earlier answers rewound); keep its last good answers, marked stale, instead",
       "status": "backlog",
       "agent": "",
       "where": "",
