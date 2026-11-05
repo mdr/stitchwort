@@ -30,23 +30,12 @@ theorem runFromSound (numbers: List Nat) (target: Nat) (run: List Nat) (front: L
                   (rewrite List.dropAdd start 1 numbers, <- at in rfl) (omega) after
                   (omega [List.sumCons first (later.take k)]) found
       | False =>
-        match e: sum == target with
+        match e: sum == target && 2 <= count with
           | True =>
-            match l: 2 <= count with
-              | True =>
-                let runIs: front.take count = run := Option.someInjective found
-                Both (Witness start (Witness count (rewrite <- runIs, at in rfl)))
-                  (Both (rewrite <- runIs, List.lengthTake front count fits in l)
-                    (rewrite <- runIs in omega [DecEq.sound e]))
-              | False =>
-                match rest with
-                  | [] => Void.exfalso (Option.noneNotSome run found)
-                  | [next, ..more] =>
-                    let (Both taken below) := List.takeOfDropCons front count next more (Eq.sym after)
-                    runFromSound numbers target run front (count + 1) (sum + next) more start at (omega)
-                      (rewrite List.dropAdd count 1 front, <- after in rfl)
-                      (rewrite taken, List.sumAppend (front.take count) [next] in omega)
-                      found
+            let runIs: front.take count = run := Option.someInjective found
+            Both (Witness start (Witness count (rewrite <- runIs, at in rfl)))
+              (Both (rewrite <- runIs, List.lengthTake front count fits in omega)
+                (rewrite <- runIs in omega))
           | False =>
             match rest with
               | [] => Void.exfalso (Option.noneNotSome run found)

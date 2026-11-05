@@ -689,3 +689,78 @@ pub(crate) fn check_against(cx: &mut Ctx, logic: Logic, expected: &Value) -> Res
     };
     crate::check::compare(cx, term, &found, expected)
 }
+
+/// The name of the `let` that carries the `Bool` an `if` on a conjunction is
+/// on, around its decision ([`tag_decision`]). No source can write it.
+const TAG: &str = "%conj";
+
+/// `decision`, a conjunction's `Decidable.andThen dp dq`, as `let %conj :=
+/// tag in decision`: `tag`, the `Bool` the `if` is on, is kept where the term
+/// is written until [`settle_tagged`] knows whether the branches use the
+/// proof. Only the elaborator writes the `let`, so settling trusts that `tag`
+/// and the decision agree.
+pub(crate) fn tag_decision(cx: &Ctx, decision: &Term, tag: &Term) -> Result<Term> {
+    let bool_ty = Term::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
+    Ok(Term::let_(
+        TAG.into(),
+        bool_ty,
+        tag.clone(),
+        decision.shift(&cx.g(), 1, 0)?,
+    ))
+}
+
+/// An `if` on a conjunction whose branches' helpers weren't lifted when it
+/// was written ([`tag_decision`]), in `term`, a finished body: on its `Bool`
+/// if neither branch mentions the proof, as `unused_proof_if` makes one whose
+/// branches are known not to; otherwise on the plain decision.
+pub(crate) fn settle_tagged(e: &crate::Elaborator, term: &Term) -> Result<Term> {
+    let g = &e.ev();
+    let registry = g.env.registry();
+    let (Some(elim), Some(ite)) = (
+        registry.def(Builtin::ElimDec),
+        registry.def(Builtin::IfThenElse),
+    ) else {
+        return Ok(term.clone());
+    };
+    Ok(term.rewrite_up(g, &mut |node| {
+        let (head, args) = spine_icit(node);
+        if !matches!(head, Term::Def(id) if *id == elim) || args.len() != 5 {
+            return Ok(None);
+        }
+        let Term::Let(name, _, tag, decision, _) = args[2].0.strip_loc() else {
+            return Ok(None);
+        };
+        if &**name != TAG {
+            return Ok(None);
+        }
+        let unused = |branch: &Term| {
+            matches!(branch.strip_loc(), Term::Lam(_, _, body) if !body.mentions(0))
+        };
+        if unused(&args[3].0) && unused(&args[4].0) {
+            let head = Term::app_icit(Term::Def(ite), args[1].0.clone(), Icit::Implicit);
+            let node = Term::app(
+                Term::app(Term::app(head, (**tag).clone()), args[3].0.clone()),
+                args[4].0.clone(),
+            );
+            return Ok(Some(node));
+        }
+        let decision = decision.instantiate_var(g, 0)?;
+        let mut out = Term::Def(elim);
+        for (i, (arg, icit)) in args.iter().enumerate() {
+            let arg = if i == 2 { decision.clone() } else { arg.clone() };
+            out = Term::app_icit(out, arg, *icit);
+        }
+        Ok(Some(out))
+    })?)
+}
+
+fn spine_icit(t: &Term) -> (&Term, Vec<(Term, Icit)>) {
+    let mut args = Vec::new();
+    let mut head = t.strip_loc();
+    while let Term::App(f, a, icit) = head {
+        args.push(((**a).clone(), *icit));
+        head = f.strip_loc();
+    }
+    args.reverse();
+    (head, args)
+}

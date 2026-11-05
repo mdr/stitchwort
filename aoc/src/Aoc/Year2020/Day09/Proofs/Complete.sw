@@ -57,25 +57,10 @@ theorem runFromComplete (numbers: List Nat) (target: Nat) (start: Nat) (length: 
                   (rewrite List.dropAdd from 1 numbers, <- at in rfl) (omega) after
                   (omega [List.sumCons first (later.take k)]) (omega) (omega)
       | False =>
-        match e: sum == target with
-          | True =>
-            match l: 2 <= count with
-              | True => none => Option.noneNotSome (front.take count) (Eq.sym none)
-              | False =>
-                let unfinished: sum = target → 2 ≤ count → Void := same twoOrMore => Bool.falseNotTrue (Eq.trans (Eq.sym l) twoOrMore)
-                match rest with
-                  | [] =>
-                    let reached: from + count < start + length := growsInside numbers target start length sums front count sum from at fits total notPast notBeyond (omega) unfinished long
-                    Void.exfalso (omega [List.lengthDrop numbers from (omega), List.lengthDrop front count fits, Eq.cong List.length after, Eq.cong List.length at])
-                  | [next, ..more] =>
-                    let reached: from + count < start + length := growsInside numbers target start length sums front count sum from at fits total notPast notBeyond (omega) unfinished long
-                    let (Both taken below) := List.takeOfDropCons front count next more (Eq.sym after)
-                    runFromComplete numbers target start length sums long inside front (count + 1) (sum + next) more from at (omega)
-                      (rewrite List.dropAdd count 1 front, <- after in rfl)
-                      (rewrite taken, List.sumAppend (front.take count) [next] in omega)
-                      notPast (omega)
+        match e: sum == target && 2 <= count with
+          | True => none => Option.noneNotSome (front.take count) (Eq.sym none)
           | False =>
-            let unfinished: sum = target → 2 ≤ count → Void := same twoOrMore => DecEq.soundFalse sum target e same
+            let unfinished: sum = target → 2 ≤ count → Void := same twoOrMore => omega
             match rest with
               | [] =>
                 let reached: from + count < start + length := growsInside numbers target start length sums front count sum from at fits total notPast notBeyond (omega) unfinished long

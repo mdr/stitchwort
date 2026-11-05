@@ -342,7 +342,10 @@ Each was run on the example named; the output is quoted, shortened.
     A `match c: e` refines the hypotheses that mention `e` as well as the
     goal, so inside its arm a hypothesis already has the branch's form: use
     it as it is rather than rewriting it
-    (`examples/reject/rewrite-refined-by-match.sw`). Usually the goal
+    (`examples/reject/rewrite-refined-by-match.sw`). A proof follows a
+    program's `if` by matching on its `Bool`, also for `if a && b`: one
+    `match e: a && b with` refines the goal, and `omega` reads `e` as
+    `a ∧ b` or `¬(a ∧ b)` (`examples/accept/match-if-and.sw`). Usually the goal
     unfolded the definition first: rewrite with a lemma about the unfolded
     form, or state the step with `calc`.
   - `E-REWRITE-MOTIVE`: replacing the term makes the goal ill-typed, usually

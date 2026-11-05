@@ -4773,11 +4773,11 @@ fn unused_proof_if(
             })
             .collect();
         if unsolved.is_empty() || !cx.e.solve_ready_instances_keeping(&[], Some(&unsolved))? {
-            return Ok(decided);
+            return tagged_if(cx, decided, &unused, !unsolved.is_empty());
         }
         branches = [zonked(cx, then)?, zonked(cx, otherwise)?];
         if branches.iter().any(uses_proof) {
-            return Ok(decided);
+            return tagged_if(cx, decided, &unused, true);
         }
     }
     let cond = match unused {
@@ -4794,6 +4794,30 @@ fn unused_proof_if(
         Term::app(Term::app(head, cond), (**then).clone()),
         (**otherwise).clone(),
     ))
+}
+
+/// `decided`, an `if` on a conjunction `a && b` whose branches are not known
+/// to leave its proof alone (`maybe`: only because a helper they call isn't
+/// lifted yet), with its decision tagged by `a && b` for
+/// `logic::settle_tagged`, which makes it an `if` on `a && b` once they are.
+fn tagged_if(cx: &mut Ctx, decided: Term, unused: &Unused, maybe: bool) -> Result<Term> {
+    let (Unused::Bool(tag), true) = (unused, maybe) else {
+        return Ok(decided);
+    };
+    let Term::App(rest, otherwise, i3) = &decided else {
+        return Ok(decided);
+    };
+    let Term::App(rest, then, i2) = &**rest else {
+        return Ok(decided);
+    };
+    let Term::App(head, decision, i1) = &**rest else {
+        return Ok(decided);
+    };
+    let tagged = crate::logic::tag_decision(cx, decision, tag)?;
+    cx.e.decl.tagged_conjunctions.set(true);
+    let rebuilt = Term::App(Rc::clone(head), Rc::new(tagged), *i1);
+    let rebuilt = Term::App(Rc::new(rebuilt), Rc::clone(then), *i2);
+    Ok(Term::App(Rc::new(rebuilt), Rc::clone(otherwise), *i3))
 }
 
 /// `elimDec decision (name => then) (name => otherwise)`, where `decision`

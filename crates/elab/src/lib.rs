@@ -1138,10 +1138,20 @@ impl Elaborator {
         let stuck = self.settle_queue()?;
         self.settle_rows(stuck)?;
         self.specialise_fills()?;
-        match self.specialise_operators(term, level)? {
-            Some(term) => self.zonk(&term, level),
-            None => self.zonk(term, level),
+        let zonked = match self.specialise_operators(term, level)? {
+            Some(term) => self.zonk(&term, level)?,
+            None => self.zonk(term, level)?,
+        };
+        self.settle_tagged(&zonked)
+    }
+
+    /// `term`, a finished body, with the conjunctions the elaborator tagged
+    /// settled (`logic::settle_tagged`).
+    pub(crate) fn settle_tagged(&self, term: &Term) -> Result<Term> {
+        if self.decl.tagged_conjunctions.get() {
+            return logic::settle_tagged(self, term);
         }
+        Ok(term.clone())
     }
 
     /// Substitutes metavariable solutions into `term`, failing if any are

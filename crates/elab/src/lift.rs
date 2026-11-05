@@ -779,9 +779,11 @@ impl Elaborator {
             let mut bodies = Vec::new();
             for &(i, id) in &members {
                 let (_, lam, _) = self.parts(&drafts[i], &ordered[i], &|_| false, true)?;
-                bodies.push((id, lam));
+                bodies.push((id, self.settle_tagged(&lam)?));
                 if let Some(run) = self.run_body(&drafts[i], &ordered[i])? {
-                    self.decl.pending_run_bodies.push((id, run));
+                    self.decl
+                        .pending_run_bodies
+                        .push((id, self.settle_tagged(&run)?));
                 }
             }
             let ids: HashSet<DefId> = members.iter().map(|(_, id)| *id).collect();
