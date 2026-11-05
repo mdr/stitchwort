@@ -1,5 +1,5 @@
 {
-  "next": 1339,
+  "next": 1340,
   "tickets": [
     {
       "id": 47,
@@ -7089,6 +7089,20 @@
         "tests"
       ],
       "body": "Found by the daily tier run on the SW-1227 stack (D2373); both fail on main too, so not the stack's. Also counts_have_not_regressed: the bench baseline is out of date after the night's work (D2384 to Matt).",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1339,
+      "title": "Design note: chained comparisons (entry.low <= times <= entry.high means entry.low <= times ∧ times <= entry.high)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1339",
+      "labels": [
+        "design"
+      ],
+      "body": "D2385 (Matt, 5 Nov): yes, write the design note. Matt: 'A really nice bit of syntax sugar from Python … you can sort of elide the and in the middle.' Opus, ~30 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
