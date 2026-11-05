@@ -205,7 +205,7 @@ theorem Fail.toResultMap (f: a → {Fail} b): (xs: List a) →
     rewrite Result.traverseCons (z => Fail.toResult (() => f z)) x xs in
     match reify (() => f x) with
       | return y =>
-        rewrite Fail.toResultThen (() => xs.map f) (ys => Cons y ys), Fail.toResultMap f xs in rfl
+        rewrite Fail.toResultThen (() => xs.map f) (ys => [y, ..ys]), Fail.toResultMap f xs in rfl
       | Fail.stop msg, _ => rfl
 
 test "Fail: need Some" := Fail.toResult (() => Fail.need (Some 3) "none") == Ok 3

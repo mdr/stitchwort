@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Main.Point 5dd4584bf836b2c69a4727d7fb1925dc583b9e3b00439b58abdfc5d2dbc1a13a
@@ -133,9 +132,9 @@ Main.Size.height.update.width f9ab45017fcfa007664dea5925aeb4369dfbf9d3e59191806b
 Main.Size.height.update.height.%match1 15e09edea2d3d36f206d4c915830d5bb754b5fbe4c1ff7278defbc81d9eca5b5
 Main.Size.height.update.height 08e9d7011499be35a25e7277b696bb9438612bebffe4570a6c090c171d6609bf
 Main.area 9e24cc3dcab1f3e673abf8279bbb259ad869c460699ddfc3ba2d116bae11d14c
-Main.widths 29c25f24ebc237f7defe596089d46ca7f1353a3ef11881016bbd65ed89d3bf65
+Main.widths 86fa731eeab8c287731f98fa6f5b7c1dcf3147aab7563ee5714a61bfe8cb473b
 Main.widths.%match1 a8acf9313ae52c5403f66b3323fb5e244e7101a1716050bd245c41b2e224ba4e
-Main.test "let and lambda" 52e9ae1da578ad314d1eaab2c791cd7362b39315e92b8f1fc42728e398febdc4
+Main.test "let and lambda" 7330b0018165c030f8adf8433bf17900304f3942aa00465fbf222699e283d8f9
 Main.Box.%tag 1d3bb332357cab269dd12d36d7c8076a9555c9215c899da7097c0a13381d2e85
 Main.Box.%Full%0 457e427931a24ed7959209e006cff38d9d121c739edc4235cf4dc0480826bfed
 Main.Box.%Full%1 7330e3a91034035da5c8069403e88f3a1b74ec386622a2da3374fa754b1af7be

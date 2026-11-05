@@ -72,4 +72,4 @@ def Bank.best: Bank → Nat → Bank
       | Succ window, [x, ..more], candidate, after =>
         if candidate < x then pick window more x more else pick window more candidate after
     let (top, after) := pick (rest.length - remaining) rest first rest
-    Cons top (Bank.best after remaining)
+    [top, ..Bank.best after remaining]

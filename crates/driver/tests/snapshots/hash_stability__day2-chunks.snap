@@ -2,13 +2,13 @@
 source: crates/driver/tests/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
-Main.repeatsWith ed8ae1125693008d7de3024e1dc4777e6382ec54a34490e0643d0873e4cfed30
-Main.repeatsAny 3b6f6db3c50d6a1bde336f9e40cf2daf69512ffdf9df544e55c589ace1b536ed
-Main.test "1212 repeats a block of two" 318ca94104636b47e1fccbccd2a3566f21d996ade9440b4b3d614ce630b53294
-Main.test "1212 is not a block of three" 8289e8d0b1d6a20d7cab7ab31dc4d4d8a1b855b2151372c2f2fa56720def3a1e
-Main.test "block length zero never repeats" 02cda257172f0cf184528d85f41416e14436752c99b58362a467ff87c4d06c8f
-Main.test "111 repeats a block of one" e4deea442c02268ea57c7c8aa324835475953a65aeb99da3b95eeda74f86686c
-Main.test "12341234 repeats a block of four" 821c8790437c12eb45b9a5c56a24210472a84ad5a61bfee245d02cf0fab5f024
-Main.test "123123123 is found" 076b4093ca767de448833c71315eb140ab4fe80cbecd85b5a1a53fb99f821415
-Main.test "1213 repeats nothing" 5453138415a5bbc770b09ce0c8b5335991f70d83b6e09edc8c3db4bb7057e165
-Main.test "a repeat is its block, repeated" 856ddd8d1c6a0e39d8bcd9961b757fe3e3144d76399371341e957bf1d15b5fdb
+Main.repeatsWith 6d203b04f1f6020a2280fa72afd29319ea4a9d7e05507d201b0bfc8cf668bb01
+Main.repeatsAny f5b73b239c5ca73878e3152d9ab5385b33d4afd38a027161f7c2e0a8a332f524
+Main.test "1212 repeats a block of two" f5e002bfa7422a3f1b2b2b55893ab67b5d444b383e0ab3fe8f213bde420ecef5
+Main.test "1212 is not a block of three" 4eaaad3e2b1df1e6306f03af21a8afdc47d8d8ff6242e8d9cb16f05ec47ff7b8
+Main.test "block length zero never repeats" 2e6a0b9dbc97e8a5a4b1eefc529214b413702d5aa4feb5c834a7bce09ddece46
+Main.test "111 repeats a block of one" 17e30fb913c8df49518e6faf6c2e7d1ab7024668cbbae953863e9b02acdf2ab1
+Main.test "12341234 repeats a block of four" c8ebf02ab15c47b7054ed84e6ed14b8a521799a1323d6b9369372e4038097d67
+Main.test "123123123 is found" 6cb7aee0d1534575b0109aaff68f775ccd74530f636c7cdc99d36d76b5e0bf49
+Main.test "1213 repeats nothing" ca0e1abb8904bff878773bb6782355dc7f76e28e5c0a7403cff1353efba013e6
+Main.test "a repeat is its block, repeated" d445dba814d0429690edb43391bfe4c5402c9fc73b58a5e53b0882c76f940bba

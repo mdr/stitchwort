@@ -51,8 +51,8 @@ theorem safeKept (shrink: List Nat → List Nat)
       cases
 
 --| Removing the first level of a safe report leaves it safe.
-theorem safeWithoutFirst (level: Nat) (rest: List Nat) (wasSafe: safe { levels = Cons level rest } = True): safe { levels = rest } = True :=
-  safeKept List.tailOf List.chainTail (Cons level rest) wasSafe
+theorem safeWithoutFirst (level: Nat) (rest: List Nat) (wasSafe: safe { levels = [level, ..rest] } = True): safe { levels = rest } = True :=
+  safeKept List.tailOf List.chainTail ([level, ..rest]) wasSafe
 
 --| Removing the last level of a safe report leaves it safe.
 theorem safeWithoutLast (report: Report) (wasSafe: safe report = True): safe { levels = report.levels.init } = True :=
@@ -62,9 +62,9 @@ theorem safeWithoutLast (report: Report) (wasSafe: safe report = True): safe { l
 --| with any levels, "safe, or safe with one level removed" is just "safe with
 --| one level removed".
 theorem dampenerAloneSuffices (level: Nat) (rest: List Nat):
-    safeWithDampener { levels = Cons level rest } =
-      (removals (Cons level rest) |> .any (levels => safe { levels })) :=
-  match wasSafe: safe { levels = Cons level rest } with
+    safeWithDampener { levels = [level, ..rest] } =
+      (removals ([level, ..rest]) |> .any (levels => safe { levels })) :=
+  match wasSafe: safe { levels = [level, ..rest] } with
     | True =>
       let kept := safeWithoutFirst level rest wasSafe
       cases

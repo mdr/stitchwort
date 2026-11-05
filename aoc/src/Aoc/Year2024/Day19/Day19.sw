@@ -67,7 +67,7 @@ def waysForSuffixes (patterns: List Pattern): (stripes: List Stripe) → List Na
     let later := waysForSuffixes patterns rest
     let ways := patterns.sumBy (pattern =>
       if [first, ..rest].startsWith pattern.stripes then later.getOr (pattern.length - 1) 0 else 0)
-    Cons ways later
+    [ways, ..later]
 
 --| The number of different ways to make `design`.
 def waysToMake (patterns: List Pattern) (design: Design): Nat := waysForSuffixes patterns design.stripes |> .headOr 0

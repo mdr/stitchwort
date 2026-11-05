@@ -108,7 +108,7 @@ def collect (program: () → {Log | e} a): {e} (List Nat, a) :=
     | return x => ([], x)
     | say n, k =>
       let rest := k()
-      (Cons n rest.fst, rest.snd)
+      ([n, ..rest.fst], rest.snd)
 
 def given (n: Nat): {Log} Nat :=
   say n

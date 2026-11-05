@@ -104,7 +104,7 @@ def collect (prog: () → {Log | e} a): {e} Pair (List Nat) a :=
     | return x => MkPair [] x
     | say n, k =>
       let rest := k()
-      MkPair (Cons n (rest.fst)) (rest.snd)
+      MkPair [n, ..rest.fst] (rest.snd)
 
 def noisy (n: Nat) (b: Bool): {Log} Bool :=
   say n

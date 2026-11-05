@@ -101,7 +101,7 @@ def Garden.regionsFrom (garden: Garden): (starts: List Position) → (seen: Set 
     if seen.contains start then garden.regionsFrom rest seen
     else
       let region := garden.regionOf start
-      Cons region (garden.regionsFrom rest (region.plots.foldLeft seen Set.insert))
+      [region, ..garden.regionsFrom rest (region.plots.foldLeft seen Set.insert)]
 
 def Garden.regions (garden: Garden): List Region := garden.regionsFrom garden.positions Set.empty
 

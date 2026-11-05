@@ -21,7 +21,7 @@ def turn (line: Text): {Abort} Turn :=
 -- Every line, or give up if any line is bad.
 def turns: List Text → {Abort} List Turn
   | [] => []
-  | [l, ..ls] => Cons (turn l) (turns ls)
+  | [l, ..ls] => [turn l, ..turns ls]
 
 def parseTurn (line: Text): Option Turn := toOption (() => turn line)
 

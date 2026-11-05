@@ -15,7 +15,7 @@ def Log.collect (program: () → {Log} a): Pair a (List Nat) :=
     | return result => MkPair result []
     | Log.say n, k =>
       let rest := k ()
-      MkPair rest.fst (Cons n rest.snd)
+      MkPair rest.fst [n, ..rest.snd]
 
 -- SW-430: the row of a pure use is decided by defaulting, after which
 -- `DecEq (List Nat)` is found.

@@ -17,7 +17,7 @@ theorem keysLess (x: Float) (y: Float) (h: x < y): x = x :=
 -- A record given to a constructor is in brackets: `Cons { … } rest` would
 -- name `Cons`'s fields.
 theorem deeper (f: List Leaf → Nat) (leaf: Leaf) (rest: List Leaf):
-    f (Cons ({ value = leaf.value, depth = leaf.depth + 1 }) rest) = f rest := ?
+    f ([{ value = leaf.value, depth = leaf.depth + 1 }, ..rest]) = f rest := ?
 
 -- After a `rewrite … at h`, only the new `h` is listed.
 theorem rewritten (n: Nat) (h: n + 0 = 3): n = 3 := rewrite Std.Nat.addZero n at h in ?

@@ -82,12 +82,12 @@ theorem apartStay (moved: List Monster) (monster: Monster) (stayed: Monster) (sa
 
 --| ...and so does one that moves to a cell no other monster stands on.
 theorem apartMove (moved: List Monster) (monster: Monster) (destination: Position) (waiting: List Monster)
-    (apart: Apart (moved ++ Cons monster waiting)) (vacant: monsterAt destination (moved ++ waiting) = None):
+    (apart: Apart (moved ++ [monster, ..waiting])) (vacant: monsterAt destination (moved ++ waiting) = None):
     Apart ((moved ++ [{ monster | position = destination }]) ++ waiting) :=
   let fresh := vacantNotMem destination (moved ++ waiting) vacant
-  rewrite List.appendAssoc moved [{ monster | position = destination }] waiting, positionsAppend moved (Cons ({ monster | position = destination }) waiting) in
+  rewrite List.appendAssoc moved [{ monster | position = destination }] waiting, positionsAppend moved ([{ monster | position = destination }, ..waiting]) in
     distinctSwap monster.position destination (positions waiting) (positions moved)
-      (rewrite <- positionsAppend moved (Cons monster waiting) in apart)
+      (rewrite <- positionsAppend moved [monster, ..waiting] in apart)
       (rewrite <- positionsAppend moved waiting in fresh)
 
 theorem actAllApart (dice: Dice) (level: Level) (player: Position):

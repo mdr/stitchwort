@@ -196,7 +196,7 @@ def Terminal.simulate (keys: List Key) (prog: () → {Terminal | e} a): {e} Pair
         match keysLeft with
           | [] => resume None [] frames
           | [key, ..later] => resume (Some key) later frames
-      | draw lines, resume => keysLeft frames => resume () keysLeft (Cons (List.map lines Ansi.strip) frames)
+      | draw lines, resume => keysLeft frames => resume () keysLeft [List.map lines Ansi.strip, ..frames]
       | size (), resume => keysLeft frames => resume { columns = 80, rows = 24 } keysLeft frames
   run keys []
 
@@ -243,7 +243,7 @@ def Terminal.echoKeys: Nat → List Key → {Terminal} List Key
     match Terminal.readKey () with
       | None => List.reverse seen
       | Some (Printable 'q') => List.reverse seen
-      | Some key => Terminal.echoKeys limit (Cons key seen)
+      | Some key => Terminal.echoKeys limit [key, ..seen]
 
 test "simulate: a frame per draw, and the keys in order" :=
   Terminal.simulate [Up, Printable 'x', Printable 'q', Down] (() => Terminal.echoKeys 10 []) ==
@@ -284,18 +284,18 @@ def Terminal.scriptedHost (console: Console) (reads: List (List Nat)) (prog: () 
     handle prog() with
       | return result => readsLeft keysOn written => MkPair (List.reverse written) result
       | IO.print text, resume => readsLeft keysOn written =>
-        resume () readsLeft False (Cons text (if keysOn then Cons "keys off" written else written))
+        resume () readsLeft False [text, ..(if keysOn then ["keys off", ..written] else written)]
       | IO.readLine u, resume => readsLeft keysOn written => resume None readsLeft keysOn written
       | IO.readAll u, resume => readsLeft keysOn written => resume "" readsLeft keysOn written
       | IO.console u, resume => readsLeft keysOn written => resume console readsLeft keysOn written
       | IO.keysMode on, resume => readsLeft keysOn written =>
         if on == keysOn then resume () readsLeft keysOn written
-        else resume () readsLeft on (Cons (if on then "keys on" else "keys off") written)
+        else resume () readsLeft on [(if on then "keys on" else "keys off"), ..written]
       | IO.readBytes u, resume => readsLeft keysOn written =>
         match readsLeft with
           | [] => resume None [] keysOn written
           | [bytes, ..later] => resume (Some bytes) later keysOn written
-      | IO.write text, resume => readsLeft keysOn written => resume () readsLeft keysOn (Cons text written)
+      | IO.write text, resume => readsLeft keysOn written => resume () readsLeft keysOn [text, ..written]
       | IO.randomSeed u, resume => readsLeft keysOn written => resume 0 readsLeft keysOn written
       | IO.args u, resume => readsLeft keysOn written => resume [] readsLeft keysOn written
   run reads False []
