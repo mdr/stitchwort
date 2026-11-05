@@ -1,5 +1,5 @@
 {
-  "next": 1419,
+  "next": 1420,
   "tickets": [
     {
       "id": 47,
@@ -7964,14 +7964,14 @@
     {
       "id": 1401,
       "title": "Std: lemmas tying Text.lines to the input's characters, and a Parse.sections reads theorem stated over the input's lines (as eachLineReads is), so day-4-style section parses reach a spec on the input text",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1401",
       "labels": [
         "std",
         "proofs"
       ],
-      "body": "D2426 (Matt, 5 Nov 2026): day 6 friction item 6; after 2020 day 7. Sonnet.\n\nStarted on Sonnet, expected: 90 min.\n\nDone on lane/SW-1401 (58f85fa8b, 0ad3d4e31): Text.lines lemmas (linesAppend, linesLine, linesPlainLine(Return), linesNoFeed, unlinesLines, linesUnterminated + helpers); Parse.SectionsLines and Parse.sectionsLines (a sections parse over input.lines); 2020 day 4 parseWrittenLines (chunk level). Opus review pending (new theorems). Model result: Sonnet, worked, 17 min (est. 90).",
+      "body": "D2426 (Matt, 5 Nov 2026): day 6 friction item 6; after 2020 day 7. Sonnet.\n\nStarted on Sonnet, expected: 90 min.\n\nDone on lane/SW-1401 (58f85fa8b, 0ad3d4e31): Text.lines lemmas (linesAppend, linesLine, linesPlainLine(Return), linesNoFeed, unlinesLines, linesUnterminated + helpers); Parse.SectionsLines and Parse.sectionsLines (a sections parse over input.lines); 2020 day 4 parseWrittenLines (chunk level). Opus review pending (new theorems). Model result: Sonnet, worked, 17 min (est. 90).\n\nOpus review: merge; statements match Text.linesFrom, none vacuous. Merged.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8194,7 +8194,7 @@
       "labels": [
         "std,proofs,aoc"
       ],
-      "body": "From SW-1401, 5 Nov 2026. Small improvement.",
+      "body": "From SW-1401, 5 Nov 2026. Small improvement.\n\nFrom SW-1401's Opus review: the key lemma is Parse.linesSepByLineBreak (a SepBy spec LineBreak with \\r-free items plus a break gives the items' lines); day 4's mixed ' '/break separators may only allow field-level facts. Also: one-line docs for Text.unlinesAppend, endLineNoReturn, linesFromNoFeed; rename or inline Parse.appendBlank; parseWrittenLines' doc says 'line breaks' where it means carriage returns and line feeds. And check 2020 day 6's spec: can splitBy blank give an empty group (whose everyone would count all 26)? (The proof equates spec and program on readable inputs, and sections groups are non-empty, so likely fine — confirm.)",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8209,6 +8209,20 @@
         "10 that doesn't unfold to Nat.equal (Char.lineFeedCodeIs needs eleven cases today)|std"
       ],
       "body": "From SW-1401, 5 Nov 2026. Small improvement.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1419,
+      "title": "Parse.withFinalLineBreaks accepts stray \\r at the end of the input (\"abc\\r\", \"abc\\n\\r\"), so the last section's lines can end in \\r; tighten to line breaks (\\n, \\r\\n) only, or add a lemma for lines of read ++ ending",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From SW-1401's Opus review, 5 Nov 2026. Small improvement; check what accepts it today (tests) before tightening.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
