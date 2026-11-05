@@ -6211,13 +6211,13 @@
     {
       "id": 1276,
       "title": "omega doesn't prove a non-arithmetic goal from contradictory facts",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1276",
       "labels": [
         "proofs"
       ],
-      "body": "From AoC 2020 day 5 (SW-1269), aoc/NOTES-2020.md 'Day 5' item 5 (ranked 8). With contradictory arithmetic facts, omega refuses a goal that isn't arithmetic; Void.exfalso (omega) works. Either let omega close any goal when its facts contradict, or a note suggesting Void.exfalso (omega).\n\nStarted 05:37 on DeepSeek, est. 30 min.",
+      "body": "From AoC 2020 day 5 (SW-1269), aoc/NOTES-2020.md 'Day 5' item 5 (ranked 8). With contradictory arithmetic facts, omega refuses a goal that isn't arithmetic; Void.exfalso (omega) works. Either let omega close any goal when its facts contradict, or a note suggesting Void.exfalso (omega).\n\nStarted 05:37 on DeepSeek, est. 30 min.\n\nDone on lane/SW-1276 (11ccce20d; DeepSeek, 12 min, est. 30; reviewed line by line): omega already refuted contradictory facts for goals it could classify; a goal whose sort isn't obvious from its head (seat + 1 ∈ rest stuck on a variable, a function type) gave up. Now it asks cases::is_proposition and uses Void.exfalso / Void.absurd. 4-line change; the existing note already says what was asked. No existing hash moved. Model result: DeepSeek, worked, 12 min (est. 30).",
       "created": "2026-11-04",
       "updated": "2026-11-05",
       "commits": []
