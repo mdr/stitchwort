@@ -30,8 +30,9 @@ def cell(): {Parse} Option Char :=
 
 --| One row per line, all as long as the first.
 def parseCity (input: Text): {Fail} City :=
-  let rows := Parse.all input (() => Parse.grid cell) |> .toList |> .map .toList
-  let width := rows.headOr [] |> .length
+  let grid := Parse.all input (() => Parse.grid cell)
+  let rows := grid.toList.map .toList
+  let width := grid.head.length
   let antennas :=
     rows.withIndex.flatMap (((row, cells)) =>
       Fail.ensure (cells.length == width) "line ${row + 1}: expected ${width} characters, as on the first line, got ${cells.length}"
