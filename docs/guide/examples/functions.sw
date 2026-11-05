@@ -133,6 +133,11 @@ test "inline" := sample.filterMap (match some | Garbled text => text.length) == 
 test "the first match" := sample.findMap (match some | Valid value => value * 10) == Some 40
 test "testing a value" := sample.filter (matches | Valid _ | Missing) == [Valid 4, Missing, Valid 9]
 test "a name is tested" := sample.count isMissing == 1
+
+def bigValue: Reading → Option Nat := match some
+  | Valid value if value > 5 => value
+
+test "a condition on a case" := sample.filterMap bigValue == [9]
 -- end clauses
 
 -- begin higher-order

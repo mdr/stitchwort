@@ -1,0 +1,6 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+Main.tok 1dd2b963157bd8aa62f273d0b694c47c62953733f94108a47d8f751c8e3bab32
+Main.test "tok" c77ef5977ee16613291d32b21da9183060290783a232d909b1a2fb05f67e4682

@@ -236,6 +236,7 @@ impl Elaborator {
             };
         }
         let equation = Decl::Equation {
+            guard: None,
             name,
             patterns: Vec::new(),
             rhs: Some(body),

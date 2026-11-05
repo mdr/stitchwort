@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/examples.rs
+expression: warnings
+---
+[W-REDUNDANT] Warning: this arm can never be chosen: earlier arms match everything it matches
+    ╭─[ accept/pattern-guard-redundant.sw:10:5 ]
+    │
+  9 │   | n => n
+    │     ┬  
+    │     ╰── this arm matches everything it does
+ 10 │   | m if m > 7 => m
+    │     ┬  
+    │     ╰── never chosen
+────╯

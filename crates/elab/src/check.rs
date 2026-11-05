@@ -591,6 +591,22 @@ impl<'e> Ctx<'e> {
         self.scope.push((name.to_string(), level));
     }
 
+    /// The names made since `mark` ([`Ctx::alias`], [`Ctx::bind`]) taken out
+    /// of scope, for [`Ctx::restore_names`] to put back.
+    pub(crate) fn suspend_names(&mut self, from: usize, to: usize) -> Vec<(String, usize)> {
+        self.scope.drain(from..to).collect()
+    }
+
+    /// Puts back names [`Ctx::suspend_names`] took out, at `at`.
+    pub(crate) fn restore_names(&mut self, at: usize, names: Vec<(String, usize)>) {
+        self.scope.splice(at..at, names);
+    }
+
+    /// Where the next name goes, for [`Ctx::suspend_names`].
+    pub(crate) fn names_len(&self) -> usize {
+        self.scope.len()
+    }
+
     /// Makes every name that now refers to the variable at `old` refer to
     /// the one at `new` instead (a generalised `match`'s copies).
     pub(crate) fn rebind(&mut self, old: usize, new: usize) {
@@ -4260,6 +4276,60 @@ pub(crate) fn check_if(
     otherwise: &Expr,
     expected: &Value,
 ) -> Result<Term> {
+    check_if_with(
+        cx,
+        binder,
+        cond,
+        &mut { then },
+        &mut { otherwise },
+        expected,
+    )
+}
+
+/// One branch of an `if`: an expression, or for a guarded arm of a `match`
+/// (`Tree::Guard`) code that checks the arm or the arms below it.
+pub(crate) trait IfBranch {
+    fn check(&mut self, cx: &mut Ctx, expected: &Value) -> Result<Term>;
+
+    /// Whether the branch binds the proof of the condition as `_`, out of
+    /// reach of the name the other branch has: the arms below a guarded arm
+    /// didn't write its `if h: P`.
+    fn hides_proof(&self) -> bool {
+        false
+    }
+}
+
+impl IfBranch for &Expr {
+    fn check(&mut self, cx: &mut Ctx, expected: &Value) -> Result<Term> {
+        check(cx, self, expected)
+    }
+}
+
+/// A branch checked by `run`.
+pub(crate) struct CheckedBranch<F> {
+    pub run: F,
+    pub hides_proof: bool,
+}
+
+impl<F: FnMut(&mut Ctx, &Value) -> Result<Term>> IfBranch for CheckedBranch<F> {
+    fn check(&mut self, cx: &mut Ctx, expected: &Value) -> Result<Term> {
+        (self.run)(cx, expected)
+    }
+
+    fn hides_proof(&self) -> bool {
+        self.hides_proof
+    }
+}
+
+/// [`check_if`] with its branches given as [`IfBranch`]es.
+pub(crate) fn check_if_with(
+    cx: &mut Ctx,
+    binder: Option<&AstName>,
+    cond: &Expr,
+    then: &mut dyn IfBranch,
+    otherwise: &mut dyn IfBranch,
+    expected: &Value,
+) -> Result<Term> {
     // `ifThenElse` and `elimDec` return a `Type`; an `if` whose branches
     // prove a proposition is `Decidable.elimProof` instead (SW-1015).
     if proof_expected(cx, expected)? {
@@ -4305,8 +4375,8 @@ fn check_proof_if(
     cx: &mut Ctx,
     binder: Option<&AstName>,
     cond: &Expr,
-    then: &Expr,
-    otherwise: &Expr,
+    then: &mut dyn IfBranch,
+    otherwise: &mut dyn IfBranch,
     expected: &Value,
 ) -> Result<Term> {
     let (name, prop, decision) = match binder {
@@ -4337,10 +4407,11 @@ fn check_proof_if(
     let not = builtin_def(cx, Builtin::Not)?;
     let not_prop =
         stitchwort_core::value::apply(&cx.g(), cx.eval(&Term::Def(not))?, prop_value.clone())?;
-    let branch = |cx: &mut Ctx, ty: Value, body: &Expr| -> Result<Term> {
+    let branch = |cx: &mut Ctx, ty: Value, body: &mut dyn IfBranch| -> Result<Term> {
+        let name = if body.hides_proof() { "_" } else { name };
         let mark = cx.mark();
         cx.bind(name, ty);
-        let result = check(cx, body, expected);
+        let result = body.check(cx, expected);
         cx.reset(mark);
         Ok(Term::Lam(name.into(), Icit::Explicit, Rc::new(result?)))
     };
@@ -4392,15 +4463,16 @@ fn check_if_in(
     cx: &mut Ctx,
     binder: Option<&AstName>,
     cond: &Expr,
-    then: &Expr,
-    otherwise: &Expr,
+    then: &mut dyn IfBranch,
+    otherwise: &mut dyn IfBranch,
     expected: &Value,
 ) -> Result<Term> {
     let result_ty = cx.quote_folded(expected)?;
-    let branch = |cx: &mut Ctx, name: &str, ty: Value, body: &Expr| -> Result<Term> {
+    let branch = |cx: &mut Ctx, name: &str, ty: Value, body: &mut dyn IfBranch| -> Result<Term> {
+        let name = if body.hides_proof() { "_" } else { name };
         let mark = cx.mark();
         cx.bind(name, ty);
-        let result = check(cx, body, expected);
+        let result = body.check(cx, expected);
         cx.reset(mark);
         Ok(Term::Lam(name.into(), Icit::Explicit, Rc::new(result?)))
     };
@@ -4539,16 +4611,16 @@ fn unused_proof_if(
 /// `elimDec decision (name => then) (name => otherwise)`, where `decision`
 /// decides `prop`: `name` is a proof of `prop` in `then` and of `Not prop`
 /// in `otherwise`.
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 fn decided_if(
     cx: &mut Ctx,
     name: &str,
     prop: Term,
     decision: Term,
     result_ty: Term,
-    branch: &dyn Fn(&mut Ctx, &str, Value, &Expr) -> Result<Term>,
-    then: &Expr,
-    otherwise: &Expr,
+    branch: &dyn Fn(&mut Ctx, &str, Value, &mut dyn IfBranch) -> Result<Term>,
+    then: &mut dyn IfBranch,
+    otherwise: &mut dyn IfBranch,
 ) -> Result<Term> {
     // The branches' assumptions need the proposition's value (that's what
     // a proof in them is about); `Not prop` reuses it rather than

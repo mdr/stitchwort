@@ -432,6 +432,12 @@ fn leaf_spans(tree: &Tree, out: &mut Vec<Span>) {
     match tree {
         Tree::Leaf { span, .. } => out.push(*span),
         Tree::Absurd { .. } | Tree::Missing { .. } => {}
+        Tree::Guard {
+            leaf, otherwise, ..
+        } => {
+            leaf_spans(leaf, out);
+            leaf_spans(otherwise, out);
+        }
         Tree::Case { branches, .. } => branches.iter().for_each(|(_, t)| leaf_spans(t, out)),
         Tree::NumCase { arms, default, .. } => {
             arms.iter().for_each(|(_, t)| leaf_spans(t, out));
@@ -553,6 +559,15 @@ fn case_branch(
                     subject(cx, x),
                     ctor.name
                 )))
+            }
+            Tree::Guard { .. }
+                if let Some(Tree::Missing { columns, .. }) =
+                    crate::guard_chain_missing(subtree)
+                    && let Some(term) = crate::empty_in_columns(cx, columns)? =>
+            {
+                // The arms are still checked, for their own errors.
+                check_tree(cx, subtree, &goal)?;
+                Ok(Some(term))
             }
             tree => check_tree(cx, tree, &goal).map(Some),
         },

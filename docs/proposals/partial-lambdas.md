@@ -546,6 +546,9 @@ come with this work.
 Guards could be allowed only in `match some` at first (where coverage is never
 affected), or in every `match` and definition arm at once (P3).
 
+Built as in [pattern-guards.md](pattern-guards.md) (SW-1295), which replaces
+this sketch.
+
 ## 7. The Boolean side: `matches`
 
 Matt (4 Nov, added to the brief): "maybe you're matching something and you

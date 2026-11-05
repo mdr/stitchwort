@@ -335,8 +335,21 @@ pub struct Scrutinee {
 #[derive(Clone, Debug)]
 pub struct Alt {
     pub patterns: Vec<Pattern>,
+    /// `if c` after the patterns: the alternative applies only when it holds.
+    pub guard: Option<Guard>,
     pub body: Expr,
     /// From the `|` to the end of the body.
+    pub span: Span,
+}
+
+/// The condition of a guarded arm, `| p if c => e` or `| p if h: P => e`
+/// (docs/proposals/pattern-guards.md). It covers every pattern of the arm.
+#[derive(Clone, Debug)]
+pub struct Guard {
+    /// `h` in `if h: P`.
+    pub binder: Option<Name>,
+    pub cond: Expr,
+    /// From the `if` to the end of the condition.
     pub span: Span,
 }
 
@@ -956,6 +969,8 @@ pub enum Decl {
     Equation {
         name: Name,
         patterns: Vec<Pattern>,
+        /// `if c` after the patterns of an arm.
+        guard: Option<Guard>,
         rhs: Option<Expr>,
         /// For an arm under a `def` or `theorem` header: how many of
         /// `patterns` are the header's named parameters (the rest are the

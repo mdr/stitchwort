@@ -255,6 +255,8 @@ struct Row {
     span: Span,
     /// Whether it has a right side (an arm with `()` has none).
     has_rhs: bool,
+    /// Whether the arm has an `if` condition.
+    guarded: bool,
     /// Its name below the definition's: `eq2`, `eq2.or1`, `eq2.cons`.
     suffix: String,
     /// The right side as written, if the row has one.
@@ -449,6 +451,9 @@ fn alternative_rows(parent: &Row, at: usize) -> std::result::Result<Vec<Row>, &'
              in stage 1b",
         );
     }
+    if alts.iter().any(|a| a.guard.is_some()) {
+        return Err(GUARDED);
+    }
     if alts.iter().any(|a| a.patterns.iter().any(has_or)) {
         return Err(
             "an alternative with an or-pattern, in a `match` compiled into the case tree, isn't \
@@ -466,6 +471,7 @@ fn alternative_rows(parent: &Row, at: usize) -> std::result::Result<Vec<Row>, &'
             alternatives: Vec::new(),
             span: alt.span,
             has_rhs: true,
+            guarded: false,
             suffix: format!("{}.{seg}", parent.suffix),
             rhs: Some(alt.body.clone()),
             parent: Some(at),
@@ -519,6 +525,7 @@ fn probe_body(rhs: Option<&Expr>, span: Span, known: &[String]) -> Expr {
                         .map(str::to_string),
                 );
                 Alt {
+                    guard: a.guard.clone(),
                     patterns: a.patterns.clone(),
                     body: probe_body(Some(&a.body), a.span, &inner),
                     span: a.span,
@@ -628,10 +635,17 @@ fn has_or(p: &Pattern) -> bool {
     expand_one(p).len() > 1 || matches!(p, Pattern::Or(..))
 }
 
+/// Why an arm with a condition (`if`), and those below it, get no equations
+/// (docs/proposals/pattern-guards.md §6, stage 1).
+const GUARDED: &str = "an arm at or above it has a condition (`if`), which generated equations \
+                       don't cover yet";
+
 /// One arm as the source writes it: its patterns, its right side (`None`
 /// for an arm with `()`), and its span.
 struct SourceArm {
     patterns: Vec<Pattern>,
+    /// The arm's `if` condition, if it has one.
+    guard: Option<ast::Guard>,
     rhs: Option<Expr>,
     span: Span,
 }
@@ -660,11 +674,13 @@ fn source_arms(equations: &[Decl]) -> Option<SourceArms> {
             .filter_map(|e| match e {
                 Decl::Equation {
                     patterns,
+                    guard,
                     rhs,
                     span,
                     ..
                 } => Some(SourceArm {
                     patterns: patterns.clone(),
+                    guard: guard.clone(),
                     rhs: rhs.clone(),
                     span: *span,
                 }),
@@ -686,6 +702,7 @@ fn source_arms(equations: &[Decl]) -> Option<SourceArms> {
                 Vec::new(),
                 vec![SourceArm {
                     patterns: Vec::new(),
+                    guard: None,
                     rhs: Some(body.clone()),
                     span: *span,
                 }],
@@ -721,6 +738,7 @@ fn source_arms(equations: &[Decl]) -> Option<SourceArms> {
         .iter()
         .map(|a: &Alt| SourceArm {
             patterns: a.patterns.clone(),
+            guard: a.guard.clone(),
             rhs: Some(a.body.clone()),
             span: a.span,
         })
@@ -1744,6 +1762,7 @@ impl Elaborator {
                     alternatives,
                     span: arm.span,
                     has_rhs: arm.rhs.is_some(),
+                    guarded: arm.guard.is_some(),
                     suffix,
                     rhs: arm.rhs.clone(),
                     parent: None,
@@ -1916,6 +1935,7 @@ impl Elaborator {
         // Each row's shape, from the probe, and what its leaf is. A row
         // whose right side is a `match` on its variables, compiled into
         // the case tree, has rows below it, one for each alternative.
+        let first_guarded = d.rows.iter().filter(|r| r.guarded).map(|r| r.arm).min();
         let mut shapes: Vec<std::result::Result<Shape, String>> = Vec::new();
         let mut leaves: Vec<Option<Found>> = Vec::new();
         // Why a row's alternatives aren't rows of their own.
@@ -1925,6 +1945,8 @@ impl Elaborator {
             let row = &d.rows[i];
             let shape = if !row.has_rhs {
                 Err("an arm with `()` has no right side".to_string())
+            } else if first_guarded.is_some_and(|g| row.arm >= g) {
+                Err(GUARDED.to_string())
             } else {
                 match self.attempt(|e| e.probe_row(d, row, span)) {
                     Ok(s) => Ok(s),
@@ -2199,11 +2221,13 @@ impl Elaborator {
                     scrutinees: scrutinees.clone(),
                     alts: vec![
                         Alt {
+                            guard: None,
                             patterns: patterns.clone(),
                             body,
                             span: probe_span,
                         },
                         Alt {
+                            guard: None,
                             patterns: scrutinees
                                 .iter()
                                 .map(|_| Pattern::Wildcard(other_span))
@@ -2227,11 +2251,13 @@ impl Elaborator {
                     .collect(),
                 alts: vec![
                     Alt {
+                        guard: None,
                         patterns: row.patterns.clone(),
                         body,
                         span: probe_span,
                     },
                     Alt {
+                        guard: None,
                         patterns: d
                             .columns
                             .iter()
@@ -3075,6 +3101,9 @@ impl Elaborator {
                     }
                 }
                 TailSplit::Match { scrutinees, alts } => {
+                    if alts.iter().any(|a| a.guard.is_some()) {
+                        return skip(GUARDED);
+                    }
                     // On several expressions (SW-1074), stated as on the
                     // one tuple of them: `isAlt1: (a, b) = (p, q)`.
                     let several = scrutinees.len() > 1;
@@ -3563,6 +3592,7 @@ impl Elaborator {
                 alternatives: Vec::new(),
                 span: a.span,
                 has_rhs: true,
+                guarded: a.guard.is_some(),
                 suffix: format!("alt{}", i + 1),
                 rhs: Some(a.body.clone()),
                 parent: None,
@@ -3593,6 +3623,7 @@ impl Elaborator {
             .iter()
             .map(|a| SourceArm {
                 patterns: a.patterns.clone(),
+                guard: a.guard.clone(),
                 rhs: Some(a.body.clone()),
                 span: a.span,
             })
@@ -4934,6 +4965,7 @@ impl Elaborator {
                                 .map(str::to_string),
                         );
                         Alt {
+                            guard: a.guard.clone(),
                             patterns: a.patterns.clone(),
                             body: probe_body(a.rhs.as_ref(), a.span, &known),
                             span: a.span,

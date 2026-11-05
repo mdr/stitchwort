@@ -402,6 +402,7 @@ impl Elaborator {
             body
         };
         let equation = |name: &ast::Name, pattern: Pattern, body: Expr| Decl::Equation {
+            guard: None,
             name: name.clone(),
             patterns: vec![pattern],
             rhs: Some(body),
@@ -540,6 +541,7 @@ impl Elaborator {
         let instance = (
             signature(&instance_name, instance_ty, true),
             vec![Decl::Equation {
+                guard: None,
                 name: instance_name,
                 patterns: Vec::new(),
                 rhs: Some(Expr::Record {

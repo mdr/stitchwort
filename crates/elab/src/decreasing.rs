@@ -1339,6 +1339,7 @@ impl Elaborator {
                 Decl::Equation {
                     name,
                     patterns,
+                    guard,
                     rhs,
                     arm,
                     span,
@@ -1353,6 +1354,7 @@ impl Elaborator {
                         }),
                     );
                     Decl::Equation {
+                        guard: guard.clone(),
                         name: name.clone(),
                         patterns,
                         rhs: rhs.clone(),

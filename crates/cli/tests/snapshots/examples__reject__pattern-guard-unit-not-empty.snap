@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NOT-EMPTY] Error: `Bool` has values, so this argument can't be `()`
+   ╭─[ reject/pattern-guard-unit-not-empty.sw:6:9 ]
+   │
+ 6 │   | (_, ()) => 0
+   │         ─┬  
+   │          ╰── `Bool` has values, so this argument can't be `()`
+───╯

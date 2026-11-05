@@ -287,6 +287,7 @@ impl Elaborator {
                 let mut patterns = vec![Pattern::Ctor(n(&key), fields, span)];
                 patterns.extend(values.iter().map(|_| Pattern::Wildcard(span)));
                 Decl::Equation {
+                    guard: None,
                     name: name.clone(),
                     patterns,
                     rhs: Some(var("rfl")),

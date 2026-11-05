@@ -722,6 +722,7 @@ impl Src {
 
     pub(crate) fn equation(&self, name: &str, patterns: Vec<Pattern>, rhs: Expr) -> Decl {
         Decl::Equation {
+            guard: None,
             name: self.n(name),
             patterns,
             rhs: Some(rhs),

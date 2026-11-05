@@ -109,7 +109,7 @@ def solvePart1: List Number → Option Nat
 --| Every ordered pair of numbers on different lines.
 def orderedPairs (numbers: List Number): List (Number, Number) :=
   numbers.withIndex
-    |> .flatMap (((i, x)) => numbers.withIndex |> .filterMap (((j, y)) => if i == j then None else Some (x, y)))
+    |> .flatMap (((i, x)) => numbers.withIndex |> .filterMap (match some | (j, y) if i != j => (x, y)))
 
 --| The magnitude of each pair's sum, or `None` if a sum runs out of steps.
 def sumMagnitudes: List (Number, Number) → Option (List Nat)

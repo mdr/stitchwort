@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NONEXHAUSTIVE] Error: missing case: no arm matches `_`
+| _ => ?
+   ╭─[ reject/pattern-guard-nonexhaustive.sw:6:3 ]
+   │
+ 6 │ ╭─▶   | n if n < 5 => n
+ 7 │ ├─▶   | n if n >= 5 => n
+   │ │         ────┬────        
+   │ │             ╰──────────── this arm has a condition, so it covers nothing
+   │ │                          
+   │ ╰────────────────────────── missing case: no arm matches `_`
+   │     
+   │     Note: an arm with `if` covers no case for sure: add an arm without `if` for these values
+───╯

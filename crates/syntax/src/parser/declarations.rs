@@ -326,6 +326,7 @@ impl Parser<'_> {
                             decls.push(Decl::Equation {
                                 name: name.clone(),
                                 patterns,
+                                guard: alt.guard,
                                 rhs: Some(alt.body),
                                 arm: Some(header.len()),
                                 span: alt.span,
@@ -336,6 +337,7 @@ impl Parser<'_> {
                         span: name.span.to(rhs.span()),
                         name,
                         patterns: header,
+                        guard: None,
                         rhs: Some(rhs),
                         arm: None,
                     }),
@@ -472,6 +474,7 @@ impl Parser<'_> {
                 span: name.span.to(body.span()),
                 name,
                 patterns: header,
+                guard: None,
                 rhs: Some(body),
                 arm: None,
             },
@@ -669,8 +672,17 @@ impl Parser<'_> {
         while self.eat(&Tok::Comma) {
             patterns.push(self.alt_pattern()?);
         }
+        let guard = self.guard()?;
         let absurd = patterns[header.len()..].iter().any(has_absurd);
         let rhs = if absurd && self.peek() != Some(&Tok::FatArrow) {
+            if let Some(guard) = &guard {
+                return Err(error(
+                    guard.span,
+                    "an arm with `()` and no body can't have a condition",
+                )
+                .with_note("the condition would test nothing: the pattern can't match")
+                .into());
+            }
             None
         } else {
             self.expect(Tok::FatArrow, "`=>` and the arm's body")?;
@@ -680,6 +692,7 @@ impl Parser<'_> {
         Ok(Decl::Equation {
             name: name.clone(),
             patterns,
+            guard,
             rhs,
             arm: Some(header.len()),
             span: bar.to(end),

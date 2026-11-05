@@ -1960,6 +1960,30 @@ The way round all of them is a top-level helper with a written signature. `E-MAT
 
 JavaScript: a `match` that is part of the case tree, with a tail call to its own definition in a branch, becomes a loop like any self tail call. A generated definition doesn't: a `match` that is lifted, in tail position, whose branch calls the owner, is a pair of mutual tail calls, and those aren't loops yet. Deep recursion through it can hit the JS stack limit, which is reported as the boundary's out-of-resources error. A tail `match` on a parameter (the whole right-hand side) isn't affected. Examples: `examples/accept/match.sw`, `examples/extract/match.sw`. Design: [syntax-conveniences.md](proposals/syntax-conveniences.md) section 4.
 
+#### Guards: `| p if c => e`
+
+An arm may end its patterns with `if` and a condition: the arm applies only when the patterns match and the condition holds. When it doesn't, the arms below it are tried, as if the arm were not there:
+
+```
+def clamp (limit: Nat): Nat → Nat
+  | n if n <= limit => n
+  | _ => limit
+
+def firstBig (xs: List Nat): List Nat :=
+  xs.filterMap (match some | x if x > 2 => x * 10)
+```
+
+A guard works in every kind of `match`: `match … with`, a definition's arms, and the clause lambdas `match |`, `match some |` and `matches |` (in `matches`, an arm with a guard and no `=>` is `True`). It covers the whole arm: with several patterns (`| a, b if a < b =>`) it comes once, after the last, and with an or-pattern (`| 'a' | 'e' if strict =>`) it is tested for whichever alternative matched. It stops at the `=>` outside brackets, so `| x if flag => e` is a guard and a result, not a lambda. `if h: P` names the fact in the arm, as in an `if` expression. An arm with `()` and no result can't have a guard (`E-PARSE`), nor can a handler clause, `match induct`, `match reify`, a pattern `let` or a lambda's pattern.
+
+- **What the arm knows.** The arm is the `then` of an `if` on the condition and the arms below it are its `else`, so they know what an `if` would tell them. A decided proposition (`n != 0`, `x < y`) is an anonymous hypothesis in the arm, that `auto` finds (`| (n, len) if n != 0 => len % n` checks the `%`), and its negation is known below. A plain `Bool` condition (`here == wanted`) tells nothing. Proofs see an ordinary `if`: `match e: n <= limit with` splits `clamp limit n`.
+- **Coverage.** An arm with a guard covers nothing: the checker doesn't reason about conditions, so `| n if n < 5 => … | n if n >= 5 => …` is `E-NONEXHAUSTIVE`, and the error points at the guarded arms and says to add an arm without `if`. A `match some` or `matches` is complete anyway, as its last hidden arm takes what no arm accepts, so `W-MATCH-TOTAL` doesn't fire when a guard makes it useful. `W-REDUNDANT` knows a guarded arm isn't a covering one: an unguarded arm after a guarded one that looks the same is reached.
+- **Abilities.** A condition can't perform operations (`E-ABILITY`): it runs inside the case tree, where nothing can be sequenced. A pure call, even of a function whose abilities come from its callback (`xs.all (y => y > 2)`), is fine; for an operation, run it first with `let`.
+- **Size.** A guard keeps the arms below it where a plain arm would end the search, so guarded arms that match different columns copy them: a `match` may make 4096 such copies (`E-MATCH-SIZE`): many guarded arms over many plain ones are fine, but each further guarded arm on another column doubles the count. Move some of the arms into a helper.
+- **Order.** The splits that arms below a guarded arm need are made before the condition is tested, so a guard may wait for another column to be taken apart. Nothing observable changes, as conditions are pure.
+- **Equations.** Generated equations (`f.eq1`, …) and `f.induct` stop at the first guarded arm: the arms above it keep theirs, and naming one from the guarded arm on is `E-NO-EQUATION` with the reason. They are a later stage (SW-1301); until then prove such a case by hand with `f.unfold` or by matching on the condition.
+
+Examples: `examples/accept/pattern-guards.sw`, `pattern-guard-facts.sw`, `pattern-guard-proofs.sw`, `pattern-guard-effects.sw`, `pattern-guard-redundant.sw`; `examples/reject/pattern-guard-*.sw`. Design: [proposals/pattern-guards.md](proposals/pattern-guards.md).
+
 #### Missing cases
 
 When the alternatives of a `match`, or the arms of a definition, leave out some constructors, `E-NONEXHAUSTIVE` lists every case that is missing, as arms to paste, one per line, each ending in `?` so that it checks as an open goal (SW-1027):
@@ -2002,7 +2026,7 @@ def operationOf: Nat → Option Operation := match some
   | 7 => EqualTo
 ```
 
-The rules of `|` are those of `match … with`. On one line a `|` before `=>` continues an or-pattern (`matches | A | B` is true for both), and one after a result starts the next alternative, so alternatives with different results go on their own lines, lined up. An inner `match` on one line takes the alternatives after it: bracket it, or use lines (`examples/reject/clause-lambda-nested-one-line.sw`). Not covered here: guards (`| p if c => e`). Examples: `examples/accept/clause-lambda.sw`, `match-some.sw`, `matches.sw`, `match-some-covers-every-value.sw`; `examples/reject/match-some-not-option.sw`, `matches-not-bool.sw`, `clause-lambda-arity.sw`. The lemma for proofs about `filterMap` is `List.memFilterMap`.
+The rules of `|` are those of `match … with`. On one line a `|` before `=>` continues an or-pattern (`matches | A | B` is true for both), and one after a result starts the next alternative, so alternatives with different results go on their own lines, lined up. An inner `match` on one line takes the alternatives after it: bracket it, or use lines (`examples/reject/clause-lambda-nested-one-line.sw`). Guards (`| p if c => e`) work here as in any `match` (see "Guards" above). Examples: `examples/accept/clause-lambda.sw`, `match-some.sw`, `matches.sw`, `match-some-covers-every-value.sw`; `examples/reject/match-some-not-option.sw`, `matches-not-bool.sw`, `clause-lambda-arity.sw`. The lemma for proofs about `filterMap` is `List.memFilterMap`.
 
 ### `calc`
 

@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/pattern-guard-impossible-branch.sw:8:24 ]
+   │
+ 8 │   | FSucc j if True => "bad"
+   │                        ──┬──  
+   │                          ╰──── expected `Nat`, but this has type `Text`
+───╯

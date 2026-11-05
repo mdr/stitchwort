@@ -27,9 +27,22 @@ pub(crate) struct Arm {
     /// Whether it is certainly missing: no index or other column can make
     /// it impossible, so the compiler reports it without checking.
     pub definite: bool,
+    /// The condition of a guarded arm this case is reached through when it
+    /// fails, if any: that arm covers nothing.
+    pub guard: Option<Span>,
 }
 
 impl Arm {
+    /// The case left when the guarded arm whose condition is at `guard`
+    /// fails and no row follows it.
+    pub(crate) fn through_guard(guard: Span) -> Arm {
+        Arm {
+            definite: true,
+            guard: Some(guard),
+            ..Arm::default()
+        }
+    }
+
     pub(crate) fn definite() -> Arm {
         Arm {
             definite: true,
@@ -179,6 +192,7 @@ impl Elaborator {
     ) {
         match tree {
             Tree::Leaf { .. } | Tree::Absurd { .. } => {}
+            Tree::Guard { otherwise, .. } => self.annotate_in(otherwise, root, shapes, path),
             Tree::Missing { arm, .. } => {
                 arm.pattern = (root.iter())
                     .map(|&level| self.show_column(level, shapes, false))
@@ -318,22 +332,40 @@ impl Elaborator {
 
 /// The error for the cases of `tree` that are certainly missing, if any.
 pub(crate) fn definite(tree: &Tree, span: Span) -> Option<Diagnostic> {
-    fn collect(tree: &Tree, out: &mut Vec<(Vec<usize>, String)>) {
+    fn collect(tree: &Tree, out: &mut Vec<(Vec<usize>, String)>, guards: &mut Vec<Span>) {
         match tree {
             Tree::Leaf { .. } | Tree::Absurd { .. } => {}
+            Tree::Guard { otherwise, .. } => collect(otherwise, out, guards),
             Tree::Missing { arm, .. } => {
                 if arm.definite {
                     out.push((arm.order.clone(), arm.pattern.clone()));
+                    guards.extend(arm.guard);
                 }
             }
-            Tree::Case { branches, .. } => branches.iter().for_each(|(_, t)| collect(t, out)),
+            Tree::Case { branches, .. } => {
+                branches.iter().for_each(|(_, t)| collect(t, out, guards))
+            }
             Tree::NumCase { arms, default, .. } => {
-                arms.iter().for_each(|(_, t)| collect(t, out));
-                collect(default, out);
+                arms.iter().for_each(|(_, t)| collect(t, out, guards));
+                collect(default, out, guards);
             }
         }
     }
     let mut cases = Vec::new();
-    collect(tree, &mut cases);
-    (!cases.is_empty()).then(|| diagnostic(span, cases))
+    let mut guards = Vec::new();
+    collect(tree, &mut cases, &mut guards);
+    if cases.is_empty() {
+        return None;
+    }
+    let mut d = diagnostic(span, cases);
+    guards.dedup();
+    if !guards.is_empty() {
+        for guard in guards {
+            d = d.with_label(guard, "this arm has a condition, so it covers nothing");
+        }
+        d = d.with_note(
+            "an arm with `if` covers no case for sure: add an arm without `if` for these values",
+        );
+    }
+    Some(d)
 }
