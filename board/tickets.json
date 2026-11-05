@@ -7656,9 +7656,9 @@
     {
       "id": 1379,
       "title": "Unifier: (List.memRange _ _ _).forward h fails for h: x ∈ List.range 2 (n + 1) (the type evaluates to rangeFrom (n - 1) 2 and ?b - ?a matches n - 1 first); compare List.range ?a ?b with a List.range call argument by argument before evaluating, or let ranges step 3's auto do it",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1379",
       "labels": [
         "elab"
       ],
