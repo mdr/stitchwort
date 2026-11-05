@@ -89,22 +89,11 @@ test "parse a gate" := onDevice smallText (device => device.gates.headOr { left 
 
 test "parse without a final line break" := parsed "x00: 1\n\nx00 OR x00 -> z00" == Ok ({ initial = [(X 0, True)], gates = [{ left = X 0, operation = Or, right = X 0, output = Z 0 }] })
 
-test "a bad value" := parsed """
-  x00: 2
+test "a bad value" := parsed "x00: 2\n\nx00 OR x00 -> z00\n" == Err "line 1, column 6: expected 0 or 1, got '2'"
 
-  x00 OR x00 -> z00
-  """ == Err "line 1, column 6: expected 0 or 1, got '2'"
+test "a bad operation" := parsed "x00: 1\n\nx00 NOR x00 -> z00\n" == Err "line 3, column 5: expected AND, OR or XOR, got 'N'"
 
-test "a bad operation" := parsed """
-  x00: 1
-
-  x00 NOR x00 -> z00
-  """ == Err "line 3, column 5: expected AND, OR or XOR, got 'N'"
-
-test "no blank line" := parsed """
-  x00: 1
-  x00 OR x00 -> z00
-  """ == Err "line 2, column 4: expected ': ' or a blank line before this line, got ' OR'"
+test "no blank line" := parsed "x00: 1\nx00 OR x00 -> z00\n" == Err "line 2, column 4: expected ': ' or a blank line before this line, got ' OR'"
 
 --| A wire with no value: the gate waits for ever.
 test "a gate missing an input never fires" := onDevice """

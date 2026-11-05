@@ -161,14 +161,8 @@ test "parse" := (parsed """
   CD
   """ |> .map (map => map.plots.toList)) == Ok [(at 0 0, 'A'), (at 0 1, 'B'), (at 1 0, 'C'), (at 1 1, 'D')]
 test "parse without a final line break" := (parsed "AB\nCD" |> .map (map => map.positions.length)) == Ok 4
-test "a bad plot" := (parsed """
-  AB
-  C.
-  """ |> .map (map => ())) == Err "line 2, column 2: expected a letter or the end of the line, got '.'"
-test "a short row" := (parsed """
-  ABC
-  AB
-  """ |> .map (map => ())) == Err "line 2: expected 3 plots, as on the first line, got 2"
+test "a bad plot" := (parsed "AB\nC.\n" |> .map (map => ())) == Err "line 2, column 2: expected a letter or the end of the line, got '.'"
+test "a short row" := (parsed "ABC\nAB\n" |> .map (map => ())) == Err "line 2: expected 3 plots, as on the first line, got 2"
 
 test "steps" :=
   (at 0 0).step Up == None && (at 0 0).step Left == None && (at 0 0).step Down == Some (at 1 0) && (at 2 3).step Right == Some (at 2 4)

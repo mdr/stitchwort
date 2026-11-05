@@ -71,8 +71,5 @@ test "parse" := parsed """
   2024
   """ == Ok [1, 10, 100, 2024]
 test "parse without a final line break" := parsed "1\n2" == Ok [1, 2]
-test "a line that isn't a number" := parsed """
-  1
-  x
-  """ == Err "line 2, column 1: expected a number, got 'x'"
+test "a line that isn't a number" := parsed "1\nx\n" == Err "line 2, column 1: expected a number, got 'x'"
 test "an empty input has no buyers" := parsed "" == Ok []

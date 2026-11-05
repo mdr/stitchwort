@@ -63,47 +63,14 @@ test "parse" := parsed """
   Ok ({ rules = [{ before = 1, after = 2 }, { before = 3, after = 4 }], updates = [{ pages = [1, 2, 3] }, { pages = [4] }] }: PrintQueue)
 test "parse without a final line break" := parsed "1|2\n\n1,2,3" ==
   Ok ({ rules = [{ before = 1, after = 2 }], updates = [{ pages = [1, 2, 3] }] }: PrintQueue)
-test "a bad rule" := parsed """
-  1|2
-  3x4
-
-  1,2
-  """ == Err "line 2, column 2: expected '|' or a blank line before this line, got 'x'"
-test "a rule with no second page" := parsed """
-  1|2
-  3|
-
-  1,2
-  """ == Err "line 2, column 3: expected a number or a blank line before this line, got the end of the line"
-test "a bad update" := parsed """
-  1|2
-
-  1,2
-  3,x
-  """ == Err "line 4, column 3: expected a number, got 'x'"
-test "a bad separator in an update" := parsed """
-  1|2
-
-  1,2
-  3;4
-  """ == Err "line 4, column 2: expected ',' or the end of the line, got ';'"
-test "a rule among the updates" := parsed """
-  1|2
-
-  1,2
-  3|4
-  """ == Err "line 4, column 2: expected ',' or the end of the line, got '|'"
-test "no blank line" := parsed """
-  1|2
-  1,2
-  """ == Err "line 2, column 2: expected '|' or a blank line before this line, got ','"
+test "a bad rule" := parsed "1|2\n3x4\n\n1,2\n" == Err "line 2, column 2: expected '|' or a blank line before this line, got 'x'"
+test "a rule with no second page" := parsed "1|2\n3|\n\n1,2\n" == Err "line 2, column 3: expected a number or a blank line before this line, got the end of the line"
+test "a bad update" := parsed "1|2\n\n1,2\n3,x\n" == Err "line 4, column 3: expected a number, got 'x'"
+test "a bad separator in an update" := parsed "1|2\n\n1,2\n3;4\n" == Err "line 4, column 2: expected ',' or the end of the line, got ';'"
+test "a rule among the updates" := parsed "1|2\n\n1,2\n3|4\n" == Err "line 4, column 2: expected ',' or the end of the line, got '|'"
+test "no blank line" := parsed "1|2\n1,2\n" == Err "line 2, column 2: expected '|' or a blank line before this line, got ','"
 test "no updates" := parsed "1|2\n\n" == Err "line 3, column 1: expected a number, got the end of the input"
-test "two blank lines" := parsed """
-  1|2
-
-
-  1,2
-  """ == Err "line 3, column 1: expected a number, got the end of the line"
+test "two blank lines" := parsed "1|2\n\n\n1,2\n" == Err "line 3, column 1: expected a number, got the end of the line"
 test "blank lines at the end" := parsed "1|2\n\n1,2\n\n\n" == Ok ({ rules = [{ before = 1, after = 2 }], updates = [{ pages = [1, 2] }] }: PrintQueue)
 
 def precedesIn (rules: List Rule): Nat → Nat → Bool := mustPrecede (ruleSet rules)

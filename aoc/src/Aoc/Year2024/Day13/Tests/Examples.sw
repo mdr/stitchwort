@@ -79,10 +79,7 @@ test "a missing blank line" :=
     Button A: X+1, Y+2
     """
     == Err "line 4, column 1: expected a blank line or the end of the input, got 'B'"
-test "a missing prize" := parsed """
-  Button A: X+1, Y+2
-  Button B: X+3, Y+4
-  """ == Err "line 3, column 1: expected 'Prize: ', got the end of the input"
+test "a missing prize" := parsed "Button A: X+1, Y+2\nButton B: X+3, Y+4\n" == Err "line 3, column 1: expected 'Prize: ', got the end of the input"
 
 --| One solution, but negative, not whole, or over 100 presses.
 test "a negative solution" := (claw 2 1 1 2 1 5).fewestTokens == None && part1Tokens (claw 2 1 1 2 1 5) == None

@@ -142,14 +142,8 @@ test "parse" := parsed """
   """ == Ok ({ grid = Grid.of [[Some 0, Some 1], [None, Some 9]] })
 test "parse without a final line break" := parsed "01\n23" == Ok ({ grid = Grid.of [[Some 0, Some 1], [Some 2, Some 3]] })
 test "nothing" := parsed "" == Err "expected a grid, got no cells"
-test "a bad tile" := parsed """
-  0123
-  12x4
-  """ == Err "line 2, column 3: expected a digit, '.' or the end of the line, got 'x'"
-test "a short row" := parsed """
-  0123
-  124
-  """ == Err "line 2: expected 4 cells, as on the first line, got 3"
+test "a bad tile" := parsed "0123\n12x4\n" == Err "line 2, column 3: expected a digit, '.' or the end of the line, got 'x'"
+test "a short row" := parsed "0123\n124\n" == Err "line 2: expected 4 cells, as on the first line, got 3"
 
 test "heights off the map" :=
   onMap """

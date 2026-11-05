@@ -31,12 +31,8 @@ test "example, slope by slope" := exampleMap.map (map => slopes.map (treesOn map
 test "a map parsed" := parsed """
   .#
   #.""" == Ok (Grid.of [[Open, Tree], [Tree, Open]])
-test "an unknown square" := parsed """
-  ..
-  .O""" == Err "line 2, column 2: expected '.' or '#' or the end of the line, got 'O'"
-test "a ragged map" := parsed """
-  ..
-  .""" == Err "line 2: expected 2 cells, as on the first line, got 1"
+test "an unknown square" := parsed "..\n.O" == Err "line 2, column 2: expected '.' or '#' or the end of the line, got 'O'"
+test "a ragged map" := parsed "..\n." == Err "line 2: expected 2 cells, as on the first line, got 1"
 
 test "the start isn't counted" := treesOn (Grid.of [[Tree], [Open]]) { right = 0, down = 1 } == 0
 test "the map repeats to the right" := treesOn (Grid.of [[Open, Open], [Open, Tree], [Tree, Open]]) { right = 3, down = 1 } == 2

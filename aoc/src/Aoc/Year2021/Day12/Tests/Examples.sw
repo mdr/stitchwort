@@ -35,15 +35,8 @@ theorem shortPath: ({ caves = [{ name = "start" }, { name = "A" }, { name = "end
 
 test "parse the example" :=
   example == [link "start" "A", link "start" "b", link "A" "c", link "A" "b", link "b" "d", link "A" "end", link "b" "end"]
-test "two big caves joined" := parsed """
-  start-A
-  A-BC
-  b-end
-  """ == Err "line 2: A-BC joins two big caves, so a path could cross it back and forth forever and there would be infinitely many paths"
-test "no dash" := parsed """
-  start-A
-  Ab
-  """ == Err "line 2, column 3: expected '-', got the end of the line"
+test "two big caves joined" := parsed "start-A\nA-BC\nb-end\n" == Err "line 2: A-BC joins two big caves, so a path could cross it back and forth forever and there would be infinitely many paths"
+test "no dash" := parsed "start-A\nAb\n" == Err "line 2, column 3: expected '-', got the end of the line"
 test "big and small" := Cave.isBig { name = "A" } ∧ Cave.isBig { name = "HN" } ∧ Cave.isSmall { name = "start" } ∧ Cave.isSmall { name = "end" } ∧ Cave.isSmall { name = "dc" } ∧ Cave.isSmall { name = "" }
 
 test "the example's ten paths" :=

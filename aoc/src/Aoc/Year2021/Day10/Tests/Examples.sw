@@ -30,15 +30,8 @@ def example: List (List Token) := Fail.orElse [] (() => parseLines exampleText)
 def tokens (line: Text): List Token := line.toList.filterMap (char => allTokens.find (token => token.char == char))
 
 test "parse the example" := example.length == 10 ∧ example.headOr [] == tokens "[({(<(())[]>[[{[]{<()<>>"
-test "a stray character" := parsed """
-  ()
-  (x)
-  """ == Err "line 2, column 2: expected a bracket or the end of the line, got 'x'"
-test "an empty line is no tokens" := parsed """
-  ()
-
-  []
-  """ == Ok [[Opener Round, Closer Round], [], [Opener Square, Closer Square]]
+test "a stray character" := parsed "()\n(x)\n" == Err "line 2, column 2: expected a bracket or the end of the line, got 'x'"
+test "an empty line is no tokens" := parsed "()\n\n[]\n" == Ok [[Opener Round, Closer Round], [], [Opener Square, Closer Square]]
 
 test "the example's first illegal characters" :=
   example.map (scan []) |> .filterMap (match some | Corrupted illegal => illegal) == [Curly, Round, Square, Round, Angle]

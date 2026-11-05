@@ -41,14 +41,8 @@ def example: Cavern :=
     """
 
 test "parse the small example" := small.grid.rows == [[1, 1, 1, 1, 1], [1, 9, 9, 9, 1], [1, 9, 1, 9, 1], [1, 9, 9, 9, 1], [1, 1, 1, 1, 1]]
-test "a short row" := parsed """
-  123
-  45
-  """ == Err "line 2: expected 3 cells, as on the first line, got 2"
-test "a letter" := parsed """
-  123
-  4x6
-  """ == Err "line 2, column 2: expected a digit or the end of the line, got 'x'"
+test "a short row" := parsed "123\n45\n" == Err "line 2: expected 3 cells, as on the first line, got 2"
+test "a letter" := parsed "123\n4x6\n" == Err "line 2, column 2: expected a digit or the end of the line, got 'x'"
 
 test "the small example, one step" := small.step == cavernOf """
   34543

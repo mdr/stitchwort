@@ -98,13 +98,6 @@ test "two rules for one pair" := parsed """
   AB -> D
   """ == Err "two rules for the pair AB"
 
-test "a lowercase element" := parsed """
-  AB
+test "a lowercase element" := parsed "AB\n\nAb -> C\n" == Err "line 3, column 2: expected a capital letter, got 'b'"
 
-  Ab -> C
-  """ == Err "line 3, column 2: expected a capital letter, got 'b'"
-
-test "no blank line" := parsed """
-  AB
-  AB -> C
-  """ == Err "line 2, column 1: expected a blank line, got 'A'"
+test "no blank line" := parsed "AB\nAB -> C\n" == Err "line 2, column 1: expected a blank line, got 'A'"

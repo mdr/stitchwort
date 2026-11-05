@@ -74,11 +74,7 @@ test "an unknown key" :=
   parsed "byr:1937 abc:1" == Err "line 1, column 10: expected 'byr', 'iyr', 'eyr', 'hgt', 'hcl', 'ecl', 'pid' or 'cid', got 'abc'"
 test "an empty value" := parsed "byr: iyr:2017" == Err "line 1, column 5: expected a value, got ' '"
 -- The extra blank line is line 3, where the next passport should start.
-test "two blank lines" := parsed """
-  cid:1
-
-
-  cid:2""" == Err "line 3, column 1: expected 'byr', 'iyr', 'eyr', 'hgt', 'hcl', 'ecl', 'pid' or 'cid', got the end of the line"
+test "two blank lines" := parsed "cid:1\n\n\ncid:2" == Err "line 3, column 1: expected 'byr', 'iyr', 'eyr', 'hgt', 'hcl', 'ecl', 'pid' or 'cid', got the end of the line"
 
 test "byr" := Key.valid BirthYear "2002" ∧ not (Key.valid BirthYear "2003")
 test "hgt" := Key.valid Height "60in" ∧ Key.valid Height "190cm" ∧ not (Key.valid Height "190in") ∧ not (Key.valid Height "190")

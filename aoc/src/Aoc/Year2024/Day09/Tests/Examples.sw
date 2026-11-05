@@ -57,10 +57,7 @@ test "parse" := parsed "12345\n" == Ok ({ lengths = [1, 2, 3, 4, 5] }: DiskMap)
 test "parse without a final line break" := parsed "2333" == Ok ({ lengths = [2, 3, 3, 3] }: DiskMap)
 test "nothing" := parsed "" == Err "line 1, column 1: expected a digit, got the end of the input"
 test "a bad character" := parsed "12x3" == Err "line 1, column 3: expected a digit or the end of the line, got 'x'"
-test "two lines" := parsed """
-  12
-  34
-  """ == Err "line 2, column 1: expected the end of the input, got '3'"
+test "two lines" := parsed "12\n34\n" == Err "line 2, column 1: expected the end of the input, got '3'"
 
 test "one file" := (onDisk "3" (diskMap => (picture diskMap.blocks.compact, solvePart1 diskMap)), agrees "3") == (Ok ("000", 0), Ok True)
 test "no free space" := (onDisk "90909" (diskMap => solvePart1 diskMap == solvePart2 diskMap), agrees "90909") == (Ok True, Ok True)

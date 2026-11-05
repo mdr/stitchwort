@@ -151,13 +151,8 @@ test "frequencies are case sensitive and include digits" := (city """
   ...""").map (map => map.antennas.map (antenna => antenna.frequency)) == Ok ['a', 'A', '0']
 test "a final line break is allowed" := (city "a.a\n").map solvePart2 == Ok 3
 
-test "parse error, a ragged row" := city """
-  ...
-  ..
-  ...""" == Err "line 2: expected 3 characters, as on the first line, got 2"
-test "parse error, a bad character" := city """
-  ..#
-  ...""" == Err "line 1, column 3: expected '.', a letter or a digit or the end of the line, got '#'"
+test "parse error, a ragged row" := city "...\n..\n..." == Err "line 2: expected 3 characters, as on the first line, got 2"
+test "parse error, a bad character" := city "..#\n..." == Err "line 1, column 3: expected '.', a letter or a digit or the end of the line, got '#'"
 
 --| The spec, worded like the puzzle, counts the same on the examples.
 test "example, the spec agrees" := (city example).map (map => (part1 map, part2 map)) == Ok (14, 34)

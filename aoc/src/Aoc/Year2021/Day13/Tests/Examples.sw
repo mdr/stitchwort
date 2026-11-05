@@ -84,15 +84,8 @@ test "a dot on the second fold's line once the first is made" :=
     fold along y=2
     fold along x=2
     """ == Err "fold 2: the dot at 2,0 is on its line, or further beyond it than the sheet reaches on the near side"
-test "a bad fold" := parsed """
-  1,2
-
-  fold along z=1
-  """ == Err "line 3, column 12: expected 'x=' or 'y=', got 'z='"
-test "no blank line" := parsed """
-  1,2
-  fold along y=1
-  """ == Err "line 2, column 1: expected a number or a blank line, got 'f'"
+test "a bad fold" := parsed "1,2\n\nfold along z=1\n" == Err "line 3, column 12: expected 'x=' or 'y=', got 'z='"
+test "no blank line" := parsed "1,2\nfold along y=1\n" == Err "line 2, column 1: expected a number or a blank line, got 'f'"
 test "a dot listed twice is one dot" := solvePart1 (paperOf """
   1,0
   1,0

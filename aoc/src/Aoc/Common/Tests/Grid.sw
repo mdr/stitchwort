@@ -43,14 +43,8 @@ test "parse a grid" := parsedGrid """
   123
   456
   """ == Ok small
-test "parse a short row" := parsedGrid """
-  123
-  45
-  """ == Err "line 2: expected 3 cells, as on the first line, got 2"
-test "parse a letter" := parsedGrid """
-  123
-  4x6
-  """ == Err "line 2, column 2: expected a digit or the end of the line, got 'x'"
+test "parse a short row" := parsedGrid "123\n45\n" == Err "line 2: expected 3 cells, as on the first line, got 2"
+test "parse a letter" := parsedGrid "123\n4x6\n" == Err "line 2, column 2: expected a digit or the end of the line, got 'x'"
 test "parse nothing" := parsedGrid "" == Err "expected a grid, got no cells"
 test "an empty line has no cells" := parsedGrid "\n\n" == Err "line 1, column 1: expected a digit, got the end of the line"
 
