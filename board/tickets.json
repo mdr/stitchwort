@@ -1,5 +1,5 @@
 {
-  "next": 1313,
+  "next": 1314,
   "tickets": [
     {
       "id": 47,
@@ -6725,6 +6725,20 @@
         "aoc"
       ],
       "body": "Split from SW-1289 (the survey's 2024/23 entry, MEDIUM-HIGH; removes the program/spec duplication of password and hasT). D2363; Sonnet; the orchestrator checks each changed statement keeps its meaning.\n\nDone (Sonnet, 10 min, est. 120): Computer {name} with mightBeChief; Connection {one, other} with reverse; Party {members: Set Computer} with size, mightHaveChief, password. The spec keeps its own hasT and password over Party (sharing the program's would make part1/2Correct check the program against itself); Spec.sw says so. Statements checked by the orchestrator: re-typing only. Example answers unchanged; no real input for 2024 day 23 is committed. Model result: Sonnet, worked, 10 min (est. 120).",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1313,
+      "title": "AoC domain types 11: grid wrappers: 2021 days 9 and 15, 2024 day 10 hold an Aoc.Common Grid of domain cells; Grid.findOnly for 2024 days 16 and 20",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1313",
+      "labels": [
+        "aoc"
+      ],
+      "body": "Split from SW-1289 (the survey's Shared 5, grid wrappers). HeightMap, Cave (risk map) and TopographicMap each hold rows and duplicate Grid; make each a record holding grid: Grid Cell and delegating at/step/cells/graph. Add Common Grid.findOnly replacing the identical onlyTile in 2024/16 and 2024/20. D2363; Sonnet; the orchestrator checks each changed statement keeps its meaning.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
