@@ -136,9 +136,9 @@ expression: json
         "message": "f: List Leaf → Nat\nleaf: Leaf\nrest: List Leaf\n⊢ f [{ leaf | depth = leaf.depth + 1 }, ..rest] = f rest",
         "range": [
           19,
-          79,
+          75,
           19,
-          80
+          76
         ]
       }
     ],
@@ -146,9 +146,9 @@ expression: json
     "notes": [],
     "range": [
       19,
-      79,
+      75,
       19,
-      80
+      76
     ],
     "severity": "goal"
   },
