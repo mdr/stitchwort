@@ -1,5 +1,5 @@
 {
-  "next": 1462,
+  "next": 1464,
   "tickets": [
     {
       "id": 47,
@@ -3941,13 +3941,13 @@
     {
       "id": 1117,
       "title": "Editor small wins: add-import quick fix (machine-readable diagnostic field), signature help, let inlay hints, semantic tokens",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1117",
       "labels": [
         "editor"
       ],
-      "body": "Roadmap step 2. Inlay hints scope pending D2244. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2244 (Matt, 3 Nov): inlay hints for let types only.\n\nD2263 (Matt, 3 Nov): not started yet; editor-roadmap implementation waits until the tidy-ups (state migration, std) settle.\n\nSW-1383 (signature help) folded in here.\n\nStarted on Sonnet (after D2439's speed work), expected: 120 min.",
+      "body": "Roadmap step 2. Inlay hints scope pending D2244. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2244 (Matt, 3 Nov): inlay hints for let types only.\n\nD2263 (Matt, 3 Nov): not started yet; editor-roadmap implementation waits until the tidy-ups (state migration, std) settle.\n\nSW-1383 (signature help) folded in here.\n\nStarted on Sonnet (after D2439's speed work), expected: 120 min.\n\nDone (17e5678e4, 49681e874, 6e6b78f57, clamp fix, 3accc1c3e), merged: E-UNKNOWN-NAME carries data.import and a code action adds it (merging into an existing import line); signature help from completion::calls_at (works on unparsed text, named arguments, pipes/receivers take the first parameter); inlay hints for let types only (D2244; from published local references, so unused lets get none); semantic tokens from resolved references (theorem and ability as custom types) with refresh requests; the playground draws tokens and hints itself. Docs: getting-started, vscode README, syntax.md. Browser: 5 of the lane's tests pass; drawn() skips inlay widgets. Model result: Sonnet, worked (one browser-found clamp fix; test gaps closed on request), 33 + 35 min (est. 120).",
       "created": "2026-11-03",
       "updated": "2026-11-05",
       "commits": []
@@ -8839,6 +8839,34 @@
         "aoc"
       ],
       "body": "D2442 (Matt, 5 Nov 2026): yes. D2443: overnight, day 11 follows without a friction review in between; both reviewed with Matt in the morning. Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day10.\n\nStarted on Opus, expected: 90 min.\n\nD2444 (Matt, 5 Nov 2026): no daily tier overnight; maybe one in the morning.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1462,
+      "title": "Inlay hints: a let whose variable is never used gets no type hint, because only used locals' types are published; record let binder types in the elaborator's navigation data",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor"
+      ],
+      "body": "From SW-1117, 5 Nov 2026. Small improvement.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1463,
+      "title": "Signature help matches the called function by its last name segment among the file's references, so two functions with the same short name in one file can show the wrong signature; resolve the call's head by position instead",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor"
+      ],
+      "body": "From SW-1117, 5 Nov 2026. Small improvement.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
