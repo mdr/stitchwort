@@ -31,12 +31,12 @@ def marked (drawn: List Nat) (number: Nat): Bool := drawn.contains number
 --| "If all numbers in any row or any column of a board are marked, that
 --| board wins." Diagonals don't count.
 def wins (drawn: List Nat) (board: Board): Bool :=
-  board.any (row => row.all (marked drawn)) ∨ board.transpose.any (column => column.all (marked drawn))
+  board.rows.any (row => row.all (marked drawn)) ∨ board.rows.transpose.any (column => column.all (marked drawn))
 
 --| "The sum of all unmarked numbers on that board", times "the number that
 --| was just called when the board won".
 def finalScore (drawn: List Nat) (justCalled: Nat) (board: Board): Nat :=
-  (board.concat.filter (number => not (marked drawn number)) |> .sum) * justCalled
+  (board.numbers.filter (number => not (marked drawn number)) |> .sum) * justCalled
 
 --| The game, from the numbers `drawn` so far and the boards still `playing`:
 --| draw the next number, then the boards that now win leave the game, in the

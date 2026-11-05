@@ -35,19 +35,19 @@ def parsed (input: Text): Result Game Text := Fail.toResult (() => parseGame inp
 
 test "parse the example" :=
   exampleGame.draws.length == 27 ∧ exampleGame.boards.length == 3
-    ∧ exampleGame.boards.headOr [] == [[22, 13, 17, 11, 0], [8, 2, 23, 4, 24], [21, 9, 14, 16, 7], [6, 10, 3, 18, 5], [1, 12, 20, 15, 19]]
+    ∧ exampleGame.boards.map .rows |> .headOr [] == [[22, 13, 17, 11, 0], [8, 2, 23, 4, 24], [21, 9, 14, 16, 7], [6, 10, 3, 18, 5], [1, 12, 20, 15, 19]]
 test "example, part 1" := solvePart1 exampleGame == Some 4512
 test "example, part 2" := solvePart2 exampleGame == Some 1924
 --| The third board wins first, on the 12th draw (24); the second wins last,
 --| on the 15th (13).
-test "example, the turns" := exampleGame.boards.map (winningTurn exampleGame.draws) == [13, 14, 11]
+test "example, the turns" := exampleGame.boards.map (.winningTurn exampleGame.draws) == [13, 14, 11]
 test "example, as the puzzle states it" := (firstWinnerScore exampleGame, lastWinnerScore exampleGame) == (Some 4512, Some 1924)
 
 test "a board too small" := parsed "1,2\n\n1 2\n3 4\n" == Err "board 1 isn't 5 by 5"
 test "not a number" := parsed "1,x\n" == Err "line 1, column 3: expected a number, got 'x'"
 
 --| Small games, 2 by 2. A column wins as a row does; a diagonal doesn't.
-def tiny (draws: List Nat) (boards: List Board): Game := { draws, boards }
+def tiny (draws: List Nat) (boards: List (List (List Nat))): Game := { draws, boards = boards.map (rows => { rows }) }
 test "a column wins" := solvePart1 (tiny [1, 3, 9] [[[1, 2], [3, 4]]]) == Some 18
 test "a diagonal doesn't" := solvePart1 (tiny [1, 4] [[[1, 2], [3, 4]]]) == None
 --| Two boards win on the same draw: the earlier listed is first, the later
@@ -67,3 +67,7 @@ test "no boards" := (solvePart1 (tiny [1, 2] []), solvePart2 (tiny [1, 2] [])) =
 --| The examples, proved by computing them.
 theorem examplePart1: solvePart1 exampleGame = Some 4512 := rfl
 theorem examplePart2: solvePart2 exampleGame = Some 1924 := rfl
+
+test "a board's lines and numbers" :=
+  let board: Board := { rows = [[1, 2], [3, 4]] }
+  board.lines == [[1, 2], [3, 4], [1, 3], [2, 4]] ∧ board.numbers == [1, 2, 3, 4]
