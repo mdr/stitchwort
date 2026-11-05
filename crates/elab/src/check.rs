@@ -6525,24 +6525,6 @@ fn same_function(cx: &Ctx, a: &Value, b: &Value) -> Option<String> {
     ))
 }
 
-/// `s` with lifted `match` helpers' names replaced as the message will show
-/// them (`(match …)`), so two sides that name different helpers compare
-/// alike.
-fn hide_lifted(cx: &Ctx, s: &str) -> String {
-    let mut s = s.to_string();
-    let mut lifted: Vec<String> =
-        cx.e.tables
-            .lifted
-            .iter()
-            .map(|&(id, _)| cx.e.kernel.def(id).name().to_string())
-            .collect();
-    lifted.sort_by_key(|name| std::cmp::Reverse(name.len()));
-    for name in lifted {
-        s = s.replace(&name, "(match …)");
-    }
-    s
-}
-
 /// The `E-REFL` error for sides `a` and `b` that aren't equal (kept out of
 /// `check`, whose stack frame is on every recursion).
 #[inline(never)]
@@ -6597,24 +6579,16 @@ pub(crate) fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
     if difference && let Some(note) = cx.first_difference_note(a, b) {
         error = error.with_note(note);
     }
-    // The reader can't see where the sides differ: say so, and name the
-    // reason when a structural comparison that skips proofs says they're
-    // otherwise the same.
-    let same_printed = side_a == side_b || hide_lifted(cx, &side_a) == hide_lifted(cx, &side_b);
-    if !hidden && same_printed {
-        let note = if cx.differ_only_in_proofs(a, b) {
-            let hint = same_function(cx, a, b)
-                .map(|f| format!("; prove it with `Eq.cong` (e.g. `Eq.cong {f} h`)"))
-                .unwrap_or_default();
-            format!(
-                "the two sides print the same but differ in a proof inside them, which isn't \
-                 skipped under an opaque, axiom or same-group call{hint}"
-            )
-        } else {
-            "the two sides print the same but differ in something the printer doesn't show"
-                .to_string()
-        };
-        error = error.with_note(note);
+    // The sides print the same because they differ only in proofs, which a
+    // comparison under an opaque, axiom or same-group call doesn't skip.
+    if !hidden && side_a == side_b && cx.differ_only_in_proofs(a, b) {
+        let hint = same_function(cx, a, b)
+            .map(|f| format!("; prove it with `Eq.cong` (e.g. `Eq.cong {f} h`)"))
+            .unwrap_or_default();
+        error = error.with_note(format!(
+            "the two sides differ only in a proof inside them, which isn't skipped under an \
+             opaque, axiom or same-group call{hint}"
+        ));
     }
     // Both sides still print the same, as written or computed.
     if alike {

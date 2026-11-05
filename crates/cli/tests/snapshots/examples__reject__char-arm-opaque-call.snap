@@ -9,7 +9,7 @@ expression: output
     │               ─┬─  
     │                ╰─── `secret 'a'` and `secret 'a'` aren't equal
     │ 
-    │ Note 1: the two sides print the same but differ in a proof inside them, which isn't skipped under an opaque, axiom or same-group call; prove it with `Eq.cong` (e.g. `Eq.cong secret h`)
+    │ Note 1: the two sides differ only in a proof inside them, which isn't skipped under an opaque, axiom or same-group call; prove it with `Eq.cong` (e.g. `Eq.cong secret h`)
     │ 
     │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
     │ 
