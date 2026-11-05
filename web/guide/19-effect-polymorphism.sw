@@ -17,7 +17,7 @@ test "fine" := toResult (() => applyTwice halve 8) == Ok 2
 
 -- The library works the same way: `map` serves both.
 def squares (xs: List Nat): List Nat := xs.map (n => n * n)
-def halves (xs: List Nat): {Fail} (List Nat) := xs.map halve
+def halves (xs: List Nat): {Fail} List Nat := xs.map halve
 
 test "map, pure" := squares [1, 2, 3] == [1, 4, 9]
 test "map, failing" := toResult (() => halves [4, 6, 7]) == Err "7 is odd"

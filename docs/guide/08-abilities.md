@@ -111,7 +111,7 @@ An operation's result can be anything the handler chooses. Here `next()` asks th
 ability Counter where
   next: () → {Counter} Nat
 
-def label (names: List Text): {Counter} (List Text) := names.map (name => "${next()}. ${name}")
+def label (names: List Text): {Counter} List Text := names.map (name => "${next()}. ${name}")
 
 def counting (start: Nat) (prog: () → {Counter | e} a): {e} a :=
   let run: Nat → {e} a :=
@@ -177,7 +177,7 @@ def Turn.parse (text: Text): {Fail} Turn :=
   ensure (direction == 'L' ∨ direction == 'R') "expected L or R, got '${text}'"
   { left = direction == 'L', distance = rest.toNatOrFail }
 
-def parseTurns (lines: List Text): {Fail} (List Turn) := lines.map Turn.parse
+def parseTurns (lines: List Text): {Fail} List Turn := lines.map Turn.parse
 
 test "a turn" := toResult (() => Turn.parse "L68") == Ok ({ left = True, distance = 68 })
 test "a bad turn" := toResult (() => parseTurns ["L1", "X2"]) == Err "expected L or R, got 'X2'"
@@ -229,7 +229,7 @@ def box(): {Parse} Box :=
   let z := nat()
   { x, y, z }
 
-def parseBoxes (input: Text): {Fail} (List Box) := Parse.eachLine input box
+def parseBoxes (input: Text): {Fail} List Box := Parse.eachLine input box
 
 test "boxes" := toResult (() => parseBoxes "162,817,812\n57,618,57\n") == Ok [{ x = 162, y = 817, z = 812 }, { x = 57, y = 618, z = 57 }]
 test "a bad box" := toResult (() => parseBoxes "162,817,812\n57,6x8,57\n") == Err "line 2, column 5: expected ',', got 'x'"

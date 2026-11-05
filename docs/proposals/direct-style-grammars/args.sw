@@ -29,7 +29,7 @@ def twoParts(): {Parse} (Char, Char) := (any(), any())
 test "tuple parts run left to right" := lineResult "ab" twoParts == Ok ('a', 'b')
 
 -- And a list's items.
-def threeItems(): {Parse} (List Char) := [any(), any(), any()]
+def threeItems(): {Parse} List Char := [any(), any(), any()]
 
 test "list items run left to right" := lineResult "abc" threeItems == Ok ['a', 'b', 'c']
 

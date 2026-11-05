@@ -10,7 +10,7 @@ def List.concatMap: List a → (f: a → List b) → List b
 
 --| The value itself: `id 3` is `3`. It is the function to pass where one is
 --| wanted and nothing should change, as in `options.filterMap id`
---| ([`List.somes`] is that).
+--| (`List.somes` is that).
 def id (x: a): a := x
 
 --| `f` applied to the two parts of a pair: `uncurry (+) (2, 3)` is `5`. It lets a

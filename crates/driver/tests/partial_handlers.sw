@@ -19,7 +19,7 @@ def stopThenSpin (): {Fail, Partial} Nat :=
   spin 0
 
 ability Input where
-  next: () → {Input} (Option Text)
+  next: () → {Input} Option Text
 
 def fromLines (lines: List Text) (prog: () → {Input, Partial | e} a): {Partial | e} a :=
   let run: List Text → {Partial | e} a :=
