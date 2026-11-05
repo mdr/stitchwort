@@ -756,56 +756,53 @@ theorem Parse.readsMany (p: () → {Parse} a) (spec: List Char → a → Prop) (
 
 --| `many1 p`: the same, with at least one value.
 theorem Parse.readsMany1 (p: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads p spec):
-    Parse.Reads (() => Parse.many1 p) (read values => Parse.Each spec read values ∧ values ≠ []) :=
+    Parse.Reads (() => Parse.many1 p) (read values => Parse.Each spec read values.toList) :=
   Parse.readsWeaken _ _ _
-    (Parse.readsBind p (first => [first, ..Parse.many p]) spec (first read values => ∃ (rest: List a) => Parse.Each spec read rest ∧ values = [first, ..rest])
-      reads (first => Parse.readsMap (() => Parse.many p) (Cons first) _ (Parse.readsMany p spec reads)))
+    (Parse.readsBind p (first => NonEmptyList.cons first (Parse.many p)) spec (first read values => ∃ (rest: List a) => Parse.Each spec read rest ∧ values = NonEmptyList.cons first rest)
+      reads (first => Parse.readsMap (() => Parse.many p) (NonEmptyList.cons first) _ (Parse.readsMany p spec reads)))
     (read values h =>
       match h with
         | Witness firstRead (Witness restRead (Witness first (Both split (Both holds (Witness rest (Both each same)))))) =>
-          rewrite same in Both (Witness firstRead (Witness restRead (Both split (Both holds each)))) (List.consNotNil first rest))
+          rewrite same in Witness firstRead (Witness restRead (Both split (Both holds each))))
 
 --| What `sepBy1 p separator` reads: `p`'s part for the first value, then a
 --| separator's and `p`'s for each further value.
-def Parse.SepBy (spec: List Char → a → Prop) (separator: List Char → () → Prop) (read: List Char) (values: List a): Prop :=
-  ∃ (first: a) => ∃ (rest: List a) => values = [first, ..rest] ∧
-    Parse.Then spec (v => afterFirst => rests => v = first ∧ Parse.Each (Parse.Then separator (u => spec)) afterFirst rests) read rest
+def Parse.SepBy (spec: List Char → a → Prop) (separator: List Char → () → Prop) (read: List Char) (values: NonEmptyList a): Prop :=
+  Parse.Then spec (v => afterFirst => rests => v = values.head ∧ Parse.Each (Parse.Then separator (u => spec)) afterFirst rests) read values.tail
 
 theorem Parse.readsSepBy1 (p: () → {Parse} a) (separator: () → {Parse} ()) (spec: List Char → a → Prop) (separatorSpec: List Char → () → Prop)
     (reads: Parse.Reads p spec) (readsSeparator: Parse.Reads separator separatorSpec):
     Parse.Reads (() => Parse.sepBy1 p separator) (Parse.SepBy spec separatorSpec) :=
   Parse.readsWeaken _ _ _
     (Parse.readsBind p
-      (first => [
-        first,
-        ..Parse.many (() =>
+      (first =>
+        NonEmptyList.cons first (Parse.many (() =>
           separator()
-          p())
-      ])
-      spec (first read values => ∃ (rest: List a) => Parse.Each (Parse.Then separatorSpec (u => spec)) read rest ∧ values = [first, ..rest]) reads
+          p())))
+      spec (first read values => ∃ (rest: List a) => Parse.Each (Parse.Then separatorSpec (u => spec)) read rest ∧ values = NonEmptyList.cons first rest) reads
       (first =>
         Parse.readsMap
           (() =>
             Parse.many (() =>
               separator()
               p()))
-          (Cons first) _
+          (NonEmptyList.cons first) _
           (Parse.readsMany _ _ (Parse.readsBind _ _ separatorSpec (u => spec) readsSeparator (u => reads)))))
     (read values h =>
       match h with
         | Witness firstRead (Witness restRead (Witness first (Both split (Both holds (Witness rest (Both each same)))))) =>
-          Witness first (Witness rest (Both same (Witness firstRead (Witness restRead (Witness first (Both split (Both holds (Both rfl each)))))))))
+          rewrite same in Witness firstRead (Witness restRead (Witness first (Both split (Both holds (Both rfl each))))))
 
 theorem Parse.readsSepBy (p: () → {Parse} a) (separator: () → {Parse} ()) (spec: List Char → a → Prop) (separatorSpec: List Char → () → Prop)
     (reads: Parse.Reads p spec) (readsSeparator: Parse.Reads separator separatorSpec):
-    Parse.Reads (() => Parse.sepBy p separator) (read values => (read = [] ∧ values = []) ∨ Parse.SepBy spec separatorSpec read values) :=
+    Parse.Reads (() => Parse.sepBy p separator) (read values => (read = [] ∧ values = []) ∨ ∃ (found: NonEmptyList a) => Parse.SepBy spec separatorSpec read found ∧ values = found.toList) :=
   Parse.readsWeaken _ _ _
-    (Parse.readsMap (() => Parse.optional (() => Parse.sepBy1 p separator)) (found => found.getOrElse []) _
+    (Parse.readsMap (() => Parse.optional (() => Parse.sepBy1 p separator)) Parse.sepByValues _
       (Parse.readsOptional _ _ (Parse.readsSepBy1 p separator spec separatorSpec reads readsSeparator)))
     (read values h =>
       match h with
         | Witness None (Both none same) => Inl (Both none same)
-        | Witness (Some found) (Both holds same) => Inr (rewrite same in holds))
+        | Witness (Some found) (Both holds same) => Inr (Witness found (Both holds same)))
 
 --| `lines p`: one value per line, line breaks between.
 theorem Parse.readsLines (p: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads p spec):
@@ -814,7 +811,7 @@ theorem Parse.readsLines (p: () → {Parse} a) (spec: List Char → a → Prop) 
 
 --| `grid cell`: rows of one or more cells, line breaks between.
 theorem Parse.readsGrid (cell: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads cell spec):
-    Parse.Reads (() => Parse.grid cell) (Parse.SepBy (read row => Parse.Each spec read row ∧ row ≠ []) (read u => Parse.LineBreak read)) :=
+    Parse.Reads (() => Parse.grid cell) (Parse.SepBy (read row => Parse.Each spec read row.toList) (read u => Parse.LineBreak read)) :=
   Parse.readsLines _ _ (Parse.readsMany1 cell spec reads)
 
 --| What `looseRow cell` reads: its cells, then a line break or nothing.
@@ -1422,7 +1419,7 @@ theorem Parse.readsSections (p: () → {Parse} a) (spec: List Char → a → Pro
 
 --| What `section p` reads: one value per line, line breaks between, then a
 --| blank line.
-def Parse.Section (spec: List Char → a → Prop) (read: List Char) (values: List a): Prop :=
+def Parse.Section (spec: List Char → a → Prop) (read: List Char) (values: NonEmptyList a): Prop :=
   ∃ (linesRead: List Char) => ∃ (blankRead: List Char) =>
     read = linesRead ++ blankRead ∧ Parse.SepBy spec (read u => Parse.LineBreak read) linesRead values ∧ Parse.BlankLine blankRead
 
@@ -1434,10 +1431,10 @@ theorem Parse.readsSection (p: () → {Parse} a) (spec: List Char → a → Prop
           Parse.newline()
           Parse.sectionLine p)
         Parse.blankLine()
-        [first, ..rest])
+        NonEmptyList.cons first rest)
       spec
       (first =>
-        Parse.Then (Parse.Each (Parse.Then (read u => Parse.LineBreak read) (u => spec))) (rest read values => Parse.BlankLine read ∧ values = [first, ..rest]))
+        Parse.Then (Parse.Each (Parse.Then (read u => Parse.LineBreak read) (u => spec))) (rest read values => Parse.BlankLine read ∧ values = NonEmptyList.cons first rest))
       reads
       (first =>
         Parse.readsBind
@@ -1447,11 +1444,11 @@ theorem Parse.readsSection (p: () → {Parse} a) (spec: List Char → a → Prop
               Parse.sectionLine p))
           (rest =>
             Parse.blankLine()
-            [first, ..rest])
-          _ (rest read values => Parse.BlankLine read ∧ values = [first, ..rest])
+            NonEmptyList.cons first rest)
+          _ (rest read values => Parse.BlankLine read ∧ values = NonEmptyList.cons first rest)
           (Parse.readsMany _ _ (Parse.readsBind Parse.newline (u => Parse.sectionLine p) _ (u => spec) Parse.readsNewline (u => Parse.readsSectionLine p spec reads)))
           (rest =>
-            Parse.readsWeaken _ _ _ (Parse.readsMap Parse.blankLine (u => [first, ..rest]) _ Parse.readsBlankLine)
+            Parse.readsWeaken _ _ _ (Parse.readsMap Parse.blankLine (u => NonEmptyList.cons first rest) _ Parse.readsBlankLine)
               (read values h =>
                 match h with
                   | Witness u (Both blank same) => Both blank same))))
@@ -1463,7 +1460,7 @@ theorem Parse.readsSection (p: () → {Parse} a) (spec: List Char → a → Prop
               Witness (firstRead ++ eachRead)
                 (Witness blankRead
                   (Both (rewrite split, split2, List.appendAssoc firstRead eachRead blankRead in rfl)
-                    (Both (Witness first (Witness rest (Both same (Witness firstRead (Witness eachRead (Witness first (Both rfl (Both holds (Both rfl each))))))))) blank))))
+                    (Both (rewrite same in Witness firstRead (Witness eachRead (Witness first (Both rfl (Both holds (Both rfl each)))))) blank))))
 
 -- Recursion, counted repetition, numbers of so many digits, and matches
 -- among noise (SW-1002).

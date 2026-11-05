@@ -151,14 +151,6 @@ def NonEmptyList.any (xs: NonEmptyList a) (p: a → {e} Bool): {e} Bool := List.
 --| Whether `p` holds for every element ([`NonEmptyList.allToList`]).
 def NonEmptyList.all (xs: NonEmptyList a) (p: a → {e} Bool): {e} Bool := List.all xs.toList p
 
---| The keys in every set, starting from the first set, so there is no made-up
---| "all keys" to start from: `people.map .answers |> .intersectAll`
---| ([`NonEmptyList.intersectAllReduce`]).
-def NonEmptyList.intersectAll [auto ord: Ord k] (sets: NonEmptyList (Set k)): Set k := NonEmptyList.reduce sets Set.intersect
-
---| The keys in any of the sets ([`NonEmptyList.unionAllReduce`]).
-def NonEmptyList.unionAll [auto ord: Ord k] (sets: NonEmptyList (Set k)): Set k := NonEmptyList.reduce sets Set.union
-
 --| `x` is one of the elements, as a proposition (what `x ∈ xs.toList` says).
 @[noReceiver]
 def NonEmptyList.Mem (x: a) (xs: NonEmptyList a): Prop := x ∈ xs.toList

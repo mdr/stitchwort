@@ -27,8 +27,8 @@ def range(): {Parse} Range :=
   { from, to }
 
 def database(): {Parse} Database :=
-  let fresh := section range
-  let available := lines (() => token nat)
+  let fresh := section range |> .toList
+  let available := lines (() => token nat) |> .toList
   { fresh, available }
 
 def parseDatabase (input: Text): {Fail} Database := Parse.all input database

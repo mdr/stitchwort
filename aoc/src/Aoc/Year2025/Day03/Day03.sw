@@ -53,7 +53,7 @@ def Bank: Type := List Battery
 --| known to be digits.
 def bank(): {Parse} Bank :=
   spaces()
-  let batteries := many1 digit
+  let batteries := many1 digit |> .toList
   spaces()
   end()
   Parse.ensure (batteries.length ≥ part2Batteries) "expected at least ${part2Batteries} batteries, got ${batteries.length}"

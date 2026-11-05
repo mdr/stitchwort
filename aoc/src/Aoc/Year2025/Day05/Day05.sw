@@ -37,8 +37,8 @@ def Database.empty: Database := { fresh = [], available = [] }
 def parseDatabase (input: Text): {Fail} Database := Parse.all input database
 
 def database(): {Parse} Database :=
-  let fresh := section range
-  let available := lines (() => token nat)
+  let fresh := section range |> .toList
+  let available := lines (() => token nat) |> .toList
   { fresh, available }
 
 --| Part 1: the available ids that are fresh.

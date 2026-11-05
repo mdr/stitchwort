@@ -12,7 +12,7 @@ import Std (And, Bool, DecEq, Eq, List, Nat, Void)
 --| `left || right` is `left`, shifted left by the digits of `right`, plus
 --| `right`.
 theorem concatenateArithmetic (left: Nat) (right: Nat): concatenate left right = left * placeValue right + right :=
-  rewrite Nat.fromDigitsAppend (Nat.digits left) (Nat.digits right), Nat.fromDigitsDigits left, Nat.fromDigitsDigits right in rfl
+  rewrite Nat.fromDigitsAppend (Nat.digits left).toList (Nat.digits right).toList, Nat.fromDigitsDigits left, Nat.fromDigitsDigits right, Nat.digitCountLength right in rfl
 
 --| `right` is less than its place value.
 theorem belowPlaceValue (right: Nat): right < placeValue right := Nat.ltPowTenDigits right

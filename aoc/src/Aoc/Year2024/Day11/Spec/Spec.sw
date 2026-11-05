@@ -20,10 +20,10 @@ import Std (List, Nat)
 --| "If none of the other rules apply, the stone is replaced by a new stone;
 --| the old stone's number multiplied by 2024 is engraved on the new stone."
 def change (stone: Nat): List Nat :=
-  let digits := Nat.digits stone
-  let half := digits.length / 2
+  let digits := (Nat.digits stone).toList
+  let half := stone.digitCount / 2
   if stone == 0 then [1]
-  else if digits.length % 2 == 0 then [Nat.fromDigits (digits.take half), Nat.fromDigits (digits.drop half)]
+  else if stone.digitCount % 2 == 0 then [Nat.fromDigits (digits.take half), Nat.fromDigits (digits.drop half)]
   else [stone * 2024]
 
 --| "No matter how the stones change, their order is preserved, and they stay

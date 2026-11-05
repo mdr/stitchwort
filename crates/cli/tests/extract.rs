@@ -3427,7 +3427,7 @@ def countdownNamed (n: Nat): List Nat
 
 export def countdownLength (n: Nat): Nat := List.foldLeft (countdownNamed n) 0 (count d => count + 1)
 
-export def digitCount (n: Nat): Nat := List.foldLeft (Nat.digits n) 0 (count d => count + 1)
+export def digitCount (n: Nat): Nat := List.foldLeft (Nat.digits n).toList 0 (count d => count + 1)
 "#;
     let mut session = Session::new();
     if let Err(diagnostics) = session.load("decreasing.sw", source) {

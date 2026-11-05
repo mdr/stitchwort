@@ -34,7 +34,7 @@ def main(): {IO, Fail} () :=
 --| line and column, and so does a number with a different number of bits
 --| from the first.
 def parseReport (input: Text): {Fail} List Bits :=
-  let numbers := Parse.eachLine input (() => { bits = many1 bit })
+  let numbers := Parse.eachLine input (() => { bits = many1 bit |> .toList })
   let width := (numbers.headOr Bits.empty).width
   match numbers.withIndex.find (((_, number)) => number.width != width) with
     | Some (index, number) => Fail.fail "line ${index + 1}: ${number.width} bits, but the first line has ${width}"

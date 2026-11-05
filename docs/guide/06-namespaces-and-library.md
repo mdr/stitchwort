@@ -245,7 +245,7 @@ def wordCounts (words: List Text): Map Text Nat :=
 test "counts" := (wordCounts ["a", "b", "a"]).get "a" == Some 2
 test "missing key" := (wordCounts ["a"]).get "z" == None
 test "in key order" := (wordCounts ["b", "a", "b"]).toList == [("a", 1), ("b", 2)]
-test "group by" := (Map.groupBy ["tea", "milk", "pot"] (word => word.length)).get 3 == Some ["tea", "pot"]
+test "group by" := (Map.groupBy ["tea", "milk", "pot"] (word => word.length)).get 3 |> .map (group => group.toList) == Some ["tea", "pot"]
 test "from pairs" := [(2, "b"), (1, "a")].toMap == Map.fromList [(1, "a"), (2, "b")]
 test "equal however built" := Map.fromList [(1, "a"), (2, "b")] == Map.fromList [(2, "b"), (1, "a")]
 ```
@@ -263,7 +263,8 @@ test "union a list of sets" := sets.unionAll == [1, 2, 3].toSet
 
 ### NonEmptyList
 
-Many lists can't be empty: the people in a group, the numbers on a line. A `NonEmptyList a` is a record of a first element and the rest, `{ head = 3, tail = [9, 4] }`, written `[3, 9, 4]` where the type says it is a `NonEmptyList`, so the functions that need a first element can't fail. `maximum`, `minimum`, `maxBy`, `minBy`, `last` and `reduce` (a fold that starts from the first element) return the value itself where `List`'s return an `Option`, and `map`, `zip`, `sort`, `reverse` and `append` return a `NonEmptyList` again. `xs.toList` goes back to a `List`. To go forward, `xs.toNonEmpty` takes a list the compiler can see isn't empty (a proof `xs ≠ []`, found by `auto`), and `xs.nonEmpty` gives an `Option (NonEmptyList a)`. In a pattern, `[first, ..rest]` takes one apart (`rest` is a `List`) and covers every value, so a match needs no `[]` arm; `[]` itself is an error where a `NonEmptyList` is expected. Where nothing says the type, brackets make a `List`. `++` is for `List` and `Text`, so the joins are `append`, `appendList` and `prependList`.
+Many lists can't be empty: the people in a group, the numbers on a line. A `NonEmptyList a` is a record of a first element and the rest, `{ head = 3, tail = [9, 4] }`, written `[3, 9, 4]` where the type says it is a `NonEmptyList`, so the functions that need a first element can't fail. `maximum`, `minimum`, `maxBy`, `minBy`, `last` and `reduce` (a fold that starts from the first element) return the value itself where `List`'s return an `Option`, and `map`, `zip`, `sort`, `reverse` and `append` return a `NonEmptyList` again. `xs.toList` goes back to a `List`. To go forward, `xs.toNonEmpty` takes a list the compiler can see isn't empty (a proof `xs ≠ []`, found by `auto`), and `xs.nonEmpty` gives an `Option (NonEmptyList a)`. In a pattern, `[first, ..rest]` takes one apart (`rest` is a `List`) and covers every value, so a match needs no `[]` arm; `[]` itself is an error where a `NonEmptyList` is expected. Where nothing says the type, brackets make a `List`. `++` is for `List` and `Text`, so the joins are `append`, `appendList` and `prependList`. The library returns one wherever a list can't be empty: the parsers `Parse.many1`, `sepBy1`, `lines`, `sections`, `section` and `grid`, each group of `List.splitBy` and of `Map.groupBy`, and `Nat.digits`. Write `.toList` where a plain list is wanted.
+
 
 <!-- snippet: library.sw#nonempty -->
 ```stitchwort

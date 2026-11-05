@@ -57,7 +57,7 @@ def RepetitionTemplate.largestBlock (template: RepetitionTemplate): Nat := Nat.p
 --| more digits written two or more times. Some may have no ids in the range;
 --| `RepetitionTemplate.sumIn` gives those 0.
 def allTemplatesForRange (range: Range): List RepetitionTemplate := Each.collect (() =>
-  let maxDigits := Nat.digits range.to |> .length
+  let maxDigits := range.to.digitCount
   let blockLength := each (List.between 1 maxDigits)
   let copies := each (List.between 2 maxDigits)
   require (blockLength * copies ≤ maxDigits)
@@ -68,7 +68,7 @@ def allTemplatesForRange (range: Range): List RepetitionTemplate := Each.collect
 --| longer than half the digits of the range's end has no ids in the range,
 --| and `RepetitionTemplate.sumIn` gives 0.
 def sumOfIdsWrittenTwice (range: Range): Nat :=
-  List.between 1 (Nat.digits range.to).length
+  List.between 1 range.to.digitCount
     |> .sumBy (blockLength => RepetitionTemplate.sumIn { blockLength, copies = 2 } range)
 
 --| Part 2: the ids in the range written two or more times, each counted once.
@@ -111,4 +111,4 @@ def RepetitionTemplate.sumIn (template: RepetitionTemplate) (range: Range): Nat 
 
 --| Ranges separated by commas. Spaces and a final line break are allowed;
 --| anything else fails, naming the column.
-def parseRanges (input: Text): {Fail} List Range := Parse.all input (() => sepBy1 range (() => char ','))
+def parseRanges (input: Text): {Fail} List Range := Parse.all input (() => sepBy1 range (() => char ',') |> .toList)

@@ -24,7 +24,7 @@ def count (yes: List (List Char) → Char → Bool) (group: List (List Char)): N
 --| input; the tests check this reading of the input against the answers.
 def blank (line: List Char): Bool := line.all (char => char == ' ' ∨ char == '\t')
 
-def groupsOf (input: Text): List (List (List Char)) := (input.lines.map Text.toList).splitBy blank
+def groupsOf (input: Text): List (List (List Char)) := (input.lines.map Text.toList).splitBy blank |> .map .toList
 
 --| "For each group, count the number of questions to which anyone answered
 --| 'yes'. What is the sum of those counts?"

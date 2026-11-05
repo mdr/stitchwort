@@ -55,9 +55,11 @@ def field(): {Parse} Field :=
 
 def fieldBreak(): {Parse} () := Parse.oneOf [() => Parse.char ' ', Parse.newline]
 
-def passport(): {Parse} Passport := { fields = Parse.sepBy1 field fieldBreak }
+def passport(): {Parse} Passport :=
+  let fields := Parse.sepBy1 field fieldBreak
+  { fields = fields.toList }
 
-def parsePassports (input: Text): {Fail} List Passport := Parse.all input (() => Parse.sections passport)
+def parsePassports (input: Text): {Fail} List Passport := Parse.all input (() => Parse.sections passport |> .toList)
 
 def Passport.has (passport: Passport) (key: Key): Bool := passport.fields.any (.key == key)
 
