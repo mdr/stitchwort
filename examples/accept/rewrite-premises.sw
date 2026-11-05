@@ -1,7 +1,7 @@
 -- A rule's premises, and the facts a congruence lemma gives inside a
 -- function. Inside `List.sumBy (List.range 0 n) f` the lemma `rewrite` uses is
 -- `List.foldLeftCongRange` (`sumBy` computes to a `foldLeft`), which gives
--- `0 <= x` and `x < 0 + n` about the function's `x`; `…CongMem` lemmas give
+-- `0 <= x` and `x < n` about the function's `x`; `…CongMem` lemmas give
 -- `List.Mem x xs`. A premise the rule leaves unknown is proved by a
 -- hypothesis of exactly its type (those facts among them), or else by
 -- `omega`. (docs/syntax.md, "rewrite"; docs/proposals/proof-automation.md,
@@ -12,7 +12,7 @@ import Std (Eq, List, Nat)
 theorem swapped (a: Nat) (b: Nat): a + b = b + a :=
   rewrite Nat.addComm
 
--- `Nat.addSubCancel x n` needs `x <= n`: `omega` proves it from `x < 0 + n`.
+-- `Nat.addSubCancel x n` needs `x <= n`: `omega` proves it from `x < n`.
 theorem cancelled (n: Nat): List.sumBy (List.range 0 n) (x => x + (n - x)) = List.sumBy (List.range 0 n) (x => n) :=
   rewrite Nat.addSubCancel
 
