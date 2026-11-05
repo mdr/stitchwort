@@ -63,6 +63,9 @@ pub struct LiveRef {
     /// For a function, its parameters with their names
     /// (`(low: Nat) -> [n: Nat] -> Nat`).
     pub signature: Option<String>,
+    /// For a function: its header after its name, as its declaration
+    /// writes it (`(what: Text): {Parse} Char`), for hover.
+    pub header: Option<String>,
     /// The declaration's doc (docs/proposals/documentation.md §4), for hover.
     pub doc: Option<String>,
     /// For a definition: its generated equations, for hover.
@@ -247,12 +250,14 @@ pub fn answers_from(index: &Index, wanted: &BTreeSet<String>, unplaced: &str) ->
             continue;
         }
         let mut signature = None;
+        let mut header = None;
         let mut doc = None;
         let mut equations = None;
         let (target, name, kind, ty) = match &r.target {
             RefTarget::Symbol(s) => {
                 let s = &index.symbols[*s];
                 signature = s.signature.clone();
+                header = s.header.clone();
                 equations = s.equations.clone();
                 doc = s.doc.as_ref().map(|d| d.text.clone());
                 let target = Loc {
@@ -281,6 +286,7 @@ pub fn answers_from(index: &Index, wanted: &BTreeSet<String>, unplaced: &str) ->
             kind,
             ty,
             signature,
+            header,
             doc,
             equations,
             defaults: r.defaults.clone(),

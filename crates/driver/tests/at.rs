@@ -74,7 +74,9 @@ fn hover_shows_the_type_and_what_a_name_is() {
     let (line, col) = at_text(SOURCE, "sum rest", 1);
     let hover = at::hover_at(&file, &place, Some(SOURCE), line, col, None).expect("a hover");
     assert!(
-        hover.markdown.contains("def `Demo.sum`"),
+        hover
+            .markdown
+            .contains("def Demo.sum (xs: List Nat) (start: Nat): Nat"),
         "{}",
         hover.markdown
     );

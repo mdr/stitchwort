@@ -2694,7 +2694,7 @@ export def area: Shape -> Nat
   function targetOf(idx, ref) {
     if (ref.symbol !== undefined) {
       const s = idx.out.symbols[ref.symbol];
-      return { file: s.file, range: s.range, name: s.name, kind: s.kind, type: ref.type ?? s.type, summary: s.summary };
+      return { file: s.file, range: s.range, name: s.name, kind: s.kind, type: ref.type ?? s.type, header: s.header, summary: s.summary };
     }
     return { file: ref.binder.file, range: ref.binder.range, name: ref.binder.name, kind: "local", type: ref.type };
   }
@@ -2770,11 +2770,14 @@ export def area: Shape -> Nat
       navtip.replaceChildren(el("span", { className: "kind" }, "selection"),
                              document.createTextNode("\n: " + hover.sel.entry[2]));
     } else {
-      const { name, kind, type, summary } = targetOf(hover.idx, hover.ref);
+      const { name, kind, type, header, summary } = targetOf(hover.idx, hover.ref);
       // The summary, the doc's first sentence, only: the tooltip is small (D2147).
-      navtip.replaceChildren(el("span", { className: "name" }, name), el("span", { className: "kind" }, " " + kind),
-                             ...(type ? [document.createTextNode("\n: " + type)] : []),
-                             ...(summary ? [document.createTextNode("\n" + summary)] : []));
+      // A function reads as its declaration, parameters named (SW-1334).
+      const shown = header
+        ? [el("span", { className: "kind" }, kind + " "), el("span", { className: "name" }, name), document.createTextNode(" " + header)]
+        : [el("span", { className: "name" }, name), el("span", { className: "kind" }, " " + kind),
+           ...(type ? [document.createTextNode("\n: " + type)] : [])];
+      navtip.replaceChildren(...shown, ...(summary ? [document.createTextNode("\n" + summary)] : []));
     }
     navtip.hidden = false;
     const p = nav.pointer;

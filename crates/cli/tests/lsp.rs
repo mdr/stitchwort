@@ -305,7 +305,7 @@ fn a_file_on_its_own_as_you_type() {
     let hover = client.at("textDocument/hover", &uri, 4, 15);
     let text = hover["contents"]["value"].as_str().unwrap();
     assert!(
-        text.contains("```stitchwort\nNat → Nat\n```") && text.contains("def `Main.double`"),
+        text.contains("```stitchwort\ndef Main.double (n: Nat): Nat\n```"),
         "{text}"
     );
     let refs = client.at("textDocument/references", &uri, 0, 5);
@@ -605,7 +605,7 @@ fn hover_shows_the_doc() {
 
     let double = hover_text(&mut client, 7, "double");
     assert!(
-        double.ends_with("def `Main.double`\n\nTwice `n`.\nMore."),
+        double.ends_with("def Main.double (n: Nat): Nat\n```\n\nTwice `n`.\nMore."),
         "{double}"
     );
     let g = hover_text(&mut client, 9, "g +");
@@ -625,6 +625,73 @@ fn hover_shows_the_doc() {
     assert_eq!(client.diagnostics(&uri, 2), Vec::<Value>::new());
     let double = hover_text(&mut client, 7, "double");
     assert!(double.contains("Doubles `n`.\nMore."), "{double}");
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Hover on a function shows its declaration's header with the parameters
+/// named, as it is written (SW-1334), so that a named argument can be
+/// written from it; a parameter the declaration left unnamed stays in the
+/// type.
+#[test]
+fn hover_shows_the_parameters_by_name() {
+    let dir = temp_dir("header");
+    let file = dir.join("header.sw");
+    let text = "import Std (List, Parse)\n\n--| Clamps.\ndef clampTo (low: Nat) (high: Nat := 10) (x: Nat): Nat := x\n\ndef plain: Nat → Nat\n  | n => n\n\ndef mixed (a: Nat): Nat → Nat\n  | n => n + a\n\ndef pick [a: Type] (xs: List a): Nat := List.length xs\n\ntheorem keep (n: Nat) (h: n = n): n = n := h\n\ndef a1: Nat := clampTo (low := 1) (x := 3)\ndef a2: Nat := plain 1\ndef a3: Nat := mixed 1 2\ndef a4: {Parse} Char := Parse.satisfy \"x\" (c => True)\ndef a5: Nat := List.length [1]\ndef a6: Nat := pick [1]\n";
+    std::fs::write(&file, text).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, text);
+    assert_eq!(client.diagnostics(&uri, 1), Vec::<Value>::new());
+    let lines: Vec<&str> = text.lines().collect();
+    let hover_text = |client: &mut Client, line: usize, needle: &str| {
+        let col = lines[line].find(needle).unwrap() as u32;
+        let hover = client.at("textDocument/hover", &uri, line as u32, col);
+        hover["contents"]["value"].as_str().unwrap().to_string()
+    };
+    let shown = |client: &mut Client, line: usize, needle: &str| {
+        let text = hover_text(client, line, needle);
+        eprintln!("HOVER {needle}: {text}");
+        text
+    };
+
+    let clamp = shown(&mut client, 15, "clampTo");
+    assert!(
+        clamp.starts_with(
+            "```stitchwort\ndef Main.clampTo (low: Nat) (high: Nat := 10) (x: Nat): Nat\n```"
+        ),
+        "{clamp}"
+    );
+    assert!(clamp.contains("\n\nClamps.\n\n`high` left out"), "{clamp}");
+    // No parameter named: the type alone, with what it is.
+    let plain = shown(&mut client, 16, "plain");
+    assert!(
+        plain.starts_with("```stitchwort\nNat → Nat\n```\ndef `Main.plain`"),
+        "{plain}"
+    );
+    let mixed = shown(&mut client, 17, "mixed");
+    assert!(
+        mixed.starts_with("```stitchwort\ndef Main.mixed (a: Nat): Nat → Nat\n```"),
+        "{mixed}"
+    );
+    let keep = shown(&mut client, 13, "keep");
+    assert!(
+        keep.starts_with("```stitchwort\ntheorem Main.keep (n: Nat) (h: n = n): n = n\n```"),
+        "{keep}"
+    );
+    // A library function.
+    let satisfy = shown(&mut client, 18, "Parse.satisfy");
+    assert!(
+        satisfy.starts_with("```stitchwort\ndef Std.Parse.satisfy (what: Text) (passes: Char → Bool): {Parse} Char\n```"),
+        "{satisfy}"
+    );
+    let length = shown(&mut client, 19, "List.length");
+    assert!(length.starts_with("```stitchwort\ndef "), "{length}");
+    let pick = shown(&mut client, 20, "pick");
+    assert!(
+        pick.starts_with("```stitchwort\ndef Main.pick [a: Type] (xs: List a): Nat\n```"),
+        "{pick}"
+    );
     client.shutdown();
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -765,6 +832,18 @@ impl IndexJson {
         (place, range.clone())
     }
 
+    /// A function's hover header, `def Std.Parse.label [a: Type] (what: Text): …`.
+    fn hover_header(&self, r: &Value) -> Option<String> {
+        let s = &self.0["symbols"][r["symbol"].as_u64()? as usize];
+        let kind = s["kind"].as_str()?;
+        matches!(kind, "def" | "theorem" | "instance").then_some(())?;
+        Some(format!(
+            "{kind} {} {}",
+            s["name"].as_str()?,
+            s["header"].as_str()?
+        ))
+    }
+
     /// The extension's `hoverOf` type.
     fn hover_type(&self, r: &Value) -> Option<String> {
         r["type"].as_str().map(str::to_string).or_else(|| {
@@ -895,7 +974,12 @@ fn aoc_navigation_matches_check_index() {
                         let hover =
                             client.at("textDocument/hover", &uri, here.0 as u32, here.1 as u32);
                         let shown = hover["contents"]["value"].as_str().unwrap();
-                        if let Some(ty) = index.hover_type(r) {
+                        if let Some(header) = index.hover_header(r) {
+                            assert!(
+                                shown.contains(&format!("```stitchwort\n{header}\n```")),
+                                "{path}:{here:?}: {shown} vs {header}"
+                            );
+                        } else if let Some(ty) = index.hover_type(r) {
                             assert!(
                                 shown.contains(&format!("```stitchwort\n{ty}\n```")),
                                 "{path}:{here:?}: {shown} vs {ty}"
@@ -1501,7 +1585,7 @@ fn hover_over_a_selection_gives_the_type_of_the_expression() {
         found["contents"]["value"]
             .as_str()
             .unwrap()
-            .contains("def `Main.double`"),
+            .contains("def Main.double"),
         "{found}"
     );
     client.shutdown();
@@ -1645,7 +1729,7 @@ fn a_recursive_call_of_a_decreasing_function_navigates_to_it() {
         assert_eq!(definition["range"]["start"]["character"], 4, "{definition}");
         let hover = client.at("textDocument/hover", &uri, line as u32, ch);
         let text = hover["contents"]["value"].as_str().unwrap();
-        assert!(text.contains("def `Main.down`"), "{text}");
+        assert!(text.contains("def Main.down (n: Nat)"), "{text}");
     }
     let refs = client.at("textDocument/references", &uri, 0, 5);
     let found: Vec<u64> = refs
@@ -2419,7 +2503,7 @@ fn parameter_defaults_show_in_hover_and_completion() {
     let hover = client.at("textDocument/hover", &uri, 1, 20);
     let shown = hover["contents"]["value"].as_str().unwrap();
     assert!(
-        shown.contains("def range (start: Nat) (stop: Nat) (step: Nat := 1): List Nat"),
+        shown.contains("def Main.range (start: Nat) (stop: Nat) (step: Nat := 1): List Nat"),
         "{hover}"
     );
 
