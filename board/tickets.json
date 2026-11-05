@@ -3709,13 +3709,13 @@
     {
       "id": 1101,
       "title": "Pilot: std List docs under the new rule (docs/syntax.md 'What to write', D2226 step 3): improve docs that only restate the type, add one- or two-line examples where they demonstrate the function. Left on its branch for Matt to judge (not merged)",
-      "status": "review",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
         "docs"
       ],
-      "body": "\n\nPilot done, on branch lane/SW-1101 (not merged, for Matt): ade50d59 SW-1101: update the pinned line of List.filterMap in the doc tests;fc2fe6d9 SW-1101: pilot the std commenting rule on List definitions;. 54 List definition docs in Toolkit.sw, core/Data.sw, Sort.sw, Index.sw, Grid.sw; 52 with one-line examples, each checked with stitchwort eval. Adds empty cases, ties/stability, cost (from reading the code, not measured), neighbours (find vs filter), theorem links. Already-good docs left alone. doc_links test passes; cli doc tests updated (filterMap's pinned line 213 -> 233; fragile). Model result: Sonnet, worked, 6 min (est. 45). Review: git diff main...lane/SW-1101.\n\nD2432 (Matt, 5 Nov 2026), talking through examples: a short one-sentence std description is fine even if the name nearly says it; the value is in stability, edge cases, semantics the types don't show, links to theorems and to related functions. Redo on current main under this rule (branch too stale to merge).",
+      "body": "\n\nPilot done, on branch lane/SW-1101 (not merged, for Matt): ade50d59 SW-1101: update the pinned line of List.filterMap in the doc tests;fc2fe6d9 SW-1101: pilot the std commenting rule on List definitions;. 54 List definition docs in Toolkit.sw, core/Data.sw, Sort.sw, Index.sw, Grid.sw; 52 with one-line examples, each checked with stitchwort eval. Adds empty cases, ties/stability, cost (from reading the code, not measured), neighbours (find vs filter), theorem links. Already-good docs left alone. doc_links test passes; cli doc tests updated (filterMap's pinned line 213 -> 233; fragile). Model result: Sonnet, worked, 6 min (est. 45). Review: git diff main...lane/SW-1101.\n\nD2432 (Matt, 5 Nov 2026), talking through examples: a short one-sentence std description is fine even if the name nearly says it; the value is in stability, edge cases, semantics the types don't show, links to theorems and to related functions. Redo on current main under this rule (branch too stale to merge).\n\nD2431 (Matt, 5 Nov 2026): drop the stale branch; redo fresh on current main under the current rule (docs/syntax.md 'What to write', D2351, D2432).",
       "created": "2026-11-02",
       "updated": "2026-11-05",
       "commits": []
@@ -3723,16 +3723,16 @@
     {
       "id": 1102,
       "title": "Pilot: application-code comments under the new rule (docs/syntax.md 'What to write', D2226 step 3) on AoC 2024 day 6: delete docs and notes that restate the code, keep and sharpen those that say why. Left on a branch for Matt to judge (not merged)",
-      "status": "review",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
         "docs",
         "aoc"
       ],
-      "body": "\n\nPilot done, on branch lane/SW-1102 (not merged, for Matt; review: git diff main...lane/SW-1102). 81 comment runs deleted (e.g. Guard, Lab, Spec.after, boolOfIff, walkUpTurn), 36 kept (file doc, parseLab, stateCount, patrol, trapPositions...), 2 shortened (Lab.ahead -> '`None` past the map's edge.'; Lab.loopsWith). Comment lines only; aoc checks, fmt clean. Borderline calls the model flagged: kept part1Correct/part2Correct docs (name the puzzle sentence), deleted the -- note pointing to Aoc.Common for turnRight, kept Sightlines/Simulates docs and test group labels. Model result: DeepSeek, worked, 3 min (est. 20), after one hung start (SW-1097).\n",
+      "body": "\n\nPilot done, on branch lane/SW-1102 (not merged, for Matt; review: git diff main...lane/SW-1102). 81 comment runs deleted (e.g. Guard, Lab, Spec.after, boolOfIff, walkUpTurn), 36 kept (file doc, parseLab, stateCount, patrol, trapPositions...), 2 shortened (Lab.ahead -> '`None` past the map's edge.'; Lab.loopsWith). Comment lines only; aoc checks, fmt clean. Borderline calls the model flagged: kept part1Correct/part2Correct docs (name the puzzle sentence), deleted the -- note pointing to Aoc.Common for turnRight, kept Sightlines/Simulates docs and test group labels. Model result: DeepSeek, worked, 3 min (est. 20), after one hung start (SW-1097).\n\nD2431 (Matt, 5 Nov 2026): drop the stale branch; redo fresh on current main under the current rule (docs/syntax.md 'What to write', D2351, D2432).",
       "created": "2026-11-02",
-      "updated": "2026-11-02",
+      "updated": "2026-11-05",
       "commits": []
     },
     {
