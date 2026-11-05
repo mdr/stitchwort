@@ -83,22 +83,33 @@ pub struct Cleared {
 pub fn candidates(g: &Ev, id: DefId) -> Result<Vec<bool>> {
     let def = g.def(id);
     let _set = g.machine.transparent.set(def.transparent.clone());
-    let mut cx = Ctx::new(g, def.span);
-    let mut ty = force(g, crate::check::def_type(g, def)?)?;
-    let mut out = Vec::with_capacity(def.arity);
-    for _ in 0..def.arity {
-        let Value::Pi(x, _, dom, cod) = &ty else {
-            // The body has more parameters than the type shows without
-            // unfolding: a mark there could only be wrong, so none.
-            out.resize(def.arity, false);
-            break;
-        };
-        out.push(sort_of(&mut cx, dom)? == Sort::Prop);
-        let next = cod.apply(g, Value::var(cx.level()))?;
-        cx.bind(x.clone(), (**dom).clone());
-        ty = force(g, next)?;
-    }
-    Ok(out)
+    // Glued, as when the body is checked, so that a parameter's type
+    // mentioning an expensive closed value (`h: cost = cost`) doesn't
+    // compute it; and the codomain after the last parameter, which no
+    // candidate needs, isn't evaluated at all.
+    let was = g.machine.glue.replace(true);
+    let result = (|| {
+        let mut cx = Ctx::new(g, def.span);
+        let mut ty = force(g, crate::check::def_type(g, def)?)?;
+        let mut out = Vec::with_capacity(def.arity);
+        for k in 0..def.arity {
+            let Value::Pi(x, _, dom, cod) = &ty else {
+                // The body has more parameters than the type shows without
+                // unfolding: a mark there could only be wrong, so none.
+                out.resize(def.arity, false);
+                break;
+            };
+            out.push(sort_of(&mut cx, dom)? == Sort::Prop);
+            if k + 1 < def.arity {
+                let next = cod.apply(g, Value::var(cx.level()))?;
+                cx.bind(x.clone(), (**dom).clone());
+                ty = force(g, next)?;
+            }
+        }
+        Ok(out)
+    })();
+    g.machine.glue.set(was);
+    result
 }
 
 /// The inert marks of the members of a group, whose bodies are installed,
