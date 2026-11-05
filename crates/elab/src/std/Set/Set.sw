@@ -179,7 +179,7 @@ test "set: union, intersect, difference, edge cases" :=
     ∧ Set.toList (Set.intersect Set.example Set.example) == [1, 2, 3] ∧ Set.isEmpty (Set.difference Set.example Set.example)
     ∧ Set.isEmpty (Set.intersect Set.example (Set.fromList [0, 9])) ∧ Set.toList (Set.difference Set.example (Set.fromList [0, 9])) == [1, 2, 3]
 test "set: equal in any order" := Set.example == Set.fromList [2, 3, 1] ∧ Set.example ≠ Set.fromList [1, 2]
-test "set: ordered by keys" := Set.fromList [1, 2] < Set.example ∧ Set.example ≤ Set.fromList [3, 2, 1]
+test "set: ordered by keys" := Set.fromList [1, 2] < Set.example ≤ Set.fromList [3, 2, 1]
 test "set: show" := "${Set.fromList ["b", "a"]}" == "Set.fromList [\"a\", \"b\"]"
 
 --| The set of `f` applied to each key ([`Set.containsMap`]); keys that map to

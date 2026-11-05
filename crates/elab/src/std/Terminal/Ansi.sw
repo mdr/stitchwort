@@ -70,7 +70,7 @@ def Ansi.stripChars (scan: Ansi.Scan): (chars: List Char) → List Char
         else ['\u{1b}', char, ..Ansi.stripChars Plain rest]
       | InSequence =>
         let code := Char.toNat char
-        if 64 ≤ code && code ≤ 126 then Ansi.stripChars Plain rest else Ansi.stripChars InSequence rest
+        if 64 ≤ code ≤ 126 then Ansi.stripChars Plain rest else Ansi.stripChars InSequence rest
 
 test "Ansi: colour" := Ansi.colour Red "@" == "\u{1b}[31m@\u{1b}[39m"
 test "Ansi: each colour's number" :=

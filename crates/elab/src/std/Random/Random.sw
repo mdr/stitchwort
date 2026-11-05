@@ -68,6 +68,6 @@ test "Random.below: bound 0" := (Random.below 5 0).fst == 0
 test "Random.below: in range" := (Random.below 5 10).fst < 10
 test "Random.between: in range" :=
   let (n, _) := Random.between 7 3 5
-  3 <= n ∧ n <= 5
+  3 <= n <= 5
 test "Random.between: one value" := (Random.between 7 4 4).fst == 4
 test "Random.chance: 1 in 1" := (Random.chance 3 1).fst

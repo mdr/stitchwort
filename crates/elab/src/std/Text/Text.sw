@@ -399,7 +399,7 @@ test "isAsciiSpace is ASCII only" := Char.isAsciiSpace ' ' ∧ ¬(Char.isAsciiSp
 --| Whether a character is an ASCII letter, `a` to `z` or `A` to `Z`.
 def Char.isAsciiLetter (char: Char): Bool :=
   let code := char.toNat
-  (97 <= code && code <= 122) || (65 <= code && code <= 90)
+  (97 <= code <= 122) || (65 <= code <= 90)
 
 --| Whether a character is an ASCII letter or digit.
 def Char.isAsciiAlphanumeric (char: Char): Bool := char.isAsciiLetter || char.digitValue.isSome

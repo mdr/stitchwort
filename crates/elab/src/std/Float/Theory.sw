@@ -1771,7 +1771,7 @@ test "Float.Theory.addFinite" :=
 theorem Float.Theory.zeroLeZero (x: Float) (h: Float.isZero x = True): x <= 0.0 :=
   Float.Theory.zeroLeZeroBits x.bits (Float.Theory.zeroBits x h)
 
-test "Float.Theory.zeroLeZero" := -0.0 <= 0.0 ∧ 0.0 <= 0.0 ∧ ¬(0.0 <= -0.0) ∧ ¬(5e-324 <= 0.0)
+test "Float.Theory.zeroLeZero" := -0.0 <= 0.0 <= 0.0 ∧ ¬(0.0 <= -0.0) ∧ ¬(5e-324 <= 0.0)
 
 -- The laws
 

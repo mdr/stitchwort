@@ -40,10 +40,10 @@ def Char.isAsciiSpaceCode: (code: Nat) → Bool := matches
 def Char.isAsciiSpace (char: Char): Bool := char.toNat |> Char.isAsciiSpaceCode
 
 --| Whether a character is an ASCII lowercase letter, `a` to `z`.
-def Char.isAsciiLowercase (char: Char): Bool := 'a' ≤ char && char ≤ 'z'
+def Char.isAsciiLowercase (char: Char): Bool := 'a' ≤ char ≤ 'z'
 
 --| Whether a character is an ASCII uppercase letter, `A` to `Z`.
-def Char.isAsciiUppercase (char: Char): Bool := 'A' ≤ char && char ≤ 'Z'
+def Char.isAsciiUppercase (char: Char): Bool := 'A' ≤ char ≤ 'Z'
 
 --| Whether a code is one of the non-ASCII `White_Space` code points below U+2000: U+0085, U+00A0, U+1680.
 def Char.isWhitespaceLow: (code: Nat) → Bool := matches

@@ -1512,7 +1512,7 @@ theorem Parse.readsRecursive (body: (() → {Parse} a) → {Parse} a) (spec: Lis
 --| What `natDigits atLeast atMost` reads: `atLeast` to `atMost` digits, at
 --| least one, and it gives their value.
 def Parse.DigitsRead (atLeast: Nat) (atMost: Nat) (read: List Char) (n: Nat): Prop :=
-  read.all Parse.isDigit = True ∧ 0 < read.length ∧ atLeast ≤ read.length ∧ read.length ≤ atMost ∧ n = Parse.digitsValue read
+  read.all Parse.isDigit = True ∧ 0 < read.length ∧ atLeast ≤ read.length ≤ atMost ∧ n = Parse.digitsValue read
 
 theorem Parse.readsNatDigits (atLeast: Nat) (atMost: Nat): Parse.Reads (() => Parse.natDigits atLeast atMost) (Parse.DigitsRead atLeast atMost) :=
   Parse.readsWeaken (Parse.readsBind _ _
@@ -1521,19 +1521,19 @@ theorem Parse.readsNatDigits (atLeast: Nat) (atMost: Nat): Parse.Reads (() => Pa
         Parse.readsWeaken (Parse.readsBind (() => Parse.span Parse.isDigit)
             (digits =>
               let count := digits.length
-              if 0 < count ∧ atLeast ≤ count ∧ count ≤ atMost then digits.map (digit => digit.digitValue.getOrElse 0) |> Nat.fromDigits
+              if 0 < count ∧ atLeast ≤ count ≤ atMost then digits.map (digit => digit.digitValue.getOrElse 0) |> Nat.fromDigits
               else
                 Parse.reset start
                 let fewest := if atLeast == 0 then 1 else atLeast
                 Parse.expected (if fewest == atMost then "a ${atMost}-digit number" else "a number of ${fewest} to ${atMost} digits"))
             (read taken => read = taken ∧ taken.all Parse.isDigit = True)
-            (digits read n => read = [] ∧ 0 < digits.length ∧ atLeast ≤ digits.length ∧ digits.length ≤ atMost ∧ n = Parse.digitsValue digits)
+            (digits read n => read = [] ∧ 0 < digits.length ∧ atLeast ≤ digits.length ≤ atMost ∧ n = Parse.digitsValue digits)
             (Parse.readsSpan Parse.isDigit)
             (digits =>
-              match c: ((0 < digits.length ∧ atLeast ≤ digits.length ∧ digits.length ≤ atMost): Bool) with
+              match c: ((0 < digits.length ∧ atLeast ≤ digits.length ≤ atMost): Bool) with
                 | True =>
                   Parse.readsWeaken [p := (() => Parse.digitsValue digits)] (Parse.readsPure (Parse.digitsValue digits))
-                    (read n both => Both (And.left both) (Both (omega) (Both (omega) (Both (omega) (And.right both)))))
+                    (read n both => Both (And.left both) (Both (omega) (Both (Both (omega) (omega)) (And.right both))))
                 | False => state value after honest h => Void.exfalso (Result.errNotOk h)))
           (read n h =>
             match h with
@@ -1556,7 +1556,7 @@ theorem Parse.readsOnFound (found: Option a) (next: a → {Parse} b) (done: () �
 --| read: one part per further value, each `spec` of it, `fewest` to `most`
 --| of them.
 def Parse.RepeatFound (spec: List Char → a → Prop) (found: List a) (fewest: Nat) (most: Nat) (read: List Char) (values: List a): Prop :=
-  ∃ (more: List a) => values = found.reverse ++ more ∧ Parse.Each spec read more ∧ fewest ≤ more.length ∧ more.length ≤ most
+  ∃ (more: List a) => values = found.reverse ++ more ∧ Parse.Each spec read more ∧ fewest ≤ more.length ≤ most
 
 theorem Parse.repeatCombine (spec: List Char → a → Prop) (found: List a) (more: Nat) (read: List Char) (values: List a)
     (h: Parse.Then (Parse.Maybe spec)
@@ -1617,7 +1617,7 @@ theorem Parse.readsRepeatFrom (p: () → {Parse} a) (spec: List Char → a → P
 --| at least `atLeast` values, and at most `atMost` unless that is fewer.
 theorem Parse.readsRepeat (atLeast: Nat) (atMost: Nat) (p: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads p spec):
     Parse.Reads (() => Parse.repeat atLeast atMost p)
-      (read values => Parse.Each spec read values ∧ atLeast ≤ values.length ∧ values.length ≤ Nat.max atLeast atMost) :=
+      (read values => Parse.Each spec read values ∧ atLeast ≤ values.length ≤ Nat.max atLeast atMost) :=
   Parse.readsWeaken (Parse.readsRepeatFrom p spec reads (atMost - atLeast) atLeast [])
     (read values h =>
       match h with
