@@ -7670,9 +7670,9 @@
     {
       "id": 1380,
       "title": "Docs: sweep one-argument List.range and List.between out of docs/ (evaluator-speed, aoc-2025 :986 :2157, comparisons/aoc-day0{2,3,4}-community, research/aoc-chaining-survey :182); optional tidy: Day02 List.range 2 (copies - 1 + 1), Grid at.row + 1 + 1",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1380",
       "labels": [
         "docs"
       ],
@@ -7950,13 +7950,13 @@
     {
       "id": 1400,
       "title": "rewrite <- in the wrong direction: put the 'write the rule without <-' note first and drop the hidden-match notes that don't apply (E-REWRITE-NOTHING had six notes, the useful one last)",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1400",
       "labels": [
         "diagnostics"
       ],
-      "body": "D2426 (Matt, 5 Nov 2026): day 6 friction item 5. Small improvement; DeepSeek.",
+      "body": "D2426 (Matt, 5 Nov 2026): day 6 friction item 5. Small improvement; DeepSeek.\n\nDone on lane/SW-1400 (8f4cf2ce5, 04fd1e6c6): when the rule flipped would rewrite something, E-REWRITE-NOTHING leads with the direction note and drops the search notes (two notes instead of six). Review found a false positive (a bare-variable side, e.g. Nat.mulOne's n, occurs anywhere): fixed in the second commit; the four existing reject snapshots are back to their old text; two new reject examples. Model result: DeepSeek, needed fixes (bare-variable false positive), ~25+15 min (est. 30).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
