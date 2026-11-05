@@ -89,15 +89,15 @@ def List.sum [auto add: Add a] (xs: List a): a := List.foldLeft xs Add.zero Add.
 --| perform abilities, which run in list order.
 def List.sumBy [auto add: Add b] (xs: List a) (f: a → {e} b): {e} b := List.foldLeft xs Add.zero (acc x => acc + f x)
 
---| The product of the elements, of any type with `Mul`.
+--| The product of the elements, `Mul.one` (1) for an empty list; [`List.sum`] is the same fold with `Add`.
 def List.product [auto mul: Mul a] (xs: List a): a := List.foldLeft xs Mul.one Mul.mul
 
---| The largest element by the type's `Ord`, or `None` for an empty list.
+--| The largest element by the type's `Ord`, the first of equal maxima, or `None` for an empty list; for the element a key came from, use [`List.maxBy`].
 def List.maximum [auto ord: Ord a]: (xs: List a) → Option a
   | [] => None
   | [x, ..xs] => Some (List.foldLeft xs x Ord.max)
 
---| The smallest element by the type's `Ord`, or `None` for an empty list.
+--| The smallest element by the type's `Ord`, the first of equal minima, or `None` for an empty list; for the element a key came from, use [`List.minBy`].
 def List.minimum [auto ord: Ord a]: (xs: List a) → Option a
   | [] => None
   | [x, ..xs] => Some (List.foldLeft xs x Ord.min)
@@ -168,7 +168,7 @@ def List.drop: (xs: List a) → (count: Nat) → List a
   | [], Succ n => []
   | [x, ..xs], Succ n => List.drop xs n
 
---| The element at `index`, counting from 0, or `None` past the end.
+--| The element at `index`, counting from 0, or `None` past the end: unlike [`List.getOr`], `None` says the index was past the end, even when the fallback would equal an element.
 @[tailrec]
 def List.get: (xs: List a) → (index: Nat) → Option a
   | [], i => None
@@ -202,8 +202,8 @@ def Nat.succIf (n: Nat): (cond: Bool) → Nat
 def List.count (xs: List a) (p: a → {e} Bool): {e} Nat := List.foldLeft xs 0 (n x => Nat.succIf n (p x))
 
 --| The first element satisfying `p`, which is in the list ([`List.findSome`]).
---| `p` may perform abilities: it runs in list order and isn't called after the
---| element found.
+--| `p` may perform abilities: it runs in list order and stops at the found
+--| element. For its position use [`List.findIndex`]; for a transformed result, [`List.findMap`].
 @[tailrec]
 def List.find: (xs: List a) → (p: a → {e} Bool) → {e} Option a
   | [], p => None
@@ -232,6 +232,7 @@ def List.somes (xs: List (Option a)): List a := List.filterMap xs id
 test "List.somes" := [Some 1, None, Some 3].somes == [1, 3] ∧ ([]: List (Option Nat)).somes == [] ∧ [None, None].somes == ([]: List Nat)
 
 --| Joins a list of lists, in order: `[[1, 2], [], [3]].concat` is `[1, 2, 3]`.
+--| O(the total length); [`List.concatMap`] and [`List.flatMap`] map while joining.
 def List.concat: (xss: List (List a)) → List a
   | [] => []
   | [xs, ..xss] => List.append xs (List.concat xss)
@@ -255,22 +256,26 @@ def List.rangeFrom (count: Nat) (start: Nat): List Nat :=
 def List.range (from: Nat) (until: Nat): List Nat := List.rangeFrom (until - from) from
 test "List.range, empty and single" := List.range 5 1 == [] ∧ List.range 3 3 == [] ∧ List.range 0 1 == [0] ∧ List.range 7 8 == [7]
 
---| The elements in the opposite order: reversing twice gives the list back ([`List.reverseReverse`]).
+--| The elements in the opposite order: reversing twice gives the list back
+--| ([`List.reverseReverse`]). O(n), and tail-recursive, so a long list is safe.
 def List.reverse (xs: List a): List a := List.reverseOnto xs []
 
---| The last element, or `None` for an empty list.
+--| The last element, or `None` for an empty list. O(n) and tail-recursive;
+--| for a position from the front, use [`List.get`].
 @[tailrec]
 def List.last: (xs: List a) → Option a
   | [] => None
   | [x] => Some x
   | [x, y, ..ys] => List.last [y, ..ys]
 
---| The first element, or `None` for an empty list.
+--| The first element, or `None` for an empty list. O(1); [`List.headOr`] takes
+--| a fallback instead, which can't tell an empty list from that value.
 def List.head: (xs: List a) → Option a
   | [] => None
   | [x, ..xs] => Some x
 
---| All but the last element (`Nil` for an empty list).
+--| All but the last element (`Nil` for an empty list or a one-element list),
+--| O(n); for all but the first `n`, use [`List.drop`].
 def List.init: (xs: List a) → List a
   | [] => []
   | [x] => []
@@ -286,7 +291,8 @@ def List.elem: (xs: List a) → (target: a) → (decEq: (x: a) → (y: a) → De
 --| membership).
 def List.contains [auto eq: DecEq a] (xs: List a) (x: a): Bool := List.any xs (member => member == x)
 
---| Whether the list has no elements.
+--| Whether the list has no elements, in O(1): `List.length xs == 0` costs O(n).
+--| [`List.IsNil`] is the same as a `Prop` ([`List.isEmptyEqNil`]).
 def List.isEmpty: (xs: List a) → Bool
   | [] => True
   | [x, ..xs] => False
@@ -338,7 +344,9 @@ def List.partition (xs: List a) (p: a → {e} Bool): {e} Pair (List a) (List a) 
 
 test "List.partition" := List.partition [1, 5, 2, 7] (x => x > 4) == MkPair [5, 7] [1, 2] ∧ List.partition ([]: List Nat) (x => x > 4) == MkPair [] []
 
---| The value for the first pair whose key equals `key`, or `None` if there is none.
+--| The value for the first pair whose key equals `key`, or `None` if there is
+--| none: `[(1, "a"), (1, "b")].lookup 1` is `Some "a"`, so earlier entries win.
+--| O(n); to keep both values, group or filter the pairs instead.
 @[tailrec]
 def List.lookup [auto eq: DecEq k]: (entries: List (Pair k v)) → (key: k) → Option v
   | [], key => None
@@ -351,7 +359,8 @@ def List.padRight (xs: List a) (width: Nat) (x: a): List a := xs.append (List.re
 --| `xs` after enough copies of `x` to make it `width` long (`xs` itself when it is already that long).
 def List.padLeft (xs: List a) (width: Nat) (x: a): List a := (List.replicate (width - xs.length) x).append xs
 
---| `Some` of every value when every option has one, else `None`.
+--| `Some` of every value when every option has one, else `None`: `[]` gives
+--| `Some []`, and the first `None` makes it `None` ([`List.allSomeNone`]).
 def List.allSome: (options: List (Option a)) → Option (List a)
   | [] => Some []
   | [first, ..rest] => first.flatMap (value => List.allSome rest |> .map (Cons value))
@@ -548,7 +557,8 @@ def List.mapAccumLeftGo (f: s → a → Pair s b) (state: s) (done: List b): (xs
 --| Maps with a state threaded left to right (Haskell's `mapAccumL`): the final state and the results.
 def List.mapAccumLeft (xs: List a) (initial: s) (f: s → a → Pair s b): Pair s (List b) := List.mapAccumLeftGo f initial [] xs
 
---| Splits a list of pairs into the list of firsts and the list of seconds.
+--| Splits a list of pairs into the list of firsts and the list of seconds, in
+--| order; `[]` gives `([], [])`. It is two maps, O(n); [`List.zip`] puts them back together.
 def List.unzip (ps: List (Pair a b)): Pair (List a) (List b) := MkPair (List.map ps Pair.fst) (List.map ps Pair.snd)
 
 --| Dropping elements never makes a list longer.
@@ -695,6 +705,7 @@ def List.removeAt: (xs: List a) → (index: Nat) → List a
   | [x, ..xs], Succ index => [x, ..List.removeAt xs index]
 
 --| Without the last `count` elements (all of them if there are fewer).
+--| `count = 0` gives the list itself; for the first `count`, use [`List.take`].
 def List.dropRight (xs: List a) (count: Nat): List a := List.take xs (List.length xs - count)
 
 --| Every suffix, longest first, ending with the empty list:
@@ -728,7 +739,9 @@ def List.findIndexFrom (start: Nat) (p: a → Bool): (xs: List a) → Option Nat
   | [] => None
   | [x, ..xs] => if p x then Some start else List.findIndexFrom (Succ start) p xs
 
---| The index of the first element satisfying `p`, counting from 0, or `None` if none does.
+--| The index of the first element satisfying `p`, counting from 0, or `None`
+--| if none does. For the element itself use [`List.find`]; for the index of a
+--| given value, [`List.indexOf`].
 def List.findIndex (xs: List a) (p: a → Bool): Option Nat := List.findIndexFrom 0 p xs
 
 --| Each element with its index from `i`.
