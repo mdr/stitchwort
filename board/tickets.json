@@ -7998,14 +7998,14 @@
     {
       "id": 1403,
       "title": "Playground language server: a project's first diagnostics take 26-28 s in the browser (LiveProject::new loads the whole library; no check cache in the browser); bundle a check cache for std, or load lazily",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1403",
       "labels": [
         "playground",
         "perf"
       ],
-      "body": "From SW-1384, 5 Nov 2026.\n\nAlso covers SW-1431 (27-40 s in an AoC project) and SW-1447 (80-195 s in Node, nothing cached between visits), folded in 5 Nov 2026.",
+      "body": "From SW-1384, 5 Nov 2026.\n\nAlso covers SW-1431 (27-40 s in an AoC project) and SW-1447 (80-195 s in Node, nothing cached between visits), folded in 5 Nov 2026.\n\nD2439 (Matt, 5 Nov 2026): speed first for the editors. Started on Opus, expected: 120 min (browser: at most 4 runs of single tests). SW-1432 (the page checks twice) next, after this.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
