@@ -42,7 +42,7 @@
 //! or its candidates; obligations are retried in rounds while a round makes
 //! progress.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
 use std::rc::Rc;
 
@@ -836,11 +836,13 @@ fn decidable(cx: &Ctx) -> Result<DataId> {
 }
 
 /// Definitions whose result type is `Decidable …`, in the order `auto` tries
-/// them. In file mode, every definition, most recent first. In a project
+/// them. In file mode, every definition, most recent first, but of the
+/// library files only those the module needs. In a project
 /// (docs/proposals/multi-file.md §4.9.5): this module's, most recent first;
 /// then each namespace it depends on, the last in canonical order first, by
-/// name within it; then the loaded library files', by name; then the
-/// prelude's, most recent first. No other namespace's.
+/// name within it; then those of the library files the module needs (not
+/// those another module loaded), by name; then the prelude's, most recent
+/// first. No other namespace's.
 ///
 /// The part after this module's own definitions is worked out once and
 /// remembered (`DecisionOrder`): the search runs for every `auto` argument,
@@ -889,6 +891,7 @@ pub(crate) struct DecisionOrder {
     first_def: usize,
     prelude_defs: usize,
     closure: Option<Vec<String>>,
+    library_reach: Option<Rc<BTreeSet<usize>>>,
     namespace_defs: BTreeMap<String, Range<usize>>,
     bootstrap: bool,
     candidates: Rc<[DefId]>,
@@ -900,6 +903,7 @@ impl DecisionOrder {
             && self.bootstrap == bootstrap
             && self.prelude_defs == e.tables.prelude_defs
             && self.closure == e.unit.module.closure
+            && self.library_reach == e.unit.module.library_reach
             && self.namespace_defs == e.tables.namespace_defs
     }
 }
@@ -912,8 +916,23 @@ fn earlier_candidates(e: &Elaborator, first_def: usize, bootstrap: bool) -> Rc<[
         return order.candidates.clone();
     }
     let g = &e.ev();
+    // A library file's definition is a candidate only where the module
+    // needs that file: what else the run loaded doesn't count (SW-1354).
+    // The D58 exceptions decide only propositions that need their own file,
+    // so leaving the others out loses nothing.
+    let index = e.library_index();
+    let reachable = |id: DefId| match (&index, &e.unit.module.library_reach) {
+        (Some(index), Some(reach)) if id.0 >= e.tables.prelude_defs => index
+            .owner_of_path(g.def(id).path())
+            .is_none_or(|f| f == 0 || reach.contains(&f)),
+        _ => true,
+    };
     let ordered: Vec<DefId> = match &e.unit.module.closure {
-        None => (0..first_def).rev().map(DefId).collect(),
+        None => (0..first_def)
+            .rev()
+            .map(DefId)
+            .filter(|id| reachable(*id))
+            .collect(),
         Some(closure) => {
             let mut all = Vec::new();
             for namespace in closure.iter().rev() {
@@ -934,6 +953,7 @@ fn earlier_candidates(e: &Elaborator, first_def: usize, bootstrap: bool) -> Rc<[
             let mut library: Vec<DefId> = (e.tables.prelude_defs..first_def)
                 .filter(|id| !project.iter().any(|range| range.contains(id)))
                 .map(DefId)
+                .filter(|id| reachable(*id))
                 .collect();
             library.sort_by(|a, b| g.def(*a).path().cmp(g.def(*b).path()));
             all.extend(library);
@@ -952,6 +972,7 @@ fn earlier_candidates(e: &Elaborator, first_def: usize, bootstrap: bool) -> Rc<[
         first_def,
         prelude_defs: e.tables.prelude_defs,
         closure: e.unit.module.closure.clone(),
+        library_reach: e.unit.module.library_reach.clone(),
         namespace_defs: e.tables.namespace_defs.clone(),
         bootstrap,
         candidates: candidates.clone(),

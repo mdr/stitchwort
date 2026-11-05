@@ -516,6 +516,12 @@ lemmas. Stage 1 measures it.
   something different depending on which library files are loaded? Nothing found so far.
   Instance-like search is the usual culprit, and `auto` is our only one. **Reviewer: please
   look for others.**
+  - *Found later (SW-1354):* `rewrite` under a binder and `decreasing` look up `F`'s
+    congruence lemmas (`FCong`, `FCongMem`, `FCongRange`) by name, and found one in another
+    file only if something else in the run had loaded it. Building the index now refuses a
+    congruence lemma outside `F`'s file, so it is loaded whenever `F` is. And `auto` tries
+    the D58 exceptions only from the library files the module itself needs (with what those
+    need), not every file the run has loaded.
 - **Performance of loading on demand.** Typical AoC programs use `List`, `Text` and `Nat`
   heavily, so they may load most of the library and see little saving until checked files
   are cached. Small programs and the playground benefit most. **[unmeasured]**
