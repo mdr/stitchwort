@@ -12,7 +12,7 @@
 --| checks neither.
 
 namespace Aoc.Year2020.Day04
-import Std (Char, Fail, IO, List, Option, Parse, Text)
+import Std (Char, Fail, IO, List, NonEmptyList, Option, Parse, Text)
 
 def main(): {IO, Fail} () :=
   let passports := parsePassports IO.readAll()
@@ -43,7 +43,7 @@ def keys: List Key := [BirthYear, IssueYear, ExpirationYear, Height, HairColor, 
 
 type Field = { key: Key, value: Text }
 
-type Passport = { fields: List Field }
+type Passport = { fields: NonEmptyList Field }
 
 def isValueChar (char: Char): Bool := not char.isWhitespace
 
@@ -57,7 +57,7 @@ def fieldBreak(): {Parse} () := Parse.oneOf [() => Parse.char ' ', Parse.newline
 
 def passport(): {Parse} Passport :=
   let fields := Parse.sepBy1 field fieldBreak
-  { fields = fields.toList }
+  { fields }
 
 def parsePassports (input: Text): {Fail} List Passport := Parse.all input (() => Parse.sections passport |> .toList)
 

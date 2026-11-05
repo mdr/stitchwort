@@ -30,10 +30,8 @@ def combinations (operators: List Operator): Nat → List (List Operator)
 --| produce the test value": one operator between each pair of numbers, which
 --| "cannot be rearranged".
 def couldPossiblyBeTrue (operators: List Operator) (equation: Equation): Bool :=
-  match equation.numbers with
-    | [] => False
-    | [first, ..rest] =>
-      combinations operators rest.length |> .any (chosen => evaluate first (chosen.zip rest) == equation.testValue)
+  let rest := equation.numbers.tail
+  combinations operators rest.length |> .any (chosen => evaluate equation.numbers.head (chosen.zip rest) == equation.testValue)
 
 --| "The total calibration result, which is the sum of the test values from
 --| just the equations that could possibly be true."

@@ -6,7 +6,7 @@ import Aoc.Common (BitReader)
 import Aoc.Common.Proofs (..)
 import Aoc.Year2021.Day16 (..)
 import Aoc.Year2021.Day16.Spec (allWellFormed, encode, encodeAll, groupBits, typeId, wellFormed)
-import Std (Bool, Decidable, Eq, List, Nat, Option, Void)
+import Std (Bool, Decidable, Eq, List, Nat, NonEmptyList, Option, Void)
 
 --| What was wanted was read: that many packets, or packets up to the end
 --| of the bits.
@@ -33,9 +33,9 @@ theorem doneNone (wanted: Wanted) (reader: BitReader) (none: nextWanted wanted r
     | Filling, { unread = [_, .._] } => cases
 
 --| A literal with a version below 8 and groups, each below 16.
-theorem literalWellFormed (version: Nat) (groups: List Nat) (small: version < 8) (some: groups ≠ []) (each: groups.all (group => group < 16) = True):
+theorem literalWellFormed (version: Nat) (groups: NonEmptyList Nat) (small: version < 8) (each: groups.all (group => group < 16) = True):
     wellFormed (Literal version groups) = True :=
-  Bool.andIntro _ _ (omega [small]) (Bool.andIntro _ _ (Decidable.toBoolOf _ some) each)
+  Bool.andIntro _ _ (omega [small]) each
 
 --| The bits of a packet, then of the packets after it.
 theorem soundStep (unread: List Bool) (after: List Bool) (left: List Bool) (packet: Packet) (more: List Packet)
@@ -66,7 +66,7 @@ theorem operationOfNone (n: Nat) (small: n < 8) (none: operationOf n = None): n 
     | Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ k))))))) => omega
 
 --| A literal's bits, field by field.
-theorem literalHere (version: Nat) (groups: List Nat) (unread: List Bool) (afterVersion: List Bool) (afterType: List Bool) (after: List Bool)
+theorem literalHere (version: Nat) (groups: NonEmptyList Nat) (unread: List Bool) (afterVersion: List Bool) (afterType: List Bool) (after: List Bool)
     (versionField: unread = Nat.toBits 3 version ++ afterVersion) (typeField: afterVersion = Nat.toBits 3 4 ++ afterType)
     (groupsField: afterType = groupBits groups ++ after): unread = encode (Literal version groups) ++ after :=
   Eq.trans versionField (Eq.cong (rest => Nat.toBits 3 version ++ rest) (Eq.trans typeField (Eq.cong (rest => Nat.toBits 3 4 ++ rest) groupsField)))
@@ -132,7 +132,7 @@ theorem readPacketsSound (wanted: Wanted) (reader: BitReader) (packets: List Pac
                               let literal: typeCode = 4 := operationOfNone typeCode (omega [typeRead.right]) o
                               let typeField: afterVersion.unread = Nat.toBits 3 4 ++ afterType.unread := Eq.trans typeRead.left (Eq.cong (code => Nat.toBits 3 code ++ afterType.unread) literal)
                               let here := literalHere version groups reader.unread afterVersion.unread afterType.unread after.unread versionRead.left typeField groupsRead.left
-                              let formed := literalWellFormed version groups (omega [versionRead.right]) groupsRead.right.left groupsRead.right.right
+                              let formed := literalWellFormed version groups (omega [versionRead.right]) groupsRead.right
                               finishStep wanted later reader after left rest (Literal version groups) more packets parts n here formed laterRead
                 | Some operation =>
                   let typeField: afterVersion.unread = Nat.toBits 3 (typeId operation) ++ afterType.unread :=

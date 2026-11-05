@@ -9,7 +9,7 @@
 namespace Aoc.Year2024.Day21.Proofs
 import Aoc.Year2024.Day21 (..)
 import Aoc.Year2024.Day21.Spec (..)
-import Std (Bool, DecEq, Eq, Finite, List, Nat, Option, Void)
+import Std (Bool, DecEq, Eq, Finite, List, Nat, NonEmptyList, Option, Void)
 
 --| Where the arrows of `route` take an arm from `aim`: none if it is ever
 --| aimed at a gap or off the keypad.
@@ -45,7 +45,7 @@ def fits [auto decEq: DecEq k] [auto fin: Finite k] (keypad: Keypad k) (rows: Li
   List.all Finite.all (to => keyAt rows (keypad.place to) == Some to)
     && List.all Finite.all (from =>
       List.all Finite.all (to =>
-        (keypad.routes from to != []) && (keypad.routes from to).all (routeFits rows (keypad.place from) (keypad.place to))))
+        (keypad.routes from to).all (routeFits rows (keypad.place from) (keypad.place to))))
 
 theorem numericFits: fits Keypad.numeric numericRows = True := rfl
 
@@ -62,11 +62,10 @@ type Fitted (k: Type) = {
     (costs.cheapestRoute (keypad.routes from to)).length = distance (keypad.place from) (keypad.place to)
 }
 
---| The cheapest of a non-empty list of routes passes a test they all pass.
-theorem cheapestPasses (costs: Costs) (passes: List Direction → Bool): (choices: List (List Direction)) → ((choices != []): Bool) = True →
-    choices.all passes = True → passes (costs.cheapestRoute choices) = True
-  | [], some, all => Void.exfalso (Bool.falseNotTrue some)
-  | [first, ..others], some, all => minByStepPasses costs.routeCost passes first (Bool.andLeft _ _ all) others (Bool.andRight _ _ all)
+--| The cheapest of the routes passes a test they all pass.
+theorem cheapestPasses (costs: Costs) (passes: List Direction → Bool) (choices: NonEmptyList (List Direction)) (all: choices.all passes = True):
+    passes (costs.cheapestRoute choices) = True :=
+  minByStepPasses costs.routeCost passes choices.head (Bool.andLeft _ _ all) choices.tail (Bool.andRight _ _ all)
 
 theorem cheapestFits [auto decEq: DecEq k] [auto fin: Finite k] (keypad: Keypad k) (rows: List (List (Option k)))
     (checked: fits keypad rows = True) (costs: Costs) (from: k) (to: k):
@@ -74,8 +73,7 @@ theorem cheapestFits [auto decEq: DecEq k] [auto fin: Finite k] (keypad: Keypad 
   let pairs := Bool.andRight _ _ checked
   let fromChecked := Finite.check _ pairs from
   let pairChecked := Finite.check _ fromChecked to
-  cheapestPasses costs (routeFits rows (keypad.place from) (keypad.place to)) (keypad.routes from to) (Bool.andLeft _ _ pairChecked)
-    (Bool.andRight _ _ pairChecked)
+  cheapestPasses costs (routeFits rows (keypad.place from) (keypad.place to)) (keypad.routes from to) pairChecked
 
 def fitted [auto decEq: DecEq k] [auto fin: Finite k] (keypad: Keypad k) (rows: List (List (Option k)))
     (checked: fits keypad rows = True): Fitted k := {

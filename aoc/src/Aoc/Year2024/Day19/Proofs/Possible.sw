@@ -6,7 +6,7 @@
 namespace Aoc.Year2024.Day19.Proofs
 import Aoc.Year2024.Day19 (..)
 import Aoc.Year2024.Day19.Spec (..)
-import Std (And, Bool, DecEq, Exists, Iff, List, Nat, Void)
+import Std (And, Bool, DecEq, Exists, Iff, List, Nat, NonEmptyList, Void)
 
 --| Every towel in the list has one of the patterns.
 def FromPatterns (patterns: List Pattern) (towels: List Pattern): Prop := List.All (towel => towel ∈ patterns) towels
@@ -41,12 +41,12 @@ theorem inTowelLists (patterns: List Pattern): (count: Nat) → (towels: List Pa
     Inr (List.memFlatMapIntro (first => towelLists patterns count |> .map (Cons first)) first [first, ..rest] patterns firstMember
       (List.memMap (towelLists patterns count) rest (inTowelLists patterns count rest restFrom (omega [short])) (Cons first)))
 
---| With every pattern striped, there are no more towels than stripes.
-theorem towelsAtMostStripes (patterns: List Pattern) (striped: Striped patterns): (towels: List Pattern) → FromPatterns patterns towels →
+--| There are no more towels than stripes.
+theorem towelsAtMostStripes (patterns: List Pattern): (towels: List Pattern) → FromPatterns patterns towels →
     towels.length ≤ (laid towels).length
   | [], from => omega
   | [first, ..rest], Both firstMember restFrom =>
-    omega [List.lengthAppend first.stripes (laid rest), striped first firstMember, towelsAtMostStripes patterns striped rest restFrom]
+    omega [List.lengthAppend first.stripes.toList (laid rest), NonEmptyList.lengthPos first.stripes, towelsAtMostStripes patterns rest restFrom]
 
 --| Whether a list of lists has any (as `possible` asks).
 def hasSome (lists: List (List Pattern)): Bool := !lists.isEmpty
@@ -61,7 +61,7 @@ theorem memberSome: (lists: List (List Pattern)) → (list: List Pattern) → li
 
 --| "Not all designs will be possible": a design is possible exactly when
 --| some towels of the patterns make it.
-theorem possibleIff (patterns: List Pattern) (striped: Striped patterns) (design: Design):
+theorem possibleIff (patterns: List Pattern) (design: Design):
     (possible patterns design = True) ↔ (Exists (List Pattern) (towels => Makes patterns towels design)) := {
   forward = found =>
     Exists.map
@@ -73,6 +73,6 @@ theorem possibleIff (patterns: List Pattern) (striped: Striped patterns) (design
     Exists.elim made (towels (Both from stripes) =>
       memberSome (arrangements patterns design) towels
         (List.memFilterIntro (towelLists patterns design.stripes.length) (towels => laid towels == design.stripes) towels
-          (inTowelLists patterns design.stripes.length towels from (rewrite <- stripes in towelsAtMostStripes patterns striped towels from))
+          (inTowelLists patterns design.stripes.length towels from (rewrite <- stripes in towelsAtMostStripes patterns towels from))
           (rewrite stripes in DecEq.refl design.stripes)))
 }

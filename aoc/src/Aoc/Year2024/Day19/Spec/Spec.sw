@@ -1,7 +1,7 @@
 --| Day 19 as the puzzle states it: a design is made by a list of towels whose
 --| stripes, end to end, are the design's, and the ways to make it are those
 --| lists. The proofs (Proofs/) show the program counts them, for every list
---| of patterns, each with at least one stripe, and every design.
+--| of patterns and every design.
 
 namespace Aoc.Year2024.Day19.Spec
 import Aoc.Year2024.Day19 (Design, Onsen, Pattern, Stripe)
@@ -15,7 +15,7 @@ def towelLists (patterns: List Pattern): (count: Nat) → List (List Pattern)
   | Succ count => [[], ..patterns.flatMap (first => towelLists patterns count |> .map (Cons first))]
 
 --| The stripes of the towels laid end to end.
-def laid (towels: List Pattern): List Stripe := towels.map (towel => towel.stripes) |> .concat
+def laid (towels: List Pattern): List Stripe := towels.map (towel => towel.stripes.toList) |> .concat
 
 --| "all of the towels' stripes must exactly match the desired design": the
 --| lists of towels whose stripes, in order, are the design's. Every towel has

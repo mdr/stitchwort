@@ -16,9 +16,9 @@ theorem possibleWays (patterns: List Pattern) (design: Design): (ways patterns d
     | [] => rfl
     | [first, ..rest] => rfl
 
-theorem part1Correct (onsen: Onsen) (striped: Striped onsen.patterns): solvePart1 onsen = part1 onsen :=
+theorem part1Correct (onsen: Onsen): solvePart1 onsen = part1 onsen :=
   List.countCongMem onsen.designs (design => waysToMake onsen.patterns design > 0) (possible onsen.patterns)
-    (design member => rewrite waysCorrect onsen.patterns striped design in possibleWays onsen.patterns design)
+    (design member => rewrite waysCorrect onsen.patterns design in possibleWays onsen.patterns design)
 
-theorem part2Correct (onsen: Onsen) (striped: Striped onsen.patterns): solvePart2 onsen = part2 onsen :=
-  List.sumByCongMem onsen.designs (waysToMake onsen.patterns) (ways onsen.patterns) (design member => waysCorrect onsen.patterns striped design)
+theorem part2Correct (onsen: Onsen): solvePart2 onsen = part2 onsen :=
+  List.sumByCongMem onsen.designs (waysToMake onsen.patterns) (ways onsen.patterns) (design member => waysCorrect onsen.patterns design)

@@ -10,7 +10,7 @@ import Std (Fail, List, Option, Result, Text)
 
 def parsed (input: Text): Result Packet Text := Fail.toResult (() => parsePacket input)
 
-def packetOf (input: Text): Packet := Fail.orElse (Literal 0 []) (() => parsePacket input)
+def packetOf (input: Text): Packet := Fail.orElse (Literal 0 [0]) (() => parsePacket input)
 
 def bitsOf (input: Text): List Bool := Fail.orElse [] (() => readBits input)
 

@@ -15,9 +15,7 @@ def FieldWritten (read: List Char) (field: Field): Prop :=
 --| "Separated by spaces or newlines."
 def FieldBreak (read: List Char) (u: ()): Prop := read = [' '] ∨ Parse.LineBreak read
 
--- The `∃ fields` goes when stage 4 makes `Passport.fields` a `NonEmptyList` (SW-1346).
-def PassportWritten (read: List Char) (passport: Passport): Prop :=
-  ∃ (fields: NonEmptyList Field) => Parse.SepBy FieldWritten FieldBreak read fields ∧ passport.fields = fields.toList
+def PassportWritten (read: List Char) (passport: Passport): Prop := Parse.SepBy FieldWritten FieldBreak read passport.fields
 
 theorem readsField: Parse.Reads field FieldWritten :=
   Parse.readsThen _ _ _ _ (Parse.readsPickBy keys Key.code) (keyRead key (Both member keyIs) =>
@@ -33,7 +31,7 @@ theorem readsFieldBreak: Parse.Reads fieldBreak FieldBreak :=
 
 theorem readsPassport: Parse.Reads passport PassportWritten :=
   Parse.readsThen _ _ _ _ (Parse.readsSepBy1 field fieldBreak _ _ readsField readsFieldBreak) (fieldsRead fields written =>
-    Parse.readsDone { fields = fields.toList } _ (rewrite List.appendNil fieldsRead in Witness fields (Both written rfl)))
+    Parse.readsDone { fields } _ (rewrite List.appendNil fieldsRead in written))
 
 theorem parseWritten (input: Text) (passports: List Passport) (parsed: Fail.toResult (() => parsePassports input) = Ok passports):
     ∃ (read: List Char) => ∃ (ending: List Char) =>
