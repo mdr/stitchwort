@@ -7935,14 +7935,14 @@
     {
       "id": 1399,
       "title": "2020 day 6: prove questionsDistinct (26 letters) cheaply instead of byDecision (36,800-node term, 0.4 s): List.allDistinctCorrect or a std lemma that a strictly increasing list is distinct",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1399",
       "labels": [
         "aoc",
         "perf"
       ],
-      "body": "D2426 (Matt, 5 Nov 2026): day 6 friction item 4. aoc/src/Aoc/Year2020/Day06/Proofs/Sets.sw:43. Small improvement; DeepSeek.\n\nStarted on DeepSeek, expected: 25 min.",
+      "body": "D2426 (Matt, 5 Nov 2026): day 6 friction item 4. aoc/src/Aoc/Year2020/Day06/Proofs/Sets.sw:43. Small improvement; DeepSeek.\n\nStarted on DeepSeek, expected: 25 min.\n\nDone on lane/SW-1399 (cfca1c397): (List.allDistinctCorrect Spec.questions).forward rfl. questionsDistinct: elab 292 -> 10 ms, kernel 45 -> 5 ms, term 36,800 -> 341 nodes; the day's Proofs unit elab 940 -> 290 ms. Std lemma (b) not needed. Reviewed. Model result: DeepSeek, worked, ~20 min (est. 25).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7950,9 +7950,9 @@
     {
       "id": 1400,
       "title": "rewrite <- in the wrong direction: put the 'write the rule without <-' note first and drop the hidden-match notes that don't apply (E-REWRITE-NOTHING had six notes, the useful one last)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1400",
       "labels": [
         "diagnostics"
       ],
