@@ -1,5 +1,5 @@
 {
-  "next": 1417,
+  "next": 1419,
   "tickets": [
     {
       "id": 47,
@@ -7964,14 +7964,14 @@
     {
       "id": 1401,
       "title": "Std: lemmas tying Text.lines to the input's characters, and a Parse.sections reads theorem stated over the input's lines (as eachLineReads is), so day-4-style section parses reach a spec on the input text",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1401",
       "labels": [
         "std",
         "proofs"
       ],
-      "body": "D2426 (Matt, 5 Nov 2026): day 6 friction item 6; after 2020 day 7. Sonnet.\n\nStarted on Sonnet, expected: 90 min.",
+      "body": "D2426 (Matt, 5 Nov 2026): day 6 friction item 6; after 2020 day 7. Sonnet.\n\nStarted on Sonnet, expected: 90 min.\n\nDone on lane/SW-1401 (58f85fa8b, 0ad3d4e31): Text.lines lemmas (linesAppend, linesLine, linesPlainLine(Return), linesNoFeed, unlinesLines, linesUnterminated + helpers); Parse.SectionsLines and Parse.sectionsLines (a sections parse over input.lines); 2020 day 4 parseWrittenLines (chunk level). Opus review pending (new theorems). Model result: Sonnet, worked, 17 min (est. 90).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8181,6 +8181,34 @@
         "aoc"
       ],
       "body": "D2429 (5 Nov 2026): day 7's friction review done (decided by the orchestrator at Matt's request). Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day8.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1417,
+      "title": "Per-line specs for section parses: a std lemma for lines of a read made of plain pieces separated by spaces or line breaks; then 2020 day 4's per-line statement; a no-\\\\r corollary of Parse.SectionsLines (each group's lines joined = read ++ newline) for days 4 and 6; restate 2020 day 6's parseWritten over input.lines with Parse.sectionsLines",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std,proofs,aoc"
+      ],
+      "body": "From SW-1401, 5 Nov 2026. Small improvement.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1418,
+      "title": "Std: Char.isLineFeedCode as code == 10 instead of a matches | 10 that doesn't unfold to Nat.equal (Char.lineFeedCodeIs needs eleven cases today)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "10 that doesn't unfold to Nat.equal (Char.lineFeedCodeIs needs eleven cases today)|std"
+      ],
+      "body": "From SW-1401, 5 Nov 2026. Small improvement.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
