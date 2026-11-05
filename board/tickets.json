@@ -8276,7 +8276,7 @@
       "labels": [
         "std"
       ],
-      "body": "From 2020 day 8 (SW-1416), 5 Nov 2026; see aoc/NOTES-2020.md Day 8.\n\nStarted on DeepSeek with the others in scratch-sw-1422, expected: 30 min together.",
+      "body": "From 2020 day 8 (SW-1416), 5 Nov 2026; see aoc/NOTES-2020.md Day 8.\n\nStarted on DeepSeek with the others in scratch-sw-1422, expected: 30 min together.\n\nD2437 (Matt, 5 Nov 2026): Parse.int itself accepts an optional leading + (as well as -); no separate required-sign parser. The DeepSeek run was briefed before this: follow it in review.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
