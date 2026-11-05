@@ -688,7 +688,7 @@ proceed[s]", relying on the final re-check (C7).
   DESIGN.md's existing principle, cited in docs/core.md:283.
 
 **Risks.** Making the rule exact (smalltt-style: solve nothing, then unfold) would reject or
-slow programs that work today, because SW-896's `List.between` example relies on solving
+slow programs that work today, because SW-896's `List.range` example relies on solving
 `?lo := 2` from the arguments (docs/core.md:285) **[inferred]**. So the recommendation is to
 document and test, not to change.
 

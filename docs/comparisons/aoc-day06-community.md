@@ -469,19 +469,19 @@ And the tidy (finding 6): the last step of `part1Correct` today and with holes.
 
 ```
     _ = List.sumBy (lo => List.sumBy (hi => if isProblem lines lo hi then … else 0)
-          (List.range (gridWidth lines + 1))) (List.range (gridWidth lines)) :=
+          (0 ..< gridWidth lines + 1)) (0 ..< gridWidth lines) :=
         List.sumByCongr
-          (lo => List.sumBy (hi => Nat.keepIf (blockAnswer1 (blockOf lines lo hi)) (isProblem lines lo hi)) (List.range (gridWidth lines + 1)))
-          (lo => List.sumBy (hi => if isProblem lines lo hi then … else 0) (List.range (gridWidth lines + 1)))
-          (lo => List.sumByCongr (hi => …) (hi => …) (hi => term1 lines lo hi) (List.range (gridWidth lines + 1)))
-          (List.range (gridWidth lines))
+          (lo => List.sumBy (hi => Nat.keepIf (blockAnswer1 (blockOf lines lo hi)) (isProblem lines lo hi)) (0 ..< gridWidth lines + 1))
+          (lo => List.sumBy (hi => if isProblem lines lo hi then … else 0) (0 ..< gridWidth lines + 1))
+          (lo => List.sumByCongr (hi => …) (hi => …) (hi => term1 lines lo hi) (0 ..< gridWidth lines + 1))
+          (0 ..< gridWidth lines)
 ```
 ```
 theorem part1Correct (lines: List Text): solvePart1 (parseWorksheet lines) = part1Spec lines :=
   calc solvePart1 (parseWorksheet lines)
     _ = _ := List.sumByMap ((p: Problem) => evaluate p.operator p.rowNumbers) parseProblem (blocks lines)
     _ = _ := blocksTotal lines blockAnswer1
-    _ = part1Spec lines := List.sumByCongr _ _ (lo => List.sumByCongr _ _ (hi => term1 lines lo hi) (List.range (gridWidth lines + 1))) (List.range (gridWidth lines))
+    _ = part1Spec lines := List.sumByCongr _ _ (lo => List.sumByCongr _ _ (hi => term1 lines lo hi) (0 ..< gridWidth lines + 1)) (0 ..< gridWidth lines)
 ```
 
 (The first is abridged with `…`; the second is the checked scratch version.)

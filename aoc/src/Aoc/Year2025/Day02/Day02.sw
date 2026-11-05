@@ -91,7 +91,7 @@ def sumOfIdsWrittenRepeatedly (range: Range): Int :=
 def copiesWeight (copies: Nat): Int
     decreasing copies
 :=
-  let divisorWeights := List.range 2 (copies - 1 + 1) |> .sumBy (divisor =>
+  let divisorWeights := List.range 2 copies |> .sumBy (divisor =>
     if h: divisor < copies then (if divisor.divides copies then copiesWeight divisor else 0) else 0)
   1 - divisorWeights
 

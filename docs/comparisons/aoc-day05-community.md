@@ -516,7 +516,7 @@ assert answer == |original|;   // original = Union(sortedRanges), a set<nat>
 -- Stitchwort (Proofs/Part2.sw, proved, total)
 def countFresh (db: Database): Nat :=
   let top := db.fresh.foldLeft (m r => Nat.max m r.to) 0
-  List.range (top + 1) |> .count (id => db.fresh.any (r => r.contains id))
+  0 ..< top + 1 |> .count (id => db.fresh.any (r => r.contains id))
 
 theorem solvePart2Correct (db: Database): solvePart2 db = countFresh db
 ```
