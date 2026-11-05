@@ -40,7 +40,7 @@
       "labels": [
         "tooling"
       ],
-      "body": "\n\nBoard audit (5 Nov 2026): duplicate of SW-1342 (D2384); its 'compare native, JS and interpreter' line copied there. Closed.",
+      "body": "Problem: the last `cargo run --release -p stitchwort-bench -- --update` ran under heavy load, so bench/baseline.toml's `time_ms` values (e.g. examples 38601.8 ms) were taken from earlier runs; steps, visits and allocations are current and deterministic.\n\nChange: on an otherwise idle machine, run the update once and commit baseline.toml. Run only when asked and with limited memory use.\n\nDone when: baseline.toml's time_ms values come from a single quiet-machine run and the commit message says so.\n\nHistory: none.\n\nFrom SW-659 (merged, backlog review 4 Nov 2026): D1380 (Matt, 26 Oct): not yet. Also compare native, JS and interpreter, not only the Rust bench's `time_ms`.\n\nBoard audit (5 Nov 2026): duplicate of SW-1342 (D2384); its 'compare native, JS and interpreter' line copied there. Closed.",
       "created": "2026-10-19",
       "updated": "2026-11-05",
       "commits": []
@@ -226,7 +226,7 @@
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "\n\nBoard audit (5 Nov 2026): obsolete: xs.map ((a, b) => a + b) checks today; docs/proposals/lambda-syntax.md calls untupling moot. Closed.",
+      "body": "The problem: a lambda written with two parameters is refused where a function on pairs is expected, so `.map ((row, chars) => ...)` needs `.map (((row, chars)) => ...)` (extra brackets). Scala 3 splits the pair automatically (\"parameter untupling\", https://docs.scala-lang.org/scala3/reference/other-new-features/parameter-untupling.html). Found in the roguelike port (NOTES stage 1 #10).\n\nThe change: when a lambda with n>1 parameters is checked against a one-argument function on an n-tuple, treat it as a pattern lambda over the tuple.\n\nWhat it should do: `[(1, \"a\")].map ((n, s) => ...)` is accepted and means the same as the bracketed form; arities that don't match still give the usual error. Needs Matt's go-ahead because it is a syntax rule.\n\nBoard audit (5 Nov 2026): obsolete: xs.map ((a, b) => a + b) checks today; docs/proposals/lambda-syntax.md calls untupling moot. Closed.",
       "created": "2026-10-25",
       "updated": "2026-11-05",
       "commits": []
@@ -250,7 +250,7 @@
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "\n\nBoard audit (5 Nov 2026): Effect.bindAssoc is a proved theorem since SW-405; what remains is only its use of Quot.sound.",
+      "body": "The problem: `Effect.bindAssoc` (associativity of bind) is assumed as an axiom in std. Every theorem that uses it shows up in `stitchwort audit` with an axiom, and the roguelike had to restructure its code (draw first, then plan) to avoid needing a proved monad law under handlers (rogue PROOFS.md gap 2).\n\nThe change: prove it (probably needs a computation-equality/extensionality principle for Comp), or restrict it to the handler-free case.\n\nWhat it should do: no axiom left in std for the effect monad laws; `audit` clean on the roguelike generation theorems. Related: SW-570 (symbolic stepping through handlers), SW-660.\n\nBoard audit (5 Nov 2026): Effect.bindAssoc is a proved theorem since SW-405; what remains is only its use of Quot.sound.",
       "created": "2026-10-26",
       "updated": "2026-11-05",
       "commits": []
@@ -771,7 +771,7 @@
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "\n\nBoard audit (5 Nov 2026): partly done: natAbsMul is in std/Int/Lemmas.sw.",
+      "body": "Day 13 findings: match on an expression not in the goal silently does nothing (warn); Int (d*a)/d = a and List.minimum lemmas, natAbsMul/natAbsZero to std; labelWhole reports at the furthest point (missing blank line between sections); import … as aliases\n\nUpdate 1 Nov 2026 (AoC corpus review): std has had the List.minimum lemmas since 28 Oct (List.minimumSome, List.minimumExists, List.minimumAllEqual in List/Lemmas.sw); day 16 local copies being removed in SW-1021. Remaining items are the non-std ones.\n\nBoard audit (5 Nov 2026): partly done: natAbsMul is in std/Int/Lemmas.sw.",
       "created": "2026-10-28",
       "updated": "2026-11-05",
       "commits": []
@@ -783,7 +783,7 @@
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "\n\nBoard audit (5 Nov 2026): partly done: Set.popMin, its proof and Graph.distances (Dijkstra) are in std/Graph/Search.sw. Check what's left.",
+      "body": "Day 16 findings: Set.popMin and the generic Dijkstra + proof into std (after the Set lane); share part 1's search with part 2; E-MATCH-MOTIVE on a match keeping its equation (queue.min); rewrite-introduced terms not refined by match; lambdas inferred after other arguments; importing a constructor by name note\n\nUpdate 1 Nov 2026 (AoC corpus review): std has had the List.minimum lemmas since 28 Oct (List.minimumSome, List.minimumExists, List.minimumAllEqual in List/Lemmas.sw); day 16 local copies being removed in SW-1021. Remaining items are the non-std ones.\n\nBoard audit (5 Nov 2026): partly done: Set.popMin, its proof and Graph.distances (Dijkstra) are in std/Graph/Search.sw. Check what's left.",
       "created": "2026-10-28",
       "updated": "2026-11-05",
       "commits": []
@@ -1207,7 +1207,7 @@
         "bug",
         "decision"
       ],
-      "body": "\n\nNote (moved from the where field, board audit 5 Nov 2026): ",
+      "body": "From the SW-846 lane: in apply_args_postponing (check.rs), a postponable lambda that succeeds when tried in place is kept, so it can solve a metavariable (with the unfolded type) before an earlier postponed lambda is checked; the result depends on argument order (alias-functions.md §4). Check whether the remaining argument-order cases mostly come from this.\n\nInvestigated 29 Oct (night), no change. With def Counts: Type := List Nat, Counts.size, twice (f: b -> Nat) (g: b -> Nat) (z: b):\n- A: twice (c => c.size) (c => List.length c) (Counts.of 1) rejected (misleading E-CANNOT-INFER from the first try);\n- B: lambdas swapped, rejected (E-UNKNOWN-FIELD, c: List ?2) with no lambda postponed;\n- C: both c.size, accepted; E1/E2: moving z first changes the inferred call type Counts vs List Nat.\nCause: whichever comparison solves b first decides its name; a later Counts never restores it (alias-functions.md place 3). SW-859's mechanism is one route into it; the §4/AoC cases are already fixed (SW-846) or not this mechanism.\nRules tried with a temporary switch: R1 (after one postponement, postpone all later postponable lambdas) accepts A, E2 but newly rejects examples/accept/lambda-postponed-alias.sw and a record-literal case; R2 (postpone all) accepts A, B, E2 but rejects lambda-postponed-alias.sw and twice (c => Int.abs c) (c => c) 3.\nOptions for Matt (lane's D1565/D1566): (a) leave, document with place 3; (b) R1; (c) R2; (d) retry with R1 then R2 only when the whole call fails (untested); and fold into a place-3 design (SW-858) where a later unification can restore the alias name. Lane recs: (d) if wanted before place 3, else (a); yes to folding into place 3. Repro files were in the session scratchpad (o/A.sw-F.sw).\n\n\n30 Oct (orchestrator): folded into SW-817 (postponement queue). Its example, twice (c => c.size) (c => List.length c) (Counts.of 1), is the case the queue's scoped W1 keeps rejected today and that stage 5 (removing the lambda try-then-postpone in apply_args_postponing) is meant to settle; re-check after stage 5.\n\n\n30 Oct (orchestrator, after stage 3 84e7e339): the lambda try-then-postpone counter is now 0 in accepted code; re-check this ticket's twice (c => c.size) (c => List.length c) (Counts.of 1) example after stage 5 removes the path.\n\n\nD2085 (Matt, 31 Oct 2026): re-check on main after postponement stages 1-3 and 6; close if fixed, else fix.\n\n\n31 Oct (D2085 lane): not fixed on main (02e83151). With `twice (f: b -> Nat) (g: b -> Nat) (z: b)`: A `twice (c => c.size) (c => List.length c) (Counts.of 1)` rejected, now E-UNKNOWN-FIELD with c: List Nat (no longer the misleading E-CANNOT-INFER); B (lambdas swapped) rejected, c: List ?2; C (both c.size) and z-first accepted. Cause unchanged: in A the second lambda, checked in place, solves b := List ?a from List.length's own parameter (not an unfolding), and the later Counts only fills ?a, so no place-3 naming rule can restore Counts; only not checking that lambda in place (stage 5, or R1/R2 above) or re-naming a solved meta would. Belongs to stage 5 of the queue; left open for it.\n\nNote (moved from the where field, board audit 5 Nov 2026): not fixed: belongs to postponement stage 5 (lambda checked at once)",
       "created": "2026-10-28",
       "updated": "2026-11-05",
       "commits": []
@@ -1336,7 +1336,7 @@
         "elab",
         "research"
       ],
-      "body": "\n\nNote (moved from the where field, board audit 5 Nov 2026): ",
+      "body": "From the proof-automation research register (docs/research/proof-automation.md §5.1, ticket T1, decision D2000), redone from full texts 30 Oct 2026.\n\nIdea: a congruence-closure step inside `cases`, as in Lean 4's `grind` and every SMT solver, using only the facts already in scope. Equations in scope are grouped into classes of equal terms, closed under \"equal arguments give equal results\". Two different constructors in one class makes the branch impossible; both sides of the goal in one class proves it. Stage 2 would apply each local ∀ hypothesis once to the matching facts. Probes that fail on main today (register §5.1): (1) `xs = Cons 1 Nil` and `xs = Nil` both in scope; (2) `f a = c` from `a = b` and `f b = c`; (3) `(y: Nat) → lookup = Some y → y < 5` with `lookup = Some y0`, goal `y0 < 5`.\n\nAssumptions of D2000 in full: (A1) comparing class members by their computed form, as `cases` compares atoms now, is enough, without full conversion inside the closure; (A2) the classes at one `cases` node are small (tens of terms), so the step costs little when it fails; (A3) congruence steps written with `J`, with `Bool.uniqueEq` or `DecEq.uniqueEq` equating proof arguments, type-check for the dependent calls the target proofs contain.\n\nD2000 (Matt, 30 Oct 2026): NOT prioritised yet. First gather evidence that it would simplify EXISTING proofs. Before any design: survey std, examples, aoc and games/rogue proofs for steps that chain equations by hand (Eq.trans/Eq.sym/Eq.cong chains, rewrite sequences, matches that only exist to rule out a constructor clash, manual instantiation of a ∀ hypothesis) and that a congruence-closure step in `cases` would make unnecessary; count them, list file:line, and rewrite a few by hand-simulating the step to show the saving. Also cross-check against the cases follow-ups in SW-608. Prioritise only if the survey shows real savings.\n30 Oct (survey lane): rebased, read §5.1/D2000, cases.rs closers, proving-guide; starting grep survey of std/examples/aoc/rogue.\n30 Oct (survey lane): probes on main: cases fails p2 (even x = True, even x = False ⊢ Void), p3 (o = Some 3, o = None, Option var), p4/p8 injectivity via shared term, p6/p9/p11/p12/p14; passes Nat trans (omega) and h ⊢ h. Writing a leaf classifier for Eq.trans/sym/cong chains next.\n30 Oct (survey lane): trial edits (reverted) replacing steps by today's cases: 8 already close (Day06 x5, Day24 settleMore, rogue Loop:24, Rules:24); 12 fail today (Day06 stepTurns, Day16 Moves x3, Day13 Cramer, rogue Loop:20, Day15 sameBox x2, Day17 comboUnique, Day23 x3). Hand-simulating CC on the failures next.\n30 Oct (survey lane): 32 sites tried in situ (reverted): 16 already close with today's cases, 16 fail; hand-simulated CC closes 14 of the 16 (3 only with disequality, 1 only with stage 2), 2 unclear. Line savings ~0 per site. Writing docs/research/congruence-closure-evidence.md.\n\nEVIDENCE (30 Oct, branch worktree-agent-a1fb65a24d4a7ede6, 99e85ba2, docs/research/congruence-closure-evidence.md): Congruence closure would close steps today's cases can't, but it saves almost no lines. Candidates (multi-step, all-local leaves; lenient classifier): (a) Eq chains 64 + 11 with And projections; (b) rewrite <locals> in rfl/<local>/at 88/22/19; (c) clash from 2+ local equations 63 (39 are one std Map/Set/Ord shape); (d) local ∀ instantiated 14; (e) helper lemmas 1 (rogue someNotNone, which today's cases already does). 32 sites tried in place (reverted): 16 already close with today's cases, 16 fail. Hand simulation of the 16: 6 close by stage 1 at the root, 4 at the first open case only, 3 only with disequalities, 1 only with stage 2, 2 unclear. Estimate: about 150 sites, about 0 lines each (each step becomes `cases` on the same line, about 30 chars); 4 lines saved in 21 sampled cases; about 10-30 lines across about 70k proof lines. Separately, 389 one-hypothesis clash arms are already closable by today's cases and were never converted. The friction notes have no complaint about chaining local equations; their Eq.trans uses are workarounds through library lemmas, which CC over local facts doesn't reach. Recommendation: DEFER. The evidence that sites exist is moderate (hand simulation, not an implementation). The evidence that line savings are negligible is strong. There is no evidence either way on ease of writing.\n\nD2060 (Matt, 30 Oct 2026): DEFERRED to backlog. Evidence: docs/research/congruence-closure-evidence.md. If revisited, start with the narrower check: two local hypotheses `t = C1` and `t = C2` about the same term with different constructors close the branch (39 of about 75 chain sites), not full congruence closure.\n\nNote (moved from the where field, board audit 5 Nov 2026): deferred (D2060); evidence in docs/research/congruence-closure-evidence.md",
       "created": "2026-10-30",
       "updated": "2026-11-05",
       "commits": [
@@ -1464,7 +1464,7 @@
       "labels": [
         "tooling"
       ],
-      "body": "\n\nNote (moved from the where field, board audit 5 Nov 2026): ",
+      "body": "Search: (1) 'List.drop _ 0' is refused as 'a hole on its own' because it computes to xs; the message should say so. (2) search --at doesn't try cases as a closer: (a < b) = ¬(b ≤ a) which cases proves got nothing. (3) every --at run warned '3 comparisons ran out of steps'. (4) premise pattern '(?a < ?b) = not (?b ≤ ?a)' fell to the relaxed pass with unrelated results. (5) Option.map o (x => x) = o offered Option.orElseNone: correct but unexpected name (fine).\n\nFrom AoC 2021 day 3 (aoc/NOTES-2021.md, 31 Oct 2026).\n\n\n31 Oct (search lane, in 5cb4b8ff with SW-915 2b): (1) a pattern that computes to a hole says so; (2) cases tried as a closer (alone, obligations, after a rewrite), kernel-checked; (3) the 3 comparisons are always Std.Float.Theory overflowHalf/largestBelow/infinityAbove (magUnits 9218868437227405311 runs out of depth vs any Nat sum): the warning now names them. Not done: (4) relaxed pass for premise patterns.\n\nBacklog review, 4 Nov 2026: items (1)-(3) were done in 5cb4b8ff6 and (5) is fine as is; only (4) is open: premise pattern '(?a < ?b) = not (?b <= ?a)' falls to the relaxed pass with unrelated results.\n\nNote (moved from the where field, board audit 5 Nov 2026): (1)-(3) done in 5cb4b8ff; (4) premise-pattern relaxed pass, (5) naming left",
       "created": "2026-10-31",
       "updated": "2026-11-05",
       "commits": [
@@ -1719,7 +1719,7 @@
         "aoc",
         "friction"
       ],
-      "body": "\n\nBoard audit (5 Nov 2026): the goals-printing-%match1 item is SW-1004's; dropped here.",
+      "body": "From AoC 2021 day 14 (aoc/NOTES-2021.md, 1 Nov 2026).\n(1) Holes appear only inside a failing omega goal, with no error at the hole: a lambda's `entry.snd` became `?15 …` (lambda before the argument fixing its type; workaround annotate); an `[auto eq: DecEq a]` argument still unsolved when a later omega argument was checked (workaround: prove the fact first in a typed let). Same family as SW-963 (2), SW-967 (3), SW-969 (2), new symptom. Fix: solve auto arguments first, or name the unsolved hole (medium).\n(2) search --at doesn't try a lemma backwards: missed Eq.sym (List.sumByFlatMap …) though plain search lists it first. Fix: try each closing candidate's symmetric form (small-medium).\n(3) Lifted matches/fields print by internal names in goals and search --at: expand.%match1, Map.lookupLast.%match1, Ord.%compare, Add.%zero, DecEq.%decide. Fix: fold back to the definition (small-medium).\n(4) Class laws aren't searchable: `search 'Ord.compare ?x ?y = Equal → ?x = ?y'` finds nothing (law is record field ord.equal). Fix: index class laws as lemmas (small-medium).\n(5) search --at can't offer the induction hypothesis (medium).\n(6) No Decidable (List.Distinct xs); audit message says it twice (\"nothing decides X: no way to decide X\") (small).\n(7) No List.maximum lemmas though List.minimum has them; copied for Nat (small).\nStd candidates: membership ↔ 0 < count; sumByPositive; Map.lookupLast on distinct keys = find; weighted sum after Map.insertWith Nat.add; Ord.compare x y = Equal → x = y; element count from zipWithNext; List.maximum lemmas.\nsearch --at: 5 goals, closed none; once its applies list had the right next step.\n\nBoard audit (5 Nov 2026): the goals-printing-%match1 item is SW-1004's; dropped here.",
       "created": "2026-11-01",
       "updated": "2026-11-05",
       "commits": []
@@ -1860,7 +1860,7 @@
         "aoc",
         "friction"
       ],
-      "body": "\n\nBoard audit (5 Nov 2026): the goals-printing-%match1 item is SW-1004's; dropped here.",
+      "body": "From AoC 2021 day 18 (aoc/NOTES-2021.md, 1 Nov 2026). Termination of snailfish reduction left open (fuel 1000 per sum; completeness up to budget proved).\n(1) Printed goals aren't valid source: a record passed to a constructor prints `Cons { value = … } rest` / `Some { found | … }`, which search --at can't read back (E-PARSE: braces after Cons name its fields). Fix: print in brackets (small).\n(2) search --at fails on a hidden name: a goal mentioning `split.%match1` gives E-PARSE \"expected a field name after '.'\" (new effect of SW-971 (3)).\n(3) The program had to be reshaped to prove one arm: with a specific `Pair (Regular a) (Regular b)` arm before the general Pair arm, the general arm's equation can't be stated (a written-out match is a different hidden function, E-REFL). Workaround: named helper explodeIn. Fix: generate an equation per arm, like Lean's f.eq_3 (medium).\n(4) A goal showed the previous arm's variable names: last arm binds `left1 right1` but goal printed `Pair left right = Pair left2 right2` (printer bug, small-medium).\n(5) `if 4 ≤ depth` stays a Bool if (only Nat.leq matching refines it) while `if 10 ≤ value` becomes Decidable.elim (Nat.decLessThan 9 value). Cause guessed. Fix: one form or a proving-guide line (small).\n(6) audit can't satisfy `f x = Some y` with y free; fix: compute y from f x rather than random (small-medium; different from SW-967 (8)).\n(7) Small: `import Std (Pair)` hides a local Pair constructor (clear message); braces after a constructor bit three times (LSP quick fix); no multi-line string literals (example is Text.join of a list); a recursive {Parse} function needs an explicit bound.\nSeen again: no record eta (SW-960 (4)); holes before expected type (SW-969 (2)); context order breaks search --at (SW-969 (1)); search misses DecEq.soundFalse / Nat.equalFalse for == facts (SW-960 (3)); day 14's maximumSome imported again (SW-971 (7)).\nStd candidates: xs ≠ Nil → xs ++ ys ≠ Nil (both sides); findIndexFrom = None → p false on every element; List.maximum lemmas.\n\nBoard audit (5 Nov 2026): the goals-printing-%match1 item is SW-1004's; dropped here.",
       "created": "2026-11-01",
       "updated": "2026-11-05",
       "commits": []
@@ -3623,7 +3623,7 @@
       "labels": [
         "tests"
       ],
-      "body": "\n\nBoard audit (5 Nov 2026): the web:pkg sources sentence was fixed by SW-1108.",
+      "body": "From SW-1104 (closed, backlog review 4 Nov 2026; merged 7f44deed8, lane 04f66ce47). Leftovers:\n- D2231 item 3: sampling of the heavy sweeps (search_at_aoc, rewind /4-/8, erasure stride 4, cli examples stride 2-4, every_day_from_the_whole_projects_cache, web every_aoc_day, operators lowering; ~1500 CPU-s, costs coverage) was decided after the other items; still open.\n- Item 4: Session::eager_for_stack costs ~9.0 CPU-s per load; 136 tests ~1,220 CPU-s (13% of daily CPU). Sharing per binary does not work under nextest (process per test); options are an on-disk snapshot of the loaded library or fewer test processes.\n- Item 6: restate the budget for the 10-core M1 Pro (SW-1104 measured 20.7 min on 2 Nov before the fixes).\n- The orchestrator should run one daily tier after SW-1104's merge to measure (needs Matt's agreement on the number); docs/testing.md's daily memory row is out of date until then.\n- Also noted: the merge-tier selector estimate assumes sweeps never overlap (now conservative); web:pkg sources omit aoc/src/**/*.sw, games/rogue/src, web/*.sh.\n\nBoard audit (5 Nov 2026): the web:pkg sources sentence was fixed by SW-1108.",
       "created": "2026-11-02",
       "updated": "2026-11-05",
       "commits": []
@@ -3947,7 +3947,7 @@
       "labels": [
         "editor"
       ],
-      "body": "\n\nSW-1383 (signature help) folded in here.",
+      "body": "Roadmap step 2. Inlay hints scope pending D2244. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2244 (Matt, 3 Nov): inlay hints for let types only.\n\nD2263 (Matt, 3 Nov): not started yet; editor-roadmap implementation waits until the tidy-ups (state migration, std) settle.\n\nSW-1383 (signature help) folded in here.",
       "created": "2026-11-03",
       "updated": "2026-11-05",
       "commits": []
@@ -4423,7 +4423,7 @@
       "labels": [
         "test"
       ],
-      "body": "\n\nBoard audit (5 Nov 2026): may overlap SW-1386 (selector reusing the inventory); check when either starts.",
+      "body": "D2265 (Matt, 3 Nov): backlog; keep the current process for now. Measured 3 Nov: selection costs ~3-5 min per merge (inventory build 2-4 min, partly shared with the merge tier; Haiku's choice 1-2 min). Most merges touch core/elab/driver, so the fixed tier ran too and the selection was mostly extra, though it twice ran tests the merge tier lacks (navigation snapshot, an lsp test). Options: (1) when the merge tier runs, select only tests outside the merge profile; (2) dev/select: a script that turns the diff + docs/test-selector.md's path rules + the inventory into a filter in seconds, flagging unusual cases for a model; skip the inventory rebuild when no test file changed.\n\nSmall items seen in the SW-1134 verification: dev/run-selected prints its folded line twice (double fold, harmless?); test:merge desc says under 90 s but takes ~110 s now.\n\nBoard audit (5 Nov 2026): may overlap SW-1386 (selector reusing the inventory); check when either starts.",
       "created": "2026-11-03",
       "updated": "2026-11-05",
       "commits": []
@@ -6259,7 +6259,7 @@
       "labels": [
         "perf"
       ],
-      "body": "\n\nBoard audit (5 Nov 2026): obsolete: type Wide = WLeaf | WNode (kids: Vec Wide 2) checks in 1.5 s, 103 MB; in an examples file since 30 Oct. Closed.",
+      "body": "The problem: checking `type Wide = WLeaf | WNode (kids: Vec Wide 2)` (a nested data type through a fixed-length vector) makes `stitchwort check` use about 28 GB in 8 s; the memory guard kills it at 2 GB. It is on main's binary too, so it predates nested-data stage 3.\n\nRepro: a file containing only `type Wide = WLeaf | WNode (kids: Vec Wide 2)` and `stitchwort check` on it.\n\nThe change: find which generated declaration (the induction principle or the All predicate for the nested occurrence under Vec) blows up, and either fix it or refuse the type with a clear error.\n\nWhat it should do: the type is accepted within normal memory, or refused with a message; no 28 GB spike.\n\nSource: the SW-704 log, 29 Oct entry (found while checking stage 3; recorded there as needing a ticket).\n\nBoard audit (5 Nov 2026): obsolete: type Wide = WLeaf | WNode (kids: Vec Wide 2) checks in 1.5 s, 103 MB; in an examples file since 30 Oct. Closed.",
       "created": "2026-11-04",
       "updated": "2026-11-05",
       "commits": []
@@ -6402,7 +6402,7 @@
       "labels": [
         "aoc"
       ],
-      "body": "\n\nBoard audit (5 Nov 2026): every candidate is done (SW-1307, 1308, 1309, 1312, 1313, 1320); the last, 2024/13 Offset, is SW-1327. Closed.",
+      "body": "Survey: docs/research/aoc-domain-types.md (SW-1283). D2363 (Matt, 4 Nov): records for nouns by default, an alias only where a type adds nothing; order as recommended, one lane at a time behind the AoC track ('just work through them'). Sonnet (Matt, 4 Nov: Opus not needed for refactoring); the orchestrator checks each changed statement keeps its meaning. Split into one lane per day when picked up; cheapest first (2021/04, 2025/09, 2024/13, 2021/14, 2024/19).\n\nSplit and done: SW-1307-1309, SW-1312, SW-1313, SW-1320 (all merged 5 Nov). Left: 2024/13 Offset, waiting on D2366.\n\nCorrection: D2366 was already answered (4 Nov). 2024/13 filed as SW-1327.\n\nBoard audit (5 Nov 2026): every candidate is done (SW-1307, 1308, 1309, 1312, 1313, 1320); the last, 2024/13 Offset, is SW-1327. Closed.",
       "created": "2026-11-04",
       "updated": "2026-11-05",
       "commits": []
@@ -7144,7 +7144,7 @@
       "labels": [
         "tooling"
       ],
-      "body": "\n\nFrom SW-76 (closed as duplicate): compare native, JS and interpreter too.",
+      "body": "D2384 (Matt, 5 Nov): re-record, and put the investigation on the backlog. A re-record on main was stopped at 25 min (Matt: not now); it ran while lanes were building, and the bench checks every example and runs its tests. Run it on a quiet machine. Rises listed in the SW-1227 daily log: scratchpad sw1227-daily/daily.log.\n\nFrom SW-76 (closed as duplicate): compare native, JS and interpreter too.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7702,7 +7702,8 @@
       "agent": "",
       "where": "",
       "labels": [
-        "lsp,perf"
+        "lsp",
+        "perf"
       ],
       "body": "From SW-1375's trial, 5 Nov 2026.",
       "created": "2026-11-05",
@@ -7718,7 +7719,7 @@
       "labels": [
         "lsp"
       ],
-      "body": "\n\nBoard audit (5 Nov 2026): duplicate of SW-1117, which lists signature help. Closed.",
+      "body": "From SW-1375's trial, 5 Nov 2026.\n\nBoard audit (5 Nov 2026): duplicate of SW-1117, which lists signature help. Closed.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7773,7 +7774,8 @@
       "agent": "",
       "where": "",
       "labels": [
-        "elab,proofs"
+        "elab",
+        "proofs"
       ],
       "body": "From SW-1358, 5 Nov 2026.",
       "created": "2026-11-05",
@@ -7829,7 +7831,8 @@
       "agent": "",
       "where": "",
       "labels": [
-        "elab,proofs"
+        "elab",
+        "proofs"
       ],
       "body": "From SW-1381, 5 Nov 2026. Small improvement.",
       "created": "2026-11-05",
@@ -7897,9 +7900,10 @@
       "agent": "",
       "where": "",
       "labels": [
-        "playground,perf"
+        "playground",
+        "perf"
       ],
-      "body": "\n\nBoard audit (5 Nov 2026): clashes with SW-1378 (rewrites web/index.html and web/tests/browser.mjs): start after it merges.",
+      "body": "From SW-1385, 5 Nov 2026. Small improvement.\n\nBoard audit (5 Nov 2026): clashes with SW-1378 (rewrites web/index.html and web/tests/browser.mjs): start after it merges.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7911,9 +7915,10 @@
       "agent": "",
       "where": "",
       "labels": [
-        "playground,tests"
+        "playground",
+        "tests"
       ],
-      "body": "\n\nBoard audit (5 Nov 2026): clashes with SW-1378 (rewrites web/index.html and web/tests/browser.mjs): start after it merges.",
+      "body": "From SW-1385, 5 Nov 2026. Small improvement.\n\nBoard audit (5 Nov 2026): clashes with SW-1378 (rewrites web/index.html and web/tests/browser.mjs): start after it merges.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7927,7 +7932,7 @@
       "labels": [
         "tests"
       ],
-      "body": "\n\nBoard audit (5 Nov 2026): clashes with SW-1378 (rewrites web/index.html and web/tests/browser.mjs): start after it merges.",
+      "body": "From SW-1385, 5 Nov 2026. Small improvement.\n\nBoard audit (5 Nov 2026): clashes with SW-1378 (rewrites web/index.html and web/tests/browser.mjs): start after it merges.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7997,7 +8002,8 @@
       "agent": "",
       "where": "",
       "labels": [
-        "playground,perf"
+        "playground",
+        "perf"
       ],
       "body": "From SW-1384, 5 Nov 2026.",
       "created": "2026-11-05",
@@ -8011,7 +8017,8 @@
       "agent": "",
       "where": "",
       "labels": [
-        "playground,perf"
+        "playground",
+        "perf"
       ],
       "body": "From SW-1384, 5 Nov 2026.",
       "created": "2026-11-05",
@@ -8025,7 +8032,8 @@
       "agent": "",
       "where": "",
       "labels": [
-        "std,proofs"
+        "std",
+        "proofs"
       ],
       "body": "From SW-1402 (2020 day 7), 5 Nov 2026. For day 7's friction review.\n\nD2429 (day 7 friction review, 5 Nov 2026; Matt delegated the decisions): do it. Order: day 8, then SW-1407, SW-1409, SW-1410, SW-1406 with SW-1408, SW-1405, SW-1411 (after SW-1407: both touch day 7's graph).",
       "created": "2026-11-05",
@@ -8039,7 +8047,8 @@
       "agent": "",
       "where": "",
       "labels": [
-        "elab,diagnostics"
+        "elab",
+        "diagnostics"
       ],
       "body": "From SW-1402 (2020 day 7), 5 Nov 2026. For day 7's friction review.\n\nD2429 (day 7 friction review, 5 Nov 2026; Matt delegated the decisions): do it. Order: day 8, then SW-1407, SW-1409, SW-1410, SW-1406 with SW-1408, SW-1405, SW-1411 (after SW-1407: both touch day 7's graph).",
       "created": "2026-11-05",
@@ -8083,7 +8092,7 @@
       "labels": [
         "std"
       ],
-      "body": "\n\nBoard audit (5 Nov 2026): List.memFlatMapIntro and memFlatMapElim exist; missing: one ↔/∃ form and Map.groupMap.",
+      "body": "From SW-1402 (2020 day 7), 5 Nov 2026. For day 7's friction review.\n\nD2429 (day 7 friction review, 5 Nov 2026; Matt delegated the decisions): do it. Order: day 8, then SW-1407, SW-1409, SW-1410, SW-1406 with SW-1408, SW-1405, SW-1411 (after SW-1407: both touch day 7's graph).\n\nBoard audit (5 Nov 2026): List.memFlatMapIntro and memFlatMapElim exist; missing: one ↔/∃ form and Map.groupMap.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8140,7 +8149,7 @@
         "elab",
         "bug"
       ],
-      "body": "\n\nBoard audit (5 Nov 2026): fixed by commit 64af7072a on lane/SW-1359 (not yet merged); closes when SW-1359 merges.",
+      "body": "Repro: /private/tmp/claude-502/-Users-matt-repos-mdr-stitchwort/9ccc8cdc-8b8e-4d69-8b17-b90e21a42b50/scratchpad/rangepipe/a.sw (viaRange fails; viaCall, oneStep check). From SW-1358's range syntax (elaboration or effects pass on range operands). Sent to SW-1359's lane (same area).\n\nBoard audit (5 Nov 2026): fixed by commit 64af7072a on lane/SW-1359 (not yet merged); closes when SW-1359 merges.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8192,7 +8201,9 @@
       "agent": "",
       "where": "",
       "labels": [
-        "std,proofs,aoc"
+        "std",
+        "proofs",
+        "aoc"
       ],
       "body": "From SW-1401, 5 Nov 2026. Small improvement.\n\nFrom SW-1401's Opus review: the key lemma is Parse.linesSepByLineBreak (a SepBy spec LineBreak with \\r-free items plus a break gives the items' lines); day 4's mixed ' '/break separators may only allow field-level facts. Also: one-line docs for Text.unlinesAppend, endLineNoReturn, linesFromNoFeed; rename or inline Parse.appendBlank; parseWrittenLines' doc says 'line breaks' where it means carriage returns and line feeds. And check 2020 day 6's spec: can splitBy blank give an empty group (whose everyone would count all 26)? (The proof equates spec and program on readable inputs, and sections groups are non-empty, so likely fine — confirm.)",
       "created": "2026-11-05",
