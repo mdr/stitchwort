@@ -29,14 +29,15 @@ theorem pickOther (a b: Nat) (notLess: (a < Succ b) = False): pick a (Succ b) = 
   pick.eq3 a (Succ b) notLess (same => omega)
 
 -- A decided proposition is stated as itself, though the definition tests
--- its `Bool`: `skipThree.eq1` takes `n ≠ 3`, and `skipThree.eq2` `¬(n ≠ 3)`.
+-- its `Bool`: `skipThree.eq1` takes `n ≠ 3`, and `skipThree.eq2` `n = 3`
+-- (`¬(n ≠ 3)`, where the proposition is an equation's negation).
 def skipThree: Nat → Nat
   | n if n != 3 => n
   | _ => 0
 
 theorem skipThreeOther (n: Nat) (other: n ≠ 3): skipThree n = n := skipThree.eq1 n other
 
-theorem skipThreeThree: skipThree 3 = 0 := skipThree.eq2 3 (other => other rfl)
+theorem skipThreeThree: skipThree 3 = 0 := skipThree.eq2 3 rfl
 
 -- `==` on a type with a decision is its equation.
 def emptyOrOne: List Nat → Nat
@@ -58,12 +59,16 @@ theorem predecessorZero: predecessor 0 = 0 := predecessor.eq2 0 (positive => ome
 
 theorem predecessorPositive (n: Nat) (positive: n > 0): predecessor n = needsPositive n := predecessor.eq1 n positive
 
--- `&&` in a guard is the `Bool` the definition tests.
+-- `&&` in a guard is stated as the conjunction of its two sides, and the arm
+-- below takes its negation: `between.eq1: 3 ≤ n ∧ n ≤ 9 → between n = n`,
+-- `between.eq2: ¬(3 ≤ n ∧ n ≤ 9) → between n = 0`.
 def between: Nat → Nat
   | n if 3 <= n && n <= 9 => n
   | _ => 0
 
-theorem betweenInside (n: Nat) (inside: (3 <= n && n <= 9) = True): between n = n := between.eq1 n inside
+theorem betweenInside (n: Nat) (inside: 3 ≤ n ∧ n ≤ 9): between n = n := between.eq1 n inside
+
+theorem betweenOutside (n: Nat) (outside: ¬(3 ≤ n ∧ n ≤ 9)): between n = 0 := between.eq2 n outside
 
 -- An or-pattern with a guard: one equation for each alternative.
 def vowelWeight (strict: Bool): Char → Nat
@@ -121,3 +126,41 @@ theorem countDownIsN (n: Nat) (flag: Bool): countDown n flag = n :=
     (n flag positive below => omega)
     (n flag notPositive => omega)
     n flag
+
+-- The arm below takes the failure in the same form, `(1 <= n) = False`,
+-- though this definition tests `n > 0` by `Decidable.elim` (its recursive
+-- call needs the proof).
+theorem countDownBelow (n: Nat) (flag: Bool) (small: (1 <= n) = False): countDown n flag = 0 :=
+  countDown.eq2 n flag small
+
+-- A conjunction of three: `P ∧ Q ∧ R`, and `f.induct` gives each case the
+-- conjunction, or its negation.
+def countSome: List Nat → Nat
+  | [] => 0
+  | [x, ..rest] if x != 0 && x > 1 && x != 7 => 1 + countSome rest
+  | [_, ..rest] => countSome rest
+
+theorem countSomeAtMostLength (xs: List Nat): countSome xs ≤ xs.length :=
+  countSome.induct (xs result => result ≤ xs.length)
+    omega
+    (x rest all atMost => omega)
+    (head rest not atMost => omega)
+    xs
+
+theorem countSomeStep (x: Nat) (rest: List Nat) (nonzero: x ≠ 0) (big: x > 1) (notSeven: x ≠ 7): countSome [x, ..rest] = 1 + countSome rest :=
+  countSome.eq2 x rest (Both nonzero (Both big notSeven))
+
+-- A negated equation fails as the equation: `drop3.eq2` takes `head = 3`.
+def drop3: List Nat → List Nat
+  | [] => []
+  | [x, ..rest] if x != 3 => [x, ..drop3 rest]
+  | [_, ..rest] => drop3 rest
+
+theorem drop3Three (rest: List Nat): drop3 [3, ..rest] = drop3 rest := drop3.eq3 3 rest rfl
+
+theorem drop3NoLonger (xs: List Nat): (drop3 xs).length ≤ xs.length :=
+  drop3.induct (xs result => result.length ≤ xs.length)
+    omega
+    (x rest ne atMost => omega)
+    (head rest eq atMost => omega)
+    xs

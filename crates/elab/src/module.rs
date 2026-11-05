@@ -2655,14 +2655,24 @@ pub(crate) static REWRITE_MARKER: std::sync::LazyLock<ast::Name> =
 /// What a guarded arm's generated equations refer to, written nowhere: a
 /// guard on a decided proposition tested by its `Bool` is stated as the
 /// proposition, and its proofs go between the two with these
-/// (`equations.rs`, `BranchLib::to_bool_lemmas`).
-pub(crate) static GUARD_LEMMAS: std::sync::LazyLock<[ast::Name; 4]> =
+/// (`equations.rs`, `BranchLib::to_bool_lemmas`); so does a conjunction of
+/// them (`BranchLib::and_lemmas`).
+pub(crate) static GUARD_LEMMAS: std::sync::LazyLock<[ast::Name; 13]> =
     std::sync::LazyLock::new(|| {
         [
             "Std.Decidable.toBoolOf",
             "Std.Decidable.toBoolOfNot",
             "Std.Decidable.toBoolSound",
             "Std.Decidable.toBoolFalse",
+            "Std.Decidable.andBoolOf",
+            "Std.Decidable.andBoolOfNot",
+            "Std.Decidable.andBoolSound",
+            "Std.Decidable.andBoolFalse",
+            "Std.Bool.decTrue",
+            "Std.Bool.decTrueToBool",
+            "Std.Decidable.notNotOf",
+            "Std.Decidable.not",
+            "Std.Decidable.andBoolDec",
         ]
         .map(|text| ast::Name {
             text: text.to_string(),

@@ -2224,18 +2224,41 @@ impl Tree<'_> {
                 .is_some_and(|r| r.prop.is_some());
             let (yes_fact, no_fact) = if stated {
                 let blib = self.e.branch_lib()?;
-                let (p, dec) = blib.decided(&cond).ok_or_else(|| {
+                let view = blib.decided_view(&g, &cond)?.ok_or_else(|| {
                     Stop::Skip(
                         "an arm's condition is a decided proposition in its statement but not \
                          where the definition tests it"
                             .into(),
                     )
                 })?;
-                let (p, dec) = (p.shift(&g, 1, 0)?, dec.shift(&g, 1, 0)?);
-                (
-                    Some(blib.to_bool_lemma(2, p.clone(), dec.clone(), Term::Var(0))?),
-                    Some(blib.to_bool_lemma(3, p, dec, Term::Var(0))?),
-                )
+                let view = view.shift(&g, 1)?;
+                let failed = view.lemma(&blib, 3, Term::Var(0))?;
+                // A condition `¬Q` fails as `Q`: by `Q`'s decision.
+                let negated = self.shapes[j]
+                    .as_ref()
+                    .ok()
+                    .and_then(|s| s.guard.as_ref())
+                    .is_some_and(|r| r.negated.is_some());
+                let failed = match (&view, negated) {
+                    (Decided::One(p, d), true) => {
+                        let (not_not, _) = blib.not_not.ok_or_else(|| {
+                            Stop::Skip("`Decidable.notNotOf` isn't loaded".into())
+                        })?;
+                        let (q, dq) = blib.negation(p, d).ok_or_else(|| {
+                            Stop::Skip("an arm's condition isn't `¬Q` where it is tested".into())
+                        })?;
+                        apps(
+                            Term::Def(not_not),
+                            [
+                                (q, Icit::Implicit),
+                                (dq, Icit::Explicit),
+                                (failed, Icit::Explicit),
+                            ],
+                        )
+                    }
+                    _ => failed,
+                };
+                (Some(view.lemma(&blib, 2, Term::Var(0))?), Some(failed))
             } else {
                 (None, None)
             };
@@ -2263,7 +2286,19 @@ impl Tree<'_> {
         }
         let p = self.guard_arg(&node, 0, fvals)?;
         let blib = self.e.branch_lib()?;
-        match blib.bool_test(&p) {
+        let unfolded = self.shapes[j]
+            .as_ref()
+            .ok()
+            .and_then(|s| s.guard.as_ref())
+            .is_some_and(|r| r.unfolded);
+        let test = if unfolded {
+            self.e
+                .bool_equation(&p, depth)?
+                .and_then(|eq| blib.bool_test(&eq))
+        } else {
+            blib.bool_test(&p)
+        };
+        match test {
             // `b = X`: by `b`, the `else` being `b = notX` (D2186).
             Some((b, x)) => {
                 let yes = self.guard_side(

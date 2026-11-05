@@ -843,6 +843,16 @@ struct GuardRead {
     dec: bool,
     cond: Term,
     prop: Option<Term>,
+    /// The tree tests a comparison by `Decidable.elim` (an arm uses its
+    /// proof), whose proposition is an equation of `Bool`s: `cond` is
+    /// that equation, `c = True`, so the hypotheses read as they do where
+    /// the tree uses `Bool.ifThenElse` (`c = True`, `c = False`), and
+    /// the walk reads the tree's proposition the same way
+    /// ([`Elaborator::bool_equation`]).
+    unfolded: bool,
+    /// For a condition `¬Q` of a decided `Q` tested by its `Bool`
+    /// (`n != 3`), `Q`: the arm below takes `Q`, not `¬¬Q`.
+    negated: Option<Term>,
 }
 
 impl GuardRead {
@@ -1062,6 +1072,108 @@ struct BranchLib {
     /// that the definition tests by its `Bool` is stated as the
     /// proposition only with them.
     to_bool_lemmas: Option<[DefId; 4]>,
+    /// `Decidable.andBoolOf`, `andBoolOfNot`, `andBoolSound` and
+    /// `andBoolFalse`, the same four for a conjunction `a && b`
+    /// ([`Decided::Conj`]).
+    and_lemmas: Option<[DefId; 4]>,
+    /// `Bool.decTrue`, and `Bool.decTrueToBool` (`toBool (decTrue c) = c`).
+    dec_true: Option<(DefId, DefId)>,
+    and_data: DataId,
+    /// `Decidable.and` and `Decidable.andBoolDec` (`toBool (and dp dq) = (a
+    /// && b)`), which decide a conjunction that is itself an operand.
+    and_dec: Option<(DefId, DefId)>,
+    /// `Decidable.notNotOf` and `Decidable.not`, which decide `¬Q` from `Q`'s decision.
+    not_not: Option<(DefId, DefId)>,
+}
+
+/// A `Bool` that states a decided proposition, as the hypotheses about a
+/// guard say it.
+#[derive(Clone)]
+enum Decided {
+    /// `Decidable.toBool [P] d`.
+    One(Term, Term),
+    /// `a && b`, as `if a then b else False`, each operand a decided
+    /// proposition's `Bool` or another `Bool` `c` (as `c = True`).
+    Conj(Box<ConjView>),
+}
+
+/// `a && b` read as the conjunction `pa ∧ pb`: each side's proposition
+/// `p`, its decision `d`, its `Bool` `x` and the proof `e` of `toBool d =
+/// x`.
+#[derive(Clone)]
+struct ConjView {
+    left: Operand,
+    right: Operand,
+}
+
+#[derive(Clone)]
+struct Operand {
+    prop: Term,
+    decision: Term,
+    value: Term,
+    equation: Term,
+}
+
+impl Decided {
+    /// The proposition the `Bool` is a decision of.
+    fn prop(&self, lib: &BranchLib) -> Term {
+        match self {
+            Decided::One(p, _) => p.clone(),
+            Decided::Conj(v) => Term::data(
+                lib.and_data,
+                vec![v.left.prop.clone(), v.right.prop.clone()],
+            ),
+        }
+    }
+
+    fn shift(&self, g: &Ev, by: usize) -> R<Decided> {
+        let sh = |t: &Term| t.shift(g, by, 0);
+        Ok(match self {
+            Decided::One(p, d) => Decided::One(sh(p)?, sh(d)?),
+            Decided::Conj(v) => {
+                let op = |o: &Operand| -> R<Operand> {
+                    Ok(Operand {
+                        prop: sh(&o.prop)?,
+                        decision: sh(&o.decision)?,
+                        value: sh(&o.value)?,
+                        equation: sh(&o.equation)?,
+                    })
+                };
+                Decided::Conj(Box::new(ConjView {
+                    left: op(&v.left)?,
+                    right: op(&v.right)?,
+                }))
+            }
+        })
+    }
+
+    /// The lemma `which` (0 `toBoolOf`, 1 `toBoolOfNot`, 2 `toBoolSound`, 3
+    /// `toBoolFalse`, or the conjunction's) of the proposition and the
+    /// `Bool`, applied to `h`.
+    fn lemma(&self, lib: &BranchLib, which: usize, h: Term) -> R<Term> {
+        match self {
+            Decided::One(p, d) => lib.to_bool_lemma(which, p.clone(), d.clone(), h),
+            Decided::Conj(v) => {
+                let lemmas = lib
+                    .and_lemmas
+                    .ok_or_else(|| Stop::Skip("`Decidable.andBoolOf` isn't loaded yet".into()))?;
+                Ok(apps(
+                    Term::Def(lemmas[which]),
+                    [
+                        (v.left.prop.clone(), Icit::Implicit),
+                        (v.right.prop.clone(), Icit::Implicit),
+                        (v.left.decision.clone(), Icit::Explicit),
+                        (v.right.decision.clone(), Icit::Explicit),
+                        (v.left.value.clone(), Icit::Explicit),
+                        (v.right.value.clone(), Icit::Explicit),
+                        (v.left.equation.clone(), Icit::Explicit),
+                        (v.right.equation.clone(), Icit::Explicit),
+                        (h, Icit::Explicit),
+                    ],
+                ))
+            }
+        }
+    }
 }
 
 impl BranchLib {
@@ -1085,6 +1197,130 @@ impl BranchLib {
             (Term::Def(id), [p, d]) if *id == self.to_bool => Some(((*p).clone(), (*d).clone())),
             _ => None,
         }
+    }
+
+    /// `c` as an operand of a conjunction: a decided proposition's `Bool`,
+    /// a conjunction, or any other `Bool` `c` as `c = True`.
+    fn operand(&self, g: &Ev, c: &Term) -> R<Option<Operand>> {
+        if let Some((p, d)) = self.decided(c) {
+            return Ok(Some(Operand {
+                prop: p,
+                decision: d,
+                value: c.clone(),
+                equation: Term::Refl,
+            }));
+        }
+        if let Some(view) = self.conjunction(g, c)? {
+            let (Some((and, by)), Some(lemmas)) = (self.and_dec, self.and_lemmas) else {
+                return Ok(None);
+            };
+            let _ = lemmas;
+            let (l, r) = (&view.left, &view.right);
+            let ps = [
+                (l.prop.clone(), Icit::Implicit),
+                (r.prop.clone(), Icit::Implicit),
+            ];
+            let prop = Term::data(self.and_data, vec![l.prop.clone(), r.prop.clone()]);
+            let decision = apps(
+                Term::Def(and),
+                ps.iter().cloned().chain([
+                    (l.decision.clone(), Icit::Explicit),
+                    (r.decision.clone(), Icit::Explicit),
+                ]),
+            );
+            let equation = apps(
+                Term::Def(by),
+                ps.iter().cloned().chain([
+                    (l.decision.clone(), Icit::Explicit),
+                    (r.decision.clone(), Icit::Explicit),
+                    (l.value.clone(), Icit::Explicit),
+                    (r.value.clone(), Icit::Explicit),
+                    (l.equation.clone(), Icit::Explicit),
+                    (r.equation.clone(), Icit::Explicit),
+                ]),
+            );
+            return Ok(Some(Operand {
+                prop,
+                decision,
+                value: c.clone(),
+                equation,
+            }));
+        }
+        let Some((dec_true, to_bool)) = self.dec_true else {
+            return Ok(None);
+        };
+        Ok(Some(Operand {
+            prop: Term::Eq(
+                Some(Rc::new(self.bool_ty())),
+                Rc::new(c.clone()),
+                Rc::new(self.bool_value(true)),
+            ),
+            decision: Term::app(Term::Def(dec_true), c.clone()),
+            value: c.clone(),
+            equation: Term::app(Term::Def(to_bool), c.clone()),
+        }))
+    }
+
+    /// `c` as `a && b` (`if a then b else False`), each side an
+    /// [`Operand`].
+    fn conjunction(&self, g: &Ev, c: &Term) -> R<Option<ConjView>> {
+        if self.and_lemmas.is_none() {
+            return Ok(None);
+        }
+        let (head, args) = spine_icit(c.strip_loc());
+        let Term::Def(h) = head.strip_loc() else {
+            return Ok(None);
+        };
+        if *h != self.ite || args.len() != 4 {
+            return Ok(None);
+        }
+        let (Term::Lam(_, _, yes), Term::Lam(_, _, no)) =
+            (args[2].0.strip_loc(), args[3].0.strip_loc())
+        else {
+            return Ok(None);
+        };
+        let is_false = matches!(no.strip_loc(), Term::Ctor(d, c, a)
+            if *d == self.bool && *c == self.false_ && a.is_empty());
+        if !is_false || yes.mentions(0) {
+            return Ok(None);
+        }
+        let right = yes.instantiate_var(g, 0)?;
+        let (Some(left), Some(right)) = (self.operand(g, &args[1].0)?, self.operand(g, &right)?)
+        else {
+            return Ok(None);
+        };
+        Ok(Some(ConjView { left, right }))
+    }
+
+    /// What `c` is a decision of, if it is a decided proposition's `Bool`
+    /// or a conjunction of two `Bool`s.
+    fn decided_view(&self, g: &Ev, c: &Term) -> R<Option<Decided>> {
+        if let Some((p, d)) = self.decided(c) {
+            return Ok(Some(Decided::One(p, d)));
+        }
+        Ok(self
+            .conjunction(g, c)?
+            .map(|view| Decided::Conj(Box::new(view))))
+    }
+
+    /// `Q` and its decision, when `p` is `¬Q` decided by `Decidable.not` of
+    /// that.
+    fn negation(&self, p: &Term, d: &Term) -> Option<(Term, Term)> {
+        let (not_not, dec_not) = self.not_not?;
+        let _ = not_not;
+        let (head, args) = p.spine();
+        let Term::Def(h) = head.strip_loc() else {
+            return None;
+        };
+        let [q] = args.as_slice() else {
+            return None;
+        };
+        let (dhead, dargs) = spine_icit(d.strip_loc());
+        if *h != self.not || !matches!(dhead.strip_loc(), Term::Def(x) if *x == dec_not) {
+            return None;
+        }
+        let (dq, _) = dargs.last()?;
+        Some(((*q).clone(), dq.clone()))
     }
 
     /// `lemma [P] d h`, with `lemma` one of [`BranchLib::to_bool_lemmas`]:
@@ -2271,6 +2507,30 @@ impl Elaborator {
         }
     }
 
+    /// Whether `row`'s guard names its proof (`if h: P`).
+    fn guard_named(&self, row: &Row) -> bool {
+        row.guard.as_ref().is_some_and(|g| g.binder.is_some())
+    }
+
+    /// `p` (at `depth`) as the equation `b = X` of a `Bool` and a `Bool`
+    /// constructor that it computes to, if it does: `<` and `<=` on `Nat`
+    /// and `Int` are such.
+    fn bool_equation(&self, p: &Term, depth: usize) -> R<Option<Term>> {
+        let g = &self.ev();
+        let lib = self.branch_lib()?;
+        let env: Vec<Value> = (0..depth).map(Value::var).collect();
+        let Value::Eq(ty, l, r) = force(g, eval(g, &env, p)?)? else {
+            return Ok(None);
+        };
+        if !matches!(force(g, (*ty).clone())?, Value::Data(b, _) if b == lib.bool) {
+            return Ok(None);
+        }
+        let l = stitchwort_core::value::quote_folded(g, depth, &l)?;
+        let r = stitchwort_core::value::quote(g, depth, &r)?;
+        let eq = Term::Eq(Some(Rc::new(lib.bool_ty())), Rc::new(l), Rc::new(r));
+        Ok(lib.bool_test(&eq).map(|_| eq))
+    }
+
     /// The shape of `row` (row `k`, or one refined below it): compiles its
     /// patterns alone, as a `match` on the definition's parameters, and
     /// probes its body; for a guarded row, reads its condition off the
@@ -2289,19 +2549,48 @@ impl Elaborator {
         }
         let (mut shape, condition) = shape?;
         if let Some((prop, as_bool)) = condition {
+            // `(x => 2 < x) (f n)` is the condition `2 < f n`.
+            let g = &self.ev();
+            let prop = beta_rec(g, prop)?;
+            let as_bool = as_bool.map(|c| beta_rec(g, c)).transpose()?;
             let dec = self.guard_form(d, k, &shape)?;
-            let cond = if dec { Some(prop.clone()) } else { as_bool };
+            // A comparison is stated as the `Bool` equation it is, whichever
+            // `if` the definition tests it by; `if h: P` is the proposition
+            // the programmer wrote.
+            let unfolded = if dec && !self.guard_named(row) {
+                self.bool_equation(&prop, shape.depth)?
+            } else {
+                None
+            };
+            let cond = if let Some(eq) = &unfolded {
+                Some(eq.clone())
+            } else if dec {
+                Some(prop.clone())
+            } else {
+                as_bool
+            };
             let cond = cond.ok_or_else(|| {
                 Stop::Skip("its condition `if h: P` is tested as a `Bool`".into())
             })?;
             let blib = self.branch_lib()?;
             // `a == b` too is a `Bool` condition whose `Bool` is a decision's.
             let prop = if !dec && blib.to_bool_lemmas.is_some() {
-                blib.decided(&cond).map(|(p, _)| p)
+                blib.decided_view(&self.ev(), &cond)?
+                    .map(|view| view.prop(&blib))
             } else {
                 None
             };
-            shape.guard = Some(GuardRead { dec, cond, prop });
+            let negated = match (&prop, blib.decided_view(&self.ev(), &cond)?) {
+                (Some(_), Some(Decided::One(p, d))) => blib.negation(&p, &d).map(|(q, _)| q),
+                _ => None,
+            };
+            shape.guard = Some(GuardRead {
+                dec,
+                cond,
+                prop,
+                unfolded: unfolded.is_some(),
+                negated,
+            });
         }
         Ok(shape)
     }
@@ -2652,14 +2941,33 @@ impl Elaborator {
             .borrow_mut()
             .truncate(branch_errors);
         self.clear_metas();
+        // A condition that needs an earlier guarded arm's failed condition
+        // (`| n if h: n = 0 => … | n if 10 % n > 2 => …`) can't be
+        // elaborated outside the definition's tree, where that fact is in
+        // scope.
+        let earlier = d
+            .rows
+            .iter()
+            .enumerate()
+            .rfind(|(_, r)| r.guarded && r.arm < row.arm)
+            .map(|(j, _)| d.row_said(j).0);
+        let reason = |why: Option<String>| {
+            let again = "couldn't be elaborated again in its arm's variables";
+            match (&earlier, why) {
+                (Some(arm), why) => format!(
+                    "its condition {again}: it may depend on {arm}'s condition having failed, \
+                     which is known in the definition's tree and not here{}",
+                    why.map_or(String::new(), |w| format!(" ({w})"))
+                ),
+                (None, Some(w)) => format!("its condition {again}: {w}"),
+                (None, None) => format!("its condition {again}"),
+            }
+        };
         match condition {
             Ok(Some(c)) => Ok((shape, Some(c))),
-            Ok(None) => skip("its condition couldn't be elaborated again in its arm's variables"),
+            Ok(None) => skip(reason(None)),
             Err(e) if crate::undo::fatal(&e) => Err(Stop::Error(e)),
-            Err(e) => skip(format!(
-                "its condition couldn't be elaborated again in its arm's variables: {}",
-                e.message
-            )),
+            Err(e) => skip(reason(Some(e.message))),
         }
     }
 
@@ -4136,6 +4444,33 @@ impl Elaborator {
                     self.lookup_def("Std.Decidable.toBoolFalse")?,
                 ])
             })(),
+            and_lemmas: (|| {
+                Some([
+                    self.lookup_def("Std.Decidable.andBoolOf")?,
+                    self.lookup_def("Std.Decidable.andBoolOfNot")?,
+                    self.lookup_def("Std.Decidable.andBoolSound")?,
+                    self.lookup_def("Std.Decidable.andBoolFalse")?,
+                ])
+            })(),
+            dec_true: (|| {
+                Some((
+                    r.def(Builtin::DecTrue)?,
+                    self.lookup_def("Std.Bool.decTrueToBool")?,
+                ))
+            })(),
+            and_data: r.data(Builtin::And).ok_or_else(none)?,
+            and_dec: (|| {
+                Some((
+                    self.lookup_def("Std.Decidable.and")?,
+                    self.lookup_def("Std.Decidable.andBoolDec")?,
+                ))
+            })(),
+            not_not: (|| {
+                Some((
+                    self.lookup_def("Std.Decidable.notNotOf")?,
+                    self.lookup_def("Std.Decidable.not")?,
+                ))
+            })(),
         })
     }
 
@@ -4249,7 +4584,10 @@ impl Elaborator {
                         solved.insert(*l, t);
                     }
                 }
-                let (is_prop, cond) = read.stated();
+                let (is_prop, cond) = match &read.negated {
+                    Some(q) => (true, q),
+                    None => read.stated(),
+                };
                 let cond = remap(g, cond, other.depth, depth, &|l| solved.get(&l).cloned())?
                     .ok_or_else(|| {
                         Stop::Skip(
@@ -4258,7 +4596,9 @@ impl Elaborator {
                         )
                     })?;
                 let blib = self.branch_lib()?;
-                Ok(if read.prop.is_some() {
+                Ok(if read.negated.is_some() {
+                    cond
+                } else if read.prop.is_some() {
                     Term::app(Term::Def(lib.not), cond)
                 } else if !is_prop {
                     Term::Eq(
@@ -6492,7 +6832,7 @@ impl<'a> Walk<'a> {
         // `Bool` `toBool d`: `P` and `d` here, to go between the two.
         let decided = match recorded {
             Some(r) if r.prop.is_some() => {
-                Some(blib.decided(&read.args[1].0).ok_or_else(|| {
+                Some(blib.decided_view(&g, &read.args[1].0)?.ok_or_else(|| {
                     Stop::Skip(
                         "an arm's condition is a decided proposition in its statement but not \
                      where the definition tests it"
@@ -6552,7 +6892,7 @@ impl<'a> Walk<'a> {
                 blib.dec_step(&g, &read.args, true, uniq.as_ref(), None, hyp, depth, &z, q)?
             } else {
                 let hyp = match &decided {
-                    Some((p, d)) => blib.to_bool_lemma(0, p.clone(), d.clone(), hyp)?,
+                    Some(view) => view.lemma(&blib, 0, hyp)?,
                     None => hyp,
                 };
                 blib.ite_step(&g, &read.head, &read.args, hyp, &z, q)?
@@ -6579,9 +6919,18 @@ impl<'a> Walk<'a> {
                 let q = self.branch(&node.otherwise, unit()?, crate::GUARD_ELSE, fvals, path)?;
                 match refutes {
                     None => {
-                        let hyp = match &decided {
-                            Some((p, d)) => blib.to_bool_lemma(1, p.clone(), d.clone(), hyp)?,
-                            None => hyp,
+                        // `Q` for the failure of `¬Q`: `¬¬Q` is `e => e q`.
+                        let hyp = match (&decided, recorded.and_then(|r| r.negated.as_ref())) {
+                            (Some(view), Some(_)) => {
+                                let by = Term::Lam(
+                                    "e".into(),
+                                    Icit::Explicit,
+                                    Rc::new(Term::app(Term::Var(0), hyp.shift(&g, 1, 0)?)),
+                                );
+                                view.lemma(&blib, 1, by)?
+                            }
+                            (Some(view), None) => view.lemma(&blib, 1, hyp)?,
+                            (None, _) => hyp,
                         };
                         blib.ite_step(&g, &read.head, &read.args, hyp, &z, q)?
                     }
@@ -6623,12 +6972,7 @@ impl<'a> Walk<'a> {
                             Rc::new(z.shift(&g, 1, 0)?),
                         );
                         let holds = match &decided {
-                            Some((p, d)) => blib.to_bool_lemma(
-                                2,
-                                p.shift(&g, 1, 0)?,
-                                d.shift(&g, 1, 0)?,
-                                Term::Var(0),
-                            )?,
+                            Some(view) => view.shift(&g, 1)?.lemma(&blib, 2, Term::Var(0))?,
                             None => Term::Var(0),
                         };
                         let yes = lam(
@@ -6658,7 +7002,13 @@ impl<'a> Walk<'a> {
                 );
                 self.pvals.pop();
                 let q = q?;
-                let normal = blib.bool_test(&read.args[0].0);
+                let normal = match recorded {
+                    Some(r) if r.unfolded => self
+                        .e
+                        .bool_equation(&read.args[0].0, depth)?
+                        .and_then(|eq| blib.bool_test(&eq)),
+                    _ => blib.bool_test(&read.args[0].0),
+                };
                 let void = match (&refutes, &normal) {
                     (Some(refutes), _) => Term::app(refutes.shift(&g, 1, 0)?, Term::Var(0)),
                     (None, Some((b, x))) => {

@@ -409,18 +409,31 @@ the arms below it get equations, and `f.induct` its cases, as follows
   `Decidable.toBoolOf` and `toBoolOfNot`, and `f.induct` with
   `toBoolSound` and `toBoolFalse`, which a definition with a guard loads),
   and for `if h: P`, whose hypothesis is named `h`. A comparison's `Bool`
-  (`n <= m`, `a < b`) and any other `Bool` `c` give `c = True`; so does a
-  conjunction (`(a && b) = True`, with `a ≠ 0 ∧ b ≠ 0` read as
-  `(a != 0 && b != 0)`), for now. The
+  (`n <= m`, `a < b`) and any other `Bool` `c` give `c = True`, whichever
+  `if` the definition tests it by (a comparison whose proof an arm uses is
+  tested by `Decidable.elim`; its proposition is read as the equation it
+  computes to, so the statement is the same). A conjunction `a && b` (also
+  `P ∧ Q`, read as `(P-as-Bool && Q-as-Bool)`) gives `P ∧ Q`, each side a
+  decided proposition or a `Bool` `c` as `c = True`, nested ones as
+  `P ∧ Q ∧ R`; the proof goes between the `Bool` and the conjunction with
+  `Decidable.andBoolOf`, `andBoolOfNot` (the arms below), `andBoolSound` and
+  `andBoolFalse` (`f.induct`), and `andBoolDec` for a nested side. The
   walk goes into the guard's `then` along it: for a `Bool`, `J` as stage
   1b's `ifTrue`; for a decided proposition, `Decidable.elimEq` with the
   `then`'s proof, and where the right side uses that proof, uniqueness of
   the decision's proofs (stage 1b's `DecEq.uniqueEq`, D2180).
 - An arm L below J whose patterns J's take all of (the usual "same pattern,
   then a fallback"): `notArmJ: H'`, J's condition failing at L's terms:
-  `c[σ] = False`, `¬P[σ]`, or, where the definition tests `P` by
-  `Decidable.elim` and `P` is an equation `b = X`, `b = notX` (D2186's form
-  for an `if`'s `else`). The walk takes the guard's `else`.
+  one form for each kind of condition, whichever `if` the tree tests it by
+  (SW-1318): `c[σ] = False` for a `Bool` `c` (a comparison, or a decided
+  proposition written as a `Bool` whose proposition is an equation of
+  `Bool`s: `b = notX`, D2186's form for an `if`'s `else`), `¬P[σ]` for a
+  proposition and for a conjunction `P ∧ Q`, and `Q[σ]` for `P` that is
+  `¬Q` where `Q` has a decision (`n != 3` fails as `n = 3`; the proof
+  goes through `Decidable.notNotOf` in `f.induct`). The walk takes the
+  guard's `else`. A condition elaborated again can fail for lack of an
+  earlier guard's failure (`| n if h: n = 0 => … | n if 10 % n > 2 => …`);
+  the reason then names that arm.
 - An arm L that overlaps J only in part: Lean's form, `notArmJ: (vars) → x
   = p → … → H → Void`, the condition one more premise; at J's guard node
   the walk splits on the condition (`Bool.inspect`, or `Decidable.elimEq`)
