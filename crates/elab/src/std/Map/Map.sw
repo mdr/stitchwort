@@ -175,11 +175,11 @@ def Map.union [auto ord: Ord k] (a: Map k v) (b: Map k v): Map k v := Map.liftBi
 def Map.fromListWith [auto ord: Ord k] (xs: List (k, v)) (f: v → v → v): Map k v :=
   List.foldLeft xs Map.empty (m entry => Map.insertWith m entry.fst entry.snd f)
 
---| The elements under their keys, each list in list order:
+--| The elements under their keys, each group in list order and never empty:
 --| `Map.groupBy [1, 2, 3] (n => n % 2)` is `Map.fromList [(0, [2]), (1, [1, 3])]`
 --| ([`Map.getGroupBy`]).
-def Map.groupBy [auto ord: Ord k] (xs: List a) (key: a → k): Map k (List a) :=
-  List.foldRight xs Map.empty (x m => Map.insertWith m (key x) [x] List.append)
+def Map.groupBy [auto ord: Ord k] (xs: List a) (key: a → k): Map k (NonEmptyList a) :=
+  List.foldRight xs Map.empty (x m => Map.insertWith m (key x) (NonEmptyList.singleton x) NonEmptyList.append)
 
 --| Each element under its key, the first where elements share a key ([`Map.getIndexBy`]).
 --| `Map.indexBy ["ab", "c", "de"] Text.length` is `Map.fromList [(1, "c"), (2, "ab")]`.
@@ -852,23 +852,23 @@ theorem Map.sumByCounts [auto ord: Ord k] (xs: List k) (f: k → Nat):
 
 --| `groupBy`: the elements whose key is `kk`, in list order, if there are any.
 theorem Map.getGroupBy [auto ord: Ord k] (key: a → k) (kk: k): (xs: List a) →
-    Map.get (Map.groupBy xs key) kk = Map.Spec.nonEmpty (List.filter xs (x => Map.Spec.sameKey kk (key x)))
+    Map.get (Map.groupBy xs key) kk = List.nonEmpty (List.filter xs (x => Map.Spec.sameKey kk (key x)))
   | [] => rfl
   | [x, ..rest] =>
-    rewrite List.foldRightCons rest x Map.empty (x m => Map.insertWith m (key x) [x] List.append) in
+    rewrite List.foldRightCons rest x Map.empty (x m => Map.insertWith m (key x) (NonEmptyList.singleton x) NonEmptyList.append) in
     match e: Ord.compare kk (key x) with
       | Equal =>
-        rewrite ord.equal kk (key x) e, Map.getInsertWith (Map.groupBy rest key) (key x) [x] List.append, Map.getGroupBy key (key x) rest in
+        rewrite ord.equal kk (key x) e, Map.getInsertWith (Map.groupBy rest key) (key x) (NonEmptyList.singleton x) NonEmptyList.append, Map.getGroupBy key (key x) rest in
         match c: List.filter rest (y => Map.Spec.sameKey (key x) (key y)) with
           | [] => rfl
           | [y, ..ys] => rfl
       | Less =>
-        rewrite Map.getInsertWithOther (Map.groupBy rest key) (key x) [x] kk
-          (Map.Spec.notEqualOfCompare kk (key x) (z => Ordering.lessNotEqual (Eq.trans (Eq.sym e) z))) List.append in
+        rewrite Map.getInsertWithOther (Map.groupBy rest key) (key x) (NonEmptyList.singleton x) kk
+          (Map.Spec.notEqualOfCompare kk (key x) (z => Ordering.lessNotEqual (Eq.trans (Eq.sym e) z))) NonEmptyList.append in
         Map.getGroupBy key kk rest
       | Greater =>
-        rewrite Map.getInsertWithOther (Map.groupBy rest key) (key x) [x] kk
-          (Map.Spec.notEqualOfCompare kk (key x) (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) z))) List.append in
+        rewrite Map.getInsertWithOther (Map.groupBy rest key) (key x) (NonEmptyList.singleton x) kk
+          (Map.Spec.notEqualOfCompare kk (key x) (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) z))) NonEmptyList.append in
         Map.getGroupBy key kk rest
 
 theorem Map.orElseNone: (o: Option a) → Option.orElse o None = o
@@ -1129,7 +1129,8 @@ def Map.example2: Map Nat Text := Map.fromList [(3, "c"), (1, "a"), (2, "b"), (7
 
 test "map: fromListWith combines in list order" :=
   Map.toList (Map.fromListWith [(1, "a"), (2, "b"), (1, "c")] (new old => Text.append old new)) == [(1, "ac"), (2, "b")]
-test "map: groupBy keeps list order" := Map.toList (Map.groupBy [1, 2, 3, 4, 5, 6] (n => n % 3)) == [(0, [3, 6]), (1, [1, 4]), (2, [2, 5])]
+test "map: groupBy keeps list order" :=
+  Map.toList (Map.groupBy [1, 2, 3, 4, 5, 6] (n => n % 3)) |> .map (entry => (entry.fst, entry.snd.toList)) == [(0, [3, 6]), (1, [1, 4]), (2, [2, 5])]
 test "map: indexBy keeps the first" := Map.toList (Map.indexBy ["ab", "c", "de", "f"] Text.length) == [(1, "c"), (2, "ab")]
 test "map: indexBy empty" := Map.toList (Map.indexBy [] Text.length) == []
 test "map: counts" := Map.toList (Map.counts ['b', 'a', 'b']) == [('a', 1), ('b', 2)]

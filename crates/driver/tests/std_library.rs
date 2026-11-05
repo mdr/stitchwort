@@ -739,7 +739,9 @@ fn no_library_file_declares_a_decision_procedure() {
     // goal that is or unfolds to a `Nat.pow` matches it, and `Nat.pow` is
     // declared beside it in std/Nat/Arith.sw. And `List.decSorted` with its
     // helper `List.decLeHead` (SW-1273), which decide `List.Sorted` and
-    // `List.LeHead`, declared beside them in std/List/Sort.sw.
+    // `List.LeHead`, declared beside them in std/List/Sort.sw. And
+    // `NonEmptyList.decEq`, which decides equality of `NonEmptyList`s: an
+    // equation between them needs std/NonEmptyList/NonEmptyList.sw loaded.
     assert_eq!(
         session.elab.library_decision_procedures(),
         [
@@ -752,6 +754,8 @@ fn no_library_file_declares_a_decision_procedure() {
             "Std.Float.decEq",
             "Std.Float.decLessEq",
             "Std.Float.decLessThan",
+            "Std.NonEmptyList.decEq",
+            "Std.NonEmptyList.decEq.%match1",
             "Std.Map.decEq",
             "Std.Map.decEq.%match1",
             "Std.Set.decEq",

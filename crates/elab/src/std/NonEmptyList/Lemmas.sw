@@ -139,23 +139,3 @@ theorem NonEmptyList.minimumMem [auto ord: Ord a] (xs: NonEmptyList a): NonEmpty
 
 theorem NonEmptyList.minimumLe [auto ord: Ord a] (xs: NonEmptyList a) (x: a) (m: NonEmptyList.Mem x xs): xs.minimum <= x :=
   (List.minimumSome xs.toList xs.minimum (NonEmptyList.minimumToList xs)).right x m
-
---| Sets.
-
-theorem NonEmptyList.intersectAllReduce [auto ord: Ord k] (sets: NonEmptyList (Set k)): sets.intersectAll = sets.reduce Set.intersect := rfl
-
-theorem NonEmptyList.unionAllReduce [auto ord: Ord k] (sets: NonEmptyList (Set k)): sets.unionAll = sets.reduce Set.union := rfl
-
---| The intersection holds what every set holds.
-theorem NonEmptyList.containsIntersectAll [auto ord: Ord k] (sets: NonEmptyList (Set k)) (key: k):
-    Set.contains sets.intersectAll key = sets.all (s => Set.contains s key) :=
-  Set.containsFoldIntersect key sets.tail sets.head
-
---| The union holds what some set holds.
-theorem NonEmptyList.containsUnionAll [auto ord: Ord k] (sets: NonEmptyList (Set k)) (key: k):
-    Set.contains sets.unionAll key = sets.any (s => Set.contains s key) :=
-  Set.containsFoldUnion key sets.tail sets.head
-
-theorem NonEmptyList.singletonIntersectAll [auto ord: Ord k] (s: Set k): (NonEmptyList.singleton s).intersectAll = s := rfl
-
-theorem NonEmptyList.singletonUnionAll [auto ord: Ord k] (s: Set k): (NonEmptyList.singleton s).unionAll = s := rfl
