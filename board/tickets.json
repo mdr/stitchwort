@@ -7362,9 +7362,9 @@
     {
       "id": 1358,
       "title": "Ranges step 2: syntax a ..< b and a ..= b (tokens, range_expr between cmp and append, goals print back, formatter, errors for .. and [a..b], W-RANGE-IN-BRACKETS), examples, guide, syntax.md, feature tour",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1358",
       "labels": [
         "syntax"
       ],
