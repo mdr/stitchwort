@@ -94,3 +94,15 @@ theorem exAtMostTotal (depth: Nat) (n: Num): ex depth n ≤ total n :=
     (depth a b h => omega)
     (depth left right notArm2 ih1 ih2 => omega)
     depth n
+
+-- A `_` in a pattern is a case variable like any other, in the order the
+-- pattern writes it: `head` then `rest`, as `[x, ..rest]` would give.
+def countAll: List Nat → Nat
+  | [] => 0
+  | [_, ..rest] => Succ (countAll rest)
+
+theorem countAllIsLength (xs: List Nat): countAll xs = List.length xs :=
+  countAll.induct (xs result => result = List.length xs)
+    omega
+    (head rest ih => omega)
+    xs

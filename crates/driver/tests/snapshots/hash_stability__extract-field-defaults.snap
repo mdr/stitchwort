@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Main.RangeOptions 23bdc0715b765ebf1bac46cd83512803cb098370a18b4370d259b64aa2214575
@@ -81,7 +80,7 @@ Main.Shape.%trans 929e428141df0251b9e321b009308bcc3b76f7d8d8031a7541b1050d64c8cd
 Main.Shape.%instOrd eef3ab0d2377b5f45fb17732d250595773495b931204d5f2986446ba610fff1d
 Main.Shape.Circle.label%default 29e554fc101eb05da888c68cee2fc8f3f893346a7e744131db6c6050b9688c16
 Main.label 5f4012e7586eb8d8b8e3315d2078adbd4181948795ab5eeffc8b3b71a90857f0
-Main.label.eq1 473d79e8bf9e66d859785001fe44375dd99a5bc31abd8e79c8818ecb50f48cef
+Main.label.eq1 c0a47090a1ddbe0f0b37a9d26f763606503b2c00840a2f5bc7f2e5509918157c
 Main.label.eq2 4f38dccc2a5c81d88b5c8dec08e03cc26fe3df2719f5a303b478ba31ec497dde
 Main.Job.name 7d214c1c054365b5532a815dbb42de86d594dd0d6ed0e01a8f654e4e3eab6ddb
 Main.Job.options 5960d107e6566f5ead5e62a2cf4ce6d6b49dfe23fe9a6eb102fb9c839520812a

@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Main.Point f4a725f1b4a5bfa507ae7ee4e8e6a6348b154287ef127f901e3b890b2e786870
@@ -47,8 +46,8 @@ Main.recolour.eq2 ee62f7629dac8b6fc84c6965b10ffc8ce57e089c2260bd6ceb44cb8578aac5
 Main.recolour.eq3 ee359f238b8ee93bcf0ea135ce009616ef351563ee4cf39a5aef58cd20dfb1af
 Main.recolour.eq4 90edd9edb9d4d420aa18aa26437c0084dc2d897580efbc79c2d26a682a97518c
 Main.tag 23b6616caf1ae13558f2f8318392798c191dfa0f19e49d3e3145b6e793dcb915
-Main.tag.eq1 b4a5a00d529fce3e11c4c8ef3910d65428cef6c6572dd2e64d3074d353a692c6
-Main.tag.eq2 45b3884820b4eea7c39967b2890cf7b98e4facb2a5503be99ba4f20d8f1b70e3
+Main.tag.eq1 072dfc8cd978d92bed835a2b97ce1d5e8fb6ada03625e479494348eb7b0028f2
+Main.tag.eq2 e43fd20ffc9472abebaf1c45981b5ee9c0aeb8000671721ffe0db76b87f8d471
 Main.tag.eq3 1bb90c350863eed831fd4fa0ceeb9a8b3e578fee86da04e2a9f7456c416edd84
 Main.Item.sku 65dd6fd2dda67f398ffe6de671c1824d9192e648dd6f66220e2ed1f15c90d6ce
 Main.Item.quantity 160f8c3de3e2778319afb865ae4a09e612e1760ede47e8b5e5fcec510705d6e8
