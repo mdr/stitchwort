@@ -1208,9 +1208,13 @@ impl Elaborator {
             let mut deps = Vec::new();
             let names = &self.unit.module.names;
             let mut add = |r: Ref<'_>, in_header: bool| {
+                let mut namespace = None;
                 let (n, mut fields) = match r {
                     Ref::Name(n) => (n, Vec::new()),
-                    Ref::Dot(n, field, _) => (n, vec![field]),
+                    Ref::Dot(n, field, receiver) => {
+                        namespace = receiver.and_then(|head| self.dot_namespace(head));
+                        (n, vec![field])
+                    }
                 };
                 if fields.is_empty()
                     && let crate::scope::Resolved::Found { global, rest, .. } =
@@ -1234,7 +1238,17 @@ impl Elaborator {
                 // could mean (§5).
                 for field in fields {
                     let suffix = format!(".{field}");
-                    for key in names.iter().filter(|k| k.ends_with(&suffix)) {
+                    // A receiver of a written data type `T` means a method of
+                    // `T`, which may be declared in any namespace (`Path.extend`
+                    // in a proofs namespace beside `Path`'s): a key ending in
+                    // `T.field`, with `T` the type's simple name.
+                    let method = namespace
+                        .as_ref()
+                        .map(|ns| format!("{}{suffix}", ns.rsplit('.').next().unwrap_or(ns)));
+                    for key in names.iter().filter(|k| match &method {
+                        Some(method) => *k == method || k.ends_with(&format!(".{method}")),
+                        None => k.ends_with(&suffix),
+                    }) {
                         if let Some((Global::Unchecked(j), _)) = self.scope.get(key) {
                             deps.push(Dep {
                                 item: j,
@@ -1299,6 +1313,25 @@ impl Elaborator {
             needs.files.remove(&f);
         }
         needs
+    }
+
+    /// The key of the data type `head` names, if it is one (of this module
+    /// or the library): the namespace a dot call on a value of that type
+    /// looks in. `None` for anything else (a synonym, say), which dot calls
+    /// may unfold.
+    fn dot_namespace(&self, head: &ast::Name) -> Option<String> {
+        match self.resolve(&head.text) {
+            crate::scope::Resolved::Found {
+                global: Global::Unchecked(j),
+                rest,
+                key,
+                ..
+            } if rest.is_empty() => {
+                let item = &self.unit.module.items[j];
+                (item.kind == Kind::Data && !item.synonym).then(|| key.to_string())
+            }
+            _ => self.data_namespace(head),
+        }
     }
 
     /// Instances are found by type, so nothing names them where they're
@@ -2755,6 +2788,19 @@ fn unproved_recursive_call(name: &ast::Name, refs: &[Ref<'_>]) -> bool {
     calls > proofs
 }
 
+/// The name at the head of the written type `ty`, unless it is a local
+/// variable.
+fn written_head<'a>(
+    bound: &HashMap<&str, Vec<Option<&'a ast::Name>>>,
+    ty: &'a Expr,
+) -> Option<&'a ast::Name> {
+    type_head(ty).filter(|head| {
+        !bound
+            .get(head_variable(&head.text))
+            .is_some_and(|bindings| !bindings.is_empty())
+    })
+}
+
 /// The free names in `work`, in order: names used that aren't bound by a
 /// binder around them.
 fn free_names(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
@@ -2966,6 +3012,12 @@ fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                     Expr::Var(n) => bound
                         .get(n.text.as_str())
                         .and_then(|bindings| bindings.last().copied().flatten()),
+                    // `(e: T).f`
+                    Expr::Ann(_, ty, _) => written_head(&bound, ty),
+                    Expr::Bracketed(inner, _) => match &**inner {
+                        Expr::Ann(_, ty, _) => written_head(&bound, ty),
+                        _ => None,
+                    },
                     _ => None,
                 };
                 out.push(Ref::Dot(field, field.text.clone(), receiver));
