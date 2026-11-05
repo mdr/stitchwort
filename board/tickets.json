@@ -8533,9 +8533,9 @@
     {
       "id": 1440,
       "title": "Lanes adding an example keep missing its hash snapshot: SW-1359, SW-1379 and SW-1420 each reported snap:hashes NAME=examples passing with no .snap change, yet main's hash_stability examples failed on their new examples' missing snapshots. Find why the lane run passes (stale binary? INSTA settings? kache?) and make a missing snapshot fail it",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1440",
       "labels": [
         "tests",
         "tooling"
