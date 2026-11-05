@@ -6864,7 +6864,7 @@
       "labels": [
         "syntax"
       ],
-      "body": "From SW-1320. Also worth a line in the proving guide or domain-types note: a def alias gives no dot methods, only records do.",
+      "body": "From SW-1320. Also worth a line in the proving guide or domain-types note: a def alias gives no dot methods, only records do.\n\nStarted 05:0x on DeepSeek in scratch-sw-1322; estimate 30 min (watch at 60).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
