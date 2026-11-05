@@ -90,7 +90,7 @@ impl SearchWorker {
     pub fn new() -> SearchWorker {
         let projects = Arc::new(Memory::default());
         SearchWorker {
-            inner: stitchwort_lsp::Searcher::new(options(), projects.clone()),
+            inner: stitchwort_lsp::Searcher::new(search_options(), projects.clone()),
             projects,
         }
     }
@@ -121,9 +121,20 @@ impl Default for SearchWorker {
 }
 
 /// The server's options in the worker. `Limits::for_stack` keeps a quarter
-/// (at least 256 KiB) in reserve: the stack given leaves the guard the
-/// playground's sessions use.
+/// (at least 256 KiB) in reserve, so the stack given below leaves a guard of
+/// half the playground sessions' (`STITCHWORT_GUARD`, 256 KiB). The server
+/// checks with its navigation data on, and with the full guard that overflowed
+/// V8's own stack (a `RangeError`, after which the instance is unusable) when
+/// a file of a namespace others depend on (`Aoc.Common`) was opened in
+/// the editor, so it stops such a check with a resource error sooner.
 fn options() -> stitchwort_lsp::Options {
+    let guard: usize = env!("STITCHWORT_GUARD").parse().unwrap_or(256 * 1024);
+    stitchwort_lsp::Options::new(guard / 2 + 256 * 1024)
+}
+
+/// The search worker's options: proof searches run in a worker of their own,
+/// with the playground sessions' guard.
+fn search_options() -> stitchwort_lsp::Options {
     let guard: usize = env!("STITCHWORT_GUARD").parse().unwrap_or(256 * 1024);
     stitchwort_lsp::Options::new(guard + 256 * 1024)
 }

@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const from = html.indexOf("const KEYWORDS = new Set(");
-const to = html.indexOf("const highlighted = document.getElementById");
+const to = html.indexOf("/** The text as HTML, each coloured stretch");
 assert.ok(from > 0 && to > from, "colour() not found in web/index.html");
 const colour = new Function(`${html.slice(from, to)}; return colour;`)();
 

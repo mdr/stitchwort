@@ -104,12 +104,19 @@ const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", "
 
 /** Files the server gives in place of the real ones: path → text. */
 const overrides = new Map();
+/**
+ * Whether the server sends COOP/COEP, as the page is served once its service worker
+ * (coi-serviceworker.js) has run. Off, a visit starts without isolation and the worker
+ * has to provide it (see the test for that).
+ */
+let isolating = true;
+const ISOLATION = { "cross-origin-opener-policy": "same-origin", "cross-origin-embedder-policy": "require-corp" };
 
 function serve(dir) {
   const server = createServer((req, res) => {
     const path = decodeURIComponent(new URL(req.url, "http://x").pathname);
     if (overrides.has(path)) {
-      res.writeHead(200, { "content-type": TYPES[extname(path)] ?? "text/plain", "cache-control": "no-store" });
+      res.writeHead(200, { "content-type": TYPES[extname(path)] ?? "text/plain", "cache-control": "no-store", ...(isolating ? ISOLATION : {}) });
       res.end(overrides.get(path));
       return;
     }
@@ -118,7 +125,7 @@ function serve(dir) {
       res.writeHead(404).end("not found");
       return;
     }
-    res.writeHead(200, { "content-type": TYPES[extname(file)] ?? "application/octet-stream", "cache-control": "no-store" });
+    res.writeHead(200, { "content-type": TYPES[extname(file)] ?? "application/octet-stream", "cache-control": "no-store", ...(isolating ? ISOLATION : {}) });
     res.end(readFileSync(file));
   });
   return new Promise((ok) => server.listen(0, "127.0.0.1", () => ok(server)));
@@ -231,8 +238,7 @@ class Page {
 
   /** Replaces the source, as a paste would. */
   setSource(text) {
-    return this.ev(`(() => { ${Page.#blank} const s = document.getElementById("source"); s.value = ${JSON.stringify(text)};
-      s.dispatchEvent(new Event("input")); })()`);
+    return this.ev(`(() => { ${Page.#blank} window.editor.setText(${JSON.stringify(text)}); })()`);
   }
   pick(id) {
     return this.ev(`(() => { ${Page.#blank} const p = document.getElementById("example"); p.value = ${JSON.stringify(id)};
@@ -259,15 +265,17 @@ class Page {
     return this.until(`!document.getElementById("run").disabled`, ms, "the run to end");
   }
 
-  /** The editor's two layers: the textarea and the coloured copy under it. */
-  layers() {
+  /**
+   * Whether what the editor draws is the text: each line it has drawn has the text of its line, and
+   * the colouring covers the same characters (its marks, joined, are the text's stretches).
+   */
+  drawn() {
     return this.ev(`(() => {
-      const s = document.getElementById("source"), h = document.getElementById("highlight");
-      const box = (e) => { const r = e.getBoundingClientRect(); return [r.x, r.y, r.width, r.height].map(Math.round); };
-      return { sameText: h.textContent === s.value + "\\n",
-               ta: { box: box(s), bars: [s.offsetWidth - s.clientWidth - 2 * s.clientLeft, s.offsetHeight - s.clientHeight - 2 * s.clientTop], scroll: [s.scrollTop, s.scrollLeft] },
-               pre: { box: box(h), scroll: [h.scrollTop, h.scrollLeft] },
-               client: [s.clientWidth, s.clientHeight, h.clientWidth, h.clientHeight] };
+      const e = window.editor, doc = e.view.state.doc;
+      const lines = [...document.querySelectorAll("#editor .cm-content .cm-line")];
+      const wrong = lines.filter((l) => l.textContent !== doc.lineAt(e.view.posAtDOM(l)).text);
+      return { lines: lines.length, wrong: wrong.map((l) => l.textContent.slice(0, 60)),
+               box: (() => { const r = document.querySelector("#editor .cm-editor").getBoundingClientRect(); return [r.width, r.height]; })() };
     })()`);
   }
 
@@ -283,16 +291,11 @@ class Page {
 const tests = [];
 const test = (name, body, { ms = 60000, exceptions = false } = {}) => tests.push({ name, body, ms, exceptions });
 
-/** Asserts that the layers of the editor line up. */
+/** Asserts that the editor draws the text it holds. */
 async function assertAligned(page, what) {
-  const l = await page.layers();
-  assert.ok(l.sameText, `${what}: the coloured copy has the textarea's text`);
-  // The copy covers the textarea less its scrollbars (it has none of its own,
-  // and the textarea's sit over nothing it draws), so its box is that smaller.
-  const [x, y, w, h] = l.ta.box;
-  assert.deepEqual(l.pre.box, [x, y, w - l.ta.bars[0], h - l.ta.bars[1]], `${what}: the coloured copy covers the textarea less its scrollbars`);
-  assert.deepEqual(l.pre.scroll, l.ta.scroll, `${what}: the coloured copy scrolls with the textarea`);
-  assert.deepEqual(l.client.slice(2), l.client.slice(0, 2), `${what}: the visible areas are the same size`);
+  const d = await page.drawn();
+  assert.ok(d.lines > 0, `${what}: the editor draws lines`);
+  assert.deepEqual(d.wrong, [], `${what}: every line drawn is its line of the text`);
 }
 
 test("loads and checks the default example", async (page) => {
@@ -435,10 +438,7 @@ test("Open in editor puts a guide example in the editor, ready to run, and colou
   assert.match(await page.output(), /area[\s\S]*update[\s\S]*label/);
   assert.equal(await page.ev(`document.getElementById("tab-tests").getAttribute("aria-selected")`), "true");
   // The editor's own colouring covers it, and lines up with the text.
-  const keywords = await page.ev(`(() => {
-    const text = document.getElementById("source").value;
-    return Array.from(CSS.highlights.get("hl-keyword") ?? [], (r) => text.slice(r.startOffset, r.endOffset));
-  })()`);
+  const keywords = await page.ev(`window.editor.marked().keyword ?? []`);
   assert.ok(keywords.includes("type") && keywords.includes("def") && keywords.includes("test"), JSON.stringify(keywords));
   await assertAligned(page, "a guide example in the editor");
   // Editing it works as with any example, and survives a reload as the draft.
@@ -460,7 +460,7 @@ test("every guide example opens, checks, and passes its tests but the failing on
     await page.ev(`document.getElementById("status").textContent = "(changed)"`);
     await page.ev(`document.querySelectorAll("#guide .guide-code button")[${i}].click()`);
     await page.untilStatus("Checked by the kernel", 60000);
-    const failing = await page.ev(`document.getElementById("source").value.includes("wrong on purpose")`);
+    const failing = await page.ev(`window.editor.value.includes("wrong on purpose")`);
     await page.tab("tests");
     await page.until(`document.querySelectorAll("ul.tests li").length > 0 || /No tests/i.test(document.getElementById("output").innerText)`, 30000, "the tests");
     const failures = await page.ev(`document.querySelectorAll("ul.tests li.fail").length`);
@@ -541,11 +541,11 @@ test("every example checks, and passes its tests but the failing one", async (pa
     // A render of the previous example can still finish after the pick and
     // leave its own "No tests yet" or summary, so wait for results that say
     // they are for this source (`data-for`, set by the page).
-    const summary = await page.until(`document.getElementById("output").dataset.for === document.getElementById("source").value &&
+    const summary = await page.until(`document.getElementById("output").dataset.for === window.editor.value &&
       (document.querySelector(".summary")?.textContent ||
        document.getElementById("output").textContent.match(/No tests yet/)?.[0])`, 30000, `${id}'s tests`);
     if (id === "ex-tests") {
-      assert.match(summary, /^4 tests: 3 passed, 1 failed( \(4 from the cache\))?$/, `${id}: ${summary} / ${await page.output()} / ${await page.ev("document.getElementById(\"source\").value.slice(0,80)")} / ${ids}`);
+      assert.match(summary, /^4 tests: 3 passed, 1 failed( \(4 from the cache\))?$/, `${id}: ${summary} / ${await page.output()} / ${await page.ev("window.editor.value.slice(0,80)")} / ${ids}`);
       assert.match(await page.output(), /✗\s*this one fails \(evaluated to False\)/);
     } else if (summary !== "No tests yet") {
       assert.match(summary, /^(\d+) tests: \1 passed, 0 failed( \(\d+ from the cache\))?$/, id);
@@ -564,7 +564,7 @@ test("test results are cached, and can be forgotten", async (page) => {
   const results = () => page.until(`(() => {
     const o = document.getElementById("output");
     const summary = o.querySelector(".summary")?.textContent;
-    if (!summary || o.dataset.for !== document.getElementById("source").value) return false;
+    if (!summary || o.dataset.for !== window.editor.value) return false;
     return { rows: [...o.querySelectorAll("ul.tests li")].map((li) => li.textContent), summary };
   })()`, 30000, "the tests for this source");
 
@@ -575,7 +575,7 @@ test("test results are cached, and can be forgotten", async (page) => {
   assert.match(first.summary, /^4 tests: 3 passed, 1 failed$/);
 
   // A harmless edit: the tests' results are still valid, so they're cached.
-  const source = await page.ev(`document.getElementById("source").value`);
+  const source = await page.ev(`window.editor.value`);
   await page.setSource(source + "\n-- edit\n");
   await page.untilChecked();
   const second = await results();
@@ -606,7 +606,7 @@ test "second part" := part1 1 == 2 && part1 2 == 4
   await page.tab("tests");
   const results = () => page.until(`(() => {
     const o = document.getElementById("output");
-    if (!o.querySelector(".summary") || o.dataset.for !== document.getElementById("source").value) return false;
+    if (!o.querySelector(".summary") || o.dataset.for !== window.editor.value) return false;
     return [...o.querySelectorAll("ul.tests li")].map((li) => ({
       text: li.firstChild.nextSibling.textContent,
       detail: li.querySelector(".detail")?.textContent ?? null }));
@@ -804,7 +804,7 @@ test("Run, with scripted input", async (page) => {
   assert.match(result, /Finished in/);
   // Different input, and Ctrl+Enter from the source.
   await page.ev(`document.getElementById("run-input").value = "Grace\\n1\\n"`);
-  await page.ev(`document.getElementById("source").focus()`);
+  await page.ev(`window.editor.focus()`);
   await page.run(30000, () => page.key("Enter", "Enter", 13, { modifiers: 2 }));
   assert.match(await page.printed(), /Hello, Grace!.*\n  total: 1\nThe sum is 1\. Goodbye, Grace\.\n$/s);
 });
@@ -1263,34 +1263,30 @@ for (const [how, patch] of [
   });
 }
 
-for (const [how, patch] of [["highlights", null], ["spans", "delete window.Highlight;"]]) {
-  test(`syntax colouring stays aligned (${how})`, async (page) => {
-    await page.open({ patch });
-    await page.untilChecked();
-    const spans = await page.ev(`document.querySelectorAll("#highlight span").length`);
-    assert.ok(how === "spans" ? spans > 0 : spans === 0, `${spans} spans`);
-    // A long program, scrolled both ways.
-    const main = await page.ev(`document.getElementById("ex-main").textContent`);
-    let long = "";
-    while (long.split("\n").length < 1500) long += main;
-    long += "longLine = " + "\"a long string\" ++ ".repeat(60) + "\"end\"\n";
-    await page.setSource(long);
-    await assertAligned(page, "a long program");
-    for (const [top, left] of [[0.5, 0], [1, 0], [1, 1]]) {
-      await page.ev(`(() => { const s = document.getElementById("source");
-        s.scrollTop = (s.scrollHeight - s.clientHeight) * ${top}; s.scrollLeft = (s.scrollWidth - s.clientWidth) * ${left}; })()`);
-      await sleep(100);
-      const l = await page.layers();
-      assert.ok(l.ta.scroll[0] > 0, "it scrolled");
-      await assertAligned(page, `scrolled to ${top}, ${left}`);
-    }
-    // Typing at the end.
-    await page.ev(`(() => { const s = document.getElementById("source"); s.focus(); s.setSelectionRange(s.value.length, s.value.length); })()`);
-    await page.type("\n\n-- typed <b>&amp; \"str\\\"ing\" 'x' 42");
+test("syntax colouring stays aligned with the text", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  // A long program, scrolled both ways.
+  const main = await page.ev(`document.getElementById("ex-main").textContent`);
+  let long = "";
+  while (long.split("\n").length < 1500) long += main;
+  long += "longLine = " + "\"a long string\" ++ ".repeat(60) + "\"end\"\n";
+  await page.setSource(long);
+  await assertAligned(page, "a long program");
+  for (const [top, left] of [[0.5, 0], [1, 0], [1, 1]]) {
+    await page.ev(`(() => { const s = window.editor.view.scrollDOM;
+      s.scrollTop = (s.scrollHeight - s.clientHeight) * ${top}; s.scrollLeft = (s.scrollWidth - s.clientWidth) * ${left}; })()`);
     await sleep(100);
-    await assertAligned(page, "after typing at the end");
-  });
-}
+    assert.ok(await page.ev(`window.editor.scrollTop > 0`), "it scrolled");
+    await assertAligned(page, `scrolled to ${top}, ${left}`);
+  }
+  // Typing at the end.
+  await page.ev(`(() => { const s = window.editor; s.focus(); s.setSelectionRange(s.value.length, s.value.length); })()`);
+  await page.type("\n\n-- typed <b>&amp; \"str\\\"ing\" 'x' 42");
+  await sleep(100);
+  await assertAligned(page, "after typing at the end");
+  assert.ok(await page.ev(`window.editor.marked().comment.includes(${JSON.stringify("-- typed <b>&amp; \"str\\\"ing\" 'x' 42")})`), "the typed comment is coloured");
+});
 
 test("interpolation is coloured as code inside a string", async (page) => {
   await page.open();
@@ -1300,10 +1296,8 @@ test("interpolation is coloured as code inside a string", async (page) => {
   await page.setSource(source);
   await sleep(100);
   const marked = await page.ev(`(() => {
-    const text = document.getElementById("source").value;
-    const pieces = (kind) => Array.from(CSS.highlights.get("hl-" + kind) ?? [],
-      (r) => text.slice(r.startOffset, r.endOffset));
-    return { string: pieces("string"), interp: pieces("interp"), number: pieces("number") };
+    const m = window.editor.marked();
+    return { string: m.string ?? [], interp: m.interp ?? [], number: m.number ?? [] };
   })()`);
   assert.deepEqual(marked.number, ["1", "2"], JSON.stringify(marked.number));
   assert.deepEqual(marked.interp, ["${", "}", "${", "${", "}", "}"], JSON.stringify(marked.interp));
@@ -1321,10 +1315,8 @@ test("a text block is coloured as one string over its lines", async (page) => {
   await page.setSource(source);
   await sleep(100);
   const marked = await page.ev(`(() => {
-    const text = document.getElementById("source").value;
-    const pieces = (kind) => Array.from(CSS.highlights.get("hl-" + kind) ?? [],
-      (r) => text.slice(r.startOffset, r.endOffset));
-    return { string: pieces("string"), interp: pieces("interp"), number: pieces("number") };
+    const m = window.editor.marked();
+    return { string: m.string ?? [], interp: m.interp ?? [], number: m.number ?? [] };
   })()`);
   assert.deepEqual(marked.number, ["1", "2"], JSON.stringify(marked.number));
   assert.deepEqual(marked.interp, ["${", "}"], JSON.stringify(marked.interp));
@@ -1334,11 +1326,11 @@ test("a text block is coloured as one string over its lines", async (page) => {
 });
 
 test("`|>` is coloured as one operator", async (page) => {
-  await page.open({ patch: "delete window.Highlight;" });
+  await page.open();
   await page.untilChecked();
   await page.setSource("def n : Nat := [1, 2]\n  |> .sum\n");
   await sleep(100);
-  const operators = await page.ev(`[...document.querySelectorAll("#highlight span.hl-operator")].map((s) => s.textContent)`);
+  const operators = await page.ev(`window.editor.marked().operator`);
   assert.ok(operators.includes("|>"), JSON.stringify(operators));
 });
 
@@ -1347,16 +1339,16 @@ test("the draft, input and tab are kept across a reload", async (page) => {
   await page.untilChecked();
   await page.pick("ex-main");
   await page.untilChecked();
-  await page.ev(`(() => { const s = document.getElementById("source"); s.focus(); s.setSelectionRange(0, 0); })()`);
+  await page.ev(`(() => { const s = window.editor; s.focus(); s.setSelectionRange(0, 0); })()`);
   await page.type("-- a draft\n");
   await page.tab("run");
   await page.ev(`(() => { const i = document.getElementById("run-input"); i.value = "Bo\\n"; i.dispatchEvent(new Event("input")); })()`);
   await page.tab("tests");
-  const draft = await page.ev(`document.getElementById("source").value`);
+  const draft = await page.ev(`window.editor.value`);
   assert.ok(draft.startsWith("-- a draft\n-- A program"));
   await page.reload();
   await page.until(`document.querySelector(".summary")`);
-  assert.equal(await page.ev(`document.getElementById("source").value`), draft);
+  assert.equal(await page.ev(`window.editor.value`), draft);
   assert.equal(await page.ev(`document.getElementById("example").value`), "ex-main");
   assert.equal(await page.ev(`document.querySelector('[aria-selected="true"]').dataset.view`), "tests");
   await assertAligned(page, "the restored draft");
@@ -1367,15 +1359,15 @@ test("the draft, input and tab are kept across a reload", async (page) => {
 test("Tab indents, and undo still undoes earlier typing", async (page) => {
   await page.open();
   await page.untilChecked();
-  const original = await page.ev(`document.getElementById("source").value`);
-  await page.ev(`(() => { const s = document.getElementById("source"); s.focus(); s.setSelectionRange(s.value.length, s.value.length); })()`);
+  const original = await page.ev(`window.editor.value`);
+  await page.ev(`(() => { const s = window.editor; s.focus(); s.setSelectionRange(s.value.length, s.value.length); })()`);
   await page.type("x : Nat");
   await page.key("Tab", "Tab", 9);
   await page.type("-- after a tab");
   await sleep(50);
-  const value = () => page.ev(`document.getElementById("source").value`);
+  const value = () => page.ev(`window.editor.value`);
   assert.equal(await value(), original + "x : Nat  -- after a tab");
-  assert.equal(await page.ev(`document.activeElement.id`), "source");
+  assert.ok(await page.ev(`document.activeElement.closest("#editor") !== null`), "the editor keeps the focus");
   await assertAligned(page, "after Tab");
   // Undo goes back through these, in order (the browser decides which
   // edits it merges into one step), to the start; redo comes back.
@@ -1402,14 +1394,14 @@ test("Tab indents, and undo still undoes earlier typing", async (page) => {
   console.log(`    (undo went back through ${seen.length / 2} steps)`);
 });
 
-test("Format rewrites the text, undo restores it, and a syntax error is refused", async (page) => {
+test("Format rewrites the text, undo restores it, and a syntax error leaves it alone", async (page) => {
   await page.open();
   await page.untilChecked();
-  const value = () => page.ev(`document.getElementById("source").value`);
+  const value = () => page.ev(`window.editor.value`);
   const modifier = process.platform === "darwin" ? 4 : 2;
   // Typed (not assigned), so that the browser has it in its undo history.
   const typeSource = async (text) => {
-    await page.ev(`(() => { const s = document.getElementById("source"); s.focus(); s.select(); })()`);
+    await page.ev(`(() => { const s = window.editor; s.focus(); s.select(); })()`);
     await page.type(text);
     await sleep(50);
     assert.equal(await value(), text);
@@ -1418,14 +1410,13 @@ test("Format rewrites the text, undo restores it, and a syntax error is refused"
   await typeSource(messy);
   // The caret is at the end of `x`'s line, after the last token.
   await page.click("#format");
-  await page.until(`document.getElementById("source").value !== ${JSON.stringify(messy)}`, 10000, "the formatted text");
+  await page.until(`window.editor.value !== ${JSON.stringify(messy)}`, 10000, "the formatted text");
   const formatted = await value();
   assert.equal(formatted, "def x: Nat := 5\n\ndef y: Nat :=\n  x\n");
-  assert.equal(await page.ev(`document.getElementById("format-errors").hidden`), true);
   assert.equal(await page.ev(`localStorage.getItem("stitchwort.draft")`), formatted, "the draft is the formatted text");
   await assertAligned(page, "after Format");
-  // The caret was at the end of the text, and is still after the last token.
-  assert.equal(await page.ev(`document.getElementById("source").selectionStart`), formatted.replace(/\n$/, "").length);
+  // The caret was at the end of the text, and is still there.
+  assert.equal(await page.ev(`window.editor.selectionStart`), formatted.length);
   // One undo step takes it back, then redo brings it again.
   await page.key("z", "KeyZ", 90, { modifiers: modifier, commands: ["undo"] });
   await sleep(100);
@@ -1441,24 +1432,20 @@ test("Format rewrites the text, undo restores it, and a syntax error is refused"
   // Shift+Alt+F formats a messy file...
   await typeSource(messy);
   await page.key("F", "KeyF", 70, { modifiers: 9 });
-  await page.until(`document.getElementById("source").value === ${JSON.stringify(formatted)}`, 10000, "Shift+Alt+F to format");
+  await page.until(`window.editor.value === ${JSON.stringify(formatted)}`, 10000, "Shift+Alt+F to format");
 
-  // ...and a file with a syntax error is left as it is, with the error shown.
+  // ...and a file with a syntax error is left as it is, its error underlined.
   const broken = "def   x :  Nat :=\n";
   await typeSource(broken);
   await page.click("#format");
-  await page.until(`!document.getElementById("format-errors").hidden`, 10000, "the error");
+  await sleep(1500);
   assert.equal(await value(), broken, "a refused file is unchanged");
-  assert.match(await page.ev(`document.getElementById("format-errors").innerText`), /not formatted[\s\S]*\[E-PARSE\]/i);
-  // Editing hides the error.
-  await page.type("5");
-  await sleep(50);
-  assert.equal(await page.ev(`document.getElementById("format-errors").hidden`), true);
+  await page.until(`!!document.querySelector("#editor .cm-lint-marker-error")`, 30000, "the syntax error marked");
 });
 
 test("the page fills the window, and long results scroll in their pane", async (page) => {
   const geometry = () => page.ev(`(() => {
-    const s = document.getElementById("source").getBoundingClientRect();
+    const s = document.querySelector("#editor .cm-editor").getBoundingClientRect();
     const o = document.getElementById("output");
     return { page: document.documentElement.scrollHeight, window: innerHeight, editorBottom: Math.round(s.bottom),
              outputBottom: Math.round(o.getBoundingClientRect().bottom) };
@@ -1484,8 +1471,8 @@ test("on a phone, the panes stack and nothing scrolls sideways", async (page) =>
     const box = (s) => { const r = document.querySelector(s).getBoundingClientRect();
                          return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width }; };
     return { width: innerWidth, scrollWidth: document.documentElement.scrollWidth,
-             source: box("#source"), results: box('[aria-label="Results"]'), output: box("#output"),
-             fontSize: parseFloat(getComputedStyle(document.getElementById("source")).fontSize) };
+             source: box("#editor .cm-editor"), results: box('[aria-label="Results"]'), output: box("#output"),
+             fontSize: parseFloat(getComputedStyle(document.querySelector("#editor .cm-editor")).fontSize) };
   })()`);
   for (const [example, view] of [["ex-lists", "check"], ["ex-js", "js"], ["ex-tests", "tests"], ["ex-main", "run"]]) {
     await page.pick(example);
@@ -1502,11 +1489,11 @@ test("on a phone, the panes stack and nothing scrolls sideways", async (page) =>
     // Big enough that a phone doesn't zoom in when it's focused.
     assert.ok(l.fontSize >= 16, what);
   }
-  // Typing still works, and the colouring stays aligned.
-  await page.ev(`(() => { const s = document.getElementById("source"); s.focus(); s.setSelectionRange(s.value.length, s.value.length); })()`);
+  // Typing still works, and the editor still draws the text.
+  await page.ev(`(() => { const s = window.editor; s.focus(); s.setSelectionRange(s.value.length, s.value.length); })()`);
   await page.type("\n-- typed on a phone, with a line long enough that the editor has to scroll sideways");
   await sleep(100);
-  assert.match(await page.ev(`document.getElementById("source").value`), /typed on a phone/);
+  assert.match(await page.ev(`window.editor.value`), /typed on a phone/);
   await assertAligned(page, "on a phone");
   assert.ok((await layout()).scrollWidth <= 400, "the page doesn't scroll sideways after a long line");
 });
@@ -1514,7 +1501,7 @@ test("on a phone, the panes stack and nothing scrolls sideways", async (page) =>
 test("dragging the editor's corner resizes it", async (page) => {
   await page.open();
   await page.untilChecked();
-  const box = () => page.ev(`(() => { const s = document.getElementById("source");
+  const box = () => page.ev(`(() => { const s = document.querySelector("#editor .cm-editor");
     s.scrollIntoView({ block: "end" }); const r = s.getBoundingClientRect();
     return { x: r.right, y: r.bottom, height: r.height }; })()`);
   const drag = async (dy) => {
@@ -1575,7 +1562,7 @@ const pickerLabel = (page) => page.ev(`document.getElementById("example").select
 /** Opens a day of 2025. */
 const openDay = (page, day) => openEntry(page, day - 1, day);
 const openTab = (page, label) => page.ev(`[...document.querySelectorAll("#filetabs button")].find((b) => b.firstChild.textContent === ${JSON.stringify(label)}).click()`);
-const sourceText = (page) => page.ev(`document.getElementById("source").value`);
+const sourceText = (page) => page.ev(`window.editor.value`);
 /** The bundled text of a file, fetched as the page does. */
 const bundled = (page, path) => page.ev(`fetch("pkg/projects/aoc/${path}").then((r) => r.text())`);
 /** Sets the source (the open file), as typing would, and waits for the checked status to be blank first. */
@@ -1714,7 +1701,7 @@ test("an error in a shared file shows in the Check tab, marks its tab, and links
   await page.until(`document.querySelector('#filetabs [aria-selected="true"]').firstChild.textContent === "Day02.sw"`);
   await page.click("#output button.jump");
   await page.until(`document.querySelector('#filetabs [aria-selected="true"]').firstChild.textContent === "Common/Range.sw"`);
-  const caretLine = await page.ev(`(() => { const s = document.getElementById("source");
+  const caretLine = await page.ev(`(() => { const s = window.editor;
     return s.value.slice(0, s.selectionStart).split("\\n").length; })()`);
   assert.equal(caretLine, line, "the caret is on the error's line");
 }, { ms: 120000 });
@@ -1739,7 +1726,7 @@ test("a saved edit survives a reload, shows on its tab, and can be reset", async
   assert.equal(await sourceText(page), original + "\n-- my edit\n");
   await page.pick("aoc:1");
   await page.click("#reset-file");
-  await page.until(`document.getElementById("source").value === ${JSON.stringify(original)}`);
+  await page.until(`window.editor.value === ${JSON.stringify(original)}`);
   assert.equal(await page.ev(`localStorage.getItem("stitchwort.project.aoc.file.${DAY2}")`), null, "the saved edit is gone");
   assert.equal(await page.ev(`document.querySelectorAll("#filetabs button[data-edited]").length`), 0);
   // Resetting the whole project asks first.
@@ -1749,7 +1736,7 @@ test("a saved edit survives a reload, shows on its tab, and can be reset", async
   assert.equal(await page.ev(`document.getElementById("reset-confirm").hidden`), false);
   assert.equal(await sourceText(page), original + "\n-- again\n", "nothing is reset before it's confirmed");
   await page.click("#reset-yes");
-  await page.until(`document.getElementById("source").value === ${JSON.stringify(original)}`);
+  await page.until(`window.editor.value === ${JSON.stringify(original)}`);
   assert.equal(await page.ev(`localStorage.getItem("stitchwort.project.aoc.file.${DAY2}")`), null);
 }, { ms: 120000 });
 
@@ -1781,7 +1768,7 @@ test("when the bundled file changes under a saved edit, the edit is kept and a b
   await page.reload();
   await page.until(`document.getElementById("banner").textContent.includes("has changed")`, 60000);
   await page.click("#use-new");
-  await page.until(`document.getElementById("source").value === ${JSON.stringify(newest)}`);
+  await page.until(`window.editor.value === ${JSON.stringify(newest)}`);
   assert.equal(await page.ev(`document.getElementById("banner").hidden`), true);
   assert.equal(await page.ev(`localStorage.getItem("stitchwort.project.aoc.file.${DAY2}")`), null);
 }, { ms: 120000 });
@@ -1857,7 +1844,7 @@ test("the roguelike is a second project: it checks with its proofs, plays on key
 async function startRogue(page, seed) {
   await page.open({ hash: "#rogue/play" });
   await page.until(`document.getElementById("status").textContent.endsWith("checked by the kernel")`, 120000, "the roguelike to check");
-  const text = await page.ev(`document.getElementById("source").value`);
+  const text = await page.ev(`window.editor.value`);
   assert.match(text, /IO\.randomSeed\(\) % 2147483648/);
   await page.setSource(text.replace("IO.randomSeed() % 2147483648", String(seed)));
   await page.untilStatus("Play and its proofs checked by the kernel", 120000);
@@ -1998,7 +1985,7 @@ test("on a phone, a project's file tabs scroll inside themselves", async (page) 
   assert.ok(l.tabs.scroll > l.tabs.client && l.tabs.overflow === "auto", `the tabs scroll inside themselves: ${JSON.stringify(l)}`);
 }, { ms: 120000 });
 
-// Code navigation (docs/proposals/code-navigation.md) ------------------------------
+// The language server in the editor (docs/proposals/playground-editor.md) --------------
 
 const NAV_SOURCE = `import Std (List, Text)
 
@@ -2013,204 +2000,6 @@ def tricky (ys: List Nat) : Nat := if Text.isEmpty "😀😀" then 0 else List.l
 
 const CMD = 4;
 
-/**
- * The centre, in the viewport, of the text `len` characters long at `delta` into the
- * first `needle` of the editor's text (after scrolling its line into view), where the
- * browser drew it in the coloured copy.
- */
-function whereIs(page, needle, delta = 0, len = 1) {
-  return page.ev(`new Promise((done) => {
-    const s = document.getElementById("source"), h = document.getElementById("highlight");
-    const i = s.value.indexOf(${JSON.stringify(needle)}) + ${delta};
-    const line = s.value.slice(0, i).split("\\n").length - 1;
-    const css = getComputedStyle(s), lh = parseFloat(css.lineHeight);
-    const y = parseFloat(css.paddingTop) + line * lh;
-    if (y < s.scrollTop || y + lh > s.scrollTop + s.clientHeight) s.scrollTop = Math.max(0, y - s.clientHeight / 3);
-    s.dispatchEvent(new Event("scroll"));
-    requestAnimationFrame(() => {
-      // The coloured copy is split into spans: find the text nodes of the offsets.
-      const point = (o) => { const w = document.createTreeWalker(h, NodeFilter.SHOW_TEXT); let at = 0;
-        for (let n = w.nextNode(); n; n = w.nextNode()) { if (o <= at + n.length) return [n, o - at]; at += n.length; } };
-      const range = document.createRange();
-      range.setStart(...point(i));
-      range.setEnd(...point(i + ${len}));
-      const r = range.getBoundingClientRect();
-      done({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
-    });
-  })`);
-}
-const hoverAt = (page, { x, y }, modifiers = 0) => page.send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y, modifiers });
-async function cmdClick(page, { x, y }) {
-  await hoverAt(page, { x, y }, CMD);
-  await page.send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1, modifiers: CMD });
-  await page.send("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1, modifiers: CMD });
-}
-const tooltip = (page) => page.ev(`(() => { const t = document.getElementById("navtip"); return t.hidden ? null : t.textContent; })()`);
-/** Waits for the tooltip to show (the index is computed, and the pointer has rested). */
-const untilTooltip = (page) => page.until(`!document.getElementById("navtip").hidden && document.getElementById("navtip").textContent`, 30000, "the tooltip");
-/** What the editor has selected, and where. */
-const selected = (page) => page.ev(`(() => { const s = document.getElementById("source");
-  return { text: s.value.slice(s.selectionStart, s.selectionEnd), line: s.value.slice(0, s.selectionStart).split("\\n").length,
-           readOnly: s.readOnly }; })()`);
-
-test("hovering a documented name adds the summary, not the whole doc", async (page) => {
-  await page.open();
-  await page.untilChecked();
-  await page.setSource(`--| Twice \`n\`. Not shown.\n--|\n--| Nor this paragraph.\ndef double (n: Nat) : Nat := n + n\n\ndef quad (n: Nat) : Nat := double (double n)\n`);
-  await page.untilChecked();
-  await hoverAt(page, await whereIs(page, "double (double n)", 0, 6));
-  await page.until(`document.getElementById("navtip").textContent.startsWith("def Main.double")`, 10000, "the tooltip of a documented declaration");
-  assert.equal(await tooltip(page), "def Main.double (n: Nat): Nat\nTwice `n`.");
-}, { ms: 90000 });
-
-test("hovering a name shows its type: a local, a declaration, a library function", async (page) => {
-  await page.open();
-  await page.untilChecked();
-  await page.setSource(NAV_SOURCE);
-  await page.untilChecked();
-  // A parameter, used in the body.
-  await hoverAt(page, await whereIs(page, "length xs", 7, 2));
-  assert.match(await untilTooltip(page), /^xs local\n: List Nat$/);
-  // A library function: its qualified name and its type.
-  await hoverAt(page, await whereIs(page, "List.length xs", 5, 6));
-  await page.until(`document.getElementById("navtip").textContent.includes("Std.List.length")`, 10000, "the library function's tooltip");
-  assert.match(await tooltip(page), /^def Std.List.length .*\(xs: List .*Nat/s);
-  // A parameter after astral characters on its line.
-  await hoverAt(page, await whereIs(page, "else List.length ys", 17, 2));
-  await page.until(`document.getElementById("navtip").textContent.startsWith("ys")`, 10000, "the tooltip of a name after astral characters");
-  assert.match(await tooltip(page), /^ys local\n: List Nat$/);
-  // A declaration of the program.
-  await hoverAt(page, await whereIs(page, "double (double n)", 0, 6));
-  await page.until(`document.getElementById("navtip").textContent.startsWith("def Main.double")`, 10000, "the tooltip of a declaration");
-  assert.match(await tooltip(page), /^def Main.double \(n: Nat\): Nat$/);
-  // Off a name, there is none.
-  await hoverAt(page, await whereIs(page, "def double", 1, 1));
-  await page.until(`document.getElementById("navtip").hidden`, 5000, "the tooltip to go");
-}, { ms: 90000 });
-
-test("with Cmd held, the name under the pointer is underlined, and a click goes to its definition in the same file", async (page) => {
-  await page.open();
-  await page.untilChecked();
-  await page.setSource(NAV_SOURCE);
-  await page.untilChecked();
-  const at = await whereIs(page, "(double n)", 1, 3);
-  await hoverAt(page, at, CMD);
-  await page.until(`(() => { const l = document.getElementById("navlink"); return !l.hidden && l.getBoundingClientRect().width > 10; })()`, 30000, "the underline");
-  assert.equal(await page.ev(`document.getElementById("source").style.cursor`), "pointer");
-  await hoverAt(page, at, 0);
-  await page.until(`document.getElementById("navlink").hidden`, 5000, "the underline to go without Cmd");
-  await cmdClick(page, at);
-  await page.until(`document.getElementById("source").selectionEnd > document.getElementById("source").selectionStart`, 10000, "a selection at the definition");
-  assert.deepEqual(await selected(page), { text: "double", line: 3, readOnly: false });
-  // Cmd-click on a local goes to its binder, after astral characters on the line.
-  await cmdClick(page, await whereIs(page, "else List.length ys", 17, 2));
-  await page.until(`document.getElementById("source").selectionStart === document.getElementById("source").value.indexOf("ys:")`, 10000, "the binder");
-  assert.deepEqual(await selected(page), { text: "ys", line: 9, readOnly: false });
-  // And back, by Cmd+[.
-  await page.key("[", "BracketLeft", 219, { modifiers: CMD });
-  await page.until(`document.getElementById("source").selectionStart !== document.getElementById("source").value.indexOf("ys:")`, 10000, "the way back");
-}, { ms: 90000 });
-
-test("F12 goes to the definition of the name at the caret", async (page) => {
-  await page.open();
-  await page.untilChecked();
-  await page.setSource(NAV_SOURCE);
-  await page.untilChecked();
-  await page.ev(`(() => { const s = document.getElementById("source"); s.focus();
-    const i = s.value.indexOf("(double n)") + 3; s.setSelectionRange(i, i); })()`);
-  await page.key("F12", "F12", 123);
-  await page.until(`document.getElementById("source").selectionEnd > document.getElementById("source").selectionStart`, 30000, "the jump");
-  assert.deepEqual(await selected(page), { text: "double", line: 3, readOnly: false });
-}, { ms: 90000 });
-
-test("Cmd-click on a library function shows the library's text, read-only, at its definition, with a way back", async (page) => {
-  await page.open();
-  await page.untilChecked();
-  await page.setSource(NAV_SOURCE);
-  await page.untilChecked();
-  await cmdClick(page, await whereIs(page, "List.length xs", 5, 6));
-  await page.until(`!document.getElementById("stdbar").hidden`, 30000, "the library's text");
-  assert.match(await page.ev(`document.getElementById("std-name").textContent`), /\.sw$/);
-  const there = await selected(page);
-  assert.equal(there.text, "length");
-  assert.equal(there.readOnly, true);
-  // The line is the library's: the text shown has `length` defined there, and it's in view.
-  const view = await page.ev(`(() => { const s = document.getElementById("source"), css = getComputedStyle(s);
-    const line = s.value.slice(0, s.selectionStart).split("\\n").length - 1, text = s.value.split("\\n")[line];
-    const y = parseFloat(css.paddingTop) + line * parseFloat(css.lineHeight);
-    return { text, visible: y >= s.scrollTop && y < s.scrollTop + s.clientHeight, aligned: document.getElementById("highlight").textContent === s.value + "\\n" }; })()`);
-  assert.match(view.text, /\bdef List\.length\b/);
-  assert.ok(view.visible, "the line is scrolled into view");
-  assert.ok(view.aligned, "the coloured copy shows the library's text");
-  assert.equal(await page.status(), "Checked by the kernel", "the check is not disturbed");
-  // The way back restores the editor, and it can be edited again.
-  await page.click("#std-back");
-  assert.equal(await page.ev(`document.getElementById("stdbar").hidden`), true);
-  assert.equal(await sourceText(page), NAV_SOURCE);
-  assert.equal((await selected(page)).readOnly, false);
-  // Again, left with Escape.
-  await cmdClick(page, await whereIs(page, "List.length xs", 5, 6));
-  await page.until(`!document.getElementById("stdbar").hidden`, 30000, "the library's text again");
-  await page.key("Escape", "Escape", 27);
-  await page.until(`document.getElementById("stdbar").hidden`, 5000, "Escape to go back");
-  assert.equal(await sourceText(page), NAV_SOURCE);
-}, { ms: 90000 });
-
-const STD_SOURCE = `import Std (List)
-
-def lengths (xs: List Nat) : Nat := List.length xs
-
-def total (xs: List Nat) : Nat := List.sum xs
-`;
-
-/** Selects `len` characters at `delta` into the first `needle` of the editor, as a keyboard or a phone's handles would. */
-const selectText = (page, needle, delta, len) => page.ev(`(() => { const s = document.getElementById("source");
-  const i = s.value.indexOf(${JSON.stringify(needle)}) + ${delta};
-  s.focus({ preventScroll: true }); s.setSelectionRange(i, i + ${len}); })()`);
-const selectionStatus = (page) => page.ev(`(() => { const t = document.getElementById("seltype"); return t.hidden ? null : t.textContent; })()`);
-const untilSelectionStatus = (page, text) => page.until(`(() => { const t = document.getElementById("seltype"); return !t.hidden && t.textContent === ${JSON.stringify(text)}; })()`, 30000, `the selection's type ${text}`);
-
-test("selecting an expression shows its type in the status line, and in the tooltip when the pointer is over the selection", async (page) => {
-  await page.open();
-  await page.untilChecked();
-  await page.setSource(NAV_SOURCE);
-  await page.untilChecked();
-  // The whole call: the index is computed on demand.
-  await selectText(page, "double (double n)", 0, 17);
-  await untilSelectionStatus(page, "selection: Nat");
-  await hoverAt(page, await whereIs(page, "double (double n)", 9, 3));
-  await page.until(`!document.getElementById("navtip").hidden && document.getElementById("navtip").textContent.startsWith("selection")`, 10000, "the selection's tooltip");
-  assert.equal(await tooltip(page), "selection\n: Nat");
-  await shots(page, "selection-type");
-  // The argument: the name under the pointer gives way to the selection.
-  await selectText(page, "double (double n)", 8, 8);
-  await untilSelectionStatus(page, "selection: Nat");
-  await hoverAt(page, await whereIs(page, "double (double n)", 14, 1));
-  await page.until(`document.getElementById("navtip").textContent === "selection\\n: Nat"`, 10000, "the argument's tooltip");
-  // Whitespace at the ends is trimmed, and parentheses may or may not be in.
-  await selectText(page, "length xs", 6, 4);
-  await untilSelectionStatus(page, "selection: List Nat");
-  await selectText(page, "(double n)", 0, 10);
-  await untilSelectionStatus(page, "selection: Nat");
-  await selectText(page, "double n)", 0, 8);
-  await untilSelectionStatus(page, "selection: Nat");
-  // A selection no expression covers (a keyword and a name) has no type.
-  await selectText(page, "def quad", 0, 8);
-  await page.until(`document.getElementById("seltype").hidden`, 10000, "the status to clear");
-  // Pointer outside the selection: the ordinary hover.
-  await selectText(page, "double (double n)", 8, 8);
-  await untilSelectionStatus(page, "selection: Nat");
-  await hoverAt(page, await whereIs(page, "length xs", 7, 2));
-  await page.until(`document.getElementById("navtip").textContent.startsWith("xs")`, 10000, "the name's tooltip");
-  // Collapsed, the status goes.
-  await page.ev(`(() => { const s = document.getElementById("source"); s.setSelectionRange(3, 3); })()`);
-  await page.until(`document.getElementById("seltype").hidden`, 10000, "the status to clear");
-}, { ms: 120000 });
-
-const stdName = (page) => page.ev(`document.getElementById("stdbar").hidden ? null : document.getElementById("std-name").textContent`);
-const untilStd = (page, name, what) => page.until(`!document.getElementById("stdbar").hidden && document.getElementById("std-name").textContent === ${JSON.stringify(name)}`, 30000, what);
-const textAtCaret = (page) => page.ev(`(() => { const s = document.getElementById("source");
-  return s.value.split("\\n")[s.value.slice(0, s.selectionStart).split("\\n").length - 1]; })()`);
 /** Saves a screenshot, light and dark, under $NAV_SHOTS (if set): for looking at, not asserting. */
 async function shots(page, name) {
   const dir = process.env.NAV_SHOTS;
@@ -2225,225 +2014,219 @@ async function shots(page, name) {
   await page.send("Emulation.setEmulatedMedia", { features: [] });
 }
 
-test("Inside a library file: hover, Cmd-click, F12, find references and the menu work, across library files, and Back walks the chain", async (page) => {
+/** Where the text `delta` characters into the first `needle` is drawn, after scrolling it into view. */
+function whereIs(page, needle, delta = 0) {
+  return page.ev(`new Promise((done) => {
+    const e = window.editor, i = e.value.indexOf(${JSON.stringify(needle)}) + ${delta};
+    e.scrollTo(i);
+    requestAnimationFrame(() => requestAnimationFrame(() => done(e.coords(i))));
+  })`);
+}
+const mouse = (page, { x, y }, modifiers = 0) => page.send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y, modifiers });
+async function cmdClick(page, { x, y }) {
+  await mouse(page, { x, y }, CMD);
+  await page.send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1, modifiers: CMD });
+  await page.send("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1, modifiers: CMD });
+}
+/** What the editor has selected, and where. */
+const selected = (page) => page.ev(`(() => { const e = window.editor;
+  return { text: e.value.slice(e.selectionStart, e.selectionEnd), line: e.value.slice(0, e.selectionStart).split("\\n").length,
+           readOnly: e.readOnly, inStd: e.inStd }; })()`);
+const hoverText = (page) => page.ev(`document.querySelector(".cm-tooltip-hover")?.innerText ?? null`);
+
+/** Waits for the server's diagnostics for `uri` (a part of it) to have arrived `n` times. */
+const untilPublished = (page, uri, n = 1, ms = 60000) =>
+  page.until(`window.editor.stats.published.filter((p) => p.uri.includes(${JSON.stringify(uri)})).length >= ${n}`, ms, `diagnostics for ${uri}`);
+const tooltips = (page) => page.ev(`[...document.querySelectorAll(".cm-tooltip")].map((t) => t.innerText)`);
+const underlined = (page) => page.ev(`document.querySelectorAll("#editor .cm-lintRange-error").length`);
+/** Puts the caret `delta` characters into the first `needle`. */
+const caretAt = (page, needle, delta = 0) => page.ev(`(() => { const e = window.editor; e.focus();
+  const i = e.value.indexOf(${JSON.stringify(needle)}) + ${delta}; e.setSelectionRange(i, i); })()`);
+/** Waits until the selection is `text`, or (given `line`) the caret is on that line. */
+const untilCaret = (page, ms, what, test) => page.until(`(() => { const e = window.editor; const t = e.value.slice(0, e.selectionStart).split("\\n").length; return ${test}; })()`, ms, what);
+
+test("an error is underlined, its message shows on hover, and the underline goes when it is fixed", async (page) => {
   await page.open();
   await page.untilChecked();
-  await page.setSource(STD_SOURCE);
+  assert.equal(await page.ev(`window.editor.stats.isolated`), true, "the page is cross-origin isolated, so edits can cancel a stale check");
+  const t = Date.now();
+  await page.setSource(NAV_SOURCE + `\ndef bad : Nat := "oops"\n`);
+  await page.until(`!!document.querySelector("#editor .cm-lintRange-error")`, 60000, "the error underlined");
+  console.log(`    (first diagnostics ${Math.round(await page.ev(`window.editor.stats.firstDiagnostics`))} ms after the editor started; the error underlined ${Date.now() - t} ms after the edit)`);
+  assert.equal(await underlined(page), 1);
+  assert.equal(await page.ev(`document.querySelector("#editor .cm-lintRange-error").textContent`), `"oops"`, "the underline covers the text at fault");
+  await mouse(page, await whereIs(page, `"oops"`, 2));
+  await page.until(`!!document.querySelector(".cm-tooltip-lint")`, 10000, "the message");
+  assert.match((await tooltips(page)).join("\n"), /type mismatch\s+expected `Nat`, but this has type `Text`/);
+  // Fixing it clears the underline.
+  await page.setSource(NAV_SOURCE + `\ndef bad : Nat := 5\n`);
+  await page.until(`document.querySelectorAll("#editor .cm-lintRange-error").length === 0`, 30000, "the underline to go");
+});
+
+test("hovering a name shows its declaration and its documentation", async (page) => {
+  await page.open();
   await page.untilChecked();
-  // Program -> List.length in core/Data.sw.
-  await cmdClick(page, await whereIs(page, "List.length xs", 5, 6));
-  await untilStd(page, "core/Data.sw", "core/Data.sw");
-  assert.match(await textAtCaret(page), /^def List\.length\b/);
-  // Hover in the library file: a name in its type, then a constructor in its body.
-  await hoverAt(page, await whereIs(page, ") → Nat\n  | [] => 0", 4, 3));
-  await page.until(`document.getElementById("navtip").textContent.startsWith("Std.Nat")`, 30000, "the tooltip in the library file");
-  assert.match(await tooltip(page), /^Std.Nat data\n: Type\nA natural number/);
-  await hoverAt(page, await whereIs(page, "Succ (List.length xs)", 0, 4));
-  await page.until(`document.getElementById("navtip").textContent.startsWith("Std.Nat.Succ") || document.getElementById("navtip").textContent.startsWith("Succ")`, 10000, "the tooltip of a constructor");
-  // With Cmd held the name is underlined, and the cursor says it's a link.
-  const nat = await whereIs(page, ") → Nat\n  | [] => 0", 4, 3);
-  await hoverAt(page, nat, CMD);
-  await page.until(`(() => { const l = document.getElementById("navlink"); return !l.hidden && l.getBoundingClientRect().width > 10; })()`, 10000, "the underline in the library file");
-  assert.equal(await page.ev(`document.getElementById("source").style.cursor`), "pointer");
-  await shots(page, "std-hover-underline");
-  // Cmd-click: to the definition of Nat, in core/Data.sw again (a second hop).
-  await cmdClick(page, nat);
-  await page.until(`document.getElementById("source").value.slice(document.getElementById("source").selectionStart, document.getElementById("source").selectionEnd) === "Nat" && document.getElementById("source").value.slice(0, document.getElementById("source").selectionStart).split("\\n").length < 40`, 10000, "the jump to Nat's definition");
-  assert.match(await textAtCaret(page), /^type Nat\b/);
-  assert.equal(await stdName(page), "core/Data.sw");
-  assert.equal((await selected(page)).readOnly, true);
-  // Back, once: to List.length in core/Data.sw; twice: to the program, editable again.
-  await page.key("[", "BracketLeft", 219, { modifiers: CMD });
-  await page.until(`document.getElementById("source").value.slice(0, document.getElementById("source").selectionStart).split("\\n").length > 40`, 10000, "back to List.length");
-  assert.match(await textAtCaret(page), /^def List\.length\b/);
-  assert.equal(await stdName(page), "core/Data.sw");
-  await page.key("[", "BracketLeft", 219, { modifiers: CMD });
-  await page.until(`document.getElementById("stdbar").hidden`, 10000, "back to the program");
-  assert.equal(await sourceText(page), STD_SOURCE);
-  assert.equal((await selected(page)).readOnly, false);
+  await page.setSource(`import Std (List)\n\n--| Twice \`n\`. Not shown.\n--|\n--| Nor this paragraph.\ndef double (n: Nat) : Nat := n + n\n\ndef quad (n: Nat) : Nat := double (double n)\n\ndef lengths (xs: List Nat) : Nat := List.length xs\n`);
+  await untilPublished(page, "main.sw", 2);
+  await sleep(500);
+  await mouse(page, await whereIs(page, "double (double n)", 1));
+  await page.until(`!!document.querySelector(".cm-tooltip-hover")`, 30000, "the tooltip of a documented declaration");
+  const tip = (await tooltips(page)).join("\n");
+  assert.match(tip, /^def Main\.double \(n: Nat\): Nat\s+Twice n\. Not shown\.\s+Nor this paragraph\.$/);
+  // A library function: its qualified name, its type, and what its documentation says.
+  await mouse(page, await whereIs(page, "List.length xs", 6));
+  await page.until(`document.querySelector(".cm-tooltip-hover")?.innerText.includes("Std.List.length")`, 30000, "the library function's tooltip");
+  assert.match((await tooltips(page)).join("\n"), /def Std\.List\.length \[a: Type\] \(xs: List a\): Nat/);
+  // Off a name, there is none.
+  await mouse(page, await whereIs(page, "def double", 1));
+  await page.until(`!document.querySelector(".cm-tooltip-hover")`, 5000, "the tooltip to go");
+}, { ms: 90000 });
 
-  // Program -> List.sum in List/Toolkit.sw -> Add.add in core/AddMul.sw: another library file, then Back twice.
-  await cmdClick(page, await whereIs(page, "List.sum xs", 5, 3));
-  await untilStd(page, "List/Toolkit.sw", "List/Toolkit.sw");
-  assert.match(await textAtCaret(page), /^def List\.sum\b/);
-  // F12 at the caret in the library file: go to the definition of the name.
-  await page.ev(`(() => { const s = document.getElementById("source"); s.focus();
-    const i = s.value.indexOf("Add.zero Add.add") + "Add.zero ".length + 1; s.setSelectionRange(i, i); })()`);
+test("F12 and Cmd-click go to the definition, in the file; Cmd+[ comes back", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await page.setSource(NAV_SOURCE);
+  await untilPublished(page, "main.sw", 2);
+  await sleep(500);
+  await caretAt(page, "(double n)", 3);
   await page.key("F12", "F12", 123);
-  await untilStd(page, "core/AddMul.sw", "core/AddMul.sw from the toolkit");
-  assert.match(await textAtCaret(page), /Add\b|add\b/);
-  await shots(page, "std-after-jump");
+  await untilCaret(page, 30000, "the jump", `t === 3`);
+  // Cmd-click on a local goes to its binder, after astral characters on the line.
+  await cmdClick(page, await whereIs(page, "else List.length ys", 17));
+  await untilCaret(page, 30000, "the binder", `e.selectionStart === e.value.indexOf("ys:")`);
+  // And back, by Cmd+[ (twice: to the call of `double`, then to where the caret began).
   await page.key("[", "BracketLeft", 219, { modifiers: CMD });
-  await untilStd(page, "List/Toolkit.sw", "back to the toolkit");
-  assert.match(await textAtCaret(page), /^def List\.sum\b/);
-
-  // Shift+F12 in the library file lists the declaration and uses; a row jumps there.
-  await findReferencesAt(page, "def List.sum", 10);
-  const panel = await refRows(page);
-  assert.match(panel.title, /^Std\.List\.sum def: \d+ uses?/);
-  assert.equal(panel.rows[0][2], true);
-  assert.match(panel.rows[0][0], /^List\/Toolkit\.sw:/);
-  assert.ok(panel.rows.some(([where, text]) => /^line 5$/.test(where) && /List\.sum xs/.test(text)), JSON.stringify(panel));
-  await shots(page, "std-references");
-  // The right-click menu on a name there, with its two lookups.
-  await page.key("Escape", "Escape", 27);
-  const menuAt = await whereIs(page, "Add.zero Add.add", 9, 3);
-  await page.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: menuAt.x, y: menuAt.y });
-  await page.send("Input.dispatchMouseEvent", { type: "mousePressed", x: menuAt.x, y: menuAt.y, button: "right", clickCount: 1 });
-  await page.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: menuAt.x, y: menuAt.y, button: "right", clickCount: 1 });
-  await page.until(`!document.getElementById("navmenu").hidden`, 10000, "the menu in the library file");
-  assert.deepEqual(await page.ev(`[...document.querySelectorAll("#navmenu button")].map((b) => b.textContent)`), ["Go to definitionF12", "Find references⇧F12"]);
-  await shots(page, "std-menu");
-  await page.key("Escape", "Escape", 27);
-  // Back to the program, the editor as it was.
+  await untilCaret(page, 10000, "the way back", `e.selectionStart !== e.value.indexOf("ys:") && t === 9`);
   await page.key("[", "BracketLeft", 219, { modifiers: CMD });
-  await page.until(`document.getElementById("stdbar").hidden`, 10000, "back to the program");
-  assert.equal(await sourceText(page), STD_SOURCE);
-}, { ms: 180000 });
+  await untilCaret(page, 10000, "the way back to the start", `t === 5`);
+}, { ms: 90000 });
 
-test("Cmd-click in a project goes to the definition in another file, and a library name shows a tooltip", async (page) => {
+test("Cmd-click on a library function shows the library's text, read-only, with a way back", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await page.setSource(NAV_SOURCE);
+  await untilPublished(page, "main.sw", 2);
+  await sleep(500);
+  await cmdClick(page, await whereIs(page, "List.length xs", 6));
+  await page.until(`window.editor.inStd`, 30000, "the library file");
+  assert.equal(await page.ev(`document.getElementById("stdbar").hidden`), false);
+  assert.match(await page.ev(`document.getElementById("std-name").textContent`), /\.sw$/);
+  assert.deepEqual({ ...(await selected(page)), line: 0 }, { text: "", line: 0, readOnly: true, inStd: true });
+  assert.match(await page.ev(`window.editor.view.state.doc.lineAt(window.editor.selectionStart).text`), /^def List\.length/);
+  // The user's own text is kept, and typing in the library file changes nothing.
+  assert.equal(await sourceText(page), NAV_SOURCE);
+  await page.type("garbage");
+  assert.equal(await page.ev(`window.editor.view.state.doc.toString().includes("garbage")`), false, "read-only");
+  assert.equal(await page.ev(`document.querySelectorAll("#editor .cm-lintRange-error").length`), 0);
+  // Hover works there too.
+  await mouse(page, await page.ev(`window.editor.coords(window.editor.selectionStart + 4)`));
+  await page.until(`!!document.querySelector(".cm-tooltip-hover")`, 30000, "a tooltip in the library file");
+  // Escape goes back.
+  await page.key("Escape", "Escape", 27);
+  await page.until(`!window.editor.inStd`, 10000, "the way back");
+  assert.equal(await page.ev(`document.getElementById("stdbar").hidden`), true);
+  assert.equal(await sourceText(page), NAV_SOURCE);
+  // The Back button too, and editing after it works.
+  await cmdClick(page, await whereIs(page, "List.length xs", 6));
+  await page.until(`window.editor.inStd`, 30000, "the library file again");
+  await page.click("#std-back");
+  await page.until(`!window.editor.inStd`, 10000, "the Back button");
+  await page.setSource(NAV_SOURCE + "-- edited\n");
+  assert.equal(await sourceText(page), NAV_SOURCE + "-- edited\n");
+}, { ms: 90000 });
+
+test("Shift+F12 lists the uses of a name, and clicking one goes there", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await page.setSource(NAV_SOURCE);
+  await untilPublished(page, "main.sw", 2);
+  await sleep(500);
+  await caretAt(page, "double (double n)", 2);
+  await page.key("F12", "F12", 123, { modifiers: 8 });
+  await page.until(`!!document.querySelector(".cm-lsp-reference-panel")`, 30000, "the references panel");
+  const rows = await page.ev(`[...document.querySelectorAll(".cm-lsp-reference")].map((r) => r.textContent.trim())`);
+  assert.ok(rows.some((r) => r.startsWith("3:") && r.includes("def double")), JSON.stringify(rows));
+  assert.ok(rows.filter((r) => r.startsWith("5:")).length >= 1 && rows.every((r) => /^\d+:/.test(r)), JSON.stringify(rows));
+  await page.ev(`document.querySelector(".cm-lsp-reference-panel .cm-lsp-reference").click()`);
+  await untilCaret(page, 10000, "the first use", `t === 3`);
+});
+
+test("in a project, go to definition opens the other file and Cmd+[ comes back; an edit is checked", async (page) => {
   await page.open();
   await page.untilChecked();
   await openDay(page, 2);
-  await page.until(DAY2_TABS_READY, 10000, "day 2's tabs");
+  await page.until(DAY2_TABS_READY);
+  // The server checks the project as a whole before its first marks (tens of seconds: no check cache here).
+  const t = Date.now();
+  await untilPublished(page, "Day02.sw", 1, 150000);
+  console.log(`    (the day's first diagnostics ${Math.round((Date.now() - t) / 100) / 10} s after its page check)`);
   const own = await sourceText(page);
-  // `Range` is defined in Common/Range.sw.
-  await cmdClick(page, await whereIs(page, "def solvePart1 (ranges: List Range)", 29, 5));
+  const at = own.indexOf("Range");
+  await page.ev(`(() => { const e = window.editor; e.focus(); e.setSelectionRange(${at + 1}, ${at + 1}); })()`);
+  await page.key("F12", "F12", 123);
   await page.until(`document.querySelector('#filetabs [aria-selected="true"]').firstChild.textContent === "Common/Range.sw"`, 60000, "the other file");
-  const there = await selected(page);
-  assert.equal(there.text, "Range");
   assert.equal(await sourceText(page), await bundled(page, "src/Aoc/Common/Range.sw"));
-  assert.match(await page.ev(`(() => { const s = document.getElementById("source");
-    return s.value.split("\\n")[s.value.slice(0, s.selectionStart).split("\\n").length - 1]; })()`), /Range/);
-  // The way back is the file we came from.
+  await untilCaret(page, 10000, "the declaration", `window.editor.value.slice(window.editor.selectionStart).startsWith("Range")`);
   await page.key("[", "BracketLeft", 219, { modifiers: CMD });
   await page.until(`document.querySelector('#filetabs [aria-selected="true"]').firstChild.textContent === "Day02.sw"`, 10000, "the way back");
   assert.equal(await sourceText(page), own);
-  // Hovering a library name in a project.
-  await hoverAt(page, await whereIs(page, "List.range 0 template.copies", 5, 5));
-  await page.until(`document.getElementById("navtip").textContent.includes("Std.List.range")`, 30000, "a library name's tooltip");
-}, { ms: 180000 });
+  // An edit of the day's program is checked (the server went on working after the other file was opened).
+  const before = await page.ev(`window.editor.stats.published.length`);
+  const t2 = Date.now();
+  await page.setSource(own + "\n-- an edit\n");
+  await page.until(`window.editor.stats.published.slice(${before}).some((p) => p.uri.includes("Day02.sw"))`, 60000, "diagnostics for the edit");
+  console.log(`    (an edit of the day checked after ${Date.now() - t2} ms)`);
+  assert.equal(await page.ev(`window.editor.stats.restarts`), 0, "the server didn't crash");
+}, { ms: 280000 });
 
-// Find references -------------------------------------------------------------------
-
-const SHIFT = 8;
-/** The panel's rows: [where, snippet text], or null while it is hidden. */
-const refRows = (page) => page.ev(`(() => { const p = document.getElementById("navrefs"); if (p.hidden) return null;
-  return { title: p.querySelector("header .title").textContent,
-           rows: [...p.querySelectorAll("li button")].map((b) => [b.querySelector(".where").textContent, b.querySelector(".snippet").textContent,
-                                                                    b.classList.contains("decl")]) }; })()`);
-// Find references may first build the index, including the library (all of the core), in its
-// worker; under load that took over 30 s three times on 21-22 Oct 2026, so allow 90 s.
-const untilRefs = (page) => page.until(`!document.getElementById("navrefs").hidden`, 90000, "the references panel");
-/** Puts the caret `delta` into the first `needle`, and presses Shift+F12. */
-async function findReferencesAt(page, needle, delta) {
-  await page.ev(`(() => { const s = document.getElementById("source"); s.focus();
-    const i = s.value.indexOf(${JSON.stringify(needle)}) + ${delta}; s.setSelectionRange(i, i); })()`);
-  await page.key("F12", "F12", 123, { modifiers: SHIFT });
-  await untilRefs(page);
-}
-
-test("Shift+F12 lists the uses of a name in the file, with its declaration; clicking one goes there, and Cmd+[ comes back", async (page) => {
-  await page.open();
-  await page.untilChecked();
-  await page.setSource(NAV_SOURCE);
-  await page.untilChecked();
-  assert.equal(await refRows(page), null);
-  await findReferencesAt(page, "(double n)", 3);
-  const panel = await refRows(page);
-  assert.match(panel.title, /^Main.double def: 2 uses$/);
-  assert.deepEqual(panel.rows, [
-    ["line 3", "def double (n: Nat) : Nat := n + n", true],
-    ["line 5", "def quad (n: Nat) : Nat := double (double n)", false],
-    ["line 5", "def quad (n: Nat) : Nat := double (double n)", false],
-  ]);
-  // The name is marked in each snippet, and the first use has the focus.
-  assert.deepEqual(await page.ev(`[...document.querySelectorAll("#navrefs li button .snippet mark")].map((m) => m.textContent)`), ["double", "double", "double"]);
-  assert.equal(await page.ev(`document.activeElement === document.querySelectorAll("#navrefs li button")[1]`), true);
-  // Go to the second use (the inner one).
-  await page.ev(`document.querySelectorAll("#navrefs li button")[2].click()`);
-  assert.equal(await page.ev(`document.getElementById("navrefs").hidden`), true);
-  assert.deepEqual(await selected(page), { text: "double", line: 5, readOnly: false });
-  assert.equal(await page.ev(`document.getElementById("source").selectionStart`),
-               (await sourceText(page)).lastIndexOf("double"));
-  await page.key("[", "BracketLeft", 219, { modifiers: CMD });
-  await page.until(`document.getElementById("source").selectionStart === document.getElementById("source").value.indexOf("(double n)") + 3`, 10000, "the way back");
-}, { ms: 90000 });
-
-test("references of a local variable and of a library function; the declaration's own name works too; Escape closes", async (page) => {
-  await page.open();
-  await page.untilChecked();
-  await page.setSource(NAV_SOURCE);
-  await page.untilChecked();
-  // A parameter, from its binder: the binder, then its uses.
-  await findReferencesAt(page, "(ys: List Nat)", 2);
-  const local = await refRows(page);
-  assert.match(local.title, /^ys local: 1 use$/);
-  assert.equal(local.rows.length, 2);
-  assert.match(local.rows[0][1], /^def tricky \(ys: List Nat\)/);
-  assert.match(local.rows[1][1], /else List.length ys$/);
-  await page.key("Escape", "Escape", 27);
-  assert.equal(await page.ev(`document.getElementById("navrefs").hidden`), true);
-  assert.equal(await page.ev(`document.activeElement === document.getElementById("source")`), true);
-  // A library function: the uses in the program, the declaration in the library, and its other uses counted.
-  await findReferencesAt(page, "List.length xs", 5);
-  const lib = await refRows(page);
-  assert.match(lib.title, /^Std.List.length def: 2 uses/);
-  assert.deepEqual(lib.rows.map((r) => r[0]).slice(1), ["line 7", "line 9"]);
-  assert.match(lib.rows[0][0], /\.sw:\d+ \(declaration\)|\.sw:\d+/);
-  assert.match(lib.rows[0][1], /def List\.length/);
-  await page.key("Escape", "Escape", 27);
-  // Off a name, nothing opens.
-  await page.ev(`(() => { const s = document.getElementById("source"); s.focus(); s.setSelectionRange(1, 1); })()`);
-  await page.key("F12", "F12", 123, { modifiers: SHIFT });
-  await sleep(1500);
-  assert.equal(await page.ev(`document.getElementById("navrefs").hidden`), true);
-}, { ms: 90000 });
-
-test("the right-click menu on a name offers go to definition and find references", async (page) => {
-  await page.open();
-  await page.untilChecked();
-  await page.setSource(NAV_SOURCE);
-  await page.untilChecked();
-  const at = await whereIs(page, "(double n)", 1, 3);
-  await hoverAt(page, at);
-  await untilTooltip(page); // the index is ready
-  const menu = () => page.ev(`(() => { const m = document.getElementById("navmenu"); return m.hidden ? null : [...m.querySelectorAll("button")].map((b) => b.textContent); })()`);
-  const contextMenu = (p) => page.ev(`document.getElementById("source").dispatchEvent(new MouseEvent("contextmenu", { clientX: ${p.x}, clientY: ${p.y}, bubbles: true, cancelable: true }))`);
-  // The browser's own menu is left alone off a name (the event isn't cancelled).
-  assert.equal(await contextMenu(await whereIs(page, "def double", 1, 1)), true);
-  assert.equal(await menu(), null);
-  assert.equal(await contextMenu(at), false);
-  assert.deepEqual(await menu(), ["Go to definitionF12", "Find references⇧F12"]);
-  await page.ev(`document.querySelectorAll("#navmenu button")[1].click()`);
-  await untilRefs(page);
-  assert.equal(await menu(), null);
-  assert.equal((await refRows(page)).rows.length, 3);
-}, { ms: 90000 });
-
-test("references in a project include other files; clicking one opens that file", async (page) => {
+test("in a project, an error in the day's program is underlined", async (page) => {
   await page.open();
   await page.untilChecked();
   await openDay(page, 2);
-  await page.until(DAY2_TABS_READY, 10000, "day 2's tabs");
-  await page.ev(`document.getElementById("source").focus()`);
-  await findReferencesAt(page, "def solvePart1 (ranges: List Range)", 30);
-  const panel = await refRows(page);
-  assert.match(panel.title, /^Aoc\.Common\.Range record: \d+ uses?$/);
-  const labels = panel.rows.map((r) => r[0].replace(/:\d+( \(declaration\))?$/, ""));
-  assert.ok(labels.includes("Common/Range.sw"), `rows: ${labels}`);
-  assert.ok(labels.includes("Day02.sw"), `rows: ${labels}`);
-  // The declaration is in Common/Range.sw: go to it from the panel.
-  const decl = panel.rows.findIndex((r) => r[2]);
-  assert.match(panel.rows[decl][0], /^Common\/Range\.sw:/);
-  await page.ev(`document.querySelectorAll("#navrefs li button")[${decl}].click()`);
-  await page.until(`document.querySelector('#filetabs [aria-selected="true"]').firstChild.textContent === "Common/Range.sw"`, 60000, "the other file");
-  assert.equal((await selected(page)).text, "Range");
-  assert.equal(await sourceText(page), await bundled(page, "src/Aoc/Common/Range.sw"));
-  // Back to where it was asked from.
-  await page.key("[", "BracketLeft", 219, { modifiers: CMD });
-  await page.until(`document.querySelector('#filetabs [aria-selected="true"]').firstChild.textContent === "Day02.sw"`, 10000, "the way back");
-}, { ms: 180000 });
+  await page.until(DAY2_TABS_READY);
+  await untilPublished(page, "Day02.sw", 1, 150000);
+  const t = Date.now();
+  await page.setSource((await sourceText(page)) + "\ndef broken: Nat := rfl\n");
+  await page.until(`!!document.querySelector("#editor .cm-lintRange-error")`, 60000, "the error underlined");
+  console.log(`    (underlined ${Date.now() - t} ms after the edit)`);
+  assert.equal(await page.ev(`window.editor.stats.restarts`), 0, "the server didn't crash");
+}, { ms: 280000 });
+
+test("the roguelike's files open without false errors", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await page.pick("rogue:1");
+  await page.until(`document.getElementById("status").textContent.endsWith("checked by the kernel")`, 120000, "the roguelike to check");
+  await untilPublished(page, "/rogue/", 1, 150000);
+  await sleep(1000);
+  assert.equal(await underlined(page), 0, "no underlined errors");
+  assert.equal(await page.ev(`window.editor.stats.restarts`), 0);
+}, { ms: 280000 });
+
+test("a code action on a ? fills it in", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await page.setSource("def two : Nat := 2\n\ntheorem two_is_two : two = 2 := ?\n");
+  await untilPublished(page, "main.sw", 2);
+  await sleep(500);
+  await caretAt(page, "?");
+  await page.key(".", "Period", 190, { modifiers: CMD });
+  await page.until(`!window.editor.value.includes("?")`, 100000, "the proof");
+  assert.match(await sourceText(page), /two = 2 := (rfl|omega|cases|Std\.byDecision)\n$/);
+  assert.match((await page.ev(`window.editor.lastCodeActions`))[0], /^Replace \? with/);
+}, { ms: 120000 });
+
+test("without COOP/COEP headers, the service worker isolates the page, and the server gets a shared counter", async (page) => {
+  isolating = false;
+  await page.open();
+  // The first visit registers the worker and reloads (coi-serviceworker.js).
+  await page.until(`window.crossOriginIsolated === true && !!window.editor`, 30000, "isolation from the service worker");
+  await page.untilChecked();
+  assert.equal(await page.ev(`window.editor.stats.isolated`), true);
+  await page.setSource(NAV_SOURCE + `\ndef bad : Nat := "oops"\n`);
+  await page.until(`!!document.querySelector("#editor .cm-lintRange-error")`, 60000, "the error underlined");
+  await page.ev(`navigator.serviceWorker.getRegistrations().then((rs) => Promise.all(rs.map((r) => r.unregister())))`);
+}, { ms: 120000 });
 
 // Running them -------------------------------------------------------------------
 
@@ -2495,6 +2278,7 @@ async function main() {
         if (page.console.length) console.log("  console:\n    " + page.console.join("\n    "));
       } finally {
         overrides.clear();
+        isolating = true;
       }
       browser.listeners.delete(sessionId);
       await browser.send("Target.closeTarget", { targetId }).catch(() => {});

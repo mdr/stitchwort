@@ -1,7 +1,9 @@
 // The language server in a worker: crates/lsp, compiled into the
-// playground's WebAssembly (crates/web/src/lsp.rs). The page posts
-// JSON-RPC text; the worker posts back {lsp: text} for each message the
-// server sends. Between messages it runs the server's background work a
+// playground's WebAssembly (crates/web/src/lsp.rs). The page (the editor,
+// web/editor/src/editor-entry.js) first posts {init: {module, load}}: the
+// compiled WebAssembly, and the query string (`?v=HASH`) for the files this
+// worker fetches. Then it posts JSON-RPC text, and the worker posts back
+// {lsp: text} for each message the server sends. Between messages it runs the server's background work a
 // piece at a time (one namespace's check), so a new edit is read before the
 // next piece.
 //
@@ -17,20 +19,23 @@
 // check as soon as the counter is ahead of the edits read (cancellation,
 // docs/proposals/playground-editor.md §5.2.1).
 //
-// The page may post {project: name} first: the bundled project
-// pkg/projects/NAME/ is then read from memory at /playground/NAME, for
-// documents opened as file:///playground/NAME/src/….
-import init, { load_std, std_source, LanguageServer } from "../pkg/stitchwort_web.js";
+// The page may post {project: {root, sources, paths, texts}}: that project
+// is then read from memory (`LanguageServer::add_project`), for documents
+// opened under its root, as file:///playground/aoc/src/….
+import init, { load_std, std_source, LanguageServer } from "./pkg/stitchwort_web.js";
 
 let server = null;
 let module = null;
 let bundle = null;
 const projects = [];
+let begin;
+const started = new Promise((ok) => { begin = ok; });
 const ready = (async () => {
+  const { module: compiled, load } = await started;
   const t0 = performance.now();
-  module = await WebAssembly.compileStreaming(fetch(new URL("../pkg/stitchwort_web_bg.wasm", import.meta.url)));
+  module = compiled;
   await init({ module_or_path: module });
-  bundle = new Uint8Array(await fetch(new URL("../pkg/std.bundle", import.meta.url)).then((r) => r.arrayBuffer()));
+  bundle = new Uint8Array(await fetch(new URL(`./pkg/std.bundle${load}`, import.meta.url)).then((r) => r.arrayBuffer()));
   load_std(bundle);
   server = new LanguageServer();
   postMessage({ ready: performance.now() - t0 });
@@ -116,7 +121,7 @@ function tick() {
   try {
     answer = JSON.parse(server.tick());
   } catch (e) {
-    postMessage({ crashed: String(e) });
+    postMessage({ crashed: String(e) + "\n" + (e?.stack ?? "").split("\n").slice(0, 12).join("\n") });
     return;
   }
   const ms = performance.now() - t;
@@ -126,16 +131,11 @@ function tick() {
   if (answer.more) schedule();
 }
 
-async function loadProject(name) {
-  const base = new URL(`../pkg/projects/${name}/`, import.meta.url);
-  const manifest = await fetch(new URL("manifest.json", base)).then((r) => r.json());
-  const paths = [...manifest.files, ...manifest.data];
-  const texts = await Promise.all(paths.map((p) => fetch(new URL(p, base)).then((r) => r.text())));
-  const project = { root: `/playground/${name}`, sources: ["src"], paths, texts };
+function loadProject(project) {
   projects.push(project);
-  server.add_project(project.root, project.sources, paths, texts);
+  server.add_project(project.root, project.sources, project.paths, project.texts);
   searcher?.postMessage({ project });
-  postMessage({ project: name, files: paths.length });
+  postMessage({ project: project.root, files: project.paths.length });
 }
 
 // Edits the page has sent (in `edits`) against those read here.
@@ -155,7 +155,7 @@ async function handle(data) {
     return;
   }
   if (data.project !== undefined) {
-    await loadProject(data.project);
+    loadProject(data.project);
     return;
   }
   const t = performance.now();
@@ -165,7 +165,7 @@ async function handle(data) {
     send(server.receive(data));
     takeSearches();
   } catch (e) {
-    postMessage({ crashed: String(e) });
+    postMessage({ crashed: String(e) + "\n" + (e?.stack ?? "").split("\n").slice(0, 12).join("\n") });
     return;
   }
   postMessage({ received: performance.now() - t, method });
@@ -175,5 +175,9 @@ async function handle(data) {
 // One message at a time, in order, each after the server is ready.
 let chain = ready;
 onmessage = ({ data }) => {
+  if (data.init !== undefined) {
+    begin(data.init);
+    return;
+  }
   chain = chain.then(() => handle(data)).catch((e) => postMessage({ crashed: String(e) }));
 };
