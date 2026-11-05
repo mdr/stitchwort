@@ -102,11 +102,10 @@ theorem stepInRange (steps: Nat) (i: Nat) (inRange: i ∈ List.range 0 (steps + 
 --| A point a line covers is within its steps.
 theorem coveredWithin (line: Line) (point: Point) (c: covers line point = True):
     Nat.max (line.from.x.absDiff point.x) (line.from.y.absDiff point.y) < Nat.max (line.from.x.absDiff line.to.x) (line.from.y.absDiff line.to.y) + 1 :=
-  let bx := betweenBound line.from.x point.x line.to.x (firstOf _ _ _ c)
+  let bx := betweenBound line.from.x point.x line.to.x (Bool.andLeft c)
   let by := betweenBound line.from.y point.y line.to.y (secondOf c)
   omega
 
-theorem firstOf: (a: Bool) → (b: Bool) → (c: Bool) → (a ∧ b ∧ c) = True → a = True := cases
 theorem secondOf: [a: Bool] → [b: Bool] → [c: Bool] → (a ∧ b ∧ c) = True → b = True := cases
 
 --| The `i`th point of a line is the point `(x, y)` when the line covers it

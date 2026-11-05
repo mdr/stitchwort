@@ -30,10 +30,6 @@ theorem andOr: (a: Bool) → [x: Bool] → [y: Bool] → ((a ∧ x) ∨ (a ∧ y
   | True => rfl
   | False => rfl
 
-theorem notTrue: (a: Bool) → ¬a = True → a = False
-  | False, h => rfl
-  | True, h => Void.exfalso (Bool.falseNotTrue h)
-
 theorem natEqSelf (n: Nat): (n == n) = True := Decidable.toBoolOf (DecEq.decide n n) rfl
 
 theorem natEqBelow (m: Nat) (n: Nat) (h: m < n): (m == n) = False := Decidable.toBoolOfNot (DecEq.decide m n) (e => omega)
@@ -267,7 +263,7 @@ theorem fallKeeps (row: Vec Bool w) (rest: List (Vec Bool w)) (v: Vec Bool w) (k
       (c lo hi hc =>
         let on := Bool.andRight hc
         Bool.orElim (Eq.trans (Eq.sym (fallAt row v c hi)) (Bool.andLeft hc))
-          (pass => (fallStraight row rest v k d c (Bool.andLeft pass) (notTrue _ (Bool.andRight pass)) on).right)
+          (pass => (fallStraight row rest v k d c (Bool.andLeft pass) (Bool.notTrue _ (Bool.andRight pass)) on).right)
           (sides => Bool.orElim sides
             (left =>
               match c with

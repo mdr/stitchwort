@@ -40,13 +40,9 @@ theorem addRepresents (sightlines: Sightlines) (has: Position → Bool) (represe
     let before := represents row column
     Both
       (rewrite lineAfterAdd sightlines.byRow addedRow addedColumn row column, And.left before in rfl)
-      (rewrite lineAfterAdd sightlines.byColumn addedColumn addedRow column row, And.right before, andComm (column == addedColumn) (row == addedRow) in rfl)
-
-theorem andComm (a: Bool) (b: Bool): (a && b) = (b && a) := cases
+      (rewrite lineAfterAdd sightlines.byColumn addedColumn addedRow column row, And.right before, Bool.andComm (column == addedColumn) (row == addedRow) in rfl)
 
 theorem orShift (a: Bool) (b: Bool) (c: Bool): ((a || b) || c) = (b || (if a then True else c)) := cases
-
-theorem orFalse (a: Bool): (a || False) = a := cases
 
 --| The same positions, the same representation.
 theorem representsCong [sightlines: Sightlines] [has: Position → Bool] [other: Position → Bool] (same: (position: Position) → has position = other position)
@@ -57,7 +53,7 @@ theorem representsCong [sightlines: Sightlines] [has: Position → Bool] [other:
 theorem foldRepresents: (entries: List (Position, ())) → (sightlines: Sightlines) → (has: Position → Bool) → Represents sightlines has →
     Represents (Map.Spec.foldLeft (acc key unit => Sightlines.add acc key) sightlines entries)
       (position => has position || entries.any (entry => isAt entry.fst.row entry.fst.column position))
-  | [], sightlines, has, represents, row, column => representsCong (position => Eq.sym (orFalse (has position))) represents row column
+  | [], sightlines, has, represents, row, column => representsCong (position => Eq.sym (Bool.orFalse (has position))) represents row column
   | [(key, unit), ..rest], sightlines, has, represents, row, column =>
     let hasRest := (position: Position) => rest.any (entry => isAt entry.fst.row entry.fst.column position)
     representsCong (position => orShift (isAt key.row key.column position) (has position) (hasRest position))
