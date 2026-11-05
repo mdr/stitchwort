@@ -704,7 +704,7 @@ test("a ? program shows its open goals in a Goals section", async (page) => {
   let s = await shown();
   assert.deepEqual(s.headings, ["Goals (1 open)"]);
   assert.match(s.goals, /^\[GOAL\] Goal:/);
-  assert.match(s.goals, /⊢ 2 = 2/);
+  assert.match(s.goals, /⊢ two = 2/);
   assert.equal(s.errors, null);
   assert.doesNotMatch(s.output, /Every definition type-checks/);
   // Beside an error: the goals come first, the errors in their own box.
@@ -712,7 +712,7 @@ test("a ? program shows its open goals in a Goals section", async (page) => {
   await page.untilStatus("Doesn’t check");
   s = await shown();
   assert.deepEqual(s.headings, ["Goals (1 open)", "Errors"]);
-  assert.match(s.goals, /⊢ 2 = 2/);
+  assert.match(s.goals, /⊢ two = 2/);
   assert.match(s.errors, /E-TYPE-MISMATCH/);
   assert.doesNotMatch(s.errors, /GOAL/);
   const colours = await page.ev(`["pre.errors", "pre.goals"].map((s) => getComputedStyle(document.querySelector(s)).color)`);
@@ -1557,7 +1557,10 @@ const AOC_DAYS = [
 /** Every day has proofs. */
 const dayStatus = (day, year = 2025) => `${year} / Day ${day} and its proofs checked by the kernel`;
 const DAY2 = "src/Aoc/Year2025/Day02/Day02.sw";
-const DAY2_TABS = ["Day02.sw", "Tests/BruteForce.sw", "Tests/Examples.sw", "Tests/Input.sw", "Proofs/Part1.sw", "Proofs/Part2.sw", "Proofs/Repeated.sw", "Proofs/Templates.sw", "Common/Lines.sw", "Common/Proofs/Range.sw", "Common/Range.sw", "Spec/Spec.sw"];
+/** Day 2's own files, which come first among its tabs; then the files of the namespaces it uses (all of
+ *  Aoc.Common, so more as other days add to it), then the spec. */
+const DAY2_OWN_TABS = ["Day02.sw", "Tests/BruteForce.sw", "Tests/Examples.sw", "Tests/Input.sw", "Proofs/Part1.sw", "Proofs/Part2.sw", "Proofs/Repeated.sw", "Proofs/Templates.sw"];
+const DAY2_TABS_READY = `[...document.querySelectorAll("#filetabs button")].some((b) => b.firstChild.textContent === "Spec/Spec.sw")`;
 
 /** The labels of the file tabs. */
 const fileTabs = (page) => page.ev(`[...document.querySelectorAll("#filetabs button")].map((b) => b.firstChild.textContent)`);
@@ -1589,8 +1592,8 @@ test("the AoC days are listed, and a day opens its program with its files as tab
     return groups.length > 0 && groups.map((g) => ({ label: g.label, days: [...g.children].map((o) => o.textContent) })); })()`,
     10000, "the AoC groups");
   assert.deepEqual(years, [
-    { label: "Advent of Code 2025", days: [1, 2, 3, 4, 5, 6, 7, 8, 9].map((day) => `2025 / Day ${day}`) },
-    { label: "Advent of Code 2024", days: ["2024 / Day 1"] }
+    ...[[2025, 9], [2024, 24], [2021, 18], [2020, 6]].map(([year, last]) => (
+      { label: `Advent of Code ${year}`, days: Array.from({ length: last }, (_, i) => `${year} / Day ${i + 1}`) }))
   ]);
   // The closed picker and the status name the year.
   await openEntry(page, 9, 1, 2024);
@@ -1601,8 +1604,10 @@ test("the AoC days are listed, and a day opens its program with its files as tab
   assert.equal(await pickerLabel(page), "2025 / Day 2");
   assert.equal(await page.status(), "2025 / Day 2 and its proofs checked by the kernel");
   assert.equal(await page.ev(`document.getElementById("filebar").hidden`), false);
-  await page.until(`document.querySelectorAll("#filetabs button").length === ${DAY2_TABS.length}`, 10000, "day 2's tabs");
-  assert.deepEqual(await fileTabs(page), DAY2_TABS);
+  await page.until(DAY2_TABS_READY, 10000, "day 2's tabs");
+  const tabs = await fileTabs(page);
+  assert.deepEqual(tabs.slice(0, DAY2_OWN_TABS.length), DAY2_OWN_TABS);
+  for (const used of ["Common/Range.sw", "Common/Proofs/Range.sw", "Spec/Spec.sw"]) assert.ok(tabs.includes(used), `${used} in ${tabs}`);
   assert.equal(await sourceText(page), await bundled(page, DAY2));
   assert.match(await page.output(), /Every definition type-checks/);
   await assertAligned(page, "day 2");
@@ -1688,7 +1693,7 @@ test("an error in a shared file shows in the Check tab, marks its tab, and links
   await page.open();
   await page.untilChecked();
   await openDay(page, 2);
-  await page.until(`document.querySelectorAll("#filetabs button").length === ${DAY2_TABS.length}`);
+  await page.until(DAY2_TABS_READY);
   await openTab(page, "Common/Range.sw");
   await page.until(`document.querySelector('#filetabs [aria-selected="true"]').firstChild.textContent === "Common/Range.sw"`);
   const range = await sourceText(page);
@@ -1786,8 +1791,8 @@ test("Evaluate takes full names in a project", async (page) => {
   await page.untilChecked();
   await openDay(page, 2);
   await page.tab("eval");
-  assert.equal(await page.until(`document.getElementById("eval-input")?.value`, 10000), "Aoc.Year2025.Day02.solvePart1 Aoc.Year2025.Day02.Tests.exampleRanges");
-  await page.until(`document.querySelector(".result")?.textContent.startsWith("1227775554")`, 30000, "the value");
+  assert.equal(await page.until(`document.getElementById("eval-input")?.value`, 10000), "Aoc.Year2025.Day02.Tests.exampleRanges.map Aoc.Year2025.Day02.solvePart1");
+  await page.until(`document.querySelector(".result")?.textContent.startsWith("Ok 1227775554")`, 30000, "the value");
   // A short name isn't in scope.
   await page.ev(`(() => { const i = document.getElementById("eval-input"); i.value = "solvePart1";
     i.form.dispatchEvent(new Event("submit", { cancelable: true })); })()`);
@@ -1797,8 +1802,8 @@ test("Evaluate takes full names in a project", async (page) => {
     i.form.requestSubmit(); })()`);
   await submit("import Aoc.Year2025.Day02 (solvePart1)");
   await page.until(`document.getElementById("eval-imports").textContent === "import Aoc.Year2025.Day02 (solvePart1)"`, 30000, "the import");
-  await submit("solvePart1 Aoc.Year2025.Day02.Tests.exampleRanges");
-  await page.until(`document.querySelector(".result")?.textContent.startsWith("1227775554")`, 30000, "the value through an import");
+  await submit("Aoc.Year2025.Day02.Tests.exampleRanges.map solvePart1");
+  await page.until(`document.querySelector(".result")?.textContent.startsWith("Ok 1227775554")`, 30000, "the value through an import");
 }, { ms: 120000 });
 
 // The roguelike (games/rogue), bundled as a second project ---------------------
@@ -1806,9 +1811,9 @@ test("Evaluate takes full names in a project", async (page) => {
 test("the roguelike is a second project: it checks with its proofs, plays on keys typed in the input box, and tests", async (page) => {
   await page.open();
   await page.untilChecked();
-  const groups = await page.until(`[...document.querySelectorAll("#example optgroup")].length === 3 &&
+  const groups = await page.until(`[...document.querySelectorAll("#example optgroup")].some((g) => g.label === "Roguelike") &&
     [...document.querySelectorAll("#example optgroup")].map((g) => [g.label, [...g.children].map((o) => o.value + "=" + o.textContent)])`, 10000, "every group");
-  assert.deepEqual(groups[2],["Roguelike", ["rogue:0=Play", "rogue:1=Play (scripted)"]]);
+  assert.deepEqual(groups.at(-1), ["Roguelike", ["rogue:0=Play", "rogue:1=Play (scripted)"]]);
   // The bundle is the sources alone.
   const manifest = await page.ev(`fetch("pkg/projects/rogue/manifest.json").then((r) => r.json())`);
   assert.ok(manifest.files.length > 15 && manifest.files.every((p) => /^src\/.*\.sw$/.test(p)), manifest.files.join());
@@ -1984,7 +1989,7 @@ test("on a phone, a project's file tabs scroll inside themselves", async (page) 
   await page.open();
   await page.untilChecked();
   await openDay(page, 2);
-  await page.until(`document.querySelectorAll("#filetabs button").length === ${DAY2_TABS.length}`);
+  await page.until(DAY2_TABS_READY);
   const l = await page.ev(`(() => { const t = document.getElementById("filetabs");
     return { width: innerWidth, scrollWidth: document.documentElement.scrollWidth,
              tabs: { client: t.clientWidth, scroll: t.scrollWidth, overflow: getComputedStyle(t).overflowX } }; })()`);
@@ -2076,7 +2081,7 @@ test("hovering a name shows its type: a local, a declaration, a library function
   assert.match(await tooltip(page), /^ys local\n: List Nat$/);
   // A declaration of the program.
   await hoverAt(page, await whereIs(page, "double (double n)", 0, 6));
-  await page.until(`document.getElementById("navtip").textContent.startsWith("Main.double")`, 10000, "the tooltip of a declaration");
+  await page.until(`document.getElementById("navtip").textContent.startsWith("def Main.double")`, 10000, "the tooltip of a declaration");
   assert.match(await tooltip(page), /^def Main.double \(n: Nat\): Nat$/);
   // Off a name, there is none.
   await hoverAt(page, await whereIs(page, "def double", 1, 1));
@@ -2230,13 +2235,13 @@ test("Inside a library file: hover, Cmd-click, F12, find references and the menu
   await untilStd(page, "core/Data.sw", "core/Data.sw");
   assert.match(await textAtCaret(page), /^def List\.length\b/);
   // Hover in the library file: a name in its type, then a constructor in its body.
-  await hoverAt(page, await whereIs(page, "List a → Nat\n  | Nil => 0", 10, 3));
+  await hoverAt(page, await whereIs(page, ") → Nat\n  | [] => 0", 4, 3));
   await page.until(`document.getElementById("navtip").textContent.startsWith("Std.Nat")`, 30000, "the tooltip in the library file");
-  assert.match(await tooltip(page), /^Std.Nat data\n: Type$/);
+  assert.match(await tooltip(page), /^Std.Nat data\n: Type\nA natural number/);
   await hoverAt(page, await whereIs(page, "Succ (List.length xs)", 0, 4));
   await page.until(`document.getElementById("navtip").textContent.startsWith("Std.Nat.Succ") || document.getElementById("navtip").textContent.startsWith("Succ")`, 10000, "the tooltip of a constructor");
   // With Cmd held the name is underlined, and the cursor says it's a link.
-  const nat = await whereIs(page, "List a → Nat\n  | Nil => 0", 10, 3);
+  const nat = await whereIs(page, ") → Nat\n  | [] => 0", 4, 3);
   await hoverAt(page, nat, CMD);
   await page.until(`(() => { const l = document.getElementById("navlink"); return !l.hidden && l.getBoundingClientRect().width > 10; })()`, 10000, "the underline in the library file");
   assert.equal(await page.ev(`document.getElementById("source").style.cursor`), "pointer");
@@ -2300,7 +2305,7 @@ test("Cmd-click in a project goes to the definition in another file, and a libra
   await page.open();
   await page.untilChecked();
   await openDay(page, 2);
-  await page.until(`document.querySelectorAll("#filetabs button").length === ${DAY2_TABS.length}`, 10000, "day 2's tabs");
+  await page.until(DAY2_TABS_READY, 10000, "day 2's tabs");
   const own = await sourceText(page);
   // `Range` is defined in Common/Range.sw.
   await cmdClick(page, await whereIs(page, "def solvePart1 (ranges: List Range)", 29, 5));
@@ -2420,7 +2425,7 @@ test("references in a project include other files; clicking one opens that file"
   await page.open();
   await page.untilChecked();
   await openDay(page, 2);
-  await page.until(`document.querySelectorAll("#filetabs button").length === ${DAY2_TABS.length}`, 10000, "day 2's tabs");
+  await page.until(DAY2_TABS_READY, 10000, "day 2's tabs");
   await page.ev(`document.getElementById("source").focus()`);
   await findReferencesAt(page, "def solvePart1 (ranges: List Range)", 30);
   const panel = await refRows(page);
