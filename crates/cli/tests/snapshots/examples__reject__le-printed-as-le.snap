@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/le-printed-as-le.sw:11:3 ]
+    │
+ 11 │   h
+    │   ┬  
+    │   ╰── expected `List.count (List.takeWhile (List.rangeFrom width 1) (n => n * slope < height)) (n => n < … + … + List.length thirdRows + depth) = List.length firstRows + List.length secondRows + List.length thirdRows + depth`, but this has type `List.count (List.takeWhile (List.rangeFrom width 1) (n => n * slope <= height)) (n => n < … + … + List.length thirdRows + depth) = List.length firstRows + List.length secondRows + List.length thirdRows + depth`
+    │ 
+    │ Note: they first differ at `n * slope < height` against `n * slope <= height`, in `List.takeWhile (List.rangeFrom width 1) (n => n * slope < height)`
+────╯

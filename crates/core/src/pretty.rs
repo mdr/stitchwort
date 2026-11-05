@@ -2291,6 +2291,40 @@ fn bare(term: &Term) -> &Term {
     term
 }
 
+/// Whether `a` and `b` are the same `Nat.leq` comparison except that one
+/// compares the successor of the other's left operand: `x < y` against
+/// `x <= y`, whose terms are `Nat.leq (Succ x) y` and `Nat.leq x y`. The
+/// printed comparisons hide the `Succ`, so a difference inside it would
+/// point at a subterm the reader can't see; the caller reports the whole
+/// comparisons instead. A small left operand reads well either way, so it
+/// keeps the existing operation around it.
+fn leq_succ_pair(g: &Ev, a: &Term, b: &Term) -> bool {
+    let (ah, aa) = explicit_spine(a);
+    let (bh, ba) = explicit_spine(b);
+    let (Term::Def(x), Term::Def(y)) = (ah, bh) else {
+        return false;
+    };
+    let registry = &g.env.registry();
+    if !(registry.is_def(Builtin::Leq, *x) && registry.is_def(Builtin::Leq, *y)) {
+        return false;
+    }
+    let ([al, ar], [bl, br]) = (&aa[..], &ba[..]) else {
+        return false;
+    };
+    if !same_term(ar, br) {
+        return false;
+    }
+    let succ_of = |succ: &Term, plain: &Term| match bare(succ) {
+        Term::Ctor(d, 1, fields)
+            if is(g, Builtin::Nat, *d) && fields.len() == 1 && !is_small(plain) =>
+        {
+            same_term(&fields[0], plain)
+        }
+        _ => false,
+    };
+    succ_of(al, bl) || succ_of(bl, al)
+}
+
 /// The first place, in printing order, where `a` and `b` differ; with
 /// `explicit_only`, implicit and `auto` arguments aren't compared. A number
 /// and the `Succ` it stands for are alike.
@@ -2370,6 +2404,11 @@ fn mismatch_within(g: &Ev, a: &Term, b: &Term, explicit_only: bool, path: &mut P
             return pairs(path, &mut xs.iter().zip(ys).map(|(x, y)| (&**x, &**y)));
         }
         (Term::App(..), Term::App(..)) => {
+            // `<` against `<=` differs in a `Succ` the printed comparison
+            // hides: report the whole comparisons, not that subterm.
+            if leq_succ_pair(g, a, b) {
+                return here(path);
+            }
             let ((f, xs), (h, ys)) = (full_spine(a), full_spine(b));
             let shape = xs.len() == ys.len() && xs.iter().zip(&ys).all(|(x, y)| x.1 == y.1);
             if !shape || first_mismatch(g, f, h, explicit_only, path)?.is_some() {
