@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: ranges don't chain
+   ╭─[ reject/range-chained.sw:5:47 ]
+   │
+ 5 │ def numbers (a b c: Nat): List Nat := a ..< b ..< c
+   │                                         ─┬─   ─┬─  
+   │                                          ╰───────── this range already has both ends
+   │                                                │   
+   │                                                ╰─── ranges don't chain
+   │ 
+   │ Note: `a ..< b ..< c` has no meaning; to range over a range's elements, use `.map`, and to join ranges, use `[..a ..< b, ..c ..< d]`
+───╯

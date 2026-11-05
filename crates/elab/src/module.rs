@@ -2696,6 +2696,12 @@ pub(crate) static MEMBERSHIP: std::sync::LazyLock<[ast::Name; 2]> =
         })
     });
 
+/// What `a ..< b` and `a ..= b` refer to, written nowhere.
+pub(crate) static RANGE: std::sync::LazyLock<ast::Name> = std::sync::LazyLock::new(|| ast::Name {
+    text: "Std.List.range".to_string(),
+    span: Span::NOWHERE,
+});
+
 /// The variables a pattern binds.
 fn pattern_binders<'a>(pattern: &'a Pattern, out: &mut Vec<&'a str>) {
     match pattern {
@@ -2877,6 +2883,10 @@ fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
             Expr::Binary(BinOp::In(_), a, b) => {
                 out.extend(MEMBERSHIP.iter().map(Ref::Name));
                 out.push(Ref::Dot(&MEMBERSHIP[0], "contains".to_string(), None));
+                then(&mut stack, vec![Work::Expr(a), Work::Expr(b)]);
+            }
+            Expr::Binary(BinOp::Range | BinOp::RangeThrough, a, b) => {
+                out.push(Ref::Name(&RANGE));
                 then(&mut stack, vec![Work::Expr(a), Work::Expr(b)]);
             }
             Expr::App(a, b)

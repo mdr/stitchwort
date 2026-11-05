@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: warnings
+---
+[W-RANGE-IN-BRACKETS] Warning: this is a list with one element, the range inside the brackets; a range is already a list, so drop the brackets
+   ╭─[ accept/range-in-brackets.sw:5:33 ]
+   │
+ 5 │ def nested: List (List Nat) := [0 ..< 3]
+   │                                 ───┬───  
+   │                                    ╰───── this range is the list's only element
+   │ 
+   │ Note: write `0 ..< n` for the numbers, or `[(0 ..< n)]` if a list holding a list is meant
+───╯

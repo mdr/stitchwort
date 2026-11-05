@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: a range is `a ..< b` (up to, not including, `b`) or `a ..= b` (through `b`)
+   ╭─[ reject/range-bare-dots.sw:5:37 ]
+   │
+ 5 │ def numbers (n: Nat): List Nat := 1 .. n
+   │                                     ─┬  
+   │                                      ╰── a range is `a ..< b` (up to, not including, `b`) or `a ..= b` (through `b`)
+   │                                      │  
+   │                                      ╰── write `..<` or `..=` here
+───╯

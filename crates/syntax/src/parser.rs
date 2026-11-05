@@ -3995,7 +3995,7 @@ impl<'t> Parser<'t> {
         let op = match self.peek() {
             Some(Tok::DotDotLt) => BinOp::Range,
             Some(Tok::DotDotEq) => BinOp::RangeThrough,
-            Some(Tok::DotDot) => return Err(self.bare_range(&lhs).into()),
+            Some(Tok::DotDot) => return Err(self.bare_range().into()),
             _ => return Ok(lhs),
         };
         let first = self.bump().span;
@@ -4014,12 +4014,12 @@ impl<'t> Parser<'t> {
 
     /// `E-PARSE` for `a .. b` or `a..b`: the forms of a range are `..<` and
     /// `..=`, and a spread is `..xs` after a comma.
-    fn bare_range(&self, lhs: &Expr) -> Diagnostic {
+    fn bare_range(&self) -> Diagnostic {
         let mut d = error(
             self.here(),
             "a range is `a ..< b` (up to, not including, `b`) or `a ..= b` (through `b`)",
         )
-        .with_label(lhs.span().to(self.here()), "`..` alone isn't a range");
+        .with_label(self.here(), "write `..<` or `..=` here");
         if self.in_list {
             d = d.with_note(
                 "inside brackets, a spread is `[2, ..n]` (with a comma), and a range needs no \
@@ -4457,7 +4457,19 @@ impl<'t> Parser<'t> {
         self.bump();
         let mut items = Vec::new();
         if self.peek() != Some(&Tok::RBracket) {
+            let first = self.pos;
             items.push(self.list_expr_item()?);
+            // `[(0 ..< n)]` is the list of one range on purpose: the brackets
+            // are kept, so `W-RANGE-IN-BRACKETS` stays quiet.
+            if self.peek() == Some(&Tok::RBracket)
+                && self.tokens[first].tok == Tok::LParen
+                && self.matching.get(first).is_some_and(|&m| m as usize == self.pos - 1)
+                && let Some(Expr::Binary(BinOp::Range | BinOp::RangeThrough, ..)) = items.first()
+            {
+                let range = items.remove(0);
+                let span = range.span();
+                items.push(Expr::Bracketed(Box::new(range), span));
+            }
             while self.eat(&Tok::Comma) {
                 if self.peek() == Some(&Tok::RBracket) {
                     break;
