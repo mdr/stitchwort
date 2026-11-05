@@ -1,6 +1,6 @@
 --| What `Decidable.toBool` says about the decision, and [`DecEq.sound`].
--- These were in the core (docs/proposals/prelude-slim.md stage 3); no compiler
--- path names them.
+-- These were in the core (docs/proposals/prelude-slim.md stage 3). `omega`'s
+-- proofs and guarded arms' generated equations name the `toBool` ones.
 
 theorem Bool.decTrueToBool: (c: Bool) → Decidable.toBool (Bool.decTrue c) = c
   | True => rfl

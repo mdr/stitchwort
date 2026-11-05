@@ -1661,10 +1661,10 @@ struct Tree<'a> {
     rows: &'a HashMap<usize, RowProof>,
     /// What each variable of the proof's context is.
     pvals: Vec<PV>,
-    /// The guards split on above here: the row, and the level of the
-    /// fact its split gave (that its condition holds, for the row's own
-    /// leaf, or that it fails, for those below).
-    facts: Vec<(usize, usize)>,
+    /// The guards split on above here: the row, and the fact its split
+    /// gave (that its condition holds, for the row's own leaf, or that it
+    /// fails, for those below), a proof in a context of the given size.
+    facts: Vec<(usize, Term, usize)>,
     sp: &'a Splitters,
     /// The hidden definitions that tell a constructor apart, by the
     /// constructors on the way to it (`Tree::refute`).
@@ -2167,19 +2167,23 @@ impl Tree<'_> {
     }
 
     /// One way of the split at row `j`'s guard: `body`, the branch of its
-    /// `if`, under the split's binder, the fact for the leaves below.
+    /// `if`, under the split's binder, whose fact is for the leaves below
+    /// (as `fact`, a term under the binder, if set).
+    #[allow(clippy::too_many_arguments)]
     fn guard_side(
         &mut self,
         j: usize,
         body: &Term,
         binder: PV,
         side: u32,
+        fact: Option<Term>,
         fvals: &mut Vec<PV>,
         path: &mut Vec<u32>,
     ) -> R<Term> {
         let depth = self.depth();
         self.pvals.push(PV::Var(depth));
-        self.facts.push((j, depth));
+        self.facts
+            .push((j, fact.unwrap_or(Term::Var(0)), depth + 1));
         fvals.push(binder);
         path.push(side);
         let r = self.go(body, fvals, path);
@@ -2210,9 +2214,49 @@ impl Tree<'_> {
                 .ok_or_else(|| Stop::Skip("no `Unit`".into()))?;
             let unit = PV::Term(Term::Ctor(d, c, Vec::new()), depth + 1);
             let cond = self.guard_arg(&node, 1, fvals)?;
-            let yes =
-                self.guard_side(j, &node.then, unit.clone(), crate::GUARD_THEN, fvals, path)?;
-            let no = self.guard_side(j, &node.otherwise, unit, crate::GUARD_ELSE, fvals, path)?;
+            // A decided proposition stated as itself, tested by its `Bool`
+            // `toBool d`: the facts are `toBoolSound d h` and
+            // `toBoolFalse d h`.
+            let stated = self.shapes[j]
+                .as_ref()
+                .ok()
+                .and_then(|s| s.guard.as_ref())
+                .is_some_and(|r| r.prop.is_some());
+            let (yes_fact, no_fact) = if stated {
+                let blib = self.e.branch_lib()?;
+                let (p, dec) = blib.decided(&cond).ok_or_else(|| {
+                    Stop::Skip(
+                        "an arm's condition is a decided proposition in its statement but not \
+                         where the definition tests it"
+                            .into(),
+                    )
+                })?;
+                let (p, dec) = (p.shift(&g, 1, 0)?, dec.shift(&g, 1, 0)?);
+                (
+                    Some(blib.to_bool_lemma(2, p.clone(), dec.clone(), Term::Var(0))?),
+                    Some(blib.to_bool_lemma(3, p, dec, Term::Var(0))?),
+                )
+            } else {
+                (None, None)
+            };
+            let yes = self.guard_side(
+                j,
+                &node.then,
+                unit.clone(),
+                crate::GUARD_THEN,
+                yes_fact,
+                fvals,
+                path,
+            )?;
+            let no = self.guard_side(
+                j,
+                &node.otherwise,
+                unit,
+                crate::GUARD_ELSE,
+                no_fact,
+                fvals,
+                path,
+            )?;
             return self
                 .e
                 .induct_inspect(sp, cond, goal, lam("h", yes), lam("h", no));
@@ -2227,12 +2271,20 @@ impl Tree<'_> {
                     &node.then,
                     PV::Var(depth),
                     crate::GUARD_THEN,
+                    None,
                     fvals,
                     path,
                 )?;
                 let refuted = PV::Term(blib.refutation_of_other(x), depth + 1);
-                let no =
-                    self.guard_side(j, &node.otherwise, refuted, crate::GUARD_ELSE, fvals, path)?;
+                let no = self.guard_side(
+                    j,
+                    &node.otherwise,
+                    refuted,
+                    crate::GUARD_ELSE,
+                    None,
+                    fvals,
+                    path,
+                )?;
                 let (t, f) = if x { (yes, no) } else { (no, yes) };
                 self.e.induct_inspect(sp, b, goal, lam("h", t), lam("h", f))
             }
@@ -2243,6 +2295,7 @@ impl Tree<'_> {
                     &node.then,
                     PV::Var(depth),
                     crate::GUARD_THEN,
+                    None,
                     fvals,
                     path,
                 )?;
@@ -2251,6 +2304,7 @@ impl Tree<'_> {
                     &node.otherwise,
                     PV::Var(depth),
                     crate::GUARD_ELSE,
+                    None,
                     fvals,
                     path,
                 )?;
@@ -2314,19 +2368,19 @@ impl Tree<'_> {
                     self.refute(&ty, *vars, &types, *guarded, to)?
                 }
                 HypProof::Fact(j) => {
-                    let (_, level) =
+                    let (_, fact, at) =
                         self.facts
                             .iter()
                             .rev()
-                            .find(|(r, _)| r == j)
+                            .find(|(r, ..)| r == j)
                             .ok_or_else(|| {
                                 Stop::Skip(
-                            "a case's hypothesis about an earlier arm's condition is needed \
-                             where that condition wasn't tested"
-                                .into(),
-                        )
+                                    "a case's hypothesis about an earlier arm's condition is \
+                                 needed where that condition wasn't tested"
+                                        .into(),
+                                )
                             })?;
-                    Term::Var(to - 1 - level)
+                    fact.shift(&self.g(), to - at, 0)?
                 }
             };
             terms.push(proof);

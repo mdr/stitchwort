@@ -403,18 +403,24 @@ the arms below it get equations, and `f.induct` its cases, as follows
 (`examples/accept/pattern-guard-equations.sw`).
 
 - The guarded arm K: `f.eqK (vars) (notArmJ …) (guard: H): f lhs = rhs`,
-  its own condition last. `H` is `c = True` for a `Bool` (printed `c`), `P`
-  for a decided proposition (`n < m`, printed `n < m`, not the `Bool`
-  `n <= m` it is computed by) and for `if h: P`, whose hypothesis is named
-  `h`; for `&&`, the `Bool` the definition tests, `(a && b) = True`. The
+  its own condition last. `H` is `P` for a decided proposition, also one
+  the definition tests by its `Bool` (`n != 3` and `n ≠ 3` give `n ≠ 3`,
+  `xs == []` gives `xs = []`; the proof goes between the two with
+  `Decidable.toBoolOf` and `toBoolOfNot`, and `f.induct` with
+  `toBoolSound` and `toBoolFalse`, which a definition with a guard loads),
+  and for `if h: P`, whose hypothesis is named `h`. A comparison's `Bool`
+  (`n <= m`, `a < b`) and any other `Bool` `c` give `c = True`; so does a
+  conjunction (`(a && b) = True`, with `a ≠ 0 ∧ b ≠ 0` read as
+  `(a != 0 && b != 0)`), for now. The
   walk goes into the guard's `then` along it: for a `Bool`, `J` as stage
   1b's `ifTrue`; for a decided proposition, `Decidable.elimEq` with the
   `then`'s proof, and where the right side uses that proof, uniqueness of
   the decision's proofs (stage 1b's `DecEq.uniqueEq`, D2180).
 - An arm L below J whose patterns J's take all of (the usual "same pattern,
   then a fallback"): `notArmJ: H'`, J's condition failing at L's terms:
-  `c[σ] = False`, `¬P[σ]`, or for `P` an equation `b = X`, `b = notX`
-  (D2186's form for an `if`'s `else`). The walk takes the guard's `else`.
+  `c[σ] = False`, `¬P[σ]`, or, where the definition tests `P` by
+  `Decidable.elim` and `P` is an equation `b = X`, `b = notX` (D2186's form
+  for an `if`'s `else`). The walk takes the guard's `else`.
 - An arm L that overlaps J only in part: Lean's form, `notArmJ: (vars) → x
   = p → … → H → Void`, the condition one more premise; at J's guard node
   the walk splits on the condition (`Bool.inspect`, or `Decidable.elimEq`)

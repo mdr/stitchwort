@@ -28,6 +28,25 @@ theorem pickZero (a: Nat): pick a 0 = a := pick.eq2 a (rfl: (a < 0) = False)
 theorem pickOther (a b: Nat) (notLess: (a < Succ b) = False): pick a (Succ b) = 0 :=
   pick.eq3 a (Succ b) notLess (same => omega)
 
+-- A decided proposition is stated as itself, though the definition tests
+-- its `Bool`: `skipThree.eq1` takes `n ≠ 3`, and `skipThree.eq2` `¬(n ≠ 3)`.
+def skipThree: Nat → Nat
+  | n if n != 3 => n
+  | _ => 0
+
+theorem skipThreeOther (n: Nat) (other: n ≠ 3): skipThree n = n := skipThree.eq1 n other
+
+theorem skipThreeThree: skipThree 3 = 0 := skipThree.eq2 3 (other => other rfl)
+
+-- `==` on a type with a decision is its equation.
+def emptyOrOne: List Nat → Nat
+  | xs if xs == [] => 0
+  | _ => 1
+
+theorem emptyOrOneEmpty (xs: List Nat) (empty: xs = []): emptyOrOne xs = 0 := emptyOrOne.eq1 xs empty
+
+theorem emptyOrOneNot (xs: List Nat) (notEmpty: xs ≠ []): emptyOrOne xs = 1 := emptyOrOne.eq2 xs notEmpty
+
 -- `if h: P` names the hypothesis; the arm below takes `¬P`.
 def needsPositive (n: Nat) [auto h: n > 0]: Nat := n - 1
 
@@ -86,3 +105,19 @@ theorem countBigAtMostLength (xs: List Nat): countBig xs ≤ xs.length :=
 
 theorem countBigCons (x: Nat) (rest: List Nat) (big: x > 3): countBig [x, ..rest] = countBig rest + 1 :=
   countBig.eq2 x rest big
+
+-- A `decreasing` definition with a guarded arm: its equations go through
+-- `f.unfold`.
+def countDown (n: Nat): Bool → Nat
+    decreasing n
+  | flag if n > 0 => 1 + countDown (n - 1) flag [decreasing := omega]
+  | _ => 0
+
+theorem countDownStep (n: Nat) (flag: Bool) (positive: n > 0): countDown n flag = countDown (n - 1) flag + 1 :=
+  countDown.eq1 n flag positive
+
+theorem countDownIsN (n: Nat) (flag: Bool): countDown n flag = n :=
+  countDown.induct (n flag result => result = n)
+    (n flag positive below => omega)
+    (n flag notPositive => omega)
+    n flag
