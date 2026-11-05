@@ -604,7 +604,10 @@ def Graph.breadthFrom [auto ord: Ord s] (graph: Graph s) (depth: Nat) (settled: 
       [decreasing := Graph.visitFewer graph (depth + 1) frontier settled more first rest found]
 
 --| The fewest edges from any of the sources to each state reachable from
---| them, each edge counting 1 whatever its cost.
+--| them, found level by level. The edges' costs are ignored, so these are
+--| the least costs only for a graph whose edges each cost 1, which is what
+--| [`Graph.breadthFirstCorrect`] and [`Graph.breadthFirstShortest`] assume;
+--| otherwise use [`Graph.distances`].
 def Graph.breadthFirst [auto ord: Ord s] (graph: Graph s) (sources: List s): Map s Nat :=
   let start := Graph.visitEdges 0 (sources.map (source => (source, 0))) Map.empty []
   graph.breadthFrom 0 start.fst start.snd (graph.visitFrontier (0 + 1) start.snd start.fst) rfl
