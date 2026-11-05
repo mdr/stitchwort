@@ -176,7 +176,7 @@ theorem minIn (values: List Nat) (u: Nat) (v: Nat) (mu: List.Mem u values) (mv: 
 --| The rectangle between two red tiles is all red and green exactly when its
 --| key tiles are.
 theorem allKeysIsSpec (tiles: List Point) (a: Point) (b: Point) (ma: List.Mem a tiles) (mb: List.Mem b tiles):
-    allKeys tiles ((Floor.of tiles).corner a) ((Floor.of tiles).corner b) = allRedOrGreen tiles (a, b) :=
+    allKeys tiles ((Floor.of tiles).corner a) ((Floor.of tiles).corner b) = allRedOrGreen tiles { corner = a, opposite = b } :=
   let floor := Floor.of tiles
   let columns := floor.columns
   let rows := floor.rows
@@ -190,7 +190,7 @@ theorem allKeysIsSpec (tiles: List Point) (a: Point) (b: Point) (ma: List.Mem a 
   let keyBx: List.Mem b.x columns := keyLinesHas (columnsOf tiles) b.x (Inl bx)
   let keyAy: List.Mem a.y rows := keyLinesHas (rowsOf tiles) a.y (Inl ay)
   let keyBy: List.Mem b.y rows := keyLinesHas (rowsOf tiles) b.y (Inl by)
-  Bool.eqOf (allKeys tiles (floor.corner a) (floor.corner b)) (allRedOrGreen tiles (a, b))
+  Bool.eqOf (allKeys tiles (floor.corner a) (floor.corner b)) (allRedOrGreen tiles { corner = a, opposite = b })
     -- Every tile is red or green like a key tile in the rectangle.
     (keys =>
       List.allBetweenIntro _ (Nat.min a.y b.y) (Nat.max a.y b.y) (y ylo yhi =>

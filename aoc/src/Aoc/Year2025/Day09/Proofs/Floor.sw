@@ -85,7 +85,7 @@ def allKeys (tiles: List Point) (first: Corner) (second: Corner): Bool :=
     (r => List.all (List.between (Nat.min first.column second.column) (Nat.max first.column second.column)) (c => redOrGreen tiles (keyTile (Floor.of tiles) c r)))
 
 theorem allRedOrGreenKeys (tiles: List Point) (first: Corner) (second: Corner) (inside: Inside (Floor.of tiles) first second):
-    Floor.allRedOrGreen (Floor.of tiles) (first, second) = allKeys tiles first second :=
+    Floor.allRedOrGreen (Floor.of tiles) { corner = first, opposite = second } = allKeys tiles first second :=
   let floor := Floor.of tiles
   let cells := floorCells tiles
   let top := Nat.min first.row second.row
@@ -103,7 +103,7 @@ theorem allRedOrGreenKeys (tiles: List Point) (first: Corner) (second: Corner) (
       let lastColumn := Nat.max first.column second.column
       -- The sum of a row of the block.
       let rowSum: Nat → Nat := r => List.sumBy (List.between left lastColumn) (c => PrefixSums.cell cells r c)
-      Bool.eqOf (Floor.allRedOrGreen floor (first, second)) (allKeys tiles first second)
+      Bool.eqOf (Floor.allRedOrGreen floor { corner = first, opposite = second }) (allKeys tiles first second)
         (h =>
           let zero: PrefixSums.blockSpec cells top bottom left right = 0 := rewrite <- blockIs in DecEq.sound _ 0 h
           List.allBetweenIntro _ top lastRow (r rlo rhi =>
