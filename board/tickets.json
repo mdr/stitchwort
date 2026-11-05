@@ -7642,9 +7642,9 @@
     {
       "id": 1378,
       "title": "Playground: swap the textarea for CodeMirror 6 on the shared language server; colour via the existing tokenizer; theme; underlined errors, hover, navigation, code actions; port browser tests (D2416, D2417, D2423)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1378",
       "labels": [
         "playground"
       ],
@@ -7879,13 +7879,13 @@
     {
       "id": 1395,
       "title": "Test: every std congruence lemma (FCong, FCongMem, FCongRange) passes validate_cong; rewrite's validate_contextual doesn't compare binder kinds with F's, so a lemma rewrite accepts can still fail decreasing (Option.mapCong, SW-1381 review)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1395",
       "labels": [
         "tests"
       ],
-      "body": "From SW-1381's Opus review, 5 Nov 2026. Small improvement.",
+      "body": "From SW-1381's Opus review, 5 Nov 2026. Small improvement.\n\nDone (71b01b57b): congruence::tests::every_std_congruence_lemma_passes_validate_cong covers every …Cong lemma of a function with a function parameter (the family decreasing uses; CongMem/CongRange are rewrite's only). It found two latent failures, fixed: Fin.anyCong (n implicit), Nat.iterateCong (argument order); two AoC uses updated (2021 day 17, 2024 day 22; orchestrator checked both Proofs). Break check with Option.mapCong made implicit fails naming it. Statements checked by the orchestrator: same meaning. Model result: DeepSeek, worked, ~30 min (est. 30).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
