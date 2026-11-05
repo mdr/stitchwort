@@ -7980,12 +7980,12 @@
       "id": 1402,
       "title": "AoC 2020 day 7 (Handy Haversacks): spec, efficient solution, proofs, tests, friction notes in aoc/NOTES-2020.md",
       "status": "doing",
-      "agent": "Sonnet",
+      "agent": "Opus",
       "where": ".claude/worktrees/SW-1402",
       "labels": [
         "aoc"
       ],
-      "body": "D2426 (Matt, 5 Nov 2026): start after day 6's friction review. Opus. Input: ~/repos/mdr/aoc/2020/src/main/resources/day7.\n\nStarted on Sonnet (D2365: Sonnet first for AoC days; escalate to Opus if stuck), expected: 90 min.",
+      "body": "D2426 (Matt, 5 Nov 2026): start after day 6's friction review. Opus. Input: ~/repos/mdr/aoc/2020/src/main/resources/day7.\n\nStarted on Sonnet (D2365: Sonnet first for AoC days; escalate to Opus if stuck), expected: 90 min.\n\nD2427 (Matt, 5 Nov 2026): AoC days on Opus, for the analysis of Stitchwort's gaps the friction notes give. Sonnet lane stopped after ~3 min (only the input copied); restarted on Opus, expected: 90 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
