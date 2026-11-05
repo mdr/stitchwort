@@ -392,7 +392,7 @@ theorem List.sumRangePick (g: Nat → Nat) (n: Nat) (v: Nat) (hz: n ≤ v → g 
 
 --| `any` over a run of numbers: a witness out, a witness in.
 theorem List.anyRangeElim (q: Nat → Bool) (goal: Prop): (c: Nat) → (s: Nat) → List.any (List.rangeFrom c s) q = True →
-    ((k: Nat) → s ≤ k → k < s + c → q k = True → goal) → goal
+    (cont: (k: Nat) → s ≤ k → k < s + c → q k = True → goal) → goal
   | Zero, s, h, k => Void.exfalso (Bool.falseNotTrue h)
   | Succ c, s, h, k =>
     Bool.inspect (q s) (u => goal)

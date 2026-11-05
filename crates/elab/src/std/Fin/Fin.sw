@@ -125,7 +125,7 @@ theorem Fin.anyIntro (p: Fin n → Bool): (i: Fin n) → p i = True → Fin.any 
       (f => Fin.anyIntro (j => p (FSucc j)) i h)
 
 --| When `Fin.any` is true, some position passes.
-theorem Fin.anyElim (goal: Prop): (n: Nat) → (p: Fin n → Bool) → Fin.any n p = True → ((i: Fin n) → p i = True → goal) → goal
+theorem Fin.anyElim (goal: Prop): (n: Nat) → (p: Fin n → Bool) → Fin.any n p = True → (cont: (i: Fin n) → p i = True → goal) → goal
   | Zero, p, h, use => Void.exfalso (Bool.falseNotTrue h)
   | Succ n, p, h, use =>
     Bool.inspect (p FZero) (u => goal)

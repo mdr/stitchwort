@@ -50,7 +50,7 @@ theorem Result.mapMap (f: a → b) (g: b → c): (r: Result a e) → Result.map 
 theorem Result.okInjective (x: a) (y: a) (h: (Ok x: Result a e) = Ok y): x = y := Eq.cong (.getOrElse x) h
 
 --| If `flatMap f r` is `Ok v`, then `r` held some `u` with `f u = Ok v`.
-theorem Result.flatMapEqOk [goal: Prop]: (r: Result a e) → (f: a → Result b e) → (v: b) → Result.flatMap r f = Ok v → ((u: a) → r = Ok u → f u = Ok v → goal) → goal
+theorem Result.flatMapEqOk [goal: Prop]: (r: Result a e) → (f: a → Result b e) → (v: b) → Result.flatMap r f = Ok v → (cont: (u: a) → r = Ok u → f u = Ok v → goal) → goal
   | Ok u, f, v, h, use => use u rfl h
   | Err m, f, v, h, use => Void.exfalso (Result.errNotOk m v h)
 
