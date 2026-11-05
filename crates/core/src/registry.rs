@@ -335,10 +335,6 @@ builtins! {
     // `if p && q` whose branches use its proof (crates/elab/src/logic.rs),
     // and the parts of such a proof `auto` uses (crates/elab/src/auto.rs)
     DecAndThen = "Decidable.andThen": Def,
-    // `Decidable.andThen` tagged with the `Bool` it is on, while the branches'
-    // helpers are not lifted yet and so may use the proof or not
-    // (`logic::settle_tagged`)
-    DecAndTagged = "Decidable.andTagged": Def,
     AndLeft = "And.left": Def,
     AndRight = "And.right": Def,
     // `Ord.compare` of an instance the code names compiles to that

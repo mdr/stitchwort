@@ -4813,9 +4813,7 @@ fn tagged_if(cx: &mut Ctx, decided: Term, unused: &Unused, maybe: bool) -> Resul
     let Term::App(head, decision, i1) = &**rest else {
         return Ok(decided);
     };
-    let Some(tagged) = crate::logic::tag_decision(cx, decision, tag)? else {
-        return Ok(decided);
-    };
+    let tagged = crate::logic::tag_decision(cx, decision, tag)?;
     cx.e.decl.tagged_conjunctions.set(true);
     let rebuilt = Term::App(Rc::clone(head), Rc::new(tagged), *i1);
     let rebuilt = Term::App(Rc::new(rebuilt), Rc::clone(then), *i2);

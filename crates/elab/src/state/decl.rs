@@ -155,7 +155,7 @@ pub(crate) struct Decl {
     /// one pattern match is compiled. (Before SW-1149 it grew over the
     /// session, emptied only by a rewind.)
     pub(crate) char_patterns: RefCell<HashMap<Span, char>>,
-    /// Whether a term written so far holds a `Decidable.andTagged`
+    /// Whether a term written so far holds a `Decidable.%andTagged`
     /// (`logic::tag_decision`), for [`Elaborator::finish`] to settle.
     pub(crate) tagged_conjunctions: Cell<bool>,
     /// The guarded rows' `else` trees made so far by the pattern match being

@@ -690,39 +690,34 @@ pub(crate) fn check_against(cx: &mut Ctx, logic: Logic, expected: &Value) -> Res
     crate::check::compare(cx, term, &found, expected)
 }
 
-/// `decision`, a conjunction's `Decidable.andThen dp dq`, as `Decidable.andTagged
-/// tag dp dq`: `tag`, the `Bool` the `if` is on, is kept where the term is
-/// written until [`settle_tagged`] knows whether the branches use the proof.
-pub(crate) fn tag_decision(cx: &Ctx, decision: &Term, tag: &Term) -> Result<Option<Term>> {
-    let registry = cx.g().env.registry();
-    let (Some(and_then), Some(tagged)) = (
-        registry.def(Builtin::DecAndThen),
-        registry.def(Builtin::DecAndTagged),
-    ) else {
-        return Ok(None);
-    };
-    let (head, args) = spine_icit(decision);
-    if !matches!(head, Term::Def(id) if *id == and_then) || args.len() != 4 {
-        return Ok(None);
-    }
-    let mut out = Term::app_icit(Term::Def(tagged), args[0].0.clone(), Icit::Implicit);
-    out = Term::app_icit(out, args[1].0.clone(), Icit::Implicit);
-    out = Term::app(out, tag.clone());
-    out = Term::app(out, args[2].0.clone());
-    Ok(Some(Term::app(out, args[3].0.clone())))
+/// The name of the `let` that carries the `Bool` an `if` on a conjunction is
+/// on, around its decision ([`tag_decision`]). No source can write it.
+const TAG: &str = "%conj";
+
+/// `decision`, a conjunction's `Decidable.andThen dp dq`, as `let %conj :=
+/// tag in decision`: `tag`, the `Bool` the `if` is on, is kept where the term
+/// is written until [`settle_tagged`] knows whether the branches use the
+/// proof. Only the elaborator writes the `let`, so settling trusts that `tag`
+/// and the decision agree.
+pub(crate) fn tag_decision(cx: &Ctx, decision: &Term, tag: &Term) -> Result<Term> {
+    let bool_ty = Term::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
+    Ok(Term::let_(
+        TAG.into(),
+        bool_ty,
+        tag.clone(),
+        decision.shift(&cx.g(), 1, 0)?,
+    ))
 }
 
 /// An `if` on a conjunction whose branches' helpers weren't lifted when it
-/// was written ([`tag_decision`]), in `term`, a finished declaration: on its
-/// `Bool` if neither branch uses the proof, as `unused_proof_if` makes one
-/// whose branches are known not to; otherwise the plain `Decidable.andThen`.
+/// was written ([`tag_decision`]), in `term`, a finished body: on its `Bool`
+/// if neither branch mentions the proof, as `unused_proof_if` makes one whose
+/// branches are known not to; otherwise on the plain decision.
 pub(crate) fn settle_tagged(e: &crate::Elaborator, term: &Term) -> Result<Term> {
     let g = &e.ev();
     let registry = g.env.registry();
-    let (Some(elim), Some(tagged), Some(and_then), Some(ite)) = (
+    let (Some(elim), Some(ite)) = (
         registry.def(Builtin::ElimDec),
-        registry.def(Builtin::DecAndTagged),
-        registry.def(Builtin::DecAndThen),
         registry.def(Builtin::IfThenElse),
     ) else {
         return Ok(term.clone());
@@ -732,8 +727,10 @@ pub(crate) fn settle_tagged(e: &crate::Elaborator, term: &Term) -> Result<Term> 
         if !matches!(head, Term::Def(id) if *id == elim) || args.len() != 5 {
             return Ok(None);
         }
-        let (dhead, dargs) = spine_icit(&args[2].0);
-        if !matches!(dhead, Term::Def(id) if *id == tagged) || dargs.len() != 5 {
+        let Term::Let(name, _, tag, decision, _) = args[2].0.strip_loc() else {
+            return Ok(None);
+        };
+        if &**name != TAG {
             return Ok(None);
         }
         let unused = |branch: &Term| {
@@ -741,13 +738,13 @@ pub(crate) fn settle_tagged(e: &crate::Elaborator, term: &Term) -> Result<Term> 
         };
         if unused(&args[3].0) && unused(&args[4].0) {
             let head = Term::app_icit(Term::Def(ite), args[1].0.clone(), Icit::Implicit);
-            let node = Term::app(Term::app(Term::app(head, dargs[2].0.clone()), args[3].0.clone()), args[4].0.clone());
+            let node = Term::app(
+                Term::app(Term::app(head, (**tag).clone()), args[3].0.clone()),
+                args[4].0.clone(),
+            );
             return Ok(Some(node));
         }
-        let mut decision = Term::app_icit(Term::Def(and_then), dargs[0].0.clone(), Icit::Implicit);
-        decision = Term::app_icit(decision, dargs[1].0.clone(), Icit::Implicit);
-        decision = Term::app(decision, dargs[3].0.clone());
-        decision = Term::app(decision, dargs[4].0.clone());
+        let decision = decision.instantiate_var(g, 0)?;
         let mut out = Term::Def(elim);
         for (i, (arg, icit)) in args.iter().enumerate() {
             let arg = if i == 2 { decision.clone() } else { arg.clone() };

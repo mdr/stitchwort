@@ -122,14 +122,6 @@ def Decidable.andThen: [p q: Prop] → (dp: Decidable p) → (dq: Unit → Decid
   | Yes a, dq => Decidable.andYes (dq Trivial) a
   | No r, dq => No (h => r (And.left h))
 
---| [`Decidable.andThen`] with the `Bool` `a && b` an `if p && q` is on, which
---| it ignores. The elaborator writes it while it can't tell yet whether the
---| branches use the proof, and replaces it once it can: an `if` that doesn't is
---| on `a && b`, so a proof that follows it matches on that.
-@[noReceiver]
-def Decidable.andTagged: [p q: Prop] → (tag: Bool) → (dp: Decidable p) → (dq: Unit → Decidable q) → Decidable (p ∧ q)
-  | tag, dp, dq => Decidable.andThen dp dq
-
 --| `p || q` is decided from decisions of each side, both worked out first, as for [`Decidable.and`].
 instance Decidable.or: [p q: Prop] → Decidable p → Decidable q → Decidable (p ∨ q)
   | Yes a, d => Yes (Inl a)
