@@ -358,11 +358,12 @@ fn library_tests_run_only_under_the_library_target() {
     let names: Vec<&str> = results.iter().map(|r| r.name.as_str()).collect();
     assert_eq!(names, ["mine"]);
     assert!(session.run_library_tests(&Cache::disabled()).is_empty());
-    // The library target checks them, and runs only them.
+    // The library target checks them, and runs only them: the core's tests
+    // (`uncurry` and `id`), then the library file's.
     let session = Session::with_library_files(FILES, true, true).unwrap();
     let results = session.run_library_tests(&Cache::disabled());
     let names: Vec<&str> = results.iter().map(|r| r.name.as_str()).collect();
-    assert_eq!(names, ["libTwice"]);
+    assert_eq!(names, ["uncurry", "id", "libTwice"]);
     assert!(results.iter().all(|r| r.outcome == Outcome::Passed));
     assert!(session.run_tests(&Cache::disabled()).is_empty());
 }
