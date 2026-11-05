@@ -8417,13 +8417,13 @@
     {
       "id": 1432,
       "title": "Playground: the page checks twice (Check pane via playground-worker.js and the server in the LSP worker); unify them, and remove the now-unused check_index and index action in crates/web and playground-worker.js",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1432",
       "labels": [
         "playground"
       ],
-      "body": "From SW-1378 (CodeMirror swap), 5 Nov 2026.",
+      "body": "From SW-1378 (CodeMirror swap), 5 Nov 2026.\n\nStarted on Sonnet with SW-1454 (the page's workers use the library cache), expected: 90 min (browser: at most 3 runs of single tests).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
