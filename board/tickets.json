@@ -1,5 +1,5 @@
 {
-  "next": 1324,
+  "next": 1325,
   "tickets": [
     {
       "id": 47,
@@ -6879,6 +6879,20 @@
         "elab"
       ],
       "body": "From SW-1257. Not checked against main; reproduce first.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1324,
+      "title": "A list literal [f x, ..rest] in a recursive result compiles to plain recursion, where Cons (f x) rest becomes a loop (tail recursion modulo cons); and it elaborates to a different term (hashes differ)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "extract"
+      ],
+      "body": "Found by SW-1256's verifier: with List.map written [f x, ..List.map xs f], extract's more_tail_calls_are_loops overflowed the JS stack on 1,000,000 elements. List.map, takeWhile, spanOnto reverted to Cons on main. Find why a list literal with a spread doesn't elaborate to the same Cons term (SW-1221 noted the hash difference), make it do so, or make codegen see the loop; then convert those three back. Other converted sites (Parse, Reads, Terminal, aoc) may also have lost loops: check generated code for each.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
