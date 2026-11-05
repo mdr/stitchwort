@@ -7,7 +7,7 @@
 
 namespace Aoc.Year2021.Day16.Spec
 import Aoc.Year2021.Day16 (LengthType, Operation, Packet)
-import Std (List, Nat, Option)
+import Std (List, Nat, NonEmptyList, Option)
 
 --| The puzzle's hexadecimal digits and their bits.
 def hexDigitBits: Char → Option (List Bool) := match some
@@ -49,10 +49,12 @@ def typeId: Operation → Nat
 
 --| A literal's groups: each is four bits after a bit that is 1, except the
 --| last group's, which is 0.
-def groupBits: List Nat → List Bool
-  | [] => []
-  | [group] => [False, ..Nat.toBits 4 group]
-  | [group, ..rest] => [True, ..Nat.toBits 4 group ++ groupBits rest]
+def groupBits (groups: NonEmptyList Nat): List Bool := groupBitsFrom groups.head groups.tail
+
+--| The bits of a group and the groups after it.
+def groupBitsFrom: Nat → List Nat → List Bool
+  | group, [] => [False, ..Nat.toBits 4 group]
+  | group, [next, ..rest] => [True, ..Nat.toBits 4 group ++ groupBitsFrom next rest]
 
 --| A packet's bits: its version in three bits, its type id in three bits (4
 --| for a literal), then a literal's groups; or an operator's length type id
@@ -74,7 +76,7 @@ def encodeAll: List Packet → List Bool
 --| least one group, each in four bits, and the sub-packets' length or
 --| number in its 15 or 11 bits. Only these have the encoding above.
 def wellFormed: Packet → Bool
-  | Literal version groups => version < 8 && groups != [] && groups.all (group => group < 16)
+  | Literal version groups => version < 8 && groups.all (group => group < 16)
   | Operator version _ TotalLength subPackets => version < 8 && (encodeAll subPackets).length < 32768 && allWellFormed subPackets
   | Operator version _ Count subPackets => version < 8 && subPackets.length < 2048 && allWellFormed subPackets
 
@@ -120,7 +122,7 @@ def fitsOperation: Operation → Nat → Bool
 --| Part 2: a packet's value. A literal's is its groups' bits read as one
 --| binary number; an operator's is computed from its sub-packets' values.
 type HasValue: Packet → Nat → Prop =
-  | LiteralValue (version: Nat) (groups: List Nat): HasValue (Literal version groups) (Nat.fromBits (groups.flatMap (Nat.toBits 4)))
+  | LiteralValue (version: Nat) (groups: NonEmptyList Nat): HasValue (Literal version groups) (Nat.fromBits (groups.toList.flatMap (Nat.toBits 4)))
   | OperatorValue (each: Values subPackets values) (computed: Computes operation values value):
     HasValue (Operator version operation lengthType subPackets) value
 

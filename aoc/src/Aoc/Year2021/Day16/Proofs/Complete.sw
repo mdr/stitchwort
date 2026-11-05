@@ -6,11 +6,11 @@ import Aoc.Common (BitReader, Bits)
 import Aoc.Common.Proofs (..)
 import Aoc.Year2021.Day16 (..)
 import Aoc.Year2021.Day16.Spec (allWellFormed, encode, encodeAll, groupBits, typeId, wellFormed)
-import Std (Bool, Decidable, Eq, List, Nat, Option, Void)
+import Std (Bool, Decidable, Eq, List, Nat, NonEmptyList, Option, Void)
 
 --| One step of the decoder on a literal, its fields read.
 theorem literalStep (wanted: Wanted) (later: Wanted) (reader: BitReader) (afterVersion: BitReader) (afterType: BitReader) (after: BitReader) (version: Nat)
-    (groups: List Nat) (next: nextWanted wanted reader = Some later) (versionRead: reader.readNumber 3 = Some (version, afterVersion))
+    (groups: NonEmptyList Nat) (next: nextWanted wanted reader = Some later) (versionRead: reader.readNumber 3 = Some (version, afterVersion))
     (typeRead: afterVersion.readNumber 3 = Some (4, afterType)) (groupsRead: readGroups afterType = Some (groups, after)) (shorter: after.length < reader.length):
     readPackets wanted reader = andThen (Literal version groups) (readPackets later after) :=
   rewrite readPackets.unfold wanted reader, next, versionRead, typeRead, groupsRead in
@@ -74,12 +74,11 @@ theorem stepComplete (wanted: Wanted) (later: Wanted) (more: List Bool): (packet
   | Literal version groups, formed, next =>
     let small: version < Nat.pow 2 3 := omega [Bool.andLeft _ _ formed]
     let others := Bool.andRight _ _ formed
-    let some: groups ≠ [] := Decidable.toBoolSound _ (Bool.andLeft _ _ others)
     let length := List.lengthAppend (groupBits groups) more
     let afterVersion := Nat.toBits 3 4 ++ (groupBits groups ++ more)
     literalStep wanted later { unread = encode (Literal version groups) ++ more } { unread = afterVersion } { unread = groupBits groups ++ more } { unread = more }
       version groups next (BitReader.readNumberAppend 3 version afterVersion small) (BitReader.readNumberAppend 3 4 (groupBits groups ++ more) (omega))
-      (readGroupsBits more groups some (Bool.andRight _ _ others)) (omega [length])
+      (readGroupsBits more groups others) (omega [length])
   | Operator version operation TotalLength subPackets, formed, next =>
     let small: version < Nat.pow 2 3 := omega [Bool.andLeft _ _ formed]
     let others := Bool.andRight _ _ formed

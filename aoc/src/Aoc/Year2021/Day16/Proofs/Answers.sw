@@ -82,7 +82,7 @@ theorem lengthEvaluateAll: (packets: List Packet) → (evaluateAll packets).leng
 --| Part 2: a well-formed packet that keeps the promise has the value the
 --| program computes.
 theorem evaluateCorrect: (packet: Packet) → wellFormed packet = True → promised packet = True → HasValue packet (evaluate packet)
-  | Literal version groups, formed, kept => rewrite groupsValue 0 groups (Bool.andRight _ _ (Bool.andRight _ _ formed)) in LiteralValue version groups
+  | Literal version groups, formed, kept => rewrite groupsValue 0 groups.toList (Bool.andRight _ _ formed) in LiteralValue version groups
   | Operator version operation TotalLength subPackets, formed, kept =>
     OperatorValue (evaluateAllCorrect subPackets (Bool.andRight _ _ (Bool.andRight _ _ formed)) (Bool.andRight _ _ kept))
       (applyComputes operation (evaluateAll subPackets) (rewrite lengthEvaluateAll subPackets in Bool.andLeft _ _ kept))

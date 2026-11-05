@@ -24,7 +24,7 @@
 
 namespace Aoc.Year2021.Day16
 import Aoc.Common (BitReader)
-import Std (Fail, IO, List, Nat, Option, Parse, Text)
+import Std (Fail, IO, List, Nat, NonEmptyList, Option, Parse, Text)
 
 def main(): {IO, Fail} () :=
   let packet := parsePacket IO.readAll()
@@ -42,7 +42,7 @@ type LengthType = | TotalLength | Count
 --| number below 16), an operator its length type, so that a packet's bits
 --| are fixed by the tree.
 type Packet =
-  | Literal (version: Nat) (groups: List Nat)
+  | Literal (version: Nat) (groups: NonEmptyList Nat)
   | Operator (version: Nat) (operation: Operation) (lengthType: LengthType) (subPackets: List Packet)
 
 --| The operation for a type id other than 4.
@@ -92,7 +92,7 @@ def bitsOfDigits (digits: List Nat): List Bool := digits.flatMap digitBits
 
 --| A literal's groups: each is a bit saying whether another follows, then
 --| four bits.
-def readGroups (reader: BitReader): Option (List Nat, BitReader)
+def readGroups (reader: BitReader): Option (NonEmptyList Nat, BitReader)
     decreasing reader.length
 :=
   match reader.readBit with
@@ -105,9 +105,9 @@ def readGroups (reader: BitReader): Option (List Nat, BitReader)
             if shorter: after.length < reader.length then
               match readGroups after with
                 | None => None
-                | Some (groups, rest) => Some ([group, ..groups], rest)
+                | Some (groups, rest) => Some (NonEmptyList.cons group groups.toList, rest)
             else None
-          else Some ([group], after)
+          else Some (NonEmptyList.singleton group, after)
 
 --| How many packets are still to read: a number of them, or as many as fill
 --| the bits.
