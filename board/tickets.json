@@ -1,5 +1,5 @@
 {
-  "next": 1412,
+  "next": 1413,
   "tickets": [
     {
       "id": 47,
@@ -8112,6 +8112,20 @@
         "aoc"
       ],
       "body": "From SW-1402's Opus review, 5 Nov 2026. Small improvement; Sonnet or DeepSeek.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1412,
+      "title": "Std: List.groupBy (key) beside List.toMap in Map/Map.sw, so calls read rules.all.groupBy .colour instead of Map.groupBy rules.all .colour; sweep the 19 Map.groupBy calls in std and aoc (2020 day 7 and others) where the method reads better; proofs keep working (one-line def over Map.groupBy)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Matt, 5 Nov 2026, reading 2020 day 7: 'Map.groupBy rules.all .colour <- couldn't this be rules.all.groupBy .colour?' Precedent: List.toSet (Set.sw), List.toMap (Map.sw). Small improvement; DeepSeek.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
