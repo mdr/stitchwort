@@ -1,5 +1,5 @@
 {
-  "next": 1458,
+  "next": 1461,
   "tickets": [
     {
       "id": 47,
@@ -8417,13 +8417,13 @@
     {
       "id": 1432,
       "title": "Playground: the page checks twice (Check pane via playground-worker.js and the server in the LSP worker); unify them, and remove the now-unused check_index and index action in crates/web and playground-worker.js",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1432",
       "labels": [
         "playground"
       ],
-      "body": "From SW-1378 (CodeMirror swap), 5 Nov 2026.\n\nStarted on Sonnet with SW-1454 (the page's workers use the library cache), expected: 90 min (browser: at most 3 runs of single tests).",
+      "body": "From SW-1378 (CodeMirror swap), 5 Nov 2026.\n\nStarted on Sonnet with SW-1454 (the page's workers use the library cache), expected: 90 min (browser: at most 3 runs of single tests).\n\nDone with SW-1432/1454 (8b76103a6, 289aaea5c), merged: the Check pane reads the language server's published diagnostics (stitchwort/focus puts the day's own files first; stitchwort/checked says which versions are published); a project that can't be analysed publishes its error; crates/web sessions use library_session and replay std.cache; check_index and the index action removed (the page's own check stays only as the no-worker fallback). Node: 2025 day 2 Check pane 9.5 → 4.2 s, 2024 day 21 5.2 → 2.4 s; Chrome not timed. Browser: Tests grouped, shared-file Check, Run with input, crash, two workers-blocked tests pass. Model result: Sonnet, needed fixes (fatal-analysis regression it found itself; a namespace-ordering bug the browser run caught), 45 + 50 min (est. 90).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8734,13 +8734,13 @@
     {
       "id": 1454,
       "title": "Playground: give playground-worker.js (Check, Tests, Run) and the proof-search worker the bundled library cache too; opening a day would then take about 2 s in the browser, not 8.8",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "playground"
       ],
-      "body": "From SW-1403, 5 Nov 2026.",
+      "body": "From SW-1403, 5 Nov 2026.\n\nDone with SW-1432/1454 (8b76103a6, 289aaea5c), merged: the Check pane reads the language server's published diagnostics (stitchwort/focus puts the day's own files first; stitchwort/checked says which versions are published); a project that can't be analysed publishes its error; crates/web sessions use library_session and replay std.cache; check_index and the index action removed (the page's own check stays only as the no-worker fallback). Node: 2025 day 2 Check pane 9.5 → 4.2 s, 2024 day 21 5.2 → 2.4 s; Chrome not timed. Browser: Tests grouped, shared-file Check, Run with input, crash, two workers-blocked tests pass. Model result: Sonnet, needed fixes (fatal-analysis regression it found itself; a namespace-ordering bug the browser run caught), 45 + 50 min (est. 90).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8783,6 +8783,48 @@
         "std"
       ],
       "body": "From SW-1445, 5 Nov 2026. Small improvement.\n\nStarted on Sonnet, expected: 50 min.\n\nClosed, nothing to do: each user's listed proof already ends in the one-line composition (edge target within, within implies listed); the lines are in day-specific edge-within case analysis. Only shared piece: a filterMap-of-Option.map membership lemma worth ~4 lines across day 20 and GridGraph, not filed. Model result: Sonnet, worked (correctly found nothing to do), 5 min (est. 50).",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1458,
+      "title": "Playground: the proof-search worker (lsp-search-worker.js) still checks std itself; its sessions aren't navigable, so it needs its own std.cache bundle (~14 MB) or a cache shared across modes",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "playground"
+      ],
+      "body": "From SW-1432, 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1459,
+      "title": "Language server: a broken shared file floods its dependents with E-UNKNOWN-NAME errors (the old Check stopped at the first failing namespace with E-NAMESPACE-FAILED); suppress errors downstream of a failed namespace",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "body": "From SW-1432, 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1460,
+      "title": "Playground: three workers (page, runner, server) each fetch and decode the 14 MB std.cache; share one decoded copy or fetch it once, and measure memory",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "playground"
+      ],
+      "body": "From SW-1432, 5 Nov 2026.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
