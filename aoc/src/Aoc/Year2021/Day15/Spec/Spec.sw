@@ -9,12 +9,12 @@ import Std (Fin, List, Nat, Option)
 
 --| The puzzle's map: a rectangle of risk levels, with at least one. (The
 --| parser guarantees it; Proofs/Parse.sw.)
-def Rectangle (cave: Cave): Prop := 0 < cave.width ∧ ((row: List (Fin 10)) → row ∈ cave.rows → row.length = cave.width)
+def Rectangle (cave: Cave): Prop := 0 < cave.width ∧ ((row: List (Fin 10)) → row ∈ cave.grid.rows → row.length = cave.width)
 
 --| The risk level at a position: the digit in that row and column. A
 --| position off the map has none.
 def levelAt (cave: Cave) (position: Position): Option Nat :=
-  match cave.rows.get position.row with
+  match cave.grid.rows.get position.row with
     | None => None
     | Some row => row.get position.column |> .map Fin.toNat
 

@@ -20,7 +20,7 @@
 --| `Aoc.Year2021.Day15.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2021.Day15
-import Aoc.Common (Grid, Position, boxEnter, boxGraph, firstWidth, parseGrid)
+import Aoc.Common (Grid, Position, boxEnter, boxGraph, parseGrid)
 import Std (Bool, Fail, Fin, Graph, IO, List, Map, Nat, Option, Parse, Text)
 import Std.Parse (digit)
 
@@ -32,25 +32,16 @@ def main(): {IO, Fail} () :=
 -- Positions, their four `neighbours`, the parser and the graph of a
 -- rectangle are the shared grid code's (`Aoc.Common`, Common/Grid.sw).
 
---| The risk levels, row by row: digits, so 0 to 9 by their type, in a first
---| row that has one (as `Aoc.Common.Grid` does).
-type Cave = { rows: List (List (Fin 10)), nonEmpty: (firstWidth rows == 0) = False }
+--| The risk levels: digits, so 0 to 9 by their type.
+type Cave = { grid: Grid (Fin 10) }
 
 --| One row of digits per line, at least one digit, every row as long as
 --| the first (the puzzle's map is a rectangle; `parseGrid` checks it).
-def parseCave (input: Text): {Fail} Cave := Cave.ofGrid (parseGrid input digit)
+def parseCave (input: Text): {Fail} Cave := { grid = parseGrid input digit }
 
---| A cave of `rows`, whose first row has a digit.
-def Cave.of (rows: List (List (Fin 10))) [auto nonEmpty: (firstWidth rows == 0) = False]: Cave := { rows, nonEmpty }
+def Cave.height (cave: Cave): Nat := cave.grid.height
 
-def Cave.ofGrid (grid: Grid (Fin 10)): Cave := { rows = grid.rows, nonEmpty = grid.nonEmpty }
-
---| The cave as a grid.
-def Cave.grid (cave: Cave): Grid (Fin 10) := { rows = cave.rows, nonEmpty = cave.nonEmpty }
-
-def Cave.height (cave: Cave): Nat := cave.rows.length
-
-def Cave.width (cave: Cave): Nat := firstWidth cave.rows
+def Cave.width (cave: Cave): Nat := cave.grid.width
 
 --| A map of risk levels: `level` gives each position's, for the positions
 --| in its `height` rows and `width` columns.
