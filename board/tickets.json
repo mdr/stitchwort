@@ -5944,13 +5944,13 @@
     {
       "id": 1257,
       "title": "Elab: a variable bound only by a constructor's result type isn't auto-bound through a list literal ([x, ..xs] in a result type), though it is through Cons x xs (aoc 2021 days 10 and 18 Spec)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1257",
       "labels": [
         "elab"
       ],
-      "body": "Found by SW-1221, 4 Nov 2026.\n\nStarted 05:37 on Sonnet, est. 60 min.\n\nDone on lane/SW-1257 (20be73578; Sonnet, 25 min, est. 60): autobind.rs walk_index now walks list literal items and a spread's tail as indices, as it did Cons's arguments. The four 2021 day 10 and 18 Spec sites now use brackets. New example auto-bind-list-literal.sw. No existing hash moved. Merges after SW-1256's verifier. Model result: Sonnet, worked, 25 min (est. 60).",
+      "body": "Found by SW-1221, 4 Nov 2026.\n\nStarted 05:37 on Sonnet, est. 60 min.\n\nDone on lane/SW-1257 (20be73578; Sonnet, 25 min, est. 60): autobind.rs walk_index now walks list literal items and a spread's tail as indices, as it did Cons's arguments. The four 2021 day 10 and 18 Spec sites now use brackets. New example auto-bind-list-literal.sw. No existing hash moved. Merges after SW-1256's verifier. Model result: Sonnet, worked, 25 min (est. 60).\n\nMerged a25ebd4de; verified: merge tier 1081, hashes, aoc check without the cache, days 10 and 18 tests and audits (day 18's 17 vacuity warnings as before, SW-1317), full audit.",
       "created": "2026-11-04",
       "updated": "2026-11-05",
       "commits": []
