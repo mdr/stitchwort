@@ -189,6 +189,44 @@ impl Tok {
     }
 }
 
+/// Every word that lexes to a keyword token, in alphabetical order. Tools
+/// that mirror the lexer, such as the editor grammar and the playground's
+/// colouring, read this instead of copying the list.
+pub fn keywords() -> &'static [&'static str] {
+    &[
+        "ability",
+        "calc",
+        "cases",
+        "decreasing",
+        "def",
+        "else",
+        "exists",
+        "export",
+        "handle",
+        "if",
+        "import",
+        "in",
+        "include",
+        "instance",
+        "interface",
+        "let",
+        "match",
+        "namespace",
+        "omega",
+        "opaque",
+        "return",
+        "rewrite",
+        "ring",
+        "test",
+        "then",
+        "theorem",
+        "type",
+        "unfolding",
+        "where",
+        "with",
+    ]
+}
+
 #[derive(Clone, Debug)]
 pub struct Token {
     pub tok: Tok,
