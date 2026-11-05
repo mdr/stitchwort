@@ -3941,7 +3941,7 @@
     {
       "id": 1117,
       "title": "Editor small wins: add-import quick fix (machine-readable diagnostic field), signature help, let inlay hints, semantic tokens",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1117",
       "labels": [
