@@ -7376,13 +7376,13 @@
     {
       "id": 1359,
       "title": "Ranges step 3: auto and omega take x ∈ a ..< b apart; Bool x in a ..< b decided by two comparisons (D2411)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1359",
       "labels": [
         "elab"
       ],
-      "body": "From SW-1356 (docs/proposals/ranges.md §13), D2405-D2413 approved by Matt 5 Nov 2026. Runs after the previous ranges step.",
+      "body": "From SW-1356 (docs/proposals/ranges.md §13), D2405-D2413 approved by Matt 5 Nov 2026. Runs after the previous ranges step.\n\nStarted on Sonnet, expected: 90 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
