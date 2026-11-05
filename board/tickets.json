@@ -7200,7 +7200,7 @@
       "labels": [
         "aoc"
       ],
-      "body": "After stage 2; small lanes. docs/proposals/non-empty-lists.md; D2393-D2399 (Matt, 5 Nov). Name: NonEmptyList (D2394).\n\nPart 1 on lane/SW-1346 (7 commits): 2020 d4, d6 wrappers removed; 2024 d7, d19, d21, d8, d12 and 2021 d16 use NonEmptyList; Opus review running. Left: Grid rows (own lane), rogue rooms, 2021 d16 subPackets (design: 0 sub-packets), 2021 d7 (needs a non-empty range), 2024 d5 (needs NonEmptyList.get). Model result: Sonnet, worked (pending review), 17 min (est. 90).",
+      "body": "After stage 2; small lanes. docs/proposals/non-empty-lists.md; D2393-D2399 (Matt, 5 Nov). Name: NonEmptyList (D2394).\n\nPart 1 on lane/SW-1346 (7 commits): 2020 d4, d6 wrappers removed; 2024 d7, d19, d21, d8, d12 and 2021 d16 use NonEmptyList; Opus review running. Left: Grid rows (own lane), rogue rooms, 2021 d16 subPackets (design: 0 sub-packets), 2021 d7 (needs a non-empty range), 2024 d5 (needs NonEmptyList.get). Model result: Sonnet, worked (pending review), 17 min (est. 90).\n\nOpus review: sound, merge. No theorem weakened; non-emptiness is the parsers' proved range; 2024 d21 gap claim proved by rfl via fits; d19 answer theorems stronger.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7432,9 +7432,9 @@
     {
       "id": 1363,
       "title": "Rename Set.containsUnions to match unionAll (SW-1347's rename)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1363",
       "labels": [
         "std"
       ],
@@ -7452,7 +7452,7 @@
       "labels": [
         "std"
       ],
-      "body": "Small improvement found by a lane, 5 Nov 2026. Matt: 'Those small findings are worth curing. In general, I'm a fan of doing small improvements.'",
+      "body": "Small improvement found by a lane, 5 Nov 2026. Matt: 'Those small findings are worth curing. In general, I'm a fan of doing small improvements.'\n\nBundled into SW-1363's DeepSeek run.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7480,7 +7480,7 @@
       "labels": [
         "std"
       ],
-      "body": "From SW-1346, 5 Nov 2026. Small improvement (Matt: 'a fan of doing small improvements').",
+      "body": "From SW-1346, 5 Nov 2026. Small improvement (Matt: 'a fan of doing small improvements').\n\nBundled into SW-1363's DeepSeek run.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
