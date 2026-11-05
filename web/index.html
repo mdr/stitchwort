@@ -1000,6 +1000,28 @@ export def area: Shape -> Nat
   const runInput = el("textarea", { id: "run-input", spellcheck: false, rows: 4,
                                     placeholder: "Input, a line per IO.readLine (), or the rest at once with IO.readAll ()" });
   runInput.setAttribute("aria-label", "Input lines for the program");
+  // A textarea holding more than a few hundred KB makes the browser spend
+  // seconds laying it out each time the page changes (a million-line input
+  // froze the page for minutes). So a large input is kept in `largeInput`, and
+  // the textarea shows its start and its size; editing that text replaces it.
+  const LARGE_INPUT = 256 * 1024;
+  let largeInput = null;
+  let largeNote = "";
+  /** The text of the Run input, whole. */
+  const inputText = () => largeInput !== null && runInput.value === largeNote ? largeInput : runInput.value;
+  function setRunInput(text) {
+    if (text.length <= LARGE_INPUT) {
+      largeInput = null;
+      runInput.value = text;
+      return;
+    }
+    largeInput = text;
+    const mb = (text.length / (1 << 20)).toFixed(1);
+    largeNote = `${text.slice(0, 200).replace(/\n[^\n]*$/, "")}\n… (${mb} MB of input; not shown. Type here to replace it.)`;
+    runInput.value = largeNote;
+  }
+  /** Saves the input for next time, unless it is too large to keep. */
+  const storeInput = (key) => store(key, largeInput !== null && runInput.value === largeNote ? "" : runInput.value);
   const runAgain = el("button", { className: "primary", type: "button" }, "Run");
   const stopButton = el("button", { type: "button", disabled: true }, "Stop");
   const liveButton = el("button", { id: "run-live", type: "button",
@@ -1074,7 +1096,7 @@ export def area: Shape -> Nat
       printed += text;
       unshown += text;
     };
-    const request = requestFor("run", { input: runInput.value, maxOutput: MAX_OUTPUT,
+    const request = requestFor("run", { input: inputText(), maxOutput: MAX_OUTPUT,
                                         name: project?.manifest.days[project.day].main });
     const started = performance.now();
     let result = await runner.call(request, RUN_SECONDS, onOutput);
@@ -1502,8 +1524,10 @@ export def area: Shape -> Nat
   }
   liveButton.addEventListener("click", runLive);
   runInput.addEventListener("input", () => {
-    if (project) store(inputKey(project.manifest.days[project.day].main), runInput.value);
-    else store("stitchwort.input", runInput.value);
+    if (runInput.value.length > LARGE_INPUT) setRunInput(runInput.value);
+    else if (runInput.value !== largeNote) largeInput = null;
+    if (project) storeInput(inputKey(project.manifest.days[project.day].main));
+    else storeInput("stitchwort.input");
   });
 
   // ---- Projects (docs/proposals/playground-projects.md) ------------------
@@ -1823,7 +1847,7 @@ export def area: Shape -> Nat
     inputChoice.hidden = !(day.inputs ?? []).length;
     let input = stored(inputKey(day.main));
     if (input === null) input = (await bundledInput(day.inputs?.[0]?.path)) ?? day.defaultInput ?? "";
-    runInput.value = input;
+    setRunInput(input);
     setRunHint();
     runResult.replaceChildren();
     ranSource = null;
@@ -1846,7 +1870,7 @@ export def area: Shape -> Nat
     inputChoice.value = "";
     const text = await bundledInput(path);
     if (text === null) return;
-    runInput.value = text;
+    setRunInput(text);
     runInput.dispatchEvent(new Event("input"));
   });
 
@@ -1960,11 +1984,11 @@ export def area: Shape -> Nat
     evalInput = { "ex-lists": "reverse [1, 2, 3]", "ex-division": "safeDiv 9 0",
                   "ex-tests": "double 21", "ex-js": "applyDiscount 8 25",
                   "ex-main": 'printed ["Ada", "1", "2"]' }[ex.id] || "";
-    runInput.value = { "ex-main": "Ada\n40\ntwo\n2\n" }[ex.id] || "";
+    setRunInput({ "ex-main": "Ada\n40\ntwo\n2\n" }[ex.id] || "");
     runResult.replaceChildren();
     store("stitchwort.example", ex.id);
     showEntryLink(ex.id);
-    store("stitchwort.input", runInput.value);
+    storeInput("stitchwort.input");
     refresh();
   }
 
@@ -2545,7 +2569,7 @@ export def area: Shape -> Nat
     picker.value = "";
     evalImports = [];
     evalInput = "";
-    runInput.value = "";
+    setRunInput("");
     runResult.replaceChildren();
     store("stitchwort.input", "");
     try { history.replaceState(null, "", location.pathname + location.search); } catch {}
@@ -2581,7 +2605,7 @@ export def area: Shape -> Nat
   const chosen = stored("stitchwort.example") || "ex-lists";
   function restoreDraft() {
     if (draft) { showText(draft); refresh(); }
-    if (input !== null) { runInput.value = input; store("stitchwort.input", input); }
+    if (input !== null) { setRunInput(input); storeInput("stitchwort.input"); }
   }
   // In order, so the groups are in the dropdown's order.
   PROJECT_NAMES.reduce((previous, name) => previous.then(() => fetchManifest(name)).then(addProjectGroup), Promise.resolve());
