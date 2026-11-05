@@ -10,21 +10,21 @@ theorem betweenToNat (low: Nat) (high: Nat) (chars: List Char):
     between low high (Text.toNat (Text.fromList chars)) = (chars ≠ [] ∧ chars.all Parse.isDigit ∧ low <= number chars <= high) :=
   rewrite Text.toNatDigits chars in cases
 
-theorem andShape (a: Bool) (b: Bool) (c: Bool) (d: Bool): (a ∧ True ∧ b ∧ c ∧ d) = ((a ∧ b) ∧ c ∧ d) := cases
+theorem andShape [a: Bool] [b: Bool] [c: Bool] [d: Bool]: (a ∧ True ∧ b ∧ c ∧ d) = ((a ∧ b) ∧ c ∧ d) := cases
 
 theorem yearChars (low: Nat) (high: Nat): (chars: List Char) → yearBetween low high (Text.fromList chars) = year low high (Text.fromList chars)
   | [] => rfl
-  | [char, ..rest] => rewrite betweenToNat low high [char, ..rest] in andShape _ _ _ _
+  | [char, ..rest] => rewrite betweenToNat low high [char, ..rest] in andShape
 
 theorem yearSpec (low: Nat) (high: Nat) (value: Text): yearBetween low high value = year low high value :=
   match value with
     | MkText chars => yearChars low high chars
 
-theorem andIsSome (a: Bool) (b: Bool) (x: Nat): (a ∧ Option.isSome (if b then Some x else None)) = (a ∧ b) := cases
+theorem andIsSome [a: Bool] [b: Bool] [x: Nat]: (a ∧ Option.isSome (if b then Some x else None)) = (a ∧ b) := cases
 
 theorem passportIdChars: (chars: List Char) → Key.valid PassportId (Text.fromList chars) = digits 9 (Text.fromList chars)
   | [] => rfl
-  | [char, ..rest] => rewrite Text.toNatDigits [char, ..rest] in andIsSome _ _ _
+  | [char, ..rest] => rewrite Text.toNatDigits [char, ..rest] in andIsSome
 
 theorem passportIdSpec (value: Text): Key.valid PassportId value = digits 9 value :=
   match value with
@@ -45,20 +45,20 @@ theorem eyeColorSpec (value: Text): Key.valid EyeColor value = eyeColor value :=
 
 theorem lastIs (chars: List Char) (unit: List Char):
     (Text.drop (Text.fromList chars) (Text.length (Text.fromList chars) - Text.length (Text.fromList unit)) == Text.fromList unit) = (chars.drop (chars.length - unit.length) == unit) :=
-  Text.fromListEq _ _
+  Text.fromListEq
 
 theorem heightChars (chars: List Char): heightValid (Text.fromList chars) = height (Text.fromList chars) :=
   rewrite Text.stripSuffixDrop (Text.fromList chars) "cm" in
     match cm: Text.drop (Text.fromList chars) (Text.length (Text.fromList chars) - Text.length "cm") == "cm" with
       | True =>
         let isCm := Eq.trans (Eq.sym (lastIs chars ['c', 'm'])) cm;
-        rewrite DecEq.sound _ _ isCm, betweenToNat 150 193 (chars.take (chars.length - 2)) in cases
+        rewrite DecEq.sound isCm, betweenToNat 150 193 (chars.take (chars.length - 2)) in cases
       | False =>
         rewrite Text.stripSuffixDrop (Text.fromList chars) "in" in
         match inches: Text.drop (Text.fromList chars) (Text.length (Text.fromList chars) - Text.length "in") == "in" with
           | True =>
             let isIn := Eq.trans (Eq.sym (lastIs chars ['i', 'n'])) inches;
-            rewrite DecEq.sound _ _ isIn, betweenToNat 59 76 (chars.take (chars.length - 2)) in cases
+            rewrite DecEq.sound isIn, betweenToNat 59 76 (chars.take (chars.length - 2)) in cases
           | False =>
             rewrite Eq.trans (Eq.sym (lastIs chars ['c', 'm'])) cm, Eq.trans (Eq.sym (lastIs chars ['i', 'n'])) inches in cases
 

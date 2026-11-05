@@ -33,8 +33,8 @@ theorem gapSound: (ids: List Nat) → List.Sorted Nat.leq ids → (seat: Nat) �
   | [low, high, ..rest], Both ordered sortedRest, seat, found =>
     match apart: high == low + 2 with
       | True =>
-        let two := DecEq.sound high (low + 2) apart
-        let made := Option.someInjective (low + 1) seat found
+        let two := DecEq.sound apart
+        let made := Option.someInjective found
         Both
           (member =>
             match member with
@@ -106,15 +106,15 @@ theorem yourSeatOf (ids: List Nat) (seat: Nat) (missing: ¬(seat ∈ ids)) (abov
   rewrite notFound, (List.memContains ids (seat + 1)).backward above, (List.memContains ids (seat - 1)).backward below in rfl
 
 theorem yourSeatMembers (ids: List Nat) (seat: Nat) (yours: isYourSeat ids seat = True): ¬(seat ∈ ids) ∧ (seat + 1) ∈ ids ∧ (seat - 1) ∈ ids :=
-  let notFound := Bool.notTrue (ids.contains seat) (Bool.andLeft _ _ yours)
-  let neighbours := Bool.andRight _ _ yours
+  let notFound := Bool.notTrue (ids.contains seat) (Bool.andLeft yours)
+  let neighbours := Bool.andRight yours
   Both
     (member => Bool.falseNotTrue (rewrite <- notFound in (List.memContains ids seat).backward member))
-    (Both ((List.memContains ids (seat + 1)).forward (Bool.andLeft _ _ neighbours)) ((List.memContains ids (seat - 1)).forward (Bool.andRight _ _ neighbours)))
+    (Both ((List.memContains ids (seat + 1)).forward (Bool.andLeft neighbours)) ((List.memContains ids (seat - 1)).forward (Bool.andRight neighbours)))
 
 theorem candidateIntro (count: Nat) (ids: List Nat) (seat: Nat) (below: seat + 1 < count) (yours: isYourSeat ids seat = True):
     seat ∈ (List.range 0 count).filter (isYourSeat ids) :=
-  List.memFilterIntro (List.range 0 count) (isYourSeat ids) seat (List.memRangeFromIntro seat count 0 (Nat.zeroLe seat) (omega)) yours
+  List.memFilterIntro (List.range 0 count) (isYourSeat ids) (List.memRangeFromIntro seat count 0 (Nat.zeroLe seat) (omega)) yours
 
 theorem gapYours (count: Nat) (ids: List Nat) (bound: (id: Nat) → id ∈ ids → id < count) (seat: Nat) (found: gap ids.sort = Some seat):
     seat ∈ (List.range 0 count).filter (isYourSeat ids) :=
@@ -131,7 +131,7 @@ theorem part2Sound (input: Text) (passes: List Pass) (parsed: Fail.toResult (() 
     (gapYours (128 * 8) (passes.map .seatId) (idsBelow (input.lines.map Text.toList) passes (parseWritten input passes parsed)) seat found)
 
 theorem yoursGap (count: Nat) (ids: List Nat) (seat: Nat) (candidate: seat ∈ (List.range 0 count).filter (isYourSeat ids)): ∃ (found: Nat) => gap ids.sort = Some found :=
-  match yourSeatMembers ids seat (And.right (List.memFilter (List.range 0 count) (isYourSeat ids) seat candidate)) with
+  match yourSeatMembers ids seat (And.right (List.memFilter (List.range 0 count) (isYourSeat ids) candidate)) with
     | Both missing (Both above below) =>
       gapComplete ids.sort (List.sortSortedNat ids) seat (member => missing ((memSort ids seat).forward member)) ((memSort ids (seat + 1)).backward above) ((memSort ids (seat - 1)).backward below)
 

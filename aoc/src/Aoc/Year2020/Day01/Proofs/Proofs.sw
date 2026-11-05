@@ -44,11 +44,11 @@ theorem findPairAfterSound (target: Nat): (seen: Set Nat) → (before: List Nat)
   | seen, before, passed, [x, ..rest], a, b, found =>
     match c: (x <= target && Set.contains seen (target - x)) with
       | True =>
-        let same := Option.someInjective _ _ found
-        let aIs: target - x = a := Pair.mkInjectiveFst _ _ _ _ same
-        let bIs: x = b := Pair.mkInjectiveSnd _ _ _ _ same
-        let fits: x <= target := Bool.andLeft _ _ c
-        let partner := Bool.andRight _ _ c
+        let same := Option.someInjective found
+        let aIs: target - x = a := Pair.mkInjectiveFst same
+        let bIs: x = b := Pair.mkInjectiveSnd same
+        let fits: x <= target := Bool.andLeft c
+        let partner := Bool.andRight c
         Both (Inl (Both (rewrite <- aIs in passed (target - x) partner) (Inl bIs))) omega
       | False =>
         let passedNow: (y: Nat) → Set.contains (Set.insert seen x) y = True → y ∈ [x, ..before] := y contained =>
@@ -72,7 +72,7 @@ theorem findPairAfterComplete (target: Nat): (seen: Set Nat) → (before: List N
             let fits: x <= target := omega
             let aIs: target - x = a := omega
             let partner: Set.contains seen (target - x) = True := rewrite aIs in remembered a aBefore
-            Bool.trueNotFalse (Eq.trans (Eq.sym (Bool.andIntro _ _ fits partner)) c)
+            Bool.trueNotFalse (Eq.trans (Eq.sym (Bool.andIntro fits partner)) c)
           | Inr aheadNow =>
             let rememberedNow: (y: Nat) → y ∈ [x, ..before] → Set.contains (Set.insert seen x) y = True := y member =>
               match member with
@@ -122,11 +122,11 @@ theorem findTripleSound (target: Nat): (entries: List Nat) → (a: Nat) → (b: 
       | True =>
         match pair: findPair (target - x) rest with
           | Some (p, q) =>
-            let same := Option.someInjective _ _ found
-            let xIs: x = a := Pair.mkInjectiveFst _ _ _ _ same
-            let pq := Pair.mkInjectiveSnd _ _ _ _ same
-            let pIs: p = b := Pair.mkInjectiveFst _ _ _ _ pq
-            let qIs: q = c := Pair.mkInjectiveSnd _ _ _ _ pq
+            let same := Option.someInjective found
+            let xIs: x = a := Pair.mkInjectiveFst same
+            let pq := Pair.mkInjectiveSnd same
+            let pIs: p = b := Pair.mkInjectiveFst pq
+            let qIs: q = c := Pair.mkInjectiveSnd pq
             let sound := findPairSound (target - x) rest p q pair
             Both
               (rewrite <- xIs, <- pIs, <- qIs in (List.memCombinationsCons x [p, q] x rest 2).backward (Inl (Both rfl ((List.memCombinationsTwo p q rest).backward sound.left))))
@@ -158,19 +158,19 @@ theorem part1Sound (entries: List Nat) (answer: Nat) (found: solvePart1 entries 
   match pair: findPair 2020 entries with
     | Some (a, b) =>
       let sound := findPairSound 2020 entries a b pair
-      rewrite <- Option.someInjective _ _ found in
-        List.memMap _ (a, b) (List.memFilterIntro _ _ (a, b) sound.left (rewrite sound.right in rfl)) (((a, b)) => a * b)
+      rewrite <- Option.someInjective found in
+        List.memMap _ (a, b) (List.memFilterIntro _ _ sound.left (rewrite sound.right in rfl)) (((a, b)) => a * b)
     | None => Void.exfalso (Option.noneNotSome _ found)
 
 --| Part 1 has an answer whenever the puzzle has one.
 theorem part1Complete (entries: List Nat) (answer: Nat) (isAnswer: answer ∈ part1Answers entries): solvePart1 entries ≠ None :=
   match List.memMapElim (((a, b)) => a * b) answer _ isAnswer with
     | Witness (a, b) (Both chosen made) =>
-      let kept := List.memFilter _ _ (a, b) chosen
+      let kept := List.memFilter _ _ chosen
       none =>
         match pair: findPair 2020 entries with
           | Some found => Option.someNotNone _ none
-          | None => findPairComplete 2020 entries a b kept.left (DecEq.sound (a + b) 2020 kept.right) pair
+          | None => findPairComplete 2020 entries a b kept.left (DecEq.sound kept.right) pair
 
 --| So part 1 is the puzzle's answer, when there is exactly one.
 theorem part1Correct (entries: List Nat) (answer: Nat) (isAnswer: answer ∈ part1Answers entries)
@@ -182,23 +182,23 @@ theorem part2Sound (entries: List Nat) (answer: Nat) (found: solvePart2 entries 
   match triple: findTriple 2020 entries with
     | Some (a, b, c) =>
       let sound := findTripleSound 2020 entries a b c triple
-      rewrite <- Option.someInjective _ _ found in
+      rewrite <- Option.someInjective found in
         rewrite <- product3 a b c in
-          List.memMap _ [a, b, c] (List.memFilterIntro _ _ [a, b, c] sound.left (rewrite sum3 a b c, sound.right in rfl)) (choice => choice.product)
+          List.memMap _ [a, b, c] (List.memFilterIntro _ _ sound.left (rewrite sum3 a b c, sound.right in rfl)) (choice => choice.product)
     | None => Void.exfalso (Option.noneNotSome _ found)
 
 --| Part 2 has an answer whenever the puzzle has one.
 theorem part2Complete (entries: List Nat) (answer: Nat) (isAnswer: answer ∈ part2Answers entries): solvePart2 entries ≠ None :=
   match List.memMapElim (choice => choice.product) answer _ isAnswer with
     | Witness choice (Both chosen made) =>
-      let kept := List.memFilter _ _ choice chosen
+      let kept := List.memFilter _ _ chosen
       let length := (List.memCombinations entries 3 choice kept.left).left
       match choice, length with
         | [a, b, c], threeLong =>
           none =>
             match triple: findTriple 2020 entries with
               | Some found => Option.someNotNone _ none
-              | None => findTripleComplete 2020 entries a b c kept.left (rewrite <- sum3 a b c in DecEq.sound _ 2020 kept.right) triple
+              | None => findTripleComplete 2020 entries a b c kept.left (rewrite <- sum3 a b c in DecEq.sound kept.right) triple
         | [], tooShort => Void.exfalso (omega [tooShort])
         | [x], tooShort => Void.exfalso (omega [tooShort])
         | [x, y], tooShort => Void.exfalso (omega [tooShort])

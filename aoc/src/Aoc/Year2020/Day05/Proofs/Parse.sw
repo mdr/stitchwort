@@ -12,15 +12,15 @@ def PassWritten (read: List Char) (pass: Pass): Prop := pass.row.length = 7 ∧ 
 --| A letter the parser accepts is the letter of the bit it gives.
 theorem letterOf (lower: Char) (upper: Char) (char: Char) (allowed: (char == lower || char == upper) = True): letter lower upper (char == upper) = char :=
   match isUpper: char == upper with
-    | True => Eq.sym (DecEq.sound char upper isUpper)
+    | True => Eq.sym (DecEq.sound isUpper)
     | False =>
       match isLower: char == lower with
-        | True => Eq.sym (DecEq.sound char lower isLower)
+        | True => Eq.sym (DecEq.sound isLower)
         | False => cases
 
 theorem readsHalf (lower: Char) (upper: Char): Parse.Reads (() => half lower upper) (read bit => read = [letter lower upper bit]) :=
-  Parse.readsWeaken _ _ _
-    (Parse.readsMap (() => Parse.satisfy "'${lower}' or '${upper}'" (letter => letter == lower || letter == upper)) (char => char == upper) _ (Parse.readsSatisfy _ _))
+  Parse.readsWeaken
+    (Parse.readsMap (() => Parse.satisfy "'${lower}' or '${upper}'" (letter => letter == lower || letter == upper)) (char => char == upper) _ (Parse.readsSatisfy))
     (read bit h =>
       match h with
         | Witness char (Both (Both one allowed) made) => rewrite made, one, letterOf lower upper char allowed in rfl)
@@ -31,8 +31,8 @@ theorem eachHalf (lower: Char) (upper: Char): (read: List Char) → (bits: List 
     rewrite split, one, eachHalf lower upper after rest more in rfl
 
 theorem readsPass: Parse.Reads pass PassWritten :=
-  Parse.readsThen _ _ _ _ (Parse.readsExactly 7 frontBack _ (readsHalf 'F' 'B')) (rowRead row (Both rowEach rowLength) =>
-    Parse.readsThen _ _ _ _ (Parse.readsExactly 3 leftRight _ (readsHalf 'L' 'R')) (columnRead column (Both columnEach columnLength) =>
+  Parse.readsThen (Parse.readsExactly 7 frontBack _ (readsHalf 'F' 'B')) (rowRead row (Both rowEach rowLength) =>
+    Parse.readsThen (Parse.readsExactly 3 leftRight _ (readsHalf 'L' 'R')) (columnRead column (Both columnEach columnLength) =>
       Parse.readsDone ({ row, column }: Pass) _
         (Both (omega) (Both (omega)
           (rewrite List.appendNil columnRead, eachHalf 'F' 'B' rowRead row rowEach, eachHalf 'L' 'R' columnRead column columnEach in rfl)))))
