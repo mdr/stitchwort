@@ -3715,9 +3715,9 @@
       "labels": [
         "docs"
       ],
-      "body": "\n\nPilot done, on branch lane/SW-1101 (not merged, for Matt): ade50d59 SW-1101: update the pinned line of List.filterMap in the doc tests;fc2fe6d9 SW-1101: pilot the std commenting rule on List definitions;. 54 List definition docs in Toolkit.sw, core/Data.sw, Sort.sw, Index.sw, Grid.sw; 52 with one-line examples, each checked with stitchwort eval. Adds empty cases, ties/stability, cost (from reading the code, not measured), neighbours (find vs filter), theorem links. Already-good docs left alone. doc_links test passes; cli doc tests updated (filterMap's pinned line 213 -> 233; fragile). Model result: Sonnet, worked, 6 min (est. 45). Review: git diff main...lane/SW-1101.\n",
+      "body": "\n\nPilot done, on branch lane/SW-1101 (not merged, for Matt): ade50d59 SW-1101: update the pinned line of List.filterMap in the doc tests;fc2fe6d9 SW-1101: pilot the std commenting rule on List definitions;. 54 List definition docs in Toolkit.sw, core/Data.sw, Sort.sw, Index.sw, Grid.sw; 52 with one-line examples, each checked with stitchwort eval. Adds empty cases, ties/stability, cost (from reading the code, not measured), neighbours (find vs filter), theorem links. Already-good docs left alone. doc_links test passes; cli doc tests updated (filterMap's pinned line 213 -> 233; fragile). Model result: Sonnet, worked, 6 min (est. 45). Review: git diff main...lane/SW-1101.\n\nD2432 (Matt, 5 Nov 2026), talking through examples: a short one-sentence std description is fine even if the name nearly says it; the value is in stability, edge cases, semantics the types don't show, links to theorems and to related functions. Redo on current main under this rule (branch too stale to merge).",
       "created": "2026-11-02",
-      "updated": "2026-11-02",
+      "updated": "2026-11-05",
       "commits": []
     },
     {
