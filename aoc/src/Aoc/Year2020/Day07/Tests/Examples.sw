@@ -36,8 +36,8 @@ test "example, the first rule" :=
   (parsed example).map (rules => rules.all.take 1) == Ok [{ colour = lightRed, contents = [{ count = 1, colour = { shade = "bright", hue = "white" } }, { count = 2, colour = { shade = "muted", hue = "yellow" } }] }]
 test "example, an empty rule" := (parsed example).map (rules => rules.all.drop 8 |> .map .contents) == Ok [[]]
 test "example, the colours outside shiny gold" :=
-  (parsed example).map (rules => (rules.outside shinyGold).toList.map (((colour, steps)) => (colour.name, steps)))
-    == Ok [("bright white", 0), ("dark orange", 1), ("light red", 1), ("muted yellow", 0)]
+  (parsed example).map (rules => (rules.outside shinyGold).toList.map .name)
+    == Ok ["bright white", "dark orange", "light red", "muted yellow"]
 test "example, part 1" := (parsed example).map solvePart1 == Ok 4
 test "example, part 2" := part2 example == Ok 32
 test "second example, part 1" := (parsed example2).map solvePart1 == Ok 0

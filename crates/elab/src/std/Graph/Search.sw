@@ -12,6 +12,10 @@
 --| [`Graph.breadthFirstShortest`]). [`Graph.boundAlong`] turns the spec into
 --| bounds along any walk, for proofs about a program's own paths.
 --|
+--| [`Graph.fromEdges`] builds a graph from an edge function and a list of
+--| states with nothing to prove, and [`Graph.reachable`] returns the states
+--| reachable from some sources, whatever the edges cost.
+--|
 --| Both searches end without fuel because every edge leads to one of the
 --| graph's listed `states`: each step settles one more of them, or shrinks
 --| the queue.
@@ -22,6 +26,33 @@ type Graph (s: Type) = {
   edges: s → List (s, Nat),
   states: List s,
   listed: (state: s) → (next: s) → (weight: Nat) → (next, weight) ∈ edges state → next ∈ states
+}
+
+--| Builds a graph from `edges` and a list of `states`, keeping only the edges
+--| whose target is on `states`, so nothing needs proving: every kept edge
+--| leads to a listed state by construction. A state the list leaves out is
+--| still searchable as a source, but no edge leads into it; to lose no edge,
+--| list every state the edges lead to (a graph's own states are enough,
+--| [`Graph.fromEdgesEdge`] says exactly which edges stay). Each lookup of a
+--| state's edges filters `edges state` against a set of `states` built once.
+def Graph.fromEdges [auto ord: Ord s] (edges: s → List (s, Nat)) (states: List s): Graph s :=
+  let known := Set.fromList states
+  {
+    edges = state => (edges state).filter (edge => known.contains edge.fst),
+    states,
+    listed = state next weight edge =>
+      (Set.containsFromListIff states next).forward (And.right (List.memFilter _ _ edge))
+  }
+
+--| The edges of `Graph.fromEdges edges states` out of a state are those of
+--| `edges` that lead to a listed state.
+theorem Graph.fromEdgesEdge [auto ord: Ord s] (edges: s → List (s, Nat)) (states: List s) (state: s) (next: s) (weight: Nat):
+    ((next, weight) ∈ (Graph.fromEdges edges states).edges state) ↔ (((next, weight) ∈ edges state) ∧ (next ∈ states)) := {
+  forward = edge =>
+    let (Both inEdges kept) := List.memFilter _ _ edge
+    Both inEdges ((Set.containsFromListIff states next).forward kept),
+  backward = (Both inEdges listed) =>
+    List.memFilterIntro (edges state) _ inEdges ((Set.containsFromListIff states next).backward listed)
 }
 
 -- Walks
@@ -775,3 +806,34 @@ theorem Graph.breadthFirstShortest [auto ord: Ord s] (graph: Graph s) (sources: 
     (Graph.breadthFirstCorrect graph sources (graph.Reached starts)
       (source member => Graph.reachedSources graph starts source 0 (List.memMap sources source member (other => (other, 0))))
       (Graph.reachedEdges graph starts) unit)
+
+--| Some walk from one of the `sources` ends at `state`: it can be reached,
+--| however much the walk costs.
+def Graph.Reachable (graph: Graph s) (sources: List s) (state: s): Prop :=
+  Exists s (source => Exists (List (s, Nat)) (path => (source ∈ sources) ∧ (graph.Walk source path state)))
+
+--| The states reachable from `sources` (the sources themselves included),
+--| whatever the edges cost: [`Graph.reachableIff`] says `contains` is
+--| [`Graph.Reachable`]. It runs Dijkstra's search ([`Graph.distances`]) with
+--| every source starting at 0, so it costs about an edge-count of set
+--| operations; `Graph.breadthFirst` is the faster search for the fewest
+--| edges, but is only proved for edges that each cost 1.
+def Graph.reachable [auto ord: Ord s] (graph: Graph s) (sources: List s): Set s :=
+  (graph.distances (sources.map (source => (source, 0)))).keySet
+
+--| The states `Graph.reachable` returns are exactly those a walk from a
+--| source ends at.
+theorem Graph.reachableIff [auto ord: Ord s] (graph: Graph s) (sources: List s) (state: s):
+    ((graph.reachable sources).contains state = True) ↔ graph.Reachable sources state :=
+  let starts := sources.map (source => (source, 0))
+  let (Both found complete) := Graph.distancesShortest graph starts
+  {
+    forward = there =>
+      let (Witness cost got) := Map.getOfContains _ state (Eq.trans (Eq.sym (Map.containsKeySet (graph.distances starts) state)) there)
+      let (Witness source (Witness start (Witness path (Both member (Both walked costs))))) := found state cost got
+      let (Witness origin (Both inSources same)) := List.memMapElim (source => (source, 0)) (source, start) sources member
+      Witness source (Witness path (Both (rewrite <- Eq.cong Pair.fst same in inSources) walked)),
+    backward = (Witness source (Witness path (Both inSources walked))) =>
+      let (Witness cost (Both got bound)) := complete source 0 (List.memMap sources source inSources (other => (other, 0))) path state walked
+      Eq.trans (Map.containsKeySet (graph.distances starts) state) (Map.containsOfGet _ state cost got)
+  }
