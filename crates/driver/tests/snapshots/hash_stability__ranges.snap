@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
+assertion_line: 172
 expression: "lines(session, d, f)"
 ---
 Main.squares f5c9562e9fa37dedf28fcec637ad19d12ef74cb204bf8fb7b4566935fd9aa49c
@@ -10,7 +11,7 @@ Main.test "a single number" 89e5375c743202df0a9b53f15a96af06e0382d9a99173585147f
 Main.test "squares" 65078634982f62be7a94c0f81bf87cdbb5b4958a825850f3fb479b283c5b19ee
 Main.test "the end can be an expression" 970ed46d30fc88540937c526ba320926f72f5a045d902a47a153c85addfe2c24
 Main.test "sums" cca1261a27c06566541ebca8cf1014b6394bcda504508da65be8944b685905d0
-Main.test "membership" 82b574ebd28af0dcd1edcab4d3db4bbc6da7856bb5ab6de3b0f11e89d0d7b769
+Main.test "membership" ded996020638377128c4df118da4eff44d987f00f497fa5a8809e002b79cb52d
 Main.test "spread" b1eecab6771a6f2203bb7d277f292877ee912abc4ae67343cf4f821339b8bc9e
 Main.pairsSummingTo efaa8f4c5c1fbd2ea1e455b449ed90eabc970da28e34351133418b2919468e71
 Main.test "pairs" d4decf82195d22a103e3c4dc4fa7e0caa2a52194d802a9e16640ca4592ec951b
