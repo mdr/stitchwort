@@ -539,10 +539,19 @@ impl LiveProject {
     /// the session is as before the step, and the namespace is checked again
     /// by the next.
     pub fn step(&mut self) -> Result<Progress, Cancelled> {
-        if self.dirty {
+        let planned = self.dirty;
+        if planned {
             self.make_plan();
         }
         let Some(name) = self.plan.pop_front() else {
+            // A project that can't be analysed has nothing to check; its
+            // errors are the answer, and are published like any other.
+            if planned && !self.fatal.is_empty() {
+                return Ok(Progress::Checked {
+                    focus: true,
+                    done: true,
+                });
+            }
             return Ok(Progress::Done);
         };
         let focus = self.focus_namespaces().contains(&name);
@@ -650,8 +659,8 @@ impl LiveProject {
             .collect()
     }
 
-    /// The order to check `rest` in: what the focus namespaces use, then
-    /// the focus namespaces, then the others, each in canonical order.
+    /// The order to check `rest` in: the focus namespaces and what they use,
+    /// then the others, each in canonical order.
     fn order_rest(&self, analysis: &Analysis, rest: &BTreeSet<String>) -> Vec<String> {
         let ordered = |among: &BTreeSet<String>| {
             canonical_order(analysis, among).expect("a part of an acyclic project is acyclic")
@@ -673,8 +682,9 @@ impl LiveProject {
             .filter(|n| !focus.contains(*n) && !needs.contains(*n))
             .cloned()
             .collect();
-        let mut plan = ordered(&needs);
-        plan.extend(ordered(&focus));
+        // One order for both: a namespace that is only needed can itself
+        // use a focus namespace.
+        let mut plan = ordered(&needs.union(&focus).cloned().collect());
         plan.extend(ordered(&after));
         plan
     }

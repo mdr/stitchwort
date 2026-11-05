@@ -2065,9 +2065,12 @@ export def area: Shape -> Nat
     const warnings = [];
     const goals = [];
     const diagnostics = [];
-    const paths = project ? [...new Set([...(project.checkOrder ?? []), ...tabPaths()])] : [null];
-    for (const path of paths) {
-      for (const d of source.diagnosticsOf(path === null ? SINGLE_URI : projectUri(path)) ?? []) {
+    // Errors with no file (a project that can't be analysed) are the
+    // server's on `stitchwort.yaml`.
+    const paths = project ? [...new Set([...(project.checkOrder ?? []), ...tabPaths()]), "stitchwort.yaml"] : [null];
+    for (const found of paths) {
+      const path = found === "stitchwort.yaml" ? undefined : found;
+      for (const d of source.diagnosticsOf(found === null ? SINGLE_URI : projectUri(found)) ?? []) {
         const severity = d.severity === 2 ? "warning" : d.severity === 3 ? "goal" : "error";
         const text = d.code ? `[${d.code}] ${d.message}` : d.message;
         const place = { file: path ?? undefined, line: d.range.start.line + 1, column: d.range.start.character + 1,
