@@ -30,11 +30,12 @@
 //! A goal that computing doesn't decide is then tried against the decision
 //! procedures again as written, its calls matched by their arguments
 //! (`Nat.pow 2 (Succ k) ≠ 0` before it computes to `Nat.pow 2 k * 2 ≠ 0`),
-//! and then proved from the facts in scope where that's quick: `d ≠ 0` from a fact `Succ k ≤ d`, and, in a
-//! module that loads `omega`'s library, an arithmetic goal by `omega` within
-//! a small budget (`from_facts`). Last, the parts of a conjunction in scope
-//! are facts too, each as in 1 or as `Succ k ≤ d` (`from_conjuncts`): `h: b
-//! ≠ 0 ∧ c ≠ 0`, or the proof an `if b != 0 && c != 0` gives its branch.
+//! and then proved from the facts in scope where that's quick: `d ≠ 0` from
+//! a fact `Succ k ≤ d`, `Nat.toInt d ≠ 0` from `d ≠ 0`, and, in a module that
+//! loads `omega`'s library, an arithmetic goal by `omega` within a small
+//! budget (`from_facts`). Last, the parts of a conjunction in scope are facts
+//! too, each as in 1 or as `Succ k ≤ d` (`from_conjuncts`): `h: b ≠ 0 ∧ c ≠ 0`,
+//! or the proof an `if b != 0 && c != 0` gives its branch.
 //!
 //! An obligation whose type is an interface applied to a type is an instance
 //! to find instead (`interfaces.rs`, docs/proposals/interfaces.md §5.5).
@@ -384,13 +385,16 @@ fn decide_as_written(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Option<
     Ok(None)
 }
 
-/// The lemma that `d ≠ 0` from `Succ k ≤ d`.
-const NONZERO_OF_SUCC_LE: &str = "Std.Nat.nonzeroOfSuccLe";
+/// Lemmas that `auto` may apply to facts in scope, with the number of
+/// arguments before their one premise: `Nat.nonzeroOfSuccLe k d h` has two,
+/// and `Nat.toIntNeZero d ok` one. The arguments are found by unification,
+/// the premise from a fact, and the result must be the goal.
+const FACT_LEMMAS: &[(&str, usize)] = &[("Std.Nat.nonzeroOfSuccLe", 2), ("Std.Nat.toIntNeZero", 1)];
 
 /// A proof of a goal that computing doesn't decide, from the facts in scope:
-/// `d ≠ 0` from a fact `Succ k ≤ d` (`0 < d`, `1 ≤ d`, `2 ≤ d`, …), or, in a
-/// module that loads `omega`'s library, an arithmetic goal `omega` proves
-/// from them within a small budget.
+/// `d ≠ 0` from a fact `Succ k ≤ d` (`0 < d`, `1 ≤ d`, `2 ≤ d`, …) or from
+/// `Nat.toInt d ≠ 0`'s `d ≠ 0`, or, in a module that loads `omega`'s library,
+/// an arithmetic goal `omega` proves from them within a small budget.
 fn from_facts(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
     if let Some(proof) = attempt(cx, |cx| nonzero_from_positive(cx, goal))? {
         return Ok(Some(proof));
@@ -404,8 +408,8 @@ fn from_facts(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
     Ok(None)
 }
 
-/// `Nat.nonzeroOfSuccLe k d h` for the goal `d ≠ 0`, with `h` the latest
-/// hypothesis in scope whose type is `Succ k ≤ d` for some `k`.
+/// A proof of `goal` from a lemma in [`FACT_LEMMAS`] and the hypotheses in
+/// scope.
 fn nonzero_from_positive(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
     let hypotheses: Vec<(Term, Value)> = (0..cx.level())
         .rev()
@@ -417,33 +421,56 @@ fn nonzero_from_positive(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
 /// [`nonzero_from_positive`] with the first of `facts`, proofs with their
 /// types, whose type fits.
 fn nonzero_from(cx: &mut Ctx, goal: &Value, facts: &[(Term, Value)]) -> Result<Option<Term>> {
-    let Some((Global::Def(lemma), _)) = cx.e.named(NONZERO_OF_SUCC_LE) else {
+    for &(name, arguments) in FACT_LEMMAS {
+        if let Some(proof) = attempt(cx, |cx| apply_fact_lemma(cx, name, arguments, goal, facts))? {
+            return Ok(Some(proof));
+        }
+    }
+    Ok(None)
+}
+
+/// The lemma `name` applied to unknowns for its first `arguments` parameters
+/// and to the first of `facts` whose type fits its premise, if the result is
+/// `goal`.
+fn apply_fact_lemma(
+    cx: &mut Ctx,
+    name: &str,
+    arguments: usize,
+    goal: &Value,
+    facts: &[(Term, Value)],
+) -> Result<Option<Term>> {
+    let Some((Global::Def(lemma), _)) = cx.e.named(name) else {
         return Ok(None);
     };
     let lemma = *lemma;
     let g = cx.g();
-    let below = cx.fresh_meta();
-    let divisor = cx.fresh_meta();
+    let mut term = Term::Def(lemma);
     let mut ty = g.def(lemma).ty_value().clone();
-    for arg in [&below, &divisor] {
-        let Value::Pi(_, _, _, cod) = force(&g, ty)? else {
+    for _ in 0..arguments {
+        let Value::Pi(_, icit, _, cod) = force(&g, ty)? else {
             return Ok(None);
         };
-        ty = cod.apply(&g, cx.eval(arg)?)?;
+        let meta = cx.fresh_meta();
+        let value = cx.eval(&meta)?;
+        term = Term::app_icit(term, meta, icit);
+        ty = cod.apply(&g, value)?;
     }
-    let Value::Pi(_, _, fact, cod) = force(&g, ty)? else {
+    let Value::Pi(_, icit, fact, cod) = force(&g, ty)? else {
         return Ok(None);
     };
-    let conclusion = cod.apply(&g, Value::var(cx.level()))?;
-    if !cx.unify(&conclusion, goal)? {
-        return Ok(None);
-    }
     for (proof, ty) in facts {
-        if attempt(cx, |cx| Ok(cx.unify(ty, &fact)?.then_some(())))?.is_some() {
-            return Ok(Some(Term::app(
-                Term::app(Term::app(Term::Def(lemma), below), divisor),
-                proof.clone(),
-            )));
+        let found = attempt(cx, |cx| {
+            if !cx.unify(ty, &fact)? {
+                return Ok(None);
+            }
+            let conclusion = cod.apply(&g, cx.eval(proof)?)?;
+            if !cx.unify(&conclusion, goal)? {
+                return Ok(None);
+            }
+            Ok(Some(Term::app_icit(term.clone(), proof.clone(), icit)))
+        })?;
+        if found.is_some() {
+            return Ok(found);
         }
     }
     Ok(None)

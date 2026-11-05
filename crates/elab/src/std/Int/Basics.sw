@@ -7,6 +7,11 @@
 --| The number as an `Int`: `(5: Nat).toInt` is `5`.
 def Nat.toInt (n: Nat): Int := OfNat n
 
+--| `Nat.toInt` of a nonzero number is nonzero: `auto` uses it to prove the
+--| divisor of `x % Nat.toInt d` from `d ≠ 0`.
+theorem Nat.toIntNeZero (d: Nat) (ok: d ≠ 0): Nat.toInt d ≠ 0
+  | p => ok (Int.ofNatInjective d 0 p)
+
 --| `|x|`, as an `Int`.
 def Int.abs: (x: Int) → Int
   | OfNat n => OfNat n
