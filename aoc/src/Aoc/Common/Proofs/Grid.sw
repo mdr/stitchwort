@@ -31,52 +31,52 @@ theorem memDirections (direction: Direction): direction ∈ directions :=
 theorem equalOf (a: Nat) (b: Nat) (same: a = b): (a == b) = True := rewrite same in DecEq.refl b
 
 theorem upAdjacent (row: Nat) (column: Nat): adjacent { row = Succ row, column } { row, column } = True :=
-  Bool.orRight _ _ (Bool.andIntro _ _ (DecEq.refl column) (Bool.orRight _ _ (equalOf (row + 1) (Succ row) (omega))))
+  Bool.orRight (Bool.andIntro (DecEq.refl column) (Bool.orRight (equalOf (row + 1) (Succ row) (omega))))
 
 theorem leftAdjacent (row: Nat) (column: Nat): adjacent { row, column = Succ column } { row, column } = True :=
-  Bool.orLeft _ _ (Bool.andIntro _ _ (DecEq.refl row) (Bool.orRight _ _ (equalOf (column + 1) (Succ column) (omega))))
+  Bool.orLeft (Bool.andIntro (DecEq.refl row) (Bool.orRight (equalOf (column + 1) (Succ column) (omega))))
 
 theorem rightAdjacent (row: Nat) (column: Nat): adjacent { row, column } { row, column = column + 1 } = True :=
-  Bool.orLeft _ _ (Bool.andIntro _ _ (DecEq.refl row) (Bool.orLeft _ _ (DecEq.refl (column + 1))))
+  Bool.orLeft (Bool.andIntro (DecEq.refl row) (Bool.orLeft (DecEq.refl (column + 1))))
 
 theorem downAdjacent (row: Nat) (column: Nat): adjacent { row, column } { row = row + 1, column } = True :=
-  Bool.orRight _ _ (Bool.andIntro _ _ (DecEq.refl column) (Bool.orLeft _ _ (DecEq.refl (row + 1))))
+  Bool.orRight (Bool.andIntro (DecEq.refl column) (Bool.orLeft (DecEq.refl (row + 1))))
 
 --| A step reaches an adjacent position...
 theorem stepAdjacent: (position: Position) → (direction: Direction) → (next: Position) → position.step direction = Some next →
     adjacent position next = True
   | { row = Zero, column }, Up, next, stepped => Void.exfalso (Option.noneNotSome next stepped)
-  | { row = Succ row, column }, Up, next, stepped => rewrite <- Option.someInjective _ _ stepped in upAdjacent row column
-  | { row, column }, Right, next, stepped => rewrite <- Option.someInjective _ _ stepped in rightAdjacent row column
-  | { row, column }, Down, next, stepped => rewrite <- Option.someInjective _ _ stepped in downAdjacent row column
+  | { row = Succ row, column }, Up, next, stepped => rewrite <- Option.someInjective stepped in upAdjacent row column
+  | { row, column }, Right, next, stepped => rewrite <- Option.someInjective stepped in rightAdjacent row column
+  | { row, column }, Down, next, stepped => rewrite <- Option.someInjective stepped in downAdjacent row column
   | { row, column = Zero }, Left, next, stepped => Void.exfalso (Option.noneNotSome next stepped)
-  | { row, column = Succ column }, Left, next, stepped => rewrite <- Option.someInjective _ _ stepped in leftAdjacent row column
+  | { row, column = Succ column }, Left, next, stepped => rewrite <- Option.someInjective stepped in leftAdjacent row column
 
 --| A step back the opposite way returns to where it started.
 theorem stepOpposite: (position: Position) → (direction: Direction) → (next: Position) → position.step direction = Some next →
     next.step direction.opposite = Some position
   | { row = Zero, column }, Up, next, stepped => Void.exfalso (Option.noneNotSome next stepped)
-  | { row = Succ row, column }, Up, next, stepped => rewrite <- Option.someInjective _ _ stepped in rfl
-  | { row, column }, Right, next, stepped => rewrite <- Option.someInjective _ _ stepped in rfl
-  | { row, column }, Down, next, stepped => rewrite <- Option.someInjective _ _ stepped in rfl
+  | { row = Succ row, column }, Up, next, stepped => rewrite <- Option.someInjective stepped in rfl
+  | { row, column }, Right, next, stepped => rewrite <- Option.someInjective stepped in rfl
+  | { row, column }, Down, next, stepped => rewrite <- Option.someInjective stepped in rfl
   | { row, column = Zero }, Left, next, stepped => Void.exfalso (Option.noneNotSome next stepped)
-  | { row, column = Succ column }, Left, next, stepped => rewrite <- Option.someInjective _ _ stepped in rfl
+  | { row, column = Succ column }, Left, next, stepped => rewrite <- Option.someInjective stepped in rfl
 
 --| ...and each adjacent position is a step away.
 theorem adjacentStep: (position: Position) → (next: Position) → adjacent position next = True →
     ∃ (direction: Direction) => position.step direction = Some next
   | { row, column }, { row = r, column = c }, near =>
-    Bool.orElim _ _ _ near
+    Bool.orElim near
       (sameRow =>
-        let rows: row = r := DecEq.sound row r (Bool.andLeft _ _ sameRow)
-        Bool.orElim _ _ _ (Bool.andRight _ _ sameRow)
-          (right => rewrite <- rows, <- DecEq.sound (column + 1) c right in Witness Right rfl)
-          (left => rewrite <- rows, <- DecEq.sound (c + 1) column left in Witness Left rfl))
+        let rows: row = r := DecEq.sound (Bool.andLeft sameRow)
+        Bool.orElim (Bool.andRight sameRow)
+          (right => rewrite <- rows, <- DecEq.sound right in Witness Right rfl)
+          (left => rewrite <- rows, <- DecEq.sound left in Witness Left rfl))
       (sameColumn =>
-        let columns: column = c := DecEq.sound column c (Bool.andLeft _ _ sameColumn)
-        Bool.orElim _ _ _ (Bool.andRight _ _ sameColumn)
-          (down => rewrite <- columns, <- DecEq.sound (row + 1) r down in Witness Down rfl)
-          (up => rewrite <- columns, <- DecEq.sound (r + 1) row up in Witness Up rfl))
+        let columns: column = c := DecEq.sound (Bool.andLeft sameColumn)
+        Bool.orElim (Bool.andRight sameColumn)
+          (down => rewrite <- columns, <- DecEq.sound down in Witness Down rfl)
+          (up => rewrite <- columns, <- DecEq.sound up in Witness Up rfl))
 
 --| The neighbours are the positions a step away...
 theorem memNeighbours (position: Position) (next: Position): (next ∈ position.neighbours) ↔ (∃ (direction: Direction) => position.step direction = Some next) := {
@@ -102,11 +102,11 @@ def directionTo (position: Position) (next: Position): Direction :=
 theorem directionOfStep: (position: Position) → (direction: Direction) → (next: Position) → position.step direction = Some next →
     directionTo position next = direction
   | { row = Zero, column }, Up, next, stepped => Void.exfalso (Option.noneNotSome next stepped)
-  | { row = Succ row, column }, Up, next, stepped => rewrite <- Option.someInjective _ _ stepped in cases
-  | { row, column }, Right, next, stepped => rewrite <- Option.someInjective _ _ stepped in cases
-  | { row, column }, Down, next, stepped => rewrite <- Option.someInjective _ _ stepped in cases
+  | { row = Succ row, column }, Up, next, stepped => rewrite <- Option.someInjective stepped in cases
+  | { row, column }, Right, next, stepped => rewrite <- Option.someInjective stepped in cases
+  | { row, column }, Down, next, stepped => rewrite <- Option.someInjective stepped in cases
   | { row, column = Zero }, Left, next, stepped => Void.exfalso (Option.noneNotSome next stepped)
-  | { row, column = Succ column }, Left, next, stepped => rewrite <- Option.someInjective _ _ stepped in cases
+  | { row, column = Succ column }, Left, next, stepped => rewrite <- Option.someInjective stepped in cases
 
 --| No position is a neighbour twice...
 theorem neighboursDistinct (position: Position): List.Distinct position.neighbours :=
@@ -130,8 +130,8 @@ theorem notMemDirections (direction: Direction): (others: List Direction) →
     others.all (other => directionIndex other != directionIndex direction) = True → direction ∉ others
   | [], differ, member => member
   | [other, ..rest], differ, Inl same =>
-    Decidable.toBoolSound _ (Bool.andLeft _ _ differ) (rewrite same in rfl)
-  | [other, ..rest], differ, Inr later => notMemDirections direction rest (Bool.andRight _ _ differ) later
+    Decidable.toBoolSound _ (Bool.andLeft differ) (rewrite same in rfl)
+  | [other, ..rest], differ, Inr later => notMemDirections direction rest (Bool.andRight differ) later
 
 --| ...and there are at most four.
 theorem neighboursAtMost4 (position: Position): position.neighbours.length ≤ 4 := lengthFilterMapLe position.step directions
@@ -173,7 +173,7 @@ def aroundBlock (r: Nat) (c: Nat): List Position :=
 --| The positions around are touching...
 theorem aroundTouching: (at: Position) → (other: Position) → other ∈ at.around → touching at other = True
   | { row = r, column = c }, { row = a, column = b }, member =>
-    let (Both inBlock other) := List.memFilter (aroundBlock r c) (near => not (near.row == r && near.column == c)) { row = a, column = b } member
+    let (Both inBlock other) := List.memFilter (aroundBlock r c) (near => not (near.row == r && near.column == c)) member
     List.anyElim (row => ({ row = a, column = b }: Position) ∈ List.map (List.range (c - 1) (c + 1 + 1)) (column => ({ row, column }: Position)))
       (touching { row = r, column = c } { row = a, column = b } = True) (List.range (r - 1) (r + 1 + 1))
       (List.memFlatMapElim (row => List.map (List.range (c - 1) (c + 1 + 1)) (column => ({ row, column }: Position))) { row = a, column = b }
@@ -191,7 +191,7 @@ theorem aroundTouching: (at: Position) → (other: Position) → other ∈ at.ar
 --| ...and every touching position is around.
 theorem touchingAround: (at: Position) → (other: Position) → touching at other = True → other ∈ at.around
   | { row = r, column = c }, { row = a, column = b }, near =>
-    List.memFilterIntro (aroundBlock r c) (near => not (near.row == r && near.column == c)) { row = a, column = b }
+    List.memFilterIntro (aroundBlock r c) (near => not (near.row == r && near.column == c))
       (List.memFlatMapIntro (row => List.map (List.range (c - 1) (c + 1 + 1)) (column => ({ row, column }: Position))) a { row = a, column = b }
         (List.range (r - 1) (r + 1 + 1)) (((List.memRange a (r - 1) (r + 1 + 1)).backward (Both (rowAboveOfTouching r c a b near) (Nat.leLessSucc a (r + 1) (rowBelowOfTouching r c a b near)))))
         (List.memMap (List.range (c - 1) (c + 1 + 1)) b

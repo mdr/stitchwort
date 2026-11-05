@@ -27,7 +27,7 @@ theorem offsetExt: (offset: Offset) → (other: Offset) → offset.rows = other.
 
 --| A number that `toNatChecked` takes is that number.
 theorem toNatCheckedSome: (x: Int) → (n: Nat) → x.toNatChecked = Some n → x = n.toInt
-  | OfNat m, n, checked => Eq.cong OfNat (Option.someInjective _ _ checked)
+  | OfNat m, n, checked => Eq.cong OfNat (Option.someInjective checked)
   | NegSucc m, n, checked => Void.exfalso (Option.noneNotSome n checked)
 
 theorem toNatCheckedNone: (x: Int) → x.toNatChecked = None → x < 0
@@ -43,7 +43,7 @@ theorem offsetSome (position: Position) (offset: Offset) (next: Position) (lande
       match columnAt: (position.column.toInt + offset.columns).toNatChecked with
         | None => Void.exfalso (Option.noneNotSome next landed)
         | Some column =>
-          let same: ({ row, column }: Position) = next := Option.someInjective _ _ landed
+          let same: ({ row, column }: Position) = next := Option.someInjective landed
           rewrite <- same in
             Both (Eq.sym (toNatCheckedSome _ row rowAt)) (Eq.sym (toNatCheckedSome _ column columnAt))
 
@@ -142,7 +142,7 @@ theorem gridOffsetSome (grid: Grid a) (position: Position) (offset: Offset) (nex
     | Some here =>
       match inside: grid.contains here with
         | True =>
-          let same: here = next := Option.someInjective _ _ landed
+          let same: here = next := Option.someInjective landed
           rewrite <- same in Both rfl inside
         | False => Void.exfalso (Option.noneNotSome next landed)
 
@@ -157,7 +157,7 @@ theorem wrapWithin (position: Position) (offset: Offset) (height: Nat) (width: N
     (position.wrap offset height width).within height width = True :=
   let rowBelow := Int.modNatLt (position.row.toInt + offset.rows) height [ok := tall]
   let columnBelow := Int.modNatLt (position.column.toInt + offset.columns) width [ok := wide]
-  Bool.andIntro _ _ (omega [rowBelow]) (omega [columnBelow])
+  Bool.andIntro (omega [rowBelow]) (omega [columnBelow])
 
 --| A number on a line of `size` wraps to itself.
 theorem modNatSmall: (size: Nat) → (ok: size ≠ 0) → (x: Nat) → x < size → x.toInt.modNat size [ok := ok] = x
@@ -168,8 +168,8 @@ theorem modNatSmall: (size: Nat) → (ok: size ≠ 0) → (x: Nat) → x < size 
 theorem wrapZero (position: Position) (height: Nat) (width: Nat) [auto tall: height ≠ 0] [auto wide: width ≠ 0]
     (inside: position.within height width = True): position.wrap Offset.zero height width = position :=
   positionExt (position.wrap Offset.zero height width) position
-    (rewrite (omega: position.row.toInt + 0 = position.row.toInt) in modNatSmall height tall position.row (omega [Bool.andLeft _ _ inside]))
-    (rewrite (omega: position.column.toInt + 0 = position.column.toInt) in modNatSmall width wide position.column (omega [Bool.andRight _ _ inside]))
+    (rewrite (omega: position.row.toInt + 0 = position.row.toInt) in modNatSmall height tall position.row (omega [Bool.andLeft inside]))
+    (rewrite (omega: position.column.toInt + 0 = position.column.toInt) in modNatSmall width wide position.column (omega [Bool.andRight inside]))
 
 --| Wrapping twice is wrapping by the sum.
 theorem wrapPlus (position: Position) (first: Offset) (second: Offset) (height: Nat) (width: Nat) [auto tall: height ≠ 0] [auto wide: width ≠ 0]:

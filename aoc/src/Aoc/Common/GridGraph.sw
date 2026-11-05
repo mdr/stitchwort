@@ -33,7 +33,7 @@ theorem stepEdgesListed (enter: Position → Option Nat) (states: List Position)
       match found: enter other with
         | None => Void.exfalso (Option.noneNotSome (next, weight) (And.right both))
         | Some cost =>
-          let same: (other, cost) = (next, weight) := Option.someInjective _ _ (And.right both)
+          let same: (other, cost) = (next, weight) := Option.someInjective (And.right both)
           rewrite <- Eq.cong Pair.fst same in complete other cost found)
 
 --| Entering a position of the first `height` rows and `width` columns
@@ -57,8 +57,8 @@ theorem boxEnterListed (height: Nat) (width: Nat) (cost: Position → Nat): (pos
 --| A position within the box is one of its positions.
 theorem memPositionsOfWithin (height: Nat) (width: Nat): (position: Position) → position.within height width = True → position ∈ positions height width
   | { row, column }, inside =>
-    let below: row < height := Bool.andLeft _ _ inside
-    let before: column < width := Bool.andRight _ _ inside
+    let below: row < height := Bool.andLeft inside
+    let before: column < width := Bool.andRight inside
     List.memFlatMapIntro (row => List.range 0 width |> .map (column => ({ row, column }: Position))) row { row, column } (List.range 0 height)
       (List.memRangeFromIntro row height 0 (omega) (omega [below]))
       (List.memMap (List.range 0 width) column (List.memRangeFromIntro column width 0 (omega) (omega [before])) (column => ({ row, column }: Position)))
