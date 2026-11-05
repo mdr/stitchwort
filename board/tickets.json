@@ -8622,13 +8622,13 @@
     {
       "id": 1446,
       "title": "Language server: nested operations measure their stack limit from where they start, so an operation inside another can run past the thread's real stack; budget.rs's thread-size check covers only the outermost",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1446",
       "labels": [
         "lsp"
       ],
-      "body": "From SW-1430, 5 Nov 2026.",
+      "body": "From SW-1430, 5 Nov 2026.\n\nStarted on Sonnet with SW-1456 (native vs wasm stack limits), expected: 60 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8762,7 +8762,7 @@
     {
       "id": 1456,
       "title": "Natively at the playground's limits Float.Theory.roundMagnitudeSpec runs out of recursion depth while wasm checks it: native and wasm stack limits aren't equivalent",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
