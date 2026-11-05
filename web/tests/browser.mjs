@@ -905,7 +905,10 @@ test("effectful List.map runs at a million elements", async (page) => {
   await page.tab("run");
   for (const [name, total] of shapes) {
     const lines = name === "ioRead" ? Array.from({ length: n }, (_, i) => `${i + 1}\n`).join("") : "";
-    await page.ev(`document.getElementById("run-input").value = ${JSON.stringify(`${name}\n${n}\n${lines}`)}`);
+    // As a paste does: the page keeps a large input out of the textarea,
+    // whose layout would otherwise freeze the page for minutes.
+    await page.ev(`(() => { const t = document.getElementById("run-input");
+      t.value = ${JSON.stringify(`${name}\n${n}\n${lines}`)}; t.dispatchEvent(new Event("input")); })()`);
     const started = Date.now();
     const result = await page.run(RUN_SECONDS * 1000 + 15000);
     assert.match(result, /Finished in/, `${name}: ${result.slice(0, 400)}`);
