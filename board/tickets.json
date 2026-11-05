@@ -7600,9 +7600,9 @@
     {
       "id": 1375,
       "title": "Trial (D2421): build stitchwort lsp for the browser (wasm32, postMessage transport, no threads, std and projects from memory) and connect it to the CodeMirror prototype through @codemirror/lsp-client; report what works and what it took",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1375",
       "labels": [
         "editor"
       ],
