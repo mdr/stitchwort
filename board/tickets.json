@@ -1,5 +1,5 @@
 {
-  "next": 1454,
+  "next": 1457,
   "tickets": [
     {
       "id": 47,
@@ -7998,14 +7998,14 @@
     {
       "id": 1403,
       "title": "Playground language server: a project's first diagnostics take 26-28 s in the browser (LiveProject::new loads the whole library; no check cache in the browser); bundle a check cache for std, or load lazily",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1403",
       "labels": [
         "playground",
         "perf"
       ],
-      "body": "From SW-1384, 5 Nov 2026.\n\nAlso covers SW-1431 (27-40 s in an AoC project) and SW-1447 (80-195 s in Node, nothing cached between visits), folded in 5 Nov 2026.\n\nD2439 (Matt, 5 Nov 2026): speed first for the editors. Started on Opus, expected: 120 min (browser: at most 4 runs of single tests). SW-1432 (the page checks twice) next, after this.",
+      "body": "From SW-1384, 5 Nov 2026.\n\nAlso covers SW-1431 (27-40 s in an AoC project) and SW-1447 (80-195 s in Node, nothing cached between visits), folded in 5 Nov 2026.\n\nD2439 (Matt, 5 Nov 2026): speed first for the editors. Started on Opus, expected: 120 min (browser: at most 4 runs of single tests). SW-1432 (the page checks twice) next, after this.\n\nDone (Opus, 4029527a4, 42 min of 120; 4 browser runs), merged: web/build.sh builds pkg/std.cache with the built wasm (same session shape as the server), checks it replays (67 of 68 files); keyed by build, format, modes, limits, text and deps, so another build's cache is a miss, never a wrong answer. Node first diagnostics 38-40 s → 2.0 s; Chrome's longest server tick 25 s → 1.2 s; opening a day to first marks 25.7 s → 8.8 s (the rest is the page's own Check, which still checks std: next, SW-1432 and a cache for playground-worker.js). Cost: std.cache 14.4 MB, 7.5 MB gzipped, every first visit. Untested: the flake's playground build. Orchestrator decided: fetch on every visit (projects would otherwise wait for it); trust it like a cache directory. Page weight to Matt (D2440).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8727,6 +8727,48 @@
         "playground"
       ],
       "body": "From SW-1397, 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1454,
+      "title": "Playground: give playground-worker.js (Check, Tests, Run) and the proof-search worker the bundled library cache too; opening a day would then take about 2 s in the browser, not 8.8",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "playground"
+      ],
+      "body": "From SW-1403, 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1455,
+      "title": "Playground: shrink std.cache (14.4 MB, 7.5 MB gzipped): compress entries, or drop expression types projects don't need",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "playground"
+      ],
+      "body": "From SW-1403, 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1456,
+      "title": "Natively at the playground's limits Float.Theory.roundMagnitudeSpec runs out of recursion depth while wasm checks it: native and wasm stack limits aren't equivalent",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "body": "From SW-1403, 5 Nov 2026.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
