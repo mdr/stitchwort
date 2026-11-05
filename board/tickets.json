@@ -8678,13 +8678,13 @@
     {
       "id": 1450,
       "title": "AoC: readsDone calls with a written-out spec can now be readsDone { … } _ (SW-1406); sweep the days' parser proofs and simplify",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1450",
       "labels": [
         "aoc"
       ],
-      "body": "From SW-1406, 5 Nov 2026.",
+      "body": "From SW-1406, 5 Nov 2026.\n\nStarted on DeepSeek, expected: 30 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
