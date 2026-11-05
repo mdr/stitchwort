@@ -1,5 +1,5 @@
 {
-  "next": 1328,
+  "next": 1329,
   "tickets": [
     {
       "id": 47,
@@ -6935,6 +6935,20 @@
         "aoc"
       ],
       "body": "D2366 (Matt, 4 Nov): two types, Position {row, column} for grids and Point {x, y} for coordinate puzzles (Int where the puzzle can go negative), one documented conversion; each day uses its puzzle's language. 'Happy to maintain both for now. We can always revisit if we find ourselves repeating logic a lot or converting a lot.' Survey: docs/research/aoc-domain-types.md, 2024/13. Last item of SW-1289.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1328,
+      "title": "Design note: a finer test-cache key: drop std's text from the fingerprint (each test hash already covers the std definitions it uses), and depend on part of the compiler's Rust, not all of it",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1328",
+      "labels": [
+        "design"
+      ],
+      "body": "D2375 (Matt, 5 Nov): yes, an Opus note on what's safe. Today the key is <version>-<fingerprint>-<modes>-<test hash>; the fingerprint covers the syntax, core, elab (with the prelude) and driver crates' source, plus build_fingerprint's std text, so any compiler rebuild or std edit reruns every test (after SW-1313: 1368 passed, 24 from cache). Matt: 'there are options between everything and nothing'.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
