@@ -2059,6 +2059,24 @@ const hoverText = (page) => page.ev(`document.querySelector(".cm-tooltip-hover")
 /** Waits for the server's diagnostics for `uri` (a part of it) to have arrived `n` times. */
 const untilPublished = (page, uri, n = 1, ms = 60000) =>
   page.until(`window.editor.stats.published.filter((p) => p.uri.includes(${JSON.stringify(uri)})).length >= ${n}`, ms, `diagnostics for ${uri}`);
+/**
+ * Waits until the server has published an error on the line with `needle` in `name`, and scrolls that line
+ * into view: CodeMirror draws only the lines near the viewport, so its lint mark can be missing until then.
+ */
+const untilErrorInView = (page, name, needle, ms = 60000) =>
+  page.until(`(() => {
+    const e = window.editor;
+    const uri = [...e.published.keys()].find((u) => u.endsWith(${JSON.stringify(name)}));
+    const diagnostics = (uri && e.diagnosticsOf(uri)) ?? [];
+    for (const d of diagnostics) {
+      if (d.severity !== 1) continue;
+      const line = e.view.state.doc.line(d.range.start.line + 1);
+      if (!line.text.includes(${JSON.stringify(needle)})) continue;
+      e.reveal(line.from + d.range.start.character, line.from + d.range.end.character);
+      return true;
+    }
+    return false;
+  })()`, ms, `the error on the line with ${needle} in ${name}, in view`);
 const tooltips = (page) => page.ev(`[...document.querySelectorAll(".cm-tooltip")].map((t) => t.innerText)`);
 const underlined = (page) => page.ev(`document.querySelectorAll("#editor .cm-lintRange-error").length`);
 /** Puts the caret `delta` characters into the first `needle`. */
@@ -2193,10 +2211,10 @@ test("in a project, go to definition opens the other file and Cmd+[ comes back; 
   await page.until(`document.querySelector('#filetabs [aria-selected="true"]').firstChild.textContent === "Day02.sw"`, 10000, "the way back");
   assert.equal(await sourceText(page), own);
   // An edit of the day's program is checked (the server went on working after the other file was opened).
-  const before = await page.ev(`window.editor.stats.published.length`);
+  const before = await page.ev(`window.editor.stats.publishedTotal`);
   const t2 = Date.now();
   await page.setSource(own + "\n-- an edit\n");
-  await page.until(`window.editor.stats.published.slice(${before}).some((p) => p.uri.includes("Day02.sw"))`, 60000, "diagnostics for the edit");
+  await page.until(`window.editor.stats.published.some((p) => p.n > ${before} && p.uri.includes("Day02.sw"))`, 60000, "diagnostics for the edit");
   console.log(`    (an edit of the day checked after ${Date.now() - t2} ms)`);
   assert.equal(await page.ev(`window.editor.stats.restarts`), 0, "the server didn't crash");
 }, { ms: 280000 });
@@ -2232,7 +2250,7 @@ test("in a project, after a jump into another file and the whole project's check
     throw e;
   }
   // The editor draws only the lines near its viewport, and the way back kept the scrolling at the top.
-  await page.ev(`window.editor.scrollTop = 1e9`);
+  await untilErrorInView(page, "Day02.sw", "broken");
   await page.until(`!!document.querySelector("#editor .cm-lintRange-error")`, 10000, "the error underlined");
   console.log(`    (underlined ${Date.now() - t} ms after the edit)`);
   assert.equal(await page.ev(`window.editor.stats.restarts`), 0, "the server didn't crash");
@@ -2251,7 +2269,8 @@ test("in a project, an error in the day's program is underlined", async (page) =
   assert.equal(await page.ev(`window.editor.stats.libraryCache`), true, "the library's check cache was read");
   const t = Date.now();
   await page.setSource((await sourceText(page)) + "\ndef broken: Nat := rfl\n");
-  await page.until(`!!document.querySelector("#editor .cm-lintRange-error")`, 60000, "the error underlined");
+  await untilErrorInView(page, "Day02.sw", "broken");
+  await page.until(`!!document.querySelector("#editor .cm-lintRange-error")`, 10000, "the error underlined");
   console.log(`    (underlined ${Date.now() - t} ms after the edit)`);
   assert.equal(await page.ev(`window.editor.stats.restarts`), 0, "the server didn't crash");
 }, { ms: 280000 });

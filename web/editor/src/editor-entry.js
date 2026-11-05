@@ -72,7 +72,7 @@ export class Editor {
     this.stdTexts = new Map();
     this.stdWaiting = new Map();
     this.silent = 0;
-    this.stats = { ready: null, crashed: null, restarts: 0, published: [], isolated: false, firstDiagnostics: null, ticks: 0, idle: false };
+    this.stats = { ready: null, crashed: null, restarts: 0, published: [], publishedTotal: 0, isolated: false, firstDiagnostics: null, ticks: 0, idle: false };
     this.projects = [];
     /** The diagnostics the server last published for each document, by uri. */
     this.published = new Map();
@@ -117,7 +117,10 @@ export class Editor {
         const m = JSON.parse(data.lsp);
         this.log("in", m, data.lsp.length);
         if (m.method === "textDocument/publishDiagnostics") {
-          stats.published.push({ t: now, uri: m.params.uri, count: m.params.diagnostics.length });
+          // `published` keeps only a window for inspection; `publishedTotal`
+          // counts every publish, so tests can tell new ones after a long check.
+          stats.publishedTotal++;
+          stats.published.push({ n: stats.publishedTotal, t: now, uri: m.params.uri, count: m.params.diagnostics.length });
           if (stats.published.length > 300) stats.published.shift();
           stats.firstDiagnostics ??= now;
           this.published.set(m.params.uri, m.params.diagnostics);
