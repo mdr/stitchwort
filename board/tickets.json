@@ -8678,13 +8678,13 @@
     {
       "id": 1450,
       "title": "AoC: readsDone calls with a written-out spec can now be readsDone { … } _ (SW-1406); sweep the days' parser proofs and simplify",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1450",
       "labels": [
         "aoc"
       ],
-      "body": "From SW-1406, 5 Nov 2026.\n\nStarted on DeepSeek, expected: 30 min.",
+      "body": "From SW-1406, 5 Nov 2026.\n\nStarted on DeepSeek, expected: 30 min.\n\nDone (bfa699c57), merged: four readsDone calls in 2020 days 5, 6 and 8 now end in _ (two record annotations and two written-out specs gone); all checked, none had to stay; the other days already used _. Model result: DeepSeek, worked, ~25 min (est. 30).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
