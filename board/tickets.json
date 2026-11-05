@@ -6900,13 +6900,13 @@
     {
       "id": 1325,
       "title": "A performing comparison isn't decided into a Bool in a generic constructor field or list element: Some (len() < 3) at Option Bool, [len() < 3] at List Bool",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1325",
       "labels": [
         "elab"
       ],
-      "body": "From the SW-1324 Opus review; fails on main too. ctor_slots(.., None) leaves the parameter a as an unknown, so the field isn't seen as Bool; read the slots with the parameters from the expected type. Also: comp_app still uses the constructor-as-lambda form for named or partial constructor applications with a performing argument (they hash differently from the bare constructor).",
+      "body": "From the SW-1324 Opus review; fails on main too. ctor_slots(.., None) leaves the parameter a as an unknown, so the field isn't seen as Bool; read the slots with the parameters from the expected type. Also: comp_app still uses the constructor-as-lambda form for named or partial constructor applications with a performing argument (they hash differently from the bare constructor).\n\nDone on lane/SW-1325 (dbca83cdc; Sonnet, 32 min, est. 45): comp_ctor_app instantiates the constructor's fields from the expected type's arguments; list literals take the element type from an expected List a and decide items through run_argument. Some (len() < 3), [len() < 3], Cons (len() < 3) Nil now elaborate; no existing hash moved in the example's snapshot. Changes elaboration in effectful code, so an independent Opus review started 08:20. Model result: Sonnet, worked, 32 min (est. 45).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
