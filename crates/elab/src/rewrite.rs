@@ -1626,6 +1626,13 @@ fn other_direction_rewrites(
         let Some(computed) = key(&lhs_term, 0) else {
             return Ok(false);
         };
+        // A bare variable occurs in almost any goal that mentions it, so it
+        // says nothing about the rule's direction (SW-1400: a rule `n * 1 =
+        // n` flipped looks for `n`, which is not a mistake to point at).
+        // Only a side with an outer function of its own counts.
+        if matches!(&computed, Key::Var(_, 0)) {
+            return Ok(false);
+        }
         // Nothing with the side's outer function and number of arguments:
         // no search can find it, by computing or otherwise.
         let candidate = term.subterms().any(|(t, under)| {

@@ -9,11 +9,13 @@ expression: output
     │           ──────┬─────  
     │                 ╰─────── looking for `n * 1`
     │ 
-    │ Note 1: to replace the right side by the left, write `rewrite <- …`
+    │ Note 1: goal: `timesOne n = n`
     │ 
-    │ Note 2: goal: `timesOne n = n`
+    │ Note 2: occurrences are looked for by their outer function and compared by computing; one that uses a variable bound inside a function argument is rewritten through the congruence lemma of the call the function is passed to
     │ 
-    │ Note 3: `timesOne` is opaque, so its body isn't used here
+    │ Note 3: to replace the right side by the left, write `rewrite <- …`
     │ 
-    │ Note 4: add `unfolding timesOne` after this declaration's signature, or rewrite with `timesOne.unfold`
+    │ Note 4: `timesOne` is opaque, so its body isn't used here
+    │ 
+    │ Note 5: add `unfolding timesOne` after this declaration's signature, or rewrite with `timesOne.unfold`
 ────╯
