@@ -49,7 +49,7 @@ def basinLocations (map: HeightMap): List (List Position) :=
 --| location is in none), and their sizes add up to the number of those
 --| locations (none is in two).
 def eachInOneBasin (map: HeightMap): Bool :=
-  let open := map.cells.filter (((at, _)) => map.isOpen at) |> .map Pair.fst
+  let open := map.cells.filterMap (match some | (at, _) if map.isOpen at => at)
   let found := basinLocations map |> .concat
   open.all (location => found.contains location) ∧ found.length == open.length
 
