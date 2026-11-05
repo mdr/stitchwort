@@ -167,6 +167,12 @@ Use the cheapest model that can do the work well. Provisional (D2208, Matt,
 - Use `nix develop -c …` for project tools. `git add` new files before
   anything that goes through the flake.
 - Push to GitHub only when Matt asks.
+- A lane that adds or changes a user-visible language feature (syntax,
+  sugar, a new error, a std function people will reach for) also updates
+  the language guide (`docs/guide/`, its examples checked) and
+  `docs/syntax.md`; if the feature is one a newcomer would enjoy, it gets a
+  feature-tour page too (`web/guide/`). The brief says so, and the
+  orchestrator checks it in review (Matt, 5 Nov 2026).
 - Significant language or kernel designs start as a note in
   `docs/proposals/`. Implementation waits for Matt's decisions (and possibly
   an independent review).
