@@ -7320,13 +7320,13 @@
     {
       "id": 1355,
       "title": "stitchwort fmt fails on some files with chained comparisons: 'the output parses to a different syntax tree' (examples/accept/effect-logic-let.sw on lane/SW-1349)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1355",
       "labels": [
         "fmt"
       ],
-      "body": "From SW-1349. Each definition formats alone; the whole file doesn't. Chains parse to the && of their links (SW-1341), so the formatter may print a different tree. Lanes must run stitchwort fmt before committing, so this blocks them.",
+      "body": "From SW-1349. Each definition formats alone; the whole file doesn't. Chains parse to the && of their links (SW-1341), so the formatter may print a different tree. Lanes must run stitchwort fmt before committing, so this blocks them.\n\nDone on lane/SW-1355 (1f5df88a3): the tree comparison renumbers hidden %chain<offset> names; golden test of chain shapes. Model result: Sonnet, worked, 7 min (est. 45).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7334,9 +7334,9 @@
     {
       "id": 1356,
       "title": "Design note: range syntax (a ..< b, a ..= b, or other), after a thorough survey of other languages (Swift, Rust, Kotlin, Haskell, Python, Scala, Ruby, Julia, Lean, Idris, Agda, F#, Elixir …)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1356",
       "labels": [
         "design"
       ],
