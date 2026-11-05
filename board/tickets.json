@@ -6550,15 +6550,15 @@
     {
       "id": 1300,
       "title": "2021 day 16: a BitReader domain type for the packet stream",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1300",
       "labels": [
         "aoc"
       ],
       "body": "From SW-1284: day 16's bits are a stream cut into fields by pattern ([v1,v2,v3,t1,t2,t3,..rest]); ~25 theorems in Sound.sw/Complete.sw match on that shape, so wrapping fields in Bits alone reads worse. The domain-types survey suggests a BitReader (read n bits as a Bits/Nat, the rest) with the 15- and 11-bit length fields as Bits. Medium; Sonnet; restate the theorems over the reader, statement by statement.",
       "created": "2026-11-04",
-      "updated": "2026-11-04",
+      "updated": "2026-11-05",
       "commits": []
     },
     {
@@ -6620,9 +6620,9 @@
     {
       "id": 1305,
       "title": "if p && q (and auto generally) doesn't give each conjunct: 'if b != 0 && c != 0 then a % b' is E-AUTO-STUCK",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1305",
       "labels": [
         "language"
       ],
