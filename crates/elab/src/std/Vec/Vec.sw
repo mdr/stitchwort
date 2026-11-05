@@ -367,11 +367,11 @@ theorem Vec.getOrTabulate (d: a): (n: Nat) → (f: Fin n → a) → (i: Nat) →
   | Succ k, f, Succ i, h => Vec.getOrTabulate d k (j => f (FSucc j)) i h
 
 --| A sum over the elements is a sum over the indices 0, 1, …, n - 1.
-theorem Vec.sumByGetOr (v: Vec a n) (d: a) (f: a → Nat): Vec.sumBy v f = List.sumBy (List.range n) (i => f (Vec.getOr v i d)) :=
+theorem Vec.sumByGetOr (v: Vec a n) (d: a) (f: a → Nat): Vec.sumBy v f = List.sumBy (List.range 0 n) (i => f (Vec.getOr v i d)) :=
   calc Vec.sumBy v f
     _ = List.sumBy (Vec.toList v) f := Vec.sumByToList v f
-    _ = List.sumBy (List.range (List.length (Vec.toList v))) (i => f (Vec.getOr v i d)) := List.sumByGetOr (Vec.toList v) d f
-    _ = List.sumBy (List.range n) (i => f (Vec.getOr v i d)) := rewrite Vec.lengthToList v
+    _ = List.sumBy (List.range 0 (List.length (Vec.toList v))) (i => f (Vec.getOr v i d)) := List.sumByGetOr (Vec.toList v) d f
+    _ = List.sumBy (List.range 0 n) (i => f (Vec.getOr v i d)) := rewrite Vec.lengthToList v
 
 -- Counting lemmas. A count is the list's count, a sum of 1s and 0s, and a
 -- count of the indices 0, 1, …, n - 1 whose element satisfies `p`; it is at
@@ -383,9 +383,9 @@ theorem Vec.countToList (v: Vec a n) (p: a → Bool): Vec.count v p = List.count
 theorem Vec.countSumBy (v: Vec a n) (p: a → Bool): Vec.count v p = Vec.sumBy v (x => Bool.toNat (p x)) :=
   rewrite Vec.countToList v p, Vec.sumByToList v (x => Bool.toNat (p x)) in List.countSumBy (Vec.toList v) p
 
-theorem Vec.countGetOr (v: Vec a n) (d: a) (p: a → Bool): Vec.count v p = List.count (List.range n) (i => p (Vec.getOr v i d)) :=
+theorem Vec.countGetOr (v: Vec a n) (d: a) (p: a → Bool): Vec.count v p = List.count (List.range 0 n) (i => p (Vec.getOr v i d)) :=
   rewrite Vec.countSumBy v p, Vec.sumByGetOr v d (x => Bool.toNat (p x)) in
-    Eq.sym (List.countSumBy (List.range n) (i => p (Vec.getOr v i d)))
+    Eq.sym (List.countSumBy (List.range 0 n) (i => p (Vec.getOr v i d)))
 
 theorem Vec.countLe: (v: Vec a n) → (p: a → Bool) → Vec.count v p ≤ n
   | VNil, p => rfl

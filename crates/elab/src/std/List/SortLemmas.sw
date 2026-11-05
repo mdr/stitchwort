@@ -49,11 +49,11 @@ theorem List.sumByRangeShift (f: Nat → Nat): (n: Nat) → (s: Nat) →
 
 --| A sum over `s, s + 1, ..., s + n - 1`, as one over `0, 1, ..., n - 1`.
 theorem List.sumByRangeOffset (f: Nat → Nat): (s: Nat) → (n: Nat) →
-    List.sumBy (List.rangeFrom n s) f = List.sumBy (List.range n) (i => f (s + i))
-  | Zero, n => List.sumByCong (List.range n) f (i => f (0 + i)) (i => rfl)
+    List.sumBy (List.rangeFrom n s) f = List.sumBy (List.range 0 n) (i => f (s + i))
+  | Zero, n => List.sumByCong (List.range 0 n) f (i => f (0 + i)) (i => rfl)
   | Succ s, n => Eq.trans (List.sumByRangeShift f n s) (List.sumByRangeOffset (i => f (Succ i)) s n)
 
-theorem List.sumByRangeOffsetExample: List.sumBy (List.rangeFrom 3 10) (i => i) = List.sumBy (List.range 3) (i => 10 + i) := rfl
+theorem List.sumByRangeOffsetExample: List.sumBy (List.rangeFrom 3 10) (i => i) = List.sumBy (List.range 0 3) (i => 10 + i) := rfl
 
 --| Gauss: twice the sum of `x, x + 1, ..., x + d` is `(d + 1) * (x + (x + d))`.
 theorem List.gaussSum: (d: Nat) → (x: Nat) →
@@ -77,7 +77,7 @@ theorem Nat.gaussSpan (d: Nat) (lo: Nat) (hi: Nat) (h: lo ≤ hi): d * ((lo + hi
       (Eq.sym (Eq.cong (t => d * List.sum (List.rangeFrom t lo)) (Nat.subSuccRight lo (Succ hi) h))))
 
 --| Gauss's formula is the sum of the numbers from first to last, for any bounds.
-theorem Nat.sumBetweenCorrect (first: Nat) (last: Nat): Nat.sumBetween first last = (List.between first last).sum :=
+theorem Nat.sumBetweenCorrect (first: Nat) (last: Nat): Nat.sumBetween first last = (List.range first (last + 1)).sum :=
   match h: Nat.leq first last with
     | True =>
       calc Nat.sumBetween first last
@@ -85,12 +85,12 @@ theorem Nat.sumBetweenCorrect (first: Nat) (last: Nat): Nat.sumBetween first las
         _ = 1 * ((first + last) * (last - first + 1) / 2) := ring
         _ = 1 * Nat.span first (Succ last) := Nat.gaussSpan 1 first last h
         _ = Nat.span first (Succ last) := ring
-        _ = (List.between first last).sum := Eq.cong (t => List.sum (List.rangeFrom (t - first) first)) (Eq.sym (Nat.addOne last))
+        _ = (List.range first (last + 1)).sum := Eq.cong (t => List.sum (List.rangeFrom (t - first) first)) (Eq.sym (Nat.addOne last))
     | False =>
       calc Nat.sumBetween first last
         _ = (first + last) * 0 / 2 := rewrite Nat.addOneSubEqZero last first h
         _ = 0 := rewrite Nat.mulZero (first + last)
-        _ = (List.between first last).sum := rewrite Nat.addOneSubEqZero last first h
+        _ = (List.range first (last + 1)).sum := rewrite Nat.addOneSubEqZero last first h
 
 --| How many pairs `List.pairs` makes: n(n - 1)/2. One step of the count:
 --| `x` is paired with the n others, and p is the number of pairs among those.
@@ -333,16 +333,16 @@ theorem List.sumFilter: (xs: List Nat) → (p: Nat → Bool) → List.sum (List.
             (Eq.sym (List.sumByCons xs x (x => Nat.keepIf x (p x)))))))
 
 --| Sums over a run of numbers that pick nothing, or pick one.
-theorem List.sumRangeNone (q: Nat → Bool) (g: Nat → Nat): (c: Nat) → (s: Nat) →
+theorem List.sumRangeFromNone (q: Nat → Bool) (g: Nat → Nat): (c: Nat) → (s: Nat) →
     ((b: Nat) → s ≤ b → b < s + c → q b = False) →
     List.sumBy (List.rangeFrom c s) (b => Nat.keepIf (g b) (q b)) = 0
   | Zero, s, h => rfl
   | Succ c, s, h =>
     Eq.trans (List.sumByCons (List.rangeFrom c (Succ s)) s (b => Nat.keepIf (g b) (q b)))
       (Eq.trans (Eq.cong (t => Nat.keepIf (g s) t + List.sumBy (List.rangeFrom c (Succ s)) (b => Nat.keepIf (g b) (q b))) (h s (Nat.leRefl s) (Nat.ltAddSuccSelf s c)))
-        (List.sumRangeNone q g c (Succ s) (b hb1 hb2 => h b (Nat.leTrans s (Succ s) b (Nat.leSucc s) hb1) (Nat.ltAddSucc s c b hb2))))
+        (List.sumRangeFromNone q g c (Succ s) (b hb1 hb2 => h b (Nat.leTrans s (Succ s) b (Nat.leSucc s) hb1) (Nat.ltAddSucc s c b hb2))))
 
-theorem List.sumRangeOne (q: Nat → Bool) (g: Nat → Nat) (v: Nat) (hv: q v = True) (uniq: (b: Nat) → q b = True → b = v):
+theorem List.sumRangeFromOne (q: Nat → Bool) (g: Nat → Nat) (v: Nat) (hv: q v = True) (uniq: (b: Nat) → q b = True → b = v):
     (c: Nat) → (s: Nat) → s ≤ v → v < s + c → List.sumBy (List.rangeFrom c s) (b => Nat.keepIf (g b) (q b)) = g v
   | Zero, s, h1, h2 => Void.exfalso (Nat.lessIrrefl v (Nat.leTrans (Succ v) s v (Nat.ltCongRight v (s + 0) s ring h2) h1))
   | Succ c, s, h1, h2 =>
@@ -350,19 +350,19 @@ theorem List.sumRangeOne (q: Nat → Bool) (g: Nat → Nat) (v: Nat) (hv: q v = 
       (hs => Eq.trans (List.sumByCons (List.rangeFrom c (Succ s)) s (b => Nat.keepIf (g b) (q b)))
         (Eq.trans (Eq.cong (t => Nat.keepIf (g s) t + List.sumBy (List.rangeFrom c (Succ s)) (b => Nat.keepIf (g b) (q b))) hs)
           (Eq.trans (Eq.cong (t => g s + t)
-              (List.sumRangeNone q g c (Succ s) (b hb1 hb2 =>
+              (List.sumRangeFromNone q g c (Succ s) (b hb1 hb2 =>
                 Bool.inspect (q b) (u => u = False)
                   (t => Void.exfalso (Nat.lessIrrefl s (Nat.leCongRight (Succ s) b s (Eq.trans (uniq b t) (Eq.sym (uniq s hs))) hb1)))
                   (f => rfl))))
             (Eq.trans (Nat.addZero (g s)) (Eq.cong g (uniq s hs))))))
       (hs => Eq.trans (List.sumByCons (List.rangeFrom c (Succ s)) s (b => Nat.keepIf (g b) (q b)))
         (Eq.trans (Eq.cong (t => Nat.keepIf (g s) t + List.sumBy (List.rangeFrom c (Succ s)) (b => Nat.keepIf (g b) (q b))) hs)
-          (List.sumRangeOne q g v hv uniq c (Succ s)
+          (List.sumRangeFromOne q g v hv uniq c (Succ s)
             (Nat.leNeSucc s v h1 (e => Bool.trueNotFalse (Eq.trans (Eq.sym hv) (Eq.trans (Eq.cong q (Eq.sym e)) hs))))
             (Nat.ltSuccAdd s c v h2))))
 
 --| A sum over a run of numbers that is 0 has every term 0.
-theorem List.sumRangeZero (f: Nat → Nat): (c: Nat) → (s: Nat) → List.sumBy (List.rangeFrom c s) f = 0 →
+theorem List.sumRangeFromZero (f: Nat → Nat): (c: Nat) → (s: Nat) → List.sumBy (List.rangeFrom c s) f = 0 →
     (x: Nat) → s ≤ x → x < s + c → f x = 0
   | Zero, s, h, x, h1, h2 => Void.exfalso (Nat.lessIrrefl x (Nat.leTrans (Succ x) s x (Nat.ltCongRight x (s + 0) s ring h2) h1))
   | Succ c, s, h, x, h1, h2 =>
@@ -370,25 +370,57 @@ theorem List.sumRangeZero (f: Nat → Nat): (c: Nat) → (s: Nat) → List.sumBy
     match e: Nat.equal s x with
       | True => rewrite <- Nat.equalSound s x e in And.left parts
       | False =>
-        List.sumRangeZero f c (Succ s) (And.right parts) x (Nat.leNeSucc s x h1 (Nat.equalFalse s x e)) (Nat.ltSuccAdd s c x h2)
+        List.sumRangeFromZero f c (Succ s) (And.right parts) x (Nat.leNeSucc s x h1 (Nat.equalFalse s x e)) (Nat.ltSuccAdd s c x h2)
 
 --| Sums over the ids of a run that pick out `y`.
-theorem List.sumRangeEq (y: Nat) (c: Nat) (s: Nat) (h1: s ≤ y) (h2: y < s + c): List.sumBy (List.rangeFrom c s) (x => Nat.keepIf x (y == x)) = y :=
-  List.sumRangeOne (x => y == x) (x => x) y (Decidable.toBoolOf (Nat.decEq y y) rfl) (b h => Eq.sym (Decidable.toBoolSound (Nat.decEq y b) h)) c s h1 h2
+theorem List.sumRangeFromEq (y: Nat) (c: Nat) (s: Nat) (h1: s ≤ y) (h2: y < s + c): List.sumBy (List.rangeFrom c s) (x => Nat.keepIf x (y == x)) = y :=
+  List.sumRangeFromOne (x => y == x) (x => x) y (Decidable.toBoolOf (Nat.decEq y y) rfl) (b h => Eq.sym (Decidable.toBoolSound (Nat.decEq y b) h)) c s h1 h2
 
-theorem List.sumRangeEqNone (y: Nat) (c: Nat) (s: Nat) (h: (x: Nat) → s ≤ x → x < s + c → y ≠ x): List.sumBy (List.rangeFrom c s) (x => Nat.keepIf x (y == x)) = 0 :=
-  List.sumRangeNone (x => y == x) (x => x) c s (b h1 h2 => Decidable.toBoolOfNot (Nat.decEq y b) (h b h1 h2))
+theorem List.sumRangeFromEqNone (y: Nat) (c: Nat) (s: Nat) (h: (x: Nat) → s ≤ x → x < s + c → y ≠ x): List.sumBy (List.rangeFrom c s) (x => Nat.keepIf x (y == x)) = 0 :=
+  List.sumRangeFromNone (x => y == x) (x => x) c s (b h1 h2 => Decidable.toBoolOfNot (Nat.decEq y b) (h b h1 h2))
 
 --| A sum over 0, 1, …, n - 1 that picks out `v`: `g v`, which must be 0
 --| when `v` is past the end.
 theorem List.sumRangePick (g: Nat → Nat) (n: Nat) (v: Nat) (hz: n ≤ v → g v = 0):
-    List.sumBy (List.range n) (x => Nat.keepIf (g x) (Nat.equal v x)) = g v :=
+    List.sumBy (List.range 0 n) (x => Nat.keepIf (g x) (Nat.equal v x)) = g v :=
   match e: Nat.leq (Succ v) n with
-    | True => List.sumRangeOne (x => Nat.equal v x) g v (Nat.equalRefl v) (b h => Eq.sym (Nat.equalSound v b h)) n 0 (Nat.zeroLe v) e
+    | True => List.sumRangeFromOne (x => Nat.equal v x) g v (Nat.equalRefl v) (b h => Eq.sym (Nat.equalSound v b h)) n 0 (Nat.zeroLe v) e
     | False =>
       rewrite hz (Nat.leqFalse (Succ v) n e) in
-        List.sumRangeNone (x => Nat.equal v x) g n 0
+        List.sumRangeFromNone (x => Nat.equal v x) g n 0
           (b h1 h2 => Nat.equalOfLess b v (Nat.leTrans (Succ b) n v h2 (Nat.leqFalse (Succ v) n e)))
+
+--| Sums over a range that pick nothing, or pick one.
+theorem List.sumRangeNone (q: Nat → Bool) (g: Nat → Nat) (from: Nat) (until: Nat) (h: (x: Nat) → from ≤ x → x < until → q x = False):
+    List.sumBy (List.range from until) (x => Nat.keepIf (g x) (q x)) = 0 :=
+  List.sumRangeFromNone q g (until - from) from (x low high => h x low (omega))
+
+theorem List.sumRangeOne (q: Nat → Bool) (g: Nat → Nat) (v: Nat) (hv: q v = True) (uniq: (x: Nat) → q x = True → x = v) (from: Nat) (until: Nat)
+    (low: from ≤ v) (high: v < until): List.sumBy (List.range from until) (x => Nat.keepIf (g x) (q x)) = g v :=
+  List.sumRangeFromOne q g v hv uniq (until - from) from low (omega)
+
+--| A sum over a range that is 0 has every term 0.
+theorem List.sumRangeZero (f: Nat → Nat) (from: Nat) (until: Nat) (h: List.sumBy (List.range from until) f = 0)
+    (x: Nat) (low: from ≤ x) (high: x < until): f x = 0 :=
+  List.sumRangeFromZero f (until - from) from h x low (omega)
+
+--| Sums over a range that pick out `y`.
+theorem List.sumRangeEq (y: Nat) (from: Nat) (until: Nat) (low: from ≤ y) (high: y < until):
+    List.sumBy (List.range from until) (x => Nat.keepIf x (y == x)) = y :=
+  List.sumRangeFromEq y (until - from) from low (omega)
+
+theorem List.sumRangeEqNone (y: Nat) (from: Nat) (until: Nat) (h: (x: Nat) → from ≤ x → x < until → y ≠ x):
+    List.sumBy (List.range from until) (x => Nat.keepIf x (y == x)) = 0 :=
+  List.sumRangeFromEqNone y (until - from) from (x low high => h x low (omega))
+
+--| The numbers of `List.rangeFrom c s` are in order.
+theorem List.sortedRangeFrom: (c: Nat) → (s: Nat) → List.Sorted Nat.leq (List.rangeFrom c s)
+  | Zero, s => Trivial
+  | Succ Zero, s => Both Trivial Trivial
+  | Succ (Succ c), s => Both (Nat.leSucc s) (List.sortedRangeFrom (Succ c) (Succ s))
+
+--| A range is in order.
+theorem List.sortedRange (from: Nat) (until: Nat): List.Sorted Nat.leq (List.range from until) := List.sortedRangeFrom (until - from) from
 
 --| `any` over a run of numbers: a witness out, a witness in.
 theorem List.anyRangeElim (q: Nat → Bool) (goal: Prop): (c: Nat) → (s: Nat) → List.any (List.rangeFrom c s) q = True →
@@ -1449,5 +1481,5 @@ theorem List.sortedDedup [auto eq: DecEq a] (le: a → a → Bool): (xs: List a)
   | [y, ..ys], s => List.sortedDedupAfter le y ys s
 
 --| A sum over the first n + 1 numbers is the first term and the sum over the rest.
-theorem List.sumByRangeSucc (f: Nat → Nat) (n: Nat): List.sumBy (List.range (Succ n)) f = f 0 + List.sumBy (List.range n) (i => f (Succ i)) :=
+theorem List.sumByRangeSucc (f: Nat → Nat) (n: Nat): List.sumBy (List.range 0 (Succ n)) f = f 0 + List.sumBy (List.range 0 n) (i => f (Succ i)) :=
   rewrite List.sumByCons (List.rangeFrom n 1) 0 f, List.sumByRangeShift f n 0 in rfl

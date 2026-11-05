@@ -109,7 +109,7 @@ test "char to digit" := List.map (Text.toList "0a9") (c => Option.map (Char.toDi
 
 --| Some position below n passes `p`: `Fin.any 5 (i => Fin.toNat i == 3)` is
 --| True. It tries 0, 1, 2 and so on and stops at the first that passes, as
---| `List.any` does along `List.range n` ([`Fin.anyRange`]). A witness is a
+--| `List.any` does along `List.range 0 n` ([`Fin.anyRange`]). A witness is a
 --| `Fin n`, so it comes with its bound ([`Fin.toNatLt`]).
 @[tailrec]
 def Fin.any: (n: Nat) → (p: Fin n → Bool) → Bool
@@ -153,8 +153,8 @@ theorem Fin.anyRangeFrom (q: Nat → Bool): (n: Nat) → (s: Nat) → Fin.any n 
     rewrite Fin.anyCong (i => q (Succ (Fin.toNat i) + s)) (i => q (Fin.toNat i + Succ s)) (i => Eq.cong q (Eq.sym (Nat.addSucc (Fin.toNat i) s))),
       Fin.anyRangeFrom q n (Succ s) in rfl
 
---| `Fin.any n` on the numbers of the positions is `List.any` along `List.range n`.
-theorem Fin.anyRange (q: Nat → Bool) (n: Nat): Fin.any n (i => q (Fin.toNat i)) = List.any (List.range n) q :=
+--| `Fin.any n` on the numbers of the positions is `List.any` along `List.range 0 n`.
+theorem Fin.anyRange (q: Nat → Bool) (n: Nat): Fin.any n (i => q (Fin.toNat i)) = List.any (List.range 0 n) q :=
   Eq.trans (Fin.anyCong (i => q (Fin.toNat i)) (i => q (Fin.toNat i + 0)) (i => Eq.cong q (Eq.sym (Nat.addZero (Fin.toNat i)))))
     (Fin.anyRangeFrom q n 0)
 
@@ -174,4 +174,4 @@ theorem Fin.anyIntroExample: Fin.any 4 (i => i == (Fin.ofNat 2: Fin 4)) = True :
 test "fin any: some position passes" := Fin.any 5 (i => Fin.toNat i == 4)
 test "fin any: none passes" := ¬(Fin.any 5 (i => Fin.toNat i == 5))
 test "fin any: no positions" := ¬(Fin.any 0 (i => True))
-test "fin any: as List.any" := Fin.any 6 (i => Fin.toNat i * Fin.toNat i == 16) == List.any (List.range 6) (x => x * x == 16)
+test "fin any: as List.any" := Fin.any 6 (i => Fin.toNat i * Fin.toNat i == 16) == List.any (List.range 0 6) (x => x * x == 16)

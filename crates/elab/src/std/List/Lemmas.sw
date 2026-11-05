@@ -110,13 +110,28 @@ theorem List.rangeFromAppend: (a: Nat) → (b: Nat) → (s: Nat) → List.rangeF
   | Succ a, b, s =>
     Eq.cong (Cons s) (Eq.trans (List.rangeFromAppend a b (Succ s)) (Eq.cong (t => List.append (List.rangeFrom a (Succ s)) (List.rangeFrom b t)) (Eq.sym (Nat.addSucc s a))))
 
---| `between` is a `rangeFrom` of the right length.
-theorem List.betweenRangeFrom (lo: Nat) (hi: Nat): List.between lo hi = List.rangeFrom (hi + 1 - lo) lo := rfl
+--| `List.range a b` has `b - a` elements: none when `b ≤ a`.
+theorem List.lengthRange (a: Nat) (b: Nat): List.length (List.range a b) = b - a := List.lengthRangeFrom (b - a) a
 
---| `List.between lo hi` has `hi + 1 - lo` elements: none when `lo > hi`, one when `lo = hi`.
-theorem List.lengthBetween (lo: Nat) (hi: Nat): List.length (List.between lo hi) = hi + 1 - lo := List.lengthRangeFrom (hi + 1 - lo) lo
+test "List.lengthRange" := List.length (List.range 3 4) == 1 ∧ List.length (List.range 5 3) == 0 ∧ List.length (List.range 2 7) == 5
 
-test "List.lengthBetween" := List.length (List.between 3 3) == 1 ∧ List.length (List.between 5 2) == 0 ∧ List.length (List.between 2 6) == 5
+--| A range whose end is not past its start is empty.
+theorem List.rangeEmpty (a: Nat) (b: Nat) (h: b ≤ a): List.range a b = [] :=
+  Eq.cong (t => List.rangeFrom t a) (omega: b - a = 0)
+
+--| A non-empty range is its first number and the range from the next one.
+theorem List.rangeCons (a: Nat) (b: Nat) (h: a < b): List.range a b = [a, ..List.range (a + 1) b] :=
+  Eq.cong (t => List.rangeFrom t a) (omega: b - a = Succ (b - (a + 1)))
+
+--| Ranges that meet end to end join into one.
+theorem List.rangeAppend (a: Nat) (b: Nat) (c: Nat) (ab: a ≤ b) (bc: b ≤ c): List.range a b ++ List.range b c = List.range a c :=
+  Eq.trans (Eq.cong (t => List.append (List.rangeFrom (b - a) a) (List.rangeFrom (c - b) t)) (Eq.sym (omega: a + (b - a) = b)))
+    (Eq.trans (Eq.sym (List.rangeFromAppend (b - a) (c - b) a)) (Eq.cong (t => List.rangeFrom t a) (omega: (b - a) + (c - b) = c - a)))
+
+--| A range that includes its end is the range before the end, then the end.
+theorem List.rangeSnoc (a: Nat) (b: Nat) (h: a ≤ b): List.range a (b + 1) = [..List.range a b, b] :=
+  Eq.trans (Eq.sym (List.rangeAppend a b (b + 1) h (omega)))
+    (Eq.cong (t => List.append (List.range a b) t) (Eq.cong (t => List.rangeFrom t b) (omega: b + 1 - b = 1)))
 
 theorem List.headExample: List.head [3, 4] = Some 3 := rfl
 
@@ -720,10 +735,15 @@ theorem List.lastMap: (xs: List a) → (f: a → b) → List.last (List.map xs f
   | [], f => rfl
   | [x], f => rfl
   | [x, y, ..ys], f => List.lastMap [y, ..ys] f
-theorem List.mapRangeShift (f: Nat → b): (n: Nat) → (s: Nat) →
+theorem List.mapRangeFromShift (f: Nat → b): (n: Nat) → (s: Nat) →
     List.map (List.rangeFrom n (Succ s)) f = List.map (List.rangeFrom n s) (i => f (Succ i))
   | Zero, s => rfl
-  | Succ n, s => rewrite List.mapRangeShift f n (Succ s)
+  | Succ n, s => rewrite List.mapRangeFromShift f n (Succ s)
+
+--| Shifting a range up by one: map over it is a map over the range below, with the argument shifted.
+theorem List.mapRangeShift (f: Nat → b) (from: Nat) (until: Nat):
+    List.map (List.range (from + 1) (until + 1)) f = List.map (List.range from until) (i => f (i + 1)) :=
+  List.mapRangeFromShift f (until - from) from
 
 --| Transposing a grid given cell by cell: row x, column y becomes row y, column x.
 theorem List.transposeNGrid (rows: List a): (cols: List b) → (cell: a → b → c) →
@@ -759,6 +779,38 @@ theorem List.reverseOntoTwice: (xs: List a) → (acc: List a) → List.reverseOn
 
 --| Reversing twice gives the list back.
 theorem List.reverseReverse (xs: List a): List.reverse (List.reverse xs) = xs := List.reverseOntoTwice xs []
+
+--| Reversing onto an accumulator keeps the elements of both.
+theorem List.memReverseOnto (x: a): (xs: List a) → (acc: List a) → x ∈ List.reverseOnto xs acc ↔ (x ∈ xs ∨ x ∈ acc)
+  | [], acc => {
+    forward = m => Inr m,
+    backward = h =>
+      match h with
+        | Inl m => Void.exfalso m
+        | Inr m => m
+  }
+  | [y, ..ys], acc => {
+    forward = m =>
+      match (List.memReverseOnto x ys [y, ..acc]).forward m with
+        | Inl i => Inl (Inr i)
+        | Inr (Inl e) => Inl (Inl e)
+        | Inr (Inr i) => Inr i,
+    backward = h =>
+      (List.memReverseOnto x ys [y, ..acc]).backward (
+        match h with
+          | Inl (Inl e) => Inr (Inl e)
+          | Inl (Inr i) => Inl i
+          | Inr i => Inr (Inr i))
+  }
+
+--| A list and its reverse have the same elements.
+theorem List.memReverse (x: a) (xs: List a): x ∈ xs.reverse ↔ x ∈ xs := {
+  forward = m =>
+    match (List.memReverseOnto x xs []).forward m with
+      | Inl i => i
+      | Inr n => Void.exfalso n,
+  backward = m => (List.memReverseOnto x xs []).backward (Inl m)
+}
 
 --| Reversing onto `acc` is reversing, then appending `acc`.
 theorem List.reverseOntoAppend: (xs: List a) → (acc: List a) → List.reverseOnto xs acc = List.append (List.reverseOnto xs []) acc
@@ -1000,28 +1052,6 @@ theorem List.filterAllExample (xs: List Nat): List.filter (List.map xs Succ) (n 
   List.filterAll (n => Nat.leq 1 n) (List.map xs Succ) (n m =>
     List.anyElim (x => Succ x = n) (Nat.leq 1 n = True) xs (List.memMapAny xs Succ n m) (x inXs e => rewrite <- e in rfl))
 
---| `List.between lo hi` holds the numbers from `lo` to `hi`, both included.
---| The numbers are implicit, for use on a `List.Member`'s `isIn`.
-theorem List.memBetween [x lo hi: Nat] (h: x ∈ List.between lo hi): (lo ≤ x) ∧ (x ≤ hi) :=
-  match List.memRangeFrom x (hi + 1 - lo) lo h with
-    | Both above below => Both above (Nat.ltCongRight x (hi + 1) (Succ hi) (Nat.addOne hi) (Nat.ltOfRunSub lo x (hi + 1) above below))
-
---| Every number from `s` up to, not including, `s + c` is in
---| the run `List.rangeFrom c s`.
-theorem List.memRangeFromIntro (x: Nat): (c: Nat) → (s: Nat) → s ≤ x → x < s + c → x ∈ List.rangeFrom c s
-  | Zero, s, lo, hi => Void.exfalso (Nat.lessIrrefl x (Nat.leTrans (Succ x) s x (Nat.ltCongRight x (s + 0) s (Nat.addZero s) hi) lo))
-  | Succ c, s, lo, hi =>
-    match e: Nat.leq (Succ s) x with
-      | True => Inr (List.memRangeFromIntro x c (Succ s) e (Nat.ltSuccAdd s c x hi))
-      | False => Inl (Nat.leAntisym s x lo (Nat.leqFalse (Succ s) x e))
-
---| Every number from `lo` to `hi`, both included, is in `List.between lo hi`.
-theorem List.memBetweenIntro (x: Nat) (lo: Nat) (hi: Nat) (above: lo ≤ x) (below: x ≤ hi): x ∈ List.between lo hi :=
-  List.memRangeFromIntro x (hi + 1 - lo) lo above
-    (Nat.ltCongRight x (hi + 1) (lo + (hi + 1 - lo))
-      (Eq.sym (Nat.addSubCancel lo (hi + 1) (Nat.leTrans lo x (hi + 1) above (Nat.leTrans x hi (hi + 1) below (Nat.leCongRight hi (Succ hi) (hi + 1) (Eq.sym (Nat.addOne hi)) (Nat.leSucc hi))))))
-      (Nat.ltCongRight x (Succ hi) (hi + 1) (Eq.sym (Nat.addOne hi)) (Nat.leLessSucc x hi below)))
-
 --| A list's `flatMap`: an element of `f x` for an `x` of the list is in it.
 theorem List.memFlatMapIntro (f: a → List b) (x: a) (y: b): (xs: List a) → x ∈ xs → y ∈ f x → y ∈ List.flatMap xs f
   | [], h, m => Void.exfalso h
@@ -1095,7 +1125,8 @@ theorem List.distinctRangeFrom: (c: Nat) → (s: Nat) → List.Distinct (List.ra
         | Both above _ => Nat.lessIrrefl s above)
       (List.distinctRangeFrom c (Succ s))
 
-theorem List.distinctBetween (lo: Nat) (hi: Nat): List.Distinct (List.between lo hi) := List.distinctRangeFrom (hi + 1 - lo) lo
+--| A range has no repeats.
+theorem List.distinctRange (a: Nat) (b: Nat): List.Distinct (List.range a b) := List.distinctRangeFrom (b - a) a
 
 --| Every element of the list passes, given that each element that is in it does.
 theorem List.allOfMem (p: a → Prop): (xs: List a) → ((x: a) → x ∈ xs → p x) → List.All p xs
@@ -1139,7 +1170,7 @@ theorem List.distinctMapConsExample: List.Distinct (List.append (List.map [[]] (
     (List.distinctMap [[]] (Both (m => m) Trivial) (Cons 1) (List.consInjective 1))
     (List.disjointMapCons [[]] 0 1 (p => Nat.succNotZero 0 (Eq.sym p)) [[]])
 
-theorem List.memBetweenIntroExample: 3 ∈ List.between 1 5 := List.memBetweenIntro 3 1 5 rfl rfl
+theorem List.memRangeExample: 3 ∈ List.range 1 6 := (List.memRange 3 1 6).backward (Both rfl rfl)
 
 theorem List.memFlatMapExample: 20 ∈ List.flatMap [1, 2] (x => [x, x * 10]) :=
   List.memFlatMapIntro (x => [x, x * 10]) 2 20 [1, 2] (Inr (Inl rfl)) (Inr (Inl rfl))
@@ -1227,22 +1258,22 @@ theorem List.findRangeFirst (passes: Nat → Bool): (count: Nat) → (start: Nat
             List.findRangeFirst passes count (Succ start) found h earlier later high
 
 --| What is found passes, is in the range, and no smaller number passes.
-theorem List.findRangeSome (passes: Nat → Bool) (count: Nat) (found: Nat) (h: (List.range count).find passes = Some found):
+theorem List.findRangeSome (passes: Nat → Bool) (count: Nat) (found: Nat) (h: (List.range 0 count).find passes = Some found):
     (passes found = True) ∧ ((found < count) ∧ ((earlier: Nat) → earlier < found → passes earlier = False)) :=
-  match List.findSome (List.range count) passes found h with
+  match List.findSome (List.range 0 count) passes found h with
     | Both foundPasses member =>
       Both foundPasses
         (Both (And.right (List.memRangeFrom found count 0 member))
           (earlier before => List.findRangeFirst passes count 0 found h earlier (Nat.zeroLe earlier) before))
 
 --| Finding nothing means no number in the range passes.
-theorem List.findRangeNone (passes: Nat → Bool) (count: Nat) (h: (List.range count).find passes = None) (n: Nat) (below: n < count):
+theorem List.findRangeNone (passes: Nat → Bool) (count: Nat) (h: (List.range 0 count).find passes = None) (n: Nat) (below: n < count):
     passes n = False :=
   match c: passes n with
-    | True => Void.exfalso (List.findNoneNotMem (List.range count) passes n c (List.memRangeFromIntro n count 0 (Nat.zeroLe n) below) h)
+    | True => Void.exfalso (List.findNoneNotMem (List.range 0 count) passes n c (List.memRangeFromIntro n count 0 (Nat.zeroLe n) below) h)
     | False => rfl
 
-test "List.findRangeSome" := List.range 10 |> .find (n => n * n > 20) == Some 5
+test "List.findRangeSome" := List.range 0 10 |> .find (n => n * n > 20) == Some 5
 
 -- `List.minimum`: the least of a list that holds `least` and nothing else
 -- is `least`, an empty list has none, and what it finds is in the list and
@@ -2292,13 +2323,13 @@ theorem List.transposeNColumnsFrom (rows: List (List a)): (k: Nat) → (p: Nat) 
 
 --| `transposeN k` gives column i, for each i below k, as element i of every row that has one.
 theorem List.transposeNColumns (rows: List (List a)) (k: Nat):
-    List.transposeN k rows = List.map (List.range k) (i => List.filterMap rows (row => List.get row i)) :=
+    List.transposeN k rows = List.map (List.range 0 k) (i => List.filterMap rows (row => List.get row i)) :=
   Eq.trans (Eq.cong (rows => List.transposeN k rows) (Eq.sym (List.mapId rows))) (List.transposeNColumnsFrom rows k 0)
 
 --| Column i of `List.transpose` holds element i of every row that has one,
 --| for each i below the first row's length.
 theorem List.transposeColumns (rows: List (List a)):
-    List.transpose rows = List.map (List.range (List.length (List.headOr rows []))) (i => List.filterMap rows (row => List.get row i)) :=
+    List.transpose rows = List.map (List.range 0 (List.length (List.headOr rows []))) (i => List.filterMap rows (row => List.get row i)) :=
   List.transposeNColumns rows (List.length (List.headOr rows []))
 
 --| Entry k of the running accumulations is the fold of the first k

@@ -126,13 +126,13 @@ theorem List.getOrPast: (xs: List a) → (i: Nat) → (d: a) → List.length xs 
   | [x, ..xs], Succ i, d, h => List.getOrPast xs i d h
 
 --| A list is its elements read off by index.
-theorem List.mapGetOr: (xs: List a) → (d: a) → List.map (List.range (List.length xs)) (i => List.getOr xs i d) = xs
+theorem List.mapGetOr: (xs: List a) → (d: a) → List.map (List.range 0 (List.length xs)) (i => List.getOr xs i d) = xs
   | [], d => rfl
   | [x, ..xs], d =>
     calc List.map (List.rangeFrom (Succ (List.length xs)) 0) (i => List.getOr [x, ..xs] i d)
       _ = [x, ..List.map (List.rangeFrom (List.length xs) 1) (i => List.getOr [x, ..xs] i d)]
       _ = [x, ..List.map (List.rangeFrom (List.length xs) 0) (i => List.getOr xs i d)]
-        := rewrite List.mapRangeShift (i => List.getOr [x, ..xs] i d) (List.length xs) 0
+        := rewrite List.mapRangeFromShift (i => List.getOr [x, ..xs] i d) (List.length xs) 0
       _ = [x, ..xs] := rewrite List.mapGetOr xs d
 
 --| `headOr` is index 0; `getOr` of a `map` and of a `zipWith3`; a sum over a
@@ -167,26 +167,26 @@ theorem List.getOrMapRange (f: Nat → b) (d: b): (n: Nat) → (s: Nat) → (i: 
 
 theorem List.getOrMapRangeExample: List.getOr (List.map (List.rangeFrom 4 3) (i => i * i)) 2 0 = 25 := rfl
 
-theorem List.sumByGetOr (xs: List a) (d: a) (f: a → Nat): List.sumBy xs f = List.sumBy (List.range (List.length xs)) (i => f (List.getOr xs i d)) :=
+theorem List.sumByGetOr (xs: List a) (d: a) (f: a → Nat): List.sumBy xs f = List.sumBy (List.range 0 (List.length xs)) (i => f (List.getOr xs i d)) :=
   calc List.sumBy xs f
-    _ = List.sumBy (List.map (List.range (List.length xs)) (i => List.getOr xs i d)) f := rewrite List.mapGetOr xs d
-    _ = List.sumBy (List.range (List.length xs)) (i => f (List.getOr xs i d)) := List.sumByMap (List.range (List.length xs)) f (i => List.getOr xs i d)
+    _ = List.sumBy (List.map (List.range 0 (List.length xs)) (i => List.getOr xs i d)) f := rewrite List.mapGetOr xs d
+    _ = List.sumBy (List.range 0 (List.length xs)) (i => f (List.getOr xs i d)) := List.sumByMap (List.range 0 (List.length xs)) f (i => List.getOr xs i d)
 
 --| `withIndexFrom s xs` is each index of `xs`, plus `s`, with its element.
 theorem List.withIndexFromRange: (xs: List a) → (d: a) → (s: Nat) →
-    List.withIndexFrom s xs = List.map (List.range (List.length xs)) (i => MkPair (s + i) (List.getOr xs i d))
+    List.withIndexFrom s xs = List.map (List.range 0 (List.length xs)) (i => MkPair (s + i) (List.getOr xs i d))
   | [], d, s => rfl
   | [x, ..xs], d, s =>
     rewrite Nat.addZero s, List.withIndexFromRange xs d (Succ s),
-      List.mapRangeShift (i => MkPair (s + i) (List.getOr [x, ..xs] i d)) (List.length xs) 0 in
+      List.mapRangeFromShift (i => MkPair (s + i) (List.getOr [x, ..xs] i d)) (List.length xs) 0 in
       Eq.cong (Cons (MkPair s x))
-        (List.mapCong (List.range (List.length xs)) (i => MkPair (Succ s + i) (List.getOr xs i d))
+        (List.mapCong (List.range 0 (List.length xs)) (i => MkPair (Succ s + i) (List.getOr xs i d))
           (i => MkPair (s + Succ i) (List.getOr [x, ..xs] (Succ i) d)) (i => rewrite Nat.addSucc s i))
 
-theorem List.withIndexRange (xs: List a) (d: a): List.withIndex xs = List.map (List.range (List.length xs)) (i => MkPair i (List.getOr xs i d)) :=
+theorem List.withIndexRange (xs: List a) (d: a): List.withIndex xs = List.map (List.range 0 (List.length xs)) (i => MkPair i (List.getOr xs i d)) :=
   List.withIndexFromRange xs d 0
 
-test "List.withIndexRange" := ["a", "b"].withIndex == List.map (List.range 2) (i => MkPair i (List.getOr ["a", "b"] i ""))
+test "List.withIndexRange" := ["a", "b"].withIndex == List.map (List.range 0 2) (i => MkPair i (List.getOr ["a", "b"] i ""))
 
 --| The position of the first `x` in the list, counting from 0, or the list's
 --| length if `x` isn't in it: `[5, 7, 5].indexOf 5` is 0, `.indexOf 9` is 3.
@@ -263,42 +263,42 @@ theorem List.getOrZipWithScanLeftExample:
 -- sums over indices ------------------------------------------------------------
 
 --| A sum whose terms are all 0.
-theorem List.sumByRangeZero (f: Nat → Nat) (n: Nat) (zero: (j: Nat) → f j = 0): List.sumBy (List.range n) f = 0 :=
-  List.sumByZeroIntro (List.range n) f (j _ => zero j)
+theorem List.sumByRangeZero (f: Nat → Nat) (n: Nat) (zero: (j: Nat) → f j = 0): List.sumBy (List.range 0 n) f = 0 :=
+  List.sumByZeroIntro (List.range 0 n) f (j _ => zero j)
 
 --| A sum over a list is a sum over its indices, up to any bound at least its
 --| length, with 0 past the end.
 theorem List.sumByGet (g: a → Nat): (xs: List a) → (n: Nat) → List.length xs ≤ n →
-    List.sumBy xs g = List.sumBy (List.range n) (j => Option.getOrElse (Option.map (List.get xs j) g) 0)
+    List.sumBy xs g = List.sumBy (List.range 0 n) (j => Option.getOrElse (Option.map (List.get xs j) g) 0)
   | [], n, h => Eq.sym (List.sumByRangeZero _ n (j => rfl))
   | [x, ..xs], Zero, h => Void.exfalso (Bool.falseNotTrue h)
   | [x, ..xs], Succ n, h =>
     let each := (j: Nat) => Option.getOrElse (Option.map (List.get [x, ..xs] j) g) 0
     calc List.sumBy [x, ..xs] g
       _ = g x + List.sumBy xs g := List.sumByCons xs x g
-      _ = each 0 + List.sumBy (List.range n) (j => each (Succ j)) := rewrite List.sumByGet g xs n h
-      _ = List.sumBy (List.range (Succ n)) each := Eq.sym (List.sumByRangeSucc each n)
+      _ = each 0 + List.sumBy (List.range 0 n) (j => each (Succ j)) := rewrite List.sumByGet g xs n h
+      _ = List.sumBy (List.range 0 (Succ n)) each := Eq.sym (List.sumByRangeSucc each n)
 
 --| A sum over lists zipped in step is a sum over the indices, up to any bound
 --| at least as long as the first list, with 0 where an element is missing.
 theorem List.sumByZipWith (g: c → Nat) (f: a → b → c) (xs: List a) (ys: List b) (n: Nat) (h: List.length xs ≤ n):
-    List.sumBy (List.zipWith xs ys f) g = List.sumBy (List.range n) (j => Option.getOrElse (Option.map2 (x y => g (f x y)) (List.get xs j) (List.get ys j)) 0) :=
+    List.sumBy (List.zipWith xs ys f) g = List.sumBy (List.range 0 n) (j => Option.getOrElse (Option.map2 (x y => g (f x y)) (List.get xs j) (List.get ys j)) 0) :=
   Eq.trans (List.sumByGet g (List.zipWith xs ys f) n (Nat.leTrans _ _ n (List.lengthZipWithLe f xs ys) h))
-    (List.sumByCong (List.range n) _ _ (j =>
+    (List.sumByCong (List.range 0 n) _ _ (j =>
       rewrite List.getZipWith f xs ys j, <- Option.map2FlatMap f (List.get ys j) (List.get xs j), Option.mapMap2 f g (List.get xs j) (List.get ys j) in rfl))
 
 theorem List.sumByZipWith3 (g: d → Nat) (f: a → b → c → d) (xs: List a) (ys: List b) (zs: List c) (n: Nat) (h: List.length xs ≤ n):
     List.sumBy (List.zipWith3 xs ys zs f) g
-      = List.sumBy (List.range n) (j => Option.getOrElse (Option.map3 (x y z => g (f x y z)) (List.get xs j) (List.get ys j) (List.get zs j)) 0) :=
+      = List.sumBy (List.range 0 n) (j => Option.getOrElse (Option.map3 (x y z => g (f x y z)) (List.get xs j) (List.get ys j) (List.get zs j)) 0) :=
   Eq.trans (List.sumByGet g (List.zipWith3 xs ys zs f) n (Nat.leTrans _ _ n (List.lengthZipWith3Le f xs ys zs) h))
-    (List.sumByCong (List.range n) _ _ (j =>
+    (List.sumByCong (List.range 0 n) _ _ (j =>
       rewrite List.getZipWith3 f xs ys zs j, Option.mapMap3 f g (List.get xs j) (List.get ys j) (List.get zs j) in rfl))
 
 theorem List.sumByZipWith4 (g: e → Nat) (f: a → b → c → d → e) (xs: List a) (ys: List b) (zs: List c) (ws: List d) (n: Nat) (h: List.length xs ≤ n):
     List.sumBy (List.zipWith4 xs ys zs ws f) g
-      = List.sumBy (List.range n) (j => Option.getOrElse (Option.map4 (x y z w => g (f x y z w)) (List.get xs j) (List.get ys j) (List.get zs j) (List.get ws j)) 0) :=
+      = List.sumBy (List.range 0 n) (j => Option.getOrElse (Option.map4 (x y z w => g (f x y z w)) (List.get xs j) (List.get ys j) (List.get zs j) (List.get ws j)) 0) :=
   Eq.trans (List.sumByGet g (List.zipWith4 xs ys zs ws f) n (Nat.leTrans _ _ n (List.lengthZipWith4Le f xs ys zs ws) h))
-    (List.sumByCong (List.range n) _ _ (j =>
+    (List.sumByCong (List.range 0 n) _ _ (j =>
       rewrite List.getZipWith4 f xs ys zs ws j, Option.mapMap4 f g (List.get xs j) (List.get ys j) (List.get zs j) (List.get ws j) in rfl))
 
 theorem List.sumByZipWithExample: List.sumBy (List.zipWith [1, 2, 3] [10, 20] Nat.add) (x => x) = 33 :=
@@ -307,20 +307,20 @@ theorem List.sumByZipWithExample: List.sumBy (List.zipWith [1, 2, 3] [10, 20] Na
 --| A sum over a range is the same over a longer one when the terms past the
 --| shorter are 0.
 theorem List.sumByRangeExtend (f: Nat → Nat) (n: Nat) (m: Nat) (le: n ≤ m) (zero: (j: Nat) → n ≤ j → f j = 0):
-    List.sumBy (List.range m) f = List.sumBy (List.range n) f :=
+    List.sumBy (List.range 0 m) f = List.sumBy (List.range 0 n) f :=
   let rest := List.sumByZeroIntro (List.rangeFrom (m - n) n) f (j mem => zero j (List.memRangeFrom j (m - n) n mem).left)
-  calc List.sumBy (List.range m) f
-    _ = List.sumBy (List.range n) f + List.sumBy (List.rangeFrom (m - n) n) f := List.sumByRangeSplit f n m le
-    _ = List.sumBy (List.range n) f := rewrite rest in omega
+  calc List.sumBy (List.range 0 m) f
+    _ = List.sumBy (List.range 0 n) f + List.sumBy (List.rangeFrom (m - n) n) f := List.sumByRangeSplit f n m le
+    _ = List.sumBy (List.range 0 n) f := rewrite rest in omega
 
 --| A sum over n + k indices whose first k terms are 0 is the sum of the rest,
 --| counted from 0.
 theorem List.sumByRangeSkipZeros (k: Nat) (f: Nat → Nat) (g: Nat → Nat) (n: Nat) (early: (i: Nat) → i < k → f i = 0) (later: (i: Nat) → f (k + i) = g i):
-    List.sumBy (List.range (n + k)) f = List.sumBy (List.range n) g :=
-  let first := List.sumByZeroIntro (List.range k) f (i mem => early i (List.memRangeFrom i k 0 mem).right)
+    List.sumBy (List.range 0 (n + k)) f = List.sumBy (List.range 0 n) g :=
+  let first := List.sumByZeroIntro (List.range 0 k) f (i mem => early i (List.memRangeFrom i k 0 mem).right)
   let back: n + k - k = n := omega
-  calc List.sumBy (List.range (n + k)) f
-    _ = List.sumBy (List.range k) f + List.sumBy (List.rangeFrom (n + k - k) k) f := List.sumByRangeSplit f k (n + k) omega
+  calc List.sumBy (List.range 0 (n + k)) f
+    _ = List.sumBy (List.range 0 k) f + List.sumBy (List.rangeFrom (n + k - k) k) f := List.sumByRangeSplit f k (n + k) omega
     _ = List.sumBy (List.rangeFrom n k) f := rewrite first, back in rfl
-    _ = List.sumBy (List.range n) (i => f (k + i)) := List.sumByRangeOffset f k n
-    _ = List.sumBy (List.range n) g := rewrite later _
+    _ = List.sumBy (List.range 0 n) (i => f (k + i)) := List.sumByRangeOffset f k n
+    _ = List.sumBy (List.range 0 n) g := rewrite later _

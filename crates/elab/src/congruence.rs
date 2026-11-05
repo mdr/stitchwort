@@ -10,8 +10,8 @@
 //! the variables (stage 1b): `FCongRange` and `FCongMem`, beside `F` like
 //! `FCong`, whose premise is `(x…) -> facts… -> f1 x… = f2 x…` and whose
 //! other parameters may be anything the call's arguments determine
-//! (`List.foldLeftCongRange` is about `List.foldLeft f z (List.rangeFrom c
-//! s)`, with the facts `s <= x` and `x < s + c`). They are tried before
+//! (`List.foldLeftCongRange` is about `List.foldLeft f z (List.range from
+//! until)`, with the facts `from <= x` and `x < until`). They are tried before
 //! `FCong`, most specific first ([`candidates`]), each by unifying its left
 //! side with the call.
 

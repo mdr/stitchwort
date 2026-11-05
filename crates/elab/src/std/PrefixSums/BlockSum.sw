@@ -7,7 +7,7 @@
 --| the first r rows of sums.
 theorem PrefixSums.tableAt (c: Nat): (above: List Nat) → (sums: List (List Nat)) → c < List.length above →
     ((i: Nat) → i < List.length sums → c < List.length (List.getOr sums i [])) → (r: Nat) → r ≤ List.length sums →
-    List.getOr (List.getOr (PrefixSums.table above sums) r []) c 0 = List.getOr above c 0 + List.sumBy (List.range r) (i => List.getOr (List.getOr sums i []) c 0)
+    List.getOr (List.getOr (PrefixSums.table above sums) r []) c 0 = List.getOr above c 0 + List.sumBy (List.range 0 r) (i => List.getOr (List.getOr sums i []) c 0)
   | above, [], ha, hs, Zero, hr => Eq.sym (Nat.addZero (List.getOr above c 0))
   | above, [], ha, hs, Succ r, hr => Void.exfalso (Bool.falseNotTrue hr)
   | above, [row, ..rest], ha, hs, Zero, hr => Eq.sym (Nat.addZero (List.getOr above c 0))
@@ -42,18 +42,18 @@ theorem PrefixSums.atOf (rows: List (List Nat)) (r: Nat) (c: Nat) (hr: r ≤ Lis
       List.getOr (List.getOr sums i []) c 0 = List.sumBy (List.rangeFrom (c - 0) 0) (j => PrefixSums.cell rows i j) :=
     i lo hi =>
       rewrite sumsAt i (omega), List.getOrScanAdd (List.padRight (List.getOr rows i []) width 0) 0 c (rewrite paddedLength i in hc)
-        in List.sumByCong (List.range c) (j => List.getOr (List.padRight (List.getOr rows i []) width 0) j 0) (j => PrefixSums.cell rows i j)
+        in List.sumByCong (List.range 0 c) (j => List.getOr (List.padRight (List.getOr rows i []) width 0) j 0) (j => PrefixSums.cell rows i j)
           (j => List.getOrPadRight (List.getOr rows i []) 0 width j)
   calc PrefixSums.at (PrefixSums.of rows) r c
     _ = Map.getOr (Map.getOr (Map.byPosition (List.map table Map.byPosition)) r Map.empty) c 0 := rfl
     _ = Map.getOr (List.getOr (List.map table Map.byPosition) r Map.empty) c 0 := rewrite Map.getOrByPosition (List.map table Map.byPosition) r Map.empty
     _ = Map.getOr (Map.byPosition (List.getOr table r [])) c 0 := rewrite List.getOrMap table r [] Map.byPosition
     _ = List.getOr (List.getOr table r []) c 0 := Map.getOrByPosition (List.getOr table r []) c 0
-    _ = List.getOr top c 0 + List.sumBy (List.range r) (i => List.getOr (List.getOr sums i []) c 0) :=
+    _ = List.getOr top c 0 + List.sumBy (List.range 0 r) (i => List.getOr (List.getOr sums i []) c 0) :=
       PrefixSums.tableAt c top sums topLength sumsLength r (rewrite List.lengthMap rows (row => PrefixSums.runningSums (List.padRight row width 0)) in hr)
-    _ = List.sumBy (List.range r) (i => List.getOr (List.getOr sums i []) c 0) := rewrite List.getOrReplicate 0 c (Succ width) in rfl
+    _ = List.sumBy (List.range 0 r) (i => List.getOr (List.getOr sums i []) c 0) := rewrite List.getOrReplicate 0 c (Succ width) in rfl
     _ = PrefixSums.blockSpec rows 0 r 0 c :=
-      List.sumByCongRange (i => List.getOr (List.getOr sums i []) c 0) (i => List.sumBy (List.rangeFrom (c - 0) 0) (j => PrefixSums.cell rows i j)) r 0 rowSum
+      List.sumByCongRange (i => List.getOr (List.getOr sums i []) c 0) (i => List.sumBy (List.rangeFrom (c - 0) 0) (j => PrefixSums.cell rows i j)) 0 r rowSum
 
 --| The block from four entries of the table is the sum of its cells.
 theorem PrefixSums.blockSum (rows: List (List Nat)) (top: Nat) (bottom: Nat) (left: Nat) (right: Nat)
