@@ -191,6 +191,20 @@ def Map.groupBy [auto ord: Ord k] (xs: List a) (key: a → k): Map k (NonEmptyLi
 --| list order and never empty ([`Map.groupBy`], [`Map.getGroupBy`]).
 def List.groupBy [auto ord: Ord k] (xs: List a) (key: a → k): Map k (NonEmptyList a) := Map.groupBy xs key
 
+--| The values of the elements under their keys, each group in list order and
+--| never empty: `[("a", 1), ("b", 2), ("a", 3)].groupMap Pair.fst Pair.snd` is
+--| `Map.fromList [("a", [1, 3]), ("b", [2])]`, so it inverts a relation. The
+--| empty list gives `Map.empty`; each insert is O(log n), so O(n log n) for
+--| `n` elements ([`Map.groupBy`], [`Map.getGroupMap`]).
+def Map.groupMap [auto ord: Ord k] (xs: List a) (key: a → k) (value: a → v): Map k (NonEmptyList v) :=
+  List.foldRight xs Map.empty (x m => Map.insertWith m (key x) (NonEmptyList.singleton (value x)) NonEmptyList.append)
+
+--| `Map.groupMap` with the list first, so `[("a", 1), ("b", 2)].groupMap
+--| Pair.fst Pair.snd` reads as a method: each key with the values of the
+--| elements having it, in list order and never empty ([`Map.groupMap`],
+--| [`Map.getGroupMap`]).
+def List.groupMap [auto ord: Ord k] (xs: List a) (key: a → k) (value: a → v): Map k (NonEmptyList v) := Map.groupMap xs key value
+
 --| Each element under its key, the first where elements share a key ([`Map.getIndexBy`]).
 --| `Map.indexBy ["ab", "c", "de"] Text.length` is `Map.fromList [(1, "c"), (2, "ab")]`.
 --| A left fold (a loop), where the older value wins.
@@ -883,6 +897,28 @@ theorem Map.getGroupBy [auto ord: Ord k] (key: a → k) (kk: k): (xs: List a) �
           (Map.Spec.notEqualOfCompare kk (key x) (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) z))) NonEmptyList.append in
         Map.getGroupBy key kk rest
 
+--| `groupMap`: the values of the elements whose key is `kk`, in list order, if
+--| there are any ([`Map.groupMap`], [`Map.groupBy`]).
+theorem Map.getGroupMap [auto ord: Ord k] (key: a → k) (value: a → v) (kk: k): (xs: List a) →
+    Map.get (Map.groupMap xs key value) kk = List.nonEmpty (List.map (List.filter xs (x => Map.Spec.sameKey kk (key x))) value)
+  | [] => rfl
+  | [x, ..rest] =>
+    rewrite List.foldRightCons rest x Map.empty (x m => Map.insertWith m (key x) (NonEmptyList.singleton (value x)) NonEmptyList.append) in
+    match e: Ord.compare kk (key x) with
+      | Equal =>
+        rewrite ord.equal kk (key x) e, Map.getInsertWith (Map.groupMap rest key value) (key x) (NonEmptyList.singleton (value x)) NonEmptyList.append, Map.getGroupMap key value (key x) rest in
+        match c: List.filter rest (y => Map.Spec.sameKey (key x) (key y)) with
+          | [] => rfl
+          | [y, ..ys] => rfl
+      | Less =>
+        rewrite Map.getInsertWithOther (Map.groupMap rest key value) (key x) (NonEmptyList.singleton (value x)) kk
+          (Map.Spec.notEqualOfCompare kk (key x) (z => Ordering.lessNotEqual (Eq.trans (Eq.sym e) z))) NonEmptyList.append in
+        Map.getGroupMap key value kk rest
+      | Greater =>
+        rewrite Map.getInsertWithOther (Map.groupMap rest key value) (key x) (NonEmptyList.singleton (value x)) kk
+          (Map.Spec.notEqualOfCompare kk (key x) (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) z))) NonEmptyList.append in
+        Map.getGroupMap key value kk rest
+
 theorem Map.orElseNone: (o: Option a) → Option.orElse o None = o
   | None => rfl
   | Some x => rfl
@@ -1146,6 +1182,11 @@ test "map: groupBy keeps list order" :=
   Map.toList (Map.groupBy [1, 2, 3, 4, 5, 6] (n => n % 3)) |> .map (entry => (entry.fst, entry.snd.toList)) == [(0, [3, 6]), (1, [1, 4]), (2, [2, 5])]
 test "map: List.groupBy" :=
   Map.toList ([1, 2, 3, 4, 5, 6].groupBy (n => n % 3)) |> .map (entry => (entry.fst, entry.snd.toList)) == [(0, [3, 6]), (1, [1, 4]), (2, [2, 5])]
+test "map: groupMap keeps list order" :=
+  Map.toList (Map.groupMap [(1, "a"), (2, "b"), (1, "c"), (3, "d")] Pair.fst Pair.snd) |> .map (entry => (entry.fst, entry.snd.toList)) == [(1, ["a", "c"]), (2, ["b"]), (3, ["d"])]
+test "map: List.groupMap" :=
+  Map.toList ([(1, "a"), (2, "b"), (1, "c")].groupMap Pair.fst Pair.snd) |> .map (entry => (entry.fst, entry.snd.toList)) == [(1, ["a", "c"]), (2, ["b"])]
+test "map: groupMap empty" := Map.isEmpty (Map.groupMap ([]: List (Nat, Text)) Pair.fst Pair.snd)
 test "map: indexBy keeps the first" := Map.toList (Map.indexBy ["ab", "c", "de", "f"] Text.length) == [(1, "c"), (2, "ab")]
 test "map: indexBy empty" := Map.toList (Map.indexBy [] Text.length) == []
 test "map: counts" := Map.toList (Map.counts ['b', 'a', 'b']) == [('a', 1), ('b', 2)]
