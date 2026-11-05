@@ -8,7 +8,7 @@ import Aoc.Year2020.Day07 (..)
 import Aoc.Year2020.Day07 (Spec)
 import Std (Eq, Exists, Fail, List, Map, Nat, Option, Result, Void)
 
-theorem contentsAgree (rules: List Rule) (colour: Colour): contentsIn (Map.groupBy rules .colour) colour = Spec.contentsOf rules colour :=
+theorem contentsAgree (rules: List Rule) (colour: Colour): ({ all = rules }: Rules).book.contentsOf colour = Spec.contentsOf rules colour :=
   rewrite Map.getGroupBy Rule.colour colour rules,
     List.filterCongMem rules (rule => Map.Spec.sameKey colour rule.colour) (rule => rule.colour == colour)
       (rule member => Map.Spec.sameKeyDecide colour rule.colour) in
@@ -16,12 +16,12 @@ theorem contentsAgree (rules: List Rule) (colour: Colour): contentsIn (Map.group
       | [] => rfl
       | [first, ..rest] => rfl
 
-theorem bagsAgree (rules: List Rule): (depth: Nat) → (colour: Colour) → bagsInside (Map.groupBy rules .colour) depth colour = Spec.bagsWithin rules depth colour
+theorem bagsAgree (rules: List Rule): (depth: Nat) → (colour: Colour) → ({ all = rules }: Rules).book.bagsToDepth depth colour = Spec.bagsWithin rules depth colour
   | 0, colour => rfl
   | Succ depth, colour =>
     rewrite contentsAgree rules colour,
       List.mapCong (Spec.contentsOf rules colour)
-        (content => bagsInside (Map.groupBy rules .colour) depth content.colour |> .map (inside => content.count * (1 + inside)))
+        (content => ({ all = rules }: Rules).book.bagsToDepth depth content.colour |> .map (inside => content.count * (1 + inside)))
         (content => Spec.bagsWithin rules depth content.colour |> .map (inside => content.count * (1 + inside)))
         (content => rewrite bagsAgree rules depth content.colour in rfl) in
       rfl
@@ -29,7 +29,7 @@ theorem bagsAgree (rules: List Rule): (depth: Nat) → (colour: Colour) → bags
 --| When part 2 gives an answer, the rules settle the total at some depth,
 --| and it is theirs.
 theorem part2Rules (rules: Rules) (total: Nat) (solved: Fail.toResult (() => solvePart2 rules) = Ok total): Spec.Part2 rules.all total :=
-  match e: bagsInside rules.byColour (rules.all.length + 1) shinyGold with
+  match e: rules.book.bagsToDepth (rules.all.length + 1) shinyGold with
     | Some found => Witness (rules.all.length + 1) (rewrite <- bagsAgree rules.all (rules.all.length + 1) shinyGold, e, Result.okInjective solved in rfl)
     | None => Void.exfalso (Result.errNotOk solved)
 

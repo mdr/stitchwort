@@ -65,21 +65,26 @@ def rule(): {Parse} Rule :=
 
 def parseRules (input: Text): {Fail} Rules := { all = Parse.eachLine input rule }
 
---| Each colour a rule lists, with the rule's own colour: (inside, holder).
-def Rule.insides (rule: Rule): List (Colour, Colour) := rule.contents.map (content => (content.colour, rule.colour))
+--| A rule lists `inside` among the contents of `holder`.
+type Holding = { inside: Colour, holder: Colour }
 
---| Each colour, with the colours whose rules list it.
-def holdersIndex (rules: List Rule): Map Colour (NonEmptyList (Colour, Colour)) := rules.flatMap .insides |> .groupBy Pair.fst
+def Rule.holdings (rule: Rule): List Holding := rule.contents.map (content => { inside = content.colour, holder = rule.colour })
 
-def holdersIn (index: Map Colour (NonEmptyList (Colour, Colour))) (colour: Colour): List Colour :=
-  match index.get colour with
-    | Some pairs => pairs.toList.map Pair.snd
+--| Each colour, with the holdings that list it.
+type Holders = { byInside: Map Colour (NonEmptyList Holding) }
+
+def Rules.holders (rules: Rules): Holders := { byInside = rules.all.flatMap .holdings |> .groupBy .inside }
+
+--| The colours whose rules list `colour`.
+def Holders.of (holders: Holders) (colour: Colour): List Colour :=
+  match holders.byInside.get colour with
+    | Some holdings => holdings.toList.map .holder
     | None => []
 
 --| Bags and the bags that hold them, each step out costing 1.
 def Rules.graph (rules: Rules): Graph Colour :=
-  let index := holdersIndex rules.all
-  Graph.fromEdges (colour => holdersIn index colour |> .map (holder => (holder, 1))) (rules.all.map .colour)
+  let holders := rules.holders
+  Graph.fromEdges (colour => holders.of colour |> .map (holder => (holder, 1))) (rules.all.map .colour)
 
 --| The colours that can eventually contain a bag of `colour`.
 def Rules.outside (rules: Rules) (colour: Colour): Set Colour :=
@@ -88,27 +93,30 @@ def Rules.outside (rules: Rules) (colour: Colour): Set Colour :=
 
 def solvePart1 (rules: Rules): Nat := (rules.outside shinyGold).size
 
-def Rules.byColour (rules: Rules): Map Colour (NonEmptyList Rule) := rules.all.groupBy .colour
+--| The rules, found by the colour of the bag they are for.
+type RuleBook = { byColour: Map Colour (NonEmptyList Rule) }
 
-def contentsIn (index: Map Colour (NonEmptyList Rule)) (colour: Colour): List Content :=
-  match index.get colour with
+def Rules.book (rules: Rules): RuleBook := { byColour = rules.all.groupBy .colour }
+
+def RuleBook.contentsOf (book: RuleBook) (colour: Colour): List Content :=
+  match book.byColour.get colour with
     | Some found => found.toList.flatMap .contents
     | None => []
 
 --| The bags inside a bag of `colour`, following the rules at most `depth`
 --| bags deep: `None` if they go deeper.
-def bagsInside (index: Map Colour (NonEmptyList Rule)): (depth: Nat) → (colour: Colour) → Option Nat
+def RuleBook.bagsToDepth (book: RuleBook): (depth: Nat) → (colour: Colour) → Option Nat
   | 0, colour => None
   | Succ depth, colour =>
-    contentsIn index colour
-      |> .map (content => bagsInside index depth content.colour |> .map (inside => content.count * (1 + inside)))
+    book.contentsOf colour
+      |> .map (content => book.bagsToDepth depth content.colour |> .map (inside => content.count * (1 + inside)))
       |> List.allSome
       |> .map List.sum
 
 --| Without a cycle, a chain of bags inward repeats no colour, so it has at
 --| most one bag more than there are rules.
 def Rules.bagsInside (rules: Rules) (colour: Colour): {Fail} Nat :=
-  match bagsInside rules.byColour (rules.all.length + 1) colour with
+  match rules.book.bagsToDepth (rules.all.length + 1) colour with
     | Some total => total
     | None => Fail.fail "the rules for ${colour.name} bags go round in a cycle"
 
