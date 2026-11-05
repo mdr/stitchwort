@@ -12,7 +12,7 @@
 --| `Aoc.Year2024.Day15.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2024.Day15
-import Aoc.Common (Direction, Offset)
+import Aoc.Common (Direction, Offset, cells, positionsWhere)
 import Std (Fail, IO, Int, List, Nat, Option, Parse, Set, Text)
 import Std.Parse (grid, lines, many1, pick, section)
 
@@ -55,8 +55,8 @@ def document(): {Parse} (List (List Tile), List Direction) :=
 
 --| The positions of every `wanted` tile, row by row.
 def positionsOf (rows: List (List Tile)) (wanted: Tile): List Cell :=
-  rows.gridCells
-    |> .filterMap (match some | ((row, column), here) if here == wanted => ({ rows = row.toInt, columns = column.toInt }: Cell))
+  positionsWhere (cells rows) (== wanted)
+    |> .map (position => ({ rows = position.row.toInt, columns = position.column.toInt }: Cell))
 
 def parseDocument (input: Text): {Fail} Document :=
   let (rows, moves) := Parse.all input document

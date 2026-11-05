@@ -10,7 +10,7 @@
 --| `Aoc.Year2024.Day20.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2024.Day20
-import Aoc.Common (Direction, Position, cells, directions, onlyCell)
+import Aoc.Common (Direction, Position, cells, directions, onlyCell, positionsWhere)
 import Std (And, Bool, Eq, Exists, Fail, Graph, IO, List, Map, Nat, Option, Parse, Set, Text, Void)
 import Std.Parse (grid, pick)
 
@@ -45,7 +45,7 @@ def tile(): {Parse} Tile := pick [("#", Wall), (".", Track), ("S", Start), ("E",
 def parseRacetrack (input: Text): {Fail} Racetrack :=
   let tiles := cells (Parse.all input (() => grid tile))
   {
-    track = tiles.filterMap (match some | (position, here) if here != Wall => position) |> Set.fromList,
+    track = positionsWhere tiles (!= Wall) |> Set.fromList,
     start = onlyCell tiles Start "S tile",
     end = onlyCell tiles End "E tile"
   }
