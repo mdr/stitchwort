@@ -3,7 +3,7 @@
 -- here; the speed measurements use 1,000,000 keys.
 import Std (IO, List, Set)
 
-def keys (n: Nat): List Nat := List.map (List.range n) (i => (i * 7919) % 1009)
+def keys (n: Nat): List Nat := List.map (List.range 0 n) (i => (i * 7919) % 1009)
 
 def main(): {IO} () :=
   IO.print "${Set.size (Set.fromList (keys 1000))}"

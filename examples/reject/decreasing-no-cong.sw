@@ -11,4 +11,4 @@ def total (f: Nat → Nat): List Nat → Nat
 def weight (n: Nat): Nat
   decreasing n
 :=
-  1 + total (d => if h: d < n then weight d else 0) (List.range n)
+  1 + total (d => if h: d < n then weight d else 0) (List.range 0 n)

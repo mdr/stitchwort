@@ -40,7 +40,7 @@ theorem weightStep (n: Nat):
 def chain (n: Nat): Nat
     decreasing n
 :=
-  1 + List.foldLeft (List.range n) 0 (best d => if h: d < n then (if Nat.leq 2 d ∧ Nat.divides d n then Nat.max best (chain d) else best) else best)
+  1 + List.foldLeft (List.range 0 n) 0 (best d => if h: d < n then (if Nat.leq 2 d ∧ Nat.divides d n then Nat.max best (chain d) else best) else best)
 
 test "chain" := chain 12 == 3 ∧ chain 7 == 1 ∧ chain 1 == 1
 
@@ -49,7 +49,7 @@ def grow (n: Nat): Nat
     decreasing n
 :=
   if h: n - 1 < n
-  then List.foldLeft (List.range n) (grow (n - 1)) (acc d => acc + (if g: d < n then grow d else 0))
+  then List.foldLeft (List.range 0 n) (grow (n - 1)) (acc d => acc + (if g: d < n then grow d else 0))
   else 1
 
 test "grow" := grow 0 == 1 ∧ grow 1 == 2 ∧ grow 2 == 5 ∧ grow 3 == 13
@@ -59,7 +59,7 @@ def pairs (n: Nat): Nat
     decreasing n
 :=
   let term := (d: Nat) => if h: d < n then 1 + pairs d else 0
-  List.sumBy (List.range n) (k => List.sumBy (List.range k) term)
+  List.sumBy (List.range 0 n) (k => List.sumBy (List.range 0 k) term)
 
 test "pairs" := pairs 0 == 0 ∧ pairs 2 == 1 ∧ pairs 3 == 3
 
@@ -67,7 +67,7 @@ test "pairs" := pairs 0 == 0 ∧ pairs 2 == 1 ∧ pairs 3 == 3
 def oddParts (n: Nat): Nat
     decreasing n
 :=
-  1 + List.sumBy (List.range n) (d => match d with
+  1 + List.sumBy (List.range 0 n) (d => match d with
     | Zero => 0
     | Succ k => if h: Succ k < n then (if Nat.leq n (2 * Succ k) then 0 else oddParts (Succ k)) else 0)
 

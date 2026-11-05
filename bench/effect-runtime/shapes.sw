@@ -76,7 +76,7 @@ def total (xs: List Nat): Nat := List.sum xs
 def main(): {IO} () :=
   let variant := Option.getOrElse "" (IO.readLine())
   let size := Option.getOrElse 0 (Text.toNat (Option.getOrElse "0" (IO.readLine())))
-  let numbers := List.range size
+  let numbers := List.range 0 size
   let answer :=
     if variant == "asked" then total (asked numbers)
     else if variant == "emitted" then total (emitted numbers)

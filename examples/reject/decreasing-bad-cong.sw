@@ -15,4 +15,4 @@ theorem totalCong (f1: Nat → Nat) (f2: Nat → Nat) (ef: (x: Nat) → f1 x = f
 def weight (n: Nat): Nat
   decreasing n
 :=
-  1 + total (d => if h: d < n then weight d else 0) (List.range n)
+  1 + total (d => if h: d < n then weight d else 0) (List.range 0 n)

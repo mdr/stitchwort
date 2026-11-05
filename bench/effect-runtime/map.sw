@@ -65,7 +65,7 @@ def total (result: Result (List Nat) Text): Nat :=
 def main(): {IO} () :=
   let variant := Option.getOrElse "" (IO.readLine())
   let size := Option.getOrElse 0 (Text.toNat (Option.getOrElse "0" (IO.readLine())))
-  let numbers := List.range size
+  let numbers := List.range 0 size
   let answer :=
     if variant == "plain" then List.sum (plain numbers)
     else if variant == "pure" then List.sum (pureMapIn numbers)

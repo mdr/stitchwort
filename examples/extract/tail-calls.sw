@@ -88,4 +88,4 @@ export def rounds (start: Nat) (n: Nat): Nat := evenRounds start n
 
 -- For the long run in extract.rs.
 export def lookupLast (n: Nat): Option Text :=
-  lookupIn n (List.map (List.range (n + 1)) (k => (k, "x")))
+  lookupIn n (List.map (List.range 0 (n + 1)) (k => (k, "x")))

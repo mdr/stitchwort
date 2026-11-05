@@ -21,15 +21,15 @@ def peelLeft (x: Nat) (t: Nat) (f: (d: Nat) → d + x = Succ (t + x) → Nat): N
 -- Inside a `Succ`: `Succ (x + ?d)` against `Succ (Succ (Succ x))`.
 def inside (x: Nat) (f: (d: Nat) → Succ (x + d) = x + 3 → Nat): Nat := f _ rfl
 
--- `List.memBetween h` with `h: x ∈ List.between 2 n` and nothing else to go
--- on (a `match`'s scrutinee): `lo` and `hi` are inferred from `h`'s type.
--- `List.between ?lo ?hi` is `List.rangeFrom (Succ ?hi - ?lo) ?lo`, stuck on
+-- `(List.memRange _ _ (_ + 1)).forward h` with `h: x ∈ List.range 2 (n + 1)` and nothing else
+-- to go on (a `match`'s scrutinee): the numbers are inferred from `h`'s type.
+-- `List.range ?lo (?hi + 1)` is `List.rangeFrom (Succ ?hi - ?lo) ?lo`, stuck on
 -- `?lo`, against `List.rangeFrom (n - 1) 2`; the first arguments are compared
 -- again once the second have solved `?lo`.
-theorem atLeastTwo (x: Nat) (n: Nat) (h: x ∈ List.between 2 n): 2 ≤ x :=
-  match List.memBetween h with
+theorem atLeastTwo (x: Nat) (n: Nat) (h: x ∈ List.range 2 (n + 1)): 2 ≤ x :=
+  match (List.memRange _ _ (_ + 1)).forward h with
     | Both low _ => low
 
-theorem atMostN (x: Nat) (n: Nat) (h: x ∈ List.between 1 n): x ≤ n :=
-  match List.memBetween h with
-    | Both _ high => high
+theorem atMostN (x: Nat) (n: Nat) (h: x ∈ List.range 1 (n + 1)): x ≤ n :=
+  match (List.memRange _ _ (_ + 1)).forward h with
+    | Both _ high => omega

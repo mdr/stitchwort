@@ -39,7 +39,7 @@ def down (position: Position): Position := { column = position.column, row = Nat
 -- The screen: the room in a wall of `#`, then a line of help.
 def view (position: Position): List Text :=
   let wall := Text.repeat "#" (roomWidth + 2)
-  let rows := List.range roomHeight |> .map (row => "#${rowText position row}#")
+  let rows := List.range 0 roomHeight |> .map (row => "#${rowText position row}#")
   List.append [wall, ..List.append rows [wall]] ["hjkl or arrows to move, q to stop"]
 
 def rowText (position: Position) (row: Nat): Text :=
