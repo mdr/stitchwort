@@ -1890,6 +1890,12 @@ fn receiver_type(cx: &Ctx, recv: &Expr, depth: usize) -> Result<Option<Ty>> {
         // finding the namespace), as `infer` makes it.
         Expr::List(..) => return Ok(data(crate::check::builtin_data(cx, Builtin::List)?)),
         Expr::Ann(_, ty, _) => return annotation_type(cx, ty),
+        // A range is a `List` (`a ..< b` is `List.range a b`).
+        Expr::Binary(
+            stitchwort_syntax::ast::BinOp::Range | stitchwort_syntax::ast::BinOp::RangeThrough,
+            ..,
+        ) => return Ok(data(crate::check::builtin_data(cx, Builtin::List)?)),
+        Expr::Bracketed(inner, _) if depth > 0 => return receiver_type(cx, inner, depth - 1),
         Expr::Binary(stitchwort_syntax::ast::BinOp::Append, a, b) if depth > 0 => {
             return match receiver_type(cx, a, depth - 1)? {
                 Some(ty) => Ok(Some(ty)),

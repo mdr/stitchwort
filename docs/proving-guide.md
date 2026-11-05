@@ -225,7 +225,8 @@ Import what you use: std's theorems live in namespaces that need an import
   b]`. It knows `-`, `max`, `min`, multiplication by a literal, and `x / k`
   by a literal only by its two bounds (`(x / k) * k ≤ x ≤ (x / k) * k + k -
   1`); `x * y`, `x % k`, `List.length xs` and calls are atoms it knows
-  nothing about. It doesn't know what `% 2` is: pass `Nat.divModEq` and
+  nothing about. It reads a hypothesis `x ∈ a ..< b` (or `..=`) as `a ≤ x` and
+  `x < b`, and proves such a goal from the bounds. It doesn't know what `% 2` is: pass `Nat.divModEq` and
   `Nat.modLess` for each (aoc/NOTES-2024.md:7304–7311). Its failure
   message's model "may not be a real counterexample".
 - **`auto`** isn't a proof term: it is the compiler filling an `[auto h: P]`

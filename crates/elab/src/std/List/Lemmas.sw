@@ -1170,6 +1170,15 @@ theorem List.distinctMapConsExample: List.Distinct (List.append (List.map [[]] (
     (List.distinctMap [[]] (Both (m => m) Trivial) (Cons 1) (List.consInjective 1))
     (List.disjointMapCons [[]] 0 1 (p => Nat.succNotZero 0 (Eq.sym p)) [[]])
 
+--| Looking for `x` in a range with `contains` gives the two comparisons `x in a ..< b` is.
+theorem List.containsRange (a: Nat) (b: Nat) (x: Nat): List.contains (List.range a b) x = List.inRange x a b :=
+  match c: List.contains (List.range a b) x with
+    | True => Eq.sym ((List.inRangeIff x a b).backward ((List.memContains (List.range a b) x).forward c))
+    | False =>
+      match d: List.inRange x a b with
+        | True => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym ((List.memContains (List.range a b) x).backward ((List.inRangeIff x a b).forward d))) c))
+        | False => rfl
+
 theorem List.memRangeExample: 3 ∈ List.range 1 6 := (List.memRange 3 1 6).backward (Both rfl rfl)
 
 theorem List.memFlatMapExample: 20 ∈ List.flatMap [1, 2] (x => [x, x * 10]) :=
