@@ -7628,13 +7628,13 @@
     {
       "id": 1377,
       "title": "Playground: JavaScript build step for CodeMirror 6 (web/editor entry, esbuild, lockfile, web/build.sh, flake, CI; output not committed) (D2415)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1377",
       "labels": [
         "playground"
       ],
-      "body": "D2415-D2421 approved by Matt, 5 Nov 2026 (see SW-1118). docs/proposals/playground-editor.md.",
+      "body": "D2415-D2421 approved by Matt, 5 Nov 2026 (see SW-1118). docs/proposals/playground-editor.md.\n\nDone (33d0440dd): web/editor package (lockfile moved from proto), build.sh with esbuild to web/dist, flake output editor (buildNpmPackage, npmDepsHash pinned), playground copies it to dist, CI checks the bundle, committed proto bundles deleted, docs/testing.md 'The editor bundle'. lsp-check passes on the built bundle. For SW-1378: where lsp-worker.js lives; index.html and the browser tests to serve dist/. Model result: Sonnet, worked, 20 min (est. 75).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7684,13 +7684,13 @@
     {
       "id": 1381,
       "title": "Implicit inferable parameters: lemmas whose values are fixed by their own hypotheses take them in square brackets, so calls drop runs of _ (254 calls with 3+ underscores in 48 files; e.g. shapeOnRoute _ _ _ _ _ onTheMap …); std first, then aoc; proving-guide style rule",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1381",
       "labels": [
         "proofs"
       ],
-      "body": "D2422 (Matt, 5 Nov 2026): yes. Keep explicit any parameter a caller sometimes must supply. Prompted by aoc 2024 day 6 Proofs/Part2.sw:184.\n\nDone on lane/SW-1381 (069559748..60db3a0f1): ~61 lemmas + AlwaysCall take hypothesis-determined values implicitly; 3+ underscore runs 248 -> 70, 2+ runs 895 -> 247. omega.rs builds Bool.or* with implicit args. Float pins moved. Left explicit: predicates/lambdas, non-injective (Perm), used as function values, compiler-built calls, matched arguments. Opus review pending (omega.rs builds kernel terms). Model result: Sonnet, worked, 62 min (est. 120).",
+      "body": "D2422 (Matt, 5 Nov 2026): yes. Keep explicit any parameter a caller sometimes must supply. Prompted by aoc 2024 day 6 Proofs/Part2.sw:184.\n\nDone on lane/SW-1381 (069559748..60db3a0f1): ~61 lemmas + AlwaysCall take hypothesis-determined values implicitly; 3+ underscore runs 248 -> 70, 2+ runs 895 -> 247. omega.rs builds Bool.or* with implicit args. Float pins moved. Left explicit: predicates/lambdas, non-injective (Perm), used as function values, compiler-built calls, matched arguments. Opus review pending (omega.rs builds kernel terms). Model result: Sonnet, worked, 62 min (est. 120).\n\nOpus review: one blocker (Option.mapCong implicit broke decreasing under Option.map; validate_cong requires F's binder kinds) — fixed in 65673eb62 with List.countCongMem reverted too and examples/accept/decreasing-under-option-map.sw. Parse.readsWeaken kept implicit (orchestrator's call: 8 of 87 calls name values). Merged; conflict with SW-1372 in 2020 day 3 resolved. Model result: Sonnet, needed fixes (a congruence lemma made implicit), 75 min (est. 120).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
