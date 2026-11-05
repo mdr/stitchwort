@@ -1,5 +1,5 @@
 {
-  "next": 1342,
+  "next": 1343,
   "tickets": [
     {
       "id": 47,
@@ -7131,6 +7131,20 @@
         "syntax"
       ],
       "body": "Matt, 5 Nov: D2386 yes (< / <= together, > / >= together; refuse mixed directions, !=, in). D2387 (a) = and == refused for now. D2388 (a) a chain is one conjunct. D2389 (b): the middle is bound with let and computed once, pure or not ('I would be surprised if I had this syntax form and it secretly computed the middle twice'). D2390: run once, in order (follows from Matt's D2389 answer). D2391 (Matt: you choose): E-COMPARISON-CHAIN. Sonnet, est. 180 min.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1342,
+      "title": "Bench baseline: re-record it (counts_have_not_regressed fails in the daily tier) and find which merges caused the 10-27% rises in check-number-*, check-nested-parens, check-text-literal",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "body": "D2384 (Matt, 5 Nov): re-record, and put the investigation on the backlog. A re-record on main was stopped at 25 min (Matt: not now); it ran while lanes were building, and the bench checks every example and runs its tests. Run it on a quiet machine. Rises listed in the SW-1227 daily log: scratchpad sw1227-daily/daily.log.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
