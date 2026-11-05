@@ -320,3 +320,92 @@ fn between_body() {
         .collect();
     assert!(wrong.is_empty(), "{wrong:?}");
 }
+
+#[test]
+fn a_namespace_whose_import_failed_gets_one_error_there_until_the_import_is_fixed() {
+    std::thread::Builder::new()
+        .stack_size(STACK)
+        .spawn(failed_import_body)
+        .unwrap()
+        .join()
+        .unwrap();
+}
+
+fn failed_import_body() {
+    let good = "namespace First\n\ndef one: Nat := 1\n\ndef two: Nat := 2\n";
+    let broken = "namespace First\n\ndef one: Nat := \"oops\"\n\ndef two: Nat := 2\n";
+    let second = "namespace Second\nimport First (one, two)\n\ndef three: Nat := one + two\n\ndef four: Nat := three + one\n";
+    let memory = Arc::new(Memory::default());
+    memory.add(MemoryProject {
+        root: "/memory/proj".into(),
+        sources: vec!["src".into()],
+        files: Arc::new(
+            [("src/First.sw", good), ("src/Second.sw", second)]
+                .iter()
+                .map(|(p, t)| (p.to_string(), t.to_string()))
+                .collect(),
+        ),
+    });
+    let mut server = Inline::new(Options::new(STACK), memory).unwrap();
+    let uri = |name: &str| format!("file:///memory/proj/src/{name}.sw");
+    for message in [
+        json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"capabilities": {}}}),
+        json!({"jsonrpc": "2.0", "method": "initialized", "params": {}}),
+        json!({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {
+            "uri": uri("Second"), "languageId": "stitchwort", "version": 1, "text": second,
+        }}}),
+    ] {
+        server.receive(&message.to_string());
+    }
+    let settle = |server: &mut Inline| {
+        let mut sent = Vec::new();
+        loop {
+            let (out, more) = server.tick();
+            sent.extend(
+                out.iter()
+                    .map(|m| serde_json::from_str::<Value>(m).unwrap()),
+            );
+            if !more {
+                return sent;
+            }
+        }
+    };
+    // The codes last published for a file.
+    let codes = |sent: &[Value], name: &str| -> Option<Vec<String>> {
+        (sent.iter())
+            .rfind(|m| {
+                m["method"] == "textDocument/publishDiagnostics" && m["params"]["uri"] == uri(name)
+            })
+            .map(|m| {
+                (m["params"]["diagnostics"].as_array().unwrap().iter())
+                    .map(|d| d["code"].as_str().unwrap().to_string())
+                    .collect()
+            })
+    };
+    let change = |server: &mut Inline, version: u32, text: &str| {
+        server.receive(
+            &json!({"jsonrpc": "2.0", "method": "textDocument/didChange", "params": {
+                "textDocument": {"uri": uri("First"), "version": version},
+                "contentChanges": [{"text": text}],
+            }})
+            .to_string(),
+        );
+    };
+    let sent = settle(&mut server);
+    assert_eq!(codes(&sent, "Second"), Some(vec![]));
+
+    // Breaking the shared file after the dependent was checked clean.
+    change(&mut server, 2, broken);
+    let sent = settle(&mut server);
+    assert_eq!(codes(&sent, "First"), Some(vec!["E-TYPE-MISMATCH".into()]));
+    assert_eq!(
+        codes(&sent, "Second"),
+        Some(vec!["E-NAMESPACE-FAILED".into()])
+    );
+
+    // Fixing the shared file checks the dependent again.
+    change(&mut server, 3, good);
+    let sent = settle(&mut server);
+    assert_eq!(codes(&sent, "First"), Some(vec![]));
+    assert_eq!(codes(&sent, "Second"), Some(vec![]));
+}
