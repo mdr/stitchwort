@@ -1,5 +1,5 @@
 {
-  "next": 1441,
+  "next": 1445,
   "tickets": [
     {
       "id": 47,
@@ -8541,6 +8541,66 @@
         "tooling"
       ],
       "body": "Found by batch 35's verifier, 5 Nov 2026. Each cost a verifier round.\n\nLikely cause (SW-1429's lane, 5 Nov): snap:hashes NAME=examples is a name filter that matches no snapshot file, so it runs nothing and 'passes'. Lanes and my briefs say NAME=examples. Fix the task (make NAME=examples mean the examples sweep, or fail when the filter matches nothing) and the briefs.\n\nConfirmed (Taskfile.yml:376): snap:hashes passes NAME to EXAMPLES, a filter on example file names; NAME=examples or NAME=prelude matches no file, so nothing new is snapshotted and it passes. The briefs were wrong (mine). Fix: hash_stability fails when EXAMPLES matches no file (name the filter), and the briefs say NAME=<the new example's file name> (or no NAME).",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1441,
+      "title": "E-REFL prints two identical sides when they differ only in a proof field that a shortcut-mode comparison (under an opaque, axiom or same-group call) compares; say so, and suggest Eq.cong (e.g. secret 'a' vs secret 'a' in a char-pattern arm)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics",
+        "kernel"
+      ],
+      "body": "From SW-1429's Opus review, 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1442,
+      "title": "Equations: replace eq_proof's Bool.uniqueEq J-chain for char-literal overlap hypotheses with rfl (proof fields are skipped by comparison now) and delete Diff, replace_at and probably the unique field; lifts differ's limits (data with parameters, other propositions)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "proofs"
+      ],
+      "body": "From SW-1429's Opus review, 5 Nov 2026. equations.rs ~6241, 6758, 6846, 7225-7370.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1443,
+      "title": "auto: derive Nat.toInt d ≠ 0 from d ≠ 0 (Nat.toIntNeZero), so Int.modNatToInt, toIntDiv and toIntMod can state x % Nat.toInt d again instead of Int.mod x (Nat.toInt d) [ok := …]",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "std"
+      ],
+      "body": "From SW-1429's Opus review, 5 Nov 2026. Small improvement.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1444,
+      "title": "Equations for if h: on a conjunction of DecEq equations (useAnd: if h: (a = b) ∧ (b = 0) then J … h.left else 0): uniqueness for ∧ of decidable equations so the branch equation can be generated",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "proofs"
+      ],
+      "body": "From SW-1429's Opus review, 5 Nov 2026. Maybe.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
