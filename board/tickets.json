@@ -1,5 +1,5 @@
 {
-  "next": 1439,
+  "next": 1440,
   "tickets": [
     {
       "id": 47,
@@ -8241,14 +8241,14 @@
     {
       "id": 1420,
       "title": "Bug: a method sharing a short name with another type's method (Instruction.run next to Code.run) makes decreasing report mutual recursion that isn't there, and suggests a step limit; repro in aoc/NOTES-2020.md Day 8 item 1",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1420",
       "labels": [
         "elab",
         "bug"
       ],
-      "body": "From 2020 day 8 (SW-1416), 5 Nov 2026; see aoc/NOTES-2020.md Day 8. Fix first: run, step and next are the names simulations reach for.\n\nStarted on Sonnet, expected: 60 min.",
+      "body": "From 2020 day 8 (SW-1416), 5 Nov 2026; see aoc/NOTES-2020.md Day 8. Fix first: run, step and next are the names simulations reach for.\n\nStarted on Sonnet, expected: 60 min.\n\nDone on lane/SW-1420 (6416b0451): the dependency pass linked every dot call x.run to every *.run in the module; a receiver of a written data type now links only T.run (dot_namespace; annotated receivers too). Untyped receivers keep the speculative links. Orchestrator probed: programs can't add to std namespaces, so a missed link can only make a callee not yet defined (an error, not a missed cycle). Waits for batch 35's verifier. Model result: Sonnet, worked, 14 min (est. 60).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8512,6 +8512,20 @@
         "diagnostics"
       ],
       "body": "From 2020 day 9 (SW-1427), 5 Nov 2026; see aoc/NOTES-2020.md Day 9. Item 6.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1439,
+      "title": "Dot calls on receivers with no written type (pattern or for binders) still link to every *.name in the module, so the SW-1420 false mutual group can recur; infer the receiver's type from pattern binders and record fields, and have E-DECREASING's 'call each other' note say when a group exists only because of a .name guess (as speculative_note does)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "From SW-1420, 5 Nov 2026.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
