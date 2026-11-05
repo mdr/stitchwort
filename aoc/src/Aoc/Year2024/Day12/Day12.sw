@@ -25,7 +25,7 @@ def plantLetter(): {Parse} Char := Parse.satisfy "a letter" .isAsciiLetter
 
 --| One row per line, all as long as the first.
 def parseGarden (input: Text): {Fail} Garden :=
-  let rows := Parse.all input (() => Parse.grid plantLetter)
+  let rows := Parse.all input (() => Parse.grid plantLetter) |> .toList |> .map .toList
   let width := rows.headOr [] |> .length
   rows.withIndex |> .map (((row, plants)) =>
     Fail.ensure (plants.length == width) "line ${row + 1}: expected ${width} plots, as on the first line, got ${plants.length}")

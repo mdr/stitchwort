@@ -45,8 +45,8 @@ type Paper = { dots: List Point, folds: List Fold }
 def parsePaper (input: Text): {Fail} Paper := checkPaper (Parse.all input readPaper)
 
 def readPaper(): {Parse} Paper :=
-  let dots := section readDot
-  let folds := lines readFold
+  let dots := section readDot |> .toList
+  let folds := lines readFold |> .toList
   { dots, folds }
 
 def readDot(): {Parse} Point :=

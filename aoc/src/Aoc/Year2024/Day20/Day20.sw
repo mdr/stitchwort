@@ -43,7 +43,7 @@ def tile(): {Parse} Tile := pick [("#", Wall), (".", Track), ("S", Start), ("E",
 --| One row of tiles per line, with one S and one E. A short row is walled
 --| beyond its end.
 def parseRacetrack (input: Text): {Fail} Racetrack :=
-  let tiles := cells (Parse.all input (() => grid tile))
+  let tiles := cells (Parse.all input (() => grid tile) |> .toList |> .map .toList)
   {
     track = positionsWhere tiles (!= Wall) |> Set.fromList,
     start = onlyCell tiles Start "S tile",

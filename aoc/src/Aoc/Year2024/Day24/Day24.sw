@@ -83,8 +83,8 @@ def gateLine(): {Parse} Gate :=
   { left, operation, right, output }
 
 def deviceInput(): {Parse} Device :=
-  let initial := section initialValue
-  let gates := lines gateLine
+  let initial := section initialValue |> .toList
+  let gates := lines gateLine |> .toList
   { initial, gates }
 
 def parseDevice (input: Text): {Fail} Device := Parse.all input deviceInput

@@ -11,12 +11,12 @@ def writtenAs (ds: List Nat) (k: Nat) (n: Nat): Bool := List.concat (List.replic
 
 --| Part 1: written twice; part 2: written two or more times.
 def doubled (x: Nat): Bool :=
-  let ds := Nat.digits x
-  List.rangeFrom ds.length 1 |> .any (k => writtenAs ds k 2)
+  let ds := (Nat.digits x).toList
+  List.rangeFrom x.digitCount 1 |> .any (k => writtenAs ds k 2)
 
 def repeats (x: Nat): Bool :=
-  let ds := Nat.digits x
-  List.rangeFrom ds.length 1 |> .any (k => List.rangeFrom ds.length 2 |> .any (n => writtenAs ds k n))
+  let ds := (Nat.digits x).toList
+  List.rangeFrom x.digitCount 1 |> .any (k => List.rangeFrom x.digitCount 2 |> .any (n => writtenAs ds k n))
 
 --| Part 1 as the puzzle states it: in every range walk the ids, keep those whose
 --| digits are some block written twice, add them up.

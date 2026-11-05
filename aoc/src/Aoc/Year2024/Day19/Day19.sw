@@ -39,19 +39,19 @@ type Onsen = { patterns: List Pattern, designs: List Design }
 def stripe(): {Parse} Stripe := pick [("w", White), ("u", Blue), ("b", Black), ("r", Red), ("g", Green)]
 
 def pattern(): {Parse} Pattern :=
-  let stripes := many1 stripe
+  let stripes := many1 stripe |> .toList
   { stripes }
 
 def design(): {Parse} Design :=
-  let stripes := many1 stripe
+  let stripes := many1 stripe |> .toList
   { stripes }
 
 --| The patterns on one line, separated by commas, a blank line, then one
 --| design per line.
 def onsen(): {Parse} Onsen :=
-  let patterns := sepBy1 pattern (() => text ", ")
+  let patterns := sepBy1 pattern (() => text ", ") |> .toList
   blankLine()
-  let designs := lines design
+  let designs := lines design |> .toList
   { patterns, designs }
 
 def parseOnsen (input: Text): {Fail} Onsen := Parse.all input onsen

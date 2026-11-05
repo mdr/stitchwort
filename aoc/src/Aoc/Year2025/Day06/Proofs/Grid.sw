@@ -7,7 +7,7 @@
 namespace Aoc.Year2025.Day06.Proofs
 import Aoc.Year2025.Day06 (..)
 import Aoc.Year2025.Day06.Spec (..)
-import Std (Char, List, Nat, Text)
+import Std (Char, Eq, List, Nat, NonEmptyList, Text)
 
 --| Every column has a cell for every line, whatever the input.
 theorem columnsRectangular (lines: List Text) (c: Nat) (h: c < gridWidth lines):
@@ -27,7 +27,7 @@ theorem blocksAreRuns (lines: List Text): List.Groups isBlank (blocks lines) :=
 
 --| ...and together the blocks hold every column that isn't blank, in order.
 theorem blocksKeepEveryColumn (lines: List Text):
-    List.concat (blocks lines) = ((lines.map Text.toList).transposeFill ' ').filter (column => not (isBlank column)) :=
+    List.flatMap (blocks lines) NonEmptyList.toList = ((lines.map Text.toList).transposeFill ' ').filter (column => not (isBlank column)) :=
   List.splitByConcat ((lines.map Text.toList).transposeFill ' ') isBlank
 
 --| Why `parseNumber` is the right reading: a number written in decimal, with
@@ -41,5 +41,5 @@ theorem parseNumberWritten (n: Nat) (before: Nat) (after: Nat):
     parseNumber (List.append (List.replicate before ' ') (List.append (Text.toList (Nat.toText n)) (List.replicate after ' '))) = n :=
   rewrite List.filterMapAppend (List.replicate before ' ') (List.append (Text.toList (Nat.toText n)) (List.replicate after ' ')) Char.digitValue,
     List.filterMapAppend (Text.toList (Nat.toText n)) (List.replicate after ' ') Char.digitValue,
-    spacesNoDigits before, spacesNoDigits after, Char.toTextDigits n, List.appendNil (Nat.digits n) in
-      Nat.fromDigitsDigits n
+    spacesNoDigits before, spacesNoDigits after, Char.toTextDigits n in
+      Eq.trans (Eq.cong Nat.fromDigits (List.appendNil (Nat.digits n).toList)) (Nat.fromDigitsDigits n)

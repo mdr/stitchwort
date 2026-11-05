@@ -49,8 +49,8 @@ def move(): {Parse} Direction := pick [("^", Up), ("v", Down), ("<", Left), (">"
 
 --| The map, a blank line, then the moves, over as many lines as they take.
 def document(): {Parse} (List (List Tile), List Direction) :=
-  let rows := section (() => many1 tile)
-  let moves := lines (() => many1 move) |> .concat
+  let rows := section (() => many1 tile |> .toList) |> .toList
+  let moves := lines (() => many1 move |> .toList) |> .toList |> .concat
   (rows, moves)
 
 --| The positions of every `wanted` tile, row by row.

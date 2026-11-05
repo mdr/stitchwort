@@ -33,16 +33,18 @@ type Person = { answers: Set Char }
 --| One person's line: the letters of their "yes" answers.
 def person(): {Parse} Person :=
   let letters := Parse.many1 (() => Parse.satisfy "a question, 'a' to 'z'" isQuestion)
-  { answers = Set.fromList letters }
+  { answers = Set.fromList letters.toList }
 
 --| The people travelling together, a line each.
 type Group = { people: List Person }
 
 --| A group's lines, one person to a line.
-def group(): {Parse} Group := { people = Parse.lines person }
+def group(): {Parse} Group :=
+  let people := Parse.lines person
+  { people = people.toList }
 
 --| The groups, with a blank line between each two.
-def parseGroups (input: Text): {Fail} List Group := Parse.all input (() => Parse.sections group)
+def parseGroups (input: Text): {Fail} List Group := Parse.all input (() => Parse.sections group |> .toList)
 
 --| The questions anyone in the group answered "yes" to.
 def Group.anyone (group: Group): Set Char := Set.unions (group.people.map .answers)

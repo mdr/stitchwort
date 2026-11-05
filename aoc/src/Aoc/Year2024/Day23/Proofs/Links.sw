@@ -20,7 +20,7 @@ theorem neighboursGet (links: Links) (one: Computer): links.neighbours one = (Ma
 theorem neighboursStartingAt (network: Network) (one: Computer) (other: Computer):
     (network.links.neighbours one).contains other = ((startingAt network one).map Connection.other |> .any (x => Map.Spec.sameKey other x)) :=
   rewrite neighboursGet network.links one,
-    Map.getMap (Map.groupBy network.bothWays Connection.one) one (pairs => pairs.map Connection.other |> Set.fromList),
+    Map.getMap (Map.groupBy network.bothWays Connection.one) one (pairs => pairs.map Connection.other |> .toList |> Set.fromList),
     Map.getGroupBy Connection.one one network.bothWays
     in
   match network.bothWays.filter ((pair: Connection) => Map.Spec.sameKey one pair.one) with
@@ -148,7 +148,7 @@ theorem hasLinksIff (network: Network) (computer: Computer):
             | [] =>
               Void.exfalso
                 (Option.noneNotSome set
-                  (rewrite Map.getMap (Map.groupBy network.bothWays Connection.one) computer (pairs => pairs.map Connection.other |> Set.fromList),
+                  (rewrite Map.getMap (Map.groupBy network.bothWays Connection.one) computer (pairs => pairs.map Connection.other |> .toList |> Set.fromList),
                     Map.getGroupBy Connection.one computer network.bothWays, starting
                     at found))
             | [first, ..rest] => rfl)

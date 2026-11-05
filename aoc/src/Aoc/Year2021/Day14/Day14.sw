@@ -51,7 +51,7 @@ def parseManual (input: Text): {Fail} Manual := checkManual (Parse.all input rea
 def readManual(): {Parse} Manual :=
   let template := takeWhile1 "a capital letter" Char.isAsciiUppercase
   blankLine()
-  let rules := lines readRule
+  let rules := lines readRule |> .toList
   { template = template.toList, rules }
 
 def readRule(): {Parse} Rule :=

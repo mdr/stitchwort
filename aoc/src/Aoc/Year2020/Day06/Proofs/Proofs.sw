@@ -51,7 +51,7 @@ theorem part2Lines (lineGroups: List (List (List Char))) (groups: List Group) (w
 --| each two, then any line breaks, and each group's people are those lines.
 theorem inputGroups (input: Text) (groups: List Group) (parsed: Fail.toResult (() => parseGroups input) = Ok groups):
     ∃ (lineGroups: List (List (List Char))) => ∃ (read: List Char) => ∃ (ending: List Char) =>
-      input.toList = read ++ ending ∧ Parse.SepBy LinesWritten (read u => Parse.BlankLine read) read lineGroups
+      input.toList = read ++ ending ∧ SepByList LinesWritten (read u => Parse.BlankLine read) read lineGroups
         ∧ ending.all (char => char == '\n' ∨ char == '\r') = True ∧ List.All2 GroupLines lineGroups groups :=
   match parseWritten input groups parsed with
     | Witness read (Witness ending (Both text (Both written done))) =>
@@ -65,7 +65,7 @@ theorem inputGroups (input: Text) (groups: List Group) (parsed: Fail.toResult ((
 --| groups of lines the input is made of.
 theorem part1Correct (input: Text) (groups: List Group) (parsed: Fail.toResult (() => parseGroups input) = Ok groups):
     ∃ (lineGroups: List (List (List Char))) => ∃ (read: List Char) => ∃ (ending: List Char) =>
-      input.toList = read ++ ending ∧ Parse.SepBy LinesWritten (read u => Parse.BlankLine read) read lineGroups
+      input.toList = read ++ ending ∧ SepByList LinesWritten (read u => Parse.BlankLine read) read lineGroups
         ∧ ending.all (char => char == '\n' ∨ char == '\r') = True ∧ solvePart1 groups = Spec.part1Answer lineGroups :=
   match inputGroups input groups parsed with
     | Witness lineGroups (Witness read (Witness ending (Both text (Both linesRead (Both done related))))) =>
@@ -73,7 +73,7 @@ theorem part1Correct (input: Text) (groups: List Group) (parsed: Fail.toResult (
 
 theorem part2Correct (input: Text) (groups: List Group) (parsed: Fail.toResult (() => parseGroups input) = Ok groups):
     ∃ (lineGroups: List (List (List Char))) => ∃ (read: List Char) => ∃ (ending: List Char) =>
-      input.toList = read ++ ending ∧ Parse.SepBy LinesWritten (read u => Parse.BlankLine read) read lineGroups
+      input.toList = read ++ ending ∧ SepByList LinesWritten (read u => Parse.BlankLine read) read lineGroups
         ∧ ending.all (char => char == '\n' ∨ char == '\r') = True ∧ solvePart2 groups = Spec.part2Answer lineGroups :=
   match inputGroups input groups parsed with
     | Witness lineGroups (Witness read (Witness ending (Both text (Both linesRead (Both done related))))) =>

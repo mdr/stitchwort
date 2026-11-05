@@ -55,7 +55,7 @@ test "a bad robot" := toResult (() => Parse.line "p=0,4 w=3,-3" robot) == Err "c
 -- expected there.
 type Cell = | Roll | Floor
 
-def cells(): {Parse} List (List Cell) := Parse.grid (() => pick [("@", Roll), (".", Floor)])
+def cells(): {Parse} List (List Cell) := Parse.grid (() => pick [("@", Roll), (".", Floor)]) |> .toList |> .map .toList
 
 test "grid" := toResult (() => Parse.all "@.\n.@\n" cells) == Ok [[Roll, Floor], [Floor, Roll]]
 test "a bad grid" := toResult (() => Parse.all "@.\n.x\n" cells) ==
@@ -99,6 +99,6 @@ test "a bad nesting" := toResult (() => Parse.line "[1,[2,3]" depth) == Err "col
 -- An optional sign, then digits, one at a time.
 def signedDigits(): {Parse} (Bool, List Nat) :=
   let minus := optional (() => char '-')
-  (minus.isSome, many1 (() => Parse.digit().toNat))
+  (minus.isSome, many1 (() => Parse.digit().toNat) |> .toList)
 
 test "digits" := toResult (() => Parse.line "-307" signedDigits) == Ok (True, [3, 0, 7])
