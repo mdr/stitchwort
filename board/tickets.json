@@ -1,5 +1,5 @@
 {
-  "next": 1312,
+  "next": 1313,
   "tickets": [
     {
       "id": 47,
@@ -6564,15 +6564,15 @@
     {
       "id": 1301,
       "title": "Generated equations and f.induct for definitions with guarded arms (pattern guards stage 2)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1301",
       "labels": [
         "language"
       ],
       "body": "Follows SW-1295. docs/proposals/pattern-guards.md records what stage 2 should generate. Generates kernel terms: Opus, with an independent review.",
       "created": "2026-11-04",
-      "updated": "2026-11-04",
+      "updated": "2026-11-05",
       "commits": []
     },
     {
@@ -6711,6 +6711,20 @@
         "language"
       ],
       "body": "From SW-1305: when b used a's proof (SW-226), a ∧ b can't be written; the branch gets nothing. A dependent pair (Σ (h: a), b h) or giving the branch both facts separately would fix it.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1312,
+      "title": "AoC domain types 10: 2024 day 23 Computer, Connection and Party",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1312",
+      "labels": [
+        "aoc"
+      ],
+      "body": "Split from SW-1289 (the survey's 2024/23 entry, MEDIUM-HIGH; removes the program/spec duplication of password and hasT). D2363; Sonnet; the orchestrator checks each changed statement keeps its meaning.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
