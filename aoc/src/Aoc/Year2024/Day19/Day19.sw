@@ -10,7 +10,7 @@
 --| `Aoc.Year2024.Day19.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2024.Day19
-import Std (Fail, IO, List, Nat, Parse, Text)
+import Std (Fail, IO, List, Nat, NonEmptyList, Parse, Text)
 import Std.Parse (blankLine, lines, many1, pick, sepBy1, text)
 
 def main(): {IO, Fail} () :=
@@ -26,7 +26,7 @@ type Stripe =
   | Green
 
 --| A towel's pattern: its stripes, in order.
-type Pattern = { stripes: List Stripe }
+type Pattern = { stripes: NonEmptyList Stripe }
 
 --| How many stripes the pattern has.
 def Pattern.length (pattern: Pattern): Nat := pattern.stripes.length
@@ -39,7 +39,7 @@ type Onsen = { patterns: List Pattern, designs: List Design }
 def stripe(): {Parse} Stripe := pick [("w", White), ("u", Blue), ("b", Black), ("r", Red), ("g", Green)]
 
 def pattern(): {Parse} Pattern :=
-  let stripes := many1 stripe |> .toList
+  let stripes := many1 stripe
   { stripes }
 
 def design(): {Parse} Design :=
@@ -60,13 +60,13 @@ def parseOnsen (input: Text): {Fail} Onsen := Parse.all input onsen
 --| of them, then without the first stripe, and so on down to the empty
 --| suffix, made one way (with no towels). A suffix is made by a first towel
 --| whose pattern it starts with, then the rest, which is a shorter suffix
---| whose count is already in the table. Every pattern has a stripe.
+--| whose count is already in the table.
 def waysForSuffixes (patterns: List Pattern): (stripes: List Stripe) → List Nat
   | [] => [1]
   | [first, ..rest] =>
     let later := waysForSuffixes patterns rest
     let ways := patterns.sumBy (pattern =>
-      if [first, ..rest].startsWith pattern.stripes then later.getOr (pattern.length - 1) 0 else 0)
+      if [first, ..rest].startsWith pattern.stripes.toList then later.getOr (pattern.length - 1) 0 else 0)
     [ways, ..later]
 
 --| The number of different ways to make `design`.

@@ -9,26 +9,23 @@ import Aoc.Year2024.Day19 (..)
 import Aoc.Year2024.Day19.Spec (..)
 import Std (Bool, Eq, List, Nat, Void)
 
-theorem tableCorrect (patterns: List Pattern) (striped: Striped patterns): (stripes: List Stripe) → (index: Nat) → index ≤ stripes.length →
+theorem tableCorrect (patterns: List Pattern): (stripes: List Stripe) → (index: Nat) → index ≤ stripes.length →
     (count: Nat) → stripes.length - index ≤ count → (waysForSuffixes patterns stripes).getOr index 0 = matching patterns count (stripes.drop index)
-  | [], Zero, inside, count, enough => Eq.sym (matchingEmpty patterns striped count)
+  | [], Zero, inside, count, enough => Eq.sym (matchingEmpty patterns count)
   | [], Succ index, inside, count, enough => Void.exfalso (omega [inside])
-  | [first, ..rest], Succ index, inside, count, enough => tableCorrect patterns striped rest index (omega [inside]) count (omega [enough])
+  | [first, ..rest], Succ index, inside, count, enough => tableCorrect patterns rest index (omega [inside]) count (omega [enough])
   | [first, ..rest], Zero, inside, Zero, enough => Void.exfalso (omega [enough])
   | [first, ..rest], Zero, inside, Succ count, enough =>
     rewrite matchingSucc patterns count [first, ..rest] in
       List.sumByCongMem patterns
-        (pattern => if [first, ..rest].startsWith pattern.stripes then (waysForSuffixes patterns rest).getOr (pattern.length - 1) 0 else 0)
-        (pattern => if [first, ..rest].startsWith pattern.stripes then matching patterns count ([first, ..rest].drop pattern.stripes.length) else 0)
+        (pattern => if [first, ..rest].startsWith pattern.stripes.toList then (waysForSuffixes patterns rest).getOr (pattern.length - 1) 0 else 0)
+        (pattern => if [first, ..rest].startsWith pattern.stripes.toList then matching patterns count ([first, ..rest].drop pattern.stripes.toList.length) else 0)
         (pattern member =>
-          match pattern with
-            | { stripes = [] } => Void.exfalso (Bool.falseNotTrue (striped { stripes = [] } member))
-            | { stripes = [stripe, ..others] } =>
-              match starts: [first, ..rest].startsWith [stripe, ..others] with
-                | True =>
-                  tableCorrect patterns striped rest others.length (omega [List.startsWithLength [first, ..rest] [stripe, ..others] starts]) count
-                    (omega [enough])
-                | False => rfl)
+          match starts: [first, ..rest].startsWith pattern.stripes.toList with
+            | True =>
+              tableCorrect patterns rest pattern.stripes.tail.length (omega [List.startsWithLength [first, ..rest] pattern.stripes.toList starts]) count
+                (omega [enough])
+            | False => rfl)
 
 --| The table's first entry is its entry 0.
 theorem firstEntry (patterns: List Pattern): (stripes: List Stripe) →
@@ -37,6 +34,6 @@ theorem firstEntry (patterns: List Pattern): (stripes: List Stripe) →
   | [first, ..rest] => rfl
 
 --| The program counts the puzzle's ways to make any design.
-theorem waysCorrect (patterns: List Pattern) (striped: Striped patterns) (design: Design): waysToMake patterns design = ways patterns design :=
+theorem waysCorrect (patterns: List Pattern) (design: Design): waysToMake patterns design = ways patterns design :=
   rewrite List.lengthFilter (towelLists patterns design.stripes.length) (towels => laid towels == design.stripes), firstEntry patterns design.stripes in
-    tableCorrect patterns striped design.stripes 0 (omega) design.stripes.length (omega)
+    tableCorrect patterns design.stripes 0 (omega) design.stripes.length (omega)
