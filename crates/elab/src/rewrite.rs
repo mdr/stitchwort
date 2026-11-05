@@ -793,6 +793,7 @@ fn rewrite_once(
         Place::Goal => holds_by_computing(cx, &goal_value, remaining)?,
         Place::Target(_) | Place::Inside => false,
     };
+    let other_direction = other_direction_rewrites(cx, rule, place, &goal_value)?;
     let error = nothing_found(
         cx,
         rule,
@@ -802,6 +803,7 @@ fn rewrite_once(
             as_written,
             done,
             open,
+            other_direction,
         },
         &equation.lhs,
         &goal_value,
@@ -1595,6 +1597,97 @@ struct Searched<'a> {
     /// The rule's left side has unknowns of its own, so it was looked for
     /// inside function arguments too.
     open: bool,
+    /// The rule written the other way round would rewrite something in the
+    /// goal: the direction is the mistake, not the search.
+    other_direction: bool,
+}
+
+/// Whether the rule written the other way round would rewrite something in
+/// `goal`: the side `rewrite` would then look for occurs in it. Tried after a
+/// search found nothing, with the rule elaborated again; whatever it did is
+/// undone.
+fn other_direction_rewrites(
+    cx: &mut Ctx,
+    rule: &RewriteRule,
+    place: Place,
+    goal: &Value,
+) -> Result<bool> {
+    let attempt = Snapshot::take(cx);
+    let flipped = RewriteRule {
+        reverse: !rule.reverse,
+        proof: rule.proof.clone(),
+        span: rule.span,
+    };
+    let mut remaining = search_budget(cx);
+    let outcome = (|| -> Result<bool> {
+        let equation = elaborate_rule(cx, &flipped, place)?;
+        let term = cx.quote(goal)?;
+        let lhs_term = cx.quote(&equation.lhs)?;
+        let Some(computed) = key(&lhs_term, 0) else {
+            return Ok(false);
+        };
+        // A bare variable occurs in almost any goal that mentions it, so it
+        // says nothing about the rule's direction (SW-1400: a rule `n * 1 =
+        // n` flipped looks for `n`, which is not a mistake to point at).
+        // Only a side with an outer function of its own counts.
+        if matches!(&computed, Key::Var(_, 0)) {
+            return Ok(false);
+        }
+        // Nothing with the side's outer function and number of arguments:
+        // no search can find it, by computing or otherwise.
+        let candidate = term.subterms().any(|(t, under)| {
+            !matches!(t, Term::Loc(..)) && key(t, under).as_ref() == Some(&computed)
+        });
+        if !candidate {
+            return Ok(false);
+        }
+        // First the occurrences that use no variable bound inside the goal,
+        // as most mistakes have.
+        let before_replace = Snapshot::take(cx);
+        let replaced = replace_solving_instances(
+            cx,
+            &flipped,
+            place,
+            &equation,
+            goal,
+            Shape::Whole(&term),
+            0,
+            &mut remaining,
+        )?;
+        if replaced.step.is_some() {
+            return Ok(true);
+        }
+        before_replace.restore(cx);
+        if equation.open(&lhs_term) {
+            // The side may occur only inside functions passed to calls, which
+            // the rule's congruence lemmas rewrite, as in `rewrite_once`.
+            let keys = under::Keys {
+                computed,
+                written: under::written_key(cx, &equation.lhs),
+            };
+            let mut skipped = under::Skipped::default();
+            match under::sites(
+                cx,
+                &flipped,
+                &keys,
+                &term,
+                cx.level(),
+                &mut remaining,
+                &mut skipped,
+            ) {
+                Ok(sites) if !sites.is_empty() => return Ok(true),
+                Err(e) if fatal(&e) => return Err(e),
+                _ => {}
+            }
+        }
+        Ok(false)
+    })();
+    attempt.restore(cx);
+    match outcome {
+        Ok(found) => Ok(found),
+        Err(e) if fatal(&e) => Err(e),
+        Err(_) => Ok(false),
+    }
 }
 
 fn nothing_found(
@@ -1611,6 +1704,7 @@ fn nothing_found(
         as_written,
         done,
         open,
+        other_direction,
     } = searched;
     let shown_lhs = shown(cx, lhs);
     let computed_lhs = shown_computed(cx, lhs);
@@ -1667,27 +1761,35 @@ fn nothing_found(
             ),
         });
     }
-    error = error.with_note(
-        "occurrences are looked for by their outer function and compared by computing; one \
-         that uses a variable bound inside a function argument is rewritten through the \
-         congruence lemma of the call the function is passed to",
-    );
-    error = error.with_note(if rule.reverse {
+    let direction = if rule.reverse {
         "to replace the left side by the right, write the rule without `<-`"
     } else {
         "to replace the right side by the left, write `rewrite <- …`"
-    });
-    if found.bound > 0 {
-        error = error.with_note(if open {
-            "some had the right outer function but use a variable bound inside the goal \
-             other than by a function argument (such as `(x: A) -> …`), where `rewrite` \
-             can't go: introduce the variable first (`x => rewrite …`)"
-        } else {
-            "some had the right outer function but use a variable bound inside the goal, and \
-             didn't match there: inside a function argument the rule is elaborated again, \
-             once for each function, so write `_` for its arguments that use the function's \
-             variable (`rewrite Nat.mulSucc k _`)"
-        });
+    };
+    if other_direction {
+        // The rule's other side occurs, so the direction is the mistake: say
+        // so first, and leave out the notes about how the search compares
+        // terms, which have nothing to do with it.
+        error.notes.insert(0, direction.to_string());
+    } else {
+        error = error.with_note(
+            "occurrences are looked for by their outer function and compared by computing; one \
+             that uses a variable bound inside a function argument is rewritten through the \
+             congruence lemma of the call the function is passed to",
+        );
+        error = error.with_note(direction);
+        if found.bound > 0 {
+            error = error.with_note(if open {
+                "some had the right outer function but use a variable bound inside the goal \
+                 other than by a function argument (such as `(x: A) -> …`), where `rewrite` \
+                 can't go: introduce the variable first (`x => rewrite …`)"
+            } else {
+                "some had the right outer function but use a variable bound inside the goal, and \
+                 didn't match there: inside a function argument the rule is elaborated again, \
+                 once for each function, so write `_` for its arguments that use the function's \
+                 variable (`rewrite Nat.mulSucc k _`)"
+            });
+        }
     }
     // The pattern may be inside the body of an opaque definition in the goal.
     if let (Some(pattern), Ok(goal_term)) = (folded(cx, lhs), cx.quote(goal)) {
