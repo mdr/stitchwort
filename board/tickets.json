@@ -7670,13 +7670,13 @@
     {
       "id": 1380,
       "title": "Docs: sweep one-argument List.range and List.between out of docs/ (evaluator-speed, aoc-2025 :986 :2157, comparisons/aoc-day0{2,3,4}-community, research/aoc-chaining-survey :182); optional tidy: Day02 List.range 2 (copies - 1 + 1), Grid at.row + 1 + 1",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1380",
       "labels": [
         "docs"
       ],
-      "body": "From SW-1357's Opus review, 5 Nov 2026. Small improvement.",
+      "body": "From SW-1357's Opus review, 5 Nov 2026. Small improvement.\n\nDone on lane/SW-1380 (92a22c6c2): 10 docs updated (our code shown with ranges; dated records get '(now …)'); others' Lean/Haskell quotes untouched; 2025 day 2 List.range 2 copies (equal for all copies; orchestrator checked day 2 and its proofs, tests pass). Grid tidy-up reverted: it exposed SW-1413. Reviewed line by line. Model result: DeepSeek, worked, ~25 min (est. 25).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8133,7 +8133,7 @@
     {
       "id": 1413,
       "title": "Bug: a range followed by two |> steps fails: '0 ..= n |> .flatMap (i => 0 ..= i |> .map …) |> .filter …' gives E-NO-NAMESPACE (looked in Effect.CompD, stuck) while the same with List.range calls checks, and one step checks; found by SW-1380 on aoc Common/Grid Position.around",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
