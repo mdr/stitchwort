@@ -2995,3 +2995,260 @@ modules and Aoc.Common.
 6. Smaller: `Result.isErr`; `at` as a name in Aoc.Common meeting
    `rewrite … at`; `omega` on an unnamed `match` comparison; interpolations
    over two lines; a `Grid.zipWith` (items 5, 6). Each trivial to small.
+
+## Day 12: Rain Risk
+
+A ferry's navigation instructions, one a line, each a letter and a value
+("F10", "N3", "R90"). In part 1 N, S, E and W move the ship, L and R turn
+it by the given degrees, and F moves it forward the way it faces; it starts
+facing east. In part 2 N, S, E and W move a waypoint that starts 10 east
+and 1 north of the ship, L and R rotate the waypoint about the ship, and F
+moves the ship to the waypoint the given number of times. Each answer is
+the ship's Manhattan distance from its start. Answers on Matt's input (783
+instructions; every turn is 90, 180 or 270 degrees): 415 and 29401; the
+example gives 25 and 286, as the puzzle says. Matt's Scala (`Day12.scala`)
+rotates the waypoint with `cos` and `sin` of the angle in radians and
+rounds; I didn't run it. An independent Python script (quarter turns,
+`(x, y) → (y, -x)` clockwise) agrees on all four answers.
+
+The domain types are `Heading` (`North`, `East`, `South`, `West`, with
+`heading.clockwise` and `heading.turned quarters`), `Side` (`Left`,
+`Right`), `Action` (`Move heading`, `Turn side`, `Forward`),
+`Instruction` (an action and its value), `Route` (the instructions),
+`Location` (`east` and `north` as `Int`s, with `moved`, `plus`, `times`,
+`rotated` and `manhattan`), `Ship` (a location and a heading) and
+`WaypointShip` (a location and a waypoint), each with `follow
+instruction`; the answers are `route.shipDistance` and
+`route.waypointDistance`, a `foldLeft` of `follow` from the start. The
+one design decision is turning: the parser rejects a turn that isn't a
+multiple of 90 degrees, and `clockwiseQuarters side degrees` reduces every
+turn to 0 to 3 quarter turns clockwise (a left turn goes the rest of the
+way round), so the waypoint's rotation is a `match` on four cases:
+
+```stitchwort
+def Location.rotated (location: Location) (quarters: Nat): Location :=
+  match quarters with
+    | 0 => location
+    | 1 => { east = location.north, north = 0 - location.east }
+    | 2 => { east = 0 - location.east, north = 0 - location.north }
+    | _ => { east = 0 - location.north, north = location.east }
+```
+
+The program and its 22 tests passed on the first run (one test of mine
+expected 782 instructions: the input has no final line break, so `wc -l`
+counts one short); `main` takes 0.35 s user on the input.
+
+The spec (`Spec/Spec.sw`) shares the program's data types (`Instruction`,
+`Action`, `Heading`, `Location`) and none of its functions. It has
+`ActionWritten` and `InstructionWritten` (the letter, then the value in
+decimal, and a turn a multiple of 90: the ship only ever faces a compass
+point, and every turn in the examples and the input is one), `unit` (a
+step of one unit for each heading), `along` (some steps of a step from a
+place), `quarterLeft` and `quarterRight` (turning a step about the start:
+"east becomes north"), `turned side degrees` (`degrees / 90` quarter
+turns that way), `manhattan` ("the sum of the absolute values of its
+east/west position and its north/south position"), and for each part its
+own ship: `Ship` (a position and the step it faces, `start` facing east),
+`navigate` (the instructions as the puzzle words them), `Part1`;
+`Steered` (a position and the waypoint), `steer` ("rotate the waypoint
+around the ship left (counter-clockwise) the given number of degrees",
+"move forward to the waypoint a number of times equal to the given
+value"), `Part2`. Where the program faces a compass point the spec faces
+a step, and turning is turning that step, so part 1's turns and part 2's
+rotations are the same `turned`; the program has a heading in part 1 and
+a four-case rotation in part 2. The spec is computable, and the tests run
+it on the example (25 and 286).
+
+Proved (`Aoc.Year2020.Day12.Proofs`):
+
+- `readsAction`, `readsInstruction`, `parseWritten` (Parse.sw): if
+  `parseRoute` reads `input`, each line is its instruction written out,
+  every turn a multiple of 90.
+- `iterateCycles`, `iterateMod`, `fullTurnLeft`, `fullTurnRight`,
+  `leftIsRight`, `turnedClockwise`, `unitClockwise`, `headingTurned`,
+  `rotatedQuarters`, `quartersSmall`, `rotatedTurned` (Turns.sw): a step
+  that comes back after `period` steps needs only the remainder; four
+  quarter turns either way are the identity; `r` quarter turns left are
+  `(4 - r) % 4` right; so the spec's turn is `clockwiseQuarters` quarter
+  turns right, turning a heading turns its step, and the program's
+  `rotated` is the spec's `turned`.
+- `foldLeftRelate`, `alongUnit`, `navigateFollows`, `steerFollows`,
+  `part1Rules`, `part2Rules` (Parts.sw): a map that commutes with each
+  step commutes with the fold; moving by a heading is moving along its
+  unit step; each instruction does to the program's ship (seen as the
+  spec's) what the spec says; so both answers are the spec's.
+- `part1Correct`, `part2Correct`, `part1Exactly`, `part2Exactly` (both
+  `↔`) (Proofs.sw): for every input the parser reads, its lines are the
+  instructions written out and the answers are the spec's; each part's
+  answer is the spec's and no other number is. Both parts answer on every
+  route, so there is no "when it answers" to state. Uniqueness is free:
+  `Part1` and `Part2` are equations, so each names one number.
+
+Not proved: that every well-formed input parses (as on days 2 to 11).
+Nothing else; there is no added hypothesis. The spec's `turned` reads a
+turn as `degrees / 90` quarter turns, which is what the puzzle means for
+every turn `InstructionWritten` allows; a turn of 45 degrees is no
+instruction (the parser fails on it), and the program and the spec agree
+on such a turn anyway (both round it down), so `part1Exactly` holds for
+any route, parsed or not.
+
+Breaking the program made the proofs fail: a left turn as many quarters
+clockwise as it has degrees fails `turnedClockwise` (E-TYPE-MISMATCH,
+`… (degrees / 90 % 4) …` against `… (4 - degrees / 90 % 4) % 4 …`); the
+wrong sign in `rotated`'s quarter turn fails `rotatedQuarters`; `West`
+turning clockwise to `South` fails `unitClockwise`; moving south adding
+to `north` fails `alongUnit`; a waypoint starting 2 north fails
+`part2Rules`; and the parser accepting turns of 45 degrees fails
+`readsInstruction` (item 2: for an unhelpful reason). The audit (with the
+counterexample search): `audited 79 theorems: 0 failed, 0 with warnings,
+79 passed`.
+
+### 1. Aoc.Common has nothing for a ship on open water
+
+Every shared type is for a grid read from text: `Position` and `Point`
+are `Nat`s from a corner, `Offset` is `Int` rows down and columns right,
+and `Direction` is `Up`, `Right`, `Down`, `Left`, with `turnRight` and
+`turnLeft`. A ship at sea needs coordinates that go negative, east and
+north (the puzzle's words: "10 units east and 1 unit north"), compass
+headings, turning a heading or a vector by quarter turns, and the
+Manhattan distance; I wrote `Location` (6 functions, 30 lines) and
+`Heading` (10 lines), and the spec its own `unit`, `along`,
+`quarterLeft`, `quarterRight` and `manhattan`. `Offset` is closest, but
+moving north is `rows = -1` in it, and it has no rotation and no length.
+2024's day 20 has its own `Position.distance` (Manhattan, by `absDiff`).
+A small shared `Vector` (`east`/`north` or `x`/`y` as `Int`s; `plus`,
+`times`, `quarterLeft`, `quarterRight`, `rotated quarters`, `manhattan`)
+with the lemmas Turns.sw proves (`fullTurnLeft`, `leftIsRight`, rotation
+by the remainder) would make this day's program and Turns.sw a few calls,
+and would serve 2024's day 14 (robots with velocities, done with
+`Offset`). Whether compass headings are `Direction` renamed or a type
+of their own is a naming question; `Direction`'s `turnRight` was
+exactly `Heading.clockwise`.
+
+### 2. A `match` on a condition the goal no longer has refines nothing, silently
+
+`readsInstruction` follows the parser's `if action.isTurn && value % 90
+!= 0` with `match whole: action.isTurn && value % 90 != 0`, which works.
+Breaking the parser to `% 45` made the proof fail, as it should, but not
+where the cause is:
+
+```
+[E-REWRITE-NOTHING] Error: `rewrite` found no `List.append digits []` in the goal
+    Note 1: goal after the rule before this one: `?44 [letter] action letter single written digits value nonEmpty allDigits decimal whole`
+[E-TYPE-MISMATCH] Error: type mismatch
+ 26 │         | True => Parse.readsFail "a turn has to be a multiple of 90 degrees" _
+    ╰── expected `(state: Parse.State) → … → Std.Effect.runPure (Std.Effect.foldComp … … …) state = Ok (value1, after) → …`, but this has type `Parse.Reads (arg => Parse.fail "…") (?42 …)`
+```
+
+The `match` found no `… % 90 != 0` in the goal (it now says `% 45`), so
+it refined nothing, the arms' goals stayed the whole `if`, and the
+errors are about an unsolved spec (`?42`, `?44`) and the parser's
+unfolded run. The real message is one line: "the `match` on `e` refines
+nothing: `e` isn't in the goal (nor in a hypothesis)". The same would
+have saved time on day 11 (item 4, a `match` on `layout.grid.at next`
+that refined nothing). A warning when a `match e:` changes no goal or
+hypothesis, at least when an arm then fails, would point at the cause.
+
+### 3. Lemmas a newcomer would look for
+
+- **A fold commutes with a map that commutes with each step.**
+  `foldLeftRelate` (`relate (f x i) = g (relate x) i` for all `x`, `i`
+  gives `relate (xs.foldLeft x f) = xs.foldLeft (relate x) g`, 4 lines)
+  is every "the program's state is the spec's state seen another way"
+  proof over a list of steps: both parts here. Std has `List.foldLeftMap`
+  (mapping the list) but not this. A std `List.foldLeftRelate` (and a
+  `Nat.iterate` one: `headingTurned` is that for `iterate`) would be one
+  call each.
+- **Iteration with a period.** `iterateCycles` and `iterateMod` (12
+  lines): when `f` comes back after `period` steps, `iterate n f =
+  iterate (n % period) f`. Std has `Nat.iterateAdd` and
+  `Nat.iterateFixed` but not this; any puzzle that turns, cycles or
+  wraps by repeated steps needs it.
+- **`stitchwort doc` doesn't show a record's generated `ext`.** `doc
+  Aoc.Year2020.Day12.Location` lists the fields, and `doc
+  …Location.ext` is "no declaration named", though `Location.ext` is
+  there and closed every vector identity here (`Location.ext _ _ (omega)
+  (omega)`, 10 times). I knew of it from 2024's `Point.ext`; a newcomer
+  would only find it in syntax.md. It also takes the two records
+  explicitly, which the expected type always fixes, so every call writes
+  `_ _` (D2422 would make them implicit).
+
+### 4. `omega` doesn't read a `!=` in a `Bool` hypothesis
+
+The `False` arm of item 2's `match` has `whole: (action.isTurn &&
+Decidable.toBool (Decidable.not (Nat.decEq (value % 90) 0))) = False`
+and, under a turn, `turn: action.isTurn = True`; the goal is `value % 90
+= 0`. `omega` listed neither as a fact. `cases` proved it at once (it
+split `value % 90 == 0`'s decision and `isTurn`). Day 9 (item 4) noted
+`!=` in statements; here it is `omega` reading `a && b` conjunctions
+(day 9 item 1, which it does for `<=`) but not a `!=`'s `Decidable.not`,
+as a disequation. Small; `cases` is the workaround, and the error didn't
+point at it.
+
+### 5. Smaller things
+
+- **What helped.** The proofs took six minutes: everything but
+  `headingTurned` and one `omega` checked as first written. Record `ext`
+  with `omega` on each field proved every `Int` vector identity (`0 - (0
+  - x) = x` and the like), and a `match` on a `Nat` with arms `0`, `1`,
+  `2`, `3` and `Succ (Succ (Succ (Succ more)))` closed by `omega` turned
+  "for any `r < 4`" into four computations. `cases` proved the parser's
+  turn condition. `Parse.readsPickBy`, `Parse.readsNat` and day 8's
+  `parseWritten`, nearly word for word, made the parser's proof a
+  minute. Writing both programs as a `foldLeft` of a `follow` method,
+  and the spec as a `foldLeft` too, made one generic lemma prove both
+  parts.
+- **No `Result.getOr`.** A test that wanted the parsed instructions or
+  `[]` wrote `.toOption |> .getOrElse []`; with day 11's missing
+  `Result.isErr`, `Result` lacks the `Option`-like accessors a test
+  reaches for. And `Option`'s is `getOrElse`, so `getOr` (the name
+  `Map.getOr` and the index lemmas use) isn't there for either.
+- **The puzzle doesn't say turns are quarter turns.** The program and
+  the spec both need a reading of "turn left the given number of
+  degrees" for a ship that faces N, S, E or W; Matt's Scala rounds
+  `cos` and `sin`. Rejecting other turns in the parser and saying so in
+  `InstructionWritten` kept the spec in the puzzle's words with no
+  hypothesis on the theorems; a newcomer might instead model angles mod
+  360 and pay for it in `%` arithmetic, which `omega` can't do (guide
+  §3).
+
+### Size and time
+
+139 lines of program, 115 of spec, 198 of proofs (Parse 39, Turns 81,
+Parts 51, Proofs 27), 65 of tests (+1 answer test in
+`aoc_answers.rs`). By the clock: 23:37 start; program and tests passing
+at 23:42; spec and all proofs at 23:46 (a minute on the parse
+condition, item 4); then the break checks, the audit, timing and these
+notes.
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2020.Day12.Proofs` | 4.8 s user |
+| `stitchwort check --no-cache Aoc.Year2020.Day12` | 1.4 s user |
+| `stitchwort test --no-cache Aoc.Year2020.Day12` (22 tests) | 4.8 s user |
+| `task audit:touched -- Aoc.Year2020.Day12` (79 theorems) | about 11 s user |
+| `stitchwort run Aoc.Year2020.Day12.main` on the input | 0.35 s user |
+| `task test:one -- year2020_day12` | 1.5 s for the test (2 min with building the test binaries in a new worktree) |
+
+`STITCHWORT_TIMINGS=1` puts the Proofs namespace at 86 ms of
+elaboration and 12 ms in the kernel (`readsInstruction` the largest, 48
+ms); the rest of the cold time is std's modules.
+
+### Ranked
+
+1. Aoc.Common has no `Int` vector with compass headings, quarter-turn
+   rotation and Manhattan length, nor the lemmas that four quarter turns
+   are none and a left turn is three right; this day wrote 40 lines of
+   program and 80 of proof for them (item 1). Aoc.Common; small.
+2. A `match e:` whose `e` isn't in the goal refines nothing without a
+   word, and the arms then fail with messages about unsolved
+   metavariables and unfolded parser runs (item 2). Message; small.
+3. Std lacks `List.foldLeftRelate` (a fold commutes with a map that
+   commutes with each step) and `Nat.iterateMod` (iteration with a
+   period); both are generic and were half of the proofs (item 3).
+   Library; trivial each.
+4. `stitchwort doc` doesn't list or find a record's generated `T.ext`,
+   and `T.ext` takes its two records explicitly (item 3). Tooling and
+   D2422; trivial each.
+5. Smaller: `omega` doesn't read a `!=` (`Decidable.not`) in a `Bool`
+   hypothesis (item 4); no `Result.getOr` (item 5). Each small.
