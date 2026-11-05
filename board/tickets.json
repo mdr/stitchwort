@@ -7292,9 +7292,9 @@
     {
       "id": 1353,
       "title": "Sweep: method (dot) form where the first argument is the call's subject in aoc and games/rogue (Nat.absDiff level next -> level.absDiff next; value.testBit 3); leave min/max, builders (List.range, List.replicate) and lemmas used as proofs",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1353",
       "labels": [
         "aoc"
       ],
