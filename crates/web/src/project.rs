@@ -111,7 +111,10 @@ fn project_path<'a>(project: &str, name: &'a str) -> &'a str {
 
 /// `"diagnostics": [...]`: one entry per diagnostic, with its severity, code
 /// and the primary span's file (path within the project), line and column,
-/// both counted from 1, the column in characters.
+/// both counted from 1, the column in characters. The span's end is
+/// `endLine` and `endColumn` in the units of the navigation index's ranges
+/// (`check_index`): the line counted from 0, the column in UTF-16 code units
+/// (what a JavaScript string and CodeMirror count).
 fn diagnostics_json(project: &str, session: &Session, diagnostics: &[&Diagnostic]) -> String {
     let each: Vec<String> = diagnostics
         .iter()
@@ -126,8 +129,14 @@ fn diagnostics_json(project: &str, session: &Session, diagnostics: &[&Diagnostic
                 let before = &file.text[..(span.start as usize).min(file.text.len())];
                 let line = before.matches('\n').count() + 1;
                 let column = before.rsplit('\n').next().map_or(0, |l| l.chars().count()) + 1;
+                let upto = &file.text[..(span.end as usize).clamp(before.len(), file.text.len())];
+                let end_line = upto.matches('\n').count();
+                let end_column = upto
+                    .rsplit('\n')
+                    .next()
+                    .map_or(0, |l| l.encode_utf16().count());
                 format!(
-                    r#","file":{},"line":{line},"column":{column}"#,
+                    r#","file":{},"line":{line},"column":{column},"endLine":{end_line},"endColumn":{end_column}"#,
                     json_string(project_path(project, &file.name))
                 )
             });
@@ -639,6 +648,12 @@ mod tests {
         assert!(answer.contains("[E-NAMESPACE-FAILED]"), "{answer}");
         assert!(
             answer.contains(r#""file":"src/Aoc/Common/Range.sw","line":"#),
+            "{answer}"
+        );
+        // The `rfl` at the end of `def broken : Nat := rfl`, line 28 counted
+        // from 1: the end is line 27 counted from 0, after the 23rd unit.
+        assert!(
+            answer.contains(r#""line":28,"column":21,"endLine":27,"endColumn":23,"#),
             "{answer}"
         );
         assert!(

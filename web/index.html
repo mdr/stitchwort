@@ -1823,14 +1823,21 @@ export def area: Shape -> Nat
   }
 
   /** Opens a file with the caret at `line`, `column` (counted from 1). */
-  function goTo(path, line, column) {
+  /** Moves the caret to `line`:`column` (from 1) of a file; given the diagnostic, selects its span (`endLine` from 0, `endColumn` in UTF-16 units, as the index's ranges are). */
+  function goTo(path, line, column, diagnostic) {
     openFile(path);
     const lines = source.value.split("\n");
     let offset = 0;
     for (let i = 0; i < line - 1 && i < lines.length; i++) offset += lines[i].length + 1;
     offset = Math.min(offset + column - 1, source.value.length);
     source.focus();
-    source.setSelectionRange(offset, offset);
+    let end = offset;
+    if (diagnostic?.endLine !== undefined) {
+      let at = 0;
+      for (let i = 0; i < diagnostic.endLine && i < lines.length; i++) at += lines[i].length + 1;
+      end = Math.min(Math.max(at + diagnostic.endColumn, offset), source.value.length);
+    }
+    source.setSelectionRange(offset, end);
     const lineHeight = parseFloat(getComputedStyle(source).lineHeight) || 20;
     source.scrollTop = Math.max(0, (line - 4) * lineHeight);
     align();
@@ -1885,7 +1892,7 @@ export def area: Shape -> Nat
       for (const d of found) {
         if (file) {
           const jump = el("button", { type: "button", className: "jump" }, `${file}:${d.line}:${d.column}`);
-          jump.addEventListener("click", () => goTo(file, d.line, d.column));
+          jump.addEventListener("click", () => goTo(file, d.line, d.column, d));
           group.append(jump);
         }
         group.append(el("pre", { className: "errors" }, d.text));
