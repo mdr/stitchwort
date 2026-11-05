@@ -4,30 +4,31 @@
 -- (D2108)
 
 namespace Aoc.Year2021.Day13.Proofs
+import Aoc.Common (Point)
 import Aoc.Year2021.Day13 (..)
 import Aoc.Year2021.Day13.Spec (..)
 import Std (Bool, Eq, Fail, Iff, List, Option, Result, Void)
 
 --| The program's test, `clears`, is the puzzle's promise for one dot.
-theorem clearsClear (fold: Fold) (dot: Dot) (h: clears fold dot = True): Clear fold dot :=
+theorem clearsClear (fold: Fold) (dot: Point) (h: clears fold dot = True): Clear fold dot :=
   cases
 
 --| A list in which `find` found no dot failing the test: each dot passes.
-theorem clearOfFind (fold: Fold) (dots: List Dot) (none: dots.find (dot => not (clears fold dot)) = None) (dot: Dot) (member: dot ∈ dots): Clear fold dot :=
+theorem clearOfFind (fold: Fold) (dots: List Point) (none: dots.find (dot => not (clears fold dot)) = None) (dot: Point) (member: dot ∈ dots): Clear fold dot :=
   match e: clears fold dot with
     | True => clearsClear fold dot e
     | False => Void.exfalso (List.findNoneNotMem dots (dot => not (clears fold dot)) dot (rewrite e in rfl) member none)
 
 --| If no fold is blocked, folding a list that holds the dots, the promise
 --| is kept for every fold.
-theorem unblockedPromise: (folds: List Fold) → (index: Nat) → (dots: List Dot) → (marked: Dot → Prop) → Holds dots marked →
+theorem unblockedPromise: (folds: List Fold) → (index: Nat) → (dots: List Point) → (marked: Point → Prop) → Holds dots marked →
     firstBlockedFrom index dots folds = None → Promise folds marked
   | [], index, dots, marked, holds, none => Trivial
   | [fold, ..rest], index, dots, marked, holds, none =>
     match e: dots.find (dot => not (clears fold dot)) with
       | Some dot => Void.exfalso (Option.someNotNone (index, dot) none)
       | None =>
-        let clear := (dot: Dot) (isMarked: marked dot) => clearOfFind fold dots e dot ((holds dot).backward isMarked)
+        let clear := (dot: Point) (isMarked: marked dot) => clearOfFind fold dots e dot ((holds dot).backward isMarked)
         Both clear (unblockedPromise rest (index + 1) (foldOnce dots fold) (AfterFold fold marked) (foldOnceHolds dots marked fold holds clear) none)
 
 --| `checkPaper` gives the paper back, and only if no fold is blocked...

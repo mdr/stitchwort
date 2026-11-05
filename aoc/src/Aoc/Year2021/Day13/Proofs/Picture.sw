@@ -1,6 +1,7 @@
 --| The picture: `render` shows exactly the dots of the list it is given.
 
 namespace Aoc.Year2021.Day13.Proofs
+import Aoc.Common (Point)
 import Aoc.Year2021.Day13 (..)
 import Aoc.Year2021.Day13.Spec (..)
 import Std (Eq, Exists, List, Nat, Option, Void)
@@ -18,33 +19,33 @@ theorem getMapRangePast [b: Type] (f: Nat → b) (n: Nat) (i: Nat) (past: n ≤ 
   List.getPast (List.map (List.range n) f) i (rewrite List.lengthMap (List.range n) f in rewrite List.lengthRangeFrom n 0 in past)
 
 --| Every dot of the list is inside the width and height `render` uses.
-theorem widthCovers: (dots: List Dot) → (spot: Dot) → spot ∈ dots → spot.x < width dots
+theorem widthCovers: (dots: List Point) → (spot: Point) → spot ∈ dots → spot.x < width dots
   | [], spot, member => Void.exfalso member
   | [dot, ..rest], spot, Inl same => rewrite <- same in omega [widthCons dot rest, Nat.leMaxLeft (dot.x + 1) (width rest)]
   | [dot, ..rest], spot, Inr later => omega [widthCons dot rest, widthCovers rest spot later, Nat.leMaxRight (dot.x + 1) (width rest)]
 
-theorem heightCovers: (dots: List Dot) → (spot: Dot) → spot ∈ dots → spot.y < height dots
+theorem heightCovers: (dots: List Point) → (spot: Point) → spot ∈ dots → spot.y < height dots
   | [], spot, member => Void.exfalso member
   | [dot, ..rest], spot, Inl same => rewrite <- same in omega [heightCons dot rest, Nat.leMaxLeft (dot.y + 1) (height rest)]
   | [dot, ..rest], spot, Inr later => omega [heightCons dot rest, heightCovers rest spot later, Nat.leMaxRight (dot.y + 1) (height rest)]
 
 --| `foldRight` is a `foldLeft` over the reversed list, so these don't hold
 --| by computing.
-theorem widthCons (dot: Dot) (rest: List Dot): width [dot, ..rest] = Nat.max (dot.x + 1) (width rest) :=
+theorem widthCons (dot: Point) (rest: List Point): width [dot, ..rest] = Nat.max (dot.x + 1) (width rest) :=
   List.foldRightCons rest dot 0 (dot widest => Nat.max (dot.x + 1) widest)
 
-theorem heightCons (dot: Dot) (rest: List Dot): height [dot, ..rest] = Nat.max (dot.y + 1) (height rest) :=
+theorem heightCons (dot: Point) (rest: List Point): height [dot, ..rest] = Nat.max (dot.y + 1) (height rest) :=
   List.foldRightCons rest dot 0 (dot lowest => Nat.max (dot.y + 1) lowest)
 
 --| Inside the picture, a spot shows `#` if it is in the list and `.` if it
 --| isn't...
-theorem cellInside (dots: List Dot) (spot: Dot) (inY: spot.y < height dots) (inX: spot.x < width dots):
+theorem cellInside (dots: List Point) (spot: Point) (inY: spot.y < height dots) (inX: spot.x < width dots):
     cellAt (render dots) spot = Some (if dots.any (== spot) then '#' else '.') :=
   rewrite getMapRange _ (height dots) spot.y inY in rewrite getMapRange _ (width dots) spot.x inX in
-    rewrite Dot.ext ({ x = spot.x, y = spot.y }) spot rfl rfl in rfl
+    rewrite Point.ext ({ x = spot.x, y = spot.y }) spot rfl rfl in rfl
 
 --| ...and outside it there is nothing.
-theorem cellOutside (dots: List Dot) (spot: Dot) (out: height dots ≤ spot.y ∨ width dots ≤ spot.x): cellAt (render dots) spot = None :=
+theorem cellOutside (dots: List Point) (spot: Point) (out: height dots ≤ spot.y ∨ width dots ≤ spot.x): cellAt (render dots) spot = None :=
   match out with
     | Inl low => rewrite getMapRangePast _ (height dots) spot.y low in rfl
     | Inr wide =>
@@ -53,7 +54,7 @@ theorem cellOutside (dots: List Dot) (spot: Dot) (out: height dots ≤ spot.y �
         | No outY => rewrite getMapRangePast _ (height dots) spot.y omega in rfl
 
 --| So whatever the picture shows is inside it.
-theorem cellSomeInside (dots: List Dot) (spot: Dot) (c: Char) (found: cellAt (render dots) spot = Some c):
+theorem cellSomeInside (dots: List Point) (spot: Point) (c: Char) (found: cellAt (render dots) spot = Some c):
     spot.y < height dots ∧ spot.x < width dots :=
   match Nat.decLessThan spot.y (height dots) with
     | No outY => Void.exfalso (Option.noneNotSome c (rewrite cellOutside dots spot (Inl omega) at found))
@@ -71,12 +72,12 @@ theorem shownHash (b: Bool) (shown: Some (if b then '#' else '.') = Some '#'): b
   cases
 
 --| Every row is as wide as the dots need.
-theorem rowWidth (dots: List Dot) (row: List Char) (member: row ∈ render dots): row.length = width dots :=
+theorem rowWidth (dots: List Point) (row: List Char) (member: row ∈ render dots): row.length = width dots :=
   Exists.elim (List.memMapElim _ row (List.range (height dots)) member) (y made =>
     rewrite <- made.right in rewrite List.lengthMap (List.range (width dots)) _ in List.lengthRangeFrom (width dots) 0)
 
 --| The picture shows every list it renders.
-theorem renderShows (dots: List Dot) (marked: Dot → Prop) (holds: (spot: Dot) → spot ∈ dots ↔ marked spot): Shows (render dots) marked :=
+theorem renderShows (dots: List Point) (marked: Point → Prop) (holds: (spot: Point) → spot ∈ dots ↔ marked spot): Shows (render dots) marked :=
   Both
     (spot isMarked =>
       let member := (holds spot).backward isMarked
