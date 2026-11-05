@@ -56,8 +56,7 @@ def document(): {Parse} (List (List Tile), List Direction) :=
 --| The positions of every `wanted` tile, row by row.
 def positionsOf (rows: List (List Tile)) (wanted: Tile): List Cell :=
   rows.gridCells
-    |> .filter (((position, here)) => here == wanted)
-    |> .map ((((row, column), here)) => ({ rows = row.toInt, columns = column.toInt }: Cell))
+    |> .filterMap (match some | ((row, column), here) if here == wanted => ({ rows = row.toInt, columns = column.toInt }: Cell))
 
 def parseDocument (input: Text): {Fail} Document :=
   let (rows, moves) := Parse.all input document

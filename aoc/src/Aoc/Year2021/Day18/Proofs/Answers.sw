@@ -73,13 +73,13 @@ theorem pairsMember (numbers: List Number) (x: Number) (y: Number) (member: (x, 
     | Witness (i, a) (Both atI inner) =>
       match List.anyMember _ numbers.withIndex (List.memFilterMapElim _ (x, y) numbers.withIndex inner) with
         | Witness (j, b) (Both atJ made) =>
-          match e: i == j with
-            | True => Void.exfalso (Option.noneNotSome _ made)
-            | False =>
+          match e: i != j with
+            | False => Void.exfalso (Option.noneNotSome _ made)
+            | True =>
               let pairs := Option.someInjective (a, b) (x, y) made
               Witness i
                 (Witness j
-                  (Both (DecEq.soundFalse i j e)
+                  (Both (DecEq.neTrue i j e)
                     (Both (rewrite <- Eq.cong Std.Pair.fst pairs in (List.memWithIndex numbers i a).forward atI)
                       (rewrite <- Eq.cong Std.Pair.snd pairs in (List.memWithIndex numbers j b).forward atJ))))
 
