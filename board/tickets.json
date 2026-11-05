@@ -1,5 +1,5 @@
 {
-  "next": 1465,
+  "next": 1471,
   "tickets": [
     {
       "id": 47,
@@ -8832,13 +8832,13 @@
     {
       "id": 1461,
       "title": "AoC 2020 day 10 (Adapter Array): spec, efficient solution, proofs, tests, friction notes in aoc/NOTES-2020.md",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1461",
       "labels": [
         "aoc"
       ],
-      "body": "D2442 (Matt, 5 Nov 2026): yes. D2443: overnight, day 11 follows without a friction review in between; both reviewed with Matt in the morning. Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day10.\n\nStarted on Opus, expected: 90 min.\n\nD2444 (Matt, 5 Nov 2026): no daily tier overnight; maybe one in the morning.",
+      "body": "D2442 (Matt, 5 Nov 2026): yes. D2443: overnight, day 11 follows without a friction review in between; both reviewed with Matt in the morning. Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day10.\n\nStarted on Opus, expected: 90 min.\n\nD2444 (Matt, 5 Nov 2026): no daily tier overnight; maybe one in the morning.\n\nDone (1bf1219c0), merged: answers 2376 and 129586085429248. Spec: part 1 over a permutation of the bag that connects (sorting proved, not assumed); part 2 counts subsequences of the sorted bag that connect; Takes is literally [1,2,3].contains. Proved: part1Exactly, part2Exactly (iff), part1Unique, part1Correct/part2Correct from the parsed input; onwardCounts (DP = exponential count, any bag). Audit 35/35; five deliberate breaks each caught. Statements checked by the orchestrator (D2436). Friction notes in NOTES-2020.md Day 10; findings filed. 17 min (est. 90).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8881,6 +8881,90 @@
         "editor"
       ],
       "body": "Found by SW-1398's browser run, 5 Nov 2026 ~23:20. Likely from the std cache (SW-1403) or the single checker (SW-1432): library files replayed from std.cache may lack hover data, or the server no longer serves hover in a library file. Overnight: fix (orchestrator's call, medium).\n\nStarted on Sonnet, expected: 60 min (3 browser runs).",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1465,
+      "title": "omega ignores a fact whose ≤ comes from Ord at Nat (e.g. NonEmptyList.maximumLe), even passed in omega [...]; read it, or say it was skipped",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "omega"
+      ],
+      "body": "From 2020 day 10 (SW-1461), 5 Nov 2026. Small improvement.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1466,
+      "title": "omega's note: when two atoms differ only because a match refined one of them, say so and suggest stating facts before the match or splitting with if h:",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "omega"
+      ],
+      "body": "From 2020 day 10 (SW-1461), 5 Nov 2026. Small improvement.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1467,
+      "title": "Std List.subsequences with a membership lemma and a counting step lemma (count over subsequences of x :: xs); day 1 asked for List.combinations too",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From 2020 day 10 (SW-1461), 5 Nov 2026. Small improvement.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1468,
+      "title": "Std List: takeWhile step lemmas ([x, ..xs].takeWhile p when p x is True / False) and List.chainMono (a chain of a stronger relation is a chain of a weaker one)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From 2020 day 10 (SW-1461), 5 Nov 2026. Small improvement.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1469,
+      "title": "Goal printer: print a spread in the middle of a list as written ([0, ..xs, y], not [0, ..List.append xs [y]]), and sumBy/count folded back rather than as their foldLeft form",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "messages"
+      ],
+      "body": "From 2020 day 10 (SW-1461), 5 Nov 2026. Small improvement.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1470,
+      "title": "AoC 2020 day 11 (Seating System): spec, efficient solution, proofs, tests, friction notes in aoc/NOTES-2020.md",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "D2443 (Matt, 5 Nov 2026): follows day 10 without a friction review in between; both reviewed with Matt in the morning. Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day11.\n\nStarted on Opus, expected: 90 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
