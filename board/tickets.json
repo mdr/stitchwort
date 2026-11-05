@@ -1,5 +1,5 @@
 {
-  "next": 1362,
+  "next": 1366,
   "tickets": [
     {
       "id": 47,
@@ -6970,13 +6970,13 @@
     {
       "id": 1330,
       "title": "Check cache key: drop std's text, once the check cache's differential test covers a std edit",
-      "status": "backlog",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1330",
       "labels": [
         "tooling"
       ],
-      "body": "D2378 (Matt, 5 Nov): yes. docs/proposals/test-cache-key.md (P3). Entries are the elaborator's output, so syntax and elab stay in this key.\n\nDone on lane/SW-1330 (557094bfa): keys hold core text + the library's name index, not all of std; namespace entries list the std files they load with their keys. Rare-file edit: 31 of 231 re-check; ubiquitous files (Fin, Toolkit) still re-check nearly all; an added name re-checks all. Opus review running (stale-entry risk: instances etc. in unlisted files). Model result: Sonnet, worked, 37 min (est. 90).\n\nOpus review blocker (loaded-files leak) fixed in df3a4a20a by recording every loaded library file in an entry; that removes most of the gain (an Ansi edit re-checks everything loaded after it) and library-file entries keep a similar gap. Parked: merge after SW-1354 makes lazy loading behave as if every file were loaded; then needed_roots suffices and the loaded-files list can go. Orchestrator's sequencing call, 5 Nov.\n\nRebased on SW-1354 (13377bd58): loaded-files list removed; an entry keeps its library_reach (its needs plus its dependencies' files). blocker.sh (adapted to Option/Option.sw) passes; Ansi edit re-checks 31 of 231 again. Opus re-review next.",
+      "body": "D2378 (Matt, 5 Nov): yes. docs/proposals/test-cache-key.md (P3). Entries are the elaborator's output, so syntax and elab stay in this key.\n\nDone on lane/SW-1330 (557094bfa): keys hold core text + the library's name index, not all of std; namespace entries list the std files they load with their keys. Rare-file edit: 31 of 231 re-check; ubiquitous files (Fin, Toolkit) still re-check nearly all; an added name re-checks all. Opus review running (stale-entry risk: instances etc. in unlisted files). Model result: Sonnet, worked, 37 min (est. 90).\n\nOpus review blocker (loaded-files leak) fixed in df3a4a20a by recording every loaded library file in an entry; that removes most of the gain (an Ansi edit re-checks everything loaded after it) and library-file entries keep a similar gap. Parked: merge after SW-1354 makes lazy loading behave as if every file were loaded; then needed_roots suffices and the loaded-files list can go. Orchestrator's sequencing call, 5 Nov.\n\nRebased on SW-1354 (13377bd58): loaded-files list removed; an entry keeps its library_reach (its needs plus its dependencies' files). blocker.sh (adapted to Option/Option.sw) passes; Ansi edit re-checks 31 of 231 again. Opus re-review next.\n\nOpus re-review: sound, no blocker. Merged. Minor: instance placement not enforced (filed). Model result: Sonnet, needed fixes (first review's blocker; root cause fixed in SW-1354), ~3 h over two sessions (est. 2 h).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7411,6 +7411,62 @@
         "aoc"
       ],
       "body": "From SW-1356 (docs/proposals/ranges.md §13), D2405-D2413 approved by Matt 5 Nov 2026. Runs after the previous ranges step.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1362,
+      "title": "Library index: require a std instance for (I, T) to sit in T's file or I's file, like SW-1354's congruence rule (else check results depend on load order)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "Small improvement found by a lane, 5 Nov 2026. Matt: 'Those small findings are worth curing. In general, I'm a fan of doing small improvements.'",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1363,
+      "title": "Rename Set.containsUnions to match unionAll (SW-1347's rename)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Small improvement found by a lane, 5 Nov 2026. Matt: 'Those small findings are worth curing. In general, I'm a fan of doing small improvements.'",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1364,
+      "title": "NonEmptyList: add count, and any other List conveniences the stage 2 lanes missed (headOr was asked for: check where it was wanted)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Small improvement found by a lane, 5 Nov 2026. Matt: 'Those small findings are worth curing. In general, I'm a fan of doing small improvements.'",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1365,
+      "title": "Move 2020 days 4 and 6's shared parse-proof helpers (sepByMap, eachMap) to std Parse lemmas or Aoc.Common",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "Small improvement found by a lane, 5 Nov 2026. Matt: 'Those small findings are worth curing. In general, I'm a fan of doing small improvements.'",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
