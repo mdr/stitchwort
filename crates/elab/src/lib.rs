@@ -14,6 +14,7 @@ mod builtin_docs;
 pub use builtin_docs::is_builtin;
 pub mod cache;
 mod calc;
+mod chain;
 mod check;
 pub mod closing;
 mod congruence;

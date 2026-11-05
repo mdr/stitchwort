@@ -4426,6 +4426,12 @@ fn check_proof_if(
 
 /// The proposition of `if h: cond` and a decision for it.
 pub(crate) fn if_h_condition(cx: &mut Ctx, h: &AstName, cond: &Expr) -> Result<(Term, Term)> {
+    // A chain with a computed middle: decided with the middle bound once.
+    if let Some((name, value, body)) = cond.as_chain_let() {
+        let ((prop, decision), binding) =
+            crate::chain::around(cx, name, value, |cx| if_h_condition(cx, h, body))?;
+        return Ok((binding.inline(cx, &prop)?, binding.wrap(decision)));
+    }
     let (prop, sort) = check_type(cx, cond).map_err(|e| {
         if e.code == "E-NOT-A-TYPE" {
             e.with_note(format!(
@@ -6137,6 +6143,9 @@ pub fn check_type(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Sort)> {
     if let Expr::Num(..) = written {
         let nat = Value::Data(nat(cx)?, Vec::new());
         return Err(not_a_type(cx, span, &nat));
+    }
+    if let Some((name, value, body)) = expr.as_chain_let() {
+        return crate::chain::check_type(cx, name, value, body);
     }
     // `p && q`, `p || q` and `not p` where a type is wanted are propositions.
     if let Some(logic) = crate::logic::classify(cx, expr) {

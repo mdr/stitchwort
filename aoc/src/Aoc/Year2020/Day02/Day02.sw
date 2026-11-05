@@ -42,7 +42,7 @@ def parseEntries (input: Text): {Fail} List Entry := Parse.eachLine input line
 --| Part 1's policy: the letter appears from `low` to `high` times.
 def Entry.validByCount (entry: Entry): Bool :=
   let times := entry.password.toList.count (== entry.letter)
-  entry.low <= times ∧ times <= entry.high
+  entry.low <= times <= entry.high
 
 --| Whether the letter is at `position` of the password, counting from 1:
 --| there is no position 0.

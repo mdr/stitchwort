@@ -235,6 +235,9 @@ impl Condition {
 /// needs their drafts. Undoing the reading drops them, so if it made any,
 /// it's done again.
 pub(crate) fn condition(cx: &mut Ctx, cond: &Expr, what: &str) -> Result<Condition> {
+    if let Some((name, value, body)) = cond.as_chain_let() {
+        return chain_condition(cx, name, value, body, what);
+    }
     let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
     let snapshot = crate::undo::Snapshot::take(cx);
     let outer =
@@ -271,6 +274,49 @@ pub(crate) fn condition(cx: &mut Ctx, cond: &Expr, what: &str) -> Result<Conditi
         }
         None => Err(not_bool),
     }
+}
+
+/// A chain of comparisons with a middle operand that is computed
+/// (`crate::chain`): the condition of its body, with the operand run once
+/// by whatever runs the `Bool` or the decision, and put back in place in
+/// the proposition the branches learn.
+fn chain_condition(
+    cx: &mut Ctx,
+    name: &stitchwort_syntax::ast::Name,
+    value: &Expr,
+    body: &Expr,
+    what: &str,
+) -> Result<Condition> {
+    // The condition's terms are under the variable; the decision is read
+    // while the variable is in scope.
+    let (inner, binding) = crate::chain::around(cx, name, value, |cx| {
+        Ok(match condition(cx, body, what)? {
+            Condition::Decided { prop, decision } => Condition::Decided {
+                prop,
+                decision: crate::bind::Decision::Plain(decision.term(cx)?),
+            },
+            other => other,
+        })
+    })?;
+    Ok(match inner {
+        Condition::Decided { prop, decision } => Condition::Decided {
+            prop: binding.inline(cx, &prop)?,
+            decision: crate::bind::Decision::Plain(binding.wrap(decision.term(cx)?)),
+        },
+        Condition::Waiting { prop } => Condition::Waiting {
+            prop: binding.inline(cx, &prop)?,
+        },
+        Condition::Bool(c) => Condition::Bool(binding.wrap(c)),
+        Condition::Conjunction {
+            as_bool,
+            prop,
+            decision,
+        } => Condition::Conjunction {
+            as_bool: binding.wrap(as_bool),
+            prop: binding.inline(cx, &prop)?,
+            decision: binding.wrap(decision),
+        },
+    })
 }
 
 /// `cond` as a decided proposition, for [`condition`]; `None` if the `Bool`
