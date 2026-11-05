@@ -1,5 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
+assertion_line: 172
 expression: "lines(session, d, f)"
 ---
 data Main.State 85de017bfba669387e7abba0d3cf8705427dca441fe960de4dbe25ac908798f9
@@ -40,7 +41,7 @@ Main.stored 5bec6e65fc32b95b0ac74c4e545eb5a5172e0d4d341fecac468d01e8e9a595ef
 Main.stored.%match1 bb6e1d84d29d703ef42d00562a2d1a2ddd3e7b68590fb3998bc3ce37e52f18cb
 Main.test "functions as state" 2e4e88bcbf4ffb6fb787b9462d073003a71fe0f862ccc473df4b9dd88cd30044
 Main.test "counts" 55ae0dab959b3d82acc0e869e1546ce07e9fc5288046bbdc084dc586f70365d2
-Main.test "groupBy" f5d13d2f4b133d5d0f1284cf557d6741e13516ce10596eef94027edd4a1a5ba8
+Main.test "groupBy" 357309b5488f87c531791a361ba87dba29edacb0584f562d0c510cd1134836cf
 Main.test "unionWith" 8d4493ec3e8d2c510f8412e8aef9cdb7161f0d748d31da8397c4b8fa4b5441de
 Main.test "min and below" 9a09d0c84b083fb720e15e461bf25b61f1d8a7886a496181a175f98d1f646683
 Main.test "keySet" 41d23c3d78b29841a809f5c844bffcc2aaf5e9fed2bdbc0ea8a8770600c64039
