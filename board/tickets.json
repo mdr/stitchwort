@@ -1,5 +1,5 @@
 {
-  "next": 1381,
+  "next": 1382,
   "tickets": [
     {
       "id": 47,
@@ -7677,6 +7677,20 @@
         "docs"
       ],
       "body": "From SW-1357's Opus review, 5 Nov 2026. Small improvement.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1381,
+      "title": "Implicit inferable parameters: lemmas whose values are fixed by their own hypotheses take them in square brackets, so calls drop runs of _ (254 calls with 3+ underscores in 48 files; e.g. shapeOnRoute _ _ _ _ _ onTheMap …); std first, then aoc; proving-guide style rule",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1381",
+      "labels": [
+        "proofs"
+      ],
+      "body": "D2422 (Matt, 5 Nov 2026): yes. Keep explicit any parameter a caller sometimes must supply. Prompted by aoc 2024 day 6 Proofs/Part2.sw:184.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
