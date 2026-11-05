@@ -19,11 +19,11 @@ theorem timesOne: (n: Nat) → n * 1 = n
 -- begin lists
 def mapList (f: a → b): List a → List b
   | [] => []
-  | Cons x rest => Cons (f x) (mapList f rest)
+  | [x, ..rest] => [f x, ..mapList f rest]
 
 theorem lengthMapList (f: a → b): (xs: List a) → (mapList f xs).length = xs.length
   | [] => rfl
-  | Cons x rest => Eq.cong Succ (lengthMapList f rest)
+  | [x, ..rest] => Eq.cong Succ (lengthMapList f rest)
 -- end lists
 
 -- begin rewrite
@@ -54,7 +54,7 @@ def isNeighbour (a: Nat) (b: Nat): Bool := a + 1 == b || b + 1 == a
 
 theorem neighboursDiffer (a: Nat) (b: Nat) (near: isNeighbour a b = True): a != b := omega
 
-theorem nearZero (a: Nat) (h: a ≤ 1): Or (a = 0) (a = 1) := omega
+theorem nearZero (a: Nat) (h: a ≤ 1): a = 0 ∨ a = 1 := omega
 -- end omega-logic
 
 -- begin ring
@@ -107,8 +107,8 @@ theorem sumFastIsSum (n: Nat): sumFast n = sumTo n := loopIsSum n 0
 
 -- begin induct
 def countAbove (k: Nat): List Nat → Nat
-  | Nil => 0
-  | Cons x xs => if k ≤ x then Succ (countAbove k xs) else countAbove k xs
+  | [] => 0
+  | [x, ..xs] => if k ≤ x then Succ (countAbove k xs) else countAbove k xs
 
 theorem countAboveLe (k: Nat) (xs: List Nat): countAbove k xs ≤ xs.length :=
   match induct (countAbove k xs) with
@@ -116,9 +116,40 @@ theorem countAboveLe (k: Nat) (xs: List Nat): countAbove k xs ≤ xs.length :=
     | eq2IfTrue y ys h ih => ih
     | eq2IfFalse y ys h ih => omega
 
-theorem skipsSmall (k: Nat) (x: Nat) (xs: List Nat) (h: (k <= x) = False): countAbove k (Cons x xs) = countAbove k xs :=
+theorem skipsSmall (k: Nat) (x: Nat) (xs: List Nat) (h: (k <= x) = False): countAbove k [x, ..xs] = countAbove k xs :=
   countAbove.eq2.ifFalse k x xs h
 -- end induct
+
+-- begin guard-eqs
+def cap (limit: Nat): Nat → Nat
+  | n if n <= limit => n
+  | _ => limit
+
+theorem capKeeps (limit: Nat) (n: Nat) (fits: n ≤ limit): cap limit n = n := cap.eq1 limit n fits
+
+theorem capCuts (limit: Nat) (n: Nat) (over: (n <= limit) = False): cap limit n = limit := cap.eq2 limit n over
+
+def skipThree: Nat → Nat
+  | n if n != 3 => n
+  | _ => 0
+
+theorem skipThreeKeeps (n: Nat) (other: n ≠ 3): skipThree n = n := skipThree.eq1 n other
+
+theorem skipThreeDrops: skipThree 3 = 0 := skipThree.eq2 3 (not3 => not3 rfl)
+-- end guard-eqs
+
+-- begin guard-induct
+def countBig: List Nat → Nat
+  | [] => 0
+  | [x, ..rest] if x > 3 => 1 + countBig rest
+  | [_, ..rest] => countBig rest
+
+theorem countBigAtMost (xs: List Nat): countBig xs ≤ xs.length :=
+  match induct (countBig xs) with
+    | eq1 => omega
+    | eq2 x rest big ih => omega
+    | eq3 x rest small ih => omega
+-- end guard-induct
 
 -- begin opaque
 opaque def checksum (xs: List Nat): Nat := xs.foldLeft 0 (sum x => (sum * 31 + x) % 65521)
@@ -171,9 +202,9 @@ theorem clampPercentAtMost (n: Nat): clampPercent n ≤ 100 := clampToAtMost 100
 test "the program agrees with the specification on an example" := sumFast 100 == 5050 ∧ sumTo 100 == 5050
 
 -- begin logic
-theorem headIn (x: Nat) (rest: List Nat): x ∈ Cons x rest := Inl rfl
+theorem headIn (x: Nat) (rest: List Nat): x ∈ [x, ..rest] := Inl rfl
 
-theorem notInEmpty (x: Nat): x ∉ Nil := none => none
+theorem notInEmpty (x: Nat): x ∉ [] := none => none
 
 theorem bothWays (p: Prop) (q: Prop): p ∧ q ↔ q ∧ p := {
   forward = h => Both (And.right h) (And.left h),

@@ -40,7 +40,7 @@ import Std (List, Nat, Text)
 def parse (line: Text): List Nat := line.split ',' |> .filterMap Text.toNat
 
 def isSorted: List Nat → Bool
-  | Cons a (Cons b rest) => a ≤ b ∧ isSorted (Cons b rest)
+  | [a, b, ..rest] => a ≤ b ∧ isSorted [b, ..rest]
   | _ => True
 
 test "parses the example" := parse "1,2,4" == [1, 2, 3]

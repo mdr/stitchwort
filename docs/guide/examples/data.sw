@@ -152,6 +152,22 @@ test "let pattern" := divide 23 == "23 = 7 * 3 + 2"
 test "lambda pattern" := total [("a", 1), ("b", 2)] == 3
 -- end let-patterns
 
+-- begin guards
+def grade: Nat → Text
+  | score if score >= 90 => "distinction"
+  | score if score >= 50 => "pass"
+  | _ => "fail"
+
+test "conditions on cases" := grade 95 == "distinction" ∧ grade 60 == "pass" ∧ grade 10 == "fail"
+
+def share (total: Nat) (parts: Nat): Nat :=
+  match total, parts with
+    | amount, count if count != 0 => amount / count
+    | _, _ => 0
+
+test "a condition gives a fact" := share 12 4 == 3 ∧ share 12 0 == 0
+-- end guards
+
 -- begin synonyms
 type Grid = List (List Nat)
 

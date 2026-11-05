@@ -298,6 +298,57 @@ test "lambda pattern" := total [("a", 1), ("b", 2)] == 3
 
 `(a, b)` is a pair; `(a, b, c)` is a pair whose second part is a pair. A tuple type is written the same way: `(Text, Nat)`.
 
+## Conditions on cases
+
+An arm can carry a condition: `if` after the patterns and before `=>`. The arm is used only when its patterns match and the condition holds; when the condition is false, the arms below it are tried. It works in every kind of `match`: `match … with`, a function written as arms, and the forms in [chapter 4](04-functions.md#taking-a-value-apart-in-a-lambda).
+
+<!-- snippet: data.sw#guards -->
+```stitchwort
+def grade: Nat → Text
+  | score if score >= 90 => "distinction"
+  | score if score >= 50 => "pass"
+  | _ => "fail"
+
+test "conditions on cases" := grade 95 == "distinction" ∧ grade 60 == "pass" ∧ grade 10 == "fail"
+
+def share (total: Nat) (parts: Nat): Nat :=
+  match total, parts with
+    | amount, count if count != 0 => amount / count
+    | _, _ => 0
+
+test "a condition gives a fact" := share 12 4 == 3 ∧ share 12 0 == 0
+```
+
+The condition is also a fact in its arm, as in an `if` ([chapter 2](02-values-and-definitions.md#division-needs-a-reason)): `count != 0` is what lets `amount / count` check. One condition covers the whole arm. With several patterns (`| a, b if a < b =>`) it comes once, after the last, and with alternatives (`| 'a' | 'e' if strict =>`) it is tested for whichever alternative matched.
+
+The compiler doesn't reason about conditions, so an arm with one covers nothing when it checks that every case is handled. Two conditions that between them cover every number still leave the case missing, and the message points at the guarded arms:
+
+<!-- snippet: errors/guard-missing-case.sw -->
+```stitchwort
+def grade: Nat → Text
+  | score if score >= 90 => "distinction"
+  | score if score < 90 => "pass"
+```
+
+<!-- output: check errors/guard-missing-case.sw -->
+```text
+[E-NONEXHAUSTIVE] Error: missing case: no arm matches `_`
+| _ => ?
+   ╭─[ errors/guard-missing-case.sw:2:3 ]
+   │
+ 2 │ ╭─▶   | score if score >= 90 => "distinction"
+ 3 │ ├─▶   | score if score < 90 => "pass"
+   │ │             ──────┬──────
+   │ │                   ╰─────────────────── this arm has a condition, so it covers nothing
+   │ │
+   │ ╰─────────────────────────────────────── missing case: no arm matches `_`
+   │
+   │     Note: an arm with `if` covers no case for sure: add an arm without `if` for these values
+───╯
+```
+
+End with an arm that has no condition, as `grade` does. Conditions can't perform abilities.
+
 ## Option instead of null
 
 A value that may be missing has the type `Option a`, which is `Some value` or `None`. The type tells the caller to handle both, and the compiler checks that they do. The library has the usual helpers, so a `match` is often unnecessary:

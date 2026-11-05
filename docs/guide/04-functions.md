@@ -59,7 +59,7 @@ def twice (f: a → a) (x: a): a := f (f x)
 
 def firstOr (fallback: a): List a → a
   | [] => fallback
-  | Cons x _ => x
+  | [x, .._] => x
 
 test "twice" := twice increment 5 == 7
 test "a is Text here" := firstOr "none" ["tea", "milk"] == "tea"
@@ -245,11 +245,15 @@ def bigValue: Reading → Option Nat := match some
   | Valid value if value > 5 => value
 
 test "a condition on a case" := sample.filterMap bigValue == [9]
+
+def isBig: Reading → Bool := matches | Valid value if value > 5
+
+test "a condition alone" := sample.filter isBig == [Valid 9]
 ```
 
 A plain `match` still has to cover every case; the `some` and `matches` are what say that the values left out are dropped or false. If the cases you write already cover every value, the compiler warns (`W-MATCH-TOTAL`), since a `match` says that better. The words `some` and `matches` are special only in these places, so a variable of that name works anywhere else. On one line, a `|` before `=>` joins patterns, so put cases that give different results on lines of their own.
 
-A case may carry a condition, `| Valid value if value > 5 => value`: it applies only when the condition holds, and when it doesn't, the cases below it are tried. In `match some` and `matches` that means a value no case accepts is dropped or false, as one no pattern matches is; in a plain `match`, a case with a condition covers nothing, so there must still be a case without one for the same values.
+A case may carry a condition, `| Valid value if value > 5 => value`: it applies only when the condition holds, and when it doesn't, the cases below it are tried. [Chapter 3](03-data.md#conditions-on-cases) explains conditions on cases in every kind of `match`; they work the same in these three forms. In `match some` and `matches` a value no case accepts is dropped or false, as one no pattern matches is. In `matches`, a case with a condition and no `=>` is true when the condition holds. In a plain `match`, a case with a condition covers nothing, so there must still be a case without one for the same values.
 
 ## Functions as values
 
