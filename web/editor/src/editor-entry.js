@@ -9,7 +9,8 @@
 // tokenizer), and everything the language server offers: errors underlined
 // with their messages, hover, go to definition (into other files of a
 // project and into the library, read-only), find references, formatting,
-// completion, and code actions on `?`, for which the client has no UI.
+// completion, and code actions (a proof for a `?`, an `import` for an unknown
+// name), for which the client has no UI.
 import { EditorView, keymap, lineNumbers, drawSelection, Decoration } from "@codemirror/view";
 import { EditorState, StateField, RangeSetBuilder, Prec } from "@codemirror/state";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
@@ -587,11 +588,17 @@ export class Editor {
     const notice = this.options.onNotice;
     notice?.("Looking for code actions…");
     let actions;
+    const start = plugin.toPosition(from);
+    const end = plugin.toPosition(to);
+    // The diagnostics at the cursor, which the server's quick fixes (an
+    // unknown name's import) are for.
+    const before = (a, b) => a.line < b.line || (a.line === b.line && a.character <= b.character);
+    const diagnostics = (this.published.get(plugin.uri) ?? []).filter((d) => before(d.range.start, end) && before(start, d.range.end));
     try {
       actions = await plugin.client.request("textDocument/codeAction", {
         textDocument: { uri: plugin.uri },
-        range: { start: plugin.toPosition(from), end: plugin.toPosition(to) },
-        context: { diagnostics: [] },
+        range: { start, end },
+        context: { diagnostics },
       });
     } catch (e) {
       notice?.(`Code actions failed: ${e.message ?? e}`);

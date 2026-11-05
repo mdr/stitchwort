@@ -2013,10 +2013,12 @@ impl Elaborator {
                         "the prelude's `{first}` comes with its own constructors, fields and \
                          operations; the functions and theorems in its namespace need the import"
                     ))
+                    .with_import(STD, first)
                 } else {
                     d.with_note(format!(
                         "`{first}` is `Std.{first}`; add `import Std ({first})`, or write `{full}`"
                     ))
+                    .with_import(STD, first)
                 };
             }
         }
@@ -2097,7 +2099,7 @@ impl Elaborator {
                         others.join(", ")
                     ));
                 }
-                d = d.with_note(note);
+                d = d.with_note(note).with_import(parent, first);
             }
         }
         // A library type outside the prelude (D266).
@@ -2109,7 +2111,8 @@ impl Elaborator {
             d = d.with_note(format!(
                 "`{0}` is `Std.{0}`, which isn't in the prelude; add `import Std ({0})`, or write `Std.{0}`",
                 name.text
-            ));
+            ))
+            .with_import(STD, name.text.clone());
         }
         if !name.text.contains('.') {
             let mut keys: Vec<&String> = self
@@ -2137,6 +2140,9 @@ impl Elaborator {
                         && !self.scope.is_prelude(t)
                         && self.scope.is_member(first)
                 });
+                if found.len() == 1 {
+                    d = d.with_import(namespace, name.text.clone());
+                }
                 d = d.with_note(match ty {
                     Some(t) => format!(
                         "the library has {}: write it in full, or `import Std ({t})`, or `import {namespace} ({})`",

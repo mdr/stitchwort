@@ -20,7 +20,8 @@ use std::rc::Rc;
 
 use stitchwort_elab::project::{IncludeFiles, NamespaceSyntax, SourceUnit};
 use stitchwort_syntax::{
-    Diagnostic, GoalData, Severity, SourceMap, parse_module_recovering, parse_namespace_line,
+    Diagnostic, GoalData, Severity, SourceMap, SuggestedImport, parse_module_recovering,
+    parse_namespace_line,
 };
 
 use crate::driver::Session;
@@ -101,6 +102,8 @@ pub struct LiveDiagnostic {
     pub notes: Vec<String>,
     /// For a goal: its hypotheses and target, each printed alone.
     pub goal: Option<GoalData>,
+    /// For an unknown name an import brings in: the import to add.
+    pub import: Option<SuggestedImport>,
 }
 
 /// Everything known about one file.
@@ -345,6 +348,7 @@ pub fn answers_from(index: &Index, wanted: &BTreeSet<String>, unplaced: &str) ->
             labels,
             notes: d.notes.clone(),
             goal: d.goal.clone(),
+            import: d.import.clone(),
         });
     }
     out

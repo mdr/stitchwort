@@ -51,6 +51,7 @@ use stitchwort_core::budget::Instant;
 #[cfg(target_family = "wasm")]
 use wasm::FileUrl as _;
 
+mod imports;
 mod source;
 pub use source::{Disk, Memory, MemoryProject, ProjectFiles, Source};
 
@@ -631,7 +632,11 @@ impl Main {
             })
         };
         let (Some(range), Some(target)) = (goal, self.search_target(&uri)) else {
-            self.answer_null(id);
+            let fixes = self.import_fixes(&uri, &p.context.diagnostics);
+            let _ = self
+                .connection
+                .sender
+                .send(Response::new_ok(id, fixes).into());
             return;
         };
         let document_changes = self.document_changes;
@@ -643,6 +648,52 @@ impl Main {
                 versioned: document_changes.then_some(version),
             },
         });
+    }
+
+    /// The quick fixes for the unknown names among `diagnostics`: each adds
+    /// the import the diagnostic's `data` carries (D2244's neighbour, the
+    /// roadmap's step 2). `null` if there is none.
+    fn import_fixes(&self, uri: &Url, diagnostics: &[lsp_types::Diagnostic]) -> serde_json::Value {
+        let texts = self.texts.borrow();
+        let Some(text) = texts.get(uri) else {
+            return serde_json::Value::Null;
+        };
+        let version = lock(&self.searches.versions).get(uri).copied();
+        let mut actions = Vec::new();
+        for d in diagnostics {
+            let Some(import) = d.data.as_ref().and_then(|data| data.get("import")) else {
+                continue;
+            };
+            let (Some(path), Some(item)) = (
+                import.get("path").and_then(|v| v.as_str()),
+                import.get("item").and_then(|v| v.as_str()),
+            ) else {
+                continue;
+            };
+            let Some(edit) = imports::add_import(text, path, item) else {
+                continue;
+            };
+            let edits = [edit];
+            let edit = match version.filter(|_| self.document_changes) {
+                Some(version) => serde_json::json!({"documentChanges": [{
+                    "textDocument": {"uri": uri.as_str(), "version": version},
+                    "edits": edits,
+                }]}),
+                None => serde_json::json!({"changes": {uri.as_str(): edits}}),
+            };
+            actions.push(serde_json::json!({
+                "title": format!("Add `import {path} ({item})`"),
+                "kind": "quickfix",
+                "diagnostics": [d],
+                "edit": edit,
+                "isPreferred": actions.is_empty(),
+            }));
+        }
+        if actions.is_empty() {
+            serde_json::Value::Null
+        } else {
+            serde_json::Value::Array(actions)
+        }
     }
 
     /// `stitchwort/contextAt`: the expected type and the names in scope at
@@ -2391,7 +2442,10 @@ fn diagnostic(
         message,
         related_information: (!related.is_empty()).then_some(related),
         tags: None,
-        data: None,
+        data: d
+            .import
+            .as_ref()
+            .map(|i| serde_json::json!({ "import": { "path": i.path, "item": i.item } })),
     }
 }
 

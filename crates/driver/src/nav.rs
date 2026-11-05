@@ -8,7 +8,8 @@ use std::fmt::Write;
 use stitchwort_core::collections::HashMap;
 use stitchwort_elab::{NavIndex, NavTarget};
 use stitchwort_syntax::{
-    Counterexample, Diagnostic, FileId, GoalData, MissingCases, Severity, SourceMap, Span, Tok,
+    Counterexample, Diagnostic, FileId, GoalData, MissingCases, Severity, SourceMap, Span,
+    SuggestedImport, Tok,
 };
 
 use crate::driver::Session;
@@ -145,6 +146,8 @@ pub struct IndexDiagnostic {
     pub counterexample: Option<Counterexample>,
     /// Every case a `match` leaves out, as patterns.
     pub missing: Option<MissingCases>,
+    /// The import that would bring in the unknown name.
+    pub import: Option<SuggestedImport>,
 }
 
 /// The index of everything `session` has loaded, with `enable_navigation`
@@ -548,6 +551,7 @@ pub fn index_data_of(
             goal: d.goal_data().cloned(),
             counterexample: d.counterexample_data().cloned(),
             missing: d.missing_data().cloned(),
+            import: d.import_data().cloned(),
         });
     }
 
