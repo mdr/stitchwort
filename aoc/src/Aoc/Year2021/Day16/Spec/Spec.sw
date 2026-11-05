@@ -1,7 +1,9 @@
 --| Day 16 as the puzzle states it: how a packet is written in bits, and what
---| the two parts ask of the packet. The packet type is the program's (a
---| literal keeps its groups, an operator its length type, so that the bits
---| of a packet are fixed); nothing else is shared with it. The proofs
+--| the two parts ask of the packet. The packet type is the program's: an
+--| operator holds one or more sub-packets and a comparison two, as the
+--| puzzle says, and a literal keeps its groups and an operator its length
+--| type, so that the bits of a packet are fixed. Nothing else is shared
+--| with it. The proofs
 --| (Proofs/) show the program's decoder reads exactly these encodings, and
 --| that its answers are these.
 
@@ -73,8 +75,8 @@ def encodeAll: List Packet → List Bool
   | [packet, ..rest] => encode packet ++ encodeAll rest
 
 --| An operator's bits, given the bits of its count sub-packets.
-def operatorBits (version: Nat) (typeId: Nat) (lengthType: LengthType) (count: Nat) (subBits: List Bool): List Bool :=
-  Nat.toBits 3 version ++ Nat.toBits 3 typeId ++ lengthField lengthType count subBits
+def operatorBits (version: Nat) (code: Nat) (lengthType: LengthType) (count: Nat) (subBits: List Bool): List Bool :=
+  Nat.toBits 3 version ++ Nat.toBits 3 code ++ lengthField lengthType count subBits
 
 --| The length type id, then the length of the sub-packets' bits in 15 bits
 --| or their number in 11 bits, and the sub-packets' bits.
