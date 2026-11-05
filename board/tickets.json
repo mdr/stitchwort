@@ -6662,13 +6662,13 @@
     {
       "id": 1308,
       "title": "AoC domain types 8: 2021 day 4 Board record (and Draws)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1308",
       "labels": [
         "aoc"
       ],
-      "body": "Split from SW-1289 (the survey's 2021/04 entry, cheap): docs/research/aoc-domain-types.md. D2363; Sonnet; the orchestrator checks each changed statement keeps its meaning.\n\nDone (Sonnet, ~5 min, est. 75): Board {rows} with isFiveByFive, lines, numbers, winningTurn draws, score draws turn; Draws skipped (the proofs use drawn ++ [number, ..later] list algebra). Statements checked by the orchestrator: re-typing only. Answers unchanged (49860, 24628). Model result: Sonnet, worked, 5 min (est. 75).",
+      "body": "Split from SW-1289 (the survey's 2021/04 entry, cheap): docs/research/aoc-domain-types.md. D2363; Sonnet; the orchestrator checks each changed statement keeps its meaning.\n\nDone (Sonnet, ~5 min, est. 75): Board {rows} with isFiveByFive, lines, numbers, winningTurn draws, score draws turn; Draws skipped (the proofs use drawn ++ [number, ..later] list algebra). Statements checked by the orchestrator: re-typing only. Answers unchanged (49860, 24628). Model result: Sonnet, worked, 5 min (est. 75).\n\nMerged 4b43b6e1d; verified: aoc check without the cache, day tests and audit, answer test, full audit.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
