@@ -6976,7 +6976,7 @@
       "labels": [
         "tooling"
       ],
-      "body": "D2378 (Matt, 5 Nov): yes. docs/proposals/test-cache-key.md (P3). Entries are the elaborator's output, so syntax and elab stay in this key.\n\nDone on lane/SW-1330 (557094bfa): keys hold core text + the library's name index, not all of std; namespace entries list the std files they load with their keys. Rare-file edit: 31 of 231 re-check; ubiquitous files (Fin, Toolkit) still re-check nearly all; an added name re-checks all. Opus review running (stale-entry risk: instances etc. in unlisted files). Model result: Sonnet, worked, 37 min (est. 90).\n\nOpus review blocker (loaded-files leak) fixed in df3a4a20a by recording every loaded library file in an entry; that removes most of the gain (an Ansi edit re-checks everything loaded after it) and library-file entries keep a similar gap. Parked: merge after SW-1354 makes lazy loading behave as if every file were loaded; then needed_roots suffices and the loaded-files list can go. Orchestrator's sequencing call, 5 Nov.",
+      "body": "D2378 (Matt, 5 Nov): yes. docs/proposals/test-cache-key.md (P3). Entries are the elaborator's output, so syntax and elab stay in this key.\n\nDone on lane/SW-1330 (557094bfa): keys hold core text + the library's name index, not all of std; namespace entries list the std files they load with their keys. Rare-file edit: 31 of 231 re-check; ubiquitous files (Fin, Toolkit) still re-check nearly all; an added name re-checks all. Opus review running (stale-entry risk: instances etc. in unlisted files). Model result: Sonnet, worked, 37 min (est. 90).\n\nOpus review blocker (loaded-files leak) fixed in df3a4a20a by recording every loaded library file in an entry; that removes most of the gain (an Ansi edit re-checks everything loaded after it) and library-file entries keep a similar gap. Parked: merge after SW-1354 makes lazy loading behave as if every file were loaded; then needed_roots suffices and the loaded-files list can go. Orchestrator's sequencing call, 5 Nov.\n\nRebased on SW-1354 (13377bd58): loaded-files list removed; an entry keeps its library_reach (its needs plus its dependencies' files). blocker.sh (adapted to Option/Option.sw) passes; Ansi edit re-checks 31 of 231 again. Opus re-review next.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7194,9 +7194,9 @@
     {
       "id": 1346,
       "title": "NonEmptyList stage 4: aoc data types use NonEmptyList (2020 day 6's Group, Grid, 2024 day 7, 2021 day 16, the survey's ~95 sites); rogue's rooms as Vec Area 6 (drops fallbackRoom)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1346",
       "labels": [
         "aoc"
       ],
