@@ -69,7 +69,7 @@ def Network.bothWays (network: Network): List Connection :=
   network.connections.flatMap (connection => [connection, connection.reverse])
 
 def Network.links (network: Network): Links :=
-  network.bothWays |> Map.groupBy Connection.one |> .map (connections => connections.map Connection.other |> .toList |> .toSet)
+  network.bothWays |> .groupBy Connection.one |> .map (connections => connections.map Connection.other |> .toList |> .toSet)
 
 def Links.neighbours (links: Links) (computer: Computer): Set Computer := links.getOr computer Set.empty
 
