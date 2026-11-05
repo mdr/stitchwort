@@ -1,5 +1,5 @@
 {
-  "next": 1349,
+  "next": 1350,
   "tickets": [
     {
       "id": 47,
@@ -7229,6 +7229,20 @@
         "docs"
       ],
       "body": "Matt, 5 Nov: new user-visible features update the guide and, if cool, the tour. SW-1341 added docs/syntax.md and a guide paragraph (02-values-and-definitions.md); add a tour page or fold into an existing one (web/guide/), with the_guide_examples_check passing. After SW-1341 merges.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1349,
+      "title": "An effectful && as an unannotated let's value is inferred as Prop: let ok := (let c := Parse.nat(); 0 < c && c <= Parse.nat()) fails 'expected Prop, but this has type Bool'; only let ok: Bool := … works",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "Pre-existing on main; found by the SW-1341 Opus review (scratchpad sw1341-review/eff4.sw, eff5.sw). Chains make it easier to hit: let ok := 0 < n() <= n().",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
