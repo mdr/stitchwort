@@ -1,6 +1,15 @@
 # Evaluation: an editor component for the playground
 
-**Status:** evaluation for Matt (SW-1118, D2241, D2263), 3 November 2026.
+**Status (5 November 2026): implemented (SW-1378).** Matt decided
+(D2415–D2428): CodeMirror 6, colour through the existing tokenizer, the
+editor on the shared language server with page glue only where the client
+has no UI, no phone check, and `coi-serviceworker` shipped so that
+cancellation works on GitHub Pages. The playground's editor is now
+`web/editor/src/editor-entry.js` (bundled to `dist/editor.bundle.js`);
+§5.2.3 says what the page does and what was measured. Sections 1–8 are the
+evaluation that led there, kept as written.
+
+**Evaluation:** for Matt (SW-1118, D2241, D2263), 3 November 2026.
 No commitment to implement: editor-roadmap work waits for the tidy-ups. It
 covers roadmap items P2 (editor component) and P3 (inline diagnostics) and
 step 5 of
@@ -303,6 +312,10 @@ browser. Could our wasm build be the server? Partly:
 
 #### 5.2.1 Trial: the real server in a worker, with CM6 (SW-1375)
 
+(SW-1378 removed the trial pages, `lsp.html` and `lsp-check.mjs`; the workers
+moved to `web/`, and the page is §5.2.3. The text below says what the trial
+was.)
+
 `web/proto/lsp.html` runs `stitchwort lsp`'s own code (then `crates/cli/src/lsp.rs`,
 included into `crates/web` as `crates/web/src/lsp.rs`; now the `stitchwort-lsp`
 crate, §5.2.2) in a worker, and
@@ -439,7 +452,83 @@ higher than §5.2.1's).
 - **Not done here:** the page itself (`index.html`'s textarea is unchanged;
   the workers are still `web/proto/lsp-worker.js` and
   `lsp-search-worker.js`, which the flake's playground doesn't copy yet),
-  and the first-diagnostics cost of projects above.
+  and the first-diagnostics cost of projects above. The page is §5.2.3.
+
+#### 5.2.3 The page on CodeMirror and the language server (SW-1378)
+
+What the page does now, with the decisions of D2415–D2428:
+
+- **The editor** is `Editor` in `web/editor/src/editor-entry.js`, which the
+  page makes with `createEditor(parent, options)` and uses like the textarea
+  it replaced (`value`, `selectionStart`, `setSelectionRange`, `focus`;
+  `open` shows a document). It starts the language server's worker
+  (`web/lsp-worker.js`, with `lsp-search-worker.js` for proof searches; both
+  moved out of `web/proto/`, and the flake's `playground` copies them) and
+  connects `@codemirror/lsp-client` to it.
+- **Colour** comes from the page's own tokenizer, `colour()`, unchanged: a
+  state field marks each stretch it reports with a `hl-KIND` class that the
+  page's CSS colours as before (the guide's code uses the same classes and
+  variables). Light and dark themes are the page's variables.
+- **From the server, through the stock client:** errors underlined (lint
+  marks, with a gutter marker) and their messages on hover; hover tooltips
+  (the declaration and its whole documentation: the server does not shorten
+  it to a first sentence as the page's own tooltip did, D2147); go to
+  definition (F12 or Cmd/Ctrl-click) in the file, into the library as a
+  read-only document with a bar and a way back (Esc, Cmd+[, the Back button),
+  and into other files of a project, which the page opens as a tab; find
+  references (Shift+F12, the client's panel); formatting (Shift+Alt+F and the
+  Format button: the server leaves a file with a syntax error alone, so the
+  page's "Not formatted" panel is gone); completion (the server offers
+  named arguments after `(`).
+- **Page glue, where the client has no UI:** code actions on a `?`
+  (Cmd/Ctrl+. applies the first action's edit; the title shows in the notice
+  line meanwhile), and the way back from a jump.
+- **Files of a project** are the server's documents at
+  `file:///playground/NAME/PATH`: the page hands it each project once
+  (`add_project`, with the saved edits applied), and every file shown stays
+  open on the server (one `EditorView` each, the others hidden), so the
+  project's session stays alive and a tab's edits and undo history are kept
+  while it is out of sight. The page's own Check, Tests, Evaluate and Run
+  still go through `playground-worker.js`.
+- **Cancellation:** the page ships `web/coi-serviceworker.js` (MIT, vendored
+  unchanged with its licence header), so on GitHub Pages the page is
+  cross-origin isolated after its first visit and the editor creates the
+  shared counter (`stats.isolated`). Without isolation (service workers off)
+  a check runs to its end as before.
+- **A crash** of the server's worker (a trap, or V8's stack running out)
+  makes the editor start a new worker, give it the projects and reopen the
+  documents (at most three times).
+- **Dropped with the textarea:** the page's own index, tooltip, references
+  panel and right-click menu (`check_index` and the `index` action of
+  `crates/web` are no longer used by the page), the selection-type pill, the
+  underline of a name while Cmd is held (the pointer changes instead), and
+  the "Not formatted" panel.
+
+Measured on 5 November 2026 (M-series Mac, headless Chrome, the machine at a
+load average of 20–90 from other lanes, so the times are rough):
+
+- **Sizes:** `dist/editor.bundle.js` 427,798 bytes (138,130 gzipped; the
+  evaluation's estimate was 109 kB gzipped for CodeMirror alone, the client
+  and `marked` come on top); `stitchwort_web_bg.wasm` 10,065,473 (3,822,516
+  gzipped), the same as §5.2.2's; `index.html` 114,616 bytes (151,488 before:
+  the page's own navigation code is gone); the workers 6.4 kB and 1.2 kB, the
+  service worker 6 kB.
+- **First diagnostics** of a program on its own: 0.6 s after the editor
+  starts (the server ready in 25–80 ms); an edit's underline 1.5 s after a
+  paste (0.5 s of that is the client's pause before syncing). In an AoC day
+  27–40 s (the project is loaded whole before its first marks, as in §5.2.2:
+  the next thing to fix); then an edit of the day's file in 0.3 s.
+- **A stack overflow in the worker.** With the playground's guard
+  (256 KiB), opening a file of `Aoc.Common` in the editor (a jump to it) and
+  then editing the day made V8's stack overflow inside the server (a
+  `RangeError` out of `tick`; the instance is unusable afterwards). With the
+  server's guard halved (`crates/web/src/lsp.rs`, `options()`; searches keep
+  the full guard in their own worker) opening the file and editing the day
+  work, but an **error** introduced in the day's file after opening
+  `Common/Range.sw` still overflows it (the editor then restarts the server,
+  and the project loads again). Without opening a second file of the project
+  an error edit is underlined in 0.3 s. The recursion that is not covered by
+  the guard is not found yet.
 
 ### 5.3 VS Code for the web, openvscode-server, vscode.dev
 
@@ -462,9 +551,11 @@ higher than §5.2.1's).
 
 ## 6. Prototype
 
-`web/proto/codemirror.html` with `web/proto/codemirror-entry.js`,
+(Removed in SW-1378: `web/proto/codemirror.html`, `lsp.html` and their
+entry modules are gone, the page being on the editor of §5.2.3.) The
+prototype was `web/proto/codemirror.html` with `web/proto/codemirror-entry.js`,
 `web/proto/package.json` (+ lockfile) and the built
-`web/proto/codemirror.bundle.js`. It is not wired into the real page. It reuses
+`web/proto/codemirror.bundle.js`. It was not wired into the real page. It reused
 the real `playground-worker.js` and `pkg/` unchanged.
 
 What it shows: CM6 with line numbers, history, bracket closing, a toy
@@ -527,6 +618,14 @@ deleted with the prototype once the decision is made.
    textarea stays as a fallback chosen by a feature test (a decision for then).
 
 ## 8. Decisions for Matt
+
+*Answered (D2415–D2428, 5 November 2026):* the JavaScript bundle is built
+(esbuild and a lockfile, in `nix develop` and the flake; the output is not
+committed); CM6, not Monaco or VS Code; colour through the existing tokenizer
+(D2417); the editor on the shared language server, with page glue only where
+the client has no UI (D2423), which settles squiggle ranges (they come from
+the server); no phone check before the swap; `coi-serviceworker` shipped so
+that cancellation works on GitHub Pages. The questions as they were put:
 
 1. **May the playground build a JavaScript bundle at all?** (This is the real
    cost: `esbuild` and a lockfile in `web/build.sh`, the flake and CI.)
