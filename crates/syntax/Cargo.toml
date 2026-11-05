@@ -11,6 +11,9 @@ num-bigint.workspace = true
 [target.'cfg(unix)'.dependencies]
 libc = { workspace = true, optional = true }
 
+[dev-dependencies]
+serde_json.workspace = true
+
 [features]
 # Checks that each top-level operation's stack limit fits the thread it runs
 # on (`stack::thread_stack_low`, `Budget::start`): on in the tests, which

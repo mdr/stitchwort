@@ -149,44 +149,71 @@ pub enum Tok {
     At,
 }
 
-impl Tok {
-    /// The word of a keyword written as one: `test`, `then`. `in` and
-    /// `exists` may also be written `∈` and `∃`, which this can't tell apart.
-    pub fn keyword(&self) -> Option<&'static str> {
-        Some(match self {
-            Tok::KwType => "type",
-            Tok::KwTheorem => "theorem",
-            Tok::KwDef => "def",
-            Tok::KwExport => "export",
-            Tok::KwTest => "test",
-            Tok::KwInterface => "interface",
-            Tok::KwInstance => "instance",
-            Tok::KwIf => "if",
-            Tok::KwThen => "then",
-            Tok::KwElse => "else",
-            Tok::KwAbility => "ability",
-            Tok::KwWhere => "where",
-            Tok::KwHandle => "handle",
-            Tok::KwWith => "with",
-            Tok::KwMatch => "match",
-            Tok::KwReturn => "return",
-            Tok::KwLet => "let",
-            Tok::KwImport => "import",
-            Tok::KwInclude => "include",
-            Tok::KwNamespace => "namespace",
-            Tok::KwCalc => "calc",
-            Tok::KwRewrite => "rewrite",
-            Tok::KwOmega => "omega",
-            Tok::KwRing => "ring",
-            Tok::KwCases => "cases",
-            Tok::KwDecreasing => "decreasing",
-            Tok::KwOpaque => "opaque",
-            Tok::KwUnfolding => "unfolding",
-            Tok::KwIn => "in",
-            Tok::KwExists => "exists",
-            _ => return None,
-        })
-    }
+/// The one list of keywords. The lexer's word lookup, [`Tok::keyword`] and
+/// [`keywords`] are all generated from it, so a keyword is added here only.
+/// Keep it alphabetical: [`keywords`] returns the words in this order.
+macro_rules! keyword_table {
+    ($($word:literal => $tok:ident),* $(,)?) => {
+        impl Tok {
+            /// The word of a keyword written as one: `test`, `then`. `in` and
+            /// `exists` may also be written `∈` and `∃`, which this can't tell
+            /// apart.
+            pub fn keyword(&self) -> Option<&'static str> {
+                match self {
+                    $(Tok::$tok => Some($word),)*
+                    _ => None,
+                }
+            }
+        }
+
+        /// The keyword token a word lexes to, ignoring context.
+        fn keyword_tok(word: &str) -> Option<Tok> {
+            match word {
+                $($word => Some(Tok::$tok),)*
+                _ => None,
+            }
+        }
+
+        /// Every word that lexes to a keyword token, in alphabetical order.
+        /// Tools that mirror the lexer, such as the editor grammar and the
+        /// playground's colouring, read this instead of copying the list.
+        pub fn keywords() -> &'static [&'static str] {
+            &[$($word),*]
+        }
+    };
+}
+
+keyword_table! {
+    "ability" => KwAbility,
+    "calc" => KwCalc,
+    "cases" => KwCases,
+    "decreasing" => KwDecreasing,
+    "def" => KwDef,
+    "else" => KwElse,
+    "exists" => KwExists,
+    "export" => KwExport,
+    "handle" => KwHandle,
+    "if" => KwIf,
+    "import" => KwImport,
+    "in" => KwIn,
+    "include" => KwInclude,
+    "instance" => KwInstance,
+    "interface" => KwInterface,
+    "let" => KwLet,
+    "match" => KwMatch,
+    "namespace" => KwNamespace,
+    "omega" => KwOmega,
+    "opaque" => KwOpaque,
+    "return" => KwReturn,
+    "rewrite" => KwRewrite,
+    "ring" => KwRing,
+    "test" => KwTest,
+    "then" => KwThen,
+    "theorem" => KwTheorem,
+    "type" => KwType,
+    "unfolding" => KwUnfolding,
+    "where" => KwWhere,
+    "with" => KwWith,
 }
 
 #[derive(Clone, Debug)]
@@ -401,37 +428,11 @@ fn lex_keeping(file: FileId, text: &str, keep_trivia: bool) -> Result<Lexed, Dia
             } else {
                 match word {
                     "_" => Tok::Underscore,
-                    "type" => Tok::KwType,
-                    "theorem" => Tok::KwTheorem,
-                    "def" => Tok::KwDef,
-                    "export" => Tok::KwExport,
-                    "test" => Tok::KwTest,
-                    "interface" => Tok::KwInterface,
-                    "instance" => Tok::KwInstance,
-                    "if" => Tok::KwIf,
-                    "then" => Tok::KwThen,
-                    "else" => Tok::KwElse,
-                    "ability" => Tok::KwAbility,
-                    "where" => Tok::KwWhere,
-                    "handle" => Tok::KwHandle,
-                    "with" => Tok::KwWith,
-                    "match" => Tok::KwMatch,
-                    "return" => Tok::KwReturn,
-                    "let" => Tok::KwLet,
-                    "import" => Tok::KwImport,
-                    "include" => Tok::KwInclude,
-                    "namespace" => Tok::KwNamespace,
-                    "calc" => Tok::KwCalc,
-                    "rewrite" => Tok::KwRewrite,
-                    "omega" => Tok::KwOmega,
-                    "ring" => Tok::KwRing,
-                    "cases" => Tok::KwCases,
-                    "decreasing" => Tok::KwDecreasing,
-                    "opaque" => Tok::KwOpaque,
-                    "unfolding" => Tok::KwUnfolding,
-                    "in" => Tok::KwIn,
                     // After a `.`, a field or a dot call: `x.exists p`.
-                    "exists" if !(start > 0 && bytes[start - 1] == b'.') => Tok::KwExists,
+                    "exists" if start > 0 && bytes[start - 1] == b'.' => {
+                        Tok::Lower(word.to_string())
+                    }
+                    _ if let Some(tok) = keyword_tok(word) => tok,
                     "Type" => Tok::TypeU,
                     "Prop" => Tok::Prop,
                     _ if c.is_ascii_uppercase() => Tok::Upper(word.to_string()),
