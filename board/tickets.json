@@ -8902,13 +8902,13 @@
     {
       "id": 1466,
       "title": "omega's note: when two atoms differ only because a match refined one of them, say so and suggest stating facts before the match or splitting with if h:",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1488",
       "labels": [
         "omega"
       ],
-      "body": "From 2020 day 10 (SW-1461), 5 Nov 2026. Small improvement.",
+      "body": "From 2020 day 10 (SW-1461), 5 Nov 2026. Small improvement.\n\nStarted on Sonnet (omega bundle: SW-1488, SW-1472, SW-1466), expected: 50 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8986,13 +8986,13 @@
     {
       "id": 1472,
       "title": "omega's 'couldn't use listed fact N' note: name the fact by its source text instead of its position",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1488",
       "labels": [
         "omega"
       ],
-      "body": "From SW-1465, 5 Nov 2026. Small improvement.",
+      "body": "From SW-1465, 5 Nov 2026. Small improvement.\n\nStarted on Sonnet (omega bundle: SW-1488, SW-1472, SW-1466), expected: 50 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -9210,13 +9210,13 @@
     {
       "id": 1488,
       "title": "omega should read a != b inside a Bool hypothesis as a disequation (today dropped silently; cases proves it); std Result.getOr",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1488",
       "labels": [
         "omega"
       ],
-      "body": "From 2020 day 12 (SW-1483), 5 Nov 2026.",
+      "body": "From 2020 day 12 (SW-1483), 5 Nov 2026.\n\nStarted on Sonnet (omega bundle: SW-1488, SW-1472, SW-1466), expected: 50 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
