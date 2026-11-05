@@ -6676,13 +6676,13 @@
     {
       "id": 1309,
       "title": "AoC domain types 9: 2025 day 9 Rectangle (corner, opposite) with area",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1309",
       "labels": [
         "aoc"
       ],
-      "body": "Split from SW-1289 (the survey's 2025/09 entry). The loop's lines are already Aoc.Common Line (SW-1285); this is the rectangle pairs (Point, Point) and (Corner, Corner). D2363; Sonnet; the orchestrator checks each changed statement keeps its meaning.\n\nDone (Sonnet, 5 min, est. 75): Rectangle {corner, opposite: Point} with ofPair and area; a second FloorRectangle {corner, opposite: Corner} for part 2, because one type made part 2 5x slower (corners located per rectangle). Answers unchanged. Statements checked by the orchestrator: re-typing; programTest's hypothesis is now Mem pair (pairs tiles) instead of Mem corners (rectangles tiles), the same pairs (rectangles = pairs mapped by ofPair). Model result: Sonnet, worked, 5 min (est. 75).",
+      "body": "Split from SW-1289 (the survey's 2025/09 entry). The loop's lines are already Aoc.Common Line (SW-1285); this is the rectangle pairs (Point, Point) and (Corner, Corner). D2363; Sonnet; the orchestrator checks each changed statement keeps its meaning.\n\nDone (Sonnet, 5 min, est. 75): Rectangle {corner, opposite: Point} with ofPair and area; a second FloorRectangle {corner, opposite: Corner} for part 2, because one type made part 2 5x slower (corners located per rectangle). Answers unchanged. Statements checked by the orchestrator: re-typing; programTest's hypothesis is now Mem pair (pairs tiles) instead of Mem corners (rectangles tiles), the same pairs (rectangles = pairs mapped by ofPair). Model result: Sonnet, worked, 5 min (est. 75).\n\nMerged 96a7c9071; verified: aoc check, day tests and audit, answer test, full audit.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
