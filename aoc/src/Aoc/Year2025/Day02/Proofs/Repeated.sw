@@ -204,7 +204,7 @@ theorem fromDigitsRep (p: List Nat): (n: Nat) → Nat.fromDigits (List.concat (L
 
 theorem repAppend (x: Nat) (k: Nat) (n: Nat) (hq: writtenAs x.digits.toList k n = True):
     List.concat (List.replicate n (x.digits.toList.take k)) = x.digits.toList :=
-  DecEq.sound (List.concat (List.replicate n (List.take (Nat.digits x).toList k))) (Nat.digits x).toList hq
+  DecEq.sound hq
 
 --| Two or more copies of a k-digit block fill the digits: there are n * k.
 theorem repCount (x: Nat) (k: Nat) (n: Nat) (hn: 2 ≤ n) (hq: writtenAs x.digits.toList k n = True): n * k = x.digitCount :=
@@ -317,7 +317,7 @@ theorem repBlockCount (x: Nat) (n: Nat) (hn: 2 ≤ n): (k: Nat) → 1 ≤ k →
         List.sumRangeFromOne (b => writeTimes (Succ j) b n == x) (b => x) (Nat.fromDigits (List.take (Nat.digits x).toList (Succ j)))
           (Decidable.toBoolOf (Nat.decEq (writeTimes (Succ j) (Nat.fromDigits (List.take (Nat.digits x).toList (Succ j))) n) x) (repValue x (Succ j) n hn hq))
           (b hb => repInjective (Succ j) b (Nat.fromDigits (List.take (Nat.digits x).toList (Succ j))) n omega
-            (Eq.trans (DecEq.sound (writeTimes (Succ j) b n) x hb) (Eq.sym (repValue x (Succ j) n hn hq))))
+            (Eq.trans (DecEq.sound hb) (Eq.sym (repValue x (Succ j) n hn hq))))
           (Nat.pow 10 (Succ j) - Nat.pow 10 j) (Nat.pow 10 j)
           (repAbove x (Succ j) n rfl hn hq)
           (omega [repBelow x (Succ j) n hn hq, Nat.powTenPredLe (Succ j)])

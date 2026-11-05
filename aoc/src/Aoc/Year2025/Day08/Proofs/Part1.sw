@@ -87,7 +87,7 @@ theorem connectionsInRange (k: Nat) (points: List Point): List.all (firstConnect
 theorem circuitSizesCongRange (n: Nat) (same1: Nat → Nat → Bool) (same2: Nat → Nat → Bool)
     (agree: (a: Nat) → (b: Nat) → a < n → b < n → same1 a b = same2 a b): circuitSizes n same1 = circuitSizes n same2 :=
   let below: (x: Nat) → List.Mem x (List.range 0 n) → x < n := x m => And.right (List.memRangeFrom x n 0 m)
-  rewrite agree, agree _ _ _ (below _ (And.left (List.memFilter (List.range 0 n) _ _ _)))
+  rewrite agree, agree _ _ _ (below _ (And.left (List.memFilter (List.range 0 n) _ _)))
 
 --| Two tests that tell agree.
 theorem tellersAgree (n: Nat) (connections: List (Nat, Nat)) (same1: Nat → Nat → Bool) (same2: Nat → Nat → Bool)

@@ -140,7 +140,7 @@ theorem periodMul (g: Nat → Nat) (len: Nat) (hl: len ≠ 0) (p: Nat) (hp: Peri
 def isPeriod (g: Nat → Nat) (len: Nat) (hl: len ≠ 0) (p: Nat): Bool := List.range 0 len |> .all (i => g ((i + p) % len) == g i)
 
 theorem periodOfTest (g: Nat → Nat) (len: Nat) (hl: len ≠ 0) (p: Nat) (h: isPeriod g len hl p = True): Period g len hl p :=
-  i hi => DecEq.sound (g ((i + p) % len)) (g i) (List.allRangeElim (i => g ((i + p) % len) == g i) len 0 h i omega hi)
+  i hi => DecEq.sound (List.allRangeElim (i => g ((i + p) % len) == g i) len 0 h i omega hi)
 
 theorem periodTest (g: Nat → Nat) (len: Nat) (hl: len ≠ 0) (p: Nat) (h: Period g len hl p): isPeriod g len hl p = True :=
   List.allRangeIntro (i => g ((i + p) % len) == g i) len 0 (i h1 h2 => Decidable.toBoolOf (Nat.decEq (g ((i + p) % len)) (g i)) (h i h2))
@@ -172,7 +172,7 @@ theorem writtenBlock (ds: List Nat) (k: Nat) (n: Nat) [auto hk: k ≠ 0] (hn: 1 
     (j: Nat) (hj: j < ds.length): digitAt ds j = digitAt ds (j % k) :=
   calc List.getOr ds j 0
     _ = List.getOr (List.concat (List.replicate n (List.take ds k))) j 0
-      := Eq.cong (l => List.getOr l j 0) (Eq.sym (DecEq.sound (List.concat (List.replicate n (List.take ds k))) ds hw))
+      := Eq.cong (l => List.getOr l j 0) (Eq.sym (DecEq.sound hw))
     _ = List.getOr (List.take ds k) (j % k) 0
       := List.getOrConcatReplicate (List.take ds k) 0 k (List.lengthTake ds k (omega [Nat.leMulPos k n hn])) n j
         omega

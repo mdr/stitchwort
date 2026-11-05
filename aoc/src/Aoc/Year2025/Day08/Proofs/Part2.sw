@@ -37,7 +37,7 @@ theorem countWithout (p: Nat → Bool) (n: Nat) (v: Nat) (hv: p v = True) (vn: v
   rewrite List.occurrencesSplit (List.range 0 n) v p,
     countOne (b => p b ∧ (b == v)) n v (rewrite hv, DecEq.refl v in rfl) vn
       (b h => match e: b == v with
-        | True => DecEq.sound b v e
+        | True => DecEq.sound e
         | False => Void.exfalso (Bool.falseNotTrue (rewrite Bool.andFalse (p b) at h)))
     in rfl
 
@@ -45,7 +45,7 @@ theorem countWithout (p: Nat → Bool) (n: Nat) (v: Nat) (hv: p v = True) (vn: v
 theorem onlyOne (p: Nat → Bool) (n: Nat) (one: List.occurrences (List.range 0 n) p = 1) (x: Nat) (y: Nat)
     (hx: p x = True) (xn: x < n) (hy: p y = True) (yn: y < n): y = x :=
   match e: y == x with
-    | True => DecEq.sound y x e
+    | True => DecEq.sound e
     | False =>
       let some: Nat.leq 1 (List.occurrences (List.range 0 n) (b => p b ∧ ¬(b == x))) = True :=
         rewrite <- List.anyOccurrences (List.range 0 n) (b => p b ∧ ¬(b == x)) in
@@ -78,11 +78,11 @@ theorem ownAfterMove (c: Circuits) (f: Nat) (s: Nat) (n: Nat) (counted: Counted 
     (relabel (c.labelOf f) (c.labelOf s) (c.labelOf b) == b) = ((c.labelOf b == b) ∧ ¬(b == c.labelOf f)) :=
   match g: c.labelOf b == c.labelOf f with
     | True =>
-      let lf := DecEq.sound (c.labelOf b) (c.labelOf f) g
+      let lf := DecEq.sound g
       match h2: c.labelOf s == b with
         | True =>
           -- b would be s's label, so its own label: then f's label is s's.
-          let bs := DecEq.sound (c.labelOf s) b h2
+          let bs := DecEq.sound h2
           Void.exfalso (DecEq.soundFalse (c.labelOf f) (c.labelOf s) differ
             (Eq.trans (Eq.sym lf) (rewrite <- bs, counted.labelOwn s hs in rfl)))
         | False =>
@@ -92,7 +92,7 @@ theorem ownAfterMove (c: Circuits) (f: Nat) (s: Nat) (n: Nat) (counted: Counted 
               | False => rewrite DecEq.eqComm (c.labelOf f) b, h3 in rfl
     | False =>
       match h2: c.labelOf b == b with
-        | True => rewrite <- DecEq.sound (c.labelOf b) b h2, g in rfl
+        | True => rewrite <- DecEq.sound h2, g in rfl
         | False => rfl
 
 theorem countedMoved (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (f: Nat) (s: Nat) (hf: f < n) (hs: s < n)
@@ -137,8 +137,8 @@ theorem countOneOf (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (inv: Labelled
     (some: 0 < n) (one: OneCircuit n done): c.count = 1 :=
   let r := c.labelOf 0
   let same: (b: Nat) → b < n → c.labelOf b = r :=
-    b h => DecEq.sound (c.labelOf b) r ((labelsTellOf n done c inv b 0 h some).backward (one b 0 h some))
-  rewrite counted.counts, same _ in countOne (b => r == b) n r (DecEq.refl r) (counted.labelBelow 0 some) (b h => Eq.sym (DecEq.sound r b h))
+    b h => DecEq.sound ((labelsTellOf n done c inv b 0 h some).backward (one b 0 h some))
+  rewrite counted.counts, same _ in countOne (b => r == b) n r (DecEq.refl r) (counted.labelBelow 0 some) (b h => Eq.sym (DecEq.sound h))
 
 --| With one box its own label, every box has that label, so all are joined.
 theorem oneCircuitOfCount (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (inv: Labelled n done c) (counted: Counted n c)
@@ -173,7 +173,7 @@ theorem countAboveOne (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (inv: Label
 theorem countNotOne (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (inv: Labelled n done c) (counted: Counted n c)
     (notOne: ¬(OneCircuit n done)): (c.count == 1) = False :=
   match e: c.count == 1 with
-    | True => Void.exfalso (notOne (oneCircuitOfCount n done c inv counted (DecEq.sound c.count 1 e)))
+    | True => Void.exfalso (notOne (oneCircuitOfCount n done c inv counted (DecEq.sound e)))
     | False => rfl
 
 -- Part 2 ------------------------------------------------------------------------
@@ -191,8 +191,8 @@ theorem lastJoinFinds (points: List Point): (ps: List (Nat, Nat)) → (k: Nat) �
     match r: boxesBelow n (f, s) with
       | False => Void.exfalso (Bool.falseNotTrue ok)
       | True =>
-        let hf: f < n := Bool.andLeft _ _ r
-        let hs: s < n := Bool.andRight _ _ r
+        let hf: f < n := Bool.andLeft r
+        let hs: s < n := Bool.andRight r
         let inv2 := labelledJoin n done c f s hf hs inv
         let counted2 := countedJoin n done c f s hf hs inv counted
         match k with
@@ -271,8 +271,8 @@ theorem countedJoinAll (n: Nat): (rest: List (Nat, Nat)) → (done: List (Nat, N
     match r: boxesBelow n (f, s) with
       | True =>
         countedJoinAll n rest (List.append done [(f, s)]) (c.join f s) ok
-          (labelledJoin n done c f s (Bool.andLeft _ _ r) (Bool.andRight _ _ r) inv)
-          (countedJoin n done c f s (Bool.andLeft _ _ r) (Bool.andRight _ _ r) inv counted)
+          (labelledJoin n done c f s (Bool.andLeft r) (Bool.andRight r) inv)
+          (countedJoin n done c f s (Bool.andLeft r) (Bool.andRight r) inv counted)
       | False => Void.exfalso (Bool.falseNotTrue ok)
 
 --| After the first j connections, is there one circuit?
@@ -285,7 +285,7 @@ theorem oneAfterTells (points: List Point) (j: Nat) (some: 0 < points.length):
   let inv := labelledJoinAll n (firstConnections j points) [] (Circuits.separate n) ok (labelledAtStart n)
   let counted := countedJoinAll n (firstConnections j points) [] (Circuits.separate n) ok (labelledAtStart n) (countedAtStart n)
   {
-    forward = h => oneCircuitOfCount n (firstConnections j points) _ inv counted (DecEq.sound _ 1 h),
+    forward = h => oneCircuitOfCount n (firstConnections j points) _ inv counted (DecEq.sound h),
     backward = one => rewrite countOneOf n (firstConnections j points) _ inv counted some one in DecEq.refl 1
   }
 
@@ -303,7 +303,7 @@ theorem lastNeededExists (points: List Point) (two: 2 ≤ points.length): Exists
     Nat.firstFromFound (oneAfter points) (Succ total) 0 total omega omega atEnd
   let notAtStart: oneAfter points 0 = False :=
     match e: n == 1 with
-      | True => Void.exfalso (Bool.falseNotTrue (rewrite DecEq.sound n 1 e at two))
+      | True => Void.exfalso (Bool.falseNotTrue (rewrite DecEq.sound e at two))
       | False => rfl
   match g: first with
     | Zero => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym notAtStart) found))

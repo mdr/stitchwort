@@ -161,35 +161,35 @@ theorem nearSum (g: Nat → Nat) (n: Nat) (hz: (x: Nat) → n ≤ x → g x = 0)
       := rewrite pickBelow g n hz r, List.sumRangePick g n r (hz r), List.sumRangePick g n (Succ r) (hz (Succ r))
 
 --| Bool facts for splitting the sums.
-theorem toNatAnd: (a: Bool) → (b: Bool) → Bool.toNat (a ∧ b) = b.toNat.keepIf a
-  | True, b => rfl
-  | False, b => rfl
+theorem toNatAnd: (a: Bool) → [b: Bool] → Bool.toNat (a ∧ b) = b.toNat.keepIf a
+  | True => rfl
+  | False => rfl
 
 theorem isRollCount: (a: Cell) → Bool.toNat (a == Roll) = a.count
   | Roll => rfl
   | Floor => rfl
 
 --| Splitting off the position itself.
-theorem splitSelf: (n1: Bool) → (n2: Bool) → (e: Bool) → (x: Bool) → (e = True → (n1 = True ∧ n2 = True)) →
+theorem splitSelf: (n1: Bool) → (n2: Bool) → (e: Bool) → [x: Bool] → (e = True → (n1 = True ∧ n2 = True)) →
     Bool.toNat (n1 ∧ n2 ∧ x) = Bool.toNat ((n1 ∧ n2 ∧ not e) ∧ x) + Bool.toNat (e ∧ x)
-  | True, True, True, x, h => rfl
-  | True, False, True, x, h => Void.exfalso (Bool.falseNotTrue (And.right (h rfl)))
-  | False, n2, True, x, h => Void.exfalso (Bool.falseNotTrue (And.left (h rfl)))
-  | True, True, False, x, h => omega
-  | True, False, False, x, h => rfl
-  | False, n2, False, x, h => rfl
+  | True, True, True, h => rfl
+  | True, False, True, h => Void.exfalso (Bool.falseNotTrue (And.right (h rfl)))
+  | False, n2, True, h => Void.exfalso (Bool.falseNotTrue (And.left (h rfl)))
+  | True, True, False, h => omega
+  | True, False, False, h => rfl
+  | False, n2, False, h => rfl
 
-theorem andKeep: (a: Bool) → (b: Bool) → (x: Bool) → Bool.toNat ((a ∧ b) ∧ x) = (x.toNat.keepIf b).keepIf a
-  | True, True, x => rfl
-  | True, False, x => rfl
-  | False, b, x => rfl
+theorem andKeep: (a: Bool) → (b: Bool) → [x: Bool] → Bool.toNat ((a ∧ b) ∧ x) = (x.toNat.keepIf b).keepIf a
+  | True, True => rfl
+  | True, False => rfl
+  | False, b => rfl
 
 theorem nearSelf (r: Nat): (r.absDiff r ≤ 1) = True := rewrite Nat.absDiffSelf r
 
 --| The position itself is at most 1 from itself.
 theorem selfNear (r: Nat) (c: Nat) (x: Nat) (y: Nat) (h: (r == x ∧ c == y) = True): near r x = True ∧ near c y = True :=
-  Both (rewrite DecEq.sound r x (Bool.andLeft (r == x) (c == y) h) in nearSelf x)
-    (rewrite DecEq.sound c y (Bool.andRight (r == x) (c == y) h) in nearSelf y)
+  Both (rewrite DecEq.sound (Bool.andLeft h) in nearSelf x)
+    (rewrite DecEq.sound (Bool.andRight h) in nearSelf y)
 
 --| A count over the grid's positions is a sum of 1s and 0s.
 theorem countPositionsSum (grid: Grid) (p: Nat → Nat → Bool):
@@ -202,7 +202,7 @@ theorem selfSum (grid: Grid) (cells: Cells) (below: (r: Nat) → (c: Nat) → gr
     List.sumBy (List.range 0 grid.height) (x => List.sumBy (List.range 0 grid.width) (y => Bool.toNat ((r == x ∧ c == y) ∧ cells x y == Roll))) = (cells r c).count :=
   calc List.sumBy (List.range 0 grid.height) (x => List.sumBy (List.range 0 grid.width) (y => Bool.toNat ((r == x ∧ c == y) ∧ cells x y == Roll)))
     _ = List.sumBy (List.range 0 grid.height) (x => Nat.keepIf (List.sumBy (List.range 0 grid.width) (y => Nat.keepIf ((cells x y).count) (Nat.equal c y))) (Nat.equal r x))
-      := rewrite Nat.eqIsEqual r _, Nat.eqIsEqual c _, andKeep _ _ _, isRollCount _, <- Nat.keepIfSumBy _ _ _
+      := rewrite Nat.eqIsEqual r _, Nat.eqIsEqual c _, andKeep _ _, isRollCount _, <- Nat.keepIfSumBy _
     _ = List.sumBy (List.range 0 grid.height) (x => Nat.keepIf ((cells x c).count) (Nat.equal r x))
       := rewrite List.sumRangePick (y => (cells _ y).count) grid.width c (h => Eq.cong Cell.count (right _ c h))
     _ = (cells r c).count := List.sumRangePick (x => (cells x c).count) grid.height r (h => Eq.cong Cell.count (below r c h))
@@ -234,7 +234,7 @@ theorem nineSum (grid: Grid) (cells: Cells) (below: (r: Nat) → (c: Nat) → gr
       = rowSum cells r c + rowSum cells (Succ r) c + rowSum cells (Succ (Succ r)) c :=
   calc List.sumBy (List.range 0 grid.height) (x => List.sumBy (List.range 0 grid.width) (y => Bool.toNat (near r x ∧ near c y ∧ cells x y == Roll)))
     _ = List.sumBy (List.range 0 grid.height) (x => Nat.keepIf (List.sumBy (List.range 0 grid.width) (y => Nat.keepIf ((cells x y).count) (near c y))) (near r x))
-      := rewrite toNatAnd _ _, toNatAnd _ _, isRollCount _, <- Nat.keepIfSumBy _ _ _
+      := rewrite toNatAnd _, toNatAnd _, isRollCount _, <- Nat.keepIfSumBy _
     _ = List.sumBy (List.range 0 grid.height) (x => Nat.keepIf (rowSum cells (Succ x) c) (near r x))
       := rewrite nearSum (y => (cells _ y).count) grid.width (y h => Eq.cong Cell.count (right _ y h)) c,
         bordRowShift cells _ c, bordRowShift cells _ (Succ c), bordRowShift cells _ (Succ (Succ c))
@@ -258,7 +258,7 @@ theorem windowIsNeighbours (grid: Grid) (cells: Cells) (below: (r: Nat) → (c: 
     _ = List.sumBy (List.range 0 grid.height) (x => List.sumBy (List.range 0 grid.width) (y => Bool.toNat (near r x ∧ near c y ∧ cells x y == Roll)))
       := Eq.sym (nineSum grid cells below right r c)
     _ = List.sumBy (List.range 0 grid.height) (x => List.sumBy (List.range 0 grid.width) (y => adj x y) + List.sumBy (List.range 0 grid.width) (y => self x y))
-      := rewrite splitSelf _ _ _ _ (selfNear r c _ _), List.sumByAdd [c := Nat] _ _ _
+      := rewrite splitSelf _ _ _ (selfNear r c _ _), List.sumByAdd [c := Nat] _ _ _
     _ = List.sumBy (List.range 0 grid.height) (x => List.sumBy (List.range 0 grid.width) (y => adj x y))
         + List.sumBy (List.range 0 grid.height) (x => List.sumBy (List.range 0 grid.width) (y => self x y))
       := List.sumByAdd (List.range 0 grid.height) (x => List.sumBy (List.range 0 grid.width) (y => adj x y)) (x => List.sumBy (List.range 0 grid.width) (y => self x y))
