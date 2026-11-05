@@ -8174,13 +8174,13 @@
     {
       "id": 1416,
       "title": "AoC 2020 day 8 (Handheld Halting): spec, efficient solution, proofs, tests, friction notes in aoc/NOTES-2020.md",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1416",
       "labels": [
         "aoc"
       ],
-      "body": "D2429 (5 Nov 2026): day 7's friction review done (decided by the orchestrator at Matt's request). Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day8.",
+      "body": "D2429 (5 Nov 2026): day 7's friction review done (decided by the orchestrator at Matt's request). Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day8.\n\nStarted on Opus, expected: 90 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
