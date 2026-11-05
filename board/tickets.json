@@ -1,5 +1,5 @@
 {
-  "next": 1323,
+  "next": 1324,
   "tickets": [
     {
       "id": 47,
@@ -5944,13 +5944,13 @@
     {
       "id": 1257,
       "title": "Elab: a variable bound only by a constructor's result type isn't auto-bound through a list literal ([x, ..xs] in a result type), though it is through Cons x xs (aoc 2021 days 10 and 18 Spec)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1257",
       "labels": [
         "elab"
       ],
-      "body": "Found by SW-1221, 4 Nov 2026.\n\nStarted 05:37 on Sonnet, est. 60 min.",
+      "body": "Found by SW-1221, 4 Nov 2026.\n\nStarted 05:37 on Sonnet, est. 60 min.\n\nDone on lane/SW-1257 (20be73578; Sonnet, 25 min, est. 60): autobind.rs walk_index now walks list literal items and a spread's tail as indices, as it did Cons's arguments. The four 2021 day 10 and 18 Spec sites now use brackets. New example auto-bind-list-literal.sw. No existing hash moved. Merges after SW-1256's verifier. Model result: Sonnet, worked, 25 min (est. 60).",
       "created": "2026-11-04",
       "updated": "2026-11-05",
       "commits": []
@@ -6865,6 +6865,20 @@
         "syntax"
       ],
       "body": "From SW-1320. Also worth a line in the proving guide or domain-types note: a def alias gives no dot methods, only records do.\n\nStarted 05:0x on DeepSeek in scratch-sw-1322; estimate 30 min (watch at 60).\n\nDeepSeek result on lane/SW-1322 (9e5622d74, 16 min): the failure is only after a capitalised head (a constructor such as Witness): braces after a constructor name its fields and take no further arguments, by design (D605 (a), D1370 (a), docs/proposals/record-argument-braces.md). The change makes 'C { … } x' read as 'C ({ … }) x' when an argument follows. That reverses a decided rule (the meaning of braces would depend on what follows), so not merged: D2374 to Matt. Model result: DeepSeek, worked (code), but the brief's goal ran into a decided rule I missed when filing, 16 min (est. 30).",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1323,
+      "title": "An index 3 against (1 + 2) in an indexed family's type (Sums [1, 2] 3 vs Sums [1, 2] (1 + 2)) gives a type mismatch; check whether literal vs + in an index should unify (maybe SW-1315's stale stuck call)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "From SW-1257. Not checked against main; reproduce first.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
