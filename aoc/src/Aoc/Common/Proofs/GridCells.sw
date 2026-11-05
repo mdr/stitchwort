@@ -315,3 +315,19 @@ theorem memGridPositionsWhere (grid: Grid a) (keep: a → Bool) (position: Posit
       (memPositionsWhere grid.cells keep position).backward
         (Witness tile (Both ((memCells grid.rows position tile).backward (And.left both)) (And.right both))))
 }
+
+--| `mapCells` of functions equal at every cell of the rows.
+theorem mapCellsCongAt (rows: List (List a)) (g1: Position → a → b) (g2: Position → a → b)
+    (same: (position: Position) → (x: a) → cellAt rows position = Some x → g1 position x = g2 position x): mapCells rows g1 = mapCells rows g2 :=
+  List.mapCongMem (List.withIndex rows) (p => List.mapWithIndex p.snd (c cell => g1 { row = p.fst, column = c } cell))
+    (p => List.mapWithIndex p.snd (c cell => g2 { row = p.fst, column = c } cell))
+    (p inRows =>
+      match p with
+        | (r, row) =>
+          let rowAt := (List.memWithIndex rows r row).forward inRows
+          List.mapCongMem (List.withIndex row) (q => g1 { row = r, column = q.fst } q.snd) (q => g2 { row = r, column = q.fst } q.snd)
+            (q inRow =>
+              match q with
+                | (c, cell) =>
+                  let cellAt := (List.memWithIndex row c cell).forward inRow
+                  same { row = r, column = c } cell (rewrite rowAt in cellAt)))
