@@ -98,7 +98,10 @@ Use the cheapest model that can do the work well. Provisional (D2208, Matt,
   OpenCode 2.1.x waits for it to close and never starts (SW-1097, upstream
   anomalyco/opencode#59287). The
   safety comes from the clone having no remote, the brief's rules, and the
-  review.
+  review. Review fixes go to the same session: `opencode run --continue`
+  (same flags, the comments as the message) in the clone, which keeps the
+  run's context, so the clone stays until the lane is merged (D2438, Matt,
+  5 Nov 2026; first used on SW-1452).
 - **Neither model's "done" is taken on trust:** the orchestrator runs the
   tests it relies on itself before merging.
 - **Keeping score:** when a DeepSeek or Sonnet task is closed, its ticket
@@ -110,8 +113,8 @@ Use the cheapest model that can do the work well. Provisional (D2208, Matt,
   starts. At 1.5× the estimate the lane stops and reports what's done,
   what's left, a new estimate and whether it's stuck; the orchestrator
   resumes it (`SendMessage` keeps its context) or ends it. At 3× it stops
-  regardless. A DeepSeek run can't be resumed, so the orchestrator also
-  watches its elapsed time (`ps -o etime=`) and stops it at 2× if its log
+  regardless. A DeepSeek run can't be talked to while it runs, so the
+  orchestrator also watches its elapsed time (`ps -o etime=`) and stops it at 2× if its log
   shows it going in circles.
 
 ## Lane agents
