@@ -8461,14 +8461,14 @@
     {
       "id": 1435,
       "title": "omega treats List.sum as written and the form rewrite ... at leaves as different unknowns, then reports a model that looks like a counterexample; annotating each fact's type fixes it",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1435",
       "labels": [
         "elab",
         "omega"
       ],
-      "body": "From 2020 day 9 (SW-1427), 5 Nov 2026; see aoc/NOTES-2020.md Day 9. Item 2; will recur wherever a sum or fold goes through rewrite at.",
+      "body": "From 2020 day 9 (SW-1427), 5 Nov 2026; see aoc/NOTES-2020.md Day 9. Item 2; will recur wherever a sum or fold goes through rewrite at.\n\nStarted on Sonnet, expected: 60 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
