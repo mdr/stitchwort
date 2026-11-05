@@ -38,7 +38,7 @@ theorem Ord.thenTrans [auto ord: Ord a] (x: a) (y: a) (z: a) [r1 r2 r3: Ordering
   Ordering.thenTransBy Ord.compare x y z h1 h2 (ord.trans x y z) (ord.equal x y) (ord.equal y z) tr
 
 --| Whether both comparisons are `Equal`.
-def Ordering.bothEqual: Ordering → Ordering → Bool := matches | Equal, Equal
+def Ordering.bothEqual: (x: Ordering) → (y: Ordering) → Bool := matches | Equal, Equal
 
 theorem Ordering.notBothEqual: (c: Ordering) → (d: Ordering) → Ordering.bothEqual c d = False → c = Equal → d = Equal → Void
   | Equal, Equal, t, e1, e2 => Bool.trueNotFalse t

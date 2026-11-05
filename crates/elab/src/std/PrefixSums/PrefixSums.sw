@@ -30,7 +30,7 @@ def PrefixSums.runningSums (row: List Nat): List Nat := List.scanLeft row 0 Nat.
 
 --| The table's rows from the running sums of each row: `above` is the row of
 --| the table for the rows before.
-def PrefixSums.table (above: List Nat): List (List Nat) → List (List Nat)
+def PrefixSums.table (above: List Nat): (rows: List (List Nat)) → List (List Nat)
   | [] => [above]
   | [sums, ..rest] => [above, ..PrefixSums.table (List.zipWith above sums Nat.add) rest]
 

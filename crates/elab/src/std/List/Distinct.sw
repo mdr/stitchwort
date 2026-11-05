@@ -12,7 +12,7 @@
 --| `acc` those elements, last first. A loop, so it is stack-safe on long lists.
 @[noReceiver]
 @[tailrec]
-def List.distinctLoop [auto ord: Ord a] (seen: Set a) (acc: List a): List a → List a
+def List.distinctLoop [auto ord: Ord a] (seen: Set a) (acc: List a): (xs: List a) → List a
   | [] => List.reverseOnto acc []
   | [x, ..xs] => if Set.contains seen x then List.distinctLoop seen acc xs else List.distinctLoop (Set.insert seen x) [x, ..acc] xs
 
@@ -227,7 +227,7 @@ theorem List.distinctAppendSeenExample (xs: List Nat): List.distinct (List.appen
 --| O(n log n) and stops at the first repeat.
 @[noReceiver]
 @[tailrec]
-def List.allDistinctFrom [auto ord: Ord a] (seen: Set a): List a → Bool
+def List.allDistinctFrom [auto ord: Ord a] (seen: Set a): (xs: List a) → Bool
   | [] => True
   | [x, ..rest] => if Set.contains seen x then False else List.allDistinctFrom (Set.insert seen x) rest
 

@@ -106,7 +106,7 @@ theorem Nat.ltPowTenDigits (hi: Nat): hi < Nat.pow 10 (Nat.digitCount hi) :=
     (Nat.digitsAccBound hi [])
 
 --| Every element is a decimal digit.
-def Nat.Digits: List Nat → Prop
+def Nat.Digits: (digits: List Nat) → Prop
   | [] => Unit
   | [digit, ..digits] => (digit < 10) ∧ (Nat.Digits digits)
 
@@ -300,7 +300,7 @@ theorem Nat.digitsLengthMonoExample: Nat.digitCount 99 ≤ Nat.digitCount 100 :=
 
 --| The option is nothing, or a decimal digit, below 10: what `Char.digitValue`
 --| gives (so `Char.toDigit` loses nothing).
-def Option.IsDigit: Option Nat → Prop
+def Option.IsDigit: (digit: Option Nat) → Prop
   | None => Unit
   | Some n => n < 10
 

@@ -21,16 +21,16 @@ def List.splitGroups (xs: List a) (p: a → Bool): Pair (List a) (List (NonEmpty
 
 --| Adds the element `x` in front: a separator (`True`) closes the open group,
 --| anything else joins it.
-def List.splitStep (x: a): Bool → Pair (List a) (List (NonEmptyList a)) → Pair (List a) (List (NonEmptyList a))
+def List.splitStep (x: a): (isSeparator: Bool) → (groups: Pair (List a) (List (NonEmptyList a))) → Pair (List a) (List (NonEmptyList a))
   | True, MkPair cur done => MkPair [] (List.closeGroup cur done)
   | False, MkPair cur done => MkPair [x, ..cur] done
 
 --| The groups of `List.splitBy`, with the group still open closed.
-def List.finishGroups: Pair (List a) (List (NonEmptyList a)) → List (NonEmptyList a)
+def List.finishGroups: (groups: Pair (List a) (List (NonEmptyList a))) → List (NonEmptyList a)
   | MkPair cur done => List.closeGroup cur done
 
 --| Adds a group to the finished ones, unless it is empty.
-def List.closeGroup: List a → List (NonEmptyList a) → List (NonEmptyList a)
+def List.closeGroup: (current: List a) → (done: List (NonEmptyList a)) → List (NonEmptyList a)
   | [], done => done
   | [y, ..ys], done => [[y, ..ys], ..done]
 
@@ -43,12 +43,12 @@ def List.NonSep (p: a → Bool) (g: List a): Prop := List.all g (x => ¬(p x)) =
 
 --| No group has a separator in it.
 @[noReceiver]
-def List.Groups (p: a → Bool): List (NonEmptyList a) → Prop
+def List.Groups (p: a → Bool): (groups: List (NonEmptyList a)) → Prop
   | [] => Unit
   | [g, ..gs] => (List.NonSep p g.toList) ∧ (List.Groups p gs)
 
 --| A state of `List.splitBy` is well formed: no group, open or finished, has a separator in it.
-def List.SplitOk (p: a → Bool): Pair (List a) (List (NonEmptyList a)) → Prop
+def List.SplitOk (p: a → Bool): (groups: Pair (List a) (List (NonEmptyList a))) → Prop
   | MkPair cur done => (List.NonSep p cur) ∧ (List.Groups p done)
 
 --| A state of `List.splitBy` holds exactly the elements of `xs` that aren't separators, in order.

@@ -8,23 +8,23 @@
 def Nat.toInt (n: Nat): Int := OfNat n
 
 --| `|x|`, as an `Int`.
-def Int.abs: Int → Int
+def Int.abs: (x: Int) → Int
   | OfNat n => OfNat n
   | NegSucc n => OfNat (Succ n)
 
 --| `Some x` if `x` isn't negative, otherwise `None`.
-def Int.toNatChecked: Int → Option Nat
+def Int.toNatChecked: (x: Int) → Option Nat
   | OfNat n => Some n
   | NegSucc n => None
 
 --| The sign of `x`: `-1`, `0` or `1`.
-def Int.sign: Int → Int
+def Int.sign: (x: Int) → Int
   | OfNat Zero => OfNat Zero
   | OfNat (Succ n) => OfNat 1
   | NegSucc n => NegSucc 0
 
 --| `x % divisor` as a `Nat`, for indexing: `(x.modNat divisor).toInt = x % divisor.toInt`.
-def Int.modNat: Int → (divisor: Nat) → [auto ok: divisor ≠ 0] → Nat
+def Int.modNat: (x: Int) → (divisor: Nat) → [auto ok: divisor ≠ 0] → Nat
   | x, Zero => Void.absurd (ok rfl)
   | OfNat m, Succ n => m % Succ n
   | NegSucc m, Succ n => n - m % Succ n

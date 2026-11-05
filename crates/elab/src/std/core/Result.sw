@@ -10,17 +10,17 @@ type Result (a: Type) (e: Type): Type =
   | Err (error: e)
 
 --| The value, or `fallback` if there isn't one.
-def Result.getOrElse: Result a e → (fallback: a) → a
+def Result.getOrElse: (result: Result a e) → (fallback: a) → a
   | Ok x, fallback => x
   | Err m, fallback => fallback
 
 --| The error, or `fallback` if there isn't one.
-def Result.errorOrElse: Result a e → (fallback: e) → e
+def Result.errorOrElse: (result: Result a e) → (fallback: e) → e
   | Ok x, fallback => fallback
   | Err m, fallback => m
 
 --| `Unit` (true) for an `Ok` and `Void` (false) for an `Err`: how `Ok x ≠ Err m` is proved.
-def Result.IsOk: Result a e → Prop
+def Result.IsOk: (result: Result a e) → Prop
   | Ok x => Unit
   | Err m => Void
 
@@ -31,12 +31,12 @@ theorem Result.errNotOk (m: e) (x: a): Err m ≠ Ok x
   | p => Result.okNotErr x m (Eq.sym p)
 
 --| Decides whether two `Ok`s are equal, from a decision about their values.
-def Result.decOk (x: a) (y: a): Decidable (x = y) → Decidable ((Ok x: Result a e) = Ok y)
+def Result.decOk (x: a) (y: a): (dec: Decidable (x = y)) → Decidable ((Ok x: Result a e) = Ok y)
   | Yes p => Yes (Eq.cong Ok p)
   | No r => No (p => r (Eq.cong (.getOrElse x) p))
 
 --| Decides whether two `Err`s are equal, from a decision about their errors.
-def Result.decErr (m: e) (n: e): Decidable (m = n) → Decidable ((Err m: Result a e) = Err n)
+def Result.decErr (m: e) (n: e): (dec: Decidable (m = n)) → Decidable ((Err m: Result a e) = Err n)
   | Yes p => Yes (Eq.cong Err p)
   | No r => No (p => r (Eq.cong (.errorOrElse m) p))
 

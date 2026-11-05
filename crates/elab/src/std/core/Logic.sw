@@ -31,10 +31,10 @@ theorem Or.neither: [p q: Prop] → ¬p → ¬q → ¬(p ∨ q)
 
 --| From a proof of `Void`, anything follows. `()` means "there's no value to
 --| match here", so no right-hand side is needed.
-def Void.absurd: Void → a
+def Void.absurd: (v: Void) → a
   | ()
 
 --| From a proof of `Void`, any proposition follows. (Without universe
 --| polymorphism, [`Void.absurd`]'s `a` can only be a type of data.)
-def Void.exfalso: [p: Prop] → Void → p
+def Void.exfalso: [p: Prop] → (v: Void) → p
   | ()

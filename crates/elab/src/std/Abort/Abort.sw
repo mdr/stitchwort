@@ -16,7 +16,7 @@
 type Empty: Type
 
 --| From a value of `Empty`, anything follows.
-def Empty.absurd: Empty → a
+def Empty.absurd: (empty: Empty) → a
   | ()
 
 --| Giving up without a reason: a computation that may stop, through its one

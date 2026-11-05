@@ -38,7 +38,7 @@ type Key: Type =
 -- a key is its constructor's position and its character, if it has one.
 
 --| The position of a key's constructor, for `==` on keys.
-def Key.position: Key → Nat
+def Key.position: (key: Key) → Nat
   | Printable char => 0
   | Enter => 1
   | Tab => 2
@@ -57,7 +57,7 @@ def Key.position: Key → Nat
   | Unknown => 15
 
 --| The key's character, or a space for a key without one.
-def Key.charOrSpace: Key → Char
+def Key.charOrSpace: (key: Key) → Char
   | Printable char => char
   | Ctrl letter => letter
   | _ => ' '
@@ -136,7 +136,7 @@ type Key.Decoded: Type =
 --|   of the arrows, `Home` and `End`.
 --| - `ESC` followed by anything else is `Escape`; the byte after it is the
 --|   start of the next key.
-def Key.next: List Nat → Key.Decoded
+def Key.next: (bytes: List Nat) → Key.Decoded
   | [] => NoBytes
   | [byte, ..rest] =>
     if byte == 27 then Key.afterEscape rest
@@ -153,7 +153,7 @@ def Key.ofAscii (byte: Nat): Key :=
   else Unknown
 
 --| The bytes after an `ESC`.
-def Key.afterEscape: List Nat → Key.Decoded
+def Key.afterEscape: (bytes: List Nat) → Key.Decoded
   | [] => Incomplete
   | [byte, ..rest] =>
     if byte == 91 then Key.csi [] rest
@@ -164,7 +164,7 @@ def Key.afterEscape: List Nat → Key.Decoded
 --| reverse, then a final byte (64 to 126). Any other byte ends the sequence
 --| as `Unknown`, and starts the next key.
 @[tailrec]
-def Key.csi (parameters: List Nat): List Nat → Key.Decoded
+def Key.csi (parameters: List Nat): (bytes: List Nat) → Key.Decoded
   | [] => Incomplete
   | [byte, ..rest] =>
     if 32 ≤ byte && byte ≤ 63 then Key.csi [byte, ..parameters] rest
@@ -201,7 +201,7 @@ def Key.ofTilde (digit: Nat): Key :=
   else Unknown
 
 --| After `ESC O`: one more byte.
-def Key.ss3: List Nat → Key.Decoded
+def Key.ss3: (bytes: List Nat) → Key.Decoded
   | [] => Incomplete
   | [final, ..rest] => Got (Key.ofFinal final) rest
 
@@ -217,7 +217,7 @@ def Key.utf8Lead (lead: Nat) (rest: List Nat): Key.Decoded :=
 --| that isn't a continuation ends the character as `Unknown`, and starts the
 --| next key.
 @[tailrec]
-def Key.utf8More (minimum: Nat) (code: Nat): Nat → List Nat → Key.Decoded
+def Key.utf8More (minimum: Nat) (code: Nat): (remaining: Nat) → (bytes: List Nat) → Key.Decoded
   | 0, rest =>
     if code < minimum then Got Unknown rest else Got (Option.fold (Char.fromNat code) Unknown Printable) rest
   | Succ count, [] => Incomplete
@@ -229,7 +229,7 @@ def Key.utf8More (minimum: Nat) (code: Nat): Nat → List Nat → Key.Decoded
 --| ([`Key.nextBytes`]). A `Ctrl` with something other than a lower-case
 --| letter, which no terminal sends, gives the bytes of `Unknown`: 255, which
 --| is never part of UTF-8.
-def Key.bytes: Key → List Nat
+def Key.bytes: (key: Key) → List Nat
   | Printable char => Char.utf8 char
   | Enter => [13]
   | Tab => [9]
@@ -255,7 +255,7 @@ def Key.all (bytes: List Nat): List Key := Key.allWithin bytes.length bytes
 
 --| At most `limit` keys (each key takes at least one byte, so the length is
 --| enough).
-def Key.allWithin: Nat → List Nat → List Key
+def Key.allWithin: (limit: Nat) → (bytes: List Nat) → List Key
   | 0, bytes => []
   | Succ limit, bytes =>
     match Key.next bytes with
@@ -267,7 +267,7 @@ def Key.allWithin: Nat → List Nat → List Key
 --| anything at all, decode to that key and the rest. Not for `Escape`, whose
 --| byte also starts the other sequences ([`Key.nextEscape`] says when it holds),
 --| or for the keys with a character, `Printable` and `Ctrl`.
-def Key.isNamed: Key → Bool
+def Key.isNamed: (key: Key) → Bool
   | Printable char => False
   | Escape => False
   | Ctrl letter => False

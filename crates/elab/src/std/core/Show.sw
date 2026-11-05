@@ -18,12 +18,12 @@ def Text.toText (text: Text): Text := text
 def Char.toText (char: Char): Text := MkText [char]
 
 --| `"True"` or `"False"`, as the constructors are written.
-def Bool.toText: Bool → Text
+def Bool.toText: (b: Bool) → Text
   | True => "True"
   | False => "False"
 
 --| `"Less"`, `"Equal"` or `"Greater"`, as the constructors are written.
-def Ordering.toText: Ordering → Text
+def Ordering.toText: (ordering: Ordering) → Text
   | Less => "Less"
   | Equal => "Equal"
   | Greater => "Greater"
@@ -51,7 +51,7 @@ def Show.escapeChar (quote: Char) (char: Char) (rest: List Char): List Char :=
 
 --| A character as it's written in a literal quoted with `quote`, when it's
 --| followed by `next`: a `$` before a `{` would start an interpolation, so it is escaped.
-def Show.escapeBefore (quote: Char) (char: Char) (rest: List Char): List Char → List Char
+def Show.escapeBefore (quote: Char) (char: Char) (rest: List Char): (chars: List Char) → List Char
   | [] => Show.escapeChar quote char rest
   | [next, .._] =>
     if Nat.equal (Char.toNat char) 36 then
@@ -59,7 +59,7 @@ def Show.escapeBefore (quote: Char) (char: Char) (rest: List Char): List Char �
     else Show.escapeChar quote char rest
 
 --| Characters as they're written in a literal quoted with `quote`.
-def Show.escapeChars (quote: Char): List Char → List Char
+def Show.escapeChars (quote: Char): (chars: List Char) → List Char
   | [] => []
   | [char, ..chars] => Show.escapeBefore quote char (Show.escapeChars quote chars) chars
 
@@ -72,7 +72,7 @@ def Show.quoteChar (char: Char): Text := MkText ['\'', ..Show.escapeChar '\'' ch
 
 --| Whether the characters include a space.
 @[tailrec]
-def Show.hasSpace: List Char → Bool
+def Show.hasSpace: (chars: List Char) → Bool
   | [] => False
   | [char, ..chars] => if Nat.equal (Char.toNat char) 32 then True else Show.hasSpace chars
 
@@ -88,7 +88,7 @@ def Show.startsBracketed (char: Char): Bool :=
 --| An argument of a constructor: bracketed when it has spaces and isn't
 --| already one piece (`Some (Some 1)`, `Some (-5)`, `Some [1, 2]`,
 --| `Some ({ price = 3 })`).
-def Show.argOf (text: Text): List Char → Text
+def Show.argOf (text: Text): (chars: List Char) → Text
   | [] => text
   | [char, ..chars] =>
     if Nat.equal (Char.toNat char) 45 then Text.append "(" (Text.append text ")")
@@ -101,12 +101,12 @@ def Show.argOf (text: Text): List Char → Text
 def Show.arg (text: Text): Text := Show.argOf text (Text.toList text)
 
 --| The elements through `f`, each after `, `.
-def Show.itemsAfter (f: a → Text): List a → Text
+def Show.itemsAfter (f: a → Text): (xs: List a) → Text
   | [] => ""
   | [x, ..xs] => Text.append ", " (Text.append (f x) (Show.itemsAfter f xs))
 
 --| The elements through `f`, separated by `, `.
-def Show.items (f: a → Text): List a → Text
+def Show.items (f: a → Text): (xs: List a) → Text
   | [] => ""
   | [x, ..xs] => Text.append (f x) (Show.itemsAfter f xs)
 
@@ -116,7 +116,7 @@ def Show.list (f: a → Text) (xs: List a): Text :=
 
 --| An option as source text, the value shown by `f`: `None`, or `Some 3`.
 @[noReceiver]
-def Option.showWith (f: a → Text): Option a → Text
+def Option.showWith (f: a → Text): (option: Option a) → Text
   | None => "None"
   | Some x => Text.append "Some " (Show.arg (f x))
 
@@ -140,7 +140,7 @@ instance Option.instShow [auto show: Show a]: Show (Option a) :=
 
 --| A result as source text, the value shown by `f` and the error by `g`: `Ok 3`, or `Err "bad"`.
 @[noReceiver]
-def Result.showWith (f: a → Text) (g: e → Text): Result a e → Text
+def Result.showWith (f: a → Text) (g: e → Text): (result: Result a e) → Text
   | Ok x => Text.append "Ok " (Show.arg (f x))
   | Err m => Text.append "Err " (Show.arg (g m))
 
@@ -149,7 +149,7 @@ instance Result.instShow [auto showA: Show a] [auto showE: Show e]: Show (Result
 
 --| A pair as source text, its parts shown by `f` and `g`: `(1, "a")`.
 @[noReceiver]
-def Pair.showWith (f: a → Text) (g: b → Text): Pair a b → Text
+def Pair.showWith (f: a → Text) (g: b → Text): (pair: Pair a b) → Text
   | MkPair x y => Text.append "(" (Text.append (f x) (Text.append ", " (Text.append (g y) ")")))
 
 instance Pair.instShow [auto showA: Show a] [auto showB: Show b]: Show (Pair a b) :=

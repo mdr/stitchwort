@@ -33,7 +33,7 @@ ability IO where
   args: () → {IO} (List Text) -- the arguments after the program's name; none in `IO.simulate`
 
 --| The first line of scripted input, if there is one.
-def IO.nextLine: List Text → Option Text
+def IO.nextLine: (lines: List Text) → Option Text
   | [] => None
   | [line, ..lines] => Some line
 
@@ -52,7 +52,7 @@ def Char.utf8 (c: Char): List Nat :=
 
 --| All of the scripted input as [`IO.readBytes`] gives it, in one read: the
 --| UTF-8 of [`IO.restOf`], or `None` once no lines remain.
-def IO.bytesOf: List Text → Option (List Nat)
+def IO.bytesOf: (lines: List Text) → Option (List Nat)
   | [] => None
   | ins => Some (List.concatMap (Text.toList (IO.restOf ins)) Char.utf8)
 

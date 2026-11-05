@@ -5,9 +5,9 @@
 
 theorem Text.toFromList (cs: List Char): Text.toList (Text.fromList cs) = cs := rfl
 
---| The character at index `i`, counting from 0, or `None` past the end: as
+--| The character at index `index`, counting from 0, or `None` past the end: as
 --| [`List.get`] on [`Text.toList`] ([`Text.getToList`]).
-def Text.get (text: Text) (i: Nat): Option Char := text.toList.get i
+def Text.get (text: Text) (index: Nat): Option Char := text.toList.get index
 
 theorem Text.getToList (text: Text) (i: Nat): Text.get text i = List.get text.toList i := rfl
 
@@ -42,19 +42,19 @@ test "Text.any and Text.all" :=
 theorem Text.lengthAppend (a: Text) (b: Text):
     Text.length (Text.append a b) = Text.length a + Text.length b := List.lengthAppend (Text.toList a) (Text.toList b)
 
---| The text made n characters long with copies of `char` after it: `Text.padRight "ab" 5 '.'` is `"ab..."`.
---| It is `text` itself when that is already n long or longer.
-def Text.padRight (text: Text) (n: Nat) (char: Char): Text :=
-  text.toList.padRight n char |> Text.fromList
+--| The text made `width` characters long with copies of `char` after it: `Text.padRight "ab" 5 '.'` is `"ab..."`.
+--| It is `text` itself when that is already `width` long or longer.
+def Text.padRight (text: Text) (width: Nat) (char: Char): Text :=
+  text.toList.padRight width char |> Text.fromList
 
 theorem Text.padRightExample: Text.padRight "ab" 5 '.' = "ab..." := rfl
 
 theorem Text.padRightLongEnough: Text.padRight "ab" 1 '.' = "ab" := rfl
 
---| The text made n characters long with copies of `char` before it: `Text.padLeft "7" 2 '0'` is `"07"`.
---| It is `text` itself when that is already n long or longer.
-def Text.padLeft (text: Text) (n: Nat) (char: Char): Text :=
-  text.toList.padLeft n char |> Text.fromList
+--| The text made `width` characters long with copies of `char` before it: `Text.padLeft "7" 2 '0'` is `"07"`.
+--| It is `text` itself when that is already `width` long or longer.
+def Text.padLeft (text: Text) (width: Nat) (char: Char): Text :=
+  text.toList.padLeft width char |> Text.fromList
 
 theorem Text.padLeftExample: Text.padLeft "7" 2 '0' = "07" := rfl
 
@@ -64,7 +64,7 @@ theorem Text.padLeftLongEnough: Text.padLeft "123" 2 '0' = "123" := rfl
 def Text.less (a: Text) (b: Text): Bool := Ordering.isLess (Text.compare a b)
 
 --| A first field and the fields after it, joined with `separator` between each two.
-def Text.joinPair (separator: Char): Pair (List Char) (List (List Char)) → List Char
+def Text.joinPair (separator: Char): (state: Pair (List Char) (List (List Char))) → List Char
   | MkPair field fields => Text.joinChars separator field fields
 
 theorem Text.joinCons (s: Char) (c: Char) (f: List Char): (fs: List (List Char)) →
@@ -100,26 +100,26 @@ theorem Text.joinSplit: (t: Text) → (s: Char) → Text.join (Text.split t s) s
 -- Lines
 
 --| Whether a code is the line feed, 10.
-def Char.isLineFeedCode: Nat → Bool := matches | 10
+def Char.isLineFeedCode: (code: Nat) → Bool := matches | 10
 
 --| Whether a code is the carriage return, 13.
-def Char.isCarriageReturnCode: Nat → Bool := matches | 13
+def Char.isCarriageReturnCode: (code: Nat) → Bool := matches | 13
 
 --| A line that ended with a line feed, from its characters newest first,
 --| without a carriage return just before the line feed.
-def Text.endLine: List Char → Text
+def Text.endLine: (chars: List Char) → Text
   | [] => MkText []
   | [char, ..chars] => MkText (List.reverseOnto (if Char.isCarriageReturnCode (Char.toNat char) then chars else [char, ..chars]) [])
 
 --| The last line, if the text doesn't end with a line feed: kept whole.
-def Text.lastLine: List Char → List Text → List Text
+def Text.lastLine: (line: List Char) → (lines: List Text) → List Text
   | [], acc => acc
   | [c, ..cs], acc => [MkText (List.reverseOnto [c, ..cs] []), ..acc]
 
 --| The lines of the characters, after the current line's characters
 --| (`line`, newest first) and the finished lines (`acc`, newest first).
 @[tailrec]
-def Text.linesFrom (line: List Char) (acc: List Text): List Char → List Text
+def Text.linesFrom (line: List Char) (acc: List Text): (chars: List Char) → List Text
   | [] => List.reverseOnto (Text.lastLine line acc) []
   | [char, ..chars] =>
     if Char.isLineFeedCode (Char.toNat char) then Text.linesFrom [] [Text.endLine line, ..acc] chars
@@ -141,25 +141,25 @@ def IO.readAllLines(): {IO} List Text := IO.readAll().lines
 -- needle or separator, so `line.stripPrefix "L"`, `line |> Text.stripPrefix
 -- "L"` and `Text.stripPrefix line "L"` all mean the same.
 
---| The first `n` characters of the text (all of it if it is shorter); with `Text.drop`, the whole text ([`Text.takeAppendDrop`]).
-def Text.take (text: Text) (n: Nat): Text := text.toList.take n |> Text.fromList
+--| The first `count` characters of the text (all of it if it is shorter); with `Text.drop`, the whole text ([`Text.takeAppendDrop`]).
+def Text.take (text: Text) (count: Nat): Text := text.toList.take count |> Text.fromList
 
---| The text without its first `n` characters (empty if it is shorter).
-def Text.drop (text: Text) (n: Nat): Text := text.toList.drop n |> Text.fromList
+--| The text without its first `count` characters (empty if it is shorter).
+def Text.drop (text: Text) (count: Nat): Text := text.toList.drop count |> Text.fromList
 
 --| Whether two characters are the same.
 def Text.sameChar (a: Char) (b: Char): Bool := Nat.equal (Char.toNat a) (Char.toNat b)
 
 --| The rest of the characters after the prefix `p`, if they start with it.
 @[tailrec]
-def Text.stripPrefixChars: List Char → List Char → Option (List Char)
+def Text.stripPrefixChars: (prefix: List Char) → (chars: List Char) → Option (List Char)
   | [], ys => Some ys
   | [p, ..ps], [] => None
   | [p, ..ps], [y, ..ys] => if Text.sameChar p y then Text.stripPrefixChars ps ys else None
 
 --| Whether the second list of characters starts with the first.
 @[tailrec]
-def Text.startsWithChars: List Char → List Char → Bool
+def Text.startsWithChars: (prefix: List Char) → (chars: List Char) → Bool
   | [], ys => True
   | [p, ..ps], [] => False
   | [p, ..ps], [y, ..ys] => if Text.sameChar p y then Text.startsWithChars ps ys else False
@@ -184,7 +184,7 @@ def Text.endsWith (text: Text) (suffix: Text): Bool :=
 
 --| Whether `needle` occurs in the list of characters.
 @[tailrec]
-def Text.containsChars (needle: List Char): List Char → Bool
+def Text.containsChars (needle: List Char): (chars: List Char) → Bool
   | [] => Text.startsWithChars needle []
   | [char, ..chars] => if Text.startsWithChars needle [char, ..chars] then True else Text.containsChars needle chars
 
@@ -196,7 +196,7 @@ def Text.contains (text: Text) (needle: Text): Bool := Text.containsChars needle
 --| and `skip` how many more characters of a separator just found are still to
 --| be passed over. `n` is the separator's length less one.
 @[tailrec]
-def Text.splitOnLoop (sep: List Char) (n: Nat) (cur: List Char) (acc: List Text): List Char → Nat → List Text
+def Text.splitOnLoop (sep: List Char) (n: Nat) (cur: List Char) (acc: List Text): (chars: List Char) → (skip: Nat) → List Text
   | [], skip => List.reverseOnto [MkText (List.reverseOnto cur []), ..acc] []
   | [char, ..chars], Succ skip => Text.splitOnLoop sep n cur acc chars skip
   | [char, ..chars], Zero =>
@@ -208,7 +208,7 @@ def Text.splitOnLoop (sep: List Char) (n: Nat) (cur: List Char) (acc: List Text)
       (if hit then n else Zero)
 
 --| The characters split at each occurrence of the separator, as `Text.splitOn` does it.
-def Text.splitOnChars: List Char → List Char → List Text
+def Text.splitOnChars: (sep: List Char) → (chars: List Char) → List Text
   | [], chars => [MkText chars]
   | [first, ..rest], chars => Text.splitOnLoop [first, ..rest] (List.length rest) [] [] chars Zero
 
@@ -379,13 +379,13 @@ test "splitOn" := Text.splitOn "a, b" ", " == ["a", "b"] ∧ Text.splitOn "" "x"
 test "splitOn empty separator" := Text.splitOn "abc" "" == ["abc"]
 test "splitOn overlapping" := Text.splitOn "aaa" "aa" == ["", "a"]
 
---| The text n times over: `"ab".repeat 3` is `"ababab"`, and `text.repeat 0` is the empty text.
-def Text.repeat (text: Text) (n: Nat): Text := List.replicate n text.toList |> .concat |> Text.fromList
+--| The text `count` times over: `"ab".repeat 3` is `"ababab"`, and `text.repeat 0` is the empty text.
+def Text.repeat (text: Text) (count: Nat): Text := List.replicate count text.toList |> .concat |> Text.fromList
 
---| The text cut into pieces of `n` characters, the last one shorter if need be:
+--| The text cut into pieces of `size` characters, the last one shorter if need be:
 --| `"abcde".chunksOf 2` is `["ab", "cd", "e"]`. As `List.chunksOf` does for
---| lists, `n = 0` gives the whole text as one chunk (none for an empty text).
-def Text.chunksOf (text: Text) (n: Nat): List Text := text.toList.chunksOf n |> .map Text.fromList
+--| lists, `size = 0` gives the whole text as one chunk (none for an empty text).
+def Text.chunksOf (text: Text) (size: Nat): List Text := text.toList.chunksOf size |> .map Text.fromList
 
 test "Text.repeat" := Text.repeat "ab" 3 == "ababab" ∧ Text.repeat "ab" 0 == "" ∧ Text.repeat "" 4 == ""
 test "Text.chunksOf" := Text.chunksOf "abcde" 2 == ["ab", "cd", "e"] ∧ Text.chunksOf "" 2 == []

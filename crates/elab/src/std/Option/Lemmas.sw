@@ -137,7 +137,7 @@ theorem Option.orElseSome (v: a) (y: Option a): Option.orElse (Some v) y = Some 
 theorem Option.noneOrElse (y: Option a): Option.orElse None y = y := rfl
 
 --| If `map f x` is `Some v`, then `x` held some `u` with `f u = v`.
-theorem Option.mapEqSome [goal: Prop]: (x: Option a) → (f: a → b) → (v: b) → Option.map x f = Some v → ((u: a) → x = Some u → f u = v → goal) → goal
+theorem Option.mapEqSome [goal: Prop]: (x: Option a) → (f: a → b) → (v: b) → Option.map x f = Some v → (cont: (u: a) → x = Some u → f u = v → goal) → goal
   | Some u, f, v, h, use => use u rfl (Option.someInjective (f u) v h)
   | None, f, v, h, use => Void.exfalso (Option.noneNotSome v h)
 
@@ -149,7 +149,7 @@ theorem Option.mapEqNone: (x: Option a) → (f: a → b) → Option.map x f = No
 theorem Option.mapEqNoneExample (x: Option Nat) (h: Option.map x Succ = None): x = None := (Option.mapEqNone x Succ).forward h
 
 --| If `flatMap f x` is `Some v`, then `x` held some `u` with `f u = Some v`.
-theorem Option.flatMapEqSome [goal: Prop]: (x: Option a) → (f: a → Option b) → (v: b) → Option.flatMap x f = Some v → ((u: a) → x = Some u → f u = Some v → goal) → goal
+theorem Option.flatMapEqSome [goal: Prop]: (x: Option a) → (f: a → Option b) → (v: b) → Option.flatMap x f = Some v → (cont: (u: a) → x = Some u → f u = Some v → goal) → goal
   | Some u, f, v, h, use => use u rfl h
   | None, f, v, h, use => Void.exfalso (Option.noneNotSome v h)
 
@@ -170,9 +170,9 @@ theorem Option.orElseSelf: (x: Option a) → Option.orElse x x = x
 --| value alone, the right alone, or both.
 theorem Option.alignWithEqSome [goal: Prop] (left: a → c) (right: b → c) (both: a → b → c) (v: c):
     (x: Option a) → (y: Option b) → Option.alignWith x y left right both = Some v
-      → ((u: a) → x = Some u → y = None → left u = v → goal)
-      → ((w: b) → x = None → y = Some w → right w = v → goal)
-      → ((u: a) → (w: b) → x = Some u → y = Some w → both u w = v → goal) → goal
+      → (onLeft: (u: a) → x = Some u → y = None → left u = v → goal)
+      → (onRight: (w: b) → x = None → y = Some w → right w = v → goal)
+      → (onBoth: (u: a) → (w: b) → x = Some u → y = Some w → both u w = v → goal) → goal
   | Some u, Some w, h, onLeft, onRight, onBoth => onBoth u w rfl rfl (Option.someInjective (both u w) v h)
   | Some u, None, h, onLeft, onRight, onBoth => onLeft u rfl rfl (Option.someInjective (left u) v h)
   | None, Some w, h, onLeft, onRight, onBoth => onRight w rfl rfl (Option.someInjective (right w) v h)

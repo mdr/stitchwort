@@ -13,7 +13,7 @@ import Float.Model.Location (Exact, BelowHalf, Half, AboveHalf)
 
 --| 2^k, by squaring: `pow2From fuel k` is `Nat.pow 2 k` for every fuel, and
 --| takes a step per bit of `k` until the fuel runs out.
-def Float.Model.pow2From: Nat → Nat → Nat
+def Float.Model.pow2From: (fuel: Nat) → (k: Nat) → Nat
   | Zero, k => Nat.pow 2 k
   | Succ fuel, k =>
     if Nat.equal k 0 then 1
@@ -26,25 +26,25 @@ def Float.Model.pow2From: Nat → Nat → Nat
 def Float.Model.pow2 (k: Nat): Nat := Float.Model.pow2When (Nat.leq k 65535) k
 
 --| 2^k, given whether `k` is at most 65535: by squarings then, otherwise by `Nat.pow`.
-def Float.Model.pow2When: Bool → Nat → Nat
+def Float.Model.pow2When: (small: Bool) → (k: Nat) → Nat
   | True, k => Float.Model.pow2From 16 k
   | False, k => Nat.pow 2 k
 
 --| The number of binary digits of `n` (0 for 0), one halving at a time.
-def Float.Model.bitLengthSlow: Nat → Nat → Nat
+def Float.Model.bitLengthSlow: (fuel: Nat) → (n: Nat) → Nat
   | Zero, n => 0
   | Succ fuel, n => if Nat.equal n 0 then 0 else Succ (Float.Model.bitLengthSlow fuel (Nat.divFuel n n 2))
 
 --| `p`, `p^2`, `p^4`, … (`k` of them), last first, onto `acc`.
 @[tailrec]
-def Float.Model.squaresFrom: Nat → Nat → List Nat → List Nat
+def Float.Model.squaresFrom: (count: Nat) → (base: Nat) → (acc: List Nat) → List Nat
   | Zero, p, acc => acc
   | Succ k, p, acc => Float.Model.squaresFrom k (p * p) [p, ..acc]
 
 --| The number of binary digits of `n`, given `powers`, which are 2^width,
 --| 2^(width / 2), …, 2^1: at each, the top part of `n` is split off if it
 --| has one. For `n < 2^(2 × width)`, one step per power.
-def Float.Model.bitLengthBy: List Nat → Nat → Nat → Nat
+def Float.Model.bitLengthBy: (powers: List Nat) → (width: Nat) → (n: Nat) → Nat
   | [], width, n => Float.Model.bitLengthSlow n n
   | [p, ..rest], width, n =>
     let high: Nat := Nat.divFuel n n p
@@ -57,7 +57,7 @@ def Float.Model.bitLengthBy: List Nat → Nat → Nat → Nat
 def Float.Model.bitLength (n: Nat): Nat := Float.Model.bitLengthWhen (Nat.leq n 65535) n
 
 --| The number of binary digits of `n`, given whether `n` is at most 65535.
-def Float.Model.bitLengthWhen: Bool → Nat → Nat
+def Float.Model.bitLengthWhen: (small: Bool) → (n: Nat) → Nat
   | True, n => Float.Model.bitLengthSlow 16 n
   | False, n => Float.Model.bitLengthBy (Float.Model.squaresFrom 13 2 []) 4096 n
 
@@ -96,7 +96,7 @@ def Float.Model.locate (r: Nat) (d: Nat): Float.Model.Location :=
 
 --| Whether the value at `loc` past `q` rounds up to `q + 1`: past halfway,
 --| or halfway with `q` odd (ties to even).
-def Float.Model.roundsUp (q: Nat): Float.Model.Location → Bool
+def Float.Model.roundsUp (q: Nat): (loc: Float.Model.Location) → Bool
   | Exact => False
   | BelowHalf => False
   | Half => Nat.equal (q - Nat.divFuel q q 2 * 2) 1
@@ -120,12 +120,12 @@ def Float.Model.roundCore (negative: Bool) (exponent: Nat) (q: Nat) (loc: Float.
 --| The numerator of `n / d` scaled by `2^shift`: `n × 2^shift`, or `n` when the shift is negative.
 -- `n × 2^shift` and `d`, or `n` and `d × 2^-shift`: a fraction scaled by
 -- `2^shift`, both parts whole.
-def Float.Model.scaleUp (n: Nat): Int → Nat
+def Float.Model.scaleUp (n: Nat): (shift: Int) → Nat
   | OfNat k => n * Float.Model.pow2 k
   | NegSucc k => n
 
 --| The denominator of `n / d` scaled by `2^shift`: `d`, or `d × 2^-shift` when the shift is negative.
-def Float.Model.scaleDown (d: Nat): Int → Nat
+def Float.Model.scaleDown (d: Nat): (shift: Int) → Nat
   | OfNat k => d
   | NegSucc k => d * Float.Model.pow2 (Succ k)
 

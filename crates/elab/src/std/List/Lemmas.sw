@@ -935,7 +935,7 @@ theorem List.memMap: (xs: List a) → (x: a) → x ∈ xs → (f: a → b) → f
 
 --| Use "some element satisfies `p`": take that element, know it is in the
 --| list, and carry on to the goal. (The library has no `Exists`.)
-theorem List.anyElim (p: a → Prop) (goal: Prop): (xs: List a) → List.Any p xs → ((x: a) → x ∈ xs → p x → goal) → goal
+theorem List.anyElim (p: a → Prop) (goal: Prop): (xs: List a) → List.Any p xs → (cont: (x: a) → x ∈ xs → p x → goal) → goal
   | [], h, k => Void.exfalso h
   | [z, ..zs], Inl h, k => k z (Inl rfl) h
   | [z, ..zs], Inr h, k => List.anyElim p goal zs h (x inZs px => k x (Inr inZs) px)
@@ -1429,7 +1429,7 @@ theorem List.anyOfMem: (xs: List a) → (q: a → Bool) → (y: a) → (qy: q y 
       | False => List.anyOfMem xs q y qy m
 
 --| When `List.any` is true, some element of the list passes.
-theorem List.anyTrueElim: (xs: List a) → (p: a → Bool) → (goal: Prop) → List.any xs p = True → ((x: a) → x ∈ xs → p x = True → goal) → goal
+theorem List.anyTrueElim: (xs: List a) → (p: a → Bool) → (goal: Prop) → List.any xs p = True → (cont: (x: a) → x ∈ xs → p x = True → goal) → goal
   | [], p, goal, h, k => Void.exfalso (Bool.falseNotTrue h)
   | [z, ..zs], p, goal, h, k =>
     match c: p z with
@@ -2328,7 +2328,7 @@ theorem List.getMapExample (xs: List Nat) (k: Nat) (v: Nat) (h: List.get (List.m
 --| elements at the same place (Coq's `Forall2`, Lean's `List.Forall₂`). What
 --| [`Parse.eachLineReads`] says of the lines and the values read from them.
 @[noReceiver]
-def List.All2 (r: a → b → Prop): List a → List b → Prop
+def List.All2 (r: a → b → Prop): (xs: List a) → (ys: List b) → Prop
   | [], [] => Unit
   | [x, ..xs], [y, ..ys] => r x y ∧ List.All2 r xs ys
   | [], [y, ..ys] => Void

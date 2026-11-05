@@ -22,7 +22,7 @@ test "Nat.sumBetween" := Nat.sumBetween 3 7 == 25 ∧ Nat.sumBetween 5 5 == 5 �
 test "Nat.sumBetween, reversed bounds" := Nat.sumBetween 5 3 == 0 ∧ Nat.sumBetween 7 3 == 0 ∧ Nat.sumBetween 1 0 == 0
 
 --| `x` when the condition holds, else 0: a term a sum may leave out.
-def Nat.keepIf (x: Nat): Bool → Nat
+def Nat.keepIf (x: Nat): (keep: Bool) → Nat
   | True => x
   | False => 0
 
@@ -31,12 +31,12 @@ def Nat.keepIf (x: Nat): Bool → Nat
 --| the run passes, so does it, and it is at most `k`.
 @[noReceiver]
 @[tailrec]
-def Nat.firstFrom (passes: Nat → Bool): Nat → Nat → Nat
+def Nat.firstFrom (passes: Nat → Bool): (count: Nat) → (start: Nat) → Nat
   | Zero, start => start
   | Succ count, start => if passes start then start else Nat.firstFrom passes count (Succ start)
 
 --| `True` for `Less` and `Equal`.
-def Ordering.isLessEq: Ordering → Bool
+def Ordering.isLessEq: (ordering: Ordering) → Bool
   | Less => True
   | Equal => True
   | Greater => False
@@ -45,7 +45,7 @@ def Ordering.isLessEq: Ordering → Bool
 --| list on ties. The result is sorted ([`List.mergeSorted`]) and has the
 --| elements of both ([`List.mergeCount`]).
 @[noReceiver]
-def List.merge (le: a → a → Bool): List a → List a → List a
+def List.merge (le: a → a → Bool): (xs: List a) → (ys: List a) → List a
   | [], ys => ys
   | [x, ..xs], [] => [x, ..xs]
   | [x, ..xs], [y, ..ys] =>
@@ -59,7 +59,7 @@ def List.merge (le: a → a → Bool): List a → List a → List a
 
 --| Adds a sorted run to the merge sort's slots, merging runs of the same size as a binary counter carries.
 @[noReceiver]
-def List.pushRun (le: a → a → Bool) (run: List a): List (Option (List a)) → List (Option (List a))
+def List.pushRun (le: a → a → Bool) (run: List a): (runs: List (Option (List a))) → List (Option (List a))
   | [] => [Some run]
   | [None, ..rest] => [Some run, ..rest]
   | [Some older, ..rest] => [None, ..List.pushRun le (List.merge le older run) rest]
@@ -67,14 +67,14 @@ def List.pushRun (le: a → a → Bool) (run: List a): List (Option (List a)) �
 --| The merge sort's slots after adding each element of the list as a run of one.
 @[noReceiver]
 @[tailrec]
-def List.buildRuns (le: a → a → Bool) (runs: List (Option (List a))): List a → List (Option (List a))
+def List.buildRuns (le: a → a → Bool) (runs: List (Option (List a))): (xs: List a) → List (Option (List a))
   | [] => runs
   | [x, ..xs] => List.buildRuns le (List.pushRun le [x] runs) xs
 
 --| Merges the runs, older (earlier) ones on the left.
 @[noReceiver]
 @[tailrec]
-def List.mergeRuns (le: a → a → Bool) (acc: List a): List (Option (List a)) → List a
+def List.mergeRuns (le: a → a → Bool) (acc: List a): (runs: List (Option (List a))) → List a
   | [] => acc
   | [None, ..rest] => List.mergeRuns le acc rest
   | [Some older, ..rest] => List.mergeRuns le (List.merge le older acc) rest
@@ -98,14 +98,14 @@ def List.sort [auto ord: Ord a] (xs: List a): List a := List.sortBy xs Ord.compa
 
 --| `List.LeHead le bound xs`: `bound` may come before the first element of `xs`, if any.
 @[noReceiver]
-def List.LeHead (le: a → a → Bool) (bound: a): List a → Prop
+def List.LeHead (le: a → a → Bool) (bound: a): (xs: List a) → Prop
   | [] => Unit
   | [y, ..ys] => le bound y = True
 
 --| Each element may come before the next. For a transitive `le`, such as
 --| `Nat.leq`, that orders every pair.
 @[noReceiver]
-def List.Sorted (le: a → a → Bool): List a → Prop
+def List.Sorted (le: a → a → Bool): (xs: List a) → Prop
   | [] => Unit
   | [x, ..xs] => (List.LeHead le x xs) ∧ (List.Sorted le xs)
 
@@ -127,7 +127,7 @@ test "List.decSorted" := List.Sorted Nat.leq [1, 2, 2, 5] ∧ ¬(List.Sorted Nat
 
 --| `rel` holds of each element and every later one.
 @[noReceiver]
-def List.Pairwise (rel: a → a → Prop): List a → Prop
+def List.Pairwise (rel: a → a → Prop): (xs: List a) → Prop
   | [] => Unit
   | [x, ..xs] => (List.All (y => rel x y) xs) ∧ (List.Pairwise rel xs)
 
@@ -136,7 +136,7 @@ test "List.sort by Ord.reverse" := List.sort [ord := Ord.reverse] [1, 3, 2, 3] =
 --| The list without its first `x`, or the list itself if `x` isn't in it
 --| (Haskell's `Data.List.delete`). With `x` in front it is a permutation of
 --| the list ([`List.permRemoveFirst`]).
-def List.removeFirst [auto eq: DecEq a]: List a → a → List a
+def List.removeFirst [auto eq: DecEq a]: (xs: List a) → (x: a) → List a
   | [], x => []
   | [y, ..ys], x => if y == x then ys else [y, ..ys.removeFirst x]
 
@@ -149,7 +149,7 @@ test "List.removeFirst" := [1, 2, 1].removeFirst 1 == [2, 1] ∧ [1, 2].removeFi
 -- (SW-198, day 8)
 -- Proved through each step of the merge sort.
 @[noReceiver]
-def List.mapRuns (f: a → b): List (Option (List a)) → List (Option (List b))
+def List.mapRuns (f: a → b): (runs: List (Option (List a))) → List (Option (List b))
   | [] => []
   | [None, ..rest] => [None, ..List.mapRuns f rest]
   | [Some older, ..rest] => [Some (List.map older f), ..List.mapRuns f rest]
@@ -226,13 +226,13 @@ test "List.sortOnMap" := List.map (List.sortOn [MkPair 3 "c", MkPair 1 "a"] (p =
 --| `[1, 2, 3]`. `List.sort` then `List.dedup` lists the different values in
 --| order. It keeps the list's elements ([`List.memDedupIntro`],
 --| [`List.memDedupElim`]) and keeps a sorted list sorted ([`List.sortedDedup`]).
-def List.dedup [auto eq: DecEq a]: List a → List a
+def List.dedup [auto eq: DecEq a]: (xs: List a) → List a
   | [] => []
   | [x, ..xs] => [x, ..List.dedupAfter x xs]
 
 --| `List.dedup` after `previous`: the elements not equal to the one before.
 @[noReceiver]
-def List.dedupAfter [auto eq: DecEq a] (previous: a): List a → List a
+def List.dedupAfter [auto eq: DecEq a] (previous: a): (xs: List a) → List a
   | [] => []
   | [x, ..xs] => if x == previous then List.dedupAfter previous xs else [x, ..List.dedupAfter x xs]
 

@@ -15,7 +15,7 @@ theorem Nat.modModOfMul (x: Nat) (len: Nat) (k: Nat) (t: Nat) [auto hl: len ≠ 
 --| for some `t` (so 0 divides only 0). It's a `Bool`, so taking it apart passes
 --| the factor to a continuation ([`Nat.dividesElim`]), as [`List.anyRangeElim`]
 --| does; `Exists Nat (t => n = t * divisor)` states it as a proposition.
-def Nat.divides: Nat → Nat → Bool
+def Nat.divides: (divisor: Nat) → (n: Nat) → Bool
   | Zero, n => n == 0
   | Succ divisor, n => n % Succ divisor == 0
 
@@ -29,7 +29,7 @@ theorem Nat.dividesMul: (d: Nat) → (t: Nat) → Nat.divides d (t * d) = True
 
 theorem Nat.dividesSelf (d: Nat): Nat.divides d d = True := J (y q => Nat.divides d y = True) (Nat.dividesMul d 1) (Nat.addZero d)
 
-theorem Nat.dividesElim (goal: Prop): (d: Nat) → (n: Nat) → Nat.divides d n = True → ((t: Nat) → n = t * d → goal) → goal
+theorem Nat.dividesElim (goal: Prop): (d: Nat) → (n: Nat) → Nat.divides d n = True → (cont: (t: Nat) → n = t * d → goal) → goal
   | Zero, n, h, k => k 0 (Decidable.toBoolSound (Nat.decEq n 0) h)
   | Succ d, n, h, k =>
     k (n / Succ d)

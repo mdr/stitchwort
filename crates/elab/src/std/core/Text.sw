@@ -15,7 +15,7 @@ type Text: Type =
   | MkText (chars: List Char)
 
 --| The characters of the text, in order.
-def Text.toList: Text → List Char
+def Text.toList: (text: Text) → List Char
   | MkText cs => cs
 
 --| The text of the characters, in order; [`Text.toList`] undoes it (`Text.toFromList`).
@@ -28,7 +28,7 @@ theorem Text.fromToList: (t: Text) → Text.fromList (Text.toList t) = t
 def Text.append (a: Text) (b: Text): Text := MkText (List.append (Text.toList a) (Text.toList b))
 
 --| A decision whether two texts are equal, from one on their characters.
-def Text.decEqFrom (a: Text) (b: Text): Decidable (Text.toList a = Text.toList b) → Decidable (a = b)
+def Text.decEqFrom (a: Text) (b: Text): (listEq: Decidable (Text.toList a = Text.toList b)) → Decidable (a = b)
   | Yes p => Yes (Eq.trans (Eq.sym (Text.fromToList a)) (Eq.trans (Eq.cong Text.fromList p) (Text.fromToList b)))
   | No r => No (p => r (Eq.cong Text.toList p))
 
@@ -36,7 +36,7 @@ def Text.decEqFrom (a: Text) (b: Text): Decidable (Text.toList a = Text.toList b
 def Text.decEq (a: Text) (b: Text): Decidable (a = b) := Text.decEqFrom a b (List.decEq Char.decEq (Text.toList a) (Text.toList b))
 
 --| Lists of characters compared lexicographically, by scalar value.
-def Text.compareChars: List Char → List Char → Ordering
+def Text.compareChars: (xs: List Char) → (ys: List Char) → Ordering
   | [], [] => Equal
   | [], [y, ..ys] => Less
   | [x, ..xs], [] => Greater
@@ -50,7 +50,7 @@ def Text.compare (a: Text) (b: Text): Ordering := Text.compareChars (Text.toList
 -- Numbers as text
 
 --| The character of a decimal digit: `Nat.digitChar 7` is `'7'`.
-def Nat.digitChar: Nat → Char
+def Nat.digitChar: (digit: Nat) → Char
   | 0 => '0'
   | 1 => '1'
   | 2 => '2'
@@ -65,7 +65,7 @@ def Nat.digitChar: Nat → Char
 --| The digits of `n` in front of `acc`. `fuel` keeps it structurally
 --| recursive; `n + 1` is always enough.
 @[tailrec]
-def Nat.digitsOnto: Nat → Nat → List Char → List Char
+def Nat.digitsOnto: (fuel: Nat) → (n: Nat) → (acc: List Char) → List Char
   | Zero, n, acc => acc
   | Succ fuel, n, acc =>
     if Nat.leq n 9 then [Nat.digitChar n, ..acc] else Nat.digitsOnto fuel (n / 10) [Nat.digitChar (n % 10), ..acc]

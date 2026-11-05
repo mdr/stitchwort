@@ -14,7 +14,7 @@ type Int: Type =
   | NegSucc (n: Nat)
 
 --| `-x`: the integer with the other sign.
-def Int.neg: Int → Int
+def Int.neg: (x: Int) → Int
   | OfNat Zero => OfNat Zero
   | OfNat (Succ n) => NegSucc n
   | NegSucc n => OfNat (Succ n)
@@ -22,7 +22,7 @@ def Int.neg: Int → Int
 --| `m - n` for naturals, as an integer.
 -- One subtraction decides which side is bigger: `n - m` is zero exactly
 -- when `n <= m`.
-def Int.subNatNatFrom (m: Nat) (n: Nat): Nat → Int
+def Int.subNatNatFrom (m: Nat) (n: Nat): (diff: Nat) → Int
   | Zero => OfNat (m - n)
   | Succ k => NegSucc k
 
@@ -30,7 +30,7 @@ def Int.subNatNatFrom (m: Nat) (n: Nat): Nat → Int
 def Int.subNatNat (m: Nat) (n: Nat): Int := Int.subNatNatFrom m n (n - m)
 
 --| `a + b`: addition of integers.
-def Int.add: Int → Int → Int
+def Int.add: (x: Int) → (y: Int) → Int
   | OfNat m, OfNat n => OfNat (m + n)
   | OfNat m, NegSucc n => Int.subNatNat m (Succ n)
   | NegSucc m, OfNat n => Int.subNatNat n (Succ m)
@@ -40,26 +40,26 @@ def Int.add: Int → Int → Int
 def Int.sub (a: Int) (b: Int): Int := Int.add a (Int.neg b)
 
 --| `a * b`: multiplication of integers. By constructors first, so `OfNat m * OfNat n` is `OfNat (m * n)`.
-def Int.mul: Int → Int → Int
+def Int.mul: (x: Int) → (y: Int) → Int
   | OfNat m, OfNat n => OfNat (m * n)
   | OfNat m, NegSucc n => Int.neg (OfNat (m * Succ n))
   | NegSucc m, OfNat n => Int.neg (OfNat (Succ m * n))
   | NegSucc m, NegSucc n => OfNat (Succ m * Succ n)
 
 --| `|x|`, as a `Nat`.
-def Int.natAbs: Int → Nat
+def Int.natAbs: (x: Int) → Nat
   | OfNat n => n
   | NegSucc n => Succ n
 
 --| `x` if it isn't negative, otherwise `0`.
-def Int.toNat: Int → Nat
+def Int.toNat: (x: Int) → Nat
   | OfNat n => n
   | NegSucc n => 0
 
 -- The two constructors are different, and each is injective.
 
 --| `Unit` (true) for an `OfNat` and `Void` (false) for a `NegSucc`: how `OfNat m ≠ NegSucc n` is proved.
-def Int.IsOfNat: Int → Prop
+def Int.IsOfNat: (x: Int) → Prop
   | OfNat n => Unit
   | NegSucc n => Void
 
@@ -74,12 +74,12 @@ theorem Int.ofNatInjective (m: Nat) (n: Nat) (p: OfNat m = OfNat n): m = n := Eq
 theorem Int.negSuccInjective (m: Nat) (n: Nat) (p: NegSucc m = NegSucc n): m = n := Nat.succInjective m n (Eq.cong Int.natAbs p)
 
 --| Decides whether two `OfNat`s are equal, from a decision about their numbers.
-def Int.decOfNat (m: Nat) (n: Nat): Decidable (m = n) → Decidable (OfNat m = OfNat n)
+def Int.decOfNat (m: Nat) (n: Nat): (dec: Decidable (m = n)) → Decidable (OfNat m = OfNat n)
   | Yes p => Yes (Eq.cong OfNat p)
   | No r => No (p => r (Int.ofNatInjective m n p))
 
 --| Decides whether two `NegSucc`s are equal, from a decision about their numbers.
-def Int.decNegSucc (m: Nat) (n: Nat): Decidable (m = n) → Decidable (NegSucc m = NegSucc n)
+def Int.decNegSucc (m: Nat) (n: Nat): (dec: Decidable (m = n)) → Decidable (NegSucc m = NegSucc n)
   | Yes p => Yes (Eq.cong NegSucc p)
   | No r => No (p => r (Int.negSuccInjective m n p))
 
@@ -93,14 +93,14 @@ def Int.decEq: (a: Int) → (b: Int) → Decidable (a = b)
 
 --| Whether `a <= b`, as a `Bool`. Every negative is below every non-negative; among negatives the
 --| order flips, since `NegSucc n` is `-(n+1)`.
-def Int.leq: Int → Int → Bool
+def Int.leq: (x: Int) → (y: Int) → Bool
   | OfNat m, OfNat n => Nat.leq m n
   | OfNat m, NegSucc n => False
   | NegSucc m, OfNat n => True
   | NegSucc m, NegSucc n => Nat.leq n m
 
 --| Whether `a < b`, as a `Bool`.
-def Int.less: Int → Int → Bool
+def Int.less: (x: Int) → (y: Int) → Bool
   | OfNat m, OfNat n => Nat.leq (Succ m) n
   | OfNat m, NegSucc n => False
   | NegSucc m, OfNat n => True
@@ -116,15 +116,15 @@ instance Int.decLessEq (a: Int) (b: Int): Decidable (Int.LessEq a b) := Bool.dec
 
 instance Int.decLessThan (a: Int) (b: Int): Decidable (Int.LessThan a b) := Bool.decTrue (Int.less a b)
 
---| How `a` compares with `b`: `Int.compare (-3) 2` is `Less`.
-def Int.compare: Int → Int → Ordering
+--| How `x` compares with `y`: `Int.compare (-3) 2` is `Less`.
+def Int.compare: (x: Int) → (y: Int) → Ordering
   | OfNat m, OfNat n => Nat.compare m n
   | OfNat m, NegSucc n => Greater
   | NegSucc m, OfNat n => Less
   | NegSucc m, NegSucc n => Nat.compare n m
 
 --| Decimal, with a `-` in front of a negative: `"-42"`. Never `"-0"`.
-def Int.toText: Int → Text
+def Int.toText: (x: Int) → Text
   | OfNat n => Nat.toText n
   | NegSucc n => MkText ['-', ..Text.toList (Nat.toText (Succ n))]
 

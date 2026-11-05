@@ -43,7 +43,7 @@ type Float = { bits: Nat, valid: Float.isValid bits = True }
 --| building a `Float` with known bits (a literal, a primitive's result, a
 --| definition, a native) gives the same record.
 -- (docs/proposals/float.md §3.4, D731)
-def Bool.canonicalTrue: (b: Bool) → b = True → b = True
+def Bool.canonicalTrue: (b: Bool) → (eq: b = True) → b = True
   | True, _ => rfl
   | False, p => p
 
@@ -77,7 +77,7 @@ theorem Float.bitsNe (x: Float) (y: Float) (h: x.bits ≠ y.bits): x ≠ y :=
   e => h (Eq.cong (k => k.bits) e)
 
 --| A decision whether two doubles are equal, from one on their bits.
-def Float.decEqFrom (x: Float) (y: Float): Decidable (x.bits = y.bits) → Decidable (x = y)
+def Float.decEqFrom (x: Float) (y: Float): (bitsEq: Decidable (x.bits = y.bits)) → Decidable (x = y)
   | Yes h => Yes (Float.bitsExt x y h)
   | No h => No (Float.bitsNe x y h)
 
@@ -188,7 +188,7 @@ theorem Float.clearValid (n: Nat) (v: Float.isValid n = True): Float.isValid (Fl
   Float.clearValidFrom n v (Nat.leq 9223372036854775808 n) rfl
 
 --| `Float.neg x`, given whether `x` is the NaN.
-def Float.negFrom (x: Float): (b: Bool) → Float.isNaN x = b → Float
+def Float.negFrom (x: Float): (b: Bool) → (h: Float.isNaN x = b) → Float
   | True, _ => Float.nan
   | False, e => Float.make (Float.flipSignBits x.bits) (Float.flipValid x.bits x.valid e)
 
@@ -216,7 +216,7 @@ theorem Float.negNegFrom (x: Float): (b: Bool) → (e: Float.isNaN x = b) → Fl
 theorem Float.negNeg (x: Float): Float.neg (Float.neg x) = x := Float.negNegFrom x (Float.isNaN x) rfl
 
 --| `Float.ofBits n`, given whether `n` is a valid pattern.
-def Float.ofBitsFrom (n: Nat): (b: Bool) → Float.isValid n = b → Float
+def Float.ofBitsFrom (n: Nat): (b: Bool) → (h: Float.isValid n = b) → Float
   | True, h => Float.make n h
   | False, _ => Float.nan
 
@@ -225,7 +225,7 @@ def Float.ofBits (n: Nat): Float := Float.ofBitsFrom n (Float.isValid n) rfl
 
 --| `x + y`, exact then rounded (`Float.Model.addBits`). Stuck until both
 --| records are known, so `x + y` stays as written on unknowns.
-def Float.add: Float → Float → Float
+def Float.add: (x: Float) → (y: Float) → Float
   | { bits = a, valid = p }, { bits = b, valid = q } => Float.ofBits (Float.Model.addBits a b)
 
 --| `x - y`: `x + (-y)`, rounded once.
@@ -236,43 +236,43 @@ def Float.sub (x: Float) (y: Float): Float := Float.add x (Float.neg y)
 -- canonical), and the runtime and JS use the machine's.
 
 --| `x * y`, rounded to the nearest double (ties to even); a primitive.
-def Float.mul: Float → Float → Float
+def Float.mul: (x: Float) → (y: Float) → Float
 
 --| `x / y`, rounded to the nearest double (ties to even); a primitive: `1.0 / 0.0` is +infinity.
-def Float.div: Float → Float → Float
+def Float.div: (x: Float) → (y: Float) → Float
 
 --| JS's `%`: the remainder of truncating division, with the sign of the
 --| dividend (`-5.5 % 2.0` is `-1.5`). Exact, like `floor`.
-def Float.rem: Float → Float → Float
+def Float.rem: (x: Float) → (y: Float) → Float
 
 -- JS's `Math.floor`, `Math.ceil`, `Math.trunc` and `Math.round`: a whole
 -- double (NaN, the infinities and the zeros as they are).
 
 --| The largest whole double at most `x` (JS's `Math.floor`): `floor (-1.5)` is `-2.0`.
-def Float.floor: Float → Float
+def Float.floor: (x: Float) → Float
 
 --| The smallest whole double at least `x` (JS's `Math.ceil`): `ceil 1.2` is `2.0`.
-def Float.ceil: Float → Float
+def Float.ceil: (x: Float) → Float
 
 --| `x` with its fraction dropped, towards zero (JS's `Math.trunc`): `trunc (-1.5)` is `-1.0`.
-def Float.trunc: Float → Float
+def Float.trunc: (x: Float) → Float
 
 --| The nearest whole double, a half going up towards +infinity (JS's `Math.round`).
 --| `round (-2.5)` is `-2.0`, and the sign of a zero result is kept (`round (-0.4)` is `-0.0`).
-def Float.round: Float → Float
+def Float.round: (x: Float) → Float
 
 --| The double nearest the integer, ties to even, or an infinity beyond the
 --| largest (JS's `Number(n)` of a `bigint`).
-def Float.ofInt: Int → Float
+def Float.ofInt: (i: Int) → Float
 
 --| The double nearest the number, ties to even, or +infinity beyond the largest.
-def Float.ofNat: Nat → Float
+def Float.ofNat: (n: Nat) → Float
 
 --| JS's `String(x)`: `0.30000000000000004`, `1e+21`, `NaN`, `-Infinity`, and
 --| `0` for both zeros. The checker doesn't compute it (each runtime supplies
 --| it), so a test about its result runs only at run time.
 -- (docs/proposals/float.md §2.6)
-def Float.toText: Float → Text
+def Float.toText: (x: Float) → Text
 
 --| Neither infinite nor the NaN.
 def Float.isFinite (x: Float): Bool := ¬(Nat.leq 9218868437227405312 (Float.clearSignBits x.bits))
@@ -384,7 +384,7 @@ theorem Float.ieeeLtLe (x: Float) (y: Float) (h: Float.ieeeLt x y = True): Float
     (Float.orderKey x) (Float.orderKey y) h
 
 --| The rank of a bit pattern in JS's order, given whether its sign bit is set.
-def Float.rankOf (n: Nat): Bool → Nat
+def Float.rankOf (n: Nat): (negative: Bool) → Nat
   | True => 18442240474082181120 - n
   | False => 9218868437227405312 + n
 

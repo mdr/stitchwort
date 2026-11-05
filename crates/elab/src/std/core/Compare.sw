@@ -7,7 +7,7 @@
 -- Orderings (docs/proposals/interfaces.md §6.2)
 
 --| The comparison the other way round.
-def Ordering.flip: Ordering → Ordering
+def Ordering.flip: (ordering: Ordering) → Ordering
   | Less => Greater
   | Equal => Equal
   | Greater => Less

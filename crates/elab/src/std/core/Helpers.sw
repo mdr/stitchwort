@@ -4,7 +4,7 @@
 -- them, so they stay with the core (docs/proposals/prelude-slim.md §2.1).
 
 --| `f` on each element, the results joined: what `List.flatMap` does, for the core.
-def List.concatMap: List a → (f: a → List b) → List b
+def List.concatMap: (xs: List a) → (f: a → List b) → List b
   | [], f => []
   | [x, ..xs], f => List.append (f x) (List.concatMap xs f)
 
@@ -30,11 +30,11 @@ test "id" := id 3 == 3 ∧ id True == True
 --| `Bool.inspect b motive t f` proves `motive b` by cases on `b`, remembering
 --| which case it is. A proof about `if le x y then ... else ...` uses it with
 --| `b = le x y` to get the branch's evidence (`le x y = True` or `= False`).
-theorem Bool.inspect: (b: Bool) → (motive: Bool → Prop) → (b = True → motive True) → (b = False → motive False) → motive b
+theorem Bool.inspect: (b: Bool) → (motive: Bool → Prop) → (ifTrue: b = True → motive True) → (ifFalse: b = False → motive False) → motive b
   | True, m, t, f => t rfl
   | False, m, t, f => f rfl
 
 --| 1 for `True`, 0 for `False`.
-def Bool.toNat: Bool → Nat
+def Bool.toNat: (b: Bool) → Nat
   | False => 0
   | True => 1

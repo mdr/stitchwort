@@ -16,7 +16,7 @@ def Vec.shiftRight (row: Vec a n) (fill: a): Vec a n :=
 --| Every element one place left, towards the front: element i + 1 moves to i,
 --| the first one drops off, and `fill` comes in at the end.
 --| `[1, 2, 3].shiftLeft 0` is `[2, 3, 0]`.
-def Vec.shiftLeft: Vec a n → (fill: a) → Vec a n
+def Vec.shiftLeft: (xs: Vec a n) → (fill: a) → Vec a n
   | VNil, fill => VNil
   | VCons x xs, fill => VCons (Vec.headOr xs fill) (Vec.shiftLeft xs fill)
 
@@ -28,7 +28,7 @@ def Vec.around (v: Vec a n) (pad: a) (f: a → a → a → b): Vec b n := Vec.ar
 
 --| `around`, with `left` as the first element's left neighbour.
 @[noReceiver]
-def Vec.aroundFrom (pad: a) (f: a → a → a → b) (left: a): Vec a n → Vec b n
+def Vec.aroundFrom (pad: a) (f: a → a → a → b) (left: a): (xs: Vec a n) → Vec b n
   | VNil => VNil
   | VCons x rest => VCons (f left x (Vec.headOr rest pad)) (Vec.aroundFrom pad f x rest)
 

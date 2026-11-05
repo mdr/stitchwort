@@ -11,7 +11,7 @@ import Effect.Comp (Done, Call)
 import Effect.AlwaysTreeOf (AlwaysDone, AlwaysCall)
 
 --| Every result of `computation` satisfies `property`.
-def Effect.Always [op: Type] [res: op → Type] [a: Type] (property: a → Prop): Comp op res a → Prop
+def Effect.Always [op: Type] [res: op → Type] [a: Type] (property: a → Prop): (comp: Comp op res a) → Prop
   | Done x => property x
   | Call o rest => (y: res o) → Effect.Always property (rest y)
 

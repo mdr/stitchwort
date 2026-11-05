@@ -74,7 +74,7 @@ theorem Ring.prodMulVars (env: Ring.Env): (vs: List Nat) → (ws: List Nat) →
 -- Monomials `Ring.cmp` calls alike have the same variables.
 
 --| Whether an ordering is `Equal`.
-def Ring.isEqual: Ordering → Bool
+def Ring.isEqual: (ordering: Ordering) → Bool
   | Less => False
   | Equal => True
   | Greater => False

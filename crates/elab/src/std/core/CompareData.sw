@@ -7,7 +7,7 @@
 --| Lexicographic comparison of lists, by a comparison of their elements:
 --| the first difference decides, and a list comes before its extensions.
 @[noReceiver]
-def List.compareLex (cmp: a → a → Ordering): List a → List a → Ordering
+def List.compareLex (cmp: a → a → Ordering): (xs: List a) → (ys: List a) → Ordering
   | [], [] => Equal
   | [], [y, ..ys] => Less
   | [x, ..xs], [] => Greater
@@ -50,7 +50,7 @@ theorem List.compareLexTrans (cmp: a → a → Ordering) (equal: (x: a) → (y: 
 
 --| Pairs, by their first parts, then their second.
 @[noReceiver]
-def Pair.compareWith (ca: a → a → Ordering) (cb: b → b → Ordering): Pair a b → Pair a b → Ordering
+def Pair.compareWith (ca: a → a → Ordering) (cb: b → b → Ordering): (p: Pair a b) → (q: Pair a b) → Ordering
   | MkPair x1 y1, MkPair x2 y2 => Ordering.andThen (ca x1 x2) (cb y1 y2)
 
 theorem Pair.compareWithEqual (ca: a → a → Ordering) (cb: b → b → Ordering)
@@ -81,7 +81,7 @@ theorem Pair.compareWithTrans (ca: a → a → Ordering) (cb: b → b → Orderi
 
 --| Compares optional values, `None` first, then by `cmp` on the values.
 @[noReceiver]
-def Option.compareWith (cmp: a → a → Ordering): Option a → Option a → Ordering
+def Option.compareWith (cmp: a → a → Ordering): (option: Option a) → (other: Option a) → Ordering
   | None, None => Equal
   | None, Some y => Less
   | Some x, None => Greater

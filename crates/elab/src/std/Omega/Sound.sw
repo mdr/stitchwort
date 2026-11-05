@@ -231,12 +231,12 @@ theorem Omega.ileRowHolds (env: Omega.Env) (a: Omega.ITerm) (b: Omega.ITerm) (h:
     (Omega.intSubNonneg (Omega.ITerm.eval env a) (Omega.ITerm.eval env b) h)
 
 --| Every row holds in `env`.
-def Omega.RowsHold (env: Omega.Env): List Omega.Row → Prop
+def Omega.RowsHold (env: Omega.Env): (rows: List Omega.Row) → Prop
   | [] => Unit
   | [r, ..rs] => (Omega.Row.Holds env r) ∧ (Omega.RowsHold env rs)
 
 --| The row, if there is one, holds in `env`.
-def Omega.OptHolds (env: Omega.Env): Option Omega.Row → Prop
+def Omega.OptHolds (env: Omega.Env): (option: Option Omega.Row) → Prop
   | None => Unit
   | Some r => Omega.Row.Holds env r
 
