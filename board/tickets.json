@@ -1,5 +1,5 @@
 {
-  "next": 1471,
+  "next": 1472,
   "tickets": [
     {
       "id": 47,
@@ -8804,13 +8804,13 @@
     {
       "id": 1459,
       "title": "Language server: a broken shared file floods its dependents with E-UNKNOWN-NAME errors (the old Check stopped at the first failing namespace with E-NAMESPACE-FAILED); suppress errors downstream of a failed namespace",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1459",
       "labels": [
         "lsp"
       ],
-      "body": "From SW-1432, 5 Nov 2026.\n\nStarted on Sonnet (overnight editor track), expected: 60 min.",
+      "body": "From SW-1432, 5 Nov 2026.\n\nStarted on Sonnet (overnight editor track), expected: 60 min.\n\nClosed, already fixed (by SW-1432's ordering fix, 289aaea5c): LiveProject goes through check_project_namespace, so a dependent of a failed namespace gets one E-NAMESPACE-FAILED and isn't elaborated. Test added (0f646450c), merged. Model result: Sonnet, worked (found it already fixed), 25 min (est. 60).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8965,6 +8965,20 @@
         "aoc"
       ],
       "body": "D2443 (Matt, 5 Nov 2026): follows day 10 without a friction review in between; both reviewed with Matt in the morning. Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day11.\n\nStarted on Opus, expected: 90 min.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1471,
+      "title": "Editor: in a file whose import failed, hover and go-to-definition are empty until the import is fixed (the dependent is skipped and its earlier answers rewound); keep its last good answers, marked stale, instead|editor",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor"
+      ],
+      "body": "From SW-1459, 5 Nov 2026.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
