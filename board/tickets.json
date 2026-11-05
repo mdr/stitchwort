@@ -8776,13 +8776,13 @@
     {
       "id": 1457,
       "title": "Std Graph: a lemma giving a graph's edges stay listed from 'every edge target satisfies a decidable within, and within implies membership of the states list', the shape of 2024 days 16 and 20 and Aoc.Common.GridGraph's listed proofs; move them to it",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1457",
       "labels": [
         "std"
       ],
-      "body": "From SW-1445, 5 Nov 2026. Small improvement.",
+      "body": "From SW-1445, 5 Nov 2026. Small improvement.\n\nStarted on Sonnet, expected: 50 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
