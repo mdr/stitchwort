@@ -34,25 +34,25 @@ def Joined (garden: Garden) (plot: Position) (other: Position): Prop := Exists (
 
 --| The region containing `plot`, as a list: every plot joined to it is on
 --| the list, and nothing else.
-def IsRegion (garden: Garden) (plot: Position) (region: List Position): Prop := (other: Position) → (other ∈ region) ↔ (Joined garden plot other)
+def IsRegion (garden: Garden) (plot: Position) (region: Region): Prop := (other: Position) → (other ∈ region.plots) ↔ (Joined garden plot other)
 
 --| Whether the side of `plot` facing `side` touches a plot of the region.
-def facesRegion (region: List Position) (plot: Position) (side: Direction): Bool :=
+def facesRegion (region: Region) (plot: Position) (side: Direction): Bool :=
   match plot.step side with
     | Some other => region.contains other
     | None => False
 
 --| "The area of a region is simply the number of garden plots the region
 --| contains."
-def area (region: List Position): Nat := region.length
+def area (region: Region): Nat := region.plots.length
 
 --| "The perimeter of a region is the number of sides of garden plots in the
 --| region that do not touch another garden plot in the same region."
-def perimeter (region: List Position): Nat := region.sumBy (plot => directions.count (side => !facesRegion region plot side))
+def perimeter (region: Region): Nat := region.plots.sumBy (plot => directions.count (side => !facesRegion region plot side))
 
 --| A section of fence one plot long: a side of a plot of the region that
 --| touches no plot of the region.
-def isFence (region: List Position) (plot: Position) (side: Direction): Bool := region.contains plot && !facesRegion region plot side
+def isFence (region: Region) (plot: Position) (side: Direction): Bool := region.contains plot && !facesRegion region plot side
 
 --| The plot before `plot` along a fence on its `side`: left of it for a fence
 --| above or below, above it for a fence on the left or right.
@@ -67,12 +67,12 @@ def alongBefore (plot: Position) (side: Direction): Option Position :=
 --| it is": a run of fence facing the same way, plot after plot along a line.
 --| Each side is counted once, at its first section, the one with no fence
 --| before it along the line.
-def isFirstSection (region: List Position) (plot: Position) (side: Direction): Bool :=
+def isFirstSection (region: Region) (plot: Position) (side: Direction): Bool :=
   isFence region plot side && !(alongBefore plot side |> .map (before => isFence region before side) |> .getOrElse False)
 
-def sides (region: List Position): Nat := region.sumBy (plot => directions.count (isFirstSection region plot))
+def sides (region: Region): Nat := region.plots.sumBy (plot => directions.count (isFirstSection region plot))
 
 --| "The total price of fencing all regions on a map is found by adding
 --| together the price of fence for every region on the map", the price being
 --| area times perimeter (part 1) or area times sides (part 2).
-def totalPrice (regions: List (List Position)) (measure: List Position → Nat): Nat := regions.sumBy (region => area region * measure region)
+def totalPrice (regions: List Region) (measure: Region → Nat): Nat := regions.sumBy (region => area region * measure region)

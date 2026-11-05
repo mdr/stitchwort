@@ -84,27 +84,38 @@ def Garden.fill (garden: Garden) (plant: Char) (stack: List Position) (visited: 
         else garden.fill plant rest visited members [decreasing := Nat.LexLess.Second rfl (omega)]
       else garden.fill plant rest visited members [decreasing := Nat.LexLess.Second rfl (omega)]
 
+--| A region: the plots joined to each other, growing one plant, each listed
+--| once.
+type Region = { plots: List Position }
+
 --| The region containing `start`: the plots joined to it.
-def Garden.regionOf (garden: Garden) (start: Position): List Position :=
+def Garden.regionOf (garden: Garden) (start: Position): Region :=
   match garden.plantAt start with
-    | Some plant => garden.fill plant [start] Set.empty []
-    | None => []
+    | Some plant => { plots = garden.fill plant [start] Set.empty [] }
+    | None => { plots = [] }
 
 --| The regions, each once, from the positions not yet in a region.
-def Garden.regionsFrom (garden: Garden): (starts: List Position) → (seen: Set Position) → List (List Position)
+def Garden.regionsFrom (garden: Garden): (starts: List Position) → (seen: Set Position) → List Region
   | [], seen => []
   | [start, ..rest], seen =>
     if seen.contains start then garden.regionsFrom rest seen
     else
       let region := garden.regionOf start
-      Cons region (garden.regionsFrom rest (region.foldLeft seen Set.insert))
+      Cons region (garden.regionsFrom rest (region.plots.foldLeft seen Set.insert))
 
-def Garden.regions (garden: Garden): List (List Position) := garden.regionsFrom garden.positions Set.empty
+def Garden.regions (garden: Garden): List Region := garden.regionsFrom garden.positions Set.empty
 
 --| A plot's sides with a fence: those not facing the same plant.
 def Garden.fences (garden: Garden) (position: Position): Nat := directions.count (direction => !garden.sameAcross position direction)
 
-def Garden.perimeter (garden: Garden) (region: List Position): Nat := region.sumBy garden.fences
+--| The number of plots in the region.
+def Region.area (region: Region): Nat := region.plots.length
+
+--| Whether `position` is a plot of the region.
+def Region.contains (region: Region) (position: Position): Bool := region.plots.contains position
+
+--| The length of the region's fence: the plots' sides with a fence.
+def Region.perimeter (region: Region) (garden: Garden): Nat := region.plots.sumBy garden.fences
 
 --| The four corners of a plot: the side up or down, and the side left or
 --| right.
@@ -124,9 +135,10 @@ def Garden.isCorner (garden: Garden) (position: Position) (vertical: Direction) 
 
 def Garden.cornerCount (garden: Garden) (position: Position): Nat := quadrants.count (quadrant => garden.isCorner position quadrant.fst quadrant.snd)
 
---| The number of sides equals the number of corners.
-def Garden.sides (garden: Garden) (region: List Position): Nat := region.sumBy garden.cornerCount
+--| The number of sides of the region's fence, counted as its corners (a
+--| polygon has as many sides as corners).
+def Region.sides (region: Region) (garden: Garden): Nat := region.plots.sumBy garden.cornerCount
 
-def solvePart1 (garden: Garden): Nat := garden.regions |> .sumBy (region => region.length * garden.perimeter region)
+def solvePart1 (garden: Garden): Nat := garden.regions |> .sumBy (region => region.area * region.perimeter garden)
 
-def solvePart2 (garden: Garden): Nat := garden.regions |> .sumBy (region => region.length * garden.sides region)
+def solvePart2 (garden: Garden): Nat := garden.regions |> .sumBy (region => region.area * region.sides garden)
