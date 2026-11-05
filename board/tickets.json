@@ -8270,13 +8270,13 @@
     {
       "id": 1422,
       "title": "Std: Parse.int reads no leading +; add a parser for a number with a required sign (2020 day 8's +3 / -99)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1422",
       "labels": [
         "std"
       ],
-      "body": "From 2020 day 8 (SW-1416), 5 Nov 2026; see aoc/NOTES-2020.md Day 8.\n\nStarted on DeepSeek with the others in scratch-sw-1422, expected: 30 min together.\n\nD2437 (Matt, 5 Nov 2026): Parse.int itself accepts an optional leading + (as well as -); no separate required-sign parser. The DeepSeek run was briefed before this: follow it in review.",
+      "body": "From 2020 day 8 (SW-1416), 5 Nov 2026; see aoc/NOTES-2020.md Day 8.\n\nStarted on DeepSeek with the others in scratch-sw-1422, expected: 30 min together.\n\nD2437 (Matt, 5 Nov 2026): Parse.int itself accepts an optional leading + (as well as -); no separate required-sign parser. The DeepSeek run was briefed before this: follow it in review.\n\nDone with SW-1422/1437 (5ecac768e, db8c8b053), merged: Parse.int reads an optional + or - (doc names the stray-+ case), readsInt covers the three forms; no separate signed parser (review fix via opencode run --continue, per D2437); DecEq.trueOfNe added, neTrue/trueOfNe take x and y implicitly. Day 8's argument is Parse.int, and its spec ArgumentWritten is Parse.IntRead (now admits an unsigned number, as the parser does). Model result: DeepSeek, needed fixes (a separate parser, against D2437, briefed before it), ~35 + 15 min (est. 30).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8490,13 +8490,13 @@
     {
       "id": 1437,
       "title": "Std: DecEq.neTrue's converse (x ≠ y gives (x != y) = True); make x and y implicit (D2422)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1422",
       "labels": [
         "std"
       ],
-      "body": "From 2020 day 9 (SW-1427), 5 Nov 2026; see aoc/NOTES-2020.md Day 9. Item 4. Small improvement.\n\nStarted on DeepSeek with the others in scratch-sw-1422, expected: 30 min together.",
+      "body": "From 2020 day 9 (SW-1427), 5 Nov 2026; see aoc/NOTES-2020.md Day 9. Item 4. Small improvement.\n\nStarted on DeepSeek with the others in scratch-sw-1422, expected: 30 min together.\n\nDone with SW-1422/1437 (5ecac768e, db8c8b053), merged: Parse.int reads an optional + or - (doc names the stray-+ case), readsInt covers the three forms; no separate signed parser (review fix via opencode run --continue, per D2437); DecEq.trueOfNe added, neTrue/trueOfNe take x and y implicitly. Day 8's argument is Parse.int, and its spec ArgumentWritten is Parse.IntRead (now admits an unsigned number, as the parser does). Model result: DeepSeek, needed fixes (a separate parser, against D2437, briefed before it), ~35 + 15 min (est. 30).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
