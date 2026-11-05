@@ -867,6 +867,22 @@ impl<'e> Ctx<'e> {
             })
     }
 
+    /// Whether `a` and `b` differ only in proof positions (a constructor's
+    /// proof field, a data type's proof parameter, a definition's inert
+    /// argument), as shown (calls folded) or as computed. Error path only.
+    pub fn differ_only_in_proofs(&self, a: &Value, b: &Value) -> bool {
+        let g = self.g();
+        let level = self.level();
+        let folded = |v| stitchwort_core::value::quote_shown(&g, level, v).ok();
+        let normal = |v| quote(&g, level, v).ok();
+        [(folded(a), folded(b)), (normal(a), normal(b))]
+            .iter()
+            .any(|pair| match pair {
+                (Some(x), Some(y)) => pretty::differ_only_in_proofs(&g, x, y),
+                _ => false,
+            })
+    }
+
     /// Where what `a` and `b` compute to first differ, as a note. Error
     /// path only.
     pub fn first_difference_note(&self, a: &Value, b: &Value) -> Option<String> {
@@ -875,6 +891,9 @@ impl<'e> Ctx<'e> {
         let shown = |v| stitchwort_core::value::quote_unfolded_shown(&g, level, v).ok();
         let (x, y) = (shown(a)?, shown(b)?);
         let found = pretty::first_difference_in(&g, self.e, &self.shown_names(false), &x, &y)?;
+        if found.left == found.right {
+            return None;
+        }
         let within = found
             .within
             .map(|call| format!(", in `{call}`"))
@@ -6482,6 +6501,30 @@ pub(crate) fn refl_after_instances(cx: &mut Ctx, a: &Value, b: &Value) -> Result
     crate::undo::unify(cx, &a, &b)
 }
 
+/// The function both sides apply, when they are applications of the same one:
+/// `Eq.cong` then proves the goal from an equation between the arguments.
+fn same_function(cx: &Ctx, a: &Value, b: &Value) -> Option<String> {
+    let g = cx.g();
+    let (ta, tb) = (cx.quote(a).ok()?, cx.quote(b).ok()?);
+    let (ha, xa) = ta.spine();
+    let (hb, xb) = tb.spine();
+    if xa.is_empty() || xb.is_empty() || !stitchwort_core::value::same_term(ha, hb) {
+        return None;
+    }
+    if !matches!(
+        (ha.strip_loc(), hb.strip_loc()),
+        (Term::Def(_), Term::Def(_)) | (Term::Var(_), Term::Var(_))
+    ) {
+        return None;
+    }
+    Some(pretty::term_for_message_in(
+        &g,
+        cx.e,
+        &cx.shown_names(false),
+        ha,
+    ))
+}
+
 /// The `E-REFL` error for sides `a` and `b` that aren't equal (kept out of
 /// `check`, whose stack frame is on every recursion).
 #[inline(never)]
@@ -6535,6 +6578,17 @@ pub(crate) fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
     }
     if difference && let Some(note) = cx.first_difference_note(a, b) {
         error = error.with_note(note);
+    }
+    // The sides print the same because they differ only in proofs, which a
+    // comparison under an opaque, axiom or same-group call doesn't skip.
+    if !hidden && side_a == side_b && cx.differ_only_in_proofs(a, b) {
+        let hint = same_function(cx, a, b)
+            .map(|f| format!("; prove it with `Eq.cong` (e.g. `Eq.cong {f} h`)"))
+            .unwrap_or_default();
+        error = error.with_note(format!(
+            "the two sides differ only in a proof inside them, which isn't skipped under an \
+             opaque, axiom or same-group call{hint}"
+        ));
     }
     // Both sides still print the same, as written or computed.
     if alike {
