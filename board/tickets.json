@@ -6550,13 +6550,13 @@
     {
       "id": 1300,
       "title": "2021 day 16: a BitReader domain type for the packet stream",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1300",
       "labels": [
         "aoc"
       ],
-      "body": "From SW-1284: day 16's bits are a stream cut into fields by pattern ([v1,v2,v3,t1,t2,t3,..rest]); ~25 theorems in Sound.sw/Complete.sw match on that shape, so wrapping fields in Bits alone reads worse. The domain-types survey suggests a BitReader (read n bits as a Bits/Nat, the rest) with the 15- and 11-bit length fields as Bits. Medium; Sonnet; restate the theorems over the reader, statement by statement.",
+      "body": "From SW-1284: day 16's bits are a stream cut into fields by pattern ([v1,v2,v3,t1,t2,t3,..rest]); ~25 theorems in Sound.sw/Complete.sw match on that shape, so wrapping fields in Bits alone reads worse. The domain-types survey suggests a BitReader (read n bits as a Bits/Nat, the rest) with the 15- and 11-bit length fields as Bits. Medium; Sonnet; restate the theorems over the reader, statement by statement.\n\nLane (Sonnet, 2026-11-05): BitReader in Aoc.Common (BitReader.sw, Proofs/BitReader.sw); day 16 decoder and Sound/Complete/Fields/Decode proofs restated over it, commit c079a450d on lane/SW-1300. Answers unchanged (901, 110434737925). In review.\n\nOrchestrator: statements checked (headline theorems re-typed over BitReader; step helpers restated). Proof files 489 lines vs 490. Model result: Sonnet, worked, 35 min (est. 150).",
       "created": "2026-11-04",
       "updated": "2026-11-05",
       "commits": []
