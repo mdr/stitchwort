@@ -8656,7 +8656,7 @@
       "labels": [
         "lsp"
       ],
-      "body": "From SW-1430, 5 Nov 2026.",
+      "body": "From SW-1430, 5 Nov 2026.\n\nSW-1464 (5 Nov ~23:15) hit it in a debug build of crates/lsp/tests/features.rs (hover in a library file, std fully checked): arithmetic overflow at crates/core/src/value.rs:2191, quoting a neutral term, `level - 1 - l`. In release that subtraction would wrap: check whether a variable can be quoted at a level it isn't bound at (an index out of range is a kernel-side bug, possibly soundness-relevant), or whether it's a debug-only stack artefact. Overnight: Opus, now.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8874,13 +8874,13 @@
     {
       "id": 1464,
       "title": "Playground regression: 'Cmd-click on a library function shows the library's text, read-only, with a way back' times out waiting for a hover tooltip in the library file (on main after SW-1403/SW-1432; fails on the unmodified test too)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1464",
       "labels": [
         "editor"
       ],
-      "body": "Found by SW-1398's browser run, 5 Nov 2026 ~23:20. Likely from the std cache (SW-1403) or the single checker (SW-1432): library files replayed from std.cache may lack hover data, or the server no longer serves hover in a library file. Overnight: fix (orchestrator's call, medium).\n\nStarted on Sonnet, expected: 60 min (3 browser runs).",
+      "body": "Found by SW-1398's browser run, 5 Nov 2026 ~23:20. Likely from the std cache (SW-1403) or the single checker (SW-1432): library files replayed from std.cache may lack hover data, or the server no longer serves hover in a library file. Overnight: fix (orchestrator's call, medium).\n\nStarted on Sonnet, expected: 60 min (3 browser runs).\n\nDone (b5250e5c7), merged: the cause was the page, not std.cache: jumpToDefinition scrolled minimally, leaving List.length (now in core/Data.sw, far down) at the window's bottom edge, where the test's mouse move fired no hover. Jumps now centre their target. Native test: hover in a library file is the same replayed or checked. Browser: 3 tests pass. Model result: Sonnet, worked, 23 min (est. 60).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
