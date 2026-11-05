@@ -1,5 +1,5 @@
 {
-  "next": 1326,
+  "next": 1327,
   "tickets": [
     {
       "id": 47,
@@ -5523,7 +5523,7 @@
         "elab",
         "unify"
       ],
-      "body": "D2341. Matt accepted the plan in docs/proposals/proofs-about-definitions.md (D2340-D2345, 4 Nov 2026). After D2342's lane. Narrowly aimed (a broad version broke Reads.sw:627 and :1712). Merge tier plus a daily-tier run (ask Matt first). Keep examples/reject/not-unfolded-argument.sw from lane/SW-1219 as a test.\n\nStarted 4 Nov 20:37 by mistake ahead of SW-93, against D2348's order (both touch the unifier); paused after ~8 min, WIP commit 3f65d6d2 on lane/SW-1227 (value.rs, unify.rs, Day02 Parse.sw touched; unfold_once in progress). Resume after SW-93 merges, rebased onto it.\n\nResumed 02:48 5 Nov on Opus after SW-93 merged (est. 150 min): rebase onto main first. Merging needs a daily-tier run, which waits for Matt (morning D question).\n\n03:35 5 Nov: rebased onto main (SW-93 kept as is). Narrow rule built in unify.rs (`one_step_apart`): only a call with a whole unknown argument against a call of another definition whose forced forms differ at the outer layer. aoc check --no-cache passes; `_` now works for named parsers (2020 Days 2, 4, 5, 6 and 2021 Day 16 moved to `_`). SW-1219's branch is gone, so not-unfolded-argument.sw was recreated from the note's description. Running the checks.\n\n\n03:47 5 Nov, in review: commit d2d916c27 on lane/SW-1227 (one commit, on main 5158861c8). Design and measurements in docs/proposals/proofs-about-definitions.md, \"As built: D2341\". 2020 Day 2 readsLine 13.6 M to 0.23 M steps; aoc+std 1,028 M to 1,014 M; no hash moved. Checks passed: elab lane, core/driver proof tests, examples (filtered), hash_stability (full tier, only the two new snapshots), aoc check --no-cache + test Aoc.Common, rogue check, bench (check-* rows equal to main but +403 steps on check-closed-*), task test:merge (1080 passed). Daily tier not run: waits for Matt. Model result: Opus, worked, 60 min (est. 150).\n\nOrchestrator: reviewed the report; merge waits for the daily-tier run the ticket requires (D2373 to Matt in the morning). Follow-ups filed: SW-1314 (std Reads sweep), SW-1315 (comparison gap), SW-1316 (misleading error).\n\nFrom SW-1314: with _ instead of the copied parser, 14 std Reads.sw theorems take 1.6-5.1x the evaluation steps (readsMany1 5.1x). Worth knowing for the merge decision: _ is shorter to write but not free.",
+      "body": "D2341. Matt accepted the plan in docs/proposals/proofs-about-definitions.md (D2340-D2345, 4 Nov 2026). After D2342's lane. Narrowly aimed (a broad version broke Reads.sw:627 and :1712). Merge tier plus a daily-tier run (ask Matt first). Keep examples/reject/not-unfolded-argument.sw from lane/SW-1219 as a test.\n\nStarted 4 Nov 20:37 by mistake ahead of SW-93, against D2348's order (both touch the unifier); paused after ~8 min, WIP commit 3f65d6d2 on lane/SW-1227 (value.rs, unify.rs, Day02 Parse.sw touched; unfold_once in progress). Resume after SW-93 merges, rebased onto it.\n\nResumed 02:48 5 Nov on Opus after SW-93 merged (est. 150 min): rebase onto main first. Merging needs a daily-tier run, which waits for Matt (morning D question).\n\n03:35 5 Nov: rebased onto main (SW-93 kept as is). Narrow rule built in unify.rs (`one_step_apart`): only a call with a whole unknown argument against a call of another definition whose forced forms differ at the outer layer. aoc check --no-cache passes; `_` now works for named parsers (2020 Days 2, 4, 5, 6 and 2021 Day 16 moved to `_`). SW-1219's branch is gone, so not-unfolded-argument.sw was recreated from the note's description. Running the checks.\n\n\n03:47 5 Nov, in review: commit d2d916c27 on lane/SW-1227 (one commit, on main 5158861c8). Design and measurements in docs/proposals/proofs-about-definitions.md, \"As built: D2341\". 2020 Day 2 readsLine 13.6 M to 0.23 M steps; aoc+std 1,028 M to 1,014 M; no hash moved. Checks passed: elab lane, core/driver proof tests, examples (filtered), hash_stability (full tier, only the two new snapshots), aoc check --no-cache + test Aoc.Common, rogue check, bench (check-* rows equal to main but +403 steps on check-closed-*), task test:merge (1080 passed). Daily tier not run: waits for Matt. Model result: Opus, worked, 60 min (est. 150).\n\nOrchestrator: reviewed the report; merge waits for the daily-tier run the ticket requires (D2373 to Matt in the morning). Follow-ups filed: SW-1314 (std Reads sweep), SW-1315 (comparison gap), SW-1316 (misleading error).\n\nFrom SW-1314: with _ instead of the copied parser, 14 std Reads.sw theorems take 1.6-5.1x the evaluation steps (readsMany1 5.1x). Worth knowing for the merge decision: _ is shorter to write but not free.\n\nD2373 (Matt, 5 Nov): yes, rebase the stack (SW-1227, SW-1315, SW-1314, plus SW-1323's example) onto main and run the daily tier once so it can merge. Rebase lane started 07:20.",
       "created": "2026-11-04",
       "updated": "2026-11-05",
       "commits": []
@@ -6907,6 +6907,20 @@
         "elab"
       ],
       "body": "From the SW-1324 Opus review; fails on main too. ctor_slots(.., None) leaves the parameter a as an unknown, so the field isn't seen as Bool; read the slots with the parameters from the expected type. Also: comp_app still uses the constructor-as-lambda form for named or partial constructor applications with a performing argument (they hash differently from the bare constructor).",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1326,
+      "title": "Partial lambdas: migrate the sites that waited for guards (filter then map on a pattern; filterMap with if … then Some … else None) to match some with a guard",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "docs/proposals/partial-lambdas.md §3 counted 5 pipeline sites needing guards; SW-1295 moved 2 (2024 day 15, 2021 day 18). Matt, 5 Nov: 'Yes, migrate [guarded] sites'.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
