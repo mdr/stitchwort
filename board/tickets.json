@@ -6718,13 +6718,13 @@
     {
       "id": 1312,
       "title": "AoC domain types 10: 2024 day 23 Computer, Connection and Party",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1312",
       "labels": [
         "aoc"
       ],
-      "body": "Split from SW-1289 (the survey's 2024/23 entry, MEDIUM-HIGH; removes the program/spec duplication of password and hasT). D2363; Sonnet; the orchestrator checks each changed statement keeps its meaning.",
+      "body": "Split from SW-1289 (the survey's 2024/23 entry, MEDIUM-HIGH; removes the program/spec duplication of password and hasT). D2363; Sonnet; the orchestrator checks each changed statement keeps its meaning.\n\nDone (Sonnet, 10 min, est. 120): Computer {name} with mightBeChief; Connection {one, other} with reverse; Party {members: Set Computer} with size, mightHaveChief, password. The spec keeps its own hasT and password over Party (sharing the program's would make part1/2Correct check the program against itself); Spec.sw says so. Statements checked by the orchestrator: re-typing only. Example answers unchanged; no real input for 2024 day 23 is committed. Model result: Sonnet, worked, 10 min (est. 120).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
