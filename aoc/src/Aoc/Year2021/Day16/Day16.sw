@@ -13,7 +13,8 @@
 --|
 --| The puzzle input is committed in aoc/inputs/2021/.
 --|
---| The decoder reads the bits into a tree of packets, and both parts are
+--| The decoder reads the bits through a `BitReader` (Aoc.Common), a field at
+--| a time, into a tree of packets, and both parts are
 --| folds over the tree. The spec (Spec/Spec.sw) writes a tree out as bits,
 --| as the puzzle describes, and the proofs (Proofs/) show the decoder is
 --| the encoding's inverse: what it reads is a well-formed tree whose bits
@@ -22,6 +23,7 @@
 --| neither.
 
 namespace Aoc.Year2021.Day16
+import Aoc.Common (BitReader)
 import Std (Fail, IO, List, Nat, Option, Parse, Text)
 
 def main(): {IO, Fail} () :=
@@ -88,29 +90,24 @@ def hexDigit(): {Parse} Nat :=
 
 def bitsOfDigits (digits: List Nat): List Bool := digits.flatMap digitBits
 
---| The first `count` bits, and the bits after them; none if there are
---| fewer.
-def splitField (count: Nat) (bits: List Bool): Option (List Bool, List Bool) :=
-  let field := bits.take count
-  if field.length == count then Some (field, bits.drop count) else None
-
---| The first `count` bits as a number, and the bits after them.
-def readNumber (count: Nat) (bits: List Bool): Option (Nat, List Bool) :=
-  match splitField count bits with
-    | Some (field, rest) => Some (Nat.fromBits field, rest)
-    | None => None
-
 --| A literal's groups: each is a bit saying whether another follows, then
 --| four bits.
-def readGroups: List Bool → Option (List Nat, List Bool)
-  | [more, a, b, c, d, ..rest] =>
-    let group := Nat.fromBits [a, b, c, d]
-    if more then
-      match readGroups rest with
-        | Some (groups, after) => Some ([group, ..groups], after)
+def readGroups (reader: BitReader): Option (List Nat, BitReader)
+    decreasing reader.length
+:=
+  match reader.readBit with
+    | None => None
+    | Some (more, afterMore) =>
+      match afterMore.readNumber 4 with
         | None => None
-    else Some ([group], rest)
-  | _ => None
+        | Some (group, after) =>
+          if more then
+            if shorter: after.length < reader.length then
+              match readGroups after with
+                | None => None
+                | Some (groups, rest) => Some ([group, ..groups], rest)
+            else None
+          else Some ([group], after)
 
 --| How many packets are still to read: a number of them, or as many as fill
 --| the bits.
@@ -118,69 +115,71 @@ type Wanted = | Packets (count: Nat) | Filling
 
 --| Whether there is another packet to read, and then what is wanted after
 --| it.
-def nextWanted: Wanted → List Bool → Option Wanted
+def nextWanted: Wanted → BitReader → Option Wanted
   | Packets 0, _ => None
   | Packets (Succ count), _ => Some (Packets count)
-  | Filling, [] => None
-  | Filling, [_, .._] => Some Filling
+  | Filling, { unread = [] } => None
+  | Filling, { unread = [_, .._] } => Some Filling
 
 --| Puts a packet in front of the ones read after it.
-def andThen (packet: Packet): Option (List Packet, List Bool) → Option (List Packet, List Bool) :=
+def andThen (packet: Packet): Option (List Packet, BitReader) → Option (List Packet, BitReader) :=
   match some | Some (packets, rest) => ([packet, ..packets], rest)
 
---| Reads the packets wanted from the bits, and gives back the bits after
+--| Reads the packets wanted from the bits, and gives back the reader after
 --| them; none if the bits don't hold them. Every call reads from fewer bits,
 --| checked as it goes.
-def readPackets (wanted: Wanted) (bits: List Bool): Option (List Packet, List Bool)
-    decreasing bits.length
+def readPackets (wanted: Wanted) (reader: BitReader): Option (List Packet, BitReader)
+    decreasing reader.length
 :=
-  match nextWanted wanted bits with
-    | None => Some ([], bits)
+  match nextWanted wanted reader with
+    | None => Some ([], reader)
     | Some later =>
-      match bits with
-        | [v1, v2, v3, t1, t2, t3, ..rest] =>
-          let version := Nat.fromBits [v1, v2, v3]
-          match operationOf (Nat.fromBits [t1, t2, t3]) with
-            | None =>
-              match readGroups rest with
-                | None => None
-                | Some (groups, after) =>
-                  if shorter: after.length < bits.length then andThen (Literal version groups) (readPackets later after) else None
-            | Some operation =>
-              match rest with
-                | [False, ..fields] =>
-                  match readNumber 15 fields with
+      match reader.readNumber 3 with
+        | None => None
+        | Some (version, afterVersion) =>
+          match afterVersion.readNumber 3 with
+            | None => None
+            | Some (typeId, afterType) =>
+              match operationOf typeId with
+                | None =>
+                  match readGroups afterType with
                     | None => None
-                    | Some (length, after) =>
-                      match splitField length after with
+                    | Some (groups, after) =>
+                      if shorter: after.length < reader.length then andThen (Literal version groups) (readPackets later after) else None
+                | Some operation =>
+                  match afterType.readBit with
+                    | None => None
+                    | Some (False, afterLengthType) =>
+                      match afterLengthType.read 15 with
                         | None => None
-                        | Some (inside, following) =>
-                          if shorter: inside.length < bits.length then
-                            match readPackets Filling inside with
+                        | Some (length, afterLength) =>
+                          match afterLength.read length.value with
+                            | None => None
+                            | Some (inside, following) =>
+                              if shorter: (BitReader.of inside).length < reader.length then
+                                match readPackets Filling (BitReader.of inside) with
+                                  | None => None
+                                  | Some (subPackets, _) =>
+                                    if shorterAfter: following.length < reader.length then
+                                      andThen (Operator version operation TotalLength subPackets) (readPackets later following)
+                                    else None
+                              else None
+                    | Some (True, afterLengthType) =>
+                      match afterLengthType.read 11 with
+                        | None => None
+                        | Some (count, after) =>
+                          if shorter: after.length < reader.length then
+                            match readPackets (Packets count.value) after with
                               | None => None
-                              | Some (subPackets, _) =>
-                                if shorterAfter: following.length < bits.length then
-                                  andThen (Operator version operation TotalLength subPackets) (readPackets later following)
+                              | Some (subPackets, following) =>
+                                if shorterAfter: following.length < reader.length then
+                                  andThen (Operator version operation Count subPackets) (readPackets later following)
                                 else None
                           else None
-                | [True, ..fields] =>
-                  match readNumber 11 fields with
-                    | None => None
-                    | Some (count, after) =>
-                      if shorter: after.length < bits.length then
-                        match readPackets (Packets count) after with
-                          | None => None
-                          | Some (subPackets, following) =>
-                            if shorterAfter: following.length < bits.length then
-                              andThen (Operator version operation Count subPackets) (readPackets later following)
-                            else None
-                      else None
-                | [] => None
-        | _ => None
 
---| One packet, and the bits after it.
-def readPacket (bits: List Bool): Option (Packet, List Bool) :=
-  readPackets (Packets 1) bits |> match some | Some ([packet], rest) => (packet, rest)
+--| One packet, and the reader after it.
+def readPacket (reader: BitReader): Option (Packet, BitReader) :=
+  readPackets (Packets 1) reader |> match some | Some ([packet], rest) => (packet, rest)
 
 --| The outermost packet of the transmission. Only zero bits may follow it
 --| (the padding), and it checks the puzzle's promise about the operators it
@@ -191,9 +190,9 @@ def parsePacket (input: Text): {Fail} Packet := decodeTransmission (readBits inp
 def zeroBits (bits: List Bool): Bool := bits.all not
 
 def decodeTransmission (bits: List Bool): {Fail} Packet :=
-  match readPacket bits with
+  match readPacket { unread = bits } with
     | Some ((packet, rest)) =>
-      match zeroBits rest with
+      match zeroBits rest.unread with
         | True => checkOperators packet
         | False => Fail.fail "the bits after the packet aren't all zero padding"
     | None => Fail.fail "the transmission isn't a packet"

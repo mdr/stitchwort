@@ -6,24 +6,27 @@
 namespace Aoc.Year2021.Day16.Proofs
 import Aoc.Year2021.Day16 (..)
 import Aoc.Year2021.Day16.Spec (allWellFormed, encode, encodeAll, promised, transmissionBits, wellFormed)
+import Aoc.Common (BitReader)
+import Aoc.Common.Proofs (..)
 import Std (Bool, Eq, Exists, Fail, List, Option, Result, Text, Void)
 
 --| Soundness: a packet read is well formed, and its bits start the input.
-theorem readPacketSound (bits: List Bool) (packet: Packet) (rest: List Bool) (read: readPacket bits = Some (packet, rest)):
-    bits = encode packet ++ rest ∧ wellFormed packet = True :=
-  match e: readPackets (Packets 1) bits with
+theorem readPacketSound (reader: BitReader) (packet: Packet) (rest: BitReader) (read: readPacket reader = Some (packet, rest)):
+    reader.unread = encode packet ++ rest.unread ∧ wellFormed packet = True :=
+  match e: readPackets (Packets 1) reader with
     | None => cases
     | Some ([], _) => cases
     | Some ([_, _, .._], _) => cases
     | Some ([first], after) =>
       let parts := somePairInjective _ _ _ _ read
-      let sound := readPacketsSound (Packets 1) bits [first] after e
+      let sound := readPacketsSound (Packets 1) reader [first] after e
       rewrite <- parts.left, <- parts.right in
         Both (rewrite List.appendNil (encode first) at (sound.left)) (Bool.andLeft _ _ sound.right.left)
 
 --| Completeness: a well-formed packet is read back from its bits, whatever
 --| follows them.
-theorem readPacketComplete (packet: Packet) (formed: wellFormed packet = True) (rest: List Bool): readPacket (encode packet ++ rest) = Some (packet, rest) :=
+theorem readPacketComplete (packet: Packet) (formed: wellFormed packet = True) (rest: List Bool):
+    readPacket { unread = encode packet ++ rest } = Some (packet, { unread = rest }) :=
   let read := countComplete [packet] (Bool.andIntro _ _ formed rfl) rest
   rewrite List.appendNil (encode packet) at read in rewrite read in rfl
 
@@ -33,7 +36,8 @@ theorem encodingUnique (first: Packet) (second: Packet) (rest1: List Bool) (rest
     (formed2: wellFormed second = True) (same: encode first ++ rest1 = encode second ++ rest2): first = second ∧ rest1 = rest2 :=
   let read1 := readPacketComplete first formed1 rest1
   let read2 := readPacketComplete second formed2 rest2
-  rewrite same at read1 in somePairInjective _ _ _ _ (Eq.trans (Eq.sym read1) read2)
+  let both := rewrite same at read1 in somePairInjective _ _ _ _ (Eq.trans (Eq.sym read1) read2)
+  Both both.left (Eq.cong (reader => reader.unread) both.right)
 
 --| The parser's guarantee: the input is hexadecimal digits, and the packet
 --| it reads is well formed, its encoding starts the transmission's bits and
@@ -45,15 +49,15 @@ theorem parsePacketReads (input: Text) (packet: Packet) (parsed: Fail.toResult (
   let split := rewrite Fail.toResultThen (() => readBits input) decodeTransmission at parsed in parsed
   Result.flatMapEqOk (Fail.toResult (() => readBits input)) (bits => Fail.toResult (() => decodeTransmission bits)) packet split
     (bits got decoded =>
-      match e: readPacket bits with
+      match e: readPacket { unread = bits } with
         | None => cases
         | Some (found, rest) =>
-          match z: zeroBits rest with
+          match z: zeroBits rest.unread with
             | False => cases
             | True =>
               match b: badOperator found with
                 | Some (operation, count) => cases
                 | None =>
-                  let sound := readPacketSound bits found rest e
+                  let sound := readPacketSound { unread = bits } found rest e
                   rewrite <- Result.okInjective found packet decoded in
-                    Witness bits (Witness rest (Both (readBitsHex input bits got) (Both sound.left (Both z (Both sound.right (badOperatorNone found b)))))))
+                    Witness bits (Witness rest.unread (Both (readBitsHex input bits got) (Both sound.left (Both z (Both sound.right (badOperatorNone found b)))))))

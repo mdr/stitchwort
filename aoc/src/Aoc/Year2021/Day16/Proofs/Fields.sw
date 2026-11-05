@@ -1,91 +1,80 @@
---| The decoder's pieces that read no packets: a number in a field, a
---| literal's groups, an operator's type id. Each reads exactly the spec's
---| bits for what it gives back.
+--| The decoder's pieces that read no packets: a literal's groups and an
+--| operator's type id. Each reads exactly the spec's bits for what it gives
+--| back. (Reading a field is `BitReader`'s, in Aoc.Common.Proofs.)
 
 namespace Aoc.Year2021.Day16.Proofs
+import Aoc.Common (BitReader)
+import Aoc.Common.Proofs (..)
 import Aoc.Year2021.Day16 (..)
 import Aoc.Year2021.Day16.Spec (groupBits, typeId)
-import Std (Bool, DecEq, Eq, List, Nat, Option, Pair, Void)
+import Std (Bool, Eq, List, Nat, Option, Void)
 
---| `Some` of two pairs: the same parts.
-theorem somePairInjective (x1: a) (y1: b) (x2: a) (y2: b) (h: Some (x1, y1) = Some (x2, y2)): x1 = x2 ∧ y1 = y2 :=
-  let both := Option.someInjective _ _ h
-  Both (Pair.mkInjectiveFst _ _ _ _ both) (Pair.mkInjectiveSnd _ _ _ _ both)
+--| The last group: a bit saying no more follow, then four bits.
+theorem readGroupsLast (reader: BitReader) (afterBit: BitReader) (after: BitReader) (group: Nat) (bit: reader.readBit = Some (False, afterBit))
+    (number: afterBit.readNumber 4 = Some (group, after)): readGroups reader = Some ([group], after) :=
+  rewrite readGroups.unfold reader, bit, number in rfl
 
---| A field of the right length is split off.
-theorem splitFieldAppend (field: List Bool) (rest: List Bool) (count: Nat) (length: field.length = count): splitField count (field ++ rest) = Some (field, rest) :=
-  rewrite List.takeAppendLength field rest count length, List.dropAppendLength field rest count length, length, DecEq.refl count in rfl
-
---| What `splitField` splits off is a field of the right length.
-theorem splitFieldSome (count: Nat) (bits: List Bool) (field: List Bool) (rest: List Bool) (split: splitField count bits = Some (field, rest)):
-    bits = field ++ rest ∧ field.length = count :=
-  let taken := bits.take count
-  let unfolded: (if taken.length == count then Some (taken, bits.drop count) else None) = Some (field, rest) := split
-  match e: taken.length == count with
-    | True =>
-      let parts := somePairInjective _ _ _ _ unfolded
-      rewrite <- parts.left, <- parts.right in Both (Eq.sym (List.appendTakeDrop bits count)) (DecEq.sound _ _ e)
-    | False => cases
-
---| A number that fits its field is read back.
-theorem readNumberBits (width: Nat) (n: Nat) (rest: List Bool) (small: n < Nat.pow 2 width): readNumber width (Nat.toBits width n ++ rest) = Some (n, rest) :=
-  rewrite splitFieldAppend (Nat.toBits width n) rest width (Nat.toBitsLength width n), Nat.fromBitsToBits width n small in rfl
-
---| What `readNumber` reads is the number's bits, and the number fits.
-theorem readNumberSome (width: Nat) (bits: List Bool) (n: Nat) (rest: List Bool) (read: readNumber width bits = Some (n, rest)):
-    bits = Nat.toBits width n ++ rest ∧ n < Nat.pow 2 width :=
-  match e: splitField width bits with
-    | None => cases
-    | Some (field, after) =>
-      let parts := somePairInjective _ _ _ _ read
-      let split := splitFieldSome width bits field after e
-      let written := Nat.toBitsFromBits field
-      rewrite split.right, parts.left at written in
-        Both (rewrite <- parts.right, written in split.left) (rewrite <- parts.left in (rewrite split.right at (Nat.fromBitsBelow field)))
+--| A group that another follows.
+theorem readGroupsMore (reader: BitReader) (afterBit: BitReader) (after: BitReader) (group: Nat) (groups: List Nat) (rest: BitReader)
+    (bit: reader.readBit = Some (True, afterBit)) (number: afterBit.readNumber 4 = Some (group, after)) (shorter: after.length < reader.length)
+    (others: readGroups after = Some (groups, rest)): readGroups reader = Some ([group, ..groups], rest) :=
+  rewrite readGroups.unfold reader, bit, number in
+    match Nat.decLessThan after.length reader.length with
+      | Yes _ => rewrite others in rfl
+      | No longer => Void.exfalso (longer shorter)
 
 --| A literal's groups, each below 16, are read back from their bits.
-theorem readGroupsBits (rest: List Bool): (groups: List Nat) → groups ≠ [] → groups.all (group => group < 16) = True → readGroups (groupBits groups ++ rest) = Some (groups, rest)
+theorem readGroupsBits (rest: List Bool): (groups: List Nat) → groups ≠ [] → groups.all (group => group < 16) = True →
+    readGroups { unread = groupBits groups ++ rest } = Some (groups, { unread = rest })
   | [], some, small => Void.exfalso (some rfl)
-  | [group], some, small => rewrite Nat.fromBitsToBits 4 group (omega [small]) in rfl
+  | [group], some, small =>
+    readGroupsLast { unread = groupBits [group] ++ rest } { unread = Nat.toBits 4 group ++ rest } { unread = rest } group rfl
+      (BitReader.readNumberAppend 4 group rest (omega [small]))
   | [group, next, ..more], some, small =>
     let fits: group < 16 := omega [small]
     let others: [next, ..more].all (group => group < 16) = True := Bool.andRight _ _ small
-    rewrite readGroupsBits rest [next, ..more] (u => cases) others, Nat.fromBitsToBits 4 group fits in rfl
+    let tail := groupBits [next, ..more] ++ rest
+    let length := List.lengthAppend (Nat.toBits 4 group) tail
+    readGroupsMore { unread = groupBits [group, next, ..more] ++ rest } { unread = Nat.toBits 4 group ++ tail } { unread = tail } group [next, ..more] { unread = rest } rfl
+      (BitReader.readNumberAppend 4 group tail (omega [fits])) (omega [length, Nat.toBitsLength 4 group]) (readGroupsBits rest [next, ..more] (u => cases) others)
 
 --| What `readGroups` reads is the spec's bits for the groups it gives,
 --| at least one, each below 16.
-theorem readGroupsSome: (bits: List Bool) → (groups: List Nat) → (rest: List Bool) → readGroups bits = Some (groups, rest) →
-    bits = groupBits groups ++ rest ∧ groups ≠ [] ∧ groups.all (group => group < 16) = True
-  | [more, a, b, c, d, ..tail], groups, rest, read =>
-    let written: Nat.toBits 4 (Nat.fromBits [a, b, c, d]) = [a, b, c, d] := Nat.toBitsFromBits [a, b, c, d]
-    let fits: Nat.fromBits [a, b, c, d] < 16 := Nat.fromBitsBelow [a, b, c, d]
-    match more with
-      | True =>
-        match e: readGroups tail with
-          | None => cases
-          | Some (gs, after) =>
-            let parts := somePairInjective _ _ _ _ read
-            match readGroupsSome tail gs after e with
-              | Both split (Both some small) =>
-                let group := Nat.fromBits [a, b, c, d]
-                let first: (group < 16) = True := omega [fits]
-                match gs with
-                  | [] => Void.exfalso (some rfl)
-                  | [next, ..more] =>
-                    let regrouped: Nat.toBits 4 group ++ tail = (Nat.toBits 4 group ++ groupBits [next, ..more]) ++ after :=
-                      rewrite split in Eq.sym (List.appendAssoc (Nat.toBits 4 group) (groupBits [next, ..more]) after)
-                    let same := Eq.trans (Eq.cong (bits => bits ++ tail) (Eq.sym written)) regrouped
-                    rewrite <- parts.left, <- parts.right in Both (Eq.cong (bits => [True, ..bits]) same) (Both (u => cases) (Bool.andIntro _ _ first small))
-      | False =>
-        let parts := somePairInjective _ _ _ _ read
-        let group := Nat.fromBits [a, b, c, d]
-        let small: [group].all (x => x < 16) = True := omega [fits]
-        rewrite <- parts.left, <- parts.right in Both (Eq.cong (bits => [False, ..bits ++ tail]) (Eq.sym written)) (Both (u => cases) small)
-  | [], groups, rest, read => cases
-  | [_], groups, rest, read => cases
-  | [_, _], groups, rest, read => cases
-  | [_, _, _], groups, rest, read => cases
-  | [_, _, _, _], groups, rest, read => cases
+theorem readGroupsSome (reader: BitReader) (groups: List Nat) (rest: BitReader) (read: readGroups reader = Some (groups, rest)):
+    reader.unread = groupBits groups ++ rest.unread ∧ groups ≠ [] ∧ groups.all (group => group < 16) = True
+    decreasing reader.length
+:=
+  rewrite readGroups.unfold reader at read in
+  match b: reader.readBit with
+    | None => cases
+    | Some (more, afterMore) =>
+      match n: afterMore.readNumber 4 with
+        | None => cases
+        | Some (group, after) =>
+          let bitRead := BitReader.readBitSome reader more afterMore b
+          let numberRead := BitReader.readNumberSome afterMore 4 group after n
+          let fits: group < 16 := omega [numberRead.right]
+          match more with
+            | True =>
+              match d: Nat.decLessThan after.length reader.length with
+                | No _ => cases
+                | Yes shorter =>
+                  match g: readGroups after with
+                    | None => cases
+                    | Some (gs, others) =>
+                      let parts := somePairInjective _ _ _ _ read
+                      match readGroupsSome after gs others g [decreasing := shorter] with
+                        | Both split (Both some small) =>
+                          let first: (group < 16) = True := omega [fits]
+                          match gs with
+                            | [] => Void.exfalso (some rfl)
+                            | [next, ..more] =>
+                              rewrite <- parts.left, <- parts.right in
+                                Both (rewrite bitRead, numberRead.left, split in rfl) (Both (u => cases) (Bool.andIntro _ _ first small))
+            | False =>
+              let parts := somePairInjective _ _ _ _ read
+              let small: [group].all (x => x < 16) = True := omega [fits]
+              rewrite <- parts.left, <- parts.right in Both (rewrite bitRead, numberRead.left in rfl) (Both (u => cases) small)
 
 --| Each operation is read back from its type id.
 theorem operationOfTypeId (operation: Operation): operationOf (typeId operation) = Some operation := cases
