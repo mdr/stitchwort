@@ -8650,13 +8650,13 @@
     {
       "id": 1448,
       "title": "A native debug build checking the whole AoC project inline overflows a 4 MiB thread (probably SW-1430's navigation path; recheck after its fix)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1448",
       "labels": [
         "lsp"
       ],
-      "body": "From SW-1430, 5 Nov 2026.\n\nSW-1464 (5 Nov ~23:15) hit it in a debug build of crates/lsp/tests/features.rs (hover in a library file, std fully checked): arithmetic overflow at crates/core/src/value.rs:2191, quoting a neutral term, `level - 1 - l`. In release that subtraction would wrap: check whether a variable can be quoted at a level it isn't bound at (an index out of range is a kernel-side bug, possibly soundness-relevant), or whether it's a debug-only stack artefact. Overnight: Opus, now.",
+      "body": "From SW-1430, 5 Nov 2026.\n\nSW-1464 (5 Nov ~23:15) hit it in a debug build of crates/lsp/tests/features.rs (hover in a library file, std fully checked): arithmetic overflow at crates/core/src/value.rs:2191, quoting a neutral term, `level - 1 - l`. In release that subtraction would wrap: check whether a variable can be quoted at a level it isn't bound at (an index out of range is a kernel-side bug, possibly soundness-relevant), or whether it's a debug-only stack artefact. Overnight: Opus, now.\n\nStarted on Opus, expected: 60 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
