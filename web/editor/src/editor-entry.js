@@ -624,21 +624,28 @@ export class Editor {
     ]);
     // The text moved on meanwhile: the answers to the next check are for it.
     if (view.state.doc !== doc) return;
+    // The answers are for the text last checked, which may be shorter than this.
+    const offset = ({ line, character }) => {
+      const l = doc.line(Math.min(line + 1, doc.lines));
+      return Math.min(l.from + character, l.to);
+    };
     const ranges = [];
     let line = 0, start = 0;
     for (let i = 0; tokens && i + 4 < tokens.data.length; i += 5) {
       const [dl, ds, length, type, modifiers] = tokens.data.slice(i, i + 5);
       line += dl;
       start = dl ? ds : start + ds;
-      const from = plugin.fromPosition({ line, character: start });
+      const from = offset({ line, character: start });
+      const to = offset({ line, character: start + length });
+      if (to <= from) continue;
       const classes = [`sem-${legend.tokenTypes[type]}`];
       if (modifiers & 1) classes.push("sem-decl");
       if (modifiers & 2) classes.push("sem-lib");
-      ranges.push(Decoration.mark({ class: classes.join(" ") }).range(from, plugin.fromPosition({ line, character: start + length })));
+      ranges.push(Decoration.mark({ class: classes.join(" ") }).range(from, to));
     }
     for (const h of hints ?? []) {
       const label = typeof h.label === "string" ? h.label : h.label.map((p) => p.value).join("");
-      ranges.push(Decoration.widget({ widget: new Hint(label), side: 1 }).range(plugin.fromPosition(h.position)));
+      ranges.push(Decoration.widget({ widget: new Hint(label), side: 1 }).range(offset(h.position)));
     }
     view.dispatch({ effects: setMarks.of(Decoration.set(ranges, true)) });
   }
