@@ -69,7 +69,7 @@ theorem pickFreeVacant (level: Level) (player: Position) (others: List Monster):
           | False =>
             match found: monsterAt choice others with
               | Some monster => pickFreeVacant level player others rest destination picked
-              | None => rewrite <- Option.someInjective choice destination picked in found
+              | None => rewrite <- Option.someInjective picked in found
 
 theorem positionsAppend (xs: List Monster) (ys: List Monster): positions (xs ++ ys) = positions xs ++ positions ys :=
   List.mapAppend xs ys (monster => monster.position)
