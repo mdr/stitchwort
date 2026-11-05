@@ -7292,13 +7292,13 @@
     {
       "id": 1353,
       "title": "Sweep: method (dot) form where the first argument is the call's subject in aoc and games/rogue (Nat.absDiff level next -> level.absDiff next; value.testBit 3); leave min/max, builders (List.range, List.replicate) and lemmas used as proofs",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1353",
       "labels": [
         "aoc"
       ],
-      "body": "D2402 (Matt, 5 Nov): yes. Prompted by 2024 day 2's 1 <= Nat.absDiff level next <= 3. Same terms, so no proof changes expected. DeepSeek, ~30 min; after SW-1333 and SW-1344 merge (same files).",
+      "body": "D2402 (Matt, 5 Nov): yes. Prompted by 2024 day 2's 1 <= Nat.absDiff level next <= 3. Same terms, so no proof changes expected. DeepSeek, ~30 min; after SW-1333 and SW-1344 merge (same files).\n\nDone on lane/SW-1353: DeepSeek 6c696b233 (88 files, dot form), Sonnet review fix a7e41211e (57 redundant brackets dropped, ~60 half-converted lines made consistent, 9 reverted, 3 Prop .toNat kept as Bool.toNat). Check, tests, audit pass. Model result: DeepSeek, needed fixes (half-converted lines, stray brackets), ~35 min (est. 30).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
