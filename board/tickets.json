@@ -7628,9 +7628,9 @@
     {
       "id": 1377,
       "title": "Playground: JavaScript build step for CodeMirror 6 (web/editor entry, esbuild, lockfile, web/build.sh, flake, CI; output not committed) (D2415)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1377",
       "labels": [
         "playground"
       ],
