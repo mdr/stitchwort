@@ -1,10 +1,10 @@
 --| Day 11 proved, about the input text: for every input the parser reads,
 --| its lines are the layout's rows written out (Parse.sw); a round of the
---| program is the spec's round for each part (Rounds.sw, Sight.sw); so each
---| answer is the occupied seats of the layout the spec's rounds settle on
---| (Settle.sw, Parts.sw), and there is one such answer. Nothing bounds the
---| rounds: each part answers exactly when the spec's rounds settle within
---| `roundLimit` rounds.
+--| program is the spec's round for each part (Rounds.sw, Sight.sw,
+--| Plan.sw); so each answer is the occupied seats of the layout the spec's
+--| rounds settle on (Settle.sw, Parts.sw), and there is one such answer.
+--| Nothing bounds the rounds: each part answers exactly when the spec's
+--| rounds settle within `roundLimit` rounds.
 
 namespace Aoc.Year2020.Day11.Proofs
 import Aoc.Year2020.Day11 (..)

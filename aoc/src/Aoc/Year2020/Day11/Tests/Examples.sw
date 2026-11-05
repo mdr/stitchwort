@@ -107,7 +107,7 @@ def seesNone: Text := """
   """
 
 def rounds (rule: Layout → Rule) (count: Nat) (input: Text): Result Layout Text :=
-  (parsed input).map (layout => Nat.iterate count (next => next.round (rule layout)) layout)
+  (parsed input).map (layout => Nat.iterate count (next => next.round ((rule layout).planFor layout)) layout)
 
 test "example, 10 rows of 10" := (parsed example).map (layout => (layout.grid.height, layout.grid.width)) == Ok (10, 10)
 test "a bad character fails" := not (parsed "L.X\n").isOk
@@ -133,10 +133,10 @@ test "floor only, nothing to fill" := part1 "...\n" == Ok (Some 0)
 
 -- The program's rounds are the spec's, run side by side on the example.
 test "spec, part 1's rounds" :=
-  (parsed example).map (layout => [0, 1, 2, 3, 4, 5].all (count => (Nat.iterate count (next => next.round adjacentRule) layout) == Nat.iterate count Spec.adjacentRound layout))
+  (parsed example).map (layout => [0, 1, 2, 3, 4, 5].all (count => (Nat.iterate count (next => next.round (adjacentRule.planFor layout)) layout) == Nat.iterate count Spec.adjacentRound layout))
     == Ok True
 test "spec, part 2's rounds" :=
-  (parsed example).map (layout => [0, 1, 2, 3, 4, 5, 6].all (count => (Nat.iterate count (next => next.round layout.sightRule) layout) == Nat.iterate count Spec.sightRound layout))
+  (parsed example).map (layout => [0, 1, 2, 3, 4, 5, 6].all (count => (Nat.iterate count (next => next.round (layout.sightRule.planFor layout)) layout) == Nat.iterate count Spec.sightRound layout))
     == Ok True
 test "spec, the example settles after 5 and 6 rounds" :=
   (parsed example).map (layout =>

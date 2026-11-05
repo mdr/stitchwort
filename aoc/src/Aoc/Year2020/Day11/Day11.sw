@@ -10,7 +10,9 @@
 --|   $ cd aoc && stitchwort run Aoc.Year2020.Day11.main < inputs/2020/day11.txt
 --|
 --| Nothing in the rules bounds the number of rounds, so the rounds stop
---| after `roundLimit`, which is far more than any input needs. The proofs,
+--| after `roundLimit`, which is far more than any input needs. Floor never
+--| changes, so the seats each passenger looks at are worked out once
+--| (`Rule.planFor`), and each round looks up only those. The proofs,
 --| that a round is the puzzle's round and that both answers are the
 --| occupied seats of the layout the rounds settle on, are in
 --| `Aoc.Year2020.Day11.Proofs` (Proofs/), and the tests in
@@ -94,21 +96,35 @@ def Seat.next (seat: Seat) (occupiedInView: Nat) (tolerance: Nat): Seat :=
     | Empty => if occupiedInView == 0 then Occupied else Empty
     | Occupied => if tolerance <= occupiedInView then Empty else Occupied
 
---| Every seat changes at once, by what was in view before the round.
-def Layout.round (layout: Layout) (rule: Rule): Layout :=
+def Seat.isSeat (seat: Seat): Bool := seat != Floor
+
+--| A rule worked out for one floor plan: the seats a passenger at each
+--| position looks at, and how many of them occupied are too many.
+type Plan = { inView: Position → List Position, tolerance: Nat }
+
+--| `rule` for the floor plan of `layout`, worked out once: floor never
+--| changes, so neither do the seats in view. Only seats look, and only at
+--| seats; off the layout, nothing.
+def Rule.planFor (rule: Rule) (layout: Layout): Plan :=
   let find := layout.grid.lookup
-  { grid = layout.grid.map (at here => here.next ((rule.inView find at).count (near => find near == Some Occupied)) rule.tolerance) }
+  let looks := (at: Position) (here: Seat) => if here.isSeat then rule.inView find at |> .filter (near => (find near).any (.isSeat)) else []
+  { inView = layout.grid.map looks |> .lookupOr [], tolerance = rule.tolerance }
+
+--| Every seat changes at once, by what was in view before the round.
+def Layout.round (layout: Layout) (plan: Plan): Layout :=
+  let find := layout.grid.lookup
+  { grid = layout.grid.map (at here => here.next ((plan.inView at).count (near => find near == Some Occupied)) plan.tolerance) }
 
 --| How many rounds to run before giving up.
 def roundLimit: Nat := 1000
 
 --| Rounds from `layout` until one changes nothing, giving the layout
 --| then; none after `rounds` rounds.
-def Layout.settle (layout: Layout) (rule: Rule): (rounds: Nat) → Option Layout
+def Layout.settle (layout: Layout) (plan: Plan): (rounds: Nat) → Option Layout
   | Zero => None
   | Succ more =>
-    let next := layout.round rule
-    if next == layout then Some layout else next.settle rule more
+    let next := layout.round plan
+    if next == layout then Some layout else next.settle plan more
 
 --| The occupied seats once the rounds settle.
-def Layout.settledOccupied (layout: Layout) (rule: Rule): Option Nat := layout.settle rule roundLimit |> .map (.occupied)
+def Layout.settledOccupied (layout: Layout) (rule: Rule): Option Nat := layout.settle (rule.planFor layout) roundLimit |> .map (.occupied)

@@ -1,15 +1,16 @@
 --| Part 2's count is the spec's: walking out in a direction a step at a
 --| time, past floor, finds the first seat of the spec's line of sight, so
 --| the occupied seats the program counts over the eight directions are
---| the spec's occupied seats seen. That makes part 2's round the spec's on
---| any layout whose height and width the rule's reach is.
+--| the spec's occupied seats seen, for a reach of the layout's height plus
+--| its width; and the walk depends only on where the seats are
+--| (`firstSeatPlan`), so planning it on the start is sound.
 
 namespace Aoc.Year2020.Day11.Proofs
 import Aoc.Year2020.Day11 (..)
 import Aoc.Year2020.Day11 (Spec)
 import Aoc.Common (Grid, Offset, Position)
 import Aoc.Common.Proofs (lookupAt, mapWidth)
-import Std (Eq, List, Nat, Option)
+import Std (Bool, Eq, List, Nat, Option, Void)
 
 --| Counting the values of a `filterMap` counts the elements whose value
 --| passes.
@@ -97,14 +98,43 @@ theorem sightOccupied (layout: Layout) (reach: Nat) (fits: reach = layout.grid.h
       (direction => (Spec.firstSeen layout position direction).any (((_, seat)) => seat == Occupied))
       (direction member => seenOccupied layout position direction reach fits) in rfl
 
---| Part 2's round, with the reach of a layout of the same height and
---| width, is the spec's.
-theorem sightRound (start: Layout) (layout: Layout) (sameShape: start.grid.height + start.grid.width = layout.grid.height + layout.grid.width):
-    layout.round start.sightRule = Spec.sightRound layout :=
-  roundSpec layout start.sightRule (Spec.occupiedSeen layout) (position => sightOccupied layout (start.grid.height + start.grid.width) sameShape position)
-
 --| A spec round keeps the layout's height and width.
 theorem roundShape (layout: Layout) (considered: Position → Nat) (crowded: Nat):
     (Spec.round layout considered crowded).grid.height + (Spec.round layout considered crowded).grid.width = layout.grid.height + layout.grid.width :=
   let (Both wide tall) := mapWidth layout.grid (at seat => Spec.becomes seat (considered at) crowded)
   rewrite wide, tall in rfl
+
+--| The walk depends only on where the seats are: two layouts with seats at
+--| the same positions give the same walk.
+theorem firstSeatPlan (f: Position → Option Seat) (g: Position → Option Seat)
+    (same: (position: Position) → (f position).map Seat.isSeat = (g position).map Seat.isSeat)
+    (from: Position) (direction: Offset): (distance: Nat) → (steps: Nat) → firstSeat f from direction distance steps = firstSeat g from direction distance steps
+  | distance, Zero => rfl
+  | distance, Succ more =>
+    match from.offset (direction.times distance.toInt) with
+      | None => rfl
+      | Some next =>
+        let plan := same next
+        match f next with
+          | None =>
+            match g next with
+              | None => rfl
+              | Some seat => Void.exfalso (Option.noneNotSome seat.isSeat plan)
+          | Some Floor =>
+            match g next with
+              | None => Void.exfalso (Option.noneNotSome False (Eq.sym plan))
+              | Some Floor => firstSeatPlan f g same from direction (distance + 1) more
+              | Some Empty => Void.exfalso (Bool.falseNotTrue (Option.someInjective plan))
+              | Some Occupied => Void.exfalso (Bool.falseNotTrue (Option.someInjective plan))
+          | Some Empty =>
+            match g next with
+              | None => Void.exfalso (Option.noneNotSome True (Eq.sym plan))
+              | Some Floor => Void.exfalso (Bool.falseNotTrue (Eq.sym (Option.someInjective plan)))
+              | Some Empty => rfl
+              | Some Occupied => rfl
+          | Some Occupied =>
+            match g next with
+              | None => Void.exfalso (Option.noneNotSome True (Eq.sym plan))
+              | Some Floor => Void.exfalso (Bool.falseNotTrue (Eq.sym (Option.someInjective plan)))
+              | Some Empty => rfl
+              | Some Occupied => rfl
