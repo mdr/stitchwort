@@ -17,7 +17,7 @@ def BitwiseXor (x: Nat) (y: Nat) (result: Nat): Prop := (i: Nat) → bitSet resu
 --| given value and the secret number. Then, the secret number becomes the
 --| result of that operation." `Nat.xor value secret` is that XOR, and the
 --| only number that is (`mixBitwise` and `bitwiseXorUnique` in Proofs/).
-def mix (value: Nat) (secret: Nat): Nat := Nat.xor value secret
+def mix (value: Nat) (secret: Nat): Nat := value.xor secret
 
 --| "To prune the secret number, calculate the value of the secret number
 --| modulo 16777216."

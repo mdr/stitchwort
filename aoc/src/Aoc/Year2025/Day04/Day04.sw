@@ -90,9 +90,9 @@ def roundRows (rows: Vec (Vec Cell w) h): Vec (Vec Cell w) h := rows.around (Vec
 --| add the three rows column by column, then each column's sum to its
 --| neighbours' (the window of 3 by 3 cells).
 def peelRow (above row below: Vec Cell w): Vec Cell w :=
-  let columns := Vec.zipWith3 above row below (aboveCell rowCell belowCell => aboveCell.count + rowCell.count + belowCell.count)
+  let columns := above.zipWith3 row below (aboveCell rowCell belowCell => aboveCell.count + rowCell.count + belowCell.count)
   let windows := columns.around 0 (left here right => left + here + right)
-  Vec.zipWith row windows (roll window => if roll == Roll ∧ 5 ≤ window then Roll else Floor)
+  row.zipWith windows (roll window => if roll == Roll ∧ 5 ≤ window then Roll else Floor)
 
 def Grid.settle (grid: Grid): Grid := { grid | rows = settleRows grid.rows }
 

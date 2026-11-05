@@ -95,14 +95,14 @@ def Racetrack.toEnd (racetrack: Racetrack): Map Position Nat := racetrack.graph.
 --| The picoseconds from one position to another through walls: the
 --| Manhattan distance.
 def Position.distance (position: Position) (other: Position): Nat :=
-  Nat.absDiff position.row other.row + Nat.absDiff position.column other.column
+  position.row.absDiff other.row + position.column.absDiff other.column
 
 --| Every position at most `length` picoseconds from `position` through
 --| walls: a diamond, row by row.
 def Position.diamond (position: Position) (length: Nat): List Position :=
   List.between (position.row - length) (position.row + length)
     |> .flatMap (row =>
-      let spare := length - Nat.absDiff row position.row
+      let spare := length - row.absDiff position.row
       List.between (position.column - spare) (position.column + spare) |> .map (column => ({ row, column }: Position)))
 
 --| Whether a cheat from `start`, `before` picoseconds into the race, to `end`

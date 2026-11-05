@@ -62,7 +62,7 @@ def placed (target: Target): Bool := 0 < target.left ∧ target.top < 0
 def launch (velocity: Velocity): Probe := { x = 0, y = 0, dx = velocity.dx, dy = velocity.dy }
 
 def step (probe: Probe): Probe :=
-  { x = probe.x + probe.dx, y = probe.y + probe.dy, dx = probe.dx - Int.sign probe.dx, dy = probe.dy - 1 }
+  { x = probe.x + probe.dx, y = probe.y + probe.dy, dx = probe.dx - probe.dx.sign, dy = probe.dy - 1 }
 
 def inTarget (target: Target) (probe: Probe): Bool :=
   target.left ≤ probe.x ≤ target.right ∧ target.bottom ≤ probe.y ≤ target.top
@@ -92,7 +92,7 @@ def steps (target: Target): Nat := Int.toNat (-2 * target.bottom)
 --| the first step) and y from `bottom` (any less falls past on the first
 --| step) to `-bottom - 1` (any more comes down through y = 0 too fast).
 def candidates (target: Target): List Velocity :=
-  List.range (Int.toNat target.right)
+  List.range (target.right.toNat)
     |> .flatMap (i => List.range (steps target) |> .map (aimed target i))
 
 --| The `i`th x velocity from 1 and the `j`th y velocity from `bottom`.
@@ -107,7 +107,7 @@ def triangle: Nat → Nat
 
 --| The highest y a velocity reaches: thrown up at `dy`, the probe climbs
 --| `dy`, then `dy - 1`, …, then 1; thrown flat or down, it never rises.
-def peak (velocity: Velocity): Nat := triangle (Int.toNat velocity.dy)
+def peak (velocity: Velocity): Nat := triangle (velocity.dy.toNat)
 
 def solvePart1 (target: Target): Option Nat := (hitting target).maximumOf peak
 

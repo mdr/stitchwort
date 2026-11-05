@@ -160,7 +160,7 @@ theorem wrapWithin (position: Position) (offset: Offset) (height: Nat) (width: N
   Bool.andIntro _ _ (omega [rowBelow]) (omega [columnBelow])
 
 --| A number on a line of `size` wraps to itself.
-theorem modNatSmall: (size: Nat) → (ok: size ≠ 0) → (x: Nat) → x < size → Int.modNat x.toInt size [ok := ok] = x
+theorem modNatSmall: (size: Nat) → (ok: size ≠ 0) → (x: Nat) → x < size → x.toInt.modNat size [ok := ok] = x
   | Zero, ok, x, inside => Void.exfalso (ok rfl)
   | Succ n, ok, x, inside => Nat.modSmall x (Succ n) inside
 

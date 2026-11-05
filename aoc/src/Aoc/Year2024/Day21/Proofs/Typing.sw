@@ -64,7 +64,7 @@ type Fitted (k: Type) = {
 
 --| The cheapest of a non-empty list of routes passes a test they all pass.
 theorem cheapestPasses (costs: Costs) (passes: List Direction → Bool): (choices: List (List Direction)) → ((choices != []): Bool) = True →
-    List.all choices passes = True → passes (costs.cheapestRoute choices) = True
+    choices.all passes = True → passes (costs.cheapestRoute choices) = True
   | [], some, all => Void.exfalso (Bool.falseNotTrue some)
   | [first, ..others], some, all => minByStepPasses costs.routeCost passes first (Bool.andLeft _ _ all) others (Bool.andRight _ _ all)
 

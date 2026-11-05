@@ -7,12 +7,12 @@ import Aoc.Year2024.Day24 (..)
 import Std (Bool, Eq, Exists, List, Map, Nat, Option, Ord, Void)
 
 --| A number below `2 ^ bit` has bit `bit` clear.
-theorem testBitSmall (n: Nat) (bit: Nat) (small: n < Nat.pow 2 bit): Nat.testBit n bit = False :=
+theorem testBitSmall (n: Nat) (bit: Nat) (small: n < Nat.pow 2 bit): n.testBit bit = False :=
   let positive := Nat.nonzeroOfPos (Nat.pow 2 bit) (Nat.powSuccPos 1 bit)
   rewrite Nat.testBitDiv n bit, Nat.divSmall n (Nat.pow 2 bit) [ok := positive] small in rfl
 
 --| A number below `2 ^ bits` has every bit from `bits` up clear.
-theorem testBitAbove (n: Nat) (bits: Nat) (bit: Nat) (small: n < Nat.pow 2 bits) (above: bits ≤ bit): Nat.testBit n bit = False :=
+theorem testBitAbove (n: Nat) (bits: Nat) (bit: Nat) (small: n < Nat.pow 2 bits) (above: bits ≤ bit): n.testBit bit = False :=
   testBitSmall n bit (omega [Nat.powMono 1 bits bit above])
 
 --| What `Map.lookupLast` finds is one of the pairs.
@@ -28,7 +28,7 @@ theorem lookupLastMem [auto ord: Ord k] (key: k) (value: v): (pairs: List (k, v)
           | Greater => Void.exfalso (Option.noneNotSome value found)
 
 --| What `List.findMap` finds, `f` gives for some element.
-theorem findMapSome (f: a → Option b) (result: b): (xs: List a) → List.findMap xs f = Some result → ∃ (x: a) => f x = Some result
+theorem findMapSome (f: a → Option b) (result: b): (xs: List a) → xs.findMap f = Some result → ∃ (x: a) => f x = Some result
   | [], found => Void.exfalso (Option.noneNotSome result found)
   | [x, ..rest], found =>
     match here: f x with

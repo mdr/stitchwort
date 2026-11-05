@@ -16,7 +16,7 @@ def Represents (counts: PairCounts) (polymer: List Char): Prop :=
 
 --| Each pair with the same count `n`.
 theorem entriesWeightAll (f: ElementPair → Nat) (n: Nat) (pairs: List ElementPair):
-    entriesWeight (pairs.map (pair => (pair, n))) f = n * List.sumBy pairs f :=
+    entriesWeight (pairs.map (pair => (pair, n))) f = n * pairs.sumBy f :=
   rewrite List.sumByMap pairs (entry => entry.snd * f entry.fst) (pair => (pair, n)) in List.sumByMulLeft pairs n f
 
 theorem countPairsRepresents (polymer: List Char): Represents (countPairs polymer) polymer :=

@@ -9,20 +9,20 @@ import Std (Bool, Eq, List, Nat, Void)
 
 --| A `mul` leaves `mul` enabled or disabled, as it was.
 theorem enabledAfterMul (earlier: List Instruction) (left: Nat) (right: Nat):
-    enabledAfter (List.append earlier [Mul left right]) = enabledAfter earlier :=
+    enabledAfter (earlier.append [Mul left right]) = enabledAfter earlier :=
   rewrite List.filterMapAppend earlier [Mul left right] setting, List.appendNil (List.filterMap earlier setting) in rfl
 
-theorem enabledAfterDo (earlier: List Instruction): enabledAfter (List.append earlier [Do]) = True :=
+theorem enabledAfterDo (earlier: List Instruction): enabledAfter (earlier.append [Do]) = True :=
   rewrite List.filterMapAppend earlier [Do] setting, List.lastSnoc True (List.filterMap earlier setting) in rfl
 
-theorem enabledAfterDont (earlier: List Instruction): enabledAfter (List.append earlier [Dont]) = False :=
+theorem enabledAfterDont (earlier: List Instruction): enabledAfter (earlier.append [Dont]) = False :=
   rewrite List.filterMapAppend earlier [Dont] setting, List.lastSnoc False (List.filterMap earlier setting) in rfl
 
 --| One step of the fold, from a tally that agrees with the spec on the
 --| instructions before.
 theorem stepAgrees (earlier: List Instruction) (total: Nat): (instruction: Instruction) →
     Tally.step { enabled = enabledAfter earlier, total } instruction =
-      { enabled = enabledAfter (List.append earlier [instruction]), total = total + (if enabledAfter earlier then instruction.result else 0) }
+      { enabled = enabledAfter (earlier.append [instruction]), total = total + (if enabledAfter earlier then instruction.result else 0) }
   | Mul left right =>
     rewrite enabledAfterMul earlier left right in
       match enabled: enabledAfter earlier with
@@ -78,7 +78,7 @@ theorem part2Correct (instructions: List Instruction): solvePart2 instructions =
 
 --| With `mul` enabled and no `don't()` to come, the fold adds every result.
 theorem foldWithoutDont: (instructions: List Instruction) → (total: Nat) → instructions.any isDont = False →
-    List.foldLeft instructions ({ enabled = True, total }: Tally) Tally.step = { enabled = True, total = total + instructions.sumBy Instruction.result }
+    instructions.foldLeft ({ enabled = True, total }: Tally) Tally.step = { enabled = True, total = total + instructions.sumBy Instruction.result }
   | [], total, noDont => rewrite Nat.addZero total in rfl
   | [Mul left right, ..rest], total, noDont =>
     rewrite foldWithoutDont rest (total + left * right) noDont, List.sumByCons rest (Mul left right) Instruction.result,
@@ -104,7 +104,7 @@ theorem stepAtMost (tally: Tally): (instruction: Instruction) → (Tally.step ta
 
 --| The fold adds at most every result.
 theorem foldAtMost: (instructions: List Instruction) → (tally: Tally) →
-    (List.foldLeft instructions tally Tally.step).total ≤ tally.total + instructions.sumBy Instruction.result
+    (instructions.foldLeft tally Tally.step).total ≤ tally.total + instructions.sumBy Instruction.result
   | [], tally => cases
   | [instruction, ..rest], tally =>
     let afterRest := foldAtMost rest (Tally.step tally instruction)

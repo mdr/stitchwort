@@ -7,15 +7,15 @@ import Aoc.Common (Range)
 import Std (List, Nat)
 
 --| The digits are some block of k digits written n times.
-def writtenAs (ds: List Nat) (k: Nat) (n: Nat): Bool := List.concat (List.replicate n (List.take ds k)) == ds
+def writtenAs (ds: List Nat) (k: Nat) (n: Nat): Bool := List.concat (List.replicate n (ds.take k)) == ds
 
 --| Part 1: written twice; part 2: written two or more times.
 def doubled (x: Nat): Bool :=
-  let ds := (Nat.digits x).toList
+  let ds := (x.digits).toList
   List.rangeFrom x.digitCount 1 |> .any (k => writtenAs ds k 2)
 
 def repeats (x: Nat): Bool :=
-  let ds := (Nat.digits x).toList
+  let ds := (x.digits).toList
   List.rangeFrom x.digitCount 1 |> .any (k => List.rangeFrom x.digitCount 2 |> .any (n => writtenAs ds k n))
 
 --| Part 1 as the puzzle states it: in every range walk the ids, keep those whose

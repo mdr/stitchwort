@@ -140,13 +140,13 @@ def steps (count: Nat) (direction: Direction): List Direction := List.replicate 
 def acrossThenAlong (from: Position) (to: Position): List Direction :=
   let across := if to.column < from.column then steps (from.column - to.column) Left else steps (to.column - from.column) Right
   let along := if to.row < from.row then steps (from.row - to.row) Up else steps (to.row - from.row) Down
-  List.append across along
+  across.append along
 
 --| The moves along a column, then along a row.
 def alongThenAcross (from: Position) (to: Position): List Direction :=
   let along := if to.row < from.row then steps (from.row - to.row) Up else steps (to.row - from.row) Down
   let across := if to.column < from.column then steps (from.column - to.column) Left else steps (to.column - from.column) Right
-  List.append along across
+  along.append across
 
 --| The ways to move the arm between two keys: all the moves across, then
 --| all along, or the other way round. The gap is in a corner, so a way

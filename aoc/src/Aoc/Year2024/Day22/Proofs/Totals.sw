@@ -6,7 +6,7 @@ import Aoc.Year2024.Day22 (..)
 import Aoc.Year2024.Day22.Spec (..)
 import Std (Eq, List, Map, Nat, Option)
 
-theorem mergeGetOr: (x: Option Nat) → (y: Option Nat) → (Option.merge x y Nat.add).getOrElse 0 = x.getOrElse 0 + y.getOrElse 0
+theorem mergeGetOr: (x: Option Nat) → (y: Option Nat) → (x.merge y Nat.add).getOrElse 0 = x.getOrElse 0 + y.getOrElse 0
   | Some x, Some y => rfl
   | Some x, None => (omega: x = x + 0)
   | None, Some y => (omega: y = 0 + y)

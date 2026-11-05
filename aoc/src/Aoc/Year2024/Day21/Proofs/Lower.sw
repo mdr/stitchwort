@@ -21,7 +21,7 @@ def CheapestWalks (keypad: Keypad k) (rows: List (List (Option k))) (costs: Cost
 
 --| A walk, then more of it.
 theorem walkAppend (rows: List (List (Option k))): (aim: Position) → (route: List Direction) → (more: List Direction) →
-    walk rows aim (List.append route more) = walk rows aim route |> .flatMap (end => walk rows end more)
+    walk rows aim (route.append more) = walk rows aim route |> .flatMap (end => walk rows end more)
   | aim, [], more => rfl
   | aim, [direction, ..others], more =>
     match step: moved aim direction with

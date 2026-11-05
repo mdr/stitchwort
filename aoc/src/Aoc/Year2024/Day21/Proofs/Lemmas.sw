@@ -25,7 +25,7 @@ theorem sumByPairs (cost: k → k → Nat): (from: k) → (keys: List k) →
 
 --| Pressing one list then another: the second starts from the first's last key.
 theorem costFromAppend (cost: k → k → Nat): (from: k) → (first: List k) → (second: List k) →
-    costFrom cost from (List.append first second) = costFrom cost from first + costFrom cost (lastFrom from first) second
+    costFrom cost from (first.append second) = costFrom cost from first + costFrom cost (lastFrom from first) second
   | from, [], second => rfl
   | from, [key, ..rest], second => rewrite costFromAppend cost key rest second in omega
 
@@ -40,7 +40,7 @@ theorem costFromOnes: (from: k) → (keys: List k) → costFrom (before after =>
   | from, [] => rfl
   | from, [to, ..rest] => rewrite costFromOnes to rest in omega
 
-theorem lastFromAppendOne: (from: k) → (keys: List k) → (key: k) → lastFrom from (List.append keys [key]) = key
+theorem lastFromAppendOne: (from: k) → (keys: List k) → (key: k) → lastFrom from (keys.append [key]) = key
   | from, [], key => rfl
   | from, [first, ..rest], key => lastFromAppendOne first rest key
 
@@ -53,8 +53,8 @@ theorem flatMapIntoSome: (x: Option a) → x.flatMap (value => Some value) = x
   | Some value => rfl
 
 --| Folding with `List.minByStep` keeps a value that passes, if all do.
-theorem minByStepPasses [auto ord: Ord b] (key: a → b) (passes: a → Bool): (best: a) → passes best = True → (rest: List a) → List.all rest passes = True →
-    passes (List.foldLeft rest best (List.minByStep key)) = True
+theorem minByStepPasses [auto ord: Ord b] (key: a → b) (passes: a → Bool): (best: a) → passes best = True → (rest: List a) → rest.all passes = True →
+    passes (rest.foldLeft best (List.minByStep key)) = True
   | best, good, [], all => good
   | best, good, [next, ..others], all =>
     let nextGood := Bool.andLeft _ _ all

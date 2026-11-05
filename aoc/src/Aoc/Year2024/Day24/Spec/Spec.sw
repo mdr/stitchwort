@@ -32,14 +32,14 @@ type Carries (device: Device): Wire → Bool → Prop =
 --| z02, and so on": bit `bit` of the number is the value on the z wire of
 --| that bit, and 0 where there is no such wire.
 def Outputs (device: Device) (number: Nat): Prop :=
-  ((bit: Nat) → Z bit ∈ device.wires → Carries device (Z bit) (Nat.testBit number bit))
-    ∧ ((bit: Nat) → Z bit ∉ device.wires → Nat.testBit number bit = False)
+  ((bit: Nat) → Z bit ∈ device.wires → Carries device (Z bit) (number.testBit bit))
+    ∧ ((bit: Nat) → Z bit ∉ device.wires → number.testBit bit = False)
 
 --| "treating the bits on wires starting with x as one binary number,
 --| treating the bits on wires starting with y as a second binary number":
 --| the wires starting with `x` and `y`, `bits` of each.
 def inputsFor (bits: Nat) (x: Nat) (y: Nat): List (Wire, Bool) :=
-  List.append (List.range bits |> .map (bit => (X bit, Nat.testBit x bit))) (List.range bits |> .map (bit => (Y bit, Nat.testBit y bit)))
+  List.append (List.range bits |> .map (bit => (X bit, x.testBit bit))) (List.range bits |> .map (bit => (Y bit, y.testBit bit)))
 
 --| "for any combination of bits on wires starting with x and wires starting
 --| with y, the sum of the two numbers those bits represent should be

@@ -29,12 +29,12 @@ import Std (Bool, Decidable, Eq, Fin, List, Nat, Or, Ordering, Pair, Void)
 -- does at least as well.
 
 --| Digits as numbers are digits.
-theorem finDigits: (ds: List Battery) → Nat.Digits (List.map ds Fin.toNat)
+theorem finDigits: (ds: List Battery) → Nat.Digits (ds.map Fin.toNat)
   | [] => Trivial
   | [d, ..ds] => Both (Fin.toNatLt d) (finDigits ds)
 
 theorem mapLength (s: List Battery) (r: List Battery) (hl: s.length = r.length):
-    List.length (List.map s Fin.toNat) = List.length (List.map r Fin.toNat) :=
+    List.length (s.map Fin.toNat) = List.length (r.map Fin.toNat) :=
   rewrite List.lengthMap s Fin.toNat, List.lengthMap r Fin.toNat in hl
 
 --| Equal-length numbers: a smaller first digit gives a smaller number.

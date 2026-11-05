@@ -157,4 +157,4 @@ theorem sameDigit (wiring: Segment → Segment) (wired: IsWiring wiring) (patter
 
 theorem boolEqSelf: (b: Bool) → (b == b) = True := cases
 
-theorem notNone (o: Option a) (some: Option.isSome o = True) (none: o = None): Void := rewrite none at some in Bool.falseNotTrue some
+theorem notNone (o: Option a) (some: o.isSome = True) (none: o = None): Void := rewrite none at some in Bool.falseNotTrue some

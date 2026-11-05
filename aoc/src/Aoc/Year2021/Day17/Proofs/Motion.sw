@@ -7,7 +7,7 @@ import Aoc.Year2021.Day17.Spec (..)
 import Std (Bool, Eq, Int, Nat, Void)
 
 --| The program's drag, `dx - sign dx`, is the puzzle's.
-theorem dragSign: (dx: Int) → dx - Int.sign dx = drag dx
+theorem dragSign: (dx: Int) → dx - dx.sign = drag dx
   | OfNat 0 => rfl
   | OfNat (Succ k) => rfl
   | NegSucc k => rfl
@@ -31,7 +31,7 @@ theorem yAfter: (n: Nat) → (probe: Probe) → 2 * (Nat.iterate n step probe).y
   | Succ n, probe => ring [yAfter n (step probe)]
 
 --| Drag takes `dx` one toward 0: what `Int.sign` is, by the sign of `dx`.
-theorem signCases: (dx: Int) → (Int.sign dx = 1 ∧ 0 < dx) ∨ (Int.sign dx = 0 ∧ dx = 0) ∨ (Int.sign dx = -1 ∧ dx < 0)
+theorem signCases: (dx: Int) → (dx.sign = 1 ∧ 0 < dx) ∨ (dx.sign = 0 ∧ dx = 0) ∨ (dx.sign = -1 ∧ dx < 0)
   | OfNat 0 => Inr (Inl (Both rfl rfl))
   | OfNat (Succ k) => Inl (Both rfl (omega))
   | NegSucc k => Inr (Inr (Both rfl (omega)))

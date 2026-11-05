@@ -41,7 +41,7 @@ theorem moveFileKeeps (free: FreeSpace) (file: File): (free.moveFile file).snd.i
 
 --| What holds of each element and its image holds along the zip.
 theorem allZipWith (holds: a → c → Prop) (g: a → b → c) (each: (x: a) → (y: b) → holds x (g x y)):
-    (xs: List a) → (ys: List b) → List.All (pair => holds pair.fst pair.snd) (List.zip xs (List.zipWith xs ys g))
+    (xs: List a) → (ys: List b) → List.All (pair => holds pair.fst pair.snd) (xs.zip (xs.zipWith ys g))
   | [], ys => Trivial
   | [x, ..rest], [] => Trivial
   | [x, ..rest], [y, ..others] => Both (each x y) (allZipWith holds g each rest others)

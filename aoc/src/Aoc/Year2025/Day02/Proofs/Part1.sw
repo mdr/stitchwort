@@ -49,7 +49,7 @@ theorem part1BlocksCorrect (ranges: List Range): solvePart1 ranges = part1Blocks
 
 --| One range: the block walk is the id walk.
 theorem rangeBlocksIds (r: Range):
-    List.sumBy (List.rangeFrom r.to.digitCount 1) (k => repeatedSpec r k 2) = List.sum (List.filter r.ids doubled) :=
+    List.sumBy (List.rangeFrom r.to.digitCount 1) (k => repeatedSpec r k 2) = List.sum (r.ids.filter doubled) :=
   calc List.sumBy (List.rangeFrom r.to.digitCount 1) (k => repeatedSpec r k 2)
     -- block length by block length, the ids whose digits are that block written twice...
     _ = List.sumBy (List.rangeFrom r.to.digitCount 1) (k => List.sumBy r.ids (x => Nat.keepIf x (writtenAs (Nat.digits x).toList k 2)))

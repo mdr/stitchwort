@@ -13,7 +13,7 @@ import Std (And, Bool, DecEq, Eq, Exists, Iff, List, Map, Option, Or, Set, Void)
 def startingAt (network: Network) (one: Computer): List Connection :=
   network.bothWays.filter ((pair: Connection) => Map.Spec.sameKey one pair.one)
 
-theorem neighboursGet (links: Links) (one: Computer): links.neighbours one = (Map.get links one).getOrElse Set.empty := rfl
+theorem neighboursGet (links: Links) (one: Computer): links.neighbours one = (links.get one).getOrElse Set.empty := rfl
 
 --| A computer's neighbours are the far ends of the connections starting at
 --| it.

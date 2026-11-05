@@ -20,7 +20,7 @@ def matching (patterns: List Pattern) (count: Nat) (stripes: List Stripe): Nat :
 --| unless the design starts with the pattern, and then those whose other
 --| towels make the rest.
 theorem matchingAfter (patterns: List Pattern) (count: Nat) (stripes: List Stripe) (pattern: Pattern):
-    (towelLists patterns count).count (towels => List.append pattern.stripes (laid towels) == stripes)
+    (towelLists patterns count).count (towels => pattern.stripes.append (laid towels) == stripes)
       = if stripes.startsWith pattern.stripes then matching patterns count (stripes.drop pattern.stripes.length) else 0 :=
   match starts: stripes.startsWith pattern.stripes with
     | True =>

@@ -64,7 +64,7 @@ theorem passesInjective (first: Wire) (second: Wire) (same: Passes first = Passe
   Eq.cong (check => carryOr check first) same
 
 --| A full adder's sum gate and carry gates, as `gateOutput`s.
-theorem sumGates (x: Bool) (y: Bool) (carry: Bool): gateOutput Xor (gateOutput Xor x y) carry = Bool.xor (Bool.xor x y) carry := cases
+theorem sumGates (x: Bool) (y: Bool) (carry: Bool): gateOutput Xor (gateOutput Xor x y) carry = Bool.xor (x.xor y) carry := cases
 
 theorem carryGates (x: Bool) (y: Bool) (carry: Bool):
     gateOutput Or (gateOutput And x y) (gateOutput And (gateOutput Xor x y) carry) = carryOut x y carry :=
@@ -76,7 +76,7 @@ theorem carryGates (x: Bool) (y: Bool) (carry: Bool):
 theorem fullAdderCarries (device: Device) (bit: Nat) (carryWire: Wire) (next: Wire)
     (passes: checkFullAdder device.gates bit carryWire = Passes next) (x: Bool) (y: Bool) (carry: Bool)
     (xCarries: Carries device (X bit) x) (yCarries: Carries device (Y bit) y) (carryCarries: Carries device carryWire carry):
-    Carries device (Z bit) (Bool.xor (Bool.xor x y) carry) ∧ Carries device next (carryOut x y carry) :=
+    Carries device (Z bit) (Bool.xor (x.xor y) carry) ∧ Carries device next (carryOut x y carry) :=
   match partialIs: outputOf device.gates Xor (X bit) (Y bit) with
     | None => Void.exfalso (faultyNotPasses _ _ next passes)
     | Some partial =>
@@ -104,7 +104,7 @@ theorem fullAdderCarries (device: Device) (bit: Nat) (carryWire: Wire) (next: Wi
                             (rewrite <- passesInjective output next passes, <- carryGates x y carry in carryOutCarries)
 
 --| A half adder's gates: a full adder's with no carry in.
-theorem halfSumGate (x: Bool) (y: Bool): gateOutput Xor x y = Bool.xor (Bool.xor x y) False := cases
+theorem halfSumGate (x: Bool) (y: Bool): gateOutput Xor x y = Bool.xor (x.xor y) False := cases
 
 theorem halfCarryGate (x: Bool) (y: Bool): gateOutput And x y = carryOut x y False := cases
 

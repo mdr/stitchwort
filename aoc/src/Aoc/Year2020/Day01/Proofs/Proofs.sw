@@ -38,7 +38,7 @@ theorem pairAheadBack (before: List Nat) (x: Nat) (rest: List Nat) (a: Nat) (b: 
 --| What `findPairAfter` finds is a pair ahead summing to the target, when
 --| everything in `seen` was passed.
 theorem findPairAfterSound (target: Nat): (seen: Set Nat) → (before: List Nat) →
-    (passed: (y: Nat) → Set.contains seen y = True → y ∈ before) → (rest: List Nat) → (a: Nat) → (b: Nat) →
+    (passed: (y: Nat) → seen.contains y = True → y ∈ before) → (rest: List Nat) → (a: Nat) → (b: Nat) →
     findPairAfter target seen rest = Some (a, b) → (PairAhead before rest a b) ∧ (a + b = target)
   | seen, before, passed, [], a, b, found => Void.exfalso (Option.noneNotSome (a, b) found)
   | seen, before, passed, [x, ..rest], a, b, found =>
@@ -59,7 +59,7 @@ theorem findPairAfterSound (target: Nat): (seen: Set Nat) → (before: List Nat)
 --| And it finds one if there is a pair ahead summing to the target, when
 --| everything passed is in `seen`.
 theorem findPairAfterComplete (target: Nat): (seen: Set Nat) → (before: List Nat) →
-    (remembered: (y: Nat) → y ∈ before → Set.contains seen y = True) → (rest: List Nat) → (a: Nat) → (b: Nat) →
+    (remembered: (y: Nat) → y ∈ before → seen.contains y = True) → (rest: List Nat) → (a: Nat) → (b: Nat) →
     PairAhead before rest a b → a + b = target → findPairAfter target seen rest ≠ None
   | seen, before, remembered, [], a, b, Inl (Both aIn bIn), sum, isNone => bIn
   | seen, before, remembered, [], a, b, Inr inPairs, sum, isNone => inPairs

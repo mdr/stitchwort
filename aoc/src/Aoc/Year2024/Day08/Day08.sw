@@ -72,7 +72,7 @@ def divideBy (offset: Offset): Nat → Offset
 --| parts.
 def Position.stepToward (start: Position) (end: Position): Offset :=
   let difference := end.minus start
-  divideBy difference (Nat.gcd difference.rows.natAbs difference.columns.natAbs)
+  divideBy difference (difference.rows.natAbs.gcd difference.columns.natAbs)
 
 --| The grid points in line with `start` and `end`: whole steps from `start`
 --| either way, as many as the map is high or wide, which reaches past it.

@@ -38,7 +38,7 @@ def parseEquations (input: Text): {Fail} List Equation := Parse.eachLine input e
 
 --| 10 to the power of the number of digits of `number`: what concatenating
 --| `number` onto the right multiplies the left side by.
-def placeValue (number: Nat): Nat := Nat.pow 10 (Nat.digitCount number)
+def placeValue (number: Nat): Nat := Nat.pow 10 (number.digitCount)
 
 --| Whether the operators can join `first` and the numbers after it to make
 --| `target`. The numbers after `first` come last one first: the last operator

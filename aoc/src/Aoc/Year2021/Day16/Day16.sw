@@ -75,7 +75,7 @@ def hexValue: Char → Option Nat := match some
   | 'F' => 15
 
 --| A digit's four bits, the most significant first.
-def digitBits (value: Nat): List Bool := [Nat.testBit value 3, Nat.testBit value 2, Nat.testBit value 1, Nat.testBit value 0]
+def digitBits (value: Nat): List Bool := [value.testBit 3, value.testBit 2, value.testBit 1, value.testBit 0]
 
 --| The transmission's bits.
 def readBits (input: Text): {Fail} List Bool := bitsOfDigits (readDigits input)

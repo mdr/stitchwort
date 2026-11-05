@@ -55,14 +55,14 @@ theorem part2Sound (device: Device) (answer: Text) (solved: solvePart2 device = 
         Witness more (Both (Eq.trans (Eq.sym named) (Eq.cong swapNames isSwaps)) (Both short (adderAdds (applySwaps device.gates more) device.inputBits adder))))
 
 --| The names of the x pairs are x wires, and of the y pairs y wires.
-theorem xNamed (bits: Nat) (x: Nat) (wire: Wire) (member: wire ∈ ((List.range bits).map (k => (X k, Nat.testBit x k))).map .fst):
+theorem xNamed (bits: Nat) (x: Nat) (wire: Wire) (member: wire ∈ ((List.range bits).map (k => (X k, x.testBit k))).map .fst):
     wire.xBit.isSome = True :=
   match List.memMapElim .fst wire _ member with
     | Witness pair (Both inPairs isWire) =>
       match List.memMapElim (k => (X k, Nat.testBit x k)) pair _ inPairs with
         | Witness k (Both inRange isPair) => rewrite <- isWire, <- isPair in rfl
 
-theorem yNamed (bits: Nat) (y: Nat) (wire: Wire) (member: wire ∈ ((List.range bits).map (k => (Y k, Nat.testBit y k))).map .fst):
+theorem yNamed (bits: Nat) (y: Nat) (wire: Wire) (member: wire ∈ ((List.range bits).map (k => (Y k, y.testBit k))).map .fst):
     wire.yBit.isSome = True :=
   match List.memMapElim .fst wire _ member with
     | Witness pair (Both inPairs isWire) =>

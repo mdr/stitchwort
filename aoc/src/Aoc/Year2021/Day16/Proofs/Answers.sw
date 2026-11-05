@@ -22,7 +22,7 @@ theorem part1Correct (packet: Packet): solvePart1 packet = versionTotal packet :
 
 --| A literal's value: its groups, each below 16, read as one binary number.
 theorem groupsValue (acc: Nat): (groups: List Nat) → groups.all (group => group < 16) = True →
-    List.foldLeft groups acc (value group => value * 16 + group) = List.foldLeft (groups.flatMap (Nat.toBits 4)) acc (acc bit => acc * 2 + Bool.toNat bit)
+    groups.foldLeft acc (value group => value * 16 + group) = List.foldLeft (groups.flatMap (Nat.toBits 4)) acc (acc bit => acc * 2 + bit.toNat)
   | [], small => rfl
   | [group, ..rest], small =>
     let fits: group < Nat.pow 2 4 := omega [Bool.andLeft _ _ small]

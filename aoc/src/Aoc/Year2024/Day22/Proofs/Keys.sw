@@ -84,7 +84,7 @@ theorem salesIn (possible: List Changes) (contains: HoldsDigitChanges possible) 
       sellsAtIn possible contains key price later (x inLater => pricesDigits count buyer x (memTails x pricesOf later member inLater)) sellsHere)
 
 --| A merged total comes from one side or the other.
-theorem mergeSides (holds: Prop) (value: Nat): (x: Option Nat) → (y: Option Nat) → Option.merge x y Nat.add = Some value →
+theorem mergeSides (holds: Prop) (value: Nat): (x: Option Nat) → (y: Option Nat) → x.merge y Nat.add = Some value →
     ((t: Nat) → x = Some t → holds) → ((s: Nat) → y = Some s → holds) → holds
   | Some t, y, merged, fromX, fromY => fromX t rfl
   | None, Some s, merged, fromX, fromY => fromY s rfl

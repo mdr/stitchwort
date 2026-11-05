@@ -94,7 +94,7 @@ def Operation.apply (operation: Operation) (left: Bool) (right: Bool): Bool :=
   match operation with
     | And => left ∧ right
     | Or => left ∨ right
-    | Xor => Bool.xor left right
+    | Xor => left.xor right
 
 type Values = Map Wire Bool
 
@@ -178,7 +178,7 @@ type BitCheck =
 def missingInput (gates: List Gate) (operation: Operation) (trusted: Wire) (suspect: Wire): BitCheck :=
   let fromTrusted := partnerOf gates operation trusted |> .fold [] (other => [(suspect, other)])
   let fromSuspect := partnerOf gates operation suspect |> .fold [] (other => [(trusted, other)])
-  Faulty (List.append fromTrusted fromSuspect) []
+  Faulty (fromTrusted.append fromSuspect) []
 
 --| The outputs of the gates at a bit that are there, with the carry from
 --| below on `carry`: the partial and generated sums, the sum and passed
@@ -252,7 +252,7 @@ def isAdder (gates: List Gate) (bits: Nat): Bool :=
 
 --| The swaps to try at a fault: the suggested fixes, then every pair of
 --| the faulty bit's gate outputs.
-def swapsToTry (fixes: List (Wire, Wire)) (suspects: List Wire): List (Wire, Wire) := List.append fixes suspects.pairs
+def swapsToTry (fixes: List (Wire, Wire)) (suspects: List Wire): List (Wire, Wire) := fixes.append suspects.pairs
 
 --| Swaps after `swaps` that make the gates an adder, at most `budget` more:
 --| try each swap for the first fault in turn, and go on from there.
@@ -261,7 +261,7 @@ def repair (budget: Nat) (bits: Nat) (gates: List Gate) (swaps: List (Wire, Wire
     | Faulty fixes suspects =>
       match budget with
         | Zero => None
-        | Succ fewer => (swapsToTry fixes suspects).findMap (fix => repair fewer bits (swapOutputs gates fix) (List.append swaps [fix]))
+        | Succ fewer => (swapsToTry fixes suspects).findMap (fix => repair fewer bits (swapOutputs gates fix) (swaps.append [fix]))
     | Passes carry => if isAdder gates bits then Some swaps else None
 
 --| The swaps' wires, sorted by name and joined with commas.

@@ -92,7 +92,7 @@ def copiesWeight (copies: Nat): Int
     decreasing copies
 :=
   let divisorWeights := List.between 2 (copies - 1) |> .sumBy (divisor =>
-    if h: divisor < copies then (if Nat.divides divisor copies then copiesWeight divisor else 0) else 0)
+    if h: divisor < copies then (if divisor.divides copies then copiesWeight divisor else 0) else 0)
   1 - divisorWeights
 
 --| The sum of the ids in the range whose digits are a block of the template's
@@ -104,9 +104,9 @@ def RepetitionTemplate.sumIn (template: RepetitionTemplate) (range: Range): Nat 
     -- The blocks whose id lies in the range: the block times the multiplier is
     -- at least range.from (round up) and at most range.to (round down). When
     -- no block fits, firstBlock > lastBlock and `Nat.sumBetween` gives 0.
-    let firstBlock := Nat.max template.smallestBlock (Nat.ceilDiv range.from multiplier)
+    let firstBlock := Nat.max template.smallestBlock (range.from.ceilDiv multiplier)
     let lastBlock := Nat.min template.largestBlock (range.to / multiplier)
-    multiplier * Nat.sumBetween firstBlock lastBlock
+    multiplier * firstBlock.sumBetween lastBlock
   else 0
 
 --| Ranges separated by commas. Spaces and a final line break are allowed;
