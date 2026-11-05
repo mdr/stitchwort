@@ -240,9 +240,16 @@ test "inline" := sample.filterMap (match some | Garbled text => text.length) == 
 test "the first match" := sample.findMap (match some | Valid value => value * 10) == Some 40
 test "testing a value" := sample.filter (matches | Valid _ | Missing) == [Valid 4, Missing, Valid 9]
 test "a name is tested" := sample.count isMissing == 1
+
+def bigValue: Reading → Option Nat := match some
+  | Valid value if value > 5 => value
+
+test "a condition on a case" := sample.filterMap bigValue == [9]
 ```
 
 A plain `match` still has to cover every case; the `some` and `matches` are what say that the values left out are dropped or false. If the cases you write already cover every value, the compiler warns (`W-MATCH-TOTAL`), since a `match` says that better. The words `some` and `matches` are special only in these places, so a variable of that name works anywhere else. On one line, a `|` before `=>` joins patterns, so put cases that give different results on lines of their own.
+
+A case may carry a condition, `| Valid value if value > 5 => value`: it applies only when the condition holds, and when it doesn't, the cases below it are tried. In `match some` and `matches` that means a value no case accepts is dropped or false, as one no pattern matches is; in a plain `match`, a case with a condition covers nothing, so there must still be a case without one for the same values.
 
 ## Functions as values
 

@@ -3730,7 +3730,7 @@ impl Elaborator {
                 "this `match`'s conditions would copy its arms too many times",
             )
             .with_note(
-                "move some of the guarded arms into a helper function, or test the condition                  inside one arm",
+                "move some of the guarded arms into a helper function, or test the condition inside one arm",
             ));
         }
         let otherwise = if rows.len() > 1 {

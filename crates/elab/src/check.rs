@@ -4611,7 +4611,7 @@ fn unused_proof_if(
 /// `elimDec decision (name => then) (name => otherwise)`, where `decision`
 /// decides `prop`: `name` is a proof of `prop` in `then` and of `Not prop`
 /// in `otherwise`.
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 fn decided_if(
     cx: &mut Ctx,
     name: &str,

@@ -1,0 +1,19 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NO-EQUATION] Error: `f.eq2` isn't generated
+    ╭─[ reject/pattern-guard-no-equation.sw:12:48 ]
+    │
+ 12 │ theorem eq2Missing (n: Nat): f (Succ n) = 7 := f.eq2
+    │                                                ──┬──  
+    │                                                  ╰──── an arm at or above it has a condition (`if`), which generated equations don't cover yet
+    │ 
+    │ Note 1: an equation for each arm is generated where it can be stated and proved (docs/proposals/function-equations.md); prove this one by hand, or use `f.unfold` and a `match`
+    │ 
+    │ Note 2: this statement is false; a counterexample:
+    │           n = 0
+    │         `f (Succ n) = 7` is false:
+    │           left:  1
+    │           right: 7
+────╯

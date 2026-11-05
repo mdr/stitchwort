@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: expected `=>`, but found `if`
+   ╭─[ reject/pattern-guard-in-handler.sw:9:16 ]
+   │
+ 9 │     | return x if True => 0
+   │                ─┬  
+   │                 ╰── expected `=>`, but found `if`
+   │ 
+   │ Note: an `if` inside an expression goes in brackets: `a + (if c then x else y)`; only after `=` or another comparison can it be written without them
+───╯

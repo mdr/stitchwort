@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: an arm with `()` and no body can't have a condition
+   ╭─[ reject/pattern-guard-absurd.sw:7:8 ]
+   │
+ 7 │   | () if True
+   │        ───┬───  
+   │           ╰───── an arm with `()` and no body can't have a condition
+   │ 
+   │ Note: the condition would test nothing: the pattern can't match
+───╯

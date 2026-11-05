@@ -1,0 +1,11 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+Main.remainder bb66dcb51f61731587673b1bf4812aded6e24143df2a29a133c3e14b998b7b8e
+Main.test "remainder" 546f3d07e691df04ea194af33eb77db9067a5e57e6917d2c514cde70ecc3d6cf
+Main.needsPositive fd520b840675f8e53e3ab52109a722073509cfcd8ea9af225096bafbb9d2e301
+Main.predecessor e4923a2e442b51d866c6456209cd8ef7920fd9bc94423203db1f85cdb5a0825b
+Main.test "predecessor" 75d2b69db34cd1c5c1e4acd37c37b735b2587b2a9d13720225256dd9331a6cbc
+Main.predecessorNamed e4923a2e442b51d866c6456209cd8ef7920fd9bc94423203db1f85cdb5a0825b
+Main.test "named" 75d2b69db34cd1c5c1e4acd37c37b735b2587b2a9d13720225256dd9331a6cbc
