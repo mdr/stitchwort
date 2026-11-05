@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REWRITE-NOTHING] Error: `rewrite` found no `g a` in the goal
+   ╭─[ reject/rewrite-wrong-direction.sw:8:11 ]
+   │
+ 8 │   rewrite <- h in rfl
+   │           ──┬─  
+   │             ╰─── looking for `g a`
+   │ 
+   │ Note 1: to replace the left side by the right, write the rule without `<-`
+   │ 
+   │ Note 2: goal: `((y: Nat) → g y = g y) → f a = f a`
+───╯

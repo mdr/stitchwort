@@ -9,9 +9,7 @@ expression: output
     │                                       ──────┬──────  
     │                                             ╰──────── looking for `x * 1`
     │ 
-    │ Note 1: goal: `?3 xs x = ?4 xs x`
+    │ Note 1: to replace the right side by the left, write `rewrite <- …`
     │ 
-    │ Note 2: occurrences are looked for by their outer function and compared by computing; one that uses a variable bound inside a function argument is rewritten through the congruence lemma of the call the function is passed to
-    │ 
-    │ Note 3: to replace the right side by the left, write `rewrite <- …`
+    │ Note 2: goal: `?3 xs x = ?4 xs x`
 ────╯

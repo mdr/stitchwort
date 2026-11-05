@@ -9,13 +9,11 @@ expression: output
     │                                     ──────┬──────  
     │                                           ╰──────── looking for `x * 1`
     │ 
-    │ Note 1: goal: `Succ x = x`
+    │ Note 1: to replace the right side by the left, write `rewrite <- …`
     │ 
-    │ Note 2: occurrences are looked for by their outer function and compared by computing; one that uses a variable bound inside a function argument is rewritten through the congruence lemma of the call the function is passed to
+    │ Note 2: goal: `Succ x = x`
     │ 
-    │ Note 3: to replace the right side by the left, write `rewrite <- …`
-    │ 
-    │ Note 4: this statement is false; a counterexample:
+    │ Note 3: this statement is false; a counterexample:
     │           xs = [0]
     │         `List.map xs (x => x + 1) = List.map xs (x => x)` is false:
     │           left:  [1]
