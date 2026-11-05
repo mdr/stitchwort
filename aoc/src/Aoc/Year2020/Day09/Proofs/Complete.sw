@@ -29,7 +29,7 @@ theorem shrinksInside (numbers: List Nat) (target: Nat) (start: Nat) (length: Na
   same =>
     let within: ((numbers.drop start).take count).sum ≤ ((numbers.drop start).take length).sum :=
       sumTakeLe (numbers.drop start) count length (omega)
-    let windowSum: sum = ((numbers.drop start).take count).sum := rewrite <- same, <- at in total
+    let windowSum := rewrite at, same at total in total
     omega
 
 --| The window can't end where the run does without summing to at least
@@ -41,9 +41,9 @@ theorem growsInside (numbers: List Nat) (target: Nat) (start: Nat) (length: Nat)
   if h: from + count < start + length then h
   else
     let skipped: front.drop (start - from) = numbers.drop start := rewrite at, <- List.dropAdd from (start - from) numbers, (omega: from + (start - from) = start) in rfl
-    let covered: ((front.drop (start - from)).take length).sum ≤ (front.take (start - from + length)).sum :=
+    let covered :=
       sumDropTakeLe front (start - from) length
-    let runSum: ((front.drop (start - from)).take length).sum = target := rewrite skipped in sums
+    let runSum := rewrite <- skipped at sums in sums
     let whole: (front.take (start - from + length)).sum = sum := rewrite (omega: start - from + length = count), total in rfl
     Void.exfalso (unfinished (omega) (omega))
 

@@ -2296,6 +2296,14 @@ identifying atoms that compute to the same term (or at least unfolding
 `Add.zero`/`Add.add` of a known instance) would remove the trap. It will
 recur wherever a sum or a fold goes through `rewrite … at`.
 
+*Correction (SW-1435):* `omega` already identifies atoms by a bounded
+conversion check, and the two atoms above (`take … count` and `take …
+length`) are different values. The model was real: the facts never linked
+`sum` to the window (`total` was about `front`, not rewritten). The
+annotated `windowSum` supplied that missing fact; with
+`rewrite at, same at total in total` the annotations aren't needed
+(`examples/accept/omega-atoms-by-conversion.sw`).
+
 ### 3. List lemmas: take, drop and sums over a run
 
 Std's `take`/`drop` lemmas covered most steps (`List.dropAdd`,
