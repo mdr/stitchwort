@@ -18,6 +18,8 @@
 
 use std::path::{Path, PathBuf};
 
+mod common;
+
 use stitchwort_cli::driver::{Cache, Outcome, Session, par_map, tier_sample};
 use stitchwort_cli::project::{DiskFiles, Target};
 use stitchwort_cli::render::render;
@@ -83,6 +85,29 @@ fn examples_filter_takes_a_comma_separated_list() {
     );
 }
 
+/// A part that matches nothing fails, and a part that matches still counts
+/// beside one that needs no match.
+#[test]
+fn a_filter_part_that_matches_nothing_is_an_error() {
+    let names = vec!["parse-basics.sw".to_string(), "safe-fields.sw".to_string()];
+    assert!(common::filter_error("parse,safe-fields", &names, "example file name").is_none());
+    assert!(common::filter_error("", &names, "example file name").is_none());
+    let message = common::filter_error("examples", &names, "example file name").unwrap();
+    assert!(
+        message.contains("EXAMPLES=examples matches no example (did you mean"),
+        "{message}"
+    );
+    assert!(
+        message.contains("EXAMPLES filters by example file name"),
+        "{message}"
+    );
+    let message = common::filter_error("parse,examples", &names, "example file name").unwrap();
+    assert!(
+        message.contains("part that matches no example: `examples`"),
+        "{message}"
+    );
+}
+
 /// Whether `EXAMPLES` is filtering the examples.
 fn filtering() -> bool {
     std::env::var("EXAMPLES").is_ok_and(|filter| !filter.is_empty())
@@ -101,6 +126,12 @@ fn share<T>(items: Vec<T>) -> Vec<T> {
 }
 
 fn examples(dir: &str) -> Vec<Example> {
+    // A part that matched in another folder or a project still counts: only
+    // one that matches nothing anywhere is a mistake.
+    common::check_examples_env(
+        &common::all_names(),
+        "example file name (or project folder name)",
+    );
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples");
     let Ok(entries) = std::fs::read_dir(root.join(dir)) else {
         return Vec::new();
@@ -331,6 +362,10 @@ fn soundness_examples_fail_for_the_expected_reason() {
 
 /// The project folders under `examples/projects/<dir>/`, sorted.
 fn projects(dir: &str) -> Vec<(String, PathBuf)> {
+    common::check_examples_env(
+        &common::all_names(),
+        "example file name (or project folder name)",
+    );
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/projects");
     let Ok(entries) = std::fs::read_dir(root.join(dir)) else {
         return Vec::new();

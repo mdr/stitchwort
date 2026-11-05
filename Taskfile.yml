@@ -374,7 +374,7 @@ tasks:
       - git status --short -- '*.snap'
 
   snap:hashes:
-    desc: 'Update the hash-stability snapshots (NAME=part of a file name, or a comma-separated list; all if unset), then list them'
+    desc: 'Update the hash-stability snapshots (NAME=part of an example file name, e.g. NAME=ranges-omega, or a comma-separated list; all if unset; std changes run it without NAME), then list them'
     env:
       STITCHWORT_TIER: full
       INSTA_UPDATE: always

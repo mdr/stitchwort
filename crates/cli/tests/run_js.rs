@@ -7,6 +7,8 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 
+mod common;
+
 use stitchwort_cli::driver::par_map;
 
 /// Stack for the pool threads that wait on child processes.
@@ -52,6 +54,29 @@ fn examples_filter_takes_a_comma_separated_list() {
     assert!(
         matches("", "anything.sw"),
         "an empty filter keeps everything"
+    );
+}
+
+/// A part that matches nothing fails, and a part that matches still counts
+/// beside one that needs no match.
+#[test]
+fn a_filter_part_that_matches_nothing_is_an_error() {
+    let names = vec!["parse-basics.sw".to_string(), "safe-fields.sw".to_string()];
+    assert!(common::filter_error("parse,safe-fields", &names, "example file name").is_none());
+    assert!(common::filter_error("", &names, "example file name").is_none());
+    let message = common::filter_error("examples", &names, "example file name").unwrap();
+    assert!(
+        message.contains("EXAMPLES=examples matches no example (did you mean"),
+        "{message}"
+    );
+    assert!(
+        message.contains("EXAMPLES filters by example file name"),
+        "{message}"
+    );
+    let message = common::filter_error("parse,examples", &names, "example file name").unwrap();
+    assert!(
+        message.contains("part that matches no example: `examples`"),
+        "{message}"
     );
 }
 
@@ -115,6 +140,12 @@ fn same_both_ways(path: &Path, input: &[u8], same_errors: bool) -> Output {
 /// Every example with a `main`, with input that the interactive ones read.
 #[test]
 fn examples_print_the_same_both_ways() {
+    // This binary runs only `accept`, but a part naming any example or
+    // project is a real selection (only one that names nothing is a mistake).
+    common::check_examples_env(
+        &common::all_names(),
+        "example file name (or project folder name)",
+    );
     let mut entries: Vec<_> = std::fs::read_dir(examples())
         .expect("read examples")
         .map(|e| e.expect("read entry").path())
