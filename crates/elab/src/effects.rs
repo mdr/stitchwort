@@ -2818,6 +2818,12 @@ fn comp_check_in(
         // computations as its branches. Either way, in the empty row the
         // term computes to the one a pure `a op b` gets.
         Expr::Binary(op @ (BinOp::And | BinOp::Or), a, b) if may_perform(cx, expr)? => {
+            // An unannotated `let`'s value has no expected type yet, but a
+            // proposition can't perform: this is the `Bool` reading.
+            if is_unknown(cx, t)? {
+                let bool_ty = Value::Data(data(cx, Builtin::Bool)?, Vec::new());
+                cx.unify(t, &bool_ty)?;
+            }
             if !may_perform(cx, a)? {
                 let and = *op == BinOp::And;
                 let what = if and { "&&" } else { "||" };

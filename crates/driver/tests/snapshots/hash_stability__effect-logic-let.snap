@@ -1,0 +1,11 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+Main.pureBool 52515c65cf1896aa620dba95324ea64fd4ec8b634de79f0f93cd33c3a3969f79
+Main.pureChain 52515c65cf1896aa620dba95324ea64fd4ec8b634de79f0f93cd33c3a3969f79
+Main.andInferred 0e24fc95fa5e44bcbeedf23dd8c1ba658a567f449ee0ccba565863c53f488dc2
+Main.orInferred 20de44291dd6bf70893703f90c797104176de4413526d0dd63ae9acc146380d8
+Main.chainInferred 0e24fc95fa5e44bcbeedf23dd8c1ba658a567f449ee0ccba565863c53f488dc2
+Main.chainBare 0e24fc95fa5e44bcbeedf23dd8c1ba658a567f449ee0ccba565863c53f488dc2
+Main.annotated 0e24fc95fa5e44bcbeedf23dd8c1ba658a567f449ee0ccba565863c53f488dc2
