@@ -6962,7 +6962,7 @@
       "labels": [
         "tooling"
       ],
-      "body": "D2376 (Matt, 5 Nov): yes, take std's text out of the test-cache key. D2377: (b), an automatic fingerprint of only the Rust that runs tests. D2380: yes, a Sonnet lane, queued. D2379 (a daily --verify-cache over aoc and rogue): Matt, 'it depends how long it takes'; estimate from overnight runs: aoc's tests uncached ~2.5-3 min, rogue's ~12 s.",
+      "body": "D2376 (Matt, 5 Nov): yes, take std's text out of the test-cache key. D2377: (b), an automatic fingerprint of only the Rust that runs tests. D2380: yes, a Sonnet lane, queued. D2379 (a daily --verify-cache over aoc and rogue): Matt, 'it depends how long it takes'; estimate from overnight runs: aoc's tests uncached ~2.5-3 min, rogue's ~12 s.\n\nD2379 (Matt, 5 Nov): add stitchwort test --verify-cache over aoc and games/rogue to the full tier, not the daily one.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
