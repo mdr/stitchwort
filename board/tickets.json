@@ -1,5 +1,5 @@
 {
-  "next": 1318,
+  "next": 1320,
   "tickets": [
     {
       "id": 47,
@@ -6795,6 +6795,34 @@
         "tooling"
       ],
       "body": "From SW-1304: the remaining vacuity warnings (2021 day 16: 28, day 18: 17) are hypotheses like readNumber reader 3 = Some (version, after) where later inputs must equal what an earlier one computes. QuickChick-style construction; touches the checker term, input plans, shrinking and the display. Needs a design note first (Opus). Also: a constants dictionary of string literals (2021 day 12's \"end\").",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1318,
+      "title": "Guards: f.induct for partial-overlap guarded arms; display polish of guard equations (beta-redex, two forms of one fact, vague skip reason)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "language"
+      ],
+      "body": "From the SW-1301 Opus review: f.induct is never made when a case takes a Lean-form hypothesis about a guarded arm (the common '| Succ n, xs if n > 2 | n, [x, ..rest]' shape); build the hypothesis from the split's fact. Polish: a guard comparing a call shows (x => 2 < x) (g3 n) = True; the same fact prints as (a < 0) = False or ¬(0 < x1) depending on ite/elim; a guard relying on an earlier failed guard gets a vague skip reason.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1319,
+      "title": "f.induct: a case for [_, ..rest] takes (rest) then (head), the reverse of the pattern order",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proof"
+      ],
+      "body": "Found in the SW-1301 review (r7.sw in the review scratchpad); happens without guards too.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
