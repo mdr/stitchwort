@@ -1,5 +1,5 @@
 {
-  "next": 1473,
+  "next": 1483,
   "tickets": [
     {
       "id": 47,
@@ -8650,13 +8650,13 @@
     {
       "id": 1448,
       "title": "A native debug build checking the whole AoC project inline overflows a 4 MiB thread (probably SW-1430's navigation path; recheck after its fix)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1448",
       "labels": [
         "lsp"
       ],
-      "body": "From SW-1430, 5 Nov 2026.\n\nSW-1464 (5 Nov ~23:15) hit it in a debug build of crates/lsp/tests/features.rs (hover in a library file, std fully checked): arithmetic overflow at crates/core/src/value.rs:2191, quoting a neutral term, `level - 1 - l`. In release that subtraction would wrap: check whether a variable can be quoted at a level it isn't bound at (an index out of range is a kernel-side bug, possibly soundness-relevant), or whether it's a debug-only stack artefact. Overnight: Opus, now.\n\nStarted on Opus, expected: 60 min.",
+      "body": "From SW-1430, 5 Nov 2026.\n\nSW-1464 (5 Nov ~23:15) hit it in a debug build of crates/lsp/tests/features.rs (hover in a library file, std fully checked): arithmetic overflow at crates/core/src/value.rs:2191, quoting a neutral term, `level - 1 - l`. In release that subtraction would wrap: check whether a variable can be quoted at a level it isn't bound at (an index out of range is a kernel-side bug, possibly soundness-relevant), or whether it's a debug-only stack artefact. Overnight: Opus, now.\n\nStarted on Opus, expected: 60 min.\n\nDone (8d75a2fd4), merged: omega's waiting_fact opened a let's parameters without binding them, then quoted the result; fixed (read_context/waiting_note/waiting_fact take &mut Ctx). Release effect: wrapped indices only in discarded terms, notes right, nothing to the kernel (which rejects out-of-scope variables, check.rs:247). value.rs gains a debug_assert naming the cause. Example reject/omega-let-waiting-for-argument-bool. No Opus review: no kernel term changes (orchestrator's call, D2364). The 4 MiB debug-stack report looks separate (debug frames; not chased). Model result: Opus, worked, 18 min (est. 60).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8958,13 +8958,13 @@
     {
       "id": 1470,
       "title": "AoC 2020 day 11 (Seating System): spec, efficient solution, proofs, tests, friction notes in aoc/NOTES-2020.md",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1470",
       "labels": [
         "aoc"
       ],
-      "body": "D2443 (Matt, 5 Nov 2026): follows day 10 without a friction review in between; both reviewed with Matt in the morning. Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day11.\n\nStarted on Opus, expected: 90 min.",
+      "body": "D2443 (Matt, 5 Nov 2026): follows day 10 without a friction review in between; both reviewed with Matt in the morning. Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day11.\n\nStarted on Opus, expected: 90 min.\n\nDone (d225c3754..e870e02b0), merged: answers 2354 and 2072. Spec: becomes in the puzzle's words; round over Grid.map; Settles = rounds reach a layout a round leaves alone; part 2 sight along 8 directions up to height+width steps. Proved: part1Exactly/part2Exactly (answers iff the spec settles within roundLimit = 1000), uniqueness, correctness from the parsed input, settle sound/complete/unique, the planned views. Not proved: that rounds settle at all (no measure; fuel), the sight bound's sufficiency (true for rectangles), that well-formed input parses. Audit 74/74; five breaks caught. main 19 s (Map lookups per neighbour). Statements checked by the orchestrator. 32 min (est. 120).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8993,6 +8993,146 @@
         "omega"
       ],
       "body": "From SW-1465, 5 Nov 2026. Small improvement.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1473,
+      "title": "Std: a persistent array with get/set lemmas for grid simulations: 2020 day 11's main takes 19 s, mostly Map walks per neighbour (4 s under --js)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From 2020 day 11 (SW-1470), 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1474,
+      "title": "Aoc.Common: a cheaper Position.around (about 10 µs a call) built from eight offsets, proved equal to the current one so its lemmas carry over",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "From 2020 day 11 (SW-1470), 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1475,
+      "title": "Aoc.Common: compass (eight directions as offsets), Grid.ray (cells along a ray to the edge) and a first-cell-that-passes lemma; 2024 days 4 and 6 would have used them",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "From 2020 day 11 (SW-1470), 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1476,
+      "title": "Std: Nat.iterateUntilStableWithin, a fuelled repeat-until-unchanged with sound, complete and unique lemmas (2020 day 11's Settle.sw is 60 generic lines)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From 2020 day 11 (SW-1470), 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1477,
+      "title": "Out-of-resources error names no definition when a match on a call with a large literal argument (settle … 1000) blows up: name the call and suggest a variable for the literal",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "messages"
+      ],
+      "body": "From 2020 day 11 (SW-1470), 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1478,
+      "title": "E-REFL after a match: when the sides differ only in a term the match split on, say so and suggest match e: and rewriting with e; omega's 'facts: none in scope' after an unnamed match comparison likewise suggests naming it",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "messages"
+      ],
+      "body": "From 2020 day 11 (SW-1470), 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1479,
+      "title": "Std Result.isErr (only isOk exists); Grid.zipWith for two grids of one shape",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From 2020 day 11 (SW-1470), 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1480,
+      "title": "Aoc.Common names positions 'at', which clashes with the reserved at of rewrite … at: rename in Common or note it in the proving guide",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "From 2020 day 11 (SW-1470), 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1481,
+      "title": "String interpolation split over two lines reports an unclosed string: say an interpolation must close on its line",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "messages"
+      ],
+      "body": "From 2020 day 11 (SW-1470), 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1482,
+      "title": "2021 day 11: use the shared Aoc.Common.Proofs.countAround instead of its own copy",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "From 2020 day 11 (SW-1470), 5 Nov 2026.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
