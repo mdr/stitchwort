@@ -10,7 +10,7 @@ test "searching" := scores.find (n => n > 7) == Some 9 ∧ scores.findIndex (n =
 test "sorting and dedup" := scores.sort.dedup == [3, 5, 7, 9]
 test "slicing" := scores.take 2 == [7, 3] ∧ scores.drop 3 == [3, 5]
 test "zipping" := List.zipWith [1, 2, 3] [4, 5, 6] (a b => a * b) == [4, 10, 18]
-test "ranges" := List.range 4 == [0, 1, 2, 3] ∧ List.between 2 5 == [2, 3, 4, 5]
+test "ranges" := List.range 0 4 == [0, 1, 2, 3] ∧ List.range 2 6 == [2, 3, 4, 5]
 test "with an index" := ["a", "b"].withIndex == [(0, "a"), (1, "b")]
 test "maximum of an empty list" := ([]: List Nat).maximum == None
 -- end lists

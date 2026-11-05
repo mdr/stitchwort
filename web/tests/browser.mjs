@@ -597,8 +597,8 @@ def part1 (n: Nat): Nat := n + 1
 
 test "part 1 on the example" := part1 1 == 3
 test "greater" := 1 > part1 5
-test "long value" := List.range 1000 == []
-test "huge value" := List.range 100000 == []
+test "long value" := List.range 0 1000 == []
+test "huge value" := List.range 0 100000 == []
 test "not a comparison" := List.all [1, 2, 3] (n => n < 3)
 test "second part" := part1 1 == 2 && part1 2 == 4
 `);
@@ -2315,7 +2315,7 @@ test("Cmd-click in a project goes to the definition in another file, and a libra
   await page.until(`document.querySelector('#filetabs [aria-selected="true"]').firstChild.textContent === "Day02.sw"`, 10000, "the way back");
   assert.equal(await sourceText(page), own);
   // Hovering a library name in a project.
-  await hoverAt(page, await whereIs(page, "List.range template.copies", 5, 5));
+  await hoverAt(page, await whereIs(page, "List.range 0 template.copies", 5, 5));
   await page.until(`document.getElementById("navtip").textContent.includes("Std.List.range")`, 30000, "a library name's tooltip");
 }, { ms: 180000 });
 

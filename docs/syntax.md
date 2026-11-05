@@ -902,8 +902,8 @@ import Std (Each)
 import Std.Each (each, require)
 
 def pairs (n: Nat): List (Pair Nat Nat) := Each.collect (() =>
-  let a := each (List.between 1 n)
-  let b := each (List.between a n)    -- may depend on `a`
+  let a := each (List.range 1 (n + 1))
+  let b := each (List.range a (n + 1))    -- may depend on `a`
   require (a + b == n)                -- drops this choice unless it holds
   (a, b))
 ```
@@ -979,7 +979,7 @@ The lemmas read a result one index at a time with `Vec.getOr v i d` (element i, 
 - `Vec.getOrAround v i d pad (h: i < n) f`: index i is `f` of indices i - 1, i and `Succ i`, read with default `pad`.
 - `Vec.getTabulate` (`Vec.get (Vec.tabulate n f) i = f i`) and `Vec.getOrTabulate d n f i h` (`= f (Fin.ofNatLt n i h)`).
 - `Vec.getOrZipWith` and `Vec.getOrZipWith3`: index i is `f` of index i of each input, when `f` maps the defaults to the default; `Vec.getOrMap` the same for `map` (default `f d`). `Vec.getOrReplicate`: copies of x read with default x are x. `Vec.getOrPast`: past the end, `getOr` gives the default. `Vec.getOrGet`: in range it is `Vec.get`. `Vec.headOrGetOr`: `headOr d v` is index 0.
-- `Vec.extGetOr u d v h`: vectors equal at every index are equal. `Vec.sumByGetOr v d f`: `v.sumBy f` is the sum of `f` of index i over `List.range n`.
+- `Vec.extGetOr u d v h`: vectors equal at every index are equal. `Vec.sumByGetOr v d f`: `v.sumBy f` is the sum of `f` of index i over `List.range 0 n`.
 - `List.transposeFillCell rows fill c r`: row r of column c is `List.getOr row c fill` of row r, with no bounds on r or c (cells past the ends are `fill` on both sides). `List.transposeFillColumns` states the whole result as columns read by index. `List.getOrTransposeFill` gives column c as a list. `List.lengthTransposeFill`, `List.lengthColumnTransposeFill` and `List.lengthLeMaxLength` give the lengths.
 
 ## `decreasing`
@@ -1085,14 +1085,14 @@ theorem evensShort (n: Nat): List.length (evens n) <= n
   `isIn` into the decrease, written in the call:
 
   ```
-  List.range n |> .attach |> .sumBy (({ value = d, isIn }) =>
-    if Nat.divides d n then f d [decreasing := And.right (List.memRangeFrom d n 0 isIn)] else 0)
+  List.range 0 n |> .attach |> .sumBy (({ value = d, isIn }) =>
+    if Nat.divides d n then f d [decreasing := And.right ((List.memRange d 0 n).forward isIn)] else 0)
   ```
 
   `List.Mem x xs` is `List.Any (y => y = x) xs`, so on a written-out list
-  it computes to a chain of `Or`s. The facts: `List.memRangeFrom` (`s <=
-  x` and `x < s + c` in `List.rangeFrom c s`), `List.memBetween` (`lo <= x`
-  and `x <= hi`, its numbers implicit), `List.memFilter`, `List.memMap`,
+  it computes to a chain of `Or`s. The facts: `List.memRange` (`a <= x`
+  and `x < b` in `List.range a b`, an `↔`; `List.memRangeFrom` is the same
+  for `List.rangeFrom c s`), `List.memFilter`, `List.memMap`,
   `List.memMapAny` and `List.memAppend`. Once the call is made the proofs
   can be dropped: `List.attachValues`, `List.sumByAttach` and
   `List.mapAttach` say that mapping or summing over `e.value` is the same
@@ -2103,7 +2103,7 @@ theorem stepZero (highest: Nat) (n: Nat):
 - **The rule** is any proof of an equation, with its implicit arguments left open if nothing fixes them (`[n: Nat] -> f n = g n` used as `rewrite h`). Explicit arguments left off its end are unknowns too, as if written `_`: `rewrite Nat.addComm` is `rewrite Nat.addComm _ _`. The equation's *left side* needs a function, constructor or variable at its head; an unknown function (`?g x`) is `E-REWRITE-RULE`, as is a proof that isn't an equation whatever its arguments.
 - **Premises.** An argument of the rule that is a proof, left off or written `_` (`Nat.addSubCancel x n` needs `x <= n`), is found when the rule matches: by unification with the rest of the rule, else by a hypothesis in scope of exactly its type, else by `omega`. An `[auto]` argument waits until the match has fixed what it is about (`rewrite Nat.modSmall`). Nothing proves it: `E-REWRITE-PREMISE`, naming the premise and the facts there were; give the proof in that argument's place. Examples: `examples/accept/rewrite-premises.sw`, `examples/reject/rewrite-premise-unproved.sw`.
 - **Finding occurrences.** The goal is searched in pre-order, outermost first, left to right, and the search never looks inside an occurrence it has chosen. A subterm is an occurrence if it has the same head and number of arguments as `a`, is the same term or has the same type and *computes* to it. Matching the rule's open arguments is one-way: only the rule's own can be solved, and a candidate that fails leaves nothing solved. Every occurrence is replaced, then `t` is checked against the result. If there are none, it is `E-REWRITE-NOTHING`; the message shows the goal (after the rules before this one), what the left side computes to when that differs from how it is written (`Succ n / 1` is looked for as `Succ (Nat.divFuel n n 1)`), and whether the goal already holds by computing, as it does when an earlier rule already replaced what this one would have.
-- **Inside a function argument.** An occurrence that uses the variable of a function passed as an argument (`x * 1` in `List.map xs (x => x * 1)`) can't be replaced by `J`, which would need function extensionality. Instead `rewrite` uses the **congruence lemma** of the call the function is passed to, the same lemmas a `decreasing` recursive call inside a function uses (below: `List.mapCong`, `List.sumByCong`, …, found by name beside the function): it rewrites the function's body with its variable as a local, and the lemma turns that equation, for every value of the variable, into one between the two calls. A lemma may also give **facts** about the variable, which are hypotheses while the body is rewritten (so they prove a rule's premises): `FCongRange` gives `low: s <= x` and `high: x < s + c` where the list is `List.rangeFrom c s` (so `List.range n`), `FCongMem` gives `m: List.Mem x xs`. `rewrite` tries `FCongRange`, then `FCongMem`, then `FCong`, using the first whose left side matches the call. Inside a function, a rule whose premise isn't proved there isn't used there; a later rule may do it, and if nothing is rewritten it is `E-REWRITE-PREMISE`. So `rewrite Nat.mulOne _` proves `List.map xs (x => x * 1) = List.map xs (x => x)` by `List.mapCong`. It works through several functions inside each other (`List.map xs (x => List.map ys (y => x + Succ y))`), with `in`, `<-` and `at`, and for a function given as a partial application (`List.sumBy xs (f k)`, with a rule about `f k _`). The result is still an ordinary checked proof term.
+- **Inside a function argument.** An occurrence that uses the variable of a function passed as an argument (`x * 1` in `List.map xs (x => x * 1)`) can't be replaced by `J`, which would need function extensionality. Instead `rewrite` uses the **congruence lemma** of the call the function is passed to, the same lemmas a `decreasing` recursive call inside a function uses (below: `List.mapCong`, `List.sumByCong`, …, found by name beside the function): it rewrites the function's body with its variable as a local, and the lemma turns that equation, for every value of the variable, into one between the two calls. A lemma may also give **facts** about the variable, which are hypotheses while the body is rewritten (so they prove a rule's premises): `FCongRange` gives `low: from <= x` and `high: x < until` where the list is `List.range from until` (and `FCongRangeFrom` gives `low: s <= x` and `high: x < s + c` for `List.rangeFrom c s`, which is what a range with a numeral start such as `List.range 1 (n + 1)` evaluates to), `FCongMem` gives `m: List.Mem x xs`. `rewrite` tries `FCongRange`, `FCongRangeFrom`, then `FCongMem`, then `FCong`, using the first whose left side matches the call. Inside a function, a rule whose premise isn't proved there isn't used there; a later rule may do it, and if nothing is rewritten it is `E-REWRITE-PREMISE`. So `rewrite Nat.mulOne _` proves `List.map xs (x => x * 1) = List.map xs (x => x)` by `List.mapCong`. It works through several functions inside each other (`List.map xs (x => List.map ys (y => x + Succ y))`), with `in`, `<-` and `at`, and for a function given as a partial application (`List.sumBy xs (f k)`, with a rule about `f k _`). The result is still an ordinary checked proof term.
   - **`_` for the variable.** The rule is elaborated again for each function, with its unknowns (`_`, implicit arguments) solved there, once per function: write `_` for an argument that is the function's variable, `rewrite Nat.mulSucc k _`. A rule with no unknowns (`Nat.mulSucc k i`, with `i` not in scope) doesn't look inside functions.
   - **Order.** Occurrences inside functions are rewritten first, a step each (outermost call first, its inner functions before its own body), then those that use no such variable, in one step.
   - **No lemma.** If an occurrence is there only inside a function passed to `F` and `F` has no `FCong`, it is `E-REWRITE-CONG`, naming the lemma and showing its statement for `F` (`examples/reject/rewrite-inside-function-no-lemma.sw`). Functions the compiler made (an effect's handler) aren't named; nothing is found there.
