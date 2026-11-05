@@ -8119,9 +8119,9 @@
     {
       "id": 1412,
       "title": "Std: List.groupBy (key) beside List.toMap in Map/Map.sw, so calls read rules.all.groupBy .colour instead of Map.groupBy rules.all .colour; sweep the 19 Map.groupBy calls in std and aoc (2020 day 7 and others) where the method reads better; proofs keep working (one-line def over Map.groupBy)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1412",
       "labels": [
         "std"
       ],
