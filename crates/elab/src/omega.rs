@@ -940,9 +940,13 @@ fn prove_goal(
         return refute_hypothesis(cx, lib, &p, extra, span);
     }
     // A goal that isn't arithmetic, from facts that contradict each other.
+    // It may be a proposition whose sort isn't obvious from its head, such
+    // as `x ∈ xs` stuck on a variable, so ask the kernel when `is_prop`
+    // can't say.
     let unsupported = unsupported_goal(cx, &goal, span);
-    let Some(prop) = is_prop(cx, &goal)? else {
-        return Err(unsupported);
+    let prop = match is_prop(cx, &goal)? {
+        Some(prop) => prop,
+        None => crate::cases::is_proposition(cx, &goal)?,
     };
     let void = Value::Data(lib.void, Vec::new());
     let Ok(proof) = linear(cx, lib, Goal::Void, &void, extra, span) else {
