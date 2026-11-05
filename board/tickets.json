@@ -8005,7 +8005,7 @@
         "playground",
         "perf"
       ],
-      "body": "From SW-1384, 5 Nov 2026.\n\nAlso covers SW-1431 (27-40 s in an AoC project) and SW-1447 (80-195 s in Node, nothing cached between visits), folded in 5 Nov 2026.\n\nD2439 (Matt, 5 Nov 2026): speed first for the editors. Started on Opus, expected: 120 min (browser: at most 4 runs of single tests). SW-1432 (the page checks twice) next, after this.\n\nDone (Opus, 4029527a4, 42 min of 120; 4 browser runs), merged: web/build.sh builds pkg/std.cache with the built wasm (same session shape as the server), checks it replays (67 of 68 files); keyed by build, format, modes, limits, text and deps, so another build's cache is a miss, never a wrong answer. Node first diagnostics 38-40 s → 2.0 s; Chrome's longest server tick 25 s → 1.2 s; opening a day to first marks 25.7 s → 8.8 s (the rest is the page's own Check, which still checks std: next, SW-1432 and a cache for playground-worker.js). Cost: std.cache 14.4 MB, 7.5 MB gzipped, every first visit. Untested: the flake's playground build. Orchestrator decided: fetch on every visit (projects would otherwise wait for it); trust it like a cache directory. Page weight to Matt (D2440).",
+      "body": "From SW-1384, 5 Nov 2026.\n\nAlso covers SW-1431 (27-40 s in an AoC project) and SW-1447 (80-195 s in Node, nothing cached between visits), folded in 5 Nov 2026.\n\nD2439 (Matt, 5 Nov 2026): speed first for the editors. Started on Opus, expected: 120 min (browser: at most 4 runs of single tests). SW-1432 (the page checks twice) next, after this.\n\nDone (Opus, 4029527a4, 42 min of 120; 4 browser runs), merged: web/build.sh builds pkg/std.cache with the built wasm (same session shape as the server), checks it replays (67 of 68 files); keyed by build, format, modes, limits, text and deps, so another build's cache is a miss, never a wrong answer. Node first diagnostics 38-40 s → 2.0 s; Chrome's longest server tick 25 s → 1.2 s; opening a day to first marks 25.7 s → 8.8 s (the rest is the page's own Check, which still checks std: next, SW-1432 and a cache for playground-worker.js). Cost: std.cache 14.4 MB, 7.5 MB gzipped, every first visit. Untested: the flake's playground build. Orchestrator decided: fetch on every visit (projects would otherwise wait for it); trust it like a cache directory. Page weight to Matt (D2440).\n\nD2440 (Matt, 5 Nov 2026): yes — accept std.cache's 7.5 MB gzipped on a first visit for now; SW-1455 shrinks it.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8754,7 +8754,7 @@
       "labels": [
         "playground"
       ],
-      "body": "From SW-1403, 5 Nov 2026.",
+      "body": "From SW-1403, 5 Nov 2026.\n\nD2440 (Matt, 5 Nov 2026): the current size is accepted for now; this ticket is the follow-up.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
