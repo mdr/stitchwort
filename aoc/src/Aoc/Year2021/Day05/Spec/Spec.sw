@@ -21,7 +21,7 @@
 --|   and a line of one point (both ends the same) covers that point.
 
 namespace Aoc.Year2021.Day05.Spec
-import Aoc.Year2021.Day05 (Line, Point)
+import Aoc.Common (Line, Point)
 import Std (List, Nat)
 
 --| `b` is between `a` and `c`, either way round, ends included.
@@ -32,15 +32,14 @@ def between (a: Nat) (b: Nat) (c: Nat): Bool := Nat.min a c ≤ b ∧ b ≤ Nat.
 --| is within the rectangle the ends span, and its distance across from the
 --| first end is to its distance down as the segment's are to each other.
 def covers (line: Line) (point: Point): Bool :=
-  let (x, y) := point
-  between line.x1 x line.x2 ∧ between line.y1 y line.y2
-    ∧ Nat.absDiff line.x1 x * Nat.absDiff line.y1 line.y2 == Nat.absDiff line.y1 y * Nat.absDiff line.x1 line.x2
+  between line.from.x point.x line.to.x ∧ between line.from.y point.y line.to.y
+    ∧ Nat.absDiff line.from.x point.x * Nat.absDiff line.from.y line.to.y == Nat.absDiff line.from.y point.y * Nat.absDiff line.from.x line.to.x
 
 --| "Horizontal and vertical lines: lines where either x1 = x2 or y1 = y2."
-def horizontalOrVertical (line: Line): Bool := line.x1 == line.x2 ∨ line.y1 == line.y2
+def horizontalOrVertical (line: Line): Bool := line.from.x == line.to.x ∨ line.from.y == line.to.y
 
 --| A diagonal line at exactly 45 degrees: as far across as down.
-def diagonal (line: Line): Bool := Nat.absDiff line.x1 line.x2 == Nat.absDiff line.y1 line.y2
+def diagonal (line: Line): Bool := Nat.absDiff line.from.x line.to.x == Nat.absDiff line.from.y line.to.y
 
 --| How many of the lines cover the point.
 def coveredBy (lines: List Line) (point: Point): Nat := lines.count (line => covers line point)

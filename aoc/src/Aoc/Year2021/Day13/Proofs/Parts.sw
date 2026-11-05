@@ -2,32 +2,33 @@
 --| first fold, and part 2's picture shows the dots after all of them.
 
 namespace Aoc.Year2021.Day13.Proofs
+import Aoc.Common (Point)
 import Aoc.Year2021.Day13 (..)
 import Aoc.Year2021.Day13.Spec (..)
 import Std (Exists, List)
 
 --| Folding a list that holds the dots, fold after fold, holds the dots
 --| after the folds, if the promise is kept...
-theorem foldsHold: (folds: List Fold) → (dots: List Dot) → (marked: Dot → Prop) → Holds dots marked → Promise folds marked →
+theorem foldsHold: (folds: List Fold) → (dots: List Point) → (marked: Point → Prop) → Holds dots marked → Promise folds marked →
     Holds (folds.foldLeft dots foldOnce) (AfterFolds folds marked)
   | [], dots, marked, holds, promise, spot => holds spot
   | [fold, ..rest], dots, marked, holds, promise, spot =>
     foldsHold rest (foldOnce dots fold) (AfterFold fold marked) (foldOnceHolds dots marked fold holds promise.left) promise.right spot
 
 --| ...and lists each dot once, as every fold drops repeats.
-theorem foldsDistinct: (folds: List Fold) → (dots: List Dot) → List.Distinct dots → List.Distinct (folds.foldLeft dots foldOnce)
+theorem foldsDistinct: (folds: List Fold) → (dots: List Point) → List.Distinct dots → List.Distinct (folds.foldLeft dots foldOnce)
   | [], dots, distinct => distinct
   | [fold, ..rest], dots, distinct => foldsDistinct rest (foldOnce dots fold) (List.distinctNoRepeats (dots.map (foldDot fold)))
 
 --| `foldAll` holds the dots after the folds, each once.
-theorem foldAllHolds (folds: List Fold) (dots: List Dot) (promise: Promise folds (Listed dots)): Holds (foldAll folds dots) (AfterFolds folds (Listed dots)) :=
+theorem foldAllHolds (folds: List Fold) (dots: List Point) (promise: Promise folds (Listed dots)): Holds (foldAll folds dots) (AfterFolds folds (Listed dots)) :=
   foldsHold folds dots.distinct (Listed dots) (spot => List.memDistinct spot dots) promise
 
-theorem foldAllDistinct (folds: List Fold) (dots: List Dot): List.Distinct (foldAll folds dots) :=
+theorem foldAllDistinct (folds: List Fold) (dots: List Point): List.Distinct (foldAll folds dots) :=
   foldsDistinct folds dots.distinct (List.distinctNoRepeats dots)
 
 --| The promise for every fold is the promise for the first.
-theorem promiseFirst (folds: List Fold) (marked: Dot → Prop) (promise: Promise folds marked): Promise (folds.take 1) marked :=
+theorem promiseFirst (folds: List Fold) (marked: Point → Prop) (promise: Promise folds marked): Promise (folds.take 1) marked :=
   match folds with
     | [] => Trivial
     | [fold, ..rest] => Both promise.left Trivial

@@ -15,17 +15,18 @@
 --      other's (`List.sortedGetOrLe`, `List.sortedBetween`).
 
 namespace Aoc.Year2025.Day09.Proofs
+import Aoc.Common (Line, Point)
 import Aoc.Year2025.Day09 (..)
 import Aoc.Year2025.Day09.Spec (..)
-import Std (Bool, Eq, List, Nat, Void)
+import Std (Bool, Eq, Exists, List, Nat, Void)
 
 --| `v` and `w` compare the same way with each of `values`.
 def SameSide (values: List Nat) (v: Nat) (w: Nat): Prop :=
   (c: Nat) → List.Mem c values → (Nat.leq c v = Nat.leq c w) ∧ (Nat.leq v c = Nat.leq w c)
 
-def columnsOf (tiles: List Tile): List Nat := tiles.map .x
+def columnsOf (tiles: List Point): List Nat := tiles.map .x
 
-def rowsOf (tiles: List Tile): List Nat := tiles.map .y
+def rowsOf (tiles: List Point): List Nat := tiles.map .y
 
 -- 1. Only comparisons with the red tiles matter ------------------------------
 
@@ -38,44 +39,46 @@ theorem fromSame (values: List Nat) (one: Nat) (other: Nat) (v: Nat) (w: Nat) (m
   rewrite (s one m1).left, (s one m1).right, (s other m2).left, (s other m2).right in rfl
 
 --| The ends of a straight line of the loop are red tiles.
-theorem connectionEnds (tiles: List Tile) (ends: (Tile, Tile)) (m: List.Mem ends (connections tiles)):
-    (List.Mem ends.fst tiles) ∧ (List.Mem ends.snd tiles) :=
-  match List.memZip ends tiles (List.append (List.drop tiles 1) (List.take tiles 1)) m with
-    | Both first second =>
-      Both first
-        (match List.memAppend ends.snd (List.drop tiles 1) (List.take tiles 1) second with
-          | Inl d => List.memDrop tiles ends.snd 1 d
-          | Inr t => List.memTake tiles ends.snd 1 t)
+theorem connectionEnds (tiles: List Point) (ends: Line) (m: List.Mem ends (connections tiles)):
+    (List.Mem ends.from tiles) ∧ (List.Mem ends.to tiles) :=
+  Exists.elim (List.memMapElim (pair => { from = pair.fst, to = pair.snd }) ends (tiles.zip (tiles.drop 1 |> .append (tiles.take 1))) m) (pair found =>
+    match List.memZip pair tiles (List.append (List.drop tiles 1) (List.take tiles 1)) found.left with
+      | Both first second =>
+        rewrite <- found.right in
+          Both first
+            (match List.memAppend pair.snd (List.drop tiles 1) (List.take tiles 1) second with
+              | Inl d => List.memDrop tiles pair.snd 1 d
+              | Inr t => List.memTake tiles pair.snd 1 t))
 
-theorem columnIn (tiles: List Tile) (tile: Tile) (m: List.Mem tile tiles): List.Mem tile.x (columnsOf tiles) := List.memMap tiles tile m (tile => tile.x)
+theorem columnIn (tiles: List Point) (tile: Point) (m: List.Mem tile tiles): List.Mem tile.x (columnsOf tiles) := List.memMap tiles tile m (tile => tile.x)
 
-theorem rowIn (tiles: List Tile) (tile: Tile) (m: List.Mem tile tiles): List.Mem tile.y (rowsOf tiles) := List.memMap tiles tile m (tile => tile.y)
+theorem rowIn (tiles: List Point) (tile: Point) (m: List.Mem tile tiles): List.Mem tile.y (rowsOf tiles) := List.memMap tiles tile m (tile => tile.y)
 
-theorem onStraightLineSame (tiles: List Tile) (x: Nat) (y: Nat) (x2: Nat) (y2: Nat) (sx: SameSide (columnsOf tiles) x x2) (sy: SameSide (rowsOf tiles) y y2)
-    (ends: (Tile, Tile)) (m: List.Mem ends (connections tiles)):
+theorem onStraightLineSame (tiles: List Point) (x: Nat) (y: Nat) (x2: Nat) (y2: Nat) (sx: SameSide (columnsOf tiles) x x2) (sy: SameSide (rowsOf tiles) y y2)
+    (ends: Line) (m: List.Mem ends (connections tiles)):
     onStraightLine { x, y } ends = onStraightLine { x = x2, y = y2 } ends :=
   match connectionEnds tiles ends m with
     | Both first second =>
-      rewrite fromSame (columnsOf tiles) ends.fst.x ends.snd.x x x2 (columnIn tiles ends.fst first) (columnIn tiles ends.snd second) sx,
-        fromSame (rowsOf tiles) ends.fst.y ends.snd.y y y2 (rowIn tiles ends.fst first) (rowIn tiles ends.snd second) sy
+      rewrite fromSame (columnsOf tiles) ends.from.x ends.to.x x x2 (columnIn tiles ends.from first) (columnIn tiles ends.to second) sx,
+        fromSame (rowsOf tiles) ends.from.y ends.to.y y y2 (rowIn tiles ends.from first) (rowIn tiles ends.to second) sy
         in rfl
 
-theorem crossesRaySame (tiles: List Tile) (x: Nat) (y: Nat) (x2: Nat) (y2: Nat) (sx: SameSide (columnsOf tiles) x x2) (sy: SameSide (rowsOf tiles) y y2)
-    (ends: (Tile, Tile)) (m: List.Mem ends (connections tiles)):
+theorem crossesRaySame (tiles: List Point) (x: Nat) (y: Nat) (x2: Nat) (y2: Nat) (sx: SameSide (columnsOf tiles) x x2) (sy: SameSide (rowsOf tiles) y y2)
+    (ends: Line) (m: List.Mem ends (connections tiles)):
     crossesRay { x, y } ends = crossesRay { x = x2, y = y2 } ends :=
   match connectionEnds tiles ends m with
     | Both first second =>
-      let fy := rowIn tiles ends.fst first
-      let sy2 := rowIn tiles ends.snd second
-      rewrite lessSame (columnsOf tiles) ends.fst.x x x2 (columnIn tiles ends.fst first) sx,
-        lessSame (rowsOf tiles) ends.snd.y y y2 sy2 sy,
-        lessSame (rowsOf tiles) ends.fst.y y y2 fy sy,
-        (sy ends.fst.y fy).left,
-        (sy ends.snd.y sy2).left
+      let fy := rowIn tiles ends.from first
+      let sy2 := rowIn tiles ends.to second
+      rewrite lessSame (columnsOf tiles) ends.from.x x x2 (columnIn tiles ends.from first) sx,
+        lessSame (rowsOf tiles) ends.to.y y y2 sy2 sy,
+        lessSame (rowsOf tiles) ends.from.y y y2 fy sy,
+        (sy ends.from.y fy).left,
+        (sy ends.to.y sy2).left
         in rfl
 
 --| Tiles whose columns and rows compare alike with the red tiles' are alike.
-theorem redOrGreenSame (tiles: List Tile) (x: Nat) (y: Nat) (x2: Nat) (y2: Nat) (sx: SameSide (columnsOf tiles) x x2) (sy: SameSide (rowsOf tiles) y y2):
+theorem redOrGreenSame (tiles: List Point) (x: Nat) (y: Nat) (x2: Nat) (y2: Nat) (sx: SameSide (columnsOf tiles) x x2) (sy: SameSide (rowsOf tiles) y y2):
     redOrGreen tiles { x, y } = redOrGreen tiles { x = x2, y = y2 } :=
   rewrite onStraightLineSame tiles x y x2 y2 sx sy, crossesRaySame tiles x y x2 y2 sx sy in rfl
 
@@ -172,7 +175,7 @@ theorem minIn (values: List Nat) (u: Nat) (v: Nat) (mu: List.Mem u values) (mv: 
 
 --| The rectangle between two red tiles is all red and green exactly when its
 --| key tiles are.
-theorem allKeysIsSpec (tiles: List Tile) (a: Tile) (b: Tile) (ma: List.Mem a tiles) (mb: List.Mem b tiles):
+theorem allKeysIsSpec (tiles: List Point) (a: Point) (b: Point) (ma: List.Mem a tiles) (mb: List.Mem b tiles):
     allKeys tiles ((Floor.of tiles).corner a) ((Floor.of tiles).corner b) = allRedOrGreen tiles (a, b) :=
   let floor := Floor.of tiles
   let columns := floor.columns

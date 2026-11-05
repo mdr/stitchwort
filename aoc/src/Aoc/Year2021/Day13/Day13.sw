@@ -19,19 +19,14 @@
 --| `Aoc.Year2021.Day13.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2021.Day13
-import Std (Eq, Fail, IO, List, Nat, Option, Ord, Pair, Parse, Text)
+import Aoc.Common (Point)
+import Std (Fail, IO, List, Nat, Option, Parse, Text)
 import Std.Parse (char, lines, nat, pick, section, text)
 
 def main(): {IO, Fail} () :=
   let paper := parsePaper IO.readAll()
   IO.print "Part 1: ${solvePart1 paper}"
   IO.print "Part 2:\n${showPicture (solvePart2 paper)}"
-
---| A dot, `x` across from the left edge, `y` down from the top.
-type Dot = { x: Nat, y: Nat }
-
---| Ordered by `x`, then `y`, so lists of dots can drop repeats.
-instance Dot.instOrd: Ord Dot := Ord.byKey (dot => (dot.x, dot.y)) (a b same => Dot.ext a b (Eq.cong Pair.fst same) (Eq.cong Pair.snd same))
 
 --| A fold along the vertical line `x = line` (the right half folds over to
 --| the left) or along the horizontal line `y = line` (the bottom half folds
@@ -40,8 +35,9 @@ type Fold =
   | AlongX (line: Nat)
   | AlongY (line: Nat)
 
---| The dots, then the folds, in order.
-type Paper = { dots: List Dot, folds: List Fold }
+--| The dots, then the folds, in order. A dot is a point: `x` across from
+--| the left edge, `y` down from the top.
+type Paper = { dots: List Point, folds: List Fold }
 
 --| The input: the dots, one per line, a blank line, and the folds, one per
 --| line. Fails if a fold has a dot on its line, or a dot further beyond it
@@ -53,7 +49,7 @@ def readPaper(): {Parse} Paper :=
   let folds := lines readFold
   { dots, folds }
 
-def readDot(): {Parse} Dot :=
+def readDot(): {Parse} Point :=
   let x := nat()
   char ','
   let y := nat()
@@ -73,9 +69,9 @@ def checkPaper (paper: Paper): {Fail} Paper :=
 
 --| The first fold that has a dot (after the folds before it) on its line
 --| or too far beyond it, with its index and that dot.
-def firstBlocked (dots: List Dot) (folds: List Fold): Option (Nat, Dot) := firstBlockedFrom 0 dots folds
+def firstBlocked (dots: List Point) (folds: List Fold): Option (Nat, Point) := firstBlockedFrom 0 dots folds
 
-def firstBlockedFrom (index: Nat) (dots: List Dot): List Fold → Option (Nat, Dot)
+def firstBlockedFrom (index: Nat) (dots: List Point): List Fold → Option (Nat, Point)
   | [] => None
   | [fold, ..rest] =>
     match dots.find (dot => not (clears fold dot)) with
@@ -85,24 +81,24 @@ def firstBlockedFrom (index: Nat) (dots: List Dot): List Fold → Option (Nat, D
 --| A dot is clear of a fold when it isn't on the line and isn't further
 --| beyond it than the line is from the near edge (so its reflection is on
 --| the sheet).
-def clears (fold: Fold) (dot: Dot): Bool :=
+def clears (fold: Fold) (dot: Point): Bool :=
   match fold with
     | AlongX line => dot.x != line && dot.x <= 2 * line
     | AlongY line => dot.y != line && dot.y <= 2 * line
 
 --| Where a dot ends up after a fold: reflected across the line if it is
 --| beyond it, where it was otherwise.
-def foldDot (fold: Fold) (dot: Dot): Dot :=
+def foldDot (fold: Fold) (dot: Point): Point :=
   match fold with
     | AlongX line => if line < dot.x then { dot | x = 2 * line - dot.x } else dot
     | AlongY line => if line < dot.y then { dot | y = 2 * line - dot.y } else dot
 
 --| One fold: every dot moves to where it lands, and dots that land
 --| together become one.
-def foldOnce (dots: List Dot) (fold: Fold): List Dot := dots.map (foldDot fold) |> .distinct
+def foldOnce (dots: List Point) (fold: Fold): List Point := dots.map (foldDot fold) |> .distinct
 
 --| The dots after the folds, in order, each once.
-def foldAll (folds: List Fold) (dots: List Dot): List Dot := folds.foldLeft dots.distinct foldOnce
+def foldAll (folds: List Fold) (dots: List Point): List Point := folds.foldLeft dots.distinct foldOnce
 
 --| Part 1: how many dots are left after the first fold.
 def solvePart1 (paper: Paper): Nat := (foldAll (paper.folds.take 1) paper.dots).length
@@ -112,12 +108,12 @@ def solvePart2 (paper: Paper): List (List Char) := render (foldAll paper.folds p
 
 --| The dots as rows of `#` (a dot) and `.` (none), from the top left corner
 --| to the rightmost and lowest dot.
-def render (dots: List Dot): List (List Char) :=
+def render (dots: List Point): List (List Char) :=
   List.range (height dots) |> .map (y => List.range (width dots) |> .map (x => if dots.any (== { x, y }) then '#' else '.'))
 
 --| How many columns and rows the dots need.
-def width (dots: List Dot): Nat := dots.foldRight 0 (dot widest => Nat.max (dot.x + 1) widest)
+def width (dots: List Point): Nat := dots.foldRight 0 (dot widest => Nat.max (dot.x + 1) widest)
 
-def height (dots: List Dot): Nat := dots.foldRight 0 (dot lowest => Nat.max (dot.y + 1) lowest)
+def height (dots: List Point): Nat := dots.foldRight 0 (dot lowest => Nat.max (dot.y + 1) lowest)
 
 def showPicture (picture: List (List Char)): Text := picture.map Text.fromList |> Text.joinWith "\n"

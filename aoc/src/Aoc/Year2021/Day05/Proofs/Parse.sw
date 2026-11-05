@@ -4,6 +4,7 @@
 -- (D2108)
 
 namespace Aoc.Year2021.Day05.Proofs
+import Aoc.Common (..)
 import Aoc.Year2021.Day05 (..)
 import Aoc.Year2021.Day05.Spec (..)
 import Std (Bool, Eq, Fail, List, Option, Result, Void)
