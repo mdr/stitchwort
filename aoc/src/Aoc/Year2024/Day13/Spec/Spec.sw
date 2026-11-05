@@ -19,9 +19,9 @@ def winsPrize (machine: Machine) (aPresses: Nat) (bPresses: Nat): Bool :=
 --| Part 1: "each button would need to be pressed no more than 100 times":
 --| the cost of every winning pair of press counts from 0 to 100.
 def winningCosts (machine: Machine): List Nat :=
-  List.range 101
+  List.range 0 101
     |> .flatMap (aPresses =>
-      List.range 101 |> .filter (bPresses => winsPrize machine aPresses bPresses) |> .map (bPresses => cost aPresses bPresses))
+      List.range 0 101 |> .filter (bPresses => winsPrize machine aPresses bPresses) |> .map (bPresses => cost aPresses bPresses))
 
 --| "The smallest number of tokens you would have to spend" to win this
 --| machine's prize, if any presses win it.

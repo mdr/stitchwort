@@ -22,7 +22,7 @@ def picture (disk: Disk): Text :=
 
 --| The pictures after each of part 1's moves, until there are no gaps.
 def movePictures (disk: Disk): List Text :=
-  List.range (disk.blocks.length + 1) |> .map (moves => picture { blocks = compactOneAtATime moves disk.blocks }) |> .dedup
+  List.range 0 (disk.blocks.length + 1) |> .map (moves => picture { blocks = compactOneAtATime moves disk.blocks }) |> .dedup
 
 --| Both parts agree with the spec.
 def agrees (input: Text): Result Bool Text :=

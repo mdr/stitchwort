@@ -175,7 +175,7 @@ def candidates (output: Nat → List Nat): (target: List Nat) → List Nat
   | [] => [0]
   | [value, ..rest] =>
     candidates output rest
-      |> .flatMap (high => List.range 8 |> .map (low => high * 8 + low))
+      |> .flatMap (high => List.range 0 8 |> .map (low => high * 8 + low))
       |> .filter (a => output a == [value, ..rest])
 
 --| The lowest positive initial A for which `output` is `target`, among the

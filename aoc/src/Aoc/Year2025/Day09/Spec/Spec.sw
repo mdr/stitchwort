@@ -66,8 +66,8 @@ def redOrGreen (tiles: List Point) (tile: Point): Bool := onLoop tiles tile ∨ 
 
 --| Every tile of the rectangle is red or green.
 def allRedOrGreen (tiles: List Point) (rectangle: Rectangle): Bool :=
-  List.between (Nat.min rectangle.corner.y rectangle.opposite.y) (Nat.max rectangle.corner.y rectangle.opposite.y)
-    |> .all (y => List.between (Nat.min rectangle.corner.x rectangle.opposite.x) (Nat.max rectangle.corner.x rectangle.opposite.x) |> .all (x => redOrGreen tiles { x, y }))
+  List.range (Nat.min rectangle.corner.y rectangle.opposite.y) (Nat.max rectangle.corner.y rectangle.opposite.y + 1)
+    |> .all (y => List.range (Nat.min rectangle.corner.x rectangle.opposite.x) (Nat.max rectangle.corner.x rectangle.opposite.x + 1) |> .all (x => redOrGreen tiles { x, y }))
 
 --| Part 2's answer is the largest area of the rectangles that are all red
 --| and green.

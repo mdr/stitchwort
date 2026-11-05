@@ -25,7 +25,7 @@ test "example, part 2's positions" := (totalFuel part2Fuel exampleCrabs 5, total
 test "the example's ends" := (leftmost exampleCrabs, rightmost exampleCrabs) == (0, 16)
 
 test "the spec's distance either way" := (distance 16 5, distance 1 5, distance 5 5) == (11, 4, 0)
-test "part 2's fuel is 1 + 2 + … + n" := (List.range 30).all (n => growingFuel n == part2Fuel n)
+test "part 2's fuel is 1 + 2 + … + n" := (List.range 0 30).all (n => growingFuel n == part2Fuel n)
 test "16 to 5 costs 66 in part 2" := part2Fuel 11 == 66
 
 test "no crabs need no fuel" := (solvePart1 [], solvePart2 []) == (0, 0)

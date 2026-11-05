@@ -80,7 +80,7 @@ def bananas (count: Nat) (buyers: List Nat) (sequence: Changes): Nat :=
   buyers.sumBy (buyer => sellingPrice sequence (offeredPrices count buyer) |> .getOrElse 0)
 
 --| A change between two prices, each a digit: from -9 to 9.
-def possibleChanges: List Int := List.range 19 |> .map (offset => offset.toInt - 9)
+def possibleChanges: List Int := List.range 0 19 |> .map (offset => offset.toInt - 9)
 
 --| Every sequence of four of `changes`.
 def sequencesOf (changes: List Int): List Changes :=

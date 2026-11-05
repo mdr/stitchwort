@@ -101,12 +101,12 @@ theorem positionEta: (position: Position) → ({ row = position.row, column = po
 --| Every position on the map is in `positions`, and only those.
 theorem positionsOnMap (lab: Lab) (position: Position) (inside: onMap lab position = True):
     (positions lab).any (other => Map.Spec.sameKey position other) = True :=
-  let inRow: position ∈ (List.range lab.width |> .map (column => ({ row = position.row, column }: Position))) :=
-    rewrite positionEta position at List.memMap (List.range lab.width) position.column (List.memRangeFromIntro position.column lab.width 0 omega (omega [inside]))
+  let inRow: position ∈ (List.range 0 lab.width |> .map (column => ({ row = position.row, column }: Position))) :=
+    rewrite positionEta position at List.memMap (List.range 0 lab.width) position.column (List.memRangeFromIntro position.column lab.width 0 omega (omega [inside]))
       (column => ({ row = position.row, column }: Position))
   let member: position ∈ positions lab :=
-    List.memFlatMapIntro (row => List.range lab.width |> .map (column => ({ row, column }: Position))) position.row position
-      (List.range lab.height) (List.memRangeFromIntro position.row lab.height 0 omega (omega [inside])) inRow
+    List.memFlatMapIntro (row => List.range 0 lab.width |> .map (column => ({ row, column }: Position))) position.row position
+      (List.range 0 lab.height) (List.memRangeFromIntro position.row lab.height 0 omega (omega [inside])) inRow
   List.anyOfMem (positions lab) (other => Map.Spec.sameKey position other) position
     (rewrite Map.Spec.sameKeyDecide position position in DecEq.refl position) member
 
@@ -114,12 +114,12 @@ theorem positionsOnlyOnMap (lab: Lab) (position: Position) (has: (positions lab)
     onMap lab position = True :=
   List.anyTrueElim (positions lab) (other => Map.Spec.sameKey position other) (onMap lab position = True) has (other member same =>
     rewrite Map.Spec.sameKeySound position other same in
-    List.anyElim (row => other ∈ (List.range lab.width |> .map (column => ({ row, column }: Position)))) (onMap lab other = True)
-      (List.range lab.height)
-      (List.memFlatMapElim (row => List.range lab.width |> .map (column => ({ row, column }: Position))) other (List.range lab.height) member)
+    List.anyElim (row => other ∈ (List.range 0 lab.width |> .map (column => ({ row, column }: Position)))) (onMap lab other = True)
+      (List.range 0 lab.height)
+      (List.memFlatMapElim (row => List.range 0 lab.width |> .map (column => ({ row, column }: Position))) other (List.range 0 lab.height) member)
       (row rowMember inRow =>
-        List.anyElim (column => ({ row, column }: Position) = other) (onMap lab other = True) (List.range lab.width)
-          (List.memMapAny (List.range lab.width) (column => ({ row, column }: Position)) other inRow)
+        List.anyElim (column => ({ row, column }: Position) = other) (onMap lab other = True) (List.range 0 lab.width)
+          (List.memMapAny (List.range 0 lab.width) (column => ({ row, column }: Position)) other inRow)
           (column columnMember built =>
             let rowSmall := List.memRangeFrom row lab.height 0 rowMember
             let columnSmall := List.memRangeFrom column lab.width 0 columnMember

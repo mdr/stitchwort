@@ -19,17 +19,17 @@ def WinWithin (machine: Machine) (tokensSpent: Nat): Prop :=
 
 --| B's press counts that win after `aPresses` of A, and what they cost.
 def costsAfter (machine: Machine) (aPresses: Nat): List Nat :=
-  List.range 101 |> .filter (bPresses => machine.wins aPresses bPresses) |> .map (bPresses => tokens aPresses bPresses)
+  List.range 0 101 |> .filter (bPresses => machine.wins aPresses bPresses) |> .map (bPresses => tokens aPresses bPresses)
 
 --| Every cost the spec lists is of presses that win, each at most 100.
 theorem winningCostsWin (machine: Machine) (tokensSpent: Nat) (listed: tokensSpent ∈ winningCosts machine): WinWithin machine tokensSpent :=
-  List.anyElim (aPresses => tokensSpent ∈ costsAfter machine aPresses) (WinWithin machine tokensSpent) (List.range 101)
-    (List.memFlatMapElim (costsAfter machine) tokensSpent (List.range 101) listed) (aPresses aListed inner =>
+  List.anyElim (aPresses => tokensSpent ∈ costsAfter machine aPresses) (WinWithin machine tokensSpent) (List.range 0 101)
+    (List.memFlatMapElim (costsAfter machine) tokensSpent (List.range 0 101) listed) (aPresses aListed inner =>
       let winning := (bPresses: Nat) => machine.wins aPresses bPresses
-      let filtered := List.range 101 |> .filter winning
+      let filtered := List.range 0 101 |> .filter winning
       List.anyElim (bPresses => tokens aPresses bPresses = tokensSpent) (WinWithin machine tokensSpent) filtered
         (List.memMapAny filtered (bPresses => tokens aPresses bPresses) tokensSpent inner) (bPresses bListed costs =>
-          let bWins := List.memFilter (List.range 101) winning bPresses bListed
+          let bWins := List.memFilter (List.range 0 101) winning bPresses bListed
           let aBelow := And.right (List.memRangeFrom aPresses 101 0 aListed)
           let bBelow := And.right (List.memRangeFrom bPresses 101 0 (And.left bWins))
           Witness aPresses (Witness bPresses (Both (omega) (Both (omega) (Both (And.right bWins) (Eq.sym costs)))))))
@@ -38,9 +38,9 @@ theorem winningCostsWin (machine: Machine) (tokensSpent: Nat) (listed: tokensSpe
 theorem winListed (machine: Machine) (aPresses: Nat) (bPresses: Nat) (aWithin: aPresses ≤ 100) (bWithin: bPresses ≤ 100)
     (won: machine.wins aPresses bPresses = True): tokens aPresses bPresses ∈ winningCosts machine :=
   let winning := (bPresses: Nat) => machine.wins aPresses bPresses
-  let filtered := List.range 101 |> .filter winning
-  let bListed := List.memFilterIntro (List.range 101) winning bPresses (List.memRangeFromIntro bPresses 101 0 (omega) (omega)) won
-  List.memFlatMapIntro (costsAfter machine) aPresses (tokens aPresses bPresses) (List.range 101)
+  let filtered := List.range 0 101 |> .filter winning
+  let bListed := List.memFilterIntro (List.range 0 101) winning bPresses (List.memRangeFromIntro bPresses 101 0 (omega) (omega)) won
+  List.memFlatMapIntro (costsAfter machine) aPresses (tokens aPresses bPresses) (List.range 0 101)
     (List.memRangeFromIntro aPresses 101 0 (omega) (omega)) (List.memMap filtered bPresses bListed (bPresses => tokens aPresses bPresses))
 
 --| Two wins are the same presses, with a nonzero determinant.

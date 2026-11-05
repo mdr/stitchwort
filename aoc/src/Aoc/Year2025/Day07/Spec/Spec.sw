@@ -63,7 +63,7 @@ def reached (ts: List (List Hit)) (r: Nat) (c: Nat): Bool := ts.any (t => t.any 
 
 --| Part 1: the splitters that some timeline reaches.
 def part1Spec (manifold: Manifold): Nat :=
-  List.range manifold.rows.length |> .sumBy (r => List.range manifold.width |> .count (c => reached (timelines manifold) r c))
+  List.range 0 manifold.rows.length |> .sumBy (r => List.range 0 manifold.width |> .count (c => reached (timelines manifold) r c))
 
 --| Part 2: the timelines.
 def part2Spec (manifold: Manifold): Nat := timelines manifold |> .length

@@ -40,7 +40,7 @@ test "the other diagonal's points" := (line 9 7 7 9).points == [point 9 7, point
 test "a line of one point" := (line 4 4 4 4).points == [point 4 4]
 
 --| The spec says the same of those lines, point by point, around them.
-def around: List Point := List.range 11 |> .flatMap (x => List.range 11 |> .map (y => point x y))
+def around: List Point := List.range 0 11 |> .flatMap (x => List.range 0 11 |> .map (y => point x y))
 def agrees (l: Line): Bool := around.all (p => covers l p == l.points.contains p)
 test "the spec's points" := [line 1 1 1 3, line 9 7 7 7, line 1 1 3 3, line 9 7 7 9, line 4 4 4 4, line 8 0 0 8, line 5 5 8 2].all agrees
 --| A line at another angle: the spec has its grid points, (0, 0), (2, 1)

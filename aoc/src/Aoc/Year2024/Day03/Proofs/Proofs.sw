@@ -47,24 +47,24 @@ def enabledResult (instructions: List Instruction) (index: Nat): Nat :=
 --| as the most recent do() or don't() says, and the enabled results so far.
 theorem tallyAfter (instructions: List Instruction): (k: Nat) → k ≤ instructions.length →
     List.foldLeft (instructions.take k) Tally.start Tally.step =
-      { enabled = enabledAfter (instructions.take k), total = List.range k |> .sumBy (enabledResult instructions) }
+      { enabled = enabledAfter (instructions.take k), total = List.range 0 k |> .sumBy (enabledResult instructions) }
   | Zero, inRange => rfl
   | Succ k, inRange =>
     let before := tallyAfter instructions k (Nat.leTrans k (Succ k) instructions.length (Nat.leSucc k) inRange)
     rewrite List.foldLeftTakeSucc Tally.step Do instructions Tally.start k inRange,
       before,
-      stepAgrees (instructions.take k) (List.range k |> .sumBy (enabledResult instructions)) (instructions.getOr k Do),
+      stepAgrees (instructions.take k) (List.range 0 k |> .sumBy (enabledResult instructions)) (instructions.getOr k Do),
       List.takeSucc Do instructions k inRange,
       List.sumRangeLast (enabledResult instructions) k in
       rfl
 
 --| The spec's sum, by index.
 theorem enabledResultsByIndex (instructions: List Instruction):
-    enabledResults instructions = List.range instructions.length |> .sumBy (enabledResult instructions) :=
+    enabledResults instructions = List.range 0 instructions.length |> .sumBy (enabledResult instructions) :=
   let counted := ((index, instruction): (Nat, Instruction)) => if enabledAfter (instructions.take index) then instruction.result else 0
   Eq.trans
     (Eq.cong (pairs => List.sumBy pairs counted) (List.withIndexRange instructions Do))
-    (List.sumByMap (List.range instructions.length) counted (index => (index, instructions.getOr index Do)))
+    (List.sumByMap (List.range 0 instructions.length) counted (index => (index, instructions.getOr index Do)))
 
 --| Part 2 adds up just the enabled results.
 theorem part2Correct (instructions: List Instruction): solvePart2 instructions = enabledResults instructions :=
@@ -73,7 +73,7 @@ theorem part2Correct (instructions: List Instruction): solvePart2 instructions =
   calc solvePart2 instructions
     _ = (List.foldLeft (instructions.take all) start Tally.step).total :=
       Eq.cong (taken => (List.foldLeft taken start Tally.step).total) (Eq.sym (List.takeAll instructions all (Nat.leRefl all)))
-    _ = List.sumBy (List.range all) (enabledResult instructions) := Eq.cong Tally.total (tallyAfter instructions all (Nat.leRefl all))
+    _ = List.sumBy (List.range 0 all) (enabledResult instructions) := Eq.cong Tally.total (tallyAfter instructions all (Nat.leRefl all))
     _ = enabledResults instructions := Eq.sym (enabledResultsByIndex instructions)
 
 --| With `mul` enabled and no `don't()` to come, the fold adds every result.

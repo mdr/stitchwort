@@ -24,11 +24,11 @@ theorem hitsCandidate (target: Target) (right: 0 < target.left) (below: target.t
   let jOf := Int.toIntToNat (velocity.dy - target.bottom) (omega)
   let rightOf := Int.toIntToNat target.right (omega)
   let stepsOf := Int.toIntToNat (-2 * target.bottom) (omega)
-  let iIn: i ∈ List.range (Int.toNat target.right) := List.memRangeFromIntro i (Int.toNat target.right) 0 (omega) (omega)
-  let jIn: j ∈ List.range (steps target) := List.memRangeFromIntro j (steps target) 0 (omega) (omega)
+  let iIn: i ∈ List.range 0 (Int.toNat target.right) := List.memRangeFromIntro i (Int.toNat target.right) 0 (omega) (omega)
+  let jIn: j ∈ List.range 0 (steps target) := List.memRangeFromIntro j (steps target) 0 (omega) (omega)
   let same: aimed target i j = velocity := Velocity.ext (aimed target i j) velocity (omega) (omega)
-  List.memFlatMapIntro (i => List.range (steps target) |> .map (aimed target i)) i velocity (List.range (Int.toNat target.right)) iIn
-    (rewrite same at (List.memMap (List.range (steps target)) j jIn (aimed target i)))
+  List.memFlatMapIntro (i => List.range 0 (steps target) |> .map (aimed target i)) i velocity (List.range 0 (Int.toNat target.right)) iIn
+    (rewrite same at (List.memMap (List.range 0 (steps target)) j jIn (aimed target i)))
 
 --| The velocities that hit, over every velocity: the program's list.
 theorem hittingCorrect (target: Target) (right: 0 < target.left) (below: target.top < 0) (velocity: Velocity):
@@ -50,11 +50,11 @@ theorem hittingCorrect (target: Target) (right: 0 < target.left) (below: target.
 
 --| The candidates are distinct, so the hitting velocities are.
 theorem candidatesDistinct (target: Target): List.Distinct (candidates target) :=
-  List.distinctFlatMap (i => List.range (steps target) |> .map (aimed target i)) (v => Int.toNat (v.dx - 1)) (List.range (Int.toNat target.right))
+  List.distinctFlatMap (i => List.range 0 (steps target) |> .map (aimed target i)) (v => Int.toNat (v.dx - 1)) (List.range 0 (Int.toNat target.right))
     (List.distinctRangeFrom (Int.toNat target.right) 0)
-    (i _ => List.distinctMap (List.range (steps target)) (List.distinctRangeFrom (steps target) 0) (aimed target i) (a b same => omega [Eq.cong (v => v.dy) same]))
+    (i _ => List.distinctMap (List.range 0 (steps target)) (List.distinctRangeFrom (steps target) 0) (aimed target i) (a b same => omega [Eq.cong (v => v.dy) same]))
     (i _ v member =>
-      match List.memMapElim (aimed target i) v (List.range (steps target)) member with
+      match List.memMapElim (aimed target i) v (List.range 0 (steps target)) member with
         | Witness j (Both _ made) => rewrite <- made in Eq.trans (Eq.cong Int.toNat (omega: i.toInt + 1 - 1 = i.toInt)) (Int.toNatToInt i))
 
 theorem hittingDistinct (target: Target): List.Distinct (hitting target) :=

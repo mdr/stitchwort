@@ -98,7 +98,7 @@ theorem lookupRange (b: Nat): (c: Nat) → (s: Nat) → s ≤ b → b < s + c �
         rewrite lookupRange b c (Succ s) omega omega in rfl
 
 theorem storedAtStart (n: Nat) (b: Nat) (h: b < n): Map.get (Circuits.separate n).labels b = Some b :=
-  rewrite Map.getFromList b (List.map (List.range n) (box => (box, box))) in lookupRange b n 0 omega h
+  rewrite Map.getFromList b (List.map (List.range 0 n) (box => (box, box))) in lookupRange b n 0 omega h
 
 theorem labelAtStart (n: Nat) (b: Nat) (h: b < n): (Circuits.separate n).labelOf b = b := rewrite storedAtStart n b h in rfl
 

@@ -32,9 +32,9 @@ theorem leastFuelMeetsSpec (fuel: Nat → Nat) (specFuel: Nat → Nat) (same: (n
 --| least it.
 theorem programLeast (fuel: Nat → Nat) (monotone: (a: Nat) → (b: Nat) → a ≤ b → fuel a ≤ fuel b) (crabs: List Nat):
     (exists (position: Nat) => fuelAt fuel crabs position = leastFuel fuel crabs) ∧ ((position: Nat) → leastFuel fuel crabs ≤ fuelAt fuel crabs position) :=
-  let scan := List.between (leftmost crabs) (rightmost crabs)
+  let scan := List.range (leftmost crabs) (rightmost crabs + 1)
   let totals := scan.map (fuelAt fuel crabs)
-  let first := List.memBetweenIntro (leftmost crabs) (leftmost crabs) (rightmost crabs) (Nat.leRefl (leftmost crabs)) (leftmostLeRightmost crabs)
+  let first := ((List.memRange (leftmost crabs) (leftmost crabs) (rightmost crabs + 1)).backward (Both (Nat.leRefl (leftmost crabs)) (Nat.leLessSucc (leftmost crabs) (rightmost crabs) (leftmostLeRightmost crabs))))
   match List.minimumExists totals (fuelAt fuel crabs (leftmost crabs)) (List.memMap scan (leftmost crabs) first (fuelAt fuel crabs)) with
     | Witness least found =>
       rewrite leastFuelIs fuel crabs least found in
@@ -51,7 +51,7 @@ theorem programLeast (fuel: Nat → Nat) (monotone: (a: Nat) → (b: Nat) → a 
 
 --| The program's answer is the least of the scan's totals.
 theorem leastFuelIs (fuel: Nat → Nat) (crabs: List Nat) (least: Nat)
-    (found: (List.between (leftmost crabs) (rightmost crabs) |> .map (fuelAt fuel crabs) |> .minimum) = Some least): leastFuel fuel crabs = least :=
+    (found: (List.range (leftmost crabs) (rightmost crabs + 1) |> .map (fuelAt fuel crabs) |> .minimum) = Some least): leastFuel fuel crabs = least :=
   rewrite found in rfl
 
 --| The spec's total fuel is the program's, for the same fuel.
@@ -108,13 +108,13 @@ theorem fuelAtLe (fuel: Nat → Nat) (monotone: (a: Nat) → (b: Nat) → a ≤ 
 --| Every position costs at least as much as the nearest one between the
 --| leftmost crab and the rightmost.
 theorem scannedNoWorse (fuel: Nat → Nat) (monotone: (a: Nat) → (b: Nat) → a ≤ b → fuel a ≤ fuel b) (crabs: List Nat) (position: Nat):
-    exists (scanned: Nat) => (scanned ∈ List.between (leftmost crabs) (rightmost crabs)) ∧ fuelAt fuel crabs scanned ≤ fuelAt fuel crabs position :=
+    exists (scanned: Nat) => (scanned ∈ List.range (leftmost crabs) (rightmost crabs + 1)) ∧ fuelAt fuel crabs scanned ≤ fuelAt fuel crabs position :=
   let lo := leftmost crabs
   let hi := rightmost crabs
   let nearest := Nat.min (Nat.max position lo) hi
   let ordered := leftmostLeRightmost crabs
   Witness nearest
-    (Both (List.memBetweenIntro nearest lo hi omega omega)
+    (Both (((List.memRange nearest lo (hi + 1)).backward (Both omega (Nat.leLessSucc nearest hi omega))))
       (fuelAtLe fuel monotone crabs nearest position (crab member =>
         let above := leftmostLe crabs crab member
         let below := rightmostGe crabs crab member

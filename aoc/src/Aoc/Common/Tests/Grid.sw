@@ -32,7 +32,7 @@ test "findOnly, none" := Fail.toResult (() => small.findOnly 7 "seven") == Err "
 test "onlyCell, rows of any lengths" := Fail.toResult (() => onlyCell (cells [[7], [], [8, 9]]) 9 "nine") == Ok (at 2 1)
 test "findOnly, several" := Fail.toResult (() => (Grid.of [[1, 2], [2, 3]]).findOnly 2 "two") == Err "more than one two"
 test "at" := small.at (at 1 2) == Some 6 ∧ small.at (at 2 0) == None ∧ small.at (at 0 3) == None
-test "lookup is at" := (List.range 4 |> .all (r => List.range 5 |> .all (c => small.lookup (at r c) == small.at (at r c))))
+test "lookup is at" := (List.range 0 4 |> .all (r => List.range 0 5 |> .all (c => small.lookup (at r c) == small.at (at r c))))
 test "map" := (small.map (p x => p.row * 10 + x)).rows == [[1, 2, 3], [14, 15, 16]]
 test "a grid's step" := small.step (at 1 2) Right == None ∧ small.step (at 1 2) Down == None ∧ small.step (at 1 1) Right == Some (at 1 2)
 

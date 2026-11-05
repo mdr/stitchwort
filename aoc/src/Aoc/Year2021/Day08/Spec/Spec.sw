@@ -36,7 +36,7 @@ def digitSegments: Nat → List Segment
   | _ => []
 
 --| The digits.
-def digits: List Nat := List.range 10
+def digits: List Nat := List.range 0 10
 
 --| `wiring wire` is the segment the wire drives. A wiring connects the
 --| seven wires to the seven segments, one each.

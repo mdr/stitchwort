@@ -26,8 +26,8 @@ import Std (And, Bool, Eq, List, Nat, Ord, Ordering, Pair, Void)
 theorem closestFirstIsOrder (points: List Point): closestFirst points = List.map (connectionOrder points) (connectionKey points) :=
   calc closestFirst points
     _ = List.sort (List.map (allPairs points.length) (connectionKey points)) :=
-      rewrite List.withIndexRange points Point.origin, List.pairsMap (List.range points.length) (i => (i, List.getOr points i Point.origin)),
-        List.mapMap (List.pairs (List.range points.length)) _ _
+      rewrite List.withIndexRange points Point.origin, List.pairsMap (List.range 0 points.length) (i => (i, List.getOr points i Point.origin)),
+        List.mapMap (List.pairs (List.range 0 points.length)) _ _
         in rfl
     _ = List.map (connectionOrder points) (connectionKey points) := Eq.sym (List.sortOnMap (allPairs points.length) (connectionKey points))
 
@@ -74,20 +74,20 @@ theorem allMapPairWith (q: Nat → Bool) (x: Nat) (hx: q x = True): (xs: List Na
 
 theorem connectionsInRange (k: Nat) (points: List Point): List.all (firstConnections k points) (boxesBelow points.length) = True :=
   let n := points.length
-  let below: List.all (List.range n) (i => Nat.leq (Succ i) n) = True :=
+  let below: List.all (List.range 0 n) (i => Nat.leq (Succ i) n) = True :=
     List.allRangeIntro (i => Nat.leq (Succ i) n) n 0 (i lo hi => hi)
   allTake (boxesBelow n) k (connectionOrder points)
     (rewrite List.allPerm (connectionOrder points) (allPairs n) (List.sortOnPerm (allPairs n) (connectionKey points))
       (boxesBelow n)
-      in allPairsBoth (i => Nat.leq (Succ i) n) (List.range n) below)
+      in allPairsBoth (i => Nat.leq (Succ i) n) (List.range 0 n) below)
 
 -- The program's sizes are the spec's ----------------------------------------
 
 --| Two tests that agree on the boxes give the same sizes.
 theorem circuitSizesCongRange (n: Nat) (same1: Nat → Nat → Bool) (same2: Nat → Nat → Bool)
     (agree: (a: Nat) → (b: Nat) → a < n → b < n → same1 a b = same2 a b): circuitSizes n same1 = circuitSizes n same2 :=
-  let below: (x: Nat) → List.Mem x (List.range n) → x < n := x m => And.right (List.memRangeFrom x n 0 m)
-  rewrite agree, agree _ _ _ (below _ (And.left (List.memFilter (List.range n) _ _ _)))
+  let below: (x: Nat) → List.Mem x (List.range 0 n) → x < n := x m => And.right (List.memRangeFrom x n 0 m)
+  rewrite agree, agree _ _ _ (below _ (And.left (List.memFilter (List.range 0 n) _ _ _)))
 
 --| Two tests that tell agree.
 theorem tellersAgree (n: Nat) (connections: List (Nat, Nat)) (same1: Nat → Nat → Bool) (same2: Nat → Nat → Bool)

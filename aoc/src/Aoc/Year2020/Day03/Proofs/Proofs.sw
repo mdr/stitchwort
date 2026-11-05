@@ -43,7 +43,7 @@ theorem pathRange (slope: Slope): (from: Position) → (steps: Nat) →
     path slope from steps = (List.rangeFrom steps 1).map (step => ({ row = from.row + step * slope.down, column = from.column + step * slope.right }: Position))
   | from, Zero => rfl
   | from, Succ more =>
-    rewrite pathRange slope (moved from slope) more, List.mapRangeShift _ more 1 in
+    rewrite pathRange slope (moved from slope) more, List.mapRangeFromShift _ more 1 in
       Eq.cong (rest => [moved from slope, ..rest]) (List.mapCong _ _ _ (step => positionEq _ _ _ _ omega omega))
 
 --| `map.isRectangle = True` is `map.Rectangle` (`isRectangleIff`), as a `Bool` the

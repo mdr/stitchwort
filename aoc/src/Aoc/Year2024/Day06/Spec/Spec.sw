@@ -39,7 +39,7 @@ def onMap (lab: Lab) (position: Position): Bool := position.row < lab.height && 
 
 --| Every position on the mapped area.
 def positions (lab: Lab): List Position :=
-  List.range lab.height |> .flatMap (row => List.range lab.width |> .map (column => ({ row, column }: Position)))
+  List.range 0 lab.height |> .flatMap (row => List.range 0 lab.width |> .map (column => ({ row, column }: Position)))
 
 --| "All of the possible positions for such an obstruction": a new one, on the
 --| map, not "at the guard's starting position", where "the guard will get

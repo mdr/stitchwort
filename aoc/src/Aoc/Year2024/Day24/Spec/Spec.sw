@@ -39,7 +39,7 @@ def Outputs (device: Device) (number: Nat): Prop :=
 --| treating the bits on wires starting with y as a second binary number":
 --| the wires starting with `x` and `y`, `bits` of each.
 def inputsFor (bits: Nat) (x: Nat) (y: Nat): List (Wire, Bool) :=
-  List.append (List.range bits |> .map (bit => (X bit, x.testBit bit))) (List.range bits |> .map (bit => (Y bit, y.testBit bit)))
+  List.append (List.range 0 bits |> .map (bit => (X bit, x.testBit bit))) (List.range 0 bits |> .map (bit => (Y bit, y.testBit bit)))
 
 --| "for any combination of bits on wires starting with x and wires starting
 --| with y, the sum of the two numbers those bits represent should be

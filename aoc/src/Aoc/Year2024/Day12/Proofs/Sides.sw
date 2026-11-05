@@ -143,28 +143,28 @@ theorem programCornersCell (garden: Garden) (start: Position) (plant: Char) (gro
     ]
 
 --| `total` is the sum over `List.range`.
-theorem totalRange: (n: Nat) → (f: Nat → Nat) → (List.range n).sumBy f = total n f
+theorem totalRange: (n: Nat) → (f: Nat → Nat) → (List.range 0 n).sumBy f = total n f
   | Zero, f => rfl
   | Succ n, f => rewrite List.sumByRangeSucc f n, totalRange n (i => f (Succ i)) in rfl
 
 --| The square of the grid with rows and columns up to `last`, row by row.
 def square (last: Nat): List Position :=
-  List.range (Succ last) |> .flatMap (row => List.range (Succ last) |> .map (column => ({ row, column }: Position)))
+  List.range 0 (Succ last) |> .flatMap (row => List.range 0 (Succ last) |> .map (column => ({ row, column }: Position)))
 
 theorem memSquare (last: Nat) (row: Nat) (column: Nat) (rowIn: row ≤ last) (columnIn: column ≤ last): ({ row, column }: Position) ∈ square last :=
-  List.memFlatMapIntro (row => List.range (Succ last) |> .map (column => ({ row, column }: Position))) row { row, column } (List.range (Succ last))
+  List.memFlatMapIntro (row => List.range 0 (Succ last) |> .map (column => ({ row, column }: Position))) row { row, column } (List.range 0 (Succ last))
     (List.memRangeFromIntro row (Succ last) 0 (omega) (omega))
-    (List.memMap (List.range (Succ last)) column (List.memRangeFromIntro column (Succ last) 0 (omega) (omega)) (column => ({ row, column }: Position)))
+    (List.memMap (List.range 0 (Succ last)) column (List.memRangeFromIntro column (Succ last) 0 (omega) (omega)) (column => ({ row, column }: Position)))
 
 theorem squareDistinct (last: Nat): List.Distinct (square last) :=
-  List.distinctFlatMap (row => List.range (Succ last) |> .map (column => ({ row, column }: Position))) (position => position.row)
-    (List.range (Succ last)) (List.distinctRangeFrom (Succ last) 0)
+  List.distinctFlatMap (row => List.range 0 (Succ last) |> .map (column => ({ row, column }: Position))) (position => position.row)
+    (List.range 0 (Succ last)) (List.distinctRangeFrom (Succ last) 0)
     (row inRows =>
-      List.distinctMap (List.range (Succ last)) (List.distinctRangeFrom (Succ last) 0) (column => ({ row, column }: Position))
+      List.distinctMap (List.range 0 (Succ last)) (List.distinctRangeFrom (Succ last) 0) (column => ({ row, column }: Position))
         (first second same => Eq.cong (position => position.column) same))
     (row inRows position member =>
-      List.anyElim (column => ({ row, column }: Position) = position) (position.row = row) (List.range (Succ last))
-        (List.memMapAny (List.range (Succ last)) (column => ({ row, column }: Position)) position member)
+      List.anyElim (column => ({ row, column }: Position) = position) (position.row = row) (List.range 0 (Succ last))
+        (List.memMapAny (List.range 0 (Succ last)) (column => ({ row, column }: Position)) position member)
         (column inColumns built => rewrite <- built in rfl))
 
 --| A sum over a region's plots, of something that is 0 off the region, is
@@ -195,11 +195,11 @@ theorem sumOverGrid (region: Region) (distinct: List.Distinct region.plots) (las
               | True => rfl
               | False => Eq.sym (zero row column found)))
   let bySquare :=
-    Eq.trans (List.sumByFlatMap (List.range (Succ last)) term (row => List.range (Succ last) |> .map (column => ({ row, column }: Position))))
+    Eq.trans (List.sumByFlatMap (List.range 0 (Succ last)) term (row => List.range 0 (Succ last) |> .map (column => ({ row, column }: Position))))
       (Eq.trans
-        (List.sumByCong (List.range (Succ last)) (row => (List.range (Succ last) |> .map (column => ({ row, column }: Position))).sumBy term)
+        (List.sumByCong (List.range 0 (Succ last)) (row => (List.range 0 (Succ last) |> .map (column => ({ row, column }: Position))).sumBy term)
           (row => total (Succ last) (column => f row column)) (row =>
-          Eq.trans (List.sumByMap (List.range (Succ last)) term (column => ({ row, column }: Position))) (totalRange (Succ last) (column => f row column))))
+          Eq.trans (List.sumByMap (List.range 0 (Succ last)) term (column => ({ row, column }: Position))) (totalRange (Succ last) (column => f row column))))
         (totalRange (Succ last) (row => total (Succ last) (column => f row column))))
   Eq.trans (Eq.sym (List.sumByPerm kept region.plots same term)) (Eq.trans filtered bySquare)
 

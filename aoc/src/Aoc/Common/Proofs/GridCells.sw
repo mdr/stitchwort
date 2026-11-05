@@ -175,10 +175,10 @@ theorem memPositions (height: Nat) (width: Nat) (position: Position): (position 
 }
 
 theorem withinOfMemPositions (height: Nat) (width: Nat) (position: Position) (member: position ∈ positions height width): position.within height width = True :=
-  List.anyElim (row => position ∈ List.map (List.range width) (column => ({ row, column }: Position))) (position.within height width = True)
-    (List.range height) (List.memFlatMapElim (row => List.map (List.range width) (column => ({ row, column }: Position))) position (List.range height) member)
+  List.anyElim (row => position ∈ List.map (List.range 0 width) (column => ({ row, column }: Position))) (position.within height width = True)
+    (List.range 0 height) (List.memFlatMapElim (row => List.map (List.range 0 width) (column => ({ row, column }: Position))) position (List.range 0 height) member)
     (row inRows inRow =>
-      Exists.elim (List.memMapElim (column => ({ row, column }: Position)) position (List.range width) inRow) (column both =>
+      Exists.elim (List.memMapElim (column => ({ row, column }: Position)) position (List.range 0 width) inRow) (column both =>
         let (Both inColumns same) := both
         let (Both _ below) := List.memRangeFrom row height 0 inRows
         let (Both _ before) := List.memRangeFrom column width 0 inColumns

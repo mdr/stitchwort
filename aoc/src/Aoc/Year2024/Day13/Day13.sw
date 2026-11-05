@@ -70,9 +70,9 @@ def Machine.onlyPresses (machine: Machine) (nonzero: machine.determinant ≠ 0):
 
 --| The fewest tokens over every press count up to `limit` for each button.
 def Machine.searchTokens (machine: Machine) (limit: Nat): Option Nat :=
-  List.range (limit + 1)
+  List.range 0 (limit + 1)
     |> .flatMap (aPresses =>
-      List.range (limit + 1) |> .filter (machine.wins aPresses) |> .map (tokens aPresses))
+      List.range 0 (limit + 1) |> .filter (machine.wins aPresses) |> .map (tokens aPresses))
     |> .minimum
 
 --| The fewest tokens that win with at most `limit` presses of each button.
@@ -102,10 +102,10 @@ def Machine.collinearTokens (machine: Machine): Option Nat :=
   let buttonA := machine.buttonA
   let buttonB := machine.buttonB
   let fewerA :=
-    List.range (Nat.max buttonB.x.natAbs buttonB.y.natAbs + 1)
+    List.range 0 (Nat.max buttonB.x.natAbs buttonB.y.natAbs + 1)
       |> .filterMap (aPresses => buttonB.pressesToCover (machine.remaining buttonA aPresses) |> .map (tokens aPresses))
   let fewerB :=
-    List.range (Nat.max buttonA.x.natAbs buttonA.y.natAbs + 1)
+    List.range 0 (Nat.max buttonA.x.natAbs buttonA.y.natAbs + 1)
       |> .filterMap (bPresses =>
         buttonA.pressesToCover (machine.remaining buttonB bPresses) |> .map (aPresses => tokens aPresses bPresses))
   (fewerA ++ fewerB).minimum

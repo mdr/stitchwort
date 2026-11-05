@@ -48,26 +48,26 @@ def Stacked: List Range → Prop
 
 --| The first range of a list whose ids are below `n` holds `size` of them.
 theorem headCount (m: Range) (rest: List Range) (n: Nat) (b: Below n [m, ..rest]):
-    List.occurrences (List.range n) (id => m.contains id) = m.size :=
+    List.occurrences (List.range 0 n) (id => m.contains id) = m.size :=
   match e: Nat.leq m.from m.to with
     | True => countBelow m n (b m.to (coveredFirst m rest m.to (Nat.betweenYes m.from m.to m.to e omega)))
-    | False => countEmpty m e (List.range n)
+    | False => countEmpty m e (List.range 0 n)
 
 --| Stacked ranges hold different ids, so the ids below `n` they hold number
 --| the sum of their sizes.
 theorem stackedCount (n: Nat): (ms: List Range) → Stacked ms → Below n ms →
-    List.occurrences (List.range n) (id => covered ms id) = ms.sumBy Range.size
-  | [], s, b => List.occurrencesNone (List.range n) (id => covered [] id) (id => rfl)
+    List.occurrences (List.range 0 n) (id => covered ms id) = ms.sumBy Range.size
+  | [], s, b => List.occurrencesNone (List.range 0 n) (id => covered [] id) (id => rfl)
   | [m, ..rest], Both bm srest, b =>
-    calc List.occurrences (List.range n) (id => covered [m, ..rest] id)
-      _ = List.occurrences (List.range n) (id => m.contains id) + List.occurrences (List.range n) (id => covered rest id)
-        := List.occurrencesOr (List.range n) (id => m.contains id)
+    calc List.occurrences (List.range 0 n) (id => covered [m, ..rest] id)
+      _ = List.occurrences (List.range 0 n) (id => m.contains id) + List.occurrences (List.range 0 n) (id => covered rest id)
+        := List.occurrencesOr (List.range 0 n) (id => m.contains id)
           (id => covered rest id)
           (id h =>
             match t: covered rest id with
               | True => omega [bm id t, containsLo m id h]
               | False => rfl)
-      _ = m.size + List.occurrences (List.range n) (id => covered rest id) := rewrite headCount m rest n b
+      _ = m.size + List.occurrences (List.range 0 n) (id => covered rest id) := rewrite headCount m rest n b
       _ = m.size + rest.sumBy Range.size
         := rewrite stackedCount n rest srest (id h => b id (coveredRest m rest id h))
       _ = [m, ..rest].sumBy Range.size := Eq.sym (List.sumByCons rest m Range.size)
@@ -80,12 +80,12 @@ theorem solvePart2Correct (db: Database): solvePart2 db = countFresh db :=
   let top := db.fresh.foldLeft 0 (m r => Nat.max m r.to)
   calc solvePart2 db
     _ = (stack db.fresh).sumBy Range.size := List.sumByReverse (stack db.fresh) Range.size
-    _ = List.occurrences (List.range (top + 1)) (id => covered (stack db.fresh) id)
+    _ = List.occurrences (List.range 0 (top + 1)) (id => covered (stack db.fresh) id)
       := Eq.sym (stackedCount (top + 1) (stack db.fresh) (stackStacked db.fresh)
         (id h => omega [coveredTop 0 db.fresh id (Eq.trans (Eq.sym (stackCovers db.fresh id)) h)]))
-    _ = List.occurrences (List.range (top + 1)) (id => covered db.fresh id)
+    _ = List.occurrences (List.range 0 (top + 1)) (id => covered db.fresh id)
       := rewrite stackCovers db.fresh _
-    _ = countFresh db := Eq.sym (List.countOccurrences (List.range (top + 1)) (id => covered db.fresh id))
+    _ = countFresh db := Eq.sym (List.countOccurrences (List.range 0 (top + 1)) (id => covered db.fresh id))
 
 --| The merged ranges, latest first: `merge` before its `reverse`.
 def stack (ranges: List Range): List Range :=

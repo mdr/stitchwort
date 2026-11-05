@@ -49,4 +49,4 @@ def towards (start: Nat) (stop: Nat) (step: Nat): Nat :=
 --| that this misses.)
 def Line.points (line: Line): List Point :=
   let steps := Nat.max (line.from.x.absDiff line.to.x) (line.from.y.absDiff line.to.y)
-  List.range (steps + 1) |> .map (step => { x = towards line.from.x line.to.x step, y = towards line.from.y line.to.y step })
+  List.range 0 (steps + 1) |> .map (step => { x = towards line.from.x line.to.x step, y = towards line.from.y line.to.y step })

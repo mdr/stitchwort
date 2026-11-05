@@ -133,7 +133,7 @@ def Wire.xBit: Wire → Option Nat := match some | X bit => bit
 --| if every z wire has a value.
 def Device.zBits (device: Device) (values: Values): Option (List Bool) :=
   let wires := device.wires
-  List.range (bitCount Wire.zBit wires)
+  List.range 0 (bitCount Wire.zBit wires)
     |> .map (bit => if wires.contains (Z bit) then values.get (Z bit) else Some False)
     |> List.allSome
 

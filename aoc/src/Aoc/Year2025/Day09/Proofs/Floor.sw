@@ -81,8 +81,8 @@ def Inside (floor: Floor) (first: Corner) (second: Corner): Prop :=
 --| Every key tile from one corner's key column and row to the other's.
 def allKeys (tiles: List Point) (first: Corner) (second: Corner): Bool :=
   List.all
-    (List.between (Nat.min first.row second.row) (Nat.max first.row second.row))
-    (r => List.all (List.between (Nat.min first.column second.column) (Nat.max first.column second.column)) (c => redOrGreen tiles (keyTile (Floor.of tiles) c r)))
+    (List.range (Nat.min first.row second.row) (Nat.max first.row second.row + 1))
+    (r => List.all (List.range (Nat.min first.column second.column) (Nat.max first.column second.column + 1)) (c => redOrGreen tiles (keyTile (Floor.of tiles) c r)))
 
 theorem allRedOrGreenKeys (tiles: List Point) (first: Corner) (second: Corner) (inside: Inside (Floor.of tiles) first second):
     Floor.allRedOrGreen (Floor.of tiles) { corner = first, opposite = second } = allKeys tiles first second :=
@@ -102,24 +102,24 @@ theorem allRedOrGreenKeys (tiles: List Point) (first: Corner) (second: Corner) (
       let lastRow := Nat.max first.row second.row
       let lastColumn := Nat.max first.column second.column
       -- The sum of a row of the block.
-      let rowSum: Nat → Nat := r => List.sumBy (List.between left lastColumn) (c => PrefixSums.cell cells r c)
+      let rowSum: Nat → Nat := r => List.sumBy (List.range left (lastColumn + 1)) (c => PrefixSums.cell cells r c)
       Bool.eqOf (Floor.allRedOrGreen floor { corner = first, opposite = second }) (allKeys tiles first second)
         (h =>
           let zero: PrefixSums.blockSpec cells top bottom left right = 0 := rewrite <- blockIs in DecEq.sound _ 0 h
           List.allBetweenIntro _ top lastRow (r rlo rhi =>
             let rowZero: rowSum r = 0 :=
-              List.sumByZeroElim (List.between top lastRow) rowSum zero r (List.memBetweenIntro r top lastRow rlo rhi)
+              List.sumByZeroElim (List.range top (lastRow + 1)) rowSum zero r (((List.memRange r top (lastRow + 1)).backward (Both rlo (Nat.leLessSucc r lastRow rhi))))
             List.allBetweenIntro _ left lastColumn (c clo chi =>
               let cellZero: PrefixSums.cell cells r c = 0 :=
-                List.sumByZeroElim (List.between left lastColumn) (c => PrefixSums.cell cells r c) rowZero c
-                  (List.memBetweenIntro c left lastColumn clo chi)
+                List.sumByZeroElim (List.range left (lastColumn + 1)) (c => PrefixSums.cell cells r c) rowZero c
+                  (((List.memRange c left (lastColumn + 1)).backward (Both clo (Nat.leLessSucc c lastColumn chi))))
               outsideFlagZero (redOrGreen tiles (keyTile floor c r)) (rewrite cellAt tiles r c (omega) (omega) at cellZero))))
         (h =>
           let zero: PrefixSums.blockSpec cells top bottom left right = 0 :=
-            List.sumByZeroIntro (List.between top lastRow) rowSum (r rm =>
-              let rowIn := List.memBetween rm
+            List.sumByZeroIntro (List.range top (lastRow + 1)) rowSum (r rm =>
+              let rowIn := ((List.memRange _ _ _).forward rm)
               let rowAll := List.allBetweenElim _ top lastRow h r (rowIn.left) (rowIn.right)
-              List.sumByZeroIntro (List.between left lastColumn) (c => PrefixSums.cell cells r c) (c cm =>
-                let colIn := List.memBetween cm
+              List.sumByZeroIntro (List.range left (lastColumn + 1)) (c => PrefixSums.cell cells r c) (c cm =>
+                let colIn := ((List.memRange _ _ _).forward cm)
                 rewrite cellAt tiles r c (omega) (omega), List.allBetweenElim _ left lastColumn rowAll c (colIn.left) (colIn.right) in rfl))
           Decidable.toBoolOf (Nat.decEq (PrefixSums.block floor.outside top bottom left right) 0) (Eq.trans blockIs zero))

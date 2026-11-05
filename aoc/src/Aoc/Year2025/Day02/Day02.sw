@@ -47,7 +47,7 @@ type RepetitionTemplate = { blockLength: Nat, copies: Nat }
 --| What a block is multiplied by to write it out: 12 written 3 times is
 --| 12 * 10101, and 10101 is 1 + 10^2 + 10^4.
 def RepetitionTemplate.multiplier (template: RepetitionTemplate): Nat :=
-  List.range template.copies |> .sumBy (i => Nat.pow 10 (template.blockLength * i))
+  List.range 0 template.copies |> .sumBy (i => Nat.pow 10 (template.blockLength * i))
 
 --| The blocks have blockLength digits: from 10^(blockLength-1) up to 10^blockLength - 1.
 def RepetitionTemplate.smallestBlock (template: RepetitionTemplate): Nat := Nat.pow 10 (template.blockLength - 1)
@@ -58,8 +58,8 @@ def RepetitionTemplate.largestBlock (template: RepetitionTemplate): Nat := Nat.p
 --| `RepetitionTemplate.sumIn` gives those 0.
 def allTemplatesForRange (range: Range): List RepetitionTemplate := Each.collect (() =>
   let maxDigits := range.to.digitCount
-  let blockLength := each (List.between 1 maxDigits)
-  let copies := each (List.between 2 maxDigits)
+  let blockLength := each (List.range 1 (maxDigits + 1))
+  let copies := each (List.range 2 (maxDigits + 1))
   require (blockLength * copies ≤ maxDigits)
   { blockLength, copies })
 
@@ -68,7 +68,7 @@ def allTemplatesForRange (range: Range): List RepetitionTemplate := Each.collect
 --| longer than half the digits of the range's end has no ids in the range,
 --| and `RepetitionTemplate.sumIn` gives 0.
 def sumOfIdsWrittenTwice (range: Range): Nat :=
-  List.between 1 range.to.digitCount
+  List.range 1 (range.to.digitCount + 1)
     |> .sumBy (blockLength => RepetitionTemplate.sumIn { blockLength, copies = 2 } range)
 
 --| Part 2: the ids in the range written two or more times, each counted once.
@@ -91,7 +91,7 @@ def sumOfIdsWrittenRepeatedly (range: Range): Int :=
 def copiesWeight (copies: Nat): Int
     decreasing copies
 :=
-  let divisorWeights := List.between 2 (copies - 1) |> .sumBy (divisor =>
+  let divisorWeights := List.range 2 (copies - 1 + 1) |> .sumBy (divisor =>
     if h: divisor < copies then (if divisor.divides copies then copiesWeight divisor else 0) else 0)
   1 - divisorWeights
 

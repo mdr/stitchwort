@@ -74,7 +74,7 @@ def Board.score (board: Board) (draws: List Nat) (turn: Nat): Nat :=
 --| and in the order they are listed when several win on the same turn.
 def winningScores (game: Game): List Nat :=
   let turns := game.boards.map (board => (board.winningTurn game.draws, board))
-  List.range game.draws.length
+  List.range 0 game.draws.length
     |> .flatMap (turn => turns.filter (((won, _)) => won == turn) |> .map (((_, board)) => board.score game.draws turn))
 
 --| Part 1: the score of the first board to win; `None` if none does.

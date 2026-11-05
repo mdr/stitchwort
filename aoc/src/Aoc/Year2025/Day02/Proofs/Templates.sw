@@ -31,8 +31,8 @@ def keptIfFits (size: Nat) (blockLength: Nat) (copies: Nat): List RepetitionTemp
 --| it.
 theorem templatesAsGrid (range: Range):
     allTemplatesForRange range
-      = List.flatMap (List.between 1 range.to.digitCount) (blockLength =>
-        List.flatMap (List.between 2 range.to.digitCount) (copies =>
+      = List.flatMap (List.range 1 (range.to.digitCount + 1)) (blockLength =>
+        List.flatMap (List.range 2 (range.to.digitCount + 1)) (copies =>
           if Nat.leq (blockLength * copies) range.to.digitCount
           then [{ blockLength, copies }] else [])) :=
   let size := range.to.digitCount
@@ -40,25 +40,25 @@ theorem templatesAsGrid (range: Range):
   let fitting: Nat → Nat → {Each} RepetitionTemplate := k n =>
     require (k * n ≤ size)
     { blockLength = k, copies = n }
-  let withCopies: Nat → {Each} RepetitionTemplate := k => fitting k (each (List.between 2 size))
+  let withCopies: Nat → {Each} RepetitionTemplate := k => fitting k (each (List.range 2 (size + 1)))
   -- `require` keeps the template if it fits.
   let kept: (k: Nat) → (n: Nat) → Each.collect (u => fitting k n) = keptIfFits size k n :=
     k n => Each.collectRequire (u => ({ blockLength = k, copies = n }: RepetitionTemplate)) (k * n ≤ size)
   calc allTemplatesForRange range
     -- Choosing a block length: one collection per block length.
-    _ = List.flatMap (List.between 1 size) (k => Each.collect (u => withCopies k))
-      := Each.collectEach withCopies (List.between 1 size)
-    _ = List.flatMap (List.between 1 size) (k =>
-        List.flatMap (List.between 2 size) (n => keptIfFits size k n))
+    _ = List.flatMap (List.range 1 (size + 1)) (k => Each.collect (u => withCopies k))
+      := Each.collectEach withCopies (List.range 1 (size + 1))
+    _ = List.flatMap (List.range 1 (size + 1)) (k =>
+        List.flatMap (List.range 2 (size + 1)) (n => keptIfFits size k n))
       -- Choosing the copies: one collection per number of copies.
-      := rewrite Each.collectEach (fitting _) (List.between 2 size), kept
+      := rewrite Each.collectEach (fitting _) (List.range 2 (size + 1)), kept
 
 --| The same for sums: summing over the templates is summing over every block
 --| length up to the digits and every number of copies from 2, the templates that
 --| don't fit counting nothing. (Part2.sw sums the weighted terms this way.)
-theorem betweenOne (n: Nat): List.between 1 n = List.rangeFrom n 1 := rewrite (omega: n + 1 - 1 = n)
+theorem betweenOne (n: Nat): List.range 1 (n + 1) = List.rangeFrom n 1 := rewrite (omega: n + 1 - 1 = n)
 
-theorem betweenTwo: (n: Nat) → List.between 2 n = List.rangeFrom (n - 1) 2
+theorem betweenTwo: (n: Nat) → List.range 2 (n + 1) = List.rangeFrom (n - 1) 2
   | Zero => rfl
   | Succ n => rewrite (omega: n + 1 - 1 = n)
 
@@ -76,12 +76,12 @@ theorem templatesSum [auto add: Add c] (r: Range) (f: RepetitionTemplate → c):
   let size := r.to.digitCount
   let cell: Nat → Nat → c := k n => if Nat.leq (k * n) size then f { blockLength = k, copies = n } else Add.zero
   calc List.sumBy (allTemplatesForRange r) f
-    _ = List.sumBy (List.flatMap (List.between 1 size) (k => List.flatMap (List.between 2 size) (n => keptIfFits size k n))) f
+    _ = List.sumBy (List.flatMap (List.range 1 (size + 1)) (k => List.flatMap (List.range 2 (size + 1)) (n => keptIfFits size k n))) f
       := Eq.cong (.sumBy f) (templatesAsGrid r)
-    _ = List.sumBy (List.between 1 size) (k => List.sumBy (List.flatMap (List.between 2 size) (n => keptIfFits size k n)) f)
-      := List.sumByFlatMap (List.between 1 size) f (k => List.flatMap (List.between 2 size) (n => keptIfFits size k n))
-    _ = List.sumBy (List.between 1 size) (k => List.sumBy (List.between 2 size) (cell k))
-      := rewrite List.sumByFlatMap (List.between 2 size) f _, keptSum f size _ _
+    _ = List.sumBy (List.range 1 (size + 1)) (k => List.sumBy (List.flatMap (List.range 2 (size + 1)) (n => keptIfFits size k n)) f)
+      := List.sumByFlatMap (List.range 1 (size + 1)) f (k => List.flatMap (List.range 2 (size + 1)) (n => keptIfFits size k n))
+    _ = List.sumBy (List.range 1 (size + 1)) (k => List.sumBy (List.range 2 (size + 1)) (cell k))
+      := rewrite List.sumByFlatMap (List.range 2 (size + 1)) f _, keptSum f size _ _
     _ = List.sumBy (List.rangeFrom size 1) (k => List.sumBy (List.rangeFrom (size - 1) 2) (cell k))
       := rewrite betweenOne size, betweenTwo size
 
@@ -90,18 +90,18 @@ theorem templateFits (range: Range) (template: RepetitionTemplate)
     (listed: List.Mem template (allTemplatesForRange range)): Fits range template :=
   let size := range.to.digitCount
   -- It came from some block length in `1..size`,
-  List.anyElim (blockLength => List.Mem template (List.flatMap (List.between 2 size) (copyCount =>
+  List.anyElim (blockLength => List.Mem template (List.flatMap (List.range 2 (size + 1)) (copyCount =>
       keptIfFits size blockLength copyCount)))
-    (Fits range template) (List.between 1 size)
-    (List.memFlatMapElim (blockLength => List.flatMap (List.between 2 size) (copyCount =>
-      keptIfFits size blockLength copyCount)) template (List.between 1 size)
+    (Fits range template) (List.range 1 (size + 1))
+    (List.memFlatMapElim (blockLength => List.flatMap (List.range 2 (size + 1)) (copyCount =>
+      keptIfFits size blockLength copyCount)) template (List.range 1 (size + 1))
       (rewrite templatesAsGrid range at listed))
     (blockLength lengthChosen fromBlockLength =>
       -- and from some number of copies in `2..size`,
       List.anyElim (copyCount => List.Mem template (keptIfFits size blockLength copyCount))
-        (Fits range template) (List.between 2 size)
+        (Fits range template) (List.range 2 (size + 1))
         (List.memFlatMapElim (copyCount => keptIfFits size blockLength copyCount)
-          template (List.between 2 size) fromBlockLength)
+          template (List.range 2 (size + 1)) fromBlockLength)
         (copyCount copyCountChosen fromCopyCount =>
           -- where it was kept: the block fits in the digits.
           match room: Nat.leq (blockLength * copyCount) size with
@@ -109,7 +109,7 @@ theorem templateFits (range: Range) (template: RepetitionTemplate)
               match fromCopyCount with
                 | Inl same =>
                   rewrite <- same in
-                  match List.memBetween lengthChosen, List.memBetween copyCountChosen with
+                  match (List.memRange blockLength 1 (size + 1)).forward lengthChosen, (List.memRange copyCount 2 (size + 1)).forward copyCountChosen with
                     | Both oneLe _, Both twoLe _ => Both oneLe (Both twoLe room)
                 | Inr none => Void.exfalso none
             | False => Void.exfalso fromCopyCount))
@@ -137,14 +137,12 @@ theorem fittingTemplateListed (range: Range) (template: RepetitionTemplate)
     | Both blockNotEmpty (Both writtenTwice room) =>
       -- It is the template of its block length, in the loop over `1..size`,
       rewrite templatesAsGrid range in
-      List.memFlatMapIntro (blockLength => List.flatMap (List.between 2 size) (copies => keptIfFits size blockLength copies))
-        template.blockLength template (List.between 1 size)
-        (List.memBetweenIntro template.blockLength 1 size blockNotEmpty
-          (omega [blockLengthLeProduct template.blockLength template.copies omega]))
+      List.memFlatMapIntro (blockLength => List.flatMap (List.range 2 (size + 1)) (copies => keptIfFits size blockLength copies))
+        template.blockLength template (List.range 1 (size + 1))
+        (((List.memRange template.blockLength 1 (size + 1)).backward (Both blockNotEmpty (Nat.leLessSucc template.blockLength size (omega [blockLengthLeProduct template.blockLength template.copies omega])))))
         -- and of its number of copies, in the loop over `2..size`,
-        (List.memFlatMapIntro (copies => keptIfFits size template.blockLength copies) template.copies template (List.between 2 size)
-          (List.memBetweenIntro template.copies 2 size writtenTwice
-            (omega [copiesLeProduct template.blockLength template.copies blockNotEmpty]))
+        (List.memFlatMapIntro (copies => keptIfFits size template.blockLength copies) template.copies template (List.range 2 (size + 1))
+          (((List.memRange template.copies 2 (size + 1)).backward (Both writtenTwice (Nat.leLessSucc template.copies size (omega [copiesLeProduct template.blockLength template.copies blockNotEmpty])))))
           -- where it fits, so it is kept.
           (rewrite room in Inl (templateEta template)))
 
@@ -193,16 +191,16 @@ theorem keptIfFitsIsTemplate (size: Nat) (blockLength: Nat) (copies: Nat) (templ
 theorem templatesDistinct (range: Range): List.Distinct (allTemplatesForRange range) :=
   let size := range.to.digitCount
   rewrite templatesAsGrid range in
-  List.distinctFlatMap (blockLength => List.flatMap (List.between 2 size) (copyCount => keptIfFits size blockLength copyCount))
-    (template => template.blockLength) (List.between 1 size) (List.distinctBetween 1 size)
+  List.distinctFlatMap (blockLength => List.flatMap (List.range 2 (size + 1)) (copyCount => keptIfFits size blockLength copyCount))
+    (template => template.blockLength) (List.range 1 (size + 1)) (List.distinctRange 1 (size + 1))
     (blockLength _ =>
       List.distinctFlatMap (copyCount => keptIfFits size blockLength copyCount) (template => template.copies)
-        (List.between 2 size) (List.distinctBetween 2 size)
+        (List.range 2 (size + 1)) (List.distinctRange 2 (size + 1))
         (copyCount _ => keptIfFitsDistinct size blockLength copyCount)
         (copyCount _ template kept => match keptIfFitsIsTemplate size blockLength copyCount template kept with
           | Both _ sameCopies => sameCopies))
     (blockLength _ template listed =>
       List.anyElim (copyCount => List.Mem template (keptIfFits size blockLength copyCount)) (template.blockLength = blockLength)
-        (List.between 2 size) (List.memFlatMapElim (copyCount => keptIfFits size blockLength copyCount) template (List.between 2 size) listed)
+        (List.range 2 (size + 1)) (List.memFlatMapElim (copyCount => keptIfFits size blockLength copyCount) template (List.range 2 (size + 1)) listed)
         (copyCount _ kept => match keptIfFitsIsTemplate size blockLength copyCount template kept with
           | Both sameBlockLength _ => sameBlockLength))

@@ -19,13 +19,13 @@ theorem blankFrom (lines: List Text): (m: Nat) → (s: Nat) → gridWidth lines 
 
 --| The blocks, read over any number of columns from the widest line's length on.
 theorem blocksOver (lines: List Text) (n: Nat) (h: gridWidth lines ≤ n):
-    blocks lines = List.splitBy ((List.range n).map (column lines)) isBlank :=
+    blocks lines = List.splitBy ((List.range 0 n).map (column lines)) isBlank :=
   calc blocks lines
-    _ = List.splitBy ((List.range (gridWidth lines)).map (column lines)) isBlank := rewrite columnsAre lines
+    _ = List.splitBy ((List.range 0 (gridWidth lines)).map (column lines)) isBlank := rewrite columnsAre lines
     _ = List.splitBy ((List.rangeFrom (gridWidth lines + (n - gridWidth lines)) 0).map (column lines)) isBlank
-      := rewrite List.rangeFromAppend (gridWidth lines) (n - gridWidth lines) 0, List.mapAppend (List.range (gridWidth lines)) (List.rangeFrom (n - gridWidth lines) (gridWidth lines)) (column lines) in
+      := rewrite List.rangeFromAppend (gridWidth lines) (n - gridWidth lines) 0, List.mapAppend (List.range 0 (gridWidth lines)) (List.rangeFrom (n - gridWidth lines) (gridWidth lines)) (column lines) in
         Eq.sym (List.splitByAppendSeparators _ isBlank _ (blankFrom lines (n - gridWidth lines) (gridWidth lines) (Nat.leRefl (gridWidth lines))))
-    _ = List.splitBy ((List.range n).map (column lines)) isBlank := rewrite Nat.addSubCancel (gridWidth lines) n h
+    _ = List.splitBy ((List.range 0 n).map (column lines)) isBlank := rewrite Nat.addSubCancel (gridWidth lines) n h
 
 --| Two worksheets with the same cells, column by column, parse to the same
 --| problems, whatever their lines' lengths.

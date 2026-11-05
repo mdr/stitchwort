@@ -12,4 +12,4 @@ import Std (List, Nat)
 --| end of a range, that some fresh range holds.
 def countFresh (db: Database): Nat :=
   let top := db.fresh.foldLeft 0 (m r => Nat.max m r.to)
-  List.range (top + 1) |> .count (id => db.fresh.any (r => r.contains id))
+  List.range 0 (top + 1) |> .count (id => db.fresh.any (r => r.contains id))

@@ -121,13 +121,13 @@ theorem allSomeMap (f: a → Option b) (g: a → b): (xs: List a) → ((x: a) �
 theorem part1Complete (device: Device) (wellFormed: WellFormed device) (number: Nat) (outputs: Outputs device number): solvePart1 device = Some number :=
   let count := bitCount Wire.zBit device.wires
   let zValue := (bit: Nat) => if device.wires.contains (Z bit) then device.settled.get (Z bit) else Some False
-  let each: (bit: Nat) → bit ∈ List.range count → zValue bit = Some (Nat.testBit number bit) := (bit member =>
+  let each: (bit: Nat) → bit ∈ List.range 0 count → zValue bit = Some (Nat.testBit number bit) := (bit member =>
     match there: device.wires.contains (Z bit) with
       | True =>
         settledComplete device wellFormed (Z bit) _ (outputs.left bit ((List.memContains device.wires (Z bit)).forward there))
       | False =>
         rewrite outputs.right bit (isIn => Bool.trueNotFalse (Eq.trans (Eq.sym ((List.memContains device.wires (Z bit)).backward isIn)) there)) in rfl)
-  let bitsAre: device.zBits device.settled = Some ((List.range count).map (Nat.testBit number)) := allSomeMap zValue (Nat.testBit number) (List.range count) each
+  let bitsAre: device.zBits device.settled = Some ((List.range 0 count).map (Nat.testBit number)) := allSomeMap zValue (Nat.testBit number) (List.range 0 count) each
   rewrite bitsAre in
     Eq.cong Some
       (Nat.eqOfTestBit _ number (bit =>

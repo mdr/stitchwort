@@ -6,17 +6,17 @@ import Aoc.Year2021.Day13 (..)
 import Aoc.Year2021.Day13.Spec (..)
 import Std (Eq, Exists, List, Nat, Option, Void)
 
---| Reading a list made by mapping over `List.range n`: inside it, the
+--| Reading a list made by mapping over `List.range 0 n`: inside it, the
 --| function's value...
-theorem getMapRange [b: Type] (f: Nat → b) (n: Nat) (i: Nat) (inside: i < n): List.get (List.map (List.range n) f) i = Some (f i) :=
-  let long: i < List.length (List.map (List.range n) f) := rewrite List.lengthMap (List.range n) f in rewrite List.lengthRangeFrom n 0 in inside
-  rewrite List.getOfGetOr (List.map (List.range n) f) i (f i) long in
+theorem getMapRange [b: Type] (f: Nat → b) (n: Nat) (i: Nat) (inside: i < n): List.get (List.map (List.range 0 n) f) i = Some (f i) :=
+  let long: i < List.length (List.map (List.range 0 n) f) := rewrite List.lengthMap (List.range 0 n) f in rewrite List.lengthRangeFrom n 0 in inside
+  rewrite List.getOfGetOr (List.map (List.range 0 n) f) i (f i) long in
     rewrite List.getOrMapRange f (f i) n 0 i inside in
       rewrite Nat.addZero i in rfl
 
 --| ...and past it, nothing.
-theorem getMapRangePast [b: Type] (f: Nat → b) (n: Nat) (i: Nat) (past: n ≤ i): List.get (List.map (List.range n) f) i = None :=
-  List.getPast (List.map (List.range n) f) i (rewrite List.lengthMap (List.range n) f in rewrite List.lengthRangeFrom n 0 in past)
+theorem getMapRangePast [b: Type] (f: Nat → b) (n: Nat) (i: Nat) (past: n ≤ i): List.get (List.map (List.range 0 n) f) i = None :=
+  List.getPast (List.map (List.range 0 n) f) i (rewrite List.lengthMap (List.range 0 n) f in rewrite List.lengthRangeFrom n 0 in past)
 
 --| Every dot of the list is inside the width and height `render` uses.
 theorem widthCovers: (dots: List Point) → (spot: Point) → spot ∈ dots → spot.x < width dots
@@ -73,8 +73,8 @@ theorem shownHash (b: Bool) (shown: Some (if b then '#' else '.') = Some '#'): b
 
 --| Every row is as wide as the dots need.
 theorem rowWidth (dots: List Point) (row: List Char) (member: row ∈ render dots): row.length = width dots :=
-  Exists.elim (List.memMapElim _ row (List.range (height dots)) member) (y made =>
-    rewrite <- made.right in rewrite List.lengthMap (List.range (width dots)) _ in List.lengthRangeFrom (width dots) 0)
+  Exists.elim (List.memMapElim _ row (List.range 0 (height dots)) member) (y made =>
+    rewrite <- made.right in rewrite List.lengthMap (List.range 0 (width dots)) _ in List.lengthRangeFrom (width dots) 0)
 
 --| The picture shows every list it renders.
 theorem renderShows (dots: List Point) (marked: Point → Prop) (holds: (spot: Point) → spot ∈ dots ↔ marked spot): Shows (render dots) marked :=

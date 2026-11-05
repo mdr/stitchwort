@@ -28,7 +28,7 @@ def part1Fuel (steps: Nat): Nat := steps
 
 --| Part 2: each step costs 1 more than the one before, the first costing 1,
 --| so `steps` steps cost 1 + 2 + … + steps.
-def part2Fuel (steps: Nat): Nat := (List.between 1 steps).sum
+def part2Fuel (steps: Nat): Nat := (List.range 1 (steps + 1)).sum
 
 --| The fuel every crab spends moving to `position`, added up.
 def totalFuel (fuel: Nat → Nat) (crabs: List Nat) (position: Nat): Nat :=

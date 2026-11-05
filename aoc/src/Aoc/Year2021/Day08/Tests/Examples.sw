@@ -43,9 +43,9 @@ test "example, each output value" :=
   (entriesOf example).map Entry.value == [8394, 9781, 1197, 9361, 4873, 8418, 4548, 1625, 8717, 4315]
 
 test "the display's digit scores" := digitScores == [42, 17, 34, 39, 30, 37, 41, 25, 49, 45]
-test "the display reads as itself" := display.map (decodeDigit display) == List.range 10
+test "the display reads as itself" := display.map (decodeDigit display) == List.range 0 10
 test "the spec's digits are the display's" :=
-  List.range 10 |> .all (digit => segments.all (segment => (digitPattern digit).has segment == (digitSegments digit).contains segment))
+  List.range 0 10 |> .all (digit => segments.all (segment => (digitPattern digit).has segment == (digitSegments digit).contains segment))
 
 --| The spec on the single entry: its wiring decodes it, and reads 5353.
 def singleWiring: Segment → Segment := ({ a = C, b = F, c = G, d = A, e = B, f = D, g = E }: Wiring).at
@@ -54,7 +54,7 @@ test "the spec reads the single entry as 5353" :=
 test "the spec: each of the single entry's patterns shows its digit" :=
   (entriesOf single).headOr { patterns = [], outputs = [] } |> .patterns |> .map (shown singleWiring)
     |> (== [Some 8, Some 5, Some 2, Some 3, Some 7, Some 9, Some 6, Some 4, Some 0, Some 1])
-test "the spec: the display as drawn shows its digits" := display.map (shown (s => s)) == (List.range 10).map Some
+test "the spec: the display as drawn shows its digits" := display.map (shown (s => s)) == (List.range 0 10).map Some
 
 test "a letter past g" :=
   parsed "acedgfb cdfbe gcdfa fbcad dab cefabd cdfgeb eafb cagedb ah | cdfeb fcadb cdfeb cdbaf" == Err "line 1, column 58: expected ' ', got 'h'"

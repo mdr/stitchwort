@@ -70,7 +70,7 @@ test "crosses right of" :=
 
 --| The example's floor, row by row, # for red or green: as the puzzle draws it.
 def drawn (lines: List Line) (width: Nat) (height: Nat): List Text :=
-  List.range height |> .map (y => List.range width |> .map (x => if isRedOrGreen lines (tile x y) then '#' else '.') |> Text.fromList)
+  List.range 0 height |> .map (y => List.range 0 width |> .map (x => if isRedOrGreen lines (tile x y) then '#' else '.') |> Text.fromList)
 
 test "red or green" :=
   example.map (tiles => drawn (loopLines tiles) 14 9) == Ok [

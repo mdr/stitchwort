@@ -27,7 +27,7 @@ def part1Blocks (ranges: List Range): Nat :=
 theorem rangeDoubled (r: Range): sumOfIdsWrittenTwice r = List.sumBy (List.rangeFrom r.to.digitCount 1) (k => repeatedSpec r k 2) :=
   let size := Nat.digitCount r.to
   calc sumOfIdsWrittenTwice r
-    -- (`List.between 1 size` is `List.rangeFrom (size + 1 - 1) 1`)
+    -- (`List.range 1 (size + 1)` is `List.rangeFrom (size + 1 - 1) 1`)
     _ = List.sumBy (List.rangeFrom size 1) (k => RepetitionTemplate.sumIn { blockLength = k, copies = 2 } r)
       := rewrite (omega: size + 1 - 1 = size)
     _ = List.sumBy (List.rangeFrom size 1) (k => repeatedSpec r k 2)

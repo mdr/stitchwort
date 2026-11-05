@@ -9,7 +9,7 @@ import Std (Bool, DecEq, Eq, Int, List, Map, Nat, Option, Void)
 theorem changePossible (before: Nat) (after: Nat) (beforeDigit: before < 10) (afterDigit: after < 10): change before after ∈ possibleChanges :=
   let offset := after + 9 - before
   let shifted: (offset.toInt - 9) = change before after := omega
-  rewrite Eq.sym shifted in List.memMap (List.range 19) offset (List.memRangeFromIntro offset 19 0 (omega) (omega)) (offset => offset.toInt - 9)
+  rewrite Eq.sym shifted in List.memMap (List.range 0 19) offset (List.memRangeFromIntro offset 19 0 (omega) (omega)) (offset => offset.toInt - 9)
 
 --| Every sequence of four of `changes` is in `sequencesOf changes`.
 theorem sequencesFrom (changes: List Int) (first: Int) (second: Int) (third: Int) (fourth: Int) (hasFirst: first ∈ changes)
