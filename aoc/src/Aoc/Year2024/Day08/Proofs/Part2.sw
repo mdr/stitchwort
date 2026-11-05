@@ -116,13 +116,13 @@ theorem harmonicsOfSteps (city: City) (start: Position) (end: Position) (point: 
     k.natAbs < Nat.max city.height city.width → point ∈ city.harmonics start end
   | OfNat count, rowAt, columnAt, bound =>
     let step := start.stepToward end
-    List.memFlatMapIntro (stepsFrom start step) count point (List.range (Nat.max city.height city.width))
+    List.memFlatMapIntro (stepsFrom start step) count point (List.range 0 (Nat.max city.height city.width))
       (List.memRangeFromIntro count (Nat.max city.height city.width) 0 (omega) (omega))
       (List.memFilterMapIntro start.offset (step.times count.toInt) point [step.times count.toInt, (step.times count.toInt).negate] (Inl rfl)
         (offsetOf start (step.times count.toInt) point rowAt columnAt))
   | NegSucc count, rowAt, columnAt, bound =>
     let step := start.stepToward end
-    List.memFlatMapIntro (stepsFrom start step) (Succ count) point (List.range (Nat.max city.height city.width))
+    List.memFlatMapIntro (stepsFrom start step) (Succ count) point (List.range 0 (Nat.max city.height city.width))
       (List.memRangeFromIntro (Succ count) (Nat.max city.height city.width) 0 (omega) (omega))
       (List.memFilterMapIntro start.offset (step.times (Succ count).toInt).negate point
         [step.times (Succ count).toInt, (step.times (Succ count).toInt).negate] (Inr (Inl rfl))
@@ -146,8 +146,8 @@ theorem harmonicsCorrect (city: City) (first: Position) (second: Position) (firs
       (rewrite cross in rfl: inLine point first second = True)
     {
       forward = has =>
-        List.anyElim (count => point ∈ stepsFrom first step count) _ (List.range reach)
-          (List.memFlatMapElim (stepsFrom first step) point (List.range reach) has)
+        List.anyElim (count => point ∈ stepsFrom first step count) _ (List.range 0 reach)
+          (List.memFlatMapElim (stepsFrom first step) point (List.range 0 reach) has)
           (count countIn pointIn =>
             match List.memFilterMapElim first.offset point [step.times count.toInt, (step.times count.toInt).negate] pointIn with
               | Inl landed =>

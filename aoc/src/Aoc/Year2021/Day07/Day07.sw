@@ -49,7 +49,7 @@ def leftmost (crabs: List Nat): Nat := crabs.foldLeft (rightmost crabs) Nat.min
 --| The least total fuel over the positions from the leftmost crab to the
 --| rightmost.
 def leastFuel (fuel: Nat → Nat) (crabs: List Nat): Nat :=
-  match List.between (leftmost crabs) (rightmost crabs) |> .minimumOf (fuelAt fuel crabs) with
+  match List.range (leftmost crabs) (rightmost crabs + 1) |> .minimumOf (fuelAt fuel crabs) with
     | Some least => least
     | None => 0
 

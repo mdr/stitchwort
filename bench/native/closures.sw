@@ -9,7 +9,7 @@ def add (a: Nat) (b: Nat): Nat := a + b
 def run (n: Nat): Nat :=
   let scale := n % 7 + 4
   let offset := n % 11
-  let xs := List.range n
+  let xs := List.range 0 n
   let ys := List.map xs (x => (x * scale + offset) % 1000003)
   let zs := List.filter ys (y => y % 3 != offset % 3)
   let total := List.foldLeft zs 0 (acc z => (acc + z * scale) % 1000000007)

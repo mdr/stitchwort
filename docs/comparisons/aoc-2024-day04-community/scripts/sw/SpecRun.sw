@@ -39,10 +39,10 @@ def letterAlong (grid: Grid) (r: Nat) (c: Nat) (direction: Direction) (distance:
     | _, _ => None
 
 def spells (word: List Char) (grid: Grid) (r: Nat) (c: Nat) (direction: Direction): Bool :=
-  List.range word.length |> .all (distance => letterAlong grid r c direction distance == word.get distance)
+  List.range 0 word.length |> .all (distance => letterAlong grid r c direction distance == word.get distance)
 
 def countPositions (grid: Grid) (p: Nat → Nat → Nat): Nat :=
-  List.range grid.rows.length |> .sumBy (r => List.range (grid.rows.getOr r []).length |> .sumBy (c => p r c))
+  List.range 0 grid.rows.length |> .sumBy (r => List.range 0 (grid.rows.getOr r []).length |> .sumBy (c => p r c))
 
 def part1Spec (grid: Grid): Nat :=
   countPositions grid (r c => directions.count (spells ['X', 'M', 'A', 'S'] grid r c))

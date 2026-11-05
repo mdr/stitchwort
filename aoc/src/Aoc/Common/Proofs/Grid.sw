@@ -168,47 +168,47 @@ theorem otherOfTouching (r: Nat) (c: Nat) (a: Nat) (b: Nat) (near: touching { ro
 
 --| The rows and columns `around` takes the positions from.
 def aroundBlock (r: Nat) (c: Nat): List Position :=
-  List.between (r - 1) (r + 1) |> .flatMap (row => List.between (c - 1) (c + 1) |> .map (column => ({ row, column }: Position)))
+  List.range (r - 1) (r + 1 + 1) |> .flatMap (row => List.range (c - 1) (c + 1 + 1) |> .map (column => ({ row, column }: Position)))
 
 --| The positions around are touching...
 theorem aroundTouching: (at: Position) → (other: Position) → other ∈ at.around → touching at other = True
   | { row = r, column = c }, { row = a, column = b }, member =>
     let (Both inBlock other) := List.memFilter (aroundBlock r c) (near => not (near.row == r && near.column == c)) { row = a, column = b } member
-    List.anyElim (row => ({ row = a, column = b }: Position) ∈ List.map (List.between (c - 1) (c + 1)) (column => ({ row, column }: Position)))
-      (touching { row = r, column = c } { row = a, column = b } = True) (List.between (r - 1) (r + 1))
-      (List.memFlatMapElim (row => List.map (List.between (c - 1) (c + 1)) (column => ({ row, column }: Position))) { row = a, column = b }
-        (List.between (r - 1) (r + 1)) inBlock)
+    List.anyElim (row => ({ row = a, column = b }: Position) ∈ List.map (List.range (c - 1) (c + 1 + 1)) (column => ({ row, column }: Position)))
+      (touching { row = r, column = c } { row = a, column = b } = True) (List.range (r - 1) (r + 1 + 1))
+      (List.memFlatMapElim (row => List.map (List.range (c - 1) (c + 1 + 1)) (column => ({ row, column }: Position))) { row = a, column = b }
+        (List.range (r - 1) (r + 1 + 1)) inBlock)
       (row inRows inRow =>
-        Exists.elim (List.memMapElim (column => ({ row, column }: Position)) { row = a, column = b } (List.between (c - 1) (c + 1)) inRow)
+        Exists.elim (List.memMapElim (column => ({ row, column }: Position)) { row = a, column = b } (List.range (c - 1) (c + 1 + 1)) inRow)
           (column both =>
             let (Both inColumns same) := both
             let sameRow: row = a := Eq.cong Position.row same
             let sameColumn: column = b := Eq.cong Position.column same
-            let (Both rowAbove rowBelow) := List.memBetween inRows
-            let (Both columnLeft columnRight) := List.memBetween inColumns
+            let (Both rowAbove rowBelow) := ((List.memRange _ _ _).forward inRows)
+            let (Both columnLeft columnRight) := ((List.memRange _ _ _).forward inColumns)
             touchingOfBounds r c a b (omega) (omega) (omega) (omega) other))
 
 --| ...and every touching position is around.
 theorem touchingAround: (at: Position) → (other: Position) → touching at other = True → other ∈ at.around
   | { row = r, column = c }, { row = a, column = b }, near =>
     List.memFilterIntro (aroundBlock r c) (near => not (near.row == r && near.column == c)) { row = a, column = b }
-      (List.memFlatMapIntro (row => List.map (List.between (c - 1) (c + 1)) (column => ({ row, column }: Position))) a { row = a, column = b }
-        (List.between (r - 1) (r + 1)) (List.memBetweenIntro a (r - 1) (r + 1) (rowAboveOfTouching r c a b near) (rowBelowOfTouching r c a b near))
-        (List.memMap (List.between (c - 1) (c + 1)) b
-          (List.memBetweenIntro b (c - 1) (c + 1) (columnLeftOfTouching r c a b near) (columnRightOfTouching r c a b near))
+      (List.memFlatMapIntro (row => List.map (List.range (c - 1) (c + 1 + 1)) (column => ({ row, column }: Position))) a { row = a, column = b }
+        (List.range (r - 1) (r + 1 + 1)) (((List.memRange a (r - 1) (r + 1 + 1)).backward (Both (rowAboveOfTouching r c a b near) (Nat.leLessSucc a (r + 1) (rowBelowOfTouching r c a b near)))))
+        (List.memMap (List.range (c - 1) (c + 1 + 1)) b
+          (((List.memRange b (c - 1) (c + 1 + 1)).backward (Both (columnLeftOfTouching r c a b near) (Nat.leLessSucc b (c + 1) (columnRightOfTouching r c a b near)))))
           (column => ({ row = a, column }: Position))))
       (otherOfTouching r c a b near)
 
 --| No position is around twice...
 theorem aroundDistinct (at: Position): List.Distinct at.around :=
   List.distinctFilter (aroundBlock at.row at.column) (near => not (near.row == at.row && near.column == at.column))
-    (List.distinctFlatMap (row => List.map (List.between (at.column - 1) (at.column + 1)) (column => ({ row, column }: Position))) Position.row
-      (List.between (at.row - 1) (at.row + 1)) (List.distinctBetween (at.row - 1) (at.row + 1))
+    (List.distinctFlatMap (row => List.map (List.range (at.column - 1) (at.column + 1 + 1)) (column => ({ row, column }: Position))) Position.row
+      (List.range (at.row - 1) (at.row + 1 + 1)) (List.distinctRange (at.row - 1) (at.row + 1 + 1))
       (row inRows =>
-        List.distinctMap (List.between (at.column - 1) (at.column + 1)) (List.distinctBetween (at.column - 1) (at.column + 1))
+        List.distinctMap (List.range (at.column - 1) (at.column + 1 + 1)) (List.distinctRange (at.column - 1) (at.column + 1 + 1))
           (column => ({ row, column }: Position)) (x y same => Eq.cong Position.column same))
       (row inRows position inRow =>
-        Exists.elim (List.memMapElim (column => ({ row, column }: Position)) position (List.between (at.column - 1) (at.column + 1)) inRow)
+        Exists.elim (List.memMapElim (column => ({ row, column }: Position)) position (List.range (at.column - 1) (at.column + 1 + 1)) inRow)
           (column both => rewrite <- And.right both in rfl)))
 
 --| ...and there are at most eight: the block is at most three by three,
@@ -226,19 +226,19 @@ theorem centreDropped (centre: Position): not (centre.row == centre.row && centr
 
 theorem atInBlock: (centre: Position) → centre ∈ aroundBlock centre.row centre.column
   | { row = r, column = c } =>
-    List.memFlatMapIntro (row => List.map (List.between (c - 1) (c + 1)) (column => ({ row, column }: Position))) r { row = r, column = c }
-      (List.between (r - 1) (r + 1)) (List.memBetweenIntro r (r - 1) (r + 1) (omega) (omega))
-      (List.memMap (List.between (c - 1) (c + 1)) c (List.memBetweenIntro c (c - 1) (c + 1) (omega) (omega)) (column => ({ row = r, column }: Position)))
+    List.memFlatMapIntro (row => List.map (List.range (c - 1) (c + 1 + 1)) (column => ({ row, column }: Position))) r { row = r, column = c }
+      (List.range (r - 1) (r + 1 + 1)) (((List.memRange r (r - 1) (r + 1 + 1)).backward (Both (omega) (Nat.leLessSucc r (r + 1) (omega)))))
+      (List.memMap (List.range (c - 1) (c + 1 + 1)) c (((List.memRange c (c - 1) (c + 1 + 1)).backward (Both (omega) (Nat.leLessSucc c (c + 1) (omega))))) (column => ({ row = r, column }: Position)))
 
 theorem blockAtMost9 (r: Nat) (c: Nat): (aroundBlock r c).length ≤ 9 :=
-  let columns := List.between (c - 1) (c + 1)
+  let columns := List.range (c - 1) (c + 1 + 1)
   let each := (row: Nat) => List.map columns (column => ({ row, column }: Position))
-  let rowCount := List.lengthBetween (r - 1) (r + 1)
-  let columnCount := List.lengthBetween (c - 1) (c + 1)
+  let rowCount := List.lengthRange (r - 1) (r + 1 + 1)
+  let columnCount := List.lengthRange (c - 1) (c + 1 + 1)
   calc (aroundBlock r c).length
-    _ = (List.between (r - 1) (r + 1)).sumBy (row => (each row).length) := List.lengthFlatMap each (List.between (r - 1) (r + 1))
-    _ ≤ (List.between (r - 1) (r + 1)).sumBy (row => 3) := List.sumByLe _ _ _ (row => rewrite List.lengthMap columns (column => ({ row, column }: Position)) in omega)
-    _ = 3 * (List.between (r - 1) (r + 1)).length := sumByThree (List.between (r - 1) (r + 1))
+    _ = (List.range (r - 1) (r + 1 + 1)).sumBy (row => (each row).length) := List.lengthFlatMap each (List.range (r - 1) (r + 1 + 1))
+    _ ≤ (List.range (r - 1) (r + 1 + 1)).sumBy (row => 3) := List.sumByLe _ _ _ (row => rewrite List.lengthMap columns (column => ({ row, column }: Position)) in omega)
+    _ = 3 * (List.range (r - 1) (r + 1 + 1)).length := sumByThree (List.range (r - 1) (r + 1 + 1))
     _ ≤ 9 := omega
 
 --| Threes added up over a list.

@@ -45,7 +45,7 @@ def applyThree: List (Nat → Nat → Nat → Nat) → Nat → Nat
   | Cons f rest, acc => applyThree rest (f acc 2 3 % 100000)
 
 def run (n: Nat): Nat :=
-  let xs := List.range n
+  let xs := List.range 0 n
   let m := n * 3
   let several: Nat → Nat := x => x * n + m + List.length xs
   let fs := [scaler 2 3 xs, add 7, several, x => x + n, scaler n 1 [1, 2]]
@@ -107,7 +107,7 @@ def describe: List Int → Text
   | [] => "."
   | Cons i rest => sign i ++ " " ++ describe rest
 
-def ints (n: Nat): List Int := List.map (List.range n) (k => Int.OfNat (k * 7) - Int.OfNat (k * k))
+def ints (n: Nat): List Int := List.map (List.range 0 n) (k => Int.OfNat (k * 7) - Int.OfNat (k * k))
 
 def words (t: Text): Nat := List.length (Text.lines t) + List.length (Text.toList t)
 

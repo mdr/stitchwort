@@ -48,7 +48,7 @@ theorem wiredDecodes (entry: Entry) (ok: entry.wired = True): Decodes entry.wiri
   let patterns := entry.patterns
   let decode := decodeDigit patterns
   let sortedWires := (segments.map wiring).sort == segments
-  let sortedDigits := (patterns.map decode).sort == List.range 10
+  let sortedDigits := (patterns.map decode).sort == List.range 0 10
   let allShow := (patterns ++ entry.outputs).all (showsRead entry.wiring patterns)
   let first := Bool.andLeft sortedWires (sortedDigits ∧ allShow) ok
   let rest := Bool.andRight sortedWires (sortedDigits ∧ allShow) ok

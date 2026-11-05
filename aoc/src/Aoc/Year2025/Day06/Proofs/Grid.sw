@@ -17,7 +17,7 @@ theorem columnsRectangular (lines: List Text) (c: Nat) (h: c < gridWidth lines):
 --| So the columns lose nothing: a grid with some width has columns that
 --| transpose back to every line, cell by cell, for any input.
 theorem columnsKeepEveryCell (lines: List Text) (w: Nat) (wide: gridWidth lines = Succ w):
-    ((lines.map Text.toList).transposeFill ' ').transpose = lines.map (line => (List.range (gridWidth lines)).map (charAt line)) :=
+    ((lines.map Text.toList).transposeFill ' ').transpose = lines.map (line => (List.range 0 (gridWidth lines)).map (charAt line)) :=
   rewrite columnsAre lines, wide in List.transposeGrid (List.rangeFrom w 1) 0 lines (c line => charAt line c)
 
 --| Only the blank columns separate problems. Every block is a non-empty run of

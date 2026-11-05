@@ -100,10 +100,10 @@ def Position.distance (position: Position) (other: Position): Nat :=
 --| Every position at most `length` picoseconds from `position` through
 --| walls: a diamond, row by row.
 def Position.diamond (position: Position) (length: Nat): List Position :=
-  List.between (position.row - length) (position.row + length)
+  List.range (position.row - length) (position.row + length + 1)
     |> .flatMap (row =>
       let spare := length - row.absDiff position.row
-      List.between (position.column - spare) (position.column + spare) |> .map (column => ({ row, column }: Position)))
+      List.range (position.column - spare) (position.column + spare + 1) |> .map (column => ({ row, column }: Position)))
 
 --| Whether a cheat from `start`, `before` picoseconds into the race, to `end`
 --| makes the race at least `threshold` picoseconds shorter than `honest`:

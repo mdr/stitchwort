@@ -5,8 +5,8 @@
 --| resumes once per element and joins the results in order.
 --|
 --|   def pairs (n: Nat): List (Pair Nat Nat) := Each.collect (() =>
---|     let a := each (List.between 1 n)
---|     let b := each (List.between a n)
+--|     let a := each (List.range 1 (n + 1))
+--|     let b := each (List.range a (n + 1))
 --|     require (a + b == n)
 --|     (a, b))
 --|
@@ -97,7 +97,7 @@ test "require drops a choice" :=
 test "a later choice depends on an earlier one" :=
   Each.collect (() =>
     let a := Each.each [1, 2, 3]
-    let b := Each.each (List.between a 3)
+    let b := Each.each (List.range a 4)
     (a, b)) == [(1, 1), (1, 2), (1, 3), (2, 2), (2, 3), (3, 3)]
 
 --| With another ability: the handler outside decides. `Abort` outside

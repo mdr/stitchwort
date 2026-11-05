@@ -62,4 +62,4 @@ def isYourSeat (ids: List Nat) (id: Nat): Bool := not (ids.contains id) ∧ ids.
 
 --| "What is the ID of your seat?": every seat ID that could be yours, from
 --| the 128 × 8 seats. The puzzle promises one.
-def part2Answers (passes: List (List Char)): List Nat := (List.range (128 * 8)).filter (isYourSeat (seatIds passes))
+def part2Answers (passes: List (List Char)): List Nat := (List.range 0 (128 * 8)).filter (isYourSeat (seatIds passes))

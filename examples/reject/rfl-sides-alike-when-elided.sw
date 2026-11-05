@@ -7,5 +7,5 @@
 import Std (List)
 
 theorem deep (n: Nat) (c: Nat):
-    List.foldLeft (List.range n) 0 (acc x => acc + (x * c + (c + (x + 1)))) + List.foldLeft (List.range n) 0 (acc x => acc + (x * c + (c + (x + 2)))) + List.foldLeft (List.range n) 0 (acc x => acc + (x * c + (c + (x + 3)))) + List.foldLeft (List.range n) 0 (acc x => acc + (x * x + (c * x + (x + (c + 7))))) =
-        List.foldLeft (List.range n) 0 (acc x => acc + (x * c + (c + (x + 1)))) + List.foldLeft (List.range n) 0 (acc x => acc + (x * c + (c + (x + 2)))) + List.foldLeft (List.range n) 0 (acc x => acc + (x * c + (c + (x + 3)))) + List.foldLeft (List.range n) 0 (acc x => acc + (x * x + (c * x + (x + (c + 8))))) := rfl
+    List.foldLeft (List.range 0 n) 0 (acc x => acc + (x * c + (c + (x + 1)))) + List.foldLeft (List.range 0 n) 0 (acc x => acc + (x * c + (c + (x + 2)))) + List.foldLeft (List.range 0 n) 0 (acc x => acc + (x * c + (c + (x + 3)))) + List.foldLeft (List.range 0 n) 0 (acc x => acc + (x * x + (c * x + (x + (c + 7))))) =
+        List.foldLeft (List.range 0 n) 0 (acc x => acc + (x * c + (c + (x + 1)))) + List.foldLeft (List.range 0 n) 0 (acc x => acc + (x * c + (c + (x + 2)))) + List.foldLeft (List.range 0 n) 0 (acc x => acc + (x * c + (c + (x + 3)))) + List.foldLeft (List.range 0 n) 0 (acc x => acc + (x * x + (c * x + (x + (c + 8))))) := rfl

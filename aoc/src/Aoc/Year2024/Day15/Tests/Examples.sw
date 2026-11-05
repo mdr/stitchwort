@@ -75,9 +75,9 @@ def boxesOf (warehouse: Warehouse): List Cell := warehouse.boxes.toList
 
 --| The puzzle's map of a warehouse, `wide` for part 2's boxes.
 def draw (wide: Bool) (warehouse: Warehouse) (height: Nat) (width: Nat): List Text :=
-  List.range height
+  List.range 0 height
     |> .map (row =>
-      List.range width
+      List.range 0 width
         |> .map (column =>
           let here := at row.toInt column.toInt
           if here == warehouse.robot then '@'

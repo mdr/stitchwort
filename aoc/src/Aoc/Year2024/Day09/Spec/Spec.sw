@@ -68,7 +68,7 @@ def Disk.moveWholeFile (disk: Disk) (id: Nat): Disk :=
     | None => disk
     | Some start =>
       let length := disk.blocks.count (block => block == FileBlock id)
-      let fits := List.range start |> .find (target => target + length <= start && disk.freeAt target length)
+      let fits := List.range 0 start |> .find (target => target + length <= start && disk.freeAt target length)
       match fits with
         | None => disk
         | Some target =>
@@ -81,6 +81,6 @@ def Disk.moveWholeFile (disk: Disk) (id: Nat): Disk :=
 --| number starting with the file with the highest file ID number."
 def Disk.compactWholeFiles (disk: Disk) (diskMap: DiskMap): Disk :=
   let fileCount := (diskMap.lengths.length + 1) / 2
-  List.range fileCount |> .reverse |> .foldLeft disk Disk.moveWholeFile
+  List.range 0 fileCount |> .reverse |> .foldLeft disk Disk.moveWholeFile
 
 def part2 (diskMap: DiskMap): Nat := diskMap.blocks.compactWholeFiles diskMap |> filesystemChecksum

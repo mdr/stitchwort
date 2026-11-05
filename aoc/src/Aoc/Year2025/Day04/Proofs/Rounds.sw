@@ -80,10 +80,10 @@ theorem roundCount (grid: Grid) (s: Cells): grid.rollCount (grid.removeAccessibl
   let term: (x: Nat) → (y: Nat) → gone x y + acc x y = Bool.toNat (s x y == Roll) :=
     x y => roundTerm (grid.accessible s x y) (s x y) (h => isRoll (s x y) (Bool.andLeft (s x y == Roll) (grid.neighbours s x y < 4) h))
   calc grid.rollCount (grid.removeAccessible s) + accCount grid s
-    _ = List.sumBy (List.range grid.height) (x => List.sumBy (List.range grid.width) (y => gone x y))
-        + List.sumBy (List.range grid.height) (x => List.sumBy (List.range grid.width) (y => acc x y))
+    _ = List.sumBy (List.range 0 grid.height) (x => List.sumBy (List.range 0 grid.width) (y => gone x y))
+        + List.sumBy (List.range 0 grid.height) (x => List.sumBy (List.range 0 grid.width) (y => acc x y))
       := rewrite countPositionsSum grid (r c => grid.removeAccessible s r c == Roll), countPositionsSum grid (r c => grid.accessible s r c)
-    _ = List.sumBy (List.range grid.height) (x => List.sumBy (List.range grid.width) (y => Bool.toNat (s x y == Roll)))
+    _ = List.sumBy (List.range 0 grid.height) (x => List.sumBy (List.range 0 grid.width) (y => Bool.toNat (s x y == Roll)))
       := rewrite <- List.sumByAdd [c := Nat] _ _ _, <- List.sumByAdd [c := Nat] _ _ _, term _ _
     _ = grid.rollCount s := Eq.sym (countPositionsSum grid (r c => s r c == Roll))
 
@@ -94,8 +94,8 @@ theorem toNatZero: (b: Bool) → Bool.toNat b = 0 → b = False
 --| A count over positions that is 0 holds nowhere on the grid.
 theorem countNone (grid: Grid) (p: Nat → Nat → Bool) (h: grid.countPositions p = 0) (r: Nat) (c: Nat) (hr: r < grid.height) (hc: c < grid.width): p r c = False :=
   let sums := Eq.trans (Eq.sym (countPositionsSum grid p)) h
-  let row := List.sumRangeZero (x => List.sumBy (List.range grid.width) (y => Bool.toNat (p x y))) grid.height 0 sums r omega hr
-  toNatZero (p r c) (List.sumRangeZero (y => Bool.toNat (p r y)) grid.width 0 row c omega hc)
+  let row := List.sumRangeFromZero (x => List.sumBy (List.range 0 grid.width) (y => Bool.toNat (p x y))) grid.height 0 sums r omega hr
+  toNatZero (p r c) (List.sumRangeFromZero (y => Bool.toNat (p r y)) grid.width 0 row c omega hc)
 
 --| Off the grid or not a roll: nothing to check.
 theorem stableWhere (grid: Grid) (s: Cells) (ins: Inside grid s) (good: (r: Nat) → (c: Nat) → r < grid.height → c < grid.width → s r c = Roll → 4 ≤ grid.neighbours s r c):

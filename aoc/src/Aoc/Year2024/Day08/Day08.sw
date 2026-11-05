@@ -80,7 +80,7 @@ def Position.stepToward (start: Position) (end: Position): Offset :=
 --| Those above or left of the map are left out here.
 def City.harmonics (city: City) (start: Position) (end: Position): List Position :=
   let step := start.stepToward end
-  List.range (Nat.max city.height city.width)
+  List.range 0 (Nat.max city.height city.width)
     |> .flatMap (count => [step.times count.toInt, (step.times count.toInt).negate] |> .filterMap start.offset)
 
 def solvePart1 (city: City): Nat :=

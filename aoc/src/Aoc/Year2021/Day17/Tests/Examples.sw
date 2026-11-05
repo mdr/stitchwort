@@ -16,7 +16,7 @@ def parsed (input: Text): Result Target Text := Fail.toResult (() => parseTarget
 --| The first step, within `steps` steps, at which the spec's probe is in the
 --| target.
 def firstHit (target: Target) (velocity: Velocity): Option Nat :=
-  List.range (steps target + 1) |> .find (n => inTarget target (after n velocity))
+  List.range 0 (steps target + 1) |> .find (n => inTarget target (after n velocity))
 
 test "parse the example" := parsed example == Ok exampleTarget
 test "example, part 1" := solvePart1 exampleTarget == Some 45

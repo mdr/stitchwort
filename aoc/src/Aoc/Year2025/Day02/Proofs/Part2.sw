@@ -137,7 +137,7 @@ theorem periodMul (g: Nat → Nat) (len: Nat) (hl: len ≠ 0) (p: Nat) (hp: Peri
   | Succ t, i, hi => periodAdd g len hl p (t * p) hp (periodMul g len hl p hp t) i hi
 
 --| The same as a test, which a search can run.
-def isPeriod (g: Nat → Nat) (len: Nat) (hl: len ≠ 0) (p: Nat): Bool := List.range len |> .all (i => g ((i + p) % len) == g i)
+def isPeriod (g: Nat → Nat) (len: Nat) (hl: len ≠ 0) (p: Nat): Bool := List.range 0 len |> .all (i => g ((i + p) % len) == g i)
 
 theorem periodOfTest (g: Nat → Nat) (len: Nat) (hl: len ≠ 0) (p: Nat) (h: isPeriod g len hl p = True): Period g len hl p :=
   i hi => DecEq.sound (g ((i + p) % len)) (g i) (List.allRangeElim (i => g ((i + p) % len) == g i) len 0 h i omega hi)
@@ -373,7 +373,7 @@ theorem termIds (w: Nat → Int) (r: Range) (k: Nat) (hk: 1 ≤ k) (n: Nat) (hn:
 --| A block written n times with more digits than `to` adds nothing.
 theorem repeatedZero (r: Range) (k: Nat) (hk: 1 ≤ k) (n: Nat) (hn: 2 ≤ n) (h: Nat.leq (k * n) r.to.digitCount = False): RepetitionTemplate.sumIn { blockLength = k, copies = n } r = 0 :=
   Eq.trans (repeatedIds r k hk n hn)
-    (List.sumRangeNone (x => writtenAs (Nat.digits x).toList k n) (x => x) r.size r.from
+    (List.sumRangeFromNone (x => writtenAs (Nat.digits x).toList k n) (x => x) r.size r.from
       (x x1 x2 =>
         match t: writtenAs (Nat.digits x).toList k n with
           | True =>

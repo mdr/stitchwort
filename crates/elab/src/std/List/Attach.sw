@@ -3,7 +3,7 @@
 --| and the like, whose `decreasing` proof needs to know where its argument
 --| came from: `xs.attach.sumBy (e => f e.value [decreasing := … e.isIn …])`.
 --| Membership itself, `List.Mem`, and its facts ([`List.memRangeFrom`],
---| [`List.memBetween`], [`List.memFilter`], [`List.memMap`]) are in Toolkit.sw and
+--| [`List.memRange`], [`List.memFilter`], [`List.memMap`]) are in Toolkit.sw and
 --| Lemmas.sw.
 -- (docs/proposals/well-founded-recursion.md, stage 3b)
 

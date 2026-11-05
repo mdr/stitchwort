@@ -9,4 +9,4 @@ import Std (List)
 def p (k: Nat) (x: Nat): Bool := x * k + (k + (x + 1)) == x * x + (k * x + (x + (k + 7)))
 
 theorem allFour (c: Nat):
-    (List.range 4 |> .all (p c)) = (p c 0 && p c 1 && p c 2 && p c 3) := rfl
+    (List.range 0 4 |> .all (p c)) = (p c 0 && p c 1 && p c 2 && p c 3) := rfl

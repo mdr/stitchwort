@@ -80,4 +80,4 @@ def shape (name: Text) (numbers: List Nat): {IO} Nat :=
 def main(): {IO} () :=
   let name := Option.getOrElse (IO.readLine()) ""
   let size := Option.getOrElse (Text.toNat (Option.getOrElse (IO.readLine()) "0")) 0
-  IO.print "${name} ${size}: ${shape name (List.range size)}"
+  IO.print "${name} ${size}: ${shape name (List.range 0 size)}"

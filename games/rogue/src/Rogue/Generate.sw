@@ -24,14 +24,14 @@ type Plan = { level: Level, monsters: List Monster, items: List Item }
 -- Opaque: no proof about a turn needs to look inside the generator, and
 -- turns run it on an unknown seed (see `descend`).
 opaque def generateLevel (depth: Nat): {Random} Plan :=
-  let rooms := List.range 6 |> .map roomFrom
+  let rooms := List.range 0 6 |> .map roomFrom
   let entranceIndex := roll 5
   let awayFromEntrance := () => (entranceIndex + 1 + roll 4) % 6
   let exitIndex := awayFromEntrance ()
   let extra := roll 2
   let level := layOut depth rooms entranceIndex exitIndex extra
-  let monsters := List.range (monsterCount depth) |> .map (_ => monsterFrom depth (roomOf rooms (awayFromEntrance ())))
-  let potions := List.range potionCount |> .map (_ => itemFrom Potion rooms)
+  let monsters := List.range 0 (monsterCount depth) |> .map (_ => monsterFrom depth (roomOf rooms (awayFromEntrance ())))
+  let potions := List.range 0 potionCount |> .map (_ => itemFrom Potion rooms)
   let swords := if depth < deepest then [itemFrom Sword rooms] else []
   let amulets := if depth < deepest then [] else [({ loot = Amulet, position = level.goal }: Item)]
   { level, monsters, items = amulets ++ swords ++ potions }

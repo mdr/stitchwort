@@ -25,7 +25,7 @@ theorem isProblemRun (lines: List Text) (lo: Nat) (hi: Nat): isProblem lines lo 
 
 --| The program's columns are the worksheet's columns, cell by cell.
 theorem columnsAre (lines: List Text):
-    (lines.map Text.toList).transposeFill ' ' = (List.range (gridWidth lines)).map (column lines) :=
+    (lines.map Text.toList).transposeFill ' ' = (List.range 0 (gridWidth lines)).map (column lines) :=
   rewrite List.transposeFillColumns (List.map lines Text.toList) ' ', List.mapMap lines (.getOr _ ' ') Text.toList
 
 --| Past a bound on every line's length, every column is blank.
@@ -101,8 +101,8 @@ theorem answer2 (lines: List Text) (lo: Nat) (hi: Nat):
 --| spec finds, for any way `answer` scores a block.
 theorem blocksTotal (lines: List Text) (answer: List (List Char) → Nat):
     List.sumBy (blocks lines) (block => answer block.toList)
-      = List.sumBy (List.range (gridWidth lines))
-        (lo => List.sumBy (List.range (gridWidth lines + 1)) (hi => Nat.keepIf (answer (blockOf lines lo hi)) (isProblem lines lo hi))) :=
+      = List.sumBy (List.range 0 (gridWidth lines))
+        (lo => List.sumBy (List.range 0 (gridWidth lines + 1)) (hi => Nat.keepIf (answer (blockOf lines lo hi)) (isProblem lines lo hi))) :=
   rewrite columnsAre lines in
     List.splitByRuns isBlank (column lines) (blank lines) (c => rfl) answer (gridWidth lines)
       (blankPast (gridWidth lines) lines (r => List.lengthLeMaxLength (List.map lines Text.toList) r))

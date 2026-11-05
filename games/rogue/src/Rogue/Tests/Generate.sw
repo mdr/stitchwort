@@ -8,12 +8,12 @@ import Rogue (..)
 import Std (List, Set)
 
 --| The seeds the generator is tried on.
-def seeds: List Nat := List.range 40
+def seeds: List Nat := List.range 0 40
 
 def planned (seed: Nat) (depth: Nat): Plan := Random.withSeed seed (() => generateLevel depth)
 
 --| Every plan the tests look at: each seed at each depth.
-def plans: List Plan := seeds.flatMap (seed => List.between 1 deepest |> .map (depth => planned seed depth))
+def plans: List Plan := seeds.flatMap (seed => List.range 1 (deepest + 1) |> .map (depth => planned seed depth))
 
 -- Search
 
@@ -38,7 +38,7 @@ def canReachGoal (level: Level): Bool := reachableFrom level level.start |> .con
 --| Every floor cell can be reached, not only the goal: no room is cut off.
 def allFloorReachable (level: Level): Bool :=
   let reached := reachableFrom level level.start
-  List.range levelRows |> .all (row => List.range levelColumns |> .all (column => isWall level { row, column } ∨ reached.contains (keyOf { row, column })))
+  List.range 0 levelRows |> .all (row => List.range 0 levelColumns |> .all (column => isWall level { row, column } ∨ reached.contains (keyOf { row, column })))
 
 --| An area lies inside the screen, with rock all round the edge.
 def fitsOnScreen (area: Area): Bool :=

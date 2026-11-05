@@ -190,14 +190,14 @@ theorem fallAt (row: Vec Bool w) (beams: Vec Bool w) (c: Nat) (h: c < w):
 
 --| The splitters a row's beams reach, column by column.
 theorem splitsInSum (row: Vec Bool w) (beams: Vec Bool w):
-    splitsIn row beams = List.sumBy (List.range w) (d => Bool.toNat (splitterAt row d ∧ beams.getOr d False)) :=
+    splitsIn row beams = List.sumBy (List.range 0 w) (d => Bool.toNat (splitterAt row d ∧ beams.getOr d False)) :=
   let hit := Vec.zipWith row beams (s b => s ∧ b)
   rewrite Vec.countSumBy hit (x => x), Vec.sumByGetOr hit False (x => Bool.toNat x),
     Vec.getOrZipWith (s b => s ∧ b) False False False rfl row beams _
 
 --| The particle can fall into column d of row k from a column with a beam.
 def beamReach (beams: Vec Bool w) (ls: List (Vec Bool w)) (k: Nat) (d: Nat): Bool :=
-  List.any (List.range w) (c => beams.getOr c False ∧ reach ls c k d)
+  List.any (List.range 0 w) (c => beams.getOr c False ∧ reach ls c k d)
 
 --| In the first row, that is the beams themselves.
 theorem beamReachZero (beams: Vec Bool w) (ls: List (Vec Bool w)) (d: Nat) (hd: d < w): beamReach beams ls 0 d = beams.getOr d False :=
@@ -292,20 +292,20 @@ theorem fallKeeps (row: Vec Bool w) (rest: List (Vec Bool w)) (v: Vec Bool w) (k
 
 --| The splitters the beams reach in row k, and all of them below.
 def splitsAt (beams: Vec Bool w) (ls: List (Vec Bool w)) (k: Nat): Nat :=
-  List.sumBy (List.range w) (d => Bool.toNat (splitterIn ls k d ∧ beamReach beams ls k d))
+  List.sumBy (List.range 0 w) (d => Bool.toNat (splitterIn ls k d ∧ beamReach beams ls k d))
 
 theorem splitsBelowSum (w: Nat): (ls: List (Vec Bool w)) → (beams: Vec Bool w) →
-    splitsBelow beams ls = List.sumBy (List.range ls.length) (k => splitsAt beams ls k)
+    splitsBelow beams ls = List.sumBy (List.range 0 ls.length) (k => splitsAt beams ls k)
   | [], beams => rfl
   | [l, ..rest], beams =>
     let fallen := fall l beams
     calc splitsIn l beams + splitsBelow fallen rest
-      _ = List.sumBy (List.range w) (d => Bool.toNat (splitterAt l d ∧ beams.getOr d False))
-          + List.sumBy (List.range rest.length) (k => splitsAt fallen rest k)
+      _ = List.sumBy (List.range 0 w) (d => Bool.toNat (splitterAt l d ∧ beams.getOr d False))
+          + List.sumBy (List.range 0 rest.length) (k => splitsAt fallen rest k)
         := rewrite splitsInSum l beams, splitsBelowSum w rest fallen
-      _ = splitsAt beams [l, ..rest] 0 + List.sumBy (List.range rest.length) (k => splitsAt beams [l, ..rest] (Succ k))
+      _ = splitsAt beams [l, ..rest] 0 + List.sumBy (List.range 0 rest.length) (k => splitsAt beams [l, ..rest] (Succ k))
         := rewrite beamReachZero beams [l, ..rest], fallKeeps l rest beams
-      _ = List.sumBy (List.range (Succ rest.length)) (k => splitsAt beams [l, ..rest] k)
+      _ = List.sumBy (List.range 0 (Succ rest.length)) (k => splitsAt beams [l, ..rest] k)
         := Eq.sym (List.sumByRangeSucc (k => splitsAt beams [l, ..rest] k) rest.length)
 
 --| At the start, the only beam is in S's column.
@@ -318,11 +318,11 @@ theorem beamStart (w: Nat) (st: Fin w) (ls: List (Vec Bool w)) (k: Nat) (d: Nat)
 --| The splitters some timeline reaches in row k: those the beams reach.
 theorem splitsAtReached (manifold: Manifold) (k: Nat):
     splitsAt (Vec.tabulate manifold.width (c => c == manifold.start)) manifold.rows k
-      = List.count (List.range manifold.width) (d => reached (timelines manifold) k d) :=
+      = List.count (List.range 0 manifold.width) (d => reached (timelines manifold) k d) :=
   let w := manifold.width
   let st := manifold.start.toNat
   let start := Vec.tabulate w (c => c == manifold.start)
-  rewrite List.countSumBy (List.range w) (d => reached (timelines manifold) k d), beamStart w manifold.start manifold.rows k _,
+  rewrite List.countSumBy (List.range 0 w) (d => reached (timelines manifold) k d), beamStart w manifold.start manifold.rows k _,
     <- hitsAt manifold.rows 0 st k _, Nat.addZero k
 
 --| Part 1 is right: for every manifold, the printed answer is the number of
@@ -330,7 +330,7 @@ theorem splitsAtReached (manifold: Manifold) (k: Nat):
 theorem part1Correct (manifold: Manifold): solvePart1 manifold = part1Spec manifold :=
   let start := Vec.tabulate manifold.width (c => c == manifold.start)
   calc splitsBelow start manifold.rows
-    _ = List.sumBy (List.range (List.length manifold.rows)) (k => splitsAt start manifold.rows k)
+    _ = List.sumBy (List.range 0 (List.length manifold.rows)) (k => splitsAt start manifold.rows k)
       := splitsBelowSum manifold.width manifold.rows start
-    _ = List.sumBy (List.range (List.length manifold.rows)) (k => List.count (List.range manifold.width) (d => reached (timelines manifold) k d))
+    _ = List.sumBy (List.range 0 (List.length manifold.rows)) (k => List.count (List.range 0 manifold.width) (d => reached (timelines manifold) k d))
       := rewrite splitsAtReached manifold _

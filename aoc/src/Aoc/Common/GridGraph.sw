@@ -59,9 +59,9 @@ theorem memPositionsOfWithin (height: Nat) (width: Nat): (position: Position) â†
   | { row, column }, inside =>
     let below: row < height := Bool.andLeft _ _ inside
     let before: column < width := Bool.andRight _ _ inside
-    List.memFlatMapIntro (row => List.range width |> .map (column => ({ row, column }: Position))) row { row, column } (List.range height)
+    List.memFlatMapIntro (row => List.range 0 width |> .map (column => ({ row, column }: Position))) row { row, column } (List.range 0 height)
       (List.memRangeFromIntro row height 0 (omega) (omega [below]))
-      (List.memMap (List.range width) column (List.memRangeFromIntro column width 0 (omega) (omega [before])) (column => ({ row, column }: Position)))
+      (List.memMap (List.range 0 width) column (List.memRangeFromIntro column width 0 (omega) (omega [before])) (column => ({ row, column }: Position)))
 
 --| The graph of rows of cells: entering a position costs `enter` of it and
 --| its cell (`None`: it can't be entered); off the rows, nothing can be

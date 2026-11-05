@@ -530,7 +530,7 @@ fn the_evaluators_agree_on_let() {
         let nat_ty = || Term::data(nat, vec![]);
         let num = |n: u32| Term::Nat(std::rc::Rc::new(n.into()));
         let add = |a: Term, b: Term| Term::app(Term::app(Term::Def(def(g, "Nat.add")), a), b);
-        let range = |n: Term| Term::app(Term::Def(def(g, "List.range")), n);
+        let range = |n: Term| Term::app(Term::app(Term::Def(def(g, "List.range")), num(0)), n);
         let length = |xs: Term| {
             Term::app(
                 Term::app_icit(Term::Def(def(g, "List.length")), nat_ty(), Icit::Implicit),

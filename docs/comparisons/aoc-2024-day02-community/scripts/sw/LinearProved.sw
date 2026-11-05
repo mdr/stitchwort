@@ -37,7 +37,7 @@ def main(): {IO, Fail} () :=
 
 -- The spec this was proved against: safe, or safe with some `removeAt index`.
 def safeWithDampenerByIndex (report: Report): Bool :=
-  safe report || (List.range report.levels.length |> .any (index => safe { levels = report.levels.removeAt index }))
+  safe report || (List.range 0 report.levels.length |> .any (index => safe { levels = report.levels.removeAt index }))
 
 -- The brute force without indices: `holds` of the list with some one element
 -- removed.
@@ -70,7 +70,7 @@ theorem anyRangeSucc (holds: Nat → Bool): (count: Nat) → (start: Nat) →
 
 -- `anyRemoved` is the spec's "some `removeAt index`".
 theorem anyRemovedRange: (xs: List Nat) → (holds: List Nat → Bool) →
-    anyRemoved holds xs = (List.range xs.length |> .any (index => holds (xs.removeAt index)))
+    anyRemoved holds xs = (List.range 0 xs.length |> .any (index => holds (xs.removeAt index)))
   | Nil, holds => rfl
   | Cons x xs, holds =>
     rewrite anyRemovedRange xs (ys => holds (Cons x ys)), anyRangeSucc (index => holds ((Cons x xs).removeAt index)) xs.length 0 in rfl
@@ -106,7 +106,7 @@ theorem toleratesOneCorrect (ok: Nat → Nat → Bool): (levels: List Nat) →
 -- The linear check is the puzzle's rule with the dampener.
 theorem isSafeLinearCorrect (report: Report): report.isSafeLinear = safeWithDampenerByIndex report :=
   rewrite <- isSafeCorrect report,
-    List.anyCong (List.range report.levels.length) (index => safe { levels = report.levels.removeAt index })
+    List.anyCong (List.range 0 report.levels.length) (index => safe { levels = report.levels.removeAt index })
       (index => Report.isSafe { levels = report.levels.removeAt index }) (index => Eq.sym (isSafeCorrect { levels = report.levels.removeAt index })),
     <- anyRemovedRange report.levels (ys => Report.isSafe { levels = ys }),
     anyRemovedOr report.levels (ys => ys.chain risesGently) (ys => ys.chain (level next => risesGently next level)),

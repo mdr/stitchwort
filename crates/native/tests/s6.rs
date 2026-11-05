@@ -31,7 +31,7 @@ def quotients: List (Pair Nat Nat) → Text
   | Cons (MkPair n d) rest => "${n / (d + 1)}:${n % (d + 1)};${divide (MkPair n d)} " ++ quotients rest
 
 def run (n: Nat): Text :=
-  quotients divisions ++ "${List.foldLeft (List.range n) 0 (acc k => acc + (k * 31 + 7) % 13 + (k * 31 + 7) / 13)}"
+  quotients divisions ++ "${List.foldLeft (List.range 0 n) 0 (acc k => acc + (k * 31 + 7) % 13 + (k * 31 + 7) / 13)}"
 
 def main(): {IO} () :=
   IO.print (run 200)
@@ -132,7 +132,7 @@ def count: List (Delay Empty (e => Empty) Nat) → Nat
   | [] => 0
   | Cons d rest => 1 + count rest
 
-def total (n: Nat): Nat := count (List.map (List.range n) chained)
+def total (n: Nat): Nat := count (List.map (List.range 0 n) chained)
 
 def main(): {IO} () :=
   IO.print "${total 20}"

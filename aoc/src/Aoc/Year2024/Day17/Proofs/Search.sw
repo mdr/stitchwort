@@ -11,9 +11,9 @@ import Std (And, Bool, DecEq, Decidable, Eq, Exists, List, Nat, Option, Or, Void
 
 --| `a` is `a / 8` times 8 plus a number below 8, so it is among the values
 --| built from `a / 8`.
-theorem amongLows (a: Nat): a ∈ List.map (List.range 8) (low => a / 8 * 8 + low) :=
+theorem amongLows (a: Nat): a ∈ List.map (List.range 0 8) (low => a / 8 * 8 + low) :=
   rewrite Eq.sym (Nat.divModEq a 8 (Nat.succNotZero 7)) at
-    List.memMap (List.range 8) (a % 8) (List.memRangeFromIntro (a % 8) 8 0 (Nat.zeroLe (a % 8)) (Nat.modLess a 8 (Nat.succNotZero 7)))
+    List.memMap (List.range 0 8) (a % 8) (List.memRangeFromIntro (a % 8) 8 0 (Nat.zeroLe (a % 8)) (Nat.modLess a 8 (Nat.succNotZero 7)))
       (low => a / 8 * 8 + low)
 
 --| For an output of the loop shape, every value that outputs `target` is a
@@ -31,7 +31,7 @@ theorem candidatesComplete (output: Nat → List Nat) (shape: LoopShape output):
             | True => rewrite tail in Inl (Eq.sym (Nat.divSmall a 8 small))
             | False => candidatesComplete output shape rest (a / 8) (Eq.sym tail)
         List.memFilterIntro _ (candidate => output candidate == [value, ..rest]) a
-          (List.memFlatMapIntro (high => List.map (List.range 8) (low => high * 8 + low)) (a / 8) a (candidates output rest) high (amongLows a))
+          (List.memFlatMapIntro (high => List.map (List.range 0 8) (low => high * 8 + low)) (a / 8) a (candidates output rest) high (amongLows a))
           (rewrite outputs in DecEq.refl [value, ..rest])
 
 --| What the search returns is positive and outputs the target.

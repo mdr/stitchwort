@@ -47,8 +47,8 @@ theorem countFrom (r: Range): (c: Nat) → (s: Nat) → r.to < s + c →
           _ = Succ r.to - r.from := omega
 
 --| A range ending below `n` holds `size` of the ids below `n`.
-theorem countBelow (r: Range) (n: Nat) (h: r.to < n): List.occurrences (List.range n) (id => r.contains id) = r.size :=
-  calc List.occurrences (List.range n) (id => r.contains id)
+theorem countBelow (r: Range) (n: Nat) (h: r.to < n): List.occurrences (List.range 0 n) (id => r.contains id) = r.size :=
+  calc List.occurrences (List.range 0 n) (id => r.contains id)
     _ = Succ r.to - Nat.max r.from 0 := countFrom r n 0 h
     _ = r.size := omega
 

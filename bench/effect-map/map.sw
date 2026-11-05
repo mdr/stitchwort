@@ -49,6 +49,6 @@ def repeat (mode: Text) (xs: List Nat): Nat -> Nat -> Nat
 def main(): {IO} () :=
   match Text.words (IO.readAll ()) with
     | [mode, n, rounds] =>
-      let xs := List.range (Option.getOrElse n.toNat 0)
+      let xs := List.range 0 (Option.getOrElse n.toNat 0)
       IO.print (Nat.toText (repeat mode xs (Option.getOrElse rounds.toNat 1) 0))
     | _ => IO.print "usage: mode n rounds"

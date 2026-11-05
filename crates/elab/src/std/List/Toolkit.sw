@@ -247,13 +247,13 @@ def List.rangeFrom (count: Nat) (start: Nat): List Nat :=
     | Zero => []
     | Succ n => [start, ..List.rangeFrom n (Succ start)]
 
---| The numbers from 0 up to, not including, `count`: `List.range 3` is `[0, 1, 2]`.
-def List.range (count: Nat): List Nat := List.rangeFrom count 0
-
---| `List.between lo hi` is `[lo, lo + 1, ..., hi]`, both ends included; empty
---| when `lo > hi`.
-def List.between (lo: Nat) (hi: Nat): List Nat := List.rangeFrom (hi + 1 - lo) lo
-test "List.between, empty and single" := List.between 5 0 == [] ∧ List.between 0 0 == [0] ∧ List.between 7 7 == [7]
+--| The numbers from `from` up to, not including, `until`: `List.range 2 5` is
+--| `[2, 3, 4]`. Empty when `until ≤ from`. To include the last number, write
+--| `List.range a (b + 1)`. Its facts are [`List.memRange`], [`List.lengthRange`]
+--| and [`List.rangeAppend`]; recursion and induction go through
+--| [`List.rangeFrom`], which this unfolds to.
+def List.range (from: Nat) (until: Nat): List Nat := List.rangeFrom (until - from) from
+test "List.range, empty and single" := List.range 5 1 == [] ∧ List.range 3 3 == [] ∧ List.range 0 1 == [0] ∧ List.range 7 8 == [7]
 
 --| The elements in the opposite order: reversing twice gives the list back ([`List.reverseReverse`]).
 def List.reverse (xs: List a): List a := List.reverseOnto xs []
@@ -485,6 +485,25 @@ theorem List.memRangeFrom (x: Nat): (c: Nat) → (s: Nat) → x ∈ List.rangeFr
   | Succ c, s, Inr m =>
     match List.memRangeFrom x c (Succ s) m with
       | Both lo hi => Both (Nat.lessLe s x lo) (Nat.ltAddSucc s c x hi)
+
+--| Every number from `s` up to, not including, `s + c` is in
+--| the run `List.rangeFrom c s`.
+theorem List.memRangeFromIntro (x: Nat): (c: Nat) → (s: Nat) → s ≤ x → x < s + c → x ∈ List.rangeFrom c s
+  | Zero, s, lo, hi => Void.exfalso (Nat.lessIrrefl x (Nat.leTrans (Succ x) s x (Nat.ltCongRight x (s + 0) s (Nat.addZero s) hi) lo))
+  | Succ c, s, lo, hi =>
+    match e: Nat.leq (Succ s) x with
+      | True => Inr (List.memRangeFromIntro x c (Succ s) e (Nat.ltSuccAdd s c x hi))
+      | False => Inl (Nat.leAntisym s x lo (Nat.leqFalse (Succ s) x e))
+
+--| `x` is in `List.range a b` exactly when `a ≤ x < b`.
+theorem List.memRange (x: Nat) (a: Nat) (b: Nat): x ∈ List.range a b ↔ (a ≤ x < b) := {
+  forward = m =>
+    match List.memRangeFrom x (b - a) a m with
+      | Both lo hi => Both lo (omega),
+  backward = h =>
+    match h with
+      | Both lo hi => List.memRangeFromIntro x (b - a) a lo (omega)
+}
 
 --| Mapping with a state threaded left to right (Haskell's `mapAccumL`).
 --| `xs` is the main value: `xs.mapAccumLeft 0 (s x => MkPair (s + x) (s * x))`.
@@ -759,11 +778,11 @@ test "List.findMap" := [1, 2, 3, 4].findMap (x => if Nat.leq 3 x then Some (x * 
 test "List.findMap is the head of filterMap" :=
   [1, 2, 3, 4].findMap (x => if Nat.leq 3 x then Some (x * 10) else None) == ([1, 2, 3, 4].filterMap (x => if Nat.leq 3 x then Some (x * 10) else None)).head ∧
     [1].findMap (x => (None: Option Nat)) == ([1].filterMap (x => (None: Option Nat))).head
-test "List.between" := List.between 2 5 == [2, 3, 4, 5] ∧ List.between 3 3 == [3] ∧ List.between 4 2 == [] ∧ List.between 0 1 == [0, 1]
+test "List.range, both ends" := List.range 2 6 == [2, 3, 4, 5] ∧ List.range 3 4 == [3] ∧ List.range 4 3 == [] ∧ List.range 0 2 == [0, 1]
 test "List.flatMap" := [1, 2, 3].flatMap (x => List.replicate x x) == [1, 2, 2, 3, 3, 3]
 test "List.contains" := [1, 2, 3].contains 2 ∧ ¬([1, 2, 3].contains 4) ∧ ¬(([]: List Nat).contains 1)
 test "List.pairs" := [1, 2, 3].pairs == [MkPair 1 2, MkPair 1 3, MkPair 2 3] ∧ ([]: List Nat).pairs == [] ∧ [1].pairs == ([]: List (Pair Nat Nat))
-test "List.pairs count" := List.length (List.range 10).pairs == 45
+test "List.pairs count" := List.length (List.range 0 10).pairs == 45
 
 --| Every choice of `size` elements, in the order they come: `[1, 2, 3, 4].combinations 3`
 --| is `[[1, 2, 3], [1, 2, 4], [1, 3, 4], [2, 3, 4]]`. Like [`List.pairs`], it
@@ -782,7 +801,7 @@ test "List.combinations of one and all" := [1, 2, 3].combinations 1 == [[1], [2]
 test "List.combinations of none, and more than there are" := [1, 2, 3].combinations 0 == [[]] ∧ ([]: List Nat).combinations 0 == [[]] ∧ [1, 2].combinations 3 == [] ∧ ([]: List Nat).combinations 1 == []
 test "List.combinations chooses by position" := [7, 7, 7].combinations 2 == [[7, 7], [7, 7], [7, 7]]
 test "List.combinations 2 agrees with pairs" := [1, 2, 3, 4].combinations 2 == [1, 2, 3, 4].pairs.map (p => [p.fst, p.snd])
-test "List.combinations count" := List.length ((List.range 10).combinations 4) == 210
+test "List.combinations count" := List.length ((List.range 0 10).combinations 4) == 210
 test "List.cross" := [1, 2].cross ["a", "b"] == [MkPair 1 "a", MkPair 1 "b", MkPair 2 "a", MkPair 2 "b"] ∧ [1].cross ([]: List Nat) == []
 
 --| Callbacks that agree on the list's elements (not everywhere, as for
@@ -822,41 +841,81 @@ theorem List.filterMapCongMem: (xs: List a) → (f1: a → Option b) → (f2: a 
 --| Over a run of numbers, the facts are the run's bounds. `rewrite` tries a
 --| function's `…CongRange` lemma first, then `…CongMem`, then `…Cong`, and
 --| rewriting inside the function has the facts as hypotheses.
-theorem List.mapCongRange (f1: Nat → b) (f2: Nat → b) (c: Nat) (s: Nat)
+theorem List.mapCongRange (f1: Nat → b) (f2: Nat → b) (from: Nat) (until: Nat)
+    (ef: (x: Nat) → (low: from ≤ x) → (high: x < until) → f1 x = f2 x):
+    List.map (List.range from until) f1 = List.map (List.range from until) f2 :=
+  List.mapCongMem (List.range from until) f1 f2 (x m => ef x (And.left ((List.memRange x from until).forward m)) (And.right ((List.memRange x from until).forward m)))
+
+theorem List.filterCongRange (p1: Nat → Bool) (p2: Nat → Bool) (from: Nat) (until: Nat)
+    (ep: (x: Nat) → (low: from ≤ x) → (high: x < until) → p1 x = p2 x):
+    List.filter (List.range from until) p1 = List.filter (List.range from until) p2 :=
+  List.filterCongMem (List.range from until) p1 p2 (x m => ep x (And.left ((List.memRange x from until).forward m)) (And.right ((List.memRange x from until).forward m)))
+
+theorem List.anyCongRange (p1: Nat → Bool) (p2: Nat → Bool) (from: Nat) (until: Nat)
+    (ep: (x: Nat) → (low: from ≤ x) → (high: x < until) → p1 x = p2 x):
+    List.any (List.range from until) p1 = List.any (List.range from until) p2 :=
+  List.anyCongMem (List.range from until) p1 p2 (x m => ep x (And.left ((List.memRange x from until).forward m)) (And.right ((List.memRange x from until).forward m)))
+
+theorem List.allCongRange (p1: Nat → Bool) (p2: Nat → Bool) (from: Nat) (until: Nat)
+    (ep: (x: Nat) → (low: from ≤ x) → (high: x < until) → p1 x = p2 x):
+    List.all (List.range from until) p1 = List.all (List.range from until) p2 :=
+  List.allCongMem (List.range from until) p1 p2 (x m => ep x (And.left ((List.memRange x from until).forward m)) (And.right ((List.memRange x from until).forward m)))
+
+theorem List.occurrencesCongRange (p1: Nat → Bool) (p2: Nat → Bool) (from: Nat) (until: Nat)
+    (ep: (x: Nat) → (low: from ≤ x) → (high: x < until) → p1 x = p2 x):
+    List.occurrences (List.range from until) p1 = List.occurrences (List.range from until) p2 :=
+  List.occurrencesCongMem (List.range from until) p1 p2 (x m => ep x (And.left ((List.memRange x from until).forward m)) (And.right ((List.memRange x from until).forward m)))
+
+theorem List.foldLeftCongRange (f1: b → Nat → b) (f2: b → Nat → b) (z: b) (from: Nat) (until: Nat)
+    (ef: (acc: b) → (x: Nat) → (low: from ≤ x) → (high: x < until) → f1 acc x = f2 acc x):
+    List.foldLeft (List.range from until) z f1 = List.foldLeft (List.range from until) z f2 :=
+  List.foldLeftCongMem (List.range from until) z f1 f2
+    (acc x m => ef acc x (And.left ((List.memRange x from until).forward m)) (And.right ((List.memRange x from until).forward m)))
+
+--| `sumBy` and `count` are folds, so their congruence lemmas are the fold's.
+theorem List.sumByCongRange [auto add: Add c] (f: Nat → c) (g: Nat → c) (from: Nat) (until: Nat) (h: (x: Nat) → from ≤ x → x < until → f x = g x):
+    List.sumBy (List.range from until) f = List.sumBy (List.range from until) g :=
+  List.foldLeftCongRange (acc x => acc + f x) (acc x => acc + g x) Add.zero from until (acc x low high => Eq.cong (t => acc + t) (h x low high))
+
+--| The same over `List.rangeFrom c s`, for the calls `rewrite` meets with the
+--| range's bounds computed (a numeral start: `List.range 1 (n + 1)` is
+--| `List.rangeFrom n 1`, and `(n + 1) - 1` is already `n`). Tried after
+--| [`List.mapCongRange`] and its kin.
+theorem List.mapCongRangeFrom (f1: Nat → b) (f2: Nat → b) (c: Nat) (s: Nat)
     (ef: (x: Nat) → (low: s ≤ x) → (high: x < s + c) → f1 x = f2 x):
     List.map (List.rangeFrom c s) f1 = List.map (List.rangeFrom c s) f2 :=
   List.mapCongMem (List.rangeFrom c s) f1 f2 (x m => ef x (And.left (List.memRangeFrom x c s m)) (And.right (List.memRangeFrom x c s m)))
 
-theorem List.filterCongRange (p1: Nat → Bool) (p2: Nat → Bool) (c: Nat) (s: Nat)
+theorem List.filterCongRangeFrom (p1: Nat → Bool) (p2: Nat → Bool) (c: Nat) (s: Nat)
     (ep: (x: Nat) → (low: s ≤ x) → (high: x < s + c) → p1 x = p2 x):
     List.filter (List.rangeFrom c s) p1 = List.filter (List.rangeFrom c s) p2 :=
   List.filterCongMem (List.rangeFrom c s) p1 p2 (x m => ep x (And.left (List.memRangeFrom x c s m)) (And.right (List.memRangeFrom x c s m)))
 
-theorem List.anyCongRange (p1: Nat → Bool) (p2: Nat → Bool) (c: Nat) (s: Nat)
+theorem List.anyCongRangeFrom (p1: Nat → Bool) (p2: Nat → Bool) (c: Nat) (s: Nat)
     (ep: (x: Nat) → (low: s ≤ x) → (high: x < s + c) → p1 x = p2 x):
     List.any (List.rangeFrom c s) p1 = List.any (List.rangeFrom c s) p2 :=
   List.anyCongMem (List.rangeFrom c s) p1 p2 (x m => ep x (And.left (List.memRangeFrom x c s m)) (And.right (List.memRangeFrom x c s m)))
 
-theorem List.allCongRange (p1: Nat → Bool) (p2: Nat → Bool) (c: Nat) (s: Nat)
+theorem List.allCongRangeFrom (p1: Nat → Bool) (p2: Nat → Bool) (c: Nat) (s: Nat)
     (ep: (x: Nat) → (low: s ≤ x) → (high: x < s + c) → p1 x = p2 x):
     List.all (List.rangeFrom c s) p1 = List.all (List.rangeFrom c s) p2 :=
   List.allCongMem (List.rangeFrom c s) p1 p2 (x m => ep x (And.left (List.memRangeFrom x c s m)) (And.right (List.memRangeFrom x c s m)))
 
-theorem List.occurrencesCongRange (p1: Nat → Bool) (p2: Nat → Bool) (c: Nat) (s: Nat)
+theorem List.occurrencesCongRangeFrom (p1: Nat → Bool) (p2: Nat → Bool) (c: Nat) (s: Nat)
     (ep: (x: Nat) → (low: s ≤ x) → (high: x < s + c) → p1 x = p2 x):
     List.occurrences (List.rangeFrom c s) p1 = List.occurrences (List.rangeFrom c s) p2 :=
   List.occurrencesCongMem (List.rangeFrom c s) p1 p2 (x m => ep x (And.left (List.memRangeFrom x c s m)) (And.right (List.memRangeFrom x c s m)))
 
-theorem List.foldLeftCongRange (f1: b → Nat → b) (f2: b → Nat → b) (z: b) (c: Nat) (s: Nat)
+theorem List.foldLeftCongRangeFrom (f1: b → Nat → b) (f2: b → Nat → b) (z: b) (c: Nat) (s: Nat)
     (ef: (acc: b) → (x: Nat) → (low: s ≤ x) → (high: x < s + c) → f1 acc x = f2 acc x):
     List.foldLeft (List.rangeFrom c s) z f1 = List.foldLeft (List.rangeFrom c s) z f2 :=
   List.foldLeftCongMem (List.rangeFrom c s) z f1 f2
     (acc x m => ef acc x (And.left (List.memRangeFrom x c s m)) (And.right (List.memRangeFrom x c s m)))
 
 --| `sumBy` and `count` are folds, so their congruence lemmas are the fold's.
-theorem List.sumByCongRange [auto add: Add c] (f: Nat → c) (g: Nat → c): (c: Nat) → (s: Nat) → ((x: Nat) → s ≤ x → x < s + c → f x = g x) →
+theorem List.sumByCongRangeFrom [auto add: Add c] (f: Nat → c) (g: Nat → c): (c: Nat) → (s: Nat) → ((x: Nat) → s ≤ x → x < s + c → f x = g x) →
     List.sumBy (List.rangeFrom c s) f = List.sumBy (List.rangeFrom c s) g :=
-  c s h => List.foldLeftCongRange (acc x => acc + f x) (acc x => acc + g x) Add.zero c s (acc x low high => Eq.cong (t => acc + t) (h x low high))
+  c s h => List.foldLeftCongRangeFrom (acc x => acc + f x) (acc x => acc + g x) Add.zero c s (acc x low high => Eq.cong (t => acc + t) (h x low high))
 
 --| Sums agree when their terms agree on the list's elements.
 theorem List.sumByCongMem [auto add: Add b] (xs: List a) (f: a → b) (g: a → b) (agree: (x: a) → x ∈ xs → f x = g x):

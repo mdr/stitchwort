@@ -9,9 +9,9 @@ theorem Nat.pigeonhole: (n: Nat) → (f: Nat → Nat) → ((i: Nat) → i ≤ n 
     Exists Nat (i => Exists Nat (j => (i < j) ∧ ((j ≤ n) ∧ (f i = f j))))
   | Zero, f, small => Void.exfalso (omega [small 0 rfl])
   | Succ n, f, small =>
-    match found: (List.range (Succ n)).any (i => f i == f (Succ n)) with
+    match found: (List.range 0 (Succ n)).any (i => f i == f (Succ n)) with
       | True =>
-        List.anyTrueElim (List.range (Succ n)) (i => f i == f (Succ n))
+        List.anyTrueElim (List.range 0 (Succ n)) (i => f i == f (Succ n))
           (Exists Nat (i => Exists Nat (j => (i < j) ∧ ((j ≤ Succ n) ∧ (f i = f j))))) found
           (i inRange hit =>
             Witness i
@@ -23,7 +23,7 @@ theorem Nat.pigeonhole: (n: Nat) → (f: Nat → Nat) → ((i: Nat) → i ≤ n 
           i le same =>
             Bool.falseNotTrue
               (Eq.trans (Eq.sym found)
-                (List.anyOfMem (List.range (Succ n)) (i => f i == f (Succ n)) i (rewrite same in DecEq.refl (f (Succ n)))
+                (List.anyOfMem (List.range 0 (Succ n)) (i => f i == f (Succ n)) i (rewrite same in DecEq.refl (f (Succ n)))
                   (List.memRangeFromIntro i (Succ n) 0 (Nat.zeroLe i) (omega [le]))))
         let swapped := (i: Nat) => if f i == n then f (Succ n) else f i
         let swappedSmall: (i: Nat) → i ≤ n → swapped i < n :=

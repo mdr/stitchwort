@@ -72,9 +72,9 @@ theorem pointsCount (line: Line) (shape: (horizontalOrVertical line ∨ diagonal
   | point =>
     let steps := Nat.max (Nat.absDiff line.from.x line.to.x) (Nat.absDiff line.from.y line.to.y)
     let k := Nat.max (Nat.absDiff line.from.x point.x) (Nat.absDiff line.from.y point.y)
-    Eq.trans (List.countMap (List.range (steps + 1)) (== point) (step => { x = towards line.from.x line.to.x step, y = towards line.from.y line.to.y step }))
+    Eq.trans (List.countMap (List.range 0 (steps + 1)) (== point) (step => { x = towards line.from.x line.to.x step, y = towards line.from.y line.to.y step }))
       (Eq.trans
-        (List.countCongMem (List.range (steps + 1)) _ (i => covers line point ∧ i == k)
+        (List.countCongMem (List.range 0 (steps + 1)) _ (i => covers line point ∧ i == k)
           (i inRange => pointStep line shape point i (stepInRange steps i inRange)))
         (countRangeOnce (steps + 1) k (covers line point) (c => coveredWithin line point c)))
 
@@ -91,11 +91,11 @@ theorem listedCoveredBy (lines: List Line) (shapes: lines.all (line => horizonta
 
 --| The step a line takes to reach a point, `k`, is the only one there: the
 --| steps `0` to `n - 1` count it once if it is one of them.
-theorem countRangeOnce (n: Nat) (k: Nat): (c: Bool) → (c = True → k < n) → (List.range n).count (i => c ∧ i == k) = c.toNat
-  | False, inRange => List.countFalse (List.range n)
+theorem countRangeOnce (n: Nat) (k: Nat): (c: Bool) → (c = True → k < n) → (List.range 0 n).count (i => c ∧ i == k) = c.toNat
+  | False, inRange => List.countFalse (List.range 0 n)
   | True, inRange => rewrite inRange rfl at List.countRangeEq n k
 
-theorem stepInRange (steps: Nat) (i: Nat) (inRange: i ∈ List.range (steps + 1)): i ≤ steps :=
+theorem stepInRange (steps: Nat) (i: Nat) (inRange: i ∈ List.range 0 (steps + 1)): i ≤ steps :=
   let bounds := List.memRangeFrom i (steps + 1) 0 inRange
   omega [And.right bounds]
 

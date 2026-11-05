@@ -131,7 +131,7 @@ def showsRead (wiring: Wiring) (patterns: List Pattern) (pattern: Pattern): Bool
 def Entry.wired (entry: Entry): Bool :=
   let wiring := entry.wiring
   segments.map wiring.at |> .sort == segments
-    ∧ entry.patterns.map (decodeDigit entry.patterns) |> .sort == List.range 10
+    ∧ entry.patterns.map (decodeDigit entry.patterns) |> .sort == List.range 0 10
     ∧ entry.patterns ++ entry.outputs |> .all (showsRead wiring entry.patterns)
 
 --| One display, `p1 … p10 | o1 o2 o3 o4`, each pattern its wires' letters.

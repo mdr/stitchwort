@@ -214,8 +214,8 @@ theorem shapeAdds (gates: List Gate) (bits: Nat) (shaped: checkAdder gates bits 
     let device: Device := { initial = inputsFor bits x y, gates }
     let inputs: InputsCarry device bits x y := (k below =>
       Both
-        (Starts (List.memAppendLeft _ _ _ (List.memMap (List.range bits) k (List.memRangeFromIntro k bits 0 (omega) (omega)) (k => (X k, Nat.testBit x k)))))
-        (Starts (List.memAppendRight _ _ _ (List.memMap (List.range bits) k (List.memRangeFromIntro k bits 0 (omega) (omega)) (k => (Y k, Nat.testBit y k))))))
+        (Starts (List.memAppendLeft _ _ _ (List.memMap (List.range 0 bits) k (List.memRangeFromIntro k bits 0 (omega) (omega)) (k => (X k, Nat.testBit x k)))))
+        (Starts (List.memAppendRight _ _ _ (List.memMap (List.range 0 bits) k (List.memRangeFromIntro k bits 0 (omega) (omega)) (k => (Y k, Nat.testBit y k))))))
     let carried := adderCarries device bits x y inputs (Z bits) shaped
     let topBit: Nat.testBit (x + y) bits = carryInto x y bits :=
       rewrite sumBit x y bits, testBitSmall x bits xSmall, testBitSmall y bits ySmall in rfl

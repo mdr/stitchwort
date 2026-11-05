@@ -74,7 +74,7 @@ fn measure(program: String) -> Measured {
 /// `n` to compute.
 fn with_cost(n: usize, body: &str) -> String {
     format!(
-        "import Std (List, Nat, Result, Text)\ndef cost : Nat := List.length (List.range {n})\n{body}\n"
+        "import Std (List, Nat, Result, Text)\ndef cost : Nat := List.length (List.range 0 {n})\n{body}\n"
     )
 }
 
@@ -193,7 +193,9 @@ fn checking_computes_needed_values() {
 #[test]
 fn comparing_closed_lists_keeps_the_program_small() {
     let program = |n: usize| {
-        format!("import Std (List)\ndef big (u : ()) : Bool := List.range {n} == List.range {n}\n")
+        format!(
+            "import Std (List)\ndef big (u : ()) : Bool := List.range 0 {n} == List.range 0 {n}\n"
+        )
     };
     let small = measure(program(20_000));
     let large = measure(program(100_000));

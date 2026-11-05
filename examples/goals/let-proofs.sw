@@ -2,7 +2,7 @@
 -- its value.
 import Std (List, Eq)
 
-def total (n: Nat): Nat := List.sumBy (List.range n) (r => r)
+def total (n: Nat): Nat := List.sumBy (List.range 0 n) (r => r)
 
 theorem shifted (n: Nat): total (n + 3) = total (n + 2 + 1) :=
   let wide := n + 3

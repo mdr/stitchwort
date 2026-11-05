@@ -109,7 +109,7 @@ def solvePart2 (paper: Paper): List (List Char) := render (foldAll paper.folds p
 --| The dots as rows of `#` (a dot) and `.` (none), from the top left corner
 --| to the rightmost and lowest dot.
 def render (dots: List Point): List (List Char) :=
-  List.range (height dots) |> .map (y => List.range (width dots) |> .map (x => if dots.any (== { x, y }) then '#' else '.'))
+  List.range 0 (height dots) |> .map (y => List.range 0 (width dots) |> .map (x => if dots.any (== { x, y }) then '#' else '.'))
 
 --| How many columns and rows the dots need.
 def width (dots: List Point): Nat := dots.foldRight 0 (dot widest => Nat.max (dot.x + 1) widest)

@@ -70,8 +70,8 @@ def Position.neighbours (position: Position): List Position := directions.filter
 --| The eight positions around `at`, diagonals included: none above row 0 or
 --| left of column 0. Row by row.
 def Position.around (at: Position): List Position :=
-  List.between (at.row - 1) (at.row + 1)
-    |> .flatMap (row => List.between (at.column - 1) (at.column + 1) |> .map (column => ({ row, column }: Position)))
+  List.range (at.row - 1) (at.row + 1 + 1)
+    |> .flatMap (row => List.range (at.column - 1) (at.column + 1 + 1) |> .map (column => ({ row, column }: Position)))
     |> .filter (near => not (near.row == at.row && near.column == at.column))
 
 --| Up, down, left or right of each other: one column apart in the same row,
@@ -99,7 +99,7 @@ def Position.within (position: Position) (height: Nat) (width: Nat): Bool := pos
 --| Every position in the first `height` rows and `width` columns, row by
 --| row.
 def positions (height: Nat) (width: Nat): List Position :=
-  List.range height |> .flatMap (row => List.range width |> .map (column => ({ row, column }: Position)))
+  List.range 0 height |> .flatMap (row => List.range 0 width |> .map (column => ({ row, column }: Position)))
 
 -- Rows of cells, of any lengths
 

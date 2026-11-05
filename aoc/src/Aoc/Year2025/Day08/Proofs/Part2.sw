@@ -27,14 +27,14 @@ import Std (And, Bool, DecEq, Eq, Exists, Iff, List, Map, Nat, Option, Ord, Orde
 
 --| Exactly one of the numbers below n passes q.
 theorem countOne (q: Nat → Bool) (n: Nat) (v: Nat) (hv: q v = True) (vn: v < n) (uniq: (b: Nat) → q b = True → b = v):
-    List.occurrences (List.range n) q = 1 :=
-  rewrite List.occurrencesSumBy (List.range n) q, <- Nat.keepIfOne _ in List.sumRangeOne q (b => 1) v hv uniq n 0 omega vn
+    List.occurrences (List.range 0 n) q = 1 :=
+  rewrite List.occurrencesSumBy (List.range 0 n) q, <- Nat.keepIfOne _ in List.sumRangeFromOne q (b => 1) v hv uniq n 0 omega vn
 
 --| If v (below n) passes p, the numbers below n passing p are those other
 --| than v, and v.
 theorem countWithout (p: Nat → Bool) (n: Nat) (v: Nat) (hv: p v = True) (vn: v < n):
-    List.occurrences (List.range n) p = List.occurrences (List.range n) (b => p b ∧ ¬(b == v)) + 1 :=
-  rewrite List.occurrencesSplit (List.range n) v p,
+    List.occurrences (List.range 0 n) p = List.occurrences (List.range 0 n) (b => p b ∧ ¬(b == v)) + 1 :=
+  rewrite List.occurrencesSplit (List.range 0 n) v p,
     countOne (b => p b ∧ (b == v)) n v (rewrite hv, DecEq.refl v in rfl) vn
       (b h => match e: b == v with
         | True => DecEq.sound b v e
@@ -42,20 +42,20 @@ theorem countWithout (p: Nat → Bool) (n: Nat) (v: Nat) (hv: p v = True) (vn: v
     in rfl
 
 --| Two numbers below n that pass p, when only one does, are the same.
-theorem onlyOne (p: Nat → Bool) (n: Nat) (one: List.occurrences (List.range n) p = 1) (x: Nat) (y: Nat)
+theorem onlyOne (p: Nat → Bool) (n: Nat) (one: List.occurrences (List.range 0 n) p = 1) (x: Nat) (y: Nat)
     (hx: p x = True) (xn: x < n) (hy: p y = True) (yn: y < n): y = x :=
   match e: y == x with
     | True => DecEq.sound y x e
     | False =>
-      let some: Nat.leq 1 (List.occurrences (List.range n) (b => p b ∧ ¬(b == x))) = True :=
-        rewrite <- List.anyOccurrences (List.range n) (b => p b ∧ ¬(b == x)) in
+      let some: Nat.leq 1 (List.occurrences (List.range 0 n) (b => p b ∧ ¬(b == x))) = True :=
+        rewrite <- List.anyOccurrences (List.range 0 n) (b => p b ∧ ¬(b == x)) in
           List.anyRangeIntro (b => p b ∧ ¬(b == x)) n 0 y omega yn (rewrite hy, e in rfl)
       omega [countWithout p n x hx xn]
 
 -- The count is the number of circuits -----------------------------------------
 
 --| The boxes 0 to n - 1 that are their own label.
-def ownLabels (c: Circuits) (n: Nat): Nat := List.occurrences (List.range n) (b => c.labelOf b == b)
+def ownLabels (c: Circuits) (n: Nat): Nat := List.occurrences (List.range 0 n) (b => c.labelOf b == b)
 
 --| What the count of `circuits` says (point 1 at the top): labels are boxes,
 --| labelled with themselves, and the count is how many there are.
@@ -67,7 +67,7 @@ type Counted (n: Nat) (circuits: Circuits): Prop = {
 
 theorem countedAtStart (n: Nat): Counted n (Circuits.separate n) :=
   {
-    counts = rewrite labelAtStart n _, DecEq.refl [a := Nat] _, List.occurrencesTrue (List.range n), List.lengthRangeFrom n 0 in rfl,
+    counts = rewrite labelAtStart n _, DecEq.refl [a := Nat] _, List.occurrencesTrue (List.range 0 n), List.lengthRangeFrom n 0 in rfl,
     labelBelow = b h => rewrite labelAtStart n b h in h,
     labelOwn = b h => rewrite labelAtStart n b h, labelAtStart n b h in rfl
   }
@@ -106,7 +106,7 @@ theorem countedMoved (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (f: Nat) (s:
     counts =
       calc (moved c f s).count
         _ = ownLabels c n - 1 := rewrite counted.counts in rfl
-        _ = List.occurrences (List.range n) (b => c.labelOf b == b ∧ ¬(b == c.labelOf f)) :=
+        _ = List.occurrences (List.range 0 n) (b => c.labelOf b == b ∧ ¬(b == c.labelOf f)) :=
           rewrite countWithout (b => c.labelOf b == b) n (c.labelOf f) (rewrite counted.labelOwn f hf in DecEq.refl (c.labelOf f)) (counted.labelBelow f hf)
             in omega
         _ = ownLabels (moved c f s) n :=
@@ -161,7 +161,7 @@ theorem countAboveOne (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (inv: Label
     | Zero => Void.exfalso (notOne (oneCircuitOfNone done))
     | Succ m =>
       let atLeastOne: Nat.leq 1 c.count = True :=
-        rewrite counted.counts, <- List.anyOccurrences (List.range (Succ m)) (b => c.labelOf b == b) in
+        rewrite counted.counts, <- List.anyOccurrences (List.range 0 (Succ m)) (b => c.labelOf b == b) in
           List.anyRangeIntro (b => c.labelOf b == b) (Succ m) 0 (c.labelOf 0) omega (counted.labelBelow 0 rfl)
             (rewrite counted.labelOwn 0 rfl in DecEq.refl (c.labelOf 0))
       match e: c.count with
@@ -215,7 +215,7 @@ theorem lastJoinFinds (points: List Point): (ps: List (Nat, Nat)) → (k: Nat) �
 theorem allOrderInRange (points: List Point): List.all (connectionOrder points) (boxesBelow points.length) = True :=
   rewrite List.allPerm (connectionOrder points) (allPairs points.length) (List.sortOnPerm (allPairs points.length) (connectionKey points))
       (boxesBelow points.length)
-    in allPairsBoth (i => Nat.leq (Succ i) points.length) (List.range points.length)
+    in allPairsBoth (i => Nat.leq (Succ i) points.length) (List.range 0 points.length)
       (List.allRangeIntro (i => Nat.leq (Succ i) points.length) points.length 0 (i lo hi => hi))
 
 --| Part 2 is right: for every list of boxes, if connection k is the last one

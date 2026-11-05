@@ -35,7 +35,7 @@ def Grid.cells (grid: Grid): Cells :=
 
 --| How many positions (r, c) of the grid satisfy `p`.
 def Grid.countPositions (grid: Grid) (p: Nat → Nat → Bool): Nat :=
-  List.range grid.height |> .sumBy (r => List.range grid.width |> .count (c => p r c))
+  List.range 0 grid.height |> .sumBy (r => List.range 0 grid.width |> .count (c => p r c))
 
 --| Positions (r, c) and (r2, c2) are next to each other: different, with
 --| rows and columns each at most 1 apart.

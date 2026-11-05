@@ -14,7 +14,7 @@ const STACK: usize = 256 * 1024 * 1024;
 const MAPPED: &str = r#"import Std (IO, List, Nat, Text)
 
 def main(): {IO} () :=
-  IO.print (Text.join ((List.range 3).map Nat.toText) ',')
+  IO.print (Text.join ((List.range 0 3).map Nat.toText) ',')
 "#;
 
 /// The same, with a `Fail` that escapes `main` from the middle of the map.
@@ -24,7 +24,7 @@ def show (x: Nat): {Fail} Text :=
   if x == 1 then Fail.fail "one" else Nat.toText x
 
 def main(): {IO, Fail} () :=
-  IO.print (Text.join ((List.range 3).map show) ',')
+  IO.print (Text.join ((List.range 0 3).map show) ',')
 "#;
 
 /// Runs `main` of `source` on the machine, recording from before the

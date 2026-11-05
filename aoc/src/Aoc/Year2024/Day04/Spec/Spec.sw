@@ -58,12 +58,12 @@ def letterAlong (grid: Grid) (r: Nat) (c: Nat) (direction: Direction) (distance:
 
 --| The letters from row r, column c in `direction` spell `word`.
 def spells (word: List Char) (grid: Grid) (r: Nat) (c: Nat) (direction: Direction): Bool :=
-  List.range word.length |> .all (distance => letterAlong grid r c direction distance == word.get distance)
+  List.range 0 word.length |> .all (distance => letterAlong grid r c direction distance == word.get distance)
 
 --| How many positions (r, c) of the grid satisfy `p`: every column of every
 --| row.
 def countPositions (grid: Grid) (p: Nat → Nat → Nat): Nat :=
-  List.range grid.rows.length |> .sumBy (r => List.range (grid.rows.getOr r []).length |> .sumBy (c => p r c))
+  List.range 0 grid.rows.length |> .sumBy (r => List.range 0 (grid.rows.getOr r []).length |> .sumBy (c => p r c))
 
 --| Part 1: every position and direction where XMAS starts.
 def part1Spec (grid: Grid): Nat :=

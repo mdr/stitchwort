@@ -3,6 +3,6 @@
 -- computation it is made into.
 import Std (List)
 
-theorem sums (n: Nat): List.sumBy (List.range n) (r => r) = List.sumBy (List.range n) (r => r + 0) :=
-  calc List.sumBy (List.range n) (r => r)
-    _ = List.sumBy (List.range n) (r => r + 0) := (rfl: 0 = 0)
+theorem sums (n: Nat): List.sumBy (List.range 0 n) (r => r) = List.sumBy (List.range 0 n) (r => r + 0) :=
+  calc List.sumBy (List.range 0 n) (r => r)
+    _ = List.sumBy (List.range 0 n) (r => r + 0) := (rfl: 0 = 0)

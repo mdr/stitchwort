@@ -248,9 +248,9 @@ theorem List.splitGroupsDone (p: a → Bool) (f: Nat → a) (sep: Nat → Bool) 
 --| All the groups: the run from 0, then one for every separator followed by
 --| a position that isn't one.
 theorem List.splitByStarts (p: a → Bool) (f: Nat → a) (sep: Nat → Bool) (hsep: (c: Nat) → p (f c) = sep c) (g: List a → Nat) (n: Nat) (end: sep n = True):
-    List.sumBy (List.splitBy (List.map (List.range n) f) p) (group => g group.toList)
+    List.sumBy (List.splitBy (List.map (List.range 0 n) f) p) (group => g group.toList)
       = Nat.keepIf (g (List.runAt f sep n 0)) (¬(sep 0))
-        + List.sumBy (List.range n) (c => Nat.keepIf (g (List.runAt f sep n (Succ c))) (¬(sep (Succ c)) ∧ sep c)) :=
+        + List.sumBy (List.range 0 n) (c => Nat.keepIf (g (List.runAt f sep n (Succ c))) (¬(sep (Succ c)) ∧ sep c)) :=
   rewrite List.finishGroupsClose (List.splitGroups (List.map (List.rangeFrom n 0) f) p),
     List.splitGroupsOpen p f sep hsep n 0 end,
     List.closeRunSum g (Pair.snd (List.splitGroups (List.map (List.rangeFrom n 0) f) p)) n 0 f sep,
@@ -315,64 +315,64 @@ theorem List.isRunRun (sep: Nat → Bool) (n: Nat) (lo: Nat) (hlo: lo < n) (end:
 
 theorem List.runsFromEdge (sep: Nat → Bool) (f: Nat → a) (g: List a → Nat) (n: Nat) (end: sep n = True) (lo: Nat) (hlo: lo < n) (h1: sep lo = False):
     (b: Bool) → (lo == 0 ∨ sep (lo - 1)) = b →
-    List.sumBy (List.range (Succ n)) (hi => Nat.keepIf (g (List.map (List.rangeFrom (hi - lo) lo) f)) (Nat.isRun sep lo hi))
+    List.sumBy (List.range 0 (Succ n)) (hi => Nat.keepIf (g (List.map (List.rangeFrom (hi - lo) lo) f)) (Nat.isRun sep lo hi))
       = Nat.keepIf (g (List.runAt f sep n lo)) b
-  | False, h2 => List.sumRangeNone (hi => Nat.isRun sep lo hi) (hi => g (List.map (List.rangeFrom (hi - lo) lo) f)) (Succ n) 0
+  | False, h2 => List.sumRangeFromNone (hi => Nat.isRun sep lo hi) (hi => g (List.map (List.rangeFrom (hi - lo) lo) f)) (Succ n) 0
     (b b1 b2 => List.isRunNoEdge sep lo b h2)
   | True, h2 =>
-    List.sumRangeOne (hi => Nat.isRun sep lo hi) (hi => g (List.map (List.rangeFrom (hi - lo) lo) f))
+    List.sumRangeFromOne (hi => Nat.isRun sep lo hi) (hi => g (List.map (List.rangeFrom (hi - lo) lo) f))
       (Nat.firstFrom sep (Succ (n - lo)) lo) (List.isRunRun sep n lo hlo end h1 h2)
       (List.isRunEnd sep n lo hlo end) (Succ n) 0 (Nat.zeroLe (Nat.firstFrom sep (Succ (n - lo)) lo))
       (Nat.firstFromLe sep (Succ (n - lo)) lo n (Nat.lessLe lo n hlo) end)
 
 --| For each lo, the maximal runs starting there: one if a run starts at lo, none otherwise.
 theorem List.runsFrom (sep: Nat → Bool) (f: Nat → a) (g: List a → Nat) (n: Nat) (end: sep n = True) (lo: Nat) (hlo: lo < n):
-    List.sumBy (List.range (Succ n)) (hi => Nat.keepIf (g (List.map (List.rangeFrom (hi - lo) lo) f)) (Nat.isRun sep lo hi))
+    List.sumBy (List.range 0 (Succ n)) (hi => Nat.keepIf (g (List.map (List.rangeFrom (hi - lo) lo) f)) (Nat.isRun sep lo hi))
       = Nat.keepIf (g (List.runAt f sep n lo)) (¬(sep lo) ∧ (lo == 0 ∨ sep (lo - 1))) :=
   List.runsFromStart sep f g n end lo hlo (sep lo) rfl
 
 theorem List.runsFromStart (sep: Nat → Bool) (f: Nat → a) (g: List a → Nat) (n: Nat) (end: sep n = True) (lo: Nat) (hlo: lo < n):
     (b: Bool) → sep lo = b →
-    List.sumBy (List.range (Succ n)) (hi => Nat.keepIf (g (List.map (List.rangeFrom (hi - lo) lo) f)) (Nat.isRun sep lo hi))
+    List.sumBy (List.range 0 (Succ n)) (hi => Nat.keepIf (g (List.map (List.rangeFrom (hi - lo) lo) f)) (Nat.isRun sep lo hi))
       = Nat.keepIf (g (List.runAt f sep n lo)) (¬b ∧ (lo == 0 ∨ sep (lo - 1)))
-  | True, h1 => List.sumRangeNone (hi => Nat.isRun sep lo hi) (hi => g (List.map (List.rangeFrom (hi - lo) lo) f)) (Succ n) 0
+  | True, h1 => List.sumRangeFromNone (hi => Nat.isRun sep lo hi) (hi => g (List.map (List.rangeFrom (hi - lo) lo) f)) (Succ n) 0
     (b b1 b2 => List.isRunSepStart sep lo b h1)
   | False, h1 => List.runsFromEdge sep f g n end lo hlo h1 (lo == 0 ∨ sep (lo - 1)) rfl
 
-theorem List.sumRangeLast (f: Nat → Nat) (n: Nat): List.sumBy (List.range (Succ n)) f = List.sumBy (List.range n) f + f n :=
+theorem List.sumRangeLast (f: Nat → Nat) (n: Nat): List.sumBy (List.range 0 (Succ n)) f = List.sumBy (List.range 0 n) f + f n :=
   calc List.sumBy (List.rangeFrom (Succ n) 0) f
     _ = List.sumBy (List.append (List.rangeFrom n 0) (List.rangeFrom 1 (0 + n))) f := rewrite <- List.rangeFromAppend n 1 0 in rfl
-    _ = List.sumBy (List.range n) f + f n := List.sumByAppend (List.rangeFrom n 0) (List.rangeFrom 1 n) f
+    _ = List.sumBy (List.range 0 n) f + f n := List.sumByAppend (List.rangeFrom n 0) (List.rangeFrom 1 n) f
 
 --| The runs by where they start: at 0, or just after a separator.
 theorem List.runStarts (sep: Nat → Bool) (r: Nat → Nat): (n: Nat) → sep n = True →
-    List.sumBy (List.range n) (lo => Nat.keepIf (r lo) (¬(sep lo) ∧ (lo == 0 ∨ sep (lo - 1))))
-      = Nat.keepIf (r 0) (¬(sep 0)) + List.sumBy (List.range n) (c => Nat.keepIf (r (Succ c)) (¬(sep (Succ c)) ∧ sep c))
+    List.sumBy (List.range 0 n) (lo => Nat.keepIf (r lo) (¬(sep lo) ∧ (lo == 0 ∨ sep (lo - 1))))
+      = Nat.keepIf (r 0) (¬(sep 0)) + List.sumBy (List.range 0 n) (c => Nat.keepIf (r (Succ c)) (¬(sep (Succ c)) ∧ sep c))
   | Zero, end => rewrite end
   | Succ n, end =>
     calc List.sumBy (List.rangeFrom (Succ n) 0) (lo => Nat.keepIf (r lo) (¬(sep lo) ∧ (lo == 0 ∨ sep (lo - 1))))
       _ = Nat.keepIf (r 0) (¬(sep 0) ∧ True)
           + List.sumBy (List.rangeFrom n 1) (lo => Nat.keepIf (r lo) (¬(sep lo) ∧ (lo == 0 ∨ sep (lo - 1))))
         := List.sumByCons (List.rangeFrom n 1) 0 (lo => Nat.keepIf (r lo) (¬(sep lo) ∧ (lo == 0 ∨ sep (lo - 1))))
-      _ = Nat.keepIf (r 0) (¬(sep 0)) + List.sumBy (List.range n) (c => Nat.keepIf (r (Succ c)) (¬(sep (Succ c)) ∧ sep c))
+      _ = Nat.keepIf (r 0) (¬(sep 0)) + List.sumBy (List.range 0 n) (c => Nat.keepIf (r (Succ c)) (¬(sep (Succ c)) ∧ sep c))
         := rewrite Bool.andTrue (¬(sep 0)), List.sumByRangeShift (lo => Nat.keepIf (r lo) (¬(sep lo) ∧ (lo == 0 ∨ sep (lo - 1)))) n 0
-      _ = Nat.keepIf (r 0) (¬(sep 0)) + (List.sumBy (List.range n) (c => Nat.keepIf (r (Succ c)) (¬(sep (Succ c)) ∧ sep c)) + 0)
-        := rewrite Nat.addZero (List.sumBy (List.range n) (c => Nat.keepIf (r (Succ c)) (¬(sep (Succ c)) ∧ sep c)))
-      _ = Nat.keepIf (r 0) (¬(sep 0)) + List.sumBy (List.range (Succ n)) (c => Nat.keepIf (r (Succ c)) (¬(sep (Succ c)) ∧ sep c))
+      _ = Nat.keepIf (r 0) (¬(sep 0)) + (List.sumBy (List.range 0 n) (c => Nat.keepIf (r (Succ c)) (¬(sep (Succ c)) ∧ sep c)) + 0)
+        := rewrite Nat.addZero (List.sumBy (List.range 0 n) (c => Nat.keepIf (r (Succ c)) (¬(sep (Succ c)) ∧ sep c)))
+      _ = Nat.keepIf (r 0) (¬(sep 0)) + List.sumBy (List.range 0 (Succ n)) (c => Nat.keepIf (r (Succ c)) (¬(sep (Succ c)) ∧ sep c))
         := rewrite List.sumRangeLast (c => Nat.keepIf (r (Succ c)) (¬(sep (Succ c)) ∧ sep c)) n, end
 
 --| Splitting the positions 0 .. n - 1 at the separators gives exactly the
 --| maximal runs `lo .. hi - 1` (`Nat.isRun`), when position n is a separator.
 theorem List.splitByRuns (p: a → Bool) (f: Nat → a) (sep: Nat → Bool) (hsep: (c: Nat) → p (f c) = sep c) (g: List a → Nat) (n: Nat) (end: sep n = True):
-    List.sumBy (List.splitBy (List.map (List.range n) f) p) (group => g group.toList)
-      = List.sumBy (List.range n) (lo => List.sumBy (List.range (Succ n)) (hi => Nat.keepIf (g (List.map (List.rangeFrom (hi - lo) lo) f)) (Nat.isRun sep lo hi))) :=
-  calc List.sumBy (List.splitBy (List.map (List.range n) f) p) (group => g group.toList)
+    List.sumBy (List.splitBy (List.map (List.range 0 n) f) p) (group => g group.toList)
+      = List.sumBy (List.range 0 n) (lo => List.sumBy (List.range 0 (Succ n)) (hi => Nat.keepIf (g (List.map (List.rangeFrom (hi - lo) lo) f)) (Nat.isRun sep lo hi))) :=
+  calc List.sumBy (List.splitBy (List.map (List.range 0 n) f) p) (group => g group.toList)
     _ = Nat.keepIf (g (List.runAt f sep n 0)) (¬(sep 0))
-        + List.sumBy (List.range n) (c => Nat.keepIf (g (List.runAt f sep n (Succ c))) (¬(sep (Succ c)) ∧ sep c))
+        + List.sumBy (List.range 0 n) (c => Nat.keepIf (g (List.runAt f sep n (Succ c))) (¬(sep (Succ c)) ∧ sep c))
       := List.splitByStarts p f sep hsep g n end
-    _ = List.sumBy (List.range n) (lo => Nat.keepIf (g (List.runAt f sep n lo)) (¬(sep lo) ∧ (lo == 0 ∨ sep (lo - 1))))
+    _ = List.sumBy (List.range 0 n) (lo => Nat.keepIf (g (List.runAt f sep n lo)) (¬(sep lo) ∧ (lo == 0 ∨ sep (lo - 1))))
       := Eq.sym (List.runStarts sep (lo => g (List.runAt f sep n lo)) n end)
-    _ = List.sumBy (List.range n) (lo => List.sumBy (List.range (Succ n)) (hi => Nat.keepIf (g (List.map (List.rangeFrom (hi - lo) lo) f)) (Nat.isRun sep lo hi)))
+    _ = List.sumBy (List.range 0 n) (lo => List.sumBy (List.range 0 (Succ n)) (hi => Nat.keepIf (g (List.map (List.rangeFrom (hi - lo) lo) f)) (Nat.isRun sep lo hi)))
       := List.sumByCongRange (lo => Nat.keepIf (g (List.runAt f sep n lo)) (¬(sep lo) ∧ (lo == 0 ∨ sep (lo - 1))))
-        (lo => List.sumBy (List.range (Succ n)) (hi => Nat.keepIf (g (List.map (List.rangeFrom (hi - lo) lo) f)) (Nat.isRun sep lo hi))) n 0
+        (lo => List.sumBy (List.range 0 (Succ n)) (hi => Nat.keepIf (g (List.map (List.rangeFrom (hi - lo) lo) f)) (Nat.isRun sep lo hi))) 0 n
         (lo l1 l2 => Eq.sym (List.runsFrom sep f g n end lo l2))

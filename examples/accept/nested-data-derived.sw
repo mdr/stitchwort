@@ -98,7 +98,7 @@ test "chain pair in order" := Link (Some (Stop, 9)) "a" < Link (Some (Link None 
 test "chain show" := "${chain}" == "Link (Some (Link None \"b\", 3)) \"a\""
 
 -- A few thousand nodes.
-def wide (n: Nat): Packet := Packets (List.range n |> .map (k => Packets [Number k, Packets []]))
+def wide (n: Nat): Packet := Packets (List.range 0 n |> .map (k => Packets [Number k, Packets []]))
 
 test "big" := wide 3000 == wide 3000 && wide 3000 < Packets [wide 3000]
 

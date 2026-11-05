@@ -117,7 +117,7 @@ def glyphs: List (Text, Char) := [
 
 def readLetters (picture: List (List Char)): Text :=
   let width := picture.headOr [] |> .length
-  List.range ((width + 1) / 5)
+  List.range 0 ((width + 1) / 5)
     |> .map (i =>
       let glyph := picture.flatMap (row => (row.drop (5 * i)).take 4) |> Text.fromList
       glyphs.lookup glyph |> .getOrElse '?')

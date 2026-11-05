@@ -458,7 +458,7 @@ fn a_large_let_is_computed_only_when_a_type_needs_it() {
         let mut session = Session::new();
         let before = session.elab.kernel.machine.budget.total_work();
         let source = format!(
-            "import Std (List)\ndef f : Nat :=\n  let xs := List.range 200000\n{body}  List.length xs\n"
+            "import Std (List)\ndef f : Nat :=\n  let xs := List.range 0 200000\n{body}  List.length xs\n"
         );
         let result = codes(session.load("big.sw", &source));
         assert!(result.is_empty(), "{result:?}");
@@ -488,12 +488,12 @@ fn comparing_a_large_let_does_not_compute_it_while_checking() {
         assert!(result.is_empty(), "{result:?}");
         session.elab.kernel.machine.budget.total_work() - before
     };
-    let small = work("test \"small\" := (List.range 2).length == 2");
+    let small = work("test \"small\" := (List.range 0 2).length == 2");
     for decl in [
-        "test \"let\" :=\n  let n := (List.range 200000).length\n  n == 200000",
-        "def f (b: Bool): Bool :=\n  let n := (List.range 200000).length\n  b && n == 200000",
+        "test \"let\" :=\n  let n := (List.range 0 200000).length\n  n == 200000",
+        "def f (b: Bool): Bool :=\n  let n := (List.range 0 200000).length\n  b && n == 200000",
         "import Std (Fail)\n\
-         test \"effectful\" := Fail.orElse 0 (() => (List.range 200000).length) == 200000",
+         test \"effectful\" := Fail.orElse 0 (() => (List.range 0 200000).length) == 200000",
     ] {
         let large = work(decl);
         eprintln!("{decl:?}: {large} steps (a small one: {small})");

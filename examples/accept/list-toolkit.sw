@@ -70,9 +70,9 @@ theorem concatMapped: [1, 2].concatMap (x => [x, x]) = [1, 1, 2, 2] := rfl
 
 theorem replicated: List.replicate 3 7 = [7, 7, 7] := rfl
 
-theorem ranged: List.range 4 = [0, 1, 2, 3] := rfl
+theorem ranged: List.range 0 4 = [0, 1, 2, 3] := rfl
 
-theorem rangedZero: List.range 0 = [] := rfl
+theorem rangedZero: List.range 0 0 = [] := rfl
 
 theorem reversed: [1, 2, 3].reverse = [3, 2, 1] := rfl
 

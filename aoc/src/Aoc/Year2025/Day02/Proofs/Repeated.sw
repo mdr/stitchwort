@@ -43,7 +43,7 @@ def repeatedSpec (r: Range) (k: Nat) (n: Nat): Nat :=
 
 --| `RepetitionTemplate.sumIn` with its parts as parameters: the multiplier `m`, the
 --| smallest block `low` and the first number too long to be a block `p`.
-def multiplier (k: Nat) (n: Nat): Nat := List.range n |> .sumBy (i => Nat.pow 10 (k * i))
+def multiplier (k: Nat) (n: Nat): Nat := List.range 0 n |> .sumBy (i => Nat.pow 10 (k * i))
 
 def blocksAt (r: Range) (low: Nat) (p: Nat) (m: Nat): Nat :=
   if m ≠ 0 then
@@ -60,10 +60,10 @@ theorem multiplierSucc (k: Nat) (n: Nat): multiplier k (Succ n) = 1 + Nat.pow 10
     _ = Nat.pow 10 (k * 0) + List.sumBy (List.rangeFrom n 1) (i => Nat.pow 10 (k * i))
       := List.sumByCons (List.rangeFrom n 1) 0 (i => Nat.pow 10 (k * i))
     _ = 1 + List.sumBy (List.rangeFrom n 1) (i => Nat.pow 10 (k * i)) := rewrite (ring: k * 0 = 0)
-    _ = 1 + List.sumBy (List.range n) (i => Nat.pow 10 (k * Succ i)) := rewrite List.sumByRangeShift (i => Nat.pow 10 (k * i)) n 0
-    _ = 1 + List.sumBy (List.range n) (i => Nat.pow 10 k * Nat.pow 10 (k * i))
+    _ = 1 + List.sumBy (List.range 0 n) (i => Nat.pow 10 (k * Succ i)) := rewrite List.sumByRangeShift (i => Nat.pow 10 (k * i)) n 0
+    _ = 1 + List.sumBy (List.range 0 n) (i => Nat.pow 10 k * Nat.pow 10 (k * i))
       := rewrite Nat.mulSucc k _, Nat.powAdd 10 k _
-    _ = 1 + Nat.pow 10 k * multiplier k n := rewrite List.sumByMulLeft (List.range n) (Nat.pow 10 k) (i => Nat.pow 10 (k * i))
+    _ = 1 + Nat.pow 10 k * multiplier k n := rewrite List.sumByMulLeft (List.range 0 n) (Nat.pow 10 k) (i => Nat.pow 10 (k * i))
 
 theorem writeTimesMul (k: Nat) (b: Nat): (n: Nat) → writeTimes k b n = b * multiplier k n
   | Zero => ring
@@ -314,7 +314,7 @@ theorem repBlockCount (x: Nat) (n: Nat) (hn: 2 ≤ n): (k: Nat) → 1 ≤ k →
   | Succ j, h =>
     match hq: writtenAs (Nat.digits x).toList (Succ j) n with
       | True =>
-        List.sumRangeOne (b => writeTimes (Succ j) b n == x) (b => x) (Nat.fromDigits (List.take (Nat.digits x).toList (Succ j)))
+        List.sumRangeFromOne (b => writeTimes (Succ j) b n == x) (b => x) (Nat.fromDigits (List.take (Nat.digits x).toList (Succ j)))
           (Decidable.toBoolOf (Nat.decEq (writeTimes (Succ j) (Nat.fromDigits (List.take (Nat.digits x).toList (Succ j))) n) x) (repValue x (Succ j) n hn hq))
           (b hb => repInjective (Succ j) b (Nat.fromDigits (List.take (Nat.digits x).toList (Succ j))) n omega
             (Eq.trans (DecEq.sound (writeTimes (Succ j) b n) x hb) (Eq.sym (repValue x (Succ j) n hn hq))))
@@ -322,7 +322,7 @@ theorem repBlockCount (x: Nat) (n: Nat) (hn: 2 ≤ n): (k: Nat) → 1 ≤ k →
           (repAbove x (Succ j) n rfl hn hq)
           (omega [repBelow x (Succ j) n hn hq, Nat.powTenPredLe (Succ j)])
       | False =>
-        List.sumRangeNone (b => writeTimes (Succ j) b n == x) (b => x) (Nat.pow 10 (Succ j) - Nat.pow 10 j) (Nat.pow 10 j)
+        List.sumRangeFromNone (b => writeTimes (Succ j) b n == x) (b => x) (Nat.pow 10 (Succ j) - Nat.pow 10 j) (Nat.pow 10 j)
           (b h1 h2 => Decidable.toBoolOfNot (Nat.decEq (writeTimes (Succ j) b n) x)
             (e => Bool.trueNotFalse (Eq.trans
               (Eq.sym (rewrite e at
@@ -335,12 +335,12 @@ theorem repBlockCount (x: Nat) (n: Nat) (hn: 2 ≤ n): (k: Nat) → 1 ≤ k →
 theorem sumIdsEq (from: Nat) (to: Nat) (y: Nat):
     List.sumBy (List.rangeFrom (to + 1 - from) from) (x => x.keepIf (y == x)) = y.keepIf (from ≤ y ≤ to) :=
   match t: Nat.leq from y, t2: Nat.leq y to with
-    | True, True => List.sumRangeEq y (to + 1 - from) from t (rangeIn from to y t t2)
+    | True, True => List.sumRangeFromEq y (to + 1 - from) from t (rangeIn from to y t t2)
     | True, False =>
-      List.sumRangeEqNone y (to + 1 - from) from
+      List.sumRangeFromEqNone y (to + 1 - from) from
         (x hx1 hx2 e => Bool.trueNotFalse (Eq.trans (Eq.sym (rewrite <- e at rangeEnd from to x hx1 hx2)) t2))
     | False, _ =>
-      List.sumRangeEqNone y (to + 1 - from) from
+      List.sumRangeFromEqNone y (to + 1 - from) from
         (x hx1 hx2 e => Bool.trueNotFalse (Eq.trans (Eq.sym (rewrite <- e at hx1)) t))
 
 --| One block length, as a sum over the ids of the range.
@@ -388,11 +388,11 @@ theorem collapse (x: Nat) (n: Nat) (hn: 2 ≤ n) (size: Nat) (hLS: x.digitCount 
   match hc: copies x n with
     | True =>
       List.anyRangeElim (k => writtenAs (Nat.digits x).toList k n) (List.sumBy (List.rangeFrom size 1) (k => Nat.keepIf x (writtenAs (Nat.digits x).toList k n)) = x) x.digitCount 1 hc
-        (k0 h1 h2 hk0 => List.sumRangeOne (k => writtenAs (Nat.digits x).toList k n) (k => x) k0 hk0
+        (k0 h1 h2 hk0 => List.sumRangeFromOne (k => writtenAs (Nat.digits x).toList k n) (k => x) k0 hk0
           (k hk => Nat.mulCancelLeft n omega k k0 (Eq.trans (repCount x k n hn hk) (Eq.sym (repCount x k0 n hn hk0))))
           size 1 h1 omega)
     | False =>
-      List.sumRangeNone (k => writtenAs (Nat.digits x).toList k n) (k => x) size 1
+      List.sumRangeFromNone (k => writtenAs (Nat.digits x).toList k n) (k => x) size 1
         (k h1 h2 =>
           match t: writtenAs (Nat.digits x).toList k n with
             | True => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym (List.anyRangeIntro (k => writtenAs (Nat.digits x).toList k n) x.digitCount 1 k h1 (blockAtMost x k n hn t) t)) hc))

@@ -25,16 +25,16 @@ def sum (xs: List Nat): Nat := List.foldLeft xs 0 (a x => a + x)
 def count (xs: List Nat): Nat := List.foldLeft xs 0 (a x => a + 1)
 
 -- Scrambled numbers below 100003.
-def scrambled (n: Nat): List Nat := List.range n |> .map (i => (i * 7919) % 100003)
+def scrambled (n: Nat): List Nat := List.range 0 n |> .map (i => (i * 7919) % 100003)
 
-export def mapSum (n: Nat): Nat := sum (List.range n |> .map (x => x + 1))
+export def mapSum (n: Nat): Nat := sum (List.range 0 n |> .map (x => x + 1))
 
-export def filterCount (n: Nat): Nat := count (List.filter (List.range n) (x => x % 3 == 0))
+export def filterCount (n: Nat): Nat := count (List.filter (List.range 0 n) (x => x % 3 == 0))
 
 export def filterMapSum (n: Nat): Nat :=
-  sum (List.filterMap (List.range n) (x => if x % 2 == 0 then Some (x / 2) else None))
+  sum (List.filterMap (List.range 0 n) (x => if x % 2 == 0 then Some (x / 2) else None))
 
-export def appendCount (n: Nat): Nat := count (List.append (List.range n) (List.range n))
+export def appendCount (n: Nat): Nat := count (List.append (List.range 0 n) (List.range 0 n))
 
 def firstPlusLast: List Nat → Nat
   | Nil => 0
@@ -52,14 +52,14 @@ export def sortIsSorted (n: Nat): Bool := ascending 0 (List.sort (scrambled n))
 -- too: it stops at the first difference and doesn't use a frame per element.
 type Item = { id: Nat, name: Text }
 
-def items (n: Nat): List Item := (List.range n).map (i => { id = i, name = "x" })
+def items (n: Nat): List Item := (List.range 0 n).map (i => { id = i, name = "x" })
 
-export def sameNats (n: Nat): Bool := List.range n == List.range n
+export def sameNats (n: Nat): Bool := List.range 0 n == List.range 0 n
 
 export def sameItems (n: Nat): Bool := items n == items n
 
 -- Equal but for the last element, and equal but for the length.
 export def lastDiffers (n: Nat): Bool :=
-  List.range n == (List.range n).map (i => if i + 1 == n then n + 7 else i)
+  List.range 0 n == (List.range 0 n).map (i => if i + 1 == n then n + 7 else i)
 
-export def shorter (n: Nat): Bool := List.range n == List.range (n + 1)
+export def shorter (n: Nat): Bool := List.range 0 n == List.range 0 (n + 1)

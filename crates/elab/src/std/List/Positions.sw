@@ -2,7 +2,7 @@
 --| `omega` or `DecEq`: where `List.indexOf` finds an element (and
 --| `List.contains` by it), folds of `Nat.max` and `Nat.min`, counting a
 --| number in a range, running sums by position, sorted lists of numbers by
---| position, and `List.all` over `List.between`.
+--| position, and `List.all` over a range that includes its end.
 -- Kept out of Index.sw and Sort.sw, which small programs load, so that those
 -- don't load Omega.
 
@@ -62,13 +62,13 @@ theorem List.countRangeFromEq (k: Nat): (c: Nat) → (s: Nat) → List.count (Li
   | Zero, s => cases
   | Succ c, s => rewrite List.countCons (List.rangeFrom c (Succ s)) s (== k), List.countRangeFromEq k c (Succ s) in cases
 
---| `List.range n` has `k` once if `k < n`, and not at all otherwise.
-theorem List.countRangeEq (n: Nat) (k: Nat): List.count (List.range n) (== k) = Bool.toNat (k < n) :=
+--| `List.range 0 n` has `k` once if `k < n`, and not at all otherwise.
+theorem List.countRangeEq (n: Nat) (k: Nat): List.count (List.range 0 n) (== k) = Bool.toNat (k < n) :=
   rewrite List.countRangeFromEq k n 0 in cases
 
 --| Running sums from `start`: entry c is `start` plus the first c elements.
 theorem List.getOrScanAdd: (row: List Nat) → (start: Nat) → (c: Nat) → c ≤ List.length row →
-    List.getOr (List.scanLeft row start Nat.add) c 0 = start + List.sumBy (List.range c) (i => List.getOr row i 0)
+    List.getOr (List.scanLeft row start Nat.add) c 0 = start + List.sumBy (List.range 0 c) (i => List.getOr row i 0)
   | [], start, Zero, h => Eq.sym (Nat.addZero start)
   | [], start, Succ c, h => Void.exfalso (Bool.falseNotTrue h)
   | [x, ..xs], start, Zero, h => Eq.sym (Nat.addZero start)
@@ -108,8 +108,8 @@ theorem List.sortedBetween (d: Nat) (p: Nat → Prop) (xs: List Nat) (s: List.So
       let down := List.sortedGetOrLe xs d s k i (omega) (omega)
       rewrite (omega [down, at, above]: v = List.getOr xs i d) in each i (Nat.leRefl i) ij
 
-theorem List.allBetweenElim (q: Nat → Bool) (lo: Nat) (hi: Nat) (h: List.all (List.between lo hi) q = True) (k: Nat) (lk: lo ≤ k) (kh: k ≤ hi): q k = True :=
+theorem List.allBetweenElim (q: Nat → Bool) (lo: Nat) (hi: Nat) (h: List.all (List.range lo (hi + 1)) q = True) (k: Nat) (lk: lo ≤ k) (kh: k ≤ hi): q k = True :=
   List.allRangeElim q (hi + 1 - lo) lo h k lk (omega)
 
-theorem List.allBetweenIntro (q: Nat → Bool) (lo: Nat) (hi: Nat) (h: (k: Nat) → lo ≤ k → k ≤ hi → q k = True): List.all (List.between lo hi) q = True :=
+theorem List.allBetweenIntro (q: Nat → Bool) (lo: Nat) (hi: Nat) (h: (k: Nat) → lo ≤ k → k ≤ hi → q k = True): List.all (List.range lo (hi + 1)) q = True :=
   List.allRangeIntro q (hi + 1 - lo) lo (k lk kh => h k lk (omega))

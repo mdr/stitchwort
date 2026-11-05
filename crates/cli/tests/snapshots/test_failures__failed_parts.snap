@@ -72,7 +72,7 @@ expression: "run(&dir, &[\"--no-cache\"])"
       first difference at [299]: right ends, left has 299 (left has 300 elements, right has 299 elements)
         left:  […, 296, 297, 298, 299]
         right: […, 296, 297, 298]
-      in: List.range 300 == List.range 299  (t.sw:33:58)
+      in: List.range 0 300 == List.range 0 299  (t.sw:33:62)
   ✗ unequal, so no difference             ran  (`!=` is False)
       left:  [1, 2, 3]
       right: [1, 2, 3]

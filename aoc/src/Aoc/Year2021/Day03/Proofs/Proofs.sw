@@ -57,25 +57,25 @@ theorem leastIsNotMost (numbers: List Bits) (position: Nat): leastCommonAt numbe
 --| bits at each position of the first number's width.
 theorem columns (report: List Bits):
     (report.map Bits.bits).transpose
-      = (List.range (width report)).map (i => report.filterMap (number => Bits.get number i)) :=
+      = (List.range 0 (width report)).map (i => report.filterMap (number => Bits.get number i)) :=
   let first: List.length (List.headOr (List.map report Bits.bits) []) = width report :=
     match report with
       | [] => rfl
       | [number, ..others] => rfl
   calc List.transpose (List.map report Bits.bits)
-    _ = List.map (List.range (List.length (List.headOr (List.map report Bits.bits) [])))
+    _ = List.map (List.range 0 (List.length (List.headOr (List.map report Bits.bits) [])))
       (i => List.filterMap (List.map report Bits.bits) (row => List.get row i)) := List.transposeColumns _
-    _ = List.map (List.range (width report)) (i => List.filterMap report (number => Bits.get number i)) :=
+    _ = List.map (List.range 0 (width report)) (i => List.filterMap report (number => Bits.get number i)) :=
       rewrite first, List.filterMapMap in rfl
 
 --| The program's gamma rate's bits are the spec's.
 theorem gammaBits (report: List Bits):
-    (report.map Bits.bits).transpose.map mostCommon = (List.range (width report)).map (mostCommonAt report) :=
+    (report.map Bits.bits).transpose.map mostCommon = (List.range 0 (width report)).map (mostCommonAt report) :=
   calc List.map (List.transpose (List.map report Bits.bits)) mostCommon
-    _ = List.map (List.map (List.range (width report)) (i => List.filterMap report (number => Bits.get number i))) mostCommon :=
+    _ = List.map (List.map (List.range 0 (width report)) (i => List.filterMap report (number => Bits.get number i))) mostCommon :=
       Eq.cong (cols => List.map cols mostCommon) (columns report)
-    _ = List.map (List.range (width report)) (i => mostCommon (List.filterMap report (number => Bits.get number i))) := List.mapMap _ _ _
-    _ = List.map (List.range (width report)) (mostCommonAt report) := List.mapCong _ _ _ (i => Eq.sym (mostCommonAtColumn report i))
+    _ = List.map (List.range 0 (width report)) (i => mostCommon (List.filterMap report (number => Bits.get number i))) := List.mapMap _ _ _
+    _ = List.map (List.range 0 (width report)) (mostCommonAt report) := List.mapCong _ _ _ (i => Eq.sym (mostCommonAtColumn report i))
 
 --| And the epsilon rate's are them flipped.
 theorem epsilonBits (report: List Bits):
@@ -88,7 +88,7 @@ theorem epsilonComplement (report: List Bits): gammaRate report + epsilonRate re
   calc gammaRate report + epsilonRate report + 1
     _ = (gamma report).value + (Bits.complement (gamma report)).value + 1 := Eq.cong (e => (gamma report).value + e.value + 1) (epsilonBits report)
     _ = Nat.pow 2 (gamma report).width := Bits.complementValue (gamma report)
-    _ = Nat.pow 2 (width report) := rewrite List.lengthMap (List.range (width report)) (mostCommonAt report), List.lengthRangeFrom (width report) 0 in rfl
+    _ = Nat.pow 2 (width report) := rewrite List.lengthMap (List.range 0 (width report)) (mostCommonAt report), List.lengthRangeFrom (width report) 0 in rfl
 
 --| Part 1 is the puzzle's answer, for every list of numbers.
 theorem part1Correct (report: List Bits): solvePart1 report = powerConsumption report :=
@@ -192,10 +192,10 @@ theorem ratingCorrect (choose: List Bool → Bool) (criterion: List Bits → Nat
     (agree: (prefix: Bits) → (rests: List Bits) →
       criterion (rests.map (rest => Bits.append prefix rest)) (Bits.width prefix) = choose (rests.filterMap Bits.first))
     (report: List Bits):
-    findRating criterion report (List.range (width report)) = rating choose (width report) report :=
+    findRating criterion report (List.range 0 (width report)) = rating choose (width report) report :=
   let unprefixed: List.map report (rest => Bits.append Bits.empty rest) = report :=
     Eq.trans (List.mapCong _ _ _ (rest => Bits.emptyAppend rest)) (List.mapId report)
-  calc findRating criterion report (List.range (width report))
+  calc findRating criterion report (List.range 0 (width report))
     _ = findRating criterion (List.map report (rest => Bits.append Bits.empty rest)) (List.rangeFrom (width report) (Bits.width Bits.empty)) :=
       rewrite unprefixed in rfl
     _ = Option.map (rating choose (width report) report) (rest => Bits.append Bits.empty rest) :=

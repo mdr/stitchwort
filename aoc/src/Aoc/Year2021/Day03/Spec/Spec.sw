@@ -45,9 +45,9 @@ def leastCommonAt (numbers: List Bits) (position: Nat): Bool :=
 --| Part 1: "each bit in the gamma rate can be determined by finding the most
 --| common bit in the corresponding position of all numbers", and the epsilon
 --| rate likewise from the least common bit. Each is read as a binary number.
-def gamma (report: List Bits): Bits := { bits = List.range (width report) |> .map (mostCommonAt report) }
+def gamma (report: List Bits): Bits := { bits = List.range 0 (width report) |> .map (mostCommonAt report) }
 
-def epsilon (report: List Bits): Bits := { bits = List.range (width report) |> .map (leastCommonAt report) }
+def epsilon (report: List Bits): Bits := { bits = List.range 0 (width report) |> .map (leastCommonAt report) }
 
 def gammaRate (report: List Bits): Nat := (gamma report).value
 
@@ -72,10 +72,10 @@ def findRating (criterion: List Bits → Nat → Bool): List Bits → (positions
 --| rating the least common; each starts from the whole report at the first
 --| bit.
 def oxygenGeneratorRating (report: List Bits): Option Nat :=
-  findRating mostCommonAt report (List.range (width report)) |> .map Bits.value
+  findRating mostCommonAt report (List.range 0 (width report)) |> .map Bits.value
 
 def co2ScrubberRating (report: List Bits): Option Nat :=
-  findRating leastCommonAt report (List.range (width report)) |> .map Bits.value
+  findRating leastCommonAt report (List.range 0 (width report)) |> .map Bits.value
 
 --| The life support rating: the oxygen generator rating times the CO2
 --| scrubber rating, when both exist.

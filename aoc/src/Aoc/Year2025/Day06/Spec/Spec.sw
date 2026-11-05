@@ -65,8 +65,8 @@ def columnNumbers (lines: List Text) (lo: Nat) (hi: Nat): List Nat :=
 
 --| The answers of all the problems, added up.
 def grandTotal (lines: List Text) (answer: Nat → Nat → Nat): Nat :=
-  List.range (gridWidth lines) |> .sumBy (lo =>
-    List.range (gridWidth lines + 1) |> .sumBy (hi => if isProblem lines lo hi then answer lo hi else 0))
+  List.range 0 (gridWidth lines) |> .sumBy (lo =>
+    List.range 0 (gridWidth lines + 1) |> .sumBy (hi => if isProblem lines lo hi then answer lo hi else 0))
 
 def part1Spec (lines: List Text): Nat := grandTotal lines (lo hi => evaluate (operatorOf lines lo hi) (rowNumbers lines lo hi))
 

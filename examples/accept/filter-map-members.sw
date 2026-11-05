@@ -29,6 +29,6 @@ theorem predecessorsOfSuccessorsMap (xs: List Nat): (successors xs).filterMap pr
       (x inXs e => rewrite <- e in rfl))
 
 -- A limit above every element keeps the whole list.
-theorem belowKeepsRange (n: Nat): (List.range n).filterMap (below n) = List.range n :=
-  List.filterMapAll (below n) (List.range n) (x m =>
+theorem belowKeepsRange (n: Nat): (List.range 0 n).filterMap (below n) = List.range 0 n :=
+  List.filterMapAll (below n) (List.range 0 n) (x m =>
     rewrite And.right (List.memRangeFrom x n 0 m) in rfl)

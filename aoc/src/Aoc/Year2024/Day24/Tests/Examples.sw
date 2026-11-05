@@ -146,7 +146,7 @@ def gateOf (left: Wire) (operation: Operation) (right: Wire) (output: Wire): Gat
 def carryOut (bits: Nat) (bit: Nat): Wire := if bit + 1 == bits then Z bits else wireAt "c" bit
 
 def adder (bits: Nat): List Gate :=
-  List.range bits
+  List.range 0 bits
     |> .flatMap (bit =>
       if bit == 0 then [gateOf (X 0) Xor (Y 0) (Z 0), gateOf (X 0) And (Y 0) (carryOut bits 0)]
       else [
@@ -158,7 +158,7 @@ def adder (bits: Nat): List Gate :=
       ])
 
 def inputs (bits: Nat) (x: Nat) (y: Nat): List (Wire, Bool) :=
-  List.append (List.range bits |> .map (bit => (X bit, x.testBit bit))) (List.range bits |> .map (bit => (Y bit, y.testBit bit)))
+  List.append (List.range 0 bits |> .map (bit => (X bit, x.testBit bit))) (List.range 0 bits |> .map (bit => (Y bit, y.testBit bit)))
 
 def sumOf (bits: Nat) (gates: List Gate) (x: Nat) (y: Nat): Option Nat := solvePart1 { initial = inputs bits x y, gates }
 

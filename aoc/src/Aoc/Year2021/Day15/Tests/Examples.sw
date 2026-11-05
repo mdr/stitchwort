@@ -42,10 +42,10 @@ test "example, part 2" := solvePart2 example == 315
 
 --| The program's map has the spec's levels, on and off the example.
 def agreeOn (cave: Cave) (rows: Nat) (columns: Nat): Bool :=
-  List.range rows |> .all (row => List.range columns |> .all (column => levelAt cave (at row column) == cave.risks.levelAt (at row column)))
+  List.range 0 rows |> .all (row => List.range 0 columns |> .all (column => levelAt cave (at row column) == cave.risks.levelAt (at row column)))
 
 def tiledAgreeOn (cave: Cave) (rows: Nat) (columns: Nat): Bool :=
-  List.range rows |> .all (row => List.range columns |> .all (column => tiledLevelAt cave (at row column) == cave.tiled.levelAt (at row column)))
+  List.range 0 rows |> .all (row => List.range 0 columns |> .all (column => tiledLevelAt cave (at row column) == cave.tiled.levelAt (at row column)))
 
 test "the example's levels" := parsed exampleText |> .map (cave => agreeOn cave 12 12) == Ok True
 test "the full example's levels" := parsed exampleText |> .map (cave => tiledAgreeOn cave 52 52) == Ok True
@@ -58,7 +58,7 @@ test "a single 8, tiled" :=
     ∧ tiledLevelAt (caveOf [[8]]) (at 4 4) == Some 7 ∧ tiledLevelAt (caveOf [[8]]) (at 5 0) == None
 --| The full example's first row, from the puzzle.
 test "the full example's first row" :=
-  (List.range 50 |> .map (column => tiledLevelAt example (at 0 column) |> .getOrElse 0))
+  (List.range 0 50 |> .map (column => tiledLevelAt example (at 0 column) |> .getOrElse 0))
     == [1, 1, 6, 3, 7, 5, 1, 7, 4, 2, 2, 2, 7, 4, 8, 6, 2, 8, 5, 3, 3, 3, 8, 5, 9, 7, 3, 9, 6, 4, 4, 4, 9, 6, 1, 8, 4, 1, 7, 5, 5, 5, 1, 7, 2, 9, 5, 2, 8, 6]
 
 --| Paths and their total risk, in the spec's terms.

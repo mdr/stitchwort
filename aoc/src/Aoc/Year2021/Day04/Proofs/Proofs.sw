@@ -100,7 +100,7 @@ theorem winningScoresPlay (game: Game): winningScores game = play [] game.boards
   let everyBoard: List.filter game.boards (board => 0 ≤ board.winningTurn game.draws) = game.boards :=
     List.filterAll _ game.boards (board inBoards => rfl)
   calc winningScores game
-    _ = List.flatMap (List.range (List.length game.draws))
+    _ = List.flatMap (List.range 0 (List.length game.draws))
         (turn => List.map (List.filter game.boards (board => board.winningTurn game.draws == turn)) (board => board.score game.draws turn)) :=
       rewrite onTurn game.draws _ game.boards in rfl
     _ = play [] (List.filter game.boards (board => 0 ≤ board.winningTurn game.draws)) game.draws := Eq.sym (playFrom game.boards game.draws [])

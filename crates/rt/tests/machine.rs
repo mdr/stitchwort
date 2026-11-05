@@ -555,7 +555,7 @@ def zipped (xs: List Nat): List (Pair Nat Nat) := List.zip xs xs
 def taken (xs: List Nat): List Nat := xs.take 2500000
 
 def main(): {IO} () :=
-  let xs := List.range 3000000
+  let xs := List.range 0 3000000
   IO.print (Text.join [
     Nat.toText (count xs),
     Nat.toText (count (mapped xs)),
@@ -597,7 +597,7 @@ def tree: Nat -> List Nat -> List (List Nat)
 def show (xs: List Nat): Text := Text.join (xs.map Nat.toText) ','
 
 def main(): {IO} () :=
-  let base := List.range 12
+  let base := List.range 0 12
   let doubled := double base
   let both := doubled ++ doubled
   IO.print (Text.join [show doubled, show both, show (evens doubled),
@@ -634,8 +634,8 @@ def weigh (xs: List Nat): Nat := xs.foldLeft 0 (total x => total * 1000 + x)
 def twice (xs: List Nat): List Nat := xs.map (x => x * 2)
 
 def main(): {IO} () :=
-  let results := allResults (u => List.range 3 |> .map pick)
-  let again := allResults (u => twice (List.range 3 |> .map pick))
+  let results := allResults (u => List.range 0 3 |> .map pick)
+  let again := allResults (u => twice (List.range 0 3 |> .map pick))
   let shown := (xs: List (List Nat)) => Text.join (xs.map (ys => Nat.toText (weigh ys))) ','
   IO.print (Text.join [shown results, shown again] ' ')
 "#,
@@ -659,11 +659,11 @@ fn a_let_in_a_lifted_match_is_computed_once() {
         r#"
 import Std (List, Nat, Text)
 
-def slow (n: Nat): Nat := List.range n |> .sumBy (i => i % 7)
+def slow (n: Nat): Nat := List.range 0 n |> .sumBy (i => i % 7)
 
 def total (n: Nat) (flag: Option Nat): Nat :=
   let big := slow n
-  List.range 20 |> .sumBy (i =>
+  List.range 0 20 |> .sumBy (i =>
     match flag with
       | Some first => big + i + first
       | None => 0)
@@ -792,7 +792,7 @@ def show (xs: List Nat): Text := Text.join (xs.map Nat.toText) ','
 def kept: List Nat := [5, 3, 9, 1]
 
 def main(): {IO} () :=
-  let xs := List.range 6
+  let xs := List.range 0 6
   let ys := xs.map (x => x * 10)
   IO.print (show ys)
   IO.print (show xs)
@@ -804,7 +804,7 @@ def main(): {IO} () :=
   IO.print (f 1 ++ " " ++ f 2 ++ " " ++ show xs)
   let pair := (xs, xs)
   IO.print (show (pair.fst.map (x => x + 100)) ++ " " ++ show pair.snd)
-  let fresh := (List.range 4).map (x => x + 1)
+  let fresh := (List.range 0 4).map (x => x + 1)
   IO.print (show (fresh.map (x => x * 2)))
 "#,
         b"",
@@ -860,7 +860,7 @@ fn map_reuses_its_cells() {
             .load(
                 "test.sw",
                 "import Std (Nat, Text, List)\n\
-                 def main(): {IO} () := IO.print (Text.join ((List.range 3).map Nat.toText) ',')\n",
+                 def main(): {IO} () := IO.print (Text.join ((List.range 0 3).map Nat.toText) ',')\n",
             )
             .unwrap_or_else(|e| panic!("doesn't check: {e:?}"));
         let main = session.main().expect("main");

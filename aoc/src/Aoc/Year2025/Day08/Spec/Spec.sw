@@ -28,7 +28,7 @@ import Std (Iff, List, Nat, Ord, Ordering)
 def boxAt (points: List Point) (i: Nat): Point := points.getOr i Point.origin
 
 --| Every pair of the boxes 0 to n - 1: box i with box j, for i < j.
-def allPairs (n: Nat): List (Nat, Nat) := List.range n |> .pairs
+def allPairs (n: Nat): List (Nat, Nat) := List.range 0 n |> .pairs
 
 --| What decides the order of the pairs: the squared distance between the
 --| two boxes (in the same order as the distance), then the first box, then
@@ -61,9 +61,9 @@ def Tells (n: Nat) (connections: List (Nat, Nat)) (sameCircuit: Nat → Nat → 
 --| once, at its first box (no lower box is in it), and its size is the
 --| number of boxes in it.
 def circuitSizes (n: Nat) (sameCircuit: Nat → Nat → Bool): List Nat :=
-  List.range n
-    |> .filter (box => ¬(List.range box |> .any (other => sameCircuit other box)))
-    |> .map (box => List.range n |> .count (other => sameCircuit other box))
+  List.range 0 n
+    |> .filter (box => ¬(List.range 0 box |> .any (other => sameCircuit other box)))
+    |> .map (box => List.range 0 n |> .count (other => sameCircuit other box))
 
 --| The three largest sizes (or all, if there are fewer), multiplied.
 def threeLargestProduct (sizes: List Nat): Nat := sizes.sortBy (a b => b.compare a) |> .take 3 |> .product

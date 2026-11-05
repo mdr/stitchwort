@@ -90,7 +90,7 @@ double 21
 summary "Ada" [3, 4]
 :t describe
 import Std (List)
-List.range 4
+List.range 0 4
 ```
 
 it prints:

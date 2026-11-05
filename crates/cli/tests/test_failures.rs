@@ -16,8 +16,8 @@ test "less" := part1 5 < 3
 test "greater or equal" := 2 >= part1 5
 test "greater" := 1 > part1 5
 test "proposition" := part1 1 = 3
-test "long value" := List.range 1000 == []
-test "huge value" := List.range 100000 == []
+test "long value" := List.range 0 1000 == []
+test "huge value" := List.range 0 100000 == []
 test "not a comparison" := List.all [1, 2, 3] (n => n < 3)
 "#;
 
@@ -116,8 +116,8 @@ test "text prefix" := "hello" == "hello!"
 test "record" := ({ x = 1, y = 2 } : Point) == { x = 1, y = 3 }
 test "option" := (Option.Some 1) == Option.None
 test "list of lists" := [[1, 2], [3]] == [[1, 2], [4]]
-test "long list, late difference" := List.range 1000 == List.append (List.range 500) (List.range 500)
-test "long and" := List.range 1000 == List.range 1000 && List.range 300 == List.range 299
+test "long list, late difference" := List.range 0 1000 == List.append (List.range 0 500) (List.range 0 500)
+test "long and" := List.range 0 1000 == List.range 0 1000 && List.range 0 300 == List.range 0 299
 test "unequal, so no difference" := nums 3 != nums 3
 test "and, a bracketed operand" := part1 1 == 2 && (nums 3).length == 2
 test "nested records in lists" := [item 3] == [item 4]

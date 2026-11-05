@@ -165,7 +165,7 @@ def fromListN: (n: Nat) -> (xs: List a) -> List.length xs = n -> Vec a n
 
 def fromList (xs: List a): Vec a (List.length xs) := fromListN (List.length xs) xs rfl
 
-test \"round trip\" := List.length (toList (fromList (List.range {n}))) == {n}
+test \"round trip\" := List.length (toList (fromList (List.range 0 {n}))) == {n}
 "
     )
 }
@@ -179,7 +179,7 @@ def fromList: (xs: List a) -> Vec a (List.length xs)
   | Nil       => VNil
   | Cons x xs => VCons x (fromList xs)
 
-test \"round trip\" := List.length (toList (fromList (List.range {n}))) == {n}
+test \"round trip\" := List.length (toList (fromList (List.range 0 {n}))) == {n}
 "
     )
 }

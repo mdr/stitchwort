@@ -24,8 +24,8 @@ test "sorts by key, stably" :=
 test "sorts texts" := List.sortBy ["pear", "apple", "fig"] Text.compare == ["apple", "fig", "pear"]
 
 test "sorts many numbers" :=
-  ((List.range 300).map (i => (i * 7919 + 13) % 1009)).sort
-    == ((List.range 300).map (i => (i * 7919 + 13) % 1009)).reverse.sortWith Nat.leq
+  ((List.range 0 300).map (i => (i * 7919 + 13) % 1009)).sort
+    == ((List.range 0 300).map (i => (i * 7919 + 13) % 1009)).reverse.sortWith Nat.leq
 
 -- Using the theorems.
 
