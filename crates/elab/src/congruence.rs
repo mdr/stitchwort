@@ -7,13 +7,18 @@
 //! under a binder (`rewrite.rs`; docs/proposals/proof-automation.md §6.1).
 //!
 //! `rewrite` also uses congruence lemmas whose premises give facts about
-//! the variables (stage 1b): `FCongRange` and `FCongMem`, beside `F` like
-//! `FCong`, whose premise is `(x…) -> facts… -> f1 x… = f2 x…` and whose
-//! other parameters may be anything the call's arguments determine
-//! (`List.foldLeftCongRange` is about `List.foldLeft f z (List.range from
-//! until)`, with the facts `from <= x` and `x < until`). They are tried before
-//! `FCong`, most specific first ([`candidates`]), each by unifying its left
-//! side with the call.
+//! the variables (stage 1b): `FCongRange`, `FCongRangeFrom` and `FCongMem`,
+//! beside `F` like `FCong`, whose premise is `(x…) -> facts… -> f1 x… = f2
+//! x…` and whose other parameters may be anything the call's arguments
+//! determine. `List.foldLeftCongRange` is about `List.foldLeft f z
+//! (List.range from until)`, with the facts `from <= x` and `x < until`.
+//! A range evaluates to `List.rangeFrom (until - from) from`, with the
+//! subtraction computed when it can be (`List.range 1 (n + 1)` is
+//! `List.rangeFrom n 1`), and `until` can't be found from that; those calls
+//! are `List.foldLeftCongRangeFrom`'s, about `List.rangeFrom c s` with the
+//! facts `s <= x` and `x < s + c`. They are tried before `FCong`, most
+//! specific first ([`candidates`]), each by unifying its left side with the
+//! call.
 
 use std::cell::Cell;
 use std::rc::Rc;
@@ -28,7 +33,7 @@ use crate::{Elaborator, Global, Result};
 
 /// The suffixes of `F`'s congruence lemmas for `rewrite`, in the order they
 /// are tried: the most specific facts first, then none.
-pub(crate) const SUFFIXES: [&str; 3] = ["CongRange", "CongMem", "Cong"];
+pub(crate) const SUFFIXES: [&str; 4] = ["CongRange", "CongRangeFrom", "CongMem", "Cong"];
 
 /// A congruence lemma in the form `rewrite` applies it
 /// ([`validate_contextual`]).

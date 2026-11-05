@@ -877,6 +877,46 @@ theorem List.sumByCongRange [auto add: Add c] (f: Nat → c) (g: Nat → c) (fro
     List.sumBy (List.range from until) f = List.sumBy (List.range from until) g :=
   List.foldLeftCongRange (acc x => acc + f x) (acc x => acc + g x) Add.zero from until (acc x low high => Eq.cong (t => acc + t) (h x low high))
 
+--| The same over `List.rangeFrom c s`, for the calls `rewrite` meets with the
+--| range's bounds computed (a numeral start: `List.range 1 (n + 1)` is
+--| `List.rangeFrom n 1`, and `(n + 1) - 1` is already `n`). Tried after
+--| [`List.mapCongRange`] and its kin.
+theorem List.mapCongRangeFrom (f1: Nat → b) (f2: Nat → b) (c: Nat) (s: Nat)
+    (ef: (x: Nat) → (low: s ≤ x) → (high: x < s + c) → f1 x = f2 x):
+    List.map (List.rangeFrom c s) f1 = List.map (List.rangeFrom c s) f2 :=
+  List.mapCongMem (List.rangeFrom c s) f1 f2 (x m => ef x (And.left (List.memRangeFrom x c s m)) (And.right (List.memRangeFrom x c s m)))
+
+theorem List.filterCongRangeFrom (p1: Nat → Bool) (p2: Nat → Bool) (c: Nat) (s: Nat)
+    (ep: (x: Nat) → (low: s ≤ x) → (high: x < s + c) → p1 x = p2 x):
+    List.filter (List.rangeFrom c s) p1 = List.filter (List.rangeFrom c s) p2 :=
+  List.filterCongMem (List.rangeFrom c s) p1 p2 (x m => ep x (And.left (List.memRangeFrom x c s m)) (And.right (List.memRangeFrom x c s m)))
+
+theorem List.anyCongRangeFrom (p1: Nat → Bool) (p2: Nat → Bool) (c: Nat) (s: Nat)
+    (ep: (x: Nat) → (low: s ≤ x) → (high: x < s + c) → p1 x = p2 x):
+    List.any (List.rangeFrom c s) p1 = List.any (List.rangeFrom c s) p2 :=
+  List.anyCongMem (List.rangeFrom c s) p1 p2 (x m => ep x (And.left (List.memRangeFrom x c s m)) (And.right (List.memRangeFrom x c s m)))
+
+theorem List.allCongRangeFrom (p1: Nat → Bool) (p2: Nat → Bool) (c: Nat) (s: Nat)
+    (ep: (x: Nat) → (low: s ≤ x) → (high: x < s + c) → p1 x = p2 x):
+    List.all (List.rangeFrom c s) p1 = List.all (List.rangeFrom c s) p2 :=
+  List.allCongMem (List.rangeFrom c s) p1 p2 (x m => ep x (And.left (List.memRangeFrom x c s m)) (And.right (List.memRangeFrom x c s m)))
+
+theorem List.occurrencesCongRangeFrom (p1: Nat → Bool) (p2: Nat → Bool) (c: Nat) (s: Nat)
+    (ep: (x: Nat) → (low: s ≤ x) → (high: x < s + c) → p1 x = p2 x):
+    List.occurrences (List.rangeFrom c s) p1 = List.occurrences (List.rangeFrom c s) p2 :=
+  List.occurrencesCongMem (List.rangeFrom c s) p1 p2 (x m => ep x (And.left (List.memRangeFrom x c s m)) (And.right (List.memRangeFrom x c s m)))
+
+theorem List.foldLeftCongRangeFrom (f1: b → Nat → b) (f2: b → Nat → b) (z: b) (c: Nat) (s: Nat)
+    (ef: (acc: b) → (x: Nat) → (low: s ≤ x) → (high: x < s + c) → f1 acc x = f2 acc x):
+    List.foldLeft (List.rangeFrom c s) z f1 = List.foldLeft (List.rangeFrom c s) z f2 :=
+  List.foldLeftCongMem (List.rangeFrom c s) z f1 f2
+    (acc x m => ef acc x (And.left (List.memRangeFrom x c s m)) (And.right (List.memRangeFrom x c s m)))
+
+--| `sumBy` and `count` are folds, so their congruence lemmas are the fold's.
+theorem List.sumByCongRangeFrom [auto add: Add c] (f: Nat → c) (g: Nat → c): (c: Nat) → (s: Nat) → ((x: Nat) → s ≤ x → x < s + c → f x = g x) →
+    List.sumBy (List.rangeFrom c s) f = List.sumBy (List.rangeFrom c s) g :=
+  c s h => List.foldLeftCongRangeFrom (acc x => acc + f x) (acc x => acc + g x) Add.zero c s (acc x low high => Eq.cong (t => acc + t) (h x low high))
+
 --| Sums agree when their terms agree on the list's elements.
 theorem List.sumByCongMem [auto add: Add b] (xs: List a) (f: a → b) (g: a → b) (agree: (x: a) → x ∈ xs → f x = g x):
     List.sumBy xs f = List.sumBy xs g :=

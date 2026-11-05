@@ -228,7 +228,7 @@ fn a_congruence_lemma_away_from_its_function_is_refused() {
              (ef: (y: Nat) → f1 y = f2 y): Libo.map x f1 = Libo.map x f2 := ef x\n"
         )
     };
-    for suffix in ["Cong", "CongMem", "CongRange"] {
+    for suffix in ["Cong", "CongMem", "CongRange", "CongRangeFrom"] {
         let lemma = cong(suffix);
         let error = build(&[("A.sw", map), ("B.sw", &lemma)]).expect("refused");
         assert!(
@@ -604,7 +604,7 @@ fn small_programs_load_only_the_library_files_they_can_use() {
         "List/Toolkit.sw",
     ];
     assert_eq!(
-        std_loaded_by("import Std (List)\ntest \"r\" := List.range 3 == [0, 1, 2]\n"),
+        std_loaded_by("import Std (List)\ntest \"r\" := List.range 0 3 == [0, 1, 2]\n"),
         toolkit
     );
     assert_eq!(
