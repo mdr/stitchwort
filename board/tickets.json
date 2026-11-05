@@ -7418,13 +7418,13 @@
     {
       "id": 1362,
       "title": "Library index: require a std instance for (I, T) to sit in T's file or I's file, like SW-1354's congruence rule (else check results depend on load order)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1362",
       "labels": [
         "elab"
       ],
-      "body": "Small improvement found by a lane, 5 Nov 2026. Matt: 'Those small findings are worth curing. In general, I'm a fan of doing small improvements.'",
+      "body": "Small improvement found by a lane, 5 Nov 2026. Matt: 'Those small findings are worth curing. In general, I'm a fan of doing small improvements.'\n\nDone on lane/SW-1362 (8646461d7): instances_beside in library.rs refuses a std instance outside its type's or interface's file; no existing violation. Model result: Sonnet, worked, 17 min (est. 45).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7530,9 +7530,9 @@
     {
       "id": 1370,
       "title": "2021 day 16: operands fit their operation in the packet type (Many (NonEmptyList Packet) | Pair Packet Packet); drop checkOperators, promised and fallback arms",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1370",
       "labels": [
         "aoc"
       ],
