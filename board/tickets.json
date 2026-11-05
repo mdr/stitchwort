@@ -1,5 +1,5 @@
 {
-  "next": 1375,
+  "next": 1379,
   "tickets": [
     {
       "id": 47,
@@ -3961,9 +3961,9 @@
       "labels": [
         "editor"
       ],
-      "body": "Roadmap steps 3 and 5. D2241 (Matt): worth considering, especially for editor/IDE features; start with a short evaluation (size, licence, offline/no-build constraints of the page). D2242: the playground is both showcase and tour. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2263 (Matt, 3 Nov): evaluate CodeMirror 6 for the playground, and briefly consider embedding VS Code (Monaco / VS Code for the web). Evaluation only: no commitment to editor-roadmap implementation while the tidy-ups (state migration, std) are running. Sonnet, expected 60 min.\n\nEvaluation done 43cd80c7 (Sonnet, 12 min, est. 60), merged: docs/proposals/playground-editor.md, prototype web/proto/codemirror.html. Rec: CodeMirror 6 (+109 kB gz on ~3.5 MB; MIT) as a built bundle (esbuild + lockfile in web/build.sh, flake, CI), after roadmap step 1; not Monaco (~8x size, no mobile) or VS Code (needs a wasm language server). Six decisions in the note, held per D2263. Model result: Sonnet, worked, 12 min (est. 60).",
+      "body": "Roadmap steps 3 and 5. D2241 (Matt): worth considering, especially for editor/IDE features; start with a short evaluation (size, licence, offline/no-build constraints of the page). D2242: the playground is both showcase and tour. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2263 (Matt, 3 Nov): evaluate CodeMirror 6 for the playground, and briefly consider embedding VS Code (Monaco / VS Code for the web). Evaluation only: no commitment to editor-roadmap implementation while the tidy-ups (state migration, std) are running. Sonnet, expected 60 min.\n\nEvaluation done 43cd80c7 (Sonnet, 12 min, est. 60), merged: docs/proposals/playground-editor.md, prototype web/proto/codemirror.html. Rec: CodeMirror 6 (+109 kB gz on ~3.5 MB; MIT) as a built bundle (esbuild + lockfile in web/build.sh, flake, CI), after roadmap step 1; not Monaco (~8x size, no mobile) or VS Code (needs a wasm language server). Six decisions in the note, held per D2263. Model result: Sonnet, worked, 12 min (est. 60).\n\nMatt, 5 Nov 2026: 'I'm happy with your ideas about using CodeMirror and a browser-built language server and your other ideas there. So yes, good decisions, including running a short trial.' D2415 yes (JS build step: esbuild + lockfile through Nix, output not committed); D2416 CodeMirror 6; D2417 reuse the page's tokenizer for colour first; D2418 a real-phone check of the prototype gates the swap (Matt tests on a phone); D2419 end positions in the fast check's diagnostics; D2420 resume the track now; D2421 trial: stitchwort lsp built for the browser, connected to the CM6 prototype via @codemirror/lsp-client. Artifact: https://claude.ai/artifact/RzSz2cxcr41AVT8NBn4G1R",
       "created": "2026-11-03",
-      "updated": "2026-11-03",
+      "updated": "2026-11-05",
       "commits": []
     },
     {
@@ -7593,6 +7593,62 @@
         "elab"
       ],
       "body": "From SW-1370, 5 Nov 2026. Small improvement.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1375,
+      "title": "Trial (D2421): build stitchwort lsp for the browser (wasm32, postMessage transport, no threads, std and projects from memory) and connect it to the CodeMirror prototype through @codemirror/lsp-client; report what works and what it took",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor"
+      ],
+      "body": "D2415-D2421 approved by Matt, 5 Nov 2026 (see SW-1118). docs/proposals/playground-editor.md.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1376,
+      "title": "Playground: the fast check's diagnostics carry end positions (crates/web), so errors can be underlined (D2419)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "playground"
+      ],
+      "body": "D2415-D2421 approved by Matt, 5 Nov 2026 (see SW-1118). docs/proposals/playground-editor.md.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1377,
+      "title": "Playground: JavaScript build step for CodeMirror 6 (web/editor entry, esbuild, lockfile, web/build.sh, flake, CI; output not committed) (D2415)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "playground"
+      ],
+      "body": "D2415-D2421 approved by Matt, 5 Nov 2026 (see SW-1118). docs/proposals/playground-editor.md.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1378,
+      "title": "Playground: swap the textarea for CodeMirror 6 behind a small source facade; colour via the existing tokenizer; theme; underlined errors, hover, navigation; port browser tests (D2416, D2417; after the phone check D2418 and the trial)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "playground"
+      ],
+      "body": "D2415-D2421 approved by Matt, 5 Nov 2026 (see SW-1118). docs/proposals/playground-editor.md.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
