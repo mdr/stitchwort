@@ -1484,6 +1484,98 @@ theorem Parse.readsSection (p: () → {Parse} a) (spec: List Char → a → Prop
                   (Both (rewrite split, split2, List.appendAssoc firstRead eachRead blankRead in rfl)
                     (Both (rewrite same in Witness firstRead (Witness eachRead (Witness first (Both rfl (Both holds (Both rfl each)))))) blank))))
 
+-- `sections` over the lines of the input (SW-1401).
+
+--| A line break between `read` and what follows it ends a line there,
+--| whichever of "\n" and "\r\n" it is: the lines are those of `read` with
+--| its break, then those of the rest.
+theorem Parse.linesBreak (read: List Char) (first: List Char) (rest: List Char) (breaks: Parse.LineBreak first):
+    Text.lines (MkText (read ++ (first ++ rest))) = Text.lines (MkText (read ++ first)) ++ Text.lines (MkText rest) :=
+  match breaks with
+    | Inl feed => rewrite feed in Text.linesAppend read rest
+    | Inr both =>
+      rewrite both in
+        Eq.trans (Eq.cong (l => Text.lines (MkText l)) (Eq.sym (List.appendAssoc read ['\r'] ['\n', ..rest])))
+          (Eq.trans (Text.linesAppend (read ++ ['\r']) rest) (Eq.cong (l => Text.lines (MkText l) ++ Text.lines (MkText rest)) (List.appendAssoc read ['\r'] ['\n'])))
+
+--| `read`, a blank line, and `rest`: the lines of `read` with its line
+--| break, a line of the blank line's spaces and tabs, and the lines of the
+--| rest. The blank line's own breaks are `first` and `last`.
+theorem Parse.linesBlank (read: List Char) (first: List Char) (middle: List Char) (last: List Char) (rest: List Char)
+    (firstBreak: Parse.LineBreak first) (spaced: middle.all Parse.isSpace = True) (lastBreak: Parse.LineBreak last):
+    Text.lines (MkText (read ++ (first ++ (middle ++ (last ++ rest))))) = Text.lines (MkText (read ++ first)) ++ [MkText middle, ..Text.lines (MkText rest)] :=
+  let plain: List.All (c => Char.isLineFeedCode (Char.toNat c) = False ∧ Char.isCarriageReturnCode (Char.toNat c) = False) middle :=
+    List.allImplies _ _ (c isSpace => Text.spaceTabPlain c isSpace) middle (List.allToAll Parse.isSpace middle spaced)
+  let onlyLine: Text.lines (MkText (middle ++ (last ++ rest))) = [MkText middle, ..Text.lines (MkText rest)] :=
+    match lastBreak with
+      | Inl feed => rewrite feed in Text.linesPlainLine middle rest plain
+      | Inr both => rewrite both in Text.linesPlainLineReturn middle rest plain
+  Eq.trans (Parse.linesBreak read first (middle ++ (last ++ rest)) firstBreak) (Eq.cong (l => Text.lines (MkText (read ++ first)) ++ l) onlyLine)
+
+--| What `sections` read, as `lines`: the first value's section, a line
+--| break, a blank line, then the next section, and so on, the last
+--| section's characters followed by `ending`. Each section's `read` is
+--| `spec` of its value, and the lines are those of the section with the line
+--| break after it, the blank line's spaces and tabs as a line, and the lines
+--| of what follows. What the section's lines look like in terms of `read`
+--| is [`Text.unlinesLines`] when it has no carriage return.
+def Parse.SectionsLines (spec: List Char → a → Prop) (value: a): (values: List a) → (lines: List Text) → Prop
+  | [], lines =>
+    ∃ (read: List Char) => ∃ (ending: List Char) =>
+      spec read value ∧ ending.all (char => char == '\n' ∨ char == '\r') = True ∧ lines = Text.lines (MkText (read ++ ending))
+  | [next, ..more], lines =>
+    ∃ (read: List Char) => ∃ (first: List Char) => ∃ (middle: List Char) => ∃ (last: List Char) => ∃ (rest: List Text) =>
+      spec read value ∧ Parse.LineBreak first ∧ middle.all Parse.isSpace = True ∧ Parse.LineBreak last
+        ∧ lines = Text.lines (MkText (read ++ first)) ++ [MkText middle, ..rest] ∧ Parse.SectionsLines spec next more rest
+
+theorem Parse.appendBlank (first: List Char) (middle: List Char) (last: List Char) (nextRead: List Char) (afterChunk: List Char) (ending: List Char):
+    ((((first ++ (middle ++ last)) ++ nextRead) ++ afterChunk) ++ ending) = first ++ (middle ++ (last ++ (nextRead ++ (afterChunk ++ ending)))) :=
+  rewrite List.appendAssoc ((first ++ (middle ++ last)) ++ nextRead) afterChunk ending, List.appendAssoc (first ++ (middle ++ last)) nextRead (afterChunk ++ ending),
+    List.appendAssoc first (middle ++ last) (nextRead ++ (afterChunk ++ ending)), List.appendAssoc middle last (nextRead ++ (afterChunk ++ ending)) in rfl
+
+theorem Parse.sectionsLinesEach (spec: List Char → a → Prop) (ending: List Char) (ended: ending.all (char => char == '\n' ∨ char == '\r') = True):
+    (rests: List a) → (value: a) → (read: List Char) → (afterFirst: List Char) → spec read value →
+    Parse.Each (Parse.Then (read (u: ()) => Parse.BlankLine read) (u => spec)) afterFirst rests →
+    Parse.SectionsLines spec value rests (Text.lines (MkText (read ++ (afterFirst ++ ending))))
+  | [], value, read, afterFirst, holds, each => rewrite each in Witness read (Witness ending (Both holds (Both ended rfl)))
+  | [next, ..more], value, read, afterFirst, holds, each =>
+    match each with
+      | Witness chunk (Witness afterChunk (Both split (Both (Witness blankRead (Witness nextRead (Witness u (Both split2 (Both blank nextHolds))))) others))) =>
+        match blank with
+          | Witness first (Witness middle (Witness last (Both blankSplit (Both firstBreak (Both spaced lastBreak))))) =>
+            let lined: Text.lines (MkText (read ++ (afterFirst ++ ending))) =
+                Text.lines (MkText (read ++ first)) ++ [MkText middle, ..Text.lines (MkText (nextRead ++ (afterChunk ++ ending)))] :=
+              rewrite split, split2, blankSplit, Parse.appendBlank first middle last nextRead afterChunk ending in
+                Parse.linesBlank read first middle last (nextRead ++ (afterChunk ++ ending)) firstBreak spaced lastBreak
+            rewrite lined in
+              Witness read (Witness first (Witness middle (Witness last (Witness (Text.lines (MkText (nextRead ++ (afterChunk ++ ending))))
+                (Both holds (Both firstBreak (Both spaced (Both lastBreak (Both rfl (Parse.sectionsLinesEach spec ending ended more next nextRead afterChunk nextHolds others))))))))))
+
+--| What `sections` read, followed by `ending`, as lines: the lines of the
+--| whole are `SectionsLines`. For a parser that maps `sections p`, such as
+--| `Parse.sections p |> .toList`, after [`Parse.allReads`].
+theorem Parse.sectionsLinesRead (spec: List Char → a → Prop) (values: NonEmptyList a) (read: List Char) (ending: List Char)
+    (written: Parse.SepBy spec (read u => Parse.BlankLine read) read values) (ended: ending.all (char => char == '\n' ∨ char == '\r') = True):
+    Parse.SectionsLines spec values.head values.tail (Text.lines (MkText (read ++ ending))) :=
+  match written with
+    | Witness firstRead (Witness afterFirst (Witness v (Both split (Both holds (Both isHead each))))) =>
+      rewrite split, <- isHead, List.appendAssoc firstRead afterFirst ending in Parse.sectionsLinesEach spec ending ended values.tail v firstRead afterFirst holds each
+
+--| `Parse.all input (() => Parse.sections p)` succeeded: the input's lines
+--| are the sections' lines with a line of spaces and tabs between each two,
+--| each section read by `spec` ([`Parse.SectionsLines`]). Nothing is assumed
+--| of `spec`, so a section's characters are what `spec` is about, as in
+--| [`Parse.allReads`], and its lines are those of the characters with their
+--| line break ([`Text.unlinesLines`] gives them back when there is no
+--| carriage return).
+theorem Parse.sectionsLines (input: Text) (p: () → {Parse} a) (spec: List Char → a → Prop) (groups: NonEmptyList a)
+    (h: Fail.toResult (() => Parse.all input (() => Parse.sections p)) = Ok groups) (reads: Parse.Reads p spec):
+    Parse.SectionsLines spec groups.head groups.tail input.lines :=
+  match Parse.allReads input (() => Parse.sections p) _ groups h (Parse.readsSections p spec reads) with
+    | Witness read (Witness ending (Both split (Both written ended))) =>
+      let lined: Text.lines input = Text.lines (MkText (read ++ ending)) := Eq.cong (chars => Text.linesFrom [] [] chars) split
+      rewrite lined in Parse.sectionsLinesRead spec groups read ending written ended
+
 -- Recursion, counted repetition, numbers of so many digits, and matches
 -- among noise (SW-1002).
 
