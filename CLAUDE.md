@@ -62,9 +62,10 @@ Use the cheapest model that can do the work well. Provisional (D2208, Matt,
   notes, the kernel and soundness, the tricky implementation parts of the
   code base, tricky bugs, specs for other models, and a proof only when it
   is genuinely hard. It also reviews changes that generate kernel terms, or
-  that add or weaken a theorem; a refactor that only re-types statements is
-  checked by the orchestrator, statement by statement, that each keeps its
-  meaning (D2364, Matt, 4 Nov 2026). New AoC days are Opus's too: not
+  that weaken a theorem (D2364, Matt, 4 Nov 2026). A new theorem, or a
+  refactor that only re-types statements, is checked by the orchestrator,
+  statement by statement: that each says what its name and doc claim, or
+  keeps its meaning (D2436, Matt, 5 Nov 2026). New AoC days are Opus's too: not
   because they are hard, but because the day's friction notes are the
   analysis of Stitchwort's gaps that drives the next work (D2427, Matt,
   5 Nov 2026).
