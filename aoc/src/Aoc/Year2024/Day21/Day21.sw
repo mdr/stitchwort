@@ -11,7 +11,7 @@
 --| `Aoc.Year2024.Day21.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2024.Day21
-import Std (Fail, IO, List, Nat, Option, Parse, Text, uncurry)
+import Std (Fail, IO, List, Nat, NonEmptyList, Option, Parse, Text, uncurry)
 import Std.Parse (label, lines, many1, pick)
 
 def main(): {IO, Fail} () :=
@@ -150,15 +150,16 @@ def alongThenAcross (from: Position) (to: Position): List Direction :=
 
 --| The ways to move the arm between two keys: all the moves across, then
 --| all along, or the other way round. The gap is in a corner, so a way
---| passes over it only if it turns there; those are left out.
-def Keypad.routes (keypad: Keypad k) (from: k) (to: k): List (List Direction) :=
+--| passes over it only if it turns there; those are left out. Both turns
+--| are never the gap, so there is always a way (`fits` checks that every
+--| way listed avoids it).
+def Keypad.routes (keypad: Keypad k) (from: k) (to: k): NonEmptyList (List Direction) :=
   let start := keypad.place from
   let end := keypad.place to
   let acrossTurn: Position := { row = start.row, column = end.column }
   let alongTurn: Position := { row = end.row, column = start.column }
-  List.append
-    (if acrossTurn == keypad.gap then [] else [acrossThenAlong start end])
-    (if alongTurn == keypad.gap then [] else [alongThenAcross start end])
+  if acrossTurn == keypad.gap then NonEmptyList.singleton (alongThenAcross start end)
+  else NonEmptyList.cons (acrossThenAlong start end) (if alongTurn == keypad.gap then [] else [alongThenAcross start end])
 
 --| How many of your presses it takes to press `to` on some keypad whose arm
 --| aims at `from`, with every keypad between yours and it aiming at A.
@@ -179,10 +180,10 @@ def routeKeys (route: List Direction): List DirectionKey := List.append (route.m
 def Costs.routeCost (costs: Costs) (route: List Direction): Nat := costs.sequenceCost (routeKeys route)
 
 --| The route costing the fewest of your presses.
-def Costs.cheapestRoute (costs: Costs) (choices: List (List Direction)): List Direction := choices.minBy costs.routeCost |> .getOrElse []
+def Costs.cheapestRoute (costs: Costs) (choices: NonEmptyList (List Direction)): List Direction := choices.minBy costs.routeCost
 
 --| What the cheapest route costs.
-def Costs.cheapestCost (costs: Costs) (choices: List (List Direction)): Nat := costs.routeCost (costs.cheapestRoute choices)
+def Costs.cheapestCost (costs: Costs) (choices: NonEmptyList (List Direction)): Nat := costs.routeCost (costs.cheapestRoute choices)
 
 def directionKeys: List DirectionKey := [Arrow Up, Arrow Down, Arrow Left, Arrow Right, Activate]
 
