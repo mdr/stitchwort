@@ -7376,7 +7376,7 @@
     {
       "id": 1359,
       "title": "Ranges step 3: auto and omega take x ∈ a ..< b apart; Bool x in a ..< b decided by two comparisons (D2411)",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
@@ -7642,7 +7642,7 @@
     {
       "id": 1378,
       "title": "Playground: swap the textarea for CodeMirror 6 on the shared language server; colour via the existing tokenizer; theme; underlined errors, hover, navigation, code actions; port browser tests (D2416, D2417, D2423)",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
@@ -7656,7 +7656,7 @@
     {
       "id": 1379,
       "title": "Unifier: (List.memRange _ _ _).forward h fails for h: x ∈ List.range 2 (n + 1) (the type evaluates to rangeFrom (n - 1) 2 and ?b - ?a matches n - 1 first); compare List.range ?a ?b with a List.range call argument by argument before evaluating, or let ranges step 3's auto do it",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
@@ -7670,7 +7670,7 @@
     {
       "id": 1380,
       "title": "Docs: sweep one-argument List.range and List.between out of docs/ (evaluator-speed, aoc-2025 :986 :2157, comparisons/aoc-day0{2,3,4}-community, research/aoc-chaining-survey :182); optional tidy: Day02 List.range 2 (copies - 1 + 1), Grid at.row + 1 + 1",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
@@ -7853,7 +7853,7 @@
     {
       "id": 1393,
       "title": "Duplicate lemma names in aoc: firstOf and orFalse are each declared twice",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
@@ -7879,7 +7879,7 @@
     {
       "id": 1395,
       "title": "Test: every std congruence lemma (FCong, FCongMem, FCongRange) passes validate_cong; rewrite's validate_contextual doesn't compare binder kinds with F's, so a lemma rewrite accepts can still fail decreasing (Option.mapCong, SW-1381 review)",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
@@ -7893,7 +7893,7 @@
     {
       "id": 1396,
       "title": "Playground: printing many lines is slower than linear (262,144 empty lines take 176 s; 43,690 take 10 s; native prints 40,000 in 0.35 s); batch the worker's output messages. Fixes the 'Run's errors' browser test timeout",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
@@ -7907,7 +7907,7 @@
     {
       "id": 1397,
       "title": "Playground: a 7 MB, million-line Run input hangs the page (the ioRead shape of 'effectful List.map runs at a million elements'); find whether the textarea or input handling freezes, and size the test's input",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
@@ -7921,7 +7921,7 @@
     {
       "id": 1398,
       "title": "Browser tests: whereIs should throw when its needle is missing instead of using indexOf -1 (gave wrong positions silently)",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
@@ -7935,9 +7935,9 @@
     {
       "id": 1399,
       "title": "2020 day 6: prove questionsDistinct (26 letters) cheaply instead of byDecision (36,800-node term, 0.4 s): List.allDistinctCorrect or a std lemma that a strictly increasing list is distinct",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1399",
       "labels": [
         "aoc",
         "perf"
@@ -7950,7 +7950,7 @@
     {
       "id": 1400,
       "title": "rewrite <- in the wrong direction: put the 'write the rule without <-' note first and drop the hidden-match notes that don't apply (E-REWRITE-NOTHING had six notes, the useful one last)",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
@@ -7964,7 +7964,7 @@
     {
       "id": 1401,
       "title": "Std: lemmas tying Text.lines to the input's characters, and a Parse.sections reads theorem stated over the input's lines (as eachLineReads is), so day-4-style section parses reach a spec on the input text",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
@@ -7979,9 +7979,9 @@
     {
       "id": 1402,
       "title": "AoC 2020 day 7 (Handy Haversacks): spec, efficient solution, proofs, tests, friction notes in aoc/NOTES-2020.md",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1402",
       "labels": [
         "aoc"
       ],
