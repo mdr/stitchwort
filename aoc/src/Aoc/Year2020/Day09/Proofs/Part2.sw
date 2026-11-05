@@ -7,20 +7,6 @@ import Aoc.Year2020.Day09 (..)
 import Aoc.Year2020.Day09.Spec (Contiguous, Weakness)
 import Std (Bool, DecEq, Eq, List, Nat, NonEmptyList, Option, Void)
 
---| Taking one more of `xs`, where `k` of them are followed by `y`, adds `y`.
-theorem takeOneMore: (xs: List Nat) → (k: Nat) → (y: Nat) → (ys: List Nat) → xs.drop k = [y, ..ys] →
-    xs.take (k + 1) = xs.take k ++ [y] ∧ k < xs.length
-  | [], Zero, y, ys, d => cases
-  | [], Succ k, y, ys, d => cases
-  | [x, ..xs], Zero, y, ys, d => Both (rewrite List.consInjectiveHead x y xs ys d in rfl) (omega)
-  | [x, ..xs], Succ k, y, ys, d =>
-    let (Both taken below) := takeOneMore xs k y ys d
-    Both (rewrite taken in rfl) (omega)
-
-theorem toListNonEmpty: (xs: List a) → (ordered: NonEmptyList a) → xs.nonEmpty = Some ordered → ordered.toList = xs
-  | [], ordered, made => Void.exfalso (Option.noneNotSome ordered made)
-  | [x, ..rest], ordered, made => rewrite <- Option.someInjective made in rfl
-
 --| The window is `count` numbers from `start` on, summing to `sum`, and
 --| `rest` is what follows it.
 theorem runFromSound (numbers: List Nat) (target: Nat) (run: List Nat) (front: List Nat) (count: Nat) (sum: Nat) (rest: List Nat) (start: Nat)
@@ -56,7 +42,7 @@ theorem runFromSound (numbers: List Nat) (target: Nat) (run: List Nat) (front: L
                 match rest with
                   | [] => Void.exfalso (Option.noneNotSome run found)
                   | [next, ..more] =>
-                    let (Both taken below) := takeOneMore front count next more (Eq.sym after)
+                    let (Both taken below) := List.takeOfDropCons front count next more (Eq.sym after)
                     runFromSound numbers target run front (count + 1) (sum + next) more start at (omega)
                       (rewrite List.dropAdd count 1 front, <- after in rfl)
                       (rewrite taken, List.sumAppend (front.take count) [next] in omega)
@@ -65,7 +51,7 @@ theorem runFromSound (numbers: List Nat) (target: Nat) (run: List Nat) (front: L
             match rest with
               | [] => Void.exfalso (Option.noneNotSome run found)
               | [next, ..more] =>
-                let (Both taken below) := takeOneMore front count next more (Eq.sym after)
+                let (Both taken below) := List.takeOfDropCons front count next more (Eq.sym after)
                 runFromSound numbers target run front (count + 1) (sum + next) more start at (omega)
                   (rewrite List.dropAdd count 1 front, <- after in rfl)
                   (rewrite taken, List.sumAppend (front.take count) [next] in omega)
@@ -78,7 +64,7 @@ theorem weaknessRules (data: XmasData) (invalid: Nat) (answer: Nat) (found: data
       match n: run.nonEmpty with
         | None => Void.exfalso (Option.noneNotSome answer found)
         | Some ordered =>
-          let same := toListNonEmpty run ordered n
+          let same := List.toListOfNonEmpty run ordered n
           let (Both contiguous (Both long total)) :=
             runFromSound data.numbers invalid run data.numbers 0 0 data.numbers 0 rfl (omega) rfl rfl r
           Witness run (Both contiguous (Both long (Both total

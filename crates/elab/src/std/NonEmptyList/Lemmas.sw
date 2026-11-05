@@ -41,6 +41,15 @@ theorem List.nonEmptyToNonEmpty (xs: List a) (h: xs ≠ []): List.nonEmpty xs = 
     | [] => Void.exfalso (h rfl)
     | [x, ..rest] => rfl
 
+--| A `NonEmptyList` that `nonEmpty` gives back lists the original list, so a
+--| proof can switch to its head and tail without losing the list. This is
+--| the converse of [`List.nonEmptyToNonEmpty`], which starts from a list
+--| known not to be empty; [`NonEmptyList.nonEmptyToList`] starts from the
+--| other side.
+theorem List.toListOfNonEmpty: (xs: List a) → (ys: NonEmptyList a) → List.nonEmpty xs = Some ys → ys.toList = xs
+  | [], ordered, made => Void.exfalso (Option.noneNotSome ordered made)
+  | [x, ..rest], ordered, made => rewrite <- Option.someInjective made in rfl
+
 --| The `List` twins.
 
 theorem NonEmptyList.countToList (xs: NonEmptyList a) (p: a → Bool): xs.count p = List.count xs.toList p := rfl
