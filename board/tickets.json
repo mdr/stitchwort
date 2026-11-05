@@ -7012,13 +7012,13 @@
     {
       "id": 1333,
       "title": "Drop redundant brackets around dot sections in aoc and games/rogue (groups.sumBy (.anyone.size) -> groups.sumBy .anyone.size)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1333",
       "labels": [
         "aoc"
       ],
-      "body": "Matt, 5 Nov (2020 day 6). Check stitchwort fmt doesn't add them back; CLAUDE.md's call-site style.",
+      "body": "Matt, 5 Nov (2020 day 6). Check stitchwort fmt doesn't add them back; CLAUDE.md's call-site style.\n\nDone: DeepSeek removed all bracketed dot sections and converted test inputs to text blocks in 52 files (each checked equal to the old string); Sonnet review fix restored escapes for 82 tests (trailing spaces, blank-line tests, short error inputs). Model result: DeepSeek, needed fixes (over-converted short and blank-line inputs; trailing spaces), ~30 min (est. 45).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
