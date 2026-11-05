@@ -1239,6 +1239,25 @@ mod tests {
                 num(42),
             ])
         );
+        // `..<` and `..=` are one token each; a spread stays `..`.
+        assert_eq!(
+            tokens("0..<n 1 ..= 2 [..xs] a .. b"),
+            Ok(vec![
+                num(0),
+                Tok::DotDotLt,
+                Tok::Lower("n".into()),
+                num(1),
+                Tok::DotDotEq,
+                num(2),
+                Tok::LBracket,
+                Tok::DotDot,
+                Tok::Lower("xs".into()),
+                Tok::RBracket,
+                Tok::Lower("a".into()),
+                Tok::DotDot,
+                Tok::Lower("b".into()),
+            ])
+        );
         // A digit is needed after `.` and in an exponent: ranges, spreads and
         // names are untouched.
         assert_eq!(

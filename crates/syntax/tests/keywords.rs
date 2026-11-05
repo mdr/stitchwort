@@ -204,3 +204,30 @@ fn the_keyword_list_is_what_the_lexer_recognises() {
         );
     }
 }
+
+/// `..<` and `..=` are single tokens; the grammar's operator rule names them
+/// before the bare `..`, so they are not split. The playground colours every
+/// punctuation character as an operator, so it needs nothing.
+#[test]
+fn the_grammar_names_the_range_operators() {
+    let grammar = read(&repo_root().join("editors/vscode/syntaxes/stitchwort.tmLanguage.json"));
+    let grammar: Value = serde_json::from_str(&grammar).expect("the grammar parses");
+    let mut patterns = Vec::new();
+    fn walk(node: &Value, out: &mut Vec<String>) {
+        match node {
+            Value::Object(map) => {
+                if let Some(m) = map.get("match").and_then(Value::as_str) {
+                    out.push(m.to_string());
+                }
+                map.values().for_each(|v| walk(v, out));
+            }
+            Value::Array(items) => items.iter().for_each(|v| walk(v, out)),
+            _ => {}
+        }
+    }
+    walk(&grammar, &mut patterns);
+    assert!(
+        patterns.iter().any(|p| p.contains(r"\.\.[<=]|\.\.")),
+        "the grammar's operator rule should list `..<` and `..=` before `..`"
+    );
+}
