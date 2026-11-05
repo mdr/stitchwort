@@ -7152,13 +7152,13 @@
     {
       "id": 1343,
       "title": "NonEmptyList stage 1: the type { head, tail } and its functions (reduce, last, maximum, minimum, maxBy, minBy, map, zip, sort, ++, toList), List.toNonEmpty (auto proof) and List.nonEmpty (Option), link lemmas to the List versions",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1343",
       "labels": [
         "std"
       ],
-      "body": "Sonnet, est. 4 h. docs/proposals/non-empty-lists.md; D2393-D2399 (Matt, 5 Nov). Name: NonEmptyList (D2394).",
+      "body": "Sonnet, est. 4 h. docs/proposals/non-empty-lists.md; D2393-D2399 (Matt, 5 Nov). Name: NonEmptyList (D2394).\n\nDone on lane/SW-1343 (3fc1a49f9): Std.NonEmptyList, 55 theorems (audit clean), 16 tests, guide section; intersectAll/unionAll. Day 6 scratch: people.map .answers |> .intersectAll works. Not done: reduceRight, flatMap etc. Findings: ++ can't be overloaded (append/appendList/prependList); instances in Lemmas.sw invisible to Tests.sw (E-INSTANCE-NONE). Model result: Sonnet, worked, 15 min (est. 240).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7166,9 +7166,9 @@
     {
       "id": 1344,
       "title": "NonEmptyList stage 2: many1, sepBy1, lines, sections, grid, List.splitBy, Map.groupBy, Nat.digits return NonEmptyList; Reads lemmas and callers updated",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1344",
       "labels": [
         "std"
       ],
