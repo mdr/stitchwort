@@ -1,5 +1,5 @@
 {
-  "next": 1325,
+  "next": 1326,
   "tickets": [
     {
       "id": 47,
@@ -6893,6 +6893,20 @@
         "extract"
       ],
       "body": "Found by SW-1256's verifier: with List.map written [f x, ..List.map xs f], extract's more_tail_calls_are_loops overflowed the JS stack on 1,000,000 elements. List.map, takeWhile, spanOnto reverted to Cons on main. Find why a list literal with a spread doesn't elaborate to the same Cons term (SW-1221 noted the hash difference), make it do so, or make codegen see the loop; then convert those three back. Other converted sites (Parse, Reads, Terminal, aoc) may also have lost loops: check generated code for each.\n\nDone on lane/SW-1324 (75e1e06d9; Sonnet, 41 min, est. 75). Cause: in a computation, a list literal went through comp_compound's infer, which wrapped the constructor in an annotation the JS loop detection didn't see; Cons went through comp_call as a constructor-as-lambda application. Fix (effects.rs): check Expr::List against the expected type; new comp_ctor_app builds a fully applied constructor from its fields' results. Now both forms are the same term; List.map, takeWhile, spanOnto back to brackets; 130 hash snapshots move (List.map's users). Changes elaboration of constructors in computations, so an independent Opus review started 06:45. Model result: Sonnet, worked, 41 min (est. 75). Finding: comp_app still uses the lambda form for named or partial constructor applications with a performing argument (low priority).",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1325,
+      "title": "A performing comparison isn't decided into a Bool in a generic constructor field or list element: Some (len() < 3) at Option Bool, [len() < 3] at List Bool",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "From the SW-1324 Opus review; fails on main too. ctor_slots(.., None) leaves the parameter a as an unknown, so the field isn't seen as Bool; read the slots with the parameters from the expected type. Also: comp_app still uses the constructor-as-lambda form for named or partial constructor applications with a performing argument (they hash differently from the bare constructor).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
