@@ -6914,13 +6914,13 @@
     {
       "id": 1326,
       "title": "Partial lambdas: migrate the sites that waited for guards (filter then map on a pattern; filterMap with if … then Some … else None) to match some with a guard",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1326",
       "labels": [
         "aoc"
       ],
-      "body": "docs/proposals/partial-lambdas.md §3 counted 5 pipeline sites needing guards; SW-1295 moved 2 (2024 day 15, 2021 day 18). Matt, 5 Nov: 'Yes, migrate [guarded] sites'.",
+      "body": "docs/proposals/partial-lambdas.md §3 counted 5 pipeline sites needing guards; SW-1295 moved 2 (2024 day 15, 2021 day 18). Matt, 5 Nov: 'Yes, migrate [guarded] sites'.\n\nDone on lane/SW-1326 (4 commits; DeepSeek, 42 min, est. 45; reviewed line by line): 5 sites in 2024 days 6, 16, 20 (two) and 2021 day 9 from 'filter (.snd == wanted) |> .map .fst' to 'filterMap (match some | (position, here) if here == wanted => position)'. Left, with reasons: 2021 day 4 (a proof is stated about the filter-then-map), 2024 day 9 and 2020 day 1 (would need new lemmas), Option.filter/map in 2024 day 13, plain-variable sites (marksIn etc.). No statement changed. Checks: touched days' check, tests, audits; whole aoc and rogue check; aoc_answers 44/44. Model result: DeepSeek, worked, 42 min (est. 45).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
