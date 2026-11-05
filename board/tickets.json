@@ -7896,14 +7896,14 @@
     {
       "id": 1396,
       "title": "Playground: printing many lines is slower than linear (262,144 empty lines take 176 s; 43,690 take 10 s; native prints 40,000 in 0.35 s); batch the worker's output messages. Fixes the 'Run's errors' browser test timeout",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1396",
       "labels": [
         "playground",
         "perf"
       ],
-      "body": "From SW-1385, 5 Nov 2026. Small improvement.\n\nBoard audit (5 Nov 2026): clashes with SW-1378 (rewrites web/index.html and web/tests/browser.mjs): start after it merges.\n\nStarted on Sonnet, expected: 60 min.",
+      "body": "From SW-1385, 5 Nov 2026. Small improvement.\n\nBoard audit (5 Nov 2026): clashes with SW-1378 (rewrites web/index.html and web/tests/browser.mjs): start after it merges.\n\nStarted on Sonnet, expected: 60 min.\n\nDone on lane/SW-1396 (2e2d12ede): the Run worker batches output (64 KiB or 16 ms since the last send, flushed before every reply). 43,690 lines 10.2 s → 1.7 s; 262,144 empty lines 176 s → 1.1 s. 'Run's errors' passes (14.6 s; timed out before). Limitation: after a burst, the tail waits for the next print or the run's end (no timer in a busy worker), so Stop during a long silent computation can lose up to 16 ms of output. Waits for batch 45's verifier. Model result: Sonnet, worked, 7 min (est. 60).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
