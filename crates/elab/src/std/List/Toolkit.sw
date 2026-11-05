@@ -29,7 +29,7 @@
 -- (docs/proposals/errors.md §3.4)
 def List.map: List a → (f: a → {e} b) → {e} List b
   | [], f => []
-  | [x, ..xs], f => [f x, ..List.map xs f]
+  | [x, ..xs], f => Cons (f x) (List.map xs f)
 
 --| `f` on each element, in order, for what it performs: `rows.forEach (row =>
 --| Fail.ensure …)` checks every row, stopping at the first that fails.
@@ -669,7 +669,7 @@ theorem List.minimumOfMap [auto ord: Ord b] (xs: List a) (f: a → b): List.mini
 def List.takeWhile (xs: List a) (p: a → {e} Bool): {e} List a :=
   match xs with
     | [] => []
-    | [x, ..ys] => if p x then [x, ..List.takeWhile ys p] else []
+    | [x, ..ys] => if p x then Cons x (List.takeWhile ys p) else []
 
 --| What is left after `List.takeWhile`: from the first element not satisfying `p`
 --| ([`List.takeWhileDropWhile`]).
@@ -684,7 +684,7 @@ def List.dropWhile (xs: List a) (p: a → Bool): List a :=
 @[tailrec]
 def List.spanOnto (taken: List a) (p: a → {e} Bool): List a → {e} Pair (List a) (List a)
   | [] => MkPair (List.reverse taken) []
-  | [x, ..xs] => if p x then List.spanOnto [x, ..taken] p xs else MkPair (List.reverse taken) [x, ..xs]
+  | [x, ..xs] => if p x then List.spanOnto (Cons x taken) p xs else MkPair (List.reverse taken) (Cons x xs)
 
 --| `List.takeWhile` and `List.dropWhile` together ([`List.spanTakeDrop`]), in
 --| one pass. `p` may perform abilities: it runs in list order and isn't

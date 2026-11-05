@@ -39,4 +39,4 @@ Main.test "tuple" 4641b6de60b86fa9526d3d0d0f2c6f89862196508c88077b245873feb9cac7
 Main.test "record" 81105263a047e7b9b44ea3bdc370ec5adda6c28d158a9e3654bf3c4011b3a921
 Main.test "nested" 47cca7134d199dafa0ce4ee77013ba4c8ddd615799cb0f7d9e7214930e279d0e
 Main.test "mixed" cb4d17ba6bd660debcad67ce0c90186d430cfb418c06786e91b24640d095222c
-Main.test "argument" 4a4a53c9c75614c815c715a80d1fee6d52ef730fbb85f306addbe2b7d1d1a4c1
+Main.test "argument" c196bb2daf19c3f540f8b91529c11479fae82ff5ffe31a16f35418f462cfaeeb

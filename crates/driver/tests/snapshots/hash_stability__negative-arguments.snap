@@ -12,7 +12,7 @@ Main.test "a name" 7a84365071ed4ff7b45e09b048971d96fa85a0a127affb37a2f3be8b2e3cf
 Main.fstOf 3ca7a9e33d0a180ec42e0506d402840101c706233ca2cc31703403dd6f84e377
 Main.test "a field" 21b6a864bee1cec7caf06f2e67b99c9bb7b4ef63708b2e47e351f1e8b9509ca2
 Main.test "a later argument" 3c95141a6cd5f2e57e5e682f666abc465d3ee493bbe968bb20418f4a577f0d19
-Main.test "an argument of a lambda body" a3ef78f699d1ebe4833496480ea152741056220a43dd82344b1371580bc3ad96
+Main.test "an argument of a lambda body" a325eba59599e87a495cf6578f8dd8e1c5ab2547618d70fd66e002d002a03a99
 Main.test "the arguments take one atom each" 83a6c57cb0ddbcc9958ba06f462e943c4bb1df2e06838b3c0df6b46d375aee7d
 Main.test "the same term as the brackets" ce8e5d72dd34cc9600829bf1920f9c21b3a2a7cd927060b9b21b100a600fee03
 Main.sameTerm 6f58002e9196e781f0705510b56a6b35977714be1a4bb90a7c732ffade0e9e5a
