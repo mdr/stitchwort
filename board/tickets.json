@@ -8100,13 +8100,13 @@
     {
       "id": 1410,
       "title": "Error notes: the non-termination error suggests {Partial}; also mention a depth limit (fuel) that keeps the function provable; and when a rewrite isn't needed because the goal already computed past it, say the proof checks without it (2020 day 7)",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1410",
       "labels": [
         "diagnostics"
       ],
-      "body": "From SW-1402 (2020 day 7), 5 Nov 2026. For day 7's friction review.\n\nD2429 (day 7 friction review, 5 Nov 2026; Matt delegated the decisions): do it. Order: day 8, then SW-1407, SW-1409, SW-1410, SW-1406 with SW-1408, SW-1405, SW-1411 (after SW-1407: both touch day 7's graph).\n\nStarted on DeepSeek, expected: 45 min.",
+      "body": "From SW-1402 (2020 day 7), 5 Nov 2026. For day 7's friction review.\n\nD2429 (day 7 friction review, 5 Nov 2026; Matt delegated the decisions): do it. Order: day 8, then SW-1407, SW-1409, SW-1410, SW-1406 with SW-1408, SW-1405, SW-1411 (after SW-1407: both touch day 7's graph).\n\nStarted on DeepSeek, expected: 45 min.\n\nDone on lane/SW-1410 (cb005690f): E-TERMINATION's note now mentions a fuel argument; E-REWRITE-NOTHING tries the body against the unchanged goal (snapshot, budget-limited, undone; counts only if it solved no unknown) and says to drop the rewrite. Examples reject/termination-depth-limit and reject/rewrite-nothing-body-checks; ~50 reject/soundness snapshots carry the new note; guide, proving guide and syntax.md updated. Waits for batch 45's verifier. Model result: DeepSeek, worked, ~50 min (est. 45).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
