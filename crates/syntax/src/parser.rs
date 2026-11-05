@@ -4004,8 +4004,8 @@ impl<'t> Parser<'t> {
             return Err(error(self.here(), "ranges don't chain")
                 .with_label(first, "this range already has both ends")
                 .with_note(
-                    "`a ..< b ..< c` has no meaning; to range over a range's elements, use \
-                     `.map`, and to join ranges, use `[..a ..< b, ..c ..< d]`",
+                    "`a ..< b ..< c` has no meaning; to join two ranges, write \
+                     `[..a ..< b, ..c ..< d]`",
                 )
                 .into());
         }
@@ -4463,7 +4463,10 @@ impl<'t> Parser<'t> {
             // are kept, so `W-RANGE-IN-BRACKETS` stays quiet.
             if self.peek() == Some(&Tok::RBracket)
                 && self.tokens[first].tok == Tok::LParen
-                && self.matching.get(first).is_some_and(|&m| m as usize == self.pos - 1)
+                && self
+                    .matching
+                    .get(first)
+                    .is_some_and(|&m| m as usize == self.pos - 1)
                 && let Some(Expr::Binary(BinOp::Range | BinOp::RangeThrough, ..)) = items.first()
             {
                 let range = items.remove(0);

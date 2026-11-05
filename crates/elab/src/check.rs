@@ -4264,10 +4264,9 @@ fn warn_range_in_brackets(cx: &Ctx, items: &[Expr]) {
     };
     let span = items[0].span();
     let mut seen = cx.e.attempt.lambda_warnings.borrow_mut();
-    if seen
-        .iter()
-        .any(|w| w.code == "W-RANGE-IN-BRACKETS" && w.labels.first().is_some_and(|l| l.span == span))
-    {
+    if seen.iter().any(|w| {
+        w.code == "W-RANGE-IN-BRACKETS" && w.labels.first().is_some_and(|l| l.span == span)
+    }) {
         return;
     }
     seen.push(
