@@ -1,5 +1,5 @@
 {
-  "next": 1413,
+  "next": 1414,
   "tickets": [
     {
       "id": 47,
@@ -8126,6 +8126,21 @@
         "std"
       ],
       "body": "Matt, 5 Nov 2026, reading 2020 day 7: 'Map.groupBy rules.all .colour <- couldn't this be rules.all.groupBy .colour?' Precedent: List.toSet (Set.sw), List.toMap (Map.sw). Small improvement; DeepSeek.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1413,
+      "title": "Bug: a range followed by two |> steps fails: '0 ..= n |> .flatMap (i => 0 ..= i |> .map …) |> .filter …' gives E-NO-NAMESPACE (looked in Effect.CompD, stuck) while the same with List.range calls checks, and one step checks; found by SW-1380 on aoc Common/Grid Position.around",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "bug"
+      ],
+      "body": "Repro: /private/tmp/claude-502/-Users-matt-repos-mdr-stitchwort/9ccc8cdc-8b8e-4d69-8b17-b90e21a42b50/scratchpad/rangepipe/a.sw (viaRange fails; viaCall, oneStep check). From SW-1358's range syntax (elaboration or effects pass on range operands). Sent to SW-1359's lane (same area).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
