@@ -3709,13 +3709,13 @@
     {
       "id": 1101,
       "title": "Pilot: std List docs under the new rule (docs/syntax.md 'What to write', D2226 step 3): improve docs that only restate the type, add one- or two-line examples where they demonstrate the function. Left on its branch for Matt to judge (not merged)",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1101",
       "labels": [
         "docs"
       ],
-      "body": "\n\nPilot done, on branch lane/SW-1101 (not merged, for Matt): ade50d59 SW-1101: update the pinned line of List.filterMap in the doc tests;fc2fe6d9 SW-1101: pilot the std commenting rule on List definitions;. 54 List definition docs in Toolkit.sw, core/Data.sw, Sort.sw, Index.sw, Grid.sw; 52 with one-line examples, each checked with stitchwort eval. Adds empty cases, ties/stability, cost (from reading the code, not measured), neighbours (find vs filter), theorem links. Already-good docs left alone. doc_links test passes; cli doc tests updated (filterMap's pinned line 213 -> 233; fragile). Model result: Sonnet, worked, 6 min (est. 45). Review: git diff main...lane/SW-1101.\n\nD2432 (Matt, 5 Nov 2026), talking through examples: a short one-sentence std description is fine even if the name nearly says it; the value is in stability, edge cases, semantics the types don't show, links to theorems and to related functions. Redo on current main under this rule (branch too stale to merge).\n\nD2431 (Matt, 5 Nov 2026): drop the stale branch; redo fresh on current main under the current rule (docs/syntax.md 'What to write', D2351, D2432).",
+      "body": "\n\nPilot done, on branch lane/SW-1101 (not merged, for Matt): ade50d59 SW-1101: update the pinned line of List.filterMap in the doc tests;fc2fe6d9 SW-1101: pilot the std commenting rule on List definitions;. 54 List definition docs in Toolkit.sw, core/Data.sw, Sort.sw, Index.sw, Grid.sw; 52 with one-line examples, each checked with stitchwort eval. Adds empty cases, ties/stability, cost (from reading the code, not measured), neighbours (find vs filter), theorem links. Already-good docs left alone. doc_links test passes; cli doc tests updated (filterMap's pinned line 213 -> 233; fragile). Model result: Sonnet, worked, 6 min (est. 45). Review: git diff main...lane/SW-1101.\n\nD2432 (Matt, 5 Nov 2026), talking through examples: a short one-sentence std description is fine even if the name nearly says it; the value is in stability, edge cases, semantics the types don't show, links to theorems and to related functions. Redo on current main under this rule (branch too stale to merge).\n\nD2431 (Matt, 5 Nov 2026): drop the stale branch; redo fresh on current main under the current rule (docs/syntax.md 'What to write', D2351, D2432).\n\nRedo done on lane/SW-1101 (ea949bccc + a wording fixup): 31 List docs, 7 files, +55/-30; edge cases, O(), tail recursion, stability, pitfalls (getOr/headOr can't tell fallback from a value), related functions; one new example (lookup: earlier entries win). Every claim checked by eval; no hashes moved; doc-link and pin tests pass. Reviewed line by line. Waits for the running verifier. Model result: DeepSeek, worked, ~25 min (est. 40).",
       "created": "2026-11-02",
       "updated": "2026-11-05",
       "commits": []
@@ -3723,9 +3723,9 @@
     {
       "id": 1102,
       "title": "Pilot: application-code comments under the new rule (docs/syntax.md 'What to write', D2226 step 3) on AoC 2024 day 6: delete docs and notes that restate the code, keep and sharpen those that say why. Left on a branch for Matt to judge (not merged)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1102",
       "labels": [
         "docs",
         "aoc"
