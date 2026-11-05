@@ -16,36 +16,36 @@ theorem sizeThree (set: Set Computer) (three: (set.size == 3) = True): set.size 
 
 --| What the program makes before keeping the sets of three: the sets from
 --| each computer with links.
-def madeSets (links: Links): List (Set Computer) := links.keySet.toList.flatMap links.setsWith
+def madeSets (links: Links): List Party := links.keySet.toList.flatMap links.setsWith
 
 --| A set the program makes is three computers, each pair neighbours.
-theorem madeElim (network: Network) (set: Set Computer) (made: List.Mem set (madeSets network.links)) (goal: Prop)
-    (found: (first: Computer) → (second: Computer) → (third: Computer) → set = Set.fromList [first, second, third] →
+theorem madeElim (network: Network) (party: Party) (made: List.Mem party (madeSets network.links)) (goal: Prop)
+    (found: (first: Computer) → (second: Computer) → (third: Computer) → party.members = Set.fromList [first, second, third] →
       (network.links.neighbours first).contains second = True → (network.links.neighbours first).contains third = True →
       (network.links.neighbours second).contains third = True → goal):
     goal :=
-  List.anyElim (first => List.Mem set (network.links.setsWith first)) goal network.links.keySet.toList
-    (List.memFlatMapElim network.links.setsWith set network.links.keySet.toList made)
+  List.anyElim (first => List.Mem party (network.links.setsWith first)) goal network.links.keySet.toList
+    (List.memFlatMapElim network.links.setsWith party network.links.keySet.toList made)
     (first unused fromFirst =>
       let firstNeighbours := network.links.neighbours first
       List.anyElim
-        (second => List.Mem set (network.links.neighbours second |> .intersect firstNeighbours |> .toList |> .map (third => Set.fromList [first, second, third])))
+        (second => List.Mem party (network.links.neighbours second |> .intersect firstNeighbours |> .toList |> .map (third => ({ members = Set.fromList [first, second, third] }))))
         goal firstNeighbours.toList
         (List.memFlatMapElim
-          (second => network.links.neighbours second |> .intersect firstNeighbours |> .toList |> .map (third => Set.fromList [first, second, third]))
-          set firstNeighbours.toList fromFirst)
+          (second => network.links.neighbours second |> .intersect firstNeighbours |> .toList |> .map (third => ({ members = Set.fromList [first, second, third] })))
+          party firstNeighbours.toList fromFirst)
         (second secondListed fromSecond =>
-          List.anyElim (third => Set.fromList [first, second, third] = set) goal (network.links.neighbours second |> .intersect firstNeighbours |> .toList)
-            (List.memMapAny (network.links.neighbours second |> .intersect firstNeighbours |> .toList) (third => Set.fromList [first, second, third]) set fromSecond)
+          List.anyElim (third => ({ members = Set.fromList [first, second, third] }) = party) goal (network.links.neighbours second |> .intersect firstNeighbours |> .toList)
+            (List.memMapAny (network.links.neighbours second |> .intersect firstNeighbours |> .toList) (third => ({ members = Set.fromList [first, second, third] })) party fromSecond)
             (third thirdListed isSet =>
               let (Both secondThird firstThird) :=
                 intersectElim (network.links.neighbours second) firstNeighbours third
                   ((Set.memToList (network.links.neighbours second |> .intersect firstNeighbours) third).forward thirdListed)
-              found first second third (Eq.sym isSet) ((Set.memToList firstNeighbours second).forward secondListed) firstThird secondThird)))
+              found first second third (Eq.cong Party.members (Eq.sym isSet)) ((Set.memToList firstNeighbours second).forward secondListed) firstThird secondThird)))
 
 --| The sets the program makes are all connected.
-theorem madeConnected (network: Network) (set: Set Computer) (made: List.Mem set (madeSets network.links)): AllConnected network set :=
-  madeElim network set made (AllConnected network set)
+theorem madeConnected (network: Network) (party: Party) (made: List.Mem party (madeSets network.links)): AllConnected network party :=
+  madeElim network party made (AllConnected network party)
     (first second third isSet firstSecond firstThird secondThird one other heldOne heldOther different =>
       let pair: (one: Computer) → (other: Computer) → (network.links.neighbours one).contains other = True → connected network one other = True :=
         one other held => (linkedIff network one other).forward held
@@ -95,16 +95,16 @@ theorem threeListed (set: Set Computer) (three: set.size = 3) (goal: Prop)
         (same => secondOut (Inl (Eq.sym same)))
 
 --| The program's sets of three are the puzzle's.
-theorem setsOfThreeIff (network: Network) (set: Set Computer):
-    (network.links.setsOfThree.contains set = True) ↔ (InterConnectedThree network set) := {
+theorem setsOfThreeIff (network: Network) (party: Party):
+    (network.links.setsOfThree.contains party = True) ↔ (InterConnectedThree network party) := {
   forward = held =>
-    let kept := Eq.trans (Eq.sym (Set.containsFilter (Set.fromList (madeSets network.links)) set (set => set.size == 3))) held
-    let made := (Set.containsFromListIff (madeSets network.links) set).forward (Bool.andLeft _ _ kept)
-    Both (sizeThree set (Bool.andRight _ _ kept)) (madeConnected network set made),
+    let kept := Eq.trans (Eq.sym (Set.containsFilter (Set.fromList (madeSets network.links)) party (party => party.size == 3))) held
+    let made := (Set.containsFromListIff (madeSets network.links) party).forward (Bool.andLeft _ _ kept)
+    Both (sizeThree party.members (Bool.andRight _ _ kept)) (madeConnected network party made),
   backward = (Both three connected) =>
-    threeListed set three (network.links.setsOfThree.contains set = True)
+    threeListed party.members three (network.links.setsOfThree.contains party = True)
       (first second third isSet firstSecond firstThird secondThird =>
-        let inSet: (member: Computer) → List.Mem member [first, second, third] → set.contains member = True :=
+        let inSet: (member: Computer) → List.Mem member [first, second, third] → party.members.contains member = True :=
           member listed => rewrite isSet in (Set.containsFromListIff [first, second, third] member).backward listed
         let linked: (one: Computer) → (other: Computer) → List.Mem one [first, second, third] → List.Mem other [first, second, third] →
             one ≠ other → (network.links.neighbours one).contains other = True :=
@@ -120,28 +120,30 @@ theorem setsOfThreeIff (network: Network) (set: Set Computer):
         let thirdCommon: List.Mem third (network.links.neighbours second |> .intersect (network.links.neighbours first) |> .toList) :=
           (Set.memToList (network.links.neighbours second |> .intersect (network.links.neighbours first)) third).backward
             (rewrite Set.containsIntersect (network.links.neighbours second) third (network.links.neighbours first), secondThirdLinked, firstThirdLinked in rfl)
-        let made: List.Mem (Set.fromList [first, second, third]) (madeSets network.links) :=
-          List.memFlatMapIntro network.links.setsWith first (Set.fromList [first, second, third]) network.links.keySet.toList firstKeyed
+        let made: List.Mem ({ members = Set.fromList [first, second, third] }) (madeSets network.links) :=
+          List.memFlatMapIntro network.links.setsWith first ({ members = Set.fromList [first, second, third] }) network.links.keySet.toList firstKeyed
             (List.memFlatMapIntro
-              (second => network.links.neighbours second |> .intersect (network.links.neighbours first) |> .toList |> .map (third => Set.fromList [first, second, third]))
-              second (Set.fromList [first, second, third]) (network.links.neighbours first).toList
+              (second => network.links.neighbours second |> .intersect (network.links.neighbours first) |> .toList |> .map (third => ({ members = Set.fromList [first, second, third] })))
+              second ({ members = Set.fromList [first, second, third] }) (network.links.neighbours first).toList
               ((Set.memToList (network.links.neighbours first) second).backward firstSecondLinked)
               (List.memMap (network.links.neighbours second |> .intersect (network.links.neighbours first) |> .toList) third thirdCommon
-                (third => Set.fromList [first, second, third])))
-        rewrite Set.containsFilter (Set.fromList (madeSets network.links)) set (set => set.size == 3), three, isSet,
-          (Set.containsFromListIff (madeSets network.links) (Set.fromList [first, second, third])).backward made
+                (third => ({ members = Set.fromList [first, second, third] }))))
+        let isParty: party = ({ members = Set.fromList [first, second, third] }) := Party.ext party ({ members = Set.fromList [first, second, third] }) isSet
+        let sizeKept: (party.members.size == 3) = True := rewrite three in rfl
+        rewrite Set.containsFilter (Set.fromList (madeSets network.links)) party (party => party.size == 3), sizeKept, isParty,
+          (Set.containsFromListIff (madeSets network.links) ({ members = Set.fromList [first, second, third] })).backward made
           in rfl)
 }
 
 --| "How many contain at least one computer with a name that starts with t?"
 theorem part1Correct (network: Network): IsPart1 network (solvePart1 network) :=
-  Witness (network.links.setsOfThree.filter mightBeChiefs)
+  Witness (network.links.setsOfThree.filter Party.mightHaveChief)
     (Both
-      (set => {
+      (party => {
         forward = held =>
-          let kept := Eq.trans (Eq.sym (Set.containsFilter network.links.setsOfThree set mightBeChiefs)) held
-          Both ((setsOfThreeIff network set).forward (Bool.andLeft _ _ kept)) (Bool.andRight _ _ kept),
+          let kept := Eq.trans (Eq.sym (Set.containsFilter network.links.setsOfThree party Party.mightHaveChief)) held
+          Both ((setsOfThreeIff network party).forward (Bool.andLeft _ _ kept)) (Bool.andRight _ _ kept),
         backward = (Both three withT) =>
-          rewrite Set.containsFilter network.links.setsOfThree set mightBeChiefs, (setsOfThreeIff network set).backward three in withT
+          rewrite Set.containsFilter network.links.setsOfThree party Party.mightHaveChief, (setsOfThreeIff network party).backward three in withT
       })
       rfl)
