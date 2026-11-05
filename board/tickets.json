@@ -7208,13 +7208,13 @@
     {
       "id": 1347,
       "title": "Std: List.toSet (and List.toMap for pairs), so code reads questions.toSet / … |> .toSet; use them where they read better than Set.fromList / Map.fromList (79 and 44 uses)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1347",
       "labels": [
         "std"
       ],
-      "body": "Matt, 5 Nov (2020 day 6): 'Set.fromList questions -> it'd be nice to have a questions.toSet'. Define as Set.fromList / Map.fromList so proofs unfold to the same term; a rfl lemma each; full API docs. Keep Set.fromList. Sweep aoc, games/rogue and std where the dot form reads better (pipes, method chains); leave proofs' statements alone unless they read clearly better. Mechanical: DeepSeek, after SW-1336 and SW-1340 merge (they touch the same days).\n\nD2400 (Matt, 5 Nov): also rename Set.unions to Set.unionAll (parameter 'sets', not 'ss'), with a List method form so it chains (group.people.map .answers |> .unionAll); update its 5 uses.",
+      "body": "Matt, 5 Nov (2020 day 6): 'Set.fromList questions -> it'd be nice to have a questions.toSet'. Define as Set.fromList / Map.fromList so proofs unfold to the same term; a rfl lemma each; full API docs. Keep Set.fromList. Sweep aoc, games/rogue and std where the dot form reads better (pipes, method chains); leave proofs' statements alone unless they read clearly better. Mechanical: DeepSeek, after SW-1336 and SW-1340 merge (they touch the same days).\n\nD2400 (Matt, 5 Nov): also rename Set.unions to Set.unionAll (parameter 'sets', not 'ss'), with a List method form so it chains (group.people.map .answers |> .unionAll); update its 5 uses.\n\nDone (DeepSeek, reviewed line by line): List.toSet/toMap with docs and rfl lemmas, Set.unionAll + List.unionAll, ~30 sites in 14 aoc days and std moved to dot forms; guide updated. Left: theorem Set.containsUnions (and its ss) not renamed. Checks: aoc/rogue check, 14 days' tests, std lane, guide, audit all pass. Model result: DeepSeek, worked, ~12 min (est. 45).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
