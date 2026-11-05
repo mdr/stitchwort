@@ -7278,7 +7278,7 @@
     {
       "id": 1352,
       "title": "Sweep: write range checks as chained comparisons (lo <= x <= hi) in aoc and games/rogue (32 + 1 sites), then std (33) after SW-1344 merges",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1352",
       "labels": [
@@ -7740,7 +7740,7 @@
     {
       "id": 1385,
       "title": "Browser tests fail on main: 7 of 64 (goals text, Run's errors timeout, effectful List.map at a million, AoC days list, shared-file error tabs, Evaluate full names, roguelike groups); not in the merge tier, so drift went unnoticed",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1385",
       "labels": [
