@@ -8119,13 +8119,13 @@
     {
       "id": 1412,
       "title": "Std: List.groupBy (key) beside List.toMap in Map/Map.sw, so calls read rules.all.groupBy .colour instead of Map.groupBy rules.all .colour; sweep the 19 Map.groupBy calls in std and aoc (2020 day 7 and others) where the method reads better; proofs keep working (one-line def over Map.groupBy)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1412",
       "labels": [
         "std"
       ],
-      "body": "Matt, 5 Nov 2026, reading 2020 day 7: 'Map.groupBy rules.all .colour <- couldn't this be rules.all.groupBy .colour?' Precedent: List.toSet (Set.sw), List.toMap (Map.sw). Small improvement; DeepSeek.",
+      "body": "Matt, 5 Nov 2026, reading 2020 day 7: 'Map.groupBy rules.all .colour <- couldn't this be rules.all.groupBy .colour?' Precedent: List.toSet (Set.sw), List.toMap (Map.sw). Small improvement; DeepSeek.\n\nDone (5140d16ff): List.groupBy in Map/Map.sw with API doc and test; 2020 day 7 (both), 2024 day 23, guide example, map-set example use the method; the rest left (proof statements over Map.groupBy, std's own). Reviewed line by line. Model result: DeepSeek, worked, ~20 min (est. 25).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
