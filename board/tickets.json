@@ -7942,7 +7942,7 @@
         "aoc",
         "perf"
       ],
-      "body": "D2426 (Matt, 5 Nov 2026): day 6 friction item 4. aoc/src/Aoc/Year2020/Day06/Proofs/Sets.sw:43. Small improvement; DeepSeek.",
+      "body": "D2426 (Matt, 5 Nov 2026): day 6 friction item 4. aoc/src/Aoc/Year2020/Day06/Proofs/Sets.sw:43. Small improvement; DeepSeek.\n\nStarted on DeepSeek, expected: 25 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7985,7 +7985,7 @@
       "labels": [
         "aoc"
       ],
-      "body": "D2426 (Matt, 5 Nov 2026): start after day 6's friction review. Opus. Input: ~/repos/mdr/aoc/2020/src/main/resources/day7.",
+      "body": "D2426 (Matt, 5 Nov 2026): start after day 6's friction review. Opus. Input: ~/repos/mdr/aoc/2020/src/main/resources/day7.\n\nStarted on Sonnet (D2365: Sonnet first for AoC days; escalate to Opus if stuck), expected: 90 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
