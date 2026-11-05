@@ -7418,9 +7418,9 @@
     {
       "id": 1362,
       "title": "Library index: require a std instance for (I, T) to sit in T's file or I's file, like SW-1354's congruence rule (else check results depend on load order)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1362",
       "labels": [
         "elab"
       ],
