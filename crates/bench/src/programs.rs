@@ -200,9 +200,9 @@ pub const ALL: &[Benchmark] = &[
     },
     Benchmark {
         name: "check-closed-list-eqeq",
-        about: "checks `List.range 100000 == List.range 100000`",
+        about: "checks `List.range 0 100000 == List.range 0 100000`",
         prepare: || {
-            check("import Std (List)\ndef big (u : ()) : Bool := List.range 100000 == List.range 100000\n".into())
+            check("import Std (List)\ndef big (u : ()) : Bool := List.range 0 100000 == List.range 0 100000\n".into())
         },
     },
     // These computed `cost` while checking, in the kernel, until it compared
@@ -232,7 +232,7 @@ pub const ALL: &[Benchmark] = &[
 
 /// `body`, after a closed definition `cost` that's expensive to compute.
 fn closed(body: &str) -> String {
-    format!("import Std (List, Nat)\ndef cost : Nat := List.length (List.range 200000)\n{body}\n")
+    format!("import Std (List, Nat)\ndef cost : Nat := List.length (List.range 0 200000)\n{body}\n")
 }
 
 /// From TODO.md's measurements: `length (replicate n 1)`, `k` times.

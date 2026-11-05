@@ -5,9 +5,9 @@ expression: output
 [E-DECREASING] Error: `weight` is called inside a function passed to `total`, and there is no `totalCong`
     ╭─[ reject/decreasing-no-cong.sw:14:7 ]
     │
- 14 │   1 + total (d => if h: d < n then weight d else 0) (List.range n)
-    │       ─────────────────────────────┬─────────────────────────────  
-    │                                    ╰─────────────────────────────── this function calls it
+ 14 │   1 + total (d => if h: d < n then weight d else 0) (List.range 0 n)
+    │       ──────────────────────────────┬──────────────────────────────  
+    │                                     ╰──────────────────────────────── this function calls it
     │ 
     │ Note 1: `decreasing` needs `totalCong` to show that `total` gives the same result for two functions that agree on every argument
     │ 

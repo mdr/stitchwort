@@ -70,7 +70,7 @@ fn declarations_are_listed_slowest_first_with_full_names() {
     // `slow` computes a long list while checking; the rest are trivial.
     let mut source = String::from(
         "import Std (List, Nat)\n\n\
-         theorem slow: List.length (List.range 3000) = 3000 := rfl\n\n\
+         theorem slow: List.length (List.range 0 3000) = 3000 := rfl\n\n\
          def even: Nat -> Bool\n  | Zero => True\n  | Succ n => odd n\n\n\
          def odd: Nat -> Bool\n  | Zero => False\n  | Succ n => even n\n\n\
          test \"small\" := 1 + 1 == 2\n",

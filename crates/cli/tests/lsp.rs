@@ -1710,7 +1710,7 @@ fn selection_ranges_walk_outward_through_the_expressions() {
 
 /// A `decreasing` function calling itself under a lambda (line 3) and not
 /// under one (line 4).
-const DECREASING_PROGRAM: &str = "def down (n: Nat): Nat\n  decreasing n\n:=\n  let a := Std.List.between 0 3 |> .sumBy (d => if h: d < n then down d else 0)\n  let b := if h: 0 < n then down 0 else 1\n  a + b\n";
+const DECREASING_PROGRAM: &str = "def down (n: Nat): Nat\n  decreasing n\n:=\n  let a := Std.List.range 0 4 |> .sumBy (d => if h: d < n then down d else 0)\n  let b := if h: 0 < n then down 0 else 1\n  a + b\n";
 
 #[test]
 fn a_recursive_call_of_a_decreasing_function_navigates_to_it() {

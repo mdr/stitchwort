@@ -3747,7 +3747,7 @@ console.log("ok");
 #[test]
 fn a_let_bound_value_is_not_written_out_at_its_uses() {
     let source = "import Std (List, Option)\n\n\
-        def work (n: Nat): List Nat := (List.range n).map (i => i + 1)\n\n\
+        def work (n: Nat): List Nat := (List.range 0 n).map (i => i + 1)\n\n\
         def decode (xs: List Nat): List Nat := xs.map (i => i + 0)\n\n\
         def encode (xs: List Nat): Option (List Nat) :=\n  \
         let e := xs.map (i => i + 1)\n  \

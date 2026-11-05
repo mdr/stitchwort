@@ -878,7 +878,7 @@ fn list_builders_run_on_two_million_elements() {
          def even(x: Nat): Bool := if x % 2 == 0 then True else False\n\
          def n(xs: List Nat): Text := Nat.toText (List.length xs)\n\
          def main(): {IO} () :=\n  \
-           let xs := List.range 2100000\n  \
+           let xs := List.range 0 2100000\n  \
            let _ := IO.print (n (List.map xs inc))\n  \
            let _ := IO.print (n (List.filter xs even))\n  \
            let _ := IO.print (n (xs ++ xs))\n  \

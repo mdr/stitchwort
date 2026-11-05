@@ -44,7 +44,7 @@ def bump: List Nat → List Nat
 def add (a: Nat) (b: Nat): Nat := a + b
 
 def run (k: Nat): Text :=
-  let xs := bump (List.map (List.range k) (x => x * k + 1))
+  let xs := bump (List.map (List.range 0 k) (x => x * k + 1))
   let total := List.foldLeft xs (huge (grow k 1)) add
   "${shrink total} ${shrink 18446744073709551616} " ++ sign (Int.OfNat k - Int.OfNat 100)
 

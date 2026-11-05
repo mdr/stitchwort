@@ -230,7 +230,7 @@ def total : List Nat -> Nat
   | Cons x xs => x + total xs
 
 def main () : {IO} () :=
-  let xs := List.map (List.range 500000) (i => (i * 7919) % 500000)
+  let xs := List.map (List.range 0 500000) (i => (i * 7919) % 500000)
   IO.print (Nat.toText (total xs))
   IO.print (Nat.toText (total (List.take (List.sort xs) 3)))
 "#,
@@ -548,7 +548,7 @@ def echo (x: Nat): {{IO, Fail}} Nat :=
   if x < 100000000 then x else Fail.fail "too big"
 
 def main(): {{IO}} () :=
-  match Fail.toResult (() => List.map (List.range {count}) echo) with
+  match Fail.toResult (() => List.map (List.range 0 {count}) echo) with
     | Ok xs => IO.print "total ${{List.sum xs}}"
     | Err message => IO.print message
 "#
@@ -726,7 +726,7 @@ fn std_folds_over_long_lists_are_stack_safe() {
     ];
     let source = exports_program(
         "IO, List, Map, Nat, Set",
-        "def input (n: Nat): List Nat := List.range n\n",
+        "def input (n: Nat): List Nat := List.range 0 n\n",
         &defs,
     );
     let names: Vec<&str> = defs.iter().map(|(name, _)| *name).collect();
@@ -806,7 +806,7 @@ fn std_list_functions_over_long_lists_are_stack_safe() {
     ];
     let source = exports_program(
         "IO, List, Nat, Option, Pair, Text, Vec",
-        "def input (n: Nat): List Nat := List.range n\n\n\
+        "def input (n: Nat): List Nat := List.range 0 n\n\n\
          def size (xs: List a): Nat := List.foldLeft xs 0 (count x => count + 1)\n",
         &defs,
     );
@@ -822,7 +822,7 @@ fn std_list_functions_over_long_lists_are_stack_safe() {
 fn std_distinct_over_a_million_elements_is_stack_safe() {
     let defs = [(
         "distinctFold",
-        "List.foldLeft (List.distinct (List.map (List.range n) (x => (x * 7) % 100000))) 0 (acc x => (acc * 31 + x) % 1000003)",
+        "List.foldLeft (List.distinct (List.map (List.range 0 n) (x => (x * 7) % 100000))) 0 (acc x => (acc * 31 + x) % 1000003)",
     )];
     let source = exports_program_at("IO, List, Nat", "", &defs, 1_000_000);
     stack_safe_everywhere_at(
@@ -841,19 +841,19 @@ fn std_traversals_over_a_million_elements_are_stack_safe() {
     let defs = [
         (
             "traverseOk",
-            "Result.getOrElse (Result.map (Result.traverse (List.range n) (x => if x < n then Ok (x % 7) else Err \"big\")) List.sum) 0",
+            "Result.getOrElse (Result.map (Result.traverse (List.range 0 n) (x => if x < n then Ok (x % 7) else Err \"big\")) List.sum) 0",
         ),
         (
             "traverseErr",
-            "Text.length (Result.errorOrElse (Result.traverse (List.range n) (x => if x + 1 < n then Ok x else Err (Nat.toText x))) \"none\")",
+            "Text.length (Result.errorOrElse (Result.traverse (List.range 0 n) (x => if x + 1 < n then Ok x else Err (Nat.toText x))) \"none\")",
         ),
         (
             "traverseOption",
-            "Option.getOrElse (Option.map (Vec.traverseOption (Vec.fromList (List.range n)) (x => if x < n then Some (x % 7) else None)) Vec.sum) 0",
+            "Option.getOrElse (Option.map (Vec.traverseOption (Vec.fromList (List.range 0 n)) (x => if x < n then Some (x % 7) else None)) Vec.sum) 0",
         ),
         (
             "traverseOptionNone",
-            "Option.getOrElse (Option.map (Vec.traverseOption (Vec.fromList (List.range n)) (x => if x + 1 < n then Some x else None)) Vec.sum) 7",
+            "Option.getOrElse (Option.map (Vec.traverseOption (Vec.fromList (List.range 0 n)) (x => if x + 1 < n then Some x else None)) Vec.sum) 7",
         ),
     ];
     let source = exports_program_at(
@@ -876,19 +876,19 @@ fn std_flat_map_over_a_million_elements_is_stack_safe() {
     let defs = [
         (
             "flatMapped",
-            "List.sum (List.flatMap (List.range n) (x => [x, x]))",
+            "List.sum (List.flatMap (List.range 0 n) (x => [x, x]))",
         ),
         (
             "flatMappedSize",
-            "size (List.flatMap (List.range n) (x => [x, 1]))",
+            "size (List.flatMap (List.range 0 n) (x => [x, 1]))",
         ),
         (
             "concatenated",
-            "size (List.concat (List.map (List.range n) (x => [x, x])))",
+            "size (List.concat (List.map (List.range 0 n) (x => [x, x])))",
         ),
         (
             "flatMappedFail",
-            "Result.getOrElse (Result.map (Fail.toResult (() => List.flatMap (List.range n) checked)) List.sum) 0",
+            "Result.getOrElse (Result.map (Fail.toResult (() => List.flatMap (List.range 0 n) checked)) List.sum) 0",
         ),
     ];
     let source = exports_program_at(

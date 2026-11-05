@@ -130,7 +130,7 @@ enum Atom {
     /// A handler around a call of another function.
     Handle(usize, usize, Pure),
     If(Pure, Box<Atom>, Box<Atom>),
-    /// `digest (List.map (y => atom) (List.range n))`.
+    /// `digest (List.map (y => atom) (List.range 0 n))`.
     Map(u32, Box<Atom>),
     /// `h (() => tower depth (() => body arg))`: `depth` copies of handler
     /// `h`, all forwarding the body's operations except its own ability's,
@@ -880,7 +880,7 @@ impl Printer<'_> {
             }
             Atom::Map(n, a) => {
                 let a = self.atom_text(a);
-                format!("digest (List.map (List.range {n}) (y => {a}))")
+                format!("digest (List.map (List.range 0 {n}) (y => {a}))")
             }
             Atom::Tower {
                 handler,

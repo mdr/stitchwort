@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-REFL] Error: `rfl` can't prove this
-    ╭─[ reject/rfl-computed-differ-in-elided-part.sw:12:74 ]
+    ╭─[ reject/rfl-computed-differ-in-elided-part.sw:12:76 ]
     │
- 12 │     (List.range 4 |> .all (p c)) = (p c 0 && p c 1 && p c 2 && p c 3) := rfl
-    │                                                                          ─┬─  
-    │                                                                           ╰─── `List.all (List.range 4) (p c)` and `p c 0 && p c 1 && p c 2 && p c 3` aren't equal
+ 12 │     (List.range 0 4 |> .all (p c)) = (p c 0 && p c 1 && p c 2 && p c 3) := rfl
+    │                                                                            ─┬─  
+    │                                                                             ╰─── `List.all (List.range 0 4) (p c)` and `p c 0 && p c 1 && p c 2 && p c 3` aren't equal
     │ 
     │ Note 1: computing both sides gives `Std.Decidable.toBool (Std.Nat.decEqFrom (Succ c) (… + 7) (Std.Nat.equal c …) rfl) && Std.Decidable.toBool (Std.Nat.decEqFrom … … … rfl) && Std.Decidable.toBool … && Std.Decidable.toBool … && True` and `Std.Decidable.toBool (Std.Nat.decEqFrom (Succ c) (… + 7) (Std.Nat.equal c …) rfl) && Std.Decidable.toBool (Std.Nat.decEqFrom … … … rfl) && Std.Decidable.toBool … && Std.Decidable.toBool …`
     │ 
