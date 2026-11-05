@@ -1,5 +1,5 @@
 {
-  "next": 1446,
+  "next": 1449,
   "tickets": [
     {
       "id": 47,
@@ -8058,13 +8058,13 @@
     {
       "id": 1407,
       "title": "Std Graph: a plain reachability API (Graph.reachable returning a Set, with a two-way lemma) and a way to build a Graph whose edge proof holds by construction; today reachability needs unit weights and a distance-to-found lemma (2020 day 7)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1407",
       "labels": [
         "std"
       ],
-      "body": "From SW-1402 (2020 day 7), 5 Nov 2026. For day 7's friction review.\n\nD2429 (day 7 friction review, 5 Nov 2026; Matt delegated the decisions): do it. Order: day 8, then SW-1407, SW-1409, SW-1410, SW-1406 with SW-1408, SW-1405, SW-1411 (after SW-1407: both touch day 7's graph).\n\nStarted on Sonnet, expected: 90 min.\n\nDone on lane/SW-1407 (953e91633): Graph.fromEdges (edges filtered to listed targets; listed proof built in), fromEdgesEdge, Graph.Reachable, Graph.reachable (Set, any weights, via distances), reachableIff. 2020 day 7's program has no proofs now (Rules.graph is one fromEdges call; outside returns a Set). Days 16/20 and GridGraph unchanged (would need a closure-based fromEdges). Opus review pending. Model result: Sonnet, worked, 12 min (est. 90).",
+      "body": "From SW-1402 (2020 day 7), 5 Nov 2026. For day 7's friction review.\n\nD2429 (day 7 friction review, 5 Nov 2026; Matt delegated the decisions): do it. Order: day 8, then SW-1407, SW-1409, SW-1410, SW-1406 with SW-1408, SW-1405, SW-1411 (after SW-1407: both touch day 7's graph).\n\nStarted on Sonnet, expected: 90 min.\n\nDone on lane/SW-1407 (953e91633): Graph.fromEdges (edges filtered to listed targets; listed proof built in), fromEdgesEdge, Graph.Reachable, Graph.reachable (Set, any weights, via distances), reachableIff. 2020 day 7's program has no proofs now (Rules.graph is one fromEdges call; outside returns a Set). Days 16/20 and GridGraph unchanged (would need a closure-based fromEdges). Opus review pending. Model result: Sonnet, worked, 12 min (est. 90).\n\nOpus review: merge; statements sound (Reachable includes sources by the empty walk; reachableIff holds for zero weights). Doc fixups applied on main. Merged.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8386,7 +8386,7 @@
     {
       "id": 1430,
       "title": "Playground: the language server's worker overflows V8's stack in an AoC project after a jump into a shared file (Common/Range.sw) then an error edit in the day; the editor restarts the server and the project reloads (~30 s). Build the wasm with function names and find the unguarded recursion in the navigable-session path",
-      "status": "doing",
+      "status": "backlog",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1430",
       "labels": [
@@ -8394,7 +8394,7 @@
         "lsp",
         "bug"
       ],
-      "body": "From SW-1378 (CodeMirror swap), 5 Nov 2026. Opus. Halving the server's guard (crates/web/src/lsp.rs) fixed the jump-then-edit case but not jump-then-error-edit.\n\nStarted on Opus, expected: 90 min.",
+      "body": "From SW-1378 (CodeMirror swap), 5 Nov 2026. Opus. Halving the server's guard (crates/web/src/lsp.rs) fixed the jump-then-edit case but not jump-then-error-edit.\n\nStarted on Opus, expected: 90 min.\n\nLane (Opus, 94 min, est. 90), d93d50e45, merged: cause found on one path — flush_navigation printed noted types after a declaration's operation ended, with no stack or step limit; with the playground's halved guard, Aoc.Year2021.Day11.Proofs (Parts.sw, the 79th background step) overflowed there. Fix: each noted type printed within the session's limits (shows … when out). Native with the worker's guard: >120 s → 3.7 s; wasm in Node: >900 s → 13-27 s; Node jump-then-edit sequence underlines in 4.7 s. NOT confirmed in the browser: the new headless-Chrome test still timed out (no crash seen either way); patch at scratchpad browser-test.patch. Left: restore the server's full guard (the halved one gives Day11 a false E-RESOURCE), and find why the Chrome test times out — needs a browser budget (D2435). Model result: Opus, partly worked (one cause fixed, browser case unconfirmed), 94 min (est. 90).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8615,6 +8615,48 @@
         "std"
       ],
       "body": "From SW-1407, 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1446,
+      "title": "Language server: nested operations measure their stack limit from where they start, so an operation inside another can run past the thread's real stack; budget.rs's thread-size check covers only the outermost",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "body": "From SW-1430, 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1447,
+      "title": "Playground: the first check of the AoC project takes 80-195 s in Node (about 120 s before the first marks under load) and nothing is cached between visits",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "playground"
+      ],
+      "body": "From SW-1430, 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1448,
+      "title": "A native debug build checking the whole AoC project inline overflows a 4 MiB thread (probably SW-1430's navigation path; recheck after its fix)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "body": "From SW-1430, 5 Nov 2026.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
