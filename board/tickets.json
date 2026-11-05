@@ -8578,14 +8578,14 @@
     {
       "id": 1443,
       "title": "auto: derive Nat.toInt d ≠ 0 from d ≠ 0 (Nat.toIntNeZero), so Int.modNatToInt, toIntDiv and toIntMod can state x % Nat.toInt d again instead of Int.mod x (Nat.toInt d) [ok := …]",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1443",
       "labels": [
         "elab",
         "std"
       ],
-      "body": "From SW-1429's Opus review, 5 Nov 2026. Small improvement.\n\nStarted on DeepSeek, expected: 40 min.",
+      "body": "From SW-1429's Opus review, 5 Nov 2026. Small improvement.\n\nStarted on DeepSeek, expected: 40 min.\n\nDone (af89ad030), merged: auto.rs has FACT_LEMMAS (nonzeroOfSuccLe, toIntNeZero), applied by unification to a fact in scope; Nat.toIntNeZero moved to Int/Basics.sw so auto can find it in a module that doesn't load Int.sw; the three theorems restated with % and / (same terms: prelude hash unchanged). Example accept/auto-nat-toint-nonzero. Model result: DeepSeek, worked, ~35 min (est. 40).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
