@@ -1,0 +1,25 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-OMEGA] Error: `omega` can't prove `x < y`
+    ╭─[ reject/omega-let-waiting-for-argument.sw:10:3 ]
+    │
+ 10 │   omega
+    │   ──┬──  
+    │     ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
+    │ 
+    │ Note 1: facts: `x ≤ y` (h)
+    │ 
+    │ Note 2: atoms: `x`, `y`
+    │ 
+    │ Note 3: `reached` is a function still waiting for an argument (`limit`), so omega can't use it as a fact
+    │ 
+    │ Note 4: an integer model of the arithmetic abstraction (it may not be a real counterexample): x = 0, y = 0
+    │ 
+    │ Note 5: this statement is false; a counterexample:
+    │           x = 0
+    │           y = 0
+    │         `x ≤ y` holds
+    │         `x < y` is false
+────╯

@@ -92,7 +92,7 @@ use std::sync::LazyLock;
 use num_bigint::BigUint;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Elim, Head, apply, conv, force};
-use stitchwort_core::{DataId, DefId, Icit, Limits, Term, Value};
+use stitchwort_core::{DataId, DefId, Icit, Limits, Name, Term, Value};
 use stitchwort_syntax::ast::{self, Expr};
 use stitchwort_syntax::{Diagnostic, Span};
 
@@ -1355,6 +1355,9 @@ struct Reader<'l> {
     disjunctions: Vec<Disjunction>,
     /// Hypotheses about `Nat` that aren't in the fragment, for messages.
     skipped: Vec<String>,
+    /// `let`s that are functions ending in a fact, so `omega` can't use them,
+    /// for messages.
+    waiting: Vec<String>,
 }
 
 impl Reader<'_> {
@@ -2346,6 +2349,66 @@ fn same_shape(a: &Term, b: &Term) -> bool {
     args_a.len() == args_b.len() && crate::matching::same(head_a, head_b)
 }
 
+/// Two terms that apply the same head to the same arguments but one, and
+/// that one pair.
+fn one_argument_apart<'a>(a: &'a Term, b: &'a Term) -> Option<(&'a Term, &'a Term)> {
+    let (head_a, args_a) = a.spine();
+    let (head_b, args_b) = b.spine();
+    if args_a.len() != args_b.len() || !crate::matching::same(head_a, head_b) {
+        return None;
+    }
+    let mut differing = None;
+    for (x, y) in args_a.iter().zip(&args_b) {
+        if crate::matching::same(x, y) {
+            continue;
+        }
+        if differing.is_some() {
+            return None;
+        }
+        differing = Some((*x, *y));
+    }
+    differing
+}
+
+/// The innermost pair of arguments in which `a` and `b` differ, descending
+/// through a differing argument that is itself the same call but for one
+/// argument.
+fn innermost_difference<'a>(mut a: &'a Term, mut b: &'a Term) -> (&'a Term, &'a Term) {
+    while let Some((x, y)) = one_argument_apart(a, b) {
+        a = x;
+        b = y;
+    }
+    (a, b)
+}
+
+/// A note naming two listed atoms that apply the same function to the same
+/// arguments but one, so no fact can connect them without saying what the
+/// differing arguments are.
+fn atoms_differing_in_one_argument(cx: &Ctx, quoter: &Quoter) -> Option<String> {
+    let shown = |t: &Term| {
+        stitchwort_core::pretty::term_for_message_in(&cx.g(), cx.e, &cx.shown_names(false), t)
+    };
+    for (i, a) in quoter.atoms.iter().enumerate() {
+        for (j, b) in quoter.atoms.iter().enumerate().skip(i + 1) {
+            if a.int != b.int {
+                continue;
+            }
+            let Some((x, y)) = one_argument_apart(&a.term, &b.term) else {
+                continue;
+            };
+            let (x, y) = innermost_difference(x, y);
+            return Some(format!(
+                "`{}` and `{}` differ only in `{}` and `{}`, and no fact connects them",
+                atom_name(cx, quoter, i),
+                atom_name(cx, quoter, j),
+                shown(x),
+                shown(y)
+            ));
+        }
+    }
+    None
+}
+
 /// A fact with its sides quoted (and, for an operation, its atom `t`).
 struct Quoted {
     fact: Fact,
@@ -2733,6 +2796,7 @@ fn read_context<'l>(cx: &Ctx, lib: &'l Lib, extra: &[Extra]) -> Result<Reader<'l
         facts: Vec::new(),
         disjunctions: Vec::new(),
         skipped: Vec::new(),
+        waiting: Vec::new(),
     };
     for level in 0..cx.level() {
         // In a case `cases` made, a hypothesis it has copied is read as its
@@ -2745,6 +2809,11 @@ fn read_context<'l>(cx: &Ctx, lib: &'l Lib, extra: &[Extra]) -> Result<Reader<'l
             .map_or_else(|| cx.names[level].to_string(), str::to_string);
         let proof = Term::Var(cx.level() - 1 - level);
         let ty = cx.types[level].clone();
+        if cx.lets[level].is_some()
+            && let Some(note) = waiting_note(cx, lib, &name, &ty)?
+        {
+            reader.waiting.push(note);
+        }
         reader.read(cx, proof, &ty, &name, 0)?;
     }
     for (name, term, ty) in cx.visible_locals()? {
@@ -2756,6 +2825,49 @@ fn read_context<'l>(cx: &Ctx, lib: &'l Lib, extra: &[Extra]) -> Result<Reader<'l
     Ok(reader)
 }
 
+/// A note for a `let` called `name` whose type is a function ending in a
+/// fact: `omega` can't use it, and the note says which arguments it wants.
+fn waiting_note(cx: &Ctx, lib: &Lib, name: &str, ty: &Value) -> Result<Option<String>> {
+    let Some(params) = waiting_fact(cx, lib, ty)? else {
+        return Ok(None);
+    };
+    let arguments: Vec<String> = params.iter().map(|p| format!("`{p}`")).collect();
+    let arguments = match arguments.len() {
+        1 => format!("an argument ({})", arguments[0]),
+        _ => format!("arguments ({})", crate::named::list(arguments)),
+    };
+    Ok(Some(format!(
+        "`{name}` is a function still waiting for {arguments}, so omega can't use it as a fact"
+    )))
+}
+
+/// The explicit parameters of `ty` that are still waiting, when its result
+/// is a fact `omega` reads. A function type whose result is not a fact is
+/// `None`, as is anything that isn't a function.
+fn waiting_fact(cx: &Ctx, lib: &Lib, ty: &Value) -> Result<Option<Vec<Name>>> {
+    let g = cx.g();
+    let mut level = cx.level();
+    let mut ty = ty.clone();
+    let mut params: Vec<Name> = Vec::new();
+    loop {
+        match force(&g, ty.clone())? {
+            Value::Pi(name, icit, _, cod) => {
+                if icit == Icit::Explicit {
+                    params.push(name);
+                }
+                ty = cod.apply(&g, Value::var(level))?;
+                level += 1;
+            }
+            result => {
+                if params.is_empty() {
+                    return Ok(None);
+                }
+                return Ok(says_something(cx, lib, &result)?.then_some(params));
+            }
+        }
+    }
+}
+
 /// Whether reading a hypothesis of type `prop` finds a fact or a
 /// disjunction.
 fn says_something(cx: &Ctx, lib: &Lib, prop: &Value) -> Result<bool> {
@@ -2764,6 +2876,7 @@ fn says_something(cx: &Ctx, lib: &Lib, prop: &Value) -> Result<bool> {
         facts: Vec::new(),
         disjunctions: Vec::new(),
         skipped: Vec::new(),
+        waiting: Vec::new(),
     };
     reader.read(cx, Term::Var(0), prop, "", 0)?;
     Ok(!reader.facts.is_empty() || !reader.disjunctions.is_empty())
@@ -2994,6 +3107,7 @@ fn linear_once(
                     &quoted,
                     &quoter,
                     &reader.skipped,
+                    &reader.waiting,
                     &failure,
                     span,
                 ));
@@ -3034,6 +3148,7 @@ fn int_division_facts(cx: &Ctx, lib: &Lib, division: &IntDivision) -> Result<Vec
         facts: Vec::new(),
         disjunctions: Vec::new(),
         skipped: Vec::new(),
+        waiting: Vec::new(),
     };
     for which in [lib.int_div_add_mod, lib.int_mod_nonneg, lib.int_mod_lt_abs] {
         let (proof, prop) = lemma(cx, which, &args)?;
@@ -3089,6 +3204,7 @@ fn division_facts(cx: &Ctx, lib: &Lib, quoter: &Quoter, division: &Division) -> 
         facts: Vec::new(),
         disjunctions: Vec::new(),
         skipped: Vec::new(),
+        waiting: Vec::new(),
     };
     for (proof, prop) in std::iter::once(low).chain(high) {
         reader.read(cx, proof, &prop, &origin, 0)?;
@@ -3276,6 +3392,7 @@ fn failed(
     quoted: &[Quoted],
     quoter: &Quoter,
     skipped: &[String],
+    waiting: &[String],
     failure: &Failure,
     span: Span,
 ) -> Diagnostic {
@@ -3312,6 +3429,12 @@ fn failed(
             .map(|i| format!("`{}`", atom_name(i)))
             .collect();
         d = d.with_note(format!("atoms: {}", atoms.join(", ")));
+    }
+    if let Some(note) = atoms_differing_in_one_argument(cx, quoter) {
+        d = d.with_note(note);
+    }
+    for note in waiting {
+        d = d.with_note(note.clone());
     }
     d = match failure {
         Failure::Integer(values) if !values.is_empty() => d.with_note(format!(

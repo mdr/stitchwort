@@ -1799,8 +1799,10 @@ fn nothing_found(
             place.the()
         ));
     }
-    if done {
-        // Only a goal is tested (an equation `rfl` would prove).
+    if done && !without_rewrite {
+        // Only a goal is tested (an equation `rfl` would prove). When the
+        // proof already checks without the rewrite, the note above says so
+        // more specifically, and this one would say nearly the same.
         error = error.with_note(match index {
             0 => "the goal already holds by computing, so `rfl` proves it without a `rewrite`"
                 .to_string(),
