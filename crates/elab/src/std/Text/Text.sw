@@ -100,14 +100,10 @@ theorem Text.joinSplit: (t: Text) → (s: Char) → Text.join (Text.split t s) s
 -- Lines
 
 --| Whether a code is the line feed, 10.
-def Char.isLineFeedCode: Nat → Bool
-  | 10 => True
-  | _ => False
+def Char.isLineFeedCode: Nat → Bool := matches | 10
 
 --| Whether a code is the carriage return, 13.
-def Char.isCarriageReturnCode: Nat → Bool
-  | 13 => True
-  | _ => False
+def Char.isCarriageReturnCode: Nat → Bool := matches | 13
 
 --| A line that ended with a line feed, from its characters newest first,
 --| without a carriage return just before the line feed.

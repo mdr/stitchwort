@@ -28,14 +28,13 @@ def Text.fold (text: Text) (initial: b) (f: Char → b → b): b := Text.foldCha
 --| Whether a code is ASCII whitespace: exactly space, tab, line feed, vertical
 --| tab, form feed and carriage return. For layout-sensitive parsing;
 --| `Char.isWhitespace` is the Unicode test that `Text.trim` and `Text.words` use.
-def Char.isAsciiSpaceCode: Nat → Bool
-  | 9 => True
-  | 10 => True
-  | 11 => True
-  | 12 => True
-  | 13 => True
-  | 32 => True
-  | _ => False
+def Char.isAsciiSpaceCode: Nat → Bool := matches
+  | 9
+  | 10
+  | 11
+  | 12
+  | 13
+  | 32
 
 --| Whether a character is ASCII whitespace: space, tab, line feed, vertical tab, form feed or carriage return.
 def Char.isAsciiSpace (char: Char): Bool := char.toNat |> Char.isAsciiSpaceCode
@@ -47,21 +46,19 @@ def Char.isAsciiLowercase (char: Char): Bool := 'a' ≤ char && char ≤ 'z'
 def Char.isAsciiUppercase (char: Char): Bool := 'A' ≤ char && char ≤ 'Z'
 
 --| Whether a code is one of the non-ASCII `White_Space` code points below U+2000: U+0085, U+00A0, U+1680.
-def Char.isWhitespaceLow: Nat → Bool
-  | 133 => True
-  | 160 => True
-  | 5760 => True
-  | _ => False
+def Char.isWhitespaceLow: Nat → Bool := matches
+  | 133
+  | 160
+  | 5760
 
 --| Whether a code is one of the `White_Space` code points above U+200A: U+2028,
 --| U+2029, U+202F, U+205F, U+3000.
-def Char.isWhitespaceHigh: Nat → Bool
-  | 8232 => True
-  | 8233 => True
-  | 8239 => True
-  | 8287 => True
-  | 12288 => True
-  | _ => False
+def Char.isWhitespaceHigh: Nat → Bool := matches
+  | 8232
+  | 8233
+  | 8239
+  | 8287
+  | 12288
 
 --| Whether a code has Unicode's `White_Space` property. That is the 25 code
 --| points U+0009..U+000D, U+0020, U+0085, U+00A0, U+1680, U+2000..U+200A,

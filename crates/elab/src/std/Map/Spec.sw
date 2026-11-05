@@ -709,9 +709,7 @@ theorem Map.Raw.maxToList (m: Map.Raw k v [ord := o]): Map.Raw.max m = List.last
   Eq.trans (Eq.sym (Map.Tree.maxOnto None m.tree [])) (Map.Spec.lastOrNone (Map.Raw.toList m))
 
 --| Whether `a` is below `b` by the ordering, as a `Bool`.
-def Map.Spec.isLess [auto ord: Ord k] (a: k) (b: k): Bool := match Ord.compare a b with
-  | Less => True
-  | _ => False
+def Map.Spec.isLess [auto ord: Ord k] (a: k) (b: k): Bool := Ord.compare a b |> matches | Less
 
 --| The last entry whose key is below `key`, or `found` if there is none.
 @[tailrec]
@@ -919,9 +917,7 @@ theorem Map.Spec.atKeyFilterMap (f: v → Option w): (x: Option v) → Map.Spec.
   | Some value => Option.orElseNone (f value)
 
 --| Whether `a` and `b` compare `Equal` by the ordering, as a `Bool`.
-def Map.Spec.sameKey [auto ord: Ord k] (a: k) (b: k): Bool := match Ord.compare a b with
-  | Equal => True
-  | _ => False
+def Map.Spec.sameKey [auto ord: Ord k] (a: k) (b: k): Bool := Ord.compare a b |> matches | Equal
 
 --| `sameKey` says equal, and is `==` (the `DecEq` in the `Ord`).
 theorem Map.Spec.sameKeySound [auto ord: Ord k] (a: k) (b: k) (h: Map.Spec.sameKey a b = True): a = b :=

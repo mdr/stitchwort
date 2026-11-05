@@ -316,32 +316,17 @@ test "Key: the tilde keys" :=
     [Delete, PageUp, PageDown, Home, End, Home, End]
 test "Key: ESC then a letter is Escape, then the letter" := Key.all [27, 120] == [Escape, Printable 'x']
 test "Key: ESC ESC [ A is Escape, then Up" := Key.all [27, 27, 91, 65] == [Escape, Up]
-test "Key: a lone ESC is incomplete" :=
-  match Key.next [27] with
-    | Incomplete => True
-    | _ => False
-test "Key: a cut-off CSI is incomplete" :=
-  match Key.next [27, 91, 49, 59] with
-    | Incomplete => True
-    | _ => False
-test "Key: a cut-off SS3 is incomplete" :=
-  match Key.next [27, 79] with
-    | Incomplete => True
-    | _ => False
-test "Key: no bytes" :=
-  match Key.next [] with
-    | NoBytes => True
-    | _ => False
+test "Key: a lone ESC is incomplete" := Key.next [27] |> matches | Incomplete
+test "Key: a cut-off CSI is incomplete" := Key.next [27, 91, 49, 59] |> matches | Incomplete
+test "Key: a cut-off SS3 is incomplete" := Key.next [27, 79] |> matches | Incomplete
+test "Key: no bytes" := Key.next [] |> matches | NoBytes
 test "Key: Ctrl-Up is one Unknown" := Key.all [27, 91, 49, 59, 53, 65, 120] == [Unknown, Printable 'x']
 test "Key: an unknown final byte" := Key.all [27, 91, 90, 27, 79, 80] == [Unknown, Unknown]
 test "Key: an unknown tilde key" := Key.all [27, 91, 50, 126, 27, 91, 50, 52, 126] == [Unknown, Unknown]
 test "Key: a control byte inside CSI ends it" := Key.all [27, 91, 13] == [Unknown, Enter]
 test "Key: UTF-8 of each length" :=
   Key.all [195, 169, 226, 130, 172, 240, 159, 152, 128] == [Printable 'é', Printable '€', Printable '😀']
-test "Key: a UTF-8 character cut off is incomplete" :=
-  match Key.next [226, 130] with
-    | Incomplete => True
-    | _ => False
+test "Key: a UTF-8 character cut off is incomplete" := Key.next [226, 130] |> matches | Incomplete
 test "Key: bad UTF-8 bytes are Unknown" :=
   Key.all [255, 128, 192, 175, 195, 120, 237, 160, 128, 244, 144, 128, 128, 224, 128, 128] ==
     [Unknown, Unknown, Unknown, Unknown, Unknown, Printable 'x', Unknown, Unknown, Unknown]
