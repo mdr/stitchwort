@@ -7853,7 +7853,7 @@
     {
       "id": 1393,
       "title": "AoC: local Bool lemmas that std already has (orFalse, orFalseLeft/Right in 2024 day 6, firstOf in 2021 day 5): use std's and delete the copies",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1393",
       "labels": [
