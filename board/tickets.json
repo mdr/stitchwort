@@ -7284,7 +7284,7 @@
       "labels": [
         "aoc"
       ],
-      "body": "From SW-1341's note survey (docs/proposals/chained-comparisons.md lists them). Only where the middle is the same expression on both sides; proofs' statements may change shape only per D2388 (one conjunct) — list each. DeepSeek.",
+      "body": "From SW-1341's note survey (docs/proposals/chained-comparisons.md lists them). Only where the middle is the same expression on both sides; proofs' statements may change shape only per D2388 (one conjunct) — list each. DeepSeek.\n\naoc and rogue done (DeepSeek, reviewed line by line): ~35 sites in 13 days, Aoc.Common.Range, rogue Level.contains; statements in Spec/Proofs changed shape only (same meaning), all check and audit clean. Std's sites still to do after SW-1344. Model result: DeepSeek, worked, ~25 min (est. 40).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
