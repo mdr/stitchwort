@@ -259,6 +259,15 @@ fn walk_index(
             walk_index(e, a, bound, uses)?;
             walk_index(e, b, bound, uses)
         }
+        // A list literal is `Cons`/`Nil` applications: its elements and
+        // spread tail are indices just as `Cons x xs`'s arguments are.
+        Expr::List(items, _) => {
+            for item in items {
+                walk_index(e, item, bound, uses)?;
+            }
+            Ok(())
+        }
+        Expr::Spread(list, _) => walk_index(e, list, bound, uses),
         _ => walk_at(e, expr, bound, Position::Value, uses),
     }
 }

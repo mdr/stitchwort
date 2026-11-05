@@ -69,8 +69,8 @@ def completionTotal (score: Nat): List Bracket → Nat
 type CompletionScores: List (List Token) → List Nat → Prop =
   | NoneLeft: CompletionScores [] []
   | Scored (incomplete: Incomplete first) (completes: Completes first closers) (rest: CompletionScores lines scores):
-    CompletionScores (Cons first lines) (Cons (completionTotal 0 closers) scores)
-  | Skipped (complete: ¬(Incomplete first)) (rest: CompletionScores lines scores): CompletionScores (Cons first lines) scores
+    CompletionScores [first, ..lines] [completionTotal 0 closers, ..scores]
+  | Skipped (complete: ¬(Incomplete first)) (rest: CompletionScores lines scores): CompletionScores [first, ..lines] scores
 
 --| The middle score: one of the scores, with at most half of them smaller
 --| and at most half larger. With an odd number of scores, as the puzzle
