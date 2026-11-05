@@ -255,8 +255,9 @@ struct Row {
     span: Span,
     /// Whether it has a right side (an arm with `()` has none).
     has_rhs: bool,
-    /// Whether the arm has an `if` condition.
+    /// Whether the arm has an `if` condition, and the condition.
     guarded: bool,
+    guard: Option<ast::Guard>,
     /// Its name below the definition's: `eq2`, `eq2.or1`, `eq2.cons`.
     suffix: String,
     /// The right side as written, if the row has one.
@@ -451,9 +452,6 @@ fn alternative_rows(parent: &Row, at: usize) -> std::result::Result<Vec<Row>, &'
              in stage 1b",
         );
     }
-    if alts.iter().any(|a| a.guard.is_some()) {
-        return Err(GUARDED);
-    }
     if alts.iter().any(|a| a.patterns.iter().any(has_or)) {
         return Err(
             "an alternative with an or-pattern, in a `match` compiled into the case tree, isn't \
@@ -471,7 +469,8 @@ fn alternative_rows(parent: &Row, at: usize) -> std::result::Result<Vec<Row>, &'
             alternatives: Vec::new(),
             span: alt.span,
             has_rhs: true,
-            guarded: false,
+            guarded: alt.guard.is_some(),
+            guard: alt.guard.clone(),
             suffix: format!("{}.{seg}", parent.suffix),
             rhs: Some(alt.body.clone()),
             parent: Some(at),
@@ -635,10 +634,13 @@ fn has_or(p: &Pattern) -> bool {
     expand_one(p).len() > 1 || matches!(p, Pattern::Or(..))
 }
 
-/// Why an arm with a condition (`if`), and those below it, get no equations
-/// (docs/proposals/pattern-guards.md §6, stage 1).
-const GUARDED: &str = "an arm at or above it has a condition (`if`), which generated equations \
-                       don't cover yet";
+/// The name `if h: P` gives a guard's proof, if it names one.
+fn guard_name(guard: Option<&ast::Guard>) -> Option<String> {
+    guard
+        .and_then(|g| g.binder.as_ref())
+        .map(|h| h.text.to_string())
+        .filter(|h| h != "_")
+}
 
 /// One arm as the source writes it: its patterns, its right side (`None`
 /// for an arm with `()`), and its span.
@@ -824,6 +826,34 @@ struct Shape {
     names: Vec<Name>,
     icits: Vec<Icit>,
     types: Vec<Term>,
+    /// A guarded row's condition.
+    guard: Option<GuardRead>,
+}
+
+/// A guarded row's condition, as the definition's tree tests it where the
+/// row is first reached: `Bool.ifThenElse` on a `Bool` `cond`, or
+/// `Decidable.elim` on a proposition `cond` (a decided one whose proof an
+/// arm uses, or `if h: P`). `cond` is a term at the shape's depth.
+///
+/// `prop` is set where the `Bool` is a decided proposition's,
+/// `Decidable.toBool d` (but not a comparison's, which reads as itself):
+/// the hypotheses say the proposition, `P` and `¬P`.
+#[derive(Clone)]
+struct GuardRead {
+    dec: bool,
+    cond: Term,
+    prop: Option<Term>,
+}
+
+impl GuardRead {
+    /// What the hypotheses about the condition say: whether it is a
+    /// proposition, and the term.
+    fn stated(&self) -> (bool, &Term) {
+        match &self.prop {
+            Some(p) => (true, p),
+            None => (self.dec, &self.cond),
+        }
+    }
 }
 
 /// A row's statement ([`Elaborator::stated`]): the variables and
@@ -1025,6 +1055,13 @@ struct BranchLib {
     bool_unique: DefId,
     deceq_unique: Option<(DefId, Vec<Icit>)>,
     deceq_decide: Option<DefId>,
+    inspect: Option<DefId>,
+    to_bool: DefId,
+    /// `Decidable.toBoolOf`, `toBoolOfNot`, `toBoolSound` and
+    /// `toBoolFalse`, if std is loaded: a guard on a decided proposition
+    /// that the definition tests by its `Bool` is stated as the
+    /// proposition only with them.
+    to_bool_lemmas: Option<[DefId; 4]>,
 }
 
 impl BranchLib {
@@ -1038,6 +1075,33 @@ impl BranchLib {
             if value { self.true_ } else { self.false_ },
             Vec::new(),
         )
+    }
+
+    /// `P` and `d`, when `c` is `Decidable.toBool [P] d`: a decided
+    /// proposition's `Bool` that isn't a comparison's.
+    fn decided(&self, c: &Term) -> Option<(Term, Term)> {
+        let (head, args) = c.spine();
+        match (head.strip_loc(), args.as_slice()) {
+            (Term::Def(id), [p, d]) if *id == self.to_bool => Some(((*p).clone(), (*d).clone())),
+            _ => None,
+        }
+    }
+
+    /// `lemma [P] d h`, with `lemma` one of [`BranchLib::to_bool_lemmas`]:
+    /// 0 `toBoolOf` (`P` to `toBool d = True`), 1 `toBoolOfNot`, 2
+    /// `toBoolSound` (back to `P`), 3 `toBoolFalse`.
+    fn to_bool_lemma(&self, which: usize, p: Term, d: Term, h: Term) -> R<Term> {
+        let lemmas = self
+            .to_bool_lemmas
+            .ok_or_else(|| Stop::Skip("`Decidable.toBoolOf` isn't loaded yet".into()))?;
+        Ok(apps(
+            Term::Def(lemmas[which]),
+            [
+                (p, Icit::Implicit),
+                (d, Icit::Explicit),
+                (h, Icit::Explicit),
+            ],
+        ))
     }
 
     /// `b` and whether `X` is `True`, when `p` is `b = X` with `X` a
@@ -1098,6 +1162,212 @@ impl BranchLib {
         )
     }
 
+    /// `J (y _ => (ite y t e = z) → (ite c t e = z)) (x => x) hyp q`: from
+    /// `q: t () = z`, along `hyp: c = True` (`c = False`, `q: e () = z`),
+    /// that `ite [a] c t e = z`. `head` is `Bool.ifThenElse`, `args` its
+    /// arguments; all at one depth.
+    fn ite_step(
+        &self,
+        g: &Ev,
+        head: &Term,
+        args: &[(Term, Icit)],
+        hyp: Term,
+        z: &Term,
+        q: Term,
+    ) -> R<Term> {
+        let lam = |x: &str, body: Term| Term::Lam(x.into(), Icit::Explicit, Rc::new(body));
+        let pi =
+            |dom: Term, cod: Term| Term::Pi("_".into(), Icit::Explicit, Rc::new(dom), Rc::new(cod));
+        let id = lam("x", Term::Var(0));
+        let call = |cond: Term, by: usize| -> R<Term> {
+            let mut out = head.clone();
+            for (i, (a, icit)) in args.iter().enumerate() {
+                let a = if i == 1 {
+                    cond.clone()
+                } else {
+                    a.shift(g, by, 0)?
+                };
+                out = Term::app_icit(out, a, *icit);
+            }
+            Ok(out)
+        };
+        let ty = |by: usize| args[0].0.shift(g, by, 0).map(Rc::new);
+        let dom = Term::Eq(
+            Some(ty(2)?),
+            Rc::new(call(Term::Var(1), 2)?),
+            Rc::new(z.shift(g, 2, 0)?),
+        );
+        let cod = Term::Eq(
+            Some(ty(3)?),
+            Rc::new(call(args[1].0.shift(g, 3, 0)?, 3)?),
+            Rc::new(z.shift(g, 3, 0)?),
+        );
+        let motive = lam("y", lam("e", pi(dom, cod)));
+        Ok(Term::app(
+            Term::J(Rc::new(motive), Rc::new(id), Rc::new(hyp)),
+            q,
+        ))
+    }
+
+    /// `Void` from `h': b = X` (the innermost binder) and `hyp: b = notX`,
+    /// both at the depth of `b` and `hyp`: `X = notX` from `J (y _ => b =
+    /// notX → y = notX) (x => x) h' hyp`.
+    fn normal_void(&self, g: &Ev, b: Term, x: bool, hyp: Term) -> R<Term> {
+        let lam = |x: &str, body: Term| Term::Lam(x.into(), Icit::Explicit, Rc::new(body));
+        let pi =
+            |dom: Term, cod: Term| Term::Pi("_".into(), Icit::Explicit, Rc::new(dom), Rc::new(cod));
+        let id = lam("x", Term::Var(0));
+        let other = self.bool_value(!x);
+        let dom = Term::Eq(
+            Some(Rc::new(self.bool_ty())),
+            Rc::new(b.shift(g, 2, 0)?),
+            Rc::new(other.clone()),
+        );
+        let cod = Term::Eq(
+            Some(Rc::new(self.bool_ty())),
+            Rc::new(Term::Var(2)),
+            Rc::new(other),
+        );
+        let motive = lam("y", lam("e", pi(dom, cod)));
+        let swapped = Term::app(
+            Term::J(Rc::new(motive), Rc::new(id), Rc::new(Term::Var(0))),
+            hyp,
+        );
+        let apart = if x {
+            self.true_not_false
+        } else {
+            self.false_not_true
+        };
+        Ok(Term::app(Term::Def(apart), swapped))
+    }
+
+    /// `Decidable.elimEq d y n z ey en`, `args` being `Decidable.elim`'s.
+    fn elim_eq(&self, args: &[(Term, Icit)], z: Term, ey: Term, en: Term) -> R<Term> {
+        let a: Vec<Term> = args.iter().map(|(t, _)| t.clone()).collect();
+        let given = [
+            a[0].clone(),
+            a[1].clone(),
+            a[2].clone(),
+            a[3].clone(),
+            a[4].clone(),
+            z,
+            ey,
+            en,
+        ];
+        if self.elim_eq_icits.len() != given.len() {
+            return skip("`Decidable.elimEq` isn't as stage 1b expects");
+        }
+        Ok(apps(
+            Term::Def(self.elim_eq),
+            given.into_iter().zip(self.elim_eq_icits.iter().copied()),
+        ))
+    }
+
+    /// From `q`, a proof (at `top`) that the branch `yes` of `Decidable.elim
+    /// [p] [a] d y n` (`args`) is `z`, with `hyp` its condition (`p`, or
+    /// `Not p`, or for `normal`, `b = notX`), that the `elim` is `z`:
+    /// `Decidable.elimEq d y n z (h' => …) (r => …)`, `uniq` saying how two
+    /// proofs of `p` are equal when the branch uses its proof (all at
+    /// `top`).
+    #[allow(clippy::too_many_arguments)]
+    fn dec_step(
+        &self,
+        g: &Ev,
+        args: &[(Term, Icit)],
+        yes: bool,
+        uniq: Option<&Uniq>,
+        normal: Option<&(Term, bool)>,
+        hyp: Term,
+        top: usize,
+        z: &Term,
+        q: Term,
+    ) -> R<Term> {
+        let lam = |x: &str, body: Term| Term::Lam(x.into(), Icit::Explicit, Rc::new(body));
+        let a: Vec<Term> = args.iter().map(|(t, _)| t.clone()).collect();
+        let (y, n) = (&a[3], &a[4]);
+        let result = |by: usize| a[1].shift(g, by, 0).map(|t| Some(Rc::new(t)));
+        // Under the one binder of `ey` or `en`.
+        // `branch h = z`, the application reduced (the kernel
+        // infers an equation's type from its left side).
+        let goal_of = |branch: &Term| -> R<Term> {
+            let Term::Lam(_, _, body) = branch.strip_loc() else {
+                return skip("an `if`'s branch isn't a function as elaborated");
+            };
+            Ok(Term::Eq(
+                result(1)?,
+                Rc::new((**body).clone()),
+                Rc::new(z.shift(g, 1, 0)?),
+            ))
+        };
+        let (ey, en) = if yes {
+            let taken = match uniq {
+                None => q.shift(g, 1, 0)?,
+                Some(uniq) => {
+                    // `J (q e => A[q] = z) q' (unique hyp h')`.
+                    let Term::Lam(_, _, body) = y.strip_loc() else {
+                        return skip("an `if`'s branch isn't a function as elaborated");
+                    };
+                    let at = top + 3;
+                    let opened = remap(g, body, top + 1, at, &|l| {
+                        Some(if l < top {
+                            Term::Var(at - 1 - l)
+                        } else {
+                            Term::Var(1)
+                        })
+                    })?
+                    .ok_or_else(|| Stop::Skip("an `if`'s branch couldn't be read".into()))?;
+                    let motive = lam(
+                        "q",
+                        lam(
+                            "e",
+                            Term::Eq(result(3)?, Rc::new(opened), Rc::new(z.shift(g, 3, 0)?)),
+                        ),
+                    );
+                    let both = [hyp.shift(g, 1, 0)?, Term::Var(0)];
+                    let proof = match uniq {
+                        Uniq::Bool(l, r) => apps(
+                            Term::Def(self.bool_unique),
+                            [
+                                (l.shift(g, 1, 0)?, Icit::Explicit),
+                                (r.shift(g, 1, 0)?, Icit::Explicit),
+                                (both[0].clone(), Icit::Explicit),
+                                (both[1].clone(), Icit::Explicit),
+                            ],
+                        ),
+                        Uniq::DecEq(unique, given, icits) => {
+                            let mut out = Term::Def(*unique);
+                            for (t, icit) in given {
+                                out = Term::app_icit(out, t.shift(g, 1, 0)?, *icit);
+                            }
+                            for (t, icit) in both.iter().zip(icits) {
+                                out = Term::app_icit(out, t.clone(), *icit);
+                            }
+                            out
+                        }
+                    };
+                    Term::J(Rc::new(motive), Rc::new(q.shift(g, 1, 0)?), Rc::new(proof))
+                }
+            };
+            let refuted = Term::app(Term::Var(0), hyp.shift(g, 1, 0)?);
+            (
+                lam("h", taken),
+                lam("r", self.exfalso(goal_of(n)?, refuted)),
+            )
+        } else {
+            // `h'` against the hypothesis: `Not p` applied, or for
+            // the other `Bool` equation (D2186), `X = notX`.
+            let void = match normal {
+                None => Term::app(hyp.shift(g, 1, 0)?, Term::Var(0)),
+                Some((b, x)) => self.normal_void(g, b.shift(g, 1, 0)?, *x, hyp.shift(g, 1, 0)?)?,
+            };
+            (
+                lam("h", self.exfalso(goal_of(y)?, void)),
+                lam("r", q.shift(g, 1, 0)?),
+            )
+        };
+        self.elim_eq(args, z.clone(), ey, en)
+    }
+
     /// From `q`, a proof (at `top`, the statement's depth) that the tail
     /// below `step` is `z`, a proof that the tail at `step` is.
     fn step_proof(&self, g: &Ev, step: &Step, top: usize, z: &Term, q: Term) -> R<Term> {
@@ -1106,37 +1376,16 @@ impl BranchLib {
         let pi =
             |dom: Term, cod: Term| Term::Pi("_".into(), Icit::Explicit, Rc::new(dom), Rc::new(cod));
         let id = lam("x", Term::Var(0));
+        let at_top = |args: &[(Term, Icit)], depth: usize| -> R<Vec<(Term, Icit)>> {
+            args.iter()
+                .map(|(t, icit)| Ok((up(t, depth, 0)?, *icit)))
+                .collect()
+        };
         Ok(match step {
-            // `J (y _ => (ite y t e = z) → (ite c t e = z)) (x => x) h q`.
             Step::Ite { depth, head, args } => {
                 let hyp = Term::Var(top - 1 - depth);
-                let call = |cond: Term, by: usize| -> R<Term> {
-                    let mut out = head.clone();
-                    for (i, (a, icit)) in args.iter().enumerate() {
-                        let a = if i == 1 {
-                            cond.clone()
-                        } else {
-                            up(a, *depth, by)?
-                        };
-                        out = Term::app_icit(out, a, *icit);
-                    }
-                    Ok(out)
-                };
-                let ty = |by: usize| up(&args[0].0, *depth, by).map(Rc::new);
-                let dom = Term::Eq(
-                    Some(ty(2)?),
-                    Rc::new(call(Term::Var(1), 2)?),
-                    Rc::new(z.shift(g, 2, 0)?),
-                );
-                let cod = Term::Eq(
-                    Some(ty(3)?),
-                    Rc::new(call(up(&args[1].0, *depth, 3)?, 3)?),
-                    Rc::new(z.shift(g, 3, 0)?),
-                );
-                let motive = lam("y", lam("e", pi(dom, cod)));
-                Term::app(Term::J(Rc::new(motive), Rc::new(id), Rc::new(hyp)), q)
+                self.ite_step(g, head, &at_top(args, *depth)?, hyp, z, q)?
             }
-            // `Decidable.elimEq d y n z (h' => …) (r => …)`.
             Step::Dec {
                 depth,
                 args,
@@ -1145,139 +1394,30 @@ impl BranchLib {
                 normal,
             } => {
                 let hyp = Term::Var(top - 1 - depth);
-                let a: Vec<Term> = args
-                    .iter()
-                    .map(|(t, _)| up(t, *depth, 0))
-                    .collect::<stitchwort_core::budget::Result<_>>()?;
-                let (y, n) = (&a[3], &a[4]);
-                let result = |by: usize| a[1].shift(g, by, 0).map(|t| Some(Rc::new(t)));
-                // Under the one binder of `ey` or `en`.
-                // `branch h = z`, the application reduced (the kernel
-                // infers an equation's type from its left side).
-                let goal_of = |branch: &Term| -> R<Term> {
-                    let Term::Lam(_, _, body) = branch.strip_loc() else {
-                        return skip("an `if`'s branch isn't a function as elaborated");
-                    };
-                    Ok(Term::Eq(
-                        result(1)?,
-                        Rc::new((**body).clone()),
-                        Rc::new(z.shift(g, 1, 0)?),
-                    ))
+                let uniq = match uniq {
+                    None => None,
+                    Some(Uniq::Bool(l, r)) => {
+                        Some(Uniq::Bool(up(l, *depth, 0)?, up(r, *depth, 0)?))
+                    }
+                    Some(Uniq::DecEq(unique, given, icits)) => {
+                        Some(Uniq::DecEq(*unique, at_top(given, *depth)?, icits.clone()))
+                    }
                 };
-                let (ey, en) = if *yes {
-                    let taken = match uniq {
-                        None => q.shift(g, 1, 0)?,
-                        Some(uniq) => {
-                            // `J (q e => A[q] = z) q' (unique hyp h')`.
-                            let Term::Lam(_, _, body) = y.strip_loc() else {
-                                return skip("an `if`'s branch isn't a function as elaborated");
-                            };
-                            let at = top + 3;
-                            let opened = remap(g, body, top + 1, at, &|l| {
-                                Some(if l < top {
-                                    Term::Var(at - 1 - l)
-                                } else {
-                                    Term::Var(1)
-                                })
-                            })?
-                            .ok_or_else(|| {
-                                Stop::Skip("an `if`'s branch couldn't be read".into())
-                            })?;
-                            let motive = lam(
-                                "q",
-                                lam(
-                                    "e",
-                                    Term::Eq(
-                                        result(3)?,
-                                        Rc::new(opened),
-                                        Rc::new(z.shift(g, 3, 0)?),
-                                    ),
-                                ),
-                            );
-                            let both = [hyp.shift(g, 1, 0)?, Term::Var(0)];
-                            let proof = match uniq {
-                                Uniq::Bool(l, r) => apps(
-                                    Term::Def(self.bool_unique),
-                                    [
-                                        (up(l, *depth, 1)?, Icit::Explicit),
-                                        (up(r, *depth, 1)?, Icit::Explicit),
-                                        (both[0].clone(), Icit::Explicit),
-                                        (both[1].clone(), Icit::Explicit),
-                                    ],
-                                ),
-                                Uniq::DecEq(unique, given, icits) => {
-                                    let mut out = Term::Def(*unique);
-                                    for (t, icit) in given {
-                                        out = Term::app_icit(out, up(t, *depth, 1)?, *icit);
-                                    }
-                                    for (t, icit) in both.iter().zip(icits) {
-                                        out = Term::app_icit(out, t.clone(), *icit);
-                                    }
-                                    out
-                                }
-                            };
-                            Term::J(Rc::new(motive), Rc::new(q.shift(g, 1, 0)?), Rc::new(proof))
-                        }
-                    };
-                    let refuted = Term::app(Term::Var(0), hyp.shift(g, 1, 0)?);
-                    (
-                        lam("h", taken),
-                        lam("r", self.exfalso(goal_of(n)?, refuted)),
-                    )
-                } else {
-                    // `h'` against the hypothesis: `Not p` applied, or for
-                    // the other `Bool` equation (D2186), `X = notX` from
-                    // `J (y _ => b = notX → y = notX) (x => x) h' hyp`.
-                    let void = match normal {
-                        None => Term::app(hyp.shift(g, 1, 0)?, Term::Var(0)),
-                        Some((b, x)) => {
-                            let other = self.bool_value(!*x);
-                            let b = up(b, *depth, 1)?;
-                            let dom = Term::Eq(
-                                Some(Rc::new(self.bool_ty())),
-                                Rc::new(b.shift(g, 2, 0)?),
-                                Rc::new(other.clone()),
-                            );
-                            let cod = Term::Eq(
-                                Some(Rc::new(self.bool_ty())),
-                                Rc::new(Term::Var(2)),
-                                Rc::new(other),
-                            );
-                            let motive = lam("y", lam("e", pi(dom, cod)));
-                            let swapped = Term::app(
-                                Term::J(Rc::new(motive), Rc::new(id), Rc::new(Term::Var(0))),
-                                hyp.shift(g, 1, 0)?,
-                            );
-                            let apart = if *x {
-                                self.true_not_false
-                            } else {
-                                self.false_not_true
-                            };
-                            Term::app(Term::Def(apart), swapped)
-                        }
-                    };
-                    (
-                        lam("h", self.exfalso(goal_of(y)?, void)),
-                        lam("r", q.shift(g, 1, 0)?),
-                    )
+                let normal = match normal {
+                    None => None,
+                    Some((b, x)) => Some((up(b, *depth, 0)?, *x)),
                 };
-                let given = [
-                    a[0].clone(),
-                    a[1].clone(),
-                    a[2].clone(),
-                    y.clone(),
-                    n.clone(),
-                    z.clone(),
-                    ey,
-                    en,
-                ];
-                if self.elim_eq_icits.len() != given.len() {
-                    return skip("`Decidable.elimEq` isn't as stage 1b expects");
-                }
-                apps(
-                    Term::Def(self.elim_eq),
-                    given.into_iter().zip(self.elim_eq_icits.iter().copied()),
-                )
+                self.dec_step(
+                    g,
+                    &at_top(args, *depth)?,
+                    *yes,
+                    uniq.as_ref(),
+                    normal.as_ref(),
+                    hyp,
+                    top,
+                    z,
+                    q,
+                )?
             }
             // `J (y q => (h args[y, q] = result) → (h args = result)) (x =>
             // x) hyp proof`, then on to `z` along `q`.
@@ -1437,11 +1577,15 @@ enum Hyp {
     /// one equation. `vars` are levels of the earlier row's shape, with its
     /// types; each equation is a level of this arm's shape and a term in
     /// the earlier row's.
+    ///
+    /// When the earlier row is guarded, its condition is one more premise:
+    /// `(vars) → x = p → … → c = True → Void` (`P` for a proposition).
     Overlap {
         row: usize,
         vars: Vec<usize>,
         eqs: Vec<(usize, Term)>,
         bound: HashMap<usize, Term>,
+        guarded: bool,
     },
     /// `notListed: c ∉ [chars]`: the earlier rows (by index), each a
     /// character `c` can't be.
@@ -1449,6 +1593,17 @@ enum Hyp {
         level: usize,
         rows: Vec<(usize, char)>,
     },
+    /// An earlier guarded row that takes every value this one does: its
+    /// condition is false here, `c[σ] = False` or `Not P[σ]` (`b = notX`
+    /// for `P` of the form `b = X`, D2186), `bound` being `σ`, as in
+    /// `Overlap`.
+    NotGuard {
+        row: usize,
+        bound: HashMap<usize, Term>,
+    },
+    /// The row's own condition, the last hypothesis: `guard: c = True`, or
+    /// `guard: P` (`h: P` for `if h: P`).
+    Guard,
 }
 
 /// Why an equation isn't made: a shape this stage doesn't cover, or an
@@ -1566,6 +1721,15 @@ impl Def {
             }
         }
         best.map(|(i, _)| i)
+    }
+
+    /// The guarded row whose condition is tested at `path`, if one is:
+    /// its leaf is the `then` below it.
+    fn guard_row_at(&self, path: &mut Vec<u32>) -> Option<usize> {
+        path.push(crate::GUARD_THEN);
+        let row = self.row_at(path);
+        path.pop();
+        row.filter(|&r| self.rows[r].guarded)
     }
 
     /// Row `j` in a message, and what it is: `arm 2`, `alternative 1`.
@@ -1763,6 +1927,7 @@ impl Elaborator {
                     span: arm.span,
                     has_rhs: arm.rhs.is_some(),
                     guarded: arm.guard.is_some(),
+                    guard: arm.guard.clone(),
                     suffix,
                     rhs: arm.rhs.clone(),
                     parent: None,
@@ -1935,7 +2100,6 @@ impl Elaborator {
         // Each row's shape, from the probe, and what its leaf is. A row
         // whose right side is a `match` on its variables, compiled into
         // the case tree, has rows below it, one for each alternative.
-        let first_guarded = d.rows.iter().filter(|r| r.guarded).map(|r| r.arm).min();
         let mut shapes: Vec<std::result::Result<Shape, String>> = Vec::new();
         let mut leaves: Vec<Option<Found>> = Vec::new();
         // Why a row's alternatives aren't rows of their own.
@@ -1945,10 +2109,8 @@ impl Elaborator {
             let row = &d.rows[i];
             let shape = if !row.has_rhs {
                 Err("an arm with `()` has no right side".to_string())
-            } else if first_guarded.is_some_and(|g| row.arm >= g) {
-                Err(GUARDED.to_string())
             } else {
-                match self.attempt(|e| e.probe_row(d, row, span)) {
+                match self.attempt(|e| e.probe_row(d, i, row, span)) {
                     Ok(s) => Ok(s),
                     Err(Stop::Skip(why)) => Err(why),
                     Err(Stop::Error(e)) if crate::undo::fatal(&e) => return Err(e),
@@ -2109,9 +2271,11 @@ impl Elaborator {
         }
     }
 
-    /// The shape of `row`: compiles its patterns alone, as a `match` on the
-    /// definition's parameters, and probes its body.
-    fn probe_row(&mut self, d: &Def, row: &Row, span: Span) -> R<Shape> {
+    /// The shape of `row` (row `k`, or one refined below it): compiles its
+    /// patterns alone, as a `match` on the definition's parameters, and
+    /// probes its body; for a guarded row, reads its condition off the
+    /// definition's tree.
+    fn probe_row(&mut self, d: &Def, k: usize, row: &Row, span: Span) -> R<Shape> {
         if d.columns.is_empty() && row.chain.is_empty() {
             return self.body_shape(d);
         }
@@ -2123,7 +2287,23 @@ impl Elaborator {
             self.attempt.drafts.borrow_mut().truncate(drafts);
             return skip("its `match`es couldn't be compiled again as the definition's were");
         }
-        shape
+        let (mut shape, condition) = shape?;
+        if let Some((prop, as_bool)) = condition {
+            let dec = self.guard_form(d, k, &shape)?;
+            let cond = if dec { Some(prop.clone()) } else { as_bool };
+            let cond = cond.ok_or_else(|| {
+                Stop::Skip("its condition `if h: P` is tested as a `Bool`".into())
+            })?;
+            let blib = self.branch_lib()?;
+            // `a == b` too is a `Bool` condition whose `Bool` is a decision's.
+            let prop = if !dec && blib.to_bool_lemmas.is_some() {
+                blib.decided(&cond).map(|(p, _)| p)
+            } else {
+                None
+            };
+            shape.guard = Some(GuardRead { dec, cond, prop });
+        }
+        Ok(shape)
     }
 
     /// The shape of a [`Form::Body`]'s one row: the parameters themselves.
@@ -2158,10 +2338,19 @@ impl Elaborator {
             names,
             icits: d.binders.iter().map(|b| b.icit).collect(),
             types,
+            guard: None,
         })
     }
 
-    fn probe_row_in(&mut self, d: &Def, row: &Row, span: Span) -> R<Shape> {
+    /// [`Self::probe_row`]'s shape, and for a guarded row its condition
+    /// elaborated in the arm's context ([`guard_condition`]).
+    #[allow(clippy::type_complexity)]
+    fn probe_row_in(
+        &mut self,
+        d: &Def,
+        row: &Row,
+        span: Span,
+    ) -> R<(Shape, Option<(Term, Option<Term>)>)> {
         let n = d.binders.len();
         // The predicate `%P: (params) → Prop` the goal applies to the
         // parameters, so the goal at the leaf shows what they are there.
@@ -2410,14 +2599,45 @@ impl Elaborator {
                 }
             })
             .collect::<stitchwort_core::budget::Result<_>>()?;
-        Ok(Shape {
+        let shape = Shape {
             depth,
             lhs,
             tele,
             names,
             icits,
             types,
-        })
+            guard: None,
+        };
+        let Some(guard) = &row.guard else {
+            return Ok((shape, None));
+        };
+        // The condition, elaborated in the arm's context as the
+        // definition's was in each case of its tree.
+        let nav = self.present.nav.take();
+        let lambda_warnings = self.attempt.lambda_warnings.borrow().len();
+        let branch_errors = self.attempt.branch_errors.borrow().len();
+        let mut cx = saved.ctx(self);
+        let condition = guard_condition(&mut cx, guard);
+        drop(cx);
+        self.present.nav = nav;
+        self.attempt
+            .lambda_warnings
+            .borrow_mut()
+            .truncate(lambda_warnings);
+        self.attempt
+            .branch_errors
+            .borrow_mut()
+            .truncate(branch_errors);
+        self.clear_metas();
+        match condition {
+            Ok(Some(c)) => Ok((shape, Some(c))),
+            Ok(None) => skip("its condition couldn't be elaborated again in its arm's variables"),
+            Err(e) if crate::undo::fatal(&e) => Err(Stop::Error(e)),
+            Err(e) => skip(format!(
+                "its condition couldn't be elaborated again in its arm's variables: {}",
+                e.message
+            )),
+        }
     }
 
     /// Generates row `k`'s equation (or says why it can't).
@@ -2496,20 +2716,64 @@ impl Elaborator {
                          isn't in std)"
                     ));
                 }
-                Overlap::Covers => {
+                // Reached where its condition is false.
+                Overlap::Covers { bound } if d.rows[j].guarded => {
+                    let cond = other.guard.as_ref().map(|r| &r.cond);
+                    if cond.is_none_or(|c| {
+                        levels_in(c, other.depth)
+                            .iter()
+                            .any(|l| !bound.contains_key(l))
+                    }) {
+                        return skip(format!(
+                            "{what}'s condition mentions what its patterns don't bind, which                              this {noun}'s variables can't say"
+                        ));
+                    }
+                    hyps.push(Hyp::NotGuard { row: j, bound });
+                }
+                Overlap::Covers { .. } => {
                     return skip(format!(
                         "{what} matches everything it does, so it's never reached"
                     ));
                 }
-                Overlap::Meets { vars, eqs, bound } => hyps.push(Hyp::Overlap {
-                    row: j,
-                    vars,
+                Overlap::Meets {
+                    mut vars,
                     eqs,
                     bound,
-                }),
+                } => {
+                    let guarded = d.rows[j].guarded;
+                    if guarded {
+                        // The condition's variables are bound too.
+                        let cond = &other
+                            .guard
+                            .as_ref()
+                            .ok_or_else(|| Stop::Skip(format!("{what}'s condition wasn't read")))?
+                            .cond;
+                        let mut pending = levels_in(cond, other.depth);
+                        while let Some(l) = pending.pop() {
+                            if vars.contains(&l) || bound.contains_key(&l) {
+                                continue;
+                            }
+                            let Some(pos) = other.tele.iter().position(|&x| x == l) else {
+                                return skip(format!(
+                                    "{what}'s condition mentions what its patterns don't bind"
+                                ));
+                            };
+                            vars.push(l);
+                            pending.extend(levels_in(&other.types[pos], other.depth));
+                        }
+                        vars.sort_by_key(|l| other.tele.iter().position(|x| x == l));
+                    }
+                    hyps.push(Hyp::Overlap {
+                        row: j,
+                        vars,
+                        eqs,
+                        bound,
+                        guarded,
+                    })
+                }
             }
         }
-        let hyps = merge_chars(g, hyps, shapes);
+        let mut hyps = merge_chars(g, hyps, shapes);
         // D2189: past the cap, decided before any kernel work.
         let literals = hyps.iter().filter(|h| number_overlap(h)).count();
         if literals > LITERAL_CAP {
@@ -2519,7 +2783,11 @@ impl Elaborator {
                  with their square)"
             ));
         }
-        // The right side: a leaf of this row, read in the arm's variables.
+        if d.rows[k].guarded {
+            hyps.push(Hyp::Guard);
+        }
+        // The right side: a leaf of this row, read in the arm's variables
+        // (a guarded row's under its condition's proof, one level more).
         let (rhs, arm_size) = self.right_side(d, k, shape)?;
         // The statement.
         let tk = shape.tele.len();
@@ -2531,7 +2799,10 @@ impl Elaborator {
         let mut used: Vec<Name> = shape.names.clone();
         for (i, h) in hyps.iter().enumerate() {
             let base = match h {
-                Hyp::Overlap { row, .. } => {
+                Hyp::Guard => {
+                    guard_name(d.rows[k].guard.as_ref()).unwrap_or_else(|| "guard".to_string())
+                }
+                Hyp::Overlap { row, .. } | Hyp::NotGuard { row, .. } => {
                     let r = &d.rows[*row];
                     if r.parent.is_some() {
                         format!("notAlt{}", r.alt)
@@ -2540,7 +2811,7 @@ impl Elaborator {
                     } else if r.arm == d.rows[k].arm {
                         format!("notOr{}", r.or.unwrap_or(1))
                     } else {
-                        let same_arm = hyps.iter().filter(|h| matches!(h, Hyp::Overlap { row: o, .. } if d.rows[*o].arm == r.arm && d.rows[*o].parent.is_none())).count();
+                        let same_arm = hyps.iter().filter(|h| matches!(h, Hyp::Overlap { row: o, .. } | Hyp::NotGuard { row: o, .. } if d.rows[*o].arm == r.arm && d.rows[*o].parent.is_none())).count();
                         match (same_arm > 1, r.or) {
                             (true, Some(m)) => format!("notArm{}or{m}", r.arm),
                             _ => format!("notArm{}", r.arm),
@@ -2564,6 +2835,26 @@ impl Elaborator {
         let lhs = apps(Term::Def(d.f), f_args);
         let rhs_size = rhs.as_ref().map_or(0, |r| r.subterms().count());
         let rhs = match rhs {
+            // The condition's proof, read at the shape's depth, is the
+            // `guard` hypothesis, the last binder; a `Bool`'s `()` isn't.
+            Some(r) if d.rows[k].guarded => {
+                let dec = shape.guard.as_ref().is_some_and(|r| r.dec);
+                let r = remap(g, &r, shape.depth + 1, depth, &|l| {
+                    if l == shape.depth {
+                        dec.then_some(Term::Var(0))
+                    } else {
+                        let j = shape.tele.iter().position(|&x| x == l)?;
+                        Some(Term::Var(depth - 1 - j))
+                    }
+                })?
+                .ok_or_else(|| {
+                    Stop::Skip(
+                        "its right side mentions a variable its arm doesn't bind, or its                          condition's `()`"
+                            .into(),
+                    )
+                })?;
+                Some(r)
+            }
             Some(r) => Some(at(&r, depth)?),
             None => None,
         };
@@ -2752,7 +3043,7 @@ impl Elaborator {
             for r in refines.iter().filter(|r| r.site == Site::Row) {
                 row.chain.push((r.scrutinees.clone(), r.patterns.clone()));
             }
-            refined = self.probe_row(d, &row, span)?;
+            refined = self.probe_row(d, k, &row, span)?;
             &refined
         } else {
             shape
@@ -3101,9 +3392,6 @@ impl Elaborator {
                     }
                 }
                 TailSplit::Match { scrutinees, alts } => {
-                    if alts.iter().any(|a| a.guard.is_some()) {
-                        return skip(GUARDED);
-                    }
                     // On several expressions (SW-1074), stated as on the
                     // one tuple of them: `isAlt1: (a, b) = (p, q)`.
                     let several = scrutinees.len() > 1;
@@ -3493,7 +3781,7 @@ impl Elaborator {
         for x in refines {
             r.chain.push((x.scrutinees.clone(), x.patterns.clone()));
         }
-        let hs = self.probe_row(&helper.def, &r, helper.root)?;
+        let hs = self.probe_row(&helper.def, row, &r, helper.root)?;
         let he = self.helper_equation(&helper.def, row, &hs, &helper.shapes)?;
         let made = Rc::new((he, hs));
         helper.refined.borrow_mut().insert(key, made.clone());
@@ -3593,6 +3881,7 @@ impl Elaborator {
                 span: a.span,
                 has_rhs: true,
                 guarded: a.guard.is_some(),
+                guard: a.guard.clone(),
                 suffix: format!("alt{}", i + 1),
                 rhs: Some(a.body.clone()),
                 parent: None,
@@ -3646,7 +3935,7 @@ impl Elaborator {
         let mut children: Vec<Vec<usize>> = Vec::new();
         let mut i = 0;
         while i < hd.rows.len() {
-            let shape = match self.probe_row(&hd, &hd.rows[i], root) {
+            let shape = match self.probe_row(&hd, i, &hd.rows[i], root) {
                 Ok(s) => Ok(s),
                 Err(Stop::Skip(why)) => Err(why),
                 Err(Stop::Error(e)) if crate::undo::fatal(&e) => return Err(Stop::Error(e)),
@@ -3814,63 +4103,77 @@ impl Elaborator {
             bool_unique: r.def(Builtin::BoolUniqueEq).ok_or_else(none)?,
             deceq_unique,
             deceq_decide: self.lookup_def("Std.DecEq.decide"),
+            inspect: self.lookup_def("Std.Bool.inspect"),
+            to_bool: r.def(Builtin::ToBool).ok_or_else(none)?,
+            to_bool_lemmas: (|| {
+                Some([
+                    self.lookup_def("Std.Decidable.toBoolOf")?,
+                    self.lookup_def("Std.Decidable.toBoolOfNot")?,
+                    self.lookup_def("Std.Decidable.toBoolSound")?,
+                    self.lookup_def("Std.Decidable.toBoolFalse")?,
+                ])
+            })(),
         })
+    }
+
+    /// Walks the definition's tree with row `k`'s left side, for its leaf
+    /// ([`find_rhs`]).
+    fn seek(&self, d: &Def, k: usize, shape: &Shape) -> R<Sought> {
+        let g = &self.ev();
+        let mut fmap: Vec<Option<Term>> = Vec::new();
+        for level in 0..d.tree_params() {
+            fmap.push(match d.param_of_tree_level(level) {
+                Some(i) => Some(shape.lhs[i].clone()),
+                None => Some(rec_term(d, shape.depth)),
+            });
+        }
+        let unit = g.env.registry().ctor(Builtin::Trivial);
+        let mut out = Sought {
+            found: Found::None,
+            guard_dec: None,
+            unit: unit.map(|(d, c)| Term::Ctor(d, c, Vec::new())),
+            blocked: Vec::new(),
+        };
+        find_rhs(
+            g,
+            d,
+            k,
+            &d.tree,
+            &mut fmap,
+            &mut Vec::new(),
+            shape.depth,
+            &mut out,
+        )?;
+        Ok(out)
     }
 
     /// What row `k`'s leaf is ([`Found`]).
     fn leaf_found(&self, d: &Def, k: usize, shape: &Shape) -> R<Found> {
-        let g = &self.ev();
-        let mut fmap: Vec<Option<Term>> = Vec::new();
-        for level in 0..d.tree_params() {
-            fmap.push(match d.param_of_tree_level(level) {
-                Some(i) => Some(shape.lhs[i].clone()),
-                None => Some(rec_term(d, shape.depth)),
-            });
-        }
-        let mut found = Found::None;
-        find_rhs(
-            g,
-            d,
-            k,
-            shape,
-            &d.tree,
-            &mut fmap,
-            &mut Vec::new(),
-            &mut found,
-        )?;
-        Ok(found)
+        Ok(self.seek(d, k, shape)?.found)
     }
 
-    /// Row `k`'s right side, in its shape's context: the body of the first
-    /// of its leaves that mentions only what the arm's patterns bind; `None`
-    /// if each leaf's body mentions what that leaf refined (SW-1071).
+    /// Whether guarded row `k`'s condition is tested by `Decidable.elim`
+    /// (else `Bool.ifThenElse`), where the definition first tests it.
+    fn guard_form(&self, d: &Def, k: usize, shape: &Shape) -> R<bool> {
+        let out = self.seek(d, k, shape)?;
+        out.guard_dec.ok_or_else(|| {
+            Stop::Skip("its arm is never reached in the definition's case tree".into())
+        })
+    }
+
+    /// Row `k`'s right side, in its shape's context (for a guarded row, with
+    /// its condition's proof one level more): the body of the first of its
+    /// leaves that mentions only what the arm's patterns bind; `None` if
+    /// each leaf's body mentions what that leaf refined (SW-1071).
     fn right_side(&self, d: &Def, k: usize, shape: &Shape) -> R<(Option<Term>, usize)> {
-        let g = &self.ev();
-        let mut fmap: Vec<Option<Term>> = Vec::new();
-        for level in 0..d.tree_params() {
-            fmap.push(match d.param_of_tree_level(level) {
-                Some(i) => Some(shape.lhs[i].clone()),
-                None => Some(rec_term(d, shape.depth)),
-            });
-        }
-        let mut found = Found::None;
-        find_rhs(
-            g,
-            d,
-            k,
-            shape,
-            &d.tree,
-            &mut fmap,
-            &mut Vec::new(),
-            &mut found,
-        )?;
-        match found {
+        match self.seek(d, k, shape)?.found {
             Found::Rhs(t, size) => Ok((Some(t), size)),
             Found::Match => skip(
                 "its right side is a `match` on its variables, compiled into the case tree, so \
                  no one equation states it: each alternative's has its own (`f.eqK.cons`, …)",
             ),
             Found::Refined => Ok((None, 0)),
+            Found::GuardProof => skip(GUARD_PROOF),
             Found::None => skip("its arm is never reached in the definition's case tree"),
         }
     }
@@ -3902,11 +4205,60 @@ impl Elaborator {
                 );
                 Ok(Term::app(Term::Def(lib.not), mem))
             }
+            Hyp::Guard => {
+                let read = shape
+                    .guard
+                    .as_ref()
+                    .ok_or_else(|| Stop::Skip("its condition wasn't read".into()))?;
+                let (is_prop, cond) = read.stated();
+                let cond = remap_shape(g, cond, shape, depth)?;
+                Ok(guard_holds(self, is_prop, cond)?)
+            }
+            Hyp::NotGuard { row, bound } => {
+                let other = shapes[*row].as_ref().map_err(|e| Stop::Skip(e.clone()))?;
+                let read = other
+                    .guard
+                    .as_ref()
+                    .ok_or_else(|| Stop::Skip("an earlier arm's condition wasn't read".into()))?;
+                let mut solved: HashMap<usize, Term> = HashMap::default();
+                for (l, t) in bound {
+                    if let Ok(t) = remap_shape(g, t, shape, depth) {
+                        solved.insert(*l, t);
+                    }
+                }
+                let (is_prop, cond) = read.stated();
+                let cond = remap(g, cond, other.depth, depth, &|l| solved.get(&l).cloned())?
+                    .ok_or_else(|| {
+                        Stop::Skip(
+                            "an earlier arm's condition can't be stated in this arm's variables"
+                                .into(),
+                        )
+                    })?;
+                let blib = self.branch_lib()?;
+                Ok(if read.prop.is_some() {
+                    Term::app(Term::Def(lib.not), cond)
+                } else if !is_prop {
+                    Term::Eq(
+                        Some(Rc::new(blib.bool_ty())),
+                        Rc::new(cond),
+                        Rc::new(blib.bool_value(false)),
+                    )
+                } else if let Some((b, x)) = blib.bool_test(&cond) {
+                    Term::Eq(
+                        Some(Rc::new(blib.bool_ty())),
+                        Rc::new(b),
+                        Rc::new(blib.bool_value(!x)),
+                    )
+                } else {
+                    Term::app(Term::Def(lib.not), cond)
+                })
+            }
             Hyp::Overlap {
                 row,
                 vars,
                 eqs,
                 bound,
+                guarded,
             } => {
                 let other = shapes[*row].as_ref().map_err(|e| Stop::Skip(e.clone()))?;
                 // This arm's terms the earlier row's solved variables stand
@@ -3947,8 +4299,22 @@ impl Elaborator {
                     let p = jmap(s, inner + e, vars.len())?;
                     eq_terms.push(Term::Eq(None, Rc::new(x), Rc::new(p)));
                 }
-                let void = Term::Data(lib.void, Vec::new());
-                if vars.is_empty() && eq_terms.len() == 1 {
+                let mut void = Term::Data(lib.void, Vec::new());
+                if *guarded {
+                    // `c = True → Void`, under the equations.
+                    let read = other.guard.as_ref().ok_or_else(|| {
+                        Stop::Skip("an earlier arm's condition wasn't read".into())
+                    })?;
+                    let at = inner + eq_terms.len();
+                    let (is_prop, cond) = read.stated();
+                    let cond = jmap(cond, at, vars.len())?;
+                    void = Term::Pi(
+                        "_".into(),
+                        Icit::Explicit,
+                        Rc::new(guard_holds(self, is_prop, cond)?),
+                        Rc::new(void),
+                    );
+                } else if vars.is_empty() && eq_terms.len() == 1 {
                     return Ok(Term::app(Term::Def(lib.not), eq_terms.pop().expect("one")));
                 }
                 let mut ty = void;
@@ -3962,6 +4328,58 @@ impl Elaborator {
             }
         }
     }
+}
+
+/// That a guard's condition holds: `cond = True` for a `Bool`, `cond`
+/// itself for a proposition (`dec`).
+fn guard_holds(e: &Elaborator, dec: bool, cond: Term) -> R<Term> {
+    if dec {
+        return Ok(cond);
+    }
+    let blib = e.branch_lib()?;
+    Ok(Term::Eq(
+        Some(Rc::new(blib.bool_ty())),
+        Rc::new(cond),
+        Rc::new(blib.bool_value(true)),
+    ))
+}
+
+/// A guard's condition elaborated in its arm's context `cx`, as
+/// `check_if_in` does: the proposition it decides (for a `Bool` `c`, `c =
+/// True`) and, but for `if h: P`, its `Bool` (a decided proposition's
+/// decision's, `a && b`'s reading). `None` if a placeholder is left in
+/// them.
+fn guard_condition(cx: &mut Ctx, guard: &ast::Guard) -> Result<Option<(Term, Option<Term>)>> {
+    use crate::logic::Condition;
+    let (prop, as_bool) = match &guard.binder {
+        Some(h) => (crate::check::if_h_condition(cx, h, &guard.cond)?.0, None),
+        None => match crate::logic::condition(cx, &guard.cond, "if")?
+            .decided_now(cx, guard.cond.span())?
+        {
+            Condition::Bool(c) => (crate::logic::true_prop(cx, c.clone())?, Some(c)),
+            Condition::Decided { prop, decision } => {
+                let c = decision.into_bool(cx, prop.clone())?;
+                (prop, Some(c))
+            }
+            Condition::Conjunction { as_bool, prop, .. } => (prop, Some(as_bool)),
+            Condition::Waiting { .. } => return Ok(None),
+        },
+    };
+    let level = cx.level();
+    let zonk = |t: &Term| -> Option<Term> {
+        crate::unify::zonk_in(&cx.u(), level, t, &|_| false, &[]).ok()
+    };
+    let Some(prop) = zonk(&prop) else {
+        return Ok(None);
+    };
+    let as_bool = match as_bool {
+        Some(c) => match zonk(&c) {
+            Some(c) => Some(c),
+            None => return Ok(None),
+        },
+        None => None,
+    };
+    Ok(Some((prop, as_bool)))
 }
 
 /// `t`, at `at` in a leaf's context (the row's `tk` variables, the leaf's
@@ -4595,25 +5013,87 @@ enum Found {
     Refined,
     /// A leaf whose body is a further case tree.
     Match,
+    /// A leaf whose body uses the proof that an earlier arm's condition is
+    /// false.
+    GuardProof,
     /// The right side, and the size of the leaf's body it came from.
     Rhs(Term, usize),
 }
 
-/// Looks through the tree, with the arm's arguments, for a leaf of row
-/// `k` whose body says its right side in the arm's variables.
+/// Why a row whose body uses the proof that an earlier arm's condition is
+/// false has no equation.
+const GUARD_PROOF: &str = "its body uses the proof that an earlier arm's condition is false: \
+                           two such proofs aren't known to be equal without proof irrelevance \
+                           (D2180)";
+
+/// What [`find_rhs`] finds: the leaf, and for a guarded row whether its
+/// condition is tested by `Decidable.elim`. `unit` is `()`, the value of a
+/// `Bool` guard's branches' binder; `blocked` the tree's levels that are
+/// proofs that an earlier arm's condition is false.
+struct Sought {
+    found: Found,
+    guard_dec: Option<bool>,
+    unit: Option<Term>,
+    blocked: Vec<usize>,
+}
+
+/// The `if` a guarded row's condition is tested by, at its guard node in a
+/// tree: `Bool.ifThenElse [a] c t e` or `Decidable.elim [p] [a] d y n`,
+/// its head and arguments, and its branches' bodies, each under the one
+/// binder of its lambda (a `Bool`'s `()`, or the proof).
+struct GuardIf {
+    dec: bool,
+    head: Term,
+    args: Vec<(Term, Icit)>,
+    then: Term,
+    otherwise: Term,
+}
+
+fn guard_if(g: &Ev, t: &Term) -> R<GuardIf> {
+    let r = g.env.registry();
+    let (head, args) = spine_icit(t.strip_loc());
+    let is = |b: Builtin| matches!(head.strip_loc(), Term::Def(h) if r.def(b) == Some(*h));
+    let dec = if is(Builtin::IfThenElse) && args.len() == 4 {
+        false
+    } else if is(Builtin::ElimDec) && args.len() == 5 {
+        true
+    } else {
+        return skip(
+            "an arm's condition isn't elaborated as `Bool.ifThenElse` or `Decidable.elim`, the \
+             two the generator follows",
+        );
+    };
+    let body = |t: &Term| match t.strip_loc() {
+        Term::Lam(_, _, b) => Ok((**b).clone()),
+        _ => skip("an arm's condition's branch isn't a function as elaborated"),
+    };
+    let n = args.len();
+    Ok(GuardIf {
+        dec,
+        then: body(&args[n - 2].0)?,
+        otherwise: body(&args[n - 1].0)?,
+        head: head.clone(),
+        args,
+    })
+}
+
+/// Looks through the tree, with the arm's arguments (`fmap`, terms at
+/// `to`), for a leaf of row `k` whose body says its right side in the
+/// arm's variables. Below another row's guard it goes on in the `else`;
+/// below row `k`'s own, in the `then`, its binder at level `to`.
 #[allow(clippy::too_many_arguments)]
 fn find_rhs(
     g: &Ev,
     d: &Def,
     k: usize,
-    shape: &Shape,
     t: &Term,
     fmap: &mut Vec<Option<Term>>,
     path: &mut Vec<u32>,
-    found: &mut Found,
+    to: usize,
+    out: &mut Sought,
 ) -> R<()> {
     g.machine.budget.nesting("equations")?;
-    if matches!(found, Found::Rhs(..)) {
+    if matches!(out.found, Found::Rhs(..)) {
         return Ok(());
     }
     if let Some(row) = d.row_at(path)
@@ -4625,10 +5105,16 @@ fn find_rhs(
         let depth = fmap.len();
         let body = t.strip_loc();
         if matches!(body, Term::Case(..) | Term::NumCase(..)) {
-            *found = Found::Match;
+            out.found = Found::Match;
             return Ok(());
         }
-        let mapped = remap(g, t, depth, shape.depth, &|l| fmap[l].clone())?;
+        if !out.blocked.is_empty() && levels_in(t, depth).iter().any(|l| out.blocked.contains(l)) {
+            if matches!(out.found, Found::None | Found::Refined) {
+                out.found = Found::GuardProof;
+            }
+            return Ok(());
+        }
+        let mapped = remap(g, t, depth, to, &|l| fmap[l].clone())?;
         match mapped {
             Some(rhs) => {
                 let rhs = if matches!(d.kind, Kind::Decreasing { .. }) {
@@ -4637,21 +5123,55 @@ fn find_rhs(
                     rhs
                 };
                 let rhs = if d.special.iter().any(Option::is_some) {
-                    pure_at_empty(g, &rhs, shape.depth)?
+                    pure_at_empty(g, &rhs, to)?
                 } else {
                     rhs
                 };
                 // `let`s substituted, as goals show them (§3.1).
                 let rhs = zeta(g, &rhs)?;
-                *found = Found::Rhs(rhs, t.subterms().count());
+                out.found = Found::Rhs(rhs, t.subterms().count());
             }
             None => {
-                if matches!(found, Found::None) {
-                    *found = Found::Refined;
+                if matches!(out.found, Found::None) {
+                    out.found = Found::Refined;
                 }
             }
         }
         return Ok(());
+    }
+    if let Some(j) = d.guard_row_at(path) {
+        let node = guard_if(g, t)?;
+        if j == k {
+            out.guard_dec.get_or_insert(node.dec);
+            let mut inner = Vec::new();
+            for v in fmap.iter() {
+                inner.push(match v {
+                    Some(v) => Some(v.shift(g, 1, 0)?),
+                    None => None,
+                });
+            }
+            inner.push(Some(Term::Var(0)));
+            path.push(crate::GUARD_THEN);
+            let r = find_rhs(g, d, k, &node.then, &mut inner, path, to + 1, out);
+            path.pop();
+            return r;
+        }
+        // The rows below row `j` are in its `else`.
+        let binder = if node.dec {
+            out.blocked.push(fmap.len());
+            None
+        } else {
+            out.unit.clone()
+        };
+        fmap.push(binder);
+        path.push(crate::GUARD_ELSE);
+        let r = find_rhs(g, d, k, &node.otherwise, fmap, path, to, out);
+        path.pop();
+        fmap.pop();
+        if node.dec {
+            out.blocked.pop();
+        }
+        return r;
     }
     match t.strip_loc() {
         Term::Case(ix, data, branches) => {
@@ -4668,7 +5188,7 @@ fn find_rhs(
                 let mark = fmap.len();
                 fmap.extend(fields);
                 path.push(c as u32);
-                find_rhs(g, d, k, shape, body, fmap, path, found)?;
+                find_rhs(g, d, k, body, fmap, path, to, out)?;
                 path.pop();
                 fmap.truncate(mark);
             }
@@ -4686,7 +5206,7 @@ fn find_rhs(
                     continue;
                 }
                 path.push(i as u32);
-                find_rhs(g, d, k, shape, &a.body, fmap, path, found)?;
+                find_rhs(g, d, k, &a.body, fmap, path, to, out)?;
                 path.pop();
             }
             if !known
@@ -4694,7 +5214,7 @@ fn find_rhs(
                 .is_some_and(|n| arms.iter().any(|a| *a.value == *n))
             {
                 path.push(arms.len() as u32);
-                find_rhs(g, d, k, shape, default, fmap, path, found)?;
+                find_rhs(g, d, k, default, fmap, path, to, out)?;
                 path.pop();
             }
             Ok(())
@@ -5017,8 +5537,11 @@ impl Elaborator {
 
 enum Overlap {
     Disjoint,
-    /// The earlier row takes every value this one does.
-    Covers,
+    /// The earlier row takes every value this one does: its variables
+    /// solved by this one's terms.
+    Covers {
+        bound: HashMap<usize, Term>,
+    },
     /// The earlier row's variables the equations need, the equations (a
     /// level of this arm's shape, equal to a term in the earlier row's),
     /// and the earlier row's variables solved by terms of this one's.
@@ -5061,7 +5584,7 @@ fn overlap(g: &Ev, other: &Shape, shape: &Shape) -> R<Overlap> {
     }
     if eqs.is_empty() {
         // Every value this arm takes, the earlier one does too.
-        return Ok(Overlap::Covers);
+        return Ok(Overlap::Covers { bound });
     }
     // The earlier row's variables the equations mention and nothing solved,
     // and those their types mention.
@@ -5197,7 +5720,7 @@ fn char_literal(g: &Ev, t: &Term) -> Option<char> {
 
 /// Whether `h` only says a variable isn't some number (`n ≠ k`).
 fn number_overlap(h: &Hyp) -> bool {
-    matches!(h, Hyp::Overlap { vars, eqs, .. }
+    matches!(h, Hyp::Overlap { vars, eqs, guarded: false, .. }
         if vars.is_empty() && eqs.len() == 1 && matches!(eqs[0].1.strip_loc(), Term::Nat(_)))
 }
 
@@ -5207,7 +5730,13 @@ fn merge_chars(g: &Ev, hyps: Vec<Hyp>, shapes: &[std::result::Result<Shape, Stri
     let _ = shapes;
     let single = |h: &Hyp| -> Option<(usize, usize, char)> {
         match h {
-            Hyp::Overlap { row, vars, eqs, .. } if vars.is_empty() && eqs.len() == 1 => {
+            Hyp::Overlap {
+                row,
+                vars,
+                eqs,
+                guarded: false,
+                ..
+            } if vars.is_empty() && eqs.len() == 1 => {
                 let (l, s) = &eqs[0];
                 char_literal(g, s).map(|c| (*row, *l, c))
             }
@@ -5328,6 +5857,10 @@ struct Walk<'a> {
     /// A walk that only reads row `k`'s leaves ([`Elaborator::refined_leaves`]):
     /// them, so far.
     dry: Option<Vec<LeafCtx>>,
+    /// Below a guard, the branch of its `if` the proof is about, at the
+    /// depth given: the goal there is that it is the right side, not `f
+    /// lhs`, which is stuck on the condition.
+    under: Option<(Term, usize)>,
 }
 
 impl<'a> Walk<'a> {
@@ -5358,6 +5891,7 @@ impl<'a> Walk<'a> {
             then: Then::Own,
             shape,
             dry: None,
+            under: None,
         })
     }
 
@@ -5466,6 +6000,9 @@ impl<'a> Walk<'a> {
                 return self.read_leaf(row, fvals, t, path);
             }
             return self.leaf(row, fvals, path);
+        }
+        if let Some(j) = self.d.guard_row_at(path) {
+            return self.guard(j, t, fvals, path);
         }
         match t.strip_loc() {
             Term::Case(ix, data, branches) => {
@@ -5664,6 +6201,8 @@ impl<'a> Walk<'a> {
     fn leaf(&mut self, row: usize, fvals: &[PV], path: &[u32]) -> R<Term> {
         if row == self.k {
             let own = match self.d.kind {
+                // Below a guard the branch computes to the right side.
+                _ if self.under.is_some() => Term::Refl,
                 Kind::Decreasing { unfold, .. } => {
                     let mut args = Vec::new();
                     for (level, v) in fvals.iter().enumerate().take(self.d.tree_params()) {
@@ -5713,7 +6252,10 @@ impl<'a> Walk<'a> {
                     (lhs, q)
                 }
             };
-            let lhs = self.refine(&lhs.shift(&g, depth - self.base, 0)?)?;
+            let lhs = match &self.under {
+                Some((u, at)) => self.refine(&u.shift(&g, depth - at, 0)?)?,
+                None => self.refine(&lhs.shift(&g, depth - self.base, 0)?)?,
+            };
             let then = self.refine(&then)?;
             let motive = Term::Lam(
                 "z".into(),
@@ -5734,47 +6276,14 @@ impl<'a> Walk<'a> {
             return skip("a later arm's leaf is reached from its left side");
         }
         // An earlier row: its hypothesis is refuted here.
-        let (i, h) = self
-            .hyps
-            .iter()
-            .enumerate()
-            .find(|(_, h)| match h {
-                Hyp::Overlap { row: r, .. } => *r == row,
-                Hyp::Listed { rows, .. } => rows.iter().any(|(r, _)| *r == row),
-            })
-            .ok_or_else(|| {
-                Stop::Skip("an earlier arm is reached that no hypothesis rules out".into())
-            })?;
-        let other = self.shapes[row]
-            .as_ref()
-            .map_err(|e| Stop::Skip(e.clone()))?;
-        // The earlier row's variables, as they are here.
-        let mut jvals: HashMap<usize, PV> = HashMap::default();
-        for (level, v) in fvals.iter().enumerate().take(self.d.tree_params()) {
-            if let Some(p) = self.d.param_of_tree_level(level) {
-                self.match_pv(&other.lhs[p], other.depth, v, &mut jvals)?;
-            }
-        }
+        let (i, h) = self.hyp_of(row)?;
         let depth = self.depth();
         let hyp = Term::Var(depth - 1 - (self.tk + i));
         let void = match h {
-            Hyp::Overlap { vars, eqs, .. } => {
-                let mut args = Vec::new();
-                for v in vars {
-                    let pv = jvals.get(v).ok_or_else(|| {
-                        Stop::Skip("an earlier arm's variable has no value here".into())
-                    })?;
-                    args.push((self.term(pv)?, Icit::Explicit));
-                }
-                for (lk, s) in eqs {
-                    let j = self.shapes_tele(lk).ok_or_else(|| {
-                        Stop::Skip("an equation's variable isn't the arm's".into())
-                    })?;
-                    let y = self.pv_in(s, other, &jvals)?;
-                    args.push((self.eq_proof(&PV::Var(j), &y)?, Icit::Explicit));
-                }
-                apps(hyp, args)
+            Hyp::Overlap { guarded: true, .. } | Hyp::NotGuard { .. } | Hyp::Guard => {
+                return skip("a guarded earlier arm's leaf is reached outside its condition");
             }
+            Hyp::Overlap { vars, eqs, .. } => self.overlap_applied(row, fvals, hyp, vars, eqs)?,
             Hyp::Listed { level, rows } => {
                 let j = self
                     .shapes_tele(level)
@@ -5802,11 +6311,391 @@ impl<'a> Walk<'a> {
                 Term::app(hyp, proof)
             }
         };
-        let goal = self.refine(&self.body.shift(&self.g(), depth - self.base, 0)?)?;
+        let goal = self.goal_here()?;
         Ok(apps(
             Term::Def(self.lib()?.exfalso),
             [(goal, Icit::Implicit), (void, Icit::Explicit)],
         ))
+    }
+
+    /// The equation proved here: the statement's, or below a guard, that
+    /// the branch is its right side.
+    fn goal_here(&self) -> R<Term> {
+        let g = self.g();
+        let depth = self.depth();
+        let body = self.body.shift(&g, depth - self.base, 0)?;
+        match (&self.under, &body) {
+            (Some((u, at)), Term::Eq(ty, _, rhs)) => self.refine(&Term::Eq(
+                ty.clone(),
+                Rc::new(u.shift(&g, depth - at, 0)?),
+                rhs.clone(),
+            )),
+            (Some(_), _) => skip("an equation's statement isn't an equation"),
+            (None, _) => self.refine(&body),
+        }
+    }
+
+    /// The right side of the equation proved, here.
+    fn rhs_here(&self) -> R<Term> {
+        match self.goal_here()? {
+            Term::Eq(_, _, ref rhs) => Ok((**rhs).clone()),
+            _ => skip("an equation's statement isn't an equation"),
+        }
+    }
+
+    /// The hypothesis for earlier row `row`, and its position among the
+    /// statement's.
+    fn hyp_of(&self, row: usize) -> R<(usize, &'a Hyp)> {
+        self.hyps
+            .iter()
+            .enumerate()
+            .find(|(_, h)| match h {
+                Hyp::Overlap { row: r, .. } | Hyp::NotGuard { row: r, .. } => *r == row,
+                Hyp::Listed { rows, .. } => rows.iter().any(|(r, _)| *r == row),
+                Hyp::Guard => false,
+            })
+            .ok_or_else(|| {
+                Stop::Skip("an earlier arm is reached that no hypothesis rules out".into())
+            })
+    }
+
+    /// An overlap hypothesis `hyp` for earlier row `row`, applied to that
+    /// row's variables as they are here and the proofs of its equations:
+    /// `Void`, or for a guarded row, `c = True → Void`.
+    fn overlap_applied(
+        &self,
+        row: usize,
+        fvals: &[PV],
+        hyp: Term,
+        vars: &[usize],
+        eqs: &[(usize, Term)],
+    ) -> R<Term> {
+        let other = self.shapes[row]
+            .as_ref()
+            .map_err(|e| Stop::Skip(e.clone()))?;
+        // The earlier row's variables, as they are here.
+        let mut jvals: HashMap<usize, PV> = HashMap::default();
+        for (level, v) in fvals.iter().enumerate().take(self.d.tree_params()) {
+            if let Some(p) = self.d.param_of_tree_level(level) {
+                self.match_pv(&other.lhs[p], other.depth, v, &mut jvals)?;
+            }
+        }
+        let mut args = Vec::new();
+        for v in vars {
+            let pv = jvals
+                .get(v)
+                .ok_or_else(|| Stop::Skip("an earlier arm's variable has no value here".into()))?;
+            args.push((self.term(pv)?, Icit::Explicit));
+        }
+        for (lk, s) in eqs {
+            let j = self
+                .shapes_tele(lk)
+                .ok_or_else(|| Stop::Skip("an equation's variable isn't the arm's".into()))?;
+            let y = self.pv_in(s, other, &jvals)?;
+            args.push((self.eq_proof(&PV::Var(j), &y)?, Icit::Explicit));
+        }
+        Ok(apps(hyp, args))
+    }
+
+    /// `t` (a term of the definition's tree, in a context of `fvals`), here.
+    fn read_tree(&self, t: &Term, fvals: &[PV]) -> R<Term> {
+        let depth = self.depth();
+        let mut terms: Vec<Option<Term>> = Vec::new();
+        for v in fvals {
+            terms.push(Some(match v {
+                PV::Rec => rec_term(self.d, depth),
+                v => self.term(v)?,
+            }));
+        }
+        let g = self.g();
+        let read = remap(&g, t, fvals.len(), depth, &|l| terms[l].clone())?
+            .ok_or_else(|| Stop::Skip("a term of the definition's tree couldn't be read".into()))?;
+        if matches!(self.d.kind, Kind::Decreasing { .. }) {
+            Ok(beta_rec(&g, read)?)
+        } else {
+            Ok(read)
+        }
+    }
+
+    /// The proof for `body`, a branch of a guard's `if` whose binder is
+    /// `binder`: that it, read here, is the right side.
+    fn branch(
+        &mut self,
+        body: &Term,
+        binder: PV,
+        side: u32,
+        fvals: &mut Vec<PV>,
+        path: &mut Vec<u32>,
+    ) -> R<Term> {
+        fvals.push(binder);
+        let read = self.read_tree(body, fvals);
+        let read = match read {
+            Ok(r) => r,
+            Err(e) => {
+                fvals.pop();
+                return Err(e);
+            }
+        };
+        let saved = self.under.replace((read, self.depth()));
+        path.push(side);
+        let r = self.go(body, fvals, path);
+        path.pop();
+        fvals.pop();
+        self.under = saved;
+        r
+    }
+
+    /// At the guard node of row `j`, `t`, the `if` on its condition: for
+    /// row `k` itself, on into the `then` along its `guard` hypothesis; for
+    /// an earlier row, into the `else` along the hypothesis that the
+    /// condition is false here. A proof that the `if` is the right side,
+    /// carried to the statement's left side at the top.
+    fn guard(&mut self, j: usize, t: &Term, fvals: &mut Vec<PV>, path: &mut Vec<u32>) -> R<Term> {
+        let g = self.g();
+        let node = guard_if(&g, t)?;
+        let read = guard_if(&g, &self.read_tree(t, fvals)?)?;
+        let depth = self.depth();
+        let blib = self.e.branch_lib()?;
+        let unit = || -> R<PV> {
+            let (d, c) = g
+                .env
+                .registry()
+                .ctor(Builtin::Trivial)
+                .ok_or_else(|| Stop::Skip("no `Unit`".into()))?;
+            Ok(PV::Term(Term::Ctor(d, c, Vec::new()), depth))
+        };
+        let recorded = self.shapes[j].as_ref().ok().and_then(|s| s.guard.as_ref());
+        // For a condition stated as its proposition but tested by its
+        // `Bool` `toBool d`: `P` and `d` here, to go between the two.
+        let decided = match recorded {
+            Some(r) if r.prop.is_some() => {
+                Some(blib.decided(&read.args[1].0).ok_or_else(|| {
+                    Stop::Skip(
+                        "an arm's condition is a decided proposition in its statement but not \
+                     where the definition tests it"
+                            .into(),
+                    )
+                })?)
+            }
+            _ => None,
+        };
+        if recorded.map(|r| r.dec) != Some(node.dec) {
+            return skip(
+                "an arm's condition is elaborated differently in different cases of the \
+                 definition (`Bool.ifThenElse` in one, `Decidable.elim` in another)",
+            );
+        }
+        if self.dry.is_some() {
+            // Reading row `k`'s leaves: through the branch towards them,
+            // where the binder can't be a hypothesis.
+            let (body, side) = if j == self.k {
+                (&node.then, crate::GUARD_THEN)
+            } else {
+                (&node.otherwise, crate::GUARD_ELSE)
+            };
+            if node.dec && body.mentions(0) {
+                return skip(
+                    "a guarded arm an earlier arm overlaps, whose leaves are read one by one, \
+                     uses its condition's proof",
+                );
+            }
+            fvals.push(unit()?);
+            path.push(side);
+            let r = self.go(body, fvals, path);
+            path.pop();
+            fvals.pop();
+            return r;
+        }
+        let z = self.rhs_here()?;
+        let proof = if j == self.k {
+            let i = self
+                .hyps
+                .iter()
+                .position(|h| matches!(h, Hyp::Guard))
+                .ok_or_else(|| Stop::Skip("its condition has no hypothesis".into()))?;
+            let level = self.tk + i;
+            let hyp = Term::Var(depth - 1 - level);
+            let binder = if node.dec { PV::Var(level) } else { unit()? };
+            let q = self.branch(&node.then, binder, crate::GUARD_THEN, fvals, path)?;
+            if node.dec {
+                let uniq = if node.then.mentions(0) {
+                    Some(
+                        self.e
+                            .uniqueness(&blib, &read.args[0].0, &read.args[2].0, depth)?,
+                    )
+                } else {
+                    None
+                };
+                blib.dec_step(&g, &read.args, true, uniq.as_ref(), None, hyp, depth, &z, q)?
+            } else {
+                let hyp = match &decided {
+                    Some((p, d)) => blib.to_bool_lemma(0, p.clone(), d.clone(), hyp)?,
+                    None => hyp,
+                };
+                blib.ite_step(&g, &read.head, &read.args, hyp, &z, q)?
+            }
+        } else {
+            if !self.d.earlier(self.k).contains(&j) {
+                return skip("a later arm's condition is reached from its left side");
+            }
+            let (i, h) = self.hyp_of(j)?;
+            let hyp = Term::Var(depth - 1 - (self.tk + i));
+            // `c = True → Void` (`P → Void`) for an overlap, else `None`:
+            // the hypothesis is that the condition is false.
+            let refutes = match h {
+                Hyp::Overlap {
+                    vars,
+                    eqs,
+                    guarded: true,
+                    ..
+                } => Some(self.overlap_applied(j, fvals, hyp.clone(), vars, eqs)?),
+                Hyp::NotGuard { .. } => None,
+                _ => return skip("a guarded earlier arm's hypothesis isn't about its condition"),
+            };
+            if !node.dec {
+                let q = self.branch(&node.otherwise, unit()?, crate::GUARD_ELSE, fvals, path)?;
+                match refutes {
+                    None => {
+                        let hyp = match &decided {
+                            Some((p, d)) => blib.to_bool_lemma(1, p.clone(), d.clone(), hyp)?,
+                            None => hyp,
+                        };
+                        blib.ite_step(&g, &read.head, &read.args, hyp, &z, q)?
+                    }
+                    // `Bool.inspect c (y => ite y t e = z) (h => exfalso
+                    // (refutes h)) (_ => q)`.
+                    Some(refutes) => {
+                        let inspect = blib
+                            .inspect
+                            .ok_or_else(|| Stop::Skip("`Bool.inspect` isn't loaded yet".into()))?;
+                        let call = |cond: Term, by: usize| -> R<Term> {
+                            let mut out = read.head.clone();
+                            for (i, (a, icit)) in read.args.iter().enumerate() {
+                                let a = if i == 1 {
+                                    cond.clone()
+                                } else {
+                                    a.shift(&g, by, 0)?
+                                };
+                                out = Term::app_icit(out, a, *icit);
+                            }
+                            Ok(out)
+                        };
+                        let ty = |by: usize| -> R<Option<Rc<Term>>> {
+                            Ok(Some(Rc::new(read.args[0].0.shift(&g, by, 0)?)))
+                        };
+                        let lam = |x: &str, body: Term| {
+                            Term::Lam(x.into(), Icit::Explicit, Rc::new(body))
+                        };
+                        let motive = lam(
+                            "y",
+                            Term::Eq(
+                                ty(1)?,
+                                Rc::new(call(Term::Var(0), 1)?),
+                                Rc::new(z.shift(&g, 1, 0)?),
+                            ),
+                        );
+                        let goal_true = Term::Eq(
+                            ty(1)?,
+                            Rc::new(call(blib.bool_value(true), 1)?),
+                            Rc::new(z.shift(&g, 1, 0)?),
+                        );
+                        let holds = match &decided {
+                            Some((p, d)) => blib.to_bool_lemma(
+                                2,
+                                p.shift(&g, 1, 0)?,
+                                d.shift(&g, 1, 0)?,
+                                Term::Var(0),
+                            )?,
+                            None => Term::Var(0),
+                        };
+                        let yes = lam(
+                            "h",
+                            blib.exfalso(goal_true, Term::app(refutes.shift(&g, 1, 0)?, holds)),
+                        );
+                        let no = lam("h", q.shift(&g, 1, 0)?);
+                        apps(
+                            Term::Def(inspect),
+                            [read.args[1].0.clone(), motive, yes, no]
+                                .into_iter()
+                                .map(|t| (t, Icit::Explicit)),
+                        )
+                    }
+                }
+            } else {
+                // `Decidable.elimEq d y n z (h => exfalso …) (r => q)`, the
+                // `else` read with its binder `r`.
+                let r_level = depth;
+                self.pvals.push(PV::Var(r_level));
+                let q = self.branch(
+                    &node.otherwise,
+                    PV::Var(r_level),
+                    crate::GUARD_ELSE,
+                    fvals,
+                    path,
+                );
+                self.pvals.pop();
+                let q = q?;
+                let normal = blib.bool_test(&read.args[0].0);
+                let void = match (&refutes, &normal) {
+                    (Some(refutes), _) => Term::app(refutes.shift(&g, 1, 0)?, Term::Var(0)),
+                    (None, Some((b, x))) => {
+                        blib.normal_void(&g, b.shift(&g, 1, 0)?, *x, hyp.shift(&g, 1, 0)?)?
+                    }
+                    (None, None) => Term::app(hyp.shift(&g, 1, 0)?, Term::Var(0)),
+                };
+                let y = &read.args[3].0;
+                let Term::Lam(_, _, y_body) = y.strip_loc() else {
+                    return skip("an `if`'s branch isn't a function as elaborated");
+                };
+                let goal_y = Term::Eq(
+                    Some(Rc::new(read.args[1].0.shift(&g, 1, 0)?)),
+                    y_body.clone(),
+                    Rc::new(z.shift(&g, 1, 0)?),
+                );
+                let ey = Term::Lam(
+                    "h".into(),
+                    Icit::Explicit,
+                    Rc::new(blib.exfalso(goal_y, void)),
+                );
+                let en = Term::Lam("r".into(), Icit::Explicit, Rc::new(q));
+                blib.elim_eq(&read.args, z.clone(), ey, en)?
+            }
+        };
+        if self.under.is_some() {
+            return Ok(proof);
+        }
+        // At the top: from `f lhs`, which computes to the `if` (through
+        // `unfold` for `decreasing`), `J (w _ => f lhs = w) own proof`.
+        let own = match self.d.kind {
+            Kind::Decreasing { unfold, .. } => {
+                let mut args = Vec::new();
+                for (level, v) in fvals.iter().enumerate().take(self.d.tree_params()) {
+                    if let Some(i) = self.d.param_of_tree_level(level) {
+                        args.push((self.term(v)?, self.d.binders[i].icit));
+                    }
+                }
+                apps(Term::Def(unfold), args)
+            }
+            _ => Term::Refl,
+        };
+        let lhs = match self.goal_here()? {
+            Term::Eq(_, ref lhs, _) => (**lhs).clone(),
+            _ => return skip("an equation's statement isn't an equation"),
+        };
+        let motive = Term::Lam(
+            "w".into(),
+            Icit::Explicit,
+            Rc::new(Term::Lam(
+                "e".into(),
+                Icit::Explicit,
+                Rc::new(Term::Eq(
+                    None,
+                    Rc::new(lhs.shift(&g, 2, 0)?),
+                    Rc::new(Term::Var(1)),
+                )),
+            )),
+        );
+        Ok(Term::J(Rc::new(motive), Rc::new(own), Rc::new(proof)))
     }
 
     /// The position in the equation's variables of the arm's level `l`.

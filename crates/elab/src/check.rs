@@ -4425,7 +4425,7 @@ fn check_proof_if(
 }
 
 /// The proposition of `if h: cond` and a decision for it.
-fn if_h_condition(cx: &mut Ctx, h: &AstName, cond: &Expr) -> Result<(Term, Term)> {
+pub(crate) fn if_h_condition(cx: &mut Ctx, h: &AstName, cond: &Expr) -> Result<(Term, Term)> {
     let (prop, sort) = check_type(cx, cond).map_err(|e| {
         if e.code == "E-NOT-A-TYPE" {
             e.with_note(format!(

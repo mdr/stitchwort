@@ -1,24 +1,11 @@
 -- expect-error: E-NO-EQUATION
--- Generated equations stop at the first arm with a condition: `f.eq1` is
--- there and unchanged, `f.eq2` says why it isn't (stage 2 will add it).
+-- A guarded arm has an equation taking its condition as a hypothesis, but
+-- not where its right side uses the condition's proof (here `%`'s
+-- `auto` proof that `n ≠ 0`): two proofs of `n ≠ 0` aren't known to be
+-- equal without proof irrelevance (D2180).
 
-def f: Nat → Nat
-  | 0 => 5
-  | n if n > 3 => n
-  | _ => 1
+def remainder: (Nat, Nat) → Nat
+  | (n, len) if n != 0 => len % n
+  | _ => 0
 
-theorem eq1Holds: f 0 = 5 := f.eq1
-
-theorem eq2Missing (n: Nat): f (Succ n) = 7 := f.eq2
-
--- A guarded alternative of a `match` that is an arm's right side: the arm has
--- its equation, the alternatives below it don't.
-def g: Nat → List Nat → Nat
-  | 0, _ => 0
-  | Succ k, xs =>
-    match xs with
-      | [x, .._] if x > k => x
-      | _ => k
-
-theorem g1: g 0 [] = 0 := g.eq1 []
-theorem g2NoCons: g 1 [] = 0 := g.eq2.cons
+theorem usesProof (n len: Nat) (positive: n ≠ 0): remainder (n, len) = len % n := remainder.eq1 n len positive

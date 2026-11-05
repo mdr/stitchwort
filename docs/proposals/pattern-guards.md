@@ -324,8 +324,8 @@ bounds depth only.
   the bad case of §3.5 each copy knows the guards it passed.
 - **By name**: `| x if h: x < n => … h …`. In a proof about a guarded
   function's result, the guard is an `if` in the unfolded term, split as
-  any `if` is: `match e: c with`, `if h: c`, or the generated equations once
-  stage 2 makes them.
+  any `if` is: `match e: c with`, `if h: c`, or the generated equations
+  (§6).
 
 Two things the arm doesn't know: a `Bool` guard gives no fact (as `if`
 gives none; write the proposition, `n != 0` rather than `not (n == 0)`), and
@@ -398,24 +398,61 @@ yet", so naming one is `E-NO-EQUATION` with that reason; no `f.induct` (the
 existing rule). Lifted `match` helpers (clause lambdas) follow the same
 rule through their `SourceArm`s (equations.rs:3592).
 
-**Stage 2 (a separate Opus lane).** What they should be, for the record:
+**Stage 2 (SW-1301), as built.** Stage 1's skip is gone; a guarded arm and
+the arms below it get equations, and `f.induct` its cases, as follows
+(`examples/accept/pattern-guard-equations.sw`).
 
-- The guarded arm K: `f.eqK (vars) (notArmJ …) (guard: c = True): f lhs =
-  rhs`, the hypothesis as `ifTrue`'s is for a `Bool` `if` (equations.rs
-  header, stage 1b), `h: P` for `if h: P`, `guard: P` for a decided
-  proposition. Proved by the walk, which at its own guard node goes into
-  the `then` along the hypothesis (the `J` stage 1b uses for `ifTrue`).
-- An arm L below a guarded arm J that overlaps it: `notArmJ: (vars) → x = p
-  → … → c = True → Void`, Lean's form with the guard as one more premise.
-  When J's patterns match everything L's do (the usual "same pattern, then
-  a fallback"), it is simply `notArmJ: c[σ] = False` (or `Not P[σ]`), with
-  J's variables replaced by L's terms; then nothing in `f.induct` blocks
-  (it's an `if` split, `Bool.inspect`, as for branches).
-- The walk recognises a guard node by the leaf log's guard entries (§3.3),
-  not by the shape of the term, since an arm's own `if` looks the same.
-
-This is the part that generates proof terms for every user of guards, so it
-is Opus work, reviewed as kernel-term changes are.
+- The guarded arm K: `f.eqK (vars) (notArmJ …) (guard: H): f lhs = rhs`,
+  its own condition last. `H` is `P` for a decided proposition, also one
+  the definition tests by its `Bool` (`n != 3` and `n ≠ 3` give `n ≠ 3`,
+  `xs == []` gives `xs = []`; the proof goes between the two with
+  `Decidable.toBoolOf` and `toBoolOfNot`, and `f.induct` with
+  `toBoolSound` and `toBoolFalse`, which a definition with a guard loads),
+  and for `if h: P`, whose hypothesis is named `h`. A comparison's `Bool`
+  (`n <= m`, `a < b`) and any other `Bool` `c` give `c = True`; so does a
+  conjunction (`(a && b) = True`, with `a ≠ 0 ∧ b ≠ 0` read as
+  `(a != 0 && b != 0)`), for now. The
+  walk goes into the guard's `then` along it: for a `Bool`, `J` as stage
+  1b's `ifTrue`; for a decided proposition, `Decidable.elimEq` with the
+  `then`'s proof, and where the right side uses that proof, uniqueness of
+  the decision's proofs (stage 1b's `DecEq.uniqueEq`, D2180).
+- An arm L below J whose patterns J's take all of (the usual "same pattern,
+  then a fallback"): `notArmJ: H'`, J's condition failing at L's terms:
+  `c[σ] = False`, `¬P[σ]`, or, where the definition tests `P` by
+  `Decidable.elim` and `P` is an equation `b = X`, `b = notX` (D2186's form
+  for an `if`'s `else`). The walk takes the guard's `else`.
+- An arm L that overlaps J only in part: Lean's form, `notArmJ: (vars) → x
+  = p → … → H → Void`, the condition one more premise; at J's guard node
+  the walk splits on the condition (`Bool.inspect`, or `Decidable.elimEq`)
+  and refutes the `then` with the hypothesis.
+- Names are the existing scheme's: a guard adds no name (`clamp` has
+  `eq1`, `eq2`), and a guarded arm whose right side is an `if` gets
+  `eqK.ifTrue` and `eqK.ifFalse` as any arm does.
+- **Where the condition is read.** The tree may test a guard in several
+  copies (§3.5), and one under a split made for a row below (`| a, b if a
+  < b => … | a, 0 => …` tests `a < b` under `b`'s split too) is specialised
+  to it, so the hypothesis isn't read off the tree: the condition is
+  elaborated again in the arm's own variables, as `check_if_in` does, and
+  the tree says only which form (`Bool.ifThenElse` or `Decidable.elim`) the
+  definition used.
+- **`f.induct`**: at a guard node the proof splits on the condition
+  (`Bool.inspect` on the `Bool`, or on `b` for `b = X`;
+  `Decidable.elimProof` for another proposition), and the case of K gets
+  `guard`, the cases below `notArmJ`, from that split. A case whose
+  `notArmJ` is Lean's form is refuted only where the patterns differ in a
+  constructor, as for unguarded arms; where it is needed with J's
+  patterns matching (`| [Some x, ..rest] if x > 0 => … | [_, ..rest] =>
+  …`), `f.induct` isn't made, with that reason.
+- **Not generated** (`E-NO-EQUATION`, with the reason):
+  - an arm whose right side uses the proof that an *earlier* arm's
+    condition failed (`Decidable.elim`'s `else` binder): two such proofs
+    aren't known equal without proof irrelevance (D2180);
+  - an arm whose right side uses its own condition's proof where it isn't
+    an equation in a `DecEq` type or a comparison (`| (n, len) if n != 0 =>
+    len % n`, whose `%` takes `n ≠ 0`): the same D2180 limit stage 1b has
+    for `if h:`;
+  - proofs that need a split on an indexed family (`| n, _ if n > 2 => … |
+    Succ m, VCons x _ => …`), stage 1a's existing limit.
 
 ## 7. Abilities in guards
 
@@ -523,7 +560,7 @@ Sizes are [estimate]; the whole is the ticket's 3-4 hours.
 - *`check_if` refactor* (step 2): it is used everywhere; the enum keeps its
   callers' code unchanged, and the existing `if` examples
   (`examples/accept/if-*.sw`, by name with `task test:one`) cover them.
-- *Equations, stage 2*: not in this lane (§6); Opus.
+- *Equations, stage 2*: SW-1301 (§6).
 
 ## Sources
 

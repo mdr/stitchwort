@@ -2526,6 +2526,7 @@ pub(crate) fn decl_refs<'a>(decl: &'a Decl, equations: &'a [Decl]) -> Vec<(Ref<'
                 work.extend(equation_patterns(patterns, &param_types));
                 if let Some(guard) = guard {
                     work.push(Work::Expr(&guard.cond));
+                    work.extend(GUARD_LEMMAS.iter().map(Work::Name));
                     if let Some(h) = &guard.binder {
                         work.push(Work::Bind(&h.text));
                     }
@@ -2649,6 +2650,24 @@ pub(crate) static REWRITE_MARKER: std::sync::LazyLock<ast::Name> =
     std::sync::LazyLock::new(|| ast::Name {
         text: "%rewrite".to_string(),
         span: Span::NOWHERE,
+    });
+
+/// What a guarded arm's generated equations refer to, written nowhere: a
+/// guard on a decided proposition tested by its `Bool` is stated as the
+/// proposition, and its proofs go between the two with these
+/// (`equations.rs`, `BranchLib::to_bool_lemmas`).
+pub(crate) static GUARD_LEMMAS: std::sync::LazyLock<[ast::Name; 4]> =
+    std::sync::LazyLock::new(|| {
+        [
+            "Std.Decidable.toBoolOf",
+            "Std.Decidable.toBoolOfNot",
+            "Std.Decidable.toBoolSound",
+            "Std.Decidable.toBoolFalse",
+        ]
+        .map(|text| ast::Name {
+            text: text.to_string(),
+            span: Span::NOWHERE,
+        })
     });
 
 /// What `x in c` refers to, written nowhere: the proposition on lists and
@@ -3013,6 +3032,7 @@ fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                     }
                     if let Some(guard) = &alt.guard {
                         steps.push(Work::Expr(&guard.cond));
+                        steps.extend(GUARD_LEMMAS.iter().map(Work::Name));
                         if let Some(h) = &guard.binder {
                             steps.push(Work::Bind(&h.text));
                             vars.push(&h.text);
@@ -3123,6 +3143,7 @@ fn local_def_work(def: &ast::LocalDef) -> Vec<Work<'_>> {
         work.extend(equation_patterns(patterns, &param_types));
         if let Some(guard) = guard {
             work.push(Work::Expr(&guard.cond));
+            work.extend(GUARD_LEMMAS.iter().map(Work::Name));
             if let Some(h) = &guard.binder {
                 work.push(Work::Bind(&h.text));
             }
