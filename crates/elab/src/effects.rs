@@ -3362,7 +3362,16 @@ fn comp_ctor_app(
     let HeadType::Ctor(d, c) = head_type(cx, name) else {
         return Ok(None);
     };
-    let slots = ctor_slots(cx, d, c, None)?;
+    // The data type's parameters come from the expected type, so that
+    // `Some (len() < 3)` at `Option Bool` sees a `Bool` field.
+    let params = match expected {
+        Some(t) => match force(&cx.g(), t.clone())? {
+            Value::Data(d2, args) if d2 == d => Some(args),
+            _ => None,
+        },
+        None => None,
+    };
+    let slots = ctor_slots(cx, d, c, params.as_deref())?;
     if args.iter().any(|a| matches!(a, Expr::NamedArg(..)))
         || slots.iter().filter(|s| s.explicit).count() != args.len()
     {
@@ -4223,13 +4232,25 @@ fn comp_compound(
             Expr::Tuple(Box::new(a), Box::new(b), *span)
         }
         Expr::List(items, span) => {
+            // The element type, when the expected type is a list, so that
+            // `[len() < 3]` at `List Bool` decides the comparison.
+            let elem = match expected {
+                Some(t) => match force(&cx.g(), t.clone())? {
+                    Value::Data(d, args) if Ok(d) == data(cx, Builtin::List) && args.len() == 1 => {
+                        Some(args[0].clone())
+                    }
+                    _ => None,
+                },
+                None => None,
+            };
             let mut pure = Vec::new();
             for (i, item) in items.iter().enumerate() {
                 pure.push(match item {
                     Expr::Spread(list, at) => {
                         Expr::Spread(Box::new(part(cx, i, list, &mut bound)?), *at)
                     }
-                    _ => part(cx, i, item, &mut bound)?,
+                    _ if passed.get(i).copied().unwrap_or(false) => item.clone(),
+                    _ => run_argument(cx, item, elem.as_ref(), row, &mut bound)?,
                 });
             }
             Expr::List(pure, *span)
