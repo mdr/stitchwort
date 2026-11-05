@@ -8005,7 +8005,7 @@
         "playground",
         "perf"
       ],
-      "body": "From SW-1384, 5 Nov 2026.",
+      "body": "From SW-1384, 5 Nov 2026.\n\nAlso covers SW-1431 (27-40 s in an AoC project) and SW-1447 (80-195 s in Node, nothing cached between visits), folded in 5 Nov 2026.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8402,14 +8402,14 @@
     {
       "id": 1431,
       "title": "Playground: first diagnostics in an AoC project take 27-40 s (project load); a bundled check cache or lazy library loading",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "playground",
         "perf"
       ],
-      "body": "From SW-1378 (CodeMirror swap), 5 Nov 2026.",
+      "body": "From SW-1378 (CodeMirror swap), 5 Nov 2026.\n\nFolded into SW-1403 (same cause: the project's first load re-checks the whole library; no check cache in the browser), 5 Nov 2026.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8636,13 +8636,13 @@
     {
       "id": 1447,
       "title": "Playground: the first check of the AoC project takes 80-195 s in Node (about 120 s before the first marks under load) and nothing is cached between visits",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "playground"
       ],
-      "body": "From SW-1430, 5 Nov 2026.",
+      "body": "From SW-1430, 5 Nov 2026.\n\nFolded into SW-1403 (same cause: the project's first load re-checks the whole library; no check cache in the browser), 5 Nov 2026.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
