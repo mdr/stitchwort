@@ -1,5 +1,5 @@
 {
-  "next": 1302,
+  "next": 1304,
   "tickets": [
     {
       "id": 47,
@@ -6573,6 +6573,34 @@
       "body": "Follows SW-1295. docs/proposals/pattern-guards.md records what stage 2 should generate. Generates kernel terms: Opus, with an independent review.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
+      "commits": []
+    },
+    {
+      "id": 1302,
+      "title": "task audit:touched fails when run in a worktree or from the repo root ('no stitchwort.yaml')",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "body": "Reported by three lanes and a verifier on 4-5 Nov: nix develop -c task audit:touched -- <Ns> gives 'there's no stitchwort.yaml in … or any folder above it' unless run from aoc/; lanes then ran stitchwort audit directly. Make the task find the project (cd into aoc/ when the namespace starts with Aoc., games/rogue for Rogue., or take a DIR), and say in its error which directory to run from.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1303,
+      "title": "AoC: move remaining sites to match / match some / matches (partial-lambdas stage 3)",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1303",
+      "labels": [
+        "aoc"
+      ],
+      "body": "Stage 3 of docs/proposals/partial-lambdas.md (D2370 spellings): the sites in §3 and §7 that don't need guards: lookup tables ending in _ => None as := match some | … bodies, helpers defined only for filterMap, filterMap lambdas that take a pair or Option apart, the Boolean tables and tests as matches, and lambdas whose body matches their parameter as match | …. Leave 2024 day 3's setting (P7). Already done in SW-1294: 2021 day 16 operationOf, 2021 day 10 illegalOf, 2024 day 3 isDont.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
       "commits": []
     }
   ]
