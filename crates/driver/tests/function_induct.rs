@@ -65,7 +65,7 @@ def rating (choose: List Bool → Bool): (columns: Nat) → List (List Bool) →
   | Succ later, numbers => rating choose later numbers |> Option.map (Cons True)
 
 -- Not generated: a call under a binder whose argument is the bound
--- variable; a case whose equation isn't (`gcd.eq.ifFalse`, D2180).
+-- variable.
 def lengths: Nat → List Nat → List Nat
   | Zero, xs => xs
   | Succ n, xs => List.map xs (x => List.length (lengths n [x]))
@@ -240,11 +240,8 @@ fn each_kind_of_recursion_and_split() {
         );
         let why = skipped(s, "lengths.induct");
         assert!(why.contains("binder"), "{why}");
-        let why = skipped(s, "gcd.induct");
-        assert!(
-            why.contains("gcd.eq.ifFalse") && why.contains("D2180"),
-            "{why}"
-        );
+        // `gcd`'s `else` uses `h` only in `%`'s inert proof (SW-1429).
+        generated(s, "gcd.induct");
         // Not recursive: neither made nor recorded.
         let g = &s.elab.ev();
         assert!(!g.env.defs().iter().any(|d| &**d.name() == "double.induct"));
@@ -408,9 +405,8 @@ theorem unfoldNone (seed: s) (step: s → Option (Pair a s)) (measure: s → Nat
     });
 }
 
-/// Using them: a theorem by each, the motive written out; `E-NO-EQUATION`
-/// with the reason for one that isn't generated, a note for a definition
-/// that isn't recursive, and the name reserved.
+/// Using them: a theorem by each, the motive written out; a note for a
+/// definition that isn't recursive, and the name reserved.
 #[test]
 fn using_them_and_their_names() {
     let used = format!(
@@ -442,8 +438,6 @@ theorem firstBigBig (xs: List Nat) (y: Nat): firstBig xs = Some y → Nat.leq 10
     let wrong = format!(
         "{SOURCE}\n{}",
         r#"
-theorem a (a: Nat) (b: Nat): gcd a b = gcd a b := gcd.induct (a b r => r = r) _ _ a b
-
 theorem b (n: Nat): double n = double n := double.induct (n r => r = r) n
 
 def Count: List Nat → Nat
@@ -462,7 +456,7 @@ theorem Count.induct: Nat := 0
             codes.sort_unstable();
             assert_eq!(
                 codes,
-                ["E-DUPLICATE", "E-NO-EQUATION", "E-UNKNOWN-NAME"],
+                ["E-DUPLICATE", "E-UNKNOWN-NAME"],
                 "{errors:#?}"
             );
             let find = |code: &str| errors.iter().find(|d| d.code == code).unwrap();
@@ -470,11 +464,6 @@ theorem Count.induct: Nat := 0
             assert!(
                 duplicate.message.contains("functional induction"),
                 "{duplicate:#?}"
-            );
-            let no_eq = find("E-NO-EQUATION");
-            assert!(
-                no_eq.labels.iter().any(|l| l.message.contains("D2180")),
-                "{no_eq:#?}"
             );
             let unknown = find("E-UNKNOWN-NAME");
             assert!(

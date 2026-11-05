@@ -2365,6 +2365,33 @@ Also:
    whose `h` reaches only inert parameters and fields; update hash
    snapshots. No `Prop.irrel`
    in the prelude unless a program needs it (question 2).
+
+   **As built (SW-1429, 5 November 2026).**
+   - `canonical` is deleted: 167 lines of `crates/elab/src/lib.rs` (the
+     function and its callers' plumbing, 7 lines added back) and 7 of
+     `state/decl.rs` (`Tree::Leaf::canon`, `Decl::char_proofs`). Every char-pattern example and proof, `std`,
+     `examples/` and `aoc/` check without it. One thing depended on it
+     indirectly: the equations generator read a char row's left side as
+     `MkChar k rfl` because `canonical` had put `rfl` in the arm's goal; it
+     now replaces a proof variable of a computed `Bool` equation by `rfl`
+     itself (`is_computed_bool_eq`, about 30 lines).
+   - `Char.mkExt` is `J` with `rfl` in the base case (no `Bool.uniqueEq`);
+     `Int.modNatToInt`, `Int.toIntDiv` and `Int.toIntMod` take one `auto`
+     proof (`Nat.toIntNeZero d ok` states the `Int` side); `Text.decEq`'s
+     and `Text.split`'s runtime pins moved with `Char.ext`.
+   - `Bool.canonicalTrue` stays. `Float.make` is `{ bits = n, valid =
+     canonicalTrue … p }` so that a native's result (`valid = rfl`) and the
+     definition's normal form are the *same term*, which the float gate
+     (`float_gate.rs`, D731, `the_float_natives_agree_with_their_definitions`)
+     compares textually, "proofs included". Removing it leaves
+     the definitions' normal forms with stuck proofs in `valid`, convertible
+     with `rfl` but not equal as terms. Doing it means the gate compares
+     modulo inert proofs; that is a change to what the natives are trusted
+     to match, not a clean-up, and is left for a decision.
+   - The `if h:` limit: a branch whose `h` reaches only inert positions gets
+     its equation (`proof_is_inert_in`, function-equations.md §3.5). The
+     remaining cases (an `else` that computes on its proof of `¬p`, a row
+     under an earlier guard's false proof) are unchanged.
 3. **Later, if a program needs it**: proofs that are *context variables*.
    `conv` would take one mark per context variable ("its type is a
    proposition"; the checker has the types), so two neutral values whose
