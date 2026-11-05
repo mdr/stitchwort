@@ -6282,14 +6282,14 @@
     {
       "id": 1281,
       "title": "Test that the VS Code grammar and the playground highlight every lexer keyword",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1281",
       "labels": [
         "editor",
         "tests"
       ],
-      "body": "The problem: the keyword lists in editors/vscode/syntaxes/stitchwort.tmLanguage.json and web/index.html (KEYWORDS) are hand-copied from crates/syntax/src/lexer.rs; include was missing from both until 4 Nov 2026 (Matt noticed it coloured like a function). The change: a test (e.g. in crates/syntax or editors/vscode/test/grammar.test.js) that reads the lexer's keyword table and checks both lists contain every keyword. What it should do: adding a keyword to the lexer without the highlighters fails a test. DeepSeek candidate.\n\nDeepSeek (f37c193fc, ~35 min): crates/syntax/tests/keywords.rs reads both highlighters and checks they list every word in a new lexer::keywords(); no keyword was missing. Review: keywords() is a third hand-copied list (beside Tok::keyword() and the lexer's word match), so a keyword added to the lexer but not to keywords() still isn't caught. Sent to Sonnet to make the lexer, Tok::keyword and keywords() share one table. Model result: DeepSeek, needed fixes (a third copy of the list instead of reading the lexer's), ~35 min (est. 45).",
+      "body": "The problem: the keyword lists in editors/vscode/syntaxes/stitchwort.tmLanguage.json and web/index.html (KEYWORDS) are hand-copied from crates/syntax/src/lexer.rs; include was missing from both until 4 Nov 2026 (Matt noticed it coloured like a function). The change: a test (e.g. in crates/syntax or editors/vscode/test/grammar.test.js) that reads the lexer's keyword table and checks both lists contain every keyword. What it should do: adding a keyword to the lexer without the highlighters fails a test. DeepSeek candidate.\n\nDeepSeek (f37c193fc, ~35 min): crates/syntax/tests/keywords.rs reads both highlighters and checks they list every word in a new lexer::keywords(); no keyword was missing. Review: keywords() is a third hand-copied list (beside Tok::keyword() and the lexer's word match), so a keyword added to the lexer but not to keywords() still isn't caught. Sent to Sonnet to make the lexer, Tok::keyword and keywords() share one table. Model result: DeepSeek, needed fixes (a third copy of the list instead of reading the lexer's), ~35 min (est. 45).\n\nSonnet follow-up (d9e18fdd0, ~10 min): one keyword_table! macro generates the lexer's lookup, Tok::keyword() and keywords(); a keyword is added in one place. Syntax lane 214, keyword tests, hash_stability unchanged, clippy clean. Reviewed. Model result: Sonnet, worked, 10 min (est. 30).",
       "created": "2026-11-04",
       "updated": "2026-11-05",
       "commits": []
