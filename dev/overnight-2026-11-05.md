@@ -1,0 +1,64 @@
+# Overnight run, 5–6 Nov 2026 (until about 8am)
+
+Matt's instructions, 5 Nov ~22:45–23:00. This file survives compaction: reread it
+after a summary.
+
+## Rules for the night
+
+- **Keep working until about 8am** if there's valuable work to pick up. Don't idle
+  slots (up to three lanes).
+- **Usage:** check `~/.claude/usage.json` (`seven_day.used_percentage`) at least
+  hourly and before each new lane. From 80%: start no new lanes. Above 85%:
+  pause work for the night. At the start: 54% used, 72% of the week gone,
+  pace 0.75, resets 7 Nov 21:00. A heartbeat script
+  (`scratchpad/heartbeat.sh`, run in the background) wakes the orchestrator
+  hourly or as soon as usage reaches 85%; restart it each time it fires.
+- **Decisions:** make small and medium decisions myself and list them in the
+  morning summary; defer large ones (direction, language or kernel design,
+  anything Matt would want to weigh) as D questions for the morning.
+- **No daily or full tier** overnight (D2444). Matt may run one in the morning.
+- **Don't get stuck:** no huge test runs. Checks after a merge stay about two
+  minutes (D2441): targeted tests picked by recorded time, `audit:touched` for
+  proof lanes, nothing else. Lanes keep to their time estimates (stop at
+  1.5×, end at 3×). A DeepSeek run stopped at 2× if it's going in circles.
+  If something hangs, stop it and move on rather than wait.
+- The playground server is off (Matt, 5 Nov ~22:55); port 8000 is free.
+
+## Priorities
+
+1. **The main editor track** (D2439, speed first, then the capabilities
+   discussed). Language-server lanes run one at a time:
+   - SW-1117 (small editor wins: import quick fix, signature help, `let`
+     hints, semantic tokens): done, closing test gaps before merge.
+   - SW-1459 (a broken shared file floods its dependents with E-UNKNOWN-NAME).
+   - SW-1446 and SW-1456 (stack limits: nested operations; native vs wasm).
+   - SW-1439 (dot-call links).
+   - Std cache follow-ups: SW-1458 (proof-search worker), SW-1460 (one
+     decoded copy instead of three), SW-1455 (shrink the 7.5 MB cache).
+   - SW-1117's findings: unused `let` hints; same-short-name signature lookup.
+2. **AoC 2020** on Opus (D2427): day 10 (SW-1461, D2442), then day 11 without
+   a friction review in between (D2443); "feel free to carry on further if you
+   have time", but aim for 10/11. Days' ticket-worthy findings get filed.
+3. **Small fixes in parallel**, known ones or found along the way: e.g.
+   SW-1398 (browser-test helper), SW-1073 (f.induct skips), single findings
+   split out of SW-741 / SW-758 / SW-762. Only work with a clear benefit.
+4. Bigger, only with room: SW-745 (Map/Set list-model lemmas, 2024 day 9
+   part 2), SW-1029 (audit stage 2). Leave SW-199 (well-founded recursion)
+   for daytime.
+
+## Morning summary (for Matt, about 8am)
+
+- What merged, each ticket with its bracket hint, organised by the priorities
+  above.
+- What's running or stopped, and why.
+- Day 10 and 11 friction notes ready to review (`aoc/NOTES-2020.md`).
+- Small and medium decisions I made overnight.
+- Open D questions (large decisions), each with a recommendation.
+- Usage at the end.
+
+## Log
+
+- 22:45 Started: SW-1461 (2020 day 10, Opus), SW-1398 (DeepSeek). SW-1117
+  (Sonnet) closing test gaps. Merged earlier tonight: SW-1403, SW-1422/1437,
+  SW-1424, SW-1442, SW-1443, SW-1441, SW-1432/1454, SW-1433, SW-1449,
+  SW-1445 (doc part); SW-1457 closed (nothing to do).
