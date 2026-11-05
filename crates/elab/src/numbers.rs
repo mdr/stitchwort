@@ -2008,6 +2008,7 @@ pub(crate) fn has_number(expr: &Expr) -> bool {
                 scrutinees, alts, ..
             } => {
                 stack.extend(scrutinees.iter().map(|s| &s.expr));
+                stack.extend(alts.iter().flat_map(|a| a.guard.iter().map(|g| &g.cond)));
                 stack.extend(alts.iter().map(|a| &a.body));
             }
             Expr::Induct { call, alts, .. } => {

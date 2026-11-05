@@ -261,6 +261,7 @@ fn alternatives(
                 let pattern =
                     internal_ctor_pattern(comp, done, vec![Pattern::Var(var.clone())], var.span);
                 alts.push(Alt {
+                    guard: None,
                     patterns: vec![pattern],
                     body: body.clone(),
                     span: var.span.to(body.span()),
@@ -336,6 +337,7 @@ fn alternatives(
                 let pattern =
                     internal_ctor_pattern(comp, call, vec![operation, continuation], op.span);
                 alts.push(Alt {
+                    guard: None,
                     patterns: vec![pattern],
                     body: body.clone(),
                     span: op.span.to(body.span()),

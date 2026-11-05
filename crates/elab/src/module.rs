@@ -2513,12 +2513,27 @@ pub(crate) fn decl_refs<'a>(decl: &'a Decl, equations: &'a [Decl]) -> Vec<(Ref<'
             let param_types = explicit_param_types(ty, equations);
             let mut body = Vec::new();
             for eq in equations {
-                let Decl::Equation { patterns, rhs, .. } = eq else {
+                let Decl::Equation {
+                    patterns,
+                    guard,
+                    rhs,
+                    ..
+                } = eq
+                else {
                     continue;
                 };
                 let mut work: Vec<Work> = binders.iter().map(|x| Work::Bind(x)).collect();
                 work.extend(equation_patterns(patterns, &param_types));
+                if let Some(guard) = guard {
+                    work.push(Work::Expr(&guard.cond));
+                    if let Some(h) = &guard.binder {
+                        work.push(Work::Bind(&h.text));
+                    }
+                }
                 work.extend(rhs.iter().map(Work::Expr));
+                if let Some(h) = guard.as_ref().and_then(|g| g.binder.as_ref()) {
+                    work.push(Work::Unbind(&h.text));
+                }
                 body.extend(names_and_proofs(work));
             }
             // A recursive call with no `[decreasing := …]` is proved by
@@ -2996,6 +3011,13 @@ fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                         pattern_binders(p, &mut vars);
                         steps.push(Work::Pattern(p));
                     }
+                    if let Some(guard) = &alt.guard {
+                        steps.push(Work::Expr(&guard.cond));
+                        if let Some(h) = &guard.binder {
+                            steps.push(Work::Bind(&h.text));
+                            vars.push(&h.text);
+                        }
+                    }
                     steps.push(Work::Expr(&alt.body));
                     steps.extend(vars.into_iter().map(Work::Unbind));
                 }
@@ -3084,7 +3106,13 @@ fn local_def_work(def: &ast::LocalDef) -> Vec<Work<'_>> {
     let binders = body_binders(ty, &def.equations);
     let param_types = explicit_param_types(ty, &def.equations);
     for eq in &def.equations {
-        let Decl::Equation { patterns, rhs, .. } = eq else {
+        let Decl::Equation {
+            patterns,
+            guard,
+            rhs,
+            ..
+        } = eq
+        else {
             continue;
         };
         let mut vars = Vec::new();
@@ -3093,7 +3121,16 @@ fn local_def_work(def: &ast::LocalDef) -> Vec<Work<'_>> {
         }
         work.extend(binders.iter().map(|x| Work::Bind(x)));
         work.extend(equation_patterns(patterns, &param_types));
+        if let Some(guard) = guard {
+            work.push(Work::Expr(&guard.cond));
+            if let Some(h) = &guard.binder {
+                work.push(Work::Bind(&h.text));
+            }
+        }
         work.extend(rhs.iter().map(Work::Expr));
+        if let Some(h) = guard.as_ref().and_then(|g| g.binder.as_ref()) {
+            work.push(Work::Unbind(&h.text));
+        }
         work.extend(vars.into_iter().map(Work::Unbind));
         work.extend(binders.iter().map(|x| Work::Unbind(x)));
     }

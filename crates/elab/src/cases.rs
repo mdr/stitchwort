@@ -1765,6 +1765,7 @@ fn split_on(cx: &mut Ctx, run: &Rc<Run>, atom: Atom, goal: &Value, fallback: boo
                 .count();
             let fields = (0..explicit).map(|_| Pattern::Wildcard(run.span)).collect();
             Alt {
+                guard: None,
                 patterns: vec![crate::internal_ctor_pattern(atom.d, c, fields, run.span)],
                 body: Expr::Cases {
                     body: run.body.clone(),

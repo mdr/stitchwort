@@ -210,6 +210,7 @@ impl Elaborator {
         let mut patterns = vec![pattern(&a), pattern(&b)];
         patterns.extend(data_fields.iter().map(|&k| Pattern::Var(n(&hyp(k)))));
         let equation = Decl::Equation {
+            guard: None,
             name,
             patterns,
             rhs: Some(proof),

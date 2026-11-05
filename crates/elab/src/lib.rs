@@ -1541,6 +1541,7 @@ impl Elaborator {
                     *span,
                 ));
                 Decl::Equation {
+                    guard: None,
                     name: res_name.clone(),
                     patterns,
                     rhs: Some(cod.clone()),
@@ -1644,6 +1645,7 @@ impl Elaborator {
                 ));
                 patterns.push(Pattern::Var(n("%k".into())));
                 Decl::Equation {
+                    guard: None,
                     name: elim_name.clone(),
                     patterns,
                     rhs: Some(apps(var(&clause(i)), vec![var(&x_name(x).text), var("%k")])),
@@ -4773,6 +4775,7 @@ pub(crate) fn mentions_ability(expr: &ast::Expr, name: &str) -> bool {
                 scrutinees, alts, ..
             } => {
                 pending.extend(scrutinees.iter().map(|s| &s.expr));
+                pending.extend(alts.iter().flat_map(|a| a.guard.iter().map(|g| &g.cond)));
                 pending.extend(alts.iter().map(|a| &a.body));
             }
             _ => {}

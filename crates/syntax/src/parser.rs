@@ -12,7 +12,7 @@
 //! one ending in an operator (like `->`) continues it too.
 
 use crate::ast::{
-    Alt, BinOp, Binder, Bracket, CalcStep, Clause, CtorDecl, Decl, Expr, Import, ImportItem,
+    Alt, BinOp, Binder, Bracket, CalcStep, Clause, CtorDecl, Decl, Expr, Guard, Import, ImportItem,
     InductAlt, LocalDef, MatchKind, Mode, Module, Name, NamespaceDecl, NegForm, Pattern,
     RewriteRule, Row, SECTION, Scrutinee,
 };
@@ -529,6 +529,9 @@ struct Parser<'t> {
     /// at. An `in` outside brackets ends it (`in` is an ordinary name
     /// elsewhere).
     rewrite_rule: Option<usize>,
+    /// While an arm's guard is being parsed: the token it starts at. A `=>`
+    /// outside brackets ends it, so `| x if flag => e` is not a lambda.
+    guard_start: Option<usize>,
     /// Whether an `at` outside brackets, after the first token, ends the
     /// `rewrite` rule too: true for a rule, false for the target after `at`.
     rewrite_at: bool,
@@ -671,6 +674,7 @@ fn bind_let(stmt: Stmt, rest: Expr) -> Expr {
             Expr::Match {
                 scrutinees: vec![Scrutinee { name: None, expr }],
                 alts: vec![Alt {
+                    guard: None,
                     patterns: vec![pattern],
                     body: rest,
                     span: alt_span,
@@ -702,6 +706,7 @@ impl<'t> Parser<'t> {
             allow: None,
             calc_depth: 0,
             rewrite_rule: None,
+            guard_start: None,
             rewrite_at: false,
             let_value: None,
             matching: match_brackets(tokens),
@@ -756,6 +761,12 @@ impl<'t> Parser<'t> {
         {
             return true;
         }
+        if let Some(start) = self.guard_start
+            && self.tokens.get(i).is_some_and(|t| t.tok == Tok::FatArrow)
+            && self.bracket_depth(start, i) <= 0
+        {
+            return true;
+        }
         let Some(limit) = self.limit else {
             return false;
         };
@@ -781,12 +792,44 @@ impl<'t> Parser<'t> {
         if !word || (i > 0 && self.tokens[i - 1].tok == Tok::Dot) {
             return false;
         }
-        let depth = self.tokens[start..i].iter().fold(0i64, |d, t| match t.tok {
+        self.bracket_depth(start, i) <= 0
+    }
+
+    /// How many brackets opened in the tokens `start..i` are still open.
+    fn bracket_depth(&self, start: usize, i: usize) -> i64 {
+        self.tokens[start..i].iter().fold(0i64, |d, t| match t.tok {
             Tok::LBracket | Tok::LParen | Tok::LBrace => d + 1,
             Tok::RBracket | Tok::RParen | Tok::RBrace => d - 1,
             _ => d,
-        });
-        depth <= 0
+        })
+    }
+
+    /// `if c` or `if h: P` after an arm's patterns, if there is one
+    /// (docs/proposals/pattern-guards.md §2). The condition runs up to a
+    /// `=>` outside brackets, or to the end of the arm.
+    #[inline(never)]
+    pub(super) fn guard(&mut self) -> Result<Option<Guard>> {
+        if self.peek() != Some(&Tok::KwIf) {
+            return Ok(None);
+        }
+        let start = self.bump().span;
+        let binder =
+            if matches!(self.peek(), Some(Tok::Lower(_))) && self.peek_at(1) == Some(&Tok::Colon) {
+                let name = self.lower("a name")?;
+                self.bump();
+                Some(name)
+            } else {
+                None
+            };
+        let saved = self.guard_start.replace(self.pos);
+        let cond = self.expr();
+        self.guard_start = saved;
+        let cond = cond?;
+        Ok(Some(Guard {
+            binder,
+            span: start.to(cond.span()),
+            cond,
+        }))
     }
 
     /// Whether the token at `i`, a `,` or a closing bracket, is inside an
@@ -2518,11 +2561,13 @@ impl<'t> Parser<'t> {
                 )
                 .into());
             }
+            let guard = self.guard()?;
             self.expect_fat_arrow("`=>`")?;
             let body = self.expr()?;
             alts.push(Alt {
                 span: bar.to(body.span()),
                 patterns,
+                guard,
                 body,
             });
         }
@@ -2601,6 +2646,7 @@ impl<'t> Parser<'t> {
                 )
                 .into());
             }
+            let guard = self.guard()?;
             let body = if kind == MatchKind::ClauseMatches && self.peek() != Some(&Tok::FatArrow) {
                 library_var("Std.Bool.True", Span::point(bar.file, bar.start))
             } else {
@@ -2617,6 +2663,7 @@ impl<'t> Parser<'t> {
             alts.push(Alt {
                 span: bar.to(self.prev_span()),
                 patterns,
+                guard,
                 body,
             });
         }
@@ -2633,6 +2680,7 @@ impl<'t> Parser<'t> {
             };
             alts.push(Alt {
                 patterns: vec![Pattern::Wildcard(keyword); arity],
+                guard: None,
                 body: library_var(rest, Span::point(keyword.file, keyword.start)),
                 span: Span::point(end.file, end.end),
             });
@@ -2680,6 +2728,7 @@ impl<'t> Parser<'t> {
                             | Tok::Arrow
                             | Tok::FatArrow
                             | Tok::Pipe
+                            | Tok::KwIf
                             // After the last pattern of a `matches | A` in brackets.
                             | Tok::RParen
                             | Tok::RBracket
@@ -2833,6 +2882,7 @@ impl<'t> Parser<'t> {
             Expr::Match {
                 scrutinees,
                 alts: vec![Alt {
+                    guard: None,
                     patterns,
                     body,
                     span: alt_span,
@@ -6131,6 +6181,67 @@ mod tests {
         assert_eq!(alts[0].patterns.len(), 1);
         assert!(matches!(alts[0].patterns[0], Pattern::Or(..)));
         assert!(matches!(rhs("def f: T := matches + 1\n"), Expr::Binary(..)));
+    }
+
+    #[test]
+    fn guards_follow_the_patterns_and_end_at_the_arrow() {
+        // `flag => e` is not a lambda inside a guard.
+        let e = bracketed_arg("match some | x if flag => x");
+        let (alts, _) = clause_parts(&e);
+        let guard = alts[0].guard.as_ref().expect("a guard");
+        assert!(guard.binder.is_none());
+        assert!(matches!(&guard.cond, Expr::Var(n) if n.text == "flag"));
+        assert!(alts[1].guard.is_none());
+
+        // A pipe, a comparison, a named fact.
+        let e = bracketed_arg("match some | (a, b) if xs |> f => a");
+        let (alts, _) = clause_parts(&e);
+        assert!(matches!(
+            alts[0].guard.as_ref().unwrap().cond,
+            Expr::Pipe(..)
+        ));
+        let e = bracketed_arg("match some | (a, b) if h: a < b => a");
+        let (alts, _) = clause_parts(&e);
+        assert_eq!(
+            alts[0]
+                .guard
+                .as_ref()
+                .unwrap()
+                .binder
+                .as_ref()
+                .unwrap()
+                .text,
+            "h"
+        );
+
+        // A lambda in brackets inside the guard is still a lambda.
+        let e = bracketed_arg("match some | xs if xs.any (x => x > 0) => xs");
+        let (alts, _) = clause_parts(&e);
+        assert!(alts[0].guard.is_some());
+
+        // One guard over an or-pattern; none on the `matches` result.
+        let e = bracketed_arg("matches | 1 | 2 if strict");
+        let (alts, kind) = clause_parts(&e);
+        assert_eq!(kind, MatchKind::ClauseMatches);
+        assert!(matches!(alts[0].patterns[0], Pattern::Or(..)));
+        assert!(alts[0].guard.is_some());
+
+        // A constructor's arguments stop at `if`, in a `match` on one line.
+        let e = rhs("def f: T := match n with | Some x if x > 0 => x | _ => 0\n");
+        let (_, alts) = match_parts(&e);
+        assert!(alts[0].guard.is_some() && alts[1].guard.is_none());
+
+        // A definition's arm.
+        let module = parse("def f: Nat → Nat\n  | n if n > 2 => n\n  | _ => 0\n");
+        let guards: Vec<bool> = module
+            .decls
+            .iter()
+            .filter_map(|d| match d {
+                Decl::Equation { guard, .. } => Some(guard.is_some()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(guards, [true, false]);
     }
 
     #[test]

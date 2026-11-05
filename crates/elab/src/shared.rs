@@ -694,6 +694,7 @@ fn update_match(
                 body = Expr::App(Box::new(body), Box::new(arg));
             }
             Alt {
+                guard: None,
                 patterns: vec![Pattern::Ctor(name(key), patterns, span)],
                 body,
                 span,

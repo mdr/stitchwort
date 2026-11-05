@@ -1404,7 +1404,13 @@ impl Walk<'_> {
         work.push(Work::Expr(ty));
         let binders = body_binders(ty, equations);
         for eq in equations {
-            let Decl::Equation { patterns, rhs, .. } = eq else {
+            let Decl::Equation {
+                patterns,
+                guard,
+                rhs,
+                ..
+            } = eq
+            else {
                 continue;
             };
             work.extend(binders.iter().map(|n| Work::Bind(n)));
@@ -1413,7 +1419,16 @@ impl Walk<'_> {
                 pattern_binders(p, &mut vars);
                 work.push(Work::Pattern(p));
             }
+            if let Some(guard) = guard {
+                work.push(Work::Expr(&guard.cond));
+                if let Some(h) = &guard.binder {
+                    work.push(Work::Bind(h));
+                }
+            }
             work.extend(rhs.iter().map(Work::Expr));
+            if let Some(h) = guard.as_ref().and_then(|g| g.binder.as_ref()) {
+                work.push(Work::Unbind(&h.text));
+            }
             work.extend(vars.into_iter().map(Work::Unbind));
             work.extend(binders.iter().map(|n| Work::Unbind(&n.text)));
         }
@@ -1428,7 +1443,13 @@ impl Walk<'_> {
         let mut work = vec![Work::Expr(ty)];
         let binders = body_binders(ty, &def.equations);
         for eq in &def.equations {
-            let Decl::Equation { patterns, rhs, .. } = eq else {
+            let Decl::Equation {
+                patterns,
+                guard,
+                rhs,
+                ..
+            } = eq
+            else {
                 continue;
             };
             work.extend(binders.iter().map(|n| Work::Bind(n)));
@@ -1437,7 +1458,16 @@ impl Walk<'_> {
                 pattern_binders(p, &mut vars);
                 work.push(Work::Pattern(p));
             }
+            if let Some(guard) = guard {
+                work.push(Work::Expr(&guard.cond));
+                if let Some(h) = &guard.binder {
+                    work.push(Work::Bind(h));
+                }
+            }
             work.extend(rhs.iter().map(Work::Expr));
+            if let Some(h) = guard.as_ref().and_then(|g| g.binder.as_ref()) {
+                work.push(Work::Unbind(&h.text));
+            }
             work.extend(vars.into_iter().map(Work::Unbind));
             work.extend(binders.iter().map(|n| Work::Unbind(&n.text)));
         }
@@ -1654,6 +1684,13 @@ impl Walk<'_> {
                         for p in &alt.patterns {
                             pattern_binders(p, &mut vars);
                             steps.push(Work::Pattern(p));
+                        }
+                        if let Some(guard) = &alt.guard {
+                            steps.push(Work::Expr(&guard.cond));
+                            if let Some(h) = &guard.binder {
+                                steps.push(Work::Bind(h));
+                                vars.push(&h.text);
+                            }
                         }
                         steps.push(Work::Expr(&alt.body));
                         steps.extend(vars.into_iter().map(Work::Unbind));

@@ -560,6 +560,10 @@ fn walk_at(
                 for p in &alt.patterns {
                     pattern_vars(p, bound);
                 }
+                if let Some(guard) = &alt.guard {
+                    walk(e, &guard.cond, bound, false, uses)?;
+                    bound.extend(guard.binder.iter().map(|h| h.text.clone()));
+                }
                 walk(e, &alt.body, bound, false, uses)?;
                 bound.truncate(before);
             }

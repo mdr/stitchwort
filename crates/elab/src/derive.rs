@@ -1103,6 +1103,7 @@ impl Elaborator {
                     };
                 }
                 equations.push(Decl::Equation {
+                    guard: None,
                     name: name.clone(),
                     patterns: vec![pattern(&a), pattern(&b)],
                     rhs: Some(body),
@@ -1146,6 +1147,7 @@ impl Elaborator {
                 differs.push((
                     signature(&differ_name, ty, false),
                     Decl::Equation {
+                        guard: None,
                         name: differ_name,
                         patterns: ["%r", "%s", "%t", "%e"]
                             .iter()
@@ -1161,6 +1163,7 @@ impl Elaborator {
                     vec![var("%r"), var("%s"), var("rfl")],
                 );
                 equations.push(Decl::Equation {
+                    guard: None,
                     name: name.clone(),
                     patterns: vec![Pattern::Var(n("%r")), Pattern::Var(n("%s"))],
                     rhs: Some(apps(var("Std.Decidable.No"), vec![refute])),
@@ -1176,6 +1179,7 @@ impl Elaborator {
         let instance = (
             signature(&instance_name, instance_ty, true),
             vec![Decl::Equation {
+                guard: None,
                 name: instance_name,
                 patterns: Vec::new(),
                 rhs: Some(Expr::Record {

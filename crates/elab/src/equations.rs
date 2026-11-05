@@ -519,6 +519,7 @@ fn probe_body(rhs: Option<&Expr>, span: Span, known: &[String]) -> Expr {
                         .map(str::to_string),
                 );
                 Alt {
+                    guard: None,
                     patterns: a.patterns.clone(),
                     body: probe_body(Some(&a.body), a.span, &inner),
                     span: a.span,
@@ -2199,11 +2200,13 @@ impl Elaborator {
                     scrutinees: scrutinees.clone(),
                     alts: vec![
                         Alt {
+                            guard: None,
                             patterns: patterns.clone(),
                             body,
                             span: probe_span,
                         },
                         Alt {
+                            guard: None,
                             patterns: scrutinees
                                 .iter()
                                 .map(|_| Pattern::Wildcard(other_span))
@@ -2227,11 +2230,13 @@ impl Elaborator {
                     .collect(),
                 alts: vec![
                     Alt {
+                        guard: None,
                         patterns: row.patterns.clone(),
                         body,
                         span: probe_span,
                     },
                     Alt {
+                        guard: None,
                         patterns: d
                             .columns
                             .iter()
@@ -4934,6 +4939,7 @@ impl Elaborator {
                                 .map(str::to_string),
                         );
                         Alt {
+                            guard: None,
                             patterns: a.patterns.clone(),
                             body: probe_body(a.rhs.as_ref(), a.span, &known),
                             span: a.span,
