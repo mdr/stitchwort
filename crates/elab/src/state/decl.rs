@@ -155,6 +155,9 @@ pub(crate) struct Decl {
     /// one pattern match is compiled. (Before SW-1149 it grew over the
     /// session, emptied only by a rewind.)
     pub(crate) char_patterns: RefCell<HashMap<Span, char>>,
+    /// Whether a term written so far holds a `Decidable.andTagged`
+    /// (`logic::tag_decision`), for [`Elaborator::finish`] to settle.
+    pub(crate) tagged_conjunctions: Cell<bool>,
     /// The guarded rows' `else` trees made so far by the pattern match being
     /// compiled, which bound how much a guard may copy (`MAX_GUARD_NODES`).
     pub(crate) guard_nodes: Cell<usize>,
@@ -219,6 +222,7 @@ impl Decl {
             tuple_matches,
             char_patterns,
             guard_nodes,
+            tagged_conjunctions,
         } = self;
         let fields = [
             ("sides_capture", sides_capture.borrow().is_empty()),
@@ -250,6 +254,7 @@ impl Decl {
             ("tuple_matches", tuple_matches.borrow().is_empty()),
             ("char_patterns", char_patterns.borrow().is_empty()),
             ("guard_nodes", guard_nodes.get() == 0),
+            ("tagged_conjunctions", !tagged_conjunctions.get()),
         ];
         fields
             .into_iter()

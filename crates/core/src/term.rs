@@ -599,6 +599,79 @@ impl Term {
         })
     }
 
+    /// This term with `f` applied to each sub-term after its own sub-terms
+    /// have been rewritten; `f` returns `None` to keep the sub-term.
+    pub fn rewrite_up(
+        &self,
+        g: &Ev,
+        f: &mut dyn FnMut(&Term) -> Result<Option<Term>>,
+    ) -> Result<Term> {
+        g.machine.budget.nesting("elaborator")?;
+        let go = |t: &Rc<Term>, f: &mut dyn FnMut(&Term) -> Result<Option<Term>>| {
+            Ok::<_, crate::budget::ResourceError>(Rc::new(t.rewrite_up(g, f)?))
+        };
+        let rebuilt = match self {
+            Term::Var(_)
+            | Term::Def(_)
+            | Term::Nat(_)
+            | Term::Chars(_)
+            | Term::Sort(_)
+            | Term::Refl
+            | Term::Meta(_) => self.clone(),
+            Term::Data(d, args) => {
+                Term::Data(*d, args.iter().map(|a| go(a, f)).collect::<Result<_>>()?)
+            }
+            Term::Ctor(d, c, args) => Term::Ctor(
+                *d,
+                *c,
+                args.iter().map(|a| go(a, f)).collect::<Result<_>>()?,
+            ),
+            Term::Pi(x, i, a, b) => Term::Pi(x.clone(), *i, go(a, f)?, go(b, f)?),
+            Term::Lam(x, i, b) => Term::Lam(x.clone(), *i, go(b, f)?),
+            Term::App(h, a, i) => Term::App(go(h, f)?, go(a, f)?, *i),
+            Term::Ann(e, t) => Term::Ann(go(e, f)?, go(t, f)?),
+            Term::Let(x, a, v, b, e) => Term::Let(x.clone(), go(a, f)?, go(v, f)?, go(b, f)?, *e),
+            Term::Case(ix, d, branches) => Term::Case(
+                *ix,
+                *d,
+                branches
+                    .iter()
+                    .map(|b| {
+                        Ok(Branch {
+                            names: b.names.clone(),
+                            body: b.body.as_ref().map(|body| go(body, f)).transpose()?,
+                        })
+                    })
+                    .collect::<Result<_>>()?,
+            ),
+            Term::NumCase(ix, arms, default) => Term::NumCase(
+                *ix,
+                arms.iter()
+                    .map(|a| {
+                        Ok(NumArm {
+                            value: a.value.clone(),
+                            body: go(&a.body, f)?,
+                        })
+                    })
+                    .collect::<Result<_>>()?,
+                go(default, f)?,
+            ),
+            Term::Eq(ty, a, b) => Term::Eq(
+                ty.as_ref().map(|t| go(t, f)).transpose()?,
+                go(a, f)?,
+                go(b, f)?,
+            ),
+            Term::J(m, b, p) => Term::J(go(m, f)?, go(b, f)?, go(p, f)?),
+            Term::Quot(form, args, erased) => Term::Quot(
+                *form,
+                args.iter().map(|a| go(a, f)).collect::<Result<_>>()?,
+                *erased,
+            ),
+            Term::Loc(span, t) => Term::Loc(*span, go(t, f)?),
+        };
+        Ok(f(&rebuilt)?.unwrap_or(rebuilt))
+    }
+
     /// Whether variable `ix` occurs free.
     pub fn mentions(&self, ix: usize) -> bool {
         self.subterms().any(|(t, binders)| match t {
