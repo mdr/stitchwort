@@ -8206,7 +8206,7 @@
       "agent": "",
       "where": "",
       "labels": [
-        "10 that doesn't unfold to Nat.equal (Char.lineFeedCodeIs needs eleven cases today)|std"
+        "std"
       ],
       "body": "From SW-1401, 5 Nov 2026. Small improvement.",
       "created": "2026-11-05",
