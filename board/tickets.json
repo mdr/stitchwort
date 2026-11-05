@@ -7558,9 +7558,9 @@
     {
       "id": 1372,
       "title": "Use Std's Parse.eachMap where days re-prove it by hand: 2020 day 3 eachSquare, 2020 day 5 eachHalf, 2021 day 16 digitsBits",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1372",
       "labels": [
         "aoc"
       ],
