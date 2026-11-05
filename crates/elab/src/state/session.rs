@@ -73,7 +73,7 @@ pub struct Session {
     /// What every unit's key holds of the library besides the text of the
     /// files it loads (`cache::Elaborator::library_interface`). Computed
     /// once.
-    pub(crate) library_digest: OnceCell<cache::Key>,
+    pub(crate) library_interface_digest: OnceCell<cache::Key>,
     /// What the postponement queue and the unifier counted.
     pub(crate) stats: Arc<Stats>,
     /// Which unit made each declaration, and which is being elaborated
@@ -123,7 +123,7 @@ impl Session {
             standalone_inputs: _,
             instance_waits: _,
             cache_stats: _,
-            library_digest: _,
+            library_interface_digest: _,
             stats: _,
         } = self;
         Mark {
@@ -158,7 +158,7 @@ impl Session {
             standalone_inputs: _,
             instance_waits: _,
             cache_stats: _,
-            library_digest: _,
+            library_interface_digest: _,
             stats: _,
         } = self;
         *project_namespaces = mark.project_namespaces.clone();

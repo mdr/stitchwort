@@ -578,6 +578,102 @@ fn check_with_std(project: &Path, std_dir: &Path, cache: Option<&Path>) -> (Stri
     (printed, missed)
 }
 
+/// A project with `files`, a copy of the library to edit, and an empty cache.
+fn std_edit_fixture(name: &str, files: &[(&str, &str)]) -> (PathBuf, PathBuf, PathBuf) {
+    let project = temp_dir(name);
+    std::fs::write(project.join("stitchwort.yaml"), "sources: [src]\n").unwrap();
+    std::fs::create_dir_all(project.join("src")).unwrap();
+    for (path, text) in files {
+        std::fs::write(project.join(path), text).unwrap();
+    }
+    let std_dir = temp_dir(&format!("{name}-std"));
+    copy_dir(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../elab/src/std"),
+        &std_dir,
+    );
+    (project, std_dir, temp_dir(&format!("{name}-cache")))
+}
+
+/// A `check` of `project` from `cache` prints what a fresh one does, and
+/// elaborates `expect` again. A namespace is elaborated again if its entry
+/// didn't fit (a miss), or its key changed so that there was none to try.
+/// (One with errors writes no entry, so only its output shows it.)
+fn check_step(
+    (project, std_dir, cache): (&Path, &Path, &Path),
+    what: &str,
+    expect: &[&str],
+) -> String {
+    let (fresh, _) = check_with_std(project, std_dir, None);
+    let before = if cache.join("check").exists() {
+        namespace_entry_keys(cache)
+    } else {
+        Default::default()
+    };
+    let (cached, mut missed) = check_with_std(project, std_dir, Some(cache));
+    for (unit, key) in namespace_entry_keys(cache) {
+        if before.get(&unit).is_some_and(|old| *old != key) {
+            missed.push(unit);
+        }
+    }
+    missed.sort();
+    missed.dedup();
+    assert!(
+        cached == fresh,
+        "{what}: the cache changed what `check` prints: {}",
+        first_difference(&fresh, &cached)
+    );
+    assert_eq!(missed, expect, "{what}: namespaces elaborated again");
+    fresh
+}
+
+/// Replaces the first `from` in the library file `file` of `std_dir`.
+fn edit_std(std_dir: &Path, file: &str, from: &str, to: &str) {
+    let path = std_dir.join(file);
+    let old = std::fs::read_to_string(&path).unwrap();
+    assert!(old.contains(from), "{file} has no `{from}`");
+    std::fs::write(path, old.replacen(from, to, 1)).unwrap();
+}
+
+/// Lemma lookups (`rewrite`, `decreasing`, `auto`) see the library files
+/// loaded in the run, not only those a namespace names: `B` never names
+/// `Option`'s lemma file, but its `rewrite` finds `Option.mapCong` there
+/// because `A` loaded it. An entry is a miss when any file loaded when it
+/// was written has changed.
+#[test]
+fn an_entry_is_a_miss_when_a_library_file_loaded_beside_it_changed() {
+    let (project, std_dir, cache) = std_edit_fixture(
+        "std-lookup",
+        &[
+            (
+                "src/A.sw",
+                "namespace A\nimport Std (Option)\n\n\
+                 theorem idem (x: Option Nat): Option.map x (y => y) = x := Option.mapId x\n",
+            ),
+            (
+                "src/B.sw",
+                "namespace B\nimport Std (Option)\n\ndef inc (x: Nat): Nat := Succ x\n\n\
+                 theorem incIs (x: Nat): inc x = Succ x := rfl\n\n\
+                 theorem t (o: Option Nat): Option.map o (x => inc x) = Option.map o (x => Succ x) := \
+                 rewrite incIs\n",
+            ),
+        ],
+    );
+    let dirs = (&*project, &*std_dir, &*cache);
+    check_step(dirs, "cold", &[]);
+    check_step(dirs, "warm", &[]);
+    edit_std(
+        &std_dir,
+        "Option/Lemmas.sw",
+        "Option.map x f1 = Option.map x f2\n  | None, f1, f2, ef => rfl\n  | Some y, f1, f2, ef => Eq.cong Some (ef y)",
+        "Option.map x f1 = Option.map x f1\n  | None, f1, f2, ef => rfl\n  | Some y, f1, f2, ef => rfl",
+    );
+    let after = check_step(dirs, "a lemma found by lookup changed", &["A", "B"]);
+    assert!(after.contains("E-REWRITE-CONG"), "{after}");
+    let _ = std::fs::remove_dir_all(&project);
+    let _ = std::fs::remove_dir_all(&std_dir);
+    let _ = std::fs::remove_dir_all(&cache);
+}
+
 /// An edit to the library's text reaches exactly the namespaces whose
 /// results it can change, and the cache never hides what a fresh check
 /// reports (the check cache's key holds no copy of the library's text; it
@@ -585,7 +681,6 @@ fn check_with_std(project: &Path, std_dir: &Path, cache: Option<&Path>) -> (Stri
 /// namespace loads).
 #[test]
 fn a_library_edit_re_checks_what_it_can_change_and_nothing_else() {
-    let project = temp_dir("std-edit");
     let files: &[(&str, &str)] = &[
         ("src/Plain.sw", "namespace Plain\n\ndef three: Nat := 3\n"),
         (
@@ -605,54 +700,15 @@ fn a_library_edit_re_checks_what_it_can_change_and_nothing_else() {
                  def hi: Text := bold \"hi\"\n",
         ),
     ];
-    std::fs::write(project.join("stitchwort.yaml"), "sources: [src]\n").unwrap();
-    std::fs::create_dir_all(project.join("src")).unwrap();
-    for (path, text) in files {
-        std::fs::write(project.join(path), text).unwrap();
-    }
-    let std_dir = temp_dir("std-edit-std");
-    copy_dir(
-        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../elab/src/std"),
-        &std_dir,
-    );
-    let cache = temp_dir("std-edit-cache");
-    // A namespace is checked again if its entry didn't fit (a miss), or its
-    // key changed so that there was none to try. (One with errors writes no
-    // entry, so only its output shows it.)
-    let check = |what: &str, expect: &[&str]| {
-        let (fresh, _) = check_with_std(&project, &std_dir, None);
-        let before = if cache.join("check").exists() {
-            namespace_entry_keys(&cache)
-        } else {
-            Default::default()
-        };
-        let (cached, mut missed) = check_with_std(&project, &std_dir, Some(&cache));
-        for (unit, key) in namespace_entry_keys(&cache) {
-            if before.get(&unit).is_some_and(|old| *old != key) {
-                missed.push(unit);
-            }
-        }
-        missed.sort();
-        missed.dedup();
-        assert!(
-            cached == fresh,
-            "{what}: the cache changed what `check` prints: {}",
-            first_difference(&fresh, &cached)
-        );
-        assert_eq!(missed, expect, "{what}: namespaces elaborated again");
-        fresh
-    };
+    let (project, std_dir, cache) = std_edit_fixture("std-edit", files);
+    let dirs = (&*project, &*std_dir, &*cache);
+    let check = |what: &str, expect: &[&str]| check_step(dirs, what, expect);
     let append = |file: &str, text: &str| {
         let path = std_dir.join(file);
         let old = std::fs::read_to_string(&path).unwrap();
         std::fs::write(path, old + text).unwrap();
     };
-    let replace = |file: &str, from: &str, to: &str| {
-        let path = std_dir.join(file);
-        let old = std::fs::read_to_string(&path).unwrap();
-        assert!(old.contains(from), "{file} has no `{from}`");
-        std::fs::write(path, old.replacen(from, to, 1)).unwrap();
-    };
+    let replace = |file: &str, from: &str, to: &str| edit_std(&std_dir, file, from, to);
 
     let first = check("cold", &[]);
     assert!(first.contains("status Some(0)"), "{first}");
@@ -663,10 +719,15 @@ fn a_library_edit_re_checks_what_it_can_change_and_nothing_else() {
     append("Graph/Search.sw", "\n-- a comment\n");
     check("a comment in a file nothing loads", &[]);
 
-    // A body that `Fancy` and `Wild` use (through `Ansi`) changes; `Plain`
-    // and `Sum` load nothing that reaches it. `Fancy`'s theorem now fails.
+    // A body that `Fancy` and `Wild` use (through `Ansi`) changes. `Plain`
+    // and `Sum` don't use it, but their entries list every library file
+    // loaded when they were written, `Ansi`'s among them (lemma lookups see
+    // those), so they are checked again too. `Fancy`'s theorem now fails.
     replace("Terminal/Ansi.sw", "\\u{1b}[1m${text}", "\\u{1b}[2m${text}");
-    let after = check("a used definition's body changed", &["Fancy", "Wild"]);
+    let after = check(
+        "a used definition's body changed",
+        &["Fancy", "Plain", "Sum", "Wild"],
+    );
     assert!(after.contains("E-REFL"), "{after}");
 
     // A name nothing uses is added, to a file nothing loads: a name can make

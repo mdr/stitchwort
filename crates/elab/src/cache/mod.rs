@@ -31,7 +31,7 @@
 //!   files' names and text, the project's namespaces and `stitchwort.yaml`)
 //!   and the keys of the namespaces it depends on (a Merkle chain). Which
 //!   library files a namespace loads is only known once it is elaborated,
-//!   so its entry lists them with the key each had, and replay (and a plain
+//!   so its entry lists them, and every file loaded when it was written (lemma lookups see those too), with the key each had, and replay (and a plain
 //!   `check` deciding to leave the namespace out) first compares them
 //!   with the keys now. The files it `include`s are listed in its entry
 //!   with a hash of their text, and read again to check them.
@@ -511,7 +511,7 @@ impl Elaborator {
     /// only the units that load the file (their keys cover the text of the
     /// files they need, [`Self::library_keys`]). Computed once.
     fn library_interface(&self) -> Key {
-        *self.session.library_digest.get_or_init(|| {
+        *self.session.library_interface_digest.get_or_init(|| {
             let mut h = blake3::Hasher::new();
             let mut part = |bytes: &[u8]| {
                 h.update(&(bytes.len() as u64).to_le_bytes());
@@ -815,7 +815,13 @@ impl Elaborator {
             dots: needs.dots.iter().cloned().collect(),
             equations: needs.equations.iter().cloned().collect(),
             library: {
-                let roots = self.needed_roots(needs);
+                // Also every file loaded now: lemma lookups (`rewrite`,
+                // `decreasing`, `auto`) see the files loaded in the run,
+                // not only those the namespace names.
+                let mut roots = self.needed_roots(needs);
+                if let Some(lib) = &self.session.library {
+                    roots.extend(lib.order.iter().copied().filter(|&f| f != 0));
+                }
                 let keys = self.library_keys(&roots);
                 roots
                     .iter()
