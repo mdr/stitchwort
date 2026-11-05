@@ -15,11 +15,11 @@
 --| such neighbours. The proofs that both answers are the puzzle's, for every
 --| height map, are in `Aoc.Year2021.Day09.Proofs` (Proofs/), and the tests
 --| in `Aoc.Year2021.Day09.Tests` (Tests/); `run` checks neither.
--- Positions, neighbours, the parser and the grid's graph are the shared grid
--- code's (`Aoc.Common`, Common/Grid.sw).
+-- Positions, neighbours, lookups, the parser and the grid's graph are the
+-- shared grid code's (`Aoc.Common`, Common/Grid.sw).
 
 namespace Aoc.Year2021.Day09
-import Aoc.Common (Grid, Position, cellAt, cells, cellsGraph, parseGrid)
+import Aoc.Common (Grid, Position, parseGrid)
 import Std (Fail, Fin, Graph, IO, List, Map, Nat, Option, Ord, Parse, Text)
 import Std.Parse (digit)
 
@@ -28,20 +28,18 @@ def main(): {IO, Fail} () :=
   IO.print "Part 1: ${solvePart1 map}"
   IO.print "Part 2: ${solvePart2 map}"
 
---| The heights, row by row: digits, so 0 to 9 by their type.
-type HeightMap = { rows: List (List (Fin 10)) }
+--| The heights of the floor: digits, so 0 to 9 by their type.
+type HeightMap = { grid: Grid (Fin 10) }
 
 --| One row of digits per line, every row as long as the first (the
 --| puzzle's map is a rectangle; `parseGrid` checks it).
-def parseHeightMap (input: Text): {Fail} HeightMap := HeightMap.ofGrid (parseGrid input digit)
-
-def HeightMap.ofGrid (grid: Grid (Fin 10)): HeightMap := { rows = grid.rows }
+def parseHeightMap (input: Text): {Fail} HeightMap := { grid = parseGrid input digit }
 
 --| Every location with its height, row by row.
-def HeightMap.cells (map: HeightMap): List (Position, Nat) := cells map.rows |> .map (((at, height)) => (at, height.toNat))
+def HeightMap.cells (map: HeightMap): List (Position, Nat) := map.grid.cells |> .map (((at, height)) => (at, height.toNat))
 
 --| The height at `position`; `None` off the map.
-def HeightMap.heightAt (map: HeightMap) (position: Position): Option Nat := cellAt map.rows position |> .map Fin.toNat
+def HeightMap.heightAt (map: HeightMap) (position: Position): Option Nat := map.grid.at position |> .map Fin.toNat
 
 --| Lower than every neighbour (up, right, down and left) on the map. A
 --| neighbour past the far edges has no height.
@@ -61,7 +59,7 @@ def enterOpen (position: Position) (height: Fin 10): Option Nat := if height.toN
 
 --| The map as a graph for std's search: a step to each neighbour that
 --| isn't a 9.
-def HeightMap.graph (map: HeightMap): Graph Position := cellsGraph map.rows enterOpen
+def HeightMap.graph (map: HeightMap): Graph Position := map.grid.graph enterOpen
 
 --| The number of locations in the basin of `low`: those the flood fill
 --| from it reaches in `graph`, the map's. A 9 is in no basin (and a low
