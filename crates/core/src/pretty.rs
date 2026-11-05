@@ -15,7 +15,7 @@ use crate::collections::HashMap;
 use crate::globals::{CallDefaults, DefaultCall, PlaceholderText};
 use crate::registry::Builtin;
 use crate::term::{DataId, DefId, Icit, Name, Sort, Term};
-use crate::value::{Value, quote_shown, quote_unfolded_shown, same_term};
+use crate::value::{Value, proof_field, proof_param, quote_shown, quote_unfolded_shown, same_term};
 
 /// A declaration a printed name stands for.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -228,7 +228,7 @@ fn difference(
     a: &Term,
     b: &Term,
 ) -> Option<Difference> {
-    let found = match first_mismatch(g, a, b, true, &mut Path::new(names)) {
+    let found = match first_mismatch(g, a, b, true, false, &mut Path::new(names)) {
         Ok(Some(found)) if !found.outermost => found,
         _ => return None,
     };
@@ -271,8 +271,17 @@ fn difference(
 /// Whether `a` and `b` differ, but only in the arguments the compiler fills
 /// in: implicit and `auto` arguments.
 pub fn differ_only_in_hidden(g: &Ev, a: &Term, b: &Term) -> bool {
-    let compare = |explicit_only| first_mismatch(g, a, b, explicit_only, &mut Path::new(&[]));
+    let compare =
+        |explicit_only| first_mismatch(g, a, b, explicit_only, false, &mut Path::new(&[]));
     matches!(compare(true), Ok(None)) && matches!(compare(false), Ok(Some(_)))
+}
+
+/// Whether `a` and `b` differ, but only in proof positions: a constructor's
+/// proof field, a data type's proof parameter, or a definition's inert
+/// argument.
+pub fn differ_only_in_proofs(g: &Ev, a: &Term, b: &Term) -> bool {
+    let compare = |skip_proofs| first_mismatch(g, a, b, false, skip_proofs, &mut Path::new(&[]));
+    matches!(compare(false), Ok(Some(_))) && matches!(compare(true), Ok(None))
 }
 
 /// [`value_for_message`], for a term.
@@ -2382,15 +2391,29 @@ fn leq_succ_pair(g: &Ev, a: &Term, b: &Term) -> bool {
 /// The first place, in printing order, where `a` and `b` differ; with
 /// `explicit_only`, implicit and `auto` arguments aren't compared. A number
 /// and the `Succ` it stands for are alike.
-fn first_mismatch(g: &Ev, a: &Term, b: &Term, explicit_only: bool, path: &mut Path) -> Compared {
+fn first_mismatch(
+    g: &Ev,
+    a: &Term,
+    b: &Term,
+    explicit_only: bool,
+    skip_proofs: bool,
+    path: &mut Path,
+) -> Compared {
     path.depth += 1;
-    let found = mismatch_within(g, a, b, explicit_only, path);
+    let found = mismatch_within(g, a, b, explicit_only, skip_proofs, path);
     path.depth -= 1;
     found
 }
 
 /// [`first_mismatch`], one layer in.
-fn mismatch_within(g: &Ev, a: &Term, b: &Term, explicit_only: bool, path: &mut Path) -> Compared {
+fn mismatch_within(
+    g: &Ev,
+    a: &Term,
+    b: &Term,
+    explicit_only: bool,
+    skip_proofs: bool,
+    path: &mut Path,
+) -> Compared {
     if g.machine.budget.stack_exhausted() {
         return Err(TooDeep);
     }
@@ -2407,7 +2430,7 @@ fn mismatch_within(g: &Ev, a: &Term, b: &Term, explicit_only: bool, path: &mut P
     // Each pair in turn, stopping at the first that differs.
     let pairs = |path: &mut Path, pairs: &mut dyn Iterator<Item = (&Term, &Term)>| -> Compared {
         for (x, y) in pairs {
-            if let Some(found) = first_mismatch(g, x, y, explicit_only, path)? {
+            if let Some(found) = first_mismatch(g, x, y, explicit_only, skip_proofs, path)? {
                 return Ok(Some(found));
             }
         }
@@ -2418,7 +2441,7 @@ fn mismatch_within(g: &Ev, a: &Term, b: &Term, explicit_only: bool, path: &mut P
     let under = |path: &mut Path, binders: &[Name], x: &Term, y: &Term| -> Compared {
         path.names.extend(binders.iter().cloned());
         path.depth -= 1;
-        let found = first_mismatch(g, x, y, explicit_only, path);
+        let found = first_mismatch(g, x, y, explicit_only, skip_proofs, path);
         path.depth += 1;
         path.names.truncate(path.names.len() - binders.len());
         found
@@ -2441,21 +2464,33 @@ fn mismatch_within(g: &Ev, a: &Term, b: &Term, explicit_only: bool, path: &mut P
             {
                 let pred = Term::Nat(Rc::new(n.as_ref() - 1u32));
                 return if matches!(a, Term::Nat(_)) {
-                    first_mismatch(g, &pred, field, explicit_only, path)
+                    first_mismatch(g, &pred, field, explicit_only, skip_proofs, path)
                 } else {
-                    first_mismatch(g, field, &pred, explicit_only, path)
+                    first_mismatch(g, field, &pred, explicit_only, skip_proofs, path)
                 };
             } else {
                 false
             }
         }
         (Term::Data(d, xs), Term::Data(e, ys)) if d == e && xs.len() == ys.len() => {
-            return pairs(path, &mut xs.iter().zip(ys).map(|(x, y)| (&**x, &**y)));
+            let args = xs.iter().zip(ys).enumerate();
+            return pairs(
+                path,
+                &mut args.filter_map(|(k, (x, y))| {
+                    (!skip_proofs || !proof_param(g, *d, k)).then_some((&**x, &**y))
+                }),
+            );
         }
         (Term::Ctor(d, c, xs), Term::Ctor(e, k, ys))
             if d == e && c == k && xs.len() == ys.len() =>
         {
-            return pairs(path, &mut xs.iter().zip(ys).map(|(x, y)| (&**x, &**y)));
+            let fields = xs.iter().zip(ys).enumerate();
+            return pairs(
+                path,
+                &mut fields.filter_map(|(i, (x, y))| {
+                    (!skip_proofs || !proof_field(g, *d, *c, i)).then_some((&**x, &**y))
+                }),
+            );
         }
         (Term::App(..), Term::App(..)) => {
             // `<` against `<=` differs in a `Succ` the printed comparison
@@ -2465,9 +2500,13 @@ fn mismatch_within(g: &Ev, a: &Term, b: &Term, explicit_only: bool, path: &mut P
             }
             let ((f, xs), (h, ys)) = (full_spine(a), full_spine(b));
             let shape = xs.len() == ys.len() && xs.iter().zip(&ys).all(|(x, y)| x.1 == y.1);
-            if !shape || first_mismatch(g, f, h, explicit_only, path)?.is_some() {
+            if !shape || first_mismatch(g, f, h, explicit_only, skip_proofs, path)?.is_some() {
                 return here(path);
             }
+            let head = match f.strip_loc() {
+                Term::Def(id) => Some(*id),
+                _ => None,
+            };
             path.calls.push(CallPair {
                 left: a.clone(),
                 right: b.clone(),
@@ -2479,8 +2518,12 @@ fn mismatch_within(g: &Ev, a: &Term, b: &Term, explicit_only: bool, path: &mut P
                 &mut xs
                     .iter()
                     .zip(&ys)
-                    .filter(|(x, _)| !(explicit_only && x.1.is_implicit()))
-                    .map(|(x, y)| (x.0, y.0)),
+                    .enumerate()
+                    .filter(|(i, (x, _))| {
+                        !(explicit_only && x.1.is_implicit())
+                            && !(skip_proofs && head.is_some_and(|id| g.env.def(id).is_inert(*i)))
+                    })
+                    .map(|(_, (x, y))| (x.0, y.0)),
             );
             path.calls.pop();
             return found;
@@ -2489,13 +2532,13 @@ fn mismatch_within(g: &Ev, a: &Term, b: &Term, explicit_only: bool, path: &mut P
             return under(path, std::slice::from_ref(x), body, other);
         }
         (Term::Pi(x, i, s, t), Term::Pi(_, j, u, v)) if i == j => {
-            if let Some(found) = first_mismatch(g, s, u, explicit_only, path)? {
+            if let Some(found) = first_mismatch(g, s, u, explicit_only, skip_proofs, path)? {
                 return Ok(Some(found));
             }
             return under(path, std::slice::from_ref(x), t, v);
         }
         (Term::Let(x, _, v, body, _), Term::Let(_, _, w, other, _)) => {
-            if let Some(found) = first_mismatch(g, v, w, explicit_only, path)? {
+            if let Some(found) = first_mismatch(g, v, w, explicit_only, skip_proofs, path)? {
                 return Ok(Some(found));
             }
             return under(path, std::slice::from_ref(x), body, other);
