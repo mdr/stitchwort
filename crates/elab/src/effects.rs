@@ -3368,15 +3368,15 @@ fn comp_ctor_app(
     {
         return Ok(None);
     }
-    cx.e.note_name(name);
     let passed = passed_args(cx, head, &args, 0)?;
     let mut bound = Vec::new();
     let mut pure = head.clone();
-    for (arg, &passed) in args.iter().zip(&passed) {
+    let explicit: Vec<&ParamSlot> = slots.iter().filter(|s| s.explicit).collect();
+    for ((arg, &passed), slot) in args.iter().zip(&passed).zip(explicit) {
         let arg = if passed {
             (*arg).clone()
         } else {
-            run_first(cx, arg, row, &mut bound)?
+            run_argument(cx, arg, Some(&slot.ty), row, &mut bound)?
         };
         pure = Expr::App(Box::new(pure), Box::new(arg));
     }

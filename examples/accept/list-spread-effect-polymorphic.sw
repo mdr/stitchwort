@@ -25,3 +25,16 @@ def mapPure: List a → (f: a → b) → List b
 
 test "same results" :=
   mapSpread [1, 2, 3] (x => x + 1) = mapCons [1, 2, 3] (x => x + 1)
+
+-- A comparison that performs, in a Bool field, is decided (SW-573).
+def orNone: Option Text → Text
+  | None => "none"
+  | Some t => t
+
+def len(): {IO} Nat := (orNone IO.readLine()).length
+
+type Flag = | MkFlag (b: Bool)
+type Flags = | MkFlags (n: Nat) (b: Bool)
+
+def flag(): {IO} Flag := MkFlag (len() < 3)
+def flags(): {IO} Flags := MkFlags 1 (len() < 3)
