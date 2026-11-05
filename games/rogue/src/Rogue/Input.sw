@@ -17,17 +17,15 @@ def commandOf (key: Key): Option Command :=
     | _ => None
 
 --| The command of a printable key, if any.
-def commandOfChar (char: Char): Option Command :=
-  match char with
-    | 'k' | 'w' => Some (Move North)
-    | 'j' | 's' => Some (Move South)
-    | 'h' | 'a' => Some (Move West)
-    | 'l' | 'd' => Some (Move East)
-    | '.' => Some Wait
-    | '>' => Some Descend
-    | 'p' => Some Drink
-    | 'q' => Some Quit
-    | _ => None
+def commandOfChar: Char → Option Command := match some
+  | 'k' | 'w' => Move North
+  | 'j' | 's' => Move South
+  | 'h' | 'a' => Move West
+  | 'l' | 'd' => Move East
+  | '.' => Wait
+  | '>' => Descend
+  | 'p' => Drink
+  | 'q' => Quit
 
 --| The next key's command: `None` for a key that isn't one (`Unknown`
 --| included), and `Quit` at the end of the input.
