@@ -1,5 +1,5 @@
 {
-  "next": 1464,
+  "next": 1465,
   "tickets": [
     {
       "id": 47,
@@ -7926,13 +7926,13 @@
     {
       "id": 1398,
       "title": "Browser tests: whereIs should throw when its needle is missing instead of using indexOf -1 (gave wrong positions silently)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1398",
       "labels": [
         "tests"
       ],
-      "body": "From SW-1385, 5 Nov 2026. Small improvement.\n\nBoard audit (5 Nov 2026): clashes with SW-1378 (rewrites web/index.html and web/tests/browser.mjs): start after it merges.\n\nStarted on DeepSeek, expected: 20 min (1 browser run).",
+      "body": "From SW-1385, 5 Nov 2026. Small improvement.\n\nBoard audit (5 Nov 2026): clashes with SW-1378 (rewrites web/index.html and web/tests/browser.mjs): start after it merges.\n\nStarted on DeepSeek, expected: 20 min (1 browser run).\n\nDone (669b22499), merged: whereIs and caretAt throw 'X: the editor's text does not contain \"needle\"'; a regression test. Browser: 6 of 7; the failure, 'Cmd-click on a library function shows the library's text', fails the same on the unmodified file (filed). Model result: DeepSeek, worked, ~25 min (est. 20).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8867,6 +8867,20 @@
         "editor"
       ],
       "body": "From SW-1117, 5 Nov 2026. Small improvement.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1464,
+      "title": "Playground regression: 'Cmd-click on a library function shows the library's text, read-only, with a way back' times out waiting for a hover tooltip in the library file (on main after SW-1403/SW-1432; fails on the unmodified test too)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor"
+      ],
+      "body": "Found by SW-1398's browser run, 5 Nov 2026 ~23:20. Likely from the std cache (SW-1403) or the single checker (SW-1432): library files replayed from std.cache may lack hover data, or the server no longer serves hover in a library file. Overnight: fix (orchestrator's call, medium).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
