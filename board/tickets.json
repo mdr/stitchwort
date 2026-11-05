@@ -7964,14 +7964,14 @@
     {
       "id": 1401,
       "title": "Std: lemmas tying Text.lines to the input's characters, and a Parse.sections reads theorem stated over the input's lines (as eachLineReads is), so day-4-style section parses reach a spec on the input text",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1401",
       "labels": [
         "std",
         "proofs"
       ],
-      "body": "D2426 (Matt, 5 Nov 2026): day 6 friction item 6; after 2020 day 7. Sonnet.",
+      "body": "D2426 (Matt, 5 Nov 2026): day 6 friction item 6; after 2020 day 7. Sonnet.\n\nStarted on Sonnet, expected: 90 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
