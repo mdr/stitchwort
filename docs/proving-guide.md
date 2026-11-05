@@ -373,7 +373,11 @@ Each was run on the example named; the output is quoted, shortened.
   [E-TERMINATION] Error: can't show that `half` terminates
     ╰── this recursive call might not terminate: the 1st argument, `predecessor n`, isn't seen as smaller
   ```
-  (`examples/reject/non-structural.sw`.) **`E-DECREASING`** is the same with
+  (`examples/reject/non-structural.sw`.) When the recursion follows a value
+  that isn't a part of an argument (halving a number, walking a graph), a
+  depth limit makes it total and provable: an extra `fuel: Nat` argument,
+  decreased at each call, failing (or returning a default) when it runs out.
+  **`E-DECREASING`** is the same with
   `decreasing`: the message shows the goal (`n - step < n`) and what's in
   scope; give `[decreasing := …]` or guard with `if h: … then`
   (`examples/reject/decreasing-missing-proof.sw`).

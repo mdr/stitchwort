@@ -13,11 +13,13 @@ expression: output
     │ 
     │ Note 2: goal as it computes: `n = n`
     │ 
-    │ Note 3: `size.eq1` is a generated equation for an arm of `size`. A call that computes in the goal (its arguments are constructors) is already its computed form, as the goal shows above, so there is nothing for the equation to replace. Arm equations are for calls that are stuck (on a variable, or in a `decreasing` or `opaque` definition): `stitchwort doc size` marks those `[stuck]`
+    │ Note 3: the proof checks without this rewrite: the goal already computed past it; drop the `rewrite`
     │ 
-    │ Note 4: the goal already holds by computing, so `rfl` proves it without a `rewrite`
+    │ Note 4: `size.eq1` is a generated equation for an arm of `size`. A call that computes in the goal (its arguments are constructors) is already its computed form, as the goal shows above, so there is nothing for the equation to replace. Arm equations are for calls that are stuck (on a variable, or in a `decreasing` or `opaque` definition): `stitchwort doc size` marks those `[stuck]`
     │ 
-    │ Note 5: occurrences are looked for by their outer function and compared by computing; one that uses a variable bound inside a function argument is rewritten through the congruence lemma of the call the function is passed to
+    │ Note 5: the goal already holds by computing, so `rfl` proves it without a `rewrite`
     │ 
-    │ Note 6: to replace the right side by the left, write `rewrite <- …`
+    │ Note 6: occurrences are looked for by their outer function and compared by computing; one that uses a variable bound inside a function argument is rewritten through the congruence lemma of the call the function is passed to
+    │ 
+    │ Note 7: to replace the right side by the left, write `rewrite <- …`
 ────╯

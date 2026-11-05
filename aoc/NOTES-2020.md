@@ -1729,7 +1729,7 @@ file that is
 ```
 [E-TERMINATION] Error: can't show that `bagsInside` terminates
   ╰── this recursive call might not terminate: the 1st argument stays the same
-  Note 2: non-terminating definitions are rejected unless they're partial: `{Partial}` in the result type
+  Note 2: non-terminating definitions are rejected unless they're partial: `{Partial}` in the result type. A depth limit keeps it total and provable: an extra `fuel: Nat` argument that decreases on each call, failing (or returning a default) when it runs out
 ```
 
 and `{Partial}` would make the program unprovable. What works is fuel: the
@@ -1746,8 +1746,8 @@ distinct values it draws from repeats one"), no notion of an acyclic
 relation, and no recursion over one. A `List.pigeonhole` over `List.Mem`
 and, further, a memoised fold over a finite acyclic graph (a topological
 order with its proof) would cover the AoC days that count over a DAG. The
-E-TERMINATION note could also mention fuel, which is what a proof needs,
-next to `{Partial}`.
+E-TERMINATION note now mentions fuel, which is what a proof needs, next to
+`{Partial}`.
 
 ### 5. Inverting a relation: `Map.groupBy` of pairs, then a filter lemma
 
@@ -1820,8 +1820,7 @@ the rest of the cold time is std's modules (the program's 4.9 s against day
    on numbered values only, with no list form, no acyclic relation and no
    recursion over one, so programs use fuel and leave "the fuel is enough"
    open (item 4). Missing library; medium (a list pigeonhole small, an
-   acyclic fold larger). The E-TERMINATION note
-   could mention fuel; small.
+   acyclic fold larger). The E-TERMINATION note now mentions fuel.
 2. `readsDone x _ (Witness …)` elaborates the `Witness` before `_` is
    solved and reports a goal `?39 …` (item 1), as day 5's item 5. Elaborator
    or error message; medium (repro in item 1).

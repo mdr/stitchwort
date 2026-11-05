@@ -177,6 +177,7 @@ fn rewrite_at(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Te
             place,
             &ty,
             None,
+            None,
             &mut remaining,
             &mut stats,
         ) {
@@ -273,6 +274,7 @@ fn rewrite_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             Place::Goal,
             &goal,
             written.take(),
+            body.as_deref(),
             &mut remaining,
             &mut stats,
         ) {
@@ -677,6 +679,9 @@ fn rewrite_once(
     place: Place,
     goal: &Value,
     written: Option<Term>,
+    // The term after `in`, if there is one: a rule that finds nothing can
+    // check whether it already proves the goal.
+    body: Option<&Expr>,
     remaining: &mut u64,
     stats: &mut Stats,
 ) -> Result<Vec<Step>> {
@@ -794,6 +799,13 @@ fn rewrite_once(
         Place::Target(_) | Place::Inside => false,
     };
     let other_direction = other_direction_rewrites(cx, rule, place, &goal_value)?;
+    // Only the first rule is checked, and only in the goal: the body would
+    // prove the goal as it was before any rule, so dropping the whole
+    // `rewrite` works. Against a target the goal has a different type.
+    let without_rewrite = match (index, place, body) {
+        (0, Place::Goal, Some(body)) => checks_without_rewrite(cx, body, &goal_value, remaining)?,
+        _ => false,
+    };
     let error = nothing_found(
         cx,
         rule,
@@ -804,6 +816,7 @@ fn rewrite_once(
             done,
             open,
             other_direction,
+            without_rewrite,
         },
         &equation.lhs,
         &goal_value,
@@ -1600,6 +1613,35 @@ struct Searched<'a> {
     /// The rule written the other way round would rewrite something in the
     /// goal: the direction is the mistake, not the search.
     other_direction: bool,
+    /// The term after `in` proves the goal as it is, without this rule.
+    without_rewrite: bool,
+}
+
+/// Whether `body`, the term after `in`, already checks against `goal` as it
+/// stands: the goal may already have computed past the rule (`depth + Succ
+/// more` is `Succ (depth + more)`). Tried within what is left of the search
+/// budget, and undone either way; a failed attempt reports nothing.
+fn checks_without_rewrite(
+    cx: &mut Ctx,
+    body: &Expr,
+    goal: &Value,
+    remaining: &mut u64,
+) -> Result<bool> {
+    let snapshot = Snapshot::take(cx);
+    let g = cx.g();
+    let outcome = g
+        .machine
+        .budget
+        .limited(remaining, || check(cx, body, goal));
+    // Solving an unknown is not evidence: the body may check only because
+    // the attempt fixed something the failed rewrite left open.
+    let solved_nothing = snapshot.solved_since(cx).is_empty();
+    snapshot.restore(cx);
+    match outcome {
+        Ok(Some(_)) => Ok(solved_nothing),
+        Err(e) if fatal(&e) => Err(e),
+        _ => Ok(false),
+    }
 }
 
 /// Whether the rule written the other way round would rewrite something in
@@ -1705,6 +1747,7 @@ fn nothing_found(
         done,
         open,
         other_direction,
+        without_rewrite,
     } = searched;
     let shown_lhs = shown(cx, lhs);
     let computed_lhs = shown_computed(cx, lhs);
@@ -1731,6 +1774,12 @@ fn nothing_found(
                 .with_note(format!("{what} as it computes{after}: `{goal_text}`"));
         }
         _ => error = error.with_note(format!("{what}{after}: `{goal_text}`")),
+    }
+    if without_rewrite {
+        error = error.with_note(
+            "the proof checks without this rewrite: the goal already computed past it; drop the \
+             `rewrite`",
+        );
     }
     if matches!(place, Place::Goal)
         && let Some(name) = hypothesis_holding(cx, rule, lhs)
