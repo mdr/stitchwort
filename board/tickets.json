@@ -8114,13 +8114,13 @@
     {
       "id": 1411,
       "title": "2020 day 7 tidy: the holder and colour indexes as small types with methods instead of free functions over a bare Map Colour (NonEmptyList (Colour, Colour)); name Rule.insides' pair; rename the free bagsInside (clashes with Rules.bagsInside)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1411",
       "labels": [
         "aoc"
       ],
-      "body": "From SW-1402's Opus review, 5 Nov 2026. Small improvement; Sonnet or DeepSeek.\n\nD2429 (day 7 friction review, 5 Nov 2026; Matt delegated the decisions): do it. Order: day 8, then SW-1407, SW-1409, SW-1410, SW-1406 with SW-1408, SW-1405, SW-1411 (after SW-1407: both touch day 7's graph).\n\nStarted on Sonnet, expected: 45 min.",
+      "body": "From SW-1402's Opus review, 5 Nov 2026. Small improvement; Sonnet or DeepSeek.\n\nD2429 (day 7 friction review, 5 Nov 2026; Matt delegated the decisions): do it. Order: day 8, then SW-1407, SW-1409, SW-1410, SW-1406 with SW-1408, SW-1405, SW-1411 (after SW-1407: both touch day 7's graph).\n\nStarted on Sonnet, expected: 45 min.\n\nDone on lane/SW-1411 (60ede1cef): Holding { inside, holder } for the pair; Holders { byInside } with Rules.holders and Holders.of; RuleBook { byColour } with Rules.book, contentsOf and bagsToDepth (the depth-limited one, no clash now). Call sites: holders.of colour; rules.book.bagsToDepth (…) colour. Proofs follow; statements unchanged; audit 69/69. Review: two docs restating their field to drop at merge. Waits for batch 46's verifier. Model result: Sonnet, worked, 10 min (est. 45).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
