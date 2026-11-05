@@ -1,5 +1,5 @@
 {
-  "next": 1451,
+  "next": 1452,
   "tickets": [
     {
       "id": 47,
@@ -8256,13 +8256,13 @@
     {
       "id": 1421,
       "title": "Std: Map.get lemma for Map.byPosition (only getOr has one); List.get xs i = Some x gives i < length; List.set with lemmas; what List.findMap finds is in the list (2024 day 24 has a weaker copy)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1421",
       "labels": [
         "std"
       ],
-      "body": "From 2020 day 8 (SW-1416), 5 Nov 2026; see aoc/NOTES-2020.md Day 8.",
+      "body": "From 2020 day 8 (SW-1416), 5 Nov 2026; see aoc/NOTES-2020.md Day 8.\n\nStarted on DeepSeek, expected: 50 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8685,6 +8685,20 @@
         "aoc"
       ],
       "body": "From SW-1406, 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1451,
+      "title": "E-REWRITE-NOTHING: when the goal already holds by computing, two notes now say nearly the same (drop the rewrite; rfl proves it): show one",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "From SW-1410's review, 5 Nov 2026. Small improvement.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
