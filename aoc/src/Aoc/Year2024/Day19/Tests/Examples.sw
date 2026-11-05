@@ -19,15 +19,19 @@ def stripes (letters: Text): List Stripe :=
     | 'r' => Red
     | _ => Green)
 
-def onsenOf (patterns: List Text) (designs: List Text): Onsen := { patterns = patterns.map stripes, designs = designs.map stripes }
+def patternOf (letters: Text): Pattern := { stripes = stripes letters }
 
-def examplePatterns: List Pattern := ["r", "wr", "b", "g", "bwu", "rb", "gb", "br"].map stripes
+def designOf (letters: Text): Design := { stripes = stripes letters }
+
+def onsenOf (patterns: List Text) (designs: List Text): Onsen := { patterns = patterns.map patternOf, designs = designs.map designOf }
+
+def examplePatterns: List Pattern := ["r", "wr", "b", "g", "bwu", "rb", "gb", "br"].map patternOf
 
 def example: Onsen := onsenOf ["r", "wr", "b", "g", "bwu", "rb", "gb", "br"] ["brwrr", "bggr", "gbbr", "rrbgbr", "ubwu", "bwurrg", "brgr", "bbrgwb"]
 
 def exampleText: Text := "r, wr, b, g, bwu, rb, gb, br\n\nbrwrr\nbggr\ngbbr\nrrbgbr\nubwu\nbwurrg\nbrgr\nbbrgwb\n"
 
-def waysOf (design: Text): Nat := waysToMake examplePatterns (stripes design)
+def waysOf (design: Text): Nat := waysToMake examplePatterns (designOf design)
 
 test "example, part 1" := solvePart1 example == 6
 test "example, part 2" := solvePart2 example == 16
@@ -38,24 +42,24 @@ test "example, the ways for each design" :=
 
 --| "brwrr can be made in two different ways: b, r, wr, r or br, wr, r."
 test "example, the spec's ways to make brwrr" :=
-  arrangements examplePatterns (stripes "brwrr") == [["b", "r", "wr", "r"].map stripes, ["br", "wr", "r"].map stripes]
+  arrangements examplePatterns (designOf "brwrr") == [["b", "r", "wr", "r"].map patternOf, ["br", "wr", "r"].map patternOf]
 
 test "example, the spec agrees on the short designs" :=
-  ["bggr", "gbbr", "ubwu", "brgr"].all (design => ways examplePatterns (stripes design) == waysOf design)
-test "example, the spec's impossible design" := !possible examplePatterns (stripes "ubwu") && possible examplePatterns (stripes "gbbr")
+  ["bggr", "gbbr", "ubwu", "brgr"].all (design => ways examplePatterns (designOf design) == waysOf design)
+test "example, the spec's impossible design" := !possible examplePatterns (designOf "ubwu") && possible examplePatterns (designOf "gbbr")
 
-test "an empty design is made one way, with no towels" := waysToMake examplePatterns [] == 1 && ways examplePatterns [] == 1
-test "no patterns make only the empty design" := waysToMake [] (stripes "r") == 0 && waysToMake [] [] == 1
-test "a pattern equal to the design" := waysToMake [stripes "bwu"] (stripes "bwu") == 1
-test "a pattern longer than the design" := waysToMake [stripes "bwur"] (stripes "bwu") == 0
-test "overlapping patterns" := waysToMake (["r", "rr", "rrr"].map stripes) (stripes "rrrr") == 7
-test "overlapping patterns, the spec" := ways (["r", "rr", "rrr"].map stripes) (stripes "rrrr") == 7
-test "a pattern listed twice counts twice" := waysToMake (["g", "g"].map stripes) (stripes "gg") == 4
+test "an empty design is made one way, with no towels" := waysToMake examplePatterns (designOf "") == 1 && ways examplePatterns (designOf "") == 1
+test "no patterns make only the empty design" := waysToMake [] (designOf "r") == 0 && waysToMake [] (designOf "") == 1
+test "a pattern equal to the design" := waysToMake [patternOf "bwu"] (designOf "bwu") == 1
+test "a pattern longer than the design" := waysToMake [patternOf "bwur"] (designOf "bwu") == 0
+test "overlapping patterns" := waysToMake (["r", "rr", "rrr"].map patternOf) (designOf "rrrr") == 7
+test "overlapping patterns, the spec" := ways (["r", "rr", "rrr"].map patternOf) (designOf "rrrr") == 7
+test "a pattern listed twice counts twice" := waysToMake (["g", "g"].map patternOf) (designOf "gg") == 4
 
 --| A design of 100 red stripes from r and rr: the 101st Fibonacci number,
 --| beyond 2^64.
 test "counts beyond 64 bits" :=
-  waysToMake (["r", "rr"].map stripes) (List.replicate 100 Red) == 573147844013817084101
+  waysToMake (["r", "rr"].map patternOf) { stripes = List.replicate 100 Red } == 573147844013817084101
 
 test "parse" := parsed exampleText == Ok example
 test "parse without a final line break" := parsed "r, wr\n\nrwr" == Ok (onsenOf ["r", "wr"] ["rwr"])
