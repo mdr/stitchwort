@@ -14,10 +14,9 @@ def OperationWritten (read: List Char) (operation: Operation): Prop :=
     | Jmp => read = "jmp".toList
     | Nop => read = "nop".toList
 
---| "+3", "-99": a sign, then the size in decimal.
-def ArgumentWritten (read: List Char) (argument: Int): Prop :=
-  ∃ (digits: List Char) => digits ≠ [] ∧ digits.all Parse.isDigit = True ∧
-    ((read = ['+', ..digits] ∧ argument = (Parse.digitsValue digits).toInt) ∨ (read = ['-', ..digits] ∧ argument = -(Parse.digitsValue digits).toInt))
+--| "+3", "-99" or "3": an optional sign, then the size in decimal. The
+--| parser accepts a number without a sign too, so the spec does.
+def ArgumentWritten (read: List Char) (argument: Int): Prop := Parse.IntRead read argument
 
 --| "acc +3": the operation, a space, and the argument.
 def InstructionWritten (read: List Char) (instruction: Instruction): Prop :=

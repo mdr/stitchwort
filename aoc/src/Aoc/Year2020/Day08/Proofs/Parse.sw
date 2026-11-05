@@ -15,7 +15,7 @@ theorem readsOperation: Parse.Reads operation OperationWritten :=
         | Jmp => same
         | Nop => same)
 
-theorem readsArgument: Parse.Reads argument ArgumentWritten := Parse.readsSignedInt
+theorem readsArgument: Parse.Reads argument ArgumentWritten := Parse.readsInt
 
 theorem readsInstruction: Parse.Reads instruction InstructionWritten :=
   Parse.readsThen readsOperation (operationRead operation written =>

@@ -41,6 +41,7 @@ test "a repair to nop" := part2 "acc +1\njmp +0\nacc +2" == Ok 3
 test "a repair to jmp" := part2 "nop +2\njmp +0\nacc +4" == Ok 4
 test "no repair helps" := part2 "jmp +0\njmp +0\nacc +1\njmp -1" == Err "no repair of one jmp or nop makes the boot code terminate"
 
-test "an argument needs its sign" := parsed "acc 3" == Err "line 1, column 5: expected '+' or '-', got '3'"
+test "an argument's sign is optional" :=
+  (parsed "acc 3").map (program => program.instructions) == Ok [{ operation = Acc, argument = 3 }]
 test "an unknown operation" := parsed "mul +3" == Err "line 1, column 1: expected 'acc', 'jmp' or 'nop', got 'mul'"
 test "a missing argument" := parsed "nop +" == Err "line 1, column 6: expected a number, got the end of the line"
