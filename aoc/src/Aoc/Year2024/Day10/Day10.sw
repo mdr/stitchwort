@@ -8,11 +8,11 @@
 --|
 --| The proofs are in `Aoc.Year2024.Day10.Proofs` (Proofs/) and the tests in
 --| `Aoc.Year2024.Day10.Tests` (Tests/); `run` checks neither. Positions,
---| their neighbours (up, right, down and left), the cells of the rows and
+--| their neighbours (up, right, down and left), lookups and
 --| the parser are the shared grid code's (`Aoc.Common`, Common/Grid.sw).
 
 namespace Aoc.Year2024.Day10
-import Aoc.Common (Grid, Position, cellAt, cells, parseGrid)
+import Aoc.Common (Grid, Position, parseGrid)
 import Std (Fail, IO, List, Nat, Option, Parse, Text)
 import Std.Parse (char, digit)
 
@@ -21,9 +21,9 @@ def main(): {IO, Fail} () :=
   IO.print "Part 1: ${solvePart1 map}"
   IO.print "Part 2: ${solvePart2 map}"
 
---| The heights, row by row; `None` is an impassable tile, `.`, which only
---| the puzzle's small examples have.
-type TopographicMap = { rows: List (List (Option Nat)) }
+--| The heights; `None` is an impassable tile, `.`, which only the puzzle's
+--| small examples have.
+type TopographicMap = { grid: Grid (Option Nat) }
 
 --| One tile: a height, or `.`.
 def tile(): {Parse} Option Nat :=
@@ -36,15 +36,13 @@ def tile(): {Parse} Option Nat :=
 
 --| One row of tiles per line, every row as long as the first (the puzzle's
 --| map is a rectangle; `parseGrid` checks it).
-def parseMap (input: Text): {Fail} TopographicMap := TopographicMap.ofGrid (parseGrid input tile)
-
-def TopographicMap.ofGrid (grid: Grid (Option Nat)): TopographicMap := { rows = grid.rows }
+def parseMap (input: Text): {Fail} TopographicMap := { grid = parseGrid input tile }
 
 --| The height at `position`; `None` off the map or on an impassable tile.
-def TopographicMap.heightAt (map: TopographicMap) (position: Position): Option Nat := cellAt map.rows position |> .flatten
+def TopographicMap.heightAt (map: TopographicMap) (position: Position): Option Nat := map.grid.at position |> .flatten
 
 --| Every position of the map, row by row.
-def TopographicMap.positions (map: TopographicMap): List Position := cells map.rows |> .map Pair.fst
+def TopographicMap.positions (map: TopographicMap): List Position := map.grid.cells |> .map Pair.fst
 
 --| `to` is exactly one higher than `from`.
 def TopographicMap.isOneHigher (map: TopographicMap) (from: Position) (to: Position): Bool :=

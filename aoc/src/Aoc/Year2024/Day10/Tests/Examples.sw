@@ -6,7 +6,7 @@
 namespace Aoc.Year2024.Day10.Tests
 import Aoc.Year2024.Day10 (..)
 import Aoc.Year2024.Day10.Spec (isHikingTrail, isStep, pathsOf)
-import Aoc.Common (Position)
+import Aoc.Common (Grid, Position)
 import Std (Fail, List, Nat, Option, Result, Text)
 
 def example: Text := """
@@ -132,8 +132,8 @@ test "the spec's steps" :=
 test "the spec's paths" :=
   onMap "01\n" (map => pathsOf map 2) == Ok [[at 0 0, at 0 0], [at 0 0, at 0 1], [at 0 1, at 0 0], [at 0 1, at 0 1]]
 
-test "parse" := parsed "01\n.9\n" == Ok ({ rows = [[Some 0, Some 1], [None, Some 9]] })
-test "parse without a final line break" := parsed "01\n23" == Ok ({ rows = [[Some 0, Some 1], [Some 2, Some 3]] })
+test "parse" := parsed "01\n.9\n" == Ok ({ grid = Grid.of [[Some 0, Some 1], [None, Some 9]] })
+test "parse without a final line break" := parsed "01\n23" == Ok ({ grid = Grid.of [[Some 0, Some 1], [Some 2, Some 3]] })
 test "nothing" := parsed "" == Err "expected a grid, got no cells"
 test "a bad tile" := parsed "0123\n12x4\n" == Err "line 2, column 3: expected a digit, '.' or the end of the line, got 'x'"
 test "a short row" := parsed "0123\n124\n" == Err "line 2: expected 4 cells, as on the first line, got 3"
