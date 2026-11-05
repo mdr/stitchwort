@@ -723,7 +723,7 @@ theorem twoBoth (x: Nat) (y: Nat): two 1 (Some x) (Some y) = x + y :=
   two.eq.ifFalse.alt1 1 (Some x) (Some y) rfl x y rfl
 
 theorem threeNone (a: Option Nat) (b: Bool) (c: Nat) (h: three 1 a b c = 7) (n: Nat) (ha: a = None) (hc: c = Succ n): n = 7 :=
-  rewrite three.eq.ifFalse.alt3 1 a b c rfl n b (rewrite ha in rewrite hc in rfl) at h in h
+  rewrite three.eq.ifFalse.alt3 1 a b c rfl b n (rewrite ha in rewrite hc in rfl) at h in h
 
 theorem threeOther (a: Option Nat) (c: Nat) (ha: a = None) (hc: c = 0): three 1 a True c = 2 :=
   three.eq.ifFalse.alt4 1 a True c rfl (x => e => rewrite ha at e in cases) (e => cases) (n => e => rewrite hc in cases)
@@ -765,7 +765,7 @@ fn a_match_on_several_expressions_is_stated_as_on_their_tuple() {
             (
                 "three.eq.ifFalse.alt3",
                 format!(
-                    "{three_not_zero} → (n: Nat) → (fst: Bool) → \
+                    "{three_not_zero} → (fst: Bool) → (n: Nat) → \
                      (isAlt3: (a, b, c) = (None, fst, Succ n)) → three k a b c = n"
                 ),
             ),

@@ -2523,11 +2523,11 @@ impl Elaborator {
             wanted.push(l);
             pending.extend(levels_in(&types[&l], depth));
         }
-        // In order: the parameters, then the arm's variables as written,
-        // then the rest by level; each after those its type mentions.
-        // The parameters the arms don't match (implicit ones, the
-        // header's), then the arm's variables as written, then the rest
-        // (`_`s) by level.
+        // In order: the parameters the arms don't match (implicit ones, the
+        // header's), then the arm's variables as written, with each `_`
+        // (no name to find it by) placed among them by where it stands on
+        // the left side, or last when it isn't there. Each comes after
+        // the variables its type mentions.
         let all_patterns = row.written();
         let written: Vec<usize> = crate::written_names(&all_patterns)
             .into_iter()
@@ -2543,6 +2543,29 @@ impl Elaborator {
             }
         };
         wanted.sort_by_key(|&l| rank(l));
+        if let Some(at) = wanted.iter().position(|&l| rank(l).0 == 2) {
+            // Where each variable first appears on the left side, which is
+            // where its pattern is.
+            let mut seen: Vec<usize> = Vec::new();
+            for t in &lhs {
+                for l in levels_in(t, depth) {
+                    if !seen.contains(&l) {
+                        seen.push(l);
+                    }
+                }
+            }
+            let at_lhs = |l: usize| seen.iter().position(|&m| m == l);
+            for b in wanted.split_off(at) {
+                let to = at_lhs(b)
+                    .and_then(|pb| {
+                        wanted
+                            .iter()
+                            .position(|&l| rank(l).0 == 1 && at_lhs(l).is_some_and(|p| p > pb))
+                    })
+                    .unwrap_or(wanted.len());
+                wanted.insert(to, b);
+            }
+        }
         let mut tele: Vec<usize> = Vec::new();
         while tele.len() < wanted.len() {
             let next = wanted

@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 Main.describe a4fb9badc8d6d378a71330caee9fda20d7802a2228fb53902c6c2b6c1e004b0c
@@ -17,7 +16,7 @@ Main.test "sumTwoLong" 7c39b4dfa018f998f89c9a62a6441be79e6e2f023a03df63e3bca0cf4
 Main.test "sumTwoShort" 56dd69794782e7700d74f8e1aa343b679316c42ec0e9c65ecffc260ffb5338b2
 Main.tailOf 2649772c38d25661457404aa39dd49a840514e00ceec0068d6a2833d3e9a4998
 Main.tailOf.eq1 477f6177cdf3c7a445eef5657b8704c10746f155e94431477d9356815757d6bc
-Main.tailOf.eq2 bb207881e19fcadb3b5ab90035ca6d97f5eb93d927964c1c90c9659d20cf52b4
+Main.tailOf.eq2 433c11ce7974d52c3f33fac2fbbdefff467e5bcc899cef47b210a3f0046b5774
 Main.test "tailOf" 2720a3f5844af0754a055729486524917e39376831ff8a41366dedd23eeea017
 Main.same fce476075e74d17039ac6dcaa5d44b3089d346d033920c03f9e437a449a912d6
 Main.same.eq1 de890bb888a604fb702e6aa67363843d557a87ef944459a683c92d53facd3f47

@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Main.Turn e55366233071355d49503f02ee19ceac35823b29dcc909b88cb7e429c0556743
@@ -38,7 +37,7 @@ Main.startsWithHash.eq2 d3733f3c9b2dbbd6a33c73d97e87ebce3cb27cb0577536ae26edd9fe
 Main.charPair ce6af76342e517f4be02377af629090964bd39250d7c9f61c2aa0b99a8ea1d2d
 Main.charPair.eq1 bb1d74059614e2fb17180b91401b1fea5deade85ec15a8df97f88b4513285cd2
 Main.charPair.eq2 e8d69117a345e211645425032d1d28b2230894c3e1f722c303cebdc9d45522d1
-Main.charPair.eq3 6375959be6e57d91805c0e7c664482a525f069d157cc1cbde9601e5eb478bd66
+Main.charPair.eq3 013a385f42bb9cc48723d98d5ce4bf88160420cf53cccf5b817f1acb6fd245f6
 Main.test "L" 2ad04f42db1efebafc052e654ee0d333a1f12fb01c4a9284019d87add453b849
 Main.test "other" ab2598b6e3e41a734528458b17c5cec800109d199d58c2ffe5ef69467c9d1c5b
 Main.test "vowel" 714c2e418065ee61f0e248ca7aca93c7ed7078b0c909409b5e3fee74a52c869d

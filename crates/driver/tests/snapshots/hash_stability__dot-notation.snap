@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Main.Bag 3ec7de1b15a6f17e851c68ddea69c1ed4066f92896e148e9651c579f71bf6873
@@ -25,8 +24,8 @@ Main.Bag.%trans 0b71ddeda28f53fa9108fe925832f3b80530a6b7cd1065f1ddd63421b5344bb0
 Main.Bag.%instOrd d606e0d2b5b57d2534c2d8f629022c8558735e53ee80b9485c9be9652c65b183
 Main.Bag.length 40a7deafdfae0c868de762618f8dd5d7d2ac5edc2c63e40522d675ba7ebfecbf
 Main.Bag.length.eq1 01c2f84222c4f3710342626454892d125963b97fa39ff809ecdee5e01d33bb6e
-Main.Bag.length.eq2 69f33c9d9b366729583e32c4ce8f1dcc6ee35f9e0dd1ec86d08118d612d9bb23
-Main.Bag.length.induct 657f0c1089cd7400f72257c33a3b1a575d648a83d11b1f7c92814f831c50d32f
+Main.Bag.length.eq2 309f9f778f4b5f17b11f65365a2587e47c9457f336106a2dd504db4d879c03f1
+Main.Bag.length.induct 7a2ff1014c0be0d81325be289946dc24b29d51ccabf73832494b4ae74f31522d
 Main.Person.name 0b5dea16ffbb5d95a99b29f2ba0c922a5eda2817a68a591b2eece8e4ad75bbc3
 Main.Person.age 0a473d599cf38e022646992d6ef529adb6dad1b93d8ca2c0cc10697274536098
 Main.Person.%%mk%0 7f6c5624b90eb6864e57a6f8a29b499f47bf4ad8c4e6c57dbd8d588e1ad6b002
