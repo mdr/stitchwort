@@ -7208,9 +7208,9 @@
     {
       "id": 1347,
       "title": "Std: List.toSet (and List.toMap for pairs), so code reads questions.toSet / … |> .toSet; use them where they read better than Set.fromList / Map.fromList (79 and 44 uses)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1347",
       "labels": [
         "std"
       ],
