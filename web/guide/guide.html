@@ -145,30 +145,35 @@
   <pre data-src="27-guard-proofs.sw"></pre>
 </section>
 
+<section data-slug="chained-comparisons" data-title="Chained comparisons">
+  <p>Comparisons chain, as in mathematics: <code>lo &lt;= x &lt;= hi</code> is <code>lo &lt;= x &amp;&amp; x &lt;= hi</code>, and <code>0 &lt;= i &lt; xs.length</code> says that <code>i</code> is a valid index. A middle that is a call is computed once, and in a proof the chain is the conjunction written out, so <code>h.left</code> and <code>h.right</code> are its two facts. Chains go one way (<code>&lt;</code> and <code>&lt;=</code>, or <code>&gt;</code> and <code>&gt;=</code>); a mixed one is an error that says what to write instead.</p>
+  <pre data-src="28-chained-comparisons.sw"></pre>
+</section>
+
 <section data-slug="proofs-about-effects" data-title="Proofs about effectful code">
   <p>A handler applied to code it can see through just computes, so a proof about it is often <code>rfl</code>. For a fact about <em>any</em> computation, <code>match reify t with</code> splits on what the computation does first, with the clauses written as a handler's. It works only in proofs, so programs can never take a computation apart.</p>
-  <pre data-src="28-reify.sw"></pre>
+  <pre data-src="29-reify.sw"></pre>
 </section>
 
 <section data-slug="termination" data-title="Recursion that must finish">
   <p>Functions must terminate, since that is what makes proofs about them meaningful. Recursion on a piece of an argument is accepted as written; otherwise name the number that shrinks with <code>decreasing</code>. A <code>decreasing</code> function still runs and tests like any other.</p>
-  <pre data-src="29-decreasing.sw"></pre>
+  <pre data-src="30-decreasing.sw"></pre>
 </section>
 
 <section data-slug="mutual" data-title="Any order, and mutual recursion">
   <p>Declarations can come in any order, so <code>main</code> can come first and its helpers below. Definitions may call each other, and types may refer to each other; the compiler checks them together and still requires every cycle of calls to get smaller.</p>
-  <pre data-src="30-mutual.sw"></pre>
+  <pre data-src="31-mutual.sw"></pre>
 </section>
 
 <section data-slug="dependent-types" data-title="Dependent types">
   <p>A type may mention values. <code>Vec a n</code> is a list whose length <code>n</code> is part of its type, so <code>Vec.head</code> can only be given a non-empty vector and <code>Vec.zipWith</code> only vectors of the same length. Mistakes like these become compile errors rather than runtime checks.</p>
-  <pre data-src="31-dependent-types.sw"></pre>
+  <pre data-src="32-dependent-types.sw"></pre>
 </section>
 
 <section data-slug="javascript" data-title="Exporting to JavaScript and TypeScript">
   <p><code>export</code> on a definition makes it part of a generated ES module with TypeScript declarations (the JavaScript tab shows both). Records become plain objects, variants become objects with a <code>tag</code>, <code>Nat</code> is a <code>bigint</code>, and <code>Option a</code> is <code>a | undefined</code>. <code>SafeNat</code> is a whole number that fits a JS <code>number</code>. When a function asks for a proof the caller can't supply, such as <code>percent &lt;= 100</code>, the generated code checks it when called and throws <code>StitchwortInputError</code>. The declarations for the example below:</p>
-  <pre data-src="32-export.sw"></pre>
-  <pre class="guide-output" data-dts-of="32-export.sw">export type Profile = { readonly name: string; readonly nickname?: string };
+  <pre data-src="33-export.sw"></pre>
+  <pre class="guide-output" data-dts-of="33-export.sw">export type Profile = { readonly name: string; readonly nickname?: string };
 export declare function displayName(p: Profile): string;
 export declare function toNumber(n: bigint): number | undefined;
 export declare function percentOf(percent: bigint, total: bigint): bigint;</pre>
