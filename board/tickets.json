@@ -1,5 +1,5 @@
 {
-  "next": 1336,
+  "next": 1337,
   "tickets": [
     {
       "id": 47,
@@ -7047,6 +7047,20 @@
         "aoc"
       ],
       "body": "D2381 (Matt, 5 Nov): yes. 'In general, we should be on the lookout for common logic across the Advent of Code days that we can reuse.' Day 20 stays on its plain list (ragged rows) unless moved to Grid; 2021 day 9's test filters by position, a different shape.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1336,
+      "title": "AoC 2020 day 6: parse with Parse.sections of Parse.lines person (groups first, then people), parse proofs redone against std's sections/lines lemmas",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "D2382 (Matt, 5 Nov): yes, after the SW-1227 stack merges (it changes day 6's parse proofs). Sketch checked, same answers (6630, 3437): group() := { people = Parse.lines person }; parseGroups input := Parse.all input (() => Parse.sections group); replaces line/answers/blank/parseLines/groupsOf. Copy in the orchestrator's scratchpad: sw-day06-sections.sw. 2020 day 4 already proves its parser this way. Note any pattern day 4 and day 6 now share (D2381's shared-logic point).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
