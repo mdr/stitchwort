@@ -18,10 +18,14 @@ does not do significant work itself:
   `general-purpose`, so the agent list says what each one is.
 - It reviews every lane's diff before merging. Reviewed lanes are merged
   as a batch: everything waiting goes into `main` together, then one
-  background verifier runs the checks over the batch (a selection of tests
-  that fits the changes, `task audit`, `task audit:touched -- <Namespace>`
-  for proof lanes, and `task test:merge` when `core`, `elab` or `driver`
-  changed). A failure is fixed, or the merge that caused it reverted,
+  background verifier runs the checks over the batch, in about two
+  minutes in all: a selection of tests that fits the changes (budget about
+  90 s) and `task audit:touched -- <Namespace>` for proof lanes. The merge
+  tier and the full audit wait for the daily and full tiers; regressions
+  that slip past are an accepted risk (D2441, Matt, 5 Nov 2026: "it's got
+  to be only a couple of minutes ... The important thing is not to get
+  bogged down and slow the flow of work"). A failure is fixed, or the merge
+  that caused it reverted,
   afterwards. Lanes finishing while a verifier runs wait for the next batch,
   so the tree doesn't change under it; nothing else waits (D2392, Matt,
   5 Nov 2026: "we don't want to slow down the whole software factory

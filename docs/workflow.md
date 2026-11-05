@@ -71,8 +71,8 @@ clones.
 (D2221, Matt, 2 Nov 2026; batches since D2392, Matt, 5 Nov 2026.) The
 orchestrator merges every reviewed lane that is waiting in one go, then
 starts one background verifier over the batch, a Haiku agent, with a short brief: the merge commit,
-the exact commands to run on `main` (`nix develop -c task test:merge`,
-`nix develop -c task audit`, and for a proof lane `task audit:touched --
+the exact commands to run on `main` (`task test:selected` with its
+filterset, and for a proof lane `task audit:touched --
 <Namespace>` from the project's directory, e.g. `aoc/`), and nothing else.
 It runs them one after another, never in the background, changes nothing,
 and reports pass, or each failing test with the first lines of its output,
@@ -103,15 +103,18 @@ the fixed merge tier, the daily tier or the full tier.
    `cargo fmt --check`, then nextest as `test:merge` does, and logs a line
    to `dev/selector-log.tsv`.
 
-The fixed merge tier (`task test:merge`) runs as well only when the merge
-touches `crates/core`, `crates/elab` or `crates/driver`, where a change can
-break things far from it. Otherwise it runs once per batch: after about five
-merges without it, and always before a push. A failure there that the
-selections missed is recorded on SW-1098 against the selector, and the
-merges since the last fixed-tier pass are the suspects.
-
-The trial (ten merges, 2 and 3 Nov 2026) ran both after every merge; the
-selections missed nothing, and the one real failure was caught by both.
+**A batch's whole check takes about two minutes** (D2441, Matt, 5 Nov
+2026: "it's got to be only a couple of minutes. We'll pick up other issues
+that slip past in the daily or full runs later, and accept regressions as a
+risk. The important thing is not to get bogged down and slow the flow of
+work."). It runs in the main checkout: the selected tests (budget about
+90 s), `task audit:touched` for a proof lane's namespaces, and nothing else.
+The fixed merge tier (`task test:merge`) and the full `task audit` don't run
+per batch, even when `crates/core`, `crates/elab` or `crates/driver`
+changed; they run at the daily and full tiers and before a push, where a
+failure that the selections missed is recorded on SW-1098 and the merges
+since the last pass are the suspects. The inventory is refreshed only when
+a batch adds or renames many tests.
 
 ## Lane checkouts
 
@@ -230,4 +233,4 @@ Std.List` for std ([syntax.md](syntax.md#auditing-theorems-stitchwort-audit)).
   monster at exactly the given cell), say so in a line.
 - The report quotes the summary line (`audited N theorems: …`).
 
-**At merge** (D2043, Matt, 30 October 2026): every merge runs `task audit` (std, aoc and the roguelike without the search, about 11 s warm), and a proof lane's touched namespaces are audited with the search (`task audit:touched -- Aoc.Year2024.Day06`) before it is merged. It isn't inside `task test:merge`, whose 90 s budget the search would break.
+**At merge** (D2043, Matt, 30 October 2026; trimmed by D2441, 5 Nov 2026): a proof lane's touched namespaces are audited with the search (`task audit:touched -- Aoc.Year2024.Day06`) before it is merged. It isn't inside `task test:merge`, whose 90 s budget the search would break.
