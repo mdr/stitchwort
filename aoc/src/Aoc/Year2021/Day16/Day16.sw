@@ -54,24 +54,23 @@ def operationOf: Nat → Option Operation := match some
   | 7 => EqualTo
 
 --| A hexadecimal digit's value.
-def hexValue: Char → Option Nat
-  | '0' => Some 0
-  | '1' => Some 1
-  | '2' => Some 2
-  | '3' => Some 3
-  | '4' => Some 4
-  | '5' => Some 5
-  | '6' => Some 6
-  | '7' => Some 7
-  | '8' => Some 8
-  | '9' => Some 9
-  | 'A' => Some 10
-  | 'B' => Some 11
-  | 'C' => Some 12
-  | 'D' => Some 13
-  | 'E' => Some 14
-  | 'F' => Some 15
-  | _ => None
+def hexValue: Char → Option Nat := match some
+  | '0' => 0
+  | '1' => 1
+  | '2' => 2
+  | '3' => 3
+  | '4' => 4
+  | '5' => 5
+  | '6' => 6
+  | '7' => 7
+  | '8' => 8
+  | '9' => 9
+  | 'A' => 10
+  | 'B' => 11
+  | 'C' => 12
+  | 'D' => 13
+  | 'E' => 14
+  | 'F' => 15
 
 --| A digit's four bits, the most significant first.
 def digitBits (value: Nat): List Bool := [Nat.testBit value 3, Nat.testBit value 2, Nat.testBit value 1, Nat.testBit value 0]
@@ -126,9 +125,8 @@ def nextWanted: Wanted → List Bool → Option Wanted
   | Filling, [_, .._] => Some Filling
 
 --| Puts a packet in front of the ones read after it.
-def andThen (packet: Packet): Option (List Packet, List Bool) → Option (List Packet, List Bool)
-  | Some (packets, rest) => Some ([packet, ..packets], rest)
-  | None => None
+def andThen (packet: Packet): Option (List Packet, List Bool) → Option (List Packet, List Bool) :=
+  match some | Some (packets, rest) => ([packet, ..packets], rest)
 
 --| Reads the packets wanted from the bits, and gives back the bits after
 --| them; none if the bits don't hold them. Every call reads from fewer bits,
@@ -182,9 +180,7 @@ def readPackets (wanted: Wanted) (bits: List Bool): Option (List Packet, List Bo
 
 --| One packet, and the bits after it.
 def readPacket (bits: List Bool): Option (Packet, List Bool) :=
-  match readPackets (Packets 1) bits with
-    | Some ([packet], rest) => Some (packet, rest)
-    | _ => None
+  readPackets (Packets 1) bits |> match some | Some ([packet], rest) => (packet, rest)
 
 --| The outermost packet of the transmission. Only zero bits may follow it
 --| (the padding), and it checks the puzzle's promise about the operators it
@@ -203,13 +199,12 @@ def decodeTransmission (bits: List Bool): {Fail} Packet :=
     | None => Fail.fail "the transmission isn't a packet"
 
 --| How many sub-packets an operation takes: none if any number does.
-def arity: Operation → Option Arity
-  | Minimum => Some AtLeastOne
-  | Maximum => Some AtLeastOne
-  | GreaterThan => Some Two
-  | LessThan => Some Two
-  | EqualTo => Some Two
-  | _ => None
+def arity: Operation → Option Arity := match some
+  | Minimum => AtLeastOne
+  | Maximum => AtLeastOne
+  | GreaterThan => Two
+  | LessThan => Two
+  | EqualTo => Two
 
 type Arity = | AtLeastOne | Two
 

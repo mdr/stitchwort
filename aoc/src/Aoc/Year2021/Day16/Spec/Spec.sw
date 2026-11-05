@@ -10,24 +10,23 @@ import Aoc.Year2021.Day16 (LengthType, Operation, Packet)
 import Std (List, Nat, Option)
 
 --| The puzzle's hexadecimal digits and their bits.
-def hexDigitBits: Char → Option (List Bool)
-  | '0' => Some [False, False, False, False]
-  | '1' => Some [False, False, False, True]
-  | '2' => Some [False, False, True, False]
-  | '3' => Some [False, False, True, True]
-  | '4' => Some [False, True, False, False]
-  | '5' => Some [False, True, False, True]
-  | '6' => Some [False, True, True, False]
-  | '7' => Some [False, True, True, True]
-  | '8' => Some [True, False, False, False]
-  | '9' => Some [True, False, False, True]
-  | 'A' => Some [True, False, True, False]
-  | 'B' => Some [True, False, True, True]
-  | 'C' => Some [True, True, False, False]
-  | 'D' => Some [True, True, False, True]
-  | 'E' => Some [True, True, True, False]
-  | 'F' => Some [True, True, True, True]
-  | _ => None
+def hexDigitBits: Char → Option (List Bool) := match some
+  | '0' => [False, False, False, False]
+  | '1' => [False, False, False, True]
+  | '2' => [False, False, True, False]
+  | '3' => [False, False, True, True]
+  | '4' => [False, True, False, False]
+  | '5' => [False, True, False, True]
+  | '6' => [False, True, True, False]
+  | '7' => [False, True, True, True]
+  | '8' => [True, False, False, False]
+  | '9' => [True, False, False, True]
+  | 'A' => [True, False, True, False]
+  | 'B' => [True, False, True, True]
+  | 'C' => [True, True, False, False]
+  | 'D' => [True, True, False, True]
+  | 'E' => [True, True, True, False]
+  | 'F' => [True, True, True, True]
 
 --| A transmission's bits: each character a hexadecimal digit, written as
 --| its four bits; none if a character isn't one.
