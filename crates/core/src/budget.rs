@@ -348,6 +348,31 @@ impl Budget {
         saved
     }
 
+    /// Runs `f`, a check that only test builds make, as if it took no
+    /// steps and visited nothing: the counts benchmarks read, the
+    /// operation's remaining steps and whether it has run out are as they
+    /// were. Running out inside `f` is `f`'s to handle.
+    #[cfg(feature = "reference")]
+    pub fn uncounted<T>(&self, f: impl FnOnce() -> T) -> T {
+        let finished = self.finished_work.get();
+        let work = self.work.get();
+        let visits = self.visits.get();
+        let exhausted = self.exhausted.get();
+        let out_of_stack = self.out_of_stack.get();
+        let result = f();
+        self.finished_work.set(finished);
+        self.work.set(work);
+        self.visits.set(visits);
+        self.out_of_stack.set(out_of_stack);
+        self.exhausted.set(if self.cancelled.get() {
+            Some(ResourceError::Cancelled)
+        } else {
+            exhausted
+        });
+        self.arm();
+        result
+    }
+
     pub fn restore(&self, saved: Saved) {
         self.finished_work
             .set(self.finished_work.get() + self.work.get());

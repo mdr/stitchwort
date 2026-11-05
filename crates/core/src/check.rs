@@ -1733,7 +1733,9 @@ fn install_group(
                 g.env.defs_mut()[id.0].inert_params = marks;
             }
             #[cfg(feature = "reference")]
-            crate::reference::validate_inert(&g.ev(), &ids);
+            g.machine
+                .budget
+                .uncounted(|| crate::reference::validate_inert(&g.ev(), &ids));
             Ok(())
         }
         Err(e) => fail(g, e),
