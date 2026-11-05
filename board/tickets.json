@@ -8086,9 +8086,9 @@
     {
       "id": 1409,
       "title": "Std: two-way List.memFlatMap (x ∈ xs.flatMap f ↔ ∃ y ∈ xs, x ∈ f y), and Map.groupMap for inverting a relation (2020 day 7)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1409",
       "labels": [
         "std"
       ],
