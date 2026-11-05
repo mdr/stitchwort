@@ -18,6 +18,8 @@
 
 use std::path::{Path, PathBuf};
 
+mod common;
+
 use stitchwort_cli::driver::{Cache, Outcome, Session, par_map, tier_sample};
 use stitchwort_cli::project::{DiskFiles, Target};
 use stitchwort_cli::render::render;
@@ -83,6 +85,29 @@ fn examples_filter_takes_a_comma_separated_list() {
     );
 }
 
+/// A part that matches nothing fails, and a part that matches still counts
+/// beside one that needs no match.
+#[test]
+fn a_filter_part_that_matches_nothing_is_an_error() {
+    let names = vec!["parse-basics.sw".to_string(), "safe-fields.sw".to_string()];
+    assert!(common::filter_error("parse,safe-fields", &names, "example file name").is_none());
+    assert!(common::filter_error("", &names, "example file name").is_none());
+    let message = common::filter_error("examples", &names, "example file name").unwrap();
+    assert!(
+        message.contains("EXAMPLES=examples matches no example (did you mean"),
+        "{message}"
+    );
+    assert!(
+        message.contains("EXAMPLES filters by example file name"),
+        "{message}"
+    );
+    let message = common::filter_error("parse,examples", &names, "example file name").unwrap();
+    assert!(
+        message.contains("part that matches no example: `examples`"),
+        "{message}"
+    );
+}
+
 /// Whether `EXAMPLES` is filtering the examples.
 fn filtering() -> bool {
     std::env::var("EXAMPLES").is_ok_and(|filter| !filter.is_empty())
@@ -100,7 +125,40 @@ fn share<T>(items: Vec<T>) -> Vec<T> {
     }
 }
 
+/// Every name `EXAMPLES` can match in this binary: example files in each
+/// folder, and project folders.
+fn all_names() -> Vec<String> {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples");
+    let mut names = Vec::new();
+    for dir in ["accept", "extract", "reject", "soundness", "goals"] {
+        let Ok(entries) = std::fs::read_dir(root.join(dir)) else {
+            continue;
+        };
+        names.extend(
+            entries
+                .map(|entry| entry.expect("readable directory entry").path())
+                .filter(|path| path.extension().is_some_and(|ext| ext == "sw"))
+                .map(|path| path.file_name().unwrap().to_string_lossy().into_owned()),
+        );
+    }
+    for dir in ["accept", "goals", "reject"] {
+        let Ok(entries) = std::fs::read_dir(root.join("projects").join(dir)) else {
+            continue;
+        };
+        names.extend(
+            entries
+                .map(|entry| entry.expect("readable directory entry").path())
+                .filter(|path| path.is_dir())
+                .map(|path| path.file_name().unwrap().to_string_lossy().into_owned()),
+        );
+    }
+    names
+}
+
 fn examples(dir: &str) -> Vec<Example> {
+    // A part that matched in another folder or a project still counts: only
+    // one that matches nothing this binary checks is a mistake.
+    common::check_examples_env(&all_names(), "example file name (or project folder name)");
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples");
     let Ok(entries) = std::fs::read_dir(root.join(dir)) else {
         return Vec::new();
@@ -331,6 +389,7 @@ fn soundness_examples_fail_for_the_expected_reason() {
 
 /// The project folders under `examples/projects/<dir>/`, sorted.
 fn projects(dir: &str) -> Vec<(String, PathBuf)> {
+    common::check_examples_env(&all_names(), "example file name (or project folder name)");
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/projects");
     let Ok(entries) = std::fs::read_dir(root.join(dir)) else {
         return Vec::new();
