@@ -1,5 +1,5 @@
 {
-  "next": 1347,
+  "next": 1348,
   "tickets": [
     {
       "id": 47,
@@ -7201,6 +7201,20 @@
         "aoc"
       ],
       "body": "After stage 2; small lanes. docs/proposals/non-empty-lists.md; D2393-D2399 (Matt, 5 Nov). Name: NonEmptyList (D2394).",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1347,
+      "title": "Std: List.toSet (and List.toMap for pairs), so code reads questions.toSet / … |> .toSet; use them where they read better than Set.fromList / Map.fromList (79 and 44 uses)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Matt, 5 Nov (2020 day 6): 'Set.fromList questions -> it'd be nice to have a questions.toSet'. Define as Set.fromList / Map.fromList so proofs unfold to the same term; a rfl lemma each; full API docs. Keep Set.fromList. Sweep aoc, games/rogue and std where the dot form reads better (pipes, method chains); leave proofs' statements alone unless they read clearly better. Mechanical: DeepSeek, after SW-1336 and SW-1340 merge (they touch the same days).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
