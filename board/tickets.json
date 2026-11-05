@@ -8838,7 +8838,7 @@
       "labels": [
         "aoc"
       ],
-      "body": "D2442 (Matt, 5 Nov 2026): yes. D2443: overnight, day 11 follows without a friction review in between; both reviewed with Matt in the morning. Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day10.\n\nStarted on Opus, expected: 90 min.",
+      "body": "D2442 (Matt, 5 Nov 2026): yes. D2443: overnight, day 11 follows without a friction review in between; both reviewed with Matt in the morning. Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day10.\n\nStarted on Opus, expected: 90 min.\n\nD2444 (Matt, 5 Nov 2026): no daily tier overnight; maybe one in the morning.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
