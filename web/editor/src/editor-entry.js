@@ -293,6 +293,10 @@ export class Editor {
       if (u.transactions.some((tr) => tr.isUserEvent("select.definition"))) {
         if (this.skipBack) this.skipBack = false;
         else this.pushBack(u.startState);
+        // The client scrolls the target just into view, which in a file opened
+        // by the jump is the window's bottom edge, where nothing can be hovered.
+        const view = u.view;
+        queueMicrotask(() => view.dispatch({ effects: EditorView.scrollIntoView(view.state.selection.main.head, { y: "center" }) }));
       }
     });
     return EditorState.create({

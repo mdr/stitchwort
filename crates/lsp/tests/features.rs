@@ -38,14 +38,27 @@ impl Session {
     }
 
     fn open_with(text: &str, capabilities: Value) -> Session {
+        Session::open_using(text, capabilities, Options::new(STACK))
+    }
+
+    fn open_using(text: &str, capabilities: Value, options: Options) -> Session {
         let memory = Arc::new(Memory::default());
         memory.add(MemoryProject {
             root: "/memory/proj".into(),
             sources: vec!["src".into()],
             files: Arc::new([("src/Demo.sw".to_string(), text.to_string())].into()),
         });
+        Session::open_in(text, capabilities, options, memory)
+    }
+
+    /// A program on its own, as the playground opens one: no project.
+    fn open_loose(text: &str, options: Options) -> Session {
+        Session::open_in(text, json!({}), options, Arc::new(Memory::default()))
+    }
+
+    fn open_in(text: &str, capabilities: Value, options: Options, memory: Arc<Memory>) -> Session {
         let mut s = Session {
-            server: Inline::new(Options::new(STACK), memory).unwrap(),
+            server: Inline::new(options, memory).unwrap(),
             next_id: 1,
             diagnostics: Vec::new(),
             asked: Vec::new(),
@@ -66,6 +79,19 @@ impl Session {
             }
         }
         s
+    }
+
+    /// Ticks the server until it has nothing left to check.
+    fn settle(&mut self) {
+        loop {
+            let (out, more) = self.server.tick();
+            for m in out {
+                self.note(serde_json::from_str(&m).unwrap());
+            }
+            if !more {
+                break;
+            }
+        }
     }
 
     fn note(&mut self, m: Value) {
@@ -240,5 +266,63 @@ fn a_client_that_asks_is_told_when_tokens_and_hints_are_out_of_date() {
         }
         let plain = Session::open("namespace Demo\n\ndef a: Nat := 1\n");
         assert!(plain.asked.is_empty(), "{:?}", plain.asked);
+    });
+}
+
+const USES_LIBRARY: &str =
+    "namespace Demo\nimport Std (List)\n\ndef n (xs: List Nat): Nat := List.length xs\n";
+
+/// The hover on the name a library definition (`List.length`) is declared
+/// with, in the library file opened as the editor does after a Cmd-click.
+fn hover_in_library(mut s: Session) -> Value {
+    // The page opens a sample and the user's text arrives as an edit.
+    s.notify(
+        "textDocument/didChange",
+        json!({"textDocument": {"uri": URI, "version": 2},
+               "contentChanges": [{"text": format!("{USES_LIBRARY}\n-- edited\n")}]}),
+    );
+    s.settle();
+    let at = json!({"line": 3, "character": "def n (xs: List Nat): Nat := List.l".len()});
+    let found = s.request(
+        "textDocument/definition",
+        json!({"textDocument": {"uri": URI}, "position": at}),
+    );
+    let uri = found["uri"]
+        .as_str()
+        .unwrap_or_else(|| panic!("{found}"))
+        .to_string();
+    // The library is read from the source tree here, so the URI is a file.
+    let text = std::fs::read_to_string(
+        uri.strip_prefix("file://")
+            .unwrap_or_else(|| panic!("{uri}")),
+    )
+    .unwrap();
+    // The playground has no files: the editor opens the library's document.
+    let uri = format!("stitchwort-std:{}", uri.split_once("/std/").unwrap().1);
+    s.notify(
+        "textDocument/didOpen",
+        json!({"textDocument": {"uri": uri, "languageId": "stitchwort", "version": 1, "text": text}}),
+    );
+    let mut start = found["range"]["start"].clone();
+    start["character"] = json!(start["character"].as_u64().unwrap() + 4);
+    s.request(
+        "textDocument/hover",
+        json!({"textDocument": {"uri": uri}, "position": start}),
+    )
+}
+
+#[test]
+fn hover_works_in_a_library_file_whether_or_not_the_library_was_replayed() {
+    big_stack(|| {
+        let options = Options::new(STACK);
+        let checked = hover_in_library(Session::open_loose(USES_LIBRARY, options));
+        assert!(checked["contents"].is_object(), "checked itself: {checked}");
+
+        let options = Options::new(STACK);
+        let (bytes, _) = stitchwort_lsp::library_bundle(&options).unwrap();
+        let bundle = stitchwort_driver::check_cache::LibraryBundle::decode(&bytes).unwrap();
+        options.library.set(Arc::new(bundle)).ok().unwrap();
+        let replayed = hover_in_library(Session::open_loose(USES_LIBRARY, options));
+        assert!(replayed["contents"].is_object(), "replayed: {replayed}");
     });
 }
