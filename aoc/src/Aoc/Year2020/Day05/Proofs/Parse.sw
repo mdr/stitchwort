@@ -25,17 +25,14 @@ theorem readsHalf (lower: Char) (upper: Char): Parse.Reads (() => half lower upp
       match h with
         | Witness char (Both (Both one allowed) made) => rewrite made, one, letterOf lower upper char allowed in rfl)
 
-theorem eachHalf (lower: Char) (upper: Char): (read: List Char) → (bits: List Bool) → Parse.Each (read bit => read = [letter lower upper bit]) read bits → read = bits.map (letter lower upper)
-  | read, [], each => each
-  | read, [bit, ..rest], Witness first (Witness after (Both split (Both one more))) =>
-    rewrite split, one, eachHalf lower upper after rest more in rfl
-
 theorem readsPass: Parse.Reads pass PassWritten :=
   Parse.readsThen _ _ _ _ (Parse.readsExactly 7 frontBack _ (readsHalf 'F' 'B')) (rowRead row (Both rowEach rowLength) =>
     Parse.readsThen _ _ _ _ (Parse.readsExactly 3 leftRight _ (readsHalf 'L' 'R')) (columnRead column (Both columnEach columnLength) =>
       Parse.readsDone ({ row, column }: Pass) _
         (Both (omega) (Both (omega)
-          (rewrite List.appendNil columnRead, eachHalf 'F' 'B' rowRead row rowEach, eachHalf 'L' 'R' columnRead column columnEach in rfl)))))
+          (rewrite List.appendNil columnRead,
+            Parse.eachChars (letter 'F' 'B') rowRead row rowEach,
+            Parse.eachChars (letter 'L' 'R') columnRead column columnEach in rfl)))))
 
 --| Every line of the input is its pass written out.
 theorem parseWritten (input: Text) (passes: List Pass) (parsed: Fail.toResult (() => parsePasses input) = Ok passes):
