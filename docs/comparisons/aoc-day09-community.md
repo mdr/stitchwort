@@ -395,7 +395,7 @@ How they read, in my judgement **[inferred]**:
   one that brings the "+1" column in with no special case. Our records (`Tile`, `Floor`,
   `Corner`) name things that the others pass around as tuples.
 - **Ours reads worse in the small.** `Floor.allRedOrGreen` spends 9 lines on min/max bounds and
-  the `+ 1`, because `List.between lo hi` and `PrefixSums.block` take half-open ends.
+  the `+ 1`, because `List.range lo (hi + 1)` and `PrefixSums.block` take half-open ends.
   `crossesRightOf` and `isBetweenHalfOpen` say with `.fst`/`.snd` what Haskell says with a
   pattern in the argument. Five helpers of one line each, every one with a signature, make the
   program longer to scan than tenthmascot's. And a reader has to know that `.pairs` means "each
@@ -514,7 +514,7 @@ that picks one of two readings of "inside", and it doesn't yet say that it does.
 | 2 | **Find out why loading costs 0.4 s per `run`**, for a module whose check is cached (and why running from `aoc/` adds 0.9 s) | runtime / driver | 20–30% of day 9's wall time, and likely of every small AoC day | small to investigate; the fix is unknown | §5.1 `Hello` 0.2 s, `Load` 0.6 s |
 | 3 | **Add day 9's data points to SW-813** (interpreter speed): `run` is 4× slower than `run --js` on EDGE's `List.all` loop, and sorting 122,760 `Nat`-keyed pairs costs 0.9 s | runtime | sharpens an existing ticket; no new work item | trivial | §5.1 |
 | 4 | **Patterns in lambda parameters that proofs can see through** (day 8 gaps §5.1) | language | `line.fst.x` becomes `((a, b)) => a.x`; day 9 is a second day that wants it | already a known gap; no new ticket | §4 |
-| 5 | **Half-open `List.between`/`PrefixSums.block` helpers that take inclusive corners** | library | removes the `+ 1`s in `Floor.allRedOrGreen` and the `hi + 1 - lo` the proofs carry (`docs/aoc-2025.md` pain points) | small, but it touches proved code | §4 |
+| 5 | **Half-open `List.between`/`PrefixSums.block` helpers that take inclusive corners** (now `lo ..= hi`) | library | removes the `+ 1`s in `Floor.allRedOrGreen` and the `hi + 1 - lo` the proofs carry (`docs/aoc-2025.md` pain points) | small, but it touches proved code | §4 |
 | — | `Array` (SW-112), a geometry or interval library, a heap, a line sweep | library | none needed: the general method fits in lists and `Map`, and runs in 1 to 3 s | large | §5.1 |
 | — | Sorting by area with an early exit | program | makes our program slower (2.5 s against 2.0 s) | — | §5.1 |
 

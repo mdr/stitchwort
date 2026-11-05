@@ -262,7 +262,7 @@ returns one **[checked: read the files]**.
 (Set-based, `Int` coordinates), `wl.sw` (worklist), `worklist.sw` (the same, plus a fuel-bounded
 `unfoldN`), and our own program. `Set.fromList` and `Set.filter` work; `Set.map`, `Set.any` and
 `Set.count` don't exist; `List.concatMap` does. Parsing a grid into a set needs a with-index
-view twice (`lines.zip (List.range lines.length)`, then the same for each line): SW-235's
+view twice (`lines.zip (0 ..< lines.length)`, then the same for each line): SW-235's
 `withIndex` would shorten it **[checked: `sets.sw`]**.
 
 ### 3.2 The stencil, and our window trick
@@ -509,7 +509,7 @@ Why this order:
 Parked and relevant, not re-proposed: SW-235 (`withIndex`, `dropWhile`, ...) would shorten the
 set parser in `sets.sw`; SW-237 (pattern guards) would flatten glguy's three-way `part2'` and our
 `drain`; SW-222 (`_` lambdas) would shorten `rolls.filter (p => neighbourCount rolls p < 4)`;
-SW-228 (dot receiver position) shows in `lines.zip (List.range lines.length) |> .concatMap`.
+SW-228 (dot receiver position) shows in `lines.zip (0 ..< lines.length) |> .concatMap`.
 
 ---
 

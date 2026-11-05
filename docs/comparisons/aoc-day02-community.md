@@ -347,7 +347,7 @@ let candidates l = seq { pow10 (l-1) .. pow10 l - 1L } |> Seq.map ((*) (multipli
 ```
 -- Stitchwort (Day02.sw)
 def repeated (r: Range) (k: Nat) (n: Nat): Nat :=
-  let m := List.range n |> .sumBy (i => Nat.pow 10 (k * i))
+  let m := 0 ..< n |> .sumBy (i => Nat.pow 10 (k * i))
   if m != 0 then
     let from := Nat.max (Nat.pow 10 (k - 1)) ((r.from + m - 1) / m)
     let to := Nat.min (Nat.pow 10 k - 1) (r.to / m)

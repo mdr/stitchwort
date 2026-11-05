@@ -347,7 +347,7 @@ the two 9s are equal and nothing follows the choice. narimiran's `[2, 7, 5, 7, 3
 | all but the last n (`dropRight`, `dropLast`, `drop_end`, `butlast`, `Stream.drop(-n)`) | 12 GitHub files; jpyamamoto writes `reverse ∘ drop n ∘ reverse` | **missing**; `xs.take (xs.length - n)` works (ours) |
 | `tails` | mstksg, Porges, RossPaterson, frutjus and 4 more | **missing** |
 | index of the first match (`findIndex`, `indexOf`, `elemIndex`, `position`) | 17 GitHub files | **missing** |
-| with index (`zipWithIndex`, `with_index`, `indexed`, `foreach-indexed`) | 12 GitHub files | `List.zip xs (List.range n)` |
+| with index (`zipWithIndex`, `with_index`, `indexed`, `foreach-indexed`) | 12 GitHub files | `List.zip xs (0 ..< n)` |
 | `splitAt` | natewhite345, Pengler38, stanosphere ("probably there's a splitAt or something?") | **missing** (two calls) |
 | `zipWith`, `replicate`, `foldLeft`, `scanLeft`, `last` | glguy, sondr3_, stewSquared | all present |
 | digits to a number (`undigits`, `foldl (\a d -> a*10+d)`, string then `read`) | everyone; Gleam's was "Deprecated so I vendored it" | `Nat.fromDigits` (with lemmas) |

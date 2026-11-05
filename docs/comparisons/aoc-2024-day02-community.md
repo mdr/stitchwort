@@ -243,7 +243,7 @@ How the code reads:
   column of bad input, and only a few community parsers do that **[inferred: most use `read`,
   `toNat!` or `String.to_integer`]**.
 - **Haskell's removal idiom is better than ours.** `zipWith (++) (inits xs) (tail (tails xs))`
-  and amesgen's `withoutOne` need no indices. Our `List.range report.levels.length |> .map (index
+  and amesgen's `withoutOne` need no indices. Our `0 ..< report.levels.length |> .map (index
   => { levels = report.levels.removeAt index })` is longer, and its proofs need
   `anyRemovedRange`-style lemmas.
 - **Coq's spec is the most obviously right.** `∃ l1 x l2, l1 ++ [x] ++ l2 = l ∧ safe (l1 ++

@@ -81,7 +81,7 @@ Accepted:
   on `def`s with `auto` parameters (`Space.of (width := 101) (height := 103)`),
   on constructors (`Continue unvisited (spare := False)`), on std functions
   (`Parse.repeat (atLeast := 7) (atMost := 7) p`, `natDigits (atLeast := 1)
-  (atMost := 3)`, `List.between (lo := 2) (hi := n)`, `hit.shiftRight (fill :=
+  (atMost := 3)`, `List.range (from := 2) (until := n)`, `hit.shiftRight (fill :=
   False)`), and before a pipe (`maze.graph (backwards := False) |> .distances …`).
 
 Rejected, or not available:
