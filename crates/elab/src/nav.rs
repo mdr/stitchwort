@@ -662,7 +662,16 @@ impl Elaborator {
         let mut nav = nav.borrow_mut();
         let pending = std::mem::take(&mut nav.pending);
         for (span, ty, names, expr) in pending {
+            // Also called between a declaration's operations, where nothing
+            // would limit the printer's evaluation or its depth (SW-1430):
+            // each type is printed within limits of its own, and no deeper
+            // than the operation running allows, if there is one. Running
+            // out shows `…` and, unlike an attempt's, isn't passed on, so a
+            // check doesn't depend on whether navigation is on.
+            let budget = &self.kernel.machine.budget;
+            let saved = budget.start_attempt(self.options.limits);
             let text = pretty::value_for_message(&self.ev(), &names, &ty);
+            budget.restore(saved);
             if expr {
                 nav.expr_types.insert(span, text);
             } else {
@@ -1890,4 +1899,50 @@ fn body_binders<'a>(ty: &'a Expr, equations: &[Decl]) -> Vec<&'a ast::Name> {
         }
     }
     names
+}
+
+#[cfg(test)]
+mod tests {
+    use std::rc::Rc;
+
+    use stitchwort_core::{Limits, Sort};
+    use stitchwort_syntax::SourceMap;
+
+    use super::*;
+
+    /// The noted types are printed after a declaration's operation has
+    /// ended too, where nothing limited the printer: printing a type nested
+    /// deeply enough overflowed the stack, which in the language server's
+    /// worker is the engine's stack, not recoverable (SW-1430). Within the
+    /// session's limits, its inner parts are shown as `…`.
+    #[test]
+    fn a_noted_type_is_printed_within_the_limits() {
+        let mut e = Elaborator::new();
+        e.enable_navigation();
+        e.options.limits = Limits {
+            stack: 64 * 1024,
+            ..Limits::default()
+        };
+        // `((Type = Type) = Type) = …`, nested far deeper than a test
+        // thread's stack could print.
+        let mut ty = Value::Sort(Sort::Type(0));
+        for _ in 0..100_000 {
+            let type1 = Rc::new(Value::Sort(Sort::Type(1)));
+            ty = Value::Eq(type1, Rc::new(ty), Rc::new(Value::Sort(Sort::Type(0))));
+        }
+        // Dropping it would recurse as deeply: the test keeps it.
+        let kept = ty.clone();
+        let mut sources = SourceMap::new();
+        let at = Span::point(sources.add("test", ""), 0);
+        let nav = e.present.nav.as_ref().expect("navigation on");
+        nav.borrow_mut().pending.push((at, ty, Vec::new(), true));
+        e.flush_navigation();
+        let nav = e.present.nav.as_ref().expect("navigation on").borrow();
+        let shown = nav.expr_types.get(&at).expect("the type printed");
+        assert!(
+            shown.contains('…') && shown.chars().count() < 300,
+            "{shown}"
+        );
+        std::mem::forget(kept);
+    }
 }

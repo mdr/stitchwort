@@ -527,8 +527,21 @@ load average of 20–90 from other lanes, so the times are rough):
   work, but an **error** introduced in the day's file after opening
   `Common/Range.sw` still overflows it (the editor then restarts the server,
   and the project loads again). Without opening a second file of the project
-  an error edit is underlined in 0.3 s. The recursion that is not covered by
-  the guard is not found yet.
+  an error edit is underlined in 0.3 s. The recursion that was not covered
+  (SW-1430): a navigable session prints the types it noted for hover
+  (`flush_navigation`) after a declaration's operation has ended, where the
+  budget has no stack floor and no step limit. Where a declaration had run
+  out of stack (`Aoc.Year2021.Day11.Proofs`, `Parts.sw`, under the halved
+  guard) the printer evaluated without limit: natively (with the same
+  guard) it had not finished after two minutes, and the playground's
+  WebAssembly in Node had not after 15. The background check of the rest of
+  the project reaches that namespace a few seconds after the day's first
+  marks, which is most likely why the overflow seemed tied to the jump and
+  the edit. Each noted type is now printed within the session's limits
+  (`…` where it can't be): the namespace checks in 3.7 s natively and 13–27 s
+  in Node, and an error edit after it is underlined. Not yet confirmed in
+  the browser: a headless-Chrome test of jump-then-error timed out without
+  the underline (and without a crash) both before and after the fix.
 
 ### 5.3 VS Code for the web, openvscode-server, vscode.dev
 
