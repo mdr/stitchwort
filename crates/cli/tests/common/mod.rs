@@ -2,6 +2,55 @@
 
 #![allow(dead_code)] // each test binary uses some of these
 
+use std::path::Path;
+
+/// Every name `EXAMPLES` can match: the `.sw` files in every folder under
+/// `examples/` (except `examples/projects`), and every project folder under
+/// `examples/projects/*/`.
+///
+/// Every test binary checks its filter against this same set, so a part that
+/// names an example another binary sweeps still counts here.
+pub fn all_names() -> Vec<String> {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples");
+    let mut names = Vec::new();
+    sw_files(&root, &mut names);
+    let Ok(kinds) = std::fs::read_dir(root.join("projects")) else {
+        return names;
+    };
+    for kind in kinds {
+        let kind = kind.expect("readable directory entry").path();
+        let Ok(projects) = std::fs::read_dir(kind) else {
+            continue;
+        };
+        names.extend(
+            projects
+                .map(|entry| entry.expect("readable directory entry").path())
+                .filter(|path| path.is_dir())
+                .map(|path| path.file_name().unwrap().to_string_lossy().into_owned()),
+        );
+    }
+    names
+}
+
+/// Adds the `.sw` file names under `dir` to `names`, recursively, skipping
+/// `examples/projects` (projects match by folder name instead).
+fn sw_files(dir: &Path, names: &mut Vec<String>) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries {
+        let path = entry.expect("readable directory entry").path();
+        if path.is_dir() {
+            if path.file_name().is_some_and(|name| name == "projects") {
+                continue;
+            }
+            sw_files(&path, names);
+        } else if path.extension().is_some_and(|ext| ext == "sw") {
+            names.push(path.file_name().unwrap().to_string_lossy().into_owned());
+        }
+    }
+}
+
 /// The non-empty parts of an `EXAMPLES` filter, in order.
 fn parts(filter: &str) -> impl Iterator<Item = &str> {
     filter

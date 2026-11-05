@@ -110,32 +110,52 @@ fn filtering() -> bool {
     std::env::var("EXAMPLES").is_ok_and(|filter| !filter.is_empty())
 }
 
-/// Every name `EXAMPLES` can match in this binary: example files in
-/// `accept` and `extract`, and project folders under `projects/accept`.
+/// Every name `EXAMPLES` can match: the `.sw` files in every folder under
+/// `examples/` (except `examples/projects`), and every project folder under
+/// `examples/projects/*/`.
+///
+/// Every test binary checks the same set, so a part that only names an
+/// example another binary sweeps still counts, and only a part naming nothing
+/// anywhere is an error.
 fn all_names() -> Vec<String> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples");
     let mut names = Vec::new();
-    for dir in ["accept", "extract"] {
-        let Ok(entries) = std::fs::read_dir(root.join(dir)) else {
+    sw_files(&root, &mut names);
+    let Ok(kinds) = std::fs::read_dir(root.join("projects")) else {
+        return names;
+    };
+    for kind in kinds {
+        let kind = kind.expect("readable directory entry").path();
+        let Ok(projects) = std::fs::read_dir(kind) else {
             continue;
         };
         names.extend(
-            entries
+            projects
                 .map(|entry| entry.expect("readable directory entry").path())
-                .filter(|path| path.extension().is_some_and(|ext| ext == "sw"))
+                .filter(|path| path.is_dir())
                 .map(|path| path.file_name().unwrap().to_string_lossy().into_owned()),
         );
     }
-    let Ok(entries) = std::fs::read_dir(root.join("projects/accept")) else {
-        return names;
-    };
-    names.extend(
-        entries
-            .map(|entry| entry.expect("readable directory entry").path())
-            .filter(|path| path.is_dir())
-            .map(|path| path.file_name().unwrap().to_string_lossy().into_owned()),
-    );
     names
+}
+
+/// Adds the `.sw` file names under `dir` to `names`, recursively, skipping
+/// `examples/projects` (projects match by folder name instead).
+fn sw_files(dir: &Path, names: &mut Vec<String>) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries {
+        let path = entry.expect("readable directory entry").path();
+        if path.is_dir() {
+            if path.file_name().is_some_and(|name| name == "projects") {
+                continue;
+            }
+            sw_files(&path, names);
+        } else if path.extension().is_some_and(|ext| ext == "sw") {
+            names.push(path.file_name().unwrap().to_string_lossy().into_owned());
+        }
+    }
 }
 
 /// Fails when `EXAMPLES` is set and a part matches none of the names this

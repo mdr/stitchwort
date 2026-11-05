@@ -125,40 +125,13 @@ fn share<T>(items: Vec<T>) -> Vec<T> {
     }
 }
 
-/// Every name `EXAMPLES` can match in this binary: example files in each
-/// folder, and project folders.
-fn all_names() -> Vec<String> {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples");
-    let mut names = Vec::new();
-    for dir in ["accept", "extract", "reject", "soundness", "goals"] {
-        let Ok(entries) = std::fs::read_dir(root.join(dir)) else {
-            continue;
-        };
-        names.extend(
-            entries
-                .map(|entry| entry.expect("readable directory entry").path())
-                .filter(|path| path.extension().is_some_and(|ext| ext == "sw"))
-                .map(|path| path.file_name().unwrap().to_string_lossy().into_owned()),
-        );
-    }
-    for dir in ["accept", "goals", "reject"] {
-        let Ok(entries) = std::fs::read_dir(root.join("projects").join(dir)) else {
-            continue;
-        };
-        names.extend(
-            entries
-                .map(|entry| entry.expect("readable directory entry").path())
-                .filter(|path| path.is_dir())
-                .map(|path| path.file_name().unwrap().to_string_lossy().into_owned()),
-        );
-    }
-    names
-}
-
 fn examples(dir: &str) -> Vec<Example> {
     // A part that matched in another folder or a project still counts: only
-    // one that matches nothing this binary checks is a mistake.
-    common::check_examples_env(&all_names(), "example file name (or project folder name)");
+    // one that matches nothing anywhere is a mistake.
+    common::check_examples_env(
+        &common::all_names(),
+        "example file name (or project folder name)",
+    );
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples");
     let Ok(entries) = std::fs::read_dir(root.join(dir)) else {
         return Vec::new();
@@ -389,7 +362,10 @@ fn soundness_examples_fail_for_the_expected_reason() {
 
 /// The project folders under `examples/projects/<dir>/`, sorted.
 fn projects(dir: &str) -> Vec<(String, PathBuf)> {
-    common::check_examples_env(&all_names(), "example file name (or project folder name)");
+    common::check_examples_env(
+        &common::all_names(),
+        "example file name (or project folder name)",
+    );
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/projects");
     let Ok(entries) = std::fs::read_dir(root.join(dir)) else {
         return Vec::new();

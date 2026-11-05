@@ -27,16 +27,6 @@ fn examples() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/accept")
 }
 
-/// The names `EXAMPLES` can match here: the accept examples this binary runs.
-fn example_names() -> Vec<String> {
-    std::fs::read_dir(examples())
-        .expect("read examples")
-        .map(|entry| entry.expect("read entry").path())
-        .filter(|path| path.extension().is_some_and(|ext| ext == "sw"))
-        .map(|path| path.file_name().unwrap().to_string_lossy().into_owned())
-        .collect()
-}
-
 /// Whether `name` matches `filter`: unset or empty means every one, otherwise
 /// only those whose name contains one of its comma-separated substrings.
 fn matches(filter: &str, name: &str) -> bool {
@@ -150,7 +140,12 @@ fn same_both_ways(path: &Path, input: &[u8], same_errors: bool) -> Output {
 /// Every example with a `main`, with input that the interactive ones read.
 #[test]
 fn examples_print_the_same_both_ways() {
-    common::check_examples_env(&example_names(), "example file name");
+    // This binary runs only `accept`, but a part naming any example or
+    // project is a real selection (only one that names nothing is a mistake).
+    common::check_examples_env(
+        &common::all_names(),
+        "example file name (or project folder name)",
+    );
     let mut entries: Vec<_> = std::fs::read_dir(examples())
         .expect("read examples")
         .map(|e| e.expect("read entry").path())
