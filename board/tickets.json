@@ -1,5 +1,5 @@
 {
-  "next": 1320,
+  "next": 1321,
   "tickets": [
     {
       "id": 47,
@@ -6823,6 +6823,20 @@
         "proof"
       ],
       "body": "Found in the SW-1301 review (r7.sw in the review scratchpad); happens without guards too.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1320,
+      "title": "Domain types: 2021 day 14 (polymer pairs and rules) and 2024 day 19 (towels and designs)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1320",
+      "labels": [
+        "aoc"
+      ],
+      "body": "The last two days left from the domain-types review (D2363): give their nouns small record types with methods; statements re-typed only, the orchestrator checks each keeps its meaning.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
