@@ -6598,7 +6598,7 @@
       "labels": [
         "aoc"
       ],
-      "body": "Stage 3 of docs/proposals/partial-lambdas.md (D2370 spellings): the sites in §3 and §7 that don't need guards: lookup tables ending in _ => None as := match some | … bodies, helpers defined only for filterMap, filterMap lambdas that take a pair or Option apart, the Boolean tables and tests as matches, and lambdas whose body matches their parameter as match | …. Leave 2024 day 3's setting (P7). Already done in SW-1294: 2021 day 16 operationOf, 2021 day 10 illegalOf, 2024 day 3 isDont.",
+      "body": "Stage 3 of docs/proposals/partial-lambdas.md (D2370 spellings): the sites in §3 and §7 that don't need guards: lookup tables ending in _ => None as := match some | … bodies, helpers defined only for filterMap, filterMap lambdas that take a pair or Option apart, the Boolean tables and tests as matches, and lambdas whose body matches their parameter as match | …. Leave 2024 day 3's setting (P7). Already done in SW-1294: 2021 day 16 operationOf, 2021 day 10 illegalOf, 2024 day 3 isDont.\n\nMerged after review (31 files); verifying. Orchestrator fix: 2021 day 18 test written as 'matches | Err _' rather than 'not (… matches | Ok _)'. Left as they were, correctly: arms that already produce an Option (letterAlong, decode, commandOf, …), 2024 day 9's checksum (its proof states the body). Model result: DeepSeek, worked (one small readability fix), ~25 min (est. 60).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
