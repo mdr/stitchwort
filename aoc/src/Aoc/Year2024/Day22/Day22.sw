@@ -51,10 +51,8 @@ def change (before: Nat) (after: Nat): Int := after.toInt - before.toInt
 def prices (count: Nat) (buyer: Nat): List Nat := secrets count buyer |> .map (% 10)
 
 --| The changes into the fifth of `prices` and that price, if there are five.
-def sale (prices: List Nat): Option (Changes, Nat) :=
-  match prices with
-    | [a, b, c, d, e, ..rest] => Some ({ first = change a b, second = change b c, third = change c d, fourth = change d e }, e)
-    | _ => None
+def sale: List Nat → Option (Changes, Nat) := match some
+  | [a, b, c, d, e, .._] => ({ first = change a b, second = change b c, third = change c d, fourth = change d e }, e)
 
 --| Each sequence of changes in `prices`, with the price at its first
 --| occurrence.

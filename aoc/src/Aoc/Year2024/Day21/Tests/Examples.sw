@@ -14,29 +14,27 @@ def parsed (input: Text): Result (List Code) Text := Fail.toResult (() => parseC
 
 --| A code from its characters, for writing tests.
 def codeOf (characters: Text): Code :=
-  characters.toList.map (character =>
-    match character with
-      | '0' => Digit0
-      | '1' => Digit1
-      | '2' => Digit2
-      | '3' => Digit3
-      | '4' => Digit4
-      | '5' => Digit5
-      | '6' => Digit6
-      | '7' => Digit7
-      | '8' => Digit8
-      | '9' => Digit9
-      | _ => Enter)
+  characters.toList.map (match
+    | '0' => Digit0
+    | '1' => Digit1
+    | '2' => Digit2
+    | '3' => Digit3
+    | '4' => Digit4
+    | '5' => Digit5
+    | '6' => Digit6
+    | '7' => Digit7
+    | '8' => Digit8
+    | '9' => Digit9
+    | _ => Enter)
 
 --| Directional key presses from the puzzle's characters.
 def pressesOf (characters: Text): List DirectionKey :=
-  characters.toList.map (character =>
-    match character with
-      | '^' => Arrow Up
-      | 'v' => Arrow Down
-      | '<' => Arrow Left
-      | '>' => Arrow Right
-      | _ => Activate)
+  characters.toList.map (match
+    | '^' => Arrow Up
+    | 'v' => Arrow Down
+    | '<' => Arrow Left
+    | '>' => Arrow Right
+    | _ => Activate)
 
 def exampleCodes: List Code := ["029A", "980A", "179A", "456A", "379A"].map codeOf
 

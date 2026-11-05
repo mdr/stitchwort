@@ -125,15 +125,9 @@ def Device.wires (device: Device): List Wire :=
 def bitCount (bitOf: Wire → Option Nat) (wires: List Wire): Nat :=
   wires.foldLeft 0 (count wire => bitOf wire |> .fold count (bit => Nat.max count (bit + 1)))
 
-def Wire.zBit (wire: Wire): Option Nat :=
-  match wire with
-    | Z bit => Some bit
-    | _ => None
+def Wire.zBit: Wire → Option Nat := match some | Z bit => bit
 
-def Wire.xBit (wire: Wire): Option Nat :=
-  match wire with
-    | X bit => Some bit
-    | _ => None
+def Wire.xBit: Wire → Option Nat := match some | X bit => bit
 
 --| The bits on the z wires, lowest first, a missing z wire counting as 0,
 --| if every z wire has a value.
@@ -246,10 +240,7 @@ def applySwaps (gates: List Gate) (swaps: List (Wire, Wire)): List Gate := swaps
 def wellWired (gates: List Gate): Bool :=
   gates.map .output |> .allDistinct && gates.all (gate => (gate.output.xBit.isNone ∧ gate.output.yBit.isNone))
 
-def Wire.yBit (wire: Wire): Option Nat :=
-  match wire with
-    | Y bit => Some bit
-    | _ => None
+def Wire.yBit: Wire → Option Nat := match some | Y bit => bit
 
 --| No z wire above `bits`.
 def zWithin (gates: List Gate) (bits: Nat): Bool :=

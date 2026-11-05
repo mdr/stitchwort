@@ -35,8 +35,7 @@ def parseCity (input: Text): {Fail} City :=
   let antennas :=
     rows.withIndex.flatMap (((row, cells)) =>
       Fail.ensure (cells.length == width) "line ${row + 1}: expected ${width} characters, as on the first line, got ${cells.length}"
-      cells.withIndex.filterMap (((column, cell)) =>
-        cell.map (frequency => ({ frequency, position = { row, column } }: Antenna))))
+      cells.withIndex.filterMap (match some | (column, Some frequency) => ({ frequency, position = { row, column } }: Antenna)))
   { height = rows.length, width, antennas }
 
 def City.contains (city: City) (position: Position): Bool := position.within city.height city.width

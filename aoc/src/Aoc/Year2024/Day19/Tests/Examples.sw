@@ -12,13 +12,12 @@ def parsed (input: Text): Result Onsen Text := Fail.toResult (() => parseOnsen i
 
 --| Stripes from their letters, for writing tests.
 def stripes (letters: Text): List Stripe :=
-  letters.toList.map (letter =>
-    match letter with
-      | 'w' => White
-      | 'u' => Blue
-      | 'b' => Black
-      | 'r' => Red
-      | _ => Green)
+  letters.toList.map (match
+    | 'w' => White
+    | 'u' => Blue
+    | 'b' => Black
+    | 'r' => Red
+    | _ => Green)
 
 def onsenOf (patterns: List Text) (designs: List Text): Onsen := { patterns = patterns.map stripes, designs = designs.map stripes }
 
