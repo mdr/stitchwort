@@ -8,7 +8,7 @@ exhaustiveness; proofs see an ordinary `if`. This note settles the details
 inside that. It replaces the sketch in
 [partial-lambdas.md](partial-lambdas.md) §6 and revives SW-237 (pruned in
 October without a note): the arm knows `c`, the arms below know `not c`, by
-the rule SW-226 made for `&&`.
+the rule of an `if`.
 
 Claims about Stitchwort are **[checked]** when I read the code named (on
 `main` at `f14eff602`), **[estimate]** when they are my reading of what will
@@ -184,21 +184,30 @@ Guard {
 
 In `compile`, where the leaf is made: if `first.guard` is `Some`, build the
 leaf as today, then compile `rows[1..]` with the same columns and types at
-**`depth + 1`**, and return `Tree::Guard`. If `rows[1..]` is empty, the
+(first making the splits the rows below need, §3.2), and return `Tree::Guard`. If `rows[1..]` is empty, the
 `otherwise` is a `Tree::Missing` (definite, or not, exactly as an empty
 branch is decided at lib.rs:3597-3625), marked as reached through a guard
 for the message (§5).
 
-**Why `depth + 1`.** Both ways of checking an `if` bind one variable in each
-branch: `_: Unit` for `ifThenElse c (_ => a) (_ => b)`, and the proof for
-`Decidable.elim d (h => a) (h => b)` (`check_if_in`, check.rs:4391-4450;
-`check_proof_if`, check.rs:4304) **[checked]**. A `Case` node binds its
-fields at the levels from `depth` (lib.rs:3518) and `check_tree` binds
-them at `cx.level()` (lib.rs:4519-4547) **[checked]**: the two agree only if
-the tree was compiled knowing about that extra variable. The `otherwise`
-tree is checked inside the `else` lambda, one level deeper, so it is
-compiled one level deeper. The leaf needs nothing: its aliases and `canon`
-levels are all below `depth`.
+**Why the splits go above the guard.** The kernel allows a `case` only at
+the top of a body or of a branch (`case_only_in_tree`, core/check.rs), and
+the `else` of an `if` is a lambda body, so the `otherwise` tree can't hold
+one. (This note first said it could, compiled at `depth + 1` to agree with the
+variable both `if` branches bind; building it showed the kernel's
+`E-MALFORMED`.) So when the first row is guarded and has nothing left to
+match, `compile` still splits on any column a later row needs, scanning rows
+down to the first that cannot fail, and only then makes the `Guard`. Each
+guard's `otherwise` is then flat: guards, leaves and missing cases. The same
+holds for the leaf of every row under a guard: a `match` that is its whole
+right side is lifted (checked with `guarded = true`), also for rows reached
+through the `else`. A `()` nested in a later row is turned into the unit
+pattern in that scan, as the first row's is. Anything else that would leave
+a `case` in the `else` is `E-GUARD-ARMS`.
+
+A missing case at the end of the chain is definite only when no column has an
+indexed type; otherwise the checker tries `families::empty_case` on its
+columns (in a `Case` branch, and where the chain ends), as for any missing
+constructor.
 
 `compile` today reads `rows[0]` unguarded (lib.rs:3427); an empty `rows`
 can now only come from a guard's `otherwise`, which is handled before the
@@ -296,7 +305,10 @@ OCaml and Rust avoid it with shared continuations (static exits, jumps);
 the kernel term has no join points, and sharing through a lifted helper
 would change the terms proofs see. So: accept the duplication, which is
 nothing for the AoC shapes (one or two guarded rows), and bound it. Count
-`Guard` nodes during compilation and, past 256, fail with `E-MATCH-SIZE`:
+`Guard` nodes during compilation and, past 4096, fail with `E-MATCH-SIZE`
+(linear shapes, a dozen guarded catch-alls over twenty-six character arms,
+make hundreds; the exponential case doubles per guarded row and passes 4096 at
+the twelfth):
 "this `match`'s conditions would copy its arms too many times", note
 "move some of the guarded arms into a helper function, or test the
 condition inside one arm". The existing `nesting` budget (lib.rs:3420)
@@ -307,9 +319,7 @@ bounds depth only.
 - **In the arm**, what `if c then a` gives `a`: for a decided proposition
   (`n != 0`, `x < y`), an anonymous `_: c` that `auto` uses, so `| (n, len)
   if n != 0 => len % n` checks the `%`'s proof obligation; for a `Bool`
-  (`here == wanted`, `xs.isEmpty`), nothing; in a chain `c1 && c2`, both, by
-  SW-226 (docs/syntax.md:1768) **[checked]** that the rule is in `if`'s
-  condition handling, which the guard reuses.
+  (`here == wanted`, `xs.isEmpty`), nothing; an `&&` chain gives the arm nothing per conjunct (`if p && q` doesn't either, on `main`).
 - **Below it**, `_: Not c` in the rows' `else`, for the same conditions. In
   the bad case of §3.5 each copy knows the guards it passed.
 - **By name**: `| x if h: x < n => … h …`. In a proof about a guarded
@@ -453,7 +463,7 @@ CODE` on the first line), run with `task test:one -- NAME`:
   (a guard false, the next arm taken; `match some` giving `None`).
 - **accept** `pattern-guard-facts.sw`: `| (n, len) if n != 0 => len % n`
   (the arm knows `n ≠ 0`); a later arm using `Not c` through `auto`; `if h:
-  x < n` with `h` used in the arm; a chain `a && b` (SW-226).
+  x < n` with `h` used in the arm.
 - **accept** `pattern-guard-proofs.sw`: `clamp` (§3.4) with `theorem
   clampLe (limit n: Nat): clamp limit n <= limit` by `match e: n <= limit
   with`; a `match some` with a guard and `List.memFilterMap` about it; a
@@ -489,7 +499,7 @@ Sizes are [estimate]; the whole is the ticket's 3-4 hours.
    error, the equivalence check, and every walk in §2.5. Parser unit tests.
    `stitchwort fmt` round-trips the new examples.
 2. **Compiler and checking** (60-90 min). `Row.guard`, `Tree::Guard`,
-   compiling at `depth + 1`, the empty-`otherwise` `Missing`, the size
+   splitting for the rows below before the condition, the empty-`otherwise` `Missing`, the size
    bound, `check_tree`'s guard node with the `check_if` branch callbacks
    and the hidden `else` name, `wrapped` for guarded leaves, leaf-log path
    entries, `annotate`/`definite`/`arm_spans`, `int_coverage`, the
@@ -504,12 +514,11 @@ Sizes are [estimate]; the whole is the ticket's 3-4 hours.
 
 **Risks.**
 
-- *Levels* (step 2): getting `depth + 1` wrong gives wrong variables in the
-  `else` tree, which the kernel would reject or, worse, check with the
-  wrong meaning in a dependent goal. The `families` path for indexed
-  families (`families::check_case`) and `canonical`'s char proofs are the
-  places to test. If the level bookkeeping fights back, stop and escalate:
-  this is the part that might need Opus.
+- *The `else` tree* (step 2): no `case` can sit in it (§3.2), so the splits
+  the rows below need are made above the condition, and every leaf under a
+  guard is checked as guarded. Test an arm below a guard whose right side is
+  a `match`, and indexed families, where the failed-guard case may be
+  impossible.
 - *A missed walk* (step 1), §2.5: found by the capture and ordering tests.
 - *`check_if` refactor* (step 2): it is used everywhere; the enum keeps its
   callers' code unchanged, and the existing `if` examples

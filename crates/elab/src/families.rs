@@ -560,6 +560,13 @@ fn case_branch(
                     ctor.name
                 )))
             }
+            Tree::Guard { .. }
+                if let Some(Tree::Missing { columns, .. }) =
+                    crate::guard_chain_missing(subtree)
+                    && let Some(term) = crate::empty_in_columns(cx, columns)? =>
+            {
+                Ok(Some(term))
+            }
             tree => check_tree(cx, tree, &goal).map(Some),
         },
     }

@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-MATCH-SIZE] Error: this `match`'s conditions would copy its arms too many times
-    ╭─[ reject/pattern-guard-size.sw:14:34 ]
+    ╭─[ reject/pattern-guard-size.sw:13:43 ]
     │
- 14 │   | _, _, _, _, _, _, _, _, 0, _ if False => 1
-    │                                  ────┬───  
-    │                                      ╰───── this `match`'s conditions would copy its arms too many times
+ 13 │   | _, _, _, _, _, _, _, 0, _, _, _, _, _ if False => 1
+    │                                           ────┬───  
+    │                                               ╰───── this `match`'s conditions would copy its arms too many times
     │ 
     │ Note: move some of the guarded arms into a helper function, or test the condition inside one arm
 ────╯

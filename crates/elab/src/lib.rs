@@ -462,8 +462,10 @@ fn is_flat(tree: &Tree) -> bool {
 
 /// How many guarded rows' `else` trees one `match` may make. A guard keeps
 /// the rows below it where they would have been dropped, so guarded rows that
-/// split different columns copy them exponentially.
-const MAX_GUARD_NODES: usize = 256;
+/// split different columns copy them exponentially. Linear shapes (a dozen
+/// guarded catch-alls above a few dozen character arms) make hundreds; the
+/// exponential case doubles per guarded row and passes 4096 at the twelfth.
+const MAX_GUARD_NODES: usize = 4096;
 
 /// One equation during pattern-match compilation: the patterns still to be
 /// matched, and the pattern variables already bound (to de Bruijn levels).
@@ -3505,6 +3507,27 @@ impl Elaborator {
         // Rows after the first one that cannot fail are dead.
         'rows: for row in rows {
             for (j, pattern) in row.pats.iter().enumerate() {
+                // A `()` nested in a later row is the unit pattern too when
+                // what it matches is the unit type (as for the first row).
+                if matches!(**pattern, Pattern::Absurd(_))
+                    && !std::ptr::eq(row, first)
+                    && row.rhs.is_some()
+                    && self.is_unit_type(types[j].as_ref())?
+                {
+                    let rows: Vec<Row<'a>> = rows
+                        .iter()
+                        .map(|row| {
+                            let mut row = row.clone();
+                            if let Pattern::Absurd(span) = *row.pats[j]
+                                && row.rhs.is_some()
+                            {
+                                row.pats[j] = Cow::Owned(unit_pattern(span));
+                            }
+                            row
+                        })
+                        .collect();
+                    return self.compile(&rows, depth, columns, types, span);
+                }
                 // A column of numbers (with variables and `_`) is compared with
                 // numbers. One with a `Zero` or `Succ` pattern is split into
                 // those constructors, and numbers in it count down as it's split.
@@ -3739,16 +3762,32 @@ impl Elaborator {
                 return Err(error(
                     "E-GUARD-ARMS",
                     guard.span,
-                    "an arm below an arm with a condition can't be absurd (`()`)",
+                    "the arms below this arm's condition need a case split the condition can't \
+                     wait for",
                 )
-                .with_note("move it above the arm with the condition"));
+                .with_note(
+                    "this happens with an absurd arm (`()`) below it; move that arm above the \
+                     arm with the condition",
+                ));
             }
             tree
         } else {
+            // In an indexed family the case may be impossible, which only
+            // the checker can tell (as for a missing constructor).
+            let mut indexed = false;
+            for t in types.iter().flatten() {
+                if let Value::Data(d, _) = force(&self.ev(), t.clone())?
+                    && !self.kernel.data(d).indices().is_empty()
+                {
+                    indexed = true;
+                }
+            }
+            let mut arm = missing::Arm::through_guard(guard.span);
+            arm.definite = !indexed;
             Tree::Missing {
                 columns: columns.to_vec(),
                 span,
-                arm: missing::Arm::through_guard(guard.span),
+                arm,
             }
         };
         Ok(Tree::Guard {
@@ -4556,6 +4595,53 @@ fn check_leaf(cx: &mut Ctx, tree: &Tree, goal: &Value, guarded: bool) -> Result<
 const GUARD_THEN: u32 = u32::MAX;
 const GUARD_ELSE: u32 = u32::MAX - 1;
 
+/// The tree below a guard, which has no `case`: a leaf is under the
+/// guard's `if`, so a `match` that is its whole right side is lifted.
+fn check_flat(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
+    match tree {
+        Tree::Leaf { .. } => check_leaf(cx, tree, goal, true),
+        Tree::Missing { columns, span, arm } => {
+            for &level in columns {
+                if let Some(term) = families::empty_case(cx, level, None)? {
+                    return Ok(term);
+                }
+            }
+            let mut d = missing::diagnostic(*span, vec![(arm.order.clone(), arm.pattern.clone())]);
+            if let Some(guard) = arm.guard {
+                d = d
+                    .with_label(guard, "this arm has a condition, so it covers nothing")
+                    .with_note(
+                        "an arm with `if` covers no case for sure: add an arm without `if` for \
+                         these values",
+                    );
+            }
+            Err(d)
+        }
+        _ => check_tree(cx, tree, goal),
+    }
+}
+
+fn empty_in_columns(cx: &mut Ctx, columns: &[usize]) -> Result<Option<Term>> {
+    for &level in columns {
+        if let Some(term) = families::empty_case(cx, level, None)? {
+            return Ok(Some(term));
+        }
+    }
+    Ok(None)
+}
+
+/// The missing case at the end of a chain of guards, if that is how the
+/// tree ends.
+fn guard_chain_missing<'t, 'a>(tree: &'t Tree<'a>) -> Option<&'t Tree<'a>> {
+    match tree {
+        Tree::Guard { otherwise, .. } => match &**otherwise {
+            m @ Tree::Missing { .. } => Some(m),
+            other => guard_chain_missing(other),
+        },
+        _ => None,
+    }
+}
+
 /// A guarded arm: `if c then <arm> else <the arms below it>`, checked as an
 /// `if` is (docs/proposals/pattern-guards.md §3.3). The condition sees the
 /// arm's pattern variables by the names written; the arms below don't.
@@ -4602,7 +4688,7 @@ fn check_guard(
             let hidden = cx.suspend_names(aliased.start, aliased.end);
             let order = std::mem::replace(&mut cx.order, saved_order.clone());
             cx.e.decl.leaf_log.borrow_mut().path.push(GUARD_ELSE);
-            let result = check_tree(cx, otherwise, expected);
+            let result = check_flat(cx, otherwise, expected);
             cx.e.decl.leaf_log.borrow_mut().path.pop();
             cx.order = order;
             cx.restore_names(aliased.start, hidden);
@@ -4777,6 +4863,15 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                             vec![(arm.order.clone(), arm.pattern.clone())],
                         ))
                     })(),
+                    // A guard's arm reached where the type is empty is not
+                    // needed (`Fin n` with `n := Zero` in a field).
+                    Tree::Guard { .. }
+                        if let Some(Tree::Missing { columns, .. }) =
+                            guard_chain_missing(subtree)
+                            && let Some(term) = empty_in_columns(cx, columns)? =>
+                    {
+                        Ok(term)
+                    }
                     _ => check_tree(cx, subtree, &branch_goal),
                 };
                 cx.e.decl.leaf_log.borrow_mut().path.pop();

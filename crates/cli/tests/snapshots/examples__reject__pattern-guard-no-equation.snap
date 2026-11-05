@@ -17,3 +17,12 @@ expression: output
     │           left:  1
     │           right: 7
 ────╯
+[E-NO-EQUATION] Error: `g.eq2.cons` isn't generated
+    ╭─[ reject/pattern-guard-no-equation.sw:24:33 ]
+    │
+ 24 │ theorem g2NoCons: g 1 [] = 0 := g.eq2.cons
+    │                                 ─────┬────  
+    │                                      ╰────── an arm at or above it has a condition (`if`), which generated equations don't cover yet
+    │ 
+    │ Note: an equation for each arm is generated where it can be stated and proved (docs/proposals/function-equations.md); prove this one by hand, or use `f.unfold` and a `match`
+────╯

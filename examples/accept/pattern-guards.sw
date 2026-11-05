@@ -1,6 +1,7 @@
 -- Pattern guards, `| p if c => e` (docs/proposals/pattern-guards.md, SW-1295):
 -- an arm that applies only when its condition holds. When it fails, the arms
 -- below are tried. A guard works in every `match`.
+import Std (Fin)
 
 -- Definition arms.
 def clamp (limit: Nat): Nat → Nat
@@ -120,3 +121,52 @@ def headOr (d: Nat): (n: Nat) → Vec Nat n → Nat
   | _, VNil => d
 
 test "indexed family" := headOr 9 1 (VCons 5 VNil) == 5 ∧ headOr 9 1 (VCons 2 VNil) == 9
+
+-- An arm below a guarded one whose right side is a `match` on its variables.
+def fallThrough: Nat → Nat → Nat
+  | n, _ if n > 5 => 1
+  | n, _ if n > 2 => 2
+  | _, m =>
+    match m with
+      | 0 => 10
+      | Succ k => k
+
+test "match below guards" := fallThrough 9 0 == 1 ∧ fallThrough 3 0 == 2 ∧ fallThrough 1 0 == 10 ∧ fallThrough 1 4 == 3
+
+def fallThroughWith (n m: Nat): Nat :=
+  match n, m with
+    | n, _ if n > 5 => 1
+    | _, m =>
+      match m with
+        | 0 => 10
+        | Succ k => k
+
+test "match with" := fallThroughWith 9 0 == 1 ∧ fallThroughWith 1 0 == 10 ∧ fallThroughWith 1 4 == 3
+
+theorem zeroOrPositive: (n m: Nat) → m = 0 ∨ m > 0
+  | n, m if n > 5 ∧ m > 0 => Inr omega
+  | _, m =>
+    match m with
+      | 0 => Inl rfl
+      | Succ k => Inr omega
+
+-- `()` inside a pattern below a guard is the unit pattern.
+def unitBelow: (Nat, ()) → Nat
+  | (x, _) if x > 3 => 1
+  | (_, ()) => 0
+
+test "unit" := unitBelow (5, ()) == 1 ∧ unitBelow (1, ()) == 0
+
+-- Indexed families: the case where the guard fails can be impossible.
+def vecGuard: (n: Nat) → Vec Nat n → Nat
+  | n, _ if n > 2 => 100
+  | Succ m, VCons x _ => x + m
+  | _, VNil => 0
+
+test "vec" := vecGuard 1 (VCons 5 VNil) == 5 ∧ vecGuard 0 VNil == 0
+
+def finGuard: Fin 1 → Nat
+  | i if i == FZero => 3
+  | FZero => 4
+
+test "fin" := finGuard FZero == 3

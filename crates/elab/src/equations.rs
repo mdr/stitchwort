@@ -340,13 +340,12 @@ fn tail_split(e: &Expr) -> Option<(TailSplit<'_>, Vec<(String, &Expr)>)> {
                 ("ifFalse".to_string(), &**otherwise),
             ],
         )),
-        // A condition on an alternative isn't covered yet (`GUARDED`).
         Expr::Match {
             scrutinees,
             alts,
             kind: MatchKind::Match,
             ..
-        } if alts.iter().all(|a| a.guard.is_none()) => Some((
+        } => Some((
             TailSplit::Match { scrutinees, alts },
             alt_names(alts)
                 .into_iter()
@@ -3102,6 +3101,9 @@ impl Elaborator {
                     }
                 }
                 TailSplit::Match { scrutinees, alts } => {
+                    if alts.iter().any(|a| a.guard.is_some()) {
+                        return skip(GUARDED);
+                    }
                     // On several expressions (SW-1074), stated as on the
                     // one tuple of them: `isAlt1: (a, b) = (p, q)`.
                     let several = scrutinees.len() > 1;
