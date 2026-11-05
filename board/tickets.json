@@ -7180,13 +7180,13 @@
     {
       "id": 1345,
       "title": "NonEmptyList stage 3: bracket literals and patterns ([1, 2], [x, ..xs]) where the expected type is NonEmptyList; [] refused with its own error",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1345",
       "labels": [
         "elab"
       ],
-      "body": "After stage 1. Opus, est. 1 day. docs/proposals/non-empty-lists.md; D2393-D2399 (Matt, 5 Nov). Name: NonEmptyList (D2394).",
+      "body": "After stage 1. Opus, est. 1 day. docs/proposals/non-empty-lists.md; D2393-D2399 (Matt, 5 Nov). Name: NonEmptyList (D2394).\n\nDone (cbc8a5246, merged): literals, [..ys, z], patterns ([x], [x, ..rest] exhaustive), E-NONEMPTY-EMPTY, effectful items; no hash moved (bracket and record forms hash the same); tour page 13 (pages renumbered); syntax.md, guide. Orchestrator chose: keep the renumbering; [] arm an error. Model result: Opus, worked, 30 min (est. 1 day).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
