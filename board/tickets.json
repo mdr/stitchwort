@@ -5972,9 +5972,9 @@
     {
       "id": 1259,
       "title": "Std scope: is PrefixSums (a 2D summed-area table, crates/elab/src/std/PrefixSums) standard-library material? Its only user is AoC 2025 day 9; consider moving it to aoc/src/Aoc/Common, and review std's other top-level modules against a written rule for what belongs in std",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1259",
       "labels": [
         "std"
       ],
