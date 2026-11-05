@@ -1,12 +1,11 @@
 --| Day 6 proved: on any input the parser reads, each group's `anyone` and
---| `everyone` sets hold the questions the puzzle counts (Sets.sw), and the
---| groups are those the spec splits the input's lines into (Split.sw), so
---| both parts are the spec's sums over the input.
+--| `everyone` sets hold the questions the puzzle counts (Sets.sw), so both
+--| parts are the spec's sums over the groups of lines the input is made of.
 
 namespace Aoc.Year2020.Day06.Proofs
 import Aoc.Year2020.Day06 (..)
 import Aoc.Year2020.Day06 (Spec)
-import Std (Bool, Char, DecEq, Eq, Option, Exists, Fail, List, Nat, Parse, Result, Set, Text, Void)
+import Std (Bool, Char, Eq, Exists, Fail, List, Nat, Parse, Result, Set, Text, Void)
 
 --| A group as the lines its people wrote.
 def GroupLines (lines: List (List Char)) (group: Group): Prop := List.All2 PersonWritten lines group.people
@@ -47,64 +46,35 @@ theorem part2Lines (lineGroups: List (List (List Char))) (groups: List Group) (w
     solvePart2 groups = lineGroups.sumBy (Spec.count Spec.everyone) :=
   sumCounts (.everyone.size) (Spec.count Spec.everyone) everyoneCount lineGroups groups written
 
-theorem spaceNotQuestion (char: Char) (space: (char == ' ' ∨ char == '\t') = True) (question: isQuestion char = True): Void :=
-  Bool.orElim (char == ' ') (char == '\t') Void space
-    (isSpace => Bool.falseNotTrue (rewrite DecEq.sound char ' ' isSpace at question in question))
-    (isTab => Bool.falseNotTrue (rewrite DecEq.sound char '\t' isTab at question in question))
-
---| A line is blank for the spec exactly when the parser read it as blank.
-theorem blankAgrees (read: List Char) (line: Option Person) (written: LineWritten read line): Spec.blank read = line.isNone :=
-  match line with
-    | None => written
-    | Some person =>
-      match read with
-        | [] => Void.exfalso (And.left written rfl)
-        | [char, ..rest] =>
-          match space: char == ' ' ∨ char == '\t' with
-            | True => Void.exfalso (spaceNotQuestion char space (Bool.andLeft _ _ (And.left (And.right written))))
-            | False => rfl
-
-theorem peopleLines: (lines: List (List Char)) → (lineGroup: List (Option Person)) → List.All2 LineWritten lines lineGroup → List.NonSep Option.isNone lineGroup →
-    List.All2 PersonWritten lines (lineGroup.filterMap (answers => answers))
-  | [], [], all, nonBlank => ()
-  | [line, ..lines], [Some person, ..rest], Both written more, nonBlank => Both written (peopleLines lines rest more nonBlank)
-  | [line, ..lines], [None, ..rest], Both written more, nonBlank => Void.exfalso (Bool.falseNotTrue nonBlank)
-  | [], [_, .._], impossible, nonBlank => Void.exfalso impossible
-  | [_, .._], [], impossible, nonBlank => Void.exfalso impossible
-
---| Between blank lines, the lines are people's.
-theorem groupLines: (lineGroups: List (List (List Char))) → (groups: List (List (Option Person))) → List.All2 (List.All2 LineWritten) lineGroups groups →
-    List.Groups Option.isNone groups → List.All2 GroupLines lineGroups (groups.map (people => { people = people.filterMap (answers => answers) }))
-  | [], [], all, nonBlank => ()
-  | [lines, ..lineGroups], [group, ..groups], Both written rest, Both (Both nonEmpty nonBlankGroup) nonBlankRest =>
-    Both (peopleLines lines group written nonBlankGroup) (groupLines lineGroups groups rest nonBlankRest)
-  | [], [_, .._], impossible, nonBlank => Void.exfalso impossible
-  | [_, .._], [], impossible, nonBlank => Void.exfalso impossible
+--| The groups the parser reads are the input's, as groups of lines: the
+--| input is them written out, a blank line (spaces and tabs allowed) between
+--| each two, then any line breaks, and each group's people are those lines.
+theorem inputGroups (input: Text) (groups: List Group) (parsed: Fail.toResult (() => parseGroups input) = Ok groups):
+    ∃ (lineGroups: List (List (List Char))) => ∃ (read: List Char) => ∃ (ending: List Char) =>
+      input.toList = read ++ ending ∧ Parse.SepBy LinesWritten (read u => Parse.BlankLine read) read lineGroups
+        ∧ ending.all (char => char == '\n' ∨ char == '\r') = True ∧ List.All2 GroupLines lineGroups groups :=
+  match parseWritten input groups parsed with
+    | Witness read (Witness ending (Both text (Both written done))) =>
+      match sepByMap GroupWritten LinesWritten GroupLines _
+          (groupRead group groupWritten => sepByMap PersonWritten (line written => line = written) (line person => PersonWritten line person) _
+            (personRead person personWritten => Witness personRead (Both rfl personWritten)) groupRead group.people groupWritten)
+          read groups written with
+        | Witness lineGroups (Both linesRead related) => Witness lineGroups (Witness read (Witness ending (Both text (Both linesRead (Both done related)))))
 
 --| Part 1, for every input the parser reads, is the spec's sum over the
---| groups of lines of the input.
-theorem part1Correct (input: Text) (groups: List Group) (parsed: Fail.toResult (() => parseGroups input) = Ok groups): solvePart1 groups = Spec.part1Answer input :=
-  match linesOf input groups parsed with
-    | Witness values (Both same written) => rewrite same in part1Lines _ _ (groupsWritten input values written)
+--| groups of lines the input is made of.
+theorem part1Correct (input: Text) (groups: List Group) (parsed: Fail.toResult (() => parseGroups input) = Ok groups):
+    ∃ (lineGroups: List (List (List Char))) => ∃ (read: List Char) => ∃ (ending: List Char) =>
+      input.toList = read ++ ending ∧ Parse.SepBy LinesWritten (read u => Parse.BlankLine read) read lineGroups
+        ∧ ending.all (char => char == '\n' ∨ char == '\r') = True ∧ solvePart1 groups = Spec.part1Answer lineGroups :=
+  match inputGroups input groups parsed with
+    | Witness lineGroups (Witness read (Witness ending (Both text (Both linesRead (Both done related))))) =>
+      Witness lineGroups (Witness read (Witness ending (Both text (Both linesRead (Both done (part1Lines lineGroups groups related))))))
 
-theorem part2Correct (input: Text) (groups: List Group) (parsed: Fail.toResult (() => parseGroups input) = Ok groups): solvePart2 groups = Spec.part2Answer input :=
-  match linesOf input groups parsed with
-    | Witness values (Both same written) => rewrite same in part2Lines _ _ (groupsWritten input values written)
-
-theorem linesOf (input: Text) (groups: List Group) (parsed: Fail.toResult (() => parseGroups input) = Ok groups):
-    ∃ (values: List (Option Person)) => groups = groupsOf values ∧ Fail.toResult (() => parseLines input) = Ok values :=
-  match read: Fail.toResult (() => parseLines input) with
-    | Ok values =>
-      let split := rewrite Fail.toResultThen (() => parseLines input) groupsOf, read at parsed in parsed
-      Witness values (Both (Eq.sym (Result.okInjective _ _ split)) rfl)
-    | Err message =>
-      let split := rewrite Fail.toResultThen (() => parseLines input) groupsOf, read at parsed in parsed
-      Void.exfalso (Result.errNotOk _ groups split)
-
---| The groups of lines the spec reads from the input are those the parser
---| read the groups from.
-theorem groupsWritten (input: Text) (values: List (Option Person)) (parsed: Fail.toResult (() => parseLines input) = Ok values):
-    List.All2 GroupLines (Spec.groupsOf input) (groupsOf values) :=
-  groupLines _ _
-    (splitByRel LineWritten Spec.blank Option.isNone blankAgrees _ _ (parseWritten input values parsed))
-    (List.splitByGroups values Option.isNone)
+theorem part2Correct (input: Text) (groups: List Group) (parsed: Fail.toResult (() => parseGroups input) = Ok groups):
+    ∃ (lineGroups: List (List (List Char))) => ∃ (read: List Char) => ∃ (ending: List Char) =>
+      input.toList = read ++ ending ∧ Parse.SepBy LinesWritten (read u => Parse.BlankLine read) read lineGroups
+        ∧ ending.all (char => char == '\n' ∨ char == '\r') = True ∧ solvePart2 groups = Spec.part2Answer lineGroups :=
+  match inputGroups input groups parsed with
+    | Witness lineGroups (Witness read (Witness ending (Both text (Both linesRead (Both done related))))) =>
+      Witness lineGroups (Witness read (Witness ending (Both text (Both linesRead (Both done (part2Lines lineGroups groups related))))))
