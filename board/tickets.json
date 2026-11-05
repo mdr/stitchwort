@@ -8241,14 +8241,14 @@
     {
       "id": 1420,
       "title": "Bug: a method sharing a short name with another type's method (Instruction.run next to Code.run) makes decreasing report mutual recursion that isn't there, and suggests a step limit; repro in aoc/NOTES-2020.md Day 8 item 1",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1420",
       "labels": [
         "elab",
         "bug"
       ],
-      "body": "From 2020 day 8 (SW-1416), 5 Nov 2026; see aoc/NOTES-2020.md Day 8. Fix first: run, step and next are the names simulations reach for.",
+      "body": "From 2020 day 8 (SW-1416), 5 Nov 2026; see aoc/NOTES-2020.md Day 8. Fix first: run, step and next are the names simulations reach for.\n\nStarted on Sonnet, expected: 60 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
