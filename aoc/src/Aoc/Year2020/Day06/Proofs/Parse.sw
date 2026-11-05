@@ -30,11 +30,12 @@ theorem readsPerson: Parse.Reads person PersonWritten :=
     (Parse.readsMany1 _ _ (Parse.readsSatisfy _ _)) (lettersRead letters each =>
       match eachLetters lettersRead letters.toList each with
         | Both same questions =>
-          Parse.readsDone ({ answers = Set.fromList letters.toList }: Person) _
+          Parse.readsDone ({ answers = letters.toList.toSet }: Person) _
             (rewrite List.appendNil lettersRead, same in
               Both (NonEmptyList.toListNotNil letters) (Both questions (question => containsFromList letters.toList question))))
 
 --| `Parse.SepBy` for values kept in a `List`: they are a `NonEmptyList`'s elements.
+-- Goes when stage 4 makes `Group.people` a `NonEmptyList` (SW-1346).
 def SepByList (spec: List Char → a → Prop) (separator: List Char → () → Prop) (read: List Char) (values: List a): Prop :=
   ∃ (listed: NonEmptyList a) => Parse.SepBy spec separator read listed ∧ values = listed.toList
 
@@ -84,6 +85,6 @@ theorem sepByMap (spec: List Char → a → Prop) (other: List Char → c → Pr
           match eachMap spec other related separator step afterRead listed.tail each with
             | Witness zs (Both zsRead zsRelated) =>
               Witness [z, ..zs]
-                (Both (Witness ({ head = z, tail = zs }: NonEmptyList c)
+                (Both (Witness ([z, ..zs]: NonEmptyList c)
                     (Both (Witness firstRead (Witness afterRead (Witness z (Both split (Both zRead (Both rfl zsRead)))))) rfl))
                   (rewrite same in Both zRelated zsRelated))

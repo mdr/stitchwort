@@ -46,7 +46,7 @@ def Part1 (tiles: List Point) (answer: Nat): Prop := Largest (rectangles tiles |
 def connections (tiles: List Point): List Line := tiles.zip (tiles.drop 1 |> .append (tiles.take 1)) |> .map (ends => { from = ends.fst, to = ends.snd })
 
 --| `value` is from `one` to `other` (either may be the larger).
-def from (one: Nat) (other: Nat) (value: Nat): Bool := (one ≤ value ∧ value ≤ other) ∨ (other ≤ value ∧ value ≤ one)
+def from (one: Nat) (other: Nat) (value: Nat): Bool := (one ≤ value ≤ other) ∨ (other ≤ value ≤ one)
 
 --| The tile is on the straight line between two red tiles, which share a
 --| column or a row: in the rectangle between them, a line one tile wide.
@@ -58,7 +58,7 @@ def onLoop (tiles: List Point) (tile: Point): Bool := connections tiles |> .any 
 --| tile's row: its upper end is at or above the row, its lower end below.
 def crossesRay (tile: Point) (ends: Line): Bool :=
   ends.from.x == ends.to.x ∧ tile.x < ends.from.x
-    ∧ ((ends.from.y ≤ tile.y ∧ tile.y < ends.to.y) ∨ (ends.to.y ≤ tile.y ∧ tile.y < ends.from.y))
+    ∧ ((ends.from.y ≤ tile.y < ends.to.y) ∨ (ends.to.y ≤ tile.y < ends.from.y))
 
 def insideLoop (tiles: List Point) (tile: Point): Bool := List.count (connections tiles) (crossesRay tile) % 2 == 1
 

@@ -30,7 +30,7 @@ def parseGarden (input: Text): {Fail} Garden :=
   rows.withIndex |> .map (((row, plants)) =>
     Fail.ensure (plants.length == width) "line ${row + 1}: expected ${width} plots, as on the first line, got ${plants.length}")
   let plots := rows.gridCells |> .map ((((row, column), plant)) => (({ row, column }: Position), plant))
-  { plots = Map.fromList plots }
+  { plots = plots.toMap }
 
 --| The plant at `position`; `None` off the map.
 def Garden.plantAt (garden: Garden) (position: Position): Option Char := garden.plots.get position

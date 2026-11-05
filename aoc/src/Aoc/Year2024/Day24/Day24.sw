@@ -137,7 +137,7 @@ def Device.zBits (device: Device) (values: Values): Option (List Bool) :=
     |> .map (bit => if wires.contains (Z bit) then values.get (Z bit) else Some False)
     |> List.allSome
 
-def Device.settled (device: Device): Values := settle (Map.fromList device.initial) device.gates
+def Device.settled (device: Device): Values := settle device.initial.toMap device.gates
 
 --| The number on the z wires once the gates settle, unless one of them
 --| gets no value.

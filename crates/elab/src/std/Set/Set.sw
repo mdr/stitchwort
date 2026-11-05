@@ -38,6 +38,10 @@ def Set.toList (set: Set k [ord := o]): List k := Map.keys set.items
 --| The set of the list's elements, repeats merged ([`Set.containsFromListIff`]).
 def Set.fromList [auto ord: Ord k] (xs: List k): Set k := List.foldLeft xs Set.empty (set key => Set.insert set key)
 
+--| The set of the list's elements, repeats merged: `Set.fromList` with the
+--| list first, so `[3, 1, 3].toSet` reads as a method ([`List.toSetFromList`]).
+def List.toSet [auto ord: Ord k] (items: List k): Set k := Set.fromList items
+
 --| Left fold over the keys in order.
 def Set.foldLeft (set: Set k [ord := o]) (initial: b) (f: b → k → b): b := set.items.foldLeft initial (acc key unit => f acc key)
 
@@ -55,8 +59,12 @@ def Set.intersect [auto ord: Ord k] (a: Set k) (b: Set k): Set k := { items = Ma
 --| The keys of `a` that aren't in `b` ([`Set.containsDifference`]).
 def Set.difference [auto ord: Ord k] (a: Set k) (b: Set k): Set k := { items = Map.difference a.items b.items }
 
---| The keys of every set in the list.
-def Set.unions [auto ord: Ord k] (ss: List (Set k)): Set k := List.foldLeft ss Set.empty Set.union
+--| The keys of every set in the list ([`Set.containsUnions`]).
+def Set.unionAll [auto ord: Ord k] (sets: List (Set k)): Set k := List.foldLeft sets Set.empty Set.union
+
+--| The keys of every set in the list, as a method on the list, so
+--| `groups.map answers |> .unionAll` works ([`Set.unionAll`]).
+def List.unionAll [auto ord: Ord k] (sets: List (Set k)): Set k := Set.unionAll sets
 
 --| The smallest key, O(log n): the first of `Set.toList` ([`Set.minToList`]).
 def Set.min (set: Set k [ord := o]): Option k := set.items.min |> .map Pair.fst
@@ -106,6 +114,8 @@ def Map.keepOnly [auto ord: Ord k] (m: Map k v) (ks: Set k): Map k v := Map.filt
 
 theorem Set.containsInsert [auto ord: Ord k] (key: k) (s: Set k): (s |> Set.insert key |> Set.contains key) = True :=
   rewrite Map.getInsert key () s.items in rfl
+
+theorem List.toSetFromList [auto ord: Ord k] (items: List k): items.toSet = Set.fromList items := rfl
 
 -- Equality: the same keys. A set's map is a quotient (std/Map/Map.sw), so
 -- sets with the same keys are equal, whatever order they were inserted in.
@@ -186,7 +196,9 @@ test "set: map merges and reorders" := Set.toList (Set.map Set.example (x => 10 
 test "set: any" := Set.any Set.example (> 2) ∧ Bool.not (Set.any Set.example (> 3)) ∧ Bool.not (Set.any (Set.empty: Set Nat) (x => True))
 test "set: count" := Set.count Set.example (≠ 2) == 2
 
-test "set: unions" := Set.toList (Set.unions [Set.fromList [3, 1], Set.fromList [2], Set.empty]) == [1, 2, 3]
+test "set: unionAll" := Set.toList (Set.unionAll [Set.fromList [3, 1], Set.fromList [2], Set.empty]) == [1, 2, 3]
+test "set: List.unionAll" := Set.toList ([Set.fromList [3, 1], Set.fromList [2], Set.empty] |> .unionAll) == [1, 2, 3]
+test "set: List.toSet" := [3, 1, 3, 2].toSet == Set.example
 test "set: min, max, below, above" :=
   Set.min Set.example == Some 1 ∧ Set.max Set.example == Some 3 ∧ Set.min (Set.empty: Set Nat) == None
     ∧ Set.below Set.example 3 == Some 2 ∧ Set.below Set.example 1 == None ∧ Set.above Set.example 1 == Some 2 ∧ Set.above Set.example 3 == None

@@ -263,7 +263,10 @@ impl Elaborator {
         if reg.ctor(Builtin::Nil) == here {
             return "[]".to_string();
         }
-        if reg.ctor(Builtin::Cons) == here && fields.len() == 2 {
+        // A `NonEmptyList` is matched with list patterns (`[x, ..rest]`), so
+        // it's shown as one: its head, then its tail's elements.
+        let non_empty = reg.loaded_data(Builtin::NonEmptyList) == Some(d);
+        if (non_empty || reg.ctor(Builtin::Cons) == here) && fields.len() == 2 {
             // `[a, b, ..]`: the elements down to the end, which is `[]`, or
             // a tail nothing looked at.
             let mut items = vec![self.show_column(fields[0], shapes, false)];

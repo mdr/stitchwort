@@ -45,7 +45,7 @@ def tile(): {Parse} Tile := pick [("#", Wall), (".", Track), ("S", Start), ("E",
 def parseRacetrack (input: Text): {Fail} Racetrack :=
   let tiles := cells (Parse.all input (() => grid tile) |> .toList |> .map .toList)
   {
-    track = positionsWhere tiles (!= Wall) |> Set.fromList,
+    track = positionsWhere tiles (!= Wall) |> .toSet,
     start = onlyCell tiles Start "S tile",
     end = onlyCell tiles End "E tile"
   }

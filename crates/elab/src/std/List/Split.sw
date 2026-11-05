@@ -32,7 +32,7 @@ def List.finishGroups: Pair (List a) (List (NonEmptyList a)) → List (NonEmptyL
 --| Adds a group to the finished ones, unless it is empty.
 def List.closeGroup: List a → List (NonEmptyList a) → List (NonEmptyList a)
   | [], done => done
-  | [y, ..ys], done => [{ head = y, tail = ys }, ..done]
+  | [y, ..ys], done => [[y, ..ys], ..done]
 
 --| How many elements a state of `List.splitBy` holds, in the open group and the finished ones.
 def List.splitTotal (st: Pair (List a) (List (NonEmptyList a))): Nat := List.length (Pair.fst st) + List.sumBy (Pair.snd st) NonEmptyList.length
@@ -47,7 +47,7 @@ def List.Groups (p: a → Bool): List (NonEmptyList a) → Prop
   | [] => Unit
   | [g, ..gs] => (List.NonSep p g.toList) ∧ (List.Groups p gs)
 
---| A state of `List.splitBy` is well formed: no group has a separator, and no finished group is empty.
+--| A state of `List.splitBy` is well formed: no group, open or finished, has a separator in it.
 def List.SplitOk (p: a → Bool): Pair (List a) (List (NonEmptyList a)) → Prop
   | MkPair cur done => (List.NonSep p cur) ∧ (List.Groups p done)
 
@@ -68,7 +68,7 @@ theorem List.splitGroupsCons (xs: List a) (x: a) (p: a → Bool):
 theorem List.closeGroupSum: (cur: List a) → (done: List (NonEmptyList a)) →
     List.sumBy (List.closeGroup cur done) NonEmptyList.length = List.length cur + List.sumBy done NonEmptyList.length
   | [], done => rfl
-  | [y, ..ys], done => List.sumByCons done { head = y, tail = ys } NonEmptyList.length
+  | [y, ..ys], done => List.sumByCons done [y, ..ys] NonEmptyList.length
 
 theorem List.splitStepTotal (x: a): (b: Bool) → (st: Pair (List a) (List (NonEmptyList a))) →
     List.splitTotal (List.splitStep x b st) + Bool.toNat b = Succ (List.splitTotal st)
@@ -90,9 +90,9 @@ theorem List.finishGroupsSum: (st: Pair (List a) (List (NonEmptyList a))) →
   | MkPair cur done => List.closeGroupSum cur done
 
 --| `[1, 2, 0, 0, 3]` split at its zeros is `[[1, 2], [3]]`.
-theorem List.splitByExample: List.splitBy [1, 2, 0, 0, 3] (x => x == 0) = [{ head = 1, tail = [2] }, { head = 3, tail = [] }] := rfl
+theorem List.splitByExample: List.splitBy [1, 2, 0, 0, 3] (x => x == 0) = [[1, 2], [3]] := rfl
 
-theorem List.splitByEdges: List.splitBy [0, 4, 0] (x => x == 0) = [{ head = 4, tail = [] }] := rfl
+theorem List.splitByEdges: List.splitBy [0, 4, 0] (x => x == 0) = [[4]] := rfl
 
 --| Splitting loses only the separators: the groups' lengths plus the number of separators is the length.
 theorem List.splitByLength (xs: List a) (p: a → Bool):
@@ -215,7 +215,7 @@ theorem List.closeRunSum (g: List a → Nat) (done: List (NonEmptyList a)) (m: N
     | True => rewrite Nat.subSelf s
     | False =>
       rewrite Nat.subSuccRight s (Nat.firstFrom sep m (Succ s)) (Nat.firstFromAtLeast sep m (Succ s)) in
-        List.sumByCons done { head = f s, tail = List.map (List.rangeFrom (Nat.firstFrom sep m (Succ s) - Succ s) (Succ s)) f } (group => g group.toList)
+        List.sumByCons done [f s, ..List.map (List.rangeFrom (Nat.firstFrom sep m (Succ s) - Succ s) (Succ s)) f] (group => g group.toList)
 
 --| The groups closed after reading positions s .. s + m - 1: one for every
 --| separator c followed by a position c + 1 that isn't one.

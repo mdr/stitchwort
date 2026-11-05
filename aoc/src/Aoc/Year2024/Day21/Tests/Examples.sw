@@ -112,7 +112,7 @@ def searchFrom (code: Code) (fuel: Nat) (presses: Nat) (frontier: List State) (s
 
 def bruteForce (robots: Nat) (code: Code): Option Nat :=
   let start: State := { aims = List.append (List.replicate robots directionalStart) [numericStart], done = 0 }
-  if code == [] then Some 0 else searchFrom code 200 0 [start] (Set.fromList [stateKey start])
+  if code == [] then Some 0 else searchFrom code 200 0 [start] ([stateKey start].toSet)
 
 test "brute force agrees on the example codes, up to two robots" :=
   [0, 1, 2].all (robots => exampleCodes.all (code => bruteForce robots code == Some ((robotCosts robots).shortestLength code)))

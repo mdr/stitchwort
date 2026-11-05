@@ -65,7 +65,7 @@ def parseDocument (input: Text): {Fail} Document :=
       | [start] => start
       | [] => Fail.fail "expected a robot (@) on the map, found none"
       | _ => Fail.fail "expected one robot (@) on the map, found several"
-  let warehouse := { walls = Set.fromList (positionsOf rows Wall), boxes = Set.fromList (positionsOf rows Box), robot }
+  let warehouse := { walls = (positionsOf rows Wall).toSet, boxes = (positionsOf rows Box).toSet, robot }
   { warehouse, moves }
 
 --| The first position from `position` on, going `direction`, without a box:
@@ -107,7 +107,7 @@ def Cell.widen (position: Cell): Cell := { position | columns = 2 * position.col
 
 --| The warehouse twice as wide: each tile becomes two, the robot the left.
 def Warehouse.widen (warehouse: Warehouse): Warehouse := {
-  walls = warehouse.walls.toList.flatMap (wall => cellsOf (Cell.widen wall)) |> Set.fromList,
+  walls = warehouse.walls.toList.flatMap (wall => cellsOf (Cell.widen wall)) |> .toSet,
   boxes = warehouse.boxes.map Cell.widen,
   robot = (Cell.widen warehouse.robot)
 }

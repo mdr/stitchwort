@@ -51,7 +51,7 @@ def parseLab (lines: List Text): {Fail} Lab :=
       |> .map ((((row, column), cell)) => (({ row, column }: Position), cell))
   let positionsOf := (wanted: Cell) => positionsWhere cells (== wanted)
   match positionsOf GuardStart with
-    | [start] => { height = lines.length, width, obstructions = Set.fromList (positionsOf Obstruction), start }
+    | [start] => { height = lines.length, width, obstructions = (positionsOf Obstruction).toSet, start }
     | [] => Fail.fail "expected a guard (^) on the map, found none"
     | _ => Fail.fail "expected one guard (^) on the map, found several"
 

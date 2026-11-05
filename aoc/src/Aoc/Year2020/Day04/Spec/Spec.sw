@@ -30,7 +30,7 @@ def digits (count: Nat) (value: Text): Bool := value.toList.length == count ∧ 
 
 --| "Four digits; at least `low` and at most `high`."
 def year (low: Nat) (high: Nat) (value: Text): Bool :=
-  digits 4 value ∧ low <= number value.toList ∧ number value.toList <= high
+  digits 4 value ∧ low <= number value.toList <= high
 
 --| "A number followed by either cm or in: If cm, the number must be at
 --| least 150 and at most 193. If in, the number must be at least 59 and at
@@ -42,11 +42,11 @@ def height (value: Text): Bool :=
   let unit := chars.drop split
   let isNumber := amount ≠ [] ∧ amount.all Parse.isDigit
   let n := number amount
-  isNumber ∧ ((unit == ['c', 'm'] ∧ 150 <= n ∧ n <= 193) ∨ (unit == ['i', 'n'] ∧ 59 <= n ∧ n <= 76))
+  isNumber ∧ ((unit == ['c', 'm'] ∧ 150 <= n <= 193) ∨ (unit == ['i', 'n'] ∧ 59 <= n <= 76))
 
 --| "A # followed by exactly six characters 0-9 or a-f."
 def hairColor (value: Text): Bool :=
-  value.toList |> matches | ['#', ..rest] => rest.length == 6 ∧ rest.all (char => Parse.isDigit char ∨ ('a' <= char ∧ char <= 'f'))
+  value.toList |> matches | ['#', ..rest] => rest.length == 6 ∧ rest.all (char => Parse.isDigit char ∨ ('a' <= char <= 'f'))
 
 --| "Exactly one of: amb blu brn gry grn hzl oth."
 def eyeColor (value: Text): Bool := (["amb", "blu", "brn", "gry", "grn", "hzl", "oth"].filter (== value)).length == 1

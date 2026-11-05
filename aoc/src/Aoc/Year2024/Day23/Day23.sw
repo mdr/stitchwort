@@ -69,7 +69,7 @@ def Network.bothWays (network: Network): List Connection :=
   network.connections.flatMap (connection => [connection, connection.reverse])
 
 def Network.links (network: Network): Links :=
-  network.bothWays |> Map.groupBy Connection.one |> .map (connections => connections.map Connection.other |> .toList |> Set.fromList)
+  network.bothWays |> Map.groupBy Connection.one |> .map (connections => connections.map Connection.other |> .toList |> .toSet)
 
 def Links.neighbours (links: Links) (computer: Computer): Set Computer := links.getOr computer Set.empty
 
@@ -77,11 +77,11 @@ def Links.neighbours (links: Links) (computer: Computer): Set Computer := links.
 def Links.setsWith (links: Links) (first: Computer): List Party :=
   let firstNeighbours := links.neighbours first
   firstNeighbours.toList.flatMap (second =>
-    links.neighbours second |> .intersect firstNeighbours |> .toList |> .map (third => { members = Set.fromList [first, second, third] }))
+    links.neighbours second |> .intersect firstNeighbours |> .toList |> .map (third => { members = [first, second, third].toSet }))
 
 --| Every set of three different computers, each connected to the other two.
 def Links.setsOfThree (links: Links): Set Party :=
-  links.keySet.toList.flatMap links.setsWith |> Set.fromList |> .filter (.size == 3)
+  links.keySet.toList.flatMap links.setsWith |> .toSet |> .filter (.size == 3)
 
 def solvePart1 (network: Network): Nat := network.links.setsOfThree |> .filter .mightHaveChief |> .size
 

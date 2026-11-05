@@ -352,7 +352,7 @@ counting facts for the class sizes.
 | Sort by key | `sortOn`, `sortBy (comparing …)`, `sort_by` | `List.sortBy cmp`, `Ord.compare`, `Nat.compare`; stable (comment at `Sort.sw:513`) with `sortBySorted`, `sortByPerm`, `sortLength` |
 | Top 3 of a list of sizes | `sortOn Down`, `take 3`, `product` | `List.sortBy (a b => Nat.compare b a)`, `take`, `product`; `List.maximum` only gives one |
 | Parent or label store | `IntMap`, `Map`, `HashMap`, `Hashtbl`, `Dict` | `Map k v` and `Set k` (balanced tree, `Ord`-keyed) |
-| `partition`, `unions`, `disjoint` on sets | Haskell `Set`, Scala `Set` | `List.partition`; `Set.union`, `intersect`, `difference`; no `Set.unions`, `Set.disjoint`, `Set.partition` |
+| `partition`, `unionAll`, `disjoint` on sets | Haskell `Set`, Scala `Set` | `List.partition`; `Set.union`, `intersect`, `difference`; no `Set.unionAll`, `Set.disjoint`, `Set.partition` |
 | `scanl`, `unfoldr`, lazy states | Haskell, Scala `Iterator.scanLeft` | `List.scanLeft` (strict: builds all states); `List.unfold` with a `decreasing` measure (`std/List/Unfold.sw`) |
 | Union-find library | `Data.DisjointSet`, `Kruskal`, `unionFind` package, `disjoint_set` | none; the structure is 10 to 25 lines over a `Map` |
 | Priority queue / heap | `Data.Heap`, `PriorityQueue`, `Pqueue`, `heap` | none |
@@ -491,7 +491,7 @@ What this says:
 | 3 | **`List.pairs` with `length = n(n-1)/2`** | library | day 9 also wants all pairs (`docs/aoc-2025.md` day 9 part 1, 122,000 pairs); Dafny's 100 lines are the cost avoided | small | §5.1 |
 | 4 | **A connectivity specification `Joined`** (closure) and its label theorem | proof | the content of the proof | medium | §3.5, §6 |
 | 5 | **Parent-store acyclicity** (for `B4`'s fuel) | proof | only if the parent `Map` is chosen | medium | §5.1 |
-| 6 | `Set.partition`/`Set.unions`/`Set.disjoint` | library | the set-of-sets version, which is the community's most common shape, becomes a three-liner; no proof benefit | small | §3.6 |
+| 6 | `Set.partition`/`Set.unionAll`/`Set.disjoint` | library | the set-of-sets version, which is the community's most common shape, becomes a three-liner; no proof benefit | small | §3.6 |
 | 7 | Tuple pattern with applications after a comma | parser | the E-PARSE in finding 9 | small, **[unverified]** cause | `Common.sw` |
 | — | `Array` (SW-112), heap, partial sort, graph library, k-d tree | library | none needed for this day | large | §5.2 |
 | — | Local mutable variables | language | none (D299 not now) | large | no change |

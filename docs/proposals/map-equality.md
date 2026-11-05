@@ -1789,7 +1789,7 @@ design problems.
   `Map.fromKeys`, `Map.removeAll`, `Map.keepOnly`).
 - **Operations defined from lifted ones** (no respects lemma of their own): `fromListWith`,
   `groupBy`, `counts`, `find`, `unionWith`, `intersectWith`, `difference`, `filterMap`,
-  `partition`, `mapKeys`, `foldRight`, `any`, `all`, `count`, `range`, and for `Set` `unions`,
+  `partition`, `mapKeys`, `foldRight`, `any`, `all`, `count`, `range`, and for `Set` `unionAll`,
   `all`, `isSubset`, `disjoint`, `partition`, `foldRight`. They are written with `foldLeft`,
   `insertWith`, `filter`, `toList` and `fromList`, so equal maps give equal results by what is
   already proved.

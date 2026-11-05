@@ -45,7 +45,7 @@ def printQueue(): {Parse} PrintQueue :=
 def parsePrintQueue (input: Text): {Fail} PrintQueue := Parse.all input printQueue
 
 --| The rules as a set of (before, after) pairs, for quick lookup.
-def ruleSet (rules: List Rule): Set (Nat, Nat) := rules.map (rule => (rule.before, rule.after)) |> Set.fromList
+def ruleSet (rules: List Rule): Set (Nat, Nat) := rules.map (rule => (rule.before, rule.after)) |> .toSet
 
 --| Whether a rule says `earlier` must be printed before `later`.
 def mustPrecede (rules: Set (Nat, Nat)) (earlier: Nat) (later: Nat): Bool := rules.contains (earlier, later)

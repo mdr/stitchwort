@@ -1,5 +1,5 @@
 {
-  "next": 1349,
+  "next": 1355,
   "tickets": [
     {
       "id": 47,
@@ -6970,13 +6970,13 @@
     {
       "id": 1330,
       "title": "Check cache key: drop std's text, once the check cache's differential test covers a std edit",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "review",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1330",
       "labels": [
         "tooling"
       ],
-      "body": "D2378 (Matt, 5 Nov): yes. docs/proposals/test-cache-key.md (P3). Entries are the elaborator's output, so syntax and elab stay in this key.",
+      "body": "D2378 (Matt, 5 Nov): yes. docs/proposals/test-cache-key.md (P3). Entries are the elaborator's output, so syntax and elab stay in this key.\n\nDone on lane/SW-1330 (557094bfa): keys hold core text + the library's name index, not all of std; namespace entries list the std files they load with their keys. Rare-file edit: 31 of 231 re-check; ubiquitous files (Fin, Toolkit) still re-check nearly all; an added name re-checks all. Opus review running (stale-entry risk: instances etc. in unlisted files). Model result: Sonnet, worked, 37 min (est. 90).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7012,9 +7012,9 @@
     {
       "id": 1333,
       "title": "Drop redundant brackets around dot sections in aoc and games/rogue (groups.sumBy (.anyone.size) -> groups.sumBy .anyone.size)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1333",
       "labels": [
         "aoc"
       ],
@@ -7082,13 +7082,13 @@
     {
       "id": 1338,
       "title": "Daily-tier failures on main: goal_index readable-forms snapshot (a range moved after SW-1256's bracket fixup) and search_at_aoc's 2021 entries (day 14 uses pairsOf since SW-1320; day 16's Fields.sw marker text moved after SW-1300)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1338",
       "labels": [
         "tests"
       ],
-      "body": "Found by the daily tier run on the SW-1227 stack (D2373); both fail on main too, so not the stack's. Also counts_have_not_regressed: the bench baseline is out of date after the night's work (D2384 to Matt).",
+      "body": "Found by the daily tier run on the SW-1227 stack (D2373); both fail on main too, so not the stack's. Also counts_have_not_regressed: the bench baseline is out of date after the night's work (D2384 to Matt).\n\nDone (DeepSeek, reviewed): snapshot range 79→75 is the same hole after the bracket form; day 16 entry follows its theorem to Common/Proofs/BitReader.sw; day 14 entry uses pairsOf. No want/exclude loosened. Model result: DeepSeek, worked, ~20 min (est. 20).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7124,13 +7124,13 @@
     {
       "id": 1341,
       "title": "Chained comparisons: implement docs/proposals/chained-comparisons.md per D2386-D2391",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1341",
       "labels": [
         "syntax"
       ],
-      "body": "Matt, 5 Nov: D2386 yes (< / <= together, > / >= together; refuse mixed directions, !=, in). D2387 (a) = and == refused for now. D2388 (a) a chain is one conjunct. D2389 (b): the middle is bound with let and computed once, pure or not ('I would be surprised if I had this syntax form and it secretly computed the middle twice'). D2390: run once, in order (follows from Matt's D2389 answer). D2391 (Matt: you choose): E-COMPARISON-CHAIN. Sonnet, est. 180 min.",
+      "body": "Matt, 5 Nov: D2386 yes (< / <= together, > / >= together; refuse mixed directions, !=, in). D2387 (a) = and == refused for now. D2388 (a) a chain is one conjunct. D2389 (b): the middle is bound with let and computed once, pure or not ('I would be surprised if I had this syntax form and it secretly computed the middle twice'). D2390: run once, in order (follows from Matt's D2389 answer). D2391 (Matt: you choose): E-COMPARISON-CHAIN. Sonnet, est. 180 min.\n\nDone on lane/SW-1341 (f3256b9ae, review fixes 9475b9a62). Opus review: kernel side sound; B1 (chain starting with =/!=/==) and B2 (if h: computed the middle twice) fixed, with a JS snapshot showing once; S1-S3 fixed. Left: a chain nested in a larger if h: proposition still computes twice (ticket). Model result: Sonnet, needed fixes (= chains accepted; if h: twice), 40 min (est. 180).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7152,13 +7152,13 @@
     {
       "id": 1343,
       "title": "NonEmptyList stage 1: the type { head, tail } and its functions (reduce, last, maximum, minimum, maxBy, minBy, map, zip, sort, ++, toList), List.toNonEmpty (auto proof) and List.nonEmpty (Option), link lemmas to the List versions",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1343",
       "labels": [
         "std"
       ],
-      "body": "Sonnet, est. 4 h. docs/proposals/non-empty-lists.md; D2393-D2399 (Matt, 5 Nov). Name: NonEmptyList (D2394).",
+      "body": "Sonnet, est. 4 h. docs/proposals/non-empty-lists.md; D2393-D2399 (Matt, 5 Nov). Name: NonEmptyList (D2394).\n\nDone on lane/SW-1343 (3fc1a49f9): Std.NonEmptyList, 55 theorems (audit clean), 16 tests, guide section; intersectAll/unionAll. Day 6 scratch: people.map .answers |> .intersectAll works. Not done: reduceRight, flatMap etc. Findings: ++ can't be overloaded (append/appendList/prependList); instances in Lemmas.sw invisible to Tests.sw (E-INSTANCE-NONE). Model result: Sonnet, worked, 15 min (est. 240).\n\nD2401 (Matt, 5 Nov): keep the short names List.toNonEmpty and List.nonEmpty.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7166,9 +7166,9 @@
     {
       "id": 1344,
       "title": "NonEmptyList stage 2: many1, sepBy1, lines, sections, grid, List.splitBy, Map.groupBy, Nat.digits return NonEmptyList; Reads lemmas and callers updated",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1344",
       "labels": [
         "std"
       ],
@@ -7180,13 +7180,13 @@
     {
       "id": 1345,
       "title": "NonEmptyList stage 3: bracket literals and patterns ([1, 2], [x, ..xs]) where the expected type is NonEmptyList; [] refused with its own error",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "done",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1345",
       "labels": [
         "elab"
       ],
-      "body": "After stage 1. Opus, est. 1 day. docs/proposals/non-empty-lists.md; D2393-D2399 (Matt, 5 Nov). Name: NonEmptyList (D2394).",
+      "body": "After stage 1. Opus, est. 1 day. docs/proposals/non-empty-lists.md; D2393-D2399 (Matt, 5 Nov). Name: NonEmptyList (D2394).\n\nDone (cbc8a5246, merged): literals, [..ys, z], patterns ([x], [x, ..rest] exhaustive), E-NONEMPTY-EMPTY, effectful items; no hash moved (bracket and record forms hash the same); tour page 13 (pages renumbered); syntax.md, guide. Orchestrator chose: keep the renumbering; [] arm an error. Model result: Opus, worked, 30 min (est. 1 day).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7208,13 +7208,13 @@
     {
       "id": 1347,
       "title": "Std: List.toSet (and List.toMap for pairs), so code reads questions.toSet / … |> .toSet; use them where they read better than Set.fromList / Map.fromList (79 and 44 uses)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "done",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1347",
       "labels": [
         "std"
       ],
-      "body": "Matt, 5 Nov (2020 day 6): 'Set.fromList questions -> it'd be nice to have a questions.toSet'. Define as Set.fromList / Map.fromList so proofs unfold to the same term; a rfl lemma each; full API docs. Keep Set.fromList. Sweep aoc, games/rogue and std where the dot form reads better (pipes, method chains); leave proofs' statements alone unless they read clearly better. Mechanical: DeepSeek, after SW-1336 and SW-1340 merge (they touch the same days).\n\nD2400 (Matt, 5 Nov): also rename Set.unions to Set.unionAll (parameter 'sets', not 'ss'), with a List method form so it chains (group.people.map .answers |> .unionAll); update its 5 uses.",
+      "body": "Matt, 5 Nov (2020 day 6): 'Set.fromList questions -> it'd be nice to have a questions.toSet'. Define as Set.fromList / Map.fromList so proofs unfold to the same term; a rfl lemma each; full API docs. Keep Set.fromList. Sweep aoc, games/rogue and std where the dot form reads better (pipes, method chains); leave proofs' statements alone unless they read clearly better. Mechanical: DeepSeek, after SW-1336 and SW-1340 merge (they touch the same days).\n\nD2400 (Matt, 5 Nov): also rename Set.unions to Set.unionAll (parameter 'sets', not 'ss'), with a List method form so it chains (group.people.map .answers |> .unionAll); update its 5 uses.\n\nDone (DeepSeek, reviewed line by line): List.toSet/toMap with docs and rfl lemmas, Set.unionAll + List.unionAll, ~30 sites in 14 aoc days and std moved to dot forms; guide updated. Left: theorem Set.containsUnions (and its ss) not renamed. Checks: aoc/rogue check, 14 days' tests, std lane, guide, audit all pass. Model result: DeepSeek, worked, ~12 min (est. 45).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7222,13 +7222,97 @@
     {
       "id": 1348,
       "title": "Feature tour page for chained comparisons (lo <= x <= hi), and the guide check for SW-1341's paragraph",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1348",
       "labels": [
         "docs"
       ],
       "body": "Matt, 5 Nov: new user-visible features update the guide and, if cool, the tour. SW-1341 added docs/syntax.md and a guide paragraph (02-values-and-definitions.md); add a tour page or fold into an existing one (web/guide/), with the_guide_examples_check passing. After SW-1341 merges.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1349,
+      "title": "An effectful && as an unannotated let's value is inferred as Prop: let ok := (let c := Parse.nat(); 0 < c && c <= Parse.nat()) fails 'expected Prop, but this has type Bool'; only let ok: Bool := … works",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "Pre-existing on main; found by the SW-1341 Opus review (scratchpad sw1341-review/eff4.sw, eff5.sw). Chains make it easier to hit: let ok := 0 < n() <= n().",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1350,
+      "title": "Chained comparisons: a chain nested inside a larger if h: proposition (if h: b != 0 && 1 <= twice b <= 9) still computes the middle twice at runtime, against D2389; also check | k if h: … guards' runtime code",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "From SW-1341's review fixes: the decision is built from the evaluated proposition, so the chain's let is lost when the chain is one conjunct of the if h: condition. Repro: scratchpad sw1341-review/js.sw (c1), build --js.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1351,
+      "title": "Std: a proof-indexed List.get (xs.get i [auto ok: i < xs.length]: a), redefined by hand in three examples and the chained-comparisons tour page",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From SW-1348: the tour page had to define its own at. Name to pick (get exists and returns Option): e.g. List.at. Then use it in examples/accept/decisions.sw, examples/soundness/absurd-without-proof.sw, examples/extract/numbers.sw, web/guide/28-chained-comparisons.sw.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1352,
+      "title": "Sweep: write range checks as chained comparisons (lo <= x <= hi) in aoc and games/rogue (32 + 1 sites), then std (33) after SW-1344 merges",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1352",
+      "labels": [
+        "aoc"
+      ],
+      "body": "From SW-1341's note survey (docs/proposals/chained-comparisons.md lists them). Only where the middle is the same expression on both sides; proofs' statements may change shape only per D2388 (one conjunct) — list each. DeepSeek.\n\naoc and rogue done (DeepSeek, reviewed line by line): ~35 sites in 13 days, Aoc.Common.Range, rogue Level.contains; statements in Spec/Proofs changed shape only (same meaning), all check and audit clean. Std's sites still to do after SW-1344. Model result: DeepSeek, worked, ~25 min (est. 40).",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1353,
+      "title": "Sweep: method (dot) form where the first argument is the call's subject in aoc and games/rogue (Nat.absDiff level next -> level.absDiff next; value.testBit 3); leave min/max, builders (List.range, List.replicate) and lemmas used as proofs",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "D2402 (Matt, 5 Nov): yes. Prompted by 2024 day 2's 1 <= Nat.absDiff level next <= 3. Same terms, so no proof changes expected. DeepSeek, ~30 min; after SW-1333 and SW-1344 merge (same files).",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1354,
+      "title": "Check cache can report a namespace as checked when it isn't (on main): congruence-lemma lookups (rewrite's …Cong, decreasing) and auto's candidates see only library files already loaded in the run, so a namespace's result depends on what unrelated namespaces loaded",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "body": "Found by the SW-1330 Opus review (repro: scratchpad sw1330-review/r5, r6). B uses rewrite inside Option.map and needs Option.mapCong (Option/Lemmas.sw), which only A loads. Change A so it no longer loads that file: fresh, B fails ('there is no Option.mapCong'); cached, B is reported from its entry. Fix: lazy loading must behave as if every file were loaded: the congruence/auto lookups should treat a pending name as something to load (or the loader counts F.…Cong as needed when F is referenced). Priority: correctness of check. Sonnet (Opus if the loader design needs it).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []

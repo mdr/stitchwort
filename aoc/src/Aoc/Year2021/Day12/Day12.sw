@@ -40,7 +40,7 @@ def Cave.isEnd (cave: Cave): Bool := cave == Cave.end
 --| are small).
 def Cave.isBig (cave: Cave): Bool :=
   match cave.name.toList with
-    | [first, .._] => 65 <= first.toNat && first.toNat <= 90
+    | [first, .._] => 65 <= first.toNat <= 90
     | [] => False
 
 def Cave.isSmall (cave: Cave): Bool := not cave.isBig

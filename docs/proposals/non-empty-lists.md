@@ -102,7 +102,7 @@ List a) => values = [first, ..rest] ∧ …` (Reads.sw:774) **[checked]**.
 
 **`List.splitBy` documents "no group is empty"** (Toolkit.sw:387) and proves it
 (`List.splitByGroups`); `Map.groupBy`'s values are never empty either
-(`Map.getGroupBy`, Map/Map.sw:854, through `Map.Spec.nonEmpty`)
+(`Map.getGroupBy`, Map/Map.sw:854)
 **[checked]**. Both return plain `List`s.
 
 **The only non-empty type today** is `Vec a (Succ n)`: `Vec.head` and

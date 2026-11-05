@@ -15,6 +15,7 @@ def FieldWritten (read: List Char) (field: Field): Prop :=
 --| "Separated by spaces or newlines."
 def FieldBreak (read: List Char) (u: ()): Prop := read = [' '] ∨ Parse.LineBreak read
 
+-- The `∃ fields` goes when stage 4 makes `Passport.fields` a `NonEmptyList` (SW-1346).
 def PassportWritten (read: List Char) (passport: Passport): Prop :=
   ∃ (fields: NonEmptyList Field) => Parse.SepBy FieldWritten FieldBreak read fields ∧ passport.fields = fields.toList
 

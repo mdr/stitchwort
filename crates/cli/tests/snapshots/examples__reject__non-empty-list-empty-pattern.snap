@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NONEMPTY-EMPTY] Error: a `NonEmptyList` can't be empty, so `[]` can't match one
+   ╭─[ reject/non-empty-list-empty-pattern.sw:7:5 ]
+   │
+ 7 │   | [] => 0
+   │     ─┬  
+   │      ╰── a `NonEmptyList` can't be empty, so `[]` can't match one
+   │ 
+   │ Note: `[x, ..rest]` matches every `NonEmptyList`, and `[x]` one with a single element
+───╯

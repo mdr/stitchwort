@@ -91,7 +91,7 @@ type Circuits = { labels: Map Nat Nat, count: Nat }
 
 --| Every box in a circuit of its own.
 def Circuits.separate (boxes: Nat): Circuits :=
-  { labels = List.range boxes |> .map (box => (box, box)) |> Map.fromList, count = boxes }
+  { labels = List.range boxes |> .map (box => (box, box)) |> .toMap, count = boxes }
 
 --| A box's label. Every box of `Circuits.separate` and its joins has a label
 --| stored, so the fallback (the box's own number) is never used for them.

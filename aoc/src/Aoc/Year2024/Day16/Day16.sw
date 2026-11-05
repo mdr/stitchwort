@@ -38,7 +38,7 @@ def tile(): {Parse} Tile :=
 def parseMaze (input: Text): {Fail} Maze :=
   let tiles := parseGrid input tile
   {
-    openTiles = tiles.positionsWhere (!= Wall) |> Set.fromList,
+    openTiles = tiles.positionsWhere (!= Wall) |> .toSet,
     start = tiles.findOnly Start "S tile",
     end = tiles.findOnly End "E tile"
   }
@@ -205,7 +205,7 @@ def tilesScoring (fromStart: Map Reindeer Nat) (toEnd: Map Reindeer Nat) (best: 
   fromStart.toList
     |> .filter (entry => toEnd.get entry.fst |> .map (rest => entry.snd + rest == best) |> .getOrElse False)
     |> .map .fst.position
-    |> Set.fromList
+    |> .toSet
 
 --| The tiles on best paths, from the start's scores.
 def Maze.bestTilesFrom (maze: Maze) (fromStart: Map Reindeer Nat): Set Position :=

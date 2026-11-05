@@ -42,6 +42,11 @@ def Map.singleton [auto ord: Ord k] (key: k) (value: v): Map k v := Map.ofRaw (M
 --| O(n log n), or O(n) when the keys come in ascending order.
 def Map.fromList [auto ord: Ord k] (xs: List (k, v)): Map k v := Map.ofRaw (Map.Raw.fromListFast xs)
 
+--| A map of the pairs, a later pair's value replacing an earlier one's:
+--| `Map.fromList` with the list first, so `[(1, "a")].toMap` reads as a
+--| method ([`List.toMapFromList`]).
+def List.toMap [auto ord: Ord k] (items: List (k, v)): Map k v := Map.fromList items
+
 -- Reading
 
 --| The entries, in key order ([`Map.toListSorted`]), each key once ([`Map.keysDistinct`]).
@@ -257,7 +262,7 @@ def Map.partition [auto ord: Ord k] (m: Map k v) (p: k → v → Bool): (Map k v
 --| Every key changed by `f`, into a map ordered by `j`'s ordering; where two
 --| keys go to one, the later (larger) key's value wins ([`Map.getMapKeys`]).
 def Map.mapKeys [auto ord: Ord j] (m: Map k v [ord := o]) (f: k → j): Map j v :=
-  m.toList.map (e => (f e.fst, e.snd)) |> Map.fromList
+  m.toList.map (e => (f e.fst, e.snd)) |> .toMap
 
 -- More reading
 
@@ -391,6 +396,8 @@ theorem Map.toListSingleton [auto ord: Ord k] (key: k) (value: v): Map.toList (M
 
 theorem Map.toListFromList [auto ord: Ord k] (xs: List (k, v)): Map.toList (Map.fromList xs: Map k v) = Map.Spec.fromList xs :=
   Map.Raw.toListFromListFast xs
+
+theorem List.toMapFromList [auto ord: Ord k] (items: List (k, v)): items.toMap = Map.fromList items := rfl
 
 theorem Map.toListInsertWith [auto ord: Ord k] (m: Map k v) (key: k) (value: v) (f: v → v → v):
     Map.toList (Map.insertWith m key value f) = Map.Spec.insertWith f key value (Map.toList m) :=
@@ -1114,6 +1121,7 @@ test "map: size after insert and remove" :=
 test "map: toList holds what get finds" := List.all (Map.toList Map.example) (e => Map.get Map.example e.fst == Some e.snd)
 test "map: keys and values" := Map.keys Map.example == [1, 2, 3] ∧ Map.values Map.example == ["a", "b", "c"]
 test "map: fromList, later wins" := Map.toList (Map.fromList [(1, 1), (1, 2)]) == [(1, 2)]
+test "map: List.toMap" := [(3, "c"), (1, "a"), (2, "b"), (1, "z")].toMap == Map.fromList [(1, "z"), (2, "b"), (3, "c")]
 test "map: foldLeft" := Map.foldLeft Map.example 0 (acc key t => acc + key) == 6
 test "map: map" := Map.values (Map.map Map.example Text.length) == [1, 1, 1]
 test "map: get after map" := Map.get (Map.map Map.example Text.length) 2 == Some 1 ∧ Map.get (Map.map Map.example Text.length) 4 == None
@@ -1185,6 +1193,6 @@ test "map: range" := Map.keys (Map.range Map.example2 2 6) == [2, 3, 5] ∧ Map.
 
 --| Each element of a list by its position, counting from 0, for lookup in
 --| O(log n): `Map.byPosition ["a", "b"]` maps 0 to "a" and 1 to "b".
-def Map.byPosition (xs: List a): Map Nat a := xs.withIndex |> Map.fromList
+def Map.byPosition (xs: List a): Map Nat a := xs.withIndex |> .toMap
 
 test "map: byPosition" := Map.toList (Map.byPosition ["a", "b"]) == [(0, "a"), (1, "b")] ∧ Map.get (Map.byPosition ["a", "b"]) 2 == None

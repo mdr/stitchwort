@@ -12,4 +12,4 @@ test "real input, size" := inputEquations.map (equations => equations.length) ==
 test "real input, two to twelve numbers, none of them 0" :=
   inputEquations.map (equations =>
     equations.all (equation =>
-      2 <= equation.numbers.length && equation.numbers.length <= 12 && equation.numbers.all (number => number != 0))) == Ok True
+      2 <= equation.numbers.length <= 12 && equation.numbers.all (number => number != 0))) == Ok True
