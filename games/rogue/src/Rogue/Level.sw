@@ -18,7 +18,7 @@ def deepest: Nat := 3
 type Area = { corner: Position, down: Nat, across: Nat }
 
 def Area.contains (area: Area) (position: Position): Bool :=
-  area.corner.row ≤ position.row ∧ position.row ≤ area.corner.row + area.down ∧ area.corner.column ≤ position.column ∧ position.column ≤ area.corner.column + area.across
+  area.corner.row ≤ position.row ≤ area.corner.row + area.down ∧ area.corner.column ≤ position.column ≤ area.corner.column + area.across
 
 --| The middle cell (or the one just above or left of the middle).
 def Area.middle (area: Area): Position := { row = area.corner.row + area.down / 2, column = area.corner.column + area.across / 2 }

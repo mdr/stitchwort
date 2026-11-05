@@ -31,7 +31,7 @@ def reportLine(): {Parse} Report :=
   { levels }
 
 --| From `lower` to `higher` is a rise of one to three.
-def risesGently (lower: Nat) (higher: Nat): Bool := lower < higher && higher <= lower + 3
+def risesGently (lower: Nat) (higher: Nat): Bool := lower < higher <= lower + 3
 
 --| Every step rises gently, or every step falls gently.
 def Report.isSafe (report: Report): Bool :=

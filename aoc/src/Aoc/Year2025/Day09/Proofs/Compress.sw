@@ -150,7 +150,7 @@ theorem axisEnds (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) (m
 --| The elements from one position to the other lie from the smaller value to the larger.
 theorem axisInside (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) (mu: List.Mem u xs) (mv: List.Mem v xs)
     (k: Nat) (lo: Nat.min (List.indexOf xs u) (List.indexOf xs v) ≤ k) (hi: k ≤ Nat.max (List.indexOf xs u) (List.indexOf xs v)):
-    (Nat.min u v ≤ List.getOr xs k 0) ∧ (List.getOr xs k 0 ≤ Nat.max u v) :=
+    Nat.min u v ≤ List.getOr xs k 0 ≤ Nat.max u v :=
   match axisEnds xs s u v mu mv with
     | Both (Both atMin atMax) maxIn =>
       let up := List.sortedGetOrLe xs 0 s (Nat.min (List.indexOf xs u) (List.indexOf xs v)) k lo (omega)

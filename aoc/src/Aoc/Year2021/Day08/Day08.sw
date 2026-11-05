@@ -147,7 +147,7 @@ def Entry.parse(): {Parse} Entry :=
     pattern)
   { patterns, outputs }
 
-def patternParse(): {Parse} Pattern := takeWhile1 "a letter from a to g" (c => 'a' ≤ c ∧ c ≤ 'g') |> Pattern.ofLetters
+def patternParse(): {Parse} Pattern := takeWhile1 "a letter from a to g" (c => 'a' ≤ c ≤ 'g') |> Pattern.ofLetters
 
 --| One display per line. A display whose digits don't give a wiring that
 --| shows them fails, naming it.

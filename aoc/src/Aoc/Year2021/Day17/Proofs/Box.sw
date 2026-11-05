@@ -57,7 +57,7 @@ theorem belowLater (velocity: Velocity) (n: Nat) (late: 2 * velocity.dy + 2 ≤ 
 
 --| So a hit below y = 0 comes late, and no later than `-2 * bottom`.
 theorem hitLate (target: Target) (below: target.top < 0) (velocity: Velocity) (n: Nat) (h: inTarget target (flight n velocity) = True):
-    2 * velocity.dy + 2 ≤ n.toInt ∧ n.toInt ≤ -2 * target.bottom :=
+    2 * velocity.dy + 2 ≤ n.toInt ≤ -2 * target.bottom :=
   match e: Int.leq n.toInt (2 * velocity.dy + 1) with
     | True => Void.exfalso (omega [aboveAtFirst velocity n (omega)])
     | False => Both (omega) (omega [belowLater velocity n (omega)])

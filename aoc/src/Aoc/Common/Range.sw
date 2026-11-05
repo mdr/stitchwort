@@ -18,7 +18,7 @@ def range(): {Parse} Range :=
   Parse.ensure (from ≤ to) "the range ${from}-${to} ends before it starts"
   { from, to }
 
-def Range.contains (range: Range) (id: Nat): Bool := range.from ≤ id ∧ id ≤ range.to
+def Range.contains (range: Range) (id: Nat): Bool := range.from ≤ id ≤ range.to
 
 def Range.size (range: Range): Nat := range.to + 1 - range.from
 
