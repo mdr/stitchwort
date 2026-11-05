@@ -8446,14 +8446,14 @@
     {
       "id": 1434,
       "title": "A proof can't follow a program's if a && b with one match on the Bool: the goal shows Decidable.andThen instead of &&, and nothing says to split it; matching each part works but duplicates a branch",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1434",
       "labels": [
         "elab",
         "proofs"
       ],
-      "body": "From 2020 day 9 (SW-1427), 5 Nov 2026; see aoc/NOTES-2020.md Day 9. Friction item 1, the most surprising.\n\nStarted on Sonnet, expected: 75 min.\n\nDone on lane/SW-1434 (f0c10fd85): cause — a branch with an unlifted helper placeholder (decreasing recursion, inner match) applied to every variable counted the proof as used. Fix: Decidable.andTagged tag dp dq while helpers are unlifted; finish settles it to ifThenElse on the Bool when no branch uses the proof, else andThen. Day 9's runFromSound/runFromComplete now one match each. Only the prelude gained a line. Opus review pending (kernel terms). Model result: Sonnet, worked, 27 min (est. 75).\n\nOpus review: don't merge yet. (1) Blocker: a user-written Decidable.andTagged makes the kernel and the runtime disagree (settle_tagged rewrites every andTagged once a declaration's flag is set); fix: settle only elaborator-written tags and keep the tag out of users' reach (orchestrator's call: an implementation detail). (2) Lifted helper bodies are never settled (if inside a lambda in a match arm, or a local def). (3) the per-declaration flag. Sent back to the lane, est. 45 min.",
+      "body": "From 2020 day 9 (SW-1427), 5 Nov 2026; see aoc/NOTES-2020.md Day 9. Friction item 1, the most surprising.\n\nStarted on Sonnet, expected: 75 min.\n\nDone on lane/SW-1434 (f0c10fd85): cause — a branch with an unlifted helper placeholder (decreasing recursion, inner match) applied to every variable counted the proof as used. Fix: Decidable.andTagged tag dp dq while helpers are unlifted; finish settles it to ifThenElse on the Bool when no branch uses the proof, else andThen. Day 9's runFromSound/runFromComplete now one match each. Only the prelude gained a line. Opus review pending (kernel terms). Model result: Sonnet, worked, 27 min (est. 75).\n\nOpus review: don't merge yet. (1) Blocker: a user-written Decidable.andTagged makes the kernel and the runtime disagree (settle_tagged rewrites every andTagged once a declaration's flag is set); fix: settle only elaborator-written tags and keep the tag out of users' reach (orchestrator's call: an implementation detail). (2) Lifted helper bodies are never settled (if inside a lambda in a match arm, or a local def). (3) the per-declaration flag. Sent back to the lane, est. 45 min.\n\nFix round (c4baba9be): andTagged removed; the marker is let %conj (unwritable); settled in lifted helpers too; soundness example tagged-conjunction-unreachable. Opus re-review: merge (user lets aren't rewritten; no %conj left in final terms in probes). Merged; day 9's conflict with SW-1436 resolved to the lane's one-match proofs. Model result: Sonnet, needed fixes (review: public tag let proofs contradict runs; helpers unsettled), 27 + 15 min (est. 75 + 45).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
