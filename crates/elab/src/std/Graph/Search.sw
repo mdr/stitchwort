@@ -31,10 +31,10 @@ type Graph (s: Type) = {
 --| Builds a graph from `edges` and a list of `states`, keeping only the edges
 --| whose target is on `states`, so nothing needs proving: every kept edge
 --| leads to a listed state by construction. A state the list leaves out is
---| still searchable as a source, but no edge leads into it; to lose no edge,
---| list every state the edges lead to (a graph's own states are enough,
---| [`Graph.fromEdgesEdge`] says exactly which edges stay). Each lookup of a
---| state's edges filters `edges state` against a set of `states` built once.
+--| still searchable as a source, but no edge leads into it; to keep every
+--| edge, list every state an edge can lead to; [`Graph.fromEdgesEdge`] says
+--| exactly which edges stay. Each lookup of a state's edges filters
+--| `edges state` against a set of `states` built once.
 def Graph.fromEdges [auto ord: Ord s] (edges: s → List (s, Nat)) (states: List s): Graph s :=
   let known := Set.fromList states
   {
@@ -816,7 +816,7 @@ def Graph.Reachable (graph: Graph s) (sources: List s) (state: s): Prop :=
 --| whatever the edges cost: [`Graph.reachableIff`] says `contains` is
 --| [`Graph.Reachable`]. It runs Dijkstra's search ([`Graph.distances`]) with
 --| every source starting at 0, so it costs about an edge-count of set
---| operations; `Graph.breadthFirst` is the faster search for the fewest
+--| operations; [`Graph.breadthFirst`] is the faster search for the fewest
 --| edges, but is only proved for edges that each cost 1.
 def Graph.reachable [auto ord: Ord s] (graph: Graph s) (sources: List s): Set s :=
   (graph.distances (sources.map (source => (source, 0)))).keySet
