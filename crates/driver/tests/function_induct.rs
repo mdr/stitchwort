@@ -454,11 +454,7 @@ theorem Count.induct: Nat := 0
             let errors = session.load("induct.sw", &wrong).expect_err("they fail");
             let mut codes: Vec<&str> = errors.iter().map(|d| d.code).collect();
             codes.sort_unstable();
-            assert_eq!(
-                codes,
-                ["E-DUPLICATE", "E-UNKNOWN-NAME"],
-                "{errors:#?}"
-            );
+            assert_eq!(codes, ["E-DUPLICATE", "E-UNKNOWN-NAME"], "{errors:#?}");
             let find = |code: &str| errors.iter().find(|d| d.code == code).unwrap();
             let duplicate = find("E-DUPLICATE");
             assert!(
