@@ -2839,6 +2839,7 @@ fn comp_check_in(
                         result,
                         &mut |cx| check(cx, b, expected),
                         &constant,
+                        None,
                     )
                 });
             }

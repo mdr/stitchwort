@@ -27,6 +27,7 @@ use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::{BinOp, Expr};
 
 use crate::check::{Result, builtin_ctor, builtin_data, builtin_def, check, check_type};
+use crate::state::Conjunction;
 use crate::{Ctx, Global};
 
 /// One of the logical forms.
@@ -90,6 +91,117 @@ pub(crate) enum Condition {
     /// decision; where the decision itself is needed as a term, it
     /// waits as a term ([`Condition::decided_now`]).
     Waiting { prop: Term },
+    /// `a && b` read as the `Bool` `as_bool`, where `prop`, the conjunction
+    /// of its operands, is decided by `decision` too: each operand is a
+    /// decided proposition or a `Bool` `c`, read as `c = True`, one at least
+    /// a proposition, and `b` was checked without `a`'s proof. For an `if`
+    /// whose branches may use its proof (`if b != 0 && c != 0 then a % b`);
+    /// anywhere else it's `as_bool`.
+    Conjunction {
+        as_bool: Term,
+        prop: Term,
+        decision: Term,
+    },
+}
+
+/// One operand of a [`Condition::Conjunction`].
+pub(crate) struct Conjunct {
+    prop: Term,
+    decision: Term,
+    /// Whether it's a decided proposition, not a `Bool`'s `c = True`.
+    decided: bool,
+}
+
+impl Conjunct {
+    /// `condition` as an operand of a conjunction; `None` for one whose
+    /// decision has to wait.
+    fn of(cx: &Ctx, condition: &Condition) -> Result<Option<Conjunct>> {
+        Ok(Some(match condition {
+            Condition::Bool(c) => {
+                let dec_true = builtin_def(cx, Builtin::DecTrue)?;
+                Conjunct {
+                    prop: true_prop(cx, c.clone())?,
+                    decision: Term::app(Term::Def(dec_true), c.clone()),
+                    decided: false,
+                }
+            }
+            Condition::Decided { prop, decision } => Conjunct {
+                prop: prop.clone(),
+                decision: decision.clone().term(cx)?,
+                decided: true,
+            },
+            Condition::Conjunction { prop, decision, .. } => Conjunct {
+                prop: prop.clone(),
+                decision: decision.clone(),
+                decided: true,
+            },
+            Condition::Waiting { .. } => return Ok(None),
+        }))
+    }
+
+    /// The right operand, checked under the left one's branch binder, in
+    /// the scope outside it; `None` if it mentions the binder. Its decision
+    /// stays under the binder, as the body of the function
+    /// `Decidable.andThen` takes.
+    fn outside_binder(self, cx: &Ctx) -> Result<Option<Conjunct>> {
+        let level = cx.level();
+        let zonked = |term: &Term| -> Result<Term> {
+            crate::unify::zonk_in(&cx.u(), level, term, &|_| true, &[]).map_err(|e| match e {
+                crate::unify::ZonkError::Resource(e) => Diagnostic::from(e),
+                crate::unify::ZonkError::Unsolved(_) => {
+                    unreachable!("every unsolved metavariable is kept")
+                }
+            })
+        };
+        let prop = zonked(&self.prop)?;
+        let decision = zonked(&self.decision)?;
+        if prop.mentions(0) || decision.mentions(0) {
+            return Ok(None);
+        }
+        Ok(Some(Conjunct {
+            prop: prop.instantiate_var(&cx.g(), 0)?,
+            decision,
+            decided: self.decided,
+        }))
+    }
+}
+
+/// `a ∧ b`, decided by `Decidable.andThen`, if one operand at least is a
+/// decided proposition. `b`'s decision is under one binder.
+fn conjunction(cx: &Ctx, a: Conjunct, b: Conjunct) -> Result<Option<(Term, Term)>> {
+    if !a.decided && !b.decided {
+        return Ok(None);
+    }
+    let and = builtin_data(cx, Builtin::And)?;
+    let prop = Term::data(and, vec![a.prop.clone(), b.prop.clone()]);
+    let then = builtin_def(cx, Builtin::DecAndThen)?;
+    let head = Term::app_icit(
+        Term::app_icit(Term::Def(then), a.prop, Icit::Implicit),
+        b.prop,
+        Icit::Implicit,
+    );
+    let later = Term::Lam("_".into(), Icit::Explicit, Rc::new(b.decision));
+    Ok(Some((prop, Term::app(Term::app(head, a.decision), later))))
+}
+
+/// `c = True`, for a `Bool` `c`.
+pub(crate) fn true_prop(cx: &Ctx, c: Term) -> Result<Term> {
+    let bool_ty = Term::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
+    let (d, t) = builtin_ctor(cx, Builtin::True)?;
+    Ok(Term::Eq(
+        Some(Rc::new(bool_ty)),
+        Rc::new(c),
+        Rc::new(Term::Ctor(d, t, Vec::new())),
+    ))
+}
+
+/// The address of `a` in a condition `a && b`.
+fn conjunction_lhs(cond: &Expr) -> Option<usize> {
+    match cond {
+        Expr::Binary(BinOp::And, a, _) => Some(std::ptr::from_ref(&**a) as usize),
+        Expr::Bracketed(inner, _) => conjunction_lhs(inner),
+        _ => None,
+    }
 }
 
 impl Condition {
@@ -129,10 +241,22 @@ pub(crate) fn condition(cx: &mut Ctx, cond: &Expr, what: &str) -> Result<Conditi
         cx.e.decl
             .condition
             .replace(std::ptr::from_ref(cond) as usize);
+    let outer_conjunction = (cx.e.decl.conjunction)
+        .replace(conjunction_lhs(cond).map(|lhs| Conjunction { lhs, found: None }));
     let as_bool = check(cx, cond, &bool_ty);
+    let conjunction = (cx.e.decl.conjunction.replace(outer_conjunction)).and_then(|c| c.found);
     cx.e.decl.condition.set(outer);
     let not_bool = match as_bool {
-        Ok(cond) => return Ok(Condition::Bool(cond)),
+        Ok(as_bool) => {
+            return Ok(match conjunction {
+                Some((prop, decision)) => Condition::Conjunction {
+                    as_bool,
+                    prop,
+                    decision,
+                },
+                None => Condition::Bool(as_bool),
+            });
+        }
         Err(e) if crate::undo::fatal(&e) => return Err(e),
         Err(not_bool) => not_bool,
     };
@@ -191,8 +315,14 @@ fn decided(
 /// `expr` as a `Bool`: a decided proposition is `Decidable.toBool` of its
 /// decision.
 pub(crate) fn bool_operand(cx: &mut Ctx, expr: &Expr, what: &str) -> Result<Term> {
-    let term = match condition(cx, expr, what)? {
-        Condition::Bool(term) => term,
+    let condition = condition(cx, expr, what)?;
+    condition_bool(cx, expr, condition)
+}
+
+/// [`bool_operand`] of the condition `expr` reads as.
+fn condition_bool(cx: &mut Ctx, expr: &Expr, condition: Condition) -> Result<Term> {
+    let term = match condition {
+        Condition::Bool(term) | Condition::Conjunction { as_bool: term, .. } => term,
         Condition::Decided { prop, decision } => decision.into_bool(cx, prop)?,
         Condition::Waiting { prop } => {
             let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
@@ -225,21 +355,58 @@ fn as_bool(cx: &mut Ctx, logic: Logic) -> Result<Term> {
         let (d, c) = builtin_ctor(cx, which)?;
         Ok(Term::Ctor(d, c, Vec::new()))
     };
-    short_circuit(
+    // The condition `logic::condition` is reading: what it decides as a
+    // conjunction is found on the way.
+    let wanted = and
+        && (cx.e.decl.conjunction.borrow().as_ref())
+            .is_some_and(|c| c.lhs == std::ptr::from_ref(a) as usize);
+    if !wanted {
+        return short_circuit(
+            cx,
+            and,
+            a,
+            what,
+            bool_ty,
+            &mut |cx| bool_operand(cx, b, what),
+            &constant,
+            None,
+        );
+    }
+    let mut lhs = None;
+    let mut rhs = None;
+    let term = short_circuit(
         cx,
         and,
         a,
         what,
         bool_ty,
-        &mut |cx| bool_operand(cx, b, what),
+        &mut |cx| {
+            let condition = condition(cx, b, what)?;
+            rhs = match Conjunct::of(cx, &condition)? {
+                Some(part) => part.outside_binder(cx)?,
+                None => None,
+            };
+            condition_bool(cx, b, condition)
+        },
         &constant,
-    )
+        Some(&mut lhs),
+    )?;
+    if let (Some(lhs), Some(rhs)) = (lhs, rhs)
+        && let Some(found) = conjunction(cx, lhs, rhs)?
+        && let Some(slot) = cx.e.decl.conjunction.borrow_mut().as_mut()
+    {
+        slot.found = Some(found);
+    }
+    Ok(term)
 }
 
 /// `a && b` (if `and`) or `a || b`, with `a` a condition and branches of
 /// type `result`: `rhs` elaborates `b`, and `constant` the `True` or `False`
 /// branch, each under the branch's binder. The `Bool` reading has `Bool`
 /// branches; a `b` that performs operations has computations as branches.
+/// `lhs`, if given, is set to `a` as a [`Conjunct`] when `b` didn't need its
+/// proof.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn short_circuit(
     cx: &mut Ctx,
     and: bool,
@@ -248,6 +415,7 @@ pub(crate) fn short_circuit(
     result: Term,
     rhs: &mut dyn FnMut(&mut Ctx) -> Result<Term>,
     constant: &dyn Fn(&mut Ctx, Builtin) -> Result<Term>,
+    lhs_part: Option<&mut Option<Conjunct>>,
 ) -> Result<Term> {
     let lhs = a;
     let unit = Value::Data(builtin_data(cx, Builtin::Unit)?, Vec::new());
@@ -257,8 +425,16 @@ pub(crate) fn short_circuit(
     // (in `a && b`) or `Not a` (in `a || b`) when `a` is a proposition, so
     // `n != 0 && len % n == 0` finds `%`'s proof; or, for a `Bool` `a`, an
     // unused proof of `Unit`, as the branches of `Bool.ifThenElse` take.
-    let (head, a, b) = match condition(cx, a, what)? {
-        Condition::Bool(a) => {
+    let condition = condition(cx, a, what)?;
+    let part = match lhs_part {
+        Some(slot) => Some((slot, Conjunct::of(cx, &condition)?)),
+        None => None,
+    };
+    let (head, a, b) = match condition {
+        Condition::Bool(a) | Condition::Conjunction { as_bool: a, .. } => {
+            if let Some((slot, part)) = part {
+                *slot = part;
+            }
             crate::probe::record_truth(cx, lhs, &a);
             let mark = cx.mark();
             cx.bind("_", unit.clone());
@@ -273,7 +449,9 @@ pub(crate) fn short_circuit(
             let (prop, decision) = match condition {
                 Condition::Decided { prop, decision } => (prop, Some(decision)),
                 Condition::Waiting { prop } => (prop, None),
-                Condition::Bool(_) => unreachable!("matched above"),
+                Condition::Bool(_) | Condition::Conjunction { .. } => {
+                    unreachable!("matched above")
+                }
             };
             // The assumption's type is `a`'s value, and the evaluator is
             // strict: evaluating `cost < 5` computes `cost`. So `b` is
@@ -349,6 +527,9 @@ pub(crate) fn short_circuit(
                     }
                 };
                 crate::probe::record_truth(cx, lhs, &truth);
+                if let Some((slot, part)) = part {
+                    *slot = part;
+                }
                 (ite, truth, b)
             }
         }

@@ -330,6 +330,11 @@ builtins! {
     // for matches on `b` itself (crates/elab/src/matching.rs)
     DecTrue = "Bool.decTrue": Def,
     ElimDec = "Decidable.elim": Def,
+    // `if p && q` whose branches use its proof (crates/elab/src/logic.rs),
+    // and the parts of such a proof `auto` uses (crates/elab/src/auto.rs)
+    DecAndThen = "Decidable.andThen": Def,
+    AndLeft = "And.left": Def,
+    AndRight = "And.right": Def,
     // `Ord.compare` of an instance the code names compiles to that
     // instance's comparison, read from its definition (crates/js): a
     // record, or `Ord.fromCompare` of one

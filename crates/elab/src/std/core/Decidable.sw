@@ -110,6 +110,18 @@ instance Decidable.and: [p q: Prop] → Decidable p → Decidable q → Decidabl
   | Yes a, No r => No (h => r (And.right h))
   | No r, d => No (h => r (And.left h))
 
+--| `p ∧ q` decided from a decision of `q` and a proof of `p`.
+def Decidable.andYes: [p q: Prop] → Decidable q → p → Decidable (p ∧ q)
+  | Yes b, a => Yes (Both a b)
+  | No r, a => No (h => r (And.right h))
+
+--| `p && q` decided as `if p && q` decides it: `q` only once `p` holds, so
+--| `q`'s decision is passed unevaluated. An `if` on `p && q` whose branches use
+--| its proof (`if b != 0 && c != 0 then a % b`) is decided by this.
+def Decidable.andThen: [p q: Prop] → Decidable p → (Unit → Decidable q) → Decidable (p ∧ q)
+  | Yes a, dq => Decidable.andYes (dq Trivial) a
+  | No r, dq => No (h => r (And.left h))
+
 --| `p || q` is decided from decisions of each side, both worked out first, as for [`Decidable.and`].
 instance Decidable.or: [p q: Prop] → Decidable p → Decidable q → Decidable (p ∨ q)
   | Yes a, d => Yes (Inl a)
