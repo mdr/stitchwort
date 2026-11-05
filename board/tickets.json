@@ -5930,15 +5930,15 @@
     {
       "id": 1256,
       "title": "Cons sweep leftovers: list expressions whose elements perform abilities, and 4 aoc constructor result types, still use Cons (SW-1221 kept them because a list literal elaborates them differently, changing hashes). Convert them (hash changes are fine; verify by audit and tests instead)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1256",
       "labels": [
         "std"
       ],
       "body": "Found by SW-1221, 4 Nov 2026. Remaining full Cons applications: std 46, aoc 9, games 3, examples/accept 18, goals 1.",
       "created": "2026-11-04",
-      "updated": "2026-11-04",
+      "updated": "2026-11-05",
       "commits": []
     },
     {
@@ -6155,15 +6155,15 @@
     {
       "id": 1272,
       "title": "Messages print a <= b as Succ a < b",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1272",
       "labels": [
         "diagnostics"
       ],
       "body": "From SW-1236's check on day 3 (treesOn with <= for <): the first-difference note reads 'they first differ at `Succ (x * slope.down)` against `x * slope.down`, in `x * slope.down < List.length map.rows`'. The user wrote <=; the printer shows its unfolding. Resugar Succ a < b as a <= b in messages (or keep <= folded until needed).",
       "created": "2026-11-04",
-      "updated": "2026-11-04",
+      "updated": "2026-11-05",
       "commits": []
     },
     {
@@ -6402,9 +6402,9 @@
       "labels": [
         "aoc"
       ],
-      "body": "Survey: docs/research/aoc-domain-types.md (SW-1283). D2363 (Matt, 4 Nov): records for nouns by default, an alias only where a type adds nothing; order as recommended, one lane at a time behind the AoC track ('just work through them'). Sonnet (Matt, 4 Nov: Opus not needed for refactoring); the orchestrator checks each changed statement keeps its meaning. Split into one lane per day when picked up; cheapest first (2021/04, 2025/09, 2024/13, 2021/14, 2024/19).",
+      "body": "Survey: docs/research/aoc-domain-types.md (SW-1283). D2363 (Matt, 4 Nov): records for nouns by default, an alias only where a type adds nothing; order as recommended, one lane at a time behind the AoC track ('just work through them'). Sonnet (Matt, 4 Nov: Opus not needed for refactoring); the orchestrator checks each changed statement keeps its meaning. Split into one lane per day when picked up; cheapest first (2021/04, 2025/09, 2024/13, 2021/14, 2024/19).\n\nSplit and done: SW-1307-1309, SW-1312, SW-1313, SW-1320 (all merged 5 Nov). Left: 2024/13 Offset, waiting on D2366.",
       "created": "2026-11-04",
-      "updated": "2026-11-04",
+      "updated": "2026-11-05",
       "commits": []
     },
     {
