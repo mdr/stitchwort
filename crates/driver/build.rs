@@ -19,6 +19,15 @@
 //! float literals are parsed by the standard library, and the float
 //! primitives compiled by it (docs/proposals/float.md §3.3).
 //!
+//! The test cache's key has a narrower fingerprint
+//! ([`fingerprint::evaluation_fingerprint`], SW-1329): only the Rust that
+//! decides what a test computes once its term is fixed (`core`, `rt`,
+//! `dev-features`, the driver's `test_run.rs`, the manifests that pick their
+//! features, `Cargo.lock`, the toolchain). A test's content hash covers its
+//! program and the standard library it uses, so a change to the elaborator,
+//! the parser or std can only change a result by changing the hash. The
+//! check cache keeps the whole-graph fingerprint above.
+//!
 //! The bundle-staleness fingerprint ([`fingerprint::fingerprint`] without the
 //! toolchain) covers web's crate graph instead, so editing `crates/web` marks
 //! `web/pkg` stale (SW-1132). The cache fingerprints stay over the driver's
@@ -88,6 +97,18 @@ fn main() {
     let target = std::env::var("TARGET").unwrap_or_default();
     let hex = fingerprint::fingerprint(lock.as_deref(), &sources, &version, &target);
     println!("cargo:rustc-env=STITCHWORT_FINGERPRINT={hex}");
+    // The evaluation fingerprint: the test cache's key (see above).
+    for file in fingerprint::evaluation_files(&root) {
+        println!("cargo:rerun-if-changed={}", root.join(file).display());
+    }
+    println!(
+        "cargo:rustc-env=STITCHWORT_EVAL_FINGERPRINT_CRATES={}",
+        fingerprint::evaluation_crates(&root).join(",")
+    );
+    println!(
+        "cargo:rustc-env=STITCHWORT_EVAL_FINGERPRINT={}",
+        fingerprint::evaluation_fingerprint(&root, &version, &target)
+    );
     // The sources alone, the same for every target: so a test can tell
     // whether the WebAssembly bundle was built from these sources. Over
     // web's graph, not the driver's, because a change to the web crate's

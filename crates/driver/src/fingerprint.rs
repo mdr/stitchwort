@@ -91,6 +91,63 @@ pub fn source_files(root: &std::path::Path, crate_dir: &str) -> Vec<std::path::P
         .collect()
 }
 
+/// Workspace crates that `core` and `rt` are built with but that can't change
+/// what a test computes once its term is fixed: `syntax` is the parser, which
+/// `core` uses for spans and diagnostics only. Listed so that a new
+/// dependency of `core` or `rt` is fingerprinted by default, not left out.
+pub const NOT_EVALUATION: &[&str] = &["crates/syntax"];
+
+/// Files outside the evaluation crates that decide a test's outcome: the
+/// driver's test runner, and the manifests that choose which features of the
+/// evaluation crates are compiled.
+pub const EVALUATION_FILES: &[&str] = &[
+    "crates/driver/src/test_run.rs",
+    "crates/driver/Cargo.toml",
+    "Cargo.toml",
+];
+
+/// The crates the evaluation fingerprint covers: `core` and `rt` (with the
+/// crates they're built with, except [`NOT_EVALUATION`]) and `dev-features`,
+/// which turns on features of both in dev builds.
+pub fn evaluation_crates(root: &std::path::Path) -> Vec<String> {
+    let mut crates = source_crates(root, "crates/core");
+    crates.extend(source_crates(root, "crates/rt"));
+    crates.push("crates/dev-features".to_string());
+    crates.retain(|c| !NOT_EVALUATION.contains(&c.as_str()));
+    crates.sort();
+    crates.dedup();
+    crates
+}
+
+/// The files the evaluation fingerprint hashes, relative to `root`, sorted.
+pub fn evaluation_files(root: &std::path::Path) -> Vec<std::path::PathBuf> {
+    let mut files: Vec<_> = evaluation_crates(root)
+        .iter()
+        .flat_map(|dir| source_files(root, dir))
+        .chain(EVALUATION_FILES.iter().map(std::path::PathBuf::from))
+        .collect();
+    files.sort();
+    files.dedup();
+    files
+}
+
+/// The fingerprint of what evaluates tests ([`evaluation_files`]), with
+/// `Cargo.lock`, the toolchain and the target: the part of the test cache's
+/// key that stands for the compiler. A test's content hash covers the
+/// program and everything it uses, the standard library included, so this
+/// covers only the Rust that runs a term (docs/proposals/test-cache-key.md).
+pub fn evaluation_fingerprint(root: &std::path::Path, rustc: &str, target: &str) -> String {
+    let lock = std::fs::read(root.join("Cargo.lock")).ok();
+    let files: Vec<(String, Vec<u8>)> = evaluation_files(root)
+        .into_iter()
+        .map(|f| {
+            let text = std::fs::read(root.join(&f)).unwrap_or_default();
+            (f.to_string_lossy().into_owned(), text)
+        })
+        .collect();
+    fingerprint(lock.as_deref(), &files, rustc, target)
+}
+
 /// The Rust sources under `dir`, recursively. Not the standard library's
 /// `.sw` files: they aren't compiled in, and the caches key on the text read
 /// ([`crate::driver::build_fingerprint`]).
@@ -219,6 +276,149 @@ mod tests {
         ] {
             assert!(files.contains(&PathBuf::from(file)), "{file} in {files:?}");
         }
+    }
+
+    /// A workspace of the shape that matters: `core` and `rt` (which depend
+    /// on `syntax` and `core`), `elab` (which they don't depend on), and the
+    /// driver's test runner.
+    fn fake_workspace() -> Scratch {
+        let dir = Scratch::new();
+        let write = |path: &str, text: &str| {
+            let path = dir.path().join(path);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, text).unwrap();
+        };
+        write(
+            "Cargo.toml",
+            "[workspace.dependencies]\nstitchwort-syntax = { path = \"crates/syntax\" }\n\
+             stitchwort-core = { path = \"crates/core\" }\n\
+             stitchwort-rt = { path = \"crates/rt\" }\n\
+             stitchwort-elab = { path = \"crates/elab\" }\n",
+        );
+        write("Cargo.lock", "lock");
+        write("crates/syntax/Cargo.toml", "[dependencies]\n");
+        write(
+            "crates/core/Cargo.toml",
+            "[dependencies]\nstitchwort-syntax.workspace = true\n",
+        );
+        write(
+            "crates/rt/Cargo.toml",
+            "[dependencies]\nstitchwort-core.workspace = true\nstitchwort-syntax.workspace = true\n",
+        );
+        write(
+            "crates/elab/Cargo.toml",
+            "[dependencies]\nstitchwort-core.workspace = true\n",
+        );
+        write("crates/dev-features/Cargo.toml", "[dependencies]\n");
+        write("crates/driver/Cargo.toml", "[dependencies]\n");
+        for file in [
+            "crates/syntax/src/lib.rs",
+            "crates/core/src/lib.rs",
+            "crates/rt/src/lib.rs",
+            "crates/elab/src/lib.rs",
+            "crates/dev-features/src/lib.rs",
+            "crates/driver/src/test_run.rs",
+            "crates/driver/src/driver.rs",
+        ] {
+            write(file, "// 1");
+        }
+        dir
+    }
+
+    /// A fresh directory, removed when dropped.
+    struct Scratch(PathBuf);
+
+    impl Scratch {
+        fn new() -> Self {
+            static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+            let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            let dir = std::env::temp_dir().join(format!("sw-evalfp-{}-{n}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&dir);
+            std::fs::create_dir_all(&dir).unwrap();
+            Scratch(dir)
+        }
+
+        fn path(&self) -> &Path {
+            &self.0
+        }
+    }
+
+    impl Drop for Scratch {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    /// Whether appending a line to `file` of the fake workspace changes the
+    /// evaluation fingerprint.
+    fn changes_the_fingerprint(file: &str) -> bool {
+        let dir = fake_workspace();
+        let before = super::evaluation_fingerprint(dir.path(), "rustc", "t");
+        let path = dir.path().join(file);
+        let mut text = std::fs::read_to_string(&path).unwrap();
+        text.push_str("\n# edited\n");
+        std::fs::write(path, text).unwrap();
+        before != super::evaluation_fingerprint(dir.path(), "rustc", "t")
+    }
+
+    /// The test cache's key stands for the Rust that evaluates a term: a
+    /// change there starts a fresh cache, one anywhere else (the elaborator,
+    /// the parser, the rest of the driver) keeps it, since it can only change
+    /// a result by changing the test's term and so its hash.
+    #[test]
+    fn the_evaluation_fingerprint_changes_with_what_evaluates_tests() {
+        for file in [
+            "crates/core/src/lib.rs",
+            "crates/core/Cargo.toml",
+            "crates/rt/src/lib.rs",
+            "crates/dev-features/src/lib.rs",
+            "crates/driver/src/test_run.rs",
+            "Cargo.lock",
+            "Cargo.toml",
+        ] {
+            assert!(changes_the_fingerprint(file), "{file}");
+        }
+        for file in [
+            "crates/elab/src/lib.rs",
+            "crates/syntax/src/lib.rs",
+            "crates/driver/src/driver.rs",
+        ] {
+            assert!(!changes_the_fingerprint(file), "{file}");
+        }
+    }
+
+    /// The toolchain and target are part of it (float primitives).
+    #[test]
+    fn the_evaluation_fingerprint_has_the_toolchain_and_target() {
+        let dir = fake_workspace();
+        let at = |rustc, target| super::evaluation_fingerprint(dir.path(), rustc, target);
+        assert_ne!(at("rustc 1", "t"), at("rustc 2", "t"));
+        assert_ne!(at("rustc 1", "t"), at("rustc 1", "u"));
+    }
+
+    /// Everything `core` and `rt` are built with is covered, bar the crates
+    /// named as unable to change a result: so a new dependency fails here,
+    /// or is fingerprinted, instead of going unnoticed.
+    #[test]
+    fn the_evaluation_fingerprint_covers_core_and_rt_graphs() {
+        let root = root();
+        let built: Vec<&str> = crate::driver::EVAL_FINGERPRINT_CRATES.split(',').collect();
+        let mut expected: Vec<String> = metadata_graph(&root, "stitchwort-core");
+        expected.extend(metadata_graph(&root, "stitchwort-rt"));
+        expected.push("crates/dev-features".into());
+        expected.retain(|c| !super::NOT_EVALUATION.contains(&c.as_str()));
+        expected.sort();
+        expected.dedup();
+        assert_eq!(built, expected);
+        assert_eq!(super::evaluation_crates(&root), expected);
+        for dir in ["crates/core", "crates/rt", "crates/dev-features"] {
+            assert!(built.contains(&dir), "{dir} in {built:?}");
+        }
+        for dir in ["crates/elab", "crates/driver", "crates/fmt", "crates/js"] {
+            assert!(!built.contains(&dir), "{dir} in {built:?}");
+        }
+        let files = super::evaluation_files(&root);
+        assert!(files.contains(&PathBuf::from("crates/driver/src/test_run.rs")));
     }
 
     /// The directories of `start`'s package and every workspace crate it

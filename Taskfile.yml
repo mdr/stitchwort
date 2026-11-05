@@ -251,6 +251,20 @@ tasks:
     cmds:
       - '{{.GUARD}} --cap-gb {{.MEM_CAP_FULL}} -- cargo nextest run --release --workspace --profile full {{.CLI_ARGS}}'
       - '{{.GUARD}} --cap-gb {{.MEM_CAP_FULL}} -- cargo test --release --doc --workspace'
+      - task: test:verify-cache
+
+  test:verify-cache:
+    desc: "Run aoc's and the roguelike's tests afresh and compare with the cached results (D2379; about 3 min)"
+    summary: |
+      `stitchwort test --verify-cache` on aoc/ and games/rogue/: every test
+      runs with the cache off, and any result that differs from what the
+      cache holds fails with the test's name and hash. A failure means the
+      test cache's key misses an input (docs/proposals/test-cache-key.md,
+      section 8). Part of the full tier; writes nothing to the caches.
+    deps: [build]
+    cmds:
+      - 'cd aoc && {{.SW}} test --verify-cache'
+      - 'cd games/rogue && {{.SW}} test --verify-cache'
 
   test:gate:
     desc: 'nix flake check: the daily tier in the Nix sandbox, with clippy, rustfmt, debug-builtins and the board'
