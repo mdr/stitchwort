@@ -4028,6 +4028,34 @@ impl Elaborator {
                     span: *span,
                 }))
             }
+            // On a `NonEmptyList` (docs/proposals/non-empty-lists.md §7),
+            // `[p, ..q]` is the record `{ head = p, tail = q }`, with `q` a
+            // list pattern on the tail: `[x]` is `{ head = x, tail = [] }`.
+            // So the record's coverage is the match's, and `[x, ..rest]`
+            // covers everything.
+            Pattern::Nil(span) if self.non_empty_list(ty)?.is_some() => Err(error(
+                "E-NONEMPTY-EMPTY",
+                *span,
+                "a `NonEmptyList` can't be empty, so `[]` can't match one",
+            )
+            .with_note(
+                "`[x, ..rest]` matches every `NonEmptyList`, and `[x]` one with a single element",
+            )),
+            Pattern::Cons(p, q, span) if self.non_empty_list(ty)?.is_some() => {
+                let data = self.non_empty_list(ty)?.expect("checked by the guard");
+                let args = match pattern {
+                    Cow::Borrowed(Pattern::Cons(p, q, _)) => {
+                        vec![Cow::Borrowed(&**p), Cow::Borrowed(&**q)]
+                    }
+                    _ => vec![Cow::Owned((**p).clone()), Cow::Owned((**q).clone())],
+                };
+                Ok(Some(CtorPattern {
+                    data,
+                    ctor: 0,
+                    args,
+                    span: *span,
+                }))
+            }
             Pattern::Nil(span) => {
                 let (data, ctor) = self.builtin_ctor(Builtin::Nil, *span)?;
                 Ok(Some(CtorPattern {
@@ -4128,6 +4156,19 @@ impl Elaborator {
                 NumberKind::Fin
             }
             _ => NumberKind::Other,
+        })
+    }
+
+    /// The library's `NonEmptyList`, when `ty`, the type of a column, is one.
+    fn non_empty_list(&self, ty: Option<&Value>) -> Result<Option<DataId>> {
+        let g = &self.ev();
+        let (Some(ty), Some(non_empty)) = (ty, g.env.registry().loaded_data(Builtin::NonEmptyList))
+        else {
+            return Ok(None);
+        };
+        Ok(match force(g, ty.clone())? {
+            Value::Data(d, _) if d == non_empty => Some(d),
+            _ => None,
         })
     }
 

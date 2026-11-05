@@ -694,6 +694,31 @@ impl<'g> Printer<'g> {
                 };
                 (text, prec)
             }
+            // A `NonEmptyList`, in the brackets that write it where one is
+            // expected: `[1, 2]`, `[x, ..xs]` (docs/proposals/non-empty-lists.md §7).
+            Term::Ctor(d, 0, args)
+                if is_loaded(self.g, Builtin::NonEmptyList, *d) && args.len() == 2 =>
+            {
+                let mut items = vec![&*args[0]];
+                let tail = args[1].strip_loc();
+                let rest = if let Some(more) = list_literal(self.g, tail) {
+                    items.extend(more);
+                    None
+                } else if let Some((more, rest)) = open_list(self.g, tail) {
+                    items.extend(more);
+                    Some(rest)
+                } else {
+                    Some(tail)
+                };
+                let mut shown: Vec<String> = items
+                    .iter()
+                    .map(|t| self.print(names, t, Prec::Arrow))
+                    .collect();
+                if let Some(rest) = rest {
+                    shown.push(format!("..{}", self.print(names, rest, Prec::Arrow)));
+                }
+                (format!("[{}]", shown.join(", ")), Prec::Atom)
+            }
             // A record, as a literal: `{ name = "A", age = 3 }`.
             Term::Ctor(d, 0, args) if self.g.data(*d).record => {
                 if let Some(update) = self.record_update(names, *d, args) {

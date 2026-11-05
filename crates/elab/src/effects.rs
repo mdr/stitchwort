@@ -2180,7 +2180,9 @@ fn passed_parts(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result<Optio
         },
         Expr::List(items, _) => match &expected {
             Some(Value::Data(d, params))
-                if Ok(*d) == data(cx, Builtin::List) && params.len() == 1 =>
+                if (Ok(*d) == data(cx, Builtin::List)
+                    || crate::check::is_non_empty_list(cx, *d))
+                    && params.len() == 1 =>
             {
                 let elem = is_comp_type(cx, &params[0])?;
                 // A spread is a list, never a computation to pass.
@@ -4234,11 +4236,16 @@ fn comp_compound(
             Expr::Tuple(Box::new(a), Box::new(b), *span)
         }
         Expr::List(items, span) => {
-            // The element type, when the expected type is a list, so that
-            // `[len() < 3]` at `List Bool` decides the comparison.
+            // The element type, when the expected type is a list (or a
+            // `NonEmptyList`, written as one), so that `[len() < 3]` at
+            // `List Bool` decides the comparison.
             let elem = match expected {
                 Some(t) => match force(&cx.g(), t.clone())? {
-                    Value::Data(d, args) if Ok(d) == data(cx, Builtin::List) && args.len() == 1 => {
+                    Value::Data(d, args)
+                        if (Ok(d) == data(cx, Builtin::List)
+                            || crate::check::is_non_empty_list(cx, d))
+                            && args.len() == 1 =>
+                    {
                         Some(args[0].clone())
                     }
                     _ => None,
