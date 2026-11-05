@@ -1,5 +1,5 @@
 {
-  "next": 1322,
+  "next": 1323,
   "tickets": [
     {
       "id": 47,
@@ -6830,13 +6830,13 @@
     {
       "id": 1320,
       "title": "Domain types: 2021 day 14 (polymer pairs and rules) and 2024 day 19 (towels and designs)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1320",
       "labels": [
         "aoc"
       ],
-      "body": "The last two days left from the domain-types review (D2363): give their nouns small record types with methods; statements re-typed only, the orchestrator checks each keeps its meaning.",
+      "body": "The last two days left from the domain-types review (D2363): give their nouns small record types with methods; statements re-typed only, the orchestrator checks each keeps its meaning.\n\nDone (Sonnet, 9 min, est. 60): 2024 day 19 Pattern {stripes} and Design {stripes} (a design can't be used as a pattern), Spec's laid; 2021 day 14 ElementPair {first, second}, Rule {pair, insert}, pair.becomes. Spec diffs checked by the orchestrator: re-typing only, meanings kept; specs don't use program code. Answers unchanged (2712, 8336623059567; day 19 example 6, 16). Findings: aliases give no dot methods (worth a guide line); 'Witness { … } arg' needs brackets. Model result: Sonnet, worked, 9 min (est. 60).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -6851,6 +6851,20 @@
         "kernel"
       ],
       "body": "From SW-1315, which fixed the same stale-stuck-call gap at the point a comparison fails.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1322,
+      "title": "Parser: 'Witness { … } arg' is a parse error; a record literal as a call argument needs brackets",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "syntax"
+      ],
+      "body": "From SW-1320. Also worth a line in the proving guide or domain-types note: a def alias gives no dot methods, only records do.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
