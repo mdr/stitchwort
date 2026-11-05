@@ -8,10 +8,10 @@ import Aoc.Year2024.Day09.Spec (..)
 import Std (Eq, List, Nat, Option, Void)
 
 --| How many file blocks there are.
-def fileCount (blocks: List (Option Nat)): Nat := (fileBlocks blocks).length
+def fileCount (blocks: List Block): Nat := (fileBlocks blocks).length
 
 --| Freeing the last file block keeps the disk's length.
-theorem lengthFreeLast: (blocks: List (Option Nat)) → (freeLastFileBlock blocks).length = blocks.length
+theorem lengthFreeLast: (blocks: List Block) → (freeLastFileBlock blocks).length = blocks.length
   | [] => rfl
   | [block, ..rest] =>
     match later: lastFile rest with
@@ -19,30 +19,30 @@ theorem lengthFreeLast: (blocks: List (Option Nat)) → (freeLastFileBlock block
       | None => rfl
 
 --| No last file: every block is free.
-theorem noLastFile: (blocks: List (Option Nat)) → lastFile blocks = None → blocks = List.replicate blocks.length None
+theorem noLastFile: (blocks: List Block) → lastFile blocks = None → blocks = List.replicate blocks.length Free
   | [], none => rfl
   | [block, ..rest], none =>
     match later: lastFile rest with
       | Some id => Void.exfalso (Option.someNotNone id none)
       | None =>
         match block with
-          | Some id => Void.exfalso (Option.someNotNone id none)
-          | None => Eq.cong (Cons None) (noLastFile rest later)
+          | FileBlock id => Void.exfalso (Option.someNotNone id none)
+          | Free => Eq.cong (Cons Free) (noLastFile rest later)
 
 --| No last file: no file blocks.
-theorem noFileBlocks: (blocks: List (Option Nat)) → lastFile blocks = None → fileBlocks blocks = []
+theorem noFileBlocks: (blocks: List Block) → lastFile blocks = None → fileBlocks blocks = []
   | [], none => rfl
   | [block, ..rest], none =>
     match later: lastFile rest with
       | Some id => Void.exfalso (Option.someNotNone id none)
       | None =>
         match block with
-          | Some id => Void.exfalso (Option.someNotNone id none)
-          | None => noFileBlocks rest later
+          | FileBlock id => Void.exfalso (Option.someNotNone id none)
+          | Free => noFileBlocks rest later
 
 --| The last file block is the last of the file blocks; freeing it leaves the
 --| others.
-theorem fileBlocksFreeLast: (blocks: List (Option Nat)) → (id: Nat) → lastFile blocks = Some id →
+theorem fileBlocksFreeLast: (blocks: List Block) → (id: Nat) → lastFile blocks = Some id →
     fileBlocks blocks = (fileBlocks (freeLastFileBlock blocks)).append [id]
   | [], id, found => Void.exfalso (Option.noneNotSome id found)
   | [block, ..rest], id, found =>
@@ -50,41 +50,41 @@ theorem fileBlocksFreeLast: (blocks: List (Option Nat)) → (id: Nat) → lastFi
       | Some laterId =>
         rewrite fileBlocksFreeLast rest laterId later, Option.someInjective laterId id found in
           match block with
-            | Some here => rfl
-            | None => rfl
+            | FileBlock here => rfl
+            | Free => rfl
       | None =>
         match block with
-          | Some here => rewrite noFileBlocks rest later, Option.someInjective here id found in rfl
-          | None => Void.exfalso (Option.noneNotSome id found)
+          | FileBlock here => rewrite noFileBlocks rest later, Option.someInjective here id found in rfl
+          | Free => Void.exfalso (Option.noneNotSome id found)
 
 --| Some block is a file block exactly when there is a last file.
-theorem anyFileBlock: (blocks: List (Option Nat)) → blocks.any (block => block.isSome) = (lastFile blocks).isSome
+theorem anyFileBlock: (blocks: List Block) → blocks.any (block => block.isFile) = (lastFile blocks).isSome
   | [] => rfl
   | [block, ..rest] =>
     rewrite anyFileBlock rest in
       match later: lastFile rest with
         | Some id =>
           match block with
-            | Some here => rfl
-            | None => rfl
+            | FileBlock here => rfl
+            | Free => rfl
         | None =>
           match block with
-            | Some here => rfl
-            | None => rfl
+            | FileBlock here => rfl
+            | Free => rfl
 
 --| More blocks to move than `fillFront` uses change nothing.
-theorem fillFrontAppend: (blocks: List (Option Nat)) → (moving: List Nat) → (extra: List Nat) → (count: Nat) → count ≤ moving.length →
+theorem fillFrontAppend: (blocks: List Block) → (moving: List Nat) → (extra: List Nat) → (count: Nat) → count ≤ moving.length →
     fillFront blocks (moving.append extra) count = fillFront blocks moving count
   | blocks, moving, extra, Zero, enough => rfl
   | [], moving, extra, Succ count, enough => rfl
-  | [Some id, ..rest], moving, extra, Succ count, enough => Eq.cong (Cons (Some id)) (fillFrontAppend rest moving extra count (omega))
-  | [None, ..rest], [], extra, Succ count, enough => Void.exfalso (omega)
-  | [None, ..rest], [id, ..moving], extra, Succ count, enough =>
-    Eq.cong (Cons (Some id)) (fillFrontAppend rest moving extra count (omega))
+  | [FileBlock id, ..rest], moving, extra, Succ count, enough => Eq.cong (Cons (FileBlock id)) (fillFrontAppend rest moving extra count (omega))
+  | [Free, ..rest], [], extra, Succ count, enough => Void.exfalso (omega)
+  | [Free, ..rest], [id, ..moving], extra, Succ count, enough =>
+    Eq.cong (Cons (FileBlock id)) (fillFrontAppend rest moving extra count (omega))
 
 --| `fillFront` doesn't look past the first `count` blocks: freeing the last
 --| file block changes nothing when there are `count` file blocks before it.
-theorem fillFrontFreeLast: (blocks: List (Option Nat)) → (moving: List Nat) → (count: Nat) → count ≤ fileCount (freeLastFileBlock blocks) →
+theorem fillFrontFreeLast: (blocks: List Block) → (moving: List Nat) → (count: Nat) → count ≤ fileCount (freeLastFileBlock blocks) →
     fillFront blocks moving count = fillFront (freeLastFileBlock blocks) moving count
   | blocks, moving, Zero, bound => rewrite lengthFreeLast blocks in rfl
   | [], moving, Succ count, bound => rfl
@@ -92,33 +92,33 @@ theorem fillFrontFreeLast: (blocks: List (Option Nat)) → (moving: List Nat) �
     match later: lastFile rest with
       | Some id =>
         match block with
-          | Some here => Eq.cong (Cons (Some here)) (fillFrontFreeLast rest moving count (omega))
-          | None =>
+          | FileBlock here => Eq.cong (Cons (FileBlock here)) (fillFrontFreeLast rest moving count (omega))
+          | Free =>
             match moving with
-              | [] => Eq.cong (Cons None) (fillFrontFreeLast rest [] count (omega))
-              | [next, ..others] => Eq.cong (Cons (Some next)) (fillFrontFreeLast rest others count (omega))
+              | [] => Eq.cong (Cons Free) (fillFrontFreeLast rest [] count (omega))
+              | [next, ..others] => Eq.cong (Cons (FileBlock next)) (fillFrontFreeLast rest others count (omega))
       | None => Void.exfalso (rewrite noFileBlocks rest later at bound in omega)
 
 --| A file block at the front stays there.
-theorem compactFile (id: Nat) (rest: List (Option Nat)): compactBlocks [Some id, ..rest] = [Some id, ..compactBlocks rest] :=
+theorem compactFile (id: Nat) (rest: List Block): compactBlocks [FileBlock id, ..rest] = [FileBlock id, ..compactBlocks rest] :=
   rewrite List.reverseCons id (fileBlocks rest) in
-    Eq.cong (Cons (Some id))
+    Eq.cong (Cons (FileBlock id))
       (fillFrontAppend rest (fileBlocks rest).reverse [id] (fileBlocks rest).length (rewrite List.lengthReverse (fileBlocks rest) in omega))
 
 --| A free block at the front takes the last file block.
-theorem compactGap (rest: List (Option Nat)) (id: Nat) (found: lastFile rest = Some id):
-    compactBlocks [None, ..rest] = [Some id, ..compactBlocks (freeLastFileBlock rest)] :=
+theorem compactGap (rest: List Block) (id: Nat) (found: lastFile rest = Some id):
+    compactBlocks [Free, ..rest] = [FileBlock id, ..compactBlocks (freeLastFileBlock rest)] :=
   let others := fileBlocks (freeLastFileBlock rest)
   rewrite fileBlocksFreeLast rest id found, List.reverseSnoc others id, List.lengthSnoc others id in
-    Eq.cong (Cons (Some id)) (fillFrontFreeLast rest others.reverse others.length (Nat.leRefl others.length))
+    Eq.cong (Cons (FileBlock id)) (fillFrontFreeLast rest others.reverse others.length (Nat.leRefl others.length))
 
 --| Free blocks with no file block after them stay free.
-theorem compactFree (rest: List (Option Nat)) (none: lastFile rest = None): compactBlocks [None, ..rest] = [None, ..rest] :=
-  rewrite noFileBlocks rest none in Eq.cong (Cons None) (Eq.sym (noLastFile rest none))
+theorem compactFree (rest: List Block) (none: lastFile rest = None): compactBlocks [Free, ..rest] = [Free, ..rest] :=
+  rewrite noFileBlocks rest none in Eq.cong (Cons Free) (Eq.sym (noLastFile rest none))
 
 --| Moves past a file block at the front happen behind it.
-theorem stepsPastFile (id: Nat) (rest: List (Option Nat)): (moves: Nat) →
-    compactOneAtATime moves [Some id, ..rest] = [Some id, ..compactOneAtATime moves rest]
+theorem stepsPastFile (id: Nat) (rest: List Block): (moves: Nat) →
+    compactOneAtATime moves [FileBlock id, ..rest] = [FileBlock id, ..compactOneAtATime moves rest]
   | Zero => rfl
   | Succ moves =>
     match gap: hasGap rest with
@@ -127,7 +127,7 @@ theorem stepsPastFile (id: Nat) (rest: List (Option Nat)): (moves: Nat) →
 
 --| With at least as many moves as blocks, the moves end where the program's
 --| fill does.
-theorem stepsFill (moves: Nat) (blocks: List (Option Nat)) (enough: blocks.length ≤ moves):
+theorem stepsFill (moves: Nat) (blocks: List Block) (enough: blocks.length ≤ moves):
     compactOneAtATime moves blocks = compactBlocks blocks
     decreasing blocks.length
 :=
@@ -136,10 +136,10 @@ theorem stepsFill (moves: Nat) (blocks: List (Option Nat)) (enough: blocks.lengt
       match moves with
         | Zero => rfl
         | Succ fewer => rfl
-    | [Some id, ..rest] =>
+    | [FileBlock id, ..rest] =>
       rewrite stepsPastFile id rest moves, compactFile id rest in
-        Eq.cong (Cons (Some id)) (stepsFill moves rest (omega))
-    | [None, ..rest] =>
+        Eq.cong (Cons (FileBlock id)) (stepsFill moves rest (omega))
+    | [Free, ..rest] =>
       match moves with
         | Zero => Void.exfalso (omega)
         | Succ fewer =>
@@ -147,33 +147,41 @@ theorem stepsFill (moves: Nat) (blocks: List (Option Nat)) (enough: blocks.lengt
             | Some id =>
               let freedLength := lengthFreeLast rest
               rewrite anyFileBlock rest, later, stepsPastFile id (freeLastFileBlock rest) fewer, compactGap rest id later
-                in Eq.cong (Cons (Some id)) (stepsFill fewer (freeLastFileBlock rest) (omega))
+                in Eq.cong (Cons (FileBlock id)) (stepsFill fewer (freeLastFileBlock rest) (omega))
             | None => rewrite anyFileBlock rest, later, compactFree rest later in rfl
 
 --| The fill leaves no gaps.
-theorem fillNoGaps (blocks: List (Option Nat)): hasGap (compactBlocks blocks) = False
+theorem fillNoGaps (blocks: List Block): hasGap (compactBlocks blocks) = False
     decreasing blocks.length
 :=
   match blocks with
     | [] => rfl
-    | [Some id, ..rest] => Eq.trans (Eq.cong hasGap (compactFile id rest)) (fillNoGaps rest)
-    | [None, ..rest] =>
+    | [FileBlock id, ..rest] => Eq.trans (Eq.cong hasGap (compactFile id rest)) (fillNoGaps rest)
+    | [Free, ..rest] =>
       match later: lastFile rest with
         | Some id =>
           let freedLength := lengthFreeLast rest
           rewrite compactGap rest id later in fillNoGaps (freeLastFileBlock rest)
         | None => rewrite compactFree rest later, anyFileBlock rest, later in rfl
 
+--| A block's part of the checksum, as the program and as the puzzle say it.
+theorem blockChecksumCorrect (position: Nat): (block: Block) → position * block.idOr 0 = Option.getOrElse (Option.map block.id (id => position * id)) 0
+  | Free => Nat.mulZero position
+  | FileBlock id => rfl
+
 --| The program's checksum is the puzzle's.
-theorem checksumCorrect (blocks: List (Option Nat)): checksum blocks = filesystemChecksum blocks :=
-  Eq.sym (List.sumFilterMap (pair => pair.snd.map (id => pair.fst * id)) blocks.withIndex)
+theorem checksumCorrect (disk: Disk): disk.checksum = filesystemChecksum disk :=
+  Eq.trans
+    (List.sumByCongMem disk.blocks.withIndex (pair => pair.fst * pair.snd.idOr 0) (pair => Option.getOrElse (Option.map pair.snd.id (id => pair.fst * id)) 0)
+      (pair member => blockChecksumCorrect pair.fst pair.snd))
+    (Eq.sym (List.sumFilterMap (pair => pair.snd.id.map (id => pair.fst * id)) disk.blocks.withIndex))
 
 --| Part 1 is the puzzle's moves, one block at a time, then the checksum.
-theorem part1Correct (diskMap: List Nat): solvePart1 diskMap = part1 diskMap :=
-  let disk := blocks diskMap
-  rewrite stepsFill disk.length disk (Nat.leRefl disk.length) in checksumCorrect (compactBlocks disk)
+theorem part1Correct (diskMap: DiskMap): solvePart1 diskMap = part1 diskMap :=
+  let blocks := diskMap.blocks.blocks
+  rewrite stepsFill blocks.length blocks (Nat.leRefl blocks.length) in checksumCorrect { blocks = compactBlocks blocks }
 
 --| The disk's length is enough moves: none are left to make.
-theorem part1NoGapsLeft (diskMap: List Nat): hasGap (compactOneAtATime (blocks diskMap).length (blocks diskMap)) = False :=
-  let disk := blocks diskMap
-  rewrite stepsFill disk.length disk (Nat.leRefl disk.length) in fillNoGaps disk
+theorem part1NoGapsLeft (diskMap: DiskMap): hasGap (compactOneAtATime diskMap.blocks.blocks.length diskMap.blocks.blocks) = False :=
+  let blocks := diskMap.blocks.blocks
+  rewrite stepsFill blocks.length blocks (Nat.leRefl blocks.length) in fillNoGaps blocks
