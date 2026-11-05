@@ -1,5 +1,5 @@
 {
-  "next": 1461,
+  "next": 1462,
   "tickets": [
     {
       "id": 47,
@@ -8664,13 +8664,13 @@
     {
       "id": 1449,
       "title": "Playground editor: stats.published keeps only the last 300 messages, so a test counting from its length after a long check sees nothing new; keep a running total; and the other project test looking for .cm-lintRange-error should scroll to the mark first (CodeMirror draws only near the view)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1449",
       "labels": [
         "playground"
       ],
-      "body": "From SW-1430's follow-up, 5 Nov 2026.\n\nStarted on DeepSeek, expected: 30 min (2 browser runs).",
+      "body": "From SW-1430's follow-up, 5 Nov 2026.\n\nStarted on DeepSeek, expected: 30 min (2 browser runs).\n\nDone (7ba093a96), merged: stats.publishedTotal and a per-entry n; untilErrorInView (waits for the published error on a line, reveals it). Browser: 3 tests pass. Model result: DeepSeek, worked (first run lost to an overloaded server), ~25 min (est. 30).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8825,6 +8825,20 @@
         "playground"
       ],
       "body": "From SW-1432, 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1461,
+      "title": "AoC 2020 day 10 (Adapter Array): spec, efficient solution, proofs, tests, friction notes in aoc/NOTES-2020.md",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "D2442 (Matt, 5 Nov 2026): yes. D2443: overnight, day 11 follows without a friction review in between; both reviewed with Matt in the morning. Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day10.\n\nStarted on Opus, expected: 90 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
