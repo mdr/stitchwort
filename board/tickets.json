@@ -7558,13 +7558,13 @@
     {
       "id": 1372,
       "title": "Use Std's Parse.eachMap where days re-prove it by hand: 2020 day 3 eachSquare, 2020 day 5 eachHalf, 2021 day 16 digitsBits",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1372",
       "labels": [
         "aoc"
       ],
-      "body": "From SW-1365, 5 Nov 2026. Small improvement. DeepSeek-sized.",
+      "body": "From SW-1365, 5 Nov 2026. Small improvement. DeepSeek-sized.\n\nDone on lane/SW-1372 (c0172824e, 41d164450): 2020 days 3 and 5 use the existing Std Parse.eachChars (the right lemma; eachMap is for separated repetitions); eachSquare, rowWritten, eachHalf deleted (-12 lines). 2021 day 16's digitsBits left: not an instance. Reviewed. Model result: DeepSeek, worked, ~25 min (est. 30).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
