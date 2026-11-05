@@ -1,5 +1,5 @@
 {
-  "next": 1331,
+  "next": 1332,
   "tickets": [
     {
       "id": 47,
@@ -6977,6 +6977,20 @@
         "tooling"
       ],
       "body": "D2378 (Matt, 5 Nov): yes. docs/proposals/test-cache-key.md (P3). Entries are the elaborator's output, so syntax and elab stay in this key.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1331,
+      "title": "Feature tour and language guide: bring up to date with everything since SW-1105 (3 Nov), especially partial lambdas (clause lambdas, match some, matches, guards and their equations)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "body": "Matt, 5 Nov. Last full sweep: SW-1105 (0303af796). Since: SW-1294 (guide section on clause lambdas), SW-1295/1301 (guards), SW-1305 (&& gives a ∧ b), SW-93 (proof irrelevance), SW-1227 (_ for named parsers, pending merge), SW-1276 (omega from contradictory facts), domain-type style, and more.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
