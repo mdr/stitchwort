@@ -653,12 +653,12 @@ fn a_short_suffix_of_a_long_literal_is_copied() {
     assert_eq!(quoted.buffer().len(), 1, "quotation copies a short range");
 }
 
-/// `Cons (MkChar 97 h) Nil`, with `h` a proof variable, isn't `"a"`'s list:
-/// without definitional proof irrelevance, `h` isn't `rfl`. The kernel
-/// refuses it as it would refuse the expansion; with `rfl` for `h`, it
-/// accepts.
+/// `Cons (MkChar 97 h) Nil`, with `h` a proof variable, is `"a"`'s list:
+/// `MkChar`'s proof is a proof field, which comparison skips
+/// (docs/proposals/proof-irrelevance.md), against the literal as against
+/// its expansion. Its code point is still compared: `"b"` isn't it.
 #[test]
-fn a_proof_variable_is_not_rfl() {
+fn a_proof_variable_in_a_character_is_skipped() {
     let session = Session::new();
     let g = &session.elab.ev();
     let _op = g.machine.budget.operation(Limits::default());
@@ -708,23 +708,29 @@ fn a_proof_variable_is_not_rfl() {
         )
     };
     let code = |t: Term| infer_closed(g, &t, span()).map(|_| ()).map_err(|d| d.code);
-    assert_eq!(code(claim(a.clone(), Term::Var(0))), Err("E-REFL"));
-    assert_eq!(
-        code(claim(a_expanded(Term::Refl), Term::Var(0))),
-        Err("E-REFL")
-    );
+    assert_eq!(code(claim(a.clone(), Term::Var(0))), Ok(()));
+    assert_eq!(code(claim(a_expanded(Term::Refl), Term::Var(0))), Ok(()));
     assert_eq!(code(claim(a.clone(), Term::Refl)), Ok(()));
+    let b = Term::Chars(Chars::whole(Rc::from(['b'])));
+    assert_eq!(code(claim(b, Term::Var(0))), Err("E-REFL"));
 }
 
-/// The same, written in the language: the elaborator's unifier tells the two
-/// apart as the kernel does.
+/// The same, written in the language: the elaborator's unifier skips the
+/// proof and compares the code point, as the kernel does.
 #[test]
-fn proofs_in_characters_are_compared() {
+fn proofs_in_characters_are_skipped() {
     let mut session = Session::new();
     assert_eq!(
         codes(
             &mut session,
-            "import Std (Char, Text)\ntheorem bad (h : Char.isScalar 97 = True) : Text.toList \"a\" = Cons (MkChar 97 h) Nil := rfl\n"
+            "import Std (Char, Text)\ntheorem anyProof (h : Char.isScalar 97 = True) : Text.toList \"a\" = Cons (MkChar 97 h) Nil := rfl\n"
+        ),
+        Vec::<&str>::new()
+    );
+    assert_eq!(
+        codes(
+            &mut session,
+            "import Std (Char, Text)\ntheorem bad (h : Char.isScalar 98 = True) : Text.toList \"a\" = Cons (MkChar 98 h) Nil := rfl\n"
         ),
         ["E-REFL"]
     );
