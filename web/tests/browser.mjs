@@ -273,8 +273,10 @@ class Page {
     return this.ev(`(() => {
       const e = window.editor, doc = e.view.state.doc;
       const lines = [...document.querySelectorAll("#editor .cm-content .cm-line")];
-      const wrong = lines.filter((l) => l.textContent !== doc.lineAt(e.view.posAtDOM(l)).text);
-      return { lines: lines.length, wrong: wrong.map((l) => l.textContent.slice(0, 60)),
+      // The server's inlay hints are drawn in the line but are not its text.
+      const text = (l) => { const c = l.cloneNode(true); c.querySelectorAll(".cm-inlay").forEach((h) => h.remove()); return c.textContent; };
+      const wrong = lines.filter((l) => text(l) !== doc.lineAt(e.view.posAtDOM(l)).text);
+      return { lines: lines.length, wrong: wrong.map((l) => text(l).slice(0, 60)),
                box: (() => { const r = document.querySelector("#editor .cm-editor").getBoundingClientRect(); return [r.width, r.height]; })() };
     })()`);
   }
@@ -2261,6 +2263,16 @@ test("a code action on a ? fills it in", async (page) => {
   assert.match(await sourceText(page), /two = 2 := (rfl|omega|cases|Std\.byDecision)\n$/);
   assert.match((await page.ev(`window.editor.lastCodeActions`))[0], /^Replace \? with/);
 }, { ms: 120000 });
+
+test("a let without a type shows its type after the name, and the drawn text is still the document", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await page.setSource("def f (n : Nat) : Nat :=\n  let a := n + 1\n  a + a\n");
+  await page.until(`[...document.querySelectorAll("#editor .cm-inlay")].some((h) => h.textContent === ": Nat")`, 60000, "the let's type");
+  await assertAligned(page, "a let with its hint");
+  // The hint is not text: the document is as typed.
+  assert.equal(await sourceText(page), "def f (n : Nat) : Nat :=\n  let a := n + 1\n  a + a\n");
+});
 
 test("without COOP/COEP headers, the service worker isolates the page, and the server gets a shared counter", async (page) => {
   isolating = false;
