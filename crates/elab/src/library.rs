@@ -1169,6 +1169,57 @@ impl Elaborator {
         self.load_libraries(&all)
     }
 
+    /// Loads every library file but those in `skip` (paths under `std/`,
+    /// `Float/Theory.sw`) and those that need one of them, in canonical
+    /// order. The files left out load when something needs them, as in a
+    /// lazy session.
+    pub fn load_libraries_except(
+        &mut self,
+        skip: &BTreeSet<String>,
+    ) -> Result<(), Vec<Diagnostic>> {
+        let Some(lib) = &self.session.library else {
+            return Ok(());
+        };
+        let index = &lib.index;
+        let skipped: BTreeSet<usize> = (1..index.files.len())
+            .filter(|&f| skip.contains(&index.files[f].path))
+            .collect();
+        let wanted: BTreeSet<usize> = (1..index.files.len())
+            .filter(|&f| (index.closure(&BTreeSet::from([f]), &|_| false)).is_disjoint(&skipped))
+            .collect();
+        self.load_libraries(&wanted)
+    }
+
+    /// Loads every library file that checks under this session's limits,
+    /// in canonical order, and returns the paths of those that don't and of
+    /// those that need one that doesn't: what
+    /// [`Elaborator::load_libraries_except`] should leave out for a session
+    /// like this one. For a host that checks the library once ahead of time
+    /// into a check cache it ships (the playground's).
+    pub fn load_libraries_that_check(&mut self) -> BTreeSet<String> {
+        let Some(lib) = &self.session.library else {
+            return BTreeSet::new();
+        };
+        let index = lib.index.clone();
+        let all: BTreeSet<usize> = (1..index.files.len()).collect();
+        let Ok(order) = index.load_order(&all, &|_| false) else {
+            return all.iter().map(|&f| index.files[f].path.clone()).collect();
+        };
+        let mut left_out = BTreeSet::new();
+        for f in order {
+            // A file that failed stays loaded as far as it got: one that
+            // needs it would load on top of that.
+            let needs = index.closure(&BTreeSet::from([f]), &|_| false);
+            if !needs.is_disjoint(&left_out) || self.load_libraries(&BTreeSet::from([f])).is_err() {
+                left_out.insert(f);
+            }
+        }
+        left_out
+            .into_iter()
+            .map(|f| index.files[f].path.clone())
+            .collect()
+    }
+
     /// Loads the files an expression typed in needs (`eval`, the REPL).
     pub fn prepare_expr(&mut self, expr: &Expr) -> Result<(), Diagnostic> {
         let Some(lib) = &self.session.library else {

@@ -29,15 +29,30 @@ let module = null;
 let bundle = null;
 const projects = [];
 let begin;
+// Whether the library's check cache was read (false: no cache, or another
+// build's), once it has been fetched: a project waits for it.
+let libraryCache = null;
 const started = new Promise((ok) => { begin = ok; });
 const ready = (async () => {
   const { module: compiled, load } = await started;
   const t0 = performance.now();
   module = compiled;
   await init({ module_or_path: module });
+  const cache = fetch(new URL(`./pkg/std.cache${load}`, import.meta.url))
+    .then((r) => (r.ok ? r.arrayBuffer() : null))
+    .catch(() => null);
   bundle = new Uint8Array(await fetch(new URL(`./pkg/std.bundle${load}`, import.meta.url)).then((r) => r.arrayBuffer()));
   load_std(bundle);
   server = new LanguageServer();
+  // The library checked when the page was built (web/bundle-std-cache.mjs),
+  // several megabytes: a program on its own doesn't wait for it, a project
+  // does. Without it each project checks the library again on its first
+  // load, which takes tens of seconds.
+  libraryCache = cache.then((bytes) => {
+    const read = bytes !== null && server.load_library_cache(new Uint8Array(bytes));
+    postMessage({ libraryCache: read, after: performance.now() - t0 });
+    return read;
+  });
   postMessage({ ready: performance.now() - t0 });
 })().catch((e) => postMessage({ crashed: String(e) }));
 
@@ -155,6 +170,7 @@ async function handle(data) {
     return;
   }
   if (data.project !== undefined) {
+    await libraryCache;
     loadProject(data.project);
     return;
   }

@@ -6,7 +6,8 @@ editor on the shared language server with page glue only where the client
 has no UI, no phone check, and `coi-serviceworker` shipped so that
 cancellation works on GitHub Pages. The playground's editor is now
 `web/editor/src/editor-entry.js` (bundled to `dist/editor.bundle.js`);
-§5.2.3 says what the page does and what was measured. Sections 1–8 are the
+§5.2.3 says what the page does and what was measured; §5.2.4 how a
+project's first diagnostics came down from tens of seconds (SW-1403). Sections 1–8 are the
 evaluation that led there, kept as written.
 
 **Evaluation:** for Matt (SW-1118, D2241, D2263), 3 November 2026.
@@ -549,6 +550,108 @@ load average of 20–90 from other lanes, so the times are rough):
   version of the test above timed out without the underline although the
   server had published the error in 0.9 s, because the way back from the
   jump had restored the scrolling to the top of the file.
+
+#### 5.2.4 A project's first diagnostics: the library's check cache (SW-1403)
+
+D2439 (Matt): speed first. A project's first diagnostics took 26–40 s in
+Chrome and 40–195 s in Node, because each visit checked the whole standard
+library again: `LiveProject::new` loads every library file before its first
+mark, and the browser had no check cache.
+
+**Where the time went** (measured 5 November 2026, machine load 30–60):
+
+- Natively, with the worker's limits and no cache, the first diagnostics
+  of `Aoc.Year2024.Day21` took 49–106 s, all in one tick: the library
+  files 103 s of 106 s (`STITCHWORT_TIMINGS`), the day itself 50 ms.
+  `std/Float/Theory.sw` alone was 33–97 s of it.
+- With a check cache the same took 1.3 s natively (the library replayed:
+  0.3 s of elaboration, 0.2 s in the kernel).
+- In Node, on the built WebAssembly, without a cache: 37.8–39.7 s.
+
+**The design: the library's check cache, shipped with the page.** Lazy
+loading would have helped less: the AoC days use most of the library, and
+`LiveProject` loads it whole up front so that rewinding never unloads a
+file (re-checking a namespace would load its files again). Replaying it is
+both: as eager as before, and cheap.
+
+- `web/build.sh` (and the flake's `playground`) runs
+  `web/bundle-std-cache.mjs` after the WebAssembly and `std.bundle` are
+  written. It runs that WebAssembly in Node: `build_library_cache` makes a
+  session exactly as the language server makes a project's
+  (`stitchwort_lsp::library_bundle`, through the one `session_for`), checks
+  the library into a recording store, and writes `pkg/std.cache`
+  (`LibraryBundle`, `crates/driver/src/check_cache.rs`): an entry per
+  library file, as a cache directory holds them, and the files that didn't
+  check under the worker's limits (`left_out`, none in WebAssembly). It then
+  loads the library back from the bundle and fails the build unless every
+  file that can be cached was replayed (67 of 68; `Float/Float.sw` binds
+  primitives and is always checked, in 70 ms). About 40 s.
+- **Staying in step.** The cache is made by the same WebAssembly that reads
+  it, from the same `std.bundle`. Every entry is found by its key, which
+  covers the compiler build (version and source fingerprint, which includes
+  the target), the entry format, the modes and limits, and the file's text
+  and its dependencies' keys. A bundle from another build is not read at
+  all (`LibraryBundle::decode` compares the compiler first), and a session
+  made differently finds only misses: the library is then checked as
+  before, never answered from a mismatched entry. `version.json`'s hash
+  covers `std.cache`, so a browser never mixes one build's cache with
+  another's WebAssembly.
+- **Trust.** Entries are admitted without the kernel's checks, as a cache
+  directory's are (check-cache.md, D1660). The per-directory salt, which
+  stops a directory reading entries it didn't write, doesn't apply: the
+  bundle comes from the build that made the WebAssembly reading it, so
+  trusting it is trusting the WebAssembly. Its salt is a constant, so one
+  build makes the same bytes each time.
+- **In the worker** (`web/lsp-worker.js`), the server starts at once and
+  `std.cache` is fetched meanwhile (`LanguageServer::load_library_cache`,
+  `Options::library`, a cell read when a project or a file on its own is
+  loaded). A program on its own doesn't wait for it; a project does
+  (`{project}` waits for the fetch). Without it (a 404, another build's)
+  `stats.libraryCache` is false and the library is checked as before.
+- `LiveProject::new_except` leaves the bundle's `left_out` files, and those
+  that need them, to load when a namespace needs them, so a file that can't
+  check under the worker's limits doesn't spend the first check failing.
+  In WebAssembly none is left out. Natively, with the worker's 512 KiB of
+  limits, `Float.Theory.roundMagnitudeSpec` runs out of depth (in
+  `Float.Model.bitLengthWhen`): native frames are larger than
+  WebAssembly's linear-memory ones.
+
+**Measured after** (same day, load 30–45):
+
+| | before | after |
+|---|---|---|
+| Node, `Day21` first diagnostics | 37.8–39.7 s | 2.0 s |
+| Node, `Year2025/Day02` | — | 2.0 s |
+| Chrome, longest server tick on opening day 2 | 25.1 s | 1.2 s |
+| Chrome, opening day 2 to its first marks | 25.7 s | 8.8–9.3 s |
+| Diagnostics of a day with two errors (Node) | same two messages | same two messages |
+
+The browser's 8.8 s is now mostly the page's own Check of the day
+(`playground-worker.js`, whose sessions still check the library), which
+the browser test waits for before it looks for marks: the server's part is
+a 0.6 s fetch of the cache and ticks of at most 1.2 s.
+
+**Size:** `std.cache` is 14,406,861 bytes; 7,520,873 gzipped, 5,180,341
+with brotli (GitHub Pages serves gzip). That is more than the WebAssembly
+(10.1 MB, 3.8 MB gzipped): the entries are for a navigable session with
+expression types (`+nav+ty`), so they carry what hover and go to
+definition need inside library files. The worker fetches it on every
+first visit (the browser keeps it after, by `version.json`'s hash), but
+only a project waits for it. Whether to fetch it only when a project is
+opened is for Matt (it would delay a project's first marks by the
+download).
+
+**Next:**
+
+- The page's own Check, Tests, Evaluate and Run (`playground-worker.js`,
+  `crates/web/src/lib.rs`) check the library too: the same kind of bundle,
+  for its sessions' modes (no navigation, so much smaller entries), would
+  cut opening a day to about the server's 2 s.
+- The proof searches' worker (`Searcher`) loads the library in its own
+  sessions without a cache.
+- Smaller entries: compressing them in the bundle, or a bundle without
+  expression types for projects (hover in a library file would then show
+  less).
 
 ### 5.3 VS Code for the web, openvscode-server, vscode.dev
 
