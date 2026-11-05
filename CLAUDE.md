@@ -64,8 +64,11 @@ Use the cheapest model that can do the work well. Provisional (D2208, Matt,
   is genuinely hard. It also reviews changes that generate kernel terms, or
   that add or weaken a theorem; a refactor that only re-types statements is
   checked by the orchestrator, statement by statement, that each keeps its
-  meaning (D2364, Matt, 4 Nov 2026).
-- **Sonnet:** routine work, AoC days and their proofs, refactors, std
+  meaning (D2364, Matt, 4 Nov 2026). New AoC days are Opus's too: not
+  because they are hard, but because the day's friction notes are the
+  analysis of Stitchwort's gaps that drives the next work (D2427, Matt,
+  5 Nov 2026).
+- **Sonnet:** routine work, follow-ups on AoC days and their proofs, refactors, std
   lemmas, work near the kernel or proof generation, tasks where generality
   and design judgement matter, and changes across several crates where a
   wrong guess would spread. Try Sonnet first unless the work needs Opus as
