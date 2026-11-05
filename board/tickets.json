@@ -1,5 +1,5 @@
 {
-  "next": 1341,
+  "next": 1342,
   "tickets": [
     {
       "id": 47,
@@ -7102,7 +7102,7 @@
       "labels": [
         "design"
       ],
-      "body": "D2385 (Matt, 5 Nov): yes, write the design note. Matt: 'A really nice bit of syntax sugar from Python … you can sort of elide the and in the middle.' Opus, ~30 min.\n\nNote merged (docs/proposals/chained-comparisons.md; Opus, 6 min, est. 30). Decisions C1-C6 put to Matt as D2386-D2391.",
+      "body": "D2385 (Matt, 5 Nov): yes, write the design note. Matt: 'A really nice bit of syntax sugar from Python … you can sort of elide the and in the middle.' Opus, ~30 min.\n\nNote merged (docs/proposals/chained-comparisons.md; Opus, 6 min, est. 30). Decisions C1-C6 put to Matt as D2386-D2391.\n\nDecisions (Matt, 5 Nov): D2386 yes; D2387 (a); D2388 (a); D2389 (b), middle let-bound, computed once; D2390 run once (follows); D2391 E-COMPARISON-CHAIN (orchestrator's choice, Matt delegated). Implementation: SW-1341.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7117,6 +7117,20 @@
         "aoc"
       ],
       "body": "Matt, 5 Nov: 'make sure we're using that everywhere.' After SW-1335 merges. SW-1335's survey: day 20 (Day20.sw:48, plain list, positionsWhere tiles (!= Wall) works), day 15 (Day15.sw:57, maps to Int fields after; positionsWhere then .map). Re-survey aoc and games/rogue; proofs adjusted to memPositionsWhere where they mention the old shape.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1341,
+      "title": "Chained comparisons: implement docs/proposals/chained-comparisons.md per D2386-D2391",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1341",
+      "labels": [
+        "syntax"
+      ],
+      "body": "Matt, 5 Nov: D2386 yes (< / <= together, > / >= together; refuse mixed directions, !=, in). D2387 (a) = and == refused for now. D2388 (a) a chain is one conjunct. D2389 (b): the middle is bound with let and computed once, pure or not ('I would be surprised if I had this syntax form and it secretly computed the middle twice'). D2390: run once, in order (follows from Matt's D2389 answer). D2391 (Matt: you choose): E-COMPARISON-CHAIN. Sonnet, est. 180 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
