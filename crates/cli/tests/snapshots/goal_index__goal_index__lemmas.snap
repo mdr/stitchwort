@@ -1,8 +1,9 @@
 ---
 source: crates/cli/tests/goal_index.rs
+assertion_line: 199
 expression: "format!(\"{made} lemmas, {} goals without one\\n\\n{}\", summary.len() - made,\nsummary.join(\"\\n\"))"
 ---
-54 lemmas, 12 goals without one
+58 lemmas, 12 goals without one
 
 beside-error goal 1: theorem zeroMulGoal1: 0 = 0 := ?
 bool-constant-branches goal 1: theorem orFalseGoal1 (b: Bool): b = (if b then True else False) := ?
@@ -49,6 +50,10 @@ param-default-shown goal 1: theorem rangeGoalGoal1 (a: Nat) (b: Nat): range a b 
 param-default-shown goal 2: theorem scaledGoalGoal1 (a: Nat): scaled a = a + (a * 2) := ?
 param-default-shown goal 3: no lemma
 proof-hole goal 1: theorem addZeroGoal1 (n: Nat): n = n := ?
+ranges goal 1: theorem lengthThroughGoal1 (n: Nat): List.length (1 ..= n) = n := ?
+ranges goal 2: theorem lengthUpToGoal1 (n: Nat): List.length (0 ..= n) = n + 1 := ?
+ranges goal 3: theorem membersGoal1 (x: Nat) (n: Nat): x ∈ 2 ..< n := ?
+ranges goal 4: theorem pairsGoal1 (n: Nat): 1 ..= n = 1 ..= n := ?
 readable-forms goal 1: theorem memberOfTailGoal1 (y: Nat) (ys: List Nat) (h: y ∈ [y, ..ys]): y ∈ ys := ?
 readable-forms goal 2: theorem keysLessGoal1 (x: Float) (y: Float) (h: x < y) (keys: x < y): x = x := ?
 readable-forms goal 3: theorem deeperGoal1 (f: List Leaf → Nat) (leaf: Leaf) (rest: List Leaf): f [{ leaf | depth = leaf.depth + 1 }, ..rest] = f rest := ?

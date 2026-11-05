@@ -1,0 +1,167 @@
+---
+source: crates/cli/tests/goal_index.rs
+assertion_line: 141
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "n",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem lengthThroughGoal1 (n: Nat): List.length (1 ..= n) = n := ?",
+      "target": "List.length (1 ..= n) = n"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "n: Nat\n⊢ List.length (1 ..= n) = n",
+        "range": [
+          5,
+          56,
+          5,
+          57
+        ]
+      }
+    ],
+    "message": "in `lengthThrough`",
+    "notes": [],
+    "range": [
+      5,
+      56,
+      5,
+      57
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "n",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem lengthUpToGoal1 (n: Nat): List.length (0 ..= n) = n + 1 := ?",
+      "target": "List.length (0 ..= n) = n + 1"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "n: Nat\n⊢ List.length (0 ..= n) = n + 1",
+        "range": [
+          7,
+          61,
+          7,
+          62
+        ]
+      }
+    ],
+    "message": "in `lengthUpTo`",
+    "notes": [],
+    "range": [
+      7,
+      61,
+      7,
+      62
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "counterexample": {
+      "bindings": [
+        {
+          "name": "x",
+          "value": "0"
+        },
+        {
+          "name": "n",
+          "value": "0"
+        }
+      ],
+      "types": [],
+      "verdict": "false"
+    },
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "x",
+          "type": "Nat"
+        },
+        {
+          "name": "n",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem membersGoal1 (x: Nat) (n: Nat): x ∈ 2 ..< n := ?",
+      "target": "x ∈ 2 ..< n"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "x: Nat\nn: Nat\n⊢ x ∈ 2 ..< n",
+        "range": [
+          9,
+          43,
+          9,
+          44
+        ]
+      }
+    ],
+    "message": "in `members`",
+    "notes": [
+      "this statement is false; a counterexample:\n  x = 0\n  n = 0\n`x ∈ 2 ..< n` is false"
+    ],
+    "range": [
+      9,
+      43,
+      9,
+      44
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "n",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem pairsGoal1 (n: Nat): 1 ..= n = 1 ..= n := ?",
+      "target": "1 ..= n = 1 ..= n"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "n: Nat\n⊢ 1 ..= n = 1 ..= n",
+        "range": [
+          11,
+          49,
+          11,
+          50
+        ]
+      }
+    ],
+    "message": "in `pairs`",
+    "notes": [],
+    "range": [
+      11,
+      49,
+      11,
+      50
+    ],
+    "severity": "goal"
+  }
+]
