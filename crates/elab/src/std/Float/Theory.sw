@@ -65,7 +65,7 @@ theorem Float.Theory.bitLengthSlowSpec: (fuel: Nat) → (n: Nat) → 0 < n → n
 
 --| `powers` are 2^width, 2^(width / 2), …, as `bitLengthBy` needs them.
 @[tailrec]
-def Float.Theory.powersFit: List Nat → Nat → Bool
+def Float.Theory.powersFit: (powers: List Nat) → (width: Nat) → Bool
   | [], width => True
   | [p, ..rest], width => Nat.equal p (Float.Model.pow2 width) ∧ Float.Theory.powersFit rest (Nat.divFuel width width 2)
 
@@ -695,12 +695,12 @@ theorem Float.Theory.roundsToScale (t1: Nat) (d1: Nat) (t2: Nat) (d2: Nat) (r: N
 -- Scaling by 2^k
 
 --| The numerator of 2^k as a fraction `upPow k / downPow k` of whole numbers.
-def Float.Theory.upPow: Int → Nat
+def Float.Theory.upPow: (shift: Int) → Nat
   | OfNat k => Nat.pow 2 k
   | NegSucc k => 1
 
 --| The denominator of 2^k as a fraction `upPow k / downPow k` of whole numbers.
-def Float.Theory.downPow: Int → Nat
+def Float.Theory.downPow: (shift: Int) → Nat
   | OfNat k => 1
   | NegSucc k => Nat.pow 2 (Succ k)
 

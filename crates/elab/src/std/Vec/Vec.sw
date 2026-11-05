@@ -16,21 +16,21 @@ type Vec (a: Type): Nat → Type =
 def Vec.length (v: Vec a n): Nat := n
 
 --| The first element of a vector that has one: no default is needed.
-def Vec.head: Vec a (Succ n) → a
+def Vec.head: (xs: Vec a (Succ n)) → a
   | VCons x _ => x
 
 --| A non-empty vector without its first element, one shorter.
-def Vec.tail: Vec a (Succ n) → Vec a n
+def Vec.tail: (xs: Vec a (Succ n)) → Vec a n
   | VCons _ xs => xs
 
 --| The first element, or `fallback` if there is none: for a look ahead along a
 --| vector of unknown length.
-def Vec.headOr: Vec a n → (fallback: a) → a
+def Vec.headOr: (xs: Vec a n) → (fallback: a) → a
   | VNil, fallback => fallback
   | VCons x _, fallback => x
 
 --| n copies of x.
-def Vec.replicate: (n: Nat) → a → Vec a n
+def Vec.replicate: (n: Nat) → (x: a) → Vec a n
   | Zero, _ => VNil
   | Succ k, x => VCons x (Vec.replicate k x)
 
@@ -43,23 +43,23 @@ def Vec.tabulate: (n: Nat) → (f: Fin n → a) → Vec a n
   | Succ k, f => VCons (f FZero) (Vec.tabulate k (i => f (FSucc i)))
 
 --| `f` on each element, in order, keeping the length ([`Vec.toListMap`], [`Vec.getMap`]).
-def Vec.map: Vec a n → (f: a → b) → Vec b n
+def Vec.map: (xs: Vec a n) → (f: a → b) → Vec b n
   | VNil, f => VNil
   | VCons x xs, f => VCons (f x) (Vec.map xs f)
 
 --| `f` of the elements of two vectors of the same length, position by position.
-def Vec.zipWith: Vec a n → Vec b n → (f: a → b → c) → Vec c n
+def Vec.zipWith: (xs: Vec a n) → (ys: Vec b n) → (f: a → b → c) → Vec c n
   | VNil, VNil, f => VNil
   | VCons x xs, VCons y ys, f => VCons (f x y) (Vec.zipWith xs ys f)
 
 --| `f` of the elements of three vectors of the same length, position by position.
-def Vec.zipWith3: Vec a n → Vec b n → Vec c n → (f: a → b → c → d) → Vec d n
+def Vec.zipWith3: (xs: Vec a n) → (ys: Vec b n) → (zs: Vec c n) → (f: a → b → c → d) → Vec d n
   | VNil, VNil, VNil, f => VNil
   | VCons x xs, VCons y ys, VCons z zs, f => VCons (f x y z) (Vec.zipWith3 xs ys zs f)
 
 --| Left fold, tail-recursive: `Vec.foldLeft [x, y] initial f` is `f (f initial x) y`.
 @[tailrec]
-def Vec.foldLeft: Vec a n → (initial: b) → (f: b → a → b) → b
+def Vec.foldLeft: (xs: Vec a n) → (initial: b) → (f: b → a → b) → b
   | VNil, initial, f => initial
   | VCons x xs, initial, f => Vec.foldLeft xs (f initial x) f
 
@@ -73,7 +73,7 @@ def Vec.sumBy (v: Vec a n) (f: a → Nat): Nat := Vec.foldLeft v 0 (acc x => acc
 def Vec.count (v: Vec a n) (p: a → Bool): Nat := Vec.foldLeft v 0 (k x => Nat.succIf k (p x))
 
 --| The elements as a list, of length n ([`Vec.lengthToList`]).
-def Vec.toList: Vec a n → List a
+def Vec.toList: (xs: Vec a n) → List a
   | VNil => []
   | VCons x xs => [x, ..Vec.toList xs]
 
@@ -82,7 +82,7 @@ def Vec.toList: Vec a n → List a
 -- (Building `VCons x (fromList xs)` against the type `Vec a (List.length (Cons
 -- x xs))` would store `List.length xs` at every element, which is quadratic:
 -- indexed-families.md §8.1.)
-def Vec.fromListN: (n: Nat) → (xs: List a) → List.length xs = n → Vec a n
+def Vec.fromListN: (n: Nat) → (xs: List a) → (lengthEq: List.length xs = n) → Vec a n
   | Zero, [], _ => VNil
   | Succ k, [x, ..xs], ok => VCons [n := k] x (Vec.fromListN k xs (Nat.succInjective (List.length xs) k ok))
   | Zero, [x, ..xs], ok => Void.absurd (Nat.succNotZero (List.length xs) ok)
@@ -92,7 +92,7 @@ def Vec.fromListN: (n: Nat) → (xs: List a) → List.length xs = n → Vec a n
 def Vec.fromList (xs: List a): Vec a (List.length xs) := Vec.fromListN (List.length xs) xs rfl
 
 --| The list as a vector of length n, given whether its length is n.
-def Vec.ofListDec (n: Nat) (xs: List a): Decidable (List.length xs = n) → Option (Vec a n)
+def Vec.ofListDec (n: Nat) (xs: List a): (isLength: Decidable (List.length xs = n)) → Option (Vec a n)
   | Yes ok => Some (Vec.fromListN n xs ok)
   | No r => None
 
@@ -111,7 +111,7 @@ def Vec.traverseOption (v: Vec a n) (f: a → Option b): Option (Vec b n) :=
 --| first. It stops at the first `None`.
 @[noReceiver]
 @[tailrec]
-def Vec.traverseOptionLoop (f: a → Option b) (done: List b): Vec a k → Option (List b)
+def Vec.traverseOptionLoop (f: a → Option b) (done: List b): (xs: Vec a k) → Option (List b)
   | VNil => Some (List.reverseOnto done [])
   | VCons x xs =>
     match f x with
@@ -120,7 +120,7 @@ def Vec.traverseOptionLoop (f: a → Option b) (done: List b): Vec a k → Optio
 
 --| The element at a position.
 @[tailrec]
-def Vec.get: Vec a n → Fin n → a
+def Vec.get: (xs: Vec a n) → (i: Fin n) → a
   | VCons x _, FZero => x
   | VCons _ xs, FSucc i => Vec.get xs i
 
@@ -136,7 +136,7 @@ def Vec.getOr (v: Vec a n) (i: Nat) (d: a): a := List.getOr (Vec.toList v) i d
 
 --| Whether some element satisfies `p`.
 @[tailrec]
-def Vec.any: Vec a n → (p: a → Bool) → Bool
+def Vec.any: (xs: Vec a n) → (p: a → Bool) → Bool
   | VNil, p => False
   | VCons x xs, p => p x ∨ Vec.any xs p
 

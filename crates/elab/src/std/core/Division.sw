@@ -8,7 +8,7 @@
 
 --| Counts how many times `divisor` fits into `n`, using `fuel` to stay structurally
 --| recursive (`n` is always enough fuel when `divisor` isn't zero).
-def Nat.divFuel: Nat → Nat → Nat → Nat
+def Nat.divFuel: (fuel: Nat) → (n: Nat) → (divisor: Nat) → Nat
   | Zero, n, divisor => 0
   | Succ fuel, n, divisor => Nat.divStep (Nat.leq divisor n) fuel n divisor
 
@@ -23,7 +23,7 @@ def Nat.divFuel: Nat → Nat → Nat → Nat
 -- put 12345 nested steps into the normal form of `(x + 12345) / d`, a term
 -- growing with the square of the constant (docs/proposals/division.md).
 @[noReceiver]
-def Nat.divStep: Bool → Nat → Nat → Nat → Nat
+def Nat.divStep: (fits: Bool) → (fuel: Nat) → (n: Nat) → (divisor: Nat) → Nat
   | False, fuel, n, divisor => 0
   | True, fuel, n, divisor => Succ (Nat.divFuel fuel (n - divisor) divisor)
 

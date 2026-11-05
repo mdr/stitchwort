@@ -519,7 +519,7 @@ theorem List.mergeSorted (le: a → a → Bool) (tot: (x: a) → (y: a) → le x
 
 --| Every run in the counter is sorted.
 @[noReceiver]
-def List.RunsSorted (le: a → a → Bool): List (Option (List a)) → Prop
+def List.RunsSorted (le: a → a → Bool): (runs: List (Option (List a))) → Prop
   | [] => Unit
   | [None, ..rest] => List.RunsSorted le rest
   | [Some r, ..rest] => (List.Sorted le r) ∧ (List.RunsSorted le rest)
@@ -675,7 +675,7 @@ theorem List.mergeSortedOn (le: a → a → Bool) (p: a → Prop) (tot: (x: a) �
 
 --| Every run in the counter passes `p`.
 @[noReceiver]
-def List.RunsAll (p: a → Prop): List (Option (List a)) → Prop
+def List.RunsAll (p: a → Prop): (runs: List (Option (List a))) → Prop
   | [] => Unit
   | [None, ..rest] => List.RunsAll p rest
   | [Some r, ..rest] => (List.All p r) ∧ (List.RunsAll p rest)
@@ -774,7 +774,7 @@ theorem List.mergeAppend (le: a → a → Bool): (xs: List a) → (ys: List a) �
   | [x, ..xs], [y, ..ys], h => rewrite h x (Inl rfl) y (Inl rfl), List.mergeAppend le xs [y, ..ys] (z m => h z (Inr m)) in rfl
 
 --| The runs of `List.sortWith`'s counter, oldest first, joined.
-def List.runsJoined: List (Option (List a)) → List a
+def List.runsJoined: (runs: List (Option (List a))) → List a
   | [] => []
   | [None, ..rest] => List.runsJoined rest
   | [Some run, ..rest] => List.append (List.runsJoined rest) run
@@ -1240,7 +1240,7 @@ theorem List.mergeCount: (xs: List a) → (ys: List a) → (le: a → a → Bool
 
 --| How many elements of all the runs satisfy `p`.
 @[noReceiver]
-def List.runsCount (p: a → Bool): List (Option (List a)) → Nat
+def List.runsCount (p: a → Bool): (runs: List (Option (List a))) → Nat
   | [] => 0
   | [None, ..rest] => List.runsCount p rest
   | [Some r, ..rest] => List.occurrences r p + List.runsCount p rest

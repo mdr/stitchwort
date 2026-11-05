@@ -460,7 +460,7 @@ theorem Nat.ltOfRunSub (s: Nat) (d: Nat) (n: Nat) (h1: s ≤ d) (h2: d < s + (n 
         (Nat.ltCongRight d (s + (n - s)) s (Eq.trans (Eq.cong (t => s + t) (Nat.subEqZero n s (Nat.lessLe n s (Nat.leqFalse s n e)))) (Nat.addZero s)) h2) h1))
 
 --| Whether the ordering is `Less`.
-def Ordering.isLess: Ordering → Bool
+def Ordering.isLess: (ordering: Ordering) → Bool
   | Less => True
   | Equal => False
   | Greater => False
@@ -526,7 +526,7 @@ theorem Nat.absDiffOfLe (m: Nat) (n: Nat) (h: m ≤ n): Nat.absDiff m n = n - m 
   Eq.trans (Eq.cong (t => t + (n - m)) (Nat.subEqZero m n h)) rfl
 
 --| `b` to the power `e`: `Nat.pow 2 10` is 1024.
-def Nat.pow (b: Nat): Nat → Nat
+def Nat.pow (b: Nat): (exponent: Nat) → Nat
   | Zero => 1
   | Succ e => Nat.pow b e * b
 

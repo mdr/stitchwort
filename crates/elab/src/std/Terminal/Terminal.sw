@@ -38,7 +38,7 @@ ability Terminal where
 def Frame.ansi (lines: List Text): Text := "\u{1b}[H${Frame.ansiLines lines}\u{1b}[J"
 
 --| The lines of a frame, each followed by "clear to end of line", separated by line breaks.
-def Frame.ansiLines: List Text → Text
+def Frame.ansiLines: (lines: List Text) → Text
   | [] => ""
   | [line] => "${line}\u{1b}[K"
   | [line, ..more] => "${line}\u{1b}[K\r\n${Frame.ansiLines more}"
@@ -76,7 +76,7 @@ def Terminal.nextKey (inputIsTerminal: Bool) (read: s → {e} Pair (Option (List
 
 --| Decodes `bytes`, which aren't empty, reading up to `reads` more times to
 --| finish a cut-off key.
-def Terminal.decode (inputIsTerminal: Bool) (read: s → {e} Pair (Option (List Nat)) s): Nat → List Nat → s → {e} Terminal.Read s
+def Terminal.decode (inputIsTerminal: Bool) (read: s → {e} Pair (Option (List Nat)) s): (reads: Nat) → (bytes: List Nat) → (state: s) → {e} Terminal.Read s
   | reads, bytes, source =>
     match Key.next bytes with
       | Got key rest => { key = Some key, pending = rest, source = source }
@@ -91,14 +91,14 @@ def Terminal.decode (inputIsTerminal: Bool) (read: s → {e} Pair (Option (List 
 --| After a read, with `bytes` before it: end of input (or an empty read)
 --| ends them; otherwise decode the two together.
 def Terminal.afterRead (inputIsTerminal: Bool) (read: s → {e} Pair (Option (List Nat)) s) (reads: Nat) (bytes: List Nat):
-    Pair (Option (List Nat)) s → {e} Terminal.Read s
+    (result: Pair (Option (List Nat)) s) → {e} Terminal.Read s
   | MkPair None source => Terminal.ended bytes source
   | MkPair (Some []) source => Terminal.ended bytes source
   | MkPair (Some more) source => Terminal.decode inputIsTerminal read reads (List.append bytes more) source
 
 --| Whether to read more to finish the cut-off key at the front of `bytes`:
 --| from a pipe always, and from a terminal unless it's an escape sequence.
-def Terminal.readsOn (inputIsTerminal: Bool): List Nat → Bool
+def Terminal.readsOn (inputIsTerminal: Bool): (bytes: List Nat) → Bool
   | [27, .._] => !inputIsTerminal
   | _ => True
 
@@ -119,7 +119,7 @@ def Terminal.keysOfReads (inputIsTerminal: Bool) (reads: List (List Nat)): List 
   Terminal.keysWithin inputIsTerminal (List.length (List.concat reads) + List.length reads + 1) [] reads
 
 --| At most `limit` keys (every key but the last uses up a byte or a read).
-def Terminal.keysWithin (inputIsTerminal: Bool): Nat → List Nat → List (List Nat) → List Key
+def Terminal.keysWithin (inputIsTerminal: Bool): (limit: Nat) → (pending: List Nat) → (reads: List (List Nat)) → List Key
   | 0, pending, reads => []
   | Succ limit, pending, reads =>
     let next := Terminal.nextKey inputIsTerminal Terminal.readFromList pending reads
@@ -128,7 +128,7 @@ def Terminal.keysWithin (inputIsTerminal: Bool): Nat → List Nat → List (List
       | Some key => [key, ..Terminal.keysWithin inputIsTerminal limit next.pending next.source]
 
 --| One read from a list of reads: its first, then the rest.
-def Terminal.readFromList: List (List Nat) → Pair (Option (List Nat)) (List (List Nat))
+def Terminal.readFromList: (reads: List (List Nat)) → Pair (Option (List Nat)) (List (List Nat))
   | [] => MkPair None []
   | [bytes, ..later] => MkPair (Some bytes) later
 
@@ -149,7 +149,7 @@ def Terminal.drawFrame (console: Console) (lines: List Text): {IO} () :=
 
 --| Prints each line, in order.
 @[tailrec]
-def Terminal.printLines: List Text → {IO} ()
+def Terminal.printLines: (lines: List Text) → {IO} ()
   | [] => ()
   | [line, ..more] =>
     IO.print line
@@ -236,7 +236,7 @@ test "reads: a sequence that never ends stops after the reads allowed" :=
 --| Draws a frame per key until `q` or the keys run out (at most 10), and
 --| gives the keys it read.
 @[tailrec]
-def Terminal.echoKeys: Nat → List Key → {Terminal} List Key
+def Terminal.echoKeys: (limit: Nat) → (keys: List Key) → {Terminal} List Key
   | 0, seen => List.reverse seen
   | Succ limit, seen =>
     Terminal.draw ["${List.length seen} keys"]

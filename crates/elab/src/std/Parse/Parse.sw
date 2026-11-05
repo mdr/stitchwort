@@ -75,7 +75,7 @@ def Parse.State.expect (state: Parse.State) (what: Text): Parse.State :=
   if state.expected.any (== what) then state else { state | expected = state.expected ++ [what] }
 
 --| The state with a problem noted at the current point.
-def Parse.State.add (state: Parse.State): Parse.Problem → Parse.State
+def Parse.State.add (state: Parse.State): (problem: Parse.Problem) → Parse.State
   | Expected what => state.expect what
   | Literal text => { state.expect "'${text}'" | width = Nat.max state.width text.length }
   | Message text => if state.messages.any (== text) then state else { state | messages = state.messages ++ [text] }
@@ -318,7 +318,7 @@ def Parse.pick (choices: List (Text, a)): {Parse} a :=
 
 --| Notes each word of `pick`'s choices as expected here.
 @[tailrec]
-def Parse.noteWords: List (Text, a) → {Parse} ()
+def Parse.noteWords: (words: List (Text, a)) → {Parse} ()
   | [] => ()
   | [(word, value), ..rest] =>
     Parse.note (Literal word)
@@ -352,13 +352,13 @@ def Parse.valueOr (found: Option a) (fallback: () → {Parse} a): {Parse} a :=
     | None => fallback()
 
 --| The value of `first` if it succeeds, else of the first of the rest that does: `Parse.oneOf`'s loop.
-def Parse.oneOfFrom (first: () → {Parse} a): List (() → {Parse} a) → {Parse} a
+def Parse.oneOfFrom (first: () → {Parse} a): (rest: List (() → {Parse} a)) → {Parse} a
   | [] => first()
   | [next, ..rest] => Parse.valueOr (Parse.optional first) (() => Parse.oneOfFrom next rest)
 
 --| The value of the first alternative that succeeds; if none does, the
 --| failure that got furthest.
-def Parse.oneOf: List (() → {Parse} a) → {Parse} a
+def Parse.oneOf: (parsers: List (() → {Parse} a)) → {Parse} a
   | [] => Parse.fail "`oneOf`: no alternatives"
   | [first, ..rest] => Parse.oneOfFrom first rest
 
@@ -441,7 +441,7 @@ def Parse.sepBy1 (parser: () → {Parse} a) (separator: () → {Parse} ()): {Par
 
 --| What `sepBy` found as a list: the values, or none.
 -- A function of its own so that proofs (Parse/Reads.sw) can name it.
-def Parse.sepByValues: Option (NonEmptyList a) → List a
+def Parse.sepByValues: (found: Option (NonEmptyList a)) → List a
   | None => []
   | Some values => values.toList
 
@@ -601,7 +601,7 @@ def Parse.further (furthest: Parse.Mark): {Parse} Parse.Mark :=
 --| `labelWhole` once it has marked where it started, given the furthest
 --| point read to so far.
 -- A function of its own so that proofs (Parse/Reads.sw) can name it.
-def Parse.labelWholeFrom (what: Text) (start: Parse.Mark) (parser: () → {Parse} a): Parse.Mark → {Parse} a :=
+def Parse.labelWholeFrom (what: Text) (start: Parse.Mark) (parser: () → {Parse} a): (furthest: Parse.Mark) → {Parse} a :=
   handle parser() with
     | return value => furthest => value
     | Parse.span passes, k => furthest =>
@@ -687,7 +687,7 @@ def Parse.Failure.found (failure: Parse.Failure) (chars: List Char) (endOfInput:
 --| The texts as an English list, with " or " before the last and ", "
 --| between the rest: `["a", "b", "c"]` is `"a, b or c"`. One text is
 --| unchanged, and two are joined with " or ".
-def Parse.joinOr: List Text → Text
+def Parse.joinOr: (items: List Text) → Text
   | [] => ""
   | [only] => only
   | [first, second] => "${first} or ${second}"

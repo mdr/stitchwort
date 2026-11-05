@@ -16,7 +16,7 @@
 def Random.modulus: Nat := 18446744073709551616
 
 --| Exclusive or of the lowest `bits` bits of two numbers, one bit at a time.
-def Random.xorBits: Nat → Nat → Nat → Nat
+def Random.xorBits: (fuel: Nat) → (x: Nat) → (y: Nat) → Nat
   | Zero, a, b => 0
   | Succ n, a, b => (a % 2 + b % 2) % 2 + 2 * Random.xorBits n (a / 2) (b / 2)
 

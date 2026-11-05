@@ -13,23 +13,23 @@ type Decidable (p: Prop): Type =
   | No (refutation: ¬p)
 
 --| `Decidable.IsYes d` is `Unit` (provable) exactly when `d` is `Yes`.
-def Decidable.IsYes: Decidable p → Prop
+def Decidable.IsYes: (d: Decidable p) → Prop
   | Yes h => Unit
   | No r => Void
 
 --| How `auto` turns a decision into a proof: `Decidable.fromYes d Trivial` only checks
 --| when `d` computes to `Yes`.
-def Decidable.fromYes: [p: Prop] → (d: Decidable p) → Decidable.IsYes d → p
+def Decidable.fromYes: [p: Prop] → (d: Decidable p) → (yes: Decidable.IsYes d) → p
   | Yes h, u => h
   | No r, u => Void.exfalso u
 
 --| `a == b` is `Decidable.toBool d`, for a decision procedure `d` for `a = b`.
-def Decidable.toBool: [p: Prop] → Decidable p → Bool
+def Decidable.toBool: [p: Prop] → (d: Decidable p) → Bool
   | Yes h => True
   | No r => False
 
 --| `yes` of the proof if the decision is `Yes`, `no` of the refutation if it is `No`: what `if h: p then a else b` means.
-def Decidable.elim: [p: Prop] → [a: Type] → Decidable p → (p → a) → (¬p → a) → a
+def Decidable.elim: [p: Prop] → [a: Type] → (d: Decidable p) → (ifYes: p → a) → (ifNo: ¬p → a) → a
   | Yes h, yes, no => yes h
   | No r, yes, no => no r
 
@@ -71,7 +71,7 @@ def Bool.decTrue: (b: Bool) → Decidable (b = True)
   | False => No Bool.falseNotTrue
 
 --| A decision from what [`Nat.equal`] says.
-def Nat.decEqFrom (m: Nat) (n: Nat): (b: Bool) → Nat.equal m n = b → Decidable (m = n)
+def Nat.decEqFrom (m: Nat) (n: Nat): (b: Bool) → (h: Nat.equal m n = b) → Decidable (m = n)
   | True, h => Yes (Nat.equalSound m n h)
   | False, h => No (Nat.equalFalse m n h)
 
@@ -111,14 +111,14 @@ instance Decidable.and: [p q: Prop] → Decidable p → Decidable q → Decidabl
   | No r, d => No (h => r (And.left h))
 
 --| `p ∧ q` decided from a decision of `q` and a proof of `p`.
-def Decidable.andYes: [p q: Prop] → Decidable q → p → Decidable (p ∧ q)
+def Decidable.andYes: [p q: Prop] → (dq: Decidable q) → (hp: p) → Decidable (p ∧ q)
   | Yes b, a => Yes (Both a b)
   | No r, a => No (h => r (And.right h))
 
 --| `p && q` decided as `if p && q` decides it: `q` only once `p` holds, so
 --| `q`'s decision is passed unevaluated. An `if` on `p && q` whose branches use
 --| its proof (`if b != 0 && c != 0 then a % b`) is decided by this.
-def Decidable.andThen: [p q: Prop] → Decidable p → (Unit → Decidable q) → Decidable (p ∧ q)
+def Decidable.andThen: [p q: Prop] → (dp: Decidable p) → (dq: Unit → Decidable q) → Decidable (p ∧ q)
   | Yes a, dq => Decidable.andYes (dq Trivial) a
   | No r, dq => No (h => r (And.left h))
 
@@ -138,7 +138,7 @@ instance Nat.decLessThan (m: Nat) (n: Nat): Decidable (m < n) := Bool.decTrue (N
 --| which works for any type with decidable equality: [`Bool.canon`] turns any proof
 --| of `x = y` into one chosen by [`Bool.decEq`], so it ignores which proof it was
 --| given, and every proof can be recovered from its canonical one.
-def Bool.canon: [x y: Bool] → Decidable (x = y) → x = y → x = y
+def Bool.canon: [x y: Bool] → (dec: Decidable (x = y)) → (h: x = y) → x = y
   | Yes e, p => e
   | No r, p => Void.exfalso (r p)
 

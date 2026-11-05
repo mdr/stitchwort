@@ -6,7 +6,7 @@
 
 --| The element at index i, or `fallback` past the end.
 @[tailrec]
-def List.getOr: List a → Nat → (fallback: a) → a
+def List.getOr: (xs: List a) → (i: Nat) → (fallback: a) → a
   | [], i, fallback => fallback
   | [x, ..xs], Zero, fallback => x
   | [x, ..xs], Succ i, fallback => List.getOr xs i fallback
@@ -190,7 +190,7 @@ test "List.withIndexRange" := ["a", "b"].withIndex == List.map (List.range 2) (i
 
 --| The position of the first `x` in the list, counting from 0, or the list's
 --| length if `x` isn't in it: `[5, 7, 5].indexOf 5` is 0, `.indexOf 9` is 3.
-def List.indexOf [auto eq: DecEq a]: List a → (x: a) → Nat
+def List.indexOf [auto eq: DecEq a]: (xs: List a) → (x: a) → Nat
   | [], x => 0
   | [y, ..ys], x => if y == x then 0 else Succ (List.indexOf ys x)
 

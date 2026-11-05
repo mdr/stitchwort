@@ -8,17 +8,17 @@
 def Text.length (text: Text): Nat := text.toList.length
 
 --| Whether the text has no characters.
-def Text.isEmpty: Text → Bool
+def Text.isEmpty: (text: Text) → Bool
   | MkText [] => True
   | MkText [char, ..chars] => False
 
 --| The first character and the rest, unless the text is empty.
-def Text.uncons: Text → Option (Pair Char Text)
+def Text.uncons: (text: Text) → Option (Pair Char Text)
   | MkText [] => None
   | MkText [char, ..chars] => Some (MkPair char (MkText chars))
 
 --| Right fold over a list of characters, as `Text.fold` does it.
-def Text.foldChars (f: Char → b → b) (initial: b): List Char → b
+def Text.foldChars (f: Char → b → b) (initial: b): (chars: List Char) → b
   | [] => initial
   | [char, ..chars] => f char (Text.foldChars f initial chars)
 
@@ -28,7 +28,7 @@ def Text.fold (text: Text) (initial: b) (f: Char → b → b): b := Text.foldCha
 --| Whether a code is ASCII whitespace: exactly space, tab, line feed, vertical
 --| tab, form feed and carriage return. For layout-sensitive parsing;
 --| `Char.isWhitespace` is the Unicode test that `Text.trim` and `Text.words` use.
-def Char.isAsciiSpaceCode: Nat → Bool := matches
+def Char.isAsciiSpaceCode: (code: Nat) → Bool := matches
   | 9
   | 10
   | 11
@@ -46,14 +46,14 @@ def Char.isAsciiLowercase (char: Char): Bool := 'a' ≤ char && char ≤ 'z'
 def Char.isAsciiUppercase (char: Char): Bool := 'A' ≤ char && char ≤ 'Z'
 
 --| Whether a code is one of the non-ASCII `White_Space` code points below U+2000: U+0085, U+00A0, U+1680.
-def Char.isWhitespaceLow: Nat → Bool := matches
+def Char.isWhitespaceLow: (code: Nat) → Bool := matches
   | 133
   | 160
   | 5760
 
 --| Whether a code is one of the `White_Space` code points above U+200A: U+2028,
 --| U+2029, U+202F, U+205F, U+3000.
-def Char.isWhitespaceHigh: Nat → Bool := matches
+def Char.isWhitespaceHigh: (code: Nat) → Bool := matches
   | 8232
   | 8233
   | 8239
@@ -76,7 +76,7 @@ def Char.isWhitespace (char: Char): Bool := char.toNat |> Char.isWhitespaceCode
 
 --| The characters without the whitespace at their start.
 @[tailrec]
-def Text.dropSpaces: List Char → List Char
+def Text.dropSpaces: (chars: List Char) → List Char
   | [] => []
   | [char, ..chars] => if Char.isWhitespace char then Text.dropSpaces chars else [char, ..chars]
 
@@ -88,7 +88,7 @@ def Text.trim (text: Text): Text := MkText (List.reverseOnto (Text.dropSpaces (L
 def Char.digitValue (char: Char): Option Nat := if Nat.leq 48 (Char.toNat char) then (if Nat.leq (Char.toNat char) 57 then Some (Char.toNat char - 48) else None) else None
 
 --| The number the ASCII digits spell, after the digits already read (`acc`); `None` at a non-digit.
-def Text.readDigits (acc: Nat): List Char → Option Nat
+def Text.readDigits (acc: Nat): (chars: List Char) → Option Nat
   | [] => Some acc
   | [char, ..chars] => Option.flatMap (Char.digitValue char) (digit => Text.readDigits (acc * 10 + digit) chars)
 
@@ -97,7 +97,7 @@ def Text.readDigits (acc: Nat): List Char → Option Nat
 --| separators. Leading zeros are allowed, so
 --| `Text.toNat (Nat.toText n) = Some n` ([`Text.toNatToText`]) but `"007"`
 --| reads as 7. What it gives on any text is [`Text.toNatDigits`].
-def Text.toNat: Text → Option Nat
+def Text.toNat: (text: Text) → Option Nat
   | MkText [] => None
   | MkText [char, ..chars] => Text.readDigits 0 [char, ..chars]
 
@@ -116,7 +116,7 @@ theorem Text.readDigitsValue: (acc: Nat) → (chars: List Char) →
 --| The integer a text spells: an optional `-`, then one or more ASCII digits,
 --| and nothing else. Leading zeros are fine and `"-0"` is `0`; `"-"`, `""` and
 --| `"+5"` are `None`.
-def Text.toInt: Text → Option Int
+def Text.toInt: (text: Text) → Option Int
   | MkText [] => None
   | MkText [char, ..chars] =>
     if Nat.equal (Char.toNat char) 45
@@ -126,32 +126,32 @@ def Text.toInt: Text → Option Int
 -- Splitting and joining
 
 --| One step of `Text.splitChars`: `char` starts a new field if it is the separator, or joins the first field.
-def Text.splitCons (separator: Char) (char: Char): Bool → Pair (List Char) (List (List Char)) → Pair (List Char) (List (List Char))
+def Text.splitCons (separator: Char) (char: Char): (isSeparator: Bool) → (state: Pair (List Char) (List (List Char))) → Pair (List Char) (List (List Char))
   | True, MkPair field fields => MkPair [] [field, ..fields]
   | False, MkPair field fields => MkPair [char, ..field] fields
 
 --| The first field of the characters and the fields after it, split at each `separator`.
-def Text.splitChars (separator: Char): List Char → Pair (List Char) (List (List Char))
+def Text.splitChars (separator: Char): (chars: List Char) → Pair (List Char) (List (List Char))
   | [] => MkPair [] []
   | [char, ..chars] => Text.splitCons separator char (Decidable.toBool (Char.decEq char separator)) (Text.splitChars separator chars)
 
 --| The fields joined into one list of characters, `separator` between each two.
-def Text.joinChars (separator: Char) (field: List Char): List (List Char) → List Char
+def Text.joinChars (separator: Char) (field: List Char): (fields: List (List Char)) → List Char
   | [] => field
   | [nextField, ..laterFields] => List.append field [separator, ..Text.joinChars separator nextField laterFields]
 
 --| Each list of characters as a text.
-def Text.textsOf: List (List Char) → List Text
+def Text.textsOf: (fields: List (List Char)) → List Text
   | [] => []
   | [field, ..fields] => [MkText field, ..Text.textsOf fields]
 
 --| Each text as its list of characters.
-def Text.charListsOf: List Text → List (List Char)
+def Text.charListsOf: (texts: List Text) → List (List Char)
   | [] => []
   | [text, ..texts] => [Text.toList text, ..Text.charListsOf texts]
 
 --| The fields `Text.splitChars` found, as texts.
-def Text.splitTexts: Pair (List Char) (List (List Char)) → List Text
+def Text.splitTexts: (state: Pair (List Char) (List (List Char))) → List Text
   | MkPair field fields => [MkText field, ..Text.textsOf fields]
 
 --| The fields between separators, keeping empty ones: splitting "a,,b" on
@@ -159,19 +159,19 @@ def Text.splitTexts: Pair (List Char) (List (List Char)) → List Text
 def Text.split (text: Text) (separator: Char): List Text := Text.splitChars separator text.toList |> Text.splitTexts
 
 --| The texts with `separator` between them: `Text.join (Text.split text separator) separator = text` ([`Text.joinSplit`]).
-def Text.join: List Text → (separator: Char) → Text
+def Text.join: (texts: List Text) → (separator: Char) → Text
   | [], separator => MkText []
   | [text, ..texts], separator => MkText (Text.joinChars separator (Text.toList text) (Text.charListsOf texts))
 
 --| The fields joined into one list of characters, the characters of `separator` between each two.
-def Text.joinTextChars (separator: List Char) (field: List Char): List (List Char) → List Char
+def Text.joinTextChars (separator: List Char) (field: List Char): (fields: List (List Char)) → List Char
   | [] => field
   | [nextField, ..laterFields] => List.append field (List.append separator (Text.joinTextChars separator nextField laterFields))
 
 --| The texts with a `Text` separator between them: `Text.joinWith ["a", "b"] ", "` is `"a, b"`.
 --| It is written like `Text.join`, with the list first; `List.joinWith` pipes.
 @[noReceiver]
-def Text.joinWith: List Text → (separator: Text) → Text
+def Text.joinWith: (texts: List Text) → (separator: Text) → Text
   | [], separator => MkText []
   | [text, ..texts], separator => MkText (Text.joinTextChars (Text.toList separator) (Text.toList text) (Text.charListsOf texts))
 
@@ -184,19 +184,19 @@ def List.joinWith (texts: List Text) (separator: Text): Text := Text.joinWith te
 -- that `chars` starts with (so far) and the finished words after it.
 
 --| The finished words with `word` in front, unless it is empty.
-def Text.wordsClose: List Char → List (List Char) → List (List Char)
+def Text.wordsClose: (word: List Char) → (words: List (List Char)) → List (List Char)
   | [], words => words
   | [char, ..chars], words => [[char, ..chars], ..words]
 
 --| One step of reading words, last character first: whitespace closes the current word, anything else joins it.
-def Text.wordsStep (char: Char): Bool → Pair (List Char) (List (List Char)) → Pair (List Char) (List (List Char))
+def Text.wordsStep (char: Char): (isSpace: Bool) → (state: Pair (List Char) (List (List Char))) → Pair (List Char) (List (List Char))
   | True, MkPair word words => MkPair [] (Text.wordsClose word words)
   | False, MkPair word words => MkPair [char, ..word] words
 
 --| Reads `reversed`, the characters last first, onto `st`: a loop, so it is
 --| stack-safe on long texts.
 @[tailrec]
-def Text.wordsFrom (st: Pair (List Char) (List (List Char))): List Char → Pair (List Char) (List (List Char))
+def Text.wordsFrom (st: Pair (List Char) (List (List Char))): (chars: List Char) → Pair (List Char) (List (List Char))
   | [] => st
   | [char, ..reversed] => Text.wordsFrom (Text.wordsStep char (Char.isWhitespace char) st) reversed
 
@@ -204,7 +204,7 @@ def Text.wordsFrom (st: Pair (List Char) (List (List Char))): List Char → Pair
 def Text.wordsChars (chars: List Char): Pair (List Char) (List (List Char)) := Text.wordsFrom (MkPair [] []) (List.reverseOnto chars [])
 
 --| All the words, with the first one closed, as texts.
-def Text.wordsFinish: Pair (List Char) (List (List Char)) → List Text
+def Text.wordsFinish: (state: Pair (List Char) (List (List Char))) → List Text
   | MkPair word words => Text.textsOf (Text.wordsClose word words)
 
 --| The runs of non-whitespace in the text, without empty ones: `"a  b".words` is

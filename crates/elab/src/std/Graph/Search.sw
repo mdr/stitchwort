@@ -28,7 +28,7 @@ type Graph (s: Type) = {
 
 --| Edges followed from `start`, each one of the edges of the state before
 --| it, ending at `finish`.
-def Graph.Walk (graph: Graph s) (start: s): List (s, Nat) → s → Prop
+def Graph.Walk (graph: Graph s) (start: s): (steps: List (s, Nat)) → (finish: s) → Prop
   | [], finish => start = finish
   | [(next, weight), ..rest], finish => ((next, weight) ∈ graph.edges start) ∧ (graph.Walk next rest finish)
 
@@ -241,7 +241,7 @@ theorem Graph.pushedQueued [auto ord: Ord s] (graph: Graph s) (sources: List (s,
 @[tailrec]
 def Graph.searchFrom [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)) (queue: Set (Nat, s)) (settled: Map s Nat)
     (queued: (cost: Nat) → (state: s) → queue.contains (cost, state) = True → state ∈ graph.universe sources):
-    (popped: Option ((Nat, s), Set (Nat, s))) → queue.popMin = popped → Map s Nat
+    (popped: Option ((Nat, s), Set (Nat, s))) → (found: queue.popMin = popped) → Map s Nat
     decreasing (Graph.unsettledIn (graph.universe sources) settled, queue.size)
   | None, found => settled
   | Some ((cost, state), rest), found =>
@@ -565,7 +565,7 @@ theorem Graph.visitFewer [auto ord: Ord s] (graph: Graph s) (depth: Nat) (fronti
 --| `depth + 1`, `visited` with the next frontier.
 @[tailrec]
 def Graph.breadthFrom [auto ord: Ord s] (graph: Graph s) (depth: Nat) (settled: Map s Nat) (frontier: List s):
-    (visited: (Map s Nat, List s)) → graph.visitFrontier (depth + 1) frontier settled = visited → Map s Nat
+    (visited: (Map s Nat, List s)) → (found: graph.visitFrontier (depth + 1) frontier settled = visited) → Map s Nat
     decreasing Graph.unsettledIn graph.states settled
   | (more, []), found => more
   | (more, [first, ..rest]), found =>

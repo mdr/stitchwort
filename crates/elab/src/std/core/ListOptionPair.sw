@@ -7,7 +7,7 @@
 -- Lists, continued
 
 --| `Unit` (true) for the empty list and `Void` (false) for any other: how `Nil ≠ Cons x xs` is proved.
-def List.IsNil: List a → Prop
+def List.IsNil: (xs: List a) → Prop
   | [] => Unit
   | [x, ..xs] => Void
 
@@ -18,19 +18,19 @@ theorem List.consNotNil (x: a) (xs: List a): [x, ..xs] ≠ []
   | p => List.nilNotCons x xs (Eq.sym p)
 
 --| The first element, or `fallback` for an empty list.
-def List.headOr: List a → (fallback: a) → a
+def List.headOr: (xs: List a) → (fallback: a) → a
   | [], fallback => fallback
   | [x, ..xs], fallback => x
 
 --| The list without its first element (empty for an empty list).
-def List.tailOf: List a → List a
+def List.tailOf: (xs: List a) → List a
   | [] => []
   | [x, ..xs] => xs
 
 --| Decides whether two non-empty lists are equal, from decisions about their heads and tails.
 @[noReceiver]
 def List.decCons (x: a) (y: a) (xs: List a) (ys: List a):
-    Decidable (x = y) → Decidable (xs = ys) → Decidable ([x, ..xs] = [y, ..ys])
+    (headEq: Decidable (x = y)) → (tailEq: Decidable (xs = ys)) → Decidable ([x, ..xs] = [y, ..ys])
   | Yes p, Yes q => Yes (J (y' p' => [x, ..xs] = [y', ..ys]) (Eq.cong (Cons x) q) p)
   | No r, dq => No (e => r (Eq.cong (.headOr x) e))
   | Yes p, No r => No (e => r (Eq.cong List.tailOf e))
@@ -45,7 +45,7 @@ def List.decEq (d: (x: a) → (y: a) → Decidable (x = y)): (xs: List a) → (y
 
 --| Decides whether two pairs are equal, from decisions about their parts.
 def Pair.decMk (x1: a) (x2: a) (y1: b) (y2: b):
-    Decidable (x1 = x2) → Decidable (y1 = y2) → Decidable (MkPair x1 y1 = MkPair x2 y2)
+    (fstEq: Decidable (x1 = x2)) → (sndEq: Decidable (y1 = y2)) → Decidable (MkPair x1 y1 = MkPair x2 y2)
   | Yes p, Yes q => Yes (J (x' p' => MkPair x1 y1 = MkPair x' y2) (Eq.cong (MkPair x1) q) p)
   | No r, dq => No (e => r (Eq.cong Pair.fst e))
   | Yes p, No r => No (e => r (Eq.cong Pair.snd e))
@@ -57,7 +57,7 @@ def Pair.decEq (da: (x: a) → (y: a) → Decidable (x = y)) (db: (x: b) → (y:
   | MkPair x1 y1, MkPair x2 y2 => Pair.decMk x1 x2 y1 y2 (da x1 x2) (db y1 y2)
 
 --| `Unit` (true) for `None` and `Void` (false) for a `Some`: how `None ≠ Some x` is proved.
-def Option.IsNone: Option a → Prop
+def Option.IsNone: (option: Option a) → Prop
   | None => Unit
   | Some x => Void
 
@@ -68,12 +68,12 @@ theorem Option.someNotNone (x: a): Some x ≠ None
   | p => Option.noneNotSome x (Eq.sym p)
 
 --| The value, or `fallback` if there isn't one.
-def Option.getOrElse: Option a → (fallback: a) → a
+def Option.getOrElse: (option: Option a) → (fallback: a) → a
   | None, fallback => fallback
   | Some x, fallback => x
 
 --| Decides whether two `Some`s are equal, from a decision about their values.
-def Option.decSome (x: a) (y: a): Decidable (x = y) → Decidable (Some x = Some y)
+def Option.decSome (x: a) (y: a): (dec: Decidable (x = y)) → Decidable (Some x = Some y)
   | Yes p => Yes (Eq.cong Some p)
   | No r => No (e => r (Eq.cong (.getOrElse x) e))
 
@@ -93,13 +93,13 @@ def Option.decEq (d: (x: a) → (y: a) → Decidable (x = y)): (m: Option a) →
 
 --| Every element of the list satisfies `p`.
 @[noReceiver]
-def List.All (p: a → Prop): List a → Prop
+def List.All (p: a → Prop): (xs: List a) → Prop
   | [] => Unit
   | [x, ..xs] => (p x) ∧ (List.All p xs)
 
 --| Some element of the list satisfies `p`.
 @[noReceiver]
-def List.Any (p: a → Prop): List a → Prop
+def List.Any (p: a → Prop): (xs: List a) → Prop
   | [] => Void
   | [x, ..xs] => (p x) ∨ (List.Any p xs)
 
@@ -109,13 +109,13 @@ def List.Mem (x: a) (xs: List a): Prop := List.Any (y => y = x) xs
 
 --| The value, if there is one, satisfies `p`.
 @[noReceiver]
-def Option.All (p: a → Prop): Option a → Prop
+def Option.All (p: a → Prop): (option: Option a) → Prop
   | None => Unit
   | Some x => p x
 
 --| Both halves satisfy their predicates.
 @[noReceiver]
-def Pair.All (p: a → Prop) (q: b → Prop): Pair a b → Prop
+def Pair.All (p: a → Prop) (q: b → Prop): (pair: Pair a b) → Prop
   | MkPair x y => (p x) ∧ (q y)
 
 --| What holds of every element holds of each one.

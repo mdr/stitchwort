@@ -9,7 +9,7 @@ type Fin: Nat → Type =
   | FSucc (i: Fin n): Fin (Succ n)
 
 --| The number itself: `FSucc FZero` is 1.
-def Fin.toNat: Fin n → Nat
+def Fin.toNat: (i: Fin n) → Nat
   | FZero => 0
   | FSucc i => Succ (Fin.toNat i)
 
@@ -18,7 +18,7 @@ theorem Fin.toNatLt: (i: Fin n) → Fin.toNat i < n
   | FSucc i => Fin.toNatLt i
 
 --| `i` as a position below n, from a proof that it is one.
-def Fin.ofNatLt: (n: Nat) → (i: Nat) → i < n → Fin n
+def Fin.ofNatLt: (n: Nat) → (i: Nat) → (lt: i < n) → Fin n
   | Zero, i, h => Void.absurd (Bool.falseNotTrue h)
   | Succ n, Zero, h => FZero
   | Succ n, Succ i, h => FSucc (Fin.ofNatLt n i h)
@@ -112,7 +112,7 @@ test "char to digit" := List.map (Text.toList "0a9") (c => Option.map (Char.toDi
 --| `List.any` does along `List.range n` ([`Fin.anyRange`]). A witness is a
 --| `Fin n`, so it comes with its bound ([`Fin.toNatLt`]).
 @[tailrec]
-def Fin.any: (n: Nat) → (Fin n → Bool) → Bool
+def Fin.any: (n: Nat) → (p: Fin n → Bool) → Bool
   | Zero, p => False
   | Succ n, p => if p FZero then True else Fin.any n (i => p (FSucc i))
 

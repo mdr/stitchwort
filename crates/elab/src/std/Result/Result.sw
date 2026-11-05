@@ -4,27 +4,27 @@
 -- (docs/proposals/errors.md §3.2)
 
 --| `f` of the value; an error stays as it is.
-def Result.map: Result a e → (f: a → b) → Result b e
+def Result.map: (result: Result a e) → (f: a → b) → Result b e
   | Ok x, f => Ok (f x)
   | Err m, f => Err m
 
 --| `f` of the error; a value stays as it is.
-def Result.mapError: Result a e → (f: e → d) → Result a d
+def Result.mapError: (result: Result a e) → (f: e → d) → Result a d
   | Ok x, f => Ok x
   | Err m, f => Err (f m)
 
 --| `f` of the value, which may itself fail; an error stays as it is.
-def Result.flatMap: Result a e → (f: a → Result b e) → Result b e
+def Result.flatMap: (result: Result a e) → (f: a → Result b e) → Result b e
   | Ok x, f => f x
   | Err m, f => Err m
 
 --| `Some` of the value, or `None` for an error (which is dropped).
-def Result.toOption: Result a e → Option a
+def Result.toOption: (result: Result a e) → Option a
   | Ok x => Some x
   | Err m => None
 
 --| Whether there is a value: `(Ok 3).isOk` is `True`.
-def Result.isOk: Result a e → Bool
+def Result.isOk: (result: Result a e) → Bool
   | Ok x => True
   | Err m => False
 
@@ -35,7 +35,7 @@ def Result.traverse (xs: List a) (f: a → Result b e): Result (List b) e := Res
 --| The loop of `Result.traverse`: `done` holds the values so far, last first.
 --| It stops at the first error.
 @[tailrec]
-def Result.traverseLoop (f: a → Result b e) (done: List b): List a → Result (List b) e
+def Result.traverseLoop (f: a → Result b e) (done: List b): (xs: List a) → Result (List b) e
   | [] => Ok (List.reverseOnto done [])
   | [x, ..xs] =>
     match f x with
@@ -85,7 +85,7 @@ theorem Result.traverseAll2 (f: a → Result b e) (r: a → b → Prop) (each: (
           | Ok zs => rewrite <- Result.okInjective [y, ..zs] ys later in Both (each x y first) (Result.traverseAll2 f r each rest zs e))
 
 --| The value in an `Option`, or `Err err`: `t.toNat.toResult "not a number"`.
-def Option.toResult: Option a → (err: e) → Result a e
+def Option.toResult: (option: Option a) → (err: e) → Result a e
   | None, err => Err err
   | Some x, err => Ok x
 

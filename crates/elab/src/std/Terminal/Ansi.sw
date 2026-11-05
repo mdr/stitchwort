@@ -24,7 +24,7 @@ type Ansi.Colour: Type =
   | White
 
 --| The colour's number in `ESC [3nm`.
-def Ansi.colourNumber: Ansi.Colour → Nat
+def Ansi.colourNumber: (colour: Ansi.Colour) → Nat
   | Black => 0
   | Red => 1
   | Green => 2
@@ -56,7 +56,7 @@ type Ansi.Scan: Type =
   | InSequence
 
 --| The characters with ANSI escape sequences removed, starting in state `scan` (`Ansi.strip`'s loop).
-def Ansi.stripChars (scan: Ansi.Scan): List Char → List Char
+def Ansi.stripChars (scan: Ansi.Scan): (chars: List Char) → List Char
   | [] =>
     match scan with
       | AfterEscape => ['\u{1b}']

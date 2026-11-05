@@ -19,7 +19,7 @@ type Map.Spec (k: Type) (v: Type) = List (k, v)
 
 --| `value` at `key` in a list sorted by key, as `Map.insertWith` does it:
 --| before the first larger key, or combined with the value at an equal key.
-def Map.Spec.insertWith [auto ord: Ord k] (f: v → v → v) (key: k) (value: v): List (k, v) → List (k, v)
+def Map.Spec.insertWith [auto ord: Ord k] (f: v → v → v) (key: k) (value: v): (entries: List (k, v)) → List (k, v)
   | [] => [(key, value)]
   | [(kk, vv), ..rest] => match Ord.compare key kk with
     | Less => [(key, value), (kk, vv), ..rest]
@@ -31,7 +31,7 @@ def Map.Spec.insert [auto ord: Ord k] (key: k) (value: v) (xs: List (k, v)): Lis
   Map.Spec.insertWith (new old => new) key value xs
 
 --| Without the entry at `key`.
-def Map.Spec.remove [auto ord: Ord k] (key: k): List (k, v) → List (k, v)
+def Map.Spec.remove [auto ord: Ord k] (key: k): (entries: List (k, v)) → List (k, v)
   | [] => []
   | [(kk, vv), ..rest] => match Ord.compare key kk with
     | Less => [(kk, vv), ..rest]
@@ -39,18 +39,18 @@ def Map.Spec.remove [auto ord: Ord k] (key: k): List (k, v) → List (k, v)
     | Greater => [(kk, vv), ..Map.Spec.remove key rest]
 
 --| Every value changed by `f`.
-def Map.Spec.mapValues (f: v → w): List (k, v) → List (k, w)
+def Map.Spec.mapValues (f: v → w): (entries: List (k, v)) → List (k, w)
   | [] => []
   | [(kk, vv), ..rest] => [(kk, f vv), ..Map.Spec.mapValues f rest]
 
 --| Every value changed by `f`, which also sees its key.
-def Map.Spec.mapWithKey (f: k → v → w): List (k, v) → List (k, w)
+def Map.Spec.mapWithKey (f: k → v → w): (entries: List (k, v)) → List (k, w)
   | [] => []
   | [(kk, vv), ..rest] => [(kk, f kk vv), ..Map.Spec.mapWithKey f rest]
 
 --| Left fold over the entries: `f (f z k1 v1) k2 v2`.
 @[tailrec]
-def Map.Spec.foldLeft (f: b → k → v → b): b → List (k, v) → b
+def Map.Spec.foldLeft (f: b → k → v → b): (initial: b) → (entries: List (k, v)) → b
   | z, [] => z
   | z, [(kk, vv), ..rest] => Map.Spec.foldLeft f (f z kk vv) rest
 
@@ -79,7 +79,7 @@ def Map.Spec.adjust [auto ord: Ord k] (f: v → v) (key: k) (xs: List (k, v)): L
     | Some old => Map.Spec.insert key (f old) xs
 
 --| `key` is below the list's first key (or the list is empty).
-def Map.Spec.BelowHead (ord: Ord k) (key: k): List (k, v) → Prop
+def Map.Spec.BelowHead (ord: Ord k) (key: k): (entries: List (k, v)) → Prop
   | [] => Unit
   | [(kk, vv), ..rest] => Ord.compare key kk = Less
 
@@ -327,7 +327,7 @@ theorem Map.Raw.toListAdjust [auto ord: Ord k] (f: v → v) (key: k) (m: Map.Raw
 -- The entries are in strictly increasing key order
 
 --| Every key is above `lo`, each above the one before.
-def Map.Spec.Ascending (ord: Ord k): Option k → List (k, v) → Prop
+def Map.Spec.Ascending (ord: Ord k): (bound: Option k) → (entries: List (k, v)) → Prop
   | lo, [] => Unit
   | lo, [(kk, vv), ..rest] => (Map.Tree.Above ord lo kk) ∧ (Map.Spec.Ascending ord (Some kk) rest)
 
@@ -335,7 +335,7 @@ def Map.Spec.Ascending (ord: Ord k): Option k → List (k, v) → Prop
 def Map.Spec.Sorted (ord: Ord k) (xs: List (k, v)): Prop := Map.Spec.Ascending ord None xs
 
 --| The list can follow keys below `hi`: it's empty, or its first key isn't below `hi`.
-def Map.Spec.Fits (ord: Ord k): Option k → List (k, v) → Prop
+def Map.Spec.Fits (ord: Ord k): (bound: Option k) → (entries: List (k, v)) → Prop
   | hi, [] => Unit
   | None, [(kk, vv), ..rest] => Void
   | Some h, [(kk, vv), ..rest] => Ord.compare kk h ≠ Less
@@ -653,7 +653,7 @@ theorem Map.Raw.getAdjustOther [auto ord: Ord k] (f: v → v) (key: k) (other: k
 
 --| The last element of the list, or `found` for an empty list.
 @[tailrec]
-def Map.Spec.lastOr (found: Option a): List a → Option a
+def Map.Spec.lastOr (found: Option a): (xs: List a) → Option a
   | [] => found
   | [x, ..rest] => Map.Spec.lastOr (Some x) rest
 
@@ -678,7 +678,7 @@ theorem Map.Tree.maxOnto: (found: Option (k, v)) → (t: Map.Tree k v) → (acc:
 theorem Map.Raw.minToList (m: Map.Raw k v [ord := o]): Map.Raw.min m = List.head (Map.Raw.toList m) := Eq.sym (Map.Tree.minOnto m.tree [])
 
 --| A list's first element and the rest.
-def Map.Spec.uncons: List a → Option (a, List a)
+def Map.Spec.uncons: (xs: List a) → Option (a, List a)
   | [] => None
   | [x, ..rest] => Some (x, rest)
 
@@ -713,7 +713,7 @@ def Map.Spec.isLess [auto ord: Ord k] (a: k) (b: k): Bool := Ord.compare a b |> 
 
 --| The last entry whose key is below `key`, or `found` if there is none.
 @[tailrec]
-def Map.Spec.lastBelow [auto ord: Ord k] (key: k) (found: Option (k, v)): List (k, v) → Option (k, v)
+def Map.Spec.lastBelow [auto ord: Ord k] (key: k) (found: Option (k, v)): (entries: List (k, v)) → Option (k, v)
   | [] => found
   | [(kk, vv), ..rest] => match Ord.compare kk key with
     | Less => Map.Spec.lastBelow key (Some (kk, vv)) rest
@@ -897,7 +897,7 @@ theorem Map.Spec.findAboveLeast [auto ord: Ord k] (key: k): (lo: Option k) → (
 -- What a fold over the entries leaves at one key (for `Map`'s lemmas)
 
 --| What a fold finds at `key`.
-def Map.Spec.atKey (h: v → Option w → Option w): Option v → Option w → Option w
+def Map.Spec.atKey (h: v → Option w → Option w): (left: Option v) → (right: Option w) → Option w
   | None, old => old
   | Some value, old => h value old
 
@@ -947,12 +947,12 @@ theorem Map.Spec.sameKeyDecide [auto ord: Ord k] (a: k) (b: k): Map.Spec.sameKey
 
 --| `rest`, with `(key, value)` in front if there is a value.
 -- (A function of its own, like `List.filterStep`, so the rest is written once.)
-def Map.Spec.consEntry (key: k) (rest: List (k, x)): Option x → List (k, x)
+def Map.Spec.consEntry (key: k) (rest: List (k, x)): (value: Option x) → List (k, x)
   | Some value => [(key, value), ..rest]
   | None => rest
 
 --| The entries `f` keeps, with the values it gives; `f` sees each key and value.
-def Map.Spec.mapMaybe (f: k → v → Option x): List (k, v) → List (k, x)
+def Map.Spec.mapMaybe (f: k → v → Option x): (entries: List (k, v)) → List (k, x)
   | [] => []
   | [(kk, vv), ..rest] => Map.Spec.consEntry kk (Map.Spec.mapMaybe f rest) (f kk vv)
 
@@ -960,7 +960,7 @@ def Map.Spec.mapMaybe (f: k → v → Option x): List (k, v) → List (k, x)
 --| `both`, a key in one only to `onlyLeft` or `onlyRight`, and each says what
 --| value the result keeps there, if any.
 def Map.Spec.merge [auto ord: Ord k] (both: k → v → w → Option x) (onlyLeft: k → v → Option x) (onlyRight: k → w → Option x):
-    List (k, v) → List (k, w) → List (k, x)
+    (left: List (k, v)) → (right: List (k, w)) → List (k, x)
   | [], ys => Map.Spec.mapMaybe onlyRight ys
   | [x, ..xs], [] => Map.Spec.mapMaybe onlyLeft [x, ..xs]
   | [x, ..xs], [y, ..ys] =>
@@ -1109,7 +1109,7 @@ theorem Map.Spec.lookupMapMaybe [auto ord: Ord k] (f: k → v → Option x) (key
 
 --| What a merge has at `key`, from what each list has there.
 def Map.Spec.mergeAt (both: k → v → w → Option x) (onlyLeft: k → v → Option x) (onlyRight: k → w → Option x) (key: k):
-    Option v → Option w → Option x
+    (left: Option v) → (right: Option w) → Option x
   | Some a, Some b => both key a b
   | Some a, None => onlyLeft key a
   | None, Some b => onlyRight key b
@@ -1279,7 +1279,7 @@ theorem Map.Spec.mergeAtDifference (key: k): (a: Option v) → (b: Option w) →
 theorem Map.Tree.halfLe (m: Nat): m / 2 ≤ m := Nat.leTrans (m / 2) (m / 2 * 2) m (Nat.leMulPos (m / 2) 2 rfl) (Nat.divFuelLe m m 2)
 
 --| The first key, if any.
-def Map.Spec.headKey: List (k, v) → Option k
+def Map.Spec.headKey: (entries: List (k, v)) → Option k
   | [] => None
   | [(kk, vv), ..rest] => Some kk
 
@@ -1298,7 +1298,7 @@ def Map.Tree.joinBuilt (buildRight: List (k, v) → (Map.Tree k v, List (k, v)))
 --| fewer), half on each side of each node, and the entries after them: O(n).
 -- `fuel` keeps the recursion structural; it is never less than `n`, so it
 -- never runs out.
-def Map.Tree.buildFuel: Nat → Nat → List (k, v) → (Map.Tree k v, List (k, v))
+def Map.Tree.buildFuel: (fuel: Nat) → (size: Nat) → (entries: List (k, v)) → (Map.Tree k v, List (k, v))
   | Zero, n, entries => (Tip, entries)
   | Succ fuel, Zero, entries => (Tip, entries)
   | Succ fuel, Succ m, entries =>
@@ -1393,7 +1393,7 @@ theorem Map.Tree.withinNoneHigh (ord: Ord k) (lo: Option k) (t: Map.Tree k v): (
 --| The number of entries, counted onto `count` in a loop: `List.length`
 --| recurses once per entry, which overflows the stack in JS for long lists.
 @[tailrec]
-def Map.Spec.countOnto: Nat → List (k, v) → Nat
+def Map.Spec.countOnto: (count: Nat) → (entries: List (k, v)) → Nat
   | count, [] => count
   | count, [entry, ..rest] => Map.Spec.countOnto (Succ count) rest
 
@@ -1429,7 +1429,7 @@ theorem Map.Raw.toListFromSorted [auto ord: Ord k] (xs: List (k, v)) (sorted: Ma
 
 --| Whether the keys are ascending, each above `lo`: one pass, O(n).
 @[tailrec]
-def Map.Spec.isAscending [auto ord: Ord k]: Option k → List (k, v) → Bool
+def Map.Spec.isAscending [auto ord: Ord k]: (bound: Option k) → (entries: List (k, v)) → Bool
   | lo, [] => True
   | None, [(kk, vv), ..rest] => Map.Spec.isAscending (Some kk) rest
   | Some lo, [(kk, vv), ..rest] => if Map.Spec.isLess lo kk then Map.Spec.isAscending (Some kk) rest else False
@@ -1464,7 +1464,7 @@ def Map.Raw.fromListFast [auto ord: Ord k] (xs: List (k, v)): Map.Raw k v :=
   Map.Raw.fromListChecked xs (Map.Spec.isAscending None xs) rfl
 
 --| `fromListFast`, given whether the keys are ascending.
-def Map.Raw.fromListChecked [auto ord: Ord k] (xs: List (k, v)): (ascending: Bool) → Map.Spec.isAscending None xs = ascending → Map.Raw k v
+def Map.Raw.fromListChecked [auto ord: Ord k] (xs: List (k, v)): (ascending: Bool) → (h: Map.Spec.isAscending None xs = ascending) → Map.Raw k v
   | True, h => Map.Raw.fromSorted xs (Map.Spec.ascendingOfCheck None xs h)
   | False, h => Map.Raw.fromList xs
 

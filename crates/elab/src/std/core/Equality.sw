@@ -25,7 +25,7 @@ theorem Eq.subst (motive: a → Prop) [x y: a] (h: x = y) (fact: motive x): moti
 -- equation into a family that's `Unit` at one constructor and `Void` at the other.
 
 --| `Unit` (true) for 0 and `Void` (false) for any other number: how `0 ≠ n + 1` is proved.
-def Nat.IsZero: Nat → Prop
+def Nat.IsZero: (n: Nat) → Prop
   | Zero => Unit
   | Succ n => Void
 
@@ -38,7 +38,7 @@ theorem Nat.succNotZero (n: Nat): Succ n ≠ 0
 theorem Nat.succInjective (m: Nat) (n: Nat) (p: Succ m = Succ n): m = n := Eq.cong Nat.pred p
 
 --| `Unit` (true) for `False` and `Void` (false) for `True`: how `False ≠ True` is proved.
-def Bool.IsFalse: Bool → Prop
+def Bool.IsFalse: (b: Bool) → Prop
   | False => Unit
   | True => Void
 
@@ -47,7 +47,7 @@ theorem Bool.falseNotTrue: False ≠ True
 
 --| Whether two numbers are equal, as a `Bool`.
 @[tailrec]
-def Nat.equal: Nat → Nat → Bool
+def Nat.equal: (m: Nat) → (n: Nat) → Bool
   | Zero, Zero => True
   | Zero, Succ n => False
   | Succ m, Zero => False

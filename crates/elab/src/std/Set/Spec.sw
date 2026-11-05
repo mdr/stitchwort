@@ -21,7 +21,7 @@ theorem Set.sizeToList (s: Set k [ord := o]): Set.size s = List.length (Set.toLi
 --| Whether an option has a value: how `Set.contains` reads what `Map.get` finds.
 -- `contains` is `get` finding `()`, so the same `contains` everywhere means
 -- the same keys.
-def Set.present: Option () → Bool
+def Set.present: (option: Option ()) → Bool
   | Some u => True
   | None => False
 

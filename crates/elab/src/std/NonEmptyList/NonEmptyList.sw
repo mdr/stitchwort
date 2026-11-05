@@ -40,7 +40,7 @@ def List.toNonEmpty (xs: List a) [auto nonEmpty: xs ≠ []]: NonEmptyList a :=
     | [x, ..rest] => { head = x, tail = rest }
 
 --| The list as a `NonEmptyList`, or `None` for an empty list ([`List.nonEmptyNil`], [`List.nonEmptyCons`]).
-def List.nonEmpty: List a → Option (NonEmptyList a)
+def List.nonEmpty: (xs: List a) → Option (NonEmptyList a)
   | [] => None
   | [x, ..rest] => Some ({ head = x, tail = rest })
 
@@ -63,7 +63,7 @@ def NonEmptyList.last (xs: NonEmptyList a): a := NonEmptyList.lastFrom xs.head x
 
 --| The last of `x` followed by `rest`.
 @[noReceiver]
-def NonEmptyList.lastFrom (x: a): List a → a
+def NonEmptyList.lastFrom (x: a): (xs: List a) → a
   | [] => x
   | [y, ..ys] => NonEmptyList.lastFrom y ys
 
@@ -107,7 +107,7 @@ def NonEmptyList.zipWith (xs: NonEmptyList a) (ys: NonEmptyList b) (f: a → b �
 
 --| Adds the elements of `acc` to `rest`, last first, for [`NonEmptyList.reverse`].
 @[noReceiver]
-def NonEmptyList.reverseOnto (acc: NonEmptyList a): List a → NonEmptyList a
+def NonEmptyList.reverseOnto (acc: NonEmptyList a): (xs: List a) → NonEmptyList a
   | [] => acc
   | [y, ..ys] => NonEmptyList.reverseOnto { head = y, tail = [acc.head, ..acc.tail] } ys
 

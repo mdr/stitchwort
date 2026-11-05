@@ -37,7 +37,7 @@ def Option.orFail (option: Option a) (msg: Text): {Fail} a := Fail.need option m
 def Fail.ensure (ok: Bool) (msg: Text): {Fail} () := if ok then () else Fail.fail msg
 
 --| The value in a `Result`, or fail with its error: `Fail.toResult` undone.
-def Result.orFail: Result a Text → {Fail} a
+def Result.orFail: (result: Result a Text) → {Fail} a
   | Ok x => x
   | Err m => Fail.fail m
 

@@ -2328,7 +2328,7 @@ theorem List.getMapExample (xs: List Nat) (k: Nat) (v: Nat) (h: List.get (List.m
 --| elements at the same place (Coq's `Forall2`, Lean's `List.Forall₂`). What
 --| [`Parse.eachLineReads`] says of the lines and the values read from them.
 @[noReceiver]
-def List.All2 (r: a → b → Prop): List a → List b → Prop
+def List.All2 (r: a → b → Prop): (xs: List a) → (ys: List b) → Prop
   | [], [] => Unit
   | [x, ..xs], [y, ..ys] => r x y ∧ List.All2 r xs ys
   | [], [y, ..ys] => Void

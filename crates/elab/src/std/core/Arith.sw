@@ -133,7 +133,7 @@ theorem Int.addAssoc: (a: Int) → (b: Int) → (c: Int) →
 theorem Nat.oneMul (n: Nat): 1 * n = n := Nat.addZero n
 
 --| Exclusive or: `True` when exactly one of `a` and `b` is.
-def Bool.xor: Bool → Bool → Bool
+def Bool.xor: (x: Bool) → (y: Bool) → Bool
   | False, b => b
   | True, b => ¬b
 
@@ -144,12 +144,12 @@ theorem Bool.xorAssoc: (a: Bool) → (b: Bool) → (c: Bool) → Bool.xor (Bool.
   | True, True, True => rfl
 
 --| Whether the integer is below zero.
-def Int.isNeg: Int → Bool
+def Int.isNeg: (x: Int) → Bool
   | OfNat n => False
   | NegSucc n => True
 
 --| `k`, negated if `neg`.
-def Int.signed: Bool → Nat → Int
+def Int.signed: (negative: Bool) → (n: Nat) → Int
   | False, k => OfNat k
   | True, k => Int.neg (OfNat k)
 

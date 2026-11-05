@@ -379,7 +379,7 @@ theorem Nat.fromBitsSnoc (bits: List Bool) (bit: Bool): Nat.fromBits (bits ++ [b
 --| says whether it is odd, and the bits before it are its half.
 --| `Nat.toBits 4 5` is `[False, True, False, True]`. The inverse of
 --| [`Nat.fromBits`] ([`Nat.fromBitsToBits`], [`Nat.toBitsFromBits`]).
-def Nat.toBits: Nat → Nat → List Bool
+def Nat.toBits: (width: Nat) → (n: Nat) → List Bool
   | 0, _ => []
   | Succ width, n => Nat.toBits width (n / 2) ++ [n % 2 == 1]
 

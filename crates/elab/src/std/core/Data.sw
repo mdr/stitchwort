@@ -19,24 +19,24 @@ type Nat: Type =
 
 --| `a + b` means `Nat.add a b`. It recurses on its first argument, so
 --| `Succ m + n` computes to `Succ (m + n)`.
-def Nat.add: Nat → Nat → Nat
+def Nat.add: (m: Nat) → (n: Nat) → Nat
   | Zero, n => n
   | Succ m, n => Succ (Nat.add m n)
 
 --| `a - b`, stopping at zero: `3 - 5 = 0`.
 @[tailrec]
-def Nat.sub: Nat → Nat → Nat
+def Nat.sub: (m: Nat) → (n: Nat) → Nat
   | m, Zero => m
   | Zero, Succ n => Zero
   | Succ m, Succ n => Nat.sub m n
 
 --| `a * b`: multiplication of numbers.
-def Nat.mul: Nat → Nat → Nat
+def Nat.mul: (m: Nat) → (n: Nat) → Nat
   | Zero, n => 0
   | Succ m, n => n + Nat.mul m n
 
 --| The number before `n`, and 0 for 0.
-def Nat.pred: Nat → Nat
+def Nat.pred: (n: Nat) → Nat
   | Zero => Zero
   | Succ n => n
 
@@ -48,19 +48,19 @@ type Bool: Type =
   | True
 
 --| The opposite of `b`: `True` for `False` and `False` for `True`.
-def Bool.not: Bool → Bool
+def Bool.not: (b: Bool) → Bool
   | False => True
   | True => False
 
 --| `if c then a else b`. The branches take a (unused) proof of `Unit` so that
 --| only the chosen one is evaluated.
-def Bool.ifThenElse: [a: Type] → Bool → (Unit → a) → (Unit → a) → a
+def Bool.ifThenElse: [a: Type] → (cond: Bool) → (ifTrue: Unit → a) → (ifFalse: Unit → a) → a
   | True, thenBranch, elseBranch => thenBranch Trivial
   | False, thenBranch, elseBranch => elseBranch Trivial
 
 --| Whether `m <= n`, as a `Bool`.
 @[tailrec]
-def Nat.leq: Nat → Nat → Bool
+def Nat.leq: (m: Nat) → (n: Nat) → Bool
   | Zero, n => True
   | Succ m, Zero => False
   | Succ m, Succ n => Nat.leq m n
@@ -82,18 +82,18 @@ type List (a: Type): Type =
 --| [`List.length`], so a long list doesn't run out of stack
 --| (`List.lengthOntoEq` proves them equal).
 @[tailrec]
-def List.lengthOnto: List a → Nat → Nat
+def List.lengthOnto: (xs: List a) → (acc: Nat) → Nat
   | [], n => n
   | [x, ..xs], n => List.lengthOnto xs (Succ n)
 
 --| The number of elements: `[5, 6, 7].length` is 3.
 -- `a` is bound automatically, as an implicit argument: `List.length: [a: Type] -> ...`.
-def List.length: List a → Nat
+def List.length: (xs: List a) → Nat
   | [] => 0
   | [x, ..xs] => Succ (List.length xs)
 
 --| `xs ++ ys`: the elements of `xs`, then those of `ys`.
-def List.append: List a → List a → List a
+def List.append: (xs: List a) → (ys: List a) → List a
   | [], ys => ys
   | [x, ..xs], ys => [x, ..List.append xs ys]
 
@@ -109,6 +109,6 @@ type Pair (a: Type) (b: Type): Type =
 
 --| `List.reverseOnto xs acc` is `xs` reversed, followed by `acc`.
 @[tailrec]
-def List.reverseOnto: List a → List a → List a
+def List.reverseOnto: (xs: List a) → (acc: List a) → List a
   | [], acc => acc
   | [x, ..xs], acc => List.reverseOnto xs [x, ..acc]

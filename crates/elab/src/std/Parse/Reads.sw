@@ -51,13 +51,13 @@ def Parse.Then (first: List Char → a → Prop) (next: a → List Char → b �
     read = firstRead ++ nextRead ∧ first firstRead firstValue ∧ next firstValue nextRead value
 
 --| What `optional` read: nothing for `None`, `spec`'s read for `Some`.
-def Parse.Maybe (spec: List Char → a → Prop) (read: List Char): Option a → Prop
+def Parse.Maybe (spec: List Char → a → Prop) (read: List Char): (value: Option a) → Prop
   | None => read = []
   | Some value => spec read value
 
 --| What a repetition read: one part per value, one after another, each
 --| `spec` of its value.
-def Parse.Each (spec: List Char → a → Prop): List Char → List a → Prop
+def Parse.Each (spec: List Char → a → Prop): (text: List Char) → (values: List a) → Prop
   | read, [] => read = []
   | read, [value, ..values] =>
     ∃ (first: List Char) => ∃ (rest: List Char) => read = first ++ rest ∧ spec first value ∧ Parse.Each spec rest values
@@ -1673,7 +1673,7 @@ theorem Parse.readsAttempt (p: () → {Parse} a) (spec: List Char → a → Prop
 --| What `findAll p` reads: each value is `spec` of a part of what was read,
 --| in order and not overlapping, with anything before, between and after
 --| the parts.
-def Parse.Scattered (spec: List Char → a → Prop): List Char → List a → Prop
+def Parse.Scattered (spec: List Char → a → Prop): (text: List Char) → (values: List a) → Prop
   | read, [] => Unit
   | read, [value, ..values] =>
     ∃ (skipped: List Char) => ∃ (first: List Char) => ∃ (rest: List Char) =>
