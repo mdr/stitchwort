@@ -1,5 +1,5 @@
 {
-  "next": 1355,
+  "next": 1356,
   "tickets": [
     {
       "id": 47,
@@ -7236,13 +7236,13 @@
     {
       "id": 1349,
       "title": "An effectful && as an unannotated let's value is inferred as Prop: let ok := (let c := Parse.nat(); 0 < c && c <= Parse.nat()) fails 'expected Prop, but this has type Bool'; only let ok: Bool := … works",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1349",
       "labels": [
         "elab"
       ],
-      "body": "Pre-existing on main; found by the SW-1341 Opus review (scratchpad sw1341-review/eff4.sw, eff5.sw). Chains make it easier to hit: let ok := 0 < n() <= n().",
+      "body": "Pre-existing on main; found by the SW-1341 Opus review (scratchpad sw1341-review/eff4.sw, eff5.sw). Chains make it easier to hit: let ok := 0 < n() <= n().\n\nDone on lane/SW-1349 (4331bb63e): the effectful &&/|| arm unifies an unknown expected type with Bool; example effect-logic-let.sw. No hash moved. Model result: Sonnet, worked, 16 min (est. 60).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7313,6 +7313,20 @@
         "tooling"
       ],
       "body": "Found by the SW-1330 Opus review (repro: scratchpad sw1330-review/r5, r6). B uses rewrite inside Option.map and needs Option.mapCong (Option/Lemmas.sw), which only A loads. Change A so it no longer loads that file: fresh, B fails ('there is no Option.mapCong'); cached, B is reported from its entry. Fix: lazy loading must behave as if every file were loaded: the congruence/auto lookups should treat a pending name as something to load (or the loader counts F.…Cong as needed when F is referenced). Priority: correctness of check. Sonnet (Opus if the loader design needs it).",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1355,
+      "title": "stitchwort fmt fails on some files with chained comparisons: 'the output parses to a different syntax tree' (examples/accept/effect-logic-let.sw on lane/SW-1349)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1355",
+      "labels": [
+        "fmt"
+      ],
+      "body": "From SW-1349. Each definition formats alone; the whole file doesn't. Chains parse to the && of their links (SW-1341), so the formatter may print a different tree. Lanes must run stitchwort fmt before committing, so this blocks them.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
