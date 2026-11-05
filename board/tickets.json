@@ -7110,13 +7110,13 @@
     {
       "id": 1340,
       "title": "Use Grid.positionsWhere / positionsWhere everywhere it fits: 2024 day 20's track, 2024 day 15's positionsOf, and any other hand-written filter of cells by tile",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1340",
       "labels": [
         "aoc"
       ],
-      "body": "Matt, 5 Nov: 'make sure we're using that everywhere.' After SW-1335 merges. SW-1335's survey: day 20 (Day20.sw:48, plain list, positionsWhere tiles (!= Wall) works), day 15 (Day15.sw:57, maps to Int fields after; positionsWhere then .map). Re-survey aoc and games/rogue; proofs adjusted to memPositionsWhere where they mention the old shape.",
+      "body": "Matt, 5 Nov: 'make sure we're using that everywhere.' After SW-1335 merges. SW-1335's survey: day 20 (Day20.sw:48, plain list, positionsWhere tiles (!= Wall) works), day 15 (Day15.sw:57, maps to Int fields after; positionsWhere then .map). Re-survey aoc and games/rogue; proofs adjusted to memPositionsWhere where they mention the old shape.\n\nDone on lane/SW-1340 (a5e640ace): 2024 day 20 and day 15 converted; nothing else fits (2021 day 9 filters by position, 2024 day 8 builds records, rogue has no grid). No statements changed. Model result: Sonnet, worked, 7 min (est. 45).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7152,9 +7152,9 @@
     {
       "id": 1343,
       "title": "NonEmptyList stage 1: the type { head, tail } and its functions (reduce, last, maximum, minimum, maxBy, minBy, map, zip, sort, ++, toList), List.toNonEmpty (auto proof) and List.nonEmpty (Option), link lemmas to the List versions",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1343",
       "labels": [
         "std"
       ],
