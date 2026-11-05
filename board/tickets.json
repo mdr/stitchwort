@@ -1,5 +1,5 @@
 {
-  "next": 1356,
+  "next": 1357,
   "tickets": [
     {
       "id": 47,
@@ -7327,6 +7327,20 @@
         "fmt"
       ],
       "body": "From SW-1349. Each definition formats alone; the whole file doesn't. Chains parse to the && of their links (SW-1341), so the formatter may print a different tree. Lanes must run stitchwort fmt before committing, so this blocks them.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1356,
+      "title": "Design note: range syntax (a ..< b, a ..= b, or other), after a thorough survey of other languages (Swift, Rust, Kotlin, Haskell, Python, Scala, Ruby, Julia, Lean, Idris, Agda, F#, Elixir …)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "body": "D2403 (Matt, 5 Nov): yes, an Opus lane; 'definitely do a thorough search of existing languages to see what other people do, including Swift, Rust, Kotlin, etc.' Prompted by List.range (Int.toNat target.right). Constraint: .. already means spread in brackets ([x, ..rest]), so Haskell's [2..n] would clash. Cover inclusive/exclusive, Nat/Int/Char, steps and counting down, List vs lazy, membership lemma (x ∈ a ..< b ↔ a ≤ x < b, pairs with chained comparisons), patterns, Fin, loops, and the List.range argument-order question (SW-1258). Opus, ~45 min. Next free slot.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
