@@ -7166,13 +7166,13 @@
     {
       "id": 1344,
       "title": "NonEmptyList stage 2: many1, sepBy1, lines, sections, grid, List.splitBy, Map.groupBy, Nat.digits return NonEmptyList; Reads lemmas and callers updated",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1344",
       "labels": [
         "std"
       ],
-      "body": "After stage 1. Sonnet, est. 4 h. docs/proposals/non-empty-lists.md; D2393-D2399 (Matt, 5 Nov). Name: NonEmptyList (D2394).",
+      "body": "After stage 1. Sonnet, est. 4 h. docs/proposals/non-empty-lists.md; D2393-D2399 (Matt, 5 Nov). Name: NonEmptyList (D2394).\n\nDone, merged. Opus review: every restated theorem keeps its meaning; Specs still the puzzle's. 92 hashes moved (expected). Temporary wrappers in 2020 days 4 and 6 marked for SW-1346. Model result: Sonnet, needed fixes (behind main: merge conflicts), ~85 min (est. 240).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
