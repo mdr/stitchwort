@@ -407,6 +407,32 @@ fn finds_where_two_terms_first_differ() {
 }
 
 #[test]
+fn a_succ_in_a_comparisons_operand_is_reported_as_the_whole_comparisons() {
+    let mut p = Prelude::new();
+    let nat = p.nat_ty();
+    let ty = arrow(nat.clone(), arrow(nat.clone(), nat.clone()));
+    let leq = define(&mut p.g, "Nat.leq", ty, lam("x", lam("y", v(1)))).expect("Nat.leq");
+    registry::bind_def(&mut p.g, leq);
+    let call = |a: Term, b: Term| app(Term::Def(leq), [a, b]);
+    // `x + y < y` against `x + y <= y` differ only in the `Succ` that the
+    // printed comparisons hide, so the note gives the comparisons whole.
+    let plain = p.plus(v(1), v(0));
+    let less = call(Term::ctor(p.nat, 1, vec![plain.clone()]), v(0));
+    let less_eq = call(plain, v(0));
+    // Under an outer `=`, so the comparisons aren't the whole terms compared.
+    let a = eq(None, less, v(0));
+    let b = eq(None, less_eq, v(0));
+    assert_eq!(
+        difference(&p, &["x", "y"], &a, &b),
+        Some(pretty::Difference {
+            left: "x + y < y".into(),
+            right: "x + y <= y".into(),
+            within: None,
+        })
+    );
+}
+
+#[test]
 fn reports_no_difference_where_the_terms_differ_at_the_top_or_not_at_all() {
     let mut p = Prelude::new();
     let f = opaque_function(&mut p);
