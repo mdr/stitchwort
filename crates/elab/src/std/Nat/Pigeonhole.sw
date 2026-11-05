@@ -16,7 +16,7 @@ theorem Nat.pigeonhole: (n: Nat) → (f: Nat → Nat) → ((i: Nat) → i ≤ n 
           (i inRange hit =>
             Witness i
               (Witness (Succ n)
-                (Both (omega [And.right (List.memRangeFrom i (Succ n) 0 inRange)])
+                (Both (omega)
                   (Both (Nat.leRefl (Succ n)) (DecEq.sound hit)))))
       | False =>
         let missed: (i: Nat) → i ≤ n → f i ≠ f (Succ n) :=

@@ -497,10 +497,24 @@ impl Ranges {
                     return Ok(None);
                 };
                 let probe = Value::var(cx.level());
-                let Value::Eq(_, _, x) = force(&cx.g(), apply(&cx.g(), pred.clone(), probe)?)?
+                let Value::Eq(_, l, x) =
+                    force(&cx.g(), apply(&cx.g(), pred.clone(), probe)?)?
                 else {
                     return Ok(None);
                 };
+                // Only `y => y = x`, with `x` not depending on `y`: any
+                // other predicate is not a membership.
+                let is_probe = matches!(
+                    force(&cx.g(), (*l).clone())?,
+                    Value::Neutral(Head::Var(level, _), spine)
+                        if level == cx.level() && spine.is_empty()
+                );
+                if !is_probe
+                    || stitchwort_core::value::quote_folded(&cx.g(), cx.level() + 1, &x)?
+                        .mentions(0)
+                {
+                    return Ok(None);
+                }
                 vec![
                     (elem.clone(), Icit::Implicit),
                     ((*x).clone(), Icit::Explicit),

@@ -27,8 +27,8 @@ test "pairs" := pairsSummingTo 6 == [(1, 5), (2, 4), (3, 3)]
 -- In a spread a range needs no brackets.
 test "spread" := [0, ..2 ..< 5, 9] == [0, 2, 3, 4, 9]
 
--- In a proof, membership is the two bounds, and `a ..= b` is `a ..< b + 1`.
-theorem inRange (x n: Nat) (h: x < n): x ∈ 0 ..< n := (List.memRange x 0 n).backward omega
+-- In a proof, omega reads membership as the two bounds, and `a ..= b` is `a ..< b + 1`.
+theorem inRange (x n: Nat) (h: x < n): x ∈ 0 ..< n := omega
 
 theorem throughIsUpTo (a b: Nat): a ..= b = a ..< b + 1 := rfl
 
