@@ -2,7 +2,7 @@
 --| `omega` or `DecEq`: where `List.indexOf` finds an element (and
 --| `List.contains` by it), folds of `Nat.max` and `Nat.min`, counting a
 --| number in a range, running sums by position, sorted lists of numbers by
---| position, and `List.all` over `List.between`.
+--| position, and `List.all` over a range that includes its end.
 -- Kept out of Index.sw and Sort.sw, which small programs load, so that those
 -- don't load Omega.
 

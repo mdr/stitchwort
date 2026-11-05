@@ -15,7 +15,7 @@ def Nat.span (x: Nat) (y: Nat): Nat := List.sum (List.rangeFrom (y - x) x)
 --| ([`Nat.sumBetweenCorrect`]). It is `first + (first + 1) + ... + last`, an
 --| arithmetic series: the number of terms times their average. There are
 --| `last + 1 - first` terms, which is 0 when first > last (as in
---| `List.between`), so then the sum is 0.
+--| `List.range first (last + 1)`), so then the sum is 0.
 def Nat.sumBetween (first: Nat) (last: Nat): Nat := (first + last) * (last + 1 - first) / 2
 
 test "Nat.sumBetween" := Nat.sumBetween 3 7 == 25 ∧ Nat.sumBetween 5 5 == 5 ∧ Nat.sumBetween 1 100 == 5050
