@@ -198,8 +198,14 @@ test "pushing one box" := warehouseOf "@O." |> .map (warehouse => boxesOf (wareh
 test "pushing a chain of boxes" := warehouseOf "@OOO.#" |> .map (warehouse => boxesOf (warehouse.move Right)) == Ok [at 0 2, at 0 3, at 0 4]
 test "pushing a chain into a wall" := warehouseOf "@OOO#" |> .map (warehouse => warehouse.move Right == warehouse) == Ok True
 test "a chain stops at the first gap" := warehouseOf "@OO.O#" |> .map (warehouse => boxesOf (warehouse.move Right)) == Ok [at 0 2, at 0 3, at 0 4]
-test "pushing up" := warehouseOf ".\nO\n@" |> .map (warehouse => boxesOf (warehouse.move Up)) == Ok [at 0 0]
-test "pushing up into a wall" := warehouseOf "#\nO\n@" |> .map (warehouse => warehouse.move Up == warehouse) == Ok True
+test "pushing up" := warehouseOf """
+  .
+  O
+  @""" |> .map (warehouse => boxesOf (warehouse.move Up)) == Ok [at 0 0]
+test "pushing up into a wall" := warehouseOf """
+  #
+  O
+  @""" |> .map (warehouse => warehouse.move Up == warehouse) == Ok True
 test "the GPS of a box" := (at 1 4).gps == 104
 
 --| Edge cases, part 2.
@@ -221,14 +227,26 @@ test "a push up blocked above the left box moves nothing" :=
   (stacked [at 0 2]).moveWide Up == stacked [at 0 2]
 test "a push up beside a wall moves" := (stacked [at 0 1]).moveWide Up |> .robot == at 2 4
 test "the right half of a box is pushed too" :=
-  wideOf "..\nO.\n.@" |> .map (wide => boxesOf ({ wide | robot = at 2 1 }.moveWide Up)) == Ok [at 0 0]
+  wideOf """
+    ..
+    O.
+    .@""" |> .map (wide => boxesOf ({ wide | robot = at 2 1 }.moveWide Up)) == Ok [at 0 0]
 test "the GPS of a wide box is its left half's" := (at 1 5).gps == 105
 
 --| Parsing.
 test "parse" :=
-  parsed "#@O.\n\n<>\n^v\n" |> .map (document => document.moves) == Ok [Left, Right, Up, Down]
+  parsed """
+    #@O.
+
+    <>
+    ^v
+    """ |> .map (document => document.moves) == Ok [Left, Right, Up, Down]
 test "parse the positions" :=
-  parsed "#@O.\n\n<\n" |> .map (document => (document.warehouse.robot, boxesOf document.warehouse)) == Ok (at 0 1, [at 0 2])
+  parsed """
+    #@O.
+
+    <
+    """ |> .map (document => (document.warehouse.robot, boxesOf document.warehouse)) == Ok (at 0 1, [at 0 2])
 test "no robot" := parsed "#.O.\n\n<\n" == Err "expected a robot (@) on the map, found none"
 test "two robots" := parsed "@.@.\n\n<\n" == Err "expected one robot (@) on the map, found several"
 test "a bad tile" := parsed "#@x.\n\n<\n" == Err "line 1, column 3: expected '#', 'O', '@', '.', a line break or a blank line, got 'x'"

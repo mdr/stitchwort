@@ -40,11 +40,11 @@ theorem sumCounts (size: Group → Nat) (count: List (List Char) → Nat) (each:
 
 theorem part1Lines (lineGroups: List (List (List Char))) (groups: List Group) (written: List.All2 GroupLines lineGroups groups):
     solvePart1 groups = lineGroups.sumBy (Spec.count Spec.anyone) :=
-  sumCounts (.anyone.size) (Spec.count Spec.anyone) anyoneCount lineGroups groups written
+  sumCounts .anyone.size (Spec.count Spec.anyone) anyoneCount lineGroups groups written
 
 theorem part2Lines (lineGroups: List (List (List Char))) (groups: List Group) (written: List.All2 GroupLines lineGroups groups):
     solvePart2 groups = lineGroups.sumBy (Spec.count Spec.everyone) :=
-  sumCounts (.everyone.size) (Spec.count Spec.everyone) everyoneCount lineGroups groups written
+  sumCounts .everyone.size (Spec.count Spec.everyone) everyoneCount lineGroups groups written
 
 --| The groups the parser reads are the input's, as groups of lines: the
 --| input is them written out, a blank line (spaces and tabs allowed) between

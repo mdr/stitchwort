@@ -10,7 +10,18 @@ import Aoc.Common.Proofs (route)
 import Std (Fail, Fin, List, Nat, Option, Text)
 
 def exampleText: Text :=
-  "1163751742\n1381373672\n2136511328\n3694931569\n7463417111\n1319128137\n1359912421\n3125421639\n1293138521\n2311944581\n"
+  """
+    1163751742
+    1381373672
+    2136511328
+    3694931569
+    7463417111
+    1319128137
+    1359912421
+    3125421639
+    1293138521
+    2311944581
+    """
 
 def parsed (input: Text): Result Cave Text := Fail.toResult (() => parseCave input)
 

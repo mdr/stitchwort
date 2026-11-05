@@ -28,7 +28,9 @@ def parsed (input: Text): Result (Grid Square) Text := Fail.toResult (() => pars
 
 test "example" := exampleMap.map (map => (solvePart1 map, solvePart2 map)) == Ok (7, 336)
 test "example, slope by slope" := exampleMap.map (map => slopes.map (treesOn map)) == Ok [2, 7, 3, 4, 2]
-test "a map parsed" := parsed ".#\n#." == Ok (Grid.of [[Open, Tree], [Tree, Open]])
+test "a map parsed" := parsed """
+  .#
+  #.""" == Ok (Grid.of [[Open, Tree], [Tree, Open]])
 test "an unknown square" := parsed "..\n.O" == Err "line 2, column 2: expected '.' or '#' or the end of the line, got 'O'"
 test "a ragged map" := parsed "..\n." == Err "line 2: expected 2 cells, as on the first line, got 1"
 

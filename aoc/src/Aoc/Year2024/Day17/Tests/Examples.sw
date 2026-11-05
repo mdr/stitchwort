@@ -31,14 +31,20 @@ def finalOf (debugger: Debugger): Option Registers := finalRegisters { registers
 def outputOf (debugger: Debugger): List Nat := debugger.outputFor debugger.registers.a
 
 --| The examples of instruction operation.
-test "C 9, program 2,6 sets B to 1" := (finalOf (debuggerOf 0 0 9 [2, 6]) |> .map (.b)) == Some 1
+test "C 9, program 2,6 sets B to 1" := (finalOf (debuggerOf 0 0 9 [2, 6]) |> .map .b) == Some 1
 test "A 10, program 5,0,5,1,5,4 outputs 0,1,2" := outputOf (debuggerOf 10 0 0 [5, 0, 5, 1, 5, 4]) == [0, 1, 2]
 test "A 2024, program 0,1,5,4,3,0 outputs 4,2,5,6,7,7,7,7,3,1,0" := outputOf (debuggerOf 2024 0 0 [0, 1, 5, 4, 3, 0]) == [4, 2, 5, 6, 7, 7, 7, 7, 3, 1, 0]
-test "and leaves 0 in A" := (finalOf (debuggerOf 2024 0 0 [0, 1, 5, 4, 3, 0]) |> .map (.a)) == Some 0
-test "B 29, program 1,7 sets B to 26" := (finalOf (debuggerOf 0 29 0 [1, 7]) |> .map (.b)) == Some 26
-test "B 2024, C 43690, program 4,0 sets B to 44354" := (finalOf (debuggerOf 0 2024 43690 [4, 0]) |> .map (.b)) == Some 44354
+test "and leaves 0 in A" := (finalOf (debuggerOf 2024 0 0 [0, 1, 5, 4, 3, 0]) |> .map .a) == Some 0
+test "B 29, program 1,7 sets B to 26" := (finalOf (debuggerOf 0 29 0 [1, 7]) |> .map .b) == Some 26
+test "B 2024, C 43690, program 4,0 sets B to 44354" := (finalOf (debuggerOf 0 2024 43690 [4, 0]) |> .map .b) == Some 44354
 
-def example: Text := "Register A: 729\nRegister B: 0\nRegister C: 0\n\nProgram: 0,1,5,4,3,0\n"
+def example: Text := """
+  Register A: 729
+  Register B: 0
+  Register C: 0
+
+  Program: 0,1,5,4,3,0
+  """
 
 test "example, part 1" := (parsed example |> .map part1) == Ok (Ok "4,6,3,5,6,3,5,2,1,0")
 test "example, part 2: no value outputs the program" := (parsed example |> .map solvePart2) == Ok None
@@ -102,6 +108,23 @@ test "combo operands agree with the spec" :=
 --| Parsing.
 test "parse" := parsed example == Ok (debuggerOf 729 0 0 [0, 1, 5, 4, 3, 0])
 test "parse without a final line break" := parsed "Register A: 1\nRegister B: 2\nRegister C: 3\n\nProgram: 7,0" == Ok (debuggerOf 1 2 3 [7, 0])
-test "a number above 7" := parsed "Register A: 1\nRegister B: 2\nRegister C: 3\n\nProgram: 0,8\n" == Err "line 5, column 12: expected a 3-bit number (0 to 7)"
-test "a two-digit number" := parsed "Register A: 1\nRegister B: 2\nRegister C: 3\n\nProgram: 0,10\n" == Err "line 5, column 12: expected a 1-digit number, got '1'"
-test "no blank line" := parsed "Register A: 1\nRegister B: 2\nRegister C: 3\nProgram: 0,1\n" == Err "line 4, column 1: expected a blank line, got 'P'"
+test "a number above 7" := parsed """
+  Register A: 1
+  Register B: 2
+  Register C: 3
+
+  Program: 0,8
+  """ == Err "line 5, column 12: expected a 3-bit number (0 to 7)"
+test "a two-digit number" := parsed """
+  Register A: 1
+  Register B: 2
+  Register C: 3
+
+  Program: 0,10
+  """ == Err "line 5, column 12: expected a 1-digit number, got '1'"
+test "no blank line" := parsed """
+  Register A: 1
+  Register B: 2
+  Register C: 3
+  Program: 0,1
+  """ == Err "line 4, column 1: expected a blank line, got 'P'"

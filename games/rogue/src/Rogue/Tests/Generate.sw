@@ -73,7 +73,7 @@ test "no monster is placed in a wall or on the player" :=
     let state := arrived plan
     state.monsters.all (monster => ¬isWall state.level monster.position ∧ monster.position ≠ state.player))
 test "no two monsters share a cell" :=
-  plans.all (plan => (arrived plan).monsters.map (.position) |> .dedup |> .length == (arrived plan).monsters.length)
+  plans.all (plan => (arrived plan).monsters.map .position |> .dedup |> .length == (arrived plan).monsters.length)
 test "no item is placed in a wall, on the player, or on the stairs" :=
   plans.all (plan =>
     let state := arrived plan
@@ -87,7 +87,7 @@ test "monsters start out of reach: none next to the player" :=
 
 -- Deeper is harder, and the amulet is at the bottom
 
-def kindsAt (depth: Nat): List Kind := seeds.flatMap (seed => (planned seed depth).monsters.map (.kind))
+def kindsAt (depth: Nat): List Kind := seeds.flatMap (seed => (planned seed depth).monsters.map .kind)
 
 test "more monsters further down" := [1, 2, 3].map (depth => (planned 5 depth).monsters.length) == [4, 6, 8]
 test "no trolls on the first level" := (kindsAt 1).all (kind => kind ≠ Troll)
@@ -95,7 +95,7 @@ test "more trolls on the bottom level than goblins" := (kindsAt 3).count (== Tro
 test "the amulet lies at the goal of the bottom level, and only there" :=
   plans.all (plan =>
     let amulets := (arrived plan).items.filter (item => item.loot == Amulet)
-    if plan.level.depth == deepest then amulets.map (.position) == [plan.level.goal] else amulets == [])
+    if plan.level.depth == deepest then amulets.map .position == [plan.level.goal] else amulets == [])
 test "a sword on each level above the bottom" :=
   plans.all (plan => plan.items.any (item => item.loot == Sword) == (plan.level.depth < deepest))
 

@@ -53,7 +53,13 @@ test "example, reordered" :=
     [[97, 75, 47, 61, 53], [61, 29, 13], [97, 75, 47, 29, 13]]
 test "example, middle pages" := exampleQueue.updates.map .middlePage == [61, 53, 29, 47, 13, 75]
 
-test "parse" := parsed "1|2\n3|4\n\n1,2,3\n4\n" ==
+test "parse" := parsed """
+  1|2
+  3|4
+
+  1,2,3
+  4
+  """ ==
   Ok ({ rules = [{ before = 1, after = 2 }, { before = 3, after = 4 }], updates = [{ pages = [1, 2, 3] }, { pages = [4] }] }: PrintQueue)
 test "parse without a final line break" := parsed "1|2\n\n1,2,3" ==
   Ok ({ rules = [{ before = 1, after = 2 }], updates = [{ pages = [1, 2, 3] }] }: PrintQueue)

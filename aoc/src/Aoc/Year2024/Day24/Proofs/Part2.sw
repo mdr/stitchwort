@@ -55,16 +55,16 @@ theorem part2Sound (device: Device) (answer: Text) (solved: solvePart2 device = 
         Witness more (Both (Eq.trans (Eq.sym named) (Eq.cong swapNames isSwaps)) (Both short (adderAdds (applySwaps device.gates more) device.inputBits adder))))
 
 --| The names of the x pairs are x wires, and of the y pairs y wires.
-theorem xNamed (bits: Nat) (x: Nat) (wire: Wire) (member: wire ∈ ((List.range bits).map (k => (X k, Nat.testBit x k))).map (.fst)):
+theorem xNamed (bits: Nat) (x: Nat) (wire: Wire) (member: wire ∈ ((List.range bits).map (k => (X k, Nat.testBit x k))).map .fst):
     wire.xBit.isSome = True :=
-  match List.memMapElim (.fst) wire _ member with
+  match List.memMapElim .fst wire _ member with
     | Witness pair (Both inPairs isWire) =>
       match List.memMapElim (k => (X k, Nat.testBit x k)) pair _ inPairs with
         | Witness k (Both inRange isPair) => rewrite <- isWire, <- isPair in rfl
 
-theorem yNamed (bits: Nat) (y: Nat) (wire: Wire) (member: wire ∈ ((List.range bits).map (k => (Y k, Nat.testBit y k))).map (.fst)):
+theorem yNamed (bits: Nat) (y: Nat) (wire: Wire) (member: wire ∈ ((List.range bits).map (k => (Y k, Nat.testBit y k))).map .fst):
     wire.yBit.isSome = True :=
-  match List.memMapElim (.fst) wire _ member with
+  match List.memMapElim .fst wire _ member with
     | Witness pair (Both inPairs isWire) =>
       match List.memMapElim (k => (Y k, Nat.testBit y k)) pair _ inPairs with
         | Witness k (Both inRange isPair) => rewrite <- isWire, <- isPair in rfl
@@ -87,20 +87,20 @@ theorem wellFormedInputs (bits: Nat) (x: Nat) (y: Nat) (gates: List Gate) (wired
     WellFormed { initial = inputsFor bits x y, gates } :=
   let xPairs := (List.range bits).map (k => (X k, Nat.testBit x k))
   let yPairs := (List.range bits).map (k => (Y k, Nat.testBit y k))
-  let xDistinct: List.Distinct (xPairs.map (.fst)) :=
-    rewrite List.mapMap (List.range bits) (.fst) (k => (X k, Nat.testBit x k)) in
+  let xDistinct: List.Distinct (xPairs.map .fst) :=
+    rewrite List.mapMap (List.range bits) .fst (k => (X k, Nat.testBit x k)) in
       List.distinctMap (List.range bits) (List.distinctRangeFrom bits 0) _ (i j same => Option.someInjective i j (Eq.cong Wire.xBit same))
-  let yDistinct: List.Distinct (yPairs.map (.fst)) :=
-    rewrite List.mapMap (List.range bits) (.fst) (k => (Y k, Nat.testBit y k)) in
+  let yDistinct: List.Distinct (yPairs.map .fst) :=
+    rewrite List.mapMap (List.range bits) .fst (k => (Y k, Nat.testBit y k)) in
       List.distinctMap (List.range bits) (List.distinctRangeFrom bits 0) _ (i j same => Option.someInjective i j (Eq.cong Wire.yBit same))
-  let disjoint: List.Disjoint (xPairs.map (.fst)) (yPairs.map (.fst)) :=
+  let disjoint: List.Disjoint (xPairs.map .fst) (yPairs.map .fst) :=
     List.allOfMem _ _ (wire inX inY => notXAndY wire (xNamed bits x wire inX) (yNamed bits y wire inY))
-  Both ((List.allDistinctCorrect (gates.map (.output))).forward (Bool.andLeft _ _ wired))
-    (Both (List.distinctMapAppend (.fst) xPairs yPairs xDistinct yDistinct disjoint)
+  Both ((List.allDistinctCorrect (gates.map .output)).forward (Bool.andLeft _ _ wired))
+    (Both (List.distinctMapAppend .fst xPairs yPairs xDistinct yDistinct disjoint)
       (gate member named =>
         let notInput := List.allMember (gate => gate.output.xBit.isNone ∧ gate.output.yBit.isNone) gates (Bool.andRight _ _ wired) gate member
         let input: (gate.output.xBit.isSome ∨ gate.output.yBit.isSome) = True :=
-          match List.memAppend gate.output (xPairs.map (.fst)) (yPairs.map (.fst)) (rewrite <- List.mapAppend xPairs yPairs (.fst) in named) with
+          match List.memAppend gate.output (xPairs.map .fst) (yPairs.map .fst) (rewrite <- List.mapAppend xPairs yPairs .fst in named) with
             | Inl inX => rewrite xNamed bits x gate.output inX in rfl
             | Inr inY => rewrite yNamed bits y gate.output inY in Bool.orTrue _
         notInputOutput gate.output notInput input))

@@ -8,7 +8,13 @@ import Aoc.Year2021.Day09.Spec (..)
 import Aoc.Common (Grid, Position, adjacent, firstWidth)
 import Std (Fail, Fin, Graph, List, Map, Text)
 
-def exampleText: Text := "2199943210\n3987894921\n9856789892\n8767896789\n9899965678\n"
+def exampleText: Text := """
+  2199943210
+  3987894921
+  9856789892
+  8767896789
+  9899965678
+  """
 
 def parsed (input: Text): Result HeightMap Text := Fail.toResult (() => parseHeightMap input)
 
