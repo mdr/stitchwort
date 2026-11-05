@@ -1,5 +1,5 @@
 {
-  "next": 1415,
+  "next": 1416,
   "tickets": [
     {
       "id": 47,
@@ -7853,13 +7853,13 @@
     {
       "id": 1393,
       "title": "AoC: local Bool lemmas that std already has (orFalse, orFalseLeft/Right in 2024 day 6, firstOf in 2021 day 5): use std's and delete the copies",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1393",
       "labels": [
         "aoc"
       ],
-      "body": "From SW-1381, 5 Nov 2026. Small improvement.",
+      "body": "From SW-1381, 5 Nov 2026. Small improvement.\n\nDone on lane/SW-1393 (2ab59fda3): six local copies replaced by std's (firstOf → Bool.andLeft; orFalseLeft/Right, orFalse, andComm in 2024 day 6; notTrue in 2025 day 7). -13 lines. Touched Proofs check; audit:touched clean (3 old vacuity warnings). Reviewed. Model result: DeepSeek, worked, ~20 min (est. 20).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8153,6 +8153,20 @@
       "where": "",
       "labels": [],
       "body": "",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1415,
+      "title": "auto reads range facts only when omega is loaded (a file that uses omega somewhere); load it for auto's range facts too, or say so in the guide",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "From SW-1359's Opus review, 5 Nov 2026. Small improvement.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
