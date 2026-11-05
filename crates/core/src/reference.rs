@@ -957,37 +957,43 @@ pub fn validate_inert(g: &Ev, ids: &[DefId]) {
     }
 }
 
-/// The first marked parameter of `id` whose type isn't in `Prop`, from its
-/// type evaluated here, unglued, rather than by `inert::candidates`.
+/// The first marked parameter of `id` whose type isn't in `Prop`. `None`
+/// if there's none, or if finding out runs out of resources: the validator
+/// gives no answer then, as the kernel would.
+///
+/// The type is evaluated by the kernel, glued, and only up to the last
+/// mark, not by this module's evaluator: that one has no stack guard and
+/// computes every closed value in a type (an equation about
+/// `List.replicate 20000 'a'`), where a parameter's sort needs none of it.
 fn not_a_proof(g: &Ev, id: DefId) -> Option<usize> {
     let def = g.def(id);
+    let marks = def.inert_params();
+    let last = marks.iter().rposition(|m| *m)?;
     let _set = g.machine.transparent.set(def.transparent.clone());
-    let was = g.machine.glue.replace(false);
-    let mut cx = crate::check::Ctx::new(g, def.span);
-    let mut ty = eval(g, &[], &def.ty).expect("its type evaluates");
-    let mut found = None;
-    for (k, marked) in def.inert_params().iter().enumerate() {
-        let Value::Pi(x, _, dom, cod) = force(g, ty).expect("its type evaluates") else {
-            // More parameters than the type shows: a mark from here on has
-            // no type to justify it.
-            found = def.inert_params()[k..]
-                .iter()
-                .position(|m| *m)
-                .map(|i| k + i);
-            break;
-        };
-        if *marked
-            && crate::check::sort_of(&mut cx, &dom).expect("its parameter has a sort") != Sort::Prop
-        {
-            found = Some(k);
-            break;
+    let was = g.machine.glue.replace(true);
+    // `None` inside: it ran out.
+    let found = (|| -> Option<Option<usize>> {
+        let mut cx = crate::check::Ctx::new(g, def.span);
+        let mut ty = crate::value::eval(g, &[], &def.ty).ok()?;
+        for (k, marked) in marks.iter().enumerate().take(last + 1) {
+            let Value::Pi(x, _, dom, cod) = crate::value::force(g, ty.clone()).ok()? else {
+                // More parameters than the type shows: a mark from here on
+                // has no type to justify it.
+                return Some(marks[k..].iter().position(|m| *m).map(|i| k + i));
+            };
+            if *marked && crate::check::sort_of(&mut cx, &dom).ok()? != Sort::Prop {
+                return Some(Some(k));
+            }
+            if k < last {
+                let next = cod.apply(g, Value::var(cx.level())).ok()?;
+                cx.bind(x.clone(), (*dom).clone());
+                ty = next;
+            }
         }
-        let next = apply_closure(g, &cod, Value::var(cx.level())).expect("its type evaluates");
-        cx.bind(x.clone(), (*dom).clone());
-        ty = next;
-    }
+        Some(None)
+    })();
     g.machine.glue.set(was);
-    found
+    found.flatten()
 }
 
 /// The first marked parameter (by position) of `body`, a definition's body
