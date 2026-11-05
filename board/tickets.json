@@ -1,5 +1,5 @@
 {
-  "next": 1390,
+  "next": 1394,
   "tickets": [
     {
       "id": 47,
@@ -7684,13 +7684,13 @@
     {
       "id": 1381,
       "title": "Implicit inferable parameters: lemmas whose values are fixed by their own hypotheses take them in square brackets, so calls drop runs of _ (254 calls with 3+ underscores in 48 files; e.g. shapeOnRoute _ _ _ _ _ onTheMap …); std first, then aoc; proving-guide style rule",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1381",
       "labels": [
         "proofs"
       ],
-      "body": "D2422 (Matt, 5 Nov 2026): yes. Keep explicit any parameter a caller sometimes must supply. Prompted by aoc 2024 day 6 Proofs/Part2.sw:184.",
+      "body": "D2422 (Matt, 5 Nov 2026): yes. Keep explicit any parameter a caller sometimes must supply. Prompted by aoc 2024 day 6 Proofs/Part2.sw:184.\n\nDone on lane/SW-1381 (069559748..60db3a0f1): ~61 lemmas + AlwaysCall take hypothesis-determined values implicitly; 3+ underscore runs 248 -> 70, 2+ runs 895 -> 247. omega.rs builds Bool.or* with implicit args. Float pins moved. Left explicit: predicates/lambdas, non-injective (Perm), used as function values, compiler-built calls, matched arguments. Opus review pending (omega.rs builds kernel terms). Model result: Sonnet, worked, 62 min (est. 120).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7804,6 +7804,62 @@
         "syntax"
       ],
       "body": "From SW-1358, 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1390,
+      "title": "Elab: eta-expand a bare lemma name whose expected type is an explicit function, so lemmas with implicit parameters can be passed as values (blocked rowWritten, throughEmpty4 in SW-1381)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "From SW-1381, 5 Nov 2026. Small improvement.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1391,
+      "title": "Elab: let an arm-style lemma match on an implicit parameter, so Nat.leTrans, List.mapCong, anyElim and the induction lemmas can take implicit values (SW-1381)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab,proofs"
+      ],
+      "body": "From SW-1381, 5 Nov 2026. Small improvement.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1392,
+      "title": "Rust code builds calls to std lemmas by name and argument position (omega.rs Bool.or*, derive_finite.rs List.memAppend*, equations.rs/check.rs Decidable.elimEq): an icit-aware helper, or a test that fails when the lemma's binders change",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "From SW-1381, 5 Nov 2026. Small improvement.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1393,
+      "title": "Duplicate lemma names in aoc: firstOf and orFalse are each declared twice",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "From SW-1381, 5 Nov 2026. Small improvement.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
