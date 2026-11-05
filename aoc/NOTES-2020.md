@@ -2685,3 +2685,313 @@ modules.
    `List.chainMono` (item 4). Library; trivial each.
 5. Goals print `sumBy` and `count` as their folds and a middle spread as
    `..List.append xs [y]` (item 5). Printing; small to medium.
+
+## Day 11: Seating System
+
+A waiting area's seat layout, a grid of floor (`.`), empty seats (`L`)
+and occupied seats (`#`). In each round every seat changes at once: an
+empty seat with no occupied seat in view fills, and an occupied seat with
+too many occupied seats in view empties. The rounds go on until one changes
+nothing, and the answer is how many seats are occupied then. In part 1 a
+passenger looks at the eight positions around, and four occupied seats are
+too many; in part 2 they look at the first seat in each of the eight
+directions, past any floor, and five are too many. Answers on Matt's input
+(91 rows of 99, 7264 seats): 2354 and 2072, settling after 75 and 83
+rounds that change something; the example gives 37 and 26, as the puzzle
+says. I didn't run Matt's Scala; an independent Python script (plain
+loops over a list of lists) agrees on all four answers.
+
+The domain types are `Seat` (`Floor`, `Empty`, `Occupied`, with
+`seat.next occupiedInView tolerance` and `seat.isSeat`), `Layout` (a
+`Grid Seat`, with `layout.occupied`, `layout.round plan`,
+`layout.settle plan rounds` and `layout.settledOccupied rule`), `Rule`
+(the positions a passenger looks at, given a lookup, and the tolerance:
+`adjacentRule` and `layout.sightRule`) and `Plan` (a rule worked out once
+for a floor plan, `rule.planFor layout`). Part 2's look is `firstSeat`, a
+walk out along one of the eight `compass` offsets, `distance` steps at a
+time, that stops at the first non-floor cell or the edge. The program and
+its 22 tests passed on the first run, examples and input.
+
+`main` took 42 s at first (16 s part 1, 26 s part 2), which is slow; item
+1 says where the time goes. Floor never changes, so the seats each
+passenger looks at are the same in every round: `Rule.planFor` works them
+out once on the start layout (seats only, looking only at seats), which
+halved it to 20 s (19.3 s user). That needed a proof that the rounds keep
+the floor plan (`Plan.sw`), about 40 minutes and 81 lines.
+
+The spec (`Spec/Spec.sw`) has `becomes` (the three rules as written:
+"if a seat is empty (L) and there are no occupied seats adjacent to it,
+the seat becomes occupied…"), `round` (every seat at once, from a count
+per position), `occupiedSeats`, `Settles round start final` (some number of
+rounds from `start` reaches `final`, and a round changes nothing there),
+`occupiedAdjacent` (the layout's cells `touching` the seat that hold an
+occupied seat), `adjacentRound`, `Part1` (some settled layout, and the
+answer is its occupied seats), `directions` (the steps of at most one row
+and one column that move), `cellAlong` and `lineOfSight` (the cells 1, 2,
+3, … steps away, nearest first, up to the edge), `firstSeen` (the first
+cell on the line of sight that isn't floor), `occupiedSeen`,
+`sightRound`, `Part2`, and `symbol` and `RowWritten` for the input. The
+spec is computable, so the tests run its rounds beside the program's on
+the example (5 and 6 rounds); that checked the spec as much as the
+program.
+
+Proved (`Aoc.Year2020.Day11.Proofs`):
+
+- `readsSeat`, `gridWritten`, `parseWritten` (Parse.sw): if `parseLayout`
+  reads `input`, each line is its row of the layout, one character a
+  position, and the layout is a rectangle. Day 3's proof, nearly word for
+  word, with std's `Parse.readsPickBy`.
+- `nextBecomes`, `lookupOccupied`, `roundSpec`, `aroundOccupied`
+  (Rounds.sw): the program's seat change is the spec's `becomes`; a round
+  whose count at every seat is the spec's count is the spec's round
+  (floor cells needn't count); part 1's count over `at.around` with the
+  table is `occupiedAdjacent`.
+- `countFilterMap`, `firstSeatCong`, `walkSeen`, `anyLookup`,
+  `seenOccupied`, `compassDirections`, `sightOccupied`, `roundShape`,
+  `firstSeatPlan` (Sight.sw): the walk ends at an occupied seat exactly
+  when the first seat on the spec's line of sight is occupied, for a reach
+  of the height plus the width; the program's eight directions are the
+  spec's; so part 2's count is `occupiedSeen`. The walk depends only on
+  where the seats are.
+- `SamePlan`, `becomesIsSeat`, `mapKeepsSeat`, `roundPlan`, `startSeat`,
+  `occupiedSeat`, `planInView`, `planCount` (Plan.sw): a spec round keeps
+  the floor plan, and on a layout with the start's floor plan a seat's
+  planned view counts what the rule sees on the layout itself.
+- `settleSound`, `settlesOfWithin`, `settledUnique`, `settleComplete`
+  (Settle.sw), for any plan whose round is a spec round on the layouts
+  reached: what `settle` stops at is reached by fewer spec rounds than it
+  was given and a round leaves it alone; if the spec's rounds reach such a
+  layout in fewer rounds than `settle` is given, `settle` stops there; and
+  the rounds settle on at most one layout.
+- `sameSight`, `adjacentAgrees`, `sightAgrees`, `adjacentKeeps`,
+  `sightKeeps`, `keptStart`, `settledExactly`, `part1Exactly`,
+  `part2Exactly` (both `↔`), `answerOfWithin`, `part1Rules`, `part2Rules`,
+  `answerUnique`, `part1Unique`, `part2Unique` (Parts.sw): each part
+  answers exactly when the spec's rounds settle within `roundLimit` (1000)
+  rounds, with the occupied seats of the settled layout; that answer is a
+  `Spec.Part1`/`Part2` answer, and those name one number.
+- `part1Correct`, `part2Correct` (Proofs.sw): for every input the parser
+  reads, its lines are the rows written out and the answers are the
+  spec's.
+- In `Aoc.Common.Proofs`: `countAround` (GridAround.sw: counting the
+  positions `around` a cell whose cell passes `keep` counts the cells
+  `touching` it that pass), and `mapCellsCongAt` (GridCells.sw:
+  `mapCells` of functions equal at the rows' cells).
+
+Not proved:
+
+- That the rounds settle at all. Nothing in the rules gives a measure
+  (seats go both ways), so `settle` has fuel, `roundLimit = 1000` rounds,
+  and `part1Exactly`/`part2Exactly` say exactly what happens: an answer
+  when the spec's rounds settle within the limit, none otherwise. On the
+  input `settle` runs 76 and 84 rounds, the last changing nothing.
+- That the spec's line of sight is long enough. `lineOfSight` looks
+  `height + width` steps out, and its doc says a line leaves the layout
+  within that; it is true on a rectangle (each step moves a row or a
+  column), which every parsed layout is, but not proved. On a ragged layout
+  the bound could cut a long row short; the program has the same bound, so
+  the proofs hold either way.
+- That every well-formed input parses (as on days 2 to 10).
+
+Breaking the program made the proofs fail: `tolerance < occupiedInView`
+fails `nextBecomes` (E-CASES); dropping the last compass direction fails
+`compassDirections`; stopping the walk at floor fails `firstSeatCong`,
+`walkSeen` and `firstSeatPlan`; planning only the empty seats in view
+fails `planInView`; and `settle` returning the layout after the last round
+fails `settleSound` and `settleComplete`. The audit (with the
+counterexample search): `audited 74 theorems: 0 failed, 0 with warnings,
+74 passed`; `Aoc.Common.Proofs`: `audited 159 theorems: 0 failed, 0 with
+warnings, 159 passed`.
+
+### 1. Slow: a round is 9,000 table lookups, at about 2 µs each
+
+On the default runtime, a round of part 1 took 0.21 s: 0.12 s for the
+72,000 `Grid.lookup` calls (eight per cell; each is two `Map.getOr`s, row
+then column, about 1.7 µs together), 0.085 s for 9,000 `Position.around`
+calls (about 10 µs each: two `List.range`s, a `flatMap`, a `filter` and
+nine records, for eight positions), and under 0.01 s for `Grid.map`, the
+table and the `==` that checks for a change. Part 2's walk made its rounds
+0.31 s. Planning the views once brought both to about 0.12 s a round, all
+lookups; `lookupOr Floor` instead of `lookup` saved another 8% (not kept:
+it would change every proof's lookup). The same final program takes 4.1 s
+under `--js` and 3.7 s under `--native`, against 19.3 s.
+
+| version | default | `--js` | `--native` |
+| --- | --- | --- | --- |
+| a round's rule looked up each round | 41.9 s | 4.5 s | 9.7 s |
+| views planned once | 19.3 s | 4.1 s | 3.7 s |
+
+Std has no array with constant-time `get`: `Vec` is a list, and
+`Map.byPosition` is the way to index, so every grid simulation pays a
+`Map` walk per neighbour. Two things would make this day fast without
+changing its proofs much: a persistent array (or `Grid` backed by one)
+with `get`/`set` lemmas, and a cheaper `Position.around` in Aoc.Common
+(eight offsets, not ranges and a filter), kept equal to today's by a
+lemma so `aroundTouching` and the rest carry over. A newcomer who writes
+the obvious program waits 40 s and has no profiler to ask why;
+`STITCHWORT_TIMINGS` covers checking, not running. I found the split by
+timing variants of `main`, 10 rounds each.
+
+### 2. Aoc.Common has no eight directions and no ray
+
+Part 1 was `at.around` and a count: Aoc.Common had it, and 2021 day 11's
+proof showed how to tie it to `touching`. Part 2 needed what isn't there:
+the eight directions as offsets (`compass`, 10 lines; `Direction` has four),
+a walk along a ray to the first cell that passes a test (`firstSeat`), and
+in the spec the cells along a ray up to the edge (`cellAlong`,
+`lineOfSight`). The proof that the walk finds the spec's first seat
+(`walkSeen` with `firstSeatCong`, `firstSeatPlan` and the counting lemmas,
+70 lines) is generic in the lookup. A shared `Grid.ray at offset` (cells
+along a line, nearest first, to the edge), `compass`, and a
+`firstAlongRay` with the lemma that it is `(grid.ray at d).find keep`
+would make part 2 a few lines; 2024 day 4 (XMAS in eight directions) and
+day 6 (walking until the edge) would have used it.
+
+I moved the counting lemma into Aoc.Common: `countAround` (any rows, any
+`keep`) is 2021 day 11's `countAround` generalised, with the off-grid
+case handled inside, so the next day needn't copy it. 2021 day 11 could
+now use it. `mapCellsCongAt` (`mapCells` agrees when the functions agree
+on the cells, not everywhere) was needed for `roundSpec`, where floor
+cells needn't count.
+
+### 3. "Run until stable" needs a fuelled loop and its lemmas
+
+Std has `Nat.iterateUntilStable`, which needs a measure that shrinks at
+every change; the seating rules have none I know (seats fill and empty).
+So `settle` has fuel, and `Settle.sw` proves what it means (60 lines): what
+it finds is a fixed point reached by rounds, it finds one whenever there is
+one within the fuel, and the rounds settle on at most one layout. None of
+it is about seats: it is any `step: a → a` with `DecEq`, and 2021 day 11's
+`cascade` is the same shape. A std
+`Nat.iterateUntilStableWithin fuel step x: Option a` with those three
+lemmas (`…Sound`, `…Complete`, `…Unique`, the last from
+`Nat.iterateFixedLater`) would have made Settle.sw a few calls.
+
+### 4. A `match` refines the goal as written, not what it computes to next
+
+`walkSeen` says the walk ends at an occupied seat exactly when the spec's
+first seen seat is occupied. Its step splits on `match find next`, and
+the arms for `Some Empty` and `Some Occupied` failed with `rfl`:
+
+```
+[E-REFL] Error: `rfl` can't prove this
+   ╰─── `Std.Decidable.toBool (Option.decEq (x y => …) (find next) (Some Occupied))` and `False` aren't equal
+```
+
+The `match` had refined the walk's own `match find next` to `Some Empty`,
+so the walk returned `Some next`; then `Option.any` applied the test,
+`find next == Some Occupied`, a new occurrence the refinement never saw.
+`match e: find next` and `rewrite e in rfl` fixed both. My first version
+was about `layout.grid.at` rather than any `find`, and there `match
+layout.grid.at next` refined nothing at all: the goal had computed
+`Grid.at` into `cellAt`'s inner `match` on `rows.get next.row`. The note
+pointed at `cellAt.eq.some`; generalising the lemma over the lookup
+function was the fix, and is the better statement anyway. Day 10's item 1
+was the other direction (a refinement reaching into unfolded definitions).
+An E-REFL whose two sides differ only in a term a `match` of the same
+proof split on could say so, and suggest `match e:` and `rewrite e`.
+
+### 5. Messages
+
+- **E-RESOURCE without a cause.** `settledExactly` first had the limit
+  written as `roundLimit` (1000) and failed with:
+
+  ```
+  [E-RESOURCE] Error: ran out of resources: a value was too large to show
+     Note 1: this isn't a type error or a failed test: there's no answer within the limits
+     Note 2: it happened while checking `settledExactly`
+  ```
+
+  Replacing halves with `?` put it in the `forward` half, at `match found:
+  start.settle rule roundLimit`: refining `solved`, whose type computes
+  through `settledOccupied`, seems to unfold `settle` 1000 rounds deep
+  (both arms of each stuck `if`). Stating the theorem for any `limit` and
+  instantiating it fixed it at once. The guide says the last note names
+  the definition being unfolded; here none did, and "too large to show"
+  doesn't say what was being shown or why. Naming `settle` and suggesting
+  a variable for the large literal would have saved the bisecting.
+- **`at` after a rewrite rule.** `rewrite counts at in …`, with `at` a
+  position, is a parse error: `at` is reserved after a rule. The message
+  says exactly that, but Aoc.Common names positions `at` everywhere
+  (`Position.around (at)`, `touching at other`), so a newcomer copies the
+  name into proofs and meets it. Renaming to `position` fixed it.
+- **`omega` with an unnamed comparison.** `match Nat.leq m n with | True =>
+  … (omega)` failed with "facts: none in scope"; `match order: Nat.leq m
+  n` worked. The note could say the `match` has no equation to give it.
+- **Helped:** E-REWRITE-NOTHING's "the proof checks without this rewrite:
+  the goal already computed past it; drop the `rewrite`" (on `compass`), and
+  its "`passes` is already refined: use it as it is" (in `countAround`);
+  each was the fix. The notes for missing imports (`Exists`, `Void`, `Nat`)
+  and for an uppercase parameter name (`Keep`) were exact.
+
+### 6. Smaller things
+
+- **What helped.** `parseGrid`, `Parse.readsPickBy` and day 3's
+  `parseWritten` made the parser and its proof a few minutes. `Grid.ext`,
+  `Layout.ext`, `mapCellsCong`, `cellAtMapCells`, `lookupAt`,
+  `lookupOrAt`, `mapWidth`, `Nat.iterateFixed` and
+  `Nat.iterateFixedLater` were each the one call needed. `cases` proved
+  `nextBecomes` (the program's `match` against the spec's `if … && …`) and
+  `becomesIsSeat` alone. Generic lemmas (Settle.sw over any spec round
+  and any kept property, `settledExactly` over any plan) made part 2 cost
+  nothing once part 1 was done.
+- **No `Result.isErr`.** Std has `Result.isOk`; tests read `not (parsed
+  "L.X\n").isOk`.
+- **An interpolation can't span lines.** `"${Nat.iterate 10 (x => …`
+  broken over two lines is "this string isn't closed"; the message could
+  say that `${…}` has to close on its line.
+- **A `Grid` from new rows needs its proof.** Timing a round that zips the
+  rows with the planned views, I couldn't build `Grid.lookupOr` on the new
+  rows: `{ rows = x, nonEmpty = l.grid.nonEmpty }` doesn't check, as the
+  proof is about the old rows. I inlined the table. A `Grid.zipWith` (two
+  grids of one shape) carrying the proof would let a program zip a state
+  with a plan, which is also faster than a lookup per cell.
+- **The tests take as long as `main`.** `stitchwort test --no-cache` takes
+  30 s user (55 s before the plan), nearly all of it the two real-input
+  answers; day 10's takes 5 s.
+
+### Size and time
+
+130 lines of program, 106 of spec, 411 of proofs (Parse 42, Rounds 43,
+Sight 140, Plan 81, Settle 70, Parts 113, Proofs 22), 159 of tests (+1
+answer test in `aoc_answers.rs`), and 55 in Aoc.Common.Proofs
+(`countAround`, `mapCellsCongAt`). By the clock: 23:01 start; program
+and tests passing at 23:10; part 1's round proved at 23:12; part 2 and the
+parts at 23:17 (item 5's E-RESOURCE the only detour); the floor plan
+precomputation and its proofs at 23:24; then the audit, the break checks,
+timing and these notes.
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2020.Day11.Proofs` | 10.6 s user |
+| `stitchwort check --no-cache Aoc.Year2020.Day11` | 5.5 s user |
+| `stitchwort test --no-cache Aoc.Year2020.Day11` (22 tests) | 29.9 s user |
+| `task audit:touched -- Aoc.Year2020.Day11` (74 theorems) | about 10 s |
+| `stitchwort run Aoc.Year2020.Day11.main` on the input | 19.3 s user |
+| `task test:one -- year2020_day11` | 25.8 s for the test |
+
+`STITCHWORT_TIMINGS=1` puts the Proofs namespace at 432 ms of
+elaboration and 73 ms in the kernel; the rest of the cold time is std's
+modules and Aoc.Common.
+
+### Ranked
+
+1. `main` takes 20 s (42 s as first written): every neighbour is a `Map`
+   walk, std has no constant-time array, and `Position.around` costs
+   10 µs a call (item 1). Speed and library; medium (an array) or small
+   (a cheaper `around` with a lemma).
+2. Aoc.Common has no eight directions as offsets and no ray to the edge
+   with a "first cell that passes" lemma; part 2's walk and its 70 lines
+   of proof are generic (item 2). Aoc.Common; small.
+3. No fuelled "iterate until stable" in std with soundness, completeness
+   and uniqueness lemmas; Settle.sw is 60 generic lines, and 2021 day 11
+   has the same shape (item 3). Library; small.
+4. E-RESOURCE "a value was too large to show" names no definition when a
+   `match` on a call with a large literal argument (`settle … 1000`)
+   blows up; generalising the literal fixes it (item 5). Message; small.
+5. A `match` doesn't refine an occurrence that only appears after the
+   goal computes further; E-REFL could point at the `match` and suggest
+   `match e:` with `rewrite e` (item 4). Message; small.
+6. Smaller: `Result.isErr`; `at` as a name in Aoc.Common meeting
+   `rewrite … at`; `omega` on an unnamed `match` comparison; interpolations
+   over two lines; a `Grid.zipWith` (items 5, 6). Each trivial to small.
