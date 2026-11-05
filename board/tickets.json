@@ -1,5 +1,5 @@
 {
-  "next": 1483,
+  "next": 1484,
   "tickets": [
     {
       "id": 47,
@@ -8748,13 +8748,13 @@
     {
       "id": 1455,
       "title": "Playground: shrink std.cache (14.4 MB, 7.5 MB gzipped): compress entries, or drop expression types projects don't need",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1455",
       "labels": [
         "playground"
       ],
-      "body": "From SW-1403, 5 Nov 2026.\n\nD2440 (Matt, 5 Nov 2026): the current size is accepted for now; this ticket is the follow-up.",
+      "body": "From SW-1403, 5 Nov 2026.\n\nD2440 (Matt, 5 Nov 2026): the current size is accepted for now; this ticket is the follow-up.\n\nStarted on Sonnet (overnight editor track), expected: 60 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -9133,6 +9133,20 @@
         "aoc"
       ],
       "body": "From 2020 day 11 (SW-1470), 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1483,
+      "title": "AoC 2020 day 12 (Rain Risk): spec, efficient solution, proofs, tests, friction notes in aoc/NOTES-2020.md",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1483",
+      "labels": [
+        "aoc"
+      ],
+      "body": "D2443 (Matt, 5 Nov 2026): 'feel free to carry on further if you have time'. Overnight, Opus (D2427), after days 10 and 11 finished early. Input: ~/repos/mdr/aoc/2020/src/main/resources/day12.\n\nStarted on Opus, expected: 90 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
