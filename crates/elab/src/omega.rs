@@ -2349,6 +2349,38 @@ fn same_shape(a: &Term, b: &Term) -> bool {
     args_a.len() == args_b.len() && crate::matching::same(head_a, head_b)
 }
 
+/// Two terms that apply the same head to the same arguments but one, and
+/// that one pair.
+fn one_argument_apart<'a>(a: &'a Term, b: &'a Term) -> Option<(&'a Term, &'a Term)> {
+    let (head_a, args_a) = a.spine();
+    let (head_b, args_b) = b.spine();
+    if args_a.len() != args_b.len() || !crate::matching::same(head_a, head_b) {
+        return None;
+    }
+    let mut differing = None;
+    for (x, y) in args_a.iter().zip(&args_b) {
+        if crate::matching::same(x, y) {
+            continue;
+        }
+        if differing.is_some() {
+            return None;
+        }
+        differing = Some((*x, *y));
+    }
+    differing
+}
+
+/// The innermost pair of arguments in which `a` and `b` differ, descending
+/// through a differing argument that is itself the same call but for one
+/// argument.
+fn innermost_difference<'a>(mut a: &'a Term, mut b: &'a Term) -> (&'a Term, &'a Term) {
+    while let Some((x, y)) = one_argument_apart(a, b) {
+        a = x;
+        b = y;
+    }
+    (a, b)
+}
+
 /// A note naming two listed atoms that apply the same function to the same
 /// arguments but one, so no fact can connect them without saying what the
 /// differing arguments are.
@@ -2361,25 +2393,10 @@ fn atoms_differing_in_one_argument(cx: &Ctx, quoter: &Quoter) -> Option<String> 
             if a.int != b.int {
                 continue;
             }
-            let (head_a, args_a) = a.term.spine();
-            let (head_b, args_b) = b.term.spine();
-            if args_a.len() != args_b.len() || !crate::matching::same(head_a, head_b) {
-                continue;
-            }
-            let mut differing = None;
-            for (x, y) in args_a.iter().zip(&args_b) {
-                if crate::matching::same(x, y) {
-                    continue;
-                }
-                if differing.is_some() {
-                    differing = None;
-                    break;
-                }
-                differing = Some((*x, *y));
-            }
-            let Some((x, y)) = differing else {
+            let Some((x, y)) = one_argument_apart(&a.term, &b.term) else {
                 continue;
             };
+            let (x, y) = innermost_difference(x, y);
             return Some(format!(
                 "`{}` and `{}` differ only in `{}` and `{}`, and no fact connects them",
                 atom_name(cx, quoter, i),

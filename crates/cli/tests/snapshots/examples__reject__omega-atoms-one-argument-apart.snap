@@ -13,7 +13,7 @@ expression: output
    │ 
    │ Note 2: atoms: `List.length (List.take xs length)`, `List.length (List.take xs count)`
    │ 
-   │ Note 3: `List.length (List.take xs length)` and `List.length (List.take xs count)` differ only in `List.take xs length` and `List.take xs count`, and no fact connects them
+   │ Note 3: `List.length (List.take xs length)` and `List.length (List.take xs count)` differ only in `length` and `count`, and no fact connects them
    │ 
    │ Note 4: an integer model of the arithmetic abstraction (it may not be a real counterexample): List.length (List.take xs length) = 4, List.length (List.take xs count) = 0
    │ 
