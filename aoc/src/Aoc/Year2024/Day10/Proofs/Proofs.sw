@@ -109,7 +109,7 @@ theorem countTrailEnds (map: TopographicMap): (steps: Nat) → (from: Position) 
 theorem ratingAtZero (map: TopographicMap) (start: Position) (zero: map.heightAt start = Some 0):
     (trailsFrom map start).length = (pathsOf map 9).count (climbs map start) :=
   rewrite List.lengthFilter ((pathsOf map 9).map (Cons start)) (isHikingTrail map), List.countMap (pathsOf map 9) (isHikingTrail map) (Cons start) in
-    List.countCongMem _ _ (rest member => rewrite trailCons map start rest, zero in rfl)
+    List.countCongMem _ _ _ (rest member => rewrite trailCons map start rest, zero in rfl)
 
 --| No trail starts anywhere but a 0.
 theorem noTrailsOffZero (map: TopographicMap) (start: Position) (zero: (map.heightAt start == Some 0) = False): (trailsFrom map start).length = 0 :=

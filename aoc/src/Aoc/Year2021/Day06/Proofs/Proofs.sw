@@ -52,7 +52,7 @@ theorem countNextDay (fish: List Nat) (v: Nat):
 theorem nextTimerEq (v: Nat) (t: Nat) (not6: v ≠ 6): (nextTimer t == v) = (t == v + 1) := cases
 
 theorem agedCount (v: Nat) (not6: v ≠ 6) (fish: List Nat): fish.count (t => nextTimer t == v) = fish.count (== v + 1) :=
-  List.countCongMem _ _ (t _ => nextTimerEq v t not6)
+  List.countCongMem _ _ _ (t _ => nextTimerEq v t not6)
 
 --| The fish at 6 the next day are those at 7 and those at 0 today.
 theorem agedSix (fish: List Nat): fish.count (t => nextTimer t == 6) = fish.count (== 7) + fish.count (== 0) :=

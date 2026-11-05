@@ -52,7 +52,7 @@ theorem treesOnSpec (map: Grid Square) (rectangle: map.isRectangle = True) (slop
   rewrite pathRange slope { row = 0, column = 0 } map.height,
     List.takeWhileMap (step => ({ row = 0 + step * slope.down, column = 0 + step * slope.right }: Position)) (position => position.row < map.height) (List.rangeFrom map.height 1),
     List.lengthFilter, List.countMap in
-    List.countCongMem _ _ (step m => lookupSquareAt map ((isRectangleIff map).forward rectangle) map.widthNonZero { row = step * slope.down, column = step * slope.right })
+    List.countCongMem _ _ _ (step m => lookupSquareAt map ((isRectangleIff map).forward rectangle) map.widthNonZero { row = step * slope.down, column = step * slope.right })
 
 --| The spec's bound loses nothing: on a slope that goes down, more steps
 --| than the map has rows visit the same positions.

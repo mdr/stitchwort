@@ -28,7 +28,7 @@ theorem hasRequiredSpec (passport: Passport): passport.hasRequired = validPart1 
   rewrite missingHas passport in allButCid passport.has
 
 theorem part1Correct (passports: List Passport): solvePart1 passports = part1Answer passports :=
-  rewrite List.lengthFilter passports validPart1 in List.countCongMem _ _ (passport m => hasRequiredSpec passport)
+  rewrite List.lengthFilter passports validPart1 in List.countCongMem _ _ _ (passport m => hasRequiredSpec passport)
 
 theorem valuesValidSpec (passport: Passport): passport.valuesValid = (pairs passport).all (((key, value)) => validValue key value) :=
   Eq.sym (Eq.trans (List.allMapBool passport.fields.toList (((key, value)) => validValue key value) (field => (field.key.code, field.value)))
@@ -36,4 +36,4 @@ theorem valuesValidSpec (passport: Passport): passport.valuesValid = (pairs pass
 
 theorem part2Correct (passports: List Passport): solvePart2 passports = part2Answer passports :=
   rewrite List.lengthFilter passports validPart2 in
-    List.countCongMem _ _ (passport m => rewrite hasRequiredSpec passport, valuesValidSpec passport in rfl)
+    List.countCongMem _ _ _ (passport m => rewrite hasRequiredSpec passport, valuesValidSpec passport in rfl)

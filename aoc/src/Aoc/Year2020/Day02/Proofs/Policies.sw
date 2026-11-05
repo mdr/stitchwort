@@ -10,7 +10,7 @@ theorem validByCountSpec (entry: Entry): entry.validByCount = validPart1 entry :
   rewrite List.lengthFilter entry.password.toList (== entry.letter) in rfl
 
 theorem part1Correct (entries: List Entry): solvePart1 entries = part1Answer entries :=
-  rewrite List.lengthFilter entries validPart1 in List.countCongMem _ _ (e m => validByCountSpec e)
+  rewrite List.lengthFilter entries validPart1 in List.countCongMem _ _ _ (e m => validByCountSpec e)
 
 --| Characters numbered from `start` hold nothing at a position before `start`.
 theorem holdsNothingBefore (letter: Char): (chars: List Char) → (start: Nat) → (position: Nat) → position < start →
@@ -41,4 +41,4 @@ theorem validByPositionSpec (entry: Entry): entry.validByPosition = validPart2 e
   rewrite letterAtSpec entry entry.low, letterAtSpec entry entry.high in exactlyOne (holdsLetter entry) entry.low entry.high
 
 theorem part2Correct (entries: List Entry): solvePart2 entries = part2Answer entries :=
-  rewrite List.lengthFilter entries validPart2 in List.countCongMem _ _ (e m => validByPositionSpec e)
+  rewrite List.lengthFilter entries validPart2 in List.countCongMem _ _ _ (e m => validByPositionSpec e)

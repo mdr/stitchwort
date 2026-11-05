@@ -17,7 +17,7 @@ theorem possibleWays (patterns: List Pattern) (design: Design): (ways patterns d
     | [first, ..rest] => rfl
 
 theorem part1Correct (onsen: Onsen): solvePart1 onsen = part1 onsen :=
-  List.countCongMem (design => waysToMake onsen.patterns design > 0) (possible onsen.patterns)
+  List.countCongMem _ (design => waysToMake onsen.patterns design > 0) (possible onsen.patterns)
     (design member => rewrite waysCorrect onsen.patterns design in possibleWays onsen.patterns design)
 
 theorem part2Correct (onsen: Onsen): solvePart2 onsen = part2 onsen :=

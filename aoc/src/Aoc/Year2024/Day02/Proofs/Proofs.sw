@@ -35,7 +35,7 @@ theorem isSafeCorrect (report: Report): report.isSafe = safe report :=
 
 --| Part 1 counts the safe reports.
 theorem part1Correct (reports: List Report): solvePart1 reports = safeReports reports :=
-  List.countCongMem Report.isSafe safe (report _ => isSafeCorrect report)
+  List.countCongMem _ Report.isSafe safe (report _ => isSafeCorrect report)
 
 --| Whatever keeps every adjacent pair of a list keeps a safe report safe.
 theorem safeKept (shrink: List Nat → List Nat)

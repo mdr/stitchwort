@@ -55,4 +55,4 @@ theorem isSafeWithDampenerCorrect (report: Report): report.isSafeWithDampener = 
 
 --| Part 2 counts the reports that are safe with the dampener.
 theorem part2Correct (reports: List Report): solvePart2 reports = safeReportsWithDampener reports :=
-  List.countCongMem Report.isSafeWithDampener safeWithDampener (report _ => isSafeWithDampenerCorrect report)
+  List.countCongMem _ Report.isSafeWithDampener safeWithDampener (report _ => isSafeWithDampenerCorrect report)

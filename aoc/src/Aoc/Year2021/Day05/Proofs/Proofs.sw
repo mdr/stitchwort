@@ -74,7 +74,7 @@ theorem pointsCount (line: Line) (shape: (horizontalOrVertical line ∨ diagonal
     let k := Nat.max (Nat.absDiff line.from.x point.x) (Nat.absDiff line.from.y point.y)
     Eq.trans (List.countMap (List.range 0 (steps + 1)) (== point) (step => { x = towards line.from.x line.to.x step, y = towards line.from.y line.to.y step }))
       (Eq.trans
-        (List.countCongMem _ (i => covers line point ∧ i == k)
+        (List.countCongMem _ _ (i => covers line point ∧ i == k)
           (i inRange => pointStep line shape point i (stepInRange steps i inRange)))
         (countRangeOnce (steps + 1) k (covers line point) (c => coveredWithin line point c)))
 

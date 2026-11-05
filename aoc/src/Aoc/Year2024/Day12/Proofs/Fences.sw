@@ -38,5 +38,5 @@ theorem sameAcrossFaces (garden: Garden) (start: Position) (plant: Char) (grows:
 theorem perimeterCorrect (garden: Garden) (start: Position) (plant: Char) (grows: garden.plantAt start = Some plant) (region: Region)
     (isRegion: IsRegion garden start region): region.perimeter garden = perimeter region :=
   List.sumByCongMem region.plots garden.fences (plot => directions.count (side => !facesRegion region plot side)) (plot member =>
-    List.countCongMem (side => !garden.sameAcross plot side) (side => !facesRegion region plot side) (side inDirections =>
+    List.countCongMem _ (side => !garden.sameAcross plot side) (side => !facesRegion region plot side) (side inDirections =>
       rewrite sameAcrossFaces garden start plant grows region isRegion plot member side in rfl))

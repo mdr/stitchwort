@@ -21,7 +21,7 @@ theorem matchingAfter (patterns: List Pattern) (count: Nat) (stripes: List Strip
       = if stripes.startsWith pattern.stripes.toList then matching patterns count (stripes.drop pattern.stripes.toList.length) else 0 :=
   match starts: stripes.startsWith pattern.stripes.toList with
     | True =>
-      List.countCongMem (towels => List.append pattern.stripes.toList (laid towels) == stripes)
+      List.countCongMem _ (towels => List.append pattern.stripes.toList (laid towels) == stripes)
         (towels => laid towels == stripes.drop pattern.stripes.toList.length) (towels member => List.appendEqDrop stripes pattern.stripes.toList starts (laid towels))
     | False =>
       List.countNone (towelLists patterns count) (towels => List.append pattern.stripes.toList (laid towels) == stripes)

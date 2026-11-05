@@ -2,7 +2,8 @@
 -- Inside a branch of `match e: flag c with`, `h` is refined, but an argument
 -- written out (`reach flag (Succ k) c d`) is elaborated afresh and still has
 -- the condition in it. `_` would be inferred from `h` instead (SW-194).
--- `andRight` takes its booleans explicitly, as `Bool.andRight` used to.
+-- `andRight` takes its booleans explicitly, so the example can still write
+-- one out: `Bool.andRight` has them implicit, with nothing to write.
 
 import Std (Bool, Void)
 
