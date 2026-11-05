@@ -2600,9 +2600,19 @@ fn apply_args_postponing(
         // Unknowns that only the arguments of a call can fix, as the
         // functions in `List.sumBy xs ?f` with its `Add` dictionary still
         // unknown, are solved from them if the plain comparison fails.
+        // A comparison stuck only on a literal the queue still has to type
+        // (`readsDone { first, second } _ …`, whose record waits for the
+        // `Pair` the expected type names) holds what it can and waits for
+        // the rest, so the unknowns it does fix reach the lambdas (SW-1406).
         if implicit_next
             || !(crate::undo::unify(cx, &ty, expected)?
-                || crate::undo::unify_solving_arguments(cx, &ty, expected)?)
+                || crate::undo::unify_solving_arguments(cx, &ty, expected)?
+                || crate::queue::compare_waiting(
+                    cx,
+                    &ty,
+                    expected,
+                    crate::queue::Failure::Mismatch,
+                )?)
         {
             return Err(first_error.take().expect("set when the lambda was put off"));
         }
