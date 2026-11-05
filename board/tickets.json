@@ -1,5 +1,5 @@
 {
-  "next": 1343,
+  "next": 1347,
   "tickets": [
     {
       "id": 47,
@@ -7074,7 +7074,7 @@
       "labels": [
         "design"
       ],
-      "body": "D2383 (Matt, 5 Nov): 'let's file tickets to look at how we might do non-empty lists in the standard library so that we can have things like reduce, probably lots of other useful things. I'd be interested to see what our options are for this, what other languages like Idris, Lean, Agda [do]. What opportunities there might be in the existing code base to use it to better model the data. I think, in a way, having more precise types is powerful.' Options to compare: a record { head, tail }, a List with a proof (xs ≠ [] as a refinement / subtype), an indexed Vec (n+1), Haskell's NonEmpty; conversions, pattern syntax ([x, ..xs] for both?), how parsers (many1, sepBy1, lines, sections) would return it, how proofs use it. Survey std (maximum, minimum, last, head?) and aoc/rogue for Option-returning or partial uses that a non-empty type would remove. Opus.\n\nNote done on lane/SW-1337 (009032c96, docs/proposals/non-empty-lists.md; Opus, 8 min, est. 60). N1-N7 put to Matt as D2393-D2399. Next batch.\n\nD2394 (Matt, 5 Nov): name it NonEmptyList ('It says exactly what it is'). D2393, D2395-D2399 open.",
+      "body": "D2383 (Matt, 5 Nov): 'let's file tickets to look at how we might do non-empty lists in the standard library so that we can have things like reduce, probably lots of other useful things. I'd be interested to see what our options are for this, what other languages like Idris, Lean, Agda [do]. What opportunities there might be in the existing code base to use it to better model the data. I think, in a way, having more precise types is powerful.' Options to compare: a record { head, tail }, a List with a proof (xs ≠ [] as a refinement / subtype), an indexed Vec (n+1), Haskell's NonEmpty; conversions, pattern syntax ([x, ..xs] for both?), how parsers (many1, sepBy1, lines, sections) would return it, how proofs use it. Survey std (maximum, minimum, last, head?) and aoc/rogue for Option-returning or partial uses that a non-empty type would remove. Opus.\n\nNote done on lane/SW-1337 (009032c96, docs/proposals/non-empty-lists.md; Opus, 8 min, est. 60). N1-N7 put to Matt as D2393-D2399. Next batch.\n\nD2394 (Matt, 5 Nov): name it NonEmptyList ('It says exactly what it is'). D2393, D2395-D2399 open.\n\nD2393 head/tail record; D2395 toNonEmpty (auto proof) + nonEmpty (Option), no proof-argument List versions; D2396 brackets as stage 3; D2397 change the parsers; D2398 splitBy, Map.groupBy, Nat.digits too; D2399 aoc data types then rogue rooms as Vec Area 6 (Matt, 5 Nov: yes to all recommendations). Work: stages below.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7145,6 +7145,62 @@
         "tooling"
       ],
       "body": "D2384 (Matt, 5 Nov): re-record, and put the investigation on the backlog. A re-record on main was stopped at 25 min (Matt: not now); it ran while lanes were building, and the bench checks every example and runs its tests. Run it on a quiet machine. Rises listed in the SW-1227 daily log: scratchpad sw1227-daily/daily.log.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1343,
+      "title": "NonEmptyList stage 1: the type { head, tail } and its functions (reduce, last, maximum, minimum, maxBy, minBy, map, zip, sort, ++, toList), List.toNonEmpty (auto proof) and List.nonEmpty (Option), link lemmas to the List versions",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Sonnet, est. 4 h. docs/proposals/non-empty-lists.md; D2393-D2399 (Matt, 5 Nov). Name: NonEmptyList (D2394).",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1344,
+      "title": "NonEmptyList stage 2: many1, sepBy1, lines, sections, grid, List.splitBy, Map.groupBy, Nat.digits return NonEmptyList; Reads lemmas and callers updated",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "After stage 1. Sonnet, est. 4 h. docs/proposals/non-empty-lists.md; D2393-D2399 (Matt, 5 Nov). Name: NonEmptyList (D2394).",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1345,
+      "title": "NonEmptyList stage 3: bracket literals and patterns ([1, 2], [x, ..xs]) where the expected type is NonEmptyList; [] refused with its own error",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "After stage 1. Opus, est. 1 day. docs/proposals/non-empty-lists.md; D2393-D2399 (Matt, 5 Nov). Name: NonEmptyList (D2394).",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1346,
+      "title": "NonEmptyList stage 4: aoc data types use NonEmptyList (2020 day 6's Group, Grid, 2024 day 7, 2021 day 16, the survey's ~95 sites); rogue's rooms as Vec Area 6 (drops fallbackRoom)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "After stage 2; small lanes. docs/proposals/non-empty-lists.md; D2393-D2399 (Matt, 5 Nov). Name: NonEmptyList (D2394).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
