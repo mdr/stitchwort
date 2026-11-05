@@ -21,27 +21,48 @@ theorem cornerInside (tiles: List Point) (a: Point) (b: Point) (ma: List.Mem a t
       (List.indexOfLt (Floor.of tiles).rows b.y (keyLinesHas (rowsOf tiles) b.y (Inl (rowIn tiles b mb)))))
 
 --| The program's test of the rectangle between two red tiles is the spec's.
-theorem programTest (tiles: List Point) (corners: (Point, Point)) (m: List.Mem corners (rectangles tiles)):
-    Floor.allRedOrGreen (Floor.of tiles) ((Floor.of tiles).corner corners.fst, (Floor.of tiles).corner corners.snd) = allRedOrGreen tiles corners :=
-  match List.memPairs corners tiles m with
+theorem programTest (tiles: List Point) (pair: (Point, Point)) (m: List.Mem pair (List.pairs tiles)):
+    Floor.allRedOrGreen (Floor.of tiles) { corner = (Floor.of tiles).corner pair.fst, opposite = (Floor.of tiles).corner pair.snd }
+      = allRedOrGreen tiles (Rectangle.ofPair pair) :=
+  match List.memPairs pair tiles m with
     | Both ma mb =>
       Eq.trans
-        (allRedOrGreenKeys tiles ((Floor.of tiles).corner corners.fst) ((Floor.of tiles).corner corners.snd) (cornerInside tiles corners.fst corners.snd ma mb))
-        (allKeysIsSpec tiles corners.fst corners.snd ma mb)
+        (allRedOrGreenKeys tiles ((Floor.of tiles).corner pair.fst) ((Floor.of tiles).corner pair.snd) (cornerInside tiles pair.fst pair.snd ma mb))
+        (allKeysIsSpec tiles pair.fst pair.snd ma mb)
+
+--| The spec's rectangles that are all red and green, by their areas, as a
+--| filter and map over the red tiles' pairs.
+theorem specAreas (tiles: List Point):
+    List.map (List.filter (List.map (List.pairs tiles) Rectangle.ofPair) (allRedOrGreen tiles)) Rectangle.area
+      = List.map (List.filter (List.pairs tiles) (p => allRedOrGreen tiles (Rectangle.ofPair p))) (p => Rectangle.area (Rectangle.ofPair p)) :=
+  rewrite List.filterOfMap (List.pairs tiles) (allRedOrGreen tiles) Rectangle.ofPair,
+    List.mapMap (List.filter (List.pairs tiles) (p => allRedOrGreen tiles (Rectangle.ofPair p))) Rectangle.area Rectangle.ofPair
+    in rfl
 
 --| The areas the program compares are the spec's.
 theorem programAreas (tiles: List Point):
-    List.map (List.filter (List.pairs (List.map tiles (Floor.of tiles).corner)) (Floor.allRedOrGreen (Floor.of tiles))) cornersArea
-      = List.map (List.filter (rectangles tiles) (allRedOrGreen tiles)) (corners => area corners.fst corners.snd) :=
+    List.map (List.filter (List.map (List.pairs (List.map tiles (Floor.of tiles).corner)) FloorRectangle.ofPair) (Floor.allRedOrGreen (Floor.of tiles))) FloorRectangle.area
+      = List.map (List.filter (rectangles tiles) (allRedOrGreen tiles)) Rectangle.area :=
   let floor := Floor.of tiles
-  let both := (p: (Point, Point)) => (floor.corner p.fst, floor.corner p.snd)
-  let keep := (p: (Point, Point)) => Floor.allRedOrGreen floor (both p)
-  rewrite List.pairsMap tiles floor.corner,
-    List.filterOfMap (List.pairs tiles) (Floor.allRedOrGreen floor) both,
-    List.mapMap (List.filter (List.pairs tiles) keep) cornersArea both,
-    List.filterCongMem (List.pairs tiles) keep (allRedOrGreen tiles) (programTest tiles)
+  let located := (p: (Point, Point)) => FloorRectangle.ofPair (floor.corner p.fst, floor.corner p.snd)
+  let keep := (p: (Point, Point)) => Floor.allRedOrGreen floor (located p)
+  let programSide:
+      List.map (List.filter (List.map (List.pairs (List.map tiles floor.corner)) FloorRectangle.ofPair) (Floor.allRedOrGreen floor)) FloorRectangle.area
+        = List.map (List.filter (List.pairs tiles) keep) (p => Rectangle.area (Rectangle.ofPair p)) :=
+    calc
+      List.map (List.filter (List.map (List.pairs (List.map tiles floor.corner)) FloorRectangle.ofPair) (Floor.allRedOrGreen floor)) FloorRectangle.area
+      _ = List.map (List.filter (List.map (List.map (List.pairs tiles) (p => (floor.corner p.fst, floor.corner p.snd))) FloorRectangle.ofPair) (Floor.allRedOrGreen floor)) FloorRectangle.area :=
+        rewrite List.pairsMap tiles floor.corner in rfl
+      _ = List.map (List.filter (List.map (List.pairs tiles) located) (Floor.allRedOrGreen floor)) FloorRectangle.area :=
+        rewrite List.mapMap (List.pairs tiles) FloorRectangle.ofPair (p => (floor.corner p.fst, floor.corner p.snd)) in rfl
+      _ = List.map (List.map (List.filter (List.pairs tiles) keep) located) FloorRectangle.area :=
+        rewrite List.filterOfMap (List.pairs tiles) (Floor.allRedOrGreen floor) located in rfl
+      _ = List.map (List.filter (List.pairs tiles) keep) (p => Rectangle.area (Rectangle.ofPair p)) :=
+        List.mapMap (List.filter (List.pairs tiles) keep) FloorRectangle.area located
+  rewrite programSide, List.filterCongMem (List.pairs tiles) keep (p => allRedOrGreen tiles (Rectangle.ofPair p)) (programTest tiles)
+    in Eq.sym (specAreas tiles)
 
 theorem part2Correct (tiles: List Point): Part2 tiles (solvePart2 tiles) :=
-  let areas := List.map (List.filter (rectangles tiles) (allRedOrGreen tiles)) (corners => area corners.fst corners.snd)
+  let areas := List.map (List.filter (rectangles tiles) (allRedOrGreen tiles)) Rectangle.area
   let same: solvePart2 tiles = largest areas := Eq.cong largest (programAreas tiles)
   rewrite same in largestIsLargest areas

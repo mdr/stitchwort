@@ -22,4 +22,4 @@ theorem largestInList: (areas: List Nat) â†’ (List.Mem (largest areas) areas) âˆ
       -- The largest is 0, and the first area is at most that: 0 too.
       | Inl zero => Inl (Inl (omega [List.leFoldMax [first, ..rest] first 0 (Inl rfl)]))
 
-theorem part1Correct (tiles: List Point): Part1 tiles (solvePart1 tiles) := largestIsLargest (List.map (List.pairs tiles) pairArea)
+theorem part1Correct (tiles: List Point): Part1 tiles (solvePart1 tiles) := largestIsLargest (List.map (List.map (List.pairs tiles) Rectangle.ofPair) Rectangle.area)

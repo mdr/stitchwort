@@ -5,7 +5,7 @@
 --|   - "The largest area of any rectangle you can make using two red tiles
 --|     as opposite corners": the rectangles are each red tile with each
 --|     later one (`rectangles`), and a rectangle's area is the number of
---|     tiles in it, both corners included (`area`, shared with the program:
+--|     tiles in it, both corners included (`Rectangle.area`, shared with the program:
 --|     (|dx| + 1) * (|dy| + 1)).
 --|   - The largest: no rectangle's area is larger, and some rectangle has it
 --|     (`Largest`; 0 when there is no rectangle, with fewer than two red
@@ -26,7 +26,7 @@
 
 namespace Aoc.Year2025.Day09.Spec
 import Aoc.Common (Line, Point)
-import Aoc.Year2025.Day09 (area)
+import Aoc.Year2025.Day09 (Rectangle)
 import Std (List, Nat)
 
 --| `answer` is the largest of the areas: none is larger, and it is one of
@@ -36,10 +36,10 @@ def Largest (areas: List Nat) (answer: Nat): Prop :=
 
 --| Every rectangle with two red tiles as opposite corners: each red tile
 --| with each later one.
-def rectangles (tiles: List Point): List (Point, Point) := tiles.pairs
+def rectangles (tiles: List Point): List Rectangle := tiles.pairs |> .map Rectangle.ofPair
 
 --| Part 1's answer is the largest area of these rectangles.
-def Part1 (tiles: List Point) (answer: Nat): Prop := Largest (rectangles tiles |> .map (corners => area corners.fst corners.snd)) answer
+def Part1 (tiles: List Point) (answer: Nat): Prop := Largest (rectangles tiles |> .map .area) answer
 
 --| Each red tile with the next, and the last with the first: the straight
 --| lines of the loop run between them.
@@ -64,12 +64,12 @@ def insideLoop (tiles: List Point) (tile: Point): Bool := List.count (connection
 
 def redOrGreen (tiles: List Point) (tile: Point): Bool := onLoop tiles tile ∨ insideLoop tiles tile
 
---| Every tile of the rectangle with these corners is red or green.
-def allRedOrGreen (tiles: List Point) (corners: (Point, Point)): Bool :=
-  List.between (Nat.min corners.fst.y corners.snd.y) (Nat.max corners.fst.y corners.snd.y)
-    |> .all (y => List.between (Nat.min corners.fst.x corners.snd.x) (Nat.max corners.fst.x corners.snd.x) |> .all (x => redOrGreen tiles { x, y }))
+--| Every tile of the rectangle is red or green.
+def allRedOrGreen (tiles: List Point) (rectangle: Rectangle): Bool :=
+  List.between (Nat.min rectangle.corner.y rectangle.opposite.y) (Nat.max rectangle.corner.y rectangle.opposite.y)
+    |> .all (y => List.between (Nat.min rectangle.corner.x rectangle.opposite.x) (Nat.max rectangle.corner.x rectangle.opposite.x) |> .all (x => redOrGreen tiles { x, y }))
 
 --| Part 2's answer is the largest area of the rectangles that are all red
 --| and green.
 def Part2 (tiles: List Point) (answer: Nat): Prop :=
-  Largest (rectangles tiles |> .filter (allRedOrGreen tiles) |> .map (corners => area corners.fst corners.snd)) answer
+  Largest (rectangles tiles |> .filter (allRedOrGreen tiles) |> .map .area) answer

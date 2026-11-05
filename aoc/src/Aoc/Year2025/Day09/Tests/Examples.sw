@@ -13,6 +13,8 @@ def example: Result (List Point) Text := Fail.toResult (() => parseTiles (includ
 
 def tile (x: Nat) (y: Nat): Point := { x, y }
 
+def rectangle (corner: Point) (opposite: Point): Rectangle := { corner, opposite }
+
 def line (from: Point) (to: Point): Line := { from, to }
 
 def tilesOf (input: Text): Result (List Point) Text := Fail.toResult (() => parseTiles input)
@@ -24,8 +26,9 @@ test "parse rejects too few and too many" :=
 test "parse rejects a blank line" := tilesOf "7,1\n\n" == Err "line 2, column 1: expected a number, got the end of the line"
 test "example has 8 tiles" := example.map (tiles => tiles.length) == Ok 8
 
-test "area counts both corners" := area (tile 2 5) (tile 9 7) == 24 ∧ area (tile 9 7) (tile 2 5) == 24 ∧ area (tile 7 3) (tile 7 3) == 1
-test "area in a line" := area (tile 7 3) (tile 2 3) == 6
+test "area counts both corners" :=
+  (rectangle (tile 2 5) (tile 9 7)).area == 24 ∧ (rectangle (tile 9 7) (tile 2 5)).area == 24 ∧ (rectangle (tile 7 3) (tile 7 3)).area == 1
+test "area in a line" := (rectangle (tile 7 3) (tile 2 3)).area == 6
 
 test "example part 1" := example.map solvePart1 == Ok 50
 test "example part 2" := example.map solvePart2 == Ok 24
@@ -91,6 +94,6 @@ test "corner" :=
 test "all red or green" :=
   example.map (tiles =>
     let floor := Floor.of tiles
-    let corner := floor.corner
-    floor.allRedOrGreen (corner (tile 9 5), corner (tile 2 3)) ∧ ¬(floor.allRedOrGreen (corner (tile 11 1), corner (tile 2 5)))
-      ∧ floor.allRedOrGreen (corner (tile 7 3), corner (tile 11 1))) == Ok True
+    let located := (corner: Point) (opposite: Point) => ({ corner = floor.corner corner, opposite = floor.corner opposite }: FloorRectangle)
+    floor.allRedOrGreen (located (tile 9 5) (tile 2 3)) ∧ ¬(floor.allRedOrGreen (located (tile 11 1) (tile 2 5)))
+      ∧ floor.allRedOrGreen (located (tile 7 3) (tile 11 1))) == Ok True

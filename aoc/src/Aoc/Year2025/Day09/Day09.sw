@@ -42,18 +42,22 @@ def redTile(): {Parse} Point :=
   let y := token nat
   { x, y }
 
---| The number of tiles in the rectangle with these two tiles as opposite
---| corners, both included.
-def area (corner: Point) (opposite: Point): Nat := (Nat.absDiff corner.x opposite.x + 1) * (Nat.absDiff corner.y opposite.y + 1)
+--| A rectangle on the floor, given by two red tiles at opposite corners
+--| (either pair of opposite corners: the order doesn't matter).
+type Rectangle = { corner: Point, opposite: Point }
 
---| The area of the rectangle with a pair of tiles as opposite corners.
-def pairArea (corners: (Point, Point)): Nat := area corners.fst corners.snd
+--| The rectangle a pair of red tiles makes.
+def Rectangle.ofPair (pair: (Point, Point)): Rectangle := { corner = pair.fst, opposite = pair.snd }
+
+--| The number of tiles in the rectangle, both corners included.
+def Rectangle.area (rectangle: Rectangle): Nat :=
+  (Nat.absDiff rectangle.corner.x rectangle.opposite.x + 1) * (Nat.absDiff rectangle.corner.y rectangle.opposite.y + 1)
 
 --| The largest of some areas, 0 if there are none.
 def largest (areas: List Nat): Nat := areas.foldLeft 0 Nat.max
 
 --| Part 1: the largest rectangle with two red tiles as opposite corners.
-def solvePart1 (tiles: List Point): Nat := tiles.pairs |> .map pairArea |> largest
+def solvePart1 (tiles: List Point): Nat := tiles.pairs |> .map Rectangle.ofPair |> .map .area |> largest
 
 -- Part 2 ---------------------------------------------------------------------
 
@@ -117,11 +121,20 @@ type Corner = { tile: Point, column: Nat, row: Nat }
 def Floor.corner (floor: Floor) (tile: Point): Corner :=
   { tile, column = floor.columns.indexOf tile.x, row = floor.rows.indexOf tile.y }
 
---| Every tile of the rectangle with these corners is red or green: none of
---| its key columns and rows is outside the loop.
-def Floor.allRedOrGreen (floor: Floor) (corners: (Corner, Corner)): Bool :=
-  let first := corners.fst
-  let second := corners.snd
+--| A rectangle whose two corners are red tiles with their positions among
+--| the key columns and rows, found once per tile instead of once per
+--| rectangle (the floor has about 500 red tiles and 125,000 rectangles).
+type FloorRectangle = { corner: Corner, opposite: Corner }
+
+def FloorRectangle.ofPair (pair: (Corner, Corner)): FloorRectangle := { corner = pair.fst, opposite = pair.snd }
+
+def FloorRectangle.area (rectangle: FloorRectangle): Nat := Rectangle.area { corner = rectangle.corner.tile, opposite = rectangle.opposite.tile }
+
+--| Every tile of the rectangle is red or green: none of its key columns
+--| and rows is outside the loop.
+def Floor.allRedOrGreen (floor: Floor) (rectangle: FloorRectangle): Bool :=
+  let first := rectangle.corner
+  let second := rectangle.opposite
   floor.outside.block
     (Nat.min first.row second.row)
     (Nat.max first.row second.row + 1)
@@ -129,11 +142,8 @@ def Floor.allRedOrGreen (floor: Floor) (corners: (Corner, Corner)): Bool :=
     (Nat.max first.column second.column + 1)
     == 0
 
---| The area of the rectangle with a pair of corners.
-def cornersArea (corners: (Corner, Corner)): Nat := area corners.fst.tile corners.snd.tile
-
 --| Part 2: the largest rectangle with two red tiles as opposite corners that
 --| is all red and green.
 def solvePart2 (tiles: List Point): Nat :=
   let floor := Floor.of tiles
-  tiles.map floor.corner |> .pairs |> .filter floor.allRedOrGreen |> .map cornersArea |> largest
+  tiles.map floor.corner |> .pairs |> .map FloorRectangle.ofPair |> .filter floor.allRedOrGreen |> .map .area |> largest
