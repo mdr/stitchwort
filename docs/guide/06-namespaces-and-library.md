@@ -258,6 +258,20 @@ test "membership" := seen.contains 2 ∧ ¬(seen.contains 5)
 test "set algebra" := Set.union seen (Set.fromList [9]) == Set.fromList [1, 2, 3, 9]
 ```
 
+### NonEmptyList
+
+Many lists can't be empty: the people in a group, the numbers on a line. A `NonEmptyList a` is a record of a first element and the rest, `{ head = 3, tail = [9, 4] }`, so the functions that need a first element can't fail. `maximum`, `minimum`, `maxBy`, `minBy`, `last` and `reduce` (a fold that starts from the first element) return the value itself where `List`'s return an `Option`, and `map`, `zip`, `sort`, `reverse` and `append` return a `NonEmptyList` again. `xs.toList` goes back to a `List`. To go forward, `xs.toNonEmpty` takes a list the compiler can see isn't empty (a proof `xs ≠ []`, found by `auto`), and `xs.nonEmpty` gives an `Option (NonEmptyList a)`. There is no bracket syntax for it yet; `++` is for `List` and `Text`, so the joins are `append`, `appendList` and `prependList`.
+
+<!-- snippet: library.sw#nonempty -->
+```stitchwort
+def groupAnswers: NonEmptyList (Set Char) := { head = Set.fromList ['a', 'b', 'c'], tail = [Set.fromList ['b', 'c'], Set.fromList ['c', 'd']] }
+
+test "no Option" := groupAnswers.intersectAll == Set.fromList ['c']
+test "reduce and maximum" := ({ head = 3, tail = [9, 4] }: NonEmptyList Nat).maximum == 9 ∧ ({ head = 3, tail = [9, 4] }: NonEmptyList Nat).reduce Nat.add == 16
+test "map keeps it non-empty" := (({ head = 1, tail = [2] }: NonEmptyList Nat).map (n => n * 10)).head == 10
+test "from a list" := [4, 5, 6].toNonEmpty.maximum == 6 ∧ ([]: List Nat).nonEmpty == None
+```
+
 ### Vec
 
 `Vec a n` is a list whose length `n` is part of its type. Functions that need a non-empty vector, or two of the same length, say so in their types, so `head` needs no `Option`:
