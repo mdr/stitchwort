@@ -2179,6 +2179,43 @@ test("in a project, go to definition opens the other file and Cmd+[ comes back; 
   assert.equal(await page.ev(`window.editor.stats.restarts`), 0, "the server didn't crash");
 }, { ms: 280000 });
 
+// The server's background check of the rest of the project goes through Aoc.Year2021.Day11.Proofs, whose
+// noted types are deep: with a file of Aoc.Common open, printing them could overflow V8's stack (SW-1430).
+test("in a project, after a jump into another file and the whole project's check, an error in the day is underlined", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await openDay(page, 2);
+  await page.until(DAY2_TABS_READY);
+  await untilPublished(page, "Day02.sw", 1, 150000);
+  const own = await sourceText(page);
+  const at = own.indexOf("Range");
+  await page.ev(`(() => { const e = window.editor; e.focus(); e.setSelectionRange(${at + 1}, ${at + 1}); })()`);
+  await page.key("F12", "F12", 123);
+  await page.until(`document.querySelector('#filetabs [aria-selected="true"]').firstChild.textContent === "Common/Range.sw"`, 60000, "the other file");
+  await page.key("[", "BracketLeft", 219, { modifiers: CMD });
+  await page.until(`document.querySelector('#filetabs [aria-selected="true"]').firstChild.textContent === "Day02.sw"`, 10000, "the way back");
+  let t = Date.now();
+  await page.until(`window.editor.stats.idle || window.editor.stats.restarts > 0`, 240000, "the project's check to finish");
+  console.log(`    (the rest of the project checked ${Math.round((Date.now() - t) / 100) / 10} s after the jump)`);
+  assert.equal(await page.ev(`window.editor.stats.restarts`), 0, `the server didn't crash: ${await page.ev(`window.editor.stats.crashed`)}`);
+  // `published` keeps only the last few hundred, which the project's check has filled: those after the edit.
+  const since = await page.ev(`performance.now() - window.editor.t0`);
+  t = Date.now();
+  await page.setSource(own + "\ndef broken: Nat := rfl\n");
+  try {
+    await page.until(`window.editor.stats.published.some((p) => p.t > ${since} && p.uri.endsWith("Day02.sw") && p.count > 0)`, 60000, "the error published");
+  } catch (e) {
+    console.log("    DUMP", JSON.stringify(await page.ev(`(() => { const s = window.editor.stats; return { n: s.published.length, idle: s.idle, ticks: s.ticks,
+      published: s.published.filter((p) => p.t > ${since} - 1000), log: (s.log ?? []).filter((l) => l.t > ${since} - 1000).slice(-30) }; })()`)));
+    throw e;
+  }
+  // The editor draws only the lines near its viewport, and the way back kept the scrolling at the top.
+  await page.ev(`window.editor.scrollTop = 1e9`);
+  await page.until(`!!document.querySelector("#editor .cm-lintRange-error")`, 10000, "the error underlined");
+  console.log(`    (underlined ${Date.now() - t} ms after the edit)`);
+  assert.equal(await page.ev(`window.editor.stats.restarts`), 0, "the server didn't crash");
+}, { ms: 480000 });
+
 test("in a project, an error in the day's program is underlined", async (page) => {
   await page.open();
   await page.untilChecked();

@@ -518,30 +518,37 @@ load average of 20–90 from other lanes, so the times are rough):
   paste (0.5 s of that is the client's pause before syncing). In an AoC day
   27–40 s (the project is loaded whole before its first marks, as in §5.2.2:
   the next thing to fix); then an edit of the day's file in 0.3 s.
-- **A stack overflow in the worker.** With the playground's guard
-  (256 KiB), opening a file of `Aoc.Common` in the editor (a jump to it) and
-  then editing the day made V8's stack overflow inside the server (a
-  `RangeError` out of `tick`; the instance is unusable afterwards). With the
-  server's guard halved (`crates/web/src/lsp.rs`, `options()`; searches keep
-  the full guard in their own worker) opening the file and editing the day
-  work, but an **error** introduced in the day's file after opening
-  `Common/Range.sw` still overflows it (the editor then restarts the server,
-  and the project loads again). Without opening a second file of the project
-  an error edit is underlined in 0.3 s. The recursion that was not covered
-  (SW-1430): a navigable session prints the types it noted for hover
-  (`flush_navigation`) after a declaration's operation has ended, where the
-  budget has no stack floor and no step limit. Where a declaration had run
-  out of stack (`Aoc.Year2021.Day11.Proofs`, `Parts.sw`, under the halved
-  guard) the printer evaluated without limit: natively (with the same
-  guard) it had not finished after two minutes, and the playground's
-  WebAssembly in Node had not after 15. The background check of the rest of
-  the project reaches that namespace a few seconds after the day's first
-  marks, which is most likely why the overflow seemed tied to the jump and
-  the edit. Each noted type is now printed within the session's limits
-  (`…` where it can't be): the namespace checks in 3.7 s natively and 13–27 s
-  in Node, and an error edit after it is underlined. Not yet confirmed in
-  the browser: a headless-Chrome test of jump-then-error timed out without
-  the underline (and without a crash) both before and after the fix.
+- **A stack overflow in the worker** (SW-1378, SW-1430), now fixed and
+  confirmed in headless Chrome. Opening a file of `Aoc.Common` in the editor
+  (a jump to it) and then editing the day made V8's stack overflow inside
+  the server (a `RangeError` out of `tick`; the instance is unusable
+  afterwards, so the editor restarts the server and the project loads
+  again). The cause: a navigable session prints the types it noted for
+  hover (`flush_navigation`) after a declaration's operation has ended,
+  where the budget had no stack floor and no step limit. The background
+  check of the rest of the project reaches `Aoc.Year2021.Day11.Proofs`
+  (`Parts.sw`) a few seconds after the day's first marks, and there the
+  printer recursed without limit, which is why the overflow seemed tied to
+  the jump and the edit. Each noted type is now printed within the
+  session's limits (`…` where it can't be). Halving the server's guard
+  (SW-1378) had only moved the overflow, and gave `Parts.sw` a false
+  "ran out of resources"; the server now has the playground sessions' full
+  guard again (256 KiB, `crates/web/src/lsp.rs`). Measured with the full
+  guard: `Parts.sw` checks clean in Node (85 s for its namespaces, then an
+  error edit in 4.1 s); in Chrome the whole AoC project's background check
+  finishes 108–118 s after the jump without a crash, and an error edit
+  after it is underlined in 1.3 s. Without the printing fix the same
+  browser test fails at once with the `RangeError`. The browser test (the
+  jump, then the whole project's check, then the error edit) is in
+  `web/tests/browser.mjs`; it takes about 140 s, most of it the project's
+  check. The editor reports in `stats.idle` when the server's background
+  work is done.
+- **Lint marks are drawn only near the viewport.** CodeMirror draws only
+  the lines in and near its viewport, so a test that looks for an
+  underline (`.cm-lintRange-error`) must scroll to it first: a first
+  version of the test above timed out without the underline although the
+  server had published the error in 0.9 s, because the way back from the
+  jump had restored the scrolling to the top of the file.
 
 ### 5.3 VS Code for the web, openvscode-server, vscode.dev
 

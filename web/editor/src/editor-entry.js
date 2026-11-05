@@ -72,7 +72,7 @@ export class Editor {
     this.stdTexts = new Map();
     this.stdWaiting = new Map();
     this.silent = 0;
-    this.stats = { ready: null, crashed: null, restarts: 0, published: [], isolated: false, firstDiagnostics: null };
+    this.stats = { ready: null, crashed: null, restarts: 0, published: [], isolated: false, firstDiagnostics: null, ticks: 0, idle: false };
     this.projects = [];
     this.t0 = performance.now();
     this.handlers = [];
@@ -115,6 +115,12 @@ export class Editor {
           stats.firstDiagnostics ??= now;
         }
         for (const h of this.handlers) h(data.lsp);
+      } else if (data.tick !== undefined) {
+        // `idle`: the server's background work (checking the rest of a project) is done, until the next message.
+        stats.ticks++;
+        stats.idle = !data.more;
+      } else if (data.received !== undefined) {
+        stats.idle = false;
       } else if (data.ready !== undefined) {
         stats.ready = now;
       } else if (data.stdSource !== undefined) {
