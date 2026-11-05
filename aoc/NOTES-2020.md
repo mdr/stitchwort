@@ -2435,3 +2435,253 @@ time is std's modules.
    them (item 5). Common; not yet.
 8. `Part2` names one answer only when one run sums to the invalid
    number (Not proved, above). Puzzle's promise; not a gap.
+
+## Day 10: Adapter Array
+
+A bag of joltage adapters, one rating a line. An adapter takes an input 1,
+2 or 3 jolts below its rating; the outlet is 0 and the device is 3 above
+the highest adapter. Part 1 chains every adapter and multiplies the number
+of 1-jolt differences by the number of 3-jolt ones; part 2 counts the
+arrangements (choices of adapters) that still connect the outlet to the
+device. Answers on Matt's input (104 adapters, all different, every
+difference 1 or 3): 2376 and 129586085429248; the examples give 35 and 8,
+and 220 and 19208, as the puzzle says. I didn't run Matt's Scala
+(`Day10.scala`: sorted differences grouped with `groupBy` for part 1, and a
+mutable `Map` from joltage to path count, filled from the top, for part 2);
+an independent Python script (sorted differences, and the usual
+`ways[x] = ways[x-1] + ways[x-2] + ways[x-3]`) agrees on all six answers.
+
+The domain types are `Bag` (the ratings), `Chain` (joltages from the
+outlet to the device, with `chain.fits` and `chain.differences`) and
+`Onward` (an adapter and the number of ways on from it to the device), with
+`bag.device`, `bag.chain device`, `bag.distribution` and
+`bag.arrangements`; `canFeed lower higher` is the one rule. Part 2 is the
+dynamic programme as a plain recursion over the sorted list, with no map
+and no array: each adapter's onward count is computed from the counts of
+the adapters above it, which the recursion has just built.
+
+```stitchwort
+def waysFrom (device: Nat) (joltage: Nat) (above: List Onward): Nat :=
+  (if canFeed joltage device then 1 else 0)
+    + (above.takeWhile (next => next.joltage <= joltage + 3)).sumBy (next => if canFeed joltage next.joltage then next.ways else 0)
+
+def onwardFrom (device: Nat): (adapters: List Nat) → List Onward
+  | [] => []
+  | [adapter, ..higher] =>
+    let above := onwardFrom device higher
+    [{ joltage = adapter, ways = waysFrom device adapter above }, ..above]
+```
+
+The `takeWhile` makes it linear (it looks at the next few adapters only,
+since they are sorted) and is the one place the proof needs sortedness.
+The program and its 20 tests passed on the first run after two slips of
+mine (an example text block whose last line ran into the closing `"""`, and
+a test expecting two arrangements where there is one); `main` takes 0.35 s
+user on the input.
+
+The spec (`Spec/Spec.sw`) has `RatingWritten` (decimal digits), `Takes
+input rating` ("can take an input 1, 2, or 3 jolts lower than its rating",
+written as `[1, 2, 3].contains (rating - input)`), `Highest adapters
+highest` (in the bag, and no adapter above it), `Connects adapters device`
+(from 0 through `adapters` to the device, each takes the one before:
+`[0, ..adapters, device].chain Takes`), `differencesOf joltages d` (how
+many times the next joltage is `d` higher), `Part1` ("if you use every
+adapter in your bag at once": some ordering `chain` of the bag, a
+`List.Perm`, that connects, and the answer is its 1-differences times its
+3-differences), `subsequences` (every way of keeping some elements in
+order), and `Part2` ("the total number of distinct ways you can arrange the
+adapters": the count of subsequences of the sorted bag that connect). Part
+1's spec never mentions sorting: that the only ordering that connects is
+the sorted one is proved (`connectsSorted` and std's
+`List.sortOfSortedNat`). Part 2's does sort, since an arrangement can only
+go up; two adapters with the same rating would count as different ones,
+which no input has.
+
+Proved (`Aoc.Year2020.Day10.Proofs`):
+
+- `parseWritten` (Parse.sw): if `parseBag` reads `input`, each line is its
+  rating written in decimal (as day 9's, 6 lines).
+- `canFeedTakes`, `fitsConnects`, `deviceHighest`, `deviceOfHighest`,
+  `differencesCount`, `connectsSorted` (Facts.sw): the program's rule is
+  the spec's `Takes`; `chain.fits` is `Connects`; `bag.device` is the
+  highest rating plus 3, both ways; counting `differences` equal to `d` is
+  `differencesOf` for `d ≥ 1`; a chain that connects is sorted.
+- `part1Rules`, `part1Complete` (Part1.sw): part 1's answer is a
+  `Spec.Part1` answer, and whenever `Spec.Part1` holds, part 1 gives that
+  answer.
+- `connectingNil`, `connectingCons`, `sortedOnward`, `takeWhileKeep`,
+  `takeWhileStop`, `cutAbove`, `waysFull`, `onwardCounts`, `part2Rules`,
+  `part2Complete` (Part2.sw): the spec's count from a joltage over a list
+  splits on its first adapter (left out, or gone through); on a sorted
+  table the `takeWhile` cut loses nothing; the onward count from any
+  joltage over sorted adapters is the spec's count; so part 2's answer is
+  `Spec.Part2`'s, and part 2 answers whenever the spec does.
+- `part1Correct`, `part2Correct`, `part1Exactly`, `part2Exactly` (both
+  `↔`), `part1Unique` (Proofs.sw): for every input the parser reads, its
+  lines are the ratings written out and the answers are the spec's; each
+  part answers exactly when the spec has an answer (a non-empty bag, and
+  for part 1 a bag that chains), and part 1's answer is the only one.
+  Part 2's is a count, so it is one number by definition.
+
+Not proved: that every well-formed input parses (as on days 2 to 9).
+Nothing else: the dynamic programme equals the spec's exponential count in
+full, for any bag, duplicates included.
+
+Breaking the program made the proofs fail: `higher < lower + 3` in
+`canFeed` fails `canFeedTakes` (E-CASES) and `connectingNil`; stopping the
+`takeWhile` at `joltage + 2` fails `waysFull` (it would lose an adapter 3
+up); counting `d == 2` for part 1 fails `part1Rules` and `part1Complete`;
+running part 2 over the unsorted bag fails `part2Rules` and
+`part2Complete` (`onwardCounts` needs sorted adapters); and a device 4
+above the highest fails `deviceHighest` and `deviceOfHighest`. The audit
+(with the counterexample search): `audited 35 theorems: 0 failed, 0 with
+warnings, 35 passed`.
+
+### 1. A `match` on a comparison rewrites it inside unfolded definitions too
+
+My first `cutAbove` was about `onwardFrom device adapters` itself. In the
+`[adapter, ..higher]` arm I split on `match near: adapter <= joltage + 3`
+and stated the two `sumByCons` steps inside the arm. `rewrite` and then
+`omega` both failed, on goals pages long. `omega`'s Note 3 said why,
+correctly:
+
+```
+`List.foldLeft (onwardFrom device higher) (if joltage < adapter && False then …) …` and
+`List.foldLeft (onwardFrom device higher) Add.zero (acc x => acc + through joltage x)`
+differ only in `if joltage < adapter && False then (…) else 0` and `0`, and no fact connects them
+```
+
+The goal had computed `onwardFrom`, `waysFrom` and `canFeed joltage
+adapter` (whose second half is the same `adapter <= joltage + 3`), so the
+`match` refined that copy to `False`, and in the other arm to `if if
+joltage < adapter then True else False`, while the facts I stated after
+the `match` kept the original form. Two fixes together worked at once:
+state the lemma for any table sorted by joltage (`List.Sorted lowerFirst
+table`, with `onwardFrom`'s sortedness a separate 3-line lemma), so the
+goal has no definitions to unfold; and split with `if h: first.joltage <=
+joltage + 3`, which refines nothing, stepping `takeWhile` with two lemmas
+(`takeWhileKeep`, `takeWhileStop`: `p x = True → [x, ..xs].takeWhile p =
+[x, ..xs.takeWhile p]` and the `False` one, one line each, not in std).
+The proving guide's "small lemmas over any list" (§2, 3) is the advice;
+what was missing is a hint at the moment. `omega`'s Note 3 could say that
+one of the two forms came from a `match` refinement, and suggest stating
+the facts before the `match` or using `if h:`.
+
+### 2. `omega` drops a fact whose `≤` is `Ord`'s, even when given
+
+`deviceOfHighest` needs `highest = ordered.maximum` from two bounds.
+`let below := NonEmptyList.maximumLe ordered highest high.left` has type
+`highest <= ordered.maximum` through the `Ord` instance, and `omega`
+ignored it: its note listed one fact (`above`), with a model where the two
+differ. Annotating it (`let below: highest ≤ ordered.maximum := …`)
+fixed it. On a scratch file, `omega [NonEmptyList.maximumLe xs h m]` drops
+it the same way, silently, while `(le: a <= b)` on `Nat` works. Day 9
+(item 6) used these lemmas where an expected type asked for `≤`, and the
+`Ord` `<=` converted to it; `omega` takes a fact by its own type, so
+nothing converts it. Fixes: `omega` reading
+`Ord.le` (or `Ord.compare … ≠ Greater`) at the `Nat` and `Int` instances,
+or at least a note naming a fact in scope it skipped (as day 9 item 6
+wanted for function-typed `let`s), and certainly not dropping one passed
+in `omega [...]` without a word.
+
+### 3. No `subsequences` in std, and its counting lemma
+
+Part 2's spec needs every subsequence of a list. Std has the
+`List.Subsequence` relation but no function listing them; I wrote
+`subsequences` in the spec (3 lines), and `connectingCons` (6 lines:
+`List.countAppend`, `List.countMap`, `List.countFalse`) is the step every
+proof about it needs: the count over the subsequences of `[x, ..xs]` is
+those leaving `x` out plus those keeping it. Day 1 (item 1) asked for
+`List.combinations k`; a `List.subsequences` with a membership lemma
+(`s ∈ xs.subsequences ↔ List.Subsequence s xs`) and a `countSubsequences`
+step lemma would serve both, and any "how many ways to choose" spec.
+
+### 4. Lemmas a newcomer would look for
+
+- `takeWhile` one step: std has `List.takeWhileAppend`,
+  `List.takeWhileMap` and `List.takeWhileRangeCutoff` but not the cons
+  step with the predicate's value (`takeWhileKeep`, `takeWhileStop`
+  above); with them, cutting a sum at a `takeWhile` was 20 lines.
+- A chain of a stronger relation is sorted: `connectsSorted` (10 lines)
+  shows `[low, ..chain, device].chain Takes = True → List.Sorted Nat.leq
+  chain`. Std has `List.sortedOfChain` (for the same relation),
+  `List.chainCong`, `List.chainTail` and `List.chainInit`; a
+  `List.chainMono` (`chain p → (p x y → q x y) → chain q`) would have
+  made it three calls.
+- `(if c then 1 else 0) + 0 = (if c then 1 else 0)` isn't `rfl` (`+`
+  recurses on its first argument, which is stuck); `omega` closes it.
+  Known, and the guide says so, but it is the first goal of most counting
+  proofs.
+
+### 5. Goals print folds and spreads in their computed forms
+
+Every goal about `sumBy` showed `List.foldLeft … Add.zero [add :=
+Nat.instAdd] (acc x => acc + …)`, and the spec's `[0, ..chain, highest +
+3]` printed as `[0, ..List.append chain [highest + 3]]`, neither the
+spread I wrote nor `chain ++ [highest + 3]`. syntax.md says `++` stays
+`++` in goals; here it is `List.append` inside a spread. Folding `sumBy`,
+`count` and `sum` back when printing, and printing a middle spread as
+written, would make the goals of item 1 a few lines instead of pages.
+
+### 6. Smaller things
+
+- **What helped.** `cases` proved `canFeed lower higher = Takes lower
+  higher` (`lower < higher && higher <= lower + 3` against `[1, 2,
+  3].contains (higher - lower)`) and `(step.snd - step.fst == d) =
+  (step.snd == step.fst + d)` for `1 ≤ d` on its own, so the spec could
+  say "1, 2, or 3 jolts lower" literally. `omega` read `canFeed x y =
+  True` through the definition, and proved `Bool` goals such as
+  `(first.joltage <= joltage + 3) = True` directly. `List.sortOfSortedNat`
+  and `List.sortPerm` made part 1's spec ("every adapter, in an order that
+  connects") two lines away from the program's sorted chain.
+  `List.chainCong` turned `fits` into `Connects` in one line.
+  `match a: bag.adapters` refined `bag.device` in the hypothesis, so the
+  empty bag was one `Void.exfalso`. Middle spreads (`[0, ..adapters,
+  device]`) read like the puzzle. `onwardCounts`, the main induction, and
+  `part2Rules` checked on the first try.
+- **`Bool.toNat` needs `import Std (Bool)`.** The message said exactly
+  that; I wrote `if … then 1 else 0` instead, which reads better anyway.
+- **The DP needs no map.** Matt's Scala fills a mutable `Map`; the
+  recursion over the sorted list, carrying the counts above, is both
+  shorter and the shape the proof follows. A newcomer coming from Scala or
+  Python would reach for the map first; a worked example of "dynamic
+  programming over a sorted list" in the guide would point the other way.
+
+### Size and time
+
+73 lines of program, 53 of spec, 223 of proofs (Parse 14, Facts 46,
+Part1 30, Part2 98, Proofs 35), 100 of tests (+1 answer test in
+`aoc_answers.rs`). By the clock: 22:42 start; program and tests passing at
+22:48; part 1 proved at 22:50; part 2 at 22:52 (item 1 was the only
+detour); then the answer test (5 minutes, nearly all building the test
+binaries in a new worktree), break checks and these notes.
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2020.Day10.Proofs` | 5.1 s user |
+| `stitchwort check --no-cache Aoc.Year2020.Day10` | 1.4 s user |
+| `stitchwort test --no-cache Aoc.Year2020.Day10` (20 tests) | 5.3 s user |
+| `task audit:touched -- Aoc.Year2020.Day10` (35 theorems) | about 3 s |
+| `stitchwort run Aoc.Year2020.Day10.main` on the input | 0.34 s user |
+| `task test:one -- year2020_day10` | 1.6 s for the test |
+
+`STITCHWORT_TIMINGS=1` puts the Proofs namespace at 104 ms of
+elaboration and 41 ms in the kernel; the rest of the cold time is std's
+modules.
+
+### Ranked
+
+1. `omega` silently drops a fact whose `≤` is `Ord`'s `<=` (from
+   `NonEmptyList.maximumLe`, `minimumLe` and the like), even when passed
+   in `omega [...]` (item 2). Proof tooling; small to medium.
+2. A `match` on a comparison refines its copies inside unfolded
+   definitions, so facts stated after it no longer match the goal; the
+   fix (generalise, `if h:`) is known only from the guide (item 1).
+   Message; small.
+3. No `List.subsequences` (with membership and a counting step), the
+   spec of every "how many ways" puzzle, as day 1's `combinations` (item
+   3). Library; small.
+4. Missing lemmas: `takeWhile`'s cons step by the predicate's value,
+   `List.chainMono` (item 4). Library; trivial each.
+5. Goals print `sumBy` and `count` as their folds and a middle spread as
+   `..List.append xs [y]` (item 5). Printing; small to medium.
