@@ -18,73 +18,101 @@
 --| `Aoc.Year2021.Day11.Tests` (Tests/). `run` checks neither.
 
 namespace Aoc.Year2021.Day11
-import Aoc.Common (Grid, Position, cellAt, cells, mapCells, parseGrid)
-import Std (Fail, Fin, IO, List, Nat, Option, Parse, Text)
+import Aoc.Common (Grid, Position, firstWidth, parseGrid)
+import Std (Bool, Fail, Fin, IO, List, Nat, Option, Parse, Text)
 import Std.Parse (digit)
 
+--| The cavern: a grid of octopuses, each with its energy level.
+type Cavern = { grid: Grid Nat }
+
+--| The octopuses that have flashed so far in a step, one flag per octopus
+--| of the cavern.
+type Flashed = { grid: Grid Bool }
+
 def main(): {IO, Fail} () :=
-  let levels := parseLevels IO.readAll()
-  IO.print "Part 1: ${solvePart1 levels}"
-  IO.print "Part 2: ${solvePart2 levels |> .orFail "no step within ${syncLimit} has every octopus flash"}"
+  let cavern := parseCavern IO.readAll()
+  IO.print "Part 1: ${cavern.solvePart1}"
+  IO.print "Part 2: ${cavern.solvePart2 |> .orFail "no step within ${syncLimit} has every octopus flash"}"
 
 --| One row of digits per line, every row as long as the first.
-def parseLevels (input: Text): {Fail} List (List Nat) := numbers (parseGrid input digit)
+def parseCavern (input: Text): {Fail} Cavern := Cavern.ofDigits (parseGrid input digit)
 
---| The digits as numbers.
-def numbers (grid: Grid (Fin 10)): List (List Nat) := grid.rows.map (row => row.map Fin.toNat)
+--| The digits as energy levels.
+def Cavern.ofDigits (digits: Grid (Fin 10)): Cavern :=
+  { grid = { rows = digits.rows.map (row => row.map Fin.toNat), nonEmpty = rewrite digitsFirstWidth digits.rows in digits.nonEmpty } }
 
---| Whether the octopus at `at` has flashed (none off the grid has).
-def flashedAt (flashed: List (List Bool)) (at: Position): Bool := cellAt flashed at |> .getOrElse False
+--| Reading the digits as numbers keeps the first row's length (so the
+--| cavern has a first row with an octopus).
+theorem digitsFirstWidth: (rows: List (List (Fin 10))) → firstWidth (rows.map (digits => digits.map Fin.toNat)) = firstWidth rows
+  | [] => rfl
+  | [first, ..rest] => List.lengthMap first Fin.toNat
+
+--| The octopuses with their positions and levels, row by row.
+def Cavern.cells (cavern: Cavern): List (Position, Nat) := cavern.grid.cells
+
+--| `f` of every octopus's position and level, in a cavern of the same shape.
+def Cavern.map (cavern: Cavern) (f: Position → Nat → Nat): Cavern := { grid = cavern.grid.map f }
+
+--| Whether the octopus at `at` has flashed (none off the cavern has).
+def Flashed.has (flashed: Flashed) (at: Position): Bool := flashed.grid.at at |> .getOrElse False
+
+--| Whether each octopus has flashed, as `flashes` says from its position and level.
+def Cavern.flash (cavern: Cavern) (flashes: Position → Nat → Bool): Flashed := { grid = cavern.grid.map flashes }
+
+--| The flashers of a cavern before any round: nobody.
+def Cavern.noFlashers (cavern: Cavern): Flashed := cavern.flash (_ _ => False)
 
 --| The level of the octopus at `at` in this step: its level before, plus
 --| 1, plus 1 for each octopus around it that has flashed.
-def energy (flashed: List (List Bool)) (at: Position) (level: Nat): Nat := level + 1 + at.around.count (flashedAt flashed)
+def Flashed.energy (flashed: Flashed) (at: Position) (level: Nat): Nat := level + 1 + at.around.count flashed.has
 
 --| One round: an octopus flashes if its energy, given those that have
 --| flashed so far, is above 9.
-def flashRound (levels: List (List Nat)) (flashed: List (List Bool)): List (List Bool) :=
-  mapCells levels (at level => 9 < energy flashed at level)
+def Cavern.flashRound (cavern: Cavern) (flashed: Flashed): Flashed :=
+  cavern.flash (at level => 9 < flashed.energy at level)
 
 --| Rounds until one adds nobody, at most `rounds` of them.
-def cascade (levels: List (List Nat)) (flashed: List (List Bool)): (rounds: Nat) → List (List Bool)
+def Cavern.cascade (cavern: Cavern) (flashed: Flashed): (rounds: Nat) → Flashed
   | Zero => flashed
   | Succ more =>
-    let next := flashRound levels flashed
-    if next == flashed then flashed else cascade levels next more
+    let next := cavern.flashRound flashed
+    if next == flashed then flashed else cavern.cascade next more
 
---| The octopuses that flash in a step from `levels`. Each round that adds
---| somebody adds an octopus, so after as many rounds as there are
---| octopuses the next adds nobody: that many is enough.
-def flashers (levels: List (List Nat)): List (List Bool) :=
-  cascade levels (mapCells levels (_ _ => False)) (cells levels).length
+--| The octopuses that flash in a step. Each round that adds somebody adds
+--| an octopus, so after as many rounds as there are octopuses the next adds
+--| nobody: that many is enough.
+def Cavern.flashers (cavern: Cavern): Flashed := cavern.cascade cavern.noFlashers cavern.cells.length
 
 --| One step: every octopus that flashed is at 0, the others at their
 --| energy.
-def step (levels: List (List Nat)): List (List Nat) :=
-  let flashed := flashers levels
-  mapCells levels (at level => if flashedAt flashed at then 0 else energy flashed at level)
+def Cavern.step (cavern: Cavern): Cavern :=
+  let flashed := cavern.flashers
+  cavern.map (at level => if flashed.has at then 0 else flashed.energy at level)
 
 --| The octopuses at 0 after a step: those that flashed in it.
-def zeros (levels: List (List Nat)): Nat := (cells levels).count (((_, level)) => level == 0)
+def Cavern.zeros (cavern: Cavern): Nat := cavern.cells.count (((_, level)) => level == 0)
 
---| The flashes in `steps` steps from `levels`.
-def flashesIn (levels: List (List Nat)): (steps: Nat) → Nat
+--| Whether every octopus is at 0.
+def Cavern.allZero (cavern: Cavern): Bool := cavern.cells.all (((_, level)) => level == 0)
+
+--| The flashes in `steps` steps from `cavern`.
+def Cavern.flashesIn (cavern: Cavern): (steps: Nat) → Nat
   | Zero => 0
   | Succ more =>
-    let next := step levels
-    zeros next + flashesIn next more
+    let next := cavern.step
+    next.zeros + next.flashesIn more
 
-def solvePart1 (levels: List (List Nat)): Nat := flashesIn levels 100
+def Cavern.solvePart1 (cavern: Cavern): Nat := cavern.flashesIn 100
 
 --| How far part 2 looks.
 def syncLimit: Nat := 10000
 
 --| The first step, counting from `number`, after which every octopus is at
 --| 0 (every one flashed in it), within `steps` steps.
-def firstSync (levels: List (List Nat)) (number: Nat): (steps: Nat) → Option Nat
+def Cavern.firstSync (cavern: Cavern) (number: Nat): (steps: Nat) → Option Nat
   | Zero => None
   | Succ more =>
-    let next := step levels
-    if (cells next).all (((_, level)) => level == 0) then Some number else firstSync next (Succ number) more
+    let next := cavern.step
+    if next.allZero then Some number else next.firstSync (Succ number) more
 
-def solvePart2 (levels: List (List Nat)): Option Nat := firstSync levels 1 syncLimit
+def Cavern.solvePart2 (cavern: Cavern): Option Nat := cavern.firstSync 1 syncLimit
