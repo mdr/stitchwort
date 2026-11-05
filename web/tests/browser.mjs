@@ -14,7 +14,7 @@
 
 import { spawn, execFileSync } from "node:child_process";
 import { createServer } from "node:http";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, extname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -272,7 +272,8 @@ class Page {
   drawn() {
     return this.ev(`(() => {
       const e = window.editor, doc = e.view.state.doc;
-      const lines = [...document.querySelectorAll("#editor .cm-content .cm-line")];
+      // Only the view on show: files of the same project stay in the page, hidden.
+      const lines = [...e.view.dom.querySelectorAll(".cm-content .cm-line")];
       const wrong = lines.filter((l) => l.textContent !== doc.lineAt(e.view.posAtDOM(l)).text);
       return { lines: lines.length, wrong: wrong.map((l) => l.textContent.slice(0, 60)),
                box: (() => { const r = document.querySelector("#editor .cm-editor").getBoundingClientRect(); return [r.width, r.height]; })() };
@@ -1573,6 +1574,26 @@ const bundled = (page, path) => page.ev(`fetch("pkg/projects/aoc/${path}").then(
 const edit = (page, text) => page.setSource(text);
 /** Waits for a stored edit of `path` to be saved. */
 const savedEdit = (page, path) => page.until(`localStorage.getItem(${JSON.stringify("stitchwort.project.aoc.file." + path)})`, 10000, `a saved edit of ${path}`);
+/** The AoC groups as the page bundles them: the day folders under `pkg/projects/aoc/src/Aoc`, the source
+ *  `bundle-projects.sh` builds the dropdown's days from. Newest year first, days in order. */
+function bundledAocGroups() {
+  const aoc = join(root, "pkg", "projects", "aoc", "src", "Aoc");
+  const byYear = new Map();
+  for (const yearFolder of readdirSync(aoc)) {
+    const year = /^Year(\d{4})$/.exec(yearFolder)?.[1];
+    if (!year) continue;
+    const days = [];
+    for (const dayFolder of readdirSync(join(aoc, yearFolder))) {
+      const day = /^Day(\d{2})$/.exec(dayFolder)?.[1];
+      if (day && existsSync(join(aoc, yearFolder, dayFolder, `${dayFolder}.sw`))) days.push(Number(day));
+    }
+    if (days.length) byYear.set(year, days.sort((a, b) => a - b));
+  }
+  return [...byYear.keys()].sort().reverse().map((year) => ({
+    label: `Advent of Code ${year}`,
+    days: byYear.get(year).map((day) => `${year} / Day ${day}`)
+  }));
+}
 
 test("the AoC days are listed, and a day opens its program with its files as tabs", async (page) => {
   await page.open();
@@ -1582,10 +1603,7 @@ test("the AoC days are listed, and a day opens its program with its files as tab
     .filter((g) => g.label.startsWith("Advent of Code"));
     return groups.length > 0 && groups.map((g) => ({ label: g.label, days: [...g.children].map((o) => o.textContent) })); })()`,
     10000, "the AoC groups");
-  assert.deepEqual(years, [
-    ...[[2025, 9], [2024, 24], [2021, 18], [2020, 6]].map(([year, last]) => (
-      { label: `Advent of Code ${year}`, days: Array.from({ length: last }, (_, i) => `${year} / Day ${i + 1}`) }))
-  ]);
+  assert.deepEqual(years, bundledAocGroups());
   // The closed picker and the status name the year.
   await openEntry(page, 9, 1, 2024);
   assert.equal(await pickerLabel(page), "2024 / Day 1");
