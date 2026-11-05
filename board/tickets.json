@@ -7026,7 +7026,7 @@
     {
       "id": 1334,
       "title": "Hover (VS Code and playground): show a function's parameter names, as its signature is written: def Std.Parse.satisfy (what: Text) (passes: Char → Bool): {Parse} Char",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1334",
       "labels": [
@@ -7068,9 +7068,9 @@
     {
       "id": 1337,
       "title": "Research and design note: non-empty lists in std (NonEmpty with reduce, head, last, maximum without Option), as Idris, Lean, Agda and Haskell do it; where the code base would model its data better with it",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1337",
       "labels": [
         "design"
       ],
