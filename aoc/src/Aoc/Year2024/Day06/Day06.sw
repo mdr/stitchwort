@@ -13,7 +13,7 @@
 --| `Aoc.Year2024.Day06.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2024.Day06
-import Aoc.Common (Direction, Position)
+import Aoc.Common (Direction, Position, positionsWhere)
 import Std (Fail, IO, List, Map, Nat, Option, Set, Text)
 
 def main(): {IO, Fail} () :=
@@ -49,7 +49,7 @@ def parseLab (lines: List Text): {Fail} Lab :=
       |> .map (((index, line)) => Fail.context "line ${index + 1}" (() => parseRow width line))
       |> .gridCells
       |> .map ((((row, column), cell)) => (({ row, column }: Position), cell))
-  let positionsOf := (wanted: Cell) => cells.filterMap (match some | (position, here) if here == wanted => position)
+  let positionsOf := (wanted: Cell) => positionsWhere cells (== wanted)
   match positionsOf GuardStart with
     | [start] => { height = lines.length, width, obstructions = Set.fromList (positionsOf Obstruction), start }
     | [] => Fail.fail "expected a guard (^) on the map, found none"

@@ -38,7 +38,7 @@ def tile(): {Parse} Tile :=
 def parseMaze (input: Text): {Fail} Maze :=
   let tiles := parseGrid input tile
   {
-    openTiles = tiles.cells.filterMap (match some | (position, here) if here != Wall => position) |> Set.fromList,
+    openTiles = tiles.positionsWhere (!= Wall) |> Set.fromList,
     start = tiles.findOnly Start "S tile",
     end = tiles.findOnly End "E tile"
   }

@@ -270,3 +270,48 @@ theorem gridStepElim (grid: Grid a) (position: Position) (direction: Direction) 
 theorem gridStepIntro (grid: Grid a) (position: Position) (direction: Direction) (next: Position) (stepped: position.step direction = Some next)
     (inside: grid.contains next = True): grid.step position direction = Some next :=
   rewrite stepped in rewrite inside in rfl
+
+--| A cell `positionsWhere` keeps is at that position, and its tile passes.
+theorem keptCell (keep: a → Bool) (at: Position) (tile: a) (position: Position)
+    (kept: (match some | (here, tile) if keep tile => here) (at, tile) = Some position): at = position ∧ keep tile = True :=
+  match c: keep tile with
+    | True => Both (Option.someInjective _ _ kept) rfl
+    | False => Void.exfalso (Option.noneNotSome position kept)
+
+--| A cell whose tile passes is kept, at its position.
+theorem keepsCell (keep: a → Bool) (at: Position) (tile: a) (passes: keep tile = True):
+    (match some | (here, tile) if keep tile => here) (at, tile) = Some at :=
+  match c: keep tile with
+    | True => rfl
+    | False => Void.exfalso (Bool.falseNotTrue passes)
+
+--| A position is among those of the cells whose tile passes `keep` exactly
+--| when one of those cells has a tile that does.
+theorem memPositionsWhere (cells: List (Position, a)) (keep: a → Bool) (position: Position):
+    (position ∈ positionsWhere cells keep) ↔ (∃ (tile: a) => (position, tile) ∈ cells ∧ keep tile = True) := {
+  forward = member =>
+    Exists.elim ((List.memFilterMap (match some | (here, tile) if keep tile => here) position cells).forward member) (entry both =>
+      match entry with
+        | (at, tile) =>
+          let (Both inCells kept) := both
+          let (Both same passes) := keptCell keep at tile position kept
+          Witness tile (Both (rewrite <- same in inCells) passes)),
+  backward = found =>
+    Exists.elim found (tile both =>
+      let (Both inCells passes) := both
+      (List.memFilterMap (match some | (here, tile) if keep tile => here) position cells).backward
+        (Witness (position, tile) (Both inCells (keepsCell keep position tile passes))))
+}
+
+--| A position is among a grid's `positionsWhere` exactly when the grid has a
+--| tile there that passes `keep`.
+theorem memGridPositionsWhere (grid: Grid a) (keep: a → Bool) (position: Position):
+    (position ∈ grid.positionsWhere keep) ↔ (∃ (tile: a) => grid.at position = Some tile ∧ keep tile = True) := {
+  forward = member =>
+    Exists.elim ((memPositionsWhere grid.cells keep position).forward member) (tile both =>
+      Witness tile (Both ((memCells grid.rows position tile).forward (And.left both)) (And.right both))),
+  backward = found =>
+    Exists.elim found (tile both =>
+      (memPositionsWhere grid.cells keep position).backward
+        (Witness tile (Both ((memCells grid.rows position tile).backward (And.left both)) (And.right both))))
+}

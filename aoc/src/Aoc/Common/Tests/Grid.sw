@@ -24,6 +24,9 @@ def small: Grid Nat := Grid.of [[1, 2, 3], [4, 5, 6]]
 test "a grid's size" := small.height == 2 ∧ small.width == 3 ∧ small.positions == positions 2 3
 test "cells" := small.cells == [(at 0 0, 1), (at 0 1, 2), (at 0 2, 3), (at 1 0, 4), (at 1 1, 5), (at 1 2, 6)]
 test "cells of ragged rows" := cells [[7], [], [8, 9]] == [(at 0 0, 7), (at 2 0, 8), (at 2 1, 9)]
+test "positionsWhere" := small.positionsWhere (n => n % 2 == 0) == [at 0 1, at 1 0, at 1 2]
+test "positionsWhere, none" := small.positionsWhere (n => n > 6) == []
+test "positionsWhere, rows of any lengths" := positionsWhere (cells [[7], [], [8, 9]]) (n => n > 7) == [at 2 0, at 2 1]
 test "findOnly" := Fail.toResult (() => small.findOnly 5 "five") == Ok (at 1 1)
 test "findOnly, none" := Fail.toResult (() => small.findOnly 7 "seven") == Err "no seven"
 test "onlyCell, rows of any lengths" := Fail.toResult (() => onlyCell (cells [[7], [], [8, 9]]) 9 "nine") == Ok (at 2 1)

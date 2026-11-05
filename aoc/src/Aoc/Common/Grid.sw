@@ -113,10 +113,15 @@ def cellAt (rows: List (List a)) (position: Position): Option a :=
     | Some row => row.get position.column
     | None => None
 
+--| The positions of the cells of `cells` whose tile passes `keep`, in the
+--| order of `cells` (`Grid.positionsWhere`, for rows of any lengths).
+def positionsWhere (cells: List (Position, a)) (keep: a → Bool): List Position :=
+  cells.filterMap (match some | (position, here) if keep here => position)
+
 --| The position of the one cell of `cells` equal to `wanted` (`Grid.findOnly`,
 --| for rows of any lengths).
 def onlyCell [auto eq: DecEq a] (cells: List (Position, a)) (wanted: a) (what: Text): {Fail} Position :=
-  match cells.filterMap (match some | (position, here) if here == wanted => position) with
+  match positionsWhere cells (== wanted) with
     | [position] => position
     | [] => Fail.fail "no ${what}"
     | _ => Fail.fail "more than one ${what}"
@@ -163,6 +168,9 @@ def Grid.at (grid: Grid a) (position: Position): Option a := cellAt grid.rows po
 
 --| Every cell with its position, row by row.
 def Grid.cells (grid: Grid a): List (Position, a) := cells grid.rows
+
+--| The positions whose tile passes `keep`, row by row.
+def Grid.positionsWhere (grid: Grid a) (keep: a → Bool): List Position := positionsWhere grid.cells keep
 
 --| The position of the one cell equal to `wanted`. Fails if there is none
 --| or more than one, saying `what` was wanted: `grid.findOnly S "S tile"`
