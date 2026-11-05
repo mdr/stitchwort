@@ -693,8 +693,9 @@ fn a_library_edit_re_checks_what_it_can_change_and_nothing_else() {
             "namespace Sum\n\ndef six: Nat := [1, 2, 3].sumBy (x => x)\n\n\
                  theorem six_is_six: six = 6 := rfl\n",
         ),
-        // Uses no library file itself, but `auto` in it draws on the files
-        // of the namespace it depends on.
+        // Uses no library file itself, but depends on `Wild.hi`, whose hash
+        // the `Ansi` edit changes, so its entry misses through that
+        // dependency.
         (
             "src/Dep.sw",
             "namespace Dep\nimport Wild (hi)\n\ndef again: Text := hi\n",
