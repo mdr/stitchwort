@@ -6766,7 +6766,7 @@
       "labels": [
         "kernel"
       ],
-      "body": "From SW-1227: the guard in one_step_apart avoids it, but the unifier failing on two identically printed terms suggests a comparison gap worth a look.\n\nDone on lane/SW-1315 (8e6777f6b fix, 5a0a495fe moved hashes; on top of lane/SW-1227; Opus, 30 min, est. 90). Cause: force swaps in a solved unknown only at a value's head, so a call stuck on an unknown in its arguments stays stuck after that unknown is solved later in the same comparison; it prints with the solution, so the two sides look equal. Happens on main too (examples/accept/solved-after-stuck.sw: 'x + x = x + x' against itself). Fix: when a pair fails and a side is stuck on a since-solved unknown, read both back, evaluate again and compare once more. Orchestrator's calls: accept the four std/example hash moves (Text.fromListEq, stripPrefixTake, stripSuffixDrop, indexed-families append; migration cost never counts); keep SW-1227's guard for now. Merges after SW-1227 and SW-1314 with the same daily-tier run. Model result: Opus, worked, 30 min (est. 90).",
+      "body": "From SW-1227: the guard in one_step_apart avoids it, but the unifier failing on two identically printed terms suggests a comparison gap worth a look.\n\nDone on lane/SW-1315 (8e6777f6b fix, 5a0a495fe moved hashes; on top of lane/SW-1227; Opus, 30 min, est. 90). Cause: force swaps in a solved unknown only at a value's head, so a call stuck on an unknown in its arguments stays stuck after that unknown is solved later in the same comparison; it prints with the solution, so the two sides look equal. Happens on main too (examples/accept/solved-after-stuck.sw: 'x + x = x + x' against itself). Fix: when a pair fails and a side is stuck on a since-solved unknown, read both back, evaluate again and compare once more. Orchestrator's calls: accept the four std/example hash moves (Text.fromListEq, stripPrefixTake, stripSuffixDrop, indexed-families append; migration cost never counts); keep SW-1227's guard for now. Merges after SW-1227 and SW-1314 with the same daily-tier run. Model result: Opus, worked, 30 min (est. 90).\n\nAlso fixes SW-1323 (an index 3 against 1 + 2 in an indexed family). Before merging, add its repro as an accept example.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -6872,13 +6872,13 @@
     {
       "id": 1323,
       "title": "An index 3 against (1 + 2) in an indexed family's type (Sums [1, 2] 3 vs Sums [1, 2] (1 + 2)) gives a type mismatch; check whether literal vs + in an index should unify (maybe SW-1315's stale stuck call)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1323",
       "labels": [
         "elab"
       ],
-      "body": "From SW-1257. Not checked against main; reproduce first.",
+      "body": "From SW-1257. Not checked against main; reproduce first.\n\nInvestigated (Sonnet, 7 min, est. 40): on main every sum of two or more terms in the index fails (Sums [1, 1] 2 too); one element passes; brackets vs Cons and a def index make no difference. lane/SW-1315's fix makes all pass: the stale stuck call (the addition built while an operand was unknown is never re-evaluated). Close when SW-1315 merges, adding the repro (scratchpad sw1323-sums.sw) as an accept example. Model result: Sonnet, worked, 7 min (est. 40).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
