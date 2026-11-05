@@ -8299,13 +8299,13 @@
     {
       "id": 1424,
       "title": "Messages: an unknown Eq.symm with Eq imported says to import Std (Eq) instead of suggesting Eq.sym; rewrite with an iff could point at .forward / .backward",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1424",
       "labels": [
         "diagnostics"
       ],
-      "body": "From 2020 day 8 (SW-1416), 5 Nov 2026; see aoc/NOTES-2020.md Day 8. Small improvements.\n\nStarted on DeepSeek, expected: 40 min.",
+      "body": "From 2020 day 8 (SW-1416), 5 Nov 2026; see aoc/NOTES-2020.md Day 8. Small improvements.\n\nStarted on DeepSeek, expected: 40 min.\n\nDone on lane/SW-1424 (1c13d72f6): an unknown member of an imported namespace says 'did you mean Eq.sym?' instead of the wrong import note; rewriting with an ↔ notes .forward/.backward. Examples reject/eq-qualifier-misspelt-member and reject/rewrite-rule-iff; no other snapshot moved. Waits for batch 52's verifier; clone kept for --continue. Model result: DeepSeek, worked, ~40 min (est. 40).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
