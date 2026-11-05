@@ -1,5 +1,5 @@
 {
-  "next": 1307,
+  "next": 1308,
   "tickets": [
     {
       "id": 47,
@@ -6641,6 +6641,20 @@
         "tooling"
       ],
       "body": "Found by the SW-93 post-merge daily tier (5 Nov, 01:40). Not SW-93's: they come from SW-1294/1297/1286/1287 and the formatter. Fixed by DeepSeek in a scratch clone.\n\nDone (DeepSeek, ~30 min, est. 45): seven files formatted (the formatter now drops the brackets in '{Fail} (List T)', matching the style rule; guide quotes updated); search_at_aoc's two entries updated to the new proof text; core doc link to List.somes made plain code (prelude is checked without std); std_library expects the core's uncurry/id tests too. Reviewed line by line. Model result: DeepSeek, worked, ~30 min (est. 45).",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1307,
+      "title": "AoC domain types 7: 2024 day 9 Block and DiskMap",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1307",
+      "labels": [
+        "aoc"
+      ],
+      "body": "Split from SW-1289 (the survey's HIGH 2024/09 entry): docs/research/aoc-domain-types.md. D2363; Sonnet; the orchestrator checks each changed statement keeps its meaning.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
