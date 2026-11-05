@@ -13,10 +13,11 @@
 --      and a sum of cells is 0 exactly when each cell is.
 
 namespace Aoc.Year2025.Day09.Proofs
-import Aoc.Common (Line, Point)
+import Aoc.Common (Line, Point, PrefixSums)
+import Aoc.Common.Proofs (..)
 import Aoc.Year2025.Day09 (..)
 import Aoc.Year2025.Day09.Spec (..)
-import Std (Bool, DecEq, Decidable, Eq, List, Nat, PrefixSums, Void)
+import Std (Bool, DecEq, Decidable, Eq, List, Nat, Void)
 
 --| The key tile at key column c and key row r.
 def keyTile (floor: Floor) (c: Nat) (r: Nat): Point := { x = List.getOr floor.columns c 0, y = List.getOr floor.rows r 0 }

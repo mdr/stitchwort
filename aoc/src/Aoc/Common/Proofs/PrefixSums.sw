@@ -3,6 +3,10 @@
 --| block is inside the grid.
 -- Kept out of PrefixSums.sw because the proofs need `omega`.
 
+namespace Aoc.Common.Proofs
+import Aoc.Common (..)
+import Std (Bool, Eq, List, Map, Nat, Void)
+
 --| Row r of the table, entry c: the entry of `above`, plus entry c of each of
 --| the first r rows of sums.
 theorem PrefixSums.tableAt (c: Nat): (above: List Nat) → (sums: List (List Nat)) → c < List.length above →

@@ -2,8 +2,9 @@
 -- (key lines, outside cells, the summed-area table) alone.
 
 namespace Scratch.Parts
+import Aoc.Common (PrefixSums)
 import Aoc.Year2025.Day09 (Floor, parseTiles, solvePart1)
-import Std (Fail, IO, List, Nat, PrefixSums)
+import Std (Fail, IO, List, Nat)
 
 def mainPart1(): {IO, Fail} () :=
   let tiles := parseTiles IO.readAll()

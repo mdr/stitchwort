@@ -4,9 +4,9 @@
 -- doesn't check them.
 
 namespace Aoc.Year2025.Day09.Tests
-import Aoc.Common (Line, Point)
+import Aoc.Common (Line, Point, PrefixSums)
 import Aoc.Year2025.Day09 (..)
-import Std (Fail, List, Nat, PrefixSums, Result, Text)
+import Std (Fail, List, Nat, Result, Text)
 
 --| The puzzle's eight red tiles (also in aoc/examples/2025/day09.txt).
 def example: Result (List Point) Text := Fail.toResult (() => parseTiles (include "../../../../../examples/2025/day09.txt"))
