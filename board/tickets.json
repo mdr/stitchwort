@@ -8299,13 +8299,13 @@
     {
       "id": 1424,
       "title": "Messages: an unknown Eq.symm with Eq imported says to import Std (Eq) instead of suggesting Eq.sym; rewrite with an iff could point at .forward / .backward",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1424",
       "labels": [
         "diagnostics"
       ],
-      "body": "From 2020 day 8 (SW-1416), 5 Nov 2026; see aoc/NOTES-2020.md Day 8. Small improvements.",
+      "body": "From 2020 day 8 (SW-1416), 5 Nov 2026; see aoc/NOTES-2020.md Day 8. Small improvements.\n\nStarted on DeepSeek, expected: 40 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
