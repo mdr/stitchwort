@@ -4,7 +4,7 @@
 namespace Aoc.Year2020.Day06.Proofs
 import Aoc.Year2020.Day06 (..)
 import Aoc.Year2020.Day06 (Spec)
-import Std (Bool, Char, Eq, List, Set, Void, byDecision)
+import Std (Bool, Char, Eq, List, NonEmptyList, Set, Void, byDecision)
 
 --| The people's answer sets, asked about a question, say what their lines say.
 theorem anyAnswers: (lines: List (List Char)) → (people: List Person) → List.All2 PersonWritten lines people → (question: Char) →
@@ -23,12 +23,10 @@ theorem allAnswers: (lines: List (List Char)) → (people: List Person) → List
   | [], [_, .._], impossible, question => Void.exfalso impossible
   | [_, .._], [], impossible, question => Void.exfalso impossible
 
---| Everyone's answers folded in by intersection hold what the accumulator
---| holds and every line has.
-theorem intersectContains (lines: List (List Char)) (people: List Person) (written: List.All2 PersonWritten lines people) (acc: Set Char) (question: Char):
-    ((people.map .answers).foldLeft acc Set.intersect).contains question = (acc.contains question ∧ lines.all (line => line.contains question)) :=
-  rewrite <- allAnswers lines people written question in
-    Set.containsFoldIntersect question (people.map .answers) acc
+--| The intersection of everyone's answers holds what every line has.
+theorem intersectContains (lines: List (List Char)) (people: NonEmptyList Person) (written: List.All2 PersonWritten lines people.toList) (question: Char):
+    (people.map .answers).intersectAll.contains question = lines.all (line => line.contains question) :=
+  Eq.trans (NonEmptyList.containsIntersectAll (people.map .answers) question) (allAnswers lines people.toList written question)
 
 --| Whatever some line has is a question.
 theorem anyQuestion: (lines: List (List Char)) → (people: List Person) → List.All2 PersonWritten lines people → (question: Char) →
@@ -43,3 +41,12 @@ theorem anyQuestion: (lines: List (List Char)) → (people: List Person) → Lis
   | [_, .._], [], impossible, question, found => Void.exfalso impossible
 
 theorem questionsDistinct: List.Distinct Spec.questions := byDecision
+
+--| Whatever every line has is a question: there is a first line, and it is all questions.
+theorem everyQuestion: (lines: List (List Char)) → (people: List Person) → List.All2 PersonWritten lines people → people ≠ [] → (question: Char) →
+    lines.all (line => line.contains question) = True → Spec.questions.contains question = True
+  | [], [], all, some, question, found => Void.exfalso (some rfl)
+  | [line, ..lines], [person, ..people], Both (Both nonEmpty (Both questions same)) rest, some, question, found =>
+    List.allMember isQuestion line questions question ((List.memContains line question).forward (Bool.andLeft _ _ found))
+  | [], [_, .._], impossible, some, question, found => Void.exfalso impossible
+  | [_, .._], [], impossible, some, question, found => Void.exfalso impossible

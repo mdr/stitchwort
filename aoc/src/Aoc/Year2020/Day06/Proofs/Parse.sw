@@ -34,29 +34,25 @@ theorem readsPerson: Parse.Reads person PersonWritten :=
             (rewrite List.appendNil lettersRead, same in
               Both (NonEmptyList.toListNotNil letters) (Both questions (question => containsFromList letters.toList question))))
 
---| `Parse.SepBy` for values kept in a `List`: they are a `NonEmptyList`'s elements.
--- Goes when stage 4 makes `Group.people` a `NonEmptyList` (SW-1346).
-def SepByList (spec: List Char → a → Prop) (separator: List Char → () → Prop) (read: List Char) (values: List a): Prop :=
-  ∃ (listed: NonEmptyList a) => Parse.SepBy spec separator read listed ∧ values = listed.toList
-
 --| A group: its people's lines, line breaks between.
-def GroupWritten (read: List Char) (group: Group): Prop := SepByList PersonWritten (read u => Parse.LineBreak read) read group.people
+def GroupWritten (read: List Char) (group: Group): Prop := Parse.SepBy PersonWritten (read u => Parse.LineBreak read) read group.people
 
 theorem readsGroup: Parse.Reads group GroupWritten :=
   Parse.readsThen _ _ _ _ (Parse.readsLines person _ readsPerson) (peopleRead people written =>
-    Parse.readsDone { people = people.toList } _ (rewrite List.appendNil peopleRead in Witness people (Both written rfl)))
+    Parse.readsDone { people } _ (rewrite List.appendNil peopleRead in written))
 
 --| If `parseGroups` reads `input`, the input is the groups written out, a
 --| blank line between each two, then any line breaks.
 theorem parseWritten (input: Text) (groups: List Group) (parsed: Fail.toResult (() => parseGroups input) = Ok groups):
     ∃ (read: List Char) => ∃ (ending: List Char) =>
-      input.toList = read ++ ending ∧ SepByList GroupWritten (read u => Parse.BlankLine read) read groups
+      input.toList = read ++ ending
+        ∧ (∃ (listed: NonEmptyList Group) => Parse.SepBy GroupWritten (read u => Parse.BlankLine read) read listed ∧ groups = listed.toList)
         ∧ ending.all (char => char == '\n' ∨ char == '\r') = True :=
   Parse.allReads input (() => Parse.sections group |> .toList) _ groups parsed
     (Parse.readsMap (() => Parse.sections group) NonEmptyList.toList _ (Parse.readsSections group _ readsGroup))
 
 --| A group's lines as the spec has them: each line is what was read.
-def LinesWritten (read: List Char) (lines: List (List Char)): Prop := SepByList (line written => line = written) (read u => Parse.LineBreak read) read lines
+def LinesWritten (read: List Char) (lines: NonEmptyList (List Char)): Prop := Parse.SepBy (line written => line = written) (read u => Parse.LineBreak read) read lines
 
 --| What a repetition of separator and part read, with each part's value
 --| replaced by another that relates to it.
@@ -76,15 +72,13 @@ theorem eachMap (spec: List Char → a → Prop) (other: List Char → c → Pro
 
 theorem sepByMap (spec: List Char → a → Prop) (other: List Char → c → Prop) (related: c → a → Prop) (separator: List Char → () → Prop)
     (step: (read: List Char) → (value: a) → spec read value → ∃ (other_: c) => other read other_ ∧ related other_ value)
-    (read: List Char) (values: List a) (written: SepByList spec separator read values):
-    ∃ (others: List c) => SepByList other separator read others ∧ List.All2 related others values :=
+    (read: List Char) (values: NonEmptyList a) (written: Parse.SepBy spec separator read values):
+    ∃ (others: NonEmptyList c) => Parse.SepBy other separator read others ∧ List.All2 related others.toList values.toList :=
   match written with
-    | Witness listed (Both (Witness firstRead (Witness afterRead (Witness head (Both split (Both firstWritten (Both isFirst each)))))) same) =>
-      match step firstRead listed.head (rewrite isFirst at firstWritten in firstWritten) with
+    | Witness firstRead (Witness afterRead (Witness head (Both split (Both firstWritten (Both isFirst each))))) =>
+      match step firstRead values.head (rewrite isFirst at firstWritten in firstWritten) with
         | Witness z (Both zRead zRelated) =>
-          match eachMap spec other related separator step afterRead listed.tail each with
+          match eachMap spec other related separator step afterRead values.tail each with
             | Witness zs (Both zsRead zsRelated) =>
-              Witness [z, ..zs]
-                (Both (Witness ([z, ..zs]: NonEmptyList c)
-                    (Both (Witness firstRead (Witness afterRead (Witness z (Both split (Both zRead (Both rfl zsRead)))))) rfl))
-                  (rewrite same in Both zRelated zsRelated))
+              Witness ({ head = z, tail = zs }: NonEmptyList c)
+                (Both (Witness firstRead (Witness afterRead (Witness z (Both split (Both zRead (Both rfl zsRead)))))) (Both zRelated zsRelated))

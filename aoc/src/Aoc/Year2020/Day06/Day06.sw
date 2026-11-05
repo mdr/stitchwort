@@ -15,7 +15,7 @@
 --| checks neither.
 
 namespace Aoc.Year2020.Day06
-import Std (Char, Fail, IO, List, Nat, Parse, Set, Text)
+import Std (Char, Fail, IO, List, NonEmptyList, Nat, Parse, Set, Text)
 
 def main(): {IO, Fail} () :=
   let groups := parseGroups IO.readAll()
@@ -36,12 +36,12 @@ def person(): {Parse} Person :=
   { answers = letters.toList.toSet }
 
 --| The people travelling together, a line each.
-type Group = { people: List Person }
+type Group = { people: NonEmptyList Person }
 
 --| A group's lines, one person to a line.
 def group(): {Parse} Group :=
   let people := Parse.lines person
-  { people = people.toList }
+  { people }
 
 --| The groups, with a blank line between each two.
 def parseGroups (input: Text): {Fail} List Group := Parse.all input (() => Parse.sections group |> .toList)
@@ -50,8 +50,7 @@ def parseGroups (input: Text): {Fail} List Group := Parse.all input (() => Parse
 def Group.anyone (group: Group): Set Char := group.people.map .answers |> .unionAll
 
 --| The questions everyone in the group answered "yes" to.
-def Group.everyone (group: Group): Set Char :=
-  group.people.map .answers |> .foldLeft questions.toSet Set.intersect
+def Group.everyone (group: Group): Set Char := group.people.map .answers |> .intersectAll
 
 def solvePart1 (groups: List Group): Nat := groups.sumBy .anyone.size
 
