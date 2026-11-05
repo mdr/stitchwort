@@ -1,5 +1,5 @@
 {
-  "next": 1396,
+  "next": 1399,
   "tickets": [
     {
       "id": 47,
@@ -7740,14 +7740,14 @@
     {
       "id": 1385,
       "title": "Browser tests fail on main: 7 of 64 (goals text, Run's errors timeout, effectful List.map at a million, AoC days list, shared-file error tabs, Evaluate full names, roguelike groups); not in the merge tier, so drift went unnoticed",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1385",
       "labels": [
         "tests",
         "playground"
       ],
-      "body": "",
+      "body": "\n\nDone on lane/SW-1385 (f80306e28): 5 of 7 fixed plus 2 hover tests: stale expectations (goals keep 'two' as written, natively too; AoC years listed; Day 2's tab count grew with Aoc.Common; roguelike group index; hover 'def ' prefix and std doc lines) and one real page bug (the default Evaluate input used exampleRanges as a list since it became a Result). Not fixed, not from today's merges (fail on 645df8e2f too): Run's errors timeout (page output per line grows faster than linear), ioRead at a million lines hangs the page on a 7 MB input. Model result: Sonnet, worked, 52 min (est. 60).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7886,6 +7886,48 @@
         "tests"
       ],
       "body": "From SW-1381's Opus review, 5 Nov 2026. Small improvement.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1396,
+      "title": "Playground: printing many lines is slower than linear (262,144 empty lines take 176 s; 43,690 take 10 s; native prints 40,000 in 0.35 s); batch the worker's output messages. Fixes the 'Run's errors' browser test timeout",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "playground,perf"
+      ],
+      "body": "From SW-1385, 5 Nov 2026. Small improvement.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1397,
+      "title": "Playground: a 7 MB, million-line Run input hangs the page (the ioRead shape of 'effectful List.map runs at a million elements'); find whether the textarea or input handling freezes, and size the test's input",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "playground,tests"
+      ],
+      "body": "From SW-1385, 5 Nov 2026. Small improvement.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1398,
+      "title": "Browser tests: whereIs should throw when its needle is missing instead of using indexOf -1 (gave wrong positions silently)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "body": "From SW-1385, 5 Nov 2026. Small improvement.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
