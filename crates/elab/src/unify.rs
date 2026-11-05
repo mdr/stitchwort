@@ -1124,6 +1124,25 @@ fn unify_step(
     {
         return Ok(true);
     }
+    // Calls of one definition, one written with an unknown for each
+    // argument (`f _ _`) and its unfolding stuck on them: the most general
+    // instance is the other's arguments. `List.range ?a ?b` unfolds to
+    // `List.rangeFrom (?b - ?a) ?a`, which against `List.rangeFrom (n - 1) 2`
+    // would read `?b - ?a` against `n - 1` before `?a` is known, and
+    // guess `?b := n`; the arguments `2` and `n + 1` say what was written
+    // (SW-1379). What they solve is noted as lossy, like any solution made
+    // from arguments.
+    if let (Value::Call(i1, s1, _), Value::Call(i2, s2, _)) = (a, b)
+        && i1 == i2
+        && (all_unknown_arguments(g, s1)? || all_unknown_arguments(g, s2)?)
+        && (blocked(g, a)? || blocked(g, b)?)
+    {
+        let trail = g.store.meta_trail.borrow().len();
+        if same_arguments(g, level, *i1, s1, s2)? {
+            note_lossy(g, trail);
+            return Ok(true);
+        }
+    }
     if one_step_apart(g, level, a, b)? {
         return Ok(true);
     }
@@ -1500,6 +1519,21 @@ fn same_outer_layer(a: &Value, b: &Value) -> bool {
         (Value::Data(d1, _), Value::Data(d2, _)) => d1 == d2,
         _ => std::mem::discriminant(a) == std::mem::discriminant(b),
     }
+}
+
+/// Whether `spine` has an argument, and each is an unsolved unknown (applied to
+/// the context, perhaps) that isn't frozen.
+fn all_unknown_arguments(g: &Unifier<'_>, spine: &[Elim]) -> Result<bool> {
+    let mut any = false;
+    for elim in spine {
+        if let Elim::App(arg, _) = elim {
+            match force_solved(g, arg.clone())? {
+                Value::Neutral(Head::Meta(m), _) if !frozen(g, m) => any = true,
+                _ => return Ok(false),
+            }
+        }
+    }
+    Ok(any)
 }
 
 /// Whether some argument in `spine` is, once solutions are put in, an
