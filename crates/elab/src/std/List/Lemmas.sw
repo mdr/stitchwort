@@ -1066,6 +1066,15 @@ theorem List.memFlatMapElim (f: a → List b) (y: b): (xs: List a) → y ∈ Lis
       | Inl m => Inl m
       | Inr m => Inr (List.memFlatMapElim f y zs m)
 
+--| What is in a `flatMap` is in `f x` for some `x` of the list, and back:
+--| [`List.memFlatMapIntro`] and [`List.memFlatMapElim`] as one statement, to
+--| rewrite with.
+theorem List.memFlatMap (f: a → List b) (y: b) (xs: List a):
+    (y ∈ xs.flatMap f) ↔ (∃ (x: a) => x ∈ xs ∧ y ∈ f x) := {
+  forward = h => List.anyMember (x => y ∈ f x) xs (List.memFlatMapElim f y xs h),
+  backward = found => Exists.elim found (x both => List.memFlatMapIntro f x y xs (And.left both) (And.right both))
+}
+
 --| Mapping an injective function keeps a list distinct.
 theorem List.distinctMap: (xs: List a) → List.Distinct xs → (f: a → b) → (inj: (x: a) → (y: a) → f x = f y → x = y) → List.Distinct (List.map xs f)
   | [], d, f, inj => Trivial
@@ -1183,6 +1192,9 @@ theorem List.memRangeExample: 3 ∈ List.range 1 6 := (List.memRange 3 1 6).back
 
 theorem List.memFlatMapExample: 20 ∈ List.flatMap [1, 2] (x => [x, x * 10]) :=
   List.memFlatMapIntro (x => [x, x * 10]) 2 20 [1, 2] (Inr (Inl rfl)) (Inr (Inl rfl))
+
+theorem List.memFlatMapExample2: 20 ∈ List.flatMap [1, 2] (x => [x, x * 10]) ↔ (∃ (x: Nat) => x ∈ [1, 2] ∧ 20 ∈ [x, x * 10]) :=
+  List.memFlatMap (x => [x, x * 10]) 20 [1, 2]
 
 theorem List.distinctAppendExample: List.Distinct (List.append [1] [2]) :=
   List.distinctAppend [1] [2]
