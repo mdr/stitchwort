@@ -7194,7 +7194,7 @@
     {
       "id": 1346,
       "title": "NonEmptyList stage 4: aoc data types use NonEmptyList (2020 day 6's Group, Grid, 2024 day 7, 2021 day 16, the survey's ~95 sites); rogue's rooms as Vec Area 6 (drops fallbackRoom)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1346",
       "labels": [
@@ -7250,7 +7250,7 @@
     {
       "id": 1350,
       "title": "Chained comparisons: a chain nested inside a larger if h: proposition (if h: b != 0 && 1 <= twice b <= 9) still computes the middle twice at runtime, against D2389; also check | k if h: … guards' runtime code",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1350",
       "labels": [
