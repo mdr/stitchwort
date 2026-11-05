@@ -71,8 +71,9 @@ test "lets" := lets 4 == "$4"
 test "applied" := applied 4 == "$4"
 test "nat" := showNat 4 == "4"
 
--- The pre-pass can't know which `label` `s.label` means, so it groups
--- `Shape.describe` with every `….label` (§5): here with `Tile.label` too.
+-- `s.label`, with `s` written as a `Shape`, means `Shape.label` only, so
+-- `Shape.describe` isn't grouped with `Tile.label`; `t.shape.describe` has no
+-- written receiver type and could mean any `….describe` (§5).
 type Shape = { name: Text }
 type Tile = { shape: Shape }
 

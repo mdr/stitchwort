@@ -1238,10 +1238,15 @@ impl Elaborator {
                 // could mean (§5).
                 for field in fields {
                     let suffix = format!(".{field}");
-                    // A receiver of a written data type `T` means `T.field`.
-                    let exact = namespace.as_ref().map(|ns| format!("{ns}{suffix}"));
-                    for key in names.iter().filter(|k| match &exact {
-                        Some(exact) => *k == exact,
+                    // A receiver of a written data type `T` means a method of
+                    // `T`, which may be declared in any namespace (`Path.extend`
+                    // in a proofs namespace beside `Path`'s): a key ending in
+                    // `T.field`, with `T` the type's simple name.
+                    let method = namespace
+                        .as_ref()
+                        .map(|ns| format!("{}{suffix}", ns.rsplit('.').next().unwrap_or(ns)));
+                    for key in names.iter().filter(|k| match &method {
+                        Some(method) => *k == method || k.ends_with(&format!(".{method}")),
                         None => k.ends_with(&suffix),
                     }) {
                         if let Some((Global::Unchecked(j), _)) = self.scope.get(key) {

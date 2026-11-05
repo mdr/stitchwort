@@ -1180,14 +1180,6 @@ const $Std$dList$dmap = (v1, v2, v4, v5) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dText$dtoNat = (t) => {
-  if (t === "") return { tag: "None" };
-  for (let i = 0; i < t.length; i++) {
-    const unit = t.charCodeAt(i);
-    if (unit < 48 || unit > 57) return { tag: "None" };
-  }
-  return { tag: "Some", value: BigInt(t) };
-};
 const $Std$dText$dtrim = (t) => {
   const space = (u) =>
     (u >= 9 && u <= 13) || u === 32 || u === 0x85 || u === 0xa0 || u === 0x1680 ||
@@ -1198,6 +1190,14 @@ const $Std$dText$dtrim = (t) => {
   while (start < end && space(t.charCodeAt(start))) start++;
   while (end > start && space(t.charCodeAt(end - 1))) end--;
   return t.slice(start, end);
+};
+const $Std$dText$dtoNat = (t) => {
+  if (t === "") return { tag: "None" };
+  for (let i = 0; i < t.length; i++) {
+    const unit = t.charCodeAt(i);
+    if (unit < 48 || unit > 57) return { tag: "None" };
+  }
+  return { tag: "Some", value: BigInt(t) };
 };
 const $Std$dText$dsplit = (t, s) => listOf(t.split(encodeChar(s)));
 const $Std$dFail$d$gelim = (v1, v2, v3) => {
