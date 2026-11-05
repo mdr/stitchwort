@@ -74,6 +74,11 @@ export class Editor {
     this.silent = 0;
     this.stats = { ready: null, crashed: null, restarts: 0, published: [], isolated: false, firstDiagnostics: null, ticks: 0, idle: false };
     this.projects = [];
+    /** The diagnostics the server last published for each document, by uri. */
+    this.published = new Map();
+    /** The version of each document that the server says it has checked what is on show for (`stitchwort/checked`). */
+    this.checkedVersions = new Map();
+    this.focused = [];
     this.t0 = performance.now();
     this.handlers = [];
     this.colourField = colouring(options.colour);
@@ -96,12 +101,14 @@ export class Editor {
       worker = this.worker = new Worker(options.worker, { type: "module" });
     } catch (e) {
       stats.crashed = String(e);
+      stats.stopped = true;
       this.worker = { postMessage() {} };
       return;
     }
     worker.onerror = (e) => {
       e.preventDefault();
       stats.crashed = e.message || "the worker failed";
+      stats.stopped = true;
     };
     worker.postMessage({ init: { module: options.module, load: options.load } });
     worker.onmessage = ({ data }) => {
@@ -113,6 +120,9 @@ export class Editor {
           stats.published.push({ t: now, uri: m.params.uri, count: m.params.diagnostics.length });
           if (stats.published.length > 300) stats.published.shift();
           stats.firstDiagnostics ??= now;
+          this.published.set(m.params.uri, m.params.diagnostics);
+        } else if (m.method === "stitchwort/checked") {
+          for (const [uri, version] of Object.entries(m.params.versions)) this.checkedVersions.set(uri, version);
         }
         for (const h of this.handlers) h(data.lsp);
       } else if (data.tick !== undefined) {
@@ -154,15 +164,18 @@ export class Editor {
     stats.crashed = reason;
     console.error("The language server crashed:", reason);
     if (++stats.restarts > 3) {
+      stats.stopped = true;
       options.onNotice?.(`The language server crashed: ${reason}`);
       return;
     }
     this.worker.onmessage = null;
     this.worker.terminate?.();
+    this.checkedVersions.clear();
     this.client.disconnect();
     this.startWorker();
     for (const project of this.projects) this.worker.postMessage({ project });
     this.client.connect(this.transport());
+    if (this.focused.length) this.checkFirst(this.focused);
     options.onNotice?.("The language server crashed and was restarted");
   }
 
@@ -192,6 +205,41 @@ export class Editor {
     const project = { root, sources, paths, texts };
     this.projects.push(project);
     this.worker.postMessage({ project });
+  }
+
+  /**
+   * Asks the server to check the namespaces of these documents (their
+   * URIs) next, along with the one being edited, and to publish their
+   * diagnostics as it does: the files of the day on show, which are
+   * opened in the editor one at a time. Replaces the last list.
+   */
+  checkFirst(uris) {
+    this.focused = uris;
+    this.client.notification("stitchwort/focus", { uris });
+  }
+
+  /** The diagnostics the server last published for `uri` (LSP's), or `null` if none yet. */
+  diagnosticsOf(uri) {
+    return this.published.get(uri) ?? null;
+  }
+
+  /**
+   * Resolves when the server has checked the text of `uri` as it is now (an
+   * edit not sent yet is sent first), and what the page asked it to check
+   * with it (`focus`), and published the diagnostics: to `true`, or to
+   * `false` if the server has stopped.
+   */
+  settled(uri) {
+    this.client.sync();
+    return new Promise((resolve) => {
+      const check = () => {
+        if (this.stats.stopped) return resolve(false);
+        const sent = this.client.workspace.getFile(uri);
+        if (sent && this.checkedVersions.get(uri) === sent.version) return resolve(true);
+        setTimeout(check, 30);
+      };
+      check();
+    });
   }
 
   // ---- States --------------------------------------------------------------

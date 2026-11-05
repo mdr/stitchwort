@@ -909,7 +909,6 @@ export def area: Shape -> Nat
         // As in playground-worker.js: a request with `paths` is for a project.
         if (request.action === "stdsource") return { out: { text: compiler.std_source(request.path) } };
         const answer = request.paths ? {
-          index: () => compiler.check_index_project(request.paths, request.texts, request.targets),
           outline: () => compiler.outline_project(request.paths, request.texts),
           check: () => compiler.check_project(request.paths, request.texts, request.targets),
           checkall: () => compiler.check_project(request.paths, request.texts, ""),
@@ -919,7 +918,6 @@ export def area: Shape -> Nat
           format: () => compiler.format(request.source),
           run: () => compiler.run_project_streaming(request.paths, request.texts, request.name, request.input, request.maxOutput, sink),
         }[request.action] : {
-          index: () => compiler.check_index(request.source),
           check: () => compiler.check(request.source),
           test: () => compiler.test(request.source, request.known ?? ""),
           evaluate: () => compiler.evaluate(request.source, request.imports ?? "", request.expr),
@@ -1753,6 +1751,19 @@ export def area: Shape -> Nat
     source.reveal(from, to);
   }
 
+  /**
+   * Asks the language server to check the day's own files (its program,
+   * tests and proofs) along with the one being edited, before the rest of
+   * the project, so the Check pane has all of the day's diagnostics.
+   */
+  let focusedDay = "";
+  function focusDay(paths) {
+    const key = JSON.stringify(paths);
+    if (key === focusedDay) return;
+    focusedDay = key;
+    source.checkFirst(paths.map(projectUri));
+  }
+
   /** Works out the day's tabs from the compiler's outline: the day's program, its proofs, then what they use. */
   function useOutline(outline) {
     const day = project.manifest.days[project.day];
@@ -1760,15 +1771,20 @@ export def area: Shape -> Nat
     project.namespaceOf = new Map(outline.namespaces.flatMap((n) => n.files.map((f) => [f, n.name])));
     const own = new Set(day.namespaces);
     const used = new Set();
+    // The day's files in the order they are checked: what a file uses first.
+    const order = [];
+    const files = (name) => [...(byName.get(name)?.files ?? [])].sort();
     const visit = (name) => {
       if (used.has(name) || !byName.has(name)) return;
       used.add(name);
       byName.get(name).uses.forEach(visit);
+      order.push(...files(name));
     };
     day.namespaces.forEach(visit);
-    const files = (name) => [...(byName.get(name)?.files ?? [])].sort();
+    project.checkOrder = order;
     const shared = [...used].filter((n) => !own.has(n)).flatMap(files).sort();
     const tabs = [...day.namespaces.flatMap(files), ...shared];
+    focusDay(day.namespaces.flatMap(files));
     if (JSON.stringify(tabs) !== JSON.stringify(project.outlineTabs)) {
       project.outlineTabs = tabs;
       renderTabs();
@@ -1831,7 +1847,9 @@ export def area: Shape -> Nat
     project.open = openPath && manifest.files.includes(openPath) ? openPath : day.open;
     project.extras = new Set();
     project.outlineTabs = null;
+    project.checkOrder = null;
     project.errors = new Set();
+    focusDay(initialTabs());
     const id = `${name}:${project.day}`;
     picker.value = id;
     filebar.hidden = false;
@@ -2034,6 +2052,40 @@ export def area: Shape -> Nat
     warningCount.textContent = n === 1 ? "1 warning" : `${n} warnings`;
   }
 
+  /**
+   * What the language server found in the open program, or in the files of
+   * the open day, shaped as the compiler's check answers were: the same
+   * diagnostics the editor underlines. Waits for the server to have checked
+   * the text on show (and, in a project, the day's own files). `null` if the
+   * server isn't running.
+   */
+  async function serverCheck() {
+    if (!(await source.settled(project ? projectUri(project.open) : SINGLE_URI))) return null;
+    const errors = [];
+    const warnings = [];
+    const goals = [];
+    const diagnostics = [];
+    // Errors with no file (a project that can't be analysed) are the
+    // server's on `stitchwort.yaml`.
+    const paths = project ? [...new Set([...(project.checkOrder ?? []), ...tabPaths()]), "stitchwort.yaml"] : [null];
+    for (const found of paths) {
+      const path = found === "stitchwort.yaml" ? undefined : found;
+      for (const d of source.diagnosticsOf(found === null ? SINGLE_URI : projectUri(found)) ?? []) {
+        const severity = d.severity === 2 ? "warning" : d.severity === 3 ? "goal" : "error";
+        const text = d.code ? `[${d.code}] ${d.message}` : d.message;
+        const place = { file: path ?? undefined, line: d.range.start.line + 1, column: d.range.start.character + 1,
+                        endLine: d.range.end.line, endColumn: d.range.end.character };
+        diagnostics.push({ severity, ...place, text });
+        const located = path === null ? `${text}\n  at line ${place.line}, column ${place.column}\n` : `${text}\n`;
+        if (severity === "error") errors.push(path === null ? located : text);
+        else if (severity === "warning") warnings.push(located);
+        else goals.push(d.message);
+      }
+    }
+    return { ok: errors.length === 0, errors: errors.join("\n"), warnings: warnings.length ? warnings : undefined,
+             goals: goals.length ? goals : undefined, diagnostics };
+  }
+
   /** Each render has a number; a newer one supersedes it. */
   let rendering = 0;
 
@@ -2051,7 +2103,9 @@ export def area: Shape -> Nat
       if (current !== rendering) return;
       if (outline?.ok) useOutline(outline);
     }
-    const checked = await ask(requestFor("check"));
+    // Without a language server (a host that blocks workers, or one that
+    // crashed for good) the compiler's own check stands in.
+    const checked = (await serverCheck()) ?? (await ask(requestFor("check")));
     if (current !== rendering) return;
     setWarnings(checked?.warnings);
     if (!checked) return;
@@ -2113,9 +2167,11 @@ export def area: Shape -> Nat
     if (view === "tests") {
       output.append(el("p", { className: "hint" }, "Running the tests…"));
       const result = await ask(requestFor("test", { known: stored(TEST_CACHE) ?? "" }));
-      if (result) rememberTests(result.added);
+      if (result?.ok) rememberTests(result.added);
       if (current !== rendering || !result) return;
       output.replaceChildren();
+      // The server's check passed but this session's didn't: say why.
+      if (!result.ok) { output.append(...errorsOf(result)); return; }
       output.dataset.for = src; // which source these results are for (the browser tests wait on it)
       if (result.tests.length === 0) {
         output.append(el("p", { className: "hint" }, 'No tests yet. Add one: test "name" := leq (1 + 1) 2'));

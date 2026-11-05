@@ -100,3 +100,223 @@ fn project_body() {
         "{reply:?}"
     );
 }
+
+#[test]
+fn files_the_client_asks_for_are_checked_and_announced_with_the_one_edited() {
+    std::thread::Builder::new()
+        .stack_size(STACK)
+        .spawn(focus_body)
+        .unwrap()
+        .join()
+        .unwrap();
+}
+
+fn focus_body() {
+    let files = [
+        ("src/First.sw", "namespace First\n\ndef one: Nat := 1\n"),
+        (
+            "src/Second.sw",
+            "namespace Second\nimport First (one)\n\ndef two: Nat := one + one\n",
+        ),
+        (
+            "src/Extra.sw",
+            "namespace Extra\n\ndef bad: Nat := \"extra\"\n",
+        ),
+        (
+            "src/Other.sw",
+            "namespace Other\n\ndef bad: Nat := \"other\"\n",
+        ),
+    ];
+    let memory = Arc::new(Memory::default());
+    memory.add(MemoryProject {
+        root: "/memory/proj".into(),
+        sources: vec!["src".into()],
+        files: Arc::new(
+            (files.iter())
+                .map(|(p, t)| (p.to_string(), t.to_string()))
+                .collect(),
+        ),
+    });
+    let mut server = Inline::new(Options::new(STACK), memory).unwrap();
+    let send = |server: &mut Inline, message: Value| {
+        server
+            .receive(&message.to_string())
+            .into_iter()
+            .map(|m| serde_json::from_str::<Value>(&m).unwrap())
+            .collect::<Vec<_>>()
+    };
+    send(
+        &mut server,
+        json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"capabilities": {}}}),
+    );
+    send(
+        &mut server,
+        json!({"jsonrpc": "2.0", "method": "initialized", "params": {}}),
+    );
+    let uri = |name: &str| format!("file:///memory/proj/src/{name}.sw");
+    send(
+        &mut server,
+        json!({"jsonrpc": "2.0", "method": "stitchwort/focus", "params": {"uris": [uri("Extra")]}}),
+    );
+    send(
+        &mut server,
+        json!({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {
+            "uri": uri("Second"), "languageId": "stitchwort", "version": 3, "text": files[1].1,
+        }}}),
+    );
+    let mut sent = Vec::new();
+    loop {
+        let (out, more) = server.tick();
+        sent.extend(
+            out.iter()
+                .map(|m| serde_json::from_str::<Value>(m).unwrap()),
+        );
+        if !more || sent.iter().any(|m| m["method"] == "stitchwort/checked") {
+            break;
+        }
+    }
+    let announced = sent.iter().find(|m| m["method"] == "stitchwort/checked");
+    let published = |name: &str| {
+        (sent.iter())
+            .rfind(|m| {
+                m["method"] == "textDocument/publishDiagnostics" && m["params"]["uri"] == uri(name)
+            })
+            .map(|m| m["params"]["diagnostics"].as_array().unwrap().len())
+    };
+    // Extra was asked for: checked and published before the announcement,
+    // while Other, which nobody asked for, waits for the rest.
+    let announced = announced.expect("the announcement");
+    assert_eq!(
+        announced["params"]["versions"],
+        json!({ uri("Second"): 3 }),
+        "{announced}"
+    );
+    assert_eq!(published("Second"), Some(0));
+    assert_eq!(published("Extra"), Some(1));
+    assert_eq!(published("Other"), None);
+}
+
+#[test]
+fn a_project_that_cannot_be_analysed_publishes_its_error_and_is_announced() {
+    std::thread::Builder::new()
+        .stack_size(STACK)
+        .spawn(cycle_body)
+        .unwrap()
+        .join()
+        .unwrap();
+}
+
+fn cycle_body() {
+    let files = [
+        (
+            "src/First.sw",
+            "namespace First\nimport Second (two)\n\ndef one: Nat := two\n",
+        ),
+        (
+            "src/Second.sw",
+            "namespace Second\nimport First (one)\n\ndef two: Nat := one\n",
+        ),
+    ];
+    let memory = Arc::new(Memory::default());
+    memory.add(MemoryProject {
+        root: "/memory/proj".into(),
+        sources: vec!["src".into()],
+        files: Arc::new(
+            (files.iter())
+                .map(|(p, t)| (p.to_string(), t.to_string()))
+                .collect(),
+        ),
+    });
+    let mut server = Inline::new(Options::new(STACK), memory).unwrap();
+    for message in [
+        json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"capabilities": {}}}),
+        json!({"jsonrpc": "2.0", "method": "initialized", "params": {}}),
+        json!({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {
+            "uri": "file:///memory/proj/src/First.sw", "languageId": "stitchwort", "version": 1, "text": files[0].1,
+        }}}),
+    ] {
+        server.receive(&message.to_string());
+    }
+    let mut sent = Vec::new();
+    loop {
+        let (out, more) = server.tick();
+        sent.extend(
+            out.iter()
+                .map(|m| serde_json::from_str::<Value>(m).unwrap()),
+        );
+        if !more {
+            break;
+        }
+    }
+    let errors: usize = (sent.iter())
+        .filter(|m| m["method"] == "textDocument/publishDiagnostics")
+        .map(|m| m["params"]["diagnostics"].as_array().unwrap().len())
+        .sum();
+    assert!(errors > 0, "the cycle is reported: {sent:?}");
+    let announced = (sent.iter()).position(|m| m["method"] == "stitchwort/checked");
+    let published = (sent.iter()).position(|m| m["method"] == "textDocument/publishDiagnostics");
+    assert!(announced > published && published.is_some(), "{sent:?}");
+}
+
+#[test]
+fn a_namespace_between_two_asked_for_is_checked_in_order() {
+    std::thread::Builder::new()
+        .stack_size(STACK)
+        .spawn(between_body)
+        .unwrap()
+        .join()
+        .unwrap();
+}
+
+fn between_body() {
+    let files = [
+        ("src/First.sw", "namespace First\n\ndef one: Nat := 1\n"),
+        (
+            "src/Second.sw",
+            "namespace Second\nimport First (one)\n\ndef two: Nat := one + one\n",
+        ),
+        (
+            "src/Third.sw",
+            "namespace Third\nimport Second (two)\nimport First (one)\n\ndef three: Nat := two + one\n",
+        ),
+    ];
+    let memory = Arc::new(Memory::default());
+    memory.add(MemoryProject {
+        root: "/memory/proj".into(),
+        sources: vec!["src".into()],
+        files: Arc::new(
+            (files.iter())
+                .map(|(p, t)| (p.to_string(), t.to_string()))
+                .collect(),
+        ),
+    });
+    let mut server = Inline::new(Options::new(STACK), memory).unwrap();
+    let uri = |name: &str| format!("file:///memory/proj/src/{name}.sw");
+    for message in [
+        json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"capabilities": {}}}),
+        json!({"jsonrpc": "2.0", "method": "initialized", "params": {}}),
+        // Second is only used by what was asked for, and uses First.
+        json!({"jsonrpc": "2.0", "method": "stitchwort/focus", "params": {"uris": [uri("First"), uri("Third")]}}),
+        json!({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {
+            "uri": uri("First"), "languageId": "stitchwort", "version": 1, "text": files[0].1,
+        }}}),
+    ] {
+        server.receive(&message.to_string());
+    }
+    let mut sent = Vec::new();
+    loop {
+        let (out, more) = server.tick();
+        sent.extend(
+            out.iter()
+                .map(|m| serde_json::from_str::<Value>(m).unwrap()),
+        );
+        if !more || sent.iter().any(|m| m["method"] == "stitchwort/checked") {
+            break;
+        }
+    }
+    let wrong: Vec<&Value> = (sent.iter())
+        .filter(|m| m["method"] == "textDocument/publishDiagnostics")
+        .filter(|m| !m["params"]["diagnostics"].as_array().unwrap().is_empty())
+        .collect();
+    assert!(wrong.is_empty(), "{wrong:?}");
+}

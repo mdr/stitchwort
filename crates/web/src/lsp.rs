@@ -158,7 +158,7 @@ pub fn describe_library_cache(bytes: &[u8]) -> String {
 /// The server's options in the worker: the playground sessions' guard
 /// (`STITCHWORT_GUARD`, 256 KiB; `Limits::for_stack` keeps a quarter, at
 /// least 256 KiB, in reserve), as for searches.
-fn options() -> stitchwort_lsp::Options {
+pub(crate) fn options() -> stitchwort_lsp::Options {
     let guard: usize = env!("STITCHWORT_GUARD").parse().unwrap_or(256 * 1024);
     stitchwort_lsp::Options::new(guard + 256 * 1024)
 }

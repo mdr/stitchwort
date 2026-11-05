@@ -351,6 +351,10 @@ enum Edit {
     Disk {
         path: PathBuf,
     },
+    /// Files whose diagnostics the client wants next (`stitchwort/focus`).
+    Focus {
+        paths: Vec<PathBuf>,
+    },
 }
 
 /// A proof search for a code action, queued for a worker.
@@ -882,6 +886,20 @@ impl Main {
                         self.edit(Edit::Disk { path });
                     }
                 }
+            }
+            // Not LSP: files the client wants checked and published first,
+            // with the one being edited (the files of the day an editor
+            // shows, which it opens one at a time). `{"uris": [...]}`;
+            // replaces the list given before.
+            "stitchwort/focus" => {
+                let Some(uris) = n.params.get("uris").and_then(|u| u.as_array()) else {
+                    return;
+                };
+                let paths = (uris.iter())
+                    .filter_map(|u| u.as_str().and_then(|u| Url::parse(u).ok()))
+                    .filter_map(|u| path(&u))
+                    .collect();
+                self.edit(Edit::Focus { paths });
             }
             _ => {}
         }
@@ -1499,6 +1517,20 @@ fn session_for(options: &Options) -> Session {
     session
 }
 
+/// [`session_for`] for a host that runs programs and checks in sessions of
+/// its own (the playground's tests, runs and evaluations): replaying the
+/// library from `options.library` when it holds the check cache, so such a
+/// session doesn't check the library again.
+pub fn library_session(options: &Options) -> Session {
+    let mut session = session_for(options);
+    if let Some(bundle) = options.library.get() {
+        session
+            .elab
+            .set_check_cache(Rc::new(BundleStore(bundle.clone())));
+    }
+    session
+}
+
 /// Checks the standard library as the server's sessions with `options`
 /// load it, and returns the entries written as a [`LibraryBundle`]'s bytes,
 /// for [`Options::library`] in a host built from the same code (the
@@ -1598,6 +1630,15 @@ enum Work {
 }
 
 impl Work {
+    /// Whether what the client is looking at (the file being edited, and the
+    /// files it asked for with `stitchwort/focus`) still has to be checked.
+    fn focus_pending(&self) -> bool {
+        match self {
+            Work::Project(p) => p.live.focus_pending(),
+            Work::File(f) => f.pending(),
+        }
+    }
+
     fn pending(&self) -> bool {
         match self {
             Work::Project(p) => p.live.pending(),
@@ -1618,6 +1659,10 @@ struct Checker {
     versions: HashMap<PathBuf, i32>,
     /// The workspace edited last: checked first.
     last: Option<PathBuf>,
+    /// The files the client asked to have checked next (`stitchwort/focus`).
+    also: Vec<PathBuf>,
+    /// The versions last announced (`stitchwort/checked`).
+    announced: BTreeMap<String, i32>,
     /// The diagnostics last published for each file, and its version then.
     published: HashMap<Url, (Option<i32>, Vec<lsp_types::Diagnostic>)>,
     /// An edit's diagnostics are still to be published (for
@@ -1642,6 +1687,8 @@ impl Checker {
             work: BTreeMap::new(),
             versions: HashMap::default(),
             last: None,
+            also: Vec::new(),
+            announced: BTreeMap::new(),
             published: HashMap::default(),
             unanswered: false,
         }
@@ -1675,7 +1722,31 @@ impl Checker {
             if let Some(key) = self.next_key() {
                 self.step(&key);
             }
+            self.announce();
         }
+    }
+
+    /// Tells the client, with `stitchwort/checked` (not LSP), the version of
+    /// each open document that everything it is looking at has been checked
+    /// and published for: once the files being edited and those it asked for
+    /// (`stitchwort/focus`) are checked, though the rest of a project may not
+    /// be. Sent again when a version has changed, whether or not that
+    /// changed any diagnostic (a document opened with the text the server
+    /// has already).
+    fn announce(&mut self) {
+        if self.work.values().any(Work::focus_pending) {
+            return;
+        }
+        let versions: BTreeMap<String, i32> = (self.versions.iter())
+            .filter_map(|(path, v)| Some((Url::from_file_path(path).ok()?.to_string(), *v)))
+            .collect();
+        if versions == self.announced {
+            return;
+        }
+        let params = serde_json::json!({ "versions": versions });
+        self.announced = versions;
+        let n = Notification::new("stitchwort/checked".to_string(), params);
+        let _ = self.sender.send(n.into());
     }
 
     /// The workspace to check next: the one edited last, if it has work
@@ -1702,6 +1773,7 @@ impl Checker {
         if let Some(key) = self.next_key() {
             self.step(&key);
         }
+        self.announce();
         self.work.values().any(Work::pending)
     }
 
@@ -1902,6 +1974,10 @@ impl Checker {
                     p.disk.insert(relative, text);
                 }
             }
+            Edit::Focus { paths } => {
+                self.also = paths;
+                self.give_also();
+            }
             Edit::Disk { path } => {
                 let open = self.versions.contains_key(&path);
                 let disk = self.source.read(&path);
@@ -1914,6 +1990,21 @@ impl Checker {
                         p.live.set_text(&relative, disk);
                     }
                 }
+            }
+        }
+    }
+
+    /// Tells each project its files among those the client asked for.
+    fn give_also(&mut self) {
+        let mut by_project: BTreeMap<PathBuf, Vec<String>> = BTreeMap::new();
+        for path in &self.also {
+            if let Some((key, relative)) = self.project_of(path) {
+                by_project.entry(key).or_default().push(relative);
+            }
+        }
+        for (key, work) in &mut self.work {
+            if let Work::Project(p) = work {
+                p.live.set_also(by_project.remove(key).unwrap_or_default());
             }
         }
     }
@@ -1933,6 +2024,7 @@ impl Checker {
     fn set_text(&mut self, path: &Path, text: Option<String>, edited: bool) {
         if !self.work.contains_key(path) && self.project_of(path).is_none() && edited {
             self.open_workspace(path);
+            self.give_also();
         }
         if let Some((key, relative)) = self.project_of(path) {
             let Some(Work::Project(p)) = self.work.get_mut(&key) else {

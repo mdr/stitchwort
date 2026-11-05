@@ -489,8 +489,9 @@ What the page does now, with the decisions of D2415–D2428:
   (`add_project`, with the saved edits applied), and every file shown stays
   open on the server (one `EditorView` each, the others hidden), so the
   project's session stays alive and a tab's edits and undo history are kept
-  while it is out of sight. The page's own Check, Tests, Evaluate and Run
-  still go through `playground-worker.js`.
+  while it is out of sight. The page's own Tests, Evaluate, JavaScript and Run
+  go through `playground-worker.js`; its Check pane shows the server's
+  diagnostics (§5.2.5).
 - **Cancellation:** the page ships `web/coi-serviceworker.js` (MIT, vendored
   unchanged with its licence header), so on GitHub Pages the page is
   cross-origin isolated after its first visit and the editor creates the
@@ -501,7 +502,7 @@ What the page does now, with the decisions of D2415–D2428:
   documents (at most three times).
 - **Dropped with the textarea:** the page's own index, tooltip, references
   panel and right-click menu (`check_index` and the `index` action of
-  `crates/web` are no longer used by the page), the selection-type pill, the
+  `crates/web` were left unused here, and are gone in §5.2.5), the selection-type pill, the
   underline of a name while Cmd is held (the pointer changes instead), and
   the "Not formatted" panel.
 
@@ -652,6 +653,66 @@ download).
 - Smaller entries: compressing them in the bundle, or a bundle without
   expression types for projects (hover in a library file would then show
   less).
+
+#### 5.2.5 One checker: the Check pane shows the server's diagnostics (SW-1432, SW-1454)
+
+The page checked everything twice: the editor's marks came from the language
+server (`lsp-worker.js`, fast since §5.2.4), and the Check pane from
+`playground-worker.js`, whose sessions checked the library again (9.5 s for
+`Aoc.Year2025.Day02` in Node, most of the 8.8 s the browser took to open a
+day). Now there is one checker for diagnostics.
+
+- **The Check pane is the server's.** `serverCheck()` in `web/index.html`
+  waits until the server has checked the text on show, then shapes the
+  diagnostics it published (errors, warnings, open goals; the same ones the
+  editor underlines) as the compiler's check answers were shaped, so the
+  rest of the page (the status line, the red file tabs, the error links,
+  "Fix the errors first" on the other tabs) is as before. The messages are
+  the server's (`[CODE] message`, with the first label's explanation and the
+  notes), not the CLI's rendering with a source excerpt. The page's own
+  `check` action stays only as the stand-in where there is no language
+  server (a host that blocks workers, or a server that crashed for good).
+- **Two messages that are not LSP.** `stitchwort/focus` (client to server,
+  `{"uris": [...]}`): the files whose namespaces the client wants checked
+  with the one being edited, before the rest of the project, and published as
+  each is (`LiveProject::set_also`). The page sends the day's own files (its
+  program, tests and proofs). Without it the day's proofs, which nothing in
+  the day's program uses, were checked after every other namespace of the
+  project: two minutes in Chrome. `stitchwort/checked` (server to client,
+  `{"versions": {uri: version}}`): once everything the client is looking at
+  (the file edited, those it asked for) is checked and published, the
+  version of each open document that was checked. The page's
+  `Editor.settled(uri)` resolves when its document's current version is
+  announced, so a pane never shows the answer for older text, and never
+  waits for the rest of the project.
+- **Tests, Evaluate, JavaScript and Run (`playground-worker.js`) replay
+  the library too.** Its sessions are made as the server's
+  (`stitchwort_lsp::library_session`: the same modes and limits, so the same
+  cache keys) and read `std.cache` (`load_library_cache`). They check the
+  program again before running it; with the cache that costs the program,
+  not the library. The tests of a day need a checked session of their own
+  (they run in it), so this is a second check of the day's namespaces, in a
+  worker beside the server; it is no longer on the way to the Check pane's
+  answer.
+- **Removed:** `check_index` and `check_index_project` (and their tests),
+  the `index` action of `playground-worker.js` and of the in-page
+  compiler.
+- **Not done:** the proof-search worker (`lsp-search-worker.js`) still
+  checks the library itself: its sessions are not navigable ones, so the
+  bundle's keys do not match, and `Searcher` takes its cache from a
+  directory. A bundle for its mode would be a second 14 MB file.
+
+Measured in Node on the built WebAssembly (5 November 2026, load average
+30–40; the browser was not timed, the budget of browser runs went on
+correctness):
+
+| `Aoc.Year2025.Day02` | before | after |
+|---|---|---|
+| server: first marks of the day's file | 2.1 s | 2.1–2.9 s |
+| Check pane's answer (before: the page's `check_project`, 9.5 s, in a worker of its own after the page's outline; after: the server, all 8 own files published, announced) | 9.5 s | 4.2 s |
+| `check_project` of the day in the page's session (the "Check every day" button's kind of work, and what Tests and Run do first) | 9.5 s | 2.6 s |
+| `test_project` | 1.5 s | 1.5 s |
+| `Aoc.Year2024.Day21`: first marks / Check pane's answer | 2.1 s / 5.2 s | 2.1 s / 2.4 s |
 
 ### 5.3 VS Code for the web, openvscode-server, vscode.dev
 
