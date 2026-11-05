@@ -116,7 +116,7 @@ def cellAt (rows: List (List a)) (position: Position): Option a :=
 --| The position of the one cell of `cells` equal to `wanted` (`Grid.findOnly`,
 --| for rows of any lengths).
 def onlyCell [auto eq: DecEq a] (cells: List (Position, a)) (wanted: a) (what: Text): {Fail} Position :=
-  match cells.filter (.snd == wanted) |> .map .fst with
+  match cells.filterMap (match some | (position, here) if here == wanted => position) with
     | [position] => position
     | [] => Fail.fail "no ${what}"
     | _ => Fail.fail "more than one ${what}"
