@@ -6690,13 +6690,13 @@
     {
       "id": 1310,
       "title": "Debug builtins tests hit E-RESOURCE 'nested too deeply' checking Int.divAddModNeg (syntax_means_the_prelude…, natives_stay_on_the_prelude_definitions, +2)",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1310",
       "labels": [
         "tooling"
       ],
-      "body": "Found by the 5 Nov daily tier. Fails at 8f197daa1^1 (main before SW-93) as well, passes at SW-93's base, so a lane merged on 4-5 Nov caused it (candidates: SW-1273 bit lemmas, SW-1297 std helpers, SW-1303 match forms, SW-1294 match forms). Debug build only: 'cargo test -p stitchwort-driver --test builtins'. Bisect, then fix the cause or the depth.\n\nBisected (DeepSeek, ~45 min): first bad commit d3b879bc1 (SW-1294, clause lambdas): more elaborator work per check pushed Int.divAddModNeg's deeply nested Eq.trans chain over the debug build's stack guard. Fix: the proof rewritten as calc chains (statement unchanged); hashes of it and its dependents change (69 snapshots, three Float pins). Debug stack margin stays thin for deep proofs: worth watching. Model result: DeepSeek, worked, ~45 min (est. 60).",
+      "body": "Found by the 5 Nov daily tier. Fails at 8f197daa1^1 (main before SW-93) as well, passes at SW-93's base, so a lane merged on 4-5 Nov caused it (candidates: SW-1273 bit lemmas, SW-1297 std helpers, SW-1303 match forms, SW-1294 match forms). Debug build only: 'cargo test -p stitchwort-driver --test builtins'. Bisect, then fix the cause or the depth.\n\nBisected (DeepSeek, ~45 min): first bad commit d3b879bc1 (SW-1294, clause lambdas): more elaborator work per check pushed Int.divAddModNeg's deeply nested Eq.trans chain over the debug build's stack guard. Fix: the proof rewritten as calc chains (statement unchanged); hashes of it and its dependents change (69 snapshots, three Float pins). Debug stack margin stays thin for deep proofs: worth watching. Model result: DeepSeek, worked, ~45 min (est. 60).\n\nMerged 9192b922f; verified: hash_stability, pinned hashes, float, natives, debug builtins 9/9, merge tier 1078, aoc check, audit.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
