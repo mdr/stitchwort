@@ -1,5 +1,5 @@
 {
-  "next": 1472,
+  "next": 1473,
   "tickets": [
     {
       "id": 47,
@@ -8888,13 +8888,13 @@
     {
       "id": 1465,
       "title": "omega ignores a fact whose ≤ comes from Ord at Nat (e.g. NonEmptyList.maximumLe), even passed in omega [...]; read it, or say it was skipped",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1465",
       "labels": [
         "omega"
       ],
-      "body": "From 2020 day 10 (SW-1461), 5 Nov 2026. Small improvement.\n\nStarted on DeepSeek, expected: 40 min.\n\nDeepSeek run lost to an overloaded server; GLM run stopped by 'Go usage limit exceeded' (OpenCode Go plan). Restarted on Sonnet, expected: 40 min.",
+      "body": "From 2020 day 10 (SW-1461), 5 Nov 2026. Small improvement.\n\nStarted on DeepSeek, expected: 40 min.\n\nDeepSeek run lost to an overloaded server; GLM run stopped by 'Go usage limit exceeded' (OpenCode Go plan). Restarted on Sonnet, expected: 40 min.\n\nDone (fd107a7f5), merged: omega.rs native_relation reads Ord.lessEq/lessThan at Nat and Int whose dictionary unfolds to a record, as Nat.LessEq/Int.LessEq; no new proof term (the kernel unfolds the instance). A listed fact omega can't read adds 'omega couldn't use listed fact N: T isn't an arithmetic fact it reads' on failure. Examples accept/omega-ord-facts, reject/omega-unusable-fact; day 10's annotation workaround dropped. Model result: Sonnet, worked, 12 min (est. 40).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8979,6 +8979,20 @@
         "editor"
       ],
       "body": "From SW-1459, 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1472,
+      "title": "omega's 'couldn't use listed fact N' note: name the fact by its source text instead of its position",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "omega"
+      ],
+      "body": "From SW-1465, 5 Nov 2026. Small improvement.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
