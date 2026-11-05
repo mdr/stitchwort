@@ -8431,14 +8431,14 @@
     {
       "id": 1433,
       "title": "Browser test 'the AoC days are listed' is stale: add 2020 days 7 and 8 (and make it read the list from the bundled project rather than hard-code it)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1433",
       "labels": [
         "tests",
         "playground"
       ],
-      "body": "From SW-1378 (CodeMirror swap), 5 Nov 2026. Small improvement.",
+      "body": "From SW-1378 (CodeMirror swap), 5 Nov 2026. Small improvement.\n\nStarted on DeepSeek, expected: 25 min (1 browser run).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
