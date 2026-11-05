@@ -8476,13 +8476,13 @@
     {
       "id": 1436,
       "title": "Std list lemmas: take one more after drop, lengthTakeLe, takeNil (dropNil exists), sum monotone over prefixes and slices, toList of nonEmpty",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1436",
       "labels": [
         "std"
       ],
-      "body": "From 2020 day 9 (SW-1427), 5 Nov 2026; see aoc/NOTES-2020.md Day 9. Item 3.\n\nStarted on DeepSeek, expected: 40 min.",
+      "body": "From 2020 day 9 (SW-1427), 5 Nov 2026; see aoc/NOTES-2020.md Day 9. Item 3.\n\nStarted on DeepSeek, expected: 40 min.\n\nDone on lane/SW-1436 (e51d571eb): std List.takeNil, lengthTakeLe, takeOwnLength, takeOfDropCons, sumTakeMono, sumDropTakeLe, toListOfNonEmpty (in NonEmptyList/Lemmas.sw, for the file order); day 9's own copies deleted. Statements checked by the orchestrator. Waits for batch 46's verifier. Model result: DeepSeek, worked, ~45 min (est. 40).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
