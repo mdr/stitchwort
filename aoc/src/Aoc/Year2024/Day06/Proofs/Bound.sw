@@ -61,12 +61,12 @@ theorem stepOnMap (lab: Lab) (guard: Guard) (inside: onMap lab guard.position = 
     | None => Void.exfalso (Option.noneNotSome next stepped)
     | Some position =>
       match blocked: lab.obstructions.contains position with
-        | True => rewrite <- Option.someInjective _ next stepped in inside
-        | False => rewrite <- Option.someInjective _ next stepped in aheadOnMap lab guard inside position ahead
+        | True => rewrite <- Option.someInjective stepped in inside
+        | False => rewrite <- Option.someInjective stepped in aheadOnMap lab guard inside position ahead
 
 --| She stays on the map until she leaves it.
 theorem afterOnMap (lab: Lab) (inside: onMap lab lab.start = True): (steps: Nat) → (guard: Guard) → after lab steps = Some guard → onMap lab guard.position = True
-  | Zero, guard, reached => rewrite <- Option.someInjective lab.startGuard guard reached in inside
+  | Zero, guard, reached => rewrite <- Option.someInjective reached in inside
   | Succ steps, guard, reached =>
     let reachedStep: (after lab steps).flatMap lab.step = Some guard := rewrite <- walkSucc lab steps (Some lab.startGuard) in reached
     match before: after lab steps with

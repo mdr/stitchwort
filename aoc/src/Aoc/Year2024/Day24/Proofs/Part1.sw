@@ -74,12 +74,12 @@ theorem settleSound (device: Device) (values: Values) (waiting: List Gate) (soun
     | True =>
       let fit: (gate: Gate) → gate ∈ waiting.filter (gate => gate.ready values) → gate ∈ device.gates ∧ gate.ready values = True :=
         (gate member =>
-          let kept := List.memFilter waiting (gate => gate.ready values) gate member
+          let kept := List.memFilter waiting (gate => gate.ready values) member
           Both (wired gate kept.left) kept.right)
       rewrite settleMore values waiting fewer in
         settleSound device (fireAll values (waiting.filter (gate => gate.ready values))) (waiting.filter (gate => ¬(gate.ready values)))
           (fireOntoSound device values sound (waiting.filter (gate => gate.ready values)) fit values sound)
-          (gate member => wired gate (List.memFilter waiting (gate => ¬(gate.ready values)) gate member).left)
+          (gate member => wired gate (List.memFilter waiting (gate => ¬(gate.ready values)) member).left)
           [decreasing := fewer]
 
 theorem settledSound (device: Device): Sound device device.settled :=
@@ -107,5 +107,5 @@ theorem part1Sound (device: Device) (number: Nat) (solved: solvePart1 device = S
               | Witness value (Both valueIs bitIs) =>
                 let isOut := Bool.falseOfNotTrue _ (isIn => notMember ((List.memContains device.wires (Z bit)).forward isIn))
                 let noWire: Some False = Some value := rewrite Nat.addZero bit, isOut at valueIs in valueIs
-                rewrite <- isNumber, bitIs in Eq.sym (Option.someInjective False value noWire)
+                rewrite <- isNumber, bitIs in Eq.sym (Option.someInjective noWire)
           | False => rewrite <- isNumber in rangeBitsBeyond zValue count 0 bits bitsAre bit (omega)))

@@ -54,7 +54,7 @@ theorem takeKeeps (garden: Garden) (plant: Char) (start: Position) (position: Po
     (other =>
       match same: other == position with
         | True =>
-          rewrite DecEq.sound other position same in {
+          rewrite DecEq.sound same in {
             forward = contains => Inl rfl,
             backward = member => Set.containsInsert position visited
           }
@@ -125,7 +125,7 @@ theorem fillCorrect (garden: Garden) (plant: Char) (start: Position) (stack: Lis
         let fresh := taken
         match growing: garden.plantAt position == Some plant with
           | True =>
-          let grows: garden.plantAt position = Some plant := DecEq.sound _ _ growing
+          let grows: garden.plantAt position = Some plant := DecEq.sound growing
           let result :=
             fillCorrect garden plant start (garden.neighboursGrowing plant position ++ rest) (visited.insert position) [position, ..members]
               (takeKeeps garden plant start position rest visited members state fresh grows)
@@ -175,10 +175,10 @@ theorem closedChain (garden: Garden) (plant: Char) (result: List Position)
     (sound: (position: Position) → position ∈ result → garden.plantAt position = Some plant)
     (closed: (member: Position) → member ∈ result → (next: Position) → next ∈ garden.neighboursGrowing plant member → next ∈ result):
     (from: Position) → (chain: List Position) → (to: Position) → from ∈ result → isChain garden from chain to = True → to ∈ result
-  | from, [], to, member, same => rewrite <- DecEq.sound from to same in member
+  | from, [], to, member, same => rewrite <- DecEq.sound same in member
   | from, [next, ..rest], to, member, chained =>
     closedChain garden plant result sound closed next rest to
-      (closed from member next (touchingGrowing garden plant from next (sound from member) (Bool.andLeft _ _ chained))) (Bool.andRight _ _ chained)
+      (closed from member next (touchingGrowing garden plant from next (sound from member) (Bool.andLeft chained))) (Bool.andRight chained)
 
 --| From a plot growing `plant`, the region is a fill.
 theorem regionOfFill (garden: Garden) (start: Position) (plant: Char) (grows: garden.plantAt start = Some plant):

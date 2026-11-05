@@ -178,9 +178,9 @@ theorem sumOverGrid (region: Region) (distinct: List.Distinct region.plots) (las
   let kept := (square last).filter isIn
   let same: List.Perm kept region.plots :=
     List.permOfSameMembers kept region.plots (List.distinctFilter (square last) isIn (squareDistinct last)) distinct
-      (plot member => (List.memContains region.plots plot).forward (And.right (List.memFilter (square last) isIn plot member)))
+      (plot member => (List.memContains region.plots plot).forward (And.right (List.memFilter (square last) isIn member)))
       (plot member =>
-        List.memFilterIntro (square last) isIn plot
+        List.memFilterIntro (square last) isIn
           (match plot with
             | { row, column } =>
               let bounds := within { row, column } member

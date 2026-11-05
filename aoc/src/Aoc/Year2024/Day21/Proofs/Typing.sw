@@ -65,12 +65,12 @@ type Fitted (k: Type) = {
 --| The cheapest of the routes passes a test they all pass.
 theorem cheapestPasses (costs: Costs) (passes: List Direction → Bool) (choices: NonEmptyList (List Direction)) (all: choices.all passes = True):
     passes (costs.cheapestRoute choices) = True :=
-  minByStepPasses costs.routeCost passes choices.head (Bool.andLeft _ _ all) choices.tail (Bool.andRight _ _ all)
+  minByStepPasses costs.routeCost passes choices.head (Bool.andLeft all) choices.tail (Bool.andRight all)
 
 theorem cheapestFits [auto decEq: DecEq k] [auto fin: Finite k] (keypad: Keypad k) (rows: List (List (Option k)))
     (checked: fits keypad rows = True) (costs: Costs) (from: k) (to: k):
     routeFits rows (keypad.place from) (keypad.place to) (costs.cheapestRoute (keypad.routes from to)) = True :=
-  let pairs := Bool.andRight _ _ checked
+  let pairs := Bool.andRight checked
   let fromChecked := Finite.check _ pairs from
   let pairChecked := Finite.check _ fromChecked to
   cheapestPasses costs (routeFits rows (keypad.place from) (keypad.place to)) (keypad.routes from to) pairChecked
@@ -79,9 +79,9 @@ def fitted [auto decEq: DecEq k] [auto fin: Finite k] (keypad: Keypad k) (rows: 
     (checked: fits keypad rows = True): Fitted k := {
   keypad,
   rows,
-  onKey = to => DecEq.sound _ _ (Finite.check (to => keyAt rows (keypad.place to) == Some to) (Bool.andLeft _ _ checked) to),
-  cheapestWalks = costs from to => DecEq.sound _ _ (Bool.andLeft _ _ (cheapestFits keypad rows checked costs from to)),
-  cheapestLength = costs from to => DecEq.sound _ _ (Bool.andRight _ _ (cheapestFits keypad rows checked costs from to))
+  onKey = to => DecEq.sound (Finite.check (to => keyAt rows (keypad.place to) == Some to) (Bool.andLeft checked) to),
+  cheapestWalks = costs from to => DecEq.sound (Bool.andLeft (cheapestFits keypad rows checked costs from to)),
+  cheapestLength = costs from to => DecEq.sound (Bool.andRight (cheapestFits keypad rows checked costs from to))
 }
 
 def numericFitted: Fitted NumericKey := fitted Keypad.numeric numericRows numericFits

@@ -41,14 +41,14 @@ theorem pairsElim (city: City) (pair: (Position, Position)) (goal: Prop) (has: p
       List.anyElim (other => (first.position, (other: Antenna).position) = pair) goal (city.antennas.filter (sameFrequency first))
         (List.memMapAny (city.antennas.filter (sameFrequency first)) (other => (first.position, other.position)) pair inPartners)
         (second secondIn built =>
-          let both := List.memFilter city.antennas (sameFrequency first) second secondIn
+          let both := List.memFilter city.antennas (sameFrequency first) secondIn
           use first second firstIn (And.left both) (And.right both) built))
 
 theorem pairsIntro (city: City) (first: Antenna) (second: Antenna) (firstIn: first ∈ city.antennas) (secondIn: second ∈ city.antennas)
     (same: sameFrequency first second = True):
     (first.position, second.position) ∈ city.antennaPairs :=
   List.memFlatMapIntro (partners city) first (first.position, second.position) city.antennas firstIn
-    (List.memMap (city.antennas.filter (sameFrequency first)) second (List.memFilterIntro city.antennas (sameFrequency first) second secondIn same)
+    (List.memMap (city.antennas.filter (sameFrequency first)) second (List.memFilterIntro city.antennas (sameFrequency first) secondIn same)
       (other => (first.position, other.position)))
 
 --| The antinode locations, from `pick`, the points each pair of antennas
@@ -66,27 +66,27 @@ theorem locationsCorrect (city: City) (pick: (Position, Position) → List Posit
     Bool.eqOf _ _
       (has =>
         List.anyTrueElim (found.filter city.contains) (other => Map.Spec.sameKey key other) _ has (point member same =>
-          let both := List.memFilter found city.contains point member
+          let both := List.memFilter found city.contains member
           rewrite Map.Spec.sameKeySound key point same in
           List.anyElim (pair => point ∈ pick pair) _ city.antennaPairs (List.memFlatMapElim pick point city.antennaPairs (And.left both))
             (pair pairIn picked =>
               pairsElim city pair _ pairIn (first second firstIn secondIn sameness built =>
                 let holding := (agree first second firstIn secondIn sameness point (And.right both)).forward (rewrite built in picked)
                 let inner := List.anyOfMem city.antennas (other => sameFrequency first other && holds point first.position other.position) second
-                  (Bool.andIntro (sameFrequency first second) (holds point first.position second.position) sameness holding) secondIn
-                Bool.andIntro _ _ (positionsOnMap city point (And.right both))
+                  (Bool.andIntro sameness holding) secondIn
+                Bool.andIntro (positionsOnMap city point (And.right both))
                   (List.anyOfMem city.antennas
                     (one => city.antennas.any (other => sameFrequency one other && holds point one.position other.position)) first inner firstIn)))))
       (has =>
-        let onMap := positionsOnlyOnMap city key (Bool.andLeft _ _ has)
+        let onMap := positionsOnlyOnMap city key (Bool.andLeft has)
         List.anyTrueElim city.antennas (one => city.antennas.any (other => sameFrequency one other && holds key one.position other.position)) _
-          (Bool.andRight _ _ has)
+          (Bool.andRight has)
           (first firstIn inner =>
             List.anyTrueElim city.antennas (other => sameFrequency first other && holds key first.position other.position) _ inner
               (second secondIn both =>
-                let sameness := Bool.andLeft _ _ both
-                let picked := (agree first second firstIn secondIn sameness key onMap).backward (Bool.andRight _ _ both)
+                let sameness := Bool.andLeft both
+                let picked := (agree first second firstIn secondIn sameness key onMap).backward (Bool.andRight both)
                 let inFound := List.memFlatMapIntro pick (first.position, second.position) key city.antennaPairs
                   (pairsIntro city first second firstIn secondIn sameness) picked
                 List.anyOfMem (found.filter city.contains) (other => Map.Spec.sameKey key other) key
-                  (rewrite Map.Spec.sameKeyDecide key key in DecEq.refl key) (List.memFilterIntro found city.contains key inFound onMap)))))
+                  (rewrite Map.Spec.sameKeyDecide key key in DecEq.refl key) (List.memFilterIntro found city.contains inFound onMap)))))

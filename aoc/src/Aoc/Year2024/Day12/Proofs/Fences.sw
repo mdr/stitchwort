@@ -23,8 +23,8 @@ theorem sameAcrossFaces (garden: Garden) (start: Position) (plant: Char) (grows:
         match otherGrows: garden.plantAt other == Some plant with
           | True =>
             let touching: touches garden plot other = True :=
-              Bool.andIntro _ _ (orthogonalIntro plot other (stepOrthogonal plot side other stepped))
-                (growSameIntro garden plot other plant plotGrows (DecEq.sound _ _ otherGrows))
+              Bool.andIntro (orthogonalIntro plot other (stepOrthogonal plot side other stepped))
+                (growSameIntro garden plot other plant plotGrows (DecEq.sound otherGrows))
             Eq.sym ((List.memContains region.plots other).backward ((isRegion other).backward (joinedStep garden start plot other joined touching)))
           | False =>
             match found: region.contains other with
@@ -38,5 +38,5 @@ theorem sameAcrossFaces (garden: Garden) (start: Position) (plant: Char) (grows:
 theorem perimeterCorrect (garden: Garden) (start: Position) (plant: Char) (grows: garden.plantAt start = Some plant) (region: Region)
     (isRegion: IsRegion garden start region): region.perimeter garden = perimeter region :=
   List.sumByCongMem region.plots garden.fences (plot => directions.count (side => !facesRegion region plot side)) (plot member =>
-    List.countCongMem directions (side => !garden.sameAcross plot side) (side => !facesRegion region plot side) (side inDirections =>
+    List.countCongMem (side => !garden.sameAcross plot side) (side => !facesRegion region plot side) (side inDirections =>
       rewrite sameAcrossFaces garden start plant grows region isRegion plot member side in rfl))

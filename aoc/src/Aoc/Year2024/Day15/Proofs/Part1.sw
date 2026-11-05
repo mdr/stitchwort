@@ -18,7 +18,7 @@ theorem firstFreeSome (boxes: Set Cell) (direction: Direction): (start: Cell) â†
     match c: boxes.contains start with
       | True => Both (And.left (firstFreeSome boxes direction (start.step direction) fuel free found)) (Inr rfl)
       | False =>
-        let same := Option.someInjective _ _ found
+        let same := Option.someInjective found
         Both (rewrite <- same in c) (Inl (Eq.sym same))
 
 --| Along a line of `length` boxes from `start`, `firstFree` finds the

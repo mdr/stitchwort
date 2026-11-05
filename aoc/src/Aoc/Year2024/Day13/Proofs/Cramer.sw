@@ -8,7 +8,7 @@ import Std (And, Bool, DecEq, Eq, Int, Nat, Option, Void)
 --| A win is the two equations, one per axis.
 theorem winsEquations (machine: Machine) (aPresses: Nat) (bPresses: Nat) (won: machine.wins aPresses bPresses = True):
     (aPresses.toInt * machine.buttonA.x + bPresses.toInt * machine.buttonB.x = machine.prize.x) ∧ (aPresses.toInt * machine.buttonA.y + bPresses.toInt * machine.buttonB.y = machine.prize.y) :=
-  Both (DecEq.sound _ _ (Bool.andLeft _ _ won)) (DecEq.sound _ _ (Bool.andRight _ _ won))
+  Both (DecEq.sound (Bool.andLeft won)) (DecEq.sound (Bool.andRight won))
 
 --| Eliminating B's presses from the two equations: A's presses times the
 --| determinant are what Cramer's rule divides.
@@ -38,4 +38,4 @@ theorem onlyPressesFinds (machine: Machine) (nonzero: machine.determinant ≠ 0)
 --| The presses `Machine.onlyPresses` finds win.
 theorem onlyPressesWins (machine: Machine) (nonzero: machine.determinant ≠ 0) (aPresses: Nat) (bPresses: Nat):
     machine.onlyPresses nonzero = Some (aPresses, bPresses) → machine.wins aPresses bPresses = True :=
-  found => And.right (Option.filterEqSome _ _ _ found)
+  found => And.right (Option.filterEqSome _ _ found)

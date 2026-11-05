@@ -26,9 +26,9 @@ theorem lineAfterAdd (lines: Map Nat (Set Nat)) (line: Nat) (item: Nat) (key: Na
       = ((key == line && other == item) || (lines.getOr key Set.empty).contains other) :=
   match onLine: key == line with
     | True =>
-      rewrite DecEq.sound key line onLine, Map.getInsert line (lines.getOr line Set.empty |> .insert item) lines in
+      rewrite DecEq.sound onLine, Map.getInsert line (lines.getOr line Set.empty |> .insert item) lines in
       match isItem: other == item with
-        | True => rewrite DecEq.sound other item isItem, Set.containsInsert item (lines.getOr line Set.empty) in rfl
+        | True => rewrite DecEq.sound isItem, Set.containsInsert item (lines.getOr line Set.empty) in rfl
         | False =>
           rewrite Set.containsInsertOther (lines.getOr line Set.empty) item other (DecEq.soundFalse other item isItem) in rfl
     | False => rewrite Map.getInsertOther line (lines.getOr line Set.empty |> .insert item) key (DecEq.soundFalse key line onLine) lines in rfl
@@ -49,7 +49,7 @@ theorem orShift (a: Bool) (b: Bool) (c: Bool): ((a || b) || c) = (b || (if a the
 theorem orFalse (a: Bool): (a || False) = a := cases
 
 --| The same positions, the same representation.
-theorem representsCong (sightlines: Sightlines) (has: Position → Bool) (other: Position → Bool) (same: (position: Position) → has position = other position)
+theorem representsCong [sightlines: Sightlines] [has: Position → Bool] [other: Position → Bool] (same: (position: Position) → has position = other position)
     (represents: Represents sightlines has): Represents sightlines other :=
   row column => rewrite <- same { row, column } in represents row column
 
@@ -57,13 +57,10 @@ theorem representsCong (sightlines: Sightlines) (has: Position → Bool) (other:
 theorem foldRepresents: (entries: List (Position, ())) → (sightlines: Sightlines) → (has: Position → Bool) → Represents sightlines has →
     Represents (Map.Spec.foldLeft (acc key unit => Sightlines.add acc key) sightlines entries)
       (position => has position || entries.any (entry => isAt entry.fst.row entry.fst.column position))
-  | [], sightlines, has, represents, row, column => representsCong sightlines has _ (position => Eq.sym (orFalse (has position))) represents row column
+  | [], sightlines, has, represents, row, column => representsCong (position => Eq.sym (orFalse (has position))) represents row column
   | [(key, unit), ..rest], sightlines, has, represents, row, column =>
     let hasRest := (position: Position) => rest.any (entry => isAt entry.fst.row entry.fst.column position)
-    representsCong (Map.Spec.foldLeft (acc key unit => Sightlines.add acc key) (sightlines.add key) rest)
-      (position => (isAt key.row key.column position || has position) || hasRest position)
-      (position => has position || [(key, unit), ..rest].any (entry => isAt entry.fst.row entry.fst.column position))
-      (position => orShift (isAt key.row key.column position) (has position) (hasRest position))
+    representsCong (position => orShift (isAt key.row key.column position) (has position) (hasRest position))
       (foldRepresents rest (sightlines.add key) (position => isAt key.row key.column position || has position) (addRepresents sightlines has represents key))
       row column
 
@@ -75,7 +72,7 @@ theorem isAtSelf (position: Position): isAt position.row position.column positio
   rewrite DecEq.refl position.row, DecEq.refl position.column in rfl
 
 theorem isAtSound (key: Position) (position: Position) (here: isAt key.row key.column position = True): position = key :=
-  positionExt position key (DecEq.sound _ _ (Bool.andLeft _ _ here)) (DecEq.sound _ _ (Bool.andRight _ _ here))
+  positionExt position key (DecEq.sound (Bool.andLeft here)) (DecEq.sound (Bool.andRight here))
 
 --| A set has a position when one of its entries is at it.
 theorem containsEntries (obstructions: Set Position) (position: Position):
@@ -104,7 +101,7 @@ theorem ofRepresents (obstructions: Set Position): Represents (Sightlines.of obs
       = Map.Spec.foldLeft (acc key unit => Sightlines.add acc key) ({ byRow = Map.empty, byColumn = Map.empty }: Sightlines) (Map.toList obstructions.items) :=
     Map.foldLeftToList (acc key unit => Sightlines.add acc key) ({ byRow = Map.empty, byColumn = Map.empty }: Sightlines) obstructions.items
   rewrite folded in
-  representsCong _ _ _ (containsEntries obstructions)
+  representsCong (containsEntries obstructions)
     (foldRepresents (Map.toList obstructions.items) ({ byRow = Map.empty, byColumn = Map.empty }: Sightlines) (position => False) emptyRepresents)
 
 --| One step: turning at an obstruction ahead, and leaving past the edge.
@@ -367,13 +364,9 @@ theorem programSimulates (lab: Lab) (mapped: (position: Position) → lab.obstru
     (blocker: Position) (blockerInside: onMap lab blocker = True):
     Simulates ((Sightlines.of lab.obstructions).add blocker) (lab.withObstruction blocker) :=
   sightlinesSimulate (lab.withObstruction blocker) ((Sightlines.of lab.obstructions).add blocker)
-    (representsCong ((Sightlines.of lab.obstructions).add blocker)
-      (position => isAt blocker.row blocker.column position || lab.obstructions.contains position)
-      (position => (lab.withObstruction blocker).obstructions.contains position)
-      (insertContains lab.obstructions blocker)
+    (representsCong (insertContains lab.obstructions blocker)
       (addRepresents (Sightlines.of lab.obstructions) (position => lab.obstructions.contains position) (ofRepresents lab.obstructions) blocker))
     (position has =>
-      Bool.orElim (isAt blocker.row blocker.column position) (lab.obstructions.contains position) (onMap lab position = True)
-        (Eq.trans (insertContains lab.obstructions blocker position) has)
+      Bool.orElim (Eq.trans (insertContains lab.obstructions blocker position) has)
         (here => rewrite isAtSound blocker position here in blockerInside)
         (mapped position))

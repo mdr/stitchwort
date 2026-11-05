@@ -18,7 +18,7 @@ theorem cramerFewest (machine: Machine) (nonzero: machine.determinant ≠ 0):
     | Some (aPresses, bPresses) =>
       Both (Witness aPresses (Witness bPresses (Both (onlyPressesWins machine nonzero aPresses bPresses found) (costIsTokens aPresses bPresses))))
         (otherA otherB otherWon =>
-          let same := Option.someInjective _ _ (Eq.trans (Eq.sym found) (onlyPressesFinds machine nonzero otherA otherB otherWon))
+          let same := Option.someInjective (Eq.trans (Eq.sym found) (onlyPressesFinds machine nonzero otherA otherB otherWon))
           let sameA: aPresses = otherA := Eq.cong (pair => pair.fst) same
           let sameB: bPresses = otherB := Eq.cong (pair => pair.snd) same
           rewrite costIsTokens otherA otherB, sameA, sameB in Nat.leRefl (tokens otherA otherB))

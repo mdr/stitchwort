@@ -66,13 +66,13 @@ theorem possibleIff (patterns: List Pattern) (design: Design):
   forward = found =>
     Exists.map
       (towels member =>
-        let filtered := List.memFilter (towelLists patterns design.stripes.length) (towels => laid towels == design.stripes) towels member
-        Both (fromTowelLists patterns design.stripes.length towels filtered.left).left (DecEq.sound (laid towels) design.stripes filtered.right))
+        let filtered := List.memFilter (towelLists patterns design.stripes.length) (towels => laid towels == design.stripes) member
+        Both (fromTowelLists patterns design.stripes.length towels filtered.left).left (DecEq.sound filtered.right))
       (someMember (arrangements patterns design) found),
   backward = made =>
     Exists.elim made (towels (Both from stripes) =>
       memberSome (arrangements patterns design) towels
-        (List.memFilterIntro (towelLists patterns design.stripes.length) (towels => laid towels == design.stripes) towels
+        (List.memFilterIntro (towelLists patterns design.stripes.length) (towels => laid towels == design.stripes)
           (inTowelLists patterns design.stripes.length towels from (rewrite <- stripes in towelsAtMostStripes patterns towels from))
           (rewrite stripes in DecEq.refl design.stripes)))
 }

@@ -42,7 +42,7 @@ theorem part1Some (size: Nat) (bytes: List Position) (fallen: Nat) (fewest: Nat)
         (steps path =>
           let (Both walked cost) := pathSteps size bytes fallen topLeft steps memory.exit (And.right path)
           Exists.elim (And.right shortest topLeft 0 (Inl rfl) _ memory.exit walked) (other both =>
-            let same: other = fewest := Option.someInjective _ _ (Eq.trans (Eq.sym (And.left both)) found)
+            let same: other = fewest := Option.someInjective (Eq.trans (Eq.sym (And.left both)) found)
             omega [same, And.right both, cost]))
 
 --| When part 1 finds no number of steps, there is no path.

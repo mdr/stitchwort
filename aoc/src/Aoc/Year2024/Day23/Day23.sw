@@ -104,7 +104,7 @@ def Links.largestFrom (links: Links) (clique: Set Computer) (candidates: Set Com
           let narrowed := links.neighbours candidate |> .intersect others
           let withinOthers: narrowed.size ≤ others.size :=
             Set.sizeSubset others narrowed (key inside =>
-              Bool.andRight _ _ (Eq.trans (Eq.sym (Set.containsIntersect (links.neighbours candidate) key others)) inside))
+              Bool.andRight (Eq.trans (Eq.sym (Set.containsIntersect (links.neighbours candidate) key others)) inside))
           let withIt := links.largestFrom (clique.insert candidate) narrowed best [decreasing := omega [withinOthers, fewer]]
           links.largestFrom clique others withIt
         else best

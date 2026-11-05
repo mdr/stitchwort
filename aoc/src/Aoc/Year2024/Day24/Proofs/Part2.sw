@@ -11,8 +11,8 @@ import Std (Bool, DecEq, Eq, Exists, List, Nat, Option, Text, Void)
 --| Gates that pass `isAdder` add, and each wire is the output of at most
 --| one of them.
 theorem adderAdds (gates: List Gate) (bits: Nat) (adder: isAdder gates bits = True): Adds bits gates ∧ wellWired gates = True :=
-  let rest := Bool.andRight _ _ adder
-  Both (shapeAdds gates bits (DecEq.sound _ _ (Bool.andRight _ _ rest)) (Bool.andLeft _ _ rest)) (Bool.andLeft _ _ adder)
+  let rest := Bool.andRight adder
+  Both (shapeAdds gates bits (DecEq.sound (Bool.andRight rest)) (Bool.andLeft rest)) (Bool.andLeft adder)
 
 --| What `repair` returns: the swaps it was given, then at most `budget`
 --| more, which make the gates an adder.
@@ -23,7 +23,7 @@ def Repaired (bits: Nat) (budget: Nat) (gates: List Gate) (swaps: List (Wire, Wi
 theorem repairDone (bits: Nat) (budget: Nat) (gates: List Gate) (swaps: List (Wire, Wire)) (result: List (Wire, Wire))
     (found: (if isAdder gates bits then Some swaps else None) = Some result): Repaired bits budget gates swaps result :=
   match adder: isAdder gates bits with
-    | True => Witness [] (Both (rewrite List.appendNil swaps in Eq.sym (Option.someInjective swaps result found)) (Both (omega) adder))
+    | True => Witness [] (Both (rewrite List.appendNil swaps in Eq.sym (Option.someInjective found)) (Both (omega) adder))
     | False => Void.exfalso (Option.noneNotSome result found)
 
 theorem repairSound (bits: Nat): (budget: Nat) → (gates: List Gate) → (swaps: List (Wire, Wire)) → (result: List (Wire, Wire)) →
@@ -89,16 +89,16 @@ theorem wellFormedInputs (bits: Nat) (x: Nat) (y: Nat) (gates: List Gate) (wired
   let yPairs := (List.range 0 bits).map (k => (Y k, Nat.testBit y k))
   let xDistinct: List.Distinct (xPairs.map .fst) :=
     rewrite List.mapMap (List.range 0 bits) .fst (k => (X k, Nat.testBit x k)) in
-      List.distinctMap (List.range 0 bits) (List.distinctRangeFrom bits 0) _ (i j same => Option.someInjective i j (Eq.cong Wire.xBit same))
+      List.distinctMap (List.range 0 bits) (List.distinctRangeFrom bits 0) _ (i j same => Option.someInjective (Eq.cong Wire.xBit same))
   let yDistinct: List.Distinct (yPairs.map .fst) :=
     rewrite List.mapMap (List.range 0 bits) .fst (k => (Y k, Nat.testBit y k)) in
-      List.distinctMap (List.range 0 bits) (List.distinctRangeFrom bits 0) _ (i j same => Option.someInjective i j (Eq.cong Wire.yBit same))
+      List.distinctMap (List.range 0 bits) (List.distinctRangeFrom bits 0) _ (i j same => Option.someInjective (Eq.cong Wire.yBit same))
   let disjoint: List.Disjoint (xPairs.map .fst) (yPairs.map .fst) :=
     List.allOfMem _ _ (wire inX inY => notXAndY wire (xNamed bits x wire inX) (yNamed bits y wire inY))
-  Both ((List.allDistinctCorrect (gates.map .output)).forward (Bool.andLeft _ _ wired))
+  Both ((List.allDistinctCorrect (gates.map .output)).forward (Bool.andLeft wired))
     (Both (List.distinctMapAppend .fst xPairs yPairs xDistinct yDistinct disjoint)
       (gate member named =>
-        let notInput := List.allMember (gate => gate.output.xBit.isNone ∧ gate.output.yBit.isNone) gates (Bool.andRight _ _ wired) gate member
+        let notInput := List.allMember (gate => gate.output.xBit.isNone ∧ gate.output.yBit.isNone) gates (Bool.andRight wired) gate member
         let input: (gate.output.xBit.isSome ∨ gate.output.yBit.isSome) = True :=
           match List.memAppend gate.output (xPairs.map .fst) (yPairs.map .fst) (rewrite <- List.mapAppend xPairs yPairs .fst in named) with
             | Inl inX => rewrite xNamed bits x gate.output inX in rfl

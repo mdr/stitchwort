@@ -29,7 +29,7 @@ theorem mayPrecedeTransitive (precedes: Nat → Nat → Bool) (pages: List Nat)
     | False => rfl
     | True =>
       match same: x == y with
-        | True => Void.exfalso (Bool.falseNotTrue (rewrite <- DecEq.sound x y same, zFirst at yz))
+        | True => Void.exfalso (Bool.falseNotTrue (rewrite <- DecEq.sound same, zFirst at yz))
         | False =>
           let xFirst := total y x inY inX (other => DecEq.soundFalse x y same (Eq.sym other)) (cases)
           Void.exfalso (Bool.falseNotTrue (rewrite transitive z x y inZ inX inY zFirst xFirst at yz))
@@ -45,7 +45,7 @@ theorem inOrderOfPairwise (precedes: Nat → Nat → Bool):
 theorem inOrderLater (precedes: Nat → Nat → Bool) (page: Nat) (later: List Nat) (ordered: inOrder precedes [page, ..later] = True)
     (laterPage: Nat) (isLater: laterPage ∈ later): precedes laterPage page = False :=
   let kept := List.allMem (other => !(precedes other page) = True) laterPage later
-    (List.allToAll (other => !(precedes other page)) later (Bool.andLeft _ _ ordered)) isLater
+    (List.allToAll (other => !(precedes other page)) later (Bool.andLeft ordered)) isLater
   cases
 
 --| Under the assumption, sorting by `mayPrecede` puts the pages in order.
@@ -97,7 +97,7 @@ theorem orderUnique (precedes: Nat → Nat → Bool) (pages: List Nat)
             | Inl equal => Eq.sym equal
             | Inr xLater =>
               match equal: x == y with
-                | True => DecEq.sound x y equal
+                | True => DecEq.sound equal
                 | False =>
                   let inY := List.allMem (page => page ∈ pages) y xs inPages yLater
                   let yNotFirst := inOrderLater precedes x xs firstOrdered y yLater
@@ -108,7 +108,7 @@ theorem orderUnique (precedes: Nat → Nat → Bool) (pages: List Nat)
       orderUnique precedes pages total xs ys inPages
         (property => Nat.addCancelLeft (Bool.toNat (property x)) (List.occurrences xs property) (List.occurrences ys property)
           (Eq.trans (same property) (Eq.cong (head => Bool.toNat (property head) + List.occurrences ys property) (Eq.sym heads))))
-        (Bool.andRight _ _ firstOrdered) (Bool.andRight _ _ secondOrdered)
+        (Bool.andRight firstOrdered) (Bool.andRight secondOrdered)
     rewrite heads, tails in rfl
 
 --| Under the assumption there is only one correct ordering of an update.
@@ -140,7 +140,7 @@ theorem part2Correct (queue: PrintQueue)
     (queued isIn => rewrite inOrderCorrect queue.rules queued in rfl),
     List.mapCongMem (queue.updates.filter wrong) (.reorder precedes) ordering
       (queued isIn =>
-        match List.memFilter queue.updates wrong queued isIn with
+        match List.memFilter queue.updates wrong isIn with
           | Both inQueue isWrong =>
             updateExt (queued.reorder precedes) (ordering queued)
               (correctOrderingUnique queue.rules queued (orders queued inQueue) (queued.reorder precedes) (ordering queued)

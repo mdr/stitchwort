@@ -16,18 +16,18 @@ theorem movedNear (aim: Position) (to: Position): (direction: Direction) → (ne
   | Up, next, step =>
     match top: aim.row == 0 with
       | True => Void.exfalso (Option.noneNotSome next step)
-      | False => rewrite <- Option.someInjective _ next step in omega [top]
-  | Down, next, step => rewrite <- Option.someInjective _ next step in omega
+      | False => rewrite <- Option.someInjective step in omega [top]
+  | Down, next, step => rewrite <- Option.someInjective step in omega
   | Left, next, step =>
     match edge: aim.column == 0 with
       | True => Void.exfalso (Option.noneNotSome next step)
-      | False => rewrite <- Option.someInjective _ next step in omega [edge]
-  | Right, next, step => rewrite <- Option.someInjective _ next step in omega
+      | False => rewrite <- Option.someInjective step in omega [edge]
+  | Right, next, step => rewrite <- Option.someInjective step in omega
 
 --| A walk has at least as many moves as the distance between its ends.
 theorem walkDistance (rows: List (List (Option k))): (start: Position) → (route: List Direction) → (end: Position) →
     walk rows start route = Some end → distance start end ≤ route.length
-  | start, [], end, walked => rewrite <- Option.someInjective start end walked in omega
+  | start, [], end, walked => rewrite <- Option.someInjective walked in omega
   | start, [direction, ..rest], end, walked =>
     match step: moved start direction with
       | None => Void.exfalso (Option.noneNotSome end walked)
@@ -45,18 +45,18 @@ theorem routeCostYours (route: List Direction): Costs.yours.routeCost route = ro
 --| A key's place is the only one where an arm aims at it.
 theorem numericPlaceOf: (row: Nat) → (column: Nat) → (key: NumericKey) → keyAt numericRows { row, column } = Some key →
     ({ row, column }: Position) = Keypad.numeric.place key
-  | 0, 0, key, found => rewrite <- Option.someInjective Digit7 key found in rfl
-  | 0, 1, key, found => rewrite <- Option.someInjective Digit8 key found in rfl
-  | 0, 2, key, found => rewrite <- Option.someInjective Digit9 key found in rfl
-  | 1, 0, key, found => rewrite <- Option.someInjective Digit4 key found in rfl
-  | 1, 1, key, found => rewrite <- Option.someInjective Digit5 key found in rfl
-  | 1, 2, key, found => rewrite <- Option.someInjective Digit6 key found in rfl
-  | 2, 0, key, found => rewrite <- Option.someInjective Digit1 key found in rfl
-  | 2, 1, key, found => rewrite <- Option.someInjective Digit2 key found in rfl
-  | 2, 2, key, found => rewrite <- Option.someInjective Digit3 key found in rfl
+  | 0, 0, key, found => rewrite <- Option.someInjective found in rfl
+  | 0, 1, key, found => rewrite <- Option.someInjective found in rfl
+  | 0, 2, key, found => rewrite <- Option.someInjective found in rfl
+  | 1, 0, key, found => rewrite <- Option.someInjective found in rfl
+  | 1, 1, key, found => rewrite <- Option.someInjective found in rfl
+  | 1, 2, key, found => rewrite <- Option.someInjective found in rfl
+  | 2, 0, key, found => rewrite <- Option.someInjective found in rfl
+  | 2, 1, key, found => rewrite <- Option.someInjective found in rfl
+  | 2, 2, key, found => rewrite <- Option.someInjective found in rfl
   | 3, 0, key, found => Void.exfalso (Option.noneNotSome key found)
-  | 3, 1, key, found => rewrite <- Option.someInjective Digit0 key found in rfl
-  | 3, 2, key, found => rewrite <- Option.someInjective Enter key found in rfl
+  | 3, 1, key, found => rewrite <- Option.someInjective found in rfl
+  | 3, 2, key, found => rewrite <- Option.someInjective found in rfl
   | 0, Succ (Succ (Succ column)), key, found => Void.exfalso (Option.noneNotSome key found)
   | 1, Succ (Succ (Succ column)), key, found => Void.exfalso (Option.noneNotSome key found)
   | 2, Succ (Succ (Succ column)), key, found => Void.exfalso (Option.noneNotSome key found)
@@ -66,11 +66,11 @@ theorem numericPlaceOf: (row: Nat) → (column: Nat) → (key: NumericKey) → k
 theorem directionalPlaceOf: (row: Nat) → (column: Nat) → (key: DirectionKey) → keyAt directionalRows { row, column } = Some key →
     ({ row, column }: Position) = Keypad.directional.place key
   | 0, 0, key, found => Void.exfalso (Option.noneNotSome key found)
-  | 0, 1, key, found => rewrite <- Option.someInjective (Arrow Up) key found in rfl
-  | 0, 2, key, found => rewrite <- Option.someInjective Activate key found in rfl
-  | 1, 0, key, found => rewrite <- Option.someInjective (Arrow Left) key found in rfl
-  | 1, 1, key, found => rewrite <- Option.someInjective (Arrow Down) key found in rfl
-  | 1, 2, key, found => rewrite <- Option.someInjective (Arrow Right) key found in rfl
+  | 0, 1, key, found => rewrite <- Option.someInjective found in rfl
+  | 0, 2, key, found => rewrite <- Option.someInjective found in rfl
+  | 1, 0, key, found => rewrite <- Option.someInjective found in rfl
+  | 1, 1, key, found => rewrite <- Option.someInjective found in rfl
+  | 1, 2, key, found => rewrite <- Option.someInjective found in rfl
   | 0, Succ (Succ (Succ column)), key, found => Void.exfalso (Option.noneNotSome key found)
   | 1, Succ (Succ (Succ column)), key, found => Void.exfalso (Option.noneNotSome key found)
   | Succ (Succ row), column, key, found => Void.exfalso (Option.noneNotSome key found)

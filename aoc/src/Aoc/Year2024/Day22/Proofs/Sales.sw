@@ -24,7 +24,7 @@ theorem keepFirstGet (key: Changes): (found: List (Changes, Nat)) → (sales: Ma
     let later := keepFirstGet key rest (sales.insertWith entry.fst entry.snd (new old => old))
     match same: entry.fst == key with
       | True =>
-        let equal := DecEq.sound entry.fst key same
+        let equal := DecEq.sound same
         rewrite later in
           rewrite equal, Map.getInsertWith sales key entry.snd (new old => old) in
             match sales.get key with

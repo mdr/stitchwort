@@ -30,7 +30,7 @@ def SeenBy (lab: Lab) (seen: Set Guard) (now: Nat): Prop :=
 theorem containsInsertEither (seen: Set Guard) (key: Guard) (guard: Guard) (has: (seen.insert key).contains guard = True):
     (guard = key) ∨ (seen.contains guard = True) :=
   match same: guard == key with
-    | True => Inl (DecEq.sound guard key same)
+    | True => Inl (DecEq.sound same)
     | False => Inr (rewrite Set.containsInsertOther seen key guard (DecEq.soundFalse guard key same) at has)
 
 --| A `True` from the loop test means she loops.
@@ -46,7 +46,7 @@ theorem loopsFromSound (lab: Lab) (sightlines: Sightlines) (simulates: Simulates
       | Some next =>
         Exists.elim (And.left (simulates guard onTheMap) next turned) (steps both =>
           let later: after lab (now + steps) = Some next := Eq.trans (afterAdd lab now guard reached steps) (And.right both)
-          (Bool.orElim (seen.contains next) (sightlines.loopsFrom next (seen.insert next) budget) (Loops lab) says
+          (Bool.orElim says
             (repeated =>
               Exists.elim (seenBy next repeated) (earlier when =>
                 repeatLoops lab earlier (now + steps) (omega [And.left when, And.left both]) (Eq.trans (And.right when) (Eq.sym later))
@@ -74,9 +74,8 @@ theorem loopsFromComplete (lab: Lab) (sightlines: Sightlines) (simulates: Simula
           Void.exfalso (loops (now + steps) (Eq.trans (afterAdd lab now guard reached steps) gone)))
       | Some next =>
         Exists.elim (And.left (simulates guard onTheMap) next turned) (steps both =>
-          Bool.orRight (seen.contains next) (sightlines.loopsFrom next (seen.insert next) budget)
-            (loopsFromComplete lab sightlines simulates inside loops budget next (seen.insert next) (now + steps)
-              (Eq.trans (afterAdd lab now guard reached steps) (And.right both))))
+          Bool.orRight (loopsFromComplete lab sightlines simulates inside loops budget next (seen.insert next) (now + steps)
+            (Eq.trans (afterAdd lab now guard reached steps) (And.right both))))
 
 --| The start, seen at step 0.
 theorem seenStart (lab: Lab): SeenBy lab (Set.singleton lab.startGuard) 0 :=

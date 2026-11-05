@@ -24,7 +24,7 @@ def MovedLeft (before: File) (after: File): Prop :=
 
 --| The span found starts before `before`.
 theorem fitBefore (free: FreeSpace) (length: Nat) (before: Nat) (span: Span) (fit: free.leftmostFit length before = Some span): span.start < before :=
-  And.right (Option.filterEqSome _ ((found: Span) => found.start < before) span fit)
+  And.right (Option.filterEqSome _ ((found: Span) => found.start < before) fit)
 
 --| A move keeps the file's number and length, and goes left if anywhere.
 theorem moveFileLeft (free: FreeSpace) (file: File): MovedLeft file (free.moveFile file).snd :=

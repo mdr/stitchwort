@@ -69,7 +69,7 @@ theorem toEndCorrect (maze: Maze) (endOpen: maze.isOpen maze.end = True):
 theorem movesWalkBack (maze: Maze): (reindeer: Reindeer) → maze.holds reindeer = True → (moves: List Move) → (last: Reindeer) →
     final maze reindeer moves = Some last →
     Exists (List (Reindeer, Nat)) (path => ((maze.graph True).Walk last path reindeer) ∧ (Graph.cost path = score moves))
-  | reindeer, holds, [], last, ended => Witness [] (Both (Eq.sym (Option.someInjective _ _ ended)) rfl)
+  | reindeer, holds, [], last, ended => Witness [] (Both (Eq.sym (Option.someInjective ended)) rfl)
   | reindeer, holds, [way, ..rest], last, ended =>
     match moved: move maze reindeer way with
       | None => Void.exfalso (Option.noneNotSome last ended)
@@ -130,14 +130,14 @@ theorem tileScoring (fromStart: Map Reindeer Nat) (toEnd: Map Reindeer Nat) (bes
   let passes := (entry: (Reindeer, Nat)) => toEnd.get entry.fst |> .map (rest => entry.snd + rest == best) |> .getOrElse False
   let listed := (Set.containsFromListIff _ tile).forward there
   Exists.elim (List.memMapElim (entry => entry.fst.position) tile (fromStart.toList.filter passes) listed) (entry both =>
-    let (Both kept passed) := List.memFilter fromStart.toList passes entry (And.left both)
+    let (Both kept passed) := List.memFilter fromStart.toList passes (And.left both)
     match entry with
       | (reindeer, first) =>
         let got := (Map.memToList fromStart reindeer first).forward kept
         match after: toEnd.get reindeer with
           | None => Void.exfalso (Bool.falseNotTrue passed)
           | Some second =>
-            Witness reindeer (Witness first (Witness second (Both got (Both after (Both (DecEq.sound _ _ passed) (And.right both)))))))
+            Witness reindeer (Witness first (Witness second (Both got (Both after (Both (DecEq.sound passed) (And.right both)))))))
 
 --| ...and every such tile is counted.
 theorem scoringTile (fromStart: Map Reindeer Nat) (toEnd: Map Reindeer Nat) (best: Nat) (reindeer: Reindeer) (first: Nat) (second: Nat)
@@ -145,7 +145,7 @@ theorem scoringTile (fromStart: Map Reindeer Nat) (toEnd: Map Reindeer Nat) (bes
     (tilesScoring fromStart toEnd best).contains reindeer.position = True :=
   let passes := (entry: (Reindeer, Nat)) => toEnd.get entry.fst |> .map (rest => entry.snd + rest == best) |> .getOrElse False
   let passed: passes (reindeer, first) = True := rewrite gotSecond, <- sum in DecEq.refl (first + second)
-  let kept := List.memFilterIntro fromStart.toList passes (reindeer, first) ((Map.memToList fromStart reindeer first).backward gotFirst) passed
+  let kept := List.memFilterIntro fromStart.toList passes ((Map.memToList fromStart reindeer first).backward gotFirst) passed
   (Set.containsFromListIff _ reindeer.position).backward (List.memMap _ (reindeer, first) kept (entry => entry.fst.position))
 
 --| On a maze whose S and E are open, with lowest score `best`, the tiles

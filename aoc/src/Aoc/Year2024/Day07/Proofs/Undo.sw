@@ -12,10 +12,10 @@ theorem divModMatch (d: Nat) [auto ok: d ≠ 0] (r: Nat) (small: r < d) (v: Nat)
     (v * d + r == target) = (target % d == r && v == target / d) :=
   Bool.eqOf (v * d + r == target) (target % d == r && v == target / d)
     (matches =>
-      let same := DecEq.sound (v * d + r) target matches
+      let same := DecEq.sound matches
       rewrite Nat.modUnique target d v r small (Eq.sym same), Nat.divUnique target d v r small (Eq.sym same)
-        in Bool.andIntro (r == r) (v == v) (DecEq.refl r) (DecEq.refl v))
+        in Bool.andIntro (DecEq.refl r) (DecEq.refl v))
     (both =>
-      let remainder := DecEq.sound (target % d) r (Bool.andLeft (target % d == r) (v == target / d) both)
-      let quotient := DecEq.sound v (target / d) (Bool.andRight (target % d == r) (v == target / d) both)
+      let remainder := DecEq.sound (Bool.andLeft both)
+      let quotient := DecEq.sound (Bool.andRight both)
       rewrite quotient, <- remainder, <- Nat.divModEq target d ok in DecEq.refl target)

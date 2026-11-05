@@ -39,13 +39,13 @@ theorem neighboursIff (network: Network) (one: Computer) (other: Computer):
           (pair kept far =>
             match pair with
               | { one = start, other = end } =>
-                let (Both inBoth starts) := List.memFilter network.bothWays ((pair: Connection) => Map.Spec.sameKey one pair.one) ({ one = start, other = end }) kept
+                let (Both inBoth starts) := List.memFilter network.bothWays ((pair: Connection) => Map.Spec.sameKey one pair.one) kept
                 rewrite Map.Spec.sameKeySound one start starts, Map.Spec.sameKeySound other x same, <- far in inBoth)),
   backward = inBoth =>
     rewrite neighboursStartingAt network one other in
       List.anyOfMem ((startingAt network one).map Connection.other) (x => Map.Spec.sameKey other x) other (sameKeyRefl other)
         (List.memMap (startingAt network one) ({ one = one, other = other })
-          (List.memFilterIntro network.bothWays ((pair: Connection) => Map.Spec.sameKey one pair.one) ({ one = one, other = other }) inBoth (sameKeyRefl one)) Connection.other)
+          (List.memFilterIntro network.bothWays ((pair: Connection) => Map.Spec.sameKey one pair.one) inBoth (sameKeyRefl one)) Connection.other)
 }
 
 --| The connections both ways round are the map's, read either way.
@@ -60,21 +60,21 @@ theorem bothWaysIff (network: Network) (one: Computer) (other: Computer):
             match made with
               | Inl same =>
                 List.anyOfMem network.connections (pair => pair == ({ one = one, other = other }) || pair == ({ one = other, other = one })) ({ one = one, other = other })
-                  (Bool.orLeft _ _ (DecEq.refl ({ one = one, other = other }))) (rewrite same at listed)
+                  (Bool.orLeft (DecEq.refl ({ one = one, other = other }))) (rewrite same at listed)
               | Inr (Inl swapped) =>
                 List.anyOfMem network.connections (pair => pair == ({ one = one, other = other }) || pair == ({ one = other, other = one })) ({ one = other, other = one })
-                  (Bool.orRight _ _ (DecEq.refl ({ one = other, other = one }))) (rewrite Eq.cong Connection.other swapped, Eq.cong Connection.one swapped at listed)
+                  (Bool.orRight (DecEq.refl ({ one = other, other = one }))) (rewrite Eq.cong Connection.other swapped, Eq.cong Connection.one swapped at listed)
               | Inr (Inr none) => Void.exfalso none),
   backward = joined =>
     List.anyTrueElim network.connections (pair => pair == ({ one = one, other = other }) || pair == ({ one = other, other = one })) ({ one = one, other = other } ∈ network.bothWays) joined
       (pair listed matches =>
-        Bool.orElim (pair == ({ one = one, other = other })) (pair == ({ one = other, other = one })) ({ one = one, other = other } ∈ network.bothWays) matches
+        Bool.orElim matches
           (same =>
             List.memFlatMapIntro ((pair: Connection) => [pair, pair.reverse]) ({ one = one, other = other }) ({ one = one, other = other }) network.connections
-              (rewrite <- DecEq.sound pair ({ one = one, other = other }) same in listed) (firstOfTwo ({ one = one, other = other }) ({ one = other, other = one })))
+              (rewrite <- DecEq.sound same in listed) (firstOfTwo ({ one = one, other = other }) ({ one = other, other = one })))
           (swapped =>
             List.memFlatMapIntro ((pair: Connection) => [pair, pair.reverse]) ({ one = other, other = one }) ({ one = one, other = other }) network.connections
-              (rewrite <- DecEq.sound pair ({ one = other, other = one }) swapped in listed) (secondOfTwo ({ one = other, other = one }) ({ one = one, other = other }))))
+              (rewrite <- DecEq.sound swapped in listed) (secondOfTwo ({ one = other, other = one }) ({ one = one, other = other }))))
 }
 
 --| `other` is a neighbour of `one` exactly when the map connects them.
@@ -101,13 +101,13 @@ theorem connectedComputer (network: Network) (one: Computer) (other: Computer) (
     one ∈ computers network :=
   List.anyTrueElim network.connections (pair => pair == ({ one = one, other = other }) || pair == ({ one = other, other = one })) (one ∈ computers network) joined
     (pair listed matches =>
-      Bool.orElim (pair == ({ one = one, other = other })) (pair == ({ one = other, other = one })) (one ∈ computers network) matches
+      Bool.orElim matches
         (same =>
           List.memFlatMapIntro ((pair: Connection) => [pair.one, pair.other]) ({ one = one, other = other }) one network.connections
-            (rewrite <- DecEq.sound pair ({ one = one, other = other }) same in listed) (firstOfTwo one other))
+            (rewrite <- DecEq.sound same in listed) (firstOfTwo one other))
         (swapped =>
           List.memFlatMapIntro ((pair: Connection) => [pair.one, pair.other]) ({ one = other, other = one }) one network.connections
-            (rewrite <- DecEq.sound pair ({ one = other, other = one }) swapped in listed) (secondOfTwo other one)))
+            (rewrite <- DecEq.sound swapped in listed) (secondOfTwo other one)))
 
 --| A computer on the map has a neighbour.
 theorem computerConnected (network: Network) (computer: Computer) (onMap: computer ∈ computers network):
@@ -121,11 +121,11 @@ theorem computerConnected (network: Network) (computer: Computer) (onMap: comput
             | Inl first =>
               Witness end
                 (List.anyOfMem network.connections (pair => pair == ({ one = computer, other = end }) || pair == ({ one = end, other = computer })) ({ one = start, other = end })
-                  (rewrite first in Bool.orLeft _ _ (DecEq.refl ({ one = computer, other = end }))) listed)
+                  (rewrite first in Bool.orLeft (DecEq.refl ({ one = computer, other = end }))) listed)
             | Inr (Inl second) =>
               Witness start
                 (List.anyOfMem network.connections (pair => pair == ({ one = computer, other = start }) || pair == ({ one = start, other = computer })) ({ one = start, other = end })
-                  (rewrite second in Bool.orRight _ _ (DecEq.refl ({ one = start, other = computer }))) listed)
+                  (rewrite second in Bool.orRight (DecEq.refl ({ one = start, other = computer }))) listed)
             | Inr (Inr none) => Void.exfalso none)
 
 --| A computer with a neighbour has an entry in the links.
@@ -155,7 +155,7 @@ theorem hasLinksIff (network: Network) (computer: Computer):
           (pair kept unused =>
             match pair with
               | { one = start, other = end } =>
-                let (Both inBoth starts) := List.memFilter network.bothWays ((pair: Connection) => Map.Spec.sameKey computer pair.one) ({ one = start, other = end }) kept
+                let (Both inBoth starts) := List.memFilter network.bothWays ((pair: Connection) => Map.Spec.sameKey computer pair.one) kept
                 connectedComputer network computer end
                   ((bothWaysIff network computer end).forward (rewrite <- Map.Spec.sameKeySound computer start starts at inBoth))),
   backward = onMap =>

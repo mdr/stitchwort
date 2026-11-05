@@ -9,9 +9,9 @@ import Aoc.Common (Direction, Position)
 import Aoc.Year2024.Day06.Spec (..)
 import Std (And, Bool, DecEq, Decidable, Eq, Exists, Iff, List, Map, Nat, Not, Option, Or, Set, Void)
 
-theorem orFalseLeft (a: Bool) (b: Bool) (h: (a || b) = False): a = False := cases
+theorem orFalseLeft [a: Bool] [b: Bool] (h: (a || b) = False): a = False := cases
 
-theorem orFalseRight (a: Bool) (b: Bool) (h: (a || b) = False): b = False := cases
+theorem orFalseRight [a: Bool] [b: Bool] (h: (a || b) = False): b = False := cases
 
 --| Stepping forward onto a free position.
 theorem stepMoves (lab: Lab) (guard: Guard) (ahead: Position) (inFront: lab.ahead guard = Some ahead) (blocked: lab.obstructions.contains ahead = False):
@@ -45,10 +45,10 @@ theorem walkWithSame (lab: Lab) (blocker: Position): (steps: Nat) → (guard: Op
   | Zero, guard, absent => rfl
   | Succ steps, None, absent => rewrite walkNone (lab.withObstruction blocker) steps, walkNone lab steps in rfl
   | Succ steps, Some here, absent =>
-    let restAbsent: onRoute lab (lab.step here) (Succ steps) blocker = False := orFalseRight _ _ absent
+    let restAbsent: onRoute lab (lab.step here) (Succ steps) blocker = False := orFalseRight absent
     let fresh := (ahead: Position) (inFront: lab.ahead here = Some ahead) (blocked: lab.obstructions.contains ahead = False) =>
       let movedAbsent := rewrite stepMoves lab here ahead inFront blocked at restAbsent
-      let notSame: Map.Spec.sameKey blocker ahead = False := orFalseLeft _ _ movedAbsent
+      let notSame: Map.Spec.sameKey blocker ahead = False := orFalseLeft movedAbsent
       DecEq.soundFalse ahead blocker (rewrite Map.Spec.sameKeyDecide blocker ahead at notSame)
     rewrite stepWithSame lab blocker here fresh in walkWithSame lab blocker steps (lab.step here) restAbsent
 
@@ -74,10 +74,10 @@ theorem stepSettled (lab: Lab) (guard: Guard) (settled: settledAt lab guard.posi
     | None => Void.exfalso (Option.noneNotSome next stepped)
     | Some ahead =>
       match blocked: lab.obstructions.contains ahead with
-        | True => rewrite <- Option.someInjective _ next stepped in settled
+        | True => rewrite <- Option.someInjective stepped in settled
         | False =>
-          let landed := aheadOnMap lab guard (Bool.andLeft _ _ settled) ahead inFront
-          rewrite <- Option.someInjective _ next stepped in (cases: settledAt lab ahead = True)
+          let landed := aheadOnMap lab guard (Bool.andLeft settled) ahead inFront
+          rewrite <- Option.someInjective stepped in (cases: settledAt lab ahead = True)
 
 --| Every position on the route is settled.
 theorem routeSettled (lab: Lab) (position: Position): (steps: Nat) → (guard: Option Guard) → settledIfAny lab guard = True →
@@ -85,7 +85,7 @@ theorem routeSettled (lab: Lab) (position: Position): (steps: Nat) → (guard: O
   | Zero, guard, settled, has => Void.exfalso (Bool.falseNotTrue has)
   | Succ steps, None, settled, has => Void.exfalso (Bool.falseNotTrue has)
   | Succ steps, Some here, settled, has =>
-    Bool.orElim (Map.Spec.sameKey position here.position) (onRoute lab (lab.step here) steps position) (settledAt lab position = True) has
+    Bool.orElim has
       (same => rewrite Map.Spec.sameKeySound position here.position same in settled)
       (rest =>
         let nextSettled: settledIfAny lab (lab.step here) = True :=
@@ -136,7 +136,7 @@ theorem positionsHas (lab: Lab) (position: Position):
         | False => rfl
 
 --| Two Bools true together are equal.
-theorem boolOfIff (one: Bool) (other: Bool) (same: (one = True) ↔ (other = True)): one = other :=
+theorem boolOfIff [one: Bool] [other: Bool] (same: (one = True) ↔ (other = True)): one = other :=
   match isOne: one, isOther: other with
     | True, True => rfl
     | False, False => rfl
@@ -157,13 +157,13 @@ def trapsAt (lab: Lab) (trapped: Position → Bool) (position: Position): Bool :
 
 --| The Boolean shape of `keepsTrapsAt` on the route: the start is out on
 --| both sides, and elsewhere a route position is free.
-theorem shapeOnRoute [p: Prop] (atStart: Decidable p) (blocked: Bool) (onTheMap: Bool) (loops: Bool) (trap: Bool) (mapped: onTheMap = True)
+theorem shapeOnRoute [p: Prop] [atStart: Decidable p] [blocked: Bool] [onTheMap: Bool] [loops: Bool] [trap: Bool] (mapped: onTheMap = True)
     (settled: (Decidable.toBool atStart || !blocked) = True) (same: loops = trap):
     (Decidable.toBool (Decidable.not atStart) && loops) = (onTheMap && (Decidable.toBool (Decidable.not atStart) && !blocked && trap)) :=
   rewrite same in cases
 
 --| Off the route nothing is kept.
-theorem shapeOffRoute (onTheMap: Bool) (notStart: Bool) (free: Bool): False = (onTheMap && (notStart && free && False)) := cases
+theorem shapeOffRoute [onTheMap: Bool] [notStart: Bool] [free: Bool]: False = (onTheMap && (notStart && free && False)) := cases
 
 --| The program keeps a position of the route exactly when the spec keeps it.
 theorem keepsTrapsAt (lab: Lab) (inside: onMap lab lab.start = True) (steps: Nat) (gone: after lab steps = None)
@@ -176,19 +176,19 @@ theorem keepsTrapsAt (lab: Lab) (inside: onMap lab lab.start = True) (steps: Nat
   match onIt: onRoute lab (Some lab.startGuard) steps position with
     | True =>
       let settled := routeSettled lab position steps (Some lab.startGuard) (startSettled lab inside) onIt
-      let onTheMap: onMap lab position = True := Bool.andLeft _ _ settled
+      let onTheMap: onMap lab position = True := Bool.andLeft settled
       let loopsSame: lab.loopsWith ((Sightlines.of lab.obstructions).add position) = trapped position :=
-        boolOfIff _ _
+        boolOfIff
           (Iff.trans (loopsWithCorrect (lab.withObstruction position) ((Sightlines.of lab.obstructions).add position) (simulates position onTheMap) inside)
             (Iff.symm (decides position)))
-      shapeOnRoute _ _ _ _ _ onTheMap (Bool.andRight _ _ settled) loopsSame
+      shapeOnRoute onTheMap (Bool.andRight settled) loopsSame
     | False =>
       let free := offRouteFree lab inside steps gone position onIt
       let notTrapped: trapped position = False :=
         match isTrapped: trapped position with
           | True => Void.exfalso (free ((decides position).forward isTrapped))
           | False => rfl
-      rewrite notTrapped in shapeOffRoute _ _ _
+      rewrite notTrapped in shapeOffRoute
 
 --| The positions the program keeps from the route are the spec's trap
 --| positions.

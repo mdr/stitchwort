@@ -26,11 +26,11 @@ theorem concatenateAtLeast (left: Nat) (right: Nat): (left ≤ concatenate left 
 theorem undoAdd (last: Nat) (target: Nat) (v: Nat): (v + last == target) = (last <= target && v == target - last) :=
   Bool.eqOf (v + last == target) (last <= target && v == target - last)
     (matches =>
-      let same := DecEq.sound (v + last) target matches
-      Bool.andIntro (last <= target) (v == target - last) (omega) (rewrite (omega: v = target - last) in DecEq.refl (target - last)))
+      let same := DecEq.sound matches
+      Bool.andIntro (omega) (rewrite (omega: v = target - last) in DecEq.refl (target - last)))
     (both =>
-      let fits: last ≤ target := Bool.andLeft (last <= target) (v == target - last) both
-      let same := DecEq.sound v (target - last) (Bool.andRight (last <= target) (v == target - last) both)
+      let fits: last ≤ target := Bool.andLeft both
+      let same := DecEq.sound (Bool.andRight both)
       rewrite (omega: v + last = target) in DecEq.refl target)
 
 --| The backwards search over the numbers after `first`, last one first, is

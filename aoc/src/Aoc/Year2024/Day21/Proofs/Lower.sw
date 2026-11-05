@@ -38,7 +38,7 @@ theorem walksCost (keypad: Keypad k) (rows: List (List (Option k))) (costs: Cost
     (keys: List DirectionKey) → (start: Position) → (from: k) → keyAt rows start = Some from → (route: List Direction) → (aim: Position) →
       walk rows start route = Some aim → (pressed: List k) → operate rows aim keys = Some pressed →
       costFrom (cheapestBetween keypad costs) from pressed ≤ costFrom costs Activate (List.append (route.map Arrow) keys)
-  | [], start, from, onFrom, route, aim, walked, pressed, operated => rewrite <- Option.someInjective [] pressed operated in omega
+  | [], start, from, onFrom, route, aim, walked, pressed, operated => rewrite <- Option.someInjective operated in omega
   | [Activate, ..rest], start, from, onFrom, route, aim, walked, pressed, operated =>
     match found: keyAt rows aim with
       | None => Void.exfalso (Option.noneNotSome pressed operated)
@@ -48,7 +48,7 @@ theorem walksCost (keypad: Keypad k) (rows: List (List (Option k))) (costs: Cost
           | Some laterKeys =>
             let bound := walksCost keypad rows costs cheapest rest aim to found [] aim rfl laterKeys later
             let routeBound := cheapest start from onFrom route aim walked to found
-            rewrite <- Option.someInjective [to, ..laterKeys] pressed operated,
+            rewrite <- Option.someInjective operated,
               <- List.appendAssoc (route.map Arrow) [Activate] rest,
               costFromAppend costs Activate (routeKeys route) rest,
               lastFromAppendOne Activate (route.map Arrow) Activate,
@@ -73,7 +73,7 @@ theorem throughRobotsCost:
     (level: Nat) → (walks: (below: Nat) → below < level → CheapestWalks Keypad.directional directionalRows (robotCosts below)) →
       (presses: List DirectionKey) → (keys: List DirectionKey) → throughRobots level presses = Some keys →
       costFrom (robotCosts level) Activate keys ≤ presses.length
-  | Zero, walks, presses, keys, through => rewrite <- Option.someInjective presses keys through, costFromOnes Activate presses in omega
+  | Zero, walks, presses, keys, through => rewrite <- Option.someInjective through, costFromOnes Activate presses in omega
   | Succ level, walks, presses, keys, through =>
     let via := rewrite throughRobotsLast level presses at through in through
     match before: throughRobots level presses with
