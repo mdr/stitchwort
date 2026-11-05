@@ -8504,14 +8504,14 @@
     {
       "id": 1438,
       "title": "omega silently skips a let whose type is a function ending in a fact (a missing last argument); say so, as the annotated let's message does",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1438",
       "labels": [
         "omega",
         "diagnostics"
       ],
-      "body": "From 2020 day 9 (SW-1427), 5 Nov 2026; see aoc/NOTES-2020.md Day 9. Item 6.\n\nStarted on DeepSeek with the others in scratch-sw-1438, expected: 50 min together.",
+      "body": "From 2020 day 9 (SW-1427), 5 Nov 2026; see aoc/NOTES-2020.md Day 9. Item 6.\n\nStarted on DeepSeek with the others in scratch-sw-1438, expected: 50 min together.\n\nDone with SW-1438/1451/1452 (2db9dc1ac, 23e8a77e2; examples reject/omega-let-waiting-for-argument and reject/omega-atoms-one-argument-apart), merged. Review fix (innermost differing arguments) sent with opencode run --continue: worked, ~5 min. Model result: DeepSeek, needed fixes (note named outer terms), ~40 + 5 min (est. 50).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8692,13 +8692,13 @@
     {
       "id": 1451,
       "title": "E-REWRITE-NOTHING: when the goal already holds by computing, two notes now say nearly the same (drop the rewrite; rfl proves it): show one",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1438",
       "labels": [
         "diagnostics"
       ],
-      "body": "From SW-1410's review, 5 Nov 2026. Small improvement.\n\nStarted on DeepSeek with the others in scratch-sw-1438, expected: 50 min together.",
+      "body": "From SW-1410's review, 5 Nov 2026. Small improvement.\n\nStarted on DeepSeek with the others in scratch-sw-1438, expected: 50 min together.\n\nDone with SW-1438/1451/1452 (2db9dc1ac, 23e8a77e2; examples reject/omega-let-waiting-for-argument and reject/omega-atoms-one-argument-apart), merged. Review fix (innermost differing arguments) sent with opencode run --continue: worked, ~5 min. Model result: DeepSeek, needed fixes (note named outer terms), ~40 + 5 min (est. 50).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8706,13 +8706,13 @@
     {
       "id": 1452,
       "title": "omega's failure note: when two listed atoms differ only in one argument (take … count vs take … length), say no fact connects them; that would have shown 2020 day 9's real cause",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1438",
       "labels": [
         "diagnostics"
       ],
-      "body": "From SW-1435, 5 Nov 2026. Small improvement.\n\nStarted on DeepSeek with the others in scratch-sw-1438, expected: 50 min together.",
+      "body": "From SW-1435, 5 Nov 2026. Small improvement.\n\nStarted on DeepSeek with the others in scratch-sw-1438, expected: 50 min together.\n\nDone with SW-1438/1451/1452 (2db9dc1ac, 23e8a77e2; examples reject/omega-let-waiting-for-argument and reject/omega-atoms-one-argument-apart), merged. Review fix (innermost differing arguments) sent with opencode run --continue: worked, ~5 min. Model result: DeepSeek, needed fixes (note named outer terms), ~40 + 5 min (est. 50).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
