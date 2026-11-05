@@ -866,7 +866,7 @@ test("Run's errors", async (page) => {
   assert.match(result, new RegExp(`E-OUTPUT.*more than ${MAX_OUTPUT} bytes`));
   assert.equal(await page.ev(`document.querySelector(".run-result pre.program-output").textContent.length`), MAX_OUTPUT);
   console.log(`    (${Math.floor(MAX_OUTPUT / 6)} lines up to the output cap: ${took} ms)`);
-  // The most lines the cap allows, each sent from the worker on its own.
+  // The most lines the cap allows.
   await page.setSource(printMany(1000000, ""));
   const emptyStarted = Date.now();
   result = await page.run();
