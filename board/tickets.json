@@ -7124,7 +7124,7 @@
     {
       "id": 1341,
       "title": "Chained comparisons: implement docs/proposals/chained-comparisons.md per D2386-D2391",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1341",
       "labels": [
