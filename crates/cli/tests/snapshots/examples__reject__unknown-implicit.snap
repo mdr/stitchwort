@@ -9,5 +9,5 @@ expression: output
    │                              ┬  
    │                              ╰── not a parameter of this function
    │ 
-   │ Note: its parameters are `[a]` (round brackets: explicit, square: implicit)
+   │ Note: its parameters are `[a]` and `(xs)` (round brackets: explicit, square: implicit)
 ───╯

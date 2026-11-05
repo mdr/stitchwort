@@ -95,7 +95,7 @@ fn a_library_name_shows_header_doc_location_and_theorems() {
     assert_eq!(lines[0], "Std.List.filterMap  definition");
     assert_eq!(
         lines[1],
-        "  def List.filterMap: List a → (f: a → {e} Option b) → {e} List b"
+        "  def List.filterMap: (xs: List a) → (f: a → {e} Option b) → {e} List b"
     );
     assert_eq!(lines[2], "  std/List/Toolkit.sw:223  (import Std (List))");
     assert!(
@@ -223,7 +223,7 @@ fn without_theorems_nothing_is_checked() {
     assert!(report["theorems"].is_null(), "{report}");
     assert_eq!(
         report["header"],
-        "def Text.padLeft (text: Text) (n: Nat) (char: Char): Text"
+        "def Text.padLeft (text: Text) (width: Nat) (char: Char): Text"
     );
     assert_eq!(report["examples"][0]["name"], "Std.Text.padLeftExample");
     assert_eq!(files_under(&cache), 0, "a check ran and wrote its cache");
