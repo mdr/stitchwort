@@ -11,5 +11,5 @@ expression: output
    │                                                │   
    │                                                ╰─── ranges don't chain
    │ 
-   │ Note: `a ..< b ..< c` has no meaning; to range over a range's elements, use `.map`, and to join ranges, use `[..a ..< b, ..c ..< d]`
+   │ Note: `a ..< b ..< c` has no meaning; to join two ranges, write `[..a ..< b, ..c ..< d]`
 ───╯

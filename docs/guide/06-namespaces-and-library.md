@@ -202,7 +202,7 @@ test "up to, not including" := 0 ..< 3 == [0, 1, 2]
 test "through" := 1 ..= 3 == [1, 2, 3]
 test "nothing when the end is below the start" := 5 ..< 2 == []
 test "mapping over a range" := squares 4 == [0, 1, 4, 9]
-test "membership" := 3 in 0 ..< 5 ∧ 5 !in 0 ..< 5
+test "range membership" := 3 in 0 ..< 5 ∧ 5 !in 0 ..< 5
 test "in a spread" := [0, ..2 ..< 5, 9] == [0, 2, 3, 4, 9]
 test "each number of a range" := Each.collect (() => each (1 ..= 3) * 10) == [10, 20, 30]
 
