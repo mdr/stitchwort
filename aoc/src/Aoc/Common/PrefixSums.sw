@@ -2,8 +2,11 @@
 --| been read in O(n log n): a summed-area table, or 2D prefix sums (Python's
 --| `numpy.cumsum` along both axes, then four lookups). `PrefixSums.of rows`
 --| reads the grid, rows of any lengths, a missing cell counting as 0, and
---| `PrefixSums.block` sums a block of it. The theorem at the bottom says the
---| block is the sum of its cells ([`PrefixSums.blockSum`]).
+--| `PrefixSums.block` sums a block of it. The theorem in `Proofs/PrefixSums.sw`
+--| says the block is the sum of its cells (`PrefixSums.blockSum`).
+
+namespace Aoc.Common
+import Std (List, Map, Nat)
 
 --| The table of prefix sums, kept for lookup by position.
 --| Entry (r, c) is the sum of the cells above row r and left of column c, for
@@ -43,15 +46,3 @@ def PrefixSums.at (prefix: PrefixSums) (r: Nat) (c: Nat): Nat := prefix.sums.get
 --| is `PrefixSums.blockSpec`.
 def PrefixSums.block (prefix: PrefixSums) (top: Nat) (bottom: Nat) (left: Nat) (right: Nat): Nat :=
   (prefix.at bottom right + prefix.at top left) - (prefix.at top right + prefix.at bottom left)
-
---| A small grid of rows of different lengths for the tests below.
-def PrefixSums.example: List (List Nat) := [[1, 2, 3], [4, 5], [7, 8, 9]]
-
-test "PrefixSums.block" :=
-  (PrefixSums.of PrefixSums.example).block 0 3 0 3 == 39
-    ∧ (PrefixSums.of PrefixSums.example).block 1 3 1 3 == 22
-    ∧ (PrefixSums.of PrefixSums.example).block 1 2 2 3 == 0
-    ∧ (PrefixSums.of PrefixSums.example).block 2 2 0 3 == 0
-test "PrefixSums.blockSpec" := PrefixSums.blockSpec PrefixSums.example 1 3 1 3 == 22
-test "PrefixSums.table" := PrefixSums.table [0, 0] [[0, 1], [0, 2]] == [[0, 0], [0, 1], [0, 3]]
-test "PrefixSums of no rows" := (PrefixSums.of []).block 0 0 0 0 == 0

@@ -22,8 +22,8 @@
 --| The tests are in `Aoc.Year2025.Day09.Tests` (Tests/); `run` checks none of them.
 
 namespace Aoc.Year2025.Day09
-import Aoc.Common (Line, Point)
-import Std (Fail, IO, List, Nat, Parse, PrefixSums, Text)
+import Aoc.Common (Line, Point, PrefixSums)
+import Std (Fail, IO, List, Nat, Parse, Text)
 import Std.Parse (char, nat, token)
 
 def main(): {IO, Fail} () :=
