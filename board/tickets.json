@@ -1,5 +1,5 @@
 {
-  "next": 1450,
+  "next": 1451,
   "tickets": [
     {
       "id": 47,
@@ -8043,14 +8043,14 @@
     {
       "id": 1406,
       "title": "Parse.readsDone x _ (Witness …) fails with a goal like ?39 …: fill the spec before checking the last argument, or say the expected type is an unfilled _ (2020 day 7 notes item 2; day 5 item 5 too)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1406",
       "labels": [
         "elab",
         "diagnostics"
       ],
-      "body": "From SW-1402 (2020 day 7), 5 Nov 2026. For day 7's friction review.\n\nD2429 (day 7 friction review, 5 Nov 2026; Matt delegated the decisions): do it. Order: day 8, then SW-1407, SW-1409, SW-1410, SW-1406 with SW-1408, SW-1405, SW-1411 (after SW-1407: both touch day 7's graph).\n\nStarted on Sonnet, expected: 75 min (with the other of SW-1406/1408).",
+      "body": "From SW-1402 (2020 day 7), 5 Nov 2026. For day 7's friction review.\n\nD2429 (day 7 friction review, 5 Nov 2026; Matt delegated the decisions): do it. Order: day 8, then SW-1407, SW-1409, SW-1410, SW-1406 with SW-1408, SW-1405, SW-1411 (after SW-1407: both touch day 7's graph).\n\nStarted on Sonnet, expected: 75 min (with the other of SW-1406/1408).\n\nDone (7a3a24d55), merged: cause — the after-expected comparison in apply_args_postponing failed on an unannotated record literal still queued for its type, so readsDone's _ stayed unsolved. Fix: fall back to queue::compare_waiting (solves what it can, defers the rest). Example accept/reads-done-spec-from-expected. Day 7's readsContent/readsRule now end in readsDone { … } _. No existing hash moved. Model result: Sonnet, worked, 26 min (est. 75, with SW-1408).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8072,13 +8072,13 @@
     {
       "id": 1408,
       "title": "An inline Parse.oneOf alternative proved with readsWeaken (readsMap …) fails with one side unfolded; naming the alternative makes it check (2020 day 7 notes, repro there)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1406",
       "labels": [
         "elab"
       ],
-      "body": "From SW-1402 (2020 day 7), 5 Nov 2026. For day 7's friction review.\n\nD2429 (day 7 friction review, 5 Nov 2026; Matt delegated the decisions): do it. Order: day 8, then SW-1407, SW-1409, SW-1410, SW-1406 with SW-1408, SW-1405, SW-1411 (after SW-1407: both touch day 7's graph).\n\nStarted on Sonnet, expected: 75 min (with the other of SW-1406/1408).",
+      "body": "From SW-1402 (2020 day 7), 5 Nov 2026. For day 7's friction review.\n\nD2429 (day 7 friction review, 5 Nov 2026; Matt delegated the decisions): do it. Order: day 8, then SW-1407, SW-1409, SW-1410, SW-1406 with SW-1408, SW-1405, SW-1411 (after SW-1407: both touch day 7's graph).\n\nStarted on Sonnet, expected: 75 min (with the other of SW-1406/1408).\n\nSW-1406's lane couldn't reproduce it on main or after the fix (inline alternatives written out or as _, readsMap/readsSepBy1 arguments as _, a self-contained version: all check). Probably a side effect of SW-1406's bug or of the file's state at the time. Closed as not reproducible; reopen with a repro.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8671,6 +8671,20 @@
         "playground"
       ],
       "body": "From SW-1430's follow-up, 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1450,
+      "title": "AoC: readsDone calls with a written-out spec can now be readsDone { … } _ (SW-1406); sweep the days' parser proofs and simplify",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "From SW-1406, 5 Nov 2026.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
