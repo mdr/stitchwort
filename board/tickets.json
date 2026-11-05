@@ -3723,7 +3723,7 @@
     {
       "id": 1102,
       "title": "Pilot: application-code comments under the new rule (docs/syntax.md 'What to write', D2226 step 3) on AoC 2024 day 6: delete docs and notes that restate the code, keep and sharpen those that say why. Left on a branch for Matt to judge (not merged)",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1102",
       "labels": [
