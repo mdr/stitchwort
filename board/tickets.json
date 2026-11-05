@@ -1,5 +1,5 @@
 {
-  "next": 1337,
+  "next": 1339,
   "tickets": [
     {
       "id": 47,
@@ -7060,7 +7060,35 @@
       "labels": [
         "aoc"
       ],
-      "body": "D2382 (Matt, 5 Nov): yes, after the SW-1227 stack merges (it changes day 6's parse proofs). Sketch checked, same answers (6630, 3437): group() := { people = Parse.lines person }; parseGroups input := Parse.all input (() => Parse.sections group); replaces line/answers/blank/parseLines/groupsOf. Copy in the orchestrator's scratchpad: sw-day06-sections.sw. 2020 day 4 already proves its parser this way. Note any pattern day 4 and day 6 now share (D2381's shared-logic point).",
+      "body": "D2382 (Matt, 5 Nov): yes, after the SW-1227 stack merges (it changes day 6's parse proofs). Sketch checked, same answers (6630, 3437): group() := { people = Parse.lines person }; parseGroups input := Parse.all input (() => Parse.sections group); replaces line/answers/blank/parseLines/groupsOf. Copy in the orchestrator's scratchpad: sw-day06-sections.sw. 2020 day 4 already proves its parser this way. Note any pattern day 4 and day 6 now share (D2381's shared-logic point).\n\nD2383 (Matt, 5 Nov): also use Group.everyone := group.people.map .answers |> .foldLeft (Set.fromList questions) Set.intersect (checked, same answers). Matt: the tests' example inputs should be text blocks (\"\"\" … \"\"\", docs/syntax.md 'Text blocks'); keep escapes only where the test is about line endings (\\r\\n, a final line break). Careful: a test pins 'blank lines before, between and after groups' (and a line of spaces and a tab); Parse.sections may not accept that: keep the behaviour (or bring it to Matt if keeping it costs a lot), and say what you did. Also drop the redundant brackets in sumBy (.anyone.size).",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1337,
+      "title": "Research and design note: non-empty lists in std (NonEmpty with reduce, head, last, maximum without Option), as Idris, Lean, Agda and Haskell do it; where the code base would model its data better with it",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "body": "D2383 (Matt, 5 Nov): 'let's file tickets to look at how we might do non-empty lists in the standard library so that we can have things like reduce, probably lots of other useful things. I'd be interested to see what our options are for this, what other languages like Idris, Lean, Agda [do]. What opportunities there might be in the existing code base to use it to better model the data. I think, in a way, having more precise types is powerful.' Options to compare: a record { head, tail }, a List with a proof (xs ≠ [] as a refinement / subtype), an indexed Vec (n+1), Haskell's NonEmpty; conversions, pattern syntax ([x, ..xs] for both?), how parsers (many1, sepBy1, lines, sections) would return it, how proofs use it. Survey std (maximum, minimum, last, head?) and aoc/rogue for Option-returning or partial uses that a non-empty type would remove. Opus.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1338,
+      "title": "Daily-tier failures on main: goal_index readable-forms snapshot (a range moved after SW-1256's bracket fixup) and search_at_aoc's 2021 entries (day 14 uses pairsOf since SW-1320; day 16's Fields.sw marker text moved after SW-1300)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "body": "Found by the daily tier run on the SW-1227 stack (D2373); both fail on main too, so not the stack's. Also counts_have_not_regressed: the bench baseline is out of date after the night's work (D2384 to Matt).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
