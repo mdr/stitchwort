@@ -1,5 +1,5 @@
 {
-  "next": 1334,
+  "next": 1335,
   "tickets": [
     {
       "id": 47,
@@ -7019,6 +7019,20 @@
         "aoc"
       ],
       "body": "Matt, 5 Nov (2020 day 6). Check stitchwort fmt doesn't add them back; CLAUDE.md's call-site style.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1334,
+      "title": "Hover (VS Code and playground): show a function's parameter names, as its signature is written: def Std.Parse.satisfy (what: Text) (passes: Char → Bool): {Parse} Char",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "body": "Matt, 5 Nov: hover shows only the type 'Text → (Char → Bool) → {Parse} Char', so you can't see what to name in a named argument (what := …). Show the declaration's binders with names (implicit ones in [ ], defaults as written if cheap); keep the doc comment below. Same in the playground's hover if it has one. Related: SW-1258 (revealing std parameter names), SW-1254 (hover shows ignored proof parameters).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
