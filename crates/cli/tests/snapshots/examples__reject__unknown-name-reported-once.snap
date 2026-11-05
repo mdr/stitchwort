@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: no function `mk` in `Passport`
+   ╭─[ reject/unknown-name-reported-once.sw:7:23 ]
+   │
+ 7 │ def make: Passport := Passport.mk "a" "b"
+   │                       ─────┬─────  
+   │                            ╰─────── `Passport` has no `mk`
+───╯

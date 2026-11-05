@@ -1938,6 +1938,30 @@ impl Elaborator {
         }
         let mut d = Diagnostic::error("E-UNKNOWN-NAME", format!("unknown name `{}`", name.text))
             .with_label(name.span, "not in scope");
+        // A constructor followed by a member of its type (`BirthYear.valid`
+        // for `Key.valid`): neither reading finds a name, so give the two
+        // forms that do (SW-1265).
+        if let Some((prefix, member)) = name.text.split_once('.')
+            && !member.contains('.')
+            && let Resolved::Found {
+                global: Global::Ctor(data, _),
+                rest,
+                ..
+            } = self.resolve(prefix)
+            && rest.is_empty()
+        {
+            let owner = self.data_key(data);
+            if self
+                .scope
+                .entry(&Self::member_key(&owner, member))
+                .is_some()
+            {
+                let owner = self.written(&owner);
+                d = d.with_note(format!(
+                    "`{prefix}` is a `{owner}`: write `{owner}.{member} {prefix}` or `{prefix} |> .{member}`"
+                ));
+            }
+        }
         // A library namespace that isn't a default name needs an import (D50),
         // and so does a prelude type's namespace beyond its own declaration
         // (D260).
