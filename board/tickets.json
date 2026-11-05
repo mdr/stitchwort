@@ -8548,14 +8548,14 @@
     {
       "id": 1441,
       "title": "E-REFL prints two identical sides when they differ only in a proof field that a shortcut-mode comparison (under an opaque, axiom or same-group call) compares; say so, and suggest Eq.cong (e.g. secret 'a' vs secret 'a' in a char-pattern arm)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1441",
       "labels": [
         "diagnostics",
         "kernel"
       ],
-      "body": "From SW-1429's Opus review, 5 Nov 2026.",
+      "body": "From SW-1429's Opus review, 5 Nov 2026.\n\nStarted on DeepSeek, expected: 40 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8563,14 +8563,14 @@
     {
       "id": 1442,
       "title": "Equations: replace eq_proof's Bool.uniqueEq J-chain for char-literal overlap hypotheses with rfl (proof fields are skipped by comparison now) and delete Diff, replace_at and probably the unique field; lifts differ's limits (data with parameters, other propositions)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1442",
       "labels": [
         "elab",
         "proofs"
       ],
-      "body": "From SW-1429's Opus review, 5 Nov 2026. equations.rs ~6241, 6758, 6846, 7225-7370.",
+      "body": "From SW-1429's Opus review, 5 Nov 2026. equations.rs ~6241, 6758, 6846, 7225-7370.\n\nStarted on Sonnet, expected: 75 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
