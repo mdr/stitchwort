@@ -15,6 +15,11 @@ pub struct Name {
 /// can't write the name, so it never captures one of theirs.
 pub const SECTION: &str = "%section";
 
+/// The prefix of the hidden name a chain of comparisons binds its middle
+/// operand to, `lo <= f x <= hi` being `let %chain… = f x; lo <= %chain… &&
+/// %chain… <= hi` (SW-1339). Users can't write it.
+pub const CHAIN: &str = "%chain";
+
 /// The name of an `auto` parameter written without one, `[auto Ord a]`
 /// (docs/proposals/interfaces.md §5.3): it can't be referred to, or given by
 /// name.
@@ -739,6 +744,23 @@ pub enum BinOp {
     /// (D1201), with the operator's span. `x !in c` is parsed as
     /// `!(x in c)`.
     In(Span),
+}
+
+impl Expr {
+    /// `let %chain… = value; body`, as a chain of comparisons builds it:
+    /// the variable's name, its value and the body.
+    pub fn as_chain_let(&self) -> Option<(&Name, &Expr, &Expr)> {
+        match self {
+            Expr::Let {
+                name,
+                ty: None,
+                value,
+                body,
+                ..
+            } if name.text.starts_with(CHAIN) => Some((name, value, body)),
+            _ => None,
+        }
+    }
 }
 
 impl BinOp {

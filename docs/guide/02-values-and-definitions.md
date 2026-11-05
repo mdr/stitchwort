@@ -72,6 +72,8 @@ def grade (score: Nat): Text :=
 
 `if` takes a `Bool`, or a statement the compiler can decide, such as `score >= 90`. The difference matters for proofs and is explained in [chapter 10](10-proofs.md); in ordinary code you can use comparisons as conditions without thinking about it.
 
+Comparisons chain, as in mathematics: `if 90 <= score <= 100` is `90 <= score && score <= 100`, and `0 <= i < n` says that `i` is a valid index. `<` and `<=` chain together, as do `>` and `>=` (`hi >= x > lo`), for any number of links. A middle that is a call, as in `1 <= digits.length <= 3`, is computed once, and the later links are only tested if the earlier ones hold. Chains that mix directions (`a < b > c`), or use `=`, `==`, `!=` or `in`, are an error (`E-COMPARISON-CHAIN`) that says what to write instead.
+
 ## Text
 
 `Text` is a sequence of Unicode characters, written in double quotes. `++` joins two texts (and two lists). Inside a text literal, `${e}` inserts the value of any expression whose type has a `Show` instance, which every type you declare gets automatically ([chapter 5](05-interfaces.md)):

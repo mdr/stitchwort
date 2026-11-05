@@ -6138,6 +6138,9 @@ pub fn check_type(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Sort)> {
         let nat = Value::Data(nat(cx)?, Vec::new());
         return Err(not_a_type(cx, span, &nat));
     }
+    if let Some((name, value, body)) = expr.as_chain_let() {
+        return crate::chain::check_type(cx, name, value, body);
+    }
     // `p && q`, `p || q` and `not p` where a type is wanted are propositions.
     if let Some(logic) = crate::logic::classify(cx, expr) {
         let span = expr.span();

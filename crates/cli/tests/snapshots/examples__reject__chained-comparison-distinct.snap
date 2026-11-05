@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-COMPARISON-CHAIN] Error: `!=` can't be part of a chain of comparisons
+   ╭─[ reject/chained-comparison-distinct.sw:3:33 ]
+   │
+ 3 │ def bad (a b c: Nat): Bool := a != b != c
+   │                                 ─┬   ─┬  
+   │                                  ╰─────── the chain starts here
+   │                                       │  
+   │                                       ╰── this operator can't continue it
+   │ 
+   │ Note: `a != b != c` would not mean that all three differ; write the comparisons separately, joined with `&&`: `a != b && b != c`
+───╯

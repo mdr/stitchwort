@@ -9,7 +9,7 @@ import Std (List, Text)
 --| given letter must appear for the password to be valid."
 def validPart1 (entry: Entry): Bool :=
   let appearances := (entry.password.toList.filter (== entry.letter)).length
-  entry.low <= appearances ∧ appearances <= entry.high
+  entry.low <= appearances <= entry.high
 
 --| "Each policy actually describes two positions in the password, where 1
 --| means the first character, 2 means the second character, and so on":

@@ -12,9 +12,9 @@
 //! one ending in an operator (like `->`) continues it too.
 
 use crate::ast::{
-    Alt, BinOp, Binder, Bracket, CalcStep, Clause, CtorDecl, Decl, Expr, Guard, Import, ImportItem,
-    InductAlt, LocalDef, MatchKind, Mode, Module, Name, NamespaceDecl, NegForm, Pattern,
-    RewriteRule, Row, SECTION, Scrutinee,
+    Alt, BinOp, Binder, Bracket, CHAIN, CalcStep, Clause, CtorDecl, Decl, Expr, Guard, Import,
+    ImportItem, InductAlt, LocalDef, MatchKind, Mode, Module, Name, NamespaceDecl, NegForm,
+    Pattern, RewriteRule, Row, SECTION, Scrutinee,
 };
 use crate::lexer::{Tok, Token, lex, lex_with_bars};
 use crate::negation::{
@@ -3770,7 +3770,8 @@ impl<'t> Parser<'t> {
     }
 
     /// `a = b`, `a != b`, `a == b`, `a < b`, `a <= b`, `a > b`, `a >= b`: not
-    /// associative. Each operand may be a pipeline.
+    /// associative, except that `<`/`<=` chain together, as do `>`/`>=`
+    /// (`lo <= x < hi`, see [`chain`]). Each operand may be a pipeline.
     fn cmp_expr(&mut self) -> Result<Expr> {
         let lhs_start = self.pos;
         let mut lhs = self.append_expr()?;
@@ -3792,7 +3793,7 @@ impl<'t> Parser<'t> {
             Some(Tok::Ge) => (BinOp::Le, true),
             _ => return Ok(lhs),
         };
-        self.bump();
+        let first_op = self.bump().span;
         // `a = if c then x else y`: the `if` on the right runs to the end of
         // the expression, as it does anywhere else.
         if self.peek() == Some(&Tok::KwIf) {
@@ -3805,7 +3806,100 @@ impl<'t> Parser<'t> {
         if self.at_pipe() {
             self.pipe_chain(&mut rhs)?;
         }
-        Ok(binary(op, flip, lhs, rhs))
+        if !matches!(
+            self.peek(),
+            Some(
+                Tok::Equals
+                    | Tok::NotEq
+                    | Tok::EqEq
+                    | Tok::Lt
+                    | Tok::Le
+                    | Tok::Gt
+                    | Tok::Ge
+                    | Tok::KwIn
+                    | Tok::NotIn
+            )
+        ) {
+            return Ok(binary(op, flip, lhs, rhs));
+        }
+        self.comparison_chain(lhs, (op, flip, first_op), rhs)
+    }
+
+    /// The rest of `a <= b < c …`, after `a <= b` (SW-1339, D2386): the
+    /// links are joined as `&&` would join them, with a middle operand
+    /// that is more than a name or a literal bound by a `let` so it runs
+    /// once (see [`chain`]).
+    #[inline(never)]
+    fn comparison_chain(
+        &mut self,
+        first: Expr,
+        (op, flip, first_op): (BinOp, bool, Span),
+        second: Expr,
+    ) -> Result<Expr> {
+        let mut operands = vec![first, second];
+        let mut links = vec![(op, flip)];
+        let descending = flip;
+        loop {
+            let (op, flip) = match self.peek() {
+                Some(Tok::Lt) => (BinOp::Lt, false),
+                Some(Tok::Le) => (BinOp::Le, false),
+                Some(Tok::Gt) => (BinOp::Lt, true),
+                Some(Tok::Ge) => (BinOp::Le, true),
+                Some(Tok::Equals | Tok::EqEq) => {
+                    let symbol = if self.peek() == Some(&Tok::Equals) {
+                        "="
+                    } else {
+                        "=="
+                    };
+                    return Err(chain_error(
+                        self.here(),
+                        first_op,
+                        format!("`{symbol}` can't be part of a chain of comparisons"),
+                        format!(
+                            "for now only `<` and `<=`, or `>` and `>=`, chain; write the \
+                             comparisons separately, joined with `&&`: `a {symbol} b && b {symbol} c`"
+                        ),
+                    ));
+                }
+                Some(Tok::NotEq) => {
+                    return Err(chain_error(
+                        self.here(),
+                        first_op,
+                        "`!=` can't be part of a chain of comparisons".into(),
+                        "`a != b != c` would not mean that all three differ; write the \
+                         comparisons separately, joined with `&&`: `a != b && b != c`",
+                    ));
+                }
+                Some(Tok::KwIn | Tok::NotIn) => {
+                    return Err(chain_error(
+                        self.here(),
+                        first_op,
+                        "`in` can't be part of a chain of comparisons".into(),
+                        "write the comparison and the membership test separately, joined \
+                         with `&&`: `a <= x && x in xs`",
+                    ));
+                }
+                _ => break,
+            };
+            if flip != descending {
+                return Err(chain_error(
+                    self.here(),
+                    first_op,
+                    "a chain of comparisons goes one way: `<` and `<=` can't be mixed with \
+                     `>` and `>=`"
+                        .into(),
+                    "write the comparisons separately, joined with `&&`: `a < b && c < b`",
+                ));
+            }
+            self.bump();
+            let mut operand = self.append_expr()?;
+            if self.at_pipe() {
+                self.pipe_chain(&mut operand)?;
+            }
+            operands.push(operand);
+            links.push((op, flip));
+        }
+        Ok(chain(operands, &links))
     }
 
     /// `x in c` or `x !in c`, after `x` (which starts at token `lhs_start`):
@@ -4612,6 +4706,99 @@ impl<'t> Parser<'t> {
 /// parsing functions keep small stack frames (nesting depth is bounded by
 /// stack use).
 #[inline(never)]
+/// A `Diagnostic` for a chain of comparisons that isn't allowed, at the
+/// operator `at` (the chain began at `first`).
+fn chain_error(at: Span, first: Span, message: String, note: impl Into<String>) -> Box<Diagnostic> {
+    Box::new(
+        Diagnostic::error("E-COMPARISON-CHAIN", message)
+            .with_label(first, "the chain starts here")
+            .with_label(at, "this operator can't continue it")
+            .with_note(note.into()),
+    )
+}
+
+/// Whether `expr` can be used twice with no cost and no effect: a name or
+/// a literal. Anything else (a call, a field, which may be a method) is
+/// computed once.
+fn is_atom(expr: &Expr) -> bool {
+    matches!(
+        expr,
+        Expr::Var(_) | Expr::Num(..) | Expr::Float(..) | Expr::Str(..) | Expr::Char(..)
+    )
+}
+
+/// `a <= b < c`: `a <= b && b < c`, where a middle operand `b` that is not
+/// an atom is bound once, `let %chain := b`, and `a` (if it isn't an atom
+/// either) is bound before it, so the operands run in the order written. A
+/// later operand is bound inside the `&&`'s right side, so it only runs when
+/// the earlier links hold. A `>` link is `<` turned round, as a single one
+/// is, with the links in the order written. The result is one operand of a
+/// longer `&&`.
+fn chain(operands: Vec<Expr>, links: &[(BinOp, bool)]) -> Expr {
+    struct Chain<'a> {
+        links: &'a [(BinOp, bool)],
+        spans: Vec<Span>,
+        last: usize,
+    }
+    impl Chain<'_> {
+        fn name(&self, i: usize) -> Name {
+            Name {
+                text: format!("{CHAIN}{}", self.spans[i].start),
+                span: self.spans[i],
+            }
+        }
+
+        /// The links from `i - 1` on, with `left` standing for operand
+        /// `i - 1`.
+        fn go(&self, i: usize, left: Expr, operands: &mut [Option<Expr>]) -> Expr {
+            let operand = operands[i].take().expect("each operand is used once");
+            let (op, flip) = self.links[i - 1];
+            if i == self.last {
+                return binary(op, flip, left, operand);
+            }
+            let (middle, bound) = if is_atom(&operand) {
+                (operand, None)
+            } else {
+                (Expr::Var(self.name(i)), Some(operand))
+            };
+            let rest = self.go(i + 1, middle.clone(), operands);
+            let body = Expr::Binary(
+                BinOp::And,
+                Box::new(binary(op, flip, left, middle)),
+                Box::new(rest),
+            );
+            match bound {
+                Some(value) => self.bind(i, value, body),
+                None => body,
+            }
+        }
+
+        fn bind(&self, i: usize, value: Expr, body: Expr) -> Expr {
+            Expr::Let {
+                name: self.name(i),
+                ty: None,
+                span: value.span(),
+                value: Box::new(value),
+                body: Box::new(body),
+            }
+        }
+    }
+    let chain = Chain {
+        links,
+        spans: operands.iter().map(Expr::span).collect(),
+        last: operands.len() - 1,
+    };
+    let mut operands: Vec<Option<Expr>> = operands.into_iter().map(Some).collect();
+    let first = operands[0].take().expect("a chain has operands");
+    // A chain has three operands at least, so the second is a middle.
+    if is_atom(&first) || operands[1].as_ref().is_some_and(is_atom) {
+        return chain.go(1, first, &mut operands);
+    }
+    // Both ends of the first link perform, `a` first.
+    let rest = chain.go(1, Expr::Var(chain.name(0)), &mut operands);
+    chain.bind(0, first, rest)
+}
+
 fn binary(op: BinOp, flip: bool, lhs: Expr, rhs: Expr) -> Expr {
     if flip {
         Expr::Binary(op, Box::new(rhs), Box::new(lhs))
@@ -6378,6 +6565,69 @@ mod tests {
         )
     }
 
+    /// SW-1339: `<`/`<=` chain, and `>`/`>=` chain, into `&&` of the links;
+    /// a middle that is not a name or a literal is bound once.
+    #[test]
+    fn comparisons_chain() {
+        let cases = [
+            ("a <= b < x", "(And (Le a b) (Lt b x))"),
+            ("a >= b > x", "(And (Le b a) (Lt x b))"),
+            ("0 <= a < 10", "(And (Le 0 a) (Lt a 10))"),
+            ("a < b <= x < y", "(And (Lt a b) (And (Le b x) (Lt x y)))"),
+            // The chain is one conjunct of a longer `&&`.
+            ("a <= b <= x && y", "(And (And (Le a b) (Le b x)) y)"),
+            ("y || a <= b <= x", "(Or y (And (Le a b) (Le b x)))"),
+            // Arithmetic and pipelines bind tighter.
+            ("a <= b + 1 <= x", "(And (Le a (Add b 1)) (Le (Add b 1) x))"),
+        ];
+        for (text, want) in cases {
+            let got = shape_of(text);
+            // A middle that is not an atom is bound.
+            if text.contains('+') {
+                assert!(got.starts_with("(let %chain"), "{text}: {got}");
+                continue;
+            }
+            assert_eq!(got, want, "{text}");
+        }
+    }
+
+    #[test]
+    fn a_chain_binds_a_call_in_the_middle_once() {
+        let got = shape_of("a <= f x <= b");
+        assert!(got.starts_with("(let %chain"), "{got}");
+        assert_eq!(got.matches("(f x)").count(), 1, "{got}");
+        // Both ends perform: the first is bound before the middle.
+        let got = shape_of("f a <= f x <= f b");
+        assert_eq!(got.matches("(let %chain").count(), 2, "{got}");
+        assert!(got.find("(f a)") < got.find("(f x)"), "{got}");
+        // The later operand is bound where it is only run if the first
+        // link holds.
+        let got = shape_of("a < f x < f y < b");
+        let second = got.rfind("(let %chain").unwrap();
+        assert!(got[second..].starts_with("(let %chain"), "{got}");
+        assert!(got.find("(And (Lt a %chain").unwrap() < second, "{got}");
+    }
+
+    #[test]
+    fn refused_chains_say_what_to_write() {
+        for (text, want) in [
+            ("a < b > x", "one way"),
+            ("a >= b < x", "one way"),
+            ("a < b = x", "`=`"),
+            ("a == b == x", "`==`"),
+            ("a < b == x", "`==`"),
+            ("a != b != x", "`!=`"),
+            ("a < b != x", "`!=`"),
+            ("a <= b in x", "`in`"),
+            ("a <= b !in x", "`in`"),
+        ] {
+            let e = rhs_of(&format!("def g : Nat := {text}\n")).expect_err(text);
+            assert_eq!(e.code, "E-COMPARISON-CHAIN", "{text}");
+            assert!(e.message.contains(want), "{text}: {}", e.message);
+            assert!(!e.notes.is_empty(), "{text}");
+        }
+    }
+
     #[test]
     fn prefix_minus_precedence() {
         let cases = [
@@ -6576,8 +6826,8 @@ mod tests {
         for (text, want) in cases {
             assert_eq!(shape_of(text), want, "{text}");
         }
-        // Not associative, like `<`.
-        assert!(rhs_of("def g : Nat := a > b > c\n").is_err());
+        // They chain, as `<` does.
+        assert_eq!(shape_of("a > b > c"), "(And (Lt b a) (Lt c b))");
         // `>>` is not a token (yet).
         assert!(rhs_of("def g : Nat := a >> b\n").is_err());
     }
