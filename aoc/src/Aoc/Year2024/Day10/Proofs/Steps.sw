@@ -14,12 +14,12 @@ import Std (And, Bool, DecEq, Eq, Iff, List, Nat, Option, Void)
 
 --| Every position with a height is on the list.
 theorem positionsComplete (map: TopographicMap) (position: Position) (height: Nat) (has: map.heightAt position = Some height): position ∈ map.positions :=
-  match found: cellAt map.rows position with
+  match found: cellAt map.grid.rows position with
     | None => Void.exfalso (Option.noneNotSome height has)
-    | Some tile => List.memMap (cells map.rows) (position, tile) (memCellsOfCellAt map.rows position tile found) Pair.fst
+    | Some tile => List.memMap (cells map.grid.rows) (position, tile) (memCellsOfCellAt map.grid.rows position tile found) Pair.fst
 
 --| Each position is on the list once.
-theorem positionsDistinct (map: TopographicMap): List.Distinct map.positions := cellPositionsDistinct map.rows
+theorem positionsDistinct (map: TopographicMap): List.Distinct map.positions := cellPositionsDistinct map.grid.rows
 
 --| A position one higher than another has a height, so it is on the map.
 theorem higherOnMap (map: TopographicMap) (from: Position) (to: Position) (higher: increasesByOne map from to = True): to ∈ map.positions :=

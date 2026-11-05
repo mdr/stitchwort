@@ -10,7 +10,7 @@
 --| `Aoc.Year2024.Day20.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2024.Day20
-import Aoc.Common (Direction, Position, directions)
+import Aoc.Common (Direction, Position, cells, directions, onlyCell)
 import Std (And, Bool, Eq, Exists, Fail, Graph, IO, List, Map, Nat, Option, Parse, Set, Text, Void)
 import Std.Parse (grid, pick)
 
@@ -40,23 +40,14 @@ type Tile =
 
 def tile(): {Parse} Tile := pick [("#", Wall), (".", Track), ("S", Start), ("E", End)]
 
---| The one position holding `wanted`.
-def onlyTile (tiles: List (Position, Tile)) (wanted: Tile) (name: Text): {Fail} Position :=
-  match tiles.filter (.snd == wanted) |> .map .fst with
-    | [position] => position
-    | [] => Fail.fail "no ${name} tile"
-    | _ => Fail.fail "more than one ${name} tile"
-
---| One row of tiles per line, with one S and one E.
+--| One row of tiles per line, with one S and one E. A short row is walled
+--| beyond its end.
 def parseRacetrack (input: Text): {Fail} Racetrack :=
-  let tiles :=
-    Parse.all input (() => grid tile)
-      |> .gridCells
-      |> .map ((((row, column), kind)) => (({ row, column }: Position), kind))
+  let tiles := cells (Parse.all input (() => grid tile))
   {
     track = tiles.filter (.snd != Wall) |> .map .fst |> Set.fromList,
-    start = onlyTile tiles Start "S",
-    end = onlyTile tiles End "E"
+    start = onlyCell tiles Start "S tile",
+    end = onlyCell tiles End "E tile"
   }
 
 -- Positions, directions and a step (none above the top row or left of

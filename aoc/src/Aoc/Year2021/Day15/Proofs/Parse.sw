@@ -18,10 +18,10 @@ import Std.Parse (digit)
 
 --| What `parseCave` reads is a rectangle with a digit.
 theorem parseRectangle (input: Text) (cave: Cave) (parsed: Fail.toResult (() => parseCave input) = Ok cave): Rectangle cave :=
-  let split := rewrite Fail.toResultThen (() => parseGrid input digit) Cave.ofGrid at parsed
-  Result.flatMapEqOk (Fail.toResult (() => parseGrid input digit)) (grid => Fail.toResult (() => Cave.ofGrid grid)) cave split
+  let split := rewrite Fail.toResultThen (() => parseGrid input digit) (grid => ({ grid }: Cave)) at parsed
+  Result.flatMapEqOk (Fail.toResult (() => parseGrid input digit)) (grid => Fail.toResult (() => ({ grid }: Cave))) cave split
     (grid read made =>
-      let same: Cave.ofGrid grid = cave := Result.okInjective _ cave made
+      let same: ({ grid }: Cave) = cave := Result.okInjective _ cave made
       let (Both rectangle (Both wide _)) := parseGridRectangle input digit grid read
       rewrite <- same in Both wide rectangle)
 

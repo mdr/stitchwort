@@ -113,6 +113,14 @@ def cellAt (rows: List (List a)) (position: Position): Option a :=
     | Some row => row.get position.column
     | None => None
 
+--| The position of the one cell of `cells` equal to `wanted` (`Grid.findOnly`,
+--| for rows of any lengths).
+def onlyCell [auto eq: DecEq a] (cells: List (Position, a)) (wanted: a) (what: Text): {Fail} Position :=
+  match cells.filter (.snd == wanted) |> .map .fst with
+    | [position] => position
+    | [] => Fail.fail "no ${what}"
+    | _ => Fail.fail "more than one ${what}"
+
 --| `f` of every cell and its position, in the same shape.
 def mapCells (rows: List (List a)) (f: Position → a → b): List (List b) :=
   rows.mapWithIndex (r row => row.mapWithIndex (c cell => f { row = r, column = c } cell))
@@ -155,6 +163,11 @@ def Grid.at (grid: Grid a) (position: Position): Option a := cellAt grid.rows po
 
 --| Every cell with its position, row by row.
 def Grid.cells (grid: Grid a): List (Position, a) := cells grid.rows
+
+--| The position of the one cell equal to `wanted`. Fails if there is none
+--| or more than one, saying `what` was wanted: `grid.findOnly S "S tile"`
+--| fails with "no S tile" or "more than one S tile".
+def Grid.findOnly [auto eq: DecEq a] (grid: Grid a) (wanted: a) (what: Text): {Fail} Position := onlyCell grid.cells wanted what
 
 --| Every position of the grid's rectangle, row by row.
 def Grid.positions (grid: Grid a): List Position := positions grid.height grid.width

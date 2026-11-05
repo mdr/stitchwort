@@ -12,7 +12,7 @@
 --| (`Heading.toDirection`).
 
 namespace Aoc.Year2024.Day16
-import Aoc.Common (Direction, Position, cells, parseGrid)
+import Aoc.Common (Direction, Position, parseGrid)
 import Std (Bool, DecEq, Eq, Exists, Fail, Graph, IO, List, Map, Nat, Option, Parse, Set, Text, Void)
 
 def main(): {IO, Fail} () :=
@@ -33,21 +33,14 @@ type Tile =
 def tile(): {Parse} Tile :=
   Parse.pick [("#", Wall), (".", Floor), ("S", Start), ("E", End)]
 
---| The one position holding `wanted`.
-def onlyTile (tiles: List (Position, Tile)) (wanted: Tile) (name: Text): {Fail} Position :=
-  match tiles.filter (.snd == wanted) |> .map .fst with
-    | [position] => position
-    | [] => Fail.fail "no ${name} tile"
-    | _ => Fail.fail "more than one ${name} tile"
-
 --| One row of tiles per line, every row as long as the first (`parseGrid`
 --| checks it), with one S and one E.
 def parseMaze (input: Text): {Fail} Maze :=
-  let tiles := cells (parseGrid input tile).rows
+  let tiles := parseGrid input tile
   {
-    openTiles = tiles.filter (.snd != Wall) |> .map .fst |> Set.fromList,
-    start = onlyTile tiles Start "S",
-    end = onlyTile tiles End "E"
+    openTiles = tiles.cells.filter (.snd != Wall) |> .map .fst |> Set.fromList,
+    start = tiles.findOnly Start "S tile",
+    end = tiles.findOnly End "E tile"
   }
 
 --| The way the reindeer faces, by the compass.

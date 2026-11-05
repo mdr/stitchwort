@@ -27,8 +27,8 @@ theorem basinSizeCorrect (map: HeightMap) (low: Position) (height: Nat) (member:
     | False => basinSizeClosed map low height member open
 
 --| The graph can enter exactly the locations that aren't 9s.
-theorem canEnterOpen (map: HeightMap) (position: Position): canEnter (cellsEnter map.rows enterOpen) position = inSomeBasin map position :=
-  match cellAt map.rows position with
+theorem canEnterOpen (map: HeightMap) (position: Position): canEnter (cellsEnter map.grid.rows enterOpen) position = inSomeBasin map position :=
+  match cellAt map.grid.rows position with
     | None => rfl
     | Some digit =>
       match digit.toNat != 9 with
@@ -40,16 +40,16 @@ theorem walkPath (map: HeightMap) (start: Position) (path: List (Position, Nat))
     isPath map start (path.map Pair.fst) finish = True :=
   let entered :=
     And.left
-      (Aoc.Common.Proofs.walkPath (cellsEnter map.rows enterOpen) ((cells map.rows).map Pair.fst)
-        (position c found => cellsEnterListed map.rows enterOpen position c found) start path finish walked)
-  rewrite <- isPathCong (canEnter (cellsEnter map.rows enterOpen)) (inSomeBasin map) (canEnterOpen map) start (path.map Pair.fst) finish in entered
+      (Aoc.Common.Proofs.walkPath (cellsEnter map.grid.rows enterOpen) ((cells map.grid.rows).map Pair.fst)
+        (position c found => cellsEnterListed map.grid.rows enterOpen position c found) start path finish walked)
+  rewrite <- isPathCong (canEnter (cellsEnter map.grid.rows enterOpen)) (inSomeBasin map) (canEnterOpen map) start (path.map Pair.fst) finish in entered
 
 --| ...and a path is a walk.
 theorem pathWalk (map: HeightMap) (start: Position) (steps: List Position) (finish: Position) (path: isPath map start steps finish = True):
-    map.graph.Walk start (steps.map (next => (next, enterCost (cellsEnter map.rows enterOpen) next))) finish :=
-  Aoc.Common.Proofs.pathWalk (cellsEnter map.rows enterOpen) ((cells map.rows).map Pair.fst)
-    (position c found => cellsEnterListed map.rows enterOpen position c found) start steps finish
-    (rewrite isPathCong (canEnter (cellsEnter map.rows enterOpen)) (inSomeBasin map) (canEnterOpen map) start steps finish in path)
+    map.graph.Walk start (steps.map (next => (next, enterCost (cellsEnter map.grid.rows enterOpen) next))) finish :=
+  Aoc.Common.Proofs.pathWalk (cellsEnter map.grid.rows enterOpen) ((cells map.grid.rows).map Pair.fst)
+    (position c found => cellsEnterListed map.grid.rows enterOpen position c found) start steps finish
+    (rewrite isPathCong (canEnter (cellsEnter map.grid.rows enterOpen)) (inSomeBasin map) (canEnterOpen map) start steps finish in path)
 
 --| A path from a location that isn't a 9 ends at one.
 theorem pathOpen (map: HeightMap) (start: Position) (steps: List Position) (finish: Position) (open: inSomeBasin map start = True)
@@ -58,8 +58,8 @@ theorem pathOpen (map: HeightMap) (start: Position) (steps: List Position) (fini
 
 --| Every step of the graph costs 1.
 theorem unitSteps (map: HeightMap) (state: Position) (next: Position) (weight: Nat) (edge: (next, weight) ∈ map.graph.edges state): weight = 1 :=
-  let found := And.right (stepEdgeElim (cellsEnter map.rows enterOpen) state next weight edge)
-  match cellAt map.rows next with
+  let found := And.right (stepEdgeElim (cellsEnter map.grid.rows enterOpen) state next weight edge)
+  match cellAt map.grid.rows next with
     | None => Void.exfalso (Option.noneNotSome weight found)
     | Some digit =>
       match digit.toNat != 9 with

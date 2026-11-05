@@ -24,6 +24,10 @@ def small: Grid Nat := Grid.of [[1, 2, 3], [4, 5, 6]]
 test "a grid's size" := small.height == 2 ∧ small.width == 3 ∧ small.positions == positions 2 3
 test "cells" := small.cells == [(at 0 0, 1), (at 0 1, 2), (at 0 2, 3), (at 1 0, 4), (at 1 1, 5), (at 1 2, 6)]
 test "cells of ragged rows" := cells [[7], [], [8, 9]] == [(at 0 0, 7), (at 2 0, 8), (at 2 1, 9)]
+test "findOnly" := Fail.toResult (() => small.findOnly 5 "five") == Ok (at 1 1)
+test "findOnly, none" := Fail.toResult (() => small.findOnly 7 "seven") == Err "no seven"
+test "onlyCell, rows of any lengths" := Fail.toResult (() => onlyCell (cells [[7], [], [8, 9]]) 9 "nine") == Ok (at 2 1)
+test "findOnly, several" := Fail.toResult (() => (Grid.of [[1, 2], [2, 3]]).findOnly 2 "two") == Err "more than one two"
 test "at" := small.at (at 1 2) == Some 6 ∧ small.at (at 2 0) == None ∧ small.at (at 0 3) == None
 test "lookup is at" := (List.range 4 |> .all (r => List.range 5 |> .all (c => small.lookup (at r c) == small.at (at r c))))
 test "map" := (small.map (p x => p.row * 10 + x)).rows == [[1, 2, 3], [14, 15, 16]]

@@ -8,7 +8,7 @@ def inputMap: Result TopographicMap Text := Fail.toResult (() => parseMap (inclu
 
 test "real input, part 1" := inputMap.map solvePart1 == Ok 461
 test "real input, part 2" := inputMap.map solvePart2 == Ok 875
-test "real input, size" := inputMap.map (map => (map.rows.length, map.positions.length, map.trailheads.length)) == Ok (40, 1600, 175)
+test "real input, size" := inputMap.map (map => (map.grid.rows.length, map.positions.length, map.trailheads.length)) == Ok (40, 1600, 175)
 
 --| As the puzzle says, the real map has no impassable tiles.
-test "real input, every tile has a height" := inputMap.map (map => map.rows.all (row => row.all (tile => tile.isSome))) == Ok True
+test "real input, every tile has a height" := inputMap.map (map => map.grid.rows.all (row => row.all (tile => tile.isSome))) == Ok True
