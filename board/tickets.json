@@ -1,5 +1,5 @@
 {
-  "next": 1484,
+  "next": 1489,
   "tickets": [
     {
       "id": 47,
@@ -9140,13 +9140,83 @@
     {
       "id": 1483,
       "title": "AoC 2020 day 12 (Rain Risk): spec, efficient solution, proofs, tests, friction notes in aoc/NOTES-2020.md",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1483",
       "labels": [
         "aoc"
       ],
-      "body": "D2443 (Matt, 5 Nov 2026): 'feel free to carry on further if you have time'. Overnight, Opus (D2427), after days 10 and 11 finished early. Input: ~/repos/mdr/aoc/2020/src/main/resources/day12.\n\nStarted on Opus, expected: 90 min.",
+      "body": "D2443 (Matt, 5 Nov 2026): 'feel free to carry on further if you have time'. Overnight, Opus (D2427), after days 10 and 11 finished early. Input: ~/repos/mdr/aoc/2020/src/main/resources/day12.\n\nStarted on Opus, expected: 90 min.\n\nDone (f9698837b), merged: answers 415 and 29401. Spec: facing is a unit step; turns are degrees/90 quarter turns, the format requiring multiples of 90 (lane's call: reject other angles); Manhattan as worded. Proved: part1Exactly/part2Exactly (iff, no hypotheses), part1Correct/part2Correct, leftIsRight, full turns, per-instruction agreement. Audit 79/79; six breaks caught. Statements checked by the orchestrator. 18 min (est. 90).",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1484,
+      "title": "Aoc.Common: an integer east/north vector with headings, quarter turns (quarterLeft/Right, rotated), plus/times and Manhattan length, with full-turn and left-is-right lemmas (from 2020 day 12's Turns.sw; 2024 day 14 could use it)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "From 2020 day 12 (SW-1483), 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1485,
+      "title": "Warn when match e: refines nothing (e in neither the goal nor a hypothesis): the arms' errors then point away from the cause",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "messages"
+      ],
+      "body": "From 2020 day 12 (SW-1483), 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1486,
+      "title": "Std: List.foldLeftRelate (a map commuting with each step commutes with the fold) and Nat.iterateMod/iterateCycles, moved from 2020 day 12's proofs",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From 2020 day 12 (SW-1483), 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1487,
+      "title": "stitchwort doc should list and find a record's generated T.ext (today: no declaration named); and T.ext should take its two records implicitly (D2422)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "body": "From 2020 day 12 (SW-1483), 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1488,
+      "title": "omega should read a != b inside a Bool hypothesis as a disequation (today dropped silently; cases proves it); std Result.getOr",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "omega"
+      ],
+      "body": "From 2020 day 12 (SW-1483), 5 Nov 2026.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
