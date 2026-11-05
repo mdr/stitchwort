@@ -141,6 +141,14 @@ def IO.readAllLines(): {IO} List Text := IO.readAll().lines
 -- return in it is its characters; a carriage return is where the lines stop
 -- being the characters: "a\r\n" and "a\n" both give "a".
 
+--| A carriage return before a line feed is part of the line ending, not of the
+--| line: "a\r\nb\r" has the lines "a" and "b\r" (nothing follows the last).
+theorem Text.linesCarriageReturnExample: "a\r\nb\r".lines = ["a", "b\r"] := rfl
+
+--| A line feed after a final line feed is an empty line; a carriage return
+--| alone, after one, is a line of its own.
+theorem Text.linesFinalBreaksExample: "a\n\r\n".lines = ["a", ""] ∧ "a\n\r".lines = ["a", "\r"] := Both rfl rfl
+
 --| `Char.isLineFeedCode` holds of the code 10 only.
 theorem Char.lineFeedCodeIs: (code: Nat) → Char.isLineFeedCode code = True → code = 10
   | 0, h => Void.exfalso (Bool.falseNotTrue h)

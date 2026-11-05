@@ -51,3 +51,14 @@ theorem firstPassportWritten (input: Text) (first: Passport) (rest: List Passpor
       let firstIs: first = listed.head := List.consInjectiveHead first listed.head rest listed.tail same
       Witness firstRead (Witness (restRead ++ ending)
         (Both (rewrite text, split, List.appendAssoc firstRead restRead ending in rfl) (rewrite firstIs, <- isHead in written)))
+
+--| The same about the input's lines: they are the passports' lines, a blank
+--| line between each two. Each passport is `PassportWritten` of the
+--| characters its lines were made from, and what follows the last is line
+--| breaks.
+theorem parseWrittenLines (input: Text) (passports: List Passport) (parsed: Fail.toResult (() => parsePassports input) = Ok passports):
+    ∃ (listed: NonEmptyList Passport) => passports = listed.toList ∧ Parse.SectionsLines PassportWritten listed.head listed.tail input.lines :=
+  match parseWritten input passports parsed with
+    | Witness read (Witness ending (Both text (Both (Witness listed (Both written same)) ended))) =>
+      let lined: Text.lines input = Text.lines (MkText (read ++ ending)) := Eq.cong (chars => Text.linesFrom [] [] chars) text
+      Witness listed (Both same (rewrite lined in Parse.sectionsLinesRead PassportWritten listed read ending written ended))
