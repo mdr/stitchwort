@@ -7726,9 +7726,9 @@
     {
       "id": 1384,
       "title": "Playground language server: package as a stitchwort-lsp library crate shared by the CLI and crates/web; projects from memory; searches in a second worker; cancellation (a yielding check, or SharedArrayBuffer under cross-origin isolation); keep YAML out of the web build",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1384",
       "labels": [
         "playground"
       ],
