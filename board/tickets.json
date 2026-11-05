@@ -1,5 +1,5 @@
 {
-  "next": 1354,
+  "next": 1355,
   "tickets": [
     {
       "id": 47,
@@ -7299,6 +7299,20 @@
         "aoc"
       ],
       "body": "D2402 (Matt, 5 Nov): yes. Prompted by 2024 day 2's 1 <= Nat.absDiff level next <= 3. Same terms, so no proof changes expected. DeepSeek, ~30 min; after SW-1333 and SW-1344 merge (same files).",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1354,
+      "title": "Check cache can report a namespace as checked when it isn't (on main): congruence-lemma lookups (rewrite's …Cong, decreasing) and auto's candidates see only library files already loaded in the run, so a namespace's result depends on what unrelated namespaces loaded",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "body": "Found by the SW-1330 Opus review (repro: scratchpad sw1330-review/r5, r6). B uses rewrite inside Option.map and needs Option.mapCong (Option/Lemmas.sw), which only A loads. Change A so it no longer loads that file: fresh, B fails ('there is no Option.mapCong'); cached, B is reported from its entry. Fix: lazy loading must behave as if every file were loaded: the congruence/auto lookups should treat a pending name as something to load (or the loader counts F.…Cong as needed when F is referenced). Priority: correctness of check. Sonnet (Opus if the loader design needs it).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
