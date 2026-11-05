@@ -11,5 +11,5 @@ expression: output
    │ 
    │ Note 1: this file imports `List.length` as `count`: write the name it has here
    │ 
-   │ Note 2: the library has `Std.List.length`, `Std.Text.length` or `Std.Vec.length`: write it in full, or `import Std.List (length)`
+   │ Note 2: the library has `Std.List.length`, `Std.NonEmptyList.length`, `Std.Text.length` or `Std.Vec.length`: write it in full, or `import Std.List (length)`
 ───╯
