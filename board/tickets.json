@@ -6056,13 +6056,13 @@
     {
       "id": 1265,
       "title": "Name errors: BirthYear.valid has no note; Passport.mk's error printed three times",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1265",
       "labels": [
         "diagnostics"
       ],
-      "body": "From AoC 2020 day 4 (SW-1249), aoc/NOTES-2020.md item 5 (ranked 6). 'BirthYear.valid \"2002\"' is E-UNKNOWN-NAME 'not in scope' with no note; could say '`BirthYear` is a `Key`: write `Key.valid BirthYear`' (or resolve as dot notation on the constructor's value). Passport.mk (…) for a record: E-UNKNOWN-NAME printed three times for one use (bug).\n\nStarted 05:37 on DeepSeek, est. 30 min.",
+      "body": "From AoC 2020 day 4 (SW-1249), aoc/NOTES-2020.md item 5 (ranked 6). 'BirthYear.valid \"2002\"' is E-UNKNOWN-NAME 'not in scope' with no note; could say '`BirthYear` is a `Key`: write `Key.valid BirthYear`' (or resolve as dot notation on the constructor's value). Passport.mk (…) for a record: E-UNKNOWN-NAME printed three times for one use (bug).\n\nStarted 05:37 on DeepSeek, est. 30 min.\n\nDone on lane/SW-1265 (fa8ccd08e + my 796b0d16e; DeepSeek, 33 min, est. 30): E-UNKNOWN-NAME on Constructor.member now notes '`BirthYear` is a `Key`: write `Key.valid BirthYear` or `BirthYear |> .valid`' (both forms checked). The triple report for Passport.mk didn't reproduce on main or on the day-4 commit; DeepSeek added a general dedupe of identical diagnostics anyway, which I removed (speculative). Model result: DeepSeek, needed fixes (a speculative fix for a bug it couldn't reproduce), 33 min (est. 30).",
       "created": "2026-11-04",
       "updated": "2026-11-05",
       "commits": []
