@@ -33,7 +33,7 @@ type Person = { answers: Set Char }
 --| One person's line: the letters of their "yes" answers.
 def person(): {Parse} Person :=
   let letters := Parse.many1 (() => Parse.satisfy "a question, 'a' to 'z'" isQuestion)
-  { answers = Set.fromList letters }
+  { answers = letters.toSet }
 
 --| The people travelling together, a line each.
 type Group = { people: List Person }
@@ -45,11 +45,11 @@ def group(): {Parse} Group := { people = Parse.lines person }
 def parseGroups (input: Text): {Fail} List Group := Parse.all input (() => Parse.sections group)
 
 --| The questions anyone in the group answered "yes" to.
-def Group.anyone (group: Group): Set Char := Set.unions (group.people.map .answers)
+def Group.anyone (group: Group): Set Char := group.people.map .answers |> .unionAll
 
 --| The questions everyone in the group answered "yes" to.
 def Group.everyone (group: Group): Set Char :=
-  group.people.map .answers |> .foldLeft (Set.fromList questions) Set.intersect
+  group.people.map .answers |> .foldLeft questions.toSet Set.intersect
 
 def solvePart1 (groups: List Group): Nat := groups.sumBy .anyone.size
 

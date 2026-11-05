@@ -24,7 +24,7 @@ def exampleText: Text :=
 def example: Network := exampleText.lines |> networkOf
 
 --| Sets written as the puzzle lists them, "aq,cg,yn".
-def partyOf (names: Text): Party := { members = names.split ',' |> .map computerNamed |> Set.fromList }
+def partyOf (names: Text): Party := { members = names.split ',' |> .map computerNamed |> .toSet }
 
 --| The sets as the puzzle lists them: names in order, joined with commas.
 def listed (parties: Set Party): List Text := parties.toList.map .password
@@ -45,10 +45,10 @@ test "example, the sets with a t" :=
 
 --| The spec's sets of three, by brute force over every three computers.
 def specSetsOfThree (network: Network): Set Party :=
-  let names := computers network |> Set.fromList |> .toList
+  let names := computers network |> .toSet |> .toList
   names
-    |> .flatMap (one => names.flatMap (two => names.map (three => { members = Set.fromList [one, two, three] })))
-    |> Set.fromList
+    |> .flatMap (one => names.flatMap (two => names.map (three => { members = [one, two, three].toSet })))
+    |> .toSet
     |> .filter (party => party.size == 3 && party.members.all (one => party.members.all (other => one == other || connected network one other)))
 
 test "example, the spec's sets of three agree" :=

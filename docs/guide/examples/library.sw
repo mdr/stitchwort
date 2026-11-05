@@ -55,15 +55,18 @@ test "counts" := (wordCounts ["a", "b", "a"]).get "a" == Some 2
 test "missing key" := (wordCounts ["a"]).get "z" == None
 test "in key order" := (wordCounts ["b", "a", "b"]).toList == [("a", 1), ("b", 2)]
 test "group by" := (Map.groupBy ["tea", "milk", "pot"] (word => word.length)).get 3 == Some ["tea", "pot"]
+test "from pairs" := [(2, "b"), (1, "a")].toMap == Map.fromList [(1, "a"), (2, "b")]
 test "equal however built" := Map.fromList [(1, "a"), (2, "b")] == Map.fromList [(2, "b"), (1, "a")]
 -- end map
 
 -- begin set
-def seen: Set Nat := Set.fromList [3, 1, 3, 2]
+def seen: Set Nat := [3, 1, 3, 2].toSet
+def sets: List (Set Nat) := [[1, 2].toSet, [2, 3].toSet]
 
 test "duplicates go" := seen.size == 3 ∧ seen.toList == [1, 2, 3]
 test "membership" := seen.contains 2 ∧ ¬(seen.contains 5)
-test "set algebra" := Set.union seen (Set.fromList [9]) == Set.fromList [1, 2, 3, 9]
+test "set algebra" := Set.union seen [9].toSet == [1, 2, 3, 9].toSet
+test "union a list of sets" := sets.unionAll == [1, 2, 3].toSet
 -- end set
 
 -- begin nonempty

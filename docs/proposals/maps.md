@@ -334,7 +334,7 @@ Scala where std has no precedent. **New** items are in bold.
 
 | Group | `Map` | `Set` |
 |---|---|---|
-| Build | `empty`, `singleton`, `insert`, `insertWith`, `fromList` (last wins), **`fromListWith f`**, **`groupBy (key: a -> k) xs: Map k (List a)`** (in list order), **`counts xs: Map k Nat`**, **`fromKeys (ks: Set k) f`** | `empty`, `singleton`, `insert`, `fromList`, **`unions`** |
+| Build | `empty`, `singleton`, `insert`, `insertWith`, `fromList` (last wins), **`fromListWith f`**, **`groupBy (key: a -> k) xs: Map k (List a)`** (in list order), **`counts xs: Map k Nat`**, **`fromKeys (ks: Set k) f`** | `empty`, `singleton`, `insert`, `fromList`, **`unionAll`** |
 | Look up | `get`, `getOr`, `contains`, **`find p`**, **`min`/`max: Option (k, v)`**, **`below key`/`above key`** (nearest strictly below/above, Scala `maxBefore`/`minAfter`) | `contains`, **`min`/`max`**, **`below`/`above`**, **`isSubset`**, **`disjoint`** |
 | Change | `remove`, `alter`, `adjust`, **`removeAll (ks: Set k)`**, **`keepOnly (ks: Set k)`** | `remove` |
 | Combine | `union` (left wins), **`unionWith f`**, **`intersectWith f`**, **`difference`** | `union`, `intersect`, `difference` |

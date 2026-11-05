@@ -76,7 +76,7 @@ def firstRepeated: List ElementPair → Option ElementPair
   | [pair, ..rest] => if rest.contains pair then Some pair else firstRepeated rest
 
 --| What each pair's rule inserts.
-def ruleTable (rules: List Rule): Map ElementPair Char := Map.fromList (rules.map (rule => (rule.pair, rule.insert)))
+def ruleTable (rules: List Rule): Map ElementPair Char := rules.map (rule => (rule.pair, rule.insert)) |> .toMap
 
 --| What a pair becomes in a step: with a rule inserting `c`, the pairs `a c`
 --| and `c b`; without one, itself.
