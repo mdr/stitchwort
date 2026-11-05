@@ -2121,3 +2121,298 @@ elaboration; the rest of the cold time is std's modules.
    Error message; trivial.
 8. `Int.ofNatInjective` takes explicit numbers its hypothesis fixes
    (item 6). Library (D2422 sweep); trivial.
+
+## Day 9: Encoding Error
+
+XMAS-encrypted data, one number a line. After a preamble (25 numbers in
+the puzzle, 5 in its example), each number should be the sum of two
+different numbers among the preamble's worth just before it. Part 1 is
+the first number that isn't; part 2 finds a contiguous run of at least two
+numbers summing to it and adds the run's smallest and largest (the
+"encryption weakness"). Answers on Matt's input (1000 numbers, up to about
+6.4 × 10^13): 373803594 and 51152360; the example gives 127 and 62. I did
+not run Matt's Scala (`Day9.scala`; I read it: `sliding(windowSize + 1)`
+with `combinations(2)`, and every run of each length summed); an
+independent Python script (a quadratic scan of every window and every run)
+agrees on both answers and the example, finds exactly one run summing to
+part 1's answer, and finds no window with a repeated value, so "different
+numbers" read as different values (the puzzle: "The two numbers will have
+different values") or as different positions (Scala's `combinations`) give
+the same answers here. The spec takes values, as the puzzle says.
+
+The domain types are `XmasData` (the numbers) and `Window` (the numbers
+before one), with `window.sumsTo number`, `data.firstInvalid preamble` and
+`data.weakness invalid`; the preamble is a parameter throughout, so the
+example's tests say `(preamble := 5)` and `main` says `(preamble := 25)`.
+Part 1 walks the list once, keeping it as `front` (the numbers from the
+current window's start), and checks each number against
+`Set.fromList` of the window, O(n · k log k). Part 2 is a two-pointer
+sliding window over the same list, without arrays or indices: the window
+is the first `count` numbers of `front`, and `rest` is what follows it.
+
+```stitchwort
+def runFrom (target: Nat) (front: List Nat) (count: Nat) (sum: Nat) (rest: List Nat): Option (List Nat)
+    decreasing front.length + rest.length
+:=
+  if target < sum then
+    match front with
+      | [] => None
+      | [first, ..later] => runFrom target later (count - 1) (sum - first) rest
+  else if sum == target && 2 <= count then Some (front.take count)
+  else
+    match rest with
+      | [] => None
+      | [next, ..more] => runFrom target front (count + 1) (sum + next) more
+```
+
+Each step moves one end, so it is linear, and `decreasing front.length +
+rest.length` needed no proof at all: the obligations in both arms were
+discharged by themselves, in the program and in the two theorems that
+recurse the same way. The weakness is `data.runSumming invalid |> .flatMap
+List.nonEmpty |> .map (run => run.minimum + run.maximum)`, so the minimum
+and maximum need no `Option`. The program, its 19 example and edge-case
+tests and the 3 input tests all passed on the first run; `main` takes 0.5 s
+user on the input.
+
+**Is a 1D prefix sum or sliding window in std?** Partly. Std has
+`List.scanLeft` (`xs.scanLeft 0 Nat.add` is the 1D prefix sums, with
+`List.getOrScanLeft`), `List.windows` (fixed-size windows, Scala's
+`sliding(n)`, with length lemmas), and `List.pairs`. Nothing finds a
+contiguous run with a given sum; `Aoc.Common.PrefixSums` is the 2D table
+(`runningSums` is `scanLeft` per row). The sliding window above needed no
+library beyond `take`, `drop` and `sum`; a Common version would only pay
+if another day needs it (item 5).
+
+The spec (`Spec/Spec.sw`) has `NumberWritten` (decimal digits),
+`SumOfTwo previous number` ("the sum of any two of the 25 immediately
+previous numbers. The two numbers will have different values": some `a ≠
+b`, both in `previous`, with `a + b = number`), `previous numbers preamble
+position` (`numbers.drop (position - preamble) |> .take preamble`),
+`Part1` ("the first number in the list (after the preamble) which is not
+the sum of two of the 25 numbers before it": at some `position` after the
+preamble, not a `SumOfTwo`, and every number between the preamble and it
+is one), `Contiguous numbers run` (`(numbers.drop start).take length` for
+some `start` and `length`), `Weakness numbers invalid answer` (a
+contiguous run, `2 ≤ run.length`, summing to `invalid`, with `answer =
+smallest + largest` for a `smallest` and `largest` in the run that bound
+every `x ∈ run`, `smallest ≤ x ≤ largest`), and `Part2` (a weakness for
+some `invalid` with `Part1`).
+
+Proved (`Aoc.Year2020.Day09.Proofs`):
+
+- `parseWritten` (Parse.sw): if `parseData` reads `input`, each line is
+  its number written in decimal (6 lines: `Parse.eachLineReads` with
+  `Parse.readsNat`, whose spec `NumberWritten` copies).
+- `sumsToSound`, `sumsToComplete` (Window.sw): `window.sumsTo number` is
+  `True` exactly when `SumOfTwo window.numbers number`.
+- `walkAt`, `walkSound`, `part1Rules` (Part1.sw): when part 1 gives an
+  answer, it is `Spec.Part1`'s. `walkComplete`, `part1Complete`: whenever
+  `Spec.Part1` holds, part 1 gives that answer. `part1Unique`: `Part1`
+  names one number ("the first" is one number), from completeness and the
+  program being a function.
+- `takeOneMore`, `runFromSound`, `toListNonEmpty`, `weaknessRules`
+  (Part2.sw): when part 2 gives an answer, it is a `Spec.Weakness` of the
+  invalid number.
+- `sumTakeLe`, `sumDropTakeLe`, `shrinksInside`, `growsInside`,
+  `runFromComplete`, `runSummingComplete`, `takeOwnLength`,
+  `weaknessComplete` (Complete.sw): whenever some weakness exists, part 2
+  finds one. The invariant is the textbook one: the window never starts
+  after the run's start (at the start it would sum to at most the target,
+  so it doesn't shrink) and never ends after the run's end (ending there it
+  would sum to at least the target, and be as long as the run, so it is
+  the answer).
+- `part1Correct`, `part2Correct`, `part1Exactly` (an `↔`),
+  `part2Complete` (Proofs.sw): for every input the parser reads, its lines
+  are the numbers written out and the answers are the spec's; part 1
+  answers exactly when the spec has an answer, and part 2 answers whenever
+  the spec has one.
+
+Not proved: that every well-formed input parses (as on days 2 to 8). That
+`Part2` names one answer: two runs summing to the invalid number can have
+different weaknesses, and the program takes the one it meets first; the
+puzzle expects one, and on the input only one run exists (the Python
+check, not a test). Everything holds for any preamble, 0 included.
+
+Breaking the program made the proofs fail: dropping `a + a != number`
+from `sumsTo` fails `sumsToSound` and `sumsToComplete`; `1 <= count`
+instead of `2 <= count` fails `runFromSound`; checking against `front.take
+(preamble - 1)` fails `walkSound` and `walkComplete`; `run.minimum +
+run.minimum` fails `weaknessRules`; `target <= sum` (shrinking at an
+exact sum, which is sound but finds nothing) fails the proofs that follow
+the program's `if`; and starting the search at `data.numbers.drop 1`
+(sound, but misses runs at the start) fails `runSummingComplete` and
+`weaknessComplete`.
+
+### 1. A proof can't follow `if a && b` with one `match`
+
+`runFrom`'s middle test is `if sum == target && 2 <= count`. Day 8 (item 4
+there) found that a proof follows a program's `if` by `match c:` on its
+`Bool`. Here that doesn't work: after `match e: sum == target && 2 <=
+count with | True => …`, the hypothesis about the call still read
+
+```
+Std.Decidable.elim (Std.Decidable.andThen (Bool.decTrue (Std.Decidable.toBool (Nat.decEq sum target))) (_ => Bool.decTrue (2 <= count))) (_ => Some (List.take front count)) (_ => None) = Some run
+```
+
+because an `if` on `a && b` decides `Decidable.andThen` of the two parts,
+not the `Bool` `a && b`. Matching on `sum == target`, then on `2 <=
+count`, does compute it, but the "grow" branch is then reached twice (when
+the sum differs, and when it is right but the window is too short), so
+`runFromSound` and `runFromComplete` each write it out twice (9 lines
+each time). A newcomer who learnt day 8's trick would be stuck at the
+goal above, which names neither `&&` nor what to match on. Fixes: make a
+`match` on `a && b` also refine the `andThen` decision, or note on such a
+goal that the condition splits into its parts.
+
+### 2. `omega`'s atoms are compared as written, not as they compute
+
+In `shrinksInside` I first had `within: (front.take count).sum ≤ (front.take
+length).sum` and gave `omega [rewrite at, same at within in within]`. It
+failed with a model where two atoms differ that are one value:
+
+```
+List.foldLeft (List.take (List.drop numbers start) count) 0 Nat.add
+List.foldLeft (List.take (List.drop numbers start) length) Add.zero Add.add
+```
+
+The rewritten fact came out computed (`0`, `Nat.add`), the hypothesis
+`sums` as written (`List.sum`, through the `Add` instance's fields), and
+`omega` treats them as two unknowns. Stating each fact with its type
+written out (`let windowSum: sum = ((numbers.drop start).take count).sum
+:= rewrite <- same, <- at in total`) fixed it, and the same in
+`growsInside`. The note listing the atoms is what showed it; `omega`
+identifying atoms that compute to the same term (or at least unfolding
+`Add.zero`/`Add.add` of a known instance) would remove the trap. It will
+recur wherever a sum or a fold goes through `rewrite … at`.
+
+### 3. List lemmas: take, drop and sums over a run
+
+Std's `take`/`drop` lemmas covered most steps (`List.dropAdd`,
+`List.getDrop`, `List.lengthTake`, `List.lengthDrop`, `List.dropPast`,
+`List.takeAll`, `List.sumCons`, `List.sumAppend`), but I wrote six:
+
+- `takeOneMore`: `xs.drop k = [y, ..ys] → xs.take (k + 1) = xs.take k ++
+  [y] ∧ k < xs.length` (6 lines). Std's `List.takeSucc` is the same step
+  through `getOr` with a default, and needs `k < length` first; the
+  program's own facts are about `drop`.
+- `takeOwnLength`: `xs.take (xs.take n).length = xs.take n` and `(xs.take
+  n).length ≤ xs.length` (6 lines). No `List.lengthTakeLe`.
+- `sumTakeLe` and `sumDropTakeLe`: a shorter prefix, or a later slice,
+  sums to no more (Nat only; 10 lines).
+- `toListNonEmpty`: `xs.nonEmpty = Some ys → ys.toList = xs` (3 lines).
+  Std has `List.nonEmptyToNonEmpty` the other way.
+- There is no `List.takeNil` (`[].take n = []` for an unknown `n`), though
+  `List.dropNil` exists; `rfl` fails on it since `take` matches the count
+  first. `List.takeAll [] n (omega)` stands in.
+
+Candidates: `List.takeOfDropCons`, `List.lengthTakeLe`, `List.takeNil`,
+`List.sumTakeMono`, `List.toListOfNonEmpty`.
+
+### 4. `!=` in a statement, and `DecEq.neTrue`'s converse
+
+`let unequal: (a + a != number) = True` is E-NOT-A-TYPE: in a statement
+`!=` is the proposition. The note says exactly what to write
+(`((a + a != number): Bool) = True`), so it cost one round, but it reads
+naturally and every proof about a program's `!=` will meet it. Then
+proving that `Bool` from `a + a ≠ number`: std has `DecEq.neTrue`
+(`(x != y) = True → x ≠ y`, with `x` and `y` explicit though the
+hypothesis fixes them) but not its converse; `stitchwort search '(?x: Nat)
+≠ ?y → ((?x != ?y): Bool) = True'` found `Decidable.toBoolOf` first,
+which does it (`Decidable.toBoolOf _ (same => differ (omega))`). A
+`DecEq.neTrueOf` beside `neTrue` would be the obvious name to look for.
+My first try, `match c: a + a == number` with `rewrite c` in the `False`
+arm, was E-REWRITE-NOTHING, because `!=` isn't `not (a == b)` but the
+decision `Decidable.not (Nat.decEq …)`; the message showed the goal in
+that form, which made the reason clear.
+
+### 5. Shared logic: a pair summing to a target, again
+
+Day 1's `findPair` finds two entries at different positions summing to a
+target, with soundness and completeness proved. Day 9's check is the same
+question with different values instead of positions, over a window, and I
+wrote it again (`Window.sumsTo`, 2 lines, and 20 lines of proof) since
+`findPair` returns the first pair, which could be one of equal values when
+another pair would do. An `Aoc.Common` "pair summing to" with the
+distinctness as a parameter could serve both, but the two proofs are short
+and differ in what they need; I'd leave it until a third day asks. The same
+goes for the run search (part 2): a Common `runSumming` with its two
+theorems would be about 150 lines to move, worth it only for reuse.
+
+### 6. Smaller things
+
+- **A dead arm, honestly warned.** `firstInvalidFrom` matches
+  `front.drop preamble` first and then `front`, to recurse on its tail;
+  the `front = []` arm under a non-empty drop can't happen. The audit's
+  warning `firstInvalidFrom.eq.cons.ifTrue.nil` ("no input made the
+  hypotheses true") is correct: its hypotheses contradict each other. An
+  as-pattern (`front@[_, ..rest]`) or a match on both at once would avoid
+  the arm; neither exists. The other warning, `…ifTrue.cons`, is narrow
+  (random windows rarely pass `sumsTo`), not contradictory.
+- **A `let` missing an argument.** `let reached := growsInside … unfinished`
+  left out the last argument, so `reached` was a function, and the next
+  `omega` failed without listing it among its facts. Annotating the `let`
+  gave "this expression is a function still waiting for `long`", which is
+  excellent; `omega` could say when a `let` in scope has a function type
+  ending in a fact it might have wanted.
+- **What helped.** `decreasing` over two lists' lengths with no proofs
+  written; `NonEmptyList.minimum`/`maximum` with `minimumMem`,
+  `minimumLe`, `maximumMem`, `maximumLe`, whose `<=` through `Ord` was
+  `omega`'s `≤` on `Nat` with no bridge; chained comparisons in the spec
+  (`preamble ≤ earlier < position`, `smallest ≤ x ≤ largest`), which
+  `omega` used as two facts; `1 ..= 25` for the puzzle's own examples in
+  the tests; implicit lemma parameters (`Bool.andLeft`, `Bool.andRight`,
+  `Bool.andIntro`, `DecEq.sound`, `Option.someInjective`) in every call;
+  `List.anyTrueElim`/`List.anyOfMem` and `Set.containsFromListIff` for the
+  window; named arguments at call sites (`data.firstInvalid (preamble :=
+  25)`). Clause lambdas (`match some`, `matches`) had nothing to do here.
+- **Proofs checked early.** Nearly every theorem checked on the first or
+  second try; the detours were items 1, 2 and 4, an unknown `Eq.trans`
+  without `import Std (Eq)`, and two `rewrite … in` that needed `at`.
+
+### Size and time
+
+83 lines of program, 51 of spec, 390 of proofs (Parse 14, Window 23,
+Part1 95, Part2 92, Complete 131, Proofs 35), 74 of tests (+1 answer test
+in `aoc_answers.rs`). By the clock: 16:54 start; program and tests passing
+at 16:59; soundness proofs checked at 17:05; completeness at 17:13; then
+audit, break checks and these notes.
+
+CPU time (the machine was loaded; user time is the figure to read):
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2020.Day09.Proofs` | 8.3 s user |
+| `stitchwort check --no-cache Aoc.Year2020.Day09` | 3.0 s user |
+| `stitchwort test --no-cache Aoc.Year2020.Day09` (22 tests) | 8.9 s user |
+| `task audit:touched -- Aoc.Year2020.Day09` (33 theorems) | about 2 s |
+| `stitchwort run Aoc.Year2020.Day09.main` on the input | 0.45 s user |
+| `task test:one -- year2020_day09` | 10.1 s for the test |
+
+`STITCHWORT_TIMINGS=1` puts the Proofs namespace at 286 ms of
+elaboration, `runFromSound` the largest at 123 ms; the rest of the cold
+time is std's modules.
+
+### Ranked
+
+1. A proof can't follow a program's `if a && b` with one `match`: the
+   `if` decides `Decidable.andThen`, and the goal shows it without saying
+   to split; the workaround duplicates a branch (item 1). Elaborator or
+   message; small to medium.
+2. `omega` treats atoms that compute to the same term as different
+   (`List.sum` as written and as `rewrite … at` leaves it), with a model
+   that looks like a counterexample (item 2). Proof tooling; medium.
+3. Missing list lemmas: `take` one more after a `drop`, `lengthTakeLe`,
+   `takeNil`, sum monotonicity over prefixes and slices, `nonEmpty`'s
+   `toList` (item 3). Library; small each.
+4. No converse of `DecEq.neTrue` (`x ≠ y → (x != y) = True`), and
+   `neTrue` takes explicit `x`, `y` (D2422 candidate) (item 4). Library;
+   trivial.
+5. No as-patterns, so the walk has a dead arm and the audit warns about
+   it (item 6). Language; small.
+6. `omega` silently skips a `let` whose type is a function ending in a
+   fact (item 6). Message; small.
+7. A "pair summing to target" (day 1, day 9) and a "contiguous run
+   summing to target" could live in `Aoc.Common` once a third day needs
+   them (item 5). Common; not yet.
+8. `Part2` names one answer only when one run sums to the invalid
+   number (Not proved, above). Puzzle's promise; not a gap.
