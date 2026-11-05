@@ -1,5 +1,5 @@
 {
-  "next": 1427,
+  "next": 1428,
   "tickets": [
     {
       "id": 47,
@@ -8241,7 +8241,7 @@
     {
       "id": 1420,
       "title": "Bug: a method sharing a short name with another type's method (Instruction.run next to Code.run) makes decreasing report mutual recursion that isn't there, and suggests a step limit; repro in aoc/NOTES-2020.md Day 8 item 1",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
@@ -8335,6 +8335,20 @@
         "proofs"
       ],
       "body": "From 2020 day 8 (SW-1416), 5 Nov 2026; see aoc/NOTES-2020.md Day 8.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1427,
+      "title": "AoC 2020 day 9 (Encoding Error): spec, efficient solution, proofs, tests, friction notes in aoc/NOTES-2020.md",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "D2430 (Matt, 5 Nov 2026): yes — the orchestrator decides day 8's friction review (findings SW-1420..1426 filed; SW-1420, the method-name decreasing bug, first) and starts day 9. Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day9.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
