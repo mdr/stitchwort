@@ -59,6 +59,20 @@ fn first_difference(a: &str, b: &str) -> String {
     )
 }
 
+/// Each namespace's entry in a cache directory, by namespace: its key.
+fn namespace_entry_keys(cache: &Path) -> std::collections::BTreeMap<String, String> {
+    let mut found = std::collections::BTreeMap::new();
+    for entry in std::fs::read_dir(cache.join("check")).unwrap().flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if let Some((_, rest)) = name.split_once("-ns.")
+            && let Some((unit, key)) = rest.rsplit_once('-')
+        {
+            found.insert(unit.to_string(), key.to_string());
+        }
+    }
+    found
+}
+
 /// The namespace entries in a cache directory.
 fn namespace_entries(cache: &Path) -> usize {
     std::fs::read_dir(cache.join("check")).map_or(0, |entries| {
@@ -507,4 +521,164 @@ fn plain_check_checks_a_namespace_whose_entry_is_corrupt() {
     let _ = std::fs::remove_dir_all(&project);
     let _ = std::fs::remove_dir_all(&skipping);
     let _ = std::fs::remove_dir_all(&loading);
+}
+
+// ---- Edits to the standard library (SW-1330) ----------------------------
+
+/// Copies the directory `from` to `to`.
+fn copy_dir(from: &Path, to: &Path) {
+    std::fs::create_dir_all(to).unwrap();
+    for entry in std::fs::read_dir(from).unwrap().flatten() {
+        let target = to.join(entry.file_name());
+        if entry.path().is_dir() {
+            copy_dir(&entry.path(), &target);
+        } else {
+            std::fs::copy(entry.path(), target).unwrap();
+        }
+    }
+}
+
+/// A plain `check` of `project` reading the library from `std_dir`, with a
+/// cache in `cache` or without (`--no-cache`): what it printed, the debug
+/// lines aside, and the namespaces it elaborated because their entries
+/// didn't fit.
+fn check_with_std(project: &Path, std_dir: &Path, cache: Option<&Path>) -> (String, Vec<String>) {
+    let mut args = vec!["check", "--project", project.to_str().unwrap()];
+    match cache {
+        Some(dir) => args.extend(["--cache-dir", dir.to_str().unwrap()]),
+        None => args.push("--no-cache"),
+    }
+    let output = stitchwort(
+        &args,
+        &[
+            ("STITCHWORT_STD_DIR", std_dir.to_str().unwrap()),
+            ("STITCHWORT_CACHE_DEBUG", "1"),
+        ],
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let mut missed: Vec<String> = stderr
+        .lines()
+        .filter_map(|l| {
+            let (name, _) = l.strip_prefix("check cache: ")?.split_once(": a miss")?;
+            Some(name.to_string())
+        })
+        .collect();
+    missed.sort();
+    missed.dedup();
+    let printed = format!(
+        "status {:?}\nstdout:\n{}\nstderr:\n{}",
+        output.status.code(),
+        String::from_utf8_lossy(&output.stdout),
+        stderr
+            .lines()
+            .filter(|l| !l.starts_with("check cache: "))
+            .map(|l| format!("{l}\n"))
+            .collect::<String>()
+    );
+    (printed, missed)
+}
+
+/// An edit to the library's text reaches exactly the namespaces whose
+/// results it can change, and the cache never hides what a fresh check
+/// reports (the check cache's key holds no copy of the library's text; it
+/// holds the core, the library's names, and the text of the files a
+/// namespace loads).
+#[test]
+fn a_library_edit_re_checks_what_it_can_change_and_nothing_else() {
+    let project = temp_dir("std-edit");
+    let files: &[(&str, &str)] = &[
+        ("src/Plain.sw", "namespace Plain\n\ndef three: Nat := 3\n"),
+        (
+            "src/Fancy.sw",
+            "namespace Fancy\nimport Std (Ansi)\n\ndef hi: Text := Ansi.bold \"hi\"\n\n\
+                 theorem hi_is: hi = \"\\u{1b}[1mhi\\u{1b}[22m\" := rfl\n",
+        ),
+        (
+            "src/Sum.sw",
+            "namespace Sum\n\ndef six: Nat := [1, 2, 3].sumBy (x => x)\n\n\
+                 theorem six_is_six: six = 6 := rfl\n",
+        ),
+        // Both files declare `bold`, but only `Ansi`'s is used.
+        (
+            "src/Wild.sw",
+            "namespace Wild\nimport Std.Ansi (..)\nimport Std.Key (..)\n\n\
+                 def hi: Text := bold \"hi\"\n",
+        ),
+    ];
+    std::fs::write(project.join("stitchwort.yaml"), "sources: [src]\n").unwrap();
+    std::fs::create_dir_all(project.join("src")).unwrap();
+    for (path, text) in files {
+        std::fs::write(project.join(path), text).unwrap();
+    }
+    let std_dir = temp_dir("std-edit-std");
+    copy_dir(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../elab/src/std"),
+        &std_dir,
+    );
+    let cache = temp_dir("std-edit-cache");
+    // A namespace is checked again if its entry didn't fit (a miss), or its
+    // key changed so that there was none to try. (One with errors writes no
+    // entry, so only its output shows it.)
+    let check = |what: &str, expect: &[&str]| {
+        let (fresh, _) = check_with_std(&project, &std_dir, None);
+        let before = if cache.join("check").exists() {
+            namespace_entry_keys(&cache)
+        } else {
+            Default::default()
+        };
+        let (cached, mut missed) = check_with_std(&project, &std_dir, Some(&cache));
+        for (unit, key) in namespace_entry_keys(&cache) {
+            if before.get(&unit).is_some_and(|old| *old != key) {
+                missed.push(unit);
+            }
+        }
+        missed.sort();
+        missed.dedup();
+        assert!(
+            cached == fresh,
+            "{what}: the cache changed what `check` prints: {}",
+            first_difference(&fresh, &cached)
+        );
+        assert_eq!(missed, expect, "{what}: namespaces elaborated again");
+        fresh
+    };
+    let append = |file: &str, text: &str| {
+        let path = std_dir.join(file);
+        let old = std::fs::read_to_string(&path).unwrap();
+        std::fs::write(path, old + text).unwrap();
+    };
+    let replace = |file: &str, from: &str, to: &str| {
+        let path = std_dir.join(file);
+        let old = std::fs::read_to_string(&path).unwrap();
+        assert!(old.contains(from), "{file} has no `{from}`");
+        std::fs::write(path, old.replacen(from, to, 1)).unwrap();
+    };
+
+    let first = check("cold", &[]);
+    assert!(first.contains("status Some(0)"), "{first}");
+    assert_eq!(namespace_entries(&cache), 4);
+    check("warm", &[]);
+
+    // A comment in a file no namespace loads: its text isn't in their keys.
+    append("Graph/Search.sw", "\n-- a comment\n");
+    check("a comment in a file nothing loads", &[]);
+
+    // A body that `Fancy` and `Wild` use (through `Ansi`) changes; `Plain`
+    // and `Sum` load nothing that reaches it. `Fancy`'s theorem now fails.
+    replace("Terminal/Ansi.sw", "\\u{1b}[1m${text}", "\\u{1b}[2m${text}");
+    let after = check("a used definition's body changed", &["Fancy", "Wild"]);
+    assert!(after.contains("E-REFL"), "{after}");
+
+    // A name nothing uses is added, to a file nothing loads: a name can make
+    // a short name ambiguous in a namespace that never writes it (`Wild`'s
+    // `bold`), so every namespace is checked again. (`Fancy` and `Wild` have
+    // errors, so write no entries.)
+    append("Terminal/Key.sw", "\ndef Key.bold: Nat := 1\n");
+    let after = check("a name added", &["Plain", "Sum"]);
+    assert!(after.contains("E-AMBIGUOUS"), "{after}");
+    assert!(after.contains("E-REFL"), "{after}");
+
+    let _ = std::fs::remove_dir_all(&project);
+    let _ = std::fs::remove_dir_all(&std_dir);
+    let _ = std::fs::remove_dir_all(&cache);
 }

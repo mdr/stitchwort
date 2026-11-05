@@ -70,8 +70,9 @@ pub struct Session {
     /// them taken (`cache`, `new_module_name`). One namespace's, emptied
     /// as the next begins: a mark copies it.
     pub(crate) replayed_names: HashSet<String>,
-    /// A hash of the whole standard library's text, for the keys of
-    /// project namespaces. Computed once.
+    /// What every unit's key holds of the library besides the text of the
+    /// files it loads (`cache::Elaborator::library_interface`). Computed
+    /// once.
     pub(crate) library_digest: OnceCell<cache::Key>,
     /// What the postponement queue and the unifier counted.
     pub(crate) stats: Arc<Stats>,

@@ -1004,7 +1004,7 @@ pub const FINGERPRINT_CRATES: &str = env!("STITCHWORT_FINGERPRINT_CRATES");
 
 /// The fingerprint of what evaluates tests, made by `build.rs`
 /// ([`crate::fingerprint::evaluation_fingerprint`]): the test cache's key has
-/// this and not [`build_fingerprint`], because a test's hash already covers
+/// this and not [`FINGERPRINT`], because a test's hash already covers
 /// the program and the standard library it uses. Only a change to the Rust
 /// that evaluates a term, or to the toolchain, starts a fresh cache.
 pub const EVAL_FINGERPRINT: &str = env!("STITCHWORT_EVAL_FINGERPRINT");
@@ -1013,30 +1013,6 @@ pub const EVAL_FINGERPRINT: &str = env!("STITCHWORT_EVAL_FINGERPRINT");
 /// `test_run.rs` besides), as directories relative to the workspace root,
 /// comma-separated.
 pub const EVAL_FINGERPRINT_CRATES: &str = env!("STITCHWORT_EVAL_FINGERPRINT_CRATES");
-
-/// The fingerprint the check cache keys on: [`FINGERPRINT`] and a hash of the
-/// standard library's text as read. [`FINGERPRINT`] covers the Rust sources
-/// only: the library is read from files, not compiled in, so it can change
-/// without a rebuild.
-pub fn build_fingerprint() -> &'static str {
-    static WITH_STD: std::sync::OnceLock<String> = std::sync::OnceLock::new();
-    WITH_STD.get_or_init(|| {
-        let std = stitchwort_elab::std_text();
-        let mut h = blake3::Hasher::new();
-        let mut part = |bytes: &[u8]| {
-            h.update(&(bytes.len() as u64).to_le_bytes());
-            h.update(bytes);
-        };
-        part(FINGERPRINT.as_bytes());
-        part(std.prelude.as_bytes());
-        for (path, text) in std.library {
-            part(path.as_bytes());
-            part(text.as_bytes());
-        }
-        // As long as `FINGERPRINT`, so file names keep their shape.
-        h.finalize().to_hex()[..FINGERPRINT.len()].to_string()
-    })
-}
 
 /// [`FINGERPRINT`] without the toolchain and target: the same in a native
 /// and a WebAssembly build of the same sources, so a test can tell whether
