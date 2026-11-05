@@ -186,6 +186,11 @@ def Map.fromListWith [auto ord: Ord k] (xs: List (k, v)) (f: v → v → v): Map
 def Map.groupBy [auto ord: Ord k] (xs: List a) (key: a → k): Map k (NonEmptyList a) :=
   List.foldRight xs Map.empty (x m => Map.insertWith m (key x) (NonEmptyList.singleton x) NonEmptyList.append)
 
+--| `Map.groupBy` with the list first, so `[1, 2, 3].groupBy (n => n % 2)` reads
+--| as a method: it is `Map.fromList [(0, [2]), (1, [1, 3])]`, each group in
+--| list order and never empty ([`Map.groupBy`], [`Map.getGroupBy`]).
+def List.groupBy [auto ord: Ord k] (xs: List a) (key: a → k): Map k (NonEmptyList a) := Map.groupBy xs key
+
 --| Each element under its key, the first where elements share a key ([`Map.getIndexBy`]).
 --| `Map.indexBy ["ab", "c", "de"] Text.length` is `Map.fromList [(1, "c"), (2, "ab")]`.
 --| A left fold (a loop), where the older value wins.
@@ -1139,6 +1144,8 @@ test "map: fromListWith combines in list order" :=
   Map.toList (Map.fromListWith [(1, "a"), (2, "b"), (1, "c")] (new old => Text.append old new)) == [(1, "ac"), (2, "b")]
 test "map: groupBy keeps list order" :=
   Map.toList (Map.groupBy [1, 2, 3, 4, 5, 6] (n => n % 3)) |> .map (entry => (entry.fst, entry.snd.toList)) == [(0, [3, 6]), (1, [1, 4]), (2, [2, 5])]
+test "map: List.groupBy" :=
+  Map.toList ([1, 2, 3, 4, 5, 6].groupBy (n => n % 3)) |> .map (entry => (entry.fst, entry.snd.toList)) == [(0, [3, 6]), (1, [1, 4]), (2, [2, 5])]
 test "map: indexBy keeps the first" := Map.toList (Map.indexBy ["ab", "c", "de", "f"] Text.length) == [(1, "c"), (2, "ab")]
 test "map: indexBy empty" := Map.toList (Map.indexBy [] Text.length) == []
 test "map: counts" := Map.toList (Map.counts ['b', 'a', 'b']) == [('a', 1), ('b', 2)]

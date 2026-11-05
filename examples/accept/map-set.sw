@@ -103,7 +103,7 @@ test "functions as state" := stored.keys == [1] ∧ Option.map (stored.get 1) (f
 
 -- Later additions: counts, groupBy, unionWith, ordered lookups, keySet and Set.isSubset.
 test "counts" := (Map.counts ["b", "a", "b"]).toList == [("a", 1), ("b", 2)]
-test "groupBy" := (Map.groupBy [1, 2, 3, 4, 5] (n => n % 2)).map (group => group.toList) |> .toList == [(0, [2, 4]), (1, [1, 3, 5])]
+test "groupBy" := ([1, 2, 3, 4, 5].groupBy (n => n % 2)).map (group => group.toList) |> .toList == [(0, [2, 4]), (1, [1, 3, 5])]
 test "unionWith" := (Map.unionWith (wordCounts ["a", "b"]) (wordCounts ["b", "c"]) Nat.add).toList == [("a", 1), ("b", 2), ("c", 1)]
 test "min and below" := (wordCounts ["b", "a", "c"]).min == Some ("a", 1) ∧ (wordCounts ["b", "a", "c"]).below "c" == Some ("b", 1)
 test "keySet" := (wordCounts ["b", "a"]).keySet == Set.fromList ["a", "b"]

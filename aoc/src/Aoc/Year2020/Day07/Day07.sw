@@ -69,7 +69,7 @@ def parseRules (input: Text): {Fail} Rules := { all = Parse.eachLine input rule 
 def Rule.insides (rule: Rule): List (Colour, Colour) := rule.contents.map (content => (content.colour, rule.colour))
 
 --| Each colour, with the colours whose rules list it.
-def holdersIndex (rules: List Rule): Map Colour (NonEmptyList (Colour, Colour)) := Map.groupBy (rules.flatMap .insides) Pair.fst
+def holdersIndex (rules: List Rule): Map Colour (NonEmptyList (Colour, Colour)) := rules.flatMap .insides |> .groupBy Pair.fst
 
 def holdersIn (index: Map Colour (NonEmptyList (Colour, Colour))) (colour: Colour): List Colour :=
   match index.get colour with
@@ -112,7 +112,7 @@ def Rules.outside (rules: Rules) (colour: Colour): Map Colour Nat :=
 
 def solvePart1 (rules: Rules): Nat := (rules.outside shinyGold).size
 
-def Rules.byColour (rules: Rules): Map Colour (NonEmptyList Rule) := Map.groupBy rules.all .colour
+def Rules.byColour (rules: Rules): Map Colour (NonEmptyList Rule) := rules.all.groupBy .colour
 
 def contentsIn (index: Map Colour (NonEmptyList Rule)) (colour: Colour): List Content :=
   match index.get colour with
