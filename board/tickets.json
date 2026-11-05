@@ -7656,13 +7656,13 @@
     {
       "id": 1379,
       "title": "Unifier: (List.memRange _ _ _).forward h fails for h: x ∈ List.range 2 (n + 1) (the type evaluates to rangeFrom (n - 1) 2 and ?b - ?a matches n - 1 first); compare List.range ?a ?b with a List.range call argument by argument before evaluating, or let ranges step 3's auto do it",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1379",
       "labels": [
         "elab"
       ],
-      "body": "From SW-1357's Opus review, 5 Nov 2026. Small improvement.",
+      "body": "From SW-1357's Opus review, 5 Nov 2026. Small improvement.\n\nDone (c30b3c23e): cause — unify_step undid an argument comparison that would solve unknowns and compared unfoldings, where stuck Nat.sub spines guessed ?b := n, ?a := 1. Fix: for same-definition calls where one side's arguments are all unsolved unknowns and an unfolding is stuck, compare arguments first (lossy). A wider rule broke Parse/Reads.sw, so narrowed. examples/accept/range-numeral-start-unify.sw; docs/core.md. aoc checks, no hashes moved. Reviewed by the orchestrator (unifier only; kernel checks results). Model result: Sonnet, worked, 15 min (est. 60).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
