@@ -6802,9 +6802,9 @@
     {
       "id": 1318,
       "title": "Guards: f.induct for partial-overlap guarded arms; display polish of guard equations (beta-redex, two forms of one fact, vague skip reason)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1318",
       "labels": [
         "language"
       ],
@@ -6914,9 +6914,9 @@
     {
       "id": 1326,
       "title": "Partial lambdas: migrate the sites that waited for guards (filter then map on a pattern; filterMap with if … then Some … else None) to match some with a guard",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1326",
       "labels": [
         "aoc"
       ],
