@@ -94,7 +94,7 @@ theorem withIndexFromMap: (s: Nat) → (xs: List a) → (h: (Nat, a) → b) →
 
 --| `map` of a `concat` is the `concat` of the `map`s.
 -- (A std candidate.)
-theorem mapConcat: (xss: List (List a)) → (k: a → b) → List.map (xss.concat) k = List.concat (xss.map (xs => xs.map k))
+theorem mapConcat: (xss: List (List a)) → (k: a → b) → xss.concat.map k = (xss.map (xs => xs.map k)).concat
   | [], k => rfl
   | [xs, ..rest], k => rewrite List.mapAppend xs (List.concat rest) k, mapConcat rest k in rfl
 

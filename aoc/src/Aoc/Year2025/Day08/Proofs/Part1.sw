@@ -41,14 +41,14 @@ theorem joinedIsJoinAll (k: Nat) (points: List Point):
 
 -- Every connection is between two of the boxes ------------------------------
 
-theorem allAppend (p: a → Bool): (xs: List a) → (ys: List a) → xs.all p = True → ys.all p = True → List.all (xs.append ys) p = True
+theorem allAppend (p: a → Bool): (xs: List a) → (ys: List a) → xs.all p = True → ys.all p = True → (xs.append ys).all p = True
   | [], ys, hx, hy => hy
   | [x, ..xs], ys, hx, hy =>
     match e: p x with
       | True => allAppend p xs ys hx hy
       | False => hx
 
-theorem allTake (p: a → Bool): (k: Nat) → (xs: List a) → xs.all p = True → List.all (xs.take k) p = True
+theorem allTake (p: a → Bool): (k: Nat) → (xs: List a) → xs.all p = True → (xs.take k).all p = True
   | Zero, xs, h => rfl
   | Succ k, [], h => rfl
   | Succ k, [x, ..xs], h =>
@@ -57,7 +57,7 @@ theorem allTake (p: a → Bool): (k: Nat) → (xs: List a) → xs.all p = True �
       | False => h
 
 --| If every element passes q, so do both ends of every pair.
-theorem allPairsBoth (q: Nat → Bool): (xs: List Nat) → xs.all q = True → List.all (xs.pairs) (pair => q pair.fst ∧ q pair.snd) = True
+theorem allPairsBoth (q: Nat → Bool): (xs: List Nat) → xs.all q = True → xs.pairs.all (pair => q pair.fst ∧ q pair.snd) = True
   | [], h => rfl
   | [x, ..xs], h =>
     match e: q x with
@@ -65,7 +65,7 @@ theorem allPairsBoth (q: Nat → Bool): (xs: List Nat) → xs.all q = True → L
       | False => Void.exfalso (Bool.falseNotTrue h)
 
 theorem allMapPairWith (q: Nat → Bool) (x: Nat) (hx: q x = True): (xs: List Nat) → xs.all q = True →
-    List.all (xs.map (y => (x, y))) (pair => q pair.fst ∧ q pair.snd) = True
+    (xs.map (y => (x, y))).all (pair => q pair.fst ∧ q pair.snd) = True
   | [], h => rfl
   | [y, ..ys], h =>
     match e: q y with

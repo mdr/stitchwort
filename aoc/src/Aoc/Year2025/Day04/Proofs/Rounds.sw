@@ -70,7 +70,7 @@ theorem removeInside (grid: Grid) (s: Cells) (ins: Inside grid s): Inside grid (
 def accCount (grid: Grid) (s: Cells): Nat := grid.countPositions (r c => grid.accessible s r c)
 
 theorem roundTerm: (b: Bool) → (x: Cell) → (b = True → x = Roll) →
-    Bool.toNat ((if b then Floor else x) == Roll) + b.toNat = Bool.toNat (x == Roll)
+    Bool.toNat ((if b then Floor else x) == Roll) + Bool.toNat b = Bool.toNat (x == Roll)
   | True, x, hb => rewrite hb rfl
   | False, x, hb => omega
 
@@ -87,7 +87,7 @@ theorem roundCount (grid: Grid) (s: Cells): grid.rollCount (grid.removeAccessibl
       := rewrite <- List.sumByAdd [c := Nat] _ _ _, <- List.sumByAdd [c := Nat] _ _ _, term _ _
     _ = grid.rollCount s := Eq.sym (countPositionsSum grid (r c => s r c == Roll))
 
-theorem toNatZero: (b: Bool) → b.toNat = 0 → b = False
+theorem toNatZero: (b: Bool) → Bool.toNat b = 0 → b = False
   | False, h => rfl
   | True, h => omega
 

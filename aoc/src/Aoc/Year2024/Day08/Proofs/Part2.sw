@@ -25,7 +25,7 @@ theorem divExact: (value: Int) → (below: Nat) → (times: Nat) → value.natAb
     rewrite quotient in Eq.cong NegSucc (omega [whole, (ring: times + below * Succ times = times * Succ below + below)])
 
 --| `|x|` is `x` times its sign.
-theorem natAbsSign: (x: Int) → (x.natAbs).toInt = x.sign * x
+theorem natAbsSign: (x: Int) → x.natAbs.toInt = x.sign * x
   | OfNat Zero => rfl
   | OfNat (Succ n) => Eq.cong OfNat (omega)
   | NegSucc n => Eq.cong OfNat (omega)
@@ -35,7 +35,7 @@ theorem natAbsSign: (x: Int) → (x.natAbs).toInt = x.sign * x
 theorem divideByFacts (difference: Offset) (goal: Prop) (rowTimes: Nat) (columnTimes: Nat) (s: Int) (t: Int)
     (nonzero: (difference.rows = 0) ∧ (difference.columns = 0) → Void):
     (divisor: Nat) → difference.rows.natAbs = rowTimes * divisor → difference.columns.natAbs = columnTimes * divisor →
-      s * (difference.rows.natAbs).toInt + t * (difference.columns.natAbs).toInt = divisor.toInt →
+      s * difference.rows.natAbs.toInt + t * difference.columns.natAbs.toInt = divisor.toInt →
       ((scale: Int) → scale ≠ 0 → difference.rows = scale * (divideBy difference divisor).rows →
         difference.columns = scale * (divideBy difference divisor).columns → (s: Int) → (t: Int) →
         s * (divideBy difference divisor).rows + t * (divideBy difference divisor).columns = 1 → goal) →

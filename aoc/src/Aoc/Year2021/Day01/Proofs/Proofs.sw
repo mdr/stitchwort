@@ -16,7 +16,7 @@ theorem increasesCons (a: Nat) (b: Nat) (rest: List Nat):
 
 theorem increasesOverCons (x: Nat) (rest: List Nat) (y: Nat) (ys: List Nat):
     List.count (List.zip [x, ..rest] [y, ..ys]) (pair => pair.fst < pair.snd)
-      = Bool.toNat (x < y) + List.count (rest.zip ys) (pair => pair.fst < pair.snd) :=
+      = Bool.toNat (x < y) + (rest.zip ys).count (pair => pair.fst < pair.snd) :=
   List.countCons (List.zip rest ys) (MkPair x y) (pair => pair.fst < pair.snd)
 
 --| A list zipped with itself one place on is each element paired with the

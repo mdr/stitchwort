@@ -110,7 +110,7 @@ def splitsIn (row: Vec Bool w) (beams: Vec Bool w): Nat := row.zipWith beams (�
 --| and a splitter with a beam on it sends one down each side.
 def fall (row: Vec Bool w) (beams: Vec Bool w): Vec Bool w :=
   let hit := row.zipWith beams (∧)
-  Vec.zipWith3 (row.zipWith beams (splitter beam => beam ∧ not splitter))
+  (row.zipWith beams (splitter beam => beam ∧ not splitter)).zipWith3
     (hit.shiftRight (fill := False)) (hit.shiftLeft (fill := False)) (pass left right => pass ∨ (left ∨ right))
 
 --| Part 2: the timelines of a particle starting at S.

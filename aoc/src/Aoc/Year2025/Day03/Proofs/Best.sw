@@ -34,7 +34,7 @@ theorem finDigits: (ds: List Battery) → Nat.Digits (ds.map Fin.toNat)
   | [d, ..ds] => Both (Fin.toNatLt d) (finDigits ds)
 
 theorem mapLength (s: List Battery) (r: List Battery) (hl: s.length = r.length):
-    List.length (s.map Fin.toNat) = List.length (r.map Fin.toNat) :=
+    (s.map Fin.toNat).length = (r.map Fin.toNat).length :=
   rewrite List.lengthMap s Fin.toNat, List.lengthMap r Fin.toNat in hl
 
 --| Equal-length numbers: a smaller first digit gives a smaller number.

@@ -15,7 +15,7 @@ import Std (Eq, Fin, List, Nat, Option, Vec, Void)
 --| `splitRow` column by column.
 theorem splitRowAt (row: Vec Bool w) (below: Vec Nat w) (c: Nat):
     Vec.getOr (splitRow row below) c 1
-      = (if splitterAt row c then Vec.getOr (VCons 1 below) c 1 + below.getOr (Succ c) 1 else below.getOr c 1) :=
+      = (if splitterAt row c then (VCons 1 below).getOr c 1 + below.getOr (Succ c) 1 else below.getOr c 1) :=
   let sides := below.around 1 (l _ r => l + r)
   rewrite Vec.getOrZipWith3 (s here sides => if s then sides else here) False 1 2 1 rfl row below sides c in
     match e: splitterAt row c with
@@ -29,7 +29,7 @@ def countsBelow (w: Nat) (ls: List (Vec Bool w)): Vec Nat w := List.foldRight ls
 --| timelines from that column.
 theorem countStep (l: Vec Bool w) (rest: List (Vec Bool w)) (r: Nat) (c: Nat) (below: Vec Nat w)
     (ih: (c: Nat) → below.getOr c 1 = List.length (timelinesFrom (r + 1) c rest)):
-    (if splitterAt l c then Vec.getOr (VCons 1 below) c 1 + below.getOr (Succ c) 1 else below.getOr c 1)
+    (if splitterAt l c then (VCons 1 below).getOr c 1 + below.getOr (Succ c) 1 else below.getOr c 1)
       = List.length (timelinesFrom r c [l, ..rest]) :=
   match e: splitterAt l c with
     | True =>

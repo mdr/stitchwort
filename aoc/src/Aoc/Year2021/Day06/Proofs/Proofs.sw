@@ -41,7 +41,7 @@ theorem nextDayBounded (fish: List Nat) (bounded: Bounded fish): Bounded (nextDa
 --| The fish at `v` the next day: those whose timer goes to `v`, and the new
 --| fish if `v` is 8.
 theorem countNextDay (fish: List Nat) (v: Nat):
-    List.count (nextDay fish) (== v) = fish.count (t => nextTimer t == v) + fish.count (== 0) * Bool.toNat (8 == v) :=
+    (nextDay fish).count (== v) = fish.count (t => nextTimer t == v) + fish.count (== 0) * Bool.toNat (8 == v) :=
   omega [
     List.countAppend (List.map fish nextTimer) (List.replicate (List.count fish (== 0)) 8) (== v),
     List.countMap fish (== v) nextTimer,

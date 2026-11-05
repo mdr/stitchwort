@@ -73,7 +73,7 @@ def splitterIn: List (Vec Bool w) → Nat → Nat → Bool
 --| Putting a splitter that isn't the one looked for in front of every
 --| timeline changes nothing.
 theorem anyConsMiss (x: Nat) (d: Nat) (h: Hit) (miss: (h.row == x ∧ h.column == d) = False):
-    (ts: List (List Hit)) → List.any (ts.map (Cons h)) (hitIn x d) = ts.any (hitIn x d)
+    (ts: List (List Hit)) → (ts.map (Cons h)).any (hitIn x d) = ts.any (hitIn x d)
   | [] => rfl
   | [t, ..ts] => rewrite miss, anyConsMiss x d h miss ts
 
@@ -89,7 +89,7 @@ theorem timelinesSome: (r: Nat) → (c: Nat) → (ls: List (Vec Bool w)) → 0 <
 
 --| ... so putting the splitter looked for in front of them finds it.
 theorem anyConsHit (x: Nat) (d: Nat) (h: Hit) (hit: (h.row == x ∧ h.column == d) = True):
-    (ts: List (List Hit)) → 0 < ts.length → List.any (ts.map (Cons h)) (hitIn x d) = True
+    (ts: List (List Hit)) → 0 < ts.length → (ts.map (Cons h)).any (hitIn x d) = True
   | [], some => Void.exfalso (Bool.falseNotTrue some)
   | [t, ..ts], some => rewrite hit
 

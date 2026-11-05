@@ -28,7 +28,7 @@ theorem Bits.widthAppendBit (number: Bits) (bit: Bool): (number.append (Bits.con
 theorem Bits.appendAssoc (number: Bits) (other: Bits) (third: Bits): (number.append other).append third = number.append (other.append third) :=
   Eq.cong (bits => { bits }) (List.appendAssoc number.bits other.bits third.bits)
 
-theorem Bits.getAppendList (number: List Bool): (prefix: List Bool) → List.get (prefix.append number) (prefix.length) = number.head
+theorem Bits.getAppendList (number: List Bool): (prefix: List Bool) → (prefix.append number).get prefix.length = number.head
   | [] => Bits.getZero { bits = number }
   | [first, ..rest] => Bits.getAppendList number rest
 

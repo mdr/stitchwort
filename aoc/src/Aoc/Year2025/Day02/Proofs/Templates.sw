@@ -153,7 +153,7 @@ theorem fittingTemplateListed (range: Range) (template: RepetitionTemplate)
 --| `copies` (two or more) times, the template of that block length and that
 --| many copies is in `allTemplatesForRange`.
 theorem writtenIdTemplateListed (range: Range) (x: Nat) (inRange: List.Mem x range.ids)
-    (blockLength: Nat) (copies: Nat) (written: writtenAs (x.digits).toList blockLength copies = True) (atLeastTwo: 2 ≤ copies):
+    (blockLength: Nat) (copies: Nat) (written: writtenAs x.digits.toList blockLength copies = True) (atLeastTwo: 2 ≤ copies):
     List.Mem ({ blockLength, copies }: RepetitionTemplate) (allTemplatesForRange range) :=
   -- An x in the range is at most the range's end,
   let notAfterEnd: x ≤ range.to :=

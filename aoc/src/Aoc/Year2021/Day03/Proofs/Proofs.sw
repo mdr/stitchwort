@@ -13,7 +13,7 @@ import Std (Eq, List, Nat, Option)
 
 --| Its 1s are the numbers whose bit is a 1.
 theorem onesInColumn (bitOf: Bits → Option Bool): (numbers: List Bits) →
-    List.count (numbers.filterMap bitOf) (bit => bit) = numbers.count (number => bitOf number == Some True)
+    (numbers.filterMap bitOf).count (bit => bit) = numbers.count (number => bitOf number == Some True)
   | [] => rfl
   | [number, ..rest] =>
     rewrite List.countCons rest number (number => bitOf number == Some True), <- onesInColumn bitOf rest in
@@ -23,7 +23,7 @@ theorem onesInColumn (bitOf: Bits → Option Bool): (numbers: List Bits) →
 
 --| Its length is the numbers whose bit is a 1, and those whose bit is a 0.
 theorem columnLength (bitOf: Bits → Option Bool): (numbers: List Bits) →
-    List.length (numbers.filterMap bitOf)
+    (numbers.filterMap bitOf).length
       = numbers.count (number => bitOf number == Some True) + numbers.count (number => bitOf number == Some False)
   | [] => rfl
   | [number, ..rest] =>
@@ -56,8 +56,8 @@ theorem leastIsNotMost (numbers: List Bits) (position: Nat): leastCommonAt numbe
 --| The program's columns, read from the numbers' bits, are the spec's: the
 --| bits at each position of the first number's width.
 theorem columns (report: List Bits):
-    List.transpose (report.map Bits.bits)
-      = List.map (List.range (width report)) (i => report.filterMap (number => Bits.get number i)) :=
+    (report.map Bits.bits).transpose
+      = (List.range (width report)).map (i => report.filterMap (number => Bits.get number i)) :=
   let first: List.length (List.headOr (List.map report Bits.bits) []) = width report :=
     match report with
       | [] => rfl
@@ -70,7 +70,7 @@ theorem columns (report: List Bits):
 
 --| The program's gamma rate's bits are the spec's.
 theorem gammaBits (report: List Bits):
-    List.map (List.transpose (report.map Bits.bits)) mostCommon = List.map (List.range (width report)) (mostCommonAt report) :=
+    (report.map Bits.bits).transpose.map mostCommon = (List.range (width report)).map (mostCommonAt report) :=
   calc List.map (List.transpose (List.map report Bits.bits)) mostCommon
     _ = List.map (List.map (List.range (width report)) (i => List.filterMap report (number => Bits.get number i))) mostCommon :=
       Eq.cong (cols => List.map cols mostCommon) (columns report)
@@ -111,7 +111,7 @@ theorem getAfterPrefix (t: Bits) (prefix: Bits): Bits.get (Bits.append prefix t)
 --| start with it, without it.
 theorem keepAfterPrefix (prefix: Bits) (bit: Bool): (rests: List Bits) →
     keep (rests.map (rest => Bits.append prefix rest)) (Bits.width prefix) bit
-      = List.map (rests.filterMap (rest => Bits.afterBit rest bit)) (rest => Bits.append prefix (Bits.cons rest bit))
+      = (rests.filterMap (rest => Bits.afterBit rest bit)).map (rest => Bits.append prefix (Bits.cons rest bit))
   | [] => rfl
   | [{ bits }, ..others] =>
     rewrite getAfterPrefix { bits } prefix, keepAfterPrefix prefix bit others in cases
@@ -152,7 +152,7 @@ theorem ratingStep (choose: List Bool → Bool) (criterion: List Bits → Nat �
           (criterion (rests.map (rest => Bits.append prefix rest)) (Bits.width prefix)))
         (List.rangeFrom k (Succ (Bits.width prefix)))
       = Option.map
-        (Option.map (rating choose k (rests.filterMap (rest => Bits.afterBit rest (choose (rests.filterMap Bits.first)))))
+        ((rating choose k (rests.filterMap (rest => Bits.afterBit rest (choose (rests.filterMap Bits.first))))).map
           (rest => Bits.cons rest (choose (rests.filterMap Bits.first))))
         (rest => Bits.append prefix rest) :=
   let bit := choose (List.filterMap rests Bits.first)

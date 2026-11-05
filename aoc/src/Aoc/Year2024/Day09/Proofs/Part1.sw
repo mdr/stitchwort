@@ -165,7 +165,7 @@ theorem fillNoGaps (blocks: List Block): hasGap (compactBlocks blocks) = False
         | None => rewrite compactFree rest later, anyFileBlock rest, later in rfl
 
 --| A block's part of the checksum, as the program and as the puzzle say it.
-theorem blockChecksumCorrect (position: Nat): (block: Block) → position * block.idOr 0 = Option.getOrElse (block.id.map (id => position * id)) 0
+theorem blockChecksumCorrect (position: Nat): (block: Block) → position * block.idOr 0 = (block.id.map (id => position * id)).getOrElse 0
   | Free => Nat.mulZero position
   | FileBlock id => rfl
 

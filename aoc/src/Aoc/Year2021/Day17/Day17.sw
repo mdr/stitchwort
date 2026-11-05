@@ -92,7 +92,7 @@ def steps (target: Target): Nat := Int.toNat (-2 * target.bottom)
 --| the first step) and y from `bottom` (any less falls past on the first
 --| step) to `-bottom - 1` (any more comes down through y = 0 too fast).
 def candidates (target: Target): List Velocity :=
-  List.range (target.right.toNat)
+  List.range target.right.toNat
     |> .flatMap (i => List.range (steps target) |> .map (aimed target i))
 
 --| The `i`th x velocity from 1 and the `j`th y velocity from `bottom`.
@@ -107,7 +107,7 @@ def triangle: Nat → Nat
 
 --| The highest y a velocity reaches: thrown up at `dy`, the probe climbs
 --| `dy`, then `dy - 1`, …, then 1; thrown flat or down, it never rises.
-def peak (velocity: Velocity): Nat := triangle (velocity.dy.toNat)
+def peak (velocity: Velocity): Nat := triangle velocity.dy.toNat
 
 def solvePart1 (target: Target): Option Nat := (hitting target).maximumOf peak
 

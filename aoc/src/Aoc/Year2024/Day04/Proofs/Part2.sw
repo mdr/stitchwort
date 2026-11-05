@@ -20,7 +20,7 @@ theorem masOrNone: (first: Option Char) → (second: Option Char) → (third: Op
 
 --| Both of two tests, present or not.
 theorem bothOrNone: (one: Option Bool) → (other: Option Bool) →
-    Option.getOrElse (Option.map2 (x y => Bool.toNat (x ∧ y)) one other) 0 = Bool.toNat (one.getOrElse False ∧ other.getOrElse False)
+    (Option.map2 (x y => Bool.toNat (x ∧ y)) one other).getOrElse 0 = Bool.toNat (one.getOrElse False ∧ other.getOrElse False)
   | Some x, Some y => rfl
   | Some x, None => cases
   | None, other => rfl

@@ -22,7 +22,7 @@ theorem holdsNothingBefore (letter: Char): (chars: List Char) → (start: Nat) �
 --| Numbered from `start`, the character at `start + index` is the list's
 --| `index`th, counting from 0.
 theorem holdsGet (letter: Char): (chars: List Char) → (start: Nat) → (index: Nat) → (position: Nat) → position = start + index →
-    List.any (List.withIndexFrom start chars) (((at, char)) => at == position ∧ char == letter) = (chars.get index == Some letter)
+    List.any (List.withIndexFrom start chars) (((at, char)) => at == position ∧ char == letter) = (List.get chars index == Some letter)
   | [], start, index, position, is => rfl
   | [c, ..rest], start, Zero, position, is =>
     rewrite holdsNothingBefore letter rest (Succ start) position omega in cases

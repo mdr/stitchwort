@@ -79,7 +79,7 @@ theorem isAtSound (key: Position) (position: Position) (here: isAt key.row key.c
 
 --| A set has a position when one of its entries is at it.
 theorem containsEntries (obstructions: Set Position) (position: Position):
-    (False || (obstructions.items.toList).any (entry => isAt entry.fst.row entry.fst.column position)) = obstructions.contains position :=
+    (False || obstructions.items.toList.any (entry => isAt entry.fst.row entry.fst.column position)) = obstructions.contains position :=
   match has: obstructions.contains position with
     | True =>
       List.anyOfMem (Map.toList obstructions.items) (entry => isAt entry.fst.row entry.fst.column position) (position, ()) (isAtSelf position)

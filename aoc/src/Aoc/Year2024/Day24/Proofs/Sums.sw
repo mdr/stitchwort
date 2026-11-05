@@ -25,7 +25,7 @@ theorem toNatOdd: (carry: Bool) → (carry.toNat % 2 == 1) = carry
 
 --| The lowest bit of a sum of two numbers and a carry.
 theorem lowSumBit (x: Nat) (y: Nat) (carry: Bool):
-    Nat.testBit (x + y + carry.toNat) 0 = Bool.xor (Bool.xor (x.testBit 0) (y.testBit 0)) carry :=
+    Nat.testBit (x + y + carry.toNat) 0 = ((x.testBit 0).xor (y.testBit 0)).xor carry :=
   rewrite testBitZero (x + y + carry.toNat), testBitZero x, testBitZero y, Nat.oddSum (x + y) carry.toNat, Nat.oddSum x y, toNatOdd carry in rfl
 
 --| Half the sum of two bits and a carry is the carry out.
@@ -58,7 +58,7 @@ theorem carryFromHalves (x: Nat) (y: Nat) (carry: Bool): (bit: Nat) →
 
 --| Each bit of a sum of two numbers and a carry.
 theorem sumBitFrom: (bit: Nat) → (x: Nat) → (y: Nat) → (carry: Bool) →
-    Nat.testBit (x + y + carry.toNat) bit = Bool.xor (Bool.xor (x.testBit bit) (y.testBit bit)) (carryFrom x y carry bit)
+    Nat.testBit (x + y + carry.toNat) bit = ((x.testBit bit).xor (y.testBit bit)).xor (carryFrom x y carry bit)
   | Zero, x, y, carry => lowSumBit x y carry
   | Succ bit, x, y, carry =>
     rewrite Nat.testBitSucc (x + y + carry.toNat) bit, halfSum x y carry, Nat.testBitSucc x bit, Nat.testBitSucc y bit,
@@ -66,5 +66,5 @@ theorem sumBitFrom: (bit: Nat) → (x: Nat) → (y: Nat) → (carry: Bool) →
       sumBitFrom bit (x / 2) (y / 2) (carryOut (Nat.testBit x 0) (Nat.testBit y 0) carry)
 
 --| Each bit of `x + y`: the bits of `x` and `y` and the carry into it.
-theorem sumBit (x: Nat) (y: Nat) (bit: Nat): Nat.testBit (x + y) bit = Bool.xor (Bool.xor (x.testBit bit) (y.testBit bit)) (carryInto x y bit) :=
+theorem sumBit (x: Nat) (y: Nat) (bit: Nat): Nat.testBit (x + y) bit = ((x.testBit bit).xor (y.testBit bit)).xor (carryInto x y bit) :=
   rewrite Eq.sym (Nat.addZero (x + y)) in sumBitFrom bit x y False
