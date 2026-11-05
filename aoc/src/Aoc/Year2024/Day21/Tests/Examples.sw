@@ -142,7 +142,13 @@ test "the walk fact for walks of up to six moves, one to three robots" :=
     cheapestWalksUpTo Finite.all Keypad.numeric numericRows (robotCosts level) 6
       && cheapestWalksUpTo directionKeys Keypad.directional directionalRows (robotCosts level) 6)
 
-test "parse" := parsed "029A\n980A\n179A\n456A\n379A\n" == Ok exampleCodes
+test "parse" := parsed """
+  029A
+  980A
+  179A
+  456A
+  379A
+  """ == Ok exampleCodes
 test "parse without a final line break" := parsed "029A\n1A" == Ok [codeOf "029A", codeOf "1A"]
 test "a bad key" := parsed "02B9A\n" == Err "line 1, column 3: expected a key (0 to 9 or A) or the end of the line, got 'B'"
 test "no codes" := parsed "" == Err "line 1, column 1: expected a key (0 to 9 or A), got the end of the input"

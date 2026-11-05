@@ -125,33 +125,84 @@ test "the spec's trails" :=
 --| Up, down, left or right, and one higher: not diagonally, and not on the
 --| spot.
 test "the spec's steps" :=
-  onMap "012\n123\n234\n" (map =>
+  onMap """
+    012
+    123
+    234
+    """ (map =>
     isStep map (at 1 1) (at 1 2) && isStep map (at 1 1) (at 2 1) && !isStep map (at 1 1) (at 0 1) && !isStep map (at 1 1) (at 2 2)
       && !isStep map (at 1 1) (at 1 1)) == Ok True
 
 test "the spec's paths" :=
   onMap "01\n" (map => pathsOf map 2) == Ok [[at 0 0, at 0 0], [at 0 0, at 0 1], [at 0 1, at 0 0], [at 0 1, at 0 1]]
 
-test "parse" := parsed "01\n.9\n" == Ok ({ grid = Grid.of [[Some 0, Some 1], [None, Some 9]] })
+test "parse" := parsed """
+  01
+  .9
+  """ == Ok ({ grid = Grid.of [[Some 0, Some 1], [None, Some 9]] })
 test "parse without a final line break" := parsed "01\n23" == Ok ({ grid = Grid.of [[Some 0, Some 1], [Some 2, Some 3]] })
 test "nothing" := parsed "" == Err "expected a grid, got no cells"
-test "a bad tile" := parsed "0123\n12x4\n" == Err "line 2, column 3: expected a digit, '.' or the end of the line, got 'x'"
-test "a short row" := parsed "0123\n124\n" == Err "line 2: expected 4 cells, as on the first line, got 3"
+test "a bad tile" := parsed """
+  0123
+  12x4
+  """ == Err "line 2, column 3: expected a digit, '.' or the end of the line, got 'x'"
+test "a short row" := parsed """
+  0123
+  124
+  """ == Err "line 2: expected 4 cells, as on the first line, got 3"
 
 test "heights off the map" :=
-  onMap "01\n23\n" (map => (map.heightAt (at 1 1), map.heightAt (at 2 0), map.heightAt (at 0 2))) == Ok (Some 3, None, None)
+  onMap """
+    01
+    23
+    """ (map => (map.heightAt (at 1 1), map.heightAt (at 2 0), map.heightAt (at 0 2))) == Ok (Some 3, None, None)
 
-test "no trailheads" := onMap "123\n456\n" solvePart1 == Ok 0 && onMap "123\n456\n" solvePart2 == Ok 0
+test "no trailheads" := onMap """
+  123
+  456
+  """ solvePart1 == Ok 0 && onMap """
+  123
+  456
+  """ solvePart2 == Ok 0
 test "one straight trail" := onMap "0123456789\n" solvePart1 == Ok 1 && onMap "0123456789\n" solvePart2 == Ok 1
 test "a trail must reach 9" := onMap "012345678\n" solvePart1 == Ok 0 && onMap "012345678\n" solvePart2 == Ok 0
 --| Each row climbs its own way, and a trail can switch rows where a 4 meets a
 --| 5: each 0 reaches both 9s, by one trail each.
-test "trails cross between rows" := onMap "0123456789\n9876543210\n" solvePart1 == Ok 4 && onMap "0123456789\n9876543210\n" solvePart2 == Ok 4
+test "trails cross between rows" := onMap """
+  0123456789
+  9876543210
+  """ solvePart1 == Ok 4 && onMap """
+  0123456789
+  9876543210
+  """ solvePart2 == Ok 4
 
 --| A ladder two wide: the one step right can come at any of the nine steps,
 --| so one 9 and nine trails.
 test "many trails to one 9" :=
-  onMap "01\n12\n23\n34\n45\n56\n67\n78\n89\n" solvePart1 == Ok 1 && onMap "01\n12\n23\n34\n45\n56\n67\n78\n89\n" solvePart2 == Ok 9
+  onMap """
+    01
+    12
+    23
+    34
+    45
+    56
+    67
+    78
+    89
+    """ solvePart1 == Ok 1 && onMap """
+    01
+    12
+    23
+    34
+    45
+    56
+    67
+    78
+    89
+    """ solvePart2 == Ok 9
 
 --| A trailhead whose 1 leads nowhere.
-test "a dead end" := onMap "01.\n...\n" solvePart1 == Ok 0 && onMap "01\n" (map => map.uphill (at 0 0)) == Ok [at 0 1]
+test "a dead end" := onMap """
+  01.
+  ...
+  """ solvePart1 == Ok 0 && onMap "01\n" (map => map.uphill (at 0 0)) == Ok [at 0 1]

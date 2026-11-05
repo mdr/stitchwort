@@ -30,9 +30,17 @@ test "example, part 2" := solvePart2 exampleDepths == 5
 test "example, as the puzzle states it" := (increases exampleDepths, windowIncreases 3 exampleDepths) == (7, 5)
 test "the example's windows" := (slidingWindows 3 exampleDepths).map .sum == [607, 618, 618, 617, 647, 716, 769, 792]
 
-test "a line that isn't a depth" := parsed "199\n2x0" == Err "line 2, column 2: expected the end of the line, got 'x'"
-test "a blank line" := parsed "199\n\n200" == Err "line 2, column 1: expected a number, got the end of the line"
-test "spaces around a depth" := parsed " 199\n200 \n" == Ok [199, 200]
+test "a line that isn't a depth" := parsed """
+  199
+  2x0""" == Err "line 2, column 2: expected the end of the line, got 'x'"
+test "a blank line" := parsed """
+  199
+
+  200""" == Err "line 2, column 1: expected a number, got the end of the line"
+test "spaces around a depth" := parsed """
+   199
+  200 
+  """ == Ok [199, 200]
 test "a negative depth" := parsed "-1" == Err "line 1, column 1: expected a number, got '-'"
 test "no lines" := parsed "" == Ok []
 

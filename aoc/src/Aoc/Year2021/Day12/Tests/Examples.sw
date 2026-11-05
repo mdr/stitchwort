@@ -14,18 +14,36 @@ def passagesOf (input: Text): List Passage := Fail.orElse [] (() => parsePassage
 --| The passage `a-b`.
 def link (a: Text) (b: Text): Passage := { from = { name = a }, to = { name = b } }
 
-def example: List Passage := passagesOf "start-A\nstart-b\nA-c\nA-b\nb-d\nA-end\nb-end\n"
+def example: List Passage := passagesOf """
+  start-A
+  start-b
+  A-c
+  A-b
+  b-d
+  A-end
+  b-end
+  """
 
 --| The hypotheses of `parseNoBigNeighbours` and `endsVisited` can hold.
 -- (the audit's random inputs never parse, nor start at `start`)
-theorem smallParses: Fail.toResult (() => parsePassages "start-A\nA-end\n") = Ok [link "start" "A", link "A" "end"] := rfl
+theorem smallParses: Fail.toResult (() => parsePassages """
+  start-A
+  A-end
+  """) = Ok [link "start" "A", link "A" "end"] := rfl
 
 theorem shortPath: ({ caves = [{ name = "start" }, { name = "A" }, { name = "end" }] }: Path).startToEnd = True := rfl
 
 test "parse the example" :=
   example == [link "start" "A", link "start" "b", link "A" "c", link "A" "b", link "b" "d", link "A" "end", link "b" "end"]
-test "two big caves joined" := parsed "start-A\nA-BC\nb-end\n" == Err "line 2: A-BC joins two big caves, so a path could cross it back and forth forever and there would be infinitely many paths"
-test "no dash" := parsed "start-A\nAb\n" == Err "line 2, column 3: expected '-', got the end of the line"
+test "two big caves joined" := parsed """
+  start-A
+  A-BC
+  b-end
+  """ == Err "line 2: A-BC joins two big caves, so a path could cross it back and forth forever and there would be infinitely many paths"
+test "no dash" := parsed """
+  start-A
+  Ab
+  """ == Err "line 2, column 3: expected '-', got the end of the line"
 test "big and small" := Cave.isBig { name = "A" } ∧ Cave.isBig { name = "HN" } ∧ Cave.isSmall { name = "start" } ∧ Cave.isSmall { name = "end" } ∧ Cave.isSmall { name = "dc" } ∧ Cave.isSmall { name = "" }
 
 test "the example's ten paths" :=

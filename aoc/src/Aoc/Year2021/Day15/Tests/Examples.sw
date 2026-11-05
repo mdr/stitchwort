@@ -10,7 +10,18 @@ import Aoc.Common.Proofs (route)
 import Std (Fail, Fin, List, Nat, Option, Text)
 
 def exampleText: Text :=
-  "1163751742\n1381373672\n2136511328\n3694931569\n7463417111\n1319128137\n1359912421\n3125421639\n1293138521\n2311944581\n"
+  """
+    1163751742
+    1381373672
+    2136511328
+    3694931569
+    7463417111
+    1319128137
+    1359912421
+    3125421639
+    1293138521
+    2311944581
+    """
 
 def parsed (input: Text): Result Cave Text := Fail.toResult (() => parseCave input)
 
@@ -22,9 +33,15 @@ def example: Cave := Fail.orElse (caveOf [[0]]) (() => parseCave exampleText)
 def at (row: Nat) (column: Nat): Position := { row, column }
 
 test "parse the example" := example.height == 10 ∧ example.width == 10 ∧ levelAt example (at 0 0) == Some 1 ∧ levelAt example (at 9 9) == Some 1
-test "a short row" := parsed "123\n45\n" == Err "line 2: expected 3 cells, as on the first line, got 2"
+test "a short row" := parsed """
+  123
+  45
+  """ == Err "line 2: expected 3 cells, as on the first line, got 2"
 test "no digits" := parsed "" == Err "expected a grid, got no cells"
-test "a letter" := parsed "123\n4x6\n" == Err "line 2, column 2: expected a digit or the end of the line, got 'x'"
+test "a letter" := parsed """
+  123
+  4x6
+  """ == Err "line 2, column 2: expected a digit or the end of the line, got 'x'"
 
 test "example, part 1" := solvePart1 example == 40
 test "example, part 2" := solvePart2 example == 315

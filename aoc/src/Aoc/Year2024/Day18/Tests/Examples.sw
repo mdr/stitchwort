@@ -88,7 +88,10 @@ test "fewest steps to each position" :=
 test "the first count that blocks" := Nat.partitionPoint 0 26 (reachable 7 (bytes example)) == 21
 test "reachable" := reachable 7 (bytes example) 20 && !reachable 7 (bytes example) 21
 
-test "parse" := parsed "5,4\n4,2\n" == Ok [at 5 4, at 4 2]
+test "parse" := parsed """
+  5,4
+  4,2
+  """ == Ok [at 5 4, at 4 2]
 test "parse without a final line break" := parsed "5,4\n4,2" == Ok [at 5 4, at 4 2]
 test "parse a large coordinate" := parsed "70,69\n" == Ok [at 70 69]
 test "a missing comma" := (parsed "5 4\n" |> .map (found => ())) == Err "line 1, column 2: expected ',', got ' '"

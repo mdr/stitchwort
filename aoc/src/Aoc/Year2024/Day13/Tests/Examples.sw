@@ -49,17 +49,40 @@ test "example, many more than 100 presses" :=
 test "the program's correction is the spec's" := exampleMachines.map (machines => machines.all (machine => machine.corrected == correctedMachine machine)) == Ok True
 
 test "parse" :=
-  parsed "Button A: X+1, Y+2\nButton B: X+3, Y+4\nPrize: X=5, Y=6\n" == Ok [claw 1 2 3 4 5 6]
+  parsed """
+    Button A: X+1, Y+2
+    Button B: X+3, Y+4
+    Prize: X=5, Y=6
+    """ == Ok [claw 1 2 3 4 5 6]
 test "parse two machines without a final line break" :=
-  parsed "Button A: X+1, Y+2\nButton B: X+3, Y+4\nPrize: X=5, Y=6\n\nButton A: X+0, Y+0\nButton B: X+0, Y+0\nPrize: X=0, Y=0"
+  parsed """
+    Button A: X+1, Y+2
+    Button B: X+3, Y+4
+    Prize: X=5, Y=6
+
+    Button A: X+0, Y+0
+    Button B: X+0, Y+0
+    Prize: X=0, Y=0"""
     == Ok [claw 1 2 3 4 5 6, claw 0 0 0 0 0 0]
 test "a minus sign" :=
-  parsed "Button A: X-1, Y+2\nButton B: X+3, Y+4\nPrize: X=5, Y=6\n"
+  parsed """
+    Button A: X-1, Y+2
+    Button B: X+3, Y+4
+    Prize: X=5, Y=6
+    """
     == Err "line 1, column 11: expected 'X+', got 'X-'"
 test "a missing blank line" :=
-  parsed "Button A: X+1, Y+2\nButton B: X+3, Y+4\nPrize: X=5, Y=6\nButton A: X+1, Y+2\n"
+  parsed """
+    Button A: X+1, Y+2
+    Button B: X+3, Y+4
+    Prize: X=5, Y=6
+    Button A: X+1, Y+2
+    """
     == Err "line 4, column 1: expected a blank line or the end of the input, got 'B'"
-test "a missing prize" := parsed "Button A: X+1, Y+2\nButton B: X+3, Y+4\n" == Err "line 3, column 1: expected 'Prize: ', got the end of the input"
+test "a missing prize" := parsed """
+  Button A: X+1, Y+2
+  Button B: X+3, Y+4
+  """ == Err "line 3, column 1: expected 'Prize: ', got the end of the input"
 
 --| One solution, but negative, not whole, or over 100 presses.
 test "a negative solution" := (claw 2 1 1 2 1 5).fewestTokens == None && part1Tokens (claw 2 1 1 2 1 5) == None

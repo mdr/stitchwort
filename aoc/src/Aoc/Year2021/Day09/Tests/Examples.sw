@@ -8,7 +8,13 @@ import Aoc.Year2021.Day09.Spec (..)
 import Aoc.Common (Grid, Position, adjacent, firstWidth)
 import Std (Fail, Fin, Graph, List, Map, Text)
 
-def exampleText: Text := "2199943210\n3987894921\n9856789892\n8767896789\n9899965678\n"
+def exampleText: Text := """
+  2199943210
+  3987894921
+  9856789892
+  8767896789
+  9899965678
+  """
 
 def parsed (input: Text): Result HeightMap Text := Fail.toResult (() => parseHeightMap input)
 
@@ -21,8 +27,14 @@ def at (row: Nat) (column: Nat): Position := { row, column }
 
 test "parse the example" := example.grid.rows.length == 5 ∧ example.grid.rows.all (row => row.length == 10)
 test "heights" := example.heightAt (at 0 0) == Some 2 ∧ example.heightAt (at 4 9) == Some 8 ∧ example.heightAt (at 5 0) == None
-test "a short row" := parsed "123\n45\n" == Err "line 2: expected 3 cells, as on the first line, got 2"
-test "a letter" := parsed "123\n4x6\n" == Err "line 2, column 2: expected a digit or the end of the line, got 'x'"
+test "a short row" := parsed """
+  123
+  45
+  """ == Err "line 2: expected 3 cells, as on the first line, got 2"
+test "a letter" := parsed """
+  123
+  4x6
+  """ == Err "line 2, column 2: expected a digit or the end of the line, got 'x'"
 
 test "the example's low points" :=
   example.lowPoints == [(at 0 1, 1), (at 0 9, 0), (at 2 2, 5), (at 4 6, 5)] ∧ lowPoints example == example.lowPoints

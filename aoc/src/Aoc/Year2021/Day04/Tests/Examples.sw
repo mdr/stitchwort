@@ -43,7 +43,12 @@ test "example, part 2" := solvePart2 exampleGame == Some 1924
 test "example, the turns" := exampleGame.boards.map (.winningTurn exampleGame.draws) == [13, 14, 11]
 test "example, as the puzzle states it" := (firstWinnerScore exampleGame, lastWinnerScore exampleGame) == (Some 4512, Some 1924)
 
-test "a board too small" := parsed "1,2\n\n1 2\n3 4\n" == Err "board 1 isn't 5 by 5"
+test "a board too small" := parsed """
+  1,2
+
+  1 2
+  3 4
+  """ == Err "board 1 isn't 5 by 5"
 test "not a number" := parsed "1,x\n" == Err "line 1, column 3: expected a number, got 'x'"
 
 --| Small games, 2 by 2. A column wins as a row does; a diagonal doesn't.

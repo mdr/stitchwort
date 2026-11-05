@@ -66,13 +66,19 @@ test "part 2, the invalid passports" := exampleAnswers invalidExample == Ok (4, 
 test "part 2, the valid passports" := exampleAnswers validExample == Ok (4, 4)
 
 test "a passport parsed" :=
-  parsed "hcl:#ae17e1 iyr:2013\neyr:2024" == Ok [{ fields = [{ key = HairColor, value = "#ae17e1" }, { key = IssueYear, value = "2013" }, { key = ExpirationYear, value = "2024" }] }]
+  parsed """
+    hcl:#ae17e1 iyr:2013
+    eyr:2024""" == Ok [{ fields = [{ key = HairColor, value = "#ae17e1" }, { key = IssueYear, value = "2013" }, { key = ExpirationYear, value = "2024" }] }]
 test "line breaks at the end" := (parsed "cid:1\n\ncid:2\n").map List.length == Ok 2
 test "an unknown key" :=
   parsed "byr:1937 abc:1" == Err "line 1, column 10: expected 'byr', 'iyr', 'eyr', 'hgt', 'hcl', 'ecl', 'pid' or 'cid', got 'abc'"
 test "an empty value" := parsed "byr: iyr:2017" == Err "line 1, column 5: expected a value, got ' '"
 -- The extra blank line is line 3, where the next passport should start.
-test "two blank lines" := parsed "cid:1\n\n\ncid:2" == Err "line 3, column 1: expected 'byr', 'iyr', 'eyr', 'hgt', 'hcl', 'ecl', 'pid' or 'cid', got the end of the line"
+test "two blank lines" := parsed """
+  cid:1
+
+
+  cid:2""" == Err "line 3, column 1: expected 'byr', 'iyr', 'eyr', 'hgt', 'hcl', 'ecl', 'pid' or 'cid', got the end of the line"
 
 test "byr" := Key.valid BirthYear "2002" ∧ not (Key.valid BirthYear "2003")
 test "hgt" := Key.valid Height "60in" ∧ Key.valid Height "190cm" ∧ not (Key.valid Height "190in") ∧ not (Key.valid Height "190")

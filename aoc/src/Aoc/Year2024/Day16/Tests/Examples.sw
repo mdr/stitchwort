@@ -68,19 +68,50 @@ test "first example, part 2" := onMaze first solvePart2 == Ok 45
 test "second example, part 2" := onMaze second solvePart2 == Ok 64
 
 test "start next to the end, facing it" :=
-  onMaze "####\n#SE#\n####\n" (found => (solvePart1 found, solvePart2 found)) == Ok (1, 2)
+  onMaze """
+    ####
+    #SE#
+    ####
+    """ (found => (solvePart1 found, solvePart2 found)) == Ok (1, 2)
 test "start next to the end, facing away" :=
-  onMaze "####\n#ES#\n####\n" (found => (solvePart1 found, solvePart2 found)) == Ok (2001, 2)
+  onMaze """
+    ####
+    #ES#
+    ####
+    """ (found => (solvePart1 found, solvePart2 found)) == Ok (2001, 2)
 test "one turn" := onMaze oneTurn (found => (solvePart1 found, solvePart2 found)) == Ok (1002, 3)
-test "a turn first" := onMaze "###\n#E#\n#S#\n###\n" solvePart1 == Ok 1001
+test "a turn first" := onMaze """
+  ###
+  #E#
+  #S#
+  ###
+  """ solvePart1 == Ok 1001
 test "two equal paths round a pillar" :=
-  onMaze "#####\n#...#\n#S#E#\n#...#\n#####\n" (found => (solvePart1 found, solvePart2 found)) == Ok (3004, 8)
+  onMaze """
+    #####
+    #...#
+    #S#E#
+    #...#
+    #####
+    """ (found => (solvePart1 found, solvePart2 found)) == Ok (3004, 8)
 test "no way to the end" :=
-  onMaze "#####\n#S#E#\n#####\n" (found => (solvePart1 found, solvePart2 found)) == Ok (0, 0)
+  onMaze """
+    #####
+    #S#E#
+    #####
+    """ (found => (solvePart1 found, solvePart2 found)) == Ok (0, 0)
 test "no way to the end fails in main's score" :=
-  parsed "#####\n#S#E#\n#####\n" |> .flatMap (found => Fail.toResult (() => bestScore found found.fromStart)) == Err "no path from the start to the end"
+  parsed """
+    #####
+    #S#E#
+    #####
+    """ |> .flatMap (found => Fail.toResult (() => bestScore found found.fromStart)) == Err "no path from the start to the end"
 test "a reachable end scores" :=
-  parsed "####\n#SE#\n####\n" |> .flatMap (found => Fail.toResult (() => bestScore found found.fromStart)) == Ok 1
+  parsed """
+    ####
+    #SE#
+    ####
+    """ |> .flatMap (found => Fail.toResult (() => bestScore found found.fromStart)) == Ok 1
 
 test "the spec's moves on the one-turn maze" :=
   let moves: List Move := [Forward, Counterclockwise, Forward]
@@ -126,9 +157,29 @@ test "the best tiles of the first example" :=
   onMaze first (found => (found.bestTiles.contains (at 13 1), found.bestTiles.contains (at 1 1))) == Ok (True, False)
 
 test "parse" :=
-  (parsed "####\n#SE#\n####\n" |> .map (found => (found.start, found.end, found.openTiles.toList))) == Ok (at 1 1, at 1 2, [at 1 1, at 1 2])
+  (parsed """
+    ####
+    #SE#
+    ####
+    """ |> .map (found => (found.start, found.end, found.openTiles.toList))) == Ok (at 1 1, at 1 2, [at 1 1, at 1 2])
 test "parse without a final line break" := (parsed "####\n#SE#\n####" |> .map (found => found.openTiles.size)) == Ok 2
-test "no start" := (parsed "####\n#.E#\n####\n" |> .map (found => ())) == Err "no S tile"
-test "two ends" := (parsed "#####\n#SEE#\n#####\n" |> .map (found => ())) == Err "more than one E tile"
-test "a bad tile" := (parsed "####\n#Sx#\n####\n" |> .map (found => ())) == Err "line 2, column 3: expected '#', '.', 'S', 'E' or the end of the line, got 'x'"
-test "a short row" := (parsed "####\n#SE\n####\n" |> .map (found => ())) == Err "line 2: expected 4 cells, as on the first line, got 3"
+test "no start" := (parsed """
+  ####
+  #.E#
+  ####
+  """ |> .map (found => ())) == Err "no S tile"
+test "two ends" := (parsed """
+  #####
+  #SEE#
+  #####
+  """ |> .map (found => ())) == Err "more than one E tile"
+test "a bad tile" := (parsed """
+  ####
+  #Sx#
+  ####
+  """ |> .map (found => ())) == Err "line 2, column 3: expected '#', '.', 'S', 'E' or the end of the line, got 'x'"
+test "a short row" := (parsed """
+  ####
+  #SE
+  ####
+  """ |> .map (found => ())) == Err "line 2: expected 4 cells, as on the first line, got 3"

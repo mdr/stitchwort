@@ -13,7 +13,26 @@ def parsed (input: Text): Result Manual Text := Fail.toResult (() => parseManual
 def manualOf (input: Text): Manual := Fail.orElse { template = [], rules = [] } (() => parseManual input)
 
 def exampleInput: Text :=
-  "NNCB\n\nCH -> B\nHH -> N\nCB -> H\nNH -> C\nHB -> C\nHC -> B\nHN -> C\nNN -> C\nBH -> H\nNC -> B\nNB -> B\nBN -> B\nBB -> N\nBC -> B\nCC -> N\nCN -> C\n"
+  """
+    NNCB
+
+    CH -> B
+    HH -> N
+    CB -> H
+    NH -> C
+    HB -> C
+    HC -> B
+    HN -> C
+    NN -> C
+    BH -> H
+    NC -> B
+    NB -> B
+    BN -> B
+    BB -> N
+    BC -> B
+    CC -> N
+    CN -> C
+    """
 
 def example: Manual := manualOf exampleInput
 
@@ -24,7 +43,11 @@ def exampleCounts (steps: Nat): PairCounts := Nat.iterate steps (stepCounts (rul
 
 --| The hypothesis of the parser's theorems can hold.
 -- (the audit's random texts never parse)
-theorem smallParses: parsed "AB\n\nAB -> C\n" = Ok ({ template = ['A', 'B'], rules = [{ pair = { first = 'A', second = 'B' }, insert = 'C' }] }) := rfl
+theorem smallParses: parsed """
+  AB
+
+  AB -> C
+  """ = Ok ({ template = ['A', 'B'], rules = [{ pair = { first = 'A', second = 'B' }, insert = 'C' }] }) := rfl
 
 test "parse the example" :=
   example.template == ['N', 'N', 'C', 'B'] && example.rules.length == 16 && List.head example.rules == Some ({ pair = { first = 'C', second = 'H' }, insert = 'B' })
@@ -51,12 +74,37 @@ test "example, part 2" := solvePart2 example == 2188189693529
 test "the pairs after one step" :=
   Map.toList (exampleCounts 1) == [(pairOf 'B' 'C', 1), (pairOf 'C' 'H', 1), (pairOf 'C' 'N', 1), (pairOf 'H' 'B', 1), (pairOf 'N' 'B', 1), (pairOf 'N' 'C', 1)]
 
-test "a pair without a rule stays" := solvePart1 (manualOf "AB\n\nCD -> E\n") == 0 && afterSteps 3 (manualOf "AB\n\nCD -> E\n") == ['A', 'B']
+test "a pair without a rule stays" := solvePart1 (manualOf """
+  AB
 
-test "a one-element template" := parsed "A\n\nAA -> B\n" |> .map solvePart2 == Ok 0
+  CD -> E
+  """) == 0 && afterSteps 3 (manualOf """
+  AB
 
-test "two rules for one pair" := parsed "AB\n\nAB -> C\nCD -> E\nAB -> D\n" == Err "two rules for the pair AB"
+  CD -> E
+  """) == ['A', 'B']
 
-test "a lowercase element" := parsed "AB\n\nAb -> C\n" == Err "line 3, column 2: expected a capital letter, got 'b'"
+test "a one-element template" := parsed """
+  A
 
-test "no blank line" := parsed "AB\nAB -> C\n" == Err "line 2, column 1: expected a blank line, got 'A'"
+  AA -> B
+  """ |> .map solvePart2 == Ok 0
+
+test "two rules for one pair" := parsed """
+  AB
+
+  AB -> C
+  CD -> E
+  AB -> D
+  """ == Err "two rules for the pair AB"
+
+test "a lowercase element" := parsed """
+  AB
+
+  Ab -> C
+  """ == Err "line 3, column 2: expected a capital letter, got 'b'"
+
+test "no blank line" := parsed """
+  AB
+  AB -> C
+  """ == Err "line 2, column 1: expected a blank line, got 'A'"

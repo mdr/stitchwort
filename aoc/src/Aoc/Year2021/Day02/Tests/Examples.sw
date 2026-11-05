@@ -25,7 +25,9 @@ test "example, part 1" := solvePart1 exampleCommands == 150
 test "example, part 2" := solvePart2 exampleCommands == 900
 test "example, as the puzzle states it" := (part1 exampleCommands, part2 exampleCommands) == (150, 900)
 
-test "an unknown command" := parsed "forward 5\nback 2" == Err "line 2, column 1: expected forward, down or up, got 'b'"
+test "an unknown command" := parsed """
+  forward 5
+  back 2""" == Err "line 2, column 1: expected forward, down or up, got 'b'"
 test "no space before the units" := parsed "down5" == Err "line 1, column 5: expected a space, got '5'"
 test "no units" := parsed "up " == Err "line 1, column 4: expected a number, got the end of the line"
 test "negative units" := parsed "down -3" == Err "line 1, column 6: expected a number, got '-'"

@@ -37,9 +37,17 @@ test "example, the rates" := (gammaRate exampleReport, epsilonRate exampleReport
 test "example, the ratings" := (oxygenGeneratorRating exampleReport, co2ScrubberRating exampleReport) == (Some 23, Some 10)
 test "example, as the puzzle states it" := (powerConsumption exampleReport, lifeSupportRating exampleReport) == (198, Some 230)
 
-test "not a bit" := parsed "0101\n0121" == Err "line 2, column 3: expected 0 or 1 or the end of the line, got '2'"
-test "an empty line" := parsed "01\n\n10" == Err "line 2, column 1: expected 0 or 1, got the end of the line"
-test "a number with too few bits" := parsed "0101\n011\n1100" == Err "line 2: 3 bits, but the first line has 4"
+test "not a bit" := parsed """
+  0101
+  0121""" == Err "line 2, column 3: expected 0 or 1 or the end of the line, got '2'"
+test "an empty line" := parsed """
+  01
+
+  10""" == Err "line 2, column 1: expected 0 or 1, got the end of the line"
+test "a number with too few bits" := parsed """
+  0101
+  011
+  1100""" == Err "line 2: 3 bits, but the first line has 4"
 test "no lines" := parsed "" == Ok []
 
 --| Ties: the most common bit is 1, the least common 0.

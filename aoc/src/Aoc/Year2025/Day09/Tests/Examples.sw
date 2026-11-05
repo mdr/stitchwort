@@ -19,8 +19,12 @@ def line (from: Point) (to: Point): Line := { from, to }
 
 def tilesOf (input: Text): Result (List Point) Text := Fail.toResult (() => parseTiles input)
 
-test "parse a tile" := tilesOf "7,1\n 11 , 1 " == Ok [tile 7 1, tile 11 1]
-test "parse rejects other lines" := tilesOf "7,1\n7;1" == Err "line 2, column 2: expected ',', got ';'"
+test "parse a tile" := tilesOf """
+  7,1
+   11 , 1 """ == Ok [tile 7 1, tile 11 1]
+test "parse rejects other lines" := tilesOf """
+  7,1
+  7;1""" == Err "line 2, column 2: expected ',', got ';'"
 test "parse rejects too few and too many" :=
   (tilesOf "7", tilesOf "7,1,2") == (Err "line 1, column 2: expected ',', got the end of the line", Err "line 1, column 4: expected the end of the line, got ','")
 test "parse rejects a blank line" := tilesOf "7,1\n\n" == Err "line 2, column 1: expected a number, got the end of the line"

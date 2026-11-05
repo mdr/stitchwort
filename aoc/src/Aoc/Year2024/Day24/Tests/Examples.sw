@@ -14,7 +14,18 @@ def parsed (input: Text): Result Device Text := Fail.toResult (() => parseDevice
 --| A function of the parsed device, or why it didn't parse: a parse failure fails the test.
 def onDevice (input: Text) (f: Device -> a): Result a Text := parsed input |> .map f
 
-def smallText: Text := "x00: 1\nx01: 1\nx02: 1\ny00: 0\ny01: 1\ny02: 0\n\nx00 AND y00 -> z00\nx01 XOR y01 -> z01\nx02 OR y02 -> z02\n"
+def smallText: Text := """
+  x00: 1
+  x01: 1
+  x02: 1
+  y00: 0
+  y01: 1
+  y02: 0
+
+  x00 AND y00 -> z00
+  x01 XOR y01 -> z01
+  x02 OR y02 -> z02
+  """
 
 def larger: Result Device Text := parsed (include "../../../../../examples/2024/day24.txt")
 
@@ -72,30 +83,68 @@ test "wire names" :=
   ["x00", "y07", "z45", "abc", "xab", "x7", "x123", "z0a"].map Wire.ofName
     == [X 0, Y 7, Z 45, Other "abc", Other "xab", Other "x7", Other "x123", Other "z0a"]
 
-test "wire names back" := [X 0, Y 7, Z 45, Other "abc"].map (.name) == ["x00", "y07", "z45", "abc"]
+test "wire names back" := [X 0, Y 7, Z 45, Other "abc"].map .name == ["x00", "y07", "z45", "abc"]
 
 test "parse a gate" := onDevice smallText (device => device.gates.headOr { left = X 9, operation = Or, right = X 9, output = X 9 }) == Ok ({ left = X 0, operation = And, right = Y 0, output = Z 0 })
 
 test "parse without a final line break" := parsed "x00: 1\n\nx00 OR x00 -> z00" == Ok ({ initial = [(X 0, True)], gates = [{ left = X 0, operation = Or, right = X 0, output = Z 0 }] })
 
-test "a bad value" := parsed "x00: 2\n\nx00 OR x00 -> z00\n" == Err "line 1, column 6: expected 0 or 1, got '2'"
+test "a bad value" := parsed """
+  x00: 2
 
-test "a bad operation" := parsed "x00: 1\n\nx00 NOR x00 -> z00\n" == Err "line 3, column 5: expected AND, OR or XOR, got 'N'"
+  x00 OR x00 -> z00
+  """ == Err "line 1, column 6: expected 0 or 1, got '2'"
 
-test "no blank line" := parsed "x00: 1\nx00 OR x00 -> z00\n" == Err "line 2, column 4: expected ': ' or a blank line before this line, got ' OR'"
+test "a bad operation" := parsed """
+  x00: 1
+
+  x00 NOR x00 -> z00
+  """ == Err "line 3, column 5: expected AND, OR or XOR, got 'N'"
+
+test "no blank line" := parsed """
+  x00: 1
+  x00 OR x00 -> z00
+  """ == Err "line 2, column 4: expected ': ' or a blank line before this line, got ' OR'"
 
 --| A wire with no value: the gate waits for ever.
-test "a gate missing an input never fires" := onDevice "x00: 1\n\nx00 AND y00 -> z00\n" solvePart1 == Ok (None)
+test "a gate missing an input never fires" := onDevice """
+  x00: 1
+
+  x00 AND y00 -> z00
+  """ solvePart1 == Ok (None)
 
 --| Two gates feeding each other wait for ever, and the rest still settle.
 test "a loop settles nothing in it" :=
-  onDevice "x00: 1\n\naaa AND x00 -> bbb\nbbb OR x00 -> aaa\nx00 XOR x00 -> z00\n" (looped => (solvePart1 looped, valueOf looped "aaa", valueOf looped "bbb")) == Ok (Some 0, None, None)
+  onDevice """
+    x00: 1
 
-test "a loop through a z wire" := onDevice "x00: 1\n\nz01 AND x00 -> z00\nz00 OR x00 -> z01\n" solvePart1 == Ok (None)
+    aaa AND x00 -> bbb
+    bbb OR x00 -> aaa
+    x00 XOR x00 -> z00
+    """ (looped => (solvePart1 looped, valueOf looped "aaa", valueOf looped "bbb")) == Ok (Some 0, None, None)
 
-test "a missing z wire counts as 0" := onDevice "x00: 1\n\nx00 OR x00 -> z02\n" solvePart1 == Ok (Some 4)
+test "a loop through a z wire" := onDevice """
+  x00: 1
 
-test "gates fire in any order" := onDevice "x00: 1\ny00: 1\n\nbbb XOR aaa -> z01\naaa AND x00 -> bbb\nx00 XOR y00 -> aaa\nx00 AND y00 -> z00\n" solvePart1 == Ok (Some 1)
+  z01 AND x00 -> z00
+  z00 OR x00 -> z01
+  """ solvePart1 == Ok (None)
+
+test "a missing z wire counts as 0" := onDevice """
+  x00: 1
+
+  x00 OR x00 -> z02
+  """ solvePart1 == Ok (Some 4)
+
+test "gates fire in any order" := onDevice """
+  x00: 1
+  y00: 1
+
+  bbb XOR aaa -> z01
+  aaa AND x00 -> bbb
+  x00 XOR y00 -> aaa
+  x00 AND y00 -> z00
+  """ solvePart1 == Ok (Some 1)
 
 test "bits" := (Bits.fromLowFirst [True, False, True, True]).value == 13 && (Bits.fromLowFirst []).value == 0
 
