@@ -8114,7 +8114,7 @@
     {
       "id": 1411,
       "title": "2020 day 7 tidy: the holder and colour indexes as small types with methods instead of free functions over a bare Map Colour (NonEmptyList (Colour, Colour)); name Rule.insides' pair; rename the free bagsInside (clashes with Rules.bagsInside)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1411",
       "labels": [
@@ -8461,7 +8461,7 @@
     {
       "id": 1435,
       "title": "omega treats List.sum as written and the form rewrite ... at leaves as different unknowns, then reports a model that looks like a counterexample; annotating each fact's type fixes it",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1435",
       "labels": [
@@ -8476,7 +8476,7 @@
     {
       "id": 1436,
       "title": "Std list lemmas: take one more after drop, lengthTakeLe, takeNil (dropNil exists), sum monotone over prefixes and slices, toList of nonEmpty",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1436",
       "labels": [
