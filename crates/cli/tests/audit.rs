@@ -60,7 +60,7 @@ fn a_clean_theorem_passes() {
     assert_eq!(code, 0, "{out}");
     assert_eq!(
         out,
-        "✓ clean\n    axioms: none\n    search: none in 10000 cases (sizes up to 100; evidence, \
+        "✓ clean\n    axioms: none\n    search: none in 1500 cases (sizes up to 100; evidence, \
          not a proof)\naudited 1 theorem: 0 failed, 0 with warnings, 1 passed\n"
     );
 }
@@ -126,7 +126,7 @@ fn vacuous_hypotheses_warn_and_fail_only_with_strict() {
     assert_eq!(code, 0, "{out}");
     assert_eq!(
         out,
-        "! vacuous\n    warn: no input made the hypotheses true (0 of 10000 cases): if they \
+        "! vacuous\n    warn: no input made the hypotheses true (0 of 1500 cases): if they \
          contradict each other, the theorem is vacuous\n\
          audited 1 theorem: 0 failed, 1 with warnings, 0 passed\n"
     );
@@ -151,7 +151,7 @@ fn a_theorem_concluding_void_doesnt_warn() {
                   theorem notZero (n: Nat): Not (n + 1 = 0) := h => omega\n";
     let (code, out) = audit_file("refutes", source, &["--strict", "--verbose"]);
     assert_eq!(code, 0, "{out}");
-    let line = "    search: gave up: the hypotheses held in 0 of 10000 cases (as it claims: it \
+    let line = "    search: gave up: the hypotheses held in 0 of 1500 cases (as it claims: it \
                 concludes that they contradict each other)\n";
     assert_eq!(
         out,

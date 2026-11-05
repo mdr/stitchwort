@@ -719,9 +719,9 @@ impl<'g> Inputs<'g> {
         }
         match &self.plans[plan] {
             Plan::Pending | Plan::Failed => None,
-            Plan::Nat => Some(number(random_nat(size, rng))),
+            Plan::Nat => Some(number(random_nat(size, depth == 0, rng))),
             Plan::Int { int } => {
-                let magnitude = random_nat(size, rng);
+                let magnitude = random_nat(size, depth == 0, rng);
                 Some(if rng.one_in(2) || magnitude == BigUint::from(0u32) {
                     Term::ctor(*int, 0, vec![number(magnitude)])
                 } else {
@@ -1179,11 +1179,27 @@ impl<'g> Inputs<'g> {
     }
 }
 
-/// A random number up to `size`, or, one time in ten, one at an edge of a
+/// Random numbers range up to at least this, whatever the size they are
+/// drawn at: the size shared among a list's elements leaves each a few, and
+/// programs compare numbers with constants such as 9 or 12 (a level above
+/// 9), which numbers that small never reach.
+const NUMBER_FLOOR: usize = 16;
+
+/// The largest of the half of random numbers kept small.
+const SMALL_NUMBER: usize = 4;
+
+/// A random number up to `size` (or [`NUMBER_FLOOR`]), or, one time in ten
+/// (less often for one in a larger input), one at an edge of a
 /// machine word (the fast runtime switches representation at 2^64,
 /// `rt/src/value.rs`).
-fn random_nat(size: usize, rng: &mut Rng) -> BigUint {
-    if rng.one_in(10) {
+fn random_nat(size: usize, top: bool, rng: &mut Rng) -> BigUint {
+    // Rarer for a number inside a larger input, which has more of them:
+    // one edge number (a count of rounds past 2^64, a cell far above any
+    // threshold) is enough to make the whole input run out of steps or hit
+    // the same branch. A number that is a parameter of its own stays at one
+    // in ten.
+    let edge_odds = if top { 10 } else { (5 * size as u64).max(10) };
+    if rng.one_in(edge_odds) {
         let two = BigUint::from(2u32);
         let edges = [
             two.pow(32),
@@ -1194,7 +1210,13 @@ fn random_nat(size: usize, rng: &mut Rng) -> BigUint {
         ];
         return edges[rng.upto(edges.len() - 1)].clone();
     }
-    BigUint::from(rng.upto(size))
+    // Half of them small, so that numbers drawn for places and indexes
+    // (a position in a grid whose rows are a few cells long) land on what
+    // another part of the input has.
+    if rng.one_in(2) {
+        return BigUint::from(rng.upto(size.min(SMALL_NUMBER)));
+    }
+    BigUint::from(rng.upto(size.max(NUMBER_FLOOR)))
 }
 
 /// Numbers smaller than `n`, smallest first: 0, then `n` less a half, a

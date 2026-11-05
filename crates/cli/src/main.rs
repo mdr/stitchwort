@@ -214,7 +214,7 @@ enum Command {
         #[arg(long)]
         no_search: bool,
         /// The time each theorem's search may take, as `500ms` or `2s`
-        /// (default 500ms)
+        /// (default 2s, a backstop: up to 1500 inputs end a search first)
         #[arg(long, value_name = "TIME", value_parser = parse_millis)]
         counterexample_budget: Option<u64>,
         /// Print a line for every theorem, not only those with findings
@@ -2274,10 +2274,10 @@ fn audit(
         return ExitCode::from(2);
     }
     let search = (!args.no_search).then(|| {
-        use stitchwort_elab::counterexample::{Budget, ON_REQUEST};
+        use stitchwort_elab::counterexample::{Budget, ON_AUDIT};
         Budget {
-            millis: args.counterexample_budget.unwrap_or(ON_REQUEST.millis),
-            ..ON_REQUEST
+            millis: args.counterexample_budget.unwrap_or(ON_AUDIT.millis),
+            ..ON_AUDIT
         }
     });
     let files: Vec<&String> = targets.iter().filter(|t| is_file_target(t)).collect();

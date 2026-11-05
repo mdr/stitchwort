@@ -63,6 +63,15 @@ pub const ON_REQUEST: Budget = Budget {
     millis: 500,
 };
 
+/// The search `stitchwort audit` runs on each theorem. Its inputs, not its
+/// time, normally end it, so that the vacuity warnings don't vary from run
+/// to run with the machine's load; the time is a backstop for a statement
+/// that is slow to run.
+pub const ON_AUDIT: Budget = Budget {
+    inputs: 1500,
+    millis: 2000,
+};
+
 /// The most inputs a search on a failing proof tries (§6.3).
 pub const MAX_INPUTS: usize = 2000;
 
@@ -83,6 +92,10 @@ const CONFIRM_STEPS: u64 = 50_000_000;
 /// the search stops.
 const OUT_OF_STEPS_IN_A_ROW: usize = 20;
 const OUT_OF_STEPS: usize = 50;
+
+/// How many random inputs are drawn and run at a time, so that a search
+/// that stops early (on its time) has drawn no more than it ran.
+const RANDOM_CHUNK: usize = 250;
 
 /// The size the random inputs grow to (§5.1): a random list is up to this
 /// long, a random number up to this large (or at a machine word's edge).
@@ -536,7 +549,8 @@ impl Elaborator {
         let mut found = first
             .found
             .map(|i| (enumerated[i].clone(), first.fast, Phase::Enumerated));
-        // Phase 2: random inputs, sizes growing to `RANDOM_SIZE`, until
+        // Phase 2: random inputs, in chunks drawn as they are needed, the
+        // sizes sweeping from 1 to `RANDOM_SIZE` again and again, until
         // four fifths of the time.
         let more = budget.inputs.saturating_sub(log.tried);
         if found.is_none() && !first.stopped && !exhaustive && !plans.is_empty() && more > 0 {
@@ -550,43 +564,54 @@ impl Elaborator {
                 checker.shown_hypotheses,
                 checker.shown_conclusion
             )));
-            // Drawing them counts toward the same time as running them:
-            // past it, the batch would run none of them anyway (SW-900).
-            // Each with the size it was drawn at.
-            let (random, drawn): (Vec<Vec<Term>>, Vec<usize>) = {
-                let _op = g.machine.budget.operation(self.options.limits);
-                (0..more)
-                    .take_while(|_| !clock::past(started, budget.millis * 4 / 5))
-                    .filter_map(|i| {
-                        let size = 1 + i * RANDOM_SIZE / more.max(1);
-                        log.random_size = log.random_size.max(size);
-                        Some((inputs.random_tuple(&plans, size, &mut rng)?, size))
-                    })
-                    .unzip()
-            };
             let before = log.tried;
-            // A random input counts at its own size, but no more than it was
-            // drawn at: a number at an edge is large, but no sign that the
-            // search reached large inputs.
-            let batch = self.run_batch(
-                checker,
-                &random,
-                &|i| {
-                    let size = inputs.size_tuple(&plans, &random[i]);
-                    Size {
-                        total: size.total.min(drawn[i]),
-                        ..size
-                    }
-                },
-                started,
-                budget.millis * 4 / 5,
-                true,
-                log,
-            )?;
+            let mut drawn_so_far = 0;
+            while drawn_so_far < more && !clock::past(started, budget.millis * 4 / 5) {
+                // Drawing them counts toward the same time as running them:
+                // past it, the batch would run none of them anyway (SW-900).
+                // Each with the size it was drawn at.
+                let chunk = RANDOM_CHUNK.min(more - drawn_so_far);
+                let (random, drawn): (Vec<Vec<Term>>, Vec<usize>) = {
+                    let _op = g.machine.budget.operation(self.options.limits);
+                    (drawn_so_far..drawn_so_far + chunk)
+                        .take_while(|_| !clock::past(started, budget.millis * 4 / 5))
+                        .filter_map(|i| {
+                            // Mostly small: a larger input costs more to run, and
+                            // the hypotheses hold for fewer.
+                            let sweep = i % RANDOM_SIZE;
+                            let size = 1 + sweep * sweep / (RANDOM_SIZE - 1);
+                            log.random_size = log.random_size.max(size);
+                            Some((inputs.random_tuple(&plans, size, &mut rng)?, size))
+                        })
+                        .unzip()
+                };
+                drawn_so_far += chunk;
+                // A random input counts at its own size, but no more than it
+                // was drawn at: a number at an edge is large, but no sign
+                // that the search reached large inputs.
+                let batch = self.run_batch(
+                    checker,
+                    &random,
+                    &|i| {
+                        let size = inputs.size_tuple(&plans, &random[i]);
+                        Size {
+                            total: size.total.min(drawn[i]),
+                            ..size
+                        }
+                    },
+                    started,
+                    budget.millis * 4 / 5,
+                    true,
+                    log,
+                )?;
+                if let Some(i) = batch.found {
+                    found = Some((random[i].clone(), batch.fast, Phase::Random));
+                }
+                if batch.found.is_some() || batch.stopped {
+                    break;
+                }
+            }
             log.random = log.tried - before;
-            found = batch
-                .found
-                .map(|i| (random[i].clone(), batch.fast, Phase::Random));
         }
         // Nothing discarded: the hypotheses held for every input tried, so
         // for as large ones as were made (SW-903).
