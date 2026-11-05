@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/not-unfolded-argument.sw:14:32 ]
+    │
+ 14 │ theorem oneHolds: Holds one := composite _ _
+    │                                ──────┬──────  
+    │                                      ╰──────── expected `one () = one ()`, but this has type `Holds (arg => ?1 (?0 ()))`
+    │ 
+    │ Note: `Holds (arg => ?1 (?0 ()))` is `?1 (?0 ()) = ?1 (?0 ())`
+────╯

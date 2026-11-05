@@ -9,7 +9,7 @@ use stitchwort_core::value::{
     Closure, Elim, Head, Mode, Relation, Spine, apply_icit, call_args, conv, eval, expand_step,
     force, force_solved, is_folded, matches_at_once, opens_by_tree, proof_field, proof_param,
     quote, quote_at_most, quote_folded, same_closure_solved, same_stuck_trees, sealed,
-    underapplied, unfold_folded,
+    underapplied, unfold_folded, unfold_once,
 };
 use stitchwort_core::{BigUint, DefId, Ev, Icit, Term, Value};
 use stitchwort_core::{nat_add, native};
@@ -256,6 +256,13 @@ fn run(g: &Unifier<'_>, mut work: Vec<Task>, mode: Mode) -> Result<bool> {
             Task::Values(level, a, b) => {
                 if unify_step(g, level, &a, &b, &mut work, mode)? {
                     true
+                } else if stale(g, &a)? || stale(g, &b)? {
+                    work.push(Task::Values(
+                        level,
+                        afresh(g, level, &a)?,
+                        afresh(g, level, &b)?,
+                    ));
+                    true
                 } else if blocked(g, &a)? || blocked(g, &b)? {
                     let trail = g.store.meta_trail.borrow().len();
                     work.insert(0, Task::Later(level, a, b, trail, mode));
@@ -272,10 +279,12 @@ fn run(g: &Unifier<'_>, mut work: Vec<Task>, mode: Mode) -> Result<bool> {
                 sets_aside(g, level, &a, &b)?
             }
             Task::Later(level, a, b, _, later) => {
-                let env: Vec<Value> = (0..level).map(Value::var).collect();
-                let afresh = |v: &Value| eval(g, &env, &quote_folded(g, level, v)?);
                 work.push(Task::Mode(mode));
-                work.push(Task::Values(level, afresh(&a)?, afresh(&b)?));
+                work.push(Task::Values(
+                    level,
+                    afresh(g, level, &a)?,
+                    afresh(g, level, &b)?,
+                ));
                 work.push(Task::Mode(later));
                 true
             }
@@ -982,6 +991,50 @@ fn blocked(g: &Unifier<'_>, v: &Value) -> Result<bool> {
 /// How deep [`blocked`] looks.
 const BLOCKED_DEPTH: usize = 3;
 
+/// `v` read back and evaluated again, with every solution so far put in:
+/// a computation stuck on an unknown solved since takes its steps.
+fn afresh(g: &Unifier<'_>, level: usize, v: &Value) -> Result<Value> {
+    let env: Vec<Value> = (0..level).map(Value::var).collect();
+    eval(g, &env, &quote_folded(g, level, v)?)
+}
+
+/// Whether `v` may be a definition stuck on an unknown that has been solved
+/// since: a call of one with an argument that is a solved unknown (or `k +`
+/// one), or such a call itself, [`BLOCKED_DEPTH`] calls deep at most.
+/// [`force`] replaces a solved unknown only at the head, so such a call
+/// stays stuck, though it reads back with the solution in: `pick ?b 5`,
+/// with `?b` solved with `True` after `pick ?b` was applied to `5` (or `x
+/// + y` through an `Add` dictionary solved late), prints as what it should
+/// compute to, yet doesn't unify with it. [`afresh`] lets it compute.
+fn stale(g: &Unifier<'_>, v: &Value) -> Result<bool> {
+    stale_within(g, v, BLOCKED_DEPTH)
+}
+
+fn stale_within(g: &Unifier<'_>, v: &Value, depth: usize) -> Result<bool> {
+    let Value::Neutral(Head::Def(_), spine) = force(g, v.clone())? else {
+        return Ok(false);
+    };
+    for elim in spine.iter() {
+        let Elim::App(arg, _) = elim else {
+            continue;
+        };
+        let arg = match arg {
+            Value::NatAdd(_, base) => &**base,
+            other => other,
+        };
+        match arg {
+            Value::Neutral(Head::Meta(m), _) if g.meta_solution(*m).is_some() => return Ok(true),
+            Value::Neutral(Head::Def(_), _) | Value::Call(..)
+                if depth > 1 && stale_within(g, arg, depth - 1)? =>
+            {
+                return Ok(true);
+            }
+            _ => {}
+        }
+    }
+    Ok(false)
+}
+
 /// Pushes `pairs` to be unified in shortcut mode, then `mode` again.
 fn push_in_shortcut(work: &mut Vec<Task>, mode: Mode, pairs: Vec<Task>) {
     work.push(Task::Mode(mode));
@@ -1069,6 +1122,9 @@ fn unify_step(
         && i1 == i2
         && same_arguments_solving_nothing(g, level, *i1, s1, s2)?
     {
+        return Ok(true);
+    }
+    if one_step_apart(g, level, a, b)? {
         return Ok(true);
     }
     if meta_against_call(g, level, a, b)? {
@@ -1379,6 +1435,85 @@ fn unify_step(
         }
         _ => push_eta(&g.ev, level, &a, &b, work)?,
     })
+}
+
+/// Lazy delta, aimed narrowly (docs/proposals/proofs-about-definitions.md
+/// §5 A, D2341): a call of one definition with an unknown for a whole
+/// argument, `Effect.bind (?p ()) ?j`, against a call of another, `line ()`,
+/// is equal to it if unfolding the other a step at a time, to its body with
+/// its own calls still folded, reaches a call of the first definition whose
+/// arguments unify with these. What that solves is kept, unlike for two
+/// calls of one definition compared in [`unify_step`]'s first rule: the
+/// unknown blocks the first call's computation while the other's goes on,
+/// so comparing their unfoldings can't solve it.
+///
+/// Only the side with no such unknown is unfolded, at most
+/// [`UNFOLD_STEPS`] times. `false`, with nothing solved, if the heads don't
+/// meet or the arguments don't unify, and the caller compares the two as
+/// before. A call whose unknowns are deeper, `List.sum [?x, ..?xs]`, can
+/// take a step itself, so the unfoldings are compared as before: solving
+/// from arguments there can choose another solution than they would.
+fn one_step_apart(g: &Unifier<'_>, level: usize, a: &Value, b: &Value) -> Result<bool> {
+    let (Value::Call(i1, s1, _), Value::Call(i2, s2, _)) = (a, b) else {
+        return Ok(false);
+    };
+    if i1 == i2 || !g.machine.glue.get() {
+        return Ok(false);
+    }
+    let (head, spine, mut other) = match (unknown_argument(g, s1)?, unknown_argument(g, s2)?) {
+        (true, false) => (*i1, s1, b.clone()),
+        (false, true) => (*i2, s2, a.clone()),
+        _ => return Ok(false),
+    };
+    if same_outer_layer(&force(g, a.clone())?, &force(g, b.clone())?) {
+        return Ok(false);
+    }
+    for _ in 0..UNFOLD_STEPS {
+        let Value::Call(id, args, _) = &other else {
+            return Ok(false);
+        };
+        other = unfold_once(g, *id, args.clone())?;
+        if let Value::Call(id, args, _) = &other
+            && *id == head
+        {
+            return same_arguments(g, level, head, spine, args);
+        }
+    }
+    Ok(false)
+}
+
+/// How many one-step unfoldings [`one_step_apart`] takes before giving up.
+const UNFOLD_STEPS: usize = 4;
+
+/// Whether two forced values have the same outermost layer, or one is an
+/// unknown: then comparing them as they are takes a step (by their spines,
+/// fields or bodies, or by solving the unknown), and [`one_step_apart`]
+/// leaves them to that. `List.sum ?xs` and `aimedDepth b rest` both
+/// compute to a `List.foldLeft` stuck on its list, whose spines solve
+/// `?xs`; `Effect.bind (?p ()) ?j` is stuck on `?p ()` where `line ()`
+/// computes further.
+fn same_outer_layer(a: &Value, b: &Value) -> bool {
+    match (a, b) {
+        (Value::Neutral(Head::Meta(_), _), _) | (_, Value::Neutral(Head::Meta(_), _)) => true,
+        (Value::Neutral(h1, _), Value::Neutral(h2, _)) => h1 == h2,
+        (Value::Ctor(d1, c1, _), Value::Ctor(d2, c2, _)) => d1 == d2 && c1 == c2,
+        (Value::Data(d1, _), Value::Data(d2, _)) => d1 == d2,
+        _ => std::mem::discriminant(a) == std::mem::discriminant(b),
+    }
+}
+
+/// Whether some argument in `spine` is, once solutions are put in, an
+/// unknown that can still be solved, or one applied: `?p ()`, `?j`.
+fn unknown_argument(g: &Unifier<'_>, spine: &[Elim]) -> Result<bool> {
+    for elim in spine {
+        if let Elim::App(arg, _) = elim
+            && let Value::Neutral(Head::Meta(m), _) = force_solved(g, arg.clone())?
+            && !frozen(g, m)
+        {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 /// Whether the spines of two calls of definition `head` unify, element by

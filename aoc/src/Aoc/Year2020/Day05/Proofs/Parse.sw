@@ -31,8 +31,8 @@ theorem eachHalf (lower: Char) (upper: Char): (read: List Char) → (bits: List 
     rewrite split, one, eachHalf lower upper after rest more in rfl
 
 theorem readsPass: Parse.Reads pass PassWritten :=
-  Parse.readsThen (() => Parse.exactly 7 frontBack) _ _ _ (Parse.readsExactly 7 frontBack _ (readsHalf 'F' 'B')) (rowRead row (Both rowEach rowLength) =>
-    Parse.readsThen (() => Parse.exactly 3 leftRight) _ _ _ (Parse.readsExactly 3 leftRight _ (readsHalf 'L' 'R')) (columnRead column (Both columnEach columnLength) =>
+  Parse.readsThen _ _ _ _ (Parse.readsExactly 7 frontBack _ (readsHalf 'F' 'B')) (rowRead row (Both rowEach rowLength) =>
+    Parse.readsThen _ _ _ _ (Parse.readsExactly 3 leftRight _ (readsHalf 'L' 'R')) (columnRead column (Both columnEach columnLength) =>
       Parse.readsDone ({ row, column }: Pass) _
         (Both (omega) (Both (omega)
           (rewrite List.appendNil columnRead, eachHalf 'F' 'B' rowRead row rowEach, eachHalf 'L' 'R' columnRead column columnEach in rfl)))))

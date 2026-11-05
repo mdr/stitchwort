@@ -26,7 +26,7 @@ theorem containsFromList (letters: List Char) (question: Char): (Set.fromList le
     (found => (Set.containsFromListIff letters question).backward ((List.memContains letters question).forward found))
 
 theorem readsPerson: Parse.Reads person PersonWritten :=
-  Parse.readsThen (() => Parse.many1 (() => Parse.satisfy "a question, 'a' to 'z'" isQuestion)) _ _ _
+  Parse.readsThen _ _ _ _
     (Parse.readsMany1 _ _ (Parse.readsSatisfy _ _)) (lettersRead letters (Both each nonEmpty) =>
       match eachLetters lettersRead letters each with
         | Both same questions =>
@@ -40,11 +40,11 @@ def LineWritten (read: List Char): Option Person → Prop
   | None => read.all Parse.isSpace = True
 
 theorem readsAnswers: Parse.Reads answers LineWritten :=
-  Parse.readsThen (() => person()) _ _ _ readsPerson (read person written =>
+  Parse.readsThen _ _ _ _ readsPerson (read person written =>
     Parse.readsDone (Some person) _ (rewrite List.appendNil read in written))
 
 theorem readsBlank: Parse.Reads blank LineWritten :=
-  Parse.readsThen Parse.spaces _ _ _ Parse.readsSpaces (read u spaces =>
+  Parse.readsThen _ _ _ _ Parse.readsSpaces (read u spaces =>
     Parse.readsDone (None: Option Person) _ (rewrite List.appendNil read in spaces))
 
 theorem readsLine: Parse.Reads line LineWritten := Parse.readsOneOf LineWritten [answers, blank] (Both readsAnswers (Both readsBlank ()))

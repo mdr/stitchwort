@@ -599,3 +599,74 @@ same before and after. std, aoc and `games/rogue` check, and the audits of
 in place (a proof term such as `snocStep moved`, a lambda with typed
 parameters) still go through both checks when their application's
 conclusion isn't about `_`s. Nothing measured needs them.
+
+## As built: D2341 (SW-1227, 5 November 2026)
+
+**What changed** (`crates/elab/src/unify.rs`: `one_step_apart`, called in
+`unify_step` after the rule for two calls of one definition). §5 A, aimed
+narrowly. Two glued calls of different definitions, where one has an
+argument that is a whole unknown still to solve (`Effect.bind (?p ())
+?j`) and the other has none (`line ()`): the other is unfolded one step at
+a time (`value::unfold_once`: its case tree run, its own calls kept
+folded), at most 4 steps, until it is a call of the first one's
+definition. Their arguments are then unified in shortcut mode, as
+`same_arguments` does since SW-93 (U1, U2), and what that solves is kept.
+If the heads never meet, or the arguments don't unify, nothing is solved
+and the pair is compared as before.
+
+One more guard: the rule stays out when the two calls, forced, already
+agree at their outer layer (the same stuck definition, constructor or type
+former) or one forces to an unknown. Then comparing them as before takes a
+step and solves the unknown itself. Without the guard, 2021 Day 2's
+`aimedDepthCons` (`List.sumCons _ _`) stopped checking: `List.sum ?xs`
+against `aimedDepth b rest` solved `?xs` from `List.sum`'s arguments
+instead of from the two `List.foldLeft`s both sides compute to, and the
+proof then failed on two terms that print the same
+(`examples/accept/lazy-delta-deeper-unknown.sw` is that case; it fails
+with the guard off). Neither of the std proofs the broad probe of §2.3
+broke (`Reads.sw:627`, `:1712`) is touched: two calls of one definition
+are still compared as before.
+
+That failure wasn't the solution's fault (SW-1315). Solving from
+`List.sum`'s arguments also solved its `Add` dictionary, by unification,
+after `List.sumCons`'s other side, `x + List.sum xs`, had been evaluated
+as `Add.add` stuck on that unknown. `force` replaces a solved unknown only
+at a value's head, so the call stayed stuck, and failed against `Int.add
+…` though both print as `x + …`. The unifier now evaluates such a pair
+again, solutions put in, before it gives up (`unify::stale`); with that,
+`aimedDepthCons` checks with the guard off too. The gap didn't need the
+rule: `examples/accept/solved-after-stuck.sw` hit it on `main` (a call
+stuck on an implicit argument that the first conjunct solves).
+
+**What it does.** `_` works for the parser and the continuation of
+`Parse.readsThen` and `Parse.readsBind` whenever the parser is named,
+however many steps it has, and for a named parser that is another named
+parser's call (two steps). 2020 Days 2, 4, 5 and 6 and 2021 Day 16 now
+write `_` for every step's parser (`examples/accept/reads-named-parser.sw`
+covers one step, two steps and a parser of the file's own as a step). A
+lemma about `() => j (p ())` used for a pure named function (`one ()` is
+`Succ (Succ 0)`) is still rejected, as it must be: `j (p ())` there is an
+unknown applied, not a call (`examples/reject/not-unfolded-argument.sw`,
+SW-1219's case, recreated as that branch was gone).
+
+**Measured** (evaluation steps, `STITCHWORT_TIMINGS=decls`, `check
+--no-cache`, one run each; before = `main`'s binary on `main`'s sources,
+which still restate the parsers):
+
+| proof | before | after |
+|---|---|---|
+| 2020 Day 2 `readsLine` | 13.60 M | 0.23 M |
+| 2020 Day 4 `readsField` | 0.54 M | 0.09 M |
+| 2020 Day 6 `readsPerson` | 0.31 M | 0.20 M |
+| 2020 Day 5 `readsPass` | 0.16 M | 0.09 M |
+| 2021 Day 16 `readsHexDigit` | 0.054 M | 0.033 M |
+
+All of aoc, std included (8,049 declarations, leaving out 2024 Day 23,
+which changed on `main` in between): 1,028.0 M to 1,014.1 M. 1,265
+declarations take a little more, none by 5% or more and none by more than
+26 K steps (`Std.Set.differenceInsert`): the cost of looking for the rule's
+pairs. Nine take fewer. No hash in the hash-stability snapshots moved.
+
+**Not done.** Std's own restatements (about 42 `readsBind` uses in
+`Parse/Reads.sw`) can now go; `readsSatisfy`'s was tried and checks with
+`_ _`. That is a sweep, its own ticket.
