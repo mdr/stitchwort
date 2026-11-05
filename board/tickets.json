@@ -7152,7 +7152,7 @@
     {
       "id": 1343,
       "title": "NonEmptyList stage 1: the type { head, tail } and its functions (reduce, last, maximum, minimum, maxBy, minBy, map, zip, sort, ++, toList), List.toNonEmpty (auto proof) and List.nonEmpty (Option), link lemmas to the List versions",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1343",
       "labels": [
