@@ -2838,7 +2838,7 @@ fn refuted_case(
 }
 
 /// The hypotheses in scope and `extra`, read.
-fn read_context<'l>(cx: &Ctx, lib: &'l Lib, extra: &[Extra]) -> Result<Reader<'l>> {
+fn read_context<'l>(cx: &mut Ctx, lib: &'l Lib, extra: &[Extra]) -> Result<Reader<'l>> {
     let mut reader = Reader {
         lib,
         facts: Vec::new(),
@@ -2883,7 +2883,7 @@ fn read_context<'l>(cx: &Ctx, lib: &'l Lib, extra: &[Extra]) -> Result<Reader<'l
 
 /// A note for a `let` called `name` whose type is a function ending in a
 /// fact: `omega` can't use it, and the note says which arguments it wants.
-fn waiting_note(cx: &Ctx, lib: &Lib, name: &str, ty: &Value) -> Result<Option<String>> {
+fn waiting_note(cx: &mut Ctx, lib: &Lib, name: &str, ty: &Value) -> Result<Option<String>> {
     let Some(params) = waiting_fact(cx, lib, ty)? else {
         return Ok(None);
     };
@@ -2900,19 +2900,27 @@ fn waiting_note(cx: &Ctx, lib: &Lib, name: &str, ty: &Value) -> Result<Option<St
 /// The explicit parameters of `ty` that are still waiting, when its result
 /// is a fact `omega` reads. A function type whose result is not a fact is
 /// `None`, as is anything that isn't a function.
-fn waiting_fact(cx: &Ctx, lib: &Lib, ty: &Value) -> Result<Option<Vec<Name>>> {
-    let g = cx.g();
-    let mut level = cx.level();
+fn waiting_fact(cx: &mut Ctx, lib: &Lib, ty: &Value) -> Result<Option<Vec<Name>>> {
+    // The parameters are bound while the result is read: reading it reads
+    // its parts back as terms, which may mention them.
+    let mark = cx.mark();
+    let found = waiting_fact_bound(cx, lib, ty);
+    cx.reset(mark);
+    found
+}
+
+/// [`waiting_fact`], binding the parameters in `cx` as it goes.
+fn waiting_fact_bound(cx: &mut Ctx, lib: &Lib, ty: &Value) -> Result<Option<Vec<Name>>> {
     let mut ty = ty.clone();
     let mut params: Vec<Name> = Vec::new();
     loop {
-        match force(&g, ty.clone())? {
-            Value::Pi(name, icit, _, cod) => {
+        match force(&cx.g(), ty.clone())? {
+            Value::Pi(name, icit, dom, cod) => {
                 if icit == Icit::Explicit {
-                    params.push(name);
+                    params.push(name.clone());
                 }
-                ty = cod.apply(&g, Value::var(level))?;
-                level += 1;
+                ty = cod.apply(&cx.g(), Value::var(cx.level()))?;
+                cx.bind_hidden(name, (*dom).clone());
             }
             result => {
                 if params.is_empty() {

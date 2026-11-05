@@ -2188,7 +2188,14 @@ fn visit(
         }
         Value::Neutral(head, spine) => {
             let head = match head {
-                Head::Var(l, _) => SpineHead::Term(Term::Var(level - 1 - l)),
+                Head::Var(l, _) => {
+                    debug_assert!(
+                        l < level,
+                        "internal error: variable at level {l} read back with {level} in scope: \
+                         the caller is quoting outside the context the value was made in"
+                    );
+                    SpineHead::Term(Term::Var(level - 1 - l))
+                }
                 Head::Def(id) => SpineHead::Term(Term::Def(id)),
                 Head::Meta(m) => SpineHead::Term(Term::Meta(m)),
                 Head::Quot(form) => SpineHead::Quot(form, quot_args_in(form, &spine)),
