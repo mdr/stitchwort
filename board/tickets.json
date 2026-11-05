@@ -1,5 +1,5 @@
 {
-  "next": 1351,
+  "next": 1353,
   "tickets": [
     {
       "id": 47,
@@ -7222,7 +7222,7 @@
     {
       "id": 1348,
       "title": "Feature tour page for chained comparisons (lo <= x <= hi), and the guide check for SW-1341's paragraph",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1348",
       "labels": [
@@ -7257,6 +7257,34 @@
         "elab"
       ],
       "body": "From SW-1341's review fixes: the decision is built from the evaluated proposition, so the chain's let is lost when the chain is one conjunct of the if h: condition. Repro: scratchpad sw1341-review/js.sw (c1), build --js.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1351,
+      "title": "Std: a proof-indexed List.get (xs.get i [auto ok: i < xs.length]: a), redefined by hand in three examples and the chained-comparisons tour page",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From SW-1348: the tour page had to define its own at. Name to pick (get exists and returns Option): e.g. List.at. Then use it in examples/accept/decisions.sw, examples/soundness/absurd-without-proof.sw, examples/extract/numbers.sw, web/guide/28-chained-comparisons.sw.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1352,
+      "title": "Sweep: write range checks as chained comparisons (lo <= x <= hi) in aoc and games/rogue (32 + 1 sites), then std (33) after SW-1344 merges",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "From SW-1341's note survey (docs/proposals/chained-comparisons.md lists them). Only where the middle is the same expression on both sides; proofs' statements may change shape only per D2388 (one conjunct) — list each. DeepSeek.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
