@@ -27,6 +27,19 @@
         "path": "./syntaxes/stitchwort.tmLanguage.json"
       }
     ],
+    "semanticTokenTypes": [
+      { "id": "theorem", "superType": "function", "description": "A theorem, or a proof of one" },
+      { "id": "ability", "superType": "interface", "description": "An ability (an effect) and its operations' namespace" }
+    ],
+    "semanticTokenScopes": [
+      {
+        "language": "stitchwort",
+        "scopes": {
+          "theorem": ["entity.name.function.theorem.stitchwort"],
+          "ability": ["entity.name.type.interface.stitchwort"]
+        }
+      }
+    ],
     "configuration": {
       "title": "Stitchwort",
       "properties": {

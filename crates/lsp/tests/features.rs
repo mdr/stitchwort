@@ -25,10 +25,19 @@ struct Session {
     server: Inline,
     next_id: u64,
     diagnostics: Vec<Value>,
+    /// The methods of the requests the server made of the client.
+    asked: Vec<String>,
 }
 
 impl Session {
     fn open(text: &str) -> Session {
+        Session::open_with(
+            text,
+            json!({"workspace": {"workspaceEdit": {"documentChanges": true}}}),
+        )
+    }
+
+    fn open_with(text: &str, capabilities: Value) -> Session {
         let memory = Arc::new(Memory::default());
         memory.add(MemoryProject {
             root: "/memory/proj".into(),
@@ -39,11 +48,9 @@ impl Session {
             server: Inline::new(Options::new(STACK), memory).unwrap(),
             next_id: 1,
             diagnostics: Vec::new(),
+            asked: Vec::new(),
         };
-        s.request(
-            "initialize",
-            json!({"capabilities": {"workspace": {"workspaceEdit": {"documentChanges": true}}}}),
-        );
+        s.request("initialize", json!({ "capabilities": capabilities }));
         s.notify("initialized", json!({}));
         s.notify(
             "textDocument/didOpen",
@@ -62,6 +69,11 @@ impl Session {
     }
 
     fn note(&mut self, m: Value) {
+        if m.get("id").is_some()
+            && let Some(method) = m["method"].as_str()
+        {
+            self.asked.push(method.to_string());
+        }
         if m["method"] == "textDocument/publishDiagnostics" && m["params"]["uri"] == URI {
             self.diagnostics = m["params"]["diagnostics"].as_array().unwrap().clone();
         }
@@ -150,5 +162,83 @@ fn signature_help_shows_the_function_and_the_current_parameter() {
         // After it, with `high` given: `value`.
         let help = help_after(&mut s, line, col("5"));
         assert_eq!(help["activeParameter"], 2, "{help}");
+    });
+}
+
+#[test]
+fn a_let_without_a_type_gets_its_type_as_an_inlay_hint() {
+    big_stack(|| {
+        let text = "namespace Demo\n\ndef f (n: Nat): Nat :=\n  let a := n + 1\n  let b: Nat := a + 1\n  let _c := 0\n  a + b\n";
+        let mut s = Session::open(text);
+        let hints = s.request(
+            "textDocument/inlayHint",
+            json!({"textDocument": {"uri": URI},
+                   "range": {"start": {"line": 0, "character": 0}, "end": {"line": 9, "character": 0}}}),
+        );
+        // Only `a`: `b` has its type written, `_c` is unused.
+        assert_eq!(hints.as_array().unwrap().len(), 1, "{hints}");
+        assert_eq!(hints[0]["label"], ": Nat");
+        assert_eq!(hints[0]["position"], json!({"line": 3, "character": 7}));
+        assert_eq!(hints[0]["kind"], 1);
+    });
+}
+
+#[test]
+fn semantic_tokens_colour_names_by_what_they_resolve_to() {
+    big_stack(|| {
+        let text = "namespace Demo\n\ntype Color = | Red | Green\n\ndef pick (c: Color): Nat :=\n  match c with\n    | Red => 1\n    | Green => 2\n\ntheorem pickRed: pick Red = 1 := rfl\n";
+        let mut s = Session::open(text);
+        let capabilities = s.request("initialize", json!({"capabilities": {}}));
+        let legend =
+            capabilities["capabilities"]["semanticTokensProvider"]["legend"]["tokenTypes"].clone();
+        let tokens = s.request(
+            "textDocument/semanticTokens/full",
+            json!({"textDocument": {"uri": URI}}),
+        );
+        assert!(s.diagnostics.is_empty(), "{:?}", s.diagnostics);
+        let data: Vec<u64> = tokens["data"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_u64().unwrap())
+            .collect();
+        // Decode to (line, start, length, type name).
+        let lines: Vec<&str> = text.lines().collect();
+        let (mut line, mut start) = (0u64, 0u64);
+        let mut seen = Vec::new();
+        for t in data.chunks(5) {
+            line += t[0];
+            start = if t[0] == 0 { start + t[1] } else { t[1] };
+            let name = &lines[line as usize][start as usize..(start + t[2]) as usize];
+            seen.push((
+                name.to_string(),
+                legend[t[3] as usize].as_str().unwrap().to_string(),
+            ));
+        }
+        let has = |name: &str, ty: &str| seen.iter().any(|(n, t)| n == name && t == ty);
+        assert!(has("Color", "type"), "{seen:?}");
+        assert!(has("Red", "enumMember"), "{seen:?}");
+        assert!(has("pick", "function"), "{seen:?}");
+        assert!(has("pickRed", "theorem"), "{seen:?}");
+        assert!(has("c", "variable"), "{seen:?}");
+    });
+}
+
+#[test]
+fn a_client_that_asks_is_told_when_tokens_and_hints_are_out_of_date() {
+    big_stack(|| {
+        let capabilities = json!({"workspace": {
+            "semanticTokens": {"refreshSupport": true},
+            "inlayHint": {"refreshSupport": true},
+        }});
+        let s = Session::open_with("namespace Demo\n\ndef a: Nat := 1\n", capabilities);
+        for method in [
+            "workspace/semanticTokens/refresh",
+            "workspace/inlayHint/refresh",
+        ] {
+            assert!(s.asked.iter().any(|m| m == method), "{:?}", s.asked);
+        }
+        let plain = Session::open("namespace Demo\n\ndef a: Nat := 1\n");
+        assert!(plain.asked.is_empty(), "{:?}", plain.asked);
     });
 }
