@@ -7648,7 +7648,7 @@
       "labels": [
         "playground"
       ],
-      "body": "D2415-D2421 approved by Matt, 5 Nov 2026 (see SW-1118). docs/proposals/playground-editor.md.\n\nD2423 (Matt, 5 Nov 2026): yes, build the playground editor on the shared language server (SW-1375's trial), with small page glue only where the client has no UI (code actions, goals panel).\n\nD2418 withdrawn (Matt, 5 Nov 2026): 'don't worry about how well it work on the phone, that's not a priority for the playground.' No phone check gates the swap; no textarea fallback for phones.",
+      "body": "D2415-D2421 approved by Matt, 5 Nov 2026 (see SW-1118). docs/proposals/playground-editor.md.\n\nD2423 (Matt, 5 Nov 2026): yes, build the playground editor on the shared language server (SW-1375's trial), with small page glue only where the client has no UI (code actions, goals panel).\n\nD2418 withdrawn (Matt, 5 Nov 2026): 'don't worry about how well it work on the phone, that's not a priority for the playground.' No phone check gates the swap; no textarea fallback for phones.\n\nD2428 (Matt, 5 Nov 2026): yes. Test budget: single browser tests filtered by name freely while porting; the whole browser suite (web/test.sh) at most twice: once on main before starting, once at the end. Ship coi-serviceworker so cancellation works on GitHub Pages (first visit reloads once). Sonnet.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
