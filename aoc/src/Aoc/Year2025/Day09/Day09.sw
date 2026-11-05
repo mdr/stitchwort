@@ -22,6 +22,7 @@
 --| The tests are in `Aoc.Year2025.Day09.Tests` (Tests/); `run` checks none of them.
 
 namespace Aoc.Year2025.Day09
+import Aoc.Common (Line, Point)
 import Std (Fail, IO, List, Nat, Parse, PrefixSums, Text)
 import Std.Parse (char, nat, token)
 
@@ -30,15 +31,12 @@ def main(): {IO, Fail} () :=
   IO.print "Part 1: ${solvePart1 tiles}"
   IO.print "Part 2: ${solvePart2 tiles}"
 
---| A tile's position: its column and its row.
-type Tile = { x: Nat, y: Nat }
-
---| One red tile per line, in the order the loop joins them. Spaces around a
+--| One red tile per line (a tile is a point: `x` its column, `y` its row), in the order the loop joins them. Spaces around a
 --| number are allowed; anything else fails, naming the line and column.
-def parseTiles (input: Text): {Fail} List Tile := Parse.eachLine input redTile
+def parseTiles (input: Text): {Fail} List Point := Parse.eachLine input redTile
 
 --| "7,1" is `{ x = 7, y = 1 }`.
-def redTile(): {Parse} Tile :=
+def redTile(): {Parse} Point :=
   let x := token nat
   char ','
   let y := token nat
@@ -46,22 +44,22 @@ def redTile(): {Parse} Tile :=
 
 --| The number of tiles in the rectangle with these two tiles as opposite
 --| corners, both included.
-def area (corner: Tile) (opposite: Tile): Nat := (Nat.absDiff corner.x opposite.x + 1) * (Nat.absDiff corner.y opposite.y + 1)
+def area (corner: Point) (opposite: Point): Nat := (Nat.absDiff corner.x opposite.x + 1) * (Nat.absDiff corner.y opposite.y + 1)
 
 --| The area of the rectangle with a pair of tiles as opposite corners.
-def pairArea (corners: (Tile, Tile)): Nat := area corners.fst corners.snd
+def pairArea (corners: (Point, Point)): Nat := area corners.fst corners.snd
 
 --| The largest of some areas, 0 if there are none.
 def largest (areas: List Nat): Nat := areas.foldLeft 0 Nat.max
 
 --| Part 1: the largest rectangle with two red tiles as opposite corners.
-def solvePart1 (tiles: List Tile): Nat := tiles.pairs |> .map pairArea |> largest
+def solvePart1 (tiles: List Point): Nat := tiles.pairs |> .map pairArea |> largest
 
 -- Part 2 ---------------------------------------------------------------------
 
 --| The lines of the loop: from each red tile to the next, and from the last
 --| back to the first.
-def loopLines (tiles: List Tile): List (Tile, Tile) := tiles.zip (tiles.drop 1 |> .append (tiles.take 1))
+def loopLines (tiles: List Point): List Line := tiles.zip (tiles.drop 1 |> .append (tiles.take 1)) |> .map (ends => { from = ends.fst, to = ends.snd })
 
 --| `value` is from `one` to `other`, in either order.
 def isBetween (one: Nat) (other: Nat) (value: Nat): Bool := (one ≤ value ∧ value ≤ other) ∨ (other ≤ value ∧ value ≤ one)
@@ -70,23 +68,23 @@ def isBetween (one: Nat) (other: Nat) (value: Nat): Bool := (one ≤ value ∧ v
 def isBetweenHalfOpen (one: Nat) (other: Nat) (value: Nat): Bool := (one ≤ value ∧ value < other) ∨ (other ≤ value ∧ value < one)
 
 --| The tile is on the line (a red tile at either end, or a green tile).
-def Tile.isOnLine (tile: Tile) (line: (Tile, Tile)): Bool :=
-  isBetween line.fst.x line.snd.x tile.x ∧ isBetween line.fst.y line.snd.y tile.y
+def Point.isOnLine (tile: Point) (line: Line): Bool :=
+  isBetween line.from.x line.to.x tile.x ∧ isBetween line.from.y line.to.y tile.y
 
 --| The line runs down a column right of the tile, across the tile's row:
 --| from a row at or above it to a row below it, either way round. A tile
 --| that isn't on the loop is inside it when an odd number of lines do that
 --| (going right from it, a ray crosses the loop an odd number of times).
-def crossesRightOf (tile: Tile) (line: (Tile, Tile)): Bool :=
-  line.fst.x == line.snd.x ∧ tile.x < line.fst.x ∧ isBetweenHalfOpen line.fst.y line.snd.y tile.y
+def crossesRightOf (tile: Point) (line: Line): Bool :=
+  line.isVertical ∧ tile.x < line.from.x ∧ isBetweenHalfOpen line.from.y line.to.y tile.y
 
 --| The tile is red or green, if `lines` are the lines of the loop that touch
 --| its row (the others are no nearer to it than its row is).
-def isRedOrGreen (lines: List (Tile, Tile)) (tile: Tile): Bool :=
+def isRedOrGreen (lines: List Line) (tile: Point): Bool :=
   lines.any tile.isOnLine ∨ lines.count (crossesRightOf tile) % 2 == 1
 
 --| The line touches row y.
-def touchesRow (y: Nat) (line: (Tile, Tile)): Bool := isBetween line.fst.y line.snd.y y
+def touchesRow (y: Nat) (line: Line): Bool := isBetween line.from.y line.to.y y
 
 --| The columns that matter, from the red tiles' columns: each of them and
 --| the one just right of it, in order, each once. (The same for rows.)
@@ -98,7 +96,7 @@ def keyLines (values: List Nat): List Nat := values.append (values.map Succ) |> 
 --| or green one).
 type Floor = { columns: List Nat, rows: List Nat, outside: PrefixSums }
 
-def Floor.of (tiles: List Tile): Floor :=
+def Floor.of (tiles: List Point): Floor :=
   let columns := keyLines (tiles.map .x)
   let rows := keyLines (tiles.map .y)
   { columns, rows, outside = PrefixSums.of (Floor.outsideCells (loopLines tiles) columns rows) }
@@ -106,17 +104,17 @@ def Floor.of (tiles: List Tile): Floor :=
 --| The floor through the key columns and rows, row by row: 1 for each tile
 --| outside the loop. A row's tiles are tested against the lines that touch
 --| the row; the others are too far away to matter.
-def Floor.outsideCells (lines: List (Tile, Tile)) (columns: List Nat) (rows: List Nat): List (List Nat) :=
+def Floor.outsideCells (lines: List Line) (columns: List Nat) (rows: List Nat): List (List Nat) :=
   rows.map (y => Floor.outsideRow (lines.filter (touchesRow y)) columns y)
 
 --| One row of the floor: 1 for each tile outside the loop.
-def Floor.outsideRow (lines: List (Tile, Tile)) (columns: List Nat) (y: Nat): List Nat :=
+def Floor.outsideRow (lines: List Line) (columns: List Nat) (y: Nat): List Nat :=
   columns.map (x => if isRedOrGreen lines { x, y } then 0 else 1)
 
 --| A red tile, with the positions of its column and row among the key ones.
-type Corner = { tile: Tile, column: Nat, row: Nat }
+type Corner = { tile: Point, column: Nat, row: Nat }
 
-def Floor.corner (floor: Floor) (tile: Tile): Corner :=
+def Floor.corner (floor: Floor) (tile: Point): Corner :=
   { tile, column = floor.columns.indexOf tile.x, row = floor.rows.indexOf tile.y }
 
 --| Every tile of the rectangle with these corners is red or green: none of
@@ -136,6 +134,6 @@ def cornersArea (corners: (Corner, Corner)): Nat := area corners.fst.tile corner
 
 --| Part 2: the largest rectangle with two red tiles as opposite corners that
 --| is all red and green.
-def solvePart2 (tiles: List Tile): Nat :=
+def solvePart2 (tiles: List Point): Nat :=
   let floor := Floor.of tiles
   tiles.map floor.corner |> .pairs |> .filter floor.allRedOrGreen |> .map cornersArea |> largest
