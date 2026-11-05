@@ -1,5 +1,5 @@
 {
-  "next": 1305,
+  "next": 1306,
   "tickets": [
     {
       "id": 47,
@@ -6486,7 +6486,7 @@
       "labels": [
         "language"
       ],
-      "body": "D2371 (Matt, 4 Nov 2026): yes, as a follow-on stage after SW-1294. Stage 4 of docs/proposals/partial-lambdas.md (§6): | p if c => e in match … with, definition arms, and the three new forms (match, match some, matches). When the guard is false the arms below are tried; a guarded arm covers nothing for exhaustiveness (E-NONEXHAUSTIVE), so ordinary matches still need an unguarded arm, while match some / matches' hidden default covers the rest. Compiles to an if in the case tree whose else continues with the remaining arms; W-REDUNDANT with guarded arms; proofs see an ordinary if. Revives SW-237 (pruned without a note). Plan: Opus checks the design (a short note revising SW-237), then Sonnet implements; then migrate the five guarded pipeline sites (2024 days 6, 15, 20; 2021 day 18). Est. 3-4 h. Starts after SW-1294 merges.\n\nDesign note docs/proposals/pattern-guards.md (Opus, 15 min). Orchestrator's calls (minor, per Matt's overnight rule): (1) ship guards before generated equations exist (arms from the first guarded one get no equations/f.induct, E-NO-EQUATION with the reason); equations in a separate Opus lane; (2) migrate only 2024 day 15 positionsOf and 2021 day 18 orderedPairs (the others read better as filter/map); (3) guards may not perform operations (E-ABILITY), can be relaxed later. Implementation: Sonnet, same branch, est. 3-4 h.\n\nImplemented (Sonnet, ~50 min, est. 210). Departure from the note: the kernel allows case only at the top of a body or branch, so the compiler makes the splits later rows need above the guard; the else tree holds only guards, leaves and missing cases. New E-GUARD-ARMS (absurd arm below a guard), E-MATCH-SIZE. AoC: 2024 d15 positionsOf, 2021 d18 orderedPairs. Opus review started 00:45 (generates kernel terms); day 18's audit went 15 -> 16 vacuity warnings, to explain. Findings: note §3.2 to correct; 'b != 0 && c != 0' gives no b ≠ 0 fact in an if (possible SW-226 gap).",
+      "body": "D2371 (Matt, 4 Nov 2026): yes, as a follow-on stage after SW-1294. Stage 4 of docs/proposals/partial-lambdas.md (§6): | p if c => e in match … with, definition arms, and the three new forms (match, match some, matches). When the guard is false the arms below are tried; a guarded arm covers nothing for exhaustiveness (E-NONEXHAUSTIVE), so ordinary matches still need an unguarded arm, while match some / matches' hidden default covers the rest. Compiles to an if in the case tree whose else continues with the remaining arms; W-REDUNDANT with guarded arms; proofs see an ordinary if. Revives SW-237 (pruned without a note). Plan: Opus checks the design (a short note revising SW-237), then Sonnet implements; then migrate the five guarded pipeline sites (2024 days 6, 15, 20; 2021 day 18). Est. 3-4 h. Starts after SW-1294 merges.\n\nDesign note docs/proposals/pattern-guards.md (Opus, 15 min). Orchestrator's calls (minor, per Matt's overnight rule): (1) ship guards before generated equations exist (arms from the first guarded one get no equations/f.induct, E-NO-EQUATION with the reason); equations in a separate Opus lane; (2) migrate only 2024 day 15 positionsOf and 2021 day 18 orderedPairs (the others read better as filter/map); (3) guards may not perform operations (E-ABILITY), can be relaxed later. Implementation: Sonnet, same branch, est. 3-4 h.\n\nImplemented (Sonnet, ~50 min, est. 210). Departure from the note: the kernel allows case only at the top of a body or branch, so the compiler makes the splits later rows need above the guard; the else tree holds only guards, leaves and missing cases. New E-GUARD-ARMS (absurd arm below a guard), E-MATCH-SIZE. AoC: 2024 d15 positionsOf, 2021 d18 orderedPairs. Opus review started 00:45 (generates kernel terms); day 18's audit went 15 -> 16 vacuity warnings, to explain. Findings: note §3.2 to correct; 'b != 0 && c != 0' gives no b ≠ 0 fact in an if (possible SW-226 gap).\n\nOpus review (01:05): arm selection right on every input tried (columns, nested, literals, Vec/Fin, captures). Blocking: E-MALFORMED in the kernel when an arm below a guard is itself a match (in_tree not switched off for the else's leaves). Fix before merge: indexed-family matches falsely non-exhaustive after a guard; false E-GUARD-ARMS for nested (). Also: size limit too low for linear shapes; a misleading E-NO-EQUATION hint; note §3.2/§4 corrections. Sent back to the Sonnet lane (est. 60 min). Conjunction facts filed as SW-1305.",
       "created": "2026-11-04",
       "updated": "2026-11-05",
       "commits": []
@@ -6613,6 +6613,20 @@
         "tooling"
       ],
       "body": "From SW-1287: after day 11 moved onto Cavern {grid: Grid Nat}, its audit shows 3-4 'no input made the hypotheses true' warnings that vary between runs (cascade.eq2.ifFalse, firstSync.eq2.ifTrue, stableOfCount, stableAtSize, flashersOnGrid). Look at how audit generates records with non-empty proofs and small Nats; a per-day generator hint or wider Nat range may be enough. Also from SW-1287: Grid-level at/cells/map lemmas in Aoc.Common.Proofs would save later days going through .grid.rows.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1305,
+      "title": "if p && q (and auto generally) doesn't give each conjunct: 'if b != 0 && c != 0 then a % b' is E-AUTO-STUCK",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "language"
+      ],
+      "body": "Found in the SW-1295 review, confirmed on main: neither an if on a conjunction nor auto splits p ∧ q into its parts, so 'if b != 0 && c != 0 then a % b else 0' fails with E-AUTO-STUCK (can't decide b ≠ 0); also with ∧, ≠ and b > 0 && c > 0. SW-226 only promised the right side of && knows the left. Applies to guards too ('| x if p && q =>'). Likely small in auto: split conjunction hypotheses.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
