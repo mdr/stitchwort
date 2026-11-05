@@ -1,3 +1,5 @@
+import Std (Vec)
+
 -- `[f x, ..rest]` and `Cons (f x) rest` are the same term, also where the
 -- elements run a callback's abilities, so both compile to the same loop.
 
@@ -44,3 +46,4 @@ def flags(): {IO} Flags := MkFlags 1 (len() < 3)
 def someB(): {IO} Option Bool := Some (len() < 3)
 def listB(): {IO} List Bool := [len() < 3]
 def consB(): {IO} List Bool := Cons (len() < 3) Nil
+def vecB(): {IO} Vec Bool 1 := VCons (len() < 3) VNil

@@ -1963,7 +1963,9 @@ fn ctor_slots(cx: &Ctx, d: DataId, c: usize, params: Option<&[Value]>) -> Result
     let data = g.data(d);
     let ctor = &data.ctors()[c];
     let mut env: Vec<Value> = match params {
-        Some(params) if params.len() == data.params().len() => params.to_vec(),
+        Some(params) if params.len() >= data.params().len() => {
+            params[..data.params().len()].to_vec()
+        }
         _ => (0..data.params().len())
             .map(|i| Value::var(level + i))
             .collect(),
