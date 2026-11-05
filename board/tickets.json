@@ -1,5 +1,5 @@
 {
-  "next": 1440,
+  "next": 1441,
   "tickets": [
     {
       "id": 47,
@@ -8526,6 +8526,21 @@
         "elab"
       ],
       "body": "From SW-1420, 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1440,
+      "title": "Lanes adding an example keep missing its hash snapshot: SW-1359, SW-1379 and SW-1420 each reported snap:hashes NAME=examples passing with no .snap change, yet main's hash_stability examples failed on their new examples' missing snapshots. Find why the lane run passes (stale binary? INSTA settings? kache?) and make a missing snapshot fail it",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests",
+        "tooling"
+      ],
+      "body": "Found by batch 35's verifier, 5 Nov 2026. Each cost a verifier round.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
