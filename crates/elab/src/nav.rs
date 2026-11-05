@@ -338,6 +338,11 @@ pub struct NavSymbol {
     /// parameters nothing depends on out): for completing the names in a
     /// named argument.
     pub signature: Option<String>,
+    /// For a function: its parameters as its declaration writes them, up to
+    /// the first one without a name of its own, then the rest of the type,
+    /// `(low: Nat) [n: Nat]: Nat → Nat`; for a hover, which puts the kind and
+    /// name before it.
+    pub header: Option<String>,
 }
 
 pub struct NavRef {
@@ -724,6 +729,10 @@ impl Elaborator {
                     .scope
                     .get(&key)
                     .and_then(|(global, _)| self.global_signature(global)),
+                header: self
+                    .scope
+                    .get(&key)
+                    .and_then(|(global, _)| self.global_header(global)),
                 name: item.name.clone(),
                 kind: item.kind,
                 span: item.span,
@@ -796,6 +805,11 @@ impl Elaborator {
                     ty: ty_of(),
                     signature: if field_span.is_none() {
                         self.global_signature(global)
+                    } else {
+                        None
+                    },
+                    header: if field_span.is_none() {
+                        self.global_header(global)
                     } else {
                         None
                     },
@@ -909,6 +923,7 @@ impl Elaborator {
                     container: None,
                     ty: self.global_type(global),
                     signature: self.global_signature(global),
+                    header: self.global_header(global),
                 });
                 symbols.len() - 1
             });
@@ -1065,6 +1080,49 @@ impl Elaborator {
         }
         parts.push(pretty::term(g, &names, &ty));
         Some(parts.join(" -> "))
+    }
+
+    /// A definition's header after its name, as its declaration writes it
+    /// (`(what: Text) (passes: Char → Bool): {Parse} Char`): the leading
+    /// parameters that have names, then the rest of the type, which starts
+    /// at the first parameter the declaration left unnamed (a type written
+    /// `Nat → Nat`). None if no parameter is named.
+    fn global_header(&self, global: Global) -> Option<String> {
+        let Global::Def(id) = global else {
+            return None;
+        };
+        let g = &self.ev();
+        let mut names: Vec<Name> = Vec::new();
+        let mut parts: Vec<String> = Vec::new();
+        let mut ty = g.def(id).ty().clone();
+        while let Term::Pi(name, icit, dom, cod) = ty.strip_loc() {
+            if name.starts_with("%div.") {
+                names.push(name.clone());
+                ty = (**cod).clone();
+                continue;
+            }
+            if name.starts_with('%') || &**name == "_" {
+                break;
+            }
+            let shown = pretty::term(g, &names, dom);
+            let default = self
+                .param_default_shown(id, names.len())
+                .map(|d| format!(" := {d}"))
+                .unwrap_or_default();
+            parts.push(match icit {
+                Icit::Explicit => format!("({name}: {shown}{default})"),
+                Icit::Auto => format!("[auto {name}: {shown}]"),
+                _ => format!("[{name}: {shown}]"),
+            });
+            names.push(name.clone());
+            let next = (**cod).clone();
+            ty = next;
+        }
+        if parts.is_empty() {
+            return None;
+        }
+        let result = pretty::term(g, &names, &ty);
+        Some(format!("{}: {result}", parts.join(" ")))
     }
 
     /// The value of definition `id`'s parameter `i`'s default, if it has

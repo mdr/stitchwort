@@ -73,6 +73,9 @@ pub struct Symbol {
     /// A function's parameters with their names (the elaborator's
     /// `NavSymbol::signature`).
     pub signature: Option<String>,
+    /// A function's header as its declaration writes it, after its name
+    /// (`NavSymbol::header`).
+    pub header: Option<String>,
     /// Its doc, read from the comments above it (docs/proposals/documentation.md
     /// §4), with the first sentence of it and its marker (always `--|`).
     pub doc: Option<SymbolDoc>,
@@ -182,6 +185,9 @@ pub fn index_json(
         }
         if let Some(ty) = &symbol.ty {
             let _ = write!(symbols, r#","type":{}"#, string(ty));
+        }
+        if let Some(header) = &symbol.header {
+            let _ = write!(symbols, r#","header":{}"#, string(header));
         }
         if let Some(doc) = &symbol.doc {
             let _ = write!(
@@ -444,6 +450,7 @@ pub fn index_data_of(
             container: symbol.container,
             ty: symbol.ty.clone(),
             signature: symbol.signature.clone(),
+            header: symbol.header.clone(),
             doc,
             equations: equations_text(&symbol.name),
         });

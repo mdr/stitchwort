@@ -2054,8 +2054,8 @@ test("hovering a documented name adds the summary, not the whole doc", async (pa
   await page.setSource(`--| Twice \`n\`. Not shown.\n--|\n--| Nor this paragraph.\ndef double (n: Nat) : Nat := n + n\n\ndef quad (n: Nat) : Nat := double (double n)\n`);
   await page.untilChecked();
   await hoverAt(page, await whereIs(page, "double (double n)", 0, 6));
-  await page.until(`document.getElementById("navtip").textContent.startsWith("Main.double")`, 10000, "the tooltip of a documented declaration");
-  assert.equal(await tooltip(page), "Main.double def\n: Nat → Nat\nTwice `n`.");
+  await page.until(`document.getElementById("navtip").textContent.startsWith("def Main.double")`, 10000, "the tooltip of a documented declaration");
+  assert.equal(await tooltip(page), "def Main.double (n: Nat): Nat\nTwice `n`.");
 }, { ms: 90000 });
 
 test("hovering a name shows its type: a local, a declaration, a library function", async (page) => {
@@ -2069,7 +2069,7 @@ test("hovering a name shows its type: a local, a declaration, a library function
   // A library function: its qualified name and its type.
   await hoverAt(page, await whereIs(page, "List.length xs", 5, 6));
   await page.until(`document.getElementById("navtip").textContent.includes("Std.List.length")`, 10000, "the library function's tooltip");
-  assert.match(await tooltip(page), /^Std.List.length def\n: .*List .*Nat/s);
+  assert.match(await tooltip(page), /^def Std.List.length .*\(xs: List .*Nat/s);
   // A parameter after astral characters on its line.
   await hoverAt(page, await whereIs(page, "else List.length ys", 17, 2));
   await page.until(`document.getElementById("navtip").textContent.startsWith("ys")`, 10000, "the tooltip of a name after astral characters");
@@ -2077,7 +2077,7 @@ test("hovering a name shows its type: a local, a declaration, a library function
   // A declaration of the program.
   await hoverAt(page, await whereIs(page, "double (double n)", 0, 6));
   await page.until(`document.getElementById("navtip").textContent.startsWith("Main.double")`, 10000, "the tooltip of a declaration");
-  assert.match(await tooltip(page), /^Main.double def\n: Nat → Nat$/);
+  assert.match(await tooltip(page), /^def Main.double \(n: Nat\): Nat$/);
   // Off a name, there is none.
   await hoverAt(page, await whereIs(page, "def double", 1, 1));
   await page.until(`document.getElementById("navtip").hidden`, 5000, "the tooltip to go");

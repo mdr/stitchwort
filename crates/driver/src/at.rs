@@ -244,10 +244,22 @@ pub fn reference_at(
 /// defaults a call left out.
 pub fn hover_of(r: &LiveRef) -> Hover {
     let mut text = String::new();
-    if let Some(ty) = &r.ty {
-        text.push_str(&format!("```stitchwort\n{ty}\n```\n"));
+    // A function shows its declaration's header, with its parameters named,
+    // in place of the type and the line saying what it is.
+    match (&r.header, r.kind) {
+        (Some(header), "def" | "theorem" | "instance") => {
+            text.push_str(&format!(
+                "```stitchwort\n{} {} {header}\n```",
+                r.kind, r.name
+            ));
+        }
+        _ => {
+            if let Some(ty) = &r.ty {
+                text.push_str(&format!("```stitchwort\n{ty}\n```\n"));
+            }
+            text.push_str(&format!("{} `{}`", r.kind, r.name));
+        }
     }
-    text.push_str(&format!("{} `{}`", r.kind, r.name));
     if let Some(doc) = &r.doc {
         text.push_str(&format!("\n\n{doc}"));
     }
