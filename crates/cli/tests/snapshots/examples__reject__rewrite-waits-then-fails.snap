@@ -13,11 +13,9 @@ expression: output
     │ 
     │ Note 2: the proof checks without this rewrite: the goal already computed past it; drop the `rewrite`
     │ 
-    │ Note 3: the goal already holds by computing, so `rfl` proves it without a `rewrite`
+    │ Note 3: occurrences are looked for by their outer function and compared by computing; one that uses a variable bound inside a function argument is rewritten through the congruence lemma of the call the function is passed to
     │ 
-    │ Note 4: occurrences are looked for by their outer function and compared by computing; one that uses a variable bound inside a function argument is rewritten through the congruence lemma of the call the function is passed to
-    │ 
-    │ Note 5: to replace the right side by the left, write `rewrite <- …`
+    │ Note 4: to replace the right side by the left, write `rewrite <- …`
 ────╯
 [E-REWRITE-NOTHING] Error: `rewrite` found no `Succ c.size` in the goal
     ╭─[ reject/rewrite-waits-then-fails.sw:15:33 ]
@@ -30,9 +28,7 @@ expression: output
     │ 
     │ Note 2: the proof checks without this rewrite: the goal already computed past it; drop the `rewrite`
     │ 
-    │ Note 3: the goal already holds by computing, so `rfl` proves it without a `rewrite`
+    │ Note 3: occurrences are looked for by their outer function and compared by computing; one that uses a variable bound inside a function argument is rewritten through the congruence lemma of the call the function is passed to
     │ 
-    │ Note 4: occurrences are looked for by their outer function and compared by computing; one that uses a variable bound inside a function argument is rewritten through the congruence lemma of the call the function is passed to
-    │ 
-    │ Note 5: to replace the right side by the left, write `rewrite <- …`
+    │ Note 4: to replace the right side by the left, write `rewrite <- …`
 ────╯
