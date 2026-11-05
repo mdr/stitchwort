@@ -5,4 +5,4 @@ expression: "lines(session, d, f)"
 Main.total bbf6306df88e4afb4f3661799db48e63a1455bbfac3213d2d27ec59d87160a9a
 Main.test "wildcard names" d3400da0c8ef7575fb0e1cc81ffba45c63f4a99d7cb8b54e240312b0034158d5
 Main.test "the same name from two namespaces, in full" 77fc77c119a1271934cf0b5452ddb3637401b5a7ddc4190d9dee9ae611c5f4a6
-Main.test "split" b1b88306e904d180591540b07802cbbd5bbc57e0f0b01793271b1138b65f398a
+Main.test "split" a57f6373d7d68cc81e7735876407afadca2e1c7721ab3ce59c523b4c910ea94e

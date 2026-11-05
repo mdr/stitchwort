@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.Base 63b021560e0635ba20287f6f3410a1f80cf17aa7854311f40bbd54ebb50c93b7
 data Main.Child a645339e81aafa6c1e713aac7c6c25d16445fac6fc13ec06f32b2a4e826925d8
@@ -25,6 +25,6 @@ Main.deferred fb74569d145bf8c3d4e0ee7fdb4392a73f697d9289cd27d0094eacd87da22909
 Main.test "twice" ff89617634794aeedc53d59025c323952e0dde2b2dcb38762998b2b0361b4448
 Main.test "filled" f74cac86a30a5703b90d6ea24fa06e9b93e99a16647ffa95097e6515bf729660
 Main.test "by path" bd6d1c31a94b4ae78bcad1971202a04b0385a7be753cc978ef6cc3833cd645a2
-Main.test "helper" a259a3afae680bd53c027688024adae656efab8793451bfba5410853cf508b6e
-Main.test "deferred" 587b393a895adbc22063c45b46b26d4db0d9c3edda90da690a3eea45efde0b9c
-Main.test "given" 96d1eaf176ecd535156561ad13888458a8495059e7d26fafb9dfa868e1a50bff
+Main.test "helper" b9066dfe8a2b38cbb3a85d3a3f7587a8736db5bfa255f2ce99dbe7d3f7260a46
+Main.test "deferred" 42efc118af941feaa80a904ac7392c7ac4adb37d4f4be9a604405b4c96aadf8f
+Main.test "given" 938ac376a7c5e294147a2b964b03255c4b06df9c06e31c5901e05ca80882bd57
