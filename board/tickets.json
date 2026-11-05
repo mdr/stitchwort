@@ -8043,14 +8043,14 @@
     {
       "id": 1406,
       "title": "Parse.readsDone x _ (Witness …) fails with a goal like ?39 …: fill the spec before checking the last argument, or say the expected type is an unfilled _ (2020 day 7 notes item 2; day 5 item 5 too)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1406",
       "labels": [
         "elab",
         "diagnostics"
       ],
-      "body": "From SW-1402 (2020 day 7), 5 Nov 2026. For day 7's friction review.\n\nD2429 (day 7 friction review, 5 Nov 2026; Matt delegated the decisions): do it. Order: day 8, then SW-1407, SW-1409, SW-1410, SW-1406 with SW-1408, SW-1405, SW-1411 (after SW-1407: both touch day 7's graph).",
+      "body": "From SW-1402 (2020 day 7), 5 Nov 2026. For day 7's friction review.\n\nD2429 (day 7 friction review, 5 Nov 2026; Matt delegated the decisions): do it. Order: day 8, then SW-1407, SW-1409, SW-1410, SW-1406 with SW-1408, SW-1405, SW-1411 (after SW-1407: both touch day 7's graph).\n\nStarted on Sonnet, expected: 75 min (with the other of SW-1406/1408).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8072,13 +8072,13 @@
     {
       "id": 1408,
       "title": "An inline Parse.oneOf alternative proved with readsWeaken (readsMap …) fails with one side unfolded; naming the alternative makes it check (2020 day 7 notes, repro there)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1406",
       "labels": [
         "elab"
       ],
-      "body": "From SW-1402 (2020 day 7), 5 Nov 2026. For day 7's friction review.\n\nD2429 (day 7 friction review, 5 Nov 2026; Matt delegated the decisions): do it. Order: day 8, then SW-1407, SW-1409, SW-1410, SW-1406 with SW-1408, SW-1405, SW-1411 (after SW-1407: both touch day 7's graph).",
+      "body": "From SW-1402 (2020 day 7), 5 Nov 2026. For day 7's friction review.\n\nD2429 (day 7 friction review, 5 Nov 2026; Matt delegated the decisions): do it. Order: day 8, then SW-1407, SW-1409, SW-1410, SW-1406 with SW-1408, SW-1405, SW-1411 (after SW-1407: both touch day 7's graph).\n\nStarted on Sonnet, expected: 75 min (with the other of SW-1406/1408).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8100,13 +8100,13 @@
     {
       "id": 1410,
       "title": "Error notes: the non-termination error suggests {Partial}; also mention a depth limit (fuel) that keeps the function provable; and when a rewrite isn't needed because the goal already computed past it, say the proof checks without it (2020 day 7)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1410",
       "labels": [
         "diagnostics"
       ],
-      "body": "From SW-1402 (2020 day 7), 5 Nov 2026. For day 7's friction review.\n\nD2429 (day 7 friction review, 5 Nov 2026; Matt delegated the decisions): do it. Order: day 8, then SW-1407, SW-1409, SW-1410, SW-1406 with SW-1408, SW-1405, SW-1411 (after SW-1407: both touch day 7's graph).",
+      "body": "From SW-1402 (2020 day 7), 5 Nov 2026. For day 7's friction review.\n\nD2429 (day 7 friction review, 5 Nov 2026; Matt delegated the decisions): do it. Order: day 8, then SW-1407, SW-1409, SW-1410, SW-1406 with SW-1408, SW-1405, SW-1411 (after SW-1407: both touch day 7's graph).\n\nStarted on DeepSeek, expected: 45 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
