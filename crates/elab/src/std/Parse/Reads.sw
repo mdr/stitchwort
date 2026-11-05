@@ -804,6 +804,42 @@ theorem Parse.readsSepBy (p: () → {Parse} a) (separator: () → {Parse} ()) (s
         | Witness None (Both none same) => Inl (Both none same)
         | Witness (Some found) (Both holds same) => Inr (Witness found (Both holds same)))
 
+--| Replace a repetition's values, one part at a time: if each value `spec`
+--| read can be another value `other` read, and `related` to it, then the
+--| same text, separators and all, reads a repetition of `other` values,
+--| each `related` to the value `spec` gave. Lets a proof state its own
+--| specification of what was read without reproving the repetition.
+theorem Parse.eachMap (spec: List Char → a → Prop) (other: List Char → c → Prop) (related: c → a → Prop) (separator: List Char → () → Prop)
+    (step: (read: List Char) → (value: a) → spec read value → ∃ (other_: c) => other read other_ ∧ related other_ value):
+    (read: List Char) → (values: List a) → Parse.Each (Parse.Then separator (u => spec)) read values →
+      ∃ (others: List c) => Parse.Each (Parse.Then separator (u => other)) read others ∧ List.All2 related others values
+  | read, [], each => Witness [] (Both each ())
+  | read, [value, ..values], Witness first (Witness rest (Both split (Both (Witness separatorRead (Witness partRead (Witness u (Both joined (Both separated written))))) more))) =>
+    match step partRead value written with
+      | Witness z (Both zRead zRelated) =>
+        match Parse.eachMap spec other related separator step rest values more with
+          | Witness zs (Both zsRead zsRelated) =>
+            Witness [z, ..zs]
+              (Both (Witness first (Witness rest (Both split (Both (Witness separatorRead (Witness partRead (Witness u (Both joined (Both separated zRead))))) zsRead))))
+                (Both zRelated zsRelated))
+
+--| Replace a separated list's values: if each value `spec` read can be
+--| another value `other` read, and `related` to it, then the same text reads
+--| a `SepBy other` of values, each `related` to the one `spec` gave. Lets a
+--| proof carry `sepBy1`'s guarantee to the values the problem counts.
+theorem Parse.sepByMap (spec: List Char → a → Prop) (other: List Char → c → Prop) (related: c → a → Prop) (separator: List Char → () → Prop)
+    (step: (read: List Char) → (value: a) → spec read value → ∃ (other_: c) => other read other_ ∧ related other_ value)
+    (read: List Char) (values: NonEmptyList a) (written: Parse.SepBy spec separator read values):
+    ∃ (others: NonEmptyList c) => Parse.SepBy other separator read others ∧ List.All2 related others.toList values.toList :=
+  match written with
+    | Witness firstRead (Witness afterRead (Witness head (Both split (Both firstWritten (Both isFirst each))))) =>
+      match step firstRead values.head (rewrite isFirst at firstWritten in firstWritten) with
+        | Witness z (Both zRead zRelated) =>
+          match Parse.eachMap spec other related separator step afterRead values.tail each with
+            | Witness zs (Both zsRead zsRelated) =>
+              Witness ({ head = z, tail = zs }: NonEmptyList c)
+                (Both (Witness firstRead (Witness afterRead (Witness z (Both split (Both zRead (Both rfl zsRead)))))) (Both zRelated zsRelated))
+
 --| `lines p`: one value per line, line breaks between.
 theorem Parse.readsLines (p: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads p spec):
     Parse.Reads (() => Parse.lines p) (Parse.SepBy spec (read u => Parse.LineBreak read)) :=

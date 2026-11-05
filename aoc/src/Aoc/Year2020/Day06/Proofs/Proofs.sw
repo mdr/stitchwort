@@ -55,8 +55,8 @@ theorem inputGroups (input: Text) (groups: List Group) (parsed: Fail.toResult ((
         ∧ ending.all (char => char == '\n' ∨ char == '\r') = True ∧ List.All2 (lines group => GroupLines lines.toList group) lineGroups.toList groups :=
   match parseWritten input groups parsed with
     | Witness read (Witness ending (Both text (Both (Witness listed (Both written same)) done))) =>
-      match sepByMap GroupWritten LinesWritten (lines group => GroupLines lines.toList group) _
-          (groupRead group groupWritten => sepByMap PersonWritten (line written => line = written) (line person => PersonWritten line person) _
+      match Parse.sepByMap GroupWritten LinesWritten (lines group => GroupLines lines.toList group) _
+          (groupRead group groupWritten => Parse.sepByMap PersonWritten (line written => line = written) (line person => PersonWritten line person) _
             (personRead person personWritten => Witness personRead (Both rfl personWritten)) groupRead group.people groupWritten)
           read listed written with
         | Witness lineGroups (Both linesRead related) =>
