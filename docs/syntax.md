@@ -1461,6 +1461,7 @@ Loosest-binding first:
 | `a == b` | Whether `a = b`, as a `Bool`, from the type's `DecEq` instance ([Interfaces](#interfaces)), as `if h:` and `!=` do. The library has instances for `Nat`, `Int`, `Bool`, `Char`, `Text`, `Ordering`, and for lists, tuples, `Option` and `Vec` of types with one (`[(1, "a")] == [(1, "a")]`). A declared data type or record gets one derived when it's declared, if its fields can all be compared: data with `DecEq`, the type itself, the type inside `List`, `Option` and pairs (a nested type, `Packets (items: List Packet)`, also `List (List T)` and `Option (T, Nat)`), or proofs of equations in types with `DecEq` (`type Dir = | L | R`, recursive types, `Tree Nat` for `type Tree (a: Type): Type = …`, value parameters). A module's own `instance T.instDecEq: DecEq T` replaces the derived one. `List (Nat -> Nat)` is `E-INSTANCE-NONE`, naming the element type that has none; so is a type with a function field, another proof field or a type field, or defined together with others (mutual), or nested in another container (`Vec T n`, a type of the program), with a note saying why (naming the container) |
 | `a < b`, `a <= b` | Comparisons on `Nat` and `Int` (propositions, decided by computation), and through `Ord` on every other type with one. Not associative, but `<` and `<=` chain together: see [Chained comparisons](#chained-comparisons) |
 | `a > b`, `a >= b` | `b < a` and `b <= a`: the same terms, so goals, messages and the printer show `<` and `<=`. No interface, no laws of their own. Same level as `<`; `>` and `>=` chain together, see [Chained comparisons](#chained-comparisons). Since `a > b` is `b < a`, `b` is the left operand and is evaluated first (the language is pure, so only the order of effects in an operand could show it). Usable wherever `<` is: `if x > 0`, conditions, tests, theorem statements (`theorem t (h: b < a): a > b := h`) and `calc` chains. `>>` isn't an operator |
+| `a ..< b`, `a ..= b` | A range of `Nat`s: `List.range a b`, the numbers from `a` up to, not including, `b`; and `List.range a (b + 1)`, through `b`. A list, so every list function works on it. Binds more loosely than `++`, tighter than the comparisons and `\|>`; not associative. See [Ranges](#ranges) |
 | `a ++ b` | Joins two texts (`Text.append`) or two lists (`List.append`). Binds more loosely than `+`, and groups to the right |
 | `a + b`, `a - b` | Addition, and subtraction (stopping at zero on `Nat`). Left-associative |
 | `a * b`, `a / b`, `a % b` | Bind tighter than `+`. `/` and `%` need a proof that `b != 0` |
@@ -1788,6 +1789,29 @@ A test (`test "…" := e`) takes `e` as a condition too: a `Bool`, or a proposit
 
 Examples: `examples/accept/chained-comparisons.sw`, `examples/reject/chained-comparison-*.sw`.
 
+### Ranges
+
+`a ..< b` is the numbers from `a` up to, not including, `b`; `a ..= b` is the numbers from `a` through `b`. Each is a call of `List.range`, so a range is an ordinary `List Nat`: `0 ..< 3` is `[0, 1, 2]`, `1 ..= 3` is `[1, 2, 3]`, `4 ..= 4` is `[4]`, and `5 ..< 2` is `[]` (an end below the start gives nothing). `a ..< b` is `List.range a b` and `a ..= b` is `List.range a (b + 1)`, so `a ..= b` and `a ..< b + 1` are the same term (`rfl`). `Nat` only for now: `"a" ..< "z"` is `E-TYPE-MISMATCH` with a note saying so (docs/proposals/ranges.md).
+
+A range binds more loosely than `++` and arithmetic, and tighter than the comparisons, `in` and `|>`, and is not associative:
+
+| Written | Means |
+|---|---|
+| `a ..< b + 1` | `a ..< (b + 1)` |
+| `0 ..< xs.length` | `0 ..< (xs.length)` |
+| `0 ..< n \|> .map f` | `(0 ..< n) \|> .map f` |
+| `x in 0 ..< n` | `x in (0 ..< n)` |
+| `0 ..< 3 == [0, 1, 2]` | `(0 ..< 3) == [0, 1, 2]` |
+| `a ..< b ..< c` | `E-PARSE` |
+
+A dot binds tighter than a range, so a method on a range needs brackets, `(0 ..< n).length`; the pipe reads better, `0 ..< n |> .map f`. In a spread a range needs no brackets: `[0, ..2 ..< n]`. Ranges are written with spaces (the formatter puts them in); a bare `a .. b` or `a..b` is `E-PARSE`, whose message names the two forms and, inside brackets (`[2..n]`), says that the spread is `[2, ..n]` and that a range needs no brackets.
+
+`W-RANGE-IN-BRACKETS` is a warning for a list literal whose only item is a range, `[0 ..< n]`: that is a list of one list. Write `0 ..< n`; `[(0 ..< n)]` says the nesting is meant.
+
+Goals, hovers and messages print `List.range a b` as `a ..< b`, and `List.range a (b + 1)` as `a ..= b`; they are the same term, so `0 ..< n + 1` written by hand prints as `0 ..= n`. A goal where the range has been taken apart by computation (a numeral start, `2 ..< n + 3`) shows what it computes to (`List.rangeFrom`), as any call does. The facts proofs use are `List.memRange` (`x ∈ a ..< b ↔ a ≤ x < b`), `List.lengthRange` and `List.rangeAppend`.
+
+Examples: `examples/accept/ranges.sw`, `examples/accept/range-in-brackets.sw`, `examples/reject/range-*.sw`.
+
 ### Logic notation: `in`, `<->` and `exists`
 
 ([proposals/logic-notation.md](proposals/logic-notation.md), D1200–D1211.) Three forms for statements about collections and logic, each with a Unicode spelling:
@@ -1807,6 +1831,7 @@ Precedence, loosest first:
 | 5 | `&&` | right |
 | 6 | `=` `!=` `==` `<` `<=` `>` `>=` `in` `!in` | none |
 | 7 | `\|>` | left |
+| 7.5 | `..<` `..=` | none |
 | 8 | `++` | right |
 | 9 | `+` `-` | left |
 | 10 | `*` `/` `%` | left |
