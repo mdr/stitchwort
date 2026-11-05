@@ -7306,13 +7306,13 @@
     {
       "id": 1354,
       "title": "Check cache can report a namespace as checked when it isn't (on main): congruence-lemma lookups (rewrite's …Cong, decreasing) and auto's candidates see only library files already loaded in the run, so a namespace's result depends on what unrelated namespaces loaded",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1354",
       "labels": [
         "tooling"
       ],
-      "body": "Found by the SW-1330 Opus review (repro: scratchpad sw1330-review/r5, r6). B uses rewrite inside Option.map and needs Option.mapCong (Option/Lemmas.sw), which only A loads. Change A so it no longer loads that file: fresh, B fails ('there is no Option.mapCong'); cached, B is reported from its entry. Fix: lazy loading must behave as if every file were loaded: the congruence/auto lookups should treat a pending name as something to load (or the loader counts F.…Cong as needed when F is referenced). Priority: correctness of check. Sonnet (Opus if the loader design needs it).",
+      "body": "Found by the SW-1330 Opus review (repro: scratchpad sw1330-review/r5, r6). B uses rewrite inside Option.map and needs Option.mapCong (Option/Lemmas.sw), which only A loads. Change A so it no longer loads that file: fresh, B fails ('there is no Option.mapCong'); cached, B is reported from its entry. Fix: lazy loading must behave as if every file were loaded: the congruence/auto lookups should treat a pending name as something to load (or the loader counts F.…Cong as needed when F is referenced). Priority: correctness of check. Sonnet (Opus if the loader design needs it).\n\nDone on lane/SW-1354 (1bf291ea6): congruence lemmas must sit in their function's file (index refuses others; 4 moved, Ring.mulCong renamed Int.mulCong); auto's library decision procedures are per namespace (its own references' files + its dependencies'), set on check and replay. No extra loading; aoc check --no-cache CPU within noise. Orchestrator's call (implementation detail): keep 'beside their function, enforced' over loading lemma files with F's. Model result: Opus, worked, 27 min (est. 120). Next: rebase SW-1330 and rerun its blocker.sh.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
