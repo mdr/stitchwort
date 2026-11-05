@@ -82,9 +82,7 @@ def heightValid (value: Text): Bool :=
 def isHexDigit (char: Char): Bool := char.digitValue.isSome ∨ ('a' <= char ∧ char <= 'f')
 
 def hairColorValid (value: Text): Bool :=
-  match value.toList with
-    | ['#', ..digits] => digits.length == 6 ∧ digits.all isHexDigit
-    | _ => False
+  value.toList |> matches | ['#', ..digits] => digits.length == 6 ∧ digits.all isHexDigit
 
 def eyeColors: List Text := ["amb", "blu", "brn", "gry", "grn", "hzl", "oth"]
 
