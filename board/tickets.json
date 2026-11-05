@@ -8563,14 +8563,14 @@
     {
       "id": 1442,
       "title": "Equations: replace eq_proof's Bool.uniqueEq J-chain for char-literal overlap hypotheses with rfl (proof fields are skipped by comparison now) and delete Diff, replace_at and probably the unique field; lifts differ's limits (data with parameters, other propositions)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1442",
       "labels": [
         "elab",
         "proofs"
       ],
-      "body": "From SW-1429's Opus review, 5 Nov 2026. equations.rs ~6241, 6758, 6846, 7225-7370.\n\nStarted on Sonnet, expected: 75 min.",
+      "body": "From SW-1429's Opus review, 5 Nov 2026. equations.rs ~6241, 6758, 6846, 7225-7370.\n\nStarted on Sonnet, expected: 75 min.\n\nDone (f8e3b8696), merged after an Opus review (D2364): merge, no findings. eq_proof is same_but_proofs (kernel's proof_field) then Term::Refl; differ's limits (no parameters, Bool equations only) gone; 36 added, 176 deleted; 11 hash snapshots moved. Model result: Sonnet, worked, 16 min (est. 75).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
