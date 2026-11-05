@@ -9,7 +9,7 @@ import Std (Bool, DecEq, Eq, List, Map, Option, Ord, Void)
 
 --| No rule for `key` in `rules`, if `key` isn't one of their pairs.
 theorem findAbsent (key: ElementPair) (rules: List Rule) (absent: key ∉ rules.map (rule => rule.pair)):
-    List.find rules (rule => rule.pair == key) = None :=
+    rules.find (rule => rule.pair == key) = None :=
   match found: List.find rules (rule => rule.pair == key) with
     | None => rfl
     | Some rule =>

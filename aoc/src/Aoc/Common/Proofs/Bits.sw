@@ -28,7 +28,7 @@ theorem Bits.widthAppendBit (number: Bits) (bit: Bool): (number.append (Bits.con
 theorem Bits.appendAssoc (number: Bits) (other: Bits) (third: Bits): (number.append other).append third = number.append (other.append third) :=
   Eq.cong (bits => { bits }) (List.appendAssoc number.bits other.bits third.bits)
 
-theorem Bits.getAppendList (number: List Bool): (prefix: List Bool) → List.get (List.append prefix number) (List.length prefix) = List.head number
+theorem Bits.getAppendList (number: List Bool): (prefix: List Bool) → (prefix.append number).get prefix.length = number.head
   | [] => Bits.getZero { bits = number }
   | [first, ..rest] => Bits.getAppendList number rest
 
@@ -38,5 +38,5 @@ theorem Bits.getAppendWidth (number: Bits) (prefix: Bits): (prefix.append number
 
 --| A lowest bit in front of the others doubles their number and adds itself.
 theorem Bits.valueFromLowFirst (bit: Bool) (rest: List Bool):
-    (Bits.fromLowFirst [bit, ..rest]).value = Bool.toNat bit + (Bits.fromLowFirst rest).value * 2 :=
+    (Bits.fromLowFirst [bit, ..rest]).value = bit.toNat + (Bits.fromLowFirst rest).value * 2 :=
   rewrite List.reverseCons bit rest, Nat.fromBitsSnoc (List.reverse rest) bit in omega

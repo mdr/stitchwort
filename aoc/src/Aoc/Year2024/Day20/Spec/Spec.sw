@@ -48,7 +48,7 @@ type Cheat = { start: Position, end: Position }
 --| track": the fewest moves from the cheat's start to its end, through
 --| anything, are the rows plus the columns between them.
 def cheatTime (cheat: Cheat): Nat :=
-  Nat.absDiff cheat.start.row cheat.end.row + Nat.absDiff cheat.start.column cheat.end.column
+  cheat.start.row.absDiff cheat.end.row + cheat.start.column.absDiff cheat.end.column
 
 --| "a program may disable collision for up to 2 picoseconds ... At the end of
 --| the cheat, the program must be back on normal track again" (up to `length`

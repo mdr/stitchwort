@@ -181,9 +181,9 @@ theorem countNotOne (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (inv: Labelle
 --| Walking the connections `ps` after `done`: if connection k of `ps` is the
 --| last needed, `Circuits.lastJoin` stops there.
 theorem lastJoinFinds (points: List Point): (ps: List (Nat, Nat)) → (k: Nat) → (done: List (Nat, Nat)) → (c: Circuits) →
-    Labelled points.length done c → Counted points.length c → List.all ps (boxesBelow points.length) = True →
-    OneCircuit points.length (List.append done (List.take ps (Succ k))) → ¬(OneCircuit points.length (List.append done (List.take ps k))) →
-    c.lastJoin (List.map ps (connectionKey points)) = Some ((List.getOr ps k (0, 0)).fst, (List.getOr ps k (0, 0)).snd)
+    Labelled points.length done c → Counted points.length c → ps.all (boxesBelow points.length) = True →
+    OneCircuit points.length (done.append (ps.take (Succ k))) → ¬(OneCircuit points.length (done.append (ps.take k))) →
+    c.lastJoin (ps.map (connectionKey points)) = Some ((ps.getOr k (0, 0)).fst, (ps.getOr k (0, 0)).snd)
   | [], Zero, done, c, inv, counted, ok, after, before => Void.exfalso (before after)
   | [], Succ k, done, c, inv, counted, ok, after, before => Void.exfalso (before after)
   | [(f, s), ..ps], k, done, c, inv, counted, ok, after, before =>
@@ -265,7 +265,7 @@ theorem allConnectionsJoinAll (points: List Point): OneCircuit points.length (co
       | Greater => Backwards (Connected (memOrder points b a (Nat.lessOfCompare b a (rewrite e at Nat.compareFlip a b)) ha))
 
 theorem countedJoinAll (n: Nat): (rest: List (Nat, Nat)) → (done: List (Nat, Nat)) → (c: Circuits) →
-    List.all rest (boxesBelow n) = True → Labelled n done c → Counted n c → Counted n (joinAll c rest)
+    rest.all (boxesBelow n) = True → Labelled n done c → Counted n c → Counted n (joinAll c rest)
   | [], done, c, ok, inv, counted => counted
   | [(f, s), ..rest], done, c, ok, inv, counted =>
     match r: boxesBelow n (f, s) with

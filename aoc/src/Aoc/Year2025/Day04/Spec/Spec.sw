@@ -40,7 +40,7 @@ def Grid.countPositions (grid: Grid) (p: Nat → Nat → Bool): Nat :=
 --| Positions (r, c) and (r2, c2) are next to each other: different, with
 --| rows and columns each at most 1 apart.
 def adjacent (r: Nat) (c: Nat) (r2: Nat) (c2: Nat): Bool :=
-  Nat.absDiff r r2 ≤ 1 ∧ Nat.absDiff c c2 ≤ 1 ∧ not (r == r2 ∧ c == c2)
+  r.absDiff r2 ≤ 1 ∧ c.absDiff c2 ≤ 1 ∧ not (r == r2 ∧ c == c2)
 
 --| How many positions next to (r, c) hold rolls.
 def Grid.neighbours (grid: Grid) (cells: Cells) (r: Nat) (c: Nat): Nat :=

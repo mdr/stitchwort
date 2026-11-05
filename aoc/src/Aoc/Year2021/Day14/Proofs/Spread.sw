@@ -10,7 +10,7 @@ import Aoc.Year2021.Day14.Spec (..)
 import Std (Bool, DecEq, Eq, Exists, Iff, List, Map, Nat, Option, Ord, Void)
 
 --| A sum with a positive term has a member that gives it.
-theorem sumByPositive (f: a → Nat): (xs: List a) → 0 < List.sumBy xs f → ∃ (x: a) => x ∈ xs ∧ 0 < f x
+theorem sumByPositive (f: a → Nat): (xs: List a) → 0 < xs.sumBy f → ∃ (x: a) => x ∈ xs ∧ 0 < f x
   | [], positive => Void.exfalso omega
   | [x, ..rest], positive =>
     match Nat.decLessThan 0 (f x) with
@@ -29,7 +29,7 @@ theorem memAfterFirst (c: Char) (a: Char): (rest: List Char) → c ∈ rest → 
 
 --| A pair of the polymer has a count in the counts that stand for it.
 theorem pairCounted (counts: PairCounts) (polymer: List Char) (represents: Represents counts polymer) (pair: ElementPair) (member: pair ∈ pairsOf polymer):
-    pair ∈ Map.keys counts :=
+    pair ∈ counts.keys :=
   let counted := List.countPositive (pairsOf polymer) (== pair) pair member (DecEq.refl pair)
   let asSum := List.countSumBy (pairsOf polymer) (== pair)
   let weighted := represents (other => Bool.toNat (other == pair))

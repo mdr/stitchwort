@@ -71,7 +71,7 @@ theorem keptSum [auto add: Add c] (f: RepetitionTemplate → c) (size: Nat) (k: 
 
 theorem templatesSum [auto add: Add c] (r: Range) (f: RepetitionTemplate → c):
     List.sumBy (allTemplatesForRange r) f
-      = List.sumBy (List.rangeFrom r.to.digitCount 1) (k => List.sumBy (List.rangeFrom (Nat.digitCount r.to - 1) 2)
+      = List.sumBy (List.rangeFrom r.to.digitCount 1) (k => List.sumBy (List.rangeFrom (r.to.digitCount - 1) 2)
         (n => if Nat.leq (k * n) r.to.digitCount then f { blockLength = k, copies = n } else Add.zero)) :=
   let size := r.to.digitCount
   let cell: Nat → Nat → c := k n => if Nat.leq (k * n) size then f { blockLength = k, copies = n } else Add.zero
@@ -153,7 +153,7 @@ theorem fittingTemplateListed (range: Range) (template: RepetitionTemplate)
 --| `copies` (two or more) times, the template of that block length and that
 --| many copies is in `allTemplatesForRange`.
 theorem writtenIdTemplateListed (range: Range) (x: Nat) (inRange: List.Mem x range.ids)
-    (blockLength: Nat) (copies: Nat) (written: writtenAs (Nat.digits x).toList blockLength copies = True) (atLeastTwo: 2 ≤ copies):
+    (blockLength: Nat) (copies: Nat) (written: writtenAs x.digits.toList blockLength copies = True) (atLeastTwo: 2 ≤ copies):
     List.Mem ({ blockLength, copies }: RepetitionTemplate) (allTemplatesForRange range) :=
   -- An x in the range is at most the range's end,
   let notAfterEnd: x ≤ range.to :=

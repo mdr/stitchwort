@@ -25,7 +25,7 @@ theorem finishedInjective (first: List Nat) (second: List Nat) (same: Finished f
 --| A run that finishes outputs what was printed before it, then what a
 --| halting run of the puzzle's computer outputs.
 theorem runHalts (program: List Nat): (fuel: Nat) → (machine: Machine) → (printed: List Nat) → (output: List Nat) →
-    machine.run program printed fuel = Finished output → ∃ (rest: List Nat) => output = List.append printed.reverse rest ∧ Halts program machine rest
+    machine.run program printed fuel = Finished output → ∃ (rest: List Nat) => output = printed.reverse.append rest ∧ Halts program machine rest
   | Zero, machine, printed, output, finished => Void.exfalso (outOfFuelNotFinished output finished)
   | Succ fuel, machine, printed, output, finished =>
     let matches := stepMatches program machine

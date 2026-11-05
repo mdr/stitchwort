@@ -33,13 +33,13 @@ def between (a: Nat) (b: Nat) (c: Nat): Bool := Nat.min a c ≤ b ≤ Nat.max a 
 --| first end is to its distance down as the segment's are to each other.
 def covers (line: Line) (point: Point): Bool :=
   between line.from.x point.x line.to.x ∧ between line.from.y point.y line.to.y
-    ∧ Nat.absDiff line.from.x point.x * Nat.absDiff line.from.y line.to.y == Nat.absDiff line.from.y point.y * Nat.absDiff line.from.x line.to.x
+    ∧ line.from.x.absDiff point.x * line.from.y.absDiff line.to.y == line.from.y.absDiff point.y * line.from.x.absDiff line.to.x
 
 --| "Horizontal and vertical lines: lines where either x1 = x2 or y1 = y2."
 def horizontalOrVertical (line: Line): Bool := line.from.x == line.to.x ∨ line.from.y == line.to.y
 
 --| A diagonal line at exactly 45 degrees: as far across as down.
-def diagonal (line: Line): Bool := Nat.absDiff line.from.x line.to.x == Nat.absDiff line.from.y line.to.y
+def diagonal (line: Line): Bool := line.from.x.absDiff line.to.x == line.from.y.absDiff line.to.y
 
 --| How many of the lines cover the point.
 def coveredBy (lines: List Line) (point: Point): Nat := lines.count (line => covers line point)

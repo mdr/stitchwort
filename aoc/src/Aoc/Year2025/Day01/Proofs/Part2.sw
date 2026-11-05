@@ -21,8 +21,8 @@ theorem zerosLandedOnCons [n: Nat] (dial: Dial n) (t: Turn) (ts: List Turn):
 
 --| The clicks of one turn, then the rest.
 theorem zerosPassedSplit [n: Nat] (dial: Dial n) (t: Turn) (ts: List Turn):
-    zerosLandedOn (t.clicks ++ List.concatMap ts Turn.clicks) dial
-      = Dial.zerosDuring dial t + zerosLandedOn (List.concatMap ts Turn.clicks) (Dial.move dial t) :=
+    zerosLandedOn (t.clicks ++ ts.concatMap Turn.clicks) dial
+      = Dial.zerosDuring dial t + zerosLandedOn (ts.concatMap Turn.clicks) (Dial.move dial t) :=
   calc zerosLandedOn (t.clicks ++ List.concatMap ts Turn.clicks) dial
     _ = zerosLandedOn t.clicks dial + zerosLandedOn (List.concatMap ts Turn.clicks) (List.foldLeft t.clicks dial Dial.move)
       := Eq.trans (Eq.cong (.count Dial.isZero) (List.scanLeftAppend t.clicks dial (List.concatMap ts Turn.clicks) Dial.move))
@@ -31,7 +31,7 @@ theorem zerosPassedSplit [n: Nat] (dial: Dial n) (t: Turn) (ts: List Turn):
     _ = Dial.zerosDuring dial t + zerosLandedOn (List.concatMap ts Turn.clicks) (Dial.move dial t) := rewrite turnAt dial t
 
 theorem zerosPassedFrom [n: Nat] (dial: Dial n): (ts: List Turn) →
-    zerosPassed ts dial = zerosLandedOn (List.concatMap ts Turn.clicks) dial
+    zerosPassed ts dial = zerosLandedOn (ts.concatMap Turn.clicks) dial
   | [] => rfl
   | [t, ..ts] =>
     calc zerosPassed [t, ..ts] dial
@@ -125,7 +125,7 @@ theorem leftMirror [n: Nat] (dial: Dial n): (k: Nat) →
 
 --| A turn is its clicks, one at a time: it ends in the same place, and
 --| `Dial.zerosDuring` counts the clicks that land on 0.
-theorem turnAt [n: Nat] (dial: Dial n): (t: Turn) → List.foldLeft t.clicks dial Dial.move = Dial.move dial t
+theorem turnAt [n: Nat] (dial: Dial n): (t: Turn) → t.clicks.foldLeft dial Dial.move = Dial.move dial t
   | Left k => leftAt dial k
   | Right k => rightAt dial k
 

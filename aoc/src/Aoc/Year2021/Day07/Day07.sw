@@ -38,7 +38,7 @@ def growingFuel (steps: Nat): Nat := Nat.sumBetween 1 steps
 
 --| The fuel for every crab to move to `position`.
 def fuelAt (fuel: Nat → Nat) (crabs: List Nat) (position: Nat): Nat :=
-  crabs.sumBy (crab => fuel (Nat.absDiff crab position))
+  crabs.sumBy (crab => fuel (crab.absDiff position))
 
 --| The rightmost crab's position (0 when there are none), and the leftmost's
 --| (the rightmost's when there are none).

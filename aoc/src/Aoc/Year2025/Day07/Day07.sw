@@ -104,13 +104,13 @@ def splitsBelow (beams: Vec Bool w): List (Vec Bool w) → Nat
   | [row, ..rest] => splitsIn row beams + splitsBelow (fall row beams) rest
 
 --| The splitters of a row that beams reach.
-def splitsIn (row: Vec Bool w) (beams: Vec Bool w): Nat := Vec.zipWith row beams (∧) |> .count id
+def splitsIn (row: Vec Bool w) (beams: Vec Bool w): Nat := row.zipWith beams (∧) |> .count id
 
 --| The beams falling out of a row: a beam passes a column with no splitter,
 --| and a splitter with a beam on it sends one down each side.
 def fall (row: Vec Bool w) (beams: Vec Bool w): Vec Bool w :=
-  let hit := Vec.zipWith row beams (∧)
-  Vec.zipWith3 (Vec.zipWith row beams (splitter beam => beam ∧ not splitter))
+  let hit := row.zipWith beams (∧)
+  (row.zipWith beams (splitter beam => beam ∧ not splitter)).zipWith3
     (hit.shiftRight (fill := False)) (hit.shiftLeft (fill := False)) (pass left right => pass ∨ (left ∨ right))
 
 --| Part 2: the timelines of a particle starting at S.
@@ -128,4 +128,4 @@ def splitRow (row: Vec Bool w) (below: Vec Nat w): Vec Nat w :=
   -- The pad 1: past either edge a particle has left the manifold, and that
   -- is one completed timeline.
   let sides := below.around 1 (left _ right => left + right)
-  Vec.zipWith3 row below sides (splitter here sides => if splitter then sides else here)
+  row.zipWith3 below sides (splitter here sides => if splitter then sides else here)

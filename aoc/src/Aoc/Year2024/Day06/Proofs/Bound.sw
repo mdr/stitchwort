@@ -13,7 +13,7 @@ import Std (And, Bool, DecEq, Eq, Exists, Nat, Not, Option, Void)
 
 --| The walk is the step, iterated.
 theorem walkIterate (lab: Lab): (steps: Nat) → (guard: Option Guard) →
-    walk lab guard steps = Nat.iterate steps (state => Option.flatMap state lab.step) guard
+    walk lab guard steps = Nat.iterate steps (state => state.flatMap lab.step) guard
   | Zero, guard => rfl
   | Succ steps, guard => walkIterate lab steps (guard.flatMap lab.step)
 

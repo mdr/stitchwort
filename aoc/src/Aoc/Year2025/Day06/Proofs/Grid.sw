@@ -38,7 +38,7 @@ theorem spacesNoDigits: (k: Nat) → List.filterMap (List.replicate k ' ') Char.
   | Succ k => spacesNoDigits k
 
 theorem parseNumberWritten (n: Nat) (before: Nat) (after: Nat):
-    parseNumber (List.append (List.replicate before ' ') (List.append (Text.toList (Nat.toText n)) (List.replicate after ' '))) = n :=
+    parseNumber (List.append (List.replicate before ' ') (List.append (Text.toList n.toText) (List.replicate after ' '))) = n :=
   rewrite List.filterMapAppend (List.replicate before ' ') (List.append (Text.toList (Nat.toText n)) (List.replicate after ' ')) Char.digitValue,
     List.filterMapAppend (Text.toList (Nat.toText n)) (List.replicate after ' ') Char.digitValue,
     spacesNoDigits before, spacesNoDigits after, Char.toTextDigits n in

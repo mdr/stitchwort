@@ -87,7 +87,7 @@ theorem redOrGreenSame (tiles: List Point) (x: Nat) (y: Nat) (x2: Nat) (y2: Nat)
 --| A value at or after the smallest of `values` compares with them as some
 --| key value does: a value or one just after one, from `low` up to it.
 theorem representative (values: List Nat) (v: Nat) (low: Nat) (lowIn: List.Mem low values) (lowLe: low ≤ v) (goal: Prop)
-    (use: (w: Nat) → (List.Mem w values) ∨ (List.Mem w (List.map values Succ)) → low ≤ w → w ≤ v → SameSide values v w → goal): goal :=
+    (use: (w: Nat) → (List.Mem w values) ∨ (List.Mem w (values.map Succ)) → low ≤ w → w ≤ v → SameSide values v w → goal): goal :=
   let atMost := List.filter values (c => c ≤ v)
   let nearest := largest atMost
   let lowAtMost: List.Mem low atMost := List.memFilterIntro values (c => c ≤ v) low lowIn lowLe
@@ -121,7 +121,7 @@ theorem keyLinesSorted (values: List Nat): List.Sorted Nat.leq (keyLines values)
   List.sortedDedup Nat.leq (List.sort (List.append values (List.map values Succ))) (List.sortSortedNat (List.append values (List.map values Succ)))
 
 --| Each value, and each one just after a value, is a key value.
-theorem keyLinesHas (values: List Nat) (v: Nat) (m: (List.Mem v values) ∨ (List.Mem v (List.map values Succ))): List.Mem v (keyLines values) :=
+theorem keyLinesHas (values: List Nat) (v: Nat) (m: (List.Mem v values) ∨ (List.Mem v (values.map Succ))): List.Mem v (keyLines values) :=
   let all := List.append values (List.map values Succ)
   let inAll: List.Mem v all :=
     match m with
@@ -132,7 +132,7 @@ theorem keyLinesHas (values: List Nat) (v: Nat) (m: (List.Mem v values) ∨ (Lis
 --| On a sorted list holding u and v, the elements at their positions, the
 --| lower position first, are the smaller and the larger of them.
 theorem axisEnds (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) (mu: List.Mem u xs) (mv: List.Mem v xs):
-    ((List.getOr xs (Nat.min (List.indexOf xs u) (List.indexOf xs v)) 0 = Nat.min u v) ∧ (List.getOr xs (Nat.max (List.indexOf xs u) (List.indexOf xs v)) 0 = Nat.max u v)) ∧ (Nat.max (List.indexOf xs u) (List.indexOf xs v) < List.length xs) :=
+    ((xs.getOr (Nat.min (xs.indexOf u) (xs.indexOf v)) 0 = Nat.min u v) ∧ (xs.getOr (Nat.max (xs.indexOf u) (xs.indexOf v)) 0 = Nat.max u v)) ∧ (Nat.max (xs.indexOf u) (xs.indexOf v) < xs.length) :=
   let i := List.indexOf xs u
   let j := List.indexOf xs v
   let atI: List.getOr xs i 0 = u := List.getOrIndexOf xs 0 u mu
@@ -149,8 +149,8 @@ theorem axisEnds (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) (m
 
 --| The elements from one position to the other lie from the smaller value to the larger.
 theorem axisInside (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) (mu: List.Mem u xs) (mv: List.Mem v xs)
-    (k: Nat) (lo: Nat.min (List.indexOf xs u) (List.indexOf xs v) ≤ k) (hi: k ≤ Nat.max (List.indexOf xs u) (List.indexOf xs v)):
-    Nat.min u v ≤ List.getOr xs k 0 ≤ Nat.max u v :=
+    (k: Nat) (lo: Nat.min (xs.indexOf u) (xs.indexOf v) ≤ k) (hi: k ≤ Nat.max (xs.indexOf u) (xs.indexOf v)):
+    Nat.min u v ≤ xs.getOr k 0 ≤ Nat.max u v :=
   match axisEnds xs s u v mu mv with
     | Both (Both atMin atMax) maxIn =>
       let up := List.sortedGetOrLe xs 0 s (Nat.min (List.indexOf xs u) (List.indexOf xs v)) k lo (omega)
@@ -160,7 +160,7 @@ theorem axisInside (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) 
 --| And every element of the list from the smaller value to the larger is at
 --| such a position: what holds at each holds for it.
 theorem axisCovers (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) (mu: List.Mem u xs) (mv: List.Mem v xs) (p: Nat → Prop)
-    (each: (k: Nat) → Nat.min (List.indexOf xs u) (List.indexOf xs v) ≤ k → k ≤ Nat.max (List.indexOf xs u) (List.indexOf xs v) → p (List.getOr xs k 0))
+    (each: (k: Nat) → Nat.min (xs.indexOf u) (xs.indexOf v) ≤ k → k ≤ Nat.max (xs.indexOf u) (xs.indexOf v) → p (xs.getOr k 0))
     (w: Nat) (mw: List.Mem w xs) (lo: Nat.min u v ≤ w) (hi: w ≤ Nat.max u v): p w :=
   match axisEnds xs s u v mu mv with
     | Both (Both atMin atMax) maxIn =>

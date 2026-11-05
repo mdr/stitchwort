@@ -158,7 +158,7 @@ def adder (bits: Nat): List Gate :=
       ])
 
 def inputs (bits: Nat) (x: Nat) (y: Nat): List (Wire, Bool) :=
-  List.append (List.range bits |> .map (bit => (X bit, Nat.testBit x bit))) (List.range bits |> .map (bit => (Y bit, Nat.testBit y bit)))
+  List.append (List.range bits |> .map (bit => (X bit, x.testBit bit))) (List.range bits |> .map (bit => (Y bit, y.testBit bit)))
 
 def sumOf (bits: Nat) (gates: List Gate) (x: Nat) (y: Nat): Option Nat := solvePart1 { initial = inputs bits x y, gates }
 

@@ -11,7 +11,7 @@ import Std (Bool, DecEq, Eq, Exists, Fin, Iff, List, Map, Nat, Option, Void)
 
 --| The cell at a position, taken apart: its row, and the cell in it.
 theorem cellAtElim (rows: List (List a)) (position: Position) (x: a) (found: cellAt rows position = Some x):
-    ∃ (cells: List a) => List.get rows position.row = Some cells ∧ List.get cells position.column = Some x :=
+    ∃ (cells: List a) => rows.get position.row = Some cells ∧ cells.get position.column = Some x :=
   match e: List.get rows position.row with
     | None => Void.exfalso (Option.noneNotSome x found)
     | Some row => Witness row (Both rfl found)
@@ -79,7 +79,7 @@ def rowCells (r: Nat) (row: List a): List ((Nat, Nat), a) := row.withIndex |> .m
 
 --| Row r's cells after `mapCells`.
 theorem rowCellsMapWithIndex (r: Nat) (row: List a) (f: Position → a → b):
-    rowCells r (List.mapWithIndex row (c cell => f { row = r, column = c } cell))
+    rowCells r (row.mapWithIndex (c cell => f { row = r, column = c } cell))
       = List.map (rowCells r row) (((at, x)) => (at, f { row = at.fst, column = at.snd } x)) :=
   rewrite withIndexFromMap 0 row (q => f { row = r, column = q.fst } q.snd),
     List.mapMap (List.withIndex row) (((c, cell)) => ((r, c), cell)) (q => (q.fst, f { row = r, column = q.fst } q.snd)),
@@ -94,7 +94,7 @@ theorem withIndexFromMap: (s: Nat) → (xs: List a) → (h: (Nat, a) → b) →
 
 --| `map` of a `concat` is the `concat` of the `map`s.
 -- (A std candidate.)
-theorem mapConcat: (xss: List (List a)) → (k: a → b) → List.map (List.concat xss) k = List.concat (List.map xss (xs => List.map xs k))
+theorem mapConcat: (xss: List (List a)) → (k: a → b) → xss.concat.map k = (xss.map (xs => xs.map k)).concat
   | [], k => rfl
   | [xs, ..rest], k => rewrite List.mapAppend xs (List.concat rest) k, mapConcat rest k in rfl
 

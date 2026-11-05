@@ -143,7 +143,7 @@ def routesVia (other: Cave) (after: List (List Cave)): List (List Cave) := after
 --| at least 1 (`stepDecreases`), and a route has at most this many steps
 --| and one more.
 def reach (unvisited: List Cave) (spare: Bool) (cave: Cave): Nat :=
-  3 * unvisited.length + 2 * Bool.toNat spare + Bool.toNat cave.isSmall
+  3 * unvisited.length + 2 * spare.toNat + cave.isSmall.toNat
 
 --| The paths from `start` to `end`: with `spare`, one small cave may be
 --| visited twice. Searching `3 * unvisited.length + 4` steps deep is enough

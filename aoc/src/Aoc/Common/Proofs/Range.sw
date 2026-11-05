@@ -53,7 +53,7 @@ theorem countBelow (r: Range) (n: Nat) (h: r.to < n): List.occurrences (List.ran
     _ = r.size := omega
 
 --| An empty range (it ends before it starts) holds no ids, and has size 0.
-theorem countEmpty (r: Range) (e: Nat.leq r.from r.to = False) (ids: List Nat): List.occurrences ids (id => r.contains id) = r.size :=
+theorem countEmpty (r: Range) (e: Nat.leq r.from r.to = False) (ids: List Nat): ids.occurrences (id => r.contains id) = r.size :=
   calc List.occurrences ids (id => r.contains id)
     _ = 0 := List.occurrencesNone ids
       (id => r.contains id)

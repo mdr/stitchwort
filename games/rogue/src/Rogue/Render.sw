@@ -49,4 +49,4 @@ def paint (char: Char): Text :=
     | ')' => Ansi.colour Cyan ")"
     | '"' => Ansi.bold (Ansi.colour Yellow "\"")
     | '>' => Ansi.bold (Ansi.colour Green ">")
-    | _ => Char.toText char
+    | _ => char.toText

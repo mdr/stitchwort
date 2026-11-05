@@ -51,7 +51,7 @@ def Rectangle.ofPair (pair: (Point, Point)): Rectangle := { corner = pair.fst, o
 
 --| The number of tiles in the rectangle, both corners included.
 def Rectangle.area (rectangle: Rectangle): Nat :=
-  (Nat.absDiff rectangle.corner.x rectangle.opposite.x + 1) * (Nat.absDiff rectangle.corner.y rectangle.opposite.y + 1)
+  (rectangle.corner.x.absDiff rectangle.opposite.x + 1) * (rectangle.corner.y.absDiff rectangle.opposite.y + 1)
 
 --| The largest of some areas, 0 if there are none.
 def largest (areas: List Nat): Nat := areas.foldLeft 0 Nat.max

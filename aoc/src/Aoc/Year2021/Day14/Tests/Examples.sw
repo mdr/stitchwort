@@ -50,7 +50,7 @@ theorem smallParses: parsed """
   """ = Ok ({ template = ['A', 'B'], rules = [{ pair = { first = 'A', second = 'B' }, insert = 'C' }] }) := rfl
 
 test "parse the example" :=
-  example.template == ['N', 'N', 'C', 'B'] && example.rules.length == 16 && List.head example.rules == Some ({ pair = { first = 'C', second = 'H' }, insert = 'B' })
+  example.template == ['N', 'N', 'C', 'B'] && example.rules.length == 16 && example.rules.head == Some ({ pair = { first = 'C', second = 'H' }, insert = 'B' })
 
 --| The puzzle's polymers after one and two steps, by the spec.
 theorem exampleStep1: afterSteps 1 example = "NCNBCHB".toList := rfl

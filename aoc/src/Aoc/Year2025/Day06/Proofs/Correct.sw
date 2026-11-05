@@ -25,11 +25,11 @@ theorem isProblemRun (lines: List Text) (lo: Nat) (hi: Nat): isProblem lines lo 
 
 --| The program's columns are the worksheet's columns, cell by cell.
 theorem columnsAre (lines: List Text):
-    List.transposeFill (List.map lines Text.toList) ' ' = (List.range (gridWidth lines)).map (column lines) :=
+    (lines.map Text.toList).transposeFill ' ' = (List.range (gridWidth lines)).map (column lines) :=
   rewrite List.transposeFillColumns (List.map lines Text.toList) ' ', List.mapMap lines (.getOr _ ' ') Text.toList
 
 --| Past a bound on every line's length, every column is blank.
-theorem blankPast (w: Nat): (lines: List Text) → ((r: Nat) → List.length (List.getOr (List.map lines Text.toList) r []) ≤ w) → blank lines w = True
+theorem blankPast (w: Nat): (lines: List Text) → ((r: Nat) → ((lines.map Text.toList).getOr r []).length ≤ w) → blank lines w = True
   | [], h => rfl
   | [l, ..rest], h => rewrite List.getOrPast (Text.toList l) w ' ' (h 0) in blankPast w rest (r => h (Succ r))
 
@@ -56,7 +56,7 @@ theorem blockOperator (lines: List Text) (cs: List Nat):
     columnOperator lines _
 
 --| Adding and multiplying don't mind the order.
-theorem evaluateReverse: (op: Option Operator) → (xs: List Nat) → evaluate op (List.reverse xs) = evaluate op xs
+theorem evaluateReverse: (op: Option Operator) → (xs: List Nat) → evaluate op xs.reverse = evaluate op xs
   | None, xs => rfl
   | Some Add, xs => List.sumReverse xs
   | Some Multiply, xs => List.productReverse xs

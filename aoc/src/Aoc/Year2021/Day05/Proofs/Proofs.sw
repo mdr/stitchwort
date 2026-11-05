@@ -91,7 +91,7 @@ theorem listedCoveredBy (lines: List Line) (shapes: lines.all (line => horizonta
 
 --| The step a line takes to reach a point, `k`, is the only one there: the
 --| steps `0` to `n - 1` count it once if it is one of them.
-theorem countRangeOnce (n: Nat) (k: Nat): (c: Bool) → (c = True → k < n) → (List.range n).count (i => c ∧ i == k) = Bool.toNat c
+theorem countRangeOnce (n: Nat) (k: Nat): (c: Bool) → (c = True → k < n) → (List.range n).count (i => c ∧ i == k) = c.toNat
   | False, inRange => List.countFalse (List.range n)
   | True, inRange => rewrite inRange rfl at List.countRangeEq n k
 
@@ -101,7 +101,7 @@ theorem stepInRange (steps: Nat) (i: Nat) (inRange: i ∈ List.range (steps + 1)
 
 --| A point a line covers is within its steps.
 theorem coveredWithin (line: Line) (point: Point) (c: covers line point = True):
-    Nat.max (Nat.absDiff line.from.x point.x) (Nat.absDiff line.from.y point.y) < Nat.max (Nat.absDiff line.from.x line.to.x) (Nat.absDiff line.from.y line.to.y) + 1 :=
+    Nat.max (line.from.x.absDiff point.x) (line.from.y.absDiff point.y) < Nat.max (line.from.x.absDiff line.to.x) (line.from.y.absDiff line.to.y) + 1 :=
   let bx := betweenBound line.from.x point.x line.to.x (firstOf _ _ _ c)
   let by := betweenBound line.from.y point.y line.to.y (secondOf _ _ _ c)
   omega
@@ -112,9 +112,9 @@ theorem secondOf: (a: Bool) → (b: Bool) → (c: Bool) → (a ∧ b ∧ c) = Tr
 --| The `i`th point of a line is the point `(x, y)` when the line covers it
 --| and it is `k` steps from the first end.
 theorem pointStep (line: Line) (shape: (horizontalOrVertical line ∨ diagonal line) = True) (point: Point) (i: Nat)
-    (hi: i ≤ Nat.max (Nat.absDiff line.from.x line.to.x) (Nat.absDiff line.from.y line.to.y)):
+    (hi: i ≤ Nat.max (line.from.x.absDiff line.to.x) (line.from.y.absDiff line.to.y)):
     (({ x = towards line.from.x line.to.x i, y = towards line.from.y line.to.y i }: Point) == point)
-      = (covers line point ∧ i == Nat.max (Nat.absDiff line.from.x point.x) (Nat.absDiff line.from.y point.y)) :=
+      = (covers line point ∧ i == Nat.max (line.from.x.absDiff point.x) (line.from.y.absDiff point.y)) :=
   Eq.trans (Point.beqMk (towards line.from.x line.to.x i) (towards line.from.y line.to.y i) point)
     (Eq.trans (pointLinear line.from.x line.from.y line.to.x line.to.y i point.x point.y shape hi)
     (Eq.cong (c => c ∧ i == Nat.max (Nat.absDiff line.from.x point.x) (Nat.absDiff line.from.y point.y))
@@ -133,30 +133,30 @@ theorem Point.beqMk (x: Nat) (y: Nat) (point: Point): (({ x, y }: Point) == poin
 
 --| Stepping from `a` towards `b`, at most as many steps as they are apart,
 --| reaches `x` when `x` is between them and that many steps from `a`.
-theorem towardsEq (a: Nat) (b: Nat) (i: Nat) (x: Nat) (h: i ≤ Nat.absDiff a b):
-    (towards a b i == x) = (between a x b ∧ i == Nat.absDiff a x) := cases
+theorem towardsEq (a: Nat) (b: Nat) (i: Nat) (x: Nat) (h: i ≤ a.absDiff b):
+    (towards a b i == x) = (between a x b ∧ i == a.absDiff x) := cases
 
 --| When `a` and `b` are the same, stepping stays put.
 theorem towardsFixed (a: Nat) (b: Nat) (i: Nat) (x: Nat) (h: a = b): (towards a b i == x) = between a x b := rewrite h in cases
 
-theorem betweenBound (a: Nat) (x: Nat) (b: Nat) (h: between a x b = True): Nat.absDiff a x ≤ Nat.absDiff a b := cases
+theorem betweenBound (a: Nat) (x: Nat) (b: Nat) (h: between a x b = True): a.absDiff x ≤ a.absDiff b := cases
 
-theorem betweenFixed (a: Nat) (x: Nat) (b: Nat) (h: a = b) (inside: between a x b = True): Nat.absDiff a x = 0 := rewrite h at inside in cases
+theorem betweenFixed (a: Nat) (x: Nat) (b: Nat) (h: a = b) (inside: between a x b = True): a.absDiff x = 0 := rewrite h at inside in cases
 
-theorem absDiffFixed (a: Nat) (b: Nat) (h: a = b): Nat.absDiff a b = 0 := rewrite h in cases
+theorem absDiffFixed (a: Nat) (b: Nat) (h: a = b): a.absDiff b = 0 := rewrite h in cases
 
-theorem absDiffPositive (a: Nat) (b: Nat) (h: a ≠ b): Nat.absDiff a b ≠ 0 := zero => h (cases)
+theorem absDiffPositive (a: Nat) (b: Nat) (h: a ≠ b): a.absDiff b ≠ 0 := zero => h (cases)
 
-theorem stepsFixedLeft (a: Nat) (b: Nat) (c: Nat) (i: Nat) (h: a = b) (hi: i ≤ Nat.max (Nat.absDiff a b) c): i ≤ c :=
+theorem stepsFixedLeft (a: Nat) (b: Nat) (c: Nat) (i: Nat) (h: a = b) (hi: i ≤ Nat.max (a.absDiff b) c): i ≤ c :=
   rewrite h at hi in cases
 
-theorem stepsFixedRight (a: Nat) (b: Nat) (c: Nat) (i: Nat) (h: a = b) (hi: i ≤ Nat.max c (Nat.absDiff a b)): i ≤ c :=
+theorem stepsFixedRight (a: Nat) (b: Nat) (c: Nat) (i: Nat) (h: a = b) (hi: i ≤ Nat.max c (a.absDiff b)): i ≤ c :=
   rewrite h at hi in cases
 
 theorem stepsDiagonal (d: Nat) (e: Nat) (i: Nat) (h: d = e) (hi: i ≤ Nat.max d e): i ≤ d := rewrite h at hi in cases
 
-theorem diagonalSame (x1: Nat) (x2: Nat) (y1: Nat) (y2: Nat) (h: (Nat.absDiff x1 x2 == Nat.absDiff y1 y2) = True):
-    Nat.absDiff x1 x2 = Nat.absDiff y1 y2 := cases
+theorem diagonalSame (x1: Nat) (x2: Nat) (y1: Nat) (y2: Nat) (h: (x1.absDiff x2 == y1.absDiff y2) = True):
+    x1.absDiff x2 = y1.absDiff y2 := cases
 
 -- Both coordinates of a line's points, put together, for each shape of
 -- line. `ax` and `ay` are how far the point is across and down from the
@@ -176,10 +176,10 @@ theorem combineDiagonal (ax: Nat) (ay: Nat) (i: Nat) (d: Nat) (hi: i ≤ d): (bx
 --| comparisons: it is `(x, y)` when `(x, y)` is in the rectangle the ends
 --| span (and, on a diagonal, as far across as down), `i` steps along.
 theorem pointLinear (x1: Nat) (y1: Nat) (x2: Nat) (y2: Nat) (i: Nat) (x: Nat) (y: Nat)
-    (shape: ((x1 == x2 ∨ y1 == y2) ∨ Nat.absDiff x1 x2 == Nat.absDiff y1 y2) = True)
-    (hi: i ≤ Nat.max (Nat.absDiff x1 x2) (Nat.absDiff y1 y2)):
+    (shape: ((x1 == x2 ∨ y1 == y2) ∨ x1.absDiff x2 == y1.absDiff y2) = True)
+    (hi: i ≤ Nat.max (x1.absDiff x2) (y1.absDiff y2)):
     (towards x1 x2 i == x ∧ towards y1 y2 i == y)
-      = ((between x1 x x2 ∧ between y1 y y2 ∧ ((x1 == x2 ∨ y1 == y2) ∨ Nat.absDiff x1 x == Nat.absDiff y1 y)) ∧ i == Nat.max (Nat.absDiff x1 x) (Nat.absDiff y1 y)) :=
+      = ((between x1 x x2 ∧ between y1 y y2 ∧ ((x1 == x2 ∨ y1 == y2) ∨ x1.absDiff x == y1.absDiff y)) ∧ i == Nat.max (x1.absDiff x) (y1.absDiff y)) :=
   match Nat.decEq x1 x2 with
     | Yes hv =>
       rewrite towardsFixed x1 x2 i x hv, towardsEq y1 y2 i y (stepsFixedLeft x1 x2 _ i hv hi) in
@@ -212,9 +212,9 @@ theorem productZeroRight (ax: Nat) (ay: Nat) (dx: Nat) (dy: Nat) (h1: ay = 0) (h
 --| On a horizontal or vertical line, every point in the rectangle the ends
 --| span is on the line; on a diagonal one, those as far across as down.
 theorem coversLinear (x1: Nat) (y1: Nat) (x2: Nat) (y2: Nat) (x: Nat) (y: Nat)
-    (shape: ((x1 == x2 ∨ y1 == y2) ∨ Nat.absDiff x1 x2 == Nat.absDiff y1 y2) = True):
-    (between x1 x x2 ∧ between y1 y y2 ∧ Nat.absDiff x1 x * Nat.absDiff y1 y2 == Nat.absDiff y1 y * Nat.absDiff x1 x2)
-      = (between x1 x x2 ∧ between y1 y y2 ∧ ((x1 == x2 ∨ y1 == y2) ∨ Nat.absDiff x1 x == Nat.absDiff y1 y)) :=
+    (shape: ((x1 == x2 ∨ y1 == y2) ∨ x1.absDiff x2 == y1.absDiff y2) = True):
+    (between x1 x x2 ∧ between y1 y y2 ∧ x1.absDiff x * y1.absDiff y2 == y1.absDiff y * x1.absDiff x2)
+      = (between x1 x x2 ∧ between y1 y y2 ∧ ((x1 == x2 ∨ y1 == y2) ∨ x1.absDiff x == y1.absDiff y)) :=
   bothThen _ _ _ _ (bx by =>
     match Nat.decEq x1 x2 with
       | Yes hv =>

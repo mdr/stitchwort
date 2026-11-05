@@ -60,7 +60,7 @@ def point(): {Parse} Point :=
 --| The straight-line distance squared: it orders pairs the same way as the
 --| distance, and needs no square root.
 def Point.squaredDistance (point: Point) (other: Point): Nat :=
-  square (Nat.absDiff point.x other.x) + square (Nat.absDiff point.y other.y) + square (Nat.absDiff point.z other.z)
+  square (point.x.absDiff other.x) + square (point.y.absDiff other.y) + square (point.z.absDiff other.z)
 
 def square (n: Nat): Nat := n * n
 
@@ -123,7 +123,7 @@ def Circuits.sizes (circuits: Circuits) (boxes: Nat): List Nat :=
 def solvePart1 (connections: Nat) (boxes: Boxes): Nat :=
   let joined := boxes.pairs.take connections
     |> .foldLeft (Circuits.separate boxes.points.length) Circuits.connect
-  joined.sizes boxes.points.length |> .sortBy (first second => Nat.compare second first) |> .take 3 |> .product
+  joined.sizes boxes.points.length |> .sortBy (first second => second.compare first) |> .take 3 |> .product
 
 --| Part 2: the product of the x coordinates of the two boxes whose joining
 --| leaves one circuit. `None` if there are no such boxes: the points start in

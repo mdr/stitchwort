@@ -21,7 +21,7 @@ theorem turnsDiffer (r: Nat) (c: Nat): ({ row = r, column = c, turn = Left }: Hi
 --| The timelines of the two sides of a split.
 theorem headsDistinct (h1: Hit) (h2: Hit) (ne: h1 ≠ h2) (xs: List (List Hit)) (ys: List (List Hit))
     (dx: xs.Distinct) (dy: ys.Distinct):
-    List.Distinct (List.append (List.map xs (Cons h1)) (List.map ys (Cons h2))) :=
+    List.Distinct ((xs.map (Cons h1)).append (ys.map (Cons h2))) :=
   List.distinctAppend (List.map xs (Cons h1)) (List.map ys (Cons h2))
     (List.distinctMap xs dx (Cons h1) (List.consInjective h1))
     (List.distinctMap ys dy (Cons h2) (List.consInjective h2))

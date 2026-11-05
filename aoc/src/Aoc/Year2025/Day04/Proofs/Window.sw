@@ -57,7 +57,7 @@ def tri (a: Vec Cell w) (x: Vec Cell w) (b: Vec Cell w) (j: Nat): Nat :=
 
 --| The column sums `peelRow` adds up, counted from 1.
 theorem colsAt (a: Vec Cell w) (x: Vec Cell w) (b: Vec Cell w): (j: Nat) →
-    Vec.getOr (VCons 0 (Vec.zipWith3 a x b (p q s => Cell.count p + Cell.count q + Cell.count s))) j 0 = tri a x b j
+    (VCons 0 (a.zipWith3 x b (p q s => Cell.count p + Cell.count q + Cell.count s))).getOr j 0 = tri a x b j
   | Zero => rfl
   | Succ i => Vec.getOrZipWith3 (p q s => Cell.count p + Cell.count q + Cell.count s) Floor Floor Floor 0 rfl a x b i
 
@@ -127,7 +127,7 @@ def near (r: Nat) (x: Nat): Bool := Nat.absDiff r x ≤ 1
 
 --| At most 1 away is one below, the same, or one above.
 theorem nearSplit (v: Nat): (r: Nat) → (x: Nat) →
-    Nat.keepIf v (near r x) = Nat.keepIf v (Nat.equal r (Succ x)) + Nat.keepIf v (Nat.equal r x) + Nat.keepIf v (Nat.equal (Succ r) x)
+    v.keepIf (near r x) = v.keepIf (r.equal (Succ x)) + v.keepIf (r.equal x) + v.keepIf ((Succ r).equal x)
   | Zero, Zero => omega
   | Zero, Succ Zero => rfl
   | Zero, Succ (Succ k) => rfl
@@ -141,7 +141,7 @@ def shift (g: Nat → Nat): Nat → Nat
   | Succ x => g x
 
 theorem pickBelow (g: Nat → Nat) (n: Nat) (hz: (x: Nat) → n ≤ x → g x = 0): (r: Nat) →
-    List.sumBy (List.range n) (x => Nat.keepIf (g x) (Nat.equal r (Succ x))) = shift g r
+    List.sumBy (List.range n) (x => (g x).keepIf (r.equal (Succ x))) = shift g r
   | Zero => List.sumRangeNone (x => Nat.equal 0 (Succ x)) g n 0 (b h1 h2 => rfl)
   | Succ r => List.sumRangePick g n r (hz r)
 
@@ -161,7 +161,7 @@ theorem nearSum (g: Nat → Nat) (n: Nat) (hz: (x: Nat) → n ≤ x → g x = 0)
       := rewrite pickBelow g n hz r, List.sumRangePick g n r (hz r), List.sumRangePick g n (Succ r) (hz (Succ r))
 
 --| Bool facts for splitting the sums.
-theorem toNatAnd: (a: Bool) → (b: Bool) → Bool.toNat (a ∧ b) = Nat.keepIf (Bool.toNat b) a
+theorem toNatAnd: (a: Bool) → (b: Bool) → Bool.toNat (a ∧ b) = b.toNat.keepIf a
   | True, b => rfl
   | False, b => rfl
 
@@ -179,12 +179,12 @@ theorem splitSelf: (n1: Bool) → (n2: Bool) → (e: Bool) → (x: Bool) → (e 
   | True, False, False, x, h => rfl
   | False, n2, False, x, h => rfl
 
-theorem andKeep: (a: Bool) → (b: Bool) → (x: Bool) → Bool.toNat ((a ∧ b) ∧ x) = Nat.keepIf (Nat.keepIf (Bool.toNat x) b) a
+theorem andKeep: (a: Bool) → (b: Bool) → (x: Bool) → Bool.toNat ((a ∧ b) ∧ x) = (x.toNat.keepIf b).keepIf a
   | True, True, x => rfl
   | True, False, x => rfl
   | False, b, x => rfl
 
-theorem nearSelf (r: Nat): (Nat.absDiff r r ≤ 1) = True := rewrite Nat.absDiffSelf r
+theorem nearSelf (r: Nat): (r.absDiff r ≤ 1) = True := rewrite Nat.absDiffSelf r
 
 --| The position itself is at most 1 from itself.
 theorem selfNear (r: Nat) (c: Nat) (x: Nat) (y: Nat) (h: (r == x ∧ c == y) = True): near r x = True ∧ near c y = True :=

@@ -37,7 +37,7 @@ def spellsXmas (first: Char) (second: Char) (third: Char) (fourth: Char): Bool :
 --| The lines of four that spell XMAS, taking one cell from each list at the
 --| same index.
 def countXmas (first: List Char) (second: List Char) (third: List Char) (fourth: List Char): Nat :=
-  List.zipWith4 first second third fourth spellsXmas |> .count id
+  first.zipWith4 second third fourth spellsXmas |> .count id
 
 --| Across one row: four cells side by side.
 def countAcross (row: List Char): Nat := countXmas row (row.drop 1) (row.drop 2) (row.drop 3)
@@ -52,7 +52,7 @@ def countThrough (first: List Char) (second: List Char) (third: List Char) (four
 --| Part 1: every XMAS across a row or through a run of four rows.
 def solvePart1 (grid: Grid): Nat :=
   let rows := grid.rows
-  let through := List.zipWith4 rows (rows.drop 1) (rows.drop 2) (rows.drop 3) countThrough |> .sum
+  let through := rows.zipWith4 (rows.drop 1) (rows.drop 2) (rows.drop 3) countThrough |> .sum
   rows.sumBy countAcross + through
 
 --| Three letters in a line spell MAS, one way or the other.
@@ -62,11 +62,11 @@ def spellsMas (first: Char) (second: Char) (third: Char): Bool :=
 --| The crosses in three rows in a run, by their centres in the middle row:
 --| MAS down to the right through the centre, and MAS down to the left.
 def countCrosses (above: List Char) (middle: List Char) (below: List Char): Nat :=
-  let downRight := List.zipWith3 above (middle.drop 1) (below.drop 2) spellsMas
+  let downRight := above.zipWith3 (middle.drop 1) (below.drop 2) spellsMas
   let downLeft := List.zipWith3 (above.drop 2) (middle.drop 1) below spellsMas
-  List.zipWith downRight downLeft (one other => one ∧ other) |> .count id
+  downRight.zipWith downLeft (one other => one ∧ other) |> .count id
 
 --| Part 2: the crosses in every run of three rows.
 def solvePart2 (grid: Grid): Nat :=
   let rows := grid.rows
-  List.zipWith3 rows (rows.drop 1) (rows.drop 2) countCrosses |> .sum
+  rows.zipWith3 (rows.drop 1) (rows.drop 2) countCrosses |> .sum

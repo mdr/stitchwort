@@ -13,7 +13,7 @@ import Aoc.Year2024.Day08.Spec (..)
 import Std (And, Bool, DecEq, Decidable, Eq, Exists, Int, Iff, List, Nat, Or, Set, Void)
 
 --| Dividing a multiple of a positive number by it.
-theorem divExact: (value: Int) → (below: Nat) → (times: Nat) → Int.natAbs value = times * Succ below →
+theorem divExact: (value: Int) → (below: Nat) → (times: Nat) → value.natAbs = times * Succ below →
     (Succ below).toInt * (value / (Succ below).toInt) = value
   | OfNat n, below, times, multiple =>
     let quotient := Nat.divUnique n (Succ below) times 0 (omega) (rewrite multiple in ring)
@@ -25,7 +25,7 @@ theorem divExact: (value: Int) → (below: Nat) → (times: Nat) → Int.natAbs 
     rewrite quotient in Eq.cong NegSucc (omega [whole, (ring: times + below * Succ times = times * Succ below + below)])
 
 --| `|x|` is `x` times its sign.
-theorem natAbsSign: (x: Int) → (Int.natAbs x).toInt = Int.sign x * x
+theorem natAbsSign: (x: Int) → x.natAbs.toInt = x.sign * x
   | OfNat Zero => rfl
   | OfNat (Succ n) => Eq.cong OfNat (omega)
   | NegSucc n => Eq.cong OfNat (omega)
@@ -34,8 +34,8 @@ theorem natAbsSign: (x: Int) → (Int.natAbs x).toInt = Int.sign x * x
 --| nonzero multiple of the result, whose parts are coprime.
 theorem divideByFacts (difference: Offset) (goal: Prop) (rowTimes: Nat) (columnTimes: Nat) (s: Int) (t: Int)
     (nonzero: (difference.rows = 0) ∧ (difference.columns = 0) → Void):
-    (divisor: Nat) → Int.natAbs difference.rows = rowTimes * divisor → Int.natAbs difference.columns = columnTimes * divisor →
-      s * (Int.natAbs difference.rows).toInt + t * (Int.natAbs difference.columns).toInt = divisor.toInt →
+    (divisor: Nat) → difference.rows.natAbs = rowTimes * divisor → difference.columns.natAbs = columnTimes * divisor →
+      s * difference.rows.natAbs.toInt + t * difference.columns.natAbs.toInt = divisor.toInt →
       ((scale: Int) → scale ≠ 0 → difference.rows = scale * (divideBy difference divisor).rows →
         difference.columns = scale * (divideBy difference divisor).columns → (s: Int) → (t: Int) →
         s * (divideBy difference divisor).rows + t * (divideBy difference divisor).columns = 1 → goal) →
@@ -101,7 +101,7 @@ theorem natAbsDiffLt (p: Nat) (a: Nat) (n: Nat) (below: p < n) (aBelow: a < n): 
 --| nonzero size.
 theorem stepsBound (a: Nat) (p: Nat) (er: Int) (k: Int) (n: Nat) (aBelow: a < n) (pBelow: p < n) (on: p.toInt = a.toInt + er * k)
     (nonzero: er ≠ 0):
-    Int.natAbs k < n :=
+    k.natAbs < n :=
   let gap: Int.natAbs (er * k) < n := rewrite (ring [on]: er * k = p.toInt - a.toInt) in natAbsDiffLt p a n pBelow aBelow
   let positive: Int.natAbs er ≠ 0 := z => nonzero (Int.natAbsZero er z)
   omega [Int.natAbsMul er k, Nat.leMulPos (Int.natAbs k) (Int.natAbs er) (omega)]
@@ -113,7 +113,7 @@ def stepsFrom (start: Position) (step: Offset) (count: Nat): List Position := [s
 --| among the harmonics.
 theorem harmonicsOfSteps (city: City) (start: Position) (end: Position) (point: Position): (k: Int) →
     point.row.toInt = start.row.toInt + (start.stepToward end).rows * k → point.column.toInt = start.column.toInt + (start.stepToward end).columns * k →
-    Int.natAbs k < Nat.max city.height city.width → point ∈ city.harmonics start end
+    k.natAbs < Nat.max city.height city.width → point ∈ city.harmonics start end
   | OfNat count, rowAt, columnAt, bound =>
     let step := start.stepToward end
     List.memFlatMapIntro (stepsFrom start step) count point (List.range (Nat.max city.height city.width))

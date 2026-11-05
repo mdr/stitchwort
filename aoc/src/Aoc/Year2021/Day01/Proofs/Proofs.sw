@@ -16,7 +16,7 @@ theorem increasesCons (a: Nat) (b: Nat) (rest: List Nat):
 
 theorem increasesOverCons (x: Nat) (rest: List Nat) (y: Nat) (ys: List Nat):
     List.count (List.zip [x, ..rest] [y, ..ys]) (pair => pair.fst < pair.snd)
-      = Bool.toNat (x < y) + List.count (List.zip rest ys) (pair => pair.fst < pair.snd) :=
+      = Bool.toNat (x < y) + (rest.zip ys).count (pair => pair.fst < pair.snd) :=
   List.countCons (List.zip rest ys) (MkPair x y) (pair => pair.fst < pair.snd)
 
 --| A list zipped with itself one place on is each element paired with the
@@ -32,14 +32,14 @@ theorem part1Correct: (depths: List Nat) → solvePart1 depths = increases depth
 
 --| A list with a whole window at its start: the first window, then the
 --| windows of the rest.
-theorem windowsLong (m: Nat): (xs: List Nat) → m < List.length xs →
-    slidingWindows (Succ m) xs = [List.take xs (Succ m), ..slidingWindows (Succ m) (List.drop xs 1)]
+theorem windowsLong (m: Nat): (xs: List Nat) → m < xs.length →
+    slidingWindows (Succ m) xs = [xs.take (Succ m), ..slidingWindows (Succ m) (xs.drop 1)]
   | [], h => Void.exfalso (Bool.falseNotTrue h)
   | [x, ..rest], h =>
     List.filterKeep _ _ _ (rewrite List.lengthTake rest m (omega [h]) in DecEq.refl (Succ m))
 
 --| A list shorter than a window has none.
-theorem windowsShort (m: Nat): (xs: List Nat) → List.length xs ≤ m → slidingWindows (Succ m) xs = []
+theorem windowsShort (m: Nat): (xs: List Nat) → xs.length ≤ m → slidingWindows (Succ m) xs = []
   | [], h => rfl
   | [x, ..rest], h =>
     Eq.trans
@@ -85,7 +85,7 @@ theorem windowsCorrect (m: Nat): (depths: List Nat) → increasesOver (Succ m) d
           _ = windowIncreases (Succ m) [x, ..rest] := atMostOneWindow m x rest (omega [h])
 
 --| A list with at most one window has no increases between windows.
-theorem atMostOneWindow (m: Nat) (x: Nat) (rest: List Nat) (short: List.length rest ≤ m): 0 = windowIncreases (Succ m) [x, ..rest] :=
+theorem atMostOneWindow (m: Nat) (x: Nat) (rest: List Nat) (short: rest.length ≤ m): 0 = windowIncreases (Succ m) [x, ..rest] :=
   match Nat.decLessThan m (List.length [x, ..rest]) with
     | Yes one =>
       -- exactly one window

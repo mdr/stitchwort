@@ -65,7 +65,7 @@ theorem totalFuelIs (fuel: Nat → Nat) (specFuel: Nat → Nat) (same: (n: Nat) 
       _ = fuelAt fuel [crab, ..rest] position := Eq.sym (List.sumByCons rest crab (c => fuel (Nat.absDiff c position)))
 
 --| The spec's distance is `Nat.absDiff`.
-theorem distanceIs (crab: Nat) (position: Nat): distance crab position = Nat.absDiff crab position := cases
+theorem distanceIs (crab: Nat) (position: Nat): distance crab position = crab.absDiff position := cases
 
 --| Part 2's fuel never falls as the crab goes further.
 theorem growingFuelMonotone (a: Nat) (b: Nat) (le: a ≤ b): growingFuel a ≤ growingFuel b :=
@@ -101,7 +101,7 @@ theorem sumByLeMember (f: Nat → Nat) (g: Nat → Nat): (xs: List Nat) → ((x:
 
 --| Moving further from every crab costs at least as much fuel.
 theorem fuelAtLe (fuel: Nat → Nat) (monotone: (a: Nat) → (b: Nat) → a ≤ b → fuel a ≤ fuel b) (crabs: List Nat) (near: Nat) (far: Nat)
-    (further: (crab: Nat) → crab ∈ crabs → Nat.absDiff crab near ≤ Nat.absDiff crab far): fuelAt fuel crabs near ≤ fuelAt fuel crabs far :=
+    (further: (crab: Nat) → crab ∈ crabs → crab.absDiff near ≤ crab.absDiff far): fuelAt fuel crabs near ≤ fuelAt fuel crabs far :=
   sumByLeMember (crab => fuel (Nat.absDiff crab far)) (crab => fuel (Nat.absDiff crab near)) crabs
     (crab member => monotone (Nat.absDiff crab near) (Nat.absDiff crab far) (further crab member))
 

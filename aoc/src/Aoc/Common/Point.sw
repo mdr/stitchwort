@@ -37,7 +37,7 @@ def Line.isVertical (line: Line): Bool := line.from.x == line.to.x
 def Line.isStraight (line: Line): Bool := line.isVertical ∨ line.isHorizontal
 
 --| Diagonal at 45 degrees: as far across as down.
-def Line.isDiagonal (line: Line): Bool := Nat.absDiff line.from.x line.to.x == Nat.absDiff line.from.y line.to.y
+def Line.isDiagonal (line: Line): Bool := line.from.x.absDiff line.to.x == line.from.y.absDiff line.to.y
 
 --| The coordinate `step` steps from `start` towards `stop`, one at a time.
 def towards (start: Nat) (stop: Nat) (step: Nat): Nat :=
@@ -48,5 +48,5 @@ def towards (start: Nat) (stop: Nat) (step: Nat): Nat :=
 --| other end. (A line at another angle has grid points between its ends
 --| that this misses.)
 def Line.points (line: Line): List Point :=
-  let steps := Nat.max (Nat.absDiff line.from.x line.to.x) (Nat.absDiff line.from.y line.to.y)
+  let steps := Nat.max (line.from.x.absDiff line.to.x) (line.from.y.absDiff line.to.y)
   List.range (steps + 1) |> .map (step => { x = towards line.from.x line.to.x step, y = towards line.from.y line.to.y step })

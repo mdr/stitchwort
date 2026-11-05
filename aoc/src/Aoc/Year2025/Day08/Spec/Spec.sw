@@ -66,7 +66,7 @@ def circuitSizes (n: Nat) (sameCircuit: Nat → Nat → Bool): List Nat :=
     |> .map (box => List.range n |> .count (other => sameCircuit other box))
 
 --| The three largest sizes (or all, if there are fewer), multiplied.
-def threeLargestProduct (sizes: List Nat): Nat := sizes.sortBy (a b => Nat.compare b a) |> .take 3 |> .product
+def threeLargestProduct (sizes: List Nat): Nat := sizes.sortBy (a b => b.compare a) |> .take 3 |> .product
 
 --| All the boxes 0 to n - 1 are in one circuit.
 def OneCircuit (n: Nat) (connections: List (Nat, Nat)): Prop :=
