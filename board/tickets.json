@@ -1,5 +1,5 @@
 {
-  "next": 1340,
+  "next": 1341,
   "tickets": [
     {
       "id": 47,
@@ -7103,6 +7103,20 @@
         "design"
       ],
       "body": "D2385 (Matt, 5 Nov): yes, write the design note. Matt: 'A really nice bit of syntax sugar from Python … you can sort of elide the and in the middle.' Opus, ~30 min.\n\nNote merged (docs/proposals/chained-comparisons.md; Opus, 6 min, est. 30). Decisions C1-C6 put to Matt as D2386-D2391.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1340,
+      "title": "Use Grid.positionsWhere / positionsWhere everywhere it fits: 2024 day 20's track, 2024 day 15's positionsOf, and any other hand-written filter of cells by tile",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "Matt, 5 Nov: 'make sure we're using that everywhere.' After SW-1335 merges. SW-1335's survey: day 20 (Day20.sw:48, plain list, positionsWhere tiles (!= Wall) works), day 15 (Day15.sw:57, maps to Int fields after; positionsWhere then .map). Re-survey aoc and games/rogue; proofs adjusted to memPositionsWhere where they mention the old shape.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
