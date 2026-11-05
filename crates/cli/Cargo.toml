@@ -22,9 +22,7 @@ clap.workspace = true
 rustyline.workspace = true
 mimalloc.workspace = true
 # The language server (`stitchwort lsp`, docs/proposals/language-server.md).
-crossbeam-channel.workspace = true
-lsp-server.workspace = true
-lsp-types.workspace = true
+stitchwort-lsp.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 # `program.o` for `stitchwort build` (docs/proposals/standalone-executables.md).
@@ -51,6 +49,9 @@ native = ["dep:stitchwort-native"]
 alloc-trace = ["stitchwort-rt/alloc-trace"]
 
 [dev-dependencies]
+# Driving the language server over an in-memory connection (`tests/lsp.rs`).
+lsp-server.workspace = true
+lsp-types.workspace = true
 # Linking it installs its counting allocator, whose live heap bytes the
 # language server's edit loop (`tests/lsp.rs`, `state_edit_loop`) prints.
 stitchwort-bench.workspace = true

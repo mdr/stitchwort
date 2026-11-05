@@ -1,5 +1,5 @@
-// The language server in a worker (SW-1375 trial): crates/cli/src/lsp.rs,
-// compiled into the playground's WebAssembly (crates/web/src/lsp.rs). The
+// The language server in a worker (SW-1375 trial): crates/lsp, compiled
+// into the playground's WebAssembly (crates/web/src/lsp.rs). The
 // page posts JSON-RPC text; the worker posts back {lsp: text} for each
 // message the server sends. Between messages it runs the server's background
 // work a piece at a time (one namespace's check, or one search), so a new

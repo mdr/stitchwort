@@ -1,15 +1,21 @@
-//! `stitchwort lsp`: the language server (docs/proposals/language-server.md,
-//! stage 1), speaking LSP on standard input and output.
+//! The language server (docs/proposals/language-server.md, stage 1):
+//! `stitchwort lsp`, speaking LSP on standard input and output, and the
+//! playground's editor, which runs the same server in a browser worker.
 //!
-//! Two threads. The **main thread** reads messages in order, keeps each
-//! open document's text, and answers navigation requests (definition,
-//! hover, references, outline, workspace symbols) at once from the last
-//! published answers. The **checker thread** owns the sessions (one per
-//! project, one per file on its own; they can't move between threads), and
-//! after each edit re-checks the edited namespace first and publishes its
-//! diagnostics, then re-checks the namespaces that use it, in the
-//! background (`stitchwort_driver::live`). An edit sets the cancellation
-//! flag, which stops the check running within milliseconds.
+//! Natively, two threads. The **main thread** reads messages in order,
+//! keeps each open document's text, and answers navigation requests
+//! (definition, hover, references, outline, workspace symbols) at once from
+//! the last published answers. The **checker thread** owns the sessions
+//! (one per project, one per file on its own; they can't move between
+//! threads), and after each edit re-checks the edited namespace first and
+//! publishes its diagnostics, then re-checks the namespaces that use it, in
+//! the background (`stitchwort_driver::live`). An edit sets the
+//! cancellation flag, which stops the check running within milliseconds.
+//! Proof searches (code actions on a goal) run on threads of their own.
+//!
+//! Without threads ([`Inline`], for the browser), the host hands the server
+//! each message and lets it do its background work one piece at a time
+//! between messages (a namespace's check, or a proof search).
 //!
 //! Files and threads live here; the engine (`live`) has neither (D498).
 
@@ -396,9 +402,14 @@ fn run_search(job: SearchJob, sender: &Sender<Message>, searches: &Searches, opt
     }
     let now = searches.running.fetch_add(1, Ordering::SeqCst) + 1;
     options.search_peak.fetch_max(now, Ordering::SeqCst);
-    let deadline = Instant::now() + options.search_delay;
-    while Instant::now() < deadline && !job.pending.cancel.load(Ordering::Relaxed) {
-        std::thread::sleep(Duration::from_millis(5));
+    // Only natively: in the browser nothing can cancel the search during
+    // the pause (and the thread can't sleep).
+    #[cfg(not(target_family = "wasm"))]
+    {
+        let deadline = Instant::now() + options.search_delay;
+        while Instant::now() < deadline && !job.pending.cancel.load(Ordering::Relaxed) {
+            std::thread::sleep(Duration::from_millis(5));
+        }
     }
     let result = if job.pending.cancel.load(Ordering::Relaxed) {
         serde_json::Value::Null
@@ -1533,20 +1544,24 @@ impl Checker {
                     Err(RecvTimeoutError::Disconnected) => return,
                 }
             }
-            let next = self
-                .last
-                .clone()
-                .filter(|k| self.work.get(k).is_some_and(Work::pending))
-                .or_else(|| {
-                    self.work
-                        .iter()
-                        .find(|(_, w)| w.pending())
-                        .map(|(k, _)| k.clone())
-                });
-            if let Some(key) = next {
+            if let Some(key) = self.next_key() {
                 self.step(&key);
             }
         }
+    }
+
+    /// The workspace to check next: the one edited last, if it has work
+    /// left, or else the first that has.
+    fn next_key(&self) -> Option<PathBuf> {
+        self.last
+            .clone()
+            .filter(|k| self.work.get(k).is_some_and(Work::pending))
+            .or_else(|| {
+                self.work
+                    .iter()
+                    .find(|(_, w)| w.pending())
+                    .map(|(k, _)| k.clone())
+            })
     }
 
     /// [`Checker::run`] without blocking or waiting for typing to pause:
@@ -1556,17 +1571,7 @@ impl Checker {
         while let Ok(edit) = edits.try_recv() {
             self.apply(edit);
         }
-        let next = self
-            .last
-            .clone()
-            .filter(|k| self.work.get(k).is_some_and(Work::pending))
-            .or_else(|| {
-                self.work
-                    .iter()
-                    .find(|(_, w)| w.pending())
-                    .map(|(k, _)| k.clone())
-            });
-        if let Some(key) = next {
+        if let Some(key) = self.next_key() {
             self.step(&key);
         }
         self.work.values().any(Work::pending)
@@ -1959,7 +1964,9 @@ impl Inline {
     }
 
     /// Handles one message from the client (JSON-RPC text), and returns
-    /// what the server sends at once, each as JSON-RPC text.
+    /// what the server sends at once, each as JSON-RPC text. `exit` is
+    /// ignored: the host ends the server by dropping it (the worker by
+    /// being terminated).
     pub fn receive(&mut self, text: &str) -> Vec<String> {
         match serde_json::from_str::<Message>(text) {
             Ok(Message::Request(request)) => match request.method.as_str() {

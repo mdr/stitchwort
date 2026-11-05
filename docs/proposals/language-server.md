@@ -797,7 +797,7 @@ aren't shifted by the edit's line delta (see "Not done" below).
   per-namespace check became `Session::check_project_namespace`, which
   both the command line and the engine call. `analyse` was split so that
   the engine can analyse files already parsed (`analyse_parsed`).
-- **The front end** is `crates/cli/src/lsp.rs`, with the `lsp-server`
+- **The front end** is `crates/lsp` (`stitchwort-lsp`), with the `lsp-server`
   crate. The **main thread** reads messages in order. It sends edits to
   the checker, then sets the shared cancel flag. It answers navigation at
   once from the published answers, behind an `RwLock`. The **checker

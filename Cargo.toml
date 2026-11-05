@@ -17,6 +17,7 @@ stitchwort-driver = { path = "crates/driver" }
 stitchwort-host = { path = "crates/host" }
 stitchwort-standalone = { path = "crates/standalone" }
 stitchwort-fmt = { path = "crates/fmt" }
+stitchwort-lsp = { path = "crates/lsp" }
 stitchwort-native = { path = "crates/native" }
 stitchwort-dev-features = { path = "crates/dev-features" }
 stitchwort-bench = { path = "crates/bench" }
