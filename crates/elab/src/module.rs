@@ -518,7 +518,6 @@ impl Elaborator {
         // Reported in source order, whatever order things were checked in.
         diagnostics.sort_by_key(|(position, _)| *position);
         let mut diagnostics: Vec<Diagnostic> = diagnostics.into_iter().map(|(_, d)| d).collect();
-        one_report_per_use(&mut diagnostics);
         // The names of an import that failed (and was reported) aren't
         // reported again where they're used.
         if !self.scope.import_failed.is_empty() {
@@ -3246,22 +3245,6 @@ pub(crate) fn tarjan(edges: &[Vec<usize>]) -> Vec<Vec<usize>> {
     components
 }
 
-/// Reports with the same code and message at the same place are one: a
-/// declaration elaborated again on a retry kept the errors of each attempt
-/// (SW-1265). The caller has sorted them by position, but not necessarily by
-/// message, so this looks at every earlier report.
-fn one_report_per_use(diagnostics: &mut Vec<Diagnostic>) {
-    let mut seen: Vec<(&str, String, Option<Span>)> = Vec::new();
-    diagnostics.retain(|d| {
-        let key = (d.code, d.message.clone(), d.primary_span());
-        if seen.contains(&key) {
-            return false;
-        }
-        seen.push(key);
-        true
-    });
-}
-
 #[cfg(test)]
 mod tests {
     use super::tarjan;
@@ -3279,25 +3262,5 @@ mod tests {
             .collect();
         found.sort();
         assert_eq!(found, vec![vec![0, 1, 2], vec![3], vec![4]]);
-    }
-
-    #[test]
-    fn one_use_gets_one_report() {
-        use stitchwort_syntax::{Diagnostic, Span};
-        let make = |message: &str| {
-            Diagnostic::error("E-UNKNOWN-NAME", message).with_label(Span::NOWHERE, "not in scope")
-        };
-        let same = make("unknown name `x`");
-        let other = make("unknown name `y`");
-        let mut diagnostics = vec![
-            same.clone(),
-            same,
-            other.clone(),
-            other,
-            make("unknown name `x`"),
-        ];
-        super::one_report_per_use(&mut diagnostics);
-        let messages: Vec<&str> = diagnostics.iter().map(|d| d.message.as_str()).collect();
-        assert_eq!(messages, ["unknown name `x`", "unknown name `y`"]);
     }
 }

@@ -1940,7 +1940,7 @@ impl Elaborator {
             .with_label(name.span, "not in scope");
         // A constructor followed by a member of its type (`BirthYear.valid`
         // for `Key.valid`): neither reading finds a name, so give the two
-        // forms that do (SW-1265).
+        // forms that do.
         if let Some((prefix, member)) = name.text.split_once('.')
             && !member.contains('.')
             && let Resolved::Found {
