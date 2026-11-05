@@ -429,10 +429,10 @@ def skipThree: Nat → Nat
 
 theorem skipThreeKeeps (n: Nat) (other: n ≠ 3): skipThree n = n := skipThree.eq1 n other
 
-theorem skipThreeDrops: skipThree 3 = 0 := skipThree.eq2 3 (not3 => not3 rfl)
+theorem skipThreeDrops: skipThree 3 = 0 := skipThree.eq2 3 rfl
 ```
 
-`cap.eq1` has the hypothesis `n ≤ limit`, and `cap.eq2` has `(n <= limit) = False`. A condition on numbers or equality is stated as the proposition it decides, even when the program tests it as a `Bool`: `n != 3` gives `n ≠ 3`, and for the arm below it, `¬(n ≠ 3)`. Another `Bool` is stated as `c = True`, and as `c = False` below. Equations are still numbered by arm, so a condition adds no name.
+`cap.eq1` has the hypothesis `n ≤ limit`, and `cap.eq2` has `(n <= limit) = False`. A condition on numbers or equality is stated as the proposition it decides, even when the program tests it as a `Bool`: `n != 3` gives `n ≠ 3`, and for the arm below it, `n = 3`. Another `Bool` is stated as `c = True`, and as `c = False` below. Equations are still numbered by arm, so a condition adds no name.
 
 `match induct` splits at each condition too: the case of a guarded arm knows the condition, and the case of the arms below it knows it failed. The cases are named by arm, `eq1`, `eq2`, `eq3`, and `eq2` and `eq3` each get the fact; leaving `eq2` as `?` shows it:
 

@@ -135,7 +135,7 @@ def skipThree: Nat → Nat
 
 theorem skipThreeKeeps (n: Nat) (other: n ≠ 3): skipThree n = n := skipThree.eq1 n other
 
-theorem skipThreeDrops: skipThree 3 = 0 := skipThree.eq2 3 (not3 => not3 rfl)
+theorem skipThreeDrops: skipThree 3 = 0 := skipThree.eq2 3 rfl
 -- end guard-eqs
 
 -- begin guard-induct
