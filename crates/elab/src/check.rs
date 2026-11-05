@@ -1565,6 +1565,7 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             infer(cx, &Expr::Str(text, *span))
         }
         Expr::Binary(BinOp::Append, a, b) => append(cx, a, b),
+        Expr::Binary(op @ (BinOp::Range | BinOp::RangeThrough), a, b) => range(cx, *op, a, b),
         // `Type MAX_LEVEL` is the top universe: nothing for it to live in
         // (SW-902).
         Expr::Type(i, span) => match Sort::Type(*i).succ() {
@@ -1738,7 +1739,8 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             "a `..` spread outside a list",
             "`..xs` joins a list into a list literal: write `[x, ..xs]`",
         )),
-        Expr::List(..) => {
+        Expr::List(items, _) => {
+            warn_range_in_brackets(cx, items);
             let list = builtin_data(cx, Builtin::List)?;
             let elem = cx.fresh_meta();
             let ty = Value::Data(list, vec![cx.eval(&elem)?]);
@@ -4078,9 +4080,11 @@ pub(crate) fn check_value(
             ))
         }
         (Expr::List(items, span), Value::Data(d, params)) if is_non_empty_list(cx, *d) => {
+            warn_range_in_brackets(cx, items);
             non_empty_literal(cx, items, *span, *d, &params[0])
         }
         (Expr::List(items, _), Value::Data(d, params)) => {
+            warn_range_in_brackets(cx, items);
             let (list, nil) = builtin_ctor(cx, Builtin::Nil)?;
             let (_, cons) = builtin_ctor(cx, Builtin::Cons)?;
             if *d != list {
@@ -4249,6 +4253,74 @@ fn char_term(cx: &Ctx, c: char) -> Result<Term> {
     let (char_data, mk_char) = builtin_ctor(cx, Builtin::MkChar)?;
     let code = Term::Nat(Rc::new(u32::from(c).into()));
     Ok(Term::ctor(char_data, mk_char, vec![code, Term::Refl]))
+}
+
+/// `W-RANGE-IN-BRACKETS`: a list literal whose only item is a range is a
+/// list of one list, which is almost never meant (docs/proposals/ranges.md
+/// §5). `[(0 ..< n)]` says it is.
+fn warn_range_in_brackets(cx: &Ctx, items: &[Expr]) {
+    let [Expr::Binary(BinOp::Range | BinOp::RangeThrough, ..)] = items else {
+        return;
+    };
+    let span = items[0].span();
+    let mut seen = cx.e.attempt.lambda_warnings.borrow_mut();
+    if seen.iter().any(|w| {
+        w.code == "W-RANGE-IN-BRACKETS" && w.labels.first().is_some_and(|l| l.span == span)
+    }) {
+        return;
+    }
+    seen.push(
+        Diagnostic::warning(
+            "W-RANGE-IN-BRACKETS",
+            "this is a list with one element, the range inside the brackets; a range is already a list, so drop the brackets",
+        )
+        .with_label(span, "this range is the list's only element")
+        .with_note(
+            "write `0 ..< n` for the numbers, or `[(0 ..< n)]` if a list holding a list is meant",
+        ),
+    );
+}
+
+/// `a ..< b` is `List.range a b`, and `a ..= b` is `List.range a (b + 1)`
+/// (docs/proposals/ranges.md §6.2). They are calls of the definition, not its
+/// unfolding, so goals and messages print them back as ranges. `Nat` only
+/// for now.
+fn range(cx: &mut Ctx, op: BinOp, a: &Expr, b: &Expr) -> Result<(Term, Value)> {
+    let span = a.span().to(b.span());
+    let end = match op {
+        BinOp::RangeThrough => Expr::Binary(
+            BinOp::Add,
+            Box::new(b.clone()),
+            Box::new(Expr::Num(1u32.into(), b.span())),
+        ),
+        _ => b.clone(),
+    };
+    let call = Expr::App(
+        Box::new(Expr::App(
+            Box::new(Expr::Var(AstName {
+                text: "Std.List.range".to_string(),
+                span,
+            })),
+            Box::new(a.clone()),
+        )),
+        Box::new(end),
+    );
+    infer(cx, &call).map_err(|e| {
+        // Only an end that isn't a number: a mismatch inside an operand
+        // (`xs ++ 0 ..< 2` reads as `(xs ++ 0) ..< 2`) is its own error.
+        let at_operand = e
+            .labels
+            .iter()
+            .any(|l| l.span == a.span() || l.span == b.span());
+        if e.code == "E-TYPE-MISMATCH" && at_operand {
+            e.with_note(format!(
+                "`{}` makes a list of numbers, and ranges exist for `Nat` only so far (`Int` is to come)",
+                op.symbol()
+            ))
+        } else {
+            e
+        }
+    })
 }
 
 /// `a ++ b`: `textAppend` for texts, `append` for lists, chosen by the type of

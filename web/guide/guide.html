@@ -150,6 +150,11 @@
   <pre data-src="28-chained-comparisons.sw"></pre>
 </section>
 
+<section data-slug="ranges" data-title="Ranges">
+  <p><code>a ..&lt; b</code> is the numbers from <code>a</code> up to, not including, <code>b</code>, and <code>a ..= b</code> is the numbers from <code>a</code> through <code>b</code>. A range is an ordinary list, so <code>.map</code>, <code>each</code>, <code>in</code> and spreads all work on it. It binds more loosely than <code>+</code> and <code>++</code> and more tightly than <code>==</code>, <code>in</code> and <code>|&gt;</code>. In a proof, <code>List.memRange</code> turns membership into the two bounds. Write <code>0 ..&lt; n</code>, not <code>[0 ..&lt; n]</code> (a list of one list) or <code>0 .. n</code> (an error).</p>
+  <pre data-src="34-ranges.sw"></pre>
+</section>
+
 <section data-slug="proofs-about-effects" data-title="Proofs about effectful code">
   <p>A handler applied to code it can see through just computes, so a proof about it is often <code>rfl</code>. For a fact about <em>any</em> computation, <code>match reify t with</code> splits on what the computation does first, with the clauses written as a handler's. It works only in proofs, so programs can never take a computation apart.</p>
   <pre data-src="29-reify.sw"></pre>

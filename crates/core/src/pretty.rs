@@ -381,6 +381,9 @@ enum Prec {
     Or,
     And,
     Eq,
+    /// `a ..< b`, `a ..= b`: between comparisons and `+` and `++`, not
+    /// associative.
+    Range,
     Add,
     /// `*`, `/`, `%`: tighter than `+`, looser than a prefix minus.
     Mul,
@@ -1054,14 +1057,17 @@ impl<'g> Printer<'g> {
                     if let Some((op, lhs, rhs)) =
                         self.comparison(term).or_else(|| self.relation(term))
                     {
-                        let lhs = self.print(names, lhs, Prec::Add);
-                        let rhs = self.print(names, rhs, Prec::Add);
+                        let lhs = self.print(names, lhs, Prec::Range);
+                        let rhs = self.print(names, rhs, Prec::Range);
                         return (format!("{lhs} {op} {rhs}"), Prec::Eq);
                     }
                     if let Some((lhs, rhs)) = self.decided_equation(names.len(), term) {
-                        let lhs = self.print(names, lhs, Prec::Add);
+                        let lhs = self.print(names, lhs, Prec::Range);
                         let rhs = self.print(names, rhs, Prec::Add);
                         return (format!("{lhs} == {rhs}"), Prec::Eq);
+                    }
+                    if let Some(range) = self.range(names, *id, &args) {
+                        return (range, Prec::Range);
                     }
                     if let Some((op, prec, lhs, rhs)) = self.arithmetic(*id, &args) {
                         // `+`, `-`, `*`, `/` and `%` associate left;
@@ -1083,7 +1089,7 @@ impl<'g> Printer<'g> {
                     // `List.Mem x xs` as `x ∈ xs`.
                     if let Some((x, under, xs)) = self.membership(term) {
                         let x = self.print_under(names, under, x, Prec::Add);
-                        let xs = self.print(names, xs, Prec::Add);
+                        let xs = self.print(names, xs, Prec::Range);
                         return (format!("{x} {} {xs}", self.sym("∈", "in")), Prec::Eq);
                     }
                     // An interface's own projection of a field, `Ord.%compare
@@ -1136,8 +1142,8 @@ impl<'g> Printer<'g> {
                 (format!("{lhs} {op} {rhs}"), Prec::Eq)
             }
             Term::Eq(_, a, b) => {
-                let lhs = self.print(names, a, Prec::Add);
-                let rhs = self.print(names, b, Prec::Add);
+                let lhs = self.print(names, a, Prec::Range);
+                let rhs = self.print(names, b, Prec::Range);
                 (format!("{lhs} = {rhs}"), Prec::Eq)
             }
             Term::J(m, b, p) => self.applied(names, "J".into(), [&**m, &**b, &**p].into_iter()),
@@ -1195,20 +1201,43 @@ impl<'g> Printer<'g> {
 
     fn not(&self, names: &mut Vec<Name>, prop: &Term) -> (String, Prec) {
         if let Term::Eq(_, a, b) = prop.strip_loc() {
-            let a = self.print(names, a, Prec::Add);
-            let b = self.print(names, b, Prec::Add);
+            let a = self.print(names, a, Prec::Range);
+            let b = self.print(names, b, Prec::Range);
             return (format!("{a} {} {b}", self.sym("≠", "!=")), Prec::Eq);
         }
         if !self.show_hidden.get()
             && let Some((x, under, xs)) = self.membership(prop)
         {
             let x = self.print_under(names, under, x, Prec::Add);
-            let xs = self.print(names, xs, Prec::Add);
+            let xs = self.print(names, xs, Prec::Range);
             return (format!("{x} {} {xs}", self.sym("∉", "!in")), Prec::Eq);
         }
         // `!` binds more loosely than application: `¬p x` is `¬(p x)`.
         let p = self.print(names, prop, Prec::App);
         (format!("{}{p}", self.sym("¬", "!")), Prec::Neg)
+    }
+
+    /// `List.range a b` as `a ..< b`, and as `a ..= b'` when `b` is one more
+    /// than `b'` (`List.range a (b' + 1)`): the same term either way, so the
+    /// range reads back as it was written, or as the form that says where it
+    /// stops (docs/proposals/ranges.md §6.2).
+    fn range(&self, names: &mut Vec<Name>, id: DefId, args: &[&Term]) -> Option<String> {
+        let [from, until] = *args else {
+            return None;
+        };
+        if &*self.g.def(id).path != "Std.List.range" {
+            return None;
+        }
+        let lhs = self.print(names, from, Prec::Add);
+        let (k, base) = self.nat_parts(until);
+        if let Some(base) = base
+            && k == BigUint::from(1u32)
+        {
+            let last = self.print(names, base, Prec::Add);
+            return Some(format!("{lhs} ..= {last}"));
+        }
+        let rhs = self.print(names, until, Prec::Add);
+        Some(format!("{lhs} ..< {rhs}"))
     }
 
     /// The operator a call of `id` is shown with, and its precedence.

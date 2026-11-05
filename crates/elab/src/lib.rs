@@ -676,6 +676,7 @@ impl Elaborator {
         std::sync::LazyLock::force(&ring::LIBRARY_NAMES);
         std::sync::LazyLock::force(&module::REWRITE_MARKER);
         std::sync::LazyLock::force(&module::MEMBERSHIP);
+        std::sync::LazyLock::force(&module::RANGE);
         e
     }
 

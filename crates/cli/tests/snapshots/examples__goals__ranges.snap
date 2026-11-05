@@ -1,0 +1,42 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[GOAL] Goal: in `lengthThrough`
+   ╭─[ goals/ranges.sw:6:57 ]
+   │
+ 6 │ theorem lengthThrough (n: Nat): (1 ..= n).length = n := ?
+   │                                                         ┬  
+   │                                                         ╰── n: Nat
+   │                                                             ⊢ List.length (1 ..= n) = n
+───╯
+[GOAL] Goal: in `lengthUpTo`
+   ╭─[ goals/ranges.sw:8:62 ]
+   │
+ 8 │ theorem lengthUpTo (n: Nat): (0 ..< n + 1).length = n + 1 := ?
+   │                                                              ┬  
+   │                                                              ╰── n: Nat
+   │                                                                  ⊢ List.length (0 ..= n) = n + 1
+───╯
+[GOAL] Goal: in `members`
+    ╭─[ goals/ranges.sw:10:44 ]
+    │
+ 10 │ theorem members (x n: Nat): x ∈ 2 ..< n := ?
+    │                                            ┬  
+    │                                            ╰── x: Nat
+    │                                                n: Nat
+    │                                                ⊢ x ∈ 2 ..< n
+    │ 
+    │ Note: this statement is false; a counterexample:
+    │         x = 0
+    │         n = 0
+    │       `x ∈ 2 ..< n` is false
+────╯
+[GOAL] Goal: in `pairs`
+    ╭─[ goals/ranges.sw:12:50 ]
+    │
+ 12 │ theorem pairs (n: Nat): 1 ..= n = 1 ..< n + 1 := ?
+    │                                                  ┬  
+    │                                                  ╰── n: Nat
+    │                                                      ⊢ 1 ..= n = 1 ..= n
+────╯

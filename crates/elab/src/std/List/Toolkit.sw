@@ -248,8 +248,8 @@ def List.rangeFrom (count: Nat) (start: Nat): List Nat :=
     | Succ n => [start, ..List.rangeFrom n (Succ start)]
 
 --| The numbers from `from` up to, not including, `until`: `List.range 2 5` is
---| `[2, 3, 4]`. Empty when `until ≤ from`. To include the last number, write
---| `List.range a (b + 1)`. Its facts are [`List.memRange`], [`List.lengthRange`]
+--| `[2, 3, 4]`. Empty when `until ≤ from`. It is written `from ..< until`, and
+--| `from ..= last` is `List.range from (last + 1)`. Its facts are [`List.memRange`], [`List.lengthRange`]
 --| and [`List.rangeAppend`]; recursion and induction go through
 --| [`List.rangeFrom`], which this unfolds to.
 def List.range (from: Nat) (until: Nat): List Nat := List.rangeFrom (until - from) from

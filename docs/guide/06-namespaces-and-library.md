@@ -183,12 +183,36 @@ test "searching" := scores.find (n => n > 7) == Some 9 ∧ scores.findIndex (n =
 test "sorting and dedup" := scores.sort.dedup == [3, 5, 7, 9]
 test "slicing" := scores.take 2 == [7, 3] ∧ scores.drop 3 == [3, 5]
 test "zipping" := List.zipWith [1, 2, 3] [4, 5, 6] (a b => a * b) == [4, 10, 18]
-test "ranges" := List.range 0 4 == [0, 1, 2, 3] ∧ List.range 2 6 == [2, 3, 4, 5]
+test "ranges" := 0 ..< 4 == [0, 1, 2, 3] ∧ 2 ..= 5 == [2, 3, 4, 5]
 test "with an index" := ["a", "b"].withIndex == [(0, "a"), (1, "b")]
 test "maximum of an empty list" := ([]: List Nat).maximum == None
 ```
 
 Others worth knowing: `count`, `all`, `any`, `flatMap`, `concatMap`, `scanLeft`, `partition`, `span`, `takeWhile`, `dropWhile`, `chunksOf`, `windows` (sliding windows), `transpose`, `reverse`, `sortOn`, `sortBy`, `maxBy`, `minBy`, `occurrences`, `getOr`, `replicate`, `maximumOf` and `minimumOf` (the largest and smallest value of a function over the list), `findMap` (the first `Some` a function gives) and `somes` (the values inside the `Some`s). `Option.flatten` joins two layers of `Option`, and `uncurry` turns a function of two arguments into one of a pair. `map`'s function may also perform abilities ([chapter 8](08-abilities.md)).
+
+### Ranges
+
+`a ..< b` is the numbers from `a` up to, not including, `b`, and `a ..= b` is the numbers from `a` through `b`. Both are written with spaces. A range is an ordinary list of `Nat`s (the call `List.range a b`), so everything above works on it, and an end below the start gives `[]`.
+
+<!-- snippet: library.sw#ranges -->
+```stitchwort
+def squares (n: Nat): List Nat := 0 ..< n |> .map (i => i * i)
+
+test "up to, not including" := 0 ..< 3 == [0, 1, 2]
+test "through" := 1 ..= 3 == [1, 2, 3]
+test "nothing when the end is below the start" := 5 ..< 2 == []
+test "mapping over a range" := squares 4 == [0, 1, 4, 9]
+test "range membership" := 3 in 0 ..< 5 ∧ 5 !in 0 ..< 5
+test "in a spread" := [0, ..2 ..< 5, 9] == [0, 2, 3, 4, 9]
+test "each number of a range" := Each.collect (() => each (1 ..= 3) * 10) == [10, 20, 30]
+
+theorem inRange (x n: Nat) (h: x < n): x ∈ 0 ..< n :=
+  (List.memRange x 0 n).backward omega
+```
+
+`0 ..< n` is the usual way to count `n` things from zero, and `1 ..= n` the way to say "1 to n". The end can be any expression (`0 ..< xs.length`), but a range binds more loosely than `++` and `+`, and more tightly than `==`, `in` and `|>`: `x in 0 ..< n` is `x in (0 ..< n)`, and `0 ..< n |> .map f` is `(0 ..< n) |> .map f`. A method on a range needs brackets, `(0 ..< n).length`, since a dot binds tighter; the pipe reads better. In a spread a range needs no brackets, `[0, ..2 ..< 5, 9]`.
+
+In a proof, `List.memRange` says what membership means, `x ∈ a ..< b ↔ a ≤ x < b`, and `List.lengthRange` gives the length. A range is never written in brackets: `[0 ..< n]` is a list holding one list, which is almost never meant, so it gets the warning `W-RANGE-IN-BRACKETS` (write `[(0 ..< n)]` if the nesting is). `[2..n]`, as in Haskell, is a syntax error that says to write `2 ..= n` for a range or `[2, ..n]` for a spread. Only `Nat` ranges exist so far.
 
 ### Option and Result
 

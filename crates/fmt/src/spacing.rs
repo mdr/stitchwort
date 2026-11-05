@@ -182,6 +182,8 @@ fn spaced_operator(tok: &Tok) -> bool {
             | AndAnd
             | Plus
             | PlusPlus
+            | DotDotLt
+            | DotDotEq
             | Star
             | Slash
             | Percent

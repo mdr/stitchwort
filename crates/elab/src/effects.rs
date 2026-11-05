@@ -4205,6 +4205,11 @@ fn comp_compound(
         // `x in c`: the element runs first, then the container. It isn't
         // arithmetic or a comparison, so as a group it would be one leaf,
         // itself, and run first again without end (SW-573).
+        Expr::Binary(op @ (BinOp::Range | BinOp::RangeThrough), a, b) => {
+            let a = run_first(cx, a, row, &mut bound)?;
+            let b = run_first(cx, b, row, &mut bound)?;
+            Expr::Binary(*op, Box::new(a), Box::new(b))
+        }
         Expr::Binary(BinOp::In(op), a, b) => {
             let a = run_first(cx, a, row, &mut bound)?;
             let b = run_first(cx, b, row, &mut bound)?;

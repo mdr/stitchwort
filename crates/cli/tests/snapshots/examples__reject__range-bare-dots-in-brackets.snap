@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: a range is `a ..< b` (up to, not including, `b`) or `a ..= b` (through `b`)
+   ╭─[ reject/range-bare-dots-in-brackets.sw:5:37 ]
+   │
+ 5 │ def numbers (n: Nat): List Nat := [2..n]
+   │                                     ─┬  
+   │                                      ╰── a range is `a ..< b` (up to, not including, `b`) or `a ..= b` (through `b`)
+   │                                      │  
+   │                                      ╰── write `..<` or `..=` here
+   │ 
+   │ Note: inside brackets, a spread is `[2, ..n]` (with a comma), and a range needs no brackets: `2 ..< n` is already a list
+───╯
