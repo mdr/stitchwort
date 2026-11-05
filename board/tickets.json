@@ -7082,9 +7082,9 @@
     {
       "id": 1338,
       "title": "Daily-tier failures on main: goal_index readable-forms snapshot (a range moved after SW-1256's bracket fixup) and search_at_aoc's 2021 entries (day 14 uses pairsOf since SW-1320; day 16's Fields.sw marker text moved after SW-1300)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1338",
       "labels": [
         "tests"
       ],
