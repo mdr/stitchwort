@@ -7082,13 +7082,13 @@
     {
       "id": 1338,
       "title": "Daily-tier failures on main: goal_index readable-forms snapshot (a range moved after SW-1256's bracket fixup) and search_at_aoc's 2021 entries (day 14 uses pairsOf since SW-1320; day 16's Fields.sw marker text moved after SW-1300)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1338",
       "labels": [
         "tests"
       ],
-      "body": "Found by the daily tier run on the SW-1227 stack (D2373); both fail on main too, so not the stack's. Also counts_have_not_regressed: the bench baseline is out of date after the night's work (D2384 to Matt).",
+      "body": "Found by the daily tier run on the SW-1227 stack (D2373); both fail on main too, so not the stack's. Also counts_have_not_regressed: the bench baseline is out of date after the night's work (D2384 to Matt).\n\nDone (DeepSeek, reviewed): snapshot range 79→75 is the same hole after the bracket form; day 16 entry follows its theorem to Common/Proofs/BitReader.sw; day 14 entry uses pairsOf. No want/exclude loosened. Model result: DeepSeek, worked, ~20 min (est. 20).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
