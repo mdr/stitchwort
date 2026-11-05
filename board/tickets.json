@@ -6816,13 +6816,13 @@
     {
       "id": 1319,
       "title": "f.induct: a case for [_, ..rest] takes (rest) then (head), the reverse of the pattern order",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1319",
       "labels": [
         "proof"
       ],
-      "body": "Found in the SW-1301 review (r7.sw in the review scratchpad); happens without guards too.\n\nCause (Sonnet, 6 min): probe_row_in ranks a '_' after named pattern variables, so [_, ..rest] gives (rest)(head) in f.eqN and f.induct alike; docs/proposals/function-equations.md says written order. Orchestrator's call: follow the proposal for both (minor; migration cost doesn't count). Continuing, est. 60 min.",
+      "body": "Found in the SW-1301 review (r7.sw in the review scratchpad); happens without guards too.\n\nCause (Sonnet, 6 min): probe_row_in ranks a '_' after named pattern variables, so [_, ..rest] gives (rest)(head) in f.eqN and f.induct alike; docs/proposals/function-equations.md says written order. Orchestrator's call: follow the proposal for both (minor; migration cost doesn't count). Continuing, est. 60 min.\n\nDone on lane/SW-1319 (3078e738b; Sonnet, 29 min total, est. 60): a _ is placed among the named variables by where it first appears on the left side (last only if it isn't there). len1.induct's [_, ..rest] case is now (head)(rest). One user fixed (a driver test). 87 hashes move: 73 equations, 12 induct principles, 1 branch equation, 1 theorem using induct. Reviewed by the orchestrator: binder order only, each statement means the same; the kernel checks every proof. Merges after SW-1272's verifier. Model result: Sonnet, worked, 29 min (est. 60).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
