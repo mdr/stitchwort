@@ -1159,6 +1159,72 @@ theorem List.distinctFlatMap (f: a → List b) (key: b → a): (xs: List a) → 
           (z inXs fromZ =>
             notLater (rewrite Eq.trans (Eq.sym (keyed x (Inl rfl) y fromX)) (keyed z (Inr inXs) y fromZ) in inXs))))
 
+--| A member of a list splits it around that occurrence:
+--| `[1, 2, 3]` is `[1] ++ [2, ..[3]]` for the 2.
+theorem List.memSplit (x: a): (xs: List a) → x ∈ xs → ∃ (before: List a) => ∃ (after: List a) => xs = before ++ [x, ..after]
+  | [], member => Void.exfalso member
+  | [z, ..zs], Inl same => Witness [] (Witness zs (rewrite same in rfl))
+  | [z, ..zs], Inr later =>
+    match List.memSplit x zs later with
+      | Witness before (Witness after eq) => Witness [z, ..before] (Witness after (Eq.cong (Cons z) eq))
+
+--| A list with no repeats whose elements are all in `ys` is no longer than
+--| `ys` (`ys` itself may repeat). The pigeonhole principle for lists is
+--| [`List.pigeonhole`].
+theorem List.distinctLength [auto eq: DecEq a]: (xs: List a) → (ys: List a) → List.Distinct xs → ((x: a) → x ∈ xs → x ∈ ys) → List.length xs ≤ List.length ys
+  | [], ys, d, drawn => Nat.zeroLe (List.length ys)
+  | [x, ..rest], ys, Both out d, drawn =>
+    let others := ys.filter (y => Bool.not (y == x))
+    let dropped: Bool.not (x == x) = False := rewrite DecEq.refl x in rfl
+    let drawnOthers: (y: a) → y ∈ rest → y ∈ others :=
+      y inRest =>
+        List.memFilterIntro ys (y => Bool.not (y == x)) (drawn y (Inr inRest))
+          (match e: y == x with
+            | True => Void.exfalso (out (rewrite <- DecEq.sound e in inRest))
+            | False => rfl)
+    omega [List.distinctLength rest others d drawnOthers, List.lengthFilterLt (y => Bool.not (y == x)) x dropped ys (drawn x (Inl rfl))]
+
+--| The pigeonhole principle for lists: if every element of `xs` is one of
+--| the elements of `ys`, and `xs` is longer than `ys`, then `xs` repeats an
+--| element, that is, it is not [`List.Distinct`]. `ys` may itself have
+--| repeats, so its length is an upper bound on the distinct values: a path
+--| of more steps than a graph has nodes passes through one twice.
+--|
+--| `¬List.Distinct xs` is the form to use when the repeat only has to be
+--| known to exist; [`List.repeatSplit`] turns it into the two positions,
+--| for an argument that cuts the repeated stretch out or repeats it. For
+--| example ([`List.pigeonholeExample`]), `[1, 2, 1]` is drawn from `[1, 2]`
+--| and longer, so it repeats.
+theorem List.pigeonhole [auto eq: DecEq a] (xs: List a) (ys: List a) (drawn: (x: a) → x ∈ xs → x ∈ ys) (shorter: List.length ys < List.length xs): ¬List.Distinct xs :=
+  d => omega [List.distinctLength xs ys d drawn]
+
+--| A list that is not [`List.Distinct`] has some element twice: it is
+--| `before`, then the element, then `between`, then the element again, then
+--| `after`, as `[1, 2, 1]` is `[] ++ [1, ..([2] ++ [1, ..[]])]`. Cutting
+--| out `between` and one copy of the element, or repeating them, keeps the
+--| list's neighbours the same, which a walk that revisits a node needs.
+theorem List.repeatSplit [auto eq: DecEq a]: (xs: List a) → ¬List.Distinct xs →
+    ∃ (before: List a) => ∃ (x: a) => ∃ (between: List a) => ∃ (after: List a) => xs = before ++ [x, ..(between ++ [x, ..after])]
+  | [], notDistinct => Void.exfalso (notDistinct Trivial)
+  | [y, ..rest], notDistinct =>
+    match List.decMem y rest with
+      | Yes found =>
+        match List.memSplit y rest found with
+          | Witness between (Witness after eq) => Witness [] (Witness y (Witness between (Witness after (Eq.cong (Cons y) eq))))
+      | No missing =>
+        match List.repeatSplit rest (d => notDistinct (Both missing d)) with
+          | Witness before (Witness x (Witness between (Witness after eq))) =>
+            Witness [y, ..before] (Witness x (Witness between (Witness after (Eq.cong (Cons y) eq))))
+
+theorem List.pigeonholeExample: ¬List.Distinct [1, 2, 1] :=
+  List.pigeonhole [1, 2, 1] [1, 2] (x m =>
+      match m with
+        | Inl p => Inl p
+        | Inr (Inl p) => Inr (Inl p)
+        | Inr (Inr (Inl p)) => Inl p
+        | Inr (Inr (Inr v)) => Void.exfalso v)
+    byDecision
+
 theorem List.distinctExample: List.Distinct [1, 2] :=
   Both (m => match m with
       | Inl p => Nat.succNotZero 0 (Nat.succInjective 1 0 p)

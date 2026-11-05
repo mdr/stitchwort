@@ -1720,7 +1720,7 @@ edges into `states`, or take `states` from the edges) would keep proofs
 out of the program; Day 20 of 2024 has the same `listed` field, proved by
 hand too.
 
-### 4. Part 2's recursion: fuel and a cycle error, and the depth bound unproved
+### 4. Part 2's recursion: fuel and a cycle error, and the depth bound (proved in SW-1405)
 
 The natural part 2 is `bagsInside colour = (contentsOf colour).sumBy
 (content => content.count * (1 + bagsInside content.colour))`. On a scratch
@@ -1748,6 +1748,18 @@ and, further, a memoised fold over a finite acyclic graph (a topological
 order with its proof) would cover the AoC days that count over a DAG. The
 E-TERMINATION note could also mention fuel, which is what a proof needs,
 next to `{Partial}`.
+
+SW-1405 closed the bound: `List.pigeonhole` (`¬List.Distinct xs` for a list
+drawn from a shorter one) and `List.repeatSplit` (the repeat as
+`before ++ [x, ..(between ++ [x, ..after])]`) are in std, and
+`Proofs/Depth.sw` proves `part2Complete`: any depth that settles the rules
+means the program's `rules.all.length + 1` does, to the same total. The proof
+is a chain predicate (`Deep`, `Walk`) rather than `Nat.pigeonhole` on a
+numbering: the colours needn't be numbered, and the split gives the loop to
+repeat directly. `settledNotDeep` and `noDeepSettled` say a depth settles
+exactly where no chain is that long. `allSomeEach`/`allSomeOfEach` (a
+`List.allSome` of a `map` is `Some` iff each element's is) are local to day 7
+and would do in std.
 
 ### 5. Inverting a relation: `Map.groupBy` of pairs, then a filter lemma
 
