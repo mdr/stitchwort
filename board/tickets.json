@@ -7348,9 +7348,9 @@
     {
       "id": 1357,
       "title": "Ranges step 1: two-ended List.range (from) (until) replaces one-argument List.range and List.between; lemmas of §9.1 (memRange ↔, lengthRange, …); rangeFrom stays; all callers moved (D2405-D2413)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1357",
       "labels": [
         "std"
       ],
