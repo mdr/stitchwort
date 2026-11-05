@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: unknown name `clamp.eq3`
+   ╭─[ reject/pattern-guard-no-such-equation.sw:9:35 ]
+   │
+ 9 │ theorem noThird: clamp 1 2 = 1 := clamp.eq3
+   │                                   ────┬────  
+   │                                       ╰────── no such equation
+   │ 
+   │ Note 1: `clamp` has equations `clamp.eq1` to `clamp.eq2`: they are numbered by arm, so adding or removing an arm renumbers the ones after it
+   │ 
+   │ Note 2: `stitchwort doc clamp` lists the equations of `clamp` and which weren't generated
+───╯

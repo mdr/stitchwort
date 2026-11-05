@@ -4626,8 +4626,8 @@ fn check_leaf(cx: &mut Ctx, tree: &Tree, goal: &Value, guarded: bool) -> Result<
 
 /// Where a leaf is, in the leaf log's path, when it is a guard's: before and
 /// after the condition holds. Outside the range of constructor indices.
-const GUARD_THEN: u32 = u32::MAX;
-const GUARD_ELSE: u32 = u32::MAX - 1;
+pub(crate) const GUARD_THEN: u32 = u32::MAX;
+pub(crate) const GUARD_ELSE: u32 = u32::MAX - 1;
 
 /// The tree below a guard, which has no `case`: a leaf is under the
 /// guard's `if`, so a `match` that is its whole right side is lifted.

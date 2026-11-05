@@ -73,7 +73,7 @@ struct Case {
     /// position of the row variable each of its equations is about).
     tk: usize,
     nvars: usize,
-    hyps: Vec<(usize, Vec<usize>)>,
+    hyps: Vec<HypProof>,
     binders: Vec<(Name, Icit, Term)>,
     steps: Vec<Step>,
     choices: Vec<usize>,
@@ -433,19 +433,28 @@ impl Elaborator {
             let s = self.stated(d, k, shape, shapes)?;
             // The overlap hypotheses, each refuted at the leaves of the
             // row (`Tree::refute`): how many variables it takes, and the
-            // row variable each of its equations is about.
+            // row variable each of its equations is about. A condition's
+            // is the fact its guard's split gives.
             let mut hyps = Vec::new();
             for h in &s.hyps {
                 match h {
-                    Hyp::Overlap { vars, eqs, .. } => {
+                    Hyp::Overlap {
+                        vars, eqs, guarded, ..
+                    } => {
                         let mut at = Vec::new();
                         for (lk, _) in eqs {
                             at.push(shape.tele.iter().position(|l| l == lk).ok_or_else(|| {
                                 Stop::Skip("an equation's variable isn't the arm's".into())
                             })?);
                         }
-                        hyps.push((vars.len(), at));
+                        hyps.push(HypProof::Refute {
+                            vars: vars.len(),
+                            eqs: at,
+                            guarded: *guarded,
+                        });
                     }
+                    Hyp::NotGuard { row: j, .. } => hyps.push(HypProof::Fact(*j)),
+                    Hyp::Guard => hyps.push(HypProof::Fact(k)),
                     Hyp::Listed { .. } => {
                         return skip(format!(
                             "`{}.{}` takes a hypothesis `notListed` for earlier character arms, \
@@ -692,6 +701,8 @@ impl Elaborator {
             shapes,
             rows: &row_proofs,
             pvals: (0..q).map(PV::Var).collect(),
+            facts: Vec::new(),
+            sp: &sp,
             discs: HashMap::default(),
             made: &mut made,
         };
@@ -1650,6 +1661,11 @@ struct Tree<'a> {
     rows: &'a HashMap<usize, RowProof>,
     /// What each variable of the proof's context is.
     pvals: Vec<PV>,
+    /// The guards split on above here: the row, and the level of the
+    /// fact its split gave (that its condition holds, for the row's own
+    /// leaf, or that it fails, for those below).
+    facts: Vec<(usize, usize)>,
+    sp: &'a Splitters,
     /// The hidden definitions that tell a constructor apart, by the
     /// constructors on the way to it (`Tree::refute`).
     discs: HashMap<String, DefId>,
@@ -1664,7 +1680,23 @@ struct RowProof {
     term: Term,
     nvars: usize,
     binders: Vec<(Name, Icit, Term)>,
-    hyps: Vec<(usize, Vec<usize>)>,
+    hyps: Vec<HypProof>,
+}
+
+/// How a case's hypothesis is established at its leaf.
+#[derive(Clone)]
+enum HypProof {
+    /// An overlap hypothesis, refuted ([`Tree::refute`]): how many
+    /// variables it takes, the row variable each of its equations is about,
+    /// and whether the earlier row is guarded (its condition one more
+    /// premise).
+    Refute {
+        vars: usize,
+        eqs: Vec<usize>,
+        guarded: bool,
+    },
+    /// What the split on row `j`'s guard gave.
+    Fact(usize),
 }
 
 /// `t` as a constructor applied to fields (a number as `Zero` or `Succ`).
@@ -1720,7 +1752,14 @@ impl Tree<'_> {
     /// `vars` variables and the row variables of type `types` in its
     /// equations: an equation whose sides differ in a constructor gives
     /// `Void` by `J` with a hidden definition that tells the two apart.
-    fn refute(&mut self, ty: &Term, vars: usize, types: &[Term], depth: usize) -> R<Term> {
+    fn refute(
+        &mut self,
+        ty: &Term,
+        vars: usize,
+        types: &[Term],
+        guarded: bool,
+        depth: usize,
+    ) -> R<Term> {
         let g = self.g();
         let not = g.env.registry().def(Builtin::Not);
         // The binders: the variables, then the equations.
@@ -1739,7 +1778,9 @@ impl Tree<'_> {
                 _ => break,
             }
         }
-        let eqs = binders.len().saturating_sub(vars);
+        // A guarded row's condition is the last premise, after the
+        // equations.
+        let eqs = binders.len().saturating_sub(vars + usize::from(guarded));
         if eqs != types.len() {
             return skip("an overlap hypothesis isn't as stage 2a reads it");
         }
@@ -1754,11 +1795,15 @@ impl Tree<'_> {
             }
         }
         let Some((e, path, at)) = found else {
-            return skip(
+            return skip(if guarded {
+                "at one of its cases, an overlap hypothesis about a guarded earlier arm is \
+                 needed where that arm's patterns match, which stage 2a's proof doesn't \
+                 establish (it does where that arm takes every value the case does)"
+            } else {
                 "at one of its cases, an overlap hypothesis's equations don't differ in a \
                  constructor (a number or a character `match` refines it), which stage 2a's \
-                 proof needs to establish it",
-            );
+                 proof needs to establish it"
+            });
         };
         // The type of the equation's sides: the row variable's.
         let env: Vec<Value> = (0..depth).map(Value::var).collect();
@@ -1786,7 +1831,8 @@ impl Tree<'_> {
             .registry()
             .ctor(Builtin::Trivial)
             .ok_or_else(|| Stop::Skip("no `Trivial`".into()))?;
-        let inner = vars + eqs;
+        let premise = usize::from(guarded);
+        let inner = vars + eqs + premise;
         let mut applied = Term::Def(disc);
         for a in &args {
             applied = Term::app_icit(applied, a.shift(&g, inner + 2, 0)?, Icit::Implicit);
@@ -1803,7 +1849,7 @@ impl Tree<'_> {
         let void = Term::J(
             Rc::new(motive),
             Rc::new(Term::Ctor(unit, trivial, Vec::new())),
-            Rc::new(Term::Var(eqs - 1 - e)),
+            Rc::new(Term::Var(eqs - 1 - e + premise)),
         );
         let names: Vec<(Name, Icit)> = (0..inner)
             .map(|i| (format!("x{i}").into(), Icit::Explicit))
@@ -1952,6 +1998,11 @@ impl Tree<'_> {
 
     fn go(&mut self, t: &Term, fvals: &mut Vec<PV>, path: &mut Vec<u32>) -> R<Term> {
         self.g().machine.budget.nesting("equations")?;
+        if self.d.row_at(path).is_none()
+            && let Some(j) = self.d.guard_row_at(path)
+        {
+            return self.guard(j, t, fvals, path);
+        }
         match t.strip_loc() {
             Term::Case(ix, data, branches) => {
                 let x = fvals.len() - 1 - ix;
@@ -2067,6 +2118,154 @@ impl Tree<'_> {
         }
     }
 
+    /// Argument `i` of the `if` `node` at a guard, here.
+    fn guard_arg(&self, node: &GuardIf, i: usize, fvals: &[PV]) -> R<Term> {
+        let depth = self.depth();
+        let mut terms: Vec<Option<Term>> = Vec::new();
+        for v in fvals {
+            terms.push(match v {
+                PV::Rec => None,
+                v => Some(self.term(v)?),
+            });
+        }
+        remap(&self.g(), &node.args[i].0, fvals.len(), depth, &|l| {
+            terms[l].clone()
+        })?
+        .ok_or_else(|| Stop::Skip("an arm's condition couldn't be read in the proof".into()))
+    }
+
+    /// `motive args… (f args…)` here, `f`'s arguments its parameters as the
+    /// tree has refined them.
+    fn goal_here(&self, fvals: &[PV]) -> R<Term> {
+        let n = self.d.binders.len();
+        let mut params: Vec<Option<Term>> = vec![None; n];
+        for (level, v) in fvals.iter().enumerate().take(self.d.tree_params()) {
+            if let Some(i) = self.d.param_of_tree_level(level) {
+                params[i] = Some(match &self.lay.roles[i] {
+                    Role::Special(t) => t.clone(),
+                    _ => self.term(v)?,
+                });
+            }
+        }
+        let params: Vec<Term> = params
+            .into_iter()
+            .map(|p| p.ok_or_else(|| Stop::Skip("a parameter has no value in the proof".into())))
+            .collect::<R<_>>()?;
+        let d = self.d;
+        self.e.induct_motive_at(
+            d,
+            self.lay,
+            self.depth(),
+            &|i, _| Ok(params[i].clone()),
+            &|_| {
+                Ok(apps(
+                    Term::Def(d.f),
+                    (0..n).map(|i| (params[i].clone(), d.binders[i].icit)),
+                ))
+            },
+        )
+    }
+
+    /// One way of the split at row `j`'s guard: `body`, the branch of its
+    /// `if`, under the split's binder, the fact for the leaves below.
+    fn guard_side(
+        &mut self,
+        j: usize,
+        body: &Term,
+        binder: PV,
+        side: u32,
+        fvals: &mut Vec<PV>,
+        path: &mut Vec<u32>,
+    ) -> R<Term> {
+        let depth = self.depth();
+        self.pvals.push(PV::Var(depth));
+        self.facts.push((j, depth));
+        fvals.push(binder);
+        path.push(side);
+        let r = self.go(body, fvals, path);
+        path.pop();
+        fvals.pop();
+        self.facts.pop();
+        self.pvals.pop();
+        r
+    }
+
+    /// At row `j`'s guard, `t`: a split on its condition, `Bool.inspect`
+    /// (`Decidable.elimProof` for a proposition but `b = X`), its `then`
+    /// leading to row `j`'s leaf with the fact that the condition holds,
+    /// its `else` to the rows below with the fact that it fails, as their
+    /// hypotheses `guard` and `notArmJ` say them.
+    fn guard(&mut self, j: usize, t: &Term, fvals: &mut Vec<PV>, path: &mut Vec<u32>) -> R<Term> {
+        let g = self.g();
+        let node = guard_if(&g, t)?;
+        let depth = self.depth();
+        let goal = self.goal_here(fvals)?;
+        let lam = |x: &str, body: Term| Term::Lam(x.into(), Icit::Explicit, Rc::new(body));
+        let sp = self.sp;
+        if !node.dec {
+            let (d, c) = g
+                .env
+                .registry()
+                .ctor(Builtin::Trivial)
+                .ok_or_else(|| Stop::Skip("no `Unit`".into()))?;
+            let unit = PV::Term(Term::Ctor(d, c, Vec::new()), depth + 1);
+            let cond = self.guard_arg(&node, 1, fvals)?;
+            let yes =
+                self.guard_side(j, &node.then, unit.clone(), crate::GUARD_THEN, fvals, path)?;
+            let no = self.guard_side(j, &node.otherwise, unit, crate::GUARD_ELSE, fvals, path)?;
+            return self
+                .e
+                .induct_inspect(sp, cond, goal, lam("h", yes), lam("h", no));
+        }
+        let p = self.guard_arg(&node, 0, fvals)?;
+        let blib = self.e.branch_lib()?;
+        match blib.bool_test(&p) {
+            // `b = X`: by `b`, the `else` being `b = notX` (D2186).
+            Some((b, x)) => {
+                let yes = self.guard_side(
+                    j,
+                    &node.then,
+                    PV::Var(depth),
+                    crate::GUARD_THEN,
+                    fvals,
+                    path,
+                )?;
+                let refuted = PV::Term(blib.refutation_of_other(x), depth + 1);
+                let no =
+                    self.guard_side(j, &node.otherwise, refuted, crate::GUARD_ELSE, fvals, path)?;
+                let (t, f) = if x { (yes, no) } else { (no, yes) };
+                self.e.induct_inspect(sp, b, goal, lam("h", t), lam("h", f))
+            }
+            None => {
+                let decision = self.guard_arg(&node, 2, fvals)?;
+                let yes = self.guard_side(
+                    j,
+                    &node.then,
+                    PV::Var(depth),
+                    crate::GUARD_THEN,
+                    fvals,
+                    path,
+                )?;
+                let no = self.guard_side(
+                    j,
+                    &node.otherwise,
+                    PV::Var(depth),
+                    crate::GUARD_ELSE,
+                    fvals,
+                    path,
+                )?;
+                let given = [p, goal, decision, lam("h", yes), lam("r", no)];
+                if sp.elim_proof_icits.len() != given.len() {
+                    return skip("`Decidable.elimProof` isn't as stage 2a expects");
+                }
+                Ok(apps(
+                    Term::Def(sp.elim_proof),
+                    given.into_iter().zip(sp.elim_proof_icits.iter().copied()),
+                ))
+            }
+        }
+    }
+
     /// At a leaf of row `row`: its splits, at the arm's variables as they
     /// are here.
     fn leaf(&mut self, fvals: &[PV], path: &[u32]) -> R<Term> {
@@ -2103,14 +2302,33 @@ impl Tree<'_> {
                 Stop::Skip("a case's hypothesis couldn't be read at its leaf".into())
             })
         };
-        for (h, (vars, eqs)) in rp.hyps.iter().enumerate() {
+        for (h, how) in rp.hyps.iter().enumerate() {
             let at = rp.nvars + h;
-            let ty = at_leaf(self, &rp.binders[at].2, at, &terms)?;
-            let types: Vec<Term> = eqs
-                .iter()
-                .map(|&j| at_leaf(self, &rp.binders[j].2, j, &terms))
-                .collect::<R<_>>()?;
-            let proof = self.refute(&ty, *vars, &types, to)?;
+            let proof = match how {
+                HypProof::Refute { vars, eqs, guarded } => {
+                    let ty = at_leaf(self, &rp.binders[at].2, at, &terms)?;
+                    let types: Vec<Term> = eqs
+                        .iter()
+                        .map(|&j| at_leaf(self, &rp.binders[j].2, j, &terms))
+                        .collect::<R<_>>()?;
+                    self.refute(&ty, *vars, &types, *guarded, to)?
+                }
+                HypProof::Fact(j) => {
+                    let (_, level) =
+                        self.facts
+                            .iter()
+                            .rev()
+                            .find(|(r, _)| r == j)
+                            .ok_or_else(|| {
+                                Stop::Skip(
+                            "a case's hypothesis about an earlier arm's condition is needed \
+                             where that condition wasn't tested"
+                                .into(),
+                        )
+                            })?;
+                    Term::Var(to - 1 - level)
+                }
+            };
             terms.push(proof);
         }
         let q = self.lay.prefix();
