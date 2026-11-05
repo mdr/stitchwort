@@ -32,6 +32,11 @@
 //! (`And.left`/`right`), and likewise `||` and `not` (`Bool.orFalseLeft`,
 //! `Bool.notTrue`, ...). Each is read again until it's arithmetic.
 //!
+//! `Ord`'s `<=` and `<` at the `Nat` and `Int` instances are read as that
+//! instance's relation (`Nat.LessEq`), which the kernel converts to
+//! `Nat.leq a b = True`; the proof is used unchanged. A fact given in
+//! `omega [...]` that reads as nothing is named in the failure's notes.
+//!
 //! **Disjunctions** among the facts (`Or p q`, `(p || q) = True`,
 //! `(p && q) = False`) are split as Lean's `omega` splits them: only when
 //! the goal doesn't follow without them, by proving it in each case with
@@ -91,7 +96,7 @@ use std::sync::LazyLock;
 
 use num_bigint::BigUint;
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::value::{Elim, Head, apply, conv, force};
+use stitchwort_core::value::{Elim, Head, apply, conv, force, unfold_folded};
 use stitchwort_core::{DataId, DefId, Icit, Limits, Name, Term, Value};
 use stitchwort_syntax::ast::{self, Expr};
 use stitchwort_syntax::{Diagnostic, Span};
@@ -1348,6 +1353,44 @@ fn bool_is(cx: &Ctx, lib: &Lib, b: &Value, truth: bool) -> Result<Value> {
     Ok(Value::Eq(bool_ty, Rc::new(b.clone()), Rc::new(value)))
 }
 
+/// `Ord.lessThan [a] d x y` or `Ord.lessEq [a] d x y` at `Nat` or `Int`,
+/// where `d` is a global instance, as the relation the instance's field
+/// holds applied to `x` and `y` (`Nat.LessEq x y`). The kernel sees the two
+/// as convertible, so a proof of one is a proof of the other as it stands.
+fn native_relation(cx: &Ctx, lib: &Lib, value: &Value) -> Result<Option<Value>> {
+    let Value::Neutral(Head::Def(p), _) = value else {
+        return Ok(None);
+    };
+    let Some(ord) = crate::interfaces::ord(cx.e) else {
+        return Ok(None);
+    };
+    let Some(info) = cx.e.tables.interfaces.get(&ord) else {
+        return Ok(None);
+    };
+    let Some(&(field, _)) = info
+        .relations
+        .iter()
+        .find(|(r, _)| info.projections[*r] == *p)
+    else {
+        return Ok(None);
+    };
+    let args = call_args(value, *p);
+    let Some([ty, dict, x, y]) = args.as_deref() else {
+        return Ok(None);
+    };
+    if !is_data(cx, ty, lib.nat)? && !is_data(cx, ty, lib.int)? {
+        return Ok(None);
+    }
+    let g = cx.g();
+    let dict = force(&g, dict.clone())?;
+    let dict = unfold_folded(&g, &dict)?.unwrap_or(dict);
+    let Value::Ctor(_, 0, fields) = dict else {
+        return Ok(None);
+    };
+    let relation = apply(&g, fields[field].clone(), x.clone())?;
+    Ok(Some(force(&g, apply(&g, relation, y.clone())?)?))
+}
+
 /// Reads hypotheses into facts.
 struct Reader<'l> {
     lib: &'l Lib,
@@ -1386,6 +1429,11 @@ impl Reader<'_> {
             return self.read(cx, bounds, &ty, origin, depth + 1);
         }
         let value = force(&cx.g(), prop.clone())?;
+        // `x <= y` through `Ord`'s instance for `Nat` or `Int` is that
+        // instance's relation, `Nat.LessEq x y`: the same proof has that type.
+        if let Some(native) = native_relation(cx, lib, &value)? {
+            return self.read(cx, proof, &native, origin, depth + 1);
+        }
         let fact = |kind, int, a: &Value, b: &Value| Fact {
             kind,
             int,
@@ -2820,7 +2868,15 @@ fn read_context<'l>(cx: &Ctx, lib: &'l Lib, extra: &[Extra]) -> Result<Reader<'l
         reader.read(cx, term, &ty, &name, 0)?;
     }
     for e in extra {
+        let before = reader.facts.len() + reader.disjunctions.len();
         reader.read(cx, e.term.clone(), &e.ty, &e.name, 0)?;
+        if reader.facts.len() + reader.disjunctions.len() == before {
+            reader.waiting.push(format!(
+                "`omega` couldn't use {}: `{}` isn't an arithmetic fact it reads",
+                e.name,
+                cx.show(&e.ty)
+            ));
+        }
     }
     Ok(reader)
 }

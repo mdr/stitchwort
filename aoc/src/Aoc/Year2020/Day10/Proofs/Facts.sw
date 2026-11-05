@@ -24,7 +24,7 @@ theorem deviceOfHighest (bag: Bag) (highest: Nat) (high: Highest bag.adapters hi
     | [] => Void.exfalso high.left
     | [first, ..rest] =>
       let ordered: NonEmptyList Nat := [first, ..rest]
-      let below: highest ≤ ordered.maximum := NonEmptyList.maximumLe ordered highest high.left
+      let below := NonEmptyList.maximumLe ordered highest high.left
       let above := high.right ordered.maximum (NonEmptyList.maximumMem ordered)
       Eq.cong (top => Some (top + 3)) (omega: ordered.maximum = highest)
 
