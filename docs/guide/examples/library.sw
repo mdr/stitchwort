@@ -1,5 +1,5 @@
 -- Chapter 6: a tour of the standard library.
-import Std (List, Map, Nat, Option, Result, Set, Text, Vec)
+import Std (List, Map, NonEmptyList, Nat, Option, Result, Set, Text, Vec)
 
 -- begin lists
 def scores: List Nat := [7, 3, 9, 3, 5]
@@ -65,6 +65,15 @@ test "duplicates go" := seen.size == 3 ∧ seen.toList == [1, 2, 3]
 test "membership" := seen.contains 2 ∧ ¬(seen.contains 5)
 test "set algebra" := Set.union seen (Set.fromList [9]) == Set.fromList [1, 2, 3, 9]
 -- end set
+
+-- begin nonempty
+def groupAnswers: NonEmptyList (Set Char) := { head = Set.fromList ['a', 'b', 'c'], tail = [Set.fromList ['b', 'c'], Set.fromList ['c', 'd']] }
+
+test "no Option" := groupAnswers.intersectAll == Set.fromList ['c']
+test "reduce and maximum" := ({ head = 3, tail = [9, 4] }: NonEmptyList Nat).maximum == 9 ∧ ({ head = 3, tail = [9, 4] }: NonEmptyList Nat).reduce Nat.add == 16
+test "map keeps it non-empty" := (({ head = 1, tail = [2] }: NonEmptyList Nat).map (n => n * 10)).head == 10
+test "from a list" := [4, 5, 6].toNonEmpty.maximum == 6 ∧ ([]: List Nat).nonEmpty == None
+-- end nonempty
 
 -- begin vec
 def row: Vec Nat 3 := VCons 4 (VCons 5 (VCons 6 VNil))

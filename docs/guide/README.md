@@ -16,7 +16,7 @@ The guide explains how things work and why, shows the idioms, and shows what the
 3. [Data](03-data.md): variants, records, field defaults, pattern matching, conditions on cases and exhaustiveness.
 4. [Functions](04-functions.md): lambdas, type parameters, named arguments and defaults, dot notation, pipes, sections, local definitions, functions written as their cases (`match |`, `match some |`, `matches |`).
 5. [Interfaces](05-interfaces.md): interfaces and instances, `auto`, and the equality, order and text every type gets.
-6. [Namespaces, projects and the library](06-namespaces-and-library.md): imports, multi-file projects, and a tour of `List`, `Option`, `Result`, `Text`, `Map`, `Set` and `Vec`.
+6. [Namespaces, projects and the library](06-namespaces-and-library.md): imports, multi-file projects, and a tour of `List`, `Option`, `Result`, `Text`, `Map`, `Set`, `NonEmptyList` and `Vec`.
 7. [Recursion and termination](07-recursion.md): structural recursion, `decreasing`, mutual recursion, recursion through containers, `Partial`.
 8. [Abilities](08-abilities.md): declaring and handling effects, effect polymorphism, `Fail`, `Abort`, `Each` and `IO`.
 9. [Testing](09-testing.md): tests, what a failing test tells you, testing effectful code.
