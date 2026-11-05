@@ -1,5 +1,5 @@
 {
-  "next": 1411,
+  "next": 1412,
   "tickets": [
     {
       "id": 47,
@@ -7985,7 +7985,7 @@
       "labels": [
         "aoc"
       ],
-      "body": "D2426 (Matt, 5 Nov 2026): start after day 6's friction review. Opus. Input: ~/repos/mdr/aoc/2020/src/main/resources/day7.\n\nStarted on Sonnet (D2365: Sonnet first for AoC days; escalate to Opus if stuck), expected: 90 min.\n\nD2427 (Matt, 5 Nov 2026): AoC days on Opus, for the analysis of Stitchwort's gaps the friction notes give. Sonnet lane stopped after ~3 min (only the input copied); restarted on Opus, expected: 90 min.\n\nDone on lane/SW-1402 (313e6357b): answers 126, 220149 (examples 4/32, 0/126), Python agrees. Part 1 by std Graph.breadthFirst on reversed rules; part 2 by recursion with depth limit (rule count + 1), cycle error. Proved: parse sound; part 1 = distinct colours that can eventually contain shiny gold; part 2 when it answers = spec total. Not proved: depth limit suffices (needs list pigeonhole). 40 theorems audited. Friction ranked in NOTES-2020 Day 7. Opus review pending. Model result: Opus, worked, 24 min (est. 90).",
+      "body": "D2426 (Matt, 5 Nov 2026): start after day 6's friction review. Opus. Input: ~/repos/mdr/aoc/2020/src/main/resources/day7.\n\nStarted on Sonnet (D2365: Sonnet first for AoC days; escalate to Opus if stuck), expected: 90 min.\n\nD2427 (Matt, 5 Nov 2026): AoC days on Opus, for the analysis of Stitchwort's gaps the friction notes give. Sonnet lane stopped after ~3 min (only the input copied); restarted on Opus, expected: 90 min.\n\nDone on lane/SW-1402 (313e6357b): answers 126, 220149 (examples 4/32, 0/126), Python agrees. Part 1 by std Graph.breadthFirst on reversed rules; part 2 by recursion with depth limit (rule count + 1), cycle error. Proved: parse sound; part 1 = distinct colours that can eventually contain shiny gold; part 2 when it answers = spec total. Not proved: depth limit suffices (needs list pigeonhole). 40 theorems audited. Friction ranked in NOTES-2020 Day 7. Opus review pending. Model result: Opus, worked, 24 min (est. 90).\n\nOpus review: merge. Spec faithful (cycle through shiny gold counted per the puzzle's wording; Scala's reading agrees on real inputs); headline theorems about the input text, part 2's 'when it answers' stated honestly; friction repros reproduce. Waits for batch 26.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8098,6 +8098,20 @@
         "diagnostics"
       ],
       "body": "From SW-1402 (2020 day 7), 5 Nov 2026. For day 7's friction review.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1411,
+      "title": "2020 day 7 tidy: the holder and colour indexes as small types with methods instead of free functions over a bare Map Colour (NonEmptyList (Colour, Colour)); name Rule.insides' pair; rename the free bagsInside (clashes with Rules.bagsInside)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "From SW-1402's Opus review, 5 Nov 2026. Small improvement; Sonnet or DeepSeek.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
