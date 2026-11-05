@@ -296,6 +296,9 @@
                 cp ${./web/index.html} $out/index.html
                 cp -r --no-preserve=mode ${./web/guide} $out/guide
                 cp ${./web/playground-worker.js} $out/playground-worker.js
+                cp ${./web/lsp-worker.js} $out/lsp-worker.js
+                cp ${./web/lsp-search-worker.js} $out/lsp-search-worker.js
+                cp ${./web/coi-serviceworker.js} $out/coi-serviceworker.js
                 bash ${./web/bundle-std.sh} ${stdBundleRoot} $out/pkg
                 bash ${./web/bundle-projects.sh} ${aocBundle} $out/pkg
                 cp -r --no-preserve=mode ${editor} $out/dist

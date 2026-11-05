@@ -13,9 +13,9 @@ wasm-opt -Oz --enable-bulk-memory --enable-nontrapping-float-to-int \
 web/bundle-std.sh . web/pkg
 # The AoC project's files, for the playground's Advent of Code group.
 web/bundle-projects.sh . web/pkg
-# pkg/version.json: the content hashes the page caches by (docs/proposals/
-# playground-projects.md §10.2).
-web/write-version.sh web
 # The editor (CodeMirror 6 and the language-server client), from web/editor/.
 web/editor/build.sh web/dist
+# pkg/version.json: the content hashes the page caches by (docs/proposals/
+# playground-projects.md §10.2); it covers the editor's bundle, so it comes after.
+web/write-version.sh web
 ls -lh web/pkg web/dist

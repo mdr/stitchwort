@@ -1,4 +1,5 @@
 <meta charset="utf-8">
+<script src="coi-serviceworker.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Stitchwort Playground</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -140,9 +141,8 @@
     min-height: 36px;
   }
 
-  /* The editor: a coloured copy of the source (#highlight) sits under the
-     textarea, whose own text is transparent, so only its caret and selection
-     show. Everything that places a character must match between the two. */
+  /* The editor is CodeMirror 6 (web/editor/src/editor-entry.js), drawn from
+     the page's own colours. Dragging its corner makes it taller. */
   .editor {
     flex: 1;
     position: relative;
@@ -151,56 +151,52 @@
     background: var(--petal);
     border-radius: 8px;
   }
-  textarea#source, pre#highlight {
-    margin: 0;
+  .editor .cm-editor {
+    flex: 1 0 auto;
+    height: 420px;
+    min-height: 420px;
+    resize: vertical;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--ink);
     font-family: var(--mono);
     font-variation-settings: "MONO" 1, "CASL" 0;
     font-size: 13.5px;
     font-weight: 400;
-    letter-spacing: normal;
     line-height: 1.55;
-    tab-size: 2;
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 14px 16px;
-    white-space: pre;
-    overflow-wrap: normal;
   }
-  textarea#source {
-    /* Its height is the resize handle's, or else fills the pane. */
-    flex: 1 0 auto;
-    position: relative;
-    min-height: 420px;
-    width: 100%;
-    resize: vertical;
-    color: transparent;
-    caret-color: var(--ink);
-    background: transparent;
-    overflow: auto;
-  }
-  textarea#source::selection { color: transparent; background: var(--hl-selection); }
-  /* Sized by script to the textarea's box less its scrollbars, and scrolled
-     with it. */
-  pre#highlight {
-    position: absolute;
-    top: 0;
-    left: 0;
-    border-color: transparent;
+  .editor .cm-editor.cm-focused { outline: none; border-color: var(--leaf); }
+  .editor .cm-scroller { font-family: inherit; line-height: inherit; overflow: auto; }
+  .editor .cm-content { padding: 14px 0; caret-color: var(--ink); }
+  .editor .cm-line { padding: 0 16px 0 8px; }
+  .editor .cm-gutters { background: transparent; color: var(--muted); border: 0; }
+  .editor .cm-lineNumbers .cm-gutterElement { padding: 0 4px 0 12px; min-width: 2.2em; }
+  .editor .cm-cursor, .editor .cm-dropCursor { border-left-color: var(--ink); }
+  .editor .cm-selectionBackground,
+  .editor .cm-editor.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground { background: var(--hl-selection); }
+  .editor .cm-editor.mod .cm-content { cursor: pointer; }
+  .editor .cm-panels { background: var(--petal); color: var(--ink); border-color: var(--line); }
+  .editor .cm-panels .cm-lsp-reference-panel { font-size: 12.5px; }
+  .editor .cm-lsp-reference-panel [aria-selected] { background: var(--leaf-soft); }
+  .cm-tooltip {
+    background: var(--petal);
     color: var(--ink);
-    overflow: hidden;
-    pointer-events: none;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    box-shadow: 0 4px 14px rgb(0 0 0 / 0.18);
+    font-family: var(--mono);
+    font-variation-settings: "MONO" 1, "CASL" 0;
+    font-size: 12.5px;
+    line-height: 1.45;
+    max-width: min(72ch, calc(100vw - 24px));
   }
-  /* Each kind of token, as a highlight (see paint()) or, failing that, a
-     span. Separate rules, since a browser drops a whole rule over a selector
-     it doesn't know. */
-  ::highlight(hl-keyword) { color: var(--hl-keyword); }
-  ::highlight(hl-name) { color: var(--hl-name); }
-  ::highlight(hl-defined) { color: var(--hl-defined); }
-  ::highlight(hl-number) { color: var(--hl-number); }
-  ::highlight(hl-string) { color: var(--hl-string); }
-  ::highlight(hl-interp) { color: var(--hl-interp); }
-  ::highlight(hl-comment) { color: var(--hl-comment); }
-  ::highlight(hl-operator) { color: var(--hl-operator); }
+  .cm-tooltip pre { margin: 2px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected] { background: var(--leaf-soft); color: var(--ink); }
+  .cm-diagnostic { white-space: pre-wrap; }
+  .cm-diagnostic-error { border-left-color: var(--bad); }
+  /* Each kind of token (the tokenizer's colour()); the guide's code uses them too. */
   .hl-keyword { color: var(--hl-keyword); }
   .hl-name { color: var(--hl-name); }
   .hl-defined { color: var(--hl-defined); }
@@ -240,72 +236,6 @@
   .banner button { font-size: 0.8rem; padding: 3px 8px; }
   .errorfile { display: flex; flex-direction: column; gap: 4px; }
   button.jump { align-self: flex-start; font-family: var(--mono); font-size: 0.78rem; font-weight: 500; padding: 2px 8px; color: var(--bad); }
-  /* Code navigation: the underline of a name Cmd/Ctrl-click would go to, the
-     hover tooltip, and the bar over the read-only standard library text. */
-  #navlink {
-    position: absolute;
-    border-bottom: 1.5px solid var(--hl-defined);
-    pointer-events: none;
-  }
-  #navtip {
-    position: fixed;
-    z-index: 10;
-    max-width: min(72ch, calc(100vw - 24px));
-    background: var(--petal);
-    color: var(--ink);
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 6px 10px;
-    box-shadow: 0 4px 14px rgb(0 0 0 / 0.18);
-    font-family: var(--mono);
-    font-variation-settings: "MONO" 1, "CASL" 0;
-    font-size: 12.5px;
-    line-height: 1.45;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-    pointer-events: none;
-  }
-  #navtip .name { font-weight: 700; color: var(--hl-defined); }
-  #navtip .kind { color: var(--muted); }
-  /* Find references: a small panel by the name, and the right-click menu. */
-  #navrefs, #navmenu {
-    position: fixed;
-    z-index: 11;
-    background: var(--petal);
-    color: var(--ink);
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    box-shadow: 0 4px 14px rgb(0 0 0 / 0.18);
-    font-family: var(--mono);
-    font-variation-settings: "MONO" 1, "CASL" 0;
-    font-size: 12.5px;
-    line-height: 1.45;
-  }
-  #navrefs[hidden], #navmenu[hidden] { display: none; }
-  #navrefs { width: min(76ch, calc(100vw - 16px)); max-height: min(46vh, 22rem); display: flex; flex-direction: column; }
-  #navrefs header { display: flex; gap: 8px; align-items: baseline; padding: 6px 10px; border-bottom: 1px solid var(--line); }
-  #navrefs header .title { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-  #navrefs header .name { font-weight: 700; color: var(--hl-defined); }
-  #navrefs header .more { color: var(--muted); }
-  #navrefs header button { border: 0; background: none; color: var(--muted); font: inherit; padding: 0 4px; cursor: pointer; }
-  #navrefs ul { list-style: none; margin: 0; padding: 2px 0; overflow: auto; }
-  #navrefs li button {
-    display: flex; gap: 12px; width: 100%; text-align: left; border: 0; border-radius: 0; background: none;
-    color: inherit; font: inherit; padding: 2px 10px; cursor: pointer;
-  }
-  #navrefs li button:hover, #navrefs li button:focus-visible { background: var(--leaf-soft); outline: none; }
-  #navrefs .where { flex: none; color: var(--muted); min-width: 9ch; }
-  #navrefs .snippet { white-space: pre; overflow: hidden; text-overflow: ellipsis; }
-  #navrefs .snippet mark { background: none; color: var(--hl-defined); font-weight: 700; text-decoration: underline; }
-  #navrefs .decl .where::after { content: " (declaration)"; }
-  #navrefs .none { padding: 6px 10px; color: var(--muted); }
-  #navmenu { padding: 3px 0; min-width: 24ch; }
-  #navmenu button {
-    display: flex; justify-content: space-between; gap: 16px; width: 100%; text-align: left; border: 0; border-radius: 0;
-    background: none; color: inherit; font: inherit; padding: 3px 12px; cursor: pointer;
-  }
-  #navmenu button:hover, #navmenu button:focus-visible { background: var(--leaf-soft); outline: none; }
-  #navmenu .key { color: var(--muted); }
   .banner.std { background: var(--leaf-soft); color: var(--ok); }
   .banner.std code { font-family: var(--mono); font-variation-settings: "MONO" 1; }
   h3.testgroup { margin: 0; font-size: 0.82rem; font-family: var(--mono); font-weight: 600; color: var(--muted); }
@@ -326,24 +256,6 @@
   /* The warning count: a button that shows them in the Check tab. */
   button.status.warn { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
   button.status.warn:hover { border-color: var(--warn); }
-  /* The type of the selected expression: small, beside the status. */
-  #seltype {
-    min-width: 0;
-    max-width: 100%;
-    background: var(--petal);
-    color: var(--muted);
-    border: 1px solid var(--line);
-    font-family: var(--mono);
-    font-variation-settings: "MONO" 1, "CASL" 0;
-    font-size: 0.76rem;
-    font-weight: 400;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: inline-block;
-  }
-  #seltype::before { content: none; }
-  #seltype[hidden] { display: none; }
   .status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 
   .tabs { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -396,8 +308,6 @@
   button.run { margin-left: auto; }
   #format { margin-left: auto; }
   #format + button.run { margin-left: 0; }
-  #format-errors { padding: 6px 12px; }
-  #format-errors pre.errors { margin: 4px 0; }
   button:disabled { cursor: default; opacity: 0.55; }
   textarea#run-input {
     width: 100%;
@@ -514,7 +424,8 @@
      Text boxes get 16px text, as with less a phone zooms in on focusing
      them, and the editor's padding shrinks to leave room for the code. */
   @media (max-width: 600px) {
-    textarea#source, pre#highlight { font-size: 16px; padding: 10px 12px; }
+    .editor .cm-editor { font-size: 16px; }
+    .editor .cm-content { padding: 10px 0; }
     select, input[type="text"], textarea#run-input { font-size: 16px; }
     .output { min-height: 70vh; }
     .tabs button { padding: 5px 7px; }
@@ -600,7 +511,6 @@
       <span id="status" class="status idle">Loading the compiler…</span>
       <span id="link-notice" class="status idle" role="status" hidden></span>
       <button id="warning-count" class="status warn" type="button" title="Show the warnings" hidden></button>
-      <span id="seltype" class="status" hidden></span>
       <button id="format" type="button" title="Format the code (Shift+Alt+F)">Format</button>
       <button id="run" class="primary run" type="button" title="Run main (Ctrl+Enter)">Run ▸</button>
     </div>
@@ -618,10 +528,7 @@
       <span>Standard library: <code id="std-name"></code> (read-only)</span>
       <button id="std-back" type="button" title="Back to where you were (Esc, or Alt+Left)">Back</button>
     </div>
-    <div id="format-errors" role="alert" hidden></div>
     <div class="editor" id="editor">
-      <pre id="highlight" aria-hidden="true"></pre>
-      <textarea id="source" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="Stitchwort source"></textarea>
     </div>
   </section>
 
@@ -831,7 +738,6 @@ export def area: Shape -> Nat
 
 <script type="module">
   const status = document.getElementById("status");
-  const source = document.getElementById("source");
   const output = document.getElementById("output");
   const picker = document.getElementById("example");
   const runButton = document.getElementById("run");
@@ -1034,14 +940,12 @@ export def area: Shape -> Nat
   let checker = new Compiler();
   /** Running `main`, separately, so editing stays responsive during a run. */
   let runner = new Compiler();
-  /** Code navigation's index and library text, in a worker of its own, so a check is never cancelled by it. */
-  let indexer = new Compiler();
 
   /** If the worker couldn't start at all, switches to the in-page compiler. */
   function fallBack(result) {
     if (!result.noWorker || workersWork || checker instanceof InPage) return false;
     console.warn("The playground's worker didn't start, so the compiler runs in the page:", result.error);
-    checker = runner = indexer = new InPage();
+    checker = runner = new InPage();
     return true;
   }
 
@@ -1107,10 +1011,8 @@ export def area: Shape -> Nat
 
   /** The open project: the manifest, the files, and what's open; or null. */
   let project = null;
-  /** While the read-only library text is shown: { std, stash } (the editor's own state). */
-  let stdView = null;
-  /** The editor's own text, even while the library's is shown. */
-  const sourceText = () => stdView ? stdView.stash.value : source.value;
+  /** The editor's own text, even while a library file is shown. */
+  const sourceText = () => source.value;
   const runHint = el("p", { className: "hint" });
   /** The run panel's explanation, for `main` of the program or of a project's day. */
   function setRunHint() {
@@ -1778,14 +1680,8 @@ export def area: Shape -> Nat
 
   /** Puts the open file in the editor. */
   function showFile() {
-    source.value = project.texts.get(project.open);
-    const caret = project.carets.get(project.open);
-    if (caret) {
-      source.setSelectionRange(caret.start, caret.end);
-      source.scrollTop = caret.top;
-      source.scrollLeft = caret.left;
-    }
-    paint();
+    source.open({ uri: projectUri(project.open), path: project.open, text: project.texts.get(project.open),
+                  restore: project.carets.get(project.open) });
     renderTabs();
     renderBanner();
   }
@@ -1806,12 +1702,10 @@ export def area: Shape -> Nat
   }
 
   function rememberCaret() {
-    project.carets.set(project.open, { start: source.selectionStart, end: source.selectionEnd,
-                                        top: source.scrollTop, left: source.scrollLeft });
+    project.carets.set(project.open, source.snapshot());
   }
 
   function openFile(path) {
-    exitStd();
     if (project.open !== path) {
       rememberCaret();
       if (!tabPaths().includes(path)) project.extras.add(path);
@@ -1822,25 +1716,17 @@ export def area: Shape -> Nat
     render();
   }
 
-  /** Opens a file with the caret at `line`, `column` (counted from 1). */
-  /** Moves the caret to `line`:`column` (from 1) of a file; given the diagnostic, selects its span (`endLine` from 0, `endColumn` in UTF-16 units, as the index's ranges are). */
+  /**
+   * Moves the caret to `line`:`column` (from 1) of a file; given the
+   * diagnostic, selects its span (`endLine` from 0, `endColumn` in UTF-16
+   * units, as the compiler's ranges are).
+   */
   function goTo(path, line, column, diagnostic) {
     openFile(path);
-    const lines = source.value.split("\n");
-    let offset = 0;
-    for (let i = 0; i < line - 1 && i < lines.length; i++) offset += lines[i].length + 1;
-    offset = Math.min(offset + column - 1, source.value.length);
+    const from = source.offset(line - 1, column - 1);
+    const to = diagnostic?.endLine !== undefined ? Math.max(from, source.offset(diagnostic.endLine, diagnostic.endColumn)) : from;
     source.focus();
-    let end = offset;
-    if (diagnostic?.endLine !== undefined) {
-      let at = 0;
-      for (let i = 0; i < diagnostic.endLine && i < lines.length; i++) at += lines[i].length + 1;
-      end = Math.min(Math.max(at + diagnostic.endColumn, offset), source.value.length);
-    }
-    source.setSelectionRange(offset, end);
-    const lineHeight = parseFloat(getComputedStyle(source).lineHeight) || 20;
-    source.scrollTop = Math.max(0, (line - 4) * lineHeight);
-    align();
+    source.reveal(from, to);
   }
 
   /** Works out the day's tabs from the compiler's outline: the day's program, its proofs, then what they use. */
@@ -1913,9 +1799,9 @@ export def area: Shape -> Nat
       output.replaceChildren(el("p", {}, `The bundled project couldn’t be fetched: ${e.message}`));
       return;
     }
-    exitStd();
     if (project) rememberCaret();
     project = state;
+    giveServer(state);
     const day = manifest.days[Math.min(index, manifest.days.length - 1)];
     project.day = manifest.days.indexOf(day);
     project.open = openPath && manifest.files.includes(openPath) ? openPath : day.open;
@@ -2055,6 +1941,7 @@ export def area: Shape -> Nat
     for (const path of project.manifest.files) forget(fileKey(path));
     project.texts = new Map(project.bundled);
     project.stale.clear();
+    for (const path of project.manifest.files) source.update(projectUri(path), project.texts.get(path));
     showFile();
     refresh();
   });
@@ -2062,14 +1949,13 @@ export def area: Shape -> Nat
   async function loadExample(id) {
     const named = projectOfId(id);
     if (named) return loadProject(named, Number(id.slice(named.length + 1)) || 0);
-    exitStd();
     project = null;
     filebar.hidden = true;
     banner.hidden = true;
     setRunHint();
     const ex = document.getElementById(id) || examples[0];
     picker.value = ex.id;
-    source.value = ex.textContent.replace(/^\n/, "");
+    showText(ex.textContent.replace(/^\n/, ""));
     evalImports = [];
     evalInput = { "ex-lists": "reverse [1, 2, 3]", "ex-division": "safeDiv 9 0",
                   "ex-tests": "double 21", "ex-js": "applyDiscount 8 25",
@@ -2458,36 +2344,6 @@ export def area: Shape -> Nat
     add("", text.length, text.length);
   }
 
-  const highlighted = document.getElementById("highlight");
-
-  // Where the browser has the CSS Custom Highlight API, the copy stays one
-  // text node and the colours are ranges over it. Spans would be simpler, but
-  // each rounds its width a little, so on a long line the copy drifts away
-  // from the textarea's text. Elsewhere, spans.
-  const marks = typeof Highlight === "function" && CSS.highlights
-    ? Object.fromEntries(KINDS.map((kind) => {
-        const marked = new Highlight();
-        CSS.highlights.set(`hl-${kind}`, marked);
-        return [kind, marked];
-      }))
-    : null;
-
-  function paint() {
-    // A final newline only shows as a line in the textarea, so the copy gets
-    // one more for the same height.
-    const text = source.value;
-    if (marks) {
-      highlighted.textContent = text + "\n";
-      const node = highlighted.firstChild;
-      for (const marked of Object.values(marks)) marked.clear();
-      colour(text, (kind, start, end) => marks[kind].add(new StaticRange(
-        { startContainer: node, startOffset: start, endContainer: node, endOffset: end })));
-    } else {
-      highlighted.innerHTML = colouredHtml(text) + "\n";
-    }
-    align();
-  }
-
   /** The text as HTML, each coloured stretch in a span (the guide's code too). */
   function colouredHtml(text) {
     const parts = [];
@@ -2501,692 +2357,64 @@ export def area: Shape -> Nat
     return parts.join("");
   }
 
-  /** Keeps the coloured copy under the textarea the same size and scroll. */
-  function align() {
-    const box = getComputedStyle(source);
-    const borders = (a, b) => parseFloat(box[a]) + parseFloat(box[b]);
-    highlighted.style.width = `${source.clientWidth + borders("borderLeftWidth", "borderRightWidth")}px`;
-    highlighted.style.height = `${source.clientHeight + borders("borderTopWidth", "borderBottomWidth")}px`;
-    highlighted.scrollTop = source.scrollTop;
-    highlighted.scrollLeft = source.scrollLeft;
-  }
+  // ---- The editor (web/editor/src/editor-entry.js) -------------------------
+  // CodeMirror 6, coloured by colour() above, on the language server in a
+  // worker (lsp-worker.js): errors underlined, hover, go to definition (also
+  // into other files of a project and into the library, read-only, with a
+  // way back), find references, completion, and code actions on `?`. It looks
+  // like a textarea to the rest of the page: `source.value` and so on.
 
-  source.addEventListener("scroll", align);
-  new ResizeObserver(align).observe(source);
-
-  // ---- Code navigation (docs/proposals/code-navigation.md) ---------------
-  // Hovering a name shows its type; Cmd/Ctrl-click (or F12 at the caret) goes
-  // to its definition: in another file of the project, in the standard
-  // library (its text, read-only, with a way back), or to a local's binder.
-  // The compiler's index says where every written name goes. It is computed
-  // lazily, in a worker of its own, when the pointer first enters the editor
-  // (or navigation is first asked for) after the text changed: a check does
-  // not also build it, so typing costs nothing extra. It elaborates the
-  // program once more, so it takes about as long as a check. An index stays
-  // good for the files whose text it was made from, so one that couldn't be
-  // refreshed (the compiler crashed or timed out) still serves the files
-  // that haven't changed.
-  // Ranges are the compiler's: 0-based lines, UTF-16 columns. A textarea's
-  // offsets count UTF-16 units too, so tabs and astral characters need no
-  // special care; the mapping goes through line starts of the editor's text.
-
-  const editorBox = document.getElementById("editor");
   const stdbar = document.getElementById("stdbar");
-  const navlink = el("div", { id: "navlink", hidden: true });
-  const navtip = el("div", { id: "navtip", role: "tooltip", hidden: true });
-  editorBox.append(navlink);
-  document.body.append(navtip);
+  document.getElementById("std-back").addEventListener("click", () => source.goBack());
+  let noticeTimer = 0;
+  /** The project's files the language server has been given. */
+  const served = new Set();
+  const projectUri = (path) => `file:///playground/${project.name}/${path}`;
+  await versionReady;
+  const { createEditor, SINGLE_URI } = await import(`./dist/editor.bundle.js${LOAD}`);
+  const source = createEditor(document.getElementById("editor"), {
+    colour,
+    worker: new URL(`lsp-worker.js${LOAD}`, import.meta.url),
+    module: await wasm.catch(() => null),
+    load: LOAD,
+    onInput: refresh,
+    // A jump to a file of the project, from go to definition or a reference.
+    onFile: (path) => { if (!project?.texts.has(path)) return false; openFile(path); return true; },
+    onStd: (path) => {
+      stdbar.hidden = !path;
+      document.getElementById("std-name").textContent = path ?? "";
+      formatButton.disabled = !!path;
+    },
+    onNotice: (text) => {
+      clearTimeout(noticeTimer);
+      linkNotice.textContent = text;
+      linkNotice.hidden = !text;
+      noticeTimer = setTimeout(() => { linkNotice.hidden = true; }, 8000);
+    },
+    run: () => { if (runButton.disabled) return false; runMain(); return true; },
+  });
+  window.editor = source;
 
-  /** The path the compiler is given for a single file's text (crates/web). */
-  const SINGLE = "playground.sw";
-  const nav = { index: null, pending: null, failed: null, pointer: null, mod: false, hover: null,
-                tipTimer: 0, frame: 0, back: [], std: new Map(), selFrame: 0, selCache: null };
+  /** Shows a program on its own. */
+  function showText(text) {
+    source.open({ uri: SINGLE_URI, text });
+  }
+  function exitStd() { source.exitStd(); }
 
-  const openPath = () => project ? project.open : SINGLE;
-
-  let startsFor = null;
-  let startsList = [0];
-  /** The offsets at which `text`'s lines start. */
-  function lineStarts(text) {
-    if (startsFor !== text) {
-      startsList = [0];
-      for (let i = text.indexOf("\n"); i >= 0; i = text.indexOf("\n", i + 1)) startsList.push(i + 1);
-      startsFor = text;
-    }
-    return startsList;
-  }
-  /** `offset` as [line, character]. */
-  function posOf(text, offset) {
-    const starts = lineStarts(text);
-    let lo = 0, hi = starts.length - 1;
-    while (lo < hi) {
-      const mid = (lo + hi + 1) >> 1;
-      if (starts[mid] <= offset) lo = mid; else hi = mid - 1;
-    }
-    return [lo, offset - starts[lo]];
-  }
-  const offsetOf = (text, line, character) => Math.min((lineStarts(text)[line] ?? text.length) + character, text.length);
-
-  /** The node and offset in the coloured copy for an offset of the text. */
-  function textPoint(offset) {
-    const first = highlighted.firstChild;
-    if (first && first === highlighted.lastChild) return [first, Math.min(offset, first.length)];
-    const walker = document.createTreeWalker(highlighted, NodeFilter.SHOW_TEXT);
-    let at = 0;
-    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-      if (offset <= at + node.length) return [node, offset - at];
-      at += node.length;
-    }
-    return null;
-  }
-  /** The box, in the viewport, of the text from `from` to `to`: where the browser drew it. */
-  function rectOf(from, to) {
-    const start = textPoint(from), end = textPoint(to);
-    if (!start || !end) return null;
-    const range = document.createRange();
-    range.setStart(...start);
-    range.setEnd(...end);
-    return range.getBoundingClientRect();
-  }
-
-  const isLow = (c) => c >= 0xdc00 && c <= 0xdfff;
-  const isHigh = (c) => c >= 0xd800 && c <= 0xdbff;
-  /**
-   * The offset of the character under a point of the viewport, or null. The
-   * line comes from the line height; within it a binary search over the
-   * characters' drawn boxes, so tabs and wide characters are right.
-   */
-  function offsetAt(x, y) {
-    const text = source.value;
-    const starts = lineStarts(text);
-    const box = highlighted.getBoundingClientRect();
-    const css = getComputedStyle(highlighted);
-    const height = parseFloat(css.lineHeight);
-    const top = box.top + parseFloat(css.borderTopWidth) + parseFloat(css.paddingTop);
-    const line = Math.floor((y - top + highlighted.scrollTop) / height);
-    if (!(line >= 0) || line >= starts.length) return null;
-    const first = starts[line];
-    const last = line + 1 < starts.length ? starts[line + 1] - 1 : text.length;
-    const width = (o) => isHigh(text.charCodeAt(o)) ? 2 : 1;
-    let lo = first, hi = last - 1, found = -1;
-    while (lo <= hi) {
-      const mid = (lo + hi) >> 1;
-      const o = mid > first && isLow(text.charCodeAt(mid)) ? mid - 1 : mid;
-      const r = rectOf(o, o + width(o));
-      if (r && r.left <= x) { found = o; lo = mid + 1; } else hi = mid - 1;
-    }
-    if (found < 0) return null;
-    const r = rectOf(found, found + width(found));
-    return r && x < r.right ? found : null;
-  }
-
-  /** What an index was made from: the day and every file's text, or the single text. */
-  const inputsNow = () => project
-    ? { day: project.day, texts: new Map(project.manifest.files.map((p) => [p, project.texts.get(p)])) }
-    : { day: null, texts: new Map([[SINGLE, sourceText()]]) };
-  function sameInputs(a, b) {
-    if (!a || !b || a.day !== b.day || a.texts.size !== b.texts.size) return false;
-    for (const [path, text] of a.texts) if (b.texts.get(path) !== text) return false;
-    return true;
-  }
-  /** Whether the index's positions in this file are still the text's. */
-  const validFor = (idx, path) => idx.day === (project ? project.day : null) && idx.texts.get(path) === inputsNow().texts.get(path);
-  /**
-   * Whether the index's positions are the text shown: the open file's own, or,
-   * while a library file is shown (its text never changes), the index of this
-   * project (a stale one still has the library's refs).
-   */
-  const validHere = (idx) => stdView ? idx.day === (project ? project.day : null) : validFor(idx, openPath());
-  const failedNow = () => nav.failed && sameInputs(nav.failed, inputsNow());
-
-  /** The index for the current text: computed if it isn't yet (null if the compiler couldn't). */
-  function ensureIndex() {
-    const now = inputsNow();
-    if (nav.index && sameInputs(nav.index, now)) return Promise.resolve(nav.index);
-    if (nav.pending && sameInputs(nav.pending.inputs, now)) return nav.pending.promise;
-    if (failedNow()) return Promise.resolve(nav.index);
-    const request = requestFor("index");
-    const promise = (async () => {
-      let result = await indexer.call(request, CHECK_SECONDS);
-      if (fallBack(result)) result = await indexer.call(request, CHECK_SECONDS);
-      if (result.out) {
-        const byFile = new Map();
-        result.out.refs.forEach((ref) => {
-          if (!byFile.has(ref.file)) byFile.set(ref.file, []);
-          byFile.get(ref.file).push(ref);
-        });
-        // The expressions of the program's files, with their types (the
-        // compiler has put the parentheses back: see `index_data_of`).
-        const exprsByFile = new Map();
-        (result.out.exprs ?? []).forEach((e) => {
-          if (!exprsByFile.has(e[0])) exprsByFile.set(e[0], []);
-          exprsByFile.get(e[0]).push(e);
-        });
-        nav.index = { out: result.out, byFile, exprsByFile, ...now };
-        nav.failed = null;
-        scheduleSelectionType();
-      } else if (!result.cancelled) {
-        nav.failed = now;
-      }
-      if (nav.pending?.promise === promise) nav.pending = null;
-      return nav.index;
-    })();
-    nav.pending = { inputs: now, promise };
-    return promise;
-  }
-
-  /** The ref (and its offsets in the editor) at an offset of the open file or library file, or null. */
-  function lookupAt(idx, offset) {
-    const path = openPath();
-    if (!validHere(idx)) return null;
-    const file = idx.out.files.findIndex((f) => stdView ? f.std === stdView.std : f.path === path && !f.std);
-    const refs = idx.byFile.get(file);
-    if (!refs) return null;
-    const text = source.value;
-    const [line, ch] = posOf(text, offset);
-    const before = (l, c, r) => l < r[0] || (l === r[0] && c < r[1]); // (l, c) is before the range's start
-    let lo = 0, hi = refs.length - 1, at = -1;
-    while (lo <= hi) {
-      const mid = (lo + hi) >> 1;
-      if (before(line, ch, refs[mid].range)) hi = mid - 1; else { at = mid; lo = mid + 1; }
-    }
-    if (at < 0) return null;
-    const ref = refs[at];
-    const end = ref.range;
-    if (line > end[2] || (line === end[2] && ch >= end[3])) return null;
-    return { ref, idx, from: offsetOf(text, end[0], end[1]), to: offsetOf(text, end[2], end[3]) };
-  }
-
-  /** Where a ref goes, with what to say about it. */
-  function targetOf(idx, ref) {
-    if (ref.symbol !== undefined) {
-      const s = idx.out.symbols[ref.symbol];
-      return { file: s.file, range: s.range, name: s.name, kind: s.kind, type: ref.type ?? s.type, header: s.header, summary: s.summary };
-    }
-    return { file: ref.binder.file, range: ref.binder.range, name: ref.binder.name, kind: "local", type: ref.type };
-  }
-
-  // The type of a selection ---------------------------------------------------
-
-  const seltype = document.getElementById("seltype");
-  const isSpace = (c) => c === " " || c === "\n" || c === "\t" || c === "\r";
-
-  /**
-   * The smallest expression containing the selection (less the whitespace at
-   * its ends), as { entry, from, to, start, end }: `entry` is [file, range,
-   * type] from the index; from and to are the expression's offsets, start and
-   * end the selection's. Null if nothing is selected, the index isn't ready
-   * for this text, or no expression covers it.
-   */
-  function selectionExpr() {
-    const idx = nav.index;
-    if (stdView || !idx || !validHere(idx)) return null;
-    const text = source.value;
-    let start = source.selectionStart, end = source.selectionEnd;
-    if (start >= end) return null;
-    const rawStart = start, rawEnd = end;
-    while (start < end && isSpace(text[start])) start++;
-    while (end > start && isSpace(text[end - 1])) end--;
-    if (start >= end) return null;
-    const cache = nav.selCache;
-    if (cache && cache.idx === idx && cache.text === text && cache.rawStart === rawStart && cache.rawEnd === rawEnd) return cache.result;
-    const path = openPath();
-    const file = idx.out.files.findIndex((f) => f.path === path && !f.std);
-    const [l1, c1] = posOf(text, start), [l2, c2] = posOf(text, end);
-    let best = null;
-    for (const entry of idx.exprsByFile.get(file) ?? []) {
-      const r = entry[1];
-      if (r[0] > l1 || (r[0] === l1 && r[1] > c1) || r[2] < l2 || (r[2] === l2 && r[3] < c2)) continue;
-      const from = offsetOf(text, r[0], r[1]), to = offsetOf(text, r[2], r[3]);
-      if (!best || to - from < best.to - best.from) best = { entry, from, to, start, end, rawStart, rawEnd };
-    }
-    nav.selCache = { idx, text, rawStart, rawEnd, result: best };
-    return best;
-  }
-
-  /** Shows the selection's type next to the status, or clears it. */
-  function updateSelectionType() {
-    nav.selFrame = 0;
-    const idx = nav.index;
-    const selected = source.selectionStart < source.selectionEnd;
-    if (selected && !stdView && !(idx && validHere(idx)) && !failedNow()) {
-      // Wait for the index, then look again (only if it helps: no loop).
-      ensureIndex().then((got) => { if (got && validHere(got)) scheduleSelectionType(); });
-    }
-    const found = selectionExpr();
-    const type = found ? found.entry[2].replace(/\s+/g, " ") : "";
-    seltype.hidden = !type;
-    seltype.textContent = type ? "selection: " + type : "";
-    seltype.title = found ? "The type of the selected expression: " + found.entry[2] : "";
-    scheduleNav();
-  }
-  function scheduleSelectionType() {
-    nav.selFrame ||= requestAnimationFrame(updateSelectionType);
-  }
-
-  // The hover tooltip ------------------------------------------------------
-
-  function hideTip() {
-    clearTimeout(nav.tipTimer);
-    navtip.hidden = true;
-  }
-  function showTip() {
-    const hover = nav.hover;
-    if (!hover) return;
-    if (hover.sel) {
-      navtip.replaceChildren(el("span", { className: "kind" }, "selection"),
-                             document.createTextNode("\n: " + hover.sel.entry[2]));
-    } else {
-      const { name, kind, type, header, summary } = targetOf(hover.idx, hover.ref);
-      // The summary, the doc's first sentence, only: the tooltip is small (D2147).
-      // A function reads as its declaration, parameters named (SW-1334).
-      const shown = header
-        ? [el("span", { className: "kind" }, kind + " "), el("span", { className: "name" }, name), document.createTextNode(" " + header)]
-        : [el("span", { className: "name" }, name), el("span", { className: "kind" }, " " + kind),
-           ...(type ? [document.createTextNode("\n: " + type)] : [])];
-      navtip.replaceChildren(...shown, ...(summary ? [document.createTextNode("\n" + summary)] : []));
-    }
-    navtip.hidden = false;
-    const p = nav.pointer;
-    // A selection may span many lines: put the tip by the pointer.
-    const r = hover.sel && p ? { left: p.x, top: p.y - 10, bottom: p.y + 14 } : rectOf(hover.from, hover.to);
-    if (!r) return;
-    const w = navtip.offsetWidth, h = navtip.offsetHeight;
-    const left = Math.max(8, Math.min(r.left, innerWidth - w - 8));
-    const top = r.bottom + 4 + h > innerHeight - 8 ? Math.max(8, r.top - h - 4) : r.bottom + 4;
-    navtip.style.left = `${left}px`;
-    navtip.style.top = `${top}px`;
-  }
-
-  /** Underlines the hovered name while Cmd/Ctrl is held, as an editor does a link. */
-  function showAddress() {
-    const hover = nav.hover;
-    const r = hover && !hover.sel && nav.mod ? rectOf(hover.from, hover.to) : null;
-    source.style.cursor = r ? "pointer" : "";
-    navlink.hidden = !r;
-    if (!r) return;
-    const box = editorBox.getBoundingClientRect();
-    Object.assign(navlink.style, { left: `${r.left - box.left}px`, top: `${r.top - box.top}px`,
-                                   width: `${r.width}px`, height: `${r.height}px` });
-  }
-
-  function setHover(hit) {
-    if ((hit?.ref ?? null) !== (nav.hover?.ref ?? null) || hit?.idx !== nav.hover?.idx) {
-      nav.hover = hit;
-      hideTip();
-      if (hit) nav.tipTimer = setTimeout(showTip, 300);
-    }
-    showAddress();
-  }
-
-  function updateNav() {
-    const p = nav.pointer;
-    let hit = null;
-    if (p) {
-      const offset = offsetAt(p.x, p.y);
-      if (offset !== null) {
-        if (nav.index && validHere(nav.index)) {
-          // Inside a selection: its type, ahead of the name's.
-          const sel = offset >= source.selectionStart && offset < source.selectionEnd ? selectionExpr() : null;
-          hit = sel ? { ref: sel.entry, sel, idx: nav.index, from: sel.from, to: sel.to } : lookupAt(nav.index, offset);
-        } else if (!failedNow()) {
-          // Wait for the index, then look again (only if it helps: no loop).
-          ensureIndex().then((idx) => { if (idx && validHere(idx)) scheduleNav(); });
-        }
-      }
-    }
-    setHover(hit);
-  }
-  function scheduleNav() {
-    nav.frame ||= requestAnimationFrame(() => { nav.frame = 0; updateNav(); });
-  }
-  function setMod(on) {
-    if (nav.mod === on) return;
-    nav.mod = on;
-    showAddress();
-  }
-
-  // Going there ------------------------------------------------------------
-
-  /** Selects the range of the editor's text and scrolls it into view. */
-  function reveal(range) {
-    const text = source.value;
-    const from = offsetOf(text, range[0], range[1]);
-    const to = offsetOf(text, range[2], range[3]);
-    source.focus({ preventScroll: true });
-    source.setSelectionRange(from, to);
-    const css = getComputedStyle(source);
-    const y = parseFloat(css.paddingTop) + range[0] * parseFloat(css.lineHeight);
-    if (y < source.scrollTop || y + parseFloat(css.lineHeight) > source.scrollTop + source.clientHeight) {
-      source.scrollTop = Math.max(0, y - source.clientHeight / 3);
-    }
-    align();
-    const r = rectOf(from, to);
-    const box = source.getBoundingClientRect();
-    if (r && (r.right > box.right - 24 || r.left < box.left + 8)) {
-      source.scrollLeft = Math.max(0, source.scrollLeft + r.left - box.left - 80);
-      align();
-    }
-  }
-
-  /** Shows a file's range: another file of the project, or the open one (leaving a library file). */
-  function openAt(path, range) {
-    if (project ? !project.texts.has(path) : path !== SINGLE) return false;
-    exitStd();
-    if (project && project.open !== path) openFile(path);
-    reveal(range);
-    return true;
-  }
-
-  /**
-   * Shows a library file's text, read-only; `exitStd` puts the editor back.
-   * Already showing one, it shows another in its place (the editor's own state
-   * stays stashed): navigation goes on from file to file of the library.
-   */
-  function showStd(std, text) {
-    if (!stdView) {
-      const stash = { value: source.value, start: source.selectionStart, end: source.selectionEnd,
-                      top: source.scrollTop, left: source.scrollLeft };
-      if (project) rememberCaret();
-      stdView = { std, stash };
-    } else {
-      stdView.std = std;
-    }
-    hideTip();
-    hideRefs();
-    hideMenu();
-    nav.hover = null;
-    showAddress();
-    source.value = text;
-    source.readOnly = true;
-    source.scrollTop = source.scrollLeft = 0;
-    document.getElementById("std-name").textContent = std;
-    stdbar.hidden = false;
-    paint();
-  }
-  function exitStd() {
-    if (!stdView) return;
-    const { stash } = stdView;
-    stdView = null;
-    source.readOnly = false;
-    stdbar.hidden = true;
-    source.value = stash.value;
-    if (project) {
-      showFile();
-    } else {
-      paint();
-      source.setSelectionRange(stash.start, stash.end);
-      source.scrollTop = stash.top;
-      source.scrollLeft = stash.left;
-      align();
-    }
-  }
-  /** The library file's text, as the compiler embeds it (empty if it couldn't be had). */
-  async function stdText(std) {
-    let text = nav.std.get(std);
-    if (text === undefined) {
-      let result = await indexer.call({ action: "stdsource", path: std }, CHECK_SECONDS);
-      if (fallBack(result)) result = await indexer.call({ action: "stdsource", path: std }, CHECK_SECONDS);
-      text = result.out?.text ?? "";
-      if (result.out) nav.std.set(std, text);
-    }
-    return text;
-  }
-  async function openStd(std, range) {
-    const text = await stdText(std);
-    if (!text) return false;
-    if (stdView?.std !== std) showStd(std, text);
-    reveal(range);
-    return true;
-  }
-
-  /** Remembers where the editor is, to come back to. */
-  function pushBack() {
-    nav.back.push({ std: stdView?.std ?? null, path: project?.open ?? null, start: source.selectionStart, end: source.selectionEnd,
-                    top: source.scrollTop, left: source.scrollLeft });
-    if (nav.back.length > 50) nav.back.shift();
-  }
-  /** Back to where the last jump was made from: a file of the project or of the library. */
-  function goBack() {
-    const there = nav.back.pop();
-    if (!there) {
-      exitStd();
-      return;
-    }
-    if (there.std) {
-      showStd(there.std, nav.std.get(there.std) ?? ""); // it was shown, so it is kept
-    } else {
-      exitStd();
-      if (project && there.path !== project.open && project.texts.has(there.path)) openFile(there.path);
-    }
-    source.focus({ preventScroll: true });
-    source.setSelectionRange(there.start, there.end);
-    source.scrollTop = there.top;
-    source.scrollLeft = there.left;
-    align();
-  }
-
-  /** Goes to the definition of the name at `offset` of the open file (or library file); whether there was one. */
-  async function goToDefinition(offset) {
-    const idx = await ensureIndex();
-    const hit = idx && lookupAt(idx, offset);
-    if (!hit) return false;
-    const { file, range } = targetOf(idx, hit.ref);
-    const target = idx.out.files[file];
-    hideTip();
-    pushBack();
-    const went = target.std ? await openStd(target.std, range) : openAt(target.path, range);
-    if (!went) nav.back.pop();
-    return went;
-  }
-
-  // Find references --------------------------------------------------------
-  // Shift+F12 at the caret (or "Find references" in the right-click menu on a
-  // name) lists where the name under it is used, in a panel by the name: file
-  // and line, with the line's text. Click one (or Enter on it) to go there,
-  // with a way back as for a definition. The uses are the index's refs with
-  // the same target; the declaration is listed too. Uses inside the library
-  // are only counted: there can be thousands, and they aren't the program.
-
-  const navrefs = el("div", { id: "navrefs", role: "dialog", "aria-label": "References", hidden: true });
-  const navmenu = el("div", { id: "navmenu", role: "menu", hidden: true });
-  document.body.append(navrefs, navmenu);
-
-  /** The most uses in the library listed when the lookup is made from within the library. */
-  const LIBRARY_ROWS = 200;
-
-  /**
-   * The uses of the target of `ref`: { declaration, uses, library (a count) }.
-   * The uses are those in project files; from within the library (`inLibrary`)
-   * also the first few in library files, and `library` counts the rest.
-   */
-  function referencesOf(idx, ref, inLibrary = false) {
-    const { out } = idx;
-    const t = targetOf(idx, ref);
-    const sameTarget = ref.symbol !== undefined
-      ? (r) => r.symbol === ref.symbol
-      : (r) => r.binder && r.binder.file === ref.binder.file && r.binder.range.join() === ref.binder.range.join();
-    const isDeclaration = (file, range) => file === t.file && range.join() === t.range.join();
-    const uses = [];
-    let library = 0;
-    for (const r of out.refs) {
-      if (!sameTarget(r) || isDeclaration(r.file, r.range)) continue;
-      const f = out.files[r.file];
-      if (!f.std) uses.push({ file: r.file, path: f.path, std: null, range: r.range });
-      else if (inLibrary && uses.length < LIBRARY_ROWS) uses.push({ file: r.file, path: f.path, std: f.std, range: r.range });
-      else library++;
-    }
-    const f = out.files[t.file];
-    const declaration = { file: t.file, path: f.path, std: f.std ?? null, range: t.range };
-    return { name: t.name, kind: t.kind, declaration, uses, library };
-  }
-
-  function hideRefs() {
-    if (navrefs.hidden) return false;
-    navrefs.hidden = true;
-    return true;
-  }
-  function hideMenu() { navmenu.hidden = true; }
-
-  /** A row of the panel: where, and the line's text with the name marked. */
-  function refRow(idx, use, isDeclaration) {
-    const text = (use.std ? nav.std.get(use.std) : idx.texts.get(use.path)) ?? "";
-    const range = use.range;
-    const raw = text.split("\n")[range[0]] ?? "";
-    const lead = raw.length - raw.trimStart().length;
-    const shown = raw.trim();
-    const clamp = (n) => Math.max(0, Math.min(n, shown.length));
-    const from = clamp(range[1] - lead), to = range[0] === range[2] ? clamp(range[3] - lead) : shown.length;
-    const label = use.std ? use.std : project ? tabLabel(use.path) : "";
-    const row = el("button", { type: "button", className: isDeclaration ? "decl" : "" },
-      el("span", { className: "where" }, `${label ? label + ":" : "line "}${range[0] + 1}`),
-      el("span", { className: "snippet" }, shown.slice(0, from), el("mark", {}, shown.slice(from, to)), shown.slice(to)));
-    row.title = `${use.std ?? use.path}:${range[0] + 1}:${range[1] + 1}`;
-    row.addEventListener("click", async () => {
-      hideRefs();
-      pushBack();
-      const went = use.std ? await openStd(use.std, use.range) : openAt(use.path, use.range);
-      if (!went) nav.back.pop();
+  /** Gives the language server the project, with the saved edits, so that its files are checked as the project's. */
+  function giveServer(state) {
+    if (served.has(state.name)) return;
+    served.add(state.name);
+    const { manifest } = state;
+    const data = manifest.data ?? [];
+    source.addProject({
+      root: `/playground/${state.name}`, sources: ["src"], paths: [...manifest.files, ...data],
+      texts: [...manifest.files.map((path) => state.texts.get(path)), ...state.data],
     });
-    return el("li", {}, row);
   }
-
-  async function showRefs(idx, hit) {
-    hideTip();
-    hideMenu();
-    const found = referencesOf(idx, hit.ref, !!stdView);
-    // The library files' text, for the lines of the rows.
-    for (const std of new Set([found.declaration, ...found.uses].map((u) => u.std).filter(Boolean))) await stdText(std);
-    const rows = [refRow(idx, found.declaration, true), ...found.uses.map((u) => refRow(idx, u, false))];
-    const count = found.uses.length;
-    const more = found.library ? `, and ${found.library} ${stdView ? "more " : ""}in the library` : "";
-    const close = el("button", { type: "button", title: "Close (Esc)", "aria-label": "Close" }, "×");
-    close.addEventListener("click", () => { hideRefs(); source.focus({ preventScroll: true }); });
-    navrefs.replaceChildren(
-      el("header", {}, el("span", { className: "title" },
-        el("span", { className: "name" }, found.name), ` ${found.kind}: ${count === 1 ? "1 use" : `${count} uses`}`,
-        el("span", { className: "more" }, more)), close),
-      el("ul", {}, ...rows));
-    navrefs.hidden = false;
-    const r = rectOf(hit.from, hit.to);
-    if (r) {
-      const w = navrefs.offsetWidth, h = navrefs.offsetHeight;
-      navrefs.style.left = `${Math.max(8, Math.min(r.left, innerWidth - w - 8))}px`;
-      const top = r.bottom + 4 + h > innerHeight - 8 ? r.top - h - 4 : r.bottom + 4;
-      navrefs.style.top = `${Math.max(8, Math.min(top, innerHeight - h - 8))}px`; // on screen even if the name is not
-    }
-    // The first use, not the declaration, when there is one: that is what was asked.
-    (navrefs.querySelectorAll("li button")[found.uses.length ? 1 : 0]).focus({ preventScroll: true });
-  }
-
-  /** Lists the uses of the name at `offset` of the open file (or library file); whether there was a name. */
-  async function findReferences(offset) {
-    const idx = await ensureIndex();
-    const hit = idx && lookupAt(idx, offset);
-    if (!hit) return false;
-    await showRefs(idx, hit);
-    return true;
-  }
-
-  navrefs.addEventListener("keydown", (e) => {
-    const rows = [...navrefs.querySelectorAll("li button")];
-    const at = rows.indexOf(document.activeElement);
-    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-      e.preventDefault();
-      rows[(at + (e.key === "ArrowDown" ? 1 : rows.length - 1)) % rows.length]?.focus();
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      e.stopPropagation();
-      hideRefs();
-      source.focus({ preventScroll: true });
-    }
-  });
-  // Anywhere else closes the panel and the menu.
-  document.addEventListener("mousedown", (e) => {
-    if (!navrefs.hidden && !navrefs.contains(e.target)) hideRefs();
-    if (!navmenu.hidden && !navmenu.contains(e.target)) hideMenu();
-  });
-
-  // The right-click menu, on a name: the two lookups and their keys. Anywhere
-  // else the browser's own menu stays.
-  source.addEventListener("contextmenu", (e) => {
-    if (!nav.index) return;
-    const offset = offsetAt(e.clientX, e.clientY);
-    const hit = offset !== null && validHere(nav.index) ? lookupAt(nav.index, offset) : null;
-    if (!hit) return;
-    e.preventDefault();
-    hideTip();
-    hideRefs();
-    const item = (label, key, go) => {
-      const b = el("button", { type: "button", role: "menuitem" }, el("span", {}, label), el("span", { className: "key" }, key));
-      b.addEventListener("click", () => { hideMenu(); go(offset); });
-      return b;
-    };
-    navmenu.replaceChildren(item("Go to definition", "F12", goToDefinition), item("Find references", "⇧F12", findReferences));
-    navmenu.hidden = false;
-    navmenu.style.left = `${Math.min(e.clientX, innerWidth - navmenu.offsetWidth - 8)}px`;
-    navmenu.style.top = `${Math.min(e.clientY, innerHeight - navmenu.offsetHeight - 8)}px`;
-    navmenu.querySelector("button").focus({ preventScroll: true });
-  });
-  navmenu.addEventListener("keydown", (e) => {
-    const rows = [...navmenu.querySelectorAll("button")];
-    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-      e.preventDefault();
-      rows[(rows.indexOf(document.activeElement) + 1) % rows.length].focus();
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      hideMenu();
-      source.focus({ preventScroll: true });
-    }
-  });
-
-  editorBox.addEventListener("mouseenter", () => { ensureIndex(); });
-  source.addEventListener("mousemove", (e) => {
-    nav.pointer = { x: e.clientX, y: e.clientY };
-    setMod(e.metaKey || e.ctrlKey);
-    scheduleNav();
-  });
-  source.addEventListener("mouseleave", () => { nav.pointer = null; scheduleNav(); });
-  // The selection's type: on any change of the selection (the mouse, the
-  // keyboard, a phone's handles), and when an edit takes it away.
-  document.addEventListener("selectionchange", scheduleSelectionType);
-  source.addEventListener("select", scheduleSelectionType);
-  source.addEventListener("keyup", scheduleSelectionType);
-  source.addEventListener("pointerup", scheduleSelectionType);
-  source.addEventListener("mousedown", (e) => {
-    hideTip();
-    if (e.button !== 0 || !(e.metaKey || e.ctrlKey)) return;
-    e.preventDefault(); // no caret move: it's a jump
-    const offset = offsetAt(e.clientX, e.clientY);
-    if (offset !== null) goToDefinition(offset);
-  });
-  source.addEventListener("scroll", () => { hideTip(); hideRefs(); hideMenu(); showAddress(); });
-  source.addEventListener("input", () => { hideTip(); hideRefs(); hideMenu(); nav.hover = null; showAddress(); });
-  window.addEventListener("keydown", (e) => setMod(e.metaKey || e.ctrlKey));
-  window.addEventListener("keyup", (e) => setMod(e.metaKey || e.ctrlKey));
-  window.addEventListener("blur", () => setMod(false));
-  source.addEventListener("keydown", (e) => {
-    if (e.key === "F12") {
-      e.preventDefault();
-      const at = source.selectionStart;
-      // The caret may be just after the name, as it is after typing one.
-      const go = e.shiftKey ? findReferences : goToDefinition;
-      go(at).then((went) => { if (!went && at > 0) go(at - 1); });
-    } else if (e.key === "Escape" && stdView) {
-      e.preventDefault();
-      goBack();
-    } else if ((e.metaKey || e.ctrlKey) && e.key === "[") {
-      e.preventDefault();
-      goBack();
-    } else if (!["Meta", "Control", "Shift", "Alt"].includes(e.key)) {
-      hideTip();
-    }
-  });
-  document.getElementById("std-back").addEventListener("click", goBack);
 
   let timer = null;
   function refresh() {
-    paint();
     if (project) saveOpenFile();
     else store("stitchwort.draft", source.value);
     clearTimeout(timer);
@@ -3204,89 +2432,20 @@ export def area: Shape -> Nat
   for (const tab of tabs) tab.addEventListener("click", () => selectView(tab.dataset.view));
   warningCount.addEventListener("click", () => selectView("check"));
   picker.addEventListener("change", () => loadExample(picker.value));
-  source.addEventListener("input", refresh);
-  source.addEventListener("keydown", (e) => {
-    if (e.key === "Tab" && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+  // Ctrl+Enter (⌘+Enter on a Mac) runs, from the source (the editor does that) or the input.
+  runInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && !runButton.disabled) {
       e.preventDefault();
-      // As typing does, so that undo takes it back, and its `input` event
-      // repaints. Changing the value from script (setRangeText) would clear
-      // the textarea's undo history instead; that's the fallback, for a
-      // browser without insertText.
-      if (!document.execCommand("insertText", false, "  ")) {
-        source.setRangeText("  ", source.selectionStart, source.selectionEnd, "end");
-        refresh();
-      }
+      runMain();
     }
   });
-  // Ctrl+Enter (⌘+Enter on a Mac) runs, from the source or the input.
-  for (const box of [source, runInput]) {
-    box.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && !runButton.disabled) {
-        e.preventDefault();
-        runMain();
-      }
-    });
-  }
 
-  // ---- Format (docs/proposals/formatter.md §5.3) -------------------------
-  // Formats the open file in the worker. The new text goes in through
-  // execCommand("insertText"), as typing does, so that the browser's own
-  // undo takes it back (setRangeText would clear the undo history; it's the
-  // fallback). A file with a syntax error is refused whole: the text stays
-  // and the errors show above the editor until the next edit.
+  // ---- Format ---------------------------------------------------------------
+  // The language server formats the file (Shift+Alt+F in the editor, or this
+  // button). A file with a syntax error is left as it is: its errors are
+  // underlined already.
   const formatButton = document.getElementById("format");
-  const formatErrors = document.getElementById("format-errors");
-  /** Where the caret goes in `text`: after as many non-blank characters as were before `at` in `old`. */
-  function mapCaret(old, at, text) {
-    let want = old.slice(0, at).replace(/\s/g, "").length;
-    if (want === 0) return 0;
-    for (let i = 0; i < text.length; i++) {
-      if (!/\s/.test(text[i]) && --want === 0) return i + 1;
-    }
-    return text.length;
-  }
-  async function formatSource() {
-    if (stdView || formatButton.disabled) return;
-    formatButton.disabled = true;
-    const before = source.value;
-    const caret = source.selectionStart;
-    try {
-      const result = await ask({ ...requestFor("format"), source: before });
-      if (!result || source.value !== before) return; // crashed, or edited meanwhile
-      if (!result.ok) {
-        formatErrors.replaceChildren(el("h2", {}, "Not formatted"), el("pre", { className: "errors" }, result.errors));
-        formatErrors.hidden = false;
-        return;
-      }
-      formatErrors.hidden = true;
-      if (result.text === before) return;
-      source.focus();
-      // Only the middle that differs is replaced, a smaller edit for undo.
-      const text = result.text;
-      let start = 0;
-      while (start < before.length && start < text.length && before[start] === text[start]) start++;
-      let end = 0;
-      while (end < before.length - start && end < text.length - start &&
-             before[before.length - 1 - end] === text[text.length - 1 - end]) end++;
-      source.setSelectionRange(start, before.length - end);
-      if (!document.execCommand("insertText", false, text.slice(start, text.length - end))) {
-        source.value = text;
-        refresh();
-      }
-      const to = mapCaret(before, caret, text);
-      source.setSelectionRange(to, to);
-    } finally {
-      formatButton.disabled = false;
-    }
-  }
-  formatButton.addEventListener("click", formatSource);
-  source.addEventListener("input", () => { formatErrors.hidden = true; });
-  source.addEventListener("keydown", (e) => {
-    if (e.code === "KeyF" && e.shiftKey && e.altKey && !e.ctrlKey && !e.metaKey) {
-      e.preventDefault();
-      formatSource();
-    }
-  });
+  formatButton.addEventListener("click", () => { source.format(); source.focus(); });
 
   // ---- The language guide (web/guide/) -----------------------------------
   // `#guide` shows it in place of the editor, `#guide/<section>` scrolls to a
@@ -3370,18 +2529,16 @@ export def area: Shape -> Nat
     guideEl.hidden = true;
     mainEl.hidden = false;
     guideButton.setAttribute("aria-pressed", "false");
-    align();
   }
 
   /** Puts a guide example in the editor, ready to check, test or run. */
   function openGuideExample(text) {
-    exitStd();
     project = null;
     filebar.hidden = true;
     banner.hidden = true;
     setRunHint();
     hideGuide();
-    source.value = text;
+    showText(text);
     // The menu names no entry for it: a label that isn't one of the choices.
     let label = picker.querySelector('option[value=""]');
     if (!label) picker.append(label = el("option", { value: "", hidden: true }, "From the guide"));
@@ -3423,7 +2580,7 @@ export def area: Shape -> Nat
   const input = stored("stitchwort.input");
   const chosen = stored("stitchwort.example") || "ex-lists";
   function restoreDraft() {
-    if (draft) { source.value = draft; refresh(); }
+    if (draft) { showText(draft); refresh(); }
     if (input !== null) { runInput.value = input; store("stitchwort.input", input); }
   }
   // In order, so the groups are in the dropdown's order.

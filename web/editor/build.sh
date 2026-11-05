@@ -11,8 +11,6 @@ cd "$(dirname "$0")"
 if [ "${SKIP_NPM_CI:-}" != 1 ]; then
   npm ci --no-audit --no-fund --silent
 fi
-for entry in lsp codemirror; do
-  esbuild "src/$entry-entry.js" --bundle --minify --format=esm --target=es2020 \
-    --outfile="$out/$entry.bundle.js" --log-level=warning
-done
+esbuild src/editor-entry.js --bundle --minify --format=esm --target=es2020 \
+  --outfile="$out/editor.bundle.js" --log-level=warning
 ls -l "$out"

@@ -2,10 +2,10 @@
 # Writes SITE_DIR/pkg/version.json for content-hash caching (docs/proposals/
 # playground-projects.md §10.2):
 #   web/write-version.sh SITE_DIR
-# SITE_DIR holds playground-worker.js and pkg/ (web/ locally, the Nix output
+# SITE_DIR holds the workers, dist/ and pkg/ (web/ locally, the Nix output
 # in the `playground` package). The file is {"compiler": H, "projects": H}:
 # a short hash of the compiler's files (the WebAssembly, the bindings, the
-# standard library bundle and the worker script) and one of the bundled projects. The page fetches it with
+# standard library bundle, the workers and the editor's bundle) and one of the bundled projects. The page fetches it with
 # `cache: "no-cache"` and asks for the other files as `?v=H`.
 set -euo pipefail
 export LC_ALL=C
@@ -16,7 +16,7 @@ digest() {
   if command -v sha256sum >/dev/null; then sha256sum | cut -d' ' -f1; else shasum -a 256 | cut -d' ' -f1; fi
 }
 
-compiler=$(cat pkg/stitchwort_web_bg.wasm pkg/stitchwort_web.js pkg/std.bundle playground-worker.js | digest | cut -c1-16)
+compiler=$(cat pkg/stitchwort_web_bg.wasm pkg/stitchwort_web.js pkg/std.bundle playground-worker.js lsp-worker.js lsp-search-worker.js dist/editor.bundle.js | digest | cut -c1-16)
 # One line per file (its own hash and path, sorted), so a renamed file changes it.
 projects=$(
   cd pkg/projects

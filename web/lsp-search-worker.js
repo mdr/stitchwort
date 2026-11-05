@@ -4,7 +4,7 @@
 // library and projects. Each {job} is a search the server handed out; the
 // answer is {result}, the search's result as JSON. A stale search is
 // stopped by terminating this worker.
-import init, { load_std, SearchWorker } from "../pkg/stitchwort_web.js";
+import init, { load_std, SearchWorker } from "./pkg/stitchwort_web.js";
 
 let searcher = null;
 
