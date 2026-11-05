@@ -1,5 +1,5 @@
 {
-  "next": 1371,
+  "next": 1372,
   "tickets": [
     {
       "id": 47,
@@ -7256,7 +7256,7 @@
       "labels": [
         "elab"
       ],
-      "body": "From SW-1341's review fixes: the decision is built from the evaluated proposition, so the chain's let is lost when the chain is one conjunct of the if h: condition. Repro: scratchpad sw1341-review/js.sw (c1), build --js.\n\nDone on lane/SW-1350 (f06a5c081): chain::on_spine finds chains under &&/||/not in an if h: condition; middle bound once around the decision; goals unchanged. Model result: Sonnet, worked, 10 min (est. 60). Opus review (decision terms).",
+      "body": "From SW-1341's review fixes: the decision is built from the evaluated proposition, so the chain's let is lost when the chain is one conjunct of the if h: condition. Repro: scratchpad sw1341-review/js.sw (c1), build --js.\n\nDone on lane/SW-1350 (f06a5c081): chain::on_spine finds chains under &&/||/not in an if h: condition; middle bound once around the decision; goals unchanged. Model result: Sonnet, worked, 10 min (est. 60). Opus review (decision terms).\n\nOpus review: sound, merge. Inherited weakness filed separately (a middle containing another chain's middle is computed twice).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7537,6 +7537,20 @@
         "aoc"
       ],
       "body": "From SW-1346, 5 Nov 2026. Small improvement (Matt: 'a fan of doing small improvements').",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1371,
+      "title": "Chained comparisons: a computed middle containing another chain's middle (0 < tri n < tri (tri n) < 100; or two chains where the second's middle uses the first's) is computed twice in an if decision; repros scratchpad sw1350-review/p.sw, k.sw",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "From SW-1350's Opus review, 5 Nov 2026. Pre-existing on main; results correct, only duplicated work. Likely: building the decision rewrites the inner middle in terms of the outer variable and drops the second binding. Small improvement.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
