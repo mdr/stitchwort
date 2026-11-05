@@ -86,7 +86,7 @@ def List.lengthOnto: (xs: List a) → (acc: Nat) → Nat
   | [], n => n
   | [x, ..xs], n => List.lengthOnto xs (Succ n)
 
---| The number of elements: `[5, 6, 7].length` is 3. O(n); the runtimes count in
+--| The number of elements: `[5, 6, 7].length` is 3. O(n), counted in
 --| a loop, so a long list doesn't run out of stack ([`List.lengthOntoEq`]).
 -- `a` is bound automatically, as an implicit argument: `List.length: [a: Type] -> ...`.
 def List.length: (xs: List a) → Nat

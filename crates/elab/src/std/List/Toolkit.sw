@@ -92,12 +92,12 @@ def List.sumBy [auto add: Add b] (xs: List a) (f: a → {e} b): {e} b := List.fo
 --| The product of the elements, `Mul.one` (1) for an empty list; [`List.sum`] is the same fold with `Add`.
 def List.product [auto mul: Mul a] (xs: List a): a := List.foldLeft xs Mul.one Mul.mul
 
---| The largest element by the type's `Ord`, the first of equal maxima, or `None` for an empty list; for the element a key came from, use [`List.maxBy`].
+--| The largest element by the type's `Ord`, the first of equal maxima, or `None` for an empty list; to compare by a key, use [`List.maxBy`].
 def List.maximum [auto ord: Ord a]: (xs: List a) → Option a
   | [] => None
   | [x, ..xs] => Some (List.foldLeft xs x Ord.max)
 
---| The smallest element by the type's `Ord`, the first of equal minima, or `None` for an empty list; for the element a key came from, use [`List.minBy`].
+--| The smallest element by the type's `Ord`, the first of equal minima, or `None` for an empty list; to compare by a key, use [`List.minBy`].
 def List.minimum [auto ord: Ord a]: (xs: List a) → Option a
   | [] => None
   | [x, ..xs] => Some (List.foldLeft xs x Ord.min)
