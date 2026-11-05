@@ -28,8 +28,9 @@ const stitchwort = StreamLanguage.define({
 const log = (window.lspLog = []);
 const timing = (window.lspTiming = { ticks: [], received: [], published: [], ready: null, crashed: null });
 const t0 = performance.now();
+// The bundle is served from web/dist/; the worker stays beside the trial page.
 
-const worker = new Worker(new URL("./lsp-worker.js", import.meta.url), { type: "module" });
+const worker = new Worker(new URL("../proto/lsp-worker.js", import.meta.url), { type: "module" });
 let handlers = [];
 const stdWaiting = new Map();
 worker.onmessage = ({ data }) => {

@@ -5,7 +5,7 @@
 //   node web/proto/lsp-check.mjs [OUTDIR]
 //
 // Serve nothing first: it serves web/ itself. Needs pkg/ (web/build.sh) and
-// lsp.bundle.js. Chrome is found as web/tests/browser.mjs finds it.
+// web/dist/lsp.bundle.js (web/build.sh). Chrome is found as web/tests/browser.mjs finds it.
 import { spawn, execFileSync } from "node:child_process";
 import { createServer } from "node:http";
 import { existsSync, mkdtempSync, readFileSync, statSync, writeFileSync, mkdirSync } from "node:fs";

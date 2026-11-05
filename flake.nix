@@ -177,7 +177,7 @@
             ];
           };
         in
-        {
+        rec {
           # The tests, run by cargo-nextest (every test in its own process, test
           # binaries side by side; `.config/nextest.toml`), then the doctests.
           # `stitchwort` is the daily tier (what `nix flake check` runs);
@@ -249,6 +249,31 @@
             }
           );
 
+          # The playground's editor: CodeMirror 6 and its language-server
+          # client, bundled by nixpkgs' esbuild over the locked npm
+          # dependencies (web/editor/package-lock.json). After changing the
+          # lockfile, set npmDepsHash to lib.fakeHash and copy the hash from
+          # the build's error.
+          editor = pkgs.buildNpmPackage {
+            pname = "stitchwort-playground-editor";
+            version = "0";
+            src = lib.fileset.toSource {
+              root = ./web/editor;
+              fileset = lib.fileset.unions [
+                ./web/editor/package.json
+                ./web/editor/package-lock.json
+                ./web/editor/src
+                ./web/editor/build.sh
+              ];
+            };
+            npmDepsHash = "sha256-tw21Ehe84oBhAJ1zV4nQ2FOw/tvWa9aPp06UENn/AmM=";
+            dontNpmBuild = true;
+            nativeBuildInputs = [ pkgs.esbuild ];
+            installPhase = ''
+              SKIP_NPM_CI=1 bash build.sh $out
+            '';
+          };
+
           # The browser playground: the compiler as WebAssembly, plus the page.
           playground = craneLib.buildPackage (
             commonArgs
@@ -273,6 +298,7 @@
                 cp ${./web/playground-worker.js} $out/playground-worker.js
                 bash ${./web/bundle-std.sh} ${stdBundleRoot} $out/pkg
                 bash ${./web/bundle-projects.sh} ${aocBundle} $out/pkg
+                cp -r --no-preserve=mode ${editor} $out/dist
                 bash ${./web/write-version.sh} $out
               '';
             }
@@ -286,6 +312,7 @@
           stitchwort-native-bin
           stitchwort-full
           playground
+          editor
           ;
         default = stitchwort-bin;
       });
@@ -344,6 +371,7 @@
             # Running and type-checking extracted JS/TS
             pkgs.nodejs_22
             pkgs.typescript
+            pkgs.esbuild # web/editor/build.sh bundles the playground's editor
 
             # Nix
             pkgs.nixfmt

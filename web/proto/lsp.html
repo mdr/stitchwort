@@ -8,9 +8,8 @@
   run in lsp-worker.js. Build pkg/ with `nix develop -c web/build.sh`, serve
   web/ and open /proto/lsp.html. Headless check: node web/proto/lsp-check.mjs.
 
-  lsp.bundle.js is built from lsp-entry.js:
-    cd web/proto && npm install && esbuild lsp-entry.js --bundle --minify \
-      --format=esm --target=es2020 --outfile=lsp.bundle.js
+  ../dist/lsp.bundle.js is built from ../editor/src/lsp-entry.js by
+  `nix develop -c web/editor/build.sh` (also run by web/build.sh).
 -->
 <style>
   body { font: 14px system-ui; margin: 1rem; }
@@ -44,5 +43,5 @@ def total (xs : List Nat) : Nat := xs.foldLeft 0 (sum n => sum + n)
 
 theorem hole (n : Nat) : n + 0 = n := ?
 </script>
-<script type="module" src="lsp.bundle.js"></script>
+<script type="module" src="../dist/lsp.bundle.js"></script>
 </html>

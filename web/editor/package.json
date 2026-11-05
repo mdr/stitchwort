@@ -1,5 +1,5 @@
 {
-  "name": "stitchwort-playground-codemirror-prototype",
+  "name": "stitchwort-playground-editor",
   "private": true,
   "type": "module",
   "dependencies": {
