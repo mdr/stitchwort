@@ -1,4 +1,6 @@
-# Non-empty lists, `NonEmpty a` (SW-1337)
+# Non-empty lists, `NonEmptyList a` (SW-1337)
+
+**Update, 5 November 2026:** Matt took every recommendation (D2393-D2399) and named the type `NonEmptyList`, not `NonEmpty` (D2394); the text below says `NonEmptyList` for ours, and `NonEmpty` only for Haskell's. Stage 1 is built (SW-1343) in `std/NonEmptyList/`: `++` is `List`'s and `Text`'s only, so the joins are `append`, `appendList` and `prependList`.
 
 **Status:** design note, 5 November 2026, for Matt's decisions (§13). No
 implementation yet. Background: Matt (D2383): "how we might do non-empty
@@ -24,19 +26,19 @@ its docs (listed under Sources), otherwise from memory, **unverified**.
   `.headOr Bits.empty`, a `| [] => False` arm that never runs, a
   "never used" `fallbackRoom`, or a proof hypothesis `xs ≠ []` carried by
   hand. The survey (§10) found about 95 such sites in aoc/ and games/rogue.
-- **The change.** A library type `NonEmpty a`, a record with a first element
+- **The change.** A library type `NonEmptyList a`, a record with a first element
   and the rest: `{ head: a, tail: List a }`, as Haskell, Agda and Idris 2
   have it. Its operations are total where `List`'s return `Option`:
   `reduce`, `head`, `last`, `maximum`, `minimum`, `maxBy`, `minBy`; and the
   ones that keep a list non-empty return one again: `map`, `zip`, `sort`,
   `reverse`, `++`. `xs.toList` goes back, and `xs.toNonEmpty` (given a proof
   that `xs ≠ []`, found by `auto`) or `xs.nonEmpty` (an `Option`) goes
-  forward. The parsers that read at least one value return a `NonEmpty`.
+  forward. The parsers that read at least one value return a `NonEmptyList`.
 - **Brackets.** In a later stage, `[1, 2, 3]` and the pattern `[x, ..xs]`
-  work for a `NonEmpty` where the type says so, and `[]` there is an error
-  saying a `NonEmpty` can't be empty (§7).
+  work for a `NonEmptyList` where the type says so, and `[]` there is an error
+  saying a `NonEmptyList` can't be empty (§7).
 - **Proofs.** `xs.toList` is `[xs.head, ..xs.tail]`, a `Cons` for every `xs`,
-  so each `NonEmpty` operation's link to its `List` twin is `rfl`, and the
+  so each `NonEmptyList` operation's link to its `List` twin is `rfl`, and the
   `List` lemmas apply through it (§9). Nothing new in the kernel; nothing new
   in the elaborator for stage 1.
 - **Size.** Stage 1, the type and its API: about half a day on Sonnet.
@@ -61,7 +63,7 @@ def List.maximum [auto ord: Ord a]: List a → Option a
   | [x, ..xs] => Some (List.foldLeft xs x Ord.max)
 ```
 
-So the `NonEmpty` versions are those `Some` branches, unwrapped.
+So the `NonEmptyList` versions are those `Some` branches, unwrapped.
 
 **A proof argument works today, but only for what's visible.** A function on
 `List` can take the proof Idris and Lean take, `[auto nonEmpty: xs ≠ []]`.
@@ -136,28 +138,28 @@ shape `List.splitBy` and `Parse.sections` would take here.
 
 ```
 --| A list with at least one element: `head`, then the rest.
-type NonEmpty (a: Type) = { head: a, tail: List a }
+type NonEmptyList (a: Type) = { head: a, tail: List a }
 
-def NonEmpty.toList (xs: NonEmpty a): List a := [xs.head, ..xs.tail]
-def NonEmpty.reduce (xs: NonEmpty a) (f: a → a → {e} a): {e} a := xs.tail.foldLeft xs.head f
-def NonEmpty.maximum [auto ord: Ord a] (xs: NonEmpty a): a := xs.reduce Ord.max
-def NonEmpty.map (xs: NonEmpty a) (f: a → {e} b): {e} NonEmpty b := { head = f xs.head, tail = xs.tail.map f }
+def NonEmptyList.toList (xs: NonEmptyList a): List a := [xs.head, ..xs.tail]
+def NonEmptyList.reduce (xs: NonEmptyList a) (f: a → a → {e} a): {e} a := xs.tail.foldLeft xs.head f
+def NonEmptyList.maximum [auto ord: Ord a] (xs: NonEmptyList a): a := xs.reduce Ord.max
+def NonEmptyList.map (xs: NonEmptyList a) (f: a → {e} b): {e} NonEmptyList b := { head = f xs.head, tail = xs.tail.map f }
 ```
 
 Day 6 reads:
 
 ```
-type Group = { people: NonEmpty Person }
+type Group = { people: NonEmptyList Person }
 
 def Group.everyone (group: Group): Set Char := group.people.map .answers |> .reduce Set.intersect
 ```
 
 What I checked in scratch files **[checked]**: the record, these functions,
 record patterns (`| { head, tail = [y, ..ys] } => …`), a derived `==`, a data
-type nested through it (`| Node (children: NonEmpty Tree)`, with recursion on
+type nested through it (`| Node (children: NonEmptyList Tree)`, with recursion on
 `head`), and the bridge lemmas `xs.toList.maximum = Some xs.maximum` and
 `(xs.map f).toList = xs.toList.map f`, both `rfl`. A list literal against it
-is `E-TYPE-MISMATCH` today, "expected `NonEmpty Nat`, but this has type
+is `E-TYPE-MISMATCH` today, "expected `NonEmptyList Nat`, but this has type
 `List ?0`", which §7 changes. The derived `Show` prints the record, `{ head
 = 1, tail = [2] }`; the library would give it one that prints `[1, 2]`.
 
@@ -174,7 +176,7 @@ is `E-TYPE-MISMATCH` today, "expected `NonEmpty Nat`, but this has type
 ### B. A subtype: a list and a proof
 
 ```
-type NonEmpty (a: Type) = { items: List a, nonEmpty: items ≠ [] }
+type NonEmptyList (a: Type) = { items: List a, nonEmpty: items ≠ [] }
 ```
 
 Stitchwort has no subtype syntax (`{ x: T // p }`), but a record with a proof
@@ -218,7 +220,7 @@ six rooms (`Vec Area 6`, §10), wrong as the general answer.
 Haskell's `Foldable1` is a class over the container, `t :: Type -> Type`.
 Stitchwort's interfaces take one parameter that is a type, `Pretty (List a)`
 (syntax.md, Interfaces) **[checked]**, so a class over containers isn't
-expressible today, and with only `NonEmpty` and `Vec (n + 1)` to cover it
+expressible today, and with only `NonEmptyList` and `Vec (n + 1)` to cover it
 wouldn't earn its place. A `Semigroup`-like interface (an associative
 `combine`, no unit) would let `xs.reduce` find its function, but `Set` has two
 (`union`, `intersect`) and so does `Nat` (`max`, `+`, `*`), which is why
@@ -238,16 +240,16 @@ now, reads better: `.reduce Set.intersect`.
 
 ## 5. Recommendation
 
-**A, the record**, named `NonEmpty`, in `std/List/NonEmpty.sw`, imported as
-`import Std (NonEmpty)`. Plus two bridges from `List`, which take Idris's
+**A, the record**, named `NonEmptyList`, in `std/NonEmptyList/NonEmptyList.sw`, imported as
+`import Std (NonEmptyList)`. Plus two bridges from `List`, which take Idris's
 `toList1` idea for the places C is good at:
 
 ```
---| The list as a `NonEmpty`, where it is known not to be empty.
-def List.toNonEmpty (xs: List a) [auto nonEmpty: xs ≠ []]: NonEmpty a
+--| The list as a `NonEmptyList`, where it is known not to be empty.
+def List.toNonEmpty (xs: List a) [auto nonEmpty: xs ≠ []]: NonEmptyList a
 
---| The list as a `NonEmpty`, or `None` for an empty list.
-def List.nonEmpty: List a → Option (NonEmpty a)
+--| The list as a `NonEmptyList`, or `None` for an empty list.
+def List.nonEmpty: List a → Option (NonEmptyList a)
 ```
 
 so `if h: xs ≠ [] then xs.toNonEmpty.maximum else …` and `match
@@ -257,11 +259,11 @@ ways to say the same thing, and C's weakness (lemmas at each step) is what
 the type removes.
 
 Matt's "more precise types" is A's strength: it changes the model
-(`Group.people: NonEmpty Person`), not only the call.
+(`Group.people: NonEmptyList Person`), not only the call.
 
 The name: `NonEmpty` is the plain description and Haskell's and Agda's
 module name; `List1` (Idris) is shorter but needs explaining. A
-`NonEmpty.of` is not needed: `{ head = x, tail = xs }` until brackets
+`NonEmptyList.of` is not needed: `{ head = x, tail = xs }` until brackets
 arrive, `[x, ..xs]` after.
 
 ## 6. The API
@@ -275,10 +277,10 @@ spelling. Effect-polymorphic as `List`'s are (`f: a → {e} b`).
   as `List.maxBy` documents), `maximumOf`, `minimumOf`.
 - **Keep non-emptiness:** `map`, `mapWithIndex`, `zip`, `zipWith`, `reverse`,
   `sort`, `sortBy`, `sortWith`, `distinct`, `scanLeft` (starting from a
-  value, its result always has one), `append` (`++` with a `NonEmpty` or a
-  `List` on either side; one of each gives a `NonEmpty`), `cons` (`x` in
-  front of a `List` gives a `NonEmpty`), `singleton`, `flatten` (of a
-  `NonEmpty (NonEmpty a)`), `flatMap`.
+  value, its result always has one), `append` (`++` with a `NonEmptyList` or a
+  `List` on either side; one of each gives a `NonEmptyList`), `cons` (`x` in
+  front of a `List` gives a `NonEmptyList`), `singleton`, `flatten` (of a
+  `NonEmptyList (NonEmptyList a)`), `flatMap`.
 - **Give a plain `List`:** `toList`, `filter`, `filterMap`, `take`, `drop`. These are `xs.toList.filter p` and so on, written out so dot
   notation finds them.
 - **The same as on the list:** `length` (and `lengthPos: 0 < xs.length`),
@@ -288,16 +290,16 @@ spelling. Effect-polymorphic as `List`'s are (`f: a → {e} b`).
 - **Instances:** `DecEq` and `Ord` (lexicographic, as `List`'s, so equal to
   comparing `toList`s), `Show` printing `[1, 2, 3]`, and `Each` if the
   `Each` ability's lists want it [estimate].
-- **Producers in std:** `List.splitBy` returns `List (NonEmpty a)` (its doc
-  already says no group is empty); `Map.groupBy` returns `Map k (NonEmpty
-  a)`; `Nat.digits` returns `NonEmpty Nat` (it has `Nat.digitsNonEmpty`
+- **Producers in std:** `List.splitBy` returns `List (NonEmptyList a)` (its doc
+  already says no group is empty); `Map.groupBy` returns `Map k (NonEmptyList
+  a)`; `Nat.digits` returns `NonEmptyList Nat` (it has `Nat.digitsNonEmpty`
   today). `Text.split` can't return an empty list either, but it is `Text`,
   and the parsers are §8.
 
 `List.maximum` and the others stay as they are: on a list that may be empty,
 `Option` is the right answer.
 
-## 7. Brackets for `NonEmpty`
+## 7. Brackets for `NonEmptyList`
 
 Today brackets are `List` only: a literal is checked against the expected
 type, and anything but a `List` falls back (crates/elab/src/check.rs:4006,
@@ -307,14 +309,14 @@ library's `Nil` and `Cons` by identity (crates/elab/src/lib.rs:4029-4052)
 
 Proposed, once the type exists:
 
-- **Literals.** Where a `NonEmpty a` is expected, `[a, b, c]` is `{ head = a,
+- **Literals.** Where a `NonEmptyList a` is expected, `[a, b, c]` is `{ head = a,
   tail = [b, c] }`, `[x, ..xs]` is `{ head = x, tail = xs }`, and a spread
-  first (`[..ys, z]`) is `ys ++ [z]` with the `NonEmpty` `++`. `[]` is an
-  error: "a `NonEmpty` has at least one element; this is empty" (a new code,
+  first (`[..ys, z]`) is `ys ++ [z]` with the `NonEmptyList` `++`. `[]` is an
+  error: "a `NonEmptyList` has at least one element; this is empty" (a new code,
   `E-NONEMPTY-EMPTY`, or `E-TYPE-MISMATCH` with that note). `[..xs]` alone
   where `xs` is a `List` is the same `E-TYPE-MISMATCH` as today, with a note
   to write `xs.toNonEmpty`.
-- **Patterns.** On a `NonEmpty`, `[x, ..xs]` is `{ head = x, tail = xs }`,
+- **Patterns.** On a `NonEmptyList`, `[x, ..xs]` is `{ head = x, tail = xs }`,
   `[x]` is `{ head = x, tail = [] }`, `[x, y, ..ys]` is `{ head = x, tail =
   [y, ..ys] }`; so coverage is the record's, and `[x, ..xs]` alone covers
   everything (no `[]` arm, and writing one is "can't be empty"). This needs
@@ -323,36 +325,36 @@ Proposed, once the type exists:
   need a known type (syntax.md, "Record patterns … when the type of what they
   match is known") **[checked]**, so the same rule applies.
 - **Goals and printing.** `{ head = x, tail = [y, ..ys] }` prints as `[x, y,
-  ..ys]` when it's a `NonEmpty`, as `list_literal` does for `Cons` chains
+  ..ys]` when it's a `NonEmptyList`, as `list_literal` does for `Cons` chains
   (crates/core/src/pretty.rs) [estimate].
 - **Where the type isn't known**, a literal stays a `List`, as now: `let xs :=
   [1, 2]` is a `List Nat`. No guessing.
 
 This is Haskell's `OverloadedLists` limited to one type, and total: `[]` is
 refused where Haskell's `fromList []` fails at run time. Stage 1 does not
-need it; it is what makes `NonEmpty` feel like a list rather than a record
+need it; it is what makes `NonEmptyList` feel like a list rather than a record
 (§13, N4).
 
 ## 8. Parsers
 
-`many1`, `sepBy1`, `lines`, `sections` and `grid` return `NonEmpty`:
+`many1`, `sepBy1`, `lines`, `sections` and `grid` return `NonEmptyList`:
 
 ```
-def Parse.many1 (parser: () → {Parse} a): {Parse} NonEmpty a :=
+def Parse.many1 (parser: () → {Parse} a): {Parse} NonEmptyList a :=
   let first := parser()
   { head = first, tail = Parse.many parser }
 ```
 
-and `grid` returns `NonEmpty (NonEmpty a)`. `Parse.repeat (atLeast := 1)`
+and `grid` returns `NonEmptyList (NonEmptyList a)`. `Parse.repeat (atLeast := 1)`
 keeps returning a `List` (its count is a value, not in the type).
 `Parse.takeWhile1` returns `Text`, unchanged.
 
 **Callers.** The survey counts about 50 uses in aoc/ and games/ (§10). Most
 call `.map`, `.length`, `.sumBy`, `.foldLeft` or `.all` on the result, which
-`NonEmpty` has under the same names, so they compile unchanged
+`NonEmptyList` has under the same names, so they compile unchanged
 [estimate]. Those that store the result in a record field typed `List` or
 pass it to a function taking a `List` either add `.toList` or, better,
-change the field to `NonEmpty`: that is the point (2024 day 7's `numbers`,
+change the field to `NonEmptyList`: that is the point (2024 day 7's `numbers`,
 day 6's `answers`). Migration cost doesn't count; the end state is the
 question, and in the end state a `many1` result that says it is non-empty is
 the better model.
@@ -367,30 +369,30 @@ is `[values.head, ..values.tail]` by computation, the proofs keep their shape
 **[checked]**, plus the days whose proofs `rewrite` with them; each is a
 mechanical restatement.
 
-The alternative is to keep the five returning `List` and add `many1NonEmpty`
+The alternative is to keep the five returning `List` and add `many1NonEmptyList`
 and so on. It saves the migration and leaves two names for one parser, and
 the `List` ones would still be the ones that model the data worse.
 
 ## 9. Proofs
 
-- **Through `toList`.** `NonEmpty.toList xs` is `[xs.head, ..xs.tail]`, a
+- **Through `toList`.** `NonEmptyList.toList xs` is `[xs.head, ..xs.tail]`, a
   `Cons` for every `xs`, known or not. So `List` functions compute on it
   one step: `xs.toList.foldLeft z f` is `xs.tail.foldLeft (f z xs.head) f`,
   `xs.toList.maximum` is `Some (xs.tail.foldLeft xs.head Ord.max)`, which is
-  `Some xs.maximum` by `rfl` **[checked]**. So each `NonEmpty` function gets
+  `Some xs.maximum` by `rfl` **[checked]**. So each `NonEmptyList` function gets
   one bridge lemma to its `List` twin, mostly `rfl` (`(xs.map f).toList =
   xs.toList.map f` is `rfl` **[checked]**), and through it every `List`
-  lemma: `NonEmpty.maximumMem: xs.maximum ∈ xs.toList` is
+  lemma: `NonEmptyList.maximumMem: xs.maximum ∈ xs.toList` is
   `List.maximumMem` applied to the bridge. That is the plan for std: state
-  `NonEmpty` facts through `toList` and the existing `List` lemmas, adding
+  `NonEmptyList` facts through `toList` and the existing `List` lemmas, adding
   direct ones only where they read better.
 - **`xs.toList ≠ []`** is `List.consNotNil xs.head xs.tail` (a scratch
   file **[checked]**). `toList` is injective, and `List.toNonEmpty` and
-  `toList` are inverse both ways, `rfl` from `NonEmpty` to `NonEmpty` and
+  `toList` are inverse both ways, `rfl` from `NonEmptyList` to `NonEmptyList` and
   by a match on the list the other way [estimate].
-- **Induction.** A `NonEmpty` isn't recursive; a proof matches `{ head, tail
+- **Induction.** A `NonEmptyList` isn't recursive; a proof matches `{ head, tail
   }` and inducts on `tail` as a `List`, or works on `toList`. Nothing new.
-- **`ext`.** `NonEmpty.ext` is generated, since both fields are data
+- **`ext`.** `NonEmptyList.ext` is generated, since both fields are data
   (syntax.md, Records, `T.ext`) [estimate].
 - **The kernel needs nothing.** It is a record of existing types. **The
   elaborator needs nothing for stages 1 and 2**; stage 3 (brackets) touches
@@ -417,7 +419,7 @@ The best, by how much the model improves (I read each of these; paths under
 
 1. **2020 day 6**, Year2020/Day06/Day06.sw:39, 65: `type Group = { people:
    List Person }` and `group.people.foldLeft (Set.fromList questions) (common
-   person => common.intersect person.answers)`. With `people: NonEmpty
+   person => common.intersect person.answers)`. With `people: NonEmptyList
    Person`, `people.map .answers |> .reduce Set.intersect`: no made-up "all
    26 questions", which would be the wrong answer for an empty group.
    Parsing the groups with `sections (() => lines person)` instead of
@@ -425,17 +427,17 @@ The best, by how much the model improves (I read each of these; paths under
    non-empty too.
 2. **2024 day 7**, Year2024/Day07/Day07.sw:32, 63-65: `numbers` from `many1`,
    then `match equation.numbers with | [] => False | [first, ..rest] => …`.
-   `numbers: NonEmpty Nat` removes the dead arm.
+   `numbers: NonEmptyList Nat` removes the dead arm.
 3. **2021 day 16**, Year2021/Day16/Day16.sw:46, 270-271: `subPackets: List
    Packet`, then `values.minimum.getOrElse 0`, `values.maximum.getOrElse 0`.
-   The puzzle promises at least one sub-packet; as `NonEmpty Packet` (nested
-   data through `NonEmpty` is accepted **[checked]**, §4 A) both are total.
+   The puzzle promises at least one sub-packet; as `NonEmptyList Packet` (nested
+   data through `NonEmptyList` is accepted **[checked]**, §4 A) both are total.
    `Literal`'s groups (`groups != []` in Spec/Spec.sw:77 and a hypothesis in
    Proofs/Sound.sw:36) likewise.
 4. **2021 day 7**, Year2021/Day07/Day07.sw:43-47: `rightmost` is
    `crabs.foldLeft 0 Nat.max` and `leftmost` starts from `rightmost crabs`,
    with a doc comment explaining what each means "when there are none". The
-   crabs come from `sepBy1`; as a `NonEmpty`, `crabs.maximum` and
+   crabs come from `sepBy1`; as a `NonEmptyList`, `crabs.maximum` and
    `crabs.minimum`, and the caveat goes.
 5. **2021 day 14**, Year2021/Day14/Day14.sw:113-121 (and Spec/Spec.sw:35):
    `match template with | [] => 0 | …` and `quantities.maximum.getOrElse 0 -
@@ -443,29 +445,29 @@ The best, by how much the model improves (I read each of these; paths under
    both defaults go.
 6. **Grid**, Common/Grid.sw:131-142: `rows: List (List a)` with the field
    `nonEmpty: (firstWidth rows == 0) = False`, where `firstWidth` is
-   `rows.headOr [] |> .length`. As `rows: NonEmpty (NonEmpty a)`, the field,
+   `rows.headOr [] |> .length`. As `rows: NonEmptyList (NonEmptyList a)`, the field,
    `Grid.of`'s `auto`, `Grid.widthNonZero`'s proof, the rewrite in `Grid.map`
    (:191) and in `checkGrid` (:220), and the `[auto nonEmpty: …]` helpers in
    the 2021 day 9, 11 and 15 tests all go; `width` is `rows.head.length`, and
    `widthNonZero` is `lengthPos`. Rectangularity stays a proposition.
 7. **2021 day 18**, Year2021/Day18/Day18.sw:104-106: `solvePart1: List Number
-   → Option Nat | [] => None | [first, ..rest] => …`. Given `NonEmpty
+   → Option Nat | [] => None | [first, ..rest] => …`. Given `NonEmptyList
    Number`, the sum is `numbers.reduce add`; the `Option` left is only the
    one for running out of steps.
 8. **2021 day 3**, Year2021/Day03/Day03.sw:37-38: `(numbers.headOr
-   Bits.empty).width`, with `bits` from `many1`. A `NonEmpty` report and
+   Bits.empty).width`, with `bits` from `many1`. A `NonEmptyList` report and
    `Bits` gives `numbers.head.width`, and `Bits.first` (Common/Bits.sw:35,
    `Option Bool`) becomes total.
 9. **2021 day 10**, Year2021/Day10/Day10.sw:105: `middle (scores) :=
    scores.sort.getOr (scores.length / 2) 0`, "0 for none", and
-   Proofs/Middle.sw:38 takes `(some: scores ≠ [])`. With `NonEmpty`,
+   Proofs/Middle.sw:38 takes `(some: scores ≠ [])`. With `NonEmptyList`,
    `scores.sort.middle` and no hypothesis.
 10. **2024 day 5**, Year2024/Day05/Day05.sw:64:
     `update.pages.getOr (update.pages.length / 2) 0`, pages from `sepBy1`:
     the same `middle`.
 11. **2024 day 21**, Year2024/Day21/Day21.sw:182: `choices.minBy
     costs.routeCost |> .getOrElse []`, where Proofs/Typing.sw:48 proves
-    `routes from to != []`. `routes` returning `NonEmpty` removes the
+    `routes from to != []`. `routes` returning `NonEmptyList` removes the
     fallback and the proof side conditions.
 12. **2025 day 9**, Year2025/Day09/Day09.sw:57: `def largest (areas: List
     Nat): Nat := areas.foldLeft 0 Nat.max`, "0 if there are none"; the same
@@ -476,7 +478,7 @@ The best, by how much the model improves (I read each of these; paths under
     wins") and stays.
 14. **Rogue**, games/rogue/src/Rogue/Generate.sw:57-60: `rooms.getOr index
     (rooms.headOr fallbackRoom)`, "Never used: `rooms` always has six." This
-    is a `Vec Area 6` (option D's right place) or at least a `NonEmpty Area`.
+    is a `Vec Area 6` (option D's right place) or at least a `NonEmptyList Area`.
     The rest of rogue's `getOrElse`s are on lists that really can be empty.
 15. **2024 day 19**, Year2024/Day19/Day19.sw:29, 64-73: `Pattern.stripes`
     from `many1`, and `waysForSuffixes`, which always returns `[1]` or
@@ -484,14 +486,14 @@ The best, by how much the model improves (I read each of these; paths under
 
 ## 11. Interactions
 
-- **JS boundary.** A `NonEmpty a` crosses as a record `{ head, tail }` by
+- **JS boundary.** A `NonEmptyList a` crosses as a record `{ head, tail }` by
   default (DESIGN.md §12). An array `[a, ...a[]]` in TypeScript, checked
   non-empty on the way in, would be nicer; a later, separate decision, not
   needed for std or aoc.
-- **Counterexample search** makes records of data, so `NonEmpty` values
+- **Counterexample search** makes records of data, so `NonEmptyList` values
   come for free [estimate], unlike a `≠ []` field (Grid's comment, §2).
-- **`Each` and effectful `map`.** `NonEmpty.map` takes `f: a → {e} b` as
-  `List.map` does; a `NonEmpty` in an `Each` block is its `toList`
+- **`Each` and effectful `map`.** `NonEmptyList.map` takes `f: a → {e} b` as
+  `List.map` does; a `NonEmptyList` in an `Each` block is its `toList`
   [estimate].
 - **Formatter, LSP.** Nothing for stages 1 and 2; brackets (stage 3) print
   through the same path as lists.
@@ -499,7 +501,7 @@ The best, by how much the model improves (I read each of these; paths under
 ## 12. Size and order of work
 
 1. **The type and its API** (§6), with bridge lemmas and `List.toNonEmpty`,
-   `List.nonEmpty`, in `std/List/NonEmpty.sw`; `Show`, `DecEq`, `Ord`
+   `List.nonEmpty`, in `std/NonEmptyList/NonEmptyList.sw`; `Show`, `DecEq`, `Ord`
    instances; tests; a syntax.md section and a proving-guide paragraph.
    Sonnet, about 4 hours.
 2. **std producers:** `List.splitBy`, `Map.groupBy`, `Nat.digits`, and the
@@ -523,18 +525,18 @@ Numbered N1 to N7 here; the orchestrator gives them D numbers.
   `[auto nonEmpty: xs ≠ []]` arguments on `List` functions; (d) `Vec a (n +
   1)`. **[rec: (a)]**
 - **N2. Name.** `NonEmpty` (Haskell, Agda's module), `List1` (Idris), or
-  `List⁺` (Agda's type; not ASCII). **[rec: `NonEmpty`]**
+  `List⁺` (Agda's type; not ASCII). **[rec: `NonEmptyList`]**
 - **N3. Bridges from `List`.** `List.toNonEmpty` with an `auto` proof and
   `List.nonEmpty` returning `Option`, and no proof-argument versions of
   `head`, `maximum` and the rest on `List`. **[rec: yes]**
 - **N4. Brackets.** `[a, b]` literals and `[x, ..xs]` patterns for a
-  `NonEmpty` where the type is known, `[]` refused there with its own error
+  `NonEmptyList` where the type is known, `[]` refused there with its own error
   (stage 3); or record syntax only. **[rec: yes, as stage 3]**
 - **N5. Parsers.** `many1`, `sepBy1`, `lines`, `sections` and `grid` return
-  `NonEmpty`, callers updated; or new `…NonEmpty` variants beside them.
+  `NonEmptyList`, callers updated; or new `…NonEmptyList` variants beside them.
   **[rec: change them]**
-- **N6. Other std producers.** `List.splitBy` → `List (NonEmpty a)`,
-  `Map.groupBy` → `Map k (NonEmpty a)`, `Nat.digits` → `NonEmpty Nat`.
+- **N6. Other std producers.** `List.splitBy` → `List (NonEmptyList a)`,
+  `Map.groupBy` → `Map k (NonEmptyList a)`, `Nat.digits` → `NonEmptyList Nat`.
   **[rec: yes, in stage 2]**
 - **N7. Sweeps.** Apply it to the §10 sites, the data types first (day 6's
   `Group`, Grid, 2024 day 7's `Equation`, 2021 day 16's `Packet`), with
