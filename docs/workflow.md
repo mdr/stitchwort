@@ -68,16 +68,19 @@ clones.
 
 ## Checks after a merge
 
-(D2221, Matt, 2 Nov 2026.) After each merge the orchestrator starts a
-background verifier, a Haiku agent, with a short brief: the merge commit,
+(D2221, Matt, 2 Nov 2026; batches since D2392, Matt, 5 Nov 2026.) The
+orchestrator merges every reviewed lane that is waiting in one go, then
+starts one background verifier over the batch, a Haiku agent, with a short brief: the merge commit,
 the exact commands to run on `main` (`nix develop -c task test:merge`,
 `nix develop -c task audit`, and for a proof lane `task audit:touched --
 <Namespace>` from the project's directory, e.g. `aoc/`), and nothing else.
 It runs them one after another, never in the background, changes nothing,
 and reports pass, or each failing test with the first lines of its output,
 plus the wall time and `uptime` before and after. The orchestrator carries
-on meanwhile, but doesn't merge again until the verifier has passed; a
-failure becomes a fix for an agent. Only one verifier runs at a time, and
+on meanwhile; lanes that finish wait for the next batch, so the tree
+doesn't change under the verifier. A failure becomes a fix for an agent,
+or the merge that caused it is reverted; bisecting a batch's merges is
+cheap, as nothing is pushed until Matt asks. Only one verifier runs at a time, and
 none while timing-sensitive work is running.
 
 After each merge the tests run are a selection that fits the change, not a
@@ -173,8 +176,7 @@ Pushing to GitHub happens only when Matt asks.
 ## Lanes and the task list
 
 Work runs in lanes (up to three at once), each in its own git worktree and
-branch ("Lane checkouts" above), merged into `main` one at a time (with `task test:merge` and
-`task audit` after each).
+branch ("Lane checkouts" above), merged into `main` in batches (with one verifier over each batch).
 The main session orchestrates: it chooses lanes, hands each to a background
 agent, then reviews, merges and keeps the board up to date. Agents move their
 own tickets as described in [board/README.md](../board/README.md).

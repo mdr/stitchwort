@@ -16,14 +16,17 @@ does not do significant work itself:
   branch, using the model that fits the work (below). Lanes use the agent
   types `sonnet-lane` and `opus-lane` (`.claude/agents/`), not
   `general-purpose`, so the agent list says what each one is.
-- It reviews every lane's diff before merging. It merges lanes into `main`
-  one at a time. The checks after a merge (a selection of tests that fits the change,
-  `task audit`, and `task audit:touched -- <Namespace>` for a proof lane;
-  the fixed `task test:merge` too when `core`, `elab` or `driver` change,
-  otherwise once per batch and before a push) are run by a background
-  verifier agent, so the orchestrator isn't tied up (D2221, D2255; see
-  "Checks after a merge" in `docs/workflow.md`). The next merge waits for
-  the verifier's pass.
+- It reviews every lane's diff before merging. Reviewed lanes are merged
+  as a batch: everything waiting goes into `main` together, then one
+  background verifier runs the checks over the batch (a selection of tests
+  that fits the changes, `task audit`, `task audit:touched -- <Namespace>`
+  for proof lanes, and `task test:merge` when `core`, `elab` or `driver`
+  changed). A failure is fixed, or the merge that caused it reverted,
+  afterwards. Lanes finishing while a verifier runs wait for the next batch,
+  so the tree doesn't change under it; nothing else waits (D2392, Matt,
+  5 Nov 2026: "we don't want to slow down the whole software factory
+  because of overcaution"; replaces D2221's one at a time; see "Checks
+  after a merge" in `docs/workflow.md`).
 - It keeps the board up to date (`board/board move`, `commit`, `add`). New
   findings go in `backlog`, unless they block work in progress.
 - It brings Matt the decisions that are his as D questions, numbered up from
