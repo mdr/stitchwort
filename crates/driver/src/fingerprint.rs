@@ -149,8 +149,8 @@ pub fn evaluation_fingerprint(root: &std::path::Path, rustc: &str, target: &str)
 }
 
 /// The Rust sources under `dir`, recursively. Not the standard library's
-/// `.sw` files: they aren't compiled in, and the caches key on the text read
-/// ([`crate::driver::build_fingerprint`]).
+/// `.sw` files: they aren't compiled in, and the caches key on the library
+/// text a unit uses (the check cache) or on a test's hash (the test cache).
 fn collect(dir: &std::path::Path, files: &mut Vec<std::path::PathBuf>) {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return;

@@ -22,15 +22,19 @@
 //!   full check. `Elaborator::admit_replayed` is the one place that submits
 //!   them.
 //! - **The key** (§4.2) is computed before anything is elaborated: the
-//!   compiler build, the format, the modes and limits that change results,
-//!   and the unit's text. For a library file: its path and text (and the
-//!   core's), and the keys of the library files it needs. For a project
-//!   namespace: the hash of its sources the host gives
-//!   ([`Elaborator::set_namespace_sources`]: its files' names and text, the
-//!   project's namespaces and `stitchwort.yaml`), the whole library's text,
-//!   and the keys of the namespaces it depends on (a Merkle chain). The
-//!   files it `include`s are listed in its entry with a hash of their
-//!   text, and read again to check them.
+//!   compiler build (Rust only: the library's text is not in it), the
+//!   format, the modes and limits that change results, the core's text and
+//!   the library's index of names ([`Elaborator::library_interface`]), and
+//!   the unit's text. For a library file: its path and text, and the keys
+//!   of the library files it needs. For a project namespace: the hash of
+//!   its sources the host gives ([`Elaborator::set_namespace_sources`]: its
+//!   files' names and text, the project's namespaces and `stitchwort.yaml`)
+//!   and the keys of the namespaces it depends on (a Merkle chain). Which
+//!   library files a namespace loads is only known once it is elaborated,
+//!   so its entry lists them with the key each had, and replay (and a plain
+//!   `check` deciding to leave the namespace out) first compares them
+//!   with the keys now. The files it `include`s are listed in its entry
+//!   with a hash of their text, and read again to check them.
 //! - **An entry that doesn't fit is a miss**: a corrupt one (checksum), one
 //!   for another key or cache directory (salt), one whose dependencies don't
 //!   have the expected hashes, or one the kernel refuses (whose effects are
@@ -70,7 +74,7 @@ use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 25;
+pub const FORMAT: u32 = 26;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -219,12 +223,20 @@ impl Elaborator {
 
     /// The key of library file `f` (§4.2), and of the files it needs.
     pub(crate) fn library_key(&self, f: usize) -> Key {
+        self.library_keys(&BTreeSet::from([f]))[&f]
+    }
+
+    /// The keys of the library files `roots` and every file they need: each
+    /// covers the file's own text and the keys of the files it needs, so a
+    /// change to a file's text changes the key of every file that reaches it.
+    fn library_keys(&self, roots: &BTreeSet<usize>) -> HashMap<usize, Key> {
         let index = self.library_index().expect("a library is installed");
         let store = self.options.check_cache.as_ref().expect("a cache is set");
+        let interface = self.library_interface();
         let mut keys: HashMap<usize, Key> = HashMap::default();
         // Dependencies first: the edges never form a cycle (the index is
         // checked), so a work list in post-order ends.
-        let mut stack = vec![(f, false)];
+        let mut stack: Vec<(usize, bool)> = roots.iter().map(|&f| (f, false)).collect();
         while let Some((file, ready)) = stack.pop() {
             if keys.contains_key(&file) {
                 continue;
@@ -243,7 +255,7 @@ impl Elaborator {
             part(&FORMAT.to_le_bytes());
             part(store.compiler().as_bytes());
             part(self.modes().as_bytes());
-            part(index.files[0].text.as_bytes());
+            part(&interface);
             part(index.files[file].path.as_bytes());
             part(index.files[file].text.as_bytes());
             for e in &index.files[file].edges {
@@ -251,7 +263,7 @@ impl Elaborator {
             }
             keys.insert(file, *h.finalize().as_bytes());
         }
-        keys[&f]
+        keys
     }
 
     /// Everything else that changes what elaborating a library file gives.
@@ -431,9 +443,27 @@ impl Elaborator {
             .collect();
         let head = self.read_head(body, &file_ids)?;
         self.includes_unchanged(&head.pre)?;
+        self.library_unchanged(&head.pre)?;
         let mut warnings = head.pre.warnings;
         warnings.retain(|d| d.code != crate::doc_links::CODE);
         Ok(warnings)
+    }
+
+    /// Whether the library files a namespace's entry says it loaded have
+    /// the keys they had: the text of each, and of every file it needs.
+    fn library_unchanged(&self, pre: &Pre) -> Read<()> {
+        let roots: BTreeSet<usize> = pre.library.iter().map(|&(f, _)| f).collect();
+        let keys = self.library_keys(&roots);
+        let index = self.library_index().expect("a library is installed");
+        for &(f, key) in &pre.library {
+            if keys[&f] != key {
+                return bad(format!(
+                    "the library file `{}` changed",
+                    index.files[f].path
+                ));
+            }
+        }
+        Ok(())
     }
 
     /// Whether the files a namespace's entry says it included are as they
@@ -471,21 +501,55 @@ impl Elaborator {
         self.cache_usable()
     }
 
-    /// A hash of every library file's path and text: a namespace may use
-    /// any of them.
-    fn library_digest(&self) -> Key {
-        *self.session.library_digest.get_or_init(|| {
+    /// What every unit's elaboration reads of the library whether or not it
+    /// loads any file: the core's text (always loaded) and the index of
+    /// names (path, key, kind and flags of each), which resolution, imports,
+    /// ambiguity and dot notation read. A new or removed name can make a
+    /// short name ambiguous, or an unqualified one resolve elsewhere, in a
+    /// unit that never mentions it; so it is part of every key. A change
+    /// to a file's text that leaves its names alone is not: that reaches
+    /// only the units that load the file (their keys cover the text of the
+    /// files they need, [`Self::library_keys`]). Computed once.
+    fn library_interface(&self) -> Key {
+        *self.session.library_interface_digest.get_or_init(|| {
             let mut h = blake3::Hasher::new();
+            let mut part = |bytes: &[u8]| {
+                h.update(&(bytes.len() as u64).to_le_bytes());
+                h.update(bytes);
+            };
             if let Some(index) = self.library_index() {
+                part(index.files[0].text.as_bytes());
                 for file in &index.files {
-                    for part in [file.path.as_bytes(), file.text.as_bytes()] {
-                        h.update(&(part.len() as u64).to_le_bytes());
-                        h.update(part);
+                    part(file.path.as_bytes());
+                    for n in &file.names {
+                        part(n.key.as_bytes());
+                        part(&[
+                            n.kind as u8,
+                            u8::from(n.follower),
+                            u8::from(n.function),
+                            u8::from(n.candidate),
+                        ]);
                     }
                 }
             }
             *h.finalize().as_bytes()
         })
+    }
+
+    /// The library files that `needs` names, as the roots of the files a
+    /// unit loads: every file it names, every target of each of its dot
+    /// calls (whether or not the dot call's type will have loaded it), and
+    /// the file of each definition whose equations it names. The core is
+    /// part of every key already.
+    fn needed_roots(&self, needs: &Needs) -> BTreeSet<usize> {
+        let index = self.library_index().expect("a library is installed");
+        let mut roots = needs.files.clone();
+        for field in &needs.dots {
+            roots.extend(index.dot_targets(field).iter().map(|t| t.file));
+        }
+        roots.extend(needs.equations.iter().filter_map(|k| index.owner(k)));
+        roots.remove(&0);
+        roots
     }
 
     /// The unit and key of project namespace `namespace`, about to be
@@ -504,7 +568,7 @@ impl Elaborator {
         };
         let source = self.session.namespace_sources.get(ns)?;
         let store = self.options.check_cache.as_ref()?;
-        let library = self.library_digest();
+        let library = self.library_interface();
         let mut h = blake3::Hasher::new();
         let mut part = |bytes: &[u8]| {
             h.update(&(bytes.len() as u64).to_le_bytes());
@@ -602,7 +666,7 @@ impl Elaborator {
                 .filter(|d| d.code != crate::doc_links::CODE)
                 .cloned()
                 .collect();
-            match self.encode_namespace(files, &capture, &cached, key, store.salt()) {
+            match self.encode_namespace(ns, files, &capture, &cached, key, store.salt()) {
                 Ok(entry) => {
                     store.write(unit, key, &entry);
                     self.session.cache_stats.namespace_written += 1;
@@ -677,6 +741,7 @@ impl Elaborator {
     /// `files`, or why it can't be cached (see [`Self::encode`]).
     fn encode_namespace(
         &self,
+        ns: &str,
         files: &[SourceUnit],
         capture: &Capture,
         warnings: &[Diagnostic],
@@ -750,6 +815,20 @@ impl Elaborator {
                 .collect(),
             dots: needs.dots.iter().cloned().collect(),
             equations: needs.equations.iter().cloned().collect(),
+            library: {
+                // And the files of the namespaces it depends on: `auto`'s
+                // candidates come from the module's reach, theirs included
+                // (their entries' keys don't change when such a file does).
+                let mut roots = self.needed_roots(needs);
+                if let Some(reach) = self.session.library_reach.get(ns) {
+                    roots.extend(reach.iter().copied().filter(|&f| f != 0));
+                }
+                let keys = self.library_keys(&roots);
+                roots
+                    .iter()
+                    .map(|&f| (index.files[f].path.clone(), keys[&f]))
+                    .collect()
+            },
             includes: self.unit.include_trace.borrow().clone(),
         };
         let unit = UnitOut {
@@ -789,6 +868,7 @@ impl Elaborator {
             .collect();
         let mut head = self.read_head(body, &file_ids).map_err(early)?;
         self.includes_unchanged(&head.pre).map_err(early)?;
+        self.library_unchanged(&head.pre).map_err(early)?;
 
         // From here on, as `elaborate_namespace_untimed` does.
         self.unit.namespace_root = format!("{ns}.");
@@ -1165,6 +1245,9 @@ struct PreOut {
     needs_files: Vec<String>,
     dots: Vec<String>,
     equations: Vec<String>,
+    /// The library files the namespace loads (roots, by path) with the key
+    /// each had: replay checks them before it changes anything.
+    library: Vec<(String, Key)>,
     includes: Vec<(String, Key)>,
 }
 
@@ -1376,6 +1459,11 @@ impl Elaborator {
         e.w.usize(pre.equations.len());
         for key in &pre.equations {
             e.str(key);
+        }
+        e.w.usize(pre.library.len());
+        for (path, key) in &pre.library {
+            e.str(path);
+            e.w.raw(key);
         }
         e.w.usize(pre.includes.len());
         for (path, hash) in &pre.includes {
@@ -2027,6 +2115,7 @@ impl Body<'_> {
 #[derive(Default)]
 struct Pre {
     needs: Needs,
+    library: Vec<(usize, Key)>,
     includes: Vec<(String, Key)>,
     early: Vec<(String, Span, bool)>,
     warnings: Vec<Diagnostic>,
@@ -2037,6 +2126,7 @@ impl Pre {
         self.needs.files.is_empty()
             && self.needs.dots.is_empty()
             && self.needs.equations.is_empty()
+            && self.library.is_empty()
             && self.includes.is_empty()
             && self.early.is_empty()
             && self.warnings.is_empty()
@@ -2119,6 +2209,14 @@ impl Elaborator {
         let n = body.count()?;
         for _ in 0..n {
             pre.needs.equations.insert(body.string()?);
+        }
+        let n = body.count()?;
+        for _ in 0..n {
+            let path = body.string()?;
+            match index.files.iter().position(|f| f.path == path) {
+                Some(f) => pre.library.push((f, body.r.array::<32>()?)),
+                None => return bad(format!("no library file `{path}`")),
+            }
         }
         let n = body.count()?;
         for _ in 0..n {

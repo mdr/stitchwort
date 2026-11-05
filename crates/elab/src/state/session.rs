@@ -74,9 +74,10 @@ pub struct Session {
     /// module needs, with those of the namespaces it depends on, as
     /// `ModuleState::library_reach` (`auto`). Shared with the marks.
     pub(crate) library_reach: Rc<BTreeMap<String, Rc<BTreeSet<usize>>>>,
-    /// A hash of the whole standard library's text, for the keys of
-    /// project namespaces. Computed once.
-    pub(crate) library_digest: OnceCell<cache::Key>,
+    /// What every unit's key holds of the library besides the text of the
+    /// files it loads (`cache::Elaborator::library_interface`). Computed
+    /// once.
+    pub(crate) library_interface_digest: OnceCell<cache::Key>,
     /// What the postponement queue and the unifier counted.
     pub(crate) stats: Arc<Stats>,
     /// Which unit made each declaration, and which is being elaborated
@@ -128,7 +129,7 @@ impl Session {
             standalone_inputs: _,
             instance_waits: _,
             cache_stats: _,
-            library_digest: _,
+            library_interface_digest: _,
             stats: _,
         } = self;
         Mark {
@@ -165,7 +166,7 @@ impl Session {
             standalone_inputs: _,
             instance_waits: _,
             cache_stats: _,
-            library_digest: _,
+            library_interface_digest: _,
             stats: _,
         } = self;
         *project_namespaces = mark.project_namespaces.clone();
