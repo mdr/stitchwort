@@ -6,10 +6,12 @@
 // Each request is { id, module, action, ... }, where `module` is the compiled
 // WebAssembly module (compiled once by the page, so a fresh worker starts
 // quickly). The reply is { id, out } with the compiler's parsed JSON, or
-// { id, crashed: true, error }. While a run is going, each line it prints is
-// sent as { id, output } as soon as it's printed: the run may be stopped at
-// any time, and the worker can't send anything later, being busy until the
-// run ends.
+// { id, crashed: true, error }. While a run is going, what it prints is sent
+// as { id, output } messages: the run may be stopped at any time, and the
+// worker can't send anything later, being busy until the run ends. A message
+// per line costs far more than the printing (hundreds of thousands of
+// messages queue up in the page), so a burst of lines goes in one message;
+// see `outputSink`.
 
 // The bindings are imported with the worker's own `?v=…`, so they always
 // come from the same page load as the worker (see index.html). They're
@@ -32,6 +34,35 @@ let stdLoaded = null;
 //               read (Ctrl-C is [3]), close the input if asked, and run on
 //   live-stop   drop the run
 let live = null;
+
+// The most a message holds before it's sent, and the quiet time after which
+// the next print is sent at once. The worker is busy while a run goes on and
+// has no timer to flush with, so text printed in a burst waits until the next
+// print after that interval, or until the request ends.
+const OUTPUT_BATCH = 64 * 1024;
+const OUTPUT_QUIET_MS = 16;
+
+/**
+ * The run's `sink`: a `write(text)` that batches, and a `flush()` that must
+ * be called before the request's reply, so the output stays ahead of it (and
+ * of the error or the wait for input that ends the run).
+ */
+function outputSink(id) {
+  let buffered = "";
+  let lastSent = performance.now();
+  const flush = () => {
+    if (buffered) self.postMessage({ id, output: buffered });
+    buffered = "";
+    lastSent = performance.now();
+  };
+  return {
+    write(text) {
+      buffered += text;
+      if (buffered.length >= OUTPUT_BATCH || performance.now() - lastSent >= OUTPUT_QUIET_MS) flush();
+    },
+    flush,
+  };
+}
 
 function liveRequest(b, data, sink) {
   const done = () => { live?.free(); live = null; };
@@ -67,9 +98,15 @@ self.onmessage = async ({ data }) => {
       .then((r) => { if (!r.ok) throw new Error(`std.bundle: HTTP ${r.status}`); return r.arrayBuffer(); })
       .then((bytes) => b.load_std(new Uint8Array(bytes)));
     await stdLoaded;
-    const sink = { write: (output) => self.postMessage({ id: data.id, output }) };
+    const sink = outputSink(data.id);
     if (data.action.startsWith("live-")) {
-      self.postMessage({ id: data.id, out: liveRequest(b, data, sink) });
+      let out;
+      try {
+        out = liveRequest(b, data, sink);
+      } finally {
+        sink.flush();
+      }
+      self.postMessage({ id: data.id, out });
       return;
     }
     // A request with `paths` is for a project: the files are `paths` and
@@ -99,7 +136,13 @@ self.onmessage = async ({ data }) => {
       format: () => b.format(data.source),
       run: () => b.run_streaming(data.source, data.input, data.maxOutput, sink),
     }[data.action];
-    self.postMessage({ id: data.id, out: JSON.parse(answer()) });
+    let out;
+    try {
+      out = JSON.parse(answer());
+    } finally {
+      sink.flush();
+    }
+    self.postMessage({ id: data.id, out });
   } catch (e) {
     self.postMessage({ id: data.id, crashed: true, error: `${e?.name ?? "Error"}: ${e?.message ?? e}` });
   }
