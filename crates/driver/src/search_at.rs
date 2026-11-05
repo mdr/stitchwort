@@ -1608,6 +1608,14 @@ impl Files for Overlay<'_> {
     fn include_files(&self) -> Option<Rc<dyn stitchwort_elab::project::IncludeFiles>> {
         self.base.include_files()
     }
+    fn config(
+        &self,
+        text: &str,
+        display: &str,
+        sources: &mut stitchwort_syntax::SourceMap,
+    ) -> Result<crate::project::Config, stitchwort_syntax::Diagnostic> {
+        self.base.config(text, display, sources)
+    }
 }
 
 /// A goal in a file of a project, for [`Session::search_at_project`].

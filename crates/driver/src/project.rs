@@ -1121,7 +1121,7 @@ struct RawAudit {
 }
 
 /// What `stitchwort.yaml` says (docs/proposals/multi-file.md §5).
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Config {
     /// Normalised, relative to the project folder; "" is the project folder.
     pub sources: Vec<String>,
@@ -1305,6 +1305,21 @@ pub trait Files {
     fn include_files(&self) -> Option<std::rc::Rc<dyn stitchwort_elab::project::IncludeFiles>> {
         None
     }
+
+    /// Parses the project's configuration, `text` (what `read` gives for
+    /// `stitchwort.yaml`), adding it to `sources` as `display` so that its
+    /// errors show their line. Files whose configuration is known already
+    /// (the playground's) override this, which keeps the YAML parser out of
+    /// a build that never reads a `stitchwort.yaml`.
+    fn config(
+        &self,
+        text: &str,
+        display: &str,
+        sources: &mut SourceMap,
+    ) -> Result<Config, Diagnostic> {
+        let id = sources.add(display, text);
+        parse_config(id, display, text)
+    }
 }
 
 /// A project on disk.
@@ -1433,8 +1448,9 @@ pub fn project_sources(
             format!("can't read `{display}`: {e}"),
         )]
     })?;
-    let id = sources.add(display.clone(), text.clone());
-    let config = parse_config(id, &display, &text).map_err(|d| vec![d])?;
+    let config = files
+        .config(&text, &display, sources)
+        .map_err(|d| vec![d])?;
     let mut found: BTreeMap<String, String> = BTreeMap::new();
     let mut errors = Vec::new();
     for root in &config.sources {

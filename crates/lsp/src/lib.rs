@@ -44,13 +44,15 @@ use stitchwort_driver::driver::Session;
 use stitchwort_driver::live::{
     Answers, FileAnswers, LiveFile, LiveProject, LiveRef, Loc, OutlineItem, Place, Progress,
 };
-use stitchwort_driver::project::{DiskFiles, find_project, parse_config, project_sources};
 use stitchwort_elab::cache::{Key, Store};
 use stitchwort_syntax::{Severity, SourceMap};
 
 use stitchwort_core::budget::Instant;
 #[cfg(target_family = "wasm")]
 use wasm::FileUrl as _;
+
+mod source;
+pub use source::{Disk, Memory, MemoryProject, ProjectFiles, Source};
 
 /// The URI scheme of the embedded library's files, which the client shows
 /// read-only (`stitchwort-std:List/Toolkit.sw`; its text is what
@@ -155,8 +157,18 @@ fn initialize(params: &serde_json::Value, options: &mut Options) -> (serde_json:
     (reply, document_changes)
 }
 
-/// Serves LSP on `connection`, from `initialize` to `exit`.
-pub fn serve(connection: Connection, mut options: Options) -> Result<(), String> {
+/// Serves LSP on `connection`, from `initialize` to `exit`, reading files
+/// from the disk.
+pub fn serve(connection: Connection, options: Options) -> Result<(), String> {
+    serve_from(connection, options, Arc::new(Disk))
+}
+
+/// [`serve`], reading files from `source`.
+pub fn serve_from(
+    connection: Connection,
+    mut options: Options,
+    source: Arc<dyn Source>,
+) -> Result<(), String> {
     let (id, params) = connection.initialize_start().map_err(|e| e.to_string())?;
     let (reply, document_changes) = initialize(&params, &mut options);
     connection
@@ -183,10 +195,11 @@ pub fn serve(connection: Connection, mut options: Options) -> Result<(), String>
         let cancel = cancel.clone();
         let sender = connection.sender.clone();
         let options = options.clone();
+        let source = source.clone();
         std::thread::Builder::new()
             .name("stitchwort-checker".into())
             .stack_size(options.stack)
-            .spawn(move || Checker::new(options, sender, nav, cancel).run(edits))
+            .spawn(move || Checker::new(options, source, sender, nav, cancel).run(edits))
             .map_err(|e| e.to_string())?
     };
     let searches = Arc::new(Searches::default());
@@ -207,6 +220,7 @@ pub fn serve(connection: Connection, mut options: Options) -> Result<(), String>
     drop(jobs);
     let main = Main {
         connection,
+        source,
         nav,
         cancel,
         to_checker,
@@ -437,6 +451,7 @@ struct SearchTarget {
 
 struct Main {
     connection: Connection,
+    source: Arc<dyn Source>,
     nav: Arc<RwLock<Nav>>,
     cancel: Arc<AtomicBool>,
     to_checker: Sender<Edit>,
@@ -515,16 +530,19 @@ impl Main {
             return;
         };
         let stack = self.stack;
+        let source = self.source.clone();
         let search = pos::action_options(self.wanted);
         let document_changes = self.document_changes;
         self.queue_search(id, &uri.clone(), "codeAction", move |version| {
             let versioned = document_changes.then_some(version);
             Box::new(move |cancel| match target.project {
                 Some((root, relative, open)) => project_closing_actions(
-                    stack, &uri, &root, &relative, open, range, versioned, cancel, &search,
+                    stack, &*source, &uri, &root, &relative, open, range, versioned, cancel,
+                    &search,
                 ),
                 None => closing_actions(
                     stack,
+                    &*source,
                     &uri,
                     &target.path,
                     &target.text,
@@ -556,6 +574,7 @@ impl Main {
             return;
         };
         let stack = self.stack;
+        let source = self.source.clone();
         let (line, character) = (p.position.line, p.position.character);
         self.queue_search(id, &uri, "contextAt", move |_| {
             Box::new(move |cancel| {
@@ -563,15 +582,15 @@ impl Main {
                 session.share_cancel_flag(cancel);
                 let found = match target.project {
                     Some((root, relative, open)) => {
-                        let disk = DiskFiles { root: root.clone() };
+                        let base = source.files(&root);
                         let files = stitchwort_driver::search_at::Overlay {
-                            base: &disk,
+                            base: &*base,
                             texts: open,
                         };
                         let name = root
                             .file_name()
                             .map_or("project".to_string(), |n| n.to_string_lossy().into_owned());
-                        let cache = cache_dir(&root);
+                        let cache = source.project_cache(&root);
                         session.context_at_project(
                             &name,
                             &files,
@@ -620,8 +639,8 @@ impl Main {
         let project = {
             let nav = self.nav.read().unwrap_or_else(|e| e.into_inner());
             // A project's file: its folder and its path in it.
-            locate(&nav, uri).and_then(|(root, _, place)| match place {
-                Place::Program(relative) if root.is_dir() => Some((root.to_path_buf(), relative)),
+            locate(&nav, uri).and_then(|(root, ws, place)| match place {
+                Place::Program(relative) if ws.project => Some((root.to_path_buf(), relative)),
                 _ => None,
             })
         };
@@ -860,7 +879,7 @@ impl Main {
         if let Some(text) = self.texts.borrow().get(uri).cloned() {
             return Some(text);
         }
-        std::fs::read_to_string(uri.to_file_path().ok()?).ok()
+        self.source.read(&uri.to_file_path().ok()?)
     }
 
     fn answer(&self, request: Request) -> Response {
@@ -871,9 +890,9 @@ impl Main {
                 .map(|p| {
                     let at = p.text_document_position_params;
                     let uri = &at.text_document.uri;
-                    let include = self
-                        .text(uri)
-                        .and_then(|text| include_definition(&nav, uri, &text, at.position));
+                    let include = self.text(uri).and_then(|text| {
+                        include_definition(&*self.source, &nav, uri, &text, at.position)
+                    });
                     let found = lookup(&nav, uri, at.position);
                     let location = include
                         .or_else(|| found.and_then(|(root, ws, r)| ws.location(root, &r.target)));
@@ -883,7 +902,7 @@ impl Main {
                 parse::<lsp_types::DocumentLinkParams>(&request).map(|p| {
                     let uri = p.text_document.uri;
                     let text = self.text(&uri);
-                    serde_json::to_value(document_links(&nav, &uri, text.as_deref()))
+                    serde_json::to_value(document_links(&*self.source, &nav, &uri, text.as_deref()))
                 })
             }
             request::HoverRequest::METHOD => parse::<lsp_types::HoverParams>(&request).map(|p| {
@@ -1153,7 +1172,13 @@ fn includes(text: &str) -> Vec<(String, stitchwort_syntax::Span)> {
 /// Where an `include` in the program file `place` of workspace `root`
 /// points: the file's URI, if the path stays inside the include root and
 /// the file can be read, as the checker requires.
-fn include_target(root: &Path, project: bool, place: &Place, path: &str) -> Option<Url> {
+fn include_target(
+    source: &dyn Source,
+    root: &Path,
+    project: bool,
+    place: &Place,
+    path: &str,
+) -> Option<Url> {
     let (from, folder): (&str, &Path) = match place {
         Place::Program(from) if project => (from, root),
         Place::Program(from) => (
@@ -1163,15 +1188,17 @@ fn include_target(root: &Path, project: bool, place: &Place, path: &str) -> Opti
         Place::Library(_) => return None,
     };
     let full = stitchwort_elab::project::resolve_include(from, path)?;
-    let files = DiskFiles {
-        root: folder.to_path_buf(),
-    };
-    stitchwort_elab::project::IncludeFiles::read(&files, &full).ok()?;
+    source.files(folder).include_files()?.read(&full).ok()?;
     Url::from_file_path(folder.join(full)).ok()
 }
 
 /// The document links for the `include`s in `text`.
-fn document_links(nav: &Nav, uri: &Url, text: Option<&str>) -> Vec<DocumentLink> {
+fn document_links(
+    source: &dyn Source,
+    nav: &Nav,
+    uri: &Url,
+    text: Option<&str>,
+) -> Vec<DocumentLink> {
     let Some(text) = text else {
         return Vec::new();
     };
@@ -1181,7 +1208,7 @@ fn document_links(nav: &Nav, uri: &Url, text: Option<&str>) -> Vec<DocumentLink>
     includes(text)
         .into_iter()
         .filter_map(|(path, span)| {
-            let target = include_target(root, ws.project, &place, &path)?;
+            let target = include_target(source, root, ws.project, &place, &path)?;
             Some(DocumentLink {
                 range: lsp_types::Range::new(
                     position_at(text, span.start as usize),
@@ -1196,13 +1223,19 @@ fn document_links(nav: &Nav, uri: &Url, text: Option<&str>) -> Vec<DocumentLink>
 }
 
 /// The definition of an `include` string at `at`: the included file's start.
-fn include_definition(nav: &Nav, uri: &Url, text: &str, at: Position) -> Option<Location> {
+fn include_definition(
+    source: &dyn Source,
+    nav: &Nav,
+    uri: &Url,
+    text: &str,
+    at: Position,
+) -> Option<Location> {
     let (root, ws, place) = program_at(nav, uri)?;
     let offset = offset_at(text, at);
     let (path, _) = includes(text)
         .into_iter()
         .find(|(_, span)| span.start as usize <= offset && offset < span.end as usize)?;
-    let target = include_target(root, ws.project, &place, &path)?;
+    let target = include_target(source, root, ws.project, &place, &path)?;
     Some(Location::new(
         target,
         lsp_types::Range::new(Position::new(0, 0), Position::new(0, 0)),
@@ -1483,6 +1516,7 @@ impl Work {
 
 struct Checker {
     options: Options,
+    source: Arc<dyn Source>,
     sender: Sender<Message>,
     nav: Arc<RwLock<Nav>>,
     cancel: Arc<AtomicBool>,
@@ -1502,12 +1536,14 @@ struct Checker {
 impl Checker {
     fn new(
         options: Options,
+        source: Arc<dyn Source>,
         sender: Sender<Message>,
         nav: Arc<RwLock<Nav>>,
         cancel: Arc<AtomicBool>,
     ) -> Self {
         Checker {
             options,
+            source,
             sender,
             nav,
             cancel,
@@ -1757,7 +1793,7 @@ impl Checker {
                     self.forget(&path);
                     return;
                 }
-                let disk = std::fs::read_to_string(&path).ok();
+                let disk = self.source.read(&path);
                 self.set_text(&path, disk, false);
                 if let Some((key, relative)) = self.project_of(&path)
                     && let Some(Work::Project(p)) = self.work.get_mut(&key)
@@ -1766,7 +1802,7 @@ impl Checker {
                 }
             }
             Edit::Saved { path, text } => {
-                let text = text.or_else(|| std::fs::read_to_string(&path).ok());
+                let text = text.or_else(|| self.source.read(&path));
                 if let Some((key, relative)) = self.project_of(&path)
                     && let Some(Work::Project(p)) = self.work.get_mut(&key)
                     && p.disk.contains_key(&relative)
@@ -1776,7 +1812,7 @@ impl Checker {
             }
             Edit::Disk { path } => {
                 let open = self.versions.contains_key(&path);
-                let disk = std::fs::read_to_string(&path).ok();
+                let disk = self.source.read(&path);
                 if let Some((key, relative)) = self.project_of(&path)
                     && let Some(Work::Project(p)) = self.work.get_mut(&key)
                 {
@@ -1811,8 +1847,7 @@ impl Checker {
                 return;
             };
             if edited && !p.disk.contains_key(&relative) {
-                p.disk
-                    .insert(relative.clone(), std::fs::read_to_string(path).ok());
+                p.disk.insert(relative.clone(), self.source.read(path));
             }
             p.live.set_text(&relative, text);
             if edited {
@@ -1831,7 +1866,7 @@ impl Checker {
     /// its own.
     fn open_workspace(&mut self, path: &Path) {
         let folder = path.parent().unwrap_or(Path::new("/"));
-        if let Some(dir) = find_project(folder)
+        if let Some(dir) = self.source.find_project(folder)
             && !self.work.contains_key(&dir)
             && let Some(work) = self.load_project(&dir)
             && relative(&dir, path).is_some_and(|r| work.holds(&r))
@@ -1842,60 +1877,40 @@ impl Checker {
         let mut session = Session::navigable_for_stack(self.options.stack);
         session.elab.enable_expression_types();
         session.share_cancel_flag(self.cancel.clone());
-        let include: Option<(Rc<dyn stitchwort_elab::project::IncludeFiles>, String)> =
-            path.file_name().and_then(|n| n.to_str()).map(|name| {
-                let files: Rc<dyn stitchwort_elab::project::IncludeFiles> = Rc::new(DiskFiles {
-                    root: folder.to_path_buf(),
-                });
-                (files, name.to_string())
-            });
+        let include: Option<(Rc<dyn stitchwort_elab::project::IncludeFiles>, String)> = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .and_then(|name| Some((self.source.files(folder).include_files()?, name.to_string())));
         let name = path.to_string_lossy().into_owned();
-        let text = std::fs::read_to_string(path).unwrap_or_default();
+        let text = self.source.read(path).unwrap_or_default();
         let live = LiveFile::new(session, &name, text, include);
         self.work
             .insert(path.to_path_buf(), Work::File(Box::new(live)));
     }
 
-    /// Reads the project in folder `dir`, from disk.
+    /// Reads the project in folder `dir`.
     fn load_project(&self, dir: &Path) -> Option<ProjectWork> {
         let name = dir
             .file_name()
             .map_or("project".to_string(), |n| n.to_string_lossy().into_owned());
-        let files = DiskFiles {
-            root: dir.to_path_buf(),
-        };
-        let mut sources = SourceMap::new();
-        let found = match project_sources(&files, &name, &mut sources) {
-            Ok(found) => found,
-            Err(errors) => {
-                for e in errors {
-                    eprintln!("stitchwort lsp: {}: {}", dir.display(), e.message);
-                }
-                return None;
-            }
-        };
-        let config_text = std::fs::read_to_string(dir.join("stitchwort.yaml")).ok();
-        let config = config_text.as_deref().and_then(|text| {
-            let id = sources.add("stitchwort.yaml", text);
-            parse_config(id, "stitchwort.yaml", text).ok()
-        })?;
+        let project = self.source.project(dir)?;
         let mut session = Session::navigable_for_stack(self.options.stack);
         session.elab.enable_expression_types();
         session.share_cancel_flag(self.cancel.clone());
         let writable = Rc::new(Cell::new(true));
-        if let Some(cache) = cache_dir(dir) {
+        if let Some(cache) = self.source.project_cache(dir) {
             session.elab.set_check_cache(Rc::new(GatedCache {
                 inner: CheckCache::at(&cache),
                 writable: writable.clone(),
             }));
         }
-        session.include_from(Rc::new(DiskFiles {
-            root: dir.to_path_buf(),
-        }));
-        let live = LiveProject::new(session, &name, config_text, found.into_iter().collect());
+        if let Some(include) = self.source.files(dir).include_files() {
+            session.include_from(include);
+        }
+        let live = LiveProject::new(session, &name, project.config, project.files);
         Some(ProjectWork {
             live,
-            sources: config
+            sources: project
                 .sources
                 .iter()
                 .map(|s| s.trim_end_matches('/').to_string())
@@ -1927,8 +1942,9 @@ pub struct Inline {
 }
 
 impl Inline {
-    /// A server; the standard library must be loaded already.
-    pub fn new(options: Options) -> Result<Self, String> {
+    /// A server reading files from `source`; the standard library must be
+    /// loaded already.
+    pub fn new(options: Options, source: Arc<dyn Source>) -> Result<Self, String> {
         stitchwort_elab::load_std_text()?;
         let (server, client) = Connection::memory();
         let nav = Arc::new(RwLock::new(Nav::default()));
@@ -1937,12 +1953,14 @@ impl Inline {
         let (to_searches, jobs) = crossbeam_channel::unbounded::<SearchJob>();
         let checker = Checker::new(
             options.clone(),
+            source.clone(),
             server.sender.clone(),
             nav.clone(),
             cancel.clone(),
         );
         let main = Main {
             connection: server,
+            source,
             nav,
             cancel,
             to_checker,
@@ -2092,15 +2110,6 @@ fn relative(dir: &Path, path: &Path) -> Option<String> {
     Some(parts?.join("/"))
 }
 
-/// `.stitchwort/cache` in the project folder, as the command line uses.
-fn cache_dir(dir: &Path) -> Option<PathBuf> {
-    let stitchwort = dir.join(".stitchwort");
-    if !stitchwort.exists() && std::fs::create_dir_all(&stitchwort).is_ok() {
-        let _ = std::fs::write(stitchwort.join(".gitignore"), "*\n");
-    }
-    Some(stitchwort.join("cache"))
-}
-
 /// A diagnostic for the client: the message, then the first label's
 /// explanation and the notes, one per line (as the extension showed them).
 fn diagnostic(
@@ -2150,8 +2159,10 @@ fn diagnostic(
 
 /// The code actions that replace the goal `?` at `range` of `text` (the
 /// file at `path`, on its own) with a proof that closes it.
+#[allow(clippy::too_many_arguments)]
 fn closing_actions(
     stack: usize,
+    source: &dyn Source,
     uri: &Url,
     path: &Path,
     text: &str,
@@ -2163,10 +2174,7 @@ fn closing_actions(
         .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("file.sw");
-    let cache = path
-        .parent()
-        .map(|dir| dir.join(".stitchwort").join("cache"))
-        .filter(|dir| dir.is_dir());
+    let cache = path.parent().and_then(|dir| source.file_cache(dir));
     let found = pos::actions_at_text(stack, name, text, ranged(range), options, cache.as_deref());
     code_actions(found, uri, range, versioned)
 }
@@ -2177,6 +2185,7 @@ fn closing_actions(
 #[allow(clippy::too_many_arguments)]
 fn project_closing_actions(
     stack: usize,
+    source: &dyn Source,
     uri: &Url,
     root: &Path,
     relative: &str,
@@ -2190,17 +2199,15 @@ fn project_closing_actions(
     let Some(text) = open.get(relative).cloned() else {
         return serde_json::Value::Null;
     };
-    let disk = DiskFiles {
-        root: root.to_path_buf(),
-    };
+    let base = source.files(root);
     let files = Overlay {
-        base: &disk,
+        base: &*base,
         texts: open,
     };
     let name = root
         .file_name()
         .map_or("project".to_string(), |n| n.to_string_lossy().into_owned());
-    let cache = cache_dir(root);
+    let cache = source.project_cache(root);
     let mut session = Session::for_stack(stack);
     session.share_cancel_flag(cancel);
     let found = session.actions_at_project(
