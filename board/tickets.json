@@ -7222,7 +7222,7 @@
     {
       "id": 1348,
       "title": "Feature tour page for chained comparisons (lo <= x <= hi), and the guide check for SW-1341's paragraph",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1348",
       "labels": [
