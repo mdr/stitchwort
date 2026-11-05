@@ -19,9 +19,9 @@ theorem Nat.iterateSuccLast (f: a → a): (n: Nat) → (x: a) → Nat.iterate (S
   | Succ n, x => Nat.iterateSuccLast f n (f x)
 
 --| Iterating two functions that agree everywhere gives the same result.
-theorem Nat.iterateCong (f: a → a) (g: a → a) (same: (x: a) → f x = g x): (n: Nat) → (x: a) → Nat.iterate n f x = Nat.iterate n g x
-  | Zero, x => rfl
-  | Succ n, x => rewrite same x in Nat.iterateCong f g same n (g x)
+theorem Nat.iterateCong: (count: Nat) → (f1: a → a) → (f2: a → a) → (seed: a) → (same: (x: a) → f1 x = f2 x) → Nat.iterate count f1 seed = Nat.iterate count f2 seed
+  | Zero, f1, f2, seed, same => rfl
+  | Succ n, f1, f2, seed, same => rewrite same seed, Nat.iterateCong n f1 f2 (f2 seed) same
 
 --| A property every step keeps holds after any number of steps.
 theorem Nat.iterateKeeps (f: a → a) (keep: a → Prop) (kept: (x: a) → keep x → keep (f x)): (n: Nat) → (x: a) → keep x → keep (Nat.iterate n f x)

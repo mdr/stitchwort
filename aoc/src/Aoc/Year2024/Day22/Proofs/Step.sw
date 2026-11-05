@@ -40,4 +40,4 @@ theorem nextSecretEvolves (secret: Nat): nextSecret secret = evolve secret :=
 
 theorem part1Correct (buyers: List Nat): solvePart1 buyers = part1 buyers :=
   List.sumByCong buyers (buyer => Nat.iterate 2000 nextSecret buyer) (buyer => Nat.iterate 2000 evolve buyer)
-    (buyer => Nat.iterateCong nextSecret evolve nextSecretEvolves 2000 buyer)
+    (buyer => Nat.iterateCong 2000 nextSecret evolve buyer nextSecretEvolves)
