@@ -7648,7 +7648,7 @@
       "labels": [
         "playground"
       ],
-      "body": "D2415-D2421 approved by Matt, 5 Nov 2026 (see SW-1118). docs/proposals/playground-editor.md.",
+      "body": "D2415-D2421 approved by Matt, 5 Nov 2026 (see SW-1118). docs/proposals/playground-editor.md.\n\nD2423 (Matt, 5 Nov 2026): yes, build the playground editor on the shared language server (SW-1375's trial), with small page glue only where the client has no UI (code actions, goals panel).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
