@@ -1,5 +1,5 @@
 {
-  "next": 1373,
+  "next": 1375,
   "tickets": [
     {
       "id": 47,
@@ -7530,13 +7530,13 @@
     {
       "id": 1370,
       "title": "2021 day 16: operands fit their operation in the packet type (Many (NonEmptyList Packet) | Pair Packet Packet); drop checkOperators, promised and fallback arms",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1370",
       "labels": [
         "aoc"
       ],
-      "body": "From SW-1346, 5 Nov 2026. Small improvement (Matt: 'a fan of doing small improvements').\n\nD2414 (Matt, 5 Nov 2026): option C, agreed. Puzzle part 1: 'An operator packet contains one or more packets.'; part 2: comparisons 'always have exactly two sub-packets'. So: an operator's sub-packets are Many (NonEmptyList Packet) for sum/product/min/max, Pair for comparisons, checked once while decoding; checkOperators, Spec.promised and the getOrElse/fallback arms go; part2Correct loses its promised hypothesis; bit encoding unchanged. Spec comment 'a sum or product of none is 0 or 1' goes. Artifact: https://claude.ai/artifact/LCKFfEmB5pYMcUXM9BeybN. Sonnet ~1-1.5 h, Opus review. Next free slot.",
+      "body": "From SW-1346, 5 Nov 2026. Small improvement (Matt: 'a fan of doing small improvements').\n\nD2414 (Matt, 5 Nov 2026): option C, agreed. Puzzle part 1: 'An operator packet contains one or more packets.'; part 2: comparisons 'always have exactly two sub-packets'. So: an operator's sub-packets are Many (NonEmptyList Packet) for sum/product/min/max, Pair for comparisons, checked once while decoding; checkOperators, Spec.promised and the getOrElse/fallback arms go; part2Correct loses its promised hypothesis; bit encoding unchanged. Spec comment 'a sum or product of none is 0 or 1' goes. Artifact: https://claude.ai/artifact/LCKFfEmB5pYMcUXM9BeybN. Sonnet ~1-1.5 h, Opus review. Next free slot.\n\nDone on lane/SW-1370 (4956a48c8): Operation = Sum|Product|Minimum|Maximum with operands: NonEmptyList Packet; Comparison = GreaterThan|LessThan|EqualTo as Comparator first second. checkOperators, arity, promised, fallback arms removed; part2Correct, evaluateCorrect lose promised (stronger); bits unchanged; answers 901 / 110434737925. Opus review next. Model result: Sonnet, worked (pending review), 25 min (est. 90).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7565,6 +7565,34 @@
         "aoc"
       ],
       "body": "From SW-1365, 5 Nov 2026. Small improvement. DeepSeek-sized.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1373,
+      "title": "2021 day 16: decode failures name the problem again (operator type and count), by threading a Result through readPackets, Sound and Complete; SW-1370 left a generic message",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "From SW-1370, 5 Nov 2026. Small improvement.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1374,
+      "title": "Deriving DecEq through NonEmptyList (a type that holds itself inside NonEmptyList; today 'derived for List, Option and pairs only')",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "From SW-1370, 5 Nov 2026. Small improvement.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
