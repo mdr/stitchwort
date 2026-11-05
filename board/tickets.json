@@ -6634,7 +6634,7 @@
     {
       "id": 1306,
       "title": "Daily-tier failures from tonight's merges: fmt of six .sw files, search_at_aoc stale for 2021 days 11/12, a W-DOC-LINK in the prelude, std_library's library-target test lists uncurry/id",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1306",
       "labels": [
