@@ -20,7 +20,7 @@ theorem readsContent: Parse.Reads content ContentWritten :=
     Parse.readsThen (Parse.readsChar ' ') (spaceRead u space =>
       Parse.readsThen readsColour (colourRead colour written =>
         Parse.readsThen (Parse.readsText (if count == 1 then " bag" else " bags")) (bagRead u bag =>
-          Parse.readsDone { count, colour } (read made => ContentWritten (digitsRead ++ (spaceRead ++ (colourRead ++ (bagRead ++ read)))) made)
+          Parse.readsDone { count, colour } _
             (Witness digitsRead (Witness colourRead
               (Both (rewrite List.appendNil bagRead, space, bag in rfl) (Both nonEmpty (Both digits (Both value written))))))))))
 
@@ -39,7 +39,7 @@ theorem readsRule: Parse.Reads rule RuleWritten :=
     Parse.readsThen (Parse.readsText " bags contain ") (containRead u contain =>
       Parse.readsThen readsContents (contentsRead contents listed =>
         Parse.readsThen (Parse.readsChar '.') (stopRead u stop =>
-          Parse.readsDone { colour, contents } (read made => RuleWritten (colourRead ++ (containRead ++ (contentsRead ++ (stopRead ++ read)))) made)
+          Parse.readsDone { colour, contents } _
             (Witness colourRead (Witness contentsRead
               (Both (rewrite contain, stop in rfl) (Both written listed))))))))
 
