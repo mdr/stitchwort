@@ -7236,7 +7236,7 @@
     {
       "id": 1349,
       "title": "An effectful && as an unannotated let's value is inferred as Prop: let ok := (let c := Parse.nat(); 0 < c && c <= Parse.nat()) fails 'expected Prop, but this has type Bool'; only let ok: Bool := … works",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1349",
       "labels": [
@@ -7306,7 +7306,7 @@
     {
       "id": 1354,
       "title": "Check cache can report a namespace as checked when it isn't (on main): congruence-lemma lookups (rewrite's …Cong, decreasing) and auto's candidates see only library files already loaded in the run, so a namespace's result depends on what unrelated namespaces loaded",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1354",
       "labels": [
@@ -7320,7 +7320,7 @@
     {
       "id": 1355,
       "title": "stitchwort fmt fails on some files with chained comparisons: 'the output parses to a different syntax tree' (examples/accept/effect-logic-let.sw on lane/SW-1349)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1355",
       "labels": [
