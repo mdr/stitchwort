@@ -6872,9 +6872,9 @@
     {
       "id": 1323,
       "title": "An index 3 against (1 + 2) in an indexed family's type (Sums [1, 2] 3 vs Sums [1, 2] (1 + 2)) gives a type mismatch; check whether literal vs + in an index should unify (maybe SW-1315's stale stuck call)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1323",
       "labels": [
         "elab"
       ],
