@@ -1,5 +1,5 @@
 {
-  "next": 1457,
+  "next": 1458,
   "tickets": [
     {
       "id": 47,
@@ -8608,13 +8608,13 @@
     {
       "id": 1445,
       "title": "Std Graph: a fromEdges variant that keeps every edge by closing the states under the edges, so 2024 days 16 and 20 and Aoc.Common.GridGraph can drop their listed proofs without changing their edge functions; and breadthFirst's doc says each edge counts 1 'whatever its cost' though its proofs need unit weights",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1445",
       "labels": [
         "std"
       ],
-      "body": "From SW-1407, 5 Nov 2026.\n\nStarted on Sonnet, expected: 60 min.",
+      "body": "From SW-1407, 5 Nov 2026.\n\nStarted on Sonnet, expected: 60 min.\n\nDone in part (a71feff17), merged: breadthFirst's doc fixed. The closing constructor was not written: closing states under the edges terminates only with a finite bound, which is exactly what the callers' listed proofs establish (day 16's movesListed, day 20's edgeOnTrack, GridGraph's stepEdgesListed), so it would move the proof, not remove it. Follow-up filed for a lemma giving listed from a decidable 'within' bound. Model result: Sonnet, worked (stopped correctly at an infeasible part), 10 min (est. 60).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8769,6 +8769,20 @@
         "lsp"
       ],
       "body": "From SW-1403, 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1457,
+      "title": "Std Graph: a lemma giving a graph's edges stay listed from 'every edge target satisfies a decidable within, and within implies membership of the states list', the shape of 2024 days 16 and 20 and Aoc.Common.GridGraph's listed proofs; move them to it",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From SW-1445, 5 Nov 2026. Small improvement.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
