@@ -7896,7 +7896,7 @@
     {
       "id": 1396,
       "title": "Playground: printing many lines is slower than linear (262,144 empty lines take 176 s; 43,690 take 10 s; native prints 40,000 in 0.35 s); batch the worker's output messages. Fixes the 'Run's errors' browser test timeout",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1396",
       "labels": [
@@ -8028,7 +8028,7 @@
     {
       "id": 1405,
       "title": "Std: a list pigeonhole lemma (a path longer than the number of distinct nodes repeats one), then prove 2020 day 7 part 2's depth limit suffices; later an acyclic relation and recursion over it (memoised fold over a DAG)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1405",
       "labels": [
@@ -8100,7 +8100,7 @@
     {
       "id": 1410,
       "title": "Error notes: the non-termination error suggests {Partial}; also mention a depth limit (fuel) that keeps the function provable; and when a rewrite isn't needed because the goal already computed past it, say the proof checks without it (2020 day 7)",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1410",
       "labels": [
