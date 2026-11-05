@@ -5930,13 +5930,13 @@
     {
       "id": 1256,
       "title": "Cons sweep leftovers: list expressions whose elements perform abilities, and 4 aoc constructor result types, still use Cons (SW-1221 kept them because a list literal elaborates them differently, changing hashes). Convert them (hash changes are fine; verify by audit and tests instead)",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1256",
       "labels": [
         "std"
       ],
-      "body": "Found by SW-1221, 4 Nov 2026. Remaining full Cons applications: std 46, aoc 9, games 3, examples/accept 18, goals 1.",
+      "body": "Found by SW-1221, 4 Nov 2026. Remaining full Cons applications: std 46, aoc 9, games 3, examples/accept 18, goals 1.\n\nDone on lane/SW-1256 (ec57d3dfa + my fixup 12bd77fdf dropping 4 redundant brackets; DeepSeek, 21 min, est. 45): 81 full Cons applications in 28 files to bracket syntax (std 51, aoc 8, rogue 3, examples 19). Left: the 4 SW-1257 sites (constructor result types in 2021 days 10 and 18 Spec), Cons as a function, the declaration, another type's Cons. Hashes move widely (1,343 entries, mostly std Parse/Reads dependents; accepted per the ticket). Checks: std tests, aoc check, touched days' tests, rogue, examples, hash_stability, full audit. Reviewed line by line. Merges after SW-1319's verifier. Model result: DeepSeek, needed fixes (redundant brackets around 4 list arguments), 21 min (est. 45).",
       "created": "2026-11-04",
       "updated": "2026-11-05",
       "commits": []
