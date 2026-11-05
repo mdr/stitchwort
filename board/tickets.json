@@ -7614,9 +7614,9 @@
     {
       "id": 1376,
       "title": "Playground: the fast check's diagnostics carry end positions (crates/web), so errors can be underlined (D2419)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1376",
       "labels": [
         "playground"
       ],
