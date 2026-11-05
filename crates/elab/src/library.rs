@@ -1040,7 +1040,7 @@ impl Elaborator {
     /// The key of the data type `head` names, loaded or not: the namespace
     /// a dot call on a value of that type looks in. `None` for anything
     /// else, a definition of a type say, which dot calls may unfold.
-    pub(crate) fn data_namespace(&self, head: &stitchwort_syntax::ast::Name) -> Option<String> {
+    fn data_namespace(&self, head: &stitchwort_syntax::ast::Name) -> Option<String> {
         match self.resolve(&head.text) {
             Resolved::Found {
                 global: Global::Data(_) | Global::Pending(_, PendingKind::Data),
