@@ -26,10 +26,9 @@ theorem allAnswers: (lines: List (List Char)) → (people: List Person) → List
 --| Everyone's answers folded in by intersection hold what the accumulator
 --| holds and every line has.
 theorem intersectContains (lines: List (List Char)) (people: List Person) (written: List.All2 PersonWritten lines people) (acc: Set Char) (question: Char):
-    (List.foldLeft people acc (common person => common.intersect person.answers)).contains question = (acc.contains question ∧ lines.all (line => line.contains question)) :=
+    ((people.map .answers).foldLeft acc Set.intersect).contains question = (acc.contains question ∧ lines.all (line => line.contains question)) :=
   rewrite <- allAnswers lines people written question in
-    Eq.trans (Eq.cong (set => set.contains question) (Eq.sym (List.foldLeftMap people acc Set.intersect .answers)))
-      (Set.containsFoldIntersect question (people.map .answers) acc)
+    Set.containsFoldIntersect question (people.map .answers) acc
 
 --| Whatever some line has is a question.
 theorem anyQuestion: (lines: List (List Char)) → (people: List Person) → List.All2 PersonWritten lines people → (question: Char) →
