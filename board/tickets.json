@@ -8028,14 +8028,14 @@
     {
       "id": 1405,
       "title": "Std: a list pigeonhole lemma (a path longer than the number of distinct nodes repeats one), then prove 2020 day 7 part 2's depth limit suffices; later an acyclic relation and recursion over it (memoised fold over a DAG)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1405",
       "labels": [
         "std",
         "proofs"
       ],
-      "body": "From SW-1402 (2020 day 7), 5 Nov 2026. For day 7's friction review.\n\nD2429 (day 7 friction review, 5 Nov 2026; Matt delegated the decisions): do it. Order: day 8, then SW-1407, SW-1409, SW-1410, SW-1406 with SW-1408, SW-1405, SW-1411 (after SW-1407: both touch day 7's graph).\n\nStarted on Sonnet, expected: 90 min (the pigeonhole lemma and day 7's depth bound; the acyclic fold left for later).",
+      "body": "From SW-1402 (2020 day 7), 5 Nov 2026. For day 7's friction review.\n\nD2429 (day 7 friction review, 5 Nov 2026; Matt delegated the decisions): do it. Order: day 8, then SW-1407, SW-1409, SW-1410, SW-1406 with SW-1408, SW-1405, SW-1411 (after SW-1407: both touch day 7's graph).\n\nStarted on Sonnet, expected: 90 min (the pigeonhole lemma and day 7's depth bound; the acyclic fold left for later).\n\nDone on lane/SW-1405 (3b87bacf2): std List.memSplit, List.distinctLength, List.pigeonhole (drawn from ys, ys shorter → ¬Distinct xs), List.repeatSplit (before ++ [x, ..between ++ [x, ..after]]). Day 7: part2Complete (Spec.Part2 rules.all total → solvePart2 = Ok total), so part2Answers is an iff: the cycle error is never wrong. Statements checked by the orchestrator. Breaking the program's depth to rules.all.length makes the proofs fail. The acyclic fold is left for later. Possible std: allSomeEach/allSomeOfEach (local to Depth.sw). Waits for batch 45's verifier. Model result: Sonnet, worked, 20 min (est. 90).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
