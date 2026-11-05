@@ -8664,13 +8664,13 @@
     {
       "id": 1449,
       "title": "Playground editor: stats.published keeps only the last 300 messages, so a test counting from its length after a long check sees nothing new; keep a running total; and the other project test looking for .cm-lintRange-error should scroll to the mark first (CodeMirror draws only near the view)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1449",
       "labels": [
         "playground"
       ],
-      "body": "From SW-1430's follow-up, 5 Nov 2026.",
+      "body": "From SW-1430's follow-up, 5 Nov 2026.\n\nStarted on DeepSeek, expected: 30 min (2 browser runs).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
