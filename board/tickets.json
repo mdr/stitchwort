@@ -6886,9 +6886,9 @@
     {
       "id": 1324,
       "title": "A list literal [f x, ..rest] in a recursive result compiles to plain recursion, where Cons (f x) rest becomes a loop (tail recursion modulo cons); and it elaborates to a different term (hashes differ)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1324",
       "labels": [
         "extract"
       ],
