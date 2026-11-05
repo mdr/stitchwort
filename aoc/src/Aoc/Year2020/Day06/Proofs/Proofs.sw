@@ -1,7 +1,6 @@
 --| Day 6 proved: on any input the parser reads, each group's `anyone` and
 --| `everyone` sets hold the questions the puzzle counts (Sets.sw), so both
---| parts are the spec's sums over the groups of lines the parser read
---| (Parse.sw shows the input is those groups written out).
+--| parts are the spec's sums over the groups of lines the input is made of.
 
 namespace Aoc.Year2020.Day06.Proofs
 import Aoc.Year2020.Day06 (..)
@@ -47,35 +46,35 @@ theorem part2Lines (lineGroups: List (List (List Char))) (groups: List Group) (w
     solvePart2 groups = lineGroups.sumBy (Spec.count Spec.everyone) :=
   sumCounts (.everyone.size) (Spec.count Spec.everyone) everyoneCount lineGroups groups written
 
-theorem all2Exists (r: a → b → Prop) (s: c → b → Prop) (step: (x: a) → (y: b) → r x y → ∃ (z: c) => s z y):
-    (xs: List a) → (ys: List b) → List.All2 r xs ys → ∃ (zs: List c) => List.All2 s zs ys
-  | [], [], all => Witness [] ()
-  | [x, ..xs], [y, ..ys], Both related rest =>
-    match step x y related with
-      | Witness z ok =>
-        match all2Exists r s step xs ys rest with
-          | Witness zs oks => Witness [z, ..zs] (Both ok oks)
-  | [], [_, .._], impossible => Void.exfalso impossible
-  | [_, .._], [], impossible => Void.exfalso impossible
-
---| The groups the parser reads have lines of people: each person's line
---| is the one `PersonWritten` describes.
-theorem linesOf (input: Text) (groups: List Group) (parsed: Fail.toResult (() => parseGroups input) = Ok groups):
-    ∃ (lineGroups: List (List (List Char))) => List.All2 GroupLines lineGroups groups :=
+--| The groups the parser reads are the input's, as groups of lines: the
+--| input is them written out, a blank line (spaces and tabs allowed) between
+--| each two, then any line breaks, and each group's people are those lines.
+theorem inputGroups (input: Text) (groups: List Group) (parsed: Fail.toResult (() => parseGroups input) = Ok groups):
+    ∃ (lineGroups: List (List (List Char))) => ∃ (read: List Char) => ∃ (ending: List Char) =>
+      input.toList = read ++ ending ∧ Parse.SepBy LinesWritten (read u => Parse.BlankLine read) read lineGroups
+        ∧ ending.all (char => char == '\n' ∨ char == '\r') = True ∧ List.All2 GroupLines lineGroups groups :=
   match parseWritten input groups parsed with
     | Witness read (Witness ending (Both text (Both written done))) =>
-      match sepByParts GroupWritten _ read groups written with
-        | Witness groupReads allWritten =>
-          all2Exists GroupWritten GroupLines (groupRead group groupWritten => sepByParts PersonWritten _ groupRead group.people groupWritten) groupReads groups allWritten
+      match sepByMap GroupWritten LinesWritten GroupLines _
+          (groupRead group groupWritten => sepByMap PersonWritten (line written => line = written) (line person => PersonWritten line person) _
+            (personRead person personWritten => Witness personRead (Both rfl personWritten)) groupRead group.people groupWritten)
+          read groups written with
+        | Witness lineGroups (Both linesRead related) => Witness lineGroups (Witness read (Witness ending (Both text (Both linesRead (Both done related)))))
 
 --| Part 1, for every input the parser reads, is the spec's sum over the
---| groups of lines the parser read.
+--| groups of lines the input is made of.
 theorem part1Correct (input: Text) (groups: List Group) (parsed: Fail.toResult (() => parseGroups input) = Ok groups):
-    ∃ (lineGroups: List (List (List Char))) => List.All2 GroupLines lineGroups groups ∧ solvePart1 groups = Spec.part1Answer lineGroups :=
-  match linesOf input groups parsed with
-    | Witness lineGroups written => Witness lineGroups (Both written (part1Lines lineGroups groups written))
+    ∃ (lineGroups: List (List (List Char))) => ∃ (read: List Char) => ∃ (ending: List Char) =>
+      input.toList = read ++ ending ∧ Parse.SepBy LinesWritten (read u => Parse.BlankLine read) read lineGroups
+        ∧ ending.all (char => char == '\n' ∨ char == '\r') = True ∧ solvePart1 groups = Spec.part1Answer lineGroups :=
+  match inputGroups input groups parsed with
+    | Witness lineGroups (Witness read (Witness ending (Both text (Both linesRead (Both done related))))) =>
+      Witness lineGroups (Witness read (Witness ending (Both text (Both linesRead (Both done (part1Lines lineGroups groups related))))))
 
 theorem part2Correct (input: Text) (groups: List Group) (parsed: Fail.toResult (() => parseGroups input) = Ok groups):
-    ∃ (lineGroups: List (List (List Char))) => List.All2 GroupLines lineGroups groups ∧ solvePart2 groups = Spec.part2Answer lineGroups :=
-  match linesOf input groups parsed with
-    | Witness lineGroups written => Witness lineGroups (Both written (part2Lines lineGroups groups written))
+    ∃ (lineGroups: List (List (List Char))) => ∃ (read: List Char) => ∃ (ending: List Char) =>
+      input.toList = read ++ ending ∧ Parse.SepBy LinesWritten (read u => Parse.BlankLine read) read lineGroups
+        ∧ ending.all (char => char == '\n' ∨ char == '\r') = True ∧ solvePart2 groups = Spec.part2Answer lineGroups :=
+  match inputGroups input groups parsed with
+    | Witness lineGroups (Witness read (Witness ending (Both text (Both linesRead (Both done related))))) =>
+      Witness lineGroups (Witness read (Witness ending (Both text (Both linesRead (Both done (part2Lines lineGroups groups related))))))

@@ -49,17 +49,35 @@ theorem parseWritten (input: Text) (groups: List Group) (parsed: Fail.toResult (
         ∧ ending.all (char => char == '\n' ∨ char == '\r') = True :=
   Parse.allReads input (() => Parse.sections group) _ groups parsed (Parse.readsSections group _ readsGroup)
 
---| The parts a separated list read, one per value.
-theorem eachParts (spec: List Char → a → Prop) (separator: List Char → () → Prop): (read: List Char) → (values: List a) →
-    Parse.Each (Parse.Then separator (u => spec)) read values → ∃ (parts: List (List Char)) => List.All2 spec parts values
-  | read, [], each => Witness [] ()
-  | read, [value, ..values], Witness first (Witness rest (Both split (Both (Witness separatorRead (Witness partRead (Witness u (Both joined (Both separated written))))) more))) =>
-    match eachParts spec separator rest values more with
-      | Witness parts allWritten => Witness [partRead, ..parts] (Both written allWritten)
+--| A group's lines as the spec has them: each line is what was read.
+def LinesWritten (read: List Char) (lines: List (List Char)): Prop := Parse.SepBy (line written => line = written) (read u => Parse.LineBreak read) read lines
 
-theorem sepByParts (spec: List Char → a → Prop) (separator: List Char → () → Prop) (read: List Char) (values: List a) (written: Parse.SepBy spec separator read values):
-    ∃ (parts: List (List Char)) => List.All2 spec parts values :=
+--| What a repetition of separator and part read, with each part's value
+--| replaced by another that relates to it.
+theorem eachMap (spec: List Char → a → Prop) (other: List Char → c → Prop) (related: c → a → Prop) (separator: List Char → () → Prop)
+    (step: (read: List Char) → (value: a) → spec read value → ∃ (other_: c) => other read other_ ∧ related other_ value):
+    (read: List Char) → (values: List a) → Parse.Each (Parse.Then separator (u => spec)) read values →
+      ∃ (others: List c) => Parse.Each (Parse.Then separator (u => other)) read others ∧ List.All2 related others values
+  | read, [], each => Witness [] (Both each ())
+  | read, [value, ..values], Witness first (Witness rest (Both split (Both (Witness separatorRead (Witness partRead (Witness u (Both joined (Both separated written))))) more))) =>
+    match step partRead value written with
+      | Witness z (Both zRead zRelated) =>
+        match eachMap spec other related separator step rest values more with
+          | Witness zs (Both zsRead zsRelated) =>
+            Witness [z, ..zs]
+              (Both (Witness first (Witness rest (Both split (Both (Witness separatorRead (Witness partRead (Witness u (Both joined (Both separated zRead))))) zsRead))))
+                (Both zRelated zsRelated))
+
+theorem sepByMap (spec: List Char → a → Prop) (other: List Char → c → Prop) (related: c → a → Prop) (separator: List Char → () → Prop)
+    (step: (read: List Char) → (value: a) → spec read value → ∃ (other_: c) => other read other_ ∧ related other_ value)
+    (read: List Char) (values: List a) (written: Parse.SepBy spec separator read values):
+    ∃ (others: List c) => Parse.SepBy other separator read others ∧ List.All2 related others values :=
   match written with
     | Witness first (Witness rest (Both same (Witness firstRead (Witness afterRead (Witness head (Both split (Both firstWritten (Both isFirst each)))))))) =>
-      match eachParts spec separator afterRead rest each with
-        | Witness parts allWritten => Witness [firstRead, ..parts] (rewrite same in Both (rewrite isFirst at firstWritten in firstWritten) allWritten)
+      match step firstRead first (rewrite isFirst at firstWritten in firstWritten) with
+        | Witness z (Both zRead zRelated) =>
+          match eachMap spec other related separator step afterRead rest each with
+            | Witness zs (Both zsRead zsRelated) =>
+              Witness [z, ..zs]
+                (Both (Witness z (Witness zs (Both rfl (Witness firstRead (Witness afterRead (Witness z (Both split (Both zRead (Both rfl zsRead)))))))))
+                  (rewrite same in Both zRelated zsRelated))
