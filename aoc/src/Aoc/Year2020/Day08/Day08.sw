@@ -102,6 +102,10 @@ def solvePart1 (program: Program): {Fail} Int :=
     | Terminates accumulator => Fail.fail "the boot code terminates, with the accumulator at ${accumulator}"
     | JumpsAway accumulator => Fail.fail "the boot code jumps outside itself, with the accumulator at ${accumulator}"
 
+--| The accumulator, if the run terminated.
+def Outcome.terminated: Outcome → Option Int := match some
+  | Terminates accumulator => accumulator
+
 --| The instruction with `jmp` and `nop` swapped, if it is either.
 def Instruction.repaired (instruction: Instruction): Option Instruction :=
   match instruction.operation with
@@ -114,11 +118,7 @@ def Instruction.repaired (instruction: Instruction): Option Instruction :=
 def Code.terminatesRepaired (code: Code) (position: Nat) (instruction: Instruction): Option Int :=
   match instruction.repaired with
     | None => None
-    | Some repaired =>
-      match ({ code | byPosition = code.byPosition.insert position repaired }).run with
-        | Terminates accumulator => Some accumulator
-        | Loops accumulator => None
-        | JumpsAway accumulator => None
+    | Some repaired => ({ code | byPosition = code.byPosition.insert position repaired }).run.terminated
 
 def solvePart2 (program: Program): {Fail} Int :=
   let code := program.code
