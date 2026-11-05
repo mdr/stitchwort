@@ -1,5 +1,5 @@
 {
-  "next": 1430,
+  "next": 1434,
   "tickets": [
     {
       "id": 47,
@@ -7642,13 +7642,13 @@
     {
       "id": 1378,
       "title": "Playground: swap the textarea for CodeMirror 6 on the shared language server; colour via the existing tokenizer; theme; underlined errors, hover, navigation, code actions; port browser tests (D2416, D2417, D2423)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1378",
       "labels": [
         "playground"
       ],
-      "body": "D2415-D2421 approved by Matt, 5 Nov 2026 (see SW-1118). docs/proposals/playground-editor.md.\n\nD2423 (Matt, 5 Nov 2026): yes, build the playground editor on the shared language server (SW-1375's trial), with small page glue only where the client has no UI (code actions, goals panel).\n\nD2418 withdrawn (Matt, 5 Nov 2026): 'don't worry about how well it work on the phone, that's not a priority for the playground.' No phone check gates the swap; no textarea fallback for phones.\n\nD2428 (Matt, 5 Nov 2026): yes. Test budget: single browser tests filtered by name freely while porting; the whole browser suite (web/test.sh) at most twice: once on main before starting, once at the end. Ship coi-serviceworker so cancellation works on GitHub Pages (first visit reloads once). Sonnet.",
+      "body": "D2415-D2421 approved by Matt, 5 Nov 2026 (see SW-1118). docs/proposals/playground-editor.md.\n\nD2423 (Matt, 5 Nov 2026): yes, build the playground editor on the shared language server (SW-1375's trial), with small page glue only where the client has no UI (code actions, goals panel).\n\nD2418 withdrawn (Matt, 5 Nov 2026): 'don't worry about how well it work on the phone, that's not a priority for the playground.' No phone check gates the swap; no textarea fallback for phones.\n\nD2428 (Matt, 5 Nov 2026): yes. Test budget: single browser tests filtered by name freely while porting; the whole browser suite (web/test.sh) at most twice: once on main before starting, once at the end. Ship coi-serviceworker so cancellation works on GitHub Pages (first visit reloads once). Sonnet.\n\nDone (97803e5c7, ab28dcc01, aa479aa65): CodeMirror 6 editor on the shared server; underlines, hover, go to definition (file, library, project), references, format, code action; coi-serviceworker for cancellation; old page index/tooltip/panels and web/proto removed; index.html 151 KB to 115 KB. Whole suite 69/74 at the end (the 3 baseline failures, 2 own test bugs fixed and rerun). Open: worker stack overflow after jump + error edit in AoC projects (filed). Merged after orchestrator review. Model result: Sonnet, worked (one open bug filed), 113 min (est. 180).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8379,6 +8379,66 @@
         "std"
       ],
       "body": "Decided by Matt 19 Oct 2026 (remove canonical in stage 2, accepting the hash changes). Stage 1 (SW-93) merged 5 Nov 2026. Sonnet (near the kernel, not in it); Opus review since it changes elaborated terms. Folds in SW-1253.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1430,
+      "title": "Playground: the language server's worker overflows V8's stack in an AoC project after a jump into a shared file (Common/Range.sw) then an error edit in the day; the editor restarts the server and the project reloads (~30 s). Build the wasm with function names and find the unguarded recursion in the navigable-session path",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "playground",
+        "lsp",
+        "bug"
+      ],
+      "body": "From SW-1378 (CodeMirror swap), 5 Nov 2026. Opus. Halving the server's guard (crates/web/src/lsp.rs) fixed the jump-then-edit case but not jump-then-error-edit.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1431,
+      "title": "Playground: first diagnostics in an AoC project take 27-40 s (project load); a bundled check cache or lazy library loading",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "playground",
+        "perf"
+      ],
+      "body": "From SW-1378 (CodeMirror swap), 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1432,
+      "title": "Playground: the page checks twice (Check pane via playground-worker.js and the server in the LSP worker); unify them, and remove the now-unused check_index and index action in crates/web and playground-worker.js",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "playground"
+      ],
+      "body": "From SW-1378 (CodeMirror swap), 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1433,
+      "title": "Browser test 'the AoC days are listed' is stale: add 2020 days 7 and 8 (and make it read the list from the bundled project rather than hard-code it)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests",
+        "playground"
+      ],
+      "body": "From SW-1378 (CodeMirror swap), 5 Nov 2026. Small improvement.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
