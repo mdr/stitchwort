@@ -473,7 +473,7 @@ fn elaborate_rule(cx: &mut Ctx, rule: &RewriteRule, place: Place) -> Result<Equa
         (proof, ty) = insert(cx, Term::app(proof, meta), rest.apply(&g, value)?)?;
     }
     let Value::Eq(carrier, left, right) = force(&g, ty.clone())? else {
-        return Err(
+        let mut diagnostic =
             Diagnostic::error("E-REWRITE-RULE", "`rewrite` needs a proof of an equation")
                 .with_label(
                     rule.proof.span(),
@@ -485,8 +485,17 @@ fn elaborate_rule(cx: &mut Ctx, rule: &RewriteRule, place: Place) -> Result<Equa
                 .with_note(
                     "a rule may leave off arguments at its end, but what it proves then must \
                      be an equation",
-                ),
-        );
+                );
+        if matches!(
+            force(&g, ty.clone())?,
+            Value::Data(d, _) if g.env.registry().is_data(Builtin::Iff, d)
+        ) {
+            diagnostic = diagnostic.with_note(
+                "an `↔` isn't an equation: rewrite with one direction's proof, or use \
+                 `.forward` / `.backward` to move a fact across it",
+            );
+        }
+        return Err(diagnostic);
     };
     let carrier = (*carrier).clone();
     let (lhs, rhs) = if rule.reverse {

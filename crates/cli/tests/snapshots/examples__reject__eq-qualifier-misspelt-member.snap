@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: unknown name `Eq.symm`
+   ╭─[ reject/eq-qualifier-misspelt-member.sw:6:53 ]
+   │
+ 6 │ theorem flip (a: Nat) (b: Nat) (p: a = b): b = a := Eq.symm p
+   │                                                     ───┬───  
+   │                                                        ╰───── not in scope
+   │ 
+   │ Note: did you mean `Eq.sym`?
+───╯
