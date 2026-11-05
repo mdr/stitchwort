@@ -7250,13 +7250,13 @@
     {
       "id": 1350,
       "title": "Chained comparisons: a chain nested inside a larger if h: proposition (if h: b != 0 && 1 <= twice b <= 9) still computes the middle twice at runtime, against D2389; also check | k if h: … guards' runtime code",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1350",
       "labels": [
         "elab"
       ],
-      "body": "From SW-1341's review fixes: the decision is built from the evaluated proposition, so the chain's let is lost when the chain is one conjunct of the if h: condition. Repro: scratchpad sw1341-review/js.sw (c1), build --js.",
+      "body": "From SW-1341's review fixes: the decision is built from the evaluated proposition, so the chain's let is lost when the chain is one conjunct of the if h: condition. Repro: scratchpad sw1341-review/js.sw (c1), build --js.\n\nDone on lane/SW-1350 (f06a5c081): chain::on_spine finds chains under &&/||/not in an if h: condition; middle bound once around the decision; goals unchanged. Model result: Sonnet, worked, 10 min (est. 60). Opus review (decision terms).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
