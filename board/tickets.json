@@ -8833,8 +8833,8 @@
       "id": 1461,
       "title": "AoC 2020 day 10 (Adapter Array): spec, efficient solution, proofs, tests, friction notes in aoc/NOTES-2020.md",
       "status": "doing",
-      "agent": "",
-      "where": "",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1461",
       "labels": [
         "aoc"
       ],
