@@ -63,3 +63,4 @@ after a summary.
   SW-1424, SW-1442, SW-1443, SW-1441, SW-1432/1454, SW-1433, SW-1449,
   SW-1445 (doc part); SW-1457 closed (nothing to do).
 - 23:20 Merged SW-1117 (editor small wins; resolved a browser.mjs drawn() conflict with SW-1433 by keeping both); batch 58 check running (lsp lane, features, wasm, two browser tests). Filed SW-1462 (unused let hints), SW-1463 (signature lookup by short name). Started SW-1459 (quiet dependents of a broken file, Sonnet).
+- 23:30 Merged SW-1398 (browser helpers fail on a missing needle). Its run found a regression: hover in a library file opened by Cmd-click (SW-1464); my call (medium): fix it now, ahead of the queue, on Sonnet alongside SW-1459.
