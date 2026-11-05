@@ -17,15 +17,17 @@ def exampleInput: Text :=
 
 def example: Manual := manualOf exampleInput
 
+def pairOf (first: Char) (second: Char): ElementPair := { first, second }
+
 --| The pair counts after `steps` steps of the example.
 def exampleCounts (steps: Nat): PairCounts := Nat.iterate steps (stepCounts (ruleTable example.rules)) (countPairs example.template)
 
 --| The hypothesis of the parser's theorems can hold.
 -- (the audit's random texts never parse)
-theorem smallParses: parsed "AB\n\nAB -> C\n" = Ok ({ template = ['A', 'B'], rules = [{ left = 'A', right = 'B', insert = 'C' }] }) := rfl
+theorem smallParses: parsed "AB\n\nAB -> C\n" = Ok ({ template = ['A', 'B'], rules = [{ pair = { first = 'A', second = 'B' }, insert = 'C' }] }) := rfl
 
 test "parse the example" :=
-  example.template == ['N', 'N', 'C', 'B'] && example.rules.length == 16 && List.head example.rules == Some ({ left = 'C', right = 'H', insert = 'B' })
+  example.template == ['N', 'N', 'C', 'B'] && example.rules.length == 16 && List.head example.rules == Some ({ pair = { first = 'C', second = 'H' }, insert = 'B' })
 
 --| The puzzle's polymers after one and two steps, by the spec.
 theorem exampleStep1: afterSteps 1 example = "NCNBCHB".toList := rfl
@@ -47,7 +49,7 @@ test "example, part 1" := solvePart1 example == 1588
 test "example, part 2" := solvePart2 example == 2188189693529
 
 test "the pairs after one step" :=
-  Map.toList (exampleCounts 1) == [(('B', 'C'), 1), (('C', 'H'), 1), (('C', 'N'), 1), (('H', 'B'), 1), (('N', 'B'), 1), (('N', 'C'), 1)]
+  Map.toList (exampleCounts 1) == [(pairOf 'B' 'C', 1), (pairOf 'C' 'H', 1), (pairOf 'C' 'N', 1), (pairOf 'H' 'B', 1), (pairOf 'N' 'B', 1), (pairOf 'N' 'C', 1)]
 
 test "a pair without a rule stays" := solvePart1 (manualOf "AB\n\nCD -> E\n") == 0 && afterSteps 3 (manualOf "AB\n\nCD -> E\n") == ['A', 'B']
 

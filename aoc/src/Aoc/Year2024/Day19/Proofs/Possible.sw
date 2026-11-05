@@ -13,7 +13,7 @@ def FromPatterns (patterns: List Pattern) (towels: List Pattern): Prop := List.A
 
 --| `towels`, laid end to end, make `design`.
 def Makes (patterns: List Pattern) (towels: List Pattern) (design: Design): Prop :=
-  (FromPatterns patterns towels) ∧ (towels.concat = design)
+  (FromPatterns patterns towels) ∧ (laid towels = design.stripes)
 
 --| The spec's lists are of the patterns and no longer than `count`.
 theorem fromTowelLists (patterns: List Pattern): (count: Nat) → (towels: List Pattern) → towels ∈ towelLists patterns count →
@@ -43,10 +43,10 @@ theorem inTowelLists (patterns: List Pattern): (count: Nat) → (towels: List Pa
 
 --| With every pattern striped, there are no more towels than stripes.
 theorem towelsAtMostStripes (patterns: List Pattern) (striped: Striped patterns): (towels: List Pattern) → FromPatterns patterns towels →
-    towels.length ≤ towels.concat.length
+    towels.length ≤ (laid towels).length
   | [], from => omega
   | [first, ..rest], Both firstMember restFrom =>
-    omega [List.lengthAppend first rest.concat, striped first firstMember, towelsAtMostStripes patterns striped rest restFrom]
+    omega [List.lengthAppend first.stripes (laid rest), striped first firstMember, towelsAtMostStripes patterns striped rest restFrom]
 
 --| Whether a list of lists has any (as `possible` asks).
 def hasSome (lists: List (List Pattern)): Bool := !lists.isEmpty
@@ -66,13 +66,13 @@ theorem possibleIff (patterns: List Pattern) (striped: Striped patterns) (design
   forward = found =>
     Exists.map
       (towels member =>
-        let filtered := List.memFilter (towelLists patterns design.length) (towels => towels.concat == design) towels member
-        Both (fromTowelLists patterns design.length towels filtered.left).left (DecEq.sound towels.concat design filtered.right))
+        let filtered := List.memFilter (towelLists patterns design.stripes.length) (towels => laid towels == design.stripes) towels member
+        Both (fromTowelLists patterns design.stripes.length towels filtered.left).left (DecEq.sound (laid towels) design.stripes filtered.right))
       (someMember (arrangements patterns design) found),
   backward = made =>
     Exists.elim made (towels (Both from stripes) =>
       memberSome (arrangements patterns design) towels
-        (List.memFilterIntro (towelLists patterns design.length) (towels => towels.concat == design) towels
-          (inTowelLists patterns design.length towels from (rewrite <- stripes in towelsAtMostStripes patterns striped towels from))
-          (rewrite stripes in DecEq.refl design)))
+        (List.memFilterIntro (towelLists patterns design.stripes.length) (towels => laid towels == design.stripes) towels
+          (inTowelLists patterns design.stripes.length towels from (rewrite <- stripes in towelsAtMostStripes patterns striped towels from))
+          (rewrite stripes in DecEq.refl design.stripes)))
 }

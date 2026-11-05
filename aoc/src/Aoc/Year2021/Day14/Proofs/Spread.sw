@@ -20,20 +20,20 @@ theorem sumByPositive (f: a → Nat): (xs: List a) → 0 < List.sumBy xs f → �
           | Witness y (Both member gives) => Witness y (Both (Inr member) gives)
 
 --| An element after the first ends a pair.
-theorem memAfterFirst (c: Char) (a: Char): (rest: List Char) → c ∈ rest → ∃ (pair: (Char, Char)) => pair ∈ List.zipWithNext [a, ..rest] ∧ pair.snd = c
+theorem memAfterFirst (c: Char) (a: Char): (rest: List Char) → c ∈ rest → ∃ (pair: ElementPair) => pair ∈ pairsOf [a, ..rest] ∧ pair.second = c
   | [], member => Void.exfalso member
-  | [b, ..more], Inl same => Witness (a, b) (Both (Inl rfl) same)
+  | [b, ..more], Inl same => Witness ({ first = a, second = b }) (Both (Inl rfl) same)
   | [b, ..more], Inr member =>
     match memAfterFirst c b more member with
       | Witness pair (Both inPairs ends) => Witness pair (Both (Inr inPairs) ends)
 
 --| A pair of the polymer has a count in the counts that stand for it.
-theorem pairCounted (counts: PairCounts) (polymer: List Char) (represents: Represents counts polymer) (pair: (Char, Char)) (member: pair ∈ List.zipWithNext polymer):
+theorem pairCounted (counts: PairCounts) (polymer: List Char) (represents: Represents counts polymer) (pair: ElementPair) (member: pair ∈ pairsOf polymer):
     pair ∈ Map.keys counts :=
-  let counted := List.countPositive (List.zipWithNext polymer) (== pair) pair member (DecEq.refl pair)
-  let asSum := List.countSumBy (List.zipWithNext polymer) (== pair)
+  let counted := List.countPositive (pairsOf polymer) (== pair) pair member (DecEq.refl pair)
+  let asSum := List.countSumBy (pairsOf polymer) (== pair)
   let weighted := represents (other => Bool.toNat (other == pair))
-  match sumByPositive ((entry: ((Char, Char), Nat)) => entry.snd * Bool.toNat (entry.fst == pair)) (Map.toList counts) (omega [counted, asSum, weighted]) with
+  match sumByPositive ((entry: (ElementPair, Nat)) => entry.snd * Bool.toNat (entry.fst == pair)) (Map.toList counts) (omega [counted, asSum, weighted]) with
     | Witness entry (Both inCounts gives) =>
       match t: entry.fst == pair with
         | True => rewrite <- DecEq.sound entry.fst pair t in List.memMap (Map.toList counts) entry inCounts Pair.fst
@@ -43,14 +43,14 @@ theorem pairCounted (counts: PairCounts) (polymer: List Char) (represents: Repre
 
 --| The counts the program looks at, for a polymer starting with `first`.
 def programQuantities (first: Char) (counts: PairCounts): List Nat :=
-  [first, ..counts.keys.map Pair.snd] |> .distinct |> .map (elementCount first counts) |> .filter (quantity => 0 < quantity)
+  [first, ..counts.keys.map ElementPair.second] |> .distinct |> .map (elementCount first counts) |> .filter (quantity => 0 < quantity)
 
 --| The puzzle's: each element's count, once per element.
 def puzzleQuantities (polymer: List Char): List Nat := polymer.distinct.map (quantity polymer)
 
 theorem quantitiesInto (first: Char) (tail: List Char) (counts: PairCounts) (represents: Represents counts [first, ..tail]) (v: Nat)
     (member: v ∈ programQuantities first counts): v ∈ puzzleQuantities [first, ..tail] :=
-  let candidates := List.distinct [first, ..List.map (Map.keys counts) Pair.snd]
+  let candidates := List.distinct [first, ..List.map (Map.keys counts) ElementPair.second]
   let (Both inMapped positive) := List.memFilter (List.map candidates (elementCount first counts)) (quantity => 0 < quantity) v member
   match List.memMapElim (elementCount first counts) v candidates inMapped with
     | Witness c (Both _ same) =>
@@ -63,7 +63,7 @@ theorem quantitiesInto (first: Char) (tail: List Char) (counts: PairCounts) (rep
 theorem quantitiesBack (first: Char) (tail: List Char) (counts: PairCounts) (represents: Represents counts [first, ..tail]) (v: Nat)
     (member: v ∈ puzzleQuantities [first, ..tail]): v ∈ programQuantities first counts :=
   let polymer := [first, ..tail]
-  let keyEnds := List.map (Map.keys counts) Pair.snd
+  let keyEnds := List.map (Map.keys counts) ElementPair.second
   match List.memMapElim (quantity polymer) v (List.distinct polymer) member with
     | Witness c (Both inDistinct same) =>
       let inPolymer := (List.memDistinct c polymer).forward inDistinct
@@ -73,7 +73,7 @@ theorem quantitiesBack (first: Char) (tail: List Char) (counts: PairCounts) (rep
           | Inr inTail =>
             match memAfterFirst c first tail inTail with
               | Witness pair (Both inPairs ends) =>
-                Inr (rewrite <- ends in List.memMap (Map.keys counts) pair (pairCounted counts polymer represents pair inPairs) Pair.snd)
+                Inr (rewrite <- ends in List.memMap (Map.keys counts) pair (pairCounted counts polymer represents pair inPairs) ElementPair.second)
       let inCandidates := (List.memDistinct c [first, ..keyEnds]).backward candidate
       let equal := elementCountQuantity first tail counts represents c
       let positive := List.countPositive polymer (== c) c inPolymer (DecEq.refl c)

@@ -4,7 +4,7 @@
 --| of patterns, each with at least one stripe, and every design.
 
 namespace Aoc.Year2024.Day19.Spec
-import Aoc.Year2024.Day19 (Design, Onsen, Pattern)
+import Aoc.Year2024.Day19 (Design, Onsen, Pattern, Stripe)
 import Std (List, Nat)
 
 --| "You can use any towels you want": every list of at most `count` towels,
@@ -14,11 +14,14 @@ def towelLists (patterns: List Pattern): (count: Nat) → List (List Pattern)
   | Zero => [[]]
   | Succ count => [[], ..patterns.flatMap (first => towelLists patterns count |> .map (Cons first))]
 
+--| The stripes of the towels laid end to end.
+def laid (towels: List Pattern): List Stripe := towels.map (towel => towel.stripes) |> .concat
+
 --| "all of the towels' stripes must exactly match the desired design": the
 --| lists of towels whose stripes, in order, are the design's. Every towel has
 --| a stripe, so none of them has more towels than the design has stripes.
 def arrangements (patterns: List Pattern) (design: Design): List (List Pattern) :=
-  towelLists patterns design.length |> .filter (towels => towels.concat == design)
+  towelLists patterns design.stripes.length |> .filter (towels => laid towels == design.stripes)
 
 --| "Not all designs will be possible with the available towel patterns."
 def possible (patterns: List Pattern) (design: Design): Bool := !(arrangements patterns design).isEmpty
