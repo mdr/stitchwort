@@ -1,3 +1,5 @@
+import Std (Vec)
+
 -- `[f x, ..rest]` and `Cons (f x) rest` are the same term, also where the
 -- elements run a callback's abilities, so both compile to the same loop.
 
@@ -38,3 +40,10 @@ type Flags = | MkFlags (n: Nat) (b: Bool)
 
 def flag(): {IO} Flag := MkFlag (len() < 3)
 def flags(): {IO} Flags := MkFlags 1 (len() < 3)
+
+-- Likewise where the field's type is a parameter fixed to `Bool` by the
+-- expected type.
+def someB(): {IO} Option Bool := Some (len() < 3)
+def listB(): {IO} List Bool := [len() < 3]
+def consB(): {IO} List Bool := Cons (len() < 3) Nil
+def vecB(): {IO} Vec Bool 1 := VCons (len() < 3) VNil
