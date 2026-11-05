@@ -236,6 +236,7 @@ impl LibraryIndex {
                 );
             }
         }
+        instances_beside(&index, &scratch)?;
         let mut needs: Vec<Needs> = Vec::new();
         for (f, file) in index.files.iter().enumerate() {
             let mut n = Needs::default();
@@ -500,6 +501,84 @@ fn congruence_lemmas_beside(
                         files[g].path, name.key, file.path, name.key
                     ));
                 }
+            }
+        }
+    }
+    if misplaced.is_empty() {
+        Ok(())
+    } else {
+        Err(misplaced.join("\n"))
+    }
+}
+
+/// Checks that every library instance of an interface `I` for a type `T`
+/// is declared in `T`'s file or `I`'s file.
+///
+/// Instance search reads one run-wide table keyed by interface and type,
+/// and the library is one owner, so an instance elsewhere would be found
+/// only in a run that happened to load its file: whether a program checks
+/// would depend on what else is in the run (SW-1362, as SW-1354 for
+/// congruence lemmas). `I` and `T` are both loaded wherever the instance
+/// can be asked for, so an instance in either file is loaded with them. The
+/// core is always loaded, so its instances are exempt; one for core types
+/// and a core interface must be in the core. Decision procedures
+/// (`Decidable …`) are found by their proposition, not by an interface and
+/// a type, and are not checked.
+///
+/// `scratch` has every library name in scope as pending.
+fn instances_beside(index: &LibraryIndex, scratch: &Elaborator) -> Result<(), String> {
+    // The name `e` heads, if it is a type, and the file that declares it.
+    let head_file = |e: &Expr| -> Option<(String, usize)> {
+        let mut e = e;
+        loop {
+            match e {
+                Expr::App(f, _) => e = f,
+                Expr::Bracketed(inner, _) => e = inner,
+                Expr::Var(n) => {
+                    return match scratch.resolve(&n.text) {
+                        Resolved::Found {
+                            global: Global::Pending(_, PendingKind::Data),
+                            key,
+                            rest,
+                            ..
+                        } if rest.is_empty() => Some((key.to_string(), index.owner(key)?)),
+                        _ => None,
+                    };
+                }
+                _ => return None,
+            }
+        }
+    };
+    let mut misplaced = Vec::new();
+    for (f, file) in index.files.iter().enumerate().skip(1) {
+        for decl in &file.module.decls {
+            let Decl::Signature {
+                name,
+                ty,
+                instance: true,
+                ..
+            } = decl
+            else {
+                continue;
+            };
+            // The result `I T …`, after the parameters.
+            let mut result = ty;
+            while let Expr::Pi { cod, .. } | Expr::Arrow(_, cod) = result {
+                result = cod;
+            }
+            let Expr::App(interface, arg) = result else {
+                continue;
+            };
+            let (Some((i, fi)), Some((t, ft))) = (head_file(interface), head_file(arg)) else {
+                continue;
+            };
+            if f != fi && f != ft {
+                misplaced.push(format!(
+                    "the instance `{}` of `{i}` for `{t}` is declared in `{}`, but must be in \
+                     `{}` (which declares `{t}`) or in `{}` (which declares `{i}`): instance \
+                     search finds it only where its file is loaded",
+                    name.text, file.path, index.files[ft].path, index.files[fi].path
+                ));
             }
         }
     }
