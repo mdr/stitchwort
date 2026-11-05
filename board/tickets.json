@@ -5972,15 +5972,15 @@
     {
       "id": 1259,
       "title": "Std scope: is PrefixSums (a 2D summed-area table, crates/elab/src/std/PrefixSums) standard-library material? Its only user is AoC 2025 day 9; consider moving it to aoc/src/Aoc/Common, and review std's other top-level modules against a written rule for what belongs in std",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
         "std"
       ],
-      "body": "Matt, 4 Nov 2026: \"PrefixSums is in stdlib, I dunno if that's stdlib material.\" Added to std by SW-13 (24 Oct 2026, AoC 2025 day 9) with BlockSum.sw (its correctness proof). Only users: aoc/src/Aoc/Year2025/Day09 (program, Proofs/Floor.sw, tests). Other std modules worth the same question: Graph, Random, Terminal, Omega (tactic support?), Finite, Ring. Output: a short rule for what belongs in std (general, widely reusable, part of the language's story) vs a project library (aoc Common, games), then moves. Migration cost doesn't count.",
+      "body": "Matt, 4 Nov 2026: \"PrefixSums is in stdlib, I dunno if that's stdlib material.\" Added to std by SW-13 (24 Oct 2026, AoC 2025 day 9) with BlockSum.sw (its correctness proof). Only users: aoc/src/Aoc/Year2025/Day09 (program, Proofs/Floor.sw, tests). Other std modules worth the same question: Graph, Random, Terminal, Omega (tactic support?), Finite, Ring. Output: a short rule for what belongs in std (general, widely reusable, part of the language's story) vs a project library (aoc Common, games), then moves. Migration cost doesn't count.\n\nD2429b (Matt, 5 Nov 2026): yes, move PrefixSums into Aoc.Common. DeepSeek, est. 25 min.",
       "created": "2026-11-04",
-      "updated": "2026-11-04",
+      "updated": "2026-11-05",
       "commits": []
     },
     {
