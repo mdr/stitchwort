@@ -70,7 +70,6 @@ type Holding = { inside: Colour, holder: Colour }
 
 def Rule.holdings (rule: Rule): List Holding := rule.contents.map (content => { inside = content.colour, holder = rule.colour })
 
---| Each colour, with the holdings that list it.
 type Holders = { byInside: Map Colour (NonEmptyList Holding) }
 
 def Rules.holders (rules: Rules): Holders := { byInside = rules.all.flatMap .holdings |> .groupBy .inside }
@@ -93,7 +92,6 @@ def Rules.outside (rules: Rules) (colour: Colour): Set Colour :=
 
 def solvePart1 (rules: Rules): Nat := (rules.outside shinyGold).size
 
---| The rules, found by the colour of the bag they are for.
 type RuleBook = { byColour: Map Colour (NonEmptyList Rule) }
 
 def Rules.book (rules: Rules): RuleBook := { byColour = rules.all.groupBy .colour }
