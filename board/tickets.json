@@ -1,5 +1,5 @@
 {
-  "next": 1357,
+  "next": 1362,
   "tickets": [
     {
       "id": 47,
@@ -7340,7 +7340,77 @@
       "labels": [
         "design"
       ],
-      "body": "D2403 (Matt, 5 Nov): yes, an Opus lane; 'definitely do a thorough search of existing languages to see what other people do, including Swift, Rust, Kotlin, etc.' Prompted by List.range (Int.toNat target.right). Constraint: .. already means spread in brackets ([x, ..rest]), so Haskell's [2..n] would clash. Cover inclusive/exclusive, Nat/Int/Char, steps and counting down, List vs lazy, membership lemma (x ∈ a ..< b ↔ a ≤ x < b, pairs with chained comparisons), patterns, Fin, loops, and the List.range argument-order question (SW-1258). Opus, ~45 min. Next free slot.\n\nDone on lane/SW-1356 (30797b999): docs/proposals/ranges.md. 25-language survey with sources; ~1,100 range sites (578 of aoc's 679 in proofs). Recommends a ..< b and a ..= b as List.range a b; no [a..b]. Decisions R1–R9 asked as D2405–D2413. Model result: Opus, worked, 8 min (est. 45).",
+      "body": "D2403 (Matt, 5 Nov): yes, an Opus lane; 'definitely do a thorough search of existing languages to see what other people do, including Swift, Rust, Kotlin, etc.' Prompted by List.range (Int.toNat target.right). Constraint: .. already means spread in brackets ([x, ..rest]), so Haskell's [2..n] would clash. Cover inclusive/exclusive, Nat/Int/Char, steps and counting down, List vs lazy, membership lemma (x ∈ a ..< b ↔ a ≤ x < b, pairs with chained comparisons), patterns, Fin, loops, and the List.range argument-order question (SW-1258). Opus, ~45 min. Next free slot.\n\nDone on lane/SW-1356 (30797b999): docs/proposals/ranges.md. 25-language survey with sources; ~1,100 range sites (578 of aoc's 679 in proofs). Recommends a ..< b and a ..= b as List.range a b; no [a..b]. Decisions R1–R9 asked as D2405–D2413. Model result: Opus, worked, 8 min (est. 45).\n\nMatt, 5 Nov 2026: 'I approve the range syntax of Stitchwort. Please cue that for implementation.' D2405-D2413 all as recommended: a ..< b and a ..= b, no bare .. or [a..b] (error names both) (D2405); both forms, ..= b is ..< b + 1 (D2406); a range is a List, the call List.range a b (D2407); List.range (from) (until) replaces one-arg List.range and List.between, rangeFrom stays (D2408); Nat then Int by type, Char later (D2409); reversed is empty, .reverse to count down, no step syntax (D2410); Bool x in a ..< b decided by comparisons (D2411); no range patterns now (D2412); W-RANGE-IN-BRACKETS (D2413). Implementation: steps 1-5 of docs/proposals/ranges.md §13, one after another.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1357,
+      "title": "Ranges step 1: two-ended List.range (from) (until) replaces one-argument List.range and List.between; lemmas of §9.1 (memRange ↔, lengthRange, …); rangeFrom stays; all callers moved (D2405-D2413)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From SW-1356 (docs/proposals/ranges.md §13), D2405-D2413 approved by Matt 5 Nov 2026. Runs after the previous ranges step.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1358,
+      "title": "Ranges step 2: syntax a ..< b and a ..= b (tokens, range_expr between cmp and append, goals print back, formatter, errors for .. and [a..b], W-RANGE-IN-BRACKETS), examples, guide, syntax.md, feature tour",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "syntax"
+      ],
+      "body": "From SW-1356 (docs/proposals/ranges.md §13), D2405-D2413 approved by Matt 5 Nov 2026. Runs after the previous ranges step.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1359,
+      "title": "Ranges step 3: auto and omega take x ∈ a ..< b apart; Bool x in a ..< b decided by two comparisons (D2411)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "From SW-1356 (docs/proposals/ranges.md §13), D2405-D2413 approved by Matt 5 Nov 2026. Runs after the previous ranges step.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1360,
+      "title": "Ranges step 4: Int ranges chosen by operand type, Int.range and lemmas; 2021 day 17 rewritten (D2409)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From SW-1356 (docs/proposals/ranges.md §13), D2405-D2413 approved by Matt 5 Nov 2026. Runs after the previous ranges step.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1361,
+      "title": "Ranges step 5: sweep aoc, games, examples to range syntax, split by year (optional)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "From SW-1356 (docs/proposals/ranges.md §13), D2405-D2413 approved by Matt 5 Nov 2026. Runs after the previous ranges step.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
