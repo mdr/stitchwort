@@ -496,10 +496,21 @@ tasks:
 
   audit:touched:
     desc: 'Audit the namespaces after -- with the counterexample search, vacuity included (task audit:touched -- Aoc.Year2024.Day06); run before merging a proof lane (D2043)'
+    summary: |
+      Runs in the current folder, so a project's own stitchwort.yaml is found.
+      From the repo root, which has none, it picks the project from the first
+      namespace: Aoc.* in aoc/, Rogue* in games/rogue/.
     deps: [build]
     dir: '{{.USER_WORKING_DIR}}'
     cmds:
-      - '{{.SW}} audit {{.CLI_ARGS}}'
+      - |
+        if [ "$PWD" = "{{.ROOT_DIR}}" ]; then
+          case "{{.CLI_ARGS}}" in
+            Aoc*) cd aoc ;;
+            Rogue*) cd games/rogue ;;
+          esac
+        fi
+        {{.SW}} audit {{.CLI_ARGS}}
 
   aoc:test:
     desc: "Run the AoC project's tests (results cached in aoc/.stitchwort/)"
