@@ -92,3 +92,15 @@ def sightRound (layout: Layout): Layout := round layout (occupiedSeen layout) 5
 --| occupied?"
 def Part2 (start: Layout) (answer: Nat): Prop :=
   ∃ (final: Layout) => Settles sightRound start final ∧ answer = occupiedSeats final
+
+-- The input
+
+--| "Each position is either floor (.), an empty seat (L), or an occupied
+--| seat (#)."
+def symbol: Seat → Char
+  | Floor => '.'
+  | Empty => 'L'
+  | Occupied => '#'
+
+--| A line of the input is its row of the layout, a position a character.
+def RowWritten (line: List Char) (row: List Seat): Prop := line = row.map symbol

@@ -10,22 +10,44 @@ import Aoc.Year2020.Day11 (..)
 import Aoc.Year2020.Day11.Spec (Settles)
 import Std (DecEq, Eq, Exists, Nat, Option, Void)
 
---| What `settle` stops at is settled: reached by the spec's rounds, which
---| leave it alone.
+--| The rounds from `start` reach `final` in fewer than `limit` rounds, and
+--| a round changes nothing there.
+def SettlesWithin (specRound: Layout → Layout) (start: Layout) (final: Layout) (limit: Nat): Prop :=
+  ∃ (reached: Nat) => reached < limit ∧ Nat.iterate reached specRound start = final ∧ specRound final = final
+
+--| What `settle` stops at is settled: reached by the spec's rounds, fewer
+--| than it was given, which leave it alone.
 theorem settleSound (rule: Rule) (specRound: Layout → Layout) (keep: Layout → Prop)
     (agree: (layout: Layout) → keep layout → layout.round rule = specRound layout)
     (keeps: (layout: Layout) → keep layout → keep (specRound layout)) (final: Layout):
-    (rounds: Nat) → (start: Layout) → keep start → start.settle rule rounds = Some final → Settles specRound start final
+    (rounds: Nat) → (start: Layout) → keep start → start.settle rule rounds = Some final → SettlesWithin specRound start final rounds
   | Zero, start, kept, stopped => Void.exfalso (Option.noneNotSome final stopped)
   | Succ more, start, kept, stopped =>
     let same := agree start kept
     match e: start.round rule == start with
       | True =>
         let here: start = final := Option.someInjective stopped
-        Witness 0 (Both here (rewrite <- here, <- same in DecEq.sound e))
+        Witness 0 (Both (omega) (Both here (rewrite <- here, <- same in DecEq.sound e)))
       | False =>
         let later := settleSound rule specRound keep agree keeps final more (specRound start) (keeps start kept) (rewrite <- same in stopped)
-        Exists.elim later (rounds both => Witness (Succ rounds) both)
+        Exists.elim later (reached both => Witness (Succ reached) (Both (omega [And.left both]) (And.right both)))
+
+--| Settled within a limit is settled.
+theorem settlesOfWithin (specRound: Layout → Layout) (start: Layout) (final: Layout) (limit: Nat) (within: SettlesWithin specRound start final limit):
+    Settles specRound start final :=
+  Exists.elim within (reached both => Witness reached (And.right both))
+
+--| The rounds settle on one layout: once a round changes nothing, no later
+--| round does.
+theorem settledUnique (specRound: Layout → Layout) (start: Layout) (one: Layout) (other: Layout)
+    (first: Settles specRound start one) (second: Settles specRound start other): one = other :=
+  Exists.elim first (m firstBoth =>
+    Exists.elim second (n secondBoth =>
+      let (Both reachedOne fixedOne) := firstBoth
+      let (Both reachedOther fixedOther) := secondBoth
+      match order: Nat.leq m n with
+        | True => Eq.trans (Eq.sym (Nat.iterateFixedLater specRound start one fixedOne m n reachedOne (omega))) reachedOther
+        | False => Eq.trans (Eq.sym reachedOne) (Nat.iterateFixedLater specRound start other fixedOther n m reachedOther (omega))))
 
 --| If the spec's rounds reach a layout a round leaves alone, `settle` with
 --| more rounds than that to spare stops there.
