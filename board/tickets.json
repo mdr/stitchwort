@@ -8578,14 +8578,14 @@
     {
       "id": 1443,
       "title": "auto: derive Nat.toInt d ≠ 0 from d ≠ 0 (Nat.toIntNeZero), so Int.modNatToInt, toIntDiv and toIntMod can state x % Nat.toInt d again instead of Int.mod x (Nat.toInt d) [ok := …]",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1443",
       "labels": [
         "elab",
         "std"
       ],
-      "body": "From SW-1429's Opus review, 5 Nov 2026. Small improvement.",
+      "body": "From SW-1429's Opus review, 5 Nov 2026. Small improvement.\n\nStarted on DeepSeek, expected: 40 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8776,13 +8776,13 @@
     {
       "id": 1457,
       "title": "Std Graph: a lemma giving a graph's edges stay listed from 'every edge target satisfies a decidable within, and within implies membership of the states list', the shape of 2024 days 16 and 20 and Aoc.Common.GridGraph's listed proofs; move them to it",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1457",
       "labels": [
         "std"
       ],
-      "body": "From SW-1445, 5 Nov 2026. Small improvement.\n\nStarted on Sonnet, expected: 50 min.",
+      "body": "From SW-1445, 5 Nov 2026. Small improvement.\n\nStarted on Sonnet, expected: 50 min.\n\nClosed, nothing to do: each user's listed proof already ends in the one-line composition (edge target within, within implies listed); the lines are in day-specific edge-within case analysis. Only shared piece: a filterMap-of-Option.map membership lemma worth ~4 lines across day 20 and GridGraph, not filed. Model result: Sonnet, worked (correctly found nothing to do), 5 min (est. 50).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
