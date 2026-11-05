@@ -7180,9 +7180,9 @@
     {
       "id": 1345,
       "title": "NonEmptyList stage 3: bracket literals and patterns ([1, 2], [x, ..xs]) where the expected type is NonEmptyList; [] refused with its own error",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1345",
       "labels": [
         "elab"
       ],
