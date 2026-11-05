@@ -7012,9 +7012,9 @@
     {
       "id": 1333,
       "title": "Drop redundant brackets around dot sections in aoc and games/rogue (groups.sumBy (.anyone.size) -> groups.sumBy .anyone.size)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1333",
       "labels": [
         "aoc"
       ],
