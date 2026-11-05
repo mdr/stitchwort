@@ -7866,8 +7866,8 @@
     },
     {
       "id": 1394,
-      "title": "Test: run every std congruence lemma (FCong, FCongMem, FCongRange) through validate_cong; validate_contextual (rewrite) doesn't compare binder kinds with F's, so a lemma rewrite accepts can still fail decreasing (Option.mapCong in SW-1381's review)|tests,elab",
-      "status": "backlog",
+      "title": "Duplicate of SW-1395 (filed by mistake)",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
