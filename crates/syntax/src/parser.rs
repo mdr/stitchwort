@@ -3862,6 +3862,19 @@ impl<'t> Parser<'t> {
                 Some(Tok::Le) => (BinOp::Le, false),
                 Some(Tok::Gt) => (BinOp::Lt, true),
                 Some(Tok::Ge) => (BinOp::Le, true),
+                Some(Tok::Equals | Tok::EqEq) if matches!(self.peek_at(1), Some(Tok::Upper(b)) if b == "True" || b == "False") =>
+                {
+                    return Err(chain_error(
+                        (starts, "this comparison"),
+                        (self.here(), "isn't compared with a Bool"),
+                        format!("`{symbol}` can't be part of a chain of comparisons"),
+                        format!(
+                            "a comparison is already a proposition (and decided where a `Bool` \
+                             is wanted): write `{a} {last_symbol} {b}` for it, without `= True`, \
+                             and `¬({a} {last_symbol} {b})` without `= False`"
+                        ),
+                    ));
+                }
                 Some(Tok::Equals | Tok::EqEq) => {
                     return Err(chain_error(
                         (starts, "the chain starts here"),

@@ -7,7 +7,7 @@ def skipThree: Nat → Nat
 
 theorem skipThreeKeeps (n: Nat) (other: n ≠ 3): skipThree n = n := skipThree.eq1 n other
 
-theorem skipThreeDrops: skipThree 3 = 0 := skipThree.eq2 3 (not3 => not3 rfl)
+theorem skipThreeDrops: skipThree 3 = 0 := skipThree.eq2 3 rfl
 
 -- `match induct` splits at the condition: `eq2` knows `x > 3`, and `eq3`
 -- knows it failed.
