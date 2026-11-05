@@ -7432,13 +7432,13 @@
     {
       "id": 1363,
       "title": "Rename Set.containsUnions to match unionAll (SW-1347's rename)",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1363",
       "labels": [
         "std"
       ],
-      "body": "Small improvement found by a lane, 5 Nov 2026. Matt: 'Those small findings are worth curing. In general, I'm a fan of doing small improvements.'",
+      "body": "Small improvement found by a lane, 5 Nov 2026. Matt: 'Those small findings are worth curing. In general, I'm a fan of doing small improvements.'\n\nDone on lane/SW-1363 (3221bc364, 54c0883eb): Set.containsUnionAll (ss→sets); NonEmptyList count, sumBy, get, getOr, flatMap with docs, ToList lemmas by rfl, tests. Reviewed line by line. Also closes SW-1364 (count) and SW-1366 (get/getOr/flatMap/sumBy). Model result: DeepSeek, worked, ~25 min (est. 30).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7446,7 +7446,7 @@
     {
       "id": 1364,
       "title": "NonEmptyList: add count, and any other List conveniences the stage 2 lanes missed (headOr was asked for: check where it was wanted)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
@@ -7474,7 +7474,7 @@
     {
       "id": 1366,
       "title": "NonEmptyList: get/getOr, flatMap, sumBy (2024 day 5's middle page; .toList.map workarounds in SW-1346)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
