@@ -24,11 +24,9 @@ use super::{
 #[cfg(test)]
 const TEST_STACK: usize = 256 * 1024 * 1024;
 
+#[cfg(test)]
 fn limits() -> stitchwort_core::Limits {
-    #[cfg(test)]
-    return stitchwort_core::Limits::for_stack(TEST_STACK);
-    #[cfg(not(test))]
-    super::session_limits()
+    stitchwort_core::Limits::for_stack(TEST_STACK)
 }
 
 /// A project loaded for a target: the session, and the namespaces checked.
@@ -64,15 +62,12 @@ fn pairs(paths: &[String], texts: &[String]) -> Vec<(String, String)> {
 /// A session whose `include` reads the project's other files, those that
 /// aren't `.sw` (the bundled puzzle inputs), from memory: the same files,
 /// with the same paths, that the CLI reads from disk. No server is involved.
-fn new_session(paths: &[String], texts: &[String], navigation: bool) -> Session {
-    let mut session = if navigation {
-        let mut session = Session::navigable();
-        session.elab.enable_expression_types();
-        session
-    } else {
-        Session::new()
-    };
-    session.elab.options.limits = limits();
+fn new_session(paths: &[String], texts: &[String]) -> Session {
+    let mut session = super::new_session();
+    #[cfg(test)]
+    {
+        session.elab.options.limits = limits();
+    }
     let files = paths
         .iter()
         .cloned()
@@ -113,7 +108,7 @@ fn project_path<'a>(project: &str, name: &'a str) -> &'a str {
 /// and the primary span's file (path within the project), line and column,
 /// both counted from 1, the column in characters. The span's end is
 /// `endLine` and `endColumn` in the units of the navigation index's ranges
-/// (`check_index`): the line counted from 0, the column in UTF-16 code units
+/// (the language server's): the line counted from 0, the column in UTF-16 code units
 /// (what a JavaScript string and CodeMirror count).
 fn diagnostics_json(project: &str, session: &Session, diagnostics: &[&Diagnostic]) -> String {
     let each: Vec<String> = diagnostics
@@ -202,7 +197,7 @@ fn load(
     texts: &[String],
     targets: &str,
 ) -> Result<Loaded, String> {
-    let mut session = new_session(paths, texts, false);
+    let mut session = new_session(paths, texts);
     match session.load_project_sources(project, pairs(paths, texts), &target_of(targets)) {
         Ok(loaded) => Ok(Loaded {
             session,
@@ -243,7 +238,7 @@ fn load_shared(
 /// errors that stop that (a file with no namespace, a clash).
 #[wasm_bindgen]
 pub fn outline_project(project: &str, paths: Vec<String>, texts: Vec<String>) -> String {
-    let mut session = new_session(&paths, &texts, false);
+    let mut session = new_session(&paths, &texts);
     let analysis = analyse(&mut session, project, pairs(&paths, &texts));
     if !analysis.diagnostics.is_empty() {
         return failed(project, &session, analysis.diagnostics);
@@ -314,26 +309,6 @@ pub fn check_project(
     }
 }
 
-/// [`super::check_index`] for a project: the index of the namespaces in
-/// `targets` (empty for the whole project) and what they use, with paths
-/// within the project. Not cached.
-#[wasm_bindgen]
-pub fn check_index_project(
-    project: &str,
-    paths: Vec<String>,
-    texts: Vec<String>,
-    targets: &str,
-) -> String {
-    let mut session = new_session(&paths, &texts, true);
-    let loaded = session.load_project_sources(project, pairs(&paths, &texts), &target_of(targets));
-    let ok = loaded.is_ok();
-    let mut reported = std::mem::take(&mut session.warnings);
-    if let Err(errors) = loaded {
-        reported.extend(errors);
-    }
-    stitchwort_driver::nav::index_json(&session, !ok, Some(ok), &format!("{project}/"), &reported)
-}
-
 /// [`super::test`] for a project: each result also has its `namespace`.
 #[wasm_bindgen]
 pub fn test_project(
@@ -398,7 +373,7 @@ fn load_main(
     texts: &[String],
     name: &str,
 ) -> Result<(Session, stitchwort_driver::run::Main), String> {
-    let mut session = new_session(paths, texts, false);
+    let mut session = new_session(paths, texts);
     let analysis: Analysis = analyse(&mut session, project, pairs(paths, texts));
     if !analysis.diagnostics.is_empty() {
         return Err(failed(project, &session, analysis.diagnostics));
@@ -537,28 +512,6 @@ mod tests {
         targets.join(",")
     }
 
-    /// The navigation index of a project: paths within it, a reference
-    /// into another namespace, and a library target with its `std` marker.
-    #[test]
-    fn the_navigation_index_of_a_project() {
-        big(|| {
-            let paths = vec!["src/A/A.sw".to_string(), "src/B/B.sw".to_string()];
-            let texts = vec![
-                "namespace A\n\ndef two: Nat := 2\n".to_string(),
-                "namespace B\n\nimport A (two)\n\ndef f (xs: List Nat): Nat := two + xs.length\n"
-                    .to_string(),
-            ];
-            let index = check_index_project(PROJECT, paths, texts, "");
-            assert!(
-                index.starts_with(r#"{"version":3,"errors":false,"ok":true,"files":["#),
-                "{index}"
-            );
-            assert!(index.contains(r#"{"path":"src/B/B.sw"}"#), "{index}");
-            assert!(index.contains(r#""name":"A.two","kind":"def""#), "{index}");
-            assert!(index.contains(r#""std":"core/Data.sw""#), "{index}");
-        });
-    }
-
     #[test]
     fn every_aoc_day_checks_passes_its_tests_and_runs_on_its_example() {
         big(every_aoc_day_body);
@@ -610,7 +563,7 @@ mod tests {
         input: &str,
         out: &mut String,
     ) -> String {
-        let mut session = new_session(paths, texts, false);
+        let mut session = new_session(paths, texts);
         let analysis = analyse(&mut session, PROJECT, pairs(paths, texts));
         let namespace = namespace_of(&analysis, name)
             .expect("a namespace")

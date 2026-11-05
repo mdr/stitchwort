@@ -20,7 +20,11 @@
 let bindings = null;
 let ready = null;
 // The standard library's files, fetched beside the WebAssembly (pkg/std.bundle,
-// with the worker's `?v=…`) and given to the compiler before its first use.
+// with the worker's `?v=…`) and given to the compiler before its first use,
+// and the library as the build checked it (pkg/std.cache, the same file the
+// language server's worker reads), so that tests, runs and evaluations replay
+// the library instead of checking it again. A cache that is missing or
+// another build's leaves them checking it, as before.
 let stdLoaded = null;
 
 // A live run (docs/proposals/playground-live-keys.md): the run stays here,
@@ -96,7 +100,13 @@ self.onmessage = async ({ data }) => {
     await ready;
     stdLoaded ??= fetch(`./pkg/std.bundle${self.location.search}`)
       .then((r) => { if (!r.ok) throw new Error(`std.bundle: HTTP ${r.status}`); return r.arrayBuffer(); })
-      .then((bytes) => b.load_std(new Uint8Array(bytes)));
+      .then(async (bytes) => {
+        b.load_std(new Uint8Array(bytes));
+        const cache = await fetch(`./pkg/std.cache${self.location.search}`)
+          .then((r) => (r.ok ? r.arrayBuffer() : null))
+          .catch(() => null);
+        if (cache) b.load_library_cache(new Uint8Array(cache));
+      });
     await stdLoaded;
     const sink = outputSink(data.id);
     if (data.action.startsWith("live-")) {
@@ -117,7 +127,6 @@ self.onmessage = async ({ data }) => {
       return;
     }
     const answer = data.paths ? {
-      index: () => b.check_index_project(data.project, data.paths, data.texts, data.targets),
       outline: () => b.outline_project(data.project, data.paths, data.texts),
       check: () => b.check_project(data.project, data.paths, data.texts, data.targets),
       checkall: () => b.check_project(data.project, data.paths, data.texts, ""),
@@ -128,7 +137,6 @@ self.onmessage = async ({ data }) => {
       format: () => b.format(data.source),
       run: () => b.run_project_streaming(data.project, data.paths, data.texts, data.name, data.input, data.maxOutput, sink),
     }[data.action] : {
-      index: () => b.check_index(data.source),
       check: () => b.check(data.source),
       test: () => b.test(data.source, data.known ?? ""),
       evaluate: () => b.evaluate(data.source, data.imports ?? "", data.expr),

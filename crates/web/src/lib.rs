@@ -15,7 +15,9 @@ mod project;
 use std::cell::RefCell;
 use std::io::{self, BufRead, Read, Write};
 use std::rc::Rc;
+use std::sync::Arc;
 
+use stitchwort_driver::check_cache::LibraryBundle;
 use stitchwort_driver::driver::{Cache, Outcome, Session};
 use stitchwort_driver::render::render;
 use stitchwort_driver::run::{Main, RunError};
@@ -41,6 +43,33 @@ fn session_limits() -> stitchwort_core::Limits {
         l.stack = guard;
     }
     l
+}
+
+thread_local! {
+    /// The options of the language server's sessions in this worker, which
+    /// the page's own sessions share: see [`new_session`].
+    static SHARED: stitchwort_lsp::Options = lsp::options();
+}
+
+/// A session for a program or a project, made as the language server makes
+/// its own (`stitchwort_lsp::library_session`), so that it replays the
+/// standard library from the check cache the page loaded
+/// ([`load_library_cache`]) instead of checking it again. The cache's keys
+/// cover the session's modes and limits, so no caller sets them differently.
+fn new_session() -> Session {
+    SHARED.with(stitchwort_lsp::library_session)
+}
+
+/// Reads the standard library's check cache (`pkg/std.cache`, made by
+/// `build_library_cache` when the page was built) for every session made
+/// after it. `false` if the bytes aren't a cache this build made, or one was
+/// read already: the library is then checked as before. Call after
+/// `load_std`.
+#[wasm_bindgen]
+pub fn load_library_cache(bytes: &[u8]) -> bool {
+    SHARED.with(|options| {
+        LibraryBundle::decode(bytes).is_some_and(|b| options.library.set(Arc::new(b)).is_ok())
+    })
 }
 
 /// The resource limits programs run with:
@@ -126,24 +155,6 @@ pub fn format(source: &str) -> String {
         json_string(&rendered),
         each.join(",")
     )
-}
-
-/// The code navigation index of a program (docs/proposals/code-navigation.md):
-/// the version 2 JSON the CLI's `check --index` writes, with `"ok"` added.
-/// Written whether or not the program checks, for the parts that were
-/// elaborated. Not cached: it loads the program again with recording on.
-#[wasm_bindgen]
-pub fn check_index(source: &str) -> String {
-    let mut session = Session::navigable();
-    session.elab.enable_expression_types();
-    session.elab.options.limits = session_limits();
-    let loaded = session.load(FILE, source);
-    let ok = loaded.is_ok();
-    let mut reported = std::mem::take(&mut session.warnings);
-    if let Err(errors) = loaded {
-        reported.extend(errors);
-    }
-    stitchwort_driver::nav::index_json(&session, !ok, Some(ok), "", &reported)
 }
 
 /// The fingerprint of the sources this bundle was built from
@@ -651,8 +662,11 @@ fn load_shared(source: &str) -> Result<Rc<Session>, String> {
 fn load(source: &str) -> Result<Session, String> {
     #[cfg(test)]
     LOADS.with(|loads| loads.set(loads.get() + 1));
-    let mut session = Session::new();
-    session.elab.options.limits = session_limits();
+    let mut session = new_session();
+    #[cfg(test)]
+    {
+        session.elab.options.limits = session_limits();
+    }
     match session.load(FILE, source) {
         Ok(_) => Ok(session),
         Err(diagnostics) => {
@@ -772,33 +786,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn indexes_a_program_for_navigation_and_serves_library_text() {
-        let index = check_index("def f (xs: List Nat): Nat := xs.length\n");
-        assert!(
-            index.starts_with(r#"{"version":3,"errors":false,"ok":true,"files":["#),
-            "{index}"
-        );
-        assert!(index.contains(r#"{"path":"playground.sw"}"#), "{index}");
-        assert!(index.contains(r#""name":"Std.List.length""#), "{index}");
-        let failed = check_index("def f : Nat := rfl\n");
-        assert!(failed.contains(r#""errors":true,"ok":false"#), "{failed}");
+    fn serves_library_text() {
         assert!(std_source("core/Data.sw").contains("type List"));
         assert_eq!(std_source("nope.sw"), "");
-    }
-
-    /// The index carries the types of the program's expressions (not the
-    /// library's), with the parentheses put back, for the type of a selection.
-    #[test]
-    fn the_index_has_the_types_of_the_programs_expressions() {
-        let source = "def f (n: Nat): Nat := (n + 1) + n\n";
-        let index = check_index(source);
-        assert!(index.contains(r#","exprs":[["#), "{index}");
-        // The whole body (it starts at the parenthesis, which the parser drops) and `n`.
-        assert!(index.contains(r#"[0,[0,23,0,34],"Nat"]"#), "{index}");
-        assert!(index.contains(r#"[0,[0,24,0,25],"Nat"]"#), "{index}");
-        // Only file 0, the program: no library file has any.
-        let exprs = &index[index.find(r#""exprs":"#).expect("exprs")..];
-        assert!(!exprs.contains("[1,["), "{exprs}");
     }
 
     #[test]
@@ -826,8 +816,7 @@ mod tests {
     }
 
     /// A test may run partial code (D1183). Only the Tests tab runs tests:
-    /// checking and indexing never do, so a test that loops forever can't
-    /// hang them.
+    /// checking never does, so a test that loops forever can't hang it.
     #[test]
     fn partial_tests_run_only_in_the_tests_tab() {
         let collatz = "def collatzSteps: Nat -> {Partial} Nat\n  | 0 => 0\n  | 1 => 0\n  | n => 1 + collatzSteps (if n % 2 == 0 then n / 2 else 3 * n + 1)\n\ntest \"27\" := collatzSteps 27 == 111\n";
@@ -841,7 +830,6 @@ mod tests {
         let looping =
             "def spin (n: Nat): {Partial} Nat := spin (n + 1)\n\ntest \"loops\" := spin 0 == 0\n";
         assert_eq!(check(looping), r#"{"ok":true}"#);
-        assert!(check_index(looping).contains(r#""ok":true"#));
     }
 
     /// A failed test says which part of it is false and what the sides of

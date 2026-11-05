@@ -1190,14 +1190,14 @@ def main(): {IO} () := IO.print "\${List.length xs}"
 
 // No program is known to crash the compiler any more: its depth guards stop
 // deep programs with E-RESOURCE first. So this test serves a worker that
-// checks a program containing CRASH with the engine's stack almost used up,
+// runs the tests of a program containing CRASH with the engine's stack almost used up,
 // which overflows it inside the WebAssembly, as a deep program once did.
 const CRASH = "-- crash the engine's stack";
 const crashing = (worker) => {
-  const check = "check: () => b.check(data.source),";
-  assert.ok(worker.includes(check), "the worker checks with b.check(data.source)");
-  return worker.replace(check, `check: () => data.source.includes(${JSON.stringify(CRASH)})
-      ? withoutStack(() => b.check(data.source)) : b.check(data.source),`) + `
+  const tests = 'test: () => b.test(data.source, data.known ?? ""),';
+  assert.ok(worker.includes(tests), "the worker tests with b.test(data.source, …)");
+  return worker.replace(tests, `test: () => data.source.includes(${JSON.stringify(CRASH)})
+      ? withoutStack(() => b.test(data.source, "")) : b.test(data.source, data.known ?? ""),`) + `
 // For the browser tests: runs f with only a little of the stack left, so
 // that the stack runs out inside the WebAssembly. It recurses until the
 // stack runs out, then calls f a few frames up while unwinding. If only
@@ -1239,6 +1239,7 @@ test("after a crash, the next request starts a fresh compiler", async (page) => 
   await page.open();
   await page.untilChecked();
   await page.setSource("def x : Nat := 1\n" + CRASH + "\n");
+  await page.tab("tests");
   await page.untilStatus("The compiler crashed");
   assert.match(await page.output(), /The compiler crashed \(RangeError: Maximum call stack size exceeded\)/);
   assert.match(await page.output(), /It has been restarted/);

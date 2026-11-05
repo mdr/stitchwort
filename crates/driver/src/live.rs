@@ -373,6 +373,9 @@ pub struct LiveProject {
     texts: BTreeMap<String, String>,
     /// The file last edited.
     focus: Option<String>,
+    /// Files the editor wants checked and published next to the focus's
+    /// ([`LiveProject::set_also`]).
+    also: Vec<String>,
     /// The session before anything of the project.
     base: Mark,
     /// The namespaces checked, in the order they were.
@@ -443,6 +446,7 @@ impl LiveProject {
             config,
             texts: files,
             focus: None,
+            also: Vec::new(),
             base,
             steps: Vec::new(),
             plan: VecDeque::new(),
@@ -474,6 +478,28 @@ impl LiveProject {
         self.focus = Some(path.to_string());
     }
 
+    /// The files whose namespaces are wanted along with the focus's (the
+    /// files of the day an editor shows, say): each is checked as soon as
+    /// what it uses has been, together with the focus and before any other
+    /// namespace, and its diagnostics are published as it is. Replaces the
+    /// files given before.
+    pub fn set_also(&mut self, paths: Vec<String>) {
+        if self.also == paths {
+            return;
+        }
+        self.also = paths;
+        if self.dirty || self.plan.is_empty() {
+            return;
+        }
+        // The plan is made: order what is left of it again.
+        let Some(analysis) = self.analysis.take() else {
+            return;
+        };
+        let rest: BTreeSet<String> = self.plan.iter().cloned().collect();
+        self.plan = self.order_rest(&analysis, &rest).into();
+        self.analysis = Some(analysis);
+    }
+
     pub fn text(&self, path: &str) -> Option<&str> {
         self.texts.get(path).map(String::as_str)
     }
@@ -485,6 +511,16 @@ impl LiveProject {
     /// Whether [`LiveProject::step`] has work to do.
     pub fn pending(&self) -> bool {
         self.dirty || !self.plan.is_empty()
+    }
+
+    /// Whether the namespaces of the focus and the `also` files, which are
+    /// checked first, still have to be checked (or the files changed since).
+    pub fn focus_pending(&self) -> bool {
+        if self.dirty {
+            return true;
+        }
+        let focus = self.focus_namespaces();
+        self.plan.iter().any(|n| focus.contains(n))
     }
 
     /// The namespace the last step checked.
@@ -509,7 +545,7 @@ impl LiveProject {
         let Some(name) = self.plan.pop_front() else {
             return Ok(Progress::Done);
         };
-        let focus = self.focus_namespace().as_deref() == Some(name.as_str());
+        let focus = self.focus_namespaces().contains(&name);
         let mark = self.session.mark();
         let files = self.namespace_files.get(&name).cloned().unwrap_or_default();
         let project = self.project.clone();
@@ -599,13 +635,48 @@ impl LiveProject {
         )
     }
 
-    /// The namespace of the file being edited.
-    fn focus_namespace(&self) -> Option<String> {
-        let focus = self.focus.as_ref()?;
+    /// The namespaces of the file being edited and of the `also` files.
+    fn focus_namespaces(&self) -> BTreeSet<String> {
+        let wanted: BTreeSet<&str> = self
+            .focus
+            .iter()
+            .chain(&self.also)
+            .map(String::as_str)
+            .collect();
         self.namespace_files
             .iter()
-            .find(|(_, files)| files.iter().any(|(p, _)| p == focus))
+            .filter(|(_, files)| files.iter().any(|(p, _)| wanted.contains(p.as_str())))
             .map(|(name, _)| name.clone())
+            .collect()
+    }
+
+    /// The order to check `rest` in: what the focus namespaces use, then
+    /// the focus namespaces, then the others, each in canonical order.
+    fn order_rest(&self, analysis: &Analysis, rest: &BTreeSet<String>) -> Vec<String> {
+        let ordered = |among: &BTreeSet<String>| {
+            canonical_order(analysis, among).expect("a part of an acyclic project is acyclic")
+        };
+        let focus: BTreeSet<String> = self
+            .focus_namespaces()
+            .into_iter()
+            .filter(|f| rest.contains(f))
+            .collect();
+        if focus.is_empty() {
+            return ordered(rest);
+        }
+        let needs: BTreeSet<String> = closure(analysis, &focus.iter().cloned().collect::<Vec<_>>())
+            .into_iter()
+            .filter(|n| !focus.contains(n) && rest.contains(n))
+            .collect();
+        let after: BTreeSet<String> = rest
+            .iter()
+            .filter(|n| !focus.contains(*n) && !needs.contains(*n))
+            .cloned()
+            .collect();
+        let mut plan = ordered(&needs);
+        plan.extend(ordered(&focus));
+        plan.extend(ordered(&after));
+        plan
     }
 
     /// Rewinds to the steps that are still good, and plans the rest.
@@ -671,28 +742,7 @@ impl LiveProject {
             .filter(|n| !done.contains(n.as_str()))
             .cloned()
             .collect();
-        let ordered = |among: &BTreeSet<String>| {
-            canonical_order(&analysis, among).expect("a part of an acyclic project is acyclic")
-        };
-        let plan = match self.focus_namespace().filter(|f| rest.contains(f)) {
-            Some(focus) => {
-                // What the edited namespace needs, then it, then the rest.
-                let needs: BTreeSet<String> = closure(&analysis, std::slice::from_ref(&focus))
-                    .into_iter()
-                    .filter(|n| *n != focus && rest.contains(n))
-                    .collect();
-                let after: BTreeSet<String> = rest
-                    .iter()
-                    .filter(|n| **n != focus && !needs.contains(*n))
-                    .cloned()
-                    .collect();
-                let mut plan = ordered(&needs);
-                plan.push(focus);
-                plan.extend(ordered(&after));
-                plan
-            }
-            None => ordered(&rest),
-        };
+        let plan = self.order_rest(&analysis, &rest);
         if self.session.elab.uses_check_cache() {
             let namespaces: Vec<NamespaceSources> = analysis
                 .namespaces
