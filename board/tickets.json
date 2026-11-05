@@ -6970,13 +6970,13 @@
     {
       "id": 1330,
       "title": "Check cache key: drop std's text, once the check cache's differential test covers a std edit",
-      "status": "review",
+      "status": "backlog",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1330",
       "labels": [
         "tooling"
       ],
-      "body": "D2378 (Matt, 5 Nov): yes. docs/proposals/test-cache-key.md (P3). Entries are the elaborator's output, so syntax and elab stay in this key.\n\nDone on lane/SW-1330 (557094bfa): keys hold core text + the library's name index, not all of std; namespace entries list the std files they load with their keys. Rare-file edit: 31 of 231 re-check; ubiquitous files (Fin, Toolkit) still re-check nearly all; an added name re-checks all. Opus review running (stale-entry risk: instances etc. in unlisted files). Model result: Sonnet, worked, 37 min (est. 90).",
+      "body": "D2378 (Matt, 5 Nov): yes. docs/proposals/test-cache-key.md (P3). Entries are the elaborator's output, so syntax and elab stay in this key.\n\nDone on lane/SW-1330 (557094bfa): keys hold core text + the library's name index, not all of std; namespace entries list the std files they load with their keys. Rare-file edit: 31 of 231 re-check; ubiquitous files (Fin, Toolkit) still re-check nearly all; an added name re-checks all. Opus review running (stale-entry risk: instances etc. in unlisted files). Model result: Sonnet, worked, 37 min (est. 90).\n\nOpus review blocker (loaded-files leak) fixed in df3a4a20a by recording every loaded library file in an entry; that removes most of the gain (an Ansi edit re-checks everything loaded after it) and library-file entries keep a similar gap. Parked: merge after SW-1354 makes lazy loading behave as if every file were loaded; then needed_roots suffices and the loaded-files list can go. Orchestrator's sequencing call, 5 Nov.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7306,9 +7306,9 @@
     {
       "id": 1354,
       "title": "Check cache can report a namespace as checked when it isn't (on main): congruence-lemma lookups (rewrite's …Cong, decreasing) and auto's candidates see only library files already loaded in the run, so a namespace's result depends on what unrelated namespaces loaded",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1354",
       "labels": [
         "tooling"
       ],
