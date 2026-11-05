@@ -497,8 +497,7 @@ impl Ranges {
                     return Ok(None);
                 };
                 let probe = Value::var(cx.level());
-                let Value::Eq(_, l, x) =
-                    force(&cx.g(), apply(&cx.g(), pred.clone(), probe)?)?
+                let Value::Eq(_, l, x) = force(&cx.g(), apply(&cx.g(), pred.clone(), probe)?)?
                 else {
                     return Ok(None);
                 };
