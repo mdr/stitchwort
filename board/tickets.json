@@ -6155,13 +6155,13 @@
     {
       "id": 1272,
       "title": "Messages print a <= b as Succ a < b",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1272",
       "labels": [
         "diagnostics"
       ],
-      "body": "From SW-1236's check on day 3 (treesOn with <= for <): the first-difference note reads 'they first differ at `Succ (x * slope.down)` against `x * slope.down`, in `x * slope.down < List.length map.rows`'. The user wrote <=; the printer shows its unfolding. Resugar Succ a < b as a <= b in messages (or keep <= folded until needed).",
+      "body": "From SW-1236's check on day 3 (treesOn with <= for <): the first-difference note reads 'they first differ at `Succ (x * slope.down)` against `x * slope.down`, in `x * slope.down < List.length map.rows`'. The user wrote <=; the printer shows its unfolding. Resugar Succ a < b as a <= b in messages (or keep <= folded until needed).\n\nDone (DeepSeek, 13 min, est. 40; ca25553f6, reviewed line by line): the first-difference note now names the whole comparisons when they differ only by the Succ that < hides ('n * slope < height' against 'n * slope <= height'). It doesn't print Nat.leq (Succ a) b as a <= b globally, since a real < against <= mismatch would then print the same on both sides (agreed). No existing snapshot or hash changed. Model result: DeepSeek, worked, 13 min (est. 40).",
       "created": "2026-11-04",
       "updated": "2026-11-05",
       "commits": []
