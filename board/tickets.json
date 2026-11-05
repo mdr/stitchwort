@@ -7278,9 +7278,9 @@
     {
       "id": 1352,
       "title": "Sweep: write range checks as chained comparisons (lo <= x <= hi) in aoc and games/rogue (32 + 1 sites), then std (33) after SW-1344 merges",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1352",
       "labels": [
         "aoc"
       ],
