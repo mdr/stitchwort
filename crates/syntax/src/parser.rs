@@ -1477,7 +1477,10 @@ impl<'t> Parser<'t> {
                         },
                     )?
                     .span;
-                let mut list = tail.unwrap_or(Pattern::Nil(end));
+                // `[]` on its own spans both brackets; the `[]` ending
+                // `[x, y]` is its `]`.
+                let nil = if items.is_empty() { span.to(end) } else { end };
+                let mut list = tail.unwrap_or(Pattern::Nil(nil));
                 while let Some(item) = items.pop() {
                     let s = if items.is_empty() {
                         span.to(end)

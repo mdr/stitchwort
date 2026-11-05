@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NONEMPTY-EMPTY] Error: a `NonEmptyList` can't be empty
+   ╭─[ reject/non-empty-list-empty-literal.sw:5:34 ]
+   │
+ 5 │ def nothing: NonEmptyList Nat := []
+   │                                  ─┬  
+   │                                   ╰── this is empty, but a `NonEmptyList Nat` has at least one element
+   │ 
+   │ Note: write at least one item, or use a `List`
+───╯

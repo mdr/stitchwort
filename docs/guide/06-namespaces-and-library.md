@@ -263,15 +263,21 @@ test "union a list of sets" := sets.unionAll == [1, 2, 3].toSet
 
 ### NonEmptyList
 
-Many lists can't be empty: the people in a group, the numbers on a line. A `NonEmptyList a` is a record of a first element and the rest, `{ head = 3, tail = [9, 4] }`, so the functions that need a first element can't fail. `maximum`, `minimum`, `maxBy`, `minBy`, `last` and `reduce` (a fold that starts from the first element) return the value itself where `List`'s return an `Option`, and `map`, `zip`, `sort`, `reverse` and `append` return a `NonEmptyList` again. `xs.toList` goes back to a `List`. To go forward, `xs.toNonEmpty` takes a list the compiler can see isn't empty (a proof `xs ≠ []`, found by `auto`), and `xs.nonEmpty` gives an `Option (NonEmptyList a)`. There is no bracket syntax for it yet; `++` is for `List` and `Text`, so the joins are `append`, `appendList` and `prependList`.
+Many lists can't be empty: the people in a group, the numbers on a line. A `NonEmptyList a` is a record of a first element and the rest, `{ head = 3, tail = [9, 4] }`, written `[3, 9, 4]` where the type says it is a `NonEmptyList`, so the functions that need a first element can't fail. `maximum`, `minimum`, `maxBy`, `minBy`, `last` and `reduce` (a fold that starts from the first element) return the value itself where `List`'s return an `Option`, and `map`, `zip`, `sort`, `reverse` and `append` return a `NonEmptyList` again. `xs.toList` goes back to a `List`. To go forward, `xs.toNonEmpty` takes a list the compiler can see isn't empty (a proof `xs ≠ []`, found by `auto`), and `xs.nonEmpty` gives an `Option (NonEmptyList a)`. In a pattern, `[first, ..rest]` takes one apart (`rest` is a `List`) and covers every value, so a match needs no `[]` arm; `[]` itself is an error where a `NonEmptyList` is expected. Where nothing says the type, brackets make a `List`. `++` is for `List` and `Text`, so the joins are `append`, `appendList` and `prependList`.
 
 <!-- snippet: library.sw#nonempty -->
 ```stitchwort
-def groupAnswers: NonEmptyList (Set Char) := { head = Set.fromList ['a', 'b', 'c'], tail = [Set.fromList ['b', 'c'], Set.fromList ['c', 'd']] }
+def groupAnswers: NonEmptyList (Set Char) := [['a', 'b', 'c'].toSet, ['b', 'c'].toSet, ['c', 'd'].toSet]
+def numbers: NonEmptyList Nat := [3, 9, 4]
 
-test "no Option" := groupAnswers.intersectAll == Set.fromList ['c']
-test "reduce and maximum" := ({ head = 3, tail = [9, 4] }: NonEmptyList Nat).maximum == 9 ∧ ({ head = 3, tail = [9, 4] }: NonEmptyList Nat).reduce Nat.add == 16
-test "map keeps it non-empty" := (({ head = 1, tail = [2] }: NonEmptyList Nat).map (n => n * 10)).head == 10
+def describe: NonEmptyList Nat → Text
+  | [only] => "just ${only}"
+  | [first, ..rest] => "${first} and ${rest.length} more"
+
+test "no Option" := groupAnswers.intersectAll == ['c'].toSet
+test "reduce and maximum" := numbers.maximum == 9 ∧ numbers.reduce Nat.add == 16
+test "map keeps it non-empty" := (numbers.map (n => n * 10)).head == 30
+test "no [] arm" := describe [7] == "just 7" ∧ describe numbers == "3 and 2 more"
 test "from a list" := [4, 5, 6].toNonEmpty.maximum == 6 ∧ ([]: List Nat).nonEmpty == None
 ```
 
