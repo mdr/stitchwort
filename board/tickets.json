@@ -5958,7 +5958,7 @@
     {
       "id": 1258,
       "title": "Std: give every public function's parameters revealing names, for self-documentation (signatures, hover, stitchwort doc) and so callers can use named arguments",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1258",
       "labels": [
