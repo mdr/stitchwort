@@ -1929,7 +1929,7 @@ export def area: Shape -> Nat
     showEntryLink(id);
     store(`${keysOf(name)}open`, project.open);
     evalImports = [];
-    evalInput = day.evalInput ?? (day.main === "Aoc.Year2025.Day02.main" ? "Aoc.Year2025.Day02.solvePart1 Aoc.Year2025.Day02.Tests.exampleRanges" : `${day.main.replace(/main$/, "Tests.example")}`);
+    evalInput = day.evalInput ?? (day.main === "Aoc.Year2025.Day02.main" ? "Aoc.Year2025.Day02.Tests.exampleRanges.map Aoc.Year2025.Day02.solvePart1" : `${day.main.replace(/main$/, "Tests.example")}`);
     // The Run input: what was saved for this day, else the day's first
     // bundled input (the example).
     inputChoice.replaceChildren(el("option", { value: "" }, "Input…"),
