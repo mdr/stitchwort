@@ -6858,9 +6858,9 @@
     {
       "id": 1322,
       "title": "Parser: 'Witness { … } arg' is a parse error; a record literal as a call argument needs brackets",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1322",
       "labels": [
         "syntax"
       ],
