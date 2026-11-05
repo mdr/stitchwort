@@ -1191,41 +1191,52 @@ theorem Parse.readsLabel (what: Text) (p: () → {Parse} a) (spec: List Char →
             let atSame: middle.at = after := Pair.mkInjectiveSnd same
             Witness read (rewrite <- valueSame, <- atSame in Both starts (Both honest1 holds))
 
---| What `int` reads: digits, with a '-' in front for a negative number.
+--| What `int` reads: digits, with an optional '+' or '-' in front.
 def Parse.IntRead (read: List Char) (n: Int): Prop :=
   ∃ (digits: List Char) => digits ≠ [] ∧ digits.all Parse.isDigit = True ∧
-    ((read = ['-', ..digits] ∧ n = -(Parse.digitsValue digits).toInt) ∨ (read = digits ∧ n = (Parse.digitsValue digits).toInt))
+    ((read = ['-', ..digits] ∧ n = -(Parse.digitsValue digits).toInt) ∨
+      (read = ['+', ..digits] ∧ n = (Parse.digitsValue digits).toInt) ∨
+      (read = digits ∧ n = (Parse.digitsValue digits).toInt))
 
 theorem Parse.readsInt: Parse.Reads Parse.int Parse.IntRead :=
-  Parse.readsWeaken
-    (Parse.readsBind (() => Parse.literal ['-']) (negative => if negative then -(Parse.nat().toInt) else Parse.nat().toInt) _
-      (negative read n =>
-        ∃ (digits: List Char) => digits ≠ [] ∧ digits.all Parse.isDigit = True ∧ read = digits ∧
-          ((negative = True ∧ n = -(Parse.digitsValue digits).toInt) ∨ (negative = False ∧ n = (Parse.digitsValue digits).toInt)))
-      (Parse.readsLiteral ['-'])
-      (negative =>
-        match negative with
-          | True =>
-            Parse.readsWeaken
-              (Parse.readsMap (() => Parse.nat().toInt) (i => -i) _ (Parse.readsMap Parse.nat (m => m.toInt) _ Parse.readsNat))
-              (read n h =>
-                match h with
-                  | Witness i (Both (Witness m (Both (Both some (Both all value)) made)) negated) =>
-                    Witness read (Both some (Both all (Both rfl (Inl (Both rfl (rewrite negated, made, value in rfl)))))))
-          | False =>
-            Parse.readsWeaken (Parse.readsMap Parse.nat (m => m.toInt) _ Parse.readsNat)
-              (read n h =>
-                match h with
-                  | Witness m (Both (Both some (Both all value)) made) =>
-                    Witness read (Both some (Both all (Both rfl (Inr (Both rfl (rewrite made, value in rfl)))))))))
-    (read n h =>
-      match h with
-        | Witness sign (Witness rest (Witness negative (Both split (Both literal (Witness digits (Both some (Both all (Both same choice)))))))) =>
-          match choice with
-            | Inl (Both isTrue value) =>
-              Witness digits (Both some (Both all (Inl (Both (rewrite split, literal, isTrue, same in rfl) value))))
-            | Inr (Both isFalse value) =>
-              Witness digits (Both some (Both all (Inr (Both (rewrite split, literal, isFalse, same in rfl) value)))))
+  Parse.readsThen (Parse.readsOptional Parse.readsSignedInt)
+    (signRead sign found =>
+      match sign with
+        | Some n =>
+          Parse.readsDone n (read v => Parse.IntRead (signRead ++ read) v)
+            (match found with
+              | Witness digits (Both nonEmpty (Both all choice)) =>
+                Witness digits (Both nonEmpty (Both all
+                  (match choice with
+                    | Inl (Both plus value) =>
+                      rewrite List.appendNil signRead in Inr (Inl (Both plus value))
+                    | Inr (Both minus value) =>
+                      rewrite List.appendNil signRead in Inl (Both minus value)))))
+        | None =>
+          Parse.readsThen Parse.readsNat (digitsRead size (Both nonEmpty (Both all value)) =>
+            Parse.readsDone size.toInt (read v => Parse.IntRead (signRead ++ (digitsRead ++ read)) v)
+              (Witness digitsRead (Both nonEmpty (Both all
+                (rewrite found, value, List.appendNil digitsRead in Inr (Inr (Both rfl rfl))))))))
+
+--| What `signedInt` reads: digits, with a required '+' or '-' in front.
+def Parse.SignedIntRead (read: List Char) (n: Int): Prop :=
+  ∃ (digits: List Char) => digits ≠ [] ∧ digits.all Parse.isDigit = True ∧
+    ((read = ['+', ..digits] ∧ n = (Parse.digitsValue digits).toInt) ∨
+      (read = ['-', ..digits] ∧ n = -(Parse.digitsValue digits).toInt))
+
+theorem Parse.readsSignedInt: Parse.Reads Parse.signedInt Parse.SignedIntRead :=
+  Parse.readsThen (Parse.readsPick [("+", False), ("-", True)]) (signRead negative (Witness word (Both member signIs)) =>
+    Parse.readsThen Parse.readsNat (digitsRead size (Both nonEmpty (Both all value)) =>
+      Parse.readsDone (Int.signed negative size) (read n => Parse.SignedIntRead (signRead ++ (digitsRead ++ read)) n)
+        (Witness digitsRead (Both nonEmpty (Both all
+          (match member with
+            | Inl same =>
+              rewrite signIs, <- Pair.mkInjectiveFst same, <- Pair.mkInjectiveSnd same, value, List.appendNil digitsRead in
+                Inl (Both rfl rfl)
+            | Inr (Inl same) =>
+              rewrite signIs, <- Pair.mkInjectiveFst same, <- Pair.mkInjectiveSnd same, value, List.appendNil digitsRead in
+                Inr (Both rfl rfl)
+            | Inr (Inr none) => Void.exfalso none))))))
 
 --| `oneOf`: what the alternative that succeeded read. Every alternative
 --| with the same spec gives it to the choice.

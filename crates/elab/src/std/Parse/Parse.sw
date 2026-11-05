@@ -249,9 +249,18 @@ def Parse.natDigits (atLeast: Nat) (atMost: Nat): {Parse} Nat :=
     let fewest := if atLeast == 0 then 1 else atLeast
     Parse.expected (if fewest == atMost then "a ${atMost}-digit number" else "a number of ${fewest} to ${atMost} digits")
 
---| A whole number with an optional '-' in front, else "expected a number".
+--| A whole number with a required '+' or '-' in front, else "expected '+' or
+--| '-'". Use [`Parse.int`] when the sign is optional.
+def Parse.signedInt(): {Parse} Int :=
+  let negative := Parse.pick [("+", False), ("-", True)]
+  Int.signed negative (Parse.nat())
+
+--| A whole number with an optional '+' or '-' in front, else "expected a
+--| number".
 def Parse.int(): {Parse} Int :=
-  if Parse.literal ['-'] then -(Parse.nat().toInt) else Parse.nat().toInt
+  match Parse.optional (() => Parse.signedInt()) with
+    | Some n => n
+    | None => Parse.nat().toInt
 
 --| One decimal digit, else "expected a digit".
 def Parse.digit(): {Parse} Fin 10 :=
@@ -992,7 +1001,12 @@ test "Parse: nat, error" := Parse.Tests.lineResult "x" Parse.nat == Err "column 
 test "Parse: nat, then the end" := Parse.Tests.lineResult "12x" Parse.nat == Err "column 3: expected the end of the line, got 'x'"
 test "Parse: int" := Parse.Tests.lineResult "-12" Parse.int == Ok (-12)
 test "Parse: int, positive" := Parse.Tests.lineResult "12" Parse.int == Ok 12
+test "Parse: int, leading plus" := Parse.Tests.lineResult "+12" Parse.int == Ok 12
 test "Parse: int, error" := Parse.Tests.lineResult "-" Parse.int == Err "column 2: expected a number, got the end of the line"
+test "Parse: signedInt" := Parse.Tests.lineResult "+3" Parse.signedInt == Ok 3
+test "Parse: signedInt, negative" := Parse.Tests.lineResult "-99" Parse.signedInt == Ok (-99)
+test "Parse: signedInt, needs a sign" := Parse.Tests.lineResult "12" Parse.signedInt == Err "column 1: expected '+' or '-', got '1'"
+test "Parse: signedInt, error" := Parse.Tests.lineResult "+" Parse.signedInt == Err "column 2: expected a number, got the end of the line"
 test "Parse: digit" := Parse.Tests.lineResult "7" (() => Parse.digit().toNat) == Ok 7
 test "Parse: digit, error" := Parse.Tests.lineResult "x" (() => Parse.digit().toNat) == Err "column 1: expected a digit, got 'x'"
 test "Parse: spaces" := Parse.Tests.lineResult " \t 5" (() =>

@@ -10,7 +10,7 @@ theorem sumsToSound (window: Window) (number: Nat) (sums: window.sumsTo number =
   List.anyTrueElim window.numbers (a => a <= number && a + a != number && (Set.fromList window.numbers).contains (number - a)) _ sums
     (a member holds =>
       let fits: a ≤ number := Bool.andLeft holds
-      let differ := DecEq.neTrue (a + a) number (Bool.andLeft (Bool.andRight holds))
+      let differ := DecEq.neTrue (Bool.andLeft (Bool.andRight holds))
       let partner := (Set.containsFromListIff window.numbers (number - a)).forward (Bool.andRight (Bool.andRight holds))
       Witness a (Witness (number - a) (Both member (Both partner (Both (same => differ (omega)) (omega))))))
 

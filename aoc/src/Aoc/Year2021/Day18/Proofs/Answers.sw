@@ -79,7 +79,7 @@ theorem pairsMember (numbers: List Number) (x: Number) (y: Number) (member: (x, 
               let pairs := Option.someInjective made
               Witness i
                 (Witness j
-                  (Both (DecEq.neTrue i j e)
+                  (Both (DecEq.neTrue e)
                     (Both (rewrite <- Eq.cong Std.Pair.fst pairs in (List.memWithIndex numbers i a).forward atI)
                       (rewrite <- Eq.cong Std.Pair.snd pairs in (List.memWithIndex numbers j b).forward atJ))))
 

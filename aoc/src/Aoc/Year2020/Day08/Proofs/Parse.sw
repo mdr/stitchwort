@@ -5,7 +5,7 @@
 namespace Aoc.Year2020.Day08.Proofs
 import Aoc.Year2020.Day08 (..)
 import Aoc.Year2020.Day08.Spec (ArgumentWritten, InstructionWritten, OperationWritten)
-import Std (Fail, Int, List, Pair, Parse, Result, Text, Void)
+import Std (Fail, List, Parse, Result, Text, Void)
 
 theorem readsOperation: Parse.Reads operation OperationWritten :=
   Parse.readsWeaken (Parse.readsPickBy [Acc, Jmp, Nop] Operation.word)
@@ -15,17 +15,7 @@ theorem readsOperation: Parse.Reads operation OperationWritten :=
         | Jmp => same
         | Nop => same)
 
-theorem readsArgument: Parse.Reads argument ArgumentWritten :=
-  Parse.readsThen (Parse.readsPick [("+", False), ("-", True)]) (signRead negative (Witness word (Both member signIs)) =>
-    Parse.readsThen Parse.readsNat (digitsRead size (Both nonEmpty (Both digits value)) =>
-      Parse.readsDone (Int.signed negative size) (read made => ArgumentWritten (signRead ++ (digitsRead ++ read)) made)
-        (Witness digitsRead (Both nonEmpty (Both digits
-          (match member with
-            | Inl same =>
-              rewrite signIs, <- Pair.mkInjectiveFst same, <- Pair.mkInjectiveSnd same, value, List.appendNil digitsRead in Inl (Both rfl rfl)
-            | Inr (Inl same) =>
-              rewrite signIs, <- Pair.mkInjectiveFst same, <- Pair.mkInjectiveSnd same, value, List.appendNil digitsRead in Inr (Both rfl rfl)
-            | Inr (Inr none) => Void.exfalso none))))))
+theorem readsArgument: Parse.Reads argument ArgumentWritten := Parse.readsSignedInt
 
 theorem readsInstruction: Parse.Reads instruction InstructionWritten :=
   Parse.readsThen readsOperation (operationRead operation written =>
