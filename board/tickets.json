@@ -5516,7 +5516,7 @@
     {
       "id": 1227,
       "title": "Unifier: unfold a definition one step when compared with a call of a different definition (lazy delta, as Lean), so _ works for named parsers and nothing is restated",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1227",
       "labels": [
@@ -6746,7 +6746,7 @@
     {
       "id": 1314,
       "title": "Parse/Reads.sw: drop the copied parser code in std's ~42 readsBind uses now that _ works for named parsers (SW-1227)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1314",
       "labels": [
@@ -6760,7 +6760,7 @@
     {
       "id": 1315,
       "title": "With SW-1227's guard off, 2021 day 2's aimedDepthCons fails on two terms that print identically: a gap comparing functions inside them?",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1315",
       "labels": [
@@ -6802,7 +6802,7 @@
     {
       "id": 1318,
       "title": "Guards: f.induct for partial-overlap guarded arms; display polish of guard equations (beta-redex, two forms of one fact, vague skip reason)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1318",
       "labels": [
@@ -6872,7 +6872,7 @@
     {
       "id": 1323,
       "title": "An index 3 against (1 + 2) in an indexed family's type (Sums [1, 2] 3 vs Sums [1, 2] (1 + 2)) gives a type mismatch; check whether literal vs + in an index should unify (maybe SW-1315's stale stuck call)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1323",
       "labels": [
@@ -6900,7 +6900,7 @@
     {
       "id": 1325,
       "title": "A performing comparison isn't decided into a Bool in a generic constructor field or list element: Some (len() < 3) at Option Bool, [len() < 3] at List Bool",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1325",
       "labels": [
@@ -6914,7 +6914,7 @@
     {
       "id": 1326,
       "title": "Partial lambdas: migrate the sites that waited for guards (filter then map on a pattern; filterMap with if … then Some … else None) to match some with a guard",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1326",
       "labels": [
@@ -6984,7 +6984,7 @@
     {
       "id": 1331,
       "title": "Feature tour and language guide: bring up to date with everything since SW-1105 (3 Nov), especially partial lambdas (clause lambdas, match some, matches, guards and their equations)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1331",
       "labels": [
@@ -7026,7 +7026,7 @@
     {
       "id": 1334,
       "title": "Hover (VS Code and playground): show a function's parameter names, as its signature is written: def Std.Parse.satisfy (what: Text) (passes: Char → Bool): {Parse} Char",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1334",
       "labels": [
@@ -7040,7 +7040,7 @@
     {
       "id": 1335,
       "title": "Aoc.Common: Grid.positionsWhere (keep: a → Bool) with a membership lemma; use it in 2024 days 6 and 16 and onlyCell",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1335",
       "labels": [
