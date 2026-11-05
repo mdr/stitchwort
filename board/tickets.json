@@ -7530,7 +7530,7 @@
     {
       "id": 1370,
       "title": "2021 day 16: operands fit their operation in the packet type (Many (NonEmptyList Packet) | Pair Packet Packet); drop checkOperators, promised and fallback arms",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1370",
       "labels": [
