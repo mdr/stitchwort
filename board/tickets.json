@@ -7334,13 +7334,13 @@
     {
       "id": 1356,
       "title": "Design note: range syntax (a ..< b, a ..= b, or other), after a thorough survey of other languages (Swift, Rust, Kotlin, Haskell, Python, Scala, Ruby, Julia, Lean, Idris, Agda, F#, Elixir …)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1356",
       "labels": [
         "design"
       ],
-      "body": "D2403 (Matt, 5 Nov): yes, an Opus lane; 'definitely do a thorough search of existing languages to see what other people do, including Swift, Rust, Kotlin, etc.' Prompted by List.range (Int.toNat target.right). Constraint: .. already means spread in brackets ([x, ..rest]), so Haskell's [2..n] would clash. Cover inclusive/exclusive, Nat/Int/Char, steps and counting down, List vs lazy, membership lemma (x ∈ a ..< b ↔ a ≤ x < b, pairs with chained comparisons), patterns, Fin, loops, and the List.range argument-order question (SW-1258). Opus, ~45 min. Next free slot.",
+      "body": "D2403 (Matt, 5 Nov): yes, an Opus lane; 'definitely do a thorough search of existing languages to see what other people do, including Swift, Rust, Kotlin, etc.' Prompted by List.range (Int.toNat target.right). Constraint: .. already means spread in brackets ([x, ..rest]), so Haskell's [2..n] would clash. Cover inclusive/exclusive, Nat/Int/Char, steps and counting down, List vs lazy, membership lemma (x ∈ a ..< b ↔ a ≤ x < b, pairs with chained comparisons), patterns, Fin, loops, and the List.range argument-order question (SW-1258). Opus, ~45 min. Next free slot.\n\nDone on lane/SW-1356 (30797b999): docs/proposals/ranges.md. 25-language survey with sources; ~1,100 range sites (578 of aoc's 679 in proofs). Recommends a ..< b and a ..= b as List.range a b; no [a..b]. Decisions R1–R9 asked as D2405–D2413. Model result: Opus, worked, 8 min (est. 45).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
