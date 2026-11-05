@@ -7739,11 +7739,14 @@
     },
     {
       "id": 1385,
-      "title": "Browser tests fail on main: 7 of 64 (goals text '⊢ two = 2' vs /⊢ 2 = 2/; Run's errors timeout; effectful List.map at a million elements timeout 300 s; AoC days list; shared-file error tabs (12 tabs expected); Evaluate full names E-TYPE-MISMATCH; roguelike groups). Not in the merge tier, so drift went unnoticed|tests,playground",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
-      "labels": [],
+      "title": "Browser tests fail on main: 7 of 64 (goals text, Run's errors timeout, effectful List.map at a million, AoC days list, shared-file error tabs, Evaluate full names, roguelike groups); not in the merge tier, so drift went unnoticed",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1385",
+      "labels": [
+        "tests",
+        "playground"
+      ],
       "body": "",
       "created": "2026-11-05",
       "updated": "2026-11-05",
