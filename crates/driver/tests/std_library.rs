@@ -248,6 +248,46 @@ fn a_congruence_lemma_away_from_its_function_is_refused() {
     assert!(error.contains("`Std.Nat.addCong`"), "{error}");
 }
 
+/// A library instance of `I` for `T` must be in `T`'s file or `I`'s, the
+/// files that are loaded wherever it can be asked for; instance search is
+/// run-global, so one elsewhere would be found only in a run that loaded
+/// its file (SW-1362).
+#[test]
+fn an_instance_away_from_its_type_and_interface_is_refused() {
+    let build = |files: &[(&str, &str)]| LibraryIndex::build(prelude(), files, STACK).err();
+    let ty = "type Libo (a: Type) = | MkLibo (x: a)\n";
+    let interface = "interface Tame (a: Type) = {\n  tame: a → Nat\n}\n";
+    let plain = "instance Libo.instTame: Tame (Libo a) := { tame = _ => 0 }\n";
+    let applied = "instance Libo.instTame [auto t: Tame a]: Tame (Libo a) := { tame = _ => 0 }\n";
+    for instance in [plain, applied] {
+        let error = build(&[("A.sw", ty), ("B.sw", interface), ("C.sw", instance)])
+            .expect("an instance in a third file is refused");
+        assert!(
+            error.contains("`Libo.instTame` of `Std.Tame`")
+                && error.contains("declared in `C.sw`")
+                && error.contains("`A.sw`")
+                && error.contains("`B.sw`"),
+            "{error}"
+        );
+    }
+    // Beside the type, beside the interface, or both in one file.
+    assert_eq!(
+        build(&[("A.sw", &format!("{ty}{plain}")), ("B.sw", interface)]),
+        None
+    );
+    assert_eq!(
+        build(&[("A.sw", ty), ("B.sw", &format!("{interface}{plain}"))]),
+        None
+    );
+    assert_eq!(build(&[("A.sw", &format!("{ty}{interface}{plain}"))]), None);
+    // A core type with a library interface: beside the interface. Away
+    // from it, the instance is refused.
+    let nat = "instance Nat.instTame: Tame Nat := { tame = _ => 0 }\n";
+    assert_eq!(build(&[("B.sw", &format!("{interface}{nat}"))]), None);
+    let error = build(&[("B.sw", interface), ("C.sw", nat)]).expect("refused");
+    assert!(error.contains("`Nat.instTame`"), "{error}");
+}
+
 // ------------------------------------------------------------------ loading
 
 const A: &str = "def Nat.libTwice (n: Nat): Nat := n + n\n\
