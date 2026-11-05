@@ -6822,7 +6822,7 @@
       "labels": [
         "proof"
       ],
-      "body": "Found in the SW-1301 review (r7.sw in the review scratchpad); happens without guards too.",
+      "body": "Found in the SW-1301 review (r7.sw in the review scratchpad); happens without guards too.\n\nCause (Sonnet, 6 min): probe_row_in ranks a '_' after named pattern variables, so [_, ..rest] gives (rest)(head) in f.eqN and f.induct alike; docs/proposals/function-equations.md says written order. Orchestrator's call: follow the proposal for both (minor; migration cost doesn't count). Continuing, est. 60 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
