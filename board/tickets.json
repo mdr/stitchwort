@@ -1,5 +1,5 @@
 {
-  "next": 1429,
+  "next": 1430,
   "tickets": [
     {
       "id": 47,
@@ -5887,15 +5887,15 @@
     {
       "id": 1253,
       "title": "After proof irrelevance stage 1: check whether Bool.canonicalTrue (D731, used by Float.make) is still needed",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "std"
       ],
-      "body": "Found by SW-1250, 4 Nov 2026.",
+      "body": "Found by SW-1250, 4 Nov 2026.\n\nFolded into SW-1429 (proof irrelevance stage 2).",
       "created": "2026-11-04",
-      "updated": "2026-11-04",
+      "updated": "2026-11-05",
       "commits": []
     },
     {
@@ -8363,6 +8363,22 @@
         "aoc"
       ],
       "body": "Matt asked (5 Nov 2026) whether day 8 could use clause lambdas. Sonnet, est. 20 min. Note any friction from proofs following a clause lambda.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1429,
+      "title": "Proof irrelevance stage 2: remove the workarounds (docs/proposals/proof-irrelevance.md §9 stage 2): delete the elaborator's canonical (crates/elab/src/lib.rs fn canonical and callers); simplify Char.mkExt and the second [auto] proofs of Int.modNatToInt, toIntDiv, toIntMod; Bool.canonicalTrue in Float (SW-1253); lift the if h: limit of function equations for inert h (D2180); update hash snapshots",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "kernel",
+        "elab",
+        "std"
+      ],
+      "body": "Decided by Matt 19 Oct 2026 (remove canonical in stage 2, accepting the hash changes). Stage 1 (SW-93) merged 5 Nov 2026. Sonnet (near the kernel, not in it); Opus review since it changes elaborated terms. Folds in SW-1253.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
