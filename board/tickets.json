@@ -1,5 +1,5 @@
 {
-  "next": 1372,
+  "next": 1373,
   "tickets": [
     {
       "id": 47,
@@ -7460,13 +7460,13 @@
     {
       "id": 1365,
       "title": "Move 2020 days 4 and 6's shared parse-proof helpers (sepByMap, eachMap) to std Parse lemmas or Aoc.Common",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1365",
       "labels": [
         "aoc"
       ],
-      "body": "Small improvement found by a lane, 5 Nov 2026. Matt: 'Those small findings are worth curing. In general, I'm a fan of doing small improvements.'",
+      "body": "Small improvement found by a lane, 5 Nov 2026. Matt: 'Those small findings are worth curing. In general, I'm a fan of doing small improvements.'\n\nDone on lane/SW-1365 (7bc3e927a): Parse.eachMap and Parse.sepByMap in std/Parse/Reads.sw, statements unchanged, day 6 uses them. Reviewed. Days that hand-prove eachMap-shaped facts: 2020 d3 eachSquare, 2020 d5 eachHalf, 2021 d16 digitsBits (follow-up filed). Model result: DeepSeek, worked, ~20 min (est. 25).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7551,6 +7551,20 @@
         "elab"
       ],
       "body": "From SW-1350's Opus review, 5 Nov 2026. Pre-existing on main; results correct, only duplicated work. Likely: building the decision rewrites the inner middle in terms of the outer variable and drops the second binding. Small improvement.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1372,
+      "title": "Use Std's Parse.eachMap where days re-prove it by hand: 2020 day 3 eachSquare, 2020 day 5 eachHalf, 2021 day 16 digitsBits",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "From SW-1365, 5 Nov 2026. Small improvement. DeepSeek-sized.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
