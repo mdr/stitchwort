@@ -301,6 +301,66 @@ browser. Could our wasm build be the server? Partly:
   version) if the LSP route is wanted with CM6 too; it would keep the light
   editor.
 
+#### 5.2.1 Trial: the real server in a worker, with CM6 (SW-1375)
+
+`web/proto/lsp.html` runs `stitchwort lsp`'s own code (`crates/cli/src/lsp.rs`,
+included into `crates/web` as `crates/web/src/lsp.rs`) in a worker, and
+CodeMirror 6 talks to it through `@codemirror/lsp-client` 6.3.0 (MIT, 17 Sep
+2026). `web/proto/lsp-check.mjs` drives it in headless Chrome. Measured on
+5 Nov 2026 (M-series Mac, Chrome headless):
+
+- **What it took.** `driver::live` and the rest of the server build for
+  `wasm32-unknown-unknown` as they are. The seam is `lsp::Inline`: the same
+  `Main` and `Checker`, over `Connection::memory()`, with `receive(message)`
+  and `tick()` (one namespace's check, or one queued search) in place of the
+  threads; the host does the waiting for typing to pause. On wasm, `Url`'s
+  file-path conversions are a small shim, and `stitchwort_core::budget::Instant`
+  is `web-time`'s clock (search deadlines panic with `std`'s). The native
+  server is unchanged apart from the factoring.
+- **Works through the stock client, no glue:** diagnostics as squiggles and
+  gutter marks, hover (markdown), go to definition in the file and into the
+  library (the page's `displayFile` opens a read-only `stitchwort-std:` view
+  from `std_source`; hover works there too), find references, formatting,
+  named-argument completion after `(`.
+- **Works with page glue:** code actions on `?` (the client has no code
+  action UI; 17 lines call `textDocument/codeAction` and apply the edit).
+- **Not offered by the server:** signature help, rename.
+- **Size:** `stitchwort_web_bg.wasm` 8,746,846 → 10,630,961 bytes (+1.88 MB,
+  +22%); gzip 3,308,218 → 4,039,332 (+0.73 MB). Before `wasm-opt`, the largest
+  parts of the growth are the YAML parser for `stitchwort.yaml`
+  (`granit_parser`, `serde_saphyr`, ~0.49 MB, only for projects),
+  monomorphised `core`/`alloc` code (~0.7 MB), driver and elab code the
+  playground didn't reach (~0.28 MB), `serde_json` (0.15 MB) and `url`/`idna`
+  (0.07 MB). The client adds 30 KB gzip over the CM6 prototype (`marked`).
+- **Time to first diagnostics:** 0.8–0.9 s from navigation (server ready
+  30 ms after the bindings load; the first check 0.7 s).
+- **Typing** (edit, then `client.sync()` at once): small file 0.15–0.21 s;
+  AoC 2024 day 21 (226 lines) 2.15 s per edit, every edit. The native server
+  on the same files: 0.13 s and 1.46 s. Most of the AoC time is the
+  checker's own (a file on its own is checked again whole), not wasm (1.5×).
+  With the client's own 500 ms pause before syncing, add 0.5 s.
+- **Code action** on `n + 0 = n := ?`: 13 s in the worker, and the worker
+  is blocked for all of it: no diagnostics meanwhile.
+
+What is left, by size:
+
+1. **Cancellation** (medium). A namespace's check can't be stopped by an
+   edit: there is no other thread to set the flag. On the AoC day an edit
+   waits up to 2 s behind a stale check. Options: a `SharedArrayBuffer`
+   flag (needs cross-origin isolation, which GitHub Pages can't set without
+   a service-worker shim), or a check that yields.
+2. **Searches block the checker** (small to medium). A second worker for
+   searches and `contextAt`, as natively they have threads of their own.
+3. **Projects** (medium). The server reads projects from disk
+   (`DiskFiles`, `find_project`); the playground has them in memory
+   (`crates/web/src/project.rs`). It needs an in-memory `Files` behind the
+   same seam.
+4. **Packaging** (small). The trial includes the file by `#[path]`; the
+   real thing is a `stitchwort-lsp` library crate that the CLI and
+   `crates/web` both use, and the playground's own worker and session.
+5. **Size** (small, optional): the YAML parser could stay out of a build
+   that gets projects pre-parsed.
+
 ### 5.3 VS Code for the web, openvscode-server, vscode.dev
 
 - **VS Code for the web** is the whole workbench in the browser (vscode.dev,

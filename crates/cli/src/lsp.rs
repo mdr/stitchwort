@@ -42,6 +42,10 @@ use stitchwort_driver::project::{DiskFiles, find_project, parse_config, project_
 use stitchwort_elab::cache::{Key, Store};
 use stitchwort_syntax::{Severity, SourceMap};
 
+use stitchwort_core::budget::Instant;
+#[cfg(target_family = "wasm")]
+use wasm::FileUrl as _;
+
 /// The URI scheme of the embedded library's files, which the client shows
 /// read-only (`stitchwort-std:List/Toolkit.sw`; its text is what
 /// `stitchwort std-source List/Toolkit.sw` prints).
@@ -125,9 +129,9 @@ pub fn capabilities() -> serde_json::Value {
     })
 }
 
-/// Serves LSP on `connection`, from `initialize` to `exit`.
-pub fn serve(connection: Connection, mut options: Options) -> Result<(), String> {
-    let (id, params) = connection.initialize_start().map_err(|e| e.to_string())?;
+/// The reply to `initialize`, and whether the client applies versioned
+/// `documentChanges` edits; the client's options go into `options`.
+fn initialize(params: &serde_json::Value, options: &mut Options) -> (serde_json::Value, bool) {
     if let Some(ms) = params
         .pointer("/initializationOptions/debounceMs")
         .and_then(serde_json::Value::as_u64)
@@ -142,6 +146,13 @@ pub fn serve(connection: Connection, mut options: Options) -> Result<(), String>
         "capabilities": capabilities(),
         "serverInfo": { "name": "stitchwort", "version": env!("CARGO_PKG_VERSION") }
     });
+    (reply, document_changes)
+}
+
+/// Serves LSP on `connection`, from `initialize` to `exit`.
+pub fn serve(connection: Connection, mut options: Options) -> Result<(), String> {
+    let (id, params) = connection.initialize_start().map_err(|e| e.to_string())?;
+    let (reply, document_changes) = initialize(&params, &mut options);
     connection
         .initialize_finish(id, reply)
         .map_err(|e| e.to_string())?;
@@ -189,7 +200,7 @@ pub fn serve(connection: Connection, mut options: Options) -> Result<(), String>
         .collect::<Result<Vec<_>, _>>()?;
     drop(jobs);
     let main = Main {
-        connection: &connection,
+        connection,
         nav,
         cancel,
         to_checker,
@@ -370,36 +381,40 @@ fn search_worker(
     options: Options,
 ) {
     for job in jobs {
-        let done = |searches: &Searches| {
-            lock(&searches.pending).remove(&job.id);
-        };
-        if job.pending.cancel.load(Ordering::Relaxed) {
-            done(&searches);
-            continue;
-        }
-        let now = searches.running.fetch_add(1, Ordering::SeqCst) + 1;
-        options.search_peak.fetch_max(now, Ordering::SeqCst);
-        let deadline = std::time::Instant::now() + options.search_delay;
-        while std::time::Instant::now() < deadline && !job.pending.cancel.load(Ordering::Relaxed) {
-            std::thread::sleep(Duration::from_millis(5));
-        }
-        let result = if job.pending.cancel.load(Ordering::Relaxed) {
-            serde_json::Value::Null
-        } else {
-            (job.run)(job.pending.cancel.clone())
-        };
-        searches.running.fetch_sub(1, Ordering::SeqCst);
-        let current = lock(&searches.versions).get(&job.pending.uri).copied();
-        let result = if current == Some(job.version) && !job.pending.cancel.load(Ordering::Relaxed)
-        {
-            result
-        } else {
-            serde_json::Value::Null
-        };
-        job.pending
-            .answer(&sender, Response::new_ok(job.id.clone(), result));
-        done(&searches);
+        run_search(job, &sender, &searches, &options);
     }
+}
+
+/// Runs one queued search and answers its request.
+fn run_search(job: SearchJob, sender: &Sender<Message>, searches: &Searches, options: &Options) {
+    let done = |searches: &Searches| {
+        lock(&searches.pending).remove(&job.id);
+    };
+    if job.pending.cancel.load(Ordering::Relaxed) {
+        done(searches);
+        return;
+    }
+    let now = searches.running.fetch_add(1, Ordering::SeqCst) + 1;
+    options.search_peak.fetch_max(now, Ordering::SeqCst);
+    let deadline = Instant::now() + options.search_delay;
+    while Instant::now() < deadline && !job.pending.cancel.load(Ordering::Relaxed) {
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    let result = if job.pending.cancel.load(Ordering::Relaxed) {
+        serde_json::Value::Null
+    } else {
+        (job.run)(job.pending.cancel.clone())
+    };
+    searches.running.fetch_sub(1, Ordering::SeqCst);
+    let current = lock(&searches.versions).get(&job.pending.uri).copied();
+    let result = if current == Some(job.version) && !job.pending.cancel.load(Ordering::Relaxed) {
+        result
+    } else {
+        serde_json::Value::Null
+    };
+    job.pending
+        .answer(sender, Response::new_ok(job.id.clone(), result));
+    done(searches);
 }
 
 /// The document a search is about ([`Main::search_target`]).
@@ -409,8 +424,8 @@ struct SearchTarget {
     project: Option<(PathBuf, String, BTreeMap<String, String>)>,
 }
 
-struct Main<'a> {
-    connection: &'a Connection,
+struct Main {
+    connection: Connection,
     nav: Arc<RwLock<Nav>>,
     cancel: Arc<AtomicBool>,
     to_checker: Sender<Edit>,
@@ -426,7 +441,7 @@ struct Main<'a> {
     document_changes: bool,
 }
 
-impl Main<'_> {
+impl Main {
     fn run(&self) -> Result<(), String> {
         for message in &self.connection.receiver {
             match message {
@@ -438,22 +453,25 @@ impl Main<'_> {
                     {
                         return Ok(());
                     }
-                    if request.method == request::CodeActionRequest::METHOD {
-                        self.code_action(request);
-                        continue;
-                    }
-                    if request.method == CONTEXT_AT {
-                        self.context_at(request);
-                        continue;
-                    }
-                    let response = self.answer(request);
-                    let _ = self.connection.sender.send(response.into());
+                    self.request(request);
                 }
                 Message::Notification(n) => self.notified(n),
                 Message::Response(_) => {}
             }
         }
         Ok(())
+    }
+
+    /// Answers a request other than `shutdown`, now or from a search.
+    fn request(&self, request: Request) {
+        if request.method == request::CodeActionRequest::METHOD {
+            self.code_action(request);
+        } else if request.method == CONTEXT_AT {
+            self.context_at(request);
+        } else {
+            let response = self.answer(request);
+            let _ = self.connection.sender.send(response.into());
+        }
     }
 
     /// `textDocument/codeAction` on an open goal `?` (SW-915 stage 2):
@@ -1531,13 +1549,36 @@ impl Checker {
         }
     }
 
+    /// [`Checker::run`] without blocking or waiting for typing to pause:
+    /// applies the edits sent, then checks one namespace. Whether there is
+    /// more to check.
+    fn pump(&mut self, edits: &Receiver<Edit>) -> bool {
+        while let Ok(edit) = edits.try_recv() {
+            self.apply(edit);
+        }
+        let next = self
+            .last
+            .clone()
+            .filter(|k| self.work.get(k).is_some_and(Work::pending))
+            .or_else(|| {
+                self.work
+                    .iter()
+                    .find(|(_, w)| w.pending())
+                    .map(|(k, _)| k.clone())
+            });
+        if let Some(key) = next {
+            self.step(&key);
+        }
+        self.work.values().any(Work::pending)
+    }
+
     /// Checks the next namespace of the workspace `key`, and publishes when
     /// it's the one being edited, or the last.
     fn step(&mut self, key: &Path) {
         let Some(work) = self.work.get_mut(key) else {
             return;
         };
-        let started = std::time::Instant::now();
+        let started = Instant::now();
         let progress = match work {
             Work::Project(p) => {
                 p.writable.set(p.saved());
@@ -1581,7 +1622,7 @@ impl Checker {
         if let Ok(Progress::Checked { focus, done }) = progress
             && (focus || done)
         {
-            let started = std::time::Instant::now();
+            let started = Instant::now();
             let answers = match work {
                 Work::Project(p) => p.live.answers(),
                 Work::File(f) => f.answers(),
@@ -1857,6 +1898,174 @@ impl Checker {
             disk: BTreeMap::new(),
             writable,
         })
+    }
+}
+
+// ---- without threads ------------------------------------------------------
+
+/// The server without threads or standard input and output, for a host that
+/// has neither (the playground's worker). The host hands it each message
+/// from the client ([`Inline::receive`]) and, between messages, lets it do
+/// its background work a piece at a time ([`Inline::tick`]): a queued
+/// search, or the check of one namespace. An edit received between two
+/// ticks makes the next tick check the new text first; nothing is cancelled
+/// mid-namespace, as there is no other thread to set the flag. Waiting for
+/// typing to pause is the host's.
+pub struct Inline {
+    main: Main,
+    /// The client's end: where what the server sends arrives.
+    client: Connection,
+    checker: Checker,
+    edits: Receiver<Edit>,
+    jobs: Receiver<SearchJob>,
+    options: Options,
+}
+
+impl Inline {
+    /// A server; the standard library must be loaded already.
+    pub fn new(options: Options) -> Result<Self, String> {
+        stitchwort_elab::load_std_text()?;
+        let (server, client) = Connection::memory();
+        let nav = Arc::new(RwLock::new(Nav::default()));
+        let cancel = Arc::new(AtomicBool::new(false));
+        let (to_checker, edits) = crossbeam_channel::unbounded();
+        let (to_searches, jobs) = crossbeam_channel::unbounded::<SearchJob>();
+        let checker = Checker::new(
+            options.clone(),
+            server.sender.clone(),
+            nav.clone(),
+            cancel.clone(),
+        );
+        let main = Main {
+            connection: server,
+            nav,
+            cancel,
+            to_checker,
+            texts: Default::default(),
+            stack: options.stack,
+            wanted: options.search_wanted,
+            searches: Arc::default(),
+            to_searches,
+            document_changes: false,
+        };
+        Ok(Inline {
+            main,
+            client,
+            checker,
+            edits,
+            jobs,
+            options,
+        })
+    }
+
+    /// Handles one message from the client (JSON-RPC text), and returns
+    /// what the server sends at once, each as JSON-RPC text.
+    pub fn receive(&mut self, text: &str) -> Vec<String> {
+        match serde_json::from_str::<Message>(text) {
+            Ok(Message::Request(request)) => match request.method.as_str() {
+                request::Initialize::METHOD => {
+                    let (reply, document_changes) = initialize(&request.params, &mut self.options);
+                    self.main.document_changes = document_changes;
+                    let response = Response::new_ok(request.id, reply);
+                    let _ = self.main.connection.sender.send(response.into());
+                }
+                request::Shutdown::METHOD => self.main.answer_null(request.id),
+                _ => self.main.request(request),
+            },
+            Ok(Message::Notification(n)) => self.main.notified(n),
+            Ok(Message::Response(_)) => {}
+            Err(e) => trace(|| format!("unreadable message: {e}")),
+        }
+        self.sent()
+    }
+
+    /// Does the next piece of background work, and returns what the server
+    /// sent, and whether there is more to do.
+    pub fn tick(&mut self) -> (Vec<String>, bool) {
+        let more = match self.jobs.try_recv() {
+            Ok(job) => {
+                run_search(
+                    job,
+                    &self.main.connection.sender,
+                    &self.main.searches,
+                    &self.options,
+                );
+                true
+            }
+            Err(_) => self.checker.pump(&self.edits),
+        };
+        (
+            self.sent(),
+            more || !self.jobs.is_empty() || !self.edits.is_empty(),
+        )
+    }
+
+    fn sent(&self) -> Vec<String> {
+        self.client
+            .receiver
+            .try_iter()
+            .map(|message| {
+                let mut value = serde_json::to_value(&message).unwrap_or_default();
+                if let Some(object) = value.as_object_mut() {
+                    object.insert("jsonrpc".into(), "2.0".into());
+                }
+                value.to_string()
+            })
+            .collect()
+    }
+}
+
+/// What the standard library has for this where the target has no files
+/// (`wasm32-unknown-unknown`).
+#[cfg(target_family = "wasm")]
+mod wasm {
+    use std::path::{Path, PathBuf};
+
+    use lsp_types::Url;
+
+    /// `file:` URIs as plain paths, `/` separated.
+    pub trait FileUrl: Sized {
+        fn to_file_path(&self) -> Result<PathBuf, ()>;
+        fn from_file_path(path: impl AsRef<Path>) -> Result<Self, ()>;
+    }
+
+    impl FileUrl for Url {
+        fn to_file_path(&self) -> Result<PathBuf, ()> {
+            if self.scheme() != "file" {
+                return Err(());
+            }
+            let path = percent_decode(self.path());
+            Ok(PathBuf::from(path))
+        }
+        fn from_file_path(path: impl AsRef<Path>) -> Result<Self, ()> {
+            let path = path.as_ref().to_str().ok_or(())?;
+            if !path.starts_with('/') {
+                return Err(());
+            }
+            Url::parse(&format!("file://{path}")).map_err(|_| ())
+        }
+    }
+
+    fn percent_decode(text: &str) -> String {
+        let bytes = text.as_bytes();
+        let mut out = Vec::with_capacity(bytes.len());
+        let mut i = 0;
+        while i < bytes.len() {
+            let hex = |b: u8| (b as char).to_digit(16);
+            if bytes[i] == b'%'
+                && let (Some(Some(h)), Some(Some(l))) = (
+                    bytes.get(i + 1).map(|b| hex(*b)),
+                    bytes.get(i + 2).map(|b| hex(*b)),
+                )
+            {
+                out.push((h * 16 + l) as u8);
+                i += 3;
+            } else {
+                out.push(bytes[i]);
+                i += 1;
+            }
+        }
+        String::from_utf8_lossy(&out).into_owned()
     }
 }
 

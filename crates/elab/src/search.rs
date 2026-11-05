@@ -285,7 +285,7 @@ pub struct Opts {
     pub filter: bool,
     /// Past this, no more candidates are compared (`Stats::stopped`):
     /// `search --at`'s time limit covers its search too.
-    pub deadline: Option<std::time::Instant>,
+    pub deadline: Option<stitchwort_core::budget::Instant>,
 }
 
 impl Default for Opts {
@@ -1368,7 +1368,7 @@ impl Elaborator {
                 }
                 if opts
                     .deadline
-                    .is_some_and(|d| std::time::Instant::now() >= d)
+                    .is_some_and(|d| stitchwort_core::budget::Instant::now() >= d)
                 {
                     stats.stopped = true;
                     break;
