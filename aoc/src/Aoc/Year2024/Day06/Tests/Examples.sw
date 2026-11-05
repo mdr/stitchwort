@@ -31,7 +31,6 @@ def onExample (f: Lab -> a): Result a Text := exampleLab.map f
 
 def at (row: Nat) (column: Nat): Position := { row, column }
 
---| The guard's state after each of the first steps from the start.
 def stepsFrom (lab: Lab) (guard: Guard): Nat → List Guard
   | Zero => []
   | Succ count =>
@@ -66,7 +65,6 @@ test "jumps agree with steps on the example" :=
         blocked.loops == (after blocked blocked.stateCount).isSome)) == Ok True
 test "turning right" := [Up, Right, Down, Left].map .turnRight == [Right, Down, Left, Up]
 
---| Edges of the map, and small labs.
 test "a guard on the top row leaves at once" := (labOf ["..^.."]).map solvePart1 == Ok (Some 1)
 test "turning at the edge, then leaving to the right" := (labOf ["..#", "...", "..^"]).map solvePart1 == Ok (Some 2)
 test "turning at a wall then leaving" := (labOf ["#..", "^.."]).map solvePart1 == Ok (Some 3)
@@ -76,7 +74,6 @@ test "a square route loops" := (labOf [".#...", "....#", ".....", "#^...", "...#
 test "one obstruction can close a square" := (labOf [".#...", "....#", ".....", ".^...", "...#."]).map solvePart2 == Ok (Some 1)
 test "no obstruction can trap a guard in one column" := (labOf [".", ".", "^"]).map solvePart2 == Ok (Some 0)
 
---| Parsing.
 test "parse the example's first row" := labOf ["..#^"] == Ok ({ height = 1, width = 4, obstructions = [at 0 2].toSet, start = at 0 3 })
 test "a stray character" := labOf ["..", ".x", "^."] == Err "line 2: expected '.', '#' or '^', got 'x'"
 test "a short line" := labOf ["...", "..", "^.."] == Err "line 2: expected 3 characters, as on the first line, got 2"

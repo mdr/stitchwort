@@ -11,7 +11,6 @@ import Aoc.Common (Direction, Position)
 import Aoc.Year2024.Day06.Spec (..)
 import Std (And, Bool, DecEq, Eq, Exists, List, Map, Nat, Not, Option, Set, Void)
 
---| Whether `position` is at `row` and `column`.
 def isAt (row: Nat) (column: Nat) (position: Position): Bool := position.row == row && position.column == column
 
 --| Each row's set of columns, and each column's set of rows, holds the
@@ -20,7 +19,6 @@ def Represents (sightlines: Sightlines) (has: Position → Bool): Prop :=
   (row: Nat) → (column: Nat) →
     ((sightlines.byRow.getOr row Set.empty).contains column = has { row, column }) ∧ ((sightlines.byColumn.getOr column Set.empty).contains row = has { row, column })
 
---| The line `key` of `lines` after adding `item` to the line `line`.
 theorem lineAfterAdd (lines: Map Nat (Set Nat)) (line: Nat) (item: Nat) (key: Nat) (other: Nat):
     ((lines.insert line (lines.getOr line Set.empty |> .insert item)).getOr key Set.empty).contains other
       = ((key == line && other == item) || (lines.getOr key Set.empty).contains other) :=
@@ -44,7 +42,6 @@ theorem addRepresents (sightlines: Sightlines) (has: Position → Bool) (represe
 
 theorem orShift (a: Bool) (b: Bool) (c: Bool): ((a || b) || c) = (b || (if a then True else c)) := cases
 
---| The same positions, the same representation.
 theorem representsCong [sightlines: Sightlines] [has: Position → Bool] [other: Position → Bool] (same: (position: Position) → has position = other position)
     (represents: Represents sightlines has): Represents sightlines other :=
   row column => rewrite <- same { row, column } in represents row column
@@ -60,7 +57,6 @@ theorem foldRepresents: (entries: List (Position, ())) → (sightlines: Sightlin
       (foldRepresents rest (sightlines.add key) (position => isAt key.row key.column position || has position) (addRepresents sightlines has represents key))
       row column
 
---| Positions with the same row and column are the same.
 theorem positionExt: (one: Position) → (other: Position) → one.row = other.row → one.column = other.column → one = other
   | { row, column }, { row = otherRow, column = otherColumn }, rows, columns => rewrite rows, columns in rfl
 
@@ -88,7 +84,6 @@ theorem containsEntries (obstructions: Set Position) (position: Position):
                   let entryIs: (key, unit) = (position, ()) := rewrite isAtSound key position hit, Set.unitEq unit () in rfl
                   Eq.sym (Eq.trans (Eq.sym has) ((Set.containsToList obstructions position).backward (rewrite <- entryIs in inList))))
 
---| No obstructions, no sightlines.
 theorem emptyRepresents: Represents ({ byRow = Map.empty, byColumn = Map.empty }: Sightlines) (position => False) := row column => Both rfl rfl
 
 --| The program's sightlines represent its obstructions.
@@ -127,7 +122,6 @@ theorem aheadRightEdge (lab: Lab) (row: Nat) (column: Nat) (edge: lab.width = co
 theorem aheadLeft (lab: Lab) (row: Nat) (column: Nat) (positive: 0 < column):
     lab.ahead ({ position = { row, column }, facing = Left }: Guard) = Some ({ row, column = column - 1 }: Position) := cases
 
---| A first step to `next`, then the rest of the walk from there.
 theorem walkFirst (lab: Lab) (guard: Guard) (next: Guard) (stepped: lab.step guard = Some next) (steps: Nat):
     walk lab (Some guard) (Succ steps) = walk lab (Some next) steps :=
   Eq.cong (state => walk lab state steps) stepped

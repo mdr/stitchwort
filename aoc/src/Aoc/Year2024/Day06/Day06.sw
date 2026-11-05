@@ -26,14 +26,10 @@ def main(): {IO, Fail} () :=
 -- Positions and directions, with `turnRight`, are the shared grid code's
 -- (`Aoc.Common`).
 
---| Where the guard stands and which way she faces.
 type Guard = { position: Position, facing: Direction }
 
---| The mapped area, `height` rows of `width` columns, its obstructions, and
---| where the guard starts, facing up.
 type Lab = { height: Nat, width: Nat, obstructions: Set Position, start: Position }
 
---| What one character of the map shows.
 type Cell =
   | Floor
   | Obstruction
@@ -66,7 +62,6 @@ def parseCell (ch: Char): {Fail} Cell :=
     | '^' => GuardStart
     | _ => Fail.fail "expected '.', '#' or '^', got '${ch}'"
 
---| The guard where the patrol begins.
 def Lab.startGuard (lab: Lab): Guard := { position = lab.start, facing = Up }
 
 --| The position directly in front of the guard, or `None` past the map's edge.
@@ -92,8 +87,7 @@ def Lab.stateCount (lab: Lab): Nat := lab.height * lab.width * 4
 --| on the map after `stateCount` steps, and so walks forever.
 def Lab.patrol (lab: Lab): Option (Set Position) := lab.patrolFrom lab.startGuard Set.empty lab.stateCount
 
---| The walk from `guard`, adding each position to `visited`, for at most
---| `budget` more steps.
+--| At most `budget` more steps; `None` when the budget runs out.
 def Lab.patrolFrom (lab: Lab) (guard: Guard) (visited: Set Position): (budget: Nat) → Option (Set Position)
   | Zero => None
   | Succ budget =>
@@ -102,7 +96,6 @@ def Lab.patrolFrom (lab: Lab) (guard: Guard) (visited: Set Position): (budget: N
       | None => Some visitedNow
       | Some next => lab.patrolFrom next visitedNow budget
 
---| The lab with one more obstruction.
 def Lab.withObstruction (lab: Lab) (position: Position): Lab :=
   { lab | obstructions = lab.obstructions.insert position }
 
@@ -145,8 +138,8 @@ def Sightlines.loopsFrom (sightlines: Sightlines) (guard: Guard) (seen: Set Guar
       | None => False
       | Some next => seen.contains next || sightlines.loopsFrom next (seen.insert next) budget
 
---| Whether the guard walks forever in `lab`, whose obstructions are
---| `sightlines`.
+--| Whether the guard walks forever in `lab`, with `sightlines` as its
+--| obstructions.
 def Lab.loopsWith (lab: Lab) (sightlines: Sightlines): Bool :=
   sightlines.loopsFrom lab.startGuard (Set.singleton lab.startGuard) lab.stateCount
 

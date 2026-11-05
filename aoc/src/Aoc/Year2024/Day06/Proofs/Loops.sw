@@ -17,7 +17,6 @@ def Simulates (sightlines: Sightlines) (lab: Lab): Prop :=
   (guard: Guard) → onMap lab guard.position = True →
     ((next: Guard) → sightlines.nextTurn guard = Some next → Exists Nat (steps => (0 < steps) ∧ (walk lab (Some guard) steps = Some next))) ∧ (sightlines.nextTurn guard = None → Exists Nat (steps => walk lab (Some guard) steps = None))
 
---| `steps` more steps from the state after `now`.
 theorem afterAdd (lab: Lab) (now: Nat) (guard: Guard) (reached: after lab now = Some guard) (steps: Nat):
     after lab (now + steps) = walk lab (Some guard) steps :=
   rewrite walkAdd lab now (Some lab.startGuard) steps in rewrite reached in rfl
@@ -77,7 +76,6 @@ theorem loopsFromComplete (lab: Lab) (sightlines: Sightlines) (simulates: Simula
           Bool.orRight (loopsFromComplete lab sightlines simulates inside loops budget next (seen.insert next) (now + steps)
             (Eq.trans (afterAdd lab now guard reached steps) (And.right both))))
 
---| The start, seen at step 0.
 theorem seenStart (lab: Lab): SeenBy lab (Set.singleton lab.startGuard) 0 :=
   guard has =>
     match containsInsertEither Set.empty lab.startGuard guard has with

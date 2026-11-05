@@ -15,7 +15,6 @@ def walk (lab: Lab) (guard: Option Guard): (steps: Nat) → Option Guard
   | Zero => guard
   | Succ steps => walk lab (guard.flatMap lab.step) steps
 
---| The guard `steps` steps after the patrol begins.
 def after (lab: Lab) (steps: Nat): Option Guard := walk lab (Some lab.startGuard) steps
 
 --| "The guard will get stuck in a loop": she never leaves the mapped area.
@@ -34,10 +33,8 @@ def route (lab: Lab) (guard: Option Guard): (steps: Nat) → List Position
 --| mapped area?", given a number of steps by which she has left.
 def distinctPositions (lab: Lab) (steps: Nat): Nat := (route lab (Some lab.startGuard) steps).toSet.size
 
---| On the mapped area.
 def onMap (lab: Lab) (position: Position): Bool := position.row < lab.height && position.column < lab.width
 
---| Every position on the mapped area.
 def positions (lab: Lab): List Position :=
   List.range 0 lab.height |> .flatMap (row => List.range 0 lab.width |> .map (column => ({ row, column }: Position)))
 
