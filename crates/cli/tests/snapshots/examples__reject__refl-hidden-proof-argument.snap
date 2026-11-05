@@ -3,13 +3,13 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-REFL] Error: `rfl` can't prove this
-   ╭─[ reject/refl-hidden-proof-argument.sw:9:76 ]
-   │
- 9 │     Int.modNat x (Succ t) [ok := h1] = Int.modNat x (Succ t) [ok := h2] := rfl
-   │                                                                            ─┬─  
-   │                                                                             ╰─── `Int.modNat x (Succ t) [h1]` and `Int.modNat x (Succ t) [h2]` aren't equal
-   │ 
-   │ Note 1: the two sides differ only in arguments the compiler fills in, shown here in `[brackets]` (an implicit argument, or a proof such as `d != 0`; proofs of the same statement aren't interchangeable)
-   │ 
-   │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
-───╯
+    ╭─[ reject/refl-hidden-proof-argument.sw:12:64 ]
+    │
+ 12 │     transported n m [ok := h1] = transported n m [ok := h2] := rfl
+    │                                                                ─┬─  
+    │                                                                 ╰─── `transported n m [h1]` and `transported n m [h2]` aren't equal
+    │ 
+    │ Note 1: the two sides differ only in arguments the compiler fills in, shown here in `[brackets]` (an implicit argument, or a proof the definition computes with; proofs it never computes with are interchangeable)
+    │ 
+    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+────╯

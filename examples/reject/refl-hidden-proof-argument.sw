@@ -1,9 +1,12 @@
 -- expect-error: E-REFL
--- Both sides print as `Int.modNat x (Succ t)` but use different proofs of
--- `Succ t != 0`; `rfl` can't make them equal, and the message shows the proofs
--- in brackets (SW-28).
+-- Both sides print as `transported n m` but use different proofs of
+-- `n = m`, which `transported` computes with (`J`); `rfl` can't make them
+-- equal, and the message shows the proofs in brackets (SW-28). Proofs a
+-- definition never computes with are skipped (accept/proof-irrelevance.sw).
 
-import Std (Int)
+import Std (Nat)
 
-theorem differentProofs (x: Int) (t: Nat) (h1: Succ t ≠ 0) (h2: Succ t ≠ 0):
-    Int.modNat x (Succ t) [ok := h1] = Int.modNat x (Succ t) [ok := h2] := rfl
+def transported (n: Nat) (m: Nat): [auto ok: n = m] → Nat := J (y e => Nat) n ok
+
+theorem differentProofs (n: Nat) (m: Nat) (h1: n = m) (h2: n = m):
+    transported n m [ok := h1] = transported n m [ok := h2] := rfl

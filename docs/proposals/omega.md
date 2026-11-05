@@ -382,7 +382,7 @@ with the goal; a failure is `E-OMEGA-INTERNAL`, naming `omega` as the bug.
 | Equality | `a <= b`, `b <= a ⊢ a = b` by `proveEq` | `antisym` |
 | Goal forms | `<`, `<=`, closed `2 < 3`, `Not (y <= x)`, `Nat.leq y x = False`, `And …`, `(… && …) = True` | `ltGoal` … `boolAndGoal` |
 | Contradiction | closed (`3 < 2 ⊢ Void`), disconnected (`y < y ⊢ x < 0`), two facts ⊢ `Void` | `threeLtTwo`, `disconnected`, `void2` |
-| Conversion | `(a + b) + c <= a + (b + c)` quoted as written; `getP n h1` vs `getP n h2` kept apart (rejected), the same proof one atom | `assoc`; `omega-proof-atoms.sw`; `sameProof` |
+| Conversion | `(a + b) + c <= a + (b + c)` quoted as written; `getP n h1` vs `getP n h2` one atom since proof irrelevance (SW-93; rejected before), the same proof one atom | `assoc`; `accept/omega-proof-atoms.sw`; `sameProof` |
 | Integer reasoning | `2 * x = 1 ⊢ Void` (`Divide`); §6.6's four constraints (one `Split`, `Divide`s) | `twoXEqOne`, `splitRegression` |
 | Cost | `10 * x`, `1000 * x` (`MulLeft`, at the limit), `2000 * x` refused; `x * 10`, `x * 1000000` (`MulRight`); one atom `List.length (List.append xs ys)` in four facts | `big0`, `big1`, `omega-mul-left-limit.sw`, `bigR0`, `bigR`, `shared` |
 | Proof consumption | an `omega` equation through `rewrite` both ways; a `J` transport along one, computed (`transport 7 42 = 42 := rfl`) | `viaRewrite`, `castBy`, `transportComputes` |
