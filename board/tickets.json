@@ -8446,14 +8446,14 @@
     {
       "id": 1434,
       "title": "A proof can't follow a program's if a && b with one match on the Bool: the goal shows Decidable.andThen instead of &&, and nothing says to split it; matching each part works but duplicates a branch",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1434",
       "labels": [
         "elab",
         "proofs"
       ],
-      "body": "From 2020 day 9 (SW-1427), 5 Nov 2026; see aoc/NOTES-2020.md Day 9. Friction item 1, the most surprising.",
+      "body": "From 2020 day 9 (SW-1427), 5 Nov 2026; see aoc/NOTES-2020.md Day 9. Friction item 1, the most surprising.\n\nStarted on Sonnet, expected: 75 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
