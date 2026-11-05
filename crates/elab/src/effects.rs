@@ -2691,6 +2691,7 @@ fn comp_check_in(
                     (term, ty, false)
                 }
             };
+            cx.e.note_let_binder(cx, name, &ty);
             sequence(cx, row, t, &name.text, term, ty, effectful, |cx| {
                 if let Some(w) = written {
                     cx.set_written(w);
@@ -4544,6 +4545,7 @@ pub fn pure_let(
             (term, ty, ty_term, written)
         }
     };
+    cx.e.note_let_binder(cx, name, &ty);
     let mark = cx.mark();
     let x: stitchwort_core::Name = name.text.as_str().into();
     let result = cx

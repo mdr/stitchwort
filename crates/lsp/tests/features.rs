@@ -192,20 +192,42 @@ fn signature_help_shows_the_function_and_the_current_parameter() {
 }
 
 #[test]
+fn signature_help_tells_two_functions_with_the_same_short_name_apart() {
+    big_stack(|| {
+        let text = "namespace Demo\n\ndef A.size (a: Nat) (b: Nat): Nat := a\n\ndef B.size (text: Text): Nat := 0\n\ndef f: Nat := A.size 1 2 + B.size \"x\"\n";
+        let mut s = Session::open(text);
+        let line = 6;
+        let col = |needle: &str| {
+            "def f: Nat := ".len() + "A.size 1 2 + B.size \"x\"".find(needle).unwrap()
+        };
+        let help = help_after(&mut s, line, col("1"));
+        assert_eq!(
+            help["signatures"][0]["label"],
+            "A.size (a: Nat) (b: Nat): Nat"
+        );
+        let help = help_after(&mut s, line, col("\"x"));
+        assert_eq!(help["signatures"][0]["label"], "B.size (text: Text): Nat");
+    });
+}
+
+#[test]
 fn a_let_without_a_type_gets_its_type_as_an_inlay_hint() {
     big_stack(|| {
-        let text = "namespace Demo\n\ndef f (n: Nat): Nat :=\n  let a := n + 1\n  let b: Nat := a + 1\n  let _c := 0\n  a + b\n";
+        let text = "namespace Demo\n\ndef f (n: Nat): Nat :=\n  let a := n + 1\n  let b: Nat := a + 1\n  let _c := 0\n  let unused := n * 2\n  a + b\n";
         let mut s = Session::open(text);
         let hints = s.request(
             "textDocument/inlayHint",
             json!({"textDocument": {"uri": URI},
                    "range": {"start": {"line": 0, "character": 0}, "end": {"line": 9, "character": 0}}}),
         );
-        // Only `a`: `b` has its type written, `_c` is unused.
-        assert_eq!(hints.as_array().unwrap().len(), 1, "{hints}");
+        // `a`, and `unused` though nothing uses it; not `b`, whose type is
+        // written, nor `_c`.
+        assert_eq!(hints.as_array().unwrap().len(), 2, "{hints}");
         assert_eq!(hints[0]["label"], ": Nat");
         assert_eq!(hints[0]["position"], json!({"line": 3, "character": 7}));
         assert_eq!(hints[0]["kind"], 1);
+        assert_eq!(hints[1]["label"], ": Nat");
+        assert_eq!(hints[1]["position"], json!({"line": 6, "character": 12}));
     });
 }
 

@@ -354,7 +354,7 @@ impl Signature {
 /// typed) doesn't hide it.
 pub fn signature_at(file: &FileAnswers, text: &str, offset: usize) -> Option<Signature> {
     let call = completion::call_at(text, offset)?;
-    let signature = printed_signature(file, &call.head)?;
+    let signature = printed_signature(file, &call.head, None)?;
     Some(Signature {
         function: call.head,
         signature: signature.to_string(),
@@ -365,8 +365,26 @@ pub fn signature_at(file: &FileAnswers, text: &str, offset: usize) -> Option<Sig
 }
 
 /// The printed type of the function `head` (as written), from the
-/// references the file last published.
-fn printed_signature<'a>(file: &'a FileAnswers, head: &str) -> Option<&'a str> {
+/// references the file last published. Where `head` is written (byte
+/// offsets in `text`) the reference recorded there says which function it
+/// is, even when another in the file has the same short name; only a head
+/// with no function referenced there (text that didn't check) is found by
+/// its name.
+fn printed_signature<'a>(
+    file: &'a FileAnswers,
+    head: &str,
+    written: Option<(&str, (usize, usize))>,
+) -> Option<&'a str> {
+    if let Some((text, (from, to))) = written {
+        let (start, end) = (position_at(text, from), position_at(text, to));
+        // `xs.map`: the last reference in the head is the function.
+        let found = (file.refs.iter())
+            .filter(|r| (r.range[0], r.range[1]) >= start && (r.range[2], r.range[3]) <= end)
+            .max_by_key(|r| (r.range[0], r.range[1]));
+        if let Some(signature) = found.and_then(|r| r.signature.as_deref()) {
+            return Some(signature);
+        }
+    }
     let last = head.rsplit('.').next().unwrap_or(head);
     file.refs
         .iter()
@@ -394,7 +412,7 @@ pub fn signature_help_at(file: &FileAnswers, text: &str, offset: usize) -> Optio
     completion::calls_at(text, offset)
         .into_iter()
         .find_map(|call| {
-            let ty = printed_signature(file, &call.head)?;
+            let ty = printed_signature(file, &call.head, Some((text, call.head_at)))?;
             let mut parts = completion::segments(ty);
             let result = parts.pop()?;
             if parts.is_empty() {

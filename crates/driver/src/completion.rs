@@ -134,6 +134,8 @@ pub fn call_at(text: &str, offset: usize) -> Option<Call> {
 pub struct ActiveCall {
     /// The function, as written (`clampTo`, `xs.map`, `.map`).
     pub head: String,
+    /// Where `head` is written, as byte offsets in the text.
+    pub head_at: (usize, usize),
     /// How many arguments given without a name come before the cursor,
     /// counting the value a pipe or `xs.` supplies.
     pub position: usize,
@@ -311,8 +313,11 @@ pub fn calls_at(text: &str, offset: usize) -> Vec<ActiveCall> {
                     && name.starts_with(|c: char| c.is_lowercase());
                 let receiver = piped || dotted;
                 let position = args.len() - given.len() + usize::from(receiver);
+                let dots = word.len() - name.len();
+                let from = byte_offset(&before, head.start) + dots;
                 calls.push(ActiveCall {
                     head: name.to_string(),
+                    head_at: (from, from + name.len()),
                     position,
                     named: named.clone(),
                     given,
@@ -335,6 +340,11 @@ pub fn calls_at(text: &str, offset: usize) -> Vec<ActiveCall> {
         typing = false;
     }
     calls
+}
+
+/// The byte offset of the character at index `at` of `before`.
+fn byte_offset(before: &[char], at: usize) -> usize {
+    before[..at].iter().map(|c| c.len_utf8()).sum()
 }
 
 /// Whether the line that the text before `at` ends on starts with

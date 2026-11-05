@@ -612,6 +612,18 @@ impl Elaborator {
         }
     }
 
+    /// The type of the variable a `let` binds, at its binder, so that one
+    /// nothing uses has a type too (for its inlay hint).
+    pub(crate) fn note_let_binder(&self, cx: &Ctx, name: &ast::Name, ty: &Value) {
+        if let Some(nav) = &self.present.nav {
+            let mut nav = nav.borrow_mut();
+            if nav.generated == 0 {
+                nav.pending
+                    .push((name.span, ty.clone(), cx.names.clone(), false));
+            }
+        }
+    }
+
     /// The name of a parameter in a named argument (`(x := e)`), of type
     /// `ty` in a context with `names`. It's noted as a local variable that
     /// is its own binder, so hover shows the parameter's type.
@@ -983,7 +995,10 @@ impl Elaborator {
                     name: binder.name.clone(),
                     span: binder.span,
                 },
-                ty: None,
+                ty: nav
+                    .local_types
+                    .get(&(binder.span.file, binder.span.start))
+                    .cloned(),
                 defaults: None,
             });
         }
