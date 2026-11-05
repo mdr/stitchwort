@@ -72,5 +72,5 @@ theorem noCheaperPath (risks: RiskMap) (target: Position) (found: Nat) (got: (ri
   let walked := pathWalk risks topLeft steps target path
   Exists.elim (And.right (Graph.distancesShortest risks.graph [(risks.start, 0)]) risks.start 0 (Inl rfl) _ target walked) (other both =>
     let (Both gotOther below) := both
-    let same: other = found := Option.someInjective _ _ (Eq.trans (Eq.sym gotOther) got)
+    let same: other = found := Option.someInjective (Eq.trans (Eq.sym gotOther) got)
     omega [same, below, pathWalkCost risks.levelAt steps])

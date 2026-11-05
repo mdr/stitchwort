@@ -30,12 +30,12 @@ theorem programRun: (steps: Nat) → (cavern: Cavern) → Run cavern steps (step
     rewrite zerosCorrect cavern flashed spec in Step flashed spec rest
 
 --| ...and every run is the program's.
-theorem runIsProgram (cavern: Cavern) (steps: Nat) (final: Cavern) (total: Nat) (run: Run cavern steps final total):
+theorem runIsProgram [cavern: Cavern] [steps: Nat] [final: Cavern] [total: Nat] (run: Run cavern steps final total):
     final = stepsFrom cavern steps ∧ total = cavern.flashesIn steps :=
   match run with
     | Start _ => Both rfl rfl
     | Step flashed spec rest =>
-      let (Both finalSame totalSame) := runIsProgram _ _ _ _ rest
+      let (Both finalSame totalSame) := runIsProgram rest
       let same: after cavern flashed = cavern.step := Eq.sym (stepCorrect cavern flashed spec)
       Both (rewrite finalSame, same in rfl) (rewrite totalSame, same, <- zerosCorrect cavern flashed spec in rfl)
 
@@ -45,7 +45,7 @@ theorem part1Correct (cavern: Cavern): Part1Answer cavern cavern.solvePart1 :=
 
 --| ...and the spec has no other.
 theorem part1Unique (cavern: Cavern) (answer: Nat) (spec: Part1Answer cavern answer): answer = cavern.solvePart1 :=
-  Exists.elim spec (final run => And.right (runIsProgram cavern 100 final answer run))
+  Exists.elim spec (final run => And.right (runIsProgram run))
 
 --| Every octopus flashes in step k + 1 exactly when the program's cavern
 --| after it is all 0.
@@ -66,7 +66,7 @@ theorem zerosOfAllFlash (cavern: Cavern) (k: Nat) (spec: AllFlashIn cavern (Succ
   Exists.elim found (before rest =>
     Exists.elim rest (total both =>
       let (Both run flashedAll) := both
-      let same: before = stepsFrom cavern k := And.left (runIsProgram cavern k before total run)
+      let same: before = stepsFrom cavern k := And.left (runIsProgram run)
       Exists.elim flashedAll (flashed both =>
         let (Both flashers each) := both
         rewrite <- same, allZeroCorrect before flashed flashers in
@@ -83,7 +83,7 @@ theorem syncFound (cavern: Cavern) (answer: Nat): (m: Nat) → (k: Nat) →
   | Succ m, k, noneBefore, found =>
     match e: (stepsFrom cavern k).step.allZero with
       | True =>
-        let same: Succ k = answer := Option.someInjective _ _ found
+        let same: Succ k = answer := Option.someInjective found
         rewrite <- same in Both (allFlashOfZeros cavern k e) noneBefore
       | False =>
         syncFound cavern answer m (Succ k)

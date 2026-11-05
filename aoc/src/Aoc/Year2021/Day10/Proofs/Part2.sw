@@ -19,7 +19,7 @@ theorem balancedScanNil (line: List Token) (balanced: Balanced line): scan [] li
   rewrite List.appendNil line at whole in whole
 
 --| Closing what the scan leaves open completes the line.
-theorem completesOfUnclosed (line: List Token) (stack: List Bracket) (h: scan [] line = Unclosed stack): Completes line stack :=
+theorem completesOfUnclosed [line: List Token] [stack: List Bracket] (h: scan [] line = Unclosed stack): Completes line stack :=
   scanBalanced (line ++ stack.map Closer) (rewrite scanAppend [] line (stack.map Closer), h in closeAll stack)
 
 --| Only the open brackets, closed innermost first, close them all.
@@ -28,7 +28,7 @@ theorem closersExact: (stack: List Bracket) → (closers: List Bracket) → scan
   | [], [closer, ..rest], h => cases
   | [top, ..below], [closer, ..rest], h =>
     match same: top == closer with
-      | True => rewrite closersExact below rest h, DecEq.sound top closer same in rfl
+      | True => rewrite closersExact below rest h, DecEq.sound same in rfl
       | False => cases
 
 --| Any completion of a line is what its scan leaves open.
@@ -67,7 +67,7 @@ theorem completionScoresCorrect: (lines: List (List Token)) → CompletionScores
       | Unclosed [] => Skipped (incomplete => And.right incomplete (scanBalanced line e)) (completionScoresCorrect rest)
       | Unclosed [top, ..below] =>
         rewrite completionFold [top, ..below] 0 in
-          Scored [closers := [top, ..below]] (incompleteOfUnclosed line top below e) (completesOfUnclosed line [top, ..below] e) (completionScoresCorrect rest)
+          Scored [closers := [top, ..below]] (incompleteOfUnclosed line top below e) (completesOfUnclosed e) (completionScoresCorrect rest)
 
 --| The spec's list of completion scores is unique.
 theorem completionScoresUnique (lines: List (List Token)) (a: List Nat) (b: List Nat): CompletionScores lines a → CompletionScores lines b → a = b

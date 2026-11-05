@@ -36,4 +36,4 @@ theorem parsedGrid (input: Text) (cavern: Cavern) (parsed: Fail.toResult (() => 
     ∃ (digits: Grid (Fin 10)) => cavern = Cavern.ofDigits digits ∧ digits.Rectangle :=
   let split := rewrite Fail.toResultThen (() => parseGrid input digit) Cavern.ofDigits at parsed
   Result.flatMapEqOk (Fail.toResult (() => parseGrid input digit)) (digits => Fail.toResult (() => Cavern.ofDigits digits)) cavern split
-    (digits read made => Witness digits (Both (Eq.sym (Result.okInjective _ cavern made)) (And.left (parseGridRectangle input digit digits read))))
+    (digits read made => Witness digits (Both (Eq.sym (Result.okInjective made)) (And.left (parseGridRectangle input digit digits read))))

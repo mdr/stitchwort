@@ -18,16 +18,16 @@ theorem readPacketSound (reader: BitReader) (packet: Packet) (rest: BitReader) (
     | Some ([], _) => cases
     | Some ([_, _, .._], _) => cases
     | Some ([first], after) =>
-      let parts := somePairInjective _ _ _ _ read
+      let parts := somePairInjective read
       let sound := readPacketsSound (Packets 1) reader [first] after e
       rewrite <- parts.left, <- parts.right in
-        Both (rewrite List.appendNil (encode first) at (sound.left)) (Bool.andLeft _ _ sound.right.left)
+        Both (rewrite List.appendNil (encode first) at (sound.left)) (Bool.andLeft sound.right.left)
 
 --| Completeness: a well-formed packet is read back from its bits, whatever
 --| follows them.
 theorem readPacketComplete (packet: Packet) (formed: wellFormed packet = True) (rest: List Bool):
     readPacket { unread = encode packet ++ rest } = Some (packet, { unread = rest }) :=
-  let read := countComplete [packet] (Bool.andIntro _ _ formed rfl) rest
+  let read := countComplete [packet] (Bool.andIntro formed rfl) rest
   rewrite List.appendNil (encode packet) at read in rewrite read in rfl
 
 --| So bits start with at most one well-formed packet: the transmission
@@ -36,7 +36,7 @@ theorem encodingUnique (first: Packet) (second: Packet) (rest1: List Bool) (rest
     (formed2: wellFormed second = True) (same: encode first ++ rest1 = encode second ++ rest2): first = second ∧ rest1 = rest2 :=
   let read1 := readPacketComplete first formed1 rest1
   let read2 := readPacketComplete second formed2 rest2
-  let both := rewrite same at read1 in somePairInjective _ _ _ _ (Eq.trans (Eq.sym read1) read2)
+  let both := rewrite same at read1 in somePairInjective (Eq.trans (Eq.sym read1) read2)
   Both both.left (Eq.cong (reader => reader.unread) both.right)
 
 --| The parser's guarantee: the input is hexadecimal digits, and the packet
@@ -55,5 +55,5 @@ theorem parsePacketReads (input: Text) (packet: Packet) (parsed: Fail.toResult (
             | False => cases
             | True =>
               let sound := readPacketSound { unread = bits } found rest e
-              rewrite <- Result.okInjective found packet decoded in
+              rewrite <- Result.okInjective decoded in
                 Witness bits (Witness rest.unread (Both (readBitsHex input bits got) (Both sound.left (Both z sound.right)))))

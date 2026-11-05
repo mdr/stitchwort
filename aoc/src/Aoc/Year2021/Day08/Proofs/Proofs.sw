@@ -58,7 +58,7 @@ theorem easyCorrect (wiring: Segment → Segment) (entry: Entry) (decodes: Decod
     entry.outputs.count (output => [2, 3, 4, 7].contains output.size) = easyDigits wiring entry :=
   match decodes with
     | Both wired (Both perm outputs) =>
-      List.countCongMem entry.outputs _ _ (output m =>
+      List.countCongMem _ _ (output m =>
         match e: shown wiring output with
           | None => Void.exfalso (notNone (shown wiring output) (List.allMember (o => (shown wiring o).isSome) entry.outputs outputs output m) e)
           | Some digit =>
@@ -96,7 +96,7 @@ theorem litDrawn (wiring: Segment → Segment) (entry: Entry) (decodes: Decodes 
       calc litIn entry.patterns wire
         _ = entry.patterns.count (pattern => pattern.has wire)
         _ = entry.patterns.count (pattern => lights (shown wiring pattern))
-          := List.countCongMem entry.patterns _ _ (pattern m =>
+          := List.countCongMem _ _ (pattern m =>
             let listed := List.memPerm (entry.patterns.map (shown wiring)) (digits.map Some) perm (shown wiring pattern) (List.memMap entry.patterns pattern m (shown wiring))
             match List.memMapElim Some (shown wiring pattern) digits listed with
               | Witness digit (Both _ isShown) =>
@@ -112,13 +112,13 @@ theorem sizeDrawn (wiring: Segment → Segment) (wired: IsWiring wiring) (patter
   calc pattern.size
     _ = segments.count (wire => pattern.has wire)
     _ = segments.count (wire => (digitSegments digit).contains (wiring wire))
-      := List.countCongMem segments _ _ (wire _ => hasDrawn wiring pattern digit shows wire)
+      := List.countCongMem _ _ (wire _ => hasDrawn wiring pattern digit shows wire)
     _ = segments.count (s => (digitSegments digit).contains s) := countRewired wiring wired (s => (digitSegments digit).contains s)
 
 --| What `Shows` says of one wire.
 theorem hasDrawn (wiring: Segment → Segment) (pattern: Pattern) (digit: Nat) (shows: Shows wiring pattern digit = True) (wire: Segment):
     pattern.has wire = (digitSegments digit).contains (wiring wire) :=
-  DecEq.sound _ _ (List.allMember (w => pattern.has w == (digitSegments digit).contains (wiring w)) segments shows wire (segmentsComplete wire))
+  DecEq.sound (List.allMember (w => pattern.has w == (digitSegments digit).contains (wiring w)) segments shows wire (segmentsComplete wire))
 
 -- Renaming the wires.
 

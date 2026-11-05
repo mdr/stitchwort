@@ -36,18 +36,18 @@ theorem splitSomeLeaves (depth: Nat): (number: Number) → (split2: Number) → 
     splitLeaves (leaves depth number ++ rest) = Some (leaves depth split2 ++ rest)
   | Regular value, split2, some, rest =>
     match Nat.decLessThan 9 value with
-      | Yes _ => rewrite <- Option.someInjective _ split2 some in rfl
+      | Yes _ => rewrite <- Option.someInjective some in rfl
       | No _ => Void.exfalso (Option.noneNotSome split2 some)
   | Pair left right, split2, some, rest =>
     match el: split left with
       | Some left2 =>
-        rewrite <- Option.someInjective _ split2 some in
+        rewrite <- Option.someInjective some in
           rewrite List.appendAssoc (leaves (depth + 1) left) (leaves (depth + 1) right) rest, splitSomeLeaves (depth + 1) left left2 el (leaves (depth + 1) right ++ rest),
             List.appendAssoc (leaves (depth + 1) left2) (leaves (depth + 1) right) rest in rfl
       | None =>
         match er: split right with
           | Some right2 =>
-            rewrite <- Option.someInjective _ split2 some in
+            rewrite <- Option.someInjective some in
               rewrite List.appendAssoc (leaves (depth + 1) left) (leaves (depth + 1) right) rest, splitNoneLeaves (depth + 1) left el (leaves (depth + 1) right ++ rest),
                 splitSomeLeaves (depth + 1) right right2 er rest, List.appendAssoc (leaves (depth + 1) left) (leaves (depth + 1) right2) rest in rfl
           | None => Void.exfalso (Option.noneNotSome split2 some)

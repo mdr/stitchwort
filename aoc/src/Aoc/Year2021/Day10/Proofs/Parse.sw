@@ -22,7 +22,7 @@ theorem parseReadsLines (input: Text) (lines: List (List Token)) (parsed: Fail.t
     lines.map (tokens => tokens.map Token.char) = input.lines.map Text.toList :=
   let readsToken := Parse.readsLabel "a bracket" bracket _ (Parse.readsPickBy allTokens (token => Text.fromList [token.char]))
   let read := Parse.eachLineReads input (() => Parse.many token) _ lines parsed (Parse.readsMany token _ readsToken)
-  Eq.sym (List.all2Map _ _ _
-    (List.all2Weaken _ _
-      (line tokens each => Parse.eachChars Token.char line tokens (Parse.eachWeaken _ _ (chars token both => And.right both) line tokens each)) _ _
+  Eq.sym (List.all2Map _ _
+    (List.all2Weaken
+      (line tokens each => Parse.eachChars Token.char line tokens (Parse.eachWeaken (chars token both => And.right both) tokens each)) _ _
       read))

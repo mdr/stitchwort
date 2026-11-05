@@ -12,7 +12,7 @@ theorem reducesToUnique (b: List Leaf): (start: List Leaf) → (a: List Leaf) �
   | start, a, Reduced done, Steps step _ => Void.exfalso (Option.noneNotSome _ (Eq.trans (Eq.sym done) step))
   | start, a, Steps step _, Reduced done => Void.exfalso (Option.noneNotSome _ (Eq.trans (Eq.sym done) step))
   | start, a, Steps [next := next1] step1 rest1, Steps [next := next2] step2 rest2 =>
-    let same := Option.someInjective next1 next2 (Eq.trans (Eq.sym step1) step2)
+    let same := Option.someInjective (Eq.trans (Eq.sym step1) step2)
     reducesToUnique b next2 a (rewrite same at rest1 in rest1) rest2
 
 def headValue: List Leaf → Nat

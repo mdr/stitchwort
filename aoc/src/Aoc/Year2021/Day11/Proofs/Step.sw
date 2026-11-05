@@ -60,7 +60,7 @@ theorem zerosCorrect (cavern: Cavern) (flashed: Position → Bool) (spec: Flashe
     _ = (cavern.step.cells.map (cell => cell.snd == 0)).count (b => b) := Eq.sym (List.countMap cavern.step.cells (b => b) (cell => cell.snd == 0))
     _ = (cavern.grid.cells.map (cell => cavern.flashers.has cell.fst)).count (b => b) := rewrite stepCells cavern
     _ = cavern.grid.cells.count (cell => cavern.flashers.has cell.fst) := List.countMap cavern.grid.cells (b => b) (cell => cavern.flashers.has cell.fst)
-    _ = flashCount cavern flashed := List.countCongMem cavern.grid.cells _ _ (cell member => same cell.fst)
+    _ = flashCount cavern flashed := List.countCongMem _ _ (cell member => same cell.fst)
 
 --| ...and is all 0s exactly when every octopus flashes.
 theorem allZeroCorrect (cavern: Cavern) (flashed: Position → Bool) (spec: Flashers cavern flashed):

@@ -18,6 +18,6 @@ theorem parseRectangular (input: Text) (map: HeightMap) (parsed: Fail.toResult (
   let split := rewrite Fail.toResultThen (() => parseGrid input digit) (grid => ({ grid }: HeightMap)) at parsed
   Result.flatMapEqOk (Fail.toResult (() => parseGrid input digit)) (grid => Fail.toResult (() => ({ grid }: HeightMap))) map split
     (grid read made =>
-      let same: ({ grid }: HeightMap) = map := Result.okInjective _ map made
+      let same: ({ grid }: HeightMap) = map := Result.okInjective made
       let rectangle := And.left (parseGridRectangle input digit grid read)
       rewrite <- same in rectangle row (rewrite <- same at member in member))

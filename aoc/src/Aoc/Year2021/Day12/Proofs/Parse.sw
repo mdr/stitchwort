@@ -12,8 +12,8 @@ import Std (Bool, DecEq, Eq, Fail, List, Option, Result, Void)
 theorem checkPassagesOk (passages: List Passage) (result: List Passage) (h: Fail.toResult (() => checkPassages passages) = Ok result):
     result = passages ∧ passages.all (passage => not passage.joinsBig) = True :=
   match e: firstBigPair passages with
-    | Some (index, passage) => Void.exfalso (Result.errNotOk _ result h)
-    | None => Both (Eq.sym (Result.okInjective _ result h)) (List.findNoneAll passages Passage.joinsBig (List.findWithIndexFromNone Passage.joinsBig 0 passages e))
+    | Some (index, passage) => Void.exfalso (Result.errNotOk h)
+    | None => Both (Eq.sym (Result.okInjective h)) (List.findNoneAll passages Passage.joinsBig (List.findWithIndexFromNone Passage.joinsBig 0 passages e))
 
 --| ...whatever reads them.
 theorem parsedChecked (read: () → {Fail} List Passage) (passages: List Passage)
@@ -42,10 +42,10 @@ theorem parseNoBigNeighbours (input: Text) (passages: List Passage) (parsed: Fai
       match edge with
         | { from, to } =>
           let fine := List.allMem (passage => not passage.joinsBig = True) { from, to } passages none member
-          Bool.orElim (from == a && to == b) (from == b && to == a) _ joins
+          Bool.orElim joins
             (forward =>
-              rewrite <- DecEq.sound to b (Bool.andRight _ _ forward) in
-                otherSmall from to fine (rewrite DecEq.sound from a (Bool.andLeft _ _ forward) in bigA))
+              rewrite <- DecEq.sound (Bool.andRight forward) in
+                otherSmall from to fine (rewrite DecEq.sound (Bool.andLeft forward) in bigA))
             (backward =>
-              rewrite <- DecEq.sound from b (Bool.andLeft _ _ backward) in
-                otherSmallBack from to fine (rewrite DecEq.sound to a (Bool.andRight _ _ backward) in bigA)))
+              rewrite <- DecEq.sound (Bool.andLeft backward) in
+                otherSmallBack from to fine (rewrite DecEq.sound (Bool.andRight backward) in bigA)))

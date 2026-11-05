@@ -9,7 +9,7 @@ import Std (Bool, DecEq, Eq, Exists, Iff, List, Option, Void)
 --| `==` is false between different things.
 theorem differ (x: Cave) (y: Cave) (ne: x ≠ y): (x == y) = False :=
   match e: x == y with
-    | True => Void.exfalso (ne (DecEq.sound x y e))
+    | True => Void.exfalso (ne (DecEq.sound e))
     | False => rfl
 
 --| Looking a cave up in a table built from a list of caves.
@@ -17,7 +17,7 @@ theorem lookupBuilt (f: Cave → List Cave) (cave: Cave): (cs: List Cave) → ca
   | [], member => Void.exfalso member
   | [c, ..rest], member =>
     match e: c == cave with
-      | True => rewrite DecEq.sound c cave e in rfl
+      | True => rewrite DecEq.sound e in rfl
       | False =>
         match member with
           | Inl same => Void.exfalso (Bool.trueNotFalse (rewrite same, DecEq.refl cave at e))
@@ -27,7 +27,7 @@ theorem lookupMissing (f: Cave → List Cave) (cave: Cave): (cs: List Cave) → 
   | [], missing => rfl
   | [c, ..rest], missing =>
     match e: c == cave with
-      | True => Void.exfalso (missing (Inl (DecEq.sound c cave e)))
+      | True => Void.exfalso (missing (Inl (DecEq.sound e)))
       | False => lookupMissing f cave rest (later => missing (Inr later))
 
 --| Both caves of a passage are named in one.
@@ -44,11 +44,11 @@ theorem connectedNamed (passages: List Passage) (a: Cave) (b: Cave) (h: connecte
     match edge with
       | { from, to } =>
         let named := endsNamed passages { from, to } member
-        Bool.orElim (from == a && to == b) (from == b && to == a) _ joins
+        Bool.orElim joins
           (forward =>
-            rewrite <- DecEq.sound from a (Bool.andLeft _ _ forward), <- DecEq.sound to b (Bool.andRight _ _ forward) in named)
+            rewrite <- DecEq.sound (Bool.andLeft forward), <- DecEq.sound (Bool.andRight forward) in named)
           (backward =>
-            rewrite <- DecEq.sound from b (Bool.andLeft _ _ backward), <- DecEq.sound to a (Bool.andRight _ _ backward) in
+            rewrite <- DecEq.sound (Bool.andLeft backward), <- DecEq.sound (Bool.andRight backward) in
               Both (And.right named) (And.left named)))
 
 --| The caves a passage leads to from `cave`, as the program finds them, are
@@ -77,13 +77,13 @@ theorem neighboursOfMem (passages: List Passage) (cave: Cave) (y: Cave): y ∈ n
       match edge with
         | { from, to } =>
           let inEdge: y ∈ leadsTo { from, to } :=
-            Bool.orElim (from == cave && to == y) (from == y && to == cave) _ joins
-              (forward => rewrite Bool.andLeft _ _ forward in Inl (DecEq.sound to y (Bool.andRight _ _ forward)))
+            Bool.orElim joins
+              (forward => rewrite Bool.andLeft forward in Inl (DecEq.sound (Bool.andRight forward)))
               (backward =>
-                let fy := DecEq.sound from y (Bool.andLeft _ _ backward)
-                let tc := Bool.andRight _ _ backward
+                let fy := DecEq.sound (Bool.andLeft backward)
+                let tc := Bool.andRight backward
                 match fc: from == cave with
-                  | True => Inl (Eq.trans (DecEq.sound to cave tc) (Eq.trans (Eq.sym (DecEq.sound from cave fc)) fy))
+                  | True => Inl (Eq.trans (DecEq.sound tc) (Eq.trans (Eq.sym (DecEq.sound fc)) fy))
                   | False => rewrite tc in Inl fy)
           (List.memDistinct y _).backward (List.memFlatMapIntro leadsTo { from, to } y passages member inEdge))
 }

@@ -31,7 +31,7 @@ theorem readGroupsBitsFrom (rest: List Bool): (tail: List Nat) → (group: Nat) 
       (BitReader.readNumberAppend 4 group rest (omega [small]))
   | [next, ..more], group, small =>
     let fits: group < 16 := omega [small]
-    let others: ({ head = next, tail = more }: NonEmptyList Nat).all (group => group < 16) = True := Bool.andRight _ _ small
+    let others: ({ head = next, tail = more }: NonEmptyList Nat).all (group => group < 16) = True := Bool.andRight small
     let tail := groupBitsFrom next more ++ rest
     let length := List.lengthAppend (Nat.toBits 4 group) tail
     readGroupsMore { unread = groupBitsFrom group [next, ..more] ++ rest } { unread = Nat.toBits 4 group ++ tail } { unread = tail } group { head = next, tail = more } { unread = rest } rfl
@@ -65,14 +65,14 @@ theorem readGroupsSome (reader: BitReader) (groups: NonEmptyList Nat) (rest: Bit
                   match g: readGroups after with
                     | None => cases
                     | Some (gs, others) =>
-                      let parts := somePairInjective _ _ _ _ read
+                      let parts := somePairInjective read
                       match readGroupsSome after gs others g [decreasing := shorter] with
                         | Both split small =>
                           let first: (group < 16) = True := omega [fits]
                           rewrite <- parts.left, <- parts.right in
-                            Both (rewrite bitRead, numberRead.left, split in rfl) (Bool.andIntro _ _ first small)
+                            Both (rewrite bitRead, numberRead.left, split in rfl) (Bool.andIntro first small)
             | False =>
-              let parts := somePairInjective _ _ _ _ read
+              let parts := somePairInjective read
               let small: (NonEmptyList.singleton group).all (x => x < 16) = True := omega [fits]
               rewrite <- parts.left, <- parts.right in Both (rewrite bitRead, numberRead.left in rfl) small
 
@@ -82,12 +82,12 @@ theorem operatorTypeOfTypeId (operatorType: OperatorType): operatorTypeOf (typeI
 --| An operator type is read only from its type id.
 theorem operatorTypeOfSome (n: Nat) (operatorType: OperatorType) (read: operatorTypeOf n = Some operatorType): n = typeId operatorType :=
   match n with
-    | 0 => rewrite <- Option.someInjective _ _ read in rfl
-    | 1 => rewrite <- Option.someInjective _ _ read in rfl
-    | 2 => rewrite <- Option.someInjective _ _ read in rfl
-    | 3 => rewrite <- Option.someInjective _ _ read in rfl
-    | 5 => rewrite <- Option.someInjective _ _ read in rfl
-    | 6 => rewrite <- Option.someInjective _ _ read in rfl
-    | 7 => rewrite <- Option.someInjective _ _ read in rfl
+    | 0 => rewrite <- Option.someInjective read in rfl
+    | 1 => rewrite <- Option.someInjective read in rfl
+    | 2 => rewrite <- Option.someInjective read in rfl
+    | 3 => rewrite <- Option.someInjective read in rfl
+    | 5 => rewrite <- Option.someInjective read in rfl
+    | 6 => rewrite <- Option.someInjective read in rfl
+    | 7 => rewrite <- Option.someInjective read in rfl
     | 4 => cases
     | _ => cases

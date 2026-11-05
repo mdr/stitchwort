@@ -10,30 +10,29 @@ import Std (Bool, Eq, Exists, Fail, List, Nat, Option, Parse, Result, Text, Void
 --| The program's digits are the puzzle's.
 theorem hexAgree (char: Char) (value: Nat) (h: hexValue char = Some value): hexDigitBits char = Some (digitBits value) :=
   match char with
-    | '0' => rewrite <- Option.someInjective _ value h in rfl
-    | '1' => rewrite <- Option.someInjective _ value h in rfl
-    | '2' => rewrite <- Option.someInjective _ value h in rfl
-    | '3' => rewrite <- Option.someInjective _ value h in rfl
-    | '4' => rewrite <- Option.someInjective _ value h in rfl
-    | '5' => rewrite <- Option.someInjective _ value h in rfl
-    | '6' => rewrite <- Option.someInjective _ value h in rfl
-    | '7' => rewrite <- Option.someInjective _ value h in rfl
-    | '8' => rewrite <- Option.someInjective _ value h in rfl
-    | '9' => rewrite <- Option.someInjective _ value h in rfl
-    | 'A' => rewrite <- Option.someInjective _ value h in rfl
-    | 'B' => rewrite <- Option.someInjective _ value h in rfl
-    | 'C' => rewrite <- Option.someInjective _ value h in rfl
-    | 'D' => rewrite <- Option.someInjective _ value h in rfl
-    | 'E' => rewrite <- Option.someInjective _ value h in rfl
-    | 'F' => rewrite <- Option.someInjective _ value h in rfl
+    | '0' => rewrite <- Option.someInjective h in rfl
+    | '1' => rewrite <- Option.someInjective h in rfl
+    | '2' => rewrite <- Option.someInjective h in rfl
+    | '3' => rewrite <- Option.someInjective h in rfl
+    | '4' => rewrite <- Option.someInjective h in rfl
+    | '5' => rewrite <- Option.someInjective h in rfl
+    | '6' => rewrite <- Option.someInjective h in rfl
+    | '7' => rewrite <- Option.someInjective h in rfl
+    | '8' => rewrite <- Option.someInjective h in rfl
+    | '9' => rewrite <- Option.someInjective h in rfl
+    | 'A' => rewrite <- Option.someInjective h in rfl
+    | 'B' => rewrite <- Option.someInjective h in rfl
+    | 'C' => rewrite <- Option.someInjective h in rfl
+    | 'D' => rewrite <- Option.someInjective h in rfl
+    | 'E' => rewrite <- Option.someInjective h in rfl
+    | 'F' => rewrite <- Option.someInjective h in rfl
     | _ => cases
 
 --| `hexDigit` reads one hexadecimal digit and gives its value.
 theorem readsHexDigit: Parse.Reads hexDigit (read value => ∃ (char: Char) => read = [char] ∧ hexValue char = Some value) :=
-  Parse.readsThen _ _ _ _
-    (Parse.readsSatisfy _ _)
+  Parse.readsThen (Parse.readsSatisfy)
     (charRead char (Both one passes) =>
-      Parse.readsWeaken _ _ _ (Parse.readsNeed (hexValue char) _) (read value (Both none found) =>
+      Parse.readsWeaken (Parse.readsNeed (hexValue char) _) (read value (Both none found) =>
         Witness char (Both (rewrite one, none in rfl) found)))
 
 --| Hexadecimal digits read one after another: their bits are the
@@ -58,4 +57,4 @@ theorem readDigitsBits (input: Text) (values: List Nat) (read: Fail.toResult (()
 theorem readBitsHex (input: Text) (bits: List Bool) (read: Fail.toResult (() => readBits input) = Ok bits): transmissionBits input.trim.toList = Some bits :=
   let split := rewrite Fail.toResultThen (() => readDigits input) (digits => bitsOfDigits digits) at read in read
   Result.flatMapEqOk (Fail.toResult (() => readDigits input)) (digits => Fail.toResult (() => bitsOfDigits digits)) bits split
-    (values got made => rewrite <- Result.okInjective _ bits made in readDigitsBits input values got)
+    (values got made => rewrite <- Result.okInjective made in readDigitsBits input values got)

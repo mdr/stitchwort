@@ -29,7 +29,7 @@ theorem reduceSound: (budget: Nat) → (number: Number) → (final: Number) → 
             Both (Steps step (And.left rest)) (And.right rest)
           | None =>
             let step: reduceStep (leaves 0 number) = None := rewrite And.right shallow, splitNone number sp in rfl
-            rewrite <- Option.someInjective _ final done in Both (Reduced step) (Both (And.left shallow) sp)
+            rewrite <- Option.someInjective done in Both (Reduced step) (Both (And.left shallow) sp)
 
 --| One step of `reduce`, by what it found.
 theorem reduceExplodes (budget: Nat) (number: Number) (exploded: Explosion) (ex: explode 0 number = Some exploded):
@@ -64,7 +64,7 @@ theorem reduceComplete (final: List Leaf): (start: List Leaf) → ReducesTo star
     match ex: explode 0 number with
       | Some exploded =>
         let mine: reduceStep (leaves 0 number) = Some (leaves 0 exploded.number) := rewrite explodeSome number exploded ex fits in rfl
-        let same := Option.someInjective _ _ (Eq.trans (Eq.sym mine) (rewrite is in step))
+        let same := Option.someInjective (Eq.trans (Eq.sym mine) (rewrite is in step))
         match reduceComplete final next rest exploded.number same (omega [explodeHeight 0 number exploded ex]) with
           | Witness budget (Witness result (Both ran ends)) =>
             Witness (Succ budget) (Witness result (Both (rewrite reduceExplodes budget number exploded ex in ran) ends))
@@ -73,7 +73,7 @@ theorem reduceComplete (final: List Leaf): (start: List Leaf) → ReducesTo star
         match sp: split number with
           | Some split2 =>
             let mine: reduceStep (leaves 0 number) = Some (leaves 0 split2) := rewrite And.right shallow, splitSome number split2 sp in rfl
-            let same := Option.someInjective _ _ (Eq.trans (Eq.sym mine) (rewrite is in step))
+            let same := Option.someInjective (Eq.trans (Eq.sym mine) (rewrite is in step))
             match reduceComplete final next rest split2 same (omega [splitHeight number split2 sp, And.left shallow]) with
               | Witness budget (Witness result (Both ran ends)) =>
                 Witness (Succ budget) (Witness result (Both (rewrite reduceSplits budget number split2 ex sp in ran) ends))

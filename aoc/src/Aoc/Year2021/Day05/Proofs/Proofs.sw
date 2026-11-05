@@ -74,7 +74,7 @@ theorem pointsCount (line: Line) (shape: (horizontalOrVertical line ∨ diagonal
     let k := Nat.max (Nat.absDiff line.from.x point.x) (Nat.absDiff line.from.y point.y)
     Eq.trans (List.countMap (List.range 0 (steps + 1)) (== point) (step => { x = towards line.from.x line.to.x step, y = towards line.from.y line.to.y step }))
       (Eq.trans
-        (List.countCongMem (List.range 0 (steps + 1)) _ (i => covers line point ∧ i == k)
+        (List.countCongMem _ (i => covers line point ∧ i == k)
           (i inRange => pointStep line shape point i (stepInRange steps i inRange)))
         (countRangeOnce (steps + 1) k (covers line point) (c => coveredWithin line point c)))
 
@@ -103,11 +103,11 @@ theorem stepInRange (steps: Nat) (i: Nat) (inRange: i ∈ List.range 0 (steps + 
 theorem coveredWithin (line: Line) (point: Point) (c: covers line point = True):
     Nat.max (line.from.x.absDiff point.x) (line.from.y.absDiff point.y) < Nat.max (line.from.x.absDiff line.to.x) (line.from.y.absDiff line.to.y) + 1 :=
   let bx := betweenBound line.from.x point.x line.to.x (firstOf _ _ _ c)
-  let by := betweenBound line.from.y point.y line.to.y (secondOf _ _ _ c)
+  let by := betweenBound line.from.y point.y line.to.y (secondOf c)
   omega
 
 theorem firstOf: (a: Bool) → (b: Bool) → (c: Bool) → (a ∧ b ∧ c) = True → a = True := cases
-theorem secondOf: (a: Bool) → (b: Bool) → (c: Bool) → (a ∧ b ∧ c) = True → b = True := cases
+theorem secondOf: [a: Bool] → [b: Bool] → [c: Bool] → (a ∧ b ∧ c) = True → b = True := cases
 
 --| The `i`th point of a line is the point `(x, y)` when the line covers it
 --| and it is `k` steps from the first end.
@@ -153,7 +153,7 @@ theorem stepsFixedLeft (a: Nat) (b: Nat) (c: Nat) (i: Nat) (h: a = b) (hi: i ≤
 theorem stepsFixedRight (a: Nat) (b: Nat) (c: Nat) (i: Nat) (h: a = b) (hi: i ≤ Nat.max c (a.absDiff b)): i ≤ c :=
   rewrite h at hi in cases
 
-theorem stepsDiagonal (d: Nat) (e: Nat) (i: Nat) (h: d = e) (hi: i ≤ Nat.max d e): i ≤ d := rewrite h at hi in cases
+theorem stepsDiagonal [d: Nat] [e: Nat] [i: Nat] (h: d = e) (hi: i ≤ Nat.max d e): i ≤ d := rewrite h at hi in cases
 
 theorem diagonalSame (x1: Nat) (x2: Nat) (y1: Nat) (y2: Nat) (h: (x1.absDiff x2 == y1.absDiff y2) = True):
     x1.absDiff x2 = y1.absDiff y2 := cases
@@ -162,13 +162,13 @@ theorem diagonalSame (x1: Nat) (x2: Nat) (y1: Nat) (y2: Nat) (h: (x1.absDiff x2 
 -- line. `ax` and `ay` are how far the point is across and down from the
 -- first end, and `bx` and `by` whether it is between the ends.
 
-theorem combineVertical (ax: Nat) (ay: Nat) (i: Nat): (bx: Bool) → (by: Bool) → (bx = True → ax = 0) →
+theorem combineVertical [ax: Nat] [ay: Nat] (i: Nat): [bx: Bool] → [by: Bool] → (bx = True → ax = 0) →
     (bx ∧ (by ∧ i == ay)) = ((bx ∧ by ∧ True) ∧ i == Nat.max ax ay) := cases
 
-theorem combineHorizontal (ax: Nat) (ay: Nat) (i: Nat): (bx: Bool) → (by: Bool) → (by = True → ay = 0) →
+theorem combineHorizontal [ax: Nat] [ay: Nat] (i: Nat): [bx: Bool] → [by: Bool] → (by = True → ay = 0) →
     ((bx ∧ i == ax) ∧ by) = ((bx ∧ by ∧ True) ∧ i == Nat.max ax ay) := cases
 
-theorem combineDiagonal (ax: Nat) (ay: Nat) (i: Nat) (d: Nat) (hi: i ≤ d): (bx: Bool) → (by: Bool) → (e: Bool) →
+theorem combineDiagonal [ax: Nat] [ay: Nat] [i: Nat] [d: Nat] (hi: i ≤ d): [bx: Bool] → [by: Bool] → [e: Bool] →
     (bx = True → ax ≤ d) → (by = True → ay ≤ d) → (e = True → d = 0) →
     ((bx ∧ i == ax) ∧ (by ∧ i == ay)) = ((bx ∧ by ∧ (e ∨ ax == ay)) ∧ i == Nat.max ax ay) := cases
 
@@ -183,22 +183,22 @@ theorem pointLinear (x1: Nat) (y1: Nat) (x2: Nat) (y2: Nat) (i: Nat) (x: Nat) (y
   match Nat.decEq x1 x2 with
     | Yes hv =>
       rewrite towardsFixed x1 x2 i x hv, towardsEq y1 y2 i y (stepsFixedLeft x1 x2 _ i hv hi) in
-      combineVertical _ _ i _ _ (betweenFixed x1 x x2 hv)
+      combineVertical i (betweenFixed x1 x x2 hv)
     | No nv =>
       match Nat.decEq y1 y2 with
         | Yes hh =>
           rewrite towardsEq x1 x2 i x (stepsFixedRight y1 y2 _ i hh hi), towardsFixed y1 y2 i y hh in
-          combineHorizontal _ _ i _ _ (betweenFixed y1 y y2 hh)
+          combineHorizontal i (betweenFixed y1 y y2 hh)
         | No nh =>
           let same := diagonalSame x1 x2 y1 y2 shape
-          let bounded := stepsDiagonal _ _ i same hi
+          let bounded := stepsDiagonal same hi
           rewrite towardsEq x1 x2 i x bounded, towardsEq y1 y2 i y (rewrite <- same in bounded) in
-          combineDiagonal _ _ i _ bounded _ _ False (betweenBound x1 x x2) (h => rewrite same in betweenBound y1 y y2 h)
+          combineDiagonal bounded (betweenBound x1 x x2) (h => rewrite same in betweenBound y1 y y2 h)
             (h => Void.exfalso (Bool.falseNotTrue h))
 
 -- The spec's proportion, on these lines.
 
-theorem bothThen (p: Bool) (q: Bool): (bx: Bool) → (by: Bool) → (bx = True → by = True → p = q) → (bx ∧ by ∧ p) = (bx ∧ by ∧ q)
+theorem bothThen [p: Bool] [q: Bool]: (bx: Bool) → (by: Bool) → (bx = True → by = True → p = q) → (bx ∧ by ∧ p) = (bx ∧ by ∧ q)
   | False, by, h => rfl
   | True, False, h => rfl
   | True, True, h => rewrite h rfl rfl in rfl
@@ -215,7 +215,7 @@ theorem coversLinear (x1: Nat) (y1: Nat) (x2: Nat) (y2: Nat) (x: Nat) (y: Nat)
     (shape: ((x1 == x2 ∨ y1 == y2) ∨ x1.absDiff x2 == y1.absDiff y2) = True):
     (between x1 x x2 ∧ between y1 y y2 ∧ x1.absDiff x * y1.absDiff y2 == y1.absDiff y * x1.absDiff x2)
       = (between x1 x x2 ∧ between y1 y y2 ∧ ((x1 == x2 ∨ y1 == y2) ∨ x1.absDiff x == y1.absDiff y)) :=
-  bothThen _ _ _ _ (bx by =>
+  bothThen _ _ (bx by =>
     match Nat.decEq x1 x2 with
       | Yes hv =>
         rewrite productZeroLeft (Nat.absDiff x1 x) (Nat.absDiff y1 y) (Nat.absDiff x1 x2) (Nat.absDiff y1 y2) (betweenFixed x1 x x2 hv bx) (absDiffFixed x1 x2 hv) in rfl
@@ -225,4 +225,4 @@ theorem coversLinear (x1: Nat) (y1: Nat) (x2: Nat) (y2: Nat) (x: Nat) (y: Nat)
             rewrite productZeroRight (Nat.absDiff x1 x) (Nat.absDiff y1 y) (Nat.absDiff x1 x2) (Nat.absDiff y1 y2) (betweenFixed y1 y y2 hh by) (absDiffFixed y1 y2 hh) in rfl
           | No nh =>
             let same := diagonalSame x1 x2 y1 y2 shape
-            rewrite <- same in Nat.mulRightCancelBool _ _ _ (absDiffPositive x1 x2 nv))
+            rewrite <- same in Nat.mulRightCancelBool (absDiffPositive x1 x2 nv))

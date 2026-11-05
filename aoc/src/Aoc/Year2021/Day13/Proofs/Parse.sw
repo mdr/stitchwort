@@ -35,8 +35,8 @@ theorem unblockedPromise: (folds: List Fold) → (index: Nat) → (dots: List Po
 theorem checkPaperOk (paper: Paper) (result: Paper) (h: Fail.toResult (() => checkPaper paper) = Ok result):
     result = paper ∧ firstBlocked paper.dots paper.folds = None :=
   match e: firstBlocked paper.dots paper.folds with
-    | Some (index, dot) => Void.exfalso (Result.errNotOk _ result h)
-    | None => Both (Eq.sym (Result.okInjective _ result h)) rfl
+    | Some (index, dot) => Void.exfalso (Result.errNotOk h)
+    | None => Both (Eq.sym (Result.okInjective h)) rfl
 
 --| ...whatever reads it.
 theorem parsedUnblocked (read: () → {Fail} Paper) (paper: Paper) (parsed: Fail.toResult (() => checkPaper (read ())) = Ok paper):

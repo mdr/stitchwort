@@ -168,7 +168,7 @@ theorem ratingStep (choose: List Bool → Bool) (criterion: List Bits → Nat �
       rewrite growPrefix prefix bit kept, Bits.widthAppendBit prefix bit in rfl
     _ = Option.map (rating choose k kept) (rest => Bits.append (Bits.append prefix (Bits.cons Bits.empty bit)) rest) := later (Bits.append prefix (Bits.cons Bits.empty bit)) kept
     _ = Option.map (rating choose k kept) (rest => Bits.append prefix (Bits.cons rest bit)) :=
-      Option.mapCong _ _ _ (rest => Bits.appendAssoc prefix (Bits.cons Bits.empty bit) rest)
+      Option.mapCong _ (rest => Bits.appendAssoc prefix (Bits.cons Bits.empty bit) rest)
     _ = Option.map (Option.map (rating choose k kept) (rest => Bits.cons rest bit)) (rest => Bits.append prefix rest) := Eq.sym (Option.mapMap _ _ _)
 
 --| The spec's filtering, from the numbers that share a prefix, finds the
@@ -200,7 +200,7 @@ theorem ratingCorrect (choose: List Bool → Bool) (criterion: List Bits → Nat
       rewrite unprefixed in rfl
     _ = Option.map (rating choose (width report) report) (rest => Bits.append Bits.empty rest) :=
       ratingAfterPrefix choose criterion agree (width report) Bits.empty report
-    _ = rating choose (width report) report := Eq.trans (Option.mapCong _ _ _ (rest => Bits.emptyAppend rest)) (Option.mapId _)
+    _ = rating choose (width report) report := Eq.trans (Option.mapCong _ (rest => Bits.emptyAppend rest)) (Option.mapId _)
 
 --| Part 2 is the puzzle's answer, for every list of numbers: the same
 --| number, or no number on both sides.

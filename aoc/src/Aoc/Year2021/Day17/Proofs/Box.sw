@@ -18,7 +18,7 @@ theorem dxAtLeastOne (target: Target) (right: 0 < target.left) (velocity: Veloci
     | True => rfl
     | False =>
       let slow: short target (launch velocity) = True := omega
-      Void.exfalso (neverHits target (launch velocity) (Bool.orRight _ _ (Bool.orLeft _ _ slow)) n h)
+      Void.exfalso (neverHits target (launch velocity) (Bool.orRight (Bool.orLeft slow)) n h)
 
 theorem dxAtMostRight (target: Target) (right: 0 < target.left) (velocity: Velocity) (n: Nat) (h: inTarget target (flight n velocity) = True):
     velocity.dx ≤ target.right :=
@@ -29,7 +29,7 @@ theorem dxAtMostRight (target: Target) (right: 0 < target.left) (velocity: Veloc
         | True => rfl
         | False =>
           let fast: overshot target (step (launch velocity)) = True := omega [signCases velocity.dx]
-          Void.exfalso (neverHits target (step (launch velocity)) (Bool.orLeft _ _ fast) m h)
+          Void.exfalso (neverHits target (step (launch velocity)) (Bool.orLeft fast) m h)
 
 theorem dyAtLeastBottom (target: Target) (below: target.top < 0) (velocity: Velocity) (n: Nat) (h: inTarget target (flight n velocity) = True):
     target.bottom ≤ velocity.dy :=
@@ -40,7 +40,7 @@ theorem dyAtLeastBottom (target: Target) (below: target.top < 0) (velocity: Velo
         | True => rfl
         | False =>
           let down: fallen target (step (launch velocity)) = True := omega
-          Void.exfalso (neverHits target (step (launch velocity)) (Bool.orRight _ _ (Bool.orRight _ _ down)) m h)
+          Void.exfalso (neverHits target (step (launch velocity)) (Bool.orRight (Bool.orRight down)) m h)
 
 --| Twice the y position after `n` steps is `n * (2 * dy + 1 - n)`.
 theorem yFlight (velocity: Velocity) (n: Nat): 2 * (flight n velocity).y = n.toInt * (2 * velocity.dy + 1 - n.toInt) :=

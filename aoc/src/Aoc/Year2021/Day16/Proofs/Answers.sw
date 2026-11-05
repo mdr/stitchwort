@@ -28,8 +28,8 @@ theorem groupsValue (acc: Nat): (groups: List Nat) → groups.all (group => grou
     groups.foldLeft acc (value group => value * 16 + group) = (groups.flatMap (Nat.toBits 4)).foldLeft acc (acc bit => acc * 2 + bit.toNat)
   | [], small => rfl
   | [group, ..rest], small =>
-    let fits: group < Nat.pow 2 4 := omega [Bool.andLeft _ _ small]
-    let ih := groupsValue (acc * 16 + group) rest (Bool.andRight _ _ small)
+    let fits: group < Nat.pow 2 4 := omega [Bool.andLeft small]
+    let ih := groupsValue (acc * 16 + group) rest (Bool.andRight small)
     let inner: List.foldLeft (Nat.toBits 4 group) acc (acc bit => acc * 2 + Bool.toNat bit) = acc * 16 + group :=
       rewrite Nat.fromBitsFrom acc (Nat.toBits 4 group), Nat.fromBitsToBits 4 group fits in rfl
     let step: List.foldLeft (rest.flatMap (Nat.toBits 4)) (List.foldLeft (Nat.toBits 4 group) acc (acc bit => acc * 2 + Bool.toNat bit)) (acc bit => acc * 2 + Bool.toNat bit) =
@@ -70,20 +70,20 @@ theorem comparisonCompares (comparison: Comparison) (first: Nat) (second: Nat): 
 
 --| Part 2: a well-formed packet has the value the program computes.
 theorem evaluateCorrect: (packet: Packet) → wellFormed packet = True → HasValue packet (evaluate packet)
-  | Literal version groups, formed => rewrite groupsValue 0 groups.toList (Bool.andRight _ _ formed) in LiteralValue version groups
+  | Literal version groups, formed => rewrite groupsValue 0 groups.toList (Bool.andRight formed) in LiteralValue version groups
   | Operator version operation lengthType ({ head = first, tail = rest }), formed =>
-    let others := Bool.andRight _ _ (Bool.andRight _ _ formed)
+    let others := Bool.andRight (Bool.andRight formed)
     OperationValue [operands := { head = first, tail = rest }]
-      (NextValue (evaluateCorrect first (Bool.andLeft _ _ others)) (evaluateAllCorrect rest (Bool.andRight _ _ others)))
+      (NextValue (evaluateCorrect first (Bool.andLeft others)) (evaluateAllCorrect rest (Bool.andRight others)))
       (operationComputes operation { head = evaluate first, tail = evaluateAll rest })
   | Comparator version comparison lengthType first second, formed =>
-    let others := Bool.andRight _ _ (Bool.andRight _ _ formed)
-    ComparisonValue (evaluateCorrect first (Bool.andLeft _ _ others)) (evaluateCorrect second (Bool.andRight _ _ others))
+    let others := Bool.andRight (Bool.andRight formed)
+    ComparisonValue (evaluateCorrect first (Bool.andLeft others)) (evaluateCorrect second (Bool.andRight others))
       (comparisonCompares comparison (evaluate first) (evaluate second))
 
 theorem evaluateAllCorrect: (packets: List Packet) → allWellFormed packets = True → Values packets (evaluateAll packets)
   | [], formed => NoValues
-  | [packet, ..rest], formed => NextValue (evaluateCorrect packet (Bool.andLeft _ _ formed)) (evaluateAllCorrect rest (Bool.andRight _ _ formed))
+  | [packet, ..rest], formed => NextValue (evaluateCorrect packet (Bool.andLeft formed)) (evaluateAllCorrect rest (Bool.andRight formed))
 
 theorem part2Correct (packet: Packet) (formed: wellFormed packet = True): HasValue packet (solvePart2 packet) :=
   evaluateCorrect packet formed
