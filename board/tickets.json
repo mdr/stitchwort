@@ -8342,13 +8342,13 @@
     {
       "id": 1427,
       "title": "AoC 2020 day 9 (Encoding Error): spec, efficient solution, proofs, tests, friction notes in aoc/NOTES-2020.md",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1427",
       "labels": [
         "aoc"
       ],
-      "body": "D2430 (Matt, 5 Nov 2026): yes — the orchestrator decides day 8's friction review (findings SW-1420..1426 filed; SW-1420, the method-name decreasing bug, first) and starts day 9. Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day9.",
+      "body": "D2430 (Matt, 5 Nov 2026): yes — the orchestrator decides day 8's friction review (findings SW-1420..1426 filed; SW-1420, the method-name decreasing bug, first) and starts day 9. Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day9.\n\nStarted on Opus, expected: 90 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
