@@ -20,7 +20,7 @@ def after (n: Nat) (velocity: Velocity): Probe := Nat.iterate n move { x = 0, y 
 
 --| The probe is within the target area, edges included.
 def Within (target: Target) (probe: Probe): Prop :=
-  target.left ≤ probe.x ∧ probe.x ≤ target.right ∧ target.bottom ≤ probe.y ∧ probe.y ≤ target.top
+  target.left ≤ probe.x ≤ target.right ∧ target.bottom ≤ probe.y ≤ target.top
 
 --| A velocity hits if the probe is within the target after some step.
 def Hits (target: Target) (velocity: Velocity): Prop := ∃ (n: Nat) => Within target (after n velocity)

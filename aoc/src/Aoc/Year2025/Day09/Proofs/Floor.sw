@@ -29,8 +29,8 @@ def floorCells (tiles: List Point): List (List Nat) :=
 
 theorem halfOpenBetween (one: Nat) (other: Nat) (value: Nat) (h: isBetweenHalfOpen one other value = True): isBetween one other value = True :=
   Bool.orElim _ _ _ h
-    (l => Bool.orLeft (one ≤ value ∧ value ≤ other) (other ≤ value ∧ value ≤ one) (omega))
-    (r => Bool.orRight (one ≤ value ∧ value ≤ other) (other ≤ value ∧ value ≤ one) (omega))
+    (l => Bool.orLeft (one ≤ value ≤ other) (other ≤ value ≤ one) (omega))
+    (r => Bool.orRight (one ≤ value ≤ other) (other ≤ value ≤ one) (omega))
 
 theorem onLineTouches (tile: Point) (line: Line) (h: tile.isOnLine line = True): touchesRow tile.y line = True :=
   Bool.andRight (isBetween line.from.x line.to.x tile.x) (isBetween line.from.y line.to.y tile.y) h

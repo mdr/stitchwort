@@ -73,7 +73,7 @@ def Disk.moveWholeFile (disk: Disk) (id: Nat): Disk :=
         | None => disk
         | Some target =>
           { blocks = disk.blocks.mapWithIndex (position block =>
-            if target <= position && position < target + length then FileBlock id
+            if target <= position < target + length then FileBlock id
             else if block == FileBlock id then Free
             else block) }
 

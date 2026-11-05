@@ -59,7 +59,7 @@ theorem winsAfterDraw (drawn: List Nat) (number: Nat) (later: List Nat) (board: 
     List.lengthSnoc drawn number in rfl
 
 --| Not won before turn `j` and won by its end is won on it.
-theorem thisTurn (j: Nat) (t: Nat): ((j ≤ t ∧ t < Succ j): Bool) = (t == j) := cases
+theorem thisTurn (j: Nat) (t: Nat): ((j ≤ t < Succ j): Bool) = (t == j) := cases
 
 --| Not won before turn `j` nor by its end is won later.
 theorem laterTurn (j: Nat) (t: Nat): ((j ≤ t ∧ not (t < Succ j)): Bool) = (Succ j ≤ t) := cases

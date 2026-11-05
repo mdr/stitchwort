@@ -66,10 +66,10 @@ def solvePart1 (tiles: List Point): Nat := tiles.pairs |> .map Rectangle.ofPair 
 def loopLines (tiles: List Point): List Line := tiles.zip (tiles.drop 1 |> .append (tiles.take 1)) |> .map (ends => { from = ends.fst, to = ends.snd })
 
 --| `value` is from `one` to `other`, in either order.
-def isBetween (one: Nat) (other: Nat) (value: Nat): Bool := (one ≤ value ∧ value ≤ other) ∨ (other ≤ value ∧ value ≤ one)
+def isBetween (one: Nat) (other: Nat) (value: Nat): Bool := (one ≤ value ≤ other) ∨ (other ≤ value ≤ one)
 
 --| `value` is from `one` to `other`, `other` left out, in either order.
-def isBetweenHalfOpen (one: Nat) (other: Nat) (value: Nat): Bool := (one ≤ value ∧ value < other) ∨ (other ≤ value ∧ value < one)
+def isBetweenHalfOpen (one: Nat) (other: Nat) (value: Nat): Bool := (one ≤ value < other) ∨ (other ≤ value < one)
 
 --| The tile is on the line (a red tile at either end, or a green tile).
 def Point.isOnLine (tile: Point) (line: Line): Bool :=

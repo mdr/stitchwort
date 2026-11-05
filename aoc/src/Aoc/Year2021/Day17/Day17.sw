@@ -65,7 +65,7 @@ def step (probe: Probe): Probe :=
   { x = probe.x + probe.dx, y = probe.y + probe.dy, dx = probe.dx - Int.sign probe.dx, dy = probe.dy - 1 }
 
 def inTarget (target: Target) (probe: Probe): Bool :=
-  target.left ≤ probe.x ∧ probe.x ≤ target.right ∧ target.bottom ≤ probe.y ∧ probe.y ≤ target.top
+  target.left ≤ probe.x ≤ target.right ∧ target.bottom ≤ probe.y ≤ target.top
 
 --| Past the target for good: right of it and not moving left, left of it
 --| and not moving right, or below it and falling.

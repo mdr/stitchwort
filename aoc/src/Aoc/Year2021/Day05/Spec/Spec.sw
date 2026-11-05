@@ -25,7 +25,7 @@ import Aoc.Common (Line, Point)
 import Std (List, Nat)
 
 --| `b` is between `a` and `c`, either way round, ends included.
-def between (a: Nat) (b: Nat) (c: Nat): Bool := Nat.min a c ≤ b ∧ b ≤ Nat.max a c
+def between (a: Nat) (b: Nat) (c: Nat): Bool := Nat.min a c ≤ b ≤ Nat.max a c
 
 --| "An entry like 1,1 -> 1,3 covers points 1,1, 1,2, and 1,3": the grid
 --| points on the segment from one end to the other. A point is on it when it
