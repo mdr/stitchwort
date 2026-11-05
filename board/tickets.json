@@ -1,5 +1,5 @@
 {
-  "next": 1414,
+  "next": 1415,
   "tickets": [
     {
       "id": 47,
@@ -7376,13 +7376,13 @@
     {
       "id": 1359,
       "title": "Ranges step 3: auto and omega take x ∈ a ..< b apart; Bool x in a ..< b decided by two comparisons (D2411)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1359",
       "labels": [
         "elab"
       ],
-      "body": "From SW-1356 (docs/proposals/ranges.md §13), D2405-D2413 approved by Matt 5 Nov 2026. Runs after the previous ranges step.\n\nStarted on Sonnet, expected: 90 min.",
+      "body": "From SW-1356 (docs/proposals/ranges.md §13), D2405-D2413 approved by Matt 5 Nov 2026. Runs after the previous ranges step.\n\nStarted on Sonnet, expected: 90 min.\n\nDone on lane/SW-1359 (64af7072a): omega/auto read x ∈ a ..< b (and ..=, numeral starts via rangeFrom) as two bounds, prove such goals from them; Bool x in a ..< b (range written in place) elaborates to List.inRange x a b (two comparisons) with List.inRangeIff, List.containsRange; SW-1413 fixed (dot.rs receiver_type knew no range/bracket type). New std lemmas memRangeBounds, memRangeOf, memRangeFromOf. Opus review pending (omega builds kernel terms). Model result: Sonnet, worked, 40 min (est. 90).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8133,7 +8133,7 @@
     {
       "id": 1413,
       "title": "Bug: a range followed by two |> steps fails: '0 ..= n |> .flatMap (i => 0 ..= i |> .map …) |> .filter …' gives E-NO-NAMESPACE (looked in Effect.CompD, stuck) while the same with List.range calls checks, and one step checks; found by SW-1380 on aoc Common/Grid Position.around",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
@@ -8141,6 +8141,18 @@
         "bug"
       ],
       "body": "Repro: /private/tmp/claude-502/-Users-matt-repos-mdr-stitchwort/9ccc8cdc-8b8e-4d69-8b17-b90e21a42b50/scratchpad/rangepipe/a.sw (viaRange fails; viaCall, oneStep check). From SW-1358's range syntax (elaboration or effects pass on range operands). Sent to SW-1359's lane (same area).",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1414,
+      "title": "Ranges: the O(1) Bool test covers only a range written in place; also if h: x in a ..< b (the Decidable path walks the list) and a range bound to a variable (let r := 0 ..< n; x in r)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
