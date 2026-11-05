@@ -2379,17 +2379,29 @@ Also:
      `Int.modNatToInt`, `Int.toIntDiv` and `Int.toIntMod` take one `auto`
      proof (`Nat.toIntNeZero d ok` states the `Int` side); `Text.decEq`'s
      and `Text.split`'s runtime pins moved with `Char.ext`.
-   - `Bool.canonicalTrue` stays. `Float.make` is `{ bits = n, valid =
-     canonicalTrue … p }` so that a native's result (`valid = rfl`) and the
-     definition's normal form are the *same term*, which the float gate
+   - Step 3 (`Bool.canonicalTrue` in `Float`) is not done. The float gate
      (`float_gate.rs`, D731, `the_float_natives_agree_with_their_definitions`)
-     compares textually, "proofs included". Removing it leaves
-     the definitions' normal forms with stuck proofs in `valid`, convertible
-     with `rfl` but not equal as terms. Doing it means the gate compares
-     modulo inert proofs; that is a change to what the natives are trusted
-     to match, not a clean-up, and is left for a decision.
+     compares a native's result (`valid = rfl`) with the definition's normal
+     form as terms, "proofs included". Without `canonicalTrue` the definitions
+     leave stuck proofs in `valid`, convertible with `rfl` but not equal as
+     terms, and shortcut-mode comparisons under opaque calls (which compare
+     proof fields, D2352) would see the two differ: whether a program checks
+     could depend on the natives being on, which D731's gate forbids.
+   - One regression accepted: a char-pattern arm whose goal passes the matched
+     character to an opaque, axiom or same-group call no longer checks, as
+     shortcut mode compares proof fields (D2352). `opaque def secret: Char →
+     Nat | _ => 3` with `theorem viaOpaque: (c: Char) → c = 'a' → secret c =
+     secret 'a' | 'a', h => rfl | _, h => Eq.cong secret h` is `E-REFL` in the
+     first arm; `Eq.cong secret h` is the workaround
+     (`examples/reject/char-arm-opaque-call.sw`). Nothing in std, `examples/`
+     or `aoc/` hits it.
+   - The equations generator replaces a char row's proof variable by `rfl` on
+     the left side only where every argument stays convertible with itself
+     (`MkChar 107 p` does; a bare `p`, as in `back`, keeps the variable), so
+     equations hold at any proof
+     (`examples/accept/equation-proof-arguments.sw`).
    - The `if h:` limit: a branch whose `h` reaches only inert positions gets
-     its equation (`proof_is_inert_in`, function-equations.md §3.5). The
+     its equation, `else` branches too (`modOr.eq.ifFalse`) (`proof_is_inert_in`, function-equations.md §3.5). The
      remaining cases (an `else` that computes on its proof of `¬p`, a row
      under an earlier guard's false proof) are unchanged.
 3. **Later, if a program needs it**: proofs that are *context variables*.

@@ -2794,18 +2794,31 @@ impl Elaborator {
         };
         // A character pattern's proof field (`'k'` is `MkChar 107 p`) is
         // `rfl` on the left side, the literal's own, so the equation doesn't
-        // take it as a variable.
+        // take it as a variable. Only where every argument stays convertible
+        // with itself when `p` becomes `rfl` (the kernel skips the proof
+        // field); a bare `p`, or one that a call computes on, stays a
+        // variable, as the equation would be narrower at `rfl`.
+        let mut to_refl: Vec<Value> = (0..depth).map(Value::var).collect();
         let mut any_refl = false;
-        let to_refl: Vec<Value> = (0..depth)
-            .map(|l| {
-                if l >= 1 && own(l) && is_computed_bool_eq(g, depth, &cx.types[l])? {
-                    any_refl = true;
-                    Ok(Value::Refl)
-                } else {
-                    Ok(Value::var(l))
+        for l in 1..depth {
+            if !own(l) || !is_computed_bool_eq(g, depth, &cx.types[l])? {
+                continue;
+            }
+            let mut one: Vec<Value> = (0..depth).map(Value::var).collect();
+            one[l] = Value::Refl;
+            let mut same = true;
+            for t in &lhs {
+                let (x, y) = (eval(g, &to_refl, t)?, eval(g, &one, t)?);
+                if !stitchwort_core::value::conv(g, depth, &x, &y)? {
+                    same = false;
+                    break;
                 }
-            })
-            .collect::<R<_>>()?;
+            }
+            if same {
+                to_refl[l] = Value::Refl;
+                any_refl = true;
+            }
+        }
         if any_refl {
             for t in &mut lhs {
                 *t = stitchwort_core::value::quote(g, depth, &eval(g, &to_refl, t)?)?;
