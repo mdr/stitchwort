@@ -8804,13 +8804,13 @@
     {
       "id": 1459,
       "title": "Language server: a broken shared file floods its dependents with E-UNKNOWN-NAME errors (the old Check stopped at the first failing namespace with E-NAMESPACE-FAILED); suppress errors downstream of a failed namespace",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1459",
       "labels": [
         "lsp"
       ],
-      "body": "From SW-1432, 5 Nov 2026.",
+      "body": "From SW-1432, 5 Nov 2026.\n\nStarted on Sonnet (overnight editor track), expected: 60 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
