@@ -3941,13 +3941,13 @@
     {
       "id": 1117,
       "title": "Editor small wins: add-import quick fix (machine-readable diagnostic field), signature help, let inlay hints, semantic tokens",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1117",
       "labels": [
         "editor"
       ],
-      "body": "Roadmap step 2. Inlay hints scope pending D2244. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2244 (Matt, 3 Nov): inlay hints for let types only.\n\nD2263 (Matt, 3 Nov): not started yet; editor-roadmap implementation waits until the tidy-ups (state migration, std) settle.\n\nSW-1383 (signature help) folded in here.",
+      "body": "Roadmap step 2. Inlay hints scope pending D2244. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2244 (Matt, 3 Nov): inlay hints for let types only.\n\nD2263 (Matt, 3 Nov): not started yet; editor-roadmap implementation waits until the tidy-ups (state migration, std) settle.\n\nSW-1383 (signature help) folded in here.\n\nStarted on Sonnet (after D2439's speed work), expected: 120 min.",
       "created": "2026-11-03",
       "updated": "2026-11-05",
       "commits": []
