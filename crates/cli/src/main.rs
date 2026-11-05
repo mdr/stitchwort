@@ -125,6 +125,11 @@ enum Command {
         /// which is much slower) instead of the fast runtime
         #[arg(long)]
         reference: bool,
+        /// Run every test afresh and compare each result with the cached
+        /// one, failing on any that differs; the cache is not written. A
+        /// check that the cache's key covers everything a result depends on
+        #[arg(long, conflicts_with = "no_cache")]
+        verify_cache: bool,
     },
     /// Type-check a file, then run its `main`; or run a function of the
     /// project by its full name (`Day05.main`). Reads standard input and
@@ -588,7 +593,14 @@ fn run(cli: Cli) -> ExitCode {
             cache,
             project,
             reference,
-        } => test(target.as_deref(), &cache, project.as_deref(), reference),
+            verify_cache,
+        } => test(
+            target.as_deref(),
+            &cache,
+            project.as_deref(),
+            reference,
+            verify_cache,
+        ),
         Command::Run {
             target,
             js,
@@ -1299,13 +1311,53 @@ fn test_cache(cache: &CacheArgs, base: &Path) -> Cache {
     cache_dir(cache, base).map_or_else(Cache::disabled, Cache::at)
 }
 
+/// Reports what `--verify-cache` found; whether there was no disagreement.
+fn verified(cache: &Cache) -> bool {
+    let Some(v) = cache.verification() else {
+        return true;
+    };
+    for d in &v.disagreements {
+        let show = |o: Outcome| {
+            if o == Outcome::Passed {
+                "passed"
+            } else {
+                "failed"
+            }
+        };
+        eprintln!(
+            "error: cache disagrees with a fresh run: {}.{} (hash {}): cached {}, fresh {}",
+            d.namespace,
+            d.name,
+            d.hash.hex(),
+            show(d.cached),
+            show(d.fresh)
+        );
+    }
+    println!(
+        "verified the cache: {} compared, {} had no cached result, {} disagree",
+        v.compared,
+        v.missing,
+        v.disagreements.len()
+    );
+    v.disagreements.is_empty()
+}
+
 fn test(
     target: Option<&str>,
     cache: &CacheArgs,
     project: Option<&Path>,
     reference: bool,
+    verify_cache: bool,
 ) -> ExitCode {
     let mut session = new_session(false);
+    let test_cache = |cache: &CacheArgs, base: &Path| {
+        let cache = test_cache(cache, base);
+        if verify_cache {
+            cache.verifying()
+        } else {
+            cache
+        }
+    };
     let run_tests = |session: &Session, cache: &Cache| {
         if reference {
             session.run_tests(cache)
@@ -1322,6 +1374,11 @@ fn test(
             }
             let cache = test_cache(cache, Path::new("."));
             let code = print_tests(&run_tests(&session, &cache), false);
+            let code = if verified(&cache) {
+                code
+            } else {
+                ExitCode::FAILURE
+            };
             discard(session);
             // The tests of unfinished declarations aren't checked, so they
             // didn't run.
@@ -1346,6 +1403,11 @@ fn test(
             let cache = test_cache(cache, &project.dir);
             let results = run_tests(&session, &cache);
             let code = print_tests(&results, true);
+            let code = if verified(&cache) {
+                code
+            } else {
+                ExitCode::FAILURE
+            };
             discard(session);
             // A target that matched no tests (a typo, a namespace without
             // any) must never look like a pass.

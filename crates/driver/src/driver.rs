@@ -5,9 +5,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use stitchwort_core::collections::HashMap;
-use stitchwort_core::hash::{ContentHash, def_hash};
+use stitchwort_core::hash::ContentHash;
 use stitchwort_core::value::{eval, force};
-use stitchwort_core::{Ev, Limits, ResourceError, Term, Value};
+use stitchwort_core::{Limits, ResourceError, Term, Value};
 use stitchwort_elab::project::{FileModeContext, SourceUnit};
 use stitchwort_elab::shown::{SHOWN_SIDE, SHOWN_SIDE_NODES, cut_to, first_difference, text_lines};
 use stitchwort_elab::{Elaborator, LibraryIndex, prelude};
@@ -939,7 +939,7 @@ pub struct Comparison {
 /// in a directory, or in memory for hosts without a file system.
 ///
 /// The key also has the compiler that ran it: its version, a fingerprint of
-/// its source ([`FINGERPRINT`]), and the modes that change how programs are
+/// the Rust that evaluates tests ([`EVAL_FINGERPRINT`]), and the modes that change how programs are
 /// evaluated ([`modes`]). So a result is never reused by a different build,
 /// or by a run with natives or compact text switched off.
 ///
@@ -953,6 +953,30 @@ pub struct Cache {
     memory: Option<RefCell<Memory>>,
     /// Whether this run has written yet (the first write sweeps).
     written: std::cell::Cell<bool>,
+    /// Set by [`Cache::verifying`]: what has been checked so far.
+    verify: Option<RefCell<Verification>>,
+}
+
+/// What a verifying cache ([`Cache::verifying`]) has found.
+#[derive(Default, Debug)]
+pub struct Verification {
+    /// Tests run fresh whose cached result was compared with it.
+    pub compared: usize,
+    /// Tests run fresh that the cache had no result for.
+    pub missing: usize,
+    /// Tests whose cached result differs from the fresh one.
+    pub disagreements: Vec<Disagreement>,
+}
+
+/// A test whose cached result differs from a fresh run's: the cache's key
+/// missed something that decides a result, or the test isn't deterministic.
+#[derive(Debug)]
+pub struct Disagreement {
+    pub namespace: String,
+    pub name: String,
+    pub hash: ContentHash,
+    pub cached: Outcome,
+    pub fresh: Outcome,
 }
 
 /// A cache's results when it has no directory to keep them in: the ones it
@@ -978,7 +1002,19 @@ pub const FINGERPRINT: &str = env!("STITCHWORT_FINGERPRINT");
 /// ([`crate::fingerprint::source_crates`]).
 pub const FINGERPRINT_CRATES: &str = env!("STITCHWORT_FINGERPRINT_CRATES");
 
-/// The fingerprint the caches key on: [`FINGERPRINT`] and a hash of the
+/// The fingerprint of what evaluates tests, made by `build.rs`
+/// ([`crate::fingerprint::evaluation_fingerprint`]): the test cache's key has
+/// this and not [`build_fingerprint`], because a test's hash already covers
+/// the program and the standard library it uses. Only a change to the Rust
+/// that evaluates a term, or to the toolchain, starts a fresh cache.
+pub const EVAL_FINGERPRINT: &str = env!("STITCHWORT_EVAL_FINGERPRINT");
+
+/// The crates whose sources [`EVAL_FINGERPRINT`] covers (and the driver's
+/// `test_run.rs` besides), as directories relative to the workspace root,
+/// comma-separated.
+pub const EVAL_FINGERPRINT_CRATES: &str = env!("STITCHWORT_EVAL_FINGERPRINT_CRATES");
+
+/// The fingerprint the check cache keys on: [`FINGERPRINT`] and a hash of the
 /// standard library's text as read. [`FINGERPRINT`] covers the Rust sources
 /// only: the library is read from files, not compiled in, so it can change
 /// without a rebuild.
@@ -1015,23 +1051,13 @@ pub const SOURCE_FINGERPRINT: &str = env!("STITCHWORT_SOURCE_FINGERPRINT");
 /// formatter).
 pub const SOURCE_FINGERPRINT_CRATES: &str = env!("STITCHWORT_SOURCE_FINGERPRINT_CRATES");
 
-/// The effective modes of evaluation, for the cache key: whether the native
-/// implementations are used (`n1`) or not (`n0`), and whether text literals
-/// are compact (`c1`) or constructors (`c0`).
-pub fn modes(g: &Ev) -> String {
-    format!(
-        "n{}c{}",
-        u8::from(!g.env.builtins().disable_natives),
-        u8::from(g.env.builtins().compact_literals().is_some())
-    )
-}
-
 impl Cache {
     pub fn at(dir: impl Into<PathBuf>) -> Self {
         Cache {
             dir: Some(dir.into()),
             memory: None,
             written: std::cell::Cell::new(false),
+            verify: None,
         }
     }
 
@@ -1045,6 +1071,7 @@ impl Cache {
                 added: Vec::new(),
             })),
             written: std::cell::Cell::new(false),
+            verify: None,
         }
     }
 
@@ -1053,7 +1080,22 @@ impl Cache {
             dir: None,
             memory: None,
             written: std::cell::Cell::new(false),
+            verify: None,
         }
+    }
+
+    /// This cache, used to check itself: tests are all run fresh, each
+    /// result is compared with what the cache holds for it
+    /// ([`Cache::verification`]), and nothing is written.
+    pub fn verifying(mut self) -> Self {
+        self.verify = Some(RefCell::new(Verification::default()));
+        self
+    }
+
+    /// What a [`Cache::verifying`] cache has found so far; `None` for any
+    /// other.
+    pub fn verification(&self) -> Option<std::cell::Ref<'_, Verification>> {
+        self.verify.as_ref().map(RefCell::borrow)
     }
 
     /// The test named `name` in namespace `namespace`, as a directory
@@ -1072,7 +1114,7 @@ impl Cache {
     /// The key of the result of the test with `hash`, when run with `modes`:
     /// the file name in a directory cache.
     pub fn key(hash: &ContentHash, modes: &str) -> String {
-        format!("{COMPILER}-{}-{modes}-{}", build_fingerprint(), hash.hex())
+        format!("{COMPILER}-{EVAL_FINGERPRINT}-{modes}-{}", hash.hex())
     }
 
     /// Where the result of test `unit` ([`Cache::unit`]) with `hash` is
@@ -1087,7 +1129,7 @@ impl Cache {
 
     /// The start of the file names of this build's results with `modes`.
     fn build(modes: &str) -> String {
-        format!("{COMPILER}-{}-{modes}", build_fingerprint())
+        format!("{COMPILER}-{EVAL_FINGERPRINT}-{modes}")
     }
 
     /// After writing `keep`, the result of test `unit`: deletes the test's
@@ -1102,7 +1144,7 @@ impl Cache {
             return;
         };
         let own = format!("{}-{unit}-", Self::build(modes));
-        let this_build = format!("{COMPILER}-{}-", build_fingerprint());
+        let this_build = format!("{COMPILER}-{EVAL_FINGERPRINT}-");
         let now = std::time::SystemTime::now();
         for entry in entries.flatten() {
             let path = entry.path();
@@ -1135,7 +1177,51 @@ impl Cache {
             .map_or_else(Vec::new, |memory| memory.borrow().added.clone())
     }
 
-    fn get(&self, unit: &str, hash: &ContentHash, modes: &str) -> Option<Outcome> {
+    /// The cached result, unless verifying: then every test runs.
+    pub(crate) fn get(&self, unit: &str, hash: &ContentHash, modes: &str) -> Option<Outcome> {
+        if self.verify.is_some() {
+            return None;
+        }
+        self.stored(unit, hash, modes)
+    }
+
+    /// In a [`Cache::verifying`] cache, compares the fresh `outcome` of the
+    /// test with the one held; otherwise nothing. Out-of-resources isn't a
+    /// result, so isn't compared.
+    pub(crate) fn verify_result(
+        &self,
+        test: &stitchwort_elab::TestDecl,
+        hash: &ContentHash,
+        modes: &str,
+        outcome: Outcome,
+    ) {
+        let Some(verify) = &self.verify else {
+            return;
+        };
+        if matches!(outcome, Outcome::OutOfResources(_)) {
+            return;
+        }
+        let unit = Self::unit(&test.namespace, &test.name);
+        let mut verify = verify.borrow_mut();
+        match self.stored(&unit, hash, modes) {
+            None => verify.missing += 1,
+            Some(cached) => {
+                verify.compared += 1;
+                if cached != outcome {
+                    verify.disagreements.push(Disagreement {
+                        namespace: test.namespace.clone(),
+                        name: test.name.clone(),
+                        hash: *hash,
+                        cached,
+                        fresh: outcome,
+                    });
+                }
+            }
+        }
+    }
+
+    /// What the cache holds for the test, whether or not this run reads it.
+    fn stored(&self, unit: &str, hash: &ContentHash, modes: &str) -> Option<Outcome> {
         if let Some(memory) = &self.memory {
             return memory.borrow().known.get(&Self::key(hash, modes)).copied();
         }
@@ -1150,7 +1236,10 @@ impl Cache {
     }
 
     /// Best effort: a cache that can't be written just means re-running later.
-    fn put(&self, unit: &str, hash: &ContentHash, modes: &str, outcome: Outcome) {
+    pub(crate) fn put(&self, unit: &str, hash: &ContentHash, modes: &str, outcome: Outcome) {
+        if self.verify.is_some() {
+            return;
+        }
         // Not a result: running it again with other limits may finish.
         if matches!(outcome, Outcome::OutOfResources(_)) {
             return;
@@ -1179,234 +1268,21 @@ impl Cache {
     }
 }
 
+pub use crate::test_run::modes;
+
 /// The most characters of a part of a test shown to say where it failed.
 const SHOWN_PART: usize = 100;
 
-/// Which evaluator runs a test.
-#[derive(Clone, Copy)]
-enum Runner {
-    /// The reference evaluator, the type checker's own.
-    Reference,
-    /// The machine of `stitchwort-rt`, falling back to the reference
-    /// evaluator.
-    Machine,
-}
-
-/// Which of the session's tests to run.
-type Selection<'a> = dyn Fn(&stitchwort_elab::TestDecl) -> bool + 'a;
-
-/// Tests lowered for the machine.
-struct TestMachine {
-    program: stitchwort_rt::Program,
-}
-
-impl TestMachine {
-    /// The outcome of the test `def` on `machine`, if it was lowered and
-    /// finished there: running out of resources is left to the reference
-    /// evaluator, whose limits a test's result is reported against.
-    fn run(
-        &self,
-        machine: &mut stitchwort_rt::Machine,
-        def: stitchwort_core::DefId,
-        partial: Option<stitchwort_rt::Limits>,
-    ) -> Option<Outcome> {
-        let global = self.program.globals.iter().position(|g| g.def == def)?;
-        let global = stitchwort_rt::ir::GlobalId(u32::try_from(global).ok()?);
-        machine.reset_steps();
-        let value = match partial {
-            // A test that runs partial code (D1183) is a `Delay`, stepped
-            // as `stitchwort run` steps a partial `main`, on a machine of
-            // its own.
-            Some(limits) => {
-                let mut own = stitchwort_rt::Machine::new(&self.program, limits);
-                own.global(global)
-                    .map_err(stitchwort_rt::host::RunError::from)
-                    .and_then(|delay| stitchwort_rt::run_partial(own, limits, delay))
-            }
-            None => machine.global(global).map_err(Into::into),
-        };
-        match value {
-            Ok(stitchwort_rt::value::Value::Tag(tag)) => {
-                Some(if tag == self.program.shapes.true_ {
-                    Outcome::Passed
-                } else {
-                    Outcome::Failed
-                })
-            }
-            _ => None,
-        }
-    }
-}
-
 impl Session {
-    /// Runs every test of the program loaded so far, using cached results
-    /// where possible. The core's and the library's tests aren't the
-    /// program's (docs/proposals/std-library.md §4.7): see
-    /// [`Session::run_library_tests`].
-    pub fn run_tests(&self, cache: &Cache) -> Vec<TestResult> {
-        self.run_selected(cache, &|test| !test.library, Runner::Reference)
-    }
-
-    /// [`Session::run_tests`], for only the tests `keep` keeps.
-    pub fn run_tests_where(
-        &self,
-        cache: &Cache,
-        keep: impl Fn(&stitchwort_elab::TestDecl) -> bool,
-    ) -> Vec<TestResult> {
-        self.run_selected(
-            cache,
-            &|test| !test.library && keep(test),
-            Runner::Reference,
-        )
-    }
-
-    /// [`Session::run_tests`], on the machine of `stitchwort-rt`
-    /// (docs/proposals/fast-runtime.md) where it can: a test it can't lower
-    /// or finish runs on the reference evaluator, which also still explains
-    /// a failure (SW-412).
-    pub fn run_tests_fast(&self, cache: &Cache) -> Vec<TestResult> {
-        self.run_selected(cache, &|test| !test.library, Runner::Machine)
-    }
-
-    /// Runs the tests of the core and of the library files loaded (all of
-    /// them, in [`Session::with_library_tests`]).
-    pub fn run_library_tests(&self, cache: &Cache) -> Vec<TestResult> {
-        self.run_selected(cache, &|test| test.library, Runner::Reference)
-    }
-
-    /// The tests `selected` that `cache` has no result for, lowered together
-    /// for the machine, if they can be. One that can't be lowered with the
-    /// others is left out (and runs on the reference evaluator).
-    fn lower_tests(&self, cache: &Cache, selected: &Selection, modes: &str) -> Option<TestMachine> {
-        let g = &self.elab.ev();
-        let wanted: Vec<stitchwort_core::DefId> = self
-            .elab
-            .tests()
-            .iter()
-            .filter(|test| selected(test))
-            .filter(|test| {
-                let _op = g.machine.budget.operation(self.elab.options.limits);
-                match def_hash(g, test.def) {
-                    Ok(Some(hash)) => cache
-                        .get(&Cache::unit(&test.namespace, &test.name), &hash, modes)
-                        .is_none(),
-                    _ => false,
-                }
-            })
-            .map(|test| test.def)
-            .collect();
-        if wanted.is_empty() {
-            return None;
-        }
-        let lower = |ids: &[stitchwort_core::DefId]| {
-            stitchwort_rt::lower_definitions(g, self.elab.options.limits, ids).ok()
-        };
-        // Together, so what they share is lowered once; one at a time only
-        // if some test can't be lowered.
-        let program = lower(&wanted).or_else(|| {
-            let lowerable: Vec<_> = wanted
-                .iter()
-                .copied()
-                .filter(|id| lower(&[*id]).is_some())
-                .collect();
-            lower(&lowerable)
-        })?;
-        Some(TestMachine { program })
-    }
-
-    fn run_selected(&self, cache: &Cache, selected: &Selection, runner: Runner) -> Vec<TestResult> {
-        let g = &self.elab.ev();
-        // A result is kept per runner: the two are only differentially
-        // tested to agree (docs/proposals/fast-runtime.md).
-        let modes = match runner {
-            Runner::Reference => modes(g),
-            Runner::Machine => format!("{}m", modes(g)),
-        };
-        let lowered = match runner {
-            Runner::Reference => None,
-            Runner::Machine => self.lower_tests(cache, selected, &modes),
-        };
-        let mut machine = lowered.as_ref().map(|lowered| {
-            stitchwort_rt::Machine::new(
-                &lowered.program,
-                stitchwort_rt::Limits::from_core(self.elab.options.limits),
-            )
-        });
-        self.elab
-            .tests()
-            .iter()
-            .filter(|test| selected(test))
-            .map(|test| {
-                // Each test is one operation, with its own resource limits:
-                // hashing it, then running it unless its result is cached.
-                let _op = g.machine.budget.operation(self.elab.options.limits);
-                let hash = match def_hash(g, test.def) {
-                    Ok(hash) => hash.expect("tests are checked before they run"),
-                    Err(e) => {
-                        return TestResult {
-                            name: test.name.clone(),
-                            namespace: test.namespace.clone(),
-                            outcome: Outcome::OutOfResources(e),
-                            cached: false,
-                            hash: None,
-                            detail: None,
-                        };
-                    }
-                };
-                let unit = Cache::unit(&test.namespace, &test.name);
-                if let Some(outcome) = cache.get(&unit, &hash, &modes) {
-                    return TestResult {
-                        name: test.name.clone(),
-                        namespace: test.namespace.clone(),
-                        outcome,
-                        cached: true,
-                        hash: Some(hash),
-                        detail: self.failure(test, outcome),
-                    };
-                }
-                // A test that runs partial code is a `Delay` (D1183).
-                let partial = self.elab.is_partial(test.def).unwrap_or(false);
-                let on_machine = match (&lowered, &mut machine) {
-                    (Some(lowered), Some(machine)) => lowered.run(
-                        machine,
-                        test.def,
-                        partial.then(|| stitchwort_rt::Limits::from_core(self.elab.options.limits)),
-                    ),
-                    _ => None,
-                };
-                let outcome = on_machine.unwrap_or_else(|| {
-                    let value = if partial {
-                        self.run_partial(&Term::Def(test.def))
-                    } else {
-                        // Proofs and types aren't computed (`erase.rs`).
-                        let _erasing = g.machine.erasure.running();
-                        eval(g, &[], &Term::Def(test.def)).and_then(|v| force(g, v))
-                    };
-                    match value {
-                        // `Bool` is `False | True`: constructor 1 is `True`.
-                        Ok(Value::Ctor(_, 1, _)) => Outcome::Passed,
-                        Ok(_) => Outcome::Failed,
-                        Err(e) => Outcome::OutOfResources(e),
-                    }
-                });
-                cache.put(&unit, &hash, &modes, outcome);
-                TestResult {
-                    name: test.name.clone(),
-                    namespace: test.namespace.clone(),
-                    outcome,
-                    cached: false,
-                    hash: Some(hash),
-                    detail: self.failure(test, outcome),
-                }
-            })
-            .collect()
-    }
-
     /// Why `test` failed, if it did and that can be told (D601): walks down
     /// its probe to the first false operand of each `&&`, then shows the sides
     /// of the comparison it ends at. Every step runs a closed term of its own,
     /// so what's wrong with one never changes the outcome.
-    fn failure(&self, test: &stitchwort_elab::TestDecl, outcome: Outcome) -> Option<Failure> {
+    pub(crate) fn failure(
+        &self,
+        test: &stitchwort_elab::TestDecl,
+        outcome: Outcome,
+    ) -> Option<Failure> {
         use stitchwort_elab::ProbeKind;
         if outcome != Outcome::Failed {
             return None;

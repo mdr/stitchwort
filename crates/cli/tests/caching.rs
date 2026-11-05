@@ -174,7 +174,7 @@ fn test_results_are_reused_until_a_dependency_changes() {
 /// (docs/proposals/compact-text.md, "Hashing and caches").
 #[test]
 fn test_results_are_only_reused_by_the_same_build_and_modes() {
-    use stitchwort_cli::driver::{build_fingerprint, modes};
+    use stitchwort_cli::driver::{EVAL_FINGERPRINT, modes};
     let dir = std::env::temp_dir().join(format!("stitchwort-modes-test-{}", std::process::id()));
     let cache = Cache::at(&dir);
     let program = "import Std (Nat, Text)\ntest \"big\" := Nat.leq 1000 (1000 * 1000)\ntest \"text\" := Text.length \"abc\" == 3\n";
@@ -198,12 +198,11 @@ fn test_results_are_only_reused_by_the_same_build_and_modes() {
     let (cached, name) = run(true, true);
     assert_eq!(cached, [false, false]);
     assert!(
-        name.contains(build_fingerprint()) && name.contains("-n1c1-"),
+        name.contains(EVAL_FINGERPRINT) && name.contains("-n1c1-"),
         "{name}"
     );
     assert!(
-        build_fingerprint().len() == 24
-            && build_fingerprint().chars().all(|c| c.is_ascii_hexdigit())
+        EVAL_FINGERPRINT.len() == 24 && EVAL_FINGERPRINT.chars().all(|c| c.is_ascii_hexdigit())
     );
     assert_eq!(run(true, true).0, [true, true]);
     // Natives off: nothing is reused, though the tests' hashes are the same.
