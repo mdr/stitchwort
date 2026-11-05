@@ -8533,14 +8533,14 @@
     {
       "id": 1440,
       "title": "Lanes adding an example keep missing its hash snapshot: SW-1359, SW-1379 and SW-1420 each reported snap:hashes NAME=examples passing with no .snap change, yet main's hash_stability examples failed on their new examples' missing snapshots. Find why the lane run passes (stale binary? INSTA settings? kache?) and make a missing snapshot fail it",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
         "tests",
         "tooling"
       ],
-      "body": "Found by batch 35's verifier, 5 Nov 2026. Each cost a verifier round.\n\nLikely cause (SW-1429's lane, 5 Nov): snap:hashes NAME=examples is a name filter that matches no snapshot file, so it runs nothing and 'passes'. Lanes and my briefs say NAME=examples. Fix the task (make NAME=examples mean the examples sweep, or fail when the filter matches nothing) and the briefs.",
+      "body": "Found by batch 35's verifier, 5 Nov 2026. Each cost a verifier round.\n\nLikely cause (SW-1429's lane, 5 Nov): snap:hashes NAME=examples is a name filter that matches no snapshot file, so it runs nothing and 'passes'. Lanes and my briefs say NAME=examples. Fix the task (make NAME=examples mean the examples sweep, or fail when the filter matches nothing) and the briefs.\n\nConfirmed (Taskfile.yml:376): snap:hashes passes NAME to EXAMPLES, a filter on example file names; NAME=examples or NAME=prelude matches no file, so nothing new is snapshotted and it passes. The briefs were wrong (mine). Fix: hash_stability fails when EXAMPLES matches no file (name the filter), and the briefs say NAME=<the new example's file name> (or no NAME).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
