@@ -46,9 +46,7 @@ def height (value: Text): Bool :=
 
 --| "A # followed by exactly six characters 0-9 or a-f."
 def hairColor (value: Text): Bool :=
-  match value.toList with
-    | ['#', ..rest] => rest.length == 6 ∧ rest.all (char => Parse.isDigit char ∨ ('a' <= char ∧ char <= 'f'))
-    | _ => False
+  value.toList |> matches | ['#', ..rest] => rest.length == 6 ∧ rest.all (char => Parse.isDigit char ∨ ('a' <= char ∧ char <= 'f'))
 
 --| "Exactly one of: amb blu brn gry grn hzl oth."
 def eyeColor (value: Text): Bool := (["amb", "blu", "brn", "gry", "grn", "hzl", "oth"].filter (== value)).length == 1

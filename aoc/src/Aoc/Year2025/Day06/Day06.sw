@@ -56,10 +56,9 @@ def Problem.parse (columns: List (List Char)): Problem :=
     columnNumbers = columns.map (column => parseNumber column.init)
   }
 
-def Operator.parse: Char → Option Operator
-  | '+' => Some Add
-  | '*' => Some Multiply
-  | _ => None
+def Operator.parse: Char → Option Operator := match some
+  | '+' => Add
+  | '*' => Multiply
 
 --| The number written with these digits; spaces (and anything else) are skipped.
 def parseNumber (cells: List Char): Nat := cells.filterMap .digitValue |> Nat.fromDigits

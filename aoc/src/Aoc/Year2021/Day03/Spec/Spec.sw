@@ -80,6 +80,5 @@ def co2ScrubberRating (report: List Bits): Option Nat :=
 --| The life support rating: the oxygen generator rating times the CO2
 --| scrubber rating, when both exist.
 def lifeSupportRating (report: List Bits): Option Nat :=
-  match (oxygenGeneratorRating report, co2ScrubberRating report) with
-    | (Some oxygen, Some carbonDioxide) => Some (oxygen * carbonDioxide)
-    | _ => None
+  (oxygenGeneratorRating report, co2ScrubberRating report)
+    |> match some | (Some oxygen, Some carbonDioxide) => oxygen * carbonDioxide

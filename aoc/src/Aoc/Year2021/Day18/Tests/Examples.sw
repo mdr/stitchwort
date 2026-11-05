@@ -62,9 +62,7 @@ test "the homework's largest sum" := solvePart2 homeworkNumbers == Some 3993
 --| The parser refuses a number that isn't reduced, and anything else that
 --| isn't a number.
 def refuses (input: Text): Bool :=
-  match Fail.toResult (() => parseNumbers input) with
-    | Ok _ => False
-    | Err _ => True
+  Fail.toResult (() => parseNumbers input) |> matches | Err _
 
 test "the parser refuses a deep pair" := refuses "[[[[[9,8],1],2],3],4]"
 test "the parser refuses a number above 9" := refuses "[10,1]"

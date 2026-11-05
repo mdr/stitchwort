@@ -84,9 +84,7 @@ test "thresholds" :=
     && Fail.toResult (() => thresholdFrom ["1", "2"]) == Err "expected no arguments, or the least saving to count, such as `50`"
 
 test "parse" :=
-  match parsed "#####\n#S.E#\n#####\n" with
-    | Ok track => track.start == at 1 1 && track.end == at 1 3 && track.track.toList == [at 1 1, at 1 2, at 1 3]
-    | Err message => False
+  parsed "#####\n#S.E#\n#####\n" |> matches | Ok track => track.start == at 1 1 && track.end == at 1 3 && track.track.toList == [at 1 1, at 1 2, at 1 3]
 test "parse without a final line break" := (parsed "#S.E#" |> .map (track => track.end)) == Ok (at 0 3)
 test "no S" := (parsed "#..E#\n" |> .map (track => ())) == Err "no S tile"
 test "two Es" := (parsed "#SEE#\n" |> .map (track => ())) == Err "more than one E tile"

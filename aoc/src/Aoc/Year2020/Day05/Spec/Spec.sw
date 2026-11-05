@@ -44,9 +44,7 @@ type Seat = { row: Nat, column: Nat }
 --| The seat a pass of 7 row letters and 3 column letters specifies.
 def seat (pass: List Char): Option Seat :=
   if pass.length == 10 then
-    match (row (pass.take 7), column (pass.drop 7)) with
-      | (Some row, Some column) => Some ({ row, column })
-      | _ => None
+    (row (pass.take 7), column (pass.drop 7)) |> match some | (Some row, Some column) => ({ row, column })
   else None
 
 --| "Every seat also has a unique seat ID: multiply the row by 8, then add

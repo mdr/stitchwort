@@ -118,10 +118,9 @@ def Position.diagonal (position: Position) (vertical: Direction) (horizontal: Di
 --| faces the same plant, or inside, where both do but the plot diagonally
 --| across doesn't.
 def Garden.isCorner (garden: Garden) (position: Position) (vertical: Direction) (horizontal: Direction): Bool :=
-  match garden.sameAcross position vertical, garden.sameAcross position horizontal with
-    | False, False => True
-    | True, True => (position.diagonal vertical horizontal |> .flatMap garden.plantAt) != garden.plantAt position
-    | _, _ => False
+  (garden.sameAcross position vertical, garden.sameAcross position horizontal) |> matches
+    | (False, False)
+    | (True, True) => (position.diagonal vertical horizontal |> .flatMap garden.plantAt) != garden.plantAt position
 
 def Garden.cornerCount (garden: Garden) (position: Position): Nat := quadrants.count (quadrant => garden.isCorner position quadrant.fst quadrant.snd)
 

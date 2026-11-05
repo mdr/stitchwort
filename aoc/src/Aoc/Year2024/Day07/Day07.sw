@@ -46,17 +46,16 @@ def placeValue (number: Nat): Nat := Nat.pow 10 (Nat.digitCount number)
 def canMake (operators: List Operator) (first: Nat) (target: Nat): List Nat → Bool
   | [] => target == first
   | [last, ..earlier] =>
-    operators.any (operator =>
-      match operator with
-        | Add => last <= target && canMake operators first (target - last) earlier
-        | Multiply =>
-          if last != 0 then
-            target % last == 0 && canMake operators first (target / last) earlier
-          -- Anything times 0 is 0.
-          else target == 0
-        | Concatenate =>
-          let place := placeValue last
-          target % place == last && canMake operators first (target / place) earlier)
+    operators.any (match
+      | Add => last <= target && canMake operators first (target - last) earlier
+      | Multiply =>
+        if last != 0 then
+          target % last == 0 && canMake operators first (target / last) earlier
+        -- Anything times 0 is 0.
+        else target == 0
+      | Concatenate =>
+        let place := placeValue last
+        target % place == last && canMake operators first (target / place) earlier)
 
 --| Whether some choice of the operators between the numbers makes the test
 --| value.
