@@ -1,15 +1,21 @@
-//! `stitchwort lsp`: the language server (docs/proposals/language-server.md,
-//! stage 1), speaking LSP on standard input and output.
+//! The language server (docs/proposals/language-server.md, stage 1):
+//! `stitchwort lsp`, speaking LSP on standard input and output, and the
+//! playground's editor, which runs the same server in a browser worker.
 //!
-//! Two threads. The **main thread** reads messages in order, keeps each
-//! open document's text, and answers navigation requests (definition,
-//! hover, references, outline, workspace symbols) at once from the last
-//! published answers. The **checker thread** owns the sessions (one per
-//! project, one per file on its own; they can't move between threads), and
-//! after each edit re-checks the edited namespace first and publishes its
-//! diagnostics, then re-checks the namespaces that use it, in the
-//! background (`stitchwort_driver::live`). An edit sets the cancellation
-//! flag, which stops the check running within milliseconds.
+//! Natively, two threads. The **main thread** reads messages in order,
+//! keeps each open document's text, and answers navigation requests
+//! (definition, hover, references, outline, workspace symbols) at once from
+//! the last published answers. The **checker thread** owns the sessions
+//! (one per project, one per file on its own; they can't move between
+//! threads), and after each edit re-checks the edited namespace first and
+//! publishes its diagnostics, then re-checks the namespaces that use it, in
+//! the background (`stitchwort_driver::live`). An edit sets the
+//! cancellation flag, which stops the check running within milliseconds.
+//! Proof searches (code actions on a goal) run on threads of their own.
+//!
+//! Without threads ([`Inline`], for the browser), the host hands the server
+//! each message and lets it do its background work one piece at a time
+//! between messages (a namespace's check, or a proof search).
 //!
 //! Files and threads live here; the engine (`live`) has neither (D498).
 
@@ -38,13 +44,15 @@ use stitchwort_driver::driver::Session;
 use stitchwort_driver::live::{
     Answers, FileAnswers, LiveFile, LiveProject, LiveRef, Loc, OutlineItem, Place, Progress,
 };
-use stitchwort_driver::project::{DiskFiles, find_project, parse_config, project_sources};
 use stitchwort_elab::cache::{Key, Store};
 use stitchwort_syntax::{Severity, SourceMap};
 
 use stitchwort_core::budget::Instant;
 #[cfg(target_family = "wasm")]
 use wasm::FileUrl as _;
+
+mod source;
+pub use source::{Disk, Memory, MemoryProject, ProjectFiles, Source};
 
 /// The URI scheme of the embedded library's files, which the client shows
 /// read-only (`stitchwort-std:List/Toolkit.sw`; its text is what
@@ -149,8 +157,18 @@ fn initialize(params: &serde_json::Value, options: &mut Options) -> (serde_json:
     (reply, document_changes)
 }
 
-/// Serves LSP on `connection`, from `initialize` to `exit`.
-pub fn serve(connection: Connection, mut options: Options) -> Result<(), String> {
+/// Serves LSP on `connection`, from `initialize` to `exit`, reading files
+/// from the disk.
+pub fn serve(connection: Connection, options: Options) -> Result<(), String> {
+    serve_from(connection, options, Arc::new(Disk))
+}
+
+/// [`serve`], reading files from `source`.
+pub fn serve_from(
+    connection: Connection,
+    mut options: Options,
+    source: Arc<dyn Source>,
+) -> Result<(), String> {
     let (id, params) = connection.initialize_start().map_err(|e| e.to_string())?;
     let (reply, document_changes) = initialize(&params, &mut options);
     connection
@@ -177,10 +195,11 @@ pub fn serve(connection: Connection, mut options: Options) -> Result<(), String>
         let cancel = cancel.clone();
         let sender = connection.sender.clone();
         let options = options.clone();
+        let source = source.clone();
         std::thread::Builder::new()
             .name("stitchwort-checker".into())
             .stack_size(options.stack)
-            .spawn(move || Checker::new(options, sender, nav, cancel).run(edits))
+            .spawn(move || Checker::new(options, source, sender, nav, cancel).run(edits))
             .map_err(|e| e.to_string())?
     };
     let searches = Arc::new(Searches::default());
@@ -191,22 +210,22 @@ pub fn serve(connection: Connection, mut options: Options) -> Result<(), String>
             let sender = connection.sender.clone();
             let searches = searches.clone();
             let options = options.clone();
+            let source = source.clone();
             std::thread::Builder::new()
                 .name(format!("stitchwort-search-{n}"))
                 .stack_size(options.stack)
-                .spawn(move || search_worker(jobs, sender, searches, options))
+                .spawn(move || search_worker(jobs, sender, searches, options, source))
                 .map_err(|e| e.to_string())
         })
         .collect::<Result<Vec<_>, _>>()?;
     drop(jobs);
     let main = Main {
         connection,
+        source,
         nav,
         cancel,
         to_checker,
         texts: Default::default(),
-        stack: options.stack,
-        wanted: options.search_wanted,
         searches,
         to_searches,
         document_changes,
@@ -333,7 +352,88 @@ struct SearchJob {
     pending: Arc<PendingSearch>,
     /// The document version the search is computed from.
     version: i32,
-    run: Box<dyn FnOnce(Arc<AtomicBool>) -> serde_json::Value + Send>,
+    search: Search,
+}
+
+/// A proof search, as data: what a worker needs to run it, natively a
+/// thread of the pool, in the browser a second worker (as JSON,
+/// [`Inline::take_searches`], [`Searcher`]).
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct Search {
+    uri: Url,
+    target: SearchTarget,
+    kind: SearchKind,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+enum SearchKind {
+    /// What closes the goal at `range` ([`Main::code_action`]); with
+    /// `versioned`, edits name that version of the document.
+    CodeAction {
+        range: lsp_types::Range,
+        versioned: Option<i32>,
+    },
+    /// The context at a position ([`Main::context_at`]).
+    ContextAt { line: u32, character: u32 },
+}
+
+impl Search {
+    /// The answer: the code actions, or the context, or null. `stack` is
+    /// the stack of the thread it runs on, `wanted` how many closing
+    /// proofs it stops at.
+    fn run(
+        self,
+        stack: usize,
+        wanted: usize,
+        source: &dyn Source,
+        cancel: Arc<AtomicBool>,
+    ) -> serde_json::Value {
+        let Search { uri, target, kind } = self;
+        match kind {
+            SearchKind::CodeAction { range, versioned } => {
+                let options = pos::action_options(wanted);
+                let found = match target.project {
+                    Some((root, relative, open)) => project_closing_actions(
+                        stack, source, &root, &relative, open, range, cancel, &options,
+                    ),
+                    None => {
+                        closing_actions(stack, source, &target.path, &target.text, range, &options)
+                    }
+                };
+                code_actions(found, &uri, range, versioned)
+            }
+            SearchKind::ContextAt { line, character } => {
+                context_at(stack, source, target, line, character, cancel)
+            }
+        }
+    }
+}
+
+/// Runs proof searches handed out by [`Inline::take_searches`]: the
+/// playground's second worker, so that the checker's isn't blocked.
+pub struct Searcher {
+    options: Options,
+    source: Arc<dyn Source>,
+}
+
+impl Searcher {
+    /// A searcher reading files from `source`; the standard library must be
+    /// loaded already.
+    pub fn new(options: Options, source: Arc<dyn Source>) -> Self {
+        Searcher { options, source }
+    }
+
+    /// The result of the search `job` (its JSON), as JSON, for
+    /// [`Inline::searched`]. Nothing stops it part-way: a stale search's
+    /// host stops the worker.
+    pub fn run(&self, job: &str) -> String {
+        let Ok(search) = serde_json::from_str::<Search>(job) else {
+            return "null".to_string();
+        };
+        let cancel = Arc::new(AtomicBool::new(false));
+        let (stack, wanted) = (self.options.stack, self.options.search_wanted);
+        search.run(stack, wanted, &*self.source, cancel).to_string()
+    }
 }
 
 /// A code action request not answered yet. Whoever swaps `answered` first
@@ -379,45 +479,68 @@ fn search_worker(
     sender: Sender<Message>,
     searches: Arc<Searches>,
     options: Options,
+    source: Arc<dyn Source>,
 ) {
     for job in jobs {
-        run_search(job, &sender, &searches, &options);
+        run_search(job, &sender, &searches, &options, &*source);
     }
 }
 
 /// Runs one queued search and answers its request.
-fn run_search(job: SearchJob, sender: &Sender<Message>, searches: &Searches, options: &Options) {
-    let done = |searches: &Searches| {
-        lock(&searches.pending).remove(&job.id);
-    };
+fn run_search(
+    job: SearchJob,
+    sender: &Sender<Message>,
+    searches: &Searches,
+    options: &Options,
+    source: &dyn Source,
+) {
     if job.pending.cancel.load(Ordering::Relaxed) {
-        done(searches);
+        lock(&searches.pending).remove(&job.id);
         return;
     }
     let now = searches.running.fetch_add(1, Ordering::SeqCst) + 1;
     options.search_peak.fetch_max(now, Ordering::SeqCst);
-    let deadline = Instant::now() + options.search_delay;
-    while Instant::now() < deadline && !job.pending.cancel.load(Ordering::Relaxed) {
-        std::thread::sleep(Duration::from_millis(5));
+    // Only natively: in the browser nothing can cancel the search during
+    // the pause (and the thread can't sleep).
+    #[cfg(not(target_family = "wasm"))]
+    {
+        let deadline = Instant::now() + options.search_delay;
+        while Instant::now() < deadline && !job.pending.cancel.load(Ordering::Relaxed) {
+            std::thread::sleep(Duration::from_millis(5));
+        }
     }
     let result = if job.pending.cancel.load(Ordering::Relaxed) {
         serde_json::Value::Null
     } else {
-        (job.run)(job.pending.cancel.clone())
+        let cancel = job.pending.cancel.clone();
+        (job.search).run(options.stack, options.search_wanted, source, cancel)
     };
     searches.running.fetch_sub(1, Ordering::SeqCst);
-    let current = lock(&searches.versions).get(&job.pending.uri).copied();
-    let result = if current == Some(job.version) && !job.pending.cancel.load(Ordering::Relaxed) {
+    searched(&job.id, &job.pending, job.version, result, sender, searches);
+}
+
+/// Answers the search for request `id` with `result`, if it wasn't
+/// cancelled and its document is still at `version` (else with null).
+fn searched(
+    id: &lsp_server::RequestId,
+    pending: &PendingSearch,
+    version: i32,
+    result: serde_json::Value,
+    sender: &Sender<Message>,
+    searches: &Searches,
+) {
+    let current = lock(&searches.versions).get(&pending.uri).copied();
+    let result = if current == Some(version) && !pending.cancel.load(Ordering::Relaxed) {
         result
     } else {
         serde_json::Value::Null
     };
-    job.pending
-        .answer(sender, Response::new_ok(job.id.clone(), result));
-    done(searches);
+    pending.answer(sender, Response::new_ok(id.clone(), result));
+    lock(&searches.pending).remove(id);
 }
 
 /// The document a search is about ([`Main::search_target`]).
+#[derive(serde::Serialize, serde::Deserialize)]
 struct SearchTarget {
     text: String,
     path: PathBuf,
@@ -426,15 +549,12 @@ struct SearchTarget {
 
 struct Main {
     connection: Connection,
+    source: Arc<dyn Source>,
     nav: Arc<RwLock<Nav>>,
     cancel: Arc<AtomicBool>,
     to_checker: Sender<Edit>,
     /// The text of each open document, to trim a selection against.
     texts: std::cell::RefCell<HashMap<Url, String>>,
-    /// The stack of a thread that searches for what closes a goal.
-    stack: usize,
-    /// How many closing proofs a search stops at (`Options::search_wanted`).
-    wanted: usize,
     searches: Arc<Searches>,
     to_searches: Sender<SearchJob>,
     /// Whether the client applies versioned `documentChanges` edits.
@@ -503,25 +623,14 @@ impl Main {
             self.answer_null(id);
             return;
         };
-        let stack = self.stack;
-        let search = pos::action_options(self.wanted);
         let document_changes = self.document_changes;
-        self.queue_search(id, &uri.clone(), "codeAction", move |version| {
-            let versioned = document_changes.then_some(version);
-            Box::new(move |cancel| match target.project {
-                Some((root, relative, open)) => project_closing_actions(
-                    stack, &uri, &root, &relative, open, range, versioned, cancel, &search,
-                ),
-                None => closing_actions(
-                    stack,
-                    &uri,
-                    &target.path,
-                    &target.text,
-                    range,
-                    versioned,
-                    &search,
-                ),
-            })
+        self.queue_search(id, &uri.clone(), "codeAction", move |version| Search {
+            uri,
+            target,
+            kind: SearchKind::CodeAction {
+                range,
+                versioned: document_changes.then_some(version),
+            },
         });
     }
 
@@ -544,52 +653,11 @@ impl Main {
             self.answer_null(id);
             return;
         };
-        let stack = self.stack;
         let (line, character) = (p.position.line, p.position.character);
-        self.queue_search(id, &uri, "contextAt", move |_| {
-            Box::new(move |cancel| {
-                let mut session = Session::for_stack(stack);
-                session.share_cancel_flag(cancel);
-                let found = match target.project {
-                    Some((root, relative, open)) => {
-                        let disk = DiskFiles { root: root.clone() };
-                        let files = stitchwort_driver::search_at::Overlay {
-                            base: &disk,
-                            texts: open,
-                        };
-                        let name = root
-                            .file_name()
-                            .map_or("project".to_string(), |n| n.to_string_lossy().into_owned());
-                        let cache = cache_dir(&root);
-                        session.context_at_project(
-                            &name,
-                            &files,
-                            &relative,
-                            cache.as_deref(),
-                            line,
-                            character,
-                        )
-                    }
-                    None => {
-                        let name = target
-                            .path
-                            .file_name()
-                            .and_then(|n| n.to_str())
-                            .unwrap_or("file.sw");
-                        session.context_at_text(name, &target.text, line, character)
-                    }
-                };
-                drop(session);
-                match found {
-                    Some(c) => serde_json::json!({
-                        "range": range(c.range),
-                        "type": c.ty,
-                        "checked": c.checked,
-                        "locals": c.locals,
-                    }),
-                    None => serde_json::Value::Null,
-                }
-            })
+        self.queue_search(id, &uri.clone(), "contextAt", move |_| Search {
+            uri,
+            target,
+            kind: SearchKind::ContextAt { line, character },
         });
     }
 
@@ -609,8 +677,8 @@ impl Main {
         let project = {
             let nav = self.nav.read().unwrap_or_else(|e| e.into_inner());
             // A project's file: its folder and its path in it.
-            locate(&nav, uri).and_then(|(root, _, place)| match place {
-                Place::Program(relative) if root.is_dir() => Some((root.to_path_buf(), relative)),
+            locate(&nav, uri).and_then(|(root, ws, place)| match place {
+                Place::Program(relative) if ws.project => Some((root.to_path_buf(), relative)),
                 _ => None,
             })
         };
@@ -640,7 +708,7 @@ impl Main {
         id: lsp_server::RequestId,
         uri: &Url,
         kind: &'static str,
-        make: impl FnOnce(i32) -> Box<dyn FnOnce(Arc<AtomicBool>) -> serde_json::Value + Send>,
+        make: impl FnOnce(i32) -> Search,
     ) {
         self.supersede(uri, Some(kind));
         let Some(version) = lock(&self.searches.versions).get(uri).copied() else {
@@ -658,7 +726,7 @@ impl Main {
             id: id.clone(),
             pending,
             version,
-            run: make(version),
+            search: make(version),
         };
         if self.to_searches.send(job).is_err() {
             lock(&self.searches.pending).remove(&id);
@@ -849,7 +917,7 @@ impl Main {
         if let Some(text) = self.texts.borrow().get(uri).cloned() {
             return Some(text);
         }
-        std::fs::read_to_string(uri.to_file_path().ok()?).ok()
+        self.source.read(&uri.to_file_path().ok()?)
     }
 
     fn answer(&self, request: Request) -> Response {
@@ -860,9 +928,9 @@ impl Main {
                 .map(|p| {
                     let at = p.text_document_position_params;
                     let uri = &at.text_document.uri;
-                    let include = self
-                        .text(uri)
-                        .and_then(|text| include_definition(&nav, uri, &text, at.position));
+                    let include = self.text(uri).and_then(|text| {
+                        include_definition(&*self.source, &nav, uri, &text, at.position)
+                    });
                     let found = lookup(&nav, uri, at.position);
                     let location = include
                         .or_else(|| found.and_then(|(root, ws, r)| ws.location(root, &r.target)));
@@ -872,7 +940,7 @@ impl Main {
                 parse::<lsp_types::DocumentLinkParams>(&request).map(|p| {
                     let uri = p.text_document.uri;
                     let text = self.text(&uri);
-                    serde_json::to_value(document_links(&nav, &uri, text.as_deref()))
+                    serde_json::to_value(document_links(&*self.source, &nav, &uri, text.as_deref()))
                 })
             }
             request::HoverRequest::METHOD => parse::<lsp_types::HoverParams>(&request).map(|p| {
@@ -1142,7 +1210,13 @@ fn includes(text: &str) -> Vec<(String, stitchwort_syntax::Span)> {
 /// Where an `include` in the program file `place` of workspace `root`
 /// points: the file's URI, if the path stays inside the include root and
 /// the file can be read, as the checker requires.
-fn include_target(root: &Path, project: bool, place: &Place, path: &str) -> Option<Url> {
+fn include_target(
+    source: &dyn Source,
+    root: &Path,
+    project: bool,
+    place: &Place,
+    path: &str,
+) -> Option<Url> {
     let (from, folder): (&str, &Path) = match place {
         Place::Program(from) if project => (from, root),
         Place::Program(from) => (
@@ -1152,15 +1226,17 @@ fn include_target(root: &Path, project: bool, place: &Place, path: &str) -> Opti
         Place::Library(_) => return None,
     };
     let full = stitchwort_elab::project::resolve_include(from, path)?;
-    let files = DiskFiles {
-        root: folder.to_path_buf(),
-    };
-    stitchwort_elab::project::IncludeFiles::read(&files, &full).ok()?;
+    source.files(folder).include_files()?.read(&full).ok()?;
     Url::from_file_path(folder.join(full)).ok()
 }
 
 /// The document links for the `include`s in `text`.
-fn document_links(nav: &Nav, uri: &Url, text: Option<&str>) -> Vec<DocumentLink> {
+fn document_links(
+    source: &dyn Source,
+    nav: &Nav,
+    uri: &Url,
+    text: Option<&str>,
+) -> Vec<DocumentLink> {
     let Some(text) = text else {
         return Vec::new();
     };
@@ -1170,7 +1246,7 @@ fn document_links(nav: &Nav, uri: &Url, text: Option<&str>) -> Vec<DocumentLink>
     includes(text)
         .into_iter()
         .filter_map(|(path, span)| {
-            let target = include_target(root, ws.project, &place, &path)?;
+            let target = include_target(source, root, ws.project, &place, &path)?;
             Some(DocumentLink {
                 range: lsp_types::Range::new(
                     position_at(text, span.start as usize),
@@ -1185,13 +1261,19 @@ fn document_links(nav: &Nav, uri: &Url, text: Option<&str>) -> Vec<DocumentLink>
 }
 
 /// The definition of an `include` string at `at`: the included file's start.
-fn include_definition(nav: &Nav, uri: &Url, text: &str, at: Position) -> Option<Location> {
+fn include_definition(
+    source: &dyn Source,
+    nav: &Nav,
+    uri: &Url,
+    text: &str,
+    at: Position,
+) -> Option<Location> {
     let (root, ws, place) = program_at(nav, uri)?;
     let offset = offset_at(text, at);
     let (path, _) = includes(text)
         .into_iter()
         .find(|(_, span)| span.start as usize <= offset && offset < span.end as usize)?;
-    let target = include_target(root, ws.project, &place, &path)?;
+    let target = include_target(source, root, ws.project, &place, &path)?;
     Some(Location::new(
         target,
         lsp_types::Range::new(Position::new(0, 0), Position::new(0, 0)),
@@ -1472,6 +1554,7 @@ impl Work {
 
 struct Checker {
     options: Options,
+    source: Arc<dyn Source>,
     sender: Sender<Message>,
     nav: Arc<RwLock<Nav>>,
     cancel: Arc<AtomicBool>,
@@ -1491,12 +1574,14 @@ struct Checker {
 impl Checker {
     fn new(
         options: Options,
+        source: Arc<dyn Source>,
         sender: Sender<Message>,
         nav: Arc<RwLock<Nav>>,
         cancel: Arc<AtomicBool>,
     ) -> Self {
         Checker {
             options,
+            source,
             sender,
             nav,
             cancel,
@@ -1533,20 +1618,24 @@ impl Checker {
                     Err(RecvTimeoutError::Disconnected) => return,
                 }
             }
-            let next = self
-                .last
-                .clone()
-                .filter(|k| self.work.get(k).is_some_and(Work::pending))
-                .or_else(|| {
-                    self.work
-                        .iter()
-                        .find(|(_, w)| w.pending())
-                        .map(|(k, _)| k.clone())
-                });
-            if let Some(key) = next {
+            if let Some(key) = self.next_key() {
                 self.step(&key);
             }
         }
+    }
+
+    /// The workspace to check next: the one edited last, if it has work
+    /// left, or else the first that has.
+    fn next_key(&self) -> Option<PathBuf> {
+        self.last
+            .clone()
+            .filter(|k| self.work.get(k).is_some_and(Work::pending))
+            .or_else(|| {
+                self.work
+                    .iter()
+                    .find(|(_, w)| w.pending())
+                    .map(|(k, _)| k.clone())
+            })
     }
 
     /// [`Checker::run`] without blocking or waiting for typing to pause:
@@ -1556,17 +1645,7 @@ impl Checker {
         while let Ok(edit) = edits.try_recv() {
             self.apply(edit);
         }
-        let next = self
-            .last
-            .clone()
-            .filter(|k| self.work.get(k).is_some_and(Work::pending))
-            .or_else(|| {
-                self.work
-                    .iter()
-                    .find(|(_, w)| w.pending())
-                    .map(|(k, _)| k.clone())
-            });
-        if let Some(key) = next {
+        if let Some(key) = self.next_key() {
             self.step(&key);
         }
         self.work.values().any(Work::pending)
@@ -1752,7 +1831,7 @@ impl Checker {
                     self.forget(&path);
                     return;
                 }
-                let disk = std::fs::read_to_string(&path).ok();
+                let disk = self.source.read(&path);
                 self.set_text(&path, disk, false);
                 if let Some((key, relative)) = self.project_of(&path)
                     && let Some(Work::Project(p)) = self.work.get_mut(&key)
@@ -1761,7 +1840,7 @@ impl Checker {
                 }
             }
             Edit::Saved { path, text } => {
-                let text = text.or_else(|| std::fs::read_to_string(&path).ok());
+                let text = text.or_else(|| self.source.read(&path));
                 if let Some((key, relative)) = self.project_of(&path)
                     && let Some(Work::Project(p)) = self.work.get_mut(&key)
                     && p.disk.contains_key(&relative)
@@ -1771,7 +1850,7 @@ impl Checker {
             }
             Edit::Disk { path } => {
                 let open = self.versions.contains_key(&path);
-                let disk = std::fs::read_to_string(&path).ok();
+                let disk = self.source.read(&path);
                 if let Some((key, relative)) = self.project_of(&path)
                     && let Some(Work::Project(p)) = self.work.get_mut(&key)
                 {
@@ -1806,8 +1885,7 @@ impl Checker {
                 return;
             };
             if edited && !p.disk.contains_key(&relative) {
-                p.disk
-                    .insert(relative.clone(), std::fs::read_to_string(path).ok());
+                p.disk.insert(relative.clone(), self.source.read(path));
             }
             p.live.set_text(&relative, text);
             if edited {
@@ -1826,7 +1904,7 @@ impl Checker {
     /// its own.
     fn open_workspace(&mut self, path: &Path) {
         let folder = path.parent().unwrap_or(Path::new("/"));
-        if let Some(dir) = find_project(folder)
+        if let Some(dir) = self.source.find_project(folder)
             && !self.work.contains_key(&dir)
             && let Some(work) = self.load_project(&dir)
             && relative(&dir, path).is_some_and(|r| work.holds(&r))
@@ -1837,60 +1915,40 @@ impl Checker {
         let mut session = Session::navigable_for_stack(self.options.stack);
         session.elab.enable_expression_types();
         session.share_cancel_flag(self.cancel.clone());
-        let include: Option<(Rc<dyn stitchwort_elab::project::IncludeFiles>, String)> =
-            path.file_name().and_then(|n| n.to_str()).map(|name| {
-                let files: Rc<dyn stitchwort_elab::project::IncludeFiles> = Rc::new(DiskFiles {
-                    root: folder.to_path_buf(),
-                });
-                (files, name.to_string())
-            });
+        let include: Option<(Rc<dyn stitchwort_elab::project::IncludeFiles>, String)> = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .and_then(|name| Some((self.source.files(folder).include_files()?, name.to_string())));
         let name = path.to_string_lossy().into_owned();
-        let text = std::fs::read_to_string(path).unwrap_or_default();
+        let text = self.source.read(path).unwrap_or_default();
         let live = LiveFile::new(session, &name, text, include);
         self.work
             .insert(path.to_path_buf(), Work::File(Box::new(live)));
     }
 
-    /// Reads the project in folder `dir`, from disk.
+    /// Reads the project in folder `dir`.
     fn load_project(&self, dir: &Path) -> Option<ProjectWork> {
         let name = dir
             .file_name()
             .map_or("project".to_string(), |n| n.to_string_lossy().into_owned());
-        let files = DiskFiles {
-            root: dir.to_path_buf(),
-        };
-        let mut sources = SourceMap::new();
-        let found = match project_sources(&files, &name, &mut sources) {
-            Ok(found) => found,
-            Err(errors) => {
-                for e in errors {
-                    eprintln!("stitchwort lsp: {}: {}", dir.display(), e.message);
-                }
-                return None;
-            }
-        };
-        let config_text = std::fs::read_to_string(dir.join("stitchwort.yaml")).ok();
-        let config = config_text.as_deref().and_then(|text| {
-            let id = sources.add("stitchwort.yaml", text);
-            parse_config(id, "stitchwort.yaml", text).ok()
-        })?;
+        let project = self.source.project(dir)?;
         let mut session = Session::navigable_for_stack(self.options.stack);
         session.elab.enable_expression_types();
         session.share_cancel_flag(self.cancel.clone());
         let writable = Rc::new(Cell::new(true));
-        if let Some(cache) = cache_dir(dir) {
+        if let Some(cache) = self.source.project_cache(dir) {
             session.elab.set_check_cache(Rc::new(GatedCache {
                 inner: CheckCache::at(&cache),
                 writable: writable.clone(),
             }));
         }
-        session.include_from(Rc::new(DiskFiles {
-            root: dir.to_path_buf(),
-        }));
-        let live = LiveProject::new(session, &name, config_text, found.into_iter().collect());
+        if let Some(include) = self.source.files(dir).include_files() {
+            session.include_from(include);
+        }
+        let live = LiveProject::new(session, &name, project.config, project.files);
         Some(ProjectWork {
             live,
-            sources: config
+            sources: project
                 .sources
                 .iter()
                 .map(|s| s.trim_end_matches('/').to_string())
@@ -1906,11 +1964,18 @@ impl Checker {
 /// The server without threads or standard input and output, for a host that
 /// has neither (the playground's worker). The host hands it each message
 /// from the client ([`Inline::receive`]) and, between messages, lets it do
-/// its background work a piece at a time ([`Inline::tick`]): a queued
-/// search, or the check of one namespace. An edit received between two
-/// ticks makes the next tick check the new text first; nothing is cancelled
+/// its background work a piece at a time ([`Inline::tick`]): the check of
+/// one namespace, or a queued search. An edit received between two ticks
+/// makes the next tick check the new text first; nothing is cancelled
 /// mid-namespace, as there is no other thread to set the flag. Waiting for
 /// typing to pause is the host's.
+///
+/// A search takes seconds, so a host with a second worker takes the
+/// searches as they are queued ([`Inline::take_searches`]), runs them there
+/// ([`Searcher`]) and hands back the results ([`Inline::searched`]). A
+/// search the server has answered meanwhile (with null: the document was
+/// edited, or a newer request superseded it) is stale, and the host can
+/// stop it.
 pub struct Inline {
     main: Main,
     /// The client's end: where what the server sends arrives.
@@ -1918,12 +1983,16 @@ pub struct Inline {
     checker: Checker,
     edits: Receiver<Edit>,
     jobs: Receiver<SearchJob>,
+    /// The searches handed to the host, not answered yet: their requests,
+    /// and the document versions they're computed from.
+    handed: HashMap<lsp_server::RequestId, (Arc<PendingSearch>, i32)>,
     options: Options,
 }
 
 impl Inline {
-    /// A server; the standard library must be loaded already.
-    pub fn new(options: Options) -> Result<Self, String> {
+    /// A server reading files from `source`; the standard library must be
+    /// loaded already.
+    pub fn new(options: Options, source: Arc<dyn Source>) -> Result<Self, String> {
         stitchwort_elab::load_std_text()?;
         let (server, client) = Connection::memory();
         let nav = Arc::new(RwLock::new(Nav::default()));
@@ -1932,18 +2001,18 @@ impl Inline {
         let (to_searches, jobs) = crossbeam_channel::unbounded::<SearchJob>();
         let checker = Checker::new(
             options.clone(),
+            source.clone(),
             server.sender.clone(),
             nav.clone(),
             cancel.clone(),
         );
         let main = Main {
             connection: server,
+            source,
             nav,
             cancel,
             to_checker,
             texts: Default::default(),
-            stack: options.stack,
-            wanted: options.search_wanted,
             searches: Arc::default(),
             to_searches,
             document_changes: false,
@@ -1954,12 +2023,50 @@ impl Inline {
             checker,
             edits,
             jobs,
+            handed: HashMap::default(),
             options,
         })
     }
 
+    /// The searches queued since the last call, for the host to run:
+    /// `{"id": …, "search": …}` each, the search for [`Searcher::run`].
+    pub fn take_searches(&mut self) -> Vec<String> {
+        let mut out = Vec::new();
+        for job in self.jobs.try_iter() {
+            if job.pending.cancel.load(Ordering::Relaxed) {
+                lock(&self.main.searches.pending).remove(&job.id);
+                continue;
+            }
+            let Ok(search) = serde_json::to_value(&job.search) else {
+                continue;
+            };
+            out.push(serde_json::json!({"id": job.id, "search": search}).to_string());
+            self.handed.insert(job.id, (job.pending, job.version));
+        }
+        self.handed
+            .retain(|_, (p, _)| !p.answered.load(Ordering::SeqCst));
+        out
+    }
+
+    /// The result of a search handed out (`id` as `take_searches` gave it,
+    /// `result` as [`Searcher::run`] answered): answers its request, unless
+    /// that has been answered already. Returns what the server sent.
+    pub fn searched(&mut self, id: &str, result: &str) -> Vec<String> {
+        let found = serde_json::from_str::<lsp_server::RequestId>(id)
+            .ok()
+            .and_then(|id| Some((self.handed.remove(&id)?, id)));
+        if let Some(((pending, version), id)) = found {
+            let result = serde_json::from_str(result).unwrap_or_default();
+            let sender = &self.main.connection.sender;
+            searched(&id, &pending, version, result, sender, &self.main.searches);
+        }
+        self.sent()
+    }
+
     /// Handles one message from the client (JSON-RPC text), and returns
-    /// what the server sends at once, each as JSON-RPC text.
+    /// what the server sends at once, each as JSON-RPC text. `exit` is
+    /// ignored: the host ends the server by dropping it (the worker by
+    /// being terminated).
     pub fn receive(&mut self, text: &str) -> Vec<String> {
         match serde_json::from_str::<Message>(text) {
             Ok(Message::Request(request)) => match request.method.as_str() {
@@ -1989,6 +2096,7 @@ impl Inline {
                     &self.main.connection.sender,
                     &self.main.searches,
                     &self.options,
+                    &*self.main.source,
                 );
                 true
             }
@@ -2085,15 +2193,6 @@ fn relative(dir: &Path, path: &Path) -> Option<String> {
     Some(parts?.join("/"))
 }
 
-/// `.stitchwort/cache` in the project folder, as the command line uses.
-fn cache_dir(dir: &Path) -> Option<PathBuf> {
-    let stitchwort = dir.join(".stitchwort");
-    if !stitchwort.exists() && std::fs::create_dir_all(&stitchwort).is_ok() {
-        let _ = std::fs::write(stitchwort.join(".gitignore"), "*\n");
-    }
-    Some(stitchwort.join("cache"))
-}
-
 /// A diagnostic for the client: the message, then the first label's
 /// explanation and the notes, one per line (as the extension showed them).
 fn diagnostic(
@@ -2141,59 +2240,95 @@ fn diagnostic(
     }
 }
 
-/// The code actions that replace the goal `?` at `range` of `text` (the
-/// file at `path`, on its own) with a proof that closes it.
+/// The answer to `stitchwort/contextAt` at `line` and `character` of the
+/// document `target` ([`Main::context_at`]).
+fn context_at(
+    stack: usize,
+    source: &dyn Source,
+    target: SearchTarget,
+    line: u32,
+    character: u32,
+    cancel: Arc<AtomicBool>,
+) -> serde_json::Value {
+    let mut session = Session::for_stack(stack);
+    session.share_cancel_flag(cancel);
+    let found = match target.project {
+        Some((root, relative, open)) => {
+            let base = source.files(&root);
+            let files = stitchwort_driver::search_at::Overlay {
+                base: &*base,
+                texts: open,
+            };
+            let name = root
+                .file_name()
+                .map_or("project".to_string(), |n| n.to_string_lossy().into_owned());
+            let cache = source.project_cache(&root);
+            session.context_at_project(&name, &files, &relative, cache.as_deref(), line, character)
+        }
+        None => {
+            let name = target
+                .path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("file.sw");
+            session.context_at_text(name, &target.text, line, character)
+        }
+    };
+    drop(session);
+    match found {
+        Some(c) => serde_json::json!({
+            "range": range(c.range),
+            "type": c.ty,
+            "checked": c.checked,
+            "locals": c.locals,
+        }),
+        None => serde_json::Value::Null,
+    }
+}
+
+/// What replaces the goal `?` at `range` of `text` (the file at `path`, on
+/// its own) with a proof that closes it.
 fn closing_actions(
     stack: usize,
-    uri: &Url,
+    source: &dyn Source,
     path: &Path,
     text: &str,
     range: lsp_types::Range,
-    versioned: Option<i32>,
     options: &stitchwort_driver::search_at::AtOptions,
-) -> serde_json::Value {
+) -> Option<Vec<pos::Action>> {
     let name = path
         .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("file.sw");
-    let cache = path
-        .parent()
-        .map(|dir| dir.join(".stitchwort").join("cache"))
-        .filter(|dir| dir.is_dir());
-    let found = pos::actions_at_text(stack, name, text, ranged(range), options, cache.as_deref());
-    code_actions(found, uri, range, versioned)
+    let cache = path.parent().and_then(|dir| source.file_cache(dir));
+    pos::actions_at_text(stack, name, text, ranged(range), options, cache.as_deref())
 }
 
 /// [`closing_actions`] for a goal in the file `relative` of the project in
-/// folder `root`, read from disk except for the files open in the editor
-/// (`open`, by path in the project).
+/// folder `root`, read from `source` except for the files open in the
+/// editor (`open`, by path in the project).
 #[allow(clippy::too_many_arguments)]
 fn project_closing_actions(
     stack: usize,
-    uri: &Url,
+    source: &dyn Source,
     root: &Path,
     relative: &str,
     open: BTreeMap<String, String>,
     range: lsp_types::Range,
-    versioned: Option<i32>,
     cancel: Arc<AtomicBool>,
     options: &stitchwort_driver::search_at::AtOptions,
-) -> serde_json::Value {
+) -> Option<Vec<pos::Action>> {
     use stitchwort_driver::search_at::Overlay;
-    let Some(text) = open.get(relative).cloned() else {
-        return serde_json::Value::Null;
-    };
-    let disk = DiskFiles {
-        root: root.to_path_buf(),
-    };
+    let text = open.get(relative).cloned()?;
+    let base = source.files(root);
     let files = Overlay {
-        base: &disk,
+        base: &*base,
         texts: open,
     };
     let name = root
         .file_name()
         .map_or("project".to_string(), |n| n.to_string_lossy().into_owned());
-    let cache = cache_dir(root);
+    let cache = source.project_cache(root);
     let mut session = Session::for_stack(stack);
     session.share_cancel_flag(cancel);
     let found = session.actions_at_project(
@@ -2206,7 +2341,7 @@ fn project_closing_actions(
         options,
     );
     drop(session);
-    code_actions(found, uri, range, versioned)
+    found
 }
 
 /// A range as the driver has it.

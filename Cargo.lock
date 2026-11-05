@@ -1230,7 +1230,6 @@ name = "stitchwort-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "crossbeam-channel",
  "insta",
  "lsp-server",
  "lsp-types",
@@ -1250,6 +1249,7 @@ dependencies = [
  "stitchwort-fmt",
  "stitchwort-host",
  "stitchwort-js",
+ "stitchwort-lsp",
  "stitchwort-native",
  "stitchwort-rt",
  "stitchwort-standalone",
@@ -1354,6 +1354,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "stitchwort-lsp"
+version = "0.1.0"
+dependencies = [
+ "crossbeam-channel",
+ "lsp-server",
+ "lsp-types",
+ "serde",
+ "serde_json",
+ "stitchwort-core",
+ "stitchwort-dev-features",
+ "stitchwort-driver",
+ "stitchwort-elab",
+ "stitchwort-fmt",
+ "stitchwort-syntax",
+]
+
+[[package]]
 name = "stitchwort-native"
 version = "0.1.0"
 dependencies = [
@@ -1420,17 +1437,12 @@ dependencies = [
 name = "stitchwort-web"
 version = "0.1.0"
 dependencies = [
- "crossbeam-channel",
- "lsp-server",
- "lsp-types",
- "serde",
- "serde_json",
  "stitchwort-core",
  "stitchwort-dev-features",
  "stitchwort-driver",
- "stitchwort-elab",
  "stitchwort-fmt",
  "stitchwort-js",
+ "stitchwort-lsp",
  "stitchwort-rt",
  "stitchwort-syntax",
  "wasm-bindgen",

@@ -303,8 +303,9 @@ browser. Could our wasm build be the server? Partly:
 
 #### 5.2.1 Trial: the real server in a worker, with CM6 (SW-1375)
 
-`web/proto/lsp.html` runs `stitchwort lsp`'s own code (`crates/cli/src/lsp.rs`,
-included into `crates/web` as `crates/web/src/lsp.rs`) in a worker, and
+`web/proto/lsp.html` runs `stitchwort lsp`'s own code (then `crates/cli/src/lsp.rs`,
+included into `crates/web` as `crates/web/src/lsp.rs`; now the `stitchwort-lsp`
+crate, §5.2.2) in a worker, and
 CodeMirror 6 talks to it through `@codemirror/lsp-client` 6.3.0 (MIT, 17 Sep
 2026). `web/proto/lsp-check.mjs` drives it in headless Chrome. Measured on
 5 Nov 2026 (M-series Mac, Chrome headless):
@@ -360,6 +361,85 @@ What is left, by size:
    `crates/web` both use, and the playground's own worker and session.
 5. **Size** (small, optional): the YAML parser could stay out of a build
    that gets projects pre-parsed.
+
+#### 5.2.2 The language server as the playground's backend (SW-1384)
+
+D2423 (Matt): the playground's editor is built on the shared language
+server, with small page glue only where the client has no UI. SW-1384 did
+the five items above. Measured on 5 Nov 2026 with `lsp-check.mjs` (headless
+Chrome, M-series Mac under other lanes' load, so the times are a little
+higher than §5.2.1's).
+
+- **Packaging.** The server is the library crate `crates/lsp`
+  (`stitchwort-lsp`): `stitchwort lsp` and `crates/web` both use it, the CLI
+  re-exporting it as `stitchwort_cli::lsp` for its tests.
+- **Projects from memory.** Every read of a file the editor hasn't opened
+  goes through a `Source`: `Disk` natively, `Memory` in the playground,
+  whose worker adds the bundled projects (`LanguageServer::add_project`,
+  from `pkg/projects/NAME/manifest.json`) at `/playground/NAME`. Their source
+  folders come known (`sources: [src]`, D112), and `Files::config` lets such
+  files skip parsing `stitchwort.yaml`, so the web build no longer links the
+  YAML parser: `stitchwort_web.wasm` 15,100,900 → 14,298,424 bytes before
+  `wasm-opt`, `stitchwort_web_bg.wasm` 10,653,029 → 10,016,341 (gzip
+  4,047,298 → 3,804,354). With the search worker's code below it is
+  10,065,467.
+  `lsp.html?project=aoc&open=src/Aoc/Year2024/Day21/Day21.sw` opens that file
+  as part of the project: an edit's diagnostics in 0.31 s (median; 2.2 s
+  for the same file on its own, which is checked again whole). The **first**
+  diagnostics take 26–28 s, almost all in one tick: the project's session
+  loads every library file before its first mark (`LiveProject::new`, so
+  that rewinding never unloads one), and in the browser there is no check
+  cache to load them from. Natively the same happens without a cache (the
+  memory test takes 20 s). That is the next thing to fix for projects
+  (a bundled check cache for the library, or loading it lazily in the
+  browser).
+- **Searches off the checker.** A queued search is data (`Search`), not a
+  closure. The checker's worker hands each out (`Inline::take_searches`) to
+  a second worker (`lsp-search-worker.js`, a `SearchWorker` instantiated
+  from the module the first compiled, with the same library and projects)
+  and hands the result back (`Inline::searched`), which answers the request
+  as the native pool does (null if the document has moved on). A search the
+  server answers itself meanwhile (an edit, a newer request,
+  `$/cancelRequest`) is dropped from the queue, or, running, stopped by
+  terminating that worker, which the next search replaces. During the
+  14–16 s search for `n + 0 = n`, hover answers in under 50 ms and an
+  edit's diagnostics arrive in 0.38–0.42 s (before: both waited for the
+  search, 13 s or more). The search itself takes as long as before.
+- **Cancellation.** Two ways were weighed:
+  - *A check that yields part-way.* Today the unit of a tick is a
+    namespace (a file on its own: the whole file). Yielding inside one
+    means turning the elaborator's loop over a namespace's components
+    (`elaborate_namespace_untimed`) into a state machine kept across
+    ticks: its items borrow the parsed files, the cached path
+    (`elaborate_namespace_cached`) and the session's mark and rewind wrap
+    it, and `LiveProject::step` and `LiveFile::step` would split to match.
+    It works on any host, but it is a large change in the elaborator's core
+    loop, and one long declaration still blocks.
+  - *A flag in shared memory* (chosen). The page bumps a counter in a
+    `SharedArrayBuffer` for each `didChange` and `didClose`; the worker
+    counts those it has read; `Budget` reads a hook the host installs
+    (`Budget::set_cancel_hook`, consulted with the native flag, every
+    `POLL` steps) and the worker's hook says whether the page is ahead.
+    The check stops as natively, rewinds, and the next tick checks the new
+    text. About 60 lines (the hook in `stitchwort-core`, a wasm import, and
+    the counter in the page's transport and the worker). It needs
+    cross-origin isolation (`COOP: same-origin`, `COEP: require-corp`)
+    for `SharedArrayBuffer`; without it the page doesn't create the counter
+    and a check runs to its end, as before. Measured on the AoC day on its
+    own (a 2.2 s check), a second edit 0.5 s after the first: its
+    diagnostics in 2.1–2.2 s with isolation, 3.75–3.8 s without.
+  It is the simpler of the two by far, and it works on GitHub Pages only
+  through a service worker that adds the two headers to every response
+  (`coi-serviceworker`, MIT): the first visit loads the page twice, nothing
+  cross-origin may be loaded without CORP (the playground loads nothing
+  cross-origin), and where service workers are off (some private browsing
+  modes) the page falls back to no cancellation. Whether to ship that shim
+  is a decision for Matt; until then cancellation works wherever the host
+  sends the headers (`lsp-check.mjs` does).
+- **Not done here:** the page itself (`index.html`'s textarea is unchanged;
+  the workers are still `web/proto/lsp-worker.js` and
+  `lsp-search-worker.js`, which the flake's playground doesn't copy yet),
+  and the first-diagnostics cost of projects above.
 
 ### 5.3 VS Code for the web, openvscode-server, vscode.dev
 

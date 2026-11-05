@@ -1,6 +1,6 @@
 //! The language server's live heap on aoc, measured in one thread
 //! and without timing (SW-1179; docs/proposals/elaborator-state.md
-//! §4.8.12): a `LiveProject` set up as `src/lsp.rs`'s server sets one up,
+//! §4.8.12): a `LiveProject` set up as the server (`crates/lsp`) sets one up,
 //! checked to the end, then edited as `lsp.rs`'s `state_edit_loop` edits,
 //! with the heap and `JournalStats` after each step. The edit loop samples
 //! while the server may still be checking in the background, so its heap

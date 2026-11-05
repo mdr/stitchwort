@@ -85,6 +85,7 @@ a clause in the filterset; give it one line of reasoning.
    | `crates/syntax/**`, `crates/fmt/**` | `package(stitchwort-fmt)` (without `repo`/`fuzz`), `cli::fmt`, `hash_stability`, `binary(lsp)` tests of lane-lsp |
    | `crates/rt/**`, `native`, `js`, `host` | `lane-rt`, `lane-native`, `lane-js`, `lane-effects`, `stitchwort-cli` `run` |
    | `crates/cli/**`, `standalone` | `lane-cli`, `lane-search` for `search`/`doc` |
+   | `crates/lsp/**` (the language server) | `lane-lsp` (its tests are `cli`'s `binary(lsp)`); `cargo check --target wasm32-unknown-unknown -p stitchwort-web`, as the playground's editor builds it |
    | `aoc/**` or `games/**` (proofs, programs) | AoC days for the years touched (`aoc_answers`, a few days each ~1 to 5 s), `cli::examples` project tests, `lane-hashes` |
    | `examples/**` | those examples via `EXAMPLES=`, `hash_stability` |
    | snapshots only (`*.snap`) | the test that owns the snapshot, run on the merge result |

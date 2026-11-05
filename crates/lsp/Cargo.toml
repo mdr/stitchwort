@@ -1,0 +1,25 @@
+[package]
+name = "stitchwort-lsp"
+description = "The language server: `stitchwort lsp`, and the playground's editor in the browser"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+stitchwort-syntax.workspace = true
+stitchwort-core.workspace = true
+stitchwort-elab.workspace = true
+stitchwort-driver.workspace = true
+stitchwort-fmt.workspace = true
+crossbeam-channel.workspace = true
+lsp-server.workspace = true
+lsp-types.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+# The one feature set of every dev and test build (docs/testing.md, "Features").
+stitchwort-dev-features.workspace = true
+
+[lints]
+workspace = true

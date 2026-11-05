@@ -15,13 +15,8 @@ stitchwort-js.workspace = true
 stitchwort-rt.workspace = true
 stitchwort-driver.workspace = true
 stitchwort-fmt.workspace = true
-# The language server, run in the worker (SW-1375 trial): crates/cli/src/lsp.rs.
-stitchwort-elab.workspace = true
-crossbeam-channel.workspace = true
-lsp-server.workspace = true
-lsp-types.workspace = true
-serde.workspace = true
-serde_json.workspace = true
+# The language server, run in the editor's workers.
+stitchwort-lsp.workspace = true
 # Must match the wasm-bindgen CLI in the Nix dev shell exactly.
 wasm-bindgen = "=0.2.129"
 

@@ -8,7 +8,7 @@ more.
 
 ## 1. What exists today
 
-**VS Code and the language server** (`editors/vscode`, `crates/cli/src/lsp.rs`,
+**VS Code and the language server** (`editors/vscode`, `crates/lsp`,
 `crates/driver/src/{live,nav,search_at}.rs`). The server (`stitchwort lsp`)
 re-checks the edited namespace on each change and publishes diagnostics. It
 answers: definition (including into read-only `stitchwort-std:` library

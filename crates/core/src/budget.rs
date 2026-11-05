@@ -151,6 +151,10 @@ impl Default for Limits {
     }
 }
 
+/// The host's second way of asking for cancellation
+/// ([`Budget::set_cancel_hook`]).
+static CANCEL_HOOK: std::sync::OnceLock<fn() -> bool> = std::sync::OnceLock::new();
+
 /// How many evaluation steps pass between two looks at the cancellation
 /// flag: a fraction of a millisecond.
 pub const POLL: u64 = 1 << 14;
@@ -409,6 +413,16 @@ impl Budget {
         self.work_limit.set(at);
     }
 
+    /// Installs, for the whole program, a second way of asking for
+    /// cancellation, read with the flag: for a host where no other thread
+    /// can set the flag. In the browser it reads a counter in shared memory
+    /// that the page bumps for each edit (docs/proposals/playground-editor.md
+    /// §5.2.1). Only a budget with a flag installed consults it; the first
+    /// hook installed stays.
+    pub fn set_cancel_hook(hook: fn() -> bool) {
+        let _ = CANCEL_HOOK.set(hook);
+    }
+
     /// Installs the flag that cancels operations while it's watched (see
     /// the module's comment).
     pub fn set_cancel_flag(&self, flag: Arc<AtomicBool>) {
@@ -468,11 +482,12 @@ impl Budget {
     fn cancel_requested(&self) -> bool {
         if !self.cancelled.get()
             && self.watching.get()
-            && self
+            && (self
                 .cancel
                 .borrow()
                 .as_ref()
                 .is_some_and(|f| f.load(Ordering::Relaxed))
+                || CANCEL_HOOK.get().is_some_and(|hook| hook()))
         {
             self.cancelled.set(true);
         }

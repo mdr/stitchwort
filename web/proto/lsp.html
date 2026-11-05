@@ -4,7 +4,7 @@
 <title>Stitchwort playground: the language server in a worker (trial)</title>
 <!--
   Trial for SW-1375: CodeMirror 6 with @codemirror/lsp-client, talking to
-  `stitchwort lsp`'s own code compiled into pkg/ (crates/web/src/lsp.rs) and
+  `stitchwort lsp`'s own code (crates/lsp) compiled into pkg/ (crates/web/src/lsp.rs) and
   run in lsp-worker.js. Build pkg/ with `nix develop -c web/build.sh`, serve
   web/ and open /proto/lsp.html. Headless check: node web/proto/lsp-check.mjs.
 
