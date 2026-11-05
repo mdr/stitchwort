@@ -94,7 +94,7 @@ def IsSum (x: Number) (y: Number) (sum: Number): Prop := ReducesTo (leaves 0 (Pa
 --| `total`, then each of `numbers` added to it in turn, is `final`.
 type AddsUpTo: Number → List Number → Number → Prop =
   | NothingAdded (total: Number): AddsUpTo total [] total
-  | AddNext (sum: IsSum total next total2) (rest: AddsUpTo total2 numbers final): AddsUpTo total (Cons next numbers) final
+  | AddNext (sum: IsSum total next total2) (rest: AddsUpTo total2 numbers final): AddsUpTo total [next, ..numbers] final
 
 def magnitude: Number → Nat
   | Regular value => value
