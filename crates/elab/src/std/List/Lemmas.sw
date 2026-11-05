@@ -527,6 +527,87 @@ theorem List.dropLength: (xs: List a) → List.drop xs (List.length xs) = []
   | [] => rfl
   | [x, ..xs] => List.dropLength xs
 
+--| The empty list has nothing to take, whatever the count. Like
+--| [`List.dropNil`] for `drop`; the proof takes the count apart because
+--| `take` matches the count before the list.
+theorem List.takeNil: (n: Nat) → List.take ([]: List a) n = []
+  | Zero => rfl
+  | Succ n => rfl
+
+--| A prefix is no longer than the list it came from, whether or not the
+--| count reached the end. [`List.lengthTake`] gives the exact length when
+--| the count is within the list, and [`List.takeAll`] gives the whole list
+--| when it is past the end.
+theorem List.lengthTakeLe: (xs: List a) → (n: Nat) → List.length (List.take xs n) ≤ List.length xs
+  | [], Zero => omega
+  | [], Succ n => omega
+  | [x, ..xs], Zero => omega
+  | [x, ..xs], Succ n => List.lengthTakeLe xs n
+
+--| Taking a prefix's own length gives the same prefix: taking more would
+--| not add anything once the list has ended. This is the equality behind
+--| [`List.lengthTakeLe`]; [`List.takeAll`] gives the same fact when the
+--| count is known to be past the end.
+theorem List.takeOwnLength: (xs: List a) → (n: Nat) → List.take xs (List.length (List.take xs n)) = List.take xs n
+  | xs, Zero => rfl
+  | [], Succ n => rfl
+  | [x, ..xs], Succ n => rewrite List.takeOwnLength xs n in rfl
+
+--| Taking one past a drop that starts with `y` gives the prefix before `y`
+--| and then `y`, and puts `y` inside the list. A run search knows the
+--| `drop`, so this needs no element lookup with a fallback: [`List.takeSucc`]
+--| states the same step through `List.getOr`, and needs `k < length` in
+--| advance (which this concludes); [`List.dropAt`] says what the drop starts
+--| with.
+theorem List.takeOfDropCons: (xs: List a) → (k: Nat) → (y: a) → (ys: List a) →
+    List.drop xs k = [y, ..ys] →
+    List.take xs (k + 1) = List.append (List.take xs k) [y] ∧ k < List.length xs
+  | [], Zero, y, ys, d => cases
+  | [], Succ k, y, ys, d => cases
+  | [x, ..xs], Zero, y, ys, d => Both (rewrite List.consInjectiveHead x y xs ys d in rfl) (omega)
+  | [x, ..xs], Succ k, y, ys, d =>
+    let (Both taken below) := List.takeOfDropCons xs k y ys d
+    Both (rewrite taken in rfl) (omega)
+
+--| A longer prefix of `Nat`s sums to at least as much, since every element
+--| is non-negative. [`List.sumDropTakeLe`] compares a slice with the prefix
+--| that contains it, and [`List.sumAppend`] splits a sum at a boundary.
+theorem List.sumTakeMono: (xs: List Nat) → (i: Nat) → (j: Nat) → i ≤ j →
+    List.sum (List.take xs i) ≤ List.sum (List.take xs j)
+  | xs, Zero, j, le => omega
+  | [], Succ i, Zero, le => rfl
+  | [], Succ i, Succ j, le => rfl
+  | [x, ..xs], Succ i, Zero, le => Void.exfalso (omega)
+  | [x, ..xs], Succ i, Succ j, le =>
+    let ih: List.sumBy (List.take xs i) (y => y) ≤ List.sumBy (List.take xs j) (y => y) :=
+      rewrite List.sumIsSumBy (List.take xs i), List.sumIsSumBy (List.take xs j)
+        in List.sumTakeMono xs i j (omega)
+    rewrite List.sumIsSumBy [x, ..List.take xs i],
+        List.sumIsSumBy [x, ..List.take xs j],
+        List.sumByCons (List.take xs i) x (y => y),
+        List.sumByCons (List.take xs j) x (y => y)
+      in omega [ih]
+
+--| A slice sums to no more than the prefix that ends where it does: the
+--| numbers before the slice, and those after the prefix's end, only add.
+--| [`List.sumTakeMono`] is the case `d = 0`, and [`List.dropAdd`] moves the
+--| slice's start.
+theorem List.sumDropTakeLe: (xs: List Nat) → (d: Nat) → (n: Nat) →
+    List.sum (List.take (List.drop xs d) n) ≤ List.sum (List.take xs (d + n))
+  | xs, Zero, n => omega
+  | [], Succ d, Zero => rfl
+  | [], Succ d, Succ n => rfl
+  | [x, ..xs], Succ d, n =>
+    let ih: List.sumBy (List.take (List.drop xs d) n) (y => y) ≤
+        List.sumBy (List.take xs (d + n)) (y => y) :=
+      rewrite List.sumIsSumBy (List.take (List.drop xs d) n),
+          List.sumIsSumBy (List.take xs (d + n))
+        in List.sumDropTakeLe xs d n
+    rewrite List.sumIsSumBy (List.take (List.drop [x, ..xs] (Succ d)) n),
+        List.sumIsSumBy [x, ..List.take xs (d + n)],
+        List.sumByCons (List.take xs (d + n)) x (y => y)
+      in omega [ih]
+
 --| A list starts with what was appended to.
 theorem List.startsWithAppend [auto eq: DecEq a]: (prefix: List a) → (rest: List a) → List.startsWith (List.append prefix rest) prefix = True
   | [], rest => rfl
