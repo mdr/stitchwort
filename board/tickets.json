@@ -1,5 +1,5 @@
 {
-  "next": 1329,
+  "next": 1331,
   "tickets": [
     {
       "id": 47,
@@ -6942,13 +6942,41 @@
     {
       "id": 1328,
       "title": "Design note: a finer test-cache key: drop std's text from the fingerprint (each test hash already covers the std definitions it uses), and depend on part of the compiler's Rust, not all of it",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1328",
       "labels": [
         "design"
       ],
-      "body": "D2375 (Matt, 5 Nov): yes, an Opus note on what's safe. Today the key is <version>-<fingerprint>-<modes>-<test hash>; the fingerprint covers the syntax, core, elab (with the prelude) and driver crates' source, plus build_fingerprint's std text, so any compiler rebuild or std edit reruns every test (after SW-1313: 1368 passed, 24 from cache). Matt: 'there are options between everything and nothing'.\n\nNote done (Opus, 10 min, est. 75; b21e37e81): docs/proposals/test-cache-key.md. Recommends dropping std's text (a test's hash already covers what it reaches) and an evaluation fingerprint over core, rt, dev-features, the driver's test runner, Cargo.lock and the toolchain. Measured on last night's 15 builds: 0% reuse today, 18% without std text, 50% with the evaluation fingerprint. Decisions D2376-D2380 to Matt.",
+      "body": "D2375 (Matt, 5 Nov): yes, an Opus note on what's safe. Today the key is <version>-<fingerprint>-<modes>-<test hash>; the fingerprint covers the syntax, core, elab (with the prelude) and driver crates' source, plus build_fingerprint's std text, so any compiler rebuild or std edit reruns every test (after SW-1313: 1368 passed, 24 from cache). Matt: 'there are options between everything and nothing'.\n\nNote done (Opus, 10 min, est. 75; b21e37e81): docs/proposals/test-cache-key.md. Recommends dropping std's text (a test's hash already covers what it reaches) and an evaluation fingerprint over core, rt, dev-features, the driver's test runner, Cargo.lock and the toolchain. Measured on last night's 15 builds: 0% reuse today, 18% without std text, 50% with the evaluation fingerprint. Decisions D2376-D2380 to Matt.\n\nDecisions (Matt, 5 Nov): D2376 yes; D2377 (b); D2378 yes (SW-1330); D2379 depends on the time; D2380 yes (SW-1329).",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1329,
+      "title": "Test cache key: drop std's text, and fingerprint only the Rust that runs tests (core, rt, dev-features, the driver's test runner, Cargo.lock, toolchain); docs/proposals/test-cache-key.md §9",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "body": "D2376 (Matt, 5 Nov): yes, take std's text out of the test-cache key. D2377: (b), an automatic fingerprint of only the Rust that runs tests. D2380: yes, a Sonnet lane, queued. D2379 (a daily --verify-cache over aoc and rogue): Matt, 'it depends how long it takes'; estimate from overnight runs: aoc's tests uncached ~2.5-3 min, rogue's ~12 s.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1330,
+      "title": "Check cache key: drop std's text, once the check cache's differential test covers a std edit",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "body": "D2378 (Matt, 5 Nov): yes. docs/proposals/test-cache-key.md (P3). Entries are the elaborator's output, so syntax and elab stay in this key.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
