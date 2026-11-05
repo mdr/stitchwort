@@ -528,7 +528,7 @@ playground doesn't reimplement §4's rule in JavaScript.
 - **Language server**: after the type and `kind name`, the doc as Markdown, then the defaults as
   now. The target's text is the workspace's (open or on disk) or the embedded std text. No
   examples or theorems (they belong to `doc`) [the research note says the same, its line 200].
-- **Playground**: the tooltip adds the summary line from the index (D2147).
+- **Playground**: the tooltip shows the full doc from the language server, as the editor does (D2433, Matt, 5 Nov 2026, replacing D2147's summary-only tooltip).
 
 ## 6. Stage 2: the sorting pass and the coverage report
 
