@@ -1,5 +1,5 @@
 {
-  "next": 1428,
+  "next": 1429,
   "tickets": [
     {
       "id": 47,
@@ -8349,6 +8349,20 @@
         "aoc"
       ],
       "body": "D2430 (Matt, 5 Nov 2026): yes — the orchestrator decides day 8's friction review (findings SW-1420..1426 filed; SW-1420, the method-name decreasing bug, first) and starts day 9. Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day9.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1428,
+      "title": "2020 day 8: Outcome.terminated as a match some clause lambda; Code.terminatesRepaired uses it (drops the two => None arms); Part 2's proof follows with a lemma per outcome",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "Matt asked (5 Nov 2026) whether day 8 could use clause lambdas. Sonnet, est. 20 min. Note any friction from proofs following a clause lambda.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
