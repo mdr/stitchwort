@@ -6238,7 +6238,6 @@ struct Lib {
     not: DefId,
     mem: DefId,
     exfalso: DefId,
-    unique: DefId,
 }
 
 impl Lib {
@@ -6251,7 +6250,6 @@ impl Lib {
             not: r.def(Builtin::Not)?,
             mem: r.def(Builtin::ListMem)?,
             exfalso: r.def(Builtin::VoidExfalso)?,
-            unique: r.def(Builtin::BoolUniqueEq)?,
         })
     }
 
@@ -7235,175 +7233,37 @@ impl<'a> Walk<'a> {
         })
     }
 
-    /// A proof of `x = y` here: `rfl` when they're the same up to proofs
-    /// of `Bool` equations in constructors' fields (a character `MkChar k
-    /// p` against the literal `MkChar k rfl`), and then one `J` along
-    /// `Bool.uniqueEq` for each such field that differs, each moving the
-    /// right side's field from the left side's proof to its own.
+    /// A proof of `x = y` here: `rfl`, when they're the same up to the
+    /// proofs in constructors' fields (a character `MkChar k p` against the
+    /// literal `MkChar k rfl`), which the kernel's comparison skips.
     fn eq_proof(&self, x: &PV, y: &PV) -> R<Term> {
-        // The left side as the motive states it: a variable as itself, so
-        // the equation's type is its (a constructor alone has none).
-        let lx_var = match x {
-            PV::Var(l) => Some(Term::Var(self.depth() - 1 - l)),
-            _ => None,
-        };
         let x = self.resolve(x);
         let y = self.resolve(y);
-        let mut diffs: Vec<Diff> = Vec::new();
-        if !self.differ(&x, &y, &mut Vec::new(), &mut diffs)? {
+        if !self.same_but_proofs(&x, &y) {
             return skip("an overlap's equation isn't true by computation here");
         }
-        let depth = self.depth();
-        let g = self.g();
-        let lx = match lx_var {
-            Some(v) => v,
-            None => self.term(&x)?,
-        };
-        let mut proof = Term::Refl;
-        // The right side so far: the left side's proofs at the fields not
-        // moved yet.
-        let mut right = x.clone();
-        for diff in &diffs {
-            let unique = apps(
-                Term::Def(self.lib()?.unique),
-                [
-                    (diff.a.clone(), Icit::Explicit),
-                    (diff.b.clone(), Icit::Explicit),
-                    (self.term(&diff.left)?, Icit::Explicit),
-                    (self.term(&diff.right)?, Icit::Explicit),
-                ],
-            );
-            // `q e => x = right[q]`, under `q` and `e`.
-            let hole = PV::Term(Term::Var(1), depth + 2);
-            let with_q = replace_at(&right, &diff.path, hole);
-            let motive_body = Term::Eq(
-                None,
-                Rc::new(lx.shift(&g, 2, 0)?),
-                Rc::new(self.term_at(&with_q, depth + 2)?),
-            );
-            let motive = Term::Lam(
-                "q".into(),
-                Icit::Explicit,
-                Rc::new(Term::Lam("e".into(), Icit::Explicit, Rc::new(motive_body))),
-            );
-            proof = Term::J(Rc::new(motive), Rc::new(proof), Rc::new(unique));
-            right = replace_at(&right, &diff.path, diff.right.clone());
-        }
-        Ok(proof)
+        Ok(Term::Refl)
     }
 
-    /// Whether `x` and `y` are equal but for proofs of `Bool` equations in
-    /// fields of parameterless constructors (each recorded, with its path
-    /// and the equation's sides); `false` if they differ otherwise.
-    fn differ(&self, x: &PV, y: &PV, path: &mut Vec<usize>, out: &mut Vec<Diff>) -> R<bool> {
+    /// Whether `x` and `y` are equal but for their constructors' proof
+    /// fields.
+    fn same_but_proofs(&self, x: &PV, y: &PV) -> bool {
         let g = self.g();
         let x = nat_as_ctor(&g, x);
         let y = nat_as_ctor(&g, y);
         if same_pv(&x, &y) {
-            return Ok(true);
+            return true;
         }
         match (&x, &y) {
             (PV::Ctor(d, c, xs), PV::Ctor(d2, c2, ys))
                 if d == d2 && c == c2 && xs.len() == ys.len() =>
             {
-                let data = g.data(*d);
-                for (i, (a, b)) in xs.iter().zip(ys).enumerate() {
-                    path.push(i);
-                    let fine = self.differ(a, b, path, out)?;
-                    path.pop();
-                    if fine {
-                        continue;
-                    }
-                    // A proof field of a `Bool` equation: any two of its
-                    // proofs are equal by `Bool.uniqueEq`.
-                    if !data.params().is_empty() {
-                        return Ok(false);
-                    }
-                    let mut env = Vec::new();
-                    for f in &xs[..i] {
-                        let Some(t) = closed_term(f) else {
-                            return Ok(false);
-                        };
-                        env.push(eval(&g, &[], &t)?);
-                    }
-                    let ty = eval(&g, &env, &data.ctors()[*c].fields[i].1)?;
-                    let Value::Eq(ty, l, r) = force(&g, ty)? else {
-                        return Ok(false);
-                    };
-                    if !matches!(force(&g, (*ty).clone())?, Value::Data(b, _) if g.env.registry().is_data(Builtin::Bool, b))
-                    {
-                        return Ok(false);
-                    }
-                    let depth = self.depth();
-                    let mut p = path.clone();
-                    p.push(i);
-                    out.push(Diff {
-                        path: p,
-                        left: a.clone(),
-                        right: b.clone(),
-                        a: stitchwort_core::value::quote(&g, depth, &l)?,
-                        b: stitchwort_core::value::quote(&g, depth, &r)?,
-                    });
-                }
-                Ok(true)
+                xs.iter().zip(ys).enumerate().all(|(i, (a, b))| {
+                    stitchwort_core::value::proof_field(&g, *d, *c, i) || self.same_but_proofs(a, b)
+                })
             }
-            _ => Ok(false),
+            _ => false,
         }
-    }
-
-    /// `v` as a term at `depth` (at least this context's).
-    fn term_at(&self, v: &PV, depth: usize) -> R<Term> {
-        let here = self.depth();
-        match v {
-            PV::Term(t, at) if *at >= here => Ok(t.shift(&self.g(), depth - at, 0)?),
-            PV::Ctor(d, c, args) => Ok(Term::Ctor(
-                *d,
-                *c,
-                args.iter()
-                    .map(|a| Ok(Rc::new(self.term_at(a, depth)?)))
-                    .collect::<R<_>>()?,
-            )),
-            _ => Ok(self.term(v)?.shift(&self.g(), depth - here, 0)?),
-        }
-    }
-}
-
-/// A field where two sides of an equation differ in their proofs of a
-/// `Bool` equation `a = b`.
-struct Diff {
-    path: Vec<usize>,
-    left: PV,
-    right: PV,
-    a: Term,
-    b: Term,
-}
-
-/// `v` with the field at `path` replaced by `with`.
-fn replace_at(v: &PV, path: &[usize], with: PV) -> PV {
-    match (path.split_first(), v) {
-        (None, _) => with,
-        (Some((i, rest)), PV::Ctor(d, c, args)) => {
-            let mut args = args.clone();
-            args[*i] = replace_at(&args[*i], rest, with);
-            PV::Ctor(*d, *c, args)
-        }
-        _ => v.clone(),
-    }
-}
-
-/// `v` as a closed term, if it mentions no variable.
-fn closed_term(v: &PV) -> Option<Term> {
-    match v {
-        PV::Var(_) | PV::Rec => None,
-        PV::Ctor(d, c, args) => Some(Term::Ctor(
-            *d,
-            *c,
-            args.iter()
-                .map(|a| closed_term(a).map(Rc::new))
-                .collect::<Option<_>>()?,
-        )),
-        PV::Nat(n) => Some(Term::Nat(n.clone())),
-        PV::Term(t, _) => closed(t).then(|| t.clone()),
     }
 }
 
