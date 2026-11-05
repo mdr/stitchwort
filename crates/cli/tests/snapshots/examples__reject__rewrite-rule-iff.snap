@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REWRITE-RULE] Error: `rewrite` needs a proof of an equation
+   ╭─[ reject/rewrite-rule-iff.sw:6:58 ]
+   │
+ 6 │ theorem bad (p: Prop) (q: Prop) (h: p ↔ q): q := rewrite h
+   │                                                          ┬  
+   │                                                          ╰── this has type `p ↔ q`, which isn't an equation
+   │ 
+   │ Note 1: a rule may leave off arguments at its end, but what it proves then must be an equation
+   │ 
+   │ Note 2: an `↔` isn't an equation: rewrite with one direction's proof, or use `.forward` / `.backward` to move a fact across it
+───╯

@@ -1965,32 +1965,60 @@ impl Elaborator {
         // A library namespace that isn't a default name needs an import (D50),
         // and so does a prelude type's namespace beyond its own declaration
         // (D260).
-        if let Some((first, _)) = name.text.split_once('.')
+        if let Some((first, member)) = name.text.split_once('.')
             && !self.unit.loading_prelude
             && first != STD
             && self.scope.is_namespace(&format!("Std.{first}"))
         {
-            let full = format!("Std.{}", name.text);
-            let prelude = matches!(
-                self.resolve_short(first, false),
-                Resolved::Found { level: Level::Default, key, .. } if key == format!("Std.{first}")
-            );
-            d = if prelude && (self.scope.get(&full).is_some() || self.scope.is_namespace(&full)) {
-                d.with_note(format!(
-                    "`{}` needs `import Std ({first})`, or write it in full: `{full}`",
-                    name.text
-                ))
-                // Why `IO.print` works without the import and `IO.simulate`
-                // doesn't (D260, docs/proposals/prelude-slim.md §3).
-                .with_note(format!(
-                    "the prelude's `{first}` comes with its own constructors, fields and \
-                     operations; the functions and theorems in its namespace need the import"
-                ))
+            let imported = self.imported_namespaces(first);
+            if !imported.is_empty() {
+                // The namespace is already here, so the name is what's wrong:
+                // suggest its near misses instead of the import it has.
+                let mut near: Vec<(usize, String)> = Vec::new();
+                for key in &imported {
+                    let prefix = format!("{key}.");
+                    for m in self.scope.keys().filter_map(|k| k.strip_prefix(&prefix)) {
+                        if m.contains('.') || m.starts_with('%') {
+                            continue;
+                        }
+                        let distance = edit_distance(m, member);
+                        if distance <= 2 && distance < member.len() {
+                            near.push((distance, format!("{first}.{m}")));
+                        }
+                    }
+                }
+                near.sort_unstable();
+                near.dedup();
+                let near: Vec<String> =
+                    near.iter().take(3).map(|(_, m)| format!("`{m}`")).collect();
+                if !near.is_empty() {
+                    d = d.with_note(format!("did you mean {}?", or_list(&near)));
+                }
             } else {
-                d.with_note(format!(
-                    "`{first}` is `Std.{first}`; add `import Std ({first})`, or write `{full}`"
-                ))
-            };
+                let full = format!("Std.{}", name.text);
+                let prelude = matches!(
+                    self.resolve_short(first, false),
+                    Resolved::Found { level: Level::Default, key, .. } if key == format!("Std.{first}")
+                );
+                d = if prelude
+                    && (self.scope.get(&full).is_some() || self.scope.is_namespace(&full))
+                {
+                    d.with_note(format!(
+                        "`{}` needs `import Std ({first})`, or write it in full: `{full}`",
+                        name.text
+                    ))
+                    // Why `IO.print` works without the import and `IO.simulate`
+                    // doesn't (D260, docs/proposals/prelude-slim.md §3).
+                    .with_note(format!(
+                        "the prelude's `{first}` comes with its own constructors, fields and \
+                         operations; the functions and theorems in its namespace need the import"
+                    ))
+                } else {
+                    d.with_note(format!(
+                        "`{first}` is `Std.{first}`; add `import Std ({first})`, or write `{full}`"
+                    ))
+                };
+            }
         }
         // The name of something this file imports under another name.
         if !self.unit.loading_prelude
