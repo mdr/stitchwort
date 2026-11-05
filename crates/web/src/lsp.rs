@@ -54,6 +54,63 @@ impl LanguageServer {
         let (sent, more) = self.inner.tick();
         format!(r#"{{"sent":{},"more":{more}}}"#, array(sent))
     }
+
+    /// The proof searches queued, for the search worker: a JSON array of
+    /// `{"id", "search"}`. Those not taken run in `tick`.
+    pub fn take_searches(&mut self) -> String {
+        array(self.inner.take_searches())
+    }
+
+    /// A search's result from the search worker (`id` as JSON): what the
+    /// server sent.
+    pub fn searched(&mut self, id: &str, result: &str) -> String {
+        array(self.inner.searched(id, result))
+    }
+}
+
+/// The search worker's end: runs the proof searches the language server
+/// hands out, over the same projects.
+#[wasm_bindgen]
+pub struct SearchWorker {
+    inner: stitchwort_lsp::Searcher,
+    projects: Arc<Memory>,
+}
+
+#[wasm_bindgen]
+impl SearchWorker {
+    /// A search worker; call after `load_std`.
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> SearchWorker {
+        let projects = Arc::new(Memory::default());
+        SearchWorker {
+            inner: stitchwort_lsp::Searcher::new(options(), projects.clone()),
+            projects,
+        }
+    }
+
+    /// As [`LanguageServer::add_project`].
+    pub fn add_project(
+        &mut self,
+        root: &str,
+        sources: Vec<String>,
+        paths: Vec<String>,
+        texts: Vec<String>,
+    ) {
+        self.projects
+            .add(memory_project(root, sources, paths, texts));
+    }
+
+    /// Runs the search `job` (a `search` of `take_searches`), and returns
+    /// its result as JSON.
+    pub fn run(&self, job: &str) -> String {
+        self.inner.run(job)
+    }
+}
+
+impl Default for SearchWorker {
+    fn default() -> Self {
+        SearchWorker::new()
+    }
 }
 
 /// The server's options in the worker. `Limits::for_stack` keeps a quarter

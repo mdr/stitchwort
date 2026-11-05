@@ -210,10 +210,11 @@ pub fn serve_from(
             let sender = connection.sender.clone();
             let searches = searches.clone();
             let options = options.clone();
+            let source = source.clone();
             std::thread::Builder::new()
                 .name(format!("stitchwort-search-{n}"))
                 .stack_size(options.stack)
-                .spawn(move || search_worker(jobs, sender, searches, options))
+                .spawn(move || search_worker(jobs, sender, searches, options, source))
                 .map_err(|e| e.to_string())
         })
         .collect::<Result<Vec<_>, _>>()?;
@@ -225,8 +226,6 @@ pub fn serve_from(
         cancel,
         to_checker,
         texts: Default::default(),
-        stack: options.stack,
-        wanted: options.search_wanted,
         searches,
         to_searches,
         document_changes,
@@ -353,7 +352,88 @@ struct SearchJob {
     pending: Arc<PendingSearch>,
     /// The document version the search is computed from.
     version: i32,
-    run: Box<dyn FnOnce(Arc<AtomicBool>) -> serde_json::Value + Send>,
+    search: Search,
+}
+
+/// A proof search, as data: what a worker needs to run it, natively a
+/// thread of the pool, in the browser a second worker (as JSON,
+/// [`Inline::take_searches`], [`Searcher`]).
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct Search {
+    uri: Url,
+    target: SearchTarget,
+    kind: SearchKind,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+enum SearchKind {
+    /// What closes the goal at `range` ([`Main::code_action`]); with
+    /// `versioned`, edits name that version of the document.
+    CodeAction {
+        range: lsp_types::Range,
+        versioned: Option<i32>,
+    },
+    /// The context at a position ([`Main::context_at`]).
+    ContextAt { line: u32, character: u32 },
+}
+
+impl Search {
+    /// The answer: the code actions, or the context, or null. `stack` is
+    /// the stack of the thread it runs on, `wanted` how many closing
+    /// proofs it stops at.
+    fn run(
+        self,
+        stack: usize,
+        wanted: usize,
+        source: &dyn Source,
+        cancel: Arc<AtomicBool>,
+    ) -> serde_json::Value {
+        let Search { uri, target, kind } = self;
+        match kind {
+            SearchKind::CodeAction { range, versioned } => {
+                let options = pos::action_options(wanted);
+                let found = match target.project {
+                    Some((root, relative, open)) => project_closing_actions(
+                        stack, source, &root, &relative, open, range, cancel, &options,
+                    ),
+                    None => {
+                        closing_actions(stack, source, &target.path, &target.text, range, &options)
+                    }
+                };
+                code_actions(found, &uri, range, versioned)
+            }
+            SearchKind::ContextAt { line, character } => {
+                context_at(stack, source, target, line, character, cancel)
+            }
+        }
+    }
+}
+
+/// Runs proof searches handed out by [`Inline::take_searches`]: the
+/// playground's second worker, so that the checker's isn't blocked.
+pub struct Searcher {
+    options: Options,
+    source: Arc<dyn Source>,
+}
+
+impl Searcher {
+    /// A searcher reading files from `source`; the standard library must be
+    /// loaded already.
+    pub fn new(options: Options, source: Arc<dyn Source>) -> Self {
+        Searcher { options, source }
+    }
+
+    /// The result of the search `job` (its JSON), as JSON, for
+    /// [`Inline::searched`]. Nothing stops it part-way: a stale search's
+    /// host stops the worker.
+    pub fn run(&self, job: &str) -> String {
+        let Ok(search) = serde_json::from_str::<Search>(job) else {
+            return "null".to_string();
+        };
+        let cancel = Arc::new(AtomicBool::new(false));
+        let (stack, wanted) = (self.options.stack, self.options.search_wanted);
+        search.run(stack, wanted, &*self.source, cancel).to_string()
+    }
 }
 
 /// A code action request not answered yet. Whoever swaps `answered` first
@@ -399,19 +479,23 @@ fn search_worker(
     sender: Sender<Message>,
     searches: Arc<Searches>,
     options: Options,
+    source: Arc<dyn Source>,
 ) {
     for job in jobs {
-        run_search(job, &sender, &searches, &options);
+        run_search(job, &sender, &searches, &options, &*source);
     }
 }
 
 /// Runs one queued search and answers its request.
-fn run_search(job: SearchJob, sender: &Sender<Message>, searches: &Searches, options: &Options) {
-    let done = |searches: &Searches| {
-        lock(&searches.pending).remove(&job.id);
-    };
+fn run_search(
+    job: SearchJob,
+    sender: &Sender<Message>,
+    searches: &Searches,
+    options: &Options,
+    source: &dyn Source,
+) {
     if job.pending.cancel.load(Ordering::Relaxed) {
-        done(searches);
+        lock(&searches.pending).remove(&job.id);
         return;
     }
     let now = searches.running.fetch_add(1, Ordering::SeqCst) + 1;
@@ -428,21 +512,35 @@ fn run_search(job: SearchJob, sender: &Sender<Message>, searches: &Searches, opt
     let result = if job.pending.cancel.load(Ordering::Relaxed) {
         serde_json::Value::Null
     } else {
-        (job.run)(job.pending.cancel.clone())
+        let cancel = job.pending.cancel.clone();
+        (job.search).run(options.stack, options.search_wanted, source, cancel)
     };
     searches.running.fetch_sub(1, Ordering::SeqCst);
-    let current = lock(&searches.versions).get(&job.pending.uri).copied();
-    let result = if current == Some(job.version) && !job.pending.cancel.load(Ordering::Relaxed) {
+    searched(&job.id, &job.pending, job.version, result, sender, searches);
+}
+
+/// Answers the search for request `id` with `result`, if it wasn't
+/// cancelled and its document is still at `version` (else with null).
+fn searched(
+    id: &lsp_server::RequestId,
+    pending: &PendingSearch,
+    version: i32,
+    result: serde_json::Value,
+    sender: &Sender<Message>,
+    searches: &Searches,
+) {
+    let current = lock(&searches.versions).get(&pending.uri).copied();
+    let result = if current == Some(version) && !pending.cancel.load(Ordering::Relaxed) {
         result
     } else {
         serde_json::Value::Null
     };
-    job.pending
-        .answer(sender, Response::new_ok(job.id.clone(), result));
-    done(searches);
+    pending.answer(sender, Response::new_ok(id.clone(), result));
+    lock(&searches.pending).remove(id);
 }
 
 /// The document a search is about ([`Main::search_target`]).
+#[derive(serde::Serialize, serde::Deserialize)]
 struct SearchTarget {
     text: String,
     path: PathBuf,
@@ -457,10 +555,6 @@ struct Main {
     to_checker: Sender<Edit>,
     /// The text of each open document, to trim a selection against.
     texts: std::cell::RefCell<HashMap<Url, String>>,
-    /// The stack of a thread that searches for what closes a goal.
-    stack: usize,
-    /// How many closing proofs a search stops at (`Options::search_wanted`).
-    wanted: usize,
     searches: Arc<Searches>,
     to_searches: Sender<SearchJob>,
     /// Whether the client applies versioned `documentChanges` edits.
@@ -529,28 +623,14 @@ impl Main {
             self.answer_null(id);
             return;
         };
-        let stack = self.stack;
-        let source = self.source.clone();
-        let search = pos::action_options(self.wanted);
         let document_changes = self.document_changes;
-        self.queue_search(id, &uri.clone(), "codeAction", move |version| {
-            let versioned = document_changes.then_some(version);
-            Box::new(move |cancel| match target.project {
-                Some((root, relative, open)) => project_closing_actions(
-                    stack, &*source, &uri, &root, &relative, open, range, versioned, cancel,
-                    &search,
-                ),
-                None => closing_actions(
-                    stack,
-                    &*source,
-                    &uri,
-                    &target.path,
-                    &target.text,
-                    range,
-                    versioned,
-                    &search,
-                ),
-            })
+        self.queue_search(id, &uri.clone(), "codeAction", move |version| Search {
+            uri,
+            target,
+            kind: SearchKind::CodeAction {
+                range,
+                versioned: document_changes.then_some(version),
+            },
         });
     }
 
@@ -573,53 +653,11 @@ impl Main {
             self.answer_null(id);
             return;
         };
-        let stack = self.stack;
-        let source = self.source.clone();
         let (line, character) = (p.position.line, p.position.character);
-        self.queue_search(id, &uri, "contextAt", move |_| {
-            Box::new(move |cancel| {
-                let mut session = Session::for_stack(stack);
-                session.share_cancel_flag(cancel);
-                let found = match target.project {
-                    Some((root, relative, open)) => {
-                        let base = source.files(&root);
-                        let files = stitchwort_driver::search_at::Overlay {
-                            base: &*base,
-                            texts: open,
-                        };
-                        let name = root
-                            .file_name()
-                            .map_or("project".to_string(), |n| n.to_string_lossy().into_owned());
-                        let cache = source.project_cache(&root);
-                        session.context_at_project(
-                            &name,
-                            &files,
-                            &relative,
-                            cache.as_deref(),
-                            line,
-                            character,
-                        )
-                    }
-                    None => {
-                        let name = target
-                            .path
-                            .file_name()
-                            .and_then(|n| n.to_str())
-                            .unwrap_or("file.sw");
-                        session.context_at_text(name, &target.text, line, character)
-                    }
-                };
-                drop(session);
-                match found {
-                    Some(c) => serde_json::json!({
-                        "range": range(c.range),
-                        "type": c.ty,
-                        "checked": c.checked,
-                        "locals": c.locals,
-                    }),
-                    None => serde_json::Value::Null,
-                }
-            })
+        self.queue_search(id, &uri.clone(), "contextAt", move |_| Search {
+            uri,
+            target,
+            kind: SearchKind::ContextAt { line, character },
         });
     }
 
@@ -670,7 +708,7 @@ impl Main {
         id: lsp_server::RequestId,
         uri: &Url,
         kind: &'static str,
-        make: impl FnOnce(i32) -> Box<dyn FnOnce(Arc<AtomicBool>) -> serde_json::Value + Send>,
+        make: impl FnOnce(i32) -> Search,
     ) {
         self.supersede(uri, Some(kind));
         let Some(version) = lock(&self.searches.versions).get(uri).copied() else {
@@ -688,7 +726,7 @@ impl Main {
             id: id.clone(),
             pending,
             version,
-            run: make(version),
+            search: make(version),
         };
         if self.to_searches.send(job).is_err() {
             lock(&self.searches.pending).remove(&id);
@@ -1926,11 +1964,18 @@ impl Checker {
 /// The server without threads or standard input and output, for a host that
 /// has neither (the playground's worker). The host hands it each message
 /// from the client ([`Inline::receive`]) and, between messages, lets it do
-/// its background work a piece at a time ([`Inline::tick`]): a queued
-/// search, or the check of one namespace. An edit received between two
-/// ticks makes the next tick check the new text first; nothing is cancelled
+/// its background work a piece at a time ([`Inline::tick`]): the check of
+/// one namespace, or a queued search. An edit received between two ticks
+/// makes the next tick check the new text first; nothing is cancelled
 /// mid-namespace, as there is no other thread to set the flag. Waiting for
 /// typing to pause is the host's.
+///
+/// A search takes seconds, so a host with a second worker takes the
+/// searches as they are queued ([`Inline::take_searches`]), runs them there
+/// ([`Searcher`]) and hands back the results ([`Inline::searched`]). A
+/// search the server has answered meanwhile (with null: the document was
+/// edited, or a newer request superseded it) is stale, and the host can
+/// stop it.
 pub struct Inline {
     main: Main,
     /// The client's end: where what the server sends arrives.
@@ -1938,6 +1983,9 @@ pub struct Inline {
     checker: Checker,
     edits: Receiver<Edit>,
     jobs: Receiver<SearchJob>,
+    /// The searches handed to the host, not answered yet: their requests,
+    /// and the document versions they're computed from.
+    handed: HashMap<lsp_server::RequestId, (Arc<PendingSearch>, i32)>,
     options: Options,
 }
 
@@ -1965,8 +2013,6 @@ impl Inline {
             cancel,
             to_checker,
             texts: Default::default(),
-            stack: options.stack,
-            wanted: options.search_wanted,
             searches: Arc::default(),
             to_searches,
             document_changes: false,
@@ -1977,8 +2023,44 @@ impl Inline {
             checker,
             edits,
             jobs,
+            handed: HashMap::default(),
             options,
         })
+    }
+
+    /// The searches queued since the last call, for the host to run:
+    /// `{"id": …, "search": …}` each, the search for [`Searcher::run`].
+    pub fn take_searches(&mut self) -> Vec<String> {
+        let mut out = Vec::new();
+        for job in self.jobs.try_iter() {
+            if job.pending.cancel.load(Ordering::Relaxed) {
+                lock(&self.main.searches.pending).remove(&job.id);
+                continue;
+            }
+            let Ok(search) = serde_json::to_value(&job.search) else {
+                continue;
+            };
+            out.push(serde_json::json!({"id": job.id, "search": search}).to_string());
+            self.handed.insert(job.id, (job.pending, job.version));
+        }
+        self.handed
+            .retain(|_, (p, _)| !p.answered.load(Ordering::SeqCst));
+        out
+    }
+
+    /// The result of a search handed out (`id` as `take_searches` gave it,
+    /// `result` as [`Searcher::run`] answered): answers its request, unless
+    /// that has been answered already. Returns what the server sent.
+    pub fn searched(&mut self, id: &str, result: &str) -> Vec<String> {
+        let found = serde_json::from_str::<lsp_server::RequestId>(id)
+            .ok()
+            .and_then(|id| Some((self.handed.remove(&id)?, id)));
+        if let Some(((pending, version), id)) = found {
+            let result = serde_json::from_str(result).unwrap_or_default();
+            let sender = &self.main.connection.sender;
+            searched(&id, &pending, version, result, sender, &self.main.searches);
+        }
+        self.sent()
     }
 
     /// Handles one message from the client (JSON-RPC text), and returns
@@ -2014,6 +2096,7 @@ impl Inline {
                     &self.main.connection.sender,
                     &self.main.searches,
                     &self.options,
+                    &*self.main.source,
                 );
                 true
             }
@@ -2157,48 +2240,86 @@ fn diagnostic(
     }
 }
 
-/// The code actions that replace the goal `?` at `range` of `text` (the
-/// file at `path`, on its own) with a proof that closes it.
-#[allow(clippy::too_many_arguments)]
+/// The answer to `stitchwort/contextAt` at `line` and `character` of the
+/// document `target` ([`Main::context_at`]).
+fn context_at(
+    stack: usize,
+    source: &dyn Source,
+    target: SearchTarget,
+    line: u32,
+    character: u32,
+    cancel: Arc<AtomicBool>,
+) -> serde_json::Value {
+    let mut session = Session::for_stack(stack);
+    session.share_cancel_flag(cancel);
+    let found = match target.project {
+        Some((root, relative, open)) => {
+            let base = source.files(&root);
+            let files = stitchwort_driver::search_at::Overlay {
+                base: &*base,
+                texts: open,
+            };
+            let name = root
+                .file_name()
+                .map_or("project".to_string(), |n| n.to_string_lossy().into_owned());
+            let cache = source.project_cache(&root);
+            session.context_at_project(&name, &files, &relative, cache.as_deref(), line, character)
+        }
+        None => {
+            let name = target
+                .path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("file.sw");
+            session.context_at_text(name, &target.text, line, character)
+        }
+    };
+    drop(session);
+    match found {
+        Some(c) => serde_json::json!({
+            "range": range(c.range),
+            "type": c.ty,
+            "checked": c.checked,
+            "locals": c.locals,
+        }),
+        None => serde_json::Value::Null,
+    }
+}
+
+/// What replaces the goal `?` at `range` of `text` (the file at `path`, on
+/// its own) with a proof that closes it.
 fn closing_actions(
     stack: usize,
     source: &dyn Source,
-    uri: &Url,
     path: &Path,
     text: &str,
     range: lsp_types::Range,
-    versioned: Option<i32>,
     options: &stitchwort_driver::search_at::AtOptions,
-) -> serde_json::Value {
+) -> Option<Vec<pos::Action>> {
     let name = path
         .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("file.sw");
     let cache = path.parent().and_then(|dir| source.file_cache(dir));
-    let found = pos::actions_at_text(stack, name, text, ranged(range), options, cache.as_deref());
-    code_actions(found, uri, range, versioned)
+    pos::actions_at_text(stack, name, text, ranged(range), options, cache.as_deref())
 }
 
 /// [`closing_actions`] for a goal in the file `relative` of the project in
-/// folder `root`, read from disk except for the files open in the editor
-/// (`open`, by path in the project).
+/// folder `root`, read from `source` except for the files open in the
+/// editor (`open`, by path in the project).
 #[allow(clippy::too_many_arguments)]
 fn project_closing_actions(
     stack: usize,
     source: &dyn Source,
-    uri: &Url,
     root: &Path,
     relative: &str,
     open: BTreeMap<String, String>,
     range: lsp_types::Range,
-    versioned: Option<i32>,
     cancel: Arc<AtomicBool>,
     options: &stitchwort_driver::search_at::AtOptions,
-) -> serde_json::Value {
+) -> Option<Vec<pos::Action>> {
     use stitchwort_driver::search_at::Overlay;
-    let Some(text) = open.get(relative).cloned() else {
-        return serde_json::Value::Null;
-    };
+    let text = open.get(relative).cloned()?;
     let base = source.files(root);
     let files = Overlay {
         base: &*base,
@@ -2220,7 +2341,7 @@ fn project_closing_actions(
         options,
     );
     drop(session);
-    code_actions(found, uri, range, versioned)
+    found
 }
 
 /// A range as the driver has it.

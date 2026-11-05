@@ -72,8 +72,9 @@ const key = async (k, code, keyCode, modifiers = 0) => {
 };
 // The latest publishDiagnostics for main.sw after `since`, and the time it arrived.
 // With `version`, only diagnostics for that version of the text or later.
-const publishedAfter = (since, version = 0) => until(`window.lspTiming.published.find((p) => p.t > ${since} && p.uri.endsWith("main.sw") && (p.version ?? 0) >= ${version})`);
-const MAIN = `window.lspClient.workspace.getFile("file:///playground/main.sw")`;
+let mainUri = "file:///playground/main.sw";
+const publishedAfter = (since, version = 0) => until(`window.lspTiming.published.find((p) => p.t > ${since} && p.uri === ${JSON.stringify(mainUri)} && (p.version ?? 0) >= ${version})`);
+const MAIN = () => `window.lspClient.workspace.getFile(${JSON.stringify(mainUri)})`;
 
 const t0 = Date.now();
 await send("Page.navigate", { url: base + "proto/lsp.html" });
@@ -148,6 +149,26 @@ await step("signature help", async () => {
   return { advertised: caps };
 });
 
+// The search runs in its own worker: the checker answers meanwhile, and an
+// edit stops the stale search.
+await step("while a search runs: hover, then an edit", async () => {
+  const stopped = await ev(`window.lspTiming.searchesStopped`);
+  await coords("n + 0 = n := ?", 13);
+  await ev(`window.view.focus()`);
+  await key(".", "Period", 190, 4 /* Meta */);
+  await sleep(300);
+  const hover = await ev(`(async () => { const p = window.lspClient.workspace.getFile(${JSON.stringify(mainUri)}); const t = performance.now();
+    await window.lspClient.request("textDocument/hover", { textDocument: { uri: ${JSON.stringify(mainUri)} }, position: { line: 2, character: 6 } }); return performance.now() - t; })()`);
+  const t = await ev(`(() => { const v = window.view; v.dispatch({ changes: { from: v.state.doc.length, insert: " " } }); const t = performance.now(); window.lspClient.sync(); return t; })()`);
+  const version = await ev(`${MAIN()}.version`);
+  const p = await publishedAfter(t, version).catch(() => null);
+  const quiet = p ? null : await until(`(() => { const last = window.lspTiming.ticks.at(-1); return last && last.t > ${t} && performance.now() - last.t > 30 && last.t; })()`, 60000);
+  await until(`window.lastCodeAction`, 60000);
+  const searchStopped = (await ev(`window.lspTiming.searchesStopped`)) > stopped;
+  await ev(`window.lastCodeAction = null`);
+  return { hoverMs: Math.round(hover), editToDiagnosticsMs: Math.round((p?.t ?? quiet) - t), searchStopped, titles: await ev(`window.lastCodeAction?.titles ?? null`) };
+});
+
 await step("code action on ? (page glue: Mod-.)", async () => {
   await coords("n + 0 = n := ?", 13);
   await ev(`window.view.focus()`);
@@ -180,7 +201,7 @@ let this_version = 0;
 async function typing(label, runs) {
   const times = [];
   for (let i = 0; i < runs; i++) {
-    const t = await ev(`(() => { const v = window.view; v.dispatch({ changes: { from: v.state.doc.length, insert: ${JSON.stringify(i % 2 ? "\n" : " ")} } }); const t = performance.now(); window.lspClient.sync(); return { t, version: ${MAIN}.version }; })()`).then(({ t, version }) => { this_version = version; return t; });
+    const t = await ev(`(() => { const v = window.view; v.dispatch({ changes: { from: v.state.doc.length, insert: ${JSON.stringify(i % 2 ? "\n" : " ")} } }); const t = performance.now(); window.lspClient.sync(); return { t, version: ${MAIN()}.version }; })()`).then(({ t, version }) => { this_version = version; return t; });
     const p = await publishedAfter(t, this_version).catch(() => null);
     // A change that leaves the diagnostics as they were publishes nothing:
     // then the end of the ticks is the answer.
@@ -195,7 +216,7 @@ async function typing(label, runs) {
 await step("typing latency, small file", () => typing("sample", 7));
 
 await step("AoC 2024 day 21 (226 lines): load", async () => {
-  const t = await ev(`(() => { const v = window.view; v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: ${JSON.stringify(aocDay)} } }); const t = performance.now(); window.lspClient.sync(); return { t, version: ${MAIN}.version }; })()`).then(({ t, version }) => { this_version = version; return t; });
+  const t = await ev(`(() => { const v = window.view; v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: ${JSON.stringify(aocDay)} } }); const t = performance.now(); window.lspClient.sync(); return { t, version: ${MAIN()}.version }; })()`).then(({ t, version }) => { this_version = version; return t; });
   const p = await publishedAfter(t, this_version);
   await sleep(300);
   await shot("5-aoc");
@@ -208,6 +229,21 @@ await step("default client pause (500 ms) end to end", async () => {
   const p = await publishedAfter(t);
   return { msToDiagnostics: Math.round(p.t - t) };
 });
+report.crashedSample = await ev(`window.lspTiming.crashed`);
+
+// The same day as a file of the bundled AoC project, from memory.
+const DAY = "src/Aoc/Year2024/Day21/Day21.sw";
+mainUri = `file:///playground/aoc/${DAY}`;
+await send("Page.navigate", { url: base + `proto/lsp.html?project=aoc&open=${DAY}` });
+await step("AoC project (Day21.sw in the project): first diagnostics", async () => {
+  const t = Date.now();
+  await until(`window.lspTiming && window.lspTiming.project`);
+  const project = await ev(`window.lspTiming.project`);
+  const p = await publishedAfter(0);
+  await shot("6-aoc-project");
+  return { projectLoadedAtMs: Math.round(project.t), files: project.files, publishedAtMs: Math.round(p.t), count: p.count, wall: Date.now() - t };
+});
+await step("typing latency, AoC day in the project", () => typing("aoc day21 (project)", 7));
 
 report.crashed = await ev(`window.lspTiming.crashed`);
 report.console = consoleLines.slice(0, 20);

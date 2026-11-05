@@ -1,5 +1,7 @@
-// Prototype (SW-1375): CodeMirror 6 talking to the language server in a
-// worker through @codemirror/lsp-client. Build: see lsp.html.
+// Prototype (SW-1375, SW-1384): CodeMirror 6 talking to the language server
+// in a worker through @codemirror/lsp-client. Build: see lsp.html. With
+// `?project=aoc&open=src/…` the page opens that file of a bundled project,
+// checked as part of the project.
 import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection } from "@codemirror/view";
 import { EditorState } from "@codemirror/state";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
@@ -26,7 +28,7 @@ const stitchwort = StreamLanguage.define({
 // What the probe (web/proto/lsp-check.mjs) reads: a log of the traffic with
 // times, and the time each publishDiagnostics arrived.
 const log = (window.lspLog = []);
-const timing = (window.lspTiming = { ticks: [], received: [], published: [], ready: null, crashed: null });
+const timing = (window.lspTiming = { ticks: [], received: [], published: [], searched: [], searchesStopped: 0, project: null, ready: null, crashed: null });
 const t0 = performance.now();
 // The bundle is served from web/dist/; the worker stays beside the trial page.
 
@@ -43,6 +45,10 @@ worker.onmessage = ({ data }) => {
   } else if (data.tick !== undefined) timing.ticks.push({ t: now, ms: data.tick, published: data.published, startAbs: data.startAbs - t0 });
   else if (data.received !== undefined) timing.received.push({ t: now, ms: data.received, method: data.method });
   else if (data.ready !== undefined) { timing.ready = { t: now, ms: data.ready }; status.textContent = `Server ready in ${data.ready.toFixed(0)} ms`; }
+  else if (data.searched !== undefined) timing.searched.push({ t: now, ms: data.searched });
+  else if (data.searchStopped !== undefined) timing.searchesStopped++;
+  else if (data.searchCrashed !== undefined) timing.crashed = "search: " + data.searchCrashed;
+  else if (data.project !== undefined) timing.project = { t: now, name: data.project, files: data.files };
   else if (data.stdSource !== undefined) { stdWaiting.get(data.stdSource)?.(data.text); stdWaiting.delete(data.stdSource); }
   else if (data.crashed !== undefined) { timing.crashed = data.crashed; status.textContent = `The server crashed: ${data.crashed}`; }
 };
@@ -55,6 +61,11 @@ const transport = {
   subscribe(h) { handlers.push(h); },
   unsubscribe(h) { handlers = handlers.filter((x) => x !== h); },
 };
+
+const params = new URLSearchParams(location.search);
+const project = params.get("project");
+const open = params.get("open");
+if (project) worker.postMessage({ project });
 
 const client = new LSPClient({ extensions: languageServerExtensions(), timeout: 30000 }).connect(transport);
 window.lspClient = client;
@@ -107,10 +118,13 @@ client.workspace.displayFile = async (uri) => {
 };
 
 const status = document.getElementById("status");
-window.view = new EditorView({
-  parent: document.getElementById("editor"),
-  state: EditorState.create({
-    doc: document.getElementById("sample").textContent.replace(/^\n/, ""),
-    extensions: [...base, client.plugin("file:///playground/main.sw", "stitchwort")],
-  }),
-});
+(async () => {
+  const doc = project
+    ? await fetch(new URL(`../pkg/projects/${project}/${open}`, import.meta.url)).then((r) => r.text())
+    : document.getElementById("sample").textContent.replace(/^\n/, "");
+  const uri = project ? `file:///playground/${project}/${open}` : "file:///playground/main.sw";
+  window.view = new EditorView({
+    parent: document.getElementById("editor"),
+    state: EditorState.create({ doc, extensions: [...base, client.plugin(uri, "stitchwort")] }),
+  });
+})();
