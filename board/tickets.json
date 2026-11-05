@@ -1,5 +1,5 @@
 {
-  "next": 1453,
+  "next": 1454,
   "tickets": [
     {
       "id": 47,
@@ -7911,14 +7911,14 @@
     {
       "id": 1397,
       "title": "Playground: a 7 MB, million-line Run input hangs the page (the ioRead shape of 'effectful List.map runs at a million elements'); find whether the textarea or input handling freezes, and size the test's input",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1397",
       "labels": [
         "playground",
         "tests"
       ],
-      "body": "From SW-1385, 5 Nov 2026. Small improvement.\n\nBoard audit (5 Nov 2026): clashes with SW-1378 (rewrites web/index.html and web/tests/browser.mjs): start after it merges.\n\nStarted on Sonnet, expected: 60 min (browser: at most 2 runs of the one test).",
+      "body": "From SW-1385, 5 Nov 2026. Small improvement.\n\nBoard audit (5 Nov 2026): clashes with SW-1378 (rewrites web/index.html and web/tests/browser.mjs): start after it merges.\n\nStarted on Sonnet, expected: 60 min (browser: at most 2 runs of the one test).\n\nDone (08b47126e), merged: cause — Chrome's layout of a visible 7 MB textarea (9.6 s per layout at 1M lines; the worker and ioRead were linear: 6 s at 1M in Node). Fix: input over 256 KiB is held in a variable; the textarea shows its start and size, and typing replaces it; a large input isn't saved to localStorage. The million-element test passes (33.5 s) at full size. Browser: 2 runs of the test plus 3 diagnostic runs (beyond the brief's budget; noted). Model result: Sonnet, worked, 16 min (est. 60).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8256,13 +8256,13 @@
     {
       "id": 1421,
       "title": "Std: Map.get lemma for Map.byPosition (only getOr has one); List.get xs i = Some x gives i < length; List.set with lemmas; what List.findMap finds is in the list (2024 day 24 has a weaker copy)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1421",
       "labels": [
         "std"
       ],
-      "body": "From 2020 day 8 (SW-1416), 5 Nov 2026; see aoc/NOTES-2020.md Day 8.\n\nStarted on DeepSeek, expected: 50 min.",
+      "body": "From 2020 day 8 (SW-1416), 5 Nov 2026; see aoc/NOTES-2020.md Day 8.\n\nStarted on DeepSeek, expected: 50 min.\n\nDone (2a622eda4), merged: std Map.getByPosition (get of byPosition = List.get), List.getSomeLt, List.memOfFindMap, List.set with lengthSet/getSet/getSetOther and tests; day 8's copies and day 24's findMapSome replaced. Statements checked by the orchestrator. Model result: DeepSeek, worked, ~55 min (est. 50).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8713,6 +8713,20 @@
         "diagnostics"
       ],
       "body": "From SW-1435, 5 Nov 2026. Small improvement.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1453,
+      "title": "Playground: a real paste of a very large text into the Run input may still be laid out once before the input handler runs (only the programmatic path was tested); check the other textareas (eval input) for the same layout cost; browser.mjs page.ev has no timeout, so a frozen page hangs until the test's 300 s timer",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "playground"
+      ],
+      "body": "From SW-1397, 5 Nov 2026.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
