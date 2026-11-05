@@ -6970,13 +6970,13 @@
     {
       "id": 1330,
       "title": "Check cache key: drop std's text, once the check cache's differential test covers a std edit",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1330",
       "labels": [
         "tooling"
       ],
-      "body": "D2378 (Matt, 5 Nov): yes. docs/proposals/test-cache-key.md (P3). Entries are the elaborator's output, so syntax and elab stay in this key.",
+      "body": "D2378 (Matt, 5 Nov): yes. docs/proposals/test-cache-key.md (P3). Entries are the elaborator's output, so syntax and elab stay in this key.\n\nDone on lane/SW-1330 (557094bfa): keys hold core text + the library's name index, not all of std; namespace entries list the std files they load with their keys. Rare-file edit: 31 of 231 re-check; ubiquitous files (Fin, Toolkit) still re-check nearly all; an added name re-checks all. Opus review running (stale-entry risk: instances etc. in unlisted files). Model result: Sonnet, worked, 37 min (est. 90).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
