@@ -21,7 +21,7 @@ use std::rc::Rc;
 
 use crate::budget::Result;
 use crate::native;
-use crate::term::{Branch, DefId, Icit, QuotForm, Term};
+use crate::term::{Branch, DefId, Icit, QuotForm, Sort, Term};
 use crate::value::{Closure, Elim, Head, Mode, Spine, Value, quot_mk_rep, quot_value};
 
 pub fn eval(g: &Ev, env: &[Value], term: &Term) -> Result<Value> {
@@ -942,6 +942,12 @@ pub fn validate_inert(g: &Ev, ids: &[DefId]) {
             "`{}`: marks beyond its arity",
             def.name()
         );
+        if let Some(i) = not_a_proof(g, *id) {
+            panic!(
+                "internal error: parameter {i} of `{}` is marked inert, but its type isn't a proposition",
+                def.name()
+            );
+        }
         if let Some((i, what)) = unshielded(g, body, def.arity, marks) {
             panic!(
                 "internal error: parameter {i} of `{}` is marked inert, but {what}",
@@ -949,6 +955,39 @@ pub fn validate_inert(g: &Ev, ids: &[DefId]) {
             );
         }
     }
+}
+
+/// The first marked parameter of `id` whose type isn't in `Prop`, from its
+/// type evaluated here, unglued, rather than by `inert::candidates`.
+fn not_a_proof(g: &Ev, id: DefId) -> Option<usize> {
+    let def = g.def(id);
+    let _set = g.machine.transparent.set(def.transparent.clone());
+    let was = g.machine.glue.replace(false);
+    let mut cx = crate::check::Ctx::new(g, def.span);
+    let mut ty = eval(g, &[], &def.ty).expect("its type evaluates");
+    let mut found = None;
+    for (k, marked) in def.inert_params().iter().enumerate() {
+        let Value::Pi(x, _, dom, cod) = force(g, ty).expect("its type evaluates") else {
+            // More parameters than the type shows: a mark from here on has
+            // no type to justify it.
+            found = def.inert_params()[k..]
+                .iter()
+                .position(|m| *m)
+                .map(|i| k + i);
+            break;
+        };
+        if *marked
+            && crate::check::sort_of(&mut cx, &dom).expect("its parameter has a sort") != Sort::Prop
+        {
+            found = Some(k);
+            break;
+        }
+        let next = apply_closure(g, &cod, Value::var(cx.level())).expect("its type evaluates");
+        cx.bind(x.clone(), (*dom).clone());
+        ty = next;
+    }
+    g.machine.glue.set(was);
+    found
 }
 
 /// The first marked parameter (by position) of `body`, a definition's body

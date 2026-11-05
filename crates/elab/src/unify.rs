@@ -244,7 +244,11 @@ fn literal_seen_through(g: &Unifier<'_>, m: usize, other: &Value) -> Option<(Val
 /// fails for good if nothing was solved since. What a failed comparison
 /// solved is kept, as it is when unification fails (callers that try again
 /// build on it).
+///
+/// `mode` is where the comparison starts; a [`Task::Mode`] switches it for
+/// the pairs above it on the list ([`push_in_shortcut`]).
 fn run(g: &Unifier<'_>, mut work: Vec<Task>, mode: Mode) -> Result<bool> {
+    let mut mode = mode;
     while let Some(task) = work.pop() {
         g.machine.budget.step()?;
         let same = match task {
@@ -254,7 +258,7 @@ fn run(g: &Unifier<'_>, mut work: Vec<Task>, mode: Mode) -> Result<bool> {
                     true
                 } else if blocked(g, &a)? || blocked(g, &b)? {
                     let trail = g.store.meta_trail.borrow().len();
-                    work.insert(0, Task::Later(level, a, b, trail));
+                    work.insert(0, Task::Later(level, a, b, trail, mode));
                     true
                 } else {
                     note_unfilled(g, &a, &b)?;
@@ -263,14 +267,20 @@ fn run(g: &Unifier<'_>, mut work: Vec<Task>, mode: Mode) -> Result<bool> {
             }
             // Put aside, and nothing solved since: they differ, unless the
             // comparison may wait on them.
-            Task::Later(level, a, b, trail) if g.store.meta_trail.borrow().len() <= trail => {
+            Task::Later(level, a, b, trail, _) if g.store.meta_trail.borrow().len() <= trail => {
                 note_unfilled(g, &a, &b)?;
                 sets_aside(g, level, &a, &b)?
             }
-            Task::Later(level, a, b, _) => {
+            Task::Later(level, a, b, _, later) => {
                 let env: Vec<Value> = (0..level).map(Value::var).collect();
                 let afresh = |v: &Value| eval(g, &env, &quote_folded(g, level, v)?);
+                work.push(Task::Mode(mode));
                 work.push(Task::Values(level, afresh(&a)?, afresh(&b)?));
+                work.push(Task::Mode(later));
+                true
+            }
+            Task::Mode(m) => {
+                mode = m;
                 true
             }
             // Identical functions unify without solving anything
@@ -954,8 +964,11 @@ enum Task {
     /// ([`proof_position`]).
     Proof(usize, Value, Value),
     Codomains(usize, Closure, Closure),
-    /// A pair put aside ([`run`]), with the length of the trail then.
-    Later(usize, Value, Value, usize),
+    /// A pair put aside ([`run`]), with the length of the trail then and
+    /// the mode it was compared in.
+    Later(usize, Value, Value, usize, Mode),
+    /// From here down the list, compare in this mode.
+    Mode(Mode),
 }
 
 /// Whether `v` may be a definition stuck on an unknown, as far as can be
@@ -968,6 +981,54 @@ fn blocked(g: &Unifier<'_>, v: &Value) -> Result<bool> {
 
 /// How deep [`blocked`] looks.
 const BLOCKED_DEPTH: usize = 3;
+
+/// Pushes `pairs` to be unified in shortcut mode, then `mode` again.
+fn push_in_shortcut(work: &mut Vec<Task>, mode: Mode, pairs: Vec<Task>) {
+    work.push(Task::Mode(mode));
+    work.extend(pairs.into_iter().rev());
+    work.push(Task::Mode(Mode::Shortcut));
+}
+
+/// Whether a spine may mention an unknown, solved or not, frozen or not:
+/// `false` only if a look at no more than [`MENTION_LOOK`] parts finds
+/// none. Closures, glued calls and the like aren't looked into, so they
+/// count as mentioning one.
+fn may_mention_meta(spine: &[Elim]) -> bool {
+    let mut look = MENTION_LOOK;
+    let mut todo: Vec<&Value> = Vec::new();
+    for elim in spine {
+        match elim {
+            Elim::App(x, _) => todo.push(x),
+            _ => return true,
+        }
+    }
+    while let Some(v) = todo.pop() {
+        if look == 0 {
+            return true;
+        }
+        look -= 1;
+        match v {
+            Value::Sort(_) | Value::Nat(_) | Value::Chars(_) | Value::Refl => {}
+            Value::NatAdd(_, base) => todo.push(base),
+            Value::Data(_, args) => todo.extend(args.iter()),
+            Value::Ctor(_, _, fields) => todo.extend(fields.iter()),
+            Value::Eq(t, x, y) => todo.extend([&**t, &**x, &**y]),
+            Value::Neutral(Head::Var(..) | Head::Def(_), spine) => {
+                for elim in spine.iter() {
+                    match elim {
+                        Elim::App(x, _) => todo.push(x),
+                        _ => return true,
+                    }
+                }
+            }
+            _ => return true,
+        }
+    }
+    false
+}
+
+/// How many parts [`may_mention_meta`] looks at.
+const MENTION_LOOK: usize = 64;
 
 fn blocked_within(g: &Unifier<'_>, v: &Value, depth: usize) -> Result<bool> {
     let Value::Neutral(Head::Def(_), spine) = force(g, v.clone())? else {
@@ -1151,14 +1212,18 @@ fn unify_step(
             if m1 == m2 && pending(g, *m1) =>
         {
             match spine_pairs(g, level, None, s1, s2) {
-                Some(pairs) => nested(g, || run(g, pairs.into_iter().rev().collect(), mode))?,
+                Some(pairs) => nested(g, || {
+                    run(g, pairs.into_iter().rev().collect(), Mode::Shortcut)
+                })?,
                 None => false,
             }
         }
+        // The same unknown applied twice: its arguments in shortcut mode,
+        // as its solution may take them apart (U6).
         (Value::Neutral(Head::Meta(m1), s1), Value::Neutral(Head::Meta(m2), s2)) if m1 == m2 => {
             match spine_pairs(g, level, None, s1, s2) {
                 Some(pairs) => {
-                    work.extend(pairs.into_iter().rev());
+                    push_in_shortcut(work, mode, pairs);
                     true
                 }
                 None => false,
@@ -1242,9 +1307,11 @@ fn unify_step(
                 // Eta for definitions doesn't apply, so the spines must match.
                 // Calls stuck on an unknown may be equal without that, once it
                 // is solved: their spines are compared here, so that if they
-                // differ, the calls are put aside whole ([`run`]). Such a call
-                // unfolds once the unknown is solved, so its arguments are
-                // unified in shortcut mode (U3).
+                // differ, the calls are put aside whole ([`run`]). A call
+                // whose spine mentions an unknown, frozen or not and however
+                // deep, may unfold once it's solved, so its arguments are
+                // unified in shortcut mode (U3); only one stuck on an unknown
+                // `blocked` sees is put aside.
                 match spine_pairs(g, level, def, s1, s2) {
                     Some(pairs)
                         if matches!(h1, Head::Def(_)) && (blocked(g, &a)? || blocked(g, &b)?) =>
@@ -1255,6 +1322,13 @@ fn unify_step(
                         })?;
                         note_lossy(g, trail);
                         same
+                    }
+                    Some(pairs)
+                        if matches!(h1, Head::Def(_))
+                            && (may_mention_meta(s1) || may_mention_meta(s2)) =>
+                    {
+                        push_in_shortcut(work, mode, pairs);
+                        true
                     }
                     Some(pairs) => {
                         work.extend(pairs.into_iter().rev());
@@ -1424,7 +1498,9 @@ fn unify_pair(g: &Unifier<'_>, pair: Task, mode: Mode) -> Result<bool> {
     match pair {
         Task::Values(l, x, y) => unify_in(g, l, &x, &y, mode),
         Task::Proof(l, x, y) => proof_position(g, l, &x, &y),
-        Task::Codomains(..) | Task::Later(..) => unreachable!("not from spine_pairs"),
+        Task::Codomains(..) | Task::Later(..) | Task::Mode(_) => {
+            unreachable!("not from spine_pairs")
+        }
     }
 }
 
@@ -1511,7 +1587,16 @@ fn first_order(
         return Ok(false);
     }
     let mark = g.store.meta_trail.borrow().len();
-    if !unify(g, level, x, y)? {
+    // `?m` may be solved with something that takes its last argument apart,
+    // and so may an applied unknown or definition, so the last arguments
+    // are unified in shortcut mode; only against a variable's they stay
+    // arguments for good (U6).
+    let mode = if matches!(head, Head::Var(..)) {
+        Mode::Normal
+    } else {
+        Mode::Shortcut
+    };
+    if !unify_in(g, level, x, y, mode)? {
         return Ok(false);
     }
     // Pairing the last arguments can solve `?m` itself: `?m a b = f c ?m`
@@ -2537,6 +2622,8 @@ pub(crate) mod proof_fixture {
     /// - `T2: Type = MkT2 (h: N) (n: N)`, `T` with both fields data
     /// - `pick (n: N) (b: Box Q): Q`, which unboxes at `Z`: `match n with
     ///   | Z => (match b with | MkBox x => x) | S m => MkQ m`
+    /// - `pick2 (n: N) (b: Box Q): Q`, which unboxes at `S Z` instead
+    /// - `ignores (n: N) (k: N) (h: Q): N := n`, inert at `h`
     pub(crate) struct Proofs {
         pub(crate) n: DataId,
         pub(crate) q: DataId,
@@ -2544,6 +2631,8 @@ pub(crate) mod proof_fixture {
         pub(crate) t: DataId,
         pub(crate) t2: DataId,
         pub(crate) pick: DefId,
+        pub(crate) pick2: DefId,
+        pub(crate) ignores: DefId,
     }
 
     fn span() -> Span {
@@ -2607,7 +2696,7 @@ pub(crate) mod proof_fixture {
         let pick_ty = pi(
             "n",
             n_ty,
-            pi("b", Term::data(boxed, vec![q_ty.clone()]), q_ty),
+            pi("b", Term::data(boxed, vec![q_ty.clone()]), q_ty.clone()),
         );
         let pick = check::declare_def(
             g,
@@ -2634,6 +2723,60 @@ pub(crate) mod proof_fixture {
             ),
         );
         check::define_def(g, pick, &body).expect("pick");
+        let pick2 = check::declare_def(
+            g,
+            &"pick2".into(),
+            &"pick2".into(),
+            &pick_ty,
+            false,
+            false,
+            span(),
+        )
+        .expect("pick2 declared");
+        let mq = |v| Term::ctor(q, 0, vec![v]);
+        let body = lam(
+            "n",
+            lam(
+                "b",
+                case(
+                    1,
+                    n,
+                    vec![
+                        (vec![], mq(Term::ctor(n, 0, vec![]))),
+                        (
+                            vec!["m"],
+                            case(
+                                0,
+                                n,
+                                vec![
+                                    (vec![], case(1, boxed, vec![(vec!["x"], Term::Var(0))])),
+                                    (vec!["k"], mq(Term::Var(0))),
+                                ],
+                            ),
+                        ),
+                    ],
+                ),
+            ),
+        );
+        check::define_def(g, pick2, &body).expect("pick2");
+        let n_ty = Term::data(n, vec![]);
+        let ignores_ty = pi(
+            "n",
+            n_ty.clone(),
+            pi("k", n_ty.clone(), pi("h", q_ty.clone(), n_ty)),
+        );
+        let ignores = check::declare_def(
+            g,
+            &"ignores".into(),
+            &"ignores".into(),
+            &ignores_ty,
+            false,
+            false,
+            span(),
+        )
+        .expect("ignores declared");
+        let body = lam("n", lam("k", lam("h", Term::Var(2))));
+        check::define_def(g, ignores, &body).expect("ignores");
         Proofs {
             n,
             q,
@@ -2641,6 +2784,8 @@ pub(crate) mod proof_fixture {
             t,
             t2,
             pick,
+            pick2,
+            ignores,
         }
     }
 }
@@ -2820,6 +2965,90 @@ mod tests {
         let solution = g.meta_solution(n).expect("solved");
         let applied = apply_icit(g, solution, Value::var(2), Icit::Explicit).unwrap();
         assert!(is_var(g, &applied, 2));
+    }
+
+    /// The unifier compares in shortcut mode wherever an unknown may yet be
+    /// solved with something that takes a proof field apart, so it never
+    /// accepts a pair the kernel rejects once the unknown is solved. Each
+    /// case is checked against the kernel's answer at that solution (U3,
+    /// U6).
+    #[test]
+    fn an_unknown_solved_later_never_hides_a_proof_field() {
+        let (fresh, p) = proofs();
+        let g = &fresh.unifier();
+        let boxed = |x: Value| Value::Ctor(p.boxed, 0, [x].into());
+        let call = |f: DefId, n: Value, x: Value| {
+            let f = eval(g, &[], &Term::Def(f)).unwrap();
+            let f = apply_icit(g, f, n, Icit::Explicit).unwrap();
+            apply_icit(g, f, boxed(x), Icit::Explicit).unwrap()
+        };
+        let z = || Value::Ctor(p.n, 0, Vec::new().into());
+        let s = |v: Value| Value::Ctor(p.n, 1, [v].into());
+        let kernel = |a: &Value, b: &Value| conv(g, 2, a, b).unwrap();
+        // At the solutions below, the kernel tells `p` and `q` apart.
+        let at_z = |f| (call(f, z(), Value::var(0)), call(f, z(), Value::var(1)));
+        let (a, b) = at_z(p.pick);
+        assert!(!kernel(&a, &b));
+        let (a, b) = (
+            call(p.pick2, s(z()), Value::var(0)),
+            call(p.pick2, s(z()), Value::var(1)),
+        );
+        assert!(!kernel(&a, &b));
+
+        // A call stuck on an unknown inside a constructor: `pick2 (S ?n) _`.
+        let (_, n) = meta(g, &[]);
+        let a = call(p.pick2, s(n.clone()), Value::var(0));
+        let b = call(p.pick2, s(n), Value::var(1));
+        assert!(!unify(g, 2, &a, &b).unwrap());
+
+        // A call stuck on a frozen unknown.
+        let (m, n) = meta(g, &[]);
+        g.store.freeze_meta(m);
+        let a = call(p.pick, n.clone(), Value::var(0));
+        let b = call(p.pick, n, Value::var(1));
+        assert!(!unify(g, 2, &a, &b).unwrap());
+
+        // The same unknown applied twice: `?m := b => pick Z b` tells them
+        // apart.
+        let m = g.store.new_meta(span());
+        let applied = |x: Value| {
+            Value::Neutral(
+                Head::Meta(m),
+                vec![Elim::App(boxed(x), Icit::Explicit)].into(),
+            )
+        };
+        assert!(!unify(g, 2, &applied(Value::var(0)), &applied(Value::var(1))).unwrap());
+
+        // Last arguments paired: `?m (MkBox p)` against `pick ?n (MkBox q)`
+        // would solve `?m := pick ?n`, and then `?n := Z`.
+        let m = g.store.new_meta(span());
+        let (_, n) = meta(g, &[]);
+        let a = Value::Neutral(
+            Head::Meta(m),
+            vec![Elim::App(boxed(Value::var(0)), Icit::Explicit)].into(),
+        );
+        assert!(!unify(g, 2, &a, &call(p.pick, n, Value::var(1))).unwrap());
+    }
+
+    /// Only leading applications are a definition's arguments: one after a
+    /// `J`, at an inert position's index, is compared (as in `conv`).
+    #[test]
+    fn an_argument_after_a_j_is_unified() {
+        let (fresh, p) = proofs();
+        let g = &fresh.unifier();
+        assert_eq!(g.def(p.ignores).inert_params(), &[false, false, true]);
+        let spine = |last: usize| {
+            let elims = vec![
+                Elim::App(Value::var(0), Icit::Explicit),
+                Elim::J {
+                    motive: Box::new(Value::var(1)),
+                    base: Box::new(Value::var(2)),
+                },
+                Elim::App(Value::var(last), Icit::Explicit),
+            ];
+            Value::Neutral(Head::Def(p.ignores), elims.into())
+        };
+        assert!(!unify(g, 5, &spine(3), &spine(4)).unwrap());
     }
 
     #[test]

@@ -155,6 +155,9 @@ def inType (h: 0 = 0): Type := PBox (0 = 0) h
 -- `h`), and its type is a `Pi` only once the alias unfolds.
 def Hides: Type := 0 = 0 → Nat
 def hidden: Hides := h => 0
+
+-- Never looked at, but data: never a candidate.
+def dropsData (n: Nat): Nat := 0
 "#;
 
 #[test]
@@ -221,6 +224,24 @@ fn the_validator_refuses_an_unjustified_mark() {
     let mut session = Session::eager();
     session.load("rules.sw", RULES).expect("loads");
     let id = find(&session.elab.ev(), "stored");
+    session
+        .elab
+        .kernel
+        .env
+        .def_mut_for_tests(id)
+        .set_inert_params_unchecked_for_tests([true].into());
+    stitchwort_core::reference::validate_inert(&session.elab.kernel.ev(), &[id]);
+}
+
+/// The validator refuses a mark on a parameter that isn't a proof, even one
+/// the body never looks at.
+#[test]
+#[should_panic(expected = "its type isn't a proposition")]
+fn the_validator_refuses_a_mark_on_data() {
+    let mut session = Session::eager();
+    session.load("rules.sw", RULES).expect("loads");
+    let id = find(&session.elab.ev(), "dropsData");
+    assert!(!session.elab.ev().def(id).inert_params().iter().any(|m| *m));
     session
         .elab
         .kernel

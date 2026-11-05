@@ -1453,9 +1453,10 @@ constructor proof fields compared. Every one of them
 | K4 | the `Neutral` arm, same `Def` head, when `hidden(g, f)` (`value.rs:1743`) | two hidden opaque calls: they never unfold here, but do where `f` is transparent (§5.7) |
 | U1 | `unify.rs:983`, `same_arguments_solving_nothing` | two glued calls |
 | U2 | `unify.rs:999-1004`, `same_arguments` | two folded dictionaries |
-| U3 | `unify.rs:1185-1204`, `blocked(…)` | two calls stuck on a metavariable, which unfold once it's solved: in normal mode `g ?n (MkBox p)` and `g ?n (MkBox q)` would unify, and after `?n := 0` the kernel could reject what the elaborator accepted |
+| U3 | `unify.rs:1185-1204`, `blocked(…)` | two calls stuck on a metavariable, which unfold once it's solved: in normal mode `g ?n (MkBox p)` and `g ?n (MkBox q)` would unify, and after `?n := 0` the kernel could reject what the elaborator accepted. After the final review (F1): any two calls whose spines may mention a metavariable, frozen or not and however deep (`pick2 (S ?n) …`), not only those `blocked` sees; `blocked` only decides whether the pair is put aside. The pairs go on the same work list between `Task::Mode` markers |
 | U4 | `unify.rs:1205-1226`, "the spines, or else eta" | two partially applied definitions |
 | U5 | the unifier's `Neutral` arm when the head is hidden | as K4 |
+| U6 | the unifier's same-metavariable arms (`?m a` against `?m b`) and `first_order`'s last arguments (`?m a` against `f b`, unless `f` is a variable) | arguments that a solution of `?m` may take apart (added after the final review, F1) |
 | R1-R3 | `reference.rs:562-569` (folded), `:650-652` (spines, or else eta), and its hidden calls (`reference.rs:252`) | as K2, K3, K4 |
 
 And two memos must be keyed by the mode, because they remember an answer
