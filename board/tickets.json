@@ -6956,9 +6956,9 @@
     {
       "id": 1329,
       "title": "Test cache key: drop std's text, and fingerprint only the Rust that runs tests (core, rt, dev-features, the driver's test runner, Cargo.lock, toolchain); docs/proposals/test-cache-key.md §9",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1329",
       "labels": [
         "tooling"
       ],
@@ -7026,9 +7026,9 @@
     {
       "id": 1334,
       "title": "Hover (VS Code and playground): show a function's parameter names, as its signature is written: def Std.Parse.satisfy (what: Text) (passes: Char → Bool): {Parse} Char",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1334",
       "labels": [
         "lsp"
       ],
