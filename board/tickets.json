@@ -1,5 +1,5 @@
 {
-  "next": 1445,
+  "next": 1446,
   "tickets": [
     {
       "id": 47,
@@ -8058,13 +8058,13 @@
     {
       "id": 1407,
       "title": "Std Graph: a plain reachability API (Graph.reachable returning a Set, with a two-way lemma) and a way to build a Graph whose edge proof holds by construction; today reachability needs unit weights and a distance-to-found lemma (2020 day 7)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1407",
       "labels": [
         "std"
       ],
-      "body": "From SW-1402 (2020 day 7), 5 Nov 2026. For day 7's friction review.\n\nD2429 (day 7 friction review, 5 Nov 2026; Matt delegated the decisions): do it. Order: day 8, then SW-1407, SW-1409, SW-1410, SW-1406 with SW-1408, SW-1405, SW-1411 (after SW-1407: both touch day 7's graph).\n\nStarted on Sonnet, expected: 90 min.",
+      "body": "From SW-1402 (2020 day 7), 5 Nov 2026. For day 7's friction review.\n\nD2429 (day 7 friction review, 5 Nov 2026; Matt delegated the decisions): do it. Order: day 8, then SW-1407, SW-1409, SW-1410, SW-1406 with SW-1408, SW-1405, SW-1411 (after SW-1407: both touch day 7's graph).\n\nStarted on Sonnet, expected: 90 min.\n\nDone on lane/SW-1407 (953e91633): Graph.fromEdges (edges filtered to listed targets; listed proof built in), fromEdgesEdge, Graph.Reachable, Graph.reachable (Set, any weights, via distances), reachableIff. 2020 day 7's program has no proofs now (Rules.graph is one fromEdges call; outside returns a Set). Days 16/20 and GridGraph unchanged (would need a closure-based fromEdges). Opus review pending. Model result: Sonnet, worked, 12 min (est. 90).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8601,6 +8601,20 @@
         "proofs"
       ],
       "body": "From SW-1429's Opus review, 5 Nov 2026. Maybe.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1445,
+      "title": "Std Graph: a fromEdges variant that keeps every edge by closing the states under the edges, so 2024 days 16 and 20 and Aoc.Common.GridGraph can drop their listed proofs without changing their edge functions; and breadthFirst's doc says each edge counts 1 'whatever its cost' though its proofs need unit weights",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From SW-1407, 5 Nov 2026.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
