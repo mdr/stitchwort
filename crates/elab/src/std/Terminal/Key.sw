@@ -145,11 +145,11 @@ def Key.next: (bytes: List Nat) → Key.Decoded
 
 --| A byte below 128 other than ESC: a control key or a printable character.
 def Key.ofAscii (byte: Nat): Key :=
-  if 32 ≤ byte && byte ≤ 126 then Option.fold (Char.fromNat byte) Unknown Printable
+  if 32 ≤ byte ≤ 126 then Option.fold (Char.fromNat byte) Unknown Printable
   else if byte == 13 || byte == 10 then Enter
   else if byte == 9 then Tab
   else if byte == 127 || byte == 8 then Backspace
-  else if 1 ≤ byte && byte ≤ 26 then Option.fold (Char.fromNat (byte + 96)) Unknown Ctrl
+  else if 1 ≤ byte ≤ 26 then Option.fold (Char.fromNat (byte + 96)) Unknown Ctrl
   else Unknown
 
 --| The bytes after an `ESC`.
@@ -167,8 +167,8 @@ def Key.afterEscape: (bytes: List Nat) → Key.Decoded
 def Key.csi (parameters: List Nat): (bytes: List Nat) → Key.Decoded
   | [] => Incomplete
   | [byte, ..rest] =>
-    if 32 ≤ byte && byte ≤ 63 then Key.csi [byte, ..parameters] rest
-    else if 64 ≤ byte && byte ≤ 126 then Got (Key.ofCsi (List.reverse parameters) byte) rest
+    if 32 ≤ byte ≤ 63 then Key.csi [byte, ..parameters] rest
+    else if 64 ≤ byte ≤ 126 then Got (Key.ofCsi (List.reverse parameters) byte) rest
     else Got Unknown [byte, ..rest]
 
 --| The key a CSI sequence stands for, from its parameter bytes and final byte.
@@ -207,9 +207,9 @@ def Key.ss3: (bytes: List Nat) → Key.Decoded
 
 --| A byte of 128 or more, leading a UTF-8 character of two to four bytes.
 def Key.utf8Lead (lead: Nat) (rest: List Nat): Key.Decoded :=
-  if 194 ≤ lead && lead ≤ 223 then Key.utf8More 128 (lead - 192) 1 rest
-  else if 224 ≤ lead && lead ≤ 239 then Key.utf8More 2048 (lead - 224) 2 rest
-  else if 240 ≤ lead && lead ≤ 244 then Key.utf8More 65536 (lead - 240) 3 rest
+  if 194 ≤ lead ≤ 223 then Key.utf8More 128 (lead - 192) 1 rest
+  else if 224 ≤ lead ≤ 239 then Key.utf8More 2048 (lead - 224) 2 rest
+  else if 240 ≤ lead ≤ 244 then Key.utf8More 65536 (lead - 240) 3 rest
   else Got Unknown rest
 
 --| `count` more continuation bytes (128 to 191), each adding six bits to
@@ -222,7 +222,7 @@ def Key.utf8More (minimum: Nat) (code: Nat): (remaining: Nat) → (bytes: List N
     if code < minimum then Got Unknown rest else Got (Option.fold (Char.fromNat code) Unknown Printable) rest
   | Succ count, [] => Incomplete
   | Succ count, [byte, ..rest] =>
-    if 128 ≤ byte && byte ≤ 191 then Key.utf8More minimum (code * 64 + (byte - 128)) count rest
+    if 128 ≤ byte ≤ 191 then Key.utf8More minimum (code * 64 + (byte - 128)) count rest
     else Got Unknown [byte, ..rest]
 
 --| The bytes a terminal sends for a key: what `Key.next` reads back
@@ -246,7 +246,7 @@ def Key.bytes: (key: Key) → List Nat
   | PageDown => [27, 91, 54, 126]
   | Ctrl letter =>
     let code := Char.toNat letter
-    if 97 ≤ code && code ≤ 122 then [code - 96] else [255]
+    if 97 ≤ code ≤ 122 then [code - 96] else [255]
   | Unknown => [255]
 
 --| Every key in `bytes`, in order, as many as are complete. For tests and

@@ -1130,7 +1130,7 @@ test "map: union" := Map.toList (Map.union (Map.singleton 1 "x") Map.example) ==
 test "map: show" := "${Map.example}" == "Map.fromList [(1, \"a\"), (2, \"b\"), (3, \"c\")]"
 test "map: equal in any order" :=
   Map.example == Map.fromList [(1, "a"), (2, "b"), (3, "c")] ∧ Map.example ≠ Map.insert Map.example 2 "B"
-test "map: ordered by entries" := Map.insert Map.example 2 "B" < Map.example ∧ Map.example ≤ Map.fromList [(2, "b"), (1, "a"), (3, "c")]
+test "map: ordered by entries" := Map.insert Map.example 2 "B" < Map.example ≤ Map.fromList [(2, "b"), (1, "a"), (3, "c")]
 
 --| A larger map for the tests below: 1, 2, 3, 5 and 7 to their letters.
 def Map.example2: Map Nat Text := Map.fromList [(3, "c"), (1, "a"), (2, "b"), (7, "g"), (5, "e")]

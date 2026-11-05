@@ -58,7 +58,7 @@ theorem List.foldMinLt (f: a → Nat) (k: Nat): (xs: List a) → (start: Nat) �
   | [x, ..rest], start => rewrite List.foldMinLt f k rest (Nat.min start (f x)) in cases
 
 --| A run of numbers has `k` once if `k` is in it, and not at all otherwise.
-theorem List.countRangeFromEq (k: Nat): (c: Nat) → (s: Nat) → List.count (List.rangeFrom c s) (== k) = Bool.toNat (s ≤ k ∧ k < s + c)
+theorem List.countRangeFromEq (k: Nat): (c: Nat) → (s: Nat) → List.count (List.rangeFrom c s) (== k) = Bool.toNat (s ≤ k < s + c)
   | Zero, s => cases
   | Succ c, s => rewrite List.countCons (List.rangeFrom c (Succ s)) s (== k), List.countRangeFromEq k c (Succ s) in cases
 

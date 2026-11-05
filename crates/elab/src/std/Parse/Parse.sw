@@ -243,7 +243,7 @@ def Parse.natDigits (atLeast: Nat) (atMost: Nat): {Parse} Nat :=
   let start := Parse.mark()
   let digits := Parse.span Parse.isDigit
   let count := digits.length
-  if 0 < count ∧ atLeast ≤ count ∧ count ≤ atMost then digits.map (digit => digit.digitValue.getOrElse 0) |> Nat.fromDigits
+  if 0 < count ∧ atLeast ≤ count ≤ atMost then digits.map (digit => digit.digitValue.getOrElse 0) |> Nat.fromDigits
   else
     Parse.reset start
     let fewest := if atLeast == 0 then 1 else atLeast
