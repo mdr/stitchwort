@@ -6746,9 +6746,9 @@
     {
       "id": 1314,
       "title": "Parse/Reads.sw: drop the copied parser code in std's ~42 readsBind uses now that _ works for named parsers (SW-1227)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1314",
       "labels": [
         "stdlib"
       ],
