@@ -8622,13 +8622,13 @@
     {
       "id": 1446,
       "title": "Language server: nested operations measure their stack limit from where they start, so an operation inside another can run past the thread's real stack; budget.rs's thread-size check covers only the outermost",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1446",
       "labels": [
         "lsp"
       ],
-      "body": "From SW-1430, 5 Nov 2026.\n\nStarted on Sonnet with SW-1456 (native vs wasm stack limits), expected: 60 min.",
+      "body": "From SW-1430, 5 Nov 2026.\n\nStarted on Sonnet with SW-1456 (native vs wasm stack limits), expected: 60 min.\n\nDone (66c811e79), merged: Budget::start clamps a nested floor to the enclosing one; test a_nested_operation_may_not_go_below_the_outer_floor. Model result: Sonnet, worked, 12 min (est. 60, with SW-1456).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8762,13 +8762,13 @@
     {
       "id": 1456,
       "title": "Natively at the playground's limits Float.Theory.roundMagnitudeSpec runs out of recursion depth while wasm checks it: native and wasm stack limits aren't equivalent",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "lsp"
       ],
-      "body": "From SW-1403, 5 Nov 2026.",
+      "body": "From SW-1403, 5 Nov 2026.\n\nExplained (66c811e79), merged: both limit bytes of stack, but wasm frames hold only address-taken locals, so the same bytes buy more depth; release native needs ~1.5x the wasm guard to check std (512 KiB leaves Float/Theory out; 640 KiB+ none), debug far more. Written up in playground-editor.md and on WASM_GUARD. Options: A calibrate a native mimic at 1.5x; B also limit by frame count (same in every build; changes Depth for all hosts); C leave it (wasm is the reference). Orchestrator chose C for now; B goes to Matt as a D question in the morning. Also seen: driver --test nesting's long_list_literals tests fail in debug builds only (pre-existing, same cause).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
