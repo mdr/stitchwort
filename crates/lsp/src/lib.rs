@@ -44,6 +44,7 @@ use stitchwort_driver::driver::Session;
 use stitchwort_driver::live::{
     Answers, FileAnswers, LiveFile, LiveProject, LiveRef, Loc, OutlineItem, Place, Progress,
 };
+use stitchwort_driver::marks as pos_marks;
 use stitchwort_elab::cache::{Key, Store};
 use stitchwort_syntax::{Severity, SourceMap};
 
@@ -51,6 +52,7 @@ use stitchwort_core::budget::Instant;
 #[cfg(target_family = "wasm")]
 use wasm::FileUrl as _;
 
+mod imports;
 mod source;
 pub use source::{Disk, Memory, MemoryProject, ProjectFiles, Source};
 
@@ -96,6 +98,12 @@ pub struct Options {
     /// Read when a project or file is loaded, so a host may set it after
     /// starting the server (the playground fetches it meanwhile).
     pub library: Arc<std::sync::OnceLock<Arc<LibraryBundle>>>,
+    /// The client asked to be told when semantic tokens are out of date
+    /// (`workspace/semanticTokens/refresh`) after a check. Set by
+    /// `initialize`.
+    pub refresh_tokens: bool,
+    /// The same for inlay hints (`workspace/inlayHint/refresh`).
+    pub refresh_hints: bool,
 }
 
 impl Options {
@@ -110,6 +118,8 @@ impl Options {
             search_peak: Arc::default(),
             search_wanted: 3,
             library: Arc::default(),
+            refresh_tokens: false,
+            refresh_hints: false,
         }
     }
 }
@@ -133,6 +143,15 @@ pub fn capabilities() -> serde_json::Value {
         "documentLinkProvider": true,
         "hoverProvider": true,
         "completionProvider": { "triggerCharacters": ["(", "["] },
+        "signatureHelpProvider": { "triggerCharacters": ["(", "[", " "] },
+        "inlayHintProvider": true,
+        "semanticTokensProvider": {
+            "legend": {
+                "tokenTypes": pos_marks::TOKEN_TYPES,
+                "tokenModifiers": pos_marks::TOKEN_MODIFIERS,
+            },
+            "full": true,
+        },
         "selectionRangeProvider": true,
         "experimental": { "hoverRange": true },
         "referencesProvider": true,
@@ -153,6 +172,14 @@ fn initialize(params: &serde_json::Value, options: &mut Options) -> (serde_json:
     {
         options.debounce = Duration::from_millis(ms);
     }
+    let supports = |pointer: &str| {
+        params
+            .pointer(pointer)
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false)
+    };
+    options.refresh_tokens = supports("/capabilities/workspace/semanticTokens/refreshSupport");
+    options.refresh_hints = supports("/capabilities/workspace/inlayHint/refreshSupport");
     let document_changes = params
         .pointer("/capabilities/workspace/workspaceEdit/documentChanges")
         .and_then(serde_json::Value::as_bool)
@@ -631,7 +658,11 @@ impl Main {
             })
         };
         let (Some(range), Some(target)) = (goal, self.search_target(&uri)) else {
-            self.answer_null(id);
+            let fixes = self.import_fixes(&uri, &p.context.diagnostics);
+            let _ = self
+                .connection
+                .sender
+                .send(Response::new_ok(id, fixes).into());
             return;
         };
         let document_changes = self.document_changes;
@@ -643,6 +674,52 @@ impl Main {
                 versioned: document_changes.then_some(version),
             },
         });
+    }
+
+    /// The quick fixes for the unknown names among `diagnostics`: each adds
+    /// the import the diagnostic's `data` carries (D2244's neighbour, the
+    /// roadmap's step 2). `null` if there is none.
+    fn import_fixes(&self, uri: &Url, diagnostics: &[lsp_types::Diagnostic]) -> serde_json::Value {
+        let texts = self.texts.borrow();
+        let Some(text) = texts.get(uri) else {
+            return serde_json::Value::Null;
+        };
+        let version = lock(&self.searches.versions).get(uri).copied();
+        let mut actions = Vec::new();
+        for d in diagnostics {
+            let Some(import) = d.data.as_ref().and_then(|data| data.get("import")) else {
+                continue;
+            };
+            let (Some(path), Some(item)) = (
+                import.get("path").and_then(|v| v.as_str()),
+                import.get("item").and_then(|v| v.as_str()),
+            ) else {
+                continue;
+            };
+            let Some(edit) = imports::add_import(text, path, item) else {
+                continue;
+            };
+            let edits = [edit];
+            let edit = match version.filter(|_| self.document_changes) {
+                Some(version) => serde_json::json!({"documentChanges": [{
+                    "textDocument": {"uri": uri.as_str(), "version": version},
+                    "edits": edits,
+                }]}),
+                None => serde_json::json!({"changes": {uri.as_str(): edits}}),
+            };
+            actions.push(serde_json::json!({
+                "title": format!("Add `import {path} ({item})`"),
+                "kind": "quickfix",
+                "diagnostics": [d],
+                "edit": edit,
+                "isPreferred": actions.is_empty(),
+            }));
+        }
+        if actions.is_empty() {
+            serde_json::Value::Null
+        } else {
+            serde_json::Value::Array(actions)
+        }
     }
 
     /// `stitchwort/contextAt`: the expected type and the names in scope at
@@ -937,6 +1014,97 @@ impl Main {
         Some(items)
     }
 
+    /// `textDocument/inlayHint`: the type of each `let` variable in the
+    /// range whose type isn't written ([`pos_marks::let_hints`]). Nothing
+    /// else gets a hint (D2244).
+    fn inlay_hints(
+        &self,
+        nav: &Nav,
+        p: &lsp_types::InlayHintParams,
+    ) -> Option<Vec<lsp_types::InlayHint>> {
+        let uri = &p.text_document.uri;
+        let texts = self.texts.borrow();
+        let text = texts.get(uri)?;
+        let (_, ws, place) = locate(nav, uri)?;
+        let file = ws.files.get(&place)?;
+        let hints = pos_marks::let_hints(file, &place, text, Some(ranged(p.range)));
+        Some(
+            hints
+                .into_iter()
+                .map(|h| lsp_types::InlayHint {
+                    position: Position::new(h.line, h.character),
+                    label: lsp_types::InlayHintLabel::String(h.label),
+                    kind: Some(lsp_types::InlayHintKind::TYPE),
+                    text_edits: None,
+                    tooltip: None,
+                    padding_left: Some(false),
+                    padding_right: Some(false),
+                    data: None,
+                })
+                .collect(),
+        )
+    }
+
+    /// `textDocument/semanticTokens/full`: each name coloured by what it
+    /// resolved to ([`pos_marks::semantic_marks`]), from the last check.
+    fn semantic_tokens(&self, nav: &Nav, uri: &Url) -> Option<lsp_types::SemanticTokens> {
+        let (_, ws, place) = locate(nav, uri)?;
+        let file = ws.files.get(&place)?;
+        let mut data = Vec::new();
+        let (mut line, mut start) = (0, 0);
+        for m in pos_marks::semantic_marks(file, &place) {
+            data.push(lsp_types::SemanticToken {
+                delta_line: m.line - line,
+                delta_start: if m.line == line {
+                    m.start - start
+                } else {
+                    m.start
+                },
+                length: m.length,
+                token_type: m.token_type,
+                token_modifiers_bitset: m.modifiers,
+            });
+            (line, start) = (m.line, m.start);
+        }
+        Some(lsp_types::SemanticTokens {
+            result_id: None,
+            data,
+        })
+    }
+
+    /// `textDocument/signatureHelp`: the signature of the call the cursor
+    /// is in, from the types the last check published ([`pos::signature_help_at`]).
+    fn signature_help(
+        &self,
+        nav: &Nav,
+        uri: &Url,
+        at: Position,
+    ) -> Option<lsp_types::SignatureHelp> {
+        let texts = self.texts.borrow();
+        let text = texts.get(uri)?;
+        let (_, ws, place) = locate(nav, uri)?;
+        let file = ws.files.get(&place)?;
+        let help = pos::signature_help_at(file, text, offset_at(text, at))?;
+        let parameters = help
+            .parameters
+            .iter()
+            .map(|&label| lsp_types::ParameterInformation {
+                label: lsp_types::ParameterLabel::LabelOffsets(label),
+                documentation: None,
+            })
+            .collect();
+        Some(lsp_types::SignatureHelp {
+            signatures: vec![lsp_types::SignatureInformation {
+                label: help.label,
+                documentation: None,
+                parameters: Some(parameters),
+                active_parameter: None,
+            }],
+            active_signature: Some(0),
+            active_parameter: help.active.and_then(|i| u32::try_from(i).ok()),
+        })
+    }
+
     /// The text of a document: the editor's, or the file's on disk.
     fn text(&self, uri: &Url) -> Option<String> {
         if let Some(text) = self.texts.borrow().get(uri).cloned() {
@@ -1004,6 +1172,22 @@ impl Main {
                     let at = p.text_document_position;
                     let items = self.completions(&nav, &at.text_document.uri, at.position);
                     serde_json::to_value(items.map(lsp_types::CompletionResponse::Array))
+                })
+            }
+            request::InlayHintRequest::METHOD => parse::<lsp_types::InlayHintParams>(&request)
+                .map(|p| serde_json::to_value(self.inlay_hints(&nav, &p))),
+            request::SemanticTokensFullRequest::METHOD => {
+                parse::<lsp_types::SemanticTokensParams>(&request)
+                    .map(|p| serde_json::to_value(self.semantic_tokens(&nav, &p.text_document.uri)))
+            }
+            request::SignatureHelpRequest::METHOD => {
+                parse::<lsp_types::SignatureHelpParams>(&request).map(|p| {
+                    let at = p.text_document_position_params;
+                    serde_json::to_value(self.signature_help(
+                        &nav,
+                        &at.text_document.uri,
+                        at.position,
+                    ))
                 })
             }
             request::SelectionRangeRequest::METHOD => {
@@ -1663,6 +1847,8 @@ struct Checker {
     also: Vec<PathBuf>,
     /// The versions last announced (`stitchwort/checked`).
     announced: BTreeMap<String, i32>,
+    /// The ids of the requests to the client so far (the refreshes).
+    requests: u32,
     /// The diagnostics last published for each file, and its version then.
     published: HashMap<Url, (Option<i32>, Vec<lsp_types::Diagnostic>)>,
     /// An edit's diagnostics are still to be published (for
@@ -1689,6 +1875,7 @@ impl Checker {
             last: None,
             also: Vec::new(),
             announced: BTreeMap::new(),
+            requests: 0,
             published: HashMap::default(),
             unanswered: false,
         }
@@ -1900,6 +2087,21 @@ impl Checker {
         for params in notes {
             let n = Notification::new(notification::PublishDiagnostics::METHOD.to_string(), params);
             let _ = self.sender.send(n.into());
+        }
+        // The names and types the editor draws are from these answers.
+        for (wanted, method) in [
+            (
+                self.options.refresh_tokens,
+                "workspace/semanticTokens/refresh",
+            ),
+            (self.options.refresh_hints, "workspace/inlayHint/refresh"),
+        ] {
+            if wanted {
+                self.requests += 1;
+                let id = lsp_server::RequestId::from(format!("stitchwort-{}", self.requests));
+                let request = Request::new(id, method.to_string(), serde_json::Value::Null);
+                let _ = self.sender.send(request.into());
+            }
         }
     }
 
@@ -2228,6 +2430,8 @@ impl Inline {
                 request::Initialize::METHOD => {
                     let (reply, document_changes) = initialize(&request.params, &mut self.options);
                     self.main.document_changes = document_changes;
+                    self.checker.options.refresh_tokens = self.options.refresh_tokens;
+                    self.checker.options.refresh_hints = self.options.refresh_hints;
                     let response = Response::new_ok(request.id, reply);
                     let _ = self.main.connection.sender.send(response.into());
                 }
@@ -2391,7 +2595,10 @@ fn diagnostic(
         message,
         related_information: (!related.is_empty()).then_some(related),
         tags: None,
-        data: None,
+        data: d
+            .import
+            .as_ref()
+            .map(|i| serde_json::json!({ "import": { "path": i.path, "item": i.item } })),
     }
 }
 

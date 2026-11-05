@@ -12,7 +12,11 @@ Syntax colouring for `.sw` files, and a thin client for the language server
   update `syntaxes/stitchwort.tmLanguage.json`.
 - `?` goal holes are highlighted; the language server shows each hole's goal on hover.
 - **From the server**, through the standard protocol: diagnostics as you type,
-  go to definition, find references, hover, and the outline. An `include`
+  go to definition, find references, hover, the outline, signature help in a
+  call's arguments, the add-import quick fix on an unknown name, inlay hints
+  for the type of a `let` whose type isn't written, and semantic colours for
+  names the checker resolved (functions, types, constructors, variables,
+  theorems, abilities). An `include`
   path is a document link to the included file. Nothing of these is
   computed in the extension.
 - **Goals panel.** Run "Stitchwort: Show Goals" from the command palette: a

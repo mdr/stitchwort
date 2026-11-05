@@ -13,6 +13,7 @@ pub mod stack;
 
 pub use diagnostic::{
     Counterexample, Detail, Diagnostic, GoalData, Hypothesis, Label, MissingCases, Severity,
+    SuggestedImport,
 };
 /// The token stream, for tools that edit source text at token spans.
 pub use lexer::{

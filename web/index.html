@@ -205,6 +205,13 @@
   .hl-interp { color: var(--hl-interp); }
   .hl-comment { color: var(--hl-comment); }
   .hl-operator { color: var(--hl-operator); }
+  /* What the language server resolved each name to (semantic tokens; the editor only). */
+  .cm-editor .sem-type, .cm-editor .sem-interface, .cm-editor .sem-ability { color: var(--hl-name); }
+  .cm-editor .sem-function, .cm-editor .sem-theorem { color: var(--hl-defined); }
+  .cm-editor .sem-theorem { font-style: italic; }
+  .cm-editor .sem-enumMember { color: var(--hl-number); }
+  .cm-editor .sem-decl { font-weight: 600; }
+  .cm-inlay { color: var(--hl-comment); font-style: italic; pointer-events: none; }
 
   /* A project's files: a row of tabs that scrolls inside itself (so the page
      never scrolls sideways), and the controls for the open file. */

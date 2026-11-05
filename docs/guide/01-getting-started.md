@@ -149,5 +149,9 @@ Its tabs check the code, run its tests, evaluate an expression, show the generat
 - go to definition and find references, including into the standard library, whose files open read-only; an `include "path"` string is a link that opens the included file;
 - the outline and workspace symbols;
 - completion of parameter names after `(` or `[` in a call (`clampTo (` offers `low`, `high` and `value`);
+- signature help in a call's arguments: the function's parameters, with the one you are writing highlighted (a `(low := 1)` highlights `low`);
+- a quick fix on an unknown name that needs an import (`Map` without `import Std (Map)`): "Add `import Std (Map)`" inserts it, into an existing `import Std (…)` line if there is one;
+- the type of a `let` whose type you didn't write, shown after its name (`let total` becomes `total: Nat`), once something uses the variable; no other inlay hints;
+- colours from what the checker resolved each name to: functions, types, constructors, variables, theorems and abilities, with declarations in bold (VS Code: semantic highlighting; the playground draws them too);
 - formatting (Format Document and Format Selection);
 - **goals**: each `?` in a proof shows what has to go there, and the command "Stitchwort: Show Goals" opens a panel that follows the cursor ([chapter 10](10-proofs.md)).

@@ -12,6 +12,7 @@ pub mod driver;
 pub mod fingerprint;
 pub mod float_gate;
 pub mod live;
+pub mod marks;
 pub mod nav;
 pub mod project;
 pub mod render;

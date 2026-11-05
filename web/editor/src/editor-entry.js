@@ -9,9 +9,10 @@
 // tokenizer), and everything the language server offers: errors underlined
 // with their messages, hover, go to definition (into other files of a
 // project and into the library, read-only), find references, formatting,
-// completion, and code actions on `?`, for which the client has no UI.
-import { EditorView, keymap, lineNumbers, drawSelection, Decoration } from "@codemirror/view";
-import { EditorState, StateField, RangeSetBuilder, Prec } from "@codemirror/state";
+// completion, signature help, semantic colours, inlay hints on `let`s, and code actions (a proof for a `?`, an `import` for an unknown
+// name), for which the client has no UI.
+import { EditorView, keymap, lineNumbers, drawSelection, Decoration, WidgetType } from "@codemirror/view";
+import { EditorState, StateField, StateEffect, RangeSetBuilder, Prec } from "@codemirror/state";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { indentUnit } from "@codemirror/language";
 import { lintGutter } from "@codemirror/lint";
@@ -40,6 +41,38 @@ function colouring(colour) {
     update: (value, tr) => (tr.docChanged ? build(tr.newDoc.toString()) : value),
     provide: (field) => EditorView.decorations.from(field),
   });
+}
+
+/** The semantic colours and inlay hints the server last gave a document (the client has neither). */
+const setMarks = StateEffect.define();
+
+class Hint extends WidgetType {
+  constructor(label) { super(); this.label = label; }
+  eq(other) { return other.label === this.label; }
+  toDOM() {
+    const span = document.createElement("span");
+    span.className = "cm-inlay";
+    span.textContent = this.label;
+    return span;
+  }
+  ignoreEvent() { return true; }
+}
+
+/**
+ * The decorations of the server's semantic tokens (class `sem-TYPE`, and
+ * `sem-decl` on a declaration) and of its inlay hints, kept in place across
+ * edits until the server answers again.
+ */
+function serverMarks() {
+  return Prec.high(StateField.define({
+    create: () => Decoration.none,
+    update(value, tr) {
+      value = value.map(tr.changes);
+      for (const e of tr.effects) if (e.is(setMarks)) value = e.value;
+      return value;
+    },
+    provide: (field) => EditorView.decorations.from(field),
+  }));
 }
 
 export class Editor {
@@ -124,6 +157,7 @@ export class Editor {
           if (stats.published.length > 300) stats.published.shift();
           stats.firstDiagnostics ??= now;
           this.published.set(m.params.uri, m.params.diagnostics);
+          this.scheduleMarks(m.params.uri);
         } else if (m.method === "stitchwort/checked") {
           for (const [uri, version] of Object.entries(m.params.versions)) this.checkedVersions.set(uri, version);
         }
@@ -267,6 +301,7 @@ export class Editor {
         lineNumbers(), drawSelection(), history(), lintGutter(),
         indentUnit.of("  "), EditorState.tabSize.of(2),
         this.colourField,
+        serverMarks(),
         client_plugin(this.client, uri),
         input,
         EditorState.readOnly.of(readOnly),
@@ -568,6 +603,56 @@ export class Editor {
     this.view.scrollDOM.scrollLeft = there.left;
   }
 
+  // ---- Semantic colours and inlay hints -----------------------------------------
+
+  /** Asks the server for the colours and hints of `uri` soon (after a burst of answers). */
+  scheduleMarks(uri) {
+    this.markTimers ??= new Map();
+    clearTimeout(this.markTimers.get(uri));
+    this.markTimers.set(uri, setTimeout(() => this.refreshMarks(uri), 60));
+  }
+
+  async refreshMarks(uri) {
+    const view = this.views.get(uri);
+    const plugin = view && LSPPlugin.get(view);
+    const legend = plugin?.client.serverCapabilities?.semanticTokensProvider?.legend;
+    if (!plugin || !legend) return;
+    const doc = view.state.doc;
+    plugin.client.sync();
+    const textDocument = { uri };
+    const ask = (method, params) => plugin.client.request(method, params).catch(() => null);
+    const [tokens, hints] = await Promise.all([
+      ask("textDocument/semanticTokens/full", { textDocument }),
+      ask("textDocument/inlayHint", { textDocument, range: { start: { line: 0, character: 0 }, end: plugin.toPosition(doc.length) } }),
+    ]);
+    // The text moved on meanwhile: the answers to the next check are for it.
+    if (view.state.doc !== doc) return;
+    // The answers are for the text last checked, which may be shorter than this.
+    const offset = ({ line, character }) => {
+      const l = doc.line(Math.min(line + 1, doc.lines));
+      return Math.min(l.from + character, l.to);
+    };
+    const ranges = [];
+    let line = 0, start = 0;
+    for (let i = 0; tokens && i + 4 < tokens.data.length; i += 5) {
+      const [dl, ds, length, type, modifiers] = tokens.data.slice(i, i + 5);
+      line += dl;
+      start = dl ? ds : start + ds;
+      const from = offset({ line, character: start });
+      const to = offset({ line, character: start + length });
+      if (to <= from) continue;
+      const classes = [`sem-${legend.tokenTypes[type]}`];
+      if (modifiers & 1) classes.push("sem-decl");
+      if (modifiers & 2) classes.push("sem-lib");
+      ranges.push(Decoration.mark({ class: classes.join(" ") }).range(from, to));
+    }
+    for (const h of hints ?? []) {
+      const label = typeof h.label === "string" ? h.label : h.label.map((p) => p.value).join("");
+      ranges.push(Decoration.widget({ widget: new Hint(label), side: 1 }).range(offset(h.position)));
+    }
+    view.dispatch({ effects: setMarks.of(Decoration.set(ranges, true)) });
+  }
+
   // ---- Format and code actions ------------------------------------------------
 
   /** Formats the file: the page's `format` if it gave one, else the server's. */
@@ -590,11 +675,17 @@ export class Editor {
     const notice = this.options.onNotice;
     notice?.("Looking for code actions…");
     let actions;
+    const start = plugin.toPosition(from);
+    const end = plugin.toPosition(to);
+    // The diagnostics at the cursor, which the server's quick fixes (an
+    // unknown name's import) are for.
+    const before = (a, b) => a.line < b.line || (a.line === b.line && a.character <= b.character);
+    const diagnostics = (this.published.get(plugin.uri) ?? []).filter((d) => before(d.range.start, end) && before(start, d.range.end));
     try {
       actions = await plugin.client.request("textDocument/codeAction", {
         textDocument: { uri: plugin.uri },
-        range: { start: plugin.toPosition(from), end: plugin.toPosition(to) },
-        context: { diagnostics: [] },
+        range: { start, end },
+        context: { diagnostics },
       });
     } catch (e) {
       notice?.(`Code actions failed: ${e.message ?? e}`);

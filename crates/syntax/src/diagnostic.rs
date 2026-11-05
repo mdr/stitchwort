@@ -48,6 +48,18 @@ pub struct Detail {
     /// For `E-NONEXHAUSTIVE` on a constructor case: every case no arm
     /// matches, as patterns, for the index.
     pub missing: Option<MissingCases>,
+    /// For `E-UNKNOWN-NAME` when an import would bring the name in: the
+    /// import to add, for the editor's quick fix.
+    pub import: Option<SuggestedImport>,
+}
+
+/// `import <path> (<item>)`: the import a diagnostic suggests.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SuggestedImport {
+    /// The namespace, in full (`Std`, `Std.List`).
+    pub path: String,
+    /// The name taken from it.
+    pub item: String,
 }
 
 /// The cases a `match` leaves out (SW-1027): each a row of patterns, one
@@ -127,6 +139,19 @@ impl Diagnostic {
 
     pub fn missing_data(&self) -> Option<&MissingCases> {
         self.detail.as_ref()?.missing.as_ref()
+    }
+
+    pub fn import_data(&self) -> Option<&SuggestedImport> {
+        self.detail.as_ref()?.import.as_ref()
+    }
+
+    /// Records the import that would fix this diagnostic.
+    pub fn with_import(mut self, path: impl Into<String>, item: impl Into<String>) -> Self {
+        self.detail_mut().import = Some(SuggestedImport {
+            path: path.into(),
+            item: item.into(),
+        });
+        self
     }
 
     pub fn error(code: &'static str, message: impl Into<String>) -> Self {

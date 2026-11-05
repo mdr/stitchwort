@@ -354,12 +354,7 @@ impl Signature {
 /// typed) doesn't hide it.
 pub fn signature_at(file: &FileAnswers, text: &str, offset: usize) -> Option<Signature> {
     let call = completion::call_at(text, offset)?;
-    let last = call.head.rsplit('.').next().unwrap_or(&call.head);
-    let signature = file
-        .refs
-        .iter()
-        .filter(|r| r.name == last || r.name.ends_with(&format!(".{last}")))
-        .find_map(|r| r.signature.as_deref())?;
+    let signature = printed_signature(file, &call.head)?;
     Some(Signature {
         function: call.head,
         signature: signature.to_string(),
@@ -367,6 +362,80 @@ pub fn signature_at(file: &FileAnswers, text: &str, offset: usize) -> Option<Sig
         given: call.given,
         parameters: completion::parameters(signature),
     })
+}
+
+/// The printed type of the function `head` (as written), from the
+/// references the file last published.
+fn printed_signature<'a>(file: &'a FileAnswers, head: &str) -> Option<&'a str> {
+    let last = head.rsplit('.').next().unwrap_or(head);
+    file.refs
+        .iter()
+        .filter(|r| r.name == last || r.name.ends_with(&format!(".{last}")))
+        .find_map(|r| r.signature.as_deref())
+}
+
+/// A call's signature for the editor to show, with the parameter the
+/// cursor is at.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SignatureHelp {
+    /// `clampTo (low: Nat) (high: Nat) (value: Nat): Nat`.
+    pub label: String,
+    /// Where each parameter is in `label`, in UTF-16 units, in order.
+    pub parameters: Vec<[u32; 2]>,
+    /// The parameter (an index in `parameters`) the cursor is at.
+    pub active: Option<usize>,
+}
+
+/// The signature of the innermost call around byte `offset` of `text`
+/// whose function has a published type with parameters, and the parameter
+/// the cursor is at: the next one without a name, or the one the cursor's
+/// `(name := …)` names.
+pub fn signature_help_at(file: &FileAnswers, text: &str, offset: usize) -> Option<SignatureHelp> {
+    completion::calls_at(text, offset)
+        .into_iter()
+        .find_map(|call| {
+            let ty = printed_signature(file, &call.head)?;
+            let mut parts = completion::segments(ty);
+            let result = parts.pop()?;
+            if parts.is_empty() {
+                return None;
+            }
+            let mut label = call.head.clone();
+            let mut spans = Vec::new();
+            let width = |s: &str| u32::try_from(s.encode_utf16().count()).unwrap_or(u32::MAX);
+            for part in &parts {
+                label.push(' ');
+                let start = width(&label);
+                // An unnamed parameter is its type: bracketed where it
+                // has several words, so that it reads as one.
+                if part.contains(' ') && !part.starts_with(['(', '[']) {
+                    label.push_str(&format!("({part})"));
+                } else {
+                    label.push_str(part);
+                }
+                spans.push([start, width(&label)]);
+            }
+            label.push_str(": ");
+            label.push_str(result);
+            let named = |p: &&str| completion::parameter(p);
+            let active = match &call.named {
+                Some(name) => parts
+                    .iter()
+                    .position(|p| named(p).is_some_and(|p| &p.name == name)),
+                None => parts
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, p)| !p.starts_with('['))
+                    .filter(|(_, p)| named(p).is_none_or(|p| !call.given.contains(&p.name)))
+                    .map(|(i, _)| i)
+                    .nth(call.position),
+            };
+            Some(SignatureHelp {
+                label,
+                parameters: spans,
+                active,
+            })
+        })
 }
 
 // ---- quick fixes --------------------------------------------------------
