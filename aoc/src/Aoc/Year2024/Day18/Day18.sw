@@ -49,7 +49,7 @@ def parseBytes (input: Text): {Fail} List Position := Parse.eachLine input byte
 type MemorySpace = { size: Nat, corrupted: Set Position }
 
 --| The memory space once the first `fallen` bytes have fallen.
-def MemorySpace.after (size: Nat) (bytes: List Position) (fallen: Nat): MemorySpace := { size, corrupted = bytes.take fallen |> Set.fromList }
+def MemorySpace.after (size: Nat) (bytes: List Position) (fallen: Nat): MemorySpace := { size, corrupted = bytes.take fallen |> .toSet }
 
 --| Inside the memory space and not corrupted.
 def MemorySpace.isSafe (memory: MemorySpace) (position: Position): Bool :=

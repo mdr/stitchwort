@@ -42,7 +42,7 @@ def isAntinode (city: City) (point: Position): Bool :=
 def isHarmonicAntinode (city: City) (point: Position): Bool := twoAntennas city (first second => inLine point first second)
 
 --| "Unique locations within the bounds of the map" that `isAntinode`.
-def antinodeLocations (city: City) (isAntinode: Position → Bool): Set Position := Set.fromList (positions city.height city.width) |> .filter isAntinode
+def antinodeLocations (city: City) (isAntinode: Position → Bool): Set Position := (positions city.height city.width).toSet |> .filter isAntinode
 
 --| "How many unique locations within the bounds of the map contain an
 --| antinode?"

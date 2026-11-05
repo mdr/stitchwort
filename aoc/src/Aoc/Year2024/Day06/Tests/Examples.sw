@@ -77,7 +77,7 @@ test "one obstruction can close a square" := (labOf [".#...", "....#", ".....", 
 test "no obstruction can trap a guard in one column" := (labOf [".", ".", "^"]).map solvePart2 == Ok (Some 0)
 
 --| Parsing.
-test "parse the example's first row" := labOf ["..#^"] == Ok ({ height = 1, width = 4, obstructions = Set.fromList [at 0 2], start = at 0 3 })
+test "parse the example's first row" := labOf ["..#^"] == Ok ({ height = 1, width = 4, obstructions = [at 0 2].toSet, start = at 0 3 })
 test "a stray character" := labOf ["..", ".x", "^."] == Err "line 2: expected '.', '#' or '^', got 'x'"
 test "a short line" := labOf ["...", "..", "^.."] == Err "line 2: expected 3 characters, as on the first line, got 2"
 test "no guard" := labOf ["..", ".."] == Err "expected a guard (^) on the map, found none"

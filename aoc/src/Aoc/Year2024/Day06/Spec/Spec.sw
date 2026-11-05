@@ -32,7 +32,7 @@ def route (lab: Lab) (guard: Option Guard): (steps: Nat) → List Position
 
 --| "How many distinct positions will the guard visit before leaving the
 --| mapped area?", given a number of steps by which she has left.
-def distinctPositions (lab: Lab) (steps: Nat): Nat := (Set.fromList (route lab (Some lab.startGuard) steps)).size
+def distinctPositions (lab: Lab) (steps: Nat): Nat := (route lab (Some lab.startGuard) steps).toSet.size
 
 --| On the mapped area.
 def onMap (lab: Lab) (position: Position): Bool := position.row < lab.height && position.column < lab.width
@@ -46,7 +46,7 @@ def positions (lab: Lab): List Position :=
 --| stuck in a loop". `trapped` decides `Loops` for the lab with an
 --| obstruction there, so any such decision gives the same set.
 def trapPositions (lab: Lab) (trapped: Position → Bool): Set Position :=
-  Set.fromList (positions lab)
+  (positions lab).toSet
     |> .filter (position => position != lab.start && !lab.obstructions.contains position && trapped position)
 
 --| `trapped` decides whether the guard loops with an obstruction added at

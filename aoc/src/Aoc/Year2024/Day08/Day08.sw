@@ -49,7 +49,7 @@ def City.antennaPairs (city: City): List (Position, Position) :=
         |> .map (other => (antenna.position, other.position)))
 
 --| The distinct positions on the map among `positions`.
-def City.locations (city: City) (positions: List Position): Set Position := positions.filter city.contains |> Set.fromList
+def City.locations (city: City) (positions: List Position): Set Position := positions.filter city.contains |> .toSet
 
 --| The points in line with `far` and `near` where `far` is twice as far away
 --| as `near`: past `near` by the step from `far` to it, and a third of the

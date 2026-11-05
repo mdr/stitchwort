@@ -211,7 +211,7 @@ test "pushing a wide box right" := wideOf "@O.." |> .map (warehouse => draw True
 --| A box under two others, the robot under its right half, and `walls`: the
 --| push up meets both boxes above.
 def stacked (walls: List Cell): Warehouse :=
-  { walls = Set.fromList walls, boxes = Set.fromList [at 1 2, at 1 4, at 2 3], robot = at 3 4 }
+  { walls = walls.toSet, boxes = [at 1 2, at 1 4, at 2 3].toSet, robot = at 3 4 }
 
 test "pushing a box up pushes both boxes on it" :=
   draw True ((stacked []).moveWide Up) 4 8 == ["..[][]..", "...[]...", "....@...", "........"]
