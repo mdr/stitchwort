@@ -8028,14 +8028,14 @@
     {
       "id": 1405,
       "title": "Std: a list pigeonhole lemma (a path longer than the number of distinct nodes repeats one), then prove 2020 day 7 part 2's depth limit suffices; later an acyclic relation and recursion over it (memoised fold over a DAG)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1405",
       "labels": [
         "std",
         "proofs"
       ],
-      "body": "From SW-1402 (2020 day 7), 5 Nov 2026. For day 7's friction review.\n\nD2429 (day 7 friction review, 5 Nov 2026; Matt delegated the decisions): do it. Order: day 8, then SW-1407, SW-1409, SW-1410, SW-1406 with SW-1408, SW-1405, SW-1411 (after SW-1407: both touch day 7's graph).",
+      "body": "From SW-1402 (2020 day 7), 5 Nov 2026. For day 7's friction review.\n\nD2429 (day 7 friction review, 5 Nov 2026; Matt delegated the decisions): do it. Order: day 8, then SW-1407, SW-1409, SW-1410, SW-1406 with SW-1408, SW-1405, SW-1411 (after SW-1407: both touch day 7's graph).\n\nStarted on Sonnet, expected: 90 min (the pigeonhole lemma and day 7's depth bound; the acyclic fold left for later).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
