@@ -6,7 +6,7 @@
 --| that its answers are these.
 
 namespace Aoc.Year2021.Day16.Spec
-import Aoc.Year2021.Day16 (LengthType, Operation, Packet)
+import Aoc.Year2021.Day16 (Comparison, LengthType, Operation, OperatorType, Packet)
 import Std (List, Nat, NonEmptyList, Option)
 
 --| The puzzle's hexadecimal digits and their bits.
@@ -38,14 +38,14 @@ def transmissionBits: List Char → Option (List Bool)
       | _, _ => None
 
 --| The type id of each operator.
-def typeId: Operation → Nat
-  | Sum => 0
-  | Product => 1
-  | Minimum => 2
-  | Maximum => 3
-  | GreaterThan => 5
-  | LessThan => 6
-  | EqualTo => 7
+def typeId: OperatorType → Nat
+  | Calculation Sum => 0
+  | Calculation Product => 1
+  | Calculation Minimum => 2
+  | Calculation Maximum => 3
+  | Comparing GreaterThan => 5
+  | Comparing LessThan => 6
+  | Comparing EqualTo => 7
 
 --| A literal's groups: each is four bits after a bit that is 1, except the
 --| last group's, which is 0.
@@ -62,32 +62,53 @@ def groupBitsFrom: Nat → List Nat → List Bool
 --| bits, and the sub-packets.
 def encode: Packet → List Bool
   | Literal version groups => Nat.toBits 3 version ++ Nat.toBits 3 4 ++ groupBits groups
-  | Operator version operation TotalLength subPackets =>
-    Nat.toBits 3 version ++ Nat.toBits 3 (typeId operation) ++ [False, ..Nat.toBits 15 (encodeAll subPackets).length ++ encodeAll subPackets]
-  | Operator version operation Count subPackets =>
-    Nat.toBits 3 version ++ Nat.toBits 3 (typeId operation) ++ [True, ..Nat.toBits 11 subPackets.length ++ encodeAll subPackets]
+  | Operator version operation lengthType ({ head = first, tail = rest }) =>
+    operatorBits version (typeId (Calculation operation)) lengthType (Succ rest.length) (encode first ++ encodeAll rest)
+  | Comparator version comparison lengthType first second =>
+    operatorBits version (typeId (Comparing comparison)) lengthType 2 (encode first ++ encode second)
 
 --| Packets one after another.
 def encodeAll: List Packet → List Bool
   | [] => []
   | [packet, ..rest] => encode packet ++ encodeAll rest
 
+--| An operator's bits, given the bits of its count sub-packets.
+def operatorBits (version: Nat) (typeId: Nat) (lengthType: LengthType) (count: Nat) (subBits: List Bool): List Bool :=
+  Nat.toBits 3 version ++ Nat.toBits 3 typeId ++ lengthField lengthType count subBits
+
+--| The length type id, then the length of the sub-packets' bits in 15 bits
+--| or their number in 11 bits, and the sub-packets' bits.
+def lengthField: LengthType → Nat → List Bool → List Bool
+  | TotalLength, _, subBits => [False, ..Nat.toBits 15 subBits.length ++ subBits]
+  | Count, count, subBits => [True, ..Nat.toBits 11 count ++ subBits]
+
 --| A packet whose numbers fit their fields: the version in three bits, at
 --| least one group, each in four bits, and the sub-packets' length or
 --| number in its 15 or 11 bits. Only these have the encoding above.
 def wellFormed: Packet → Bool
   | Literal version groups => version < 8 && groups.all (group => group < 16)
-  | Operator version _ TotalLength subPackets => version < 8 && (encodeAll subPackets).length < 32768 && allWellFormed subPackets
-  | Operator version _ Count subPackets => version < 8 && subPackets.length < 2048 && allWellFormed subPackets
+  | Operator version _ lengthType ({ head = first, tail = rest }) =>
+    version < 8 && fitsLength lengthType (Succ rest.length) (encode first ++ encodeAll rest) && wellFormed first && allWellFormed rest
+  | Comparator version _ lengthType first second =>
+    version < 8 && fitsLength lengthType 2 (encode first ++ encode second) && wellFormed first && wellFormed second
 
 def allWellFormed: List Packet → Bool
   | [] => True
   | [packet, ..rest] => wellFormed packet && allWellFormed rest
 
+--| Whether the sub-packets' bits, or their number, fit the 15 or 11 bits
+--| that give it.
+def fitsLength: LengthType → Nat → List Bool → Bool
+  | TotalLength, _, subBits => subBits.length < 32768
+  | Count, count, _ => count < 2048
+
 --| A packet and every packet inside it, at any depth.
 def packetsIn: Packet → List Packet
   | Literal version groups => [Literal version groups]
-  | Operator version operation lengthType subPackets => [Operator version operation lengthType subPackets, ..packetsInAll subPackets]
+  | Operator version operation lengthType ({ head = first, tail = rest }) =>
+    [Operator version operation lengthType (NonEmptyList.cons first rest), ..packetsIn first ++ packetsInAll rest]
+  | Comparator version comparison lengthType first second =>
+    [Comparator version comparison lengthType first second, ..packetsIn first ++ packetsIn second]
 
 def packetsInAll: List Packet → List Packet
   | [] => []
@@ -96,53 +117,40 @@ def packetsInAll: List Packet → List Packet
 def versionOf: Packet → Nat
   | Literal version _ => version
   | Operator version _ _ _ => version
+  | Comparator version _ _ _ _ => version
 
 --| Part 1: the versions of all the packets, added up.
 def versionTotal (packet: Packet): Nat := (packetsIn packet).sumBy versionOf
-
---| What the puzzle promises of the operators it evaluates: a minimum or a
---| maximum has at least one sub-packet, and a comparison exactly two. (A sum
---| or product of none is 0 or 1.)
-def promised: Packet → Bool
-  | Literal _ _ => True
-  | Operator _ operation _ subPackets => fitsOperation operation subPackets.length && allPromised subPackets
-
-def allPromised: List Packet → Bool
-  | [] => True
-  | [packet, ..rest] => promised packet && allPromised rest
-
-def fitsOperation: Operation → Nat → Bool
-  | Minimum, count => 0 < count
-  | Maximum, count => 0 < count
-  | GreaterThan, count => count == 2
-  | LessThan, count => count == 2
-  | EqualTo, count => count == 2
-  | _, _ => True
 
 --| Part 2: a packet's value. A literal's is its groups' bits read as one
 --| binary number; an operator's is computed from its sub-packets' values.
 type HasValue: Packet → Nat → Prop =
   | LiteralValue (version: Nat) (groups: NonEmptyList Nat): HasValue (Literal version groups) (Nat.fromBits (groups.toList.flatMap (Nat.toBits 4)))
-  | OperatorValue (each: Values subPackets values) (computed: Computes operation values value):
-    HasValue (Operator version operation lengthType subPackets) value
+  | OperationValue (each: Values operands.toList values) (computed: Computes operation values value):
+    HasValue (Operator version operation lengthType operands) value
+  | ComparisonValue (firstValue: HasValue first firstNumber) (secondValue: HasValue second secondNumber)
+    (compared: Compares comparison firstNumber secondNumber value): HasValue (Comparator version comparison lengthType first second) value
 
 --| Each packet's value, in order.
 type Values: List Packet → List Nat → Prop =
   | NoValues: Values [] []
   | NextValue (first: HasValue packet value) (rest: Values packets values): Values [packet, ..packets] [value, ..values]
 
---| What each operator makes of its sub-packets' values: their sum, their
---| product, their minimum or maximum (one of them, and no other below or
---| above it), or 1 if the first is greater than, less than, or equal to the
---| second (of exactly two), and 0 if not.
+--| What each operation makes of its sub-packets' values: their sum, their
+--| product, or their minimum or maximum (one of them, and no other below or
+--| above it).
 type Computes: Operation → List Nat → Nat → Prop =
   | SumOf (values: List Nat): Computes Sum values values.sum
   | ProductOf (values: List Nat): Computes Product values values.product
   | MinimumOf (member: value ∈ values) (least: (other: Nat) → other ∈ values → value ≤ other): Computes Minimum values value
   | MaximumOf (member: value ∈ values) (most: (other: Nat) → other ∈ values → other ≤ value): Computes Maximum values value
-  | Greater (first: Nat) (second: Nat) (greater: second < first): Computes GreaterThan [first, second] 1
-  | NotGreater (first: Nat) (second: Nat) (notGreater: first ≤ second): Computes GreaterThan [first, second] 0
-  | Less (first: Nat) (second: Nat) (less: first < second): Computes LessThan [first, second] 1
-  | NotLess (first: Nat) (second: Nat) (notLess: second ≤ first): Computes LessThan [first, second] 0
-  | Equal (first: Nat): Computes EqualTo [first, first] 1
-  | NotEqual (first: Nat) (second: Nat) (different: first ≠ second): Computes EqualTo [first, second] 0
+
+--| What each comparison makes of its two sub-packets' values: 1 if the
+--| first is greater than, less than, or equal to the second, and 0 if not.
+type Compares: Comparison → Nat → Nat → Nat → Prop =
+  | Greater (first: Nat) (second: Nat) (greater: second < first): Compares GreaterThan first second 1
+  | NotGreater (first: Nat) (second: Nat) (notGreater: first ≤ second): Compares GreaterThan first second 0
+  | Less (first: Nat) (second: Nat) (less: first < second): Compares LessThan first second 1
+  | NotLess (first: Nat) (second: Nat) (notLess: second ≤ first): Compares LessThan first second 0
+  | Equal (first: Nat): Compares EqualTo first first 1
+  | NotEqual (first: Nat) (second: Nat) (different: first ≠ second): Compares EqualTo first second 0
