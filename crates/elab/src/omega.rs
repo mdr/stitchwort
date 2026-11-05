@@ -251,7 +251,13 @@ fn prove_premise_within(
             (d == lib.and && params.len() == 2)
                 || (Some(d) == cx.g().env.registry().data(Builtin::LexLess) && params.len() == 4)
         }
-        other => negated(cx, &lib, &other)?.is_some(),
+        other => {
+            negated(cx, &lib, &other)?.is_some()
+                || match &lib.ranges {
+                    Some(ranges) => ranges.parts(cx, &other)?.is_some(),
+                    None => false,
+                }
+        }
     };
     if !arithmetic {
         return Ok(None);
@@ -429,6 +435,135 @@ struct Lib {
     succ: (DataId, usize),
     /// How far the search may go.
     limits: search::Limits,
+    /// The range lemmas, when the list library is loaded.
+    ranges: Option<Ranges>,
+}
+
+/// What reads `x ∈ a ..< b` as `a ≤ x < b` and back.
+struct Ranges {
+    mem: DefId,
+    /// What `Mem` unfolds to, `Any (y => y = x) xs`, which is how a goal arrives.
+    any: DefId,
+    range: DefId,
+    range_from: DefId,
+    /// `List.memRangeBounds x a b (m: x ∈ a ..< b): a ≤ x < b`.
+    bounds: DefId,
+    /// `List.memRangeOf x a b (h: a ≤ x < b): x ∈ a ..< b`.
+    of: DefId,
+    /// `List.memRangeFrom x c s (m: x ∈ List.rangeFrom c s): s ≤ x < s + c`.
+    from_bounds: DefId,
+    /// `List.memRangeFromOf x c s (h: s ≤ x < s + c): x ∈ List.rangeFrom c s`.
+    from_of: DefId,
+}
+
+impl Ranges {
+    fn new(cx: &Ctx) -> Option<Ranges> {
+        let def = |key: &str| match cx.e.named(key) {
+            Some((Global::Def(id), _)) => Some(*id),
+            _ => None,
+        };
+        Some(Ranges {
+            mem: def("Std.List.Mem")?,
+            any: def("Std.List.Any")?,
+            range: def("Std.List.range")?,
+            range_from: def("Std.List.rangeFrom")?,
+            bounds: def("Std.List.memRangeBounds")?,
+            of: def("Std.List.memRangeOf")?,
+            from_bounds: def("Std.List.memRangeFrom")?,
+            from_of: def("Std.List.memRangeFromOf")?,
+        })
+    }
+
+    /// For a membership `x ∈ xs` in a range (`List.range a b`, or what it
+    /// unfolds to, `List.rangeFrom c s`), the lemma that takes it apart
+    /// or builds it, and its three arguments: `x` and the range's.
+    fn parts(&self, cx: &Ctx, prop: &Value) -> Result<Option<RangeParts>> {
+        let args = match prop {
+            Value::Call(id, spine, _) if *id == self.mem => {
+                stitchwort_core::value::call_args(spine)
+            }
+            Value::Neutral(Head::Def(id), spine) if *id == self.mem => spine
+                .iter()
+                .filter_map(|e| match e {
+                    Elim::App(v, icit) => Some((v.clone(), *icit)),
+                    Elim::J { .. } => None,
+                })
+                .collect(),
+            // `Mem x xs` unfolded: `Any (y => y = x) xs`.
+            Value::Neutral(Head::Def(id), spine) if *id == self.any => {
+                let [Elim::App(elem, _), Elim::App(pred, _), Elim::App(xs, _)] =
+                    spine.iter().as_slice()
+                else {
+                    return Ok(None);
+                };
+                let probe = Value::var(cx.level());
+                let Value::Eq(_, l, x) =
+                    force(&cx.g(), apply(&cx.g(), pred.clone(), probe)?)?
+                else {
+                    return Ok(None);
+                };
+                // Only `y => y = x`, with `x` not depending on `y`: any
+                // other predicate is not a membership.
+                let is_probe = matches!(
+                    force(&cx.g(), (*l).clone())?,
+                    Value::Neutral(Head::Var(level, _), spine)
+                        if level == cx.level() && spine.is_empty()
+                );
+                if !is_probe
+                    || stitchwort_core::value::quote_folded(&cx.g(), cx.level() + 1, &x)?
+                        .mentions(0)
+                {
+                    return Ok(None);
+                }
+                vec![
+                    (elem.clone(), Icit::Implicit),
+                    ((*x).clone(), Icit::Explicit),
+                    (xs.clone(), Icit::Explicit),
+                ]
+            }
+            _ => return Ok(None),
+        };
+        let [_, (x, _), (xs, _)] = args.as_slice() else {
+            return Ok(None);
+        };
+        let found = match xs {
+            Value::Call(id, spine, _) if *id == self.range => {
+                let ends = stitchwort_core::value::call_args(spine);
+                let [(a, _), (b, _)] = ends.as_slice() else {
+                    return Ok(None);
+                };
+                (RangeKind::Range, [x.clone(), a.clone(), b.clone()])
+            }
+            _ => match force(&cx.g(), xs.clone())? {
+                Value::Neutral(Head::Def(id), spine) if id == self.range_from => {
+                    let [Elim::App(c, _), Elim::App(s, _)] = spine.iter().as_slice() else {
+                        return Ok(None);
+                    };
+                    return Ok(Some((
+                        RangeKind::From,
+                        vec![both(cx, x)?, both(cx, c)?, both(cx, s)?],
+                    )));
+                }
+                _ => return Ok(None),
+            },
+        };
+        let (kind, [x, a, b]) = found;
+        Ok(Some((
+            kind,
+            vec![both(cx, &x)?, both(cx, &a)?, both(cx, &b)?],
+        )))
+    }
+}
+
+/// A range membership's kind and the lemma's first three arguments.
+type RangeParts = (RangeKind, Vec<(Term, Value)>);
+
+#[derive(Clone, Copy)]
+enum RangeKind {
+    /// `List.range a b`.
+    Range,
+    /// `List.rangeFrom c s`, what a range unfolds to.
+    From,
 }
 
 impl Lib {
@@ -578,6 +713,7 @@ impl Lib {
             neg_succ: builtin_ctor(cx, Builtin::NegSucc)?,
             succ: builtin_ctor(cx, Builtin::Succ)?,
             limits: search::LIMITS,
+            ranges: Ranges::new(cx),
         })
     }
 
@@ -754,6 +890,22 @@ fn prove_goal(
     extra: &[Extra],
     span: Span,
 ) -> Result<Term> {
+    // A membership in a range, from its two bounds.
+    if let Some(ranges) = &lib.ranges
+        && let Some((kind, mut args)) = ranges.parts(cx, expected)?
+    {
+        let which = match kind {
+            RangeKind::Range => ranges.of,
+            RangeKind::From => ranges.from_of,
+        };
+        let (_, ty) = lemma(cx, which, &args)?;
+        let Value::Pi(_, _, bounds, _) = force(&cx.g(), ty)? else {
+            unreachable!("a range lemma takes the bounds")
+        };
+        let proof = prove_goal(cx, lib, &bounds, extra, span)?;
+        args.push((proof, (*bounds).clone()));
+        return Ok(lemma(cx, which, &args)?.0);
+    }
     let goal = force(&cx.g(), expected.clone())?;
     match &goal {
         Value::Eq(ty, l, r) if is_data(cx, ty, lib.nat)? => {
@@ -1219,6 +1371,18 @@ impl Reader<'_> {
             return Ok(());
         }
         let lib = self.lib;
+        // A membership in a range is its two bounds.
+        if let Some(ranges) = &lib.ranges
+            && let Some((kind, mut args)) = ranges.parts(cx, prop)?
+        {
+            let which = match kind {
+                RangeKind::Range => ranges.bounds,
+                RangeKind::From => ranges.from_bounds,
+            };
+            args.push((proof.clone(), prop.clone()));
+            let (bounds, ty) = lemma(cx, which, &args)?;
+            return self.read(cx, bounds, &ty, origin, depth + 1);
+        }
         let value = force(&cx.g(), prop.clone())?;
         let fact = |kind, int, a: &Value, b: &Value| Fact {
             kind,

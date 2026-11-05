@@ -206,13 +206,14 @@ test "range membership" := 3 in 0 ..< 5 ∧ 5 !in 0 ..< 5
 test "in a spread" := [0, ..2 ..< 5, 9] == [0, 2, 3, 4, 9]
 test "each number of a range" := Each.collect (() => each (1 ..= 3) * 10) == [10, 20, 30]
 
-theorem inRange (x n: Nat) (h: x < n): x ∈ 0 ..< n :=
-  (List.memRange x 0 n).backward omega
+theorem inRange (x n: Nat) (h: x < n): x ∈ 0 ..< n := omega
+
+theorem upTo (x n: Nat) (h: x ∈ 0 ..< n): x < n := omega
 ```
 
 `0 ..< n` is the usual way to count `n` things from zero, and `1 ..= n` the way to say "1 to n". The end can be any expression (`0 ..< xs.length`), but a range binds more loosely than `++` and `+`, and more tightly than `==`, `in` and `|>`: `x in 0 ..< n` is `x in (0 ..< n)`, and `0 ..< n |> .map f` is `(0 ..< n) |> .map f`. A method on a range needs brackets, `(0 ..< n).length`, since a dot binds tighter; the pipe reads better. In a spread a range needs no brackets, `[0, ..2 ..< 5, 9]`.
 
-In a proof, `List.memRange` says what membership means, `x ∈ a ..< b ↔ a ≤ x < b`, and `List.lengthRange` gives the length. A range is never written in brackets: `[0 ..< n]` is a list holding one list, which is almost never meant, so it gets the warning `W-RANGE-IN-BRACKETS` (write `[(0 ..< n)]` if the nesting is). `[2..n]`, as in Haskell, is a syntax error that says to write `2 ..= n` for a range or `[2, ..n]` for a spread. Only `Nat` ranges exist so far.
+In a proof, `omega` and `auto` read `x ∈ a ..< b` (and `..=`) as the two bounds `a ≤ x` and `x < b`, and prove such a membership from them, as the two theorems above do. `List.memRange` says the same as a lemma, `x ∈ a ..< b ↔ a ≤ x < b`, and `List.lengthRange` gives the length. As a `Bool`, `x in a ..< b` is two comparisons, however long the range (`List.inRange`; `List.inRangeIff` and `List.containsRange` tie it to the membership and to `contains`). A range is never written in brackets: `[0 ..< n]` is a list holding one list, which is almost never meant, so it gets the warning `W-RANGE-IN-BRACKETS` (write `[(0 ..< n)]` if the nesting is). `[2..n]`, as in Haskell, is a syntax error that says to write `2 ..= n` for a range or `[2, ..n]` for a spread. Only `Nat` ranges exist so far.
 
 ### Option and Result
 

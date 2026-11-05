@@ -10,6 +10,10 @@
 //! or a map it's `c.contains x` itself. `x !in c` is parsed as `!(x in c)`,
 //! so it follows `!`'s two readings.
 //!
+//! A `Bool` test on a written range (`x in a ..< b`) is
+//! `List.inRange x a b`, two comparisons, whatever the range's length;
+//! `List.inRangeIff` ties it to the proposition.
+//!
 //! Each form is elaborated as the expression it stands for, written with
 //! names in full, so the terms (and hashes) are those of the long forms.
 
@@ -55,6 +59,12 @@ pub(crate) fn check_member(
     expected: &Value,
 ) -> Result<Term> {
     let expr = match container_kind(cx, container)? {
+        // A written range, tested by two comparisons, not a walk of the
+        // list (docs/proposals/ranges.md §9.2).
+        Container::List if is_bool(cx, expected)? => match written_range(container) {
+            Some(range) => in_range(op, elem, range),
+            None => list_mem(op, elem, container),
+        },
         Container::List => list_mem(op, elem, container),
         Container::Keys if is_bool(cx, expected)? => contains(op, elem, container),
         Container::Keys => keys_prop(op, elem, container),
@@ -137,6 +147,29 @@ fn app(f: Expr, a: &Expr) -> Expr {
 /// `Std.List.Mem elem container`, its head at the operator.
 fn list_mem(op: Span, elem: &Expr, container: &Expr) -> Expr {
     app(app(var(LIST_MEM, op), elem), container)
+}
+
+/// The bounds and kind of `container` when it is written as a range
+/// (`a ..< b`, `a ..= b`), brackets aside.
+fn written_range(container: &Expr) -> Option<(BinOp, &Expr, &Expr)> {
+    match container {
+        Expr::Bracketed(inner, _) => written_range(inner),
+        Expr::Binary(op @ (BinOp::Range | BinOp::RangeThrough), a, b) => Some((*op, a, b)),
+        _ => None,
+    }
+}
+
+/// `Std.List.inRange elem a b`, with `b + 1` for `a ..= b` as `List.range` has it.
+fn in_range(op: Span, elem: &Expr, (kind, a, b): (BinOp, &Expr, &Expr)) -> Expr {
+    let end = match kind {
+        BinOp::RangeThrough => Expr::Binary(
+            BinOp::Add,
+            Box::new(b.clone()),
+            Box::new(Expr::Num(1u32.into(), b.span())),
+        ),
+        _ => b.clone(),
+    };
+    app(app(app(var("Std.List.inRange", op), elem), a), &end)
 }
 
 /// `container.contains elem`, the name at the operator.

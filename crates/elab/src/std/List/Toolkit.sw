@@ -505,6 +505,33 @@ theorem List.memRange (x: Nat) (a: Nat) (b: Nat): x ∈ List.range a b ↔ (a �
       | Both lo hi => List.memRangeFromIntro x (b - a) a lo (omega)
 }
 
+--| [`List.memRange`] as a function of the membership, for `omega` and `auto`, which
+--| take a hypothesis `x ∈ a ..< b` apart into `a ≤ x` and `x < b` with it.
+theorem List.memRangeBounds (x: Nat) (a: Nat) (b: Nat) (m: x ∈ List.range a b): a ≤ x < b := (List.memRange x a b).forward m
+
+--| [`List.memRange`] the other way, for `omega` and `auto`, which prove a goal `x ∈ a ..< b`
+--| from the two bounds with it.
+theorem List.memRangeOf (x: Nat) (a: Nat) (b: Nat) (h: a ≤ x < b): x ∈ List.range a b := (List.memRange x a b).backward h
+
+--| [`List.memRangeFromIntro`] taking the two bounds together, for `omega`.
+theorem List.memRangeFromOf (x: Nat) (c: Nat) (s: Nat) (h: s ≤ x < s + c): x ∈ List.rangeFrom c s :=
+  match h with
+    | Both lo hi => List.memRangeFromIntro x c s lo hi
+
+--| Whether `x` is in `from ..< until`, by two comparisons. `x in from ..< until` as a `Bool`
+--| is this call, so the test costs the same however long the range is
+--| ([`List.inRangeIff`] ties it to the membership, [`List.containsRange`] to `contains`).
+def List.inRange (x: Nat) (from: Nat) (until: Nat): Bool := from <= x && x < until
+test "List.inRange" := List.inRange 3 0 5 && !(List.inRange 5 0 5) && !(List.inRange 0 1 5) && !(List.inRange 2 5 1)
+
+--| `List.inRange x a b` holds exactly when `x ∈ a ..< b`.
+theorem List.inRangeIff (x: Nat) (a: Nat) (b: Nat): (List.inRange x a b = True) ↔ (x ∈ List.range a b) := {
+  forward = h => (List.memRange x a b).backward omega,
+  backward = m =>
+    let bounds := (List.memRange x a b).forward m
+    omega
+}
+
 --| Mapping with a state threaded left to right (Haskell's `mapAccumL`).
 --| `xs` is the main value: `xs.mapAccumLeft 0 (s x => MkPair (s + x) (s * x))`.
 --| The function takes the state and an element and gives the next state and the

@@ -1791,7 +1791,7 @@ Examples: `examples/accept/chained-comparisons.sw`, `examples/reject/chained-com
 
 ### Ranges
 
-`a ..< b` is the numbers from `a` up to, not including, `b`; `a ..= b` is the numbers from `a` through `b`. Each is a call of `List.range`, so a range is an ordinary `List Nat`: `0 ..< 3` is `[0, 1, 2]`, `1 ..= 3` is `[1, 2, 3]`, `4 ..= 4` is `[4]`, and `5 ..< 2` is `[]` (an end below the start gives nothing). `a ..< b` is `List.range a b` and `a ..= b` is `List.range a (b + 1)`, so `a ..= b` and `a ..< b + 1` are the same term (`rfl`). `Nat` only for now: `"a" ..< "z"` is `E-TYPE-MISMATCH` with a note saying so (docs/proposals/ranges.md).
+`a ..< b` is the numbers from `a` up to, not including, `b`; `a ..= b` is the numbers from `a` through `b`. Each is a call of `List.range`, so a range is an ordinary `List Nat`: `0 ..< 3` is `[0, 1, 2]`, `1 ..= 3` is `[1, 2, 3]`, `4 ..= 4` is `[4]`, and `5 ..< 2` is `[]` (an end below the start gives nothing). In a proof, `omega` and `auto` read a hypothesis `x ∈ a ..< b` (or `..=`) as `a ≤ x` and `x < b`, and prove such a goal from the two bounds (`List.memRangeBounds`, `List.memRangeOf`; also when the start is a number and the range has computed to `List.rangeFrom`). Where a `Bool` is expected, `x in a ..< b` is `List.inRange x a b`, two comparisons instead of a walk of the list; `List.inRangeIff` and `List.containsRange` relate it to the proposition and to `contains`. `a ..< b` is `List.range a b` and `a ..= b` is `List.range a (b + 1)`, so `a ..= b` and `a ..< b + 1` are the same term (`rfl`). `Nat` only for now: `"a" ..< "z"` is `E-TYPE-MISMATCH` with a note saying so (docs/proposals/ranges.md).
 
 A range binds more loosely than `++` and arithmetic, and tighter than the comparisons, `in` and `|>`, and is not associative:
 
@@ -1810,7 +1810,7 @@ A dot binds tighter than a range, so a method on a range needs brackets, `(0 ..<
 
 Goals, hovers and messages print `List.range a b` as `a ..< b`, and `List.range a (b + 1)` as `a ..= b`; they are the same term, so `0 ..< n + 1` written by hand prints as `0 ..= n`. A goal where the range has been taken apart by computation (a numeral start, `2 ..< n + 3`) shows what it computes to (`List.rangeFrom`), as any call does. The facts proofs use are `List.memRange` (`x ∈ a ..< b ↔ a ≤ x < b`), `List.lengthRange` and `List.rangeAppend`.
 
-Examples: `examples/accept/ranges.sw`, `examples/accept/range-in-brackets.sw`, `examples/reject/range-*.sw`.
+Examples: `examples/accept/ranges.sw`, `examples/accept/ranges-omega.sw`, `examples/accept/ranges-pipes.sw`, `examples/accept/range-in-brackets.sw`, `examples/reject/range-*.sw`.
 
 ### Logic notation: `in`, `<->` and `exists`
 
