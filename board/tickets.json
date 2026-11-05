@@ -6732,13 +6732,13 @@
     {
       "id": 1313,
       "title": "AoC domain types 11: grid wrappers: 2021 days 9 and 15, 2024 day 10 hold an Aoc.Common Grid of domain cells; Grid.findOnly for 2024 days 16 and 20",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1313",
       "labels": [
         "aoc"
       ],
-      "body": "Split from SW-1289 (the survey's Shared 5, grid wrappers). HeightMap, Cave (risk map) and TopographicMap each hold rows and duplicate Grid; make each a record holding grid: Grid Cell and delegating at/step/cells/graph. Add Common Grid.findOnly replacing the identical onlyTile in 2024/16 and 2024/20. D2363; Sonnet; the orchestrator checks each changed statement keeps its meaning.\n\nDone (Sonnet, 11 min, est. 150): HeightMap {grid: Grid (Fin 10)}, TopographicMap {grid: Grid (Option Nat)}, Cave {grid: Grid (Fin 10)}, delegating to Common; Grid.findOnly (and onlyCell for 2024 day 20's ragged rows) replaces onlyTile in 2024 days 16 and 20. Answers unchanged. Statements checked by the orchestrator: re-typing (parseRectangular via Grid.width = firstWidth; heightNotZero's same statement, new helper). Orchestrator's call: days 9 and 10 can no longer hold an empty map (as day 11), fine since every input is non-empty. Open: a shared Maze/Racetrack shape; whether day 20 should accept ragged rows. Model result: Sonnet, worked, 11 min (est. 150).",
+      "body": "Split from SW-1289 (the survey's Shared 5, grid wrappers). HeightMap, Cave (risk map) and TopographicMap each hold rows and duplicate Grid; make each a record holding grid: Grid Cell and delegating at/step/cells/graph. Add Common Grid.findOnly replacing the identical onlyTile in 2024/16 and 2024/20. D2363; Sonnet; the orchestrator checks each changed statement keeps its meaning.\n\nDone (Sonnet, 11 min, est. 150): HeightMap {grid: Grid (Fin 10)}, TopographicMap {grid: Grid (Option Nat)}, Cave {grid: Grid (Fin 10)}, delegating to Common; Grid.findOnly (and onlyCell for 2024 day 20's ragged rows) replaces onlyTile in 2024 days 16 and 20. Answers unchanged. Statements checked by the orchestrator: re-typing (parseRectangular via Grid.width = firstWidth; heightNotZero's same statement, new helper). Orchestrator's call: days 9 and 10 can no longer hold an empty map (as day 11), fine since every input is non-empty. Open: a shared Maze/Racetrack shape; whether day 20 should accept ragged rows. Model result: Sonnet, worked, 11 min (est. 150).\n\nMerged 97400d5ba; verified: aoc check without the cache, 1368 tests, audits of Common and the three days (vacuity warnings as before the change), aoc_answers 44/44, full audit.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
