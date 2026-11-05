@@ -8563,7 +8563,7 @@
     {
       "id": 1442,
       "title": "Equations: replace eq_proof's Bool.uniqueEq J-chain for char-literal overlap hypotheses with rfl (proof fields are skipped by comparison now) and delete Diff, replace_at and probably the unique field; lifts differ's limits (data with parameters, other propositions)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1442",
       "labels": [
@@ -8608,13 +8608,13 @@
     {
       "id": 1445,
       "title": "Std Graph: a fromEdges variant that keeps every edge by closing the states under the edges, so 2024 days 16 and 20 and Aoc.Common.GridGraph can drop their listed proofs without changing their edge functions; and breadthFirst's doc says each edge counts 1 'whatever its cost' though its proofs need unit weights",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1445",
       "labels": [
         "std"
       ],
-      "body": "From SW-1407, 5 Nov 2026.",
+      "body": "From SW-1407, 5 Nov 2026.\n\nStarted on Sonnet, expected: 60 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
