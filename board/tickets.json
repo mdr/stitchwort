@@ -1,5 +1,5 @@
 {
-  "next": 1309,
+  "next": 1310,
   "tickets": [
     {
       "id": 47,
@@ -6669,6 +6669,20 @@
         "aoc"
       ],
       "body": "Split from SW-1289 (the survey's 2021/04 entry, cheap): docs/research/aoc-domain-types.md. D2363; Sonnet; the orchestrator checks each changed statement keeps its meaning.\n\nDone (Sonnet, ~5 min, est. 75): Board {rows} with isFiveByFive, lines, numbers, winningTurn draws, score draws turn; Draws skipped (the proofs use drawn ++ [number, ..later] list algebra). Statements checked by the orchestrator: re-typing only. Answers unchanged (49860, 24628). Model result: Sonnet, worked, 5 min (est. 75).",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1309,
+      "title": "AoC domain types 9: 2025 day 9 Rectangle (corner, opposite) with area",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1309",
+      "labels": [
+        "aoc"
+      ],
+      "body": "Split from SW-1289 (the survey's 2025/09 entry). The loop's lines are already Aoc.Common Line (SW-1285); this is the rectangle pairs (Point, Point) and (Corner, Corner). D2363; Sonnet; the orchestrator checks each changed statement keeps its meaning.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
