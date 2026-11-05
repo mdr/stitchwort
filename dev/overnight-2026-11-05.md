@@ -69,3 +69,4 @@ after a summary.
 - 23:25 DeepSeek overloaded a second time (SW-1465 lost its run): moved SW-1465 to GLM (glm-5.3), CLAUDE.md's fallback. My call: overnight, an overloaded DeepSeek run goes to GLM at once rather than retrying.
 - 23:35 Merged SW-1464 (library hover: the page's jump left the name at the window edge; jumps now centre; std.cache was fine). Its debug run hit an underflow at core value.rs:2191 (quoting a variable at the wrong level): folded into SW-1448, started on Opus now (my call: possibly kernel-relevant, so ahead of the editor queue).
 - 23:40 OpenCode Go hit its usage limit ('Go usage limit exceeded') on SW-1465's GLM run: no DeepSeek/GLM for the rest of the night. My call: small fixes go to Sonnet instead. SW-1465 restarted on Sonnet.
+- 23:50 Merged SW-1465 (omega reads Ord <= at Nat/Int; note for unusable listed facts; 12 min, Sonnet). Batch 61 check running.
