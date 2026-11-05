@@ -9,6 +9,7 @@
 //! before anything else, so it gets them from there.)
 
 mod live;
+mod lsp;
 mod project;
 
 use std::cell::RefCell;

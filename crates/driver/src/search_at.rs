@@ -19,7 +19,9 @@
 
 use std::cell::Cell;
 use std::rc::Rc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
+
+use stitchwort_core::budget::Instant;
 
 use serde::Serialize;
 use stitchwort_core::DataId;

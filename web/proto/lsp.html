@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Stitchwort playground: the language server in a worker (trial)</title>
+<!--
+  Trial for SW-1375: CodeMirror 6 with @codemirror/lsp-client, talking to
+  `stitchwort lsp`'s own code compiled into pkg/ (crates/web/src/lsp.rs) and
+  run in lsp-worker.js. Build pkg/ with `nix develop -c web/build.sh`, serve
+  web/ and open /proto/lsp.html. Headless check: node web/proto/lsp-check.mjs.
+
+  lsp.bundle.js is built from lsp-entry.js:
+    cd web/proto && npm install && esbuild lsp-entry.js --bundle --minify \
+      --format=esm --target=es2020 --outfile=lsp.bundle.js
+-->
+<style>
+  body { font: 14px system-ui; margin: 1rem; }
+  .panes { display: flex; gap: 1rem; }
+  .pane { flex: 1; min-width: 0; }
+  #editor, #std { border: 1px solid #aaa; }
+  .cm-editor { height: 30rem; font: 14px ui-monospace, monospace; }
+  .cm-scroller { overflow: auto; }
+  #status, #stdname { color: #555; margin: .5rem 0; }
+</style>
+<h1>Stitchwort with the language server in a worker (trial)</h1>
+<div id="status">Loading the compiler...</div>
+<div class="panes">
+  <div class="pane"><div id="editor"></div></div>
+  <div class="pane"><div id="stdname">(library file: go to definition on a library name, F12)</div><div id="std"></div></div>
+</div>
+<script type="text/plain" id="sample">
+
+
+def double (n : Nat) : Nat := n + n
+
+def quadruple (n : Nat) : Nat := double (double n)
+
+-- An error: a text where a Nat is expected.
+def bad : Nat := "oops"
+
+-- An unknown name.
+def worse : Nat := missing 3
+
+def total (xs : List Nat) : Nat := xs.foldLeft 0 (sum n => sum + n)
+
+theorem hole (n : Nat) : n + 0 = n := ?
+</script>
+<script type="module" src="lsp.bundle.js"></script>
+</html>

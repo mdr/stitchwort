@@ -23,7 +23,12 @@ use std::cell::{Cell, RefCell};
 use std::fmt;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Instant;
+/// The clock deadlines are read from: the standard one, except in the
+/// browser, which has none `std` can use.
+#[cfg(not(target_family = "wasm"))]
+pub use std::time::Instant;
+#[cfg(target_family = "wasm")]
+pub use web_time::Instant;
 
 use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::stack::position as stack_position;

@@ -56,7 +56,7 @@ pub struct Goal {
     /// The target, as the file writes it, with the introduced variables.
     pub target: String,
     /// Past this, the search stops comparing candidates (set by the caller).
-    pub deadline: Option<std::time::Instant>,
+    pub deadline: Option<stitchwort_core::budget::Instant>,
     /// What the parameters of the definition the goal is in stand for at
     /// the goal ([`GoalSnapshot`]'s `owner_args`), for the induction
     /// hypothesis (SW-993).
