@@ -6984,9 +6984,9 @@
     {
       "id": 1331,
       "title": "Feature tour and language guide: bring up to date with everything since SW-1105 (3 Nov), especially partial lambdas (clause lambdas, match some, matches, guards and their equations)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1331",
       "labels": [
         "docs"
       ],
