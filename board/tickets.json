@@ -7068,13 +7068,13 @@
     {
       "id": 1337,
       "title": "Research and design note: non-empty lists in std (NonEmpty with reduce, head, last, maximum without Option), as Idris, Lean, Agda and Haskell do it; where the code base would model its data better with it",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1337",
       "labels": [
         "design"
       ],
-      "body": "D2383 (Matt, 5 Nov): 'let's file tickets to look at how we might do non-empty lists in the standard library so that we can have things like reduce, probably lots of other useful things. I'd be interested to see what our options are for this, what other languages like Idris, Lean, Agda [do]. What opportunities there might be in the existing code base to use it to better model the data. I think, in a way, having more precise types is powerful.' Options to compare: a record { head, tail }, a List with a proof (xs ≠ [] as a refinement / subtype), an indexed Vec (n+1), Haskell's NonEmpty; conversions, pattern syntax ([x, ..xs] for both?), how parsers (many1, sepBy1, lines, sections) would return it, how proofs use it. Survey std (maximum, minimum, last, head?) and aoc/rogue for Option-returning or partial uses that a non-empty type would remove. Opus.",
+      "body": "D2383 (Matt, 5 Nov): 'let's file tickets to look at how we might do non-empty lists in the standard library so that we can have things like reduce, probably lots of other useful things. I'd be interested to see what our options are for this, what other languages like Idris, Lean, Agda [do]. What opportunities there might be in the existing code base to use it to better model the data. I think, in a way, having more precise types is powerful.' Options to compare: a record { head, tail }, a List with a proof (xs ≠ [] as a refinement / subtype), an indexed Vec (n+1), Haskell's NonEmpty; conversions, pattern syntax ([x, ..xs] for both?), how parsers (many1, sepBy1, lines, sections) would return it, how proofs use it. Survey std (maximum, minimum, last, head?) and aoc/rogue for Option-returning or partial uses that a non-empty type would remove. Opus.\n\nNote done on lane/SW-1337 (009032c96, docs/proposals/non-empty-lists.md; Opus, 8 min, est. 60). N1-N7 put to Matt as D2393-D2399. Next batch.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7110,9 +7110,9 @@
     {
       "id": 1340,
       "title": "Use Grid.positionsWhere / positionsWhere everywhere it fits: 2024 day 20's track, 2024 day 15's positionsOf, and any other hand-written filter of cells by tile",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1340",
       "labels": [
         "aoc"
       ],
