@@ -24,7 +24,7 @@ theorem withSeedAlways (property: a → Prop) (prog: () → {Random} a) (holds: 
     | return x => Effect.AlwaysTree.done property x holds
     | Random.next (), k =>
       match holds with
-        | AlwaysCall _ _ later => withSeedAlways property (() => k (lcg seed / 65536)) (later (lcg seed / 65536)) (lcg seed)
+        | AlwaysCall later => withSeedAlways property (() => k (lcg seed / 65536)) (later (lcg seed / 65536)) (lcg seed)
 
 --| Whatever number a roll is given, its result is below its bound.
 theorem rollBound (drawn: Nat) (most: Nat): drawn % Succ most < Succ most := Nat.modLt drawn (Succ most)
@@ -35,7 +35,7 @@ theorem rollBound (drawn: Nat) (most: Nat): drawn % Succ most < Succ most := Nat
 -- below works out which rooms the generator made.
 opaque def RoomsFit (rooms: List Area): Prop := List.All (area => OnMap area) rooms
 
-theorem sixFit (room0: Area) (room1: Area) (room2: Area) (room3: Area) (room4: Area) (room5: Area)
+theorem sixFit [room0: Area] [room1: Area] [room2: Area] [room3: Area] [room4: Area] [room5: Area]
     (fits0: OnMap room0) (fits1: OnMap room1) (fits2: OnMap room2) (fits3: OnMap room3) (fits4: OnMap room4) (fits5: OnMap room5):
     RoomsFit [room0, room1, room2, room3, room4, room5]
     unfolding RoomsFit
@@ -70,8 +70,7 @@ theorem generatedLaidOut (depth: Nat) (property: Level → Prop) (laidOut: LaidO
       potion0Room potion0Row potion0Column potion1Room potion1Row potion1Column =>
         Effect.alwaysBind (x => Unit) ((plan: Plan) => property plan.level) _ _ (Effect.alwaysUnit _) (swords alwaysSword =>
           laidOut _ _ _ _ (rollBound entrance 5) (rollBound _ 5)
-            (sixFit _ _ _ _ _ _
-              (roomFits 0 rfl _ _ _ _ (rollBound down0 _) (rollBound across0 _) (rollBound row0 _) (rollBound column0 _))
+            (sixFit (roomFits 0 rfl _ _ _ _ (rollBound down0 _) (rollBound across0 _) (rollBound row0 _) (rollBound column0 _))
               (roomFits 1 rfl _ _ _ _ (rollBound down1 _) (rollBound across1 _) (rollBound row1 _) (rollBound column1 _))
               (roomFits 2 rfl _ _ _ _ (rollBound down2 _) (rollBound across2 _) (rollBound row2 _) (rollBound column2 _))
               (roomFits 3 rfl _ _ _ _ (rollBound down3 _) (rollBound across3 _) (rollBound row3 _) (rollBound column3 _))

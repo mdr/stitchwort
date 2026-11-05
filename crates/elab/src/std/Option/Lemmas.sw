@@ -12,7 +12,7 @@ theorem Option.mapId: (x: Option a) → Option.map x (y => y) = x
   | Some y => rfl
 
 --| `Some` is injective: equal `Some`s hold equal values.
-theorem Option.someInjective (x: a) (y: a) (h: Some x = Some y): x = y := Eq.cong (.getOrElse x) h
+theorem Option.someInjective [x: a] [y: a] (h: Some x = Some y): x = y := Eq.cong (.getOrElse x) h
 
 --| `map2` with `None` second is `None`.
 theorem Option.map2None (f: a → b → c): (x: Option a) → Option.map2 f x None = None
@@ -138,7 +138,7 @@ theorem Option.noneOrElse (y: Option a): Option.orElse None y = y := rfl
 
 --| If `map f x` is `Some v`, then `x` held some `u` with `f u = v`.
 theorem Option.mapEqSome [goal: Prop]: (x: Option a) → (f: a → b) → (v: b) → Option.map x f = Some v → (cont: (u: a) → x = Some u → f u = v → goal) → goal
-  | Some u, f, v, h, use => use u rfl (Option.someInjective (f u) v h)
+  | Some u, f, v, h, use => use u rfl (Option.someInjective h)
   | None, f, v, h, use => Void.exfalso (Option.noneNotSome v h)
 
 --| `map f x` is `None` exactly when `x` is.
@@ -154,12 +154,12 @@ theorem Option.flatMapEqSome [goal: Prop]: (x: Option a) → (f: a → Option b)
   | None, f, v, h, use => Void.exfalso (Option.noneNotSome v h)
 
 --| If `filter p x` is `Some v`, then `x` is `Some v` and `p v` holds.
-theorem Option.filterEqSome: (x: Option a) → (p: a → Bool) → (v: a) → Option.filter x p = Some v → (x = Some v) ∧ (p v = True)
-  | Some u, p, v, h =>
+theorem Option.filterEqSome: (x: Option a) → (p: a → Bool) → [v: a] → Option.filter x p = Some v → (x = Some v) ∧ (p v = True)
+  | Some u, p, h =>
     match e: p u with
-      | True => Both h (Eq.trans (Eq.cong p (Eq.sym (Option.someInjective u v h))) e)
+      | True => Both h (Eq.trans (Eq.cong p (Eq.sym (Option.someInjective h))) e)
       | False => Void.exfalso (Option.noneNotSome v h)
-  | None, p, v, h => Void.exfalso (Option.noneNotSome v h)
+  | None, p, h => Void.exfalso (Option.noneNotSome v h)
 
 --| `orElse` of an option with itself is the option.
 theorem Option.orElseSelf: (x: Option a) → Option.orElse x x = x
@@ -173,9 +173,9 @@ theorem Option.alignWithEqSome [goal: Prop] (left: a → c) (right: b → c) (bo
       → (onLeft: (u: a) → x = Some u → y = None → left u = v → goal)
       → (onRight: (w: b) → x = None → y = Some w → right w = v → goal)
       → (onBoth: (u: a) → (w: b) → x = Some u → y = Some w → both u w = v → goal) → goal
-  | Some u, Some w, h, onLeft, onRight, onBoth => onBoth u w rfl rfl (Option.someInjective (both u w) v h)
-  | Some u, None, h, onLeft, onRight, onBoth => onLeft u rfl rfl (Option.someInjective (left u) v h)
-  | None, Some w, h, onLeft, onRight, onBoth => onRight w rfl rfl (Option.someInjective (right w) v h)
+  | Some u, Some w, h, onLeft, onRight, onBoth => onBoth u w rfl rfl (Option.someInjective h)
+  | Some u, None, h, onLeft, onRight, onBoth => onLeft u rfl rfl (Option.someInjective h)
+  | None, Some w, h, onLeft, onRight, onBoth => onRight w rfl rfl (Option.someInjective h)
   | None, None, h, onLeft, onRight, onBoth => Void.exfalso (Option.noneNotSome v h)
 
 --| A property each arm of `alignWith` gives, its result has.
@@ -201,8 +201,8 @@ theorem Option.alignWithHoldsExample (x: Option Nat) (y: Option Nat) (v: Nat)
     (u => Nat.succNotZero u) (w => Nat.succNotZero w) (u w => Nat.succNotZero (u + w)) x y v h
 
 --| `MkPair` is injective: equal pairs have equal parts.
-theorem Pair.mkInjectiveFst (x1: a) (y1: b) (x2: a) (y2: b) (h: MkPair x1 y1 = MkPair x2 y2): x1 = x2 := Eq.cong Pair.fst h
-theorem Pair.mkInjectiveSnd (x1: a) (y1: b) (x2: a) (y2: b) (h: MkPair x1 y1 = MkPair x2 y2): y1 = y2 := Eq.cong Pair.snd h
+theorem Pair.mkInjectiveFst [x1: a] [y1: b] [x2: a] [y2: b] (h: MkPair x1 y1 = MkPair x2 y2): x1 = x2 := Eq.cong Pair.fst h
+theorem Pair.mkInjectiveSnd [x1: a] [y1: b] [x2: a] [y2: b] (h: MkPair x1 y1 = MkPair x2 y2): y1 = y2 := Eq.cong Pair.snd h
 
 --| `==` on two pairs is `==` on both parts.
 theorem Pair.mkBeqMk [auto eqA: DecEq a] [auto eqB: DecEq b] (x1: a) (y1: b) (x2: a) (y2: b): ((x1, y1) == (x2, y2)) = (x1 == x2 ∧ y1 == y2) :=

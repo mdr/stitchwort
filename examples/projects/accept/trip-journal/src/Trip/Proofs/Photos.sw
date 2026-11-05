@@ -18,7 +18,7 @@ theorem stillHoldsGives (albums: List Album) (id: Nat):
         match List.findSome albums (a => a.id == albumId) album e with
           | Both same inAlbums =>
             List.anyIntro (a => (Some albumId = Some a.id) ∧ (holds a id = True)) album albums inAlbums
-              (Both (rewrite DecEq.sound album.id albumId same in rfl) h)
+              (Both (rewrite DecEq.sound same in rfl) h)
       | None => Void.exfalso (Bool.falseNotTrue h)
   | None, h => Void.exfalso (Bool.falseNotTrue h)
 
@@ -50,7 +50,7 @@ theorem keptWhereOwned (own: Nat → Option Nat) (album: Album) (id: Nat) (o: ow
       | Both inPhotos e =>
         rewrite <- e in
         List.memMap (keepOwned own album).photos photo
-          (List.memFilterIntro album.photos (p => own p.id == Some album.id) photo inPhotos
+          (List.memFilterIntro album.photos (p => own p.id == Some album.id) inPhotos
             (rewrite e, o in DecEq.refl (Some album.id)))
           Photo.id)
 

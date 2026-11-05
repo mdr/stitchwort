@@ -35,7 +35,7 @@ theorem lookupSquareAt (map: Grid Square) (rectangle: map.Rectangle) (nonZero: m
         rewrite repeatingAtMod pattern (rewrite long in nonZero) position.column, long in cases
       | None => rfl
 
-theorem positionEq (a: Nat) (b: Nat) (c: Nat) (d: Nat) (rows: a = c) (columns: b = d): ({ row = a, column = b }: Position) = { row = c, column = d } :=
+theorem positionEq [a: Nat] [b: Nat] [c: Nat] [d: Nat] (rows: a = c) (columns: b = d): ({ row = a, column = b }: Position) = { row = c, column = d } :=
   rewrite rows, columns in rfl
 
 --| `path` is the positions `from` plus 1, 2, … steps.
@@ -44,7 +44,7 @@ theorem pathRange (slope: Slope): (from: Position) → (steps: Nat) →
   | from, Zero => rfl
   | from, Succ more =>
     rewrite pathRange slope (moved from slope) more, List.mapRangeFromShift _ more 1 in
-      Eq.cong (rest => [moved from slope, ..rest]) (List.mapCong _ _ _ (step => positionEq _ _ _ _ omega omega))
+      Eq.cong (rest => [moved from slope, ..rest]) (List.mapCong _ _ _ (step => positionEq omega omega))
 
 --| `map.isRectangle = True` is `map.Rectangle` (`isRectangleIff`), as a `Bool` the
 --| counterexample search can decide.

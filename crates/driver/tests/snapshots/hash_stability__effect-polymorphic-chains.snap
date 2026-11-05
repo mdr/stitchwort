@@ -48,10 +48,10 @@ Main.test "map then head as a dot chain" 3b330b0680538b2142e822de69bbfe20462fac2
 Main.test "the same as the let form" dd86b6df490c8fcc8b903eba24d3b4c2d5faa2570cb21c59d4640fb91147f370
 Main.test "in a block" 3673265e0057900797578e52fc8f4185322dc9454f6e9fb8e3a919c566238d0d
 Main.test "in a block, nothing found" 395134652bbcc16f09796ab4b39c574f2f0d5587c42ae749f26febe76217b6ed
-Main.test "find, then orFail" 7cc5f6513f7c82d9d026aa85bb578760dc41952937ec03820a7e76ce9c89a454
-Main.test "orFail's message" 66a75542d6359e6e07a7d62ad6be03f4a394326d8a7f6dbbd5c5f93621d0265c
-Main.test "filter and map, then orFail" ad36db158c7589b92270952da85291eb5ada96da31ff8947eb0c541fccafe56e
-Main.test "fold in a map, then orFail" 13850534ab5aad9efb5aa7d2c21c9dff68684b0c920c63573c6dddb688445c1b
-Main.test "every shelf empty" 7333c24577d5f5119ef2c5ca69f2fc2f04a3f1f3400f35c1fd04bd9023fc30f1
+Main.test "find, then orFail" 4348d827dff517e659efd0d57a3959eed0abf05cce007ef84edc673d15b0d877
+Main.test "orFail's message" fe1a6fe47986a66d21ed147b4625e1dd69b7885cfc6685e659498aef4a6e7d87
+Main.test "filter and map, then orFail" c04a32471c19c3ab5c7c5634d73ce07a148d59c99b52ba3a5db1a004eb70fcb9
+Main.test "fold in a map, then orFail" 56823d88258df66acf757286658ceab45fa1dd6d07e8b92a58967ce589f5c7d0
+Main.test "every shelf empty" c67e14243492d1596b3a4580bba3d5fb6c096ec848b7af1cbdb35cba2ecd2524
 Main.test "callback runs first, in order" 8548d484135bbaef8cccfaf315f1a8f9638b62cfe66033478322bdc366f97ff3
 Main.test "callback runs for every book when none is found" 4daff117724c9602304f0b9b2231cffb6fc05d68e45daedd7185035152dcea67

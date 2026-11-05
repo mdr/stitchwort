@@ -26,7 +26,7 @@ def boxed: ProofBox (1 + 1 = 2) := { proof = rfl }
 def BoolEq (x: Bool) (y: Bool): Prop := x = y
 
 def boolDecides (x: Bool) (y: Bool): ((x == y) = True) ↔ (BoolEq x y) := {
-  forward = DecEq.sound x y,
+  forward = DecEq.sound,
   backward = e => rewrite e in Decidable.toBoolOf (DecEq.decide y y) rfl
 }
 

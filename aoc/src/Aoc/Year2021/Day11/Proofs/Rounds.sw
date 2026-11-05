@@ -53,4 +53,4 @@ theorem roundElim (cavern: Cavern) (flashed: Flashed) (onGrid: OnGrid cavern fla
 theorem neighboursMono (cavern: Cavern) (f: Position → Bool) (g: Position → Bool) (fg: (q: Position) → f q = True → g q = True)
     (at: Position): flashingNeighbours cavern f at ≤ flashingNeighbours cavern g at :=
   List.countLeMem cavern.grid.cells (cell => touching at cell.fst && f cell.fst) (cell => touching at cell.fst && g cell.fst)
-    (cell member both => Bool.andIntro _ _ (Bool.andLeft _ _ both) (fg cell.fst (Bool.andRight _ _ both)))
+    (cell member both => Bool.andIntro (Bool.andLeft both) (fg cell.fst (Bool.andRight both)))

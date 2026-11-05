@@ -30,20 +30,20 @@ theorem candidatesComplete (output: Nat → List Nat) (shape: LoopShape output):
           match small: a < 8 with
             | True => rewrite tail in Inl (Eq.sym (Nat.divSmall a 8 small))
             | False => candidatesComplete output shape rest (a / 8) (Eq.sym tail)
-        List.memFilterIntro _ (candidate => output candidate == [value, ..rest]) a
+        List.memFilterIntro _ (candidate => output candidate == [value, ..rest])
           (List.memFlatMapIntro (high => List.map (List.range 0 8) (low => high * 8 + low)) (a / 8) a (candidates output rest) high (amongLows a))
           (rewrite outputs in DecEq.refl [value, ..rest])
 
 --| What the search returns is positive and outputs the target.
 theorem lowestSound (output: Nat → List Nat) (target: List Nat) (a: Nat) (found: lowestOutputting output target = Some a): (0 < a) ∧ (output a = target) :=
-  let kept := And.right (List.memFilter _ _ a (And.left (List.minimumSome _ a found)))
-  Both (Bool.andLeft _ _ kept) (DecEq.sound (output a) target (Bool.andRight _ _ kept))
+  let kept := And.right (List.memFilter _ _ (And.left (List.minimumSome _ a found)))
+  Both (Bool.andLeft kept) (DecEq.sound (Bool.andRight kept))
 
 --| Every positive value that outputs the target is a final candidate.
 theorem finalCandidate (output: Nat → List Nat) (shape: LoopShape output) (target: List Nat) (other: Nat) (positive: 0 < other) (outputs: output other = target):
     other ∈ List.filter (candidates output target) (a => 0 < a ∧ output a == target) :=
-  List.memFilterIntro _ (a => 0 < a ∧ output a == target) other (candidatesComplete output shape target other outputs)
-    (Bool.andIntro _ _ positive (rewrite outputs in DecEq.refl target))
+  List.memFilterIntro _ (a => 0 < a ∧ output a == target) (candidatesComplete output shape target other outputs)
+    (Bool.andIntro positive (rewrite outputs in DecEq.refl target))
 
 --| For an output of the loop shape, the search returns at most any positive
 --| value that outputs the target.

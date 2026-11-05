@@ -78,7 +78,7 @@ theorem roundCount (grid: Grid) (s: Cells): grid.rollCount (grid.removeAccessibl
   let gone := (r: Nat) => (c: Nat) => Bool.toNat (grid.removeAccessible s r c == Roll)
   let acc := (r: Nat) => (c: Nat) => Bool.toNat (grid.accessible s r c)
   let term: (x: Nat) → (y: Nat) → gone x y + acc x y = Bool.toNat (s x y == Roll) :=
-    x y => roundTerm (grid.accessible s x y) (s x y) (h => isRoll (s x y) (Bool.andLeft (s x y == Roll) (grid.neighbours s x y < 4) h))
+    x y => roundTerm (grid.accessible s x y) (s x y) (h => isRoll (s x y) (Bool.andLeft h))
   calc grid.rollCount (grid.removeAccessible s) + accCount grid s
     _ = List.sumBy (List.range 0 grid.height) (x => List.sumBy (List.range 0 grid.width) (y => gone x y))
         + List.sumBy (List.range 0 grid.height) (x => List.sumBy (List.range 0 grid.width) (y => acc x y))

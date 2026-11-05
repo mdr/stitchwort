@@ -90,13 +90,13 @@ theorem representative (values: List Nat) (v: Nat) (low: Nat) (lowIn: List.Mem l
     (use: (w: Nat) → (List.Mem w values) ∨ (List.Mem w (values.map Succ)) → low ≤ w → w ≤ v → SameSide values v w → goal): goal :=
   let atMost := List.filter values (c => c ≤ v)
   let nearest := largest atMost
-  let lowAtMost: List.Mem low atMost := List.memFilterIntro values (c => c ≤ v) low lowIn lowLe
+  let lowAtMost: List.Mem low atMost := List.memFilterIntro values (c => c ≤ v) lowIn lowLe
   -- Every value up to v is at most the nearest.
   let below: (c: Nat) → List.Mem c values → c ≤ v → c ≤ nearest :=
-    c m h => (largestIsLargest atMost).left c (List.memFilterIntro values (c => c ≤ v) c m h)
+    c m h => (largestIsLargest atMost).left c (List.memFilterIntro values (c => c ≤ v) m h)
   let nearestIn: (List.Mem nearest values) ∧ (Nat.leq nearest v = True) :=
     match largestInList atMost with
-      | Inl m => List.memFilter values (c => c ≤ v) nearest m
+      | Inl m => List.memFilter values (c => c ≤ v) m
       | Inr (Both empty zero) => Void.exfalso (rewrite empty at lowAtMost)
   match nearestIn with
     | Both nearestMem nearestLe =>
@@ -193,8 +193,8 @@ theorem allKeysIsSpec (tiles: List Point) (a: Point) (b: Point) (ma: List.Mem a 
   Bool.eqOf (allKeys tiles (floor.corner a) (floor.corner b)) (allRedOrGreen tiles { corner = a, opposite = b })
     -- Every tile is red or green like a key tile in the rectangle.
     (keys =>
-      List.allBetweenIntro _ (Nat.min a.y b.y) (Nat.max a.y b.y) (y ylo yhi =>
-        List.allBetweenIntro _ (Nat.min a.x b.x) (Nat.max a.x b.x) (x xlo xhi =>
+      List.allBetweenIntro (y ylo yhi =>
+        List.allBetweenIntro (x xlo xhi =>
           representative (columnsOf tiles) x (Nat.min a.x b.x) (minIn (columnsOf tiles) a.x b.x ax bx) xlo (redOrGreen tiles { x, y } = True)
             (keyX keyXIn keyXLo keyXHi sx =>
               representative (rowsOf tiles) y (Nat.min a.y b.y) (minIn (rowsOf tiles) a.y b.y ay by) ylo (redOrGreen tiles { x, y } = True)
@@ -203,13 +203,13 @@ theorem allKeysIsSpec (tiles: List Point) (a: Point) (b: Point) (ma: List.Mem a 
                     axisCovers rows sr a.y b.y keyAy keyBy (w => redOrGreen tiles { x = keyX, y = w } = True)
                       (r rlo rhi =>
                         axisCovers columns sc a.x b.x keyAx keyBx (v => redOrGreen tiles { x = v, y = List.getOr rows r 0 } = True)
-                          (c clo chi => List.allBetweenElim _ _ _ (List.allBetweenElim _ _ _ keys r rlo rhi) c clo chi)
+                          (c clo chi => List.allBetweenElim (List.allBetweenElim keys rlo rhi) clo chi)
                           keyX (keyLinesHas (columnsOf tiles) keyX keyXIn) keyXLo (omega))
                       keyY (keyLinesHas (rowsOf tiles) keyY keyYIn) keyYLo (omega))))))
     -- Every key tile in the rectangle is a tile of it.
     (spec =>
-      List.allBetweenIntro _ _ _ (r rlo rhi =>
-        List.allBetweenIntro _ _ _ (c clo chi =>
+      List.allBetweenIntro (r rlo rhi =>
+        List.allBetweenIntro (c clo chi =>
           let yIn := axisInside rows sr a.y b.y keyAy keyBy r rlo rhi
           let xIn := axisInside columns sc a.x b.x keyAx keyBx c clo chi
-          List.allBetweenElim _ _ _ (List.allBetweenElim _ _ _ spec (List.getOr rows r 0) yIn.left yIn.right) (List.getOr columns c 0) xIn.left xIn.right)))
+          List.allBetweenElim (List.allBetweenElim spec yIn.left yIn.right) xIn.left xIn.right)))

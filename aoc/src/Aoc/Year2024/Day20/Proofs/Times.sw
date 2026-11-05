@@ -66,7 +66,7 @@ theorem boundFrom (racetrack: Racetrack) (result: Map Position Nat)
     (position: Position) → (time: Nat) → Graph.Bound result time position → (moves: List Direction) → (last: Position) →
       race racetrack position moves = Some last → Graph.Bound result (time + moves.length) last
   | position, time, bound, [], last, ended =>
-    rewrite <- Option.someInjective _ _ ended in Graph.boundWeaken result time (time + List.length ([]: List Direction)) position bound (omega)
+    rewrite <- Option.someInjective ended in Graph.boundWeaken result time (time + List.length ([]: List Direction)) position bound (omega)
   | position, time, bound, [direction, ..rest], last, ended =>
     match moved: moveTo racetrack position direction with
       | None => Void.exfalso (Option.noneNotSome last ended)
@@ -83,7 +83,7 @@ theorem boundTo (racetrack: Racetrack) (result: Map Position Nat) (endBound: Gra
       (next, weight) ∈ racetrack.edges state → Graph.Bound result (time + weight) next):
     (position: Position) → onTrack racetrack position = True → (moves: List Direction) → race racetrack position moves = Some racetrack.end →
       Graph.Bound result moves.length position
-  | position, onIt, [], ended => rewrite Option.someInjective _ _ ended in endBound
+  | position, onIt, [], ended => rewrite Option.someInjective ended in endBound
   | position, onIt, [direction, ..rest], ended =>
     match moved: moveTo racetrack position direction with
       | None => Void.exfalso (Option.noneNotSome racetrack.end ended)
@@ -106,7 +106,7 @@ theorem fromStartFastest (racetrack: Racetrack) (startOnTrack: onTrack racetrack
         Exists.elim
           (boundFrom racetrack racetrack.fromStart closed racetrack.start 0 (sourcesBound racetrack.start 0 (Inl rfl)) moves position raced)
           (other both =>
-            let same: time = other := Option.someInjective _ _ (Eq.trans (Eq.sym found) (And.left both))
+            let same: time = other := Option.someInjective (Eq.trans (Eq.sym found) (And.left both))
             omega [same, And.right both])))
     onIt
 
@@ -135,7 +135,7 @@ theorem toEndFastest (racetrack: Racetrack) (endOnTrack: onTrack racetrack racet
       (moves raced =>
         Exists.elim (boundTo racetrack racetrack.toEnd (sourcesBound racetrack.end 0 (Inl rfl)) closed position onIt moves raced)
           (other both =>
-            let same: time = other := Option.someInjective _ _ (Eq.trans (Eq.sym found) (And.left both))
+            let same: time = other := Option.someInjective (Eq.trans (Eq.sym found) (And.left both))
             omega [same, And.right both])))
     onIt
 

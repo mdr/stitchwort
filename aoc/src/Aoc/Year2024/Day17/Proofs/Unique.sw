@@ -88,5 +88,5 @@ theorem haltsUnique (program: List Nat): (machine: Machine) → (first: List Nat
   | machine, [value, ..output], [otherValue, ..otherOutput], Prints _ after _ _ move rest, Prints _ other _ _ alsoMove alsoRest =>
     let steps := stepUnique program machine (Next after (Some value)) (Next other (Some otherValue)) move alsoMove
     let sameAfter := Eq.cong (afterOf machine) steps
-    let sameValue := Option.someInjective value otherValue (Eq.cong printedOf steps)
+    let sameValue := Option.someInjective (Eq.cong printedOf steps)
     rewrite sameValue, haltsUnique program after output otherOutput rest (rewrite Eq.sym sameAfter at alsoRest) in rfl

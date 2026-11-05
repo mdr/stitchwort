@@ -21,10 +21,10 @@ theorem countReplicate (x: Nat) (p: Nat → Bool): (n: Nat) → List.count (List
 
 --| Counting with a predicate that, at each element, counts as two others
 --| together.
-theorem countSum (p: Nat → Bool) (q: Nat → Bool) (r: Nat → Bool) (each: (t: Nat) → Bool.toNat (p t) = Bool.toNat (q t) + Bool.toNat (r t)):
+theorem countSum [p: Nat → Bool] [q: Nat → Bool] [r: Nat → Bool] (each: (t: Nat) → Bool.toNat (p t) = Bool.toNat (q t) + Bool.toNat (r t)):
     (fish: List Nat) → fish.count p = fish.count q + fish.count r
   | [] => rfl
-  | [x, ..xs] => omega [List.countCons xs x p, List.countCons xs x q, List.countCons xs x r, each x, countSum p q r each xs]
+  | [x, ..xs] => omega [List.countCons xs x p, List.countCons xs x q, List.countCons xs x r, each x, countSum each xs]
 
 --| A day keeps every timer at most 8.
 theorem nextTimerBounded (t: Nat) (bounded: t ≤ 8): nextTimer t ≤ 8 := cases
@@ -52,11 +52,11 @@ theorem countNextDay (fish: List Nat) (v: Nat):
 theorem nextTimerEq (v: Nat) (t: Nat) (not6: v ≠ 6): (nextTimer t == v) = (t == v + 1) := cases
 
 theorem agedCount (v: Nat) (not6: v ≠ 6) (fish: List Nat): fish.count (t => nextTimer t == v) = fish.count (== v + 1) :=
-  List.countCongMem fish _ _ (t _ => nextTimerEq v t not6)
+  List.countCongMem _ _ _ (t _ => nextTimerEq v t not6)
 
 --| The fish at 6 the next day are those at 7 and those at 0 today.
 theorem agedSix (fish: List Nat): fish.count (t => nextTimer t == 6) = fish.count (== 7) + fish.count (== 0) :=
-  countSum _ _ _ (t => cases) fish
+  countSum (t => cases) fish
 
 --| No fish is at 9.
 theorem noneAtNine (fish: List Nat) (bounded: Bounded fish): fish.count (== 9) = 0 :=

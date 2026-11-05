@@ -242,38 +242,38 @@ theorem Text.sameCharEq (c: Char) (d: Char): Text.sameChar c d = (c == d) :=
     | True => rewrite Char.ext c d (Nat.equalSound _ _ same) in Eq.sym (DecEq.refl d)
     | False =>
       match equal: c == d with
-        | True => Void.exfalso (Bool.falseNotTrue (rewrite DecEq.sound c d equal, Text.sameCharRefl d at same in Eq.sym same))
+        | True => Void.exfalso (Bool.falseNotTrue (rewrite DecEq.sound equal, Text.sameCharRefl d at same in Eq.sym same))
         | False => rfl
 
 --| The direction of [`Text.stripPrefixCharsSome`] that reads a result: when
 --| stripping `p` from `ys` leaves `rest`, `ys` is `p` followed by `rest`.
-theorem Text.stripPrefixCharsForward: (p: List Char) → (ys: List Char) → (rest: List Char) →
+theorem Text.stripPrefixCharsForward: (p: List Char) → (ys: List Char) → [rest: List Char] →
     Text.stripPrefixChars p ys = Some rest → ys = List.append p rest
-  | [], ys, rest, h => Option.someInjective ys rest h
-  | [c, ..ps], [], rest, h => Void.exfalso (Option.someNotNone rest (Eq.sym h))
-  | [c, ..ps], [y, ..ys], rest, h =>
+  | [], ys, h => Option.someInjective h
+  | [c, ..ps], [], h => Void.exfalso (Option.someNotNone rest (Eq.sym h))
+  | [c, ..ps], [y, ..ys], h =>
     match same: Text.sameChar c y with
       | True =>
         rewrite Eq.sym (Char.ext c y (Nat.equalSound _ _ same)) in
-          Eq.cong (Cons c) (Text.stripPrefixCharsForward ps ys rest h)
+          Eq.cong (Cons c) (Text.stripPrefixCharsForward ps ys h)
       | False => Void.exfalso (Option.someNotNone rest (Eq.sym h))
 
 --| The characters after the prefix `p` are `rest` exactly when the list is
 --| `p` followed by `rest`: `Text.stripPrefixChars p ys = Some rest ↔ ys = p ++ rest`.
 theorem Text.stripPrefixCharsSome (p: List Char) (ys: List Char) (rest: List Char):
     Text.stripPrefixChars p ys = Some rest ↔ ys = List.append p rest := {
-  forward = Text.stripPrefixCharsForward p ys rest,
+  forward = Text.stripPrefixCharsForward p ys,
   backward = e => rewrite e in Text.stripPrefixCharsAppend rest p
 }
 
 --| Texts are equal exactly when their character lists are: `Text.fromList a == Text.fromList b`
 --| is `a == b`. Use it to move a `Bool` equation between a text and its characters.
-theorem Text.fromListEq (a: List Char) (b: List Char): (Text.fromList a == Text.fromList b) = (a == b) :=
+theorem Text.fromListEq [a: List Char] [b: List Char]: (Text.fromList a == Text.fromList b) = (a == b) :=
   match same: a == b with
-    | True => rewrite DecEq.sound a b same in DecEq.refl (Text.fromList b)
+    | True => rewrite DecEq.sound same in DecEq.refl (Text.fromList b)
     | False =>
       match equal: Text.fromList a == Text.fromList b with
-        | True => Void.exfalso (DecEq.soundFalse a b same (Eq.cong Text.toList (DecEq.sound _ _ equal)))
+        | True => Void.exfalso (DecEq.soundFalse a b same (Eq.cong Text.toList (DecEq.sound equal)))
         | False => rfl
 
 --| `text` after `prefix` is `rest` exactly when `text` is `prefix` followed by
@@ -289,7 +289,7 @@ theorem Text.stripPrefixSome (text: Text) (prefix: Text) (rest: Text): Text.stri
       | None => Void.exfalso (Option.someNotNone rest (Eq.sym h))
       | Some chars =>
         Text.ext text (Text.append prefix rest)
-          (rewrite Text.stripPrefixCharsForward _ _ chars found, Eq.sym (Option.someInjective _ _ h) in rfl),
+          (rewrite Text.stripPrefixCharsForward _ _ found, Eq.sym (Option.someInjective h) in rfl),
   backward = e => rewrite e in Text.stripPrefixAppend prefix rest
 }
 
@@ -305,7 +305,7 @@ theorem Text.stripSuffixSome (text: Text) (suffix: Text) (rest: Text): Text.stri
       | Some chars =>
         Text.ext text (Text.append rest suffix)
           (Eq.trans (Eq.sym (List.reverseReverse (Text.toList text)))
-            (rewrite Text.stripPrefixCharsForward _ _ chars found, Eq.sym (Option.someInjective _ _ h), List.reverseAppend (List.reverse (Text.toList suffix)) chars, List.reverseReverse (Text.toList suffix) in rfl)),
+            (rewrite Text.stripPrefixCharsForward _ _ found, Eq.sym (Option.someInjective h), List.reverseAppend (List.reverse (Text.toList suffix)) chars, List.reverseReverse (Text.toList suffix) in rfl)),
   backward = e =>
     rewrite e, List.reverseAppend (Text.toList rest) (Text.toList suffix),
       Text.stripPrefixCharsAppend (List.reverse (Text.toList rest)) (List.reverse (Text.toList suffix)),
@@ -322,7 +322,7 @@ theorem Text.stripPrefixTake (text: Text) (prefix: Text):
     | True =>
       (Text.stripPrefixSome text prefix (Text.drop text (Text.length prefix))).backward
         (Eq.trans (Eq.sym (Text.takeAppendDrop text (Text.length prefix)))
-          (Eq.cong (front => Text.append front (Text.drop text (Text.length prefix))) (DecEq.sound _ _ same)))
+          (Eq.cong (front => Text.append front (Text.drop text (Text.length prefix))) (DecEq.sound same)))
     | False =>
       match found: Text.stripPrefix text prefix with
         | None => rfl
@@ -342,7 +342,7 @@ theorem Text.stripSuffixDrop (text: Text) (suffix: Text):
     | True =>
       (Text.stripSuffixSome text suffix (Text.take text (Text.length text - Text.length suffix))).backward
         (Eq.trans (Eq.sym (Text.takeAppendDrop text (Text.length text - Text.length suffix)))
-          (Eq.cong (back => Text.append (Text.take text (Text.length text - Text.length suffix)) back) (DecEq.sound _ _ same)))
+          (Eq.cong (back => Text.append (Text.take text (Text.length text - Text.length suffix)) back) (DecEq.sound same)))
     | False =>
       match found: Text.stripSuffix text suffix with
         | None => rfl

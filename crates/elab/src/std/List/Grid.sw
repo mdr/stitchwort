@@ -28,7 +28,7 @@ theorem List.memWithIndex (xs: List a) (i: Nat) (x: a): ((i, x) ∈ xs.withIndex
         match c: List.get xs k with
           | None => Void.exfalso (Option.noneNotSome (i, x) (rewrite List.getWithIndex xs k, c at found))
           | Some y =>
-            let same: (k, y) = (i, x) := Option.someInjective (k, y) (i, x) (rewrite List.getWithIndex xs k, c at found)
+            let same: (k, y) = (i, x) := Option.someInjective (rewrite List.getWithIndex xs k, c at found)
             rewrite <- Eq.cong Pair.fst same, <- Eq.cong Pair.snd same in c,
   backward = found => List.memOfGet xs.withIndex i (i, x) (rewrite List.getWithIndex xs i, found in rfl)
 }

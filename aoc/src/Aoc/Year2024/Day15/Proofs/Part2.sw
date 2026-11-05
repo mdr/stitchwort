@@ -27,7 +27,7 @@ theorem frontOrOwn (box: Cell) (direction: Direction) (cell: Cell) (covered: cel
               | Inr (Inl same) => notRight (Eq.sym same)
               | Inr (Inr none) => none
           Inl
-            (List.memFilterIntro (cellsOf (box.step direction)) (other => other ∉ cellsOf box) cell covered
+            (List.memFilterIntro (cellsOf (box.step direction)) (other => other ∉ cellsOf box) covered
               (rewrite Decidable.toBoolOfNot (List.decMem cell (cellsOf box)) notOwn in rfl))
 
 --| A cell some boxes move into is free for them: not a wall, and every box
@@ -58,11 +58,11 @@ theorem coversInBoxesAt (warehouse: Warehouse) (box: Cell) (cell: Cell) (boxed: 
       | Inl atBox => Inl (Eq.sym atBox)
       | Inr (Inl atRight) => Inr (Inl (rewrite <- atRight in offsetStepOpposite box Right))
       | Inr (Inr none) => Void.exfalso none
-  List.memFilterIntro [cell, cell.step Left] (other => warehouse.boxes.contains other) box near boxed
+  List.memFilterIntro [cell, cell.step Left] (other => warehouse.boxes.contains other) near boxed
 
 theorem inBoxesAtCovers (warehouse: Warehouse) (box: Cell) (cell: Cell) (found: box ∈ warehouse.boxesAt cell):
     (warehouse.boxes.contains box = True) ∧ (Covers box cell) :=
-  match List.memFilter [cell, cell.step Left] (other => warehouse.boxes.contains other) box found with
+  match List.memFilter [cell, cell.step Left] (other => warehouse.boxes.contains other) found with
     | Both near boxed =>
       Both boxed
         (match near with
@@ -76,7 +76,7 @@ theorem gatherOk (warehouse: Warehouse) (direction: Direction): (fuel: Nat) → 
     (result: Set Cell) → warehouse.gather direction group pending fuel = Some result → GatherInvariant warehouse direction group pending →
     ((box: Cell) → group.contains box = True → result.contains box = True) ∧ ((GroupOk warehouse direction result) ∧ ((cell: Cell) → cell ∈ pending → Clear warehouse result cell))
   | fuel, group, [], result, found, invariant =>
-    rewrite <- Option.someInjective _ _ found in
+    rewrite <- Option.someInjective found in
       Both (box held => held)
         (Both
           (box held =>
@@ -111,7 +111,7 @@ theorem gatherOk (warehouse: Warehouse) (direction: Direction): (fuel: Nat) → 
                     (Inr
                       (Witness box
                         (Both
-                          (List.memFilterIntro (warehouse.boxesAt cell) (other => !group.contains other) box
+                          (List.memFilterIntro (warehouse.boxesAt cell) (other => !group.contains other)
                             (coversInBoxesAt warehouse box cell boxed covers) (rewrite held in rfl))
                           rfl))))
         let invariantAfter: GatherInvariant warehouse direction larger pending :=
@@ -125,7 +125,7 @@ theorem gatherOk (warehouse: Warehouse) (direction: Direction): (fuel: Nat) → 
                       | Inl (Inr inRest) => Inl (List.memAppendRight front (found.flatMap (box => frontOf box direction)) rest inRest)
                       | Inr clear => Inr (clearMono warehouse group larger front clear grows))
               | Inr isFound =>
-                Both (And.left (inBoxesAtCovers warehouse box cell (And.left (List.memFilter (warehouse.boxesAt cell) (other => !group.contains other) box isFound))))
+                Both (And.left (inBoxesAtCovers warehouse box cell (And.left (List.memFilter (warehouse.boxesAt cell) (other => !group.contains other) isFound))))
                   (front inFront =>
                     Inl
                       (List.memAppendLeft front (found.flatMap (box => frontOf box direction)) rest
@@ -204,7 +204,7 @@ theorem blockedMovesNothing (warehouse: Warehouse) (direction: Direction) (separ
 theorem movedOrStayed (warehouse: Warehouse) (direction: Direction) (group: Set Cell) (position: Cell)
     (held: ((warehouse.boxes.difference group).union (group.map (box => box.step direction))).contains position = True):
     (∃ (box: Cell) => group.contains box = True ∧ box.step direction = position) ∨ ((warehouse.boxes.contains position = True) ∧ (group.contains position = False)) :=
-  Bool.orElim ((warehouse.boxes.difference group).contains position) ((group.map (box => box.step direction)).contains position) _
+  Bool.orElim
     (Eq.trans (Eq.sym (Set.containsUnion (warehouse.boxes.difference group) position (group.map (box => box.step direction)))) held)
     (stayed => Inr (stayedElim warehouse group position stayed))
     (moved => Inl (Iff.forward (Set.containsMap group (box => box.step direction) position) moved))
@@ -214,8 +214,8 @@ theorem stayedElim (warehouse: Warehouse) (group: Set Cell) (position: Cell) (st
     (warehouse.boxes.contains position = True) ∧ (group.contains position = False) :=
   let both: (warehouse.boxes.contains position ∧ ¬(group.contains position)) = True :=
     rewrite <- Set.containsDifference warehouse.boxes position group in stayed
-  Both (Bool.andLeft _ _ both)
-    (Bool.falseOfNotTrue (group.contains position) (gathered => Bool.falseNotTrue (rewrite gathered at Bool.andRight _ _ both)))
+  Both (Bool.andLeft both)
+    (Bool.falseOfNotTrue (group.contains position) (gathered => Bool.falseNotTrue (rewrite gathered at Bool.andRight both)))
 
 --| "Boxes can be aligned such that they directly push two other boxes at
 --| once", but never onto a box that stays: with nothing overlapping, a move
@@ -333,7 +333,7 @@ theorem wholeOfSeparate (warehouse: Warehouse) (separate: WideSeparate warehouse
     let rightOfBox := (boxed: warehouse.boxes.contains position = True) =>
       match atRobot: right == warehouse.robot with
         | True =>
-          let leftOfRobot: warehouse.robot.step Left = position := rewrite <- DecEq.sound right warehouse.robot atRobot in offsetStepOpposite position Right
+          let leftOfRobot: warehouse.robot.step Left = position := rewrite <- DecEq.sound atRobot in offsetStepOpposite position Right
           Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym (rewrite <- leftOfRobot at boxed)) robotNotRight))
         | False =>
           (rewrite atRobot, offWalls position boxed right (Inr (Inl rfl)), noneRight position boxed, offsetStepOpposite position Right, boxed in rfl: wideTile warehouse right = BoxRight)
@@ -367,7 +367,7 @@ theorem wholeOfSeparate (warehouse: Warehouse) (separate: WideSeparate warehouse
                         let boxed: warehouse.boxes.contains position = True := rewrite offsetStepOpposite position Right at boxedLeft
                         let notRobot: (position == warehouse.robot) = False :=
                           Bool.falseOfNotTrue _ (atRobot =>
-                            Bool.trueNotFalse (Eq.trans (Eq.sym (rewrite DecEq.sound position warehouse.robot atRobot at boxed)) robotNotBoxed))
+                            Bool.trueNotFalse (Eq.trans (Eq.sym (rewrite DecEq.sound atRobot at boxed)) robotNotBoxed))
                         rewrite notRobot, offWalls position boxed position (Inl rfl), boxed in rfl
     }
 

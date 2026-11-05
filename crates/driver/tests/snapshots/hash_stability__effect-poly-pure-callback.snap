@@ -14,4 +14,4 @@ Main.test "map with a constructor" 67f88b1b38399a462dd88c1470599a75266961de26152
 Main.test "map with a partial application" ef2aa12ce713f9676a4ded869537e7c01a514b7ba737435b7d3f4f5231bf2c8b
 Main.test "map with a pure parameter" ff27f8c7ce33bea89649e1cb0587c9015cc551f14db63037155971abd353f308
 Main.test "map with an empty-row parameter" d4679976af2a157011b0a59e9c3237f67b0452d2363456ac33f3e67c3a4a6148
-Main.test "map with a pure callback in a failing computation" b181869fc512c42e080694d9177994afe65984afb2a8a9f7b37b9c0c088797b4
+Main.test "map with a pure callback in a failing computation" dc3c0b4bba3d4b510668be9da8046ce0537bd76de7646a4a445b7b01321d965f

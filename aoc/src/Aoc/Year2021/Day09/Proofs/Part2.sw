@@ -63,7 +63,7 @@ theorem unitSteps (map: HeightMap) (state: Position) (next: Position) (weight: N
     | None => Void.exfalso (Option.noneNotSome weight found)
     | Some digit =>
       match digit.toNat != 9 with
-        | True => Eq.sym (Option.someInjective _ _ found)
+        | True => Eq.sym (Option.someInjective found)
         | False => Void.exfalso (Option.noneNotSome weight found)
 
 --| What the search from a low point finds is in its basin...
@@ -112,15 +112,15 @@ theorem notNineOfOpen (height: Nat) (open: (height != 9) = True): height ≠ 9 :
 --| higher than 9), so no path leaves it, and it isn't in a basin itself.
 theorem closedNoBasin (map: HeightMap) (low: Position) (height: Nat) (member: (low, height) ∈ lowPoints map) (closed: map.isOpen low = False)
     (location: Position): (steps: List Position) → inSomeBasin map location = True → isPath map low steps location = True → Void
-  | [], locationOpen, path => Bool.falseNotTrue (Eq.trans (Eq.sym closed) (rewrite DecEq.sound low location path in locationOpen))
+  | [], locationOpen, path => Bool.falseNotTrue (Eq.trans (Eq.sym closed) (rewrite DecEq.sound path in locationOpen))
   | [next, ..rest], locationOpen, path =>
-    let near := Bool.andLeft _ _ path
-    let nextOpen := Bool.andLeft _ _ (Bool.andRight _ _ path)
+    let near := Bool.andLeft path
+    let nextOpen := Bool.andLeft (Bool.andRight path)
     match h: map.heightAt next with
       | None => Bool.falseNotTrue nextOpen
       | Some other =>
         let nextCell := memCellsOfHeight map next other h
-        let lowInfo := List.memFilter map.cells _ (low, height) member
+        let lowInfo := List.memFilter map.cells _ member
         let atNext := List.allMem _ (next, other) map.cells (List.allToAll _ map.cells (And.right lowInfo)) nextCell
         let lower: (height < other) = True := rewrite near at atNext in atNext
         let below: height < other := lower

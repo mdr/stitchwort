@@ -63,7 +63,7 @@ theorem MemorySpace.enterListed (memory: MemorySpace) (position: Position) (cost
     position ∈ positions memory.size memory.size :=
   match safe: memory.isSafe position with
     | False => Void.exfalso (Option.noneNotSome cost found)
-    | True => memPositionsOfWithin memory.size memory.size position (Bool.andLeft _ _ safe)
+    | True => memPositionsOfWithin memory.size memory.size position (Bool.andLeft safe)
 
 --| The memory space as a graph for std's search: a step from each position
 --| to each safe neighbour (up, right, down or left).

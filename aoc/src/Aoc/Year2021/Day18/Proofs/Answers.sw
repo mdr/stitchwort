@@ -20,7 +20,7 @@ theorem addSound (x: Number) (y: Number) (sum: Number) (reducedX: IsReduced x) (
 
 theorem addAllSound: (total: Number) → (numbers: List Number) → (final: Number) → IsReduced total → List.All IsReduced numbers → addAll total numbers = Some final →
     AddsUpTo total numbers final
-  | total, [], final, _, _, done => rewrite <- Option.someInjective _ final done in NothingAdded total
+  | total, [], final, _, _, done => rewrite <- Option.someInjective done in NothingAdded total
   | total, [next, ..rest], final, reducedTotal, Both reducedNext reducedRest, done =>
     match a: add total next with
       | Some sum =>
@@ -41,7 +41,7 @@ theorem part1Correct (numbers: List Number) (reduced: List.All IsReduced numbers
               (Witness final
                 (Both rfl
                   (Both (addAllSound first rest final (And.left reduced) (And.right reduced) a)
-                    (rewrite magnitudeSame final in Option.someInjective _ answer solved)))))
+                    (rewrite magnitudeSame final in Option.someInjective solved)))))
         | None => Void.exfalso (Option.noneNotSome answer solved)
 
 --| Adding up is one number, so part 1's answer is one number.
@@ -55,7 +55,7 @@ theorem part1Unique (numbers: List Number) (answer1: Nat) (answer2: Nat) (first:
   match first, second with
     | Witness first1 (Witness rest1 (Witness final1 (Both split1 (Both adds1 magnitude1)))), Witness first2 (Witness rest2 (Witness final2 (Both split2 (Both adds2 magnitude2)))) =>
       let same := Eq.trans (Eq.sym split1) split2
-      let firsts := Option.someInjective first1 first2 (Eq.cong (xs => List.get xs 0) same)
+      let firsts := Option.someInjective (Eq.cong (xs => List.get xs 0) same)
       let rests: rest1 = rest2 := Eq.cong (xs => List.drop xs 1) same
       let finals := addsUpToUnique final2 first2 rest2 final1 (rewrite firsts, rests at adds1 in adds1) adds2
       rewrite <- magnitude1, <- magnitude2, finals in rfl
@@ -76,7 +76,7 @@ theorem pairsMember (numbers: List Number) (x: Number) (y: Number) (member: (x, 
           match e: i != j with
             | False => Void.exfalso (Option.noneNotSome _ made)
             | True =>
-              let pairs := Option.someInjective (a, b) (x, y) made
+              let pairs := Option.someInjective made
               Witness i
                 (Witness j
                   (Both (DecEq.neTrue i j e)
@@ -88,7 +88,7 @@ theorem pairsMember (numbers: List Number) (x: Number) (y: Number) (member: (x, 
 theorem sumMagnitudesSound: (pairs: List (Number, Number)) → (magnitudes: List Nat) → sumMagnitudes pairs = Some magnitudes →
     ((k: Nat) → k ∈ magnitudes → ∃ (x: Number) => ∃ (y: Number) => ∃ (sum: Number) => (x, y) ∈ pairs ∧ add x y = Some sum ∧ magnitude sum = k)
       ∧ ((x: Number) → (y: Number) → (x, y) ∈ pairs → ∃ (sum: Number) => add x y = Some sum ∧ magnitude sum ∈ magnitudes)
-  | [], magnitudes, done => rewrite <- Option.someInjective _ magnitudes done in Both (k member => Void.exfalso member) (x y member => Void.exfalso member)
+  | [], magnitudes, done => rewrite <- Option.someInjective done in Both (k member => Void.exfalso member) (x y member => Void.exfalso member)
   | [(x, y), ..rest], magnitudes, done =>
     match a: add x y with
       | None => Void.exfalso (Option.noneNotSome magnitudes done)
@@ -97,7 +97,7 @@ theorem sumMagnitudesSound: (pairs: List (Number, Number)) → (magnitudes: List
           | None => Void.exfalso (Option.noneNotSome magnitudes done)
           | Some others =>
             let later := sumMagnitudesSound rest others m
-            rewrite <- Option.someInjective _ magnitudes done in
+            rewrite <- Option.someInjective done in
               Both
                 (k member =>
                   match member with

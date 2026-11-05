@@ -10,7 +10,7 @@ import Aoc.Year2021.Day01.Spec (..)
 import Std (Bool, DecEq, Decidable, Eq, List, Nat, Void)
 
 --| Counting increases one pair at a time.
-theorem increasesCons (a: Nat) (b: Nat) (rest: List Nat):
+theorem increasesCons [a: Nat] [b: Nat] [rest: List Nat]:
     increases [a, b, ..rest] = Bool.toNat (a < b) + increases [b, ..rest] :=
   List.countCons (List.zipWithNext [b, ..rest]) (MkPair a b) (pair => pair.fst < pair.snd)
 
@@ -74,7 +74,7 @@ theorem windowsCorrect (m: Nat): (depths: List Nat) → increasesOver (Succ m) d
           _ = Bool.toNat (List.sum (List.take [x, ..rest] (Succ m)) < List.sum (List.take rest (Succ m))) + windowIncreases (Succ m) rest
             := rewrite List.sumCons x (List.take rest m), List.takeSucc 0 rest m h, List.sumAppend (List.take rest m) [gained]
           _ = increases [List.sum (List.take [x, ..rest] (Succ m)), List.sum (List.take rest (Succ m)), ..List.map (slidingWindows (Succ m) (List.drop rest 1)) List.sum]
-            := rewrite windowsLong m rest h in Eq.sym (increasesCons _ _ _)
+            := rewrite windowsLong m rest h in Eq.sym (increasesCons)
           _ = increases [List.sum (List.take [x, ..rest] (Succ m)), ..List.map (slidingWindows (Succ m) rest) List.sum]
             := Eq.cong (ws => increases [List.sum (List.take [x, ..rest] (Succ m)), ..List.map ws List.sum]) (Eq.sym (windowsLong m rest h))
           _ = windowIncreases (Succ m) [x, ..rest]

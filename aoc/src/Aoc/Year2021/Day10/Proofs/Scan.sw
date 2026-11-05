@@ -69,7 +69,7 @@ theorem framesBalanced (base: List Token): (frames: List (Bracket, List Token)) 
       | False => cases
       | True =>
         let next := framesBalanced (base ++ [Opener bracket, ..piece ++ [Closer bracket]]) [] (Concat ok (Wrap bracket inner)) rest h
-        rewrite <- DecEq.sound bracket closer same, closeShape base (Opener bracket) piece (Closer bracket) rest in next
+        rewrite <- DecEq.sound same, closeShape base (Opener bracket) piece (Closer bracket) rest in next
   | [(bracket, piece), (outer, outerPiece), ..frames], Both inner (Both outerOk ok), [Closer closer, ..rest], h =>
     match same: bracket == closer with
       | False => cases
@@ -77,7 +77,7 @@ theorem framesBalanced (base: List Token): (frames: List (Bracket, List Token)) 
         let closed := [Opener bracket, ..piece ++ [Closer bracket]]
         let next := framesBalanced base [(outer, outerPiece ++ closed), ..frames] (Both (Concat outerOk (Wrap bracket inner)) ok) rest h
         let start := flatten base frames ++ [Opener outer, ..outerPiece]
-        rewrite <- DecEq.sound bracket closer same, closeShape start (Opener bracket) piece (Closer bracket) rest, List.appendAssoc (flatten base frames) [Opener outer, ..outerPiece] closed in next
+        rewrite <- DecEq.sound same, closeShape start (Opener bracket) piece (Closer bracket) rest, List.appendAssoc (flatten base frames) [Opener outer, ..outerPiece] closed in next
 
 --| A line whose scan from no open brackets ends with none open is balanced.
 theorem scanBalanced (line: List Token) (h: scan [] line = Unclosed []): Balanced line := framesBalanced [] [] Empty line h

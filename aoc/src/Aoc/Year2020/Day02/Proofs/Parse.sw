@@ -24,13 +24,13 @@ def Written (line: List Char) (entry: Entry): Prop :=
       ∧ entry.password.toList ≠ [] ∧ entry.password.toList.all Char.isAsciiLowercase = True
 
 theorem readsLine: Parse.Reads line Written :=
-  Parse.readsThen _ _ _ _ Parse.readsNat (lowRead low lowDigits =>
-    Parse.readsThen _ _ _ _ (Parse.readsChar '-') (dashRead u1 dash =>
-      Parse.readsThen _ _ _ _ Parse.readsNat (highRead high highDigits =>
-        Parse.readsThen _ _ _ _ (Parse.readsChar ' ') (spaceRead u2 space =>
-          Parse.readsThen _ _ _ _ (Parse.readsSatisfy "a lowercase letter" Char.isAsciiLowercase) (letterRead letter (Both letterIs lower) =>
-            Parse.readsThen _ _ _ _ (Parse.readsText ": ") (colonRead u3 colon =>
-              Parse.readsThen _ _ _ _ (Parse.readsTakeWhile1 "a password" Char.isAsciiLowercase) (passwordRead password (Both nonEmpty (Both lowers made)) =>
+  Parse.readsThen Parse.readsNat (lowRead low lowDigits =>
+    Parse.readsThen (Parse.readsChar '-') (dashRead u1 dash =>
+      Parse.readsThen Parse.readsNat (highRead high highDigits =>
+        Parse.readsThen (Parse.readsChar ' ') (spaceRead u2 space =>
+          Parse.readsThen (Parse.readsSatisfy) (letterRead letter (Both letterIs lower) =>
+            Parse.readsThen (Parse.readsText ": ") (colonRead u3 colon =>
+              Parse.readsThen (Parse.readsTakeWhile1) (passwordRead password (Both nonEmpty (Both lowers made)) =>
                 Parse.readsDone { low, high, letter, password } _
                   (rewrite made in
                     Witness lowRead (Witness highRead

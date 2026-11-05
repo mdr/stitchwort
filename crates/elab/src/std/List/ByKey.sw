@@ -44,11 +44,11 @@ theorem List.notInOfNotMem [auto eq: DecEq k] (z: k) (zs: List k) (out: z ∉ zs
 theorem List.memDifferenceBy [auto eq: DecEq k] (x: a) (xs: List a) (ys: List a) (key: a → k):
     x ∈ List.differenceBy xs ys key ↔ x ∈ xs ∧ key x ∉ List.map ys key := {
   forward = m =>
-    match List.memFilter xs (y => key y ∉ List.map ys key) x m with
+    match List.memFilter xs (y => key y ∉ List.map ys key) m with
       | Both inXs keep => Both inXs (List.notMemOfNotIn (key x) (List.map ys key) keep),
   backward = h =>
     match h with
-      | Both inXs out => List.memFilterIntro xs (y => key y ∉ List.map ys key) x inXs (List.notInOfNotMem (key x) (List.map ys key) out)
+      | Both inXs out => List.memFilterIntro xs (y => key y ∉ List.map ys key) inXs (List.notInOfNotMem (key x) (List.map ys key) out)
 }
 
 --| What `appendNewBy` has: the items of `xs`, and those of `ys` whose key no

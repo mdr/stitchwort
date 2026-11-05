@@ -33,7 +33,7 @@ theorem anyQuestion: (lines: List (List Char)) → (people: List Person) → Lis
     lines.any (line => line.contains question) = True → Spec.questions.contains question = True
   | [], [], all, question, found => Void.exfalso (Bool.falseNotTrue found)
   | [line, ..lines], [person, ..people], Both (Both nonEmpty (Both questions same)) rest, question, found =>
-    Bool.orElim (line.contains question) (lines.any (line => line.contains question)) _ found
+    Bool.orElim found
       (inLine =>
         List.allMember isQuestion line questions question ((List.memContains line question).forward inLine))
       (inRest => anyQuestion lines people rest question inRest)
@@ -47,6 +47,6 @@ theorem everyQuestion: (lines: List (List Char)) → (people: List Person) → L
     lines.all (line => line.contains question) = True → Spec.questions.contains question = True
   | [], [], all, some, question, found => Void.exfalso (some rfl)
   | [line, ..lines], [person, ..people], Both (Both nonEmpty (Both questions same)) rest, some, question, found =>
-    List.allMember isQuestion line questions question ((List.memContains line question).forward (Bool.andLeft _ _ found))
+    List.allMember isQuestion line questions question ((List.memContains line question).forward (Bool.andLeft found))
   | [], [_, .._], impossible, some, question, found => Void.exfalso impossible
   | [_, .._], [], impossible, some, question, found => Void.exfalso impossible

@@ -22,12 +22,12 @@ theorem pairHeight (depth: Nat) (left: Number) (right: Number) (exploded: Explos
     (rightLower: (e: Explosion) → explode (depth + 1) right = Some e → height e.number ≤ height right): height exploded.number ≤ height (Pair left right) :=
   match el: explode (depth + 1) left with
     | Some e =>
-      rewrite <- Option.someInjective _ exploded (rewrite explode.eq3.some depth left right notArm2 e el at some in some) in
+      rewrite <- Option.someInjective (rewrite explode.eq3.some depth left right notArm2 e el at some in some) in
         rewrite addLeftmostHeight e.toRight right in omega [leftLower e rfl]
     | None =>
       match er: explode (depth + 1) right with
         | Some e =>
-          rewrite <- Option.someInjective _ exploded (rewrite explode.eq3.none.some depth left right notArm2 el e er at some in some) in
+          rewrite <- Option.someInjective (rewrite explode.eq3.none.some depth left right notArm2 el e er at some in some) in
             rewrite addRightmostHeight e.toLeft left in omega [rightLower e rfl]
         | None => Void.exfalso (Option.noneNotSome exploded (rewrite explode.eq3.none.none depth left right notArm2 el er at some in some))
 
@@ -35,7 +35,7 @@ theorem explodeHeight: (depth: Nat) → (number: Number) → (exploded: Explosio
   | depth, Regular _, exploded, some => Void.exfalso (Option.noneNotSome exploded some)
   | depth, Pair (Regular a) (Regular b), exploded, some =>
     match deep: Nat.leq 4 depth with
-      | True => rewrite <- Option.someInjective _ exploded some in omega
+      | True => rewrite <- Option.someInjective some in omega
       | False => Void.exfalso (Option.noneNotSome exploded some)
   | depth, Pair (Regular a) (Pair x y), exploded, some =>
     pairHeight depth (Regular a) (Pair x y) exploded cases some
@@ -47,12 +47,12 @@ theorem explodeHeight: (depth: Nat) → (number: Number) → (exploded: Explosio
 theorem splitHeight: (number: Number) → (split2: Number) → split number = Some split2 → height split2 ≤ height number + 1
   | Regular value, split2, some =>
     match Nat.decLessThan 9 value with
-      | Yes _ => rewrite <- Option.someInjective _ split2 some in omega
+      | Yes _ => rewrite <- Option.someInjective some in omega
       | No _ => Void.exfalso (Option.noneNotSome split2 some)
   | Pair left right, split2, some =>
     match el: split left with
-      | Some left2 => rewrite <- Option.someInjective _ split2 some in omega [splitHeight left left2 el]
+      | Some left2 => rewrite <- Option.someInjective some in omega [splitHeight left left2 el]
       | None =>
         match er: split right with
-          | Some right2 => rewrite <- Option.someInjective _ split2 some in omega [splitHeight right right2 er]
+          | Some right2 => rewrite <- Option.someInjective some in omega [splitHeight right right2 er]
           | None => Void.exfalso (Option.noneNotSome split2 some)

@@ -507,7 +507,7 @@ theorem Map.Tree.minViewSplit: (l: Map.Tree k v) → (key: k) → (value: v) →
 --| What `popMin` leaves of a non-empty tree is `deleteMin`'s.
 theorem Map.Tree.popMinRest (l: Map.Tree k v) (key: k) (value: v) (r: Map.Tree k v) (s: Nat) (smallest: (k, v)) (rest: Map.Tree k v)
     (found: Map.Tree.popMin (Bin s l key value r) = Some (smallest, rest)): rest = Map.Tree.deleteMin l key value r :=
-  Eq.cong Pair.snd (Eq.trans (Eq.sym (Option.someInjective _ _ found)) (Map.Tree.minViewSplit l key value r))
+  Eq.cong Pair.snd (Eq.trans (Eq.sym (Option.someInjective found)) (Map.Tree.minViewSplit l key value r))
 
 --| Taking the smallest entry off keeps the keys in order.
 theorem Map.Tree.popMinOrdered (ord: Ord k): (t: Map.Tree k v) → (smallest: (k, v)) → (rest: Map.Tree k v) →

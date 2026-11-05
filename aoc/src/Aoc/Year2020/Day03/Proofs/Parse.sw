@@ -19,15 +19,15 @@ def symbol: Square → Char
 --| A character the parser accepts is the symbol of the square it makes.
 theorem symbolOfChar (char: Char) (allowed: isSquare char = True): symbol (Square.ofChar char) = char :=
   match tree: char == '#' with
-    | True => Eq.sym (DecEq.sound char '#' tree)
+    | True => Eq.sym (DecEq.sound tree)
     | False =>
       match open: char == '.' with
-        | True => Eq.sym (DecEq.sound char '.' open)
+        | True => Eq.sym (DecEq.sound open)
         | False => cases
 
 theorem readsSquare: Parse.Reads square (read square => read = [symbol square]) :=
-  Parse.readsWeaken square _ _
-    (Parse.readsMap (() => Parse.satisfy "'.' or '#'" isSquare) Square.ofChar _ (Parse.readsSatisfy "'.' or '#'" isSquare))
+  Parse.readsWeaken [p := square]
+    (Parse.readsMap (() => Parse.satisfy "'.' or '#'" isSquare) Square.ofChar _ (Parse.readsSatisfy))
     (read square h =>
       match h with
         | Witness char (Both (Both one allowed) made) => rewrite made, one, symbolOfChar char allowed in rfl)
@@ -39,7 +39,7 @@ theorem parseWritten (input: Text) (map: Grid Square) (parsed: Fail.toResult (()
   Result.flatMapEqOk _ (rows => Fail.toResult (() => checkGrid rows)) map split (rows read checked =>
     rewrite <- checkGridRows rows map checked in
       Parse.eachLineReads input (() => Parse.many1 square |> .toList) _ rows read
-        (Parse.readsWeaken _ _ _
+        (Parse.readsWeaken
           (Parse.readsMap (() => Parse.many1 square) NonEmptyList.toList _ (Parse.readsMany1 square _ readsSquare))
           (line values h =>
             match h with

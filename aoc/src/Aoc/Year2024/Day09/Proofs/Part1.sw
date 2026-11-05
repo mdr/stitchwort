@@ -48,13 +48,13 @@ theorem fileBlocksFreeLast: (blocks: List Block) → (id: Nat) → lastFile bloc
   | [block, ..rest], id, found =>
     match later: lastFile rest with
       | Some laterId =>
-        rewrite fileBlocksFreeLast rest laterId later, Option.someInjective laterId id found in
+        rewrite fileBlocksFreeLast rest laterId later, Option.someInjective found in
           match block with
             | FileBlock here => rfl
             | Free => rfl
       | None =>
         match block with
-          | FileBlock here => rewrite noFileBlocks rest later, Option.someInjective here id found in rfl
+          | FileBlock here => rewrite noFileBlocks rest later, Option.someInjective found in rfl
           | Free => Void.exfalso (Option.noneNotSome id found)
 
 --| Some block is a file block exactly when there is a last file.

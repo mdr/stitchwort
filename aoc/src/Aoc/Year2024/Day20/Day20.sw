@@ -76,7 +76,7 @@ theorem Racetrack.edgeOnTrack (racetrack: Racetrack) (position: Position) (next:
         | Some ahead =>
           match onIt: racetrack.isTrack ahead with
             | False => Void.exfalso (Option.noneNotSome (next, weight) (And.right both))
-            | True => rewrite <- Eq.cong Pair.fst (Option.someInjective _ _ (And.right both)) in onIt)
+            | True => rewrite <- Eq.cong Pair.fst (Option.someInjective (And.right both)) in onIt)
 
 --| The track as a graph for std's search. Every step can be taken back, so
 --| the same graph gives the times to the end.

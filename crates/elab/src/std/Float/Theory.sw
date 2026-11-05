@@ -77,10 +77,10 @@ theorem Float.Theory.bitLengthBySpec: (powers: List Nat) → (width: Nat) → (n
     let pe: p = Nat.pow 2 width :=
       Eq.trans
         (Nat.equalSound p (Float.Model.pow2 width)
-          (Bool.andLeft (Nat.equal p (Float.Model.pow2 width)) (Float.Theory.powersFit rest (Nat.divFuel width width 2)) fit))
+          (Bool.andLeft fit))
         (Float.Theory.pow2Pow width)
     let restFit: Float.Theory.powersFit rest (Nat.divFuel width width 2) = True :=
-      Bool.andRight (Nat.equal p (Float.Model.pow2 width)) (Float.Theory.powersFit rest (Nat.divFuel width width 2)) fit
+      Bool.andRight fit
     let ppos: 0 < p := rewrite pe in Nat.powSuccPos 1 width
     match z: Nat.equal (Nat.divFuel n n p) 0 with
       | True => Float.Theory.bitLengthBySpec rest (Nat.divFuel width width 2) n restFit pos

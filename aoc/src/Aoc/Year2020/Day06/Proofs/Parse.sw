@@ -26,19 +26,18 @@ theorem containsFromList (letters: List Char) (question: Char): (Set.fromList le
     (found => (Set.containsFromListIff letters question).backward ((List.memContains letters question).forward found))
 
 theorem readsPerson: Parse.Reads person PersonWritten :=
-  Parse.readsThen _ _ _ _
-    (Parse.readsMany1 _ _ (Parse.readsSatisfy _ _)) (lettersRead letters each =>
-      match eachLetters lettersRead letters.toList each with
-        | Both same questions =>
-          Parse.readsDone ({ answers = letters.toList.toSet }: Person) _
-            (rewrite List.appendNil lettersRead, same in
-              Both (NonEmptyList.toListNotNil letters) (Both questions (question => containsFromList letters.toList question))))
+  Parse.readsThen (Parse.readsMany1 _ _ (Parse.readsSatisfy)) (lettersRead letters each =>
+    match eachLetters lettersRead letters.toList each with
+      | Both same questions =>
+        Parse.readsDone ({ answers = letters.toList.toSet }: Person) _
+          (rewrite List.appendNil lettersRead, same in
+            Both (NonEmptyList.toListNotNil letters) (Both questions (question => containsFromList letters.toList question))))
 
 --| A group: its people's lines, line breaks between.
 def GroupWritten (read: List Char) (group: Group): Prop := Parse.SepBy PersonWritten (read u => Parse.LineBreak read) read group.people
 
 theorem readsGroup: Parse.Reads group GroupWritten :=
-  Parse.readsThen _ _ _ _ (Parse.readsLines person _ readsPerson) (peopleRead people written =>
+  Parse.readsThen (Parse.readsLines person _ readsPerson) (peopleRead people written =>
     Parse.readsDone { people } _ (rewrite List.appendNil peopleRead in written))
 
 --| If `parseGroups` reads `input`, the input is the groups written out, a

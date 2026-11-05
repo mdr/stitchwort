@@ -27,8 +27,8 @@ theorem lookupMonsterMark (position: Position) (found: Monster) (rest: List (Nat
   | [monster, ..others], located =>
     match same: monster.position == position with
       | True =>
-        let here := DecEq.sound monster.position position same
-        let itIs := Option.someInjective monster found located
+        let here := DecEq.sound same
+        let itIs := Option.someInjective located
         rewrite here, natEqSelf position.row, natEqSelf position.column, itIs in rfl
       | False =>
         match sameRow: monster.position.row == position.row with
@@ -91,7 +91,7 @@ theorem renderEveryMonster (state: State) (valid: Valid state) (monster: Monster
   let notPlayer: (state.player == monster.position) = False :=
     match same: state.player == monster.position with
       | True =>
-        let vacant: monsterAt monster.position state.monsters = None := rewrite <- DecEq.sound state.player monster.position same in valid.clear
+        let vacant: monsterAt monster.position state.monsters = None := rewrite <- DecEq.sound same in valid.clear
         Void.exfalso (Option.noneNotSome monster (Eq.trans (Eq.sym vacant) located))
       | False => rfl
   renderMonster state monster.position monster located notPlayer tall wide

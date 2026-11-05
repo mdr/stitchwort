@@ -34,8 +34,8 @@ theorem checkedShapes (read: () → {Fail} List Line) (lines: List Line) (parsed
 theorem checkShapesOk (lines: List Line) (checked: List Line) (h: Fail.toResult (() => checkShapes lines) = Ok checked):
     checked.all (line => horizontalOrVertical line ∨ diagonal line) = True :=
   match e: firstBent lines with
-    | Some (index, _) => Void.exfalso (Result.errNotOk _ checked h)
+    | Some (index, _) => Void.exfalso (Result.errNotOk h)
     | None =>
-      rewrite <- Result.okInjective lines checked h in
+      rewrite <- Result.okInjective h in
         List.findNotNoneAll lines (line => line.isStraight ∨ line.isDiagonal)
           (List.findWithIndexFromNone (line => not (line.isStraight ∨ line.isDiagonal)) 0 lines e)

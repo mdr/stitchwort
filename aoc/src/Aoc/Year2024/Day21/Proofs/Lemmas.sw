@@ -46,7 +46,7 @@ theorem lastFromAppendOne: (from: k) → (keys: List k) → (key: k) → lastFro
 
 theorem flatMapSome (f: a → Option b): (x: Option a) → (value: a) → x = Some value → x.flatMap f = f value
   | None, value, same => Void.exfalso (Option.noneNotSome value same)
-  | Some found, value, same => rewrite Option.someInjective found value same in rfl
+  | Some found, value, same => rewrite Option.someInjective same in rfl
 
 theorem flatMapIntoSome: (x: Option a) → x.flatMap (value => Some value) = x
   | None => rfl
@@ -57,8 +57,8 @@ theorem minByStepPasses [auto ord: Ord b] (key: a → b) (passes: a → Bool): (
     passes (rest.foldLeft best (List.minByStep key)) = True
   | best, good, [], all => good
   | best, good, [next, ..others], all =>
-    let nextGood := Bool.andLeft _ _ all
-    let othersGood := Bool.andRight _ _ all
+    let nextGood := Bool.andLeft all
+    let othersGood := Bool.andRight all
     match compared: Ord.compare (key best) (key next) with
       | Greater => minByStepPasses key passes next nextGood others othersGood
       | Less => minByStepPasses key passes best good others othersGood

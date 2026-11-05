@@ -13,7 +13,7 @@ def pick (n: Nat): Option Nat := if isBig n then None else Some n
 theorem pickSmall (n: Nat) (m: Nat) (found: pick n = Some m): n = m :=
   match c: isBig n with
     | True => Void.exfalso (Option.noneNotSome m found)
-    | False => Option.someInjective _ _ found
+    | False => Option.someInjective found
 
 def needsSmall (n: Nat) (small: isBig n = False): Nat := n
 

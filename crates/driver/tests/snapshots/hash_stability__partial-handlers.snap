@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Main.countdown.Request 4ae4abdb8d29a16e71be8ba68ad638ad0ceb1e3a87dc4cf6690bc4743d74e867
@@ -29,9 +28,9 @@ Main.rollsUntilSix.Response 476865e9b5ef2d960f3aa2670ef66de1e41bf169884c58e91c5c
 Main.rollsUntilSix.recur 16e439ee351b8bb7620f343da5247676f8f66c3efcb70ee6bd5b3e379adb9e5d
 Main.rollsUntilSix.description f0327e8bff5c351b9b32385414871e902e273f1564b4437cc4f1520d4815ede3
 Main.rollsUntilSix.body 710185dccecdc991c2602088810d9e3ad2af46fc700283cfdd93688420112760
-Main.test "a failure is caught" d43f66c4fee4d3fc9382573868d4e382af67d28fd400388964c41adf70d245da
-Main.test "no failure" eaad5de5171baad6cb0f66be6c99daf3fa53a30f576da1b6b1a121b171c09cae
-Main.test "stopping drops the loop" d5dbd8c23e7e045c5839055582c7b6f0445cedd2a0dfaceb03acf5040e609c45
+Main.test "a failure is caught" 4f5d50b96c4f854876e1aac58b33d0ca212835d84383f6fd61c7ffb9c5aa8be8
+Main.test "no failure" a55150170ac6c41f9569f9cf4f9b9e63909d8f65ad111283c063570df29fd194
+Main.test "stopping drops the loop" f83e9739f932501fa76cf96a9005b555dfd901ca0f6d74e5d9f6adb625c9a774
 Main.test "a seeded loop" 19bb30dccf1d9ce63e906b3810c687f9ad49c5fa4581ed610e3964db760cd4f2
 Main.test "the same seed, the same rolls" fbc2f6d54e116c21d4bfa79266312e071f09fb8508c0c092be429e3ecff4cb76
 Main.showResult 4b0def2e009e853b4937de523d113baec8e9d4659248c9a7af1a3dc6fa6d27cb

@@ -18,14 +18,14 @@ def readsAt (grid: Grid) (r: Nat) (c: Nat) (r0: Nat) (c0: Nat) (r1: Nat) (c1: Na
 
 --| The program's test on four letters, present or not: XMAS one way, plus XMAS
 --| the other way (they can't both hold).
-theorem at4Spells (a: Option Char) (b: Option Char) (c: Option Char) (d: Option Char):
+theorem at4Spells [a: Option Char] [b: Option Char] [c: Option Char] [d: Option Char]:
     Option.getOrElse (Option.map4 (x y z w => Bool.toNat (spellsXmas x y z w)) a b c d) 0 = Bool.toNat (readsXmas a b c d) + Bool.toNat (readsXmas d c b a) :=
   match a, b, c, d with
     | Some x, Some y, Some z, Some w =>
       rewrite Option.someBeqSome x 'X', Option.someBeqSome x 'S', Option.someBeqSome y 'M', Option.someBeqSome y 'A', Option.someBeqSome z 'A', Option.someBeqSome z 'M', Option.someBeqSome w 'S', Option.someBeqSome w 'X' in
         match isX: x == 'X' with
           | True =>
-            let same := DecEq.sound x 'X' isX
+            let same := DecEq.sound isX
             rewrite same in cases
           | False => cases
     | _, _, _, _ => cases
@@ -45,7 +45,7 @@ def rowOf (grid: Grid) (r: Nat): List Char := grid.rows.getOr r []
 theorem acrossSum (grid: Grid) (r: Nat) (n: Nat) (h: (rowOf grid r).length ≤ n):
     countAcross (rowOf grid r) = List.sumBy (List.range 0 n) (c => readsAt grid r c 0 0 0 1 0 2 0 3 + readsAt grid r c 0 3 0 2 0 1 0 0) :=
   let row := rowOf grid r
-  rewrite countXmasSum row (row.drop 1) (row.drop 2) (row.drop 3) n h, List.getDrop row 1 _, List.getDrop row 2 _, List.getDrop row 3 _, at4Spells _ _ _ _ in rfl
+  rewrite countXmasSum row (row.drop 1) (row.drop 2) (row.drop 3) n h, List.getDrop row 1 _, List.getDrop row 2 _, List.getDrop row 3 _, at4Spells in rfl
 
 --| Through rows r to r + 3: XMAS down and up, along the diagonal down to the
 --| right both ways, and along the one down to the left both ways.
@@ -63,7 +63,7 @@ theorem throughSum (grid: Grid) (r: Nat) (n: Nat) (h: (rowOf grid r).length ≤ 
     countXmasSum first (second.drop 1) (third.drop 2) (fourth.drop 3) n h,
     countXmasSum (first.drop 3) (second.drop 2) (third.drop 1) fourth n shortened,
     List.getDrop first 3 _, List.getDrop second 1 _, List.getDrop second 2 _, List.getDrop third 1 _, List.getDrop third 2 _, List.getDrop fourth 3 _,
-    at4Spells _ _ _ _ in rfl
+    at4Spells in rfl
 
 --| With an empty row among the four, nothing is found through them.
 theorem throughEmpty1 (second: List Char) (third: List Char) (fourth: List Char): countThrough [] second third fourth = 0 := rfl

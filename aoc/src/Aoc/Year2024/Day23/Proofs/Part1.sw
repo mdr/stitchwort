@@ -12,7 +12,7 @@ import Aoc.Year2024.Day23 (..)
 import Aoc.Year2024.Day23.Spec (..)
 import Std (And, Bool, DecEq, Eq, Exists, Iff, List, Map, Nat, Not, Or, Set, Void)
 
-theorem sizeThree (set: Set Computer) (three: (set.size == 3) = True): set.size = 3 := DecEq.sound set.size 3 three
+theorem sizeThree (set: Set Computer) (three: (set.size == 3) = True): set.size = 3 := DecEq.sound three
 
 --| What the program makes before keeping the sets of three: the sets from
 --| each computer with links.
@@ -99,8 +99,8 @@ theorem setsOfThreeIff (network: Network) (party: Party):
     (network.links.setsOfThree.contains party = True) ↔ (InterConnectedThree network party) := {
   forward = held =>
     let kept := Eq.trans (Eq.sym (Set.containsFilter (Set.fromList (madeSets network.links)) party (party => party.size == 3))) held
-    let made := (Set.containsFromListIff (madeSets network.links) party).forward (Bool.andLeft _ _ kept)
-    Both (sizeThree party.members (Bool.andRight _ _ kept)) (madeConnected network party made),
+    let made := (Set.containsFromListIff (madeSets network.links) party).forward (Bool.andLeft kept)
+    Both (sizeThree party.members (Bool.andRight kept)) (madeConnected network party made),
   backward = (Both three connected) =>
     threeListed party.members three (network.links.setsOfThree.contains party = True)
       (first second third isSet firstSecond firstThird secondThird =>
@@ -142,7 +142,7 @@ theorem part1Correct (network: Network): IsPart1 network (solvePart1 network) :=
       (party => {
         forward = held =>
           let kept := Eq.trans (Eq.sym (Set.containsFilter network.links.setsOfThree party Party.mightHaveChief)) held
-          Both ((setsOfThreeIff network party).forward (Bool.andLeft _ _ kept)) (Bool.andRight _ _ kept),
+          Both ((setsOfThreeIff network party).forward (Bool.andLeft kept)) (Bool.andRight kept),
         backward = (Both three withT) =>
           rewrite Set.containsFilter network.links.setsOfThree party Party.mightHaveChief, (setsOfThreeIff network party).backward three in withT
       })

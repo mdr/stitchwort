@@ -39,11 +39,11 @@ theorem hittingCorrect (target: Target) (right: 0 < target.left) (below: target.
         let inside: inTarget target (flight n velocity) = True := rewrite flightIsAfter n velocity in inTargetOf target _ within
         let late := hitLate target below velocity n inside
         let stepsOf := Int.toIntToNat (-2 * target.bottom) (omega)
-        List.memFilterIntro (candidates target) (v => hitsWithin target (steps target) (launch v)) velocity
+        List.memFilterIntro (candidates target) (v => hitsWithin target (steps target) (launch v))
           (hitsCandidate target right below velocity n inside)
           (hitsWithinComplete target (steps target) n (launch velocity) (omega) inside),
   backward = member =>
-    let both := List.memFilter (candidates target) (v => hitsWithin target (steps target) (launch v)) velocity member
+    let both := List.memFilter (candidates target) (v => hitsWithin target (steps target) (launch v)) member
     match hitsWithinSound target (steps target) (launch velocity) both.right with
       | Witness n (Both early inside) => Witness n (rewrite <- flightIsAfter n velocity in withinOf target _ inside)
 }

@@ -16,7 +16,7 @@ theorem tracksStart (passages: List Passage) (twice: Bool): Tracks passages twic
       forward = _ => rewrite differ Cave.start c (same => notStart (Eq.sym same)) in rfl,
       backward = _ =>
         (List.memContains (smallCaves passages) c).backward
-          (List.memFilterIntro (caves passages) (cave => cave.isSmall && not cave.isStart && not cave.isEnd) c named
+          (List.memFilterIntro (caves passages) (cave => cave.isSmall && not cave.isStart && not cave.isEnd) named
             (rewrite small, differ c Cave.start notStart, differ c Cave.end notEnd in rfl))
     })
     (Both rfl
@@ -48,11 +48,11 @@ theorem pathsCorrect (passages: List Passage) (promise: NoBigNeighbours passages
     match path with
       | { caves = [] } => Void.exfalso (Bool.falseNotTrue ends)
       | { caves = [first, ..rest] } =>
-        let isStart: first = Cave.start := Option.someInjective first Cave.start (DecEq.sound (Some first) (Some Cave.start) (Bool.andLeft _ _ ends))
-        let isLast := DecEq.sound (List.last [first, ..rest]) (Some Cave.end) (Bool.andRight _ _ ends)
+        let isStart: first = Cave.start := Option.someInjective (DecEq.sound (Bool.andLeft ends))
+        let isLast := DecEq.sound (Bool.andRight ends)
         let last: rest.last = Some Cave.end :=
           match rest with
-            | [] => Void.exfalso (DecEq.soundFalse Cave.start Cave.end rfl (rewrite <- isStart in Option.someInjective first Cave.end isLast))
+            | [] => Void.exfalso (DecEq.soundFalse Cave.start Cave.end rfl (rewrite <- isStart in Option.someInjective isLast))
             | [z, ..more] => isLast
         let completes: Completes passages twice (Path.fromStart []) Cave.start rest := Both last (rewrite isStart at Both along within)
         let follows :=
@@ -81,12 +81,12 @@ theorem withinOnce (path: Path): Within False path ↔ SmallOnce path := {
 
 --| A path from `start` to `end` visits both.
 theorem endsVisited (path: Path) (ends: path.startToEnd = True): 1 ≤ path.visits Cave.start ∧ 1 ≤ path.visits Cave.end :=
-  let isLast := DecEq.sound (List.last path.caves) (Some Cave.end) (Bool.andRight _ _ ends)
+  let isLast := DecEq.sound (Bool.andRight ends)
   Both
     (match path.caves with
       | [] => Void.exfalso (Bool.falseNotTrue ends)
       | [first, ..rest] =>
-        let isStart: first = Cave.start := Option.someInjective first Cave.start (DecEq.sound (Some first) (Some Cave.start) (Bool.andLeft _ _ ends))
+        let isStart: first = Cave.start := Option.someInjective (DecEq.sound (Bool.andLeft ends))
         visitsMember Cave.start [first, ..rest] (Inl isStart))
     (visitsMember Cave.end path.caves (List.lastMem path.caves Cave.end isLast))
 

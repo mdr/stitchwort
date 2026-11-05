@@ -55,7 +55,7 @@ theorem fromStartCorrect (maze: Maze):
 theorem movesWalk (maze: Maze): (reindeer: Reindeer) → maze.holds reindeer = True → (moves: List Move) → (last: Reindeer) →
     final maze reindeer moves = Some last →
     Exists (List (Reindeer, Nat)) (path => ((maze.graph False).Walk reindeer path last) ∧ (Graph.cost path = score moves))
-  | reindeer, holds, [], last, ended => Witness [] (Both (Option.someInjective _ _ ended) rfl)
+  | reindeer, holds, [], last, ended => Witness [] (Both (Option.someInjective ended) rfl)
   | reindeer, holds, [way, ..rest], last, ended =>
     match moved: move maze reindeer way with
       | None => Void.exfalso (Option.noneNotSome last ended)
@@ -90,7 +90,7 @@ theorem pathEnds (maze: Maze) (moves: List Move) (standings: List Reindeer) (pat
     Exists Reindeer (last => (final maze (startingReindeer maze) moves = Some last) ∧ (last.position = maze.end)) :=
   Exists.elim (followFinal maze (startingReindeer maze) moves standings (And.left path)) (last both =>
     let atEnd := And.right path
-    rewrite And.right both at atEnd in Witness last (Both (And.left both) (Option.someInjective _ _ atEnd)))
+    rewrite And.right both at atEnd in Witness last (Both (And.left both) (Option.someInjective atEnd)))
 
 --| Moves from the start ending on the end tile make a path.
 theorem pathOfFinal (maze: Maze) (moves: List Move) (last: Reindeer) (ended: final maze (startingReindeer maze) moves = Some last)

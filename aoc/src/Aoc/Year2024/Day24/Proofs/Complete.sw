@@ -69,8 +69,8 @@ theorem settleCovers (device: Device) (values: Values) (waiting: List Gate)
             | Inr there => Inr (fireOntoKeeps values other.output (waiting.filter (gate => gate.ready values)) values there)
             | Inl member =>
               match isReady: other.ready values with
-                | True => Inr (fireOntoAdds values other (waiting.filter (gate => gate.ready values)) values (List.memFilterIntro waiting _ other member isReady))
-                | False => Inl (List.memFilterIntro waiting _ other member (rewrite isReady in rfl)))
+                | True => Inr (fireOntoAdds values other (waiting.filter (gate => gate.ready values)) values (List.memFilterIntro waiting _ member isReady))
+                | False => Inl (List.memFilterIntro waiting _ member (rewrite isReady in rfl)))
       rewrite settleMore values waiting fewer in
         settleCovers device next (waiting.filter (gate => ¬(gate.ready values))) nextCovered gate wired [decreasing := fewer]
 
@@ -135,7 +135,7 @@ theorem part1Complete (device: Device) (wellFormed: WellFormed device) (number: 
           | True =>
             match rangeBits zValue count 0 _ bitsAre bit below with
               | Witness value (Both valueIs bitIs) =>
-                rewrite bitIs in Option.someInjective _ _ (Eq.trans (Eq.sym valueIs) (rewrite Nat.addZero bit in each bit (List.memRangeFromIntro bit count 0 (omega) below)))
+                rewrite bitIs in Option.someInjective (Eq.trans (Eq.sym valueIs) (rewrite Nat.addZero bit in each bit (List.memRangeFromIntro bit count 0 (omega) below)))
           | False =>
             rewrite rangeBitsBeyond zValue count 0 _ bitsAre bit (omega) in
               Eq.sym (outputs.right bit (isIn => Bool.trueNotFalse (Eq.trans (Eq.sym (omega [countFromAbove Wire.zBit (Z bit) bit rfl device.wires 0 isIn]: Nat.leq (Succ bit) count = True)) below)))))

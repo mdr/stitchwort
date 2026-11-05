@@ -11,7 +11,7 @@ theorem List.getOrIndexOf [auto eq: DecEq a]: (xs: List a) → (d: a) → (x: a)
   | [], d, x, m => Void.exfalso m
   | [y, ..ys], d, x, m =>
     match e: y == x with
-      | True => DecEq.sound y x e
+      | True => DecEq.sound e
       | False =>
         match m with
           | Inl q => Void.exfalso (DecEq.soundFalse y x e q)
@@ -108,8 +108,8 @@ theorem List.sortedBetween (d: Nat) (p: Nat → Prop) (xs: List Nat) (s: List.So
       let down := List.sortedGetOrLe xs d s k i (omega) (omega)
       rewrite (omega [down, at, above]: v = List.getOr xs i d) in each i (Nat.leRefl i) ij
 
-theorem List.allBetweenElim (q: Nat → Bool) (lo: Nat) (hi: Nat) (h: List.all (List.range lo (hi + 1)) q = True) (k: Nat) (lk: lo ≤ k) (kh: k ≤ hi): q k = True :=
+theorem List.allBetweenElim [q: Nat → Bool] [lo: Nat] [hi: Nat] (h: List.all (List.range lo (hi + 1)) q = True) [k: Nat] (lk: lo ≤ k) (kh: k ≤ hi): q k = True :=
   List.allRangeElim q (hi + 1 - lo) lo h k lk (omega)
 
-theorem List.allBetweenIntro (q: Nat → Bool) (lo: Nat) (hi: Nat) (h: (k: Nat) → lo ≤ k → k ≤ hi → q k = True): List.all (List.range lo (hi + 1)) q = True :=
+theorem List.allBetweenIntro [q: Nat → Bool] [lo: Nat] [hi: Nat] (h: (k: Nat) → lo ≤ k → k ≤ hi → q k = True): List.all (List.range lo (hi + 1)) q = True :=
   List.allRangeIntro q (hi + 1 - lo) lo (k lk kh => h k lk (omega))

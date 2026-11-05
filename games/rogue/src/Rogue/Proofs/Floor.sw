@@ -23,7 +23,7 @@ theorem pickFreeOnFloor (level: Level) (player: Position) (others: List Monster)
           | False =>
             match taken: (monsterAt choice others).isSome with
               | True => pickFreeOnFloor level player others rest destination picked
-              | False => rewrite <- Option.someInjective choice destination picked in wall
+              | False => rewrite <- Option.someInjective picked in wall
 
 theorem onFloorSnoc (level: Level) (monster: Monster) (inside: isWall level monster.position = False) (monsters: List Monster) (onFloor: OnFloor level monsters):
     OnFloor level (monsters ++ [monster]) :=

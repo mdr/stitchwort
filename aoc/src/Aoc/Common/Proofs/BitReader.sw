@@ -7,9 +7,9 @@ import Aoc.Common (..)
 import Std (Bool, DecEq, Eq, List, Nat, Option, Pair)
 
 --| `Some` of two pairs: the same parts.
-theorem somePairInjective (x1: a) (y1: b) (x2: a) (y2: b) (h: Some (x1, y1) = Some (x2, y2)): x1 = x2 ∧ y1 = y2 :=
-  let both := Option.someInjective _ _ h
-  Both (Pair.mkInjectiveFst _ _ _ _ both) (Pair.mkInjectiveSnd _ _ _ _ both)
+theorem somePairInjective [x1: a] [y1: b] [x2: a] [y2: b] (h: Some (x1, y1) = Some (x2, y2)): x1 = x2 ∧ y1 = y2 :=
+  let both := Option.someInjective h
+  Both (Pair.mkInjectiveFst both) (Pair.mkInjectiveSnd both)
 
 --| A field of the right width at the front is read, and the rest is left.
 theorem BitReader.readAppend (field: List Bool) (rest: List Bool) (width: Nat) (length: field.length = width):
@@ -23,8 +23,8 @@ theorem BitReader.readSome (reader: BitReader) (width: Nat) (field: Bits) (rest:
   let unfolded: (if taken.length == width then Some ({ bits = taken }, { unread = reader.unread.drop width }) else None) = Some (field, rest) := read
   match e: taken.length == width with
     | True =>
-      let parts := somePairInjective _ _ _ _ unfolded
-      rewrite <- parts.left, <- parts.right in Both (Eq.sym (List.appendTakeDrop reader.unread width)) (DecEq.sound _ _ e)
+      let parts := somePairInjective unfolded
+      rewrite <- parts.left, <- parts.right in Both (Eq.sym (List.appendTakeDrop reader.unread width)) (DecEq.sound e)
     | False => cases
 
 --| A number that fits its width is read back from its bits.
@@ -48,7 +48,7 @@ theorem BitReader.readNumberSome (reader: BitReader) (width: Nat) (n: Nat) (rest
   match e: reader.read width with
     | None => cases
     | Some (field, after) =>
-      let parts := somePairInjective _ _ _ _ read
+      let parts := somePairInjective read
       rewrite <- parts.left, <- parts.right in BitReader.readValue reader width field after e
 
 --| The bit a read takes is the front of the unread bits.
@@ -56,5 +56,5 @@ theorem BitReader.readBitSome (reader: BitReader) (bit: Bool) (rest: BitReader) 
   match reader with
     | { unread = [] } => cases
     | { unread = [first, ..others] } =>
-      let parts := somePairInjective _ _ _ _ read
+      let parts := somePairInjective read
       rewrite <- parts.left, <- parts.right in rfl

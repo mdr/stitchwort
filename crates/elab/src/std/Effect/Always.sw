@@ -35,7 +35,7 @@ theorem Effect.alwaysBind [op: Type] [res: op → Type] [a b: Type] (first: a �
 --| this way.
 type Effect.AlwaysTreeOf (op: Type) (res: op → Type) (a: Type) (property: a → Prop): Comp op res a → Prop =
   | AlwaysDone (x: a) (holds: property x): Effect.AlwaysTreeOf op res a property (Done x)
-  | AlwaysCall (o: op) (rest: res o → Comp op res a) (holds: (y: res o) → Effect.AlwaysTreeOf op res a property (rest y)):
+  | AlwaysCall [o: op] [rest: res o → Comp op res a] (holds: (y: res o) → Effect.AlwaysTreeOf op res a property (rest y)):
     Effect.AlwaysTreeOf op res a property (Call o rest)
 
 --| `AlwaysTreeOf`, with the signature found from the computation.
@@ -45,7 +45,7 @@ def Effect.AlwaysTree [op: Type] [res: op → Type] [a: Type] (property: a → P
 theorem Effect.Always.tree [op: Type] [res: op → Type] [a: Type] (property: a → Prop):
     (computation: Comp op res a) → Effect.Always property computation → Effect.AlwaysTree property computation
   | Done x, holds => AlwaysDone x holds
-  | Call o rest, holds => AlwaysCall o rest (y => Effect.Always.tree property (rest y) (holds y))
+  | Call o rest, holds => AlwaysCall (y => Effect.Always.tree property (rest y) (holds y))
 
 --| The result of a finished computation satisfies the property.
 theorem Effect.AlwaysTree.done [op: Type] [res: op → Type] [a: Type] (property: a → Prop) (x: a):

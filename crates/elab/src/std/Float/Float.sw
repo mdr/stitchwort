@@ -111,7 +111,7 @@ theorem Float.validHigh (m: Nat) (h1: 9223372036854775808 ≤ m) (h2: m ≤ 1844
     Float.isValid m = True :=
   Eq.trans
     (Eq.cong (c => (Nat.leq m 9218868437227405312 ∨ Nat.equal m 9221120237041090560) ∨ c)
-      (Bool.andIntro (Nat.leq 9223372036854775808 m) (Nat.leq m 18442240474082181120) h1 h2))
+      (Bool.andIntro h1 h2))
     (Bool.orTrue (Nat.leq m 9218868437227405312 ∨ Nat.equal m 9221120237041090560))
 
 --| A valid pattern with the sign bit set is at most -infinity.
@@ -409,8 +409,7 @@ theorem Float.notTrueFalse: (b: Bool) → (¬b) = True → b = False
 --| The two zeros, `0.0` and `-0.0`, have the same rank.
 theorem Float.rankZero (n: Nat) (z: (Nat.equal n 0 ∨ Nat.equal n 9223372036854775808) = True):
     Float.rankOf n (Nat.leq 9223372036854775808 n) = 9218868437227405312 :=
-  Bool.orElim (Nat.equal n 0) (Nat.equal n 9223372036854775808)
-    (Float.rankOf n (Nat.leq 9223372036854775808 n) = 9218868437227405312) z
+  Bool.orElim z
     (e => rewrite Nat.equalSound n 0 e in rfl)
     (e => rewrite Nat.equalSound n 9223372036854775808 e in rfl)
 
@@ -446,9 +445,7 @@ theorem Float.keysOfRankLe (m: Nat) (n: Nat) (vm: Float.isValid m = True) (vn: F
       → (((Nat.equal m 0 ∨ Nat.equal m 9223372036854775808) ∧ (Nat.equal n 0 ∨ Nat.equal n 9223372036854775808))
         ∨ Int.leq (Float.keyOf m p) (Float.keyOf n q)) = True
   | True, hp, True, hq, h =>
-    Bool.orRight ((Nat.equal m 0 ∨ Nat.equal m 9223372036854775808) ∧ (Nat.equal n 0 ∨ Nat.equal n 9223372036854775808))
-      (Nat.leq (n - 9223372036854775808) (m - 9223372036854775808))
-      (omega [Float.highBound m vm hp, Float.highBound n vn hq])
+    Bool.orRight (omega [Float.highBound m vm hp, Float.highBound n vn hq])
   | True, hp, False, hq, h =>
     Bool.orTrue ((Nat.equal m 0 ∨ Nat.equal m 9223372036854775808) ∧ (Nat.equal n 0 ∨ Nat.equal n 9223372036854775808))
   | False, hp, True, hq, h =>
@@ -456,8 +453,7 @@ theorem Float.keysOfRankLe (m: Nat) (n: Nat) (vm: Float.isValid m = True) (vn: F
     let nS: n = 9223372036854775808 := omega
     rewrite m0, nS in rfl
   | False, hp, False, hq, h =>
-    Bool.orRight ((Nat.equal m 0 ∨ Nat.equal m 9223372036854775808) ∧ (Nat.equal n 0 ∨ Nat.equal n 9223372036854775808))
-      (Nat.leq m n) omega
+    Bool.orRight omega
 
 theorem Float.keysOfRankLt (m: Nat) (n: Nat) (vm: Float.isValid m = True) (vn: Float.isValid n = True):
     (p: Bool) → Nat.leq 9223372036854775808 m = p → (q: Bool) → Nat.leq 9223372036854775808 n = q
@@ -492,21 +488,19 @@ theorem Float.keysOfRankLt (m: Nat) (n: Nat) (vm: Float.isValid m = True) (vn: F
 --| `x <= y` and `x < y` in JS order the ranks.
 theorem Float.ieeeLeRank (x: Float) (y: Float) (h: Float.ieeeLe x y = True): Float.ieeeRank x ≤ Float.ieeeRank y :=
   let rest: ((Float.isZero x ∧ Float.isZero y) ∨ Int.leq (Float.orderKey x) (Float.orderKey y)) = True :=
-    Bool.andRight (¬(Float.isNaN y)) ((Float.isZero x ∧ Float.isZero y) ∨ Int.leq (Float.orderKey x) (Float.orderKey y))
-      (Bool.andRight (¬(Float.isNaN x)) (¬(Float.isNaN y) ∧ ((Float.isZero x ∧ Float.isZero y) ∨ Int.leq (Float.orderKey x) (Float.orderKey y))) h)
-  Bool.orElim (Float.isZero x ∧ Float.isZero y) (Int.leq (Float.orderKey x) (Float.orderKey y)) (Float.ieeeRank x ≤ Float.ieeeRank y) rest
-    (z => omega [Float.rankZero x.bits (Bool.andLeft (Float.isZero x) (Float.isZero y) z), Float.rankZero y.bits (Bool.andRight (Float.isZero x) (Float.isZero y) z)])
+    Bool.andRight (Bool.andRight h)
+  Bool.orElim rest
+    (z => omega [Float.rankZero x.bits (Bool.andLeft z), Float.rankZero y.bits (Bool.andRight z)])
     (l => Float.rankLeOfKeys x.bits y.bits (Nat.leq 9223372036854775808 x.bits) rfl (Nat.leq 9223372036854775808 y.bits) rfl l)
 
 theorem Float.ieeeLtRank (x: Float) (y: Float) (h: Float.ieeeLt x y = True): Float.ieeeRank x < Float.ieeeRank y :=
   let rest: (¬(Float.isZero x ∧ Float.isZero y) ∧ Int.less (Float.orderKey x) (Float.orderKey y)) = True :=
-    Bool.andRight (¬(Float.isNaN y)) (¬(Float.isZero x ∧ Float.isZero y) ∧ Int.less (Float.orderKey x) (Float.orderKey y))
-      (Bool.andRight (¬(Float.isNaN x)) (¬(Float.isNaN y) ∧ (¬(Float.isZero x ∧ Float.isZero y) ∧ Int.less (Float.orderKey x) (Float.orderKey y))) h)
+    Bool.andRight (Bool.andRight h)
   Float.rankLtOfKeys x.bits y.bits x.valid
     (Float.notTrueFalse (Float.isZero x ∧ Float.isZero y)
-      (Bool.andLeft (¬(Float.isZero x ∧ Float.isZero y)) (Int.less (Float.orderKey x) (Float.orderKey y)) rest))
+      (Bool.andLeft rest))
     (Nat.leq 9223372036854775808 x.bits) rfl (Nat.leq 9223372036854775808 y.bits) rfl
-    (Bool.andRight (¬(Float.isZero x ∧ Float.isZero y)) (Int.less (Float.orderKey x) (Float.orderKey y)) rest)
+    (Bool.andRight rest)
 
 --| Doubles other than the NaN whose ranks are in order are in order in JS's `<=`.
 theorem Float.rankIeeeLe (x: Float) (y: Float) (nx: Float.isNaN x = False) (ny: Float.isNaN y = False)
@@ -521,10 +515,9 @@ theorem Float.rankIeeeLt (x: Float) (y: Float) (nx: Float.isNaN x = False) (ny: 
 
 --| JS's `<=` and `<` are false when either side is the NaN.
 theorem Float.ieeeLeNotNaN (x: Float) (y: Float) (h: Float.ieeeLe x y = True): (Float.isNaN x = False) ∧ (Float.isNaN y = False) :=
-  Both (Float.notTrueFalse (Float.isNaN x) (Bool.andLeft (¬(Float.isNaN x)) (¬(Float.isNaN y) ∧ ((Float.isZero x ∧ Float.isZero y) ∨ Int.leq (Float.orderKey x) (Float.orderKey y))) h))
+  Both (Float.notTrueFalse (Float.isNaN x) (Bool.andLeft h))
     (Float.notTrueFalse (Float.isNaN y)
-      (Bool.andLeft (¬(Float.isNaN y)) ((Float.isZero x ∧ Float.isZero y) ∨ Int.leq (Float.orderKey x) (Float.orderKey y))
-        (Bool.andRight (¬(Float.isNaN x)) (¬(Float.isNaN y) ∧ ((Float.isZero x ∧ Float.isZero y) ∨ Int.leq (Float.orderKey x) (Float.orderKey y))) h)))
+      (Bool.andLeft (Bool.andRight h)))
 
 theorem Float.ieeeLtNotNaN (x: Float) (y: Float) (h: Float.ieeeLt x y = True): (Float.isNaN x = False) ∧ (Float.isNaN y = False) :=
   Float.ieeeLeNotNaN x y (Float.ieeeLtLe x y h)

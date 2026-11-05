@@ -75,7 +75,7 @@ theorem pairFound (depth: Nat) (left: Number) (right: Number) (exploded: Explosi
     | Some inLeft =>
       match leftFound inLeft rfl with
         | Witness found (Both finds equation) =>
-          rewrite <- Option.someInjective _ exploded (rewrite explode.eq3.some depth left right notArm2 inLeft el at some in some) in
+          rewrite <- Option.someInjective (rewrite explode.eq3.some depth left right notArm2 inLeft el at some in some) in
             Witness ({ found | after = found.after ++ leaves (depth + 1) right })
               (Both
                 (rest =>
@@ -92,7 +92,7 @@ theorem pairFound (depth: Nat) (left: Number) (right: Number) (exploded: Explosi
           match rightFound inRight rfl with
             | Witness found (Both finds equation) =>
               let shallow := explodeNoneShallow (depth + 1) left el room fitsLeft
-              rewrite <- Option.someInjective _ exploded (rewrite explode.eq3.none.some depth left right notArm2 el inRight er at some in some) in
+              rewrite <- Option.someInjective (rewrite explode.eq3.none.some depth left right notArm2 el inRight er at some in some) in
                 Witness ({ found | before = leaves (depth + 1) left ++ found.before })
                   (Both
                     (rest =>
@@ -113,7 +113,7 @@ theorem explodeFound: (depth: Nat) → (number: Number) → (exploded: Explosion
   | depth, Pair (Regular a) (Regular b), exploded, some, fits =>
     match deep: Nat.leq 4 depth with
       | True =>
-        rewrite <- Option.someInjective _ exploded some in
+        rewrite <- Option.someInjective some in
           Witness ({ before = [], left = { value = a, depth = depth + 1 }, right = { value = b, depth = depth + 1 }, after = [] })
             (Both (rest => cases) (before rest => rewrite List.appendNil before in rfl))
       | False => Void.exfalso (Option.noneNotSome exploded some)

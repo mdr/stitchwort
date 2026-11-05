@@ -71,10 +71,10 @@ theorem specCases (far: Position) (near: Position) (point: Position):
   let vc := near.column.toInt - point.column.toInt
   {
     forward = h =>
-      twiceAsFarCases ur uc vr vc (DecEq.sound _ _ (Bool.andLeft _ _ h)) (DecEq.sound _ _ (Bool.andRight _ _ h)),
+      twiceAsFarCases ur uc vr vc (DecEq.sound (Bool.andLeft h)) (DecEq.sound (Bool.andRight h)),
     backward = h =>
       let both := twiceAsFarOfCases ur uc vr vc h
-      Bool.andIntro _ _ (rewrite And.left both in DecEq.refl 0) (rewrite And.right both in DecEq.refl (4 * (vr * vr + vc * vc)))
+      Bool.andIntro (rewrite And.left both in DecEq.refl 0) (rewrite And.right both in DecEq.refl (4 * (vr * vr + vc * vc)))
   }
 
 --| The step past `near` reaches the points where `far` is twice as far in
@@ -149,8 +149,8 @@ theorem antinodesOfCorrect (far: Position) (near: Position) (point: Position):
     (point ∈ antinodesOf far near) ↔ ((inLine point far near && twiceAsFar point far near) = True) :=
   rewrite antinodesOfUnfold far near in
   antinodesIff far near point _ {
-    forward = c => Both (DecEq.sound _ _ (Bool.andLeft _ _ c)) (DecEq.sound _ _ (Bool.andRight _ _ c)),
-    backward = m => Bool.andIntro _ _ (rewrite And.left m in rfl) (rewrite And.right m in rfl)
+    forward = c => Both (DecEq.sound (Bool.andLeft c)) (DecEq.sound (Bool.andRight c)),
+    backward = m => Bool.andIntro (rewrite And.left m in rfl) (rewrite And.right m in rfl)
   }
 
 --| Part 1 counts the puzzle's antinodes, for every city.

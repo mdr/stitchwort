@@ -34,14 +34,12 @@ theorem settleWithin (legs: List Leg) (c: ContiguousFrom 0.0 legs) (oks: List.Al
           let ok: Float.leq leg.start leg.end = True := startLeEnd leg nonNeg
           match legBounds 0.0 legs c oks leg inLegs with
             | Both low high =>
-              Bool.andIntro (Float.leq 0.0 (clamp leg.start leg.end (placeIn leg pos)))
-                (Float.leq (clamp leg.start leg.end (placeIn leg pos)) (lastEnd legs))
+              Bool.andIntro
                 (floatLeTrans 0.0 leg.start (clamp leg.start leg.end (placeIn leg pos)) low (clampLow leg.start leg.end (placeIn leg pos) ok))
                 (floatLeTrans (clamp leg.start leg.end (placeIn leg pos)) leg.end (lastEnd legs) (clampHigh leg.start leg.end (placeIn leg pos) ok) high)
     | None =>
       let ok: Float.leq 0.0 (lastEnd legs) = True := zeroLeLastEnd legs c oks
-      Bool.andIntro (Float.leq 0.0 (clamp 0.0 (lastEnd legs) pos.time)) (Float.leq (clamp 0.0 (lastEnd legs) pos.time) (lastEnd legs))
-        (clampLow 0.0 (lastEnd legs) pos.time ok) (clampHigh 0.0 (lastEnd legs) pos.time ok)
+      Bool.andIntro (clampLow 0.0 (lastEnd legs) pos.time ok) (clampHigh 0.0 (lastEnd legs) pos.time ok)
 
 -- In a well-formed trip's own legs, a time that is within the trip settles
 -- where it was.
@@ -52,17 +50,17 @@ theorem settleSelf (legs: List Leg) (ids: List.Distinct (List.map legs (leg => l
       match firstCoveringMem legs t leg e with
         | Both covers inLegs =>
           rewrite List.findKeyDistinct (l => l.id) legs ids leg inLegs, DecEq.refl leg.start in
-          clampInside leg.start leg.end t (Bool.andLeft (Float.leq leg.start t) (Float.less t leg.end) covers)
-            (floatLessLe t leg.end (Bool.andRight (Float.leq leg.start t) (Float.less t leg.end) covers))
+          clampInside leg.start leg.end t (Bool.andLeft covers)
+            (floatLessLe t leg.end (Bool.andRight covers))
     | None =>
-      clampInside 0.0 (lastEnd legs) t (Bool.andLeft (Float.leq 0.0 t) (Float.leq t (lastEnd legs)) w)
-        (Bool.andRight (Float.leq 0.0 t) (Float.leq t (lastEnd legs)) w)
+      clampInside 0.0 (lastEnd legs) t (Bool.andLeft w)
+        (Bool.andRight w)
 
 -- Pins
 
 theorem keepsFits (legs: List Leg) (id: Nat) (pin: Pin) (h: keepsIn legs id pin = True): pinFits legs pin = True :=
   match e: firstCovering legs pin.start with
-    | Some leg => Bool.andRight (leg.id == id) (pin.fitsIn leg) h
+    | Some leg => Bool.andRight h
     | None => Void.exfalso (Bool.falseNotTrue h)
 
 -- A pin the merge keeps lies wholly inside the first leg covering its start.
@@ -71,7 +69,7 @@ theorem placePinFits (legs: List Leg) (pin: Pin) (pos: Position) (kept: Pin) (h:
   match e: legOf legs pos with
     | Some leg =>
       match k: keepsIn legs leg.id (pin.startAt (placeIn leg pos)) with
-        | True => rewrite <- Option.someInjective (pin.startAt (placeIn leg pos)) kept h in keepsFits legs leg.id (pin.startAt (placeIn leg pos)) k
+        | True => rewrite <- Option.someInjective h in keepsFits legs leg.id (pin.startAt (placeIn leg pos)) k
         | False => Void.exfalso (Option.noneNotSome kept h)
     | None => Void.exfalso (Option.noneNotSome kept h)
 
@@ -79,7 +77,7 @@ theorem placePinId (legs: List Leg) (pin: Pin) (pos: Position) (kept: Pin) (h: p
   match e: legOf legs pos with
     | Some leg =>
       match k: keepsIn legs leg.id (pin.startAt (placeIn leg pos)) with
-        | True => rewrite <- Option.someInjective (pin.startAt (placeIn leg pos)) kept h in rfl
+        | True => rewrite <- Option.someInjective h in rfl
         | False => Void.exfalso (Option.noneNotSome kept h)
     | None => Void.exfalso (Option.noneNotSome kept h)
 

@@ -21,11 +21,11 @@ theorem countAround (cavern: Cavern) (flashed: Position → Bool)
     List.permOfSameMembers (at.around.filter flashed) (positions.filter near) (List.distinctFilter at.around flashed (aroundDistinct at))
       (List.distinctFilter positions near (cellPositionsDistinct cavern.grid.rows))
       (q member =>
-        let (Both inAround flashes) := List.memFilter at.around flashed q member
-        List.memFilterIntro positions near q (onGrid q flashes) (Bool.andIntro _ _ (aroundTouching at q inAround) flashes))
+        let (Both inAround flashes) := List.memFilter at.around flashed member
+        List.memFilterIntro positions near (onGrid q flashes) (Bool.andIntro (aroundTouching at q inAround) flashes))
       (q member =>
-        let (Both inGrid both) := List.memFilter positions near q member
-        List.memFilterIntro at.around flashed q (touchingAround at q (Bool.andLeft _ _ both)) (Bool.andRight _ _ both))
+        let (Both inGrid both) := List.memFilter positions near member
+        List.memFilterIntro at.around flashed (touchingAround at q (Bool.andLeft both)) (Bool.andRight both))
   calc at.around.count flashed
     _ = (at.around.filter flashed).length := Eq.sym (List.lengthFilter at.around flashed)
     _ = (positions.filter near).length := List.permLength _ _ same

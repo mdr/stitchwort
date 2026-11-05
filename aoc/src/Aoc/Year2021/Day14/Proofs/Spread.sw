@@ -36,7 +36,7 @@ theorem pairCounted (counts: PairCounts) (polymer: List Char) (represents: Repre
   match sumByPositive ((entry: (ElementPair, Nat)) => entry.snd * Bool.toNat (entry.fst == pair)) (Map.toList counts) (omega [counted, asSum, weighted]) with
     | Witness entry (Both inCounts gives) =>
       match t: entry.fst == pair with
-        | True => rewrite <- DecEq.sound entry.fst pair t in List.memMap (Map.toList counts) entry inCounts Pair.fst
+        | True => rewrite <- DecEq.sound t in List.memMap (Map.toList counts) entry inCounts Pair.fst
         | False => Void.exfalso omega
 
 -- The two lists of element counts.
@@ -51,7 +51,7 @@ def puzzleQuantities (polymer: List Char): List Nat := polymer.distinct.map (qua
 theorem quantitiesInto (first: Char) (tail: List Char) (counts: PairCounts) (represents: Represents counts [first, ..tail]) (v: Nat)
     (member: v ∈ programQuantities first counts): v ∈ puzzleQuantities [first, ..tail] :=
   let candidates := List.distinct [first, ..List.map (Map.keys counts) ElementPair.second]
-  let (Both inMapped positive) := List.memFilter (List.map candidates (elementCount first counts)) (quantity => 0 < quantity) v member
+  let (Both inMapped positive) := List.memFilter (List.map candidates (elementCount first counts)) (quantity => 0 < quantity) member
   match List.memMapElim (elementCount first counts) v candidates inMapped with
     | Witness c (Both _ same) =>
       let equal := elementCountQuantity first tail counts represents c
@@ -77,7 +77,7 @@ theorem quantitiesBack (first: Char) (tail: List Char) (counts: PairCounts) (rep
       let inCandidates := (List.memDistinct c [first, ..keyEnds]).backward candidate
       let equal := elementCountQuantity first tail counts represents c
       let positive := List.countPositive polymer (== c) c inPolymer (DecEq.refl c)
-      List.memFilterIntro (List.map (List.distinct [first, ..keyEnds]) (elementCount first counts)) (quantity => 0 < quantity) v
+      List.memFilterIntro (List.map (List.distinct [first, ..keyEnds]) (elementCount first counts)) (quantity => 0 < quantity)
         (rewrite <- same, <- equal in List.memMap (List.distinct [first, ..keyEnds]) c inCandidates (elementCount first counts))
         (cases)
 

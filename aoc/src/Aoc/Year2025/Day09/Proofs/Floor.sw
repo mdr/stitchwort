@@ -28,15 +28,15 @@ def floorCells (tiles: List Point): List (List Nat) :=
 -- 1. Only lines that touch a tile's row matter ---------------------------------
 
 theorem halfOpenBetween (one: Nat) (other: Nat) (value: Nat) (h: isBetweenHalfOpen one other value = True): isBetween one other value = True :=
-  Bool.orElim _ _ _ h
-    (l => Bool.orLeft (one ≤ value ≤ other) (other ≤ value ≤ one) (omega))
-    (r => Bool.orRight (one ≤ value ≤ other) (other ≤ value ≤ one) (omega))
+  Bool.orElim h
+    (l => Bool.orLeft (omega))
+    (r => Bool.orRight (omega))
 
 theorem onLineTouches (tile: Point) (line: Line) (h: tile.isOnLine line = True): touchesRow tile.y line = True :=
-  Bool.andRight (isBetween line.from.x line.to.x tile.x) (isBetween line.from.y line.to.y tile.y) h
+  Bool.andRight h
 
 theorem crossesTouches (tile: Point) (line: Line) (h: crossesRightOf tile line = True): touchesRow tile.y line = True :=
-  halfOpenBetween line.from.y line.to.y tile.y (Bool.andRight _ _ (Bool.andRight _ _ h))
+  halfOpenBetween line.from.y line.to.y tile.y (Bool.andRight (Bool.andRight h))
 
 theorem isRedOrGreenNear (tiles: List Point) (tile: Point):
     isRedOrGreen (List.filter (loopLines tiles) (touchesRow tile.y)) tile = redOrGreen tiles tile :=
@@ -105,11 +105,11 @@ theorem allRedOrGreenKeys (tiles: List Point) (first: Corner) (second: Corner) (
       let rowSum: Nat → Nat := r => List.sumBy (List.range left (lastColumn + 1)) (c => PrefixSums.cell cells r c)
       Bool.eqOf (Floor.allRedOrGreen floor { corner = first, opposite = second }) (allKeys tiles first second)
         (h =>
-          let zero: PrefixSums.blockSpec cells top bottom left right = 0 := rewrite <- blockIs in DecEq.sound _ 0 h
-          List.allBetweenIntro _ top lastRow (r rlo rhi =>
+          let zero: PrefixSums.blockSpec cells top bottom left right = 0 := rewrite <- blockIs in DecEq.sound h
+          List.allBetweenIntro (r rlo rhi =>
             let rowZero: rowSum r = 0 :=
               List.sumByZeroElim (List.range top (lastRow + 1)) rowSum zero r (((List.memRange r top (lastRow + 1)).backward (Both rlo (Nat.leLessSucc r lastRow rhi))))
-            List.allBetweenIntro _ left lastColumn (c clo chi =>
+            List.allBetweenIntro (c clo chi =>
               let cellZero: PrefixSums.cell cells r c = 0 :=
                 List.sumByZeroElim (List.range left (lastColumn + 1)) (c => PrefixSums.cell cells r c) rowZero c
                   (((List.memRange c left (lastColumn + 1)).backward (Both clo (Nat.leLessSucc c lastColumn chi))))
@@ -118,8 +118,8 @@ theorem allRedOrGreenKeys (tiles: List Point) (first: Corner) (second: Corner) (
           let zero: PrefixSums.blockSpec cells top bottom left right = 0 :=
             List.sumByZeroIntro (List.range top (lastRow + 1)) rowSum (r rm =>
               let rowIn := ((List.memRange _ _ _).forward rm)
-              let rowAll := List.allBetweenElim _ top lastRow h r (rowIn.left) (rowIn.right)
+              let rowAll := List.allBetweenElim h (rowIn.left) (rowIn.right)
               List.sumByZeroIntro (List.range left (lastColumn + 1)) (c => PrefixSums.cell cells r c) (c cm =>
                 let colIn := ((List.memRange _ _ _).forward cm)
-                rewrite cellAt tiles r c (omega) (omega), List.allBetweenElim _ left lastColumn rowAll c (colIn.left) (colIn.right) in rfl))
+                rewrite cellAt tiles r c (omega) (omega), List.allBetweenElim rowAll (colIn.left) (colIn.right) in rfl))
           Decidable.toBoolOf (Nat.decEq (PrefixSums.block floor.outside top bottom left right) 0) (Eq.trans blockIs zero))

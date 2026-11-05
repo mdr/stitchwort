@@ -35,13 +35,13 @@ theorem isSafeCorrect (report: Report): report.isSafe = safe report :=
 
 --| Part 1 counts the safe reports.
 theorem part1Correct (reports: List Report): solvePart1 reports = safeReports reports :=
-  List.countCongMem reports Report.isSafe safe (report _ => isSafeCorrect report)
+  List.countCongMem _ Report.isSafe safe (report _ => isSafeCorrect report)
 
 --| Whatever keeps every adjacent pair of a list keeps a safe report safe.
 theorem safeKept (shrink: List Nat → List Nat)
     (keeps: (levels: List Nat) → (holds: Nat → Nat → Bool) → levels.chain holds = True → (shrink levels).chain holds = True)
     (levels: List Nat) (wasSafe: safe { levels } = True): safe { levels = shrink levels } = True :=
-  let differences := keeps levels differByOneToThree (Bool.andRight _ _ wasSafe)
+  let differences := keeps levels differByOneToThree (Bool.andRight wasSafe)
   match increasing: allIncreasing levels with
     | True =>
       let stillIncreasing := keeps levels (level next => level < next) increasing

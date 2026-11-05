@@ -24,16 +24,16 @@ def opposite: Direction → Direction
 --| A step back the opposite way returns to where it started.
 theorem stepBack: (position: Position) → (direction: Direction) → (next: Position) → position.step direction = Some next →
     next.step (opposite direction) = Some position
-  | { row, column }, Down, next, stepped => rewrite <- Option.someInjective _ _ stepped in rfl
-  | { row, column }, Right, next, stepped => rewrite <- Option.someInjective _ _ stepped in rfl
+  | { row, column }, Down, next, stepped => rewrite <- Option.someInjective stepped in rfl
+  | { row, column }, Right, next, stepped => rewrite <- Option.someInjective stepped in rfl
   | { row, column }, Up, next, stepped =>
     match row with
       | Zero => Void.exfalso (Option.noneNotSome next stepped)
-      | Succ above => rewrite <- Option.someInjective _ _ stepped in rfl
+      | Succ above => rewrite <- Option.someInjective stepped in rfl
   | { row, column }, Left, next, stepped =>
     match column with
       | Zero => Void.exfalso (Option.noneNotSome next stepped)
-      | Succ before => rewrite <- Option.someInjective _ _ stepped in rfl
+      | Succ before => rewrite <- Option.someInjective stepped in rfl
 
 --| A move is a step onto track.
 theorem moveCases (racetrack: Racetrack) (position: Position) (direction: Direction) (next: Position)
@@ -43,7 +43,7 @@ theorem moveCases (racetrack: Racetrack) (position: Position) (direction: Direct
     | Some found =>
       match onIt: onTrack racetrack found with
         | False => Void.exfalso (Option.noneNotSome next moved)
-        | True => rewrite <- Option.someInjective _ _ moved in Both rfl onIt
+        | True => rewrite <- Option.someInjective moved in Both rfl onIt
 
 --| A step onto track is a move.
 theorem moveIntro (racetrack: Racetrack) (position: Position) (direction: Direction) (next: Position)
@@ -67,7 +67,7 @@ theorem edgesSound (racetrack: Racetrack) (position: Position) (next: Position) 
       match moved: racetrack.move position direction with
         | None => Void.exfalso (Option.noneNotSome (next, weight) (And.right both))
         | Some other =>
-          let same := Option.someInjective _ _ (And.right both)
+          let same := Option.someInjective (And.right both)
           Both (Witness direction (Eq.trans moved (Eq.cong Some (Eq.cong Pair.fst same)))) (Eq.sym (Eq.cong Pair.snd same)))
 
 --| Each move is an edge.
@@ -91,7 +91,7 @@ theorem raceCons (racetrack: Racetrack) (position: Position) (direction: Directi
 --| Moves then more moves: the more moves from where the first left off.
 theorem raceAppend (racetrack: Racetrack) (more: List Direction): (position: Position) → (moves: List Direction) → (middle: Position) →
     race racetrack position moves = Some middle → race racetrack position (moves ++ more) = race racetrack middle more
-  | position, [], middle, ended => rewrite Option.someInjective _ _ ended in rfl
+  | position, [], middle, ended => rewrite Option.someInjective ended in rfl
   | position, [direction, ..rest], middle, ended =>
     match moved: moveTo racetrack position direction with
       | None => Void.exfalso (Option.noneNotSome middle ended)

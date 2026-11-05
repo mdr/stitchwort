@@ -52,4 +52,4 @@ theorem exampleIllegalCurly: FirstIllegal (tokens "{([(<{}[<>[]}>{[]{[(<()>") (C
 theorem exampleIllegalRound: FirstIllegal (tokens "[[<[([]))<([[{}[[()]]]") (Closer Round) := firstIllegalOfScan (tokens "[[<[([]))<([[{}[[()]]]") Round rfl
 theorem exampleBalanced: Balanced (tokens "[<>({}){}[([])<>]]") := scanBalanced (tokens "[<>({}){}[([])<>]]") rfl
 theorem exampleCompletion: Completes (tokens "[({(<(())[]>[[{[]{<()<>>") [Curly, Curly, Square, Square, Round, Curly, Round, Square] :=
-  completesOfUnclosed _ _ rfl
+  completesOfUnclosed rfl

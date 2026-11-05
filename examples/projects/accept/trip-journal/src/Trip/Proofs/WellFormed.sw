@@ -174,8 +174,8 @@ theorem settledAlbumsOk (local: Trip) (remote: Trip) (legs: List Leg) (okl: List
 theorem ownedOf (own: Nat → Option Nat) (album: Album) (x: Nat) (m: x ∈ List.map (keepOwned own album).photos Photo.id):
     own x = Some album.id :=
   Exists.elim (List.memMapElim Photo.id x (keepOwned own album).photos m) (photo both =>
-    match List.memFilter album.photos (p => own p.id == Some album.id) photo (And.left both) with
-      | Both inPhotos keep => rewrite <- And.right both in DecEq.sound (own photo.id) (Some album.id) keep)
+    match List.memFilter album.photos (p => own p.id == Some album.id) (And.left both) with
+      | Both inPhotos keep => rewrite <- And.right both in DecEq.sound keep)
 
 theorem ownedIn (own: Nat → Option Nat): (albums: List Album) → (x: Nat) → x ∈ photoIds (albums.map (album => keepOwned own album))
     → List.Any (album => own x = Some album.id) albums
@@ -196,7 +196,7 @@ theorem ownedDistinct (own: Nat → Option Nat): (albums: List Album) → List.D
       (ownedDistinct own rest ids oks)
       (List.allOfMem (x => x ∉ photoIds (rest.map (a => keepOwned own a))) (List.map (keepOwned own album).photos Photo.id) (x here there =>
         List.anyElim (b => own x = Some b.id) Void rest (ownedIn own rest x there) (b inRest e =>
-          out (rewrite Option.someInjective album.id b.id (Eq.trans (Eq.sym (ownedOf own album x here)) e) in
+          out (rewrite Option.someInjective (Eq.trans (Eq.sym (ownedOf own album x here)) e) in
             List.memMap rest b inRest (a => a.id)))))
 
 theorem mergePhotoIds (local: Trip) (remote: Trip) (legs: List Leg) (dl: List.Distinct (List.map local.albums (album => album.id)))

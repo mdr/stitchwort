@@ -48,7 +48,7 @@ theorem pickFreeAway (level: Level) (player: Position) (others: List Monster):
           | False =>
             match taken: (monsterAt choice others).isSome with
               | True => pickFreeAway level player others rest destination picked
-              | False => rewrite <- Option.someInjective choice destination picked in same
+              | False => rewrite <- Option.someInjective picked in same
 
 --| Changing monsters without moving them keeps them off the cell.
 theorem clearMap (position: Position) (change: Monster → Monster) (stays: (monster: Monster) → (change monster).position = monster.position):

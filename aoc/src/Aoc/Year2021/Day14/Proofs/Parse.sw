@@ -23,8 +23,8 @@ theorem firstRepeatedNone: (pairs: List ElementPair) → firstRepeated pairs = N
 theorem checkManualOk (manual: Manual) (result: Manual) (h: Fail.toResult (() => checkManual manual) = Ok result):
     result = manual ∧ firstRepeated (manual.rules.map Rule.pair) = None :=
   match e: firstRepeated (manual.rules.map Rule.pair) with
-    | Some pair => Void.exfalso (Result.errNotOk _ result h)
-    | None => Both (Eq.sym (Result.okInjective _ result h)) rfl
+    | Some pair => Void.exfalso (Result.errNotOk h)
+    | None => Both (Eq.sym (Result.okInjective h)) rfl
 
 --| ...whatever reads it.
 theorem parsedNoRepeat (read: () → {Fail} Manual) (manual: Manual) (parsed: Fail.toResult (() => checkManual (read ())) = Ok manual):

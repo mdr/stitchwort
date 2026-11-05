@@ -9,7 +9,7 @@ import Std (Bool, DecEq, Eq, Finite, List, NonEmptyList, Text)
 
 --| No two keys are written alike.
 theorem codeEq (a: Key) (b: Key): (a.code == b.code) = (a == b) :=
-  DecEq.sound _ _ (Finite.check (((x, y)) => (x.code == y.code) == (x == y)) rfl (a, b))
+  DecEq.sound (Finite.check (((x, y)) => (x.code == y.code) == (x == y)) rfl (a, b))
 
 theorem writtenHas (passport: Passport) (key: Key): (pairs passport).any (((written, _)) => written == key.code) = passport.has key :=
   Eq.trans (List.anyMap passport.fields.toList (((written, _)) => written == key.code) (field => (field.key.code, field.value)))
@@ -28,7 +28,7 @@ theorem hasRequiredSpec (passport: Passport): passport.hasRequired = validPart1 
   rewrite missingHas passport in allButCid passport.has
 
 theorem part1Correct (passports: List Passport): solvePart1 passports = part1Answer passports :=
-  rewrite List.lengthFilter passports validPart1 in List.countCongMem passports _ _ (passport m => hasRequiredSpec passport)
+  rewrite List.lengthFilter passports validPart1 in List.countCongMem _ _ _ (passport m => hasRequiredSpec passport)
 
 theorem valuesValidSpec (passport: Passport): passport.valuesValid = (pairs passport).all (((key, value)) => validValue key value) :=
   Eq.sym (Eq.trans (List.allMapBool passport.fields.toList (((key, value)) => validValue key value) (field => (field.key.code, field.value)))
@@ -36,4 +36,4 @@ theorem valuesValidSpec (passport: Passport): passport.valuesValid = (pairs pass
 
 theorem part2Correct (passports: List Passport): solvePart2 passports = part2Answer passports :=
   rewrite List.lengthFilter passports validPart2 in
-    List.countCongMem passports _ _ (passport m => rewrite hasRequiredSpec passport, valuesValidSpec passport in rfl)
+    List.countCongMem _ _ _ (passport m => rewrite hasRequiredSpec passport, valuesValidSpec passport in rfl)

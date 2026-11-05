@@ -14,10 +14,10 @@ theorem reducedLeaves: (depth: Nat) → (number: Number) → depth ≤ 4 → red
     List.All (leaf => leaf.depth ≤ 4 ∧ leaf.value ≤ 9) (leaves depth number)
   | depth, Regular value, shallow, small => Both (Both shallow omega) Trivial
   | depth, Pair left right, shallow, ok =>
-    let parts := Bool.andRight _ _ ok
+    let parts := Bool.andRight ok
     List.allAppend _ (leaves (depth + 1) left) (leaves (depth + 1) right)
-      (reducedLeaves (depth + 1) left (omega [Bool.andLeft _ _ ok]) (Bool.andLeft _ _ parts))
-      (reducedLeaves (depth + 1) right (omega [Bool.andLeft _ _ ok]) (Bool.andRight _ _ parts))
+      (reducedLeaves (depth + 1) left (omega [Bool.andLeft ok]) (Bool.andLeft parts))
+      (reducedLeaves (depth + 1) right (omega [Bool.andLeft ok]) (Bool.andRight parts))
 
 --| When `firstUnreduced` finds nothing, every number is reduced.
 theorem findUnreducedNone: (i: Nat) → (numbers: List Number) → List.findIndexFrom i (x => not (reduced 0 x)) numbers = None → List.All IsReduced numbers
@@ -31,8 +31,8 @@ theorem findUnreducedNone: (i: Nat) → (numbers: List Number) → List.findInde
 --| reduced.
 theorem checkNumbersOk (numbers: List Number) (checked: List Number) (h: Fail.toResult (() => checkNumbers numbers) = Ok checked): List.All IsReduced checked :=
   match e: firstUnreduced numbers with
-    | Some _ => Void.exfalso (Result.errNotOk _ checked h)
-    | None => rewrite <- Result.okInjective numbers checked h in findUnreducedNone 0 numbers e
+    | Some _ => Void.exfalso (Result.errNotOk h)
+    | None => rewrite <- Result.okInjective h in findUnreducedNone 0 numbers e
 
 --| Whatever reads the numbers, `checkNumbers` passes on only reduced ones.
 theorem checkedReduced (read: () → {Fail} List Number) (numbers: List Number) (parsed: Fail.toResult (() => checkNumbers (read ())) = Ok numbers):

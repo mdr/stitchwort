@@ -16,7 +16,7 @@ def keepBig: Nat → Option Nat := match some
 
 theorem keepBigGt (x y: Nat) (h: keepBig x = Some y): y > 2 :=
   match e: x > 2 with
-    | True => omega [Option.someInjective x y h]
+    | True => omega [Option.someInjective h]
     | False => Void.exfalso (Option.noneNotSome y h)
 
 def bigOnes (xs: List Nat): List Nat :=

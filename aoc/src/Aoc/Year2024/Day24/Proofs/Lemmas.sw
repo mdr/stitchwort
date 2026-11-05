@@ -23,7 +23,7 @@ theorem lookupLastMem [auto ord: Ord k] (key: k) (value: v): (pairs: List (k, v)
       | Some laterValue => Inr (lookupLastMem key value rest (Eq.trans later found))
       | None =>
         match same: Ord.compare key other with
-          | Equal => Inl (rewrite ord.equal key other same, Option.someInjective otherValue value found in rfl)
+          | Equal => Inl (rewrite ord.equal key other same, Option.someInjective found in rfl)
           | Less => Void.exfalso (Option.noneNotSome value found)
           | Greater => Void.exfalso (Option.noneNotSome value found)
 
@@ -60,7 +60,7 @@ theorem rangeBits (f: Nat → Option Bool): (count: Nat) → (start: Nat) → (b
 --| From the range's length up, every bit is clear.
 theorem rangeBitsBeyond (f: Nat → Option Bool): (count: Nat) → (start: Nat) → (bits: List Bool) → List.allSome ((List.rangeFrom count start).map f) = Some bits →
     (k: Nat) → count ≤ k → Nat.testBit ((Bits.fromLowFirst bits).value) k = False
-  | Zero, start, bits, all, k, above => rewrite <- Option.someInjective [] bits all in rfl
+  | Zero, start, bits, all, k, above => rewrite <- Option.someInjective all in rfl
   | Succ count, start, bits, all, k, above =>
     Option.flatMapEqSome (f start) (value => List.allSome ((List.rangeFrom count (Succ start)).map f) |> .map (Cons value)) bits all (value isValue rest =>
       Option.mapEqSome (List.allSome ((List.rangeFrom count (Succ start)).map f)) (Cons value) bits rest (restBits restIs isBits =>

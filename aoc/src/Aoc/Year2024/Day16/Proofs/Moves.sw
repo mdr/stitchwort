@@ -54,9 +54,9 @@ theorem afterSound (maze: Maze): (reindeer: Reindeer) → (next: Reindeer) → (
 theorem afterComplete (maze: Maze): (reindeer: Reindeer) → (way: Move) → (next: Reindeer) → move maze reindeer way = Some next →
     (next, way.points) ∈ maze.after reindeer
   | { position, facing }, Clockwise, next, moved =>
-    rewrite <- Option.someInjective _ _ moved in List.memAppendRight _ _ _ (Inl rfl)
+    rewrite <- Option.someInjective moved in List.memAppendRight _ _ _ (Inl rfl)
   | { position, facing }, Counterclockwise, next, moved =>
-    rewrite <- Option.someInjective _ _ moved in List.memAppendRight _ _ _ (Inr (Inl rfl))
+    rewrite <- Option.someInjective moved in List.memAppendRight _ _ _ (Inr (Inl rfl))
   | { position, facing }, Forward, next, moved =>
     match stepped: position.step facing.toDirection with
       | None => Void.exfalso (Option.noneNotSome next moved)
@@ -64,7 +64,7 @@ theorem afterComplete (maze: Maze): (reindeer: Reindeer) → (way: Move) → (ne
         match open: maze.isOpen ahead with
           | False => Void.exfalso (Option.noneNotSome next moved)
           | True =>
-            rewrite <- Option.someInjective _ _ moved in Inl rfl
+            rewrite <- Option.someInjective moved in Inl rfl
 
 --| Each edge into a way of standing on an open tile is a move to it.
 theorem beforeSound (maze: Maze): (reindeer: Reindeer) → maze.holds reindeer = True → (previous: Reindeer) → (weight: Nat) →
@@ -95,10 +95,10 @@ theorem beforeSound (maze: Maze): (reindeer: Reindeer) → maze.holds reindeer =
 theorem beforeComplete (maze: Maze): (reindeer: Reindeer) → maze.holds reindeer = True → (way: Move) → (next: Reindeer) →
     move maze reindeer way = Some next → (reindeer, way.points) ∈ maze.before next
   | { position, facing }, holds, Clockwise, next, moved =>
-    rewrite <- Option.someInjective _ _ moved in
+    rewrite <- Option.someInjective moved in
       List.memAppendRight _ _ _ (Inr (Inl (rewrite clockwiseThenCounter facing in rfl)))
   | { position, facing }, holds, Counterclockwise, next, moved =>
-    rewrite <- Option.someInjective _ _ moved in List.memAppendRight _ _ _ (Inl (rewrite counterThenClockwise facing in rfl))
+    rewrite <- Option.someInjective moved in List.memAppendRight _ _ _ (Inl (rewrite counterThenClockwise facing in rfl))
   | { position, facing }, holds, Forward, next, moved =>
     match stepped: position.step facing.toDirection with
       | None => Void.exfalso (Option.noneNotSome next moved)
@@ -106,19 +106,19 @@ theorem beforeComplete (maze: Maze): (reindeer: Reindeer) → maze.holds reindee
         match open: maze.isOpen ahead with
           | False => Void.exfalso (Option.noneNotSome next moved)
           | True =>
-            rewrite <- Option.someInjective _ _ moved in
+            rewrite <- Option.someInjective moved in
               let back := stepOpposite position facing.toDirection ahead stepped
               List.memAppendLeft _ _ _ (rewrite back, holds in Inl rfl)
 
 --| A move from an open tile ends on one.
 theorem moveHolds (maze: Maze): (reindeer: Reindeer) → maze.holds reindeer = True → (way: Move) → (next: Reindeer) →
     move maze reindeer way = Some next → maze.holds next = True
-  | { position, facing }, holds, Clockwise, next, moved => rewrite <- Option.someInjective _ _ moved in holds
-  | { position, facing }, holds, Counterclockwise, next, moved => rewrite <- Option.someInjective _ _ moved in holds
+  | { position, facing }, holds, Clockwise, next, moved => rewrite <- Option.someInjective moved in holds
+  | { position, facing }, holds, Counterclockwise, next, moved => rewrite <- Option.someInjective moved in holds
   | { position, facing }, holds, Forward, next, moved =>
     match stepped: position.step facing.toDirection with
       | None => Void.exfalso (Option.noneNotSome next moved)
       | Some ahead =>
         match open: maze.isOpen ahead with
           | False => Void.exfalso (Option.noneNotSome next moved)
-          | True => rewrite <- Option.someInjective _ _ moved in open
+          | True => rewrite <- Option.someInjective moved in open

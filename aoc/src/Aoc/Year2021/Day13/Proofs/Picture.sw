@@ -65,8 +65,8 @@ theorem cellSomeInside (dots: List Point) (spot: Point) (c: Char) (found: cellAt
 
 --| A cell shows `#` or `.`, and `#` only for a dot.
 theorem shownChar: (b: Bool) → (c: Char) → Some (if b then '#' else '.') = Some c → c = '#' ∨ c = '.'
-  | True, c, shown => Inl (Eq.sym (Option.someInjective '#' c shown))
-  | False, c, shown => Inr (Eq.sym (Option.someInjective '.' c shown))
+  | True, c, shown => Inl (Eq.sym (Option.someInjective shown))
+  | False, c, shown => Inr (Eq.sym (Option.someInjective shown))
 
 theorem shownHash (b: Bool) (shown: Some (if b then '#' else '.') = Some '#'): b = True :=
   cases

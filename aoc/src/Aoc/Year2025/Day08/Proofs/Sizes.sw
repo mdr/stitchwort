@@ -48,7 +48,7 @@ theorem entryCount (c: Circuits) (n: Nat): (e: (Nat, Nat)) → List.Mem e (Map.t
 theorem memOfCount (c: Circuits) (n: Nat) (label: Nat) (h: 0 < labelCount c n label): List.Mem label (List.map (List.range 0 n) c.labelOf) :=
   List.anyTrueElim (List.map (List.range 0 n) c.labelOf) (x => x == label) (List.Mem label (List.map (List.range 0 n) c.labelOf))
     (rewrite List.anyOccurrences (List.map (List.range 0 n) c.labelOf) (x => x == label), <- List.countOccurrences _ (x => x == label) in h)
-    (x m e => rewrite <- DecEq.sound x label e in m)
+    (x m e => rewrite <- DecEq.sound e in m)
 
 theorem countOfMem (c: Circuits) (n: Nat) (label: Nat) (m: List.Mem label (List.map (List.range 0 n) c.labelOf)): 0 < labelCount c n label :=
   rewrite List.countOccurrences _ (x => x == label), <- List.anyOccurrences _ (x => x == label) in
@@ -95,7 +95,7 @@ theorem firstsDistinct (c: Circuits): (k: Nat) → (s: Nat) → List.Distinct (L
             List.anyElim (b => c.labelOf b = c.labelOf s) Void (List.filter (List.rangeFrom k (Succ s)) (firstBox c))
               (List.memMapAny _ c.labelOf (c.labelOf s) m)
               (b mb same =>
-                match List.memFilter (List.rangeFrom k (Succ s)) (firstBox c) b mb with
+                match List.memFilter (List.rangeFrom k (Succ s)) (firstBox c) mb with
                   | Both inRange first =>
                     let lower: List.any (List.range 0 b) (other => c.labelOf other == c.labelOf b) = True :=
                       List.anyRangeIntro (other => c.labelOf other == c.labelOf b) b 0 s omega
@@ -111,19 +111,19 @@ theorem firstOf (c: Circuits) (n: Nat): (fuel: Nat) → (b: Nat) → b < fuel �
   | Succ fuel, b, h, hb =>
     match g: List.any (List.range 0 b) (other => c.labelOf other == c.labelOf b) with
       | False =>
-        List.memMap _ b (List.memFilterIntro (List.range 0 n) (firstBox c) b (List.memRangeFromIntro b n 0 omega hb) (rewrite g in rfl)) c.labelOf
+        List.memMap _ b (List.memFilterIntro (List.range 0 n) (firstBox c) (List.memRangeFromIntro b n 0 omega hb) (rewrite g in rfl)) c.labelOf
       | True =>
         List.anyTrueElim (List.range 0 b) (other => c.labelOf other == c.labelOf b)
           (List.Mem (c.labelOf b) (List.map (List.filter (List.range 0 n) (firstBox c)) c.labelOf)) g
           (other mo same =>
             let below := List.memRangeFrom other b 0 mo
-            rewrite <- DecEq.sound (c.labelOf other) (c.labelOf b) same in firstOf c n fuel other omega omega)
+            rewrite <- DecEq.sound same in firstOf c n fuel other omega omega)
 
 theorem labelOfFirst (c: Circuits) (n: Nat) (label: Nat) (m: List.Mem label (List.map (List.filter (List.range 0 n) (firstBox c)) c.labelOf)):
     List.Mem label (List.map (List.range 0 n) c.labelOf) :=
   List.anyElim (b => c.labelOf b = label) (List.Mem label (List.map (List.range 0 n) c.labelOf)) (List.filter (List.range 0 n) (firstBox c))
     (List.memMapAny _ c.labelOf label m)
-    (b mb e => rewrite <- e in List.memMap (List.range 0 n) b (And.left (List.memFilter (List.range 0 n) (firstBox c) b mb)) c.labelOf)
+    (b mb e => rewrite <- e in List.memMap (List.range 0 n) b (And.left (List.memFilter (List.range 0 n) (firstBox c) mb)) c.labelOf)
 
 theorem firstOfLabel (c: Circuits) (n: Nat) (label: Nat) (m: List.Mem label (List.map (List.range 0 n) c.labelOf)):
     List.Mem label (List.map (List.filter (List.range 0 n) (firstBox c)) c.labelOf) :=

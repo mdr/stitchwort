@@ -95,7 +95,7 @@ theorem countedSound (racetrack: Racetrack) (startOnTrack: onTrack racetrack rac
           let inList := inStart
           Exists.elim (List.memMapElim _ cheat _ inList) (end both =>
             let (Both endMember made) := both
-            let (Both aroundMember saves) := List.memFilter (start.diamond length) (savesFrom toEnd honest threshold start before) end endMember
+            let (Both aroundMember saves) := List.memFilter (start.diamond length) (savesFrom toEnd honest threshold start before) endMember
             match gotAfter: toEnd.get end with
               | None =>
                 Void.exfalso (Bool.falseNotTrue saves)
@@ -126,7 +126,7 @@ theorem countedComplete (racetrack: Racetrack) (startOnTrack: onTrack racetrack 
         Exists.elim more (after parts =>
           let (Both honestFast (Both beforeFast (Both afterFast fits))) := parts
           let sameHonest: honest = fastest :=
-            Option.someInjective _ _ (Eq.trans (Eq.sym honestFound) (fastestFromStart racetrack startOnTrack racetrack.end fastest honestFast))
+            Option.someInjective (Eq.trans (Eq.sym honestFound) (fastestFromStart racetrack startOnTrack racetrack.end fastest honestFast))
           let gotBefore := fastestFromStart racetrack startOnTrack start before beforeFast
           let gotAfter := fastestToEnd racetrack endOnTrack end endOn after afterFast
           let saved: savesFrom toEnd honest threshold start before end = True :=
@@ -135,7 +135,7 @@ theorem countedComplete (racetrack: Racetrack) (startOnTrack: onTrack racetrack 
             ((listedOnTrack racetrack start).backward startOn)
             (rewrite countedFromSome fromStart toEnd honest length threshold start before gotBefore in
               List.memMap (start.diamond length |> .filter (savesFrom toEnd honest threshold start before)) end
-                (List.memFilterIntro (start.diamond length) (savesFrom toEnd honest threshold start before) end
+                (List.memFilterIntro (start.diamond length) (savesFrom toEnd honest threshold start before)
                   (aroundComplete start length end near) saved)
                 (other => ({ start, end = other }: Cheat))))))
 

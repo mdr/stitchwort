@@ -491,7 +491,7 @@ theorem Map.viewsAgree: (x: Option ((k, v), Map.Raw k v [ord := o])) → (y: Opt
   | None, Some view, same => Void.exfalso (Option.noneNotSome _ same)
   | Some view, None, same => Void.exfalso (Option.someNotNone _ same)
   | Some (smallest, rest), Some (other, otherRest), same =>
-    let pairs := Option.someInjective _ _ same
+    let pairs := Option.someInjective same
     rewrite Eq.cong Pair.fst pairs in
       Eq.cong (left => Some (other, left)) (Map.toListInjective (Map.ofRaw rest) (Map.ofRaw otherRest) (Eq.cong Pair.snd pairs))
 
@@ -508,7 +508,7 @@ theorem Map.popMinSpecRaw [auto ord: Ord k] (r: Map.Raw k v):
   | None, [entry, ..more], viewed, listed => Void.exfalso (Option.noneNotSome _ viewed)
   | Some view, [], viewed, listed => Void.exfalso (Option.someNotNone _ viewed)
   | Some ((key, value), rest), [entry, ..more], viewed, listed =>
-    let pairs := Option.someInjective _ _ viewed
+    let pairs := Option.someInjective viewed
     let first: (key, value) = entry := Eq.cong Pair.fst pairs
     let whole: Map.Raw.toList r = [(key, value), ..Map.Raw.toList rest] := rewrite first, Eq.cong Pair.snd pairs in listed
     let left: Map.Raw.toList rest = Map.Raw.toList (Map.Raw.remove key r) :=
@@ -625,8 +625,8 @@ theorem Map.getInsertCases [auto ord: Ord k] (m: Map k v) (key: k) (value: v) (o
     (there: Map.get (Map.insert m key value) other = Some found): ((other = key) ∧ (found = value)) ∨ (Map.get m other = Some found) :=
   match same: other == key with
     | True =>
-      let equal := DecEq.sound other key same
-      Inl (Both equal (Option.someInjective _ _ (Eq.trans (Eq.sym there) (rewrite equal in Map.getInsert key value m))))
+      let equal := DecEq.sound same
+      Inl (Both equal (Option.someInjective (Eq.trans (Eq.sym there) (rewrite equal in Map.getInsert key value m))))
     | False => Inr (Eq.trans (Eq.sym (Map.getInsertOther key value other (DecEq.soundFalse other key same) m)) there)
 
 --| Inserting a key not there keeps every entry.
@@ -634,7 +634,7 @@ theorem Map.getInsertKeeps [auto ord: Ord k] (m: Map k v) (key: k) (value: v) (f
     (there: Map.get m other = Some found): Map.get (Map.insert m key value) other = Some found :=
   match same: other == key with
     | True =>
-      let equal := DecEq.sound other key same
+      let equal := DecEq.sound same
       Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym fresh) (rewrite <- equal in Map.containsOfGet m other found there)))
     | False => Eq.trans (Map.getInsertOther key value other (DecEq.soundFalse other key same) m) there
 
@@ -652,7 +652,7 @@ theorem Map.containsInsertSame [auto ord: Ord k] (m: Map k v) (key: k) (value: v
 theorem Map.containsInsertKeeps [auto ord: Ord k] (m: Map k v) (key: k) (value: v) (other: k) (there: Map.contains m other = True):
     Map.contains (Map.insert m key value) other = True :=
   match same: other == key with
-    | True => rewrite DecEq.sound other key same in Map.containsInsertSame m key value
+    | True => rewrite DecEq.sound same in Map.containsInsertSame m key value
     | False => rewrite Map.getInsertOther key value other (DecEq.soundFalse other key same) m in there
 
 theorem Map.getRemove [auto ord: Ord k] (m: Map k v) (key: k): Map.get (Map.remove m key) key = None :=
@@ -791,7 +791,7 @@ theorem Map.getOrFoldCount [auto ord: Ord k]: (m: Map k Nat) → (key: k) → (x
 --| `counts`: how many elements equal `key`.
 theorem Map.getOrCounts [auto ord: Ord k] (key: k) (xs: List k): (Map.counts xs).getOr key 0 = xs.count (== key) :=
   Eq.trans (Map.getOrFoldCount Map.empty key xs)
-    (List.countCongMem xs (x => Map.Spec.sameKey key x) (== key) (x m => Map.Spec.sameKeyDecide key x))
+    (List.countCongMem _ (x => Map.Spec.sameKey key x) (== key) (x m => Map.Spec.sameKeyDecide key x))
 
 theorem Map.countsFoldPositive [auto ord: Ord k]: (xs: List k) → (m: Map k Nat) → (key: k) → ((n: Nat) → Map.get m key = Some n → 0 < n) →
     (n: Nat) → Map.get (List.foldLeft xs m (acc x => Map.insertWith acc x 1 Nat.add)) key = Some n → 0 < n
@@ -803,8 +803,8 @@ theorem Map.countsFoldPositive [auto ord: Ord k]: (xs: List k) → (m: Map k Nat
           | Equal =>
             let inserted := rewrite ord.equal key x e, Map.getInsertWith m x 1 Nat.add at g
             match c: Map.get m x with
-              | None => rewrite <- Option.someInjective _ n inserted in rfl
-              | Some old => rewrite <- Option.someInjective _ n inserted in rfl
+              | None => rewrite <- Option.someInjective inserted in rfl
+              | Some old => rewrite <- Option.someInjective inserted in rfl
           | Less =>
             h n (rewrite Map.getInsertWithOther m x 1 key (Map.Spec.notEqualOfCompare key x (z => Ordering.lessNotEqual (Eq.trans (Eq.sym e) z))) Nat.add at g)
           | Greater =>
@@ -946,7 +946,7 @@ theorem Map.memKeysIndexBy [auto ord: Ord k] (xs: List a) (key: a → k) (kk: k)
   forward = inKeys =>
     List.anyTrueElim xs (x => key x == kk) (List.Mem kk (List.map xs key))
       (Eq.trans (Eq.sym (Map.containsIndexBy xs key kk)) ((Map.memKeys (Map.indexBy xs key) kk).forward inKeys))
-      (x inXs e => rewrite <- DecEq.sound (key x) kk e in List.memMap xs x inXs key),
+      (x inXs e => rewrite <- DecEq.sound e in List.memMap xs x inXs key),
   backward = inMap =>
     (Map.memKeys (Map.indexBy xs key) kk).backward
       (Eq.trans (Map.containsIndexBy xs key kk)

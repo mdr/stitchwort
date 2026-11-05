@@ -62,7 +62,7 @@ theorem List.getOrGet: (xs: List a) → (k: Nat) → (d: a) → List.getOr xs k 
 --| What `get` finds, `getOr` gives, whatever the fallback.
 theorem List.getOrOfGet: (xs: List a) → (k: Nat) → (d: a) → (v: a) → List.get xs k = Some v → List.getOr xs k d = v
   | [], k, d, v, h => Void.exfalso (Option.noneNotSome v h)
-  | [x, ..xs], Zero, d, v, h => Option.someInjective x v h
+  | [x, ..xs], Zero, d, v, h => Option.someInjective h
   | [x, ..xs], Succ k, d, v, h => List.getOrOfGet xs k d v h
 
 --| Within the list, `get` finds what `getOr` gives.
