@@ -6956,7 +6956,7 @@
     {
       "id": 1329,
       "title": "Test cache key: drop std's text, and fingerprint only the Rust that runs tests (core, rt, dev-features, the driver's test runner, Cargo.lock, toolchain); docs/proposals/test-cache-key.md §9",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1329",
       "labels": [
@@ -7068,7 +7068,7 @@
     {
       "id": 1337,
       "title": "Research and design note: non-empty lists in std (NonEmpty with reduce, head, last, maximum without Option), as Idris, Lean, Agda and Haskell do it; where the code base would model its data better with it",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1337",
       "labels": [
