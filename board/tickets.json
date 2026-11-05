@@ -8548,14 +8548,14 @@
     {
       "id": 1441,
       "title": "E-REFL prints two identical sides when they differ only in a proof field that a shortcut-mode comparison (under an opaque, axiom or same-group call) compares; say so, and suggest Eq.cong (e.g. secret 'a' vs secret 'a' in a char-pattern arm)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1441",
       "labels": [
         "diagnostics",
         "kernel"
       ],
-      "body": "From SW-1429's Opus review, 5 Nov 2026.\n\nStarted on DeepSeek, expected: 40 min.",
+      "body": "From SW-1429's Opus review, 5 Nov 2026.\n\nStarted on DeepSeek, expected: 40 min.\n\nDone (ae40e345c, d856b9224), merged: core's pretty.rs gains differ_only_in_proofs (first_mismatch skipping proof fields, proof parameters, inert arguments); E-REFL adds 'the two sides differ only in a proof inside them, which isn't skipped under an opaque, axiom or same-group call; prove it with Eq.cong (e.g. Eq.cong f h)' when both sides print alike, the Eq.cong hint only when both apply the same function. Only char-arm-opaque-call's snapshot moved. Model result: DeepSeek, needed fixes (a generic fallback note that crowded out better notes in two examples), ~55 + 15 min (est. 40).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
