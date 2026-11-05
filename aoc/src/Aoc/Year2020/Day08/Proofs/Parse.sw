@@ -18,7 +18,7 @@ theorem readsOperation: Parse.Reads operation OperationWritten :=
 theorem readsArgument: Parse.Reads argument ArgumentWritten :=
   Parse.readsThen (Parse.readsPick [("+", False), ("-", True)]) (signRead negative (Witness word (Both member signIs)) =>
     Parse.readsThen Parse.readsNat (digitsRead size (Both nonEmpty (Both digits value)) =>
-      Parse.readsDone (Int.signed negative size) (read made => ArgumentWritten (signRead ++ (digitsRead ++ read)) made)
+      Parse.readsDone (Int.signed negative size) _
         (Witness digitsRead (Both nonEmpty (Both digits
           (match member with
             | Inl same =>
@@ -31,7 +31,7 @@ theorem readsInstruction: Parse.Reads instruction InstructionWritten :=
   Parse.readsThen readsOperation (operationRead operation written =>
     Parse.readsThen (Parse.readsChar ' ') (spaceRead u space =>
       Parse.readsThen readsArgument (argumentRead argument signed =>
-        Parse.readsDone { operation, argument } (read made => InstructionWritten (operationRead ++ (spaceRead ++ (argumentRead ++ read))) made)
+        Parse.readsDone { operation, argument } _
           (Witness operationRead (Witness argumentRead
             (Both (rewrite space, List.appendNil argumentRead in rfl) (Both written signed)))))))
 

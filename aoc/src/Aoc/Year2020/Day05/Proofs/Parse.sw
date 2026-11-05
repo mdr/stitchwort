@@ -28,7 +28,7 @@ theorem readsHalf (lower: Char) (upper: Char): Parse.Reads (() => half lower upp
 theorem readsPass: Parse.Reads pass PassWritten :=
   Parse.readsThen (Parse.readsExactly 7 frontBack _ (readsHalf 'F' 'B')) (rowRead row (Both rowEach rowLength) =>
     Parse.readsThen (Parse.readsExactly 3 leftRight _ (readsHalf 'L' 'R')) (columnRead column (Both columnEach columnLength) =>
-      Parse.readsDone ({ row, column }: Pass) _
+      Parse.readsDone { row, column } _
         (Both (omega) (Both (omega)
           (rewrite List.appendNil columnRead,
             Parse.eachChars (letter 'F' 'B') rowRead row rowEach,

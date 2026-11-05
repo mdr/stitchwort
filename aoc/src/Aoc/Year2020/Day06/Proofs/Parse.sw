@@ -29,7 +29,7 @@ theorem readsPerson: Parse.Reads person PersonWritten :=
   Parse.readsThen (Parse.readsMany1 _ _ (Parse.readsSatisfy)) (lettersRead letters each =>
     match eachLetters lettersRead letters.toList each with
       | Both same questions =>
-        Parse.readsDone ({ answers = letters.toList.toSet }: Person) _
+        Parse.readsDone { answers = letters.toList.toSet } _
           (rewrite List.appendNil lettersRead, same in
             Both (NonEmptyList.toListNotNil letters) (Both questions (question => containsFromList letters.toList question))))
 
