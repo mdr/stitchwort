@@ -1,5 +1,6 @@
 ---
 source: crates/cli/tests/search.rs
+assertion_line: 455
 expression: "serde_json::to_string_pretty(&report).unwrap()"
 ---
 {
@@ -8,7 +9,7 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
     "checks": "(varies)",
     "exhausted": true,
     "internalErrors": 0,
-    "matched": 65,
+    "matched": 63,
     "maxCandidates": 50,
     "outOfBudget": 3,
     "tried": 50,
@@ -85,7 +86,7 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
       "file": "std/List/SortLemmas.sw",
       "goal": "Std.Ordering.isLessEq (Nat.compare a c) = True",
       "import": "import Std (Nat)",
-      "line": 491,
+      "line": 523,
       "name": "Std.Nat.compareLeq",
       "proof": "rewrite <- Nat.compareLeq a c in ?",
       "type": "(m: Nat) → (n: Nat) → Ordering.isLessEq (Nat.compare m n) = (m <= n)"
@@ -102,7 +103,7 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
   },
   "version": 1,
   "warnings": [
-    "65 declarations match the target; the first 50 were tried (--candidates N for more)",
+    "63 declarations match the target; the first 50 were tried (--candidates N for more)",
     "3 comparisons ran out of steps (with Std.Float.Theory.overflowHalf, Std.Float.Theory.largestBelow, Std.Float.Theory.infinityAbove): those may match and weren't listed"
   ]
 }

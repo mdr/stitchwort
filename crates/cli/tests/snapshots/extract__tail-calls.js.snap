@@ -736,6 +736,7 @@ define(info$Std$dPair, [
 ]);
 
 const $Std$dNat$dadd = (m, n) => m + n;
+const $Std$dNat$dsub = (m, n) => (m >= n ? m - n : 0n);
 const $Std$dBool$difThenElse = (v1, v2, v3) => {
   switch (v1.tag) {
     case "False": {
@@ -837,7 +838,7 @@ const $Std$dList$drangeFrom = (v0, v1) => {
     }
   }
 };
-const $Std$dList$drange = (v0) => $Std$dList$drangeFrom(v0, 0n);
+const $Std$dList$drange = (v0, v1) => $Std$dList$drangeFrom($Std$dNat$dsub(v1, v0), v0);
 const $Main$dcountFrom = (v0, v1) => {
   let s0 = v0, s1 = v1;
   for (;;) {
@@ -1119,7 +1120,7 @@ const $Main$devenRounds = (v0, v1) => {
   }
 };
 const $Main$drounds = $Main$devenRounds;
-const $Main$dlookupLast = (v0) => $Main$dlookupIn(v0, $Std$dList$dmap$e($Std$dList$drange($Std$dNat$dadd(v0, 1n)), ((v1) => ({ tag: "MkPair", fst: v1, snd: "x" }))));
+const $Main$dlookupLast = (v0) => $Main$dlookupIn(v0, $Std$dList$dmap$e($Std$dList$drange(0n, $Std$dNat$dadd(v0, 1n)), ((v1) => ({ tag: "MkPair", fst: v1, snd: "x" }))));
 
 function $$countDown(arg0) {
   try {
