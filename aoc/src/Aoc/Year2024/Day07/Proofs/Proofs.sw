@@ -71,11 +71,8 @@ theorem canMakeReaches (operators: List Operator) (first: Nat): (reversed: List 
 --| The program's check is the puzzle's "could possibly be true", for any
 --| operators.
 theorem couldBeTrueCorrect (operators: List Operator) (equation: Equation): equation.couldBeTrue operators = couldPossiblyBeTrue operators equation :=
-  match numbers: equation.numbers with
-    | [] => rfl
-    | [first, ..rest] =>
-      rewrite canMakeReaches operators first rest.reverse equation.testValue, List.reverseReverse rest
-        in Eq.sym (combinationsReach operators (== equation.testValue) rest first)
+  rewrite canMakeReaches operators equation.numbers.head equation.numbers.tail.reverse equation.testValue, List.reverseReverse equation.numbers.tail
+    in Eq.sym (combinationsReach operators (== equation.testValue) equation.numbers.tail equation.numbers.head)
 
 --| So the program's total is the total calibration result.
 theorem calibrationResultCorrect (operators: List Operator) (equations: List Equation):
@@ -99,11 +96,9 @@ theorem reachesMore (fewer: List Operator) (more: List Operator) (included: (ope
 --| An equation that could be true with fewer operators could be with more.
 theorem couldBeTrueMore (fewer: List Operator) (more: List Operator) (included: (operator: Operator) → operator ∈ fewer → operator ∈ more)
     (equation: Equation): equation.couldBeTrue fewer = True → equation.couldBeTrue more = True :=
-  match numbers: equation.numbers with
-    | [] => holds => holds
-    | [first, ..rest] =>
-      rewrite canMakeReaches fewer first rest.reverse equation.testValue, canMakeReaches more first rest.reverse equation.testValue
-        in reachesMore fewer more included (== equation.testValue) rest.reverse.reverse first
+  rewrite canMakeReaches fewer equation.numbers.head equation.numbers.tail.reverse equation.testValue,
+      canMakeReaches more equation.numbers.head equation.numbers.tail.reverse equation.testValue
+    in reachesMore fewer more included (== equation.testValue) equation.numbers.tail.reverse.reverse equation.numbers.head
 
 --| Part 2 adds an operator, so its total is at least part 1's.
 theorem part2AtLeastPart1 (equations: List Equation): solvePart1 equations ≤ solvePart2 equations :=

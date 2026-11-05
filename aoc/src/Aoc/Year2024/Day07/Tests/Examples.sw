@@ -28,7 +28,8 @@ def addMultiply: List Operator := [Add, Multiply]
 
 def allOperators: List Operator := [Add, Multiply, Concatenate]
 
-def holds (operators: List Operator) (testValue: Nat) (numbers: List Nat): Bool := Equation.couldBeTrue { testValue, numbers } operators
+def holds (operators: List Operator) (testValue: Nat) (numbers: List Nat) [auto nonEmpty: numbers ≠ []]: Bool :=
+  Equation.couldBeTrue { testValue, numbers = numbers.toNonEmpty } operators
 
 test "example, part 1" := exampleEquations.map solvePart1 == Ok 3749
 test "example, part 2" := exampleEquations.map solvePart2 == Ok 11387

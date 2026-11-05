@@ -10,7 +10,7 @@
 --| `Aoc.Year2024.Day07.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2024.Day07
-import Std (Fail, IO, List, Nat, Parse, Text)
+import Std (Fail, IO, List, Nat, NonEmptyList, Parse, Text)
 import Std.Parse (char, many1, nat, token)
 
 def main(): {IO, Fail} () :=
@@ -19,7 +19,7 @@ def main(): {IO, Fail} () :=
   IO.print "Part 2: ${solvePart2 equations}"
 
 --| One line of the input: the test value, then the numbers in order.
-type Equation = { testValue: Nat, numbers: List Nat }
+type Equation = { testValue: Nat, numbers: NonEmptyList Nat }
 
 type Operator =
   | Add
@@ -30,7 +30,7 @@ type Operator =
 def equationLine(): {Parse} Equation :=
   let testValue := nat()
   char ':'
-  let numbers := many1 (() => token nat) |> .toList
+  let numbers := many1 (() => token nat)
   { testValue, numbers }
 
 --| One equation per line. A failure names the line and column.
@@ -60,9 +60,7 @@ def canMake (operators: List Operator) (first: Nat) (target: Nat): List Nat → 
 --| Whether some choice of the operators between the numbers makes the test
 --| value.
 def Equation.couldBeTrue (equation: Equation) (operators: List Operator): Bool :=
-  match equation.numbers with
-    | [] => False
-    | [first, ..rest] => canMake operators first equation.testValue rest.reverse
+  canMake operators equation.numbers.head equation.testValue equation.numbers.tail.reverse
 
 --| The sum of the test values of the equations that could be true.
 def calibrationResult (operators: List Operator) (equations: List Equation): Nat :=
