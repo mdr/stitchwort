@@ -9,7 +9,7 @@ import Aoc.Year2021.Day14.Spec (..)
 import Std (Bool, DecEq, Eq, Fail, List, Option, Result, Void)
 
 --| If no pair is listed again further on, the pairs are distinct.
-theorem firstRepeatedNone: (pairs: List (Char, Char)) → firstRepeated pairs = None → List.Distinct pairs
+theorem firstRepeatedNone: (pairs: List ElementPair) → firstRepeated pairs = None → List.Distinct pairs
   | [], none => ()
   | [pair, ..rest], none =>
     match c: List.contains rest pair with
@@ -23,7 +23,7 @@ theorem firstRepeatedNone: (pairs: List (Char, Char)) → firstRepeated pairs = 
 theorem checkManualOk (manual: Manual) (result: Manual) (h: Fail.toResult (() => checkManual manual) = Ok result):
     result = manual ∧ firstRepeated (manual.rules.map Rule.pair) = None :=
   match e: firstRepeated (manual.rules.map Rule.pair) with
-    | Some (a, b) => Void.exfalso (Result.errNotOk _ result h)
+    | Some pair => Void.exfalso (Result.errNotOk _ result h)
     | None => Both (Eq.sym (Result.okInjective _ result h)) rfl
 
 --| ...whatever reads it.

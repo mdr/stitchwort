@@ -4,16 +4,16 @@
 --| program's pair counts give the same answer, for any number of steps.
 
 namespace Aoc.Year2021.Day14.Spec
-import Aoc.Year2021.Day14 (Manual, Rule)
+import Aoc.Year2021.Day14 (ElementPair, Manual, Rule)
 import Std (List, Nat, Option)
 
---| The element the rule for the pair `a b` inserts, if a rule is for it.
-def insertionFor (rules: List Rule) (a: Char) (b: Char): Option Char :=
-  rules.find (rule => (rule.left, rule.right) == (a, b)) |> .map (rule => rule.insert)
+--| The element the rule for `pair` inserts, if a rule is for it.
+def insertionFor (rules: List Rule) (pair: ElementPair): Option Char :=
+  rules.find (rule => rule.pair == pair) |> .map (rule => rule.insert)
 
 --| What goes between `a` and `b` in a step: the rule's element, or nothing.
 def between (rules: List Rule) (a: Char) (b: Char): List Char :=
-  match insertionFor rules a b with
+  match insertionFor rules { first = a, second = b } with
     | Some c => [c]
     | None => []
 
@@ -39,4 +39,4 @@ def answer (steps: Nat) (manual: Manual): Nat := spreadOf (afterSteps steps manu
 
 --| No two rules are for the same pair, so "the rule for a pair" means one
 --| thing. The puzzle's rules are like this; the parser checks it.
-def OneRulePerPair (rules: List Rule): Prop := List.Distinct (rules.map (rule => (rule.left, rule.right)))
+def OneRulePerPair (rules: List Rule): Prop := List.Distinct (rules.map (rule => rule.pair))

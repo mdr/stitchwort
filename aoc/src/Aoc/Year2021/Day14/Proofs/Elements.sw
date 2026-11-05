@@ -31,24 +31,24 @@ theorem stepsEmpty (rules: List Rule): (steps: Nat) → Nat.iterate steps (step 
 --| An element's count: the first element, if it is that one, and the
 --| pairs that end with it.
 theorem countByPairs (c: Char) (a: Char): (rest: List Char) →
-    List.count [a, ..rest] (== c) = Bool.toNat (a == c) + List.sumBy (List.zipWithNext [a, ..rest]) (pair => Bool.toNat (pair.snd == c))
+    List.count [a, ..rest] (== c) = Bool.toNat (a == c) + List.sumBy (pairsOf [a, ..rest]) (pair => Bool.toNat (pair.second == c))
   | [] => omega [List.countCons [] a (== c)]
   | [b, ..more] =>
     omega [
       List.countCons [b, ..more] a (== c),
-      List.sumByCons (List.zipWithNext [b, ..more]) (a, b) (pair => Bool.toNat (pair.snd == c)),
+      List.sumByCons (pairsOf [b, ..more]) { first = a, second = b } (pair => Bool.toNat (pair.second == c)),
       countByPairs c b more
     ]
 
 --| The program's element count is a weighted sum of the counts...
 theorem elementCountWeight (first: Char) (counts: PairCounts) (c: Char):
-    elementCount first counts c = Bool.toNat (first == c) + weight counts (pair => Bool.toNat (pair.snd == c)) :=
+    elementCount first counts c = Bool.toNat (first == c) + weight counts (pair => Bool.toNat (pair.second == c)) :=
   let each :=
-    List.sumByCong (Map.toList counts) (entry => if entry.fst.snd == c then entry.snd else 0) (entry => entry.snd * Bool.toNat (entry.fst.snd == c))
+    List.sumByCong (Map.toList counts) (entry => if entry.fst.second == c then entry.snd else 0) (entry => entry.snd * Bool.toNat (entry.fst.second == c))
       (entry => cases)
   omega [each]
 
 --| ...so it is the element's count in the polymer the counts stand for.
 theorem elementCountQuantity (first: Char) (tail: List Char) (counts: PairCounts) (represents: Represents counts [first, ..tail]) (c: Char):
     elementCount first counts c = quantity [first, ..tail] c :=
-  omega [elementCountWeight first counts c, represents (pair => Bool.toNat (pair.snd == c)), countByPairs c first tail]
+  omega [elementCountWeight first counts c, represents (pair => Bool.toNat (pair.second == c)), countByPairs c first tail]

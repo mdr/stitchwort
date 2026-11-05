@@ -30,11 +30,16 @@ def main(): {IO, Fail} () :=
   IO.print "Part 1: ${solvePart1 manual}"
   IO.print "Part 2: ${solvePart2 manual}"
 
---| A rule `AB -> C`: between `left` (A) and `right` (B), insert `insert` (C).
-type Rule = { left: Char, right: Char, insert: Char }
+--| Two elements next to each other in a polymer.
+type ElementPair = { first: Char, second: Char }
 
---| The pair a rule is for.
-def Rule.pair (rule: Rule): (Char, Char) := (rule.left, rule.right)
+--| A rule `AB -> C`: between the elements of the pair `AB`, insert `C`.
+type Rule = { pair: ElementPair, insert: Char }
+
+--| Each pair of neighbouring elements of a polymer, in order.
+def pairsOf: List Char → List ElementPair
+  | [a, b, ..rest] => [{ first = a, second = b }, ..pairsOf [b, ..rest]]
+  | _ => []
 
 --| The puzzle's input: the template, then the rules.
 type Manual = { template: List Char, rules: List Rule }
@@ -50,54 +55,54 @@ def readManual(): {Parse} Manual :=
   { template = template.toList, rules }
 
 def readRule(): {Parse} Rule :=
-  let left := element()
-  let right := element()
+  let first := element()
+  let second := element()
   text " -> "
   let insert := element()
-  { left, right, insert }
+  { pair = { first, second }, insert }
 
 def element(): {Parse} Char := satisfy "a capital letter" Char.isAsciiUppercase
 
 --| The manual, if no two rules are for the same pair; otherwise fail,
 --| naming the first pair with two.
 def checkManual (manual: Manual): {Fail} Manual :=
-  match firstRepeated (manual.rules.map Rule.pair) with
-    | Some (a, b) => Fail.fail "two rules for the pair ${a}${b}"
+  match firstRepeated (manual.rules.map .pair) with
+    | Some pair => Fail.fail "two rules for the pair ${pair.first}${pair.second}"
     | None => manual
 
 --| The first pair that is listed again further on.
-def firstRepeated: List (Char, Char) → Option (Char, Char)
+def firstRepeated: List ElementPair → Option ElementPair
   | [] => None
   | [pair, ..rest] => if rest.contains pair then Some pair else firstRepeated rest
 
 --| What each pair's rule inserts.
-def ruleTable (rules: List Rule): Map (Char, Char) Char := Map.fromList (rules.map (rule => (rule.pair, rule.insert)))
+def ruleTable (rules: List Rule): Map ElementPair Char := Map.fromList (rules.map (rule => (rule.pair, rule.insert)))
 
 --| What a pair becomes in a step: with a rule inserting `c`, the pairs `a c`
 --| and `c b`; without one, itself.
-def becomes (table: Map (Char, Char) Char) (pair: (Char, Char)): List (Char, Char) :=
+def ElementPair.becomes (pair: ElementPair) (table: Map ElementPair Char): List ElementPair :=
   match table.get pair with
-    | Some c => [(pair.fst, c), (c, pair.snd)]
+    | Some c => [{ first = pair.first, second = c }, { first = c, second = pair.second }]
     | None => [pair]
 
 --| How many times each pair of neighbours occurs.
-type PairCounts = Map (Char, Char) Nat
+type PairCounts = Map ElementPair Nat
 
 --| `counts` with each entry's count added at its pair.
-def addAll (counts: PairCounts) (entries: List ((Char, Char), Nat)): PairCounts :=
+def addAll (counts: PairCounts) (entries: List (ElementPair, Nat)): PairCounts :=
   entries.foldLeft counts (sums entry => sums.insertWith entry.fst entry.snd Nat.add)
 
-def countPairs (polymer: List Char): PairCounts := addAll Map.empty (polymer.zipWithNext.map (pair => (pair, 1)))
+def countPairs (polymer: List Char): PairCounts := addAll Map.empty (pairsOf polymer |> .map (pair => (pair, 1)))
 
 --| A step on the counts: each pair's count goes to each pair it becomes.
-def stepCounts (table: Map (Char, Char) Char) (counts: PairCounts): PairCounts :=
-  addAll Map.empty (counts.toList.flatMap (entry => becomes table entry.fst |> .map (next => (next, entry.snd))))
+def stepCounts (table: Map ElementPair Char) (counts: PairCounts): PairCounts :=
+  addAll Map.empty (counts.toList.flatMap (entry => entry.fst.becomes table |> .map (next => (next, entry.snd))))
 
 --| How many times `element` occurs in a polymer that starts with `first` and
 --| has the pair counts `counts`: once for the first element, if it is that,
 --| and once for each pair that ends with it.
 def elementCount (first: Char) (counts: PairCounts) (element: Char): Nat :=
-  Bool.toNat (first == element) + counts.toList.sumBy (entry => if entry.fst.snd == element then entry.snd else 0)
+  Bool.toNat (first == element) + counts.toList.sumBy (entry => if entry.fst.second == element then entry.snd else 0)
 
 --| The count of the most common element less that of the least common, in
 --| the polymer `template` has become, whose pair counts are `counts`. The
@@ -109,7 +114,7 @@ def spread (template: List Char) (counts: PairCounts): Nat :=
     | [] => 0
     | [first, .._] =>
       let quantities :=
-        [first, ..counts.keys.map Pair.snd]
+        [first, ..counts.keys.map .second]
           |> .distinct
           |> .map (elementCount first counts)
           |> .filter (quantity => 0 < quantity)
