@@ -38,7 +38,8 @@ impl Elaborator {
                 .with_label(patterns_span(row), "never chosen");
                 let pats: Vec<&Pattern> = row.pats.iter().map(|p| &**p).collect();
                 let covering = rows[..i].iter().find(|earlier| {
-                    (earlier.pats.iter().zip(&pats)).all(|(general, p)| subsumes(general, p))
+                    earlier.guard.is_none()
+                        && (earlier.pats.iter().zip(&pats)).all(|(general, p)| subsumes(general, p))
                 });
                 warning = match covering {
                     Some(earlier) => warning.with_label(
@@ -53,10 +54,11 @@ impl Elaborator {
             for (j, pattern) in row.pats.iter().enumerate() {
                 let top_level = |alternative: &Pattern| {
                     rows[..i].iter().find(|earlier| {
-                        (earlier.pats.iter().enumerate()).all(|(c, general)| {
-                            let p = if c == j { alternative } else { &*row.pats[c] };
-                            subsumes(general, p)
-                        })
+                        earlier.guard.is_none()
+                            && (earlier.pats.iter().enumerate()).all(|(c, general)| {
+                                let p = if c == j { alternative } else { &*row.pats[c] };
+                                subsumes(general, p)
+                            })
                     })
                 };
                 redundant_alternatives(pattern, &reached, Some(&top_level), &mut found);
@@ -130,6 +132,12 @@ fn arm_spans(tree: &Tree, out: &mut Vec<Span>) {
         }
         Tree::Absurd { span, .. } => out.push(*span),
         Tree::Missing { .. } => {}
+        Tree::Guard {
+            leaf, otherwise, ..
+        } => {
+            arm_spans(leaf, out);
+            arm_spans(otherwise, out);
+        }
         Tree::Case { branches, .. } => branches.iter().for_each(|(_, t)| arm_spans(t, out)),
         Tree::NumCase { arms, default, .. } => {
             arms.iter().for_each(|(_, t)| arm_spans(t, out));

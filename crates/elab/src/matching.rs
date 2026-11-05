@@ -148,6 +148,7 @@ fn compile<'a>(
         rhs: None,
         span,
         alternatives: Vec::new(),
+        guard: None,
     });
     let rows: Vec<Row> = alts
         .iter()
@@ -172,6 +173,7 @@ fn compile<'a>(
             rhs: Some(&alt.body),
             span: alt.span,
             alternatives: Vec::new(),
+            guard: alt.guard.as_ref(),
         })
         .chain(absurd_rows)
         .collect();

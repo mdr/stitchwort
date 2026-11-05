@@ -155,6 +155,9 @@ pub(crate) struct Decl {
     /// (`'a'` is `MkChar 97 _`), so an arm can make the matched character
     /// the literal itself (`canonical`). As [`Self::char_patterns`].
     pub(crate) char_proofs: RefCell<HashSet<Span>>,
+    /// The guarded rows' `else` trees made so far by the pattern match being
+    /// compiled, which bound how much a guard may copy (`MAX_GUARD_NODES`).
+    pub(crate) guard_nodes: Cell<usize>,
 }
 
 impl Decl {
@@ -207,6 +210,7 @@ impl Decl {
             tuple_matches,
             char_patterns,
             char_proofs,
+            guard_nodes,
         } = self;
         let fields = [
             ("sides_capture", sides_capture.borrow().is_empty()),
@@ -237,6 +241,7 @@ impl Decl {
             ("tuple_matches", tuple_matches.borrow().is_empty()),
             ("char_patterns", char_patterns.borrow().is_empty()),
             ("char_proofs", char_proofs.borrow().is_empty()),
+            ("guard_nodes", guard_nodes.get() == 0),
         ];
         fields
             .into_iter()

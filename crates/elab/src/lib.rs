@@ -448,6 +448,23 @@ fn expand_or_patterns<'a>(rows: &[Row<'a>]) -> Vec<Row<'a>> {
     expanded
 }
 
+/// Whether `tree` has no `case`: only leaves, guards and missing cases,
+/// which can stand in the `else` of a guard.
+fn is_flat(tree: &Tree) -> bool {
+    match tree {
+        Tree::Leaf { .. } | Tree::Missing { .. } => true,
+        Tree::Guard {
+            leaf, otherwise, ..
+        } => is_flat(leaf) && is_flat(otherwise),
+        Tree::Absurd { .. } | Tree::Case { .. } | Tree::NumCase { .. } => false,
+    }
+}
+
+/// How many guarded rows' `else` trees one `match` may make. A guard keeps
+/// the rows below it where they would have been dropped, so guarded rows that
+/// split different columns copy them exponentially.
+const MAX_GUARD_NODES: usize = 256;
+
 /// One equation during pattern-match compilation: the patterns still to be
 /// matched, and the pattern variables already bound (to de Bruijn levels).
 #[derive(Clone)]
@@ -461,6 +478,9 @@ struct Row<'a> {
     span: Span,
     /// The spans of the or-pattern alternatives the row was expanded to.
     alternatives: Vec<Span>,
+    /// `if c` after the arm's patterns: the arm applies only when it holds,
+    /// and otherwise the rows below it are tried.
+    guard: Option<&'a ast::Guard>,
 }
 
 /// A compiled pattern match, before its right-hand sides are checked.
@@ -475,6 +495,15 @@ enum Tree<'a> {
         span: Span,
         /// The spans of the or-pattern alternatives that chose the arm.
         alternatives: Vec<Span>,
+    },
+    /// The first row matched whatever is left, under a condition: `leaf` if
+    /// it holds, otherwise `otherwise`, the rows after it. Checked as the
+    /// `if` it is, so `otherwise` is compiled one variable deeper than
+    /// `leaf`: both branches of an `if` bind one (docs/proposals/pattern-guards.md §3).
+    Guard {
+        guard: &'a ast::Guard,
+        leaf: Box<Tree<'a>>,
+        otherwise: Box<Tree<'a>>,
     },
     /// The variable at `level` has a type with no values.
     Absurd { level: usize, span: Span },
@@ -3135,6 +3164,13 @@ impl Elaborator {
             Some(Decl::Equation { arm, .. }) => *arm,
             _ => None,
         };
+        let guards: Vec<Option<&ast::Guard>> = equations
+            .iter()
+            .map(|eq| match eq {
+                Decl::Equation { guard, .. } => guard.as_ref(),
+                _ => unreachable!(),
+            })
+            .collect();
         let equations: Vec<(&Vec<Pattern>, Option<&Expr>, Span)> = equations
             .iter()
             .map(|eq| match eq {
@@ -3339,7 +3375,8 @@ impl Elaborator {
         } else {
             let rows: Vec<Row> = equations
                 .iter()
-                .map(|&(patterns, rhs, span)| Row {
+                .zip(&guards)
+                .map(|(&(patterns, rhs, span), &guard)| Row {
                     // `()` with a right-hand side is the unit pattern; without
                     // one, it's absurd.
                     pats: patterns
@@ -3361,6 +3398,7 @@ impl Elaborator {
                     rhs,
                     span,
                     alternatives: Vec::new(),
+                    guard,
                 })
                 .collect();
             let tree = self.compile_top(
@@ -3399,7 +3437,10 @@ impl Elaborator {
         skip: usize,
         span: Span,
     ) -> Result<Tree<'a>> {
-        let mut tree = self.compile(rows, depth, columns, types, span)?;
+        self.decl.guard_nodes.set(0);
+        let tree = self.compile(rows, depth, columns, types, span);
+        self.decl.guard_nodes.set(0);
+        let mut tree = tree?;
         self.annotate(&mut tree, &columns[skip..]);
         match missing::definite(&tree, span) {
             Some(d) => Err(d),
@@ -3457,25 +3498,35 @@ impl Elaborator {
             });
         }
         let mut split = None;
-        for (j, pattern) in first.pats.iter().enumerate() {
-            // A column of numbers (with variables and `_`) is compared with
-            // numbers. One with a `Zero` or `Succ` pattern is split into
-            // those constructors, and numbers in it count down as it's split.
-            // A column of `Int`s is split by sign first (see `pattern_ctor`).
-            if matches!(**pattern, Pattern::Num(..))
-                && !self.options.numbers_as_succ
-                && !rows
-                    .iter()
-                    .any(|r| matches!(*r.pats[j], Pattern::Ctor(..) | Pattern::CtorFields { .. }))
-                && !matches!(
-                    self.number_kind(types[j].as_ref())?,
-                    NumberKind::Int | NumberKind::Fin
-                )
-            {
-                return self.compile_numbers(rows, depth, columns, types, j, span);
+        // A guarded first row that has nothing left to match still waits for
+        // the splits the rows below it need: the arms below it are tried when
+        // its condition fails, in the `else` of an `if`, where the kernel
+        // allows no `case`. So they are split first, above the condition.
+        // Rows after the first one that cannot fail are dead.
+        'rows: for row in rows {
+            for (j, pattern) in row.pats.iter().enumerate() {
+                // A column of numbers (with variables and `_`) is compared with
+                // numbers. One with a `Zero` or `Succ` pattern is split into
+                // those constructors, and numbers in it count down as it's split.
+                // A column of `Int`s is split by sign first (see `pattern_ctor`).
+                if matches!(**pattern, Pattern::Num(..))
+                    && !self.options.numbers_as_succ
+                    && !rows.iter().any(|r| {
+                        matches!(*r.pats[j], Pattern::Ctor(..) | Pattern::CtorFields { .. })
+                    })
+                    && !matches!(
+                        self.number_kind(types[j].as_ref())?,
+                        NumberKind::Int | NumberKind::Fin
+                    )
+                {
+                    return self.compile_numbers(rows, depth, columns, types, j, span);
+                }
+                if let Some(ctor) = self.pattern_ctor(pattern, types[j].as_ref())? {
+                    split = Some((j, ctor.data));
+                    break 'rows;
+                }
             }
-            if let Some(ctor) = self.pattern_ctor(pattern, types[j].as_ref())? {
-                split = Some((j, ctor.data));
+            if row.guard.is_none() {
                 break;
             }
         }
@@ -3494,14 +3545,18 @@ impl Elaborator {
                     canon.push(*level);
                 }
             }
-            return Ok(Tree::Leaf {
+            let leaf = Tree::Leaf {
                 aliases,
                 written: first.written.clone(),
                 canon,
                 rhs: first.rhs,
                 span: first.span,
                 alternatives: first.alternatives.clone(),
-            });
+            };
+            let Some(guard) = first.guard else {
+                return Ok(leaf);
+            };
+            return self.compile_guard(guard, leaf, rows, depth, columns, types, span);
         };
 
         let level = columns[j];
@@ -3582,6 +3637,7 @@ impl Elaborator {
                     rhs: row.rhs,
                     span: row.span,
                     alternatives: row.alternatives.clone(),
+                    guard: row.guard,
                 });
             }
             let other_family = || -> Result<bool> {
@@ -3646,6 +3702,59 @@ impl Elaborator {
             depth,
             branches,
             span,
+        })
+    }
+
+    /// The first row of `rows` is guarded and has nothing left to match
+    /// (`leaf`): the tree that tries its condition, and the rows below it
+    /// when it fails. Those are compiled one variable deeper, since the
+    /// `else` of the `if` the guard is checked as binds one
+    /// (docs/proposals/pattern-guards.md §3.2).
+    #[allow(clippy::too_many_arguments)]
+    fn compile_guard<'a>(
+        &self,
+        guard: &'a ast::Guard,
+        leaf: Tree<'a>,
+        rows: &[Row<'a>],
+        depth: usize,
+        columns: &[usize],
+        types: &[Option<Value>],
+        span: Span,
+    ) -> Result<Tree<'a>> {
+        let made = self.decl.guard_nodes.get() + 1;
+        self.decl.guard_nodes.set(made);
+        if made > MAX_GUARD_NODES {
+            return Err(error(
+                "E-MATCH-SIZE",
+                guard.span,
+                "this `match`'s conditions would copy its arms too many times",
+            )
+            .with_note(
+                "move some of the guarded arms into a helper function, or test the condition                  inside one arm",
+            ));
+        }
+        let otherwise = if rows.len() > 1 {
+            let tree = self.compile(&rows[1..], depth + 1, columns, types, span)?;
+            if !is_flat(&tree) {
+                return Err(error(
+                    "E-GUARD-ARMS",
+                    guard.span,
+                    "an arm below an arm with a condition can't be absurd (`()`)",
+                )
+                .with_note("move it above the arm with the condition"));
+            }
+            tree
+        } else {
+            Tree::Missing {
+                columns: columns.to_vec(),
+                span,
+                arm: missing::Arm::through_guard(guard.span),
+            }
+        };
+        Ok(Tree::Guard {
+            guard,
+            leaf: Box::new(leaf),
+            otherwise: Box::new(otherwise),
         })
     }
 
@@ -4023,7 +4132,7 @@ impl Elaborator {
         // and whether each sign has a row matching all its values.
         let mut keys: [BTreeSet<BigUint>; 2] = Default::default();
         let mut covered = [false, false];
-        for row in rows {
+        for row in rows.iter().filter(|r| r.guard.is_none()) {
             let Some(found) = self.pattern_ctor(&row.pats[j], ty)? else {
                 covered = [true, true];
                 continue;
@@ -4373,66 +4482,171 @@ fn report_failed_branches(cx: &Ctx, failed: Vec<Diagnostic>) -> Result<()> {
     Err(first)
 }
 
+/// The tree's variables the current arm's patterns don't name are shown as
+/// `head✝`: another arm's name, or the field's, can't be used there.
+fn hide_unnamed_variables(cx: &mut Ctx) {
+    for level in cx.tree_start.min(cx.level())..cx.level() {
+        let own = matches!(&cx.env[level],
+            Value::Neutral(Head::Var(l, _), s) if *l == level && s.is_empty());
+        let name = &cx.names[level];
+        if own
+            && cx.lets[level].is_none()
+            && !name.starts_with('%')
+            && !name.ends_with('✝')
+            && &**name != "_"
+            && cx.name_of_level(level).is_none()
+        {
+            cx.names[level] = format!("{name}✝").into();
+        }
+    }
+}
+
+/// A leaf of the case tree: its arm's right-hand side, checked with the
+/// arm's pattern variables in scope. `guarded` if the arm has a condition,
+/// which puts it inside the `if` that tests it, where a `match` that is the
+/// whole right-hand side can't split the arm's variables further.
+fn check_leaf(cx: &mut Ctx, tree: &Tree, goal: &Value, guarded: bool) -> Result<Term> {
+    let Tree::Leaf {
+        aliases,
+        written,
+        canon,
+        rhs,
+        span,
+        alternatives,
+    } = tree
+    else {
+        unreachable!("a leaf")
+    };
+    families::reached(cx, *span);
+    cx.e.decl.leaf_log.borrow_mut().record(*span, alternatives);
+    let Some(rhs) = rhs else {
+        return Err(error(
+            "E-ARITY",
+            *span,
+            "this arm needs `=> …`: only an arm with a `()` pattern can leave it out",
+        ));
+    };
+    let mark = cx.mark();
+    for (x, level) in aliases {
+        cx.alias(x, *level);
+    }
+    let saved_names = cx.names.clone();
+    hide_unnamed_variables(cx);
+    let order = written_order(cx, aliases, written);
+    let saved_order = std::mem::replace(&mut cx.order, order);
+    let result = canonical(cx, canon, goal, &mut |cx, goal, wrapped| {
+        // A `match` that's the whole right-hand side, on variables of
+        // the equation, splits them further here
+        // (docs/proposals/syntax-conveniences.md §4.3); not under
+        // `canonical`'s `J`, as a case split must be at the top.
+        let in_tree = match rhs {
+            Expr::Match { .. } if !wrapped && !guarded => matching::in_tree(cx, rhs, goal),
+            _ => None,
+        };
+        in_tree.unwrap_or_else(|| check(cx, rhs, goal))
+    });
+    cx.reset(mark);
+    cx.names = saved_names;
+    cx.order = saved_order;
+    result
+}
+
+/// Where a leaf is, in the leaf log's path, when it is a guard's: before and
+/// after the condition holds. Outside the range of constructor indices.
+const GUARD_THEN: u32 = u32::MAX;
+const GUARD_ELSE: u32 = u32::MAX - 1;
+
+/// A guarded arm: `if c then <arm> else <the arms below it>`, checked as an
+/// `if` is (docs/proposals/pattern-guards.md §3.3). The condition sees the
+/// arm's pattern variables by the names written; the arms below don't.
+fn check_guard(
+    cx: &mut Ctx,
+    guard: &ast::Guard,
+    leaf: &Tree,
+    otherwise: &Tree,
+    goal: &Value,
+) -> Result<Term> {
+    let Tree::Leaf {
+        aliases, written, ..
+    } = leaf
+    else {
+        unreachable!("a guard's arm is a leaf")
+    };
+    let scope_start = cx.names_len();
+    let mark = cx.mark();
+    for (x, level) in aliases {
+        cx.alias(x, *level);
+    }
+    let aliased = scope_start..cx.names_len();
+    let saved_names = cx.names.clone();
+    hide_unnamed_variables(cx);
+    let order = written_order(cx, aliases, written);
+    let saved_order = std::mem::replace(&mut cx.order, order.clone());
+    let below = cx.level();
+    let entered = std::cell::Cell::new(false);
+    let mut then = check::CheckedBranch {
+        run: |cx: &mut Ctx, expected: &Value| {
+            entered.set(true);
+            cx.e.decl.leaf_log.borrow_mut().path.push(GUARD_THEN);
+            let result = check_leaf(cx, leaf, expected, true);
+            cx.e.decl.leaf_log.borrow_mut().path.pop();
+            result
+        },
+        hides_proof: false,
+    };
+    // The arms below see none of what this arm named.
+    let mut rest = check::CheckedBranch {
+        run: |cx: &mut Ctx, expected: &Value| {
+            let names: Vec<_> = cx.names[..below].to_vec();
+            cx.names[..below].clone_from_slice(&saved_names[..below]);
+            let hidden = cx.suspend_names(aliased.start, aliased.end);
+            let order = std::mem::replace(&mut cx.order, saved_order.clone());
+            cx.e.decl.leaf_log.borrow_mut().path.push(GUARD_ELSE);
+            let result = check_tree(cx, otherwise, expected);
+            cx.e.decl.leaf_log.borrow_mut().path.pop();
+            cx.order = order;
+            cx.restore_names(aliased.start, hidden);
+            cx.names[..below].clone_from_slice(&names);
+            result
+        },
+        hides_proof: true,
+    };
+    let result = check::check_if_with(
+        cx,
+        guard.binder.as_ref(),
+        &guard.cond,
+        &mut then,
+        &mut rest,
+        goal,
+    )
+    // The condition failed to elaborate as a pure expression: an operation
+    // in it is refused here, where nothing can be sequenced.
+    .map_err(|e| {
+        if entered.get() || e.code != "E-ABILITY" {
+            return e;
+        }
+        error(
+            "E-ABILITY",
+            guard.span,
+            "a condition after a pattern can't perform operations",
+        )
+        .with_note("run it before the `match` with `let`, or test it inside the arm")
+    });
+    cx.reset(mark);
+    cx.names = saved_names;
+    cx.order = saved_order;
+    result
+}
+
 fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
     cx.g().machine.budget.nesting(check::PASS)?;
     match tree {
-        Tree::Leaf {
-            aliases,
-            written,
-            canon,
-            rhs,
-            span,
-            alternatives,
-        } => {
-            families::reached(cx, *span);
-            cx.e.decl.leaf_log.borrow_mut().record(*span, alternatives);
-            let Some(rhs) = rhs else {
-                return Err(error(
-                    "E-ARITY",
-                    *span,
-                    "this arm needs `=> …`: only an arm with a `()` pattern can leave it out",
-                ));
-            };
-            let mark = cx.mark();
-            for (x, level) in aliases {
-                cx.alias(x, *level);
-            }
-            // The tree's variables this arm's patterns don't name are shown
-            // as `head✝`: another arm's name, or the field's, can't be used
-            // here.
-            let saved_names = cx.names.clone();
-            for level in cx.tree_start.min(cx.level())..cx.level() {
-                let own = matches!(&cx.env[level],
-                    Value::Neutral(Head::Var(l, _), s) if *l == level && s.is_empty());
-                let name = &cx.names[level];
-                if own
-                    && cx.lets[level].is_none()
-                    && !name.starts_with('%')
-                    && !name.ends_with('✝')
-                    && &**name != "_"
-                    && cx.name_of_level(level).is_none()
-                {
-                    cx.names[level] = format!("{name}✝").into();
-                }
-            }
-            let order = written_order(cx, aliases, written);
-            let saved_order = std::mem::replace(&mut cx.order, order);
-            let result = canonical(cx, canon, goal, &mut |cx, goal, wrapped| {
-                // A `match` that's the whole right-hand side, on variables of
-                // the equation, splits them further here
-                // (docs/proposals/syntax-conveniences.md §4.3); not under
-                // `canonical`'s `J`, as a case split must be at the top.
-                let in_tree = match rhs {
-                    Expr::Match { .. } if !wrapped => matching::in_tree(cx, rhs, goal),
-                    _ => None,
-                };
-                in_tree.unwrap_or_else(|| check(cx, rhs, goal))
-            });
-            cx.reset(mark);
-            cx.names = saved_names;
-            cx.order = saved_order;
-            result
-        }
+        Tree::Leaf { .. } => check_leaf(cx, tree, goal, false),
+        Tree::Guard {
+            guard,
+            leaf,
+            otherwise,
+        } => check_guard(cx, guard, leaf, otherwise, goal),
         Tree::Missing { columns, span, .. } => Err(error(
             "E-NONEXHAUSTIVE",
             *span,

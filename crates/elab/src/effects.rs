@@ -2289,7 +2289,6 @@ pub fn may_perform_at(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result
         } => any(&mut scrutinees
             .iter()
             .map(|s| &s.expr)
-            .chain(alts.iter().flat_map(|a| a.guard.iter().map(|g| &g.cond)))
             .chain(alts.iter().map(|a| &a.body)))?,
         Expr::Neg(a, _, _) => may_perform(cx, a)?,
         // A `let` performs what its value or the rest of the block does
@@ -2778,21 +2777,6 @@ fn comp_check_in(
             let mut performs = false;
             for s in scrutinees {
                 performs |= may_perform(cx, &s.expr)?;
-            }
-            // A guard runs in the middle of the case tree, where nothing can
-            // be sequenced, so it is held to what `if h:` is.
-            for guard in alts.iter().filter_map(|a| a.guard.as_ref()) {
-                if may_perform(cx, &guard.cond)? && !performs_nothing(cx, &guard.cond)? {
-                    return Err(cx
-                        .error(
-                            "E-ABILITY",
-                            "a condition after a pattern can't perform operations",
-                            "this condition performs an operation",
-                        )
-                        .with_note(
-                            "run it before the `match` with `let`, or test it inside the arm",
-                        ));
-                }
             }
             if !performs {
                 return branches(cx, row, t, as_written, |cx, expected| {

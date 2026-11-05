@@ -432,6 +432,12 @@ fn leaf_spans(tree: &Tree, out: &mut Vec<Span>) {
     match tree {
         Tree::Leaf { span, .. } => out.push(*span),
         Tree::Absurd { .. } | Tree::Missing { .. } => {}
+        Tree::Guard {
+            leaf, otherwise, ..
+        } => {
+            leaf_spans(leaf, out);
+            leaf_spans(otherwise, out);
+        }
         Tree::Case { branches, .. } => branches.iter().for_each(|(_, t)| leaf_spans(t, out)),
         Tree::NumCase { arms, default, .. } => {
             arms.iter().for_each(|(_, t)| leaf_spans(t, out));
