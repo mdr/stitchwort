@@ -3605,6 +3605,80 @@ pub fn check(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     })
 }
 
+/// Whether `d` is the library's `NonEmptyList`, which list literals and list
+/// patterns also build and match where it is the expected type
+/// (docs/proposals/non-empty-lists.md §7). Not bound until its file loads,
+/// and a program that hasn't loaded it can't be expecting one.
+pub(crate) fn is_non_empty_list(cx: &Ctx, d: DataId) -> bool {
+    cx.g().env.registry().loaded_data(Builtin::NonEmptyList) == Some(d)
+}
+
+/// The list literal `items` checked against `NonEmptyList elem`: the first
+/// item that isn't a spread is the `head`, the items after it are the
+/// `tail` (a `List` literal, spreads and all), and spreads before it are a
+/// list put in front with `NonEmptyList.prependList`. So `[1, 2]` is
+/// `{ head = 1, tail = [2] }` and `[x, ..xs]` is `{ head = x, tail = xs }`.
+/// With no such item the literal may be empty, and is refused.
+fn non_empty_literal(
+    cx: &mut Ctx,
+    items: &[Expr],
+    span: Span,
+    non_empty: DataId,
+    elem: &Value,
+) -> Result<Term> {
+    let list_ty = Value::Data(builtin_data(cx, Builtin::List)?, vec![elem.clone()]);
+    let expected = Value::Data(non_empty, vec![elem.clone()]);
+    let Some(first) = items.iter().position(|i| !matches!(i, Expr::Spread(..))) else {
+        if items.is_empty() {
+            return Err(cx
+                .error(
+                    "E-NONEMPTY-EMPTY",
+                    "a `NonEmptyList` can't be empty",
+                    format!(
+                        "this is empty, but a `{}` has at least one element",
+                        cx.show(&expected)
+                    ),
+                )
+                .with_note("write at least one item, or use a `List`"));
+        }
+        // The spreads are checked as a list's would be, so a mistake in
+        // one is reported as it would be there.
+        check_inner(cx, &Expr::List(items.to_vec(), span), &list_ty)?;
+        return Err(cx.mismatch(&expected, &list_ty).with_note(
+            "every item here is a spread, and the lists spread may all be empty: a \
+             `NonEmptyList` literal needs an item of its own, as in `[x, ..xs]`; for a list \
+             known not to be empty, write `xs.toNonEmpty`",
+        ));
+    };
+    // Checked in the order written, so a number literal in an early item
+    // can wait for a later one to say the element type (K4). The
+    // synthesized lists are checked without `check`'s location and note,
+    // which are the whole literal's.
+    let prefix = if first > 0 {
+        Some(check_inner(
+            cx,
+            &Expr::List(items[..first].to_vec(), span),
+            &list_ty,
+        )?)
+    } else {
+        None
+    };
+    let head = check(cx, &items[first], elem)?;
+    let tail = check_inner(cx, &Expr::List(items[first + 1..].to_vec(), span), &list_ty)?;
+    let built = Term::ctor(non_empty, 0, vec![head, tail]);
+    let Some(prefix) = prefix else {
+        return Ok(built);
+    };
+    let prepend = cx
+        .g()
+        .env
+        .registry()
+        .loaded_def(Builtin::NonEmptyListPrependList)
+        .ok_or_else(|| missing_builtin(cx, Builtin::NonEmptyListPrependList))?;
+    let prepend = Term::app_icit(Term::Def(prepend), cx.quote_folded(elem)?, Icit::Implicit);
+    Ok(Term::app(Term::app(prepend, prefix), built))
+}
+
 /// A piece of a list literal: a run of items, or one `..xs`.
 enum ListPart {
     Items(Vec<Term>),
@@ -4002,6 +4076,9 @@ pub(crate) fn check_value(
                     cx.show(&expected)
                 ),
             ))
+        }
+        (Expr::List(items, span), Value::Data(d, params)) if is_non_empty_list(cx, *d) => {
+            non_empty_literal(cx, items, *span, *d, &params[0])
         }
         (Expr::List(items, _), Value::Data(d, params)) => {
             let (list, nil) = builtin_ctor(cx, Builtin::Nil)?;
@@ -4426,6 +4503,12 @@ fn check_proof_if(
 
 /// The proposition of `if h: cond` and a decision for it.
 pub(crate) fn if_h_condition(cx: &mut Ctx, h: &AstName, cond: &Expr) -> Result<(Term, Term)> {
+    // A chain with a computed middle: decided with the middle bound once.
+    if let Some((name, value, body)) = cond.as_chain_let() {
+        let ((prop, decision), binding) =
+            crate::chain::around(cx, name, value, |cx| if_h_condition(cx, h, body))?;
+        return Ok((binding.inline(cx, &prop)?, binding.wrap(decision)));
+    }
     let (prop, sort) = check_type(cx, cond).map_err(|e| {
         if e.code == "E-NOT-A-TYPE" {
             e.with_note(format!(
@@ -6137,6 +6220,9 @@ pub fn check_type(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Sort)> {
     if let Expr::Num(..) = written {
         let nat = Value::Data(nat(cx)?, Vec::new());
         return Err(not_a_type(cx, span, &nat));
+    }
+    if let Some((name, value, body)) = expr.as_chain_let() {
+        return crate::chain::check_type(cx, name, value, body);
     }
     // `p && q`, `p || q` and `not p` where a type is wanted are propositions.
     if let Some(logic) = crate::logic::classify(cx, expr) {

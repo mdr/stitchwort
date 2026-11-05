@@ -374,9 +374,6 @@ theorem Int.mulCommExample: (-3) * 4 = 4 * (-3) := rfl
 -- `n - m` of naturals is when `m <= n`, and dividing by a positive number and
 -- rounding down keeps `0 <= c + d * s`.
 
-theorem Int.addCong [a a2 b b2: Int] (p: a = a2) (q: b = b2): a + b = a2 + b2 :=
-  Eq.trans (Eq.cong (t => Int.add t b) p) (Eq.cong (Int.add a2) q)
-
 theorem Int.addNonneg: (a: Int) → (b: Int) → 0 ≤ a → 0 ≤ b → 0 ≤ a + b
   | OfNat m, OfNat n, ha, hb => rfl
   | OfNat m, NegSucc n, ha, hb => Void.exfalso (Bool.falseNotTrue hb)

@@ -18,17 +18,46 @@ def levelsOf (rows: List (List Nat)) [auto nonEmpty: (firstWidth rows == 0) = Fa
 
 def cavernOf (input: Text): Cavern := Fail.orElse (levelsOf [[0]]) (() => parseCavern input)
 
-def small: Cavern := cavernOf "11111\n19991\n19191\n19991\n11111\n"
+def small: Cavern := cavernOf """
+  11111
+  19991
+  19191
+  19991
+  11111
+  """
 
 def example: Cavern :=
-  cavernOf "5483143223\n2745854711\n5264556173\n6141336146\n6357385478\n4167524645\n2176841721\n6882881134\n4846848554\n5283751526\n"
+  cavernOf """
+    5483143223
+    2745854711
+    5264556173
+    6141336146
+    6357385478
+    4167524645
+    2176841721
+    6882881134
+    4846848554
+    5283751526
+    """
 
 test "parse the small example" := small.grid.rows == [[1, 1, 1, 1, 1], [1, 9, 9, 9, 1], [1, 9, 1, 9, 1], [1, 9, 9, 9, 1], [1, 1, 1, 1, 1]]
 test "a short row" := parsed "123\n45\n" == Err "line 2: expected 3 cells, as on the first line, got 2"
 test "a letter" := parsed "123\n4x6\n" == Err "line 2, column 2: expected a digit or the end of the line, got 'x'"
 
-test "the small example, one step" := small.step == cavernOf "34543\n40004\n50005\n40004\n34543\n" ∧ small.step.zeros == 9
-test "the small example, two steps" := small.step.step == cavernOf "45654\n51115\n61116\n51115\n45654\n" ∧ small.step.step.zeros == 0
+test "the small example, one step" := small.step == cavernOf """
+  34543
+  40004
+  50005
+  40004
+  34543
+  """ ∧ small.step.zeros == 9
+test "the small example, two steps" := small.step.step == cavernOf """
+  45654
+  51115
+  61116
+  51115
+  45654
+  """ ∧ small.step.step.zeros == 0
 test "the spec's cavern after a step, with the program's flashers" := after small small.flashers.has == small.step
 test "the example, 10 steps" := example.flashesIn 10 == 204
 test "example, part 1" := example.solvePart1 == 1656

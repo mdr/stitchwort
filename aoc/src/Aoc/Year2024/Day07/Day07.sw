@@ -30,7 +30,7 @@ type Operator =
 def equationLine(): {Parse} Equation :=
   let testValue := nat()
   char ':'
-  let numbers := many1 (() => token nat)
+  let numbers := many1 (() => token nat) |> .toList
   { testValue, numbers }
 
 --| One equation per line. A failure names the line and column.

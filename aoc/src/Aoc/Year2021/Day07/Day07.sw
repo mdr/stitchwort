@@ -28,7 +28,7 @@ def main(): {IO, Fail} () :=
 
 --| The crabs' positions, `16,1,2,0,4`, on one line. Anything else fails,
 --| naming the line and column.
-def parseCrabs (input: Text): {Fail} List Nat := Parse.all input (() => sepBy1 nat (() => char ','))
+def parseCrabs (input: Text): {Fail} List Nat := Parse.all input (() => sepBy1 nat (() => char ',') |> .toList)
 
 --| The fuel to move a crab `steps` steps, in part 1: one a step.
 def stepFuel (steps: Nat): Nat := steps

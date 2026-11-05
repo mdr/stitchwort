@@ -25,7 +25,7 @@ def doesOn (operation: Operation) (a: Wire) (b: Wire) (gate: Gate): Bool :=
 theorem outputOfFound (gates: List Gate) (operation: Operation) (a: Wire) (b: Wire) (output: Wire)
     (found: outputOf gates operation a b = Some output):
     ∃ (gate: Gate) => gate ∈ gates ∧ gate.output = output ∧ doesOn operation a b gate = True :=
-  Option.mapEqSome (gates.find (doesOn operation a b)) (.output) output found (gate isFound onto =>
+  Option.mapEqSome (gates.find (doesOn operation a b)) .output output found (gate isFound onto =>
     let passes := List.findSome gates (doesOn operation a b) gate isFound
     Witness gate (Both passes.right (Both onto passes.left)))
 
@@ -179,7 +179,7 @@ theorem adderCarries (device: Device) (bits: Nat) (x: Nat) (y: Nat) (inputs: Inp
 
 --| A wire that carries a value is one of the device's wires.
 theorem carriesMentioned (device: Device) (wire: Wire) (value: Bool): Carries device wire value → wire ∈ device.wires
-  | Starts given => List.memAppendLeft wire _ _ (List.memMap device.initial (wire, value) given (.fst))
+  | Starts given => List.memAppendLeft wire _ _ (List.memMap device.initial (wire, value) given .fst)
   | Fires gate wired onto left right leftCarries rightCarries output =>
     rewrite <- onto in
       List.memAppendRight gate.output _ _
@@ -196,8 +196,8 @@ theorem zWithinBound (bits: Nat) (bit: Nat): (gates: List Gate) → zWithin gate
       | Inr there => zWithinBound bits bit rest (Bool.andRight _ _ within) there
 
 --| The wires that start with values for an adder are x and y wires.
-theorem inputsNotZ (bits: Nat) (x: Nat) (y: Nat) (bit: Nat) (member: Z bit ∈ (inputsFor bits x y).map (.fst)): Void :=
-  match List.memMapElim (.fst) (Z bit) _ member with
+theorem inputsNotZ (bits: Nat) (x: Nat) (y: Nat) (bit: Nat) (member: Z bit ∈ (inputsFor bits x y).map .fst): Void :=
+  match List.memMapElim .fst (Z bit) _ member with
     | Witness pair (Both given isZ) =>
       match List.memAppend pair _ _ given with
         | Inl xs =>

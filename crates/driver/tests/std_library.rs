@@ -215,6 +215,39 @@ fn a_name_declared_twice_is_refused() {
     );
 }
 
+/// `rewrite` and `decreasing` look `F`'s congruence lemmas up by name when
+/// they meet `F`, so a lemma in another file would be found only in a run
+/// that happened to load that file (SW-1354).
+#[test]
+fn a_congruence_lemma_away_from_its_function_is_refused() {
+    let build = |files: &[(&str, &str)]| LibraryIndex::build(prelude(), files, STACK).err();
+    let map = "def Libo.map (x: Nat) (f: Nat → Nat): Nat := f x\n";
+    let cong = |suffix: &str| {
+        format!(
+            "theorem Libo.map{suffix} (x: Nat) (f1: Nat → Nat) (f2: Nat → Nat) \
+             (ef: (y: Nat) → f1 y = f2 y): Libo.map x f1 = Libo.map x f2 := ef x\n"
+        )
+    };
+    for suffix in ["Cong", "CongMem", "CongRange"] {
+        let lemma = cong(suffix);
+        let error = build(&[("A.sw", map), ("B.sw", &lemma)]).expect("refused");
+        assert!(
+            error.contains(&format!("`Std.Libo.map{suffix}` is declared in `B.sw`"))
+                && error.contains("in `A.sw`"),
+            "{error}"
+        );
+    }
+    // Beside it, it is fine; so is one beside a core function.
+    let beside = format!("{map}{}", cong("Cong"));
+    assert_eq!(build(&[("A.sw", &beside)]), None);
+    let error = build(&[(
+        "A.sw",
+        "theorem Nat.addCong (a: Nat) (b: Nat): Nat.add a b = Nat.add a b := rfl\n",
+    )])
+    .expect("a core function's lemma is refused outside the core");
+    assert!(error.contains("`Std.Nat.addCong`"), "{error}");
+}
+
 // ------------------------------------------------------------------ loading
 
 const A: &str = "def Nat.libTwice (n: Nat): Nat := n + n\n\
@@ -739,7 +772,9 @@ fn no_library_file_declares_a_decision_procedure() {
     // goal that is or unfolds to a `Nat.pow` matches it, and `Nat.pow` is
     // declared beside it in std/Nat/Arith.sw. And `List.decSorted` with its
     // helper `List.decLeHead` (SW-1273), which decide `List.Sorted` and
-    // `List.LeHead`, declared beside them in std/List/Sort.sw.
+    // `List.LeHead`, declared beside them in std/List/Sort.sw. And
+    // `NonEmptyList.decEq`, which decides equality of `NonEmptyList`s: an
+    // equation between them needs std/NonEmptyList/NonEmptyList.sw loaded.
     assert_eq!(
         session.elab.library_decision_procedures(),
         [
@@ -752,6 +787,8 @@ fn no_library_file_declares_a_decision_procedure() {
             "Std.Float.decEq",
             "Std.Float.decLessEq",
             "Std.Float.decLessThan",
+            "Std.NonEmptyList.decEq",
+            "Std.NonEmptyList.decEq.%match1",
             "Std.Map.decEq",
             "Std.Map.decEq.%match1",
             "Std.Set.decEq",

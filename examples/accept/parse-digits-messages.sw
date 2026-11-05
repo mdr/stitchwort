@@ -5,7 +5,7 @@ import Std (Fail, Nat, Parse, Result, Text)
 import Std.Fail (toResult)
 import Std.Parse (char, natDigits, sepBy1)
 
-def threeBits(): {Parse} List Nat := sepBy1 (() => natDigits 1 1) (() => char ',')
+def threeBits(): {Parse} List Nat := sepBy1 (() => natDigits 1 1) (() => char ',') |> .toList
 
 def year(): {Parse} Nat := natDigits 4 4
 

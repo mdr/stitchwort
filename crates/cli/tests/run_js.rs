@@ -703,7 +703,7 @@ fn std_folds_over_long_lists_are_stack_safe() {
         ),
         (
             "grouped",
-            "List.foldLeft (Map.getOr (Map.groupBy (input n) (x => x % 10)) 3 []) 0 (acc x => acc * 3 + x) % 1000003",
+            "List.foldLeft (Map.getOr (Map.map (Map.groupBy (input n) (x => x % 10)) (group => group.toList)) 3 []) 0 (acc x => acc * 3 + x) % 1000003",
         ),
         (
             "summed",

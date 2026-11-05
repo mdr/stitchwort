@@ -210,7 +210,10 @@ test "generated, 30 robots on the puzzle's space" :=
   solvePart1 puzzleSpace (robotsOf generatedLarge) == 2200 && solvePart2 puzzleSpace (robotsOf generatedLarge) == Some 0
 test "generated, the spec agrees after 100 seconds" := part1 puzzleSpace (robotsOf generatedLarge) == 2200
 
-test "parse" := parsed "p=0,4 v=3,-3\np=10,3 v=-1,2\n" == Ok [robotAt 0 4 3 (-3), robotAt 10 3 (-1) 2]
+test "parse" := parsed """
+  p=0,4 v=3,-3
+  p=10,3 v=-1,2
+  """ == Ok [robotAt 0 4 3 (-3), robotAt 10 3 (-1) 2]
 test "parse without a final line break" := parsed "p=0,4 v=3,-3" == Ok [robotAt 0 4 3 (-3)]
 test "a negative position" := parsed "p=-1,4 v=3,-3\n" == Err "line 1, column 3: expected a number, got '-'"
 test "a missing velocity" := parsed "p=1,4\n" == Err "line 1, column 6: expected ' v=', got the end of the line"

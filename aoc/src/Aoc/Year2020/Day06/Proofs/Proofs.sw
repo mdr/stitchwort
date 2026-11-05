@@ -40,18 +40,18 @@ theorem sumCounts (size: Group → Nat) (count: List (List Char) → Nat) (each:
 
 theorem part1Lines (lineGroups: List (List (List Char))) (groups: List Group) (written: List.All2 GroupLines lineGroups groups):
     solvePart1 groups = lineGroups.sumBy (Spec.count Spec.anyone) :=
-  sumCounts (.anyone.size) (Spec.count Spec.anyone) anyoneCount lineGroups groups written
+  sumCounts .anyone.size (Spec.count Spec.anyone) anyoneCount lineGroups groups written
 
 theorem part2Lines (lineGroups: List (List (List Char))) (groups: List Group) (written: List.All2 GroupLines lineGroups groups):
     solvePart2 groups = lineGroups.sumBy (Spec.count Spec.everyone) :=
-  sumCounts (.everyone.size) (Spec.count Spec.everyone) everyoneCount lineGroups groups written
+  sumCounts .everyone.size (Spec.count Spec.everyone) everyoneCount lineGroups groups written
 
 --| The groups the parser reads are the input's, as groups of lines: the
 --| input is them written out, a blank line (spaces and tabs allowed) between
 --| each two, then any line breaks, and each group's people are those lines.
 theorem inputGroups (input: Text) (groups: List Group) (parsed: Fail.toResult (() => parseGroups input) = Ok groups):
     ∃ (lineGroups: List (List (List Char))) => ∃ (read: List Char) => ∃ (ending: List Char) =>
-      input.toList = read ++ ending ∧ Parse.SepBy LinesWritten (read u => Parse.BlankLine read) read lineGroups
+      input.toList = read ++ ending ∧ SepByList LinesWritten (read u => Parse.BlankLine read) read lineGroups
         ∧ ending.all (char => char == '\n' ∨ char == '\r') = True ∧ List.All2 GroupLines lineGroups groups :=
   match parseWritten input groups parsed with
     | Witness read (Witness ending (Both text (Both written done))) =>
@@ -65,7 +65,7 @@ theorem inputGroups (input: Text) (groups: List Group) (parsed: Fail.toResult ((
 --| groups of lines the input is made of.
 theorem part1Correct (input: Text) (groups: List Group) (parsed: Fail.toResult (() => parseGroups input) = Ok groups):
     ∃ (lineGroups: List (List (List Char))) => ∃ (read: List Char) => ∃ (ending: List Char) =>
-      input.toList = read ++ ending ∧ Parse.SepBy LinesWritten (read u => Parse.BlankLine read) read lineGroups
+      input.toList = read ++ ending ∧ SepByList LinesWritten (read u => Parse.BlankLine read) read lineGroups
         ∧ ending.all (char => char == '\n' ∨ char == '\r') = True ∧ solvePart1 groups = Spec.part1Answer lineGroups :=
   match inputGroups input groups parsed with
     | Witness lineGroups (Witness read (Witness ending (Both text (Both linesRead (Both done related))))) =>
@@ -73,7 +73,7 @@ theorem part1Correct (input: Text) (groups: List Group) (parsed: Fail.toResult (
 
 theorem part2Correct (input: Text) (groups: List Group) (parsed: Fail.toResult (() => parseGroups input) = Ok groups):
     ∃ (lineGroups: List (List (List Char))) => ∃ (read: List Char) => ∃ (ending: List Char) =>
-      input.toList = read ++ ending ∧ Parse.SepBy LinesWritten (read u => Parse.BlankLine read) read lineGroups
+      input.toList = read ++ ending ∧ SepByList LinesWritten (read u => Parse.BlankLine read) read lineGroups
         ∧ ending.all (char => char == '\n' ∨ char == '\r') = True ∧ solvePart2 groups = Spec.part2Answer lineGroups :=
   match inputGroups input groups parsed with
     | Witness lineGroups (Witness read (Witness ending (Both text (Both linesRead (Both done related))))) =>

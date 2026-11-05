@@ -41,7 +41,10 @@ test "example, the spec agrees" :=
     equation.couldBeTrue addMultiply == couldPossiblyBeTrue addMultiply equation
       && equation.couldBeTrue allOperators == couldPossiblyBeTrue allOperators equation)) == Ok True
 
-test "parse" := parsed "190: 10 19\n3: 3\n" ==
+test "parse" := parsed """
+  190: 10 19
+  3: 3
+  """ ==
   Ok ([{ testValue = 190, numbers = [10, 19] }, { testValue = 3, numbers = [3] }]: List Equation)
 test "parse without a final line break" := parsed "7: 1 2 3" == Ok ([{ testValue = 7, numbers = [1, 2, 3] }]: List Equation)
 test "no numbers" := parsed "190:\n" == Err "line 1, column 5: expected a number, got the end of the line"

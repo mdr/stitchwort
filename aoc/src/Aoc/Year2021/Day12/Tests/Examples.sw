@@ -14,11 +14,22 @@ def passagesOf (input: Text): List Passage := Fail.orElse [] (() => parsePassage
 --| The passage `a-b`.
 def link (a: Text) (b: Text): Passage := { from = { name = a }, to = { name = b } }
 
-def example: List Passage := passagesOf "start-A\nstart-b\nA-c\nA-b\nb-d\nA-end\nb-end\n"
+def example: List Passage := passagesOf """
+  start-A
+  start-b
+  A-c
+  A-b
+  b-d
+  A-end
+  b-end
+  """
 
 --| The hypotheses of `parseNoBigNeighbours` and `endsVisited` can hold.
 -- (the audit's random inputs never parse, nor start at `start`)
-theorem smallParses: Fail.toResult (() => parsePassages "start-A\nA-end\n") = Ok [link "start" "A", link "A" "end"] := rfl
+theorem smallParses: Fail.toResult (() => parsePassages """
+  start-A
+  A-end
+  """) = Ok [link "start" "A", link "A" "end"] := rfl
 
 theorem shortPath: ({ caves = [{ name = "start" }, { name = "A" }, { name = "end" }] }: Path).startToEnd = True := rfl
 

@@ -1,5 +1,5 @@
 --| Helpers for `Option`: `map`, `flatMap`, `orElse`, `merge`, `map2` and the
---| like. Their lemmas are in Option/Lemmas.sw.
+--| like. Their lemmas are in Option/Lemmas.sw, except `Option.mapCong`.
 
 --| `f` of the value, which may itself be missing, or `None` if there is no value:
 --| `(Some 4).flatMap (n => if n > 2 then Some (n * 2) else None)` is `Some 8`.
@@ -12,6 +12,14 @@ def Option.flatMap: Option a → (f: a → Option b) → Option b
 def Option.map: Option a → (f: a → b) → Option b
   | None, f => None
   | Some x, f => Some (f x)
+
+--| Mapping with functions that agree everywhere gives the same result.
+-- Here, beside `Option.map`, not in Option/Lemmas.sw: `rewrite` and
+-- `decreasing` look it up by name wherever `Option.map` is loaded
+-- (crates/elab/src/congruence.rs). Its shape is `List.mapCong`'s.
+theorem Option.mapCong: (x: Option a) → (f1: a → b) → (f2: a → b) → ((y: a) → f1 y = f2 y) → Option.map x f1 = Option.map x f2
+  | None, f1, f2, ef => rfl
+  | Some y, f1, f2, ef => Eq.cong Some (ef y)
 
 --| Whether there is a value: `(Some 3).isSome` is `True`.
 def Option.isSome: Option a → Bool

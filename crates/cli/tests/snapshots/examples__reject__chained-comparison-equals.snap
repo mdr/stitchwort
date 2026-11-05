@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-COMPARISON-CHAIN] Error: `==` can't be part of a chain of comparisons
+   ╭─[ reject/chained-comparison-equals.sw:3:33 ]
+   │
+ 3 │ def bad (a b c: Nat): Bool := a == b == c
+   │                                 ─┬   ─┬  
+   │                                  ╰─────── this comparison can't start a chain
+   │                                       │  
+   │                                       ╰── so this one can't follow it
+   │ 
+   │ Note: for now only `<` and `<=`, or `>` and `>=`, chain; write the comparisons separately, joined with `&&`: `a == b && b == c`
+───╯

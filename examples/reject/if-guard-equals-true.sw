@@ -1,4 +1,4 @@
--- expect-error: E-PARSE
+-- expect-error: E-COMPARISON-CHAIN
 -- `if h:` takes a proposition, so `<` is one already; `= True` after it
 -- doesn't parse, and the note says to leave it out.
 def pick (low: Nat) (high: Nat): Nat :=

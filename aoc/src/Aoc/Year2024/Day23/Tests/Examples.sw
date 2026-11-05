@@ -17,8 +17,42 @@ def networkOf (connections: List Text): Network :=
   { connections = connections.map (line => { one = computerNamed (line.take 2), other = computerNamed (line.drop 3) }) }
 
 def exampleText: Text :=
-  "kh-tc\nqp-kh\nde-cg\nka-co\nyn-aq\nqp-ub\ncg-tb\nvc-aq\ntb-ka\nwh-tc\nyn-cg\nkh-ub\nta-co\nde-co\ntc-td\ntb-wq\n"
-    ++ "wh-td\nta-ka\ntd-qp\naq-cg\nwq-ub\nub-vc\nde-ta\nwq-aq\nwq-vc\nwh-yn\nka-de\nkh-ta\nco-tc\nwh-qp\ntb-vc\ntd-yn\n"
+  """
+    kh-tc
+    qp-kh
+    de-cg
+    ka-co
+    yn-aq
+    qp-ub
+    cg-tb
+    vc-aq
+    tb-ka
+    wh-tc
+    yn-cg
+    kh-ub
+    ta-co
+    de-co
+    tc-td
+    tb-wq
+    """
+    ++ """
+      wh-td
+      ta-ka
+      td-qp
+      aq-cg
+      wq-ub
+      ub-vc
+      de-ta
+      wq-aq
+      wq-vc
+      wh-yn
+      ka-de
+      kh-ta
+      co-tc
+      wh-qp
+      tb-vc
+      td-yn
+      """
 
 --| The example's connections, split by hand rather than parsed.
 def example: Network := exampleText.lines |> networkOf

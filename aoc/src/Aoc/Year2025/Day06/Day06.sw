@@ -22,7 +22,7 @@
 --| `Aoc.Year2025.Day06.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2025.Day06
-import Std (Char, Fail, IO, Nat, Text)
+import Std (Char, Fail, IO, Nat, NonEmptyList, Text)
 
 def main(): {IO, Fail} () :=
   let problems := checkWorksheet IO.readAllLines() |> .orFail
@@ -37,14 +37,14 @@ type Operator =
 --| block has no + or *).
 type Problem = { operator: Option Operator, rowNumbers: List Nat, columnNumbers: List Nat }
 
-def parseWorksheet (lines: List Text): List Problem := blocks lines |> .map Problem.parse
+def parseWorksheet (lines: List Text): List Problem := blocks lines |> .map (block => Problem.parse block.toList)
 
 def isBlank (column: List Char): Bool := column.all .isAsciiSpace
 
 --| The blocks of columns that make the problems: the runs of columns that
 --| aren't blank. A short line reads as spaces past its end, and there are as
 --| many columns as the longest line is long.
-def blocks (lines: List Text): List (List (List Char)) :=
+def blocks (lines: List Text): List (NonEmptyList (List Char)) :=
   lines.map .toList |> .transposeFill ' ' |> .splitBy isBlank
 
 --| One block of columns, the last character of each being the operator row.
@@ -120,8 +120,8 @@ def characterError (row: Text) (lineNumber: Nat) (expected: Text) (allowed: Char
 def blockError (lines: List Text): Option Text :=
   lines.map .toList |> .transposeFill ' ' |> .withIndex |> .splitBy (indexed => isBlank indexed.snd)
     |> .findMap (block =>
-      let operators := block.count (indexed => indexed.snd.last.flatMap Operator.parse |> .isSome)
-      let start := block.headOr (0, []) |> .fst + 1
+      let operators := block.toList.count (indexed => indexed.snd.last.flatMap Operator.parse |> .isSome)
+      let start := block.head |> .fst + 1
       if operators == 1 then None
       else if operators == 0 then Some "the problem starting at column ${start} has no operator"
       else Some "the problem starting at column ${start} has ${operators} operators, expected one")

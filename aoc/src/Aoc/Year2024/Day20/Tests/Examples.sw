@@ -53,16 +53,46 @@ test "example, at least 100" := onTrack example (solvePart1 100) == Ok 0 && onTr
 test "example, every cheat that saves time" := onTrack example (solvePart2 1) == Ok 3081
 
 test "a straight track has nothing to cut" :=
-  onTrack "#####\n#S.E#\n#####\n" (track => (solvePart1 1 track, solvePart2 1 track)) == Ok (0, 0)
-test "S next to E" := onTrack "####\n#SE#\n####\n" (solvePart2 1) == Ok 0
-test "no way from S to E" := onTrack "#####\n#S#E#\n#####\n" (solvePart2 0) == Ok 0
+  onTrack """
+    #####
+    #S.E#
+    #####
+    """ (track => (solvePart1 1 track, solvePart2 1 track)) == Ok (0, 0)
+test "S next to E" := onTrack """
+  ####
+  #SE#
+  ####
+  """ (solvePart2 1) == Ok 0
+test "no way from S to E" := onTrack """
+  #####
+  #S#E#
+  #####
+  """ (solvePart2 0) == Ok 0
 test "a U-turn round one wall" :=
-  let uTurn := "#####\n#S#E#\n#.#.#\n#...#\n#####\n"
+  let uTurn := """
+    #####
+    #S#E#
+    #.#.#
+    #...#
+    #####
+    """
   onTrack uTurn (solvePart1 1) == Ok 2 && savingExactly 2 uTurn 4 == Ok 1 && savingExactly 2 uTurn 2 == Ok 1 && onTrack uTurn (solvePart2 1) == Ok 4
 test "a wall two thick needs three picoseconds" :=
-  let thick := "######\n#S##E#\n#.##.#\n#....#\n######\n"
+  let thick := """
+    ######
+    #S##E#
+    #.##.#
+    #....#
+    ######
+    """
   onTrack thick (track => (track.countCheats 2 1, track.countCheats 3 1)) == Ok (0, 2) && savingExactly 3 thick 4 == Ok 1
-test "a short row is walled beyond its end" := onTrack "#####\n#S#E#\n#.#.\n#...#\n#####\n" (solvePart1 1) == Ok 2
+test "a short row is walled beyond its end" := onTrack """
+  #####
+  #S#E#
+  #.#.
+  #...#
+  #####
+  """ (solvePart1 1) == Ok 2
 
 test "the search's times" :=
   onTrack example (track => (track.fromStart.get track.end, track.toEnd.get track.start, track.fromStart.get (at 0 0), track.fromStart.size))
@@ -71,7 +101,13 @@ test "steps" :=
   (at 0 0).step Up == None && (at 0 0).step Left == None && (at 0 0).step Down == Some (at 1 0) && (at 3 4).step Up == Some (at 2 4)
     && (at 3 4).step Left == Some (at 3 3) && (at 3 4).step Right == Some (at 3 5)
 test "the spec's race" :=
-  onTrack "#####\n#S#E#\n#.#.#\n#...#\n#####\n" (uTurn => (race uTurn (at 1 1) [Down, Down, Right, Right, Up, Up], race uTurn (at 1 1) [Right], race uTurn (at 1 1) [Up]))
+  onTrack """
+    #####
+    #S#E#
+    #.#.#
+    #...#
+    #####
+    """ (uTurn => (race uTurn (at 1 1) [Down, Down, Right, Right, Up, Up], race uTurn (at 1 1) [Right], race uTurn (at 1 1) [Up]))
     == Ok (Some (at 1 3), None, None)
 test "distance" := (at 3 4).distance (at 1 7) == 5 && (at 1 7).distance (at 3 4) == 5 && (at 2 2).distance (at 2 2) == 0
 test "around" :=
@@ -84,7 +120,11 @@ test "thresholds" :=
     && Fail.toResult (() => thresholdFrom ["1", "2"]) == Err "expected no arguments, or the least saving to count, such as `50`"
 
 test "parse" :=
-  parsed "#####\n#S.E#\n#####\n" |> matches | Ok track => track.start == at 1 1 && track.end == at 1 3 && track.track.toList == [at 1 1, at 1 2, at 1 3]
+  parsed """
+    #####
+    #S.E#
+    #####
+    """ |> matches | Ok track => track.start == at 1 1 && track.end == at 1 3 && track.track.toList == [at 1 1, at 1 2, at 1 3]
 test "parse without a final line break" := (parsed "#S.E#" |> .map (track => track.end)) == Ok (at 0 3)
 test "no S" := (parsed "#..E#\n" |> .map (track => ())) == Err "no S tile"
 test "two Es" := (parsed "#SEE#\n" |> .map (track => ())) == Err "more than one E tile"

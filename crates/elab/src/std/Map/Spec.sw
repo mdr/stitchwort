@@ -934,11 +934,6 @@ theorem Map.Spec.sameKeyDecide [auto ord: Ord k] (a: k) (b: k): Map.Spec.sameKey
     | Greater =>
       Eq.sym (Decidable.toBoolOfNot (DecEq.decide b a) (q => Map.Spec.notEqualOfCompare a b (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) z)) (Eq.sym q)))
 
---| The list, if it isn't empty.
-def Map.Spec.nonEmpty: List a → Option (List a)
-  | [] => None
-  | [x, ..rest] => Some [x, ..rest]
-
 -- Bulk operations, through sorted lists (docs/proposals/maps.md §4.6)
 --
 -- `union`, `unionWith`, `intersectWith`, `difference`, `filter` and

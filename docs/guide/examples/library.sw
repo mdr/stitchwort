@@ -54,7 +54,7 @@ def wordCounts (words: List Text): Map Text Nat :=
 test "counts" := (wordCounts ["a", "b", "a"]).get "a" == Some 2
 test "missing key" := (wordCounts ["a"]).get "z" == None
 test "in key order" := (wordCounts ["b", "a", "b"]).toList == [("a", 1), ("b", 2)]
-test "group by" := (Map.groupBy ["tea", "milk", "pot"] (word => word.length)).get 3 == Some ["tea", "pot"]
+test "group by" := (Map.groupBy ["tea", "milk", "pot"] (word => word.length)).get 3 |> .map (group => group.toList) == Some ["tea", "pot"]
 test "from pairs" := [(2, "b"), (1, "a")].toMap == Map.fromList [(1, "a"), (2, "b")]
 test "equal however built" := Map.fromList [(1, "a"), (2, "b")] == Map.fromList [(2, "b"), (1, "a")]
 -- end map
@@ -70,11 +70,17 @@ test "union a list of sets" := sets.unionAll == [1, 2, 3].toSet
 -- end set
 
 -- begin nonempty
-def groupAnswers: NonEmptyList (Set Char) := { head = Set.fromList ['a', 'b', 'c'], tail = [Set.fromList ['b', 'c'], Set.fromList ['c', 'd']] }
+def groupAnswers: NonEmptyList (Set Char) := [['a', 'b', 'c'].toSet, ['b', 'c'].toSet, ['c', 'd'].toSet]
+def numbers: NonEmptyList Nat := [3, 9, 4]
 
-test "no Option" := groupAnswers.intersectAll == Set.fromList ['c']
-test "reduce and maximum" := ({ head = 3, tail = [9, 4] }: NonEmptyList Nat).maximum == 9 ∧ ({ head = 3, tail = [9, 4] }: NonEmptyList Nat).reduce Nat.add == 16
-test "map keeps it non-empty" := (({ head = 1, tail = [2] }: NonEmptyList Nat).map (n => n * 10)).head == 10
+def describe: NonEmptyList Nat → Text
+  | [only] => "just ${only}"
+  | [first, ..rest] => "${first} and ${rest.length} more"
+
+test "no Option" := groupAnswers.intersectAll == ['c'].toSet
+test "reduce and maximum" := numbers.maximum == 9 ∧ numbers.reduce Nat.add == 16
+test "map keeps it non-empty" := (numbers.map (n => n * 10)).head == 30
+test "no [] arm" := describe [7] == "just 7" ∧ describe numbers == "3 and 2 more"
 test "from a list" := [4, 5, 6].toNonEmpty.maximum == 6 ∧ ([]: List Nat).nonEmpty == None
 -- end nonempty
 

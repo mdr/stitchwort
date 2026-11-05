@@ -7,7 +7,7 @@ import Std (List, Nat)
 
 --| "The concatenation operator (||) combines the digits from its left and
 --| right inputs into a single number."
-def concatenate (left: Nat) (right: Nat): Nat := Nat.fromDigits ((Nat.digits left).append (Nat.digits right))
+def concatenate (left: Nat) (right: Nat): Nat := Nat.fromDigits ((Nat.digits left).toList ++ (Nat.digits right).toList)
 
 --| What each operator does: "add (+) and multiply (*)", and concatenation.
 def combine: Operator → Nat → Nat → Nat

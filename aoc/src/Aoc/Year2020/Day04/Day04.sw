@@ -55,9 +55,11 @@ def field(): {Parse} Field :=
 
 def fieldBreak(): {Parse} () := Parse.oneOf [() => Parse.char ' ', Parse.newline]
 
-def passport(): {Parse} Passport := { fields = Parse.sepBy1 field fieldBreak }
+def passport(): {Parse} Passport :=
+  let fields := Parse.sepBy1 field fieldBreak
+  { fields = fields.toList }
 
-def parsePassports (input: Text): {Fail} List Passport := Parse.all input (() => Parse.sections passport)
+def parsePassports (input: Text): {Fail} List Passport := Parse.all input (() => Parse.sections passport |> .toList)
 
 def Passport.has (passport: Passport) (key: Key): Bool := passport.fields.any (.key == key)
 
@@ -66,7 +68,7 @@ def required: List Key := [BirthYear, IssueYear, ExpirationYear, Height, HairCol
 def Passport.hasRequired (passport: Passport): Bool := required.all passport.has
 
 def between (low: Nat) (high: Nat): Option Nat → Bool
-  | Some n => low <= n ∧ n <= high
+  | Some n => low <= n <= high
   | None => False
 
 def yearBetween (low: Nat) (high: Nat) (value: Text): Bool := value.length == 4 ∧ between low high value.toNat
@@ -79,7 +81,7 @@ def heightValid (value: Text): Bool :=
         | Some number => between (low := 59) (high := 76) number.toNat
         | None => False
 
-def isHexDigit (char: Char): Bool := char.digitValue.isSome ∨ ('a' <= char ∧ char <= 'f')
+def isHexDigit (char: Char): Bool := char.digitValue.isSome ∨ ('a' <= char <= 'f')
 
 def hairColorValid (value: Text): Bool :=
   value.toList |> matches | ['#', ..digits] => digits.length == 6 ∧ digits.all isHexDigit

@@ -123,6 +123,8 @@ const LIBRARY: &[Builtin] = &[
     Builtin::FailStop,
     Builtin::Iff,
     Builtin::Exists,
+    Builtin::NonEmptyList,
+    Builtin::NonEmptyListPrependList,
 ];
 
 macro_rules! builtins {
@@ -351,6 +353,12 @@ builtins! {
     Option = "Option": Data,
     None = "None": Ctor(Builtin::Option),
     Some = "Some": Ctor(Builtin::Option),
+    // `NonEmptyList a` (std/NonEmptyList/NonEmptyList.sw): list literals and
+    // list patterns build and match it where it is the expected type, and a
+    // literal with spreads before its first item puts them in front with
+    // `prependList` (docs/proposals/non-empty-lists.md §7)
+    NonEmptyList = "NonEmptyList": Data,
+    NonEmptyListPrependList = "NonEmptyList.prependList": Def,
     Pair = "Pair": Data,
     MkPair = "MkPair": Ctor(Builtin::Pair),
     Fst = "Pair.fst": Def,

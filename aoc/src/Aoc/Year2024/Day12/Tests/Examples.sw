@@ -109,21 +109,46 @@ test "larger example, eleven regions" :=
 
 test "one plot" := solvePart1 (garden "A\n") == 4 && solvePart2 (garden "A\n") == 4
 test "one row" := solvePart1 (garden "AAB\n") == 2 * 6 + 4 && solvePart2 (garden "AAB\n") == 2 * 4 + 4
-test "one column" := solvePart1 (garden "A\nA\nA\n") == 3 * 8 && solvePart2 (garden "A\nA\nA\n") == 3 * 4
+test "one column" := solvePart1 (garden """
+  A
+  A
+  A
+  """) == 3 * 8 && solvePart2 (garden """
+  A
+  A
+  A
+  """) == 3 * 4
 
 --| The same plant in two places is two regions.
 test "same plant apart" := (garden "ABA\n").regions.length == 3 && solvePart1 (garden "ABA\n") == 12
 
 --| Plots touching only at a corner aren't joined.
-test "diagonal plots" := (garden "AB\nBA\n").regions.length == 4 && solvePart2 (garden "AB\nBA\n") == 16
+test "diagonal plots" := (garden """
+  AB
+  BA
+  """).regions.length == 4 && solvePart2 (garden """
+  AB
+  BA
+  """) == 16
 
 --| A ring: 8 plots, perimeter 16, sides 8 (four outside, four inside).
 test "a ring" :=
-  let loop := garden "AAA\nABA\nAAA\n"
-  summary "AAA\nABA\nAAA\n" == [(Some 'A', 8, 16, 8), (Some 'B', 1, 4, 4)] && loop.regions.length == 2
+  let loop := garden """
+    AAA
+    ABA
+    AAA
+    """
+  summary """
+    AAA
+    ABA
+    AAA
+    """ == [(Some 'A', 8, 16, 8), (Some 'B', 1, 4, 4)] && loop.regions.length == 2
 
 --| An L: six sides.
-test "an L" := summary "AB\nAA\n" |> .headOr (None, 0, 0, 0) == (Some 'A', 3, 8, 6)
+test "an L" := summary """
+  AB
+  AA
+  """ |> .headOr (None, 0, 0, 0) == (Some 'A', 3, 8, 6)
 
 test "a region covers every plot it touches" := (garden larger).regionOf (at 0 0) |> .area == 12
 test "regions cover every plot once" :=
@@ -131,7 +156,10 @@ test "regions cover every plot once" :=
   map.positions.all (position => map.regions.count (region => region.contains position) == 1) && map.positions.length == 100
 
 test "no plots" := parsed "" == Err "line 1, column 1: expected a letter, got the end of the input"
-test "parse" := (parsed "AB\nCD\n" |> .map (map => map.plots.toList)) == Ok [(at 0 0, 'A'), (at 0 1, 'B'), (at 1 0, 'C'), (at 1 1, 'D')]
+test "parse" := (parsed """
+  AB
+  CD
+  """ |> .map (map => map.plots.toList)) == Ok [(at 0 0, 'A'), (at 0 1, 'B'), (at 1 0, 'C'), (at 1 1, 'D')]
 test "parse without a final line break" := (parsed "AB\nCD" |> .map (map => map.positions.length)) == Ok 4
 test "a bad plot" := (parsed "AB\nC.\n" |> .map (map => ())) == Err "line 2, column 2: expected a letter or the end of the line, got '.'"
 test "a short row" := (parsed "ABC\nAB\n" |> .map (map => ())) == Err "line 2: expected 3 plots, as on the first line, got 2"
@@ -141,7 +169,10 @@ test "steps" :=
     && (at 2 3).step Up == Some (at 1 3) && (at 2 3).step Left == Some (at 2 2)
 
 test "fences and corners of one plot" :=
-  let map := garden "AB\nAA\n"
+  let map := garden """
+    AB
+    AA
+    """
   map.fences (at 1 0) == 2 && map.fences (at 0 1) == 4 && map.cornerCount (at 1 0) == 2
     && map.cornerCount (at 1 1) == 2 && map.cornerCount (at 0 0) == 2
 

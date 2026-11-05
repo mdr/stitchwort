@@ -1,5 +1,5 @@
 --| The `Add` and `Mul` interfaces and their instances for
---| `Nat` and `Int`.
+--| `Nat` and `Int`, and the congruence lemmas of `Int.add` and `Int.mul`.
 -- Loaded with the core: `+` and `*` go through `Add` and `Mul` dictionaries, so
 -- they are checked before any program that adds two numbers
 -- (docs/proposals/prelude-slim.md §2.1).
@@ -39,3 +39,11 @@ instance Int.instAdd: Add Int :=
 
 instance Int.instMul: Mul Int :=
   { one = OfNat 1, mul = Int.mul, oneMul = Int.oneMul, mulOne = Int.mulOne, assoc = Int.mulAssoc }
+
+--| Equal summands give equal sums.
+theorem Int.addCong [a a2 b b2: Int] (p: a = a2) (q: b = b2): a + b = a2 + b2 :=
+  Eq.trans (Eq.cong (t => Int.add t b) p) (Eq.cong (Int.add a2) q)
+
+--| Equal factors give equal products.
+theorem Int.mulCong [a a2 b b2: Int] (p: a = a2) (q: b = b2): Int.mul a b = Int.mul a2 b2 :=
+  Eq.trans (Eq.cong (t => Int.mul t b) p) (Eq.cong (Int.mul a2) q)

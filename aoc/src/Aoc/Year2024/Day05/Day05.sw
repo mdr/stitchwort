@@ -34,12 +34,12 @@ def rule(): {Parse} Rule :=
   { before, after }
 
 --| "75,47,61,53,29".
-def update(): {Parse} Update := { pages = sepBy1 nat (() => char ',') }
+def update(): {Parse} Update := { pages = sepBy1 nat (() => char ',') |> .toList }
 
 --| The rules, one per line, a blank line, then the updates, one per line.
 def printQueue(): {Parse} PrintQueue :=
-  let rules := section rule
-  let updates := lines update
+  let rules := section rule |> .toList
+  let updates := lines update |> .toList
   { rules, updates }
 
 def parsePrintQueue (input: Text): {Fail} PrintQueue := Parse.all input printQueue

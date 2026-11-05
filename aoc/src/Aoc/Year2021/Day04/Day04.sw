@@ -38,9 +38,9 @@ type Game = { draws: List Nat, boards: List Board }
 --| separated by spaces. A board that isn't 5 by 5 fails, naming it.
 def parseGame (input: Text): {Fail} Game :=
   let game: Game := Parse.all input (() =>
-    let draws := sepBy1 nat (() => char ',')
+    let draws := sepBy1 nat (() => char ',') |> .toList
     blankLine()
-    let boards := sections (() => lines (() => many1 (() => token nat))) |> .map (rows => { rows })
+    let boards := sections (() => lines (() => many1 (() => token nat) |> .toList) |> .toList) |> .toList |> .map (rows => { rows })
     { draws, boards })
   match game.boards.withIndex.find (((_, board)) => not board.isFiveByFive) with
     | Some (index, _) => Fail.fail "board ${index + 1} isn't 5 by 5"

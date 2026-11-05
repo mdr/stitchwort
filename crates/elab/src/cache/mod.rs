@@ -31,7 +31,7 @@
 //!   files' names and text, the project's namespaces and `stitchwort.yaml`)
 //!   and the keys of the namespaces it depends on (a Merkle chain). Which
 //!   library files a namespace loads is only known once it is elaborated,
-//!   so its entry lists them, and every file loaded when it was written (lemma lookups see those too), with the key each had, and replay (and a plain
+//!   so its entry lists them with the key each had, and replay (and a plain
 //!   `check` deciding to leave the namespace out) first compares them
 //!   with the keys now. The files it `include`s are listed in its entry
 //!   with a hash of their text, and read again to check them.
@@ -666,7 +666,7 @@ impl Elaborator {
                 .filter(|d| d.code != crate::doc_links::CODE)
                 .cloned()
                 .collect();
-            match self.encode_namespace(files, &capture, &cached, key, store.salt()) {
+            match self.encode_namespace(ns, files, &capture, &cached, key, store.salt()) {
                 Ok(entry) => {
                     store.write(unit, key, &entry);
                     self.session.cache_stats.namespace_written += 1;
@@ -741,6 +741,7 @@ impl Elaborator {
     /// `files`, or why it can't be cached (see [`Self::encode`]).
     fn encode_namespace(
         &self,
+        ns: &str,
         files: &[SourceUnit],
         capture: &Capture,
         warnings: &[Diagnostic],
@@ -815,12 +816,12 @@ impl Elaborator {
             dots: needs.dots.iter().cloned().collect(),
             equations: needs.equations.iter().cloned().collect(),
             library: {
-                // Also every file loaded now: lemma lookups (`rewrite`,
-                // `decreasing`, `auto`) see the files loaded in the run,
-                // not only those the namespace names.
+                // And the files of the namespaces it depends on: `auto`'s
+                // candidates come from the module's reach, theirs included
+                // (their entries' keys don't change when such a file does).
                 let mut roots = self.needed_roots(needs);
-                if let Some(lib) = &self.session.library {
-                    roots.extend(lib.order.iter().copied().filter(|&f| f != 0));
+                if let Some(reach) = self.session.library_reach.get(ns) {
+                    roots.extend(reach.iter().copied().filter(|&f| f != 0));
                 }
                 let keys = self.library_keys(&roots);
                 roots
@@ -889,6 +890,8 @@ impl Elaborator {
         self.scope.clear_imports();
         self.walk_for_navigation(&files.iter().map(|f| f.module).collect::<Vec<_>>());
         let mut pre = std::mem::take(&mut head.pre);
+        // For the namespaces that depend on it.
+        self.set_library_reach(&pre.needs);
         for (k, span, follower) in &pre.early {
             self.scope.insert(k, Global::Failed, *span, *follower);
         }

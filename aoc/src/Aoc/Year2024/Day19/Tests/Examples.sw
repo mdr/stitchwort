@@ -29,7 +29,18 @@ def examplePatterns: List Pattern := ["r", "wr", "b", "g", "bwu", "rb", "gb", "b
 
 def example: Onsen := onsenOf ["r", "wr", "b", "g", "bwu", "rb", "gb", "br"] ["brwrr", "bggr", "gbbr", "rrbgbr", "ubwu", "bwurrg", "brgr", "bbrgwb"]
 
-def exampleText: Text := "r, wr, b, g, bwu, rb, gb, br\n\nbrwrr\nbggr\ngbbr\nrrbgbr\nubwu\nbwurrg\nbrgr\nbbrgwb\n"
+def exampleText: Text := """
+  r, wr, b, g, bwu, rb, gb, br
+
+  brwrr
+  bggr
+  gbbr
+  rrbgbr
+  ubwu
+  bwurrg
+  brgr
+  bbrgwb
+  """
 
 def waysOf (design: Text): Nat := waysToMake examplePatterns (designOf design)
 

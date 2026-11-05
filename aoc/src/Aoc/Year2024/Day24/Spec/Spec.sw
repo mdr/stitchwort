@@ -50,6 +50,6 @@ def Adds (bits: Nat) (gates: List Gate): Prop :=
 --| "Each wire is connected to at most one gate output", and the wires that
 --| start with a value aren't: they are "inputs to the entire system".
 def WellFormed (device: Device): Prop :=
-  List.Distinct (device.gates.map (.output))
-    ∧ List.Distinct (device.initial.map (.fst))
-    ∧ ((gate: Gate) → gate ∈ device.gates → gate.output ∉ device.initial.map (.fst))
+  List.Distinct (device.gates.map .output)
+    ∧ List.Distinct (device.initial.map .fst)
+    ∧ ((gate: Gate) → gate ∈ device.gates → gate.output ∉ device.initial.map .fst)

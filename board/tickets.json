@@ -1,5 +1,5 @@
 {
-  "next": 1351,
+  "next": 1357,
   "tickets": [
     {
       "id": 47,
@@ -6971,12 +6971,12 @@
       "id": 1330,
       "title": "Check cache key: drop std's text, once the check cache's differential test covers a std edit",
       "status": "backlog",
-      "agent": "",
-      "where": "",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1330",
       "labels": [
         "tooling"
       ],
-      "body": "D2378 (Matt, 5 Nov): yes. docs/proposals/test-cache-key.md (P3). Entries are the elaborator's output, so syntax and elab stay in this key.",
+      "body": "D2378 (Matt, 5 Nov): yes. docs/proposals/test-cache-key.md (P3). Entries are the elaborator's output, so syntax and elab stay in this key.\n\nDone on lane/SW-1330 (557094bfa): keys hold core text + the library's name index, not all of std; namespace entries list the std files they load with their keys. Rare-file edit: 31 of 231 re-check; ubiquitous files (Fin, Toolkit) still re-check nearly all; an added name re-checks all. Opus review running (stale-entry risk: instances etc. in unlisted files). Model result: Sonnet, worked, 37 min (est. 90).\n\nOpus review blocker (loaded-files leak) fixed in df3a4a20a by recording every loaded library file in an entry; that removes most of the gain (an Ansi edit re-checks everything loaded after it) and library-file entries keep a similar gap. Parked: merge after SW-1354 makes lazy loading behave as if every file were loaded; then needed_roots suffices and the loaded-files list can go. Orchestrator's sequencing call, 5 Nov.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7012,13 +7012,13 @@
     {
       "id": 1333,
       "title": "Drop redundant brackets around dot sections in aoc and games/rogue (groups.sumBy (.anyone.size) -> groups.sumBy .anyone.size)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "done",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1333",
       "labels": [
         "aoc"
       ],
-      "body": "Matt, 5 Nov (2020 day 6). Check stitchwort fmt doesn't add them back; CLAUDE.md's call-site style.",
+      "body": "Matt, 5 Nov (2020 day 6). Check stitchwort fmt doesn't add them back; CLAUDE.md's call-site style.\n\nDone: DeepSeek removed all bracketed dot sections and converted test inputs to text blocks in 52 files (each checked equal to the old string); Sonnet review fix restored escapes for 82 tests (trailing spaces, blank-line tests, short error inputs). Model result: DeepSeek, needed fixes (over-converted short and blank-line inputs; trailing spaces), ~30 min (est. 45).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7124,7 +7124,7 @@
     {
       "id": 1341,
       "title": "Chained comparisons: implement docs/proposals/chained-comparisons.md per D2386-D2391",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1341",
       "labels": [
@@ -7166,13 +7166,13 @@
     {
       "id": 1344,
       "title": "NonEmptyList stage 2: many1, sepBy1, lines, sections, grid, List.splitBy, Map.groupBy, Nat.digits return NonEmptyList; Reads lemmas and callers updated",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1344",
       "labels": [
         "std"
       ],
-      "body": "After stage 1. Sonnet, est. 4 h. docs/proposals/non-empty-lists.md; D2393-D2399 (Matt, 5 Nov). Name: NonEmptyList (D2394).",
+      "body": "After stage 1. Sonnet, est. 4 h. docs/proposals/non-empty-lists.md; D2393-D2399 (Matt, 5 Nov). Name: NonEmptyList (D2394).\n\nDone, merged. Opus review: every restated theorem keeps its meaning; Specs still the puzzle's. 92 hashes moved (expected). Temporary wrappers in 2020 days 4 and 6 marked for SW-1346. Model result: Sonnet, needed fixes (behind main: merge conflicts), ~85 min (est. 240).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7180,13 +7180,13 @@
     {
       "id": 1345,
       "title": "NonEmptyList stage 3: bracket literals and patterns ([1, 2], [x, ..xs]) where the expected type is NonEmptyList; [] refused with its own error",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1345",
       "labels": [
         "elab"
       ],
-      "body": "After stage 1. Opus, est. 1 day. docs/proposals/non-empty-lists.md; D2393-D2399 (Matt, 5 Nov). Name: NonEmptyList (D2394).",
+      "body": "After stage 1. Opus, est. 1 day. docs/proposals/non-empty-lists.md; D2393-D2399 (Matt, 5 Nov). Name: NonEmptyList (D2394).\n\nDone (cbc8a5246, merged): literals, [..ys, z], patterns ([x], [x, ..rest] exhaustive), E-NONEMPTY-EMPTY, effectful items; no hash moved (bracket and record forms hash the same); tour page 13 (pages renumbered); syntax.md, guide. Orchestrator chose: keep the renumbering; [] arm an error. Model result: Opus, worked, 30 min (est. 1 day).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7222,9 +7222,9 @@
     {
       "id": 1348,
       "title": "Feature tour page for chained comparisons (lo <= x <= hi), and the guide check for SW-1341's paragraph",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1348",
       "labels": [
         "docs"
       ],
@@ -7236,13 +7236,13 @@
     {
       "id": 1349,
       "title": "An effectful && as an unannotated let's value is inferred as Prop: let ok := (let c := Parse.nat(); 0 < c && c <= Parse.nat()) fails 'expected Prop, but this has type Bool'; only let ok: Bool := … works",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1349",
       "labels": [
         "elab"
       ],
-      "body": "Pre-existing on main; found by the SW-1341 Opus review (scratchpad sw1341-review/eff4.sw, eff5.sw). Chains make it easier to hit: let ok := 0 < n() <= n().",
+      "body": "Pre-existing on main; found by the SW-1341 Opus review (scratchpad sw1341-review/eff4.sw, eff5.sw). Chains make it easier to hit: let ok := 0 < n() <= n().\n\nDone on lane/SW-1349 (4331bb63e): the effectful &&/|| arm unifies an unknown expected type with Bool; example effect-logic-let.sw. No hash moved. Model result: Sonnet, worked, 16 min (est. 60).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7257,6 +7257,90 @@
         "elab"
       ],
       "body": "From SW-1341's review fixes: the decision is built from the evaluated proposition, so the chain's let is lost when the chain is one conjunct of the if h: condition. Repro: scratchpad sw1341-review/js.sw (c1), build --js.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1351,
+      "title": "Std: a proof-indexed List.get (xs.get i [auto ok: i < xs.length]: a), redefined by hand in three examples and the chained-comparisons tour page",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From SW-1348: the tour page had to define its own at. Name to pick (get exists and returns Option): e.g. List.at. Then use it in examples/accept/decisions.sw, examples/soundness/absurd-without-proof.sw, examples/extract/numbers.sw, web/guide/28-chained-comparisons.sw.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1352,
+      "title": "Sweep: write range checks as chained comparisons (lo <= x <= hi) in aoc and games/rogue (32 + 1 sites), then std (33) after SW-1344 merges",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1352",
+      "labels": [
+        "aoc"
+      ],
+      "body": "From SW-1341's note survey (docs/proposals/chained-comparisons.md lists them). Only where the middle is the same expression on both sides; proofs' statements may change shape only per D2388 (one conjunct) — list each. DeepSeek.\n\naoc and rogue done (DeepSeek, reviewed line by line): ~35 sites in 13 days, Aoc.Common.Range, rogue Level.contains; statements in Spec/Proofs changed shape only (same meaning), all check and audit clean. Std's sites still to do after SW-1344. Model result: DeepSeek, worked, ~25 min (est. 40).",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1353,
+      "title": "Sweep: method (dot) form where the first argument is the call's subject in aoc and games/rogue (Nat.absDiff level next -> level.absDiff next; value.testBit 3); leave min/max, builders (List.range, List.replicate) and lemmas used as proofs",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1353",
+      "labels": [
+        "aoc"
+      ],
+      "body": "D2402 (Matt, 5 Nov): yes. Prompted by 2024 day 2's 1 <= Nat.absDiff level next <= 3. Same terms, so no proof changes expected. DeepSeek, ~30 min; after SW-1333 and SW-1344 merge (same files).",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1354,
+      "title": "Check cache can report a namespace as checked when it isn't (on main): congruence-lemma lookups (rewrite's …Cong, decreasing) and auto's candidates see only library files already loaded in the run, so a namespace's result depends on what unrelated namespaces loaded",
+      "status": "done",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1354",
+      "labels": [
+        "tooling"
+      ],
+      "body": "Found by the SW-1330 Opus review (repro: scratchpad sw1330-review/r5, r6). B uses rewrite inside Option.map and needs Option.mapCong (Option/Lemmas.sw), which only A loads. Change A so it no longer loads that file: fresh, B fails ('there is no Option.mapCong'); cached, B is reported from its entry. Fix: lazy loading must behave as if every file were loaded: the congruence/auto lookups should treat a pending name as something to load (or the loader counts F.…Cong as needed when F is referenced). Priority: correctness of check. Sonnet (Opus if the loader design needs it).\n\nDone on lane/SW-1354 (1bf291ea6): congruence lemmas must sit in their function's file (index refuses others; 4 moved, Ring.mulCong renamed Int.mulCong); auto's library decision procedures are per namespace (its own references' files + its dependencies'), set on check and replay. No extra loading; aoc check --no-cache CPU within noise. Orchestrator's call (implementation detail): keep 'beside their function, enforced' over loading lemma files with F's. Model result: Opus, worked, 27 min (est. 120). Next: rebase SW-1330 and rerun its blocker.sh.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1355,
+      "title": "stitchwort fmt fails on some files with chained comparisons: 'the output parses to a different syntax tree' (examples/accept/effect-logic-let.sw on lane/SW-1349)",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1355",
+      "labels": [
+        "fmt"
+      ],
+      "body": "From SW-1349. Each definition formats alone; the whole file doesn't. Chains parse to the && of their links (SW-1341), so the formatter may print a different tree. Lanes must run stitchwort fmt before committing, so this blocks them.\n\nDone on lane/SW-1355 (1f5df88a3): the tree comparison renumbers hidden %chain<offset> names; golden test of chain shapes. Model result: Sonnet, worked, 7 min (est. 45).",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1356,
+      "title": "Design note: range syntax (a ..< b, a ..= b, or other), after a thorough survey of other languages (Swift, Rust, Kotlin, Haskell, Python, Scala, Ruby, Julia, Lean, Idris, Agda, F#, Elixir …)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1356",
+      "labels": [
+        "design"
+      ],
+      "body": "D2403 (Matt, 5 Nov): yes, an Opus lane; 'definitely do a thorough search of existing languages to see what other people do, including Swift, Rust, Kotlin, etc.' Prompted by List.range (Int.toNat target.right). Constraint: .. already means spread in brackets ([x, ..rest]), so Haskell's [2..n] would clash. Cover inclusive/exclusive, Nat/Int/Char, steps and counting down, List vs lazy, membership lemma (x ∈ a ..< b ↔ a ≤ x < b, pairs with chained comparisons), patterns, Fin, loops, and the List.range argument-order question (SW-1258). Opus, ~45 min. Next free slot.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []

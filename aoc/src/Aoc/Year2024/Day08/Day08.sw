@@ -30,7 +30,7 @@ def cell(): {Parse} Option Char :=
 
 --| One row per line, all as long as the first.
 def parseCity (input: Text): {Fail} City :=
-  let rows := Parse.all input (() => Parse.grid cell)
+  let rows := Parse.all input (() => Parse.grid cell) |> .toList |> .map .toList
   let width := rows.headOr [] |> .length
   let antennas :=
     rows.withIndex.flatMap (((row, cells)) =>

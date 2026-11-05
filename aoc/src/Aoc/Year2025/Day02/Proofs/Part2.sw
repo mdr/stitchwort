@@ -104,6 +104,10 @@ theorem mulKeep (v: Int) (x: Nat): (b: Bool) → v * (Nat.keepIf x b).toInt = x.
 --| Rotating the first `len` values of g by p places leaves them unchanged.
 def Period (g: Nat → Nat) (len: Nat) (hl: len ≠ 0) (p: Nat): Prop := (i: Nat) → i < len → g ((i + p) % len) = g i
 
+--| A period of the first `a` values is one of the first `b`, when `a = b`.
+theorem periodCong (g: Nat → Nat) (a: Nat) (b: Nat) (ha: a ≠ 0) (hb: b ≠ 0) (same: a = b) (p: Nat) (per: Period g a ha p): Period g b hb p :=
+  Eq.subst (m => (hm: m ≠ 0) → Period g m hm p) same (hm => per) hb
+
 theorem periodZero (g: Nat → Nat) (len: Nat) (hl: len ≠ 0): Period g len hl 0 :=
   i hi => Eq.cong g (Eq.trans (Eq.cong (y => y % len) (ring: i + 0 = i)) (Nat.modSmall i len hi))
 
@@ -211,8 +215,10 @@ theorem periodWritten (ds: List Nat) (hl: ds.length ≠ 0) (k: Nat) (n: Nat) [au
 
 theorem digitCountNonZero (x: Nat): digitCount x ≠ 0 := Nat.nonzeroOfPos (digitCount x) (Nat.digitCountPos x)
 
+theorem digitListNonZero (x: Nat): List.length (Nat.digits x).toList ≠ 0 := Nat.succNotZero (List.length (Nat.digits x).tail)
+
 --| x's digits have period p.
-def periodOf (x: Nat) (p: Nat): Bool := isPeriod (digitAt (Nat.digits x)) (digitCount x) (digitCountNonZero x) p
+def periodOf (x: Nat) (p: Nat): Bool := isPeriod (digitAt (Nat.digits x).toList) (digitCount x) (digitCountNonZero x) p
 
 --| x's smallest positive period is `Succ (periodIndex x)`: the first p in
 --| 1, 2, ..., digitCount x that passes (the digit count always does).
@@ -225,21 +231,21 @@ def blockCount (x: Nat): Nat := digitCount x / smallestPeriod x
 
 test "smallest blocks" := List.map [7, 1212, 123123123, 1213] blockCount == [1, 2, 3, 1]
 
-theorem smallestIsPeriod (x: Nat): Period (digitAt (Nat.digits x)) (digitCount x) (digitCountNonZero x) (smallestPeriod x) :=
+theorem smallestIsPeriod (x: Nat): Period (digitAt (Nat.digits x).toList) (digitCount x) (digitCountNonZero x) (smallestPeriod x) :=
   let top: Succ (digitCount x - 1) = digitCount x := omega [Nat.digitsNonEmpty x]
-  periodOfTest (digitAt (Nat.digits x)) (digitCount x) (digitCountNonZero x) (smallestPeriod x)
+  periodOfTest (digitAt (Nat.digits x).toList) (digitCount x) (digitCountNonZero x) (smallestPeriod x)
     (Nat.firstFromFound (j => periodOf x (Succ j)) (digitCount x) 0 (digitCount x - 1) omega omega
-      (Eq.trans (Eq.cong (periodOf x) top) (periodTest (digitAt (Nat.digits x)) (digitCount x) (digitCountNonZero x) (digitCount x) (periodLen (digitAt (Nat.digits x)) (digitCount x) (digitCountNonZero x)))))
+      (Eq.trans (Eq.cong (periodOf x) top) (periodTest (digitAt (Nat.digits x).toList) (digitCount x) (digitCountNonZero x) (digitCount x) (periodLen (digitAt (Nat.digits x).toList) (digitCount x) (digitCountNonZero x)))))
 
-theorem smallestDivides (x: Nat) (p: Nat) (hp: Period (digitAt (Nat.digits x)) (digitCount x) (digitCountNonZero x) p): p % smallestPeriod x = 0 :=
-  periodDvd (digitAt (Nat.digits x)) (digitCount x) (digitCountNonZero x) (periodIndex x) (smallestIsPeriod x)
+theorem smallestDivides (x: Nat) (p: Nat) (hp: Period (digitAt (Nat.digits x).toList) (digitCount x) (digitCountNonZero x) p): p % smallestPeriod x = 0 :=
+  periodDvd (digitAt (Nat.digits x).toList) (digitCount x) (digitCountNonZero x) (periodIndex x) (smallestIsPeriod x)
     (r hr => Nat.firstFromBefore (j => periodOf x (Succ j)) (digitCount x) 0 r omega hr) p hp
 
 theorem countTimesPeriod (x: Nat): digitCount x = blockCount x * smallestPeriod x :=
   calc digitCount x
     _ = blockCount x * smallestPeriod x + digitCount x % smallestPeriod x := Nat.divModEq (digitCount x) (smallestPeriod x) (Nat.succNotZero (periodIndex x))
     _ = blockCount x * smallestPeriod x
-      := omega [smallestDivides x (digitCount x) (periodLen (digitAt (Nat.digits x)) (digitCount x) (digitCountNonZero x))]
+      := omega [smallestDivides x (digitCount x) (periodLen (digitAt (Nat.digits x).toList) (digitCount x) (digitCountNonZero x))]
 
 theorem blockCountPos (x: Nat): 1 ≤ blockCount x :=
   match e: blockCount x with
@@ -250,9 +256,10 @@ theorem blockCountLe (x: Nat): blockCount x ≤ digitCount x :=
   omega [Nat.leMulPos (blockCount x) (smallestPeriod x) rfl, countTimesPeriod x]
 
 --| A block of k digits written n times: n divides the block count.
-theorem dividesOfWritten (x: Nat) (n: Nat) (hn: 2 ≤ n) (k: Nat) (hk1: 1 ≤ k) (hw: writtenAs (Nat.digits x) k n = True): Nat.divides n (blockCount x) = True :=
+theorem dividesOfWritten (x: Nat) (n: Nat) (hn: 2 ≤ n) (k: Nat) (hk1: 1 ≤ k) (hw: writtenAs (Nat.digits x).toList k n = True): Nat.divides n (blockCount x) = True :=
   let hk: k ≠ 0 := Nat.nonzeroOfPos k hk1
-  let per := writtenPeriod (Nat.digits x) (digitCountNonZero x) k n omega (omega [repCount x k n hn hw]) hw
+  let per := periodCong (digitAt (Nat.digits x).toList) (List.length (Nat.digits x).toList) (digitCount x) (digitListNonZero x) (digitCountNonZero x) (Eq.sym (Nat.digitCountLength x)) k
+    (writtenPeriod (Nat.digits x).toList (digitListNonZero x) k n omega (omega [repCount x k n hn hw, Nat.digitCountLength x]) hw)
   -- k is t times the smallest period
   let t := k / smallestPeriod x
   let ek: k = t * smallestPeriod x :=
@@ -275,44 +282,45 @@ theorem writtenOfDivides (x: Nat) (n: Nat) (hn: 2 ≤ n): (t: Nat) → blockCoun
       calc (Succ t * smallestPeriod x) * n
         _ = blockCount x * smallestPeriod x := rewrite e in ring
         _ = digitCount x := Eq.sym (countTimesPeriod x)
-    let hw: writtenAs (Nat.digits x) k n = True :=
-      periodWritten (Nat.digits x) (digitCountNonZero x) k n omega ekn
-        (periodMul (digitAt (Nat.digits x)) (digitCount x) (digitCountNonZero x) (smallestPeriod x) (smallestIsPeriod x) (Succ t))
-    List.anyRangeIntro (k => writtenAs (Nat.digits x) k n) (digitCount x) 1 k rfl
+    let hw: writtenAs (Nat.digits x).toList k n = True :=
+      periodWritten (Nat.digits x).toList (digitListNonZero x) k n omega (omega [ekn, Nat.digitCountLength x])
+        (periodCong (digitAt (Nat.digits x).toList) (digitCount x) (List.length (Nat.digits x).toList) (digitCountNonZero x) (digitListNonZero x) (Nat.digitCountLength x) (Succ t * smallestPeriod x)
+          (periodMul (digitAt (Nat.digits x).toList) (digitCount x) (digitCountNonZero x) (smallestPeriod x) (smallestIsPeriod x) (Succ t)))
+    List.anyRangeIntro (k => writtenAs (Nat.digits x).toList k n) (digitCount x) 1 k rfl
       (omega [Nat.leMulPos k n omega]) hw
 
 --| x's digits are a block written n times exactly when n divides the block count.
 theorem copiesDivides (x: Nat) (n: Nat) (hn: 2 ≤ n): copies x n = Nat.divides n (blockCount x) :=
   Bool.eqOf (copies x n) (Nat.divides n (blockCount x))
-    (h => List.anyRangeElim (k => writtenAs (Nat.digits x) k n) (Nat.divides n (blockCount x) = True) (digitCount x) 1 h
+    (h => List.anyRangeElim (k => writtenAs (Nat.digits x).toList k n) (Nat.divides n (blockCount x) = True) (digitCount x) 1 h
       (k h1 h2 hw => dividesOfWritten x n hn k h1 hw))
     (h => Nat.dividesElim (copies x n = True) n (blockCount x) h (t e => writtenOfDivides x n hn t e))
 
 --| x repeats exactly when its smallest block is written at least twice.
 theorem repeatsBlocks (x: Nat): repeats x = Nat.leq 2 (blockCount x) :=
   Bool.eqOf (repeats x) (Nat.leq 2 (blockCount x))
-    (h => List.anyRangeElim (k => List.any (List.rangeFrom (digitCount x) 2) (n => writtenAs (Nat.digits x) k n)) (2 ≤ blockCount x) (digitCount x) 1 h
-      (k h1 h2 hk => List.anyRangeElim (n => writtenAs (Nat.digits x) k n) (2 ≤ blockCount x) (digitCount x) 2 hk
+    (h => List.anyRangeElim (k => List.any (List.rangeFrom (digitCount x) 2) (n => writtenAs (Nat.digits x).toList k n)) (2 ≤ blockCount x) (digitCount x) 1 h
+      (k h1 h2 hk => List.anyRangeElim (n => writtenAs (Nat.digits x).toList k n) (2 ≤ blockCount x) (digitCount x) 2 hk
         (n n1 n2 hw =>
           omega [Nat.dividesLe n (blockCount x) (blockCountPos x)
-            (Eq.trans (Eq.sym (copiesDivides x n n1)) (List.anyRangeIntro (k => writtenAs (Nat.digits x) k n) (digitCount x) 1 k h1 h2 hw))])))
-    (h => List.anyRangeElim (k => writtenAs (Nat.digits x) k (blockCount x)) (repeats x = True) (digitCount x) 1
+            (Eq.trans (Eq.sym (copiesDivides x n n1)) (List.anyRangeIntro (k => writtenAs (Nat.digits x).toList k n) (digitCount x) 1 k h1 h2 hw))])))
+    (h => List.anyRangeElim (k => writtenAs (Nat.digits x).toList k (blockCount x)) (repeats x = True) (digitCount x) 1
       (Eq.trans (copiesDivides x (blockCount x) h) (Nat.dividesSelf (blockCount x)))
-      (k h1 h2 hw => List.anyRangeIntro (k => List.any (List.rangeFrom (digitCount x) 2) (n => writtenAs (Nat.digits x) k n)) (digitCount x) 1 k h1 h2
-        (List.anyRangeIntro (n => writtenAs (Nat.digits x) k n) (digitCount x) 2 (blockCount x) h
+      (k h1 h2 hw => List.anyRangeIntro (k => List.any (List.rangeFrom (digitCount x) 2) (n => writtenAs (Nat.digits x).toList k n)) (digitCount x) 1 k h1 h2
+        (List.anyRangeIntro (n => writtenAs (Nat.digits x).toList k n) (digitCount x) 2 (blockCount x) h
           (omega [blockCountLe x]) hw)))
 
 --| One id's terms under weights w: every block length k up to `size` and
 --| repeat count n from 2 to `size`.
 def idTerms (w: Nat → Int) (size: Nat) (x: Nat): Int :=
-  List.rangeFrom size 1 |> .sumBy (k => List.rangeFrom (size - 1) 2 |> .sumBy (n => w n * (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt))
+  List.rangeFrom size 1 |> .sumBy (k => List.rangeFrom (size - 1) 2 |> .sumBy (n => w n * (Nat.keepIf x (writtenAs (Nat.digits x).toList k n)).toInt))
 
 --| They add up to x times the weights of the divisors of the block count.
 theorem idTermsDivisors (w: Nat → Int) (size: Nat) (x: Nat) (hL: digitCount x ≤ size):
     idTerms w size x = x.toInt * divisorWeights w (blockCount x) (size - 1) :=
   calc idTerms w size x
-    _ = List.sumBy (List.rangeFrom (size - 1) 2) (n => List.sumBy (List.rangeFrom size 1) (k => w n * (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt))
-      := List.sumBySwap (List.rangeFrom (size - 1) 2) (List.rangeFrom size 1) (k n => w n * (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt)
+    _ = List.sumBy (List.rangeFrom (size - 1) 2) (n => List.sumBy (List.rangeFrom size 1) (k => w n * (Nat.keepIf x (writtenAs (Nat.digits x).toList k n)).toInt))
+      := List.sumBySwap (List.rangeFrom (size - 1) 2) (List.rangeFrom size 1) (k n => w n * (Nat.keepIf x (writtenAs (Nat.digits x).toList k n)).toInt)
     _ = List.sumBy (List.rangeFrom (size - 1) 2) (n => x.toInt * (if Nat.divides n (blockCount x) then w n else 0))
       := rewrite Int.sumByMulLeft (w _), <- Int.toIntSumBy _ (List.rangeFrom size 1), collapse x _ _ size hL, copiesDivides x,
         mulKeep (w _) x
@@ -335,8 +343,8 @@ theorem idWeight (size: Nat) (x: Nat) (hL: digitCount x ≤ size): idTerms copie
 
 --| A term with more digits than `to` is 0 anyway.
 theorem keptTerm (w: Nat → Int) (r: Range) (k: Nat) (hk: 1 ≤ k) (n: Nat) (hn: 2 ≤ n):
-    (if Nat.leq (k * n) (List.length (Nat.digits r.to)) then w n * (RepetitionTemplate.sumIn { blockLength = k, copies = n } r).toInt else 0) = w n * (RepetitionTemplate.sumIn { blockLength = k, copies = n } r).toInt :=
-  match h: Nat.leq (k * n) (List.length (Nat.digits r.to)) with
+    (if Nat.leq (k * n) r.to.digitCount then w n * (RepetitionTemplate.sumIn { blockLength = k, copies = n } r).toInt else 0) = w n * (RepetitionTemplate.sumIn { blockLength = k, copies = n } r).toInt :=
+  match h: Nat.leq (k * n) r.to.digitCount with
     | True => rfl
     | False => rewrite repeatedZero r k hk n hn h in ring
 
@@ -344,7 +352,7 @@ theorem keptTerm (w: Nat → Int) (r: Range) (k: Nat) (hk: 1 ≤ k) (n: Nat) (hn
 --| grid: every block length k up to the digits of `to` and every number of
 --| copies n from 2, the templates that don't fit counting 0.
 def weighted (w: Nat → Int) (r: Range): Int :=
-  let size := List.length (Nat.digits r.to)
+  let size := r.to.digitCount
   List.rangeFrom size 1 |> .sumBy (k => List.rangeFrom (size - 1) 2 |> .sumBy (n => if Nat.leq (k * n) size then w n * (RepetitionTemplate.sumIn { blockLength = k, copies = n } r).toInt else 0))
 
 theorem sumOfIdsWrittenRepeatedlyGrid (r: Range): sumOfIdsWrittenRepeatedly r = weighted copiesWeight r :=
@@ -352,40 +360,40 @@ theorem sumOfIdsWrittenRepeatedlyGrid (r: Range): sumOfIdsWrittenRepeatedly r = 
 
 --| One term of `weighted`, as a sum over the ids of the range.
 theorem termIds (w: Nat → Int) (r: Range) (k: Nat) (hk: 1 ≤ k) (n: Nat) (hn: 2 ≤ n):
-    (if Nat.leq (k * n) (List.length (Nat.digits r.to)) then w n * (RepetitionTemplate.sumIn { blockLength = k, copies = n } r).toInt else 0)
-      = List.sumBy r.ids (x => w n * (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) :=
-  calc (if Nat.leq (k * n) (List.length (Nat.digits r.to)) then w n * (RepetitionTemplate.sumIn { blockLength = k, copies = n } r).toInt else 0)
+    (if Nat.leq (k * n) r.to.digitCount then w n * (RepetitionTemplate.sumIn { blockLength = k, copies = n } r).toInt else 0)
+      = List.sumBy r.ids (x => w n * (Nat.keepIf x (writtenAs (Nat.digits x).toList k n)).toInt) :=
+  calc (if Nat.leq (k * n) r.to.digitCount then w n * (RepetitionTemplate.sumIn { blockLength = k, copies = n } r).toInt else 0)
     _ = w n * (RepetitionTemplate.sumIn { blockLength = k, copies = n } r).toInt := keptTerm w r k hk n hn
-    _ = w n * (List.sumBy r.ids (x => Nat.keepIf x (writtenAs (Nat.digits x) k n))).toInt := rewrite repeatedIds r k hk n hn
-    _ = w n * List.sumBy r.ids (x => (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt)
-      := rewrite Int.toIntSumBy (x => Nat.keepIf x (writtenAs (Nat.digits x) k n)) r.ids
-    _ = List.sumBy r.ids (x => w n * (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt)
-      := Eq.sym (Int.sumByMulLeft (w n) (x => (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt) r.ids)
+    _ = w n * (List.sumBy r.ids (x => Nat.keepIf x (writtenAs (Nat.digits x).toList k n))).toInt := rewrite repeatedIds r k hk n hn
+    _ = w n * List.sumBy r.ids (x => (Nat.keepIf x (writtenAs (Nat.digits x).toList k n)).toInt)
+      := rewrite Int.toIntSumBy (x => Nat.keepIf x (writtenAs (Nat.digits x).toList k n)) r.ids
+    _ = List.sumBy r.ids (x => w n * (Nat.keepIf x (writtenAs (Nat.digits x).toList k n)).toInt)
+      := Eq.sym (Int.sumByMulLeft (w n) (x => (Nat.keepIf x (writtenAs (Nat.digits x).toList k n)).toInt) r.ids)
 
 --| A block written n times with more digits than `to` adds nothing.
-theorem repeatedZero (r: Range) (k: Nat) (hk: 1 ≤ k) (n: Nat) (hn: 2 ≤ n) (h: Nat.leq (k * n) (List.length (Nat.digits r.to)) = False): RepetitionTemplate.sumIn { blockLength = k, copies = n } r = 0 :=
+theorem repeatedZero (r: Range) (k: Nat) (hk: 1 ≤ k) (n: Nat) (hn: 2 ≤ n) (h: Nat.leq (k * n) r.to.digitCount = False): RepetitionTemplate.sumIn { blockLength = k, copies = n } r = 0 :=
   Eq.trans (repeatedIds r k hk n hn)
-    (List.sumRangeNone (x => writtenAs (Nat.digits x) k n) (x => x) r.size r.from
+    (List.sumRangeNone (x => writtenAs (Nat.digits x).toList k n) (x => x) r.size r.from
       (x x1 x2 =>
-        match t: writtenAs (Nat.digits x) k n with
+        match t: writtenAs (Nat.digits x).toList k n with
           | True =>
             omega [repCount x k n hn t, idsBelow r x x1 x2]
           | False => rfl))
 
 --| One range under weights w, id by id.
-theorem weightedIds (w: Nat → Int) (r: Range): weighted w r = List.sumBy r.ids (x => idTerms w (List.length (Nat.digits r.to)) x) :=
-  let size := List.length (Nat.digits r.to)
+theorem weightedIds (w: Nat → Int) (r: Range): weighted w r = List.sumBy r.ids (x => idTerms w r.to.digitCount x) :=
+  let size := r.to.digitCount
   calc weighted w r
-    _ = List.sumBy (List.rangeFrom size 1) (k => List.sumBy (List.rangeFrom (size - 1) 2) (n => List.sumBy r.ids (x => w n * (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt)))
+    _ = List.sumBy (List.rangeFrom size 1) (k => List.sumBy (List.rangeFrom (size - 1) 2) (n => List.sumBy r.ids (x => w n * (Nat.keepIf x (writtenAs (Nat.digits x).toList k n)).toInt)))
       := rewrite termIds w r
-    _ = List.sumBy (List.rangeFrom size 1) (k => List.sumBy r.ids (x => List.sumBy (List.rangeFrom (size - 1) 2) (n => w n * (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt)))
+    _ = List.sumBy (List.rangeFrom size 1) (k => List.sumBy r.ids (x => List.sumBy (List.rangeFrom (size - 1) 2) (n => w n * (Nat.keepIf x (writtenAs (Nat.digits x).toList k n)).toInt)))
       := rewrite List.sumBySwap [c := Int] r.ids (List.rangeFrom (size - 1) 2) _
     _ = List.sumBy r.ids (x => idTerms w size x)
-      := List.sumBySwap r.ids (List.rangeFrom size 1) (k x => List.sumBy (List.rangeFrom (size - 1) 2) (n => w n * (Nat.keepIf x (writtenAs (Nat.digits x) k n)).toInt))
+      := List.sumBySwap r.ids (List.rangeFrom size 1) (k x => List.sumBy (List.rangeFrom (size - 1) 2) (n => w n * (Nat.keepIf x (writtenAs (Nat.digits x).toList k n)).toInt))
 
 --| One range: the signed total is the puzzle's sum, embedded.
 theorem rangeWeighted (r: Range): weighted copiesWeight r = (List.sum (List.filter r.ids repeats)).toInt :=
-  let size := List.length (Nat.digits r.to)
+  let size := r.to.digitCount
   calc weighted copiesWeight r
     _ = List.sumBy r.ids (x => idTerms copiesWeight size x) := weightedIds copiesWeight r
     _ = List.sumBy r.ids (x => (Nat.keepIf x (repeats x)).toInt)

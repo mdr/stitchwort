@@ -16,8 +16,8 @@ def example: List Text := """
   """.lines
 
 test "blank column" := isBlank [' ', ' '] ∧ not (isBlank [' ', '7'])
-test "blocks" := blocks ["1 23", "+ *"] == [[['1', '+']], [['2', '*'], ['3', ' ']]]
-test "blocks of a short line" := blocks ["12", "+"] == [[['1', '+'], ['2', ' ']]]
+test "blocks" := (blocks ["1 23", "+ *"]).map .toList == [[['1', '+']], [['2', '*'], ['3', ' ']]]
+test "blocks of a short line" := (blocks ["12", "+"]).map .toList == [[['1', '+'], ['2', ' ']]]
 test "example problems" :=
   (parseWorksheet example).map (p => (p.rowNumbers, p.columnNumbers))
     == [

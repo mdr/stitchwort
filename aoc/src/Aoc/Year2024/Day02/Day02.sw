@@ -27,11 +27,11 @@ def parseReports (input: Text): {Fail} List Report := Parse.eachLine input repor
 --| At least one level. Two numbers next to each other must have spaces
 --| between them, or they would be one number.
 def reportLine(): {Parse} Report :=
-  let levels := many1 (() => token nat)
+  let levels := many1 (() => token nat) |> .toList
   { levels }
 
 --| From `lower` to `higher` is a rise of one to three.
-def risesGently (lower: Nat) (higher: Nat): Bool := lower < higher && higher <= lower + 3
+def risesGently (lower: Nat) (higher: Nat): Bool := lower < higher <= lower + 3
 
 --| Every step rises gently, or every step falls gently.
 def Report.isSafe (report: Report): Bool :=

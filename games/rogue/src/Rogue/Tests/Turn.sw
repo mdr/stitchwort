@@ -89,7 +89,7 @@ test "killing says so" := (resolve middleRoll facingGoblin (Move East)).message 
 test "the blow lands only on the monster bumped" :=
   let far: Monster := { kind = Orc, position = { row = 3, column = 7 }, hitPoints = 7 }
   let after := resolve lowRoll { facingGoblin | monsters = [goblinNextDoor, far] } (Move East)
-  after.monsters.map (.hitPoints) == [1, 7]
+  after.monsters.map .hitPoints == [1, 7]
 
 def orcNextDoor: Monster := { kind = Orc, position = { row = 1, column = 2 }, hitPoints = 7 }
 
@@ -107,7 +107,7 @@ def stumbles (dice: Dice): Bool := dice.chance 2 5
 
 --| Where a lone monster is after the player waits a turn.
 def chased (dice: Dice) (player: Position) (monster: Monster): List Position :=
-  (resolve dice { quiet | player, monsters = [monster] } Wait).monsters.map (.position)
+  (resolve dice { quiet | player, monsters = [monster] } Wait).monsters.map .position
 
 def goblinAt (position: Position): Monster := { kind = Goblin, position, hitPoints = 3 }
 
@@ -130,12 +130,12 @@ test "a monster won't step onto another" :=
   let first := goblinAt { row = 1, column = 3 }
   let second := goblinAt { row = 1, column = 4 }
   let after := resolve lowRoll { quiet | monsters = [second, first] } Wait
-  (after.monsters.map (.position)).dedup.length == 2
+  (after.monsters.map .position).dedup.length == 2
 test "monsters chase together without sharing a cell" :=
   let pack := [goblinAt { row = 1, column = 5 }, goblinAt { row = 2, column = 5 }, goblinAt { row = 1, column = 6 }]
   List.range 20 |> .all (seed =>
     let after := resolve { seed } { quiet | monsters = pack } Wait
-    after.monsters.map (.position) |> .dedup |> .length == 3)
+    after.monsters.map .position |> .dedup |> .length == 3)
 
 -- Items
 
@@ -157,7 +157,7 @@ test "monsters act while you drink" := (resolve lowRoll { facingGoblin | potions
 --| The damage left on an orc after one blow, for each of 40 rolls.
 def orcAfterBlows (state: State): List Nat :=
   let facingOrc := { state | monsters = [{ orcNextDoor | kind = Orc }] }
-  List.range 40 |> .map (seed => resolve { seed } facingOrc (Move East) |> .monsters |> .map (.hitPoints) |> .headOr 0)
+  List.range 40 |> .map (seed => resolve { seed } facingOrc (Move East) |> .monsters |> .map .hitPoints |> .headOr 0)
 
 test "a sword raises the player's strength" :=
   let after := resolve lowRoll (lying Sword) (Move East)

@@ -7,7 +7,7 @@ import Aoc.Year2020.Day04.Spec (..)
 import Std (Bool, Char, DecEq, Eq, List, Nat, Option, Parse, Text, byDecision)
 
 theorem betweenToNat (low: Nat) (high: Nat) (chars: List Char):
-    between low high (Text.toNat (Text.fromList chars)) = (chars ≠ [] ∧ chars.all Parse.isDigit ∧ low <= number chars ∧ number chars <= high) :=
+    between low high (Text.toNat (Text.fromList chars)) = (chars ≠ [] ∧ chars.all Parse.isDigit ∧ low <= number chars <= high) :=
   rewrite Text.toNatDigits chars in cases
 
 theorem andShape (a: Bool) (b: Bool) (c: Bool) (d: Bool): (a ∧ True ∧ b ∧ c ∧ d) = ((a ∧ b) ∧ c ∧ d) := cases

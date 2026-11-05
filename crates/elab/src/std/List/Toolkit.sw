@@ -385,59 +385,6 @@ def List.AllLength (n: Nat): List (List a) → Prop
   | [] => Unit
   | [r, ..rs] => (List.length r = n) ∧ (List.AllLength n rs)
 
---| The groups of consecutive elements that don't satisfy `p`, in order: `p`
---| marks the separators, which are dropped, and no group is empty. So
---| `List.splitBy [1, 2, 0, 0, 3] (x => x == 0)` is `[[1, 2], [3]]`. No group
---| is empty or has a separator ([`List.splitByGroups`]), and the groups
---| joined are the elements that aren't separators ([`List.splitByConcat`]).
-def List.splitBy (xs: List a) (p: a → Bool): List (List a) := List.finishGroups (List.splitGroups xs p)
-
---| Reads the list from the right: the group still open at the front, and the
---| groups finished after it. A right fold, so it runs as a loop over the
---| reversed list (stack-safe on long lists); [`List.splitGroupsCons`] is its step.
-def List.splitGroups (xs: List a) (p: a → Bool): Pair (List a) (List (List a)) :=
-  List.foldRight xs (MkPair [] []) (x st => List.splitStep x (p x) st)
-
---| Adds the element `x` in front: a separator (`True`) closes the open group,
---| anything else joins it.
-def List.splitStep (x: a): Bool → Pair (List a) (List (List a)) → Pair (List a) (List (List a))
-  | True, MkPair cur done => MkPair [] (List.closeGroup cur done)
-  | False, MkPair cur done => MkPair [x, ..cur] done
-
---| The groups of `List.splitBy`, with the group still open closed.
-def List.finishGroups: Pair (List a) (List (List a)) → List (List a)
-  | MkPair cur done => List.closeGroup cur done
-
---| Adds a group to the finished ones, unless it is empty.
-def List.closeGroup: List a → List (List a) → List (List a)
-  | [], done => done
-  | [y, ..ys], done => [[y, ..ys], ..done]
-
---| How many elements a state of `List.splitBy` holds, in the open group and the finished ones.
-def List.splitTotal (st: Pair (List a) (List (List a))): Nat := List.length (Pair.fst st) + List.sumBy (Pair.snd st) List.length
-
---| The group has no separator in it.
-@[noReceiver]
-def List.NonSep (p: a → Bool) (g: List a): Prop := List.all g (x => ¬(p x)) = True
-
---| Every group is non-empty and has no separator in it.
-@[noReceiver]
-def List.Groups (p: a → Bool): List (List a) → Prop
-  | [] => Unit
-  | [g, ..gs] => ((0 < List.length g) ∧ (List.NonSep p g)) ∧ (List.Groups p gs)
-
---| A state of `List.splitBy` is well formed: no group has a separator, and no finished group is empty.
-def List.SplitOk (p: a → Bool): Pair (List a) (List (List a)) → Prop
-  | MkPair cur done => (List.NonSep p cur) ∧ (List.Groups p done)
-
---| A state of `List.splitBy` holds exactly the elements of `xs` that aren't separators, in order.
-@[noReceiver]
-def List.SplitKeeps (p: a → Bool) (xs: List a) (st: Pair (List a) (List (List a))): Prop :=
-  List.append (Pair.fst st) (List.concat (Pair.snd st)) = List.filter xs (x => ¬(p x))
-
-test "List.splitBy with separators on the end" :=
-  [1, 0, 2].splitBy (== 0) == [[1], [2]] ∧ [1, 0, 2, 0, 0].splitBy (== 0) == [[1], [2]] ∧ [0, 0].splitBy (== 0) == []
-
 --| How many elements satisfy `p` (as `List.count`, but recursing on the list,
 --| which suits proofs).
 def List.occurrences: List a → (p: a → Bool) → Nat
@@ -910,6 +857,11 @@ theorem List.foldLeftCongRange (f1: b → Nat → b) (f2: b → Nat → b) (z: b
 theorem List.sumByCongRange [auto add: Add c] (f: Nat → c) (g: Nat → c): (c: Nat) → (s: Nat) → ((x: Nat) → s ≤ x → x < s + c → f x = g x) →
     List.sumBy (List.rangeFrom c s) f = List.sumBy (List.rangeFrom c s) g :=
   c s h => List.foldLeftCongRange (acc x => acc + f x) (acc x => acc + g x) Add.zero c s (acc x low high => Eq.cong (t => acc + t) (h x low high))
+
+--| Sums agree when their terms agree on the list's elements.
+theorem List.sumByCongMem [auto add: Add b] (xs: List a) (f: a → b) (g: a → b) (agree: (x: a) → x ∈ xs → f x = g x):
+    List.sumBy xs f = List.sumBy xs g :=
+  List.foldLeftCongMem xs Add.zero (acc x => acc + f x) (acc x => acc + g x) (acc x m => Eq.cong (t => acc + t) (agree x m))
 
 theorem List.countCongMem (xs: List a) (p1: a → Bool) (p2: a → Bool) (ep: (x: a) → (m: List.Mem x xs) → p1 x = p2 x): List.count xs p1 = List.count xs p2 :=
   List.foldLeftCongMem xs 0 (n x => Nat.succIf n (p1 x)) (n x => Nat.succIf n (p2 x)) (acc x m => Eq.cong (b => Nat.succIf acc b) (ep x m))

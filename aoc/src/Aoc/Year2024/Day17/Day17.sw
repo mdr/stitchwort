@@ -76,7 +76,7 @@ def debugger(): {Parse} Debugger :=
   let c := register "C"
   blankLine()
   text "Program: "
-  let program := sepBy1 threeBit (() => char ',')
+  let program := sepBy1 threeBit (() => char ',') |> .toList
   { registers = { a, b, c }, program }
 
 def parseDebugger (input: Text): {Fail} Debugger := Parse.all input debugger

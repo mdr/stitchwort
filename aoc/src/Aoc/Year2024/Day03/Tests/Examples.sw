@@ -39,7 +39,11 @@ test "nested in the second number" := found "mul(4,mul(2,3))" == [Mul 2 3]
 test "back to back" := found "mul(1,2)mul(3,4)" == [Mul 1 2, Mul 3 4]
 test "don't is not do" := found "don't()do()" == [Dont, Do]
 test "a broken don't" := found "don't(do()" == [Do]
-test "across lines" := found "mul(1,\n2)mul(3,4)\ndo()\n" == [Mul 3 4, Do]
+test "across lines" := found """
+  mul(1,
+  2)mul(3,4)
+  do()
+  """ == [Mul 3 4, Do]
 test "empty memory" := found "" == []
 test "only noise" := found "%&!@^" == []
 

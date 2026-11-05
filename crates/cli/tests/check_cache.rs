@@ -634,11 +634,11 @@ fn edit_std(std_dir: &Path, file: &str, from: &str, to: &str) {
     std::fs::write(path, old.replacen(from, to, 1)).unwrap();
 }
 
-/// Lemma lookups (`rewrite`, `decreasing`, `auto`) see the library files
-/// loaded in the run, not only those a namespace names: `B` never names
-/// `Option`'s lemma file, but its `rewrite` finds `Option.mapCong` there
-/// because `A` loaded it. An entry is a miss when any file loaded when it
-/// was written has changed.
+/// `B` never names `Option`'s lemma file, but its `rewrite` needs
+/// `Option.mapCong`, which lives in the file of `Option.map`; `A` loads the
+/// lemma file too. An edit to `Option.mapCong` must reach `B`'s entry
+/// (SW-1354 makes a result independent of what else the run loads, so the
+/// entry's list of the files it needs is enough).
 #[test]
 fn an_entry_is_a_miss_when_a_library_file_loaded_beside_it_changed() {
     let (project, std_dir, cache) = std_edit_fixture(
@@ -663,7 +663,7 @@ fn an_entry_is_a_miss_when_a_library_file_loaded_beside_it_changed() {
     check_step(dirs, "warm", &[]);
     edit_std(
         &std_dir,
-        "Option/Lemmas.sw",
+        "Option/Option.sw",
         "Option.map x f1 = Option.map x f2\n  | None, f1, f2, ef => rfl\n  | Some y, f1, f2, ef => Eq.cong Some (ef y)",
         "Option.map x f1 = Option.map x f1\n  | None, f1, f2, ef => rfl\n  | Some y, f1, f2, ef => rfl",
     );
@@ -693,6 +693,12 @@ fn a_library_edit_re_checks_what_it_can_change_and_nothing_else() {
             "namespace Sum\n\ndef six: Nat := [1, 2, 3].sumBy (x => x)\n\n\
                  theorem six_is_six: six = 6 := rfl\n",
         ),
+        // Uses no library file itself, but `auto` in it draws on the files
+        // of the namespace it depends on.
+        (
+            "src/Dep.sw",
+            "namespace Dep\nimport Wild (hi)\n\ndef again: Text := hi\n",
+        ),
         // Both files declare `bold`, but only `Ansi`'s is used.
         (
             "src/Wild.sw",
@@ -712,21 +718,20 @@ fn a_library_edit_re_checks_what_it_can_change_and_nothing_else() {
 
     let first = check("cold", &[]);
     assert!(first.contains("status Some(0)"), "{first}");
-    assert_eq!(namespace_entries(&cache), 4);
+    assert_eq!(namespace_entries(&cache), 5);
     check("warm", &[]);
 
     // A comment in a file no namespace loads: its text isn't in their keys.
     append("Graph/Search.sw", "\n-- a comment\n");
     check("a comment in a file nothing loads", &[]);
 
-    // A body that `Fancy` and `Wild` use (through `Ansi`) changes. `Plain`
-    // and `Sum` don't use it, but their entries list every library file
-    // loaded when they were written, `Ansi`'s among them (lemma lookups see
-    // those), so they are checked again too. `Fancy`'s theorem now fails.
+    // A body that `Fancy` and `Wild` use (through `Ansi`) changes, and so
+    // does `Dep`, which depends on `Wild`; `Plain` and `Sum` load nothing
+    // that reaches it. `Fancy`'s theorem now fails.
     replace("Terminal/Ansi.sw", "\\u{1b}[1m${text}", "\\u{1b}[2m${text}");
     let after = check(
         "a used definition's body changed",
-        &["Fancy", "Plain", "Sum", "Wild"],
+        &["Dep", "Fancy", "Wild"],
     );
     assert!(after.contains("E-REFL"), "{after}");
 
@@ -742,4 +747,54 @@ fn a_library_edit_re_checks_what_it_can_change_and_nothing_else() {
     let _ = std::fs::remove_dir_all(&project);
     let _ = std::fs::remove_dir_all(&std_dir);
     let _ = std::fs::remove_dir_all(&cache);
+}
+
+/// A namespace's result doesn't depend on which library files the other
+/// namespaces of the run load (SW-1354). `B` rewrites inside `Option.map`,
+/// which needs `Option.mapCong`; `A` loads `Option/Lemmas.sw` (for
+/// `Option.mapId`) and `B` doesn't. `B` checks the same alone, beside an
+/// `A` that loads that file and beside one that doesn't: fresh, with a cold
+/// cache and with a warm one.
+#[test]
+fn a_namespace_checks_the_same_whatever_else_the_run_loads() {
+    let b = "namespace B\nimport Std (Option)\n\ndef inc (x: Nat): Nat := Succ x\n\n\
+             theorem incIs (x: Nat): inc x = Succ x := rfl\n\n\
+             theorem t (o: Option Nat): Option.map o (x => inc x) = Option.map o (x => Succ x) := \
+             rewrite incIs\n";
+    let lemmas = "namespace A\nimport Std (Option)\n\n\
+                  theorem idem (x: Option Nat): Option.map x (y => y) = x := Option.mapId x\n";
+    let plain = "namespace A\n\ndef one: Nat := 1\n";
+    for (what, a) in [
+        ("alone", None),
+        ("with A", Some(lemmas)),
+        ("with a plain A", Some(plain)),
+    ] {
+        let project = temp_dir("loads-project");
+        std::fs::create_dir_all(project.join("src")).unwrap();
+        std::fs::write(project.join("stitchwort.yaml"), "sources: [src]\n").unwrap();
+        std::fs::write(project.join("src/B.sw"), b).unwrap();
+        if let Some(a) = a {
+            std::fs::write(project.join("src/A.sw"), a).unwrap();
+        }
+        let namespaces = if a.is_some() { 2 } else { 1 };
+        let cache = temp_dir("loads-cache");
+        let dir = project.to_str().unwrap();
+        let fresh = stitchwort(&["check", "--project", dir, "--no-cache"], &[]);
+        let runs = [
+            ("fresh", fresh),
+            ("cold", plain_check(&project, &cache, true, false)),
+            ("warm", plain_check(&project, &cache, true, false)),
+        ];
+        for (when, output) in &runs {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            assert!(
+                output.status.success()
+                    && stderr.contains(&format!("checked {namespaces} namespace")),
+                "{what}, {when}: {}",
+                shown(output)
+            );
+        }
+        let _ = std::fs::remove_dir_all(&project);
+        let _ = std::fs::remove_dir_all(&cache);
+    }
 }

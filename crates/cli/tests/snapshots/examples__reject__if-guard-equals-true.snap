@@ -2,12 +2,14 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-PARSE] Error: expected `then`, but found `=`
-   ╭─[ reject/if-guard-equals-true.sw:5:29 ]
+[E-COMPARISON-CHAIN] Error: `=` can't be part of a chain of comparisons
+   ╭─[ reject/if-guard-equals-true.sw:5:13 ]
    │
  5 │   if apart: Succ low < high = True then low else high
-   │                             ┬  
-   │                             ╰── expected `then`, but found `=`
+   │             ────┬───        ┬  
+   │                 ╰────────────── this comparison
+   │                             │  
+   │                             ╰── isn't compared with a Bool
    │ 
-   │ Note: in `if apart: …` the guard is already a proposition: write `if apart: a < b then` for `a < b`, without `= True`
+   │ Note: a comparison is already a proposition (and decided where a `Bool` is wanted): write `a < high` for it, without `= True`, and `¬(a < high)` without `= False`
 ───╯

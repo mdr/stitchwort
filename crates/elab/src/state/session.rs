@@ -70,6 +70,10 @@ pub struct Session {
     /// them taken (`cache`, `new_module_name`). One namespace's, emptied
     /// as the next begins: a mark copies it.
     pub(crate) replayed_names: HashSet<String>,
+    /// Each project namespace checked or replayed: the library files its
+    /// module needs, with those of the namespaces it depends on, as
+    /// `ModuleState::library_reach` (`auto`). Shared with the marks.
+    pub(crate) library_reach: Rc<BTreeMap<String, Rc<BTreeSet<usize>>>>,
     /// What every unit's key holds of the library besides the text of the
     /// files it loads (`cache::Elaborator::library_interface`). Computed
     /// once.
@@ -96,6 +100,7 @@ pub(crate) struct Mark {
     library: Option<library::LibraryState>,
     namespace_sources: Arc<HashMap<String, cache::Key>>,
     replayed_names: HashSet<String>,
+    library_reach: Rc<BTreeMap<String, Rc<BTreeSet<usize>>>>,
     owners: super::owners::Mark,
     paths: super::paths::Mark,
 }
@@ -110,6 +115,7 @@ impl Session {
             library,
             namespace_sources,
             replayed_names,
+            library_reach,
             owners,
             paths,
             // Its own checkpoints (`rewind.rs`), and the maps it puts back.
@@ -134,6 +140,7 @@ impl Session {
             library: library.clone(),
             namespace_sources: namespace_sources.clone(),
             replayed_names: replayed_names.clone(),
+            library_reach: library_reach.clone(),
             owners: owners.mark(),
             paths: paths.borrow().mark(),
         }
@@ -148,6 +155,7 @@ impl Session {
             library,
             namespace_sources,
             replayed_names,
+            library_reach,
             owners,
             paths,
             journal: _,
@@ -168,6 +176,7 @@ impl Session {
         *library = mark.library.clone();
         *namespace_sources = mark.namespace_sources.clone();
         *replayed_names = mark.replayed_names.clone();
+        *library_reach = mark.library_reach.clone();
         owners.rewind(&mark.owners);
         paths.get_mut().rewind(&mark.paths);
     }

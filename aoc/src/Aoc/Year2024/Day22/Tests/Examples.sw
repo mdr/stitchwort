@@ -28,7 +28,12 @@ test "the step is the puzzle's, for secrets of 24 bits and more" :=
 test "0 stays 0" := nextSecret 0 == 0
 
 --| Part 1.
-test "part 1 example" := (parsed "1\n10\n100\n2024\n" |> .map solvePart1) == Ok 37327623
+test "part 1 example" := (parsed """
+  1
+  10
+  100
+  2024
+  """ |> .map solvePart1) == Ok 37327623
 test "part 1 with no buyers" := solvePart1 [] == 0
 
 --| Part 2.
@@ -36,7 +41,12 @@ test "the first ten prices of 123" := prices 9 123 == [3, 0, 6, 5, 4, 4, 6, 4, 4
 test "-1,-1,0,2 sells at 6 for 123" := (firstSales (prices 9 123)).get (changesOf (-1) (-1) 0 2) == Some 6
 test "a sale needs four changes" := (firstSales (prices 3 123)).size == 0 && (firstSales (prices 4 123)).size == 1
 test "the example sequence's sales" := [1, 2, 3, 2024].map (buyer => (firstSales (prices 2000 buyer)).get best) == [Some 7, Some 7, None, Some 9]
-test "part 2 example" := (parsed "1\n2\n3\n2024\n" |> .map solvePart2) == Ok 23
+test "part 2 example" := (parsed """
+  1
+  2
+  3
+  2024
+  """ |> .map solvePart2) == Ok 23
 test "its best sequence" := (bananasBySequence 2000 [1, 2, 3, 2024]).getOr best 0 == 23
 test "part 2 on part 1's example" := solvePart2 [1, 10, 100, 2024] == 24
 test "part 2 with no buyers" := solvePart2 [] == 0
@@ -54,7 +64,12 @@ test "the most over the shown sequences" :=
   bestTotal 50 buyers == mostBananas (bananasBySequence 50 buyers).keys 50 buyers
 
 --| Parsing.
-test "parse" := parsed "1\n10\n100\n2024\n" == Ok [1, 10, 100, 2024]
+test "parse" := parsed """
+  1
+  10
+  100
+  2024
+  """ == Ok [1, 10, 100, 2024]
 test "parse without a final line break" := parsed "1\n2" == Ok [1, 2]
 test "a line that isn't a number" := parsed "1\nx\n" == Err "line 2, column 1: expected a number, got 'x'"
 test "an empty input has no buyers" := parsed "" == Ok []

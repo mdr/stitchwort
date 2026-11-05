@@ -100,7 +100,7 @@ theorem answer2 (lines: List Text) (lo: Nat) (hi: Nat):
 --| The program's total over the blocks is the total over the problems the
 --| spec finds, for any way `answer` scores a block.
 theorem blocksTotal (lines: List Text) (answer: List (List Char) → Nat):
-    List.sumBy (blocks lines) answer
+    List.sumBy (blocks lines) (block => answer block.toList)
       = List.sumBy (List.range (gridWidth lines))
         (lo => List.sumBy (List.range (gridWidth lines + 1)) (hi => Nat.keepIf (answer (blockOf lines lo hi)) (isProblem lines lo hi))) :=
   rewrite columnsAre lines in
@@ -123,7 +123,7 @@ theorem term2 (lines: List Text) (lo: Nat) (hi: Nat):
 --| total with the numbers read along the rows.
 theorem part1Correct (lines: List Text): solvePart1 (parseWorksheet lines) = part1Spec lines :=
   calc solvePart1 (parseWorksheet lines)
-    _ = _ := List.sumByMap (blocks lines) ((p: Problem) => evaluate p.operator p.rowNumbers) Problem.parse
+    _ = _ := List.sumByMap (blocks lines) ((p: Problem) => evaluate p.operator p.rowNumbers) (block => Problem.parse block.toList)
     _ = _ := blocksTotal lines blockAnswer1
     _ = part1Spec lines := rewrite term1 lines _ _
 
@@ -131,6 +131,6 @@ theorem part1Correct (lines: List Text): solvePart1 (parseWorksheet lines) = par
 --| to left.
 theorem part2Correct (lines: List Text): solvePart2 (parseWorksheet lines) = part2Spec lines :=
   calc solvePart2 (parseWorksheet lines)
-    _ = _ := List.sumByMap (blocks lines) ((p: Problem) => evaluate p.operator p.columnNumbers) Problem.parse
+    _ = _ := List.sumByMap (blocks lines) ((p: Problem) => evaluate p.operator p.columnNumbers) (block => Problem.parse block.toList)
     _ = _ := blocksTotal lines blockAnswer2
     _ = part2Spec lines := rewrite term2 lines _ _
