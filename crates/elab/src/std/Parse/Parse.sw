@@ -368,7 +368,7 @@ def Parse.manyFuel (fuel: Nat) (parser: () → {Parse} a) (found: List a): {Pars
     | Zero => found.reverse
     | Succ more =>
       let before := Parse.mark()
-      Parse.manyStep before (Parse.optional parser) (value => Parse.manyFuel more parser (Cons value found)) (() => found.reverse)
+      Parse.manyStep before (Parse.optional parser) (value => Parse.manyFuel more parser [value, ..found]) (() => found.reverse)
 
 --| One round of `many`, once `optional parser` has given `found` from
 --| `before`: `done()` if it failed, `next` of its value if it read something.
@@ -393,13 +393,13 @@ def Parse.many (parser: () → {Parse} a): {Parse} List a := Parse.manyFuel (Par
 --| `parser`'s values while it succeeds, at least one.
 def Parse.many1 (parser: () → {Parse} a): {Parse} List a :=
   let first := parser()
-  Cons first (Parse.many parser)
+  [first, ..Parse.many parser]
 
 --| `parser` while it succeeds, at most `count` more times. `found` is newest first.
 def Parse.repeatOptional (count: Nat) (parser: () → {Parse} a) (found: List a): {Parse} List a :=
   match count with
     | Zero => found.reverse
-    | Succ more => Parse.onFound (Parse.optional parser) (value => Parse.repeatOptional more parser (Cons value found)) (() => found.reverse)
+    | Succ more => Parse.onFound (Parse.optional parser) (value => Parse.repeatOptional more parser [value, ..found]) (() => found.reverse)
 
 --| `next` of what was found, else `done`.
 -- A function of its own, not a `match` in the loops that use it, so that
@@ -417,7 +417,7 @@ def Parse.repeatFrom (count: Nat) (extra: Nat) (parser: () → {Parse} a) (found
     | Zero => Parse.repeatOptional extra parser found
     | Succ more =>
       let value := parser()
-      Parse.repeatFrom more extra parser (Cons value found)
+      Parse.repeatFrom more extra parser [value, ..found]
 
 --| `parser`'s values, `atLeast` to `atMost` of them, as Megaparsec's `count'`:
 --| the first `atLeast` must match, then it stops at the first failure or at
@@ -435,9 +435,12 @@ def Parse.exactly (count: Nat) (parser: () → {Parse} a): {Parse} List a :=
 --| least one value.
 def Parse.sepBy1 (parser: () → {Parse} a) (separator: () → {Parse} ()): {Parse} List a :=
   let first := parser()
-  Cons first (Parse.many (() =>
-    separator()
-    parser()))
+  [
+    first,
+    ..Parse.many (() =>
+      separator()
+      parser())
+  ]
 
 --| `parser`, then `separator` and `parser` again as long as both match: any number of values, possibly none. Never fails.
 def Parse.sepBy (parser: () → {Parse} a) (separator: () → {Parse} ()): {Parse} List a :=
@@ -482,7 +485,7 @@ def Parse.section (parser: () → {Parse} a): {Parse} List a :=
     Parse.newline()
     Parse.sectionLine parser)
   Parse.blankLine()
-  Cons first rest
+  [first, ..rest]
 
 --| Rows of cells, one row per line, at least one cell in each. Rows may
 --| differ in length.
@@ -534,7 +537,7 @@ def Parse.findAllFuel (fuel: Nat) (skipNoise: () → {Parse} ()) (parser: () →
     | Succ more =>
       skipNoise()
       let attempt := Parse.attempt parser
-      let foundNow := attempt.map (matched => Cons matched.fst found) |> .getOrElse found
+      let foundNow := attempt.map (matched => [matched.fst, ..found]) |> .getOrElse found
       if attempt.map (matched => matched.snd) |> .getOrElse False then Parse.findAllFuel more skipNoise parser foundNow
       else Parse.onFound (Parse.next (char => True)) (skipped => Parse.findAllFuel more skipNoise parser foundNow) (() => foundNow.reverse)
 
@@ -825,7 +828,7 @@ theorem Parse.runFromSpanThere (state: Parse.State) (passes: Char → Bool) (tak
 
 --| `next` where the next character passes: it reads it.
 theorem Parse.runFromNextThere (state: Parse.State) (passes: Char → Bool) (char: Char) (rest: List Char) (k: Option Char → {Parse} a)
-    (starts: state.at.rest = Cons char rest) (holds: passes char = True):
+    (starts: state.at.rest = [char, ..rest]) (holds: passes char = True):
     Parse.runFrom state (() => k (Parse.next passes)) = Parse.runFrom (state.advance rest 1) (() => k (Some char)) :=
   rewrite starts, holds in rfl
 
@@ -843,7 +846,7 @@ theorem Parse.sameChar (char: Char): (char == char) = True :=
     | No different => Void.exfalso (different rfl)
 
 theorem Parse.runFromCharThere (state: Parse.State) (expected: Char) (rest: List Char) (k: () → {Parse} a)
-    (starts: state.at.rest = Cons expected rest):
+    (starts: state.at.rest = [expected, ..rest]):
     Parse.runFrom state (() => k (Parse.char expected)) = Parse.runFrom (state.advance rest 1) (() => k ()) :=
   rewrite starts, Parse.sameChar expected in rfl
 
@@ -855,7 +858,7 @@ theorem Parse.runFromNatThere (state: Parse.State) (digits: List Char) (rest: Li
       Parse.runFrom (state.advance rest digits.length) (() => k (digits.map (digit => digit.digitValue.getOrElse 0) |> Nat.fromDigits)) :=
   match digits with
     | [] => Void.exfalso (some rfl)
-    | [first, ..others] => rewrite starts, List.spanAppend Parse.isDigit (Cons first others) rest all stops in rfl
+    | [first, ..others] => rewrite starts, List.spanAppend Parse.isDigit [first, ..others] rest all stops in rfl
 
 theorem Parse.runFromEndThere (state: Parse.State) (k: () → {Parse} a) (atEnd: state.at.left = 0):
     Parse.runFrom state (() => k (Parse.end())) = Parse.runFrom state (() => k ()) :=
@@ -921,14 +924,14 @@ theorem Parse.runFromOneOfFromSome (state: Parse.State) (after: Parse.State) (fi
     (rest: List (() → {Parse} a)) (value: a) (k: a → {Parse} b)
     (succeeds: (choose: Option a → {Parse} a) → (finish: a → {Parse} b) →
       Parse.runFrom state (() => finish (choose (Parse.optional first))) = Parse.runFrom after (() => finish (choose (Some value)))):
-    Parse.runFrom state (() => k (Parse.oneOfFrom first (Cons next rest))) = Parse.runFrom after (() => k value) :=
+    Parse.runFrom state (() => k (Parse.oneOfFrom first [next, ..rest])) = Parse.runFrom after (() => k value) :=
   succeeds (found => Parse.valueOr found (() => Parse.oneOfFrom next rest)) k
 
 theorem Parse.runFromOneOfFromNone (state: Parse.State) (after: Parse.State) (first: () → {Parse} a) (next: () → {Parse} a)
     (rest: List (() → {Parse} a)) (k: a → {Parse} b)
     (fails: (choose: Option a → {Parse} a) → (finish: a → {Parse} b) →
       Parse.runFrom state (() => finish (choose (Parse.optional first))) = Parse.runFrom after (() => finish (choose None))):
-    Parse.runFrom state (() => k (Parse.oneOfFrom first (Cons next rest))) = Parse.runFrom after (() => k (Parse.oneOfFrom next rest)) :=
+    Parse.runFrom state (() => k (Parse.oneOfFrom first [next, ..rest])) = Parse.runFrom after (() => k (Parse.oneOfFrom next rest)) :=
   fails (found => Parse.valueOr found (() => Parse.oneOfFrom next rest)) k
 
 --| The last alternative is run as it is.

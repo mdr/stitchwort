@@ -4,8 +4,8 @@ expression: "lines(session, d, f)"
 ---
 Main.increasesOver ac6e79568fa013ae6b1c08517e5a09ea6917e39566f574b74b19c103dc0db99f
 Main.test "a bare comparison, zipped" d456e6fb3e9c53428fb87d955e47b8e8ee4b3a43b9520ad192a525b7a19079e0
-Main.deepCount 43e824c751895eab3e3d3b49203e3241d01f96222ce37b2cde185db5e5cc748b
-Main.test "a section with an operand, mapped" 52f35c3e46bb8ba2b958bb21bb1a257aaa7e28c822bdd275277decb027c698e6
-Main.smallFirsts 1e95297dab7f0bf11a25f3ec555a71fa182431653a376b9db25a1eb39be41309
-Main.test "a method section that compares" 34ef628e7f7656ca69cf49930dc697e4099a83087592b87f584b1d23a1f08bce
+Main.deepCount b428b7a4e989aa935a0d084ede9dc1e4bcfd31dbd16d8c824b8054c124d1809b
+Main.test "a section with an operand, mapped" 280c3a302019b9260367a1cb29b6f224c8d14f02d4f7b1afff379d35ef987bfd
+Main.smallFirsts da53fbc581643b1938055f184df23965ab3d90eb09b9c6cc724ca1af556df84f
+Main.test "a method section that compares" 9bc9d18e9969d2e1b5b4e9fac6475f7011fbbc165ab6a925185aeb9d02dc366c
 Main.allSmall 739da06f84cad7ab46741846a66fec63c7af43ee1eb8b30bcd3896300165df93

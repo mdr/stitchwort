@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-assertion_line: 246
 expression: "lines(session, d, f)"
 ---
 data Shop.Spec.Status da267898da799b3dc6050dd932d772d55bb2579696a59802cd6782cc4e6ddf7a
@@ -25,9 +24,9 @@ Shop.Spec.Status.%instOrd ae735fcf0aeac202689922a9ddafa61d2137c042464c8a87d441be
 Shop.Checks.owed b2f6650376ff4f65e37583075703542e506bb8289cd02ec24c21b7811461c6c8
 Shop.Checks.owed.eq1 321dc9dd0c44696c786fa331533bb3b45aa7cd5cfceef59b7e89b74cbd327701
 Shop.Checks.owed.eq2 da40c2c711374997ae5e67d2d399b285c33b2b6646b5f50dbb09454ca3706969
-Shop.Checks.owedAll af5d99326f0fc7d48fb60b8ac0c1b177d0a5e55fbb1332f0d983fc4b6a40ec36
+Shop.Checks.owedAll 6999a0a15590dee4e1fa7539dd986656277cab19b9978ea86fe396a6043aa6a6
 Shop.Checks.test "owed" 36f5c87f0df2d7e9ac5984cf7acf5c04718ef3dbc658391b08ef561b786341f4
-Shop.Checks.test "all" 068ab3eef0e0f1f41b9ee517da7280336f560e98b9972e1fbdac378f12bd0be9
+Shop.Checks.test "all" b7de9fca49ae8ff30ed00a297c3daf7a35696a14482840da50e8995facbdb45d
 Shop.Checks.test "count" c054d2011ffbddc57c0d0b1ecbb40f52516d50ae2fc7d9af448ddac57dc22680
 Shop.Proofs.emptyAgrees eb5a328db558b62b128a948a4b50ef7236e01e81d54a7c1299f1b04ac04c15be
 Shop.Proofs.oneAgrees d72d90b94ed6e9613abe997a1592c60fa09ad29ee2807ec24dfb758d629329ba

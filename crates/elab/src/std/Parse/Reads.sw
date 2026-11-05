@@ -737,14 +737,14 @@ theorem Parse.readsManyFuel (p: () → {Parse} a) (spec: List Char → a → Pro
       Parse.readsWeaken _ (Parse.Then (read (at: Parse.Mark) => read = []) (at => Parse.Then (Parse.Maybe spec) (Parse.ManyNext spec found)))
         (Parse.ManyFound spec found)
         (Parse.readsBind (() => Parse.mark())
-          (before => Parse.manyStep before (Parse.optional p) (v => Parse.manyFuel more p (Cons v found)) (() => found.reverse)) (read at => read = [])
+          (before => Parse.manyStep before (Parse.optional p) (v => Parse.manyFuel more p [v, ..found]) (() => found.reverse)) (read at => read = [])
           (at => Parse.Then (Parse.Maybe spec) (Parse.ManyNext spec found)) Parse.readsMark
           (before =>
-            Parse.readsBind (() => Parse.optional p) (result => Parse.manyStep before result (v => Parse.manyFuel more p (Cons v found)) (() => found.reverse))
+            Parse.readsBind (() => Parse.optional p) (result => Parse.manyStep before result (v => Parse.manyFuel more p [v, ..found]) (() => found.reverse))
               (Parse.Maybe spec) (Parse.ManyNext spec found) (Parse.readsOptional p spec reads)
               (result =>
                 Parse.readsManyStep before result _ _ (Parse.ManyNext spec found result)
-                  (v e => rewrite e in Parse.readsManyFuel p spec reads more (Cons v found)) (e => rewrite e in Parse.readsPure (List.reverse found)))))
+                  (v e => rewrite e in Parse.readsManyFuel p spec reads more [v, ..found]) (e => rewrite e in Parse.readsPure (List.reverse found)))))
         (read vs h =>
           match Parse.thenNothing (at => Parse.Then (Parse.Maybe spec) (Parse.ManyNext spec found)) read vs h with
             | Witness at holds => Parse.manyCombine spec found read vs holds)
@@ -762,7 +762,7 @@ theorem Parse.readsMany (p: () → {Parse} a) (spec: List Char → a → Prop) (
 theorem Parse.readsMany1 (p: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads p spec):
     Parse.Reads (() => Parse.many1 p) (read values => Parse.Each spec read values ∧ values ≠ []) :=
   Parse.readsWeaken _ _ _
-    (Parse.readsBind p (first => Cons first (Parse.many p)) spec (first read values => ∃ (rest: List a) => Parse.Each spec read rest ∧ values = Cons first rest)
+    (Parse.readsBind p (first => [first, ..Parse.many p]) spec (first read values => ∃ (rest: List a) => Parse.Each spec read rest ∧ values = [first, ..rest])
       reads (first => Parse.readsMap (() => Parse.many p) (Cons first) _ (Parse.readsMany p spec reads)))
     (read values h =>
       match h with
@@ -780,11 +780,13 @@ theorem Parse.readsSepBy1 (p: () → {Parse} a) (separator: () → {Parse} ()) (
     Parse.Reads (() => Parse.sepBy1 p separator) (Parse.SepBy spec separatorSpec) :=
   Parse.readsWeaken _ _ _
     (Parse.readsBind p
-      (first =>
-        Cons first (Parse.many (() =>
+      (first => [
+        first,
+        ..Parse.many (() =>
           separator()
-          p())))
-      spec (first read values => ∃ (rest: List a) => Parse.Each (Parse.Then separatorSpec (u => spec)) read rest ∧ values = Cons first rest) reads
+          p())
+      ])
+      spec (first read values => ∃ (rest: List a) => Parse.Each (Parse.Then separatorSpec (u => spec)) read rest ∧ values = [first, ..rest]) reads
       (first =>
         Parse.readsMap
           (() =>
@@ -1449,10 +1451,10 @@ theorem Parse.readsSection (p: () → {Parse} a) (spec: List Char → a → Prop
           Parse.newline()
           Parse.sectionLine p)
         Parse.blankLine()
-        Cons first rest)
+        [first, ..rest])
       spec
       (first =>
-        Parse.Then (Parse.Each (Parse.Then (read u => Parse.LineBreak read) (u => spec))) (rest read values => Parse.BlankLine read ∧ values = Cons first rest))
+        Parse.Then (Parse.Each (Parse.Then (read u => Parse.LineBreak read) (u => spec))) (rest read values => Parse.BlankLine read ∧ values = [first, ..rest]))
       reads
       (first =>
         Parse.readsBind
@@ -1462,11 +1464,11 @@ theorem Parse.readsSection (p: () → {Parse} a) (spec: List Char → a → Prop
               Parse.sectionLine p))
           (rest =>
             Parse.blankLine()
-            Cons first rest)
-          _ (rest read values => Parse.BlankLine read ∧ values = Cons first rest)
+            [first, ..rest])
+          _ (rest read values => Parse.BlankLine read ∧ values = [first, ..rest])
           (Parse.readsMany _ _ (Parse.readsBind Parse.newline (u => Parse.sectionLine p) _ (u => spec) Parse.readsNewline (u => Parse.readsSectionLine p spec reads)))
           (rest =>
-            Parse.readsWeaken _ _ _ (Parse.readsMap Parse.blankLine (u => Cons first rest) _ Parse.readsBlankLine)
+            Parse.readsWeaken _ _ _ (Parse.readsMap Parse.blankLine (u => [first, ..rest]) _ Parse.readsBlankLine)
               (read values h =>
                 match h with
                   | Witness u (Both blank same) => Both blank same))))
@@ -1589,13 +1591,13 @@ theorem Parse.readsRepeatOptional (p: () → {Parse} a) (spec: List Char → a �
             | Both none same => Witness [] (Both (rewrite same, List.appendNil (List.reverse found) in rfl) (Both none (Both (omega) (omega)))))
     | Succ more =>
       Parse.readsWeaken _ _ _
-        (Parse.readsBind (() => Parse.optional p) (result => Parse.onFound result (v => Parse.repeatOptional more p (Cons v found)) (() => found.reverse))
+        (Parse.readsBind (() => Parse.optional p) (result => Parse.onFound result (v => Parse.repeatOptional more p [v, ..found]) (() => found.reverse))
           (Parse.Maybe spec)
-          (result read values => (result = None ∧ read = [] ∧ values = found.reverse) ∨ (∃ (v: a) => result = Some v ∧ Parse.RepeatFound spec (Cons v found) 0 more read values))
+          (result read values => (result = None ∧ read = [] ∧ values = found.reverse) ∨ (∃ (v: a) => result = Some v ∧ Parse.RepeatFound spec [v, ..found] 0 more read values))
           (Parse.readsOptional p spec reads)
           (result =>
             Parse.readsOnFound result _ _ _
-              (v e => Parse.readsWeaken _ _ _ (Parse.readsRepeatOptional p spec reads more (Cons v found)) (read values holds => Inr (Witness v (Both e holds))))
+              (v e => Parse.readsWeaken _ _ _ (Parse.readsRepeatOptional p spec reads more [v, ..found]) (read values holds => Inr (Witness v (Both e holds))))
               (e => Parse.readsWeaken _ _ _ (Parse.readsPure (List.reverse found)) (read values both => Inl (Both e both)))))
         (read values h => Parse.repeatCombine spec found more read values h)
 
@@ -1611,12 +1613,12 @@ theorem Parse.readsRepeatFrom (p: () → {Parse} a) (spec: List Char → a → P
             | Witness more (Both same (Both each (Both least most))) => Witness more (Both same (Both each (Both least (omega)))))
     | Succ more =>
       Parse.readsWeaken _ _ _
-        (Parse.readsBind p (value => Parse.repeatFrom more extra p (Cons value found)) spec (v => Parse.RepeatFound spec (Cons v found) more (more + extra)) reads
-          (v => Parse.readsRepeatFrom p spec reads extra more (Cons v found)))
+        (Parse.readsBind p (value => Parse.repeatFrom more extra p [value, ..found]) spec (v => Parse.RepeatFound spec [v, ..found] more (more + extra)) reads
+          (v => Parse.readsRepeatFrom p spec reads extra more [v, ..found]))
         (read values h =>
           match h with
             | Witness firstRead (Witness restRead (Witness v (Both split (Both holds (Witness rest (Both same (Both each (Both least most)))))))) =>
-              Witness (Cons v rest)
+              Witness [v, ..rest]
                 (Both (rewrite same, List.reverseCons v found, List.appendAssoc (List.reverse found) [v] rest in rfl)
                   (Both (Witness firstRead (Witness restRead (Both split (Both holds each)))) (Both (omega) (omega)))))
 
@@ -1768,29 +1770,29 @@ theorem Parse.readsFindAllFuel (skipNoise: () → {Parse} ()) (p: () → {Parse}
         (Parse.readsBind skipNoise
           (u =>
             let attempt := Parse.attempt p
-            let foundNow := attempt.map ((matched: (a, Bool)) => Cons matched.fst found) |> .getOrElse found
+            let foundNow := attempt.map ((matched: (a, Bool)) => [matched.fst, ..found]) |> .getOrElse found
             if attempt.map ((matched: (a, Bool)) => matched.snd) |> .getOrElse False then Parse.findAllFuel more skipNoise p foundNow
             else Parse.onFound (Parse.next (char => True)) (skipped => Parse.findAllFuel more skipNoise p foundNow) (() => foundNow.reverse))
           (read (u: ()) => Unit)
           (u =>
             Parse.Then (Parse.Maybe (read (matched: (a, Bool)) => spec read matched.fst))
-              (attempt => Parse.FindFound spec (attempt.map ((matched: (a, Bool)) => Cons matched.fst found) |> .getOrElse found)))
+              (attempt => Parse.FindFound spec (attempt.map ((matched: (a, Bool)) => [matched.fst, ..found]) |> .getOrElse found)))
           readsNoise
           (u =>
             Parse.readsBind (() => Parse.attempt p)
               (attempt =>
-                let foundNow := attempt.map ((matched: (a, Bool)) => Cons matched.fst found) |> .getOrElse found
+                let foundNow := attempt.map ((matched: (a, Bool)) => [matched.fst, ..found]) |> .getOrElse found
                 if attempt.map ((matched: (a, Bool)) => matched.snd) |> .getOrElse False then Parse.findAllFuel more skipNoise p foundNow
                 else Parse.onFound (Parse.next (char => True)) (skipped => Parse.findAllFuel more skipNoise p foundNow) (() => foundNow.reverse))
-              _ (attempt => Parse.FindFound spec (attempt.map ((matched: (a, Bool)) => Cons matched.fst found) |> .getOrElse found)) (Parse.readsAttempt p spec reads)
+              _ (attempt => Parse.FindFound spec (attempt.map ((matched: (a, Bool)) => [matched.fst, ..found]) |> .getOrElse found)) (Parse.readsAttempt p spec reads)
               (attempt =>
                 match attempt with
                   | None => Parse.readsFindSkip skipNoise p spec more found (Parse.readsFindAllFuel skipNoise p spec readsNoise reads more found)
                   | Some (v, progressed) =>
                     match progressed with
-                      | True => Parse.readsFindAllFuel skipNoise p spec readsNoise reads more (Cons v found)
+                      | True => Parse.readsFindAllFuel skipNoise p spec readsNoise reads more [v, ..found]
                       | False =>
-                        Parse.readsFindSkip skipNoise p spec more (Cons v found) (Parse.readsFindAllFuel skipNoise p spec readsNoise reads more (Cons v found)))))
+                        Parse.readsFindSkip skipNoise p spec more [v, ..found] (Parse.readsFindAllFuel skipNoise p spec readsNoise reads more [v, ..found]))))
         (read values h => Parse.findCombine spec found read values h)
 
 --| `findAllFuel` from the start, with noise skipped by `skipNoise`: each

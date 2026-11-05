@@ -32,7 +32,7 @@ def logging (prog: () → {Log | e} a): {e} (a, List Nat) :=
     | return result => (result, [])
     | log n, resume =>
       let (result, logged) := resume ()
-      (result, Cons n logged)
+      (result, [n, ..logged])
 
 -- One ability, called twice: each call performs it.
 def twoDraws (): {Counter} Nat :=

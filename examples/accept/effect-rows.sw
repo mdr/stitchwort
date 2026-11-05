@@ -16,7 +16,7 @@ def Log.collect (program: () → {Log} a): Pair a (List Nat) :=
     | return result => MkPair result []
     | Log.say n, k =>
       let rest := k ()
-      MkPair rest.fst (Cons n rest.snd)
+      MkPair rest.fst [n, ..rest.snd]
 
 -- The pure use of `List.map` is the plain map: probe 5's theorems, about a
 -- map written here with a pure callback, hold by the same proofs.

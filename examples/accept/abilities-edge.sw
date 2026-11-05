@@ -40,7 +40,7 @@ def collect (prog: () → {Log | e} a): {e} Pair (List Nat) a :=
     | return x => MkPair [] x
     | say n, k =>
       let rest := k()
-      MkPair (Cons n (fstOf rest)) (sndOf rest)
+      MkPair [n, ..fstOf rest] (sndOf rest)
 
 def allResults (prog: () → {Choose | e} a): {e} List a :=
   handle prog() with

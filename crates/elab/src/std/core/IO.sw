@@ -75,13 +75,13 @@ def IO.simulateWith (seed: Nat) (input: List Text) (prog: () → {IO | e} a): {e
   let run: List Text → List Text → {e} Pair (List Text) a :=
     handle prog() with
       | return x => ins out => MkPair (List.reverseOnto out []) x
-      | IO.print t, k => ins out => k() ins (Cons t out)
+      | IO.print t, k => ins out => k() ins [t, ..out]
       | IO.readLine u, k => ins out => k (IO.nextLine ins) (List.tailOf ins) out
       | IO.readAll u, k => ins out => k (IO.restOf ins) [] out
       | IO.console u, k => ins out => k IO.noConsole ins out
       | IO.keysMode on, k => ins out => k() ins out
       | IO.readBytes u, k => ins out => k (IO.bytesOf ins) [] out
-      | IO.write t, k => ins out => k() ins (Cons t out)
+      | IO.write t, k => ins out => k() ins [t, ..out]
       | IO.randomSeed u, k => ins out => k seed ins out
       | IO.args u, k => ins out => k [] ins out
   run input []

@@ -18,9 +18,9 @@ theorem mapToOption (f: Nat → {Fail} Nat) (xs: List Nat):
 
 -- The same law by `rewrite`, in a longer goal.
 theorem lengthThen (f: Nat → {Fail} Nat) (xs: List Nat):
-    Result.map (Fail.toResult (() => Cons 0 (xs.map f))) List.length =
-      Result.map (Result.flatMap (Fail.toResult (() => xs.map f)) (ys => Ok (Cons 0 ys))) List.length :=
-  rewrite Fail.toResultThen (() => xs.map f) (ys => Cons 0 ys) in rfl
+    Result.map (Fail.toResult (() => [0, ..xs.map f])) List.length =
+      Result.map (Result.flatMap (Fail.toResult (() => xs.map f)) (ys => Ok [0, ..ys])) List.length :=
+  rewrite Fail.toResultThen (() => xs.map f) (ys => [0, ..ys]) in rfl
 
 -- A thunk whose type mentions its `()` still splits it: the goal becomes
 -- `P ()`.

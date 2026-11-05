@@ -25,7 +25,7 @@ P.Spec.test "dot" c870e2757b1bb15b6168501b8d8c6904e53afb7495fe4fbde4837fd2354002
 P.Spec.test "the type's own" aeeb3f343504971d5fcca9bd2084ab9949bd1a0cc7bd9bfaed1a0a8221842c9f
 P.Spec.test "qualified" c870e2757b1bb15b6168501b8d8c6904e53afb7495fe4fbde4837fd23540023c
 P.Spec.test "full name" c870e2757b1bb15b6168501b8d8c6904e53afb7495fe4fbde4837fd23540023c
-P.Spec.test "section" 6eb3264e51090a98e16b499e40aa57e245bd0db3ba97bff394bed54ab52164c3
+P.Spec.test "section" c89825f3d46ad26e39044ae01a3e6d1755f2fcd0b07a604e43f5d22aa59da29b
 P.Spec.test "nickname" a34bb97d079a967074caa54cf49a4c65284e13abb1311e99af78c1e2bfb9b51c
 P.Spec.test "through a nickname" aa637a99d8940fd8765067b0ae1faaab8d26899b3b1e0aa2764996578abca134
 P.Proofs.Grid.twice 16e721eaab11201bb7f19e52c666803c86e29cbd2753692faae5b5ea24e8b9d1
