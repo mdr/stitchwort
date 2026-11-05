@@ -1,5 +1,5 @@
 {
-  "next": 1382,
+  "next": 1385,
   "tickets": [
     {
       "id": 47,
@@ -7600,13 +7600,13 @@
     {
       "id": 1375,
       "title": "Trial (D2421): build stitchwort lsp for the browser (wasm32, postMessage transport, no threads, std and projects from memory) and connect it to the CodeMirror prototype through @codemirror/lsp-client; report what works and what it took",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1375",
       "labels": [
         "editor"
       ],
-      "body": "D2415-D2421 approved by Matt, 5 Nov 2026 (see SW-1118). docs/proposals/playground-editor.md.",
+      "body": "D2415-D2421 approved by Matt, 5 Nov 2026 (see SW-1118). docs/proposals/playground-editor.md.\n\nDone on lane/SW-1375 (898701866): stitchwort lsp's own code runs in a browser worker (lsp::Inline: receive/tick, no threads, in-memory connection) and serves CM6 via @codemirror/lsp-client 6.3.0: squiggles, hover, definition into std, references, formatting, named-argument completion; code actions with 17 lines of glue. +0.73 MB gzip wasm, +30 kB client. First diagnostics 0.8 s; edit 0.15-0.2 s small file, 2.15 s on a 226-line AoC day (native 1.46 s). Left: cancellation, searches block the checker, projects from memory, packaging as a stitchwort-lsp crate. Orchestrator's calls: web-time (wasm-only clock) in stitchwort-core is fine; cancellation to be designed in the follow-up. Model result: Opus, worked, 35 min (est. 120).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -7691,6 +7691,48 @@
         "proofs"
       ],
       "body": "D2422 (Matt, 5 Nov 2026): yes. Keep explicit any parameter a caller sometimes must supply. Prompted by aoc 2024 day 6 Proofs/Part2.sw:184.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1382,
+      "title": "LSP: each edit re-checks a whole file (1.46 s natively on a 226-line AoC day, 2.15 s in wasm); check only what the edit can change",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp,perf"
+      ],
+      "body": "From SW-1375's trial, 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1383,
+      "title": "LSP: signature help (the CodeMirror client and VS Code both support it)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "body": "From SW-1375's trial, 5 Nov 2026.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1384,
+      "title": "Playground language server: package as a stitchwort-lsp library crate shared by the CLI and crates/web; projects from memory; searches in a second worker; cancellation (a yielding check, or SharedArrayBuffer under cross-origin isolation); keep YAML out of the web build",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "playground"
+      ],
+      "body": "From SW-1375's trial, 5 Nov 2026.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
