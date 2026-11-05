@@ -2036,12 +2036,17 @@ async function shots(page, name) {
   await page.send("Emulation.setEmulatedMedia", { features: [] });
 }
 
+/** The error a helper throws when the editor's text lacks `needle`. */
+const missingText = (helper, needle) => `${helper}: the editor's text does not contain ${JSON.stringify(needle)}`;
+
 /** Where the text `delta` characters into the first `needle` is drawn, after scrolling it into view. */
 function whereIs(page, needle, delta = 0) {
-  return page.ev(`new Promise((done) => {
-    const e = window.editor, i = e.value.indexOf(${JSON.stringify(needle)}) + ${delta};
-    e.scrollTo(i);
-    requestAnimationFrame(() => requestAnimationFrame(() => done(e.coords(i))));
+  return page.ev(`new Promise((done, fail) => {
+    const e = window.editor, i = e.value.indexOf(${JSON.stringify(needle)});
+    if (i < 0) { fail(new Error(${JSON.stringify(missingText("whereIs", needle))})); return; }
+    const at = i + ${delta};
+    e.scrollTo(at);
+    requestAnimationFrame(() => requestAnimationFrame(() => done(e.coords(at))));
   })`);
 }
 const mouse = (page, { x, y }, modifiers = 0) => page.send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y, modifiers });
@@ -2081,9 +2086,19 @@ const tooltips = (page) => page.ev(`[...document.querySelectorAll(".cm-tooltip")
 const underlined = (page) => page.ev(`document.querySelectorAll("#editor .cm-lintRange-error").length`);
 /** Puts the caret `delta` characters into the first `needle`. */
 const caretAt = (page, needle, delta = 0) => page.ev(`(() => { const e = window.editor; e.focus();
-  const i = e.value.indexOf(${JSON.stringify(needle)}) + ${delta}; e.setSelectionRange(i, i); })()`);
+  const i = e.value.indexOf(${JSON.stringify(needle)});
+  if (i < 0) throw new Error(${JSON.stringify(missingText("caretAt", needle))});
+  const at = i + ${delta}; e.setSelectionRange(at, at); })()`);
 /** Waits until the selection is `text`, or (given `line`) the caret is on that line. */
 const untilCaret = (page, ms, what, test) => page.until(`(() => { const e = window.editor; const t = e.value.slice(0, e.selectionStart).split("\\n").length; return ${test}; })()`, ms, what);
+
+test("whereIs and caretAt name a missing needle instead of returning a wrong position", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  const needle = "text the editor does not have";
+  await assert.rejects(whereIs(page, needle), new RegExp(`whereIs: the editor's text does not contain "${needle}"`));
+  await assert.rejects(caretAt(page, needle), new RegExp(`caretAt: the editor's text does not contain "${needle}"`));
+});
 
 test("an error is underlined, its message shows on hover, and the underline goes when it is fixed", async (page) => {
   await page.open();
