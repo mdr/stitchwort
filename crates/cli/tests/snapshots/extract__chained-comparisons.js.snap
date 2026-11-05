@@ -760,6 +760,18 @@ const $Std$dBool$ddecTrue = (v0) => {
   }
   throw new Error("unreachable");
 };
+const $Std$dNat$ddecEq = (m, n) => ({ tag: m === n ? "Yes" : "No" });
+const $Std$dDecidable$dnot = (v1) => {
+  switch (v1.tag) {
+    case "Yes": {
+      return { tag: "No" };
+    }
+    case "No": {
+      return { tag: "Yes" };
+    }
+  }
+  throw new Error("unreachable");
+};
 const $Std$dDecidable$dand = (v2, v3) => {
   switch (v2.tag) {
     case "Yes": {
@@ -779,10 +791,33 @@ const $Std$dDecidable$dand = (v2, v3) => {
   }
   throw new Error("unreachable");
 };
+const $Std$dDecidable$dor = (v2, v3) => {
+  switch (v2.tag) {
+    case "Yes": {
+      return { tag: "Yes" };
+    }
+    case "No": {
+      switch (v3.tag) {
+        case "Yes": {
+          return { tag: "Yes" };
+        }
+        case "No": {
+          return { tag: "No" };
+        }
+      }
+      throw new Error("unreachable");
+    }
+  }
+  throw new Error("unreachable");
+};
 const $Main$dtwice = (v0) => $Std$dNat$dadd(v0, v0);
 const $Main$dinRange = (v0) => (((v1) => ($Std$dNat$dleq(3n, v1).tag === "True" ? $Std$dNat$dleq(v1, 9n) : { tag: "False" }))($Main$dtwice(v0)).tag === "True" ? 1n : 0n);
 const $Main$dnamed = (v0) => (((v1) => $Std$dDecidable$dand($Std$dBool$ddecTrue($Std$dNat$dleq(3n, v1)), $Std$dBool$ddecTrue($Std$dNat$dleq(v1, 9n))))($Main$dtwice(v0)).tag === "Yes" ? 1n : 0n);
 const $Main$dasBool = (v0) => { const v1 = $Main$dtwice(v0); return ($Std$dNat$dleq(3n, v1).tag === "True" ? $Std$dNat$dleq(v1, 9n) : { tag: "False" }); };
+const $Main$dnested = (v0) => (((v1) => $Std$dDecidable$dand($Std$dDecidable$dnot($Std$dNat$ddecEq(v0, 0n)), $Std$dDecidable$dand($Std$dBool$ddecTrue($Std$dNat$dleq(3n, v1)), $Std$dBool$ddecTrue($Std$dNat$dleq(v1, 9n)))))($Main$dtwice(v0)).tag === "Yes" ? v0 : 0n);
+const $Main$deither = (v0) => (((v1) => $Std$dDecidable$dor($Std$dNat$ddecEq(v0, 0n), $Std$dDecidable$dand($Std$dBool$ddecTrue($Std$dNat$dleq(3n, v1)), $Std$dBool$ddecTrue($Std$dNat$dleq(v1, 9n)))))($Main$dtwice(v0)).tag === "Yes" ? 1n : 0n);
+const $Main$dnegated = (v0) => (((v1) => $Std$dDecidable$dnot($Std$dDecidable$dand($Std$dBool$ddecTrue($Std$dNat$dleq(3n, v1)), $Std$dBool$ddecTrue($Std$dNat$dleq(v1, 9n)))))($Main$dtwice(v0)).tag === "Yes" ? 1n : 0n);
+const $Main$dguarded = (v0) => (((v1) => $Std$dDecidable$dand($Std$dDecidable$dnot($Std$dNat$ddecEq(v0, 0n)), $Std$dDecidable$dand($Std$dBool$ddecTrue($Std$dNat$dleq(3n, v1)), $Std$dBool$ddecTrue($Std$dNat$dleq(v1, 9n)))))($Main$dtwice(v0)).tag === "Yes" ? 1n : 0n);
 
 function $$inRange(arg0) {
   try {
@@ -811,6 +846,42 @@ function $$asBool(arg0) {
   }
 }
 
+function $$nested(arg0) {
+  try {
+    const v0 = decodeFast(dec$1, ty$1, arg0, "n");
+    return encodeFast(enc$2, ty$1, $Main$dnested(v0));
+  } catch (e) {
+    throw outOfResources("nested", e);
+  }
+}
+
+function $$either(arg0) {
+  try {
+    const v0 = decodeFast(dec$1, ty$1, arg0, "n");
+    return encodeFast(enc$2, ty$1, $Main$deither(v0));
+  } catch (e) {
+    throw outOfResources("either", e);
+  }
+}
+
+function $$negated(arg0) {
+  try {
+    const v0 = decodeFast(dec$1, ty$1, arg0, "n");
+    return encodeFast(enc$2, ty$1, $Main$dnegated(v0));
+  } catch (e) {
+    throw outOfResources("negated", e);
+  }
+}
+
+function $$guarded(arg0) {
+  try {
+    const v0 = decodeFast(dec$1, ty$1, arg0, "k");
+    return encodeFast(enc$2, ty$1, $Main$dguarded(v0));
+  } catch (e) {
+    throw outOfResources("guarded", e);
+  }
+}
+
 // The fast path's codecs, one decoder and one encoder for each type that
 // crosses (see `decodeFast`).
 const ty$1 = NAT;
@@ -825,4 +896,4 @@ function enc$3(v) {
   return BOOL.enc(v);
 }
 
-export { $$inRange as inRange, $$named as named, $$asBool as asBool };
+export { $$inRange as inRange, $$named as named, $$asBool as asBool, $$nested as nested, $$either as either, $$negated as negated, $$guarded as guarded };

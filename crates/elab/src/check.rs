@@ -4509,6 +4509,14 @@ pub(crate) fn if_h_condition(cx: &mut Ctx, h: &AstName, cond: &Expr) -> Result<(
             crate::chain::around(cx, name, value, |cx| if_h_condition(cx, h, body))?;
         return Ok((binding.inline(cx, &prop)?, binding.wrap(decision)));
     }
+    // A chain inside a larger proposition (`b != 0 && 1 <= f b <= 9`): the
+    // proposition has the middle in place, so deciding it would run the
+    // middle once per mention; bind it around the decision instead.
+    if let Some((name, value, rest)) = crate::chain::on_spine(cx, cond) {
+        let ((prop, decision), binding) =
+            crate::chain::around(cx, name, value, |cx| if_h_condition(cx, h, &rest))?;
+        return Ok((binding.inline(cx, &prop)?, binding.wrap(decision)));
+    }
     let (prop, sort) = check_type(cx, cond).map_err(|e| {
         if e.code == "E-NOT-A-TYPE" {
             e.with_note(format!(

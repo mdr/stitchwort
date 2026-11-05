@@ -9,3 +9,7 @@ export declare class StitchwortResourceError extends Error {}
 export declare function inRange(n: bigint): bigint;
 export declare function named(n: bigint): bigint;
 export declare function asBool(n: bigint): boolean;
+export declare function nested(n: bigint): bigint;
+export declare function either(n: bigint): bigint;
+export declare function negated(n: bigint): bigint;
+export declare function guarded(k: bigint): bigint;

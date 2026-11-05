@@ -59,3 +59,19 @@ test "too big" := toResult (() => Parse.line "15" digit) == Ok False
 def skipped(): {Parse} Bool := 5 < Parse.nat() <= Parse.nat()
 
 test "short-circuits" := toResult (() => Parse.line "3" skipped) == Ok False
+
+-- A chain inside a larger `if h:` proposition keeps its facts: the goals read
+-- as written, and `h` gives the parts.
+def nestedNamed (n: Nat): Nat :=
+  if h: n != 0 && 3 <= twice n <= 9 then 12 / n + (twice n - 3) * 0 else 0
+
+test "nested" := nestedNamed 3 == 4 ∧ nestedNamed 0 == 0 ∧ nestedNamed 5 == 0
+
+def nestedEither (n: Nat): Bool := if h: n = 0 || 3 <= twice n <= 9 then True else False
+
+test "nested or" := nestedEither 0 ∧ nestedEither 3 ∧ !nestedEither 1
+
+-- The input is read once, whichever side of the `&&` the chain is on.
+def guardedDigit (ok: Bool): {Parse} Bool := ok && 0 < Parse.nat() <= 9
+
+test "once, after &&" := toResult (() => Parse.line "5" (() => guardedDigit True)) == Ok True
