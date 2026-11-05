@@ -85,7 +85,7 @@ theorem apartMove (moved: List Monster) (monster: Monster) (destination: Positio
     (apart: Apart (moved ++ [monster, ..waiting])) (vacant: monsterAt destination (moved ++ waiting) = None):
     Apart ((moved ++ [{ monster | position = destination }]) ++ waiting) :=
   let fresh := vacantNotMem destination (moved ++ waiting) vacant
-  rewrite List.appendAssoc moved [{ monster | position = destination }] waiting, positionsAppend moved ([{ monster | position = destination }, ..waiting]) in
+  rewrite List.appendAssoc moved [{ monster | position = destination }] waiting, positionsAppend moved [{ monster | position = destination }, ..waiting] in
     distinctSwap monster.position destination (positions waiting) (positions moved)
       (rewrite <- positionsAppend moved [monster, ..waiting] in apart)
       (rewrite <- positionsAppend moved waiting in fresh)

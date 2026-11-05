@@ -30,14 +30,14 @@ expression: output
     │       ⊢ x = x
 ────╯
 [GOAL] Goal: in `deeper`
-    ╭─[ goals/readable-forms.sw:20:78 ]
+    ╭─[ goals/readable-forms.sw:20:76 ]
     │
- 20 │     f ([{ value = leaf.value, depth = leaf.depth + 1 }, ..rest]) = f rest := ?
-    │                                                                              ┬  
-    │                                                                              ╰── f: List Leaf → Nat
-    │                                                                                  leaf: Leaf
-    │                                                                                  rest: List Leaf
-    │                                                                                  ⊢ f [{ leaf | depth = leaf.depth + 1 }, ..rest] = f rest
+ 20 │     f [{ value = leaf.value, depth = leaf.depth + 1 }, ..rest] = f rest := ?
+    │                                                                            ┬  
+    │                                                                            ╰── f: List Leaf → Nat
+    │                                                                                leaf: Leaf
+    │                                                                                rest: List Leaf
+    │                                                                                ⊢ f [{ leaf | depth = leaf.depth + 1 }, ..rest] = f rest
 ────╯
 [GOAL] Goal: in `rewritten`
     ╭─[ goals/readable-forms.sw:23:87 ]
