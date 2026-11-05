@@ -7670,7 +7670,7 @@
     {
       "id": 1380,
       "title": "Docs: sweep one-argument List.range and List.between out of docs/ (evaluator-speed, aoc-2025 :986 :2157, comparisons/aoc-day0{2,3,4}-community, research/aoc-chaining-survey :182); optional tidy: Day02 List.range 2 (copies - 1 + 1), Grid at.row + 1 + 1",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1380",
       "labels": [
@@ -7950,7 +7950,7 @@
     {
       "id": 1400,
       "title": "rewrite <- in the wrong direction: put the 'write the rule without <-' note first and drop the hidden-match notes that don't apply (E-REWRITE-NOTHING had six notes, the useful one last)",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1400",
       "labels": [
