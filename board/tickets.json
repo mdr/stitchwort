@@ -1,5 +1,5 @@
 {
-  "next": 1399,
+  "next": 1403,
   "tickets": [
     {
       "id": 47,
@@ -7928,6 +7928,64 @@
         "tests"
       ],
       "body": "From SW-1385, 5 Nov 2026. Small improvement.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1399,
+      "title": "2020 day 6: prove questionsDistinct (26 letters) cheaply instead of byDecision (36,800-node term, 0.4 s): List.allDistinctCorrect or a std lemma that a strictly increasing list is distinct",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc",
+        "perf"
+      ],
+      "body": "D2426 (Matt, 5 Nov 2026): day 6 friction item 4. aoc/src/Aoc/Year2020/Day06/Proofs/Sets.sw:43. Small improvement; DeepSeek.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1400,
+      "title": "rewrite <- in the wrong direction: put the 'write the rule without <-' note first and drop the hidden-match notes that don't apply (E-REWRITE-NOTHING had six notes, the useful one last)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "D2426 (Matt, 5 Nov 2026): day 6 friction item 5. Small improvement; DeepSeek.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1401,
+      "title": "Std: lemmas tying Text.lines to the input's characters, and a Parse.sections reads theorem stated over the input's lines (as eachLineReads is), so day-4-style section parses reach a spec on the input text",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std",
+        "proofs"
+      ],
+      "body": "D2426 (Matt, 5 Nov 2026): day 6 friction item 6; after 2020 day 7. Sonnet.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1402,
+      "title": "AoC 2020 day 7 (Handy Haversacks): spec, efficient solution, proofs, tests, friction notes in aoc/NOTES-2020.md",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "D2426 (Matt, 5 Nov 2026): start after day 6's friction review. Opus. Input: ~/repos/mdr/aoc/2020/src/main/resources/day7.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
