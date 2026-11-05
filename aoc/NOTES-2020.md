@@ -1369,7 +1369,7 @@ Proved (`Aoc.Year2020.Day06.Proofs`):
 - `unionContains`, `intersectContains`: folding the people's sets by union
   (intersection) holds what the accumulator holds or some line has (and
   what every line has). `anyQuestion`: whatever a line has is a question.
-- `sizeCount` (since SW-1298 std's `Set.sizeOfMembers`, with `Set.containsUnions` and `Set.containsFoldIntersect` replacing `unionContains` and the fold half of `intersectContains`): a set of questions has as many members as there are of the
+- `sizeCount` (since SW-1298 std's `Set.sizeOfMembers`, with `Set.containsUnionAll` and `Set.containsFoldIntersect` replacing `unionContains` and the fold half of `intersectContains`): a set of questions has as many members as there are of the
   26 questions it holds (the set's key list and the filtered `questions` are
   both distinct with the same members, so they are a permutation).
 - `anyoneCount`, `everyoneCount`: a group's `anyone.size` (`everyone.size`)
@@ -1439,7 +1439,7 @@ Most of the proof was std lemmas used as they are: `Set.containsUnion`,
 - Folds: `Set.unions` is a `foldLeft` of `Set.union` and `everyone` one of
   `Set.intersect`, and each needed an induction (`unionContains`,
   `intersectContains`, 8 lines each) to reach `Set.containsUnion`. Std has
-  `Set.containsFoldInsert` for `fromList`; a `Set.containsUnions` and the
+  `Set.containsFoldInsert` for `fromList`; a `Set.containsUnionAll` and the
   intersection fold would remove them.
 - `Bool.andAssoc` (there is `orAssoc`); `andAssoc` is a 3-line local
   theorem in `Sets.sw`.
