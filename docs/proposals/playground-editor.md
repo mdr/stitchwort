@@ -614,8 +614,19 @@ both: as eager as before, and cheap.
   check under the worker's limits doesn't spend the first check failing.
   In WebAssembly none is left out. Natively, with the worker's 512 KiB of
   limits, `Float.Theory.roundMagnitudeSpec` runs out of depth (in
-  `Float.Model.bitLengthWhen`): native frames are larger than
-  WebAssembly's linear-memory ones.
+  `Float.Model.bitLengthWhen`). Both builds measure the same thing, bytes
+  of stack below where the operation started (`Limits::stack`), but a
+  recursion level costs different bytes: WebAssembly keeps only
+  address-taken locals in its linear-memory stack, a native frame holds
+  every spill, and a debug frame is several times larger again (SW-962).
+  Measured natively (SW-1456; `library_bundle`, release build): a
+  `Options::new` of 512 KiB (256 KiB usable, the worker's) leaves out
+  only `Float/Theory.sw`; 640 KiB (384 KiB usable) leaves out nothing. In a
+  debug build, 2 MiB still leaves out 28 files. So no byte limit is
+  equivalent to WebAssembly's across builds; a native session that must
+  check what the playground checks needs about 1.5 times the guard in a
+  release build, and a depth count (`Limits::frames`) instead of bytes is
+  what would make them agree.
 
 **Measured after** (same day, load 30–45):
 

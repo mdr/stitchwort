@@ -17,6 +17,9 @@ const WASM_STACK: usize = 8 * 1024 * 1024;
 /// more, was bundled) leaves a margin of 2 for engines with smaller stacks, but allows
 /// little: nesting about 25 deep, list literals of about 200 elements. Check
 /// with web/stress.html; set `STITCHWORT_GUARD` (bytes) to experiment.
+/// The same bytes natively are less depth (larger frames): a native release
+/// build needs about 1.5 times this to check `Float.Theory`
+/// (docs/proposals/playground-editor.md, SW-1456).
 const WASM_GUARD: usize = 256 * 1024;
 /// Native builds of this crate only run as tests, on 2 MiB test threads.
 const NATIVE_STACK: usize = 2 * 1024 * 1024;

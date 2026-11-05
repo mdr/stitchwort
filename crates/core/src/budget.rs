@@ -86,7 +86,8 @@ pub struct Limits {
     /// Evaluation steps.
     pub work: u64,
     /// Bytes of Rust stack the operation may use, measured from where it
-    /// started. Must be comfortably less than the thread's stack.
+    /// started, and never below the floor of the operation it is started
+    /// inside. Must be comfortably less than the thread's stack.
     pub stack: usize,
     /// Nodes in a quoted term.
     pub size: u64,
@@ -338,12 +339,16 @@ impl Budget {
         if self.stack_floor.get() == 0 {
             check_thread_fits(limits.stack);
         }
+        // Started inside an operation, this one may not reach below the
+        // floor that operation was given, which was measured against the
+        // thread: measured only from here, `limits.stack` bytes could run
+        // past the thread's real stack.
+        let outer = self.stack_floor.get();
+        let floor = stack_position().saturating_sub(limits.stack).max(outer);
         let saved = Saved {
             work: self.work.replace(0),
             limit: self.limit.replace(limits.work),
-            stack_floor: self
-                .stack_floor
-                .replace(stack_position().saturating_sub(limits.stack)),
+            stack_floor: self.stack_floor.replace(floor),
             frame_limit: self.frame_limit.replace(limits.frames),
             limits: self.limits.replace(Some(limits)),
             exhausted: self.exhausted.replace(None),
@@ -772,6 +777,32 @@ mod tests {
         }
         std::hint::black_box(pad);
         Ok(())
+    }
+
+    /// SW-1446: an operation started deep inside another gets what is left
+    /// of the outer one's stack, not a full allowance from where it starts.
+    #[test]
+    fn a_nested_operation_may_not_go_below_the_outer_floor() {
+        let b = Budget::default();
+        let _op = b.operation(Limits::stack_only(64 * 1024));
+        // Without the clamp, 1 MiB from here would be far past the outer
+        // 64 KiB; with it, the inner operation stops where the outer would.
+        fn inner(b: &Budget, depth: usize) -> Result<()> {
+            if depth == 0 {
+                let _inner = b.operation(Limits::stack_only(1024 * 1024));
+                assert_eq!(nest(b, 4096), Err(ResourceError::Nesting("test")));
+                assert_eq!(b.exhausted(), Some(ResourceError::Nesting("test")));
+                return Ok(());
+            }
+            let pad = std::hint::black_box([0u8; 1024]);
+            let r = inner(b, depth - 1);
+            std::hint::black_box(pad);
+            r
+        }
+        inner(&b, 32).unwrap();
+        // The outer operation, whose floor is further away, is unaffected.
+        assert_eq!(b.exhausted(), None);
+        assert_eq!(nest(&b, 8), Ok(()));
     }
 
     /// SW-962: an attempt's own stack budget (here none at all) doesn't
