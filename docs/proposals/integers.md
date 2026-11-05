@@ -1719,11 +1719,11 @@ decisions:
   is fine either way: `Nat.div` and `Nat.mod` unfold for any `n` and
   don't use the proof.) So `Int.modNatLt x 100` proves
   `x.modNat 100 < 100` directly.
-- **`Int.modNatToInt`, `Int.toIntDiv` and `Int.toIntMod` take a second
-  `auto` proof, `Nat.toInt d != 0`**, for the `Int` side, rather than
-  building it from the first with `Nat.toIntNeZero`: at a concrete divisor
-  both are found by `auto` and match the user's `x % 100`; for a variable
-  `d`, pass `[ok2 := Nat.toIntNeZero d ok]`.
+- **`Int.modNatToInt`, `Int.toIntDiv` and `Int.toIntMod` take one `auto`
+  proof, `d != 0`**, and state the `Int` side with `Nat.toIntNeZero d ok`.
+  (They took a second `auto` proof, `Nat.toInt d != 0`, until SW-1429:
+  proofs are inert now, so the user's `x % 100` with its own proof is
+  convertible with the lemma's.)
 - **The lemmas**: `Nat.toIntNeZero`, `Int.modNatLt`, `Int.modNatToInt`,
   `Int.toIntDiv`, `Int.toIntMod`, `Int.modNonneg` (`0 <= a % d`),
   `Int.modLtAbs` (`a % d < (Int.natAbs d).toInt`) and `Int.divAddMod`

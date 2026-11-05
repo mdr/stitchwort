@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NO-EQUATION] Error: `useAnd.eq.ifTrue` isn't generated
+    ╭─[ reject/equation-uses-relevant-proof.sw:10:75 ]
+    │
+ 10 │ theorem useAndEq (a b n: Nat) (h: (a = b) ∧ (b = 0)): useAnd a b n = n := useAnd.eq.ifTrue a b n h
+    │                                                                           ────────┬───────  
+    │                                                                                   ╰───────── its branch uses the proof `h` of a condition that isn't an equation in a type with `DecEq` (or a comparison), and the branch computes on it: two proofs of it aren't known to be equal (D2180)
+    │ 
+    │ Note: an equation for each arm is generated where it can be stated and proved (docs/proposals/function-equations.md); prove this one by hand, or use `f.unfold` and a `match`
+────╯

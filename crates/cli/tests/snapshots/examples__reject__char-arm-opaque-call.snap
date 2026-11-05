@@ -1,0 +1,19 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+    ╭─[ reject/char-arm-opaque-call.sw:12:15 ]
+    │
+ 12 │   | 'a', h => rfl
+    │               ─┬─  
+    │                ╰─── `secret 'a'` and `secret 'a'` aren't equal
+    │ 
+    │ Note 1: they first differ at `secret 'a'` against `secret 'a'`
+    │ 
+    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+    │ 
+    │ Note 3: `secret` is opaque, so its body isn't used here
+    │ 
+    │ Note 4: add `unfolding secret` after this declaration's signature, or rewrite with `secret.unfold`
+────╯

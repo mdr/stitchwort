@@ -48,20 +48,20 @@ theorem Int.modNatLt: (x: Int) → (d: Nat) → [auto ok: d ≠ 0] → Int.modNa
   | OfNat m, Succ n => Nat.modLess m (Succ n) (Nat.succNotZero n)
   | NegSucc m, Succ n => Nat.subLe n (m % Succ n)
 
---| For a variable `d`, pass `[ok2 := Nat.toIntNeZero d ok]`.
-theorem Int.modNatToInt: (x: Int) → (d: Nat) → [auto ok: d ≠ 0] → [auto ok2: Nat.toInt d ≠ 0] →
-    Nat.toInt (Int.modNat x d) = x % Nat.toInt d
+--| `x % Nat.toInt d` with the proof `Nat.toIntNeZero d ok`; the kernel ignores which proof a user's `x % 100` has.
+theorem Int.modNatToInt: (x: Int) → (d: Nat) → [auto ok: d ≠ 0] →
+    Nat.toInt (Int.modNat x d) = Int.mod x (Nat.toInt d) [ok := Nat.toIntNeZero d ok]
   | x, Zero => Void.exfalso (ok rfl)
   | OfNat m, Succ n => rfl
   | NegSucc m, Succ n => rfl
 
-theorem Int.toIntDiv (n: Nat): (d: Nat) → [auto ok: d ≠ 0] → [auto ok2: Nat.toInt d ≠ 0] →
-    Nat.toInt (n / d) = Nat.toInt n / Nat.toInt d
+theorem Int.toIntDiv (n: Nat): (d: Nat) → [auto ok: d ≠ 0] →
+    Nat.toInt (n / d) = Int.div (Nat.toInt n) (Nat.toInt d) [ok := Nat.toIntNeZero d ok]
   | Zero => Void.exfalso (ok rfl)
   | Succ d => rfl
 
-theorem Int.toIntMod (n: Nat): (d: Nat) → [auto ok: d ≠ 0] → [auto ok2: Nat.toInt d ≠ 0] →
-    Nat.toInt (n % d) = Nat.toInt n % Nat.toInt d
+theorem Int.toIntMod (n: Nat): (d: Nat) → [auto ok: d ≠ 0] →
+    Nat.toInt (n % d) = Int.mod (Nat.toInt n) (Nat.toInt d) [ok := Nat.toIntNeZero d ok]
   | Zero => Void.exfalso (ok rfl)
   | Succ d => rfl
 
@@ -248,7 +248,7 @@ theorem Int.divAddModNat (x: Int) (d: Nat) [auto ok: d ≠ 0]:
     Int.add (Int.mul (Nat.toInt d) (Int.div x (Nat.toInt d) [ok := Nat.toIntNeZero d ok])) (Nat.toInt (Int.modNat x d [ok := ok])) = x :=
   Eq.trans
     (Eq.cong (t => Int.add (Int.mul (Nat.toInt d) (Int.div x (Nat.toInt d) [ok := Nat.toIntNeZero d ok])) t)
-      (Int.modNatToInt x d [ok := ok] [ok2 := Nat.toIntNeZero d ok]))
+      (Int.modNatToInt x d [ok := ok]))
     (Int.divAddMod x (Nat.toInt d) [ok := Nat.toIntNeZero d ok])
 
 --| Only the remainder of `x` matters to the remainders of `x + y` and `-x`.

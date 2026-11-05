@@ -14,7 +14,7 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-use stitchwort_core::collections::{HashMap, HashSet};
+use stitchwort_core::collections::HashMap;
 use stitchwort_core::{DefId, Term, Value};
 use stitchwort_syntax::Span;
 use stitchwort_syntax::ast;
@@ -155,10 +155,6 @@ pub(crate) struct Decl {
     /// one pattern match is compiled. (Before SW-1149 it grew over the
     /// session, emptied only by a rewind.)
     pub(crate) char_patterns: RefCell<HashMap<Span, char>>,
-    /// The spans of the `_` a char pattern puts for its proof field
-    /// (`'a'` is `MkChar 97 _`), so an arm can make the matched character
-    /// the literal itself (`canonical`). As [`Self::char_patterns`].
-    pub(crate) char_proofs: RefCell<HashSet<Span>>,
     /// The guarded rows' `else` trees made so far by the pattern match being
     /// compiled, which bound how much a guard may copy (`MAX_GUARD_NODES`).
     pub(crate) guard_nodes: Cell<usize>,
@@ -222,7 +218,6 @@ impl Decl {
             local_asts,
             tuple_matches,
             char_patterns,
-            char_proofs,
             guard_nodes,
         } = self;
         let fields = [
@@ -254,7 +249,6 @@ impl Decl {
             ("local_asts", local_asts.borrow().is_empty()),
             ("tuple_matches", tuple_matches.borrow().is_empty()),
             ("char_patterns", char_patterns.borrow().is_empty()),
-            ("char_proofs", char_proofs.borrow().is_empty()),
             ("guard_nodes", guard_nodes.get() == 0),
         ];
         fields

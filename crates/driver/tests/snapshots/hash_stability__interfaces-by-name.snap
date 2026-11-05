@@ -1,6 +1,6 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+expression: "lines(session, d, f)"
 ---
 data Main.Pretty 720e7e651377c19f5c26794997ac344c94dc24108e85d16c29af4d4bbb38ce61
 data Main.Root 07443a4cb1e8c7562508d3d17da826563d25710cbfc946a423638798be25b5b4
@@ -32,8 +32,8 @@ Main.loud 693bd8dedcd7bb19512b8df78ce4069d628ec02f2c597962f9c0db4041300d14
 Main.local a45715b37b1e29db196a7fa23c1b045e661dc799d77e29f739fd00352dfd8e40
 Main.sideBySide 41a351926b936e5ea05ca0027cd31e347bb2dfda85536b053509d2ecc6113aec
 Main.viaLeft b22a5a363def7985b664e30d3f7a0c4e82d4bb0bbd4c4cdeb395c9ad84a7ccf0
-Main.test "global" a6c634d20cec7713feeafff6be5b2d50666a0352898c45476aae5fe388bebd6e
-Main.test "local wins" 68e651fc099190d1991ad88e57dc1ade0eb6a769b28258a5ae37824f15762ef2
-Main.test "side by side" 8cd51d380b54fd78314a959552da02b372f838f08ff22a081df9508e0331cdea
-Main.test "via left" c6d35afe9008e3db1e43f69969334632ee6827091180ff11ac7a76c91a1f1647
-Main.test "same routes" ea9ba6ab2d5d001a29335fd7c5101bfbb099d7b1a7ca337ce3fb9df03c1f74db
+Main.test "global" 4ef8e412e9649060383e46adc38992dad3fc08b182f10f7773883b5d6af54ea0
+Main.test "local wins" c28492cbf75c57a5a171d201901c91928529dafd1d9f87f2f475aa3beb1b6265
+Main.test "side by side" aadd99c8001c406db187613c75695d67ee5d76a12d6ea53a324e85b33a42db11
+Main.test "via left" 27247512d0cc08990be4b8df502cc9fb7f4513ca9b074005b64fcc0c8f336129
+Main.test "same routes" 939ce00230f7e634b5f25bad65e705aa6a29b936442fdb179b23a7bfac703d19

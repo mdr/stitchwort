@@ -489,27 +489,32 @@ clause is `E-NO-UNFOLD-EQUATION` (`crates/elab/src/opaque.rs:544-546`).
   equations; `doc` lists them; prefer them to `f.unfold` and a hand split.
 - `search --at` finds them as rewrites with no change.
 
-### 3.5 One limit: `if h: p` whose branch uses `h`
+### 3.5 `if h: p` whose branch uses `h`
 
 For `if h: p then A h else B`, the branch equation is `(h: p) → f … = A h`. The definition's own
 `A` gets the proof the decision found, `h'`; so the proof needs `A h' = A h`. That holds:
 
 - by computation when `h` doesn't occur in the right side after unfolding (it is only in a
   `[decreasing := …]`, which `f.unfold` drops: every AoC example, and `gcd` **[run: p4.sw]**);
-- by one `J` along `h' = h` when `p` computes to an equation in a type with `DecEq`, which
-  includes `<` and `≤` on `Nat` and `Int` (they are `Bool` equations underneath): the proof
+- by computation when `h` reaches only inert positions (SW-1429, after
+  [proof-irrelevance.md](proof-irrelevance.md) stage 1): `h` is an argument or a field the kernel
+  never computes on, such as `%`'s `auto` proof that `n ≠ 0`, or `Fin.ofNatLt n i h`'s. The
+  generator tests this by evaluating the branch at two different variables for `h` and comparing
+  the results (`proof_is_inert_in`); if they are convertible the branch is `A h' ≡ A h` and
+  the equation needs no `J`, whatever `p` is. `examples/accept/equation-uses-proof.sw` has
+  `remainder.eq1` and `remainderOf.eq.ifTrue`, which were `E-NO-EQUATION` before;
+- otherwise by one `J` along `h' = h` when `p` computes to an equation in a type with `DecEq`,
+  which includes `<` and `≤` on `Nat` and `Int` (they are `Bool` equations underneath): the proof
   of `h' = h` is `Bool.uniqueEq` (`crates/elab/src/std/core/Decidable.sw:137`) or
   `DecEq.uniqueEq`. The reviewer's `review-r2.sw` proves `Fin.ofNatCheck`'s shape, `if h: i < n
   then Some (Fin.ofNatLt n i h) else None`, this way **[run]**; doing the step with `rewrite`
   instead gave `E-UNIVERSE` (review 1, finding 3), so the generator builds the `J` itself.
 
-Such branches are common in std, not rare: `Fin.ofNatCheck` (`std/Fin/Fin.sw:81`),
-`SafeNat`/`SafeInt` construction (`std/Int/Safe.sw:20`, `:24`), `Mod` (`std/Mod/Mod.sw:36`), the
-`DecEq` instances (`Fin.sw:53`, `Safe.sw:58`, `Mod.sw:173`), all equations or comparisons
-covered by the second rule **[checked]**. Any other `p` isn't provable without proof irrelevance
-(`docs/core.md:143`); that branch gets no equation, with the reason in `doc` (D2180).
-[proof-irrelevance.md](proof-irrelevance.md) stage 1 would lift this. A `match` on a `Bool` with
-an equation name has no such limit: `J` transports the given `h` itself (§1.2).
+What is left of the limit is a branch that computes on `h` (matches on it, or passes it to a
+parameter that does) when `p` is neither of those: two proofs of `p` aren't convertible, and no
+equation is made, with the reason in `doc` (D2180). The same goes for the `else` branch of
+`if h: p` that computes on its proof of `¬p`. A `match` on a `Bool` with an equation name has no
+such limit: `J` transports the given `h` itself (§1.2).
 
 ## 4. How each is proved
 

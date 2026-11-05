@@ -372,7 +372,8 @@ const BRANCHES: &str = r#"
 import Std (Bool, Eq, Fin, List, Nat, Option, Void)
 
 -- `if h: p` below a `:=` body, `decreasing`: `gcd.eq.ifTrue`. Its `else`
--- uses `h` (`%` takes a proof that `b ≠ 0`): skipped (D2180).
+-- uses `h` only where `%` takes a proof that `b ≠ 0`, which nothing computes
+-- on, so `gcd.eq.ifFalse` is made too (function-equations.md §3.5).
 def gcd (a: Nat) (b: Nat): Nat
     decreasing b
 :=
@@ -528,8 +529,8 @@ fn branch_equations() {
             }
         }
         assert!(wrong.is_empty(), "{}", wrong.join("\n"));
-        let why = skipped(s, "gcd.eq.ifFalse");
-        assert!(why.contains("D2180"), "{why}");
+        let got = generated(s, "gcd.eq.ifFalse");
+        assert!(got.contains("gcd a b = gcd b (a % b)"), "{got}");
         let why = skipped(s, "takeFirst.eq2");
         assert!(why.contains("compiled into the case tree"), "{why}");
     });

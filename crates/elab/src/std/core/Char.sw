@@ -22,12 +22,10 @@ def Char.toNat: (char: Char) → Nat
 --| The character with this code, if it is a Unicode scalar value: `Char.fromNat 97` is `Some 'a'`.
 def Char.fromNat (n: Nat): Option Char := if h: Char.isScalar n = True then Some (MkChar n h) else None
 
---| Characters with the same code are equal: their proofs of `valid` are too.
+--| Characters with the same code are equal; the proof of `valid` doesn't matter.
 theorem Char.mkExt (a: Nat) (b: Nat) (p: Char.isScalar a = True) (e: a = b):
     (q: Char.isScalar b = True) → MkChar a p = MkChar b q :=
-  J (b' e' => (q': Char.isScalar b' = True) → MkChar a p = MkChar b' q')
-    (q' => J (r e'' => MkChar a p = MkChar a r) rfl (Bool.uniqueEq (Char.isScalar a) True p q'))
-    e
+  J (b' e' => (q': Char.isScalar b' = True) → MkChar a p = MkChar b' q') (q' => rfl) e
 
 theorem Char.ext: (x: Char) → (y: Char) → Char.toNat x = Char.toNat y → x = y
   | MkChar a p, MkChar b q, e => Char.mkExt a b p e q
