@@ -3330,8 +3330,65 @@ pub fn comp_call(
     {
         return comp_compound(cx, expr, row, expected);
     }
+    if let Some(found) = comp_ctor_app(cx, expr, row, expected)? {
+        return Ok(found);
+    }
     let (term, ty, _) = comp_app(cx, expr, row, expected)?;
     Ok((term, ty))
+}
+
+/// A constructor given all its explicit fields positionally, where a field
+/// performs operations (`Cons (f x) (List.map xs f)` in a computation): the
+/// fields run first, left to right, and the constructor is built from their
+/// results, as `[f x, ..List.map xs f]` and a record literal are, so the term
+/// is the constructor itself rather than a lambda applied to the results.
+/// `None` for any other call.
+fn comp_ctor_app(
+    cx: &mut Ctx,
+    expr: &Expr,
+    row: &Row,
+    expected: Option<&Value>,
+) -> Result<Option<(Term, Value)>> {
+    let mut args: Vec<&Expr> = Vec::new();
+    let mut head = expr;
+    while let Expr::App(f, a) = head {
+        args.push(a);
+        head = f;
+    }
+    args.reverse();
+    let Expr::Var(name) = head else {
+        return Ok(None);
+    };
+    let HeadType::Ctor(d, c) = head_type(cx, name) else {
+        return Ok(None);
+    };
+    let slots = ctor_slots(cx, d, c, None)?;
+    if args.iter().any(|a| matches!(a, Expr::NamedArg(..)))
+        || slots.iter().filter(|s| s.explicit).count() != args.len()
+    {
+        return Ok(None);
+    }
+    let passed = passed_args(cx, head, &args, 0)?;
+    let mut bound = Vec::new();
+    let mut pure = head.clone();
+    let explicit: Vec<&ParamSlot> = slots.iter().filter(|s| s.explicit).collect();
+    for ((arg, &passed), slot) in args.iter().zip(&passed).zip(explicit) {
+        let arg = if passed {
+            (*arg).clone()
+        } else {
+            run_argument(cx, arg, Some(&slot.ty), row, &mut bound)?
+        };
+        pure = Expr::App(Box::new(pure), Box::new(arg));
+    }
+    let (term, ty) = match expected {
+        Some(t) => (check(cx, &pure, t)?, t.clone()),
+        None => {
+            let (term, ty) = infer(cx, &pure)?;
+            insert(cx, term, ty)?
+        }
+    };
+    let result = done(cx, row, &ty, term)?;
+    Ok(Some((wrap(cx, row, bound, result, &ty)?, ty)))
 }
 
 /// An application or variable that performs operations (not a pipe or a
@@ -4187,7 +4244,11 @@ fn comp_compound(
     let (term, ty) = match (expected, &pure) {
         (
             Some(t),
-            Expr::Record { .. } | Expr::CtorFields { .. } | Expr::Tuple(..) | Expr::Neg(..),
+            Expr::Record { .. }
+            | Expr::CtorFields { .. }
+            | Expr::Tuple(..)
+            | Expr::Neg(..)
+            | Expr::List(..),
         ) => (check(cx, &pure, t)?, t.clone()),
         (Some(t), Expr::Binary(op, ..)) if crate::numbers::is_arith(*op) => {
             (check(cx, &pure, t)?, t.clone())
