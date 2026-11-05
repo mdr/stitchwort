@@ -1,5 +1,5 @@
 {
-  "next": 1335,
+  "next": 1336,
   "tickets": [
     {
       "id": 47,
@@ -7033,6 +7033,20 @@
         "lsp"
       ],
       "body": "Matt, 5 Nov: hover shows only the type 'Text → (Char → Bool) → {Parse} Char', so you can't see what to name in a named argument (what := …). Show the declaration's binders with names (implicit ones in [ ], defaults as written if cheap); keep the doc comment below. Same in the playground's hover if it has one. Related: SW-1258 (revealing std parameter names), SW-1254 (hover shows ignored proof parameters).",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1335,
+      "title": "Aoc.Common: Grid.positionsWhere (keep: a → Bool) with a membership lemma; use it in 2024 days 6 and 16 and onlyCell",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "D2381 (Matt, 5 Nov): yes. 'In general, we should be on the lookout for common logic across the Advent of Code days that we can reuse.' Day 20 stays on its plain list (ragged rows) unless moved to Grid; 2021 day 9's test filters by position, a different shape.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
