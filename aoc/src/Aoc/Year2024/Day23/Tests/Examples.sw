@@ -10,9 +10,11 @@ import Std (Fail, List, Nat, Result, Set, Text)
 
 def parsed (input: Text): Result Network Text := Fail.toResult (() => parseNetwork input)
 
+def computerNamed (name: Text): Computer := { name = name }
+
 --| A network from its connections written as in the input, "kh-tc".
 def networkOf (connections: List Text): Network :=
-  { connections = connections.map (line => (line.take 2, line.drop 3)) }
+  { connections = connections.map (line => { one = computerNamed (line.take 2), other = computerNamed (line.drop 3) }) }
 
 def exampleText: Text :=
   "kh-tc\nqp-kh\nde-cg\nka-co\nyn-aq\nqp-ub\ncg-tb\nvc-aq\ntb-ka\nwh-tc\nyn-cg\nkh-ub\nta-co\nde-co\ntc-td\ntb-wq\n"
@@ -22,10 +24,10 @@ def exampleText: Text :=
 def example: Network := exampleText.lines |> networkOf
 
 --| Sets written as the puzzle lists them, "aq,cg,yn".
-def setOf (names: Text): Set Computer := names.split ',' |> Set.fromList
+def partyOf (names: Text): Party := { members = names.split ',' |> .map computerNamed |> Set.fromList }
 
 --| The sets as the puzzle lists them: names in order, joined with commas.
-def listed (sets: Set (Set Computer)): List Text := sets.toList.map (set => set.toList.joinWith ",")
+def listed (parties: Set Party): List Text := parties.toList.map .password
 
 test "example, part 1" := solvePart1 example == 7
 test "example, part 2" := solvePart2 example == "co,de,ka,ta"
@@ -38,25 +40,28 @@ test "example, every set of three" :=
 
 --| "That narrows the list down to 7 sets".
 test "example, the sets with a t" :=
-  listed (example.links.setsOfThree |> .filter mightBeChiefs)
+  listed (example.links.setsOfThree |> .filter .mightHaveChief)
     == ["co,de,ta", "co,ka,ta", "de,ka,ta", "qp,td,wh", "tb,vc,wq", "tc,td,wh", "td,wh,yn"]
 
 --| The spec's sets of three, by brute force over every three computers.
-def specSetsOfThree (network: Network): Set (Set Computer) :=
+def specSetsOfThree (network: Network): Set Party :=
   let names := computers network |> Set.fromList |> .toList
   names
-    |> .flatMap (one => names.flatMap (two => names.map (three => Set.fromList [one, two, three])))
+    |> .flatMap (one => names.flatMap (two => names.map (three => { members = Set.fromList [one, two, three] })))
     |> Set.fromList
-    |> .filter (set => set.size == 3 && set.all (one => set.all (other => one == other || connected network one other)))
+    |> .filter (party => party.size == 3 && party.members.all (one => party.members.all (other => one == other || connected network one other)))
 
 test "example, the spec's sets of three agree" :=
   specSetsOfThree example == example.links.setsOfThree && (specSetsOfThree example |> .filter hasT |> .size) == 7
 
 --| "Each computer in this set has a connection to every other computer in
 --| the set".
-test "example, the largest set" := example.links.largestClique == setOf "co,de,ka,ta"
+test "example, the largest set" := example.links.largestClique == partyOf "co,de,ka,ta"
 
-test "connections go both ways" := connected example "tc" "kh" && connected example "kh" "tc" && !connected example "kh" "co"
+test "connections go both ways" :=
+  let tc := computerNamed "tc"
+  let kh := computerNamed "kh"
+  connected example tc kh && connected example kh tc && !connected example kh (computerNamed "co")
 
 test "no sets of three" :=
   solvePart1 (networkOf ["ta-tb", "tb-tc", "tc-td", "td-ta"]) == 0 && solvePart2 (networkOf ["ta-tb", "tb-tc", "tc-td", "td-ta"]) == "ta,tb"

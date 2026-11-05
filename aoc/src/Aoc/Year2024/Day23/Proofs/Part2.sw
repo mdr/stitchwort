@@ -225,11 +225,11 @@ theorem allCandidates (network: Network): Candidates network Set.empty network.l
   candidate held => Both held (Both rfl (member inEmpty => Void.exfalso (Bool.falseNotTrue inEmpty)))
 
 --| The puzzle's cliques are the program's.
-theorem cliqueOfSpec (network: Network) (set: Set Computer) (spec: IsClique network set): Clique network set :=
+theorem cliqueOfSpec (network: Network) (party: Party) (spec: IsClique network party): Clique network party.members :=
   Both (member held => (hasLinksIff network member).backward (spec.left member held))
     (one other heldOne heldOther different => (linkedIff network one other).backward (spec.right one other heldOne heldOther different))
 
-theorem specOfClique (network: Network) (set: Set Computer) (clique: Clique network set): IsClique network set :=
+theorem specOfClique (network: Network) (party: Party) (clique: Clique network party.members): IsClique network party :=
   Both (member held => (hasLinksIff network member).forward (clique.left member held))
     (one other heldOne heldOther different => (linkedIff network one other).forward (clique.right one other heldOne heldOther different))
 
@@ -239,7 +239,7 @@ theorem largestCorrect (network: Network): IsLargest network (network.links.larg
   Both (specOfClique network (network.links.largestClique) answers.left)
     (other otherSpec =>
       let otherOk := cliqueOfSpec network other otherSpec
-      answers.right.right other otherOk (key held => Void.exfalso (Bool.falseNotTrue held))
+      answers.right.right other.members otherOk (key held => Void.exfalso (Bool.falseNotTrue held))
         (key held => Set.containsUnionRight Set.empty network.links.keySet key (otherOk.left key held)))
 
 theorem part2Correct (network: Network): IsPart2 network (solvePart2 network) := Witness (network.links.largestClique) (Both (largestCorrect network) rfl)
