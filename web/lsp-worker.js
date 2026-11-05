@@ -127,7 +127,7 @@ function tick() {
   const ms = performance.now() - t;
   send(JSON.stringify(answer.sent));
   takeSearches();
-  postMessage({ tick: ms, published: answer.sent.length, startAbs: performance.timeOrigin + t });
+  postMessage({ tick: ms, published: answer.sent.length, startAbs: performance.timeOrigin + t, more: answer.more });
   if (answer.more) schedule();
 }
 
