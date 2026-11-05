@@ -6,61 +6,29 @@ import Aoc.Year2020.Day08 (..)
 import Aoc.Year2020.Day08 (Spec)
 import Std (Bool, DecEq, Eq, Fail, Int, List, Map, Nat, Option, Result, Void)
 
-theorem findMapFound (f: a → Option b): (xs: List a) → (y: b) → xs.findMap f = Some y → ∃ (x: a) => x ∈ xs ∧ f x = Some y
-  | [], y, found => Void.exfalso (Option.noneNotSome y found)
-  | [x, ..xs], y, found =>
-    match c: f x with
-      | Some z => Witness x (Both (Inl rfl) (rewrite c in found))
-      | None =>
-        match findMapFound f xs y found with
-          | Witness later (Both member made) => Witness later (Both (Inr member) made)
-
---| `xs` with the element at `index` replaced by `x` (Scala's `updated`).
-def replaceAt: (xs: List a) → (index: Nat) → (x: a) → List a
-  | [], index, x => []
-  | [y, ..ys], Zero, x => [x, ..ys]
-  | [y, ..ys], Succ index, x => [y, ..replaceAt ys index x]
-
-theorem lengthReplaceAt: (xs: List a) → (index: Nat) → (x: a) → (replaceAt xs index x).length = xs.length
-  | [], index, x => rfl
-  | [y, ..ys], Zero, x => rfl
-  | [y, ..ys], Succ index, x => Eq.cong Succ (lengthReplaceAt ys index x)
-
-theorem getReplaceAt: (xs: List a) → (index: Nat) → (x: a) → index < xs.length → (replaceAt xs index x).get index = Some x
-  | [], index, x, below => Void.exfalso (Bool.falseNotTrue below)
-  | [y, ..ys], Zero, x, below => rfl
-  | [y, ..ys], Succ index, x, below => getReplaceAt ys index x (omega)
-
-theorem getReplaceAtOther: (xs: List a) → (index: Nat) → (x: a) → (other: Nat) → other ≠ index → (replaceAt xs index x).get other = xs.get other
-  | [], index, x, other, differ => rfl
-  | [y, ..ys], Zero, x, Zero, differ => Void.exfalso (differ rfl)
-  | [y, ..ys], Zero, x, Succ other, differ => rfl
-  | [y, ..ys], Succ index, x, Zero, differ => rfl
-  | [y, ..ys], Succ index, x, Succ other, differ => getReplaceAtOther ys index x other (same => differ (Eq.cong Succ same))
-
 def Program.replaceAt (program: Program) (index: Nat) (instruction: Instruction): Program :=
-  { instructions = replaceAt program.instructions index instruction }
+  { instructions = List.set program.instructions index instruction }
 
 theorem repairedHolds (program: Program) (index: Nat) (instruction: Instruction) (below: index < program.instructions.length):
     Holds ({ program.code | byPosition = program.code.byPosition.insert index instruction }) (program.replaceAt index instruction) :=
-  Both (Eq.sym (lengthReplaceAt program.instructions index instruction))
+  Both (Eq.sym (List.lengthSet program.instructions index instruction))
     (position =>
       match d: position == index with
         | True =>
           rewrite DecEq.sound d, Map.getInsert index instruction program.code.byPosition in
-            Eq.sym (getReplaceAt program.instructions index instruction below)
+            Eq.sym (List.getSet program.instructions index instruction below)
         | False =>
           let differ: position ≠ index := same => DecEq.soundFalse position index d same
-          rewrite Map.getInsertOther index instruction position differ program.code.byPosition, getReplaceAtOther program.instructions index instruction position differ in
-            getByPosition program.instructions position)
+          rewrite Map.getInsertOther index instruction position differ program.code.byPosition, List.getSetOther program.instructions index instruction position differ in
+            Map.getByPosition program.instructions position)
 
 theorem repairIs (program: Program) (index: Nat) (instruction: Instruction) (repaired: Instruction) (listed: program.instructions.get index = Some instruction)
     (swapped: instruction.repaired = Some repaired):
     Spec.Repair program index (program.replaceAt index repaired) :=
-  let below := getLength program.instructions index instruction listed
-  let placed: (program.replaceAt index repaired).instructions.get index = Some repaired := getReplaceAt program.instructions index repaired below
-  Both (lengthReplaceAt program.instructions index repaired)
-    (Both (other differ => getReplaceAtOther program.instructions index repaired other differ)
+  let below := List.getSomeLt program.instructions index instruction listed
+  let placed: (program.replaceAt index repaired).instructions.get index = Some repaired := List.getSet program.instructions index repaired below
+  Both (List.lengthSet program.instructions index repaired)
+    (Both (other differ => List.getSetOther program.instructions index repaired other differ)
       (match instruction with
         | { operation = Acc, argument } => Void.exfalso (Option.noneNotSome repaired swapped)
         | { operation = Jmp, argument } =>
@@ -77,7 +45,7 @@ theorem repairTerminates (program: Program) (position: Nat) (instruction: Instru
     | None => Void.exfalso (Option.noneNotSome answer made)
     | Some repaired =>
       let fixed := program.replaceAt position repaired
-      let holds := repairedHolds program position repaired (getLength program.instructions position instruction listed)
+      let holds := repairedHolds program position repaired (List.getSomeLt program.instructions position instruction listed)
       match runRuns fixed ({ program.code | byPosition = program.code.byPosition.insert position repaired }) holds with
         | Witness positions (Witness last (Both runs (Both distinct ended))) =>
           match o: ({ program.code | byPosition = program.code.byPosition.insert position repaired }).run with
@@ -95,7 +63,7 @@ theorem part2Rules (program: Program) (answer: Int) (solved: Fail.toResult (() =
   match f: program.instructions.withIndex.findMap (((position, instruction)) => program.code.terminatesRepaired position instruction) with
     | None => Void.exfalso (Result.errNotOk ran)
     | Some found =>
-      match findMapFound (((position, instruction)) => program.code.terminatesRepaired position instruction) program.instructions.withIndex found f with
+      match List.memOfFindMap (((position, instruction)) => program.code.terminatesRepaired position instruction) program.instructions.withIndex found f with
         | Witness (position, instruction) (Both member made) =>
           let listed := (List.memWithIndex program.instructions position instruction).forward member
           Witness position (rewrite <- Result.okInjective ran in repairTerminates program position instruction found listed made)
