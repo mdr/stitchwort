@@ -8889,12 +8889,12 @@
       "id": 1465,
       "title": "omega ignores a fact whose ≤ comes from Ord at Nat (e.g. NonEmptyList.maximumLe), even passed in omega [...]; read it, or say it was skipped",
       "status": "doing",
-      "agent": "GLM",
-      "where": ".claude/worktrees/scratch-sw-1465",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1465",
       "labels": [
         "omega"
       ],
-      "body": "From 2020 day 10 (SW-1461), 5 Nov 2026. Small improvement.\n\nStarted on DeepSeek, expected: 40 min.",
+      "body": "From 2020 day 10 (SW-1461), 5 Nov 2026. Small improvement.\n\nStarted on DeepSeek, expected: 40 min.\n\nDeepSeek run lost to an overloaded server; GLM run stopped by 'Go usage limit exceeded' (OpenCode Go plan). Restarted on Sonnet, expected: 40 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
