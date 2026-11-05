@@ -52,9 +52,19 @@ worker.onmessage = ({ data }) => {
   else if (data.stdSource !== undefined) { stdWaiting.get(data.stdSource)?.(data.text); stdWaiting.delete(data.stdSource); }
   else if (data.crashed !== undefined) { timing.crashed = data.crashed; status.textContent = `The server crashed: ${data.crashed}`; }
 };
+// Cancellation (docs/proposals/playground-editor.md §5.2.1): with
+// cross-origin isolation, a counter in shared memory that this page bumps
+// for each edit, which the checker reads while it checks and so stops a
+// check the edit has made stale. Without it, a check runs to its end.
+const edits = globalThis.crossOriginIsolated ? new Int32Array(new SharedArrayBuffer(4)) : null;
+if (edits) worker.postMessage({ edits });
+timing.isolated = !!edits;
+const STALE = new Set(["textDocument/didChange", "textDocument/didClose"]);
+
 const transport = {
   send(message) {
     const m = JSON.parse(message);
+    if (edits && STALE.has(m.method)) Atomics.add(edits, 0, 1);
     log.push({ t: performance.now() - t0, dir: "out", method: m.method, id: m.id, size: message.length });
     worker.postMessage(message);
   },

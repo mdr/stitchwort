@@ -12,6 +12,11 @@
 // queued one is dropped, and a running one is stopped by terminating that
 // worker and starting another.
 //
+// The page may post {edits: Int32Array} first, a counter in shared memory
+// that it bumps for each didChange and didClose: the server then stops a
+// check as soon as the counter is ahead of the edits read (cancellation,
+// docs/proposals/playground-editor.md §5.2.1).
+//
 // The page may post {project: name} first: the bundled project
 // pkg/projects/NAME/ is then read from memory at /playground/NAME, for
 // documents opened as file:///playground/NAME/src/….
@@ -133,7 +138,18 @@ async function loadProject(name) {
   postMessage({ project: name, files: paths.length });
 }
 
+// Edits the page has sent (in `edits`) against those read here.
+let editsSent = null;
+let editsRead = 0;
+const STALE = new Set(["textDocument/didChange", "textDocument/didClose"]);
+globalThis.stitchwortEditsWaiting = () => editsSent !== null && Atomics.load(editsSent, 0) !== editsRead;
+
 async function handle(data) {
+  if (data.edits !== undefined) {
+    editsSent = data.edits;
+    server.watch_edits();
+    return;
+  }
   if (data.stdSource !== undefined) {
     postMessage({ stdSource: data.stdSource, text: std_source(data.stdSource) });
     return;
@@ -143,6 +159,8 @@ async function handle(data) {
     return;
   }
   const t = performance.now();
+  const method = JSON.parse(data).method;
+  if (STALE.has(method)) editsRead++;
   try {
     send(server.receive(data));
     takeSearches();
@@ -150,7 +168,7 @@ async function handle(data) {
     postMessage({ crashed: String(e) });
     return;
   }
-  postMessage({ received: performance.now() - t, method: JSON.parse(data).method });
+  postMessage({ received: performance.now() - t, method });
   schedule();
 }
 

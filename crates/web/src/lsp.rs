@@ -55,6 +55,13 @@ impl LanguageServer {
         format!(r#"{{"sent":{},"more":{more}}}"#, array(sent))
     }
 
+    /// Stops a check whenever `globalThis.stitchwortEditsWaiting()` says
+    /// that the page has sent an edit the worker hasn't read yet: the
+    /// worker's shared counter (lsp-worker.js). For the whole instance.
+    pub fn watch_edits(&self) {
+        stitchwort_core::budget::Budget::set_cancel_hook(edits_waiting);
+    }
+
     /// The proof searches queued, for the search worker: a JSON array of
     /// `{"id", "search"}`. Those not taken run in `tick`.
     pub fn take_searches(&mut self) -> String {
@@ -134,6 +141,16 @@ pub(crate) fn memory_project(
             .collect(),
         files: Arc::new(paths.into_iter().zip(texts).collect()),
     }
+}
+
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(js_name = stitchwortEditsWaiting)]
+    fn js_edits_waiting() -> bool;
+}
+
+fn edits_waiting() -> bool {
+    js_edits_waiting()
 }
 
 fn array(messages: Vec<String>) -> String {

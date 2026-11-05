@@ -25,7 +25,10 @@ const server = await new Promise((ok) => {
   const s = createServer((req, res) => {
     const file = resolve(root, "." + decodeURIComponent(new URL(req.url, "http://x").pathname));
     if (!file.startsWith(root + sep) || !existsSync(file) || !statSync(file).isFile()) return res.writeHead(404).end();
-    res.writeHead(200, { "content-type": TYPES[extname(file)] ?? "application/octet-stream", "cache-control": "no-store" });
+    // Cross-origin isolation, for the shared counter that cancels a stale
+    // check (NO_COI=1 to measure without).
+    const coi = process.env.NO_COI ? {} : { "cross-origin-opener-policy": "same-origin", "cross-origin-embedder-policy": "require-corp" };
+    res.writeHead(200, { "content-type": TYPES[extname(file)] ?? "application/octet-stream", "cache-control": "no-store", ...coi });
     res.end(readFileSync(file));
   });
   s.listen(0, "127.0.0.1", () => ok(s));
@@ -223,6 +226,23 @@ await step("AoC 2024 day 21 (226 lines): load", async () => {
   return { msToDiagnostics: Math.round(p.t - t), count: p.count, diags: await ev(`window.lspLog.length`) };
 });
 await step("typing latency, AoC day", () => typing("aoc day21", 7));
+
+// An edit while the check of the last is running: with cancellation its
+// diagnostics come about one check after it, without it up to two.
+await step("an edit during a stale check (AoC day)", async () => {
+  const runs = [];
+  for (let i = 0; i < 3; i++) {
+    const edit = (text) => ev(`(() => { const v = window.view; v.dispatch({ changes: { from: v.state.doc.length, insert: ${JSON.stringify(text)} } }); const t = performance.now(); window.lspClient.sync(); return { t, version: ${MAIN()}.version }; })()`);
+    await edit(" ");
+    await sleep(500);
+    const { t, version } = await edit("\n");
+    const p = await publishedAfter(t, version).catch(() => null);
+    const quiet = await until(`(() => { const last = window.lspTiming.ticks.at(-1); return last && last.t > ${t} && performance.now() - last.t > 30 && last.t; })()`, 60000);
+    runs.push(Math.round((p?.t ?? quiet) - t));
+    await sleep(300);
+  }
+  return { isolated: await ev(`window.lspTiming.isolated`), msToDiagnosticsOfTheSecond: runs };
+});
 
 await step("default client pause (500 ms) end to end", async () => {
   const t = await ev(`(() => { const v = window.view; v.dispatch({ changes: { from: v.state.doc.length, insert: "x" } }); return performance.now(); })()`);
