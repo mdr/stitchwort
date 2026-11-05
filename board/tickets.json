@@ -8959,8 +8959,8 @@
       "id": 1470,
       "title": "AoC 2020 day 11 (Seating System): spec, efficient solution, proofs, tests, friction notes in aoc/NOTES-2020.md",
       "status": "doing",
-      "agent": "",
-      "where": "",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1470",
       "labels": [
         "aoc"
       ],
