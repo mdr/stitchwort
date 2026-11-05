@@ -18,7 +18,7 @@ theorem stepIsMove (probe: Probe): step probe = move probe := rewrite dragSign p
 def flight (n: Nat) (velocity: Velocity): Probe := Nat.iterate n step (launch velocity)
 
 theorem flightIsAfter (n: Nat) (velocity: Velocity): flight n velocity = after n velocity :=
-  Nat.iterateCong step move stepIsMove n (launch velocity)
+  Nat.iterateCong n step move (launch velocity) stepIsMove
 
 --| After `n` steps the y velocity is `n` less, and twice the height gained
 --| is `n * (2 * dy + 1 - n)`.

@@ -140,7 +140,7 @@ theorem Fin.anyWitness (n: Nat) (p: Fin n → Bool) (h: Fin.any n p = True): Exi
 
 --| Tests that agree at every position agree on `Fin.any`. (`rewrite` uses it
 --| to rewrite inside the test.)
-theorem Fin.anyCong (p1: Fin n → Bool) (p2: Fin n → Bool) (ep: (i: Fin n) → p1 i = p2 i): Fin.any n p1 = Fin.any n p2 :=
+theorem Fin.anyCong (n: Nat) (p1: Fin n → Bool) (p2: Fin n → Bool) (ep: (i: Fin n) → p1 i = p2 i): Fin.any n p1 = Fin.any n p2 :=
   Bool.eqOf (Fin.any n p1) (Fin.any n p2)
     (h => Fin.anyElim (Fin.any n p2 = True) n p1 h (i hi => Fin.anyIntro p2 i (Eq.trans (Eq.sym (ep i)) hi)))
     (h => Fin.anyElim (Fin.any n p1 = True) n p2 h (i hi => Fin.anyIntro p1 i (Eq.trans (ep i) hi)))
@@ -150,12 +150,12 @@ theorem Fin.anyCong (p1: Fin n → Bool) (p2: Fin n → Bool) (ep: (i: Fin n) �
 theorem Fin.anyRangeFrom (q: Nat → Bool): (n: Nat) → (s: Nat) → Fin.any n (i => q (Fin.toNat i + s)) = List.any (List.rangeFrom n s) q
   | Zero, s => rfl
   | Succ n, s =>
-    rewrite Fin.anyCong (i => q (Succ (Fin.toNat i) + s)) (i => q (Fin.toNat i + Succ s)) (i => Eq.cong q (Eq.sym (Nat.addSucc (Fin.toNat i) s))),
+    rewrite Fin.anyCong _ (i => q (Succ (Fin.toNat i) + s)) (i => q (Fin.toNat i + Succ s)) (i => Eq.cong q (Eq.sym (Nat.addSucc (Fin.toNat i) s))),
       Fin.anyRangeFrom q n (Succ s) in rfl
 
 --| `Fin.any n` on the numbers of the positions is `List.any` along `List.range 0 n`.
 theorem Fin.anyRange (q: Nat → Bool) (n: Nat): Fin.any n (i => q (Fin.toNat i)) = List.any (List.range 0 n) q :=
-  Eq.trans (Fin.anyCong (i => q (Fin.toNat i)) (i => q (Fin.toNat i + 0)) (i => Eq.cong q (Eq.sym (Nat.addZero (Fin.toNat i)))))
+  Eq.trans (Fin.anyCong _ (i => q (Fin.toNat i)) (i => q (Fin.toNat i + 0)) (i => Eq.cong q (Eq.sym (Nat.addZero (Fin.toNat i)))))
     (Fin.anyRangeFrom q n 0)
 
 --| Only one position can equal `j`, so asking for one that does and passes
