@@ -458,12 +458,13 @@ the arms below it get equations, and `f.induct` its cases, as follows
   …`), `f.induct` isn't made, with that reason.
 - **Not generated** (`E-NO-EQUATION`, with the reason):
   - an arm whose right side uses the proof that an *earlier* arm's
-    condition failed (`Decidable.elim`'s `else` binder): two such proofs
-    aren't known equal without proof irrelevance (D2180);
-  - an arm whose right side uses its own condition's proof where it isn't
-    an equation in a `DecEq` type or a comparison (`| (n, len) if n != 0 =>
-    len % n`, whose `%` takes `n ≠ 0`): the same D2180 limit stage 1b has
-    for `if h:`;
+    condition failed (`Decidable.elim`'s `else` binder), which the
+    equation has no hypothesis for (D2180);
+  - an arm whose right side computes on its own condition's proof where it
+    isn't an equation in a `DecEq` type or a comparison: the D2180 limit
+    stage 1b has for `if h:`. (`| (n, len) if n != 0 => len % n`, whose `%`
+    takes `n ≠ 0` without computing on it, has its equation since SW-1429,
+    function-equations.md §3.5.)
   - proofs that need a split on an indexed family (`| n, _ if n > 2 => … |
     Succ m, VCons x _ => …`), stage 1a's existing limit.
 

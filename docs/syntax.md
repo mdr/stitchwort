@@ -1248,9 +1248,11 @@ take by `rewrite`, `match` or `cases`, and `countFresh.eq2.ifFalse (b) (rest)
   (isSome: explode (depth + 1) left = Some inLeft): explode depth (Pair left
   right) = Some (…)`.
 - **Not generated** for a branch (`E-NO-EQUATION`, with the reason): one
-  that uses the proof of an `if`'s `else` (as `a % b` does, with `b ≠ 0`),
-  or of its `then` when the condition isn't an equation in a type with
-  `DecEq` or a comparison (two proofs of it aren't known to be equal); a
+  that computes on the proof of an `if`'s `else`, or of its `then` when the
+  condition isn't an equation in a type with `DecEq` or a comparison (two
+  proofs of it aren't known to be equal). A branch that only passes the
+  proof where nothing computes on it (as `a % b` does with `b ≠ 0`) is
+  fine; a
   `match` on several expressions, an alternative with an or-pattern, and a
   `match` whose helper copies variables whose types mention what it
   matches.

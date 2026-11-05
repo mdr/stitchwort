@@ -2795,14 +2795,17 @@ impl Elaborator {
         // A character pattern's proof field (`'k'` is `MkChar 107 p`) is
         // `rfl` on the left side, the literal's own, so the equation doesn't
         // take it as a variable.
-        let mut to_refl: Vec<Value> = (0..depth).map(Value::var).collect();
         let mut any_refl = false;
-        for l in 1..depth {
-            if own(l) && is_computed_bool_eq(g, depth, &cx.types[l])? {
-                to_refl[l] = Value::Refl;
-                any_refl = true;
-            }
-        }
+        let to_refl: Vec<Value> = (0..depth)
+            .map(|l| {
+                if l >= 1 && own(l) && is_computed_bool_eq(g, depth, &cx.types[l])? {
+                    any_refl = true;
+                    Ok(Value::Refl)
+                } else {
+                    Ok(Value::var(l))
+                }
+            })
+            .collect::<R<_>>()?;
         if any_refl {
             for t in &mut lhs {
                 *t = stitchwort_core::value::quote(g, depth, &eval(g, &to_refl, t)?)?;
@@ -3665,12 +3668,13 @@ impl Elaborator {
                     } else if is(lib.elim) && args.len() == 5 {
                         let p = args[0].0.clone();
                         let mut branch = lambda_body(&args[if yes { 3 } else { 4 }].0)?;
-                        let uses = uses_var(&self.ev(), &branch)?;
+                        let uses = uses_var(&self.ev(), &branch)?
+                            && !self.proof_is_inert_in(&branch, marked.then_some(d), depth)?;
                         if uses && !yes {
                             return skip(
                                 "its `else` branch uses the proof that the condition is false: \
-                                 two such proofs aren't known to be equal without proof \
-                                 irrelevance (D2180)",
+                                 the branch computes on it, so two such proofs aren't known to be \
+                                 equal (D2180)",
                             );
                         }
                         let uniq = if uses && !marked {
@@ -4385,6 +4389,32 @@ impl Elaborator {
         })
     }
 
+    /// Whether a branch `body` of an `if h: p` (under the binder `h`, in
+    /// a context of `depth` variables) gives the same value for any two
+    /// proofs `h`, by conversion: it reaches `h` only in inert positions
+    /// (docs/proposals/proof-irrelevance.md), so the branch's equation
+    /// needs no `J` along the uniqueness of proofs (§3.5). `d` for a
+    /// `decreasing` definition, whose recursion marks are not part of the
+    /// branch.
+    fn proof_is_inert_in(&self, body: &Term, d: Option<&Def>, depth: usize) -> R<bool> {
+        let g = &self.ev();
+        let body = match d {
+            Some(d) => unmark(g, d, body)?,
+            None => body.clone(),
+        };
+        let with = |h: usize| -> R<Value> {
+            let mut env: Vec<Value> = (0..depth).map(Value::var).collect();
+            env.push(Value::var(h));
+            Ok(eval(g, &env, &body)?)
+        };
+        Ok(stitchwort_core::value::conv(
+            g,
+            depth + 2,
+            &with(depth)?,
+            &with(depth + 1)?,
+        )?)
+    }
+
     /// A proof that any two proofs of `p` (decided by `decision`, at
     /// `depth`) are equal, for a branch of `if h: p` that uses `h` (§3.5,
     /// D2180): `p` an equation of `Bool`s (`<` and `≤` on `Nat` and `Int`
@@ -4416,8 +4446,8 @@ impl Elaborator {
         }
         skip(
             "its branch uses the proof `h` of a condition that isn't an equation in a type with \
-             `DecEq` (or a comparison): two proofs of it aren't known to be equal without proof \
-             irrelevance (D2180)",
+             `DecEq` (or a comparison), and the branch computes on it: two proofs of it \
+             aren't known to be equal (D2180)",
         )
     }
 
@@ -5431,9 +5461,8 @@ enum Found {
 
 /// Why a row whose body uses the proof that an earlier arm's condition is
 /// false has no equation.
-const GUARD_PROOF: &str = "its body uses the proof that an earlier arm's condition is false: \
-                           two such proofs aren't known to be equal without proof irrelevance \
-                           (D2180)";
+const GUARD_PROOF: &str = "its body uses the proof that an earlier arm's condition is false, \
+                           which the equation has no hypothesis for (D2180)";
 
 /// What [`find_rhs`] finds: the leaf, and for a guarded row whether its
 /// condition is tested by `Decidable.elim`. `unit` is `()`, the value of a
@@ -6940,7 +6969,9 @@ impl<'a> Walk<'a> {
             let binder = if node.dec { PV::Var(level) } else { unit()? };
             let q = self.branch(&node.then, binder, crate::GUARD_THEN, fvals, path)?;
             if node.dec {
-                let uniq = if node.then.mentions(0) {
+                let uniq = if node.then.mentions(0)
+                    && !self.e.proof_is_inert_in(&node.then, None, depth)?
+                {
                     Some(
                         self.e
                             .uniqueness(&blib, &read.args[0].0, &read.args[2].0, depth)?,
