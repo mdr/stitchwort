@@ -7376,7 +7376,7 @@
     {
       "id": 1359,
       "title": "Ranges step 3: auto and omega take x ∈ a ..< b apart; Bool x in a ..< b decided by two comparisons (D2411)",
-      "status": "review",
+      "status": "doing",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1359",
       "labels": [
