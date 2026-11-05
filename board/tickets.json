@@ -1,5 +1,5 @@
 {
-  "next": 1386,
+  "next": 1387,
   "tickets": [
     {
       "id": 47,
@@ -7748,6 +7748,20 @@
         "playground"
       ],
       "body": "",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1386,
+      "title": "Merge tier over budget: test:merge takes 130-223 s (12 runs, 5 Nov 2026, under lane load) against its 90 s budget; time it idle, find the slowest tests (nextest JUnit, test:inventory), and trim or move them to daily",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "body": "D2424 (Matt, 5 Nov 2026): 2-4 minutes is okay for now; backlog it to explore optimising the merge tier. Times from the batch verifiers' 2-test-merge.log files: 223, 202, 192, 183, 152, 190, 130, 151, 217, 143, 185, 165 s (tests only; build and test:features excluded).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
