@@ -7,14 +7,14 @@
 --|   $ cd aoc && stitchwort run Aoc.Year2020.Day07.main < inputs/2020/day07.txt
 --|
 --| Part 1 walks outward from shiny gold, from each bag to the bags that hold
---| it, with std's breadth-first search; part 2 follows the rules inward.
+--| it, with std's `Graph.reachable`; part 2 follows the rules inward.
 --| The proofs, that the parser reads the puzzle's format and that both
 --| answers are the puzzle's, are in `Aoc.Year2020.Day07.Proofs` (Proofs/),
 --| and the tests in `Aoc.Year2020.Day07.Tests` (Tests/); `run` checks
 --| neither.
 
 namespace Aoc.Year2020.Day07
-import Std (Char, Eq, Exists, Fail, Graph, IO, List, Map, NonEmptyList, Option, Pair, Parse, Text)
+import Std (Char, Eq, Exists, Fail, Graph, IO, List, Map, NonEmptyList, Option, Pair, Parse, Set, Text)
 
 def main(): {IO, Fail} () :=
   let rules := parseRules IO.readAll()
@@ -76,39 +76,15 @@ def holdersIn (index: Map Colour (NonEmptyList (Colour, Colour))) (colour: Colou
     | Some pairs => pairs.toList.map Pair.snd
     | None => []
 
-theorem holdersInIndex (rules: List Rule) (colour: Colour):
-    holdersIn (holdersIndex rules) colour = ((rules.flatMap .insides).filter (pair => Map.Spec.sameKey colour pair.fst)).map Pair.snd :=
-  rewrite Map.getGroupBy Pair.fst colour (rules.flatMap .insides) in
-    match List.filter (rules.flatMap .insides) (pair => Map.Spec.sameKey colour pair.fst) with
-      | [] => rfl
-      | [first, ..rest] => rfl
-
---| Every holder is the colour of a rule.
-theorem holderListed (rules: List Rule) (colour: Colour) (holder: Colour) (found: holder ∈ holdersIn (holdersIndex rules) colour):
-    holder ∈ rules.map .colour :=
-  let (Witness pair (Both kept same)) := List.memMapElim Pair.snd holder _ (rewrite holdersInIndex rules colour at found in found)
-  let (Both listed matching) := List.memFilter _ _ kept
-  List.anyElim (rule => pair ∈ rule.insides) (holder ∈ rules.map .colour) rules (List.memFlatMapElim .insides pair rules listed)
-    (rule member inRule =>
-      let (Witness content (Both inContents made)) := List.memMapElim (content => (content.colour, rule.colour)) pair rule.contents inRule
-      rewrite <- same, <- made in List.memMap rules rule member .colour)
-
 --| Bags and the bags that hold them, each step out costing 1.
 def Rules.graph (rules: Rules): Graph Colour :=
   let index := holdersIndex rules.all
-  {
-    edges = colour => holdersIn index colour |> .map (holder => (holder, 1)),
-    states = rules.all.map .colour,
-    listed = colour holder weight edge =>
-      let (Witness listed (Both found same)) := List.memMapElim (holder => (holder, 1)) (holder, weight) _ edge
-      holderListed rules.all colour holder (rewrite <- Eq.cong Pair.fst same in found)
-  }
+  Graph.fromEdges (colour => holdersIn index colour |> .map (holder => (holder, 1))) (rules.all.map .colour)
 
---| The colours that can eventually contain a bag of `colour`, each with the
---| fewest steps out from its first holder.
-def Rules.outside (rules: Rules) (colour: Colour): Map Colour Nat :=
+--| The colours that can eventually contain a bag of `colour`.
+def Rules.outside (rules: Rules) (colour: Colour): Set Colour :=
   let graph := rules.graph
-  graph.breadthFirst (graph.edges colour |> .map Pair.fst)
+  graph.reachable (graph.edges colour |> .map Pair.fst)
 
 def solvePart1 (rules: Rules): Nat := (rules.outside shinyGold).size
 
