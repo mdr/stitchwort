@@ -1,5 +1,5 @@
 {
-  "next": 1420,
+  "next": 1427,
   "tickets": [
     {
       "id": 47,
@@ -8174,13 +8174,13 @@
     {
       "id": 1416,
       "title": "AoC 2020 day 8 (Handheld Halting): spec, efficient solution, proofs, tests, friction notes in aoc/NOTES-2020.md",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1416",
       "labels": [
         "aoc"
       ],
-      "body": "D2429 (5 Nov 2026): day 7's friction review done (decided by the orchestrator at Matt's request). Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day8.\n\nStarted on Opus, expected: 90 min.",
+      "body": "D2429 (5 Nov 2026): day 7's friction review done (decided by the orchestrator at Matt's request). Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day8.\n\nStarted on Opus, expected: 90 min.\n\nDone (d4e01ef31): answers 1832 and 662. Spec in the puzzle's words (Step/Runs relation; Part1 a distinct run back at an executed position; Part2 a one-instruction jmp/nop repair that terminates); part1Correct and part2Correct proved, no step limit (visited-set size as the measure). Spec checked by the orchestrator, statement by statement; checks and tests rerun. Model result: Opus, worked, 18 min (est. 90).",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
@@ -8223,6 +8223,107 @@
         "std"
       ],
       "body": "From SW-1401's Opus review, 5 Nov 2026. Small improvement; check what accepts it today (tests) before tightening.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1420,
+      "title": "Bug: a method sharing a short name with another type's method (Instruction.run next to Code.run) makes decreasing report mutual recursion that isn't there, and suggests a step limit; repro in aoc/NOTES-2020.md Day 8 item 1",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "bug"
+      ],
+      "body": "From 2020 day 8 (SW-1416), 5 Nov 2026; see aoc/NOTES-2020.md Day 8. Fix first: run, step and next are the names simulations reach for.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1421,
+      "title": "Std: Map.get lemma for Map.byPosition (only getOr has one); List.get xs i = Some x gives i < length; List.set with lemmas; what List.findMap finds is in the list (2024 day 24 has a weaker copy)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From 2020 day 8 (SW-1416), 5 Nov 2026; see aoc/NOTES-2020.md Day 8.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1422,
+      "title": "Std: Parse.int reads no leading +; add a parser for a number with a required sign (2020 day 8's +3 / -99)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From 2020 day 8 (SW-1416), 5 Nov 2026; see aoc/NOTES-2020.md Day 8.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1423,
+      "title": "Proof's own if h: doesn't follow the program's if h: (matching the Bool does), and the goal shows the compiled Decidable.elim without saying so: guide note or message",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "docs"
+      ],
+      "body": "From 2020 day 8 (SW-1416), 5 Nov 2026; see aoc/NOTES-2020.md Day 8.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1424,
+      "title": "Messages: an unknown Eq.symm with Eq imported says to import Std (Eq) instead of suggesting Eq.sym; rewrite with an iff could point at .forward / .backward",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "From 2020 day 8 (SW-1416), 5 Nov 2026; see aoc/NOTES-2020.md Day 8. Small improvements.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1425,
+      "title": "Std: Int.ofNatInjective takes both numbers explicitly though its hypothesis fixes them; make them implicit (D2422 sweep)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From 2020 day 8 (SW-1416), 5 Nov 2026; see aoc/NOTES-2020.md Day 8. Small improvement.",
+      "created": "2026-11-05",
+      "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1426,
+      "title": "2020 day 8 proofs: completeness (the program answers whenever the puzzle has an answer) and uniqueness of both parts (runs are deterministic)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc",
+        "proofs"
+      ],
+      "body": "From 2020 day 8 (SW-1416), 5 Nov 2026; see aoc/NOTES-2020.md Day 8.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
