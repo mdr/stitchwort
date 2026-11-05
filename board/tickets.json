@@ -7460,7 +7460,7 @@
     {
       "id": 1365,
       "title": "Move 2020 days 4 and 6's shared parse-proof helpers (sepByMap, eachMap) to std Parse lemmas or Aoc.Common",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1365",
       "labels": [
