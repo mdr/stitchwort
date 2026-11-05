@@ -187,3 +187,212 @@ fn random_salt() -> [u8; 16] {
     }
     salt
 }
+
+/// A check cache for the standard library made ahead of time and shipped
+/// with a host that has no cache directory: the playground's `std.cache`,
+/// written by `web/build.sh` with the same WebAssembly the page runs
+/// (docs/proposals/playground-editor.md §5.2.4).
+///
+/// - **What it holds:** the compiler that made it, a salt, an entry per
+///   library file (unit, key, entry, as a [`CheckCache`] stores them), and
+///   the library files that don't check under the limits it was made with
+///   (`left_out`), which a session like it should not load up front.
+/// - **Validity:** an entry is looked up by its key, which covers the
+///   compiler build, the modes and limits, and the file's text and its
+///   dependencies' keys; so a bundle from another build, or a session made
+///   differently, finds only misses, and the file is checked as without a
+///   cache. A bundle from another compiler is not read at all
+///   ([`LibraryBundle::decode`]), so its `left_out` isn't used either.
+/// - **Trust:** its entries are admitted without the kernel's checks, as
+///   a cache directory's are (check-cache.md, D1660). The salt that keeps a
+///   directory from reading another's entries doesn't apply: the bundle
+///   comes from the build that made the WebAssembly reading it.
+#[derive(Default)]
+pub struct LibraryBundle {
+    compiler: String,
+    entries: std::collections::BTreeMap<(String, Key), Vec<u8>>,
+    /// Paths under `std/` (`Float/Theory.sw`).
+    pub left_out: std::collections::BTreeSet<String>,
+}
+
+const BUNDLE_MAGIC: &[u8] = b"stitchwort library bundle 1\n";
+
+/// The bundle's salt, the same for every bundle so that one build makes
+/// the same bytes each time.
+const BUNDLE_SALT: [u8; 16] = *b"playground std\0\0";
+
+impl LibraryBundle {
+    /// The compiler this build's entries are made by.
+    fn this_compiler() -> String {
+        format!("stitchwort-{}-{}", env!("CARGO_PKG_VERSION"), FINGERPRINT)
+    }
+
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
+    /// The bundle in `bytes`, or `None` if they aren't one or it was made by
+    /// another build of the compiler.
+    pub fn decode(bytes: &[u8]) -> Option<LibraryBundle> {
+        let mut r = bytes.strip_prefix(BUNDLE_MAGIC)?;
+        let mut take = |n: usize| -> Option<&[u8]> {
+            let (head, tail) = r.split_at_checked(n)?;
+            r = tail;
+            Some(head)
+        };
+        let mut chunk = || -> Option<Vec<u8>> {
+            let n = u64::from_le_bytes(take(8)?.try_into().ok()?);
+            Some(take(usize::try_from(n).ok()?)?.to_vec())
+        };
+        let compiler = String::from_utf8(chunk()?).ok()?;
+        if compiler != Self::this_compiler() {
+            return None;
+        }
+        let count = u64::from_le_bytes(chunk()?.try_into().ok()?);
+        let mut entries = std::collections::BTreeMap::new();
+        for _ in 0..count {
+            let unit = String::from_utf8(chunk()?).ok()?;
+            let key: Key = chunk()?.try_into().ok()?;
+            entries.insert((unit, key), chunk()?);
+        }
+        let left = String::from_utf8(chunk()?).ok()?;
+        Some(LibraryBundle {
+            compiler,
+            entries,
+            left_out: left.lines().map(str::to_string).collect(),
+        })
+    }
+
+    pub fn encode(&self) -> Vec<u8> {
+        let mut out = BUNDLE_MAGIC.to_vec();
+        let mut chunk = |bytes: &[u8]| {
+            out.extend((bytes.len() as u64).to_le_bytes());
+            out.extend(bytes);
+        };
+        chunk(self.compiler.as_bytes());
+        chunk(&(self.entries.len() as u64).to_le_bytes());
+        for ((unit, key), entry) in &self.entries {
+            chunk(unit.as_bytes());
+            chunk(key);
+            chunk(entry);
+        }
+        let left: Vec<&str> = self.left_out.iter().map(String::as_str).collect();
+        chunk(left.join("\n").as_bytes());
+        out
+    }
+}
+
+/// A [`LibraryBundle`] as a session's check cache: read only, since what
+/// a session checks itself may differ from what the bundle was made with.
+pub struct BundleStore(pub std::sync::Arc<LibraryBundle>);
+
+impl Store for BundleStore {
+    fn compiler(&self) -> &str {
+        &self.0.compiler
+    }
+
+    fn salt(&self) -> [u8; 16] {
+        BUNDLE_SALT
+    }
+
+    fn read(&self, unit: &str, key: &Key) -> Option<Vec<u8>> {
+        self.0.entries.get(&(unit.to_string(), *key)).cloned()
+    }
+
+    fn write(&self, _: &str, _: &Key, _: &[u8]) {}
+}
+
+/// A check cache that keeps the library files' entries written to it, to
+/// make a [`LibraryBundle`] of them.
+pub struct BundleRecorder {
+    compiler: String,
+    entries: std::cell::RefCell<std::collections::BTreeMap<(String, Key), Vec<u8>>>,
+}
+
+impl Default for BundleRecorder {
+    fn default() -> Self {
+        BundleRecorder {
+            compiler: LibraryBundle::this_compiler(),
+            entries: Default::default(),
+        }
+    }
+}
+
+impl BundleRecorder {
+    /// The entries written so far, and `left_out`.
+    pub fn finish(&self, left_out: std::collections::BTreeSet<String>) -> LibraryBundle {
+        LibraryBundle {
+            compiler: self.compiler.clone(),
+            entries: self.entries.take(),
+            left_out,
+        }
+    }
+}
+
+impl Store for BundleRecorder {
+    fn compiler(&self) -> &str {
+        &self.compiler
+    }
+
+    fn salt(&self) -> [u8; 16] {
+        BUNDLE_SALT
+    }
+
+    fn read(&self, _: &str, _: &Key) -> Option<Vec<u8>> {
+        None
+    }
+
+    fn write(&self, unit: &str, key: &Key, entry: &[u8]) {
+        if unit.starts_with("std.") {
+            (self.entries.borrow_mut()).insert((unit.to_string(), *key), entry.to_vec());
+        }
+    }
+}
+
+impl std::fmt::Debug for LibraryBundle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LibraryBundle")
+            .field("compiler", &self.compiler)
+            .field("entries", &self.entries.len())
+            .field("left_out", &self.left_out)
+            .finish()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_library_bundle_reads_back_and_only_in_its_own_build() {
+        let recorder = BundleRecorder::default();
+        recorder.write("std.List.Sort+nav+ty", &[1; 32], b"entry");
+        // Only library files' entries are kept.
+        recorder.write("ns.Aoc.Common+nav+ty", &[2; 32], b"namespace");
+        let bundle = recorder.finish(["Float/Theory.sw".to_string()].into());
+        let bytes = bundle.encode();
+        let read = LibraryBundle::decode(&bytes).expect("this build's bundle");
+        assert_eq!(read.len(), 1);
+        assert_eq!(read.left_out, bundle.left_out);
+        let store = BundleStore(std::sync::Arc::new(read));
+        assert_eq!(
+            store.read("std.List.Sort+nav+ty", &[1; 32]).as_deref(),
+            Some(&b"entry"[..])
+        );
+        assert_eq!(store.read("std.List.Sort+nav+ty", &[3; 32]), None);
+        assert_eq!(store.salt(), recorder.salt());
+        assert_eq!(store.compiler(), recorder.compiler());
+
+        // Another build's bundle isn't read at all, and nor are bytes cut
+        // short.
+        let mut other = bytes.clone();
+        let at = BUNDLE_MAGIC.len() + 8;
+        other[at] ^= 1;
+        assert!(LibraryBundle::decode(&other).is_none());
+        assert!(LibraryBundle::decode(&bytes[..bytes.len() - 1]).is_none());
+    }
+}

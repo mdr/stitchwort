@@ -20,7 +20,7 @@
 //! Files and threads live here; the engine (`live`) has neither (D498).
 
 use std::cell::Cell;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -39,7 +39,7 @@ use lsp_types::{
 };
 use stitchwort_core::collections::HashMap;
 use stitchwort_driver::at as pos;
-use stitchwort_driver::check_cache::CheckCache;
+use stitchwort_driver::check_cache::{BundleRecorder, BundleStore, CheckCache, LibraryBundle};
 use stitchwort_driver::driver::Session;
 use stitchwort_driver::live::{
     Answers, FileAnswers, LiveFile, LiveProject, LiveRef, Loc, OutlineItem, Place, Progress,
@@ -90,6 +90,12 @@ pub struct Options {
     /// candidates: a code action shows no more. A test sets one, so that a
     /// search ends at its first, whatever the load.
     pub search_wanted: usize,
+    /// The standard library checked ahead of time, for sessions with no
+    /// check cache of their own (the playground's, `web/build.sh`): its
+    /// entries are replayed instead of checking the library files again.
+    /// Read when a project or file is loaded, so a host may set it after
+    /// starting the server (the playground fetches it meanwhile).
+    pub library: Arc<std::sync::OnceLock<Arc<LibraryBundle>>>,
 }
 
 impl Options {
@@ -103,6 +109,7 @@ impl Options {
             search_delay: Duration::ZERO,
             search_peak: Arc::default(),
             search_wanted: 3,
+            library: Arc::default(),
         }
     }
 }
@@ -1483,6 +1490,53 @@ fn workspace_symbols(nav: &Nav, query: &str) -> Vec<SymbolInformation> {
 
 // ---- the checker thread ---------------------------------------------------
 
+/// A session for a project or a file on its own, before its cache and
+/// cancel flag are set: the one place they're made, so that a
+/// [`LibraryBundle`] made with [`library_bundle`] has the keys they look up.
+fn session_for(options: &Options) -> Session {
+    let mut session = Session::navigable_for_stack(options.stack);
+    session.elab.enable_expression_types();
+    session
+}
+
+/// Checks the standard library as the server's sessions with `options`
+/// load it, and returns the entries written as a [`LibraryBundle`]'s bytes,
+/// for [`Options::library`] in a host built from the same code (the
+/// playground's `std.cache`, made by `web/build.sh`). The library files
+/// that don't check under these limits are its `left_out`.
+///
+/// It then loads the library again from the bundle, as a project's session
+/// would, and fails if any file that could be cached was checked again
+/// instead: the keys didn't match, and the bundle would save nothing.
+/// The `String` says what it holds.
+pub fn library_bundle(options: &Options) -> Result<(Vec<u8>, String), String> {
+    let mut session = session_for(options);
+    let recorder = Rc::new(BundleRecorder::default());
+    session.elab.set_check_cache(recorder.clone());
+    let left_out = session.elab.load_libraries_that_check();
+    let made = session.elab.check_cache_stats();
+    let bundle = Arc::new(recorder.finish(left_out));
+    let mut again = session_for(options);
+    again
+        .elab
+        .set_check_cache(Rc::new(BundleStore(bundle.clone())));
+    let loaded = again.elab.load_libraries_except(&bundle.left_out);
+    let replayed = again.elab.check_cache_stats();
+    let summary = format!(
+        "{} library files' entries; {} not cacheable; left out: {:?}",
+        bundle.len(),
+        made.uncacheable,
+        bundle.left_out,
+    );
+    if loaded.is_err() || replayed.hits != bundle.len() || replayed.misses != made.uncacheable {
+        return Err(format!(
+            "the library doesn't load from its bundle: {} hits and {} misses ({summary})",
+            replayed.hits, replayed.misses
+        ));
+    }
+    Ok((bundle.encode(), summary))
+}
+
 /// The check cache, written only while every file of the project is as on
 /// disk (an entry for unsaved text would only churn the cache).
 struct GatedCache {
@@ -1912,9 +1966,13 @@ impl Checker {
             self.work.insert(dir, Work::Project(Box::new(work)));
             return;
         }
-        let mut session = Session::navigable_for_stack(self.options.stack);
-        session.elab.enable_expression_types();
+        let mut session = session_for(&self.options);
         session.share_cancel_flag(self.cancel.clone());
+        if let Some(bundle) = self.options.library.get() {
+            session
+                .elab
+                .set_check_cache(Rc::new(BundleStore(bundle.clone())));
+        }
         let include: Option<(Rc<dyn stitchwort_elab::project::IncludeFiles>, String)> = path
             .file_name()
             .and_then(|n| n.to_str())
@@ -1932,20 +1990,25 @@ impl Checker {
             .file_name()
             .map_or("project".to_string(), |n| n.to_string_lossy().into_owned());
         let project = self.source.project(dir)?;
-        let mut session = Session::navigable_for_stack(self.options.stack);
-        session.elab.enable_expression_types();
+        let mut session = session_for(&self.options);
         session.share_cancel_flag(self.cancel.clone());
         let writable = Rc::new(Cell::new(true));
+        let mut skip = BTreeSet::new();
         if let Some(cache) = self.source.project_cache(dir) {
             session.elab.set_check_cache(Rc::new(GatedCache {
                 inner: CheckCache::at(&cache),
                 writable: writable.clone(),
             }));
+        } else if let Some(bundle) = self.options.library.get() {
+            session
+                .elab
+                .set_check_cache(Rc::new(BundleStore(bundle.clone())));
+            skip = bundle.left_out.clone();
         }
         if let Some(include) = self.source.files(dir).include_files() {
             session.include_from(include);
         }
-        let live = LiveProject::new(session, &name, project.config, project.files);
+        let live = LiveProject::new_except(session, &name, project.config, project.files, &skip);
         Some(ProjectWork {
             live,
             sources: project

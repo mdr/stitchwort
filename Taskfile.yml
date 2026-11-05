@@ -584,6 +584,7 @@ tasks:
       - web/build.sh
       - web/bundle-projects.sh
       - web/bundle-std.sh
+      - web/bundle-std-cache.mjs
       - web/write-version.sh
       - web/playground-worker.js
       - aoc/stitchwort.yaml
@@ -596,6 +597,7 @@ tasks:
       - web/pkg/stitchwort_web_bg.wasm
       - web/pkg/stitchwort_web.js
       - web/pkg/std.bundle
+      - web/pkg/std.cache
       - web/pkg/version.json
       - web/pkg/projects/aoc/manifest.json
       - web/pkg/projects/rogue/manifest.json

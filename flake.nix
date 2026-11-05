@@ -286,6 +286,7 @@
               nativeBuildInputs = [
                 pkgs.wasm-bindgen-cli
                 pkgs.binaryen
+                pkgs.nodejs_22
               ];
               installPhaseCommand = ''
                 mkdir -p $out/pkg
@@ -300,6 +301,7 @@
                 cp ${./web/lsp-search-worker.js} $out/lsp-search-worker.js
                 cp ${./web/coi-serviceworker.js} $out/coi-serviceworker.js
                 bash ${./web/bundle-std.sh} ${stdBundleRoot} $out/pkg
+                node ${./web/bundle-std-cache.mjs} $out/pkg
                 bash ${./web/bundle-projects.sh} ${aocBundle} $out/pkg
                 cp -r --no-preserve=mode ${editor} $out/dist
                 bash ${./web/write-version.sh} $out

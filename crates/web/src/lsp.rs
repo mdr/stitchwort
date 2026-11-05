@@ -4,8 +4,9 @@
 //! editor and, while it says there is more to do, calls `tick` between
 //! messages; both answer with the messages the server sent, as a JSON array.
 
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
+use stitchwort_driver::check_cache::LibraryBundle;
 use stitchwort_lsp::{Memory, MemoryProject};
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -14,6 +15,8 @@ pub struct LanguageServer {
     inner: stitchwort_lsp::Inline,
     /// The projects the page has given it.
     projects: Arc<Memory>,
+    /// The server's [`Options::library`](stitchwort_lsp::Options::library).
+    library: Arc<OnceLock<Arc<LibraryBundle>>>,
 }
 
 #[wasm_bindgen]
@@ -22,10 +25,24 @@ impl LanguageServer {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Result<LanguageServer, String> {
         let projects = Arc::new(Memory::default());
+        let options = options();
+        let library = options.library.clone();
         Ok(LanguageServer {
-            inner: stitchwort_lsp::Inline::new(options(), projects.clone())?,
+            inner: stitchwort_lsp::Inline::new(options, projects.clone())?,
             projects,
+            library,
         })
+    }
+
+    /// Reads the standard library's check cache (`pkg/std.cache`, made by
+    /// [`build_library_cache`] when the page was built). The projects and
+    /// files loaded after it replay the library files instead of checking
+    /// them, so a project's first check takes seconds, not tens of them.
+    /// `false` if the bytes aren't a cache this build made (from another
+    /// build, say), or one was read already: the library is then checked as
+    /// before.
+    pub fn load_library_cache(&self, bytes: &[u8]) -> bool {
+        LibraryBundle::decode(bytes).is_some_and(|b| self.library.set(Arc::new(b)).is_ok())
     }
 
     /// Adds the project in folder `root` (`/playground/aoc`), whose
@@ -118,6 +135,24 @@ impl Default for SearchWorker {
     fn default() -> Self {
         SearchWorker::new()
     }
+}
+
+/// Checks the standard library as the language server's projects load it
+/// in the worker and returns its check cache, for `pkg/std.cache`
+/// (`web/bundle-std-cache.mjs`, from `web/build.sh`). Call after
+/// `load_std`. Fails if the cache doesn't load back; `describe_library_cache`
+/// says what it holds.
+#[wasm_bindgen]
+pub fn build_library_cache() -> Result<Vec<u8>, String> {
+    stitchwort_lsp::library_bundle(&options()).map(|(bytes, _)| bytes)
+}
+
+/// What the library cache in `bytes` holds, for the build's log.
+#[wasm_bindgen]
+pub fn describe_library_cache(bytes: &[u8]) -> String {
+    LibraryBundle::decode(bytes).map_or("not a library cache of this build".to_string(), |b| {
+        format!("{b:?}")
+    })
 }
 
 /// The server's options in the worker: the playground sessions' guard

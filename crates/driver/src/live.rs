@@ -409,10 +409,25 @@ impl LiveProject {
     /// `files` are (path within the project, text). Nothing is checked
     /// until [`LiveProject::step`].
     pub fn new(
+        session: Session,
+        project: &str,
+        config: Option<String>,
+        files: BTreeMap<String, String>,
+    ) -> Self {
+        Self::new_except(session, project, config, files, &BTreeSet::new())
+    }
+
+    /// [`LiveProject::new`], leaving the library files `skip` (paths under
+    /// `std/`) and those that need them to load when a namespace needs
+    /// them: those that don't check under the session's limits (a
+    /// [`LibraryBundle`](crate::check_cache::LibraryBundle)'s `left_out`),
+    /// which would only spend the first check's time failing.
+    pub fn new_except(
         mut session: Session,
         project: &str,
         config: Option<String>,
         files: BTreeMap<String, String>,
+        skip: &BTreeSet<String>,
     ) -> Self {
         // Every library file now, before the first mark, so that rewinding
         // never unloads one: loaded on demand, a library file a namespace
@@ -420,7 +435,7 @@ impl LiveProject {
         // kernel) each time the namespace is re-checked; `Mod` made
         // re-checking `Aoc.Year2025.Day01` take 140 ms instead of 30. Loading them
         // all changes nothing a check reports (`tests/std_library.rs`).
-        let library = session.elab.load_all_libraries();
+        let library = session.elab.load_libraries_except(skip);
         let base = session.mark();
         LiveProject {
             session,

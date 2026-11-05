@@ -118,11 +118,15 @@ export class Editor {
       } else if (data.tick !== undefined) {
         // `idle`: the server's background work (checking the rest of a project) is done, until the next message.
         stats.ticks++;
+        stats.longestTick = Math.max(stats.longestTick ?? 0, data.tick);
         stats.idle = !data.more;
       } else if (data.received !== undefined) {
         stats.idle = false;
       } else if (data.ready !== undefined) {
         stats.ready = now;
+      } else if (data.libraryCache !== undefined) {
+        stats.libraryCache = data.libraryCache;
+        stats.libraryCacheMs = data.after;
       } else if (data.stdSource !== undefined) {
         this.stdWaiting.get(data.stdSource)?.(data.text);
         this.stdWaiting.delete(data.stdSource);
