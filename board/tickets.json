@@ -8370,15 +8370,15 @@
     {
       "id": 1429,
       "title": "Proof irrelevance stage 2: remove the workarounds (docs/proposals/proof-irrelevance.md §9 stage 2): delete the elaborator's canonical (crates/elab/src/lib.rs fn canonical and callers); simplify Char.mkExt and the second [auto] proofs of Int.modNatToInt, toIntDiv, toIntMod; Bool.canonicalTrue in Float (SW-1253); lift the if h: limit of function equations for inert h (D2180); update hash snapshots",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1429",
       "labels": [
         "kernel",
         "elab",
         "std"
       ],
-      "body": "Decided by Matt 19 Oct 2026 (remove canonical in stage 2, accepting the hash changes). Stage 1 (SW-93) merged 5 Nov 2026. Sonnet (near the kernel, not in it); Opus review since it changes elaborated terms. Folds in SW-1253.",
+      "body": "Decided by Matt 19 Oct 2026 (remove canonical in stage 2, accepting the hash changes). Stage 1 (SW-93) merged 5 Nov 2026. Sonnet (near the kernel, not in it); Opus review since it changes elaborated terms. Folds in SW-1253.\n\nMatt (5 Nov 2026): 'a really nice win that we should claim'. Started on Sonnet, expected: 120 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
       "commits": []
