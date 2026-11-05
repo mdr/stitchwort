@@ -6606,9 +6606,9 @@
     {
       "id": 1304,
       "title": "Audit generators for AoC records rarely reach interesting values (2021 day 11 levels above 9), so flashing theorems' audits are vacuous",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1304",
       "labels": [
         "tooling"
       ],
