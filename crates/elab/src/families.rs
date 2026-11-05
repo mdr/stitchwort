@@ -565,6 +565,8 @@ fn case_branch(
                     crate::guard_chain_missing(subtree)
                     && let Some(term) = crate::empty_in_columns(cx, columns)? =>
             {
+                // The arms are still checked, for their own errors.
+                check_tree(cx, subtree, &goal)?;
                 Ok(Some(term))
             }
             tree => check_tree(cx, tree, &goal).map(Some),

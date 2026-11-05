@@ -308,7 +308,7 @@ nothing for the AoC shapes (one or two guarded rows), and bound it. Count
 `Guard` nodes during compilation and, past 4096, fail with `E-MATCH-SIZE`
 (linear shapes, a dozen guarded catch-alls over twenty-six character arms,
 make hundreds; the exponential case doubles per guarded row and passes 4096 at
-the twelfth):
+the tenth guarded row; measured: nine pass, ten fail):
 "this `match`'s conditions would copy its arms too many times", note
 "move some of the guarded arms into a helper function, or test the
 condition inside one arm". The existing `nesting` budget (lib.rs:3420)
@@ -476,7 +476,7 @@ CODE` on the first line), run with `task test:one -- NAME`:
   warnings that way; otherwise a driver test), `pattern-guard-ability.sw`
   (`E-ABILITY`), `pattern-guard-absurd.sw` (`E-PARSE`),
   `pattern-guard-in-handler.sw` (`E-PARSE`), `pattern-guard-size.sw`
-  (`E-MATCH-SIZE`, nine guarded rows on different columns).
+  (`E-MATCH-SIZE`, thirteen guarded rows on different columns).
 - **W-MATCH-TOTAL**: `match some | Some x if x > 0 => x` doesn't warn;
   `match some | x => x` still does.
 - **Unit tests** in the parser (as `clause_lambdas_are_lambdas_over_a_match`,

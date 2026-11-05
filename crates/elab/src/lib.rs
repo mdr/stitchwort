@@ -448,6 +448,22 @@ fn expand_or_patterns<'a>(rows: &[Row<'a>]) -> Vec<Row<'a>> {
     expanded
 }
 
+/// The first absurd node of `tree`: the column's level and the pattern's span.
+fn first_absurd(tree: &Tree) -> Option<(usize, Span)> {
+    match tree {
+        Tree::Absurd { level, span } => Some((*level, *span)),
+        Tree::Guard {
+            leaf, otherwise, ..
+        } => first_absurd(leaf).or_else(|| first_absurd(otherwise)),
+        Tree::Case { branches, .. } => branches.iter().find_map(|(_, t)| first_absurd(t)),
+        Tree::NumCase { arms, default, .. } => arms
+            .iter()
+            .find_map(|(_, t)| first_absurd(t))
+            .or_else(|| first_absurd(default)),
+        Tree::Leaf { .. } | Tree::Missing { .. } => None,
+    }
+}
+
 /// Whether `tree` has no `case`: only leaves, guards and missing cases,
 /// which can stand in the `else` of a guard.
 fn is_flat(tree: &Tree) -> bool {
@@ -464,7 +480,8 @@ fn is_flat(tree: &Tree) -> bool {
 /// the rows below it where they would have been dropped, so guarded rows that
 /// split different columns copy them exponentially. Linear shapes (a dozen
 /// guarded catch-alls above a few dozen character arms) make hundreds; the
-/// exponential case doubles per guarded row and passes 4096 at the twelfth.
+/// exponential case doubles per guarded row (measured: nine guarded rows on
+/// different columns pass, ten fail).
 const MAX_GUARD_NODES: usize = 4096;
 
 /// One equation during pattern-match compilation: the patterns still to be
@@ -3759,6 +3776,23 @@ impl Elaborator {
         let otherwise = if rows.len() > 1 {
             let tree = self.compile(&rows[1..], depth + 1, columns, types, span)?;
             if !is_flat(&tree) {
+                // `()` where the type has values: the error it is without
+                // the guard.
+                if let Some((level, at)) = first_absurd(&tree)
+                    && let Some(j) = columns.iter().position(|&c| c == level)
+                    && let Some(Value::Data(d, _)) =
+                        types[j].clone().map(|t| force(&self.ev(), t)).transpose()?
+                    && !self.kernel.data(d).ctors().is_empty()
+                {
+                    return Err(error(
+                        "E-NOT-EMPTY",
+                        at,
+                        format!(
+                            "`{}` has values, so this argument can't be `()`",
+                            self.kernel.data(d).name()
+                        ),
+                    ));
+                }
                 return Err(error(
                     "E-GUARD-ARMS",
                     guard.span,
@@ -4863,14 +4897,15 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                             vec![(arm.order.clone(), arm.pattern.clone())],
                         ))
                     })(),
-                    // A guard's arm reached where the type is empty is not
-                    // needed (`Fin n` with `n := Zero` in a field).
+                    // Where a column's type is empty, a guard chain is that
+                    // empty case (a `case` can't sit in the `else`). The
+                    // arms are still checked, for their own errors.
                     Tree::Guard { .. }
                         if let Some(Tree::Missing { columns, .. }) =
                             guard_chain_missing(subtree)
                             && let Some(term) = empty_in_columns(cx, columns)? =>
                     {
-                        Ok(term)
+                        check_tree(cx, subtree, &branch_goal).map(|_| term)
                     }
                     _ => check_tree(cx, subtree, &branch_goal),
                 };

@@ -1,6 +1,6 @@
 -- expect-error: E-MATCH-SIZE
 -- Each guarded arm that splits another column copies the arms below it, so
--- thirteen of them would make thousands of copies.
+-- thirteen of them are far past the bound.
 
 def many: Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat
   | 0, _, _, _, _, _, _, _, _, _, _, _, _ if False => 1
