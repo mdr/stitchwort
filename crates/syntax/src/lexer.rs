@@ -144,6 +144,10 @@ pub enum Tok {
     Dot,
     /// `..`, the rest of a record pattern: `{ name, .. }`.
     DotDot,
+    /// `..<`: a range that stops before its end, `0 ..< n`.
+    DotDotLt,
+    /// `..=`: a range that includes its end, `1 ..= n`.
+    DotDotEq,
     /// `@`, always followed by `[`: `@[js.name "X"]` writes attributes
     /// (docs/syntax.md, Attributes). The `[` is an ordinary [`Tok::LBracket`].
     At,
@@ -624,6 +628,14 @@ fn lex_keeping(file: FileId, text: &str, keep_trivia: bool) -> Result<Lexed, Dia
                 b']' => Tok::RBracket,
                 b',' => Tok::Comma,
                 b';' => Tok::Semi,
+                b'.' if bytes.get(i) == Some(&b'.') && bytes.get(i + 1) == Some(&b'<') => {
+                    i += 2;
+                    Tok::DotDotLt
+                }
+                b'.' if bytes.get(i) == Some(&b'.') && bytes.get(i + 1) == Some(&b'=') => {
+                    i += 2;
+                    Tok::DotDotEq
+                }
                 b'.' if bytes.get(i) == Some(&b'.') => {
                     i += 1;
                     Tok::DotDot

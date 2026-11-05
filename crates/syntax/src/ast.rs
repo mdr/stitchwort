@@ -734,6 +734,11 @@ pub enum BinOp {
     Le,
     /// `++`: joins texts, or lists.
     Append,
+    /// `a ..< b`: `List.range a b`, the numbers from `a` up to, not including,
+    /// `b`.
+    Range,
+    /// `a ..= b`: `List.range a (b + 1)`, through `b`.
+    RangeThrough,
     Add,
     Sub,
     Mul,
@@ -774,6 +779,8 @@ impl BinOp {
             BinOp::Lt => "<",
             BinOp::Le => "<=",
             BinOp::Append => "++",
+            BinOp::Range => "..<",
+            BinOp::RangeThrough => "..=",
             BinOp::Add => "+",
             BinOp::Sub => "-",
             BinOp::Mul => "*",

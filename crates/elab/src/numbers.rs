@@ -697,6 +697,8 @@ pub(crate) fn op_text(op: BinOp) -> &'static str {
         BinOp::Lt => "<",
         BinOp::Le => "<=",
         BinOp::Append => "++",
+        BinOp::Range => "..<",
+        BinOp::RangeThrough => "..=",
         BinOp::And => "&&",
         BinOp::Or => "||",
         BinOp::In(_) => "in",

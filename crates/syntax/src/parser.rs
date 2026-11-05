@@ -514,6 +514,9 @@ enum LamParam {
 
 struct Parser<'t> {
     tokens: &'t [Token],
+    /// Whether the item being parsed is in a list literal's brackets, for the
+    /// bare-`..` error's note.
+    in_list: bool,
     pos: usize,
     file: FileId,
     eof: u32,
@@ -698,6 +701,7 @@ impl<'t> Parser<'t> {
     fn new(tokens: &'t [Token], file: FileId, text_len: usize, stack: StackLimit) -> Self {
         let eof = tokens.last().map_or(text_len as u32, |t| t.span.end);
         Parser {
+            in_list: false,
             tokens,
             pos: 0,
             file,
@@ -3015,7 +3019,7 @@ impl<'t> Parser<'t> {
     /// A `calc` expression: above the relations, so `a || b`, `a && b` and
     /// `xs |> f` need no parentheses.
     fn calc_operand(&mut self) -> Result<Expr> {
-        let mut e = self.append_expr()?;
+        let mut e = self.range_expr()?;
         if self.at_pipe() {
             self.pipe_chain(&mut e)?;
         }
@@ -3777,7 +3781,7 @@ impl<'t> Parser<'t> {
     /// (`lo <= x < hi`, see [`chain`]). Each operand may be a pipeline.
     fn cmp_expr(&mut self) -> Result<Expr> {
         let lhs_start = self.pos;
-        let mut lhs = self.append_expr()?;
+        let mut lhs = self.range_expr()?;
         if self.at_pipe() {
             self.pipe_chain(&mut lhs)?;
         }
@@ -3806,7 +3810,7 @@ impl<'t> Parser<'t> {
             let rhs = self.if_expr(start)?;
             return Ok(binary(op, flip, lhs, rhs));
         }
-        let mut rhs = self.append_expr()?;
+        let mut rhs = self.range_expr()?;
         if self.at_pipe() {
             self.pipe_chain(&mut rhs)?;
         }
@@ -3936,7 +3940,7 @@ impl<'t> Parser<'t> {
             }
             last_symbol = symbol;
             self.bump();
-            let mut operand = self.append_expr()?;
+            let mut operand = self.range_expr()?;
             if self.at_pipe() {
                 self.pipe_chain(&mut operand)?;
             }
@@ -3971,7 +3975,7 @@ impl<'t> Parser<'t> {
             )
             .into());
         }
-        let mut rhs = self.append_expr()?;
+        let mut rhs = self.range_expr()?;
         if self.at_pipe() {
             self.pipe_chain(&mut rhs)?;
         }
@@ -3980,6 +3984,49 @@ impl<'t> Parser<'t> {
             return Ok(member);
         }
         Ok(prefix_op(true, op, member))
+    }
+
+    /// `a ..< b`, `a ..= b`: a range, not associative, binding more loosely
+    /// than `++` and more tightly than the comparisons and `|>`, so
+    /// `0 ..< xs.length` and `x in 0 ..< n |> f` read as they look
+    /// (docs/proposals/ranges.md §11).
+    fn range_expr(&mut self) -> Result<Expr> {
+        let lhs = self.append_expr()?;
+        let op = match self.peek() {
+            Some(Tok::DotDotLt) => BinOp::Range,
+            Some(Tok::DotDotEq) => BinOp::RangeThrough,
+            Some(Tok::DotDot) => return Err(self.bare_range(&lhs).into()),
+            _ => return Ok(lhs),
+        };
+        let first = self.bump().span;
+        let rhs = self.append_expr()?;
+        if let Some(Tok::DotDotLt | Tok::DotDotEq) = self.peek() {
+            return Err(error(self.here(), "ranges don't chain")
+                .with_label(first, "this range already has both ends")
+                .with_note(
+                    "`a ..< b ..< c` has no meaning; to range over a range's elements, use \
+                     `.map`, and to join ranges, use `[..a ..< b, ..c ..< d]`",
+                )
+                .into());
+        }
+        Ok(Expr::Binary(op, Box::new(lhs), Box::new(rhs)))
+    }
+
+    /// `E-PARSE` for `a .. b` or `a..b`: the forms of a range are `..<` and
+    /// `..=`, and a spread is `..xs` after a comma.
+    fn bare_range(&self, lhs: &Expr) -> Diagnostic {
+        let mut d = error(
+            self.here(),
+            "a range is `a ..< b` (up to, not including, `b`) or `a ..= b` (through `b`)",
+        )
+        .with_label(lhs.span().to(self.here()), "`..` alone isn't a range");
+        if self.in_list {
+            d = d.with_note(
+                "inside brackets, a spread is `[2, ..n]` (with a comma), and a range needs no \
+                 brackets: `2 ..< n` is already a list",
+            );
+        }
+        d
     }
 
     /// `++`: right-associative, binding more loosely than `+`, so
@@ -4425,6 +4472,13 @@ impl<'t> Parser<'t> {
     /// An element, or a `..xs` spread (docs/proposals/list-spread.md): a
     /// list joined in at that place.
     fn list_expr_item(&mut self) -> Result<Expr> {
+        let outer = std::mem::replace(&mut self.in_list, true);
+        let item = self.list_expr_item_inner();
+        self.in_list = outer;
+        item
+    }
+
+    fn list_expr_item_inner(&mut self) -> Result<Expr> {
         if self.peek() != Some(&Tok::DotDot) {
             return self.expr();
         }
@@ -5051,6 +5105,8 @@ fn describe(tok: &Tok) -> String {
         Tok::KwElse => "`else`".into(),
         Tok::Dot => "`.`".into(),
         Tok::DotDot => "`..`".into(),
+        Tok::DotDotLt => "`..<`".into(),
+        Tok::DotDotEq => "`..=`".into(),
         Tok::At => "`@[`".into(),
     }
 }
@@ -6907,6 +6963,29 @@ mod tests {
         assert_eq!(shape_of("a > b > c"), "(And (Lt b a) (Lt c b))");
         // `>>` is not a token (yet).
         assert!(rhs_of("def g : Nat := a >> b\n").is_err());
+    }
+
+    #[test]
+    fn range_precedence() {
+        let cases = [
+            ("a ..< b + 1", "(Range a (Add b 1))"),
+            ("0 ..< xs.length", "(Range 0 xs.length)"),
+            ("a ..= b ++ c", "(RangeThrough a (Append b c))"),
+            ("0 ..< n |> .map f", "((Range 0 n).map f)"),
+            ("0 ..< 3 == n", "(EqEq (Range 0 3) n)"),
+        ];
+        for (text, want) in cases {
+            assert_eq!(shape_of(text), want, "{text}");
+        }
+        for ok in ["[0, ..2 ..< n]", "[..0 ..< 3, 7]", "[0 ..< n]"] {
+            assert!(rhs_of(&format!("def g : Nat := {ok}\n")).is_ok(), "{ok}");
+        }
+        assert!(shape_of("x in 0 ..< n").ends_with("x (Range 0 n))"));
+        for bad in ["a ..< b ..< c", "a ..< b ..= c", "a .. b", "a..b", "[2..n]"] {
+            assert!(rhs_of(&format!("def g : Nat := {bad}\n")).is_err(), "{bad}");
+        }
+        let err = rhs_of("def g : Nat := [2..n]\n").unwrap_err();
+        assert!(format!("{err:?}").contains("[2, ..n]"));
     }
 
     #[test]

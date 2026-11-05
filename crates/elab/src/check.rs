@@ -1565,6 +1565,7 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             infer(cx, &Expr::Str(text, *span))
         }
         Expr::Binary(BinOp::Append, a, b) => append(cx, a, b),
+        Expr::Binary(op @ (BinOp::Range | BinOp::RangeThrough), a, b) => range(cx, *op, a, b),
         // `Type MAX_LEVEL` is the top universe: nothing for it to live in
         // (SW-902).
         Expr::Type(i, span) => match Sort::Type(*i).succ() {
@@ -4249,6 +4250,42 @@ fn char_term(cx: &Ctx, c: char) -> Result<Term> {
     let (char_data, mk_char) = builtin_ctor(cx, Builtin::MkChar)?;
     let code = Term::Nat(Rc::new(u32::from(c).into()));
     Ok(Term::ctor(char_data, mk_char, vec![code, Term::Refl]))
+}
+
+/// `a ..< b` is `List.range a b`, and `a ..= b` is `List.range a (b + 1)`
+/// (docs/proposals/ranges.md §6.2). They are calls of the definition, not its
+/// unfolding, so goals and messages print them back as ranges. `Nat` only
+/// for now.
+fn range(cx: &mut Ctx, op: BinOp, a: &Expr, b: &Expr) -> Result<(Term, Value)> {
+    let span = a.span().to(b.span());
+    let end = match op {
+        BinOp::RangeThrough => Expr::Binary(
+            BinOp::Add,
+            Box::new(b.clone()),
+            Box::new(Expr::Num(1u32.into(), b.span())),
+        ),
+        _ => b.clone(),
+    };
+    let call = Expr::App(
+        Box::new(Expr::App(
+            Box::new(Expr::Var(AstName {
+                text: "Std.List.range".to_string(),
+                span,
+            })),
+            Box::new(a.clone()),
+        )),
+        Box::new(end),
+    );
+    infer(cx, &call).map_err(|e| {
+        if e.code == "E-TYPE-MISMATCH" {
+            e.with_note(format!(
+                "`{}` makes a list of numbers, and ranges exist for `Nat` only so far (`Int` is to come)",
+                op.symbol()
+            ))
+        } else {
+            e
+        }
+    })
 }
 
 /// `a ++ b`: `textAppend` for texts, `append` for lists, chosen by the type of
