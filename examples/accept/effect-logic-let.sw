@@ -3,11 +3,11 @@ import Std (Bool, Nat, Parse)
 -- An unannotated `let` of `&&`, `||` or a chain whose operands perform is a
 -- `Bool` computation: a proposition can't perform.
 
-def pureBool(x y z: Nat): Bool :=
+def pureBool (x y z: Nat): Bool :=
   let b := x < y && y < z
   b
 
-def pureChain(x y z: Nat): Bool :=
+def pureChain (x y z: Nat): Bool :=
   let b := x < y < z
   b
 
