@@ -7853,9 +7853,9 @@
     {
       "id": 1393,
       "title": "Duplicate lemma names in aoc: firstOf and orFalse are each declared twice",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1393",
       "labels": [
         "aoc"
       ],
