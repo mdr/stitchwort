@@ -1,5 +1,5 @@
 {
-  "next": 1741,
+  "next": 1743,
   "tickets": [
     {
       "id": 47,
@@ -13460,14 +13460,14 @@
     {
       "id": 1729,
       "title": "[Sonnet] Faster lane rebuilds: incremental local release builds (131 s → ~21 s per one-line edit), the test std cache filled once per build, mimalloc in test binaries; flake/Nix builds unchanged",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1729",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From the SW-1716 profile, fix 1, 7, 14. See docs/reviews/SW-1716-dev-loop-profile.md §6.",
+      "body": "From the SW-1716 profile, fix 1, 7, 14. See docs/reviews/SW-1716-dev-loop-profile.md §6.\n\nDone, merged (10405136e): devShell sets CARGO_PROFILE_RELEASE_INCREMENTAL. One-line elab edit 156 s → 21 s (kache on, busy machine); target +2 GB. Package, check and clippy derivations identical to main. Fix 7 planned, not done (stack sizes scattered over ~100 files; needs a nextest setup script for eager-session binaries + a shared constant, 45-60 min). Fix 14 not kept: no reliable 5% gain on a loaded machine. Model result: Sonnet, worked (partly: fixes 7 and 14 not done, with reasons), 27 min (est. 60).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -13490,9 +13490,9 @@
     {
       "id": 1731,
       "title": "LSP AoC tests check AoC three times: a_newer_edit_cancels and aoc_navigation_matches_check_index miss the cache check --project warmed (430 s single-core)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1731",
       "labels": [
         "perf"
       ],
@@ -13633,6 +13633,36 @@
       ],
       "epic": "goal-as-written",
       "body": "D2545 order (Matt, 6 Nov 2026). See docs/proposals/bounded-readback.md stage 0a. Started on Sonnet, expected: 60 min.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1741,
+      "title": "Fill the test std cache once per run: a nextest setup script for the eager-session binaries plus a shared stack-size constant (14 s per binary that checks std from source; SW-1729's plan)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1729, 6 Nov 2026. Estimate 45-60 min.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1742,
+      "title": "Re-measure mimalloc in test binaries on an idle machine (user CPU of hash_stability prelude) before any sweep over the ~100 test files",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1729, 6 Nov 2026: no reliable 5% gain at load 25-35.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []

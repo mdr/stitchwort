@@ -454,11 +454,12 @@
       "status": "active",
       "done": [
         "Baseline from the 6 Nov daily tier: 3 h 8 min of test time, ten binaries over half of it",
-        "Profile: rebuilds 131-136 s, mostly optimising 137 test binaries; std check 14 s (SW-1716)"
+        "Profile: rebuilds 131-136 s, mostly optimising 137 test binaries; std check 14 s (SW-1716)",
+        "Incremental release builds in the devShell: one-line elab edit 156 s → 21 s (SW-1729)"
       ],
       "now": [
-        "Faster lane rebuilds: incremental builds, std cache, mimalloc (SW-1729)",
-        "Untimed counterexample searches in the slowest tests (SW-1730)"
+        "Untimed counterexample searches (SW-1730)",
+        "LSP AoC tests check AoC once (SW-1731)"
       ],
       "next": [
         "LSP AoC tests check AoC once (SW-1731); lsp::features replays std (SW-1686)",
