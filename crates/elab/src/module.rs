@@ -1212,7 +1212,9 @@ impl Elaborator {
                 let (n, mut fields) = match r {
                     Ref::Name(n) => (n, Vec::new()),
                     Ref::Dot(n, field, receiver) => {
-                        namespace = receiver.and_then(|head| self.dot_namespace(head));
+                        namespace = receiver
+                            .and_then(|r| self.receiver_head(r, index, items))
+                            .and_then(|head| self.dot_namespace(head));
                         (n, vec![field])
                     }
                 };
@@ -1254,10 +1256,13 @@ impl Elaborator {
                                 item: j,
                                 span: n.span,
                                 in_header,
-                                speculative: Some(format!(
-                                    "`.{field}` might mean `{}`",
-                                    crate::scope::display(key)
-                                )),
+                                // Not a guess when the receiver's type is known.
+                                speculative: namespace.is_none().then(|| {
+                                    format!(
+                                        "`.{field}` might mean `{}`",
+                                        crate::scope::display(key)
+                                    )
+                                }),
                             });
                         }
                     }
@@ -1313,6 +1318,80 @@ impl Elaborator {
             needs.files.remove(&f);
         }
         needs
+    }
+
+    /// The name at the head of the type of a dot call's receiver, where the
+    /// declarations written say what it is. A variable a constructor
+    /// pattern binds has the type its field is written with, when the
+    /// constructor is one of a data type of this module, in the same file as
+    /// the declaration `index` (so a name means the same in both), and the
+    /// type's head is a name no parameter or field of the constructor can
+    /// stand for. Anything less certain is `None`: the dot call is then
+    /// linked to every method of that name.
+    fn receiver_head<'i>(
+        &self,
+        receiver: Receiver<'i>,
+        index: usize,
+        items: &[Item<'i>],
+    ) -> Option<&'i ast::Name> {
+        let (ctor, slot) = match receiver {
+            Receiver::Type(head) => return Some(head),
+            Receiver::Field(ctor, slot) => (ctor, slot),
+        };
+        let crate::scope::Resolved::Found {
+            global: Global::Unchecked(j),
+            rest,
+            key,
+            ..
+        } = self.resolve(&ctor.text)
+        else {
+            return None;
+        };
+        let modules = &self.unit.module.items;
+        if !rest.is_empty()
+            || modules[j].kind != Kind::Data
+            || modules[j].file != modules[index].file
+        {
+            return None;
+        }
+        let Decl::Data {
+            name,
+            params,
+            indices,
+            ctors,
+            interface: false,
+            ..
+        } = items[j].decl
+        else {
+            return None;
+        };
+        let data_key = self.declaration_key(name).ok()?;
+        // A constructor named like its type is found by the type's name.
+        let decl = ctors.iter().find(|c| {
+            Self::member_key(&data_key, &c.name.text) == key
+                || key == data_key && c.name.text == name.text
+        })?;
+        // The explicit fields, one per name.
+        let explicit: Vec<(&ast::Name, &Expr)> = decl
+            .fields
+            .iter()
+            .zip(&decl.implicit)
+            .filter(|(_, implicit)| !**implicit)
+            .flat_map(|(b, _)| b.names.iter().map(move |n| (n, &b.ty)))
+            .collect();
+        let (_, ty) = match slot {
+            CtorSlot::Position(k) => *explicit.get(k)?,
+            CtorSlot::Named(field) => *explicit.iter().find(|(n, _)| n.text == field)?,
+        };
+        let head = type_head(ty)?;
+        let variable = head_variable(&head.text);
+        let bound_in_decl = params
+            .iter()
+            .chain(decl.fields.iter())
+            .flat_map(|b| &b.names)
+            .chain(indices.iter().filter_map(|(n, _)| n.as_ref()))
+            .any(|n| n.text == variable);
+        (!bound_in_decl).then_some(head)
     }
 
     /// The key of the data type `head` names, if it is one (of this module
@@ -1903,7 +1982,7 @@ impl Elaborator {
 
     /// Why a component may exist only because of dot notation: the first
     /// speculative reference between its members, as a note.
-    fn speculative_note(&self, component: &[usize]) -> Option<String> {
+    pub(crate) fn speculative_note(&self, component: &[usize]) -> Option<String> {
         let items = &self.unit.module.items;
         component.iter().find_map(|&i| {
             items[i].deps.iter().find_map(|d| {
@@ -1911,7 +1990,8 @@ impl Elaborator {
                 component.contains(&d.item).then(|| {
                     format!(
                         "in `{}`, {why}, so `{}` and `{}` are checked together; write the full \
-                         name, as in `T.f x`, to say which function is meant",
+                         name, as in `T.f x`, or write the receiver's type, to say which function \
+                         is meant",
                         items[i].name, items[i].name, items[d.item].name
                     )
                 })
@@ -2515,6 +2595,8 @@ enum Work<'a> {
     Bind(&'a str),
     /// A variable bound with its type as written.
     BindTyped(&'a str, &'a Expr),
+    /// A variable bound as an argument of a constructor pattern.
+    BindField(&'a str, &'a ast::Name, CtorSlot<'a>),
     Unbind(&'a str),
     /// A name that's a reference.
     Name(&'a ast::Name),
@@ -2672,10 +2754,40 @@ pub(crate) static FLOAT_TYPE: std::sync::LazyLock<ast::Name> =
 
 /// A reference the pre-pass finds: a name, or dot notation's `.field`
 /// (with where it's written, and the name at the head of the receiver's
-/// type where that is written: `List` for `xs.length` with `(xs: List a)`).
+/// type where that is known: `List` for `xs.length` with `(xs: List a)`).
 pub(crate) enum Ref<'a> {
     Name(&'a ast::Name),
-    Dot(&'a ast::Name, String, Option<&'a ast::Name>),
+    Dot(&'a ast::Name, String, Option<Receiver<'a>>),
+}
+
+/// What the pre-pass knows of a dot call's receiver before anything is
+/// elaborated.
+#[derive(Clone, Copy)]
+pub(crate) enum Receiver<'a> {
+    /// The name at the head of its written type.
+    Type(&'a ast::Name),
+    /// A variable a pattern binds as a constructor's argument; its type is
+    /// the field's, if that is written ([`Elaborator::receiver_head`]).
+    Field(&'a ast::Name, CtorSlot<'a>),
+}
+
+/// Which argument of a constructor pattern.
+#[derive(Clone, Copy)]
+pub(crate) enum CtorSlot<'a> {
+    /// The `k`th explicit field, in `Jmp offset`.
+    Position(usize),
+    /// A named field, in `Jmp { offset = o }`.
+    Named(&'a str),
+}
+
+impl<'a> Receiver<'a> {
+    /// The written type's head, when that is all there is to know.
+    pub(crate) fn written(self) -> Option<&'a ast::Name> {
+        match self {
+            Receiver::Type(head) => Some(head),
+            Receiver::Field(..) => None,
+        }
+    }
 }
 
 /// A reference no declaration can have: a `rewrite` is here, or another
@@ -2791,7 +2903,7 @@ fn unproved_recursive_call(name: &ast::Name, refs: &[Ref<'_>]) -> bool {
 /// The name at the head of the written type `ty`, unless it is a local
 /// variable.
 fn written_head<'a>(
-    bound: &HashMap<&str, Vec<Option<&'a ast::Name>>>,
+    bound: &HashMap<&str, Vec<Option<Receiver<'a>>>>,
     ty: &'a Expr,
 ) -> Option<&'a ast::Name> {
     type_head(ty).filter(|head| {
@@ -2822,7 +2934,7 @@ fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
     stack.reverse();
     // Each variable's bindings in scope, innermost last, with the name at the
     // head of its type where that's written and isn't itself a variable.
-    let mut bound: HashMap<&str, Vec<Option<&ast::Name>>> = HashMap::default();
+    let mut bound: HashMap<&str, Vec<Option<Receiver<'_>>>> = HashMap::default();
     let mut out = Vec::new();
     // Pushes steps to run in the order given.
     fn then<'a>(stack: &mut Vec<Work<'a>>, steps: Vec<Work<'a>>) {
@@ -2840,7 +2952,14 @@ fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                         .get(head_variable(&head.text))
                         .is_some_and(|bindings| !bindings.is_empty())
                 });
-                bound.entry(x).or_default().push(head);
+                bound.entry(x).or_default().push(head.map(Receiver::Type));
+                continue;
+            }
+            Work::BindField(x, ctor, slot) => {
+                bound
+                    .entry(x)
+                    .or_default()
+                    .push(Some(Receiver::Field(ctor, slot)));
                 continue;
             }
             Work::Unbind(x) => {
@@ -2877,7 +2996,18 @@ fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                     Pattern::Var(x) => bound.entry(&x.text).or_default().push(None),
                     Pattern::Ctor(n, args, _) => {
                         out.push(Ref::Name(n));
-                        then(&mut stack, args.iter().map(Work::Pattern).collect());
+                        then(
+                            &mut stack,
+                            args.iter()
+                                .enumerate()
+                                .map(|(k, arg)| match arg {
+                                    Pattern::Var(x) => {
+                                        Work::BindField(&x.text, n, CtorSlot::Position(k))
+                                    }
+                                    _ => Work::Pattern(arg),
+                                })
+                                .collect(),
+                        );
                     }
                     Pattern::Tuple(a, b, _) => {
                         then(&mut stack, vec![Work::Pattern(a), Work::Pattern(b)]);
@@ -2893,7 +3023,15 @@ fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                         out.push(Ref::Name(ctor));
                         then(
                             &mut stack,
-                            fields.iter().map(|(_, p)| Work::Pattern(p)).collect(),
+                            fields
+                                .iter()
+                                .map(|(field, p)| match p {
+                                    Pattern::Var(x) => {
+                                        Work::BindField(&x.text, ctor, CtorSlot::Named(&field.text))
+                                    }
+                                    _ => Work::Pattern(p),
+                                })
+                                .collect(),
                         );
                     }
                     Pattern::Record { fields, .. } => {
@@ -3013,9 +3151,9 @@ fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                         .get(n.text.as_str())
                         .and_then(|bindings| bindings.last().copied().flatten()),
                     // `(e: T).f`
-                    Expr::Ann(_, ty, _) => written_head(&bound, ty),
+                    Expr::Ann(_, ty, _) => written_head(&bound, ty).map(Receiver::Type),
                     Expr::Bracketed(inner, _) => match &**inner {
-                        Expr::Ann(_, ty, _) => written_head(&bound, ty),
+                        Expr::Ann(_, ty, _) => written_head(&bound, ty).map(Receiver::Type),
                         _ => None,
                     },
                     _ => None,

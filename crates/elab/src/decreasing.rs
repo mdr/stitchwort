@@ -882,18 +882,22 @@ impl Elaborator {
                     _ => None,
                 })
                 .collect();
-            out.push((
-                item,
-                Diagnostic::error(
-                    "E-DECREASING",
-                    "`decreasing` isn't supported for definitions that call each other yet",
-                )
-                .with_label(measure.span(), "this measure")
-                .with_note(format!(
-                    "{} call each other; give them a fuel argument for now",
-                    names.join(", ")
-                )),
+            let mut d = Diagnostic::error(
+                "E-DECREASING",
+                "`decreasing` isn't supported for definitions that call each other yet",
+            )
+            .with_label(measure.span(), "this measure")
+            .with_note(format!(
+                "{} call each other; give them a fuel argument for now",
+                names.join(", ")
             ));
+            // They may not: a dot call whose receiver has no written type
+            // is linked to every method of that name.
+            let indices: Vec<usize> = members.iter().map(|(i, _, _)| *i).collect();
+            if let Some(note) = self.speculative_note(&indices) {
+                d = d.with_note(note);
+            }
+            out.push((item, d));
             return out;
         }
         let result = self.signature(signature);

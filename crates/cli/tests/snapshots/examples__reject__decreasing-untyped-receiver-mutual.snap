@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-DECREASING] Error: `decreasing` isn't supported for definitions that call each other yet
+    ╭─[ reject/decreasing-untyped-receiver-mutual.sw:11:16 ]
+    │
+ 11 │     decreasing left
+    │                ──┬─  
+    │                  ╰─── this measure
+    │ 
+    │ Note 1: `Code.runFrom`, `Code.run` call each other; give them a fuel argument for now
+    │ 
+    │ Note 2: in `Code.runFrom`, `.run` might mean `Code.run`, so `Code.runFrom` and `Code.run` are checked together; write the full name, as in `T.f x`, or write the receiver's type, to say which function is meant
+────╯
