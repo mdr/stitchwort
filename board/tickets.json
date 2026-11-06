@@ -9476,13 +9476,13 @@
     {
       "id": 1507,
       "title": "Std: Nat.toBitsAnd/toBitsOr/toBitsXor, Nat.andLe, Nat.orBelow (bitwise ops to toBits, bounds); Day14 Proofs/Bits.sw has proofs to move",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1507",
       "labels": [
         "std"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1502 (day 14) or SW-1494.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1502 (day 14) or SW-1494.\n\nStarted overnight on Sonnet (SW-1507 with SW-1508), expected: 45 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -9490,13 +9490,13 @@
     {
       "id": 1508,
       "title": "Std: List.zipWith lemmas (length, append/snoc, map)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1507",
       "labels": [
         "std"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1502 (day 14) or SW-1494.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1502 (day 14) or SW-1494.\n\nStarted overnight on Sonnet (SW-1507 with SW-1508), expected: 45 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
