@@ -93,7 +93,8 @@ def departureProduct: (order: List Rule) → (values: List Nat) → Nat
   | _, _ => 1
 
 --| The answer is the departure product under an order of the fields.
---| Whether only one order fits depends on the notes; on the puzzle's, the
---| proofs show the program's is the only one.
+--| Whether only one order fits depends on the notes (two fields with the
+--| same ranges could swap); the proofs show that when the program's
+--| elimination settles every position, its order is the only one.
 def Part2 (notes: Notes) (answer: Nat): Prop :=
   ∃ (order: List Rule) => FieldOrder notes order ∧ answer = departureProduct order notes.yours.values

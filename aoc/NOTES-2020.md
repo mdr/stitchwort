@@ -4029,3 +4029,332 @@ elaboration and 8 ms in the kernel; the rest of the cold time is std's.
 6. Smaller: `∧` continuation reported as `&&` without the column; no
    slow-test marker in `stitchwort test`; `findIndex` has no lemmas
    (items 5, 6). Each small.
+
+## Day 16: Ticket Translation
+
+The notes give a rule for each of 20 ticket fields (`departure location:
+45-422 or 444-950`: two inclusive ranges), then your ticket, then 236
+nearby tickets, each a line of comma-separated values in the same,
+unknown, order of fields. Part 1: the sum of the nearby values valid for
+no field (the ticket scanning error rate). Part 2: drop the tickets with
+such a value, work out which position is which field, and multiply your
+ticket's six `departure` values. Answers on Matt's input: 21071 and
+3429967441937; the first example's error rate is 71 and the second's 0,
+as the puzzle says, and both examples' order is row, class, seat. Matt's
+Scala (`Day16.scala`) does the same elimination, a `MultiDict` of
+candidates reassigned in a `while` loop; I didn't run it. An independent Python script
+agrees on both answers and both examples. 190 of the 236 nearby tickets
+are valid; the candidate sets at the 20 positions have sizes 1 to 20,
+nested, so the elimination never has a choice.
+
+The domain types are `Range` (`low`, `high`, with `range.contains`),
+`Rule` (`field`, `first`, `second`, with `rule.allows value` and
+`rule.isDeparture`), `Ticket` (`values`) and `Notes` (`rules`, `yours`,
+`nearby`), with `notes.errorRate`, `notes.validTickets`,
+`notes.candidates` (a fold of `narrow` over the valid tickets, from
+every rule at every position: `narrow` is a `zipWith` that keeps, at each
+position, the fields allowing the ticket's value there),
+`notes.fieldOrder` and `notes.departureProduct`. The elimination works on
+`Slot`s (a position's `candidates`, fixed, and the `field` settled there,
+an `Option`): `settle` settles the first unsettled position with one
+candidate left once the settled fields are left out (`slot.remaining`),
+`allSettled` reads off the order when every position is settled, and
+`eliminate` repeats `settle` for as many rounds as there are positions.
+`fieldOrder` first checks that every valid ticket has one value per
+field. The program and its 20 tests passed on the first run, in 0.5 s.
+
+The spec (`Spec/Spec.sw`) shares the four data types and nothing else:
+`NumberWritten`, `RangeWritten`, `RuleWritten`, `TicketWritten`,
+`NotesWritten` (the rules a line each, a blank line, `your ticket:`, a
+line break and your ticket, a blank line, `nearby tickets:` and the
+nearby tickets a line each); `inRange`, `validFor`, `validForSomeField`,
+`errorRate` (a `sumBy` over the nearby tickets of a `sumBy` over their
+values, each counting itself if no field allows it, else 0) and
+`Part1`; `ValidTicket`, `FieldOrder notes order` (as many positions as
+rules, the order `Distinct`, each of its fields a rule, and on every
+valid nearby ticket each value valid for the field at its position),
+`departureProduct order values` (recursive over the two lists) and
+`Part2 notes answer` (the departure product under some `FieldOrder`).
+`FieldOrder` is a bijection between positions and rules by pigeonhole
+(injective, into a set of the same size); it doesn't say "each rule at
+exactly one position" in so many words. The puzzle's "the" order is not
+in the spec: two fields with the same ranges could swap, and the
+elimination then gets stuck (a test has such notes).
+
+Proved (`Aoc.Year2020.Day16.Proofs`):
+
+- `readsRange`, `readsRule`, `readsTicket`, `readsNotes`, `parseWritten`
+  (Parse.sw): if `parseNotes` reads `input`, the input is the notes
+  written out, then any line breaks.
+- `errorTerm`, `errorRateSpec` (Part1.sw): for any notes,
+  `notes.errorRate` is the spec's `errorRate`.
+- `AllAllow`, `Within`, `all2Compose`, `all2Within`, `all2Replicate`,
+  `narrowLength`, `narrowWithin`, `narrowAllows`, `withinTrans`,
+  `allowWithin`, `foldNarrow`, `candidatesFit` (Candidates.sw): when every
+  valid ticket has a value per field, `notes.candidates` has one list per
+  field, each within the rules, and every field in a position's list
+  allows every valid ticket's value there.
+- `Sound`, `Keeps`, `Once`, `Step`, `Adds`, and `stepRefl`, `stepsRefl`,
+  `keepsStep`, `settledCons`, `passSteps`, `settleSteps`,
+  `notContainedCount`, `passAdds`, `settleAdds`, `settleOnce`,
+  `allSettledFields`, `eliminateFinds` (Eliminate.sw): a round keeps
+  every position's candidates and settles a position only with one of
+  them, and adds one field to the settled ones, which wasn't among them;
+  so the order `eliminate` returns has at each position a field among its
+  candidates, and no field twice (each field's count at most 1).
+- `distinctOfCounts`, `openSlot`, `keepsOpen`, `openSettled`, `onceOpen`,
+  `validTicketValid`, `fieldOrderValid`, `departureProductSpec`,
+  `departureProductValid` (Part2.sw): if `notes.fieldOrder = Some order`,
+  then `Spec.FieldOrder notes order`; if `notes.departureProduct = Some
+  answer`, then `Spec.Part2 notes answer`.
+- `Agrees`, `settledIn`, `freshOf`, `passAgrees`, `settleAgrees`,
+  `settledSame`, `eliminateOnly`, `narrowAgrees`, `foldAgrees`,
+  `replicateAgrees`, `agreesOpen`, `fieldOrderOnly` (Unique.sw): any
+  order satisfying `Spec.FieldOrder` has each position's field among its
+  candidates; it agrees with every field a round settles, because that
+  field is the position's only candidate not settled elsewhere and the
+  order is `Distinct`; so if `notes.fieldOrder = Some order`, every
+  `Spec.FieldOrder notes other` has `other = order`.
+- `part1Correct`, `part2Exactly`, `part2Correct` (Proofs.sw): for every
+  input the parser reads, the input is the notes written out and
+  `notes.errorRate` is `Spec.Part1`'s answer; when
+  `notes.departureProduct = Some answer`, `Spec.Part2 notes other ↔ other
+  = answer`.
+
+Not proved: that every well-formed input parses (as on days 2 to 15);
+that the elimination succeeds whenever exactly one order fits (it is
+complete only for notes it can solve one forced step at a time; a
+puzzle needing a guess, or two fields with the same ranges, makes it
+return `None`, and part 2 then fails at run time with a message); that
+`main` prints what it reads. There is no added hypothesis and no
+`opaque`: the answers' theorems are conditional on the program giving an
+answer, which is what "if the elimination succeeds" means here, and on
+the input it does (a test).
+
+Breaking the program made the proofs fail: `value < range.high` in
+`Range.contains` fails `errorTerm` (both `rfl`s), `validTicketValid`,
+`fieldOrderValid` and `fieldOrderOnly`; `narrow` keeping every field
+fails `narrowWithin`, `narrowAllows` and `narrowAgrees`; dropping
+`fieldOrder`'s length check fails `fieldOrderValid` and
+`fieldOrderOnly` (the first for a reason, the second only because its
+case split follows the program's `if`); `remaining` not leaving out the
+settled fields fails `settleSteps`, `settleAdds` and `settleAgrees`;
+settling a position with *any* candidate left (`[field, ..others]` for
+`[field]`) fails `settleAgrees` (the field is no longer forced), and the
+case splits of `settleSteps` and `settleAdds`, though validity alone
+would survive that change: a greedy pick of any fresh candidate still
+gives a valid order when it finishes. The audit (with the counterexample search): `audited 75
+theorems: 0 failed, 1 with warnings, 74 passed`; the warning is the
+generated equation `eliminate.eq.none.succ.some` (hypotheses: no
+position settled and `settle` finding one), which random slots rarely
+meet: narrow, not vacuous (SW-1261, as on earlier days).
+
+### 1. A lemma about `slot` doesn't fit inside `match field: slot.field`
+
+`settle` matches on `slot.field`, then on `slot.remaining settled`, so
+each proof about it does too, and three of the five arms ("pass this
+position over") are the same: a helper lemma `passAdds settled slot
+slots next found rest`. Called in the `Some existing` arm it is
+`E-TYPE-MISMATCH`: the goal there has `Some existing` for `slot.field`
+(the `match` refined it, after `settledFields [slot, ..slots]` computed
+to `List.consSome slot.field …`), and the helper's type still has
+`slot.field`. The note says "a term written out inside a branch … isn't
+refined by the `match` … Write `_` for such an argument", which doesn't
+apply: the mismatch is in the helper's result, not an argument. What
+works, both found by trying:
+
+```stitchwort
+| Some existing =>
+  let passed := passAdds settled slot slots next found (settleAdds settled slots)
+  rewrite field at passed in passed
+```
+
+or binding the helper (as a function of `found`) in a `let` before the
+`match`, since "the `let`-bound lemmas from before the `match` are
+refined" (the earlier note said so, which is how I found it). Both are
+idioms nobody would guess. A newcomer reaching for the obvious helper
+lemma meets this on any `match` over a field of a variable they also pass
+whole to a lemma; the fix might be for the `match` to refine the types
+of terms in its arms too, or for the error to suggest the two idioms.
+
+The same rule bit the other way three times: passing the `match`'s own
+equation (`settledField: slot.field = Some x`) where the refined
+hypothesis wants `Some x = Some x` is a mismatch, whose Note 2 rightly
+says `rfl` proves it; but in `allSettledFields`, where the `slot.field`
+appeared only after a `rewrite`, the equation was needed and `rfl`
+failed ("`slot.field` and `Some rule` aren't equal"). Which one a place
+needs depends on whether the occurrence was in the goal when the `match`
+ran, which the source doesn't show. Accepting the equation wherever the
+refined form is expected (they are equal by the equation) would remove
+the guess.
+
+### 2. Std's `List.All2` has almost no toolkit
+
+`List.All2` has `all2Weaken`, `all2Length`, `all2Map`, `all2MapLeft` and
+`all2WithIndex`. This day's proofs are chains of `All2` relations across
+three lists (order against candidates against a ticket's values, slots
+against candidates, candidates against the rules), and I wrote:
+`all2Compose` (`All2 r xs ys → All2 s ys zs → All2 t xs zs` given a link
+lemma; Candidates.sw:15), the reflexive `all2Within`, `all2Replicate`
+(`All2 r xs (replicate n y) → x ∈ xs → r x y`), `replicateAgrees` (the
+converse), `settledSame` (`All2` with a functional relation pins the
+list), and four `zipWith` lemmas, each one induction over two or three
+lists with four or six impossible cases: `narrowLength` (std's
+`lengthZipWith` gives `Nat.min`, not "the length of either, when they're
+equal"), `narrowWithin`, `narrowAllows`, `narrowAgrees` (what the
+`zipWith` of a filter keeps, relative to each input). About 70 of the
+day's 600 lines of proof are this generic list plumbing. Std candidates:
+`List.all2Compose`, `List.all2Refl`, `List.all2ReplicateRight`,
+`List.all2ZipWith` (a pointwise fact about `zipWith xs ys f` against `xs`
+or `ys`), `List.lengthZipWithEq`.
+
+### 3. No "distinct from counts", and two ways to count
+
+`FieldOrder` asks for `order.Distinct`; the elimination's invariant is a
+count (each field settled at most once), since a round adds one field in
+the middle of the list. Std has `List.distinctOfOccurrences` (through a
+key and `List.occurrences`) and `List.countEqDistinct` (the other
+direction), but not `(∀ x, xs.count (== x) ≤ 1) → xs.Distinct`
+(`distinctOfCounts`, Part2.sw:9, 15 lines), nor `xs.contains x = False →
+xs.count (== x) = 0` (`notContainedCount`, Eliminate.sw). `List.count`
+and `List.occurrences` are two names for counting, with `countOccurrences`
+between them; a newcomer finds lemmas for one and needs the other.
+
+### 4. The elimination belongs in Aoc.Common
+
+Settling a position whose candidates are down to one, then removing that
+choice everywhere else, is the whole of part 2, and 2020 day 21 (allergen
+assessment) is the same algorithm over allergens and ingredients. The
+proofs here are generic in all but name: `Slot`, `settle`, `allSettled`,
+`eliminate`, the 12 lemmas of Eliminate.sw and the first seven of
+Unique.sw use nothing of `Rule` but its `DecEq`. As `Aoc.Common.Elimination` over any type with
+`DecEq`, with "the result is distinct and within the candidates" and "any
+distinct choice within the candidates equals it" as its theorems, day
+21 would be a call. I didn't move it in this lane.
+
+### 5. A record of a pipe defeats `readsMap`
+
+The program's first parser for a ticket was `{ values = Parse.sepBy1
+Parse.nat (() => Parse.char ',') |> .toList }`. Its proof by
+`Parse.readsWeaken [p := ticket] [weaker := TicketWritten]
+(Parse.readsMap … (values => { values = values.toList }) _ (readsSepBy1
+…))` is `E-TYPE-MISMATCH` pointing into `Parse.nat`'s inner `match`
+("they first differ at `Std.Effect.bind ((match …) ….fst) …`"), with both
+implicits named, which was day 15's fix (its item 4). Rewriting the
+parser as `let values := …` then `{ values = values.toList }`, proved
+with `readsThen` and `readsDone`, checked at once. So the program changed
+shape for the proof, and the message points into std's parser rather
+than at the `f` that didn't match.
+
+### 6. Messages
+
+- **A `Prop` method after `∧` in a lambda.** `List.All2 (slot fields =>
+  slot.candidates = fields ∧ slot.Sound) …`, with `def Slot.Sound (slot:
+  Slot): Prop`, is `E-TYPE-MISMATCH` "expected a proposition … this is a
+  type of data, not a proposition", with "`&&` here is on propositions".
+  `Slot.Sound slot` works, as do `slot.Sound` alone in the lambda and
+  `slot.candidates = [] ∧ slot.sound` outside a lambda. Seven lines
+  reproduce it (`type Slot`, `def Slot.sound … : Prop`, `def B (slots:
+  List Slot): Prop := List.All (slot => slot.candidates = [] ∧
+  slot.sound) slots`). The message is wrong about the cause, and calls
+  `∧` `&&` (day 15 saw the same naming).
+- **`rewrite Nat.oneMul in …`** is `E-REWRITE-RULE` "this equation's left
+  side starts with an unknown function", with "give the implicit
+  arguments explicitly". `Nat.oneMul` has one argument, explicit; given
+  it (`Nat.oneMul (Spec.departureProduct order values)`), it works. Its
+  left side `1 * n` computes to something headed by `n`, which is what
+  "unknown function" means here; `rewrite List.countAppend` and
+  `List.productCons value _` with open arguments were fine. The note
+  should say which argument to give, and that it's explicit.
+- **`Nat.succInjective (m) (n) (p: Succ m = Succ n)`** takes `m` and `n`
+  explicitly, though `p` fixes them (D2422's rule): the first try,
+  `Nat.succInjective same`, is "expected `Nat`, but this has type `Succ
+  … = Succ …`".
+- **A lambda's parameter hiding a local.** In `List.all2Weaken (rule slot
+  unsettled isOpen => rewrite settledCons, … in …)` inside an arm that
+  had its own `slot`, the rewrite went for the lambda's `slot`; the
+  message showed the outer one as `slot✝`, which is the only clue.
+  `W-LAMBDA-SHADOW` warns when a parameter hides a function (it caught my
+  parameter `open`, hiding my `def open`), not a variable.
+- **`Some { … }`, again**, twice in one test (`Ok (Some ({ … }))`);
+  `E-UNKNOWN-FIELD`'s note gave the fix each time (days 5, 8, 13 and 14).
+- **Good ones.** `E-REWRITE-NOTHING`'s "this `match` replaced
+  `Notes.fitsSomeField notes value` with `True` … the proof checks
+  without this rewrite"; the mismatch whose Note 2 says "both sides of
+  what's expected are `Some after`, so `rfl` proves it"; and the one that
+  said `Void.exfalso` needs `import Std (Void)`.
+
+### 7. Smaller things
+
+- **What helped.** All the proofs took about 25 minutes, and most lemmas
+  checked as first written, including the 9-step `readsNotes` chain and
+  the fold invariant `foldNarrow`. Designing the elimination for its
+  proof decided that: the candidates never change, the settled fields
+  are left out when a position is looked at (so a round changes one
+  slot), and a slot is a record with an `Option` field. The Scala
+  version, which removes each settled field from every other position's
+  set in its `MultiDict`, has the same behaviour and a harder invariant
+  (every set changes each round). `Parse.lines` followed by `Parse.blankLine` backtracked over
+  the line break as hoped. `List.memFilter`/`memFilterIntro`,
+  `countCons`, `countPositive`, `sumByFilter`, `sumByFlatMap` and
+  `sumByCong` were each found by `stitchwort search` or a grep in one
+  try.
+- **`rewrite h at t in t`**, rewriting a `let`-bound proof into the
+  refined goal's form, is a good trick that isn't in the proving guide.
+- **No `List.countOf`.** Every count is `xs.count (field => field ==
+  rule)`, written out ten times.
+- **The spec's bijection.** "A field for each position, each field once"
+  is `Distinct`, members of the rules and the same length: honest, but a
+  reader has to supply the pigeonhole. `List.Perm order notes.rules` would
+  say it directly, but needs the rules distinct, which the puzzle
+  doesn't promise.
+
+### Size and time
+
+167 lines of program, 100 of spec, 604 of proofs (Parse 53, Part1 21,
+Candidates 90, Eliminate 145, Part2 72, Unique 181, Proofs 42), 99 of
+tests (+1 answer test in `aoc_answers.rs`).
+By the clock: 03:36 start; Python answers at 03:40; program and tests
+passing at 03:51; parser proof at 03:54; candidates at 03:57; the
+elimination's validity at 03:59; part 2 valid at 04:00; uniqueness at
+04:03; top-level theorems at 04:04; then the break checks, the audit,
+the timings and these notes.
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2020.Day16.Proofs` | 5.1 s user |
+| `stitchwort check --no-cache Aoc.Year2020.Day16` | 1.4 s user |
+| `stitchwort test --no-cache Aoc.Year2020.Day16.Tests` (23 tests) | 5.1 s user |
+| `stitchwort audit Aoc.Year2020.Day16` (75 theorems) | 1.0 s user (warm) |
+| `stitchwort run Aoc.Year2020.Day16.main` on the input | 0.5 s user |
+| `task test:one -- year2020_day16` | 2.0 s for the test (2 min 20 s with building the test binaries) |
+
+`STITCHWORT_TIMINGS=1` puts the Proofs namespace at 524 ms of
+elaboration and 30 ms in the kernel (`readsNotes` 247 ms of it, 3.3
+million steps); the rest of the cold time is std's modules.
+
+### Ranked
+
+1. A helper lemma about a variable doesn't fit inside a `match` on one of
+   its fields, because the arm's goal is refined and the lemma's type
+   isn't; the two working idioms (`rewrite e at h in h`, a `let` before
+   the `match`) aren't suggested, and the suggested `_` doesn't apply;
+   when to pass the `match`'s equation and when `rfl` can't be told from
+   the source (item 1). Checker or message; medium.
+2. `List.All2` lacks compose, reflexivity, replicate and `zipWith`
+   lemmas, and `lengthZipWith` has no equal-lengths form: about 70 lines
+   of plumbing here (item 2). Library; small.
+3. The elimination (`settle`, `eliminate` and its validity and
+   uniqueness theorems) is generic and day 21 needs it: move it to
+   `Aoc.Common` (item 4). AoC library; small.
+4. A `Prop` method after `∧` in a lambda is "a type of data, not a
+   proposition", with a 7-line repro (item 6). Checker; small.
+5. No `distinctOfCounts` or "absent means count 0"; `count` and
+   `occurrences` both exist (item 3). Library; small.
+6. `readsMap` over `{ field = p() |> f }` fails with an error inside
+   `Parse.nat`, even with the implicits named (item 5). Message or std;
+   small.
+7. Smaller: `rewrite Nat.oneMul` blames implicit arguments;
+   `Nat.succInjective`'s explicit `m n`; no warning for a lambda
+   parameter hiding a local; `Some { … }` again; no `List.countOf`
+   (items 6, 7). Each small.
