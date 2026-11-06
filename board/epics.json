@@ -12,7 +12,9 @@
         "out-of-resources check uses the as-written result (SW-1630)",
         "Goals and messages print dot calls and operators as written (SW-1674)"
       ],
-      "now": [],
+      "now": [
+        "Design note: bounded readback, goals as written in every search (SW-1712, D2514)"
+      ],
       "next": [
         "Short design note on Opus that bounds unfolded readback by looking at goals as written everywhere, revisiting D484 (D2514); it also unblocks record eta",
         "Stage 5: rewrite f as one unfolding step of f (SW-1631)",
@@ -36,7 +38,7 @@
         "Fields of glued calls stay calls; std, roguelike and 2021 day 13 pass at about +2% cost (SW-1667, on lane/SW-1642)"
       ],
       "now": [
-        "Paused on the D2514 design note (lane/SW-1642 kept)"
+        "Paused; the design note that unblocks it is being written (SW-1712)"
       ],
       "next": [
         "Wait for the goals-as-written design note (D2514); the trip-journal example fails because rule 2 computes under binders and the unfolded readback is too large",
@@ -222,7 +224,9 @@
         "Unifier fixes: one-step unfolding and arguments-from-conclusion (SW-1226, SW-1227)",
         "Tail-resumptive and checked @[tailrec] (SW-1222, SW-1232)"
       ],
-      "now": [],
+      "now": [
+        "Proposal: should matching on a decision narrow a Bool if (SW-1694)"
+      ],
       "next": [
         "Postponement: close the two queue gaps and keep the expected type folded (SW-1003, SW-1008, SW-1009)",
         "Well-founded recursion stages (SW-199)",
@@ -322,7 +326,7 @@
         "Daily tier 6 Nov evening: 36 failures fixed across three lanes (SW-1700, SW-1701, SW-1702)"
       ],
       "now": [
-        "Daily-tier fixes: search display and the ++ readings (SW-1706), array natives on the IR path (SW-1707), slow search_at_aoc (SW-1708)"
+        "Slow search_at_aoc after today's merges (SW-1708)"
       ],
       "next": [
         "Audit stage 2: --base and minima (SW-1029)",
