@@ -1,5 +1,5 @@
 {
-  "next": 1757,
+  "next": 1760,
   "tickets": [
     {
       "id": 47,
@@ -13805,7 +13805,7 @@
     {
       "id": 1752,
       "title": "[Sonnet] Affected-test selection: a task that picks the nextest filter for a diff from the files it touches (crate graph, which binaries read which std/examples/aoc files), for lanes and the orchestrator's verifiers",
-      "status": "next",
+      "status": "doing",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1752",
       "labels": [
@@ -13873,6 +13873,51 @@
       ],
       "epic": "goal-as-written",
       "body": "Kernel-term change (D2364). Started on Opus, expected: 45 min.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1757,
+      "title": "Bounded-readback note §2.5: matching.rs 521/657/851 and named.rs:895 aren't output terms (they feed match's searches and a mentions check); say why they stay unfolded (SW-1746, SW-1756)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "epic": "goal-as-written",
+      "body": "From the stage 1 review, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1758,
+      "title": "proof_expected: fall back to the unfolded read-back when the folded term contains an unknown, which unfolding could drop (SW-1756, low priority)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "epic": "goal-as-written",
+      "body": "From the stage 1 review, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1759,
+      "title": "STITCHWORT_DECIDE_BOTH: cache the env lookup; document that the extra unfolded run's steps aren't refunded, so a decision near its limit can show a false difference (SW-1756)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "epic": "goal-as-written",
+      "body": "From the stage 1 review, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
