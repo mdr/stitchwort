@@ -29,7 +29,7 @@ use crate::driver::Session;
 use crate::nav::{Index, Range, RefTarget, index_data, index_data_of};
 use crate::project::{
     Analysis, Namespace, NamespaceOutcome, NamespaceSources, ParsedFile, analyse, analyse_parsed,
-    canonical_order, closure, cycle_diagnostic, namespace_keys,
+    canonical_order, closure, cycle_diagnostic, dependents, namespace_keys,
 };
 use crate::rewind::{Cancelled, Mark};
 
@@ -660,6 +660,8 @@ impl LiveProject {
                 && let Some(names) = self.names.get(path)
             {
                 file.names = names.clone();
+                let others = self.importable_from_project(path, names);
+                file.names.extend(others);
             }
         }
         if !library {
@@ -725,6 +727,69 @@ impl LiveProject {
             .collect();
         self.last_good
             .retain(|p, _| live.contains(p.as_str()) || unchecked.contains(p.as_str()));
+    }
+
+    /// The declarations of the project's other namespaces that the file at
+    /// `path` (whose names in scope are `names`) could import: each with
+    /// the import that brings it, and no type (the namespace may not be
+    /// checked). Left out: names already in scope, names two namespaces
+    /// declare (which import would it be?), and any namespace that uses the
+    /// file's own, directly or not: importing it would make a cycle.
+    fn importable_from_project(&self, path: &str, names: &[ScopeName]) -> Vec<ScopeName> {
+        let Some(analysis) = &self.analysis else {
+            return Vec::new();
+        };
+        let Some(own) = (self.namespace_files.iter())
+            .find(|(_, files)| files.iter().any(|(p, _)| p == path))
+            .map(|(name, _)| name)
+        else {
+            return Vec::new();
+        };
+        let cyclic: BTreeSet<String> = dependents(analysis, own).into_iter().collect();
+        let visible: BTreeSet<&str> = names.iter().map(|n| n.name.as_str()).collect();
+        let mut by_name: BTreeMap<String, Vec<(&str, &'static str)>> = BTreeMap::new();
+        for parsed in self.parsed.values() {
+            let Some(namespace) = &parsed.module.namespace else {
+                continue;
+            };
+            let namespace = namespace.path.text.as_str();
+            if cyclic.contains(namespace) {
+                continue;
+            }
+            for item in syntactic_outline(parsed) {
+                let Some(name) = item
+                    .name
+                    .strip_prefix(namespace)
+                    .and_then(|n| n.strip_prefix('.'))
+                else {
+                    continue;
+                };
+                if item.parent.is_none()
+                    && item.kind != "test"
+                    && !name.contains('.')
+                    && !visible.contains(name)
+                {
+                    by_name
+                        .entry(name.to_string())
+                        .or_default()
+                        .push((namespace, item.kind));
+                }
+            }
+        }
+        by_name
+            .into_iter()
+            .filter_map(|(name, found)| match found.as_slice() {
+                &[(namespace, kind)] => Some(ScopeName {
+                    key: format!("{namespace}.{name}"),
+                    import: Some((namespace.to_string(), name.clone())),
+                    name,
+                    kind,
+                    ty: None,
+                    own: false,
+                }),
+                _ => None,
+            })
+            .collect()
     }
 
     /// The outline of every file of the project, read from its syntax alone
