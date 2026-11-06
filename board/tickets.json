@@ -1,5 +1,5 @@
 {
-  "next": 1520,
+  "next": 1521,
   "tickets": [
     {
       "id": 47,
@@ -9574,13 +9574,13 @@
     {
       "id": 1514,
       "title": "Completion after a bare xs. shows only the first 100 options alphabetically (all… first), hiding length/map until a letter is typed; rank by use or kind, or sort common members first",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1514",
       "labels": [
         "editor"
       ],
-      "body": "From SW-1504, 6 Nov 2026. Small improvement.\n\nStarted overnight on Sonnet (SW-1514 with SW-1517), expected: 40 min.",
+      "body": "From SW-1504, 6 Nov 2026. Small improvement.\n\nStarted overnight on Sonnet (SW-1514 with SW-1517), expected: 40 min.\n\nDone (e462b98a0), merged: sortText order fields > namespaces > types > constructors > functions > theorems; own namespace before extensions; shorter first (length ~45th of ~450 after xs.). receiver_members lists own functions first and marks single-constructor record fields as 'field'. namespace_members looks under every prefix; members_at_project adds unloaded project namespaces under the written prefix (Proj. offers Base, Other, Main). Browser test updated and passing. Model result: Sonnet, worked, 30 min (est. 40).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -9616,13 +9616,13 @@
     {
       "id": 1517,
       "title": "Completion: Proj. lists nothing for a project's root prefix (Std. works)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1514",
       "labels": [
         "editor"
       ],
-      "body": "From SW-1503, 6 Nov 2026.\n\nStarted overnight on Sonnet (SW-1514 with SW-1517), expected: 40 min.",
+      "body": "From SW-1503, 6 Nov 2026.\n\nStarted overnight on Sonnet (SW-1514 with SW-1517), expected: 40 min.\n\nDone (e462b98a0), merged: sortText order fields > namespaces > types > constructors > functions > theorems; own namespace before extensions; shorter first (length ~45th of ~450 after xs.). receiver_members lists own functions first and marks single-constructor record fields as 'field'. namespace_members looks under every prefix; members_at_project adds unloaded project namespaces under the written prefix (Proj. offers Base, Other, Main). Browser test updated and passing. Model result: Sonnet, worked, 30 min (est. 40).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -9651,6 +9651,20 @@
         "aoc"
       ],
       "body": "D2443 (Matt): carry on further if there's time. Overnight, Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day15.\n\nStarted on Opus, expected: 120 min.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1520,
+      "title": "Completion after a dot: hide theorems (most of ~450 std lemma members) until a letter is typed; and a relative prefix (Other. inside Proj.Main) lists unloaded namespaces",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor"
+      ],
+      "body": "From SW-1514, 6 Nov 2026. Small.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
