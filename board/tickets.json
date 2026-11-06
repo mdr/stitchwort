@@ -1,5 +1,5 @@
 {
-  "next": 1622,
+  "next": 1624,
   "tickets": [
     {
       "id": 47,
@@ -10918,13 +10918,13 @@
     {
       "id": 1610,
       "title": "Bench: find what raised check-closed-* (~+13% visits, +11.6% allocations, 179k → 203k, between 5 Nov 08:38 0e2bf68ac and 6 Nov) and check-number-* peak heap (+13-30%), then repin the baseline (also extract-js 53 → 55 inputs); counts_have_not_regressed fails until then (SW-1601)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1610",
       "labels": [
         "perf"
       ],
-      "body": "From SW-1601, 6 Nov 2026. Also: doc links in std/core can only name core items (prelude elaborated alone).\n\nStarted on Sonnet, expected: 60 min.",
+      "body": "From SW-1601, 6 Nov 2026. Also: doc links in std/core can only name core items (prelude elaborated alone).\n\nStarted on Sonnet, expected: 60 min.\n\nDone (2e4adee73), merged: bench/baseline.toml repinned. SW-1357 (ranges step 1) doubled check-closed-print visits (183k → 375k) by loading Omega through List/Toolkit; SW-1601's fix removed that. The remaining +13% visits / +11.6% allocations is std growth (SW-1357's 19 Toolkit theorems, Text.sw +202 lines, 59 std files); not bisectable further, no waste found. extract-js and examples inputs re-pinned. Times not re-recorded (--no-time). Model result: Sonnet, worked, 45 min (est. 60).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11079,6 +11079,34 @@
         "audit"
       ],
       "body": "From SW-1612, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1622,
+      "title": "Bench: the examples benchmark's counts nearly doubled (visits 493M → 913M, steps 3.5G → 6.6G) for 1.24× the files (1195 → 1478); look for a cause (SW-1610)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "body": "From SW-1610, 6 Nov 2026. Only the full tier compares it.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1623,
+      "title": "Merge tier: a cheap counts check on a trivial import Std (List) program, so a std change that loads extra modules (SW-1357 → Omega) is caught before the daily tier (SW-1610)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "body": "From SW-1610, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
