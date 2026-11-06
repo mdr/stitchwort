@@ -1,5 +1,5 @@
 {
-  "next": 1491,
+  "next": 1492,
   "tickets": [
     {
       "id": 47,
@@ -8790,13 +8790,13 @@
     {
       "id": 1458,
       "title": "Playground: the proof-search worker (lsp-search-worker.js) still checks std itself; its sessions aren't navigable, so it needs its own std.cache bundle (~14 MB) or a cache shared across modes",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1460",
       "labels": [
         "playground"
       ],
-      "body": "From SW-1432, 5 Nov 2026.\n\nStarted on Sonnet (SW-1460 with SW-1458), expected: 60 min.",
+      "body": "From SW-1432, 5 Nov 2026.\n\nStarted on Sonnet (SW-1460 with SW-1458), expected: 60 min.\n\nDone (b9fa6e467), merged: search sessions come from the server's Options (library_session when the cache is loaded), so the bundle's keys match; the search worker fetches and gunzips std.cache.gz. One search in Node 17.4 s → 2.7 s first, 1.75 s after (memory 183 → 229 MB). Not a cache-key change (option b rejected: nav_tag is deliberate). Orchestrator's review: navigation recording only adds data, and searched proofs are pasted into the source and re-checked, so no soundness exposure. Model result: Sonnet, worked, 20 min (est. 60, with SW-1460).",
       "created": "2026-11-05",
       "updated": "2026-11-06",
       "commits": []
@@ -8818,13 +8818,13 @@
     {
       "id": 1460,
       "title": "Playground: three workers (page, runner, server) each fetch and decode the 14 MB std.cache; share one decoded copy or fetch it once, and measure memory",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1460",
       "labels": [
         "playground"
       ],
-      "body": "From SW-1432, 5 Nov 2026.\n\nStarted on Sonnet (SW-1460 with SW-1458), expected: 60 min.",
+      "body": "From SW-1432, 5 Nov 2026.\n\nStarted on Sonnet (SW-1460 with SW-1458), expected: 60 min.\n\nClosed, not needed: measured in Node, the cache adds ~18 MB peak and ~8 MB resident per wasm instance (~4 instances: <100 MB peak, ~30 MB resident), small beside a search session's 183-229 MB; the browser's HTTP cache serves the repeat fetches. Model result: as SW-1458.",
       "created": "2026-11-05",
       "updated": "2026-11-06",
       "commits": []
@@ -9245,6 +9245,20 @@
         "playground"
       ],
       "body": "From SW-1489, 6 Nov 2026. Small improvement.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1491,
+      "title": "Proof search: search_at_text loads all of std eagerly for every search, so entries the cache leaves out are re-checked each time; try a lazy library load to cut the remaining ~1.75 s",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "playground"
+      ],
+      "body": "From SW-1458, 6 Nov 2026. Small improvement.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
