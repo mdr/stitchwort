@@ -8790,15 +8790,15 @@
     {
       "id": 1458,
       "title": "Playground: the proof-search worker (lsp-search-worker.js) still checks std itself; its sessions aren't navigable, so it needs its own std.cache bundle (~14 MB) or a cache shared across modes",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1460",
       "labels": [
         "playground"
       ],
-      "body": "From SW-1432, 5 Nov 2026.",
+      "body": "From SW-1432, 5 Nov 2026.\n\nStarted on Sonnet (SW-1460 with SW-1458), expected: 60 min.",
       "created": "2026-11-05",
-      "updated": "2026-11-05",
+      "updated": "2026-11-06",
       "commits": []
     },
     {
@@ -8818,15 +8818,15 @@
     {
       "id": 1460,
       "title": "Playground: three workers (page, runner, server) each fetch and decode the 14 MB std.cache; share one decoded copy or fetch it once, and measure memory",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1460",
       "labels": [
         "playground"
       ],
-      "body": "From SW-1432, 5 Nov 2026.",
+      "body": "From SW-1432, 5 Nov 2026.\n\nStarted on Sonnet (SW-1460 with SW-1458), expected: 60 min.",
       "created": "2026-11-05",
-      "updated": "2026-11-05",
+      "updated": "2026-11-06",
       "commits": []
     },
     {
