@@ -1,5 +1,5 @@
 {
-  "next": 1598,
+  "next": 1600,
   "tickets": [
     {
       "id": 47,
@@ -10743,6 +10743,34 @@
         "kernel"
       ],
       "body": "D2449 (Matt, 6 Nov 2026): keep C (wasm is the reference; a native mimic uses ~1.5x the guard; written up in docs/proposals/playground-editor.md and on WASM_GUARD); B on the backlog. Trigger: a real 'works in the browser, fails on the command line' report. Also seen: driver nesting's long_list_literals fail in debug builds only (same cause).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1598,
+      "title": "Synthesis of AoC 2020 friction notes, days 10-20: recurring gaps ranked by days hit and cost, linked to filed tickets, duplicates found, the few changes that remove most friction (docs/research/)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "research"
+      ],
+      "body": "D2451 (Matt, 6 Nov 2026): yes, analysis-only Opus lane. Started on Opus, expected: 75 min.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1599,
+      "title": "Fresh-eyes review of the overnight 5-6 Nov elaborator/unifier changes (SW-1538, SW-1564, SW-1541, SW-1553, SW-1521, and others), read-only: bugs with line references",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "review"
+      ],
+      "body": "D2451 (Matt, 6 Nov 2026): yes, analysis-only Opus lane. Started on Opus, expected: 75 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
