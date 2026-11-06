@@ -1,5 +1,5 @@
 {
-  "next": 1506,
+  "next": 1514,
   "tickets": [
     {
       "id": 47,
@@ -9294,13 +9294,13 @@
     {
       "id": 1494,
       "title": "Std: divisibility bridges: Nat.dividesIff (divides d n = True ↔ ∃ t, n = t * d), dividesAdd, dividesMul, (x + z) % m = x % m when z % m = 0",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1494",
       "labels": [
         "std"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1492 (day 13) or SW-1119.\n\nStarted on Sonnet (SW-1494 with SW-1495), expected: 45 min.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1492 (day 13) or SW-1119.\n\nStarted on Sonnet (SW-1494 with SW-1495), expected: 45 min.\n\nDone (8736db293), merged: Nat.dividesIff, dividesMod, dividesAdd, dividesMulLeft, modAddOfModZero, modMulOfModZero (dividesMul existed). Day 13 uses them. Orchestrator checked the statements (D2436). Model result: Sonnet, worked, 15 min (est. 45, with SW-1495).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -9308,13 +9308,13 @@
     {
       "id": 1495,
       "title": "Std: List.minBy lemmas (member, key ≤ every member's, first on a tie)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1494",
       "labels": [
         "std"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1492 (day 13) or SW-1119.\n\nStarted on Sonnet (SW-1494 with SW-1495), expected: 45 min.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1492 (day 13) or SW-1119.\n\nStarted on Sonnet (SW-1494 with SW-1495), expected: 45 min.\n\nDone (8736db293), merged: List.minBySome (member, key ≤ every member's), List.minByFirst (xs = before ++ [least, ..after], every earlier key strictly greater), fold lemmas; Ord.leLessTrans, Ord.lessLeTrans. Model result: as SW-1494.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -9406,13 +9406,13 @@
     {
       "id": 1502,
       "title": "AoC 2020 day 14 (Docking Data): spec, efficient solution, proofs, tests, friction notes in aoc/NOTES-2020.md",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1502",
       "labels": [
         "aoc"
       ],
-      "body": "D2443 (Matt): carry on further if there's time. Overnight, Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day14.\n\nStarted on Opus, expected: 120 min.",
+      "body": "D2443 (Matt): carry on further if there's time. Overnight, Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day14.\n\nStarted on Opus, expected: 120 min.\n\nDone (2042dcb6a), merged: 13496669152158 and 3278997609887. Memory a Map; part 2 expands X bits (≤ 9 per mask, 83,520 writes, main 1.8 s). Proved: applyToMasked, decodeContains, sumOfMemoryUnique, part1/2Exactly (↔), part1/2Correct; no hypothesis. Orchestrator checked the spec (D2436). Audit 76/76. Friction: NOTES-2020 Day 14. Model result: Opus, worked, 40 min (est. 120).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -9455,6 +9455,118 @@
         "editor"
       ],
       "body": "From SW-1120, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1506,
+      "title": "Checker hangs (5+ min) on a parser proof whose literal differs from the parser's (exactly 35 vs readsExactly 36); should be a quick type mismatch (day 14)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1502 (day 14) or SW-1494.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1507,
+      "title": "Std: Nat.toBitsAnd/toBitsOr/toBitsXor, Nat.andLe, Nat.orBelow (bitwise ops to toBits, bounds); Day14 Proofs/Bits.sw has proofs to move",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1502 (day 14) or SW-1494.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1508,
+      "title": "Std: List.zipWith lemmas (length, append/snoc, map)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1502 (day 14) or SW-1494.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1509,
+      "title": "Std: List.memRemoveFirst, memOfRemoveFirst, distinctRemoveFirst; distinct lists with the same nonzero members have the same sumBy (Day14 Sum.sw)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1502 (day 14) or SW-1494.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1510,
+      "title": "Std: Map.getOrInsert, getOrInsertAll, Map.sumValues (Day14 Memory.sw)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1502 (day 14) or SW-1494.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1511,
+      "title": "Message: when rewrite finds nothing, show the subterm where its left side was expected, not an elided …",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1502 (day 14) or SW-1494.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1512,
+      "title": "stitchwort test: a per-test time limit, so a hang is a failure",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tools"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1502 (day 14) or SW-1494.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1513,
+      "title": "Parser: a theorem statement line beginning with ∧ is a parse error ('found &&'); allow a leading operator continuation",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "syntax"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1502 (day 14) or SW-1494.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
