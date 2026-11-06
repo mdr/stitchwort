@@ -723,8 +723,8 @@ fn bind_missing(
             cod.apply(&g, Value::var(at))?,
         );
         let (body, body_ty, _) = bind_missing(cx, applied, &slots[i + 1..], base, true)?;
-        let body_ty = cx.quote(&body_ty)?;
-        let dom = quote(&g, at, &dom)?;
+        let body_ty = cx.quote_folded(&body_ty)?;
+        let dom = stitchwort_core::value::quote_folded(&g, at, &dom)?;
         cx.reset(mark);
         let pi = Term::Pi(
             (*name).clone(),

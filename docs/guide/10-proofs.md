@@ -607,7 +607,7 @@ def pick (v: Vec Nat 3): Nat := v.get 2
 theorem pickTrio: pick (VCons 1 (VCons 2 (VCons 3 VNil))) = 3 := rfl
 ```
 
-`v.get 2` needs a `Fin 3`; a `2` is accepted because it's below 3, and `v.get 3` would be an error. A proof is just the most extreme case of this: a type that mentions values, such as `x + 1 <= 10`, with no data in it. You'll find proofs inside ordinary types too, as fields: `type Dial (highest: Nat) = { position: Nat, inRange: position <= highest }` is a number that is known to be in range, everywhere it goes.
+`v.get 2` needs a `Fin 3`; a `2` is accepted because it's below 3, and `v.get 3` would be an error. A proof is just the most extreme case of this: a type that mentions values, such as `x + 1 <= 10`, with no data in it. You'll find proofs inside ordinary types too, as fields: `type Dial (highest: Nat) = { position: Nat, inRange: position <= highest }` is a number that is known to be in range, everywhere it goes. Reading the field, `d.inRange`, gives that proof at its type as the record declares it, `d.position <= highest`: hovers and messages show a field's type as written, not what the definitions in it compute to.
 
 ## A specification and its program
 

@@ -953,7 +953,7 @@ impl Elaborator {
         let elaborated = (|| -> Result<(Term, Term)> {
             let mut cx = Ctx::new(self, expr.span());
             let (term, ty) = infer(&mut cx, expr)?;
-            Ok((term, cx.quote(&ty)?))
+            Ok((term, cx.quote_folded(&ty)?))
         })();
         let goals = if elaborated.is_ok() && self.pending_goals() > 0 {
             Some(self.take_goals())
@@ -1033,7 +1033,7 @@ impl Elaborator {
                 cx.bind(name, ty);
                 binders.push(goals::SnapBinder::Lam(name.into(), ty_term));
             }
-            let target_term = cx.quote(&target)?;
+            let target_term = cx.quote_folded(&target)?;
             let term = check::check(&mut cx, body, &target)?;
             Ok(goals::close_over(&binders, term, target_term))
         })();
@@ -1077,7 +1077,7 @@ impl Elaborator {
             if matches!(expr, Expr::App(..) | Expr::Binary(..)) {
                 (term, ty) = check::insert(&mut cx, term, ty)?;
             }
-            Ok((term, cx.quote(&ty)?))
+            Ok((term, cx.quote_folded(&ty)?))
         })();
         self.decl.owner.borrow_mut().clear();
         let (term, ty) = elaborated?;
@@ -1372,7 +1372,7 @@ impl Elaborator {
                         let bool_ty = Value::Data(bool_data, Vec::new());
                         let ty = effects::comp_type(&cx, &row, bool_ty)?;
                         let term = check::check(&mut cx, expr, &ty)?;
-                        (term, cx.quote(&ty)?)
+                        (term, cx.quote_folded(&ty)?)
                     } else {
                         // A condition, as `if` takes: a `Bool`, or a decided
                         // proposition.

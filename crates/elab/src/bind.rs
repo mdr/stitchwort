@@ -105,7 +105,7 @@ pub(crate) fn bind_argument(
         let pi = Term::Pi(
             name.into(),
             Icit::Explicit,
-            Rc::new(cx.quote(dom)?),
+            Rc::new(cx.quote_folded(dom)?),
             Rc::new(whole_term),
         );
         // The use's type, outside the binder: it doesn't mention it.

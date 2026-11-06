@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/field-type-as-declared.sw:9:30 ]
+   │
+ 9 │ def wrong (s: Shelf): Nat := s.room
+   │                              ───┬──  
+   │                                 ╰──── expected `Nat`, but this has type `fits s.books s.capacity = True`
+───╯

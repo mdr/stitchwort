@@ -1445,7 +1445,7 @@ fn update(
     let bound = match base.strip_loc() {
         Term::Var(_) => None,
         _ => {
-            let ty_term = cx.quote(ty)?;
+            let ty_term = cx.quote_folded(ty)?;
             cx.define(
                 None,
                 "%record".into(),
@@ -1467,7 +1467,7 @@ fn update(
         // Annotated, as the constructor alone may not be inferable.
         Some(ty_term) => Ok(Term::Ann(
             Rc::new(Term::let_("%record".into(), ty_term, base, body)),
-            Rc::new(cx.quote(&new_ty)?),
+            Rc::new(cx.quote_folded(&new_ty)?),
         )),
         None => Ok(body),
     }
@@ -1540,7 +1540,7 @@ fn update_fields(
                 };
                 let mut term = Term::Def(proj);
                 for p in params {
-                    term = Term::app_icit(term, cx.quote(p)?, Icit::Implicit);
+                    term = Term::app_icit(term, cx.quote_folded(p)?, Icit::Implicit);
                 }
                 Term::app(term, base.clone())
             }
