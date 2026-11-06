@@ -12818,14 +12818,14 @@
     {
       "id": 1686,
       "title": "stitchwort-lsp features tests take ~8 min in release (16 tests, each checks std; 550 s for one in debug), and test:lane AREA=lsp doesn't cover them; find why std is so slow there (SW-1681)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1686",
       "labels": [
         "tests"
       ],
       "epic": "dev-loop-speed",
-      "body": "From SW-1681, 6 Nov 2026. The lane ran the whole binary, which overran the test budget.\n\nStarted on Sonnet (SW-1716 fix 3), expected: 60 min.",
+      "body": "From SW-1681, 6 Nov 2026. The lane ran the whole binary, which overran the test budget.\n\nStarted on Sonnet (SW-1716 fix 3), expected: 60 min.\n\nDone, merged (227756e06): Memory::with_cache gives the tests' in-memory projects a check cache (test-std-cache/{stack}/lsp); production sources unchanged. features binary 16/16 in 27 s (lane, warm) / 75 s on main (cold cache, first run); peak 4.2 GB. Remaining: hover_works_in_a_library_file… checks std from source on purpose. Other lsp test binaries may want the same. Model result: Sonnet, worked, 40 min (est. 60).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []

@@ -458,11 +458,11 @@
         "Baseline from the 6 Nov daily tier: 3 h 8 min of test time, ten binaries over half of it",
         "Profile: rebuilds 131-136 s, mostly optimising 137 test binaries; std check 14 s (SW-1716)",
         "Incremental release builds in the devShell: one-line elab edit 156 s → 21 s (SW-1729)",
-        "No counterexample search after a resource failure; untimed searches bounded: resources test 319 s → 9 s (SW-1730)"
+        "No counterexample search after a resource failure; untimed searches bounded: resources test 319 s → 9 s (SW-1730)",
+        "lsp::features replays std from the test cache: 16 tests in 27 s, 9.2 → 4.2 GB (SW-1686)"
       ],
       "now": [
-        "LSP AoC tests check AoC once (SW-1731)",
-        "lsp::features replays std from the test cache (SW-1686)"
+        "LSP AoC tests check AoC once (SW-1731)"
       ],
       "next": [
         "LSP AoC tests check AoC once (SW-1731); lsp::features replays std (SW-1686)",
