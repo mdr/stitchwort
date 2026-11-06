@@ -87,14 +87,14 @@ def List.lengthOnto: (xs: List a) → (acc: Nat) → Nat
   | [x, ..xs], n => List.lengthOnto xs (Succ n)
 
 --| The number of elements: `[5, 6, 7].length` is 3. O(n), counted in
---| a loop, so a long list doesn't run out of stack ([`List.lengthOntoEq`]).
+--| a loop, so a long list doesn't run out of stack (`List.lengthOntoEq`).
 -- `a` is bound automatically, as an implicit argument: `List.length: [a: Type] -> ...`.
 def List.length: (xs: List a) → Nat
   | [] => 0
   | [x, ..xs] => Succ (List.length xs)
 
 --| `xs ++ ys`: the elements of `xs`, then those of `ys`. Costs the length of
---| `xs`, not of `ys`; [`List.concat`] joins many lists, [`List.flatMap`] maps then joins.
+--| `xs`, not of `ys`; `List.concat` joins many lists, `List.flatMap` maps then joins.
 def List.append: (xs: List a) → (ys: List a) → List a
   | [], ys => ys
   | [x, ..xs], ys => [x, ..List.append xs ys]

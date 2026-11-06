@@ -1346,6 +1346,18 @@ theorem List.distinctMapConsExample: List.Distinct (List.append (List.map [[]] (
     (List.distinctMap [[]] (Both (m => m) Trivial) (Cons 1) (List.consInjective 1))
     (List.disjointMapCons [[]] 0 1 (p => Nat.succNotZero 0 (Eq.sym p)) [[]])
 
+--| `x` is in `List.range a b` exactly when `a ≤ x < b`.
+theorem List.memRange (x: Nat) (a: Nat) (b: Nat): x ∈ List.range a b ↔ (a ≤ x < b) :=
+  { forward = List.memRangeBounds x a b, backward = List.memRangeOf x a b }
+
+--| `List.inRange x a b` holds exactly when `x ∈ a ..< b`.
+theorem List.inRangeIff (x: Nat) (a: Nat) (b: Nat): (List.inRange x a b = True) ↔ (x ∈ List.range a b) := {
+  forward = h => (List.memRange x a b).backward omega,
+  backward = m =>
+    let bounds := (List.memRange x a b).forward m
+    omega
+}
+
 --| Looking for `x` in a range with `contains` gives the two comparisons `x in a ..< b` is.
 theorem List.containsRange (a: Nat) (b: Nat) (x: Nat): List.contains (List.range a b) x = List.inRange x a b :=
   match c: List.contains (List.range a b) x with
