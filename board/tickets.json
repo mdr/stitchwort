@@ -1,5 +1,5 @@
 {
-  "next": 1727,
+  "next": 1728,
   "tickets": [
     {
       "id": 47,
@@ -13415,14 +13415,29 @@
     {
       "id": 1726,
       "title": "[Opus] Strategy review: Stitchwort's unfolding approach (glued NbE, as-written search, size cap) against Lean's transparency and others; are we overcommitting, should we copy Lean, or does ours suit practical program proving better? Report docs/reviews/SW-N-unfolding-strategy.md",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1726",
       "labels": [
         "design"
       ],
       "epic": "goal-as-written",
-      "body": "Matt, 6 Nov 2026: asked for Opus to ponder this before the bounded-readback decisions. Read, web and write only. Started on Opus, expected: 75 min.",
+      "body": "Matt, 6 Nov 2026: asked for Opus to ponder this before the bounded-readback decisions. Read, web and write only. Started on Opus, expected: 75 min.\n\nDone, merged: docs/reviews/SW-1726-unfolding-strategy.md (8aef0f9aa). Verdict: keep 'it computes' for deciding (conversion, rfl, decide, cases); don't copy Lean's transparency; retire D484's promise that searches see the fully computed goal (search what you see, Lean's rule, option B); limits fail, never switch; defer the cap. New questions D2541-D2545. Model result: Opus, worked, 8 min (est. 75).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1727,
+      "title": "docs/proving-guide.md:122 says 'Goals are shown computed, not as written', out of date since goal-as-written (SW-1726)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "epic": "docs-tutorials",
+      "body": "From SW-1726, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
