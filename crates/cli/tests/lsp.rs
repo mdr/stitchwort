@@ -2456,11 +2456,17 @@ fn named_arguments_hover_and_complete_parameter_names() {
             "textDocument/completion",
             json!({"textDocument": {"uri": uri}, "position": {"line": line, "character": character}, "context": {"triggerKind": 1}}),
         );
-        found
+        // The parameter names, which come before the names in scope.
+        found["items"]
             .as_array()
             .map(|items| {
                 items
                     .iter()
+                    .filter(|i| {
+                        i["insertText"]
+                            .as_str()
+                            .is_some_and(|t| t.ends_with(" := "))
+                    })
                     .map(|i| i["label"].as_str().unwrap().to_string())
                     .collect()
             })
@@ -2514,7 +2520,7 @@ fn parameter_defaults_show_in_hover_and_completion() {
         "textDocument/completion",
         json!({"textDocument": {"uri": uri}, "position": {"line": 2, "character": 31}, "context": {"triggerKind": 1}}),
     );
-    let step = found
+    let step = found["items"]
         .as_array()
         .and_then(|items| items.iter().find(|i| i["label"] == "step"))
         .unwrap_or_else(|| panic!("no `step`: {found}"));

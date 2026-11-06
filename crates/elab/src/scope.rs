@@ -1054,7 +1054,7 @@ impl Elaborator {
     }
 
     /// [`Elaborator::resolve`], finding library-internal declarations too.
-    fn resolve_any(&self, written: &str) -> Resolved<'_> {
+    pub(crate) fn resolve_any(&self, written: &str) -> Resolved<'_> {
         // A name the compiler wrote for a declaration it has already found
         // (a shared-field update's constructors): exactly that key.
         if let Some(key) = written.strip_prefix(EXACT_KEY) {
@@ -2737,6 +2737,151 @@ impl Elaborator {
             }
         }
         out.sort();
+        out
+    }
+
+    /// Every short name the current file can write, with the key it
+    /// resolves to, what that is and the level that decides it: the
+    /// candidates for completing a name. A name that is ambiguous here is
+    /// left out, as is one only the compiler writes (`%…`).
+    pub(crate) fn short_names_visible(&self) -> Vec<(String, String, Global, Level)> {
+        let mut shorts: BTreeSet<&str> = BTreeSet::new();
+        let root = self.root();
+        for key in self.scope.entries.keys() {
+            let rest = if root.is_empty() {
+                Some(key.as_str())
+            } else {
+                key.strip_prefix(root)
+            };
+            if let Some(rest) = rest.filter(|r| !r.contains('.')) {
+                shorts.insert(rest);
+            }
+        }
+        let file = self.current_file();
+        if let Some(table) = self.scope.imports.get(file) {
+            shorts.extend(table.keys().map(String::as_str));
+        }
+        if let Some(table) = self.scope.wildcards.get(file) {
+            shorts.extend(table.keys().map(String::as_str));
+        }
+        shorts.extend(
+            PRELUDE
+                .iter()
+                .copied()
+                .filter(|x| self.scope.std_root.contains_key(*x)),
+        );
+        shorts.extend(self.scope.followers.keys().map(String::as_str));
+        shorts
+            .into_iter()
+            .filter(|x| !x.is_empty() && !x.starts_with('%'))
+            .filter_map(|x| match self.resolve_short(x, true) {
+                Resolved::Found {
+                    global, key, level, ..
+                } => Some((x.to_string(), key.to_string(), global, level)),
+                _ => None,
+            })
+            .collect()
+    }
+}
+
+impl Elaborator {
+    /// The library's names one import would bring here, by short name, as
+    /// the unknown-name error suggests them: a root name outside the
+    /// prelude (`import Std (Map)`), or the one declaration of the
+    /// library's namespaces with that short name (`import Std.List
+    /// (replicate)`). Each with its key, what it is, and the import's path.
+    pub(crate) fn importable_names(&self) -> Vec<(String, String, Global, String)> {
+        if self.unit.loading_prelude {
+            return Vec::new();
+        }
+        let mut by_short: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
+        for key in self.scope.entries.keys() {
+            let Some(path) = key.strip_prefix("Std.") else {
+                continue;
+            };
+            let name = short(key);
+            if name.starts_with('%') {
+                continue;
+            }
+            if !path.contains('.') {
+                if !self.scope.is_prelude(name) {
+                    by_short.entry(name).or_default().insert(0, STD);
+                }
+            } else if parent(key).is_some_and(|p| p.contains('.')) {
+                by_short.entry(name).or_default().push(key);
+            }
+        }
+        by_short
+            .into_iter()
+            .filter_map(|(name, keys)| {
+                let (path, key) = match keys.as_slice() {
+                    [STD, ..] => (STD.to_string(), format!("{STD}.{name}")),
+                    [key] => (parent(key)?.to_string(), key.to_string()),
+                    _ => return None,
+                };
+                let (global, _) = self.scope.get(&key)?;
+                Some((name.to_string(), key, global, path))
+            })
+            .collect()
+    }
+
+    /// The members of the namespace written `written` (`List`, `Std`,
+    /// `Shop.Spec`) that it reaches here: each as written after it, with
+    /// its key and what it is, then the namespaces under it that are no
+    /// declaration (`(name, key, None)`). Empty if `written` isn't a
+    /// namespace here.
+    pub(crate) fn namespace_members(&self, written: &str) -> Vec<(String, String, Option<Global>)> {
+        let (first, rest) = match written.split_once('.') {
+            Some((first, rest)) => (first, format!(".{rest}")),
+            None => (written, String::new()),
+        };
+        let mut prefixes: BTreeSet<String> = [
+            format!("{}{written}.", self.root()),
+            format!("{written}."),
+            format!("{STD}.{written}."),
+        ]
+        .into_iter()
+        .collect();
+        prefixes.extend(
+            self.imported_namespaces(first)
+                .into_iter()
+                .map(|q| format!("{q}{rest}.")),
+        );
+        let mut out: Vec<(String, String, Option<Global>)> = Vec::new();
+        let mut reached: BTreeSet<&str> = BTreeSet::new();
+        for key in self.scope.entries.keys() {
+            for prefix in &prefixes {
+                let Some(member) = key.strip_prefix(prefix.as_str()) else {
+                    continue;
+                };
+                if member.contains('.') || member.starts_with('%') {
+                    continue;
+                }
+                if let Resolved::Found {
+                    key: found,
+                    global,
+                    rest,
+                    ..
+                } = self.resolve_any(&format!("{written}.{member}"))
+                    && found == key
+                    && rest.is_empty()
+                    && !out.iter().any(|(m, ..)| m == member)
+                {
+                    reached.insert(prefix);
+                    out.push((member.to_string(), key.clone(), Some(global)));
+                }
+            }
+        }
+        for ns in self.scope.namespaces.keys() {
+            for prefix in &reached {
+                if let Some(member) = ns.strip_prefix(prefix)
+                    && !member.contains('.')
+                    && !out.iter().any(|(m, ..)| m == member)
+                {
+                    out.push((member.to_string(), ns.clone(), None));
+                }
+            }
+        }
         out
     }
 }

@@ -53,6 +53,7 @@ use stitchwort_core::budget::Instant;
 use wasm::FileUrl as _;
 
 mod arms;
+mod complete;
 mod imports;
 mod source;
 pub use source::{Disk, Memory, MemoryProject, ProjectFiles, Source};
@@ -143,7 +144,7 @@ pub fn capabilities() -> serde_json::Value {
         "definitionProvider": true,
         "documentLinkProvider": true,
         "hoverProvider": true,
-        "completionProvider": { "triggerCharacters": ["(", "["] },
+        "completionProvider": { "triggerCharacters": ["(", "[", "."] },
         "signatureHelpProvider": { "triggerCharacters": ["(", "[", " "] },
         "inlayHintProvider": true,
         "semanticTokensProvider": {
@@ -293,12 +294,30 @@ struct WorkspaceNav {
     /// Whether the key is a project's folder (else a file's path).
     project: bool,
     files: BTreeMap<Place, FileAnswers>,
+    /// For a file whose text doesn't parse now: the answers of the last
+    /// check in which it did, for completing in the declaration being
+    /// typed, which the check now has nothing for.
+    parsed: BTreeMap<Place, FileAnswers>,
     /// Each source file's outline from its syntax alone, by path: covers
     /// the namespaces not checked yet (a file checked is in `files`).
     outlines: BTreeMap<String, Vec<OutlineItem>>,
 }
 
 impl WorkspaceNav {
+    /// Stores the answers for `place`, keeping the last ones that parsed
+    /// while it doesn't.
+    fn store(&mut self, place: Place, file: FileAnswers) {
+        let broken = |f: &FileAnswers| f.diagnostics.iter().any(|d| d.code == "E-PARSE");
+        if !broken(&file) {
+            self.parsed.remove(&place);
+        } else if let Some(old) = self.files.remove(&place)
+            && !broken(&old)
+        {
+            self.parsed.insert(place.clone(), old);
+        }
+        self.files.insert(place, file);
+    }
+
     fn uri(&self, root: &Path, place: &Place) -> Option<Url> {
         match place {
             Place::Library(std) => library_uri(std),
@@ -421,6 +440,9 @@ enum SearchKind {
         versioned: Option<i32>,
         fixes: serde_json::Value,
     },
+    /// What can follow the `.` at byte `dot`, after `wanted` bytes of a
+    /// name typed ([`Main::member_completion`]).
+    Members { dot: usize, wanted: usize },
 }
 
 impl Search {
@@ -489,6 +511,9 @@ impl Search {
                 } else {
                     serde_json::Value::Array(actions)
                 }
+            }
+            SearchKind::Members { dot, wanted } => {
+                members_at(server, source, target, dot, wanted, cancel)
             }
         }
     }
@@ -668,14 +693,22 @@ impl Main {
 
     /// Answers a request other than `shutdown`, now or from a search.
     fn request(&self, request: Request) {
-        if request.method == request::CodeActionRequest::METHOD {
+        let request = if request.method == request::CodeActionRequest::METHOD {
             self.code_action(request);
+            return;
         } else if request.method == CONTEXT_AT {
             self.context_at(request);
+            return;
+        } else if request.method == request::Completion::METHOD {
+            match self.member_completion(request) {
+                Some(request) => request,
+                None => return,
+            }
         } else {
-            let response = self.answer(request);
-            let _ = self.connection.sender.send(response.into());
-        }
+            request
+        };
+        let response = self.answer(request);
+        let _ = self.connection.sender.send(response.into());
     }
 
     /// `textDocument/codeAction` on an open goal `?` (SW-915 stage 2):
@@ -834,6 +867,37 @@ impl Main {
             target,
             kind: SearchKind::ContextAt { line, character },
         });
+    }
+
+    /// Completion after a `.` (`xs.`, `List.`): what the receiver or the
+    /// namespace has, found by checking the file again with a dummy name
+    /// after the dot ([`pos::DUMMY`]), on a search thread as the context at
+    /// a position is: the text doesn't parse as typed, and the receiver's
+    /// type may be new. The request back if it isn't after a dot.
+    fn member_completion(&self, request: Request) -> Option<Request> {
+        let Ok(p) = parse::<lsp_types::CompletionParams>(&request) else {
+            return Some(request);
+        };
+        let at = p.text_document_position;
+        let uri = at.text_document.uri;
+        let Some(text) = self.texts.borrow().get(&uri).cloned() else {
+            return Some(request);
+        };
+        let complete::Typed::Member { dot, wanted, .. } =
+            complete::typed(&text, offset_at(&text, at.position))
+        else {
+            return Some(request);
+        };
+        let wanted = wanted.len();
+        let Some(target) = self.search_target(&uri) else {
+            return Some(request);
+        };
+        self.queue_search(request.id, &uri.clone(), "completion", move |_| Search {
+            uri,
+            target,
+            kind: SearchKind::Members { dot, wanted },
+        });
+        None
     }
 
     fn answer_null(&self, id: lsp_server::RequestId) {
@@ -1069,35 +1133,59 @@ impl Main {
         }
     }
 
-    /// The parameter names to complete after `(` or `[` in a call (docs/
-    /// proposals/named-arguments.md §6.3): those of the function not given
-    /// by name yet. The function is found by its name among the file's last
-    /// published references, so an edit that doesn't parse (the call being
-    /// typed) doesn't hide it.
+    /// `textDocument/completion`. After `(` or `[` in a call, the
+    /// parameter names to give by name (docs/proposals/named-arguments.md
+    /// §6.3): those of the function not given by name yet, found by its name
+    /// among the file's last published references, so an edit that doesn't
+    /// parse (the call being typed) doesn't hide it. Elsewhere, the names in
+    /// scope ([`complete`]), with those parameter names first inside a call.
     fn completions(
         &self,
         nav: &Nav,
         uri: &Url,
         at: Position,
+        trigger: Option<&str>,
     ) -> Option<Vec<lsp_types::CompletionItem>> {
         let texts = self.texts.borrow();
         let text = texts.get(uri)?;
         let (_, ws, place) = locate(nav, uri)?;
         let file = ws.files.get(&place)?;
-        let signature = pos::signature_at(file, text, offset_at(text, at))?;
-        let items = signature
-            .wanted()
-            .map(|p| lsp_types::CompletionItem {
-                insert_text: Some(format!("{} := ", p.name)),
-                detail: Some(match &p.default {
-                    Some(default) => format!("{} := {default}", p.name),
-                    None => p.ty.clone(),
-                }),
-                kind: Some(lsp_types::CompletionItemKind::VARIABLE),
-                label: p.name.clone(),
-                ..Default::default()
+        let offset = offset_at(text, at);
+        let mut items: Vec<lsp_types::CompletionItem> = pos::signature_at(file, text, offset)
+            .map(|signature| {
+                signature
+                    .wanted()
+                    .map(|p| lsp_types::CompletionItem {
+                        insert_text: Some(format!("{} := ", p.name)),
+                        detail: Some(match &p.default {
+                            Some(default) => format!("{} := {default}", p.name),
+                            None => p.ty.clone(),
+                        }),
+                        kind: Some(lsp_types::CompletionItemKind::VARIABLE),
+                        sort_text: Some(format!("! {}", p.name)),
+                        label: p.name.clone(),
+                        ..Default::default()
+                    })
+                    .collect()
             })
-            .collect();
+            .unwrap_or_default();
+        if matches!(trigger, Some("(" | "[")) {
+            return Some(items);
+        }
+        let parsed = ws.parsed.get(&place);
+        match complete::typed(text, offset) {
+            complete::Typed::Nothing => {}
+            complete::Typed::Name { wanted } => {
+                let answers: Vec<&FileAnswers> = std::iter::once(file).chain(parsed).collect();
+                let locals = complete::locals(&answers, &place, (at.line, at.character));
+                let names = match (&file.names, parsed) {
+                    (names, Some(p)) if names.is_empty() => &p.names,
+                    (names, _) => names,
+                };
+                items.extend(complete::scope_items(locals, names, text, wanted));
+            }
+            complete::Typed::Member { .. } => {}
+        }
         Some(items)
     }
 
@@ -1257,8 +1345,19 @@ impl Main {
             request::Completion::METHOD => {
                 parse::<lsp_types::CompletionParams>(&request).map(|p| {
                     let at = p.text_document_position;
-                    let items = self.completions(&nav, &at.text_document.uri, at.position);
-                    serde_json::to_value(items.map(lsp_types::CompletionResponse::Array))
+                    let trigger = p
+                        .context
+                        .as_ref()
+                        .and_then(|c| c.trigger_character.as_deref());
+                    let items = self.completions(&nav, &at.text_document.uri, at.position, trigger);
+                    // Incomplete: the names an import would bring are
+                    // offered by what is typed, so ask again as it grows.
+                    serde_json::to_value(items.map(|items| {
+                        lsp_types::CompletionResponse::List(lsp_types::CompletionList {
+                            is_incomplete: true,
+                            items,
+                        })
+                    }))
                 })
             }
             request::InlayHintRequest::METHOD => parse::<lsp_types::InlayHintParams>(&request)
@@ -2158,7 +2257,7 @@ impl Checker {
                 // Only what changed, or is for a newer version of the text.
                 let shown = (version, diagnostics.clone());
                 if self.published.get(&uri) == Some(&shown) {
-                    ws.files.insert(place, file);
+                    ws.store(place, file);
                     continue;
                 }
                 self.published.insert(uri.clone(), shown);
@@ -2168,7 +2267,7 @@ impl Checker {
                     version,
                 });
             }
-            ws.files.insert(place, file);
+            ws.store(place, file);
         }
         drop(guard);
         for params in notes {
@@ -2765,6 +2864,59 @@ fn search_session(server: &Options) -> Session {
     } else {
         Session::for_stack(server.stack)
     }
+}
+
+/// The completion items after the `.` at byte `dot` of the document
+/// `target` ([`SearchKind::Members`]). It costs a check of the file, so a
+/// file on its own reads the library from its folder's check cache when
+/// there is one, as a project's file does from the project's.
+fn members_at(
+    server: &Options,
+    source: &dyn Source,
+    target: SearchTarget,
+    dot: usize,
+    wanted: usize,
+    cancel: Arc<AtomicBool>,
+) -> serde_json::Value {
+    let mut session = search_session(server);
+    session.share_cancel_flag(cancel);
+    if target.project.is_none()
+        && server.library.get().is_none()
+        && let Some(dir) = target.path.parent().and_then(|dir| source.file_cache(dir))
+    {
+        session.use_check_cache(&dir);
+    }
+    let found = match target.project {
+        Some((root, relative, mut open)) => {
+            let base = source.files(&root);
+            let text = pos::with_dummy(&target.text, dot, wanted);
+            open.insert(relative.clone(), text);
+            let files = stitchwort_driver::search_at::Overlay {
+                base: &*base,
+                texts: open,
+            };
+            let name = root
+                .file_name()
+                .map_or("project".to_string(), |n| n.to_string_lossy().into_owned());
+            let cache = source.project_cache(&root);
+            session.members_at_project(&name, &files, &relative, cache.as_deref(), dot)
+        }
+        None => {
+            let name = target
+                .path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("file.sw");
+            session.members_at_text(name, &target.text, dot, wanted)
+        }
+    };
+    drop(session);
+    let items: Vec<lsp_types::CompletionItem> = found
+        .unwrap_or_default()
+        .iter()
+        .map(|n| complete::name_item(n, '1'))
+        .collect();
+    serde_json::to_value(items).unwrap_or_default()
 }
 
 /// What replaces the goal `?` at `range` of `text` (the file at `path`, on

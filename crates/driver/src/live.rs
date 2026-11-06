@@ -18,6 +18,7 @@
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::rc::Rc;
 
+pub use stitchwort_elab::ScopeName;
 use stitchwort_elab::project::{IncludeFiles, NamespaceSyntax, SourceUnit};
 use stitchwort_syntax::{
     Diagnostic, GoalData, MissingCases, Severity, SourceMap, SuggestedImport,
@@ -118,6 +119,10 @@ pub struct FileAnswers {
     pub exprs: Vec<(Range, String)>,
     pub outline: Vec<OutlineItem>,
     pub diagnostics: Vec<LiveDiagnostic>,
+    /// The names the file can write unqualified, its own first (empty
+    /// for a file whose namespace was last checked as a dependency, not
+    /// as the file being edited).
+    pub names: Vec<ScopeName>,
 }
 
 /// Whether range `outer` contains range `inner`.
@@ -417,6 +422,10 @@ pub struct LiveProject {
     /// import failed serves these in place of the answers it has no check
     /// for, while its text is the same ([`LiveProject::answers`]).
     last_good: BTreeMap<String, (String, FileAnswers)>,
+    /// The names in scope in each file of the namespaces checked as the
+    /// focus's, by path: what the session knows only while it is still in
+    /// that namespace.
+    names: BTreeMap<String, Vec<ScopeName>>,
 }
 
 impl LiveProject {
@@ -473,6 +482,7 @@ impl LiveProject {
             parsed: BTreeMap::new(),
             outlines_stale: true,
             last_good: BTreeMap::new(),
+            names: BTreeMap::new(),
         }
     }
 
@@ -583,11 +593,22 @@ impl LiveProject {
             let ns = parse_namespace(s, &project, &name, &files);
             let found =
                 s.check_project_namespace(analysis, canonical, &ns, &|m| outcomes.get(m).copied());
+            let mut names: Vec<(String, Vec<ScopeName>)> = Vec::new();
+            if focus {
+                for ((path, _), id) in files.iter().zip(&ns.files) {
+                    if s.elab.use_file_scope(*id) {
+                        names.push((path.clone(), s.elab.names_in_scope()));
+                    }
+                }
+            }
             s.elab.leave_namespace();
-            found
+            (found, names)
         });
         let (diagnostics, outcome) = match checked {
-            Ok(found) => found,
+            Ok((found, names)) => {
+                self.names.extend(names);
+                found
+            }
             Err(Cancelled) => {
                 // Rewound to it, and checked again from a new one.
                 self.session.release(mark);
@@ -634,6 +655,13 @@ impl LiveProject {
         self.library_answered = true;
         let mut answers = answers_from(&index, &wanted, "stitchwort.yaml");
         self.keep_last_good(&mut answers);
+        for (place, file) in answers.iter_mut() {
+            if let Place::Program(path) = place
+                && let Some(names) = self.names.get(path)
+            {
+                file.names = names.clone();
+            }
+        }
         if !library {
             // The index left out the library files' references, bar a few
             // that remain (some 300 of Set.sw's 640, SW-1110); published,
@@ -988,6 +1016,8 @@ pub struct LiveFile {
     base: Mark,
     dirty: bool,
     diagnostics: Vec<Diagnostic>,
+    /// The names in scope in the file, as last checked.
+    names: Vec<ScopeName>,
 }
 
 impl LiveFile {
@@ -1006,6 +1036,7 @@ impl LiveFile {
             base,
             dirty: true,
             diagnostics: Vec::new(),
+            names: Vec::new(),
         }
     }
 
@@ -1044,6 +1075,7 @@ impl LiveFile {
                     Ok(_) => std::mem::take(&mut self.session.warnings),
                     Err(diagnostics) => diagnostics,
                 };
+                self.names = self.session.elab.names_in_scope();
                 self.dirty = false;
                 Ok(Progress::Checked {
                     focus: true,
@@ -1056,7 +1088,11 @@ impl LiveFile {
     pub fn answers(&mut self) -> Answers {
         let index = index_data(&self.session, "", &self.diagnostics);
         let wanted = BTreeSet::from([self.name.clone()]);
-        answers_from(&index, &wanted, &self.name)
+        let mut answers = answers_from(&index, &wanted, &self.name);
+        if let Some(file) = answers.get_mut(&Place::Program(self.name.clone())) {
+            file.names = self.names.clone();
+        }
+        answers
     }
 }
 

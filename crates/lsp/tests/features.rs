@@ -378,6 +378,186 @@ fn hover_works_in_a_library_file_whether_or_not_the_library_was_replayed() {
     });
 }
 
+impl Session {
+    /// Replaces the document's text, as version `version`, and checks it.
+    fn change(&mut self, version: i32, text: &str) {
+        self.notify(
+            "textDocument/didChange",
+            json!({"textDocument": {"uri": URI, "version": version},
+                   "contentChanges": [{"text": text}]}),
+        );
+        self.settle();
+    }
+
+    /// The completion items at the end of the line `line`, as the editor
+    /// asks while a name is typed; with `trigger`, just after it was typed.
+    fn complete_at_end(&mut self, text: &str, line: usize, trigger: Option<&str>) -> Vec<Value> {
+        let character = text.lines().nth(line).unwrap().chars().count();
+        let context = match trigger {
+            Some(c) => json!({"triggerKind": 2, "triggerCharacter": c}),
+            None => json!({"triggerKind": 1}),
+        };
+        let typed = text.lines().nth(line).unwrap();
+        let after_dot = typed
+            .trim_end_matches(|c: char| c.is_alphanumeric())
+            .ends_with('.');
+        let params = json!({"textDocument": {"uri": URI},
+               "position": {"line": line, "character": character},
+               "context": context});
+        let found = match after_dot {
+            true => self.request_searched("textDocument/completion", params),
+            false => self.request("textDocument/completion", params),
+        };
+        let items = found.get("items").unwrap_or(&found);
+        items.as_array().cloned().unwrap_or_default()
+    }
+}
+
+fn labels(items: &[Value]) -> Vec<&str> {
+    items.iter().map(|i| i["label"].as_str().unwrap()).collect()
+}
+
+fn item<'i>(items: &'i [Value], label: &str) -> &'i Value {
+    items
+        .iter()
+        .find(|i| i["label"] == label)
+        .unwrap_or_else(|| panic!("no `{label}` in {:?}", labels(items)))
+}
+
+const IN_SCOPE: &str = "namespace Demo\nimport Std (Map)\n\n\
+    def helper (n: Nat): Nat := n + 1\n\n\
+    def f (count: Nat) (m: Map Nat Nat): Nat :=\n  let doubled := count * 2\n  doubled + co\n";
+
+#[test]
+fn completion_offers_locals_then_the_namespace_then_imports_and_defaults() {
+    big_stack(|| {
+        let mut s = Session::open(IN_SCOPE);
+        let items = s.complete_at_end(IN_SCOPE, 7, None);
+        let shown = labels(&items);
+        // The locals bound before the cursor, nearest first.
+        assert_eq!(shown[..3], ["doubled", "m", "count"], "{shown:?}");
+        assert!(
+            item(&items, "count")["detail"]
+                .as_str()
+                .unwrap()
+                .contains("Nat")
+        );
+        let rank = |label: &str| {
+            item(&items, label)["sortText"]
+                .as_str()
+                .unwrap()
+                .to_string()
+        };
+        assert!(rank("doubled") < rank("helper") && rank("helper") < rank("Map"));
+        assert!(rank("helper") < rank("Nat"));
+        assert_eq!(item(&items, "helper")["detail"], "def: Nat → Nat");
+        // Constructors of a default type, and what the import brings.
+        for name in ["Map", "Some", "Cons", "List"] {
+            item(&items, name);
+        }
+        // The rest of a library namespace needs an import.
+        assert!(!shown.contains(&"map"), "{shown:?}");
+    });
+}
+
+#[test]
+fn completion_keeps_the_locals_of_a_declaration_that_does_not_parse() {
+    big_stack(|| {
+        let mut s = Session::open(IN_SCOPE);
+        let broken = IN_SCOPE.replace("doubled + co\n", "doubled + (co\n");
+        s.change(2, &broken);
+        assert!(
+            s.diagnostics.iter().any(|d| d["code"] == "E-PARSE"),
+            "{:?}",
+            s.diagnostics
+        );
+        let items = s.complete_at_end(&broken, 7, None);
+        assert_eq!(labels(&items)[..3], ["doubled", "m", "count"]);
+        item(&items, "helper");
+    });
+}
+
+const MEMBERS: &str = "namespace Demo\nimport Std (List)\n\n\
+    type Shape = { width: Nat, height: Nat }\n\n\
+    def Shape.area (s: Shape): Nat := s.width * s.height\n\n\
+    def f (xs: List Nat) (s: Shape): Nat :=\n  xs.length + s.area\n";
+
+#[test]
+fn completion_after_a_dot_offers_the_receivers_members() {
+    big_stack(|| {
+        let mut s = Session::open(MEMBERS);
+        // Just typed: the text doesn't parse.
+        let typing = MEMBERS.replace("  xs.length + s.area\n", "  xs.\n");
+        s.change(2, &typing);
+        let items = s.complete_at_end(&typing, 8, Some("."));
+        let shown = labels(&items);
+        for name in ["length", "map", "filter"] {
+            item(&items, name);
+        }
+        // Not what takes no list first, nor a constructor.
+        assert!(
+            !shown.contains(&"Cons") && !shown.contains(&"replicate"),
+            "{shown:?}"
+        );
+        // A record: its fields and its namespace's functions.
+        let typing = MEMBERS.replace("  xs.length + s.area\n", "  xs.length + s.ar\n");
+        s.change(3, &typing);
+        let items = s.complete_at_end(&typing, 8, None);
+        for name in ["area", "width", "height"] {
+            item(&items, name);
+        }
+    });
+}
+
+#[test]
+fn completion_after_a_namespace_offers_its_members() {
+    big_stack(|| {
+        let mut s = Session::open(MEMBERS);
+        let typing = MEMBERS.replace("  xs.length + s.area\n", "  List.\n");
+        s.change(2, &typing);
+        let items = s.complete_at_end(&typing, 8, Some("."));
+        for name in ["length", "map", "Cons", "replicate"] {
+            item(&items, name);
+        }
+        let typing = MEMBERS.replace("  xs.length + s.area\n", "  Std.\n");
+        s.change(3, &typing);
+        let items = s.complete_at_end(&typing, 8, Some("."));
+        for name in ["List", "Nat", "Map"] {
+            item(&items, name);
+        }
+    });
+}
+
+#[test]
+fn completing_a_name_that_needs_an_import_adds_it() {
+    big_stack(|| {
+        let text = "namespace Demo\nimport Std (List)\n\ndef f (n: Nat): Nat := n\n";
+        let mut s = Session::open(text);
+        let typing = format!("{text}def g: Nat := Ma\n");
+        s.change(2, &typing);
+        let items = s.complete_at_end(&typing, 4, None);
+        let map = item(&items, "Map");
+        assert_eq!(map["labelDetails"]["description"], "import Std (Map)");
+        let edit = &map["additionalTextEdits"][0];
+        assert_eq!(edit["newText"], ", Map");
+        assert_eq!(edit["range"]["start"], json!({"line": 1, "character": 16}));
+        // A library function in a namespace: its own import.
+        let typing = format!("{text}def g: List Nat := sortW\n");
+        s.change(3, &typing);
+        let items = s.complete_at_end(&typing, 4, None);
+        let found = item(&items, "sortWith");
+        assert_eq!(
+            found["labelDetails"]["description"],
+            "import Std.List (sortWith)"
+        );
+        // One character is not enough to offer them.
+        let typing = format!("{text}def g: Nat := M\n");
+        s.change(4, &typing);
+        let items = s.complete_at_end(&typing, 4, None);
+        assert!(!labels(&items).contains(&"Map"));
+    });
+}
+
 /// `text` with the first quick fix for its non-exhaustive match applied.
 fn filled(text: &str) -> String {
     let mut s = Session::open(text);

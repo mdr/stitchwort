@@ -116,6 +116,10 @@ struct Probe {
     want: Option<(FileId, u32)>,
     pending: Option<ProbePending>,
     found: Option<ContextAt>,
+    /// Completion after a `.`: where the name after it starts
+    /// ([`Elaborator::probe_members`]), and what can be written there.
+    members_at: Option<(FileId, u32)>,
+    members: Option<Vec<crate::nav::ScopeName>>,
 }
 
 #[derive(Clone)]
@@ -639,9 +643,50 @@ impl Elaborator {
         };
     }
 
-    /// Whether a context is asked for in one of `files`.
+    /// Asks for what can follow the `.` before byte `offset` of `file`, the
+    /// start of the name after it (completion; the editor writes a dummy
+    /// name there so that the text parses): while the file is checked, the
+    /// receiver's members, or the namespace's ([`crate::dot`]'s rule). Call
+    /// before loading the file; read the answer with
+    /// [`Elaborator::take_probed_members`] after.
+    pub fn probe_members(&self, file: FileId, offset: u32) {
+        let mut goals = self.goals.borrow_mut();
+        goals.probe = Probe {
+            members_at: Some((file, offset)),
+            ..Probe::default()
+        };
+    }
+
+    /// What [`Elaborator::probe_members`] found, once: none if checking
+    /// never reached the `.`.
+    pub fn take_probed_members(&self) -> Option<Vec<crate::nav::ScopeName>> {
+        std::mem::take(&mut self.goals.borrow_mut().probe).members
+    }
+
+    /// Whether the name at `span` (a name after a `.`, or a dotted name
+    /// it ends) is the one after the probed `.`: if so, the probe is taken,
+    /// so the receiver's own names, elaborated next, aren't.
+    pub(crate) fn take_members_probe(&self, span: Span) -> bool {
+        let mut goals = self.goals.borrow_mut();
+        let Some((file, at)) = goals.probe.members_at else {
+            return false;
+        };
+        let hit = span.file == file && span.start <= at && at <= span.end;
+        if hit {
+            goals.probe.members_at = None;
+        }
+        hit
+    }
+
+    pub(crate) fn found_members(&self, members: Vec<crate::nav::ScopeName>) {
+        self.goals.borrow_mut().probe.members = Some(members);
+    }
+
+    /// Whether a context, or the members after a `.`, are asked for in one
+    /// of `files`.
     pub(crate) fn probes_one_of(&self, files: &[crate::project::SourceUnit]) -> bool {
-        let Some((probed, _)) = self.goals.borrow().probe.want else {
+        let probe = &self.goals.borrow().probe;
+        let Some((probed, _)) = probe.want.or(probe.members_at) else {
             return false;
         };
         files.iter().any(|f| f.file == Some(probed))
