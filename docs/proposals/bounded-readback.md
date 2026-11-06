@@ -759,6 +759,10 @@ otherwise change. 4 comes before 3, as D2545 orders, so the reader module is cre
   `omega.rs`, `effects.rs`, `derive_induct.rs`, `interfaces.rs`. `interfaces.rs` is no longer
   first (D2539 is moot), but instance search is still a place where a limit must fail rather
   than choose (§4.4), so 0b marks any site there that recovers.
+  **Done (SW-1747):** all 288 sites are in [SW-1747-stage-0b-sites.md](../reviews/SW-1747-stage-0b-sites.md).
+  Stage 1: 126, 4: 41, 5: 28, 6a: 18, 6b: 20, stay unfolded 6, no stage 22 (omega and ring
+  atom identity), not a read-back 27. Its findings: a gap, stage 1's size, and `scanned`'s
+  100,000-node cap in instance search.
 - **0c. The measurements** (narrowed; no behaviour change). `STITCHWORT_READBACK_METRICS`:
   per unfolded read-back, its site and node count; recovered `E-RESOURCE`s that change what is
   elaborated (D2540's places); how often zonk's whole-solution fallback fires; message sides
@@ -918,7 +922,7 @@ questions, both decided yes by Matt on 6 Nov 2026, raised by writing §4.1 for t
 - §8 rows 1, 2, 4 and 6's hidden copies are read from the source, not confirmed by a run;
   rows 5 and 7's are not established.
 - It classified about 90 of the 290 unfolded read-back sites by reading them (revision 2).
-  The rest are stage 0b's. `equations.rs` is narrower than draft 1 feared (review Q4): the
+  The rest are stage 0b's (done: [SW-1747-stage-0b-sites.md](../reviews/SW-1747-stage-0b-sites.md)). `equations.rs` is narrower than draft 1 feared (review Q4): the
   sites that could change something are its binder types (`equations.rs:2833`),
   `bool_equation`'s right side (`:2532`), `uniqueness`'s sides (`:4445–4446`) and
   `mentions_computation` (`:5064–5072`). Stage 1 leaves the file alone; a later stage that
