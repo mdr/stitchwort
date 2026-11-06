@@ -9426,7 +9426,7 @@
       "labels": [
         "editor"
       ],
-      "body": "From SW-1120, 6 Nov 2026.\n\nStarted overnight on Opus (editor speed is the night's first priority; live-session rewinding is tricky), expected: 90 min.\n\nDone (38a9ad305), merged: Session::load_for_probe loads only what the file's namespace uses (as the live checker does) instead of load_for_goal's 255 namespaces; probe_project uses it (dot completion, contextAt, case split). Day 11: dot 3.5-4.3 → 0.6 s, contextAt 3.6 → 0.7 s. Live session untouched. Remaining 0.6 s is library load + project read per request: D2446 (a kept-alive session per search thread). D2445 moot. Model result: Opus, worked, 26 min (est. 90).",
+      "body": "From SW-1120, 6 Nov 2026.\n\nStarted overnight on Opus (editor speed is the night's first priority; live-session rewinding is tricky), expected: 90 min.\n\nDone (38a9ad305), merged: Session::load_for_probe loads only what the file's namespace uses (as the live checker does) instead of load_for_goal's 255 namespaces; probe_project uses it (dot completion, contextAt, case split). Day 11: dot 3.5-4.3 → 0.6 s, contextAt 3.6 → 0.7 s. Live session untouched. Remaining 0.6 s is library load + project read per request: D2446 (a kept-alive session per search thread). D2445 moot. Model result: Opus, worked, 26 min (est. 90).\n\nD2446 answered (Matt, 6 Nov 2026): park it for now; reconsider later (SW-1595).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
