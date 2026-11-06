@@ -9504,13 +9504,13 @@
     {
       "id": 1509,
       "title": "Std: List.memRemoveFirst, memOfRemoveFirst, distinctRemoveFirst; distinct lists with the same nonzero members have the same sumBy (Day14 Sum.sw)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1509",
       "labels": [
         "std"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1502 (day 14) or SW-1494.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1502 (day 14) or SW-1494.\n\nStarted overnight on Sonnet (SW-1509 with SW-1510), expected: 45 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -9518,13 +9518,13 @@
     {
       "id": 1510,
       "title": "Std: Map.getOrInsert, getOrInsertAll, Map.sumValues (Day14 Memory.sw)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1509",
       "labels": [
         "std"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1502 (day 14) or SW-1494.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1502 (day 14) or SW-1494.\n\nStarted overnight on Sonnet (SW-1509 with SW-1510), expected: 45 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
