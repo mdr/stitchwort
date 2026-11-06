@@ -1,7 +1,7 @@
 --| Day 18 proved, about the input text: for every input the parser reads,
 --| each line is the expression the parser gave for it, written out with a
 --| shape the part's rules allow (Parse.sw); a line means no other
---| expression under those rules (Unique.sw); so the program's answer, the
+--| expression under those rules (Complete.sw); so the program's answer, the
 --| sum of those expressions' values, is the spec's answer and the only one.
 
 namespace Aoc.Year2020.Day18.Proofs

@@ -1,8 +1,10 @@
---| A line means at most one expression under a part's rules: the grammar
---| is unambiguous. The proof shows the program's own parser reads every
---| expression the line means (`Parse.Runs`, built from Std's completeness
---| lemmas for the parser's pieces), and a parser run from the same text gives
---| one value, so two such expressions are the same.
+--| The converse of `Parse.sw`: every line that means an expression under a
+--| part's rules is read as it, and so is a whole input of such lines; and a
+--| line means at most one expression, so the grammar is unambiguous. The proof
+--| shows the program's own parser reads every expression the line means
+--| (`Parse.Runs`, built from Std's completeness lemmas for the parser's
+--| pieces), and a parser run from the same text gives one value, so two such
+--| expressions are the same.
 --|
 --| The levels of operators are those of the program's parser, loosest
 --| first, and `Exact` says they are all the operators, a strength a level.
@@ -12,7 +14,7 @@
 namespace Aoc.Year2020.Day18.Proofs
 import Aoc.Year2020.Day18 (..)
 import Aoc.Year2020.Day18 (Spec)
-import Std (Bool, Char, DecEq, Eq, Exists, List, Nat, Option, Parse, Result, Text, Void)
+import Std (Bool, Char, DecEq, Eq, Exists, Fail, List, Nat, Option, Parse, Result, Text, Void)
 
 def size: Expression → Nat
   | Number value => 1
@@ -406,7 +408,7 @@ theorem runsExpression (all: List (List Operator)) (strengthOf: Operator → Nat
 
 --| Under rules whose strengths the levels `all` list exactly, a line
 --| means at most one expression: the parser gives one value for it.
-theorem meansUnique (all: List (List Operator)) (strengthOf: Operator → Nat) (exactAll: Exact strengthOf 0 all) (read: List Char)
+theorem writtenUnique (all: List (List Operator)) (strengthOf: Operator → Nat) (exactAll: Exact strengthOf 0 all) (read: List Char)
     (one: Expression) (other: Expression) (means: Spec.Means strengthOf read one) (alsoMeans: Spec.Means strengthOf read other): one = other :=
   let ranOne := Parse.runsRun (() => Parse.recursive (self => level self all)) read one
     (runsExpression all strengthOf exactAll read [] one (And.left means) (And.right means) (stopNil strengthOf))
@@ -414,13 +416,26 @@ theorem meansUnique (all: List (List Operator)) (strengthOf: Operator → Nat) (
     (runsExpression all strengthOf exactAll read [] other (And.left alsoMeans) (And.right alsoMeans) (stopNil strengthOf))
   Result.okInjective (Eq.trans (Eq.sym ranOne) ranOther)
 
+--| Input whose lines mean expressions under the rules is read as those
+--| expressions, when the levels list the rules' operators exactly.
+theorem parseComplete (input: Text) (precedence: Precedence) (strengthOf: Operator → Nat) (exact: Exact strengthOf 0 precedence.levels)
+    (expressions: List Expression) (means: List.All2 (Spec.Means strengthOf) (input.lines.map Text.toList) expressions):
+    Fail.toResult (() => parseHomework input precedence) = Ok ({ expressions }: Homework) :=
+  rewrite Fail.toResultThen (() => Parse.eachLine input (() => precedence.expression)) (expressions => ({ expressions }: Homework)) in
+    rewrite Parse.runsEachLine input (() => precedence.expression) expressions
+      (List.all2Weaken
+        (read expression (Both written follows) =>
+          runsExpression precedence.levels strengthOf exact read [] expression written follows (stopNil strengthOf))
+        _ _ means) in
+      rfl
+
 --| Lines that each mean one expression mean one list of them.
 theorem linesUnique (all: List (List Operator)) (strengthOf: Operator → Nat) (exactAll: Exact strengthOf 0 all):
     (lines: List (List Char)) → (ones: List Expression) → (others: List Expression)
       → List.All2 (Spec.Means strengthOf) lines ones → List.All2 (Spec.Means strengthOf) lines others → ones = others
   | [], [], [], none, alsoNone => rfl
   | [line, ..lines], [one, ..ones], [other, ..others], Both means rest, Both alsoMeans alsoRest =>
-    rewrite meansUnique all strengthOf exactAll line one other means alsoMeans, linesUnique all strengthOf exactAll lines ones others rest alsoRest in rfl
+    rewrite writtenUnique all strengthOf exactAll line one other means alsoMeans, linesUnique all strengthOf exactAll lines ones others rest alsoRest in rfl
   | [], [], [other, ..others], none, alsoNone => Void.exfalso alsoNone
   | [], [one, ..ones], others, none, alsoNone => Void.exfalso none
   | [line, ..lines], [], others, none, alsoNone => Void.exfalso none
