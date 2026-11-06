@@ -12,9 +12,9 @@ import Std (List, Nat, Option, Void)
 theorem leavesSmall (depth: Nat): (number: Number) → depth + height number ≤ 4 → split number = None →
     List.All (leaf => leaf.depth ≤ 4 ∧ leaf.value ≤ 9) (leaves depth number)
   | Regular value, shallow, none =>
-    match Nat.decLessThan 9 value with
-      | Yes _ => Void.exfalso (Option.someNotNone _ none)
-      | No small => Both (Both shallow omega) Trivial
+    match small: Nat.leq 10 value with
+      | True => Void.exfalso (Option.someNotNone _ none)
+      | False => Both (Both shallow omega) Trivial
   | Pair left right, shallow, none =>
     match el: split left with
       | Some _ => Void.exfalso (Option.someNotNone _ none)
