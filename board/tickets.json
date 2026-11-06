@@ -11722,7 +11722,7 @@
       "labels": [
         "kernel"
       ],
-      "body": "D2509-D2511 (Matt, 6 Nov 2026): all as recommended: next an Opus lane on lane/SW-1642 building glued calls whose spine may end in projections (about half a day), before the unifier and Pair stages; for now eta only for types declared as records (departs from D2499 until stage 3); rule 2 fires on unknowns and the unifier compares two records first when both sides end in the same projection. Opus, expected: 240 min; an Opus review follows.\n\nStarted 14:35 by resuming SW-1642's lane (same context and branch).",
+      "body": "D2509-D2511 (Matt, 6 Nov 2026): all as recommended: next an Opus lane on lane/SW-1642 building glued calls whose spine may end in projections (about half a day), before the unifier and Pair stages; for now eta only for types declared as records (departs from D2499 until stage 3); rule 2 fires on unknowns and the unifier compares two records first when both sides end in the same projection. Opus, expected: 240 min; an Opus review follows.\n\nStarted 14:35 by resuming SW-1642's lane (same context and branch).\n\nLane progress (be69745c3, 8943bf9fe, c91991954 on lane/SW-1642): fields of glued calls stay calls (project_call, Frame::CallField); std's own test, roguelike Rules.sw:51 and 2021 day 13 pass; cost roguelike +2.2%, days −5%. Blocked: trip-journal example project fails (rule 2 computes under binders, unfolded quote hits 'too large to show'); a_namespace_checked_alone_has_the_same_hashes likely the same. Waiting on D2514 (how to bound unfolded readback). 2 h 15 min of est. 4 h.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
