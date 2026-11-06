@@ -46,3 +46,32 @@ and why, open D questions, usage.
 ## Log
 
 - 22:30: plan written; SW-1744, SW-1746 and SW-1732/1733 running.
+
+## Backup queue, so work carries on until 8am (Matt: "make progress all the way through")
+
+Take these in order, once the speed queue above is empty or blocked.
+
+1. **More speed work.**
+   - The findings from each speed lane become small fix lanes straight away.
+   - The next slowest binaries in tonight's daily run: rewind 807 s, the web
+     tests 613 s, extract 544 s, std_library 510 s, check_cache 376 s,
+     run_js 332 s, operators 267 s.
+   - `test:lane` areas that don't cover what they claim. The lsp features
+     gap was SW-1686; look for others.
+   - Lane rebuild time on a fresh worktree: kache, and copying a warm
+     target folder.
+2. **DeepSeek for the mechanical speed work.** SW-1736 (one test binary per
+   crate) is mostly moving files. It costs none of the Claude allowance, so it
+   stretches the night if usage gets close to 94%.
+3. **Bounded readback, already approved (D2545):**
+   - stage 1b (SW-1748);
+   - SW-1743 and the swallowed-error sites;
+   - SW-1749, the omega and ring atom comparison;
+   - stage 4, and stage 5 (error notes, Sonnet or DeepSeek);
+   - R, `rewrite f` (D1433, decided yes), on Opus.
+
+   Only one lane at a time in elab's matching and unify code.
+4. **Small fixes from the backlog** (Matt likes them), on Sonnet or
+   DeepSeek: diagnostics, docs (SW-1616), std lemmas.
+5. **Read-only analysis lanes** if the machine is busy timing things: reviews
+   of merged work, syntheses and designs.
