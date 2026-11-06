@@ -10,16 +10,16 @@
 --|   $ cd aoc && stitchwort run Aoc.Year2020.Day17.main < inputs/2020/day17.txt
 --|
 --| A cube is a list of coordinates, so one program serves every number of
---| dimensions. A cycle counts, for each active cube, one for each of its
---| neighbours, so only the cubes next to an active one are ever looked at.
+--| dimensions. A cycle (`Aoc.Common.lifeStep`) counts, for each active cube, one for
+--| each of its neighbours, so only the cubes next to an active one are ever looked at.
 --| The proofs, that the parser reads the puzzle's format and that a cycle
 --| is the puzzle's cycle, cube by cube, are in `Aoc.Year2020.Day17.Proofs`
 --| (Proofs/), and the tests in `Aoc.Year2020.Day17.Tests` (Tests/); `run`
 --| checks neither.
 
 namespace Aoc.Year2020.Day17
-import Aoc.Common (Grid, Position, parseGrid)
-import Std (Eq, Fail, IO, Int, List, Map, Nat, Ord, Parse, Set)
+import Aoc.Common (Grid, Position, lifeStep, parseGrid)
+import Std (Bool, Eq, Fail, IO, Int, List, Nat, Ord, Parse, Set)
 
 def main(): {IO, Fail} () :=
   let slice := parseSlice IO.readAll()
@@ -76,17 +76,13 @@ type Pocket = { active: Set Cube }
 def Slice.pocket (slice: Slice) (dimensions: Nat): Pocket :=
   { active = slice.grid.positionsWhere (== Active) |> .map (Cube.inSlice dimensions) |> Set.fromList }
 
---| Whether `cube`, with `count` active neighbours, is active after the
---| cycle.
-def Pocket.activeNext (pocket: Pocket) (cube: Cube) (count: Nat): Bool := count == 3 || (count == 2 && pocket.active.contains cube)
+--| Whether a cube that is (or isn't) `active`, with `count` active
+--| neighbours, is active after the cycle.
+def lifeRule (active: Bool) (count: Nat): Bool := count == 3 || (count == 2 && active)
 
---| Every cube changes at once. A cube next to no active cube has no
---| active neighbours, so it is inactive after the cycle; the others are
---| the keys of `activeNeighbours`, the count for each cube of how many
---| active cubes it neighbours.
-def Pocket.cycle (pocket: Pocket): Pocket :=
-  let activeNeighbours := pocket.active.toList.flatMap (.neighbours) |> Map.counts
-  { active = activeNeighbours.filter pocket.activeNext |> .keySet }
+--| Every cube changes at once: `lifeStep` counts the active cubes each cube
+--| neighbours, and a cube next to none is inactive after the cycle.
+def Pocket.cycle (pocket: Pocket): Pocket := { active = lifeStep Cube.neighbours lifeRule pocket.active }
 
 --| "Starting with your given initial configuration, simulate six cycles."
 def Pocket.boot (pocket: Pocket): Pocket := Nat.iterate 6 Pocket.cycle pocket
