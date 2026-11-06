@@ -21,24 +21,13 @@ theorem spaceStops (char: Char) (isSpace: Parse.isSpace char = True): continues 
 theorem spaceNotDigit (char: Char) (isSpace: Parse.isSpace char = True): Parse.isDigit char = False :=
   Bool.orElim isSpace (space => rewrite DecEq.sound space in rfl) (tab => rewrite DecEq.sound tab in rfl)
 
-theorem notDigit (rest: List Char) (stops: Parse.CannotStart Parse.isDigit rest): rest.takeWhile Parse.isDigit = [] :=
-  match rest with
-    | [] => rfl
-    | [char, ..more] => rewrite stops char more rfl in rfl
-
 theorem continuesNotDigit (rest: List Char) (stops: Parse.CannotStart continues rest): Parse.CannotStart Parse.isDigit rest :=
   char more found => Bool.orFalseLeft _ _ (stops char more found)
-
-theorem declinesComma (rest: List Char) (stops: Parse.CannotStart continues rest): Parse.Declines (() => Parse.char ',') rest :=
-  match rest with
-    | [] => Parse.declinesCharEnd ','
-    | [char, ..more] => Parse.declinesChar ',' char more (Bool.orFalseRight _ _ (stops char more rfl))
 
 theorem runsNumber (read: List Char) (number: Nat) (after: List Char) (written: NumberWritten read number) (stops: Parse.CannotStart Parse.isDigit after):
     Parse.Runs Parse.nat read after number :=
   match written with
-    | Both nonEmpty (Both allDigits decimal) =>
-      rewrite decimal in Parse.runsNat read after nonEmpty allDigits (notDigit after stops)
+    | Both nonEmpty (Both allDigits decimal) => rewrite decimal in Parse.runsNatBefore read after nonEmpty allDigits stops
 
 theorem runsRange (read: List Char) (range2: Range) (written: RangeWritten read range2) (after: List Char) (stops: Parse.CannotStart Parse.isDigit after):
     Parse.Runs range read after range2 :=
@@ -50,7 +39,7 @@ theorem runsRange (read: List Char) (range2: Range) (written: RangeWritten read 
           (Parse.runsBind (() => Parse.char '-') _ ['-'] highRead _ after () _ rfl
             (Parse.runsChar '-' _)
             (Parse.runsBind Parse.nat _ highRead [] _ after (Parse.digitsValue highRead) _ (Eq.sym (List.appendNil highRead))
-              (Parse.runsNat highRead _ highSome highAll (notDigit after stops))
+              (Parse.runsNatBefore highRead _ highSome highAll stops)
               (Parse.runsPure _ after)))
 
 theorem runsRule (read: List Char) (rule2: Rule) (written: RuleWritten read rule2) (after: List Char) (stops: Parse.CannotStart Parse.isDigit after):
@@ -86,50 +75,29 @@ theorem runsTicket (read: List Char) (ticket2: Ticket) (written: TicketWritten r
                 (read2 u same2 => rewrite same2 in List.consNotNil ',' [])
                 (read2 after2 u same2 => rewrite same2 in (char more found => rewrite <- List.consInjectiveHead _ _ _ _ found in rfl))
                 (continuesNotDigit after stops)
-                (Parse.declinesSepStep Parse.nat (() => Parse.char ',') after (declinesComma after stops))
+                (Parse.declinesSepStep Parse.nat (() => Parse.char ',') after (Parse.declinesCharCannotStart ',' continues rfl after stops))
                 read head tail listed2))
 
 theorem declinesTicket (input: List Char) (stops: Parse.CannotStart continues input): Parse.Declines ticket input :=
   Parse.declinesBind (() => Parse.sepBy1 Parse.nat (() => Parse.char ',')) _ input
-    (Parse.declinesSepBy1 Parse.nat (() => Parse.char ',') input (Parse.declinesNat input (notDigit input (continuesNotDigit input stops))))
+    (Parse.declinesSepBy1 Parse.nat (() => Parse.char ',') input (Parse.declinesNat input (Parse.takeWhileOfCannotStart Parse.isDigit input (continuesNotDigit input stops))))
 
 -- The rules end at a blank line, and a rule's name could run over spaces and a
 -- carriage return before the line feed that stops it, so `rule` declines
 -- there because the name isn't followed by a colon, not because of its first
 -- character.
 
-theorem allAppendNames: (xs: List Char) → xs.all isNameChar = True → (ys: List Char) → ys.all isNameChar = True → (xs ++ ys).all isNameChar = True
-  | [], xsAll, ys, ysAll => ysAll
-  | [x, ..more], xsAll, ys, ysAll => Bool.andIntro (Bool.andLeft xsAll) (allAppendNames more (Bool.andRight xsAll) ys ysAll)
-
-theorem spacesAreNames: (xs: List Char) → xs.all Parse.isSpace = True → xs.all isNameChar = True
-  | [], spaced => rfl
-  | [x, ..more], spaced =>
-    Bool.andIntro
-      (Bool.orElim (Bool.andLeft spaced) (space => rewrite DecEq.sound space in rfl) (tab => rewrite DecEq.sound tab in rfl))
-      (spacesAreNames more (Bool.andRight spaced))
-
---| `takeWhile1` declines where nothing passes.
-theorem declinesTakeWhile1 (what: Text) (passes: Char → Bool) (input: List Char) (stops: input.takeWhile passes = []): Parse.Declines (() => Parse.takeWhile1 what passes) input :=
-  Parse.declinesAfter (() => Parse.span passes) _ [] input [] (Parse.runsSpan passes [] input rfl stops) (Parse.declinesExpected what input)
+theorem spaceIsName (char: Char) (isSpace: Parse.isSpace char = True): isNameChar char = True :=
+  Bool.orElim isSpace (space => rewrite DecEq.sound space in rfl) (tab => rewrite DecEq.sound tab in rfl)
 
 --| `rule` declines on a run of name characters and then a line feed.
 theorem declinesRuleBeforeBreak (run: List Char) (more: List Char) (names: run.all isNameChar = True): Parse.Declines rule (run ++ ['\n', ..more]) :=
   match run with
-    | [] => Parse.declinesBind (() => Parse.takeWhile1 "a field name" isNameChar) _ ['\n', ..more] (declinesTakeWhile1 "a field name" isNameChar ['\n', ..more] rfl)
+    | [] => Parse.declinesBind (() => Parse.takeWhile1 "a field name" isNameChar) _ ['\n', ..more] (Parse.declinesTakeWhile1 "a field name" isNameChar ['\n', ..more] rfl)
     | [char, ..others] =>
       Parse.declinesAfter (() => Parse.takeWhile1 "a field name" isNameChar) _ [char, ..others] ['\n', ..more] (Text.fromList [char, ..others])
         (Parse.runsTakeWhile1 "a field name" isNameChar [char, ..others] ['\n', ..more] (List.consNotNil char others) names rfl)
         (Parse.declinesBind (() => Parse.text ": ") _ ['\n', ..more] (Parse.declinesText ": " _ rfl))
-
---| `rule` declines on a blank line's spaces and last line break, and what follows.
-theorem declinesRuleAfterBreak (middle: List Char) (last: List Char) (more: List Char) (spaced: middle.all Parse.isSpace = True) (lastBreak: Parse.LineBreak last):
-    Parse.Declines rule (middle ++ (last ++ more)) :=
-  match lastBreak with
-    | Inl same => rewrite same in declinesRuleBeforeBreak middle more (spacesAreNames middle spaced)
-    | Inr same =>
-      rewrite same, <- List.appendAssoc middle ['\r'] ['\n', ..more] in
-        declinesRuleBeforeBreak (middle ++ ['\r']) more (allAppendNames middle (spacesAreNames middle spaced) ['\r'] rfl)
 
 --| A round of `lines rule` declines at a blank line.
 theorem declinesRulesAtBlank (blank: List Char) (more: List Char) (isBlank: Parse.BlankLine blank): Parse.Declines (() => Parse.sepStep rule Parse.newline) (blank ++ more) :=
@@ -137,7 +105,7 @@ theorem declinesRulesAtBlank (blank: List Char) (more: List Char) (isBlank: Pars
     | Witness first (Witness middle (Witness last (Both split (Both firstBreak (Both spaced lastBreak))))) =>
       rewrite split, List.appendAssoc first (middle ++ last) more, List.appendAssoc middle last more in
         Parse.declinesAfter Parse.newline (u => rule()) first (middle ++ (last ++ more)) () (Parse.runsNewline first _ firstBreak)
-          (declinesRuleAfterBreak middle last more spaced lastBreak)
+          (Parse.declinesAfterSpacesBreak rule isNameChar spaceIsName rfl declinesRuleBeforeBreak middle last more spaced lastBreak)
 
 --| The notes, as `NotesWritten` has them, before nothing but line breaks.
 theorem runsNotes (read: List Char) (notes2: Notes) (written: NotesWritten read notes2) (ending: List Char) (breaks: Parse.OnlyBreaks ending):

@@ -956,6 +956,11 @@ theorem Parse.declinesExpected (what: Text) (input: List Char): Parse.Declines (
   Parse.declinesAfter (() => Parse.note (Expected what)) (u => Empty.absurd Parse.stop()) [] input () (Parse.runsNote (Expected what) input)
     (Parse.declinesStop input)
 
+--| `takeWhile1` declines where nothing passes `passes`.
+theorem Parse.declinesTakeWhile1 (what: Text) (passes: Char → Bool) (input: List Char) (stops: input.takeWhile passes = []):
+    Parse.Declines (() => Parse.takeWhile1 what passes) input :=
+  Parse.declinesAfter (() => Parse.span passes) _ [] input [] (Parse.runsSpan passes [] input rfl stops) (Parse.declinesExpected what input)
+
 --| `newline` declines where the input starts with neither "\n" nor "\r\n".
 theorem Parse.declinesNewline (input: List Char) (noLf: Text.stripPrefixChars ['\n'] input = None) (noCrlf: Text.stripPrefixChars ['\r', '\n'] input = None):
     Parse.Declines Parse.newline input :=
@@ -1966,6 +1971,60 @@ theorem Parse.cannotStartAtBlank (canStart: Char → Bool) (lf: canStart '\n' = 
       rewrite split, List.appendAssoc first (middle ++ last) more, List.appendAssoc middle last more in
         Parse.cannotStartAfterBreak canStart lf cr first (middle ++ (last ++ more)) firstBreak
 
+--| Nothing passes `p` at the start of an input that `p` can't start:
+--| `takeWhile p` takes nothing. What `Parse.runsNat` and the other
+--| `takeWhile`-based parsers ask of the text after them.
+theorem Parse.takeWhileOfCannotStart (p: Char → Bool) (rest: List Char) (stops: Parse.CannotStart p rest): rest.takeWhile p = [] :=
+  match rest with
+    | [] => rfl
+    | [char, ..more] => rewrite stops char more rfl in rfl
+
+--| [`Parse.runsNat`] before an input that can't start with a digit, which is
+--| `CannotStart` as the lemmas on line breaks and blank lines give it.
+theorem Parse.runsNatBefore (digits: List Char) (rest: List Char) (some: digits ≠ []) (all: digits.all Parse.isDigit = True)
+    (stops: Parse.CannotStart Parse.isDigit rest): Parse.Runs Parse.nat digits rest (Parse.digitsValue digits) :=
+  Parse.runsNat digits rest some all (Parse.takeWhileOfCannotStart Parse.isDigit rest stops)
+
+--| `char expected` declines where `canStart` is false of the first
+--| character, if `canStart` is true of `expected`: for a separator that the
+--| text after a list can't start with.
+theorem Parse.declinesCharCannotStart (expected: Char) (canStart: Char → Bool) (allows: canStart expected = True) (rest: List Char)
+    (stops: Parse.CannotStart canStart rest): Parse.Declines (() => Parse.char expected) rest :=
+  match rest with
+    | [] => Parse.declinesCharEnd expected
+    | [char, ..more] =>
+      Parse.declinesChar expected char more
+        (match e: char == expected with
+          | False => rfl
+          | True =>
+            let blocked := stops char more rfl
+            Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym allows) (rewrite DecEq.sound e at blocked in blocked))))
+
+--| Spaces and tabs, then `ys`, all pass `q`, if each space or tab does and `ys` does.
+theorem Parse.allSpacesThen (q: Char → Bool) (spaces: (char: Char) → Parse.isSpace char = True → q char = True) (ys: List Char) (rest: ys.all q = True):
+    (xs: List Char) → xs.all Parse.isSpace = True → (xs ++ ys).all q = True
+  | [], spaced => rest
+  | [x, ..more], spaced => Bool.andIntro (spaces x (Bool.andLeft spaced)) (Parse.allSpacesThen q spaces ys rest more (Bool.andRight spaced))
+
+--| A parser declines on a blank line's spaces and tabs, its last line break,
+--| and anything after, if it declines on any run of `q` characters followed
+--| by a line feed (`declinesRun`). The run is the spaces, with a carriage
+--| return if the line break is "\r\n". For a parser that `CannotStart`
+--| can't help with, because its first character can be a space (a field name
+--| that a colon doesn't follow, say).
+theorem Parse.declinesAfterSpacesBreak (p: () → {Parse} a) (q: Char → Bool) (spaces: (char: Char) → Parse.isSpace char = True → q char = True)
+    (carriageReturn: q '\r' = True)
+    (declinesRun: (run: List Char) → (more: List Char) → run.all q = True → Parse.Declines p (run ++ ['\n', ..more]))
+    (middle: List Char) (last: List Char) (more: List Char) (spaced: middle.all Parse.isSpace = True) (lastBreak: Parse.LineBreak last):
+    Parse.Declines p (middle ++ (last ++ more)) :=
+  match lastBreak with
+    | Inl same =>
+      let all := Parse.allSpacesThen q spaces [] rfl middle spaced
+      rewrite same in declinesRun middle more (rewrite List.appendNil middle at all in all)
+    | Inr same =>
+      rewrite same, <- List.appendAssoc middle ['\r'] ['\n', ..more] in
+        declinesRun (middle ++ ['\r']) more (Parse.allSpacesThen q spaces ['\r'] (rewrite carriageReturn in rfl) middle spaced)
+
 --| What can follow a block of lines (a `lines` inside `sections`): only line
 --| breaks, or a blank line and then anything.
 def Parse.LinesEnd (input: List Char): Prop :=
@@ -2164,6 +2223,24 @@ theorem Parse.runsMany1Symbols (p: () → {Parse} a) (symbol: a → Char) (canSt
   let runs := Parse.runsMany1 p [symbol first] first steps rest
     (rewrite joined in runsItem first (more.map symbol ++ rest) (Bool.andLeft all)) manyRuns
   rewrite joined, valued at runs in runs
+
+--| If `p` runs each part of what `Parse.Each spec` describes (given `spec` of
+--| the part, and whatever follows), the parts are the steps
+--| [`Parse.runsExactly`] wants: they join to the text, give the values, one per
+--| value, and each runs.
+theorem Parse.eachSteps (p: () → {Parse} a) (spec: List Char → a → Prop) (rest: List Char)
+    (runs: (read: List Char) → (v: a) → (after: List Char) → spec read v → Parse.Runs p read after v):
+    (values: List a) → (read: List Char) → Parse.Each spec read values →
+    ∃ (steps: List (List Char, a)) =>
+      Parse.joinReads steps = read ∧ Parse.stepValues steps = values ∧ steps.length = values.length ∧ Parse.StepsRun p steps rest
+  | [], read, each => Witness [] (Both (Eq.sym each) (Both rfl (Both rfl rfl)))
+  | [v, ..values], read, Witness first (Witness more (Both split (Both ok each))) =>
+    match Parse.eachSteps p spec rest runs values more each with
+      | Witness steps (Both joined (Both valued (Both counted stepsRun))) =>
+        Witness [(first, v), ..steps]
+          (Both (rewrite split, joined in rfl)
+            (Both (rewrite valued in rfl)
+              (Both (rewrite counted in rfl) (Both (runs first v (Parse.joinReads steps ++ rest) ok) stepsRun))))
 
 def Parse.RunsExamples.numbers(): {Parse} NonEmptyList Nat := Parse.lines Parse.nat
 

@@ -42,20 +42,9 @@ theorem declinesPixel (rest: List Char) (stops: Parse.CannotStart pixelChar rest
         Both (stripDifferent '#' [] char more (Bool.orFalseLeft _ _ (stops char more rfl)))
           (Both (stripDifferent '.' [] char more (Bool.orFalseRight _ _ (stops char more rfl))) rfl))
 
-theorem joinPixels: (pixels: List Pixel) → Parse.joinReads (pixels.map (shape => ([pixelSymbol shape], shape))) = pixels.map pixelSymbol
+theorem allPixels: (pixels: List Pixel) → (pixels.map pixelSymbol).all pixelChar = True
   | [] => rfl
-  | [shape, ..more] => rewrite joinPixels more in rfl
-
-theorem valuesPixels: (pixels: List Pixel) → Parse.stepValues (pixels.map (shape => ([pixelSymbol shape], shape))) = pixels
-  | [] => rfl
-  | [shape, ..more] => rewrite valuesPixels more in rfl
-
-theorem manyRunsPixels: (pixels: List Pixel) → (rest: List Char) → Parse.CannotStart pixelChar rest →
-    Parse.ManyRuns pixel (pixels.map (shape => ([pixelSymbol shape], shape))) rest
-  | [], rest, stops => declinesPixel rest stops
-  | [shape, ..more], rest, stops =>
-    Both (List.consNotNil (pixelSymbol shape) [])
-      (Both (runsPixel shape (Parse.joinReads (more.map (shape2 => ([pixelSymbol shape2], shape2))) ++ rest)) (manyRunsPixels more rest stops))
+  | [shape, ..more] => rewrite allPixels more in (match shape with | Rough => rfl | Calm => rfl)
 
 theorem pixelWritten (read: List Char) (shape: Pixel) (written: PixelWritten read shape): read = [pixelSymbol shape] :=
   match written with
@@ -74,11 +63,10 @@ theorem runsRow (read: List Char) (row: List Pixel) (written: RowWritten read ro
       match row, nonEmpty with
         | [], notEmpty => Void.exfalso (notEmpty rfl)
         | [shape, ..more], notEmpty =>
-          let runs := Parse.runsMany1 pixel [pixelSymbol shape] shape (more.map (shape2 => ([pixelSymbol shape2], shape2))) after
-            (runsPixel shape _) (manyRunsPixels more after stops)
-          let read2 := rewrite joinPixels more, valuesPixels more at runs in runs
+          let read2 := Parse.runsMany1Symbols pixel pixelSymbol pixelChar (shape2 after _ => runsPixel shape2 after) declinesPixel shape more after
+            (allPixels [shape, ..more]) stops
           rewrite eachPixels [shape, ..more] read each in
-            Parse.runsMap (() => Parse.many1 pixel) NonEmptyList.toList ([pixelSymbol shape] ++ more.map pixelSymbol) after (NonEmptyList.cons shape more) read2
+            Parse.runsMap (() => Parse.many1 pixel) NonEmptyList.toList ([shape, ..more].map pixelSymbol) after (NonEmptyList.cons shape more) read2
 
 theorem declinesRow (input: List Char) (stops: Parse.CannotStart pixelChar input): Parse.Declines pixelRow input :=
   Parse.declinesBind (() => Parse.many1 pixel) _ input (Parse.declinesMany1 pixel input (declinesPixel input stops))

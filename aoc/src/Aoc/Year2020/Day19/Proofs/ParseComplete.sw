@@ -17,16 +17,11 @@ def seqChar (char: Char): Bool := Parse.isDigit char ∨ char == ' '
 theorem spaceNotDigit (char: Char) (isSpace: Parse.isSpace char = True): Parse.isDigit char = False :=
   Bool.orElim isSpace (space => rewrite DecEq.sound space in rfl) (tab => rewrite DecEq.sound tab in rfl)
 
-theorem noDigits (rest: List Char) (stops: Parse.CannotStart Parse.isDigit rest): rest.takeWhile Parse.isDigit = [] :=
-  match rest with
-    | [] => rfl
-    | [char, ..more] => rewrite stops char more rfl in rfl
-
 theorem runsNumber (read: List Char) (number: Nat) (after: List Char) (written: NumberWritten read number) (stops: Parse.CannotStart Parse.isDigit after):
     Parse.Runs Parse.nat read after number :=
   match written with
     | Both nonEmpty (Both allDigits decimal) =>
-      rewrite decimal in Parse.runsNat read after nonEmpty allDigits (noDigits after stops)
+      rewrite decimal in Parse.runsNatBefore read after nonEmpty allDigits stops
 
 --| What can follow a sequence of rule numbers: the line's end, or ` | ` and another sequence.
 def SeqFollow (after: List Char): Prop :=
@@ -140,26 +135,10 @@ theorem runsNumbered (read: List Char) (numbered: (Nat, Rule)) (written: Numbere
               (runsRuleBody ruleRead rule2 ruleWritten _ stops)
               (Parse.runsPure (number, rule2) after)))
 
-theorem joinLetters: (letters: List Char) → Parse.joinReads (letters.map (found => ([found], found))) = letters
-  | [] => rfl
-  | [found, ..more] => rewrite joinLetters more in rfl
-
-theorem valuesLetters: (letters: List Char) → Parse.stepValues (letters.map (found => ([found], found))) = letters
-  | [] => rfl
-  | [found, ..more] => rewrite valuesLetters more in rfl
-
 theorem declinesLetter (rest: List Char) (stops: Parse.CannotStart Char.isAsciiLowercase rest): Parse.Declines letter rest :=
   match rest with
     | [] => Parse.declinesSatisfyEnd _ _
     | [char, ..more] => Parse.declinesSatisfy _ _ char more (stops char more rfl)
-
-theorem manyRunsLetters: (letters: List Char) → (rest: List Char) → letters.all Char.isAsciiLowercase = True → Parse.CannotStart Char.isAsciiLowercase rest →
-    Parse.ManyRuns letter (letters.map (found => ([found], found))) rest
-  | [], rest, all, stops => declinesLetter rest stops
-  | [found, ..more], rest, all, stops =>
-    Both (List.consNotNil found [])
-      (Both (Parse.runsSatisfy _ _ found (Parse.joinReads (more.map (found2 => ([found2], found2))) ++ rest) (Bool.andLeft all))
-        (manyRunsLetters more rest (Bool.andRight all) stops))
 
 --| Letters written one a character are the letters, all lowercase.
 theorem eachLetters: (letters: List Char) → (read: List Char) → Parse.Each LetterWritten read letters → read = letters ∧ letters.all Char.isAsciiLowercase = True
@@ -176,14 +155,14 @@ theorem runsMessage (read: List Char) (message2: Message) (written: MessageWritt
         | { head, tail } =>
           match eachLetters [head, ..tail] read each with
             | Both readIs all =>
-              let lettersRun := Parse.runsMany1 letter [head] head (tail.map (found2 => ([found2], found2))) after
-                (Parse.runsSatisfy _ _ head _ (Bool.andLeft all)) (manyRunsLetters tail after (Bool.andRight all) stops)
-              let lettersRead := rewrite joinLetters tail, valuesLetters tail at lettersRun in lettersRun
+              let lettersRun := Parse.runsMany1Symbols letter (found2 => found2) Char.isAsciiLowercase
+                (found2 after ok => Parse.runsSatisfy _ _ found2 after ok) declinesLetter head tail after (rewrite List.mapId tail in all) stops
+              let lettersRead := rewrite List.mapId tail at lettersRun in lettersRun
               rewrite readIs, same in
-                Parse.runsMap (() => Parse.many1 letter) (letters2 => { letters = letters2.toList }) ([head] ++ tail) after (NonEmptyList.cons head tail) lettersRead
+                Parse.runsMap (() => Parse.many1 letter) (letters2 => { letters = letters2.toList }) [head, ..tail] after (NonEmptyList.cons head tail) lettersRead
 
 theorem declinesNumbered (input: List Char) (stops: Parse.CannotStart Parse.isDigit input): Parse.Declines numberedRule input :=
-  Parse.declinesBind Parse.nat _ input (Parse.declinesNat input (noDigits input stops))
+  Parse.declinesBind Parse.nat _ input (Parse.declinesNat input (Parse.takeWhileOfCannotStart Parse.isDigit input stops))
 
 theorem declinesMessage (input: List Char) (stops: Parse.CannotStart Char.isAsciiLowercase input): Parse.Declines message input :=
   Parse.declinesBind (() => Parse.many1 letter) _ input (Parse.declinesMany1 letter input (declinesLetter input stops))
