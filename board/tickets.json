@@ -1,5 +1,5 @@
 {
-  "next": 1634,
+  "next": 1637,
   "tickets": [
     {
       "id": 47,
@@ -9770,13 +9770,13 @@
     {
       "id": 1528,
       "title": "Runtime profiler for stitchwort run (where a program's time goes); days 11 and 15 found it only by timing variants of main",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1528",
       "labels": [
         "tools"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1519 (2020 day 15).\n\nD2458 (Matt, 6 Nov 2026): yes, a profiler for stitchwort run, on Opus ('quite important to get right'); the lane decides a sensible first scope and builds it. Started on Opus, expected: 120 min.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1519 (2020 day 15).\n\nD2458 (Matt, 6 Nov 2026): yes, a profiler for stitchwort run, on Opus ('quite important to get right'); the lane decides a sensible first scope and builds it. Started on Opus, expected: 120 min.\n\nDone (3c500cee5), merged. Scope in docs/proposals/run-profiler.md: interpreter only; exact call counts, time sampled every 1 ms and charged to the stack (no double counting under recursion); optimiser copies, match helpers and lambdas attributed to their definition; Ctrl-C/timeout still reports; --profile-top N. Off: one empty-field check per frame entry, no measurable change on day 11; on: ~4%. Found: day 11 68% Std.Map.Tree.get via Grid.lookup; day 15 all Map (insertWith 68%, rebalancing ~50%); day 19 86% Std.List.lookup. Guide section in docs/guide/11-running-and-shipping.md. Next stage (orchestrator's call): file:line and per-line lambda names, then --js; one table kept. Model result: Opus, worked, 26 min (est. 120).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10812,7 +10812,7 @@
       "labels": [
         "aoc"
       ],
-      "body": "From SW-1473, 6 Nov 2026. Small.",
+      "body": "From SW-1473, 6 Nov 2026. Small.\n\nConfirmed by the profiler (SW-1528): 15M List.lengthOnto calls in ~2.5M turns, 4% of the run.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11247,6 +11247,48 @@
         "style"
       ],
       "body": "D2481-D2486 (Matt, 6 Nov 2026): all as recommended in docs/proposals/brace-syntax-review.md: the declaration decides what braces after a constructor mean (brace-declared constructors by field name; bracket-declared ones take a record argument); patterns follow; braces in argument position; show prints accordingly; named arguments on a constructor fill field defaults; then sweep C ({ … }) → C { … }. Replaces D1370 (a). After SW-1632. DeepSeek or Sonnet.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1634,
+      "title": "Profiler stage 2: file:line beside each name and per-line lambda names; then natives' rows, stitchwort test --profile, --js via Node --cpu-prof (docs/proposals/run-profiler.md later stages)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "body": "From SW-1528, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1635,
+      "title": "stitchwort run: output still buffered is lost when timeout or Ctrl-C ends the run (day 15's 'Part 1: …' never appeared); flush on signal (SW-1528)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "body": "From SW-1528, 6 Nov 2026; predates the profiler.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1636,
+      "title": "2020 day 19: 86% of the run is Std.List.lookup (48M calls), rules looked up by number in a list; build a Map (or array) once (profiler, SW-1528)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "From SW-1528's profile, 6 Nov 2026. Day 19 takes 6.5 s vs Python 0.3 s.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
