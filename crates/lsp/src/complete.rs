@@ -154,11 +154,16 @@ fn locals_in(
     out
 }
 
-/// The items for a name of its own at `at`: the locals, then `names` (the
-/// file's own first), each shown name once.
+/// The items for a name of its own, `wanted` typed so far: the locals,
+/// then `names` (the file's own first), each shown name once. Of the names
+/// an import would bring, only those starting with `wanted`, once two
+/// characters are typed (there are thousands): each adds its import to
+/// `text`.
 pub fn scope_items(
     locals: Vec<(String, Option<String>)>,
     names: &[ScopeName],
+    text: &str,
+    wanted: &str,
 ) -> Vec<CompletionItem> {
     let mut items: Vec<CompletionItem> = Vec::new();
     for (i, (name, ty)) in locals.into_iter().enumerate() {
@@ -172,8 +177,25 @@ pub fn scope_items(
     }
     let shadowed: std::collections::BTreeSet<String> =
         items.iter().map(|i| i.label.clone()).collect();
+    let lower = wanted.to_lowercase();
     for n in names.iter().filter(|n| !shadowed.contains(&n.name)) {
-        items.push(name_item(n, if n.own { '1' } else { '2' }));
+        let Some((path, item)) = &n.import else {
+            items.push(name_item(n, if n.own { '1' } else { '2' }));
+            continue;
+        };
+        if wanted.chars().count() < 2 || !n.name.to_lowercase().starts_with(&lower) {
+            continue;
+        }
+        let Some(edit) = crate::imports::add_import(text, path, item) else {
+            continue;
+        };
+        let mut found = name_item(n, '3');
+        found.label_details = Some(lsp_types::CompletionItemLabelDetails {
+            detail: None,
+            description: Some(format!("import {path} ({item})")),
+        });
+        found.additional_text_edits = Some(vec![edit]);
+        items.push(found);
     }
     items
 }

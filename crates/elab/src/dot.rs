@@ -2150,6 +2150,7 @@ fn members_after(cx: &mut Ctx, recv: &Expr) -> Result<Vec<crate::nav::ScopeName>
                         kind: "namespace",
                         ty: None,
                         own: false,
+                        import: None,
                     },
                 })
                 .collect();

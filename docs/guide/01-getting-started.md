@@ -151,6 +151,7 @@ Put the cursor on a `?` and a panel under the editor shows the goal there: what 
 - go to definition and find references, including into the standard library, whose files open read-only; an `include "path"` string is a link that opens the included file;
 - the outline and workspace symbols;
 - completion of parameter names after `(` or `[` in a call (`clampTo (` offers `low`, `high` and `value`);
+- completion of names: the local variables in scope, then the namespace's own declarations, then what the imports and the prelude bring, each with its kind and type, also while the declaration you are typing doesn't parse; after a `.` the functions the value before it can go into (`xs.` on a list offers `length`, `map`, …, and your own `Shape.area` on a `Shape`) or a namespace's members (`List.`, `Std.`); and once two letters are typed, library names that need an import (`Ma` offers `Map`), which add the import when picked;
 - signature help in a call's arguments: the function's parameters, with the one you are writing highlighted (a `(low := 1)` highlights `low`);
 - a quick fix on an unknown name that needs an import (`Map` without `import Std (Map)`): "Add `import Std (Map)`" inserts it, into an existing `import Std (…)` line if there is one;
 - the type of a `let` whose type you didn't write, shown after its name (`let total` becomes `total: Nat`), once something uses the variable; no other inlay hints;

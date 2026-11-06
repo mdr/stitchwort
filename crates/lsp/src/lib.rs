@@ -1100,14 +1100,14 @@ impl Main {
         let parsed = ws.parsed.get(&place);
         match complete::typed(text, offset) {
             complete::Typed::Nothing => {}
-            complete::Typed::Name { .. } => {
+            complete::Typed::Name { wanted } => {
                 let answers: Vec<&FileAnswers> = std::iter::once(file).chain(parsed).collect();
                 let locals = complete::locals(&answers, &place, (at.line, at.character));
                 let names = match (&file.names, parsed) {
                     (names, Some(p)) if names.is_empty() => &p.names,
                     (names, _) => names,
                 };
-                items.extend(complete::scope_items(locals, names));
+                items.extend(complete::scope_items(locals, names, text, wanted));
             }
             complete::Typed::Member { .. } => {}
         }
@@ -1275,7 +1275,14 @@ impl Main {
                         .as_ref()
                         .and_then(|c| c.trigger_character.as_deref());
                     let items = self.completions(&nav, &at.text_document.uri, at.position, trigger);
-                    serde_json::to_value(items.map(lsp_types::CompletionResponse::Array))
+                    // Incomplete: the names an import would bring are
+                    // offered by what is typed, so ask again as it grows.
+                    serde_json::to_value(items.map(|items| {
+                        lsp_types::CompletionResponse::List(lsp_types::CompletionList {
+                            is_incomplete: true,
+                            items,
+                        })
+                    }))
                 })
             }
             request::InlayHintRequest::METHOD => parse::<lsp_types::InlayHintParams>(&request)

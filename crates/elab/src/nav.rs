@@ -358,6 +358,9 @@ pub struct ScopeName {
     pub ty: Option<String>,
     /// Declared by the file's own namespace (else imported or a default).
     pub own: bool,
+    /// Not in scope: the import that brings it, `(path, item)` for
+    /// `import path (item)`.
+    pub import: Option<(String, String)>,
 }
 
 pub struct NavRef {
@@ -1040,22 +1043,42 @@ impl Elaborator {
     /// The names the file whose scope is current can write unqualified
     /// ([`Elaborator::use_file_scope`]; after a module is checked, its
     /// last file's), for completing a name: its namespace's own, then
-    /// those its imports bring, then the defaults. Local definitions and
-    /// generated declarations are left out.
+    /// those its imports bring, then the defaults. Then the library's that
+    /// one import would bring, each with that import (the one an unknown
+    /// name's error suggests), and without a type, which would cost a
+    /// printing of each. Local definitions and generated declarations are
+    /// left out.
     pub fn names_in_scope(&self) -> Vec<ScopeName> {
         let g = &self.ev();
+        let wanted =
+            |key: &str| !self.tables.helper_keys.contains_key(key) && !is_generated_name(g, key);
         let mut out: Vec<ScopeName> = self
             .short_names_visible()
             .into_iter()
-            .filter(|(_, key, ..)| {
-                !self.tables.helper_keys.contains_key(key) && !is_generated_name(g, key)
-            })
+            .filter(|(_, key, ..)| wanted(key))
             .filter(|(_, _, global, _)| !matches!(global, Global::Failed))
             .map(|(name, key, global, level)| {
                 self.scope_name(name, &key, global, level == crate::scope::Level::Module)
             })
             .collect();
         out.sort_by(|a, b| (!a.own, &a.name).cmp(&(!b.own, &b.name)));
+        let visible: std::collections::BTreeSet<String> =
+            out.iter().map(|n| n.name.clone()).collect();
+        let mut importable: Vec<ScopeName> = self
+            .importable_names()
+            .into_iter()
+            .filter(|(name, key, ..)| !visible.contains(name) && wanted(key))
+            .map(|(name, key, global, path)| ScopeName {
+                kind: self.global_kind(global),
+                ty: None,
+                own: false,
+                key: crate::scope::display(&key).to_string(),
+                import: Some((path, name.clone())),
+                name,
+            })
+            .collect();
+        importable.sort_by(|a, b| a.name.cmp(&b.name));
+        out.extend(importable);
         out
     }
 
@@ -1073,6 +1096,7 @@ impl Elaborator {
             ty: self.global_type(global),
             own,
             key: crate::scope::display(key).to_string(),
+            import: None,
         }
     }
 

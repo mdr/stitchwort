@@ -515,3 +515,33 @@ fn completion_after_a_namespace_offers_its_members() {
         }
     });
 }
+
+#[test]
+fn completing_a_name_that_needs_an_import_adds_it() {
+    big_stack(|| {
+        let text = "namespace Demo\nimport Std (List)\n\ndef f (n: Nat): Nat := n\n";
+        let mut s = Session::open(text);
+        let typing = format!("{text}def g: Nat := Ma\n");
+        s.change(2, &typing);
+        let items = s.complete_at_end(&typing, 4, None);
+        let map = item(&items, "Map");
+        assert_eq!(map["labelDetails"]["description"], "import Std (Map)");
+        let edit = &map["additionalTextEdits"][0];
+        assert_eq!(edit["newText"], ", Map");
+        assert_eq!(edit["range"]["start"], json!({"line": 1, "character": 16}));
+        // A library function in a namespace: its own import.
+        let typing = format!("{text}def g: List Nat := sortW\n");
+        s.change(3, &typing);
+        let items = s.complete_at_end(&typing, 4, None);
+        let found = item(&items, "sortWith");
+        assert_eq!(
+            found["labelDetails"]["description"],
+            "import Std.List (sortWith)"
+        );
+        // One character is not enough to offer them.
+        let typing = format!("{text}def g: Nat := M\n");
+        s.change(4, &typing);
+        let items = s.complete_at_end(&typing, 4, None);
+        assert!(!labels(&items).contains(&"Map"));
+    });
+}

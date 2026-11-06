@@ -2785,6 +2785,46 @@ impl Elaborator {
 }
 
 impl Elaborator {
+    /// The library's names one import would bring here, by short name, as
+    /// the unknown-name error suggests them: a root name outside the
+    /// prelude (`import Std (Map)`), or the one declaration of the
+    /// library's namespaces with that short name (`import Std.List
+    /// (replicate)`). Each with its key, what it is, and the import's path.
+    pub(crate) fn importable_names(&self) -> Vec<(String, String, Global, String)> {
+        if self.unit.loading_prelude {
+            return Vec::new();
+        }
+        let mut by_short: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
+        for key in self.scope.entries.keys() {
+            let Some(path) = key.strip_prefix("Std.") else {
+                continue;
+            };
+            let name = short(key);
+            if name.starts_with('%') {
+                continue;
+            }
+            if !path.contains('.') {
+                if !self.scope.is_prelude(name) {
+                    by_short.entry(name).or_default().insert(0, STD);
+                }
+            } else if parent(key).is_some_and(|p| p.contains('.')) {
+                by_short.entry(name).or_default().push(key);
+            }
+        }
+        by_short
+            .into_iter()
+            .filter_map(|(name, keys)| {
+                let (path, key) = match keys.as_slice() {
+                    [STD, ..] => (STD.to_string(), format!("{STD}.{name}")),
+                    [key] => (parent(key)?.to_string(), key.to_string()),
+                    _ => return None,
+                };
+                let (global, _) = self.scope.get(&key)?;
+                Some((name.to_string(), key, global, path))
+            })
+            .collect()
+    }
+
     /// The members of the namespace written `written` (`List`, `Std`,
     /// `Shop.Spec`) that it reaches here: each as written after it, with
     /// its key and what it is, then the namespaces under it that are no
