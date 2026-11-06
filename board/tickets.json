@@ -10120,13 +10120,13 @@
     {
       "id": 1553,
       "title": "A Bool != beside = in a statement is read as ≠ and the errors talk about Decidable; warn or suggest ((a != b): Bool) (day 17)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1553",
       "labels": [
         "diagnostics"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).",
+      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).\n\nStarted overnight on Sonnet (SW-1553 with SW-1554), expected: 40 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10134,13 +10134,13 @@
     {
       "id": 1554,
       "title": "E-RESOURCE 'a value was too large to show' from a rewrite: name the rewrite and the definition being unfolded (day 17)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1553",
       "labels": [
         "diagnostics"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).",
+      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).\n\nStarted overnight on Sonnet (SW-1553 with SW-1554), expected: 40 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
