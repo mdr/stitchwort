@@ -1438,6 +1438,24 @@ theorem List.findWithIndexFromNone (p: a → Bool): (i: Nat) → (xs: List a) �
       | False => List.findWithIndexFromNone p (Succ i) rest h
       | True => Void.exfalso (Option.someNotNone (MkPair i x) h)
 
+--| Searching the elements paired with their indices by the element alone finds
+--| nothing when searching the list does ([`List.findWithIndexFromNone`] the
+--| other way).
+theorem List.findNoneWithIndexFrom (p: a → Bool): (i: Nat) → (xs: List a) →
+    List.find xs p = None → List.find (List.withIndexFrom i xs) (((_, x)) => p x) = None
+  | i, [], h => rfl
+  | i, [x, ..rest], h =>
+    match e: p x with
+      | False => List.findNoneWithIndexFrom p (Succ i) rest h
+      | True => Void.exfalso (Option.someNotNone x h)
+
+--| `List.find` finds nothing when no element passes ([`List.findNoneNotMem`]
+--| the other way).
+theorem List.findNoneOfMem (p: a → Bool): (xs: List a) → ((x: a) → x ∈ xs → p x = False) → List.find xs p = None
+  | [], fails => rfl
+  | [x, ..rest], fails =>
+    rewrite fails x (Inl rfl) in List.findNoneOfMem p rest (y member => fails y (Inr member))
+
 -- `List.find` over `List.range`: what it finds is the least number that
 -- passes, and when it finds nothing, no number in the range passes.
 
@@ -2739,6 +2757,17 @@ theorem List.all2Weaken [r: a → b → Prop] [s: a → b → Prop] (implies: (x
   | [x, ..xs], [y, ..ys], all => Both (implies x y (And.left all)) (List.all2Weaken implies xs ys (And.right all))
   | [], [y, ..ys], all => Void.exfalso all
   | [x, ..xs], [], all => Void.exfalso all
+
+--| [`List.all2Weaken`] where the implication may use that the second element
+--| is in `ys`: a fact about all of `ys` (a grid's rows are all as long as its
+--| width) joins the relation.
+theorem List.all2WeakenMem [r: a → b → Prop] [s: a → b → Prop]:
+    (xs: List a) → (ys: List b) → ((x: a) → (y: b) → y ∈ ys → r x y → s x y) → List.All2 r xs ys → List.All2 s xs ys
+  | [], [], implies, all => Trivial
+  | [x, ..xs], [y, ..ys], implies, all =>
+    Both (implies x y (Inl rfl) (And.left all)) (List.all2WeakenMem xs ys (x2 y2 member => implies x2 y2 (Inr member)) (And.right all))
+  | [], [y, ..ys], implies, all => Void.exfalso all
+  | [x, ..xs], [], implies, all => Void.exfalso all
 
 --| Where each element is `f` of its partner, the list is the partners mapped.
 theorem List.all2Map [f: b → a]: (xs: List a) → (ys: List b) → List.All2 (x y => x = f y) xs ys → xs = ys.map f

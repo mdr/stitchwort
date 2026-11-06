@@ -874,6 +874,12 @@ theorem Parse.runsMany1 (p: () → {Parse} a) (firstRead: List Char) (first: a) 
 theorem Parse.declinesMany1 (p: () → {Parse} a) (input: List Char) (declines: Parse.Declines p input): Parse.Declines (() => Parse.many1 p) input :=
   Parse.declinesBind p (x => NonEmptyList.cons x (Parse.many p)) input declines
 
+--| `oneOf [first, next]` declines where both alternatives do.
+theorem Parse.declinesOneOfTwo (first: () → {Parse} a) (next: () → {Parse} a) (input: List Char) (declinesFirst: Parse.Declines first input)
+    (declinesNext: Parse.Declines next input): Parse.Declines (() => Parse.oneOf [first, next]) input :=
+  Parse.declinesAfter (() => Parse.optional first) (found => Parse.valueOr found (() => Parse.oneOfFrom next [])) [] input None
+    (Parse.declinesRuns first input declinesFirst) declinesNext
+
 --| A round of `sepBy`: the separator reads `separatorRead` (and sees the value
 --| and `rest` after it), then `p` reads `valueRead`.
 theorem Parse.runsSepStep (p: () → {Parse} a) (separator: () → {Parse} ()) (separatorRead: List Char) (valueRead: List Char) (rest: List Char) (v: a)
@@ -1068,6 +1074,18 @@ theorem Parse.runsIntUnsigned (digits: List Char) (rest: List Char) (some: digit
     (Parse.runsBind (() => Parse.literal ['+']) (plus => if plus then Parse.nat().toInt else Parse.nat().toInt)
       [] digits digits rest False (Parse.digitsValue digits).toInt rfl (Parse.runsLiteralAbsent ['+'] (digits ++ rest) (Parse.digitsNotSign '+' digits rest some all rfl))
       (Parse.runsMap Parse.nat (m => m.toInt) digits rest (Parse.digitsValue digits) (Parse.runsNat digits rest some all stops)))
+
+--| `int` on what [`Parse.IntRead`] says it reads (a '-', a '+' or no sign, then
+--| digits), with `rest` not starting with another digit: it gives the number.
+--| The converse of [`Parse.readsInt`].
+theorem Parse.runsIntRead (read: List Char) (n: Int) (written: Parse.IntRead read n) (rest: List Char) (stops: rest.takeWhile Parse.isDigit = []):
+    Parse.Runs Parse.int read rest n :=
+  match written with
+    | Witness digits (Both some (Both all form)) =>
+      match form with
+        | Inl (Both same value) => rewrite same, value in Parse.runsIntNegative digits rest some all stops
+        | Inr (Inl (Both same value)) => rewrite same, value in Parse.runsIntPositive digits rest some all stops
+        | Inr (Inr (Both same value)) => rewrite same, value in Parse.runsIntUnsigned digits rest some all stops
 
 --| The rounds of a repetition that must all succeed (as `exactly`'s): each
 --| `Runs` `p` for its text, seeing what follows it (the later rounds' text,
@@ -2090,6 +2108,62 @@ theorem Parse.declinesSectionsAtBreaks (p: () → {Parse} a) (canStart: Char →
                     rewrite same2 in
                       Parse.declinesSepStep p Parse.blankLine ['\r', '\r', ..later]
                         (Parse.declinesBlankLine ['\r', '\r', ..later] (Parse.declinesNewline ['\r', '\r', ..later] rfl rfl))
+
+--| The text and the values of the rounds `many p` makes on items that `p`
+--| reads a character each (`symbol`): the steps are `([symbol v], v)`.
+theorem Parse.joinReadsSymbols (symbol: a → Char): (items: List a) → Parse.joinReads (items.map (v => ([symbol v], v))) = items.map symbol
+  | [] => rfl
+  | [v, ..more] => rewrite Parse.joinReadsSymbols symbol more in rfl
+
+--| See [`Parse.joinReadsSymbols`].
+theorem Parse.stepValuesSymbols (symbol: a → Char): (items: List a) → Parse.stepValues (items.map (v => ([symbol v], v))) = items
+  | [] => rfl
+  | [v, ..more] => rewrite Parse.stepValuesSymbols symbol more in rfl
+
+--| The rounds of `many p` over items that `p` reads one character each
+--| (`symbol v`, passing `canStart`), then `rest`, where `p` declines when
+--| `rest` can't start with a character that passes.
+theorem Parse.manyRunsSymbols (p: () → {Parse} a) (symbol: a → Char) (canStart: Char → Bool)
+    (runsItem: (v: a) → (after: List Char) → canStart (symbol v) = True → Parse.Runs p [symbol v] after v)
+    (declinesP: (input: List Char) → Parse.CannotStart canStart input → Parse.Declines p input) (rest: List Char) (stops: Parse.CannotStart canStart rest):
+    (items: List a) → (items.map symbol).all canStart = True → Parse.ManyRuns p (items.map (v => ([symbol v], v))) rest
+  | [], all => declinesP rest stops
+  | [v, ..more], all =>
+    Both (List.consNotNil (symbol v) [])
+      (Both
+        (runsItem v (Parse.joinReads (more.map (w => ([symbol w], w))) ++ rest) (Bool.andLeft all))
+        (Parse.manyRunsSymbols p symbol canStart runsItem declinesP rest stops more (Bool.andRight all)))
+
+--| The rounds of `exactly` over items that `p` reads a character each
+--| (`symbol`), see [`Parse.manyRunsSymbols`]; nothing is asked of what follows.
+theorem Parse.stepsRunSymbols (p: () → {Parse} a) (symbol: a → Char) (runsItem: (v: a) → (after: List Char) → Parse.Runs p [symbol v] after v)
+    (rest: List Char): (items: List a) → Parse.StepsRun p (items.map (v => ([symbol v], v))) rest
+  | [] => rfl
+  | [v, ..more] => Both (runsItem v _) (Parse.stepsRunSymbols p symbol runsItem rest more)
+
+--| `exactly count p` over `count` items that `p` reads a character each: it
+--| gives the items. For a fixed-width code written one character per item.
+theorem Parse.runsExactlySymbols (count: Nat) (p: () → {Parse} a) (symbol: a → Char) (runsItem: (v: a) → (after: List Char) → Parse.Runs p [symbol v] after v)
+    (items: List a) (rest: List Char) (counted: items.length = count): Parse.Runs (() => Parse.exactly count p) (items.map symbol) rest items :=
+  let runs := Parse.runsExactly count p (items.map (v => ([symbol v], v))) rest (rewrite List.lengthMap items _ in counted)
+    (Parse.stepsRunSymbols p symbol runsItem rest items)
+  rewrite Parse.joinReadsSymbols symbol items, Parse.stepValuesSymbols symbol items at runs in runs
+
+--| `many1 p` over a non-empty list of items that `p` reads a character each
+--| (`symbol`, see [`Parse.manyRunsSymbols`]): it gives the items. For a row of
+--| cells drawn as single characters.
+theorem Parse.runsMany1Symbols (p: () → {Parse} a) (symbol: a → Char) (canStart: Char → Bool)
+    (runsItem: (v: a) → (after: List Char) → canStart (symbol v) = True → Parse.Runs p [symbol v] after v)
+    (declinesP: (input: List Char) → Parse.CannotStart canStart input → Parse.Declines p input) (first: a) (more: List a) (rest: List Char)
+    (all: ([first, ..more].map symbol).all canStart = True) (stops: Parse.CannotStart canStart rest):
+    Parse.Runs (() => Parse.many1 p) ([first, ..more].map symbol) rest (NonEmptyList.cons first more) :=
+  let steps := more.map (v => ([symbol v], v))
+  let joined := Parse.joinReadsSymbols symbol more
+  let valued := Parse.stepValuesSymbols symbol more
+  let manyRuns := Parse.manyRunsSymbols p symbol canStart runsItem declinesP rest stops more (Bool.andRight all)
+  let runs := Parse.runsMany1 p [symbol first] first steps rest
+    (rewrite joined in runsItem first (more.map symbol ++ rest) (Bool.andLeft all)) manyRuns
+  rewrite joined, valued at runs in runs
 
 def Parse.RunsExamples.numbers(): {Parse} NonEmptyList Nat := Parse.lines Parse.nat
 

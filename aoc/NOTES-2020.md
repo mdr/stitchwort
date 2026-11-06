@@ -734,6 +734,18 @@ CPU time (load average about 70, so wall-clock times meant nothing):
 So the day's own proofs take about 0.3 s, the parser proof about 2.9 s, and
 a cold check of `Aoc.Common`, which every Grid day pays, 4.7 s.
 
+**Completeness (SW-1624).** `Proofs/Complete.sw`, 65 lines, about 6 minutes
+including std. A map is written and a rectangle: `parseWritten`'s conclusion
+does not say the grid is a rectangle (it follows from `parseGridRectangle`), so
+`InputWritten` is the rows' lines plus `Grid.Rectangle`, and `parseComplete`
+needs both (a ragged grid is "written" row by row yet `checkGrid` rejects it).
+`runsRow` reads a row through a new std lemma, `Parse.runsMany1Symbols` (many1
+of a parser that reads one character per item: also for day 11's seats), and
+`checkGridComplete` (new, `Aoc.Common.Proofs`) is `checkGrid`'s converse; it
+needed two small List lemmas (`findNoneOfMem`, `findNoneWithIndexFrom`) and
+`List.all2WeakenMem`, which gives each row's non-emptiness from the
+rectangle. `writtenUnique` is one line. Breaking `isSquare` breaks `runsSquare`.
+
 ### Ranked
 
 1. `%` by a width not known to be non-zero needs a proof, and an `if h:`
@@ -1023,6 +1035,22 @@ So most of a cold check is shared: the rules and the parser proof each add
 well under a second to about 3.5 s that either alone pays (day 2's
 `readsLine` alone was 4.6 s; `readsThen` chains seem cheaper).
 
+**Completeness (SW-1624).** `Proofs/Complete.sw`, 184 lines, about 10 minutes.
+The shape is day 6's (`runsSectionsOf`, `InputWritten` the soundness conclusion
+as a `Prop`, `parseComplete`, `writtenUnique`), with fields inside a passport
+separated by `fieldBreak = oneOf [char ' ', newline]` instead of `lines`. That
+needed one std lemma, `Parse.declinesOneOfTwo`, and a day-local copy of the
+end-of-list lemmas for that separator (`declinesStepAtBreaks`, `…AtBlank`,
+`…AtLinesEnd`: day 6's `declinesLinesAt…` with `fieldBreak` for `newline`;
+a std version generic in the separator would serve any `lines`-like parser
+with a second separator character). `runsKey` is eight `Parse.runsPick`
+cases, each with `rfl` for the earlier words being absent (they differ in the
+first three letters); `declinesField` is `declinesPick` with `wordAbsent` per key
+(a key's first letter is a value character, a break or space is not). The
+spec is tight enough for uniqueness: values are runs of non-whitespace and
+keys differ, so the fields of a passport and the passports split one way.
+Breaking the parser (`char ':'` to `char '='`) breaks `runsFieldPieces`.
+
 ### Ranked
 
 1. No lemmas for `Text.toNat` or `Text.stripSuffix`, and `stripSuffix`
@@ -1300,6 +1328,16 @@ CPU time (load average about 33):
 | `task audit:touched -- Aoc.Year2020.Day05` (46 theorems) | 3.3 s user |
 | `stitchwort run Aoc.Year2020.Day05.main` on the input | 0.4 s user |
 | the first `stitchwort search` in the worktree | 65 s user, 84 s wall |
+
+**Completeness (SW-1624).** `Proofs/Complete.sw`, 58 lines, about 6 minutes. A pass is
+`exactly 7 frontBack` then `exactly 3 leftRight`, so the new std lemma
+`Parse.runsExactlySymbols` (`exactly` over items read one character each,
+no look-ahead needed) gives each half, `runsHalf` is one letter (it needs the
+two letters to differ, `rfl` for F/B and L/R), and `runsPass` is two
+`runsBind` and a `runsPure` plus the record eta. `PassWritten` is tight
+(lengths 7 and 3, and `written` is injective on bits), so `writtenUnique` holds
+for a line and `inputUnique` for an input. No look-ahead at all: the lines are
+fixed width, so `eachLine`'s end-of-line needs nothing from `rest`.
 
 ### Ranked
 
@@ -1868,6 +1906,22 @@ CPU time (load average about 40):
 the rest of the cold time is std's modules (the program's 4.9 s against day
 6's 2.5 s is presumably `Std.Graph` and `Map`; not broken down).
 
+**Completeness (SW-1624).** `Proofs/Complete.sw`, 154 lines, about 10 minutes.
+One lemma per parser (`runsWord`, `runsColour`, `runsContent`,
+`runsContentList`, `runsContents`, `runsRule`), each a chain of `Parse.runsBind`
+mirroring the parser, with the record etas (`colourEta`, `contentEta`,
+`ruleEta`, `rulesEta`) as in day 2. The only look-aheads are a word before a
+space (`rfl`), a count before a space, and the colour before ` bag(s)` or `
+bags contain`, whose first character is a space whatever the count (`bagStops`,
+by cases on `count == 1`). The one real choice is `oneOf [before "no other bags",
+contentList]`: `runsOneOfNext` needs the first alternative to decline, which
+holds because a list of contents starts with a digit (`listStartsWithDigit`
+unpacks `SepBy` to the first content's digits; `noOtherAbsent` is the `n`
+against a digit). `ContentWritten` writes `bag` or `bags` from the content's
+own count, so the spec is tight and `writtenUnique` (a line) and `inputUnique`
+(an input) hold with no change to `Spec.sw`. Breaking the parser
+(`" bags contain "` to `" bags contains "`) breaks `runsRule`.
+
 ### Ranked
 
 1. Part 2's cycle bound is unproved: std's pigeonhole is `Nat.pigeonhole`
@@ -2150,6 +2204,15 @@ CPU time (load not measured):
 
 `STITCHWORT_TIMINGS=1` puts the Proofs namespace at 152 ms of
 elaboration; the rest of the cold time is std's modules.
+
+**Completeness (SW-1624).** `Proofs/Complete.sw`, 55 lines, about 6 minutes.
+The first day to need std for a number: `Parse.runsIntRead` (new, in
+`Parse/Runs.sw`) is `Parse.readsInt`'s converse, a three-way case over
+`IntRead` onto the existing `runsIntNegative`/`Positive`/`Unsigned`; the
+argument comes last on its line, so its look-ahead is `[]` and `rfl`.
+`runsOperation` is three `Parse.runsPick` cases as in day 4. `ArgumentWritten`
+is `IntRead`, which lets `+0`, `-0` and `0` all through, but they are one
+number and each line is its own text, so `writtenUnique` and `inputUnique` hold.
 
 ### Ranked
 
@@ -2453,6 +2516,12 @@ CPU time (the machine was loaded; user time is the figure to read):
 elaboration, `runFromSound` the largest at 123 ms; the rest of the cold
 time is std's modules.
 
+**Completeness (SW-1624).** `Proofs/ParseComplete.sw` (day 9 already has a
+`Complete.sw`, for the sliding window), 33 lines, about 3 minutes. One number a line:
+`runsNumber` is `Parse.runsNat` with an empty `rest`, `parseComplete` is
+`Parse.runsEachLine`, and `writtenUnique` and `inputUnique` follow as in day 2.
+The only friction was the name clash, and the record eta for `XmasData`.
+
 ### Ranked
 
 1. A proof can't follow a program's `if a && b` with one `match`: the
@@ -2710,6 +2779,12 @@ binaries in a new worktree), break checks and these notes.
 `STITCHWORT_TIMINGS=1` puts the Proofs namespace at 104 ms of
 elaboration and 41 ms in the kernel; the rest of the cold time is std's
 modules.
+
+**Completeness (SW-1624).** `Proofs/Complete.sw`, 33 lines, about 2 minutes: day 9's file with the
+names changed (`RatingWritten` is `NumberWritten`, `Bag` is `XmasData`), the same
+`parseNat`-per-line parser. Both days would be one lemma in
+`Aoc.Common` (`Parse.eachLine input Parse.nat` read back from its lines);
+not extracted, since it is two small files and a third such day would be the time.
 
 ### Ranked
 
@@ -3015,6 +3090,16 @@ timing and these notes.
 `STITCHWORT_TIMINGS=1` puts the Proofs namespace at 432 ms of
 elaboration and 73 ms in the kernel; the rest of the cold time is std's
 modules and Aoc.Common.
+
+**Completeness (SW-1624).** `Proofs/Complete.sw`, 80 lines, about 5 minutes, the day-3 proof with a
+three-way `pick` for the seat: `Parse.runsMany1Symbols` for a row,
+`runsSeat` (three `Parse.runsPick` cases), `declinesSeat` (`seatAbsent` per
+symbol) and `parseGridComplete` (new in `Aoc.Common.Proofs`, now used by day 3
+too: `eachLine` read back, then `checkGridComplete`). `parseWritten` already
+had the rectangle in its conclusion, so `InputWritten` is exactly it and
+`writtenUnique` (input level) holds. Unlike day 3, the cell parser is a
+`pick`, so the "can't start" side is real work: `isSeatChar` and a
+decline per symbol.
 
 ### Ranked
 
