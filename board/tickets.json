@@ -1,5 +1,5 @@
 {
-  "next": 1706,
+  "next": 1709,
   "tickets": [
     {
       "id": 47,
@@ -12255,6 +12255,48 @@
         "board"
       ],
       "body": "D2517 (Matt, 6 Nov 2026): yes, set up epics that way. Started on Sonnet, expected: 60 min.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1706,
+      "title": "Daily tier: search: rewrites_show_the_goal_they_leave expects List.length form (display, SW-1674); search_match an_append_of_holes_is_tried_as_lists_and_as_texts lost its two resolutions (List.append and Text.append now print the same ?1 ++ ?2 = ?3 and dedupe away)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "search"
+      ],
+      "body": "Daily tier 6 Nov evening. D2516.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1707,
+      "title": "Daily tier: rt lower the_library_lowers_and_its_tests_agree: std test \"array: get\" fails on the IR: 'the array native FromList' (arrays, SW-1637/1638)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "runtime"
+      ],
+      "body": "Daily tier 6 Nov evening. D2516.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1708,
+      "title": "Daily tier: search_at_aoc search_at_on_aoc_goals ran 33 min (44 min CPU) on the daily sample and was stopped; documented as about 10 min for every goal in the full tier. Find what made it slow today",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "regression"
+      ],
+      "body": "Daily tier 6 Nov evening; stopped by the orchestrator at 33 min. D2516.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
