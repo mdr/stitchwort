@@ -3606,6 +3606,17 @@ fn comp_app(
         }
     };
     let (term, ty) = insert(cx, term, ty)?;
+    // Every argument is checked and the call's row is still unknown: none of
+    // them performs anything (a pure callback to `List.foldLeft`), so in a
+    // row with abilities the call is a plain one, not a step of that row.
+    // Left unknown, lifting the call into `row` would make it that row's
+    // (SW-1564).
+    let ty = if row.labels.is_empty() {
+        ty
+    } else {
+        settle_empty(cx, &ty)?;
+        cx.eval(&cx.quote(&ty)?)?
+    };
     let mut written = None;
     let (result, result_ty) = match comp_parts(cx, &ty)? {
         Some((from, t)) => (lift(cx, term, from, row, &t)?, t),
