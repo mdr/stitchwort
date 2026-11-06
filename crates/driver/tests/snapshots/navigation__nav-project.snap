@@ -44,7 +44,7 @@ Nav.sw:18:24 go -> local go Nav.sw:15:7 : Nat → List Nat → Nat
 Nav.sw:18:28 acc -> local acc Nav.sw:15:11 : Nat
 Nav.sw:18:34 y -> local y Nav.sw:18:14 : Nat
 Nav.sw:18:37 rest -> local rest Nav.sw:18:16 : List Nat
-Nav.sw:19:7 start -> local start Nav.sw:19:7 : 
+Nav.sw:19:7 start -> local start Nav.sw:19:7 : Nat
 Nav.sw:20:3 go -> local go Nav.sw:15:7 : Nat → List Nat → Nat
 Nav.sw:20:6 start -> local start Nav.sw:19:7 : Nat
 Nav.sw:20:12 xs -> local xs Nav.sw:14:12 : List Nat

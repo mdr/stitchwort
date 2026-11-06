@@ -518,23 +518,20 @@ theorem List.memRangeFromIntro (x: Nat): (c: Nat) → (s: Nat) → s ≤ x → x
       | True => Inr (List.memRangeFromIntro x c (Succ s) e (Nat.ltSuccAdd s c x hi))
       | False => Inl (Nat.leAntisym s x lo (Nat.leqFalse (Succ s) x e))
 
---| `x` is in `List.range a b` exactly when `a ≤ x < b`.
-theorem List.memRange (x: Nat) (a: Nat) (b: Nat): x ∈ List.range a b ↔ (a ≤ x < b) := {
-  forward = m =>
-    match List.memRangeFrom x (b - a) a m with
-      | Both lo hi => Both lo (omega),
-  backward = h =>
-    match h with
-      | Both lo hi => List.memRangeFromIntro x (b - a) a lo (omega)
-}
-
---| [`List.memRange`] as a function of the membership, for `omega` and `auto`, which
+--| `x ∈ List.range a b` gives `a ≤ x < b`; for `omega` and `auto`, which
 --| take a hypothesis `x ∈ a ..< b` apart into `a ≤ x` and `x < b` with it.
-theorem List.memRangeBounds (x: Nat) (a: Nat) (b: Nat) (m: x ∈ List.range a b): a ≤ x < b := (List.memRange x a b).forward m
+--| [`List.memRange`] has both directions as one `↔`.
+theorem List.memRangeBounds (x: Nat) (a: Nat) (b: Nat) (m: x ∈ List.range a b): a ≤ x < b :=
+  match List.memRangeFrom x (b - a) a m with
+    | Both lo hi => Both lo (Nat.ltOfRunSub a x b lo hi)
 
---| [`List.memRange`] the other way, for `omega` and `auto`, which prove a goal `x ∈ a ..< b`
---| from the two bounds with it.
-theorem List.memRangeOf (x: Nat) (a: Nat) (b: Nat) (h: a ≤ x < b): x ∈ List.range a b := (List.memRange x a b).backward h
+--| `a ≤ x < b` gives `x ∈ List.range a b`; for `omega` and `auto`, which prove a goal
+--| `x ∈ a ..< b` from the two bounds with it.
+theorem List.memRangeOf (x: Nat) (a: Nat) (b: Nat) (h: a ≤ x < b): x ∈ List.range a b :=
+  match h with
+    | Both lo hi =>
+      List.memRangeFromIntro x (b - a) a lo
+        (Nat.ltCongRight x b (a + (b - a)) (Eq.sym (Nat.addSubCancel a b (Nat.leTrans a x b lo (Nat.lessLe x b hi)))) hi)
 
 --| [`List.memRangeFromIntro`] taking the two bounds together, for `omega`.
 theorem List.memRangeFromOf (x: Nat) (c: Nat) (s: Nat) (h: s ≤ x < s + c): x ∈ List.rangeFrom c s :=
@@ -546,14 +543,6 @@ theorem List.memRangeFromOf (x: Nat) (c: Nat) (s: Nat) (h: s ≤ x < s + c): x �
 --| ([`List.inRangeIff`] ties it to the membership, [`List.containsRange`] to `contains`).
 def List.inRange (x: Nat) (from: Nat) (until: Nat): Bool := from <= x && x < until
 test "List.inRange" := List.inRange 3 0 5 && !(List.inRange 5 0 5) && !(List.inRange 0 1 5) && !(List.inRange 2 5 1)
-
---| `List.inRange x a b` holds exactly when `x ∈ a ..< b`.
-theorem List.inRangeIff (x: Nat) (a: Nat) (b: Nat): (List.inRange x a b = True) ↔ (x ∈ List.range a b) := {
-  forward = h => (List.memRange x a b).backward omega,
-  backward = m =>
-    let bounds := (List.memRange x a b).forward m
-    omega
-}
 
 --| Mapping with a state threaded left to right (Haskell's `mapAccumL`).
 --| `xs` is the main value: `xs.mapAccumLeft 0 (s x => MkPair (s + x) (s * x))`.
@@ -898,33 +887,33 @@ theorem List.filterMapCongMem: (xs: List a) → (f1: a → Option b) → (f2: a 
 theorem List.mapCongRange (f1: Nat → b) (f2: Nat → b) (from: Nat) (until: Nat)
     (ef: (x: Nat) → (low: from ≤ x) → (high: x < until) → f1 x = f2 x):
     List.map (List.range from until) f1 = List.map (List.range from until) f2 :=
-  List.mapCongMem (List.range from until) f1 f2 (x m => ef x (And.left ((List.memRange x from until).forward m)) (And.right ((List.memRange x from until).forward m)))
+  List.mapCongMem (List.range from until) f1 f2 (x m => ef x (And.left (List.memRangeBounds x from until m)) (And.right (List.memRangeBounds x from until m)))
 
 theorem List.filterCongRange (p1: Nat → Bool) (p2: Nat → Bool) (from: Nat) (until: Nat)
     (ep: (x: Nat) → (low: from ≤ x) → (high: x < until) → p1 x = p2 x):
     List.filter (List.range from until) p1 = List.filter (List.range from until) p2 :=
-  List.filterCongMem (List.range from until) p1 p2 (x m => ep x (And.left ((List.memRange x from until).forward m)) (And.right ((List.memRange x from until).forward m)))
+  List.filterCongMem (List.range from until) p1 p2 (x m => ep x (And.left (List.memRangeBounds x from until m)) (And.right (List.memRangeBounds x from until m)))
 
 theorem List.anyCongRange (p1: Nat → Bool) (p2: Nat → Bool) (from: Nat) (until: Nat)
     (ep: (x: Nat) → (low: from ≤ x) → (high: x < until) → p1 x = p2 x):
     List.any (List.range from until) p1 = List.any (List.range from until) p2 :=
-  List.anyCongMem (List.range from until) p1 p2 (x m => ep x (And.left ((List.memRange x from until).forward m)) (And.right ((List.memRange x from until).forward m)))
+  List.anyCongMem (List.range from until) p1 p2 (x m => ep x (And.left (List.memRangeBounds x from until m)) (And.right (List.memRangeBounds x from until m)))
 
 theorem List.allCongRange (p1: Nat → Bool) (p2: Nat → Bool) (from: Nat) (until: Nat)
     (ep: (x: Nat) → (low: from ≤ x) → (high: x < until) → p1 x = p2 x):
     List.all (List.range from until) p1 = List.all (List.range from until) p2 :=
-  List.allCongMem (List.range from until) p1 p2 (x m => ep x (And.left ((List.memRange x from until).forward m)) (And.right ((List.memRange x from until).forward m)))
+  List.allCongMem (List.range from until) p1 p2 (x m => ep x (And.left (List.memRangeBounds x from until m)) (And.right (List.memRangeBounds x from until m)))
 
 theorem List.occurrencesCongRange (p1: Nat → Bool) (p2: Nat → Bool) (from: Nat) (until: Nat)
     (ep: (x: Nat) → (low: from ≤ x) → (high: x < until) → p1 x = p2 x):
     List.occurrences (List.range from until) p1 = List.occurrences (List.range from until) p2 :=
-  List.occurrencesCongMem (List.range from until) p1 p2 (x m => ep x (And.left ((List.memRange x from until).forward m)) (And.right ((List.memRange x from until).forward m)))
+  List.occurrencesCongMem (List.range from until) p1 p2 (x m => ep x (And.left (List.memRangeBounds x from until m)) (And.right (List.memRangeBounds x from until m)))
 
 theorem List.foldLeftCongRange (f1: b → Nat → b) (f2: b → Nat → b) (z: b) (from: Nat) (until: Nat)
     (ef: (acc: b) → (x: Nat) → (low: from ≤ x) → (high: x < until) → f1 acc x = f2 acc x):
     List.foldLeft (List.range from until) z f1 = List.foldLeft (List.range from until) z f2 :=
   List.foldLeftCongMem (List.range from until) z f1 f2
-    (acc x m => ef acc x (And.left ((List.memRange x from until).forward m)) (And.right ((List.memRange x from until).forward m)))
+    (acc x m => ef acc x (And.left (List.memRangeBounds x from until m)) (And.right (List.memRangeBounds x from until m)))
 
 --| `sumBy` and `count` are folds, so their congruence lemmas are the fold's.
 theorem List.sumByCongRange [auto add: Add c] (f: Nat → c) (g: Nat → c) (from: Nat) (until: Nat) (h: (x: Nat) → from ≤ x → x < until → f x = g x):

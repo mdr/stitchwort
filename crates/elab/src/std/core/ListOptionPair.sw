@@ -18,7 +18,7 @@ theorem List.consNotNil (x: a) (xs: List a): [x, ..xs] ≠ []
   | p => List.nilNotCons x xs (Eq.sym p)
 
 --| The first element, or `fallback` for an empty list. A result equal to
---| `fallback` doesn't say the list was empty; [`List.head`] does. O(1).
+--| `fallback` doesn't say the list was empty; `List.head` does. O(1).
 def List.headOr: (xs: List a) → (fallback: a) → a
   | [], fallback => fallback
   | [x, ..xs], fallback => x

@@ -4,7 +4,7 @@
 -- them, so they stay with the core (docs/proposals/prelude-slim.md §2.1).
 
 --| `f` on each element, the results joined in order: the core's version of
---| [`List.flatMap`].
+--| `List.flatMap`.
 def List.concatMap: (xs: List a) → (f: a → List b) → List b
   | [], f => []
   | [x, ..xs], f => List.append (f x) (List.concatMap xs f)
