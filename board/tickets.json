@@ -12128,7 +12128,7 @@
       "labels": [
         "editor"
       ],
-      "body": "Found by the SW-1630 lane, confirmed on main 6 Nov 2026: left [k: Type] → [v: Type] → Tip.size = 0, right … Map.Tree.size Tip = 0.\n\nStarted on Sonnet, expected: 30 min.",
+      "body": "Found by the SW-1630 lane, confirmed on main 6 Nov 2026: left [k: Type] → [v: Type] → Tip.size = 0, right … Map.Tree.size Tip = 0.\n\nStarted on Sonnet, expected: 30 min.\n\nD2515 (Matt, 6 Nov 2026): pause after this and the stage 4 check; then push main with nothing running, run the daily tier (approved), and fix what it finds.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
