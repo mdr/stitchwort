@@ -1,5 +1,5 @@
 {
-  "next": 1697,
+  "next": 1700,
   "tickets": [
     {
       "id": 47,
@@ -12129,6 +12129,48 @@
         "editor"
       ],
       "body": "Found by the SW-1630 lane, confirmed on main 6 Nov 2026: left [k: Type] → [v: Type] → Tip.size = 0, right … Map.Tree.size Tip = 0.\n\nStarted on Sonnet, expected: 30 min.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1697,
+      "title": "Stage 4: when an undone rewrite's body fails, the user loses W-REWRITE-UNCONFIRMED (the hint that a copy may be hidden); attach its text to the error as a note; and keep warnings consistent when the failure is fatal (SW-1630 re-review)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "errors"
+      ],
+      "body": "From the SW-1630 reviews, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1698,
+      "title": "Core: identical and free_variables (value.rs ~3532, ~3582) take no budget steps, so conv on huge values ignores the step limit, deadline and cancel; stage 4 caps around it (SW-1630 review)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "kernel"
+      ],
+      "body": "From the SW-1630 reviews, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1699,
+      "title": "Stage 4: a rewrite with several rules can end in 'recursed more deeply than allowed' (stack, build-dependent, SW-962) where main says 'too large to show' (m6.sw secondBig) (SW-1630 re-review)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "errors"
+      ],
+      "body": "From the SW-1630 reviews, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
