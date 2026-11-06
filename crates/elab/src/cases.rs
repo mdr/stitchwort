@@ -1346,10 +1346,13 @@ impl<'a, 'e> Finder<'a, 'e> {
         match &forced {
             Value::Neutral(Head::Def(_), spine) => {
                 if is_folded(&g, &forced) {
-                    return match unfold_folded(&g, &forced)? {
-                        Some(unfolded) => self.walk(&unfolded),
-                        None => Ok(None),
-                    };
+                    match unfold_folded(&g, &forced)? {
+                        Some(unfolded) => return self.walk(&unfolded),
+                        // A field of a stuck call (`(f x).i`) is stuck where
+                        // the call is.
+                        None if stitchwort_core::value::is_call_field(spine) => {}
+                        None => return Ok(None),
+                    }
                 }
                 if let Some(atom) = self.chain(&forced, None)? {
                     return Ok(Some(atom));
