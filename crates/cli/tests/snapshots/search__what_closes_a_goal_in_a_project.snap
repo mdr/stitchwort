@@ -59,7 +59,7 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
       "obligations": [
         {
           "closer": "rfl",
-          "target": "twice (b + a) = b + a + (b + a)"
+          "target": "twice (b + a) = twice (b + a)"
         }
       ],
       "proof": "rewrite Shop.Spec.doubleSwap a b in rfl",
@@ -74,7 +74,7 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
       "direction": "leftToRight",
       "equation": "eq",
       "file": "shop/src/Shop/Spec/Spec.sw",
-      "goal": "twice (b + a) = b + a + (b + a)",
+      "goal": "twice (b + a) = twice (b + a)",
       "import": "import Shop.Spec (doubleSwap)",
       "line": 6,
       "name": "Shop.Spec.doubleSwap",
@@ -88,7 +88,7 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
       "direction": "leftToRight",
       "equation": "eq",
       "file": "shop/src/Shop/Proofs/Proofs.sw",
-      "goal": "a + b + (a + b) = b + a + (b + a)",
+      "goal": "a + b + (a + b) = twice (b + a)",
       "import": null,
       "line": 5,
       "name": "Shop.Proofs.twiceTwo",
@@ -103,7 +103,7 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
   "total": {
     "applicable": 0,
     "closing": 5,
-    "rewrites": 7
+    "rewrites": 8
   },
   "version": 1,
   "warnings": [

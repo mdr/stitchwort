@@ -809,8 +809,12 @@ impl Session {
                 budget.exhausted = false;
                 break;
             }
+            // A different lemma reaching the same goal is another proof to
+            // offer (`Nat.addComm a b` and a lemma stating it for `double`).
             if let Some(r) = try_rewrite(&mut checker, rp, &target_now)
-                && !rewrites.iter().any(|x: &Rewrite| x.goal == r.goal)
+                && !rewrites
+                    .iter()
+                    .any(|x: &Rewrite| x.goal == r.goal && x.name == r.name)
             {
                 rewrites.push(r);
             }
