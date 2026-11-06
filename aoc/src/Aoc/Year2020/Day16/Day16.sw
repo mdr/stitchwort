@@ -12,8 +12,9 @@
 --|   $ cd aoc && stitchwort run Aoc.Year2020.Day16.main < inputs/2020/day16.txt
 --|
 --| Part 2 first rules out, at each position, every field that some valid
---| ticket's value there doesn't fit; then, over and over, it settles a
---| position with one field left, a field no other position can then have.
+--| ticket's value there doesn't fit; then `Aoc.Common.assign` over and over
+--| settles a position with one field left, a field no other position can
+--| then have.
 --| The proofs, that the parser reads the puzzle's format, that part 1 is
 --| the puzzle's sum, and that part 2's order of the fields is one the
 --| puzzle allows and the only one, are in `Aoc.Year2020.Day16.Proofs`
@@ -21,6 +22,7 @@
 --| checks neither.
 
 namespace Aoc.Year2020.Day16
+import Aoc.Common (assign)
 import Std (Fail, IO, List, NonEmptyList, Option, Parse, Text)
 
 def main(): {IO, Fail} () :=
@@ -106,56 +108,11 @@ def narrow (candidates: List (List Rule)) (ticket: Ticket): List (List Rule) := 
 def Notes.candidates (notes: Notes): List (List Rule) :=
   notes.validTickets.foldLeft (List.replicate notes.rules.length notes.rules) narrow
 
---| A position on the tickets while the fields are being worked out: the
---| fields the tickets allow there, and the field settled for it, if any.
-type Slot = { candidates: List Rule, field: Option Rule }
-
---| The fields settled so far, in the order of their positions.
-def settledFields (slots: List Slot): List Rule := slots.filterMap .field
-
---| The fields this position could still be, leaving out those settled.
-def Slot.remaining (slot: Slot) (settled: List Rule): List Rule :=
-  slot.candidates.filter (rule => not (settled.contains rule))
-
---| Settles the first position not yet settled that has one field left, or
---| `None` if there is none.
-def settle (settled: List Rule): List Slot → Option (List Slot)
-  | [] => None
-  | [slot, ..slots] =>
-    match slot.field with
-      | Some _ => (settle settled slots).map (Cons slot)
-      | None =>
-        match slot.remaining settled with
-          | [field] => Some [{ slot | field = Some field }, ..slots]
-          | _ => (settle settled slots).map (Cons slot)
-
---| Every position's field, if every position is settled.
-def allSettled: List Slot → Option (List Rule)
-  | [] => Some []
-  | [slot, ..slots] =>
-    match slot.field with
-      | Some field => (allSettled slots).map (Cons field)
-      | None => None
-
---| Settles positions one at a time until all are, in at most `rounds`
---| rounds (each settles one, so as many rounds as positions are enough);
---| `None` when a round finds no position with one field left.
-def eliminate (rounds: Nat) (slots: List Slot): Option (List Rule) :=
-  match allSettled slots with
-    | Some order => Some order
-    | None =>
-      match rounds with
-        | Zero => None
-        | Succ more =>
-          match settle (settledFields slots) slots with
-            | Some next => eliminate more next
-            | None => None
-
 --| The field at each position, if the tickets settle it. Every valid
 --| ticket must have a value for every field.
 def Notes.fieldOrder (notes: Notes): Option (List Rule) :=
   if notes.validTickets.all (ticket => ticket.values.length == notes.rules.length) then
-    eliminate notes.rules.length (notes.candidates.map (candidates => { candidates, field = None }))
+    assign notes.candidates
   else None
 
 --| The product of the ticket's values whose field, in `order`, starts with

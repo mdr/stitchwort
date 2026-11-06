@@ -4,20 +4,8 @@
 namespace Aoc.Year2020.Day16.Proofs
 import Aoc.Year2020.Day16 (..)
 import Aoc.Year2020.Day16 (Spec)
+import Aoc.Common.Proofs (assignFinds)
 import Std (Bool, DecEq, Eq, List, Nat, Option, Void)
-
-def openSlot (candidates: List Rule): Slot := { candidates, field = None }
-
-theorem keepsOpen: (candidates: List (List Rule)) → Keeps (candidates.map openSlot) candidates
-  | [] => Trivial
-  | [fields, ..candidates] => Both (Both rfl (rule none => Void.exfalso (Option.noneNotSome rule none))) (keepsOpen candidates)
-
-theorem openSettled: (candidates: List (List Rule)) → settledFields (candidates.map openSlot) = []
-  | [] => rfl
-  | [fields, ..candidates] => openSettled candidates
-
-theorem onceOpen (candidates: List (List Rule)): Once (candidates.map openSlot) :=
-  rule => rewrite openSettled candidates in Nat.zeroLe 1
 
 theorem validTicketValid (notes: Notes) (ticket: Ticket) (nearby: ticket ∈ notes.nearby) (valid: Spec.ValidTicket notes.rules ticket):
     ticket ∈ notes.validTickets :=
@@ -30,11 +18,11 @@ theorem fieldOrderValid (notes: Notes) (order: List Rule) (found: notes.fieldOrd
     | True =>
       match candidatesFit notes lengths with
         | Both wide (Both within allow) =>
-          match eliminateFinds notes.candidates notes.rules.length (notes.candidates.map openSlot) (keepsOpen notes.candidates) (onceOpen notes.candidates) order found with
-            | Both members counts =>
+          match assignFinds notes.candidates order found with
+            | Both members distinct =>
               let fromRules := List.all2Compose (rule fields wider member inner => inner rule member) order notes.candidates _ members within
               Both (Eq.trans (List.all2Length _ order notes.candidates members) wide)
-                (Both (List.distinctOfCounts order counts)
+                (Both distinct
                   (Both (rule member => List.all2Replicate notes.rules order notes.rules.length fromRules rule member)
                     (ticket nearby valid =>
                       List.all2Compose (rule fields value member allows => allows rule member) order notes.candidates ticket.values members
