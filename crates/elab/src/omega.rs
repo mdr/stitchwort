@@ -185,6 +185,29 @@ pub(crate) fn check_omega(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result
     crate::queue::tactic_or_wait(cx, expr, expected, omega_goal)
 }
 
+/// A fact listed in `omega [...]` as written, for the shapes that are short
+/// and common (names, numbers, applications, dots and operators); `None` for
+/// the rest, which a message names by position. The elaborator holds no
+/// source text, so this prints the syntax tree.
+fn written(expr: &Expr) -> Option<String> {
+    fn go(expr: &Expr, nested: bool) -> Option<String> {
+        let wrap = |text: String| if nested { format!("({text})") } else { text };
+        Some(match expr {
+            Expr::Var(name) => name.text.clone(),
+            Expr::Num(n, _) => n.to_string(),
+            Expr::Field(e, name) => format!("{}.{}", go(e, true)?, name.text),
+            Expr::App(f, x) => wrap(format!("{} {}", go(f, false)?, go(x, true)?)),
+            Expr::Bracketed(e, _) => format!("({})", go(e, false)?),
+            Expr::Binary(op, a, b) => {
+                wrap(format!("{} {} {}", go(a, true)?, op.symbol(), go(b, true)?))
+            }
+            _ => return None,
+        })
+    }
+    let text = go(expr, false)?;
+    (text.chars().count() <= 60).then_some(text)
+}
+
 /// [`check_omega`]'s `omega` itself, counted where the goal holds an
 /// unknown the declaration will still settle (`queue::counted_search`).
 fn omega_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
@@ -198,6 +221,7 @@ fn omega_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             term,
             ty,
             name: format!("listed fact {}", i + 1),
+            written: written(fact),
         });
     }
     let lib = Lib::new(cx, *span)?;
@@ -304,6 +328,8 @@ struct Extra {
     term: Term,
     ty: Value,
     name: String,
+    /// The fact as the program wrote it, when [`written`] can say.
+    written: Option<String>,
 }
 
 /// The definitions and constructors the proof is made of.
@@ -2886,7 +2912,9 @@ fn read_context<'l>(cx: &mut Ctx, lib: &'l Lib, extra: &[Extra]) -> Result<Reade
         if reader.facts.len() + reader.disjunctions.len() == before {
             reader.waiting.push(format!(
                 "`omega` couldn't use {}: `{}` isn't an arithmetic fact it reads",
-                e.name,
+                e.written
+                    .as_ref()
+                    .map_or_else(|| e.name.clone(), |text| format!("listed fact `{text}`")),
                 cx.show(&e.ty)
             ));
         }
@@ -2974,6 +3002,7 @@ fn assuming(
             term: e.term.shift(&cx.g(), 1, 0)?,
             ty: e.ty.clone(),
             name: e.name.clone(),
+            written: e.written.clone(),
         });
     }
     let mark = cx.mark();
