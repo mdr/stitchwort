@@ -1,5 +1,5 @@
 {
-  "next": 1600,
+  "next": 1602,
   "tickets": [
     {
       "id": 47,
@@ -10771,6 +10771,34 @@
         "review"
       ],
       "body": "D2451 (Matt, 6 Nov 2026): yes, analysis-only Opus lane. Started on Opus, expected: 75 min.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1600,
+      "title": "Regression: AoC 2024 day 24 Proofs/Complete.sw:72 no longer checks: in List.memFilterIntro waiting _ member isReady the _ is solved as x => True instead of gate => gate.ready values (daily tier 6 Nov; 6 tests); bisect the overnight elaborator/unifier merges",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "regression"
+      ],
+      "body": "Daily tier 6 Nov 2026 morning (log: scratchpad/daily/daily.log). Fails: aoc_answers every_day_from_the_whole_projects_cache, lsp a_newer_edit_cancels…, aoc_navigation_matches_check_index, workspace_symbols_cover…, operators primitive_and_uniform_lowering_agree…, web every_aoc_day_checks…. Day 24 and memFilterIntro untouched overnight. Suspects: 288b7b633 (SW-1521 memo), f32be797e (SW-1533), 242952d19/47d4dc611 (SW-1564), 4ffb9f03f (SW-1550), 2ac0dbb1a (SW-1541).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1601,
+      "title": "Daily tier 6 Nov, smaller failures: 5 W-DOC-LINK in the prelude (natives the_real_prelude_registers_every_native; likely the Parse.Runs docs); navigation__nav-project.snap gains ': Nat' for a local (accept if right); partial_kernel test text expects Effect.now's old signature (SW-1258); std_library small programs now load 11 files not 5 (find the new dependency before updating); bench check-text-literal allocations +24%",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "regression"
+      ],
+      "body": "Daily tier 6 Nov 2026 morning; details in the triage report (scratchpad/daily/). Bench: check-number-* improved 10-38%; extract-js input set changed (55 vs 53 files).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
