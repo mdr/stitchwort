@@ -1,5 +1,5 @@
 {
-  "next": 1624,
+  "next": 1627,
   "tickets": [
     {
       "id": 47,
@@ -10952,7 +10952,7 @@
       "labels": [
         "aoc"
       ],
-      "body": "From SW-1611's literature check, 6 Nov 2026 (docs/research/parser-proofs-literature.md). If hand-writing dominates, next is automation, not a different spec. Then decide the sweep (D2454).\n\nStarted on Sonnet, expected: 90 min.\n\nDone (fcf979f5a), merged. Day 2: runsLine, parseComplete, writtenUnique, 55 lines, ~6 min. Day 6 (lines inside sections): parseComplete over InputWritten, writtenUnique, 316 lines, ~9 min; 115 of them Declines case work at the list ends, 55 a generic sepBy1 builder. Statements checked by the orchestrator. Mutations (char '-' → '=', lines → sections) make the proofs fail. Recommendation: sweep, after two std helpers (move manyRunsOfEach/runsSepBy1Of to std; a list-end Declines helper for runs of line breaks). D2497 for the sweep. Model result: Sonnet, worked, 14 min (est. 90).",
+      "body": "From SW-1611's literature check, 6 Nov 2026 (docs/research/parser-proofs-literature.md). If hand-writing dominates, next is automation, not a different spec. Then decide the sweep (D2454).\n\nStarted on Sonnet, expected: 90 min.\n\nDone (fcf979f5a), merged. Day 2: runsLine, parseComplete, writtenUnique, 55 lines, ~6 min. Day 6 (lines inside sections): parseComplete over InputWritten, writtenUnique, 316 lines, ~9 min; 115 of them Declines case work at the list ends, 55 a generic sepBy1 builder. Statements checked by the orchestrator. Mutations (char '-' → '=', lines → sections) make the proofs fail. Recommendation: sweep, after two std helpers (move manyRunsOfEach/runsSepBy1Of to std; a list-end Declines helper for runs of line breaks). D2497 for the sweep. Model result: Sonnet, worked, 14 min (est. 90).\n\nD2497 (Matt, 6 Nov 2026): yes, the helpers (SW-1620) then the completeness sweep over the 19 days with parser soundness (2020 days 3-20 except 6, and the two 2021 days), in two or three Sonnet lanes; remove day 18's second parser. Sweep tickets: SW-1624 SW-1625 SW-1626.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11058,13 +11058,13 @@
     {
       "id": 1620,
       "title": "Std: parser completeness helpers from the SW-1612 pilot: move manyRunsOfEach and runsSepBy1Of (2020 day 6 Proofs/Complete.sw) into Parse/Runs.sw; add a list-end Declines lemma (sepStep p newline / blankLine declines on a run of line-break characters when p declines on text not starting with a p character); a break-character classification lemma; then day 6 uses them",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1620",
       "labels": [
         "std"
       ],
-      "body": "From SW-1612, 6 Nov 2026. Needed before the sweep (D2497).",
+      "body": "From SW-1612, 6 Nov 2026. Needed before the sweep (D2497).\n\nD2497 (Matt, 6 Nov 2026): yes, the helpers (SW-1620) then the completeness sweep over the 19 days with parser soundness (2020 days 3-20 except 6, and the two 2021 days), in two or three Sonnet lanes; remove day 18's second parser. Started on Sonnet, expected: 60 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11107,6 +11107,48 @@
         "tooling"
       ],
       "body": "From SW-1610, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1624,
+      "title": "Parser completeness sweep: 2020 days 3, 4, 5, 7, 8, 9, 10, 11: each line parses, the whole input parses, the parse is unique (as SW-1612's days 2 and 6), using SW-1620's helpers",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "D2497 (Matt, 6 Nov 2026): yes, the helpers (SW-1620) then the completeness sweep over the 19 days with parser soundness (2020 days 3-20 except 6, and the two 2021 days), in two or three Sonnet lanes; remove day 18's second parser. After SW-1620.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1625,
+      "title": "Parser completeness sweep: 2020 days 12, 13, 14, 15, 16, 17, 19, 20: each line parses, the whole input parses, the parse is unique (as SW-1612's days 2 and 6), using SW-1620's helpers",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "D2497 (Matt, 6 Nov 2026): yes, the helpers (SW-1620) then the completeness sweep over the 19 days with parser soundness (2020 days 3-20 except 6, and the two 2021 days), in two or three Sonnet lanes; remove day 18's second parser. After SW-1620.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1626,
+      "title": "Parser completeness sweep: 2020 day 18 (and drop its 370-line second parser for uniqueness) and the two 2021 days with parser soundness: each line parses, the whole input parses, the parse is unique (as SW-1612's days 2 and 6), using SW-1620's helpers",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "D2497 (Matt, 6 Nov 2026): yes, the helpers (SW-1620) then the completeness sweep over the 19 days with parser soundness (2020 days 3-20 except 6, and the two 2021 days), in two or three Sonnet lanes; remove day 18's second parser. After SW-1620.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
