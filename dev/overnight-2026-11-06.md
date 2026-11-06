@@ -83,3 +83,4 @@ Take these in order, once the speed queue above is empty or blocked.
 - 23:00: SW-1732/1733 merged (web AoC test: its days phase went from ~125 s to ~20 s; aoc_answers runs on the bounded pool, gain not shown under load 40-80); its check is running. SW-1752 is done and waits for the next batch. SW-1667 resumed (Opus) and SW-1753 started (Opus). Lesson: three lanes timing builds and tests at once push the load to 40-80, so timing lanes should run fewer at a time.
 - 23:07: SW-1732/1733 checked on main (aoc_answers 174 s, web 169 s); SW-1752 test:affected merged, its own selection 598/598 in 7 s. Verifiers start from test:affected from now on.
 - 23:15: SW-1751 merged; merge tier on main passes 1094/1094 with 104 s of tests (153-172 s before). SW-1761 (toward 90 s) started.
+- 23:16: SW-1753 note merged; I decided D2560 yes, D2561 yes and D2562 no (listed for the morning). SW-1741 started, with the dev-features fingerprint hole.

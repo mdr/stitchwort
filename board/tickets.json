@@ -13640,14 +13640,14 @@
     {
       "id": 1741,
       "title": "Fill the test std cache once per run: a nextest setup script for the eager-session binaries plus a shared stack-size constant (14 s per binary that checks std from source; SW-1729's plan)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1741",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From SW-1729, 6 Nov 2026. Estimate 45-60 min.",
+      "body": "From SW-1729, 6 Nov 2026. Estimate 45-60 min.\n\nNow the fix for SW-1745 (D2560). SW-1751's TestCacheTurn already fills an empty std cache once per stack size within a run; check what's left. Also: the check cache's fingerprint doesn't cover crates/dev-features (a dev-dependency that switches on core features stack-check/test-bypass); add it (SW-1753). Started on Sonnet, expected: 45 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -13700,14 +13700,14 @@
     {
       "id": 1745,
       "title": "Every compiler change leaves the test check caches cold (keyed by build fingerprint), so a daily run after any merge pays every std/AoC check from source; consider a cache keyed by the checker's semantics version for tests, or warming once per run (SW-1741)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From the D2546 daily run, 6 Nov 2026.\n\nDesign lane: SW-1753.",
+      "body": "From the D2546 daily run, 6 Nov 2026.\n\nDesign lane: SW-1753.\n\nClosed by SW-1753's note: Decided by the orchestrator overnight (Matt delegated small and medium calls, 6 Nov): D2560 yes, SW-1741 (fill once per run) is the fix for SW-1745, no narrower key; D2561 yes, one key for CLI, editor and test check caches (no change); D2562 no, the test std cache isn't shared across checkouts.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -13820,14 +13820,14 @@
     {
       "id": 1753,
       "title": "[Opus] Design: test check caches that survive a compiler change without hiding failures (SW-1745); note first, build if clear",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1753",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "Overnight 6-7 Nov 2026 (Matt: focus on test suites, merge gates, compile times). Stale caches must never mask a real failure.",
+      "body": "Overnight 6-7 Nov 2026 (Matt: focus on test suites, merge gates, compile times). Stale caches must never mask a real failure.\n\nDone, merged (4812f6de9): docs/proposals/check-cache-key.md. 91% of fingerprint-changing commits touch elab/core/syntax, so a safe narrower key stays warm for ~3-4%; lsp/cli/web/native/fmt changes already keep caches warm. Decided by the orchestrator overnight (Matt delegated small and medium calls, 6 Nov): D2560 yes, SW-1741 (fill once per run) is the fix for SW-1745, no narrower key; D2561 yes, one key for CLI, editor and test check caches (no change); D2562 no, the test std cache isn't shared across checkouts. Model result: Opus, worked, 15 min (est. 90).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []

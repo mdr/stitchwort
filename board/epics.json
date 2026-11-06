@@ -460,11 +460,12 @@
         "Daily tier in one run again, 27.9 min, no memory kills; test time 11,295 → 11,111 s (D2546)",
         "task test:affected picks tests from a diff, within a budget (SW-1752)",
         "Web AoC test 417 → 169 s, AoC answers 444 → 174 s (SW-1732, SW-1733)",
-        "Merge tier trimmed: 104 s of tests on main, from 153-172 s (SW-1751)"
+        "Merge tier trimmed: 104 s of tests on main, from 153-172 s (SW-1751)",
+        "Cache key design: narrowing would help 3-4% of changes; fill once per run instead (SW-1753)"
       ],
       "now": [
         "Merge tier toward 90 s (SW-1761)",
-        "Caches that survive a compiler change: design (SW-1753)"
+        "Std cache once per run; dev-features in the cache fingerprint (SW-1741)"
       ],
       "next": [
         "Merge tier profile (SW-1751); affected-test selection (SW-1752)",
