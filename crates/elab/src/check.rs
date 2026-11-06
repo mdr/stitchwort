@@ -1374,21 +1374,26 @@ impl<'e> Ctx<'e> {
                                 )
                             }
                         };
+                        // `body` was quoted before the matching above, which may
+                        // have solved unknowns in it; one still unsolved can't be
+                        // checked, so the mismatch stands rather than the motive
+                        // going in unchecked.
+                        let Ok(body) = cx.e.zonk(&body, level + 2) else {
+                            return Ok(None);
+                        };
                         // Replacing every occurrence can leave a type that no
                         // longer checks (a proof about the scrutinee inside it):
                         // then this isn't a rewrite, and the mismatch stands.
-                        if !body.subterms().any(|(t, _)| matches!(t, Term::Meta(_))) {
-                            let mut kcx = crate::rewrite::kernel_context(cx)?;
-                            let y = Value::var(kcx.level());
-                            kcx.bind("y".into(), (*carrier).clone());
-                            kcx.bind(
-                                "p".into(),
-                                Value::Eq(carrier.clone(), lhs_value.clone(), Rc::new(y)),
-                            );
-                            crate::kernel::without_glue(&g, || {
-                                crate::kernel::check_type(&mut kcx, &body)
-                            })?;
-                        }
+                        let mut kcx = crate::rewrite::kernel_context(cx)?;
+                        let y = Value::var(kcx.level());
+                        kcx.bind("y".into(), (*carrier).clone());
+                        kcx.bind(
+                            "p".into(),
+                            Value::Eq(carrier.clone(), lhs_value.clone(), Rc::new(y)),
+                        );
+                        crate::kernel::without_glue(&g, || {
+                            crate::kernel::check_type(&mut kcx, &body)
+                        })?;
                         let motive = Term::Lam(
                             "y".into(),
                             Icit::Explicit,
