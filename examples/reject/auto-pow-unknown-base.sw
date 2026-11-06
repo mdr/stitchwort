@@ -5,4 +5,6 @@
 
 import Std (Nat)
 
-def divideByPower (n: Nat) (base: Nat) (k: Nat): Nat := n / Nat.pow base (Succ k)
+def nonzero (d: Nat) [auto ok: d ≠ 0]: Nat := d
+
+def power (base: Nat) (k: Nat): Nat := nonzero (Nat.pow base (Succ k))

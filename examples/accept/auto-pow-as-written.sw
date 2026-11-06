@@ -7,7 +7,9 @@ import Std (Nat)
 
 def halveThenDivide (n: Nat) (k: Nat): Nat := n / Nat.pow 2 (Succ k)
 
-def remainderBy (n: Nat) (k: Nat): Nat := n % Nat.pow 3 (Succ (Succ k))
+def remainderBy (n: Nat) (k: Nat) [auto ok: Nat.pow 3 (Succ (Succ k)) ≠ 0]: Nat := n % Nat.pow 3 (Succ (Succ k))
+
+def remainderOf (n: Nat) (k: Nat): Nat := remainderBy n k
 
 def needsNonzero (n: Nat) (k: Nat) [auto whole: Nat.pow 2 (Succ k) ≠ 0]: Nat := n / Nat.pow 2 (Succ k)
 

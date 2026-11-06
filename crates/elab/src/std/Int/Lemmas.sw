@@ -47,9 +47,10 @@ theorem Int.divModUniqueOf (d: Int) (quotient: Int) (remainder: Int) (other: Int
   Both (omega) (omega [difference, none])
 
 --| The quotient and remainder are the only ones with the division law and a
---| remainder from 0 up to below `|d|`.
-theorem Int.divModUnique (a: Int) (d: Int) (quotient: Int) (remainder: Int) [auto ok: d ≠ 0] (law: d * quotient + remainder = a)
+--| remainder from 0 up to below `|d|` (so `d` isn't 0).
+theorem Int.divModUnique (a: Int) (d: Int) (quotient: Int) (remainder: Int) (law: d * quotient + remainder = a)
     (low: 0 ≤ remainder) (high: remainder < Nat.toInt (Int.natAbs d)): (a / d = quotient) ∧ (a % d = remainder) :=
+  let ok: d ≠ 0 := zero => Void.exfalso (omega [rewrite zero at high in high])
   Int.divModUniqueOf d (a / d) (a % d) quotient remainder ok (Eq.trans (Int.divAddMod a d) (Eq.sym law))
     (Int.modNonneg a d) (Int.modLtAbs a d) low high
 
@@ -71,9 +72,11 @@ theorem Int.addMulRegroup (x: Int) (d: Int) (q: Int) (quotient: Int) (remainder:
 
 --| Adding a multiple of `d`, a negative one too, keeps the remainder (Lean's
 --| `Int.add_mul_emod_self_left`).
-theorem Int.modAddMul (x: Int) (d: Int) (q: Int) [auto ok: d ≠ 0]: (x + d * q) % d = x % d :=
-  And.right (Int.divModUnique (x + d * q) d (x / d + q) (x % d) (Int.addMulRegroup x d q (x / d) (x % d) (Int.divAddMod x d))
-    (Int.modNonneg x d) (Int.modLtAbs x d))
+theorem Int.modAddMul (x: Int) (d: Int) (q: Int): (x + d * q) % d = x % d :=
+  if zero: d = 0 then rewrite zero, Int.zeroMul q, Int.addZero x in rfl
+  else
+    And.right (Int.divModUnique (x + d * q) d (x / d + q) (x % d) (Int.addMulRegroup x d q (x / d) (x % d) (Int.divAddMod x d))
+      (Int.modNonneg x d) (Int.modLtAbs x d))
 
 --| With `x = d * quotient + remainder`, the remainder plus `y` is `x + y`
 --| less `d * quotient`.
@@ -83,7 +86,7 @@ theorem Int.remainderAddRegroup (x: Int) (y: Int) (d: Int) (quotient: Int) (rema
 
 --| Only the remainder of `x` matters to the remainder of `x + y` (Lean's
 --| `Int.emod_add_emod`).
-theorem Int.modModAdd (x: Int) (y: Int) (d: Int) [auto ok: d ≠ 0]: (x % d + y) % d = (x + y) % d :=
+theorem Int.modModAdd (x: Int) (y: Int) (d: Int): (x % d + y) % d = (x + y) % d :=
   rewrite Int.remainderAddRegroup x y d (x / d) (x % d) (Int.divAddMod x d)
   in Int.modAddMul (x + y) d (0 - x / d)
 

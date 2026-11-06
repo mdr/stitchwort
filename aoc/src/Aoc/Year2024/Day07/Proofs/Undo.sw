@@ -8,7 +8,7 @@ import Std (Bool, DecEq, Eq, Nat, Void)
 
 --| `v * d + r` is `target`, for a remainder `r < d`, exactly when `target`
 --| leaves remainder `r` and quotient `v`.
-theorem divModMatch (d: Nat) [auto ok: d ≠ 0] (r: Nat) (small: r < d) (v: Nat) (target: Nat):
+theorem divModMatch (d: Nat) (r: Nat) (small: r < d) (v: Nat) (target: Nat):
     (v * d + r == target) = (target % d == r && v == target / d) :=
   Bool.eqOf (v * d + r == target) (target % d == r && v == target / d)
     (matches =>
@@ -18,4 +18,4 @@ theorem divModMatch (d: Nat) [auto ok: d ≠ 0] (r: Nat) (small: r < d) (v: Nat)
     (both =>
       let remainder := DecEq.sound (Bool.andLeft both)
       let quotient := DecEq.sound (Bool.andRight both)
-      rewrite quotient, <- remainder, <- Nat.divModEq target d ok in DecEq.refl target)
+      rewrite quotient, <- remainder, <- Nat.divModEq target d in DecEq.refl target)

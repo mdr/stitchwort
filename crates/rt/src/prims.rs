@@ -7,9 +7,9 @@
 //! Each computes exactly what the definition it replaces computes: `Nat`
 //! subtraction stops at zero; `Int.div` and `Int.mod` are Euclidean (the
 //! remainder is never negative), `tdiv`/`tmod` truncate and `fdiv`/`fmod`
-//! round down. Divisions take a proof that the divisor isn't zero, so none
-//! divides by zero; `Nat.divFuel`, which has no such proof, gives its fuel
-//! for a zero divisor, as its definition does. Small numbers are computed
+//! round down. Every division is total, as its definition is: dividing by
+//! zero gives 0 and its remainder is the dividend (`Int.modNat x 0` is
+//! `x.toNat`). Small numbers are computed
 //! as machine integers, falling back to big ones only when a result
 //! doesn't fit.
 
@@ -195,13 +195,17 @@ fn nat_mul(a: &Value, b: &Value) -> Value {
     Value::nat(a.to_biguint() * b.to_biguint())
 }
 
-/// `divFuel fuel n d`: `min fuel (n / d)`, or `fuel` if `d` is zero.
+/// `divFuel fuel n d`: `min fuel (n / d)`, or 0 if `d` is zero.
 fn div_fuel(fuel: &Value, n: &Value, d: &Value) -> Value {
     if let (Value::Nat(f), Value::Nat(n), Value::Nat(d)) = (fuel, n, d) {
-        return Value::Nat(if *d == 0 { *f } else { (*f).min(n / d) });
+        return Value::Nat(if *d == 0 { 0 } else { (*f).min(n / d) });
     }
     let (f, n, d) = (fuel.to_biguint(), n.to_biguint(), d.to_biguint());
-    Value::nat(if d == BigUint::ZERO { f } else { f.min(n / d) })
+    Value::nat(if d == BigUint::ZERO {
+        BigUint::ZERO
+    } else {
+        f.min(n / d)
+    })
 }
 
 fn nat_to_int(n: &Value) -> Value {
@@ -270,11 +274,20 @@ fn int2(
     Value::int(big(a.to_bigint(), b.to_bigint()))
 }
 
-/// Euclidean division of `a` by `d` (not zero): the remainder is never
-/// negative.
+/// Truncating division of `a` by `d`, total: `(0, a)` for a zero `d`.
+fn trunc(a: &BigInt, d: &BigInt) -> (BigInt, BigInt) {
+    if d.sign() == Sign::NoSign {
+        (BigInt::ZERO, a.clone())
+    } else {
+        (a / d, a % d)
+    }
+}
+
+/// Euclidean division of `a` by `d`: the remainder is never negative, except
+/// for a zero `d`, where it's `a` (and the quotient 0).
 fn euclid(a: &BigInt, d: &BigInt) -> (BigInt, BigInt) {
-    let (q, r) = (a / d, a % d);
-    if r.sign() == Sign::Minus {
+    let (q, r) = trunc(a, d);
+    if r.sign() == Sign::Minus && d.sign() != Sign::NoSign {
         if d.sign() == Sign::Plus {
             (q - 1, r + d)
         } else {
@@ -285,10 +298,13 @@ fn euclid(a: &BigInt, d: &BigInt) -> (BigInt, BigInt) {
     }
 }
 
-/// Division of `a` by `d` (not zero) rounding down.
+/// Division of `a` by `d` rounding down, total like [`trunc`].
 fn floor(a: &BigInt, d: &BigInt) -> (BigInt, BigInt) {
-    let (q, r) = (a / d, a % d);
-    if r.sign() != Sign::NoSign && (r.sign() == Sign::Minus) != (d.sign() == Sign::Minus) {
+    let (q, r) = trunc(a, d);
+    if d.sign() != Sign::NoSign
+        && r.sign() != Sign::NoSign
+        && (r.sign() == Sign::Minus) != (d.sign() == Sign::Minus)
+    {
         (q - 1, r + d)
     } else {
         (q, r)
@@ -518,8 +534,8 @@ fn int(s: &Shapes, op: PrimOp, i: IntNative, args: &[&Value]) -> Value {
         IntMul => int2(a, args[1], i64::checked_mul, |x, y| x * y),
         IntDiv => int2(a, args[1], i64::checked_div_euclid, |x, y| euclid(&x, &y).0),
         IntMod => int2(a, args[1], i64::checked_rem_euclid, |x, y| euclid(&x, &y).1),
-        IntTDiv => int2(a, args[1], i64::checked_div, |x, y| x / y),
-        IntTMod => int2(a, args[1], i64::checked_rem, |x, y| x % y),
+        IntTDiv => int2(a, args[1], i64::checked_div, |x, y| trunc(&x, &y).0),
+        IntTMod => int2(a, args[1], i64::checked_rem, |x, y| trunc(&x, &y).1),
         IntFDiv => int2(
             a,
             args[1],
@@ -539,12 +555,13 @@ fn int(s: &Shapes, op: PrimOp, i: IntNative, args: &[&Value]) -> Value {
             {
                 return Value::Nat(u64::try_from(r).expect("not negative"));
             }
+            // A negative `x % 0` is `x`, which `toNat` makes 0.
             let d = BigInt::from(args[1].to_biguint());
             Value::nat(
                 euclid(&a.to_bigint(), &d)
                     .1
                     .to_biguint()
-                    .expect("not negative"),
+                    .unwrap_or_default(),
             )
         }
         DecEqInt => decision(s, num_eq(a, args[1])),

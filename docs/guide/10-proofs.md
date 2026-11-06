@@ -481,14 +481,14 @@ theorem countBigAtMost (xs: List Nat): countBig xs ≤ xs.length :=
 1 goal open: the declarations with them, and what uses them, aren't finished, so they aren't checked
 ```
 
-Not every arm gets an equation. Where the right side uses the proof of a condition (`| (n, len) if n != 0 => len % n` needs `n ≠ 0` for the `%`), the equation isn't generated and naming it says why; prove that case by hand, with `f.unfold` or by matching on the condition. The rules are in [syntax.md](../syntax.md), under "Guards".
+Not every arm gets an equation. Where the right side computes on the proof of a condition, the equation isn't generated and naming it says why; prove that case by hand, with `f.unfold` or by matching on the condition. An arm that only passes the proof on, where nothing computes on it (as `Fin.ofNatLt n i h` takes `h: i < n`), gets its equation. The rules are in [syntax.md](../syntax.md), under "Guards".
 
 ## Decisions and facts
 
 `Bool` and statements are different things. `n == 0` is a `Bool`, a value computed at run time. `n = 0` is a statement, a type whose values are proofs. A statement that can be **decided** (equations on types with `==`, comparisons on numbers) can be used as a condition, and then the branches know which way it went:
 
-- `if n != 0 then a else b` makes the fact `n != 0` available in `a`. That's how `/` found its proof in [chapter 2](02-values-and-definitions.md#division-needs-a-reason).
-- `if a && b then …` gives the branch `a ∧ b`, and `auto` uses each part of a conjunction in scope: `if b != 0 && c != 0 then a % b` checks. (When `b` itself needs the fact from `a`, as in `n != 0 && len % n == 0`, the branch doesn't get the conjunction.)
+- `if n != 0 then a else b` makes the fact `n != 0` available in `a`, where an `auto` argument finds it: in `if n != 0 then Nat.modLt x n else …`, the lemma's `[auto ok: n ≠ 0]` is that fact ([chapter 2](02-values-and-definitions.md#dividing-by-zero)).
+- `if a && b then …` gives the branch `a ∧ b`, and `auto` uses each part of a conjunction in scope: `if i < xs.length && j < xs.length then xs.getLt i` checks. (When `b` itself needs the fact from `a`, as in `i < xs.length && xs.getLt i == x`, the branch doesn't get the conjunction.)
 - `if h: P then a else b` also names the fact: `h: P` in `a`, and `h: ¬P` in `b`.
 - A parameter `[auto ok: P]` asks the caller for a proof of `P`, found automatically from the facts in scope, or by deciding `P` when its values are known.
 

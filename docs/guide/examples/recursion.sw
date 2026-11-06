@@ -34,9 +34,7 @@ test "decreasing" := digits 2025 == [2, 0, 2, 5]
 def gcd (a: Nat) (b: Nat): Nat
     decreasing b
 :=
-  if nonzero: b ≠ 0 then
-    if smaller: a % b < b then gcd b (a % b) else a
-  else a
+  if smaller: a % b < b then gcd b (a % b) else a
 
 test "gcd" := gcd 84 36 == 12
 -- end gcd

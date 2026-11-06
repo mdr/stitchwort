@@ -160,25 +160,25 @@ theorem wrapWithin (position: Position) (offset: Offset) (height: Nat) (width: N
   Bool.andIntro (omega [rowBelow]) (omega [columnBelow])
 
 --| A number on a line of `size` wraps to itself.
-theorem modNatSmall: (size: Nat) → (ok: size ≠ 0) → (x: Nat) → x < size → x.toInt.modNat size [ok := ok] = x
-  | Zero, ok, x, inside => Void.exfalso (ok rfl)
-  | Succ n, ok, x, inside => Nat.modSmall x (Succ n) inside
+theorem modNatSmall: (size: Nat) → (x: Nat) → x < size → x.toInt.modNat size = x
+  | Zero, x, inside => Void.exfalso (Bool.falseNotTrue inside)
+  | Succ n, x, inside => Nat.modSmall x (Succ n) inside
 
 --| By zero, a position on the board stays put.
-theorem wrapZero (position: Position) (height: Nat) (width: Nat) [auto tall: height ≠ 0] [auto wide: width ≠ 0]
+theorem wrapZero (position: Position) (height: Nat) (width: Nat)
     (inside: position.within height width = True): position.wrap Offset.zero height width = position :=
   positionExt (position.wrap Offset.zero height width) position
-    (rewrite (omega: position.row.toInt + 0 = position.row.toInt) in modNatSmall height tall position.row (omega [Bool.andLeft inside]))
-    (rewrite (omega: position.column.toInt + 0 = position.column.toInt) in modNatSmall width wide position.column (omega [Bool.andRight inside]))
+    (rewrite (omega: position.row.toInt + 0 = position.row.toInt) in modNatSmall height position.row (omega [Bool.andLeft inside]))
+    (rewrite (omega: position.column.toInt + 0 = position.column.toInt) in modNatSmall width position.column (omega [Bool.andRight inside]))
 
 --| Wrapping twice is wrapping by the sum.
 theorem wrapPlus (position: Position) (first: Offset) (second: Offset) (height: Nat) (width: Nat) [auto tall: height ≠ 0] [auto wide: width ≠ 0]:
     (position.wrap first height width).wrap second height width = position.wrap (first.plus second) height width :=
   positionExt ((position.wrap first height width).wrap second height width) (position.wrap (first.plus second) height width)
     (Eq.trans (Int.modNatModAdd (position.row.toInt + first.rows) second.rows height [ok := tall])
-      (Eq.cong (x => Int.modNat x height [ok := tall]) (omega)))
+      (Eq.cong (x => Int.modNat x height) (omega)))
     (Eq.trans (Int.modNatModAdd (position.column.toInt + first.columns) second.columns width [ok := wide])
-      (Eq.cong (x => Int.modNat x width [ok := wide]) (omega)))
+      (Eq.cong (x => Int.modNat x width) (omega)))
 
 --| Wrapping by `offset` `times` times is wrapping by `times` times it, from
 --| a position on the board.

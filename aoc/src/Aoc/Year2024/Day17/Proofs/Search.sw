@@ -12,7 +12,7 @@ import Std (And, Bool, DecEq, Decidable, Eq, Exists, List, Nat, Option, Or, Void
 --| `a` is `a / 8` times 8 plus a number below 8, so it is among the values
 --| built from `a / 8`.
 theorem amongLows (a: Nat): a ∈ List.map (List.range 0 8) (low => a / 8 * 8 + low) :=
-  rewrite Eq.sym (Nat.divModEq a 8 (Nat.succNotZero 7)) at
+  rewrite Eq.sym (Nat.divModEq a 8) at
     List.memMap (List.range 0 8) (a % 8) (List.memRangeFromIntro (a % 8) 8 0 (Nat.zeroLe (a % 8)) (Nat.modLess a 8 (Nat.succNotZero 7)))
       (low => a / 8 * 8 + low)
 

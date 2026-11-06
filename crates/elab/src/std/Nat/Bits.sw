@@ -12,8 +12,8 @@ theorem Nat.halfDivPow (n: Nat) (k: Nat): n / 2 / Nat.pow 2 k = n / Nat.pow 2 (S
   Eq.sym
     (Nat.divUnique n (Nat.pow 2 (Succ k)) (n / 2 / power) (n / 2 % power * 2 + n % 2)
       (omega [Nat.modLess (n / 2) power positive, Nat.modLess n 2 (Nat.succNotZero 1)])
-      (Eq.trans (Nat.divModEq n 2 (Nat.succNotZero 1))
-        (Eq.trans (Eq.cong (half => half * 2 + n % 2) (Nat.divModEq (n / 2) power positive))
+      (Eq.trans (Nat.divModEq n 2)
+        (Eq.trans (Eq.cong (half => half * 2 + n % 2) (Nat.divModEq (n / 2) power))
           (Nat.regroupHalf (n / 2 / power) power (n / 2 % power) (n % 2)))))
 
 --| `n` shifted right by `count` bits: `n / 2 ^ count` ([`Nat.shiftRightDiv`]),
@@ -49,7 +49,7 @@ theorem Nat.testBitSucc (n: Nat) (i: Nat): Nat.testBit n (Succ i) = Nat.testBit 
 
 --| Halving both numbers makes their sum smaller, unless both are 0.
 theorem Nat.halvesLess (m: Nat) (n: Nat) (some: Nat.leq (m + n) 0 = False): m / 2 + n / 2 < m + n :=
-  omega [Nat.divMulLe m 2 (Nat.succNotZero 1), Nat.divMulLe n 2 (Nat.succNotZero 1), Nat.leqFalse (m + n) 0 some]
+  omega [Nat.divMulLe m 2, Nat.divMulLe n 2, Nat.leqFalse (m + n) 0 some]
 
 --| The bitwise exclusive or: each bit of `Nat.xor m n` is set when exactly
 --| one of `m` and `n` has it set ([`Nat.testBitXor`]).
@@ -128,7 +128,7 @@ theorem Nat.eqOfTestBit (m: Nat) (n: Nat) (same: (i: Nat) → Nat.testBit m i = 
       let high :=
         Nat.eqOfTestBit (m / 2) (n / 2)
           (i => Eq.trans (Eq.sym (Nat.testBitSucc m i)) (Eq.trans (same (Succ i)) (Nat.testBitSucc n i))) [decreasing := Nat.halvesLess m n some]
-      omega [Nat.divModEq m 2 (Nat.succNotZero 1), Nat.divModEq n 2 (Nat.succNotZero 1), low, high]
+      omega [Nat.divModEq m 2, Nat.divModEq n 2, low, high]
 
 theorem Nat.xorExample: Nat.xor 2024 43690 = 44354 := rfl
 
@@ -272,8 +272,8 @@ theorem Nat.modPowSucc (n: Nat) (k: Nat): n % Nat.pow 2 (Succ k) = n / 2 % Nat.p
   let positive := Nat.nonzeroOfPos power (Nat.powSuccPos 1 k)
   Nat.modUnique n (Nat.pow 2 (Succ k)) (n / 2 / power) (n / 2 % power * 2 + n % 2)
     (omega [Nat.modLess (n / 2) power positive, Nat.modLess n 2 (Nat.succNotZero 1)])
-    (Eq.trans (Nat.divModEq n 2 (Nat.succNotZero 1))
-      (Eq.trans (Eq.cong (half => half * 2 + n % 2) (Nat.divModEq (n / 2) power positive))
+    (Eq.trans (Nat.divModEq n 2)
+      (Eq.trans (Eq.cong (half => half * 2 + n % 2) (Nat.divModEq (n / 2) power))
         (Nat.regroupHalf (n / 2 / power) power (n / 2 % power) (n % 2))))
 
 --| Two numbers with the same bits above the lowest, and the same lowest bit.
@@ -286,10 +286,10 @@ theorem Nat.xorSameHalves (whole: Nat) (other: Nat) (high: Nat) (wholeBit: Nat) 
 theorem Nat.xorSumParity (lowX: Nat) (lowY: Nat) (highX: Nat) (highY: Nat) (x: Nat) (y: Nat) (splitX: lowX = highX * 2 + x % 2)
     (splitY: lowY = highY * 2 + y % 2): (lowX + lowY) % 2 = (x + y) % 2 :=
   omega [
-    Nat.divModEq x 2 (Nat.succNotZero 1),
-    Nat.divModEq y 2 (Nat.succNotZero 1),
-    Nat.divModEq (lowX + lowY) 2 (Nat.succNotZero 1),
-    Nat.divModEq (x + y) 2 (Nat.succNotZero 1),
+    Nat.divModEq x 2,
+    Nat.divModEq y 2,
+    Nat.divModEq (lowX + lowY) 2,
+    Nat.divModEq (x + y) 2,
     Nat.modLess x 2 (Nat.succNotZero 1),
     Nat.modLess y 2 (Nat.succNotZero 1),
     Nat.modLess (lowX + lowY) 2 (Nat.succNotZero 1),
@@ -314,7 +314,7 @@ theorem Nat.xorModPow: (k: Nat) → (x: Nat) → (y: Nat) → Nat.xor x y % Nat.
       Eq.trans (Nat.xorDiv lowX lowY) (rewrite halfX, halfY in rfl)
     let whole := Eq.trans (Nat.modPowSucc (Nat.xor x y) k) (Eq.cong (high => high * 2 + Nat.xor x y % 2) highs)
     let low :=
-      Eq.trans (Nat.divModEq (Nat.xor lowX lowY) 2 (Nat.succNotZero 1)) (Eq.cong (high => high * 2 + Nat.xor lowX lowY % 2) lowHighs)
+      Eq.trans (Nat.divModEq (Nat.xor lowX lowY) 2) (Eq.cong (high => high * 2 + Nat.xor lowX lowY % 2) lowHighs)
     let parity :=
       Eq.trans (Nat.xorMod x y)
         (Eq.trans
@@ -403,13 +403,13 @@ theorem Nat.parityBit (n: Nat): Bool.toNat (n % 2 == 1) = n % 2 :=
 theorem Nat.fromBitsToBits: (width: Nat) → (n: Nat) → n < Nat.pow 2 width → Nat.fromBits (Nat.toBits width n) = n
   | 0, n, small => omega
   | Succ width, n, small =>
-    let split := Nat.divModEq n 2 (omega)
+    let split := Nat.divModEq n 2
     let half := Nat.fromBitsToBits width (n / 2) (omega [Nat.powSucc 2 width])
     rewrite Nat.fromBitsSnoc (Nat.toBits width (n / 2)) (n % 2 == 1), half, Nat.parityBit n in omega
 
 --| Doubling a number and adding a bit: half of the result is the number.
 theorem Nat.halfOfDoubleBit (acc: Nat) (bit: Bool): (acc * 2 + Bool.toNat bit) / 2 = acc :=
-  let split := Nat.divModEq (acc * 2 + Bool.toNat bit) 2 (omega)
+  let split := Nat.divModEq (acc * 2 + Bool.toNat bit) 2
   let below := Nat.modLess (acc * 2 + Bool.toNat bit) 2 (omega)
   match bit with
     | True => omega
@@ -418,7 +418,7 @@ theorem Nat.halfOfDoubleBit (acc: Nat) (bit: Bool): (acc * 2 + Bool.toNat bit) /
 --| Doubling a number and adding a bit: the result is odd exactly when the
 --| bit is 1.
 theorem Nat.parityOfDoubleBit (acc: Nat) (bit: Bool): ((acc * 2 + Bool.toNat bit) % 2 == 1) = bit :=
-  let split := Nat.divModEq (acc * 2 + Bool.toNat bit) 2 (omega)
+  let split := Nat.divModEq (acc * 2 + Bool.toNat bit) 2
   let below := Nat.modLess (acc * 2 + Bool.toNat bit) 2 (omega)
   match bit with
     | True =>
@@ -504,7 +504,7 @@ theorem Nat.andLeRight (m: Nat) (n: Nat): Nat.and m n ≤ n
     | True => rewrite Nat.andZero m n some in omega
     | False =>
       rewrite Nat.andSome m n some in
-        omega [Nat.andLeRight (m / 2) (n / 2) [decreasing := Nat.halvesLess m n some], Nat.divModEq n 2 (Nat.succNotZero 1), Nat.lowBitAnd m n]
+        omega [Nat.andLeRight (m / 2) (n / 2) [decreasing := Nat.halvesLess m n some], Nat.divModEq n 2, Nat.lowBitAnd m n]
 
 --| An `and` is at most its left argument.
 theorem Nat.andLeLeft (m: Nat) (n: Nat): Nat.and m n ≤ m
@@ -516,7 +516,7 @@ theorem Nat.andLeLeft (m: Nat) (n: Nat): Nat.and m n ≤ m
       rewrite Nat.andSome m n some in
         omega [
           Nat.andLeLeft (m / 2) (n / 2) [decreasing := Nat.halvesLess m n some],
-          Nat.divModEq m 2 (Nat.succNotZero 1),
+          Nat.divModEq m 2,
           Nat.lowBitAndLeft m n
         ]
 
@@ -526,4 +526,4 @@ theorem Nat.orBelow: (k: Nat) → (m: Nat) → (n: Nat) → m < Nat.pow 2 k → 
   | Succ k, m, n, smallM, smallN =>
     let power := Nat.powSucc 2 k
     let half := Nat.orBelow k (m / 2) (n / 2) (omega [power]) (omega [power])
-    omega [Nat.divModEq (Nat.or m n) 2 (Nat.succNotZero 1), Nat.orDiv m n, Nat.modLess (Nat.or m n) 2 (Nat.succNotZero 1), power, half]
+    omega [Nat.divModEq (Nat.or m n) 2, Nat.orDiv m n, Nat.modLess (Nat.or m n) 2 (Nat.succNotZero 1), power, half]

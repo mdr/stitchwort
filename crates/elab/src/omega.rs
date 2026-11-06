@@ -421,6 +421,7 @@ struct Lib {
     int_div_add_mod: DefId,
     int_mod_nonneg: DefId,
     int_mod_lt_abs: DefId,
+    int_ne_zero: DefId,
     succ_not_zero: DefId,
     le_refl: DefId,
     le_add_left: DefId,
@@ -702,6 +703,7 @@ impl Lib {
             int_div_add_mod: def("Std.Int.divAddMod")?,
             int_mod_nonneg: def("Std.Int.modNonneg")?,
             int_mod_lt_abs: def("Std.Int.modLtAbs")?,
+            int_ne_zero: def("Std.Int.neZeroOfNatAbs")?,
             succ_not_zero: def("Std.Nat.succNotZero")?,
             le_refl: def("Std.Nat.leRefl")?,
             le_add_left: def("Std.Nat.leAddLeft")?,
@@ -1914,7 +1916,6 @@ struct Division {
 struct IntDivision {
     numerator: Value,
     divisor: Value,
-    ok: Value,
 }
 
 #[derive(Default)]
@@ -2117,10 +2118,10 @@ impl Quoter {
             return Ok(Ok(ITerm::SubNat(m, n)));
         }
         let division = call_args(&value, lib.int_div).or_else(|| call_args(&value, lib.int_mod));
-        if let Some([x, d, ok]) = division.as_deref()
+        if let Some([x, d]) = division.as_deref()
             && int_literal(cx, lib, d)?.is_some_and(|k| k != 0)
         {
-            let (x, d, ok) = (x.clone(), d.clone(), ok.clone());
+            let (x, d) = (x.clone(), d.clone());
             let i = self.atom(cx, value, None, true)?;
             let x_term = cx.quote(&x)?;
             let d_term = cx.quote(&d)?;
@@ -2137,7 +2138,6 @@ impl Quoter {
                 self.int_divisions.push(IntDivision {
                     numerator: x,
                     divisor: d,
-                    ok,
                 });
             }
             return Ok(Ok(ITerm::V(i)));
@@ -2193,7 +2193,7 @@ impl Quoter {
         let (numerator, fuel, divisor) =
             if let Some([fuel, n, d]) = call_args(value, lib.div_fuel).as_deref() {
                 (n.clone(), fuel.clone(), d.clone())
-            } else if let Some([n, d, _]) = call_args(value, lib.div).as_deref() {
+            } else if let Some([n, d]) = call_args(value, lib.div).as_deref() {
                 (n.clone(), n.clone(), d.clone())
             } else if let Some([_, fuel, n, d]) = call_args(value, lib.div_step).as_deref() {
                 let fuel = Term::ctor(lib.succ.0, lib.succ.1, vec![cx.quote_folded(fuel)?]);
@@ -3258,14 +3258,21 @@ fn linear_once(
     )
 }
 
-/// The facts saying what `x / k` and `x % k` are on `Int`, from
-/// `Int.divAddMod x k`, `Int.modNonneg x k` and `Int.modLtAbs x k`.
+/// The facts saying what `x / k` and `x % k` are on `Int`, for a number `k`
+/// other than 0, from `Int.divAddMod x k`, `Int.modNonneg x k` and
+/// `Int.modLtAbs x k`. The last two take `k ≠ 0`, by `Int.neZeroOfNatAbs k
+/// rfl`.
 fn int_division_facts(cx: &Ctx, lib: &Lib, division: &IntDivision) -> Result<Vec<Fact>> {
-    let args = [
-        both(cx, &division.numerator)?,
-        both(cx, &division.divisor)?,
-        both(cx, &division.ok)?,
-    ];
+    let numerator = both(cx, &division.numerator)?;
+    let divisor = both(cx, &division.divisor)?;
+    let (nonzero, _) = lemma(
+        cx,
+        lib.int_ne_zero,
+        &[divisor.clone(), (Term::Refl, Value::Refl)],
+    )?;
+    let nonzero = (nonzero.clone(), cx.eval(&nonzero)?);
+    let law = [numerator.clone(), divisor.clone()];
+    let bounds = [numerator, divisor, nonzero];
     let origin = format!(
         "what `{} / {}` and `{} % {}` are",
         cx.show(&division.numerator),
@@ -3280,8 +3287,12 @@ fn int_division_facts(cx: &Ctx, lib: &Lib, division: &IntDivision) -> Result<Vec
         skipped: Vec::new(),
         waiting: Vec::new(),
     };
-    for which in [lib.int_div_add_mod, lib.int_mod_nonneg, lib.int_mod_lt_abs] {
-        let (proof, prop) = lemma(cx, which, &args)?;
+    for (which, args) in [
+        (lib.int_div_add_mod, &law[..]),
+        (lib.int_mod_nonneg, &bounds[..]),
+        (lib.int_mod_lt_abs, &bounds[..]),
+    ] {
+        let (proof, prop) = lemma(cx, which, args)?;
         reader.read(cx, proof, &prop, &origin, 0)?;
     }
     Ok(reader.facts)

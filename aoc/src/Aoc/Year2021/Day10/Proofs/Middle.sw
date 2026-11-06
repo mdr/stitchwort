@@ -44,7 +44,7 @@ theorem middleIsMiddle (scores: List Nat) (some: scores ≠ []): Middle scores (
     match scores with
       | [] => Void.exfalso (some rfl)
       | [_, .._] => rfl
-  let split := Nat.divModEq n 2 (omega)
+  let split := Nat.divModEq n 2
   let rest := Nat.modLess n 2 (omega)
   let inRange: k < sorted.length := omega
   let isSorted := List.sortSortedNat scores
@@ -73,7 +73,7 @@ theorem middleNotBelow (scores: List Nat) (a: Nat) (b: Nat) (odd: scores.length 
     (score member atMost => match above: a < score with
       | True => cases
       | False => omega)
-  let halves := Nat.divModEq scores.length 2 (omega)
+  let halves := Nat.divModEq scores.length 2
   let aAbove := And.right (And.right first)
   let bBelow := And.left (And.right second)
   omega

@@ -71,7 +71,7 @@ theorem leftAt [n: Nat] (dial: Dial n): (k: Nat) →
     Eq.trans (leftAt (Dial.move dial (Left 1)) k)
       (Dial.ext (Dial.move (Dial.move dial (Left 1)) (Left k)) (Dial.move dial (Left (Succ k))) (Mod.subNatSubNat dial.position 1 k))
 
-theorem stepRight (d: Nat) [auto ok: d ≠ 0] (a: Nat) (h: a < d) (n: Nat):
+theorem stepRight (d: Nat) (a: Nat) (h: a < d) (n: Nat):
     Bool.toNat ((a + 1) % d == 0) + ((a + 1) % d + n) / d = (a + Succ n) / d :=
   match Nat.decEq (Succ a) d with
     | Yes same =>

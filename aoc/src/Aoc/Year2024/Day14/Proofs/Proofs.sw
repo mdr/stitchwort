@@ -42,7 +42,7 @@ theorem positionsModPeriod (space: Space) (robots: List Robot) (seconds: Nat) (o
     space.positionsAfter seconds robots = space.positionsAfter (seconds % space.period) robots :=
   Eq.trans
     (Eq.cong (time => space.positionsAfter time robots)
-      (omega [Nat.divModEq seconds space.period ok]: seconds = seconds % space.period + seconds / space.period * space.period))
+      (omega [Nat.divModEq seconds space.period]: seconds = seconds % space.period + seconds / space.period * space.period))
     (List.mapCong robots (space.positionAfter (seconds % space.period + seconds / space.period * space.period)) (space.positionAfter (seconds % space.period))
       (robot => periodicLaps space (seconds % space.period) robot (seconds / space.period)))
 

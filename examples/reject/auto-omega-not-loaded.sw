@@ -4,4 +4,6 @@
 -- `cases`), so `auto` doesn't try it. accept/auto-omega-facts.sw does.
 import Std (Nat)
 
-def remainderOfGap (n: Nat) (low: Nat) (high: Nat) (below: low < high): Nat := n % (high - low)
+def nonzero (d: Nat) [auto ok: d ≠ 0]: Nat := d
+
+def gap (low: Nat) (high: Nat) (below: low < high): Nat := nonzero (high - low)
