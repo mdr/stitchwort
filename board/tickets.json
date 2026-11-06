@@ -1,5 +1,5 @@
 {
-  "next": 1559,
+  "next": 1563,
   "tickets": [
     {
       "id": 47,
@@ -9910,13 +9910,13 @@
     {
       "id": 1538,
       "title": "A helper lemma about a variable doesn't fit inside a match on one of its fields (arm goal refined, lemma type not); refine terms in the arm, or accept the match equation where rfl is expected; the error's '_' hint doesn't apply (day 16)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1538",
       "labels": [
         "elab"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).\n\nStarted overnight on Opus (match refinement in the elaborator), expected: 75 min.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).\n\nStarted overnight on Opus (match refinement in the elaborator), expected: 75 min.\n\nLane done (cfe4a4e91, merge of main 613b529a5): a named match's equation transports proofs (J, forward/backward) where an arm would otherwise mismatch; unnamed: better E-TYPE-MISMATCH and E-REFL notes. Day 16 / Aoc.Common elimination workaround removed. Generates kernel terms: Opus review started (D2364). Orchestrator's calls (to list for Matt): keep the automatic transport (proofs only, only where it would fail); keep rfl meaning 'computes'.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10092,13 +10092,13 @@
     {
       "id": 1551,
       "title": "Std == lemmas: List.beqCons, List.beqNilCons, DecEq.neSelf ((x != x) = False), generated T.beqMk for one-field records (day 17)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1551",
       "labels": [
         "std"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).\n\nStarted overnight on Sonnet (SW-1551, SW-1555, SW-1558 together), expected: 45 min.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).\n\nStarted overnight on Sonnet (SW-1551, SW-1555, SW-1558 together), expected: 45 min.\n\nDone (6c6df5055), merged: List.beqCons, beqNilCons, beqConsNil, DecEq.neSelf, Map.containsFilter (Map.getFilter's argument order), Set.countToList; Int.negSuccInjective [m n] implicit (2 std callers). Day 17 drops 4 local copies. 42 hash snapshots regenerated. Orchestrator checked the statements (D2436). Model result: Sonnet, worked, 10 min (est. 45).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10148,13 +10148,13 @@
     {
       "id": 1555,
       "title": "Std: Map.containsFilter ((m.filter p).contains k = (m.get k).any (p k)), Set.countToList (day 17)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1551",
       "labels": [
         "std"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).\n\nStarted overnight on Sonnet (SW-1551, SW-1555, SW-1558 together), expected: 45 min.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).\n\nStarted overnight on Sonnet (SW-1551, SW-1555, SW-1558 together), expected: 45 min.\n\nDone (6c6df5055), merged: List.beqCons, beqNilCons, beqConsNil, DecEq.neSelf, Map.containsFilter (Map.getFilter's argument order), Set.countToList; Int.negSuccInjective [m n] implicit (2 std callers). Day 17 drops 4 local copies. 42 hash snapshots regenerated. Orchestrator checked the statements (D2436). Model result: Sonnet, worked, 10 min (est. 45).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10190,13 +10190,69 @@
     {
       "id": 1558,
       "title": "Std: make Int.negSuccInjective's m and n implicit, as Nat.succInjective (D2422, SW-1544)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1551",
       "labels": [
         "std"
       ],
-      "body": "From SW-1544, 6 Nov 2026. Small.\n\nStarted overnight on Sonnet (SW-1551, SW-1555, SW-1558 together), expected: 45 min.",
+      "body": "From SW-1544, 6 Nov 2026. Small.\n\nStarted overnight on Sonnet (SW-1551, SW-1555, SW-1558 together), expected: 45 min.\n\nDone (6c6df5055), merged: List.beqCons, beqNilCons, beqConsNil, DecEq.neSelf, Map.containsFilter (Map.getFilter's argument order), Set.countToList; Int.negSuccInjective [m n] implicit (2 std callers). Day 17 drops 4 local copies. 42 hash snapshots regenerated. Orchestrator checked the statements (D2436). Model result: Sonnet, worked, 10 min (est. 45).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1559,
+      "title": "Generate T.beqMk (== on a one-field record is == on its field) for records (SW-1551)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Filed overnight 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1560,
+      "title": "Std: Int.ofNatInjective's m and n implicit, as Nat.succInjective (D2422, SW-1558)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Filed overnight 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1561,
+      "title": "A pair (n, rfl) where an ∃ is expected gives E-CANNOT-INFER for the rfl; (a, b) for a ∧ b is a mismatch that doesn't suggest Both (SW-1538)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "Filed overnight 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1562,
+      "title": "Match-equation transport only fires when the scrutinee appears literally in a type's computed form; a lemma over a definition that hides it still mismatches (SW-1538)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "Filed overnight 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
