@@ -74,7 +74,7 @@ use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 26;
+pub const FORMAT: u32 = 27;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -1012,6 +1012,24 @@ impl Refs for Out<'_> {
     }
 
     fn span(&mut self, w: &mut Writer, span: Span) {
+        let file = self.file_index(span);
+        w.usize(file);
+        w.uint(u64::from(span.start));
+        w.uint(u64::from(span.end.saturating_sub(span.start)));
+    }
+
+    fn span_after(&mut self, w: &mut Writer, span: Span, prev: &mut u32) {
+        let file = self.file_index(span);
+        w.usize(file);
+        w.uint(codec::zigzag(i64::from(span.start) - i64::from(*prev)));
+        w.uint(u64::from(span.end.saturating_sub(span.start)));
+        *prev = span.start;
+    }
+}
+
+impl Out<'_> {
+    /// The number `span`'s file has in the entry's list of files.
+    fn file_index(&mut self, span: Span) -> usize {
         let file = match self.file_ids.get(&span.file) {
             Some(&i) => i,
             None => match self.names.get(&span.file) {
@@ -1029,9 +1047,7 @@ impl Refs for Out<'_> {
         if span.end < span.start {
             self.fail("a span that ends before it starts".to_string());
         }
-        w.usize(file);
-        w.uint(u64::from(span.start));
-        w.uint(u64::from(span.end.saturating_sub(span.start)));
+        file
     }
 }
 
@@ -1109,6 +1125,10 @@ impl Encoding<'_> {
 
     pub(crate) fn span(&mut self, span: Span) {
         self.out.span(&mut self.w, span);
+    }
+
+    fn span_after(&mut self, span: Span, prev: &mut u32) {
+        self.out.span_after(&mut self.w, span, prev);
     }
 
     fn global(&mut self, e: &Elaborator, global: Global) {
@@ -1665,8 +1685,9 @@ impl Elaborator {
                     nav.refs.iter().filter(|(at, _)| own(&at.file)).collect();
                 refs.sort_by_key(|(at, _)| (at.file.index(), at.start, at.end));
                 e.w.usize(refs.len());
+                let mut prev = 0;
                 for (at, noted) in refs {
-                    e.span(*at);
+                    e.span_after(*at, &mut prev);
                     e.str(&noted.key);
                     // A target in another unit's file is kept by the name
                     // of its declaration, where it is found when the entry
@@ -1675,7 +1696,7 @@ impl Elaborator {
                         && self.scope.get(&noted.key).map(|(_, s)| s) == Some(noted.target);
                     e.w.bool(by_name);
                     if !by_name {
-                        e.span(noted.target);
+                        e.span_after(noted.target, &mut at.start.clone());
                     }
                     e.global(self, noted.global);
                     e.w.bool(noted.dot.is_some());
@@ -1690,8 +1711,9 @@ impl Elaborator {
                     .collect();
                 exprs.sort_by_key(|(at, _)| (at.file.index(), at.start, at.end));
                 e.w.usize(exprs.len());
+                let mut prev = 0;
                 for (at, ty) in exprs {
-                    e.span(*at);
+                    e.span_after(*at, &mut prev);
                     e.str(ty);
                 }
                 let mut used: Vec<(&Span, &String)> = nav
@@ -1701,8 +1723,9 @@ impl Elaborator {
                     .collect();
                 used.sort_by_key(|(at, _)| (at.file.index(), at.start, at.end));
                 e.w.usize(used.len());
+                let mut prev = 0;
                 for (at, text) in used {
-                    e.span(*at);
+                    e.span_after(*at, &mut prev);
                     e.str(text);
                 }
                 let mut types: Vec<(&(FileId, u32), &String)> = nav
@@ -1712,16 +1735,18 @@ impl Elaborator {
                     .collect();
                 types.sort_by_key(|((file, at), _)| (file.index(), *at));
                 e.w.usize(types.len());
+                let mut prev = 0;
                 for ((file, at), ty) in types {
-                    e.span(Span::new(*file, *at, *at));
+                    e.span_after(Span::new(*file, *at, *at), &mut prev);
                     e.str(ty);
                 }
                 for uses in [&nav.locals[locals..], &nav.binders[binders..]] {
                     e.w.usize(uses.len());
+                    let mut prev = 0;
                     for u in uses {
-                        e.span(u.span);
+                        e.span_after(u.span, &mut prev);
                         e.str(&u.name);
-                        e.span(u.binder);
+                        e.span_after(u.binder, &mut u.span.start.clone());
                     }
                 }
                 // A namespace's are found again by walking its syntax.
@@ -1734,16 +1759,16 @@ impl Elaborator {
                     (at.file.index(), at.start, at.end, name.as_str())
                 });
                 e.w.usize(fields.len());
+                let mut prev = 0;
                 for ((at, name), span) in fields {
-                    e.span(*at);
+                    e.span_after(*at, &mut prev);
                     e.str(name);
-                    e.span(*span);
+                    e.span_after(*span, &mut at.start.clone());
                 }
             }
             (None, None) => e.w.bool(false),
             _ => return Err("navigation was turned on while loading".to_string()),
         }
-
         if let Some(problem) = e.out.problem {
             return Err(problem);
         }
@@ -1891,6 +1916,22 @@ impl ReadRefs for In {
         let Some(end) = start.checked_add(len) else {
             return bad("a span out of range");
         };
+        Ok(Span::new(file, start, end))
+    }
+
+    fn span_after(&self, r: &mut Reader, prev: &mut u32) -> Read<Span> {
+        let Some(&file) = self.files.get(r.usize()?) else {
+            return bad("a file out of range");
+        };
+        let start = i64::from(*prev) + codec::unzigzag(r.uint()?);
+        let len = r.u32()?;
+        let Some(start) = u32::try_from(start).ok() else {
+            return bad("a span out of range");
+        };
+        let Some(end) = start.checked_add(len) else {
+            return bad("a span out of range");
+        };
+        *prev = start;
         Ok(Span::new(file, start, end))
     }
 }
@@ -2061,6 +2102,10 @@ impl Body<'_> {
 
     pub(crate) fn span(&mut self) -> Read<Span> {
         self.refs.span(&mut self.r)
+    }
+
+    fn span_after(&mut self, prev: &mut u32) -> Read<Span> {
+        self.refs.span_after(&mut self.r, prev)
     }
 
     pub(crate) fn count(&mut self) -> Read<usize> {
@@ -2999,39 +3044,53 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Rest> {
             fields: Vec::new(),
         };
         let n = b.count()?;
+        let mut prev = 0;
         for _ in 0..n {
-            let at = b.span()?;
+            let at = b.span_after(&mut prev)?;
             let key = b.string()?;
             let target = if b.r.bool()? {
                 Target::Key
             } else {
-                Target::Span(b.span()?)
+                Target::Span(b.span_after(&mut at.start.clone())?)
             };
             let global = b.global(files)?;
             let dot = if b.r.bool()? { Some(b.string()?) } else { None };
             nav.refs.push((at, key, target, global, dot));
         }
         let n = b.count()?;
+        let mut prev = 0;
         for _ in 0..n {
-            nav.exprs.push((b.span()?, b.string()?));
+            nav.exprs.push((b.span_after(&mut prev)?, b.string()?));
         }
         let n = b.count()?;
+        let mut prev = 0;
         for _ in 0..n {
-            nav.call_defaults.push((b.span()?, b.string()?));
+            nav.call_defaults
+                .push((b.span_after(&mut prev)?, b.string()?));
         }
         let n = b.count()?;
+        let mut prev = 0;
         for _ in 0..n {
-            nav.local_types.push((b.span()?, b.string()?));
+            nav.local_types
+                .push((b.span_after(&mut prev)?, b.string()?));
         }
         for uses in [&mut nav.locals, &mut nav.binders] {
             let n = b.count()?;
+            let mut prev = 0;
             for _ in 0..n {
-                uses.push((b.span()?, b.string()?, b.span()?));
+                let span = b.span_after(&mut prev)?;
+                let name = b.string()?;
+                let binder = b.span_after(&mut span.start.clone())?;
+                uses.push((span, name, binder));
             }
         }
         let n = b.count()?;
+        let mut prev = 0;
         for _ in 0..n {
-            nav.fields.push((b.span()?, b.string()?, b.span()?));
+            let at = b.span_after(&mut prev)?;
+            let name = b.string()?;
+            let span = b.span_after(&mut at.start.clone())?;
+            nav.fields.push((at, name, span));
         }
         t.nav = Some(nav);
     }

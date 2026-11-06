@@ -580,8 +580,8 @@ both: as eager as before, and cheap.
   written. It runs that WebAssembly in Node: `build_library_cache` makes a
   session exactly as the language server makes a project's
   (`stitchwort_lsp::library_bundle`, through the one `session_for`), checks
-  the library into a recording store, and writes `pkg/std.cache`
-  (`LibraryBundle`, `crates/driver/src/check_cache.rs`): an entry per
+  the library into a recording store, and writes `pkg/std.cache.gz`
+  (gzipped by the script; `LibraryBundle`, `crates/driver/src/check_cache.rs`): an entry per
   library file, as a cache directory holds them, and the files that didn't
   check under the worker's limits (`left_out`, none in WebAssembly). It then
   loads the library back from the bundle and fails the build unless every
@@ -595,7 +595,7 @@ both: as eager as before, and cheap.
   all (`LibraryBundle::decode` compares the compiler first), and a session
   made differently finds only misses: the library is then checked as
   before, never answered from a mismatched entry. `version.json`'s hash
-  covers `std.cache`, so a browser never mixes one build's cache with
+  covers `std.cache.gz`, so a browser never mixes one build's cache with
   another's WebAssembly.
 - **Trust.** Entries are admitted without the kernel's checks, as a cache
   directory's are (check-cache.md, D1660). The per-directory salt, which
@@ -604,7 +604,8 @@ both: as eager as before, and cheap.
   trusting it is trusting the WebAssembly. Its salt is a constant, so one
   build makes the same bytes each time.
 - **In the worker** (`web/lsp-worker.js`), the server starts at once and
-  `std.cache` is fetched meanwhile (`LanguageServer::load_library_cache`,
+  `std.cache.gz` is fetched meanwhile and decompressed with
+  `DecompressionStream` (`LanguageServer::load_library_cache`,
   `Options::library`, a cell read when a project or a file on its own is
   loaded). A program on its own doesn't wait for it; a project does
   (`{project}` waits for the fetch). Without it (a 404, another build's)
@@ -632,15 +633,25 @@ The browser's 8.8 s is now mostly the page's own Check of the day
 the browser test waits for before it looks for marks: the server's part is
 a 0.6 s fetch of the cache and ticks of at most 1.2 s.
 
-**Size:** `std.cache` is 14,406,861 bytes; 7,520,873 gzipped, 5,180,341
-with brotli (GitHub Pages serves gzip). That is more than the WebAssembly
-(10.1 MB, 3.8 MB gzipped): the entries are for a navigable session with
-expression types (`+nav+ty`), so they carry what hover and go to
-definition need inside library files. The worker fetches it on every
-first visit (the browser keeps it after, by `version.json`'s hash), but
-only a project waits for it. Whether to fetch it only when a project is
-opened is for Matt (it would delay a project's first marks by the
-download).
+**Size (SW-1455):** `std.cache` was 14,428,877 bytes; 7,532,898 gzipped,
+5,188,475 with brotli. That was more than the WebAssembly: the entries are
+for a navigable session with expression types (`+nav+ty`), so they carry what
+hover and go to definition need inside library files. Where the bytes went:
+the checked terms 9.4 MB (`App` nodes 4.0 MB, `Loc` nodes 2.0 MB), code
+navigation 3.1 MB (expression types 0.9, locals and binders 1.1, references
+0.7, local types 0.4), the string tables and file names 1.4 MB, the
+declarations' index with their content hashes 0.25 MB, and each entry's
+header (key, dependency hashes, checksum) 0.24 MB. Two changes to the entry
+format (27) make most of it repeat, which compresses well: a node's children
+are written as how far back they are rather than by node number (they sit
+just before it), and spans in a list in source order as steps from the
+previous start (every `Loc` node, and navigation's lists). Together:
+10.55 MB raw, 2.49 MB gzipped, 1.86 MB with brotli. The build also
+gzips the file itself (`std.cache.gz`): GitHub Pages compresses the file
+types it knows, and a `.cache` isn't one, so it would have been sent as it
+is. Brotli would save another 0.6 MB, but `DecompressionStream` does not
+reliably take it in browsers, and a decoder in the WebAssembly is a new
+dependency.
 
 **Next:**
 
@@ -650,9 +661,10 @@ download).
   cut opening a day to about the server's 2 s.
 - The proof searches' worker (`Searcher`) loads the library in its own
   sessions without a cache.
-- Smaller entries: compressing them in the bundle, or a bundle without
-  expression types for projects (hover in a library file would then show
-  less).
+- Smaller still: navigation data (a third of the compressed bytes) is only
+  read when a library file is opened, so it could be a second file fetched
+  then; the hashes and dependency lists (about 0.3 MB, incompressible) and
+  strings repeated between entries are what is left in the rest.
 
 #### 5.2.5 One checker: the Check pane shows the server's diagnostics (SW-1432, SW-1454)
 

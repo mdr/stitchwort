@@ -12,7 +12,7 @@ wasm-opt -Oz --enable-bulk-memory --enable-nontrapping-float-to-int \
 # The standard library, fetched beside the WebAssembly.
 web/bundle-std.sh . web/pkg
 # The library checked by that WebAssembly, so the language server replays it
-# (pkg/std.cache; a minute or two, most of it the files that fail to check
+# (pkg/std.cache.gz; a minute or two, most of it the files that fail to check
 # under the worker's limits).
 node web/bundle-std-cache.mjs web/pkg
 # The AoC project's files, for the playground's Advent of Code group.

@@ -16,7 +16,7 @@ digest() {
   if command -v sha256sum >/dev/null; then sha256sum | cut -d' ' -f1; else shasum -a 256 | cut -d' ' -f1; fi
 }
 
-compiler=$(cat pkg/stitchwort_web_bg.wasm pkg/stitchwort_web.js pkg/std.bundle pkg/std.cache playground-worker.js lsp-worker.js lsp-search-worker.js dist/editor.bundle.js | digest | cut -c1-16)
+compiler=$(cat pkg/stitchwort_web_bg.wasm pkg/stitchwort_web.js pkg/std.bundle pkg/std.cache.gz playground-worker.js lsp-worker.js lsp-search-worker.js dist/editor.bundle.js | digest | cut -c1-16)
 # One line per file (its own hash and path, sorted), so a renamed file changes it.
 projects=$(
   cd pkg/projects

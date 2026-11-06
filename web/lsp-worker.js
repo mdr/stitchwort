@@ -38,8 +38,8 @@ const ready = (async () => {
   const t0 = performance.now();
   module = compiled;
   await init({ module_or_path: module });
-  const cache = fetch(new URL(`./pkg/std.cache${load}`, import.meta.url))
-    .then((r) => (r.ok ? r.arrayBuffer() : null))
+  const cache = fetch(new URL(`./pkg/std.cache.gz${load}`, import.meta.url))
+    .then((r) => (r.ok ? new Response(r.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer() : null))
     .catch(() => null);
   bundle = new Uint8Array(await fetch(new URL(`./pkg/std.bundle${load}`, import.meta.url)).then((r) => r.arrayBuffer()));
   load_std(bundle);
