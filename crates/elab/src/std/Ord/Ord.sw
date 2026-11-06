@@ -137,3 +137,17 @@ theorem Ord.lessLe [auto ord: Ord a] (x: a) (y: a) (h: x < y): x <= y :=
 
 theorem Ord.lessTrans [auto ord: Ord a] (x: a) (y: a) (z: a) (h1: x < y) (h2: y < z): x < z :=
   ord.lessThanOf x z (ord.trans x y z (ord.lessThanTo x y h1) (ord.lessThanTo y z h2))
+
+--| `<=` then `<` is `<`.
+theorem Ord.leLessTrans [auto ord: Ord a] (x: a) (y: a) (z: a) (h1: x <= y) (h2: y < z): x < z :=
+  match order: Ord.compare x y with
+    | Less => ord.lessThanOf x z (ord.trans x y z order (ord.lessThanTo y z h2))
+    | Equal => rewrite ord.equal x y order in h2
+    | Greater => Void.exfalso (ord.lessEqTo x y h1 order)
+
+--| `<` then `<=` is `<`.
+theorem Ord.lessLeTrans [auto ord: Ord a] (x: a) (y: a) (z: a) (h1: x < y) (h2: y <= z): x < z :=
+  match order: Ord.compare y z with
+    | Less => ord.lessThanOf x z (ord.trans x y z (ord.lessThanTo x y h1) order)
+    | Equal => rewrite <- ord.equal y z order in h1
+    | Greater => Void.exfalso (ord.lessEqTo y z h2 order)

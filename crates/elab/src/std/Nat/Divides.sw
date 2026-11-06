@@ -38,6 +38,50 @@ theorem Nat.dividesElim (goal: Prop): (d: Nat) → (n: Nat) → Nat.divides d n 
         _ = (n / Succ d) * Succ d + 0 := Eq.cong (r => (n / Succ d) * Succ d + r) (Decidable.toBoolSound (Nat.decEq (n % Succ d) 0) h)
         _ = (n / Succ d) * Succ d := Nat.addZero ((n / Succ d) * Succ d))
 
+--| `Nat.divides` as a proposition: `d` divides `n` exactly when `n` is `t * d`
+--| for some `t` (Lean's `Nat.dvd_iff_exists_eq_mul_left`).
+theorem Nat.dividesIff (d: Nat) (n: Nat): Nat.divides d n = True ↔ ∃ (t: Nat) => n = t * d :=
+  {
+    forward = h => Nat.dividesElim (∃ (t: Nat) => n = t * d) d n h (t e => Witness t e),
+    backward = found =>
+      match found with
+        | Witness t e => rewrite e in Nat.dividesMul d t
+  }
+
+--| For a nonzero divisor, `Nat.divides` is the remainder test.
+theorem Nat.dividesMod (m: Nat) [auto ok: m ≠ 0] (n: Nat): Nat.divides m n = (n % m == 0) :=
+  match m with
+    | Zero => Void.exfalso (ok rfl)
+    | Succ d => rfl
+
+--| A divisor of two numbers divides their sum (Lean's `Nat.dvd_add`).
+theorem Nat.dividesAdd (d: Nat) (a: Nat) (b: Nat) (ha: Nat.divides d a = True) (hb: Nat.divides d b = True): Nat.divides d (a + b) = True :=
+  match Iff.forward (Nat.dividesIff d a) ha, Iff.forward (Nat.dividesIff d b) hb with
+    | Witness s es, Witness t et =>
+      Iff.backward (Nat.dividesIff d (a + b)) (Witness (s + t) (ring [es, et]))
+
+--| A divisor of `n` divides every multiple `q * n` of it (Lean's
+--| `Nat.dvd_mul_left_of_dvd`).
+theorem Nat.dividesMulLeft (d: Nat) (n: Nat) (q: Nat) (h: Nat.divides d n = True): Nat.divides d (q * n) = True :=
+  match Iff.forward (Nat.dividesIff d n) h with
+    | Witness t e => Iff.backward (Nat.dividesIff d (q * n)) (Witness (q * t) (ring [q * e]))
+
+--| Adding a multiple of the modulus leaves the remainder alone, given the
+--| multiple as `z % m = 0`; [`Nat.modAddMul`] is the same with `z` written
+--| `t * m`.
+theorem Nat.modAddOfModZero (x: Nat) (z: Nat) (m: Nat) [auto ok: m ≠ 0] (h: z % m = 0): (x + z) % m = x % m :=
+  calc (x + z) % m
+    _ = (x + z % m) % m := Eq.sym (Nat.addModMod x z m)
+    _ = (x + 0) % m := rewrite h in rfl
+    _ = x % m := rewrite Nat.addZero x in rfl
+
+--| A multiple of a number with remainder 0 has remainder 0 too.
+theorem Nat.modMulOfModZero (q: Nat) (z: Nat) (m: Nat) [auto ok: m ≠ 0] (h: z % m = 0): (q * z) % m = 0 :=
+  calc (q * z) % m
+    _ = (q * (z % m)) % m := Eq.sym (Nat.mulModMod q z m)
+    _ = (q * 0) % m := rewrite h in rfl
+    _ = 0 := rewrite Nat.mulZero q in rfl
+
 --| A number from 1 up is divided by nothing bigger than itself.
 theorem Nat.dividesSmall: (d: Nat) → (n: Nat) → 1 ≤ n → n < d → Nat.divides d n = False
   | Zero, n, h1, h2 => Void.exfalso (Bool.falseNotTrue h2)
