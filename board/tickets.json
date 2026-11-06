@@ -1,5 +1,5 @@
 {
-  "next": 1632,
+  "next": 1634,
   "tickets": [
     {
       "id": 47,
@@ -10960,13 +10960,13 @@
     {
       "id": 1613,
       "title": "Design note: record and constructor brace syntax in the round (named construction C { f = e } vs anonymous record literals { … } as arguments; Some ({ … }); field patterns), other languages, alternatives (D2455; revisits D1370/D593/D605)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1613",
       "labels": [
         "design"
       ],
-      "body": "D2455 (Matt, 6 Nov 2026): instead of changing what Some { … } means, an Opus design note reviewing record and constructor brace syntax in the round (expressions and patterns), other languages with sources, alternatives, usage counts from the repo. 'It should look at other languages. It should try and consider alternatives.' Revisits D1370, D593, D605. Started on Opus, analysis only, expected: 90 min.\n\nDone (f240ab1a0), merged: docs/proposals/brace-syntax-review.md, 41 sources, 16 languages. Recommendation D: the declaration decides. Constructors declared with braced fields are built/matched by name as today; bracket-declared ones (all today) take braces as a record argument, Some { name = \"tea\" }. Like OCaml/Haskell/Rust. Counts: ~160 C ({ … }) (103 in aoc) vs ~28 named constructions and ~39 field patterns (none in application code). Runner-up C (Lean's). Interim: accept Some { r | … }. Questions: D2481 what decides braces after a constructor [rec: D]; D2482 patterns follow [rec: yes]; D2483 braces in argument position after a bracket-declared constructor [rec: yes]; D2484 show prints accordingly [rec: yes]; D2485 named arguments on a constructor fill defaults [rec: yes]; D2486 sweep C ({ … }) → C { … } once built [rec: yes]. Model result: Opus, worked, 15 min (est. 90).",
+      "body": "D2455 (Matt, 6 Nov 2026): instead of changing what Some { … } means, an Opus design note reviewing record and constructor brace syntax in the round (expressions and patterns), other languages with sources, alternatives, usage counts from the repo. 'It should look at other languages. It should try and consider alternatives.' Revisits D1370, D593, D605. Started on Opus, analysis only, expected: 90 min.\n\nDone (f240ab1a0), merged: docs/proposals/brace-syntax-review.md, 41 sources, 16 languages. Recommendation D: the declaration decides. Constructors declared with braced fields are built/matched by name as today; bracket-declared ones (all today) take braces as a record argument, Some { name = \"tea\" }. Like OCaml/Haskell/Rust. Counts: ~160 C ({ … }) (103 in aoc) vs ~28 named constructions and ~39 field patterns (none in application code). Runner-up C (Lean's). Interim: accept Some { r | … }. Questions: D2481 what decides braces after a constructor [rec: D]; D2482 patterns follow [rec: yes]; D2483 braces in argument position after a bracket-declared constructor [rec: yes]; D2484 show prints accordingly [rec: yes]; D2485 named arguments on a constructor fill defaults [rec: yes]; D2486 sweep C ({ … }) → C { … } once built [rec: yes]. Model result: Opus, worked, 15 min (est. 90).\n\nD2481-D2486 (Matt, 6 Nov 2026): all as recommended in docs/proposals/brace-syntax-review.md: the declaration decides what braces after a constructor mean (brace-declared constructors by field name; bracket-declared ones take a record argument); patterns follow; braces in argument position; show prints accordingly; named arguments on a constructor fill field defaults; then sweep C ({ … }) → C { … }. Replaces D1370 (a). Build: SW-1632; sweep: SW-1633.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11219,6 +11219,34 @@
         "elab"
       ],
       "body": "D2475-D2480 (Matt, 6 Nov 2026): all as recommended in docs/proposals/goal-as-written.md: rewrite/match/cases/transport look as written first with a completeness check and today's search as fallback; the as-written search may solve a rule's unknowns; keep today's reach into hidden copies, no occurrence selection now (D2478); out-of-resources check uses the as-written result; rewrite f later. 'happy to go with your recommendation.' Any time after stage 1.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1632,
+      "title": "Brace syntax: the declaration decides (D2481-D2485): constructors declared with braced fields are built/matched by name; bracket-declared ones take braces as a record argument (Some { name = \"tea\" }, | Some { name, .. } =>, Some { r | … }); braces in argument position; show; named constructor arguments fill defaults; guide, syntax.md, feature tour",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "syntax"
+      ],
+      "body": "D2481-D2486 (Matt, 6 Nov 2026): all as recommended in docs/proposals/brace-syntax-review.md: the declaration decides what braces after a constructor mean (brace-declared constructors by field name; bracket-declared ones take a record argument); patterns follow; braces in argument position; show prints accordingly; named arguments on a constructor fill field defaults; then sweep C ({ … }) → C { … }. Replaces D1370 (a). Sonnet, expected: 150 min; a user-visible language change, so docs/guide, docs/syntax.md and web/guide get updated.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1633,
+      "title": "Brace syntax sweep: C ({ … }) → C { … } across aoc, games, examples, std, guide (~140 sites) (D2486)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "style"
+      ],
+      "body": "D2481-D2486 (Matt, 6 Nov 2026): all as recommended in docs/proposals/brace-syntax-review.md: the declaration decides what braces after a constructor mean (brace-declared constructors by field name; bracket-declared ones take a record argument); patterns follow; braces in argument position; show prints accordingly; named arguments on a constructor fill field defaults; then sweep C ({ … }) → C { … }. Replaces D1370 (a). After SW-1632. DeepSeek or Sonnet.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
