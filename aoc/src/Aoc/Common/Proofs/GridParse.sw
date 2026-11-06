@@ -64,3 +64,9 @@ theorem checkGridComplete (grid: Grid a) (rectangle: grid.Rectangle): Fail.toRes
         | None =>
           match grid with
             | { rows, nonEmpty } => rfl
+
+--| The converse of `parseGridRectangle`: a rectangular grid
+--| whose rows `Parse.eachLine` reads off the lines is what `parseGrid` reads.
+theorem parseGridComplete (input: Text) (cell: () → {Parse} a) (grid: Grid a) (rectangle: grid.Rectangle)
+    (rowsRead: Fail.toResult (() => Parse.eachLine input (() => Parse.many1 cell |> .toList)) = Ok grid.rows): Fail.toResult (() => parseGrid input cell) = Ok grid :=
+  rewrite Fail.toResultThen (() => Parse.eachLine input (() => Parse.many1 cell |> .toList)) checkGrid, rowsRead in checkGridComplete grid rectangle

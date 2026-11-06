@@ -5,8 +5,8 @@
 -- From std's lemmas on what parsers do on good input (Std/Parse/Runs.sw).
 
 namespace Aoc.Year2020.Day03.Proofs
-import Aoc.Common (Grid, checkGrid, parseGrid)
-import Aoc.Common.Proofs (checkGridComplete)
+import Aoc.Common (Grid)
+import Aoc.Common.Proofs (parseGridComplete)
 import Aoc.Year2020.Day03 (..)
 import Std (Eq, Fail, List, NonEmptyList, Parse, Result, Text, Void)
 
@@ -58,7 +58,7 @@ theorem parseComplete (input: Text) (map: Grid Square) (written: InputWritten in
             runsRow line row same
               (rowEmpty =>
                 map.widthNonZero (Eq.trans (Eq.sym (rectangle row member)) (rewrite rowEmpty in rfl)))) lines)
-      rewrite Fail.toResultThen (() => Parse.eachLine input (() => Parse.many1 square |> .toList)) checkGrid, rowsRead in checkGridComplete map rectangle
+      parseGridComplete input square map rectangle rowsRead
 
 --| Soundness (`parseWritten`) is the converse: the input is written as at most one map.
 theorem writtenUnique (input: Text) (a: Grid Square) (b: Grid Square) (writtenA: InputWritten input a) (writtenB: InputWritten input b): a = b :=

@@ -3091,6 +3091,16 @@ timing and these notes.
 elaboration and 73 ms in the kernel; the rest of the cold time is std's
 modules and Aoc.Common.
 
+**Completeness (SW-1624).** `Proofs/Complete.sw`, 80 lines, about 5 minutes, the day-3 proof with a
+three-way `pick` for the seat: `Parse.runsMany1Symbols` for a row,
+`runsSeat` (three `Parse.runsPick` cases), `declinesSeat` (`seatAbsent` per
+symbol) and `parseGridComplete` (new in `Aoc.Common.Proofs`, now used by day 3
+too: `eachLine` read back, then `checkGridComplete`). `parseWritten` already
+had the rectangle in its conclusion, so `InputWritten` is exactly it and
+`writtenUnique` (input level) holds. Unlike day 3, the cell parser is a
+`pick`, so the "can't start" side is real work: `isSeatChar` and a
+decline per symbol.
+
 ### Ranked
 
 1. `main` takes 20 s (42 s as first written): every neighbour is a `Map`
