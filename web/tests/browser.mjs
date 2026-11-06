@@ -754,6 +754,71 @@ test("the goals panel shows the goal at the cursor, and follows it", async (page
   await page.until(`document.getElementById("goalpanel").hidden`, 30000, "the panel to go");
 });
 
+/** The labels of the completion list on show, or null when there is none. */
+const completions = (page) => page.ev(`(() => {
+  const list = document.querySelector(".cm-tooltip-autocomplete");
+  return list ? [...list.querySelectorAll("li .cm-completionLabel")].map((l) => l.textContent) : null;
+})()`);
+
+/** Puts the caret at the end of the text, with the editor focused. */
+const caretAtEnd = (page) => page.ev(`(() => { const e = window.editor; e.focus(); e.setSelectionRange(e.value.length, e.value.length); })()`);
+
+test("typing a name offers the names in scope, and accepting one inserts it", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await page.setSource("def helloWorld : Nat := 1\n\ndef other : Nat := 0");
+  await page.untilChecked();
+  await caretAtEnd(page);
+  await page.type(" + hel");
+  await page.until(`!!document.querySelector(".cm-tooltip-autocomplete")`, 30000, "the completion list");
+  const labels = await completions(page);
+  assert.ok(labels.includes("helloWorld"), `offered ${JSON.stringify(labels)}`);
+  await sleep(200); // CodeMirror ignores Enter for the first moments of a list
+  await page.key("Enter", "Enter", 13);
+  await page.until(`window.editor.value.trimEnd().endsWith("def other : Nat := 0 + helloWorld")`, 10000, "the name to be inserted")
+    .catch(async (e) => { throw new Error(`${e.message}\n  text: ${JSON.stringify(await page.ev("window.editor.value"))}`); });
+  assert.equal(await completions(page), null, "the list closes");
+});
+
+test("typing a dot after a List offers its members (through the search worker)", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await page.setSource("def count (xs : List Nat) : List Nat := xs");
+  await page.untilChecked();
+  await caretAtEnd(page);
+  await page.type(".");
+  // The server checks a copy of the file with a dummy in place of the member: a few seconds.
+  await page.until(`!!document.querySelector(".cm-tooltip-autocomplete")`, 60000, "the member list");
+  const labels = await completions(page);
+  assert.ok(labels.includes("all"), `offered ${JSON.stringify(labels.slice(0, 10))}`);
+  // Typing more narrows it (the list shows only the first hundred), and accepting inserts the member.
+  await page.type("len");
+  await page.until(`(() => { const l = document.querySelector(".cm-tooltip-autocomplete"); return l && l.innerText.includes("length"); })()`, 30000, "the narrowed list");
+  const narrowed = await completions(page);
+  assert.ok(narrowed[0] === "length", `narrowed to ${JSON.stringify(narrowed.slice(0, 10))}`);
+  await sleep(200);
+  await page.key("Enter", "Enter", 13);
+  await page.until(`window.editor.value.trimEnd().endsWith("xs.length")`, 10000, "the member to be inserted");
+}, { ms: 120000 });
+
+test("completing a library name adds its import", async (page) => {
+  const head = "namespace Demo\nimport Std (List)\n\ndef f (xs : List Nat) : List Nat := xs\n";
+  await page.open();
+  await page.untilChecked();
+  await page.setSource(head);
+  await page.untilChecked();
+  await caretAtEnd(page);
+  await page.type("\ndef g (xs : List Nat) : List Nat := sortW");
+  await page.until(`!!document.querySelector(".cm-tooltip-autocomplete")`, 30000, "the completion list");
+  assert.ok((await completions(page)).includes("sortWith"));
+  await sleep(200);
+  await page.key("Enter", "Enter", 13);
+  await page.until(`window.editor.value.includes("sortWith")`, 10000, "the name to be inserted");
+  const text = await page.ev(`window.editor.value`);
+  assert.match(text, /^namespace Demo\nimport Std \(List\)\nimport Std\.List \(sortWith\)\n/, text);
+  assert.match(text, /:= sortWith\s*$/);
+});
+
 test("Share puts the program in the link, and opening it keeps the person's own work", async (page) => {
   const snippet = "def three : Nat := 3\n\ntheorem three_is_three : three = 3 := rfl\n";
   const mine = "def mine : Nat := 1\n";
