@@ -17,7 +17,10 @@
         "Bounded readback note revision 3 (SW-1728)",
         "Stage 0a: trip-journal fails through Float arithmetic on symbolic record fields; 33 failing sites mapped (SW-1740)"
       ],
-      "now": [],
+      "now": [
+        "Stage 1: output terms and decide read folded (SW-1746)",
+        "Stage 0b: classify the remaining sites (SW-1747)"
+      ],
       "next": [
         "Finish the design note that bounds unfolded readback by making the searches look at goals as written everywhere, revisiting D484 (SW-1712, D2514); it also unblocks record eta",
         "Stage 5: rewrite f means one unfolding step of f (SW-1631; SW-796 is the same ticket)",
@@ -43,7 +46,7 @@
         "Fields of glued calls stay calls; std, roguelike and 2021 day 13 pass at about +2% cost (SW-1667, on lane/SW-1642)"
       ],
       "now": [
-        "Paused; the note that unblocks it is in (docs/proposals/bounded-readback.md), waiting on D2519-D2524, D2528, D2529"
+        "Why main passes trip-journal; the Float hold (SW-1744)"
       ],
       "next": [
         "Why main passes trip-journal; hold Float operations on unknown inputs (SW-1744, D2550)"
@@ -454,11 +457,10 @@
         "Incremental release builds in the devShell: one-line elab edit 156 s → 21 s (SW-1729)",
         "No counterexample search after a resource failure; untimed searches bounded: resources test 319 s → 9 s (SW-1730)",
         "lsp::features replays std from the test cache: 16 tests in 27 s, 9.2 → 4.2 GB (SW-1686)",
-        "LSP AoC tests: shutdown cancels the check; 465 s → 194 s (SW-1731)"
+        "LSP AoC tests: shutdown cancels the check; 465 s → 194 s (SW-1731)",
+        "Daily tier in one run again, 27.9 min, no memory kills; test time 11,295 → 11,111 s (D2546)"
       ],
-      "now": [
-        "Daily tier to measure the savings (D2546)"
-      ],
+      "now": [],
       "next": [
         "LSP AoC tests check AoC once (SW-1731); lsp::features replays std (SW-1686)",
         "aoc_answers and web AoC tests (SW-1732, SW-1733); threads-required (SW-1734)",

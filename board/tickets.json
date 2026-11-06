@@ -1,5 +1,5 @@
 {
-  "next": 1745,
+  "next": 1748,
   "tickets": [
     {
       "id": 47,
@@ -13272,7 +13272,7 @@
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "D2532 (Matt, 6 Nov 2026): yes. Profiling only; allowed a few timed builds and one run of each of the ten slowest daily-tier binaries. Report: docs/reviews/SW-N-dev-loop-profile.md. Started on Opus, expected: 90 min.\n\nDone, merged: docs/reviews/SW-1716-dev-loop-profile.md (48111d52e). Rebuild after a one-line core/elab edit 131-136 s, of which linking ~8%; optimising 137 test binaries from scratch is most of it. Incremental release builds: 21-22 s. Std check 14 s from source, 0.46 s from cache; 25% of it in the system allocator. Top fixes: incremental builds; untimed counterexample searches (resources 3.8 s → 173 s since 5 Nov); LSP AoC tests check AoC three times; SW-1686; one test binary per crate. kache served only 26% of compile time. Model result: Opus, worked, 63 min (est. 90).\n\nD2546 (Matt, 6 Nov 2026): yes, one daily-tier run to measure the real saving once SW-1729, SW-1730, SW-1731 and SW-1686 are merged.",
+      "body": "D2532 (Matt, 6 Nov 2026): yes. Profiling only; allowed a few timed builds and one run of each of the ten slowest daily-tier binaries. Report: docs/reviews/SW-N-dev-loop-profile.md. Started on Opus, expected: 90 min.\n\nDone, merged: docs/reviews/SW-1716-dev-loop-profile.md (48111d52e). Rebuild after a one-line core/elab edit 131-136 s, of which linking ~8%; optimising 137 test binaries from scratch is most of it. Incremental release builds: 21-22 s. Std check 14 s from source, 0.46 s from cache; 25% of it in the system allocator. Top fixes: incremental builds; untimed counterexample searches (resources 3.8 s → 173 s since 5 Nov); LSP AoC tests check AoC three times; SW-1686; one test binary per crate. kache served only 26% of compile time. Model result: Opus, worked, 63 min (est. 90).\n\nD2546 (Matt, 6 Nov 2026): yes, one daily-tier run to measure the real saving once SW-1729, SW-1730, SW-1731 and SW-1686 are merged.\n\nD2546 daily run (6 Nov, 21:42-22:10, quiet machine, main 1e… after SW-1719): 2179/2179 passed, one run, no memguard kill; 27.9 min wall (nextest 24.4 min). Test time 11,295 → 11,111 s. Saved: lsp::features 1091 → 461, resources 615 → 71, cli::lsp 1030 → 814, goal_index 229 → 89. Rose: extract +163, aoc_answers +133, memory +94, rt::lower +89, web +77, run_js +72 (last night's figures came from a split, partly killed run, so not like for like; search_at_aoc's 48 s was a killed run). The compiler change before the run left every test cache cold, so cache-based savings (SW-1686, SW-1731) show only partly in a daily run.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -13685,14 +13685,59 @@
     {
       "id": 1744,
       "title": "[Opus] Why main passes trip-journal and lane/SW-1642 doesn't; try holding Float operations on stuck arguments folded in the unfolded read-back (D2550)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1744",
       "labels": [
         "design"
       ],
       "epic": "record-eta",
       "body": "D2550 (Matt, 6 Nov 2026): yes. From SW-1740 (docs/reviews/SW-1740-stage-0a.md). On the record eta branch; starts after the D2546 daily run. Expected: 90 min on Opus.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1745,
+      "title": "Every compiler change leaves the test check caches cold (keyed by build fingerprint), so a daily run after any merge pays every std/AoC check from source; consider a cache keyed by the checker's semantics version for tests, or warming once per run (SW-1741)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From the D2546 daily run, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1746,
+      "title": "[Opus] Bounded readback stage 1: output terms read back folded (accessor types first; equations.rs excluded), decide reads back folded and evaluates with gluing off (D2523, D2535); hashes and Float pins move once",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1746",
+      "labels": [
+        "design"
+      ],
+      "epic": "goal-as-written",
+      "body": "D2545 order. See docs/proposals/bounded-readback.md stage 1. Opus (D2506: core elaborator); expected: 75 min; Opus review after.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1747,
+      "title": "[Sonnet] Bounded readback stage 0b: classify the remaining unfolded read-back sites (interfaces.rs first); no build",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1747",
+      "labels": [
+        "design"
+      ],
+      "epic": "goal-as-written",
+      "body": "D2545 order. See docs/proposals/bounded-readback.md stage 0b. Expected: 60 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
