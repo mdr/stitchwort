@@ -11604,13 +11604,13 @@
     {
       "id": 1659,
       "title": "2020 day 19: dedupe each rule's leftovers with Set (2.9 vs 4.2 s in an earlier experiment) (SW-1636)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1665",
       "labels": [
         "aoc"
       ],
-      "body": "From SW-1636, 6 Nov 2026.",
+      "body": "From SW-1636, 6 Nov 2026.\n\nStarted on Sonnet in one lane (SW-1665 with SW-1670, SW-1659), expected: 45 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11688,13 +11688,13 @@
     {
       "id": 1665,
       "title": "2024 day 14: Space's widthPositive/heightPositive proof fields could go now that wrap is total; proofs take bounds from their inside hypotheses (SW-1640)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1665",
       "labels": [
         "aoc"
       ],
-      "body": "From SW-1640, 6 Nov 2026.",
+      "body": "From SW-1640, 6 Nov 2026.\n\nStarted on Sonnet in one lane (SW-1665 with SW-1670, SW-1659), expected: 45 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11758,13 +11758,13 @@
     {
       "id": 1670,
       "title": "2024 day 14: iterateWrap and moveWrap keep a redundant size ≠ 0 (they also take x < size); drop it per D2470 (SW-1640 review)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1665",
       "labels": [
         "aoc"
       ],
-      "body": "From the SW-1640 Opus review, 6 Nov 2026.",
+      "body": "From the SW-1640 Opus review, 6 Nov 2026.\n\nStarted on Sonnet in one lane (SW-1665 with SW-1670, SW-1659), expected: 45 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
