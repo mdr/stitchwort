@@ -3,7 +3,7 @@
     {
       "id": "goal-as-written",
       "title": "Goals as written",
-      "goal": "rewrite, match and cases work on the goal exactly as the person wrote it, not on a hidden fully-unfolded copy.",
+      "goal": "rewrite, match and cases work on the goal exactly as the person wrote it, not on a hidden, fully unfolded copy.",
       "status": "active",
       "done": [
         "rewrite looks in the goal as written first (SW-1627)",
@@ -16,9 +16,9 @@
         "Design note: bounded readback, goals as written in every search (SW-1712, D2514)"
       ],
       "next": [
-        "Short design note on Opus that bounds unfolded readback by looking at goals as written everywhere, revisiting D484 (D2514); it also unblocks record eta",
-        "Stage 5: rewrite f as one unfolding step of f (SW-1631)",
-        "Recover the 109 'motive unchecked' fallbacks (SW-1654)"
+        "Finish the design note that bounds unfolded readback by making the searches look at goals as written everywhere, revisiting D484 (SW-1712, D2514); it also unblocks record eta",
+        "Stage 5: rewrite f means one unfolding step of f (SW-1631; SW-796 is the same ticket)",
+        "Recover the 109 'motive unchecked' fallbacks (SW-1654), then tidy the stage 4 error cases (SW-1687, SW-1691, SW-1697, SW-1699)"
       ],
       "links": [
         "docs/proposals/goal-as-written.md",
@@ -41,9 +41,9 @@
         "Paused; the design note that unblocks it is being written (SW-1712)"
       ],
       "next": [
-        "Wait for the goals-as-written design note (D2514); the trip-journal example fails because rule 2 computes under binders and the unfolded readback is too large",
+        "Wait for the goals-as-written design note (SW-1712, D2514): the trip-journal example fails because rule 2 computes under binders and the unfolded readback is too large",
         "Finish stage 1b on lane/SW-1642 (SW-1667), then an Opus review",
-        "Unifier eta (SW-1643), then Pair eta (SW-1644) and the clean-up sweep (SW-1645)"
+        "Then unifier eta (SW-1643), Pair eta (SW-1644) and the clean-up sweep (SW-1645); make the term comparisons exhaustive on the way (SW-1668)"
       ],
       "links": [
         "docs/proposals/record-eta.md",
@@ -69,8 +69,8 @@
       "now": [],
       "next": [
         "Quieter light-bulb suggestions on a bare ? (SW-1677)",
-        "Make the lsp features tests fit a lane's budget (SW-1686)",
-        "Case split for header parameters (SW-1499)"
+        "Editor hint on a recursive function: runs as a loop, or a frame per call (SW-1223; Matt said yes in D2315, now that @[tailrec] has landed)",
+        "Case split for header parameters (SW-1499), then types for unused pattern binders (SW-1500)"
       ],
       "links": [
         "docs/proposals/editor-and-playground-roadmap.md",
@@ -93,7 +93,7 @@
       ],
       "now": [],
       "next": [
-        "Day 21 (Allergen Assessment), as an Opus lane, then friction review with Matt",
+        "Day 21 (Allergen Assessment), as an Opus lane, then a friction review with Matt",
         "Day 8 completeness and uniqueness proofs (SW-1426)",
         "Day 15 run time: hoist the per-turn length and cheapen Nat.iterate (SW-1602, SW-1672)"
       ],
@@ -116,9 +116,9 @@
       ],
       "now": [],
       "next": [
-        "Day findings for 2024 days 8-24 that ask for std lemmas (SW-741, SW-745, SW-758, SW-762, SW-771; all in Next)",
-        "Image orientations, compass directions and rays in Aoc.Common (SW-1587, SW-1475)",
-        "Parser guarantees for 2021 and 2024 days (SW-1020, SW-1649)"
+        "Triage the old day-findings tickets (SW-741, SW-745, SW-758, SW-762, SW-771, SW-808, SW-809, SW-816 and SW-954 to SW-999) the way SW-808 was triaged: close what is done, split what is left into small tickets",
+        "Aoc.Common: compass directions and rays (SW-1475), image orientations (SW-1587), a cheaper Position.around (SW-1474)",
+        "Parser guarantees: the 2021 days that prove only value properties (SW-1649), then 2024 and 2025 (SW-1020)"
       ],
       "links": [
         "aoc/NOTES-2021.md",
@@ -142,9 +142,9 @@
       ],
       "now": [],
       "next": [
-        "Parser soundness for the 2021 days that prove only value properties (SW-1649)",
-        "Std lemma for symbol-per-part repetitions to replace three days' copies (SW-1656)",
-        "Per-line specs for section parses (SW-1417)"
+        "Parser soundness for the 2021 days that prove only value properties (SW-1649; days 9, 11 and 15 share a grid parser)",
+        "One std lemma for symbol-per-part repetitions to replace three days' copies (SW-1656), and the innermost-first chainLeft variant (SW-1585)",
+        "Per-line specs for section parses (SW-1417), then tighten withFinalLineBreaks (SW-1419)"
       ],
       "links": [
         "docs/proposals/proofs-about-definitions.md",
@@ -169,9 +169,9 @@
       ],
       "now": [],
       "next": [
-        "f.induct for lifted-match alternatives with a catch-all or literal (SW-1073, in Next)",
-        "Well-founded recursion, the remaining lexicographic cases (SW-199)",
-        "omega: commuted products as one atom, and the t <= |t| facts (SW-1515, SW-1690)"
+        "f.induct for lifted-match alternatives with a catch-all or a literal (SW-1073)",
+        "omega: commuted products as one atom, and the t <= |t| facts so size goals keep their split budget (SW-1515, SW-1690)",
+        "cases: split variables before stuck comparisons (SW-1264); auto: use the proof fields of records in scope (SW-1246, SW-1641)"
       ],
       "links": [
         "docs/proposals/proof-automation.md",
@@ -200,8 +200,8 @@
       "now": [],
       "next": [
         "Brace syntax gaps and error notes (SW-1661, SW-1662, SW-1663)",
-        "Signature defaults stages 1-3 follow-ups (SW-627, SW-622, SW-623)",
-        "Range follow-ups: sections and the O(1) test (SW-1389, SW-1414)"
+        "Ranges step 4: Int ranges chosen by operand type (SW-1360), then the follow-ups: sections and the O(1) test (SW-1389, SW-1414)",
+        "Signature defaults: exported functions take an options object, then constructor field defaults (SW-622, SW-623, follow-ups SW-627)"
       ],
       "links": [
         "docs/syntax.md",
@@ -228,9 +228,9 @@
         "Proposal: should matching on a decision narrow a Bool if (SW-1694)"
       ],
       "next": [
+        "Fix the check that hangs on a theorem whose statement names a large computation: the kernel evaluates a closed statement unfolded (SW-1534)",
         "Postponement: close the two queue gaps and keep the expected type folded (SW-1003, SW-1008, SW-1009)",
-        "Well-founded recursion stages (SW-199)",
-        "Kernel: refine context types lazily at case splits (SW-1066)"
+        "Well-founded recursion: the remaining stage 3 items (SW-199); kernel: refine context types lazily at case splits (SW-1066)"
       ],
       "links": [
         "docs/proposals/elaborator-state.md",
@@ -254,8 +254,8 @@
       "now": [],
       "next": [
         "Missing-case follow-ups: number, Char, Int and Fin misses (SW-1034)",
-        "Message batches: rewrite finds nothing, off-by-one parser lemma, hidden function (SW-1511, SW-1522, SW-1498)",
-        "Print list spreads as written (SW-1469)"
+        "Message batches: rewrite finds nothing, off-by-one parser lemma, a parameter hiding a function (SW-1511, SW-1522, SW-1498)",
+        "Print list spreads as written (SW-1469); stop a match used only for its equation getting W-MATCH-NOT-FOUND (SW-1614)"
       ],
       "links": [
         "docs/proposals/errors.md",
@@ -276,9 +276,9 @@
       ],
       "now": [],
       "next": [
-        "Float laws stages 3-4 (SW-638, SW-639)",
-        "Nat.choose, lcm, Coprime and solveCongruences (SW-1215, SW-1493)",
-        "Text.splitOn characterisation lemmas (SW-1271)"
+        "Float laws: check Float.Model against TestFloat cases (SW-652), then stages 3 and 4 (SW-638, SW-639)",
+        "Nat.lcm, Coprime, Euclid's lemma and solveCongruences; Nat.choose (SW-1493, SW-1215)",
+        "Small signature fixes: Int.ofNatInjective implicit (SW-1425, SW-1560); Text.splitOn, startsWith and endsWith lemmas (SW-1271)"
       ],
       "links": [
         "docs/proposals/std-library.md",
@@ -300,9 +300,9 @@
       ],
       "now": [],
       "next": [
-        "Tutorial part 2 and a feature-tour page for each new language feature",
-        "Guide accuracy: record-literal wording and the rewrite h at h idiom (SW-1616, SW-1546)",
-        "Point the array copy note at the guide (SW-1671)"
+        "Make the guide and syntax.md agree on record literals (SW-1616), and add the rewrite h at h idiom to the proving guide (SW-1546)",
+        "Tutorial part 2, and a feature-tour page for each new language feature",
+        "stitchwort doc lists generated T.ext and f.eq.* declarations properly (SW-1487, SW-1497); point the array copy note at the guide (SW-1671)"
       ],
       "links": [
         "docs/guide/",
@@ -330,8 +330,8 @@
       ],
       "next": [
         "Audit stage 2: --base and minima (SW-1029)",
-        "Slow tests: lsp features, guide test, merge tier (SW-1686, SW-1549, SW-1386)",
-        "Fuzzing: long runs, rewrite-preserving and generated programs (SW-684, SW-686, SW-688, SW-689)"
+        "Slow tests: lsp features (SW-1686, SW-1501), guide test (SW-1549), merge tier (SW-1386)",
+        "Daily-tier follow-ups: re-record the bench baseline and find the rises (SW-1342, SW-1622), report every stale extract snapshot (SW-1703), unsupported natives in the rt harness (SW-1710)"
       ],
       "links": [
         "docs/workflow.md",
@@ -349,13 +349,14 @@
         "Native layout and pointer safety fixes (SW-1122, SW-1124, SW-1157)",
         "Checked @[tailrec] (SW-1222)",
         "Effects ability fixes: pipes, performing comparisons in constructors (SW-1527, SW-1325)",
-        "JS extraction of the examples matches native (SW-1582)"
+        "JS extraction of the examples matches native (SW-1582)",
+        "Natural-form Std.Parse handler is fused on the machine (SW-1087 step 1, commit 01462c09)"
       ],
       "now": [],
       "next": [
-        "Handler fast-path report and differential tests against Koka (SW-1087, SW-1088)",
-        "Cheaper partial calls and tail self-calls as loops (SW-469, SW-470)",
-        "Effect representation change (SW-593) and compiling IO directly in native binaries (SW-562)"
+        "Effectful code that should check but doesn't: an unannotated thunk passed to an effectful parameter, and performing comparisons inside constructors (SW-1605, SW-1332)",
+        "Handler fast-path report, then differential tests against Koka (SW-1087, SW-1088)",
+        "Cheaper partial calls, tail self-calls as loops, and partial callbacks in List.map (SW-469, SW-470, SW-467); later the effect representation (SW-593) and IO compiled directly in native binaries (SW-562)"
       ],
       "links": [
         "docs/proposals/effect-runtime.md",
@@ -378,9 +379,9 @@
       ],
       "now": [],
       "next": [
+        "Array follow-ups from day 15: stop copying the array on every pop, and the JS memory peak (SW-1678, SW-1679)",
         "Interpreter speed: about 6.5 ns per instruction (SW-813) and Map speed (SW-814)",
-        "Language-server edit loop: re-check less than a whole file (SW-1382, SW-1141)",
-        "In-place reuse plan, D2273-D2277 (SW-1163)"
+        "Language-server edit loop: re-check less than a whole file, and the memory of the per-namespace marks (SW-1382, SW-1141); later the in-place reuse plan (SW-1163)"
       ],
       "links": [
         "docs/proposals/arrays.md",
