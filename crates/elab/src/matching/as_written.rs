@@ -53,6 +53,19 @@
 //! instead of the goal unchanged: check 2 sees the difference (`pick x`,
 //! stuck, against `1`), so the `match` refines nothing, as before.
 //!
+//! **When the usual test can't run** (stage 4, D2479). A goal or a
+//! variable's type can be too large to read back unfolded (`solved:
+//! start.settle plan 1000 |> … = Some answer` unfolds a thousand stuck
+//! `if`s, AoC 2020 day 11), and the `match` then fails with `E-RESOURCE`.
+//! Only there, [`unconfirmed`] runs this search without checks 1 and 2,
+//! which need the usual test's result: the variables copied are those
+//! whose types hold an occurrence as written (a `let` only where it is
+//! still there unfolded), and an unfolding too large to build counts as
+//! keeping the occurrence. Check 3 is made as always. The caller warns
+//! (`W-MATCH-UNCONFIRMED`). It is safe because the motive is checked now
+//! and by the kernel; what can go wrong is only a copy hidden inside a
+//! call left unrefined, which makes an arm fail with its own error.
+//!
 //! Lean's rule (abstract what is visible, leave hidden copies) was not taken:
 //! `std`'s `Result.traverseCons` and `List.foldMaxMember` rely on the copy a
 //! `match` refines inside a definition (goal-as-written.md, option B; D2478).
@@ -61,12 +74,13 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use stitchwort_core::{Ev, Icit, Term, Value};
+use stitchwort_syntax::Diagnostic;
 
 use super::{Generalise, Scrut, Skip, free_levels, is_var, same};
 use crate::check::{Ctx, Result};
 use crate::lift::replace_with;
 use crate::rewrite::{Key, key, mentions_bound, search_budget};
-use crate::undo::{Snapshot, fatal};
+use crate::undo::{Snapshot, fatal, recoverable, recovered};
 
 /// What the usual occurrence test made of the `match`, in its context.
 pub(super) struct Today<'a> {
@@ -107,6 +121,8 @@ pub(crate) enum Outcome {
     Failed,
     /// The motive could not be checked now, or is ill-typed.
     Unchecked,
+    /// Found, with the usual test unable to run ([`unconfirmed`]).
+    Unconfirmed,
 }
 
 /// Prints `outcome` for the `match` at `span` when
@@ -135,6 +151,7 @@ fn report_as(what: &str, outcome: Outcome, span: stitchwort_syntax::Span) {
         Outcome::Nothing => "nothing",
         Outcome::Failed => "failed",
         Outcome::Unchecked => "unchecked",
+        Outcome::Unconfirmed => "unconfirmed",
     };
     eprintln!("{what}: {name} at={}", span.start);
 }
@@ -156,7 +173,7 @@ pub(super) fn first(
     let snapshot = Snapshot::take(cx);
     let mut remaining = search_budget(cx);
     let tried = g.machine.budget.limited(&mut remaining, || {
-        search(cx, exprs, today, goal, base, skip)
+        search(cx, exprs, Some(today), goal, base, skip)
     });
     snapshot.restore(cx);
     let outcome = match tried {
@@ -164,17 +181,82 @@ pub(super) fn first(
         Ok(Some(Err(outcome))) => outcome,
         // Over this attempt's own budget.
         Ok(None) => Outcome::Failed,
-        Err(e) if fatal(&e) => return Err(e),
-        Err(_) => Outcome::Failed,
+        // A check too large to make, where the usual test could run: its
+        // result, as before stage 2.
+        Err(e) if fatal(&e) && !recoverable(cx, &e) => return Err(e),
+        Err(_) => {
+            recovered(cx);
+            Outcome::Failed
+        }
     };
     report(outcome, span);
     Ok(None)
 }
 
+/// The generalisation as written when the usual test couldn't run (the
+/// module's "When the usual test can't run"): checks 1 and 2 aren't made.
+/// Whatever it solved or bound is undone.
+pub(super) fn unconfirmed(
+    cx: &mut Ctx,
+    exprs: &[Scrut],
+    goal: &Value,
+    base: usize,
+    skip: Option<Skip>,
+    span: stitchwort_syntax::Span,
+) -> Result<Option<Written>> {
+    let g = cx.g();
+    let snapshot = Snapshot::take(cx);
+    let mut remaining = search_budget(cx);
+    let tried = g
+        .machine
+        .budget
+        .limited(&mut remaining, || search(cx, exprs, None, goal, base, skip));
+    snapshot.restore(cx);
+    let outcome = match tried {
+        Ok(Some(Ok(written))) => return Ok(Some(written)),
+        Ok(Some(Err(outcome))) => outcome,
+        Ok(None) => Outcome::Failed,
+        Err(e) if fatal(&e) && !recoverable(cx, &e) => return Err(e),
+        Err(_) => {
+            recovered(cx);
+            Outcome::Failed
+        }
+    };
+    report(outcome, span);
+    Ok(None)
+}
+
+/// `W-MATCH-UNCONFIRMED`, for a `match` generalised by [`unconfirmed`],
+/// whose (first) scrutinee is at `span`.
+pub(super) fn unconfirmed_warning(span: stitchwort_syntax::Span) -> Diagnostic {
+    Diagnostic::warning(
+        "W-MATCH-UNCONFIRMED",
+        "this `match` refined the goal and hypotheses as they are written, without checking \
+         for copies of its expression hidden inside calls",
+    )
+    .with_label(
+        span,
+        "this is refined where the goal and hypotheses show it",
+    )
+    .with_note(
+        "the goal or a hypothesis is too large once its calls are computed, so the usual \
+         search, over what they compute to, couldn't run",
+    )
+    .with_note(
+        "a copy left inside a call shows up as an error in an arm; the proof itself is \
+         checked in full",
+    )
+    .with_note(
+        "to let the full search run, make the large argument a variable: state a lemma for \
+         any `n`",
+    )
+}
+
+/// Checks 1, 2 and 4 against `today`, or (`None`, [`unconfirmed`]) only 4.
 fn search(
     cx: &mut Ctx,
     exprs: &[Scrut],
-    today: &Today,
+    today: Option<&Today>,
     goal: &Value,
     base: usize,
     skip: Option<Skip>,
@@ -214,14 +296,38 @@ fn search(
         hits: RefCell::new(Vec::new()),
         error: RefCell::new(None),
     };
-    let goal_generalised = finder.generalise(&g, &goal_written)?;
-    let Some(goal_unfolded) = finder.unfolded(&goal_generalised)? else {
-        return Ok(Err(Outcome::Incomplete));
+    // Unfolded, or, without `today`, `Unfolded::TooLarge` where that is too
+    // large to build.
+    let unfold = |finder: &Finder, t: &Term| -> Result<Unfolded> {
+        match finder.unfolded(t) {
+            Ok(Some(t)) => Ok(Unfolded::Term(t)),
+            Ok(None) => Ok(Unfolded::Misshapen),
+            Err(e) if today.is_none() && recoverable(&finder.cx.borrow(), &e) => {
+                recovered(&finder.cx.borrow());
+                Ok(Unfolded::TooLarge)
+            }
+            Err(e) => Err(e),
+        }
     };
+    let hits_since = |finder: &Finder, before: usize| {
+        let mut out = vec![false; e];
+        for &i in &finder.hits.borrow()[before..] {
+            out[i] = true;
+        }
+        out
+    };
+    let goal_generalised = finder.generalise(&g, &goal_written)?;
     // A scrutinee counts as found only where its variable survives
     // unfolding: one found inside a call that drops it (`keep 3 (isBig n)`,
     // with `keep a b := a`) replaces nothing the arms could see.
-    let mut found = finder.survivors(&goal_unfolded);
+    let (goal_unfolded, mut found) = match unfold(&finder, &goal_generalised)? {
+        Unfolded::Term(t) => {
+            let found = finder.survivors(&t);
+            (Some(t), found)
+        }
+        Unfolded::Misshapen => return Ok(Err(Outcome::Incomplete)),
+        Unfolded::TooLarge => (None, hits_since(&finder, 0)),
+    };
     // The variables to copy: exactly those the usual test copies, plus,
     // never a `let` (a copy forgets its value, SW-1628 review), one whose
     // type unfolded still holds a scrutinee's variable (an occurrence the
@@ -229,26 +335,38 @@ fn search(
     // whose unfolded type mentions such a copy, as the usual test's rule for
     // dependents reads it. A hit that vanishes on unfolding copies nothing.
     let mut copied: Vec<(usize, Term)> = Vec::new();
-    let mut unfolded_types: Vec<Term> = Vec::new();
+    let mut unfolded_types: Vec<Option<Term>> = Vec::new();
     for (l, ty) in types_written.iter().enumerate() {
         let Some(ty) = ty else { continue };
         if !unrefined[l] {
             continue;
         }
-        let todays = today.copied.contains(&l);
+        let todays = today.is_some_and(|today| today.copied.contains(&l));
         let before = finder.hits.borrow().len();
         let generalised = finder.generalise(&g, ty)?;
         let hit = finder.hits.borrow().len() > before;
-        let depends = free_levels(&today.type_terms[l], base)
+        // Without the usual test, by the type as written: its calls show
+        // their arguments, where the unfolding's variables come from.
+        let depends = free_levels(today.map_or(ty, |today| &today.type_terms[l]), base)
             .iter()
             .any(|f| copied.iter().any(|(c, _)| c == f));
-        if !todays && (is_let[l] || (!hit && !depends)) {
+        // Without the usual test a `let` is copied like any variable where
+        // its type still holds a scrutinee unfolded (below), as the usual
+        // test copies it.
+        if !todays && ((is_let[l] && today.is_some()) || (!hit && !depends)) {
             continue;
         }
-        let Some(unfolded) = finder.unfolded(&generalised)? else {
-            return Ok(Err(Outcome::Incomplete));
+        let (unfolded, survivors) = match unfold(&finder, &generalised)? {
+            Unfolded::Term(t) => {
+                let survivors = finder.survivors(&t);
+                (Some(t), survivors)
+            }
+            Unfolded::Misshapen => return Ok(Err(Outcome::Incomplete)),
+            // Not known to survive: a `let` keeps its value, and anything
+            // else is copied.
+            Unfolded::TooLarge if is_let[l] => continue,
+            Unfolded::TooLarge => (None, hits_since(&finder, before)),
         };
-        let survivors = finder.survivors(&unfolded);
         if !todays && !depends && !survivors.iter().any(|&s| s) {
             continue;
         }
@@ -270,6 +388,20 @@ fn search(
     }) {
         return Ok(Err(Outcome::Incomplete));
     }
+    let Some(today) = today else {
+        return Ok(Ok(Written {
+            goal: goal_generalised,
+            copied,
+            found,
+            outcome: Outcome::Unconfirmed,
+        }));
+    };
+    let (Some(goal_unfolded), Some(unfolded_types)) = (
+        goal_unfolded,
+        unfolded_types.into_iter().collect::<Option<Vec<_>>>(),
+    ) else {
+        unreachable!("only too large without the usual test")
+    };
     let todays_found = !today.copied.is_empty()
         || (today.occurrences.iter().flatten()).any(|n| super::occurs(n, today.goal_term));
     // Check 2, on the goal and every copy's type.
@@ -297,6 +429,15 @@ fn search(
             false => Outcome::Rescued,
         },
     }))
+}
+
+/// A generalised target read back unfolded, in [`search`].
+enum Unfolded {
+    Term(Term),
+    /// The read-back isn't the shape it should be.
+    Misshapen,
+    /// Too large to build (only looked past without the usual test).
+    TooLarge,
 }
 
 /// SW-1562, goal-as-written.md stage 3: for the transport along a named
