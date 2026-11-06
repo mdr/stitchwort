@@ -42,13 +42,14 @@ theorem backwardWrap: (size: Nat) → (x: Nat) → x < size →
 
 --| A step that adds `distance` and wraps, taken `times` times, adds
 --| `times * distance` and wraps.
-theorem iterateWrap (size: Nat) (ok: size ≠ 0) (distance: Int) (step: Nat → Nat)
+theorem iterateWrap (size: Nat) (distance: Int) (step: Nat → Nat)
     (wraps: (x: Nat) → x < size → step x = Int.modNat (x.toInt + distance) size):
     (times: Nat) → (x: Nat) → x < size → times.iterate step x = Int.modNat (x.toInt + times.toInt * distance) size
   | Zero, x, inside =>
     rewrite (ring: x.toInt + Nat.toInt 0 * distance = x.toInt) in Eq.sym (modNatSmall size x inside)
   | Succ times, x, inside =>
+    let ok: size ≠ 0 := omega
     let stepInside: step x < size := rewrite wraps x inside in Int.modNatLt (x.toInt + distance) size [ok := ok]
-    rewrite iterateWrap size ok distance step wraps times (step x) stepInside, wraps x inside,
+    rewrite iterateWrap size distance step wraps times (step x) stepInside, wraps x inside,
       Int.modNatModAdd (x.toInt + distance) (times.toInt * distance) size [ok := ok],
       (ring: x.toInt + distance + times.toInt * distance = x.toInt + (Succ times).toInt * distance)
