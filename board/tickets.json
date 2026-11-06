@@ -11296,13 +11296,13 @@
     {
       "id": 1637,
       "title": "Arrays stage 1+2 (arrays.md): std Array a (record around a list) with get/getOr/getLt/set/size/push… and lemmas; hash-bound natives taking owned arguments; in-place set when unshared; copy counter; all-or-nothing E-BUILTIN binding; measure 2020 day 15 and day 11 (D2459-D2465, D2468)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1637",
       "labels": [
         "runtime"
       ],
-      "body": "D2459-D2468 (Matt, 6 Nov 2026): all as recommended in docs/proposals/arrays.md: Array a = a std record around a list (no kernel change); no length in the type for now; in place when unshared on the interpreter/native; version arrays in JS; a copy counter with an end-of-run note; all-or-nothing loud native binding (E-BUILTIN); API get → Option, getOr, getLt with auto, out-of-range set leaves it unchanged, nothing panics; back Aoc.Common's grid lookups with arrays, std Grid later; packed buffers only if measured; staging: type + natives + in place together, then JS, then docs. Opus (runtime ownership, natives), expected: 180 min.",
+      "body": "D2459-D2468 (Matt, 6 Nov 2026): all as recommended in docs/proposals/arrays.md: Array a = a std record around a list (no kernel change); no length in the type for now; in place when unshared on the interpreter/native; version arrays in JS; a copy counter with an end-of-run note; all-or-nothing loud native binding (E-BUILTIN); API get → Option, getOr, getLt with auto, out-of-range set leaves it unchanged, nothing panics; back Aoc.Common's grid lookups with arrays, std Grid later; packed buffers only if measured; staging: type + natives + in place together, then JS, then docs. Opus (runtime ownership, natives), expected: 180 min.\n\nStarted on Opus, expected: 180 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11366,13 +11366,13 @@
     {
       "id": 1642,
       "title": "Record eta stage 1 (record-eta.md): kernel primitive projections without parameters, eta rules 1 and 2 for single-constructor non-recursive types in Type with a non-proof field (D1981), must-reject tests (§14); 2021 day 13 Picture.sw:45 becomes rfl; profile rule 2's cost (D2498, D2499, D2504)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1642",
       "labels": [
         "kernel"
       ],
-      "body": "D2498-D2505 (Matt, 6 Nov 2026): all as recommended in docs/proposals/record-eta.md: kernel record eta with primitive projections (no parameters) and the two rules; eta by shape incl. Pair; no no-eta opt-out now; no eta for interface dictionaries; accept goals changing shape; keep T.ext; accept ~5% checking cost (profile it); staged kernel (Opus), unifier, Pair, clean-up sweep (Sonnet). Opus, expected: 180 min.",
+      "body": "D2498-D2505 (Matt, 6 Nov 2026): all as recommended in docs/proposals/record-eta.md: kernel record eta with primitive projections (no parameters) and the two rules; eta by shape incl. Pair; no no-eta opt-out now; no eta for interface dictionaries; accept goals changing shape; keep T.ext; accept ~5% checking cost (profile it); staged kernel (Opus), unifier, Pair, clean-up sweep (Sonnet). Opus, expected: 180 min.\n\nStarted on Opus, expected: 180 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
