@@ -34,6 +34,15 @@ def grade (score: Nat): Text :=
   else "D"
 -- end if-chain
 
+-- begin leading-operator
+def validScore (score: Nat): Bool :=
+  0 <= score
+  && score <= 100
+  && score != 13
+-- end leading-operator
+
+test "a line may start with an operator" := validScore 50 && !validScore 13
+
 -- begin interpolation
 def summary (name: Text) (items: List Nat): Text :=
   "${name} bought ${items.length} items: ${items}, costing ${items.sum}"

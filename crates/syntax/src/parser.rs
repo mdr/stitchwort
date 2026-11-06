@@ -780,6 +780,18 @@ impl<'t> Parser<'t> {
                 .get(i)
                 .is_some_and(|t| t.line_start && t.column <= limit)
             && !self.continues_bracket(i)
+            && !self.continues_with_operator(i, limit)
+    }
+
+    /// Whether the token at `i`, starting a line at the block's own column
+    /// `limit`, is an infix operator that continues the statement above, as
+    /// if that line ended with it. Only operators that can't begin an
+    /// expression qualify: `-` and `!` (negation), `|` (an arm), `in` (which
+    /// ends a `let` or a `rewrite` target) and `=>` are left out.
+    fn continues_with_operator(&self, i: usize, limit: u32) -> bool {
+        self.tokens
+            .get(i)
+            .is_some_and(|t| t.column == limit && self.is_infix_only(&t.tok))
     }
 
     /// Whether the token at `i` is the `in` (or, in a rule, the `at`) that
@@ -945,6 +957,56 @@ impl<'t> Parser<'t> {
         }
     }
 
+    /// `token` as the source wrote it: the Unicode spelling of an operator
+    /// (`∧`) shares its token with the ASCII one (`&&`), and the span's
+    /// length tells them apart.
+    fn spelled(&self, token: &Token) -> String {
+        let unicode = match token.tok {
+            Tok::AndAnd => "∧",
+            Tok::OrOr => "∨",
+            Tok::Arrow => "→",
+            Tok::Iff => "↔",
+            Tok::NotEq => "≠",
+            Tok::Le => "≤",
+            Tok::Ge => "≥",
+            Tok::Bang => "¬",
+            Tok::KwIn => "∈",
+            Tok::NotIn => "∉",
+            Tok::KwExists => "∃",
+            _ => return describe(&token.tok),
+        };
+        let ascii = describe(&token.tok);
+        if (token.span.end - token.span.start) as usize == ascii.len() - 2 {
+            ascii
+        } else {
+            format!("`{unicode}`")
+        }
+    }
+
+    /// Whether `tok` is an infix operator that no expression starts with.
+    fn is_infix_only(&self, tok: &Tok) -> bool {
+        matches!(
+            tok,
+            Tok::AndAnd
+                | Tok::OrOr
+                | Tok::Iff
+                | Tok::Arrow
+                | Tok::Equals
+                | Tok::EqEq
+                | Tok::NotEq
+                | Tok::Lt
+                | Tok::Le
+                | Tok::Gt
+                | Tok::Ge
+                | Tok::Plus
+                | Tok::PlusPlus
+                | Tok::Star
+                | Tok::Slash
+                | Tok::Percent
+                | Tok::NotIn
+        )
+    }
+
     fn unexpected(&self, expected: &str) -> Diagnostic {
         if !self.is_stop(self.pos) && self.tokens.get(self.pos).map(|t| &t.tok) == Some(&Tok::At) {
             return Diagnostic::error("E-ATTRIBUTE", "attributes can't be written here")
@@ -953,16 +1015,26 @@ impl<'t> Parser<'t> {
         }
         let found = match self.tokens.get(self.pos) {
             Some(token) if self.is_stop(self.pos) => {
-                return error(
+                let diagnostic = error(
                     self.here(),
                     format!(
-                        "expected {expected}, but the line starting with {} is at or left of \
-                         the enclosing block's column, so it starts a new statement",
-                        describe(&token.tok)
+                        "expected {expected}, but the line starting with {} (in column {}) is at or \
+                         left of the enclosing block's column ({}), so it starts a new statement",
+                        self.spelled(token),
+                        token.column + 1,
+                        self.limit.map_or(0, |l| l + 1)
                     ),
                 );
+                return if self.is_infix_only(&token.tok) {
+                    diagnostic.with_note(
+                        "to continue the expression on the line above, indent this line \
+                         further than the block's column",
+                    )
+                } else {
+                    diagnostic
+                };
             }
-            Some(token) => format!("found {}", describe(&token.tok)),
+            Some(token) => format!("found {}", self.spelled(token)),
             None => "reached the end of the declaration".to_string(),
         };
         let found_arrow = self
@@ -7884,6 +7956,32 @@ mod tests {
             pipe_body("  x\n    |> .map f\n    |> .sum = y"),
             "(Eq (x.map f).sum y)"
         );
+    }
+
+    #[test]
+    fn a_line_starting_with_an_infix_operator_continues_the_statement() {
+        let want = "(And a (And b c))";
+        // Deeper than the block, and at the block's own column.
+        assert_eq!(pipe_body("  a\n    && b\n    && c"), want);
+        assert_eq!(pipe_body("  a\n  && b\n  && c"), want);
+        assert_eq!(pipe_body("  a && b\n  ∧ c"), want);
+        assert_eq!(pipe_body("  a\n  ∧ b\n    ∧ c"), want);
+        assert_eq!(pipe_body("  a\n  + b\n  * c"), "(Add a (Mul b c))");
+        assert_eq!(pipe_body("  a\n  = b"), "(Eq a b)");
+        // A `let` value stays on its line; the next line is the body.
+        assert_eq!(pipe_body("  let y := a\n  y\n  ∨ b"), "(let y a (Or y b))");
+    }
+
+    #[test]
+    fn a_line_starting_with_an_ambiguous_operator_is_a_new_statement() {
+        // `-` and `!` can start an expression, so at the block's column they
+        // begin a statement (negation), as they always did.
+        for line in ["-b", "!b"] {
+            let body = rhs_of(&format!("def g (x : Nat) : Nat :=\n  a\n  {line}\n")).unwrap();
+            assert!(matches!(body, Expr::Seq(..)), "{line}");
+        }
+        // Left of the block's column an operator is still an error.
+        assert!(rhs_of("def g (x : Nat) : Nat :=\n   a\n  ∧ b\n").is_err());
     }
 
     #[test]
