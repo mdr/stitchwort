@@ -34,7 +34,7 @@ type Email = { value: Text, valid: Email.isValid value = True }
 
 -- The smart constructor: the only way to get an `Email` from arbitrary text.
 def Email.parse (t: Text): Option Email :=
-  if h: Email.isValid t = True then Some ({ value = t, valid = h }) else None
+  if h: Email.isValid t = True then Some { value = t, valid = h } else None
 
 -- The same check for code that may fail, with a message.
 def Email.parseOrFail (t: Text): {Fail} Email :=

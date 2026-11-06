@@ -204,7 +204,7 @@ def Coords.toPoint (coords: Coords YDown): Option Point :=
     | Some x =>
       match coords.y.toNatChecked with
         | None => None
-        | Some y => Some ({ x, y })
+        | Some y => Some { x, y }
 
 --| The step across a grid as `Coords YDown`: `x` the columns and `y` the
 --| rows, `y` down as rows are.

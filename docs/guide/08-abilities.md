@@ -179,7 +179,7 @@ def Turn.parse (text: Text): {Fail} Turn :=
 
 def parseTurns (lines: List Text): {Fail} List Turn := lines.map Turn.parse
 
-test "a turn" := toResult (() => Turn.parse "L68") == Ok ({ left = True, distance = 68 })
+test "a turn" := toResult (() => Turn.parse "L68") == Ok { left = True, distance = 68 }
 test "a bad turn" := toResult (() => parseTurns ["L1", "X2"]) == Err "expected L or R, got 'X2'"
 test "context" := toResult (() => Fail.context "line 2" (() => Turn.parse "R")) == Err "line 2: expected a whole number, got ''"
 ```

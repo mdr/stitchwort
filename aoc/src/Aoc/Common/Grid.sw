@@ -56,13 +56,13 @@ def Position.step (position: Position): Direction → Option Position
   | Up =>
     match position.row with
       | Zero => None
-      | Succ above => Some ({ position | row = above })
-  | Right => Some ({ position | column = position.column + 1 })
-  | Down => Some ({ position | row = position.row + 1 })
+      | Succ above => Some { position | row = above }
+  | Right => Some { position | column = position.column + 1 }
+  | Down => Some { position | row = position.row + 1 }
   | Left =>
     match position.column with
       | Zero => None
-      | Succ before => Some ({ position | column = before })
+      | Succ before => Some { position | column = before }
 
 --| The positions one step up, right, down and left: two to four of them.
 def Position.neighbours (position: Position): List Position := directions.filterMap position.step

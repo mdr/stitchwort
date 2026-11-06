@@ -85,9 +85,9 @@ test "wire names" :=
 
 test "wire names back" := [X 0, Y 7, Z 45, Other "abc"].map .name == ["x00", "y07", "z45", "abc"]
 
-test "parse a gate" := onDevice smallText (device => device.gates.headOr { left = X 9, operation = Or, right = X 9, output = X 9 }) == Ok ({ left = X 0, operation = And, right = Y 0, output = Z 0 })
+test "parse a gate" := onDevice smallText (device => device.gates.headOr { left = X 9, operation = Or, right = X 9, output = X 9 }) == Ok { left = X 0, operation = And, right = Y 0, output = Z 0 }
 
-test "parse without a final line break" := parsed "x00: 1\n\nx00 OR x00 -> z00" == Ok ({ initial = [(X 0, True)], gates = [{ left = X 0, operation = Or, right = X 0, output = Z 0 }] })
+test "parse without a final line break" := parsed "x00: 1\n\nx00 OR x00 -> z00" == Ok { initial = [(X 0, True)], gates = [{ left = X 0, operation = Or, right = X 0, output = Z 0 }] }
 
 test "a bad value" := parsed "x00: 2\n\nx00 OR x00 -> z00\n" == Err "line 1, column 6: expected 0 or 1, got '2'"
 

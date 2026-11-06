@@ -22,11 +22,11 @@ def exampleLists: Result LocationLists Text := parsed example
 
 test "example, part 1" := exampleLists.map solvePart1 == Ok 11
 test "example, part 2" := exampleLists.map solvePart2 == Ok 31
-test "parse the example" := exampleLists == Ok ({ left = [3, 4, 2, 1, 3, 3], right = [4, 3, 5, 3, 9, 3] })
+test "parse the example" := exampleLists == Ok { left = [3, 4, 2, 1, 3, 3], right = [4, 3, 5, 3, 9, 3] }
 test "a line with one id" := parsed "3   4\n5" == Err "line 2, column 2: expected a number, got the end of the line"
 test "a line with three ids" := parsed "3 4 5" == Err "line 1, column 5: expected the end of the line, got '5'"
 test "a line that isn't numbers" := parsed "3   x" == Err "line 1, column 5: expected a number, got 'x'"
-test "no lines" := parsed "" == Ok ({ left = [], right = [] })
+test "no lines" := parsed "" == Ok { left = [], right = [] }
 test "an id missing from the right list scores 0" := solvePart2 { left = [7], right = [1, 2] } == 0
 test "a repeated left id scores each time" := solvePart2 { left = [2, 2], right = [2, 2, 2] } == 12
 test "lists of different lengths pair the shorter" := solvePart1 { left = [5, 1], right = [2] } == 1

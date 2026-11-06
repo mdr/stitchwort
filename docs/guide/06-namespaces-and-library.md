@@ -133,7 +133,7 @@ import Std (Fail, Map)
 
 def read (line: Text): Result Order Text := Fail.toResult (() => Order.read line)
 
-test "reads an order" := read "tea 3" == Ok ({ product = "tea", quantity = 3 })
+test "reads an order" := read "tea 3" == Ok { product = "tea", quantity = 3 }
 test "refuses a bad quantity" := read "tea lots" == Err "expected a quantity, got 'lots'"
 test "prices an order" := ({ product = "milk", quantity = 2 }: Order).price == Some 180
 test "an unknown product has no price" := ({ product = "cake", quantity = 1 }: Order).price == None

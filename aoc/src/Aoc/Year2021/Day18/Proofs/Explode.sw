@@ -9,7 +9,7 @@ import Std (Eq, Exists, List, Nat, Option, Void)
 
 --| What `firstDeep` finds after `xs`, if `xs` has nothing deep.
 def shift (xs: List Leaf): Option Exploding → Option Exploding
-  | Some found => Some ({ found | before = xs ++ found.before })
+  | Some found => Some { found | before = xs ++ found.before }
   | None => None
 
 theorem shiftAppend (xs: List Leaf) (ys: List Leaf): (found: Option Exploding) → shift xs (shift ys found) = shift (xs ++ ys) found
@@ -59,7 +59,7 @@ theorem explodeNoneShallow: (depth: Nat) → (number: Number) → explode depth 
 --| side, are the spec's explosion, whatever is on each side.
 def Found (depth: Nat) (number: Number) (exploded: Explosion): Prop :=
   ∃ (found: Exploding) =>
-    ((rest: List Leaf) → firstDeep (leaves depth number ++ rest) = Some ({ found | after = found.after ++ rest }))
+    ((rest: List Leaf) → firstDeep (leaves depth number ++ rest) = Some { found | after = found.after ++ rest })
       ∧ ((before: List Leaf) → (rest: List Leaf) →
         addToLast exploded.toLeft before ++ leaves depth exploded.number ++ addToFirst exploded.toRight rest
           = addToLast found.left.value (before ++ found.before) ++ [{ value = 0, depth = found.left.depth - 1 }, ..addToFirst found.right.value (found.after ++ rest)])

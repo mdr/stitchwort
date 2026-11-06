@@ -10,7 +10,7 @@ import Aoc.Year2024.Day06.Spec (..)
 import Std (And, Bool, DecEq, Decidable, Eq, Exists, Iff, List, Map, Nat, Not, Option, Or, Set, Void)
 
 theorem stepMoves (lab: Lab) (guard: Guard) (ahead: Position) (inFront: lab.ahead guard = Some ahead) (blocked: lab.obstructions.contains ahead = False):
-    lab.step guard = Some ({ guard | position = ahead }) :=
+    lab.step guard = Some { guard | position = ahead } :=
   rewrite inFront, blocked in rfl
 
 --| An obstruction changes nothing about what is ahead.

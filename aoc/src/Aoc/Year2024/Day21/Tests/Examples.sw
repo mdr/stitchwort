@@ -86,7 +86,7 @@ def pushed (code: Code) (done: Nat): (aims: List Position) → (key: DirectionKe
   | [aim], Arrow direction =>
     moved aim direction |> .flatMap (next => keyAt numericRows next |> .map (found => { aims = [next], done }))
   | [aim], Activate =>
-    keyAt numericRows aim |> .flatMap (found => if code.get done == Some found then Some ({ aims = [aim], done = done + 1 }) else None)
+    keyAt numericRows aim |> .flatMap (found => if code.get done == Some found then Some { aims = [aim], done = done + 1 } else None)
   | [aim, below, ..others], Arrow direction =>
     moved aim direction |> .flatMap (next => keyAt directionalRows next |> .map (found => { aims = [next, below, ..others], done }))
   | [aim, below, ..others], Activate =>

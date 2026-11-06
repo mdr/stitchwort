@@ -29,10 +29,10 @@ def Move.points: Move → Nat
 def move (maze: Maze) (reindeer: Reindeer): Move → Option Reindeer
   | Forward =>
     match reindeer.position.step reindeer.facing.toDirection with
-      | Some next => if maze.isOpen next then Some ({ reindeer | position = next }) else None
+      | Some next => if maze.isOpen next then Some { reindeer | position = next } else None
       | None => None
-  | Clockwise => Some ({ reindeer | facing = reindeer.facing.turnRight })
-  | Counterclockwise => Some ({ reindeer | facing = reindeer.facing.turnLeft })
+  | Clockwise => Some { reindeer | facing = reindeer.facing.turnRight }
+  | Counterclockwise => Some { reindeer | facing = reindeer.facing.turnLeft }
 
 --| How the reindeer stands before each move and after the last; `None` if a
 --| move runs into a wall.

@@ -53,7 +53,7 @@ type Bus = { id: Nat, offset: Nat }
 
 def Slot.bus (slot: Slot) (offset: Nat): Option Bus :=
   match slot with
-    | Listed id => Some ({ id, offset })
+    | Listed id => Some { id, offset }
     | OutOfService => None
 
 def Notes.buses (notes: Notes): List Bus := notes.schedule.withIndex.filterMap (((offset, slot)) => slot.bus offset)

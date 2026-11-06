@@ -50,6 +50,6 @@ test "braces as the next argument after a constructor" :=
 
 -- Inside a list, with the bracketed form still working.
 def items: List (Option Item) :=
-  [Some { name = "tea", price = 3 }, Some ({ name = "cake", price = 5 }), None]
+  [Some { name = "tea", price = 3 }, Some { name = "cake", price = 5 }, None]
 
 test "both spellings" := items.length == 3

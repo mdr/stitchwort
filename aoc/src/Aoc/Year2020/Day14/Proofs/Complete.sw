@@ -28,7 +28,7 @@ theorem runsInstruction (read: List Char) (item: Instruction) (written: Instruct
                       (Parse.runsOptional (() => Parse.text "mask = ") "mask = ".toList (symbols ++ []) () (Parse.runsText "mask = " (symbols ++ [])))
                       (Parse.runsBind (() => Parse.exactly 36 maskBit) _ symbols [] symbols [] bits _ (Eq.sym (List.appendNil symbols))
                         (rewrite <- joined, <- valued in Parse.runsExactly 36 maskBit steps ([] ++ []) (Eq.trans counted count) stepsRun)
-                        (Parse.runsPure (SetMask ({ bits })) []))
+                        (Parse.runsPure (SetMask { bits }) []))
     | Write address value =>
       match written with
         | Witness addressRead (Witness valueRead (Both split (Both (Both aSome (Both aAll aValue)) (Both vSome (Both vAll vValue))))) =>
