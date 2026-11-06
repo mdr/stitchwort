@@ -3,6 +3,7 @@
 --| `Spec.InstructionWritten` says.
 
 namespace Aoc.Year2020.Day12.Proofs
+import Aoc.Common (Heading)
 import Aoc.Year2020.Day12 (..)
 import Aoc.Year2020.Day12.Spec (ActionWritten, InstructionWritten)
 import Std (Bool, Char, Fail, List, Parse, Result, Text, Void)

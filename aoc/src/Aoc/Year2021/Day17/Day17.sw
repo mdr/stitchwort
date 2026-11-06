@@ -8,7 +8,9 @@
 --|
 --|   $ cd aoc && stitchwort run Aoc.Year2021.Day17.main < inputs/2021/day17.txt
 --|
---| The puzzle input is committed in aoc/inputs/2021/.
+--| The puzzle input is committed in aoc/inputs/2021/. Positions and
+--| velocities are `Coords YUp` (Aoc.Common): `y` goes up, so gravity lowers
+--| it; `dx` and `dy` in the comments are a velocity's `x` and `y`.
 --|
 --| The program tries every velocity in a box and simulates each for a
 --| bounded number of steps, stopping early once the probe is past the target
@@ -20,6 +22,7 @@
 --| tests are in `Aoc.Year2021.Day17.Tests` (Tests/). `run` checks neither.
 
 namespace Aoc.Year2021.Day17
+import Aoc.Common (Box, Coords, YUp)
 import Std (Fail, IO, Int, List, Nat, Parse)
 import Std.Parse (int, text)
 
@@ -29,14 +32,14 @@ def main(): {IO, Fail} () :=
   IO.print "Part 2: ${solvePart2 target}"
 
 --| The target area: x from `left` to `right`, y from `bottom` to `top`,
---| each end included.
-type Target = { left: Int, right: Int, bottom: Int, top: Int }
+--| each end included. `y` goes up, so the top has the larger `y`.
+type Target = Box YUp
 
---| A launch velocity.
-type Velocity = { dx: Int, dy: Int }
+--| A launch velocity: `x` to the right and `y` up, a step per second.
+type Velocity = Coords YUp
 
 --| The probe: where it is, and its velocity.
-type Probe = { x: Int, y: Int, dx: Int, dy: Int }
+type Probe = { position: Coords YUp, velocity: Velocity }
 
 --| `target area: x=20..30, y=-10..-5`. Fails unless the target is right of
 --| the start and below it (`0 < left`, `top < 0`), as the puzzle's targets
@@ -52,30 +55,31 @@ def readTarget(): {Parse} Target :=
   let bottom := int()
   text ".."
   let top := int()
-  { left, right, bottom, top }
+  { low = { x = left, y = bottom }, high = { x = right, y = top } }
 
 def checkTarget (target: Target): {Fail} Target :=
   if placed target then target else Fail.fail "the target must be right of the start and below it"
 
 def placed (target: Target): Bool := 0 < target.left ∧ target.top < 0
 
-def launch (velocity: Velocity): Probe := { x = 0, y = 0, dx = velocity.dx, dy = velocity.dy }
+def launch (velocity: Velocity): Probe := { position = Coords.zero, velocity }
 
-def step (probe: Probe): Probe :=
-  { x = probe.x + probe.dx, y = probe.y + probe.dy, dx = probe.dx - probe.dx.sign, dy = probe.dy - 1 }
+def step (probe: Probe): Probe := {
+  position = probe.position.plus probe.velocity,
+  velocity = { x = probe.velocity.x - probe.velocity.x.sign, y = probe.velocity.y - 1 }
+}
 
-def inTarget (target: Target) (probe: Probe): Bool :=
-  target.left ≤ probe.x ≤ target.right ∧ target.bottom ≤ probe.y ≤ target.top
+def inTarget (target: Target) (probe: Probe): Bool := target.contains probe.position
 
 --| Past the target for good: right of it and not moving left, left of it
 --| and not moving right, or below it and falling.
 def past (target: Target) (probe: Probe): Bool := overshot target probe ∨ short target probe ∨ fallen target probe
 
-def overshot (target: Target) (probe: Probe): Bool := target.right < probe.x ∧ 0 ≤ probe.dx
+def overshot (target: Target) (probe: Probe): Bool := target.right < probe.position.x ∧ 0 ≤ probe.velocity.x
 
-def short (target: Target) (probe: Probe): Bool := probe.x < target.left ∧ probe.dx ≤ 0
+def short (target: Target) (probe: Probe): Bool := probe.position.x < target.left ∧ probe.velocity.x ≤ 0
 
-def fallen (target: Target) (probe: Probe): Bool := probe.y < target.bottom ∧ probe.dy < 0
+def fallen (target: Target) (probe: Probe): Bool := probe.position.y < target.bottom ∧ probe.velocity.y < 0
 
 --| Whether the probe is in the target within `steps` more steps.
 def hitsWithin (target: Target): Nat → Probe → Bool
@@ -96,7 +100,7 @@ def candidates (target: Target): List Velocity :=
     |> .flatMap (i => List.range 0 (steps target) |> .map (aimed target i))
 
 --| The `i`th x velocity from 1 and the `j`th y velocity from `bottom`.
-def aimed (target: Target) (i: Nat) (j: Nat): Velocity := { dx = i.toInt + 1, dy = target.bottom + j.toInt }
+def aimed (target: Target) (i: Nat) (j: Nat): Velocity := { x = i.toInt + 1, y = target.bottom + j.toInt }
 
 def hitting (target: Target): List Velocity := candidates target |> .filter (v => hitsWithin target (steps target) (launch v))
 
@@ -107,7 +111,7 @@ def triangle: Nat → Nat
 
 --| The highest y a velocity reaches: thrown up at `dy`, the probe climbs
 --| `dy`, then `dy - 1`, …, then 1; thrown flat or down, it never rises.
-def peak (velocity: Velocity): Nat := triangle velocity.dy.toNat
+def peak (velocity: Velocity): Nat := triangle velocity.y.toNat
 
 def solvePart1 (target: Target): Option Nat := (hitting target).maximumOf peak
 
