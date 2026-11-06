@@ -706,10 +706,14 @@ test("a ? program shows its open goals in a Goals section", async (page) => {
   await page.untilStatus("1 goal open");
   let s = await shown();
   assert.deepEqual(s.headings, ["Goals (1 open)"]);
-  assert.match(s.goals, /^\[GOAL\] Goal:/);
+  assert.match(s.goals, /^in `two_is_two`\n⊢ two = 2/);
   assert.match(s.goals, /⊢ two = 2/);
   assert.equal(s.errors, null);
   assert.doesNotMatch(s.output, /Every definition type-checks/);
+  // A goal with names in scope lists them (the server's message carries the context).
+  await page.setSource("theorem plus_zero (n : Nat) : n + 0 = n := ?\n");
+  await page.untilStatus("1 goal open");
+  assert.match((await shown()).goals, /^in `plus_zero`\nn: Nat\n⊢ /);
   // Beside an error: the goals come first, the errors in their own box.
   await page.setSource("def two : Nat := 2\n\ntheorem two_is_two : two = 2 := ?\n\ndef bad : Nat := rfl\n");
   await page.untilStatus("Doesn’t check");
@@ -724,6 +728,83 @@ test("a ? program shows its open goals in a Goals section", async (page) => {
   await page.setSource("def two : Nat := 2\n\ntheorem two_is_two : two = 2 := rfl\n");
   await page.untilChecked();
   assert.equal((await shown()).goals, null);
+});
+
+test("the goals panel shows the goal at the cursor, and follows it", async (page) => {
+  const panel = () => page.ev(`(() => { const p = document.getElementById("goalpanel"); return p.hidden ? null : p.innerText; })()`);
+  const caretAt = (needle) => page.ev(`(() => { const e = window.editor; e.focus(); const i = e.value.indexOf(${JSON.stringify(needle)}); e.setSelectionRange(i, i); return i; })()`);
+  await page.open();
+  await page.untilChecked();
+  assert.equal(await panel(), null, "no panel for a program without goals");
+  const text = "def two : Nat := 2\n\ntheorem two_is_two : two = 2 := ?\n";
+  await page.setSource(text);
+  await page.untilStatus("1 goal open");
+  // Off the goal: the panel is there (the file has a goal) and says so.
+  await caretAt("def two");
+  await page.until(`document.getElementById("goalpanel").innerText.includes("No goal at the cursor")`, 30000, "the panel to say there is no goal here");
+  // On the `?`.
+  await caretAt("?");
+  await page.until(`document.getElementById("goalpanel").innerText.includes("⊢ two = 2")`, 30000, "the goal at the ?");
+  assert.match(await panel(), /two_is_two/);
+  // The Check output keeps its Goals list.
+  assert.match(await page.ev(`document.querySelector("#output pre.goals")?.textContent ?? ""`), /⊢ two = 2/);
+  // Filled in: no goal, no panel.
+  await page.setSource("def two : Nat := 2\n\ntheorem two_is_two : two = 2 := rfl\n");
+  await page.untilChecked();
+  await page.until(`document.getElementById("goalpanel").hidden`, 30000, "the panel to go");
+});
+
+test("Share puts the program in the link, and opening it keeps the person's own work", async (page) => {
+  const snippet = "def three : Nat := 3\n\ntheorem three_is_three : three = 3 := rfl\n";
+  const mine = "def mine : Nat := 1\n";
+  await page.open();
+  await page.untilChecked();
+  await page.setSource(snippet);
+  await page.click("#share");
+  await page.until(`/^#s\\//.test(location.hash)`, 10000, "the link in the address bar");
+  const hash = await page.ev(`location.hash`);
+  assert.match(await page.ev(`document.getElementById("link-notice").textContent`), /Link copied|address bar/);
+  // The person's own work is something else.
+  await page.setSource(mine);
+  await page.untilChecked();
+  // From a blank page: the address is the same one, and a same-document navigation would not load it.
+  const openLink = async (link) => { await page.send("Page.navigate", { url: "about:blank" }); await page.open({ hash: link }); };
+  await openLink(hash);
+  await page.until(`window.editor.value === ${JSON.stringify(snippet)}`, 30000, "the shared text in the editor");
+  assert.match(await page.ev(`document.getElementById("banner").innerText`), /shared link/);
+  await page.untilChecked();
+  // Opening the link did not replace the saved draft.
+  assert.equal(await page.ev(`localStorage.getItem("stitchwort.draft")`), mine);
+  // Back to it.
+  await page.click("#banner button");
+  await page.until(`window.editor.value === ${JSON.stringify(mine)}`, 30000, "the person's own text back");
+  assert.equal(await page.ev(`document.getElementById("banner").hidden`), true);
+  // Editing the shared text takes it over: the draft is replaced and the address no longer names the text.
+  await openLink(hash);
+  await page.until(`window.editor.value === ${JSON.stringify(snippet)}`, 30000, "the shared text again");
+  await page.ev(`(() => { window.editor.focus(); window.editor.setSelectionRange(0, 0); })()`);
+  await page.type("-- hi\n");
+  await page.until(`localStorage.getItem("stitchwort.draft").startsWith("-- hi")`, 10000, "the edit saved as the draft");
+  assert.equal(await page.ev(`location.hash`), "");
+  // A damaged link.
+  await openLink("#s/AAAA-not-deflate");
+  await page.until(`/damaged/.test(document.getElementById("link-notice").textContent)`, 30000, "the notice");
+});
+
+test("Share warns about a long link, and a project shares as a link to the day", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  // Text that doesn't compress, so that its link is long.
+  let seed = 12345;
+  const noise = Array.from({ length: 12000 }, () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return (seed >> 8).toString(36).slice(-1); }).join("");
+  await page.setSource(`-- ${noise}\n`);
+  await page.click("#share");
+  await page.until(`/KB/.test(document.getElementById("link-notice").textContent)`, 10000, "the warning");
+  await page.pick("aoc:0");
+  await page.until(`!document.getElementById("filebar").hidden`, 30000, "the project");
+  await page.click("#share");
+  await page.until(`/without your edits/.test(document.getElementById("link-notice").textContent)`, 10000, "the notice");
+  assert.match(await page.ev(`location.hash`), /^#aoc\//);
 });
 
 test("the Evaluate tab", async (page) => {
