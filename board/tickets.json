@@ -8748,15 +8748,15 @@
     {
       "id": 1455,
       "title": "Playground: shrink std.cache (14.4 MB, 7.5 MB gzipped): compress entries, or drop expression types projects don't need",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1455",
       "labels": [
         "playground"
       ],
-      "body": "From SW-1403, 5 Nov 2026.\n\nD2440 (Matt, 5 Nov 2026): the current size is accepted for now; this ticket is the follow-up.\n\nStarted on Sonnet (overnight editor track), expected: 60 min.",
+      "body": "From SW-1403, 5 Nov 2026.\n\nD2440 (Matt, 5 Nov 2026): the current size is accepted for now; this ticket is the follow-up.\n\nStarted on Sonnet (overnight editor track), expected: 60 min.\n\nDone (97f852cad), merged: cache format 27 writes node children as backward distances and spans as zigzag steps; bundle shipped as std.cache.gz (gzip -9), decompressed with DecompressionStream in both workers. 14.4 MB raw / 7.5 MB gzip / 5.2 MB br → 10.6 / 2.5 / 1.9 MB. First diagnostics ~2 s unchanged; replay check 68/68. Left: navigation as a separately fetched file (~0.8 MB gz), a bundle-level string table (~0.2 MB), brotli (−0.6 MB, needs a decoder). Model result: Sonnet, worked, 35 min (est. 60).",
       "created": "2026-11-05",
-      "updated": "2026-11-05",
+      "updated": "2026-11-06",
       "commits": []
     },
     {
