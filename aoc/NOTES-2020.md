@@ -5274,7 +5274,10 @@ Proved (`Aoc.Year2020.Day20.Proofs`):
   fits in the image), `monsterPixelsIff` (its monster pixels are exactly
   the spec's `Covered`), `roughnessExactly` (for any listing of the
   image's `#`s, `Spec.Roughness image monster cells answer ↔ answer =
-  image.roughnessWith monster`), and `roughnessTurned` (when
+  image.roughnessWith monster`), `roughAtDistinct` and `roughCells`
+  (the program's `roughAt` is such a listing, each `#` once), so
+  `roughnessListed` (the same with `image.roughAt`, no hypotheses), and
+  `roughnessTurned` (when
   `monsterTurned` gives `monster`, the answer is `roughnessWith
   monster`, `monster` is one of the sea monster's orientations, and the
   image has a monster that way round).
@@ -5290,10 +5293,7 @@ the sea monster has copies (the puzzle's promise; `monsterTurned` takes
 the first), and that turning the monster is the same as turning the image
 (a counting fact under the eight symmetries, not attempted); the spec's
 monster orientations are the program's `Image.orientations`, which
-Orientations.sw describes by their edges but not cell by cell. That
-`Image.roughAt` lists each `#` once, so `roughnessExactly` has a listing
-to take (`Spec.RoughCells image image.roughAt`; it is true by
-construction). That every well-formed input parses, and that `main`
+Orientations.sw describes by their edges but not cell by cell. That every well-formed input parses, and that `main`
 prints `cornerProduct` and `assemble |> .roughness` (it reads so). There
 is no `opaque`.
 
@@ -5306,9 +5306,9 @@ and `monsterPixelsIff`; `flip` reversing the rows' order fails
 `reverse` fails `rotateEdges` and `rectangleRotate`; and `monsterStarts` looking
 one row past the bottom fails `monsterStartsIff`, though by a mismatch
 with the proof's restatement of `starts`, not by a counterexample.
-`check --counterexamples`: 0 false, 7 none found, 5 gave up, 39 not
-applicable. The audit: `audited 77 theorems: 0 failed, 0 with warnings,
-77 passed`.
+`check --counterexamples`: 0 false, 10 none found, 5 gave up, 44 not
+applicable. The audit: `audited 82 theorems: 0 failed, 0 with warnings,
+82 passed`.
 
 ### 1. Turning a grid has no library, and its facts are 120 lines of transpose lemmas
 
@@ -5430,8 +5430,8 @@ pairs in std, would let it be a `Set Position`.
 
 ### Size and time
 
-225 lines of program, 85 of spec, 599 of proofs (Parse 39, Corners 76,
-Orientations 309, Monsters 171, Proofs 4), 78 of tests (+1 answer test in
+225 lines of program, 85 of spec, 634 of proofs (Parse 39, Corners 76,
+Orientations 309, Monsters 205, Proofs 5), 78 of tests (+1 answer test in
 `aoc_answers.rs`). By the clock: 06:18 start; Python answers at 06:21;
 program and both answers, first run, at 06:25; tests passing and
 committed at 06:29; spec and the parser's proof at 06:32; part 1 exactly
@@ -5439,14 +5439,15 @@ at 06:33; flips at 06:35; transpose lemmas at 06:36; `rotateEdges` at
 06:37; `withinOrientations` at 06:38; `matchedOriented` at 06:39;
 `roughAtIff` to `monsterPixelsIff` at 06:41 to 06:43; the rectangle
 check at 06:45; break checks and counterexamples at 06:45; `roughnessExactly`
-at 06:48 and `roughnessTurned` at 06:50; these notes after.
+at 06:48 and `roughnessTurned` at 06:50; these notes at 06:51 to 06:55;
+`roughAtDistinct` at 06:58.
 
 | command | time |
 | --- | --- |
 | `stitchwort check --no-cache Aoc.Year2020.Day20` | 3.1 s user |
 | `stitchwort check --no-cache Aoc.Year2020.Day20.Proofs` | 9.4 s user |
 | `stitchwort test --no-cache Aoc.Year2020.Day20.Tests` (21 tests) | 9.2 s user |
-| `stitchwort audit Aoc.Year2020.Day20` (77 theorems) | 4.1 s |
+| `stitchwort audit Aoc.Year2020.Day20` (82 theorems) | 4.1 s |
 | `stitchwort run Aoc.Year2020.Day20.main` on the input | 5.9 s user (`--native` 2.4 s) |
 | `task test:one -- year2020_day20` | 16 s for the test |
 

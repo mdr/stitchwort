@@ -169,3 +169,37 @@ theorem roughnessTurned (image: Image) (monster: Image) (found: image.monsterTur
     | Both some member =>
       match someMember (image.monsterPixels monster) some with
         | Witness at covered => Both (Eq.cong image.roughnessFor found) (Both member (Witness at ((monsterPixelsIff image monster at).forward covered)))
+
+-- `roughAt` lists each `#` once
+
+theorem withIndexDistinct (xs: List a) (fallback: a): List.Distinct xs.withIndex :=
+  rewrite List.withIndexFromRange xs fallback 0 in
+    List.distinctMap (List.range 0 xs.length) (List.distinctRange 0 xs.length) _ (i j same => omega [Eq.cong Pair.fst same])
+
+theorem rowCellsDistinct (row: Nat) (pixels: List Pixel):
+    List.Distinct ((pixels.withIndex.filter (cell => cell.snd == Rough)).map (cell => [row, cell.fst])) :=
+  let keyed: List.Distinct (pixels.withIndex.map (cell => [row, cell.fst])) :=
+    rewrite List.withIndexFromRange pixels Calm 0, List.mapMap (List.range 0 pixels.length) (cell => [row, cell.fst]) (i => (0 + i, List.getOr pixels i Calm)) in
+      List.distinctMap (List.range 0 pixels.length) (List.distinctRange 0 pixels.length) _ (i j same => omega [Eq.cong (xs => (xs.drop 1).headOr 0) same])
+  List.distinctMapFilter pixels.withIndex (cell => [row, cell.fst]) (cell => cell.snd == Rough) keyed
+
+--| A cell names its row, and the row's pixels are the image's row there,
+--| so cells of different rows differ.
+theorem roughAtDistinct (image: Image): List.Distinct image.roughAt :=
+  let rowOf := (at: List Nat) => (at.headOr 0, (image.rows.get (at.headOr 0)).getOrElse [])
+  List.distinctFlatMap _ rowOf image.rows.withIndex (withIndexDistinct image.rows [])
+    (entry member => rowCellsDistinct entry.fst entry.snd)
+    (entry member at inRow =>
+      match entry with
+        | (row, pixels) =>
+          match List.memMapElim (cell => [row, cell.fst]) at _ inRow with
+            | Witness cell (Both kept same) =>
+              rewrite <- same, (List.memWithIndex image.rows row pixels).forward member in rfl)
+
+theorem roughCells (image: Image): Spec.RoughCells image image.roughAt := Both (roughAtDistinct image) (at => roughAtIff image at)
+
+--| Part 2 with the program's own listing of the `#`s: the spec's
+--| roughness, with sea monsters as `monster` draws them, is the program's.
+theorem roughnessListed (image: Image) (monster: Image) (answer: Nat):
+    Spec.Roughness image monster image.roughAt answer ↔ answer = image.roughnessWith monster :=
+  roughnessExactly image monster image.roughAt (roughCells image) answer
