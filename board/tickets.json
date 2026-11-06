@@ -1,5 +1,5 @@
 {
-  "next": 1646,
+  "next": 1649,
   "tickets": [
     {
       "id": 47,
@@ -11128,13 +11128,13 @@
     {
       "id": 1625,
       "title": "Parser completeness sweep: 2020 days 12, 13, 14, 15, 16, 17, 19, 20: each line parses, the whole input parses, the parse is unique (as SW-1612's days 2 and 6), using SW-1620's helpers",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1625",
       "labels": [
         "aoc"
       ],
-      "body": "D2497 (Matt, 6 Nov 2026): yes, the helpers (SW-1620) then the completeness sweep over the 19 days with parser soundness (2020 days 3-20 except 6, and the two 2021 days), in two or three Sonnet lanes; remove day 18's second parser. After SW-1620.\n\nStarted on Sonnet, expected: 120 min.",
+      "body": "D2497 (Matt, 6 Nov 2026): yes, the helpers (SW-1620) then the completeness sweep over the 19 days with parser soundness (2020 days 3-20 except 6, and the two 2021 days), in two or three Sonnet lanes; remove day 18's second parser. After SW-1620.\n\nStarted on Sonnet, expected: 120 min.\n\nDone, merged. Days 12, 13, 14, 15, 16, 17, 19 (ParseComplete.sw), 20: runs… per piece, parseComplete (the converse of parseWritten, statements checked by the orchestrator against each parseWritten's conclusion), writtenUnique. 60-245 lines a day; audit:touched 0 warnings; parser mutations make the proof fail on 13, 16, 17, 19, 20. No soundness spec too loose. Model result: Sonnet, worked, 15 min (est. 120).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11386,7 +11386,7 @@
       "labels": [
         "unifier"
       ],
-      "body": "D2498-D2505 (Matt, 6 Nov 2026): all as recommended in docs/proposals/record-eta.md: kernel record eta with primitive projections (no parameters) and the two rules; eta by shape incl. Pair; no no-eta opt-out now; no eta for interface dictionaries; accept goals changing shape; keep T.ext; accept ~5% checking cost (profile it); staged kernel (Opus), unifier, Pair, clean-up sweep (Sonnet). After SW-1642.",
+      "body": "D2498-D2505 (Matt, 6 Nov 2026): all as recommended in docs/proposals/record-eta.md: kernel record eta with primitive projections (no parameters) and the two rules; eta by shape incl. Pair; no no-eta opt-out now; no eta for interface dictionaries; accept goals changing shape; keep T.ext; accept ~5% checking cost (profile it); staged kernel (Opus), unifier, Pair, clean-up sweep (Sonnet). After SW-1642.\n\nOpus (kernel/unifier soundness; Matt, 6 Nov 2026).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11400,7 +11400,7 @@
       "labels": [
         "kernel"
       ],
-      "body": "D2498-D2505 (Matt, 6 Nov 2026): all as recommended in docs/proposals/record-eta.md: kernel record eta with primitive projections (no parameters) and the two rules; eta by shape incl. Pair; no no-eta opt-out now; no eta for interface dictionaries; accept goals changing shape; keep T.ext; accept ~5% checking cost (profile it); staged kernel (Opus), unifier, Pair, clean-up sweep (Sonnet). After SW-1643.",
+      "body": "D2498-D2505 (Matt, 6 Nov 2026): all as recommended in docs/proposals/record-eta.md: kernel record eta with primitive projections (no parameters) and the two rules; eta by shape incl. Pair; no no-eta opt-out now; no eta for interface dictionaries; accept goals changing shape; keep T.ext; accept ~5% checking cost (profile it); staged kernel (Opus), unifier, Pair, clean-up sweep (Sonnet). After SW-1643.\n\nOpus (kernel/unifier soundness; Matt, 6 Nov 2026).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11415,6 +11415,48 @@
         "style"
       ],
       "body": "D2498-D2505 (Matt, 6 Nov 2026): all as recommended in docs/proposals/record-eta.md: kernel record eta with primitive projections (no parameters) and the two rules; eta by shape incl. Pair; no no-eta opt-out now; no eta for interface dictionaries; accept goals changing shape; keep T.ext; accept ~5% checking cost (profile it); staged kernel (Opus), unifier, Pair, clean-up sweep (Sonnet). Sonnet, after SW-1644.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1646,
+      "title": "Parse std: a Declines helper for 'spaces, then a line break, then anything' (day 16 proved it locally in ~45 lines, declinesRuleBeforeBreak); CannotStart can't, since a field name may start with a space (SW-1625)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From SW-1625, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1647,
+      "title": "Dedupe the completeness proofs after SW-1624: day 17's copies of day 3's checkGridComplete/findNoneOfMem/findNoneWithIndexFrom/all2WeakenMem; many1-of-symbols (days 6, 17, 19, 20) → a std runsMany1Symbols; noDigits/declinesComma/runsNumber (days 13, 15, 16) → std CannotStart isDigit lemmas; day 14's eachSteps to std (SW-1625)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From SW-1625, 6 Nov 2026. After SW-1624 merges.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1648,
+      "title": "Elab: Parse.runsOneOfFirst _ _ … under rewrite … in leaves the parser an unsolved meta; a let with the stated type fixes it (2020 day 19 notes, SW-1625)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "From SW-1625, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
