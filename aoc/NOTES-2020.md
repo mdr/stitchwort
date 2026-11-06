@@ -5196,3 +5196,281 @@ the rest of the cold time is std's.
 5. Smaller: `Char.isAlpha`'s message suggests nothing; `memFlatMap`'s
    explicit arguments; a `Void` arm needs `Void.exfalso` with no hint
    (items 5, 6). Each small.
+
+## Day 20: Jurassic Jigsaw
+
+The input is 144 square tiles of 10 by 10 pixels (`#` or `.`), each
+with an id, each rotated and flipped at random. Assembled, neighbouring
+tiles share their edge pixels, and the puzzle promises that edges on the
+image's border match no other tile. Part 1: the product of the four
+corner tiles' ids. Part 2: strip every tile's border, find the sea
+monsters (a 20 by 3 picture of 15 `#`s) in the one orientation of the
+image that has them, and count the `#`s in no monster. Answers on Matt's
+input: 66020135789767 and 1537; the example gives 20899048083289 and 273,
+as the puzzle says. Matt's Scala (`Day20.scala`) has the same eight
+orientations (`R0` to `D2`) and a fingerprint of a tile's four edges; I
+didn't run it. An independent Python script (backtracking assembly)
+agrees on all four numbers.
+
+The domain types are `Pixel` (`Rough`, `Calm`), `Image` (`rows`), with
+`rotate` (a quarter turn clockwise: `rows.reverse.transpose`), `flip`,
+`orientations` (four turns, then the four of the mirror image), `top`,
+`right`, `bottom`, `left`, `edges` and `interior`; `Edge` (`pixels`,
+with `fits`: the same pixels or reversed); `Tile` (`id`, `image`);
+`Jigsaw` (`tiles`), with `matches`, `matchedEdges`, `corners` and
+`cornerProduct` for part 1; and `Arrangement` (`rows` of placed tiles)
+with `image`. Because edges match uniquely, assembly needs no search:
+`jigsaw.topLeft` turns a corner until its top and left edges match
+nothing, `rowAfter` adds the one tile whose left edge equals the last
+one's right edge, and `rowsFrom` starts each row below the last row's
+first tile; both take fuel, the number of tiles. Part 2 turns the monster
+rather than the 96 by 96 image: `image.monsterStarts monster` is every
+place a copy fits, `monsterPixels` the `#`s under them (a `Set (List
+Nat)`), `monsterTurned` the first of the monster's orientations with a
+copy, and `roughness` the image's `#`s less those. Both answers were
+right on the first run.
+
+The spec (`Spec/Spec.sw`) shares the data types. `PixelWritten`,
+`RowWritten`, `TileWritten` and `JigsawWritten` are the format.
+`edges image` is the first row, the last pixel of each row, the last row
+and the first pixel of each row; `Fit edge other` is "the same, or
+reversed"; `Matched jigsaw tile edge` is "some other tile (another id)
+has an edge that fits"; `Corner` is `NumberWith (Matched jigsaw tile)
+(edges tile.image) 2` (day 19's count of a proposition, imported); `Kept
+p items kept` is "the items with `p`, in order", and `Part1` is the
+product of the ids of the tiles `Kept` by `Corner`. For part 2,
+`pixelAt`, `MonsterAt image monster row column` (each `#` of the monster
+on a `#` of the image), `Covered image monster at` (under a `#` of a
+monster within the image), `RoughCells image cells` (`cells` lists each
+`#` once) and `Roughness image monster cells answer`, `NumberWith (at
+=> ¬Covered image monster at) cells answer`.
+
+Proved (`Aoc.Year2020.Day20.Proofs`):
+
+- `readsPixel`, `readsRow`, `readsTile`, `readsJigsaw`, `parseWritten`
+  (Parse.sw): if `parseJigsaw` reads `input`, the input is the tiles
+  written out, as `JigsawWritten` says, then any line breaks.
+- `fitsIff`, `matchesIff`, `cornerIff`, `keptFilter`, `part1Exactly`
+  (Corners.sw): `Spec.Part1 jigsaw answer ↔ answer =
+  jigsaw.cornerProduct`, for any jigsaw, no hypotheses.
+- Orientations.sw: `orientationCount` (eight), `flipTwice`, `flipEdges`
+  (a flipped tile's top and bottom reversed, left and right swapped),
+  `rotateEdges` (a quarter turn of a rectangle: its edges are the left
+  reversed, the top, the right reversed and the bottom), `Rectangle`
+  with `rectangleFlip` and `rectangleRotate`, `withinOrientations` (every
+  edge of every orientation of a rectangle fits one of its own edges),
+  `orientedFit` (and every edge that fits one of its own is an edge of
+  one of its orientations), and so `matchedOriented`: for rectangular
+  tiles, `Spec.Matched` is the puzzle's words exactly, "some other tile,
+  in some orientation, has this edge". `rectangularSound` turns the
+  program's `jigsaw.rectangular` check into that hypothesis, and a test
+  checks it on the example and the input. Under these, the first and
+  last rows and columns of a transposed rectangle (`firstColumn`,
+  `lastColumn`, `columnsFirst`, `columnsLast`) and a few `reverse` and
+  `last` lemmas.
+- Monsters.sw: `roughAtIff` (the program's rough positions are the
+  image's `#`s), `monsterIff` and `monsterStartsIff` (the program's
+  monster starts are exactly the places the spec has a monster that
+  fits in the image), `monsterPixelsIff` (its monster pixels are exactly
+  the spec's `Covered`), `roughnessExactly` (for any listing of the
+  image's `#`s, `Spec.Roughness image monster cells answer ↔ answer =
+  image.roughnessWith monster`), and `roughnessTurned` (when
+  `monsterTurned` gives `monster`, the answer is `roughnessWith
+  monster`, `monster` is one of the sea monster's orientations, and the
+  image has a monster that way round).
+
+Not proved: that `arrange` assembles the image the puzzle means (that
+every placed tile's edges equal its neighbours', that each tile is used
+once, that the arrangement is square), and that `interior` and
+`Arrangement.image` strip and join the tiles as the puzzle says: part 2's
+theorems are about whatever image they are given. That a corner by the
+spec's count is a corner of the assembled image (it is when border edges
+match nothing, as promised; not checked). That only one orientation of
+the sea monster has copies (the puzzle's promise; `monsterTurned` takes
+the first), and that turning the monster is the same as turning the image
+(a counting fact under the eight symmetries, not attempted); the spec's
+monster orientations are the program's `Image.orientations`, which
+Orientations.sw describes by their edges but not cell by cell. That
+`Image.roughAt` lists each `#` once, so `roughnessExactly` has a listing
+to take (`Spec.RoughCells image image.roughAt`; it is true by
+construction). That every well-formed input parses, and that `main`
+prints `cornerProduct` and `assemble |> .roughness` (it reads so). There
+is no `opaque`.
+
+Breaking the program made the proofs fail: `fits` without the reversed
+case fails `fitsIff`; `matches` without `other.id != tile.id` fails
+`matchesIff`; `corners` with `<= 2` fails `part1Exactly`; `roughAt`
+keeping `Calm` fails `roughAtIff`; `shift` adding 1 fails `monsterIff`
+and `monsterPixelsIff`; `flip` reversing the rows' order fails
+`flipTwice`, `flipEdges` and `rectangleFlip`; `rotate` without the
+`reverse` fails `rotateEdges` and `rectangleRotate`; and `monsterStarts` looking
+one row past the bottom fails `monsterStartsIff`, though by a mismatch
+with the proof's restatement of `starts`, not by a counterexample.
+`check --counterexamples`: 0 false, 7 none found, 5 gave up, 39 not
+applicable. The audit: `audited 77 theorems: 0 failed, 0 with warnings,
+77 passed`.
+
+### 1. Turning a grid has no library, and its facts are 120 lines of transpose lemmas
+
+The program needed rotate, flip, the eight orientations, edges,
+`interior` and pasting tiles side by side (`transpose` then `concat`),
+and none of it is in Aoc.Common, whose `Grid` is a list of rows with a
+`nonEmpty` proof that a turned or cropped grid has to re-prove, so this
+day uses a bare `Image` of rows and none of `Grid`. The proofs then
+needed what a quarter turn does to the four edges, which comes down to
+the first and last rows and columns of `List.transposeN` of a rectangle:
+`firstColumn`, `lastColumn` (with `lastColumnOne`, `lastsDrop`,
+`lastDrop`), `columnsFirst`, `columnsLast` (with `columnsLastRow`,
+`lastMemCons`, `consHeadDrop`), `allLengthMem`, `allLengthReverseOnto`,
+`reverseNil`, `lastReverse`, `headReverse`: about 120 of Orientations.sw's
+300 lines, all general, none about this puzzle. Std has
+`transposeNTwice`, `columnsAllLength` and `transposeNCons`, which made
+them possible, but nothing about the first or last column, and no
+`last (reverse xs) = head xs`. Grid symmetry recurs (2017 day 21's art,
+2023 day 14's tilting, 2020 day 24's hexes less so). What would help: an
+`Aoc.Common.Image` (or `Grid` methods) with `rotate`, `flip`,
+`orientations`, `edges`, `crop` and `besideRight`/`below`, proved once:
+`rotateEdges`, `flipEdges`, `withinOrientations` and four quarter turns
+being none (which I didn't prove), plus std's missing transpose and
+`reverse`/`last` lemmas.
+
+### 2. A hypothesis whose type computes can't be rewritten by the rule it was written with
+
+`flipEdges` says `Spec.edges image.flip = [...]`. In `withinFlip`,
+`rewrite flipEdges image at member`, with `member: edge ∈ Spec.edges
+image.flip`, was `E-REWRITE-NOTHING`: `member`'s type had been computed to
+`List.headOr (Image.flip image).rows [] = edge ∨ …`, and the search
+compares what the rule's left side computes to, `[List.headOr (List.map
+…) [], …]`, a list, against a disjunction. The note showed both, which
+explained it; the fix was a three-line lemma, `memEq (same: xs = ys)
+(member: x ∈ xs): x ∈ ys := rewrite same at member in member`, where
+`xs` is a variable and nothing computes. The same happened in reverse in
+`rotateEdges` (`rewrite firstColumn …, same in …` found no `[first,
+..rest]`, because `List.map` of the cons had computed) and was fixed
+with `Eq.trans` and `Eq.cong`. And `rewrite found in rfl` for `image.roughness
+= image.roughnessWith monster`, with `found: image.monsterTurned = Some
+monster`, was `E-REWRITE-BUDGET`: the goal had computed `monsterTurned`
+into eight nested `if 1 <= Map.size …`. That one needed the program
+changed (`roughnessFor`, a function of the `Option`, so that `Eq.cong
+image.roughnessFor found` states it), and the theorem still takes 2.7 s
+of the namespace's 3.6 s to check. What would help: a transport that
+rewrites a hypothesis by the type it was declared with (Lean's `▸`
+works on the stated type), or `rewrite` trying the rule's left side
+against the hypothesis's type as written before computing it.
+
+### 3. `at` as a variable name is taken by `rewrite … at`
+
+In `roughnessExactly`, `rewrite Set.containsDifference rough at covered,
+…` with a variable `at` read as "rewrite `Set.containsDifference rough`
+in the hypothesis `covered`": `E-REWRITE-NOTHING` "found no `Set.contains
+(Set.difference …) ?89) ?88` in the type of `covered`", whose type is a
+`Set`. Renaming the variable to `key` fixed it. `at` is a natural name for
+a position (std's own `Set.countAtMostSize` takes `at`), and nothing
+said it was a keyword there. The parser could take `at` as the target
+marker only when what follows is a hypothesis name not in the rule
+itself, or the message could say "`at covered` was read as the target;
+is `at` an argument?".
+
+### 4. Counting by a proposition, again, and filtering by one
+
+`Corner` is a count of a proposition, so day 19's `NumberWith` and
+`numberWithCount` came in by importing `Aoc.Year2020.Day19.Spec` and
+`Aoc.Year2020.Day19.Proofs` (filed after day 19 for std). Part 1 also
+needed the list of tiles that satisfy a proposition, `Spec.Kept` with
+`keptFilter` (`Kept p items kept ↔ kept = items.filter decide` when
+`decide` decides `p`; 30 lines, the same shape as `numberWithCount`).
+Both belong in std together.
+
+### 5. Positions have no order, so a `Set` of them is a `Set (List Nat)`
+
+`Aoc.Common.Position` has no `Ord` instance, and std has none for pairs,
+so `monsterPixels` keys its set by `[row, column]`, a `List Nat`, whose
+`Ord` exists. It reads worse (`shift` is a `zipWith`), and the proofs
+took the list apart with `Eq.cong (xs => xs.headOr 0) same`. An `Ord
+Position` (row, then column) in Aoc.Common, or a lexicographic `Ord` for
+pairs in std, would let it be a `Set Position`.
+
+### 6. Messages
+
+- **Good ones.** Inside `match rowFound: image.rows.get row`, `rewrite
+  rowFound at rough` said "`rough` is already refined: use it as it is",
+  which was exactly right. In `isRectangleSound` the type mismatch noted
+  that "a term written out inside a branch … isn't refined by the
+  `match`", which pointed at stating the lemma over `rows` instead.
+  `Option.noneNotSome rough` was "a function still waiting for one more
+  argument".
+- **`And` has `left` and `right`**: `turnedSized.fst` was
+  `E-UNKNOWN-FIELD` "`And` has no field or function `fst`", "looked in
+  `List.AllLength` or `And`", without listing the fields it has.
+- **`n + 1` patterns**: `| fuel + 1 =>` is `E-PARSE` "expected `=>` and
+  the arm's body, but found `+`"; it has to be `| Succ fuel`. The message
+  could say so.
+- **`Text.concat`** doesn't exist (`E-UNKNOWN-NAME`, no suggestion);
+  it's `.joinWith ""`.
+
+### 7. Smaller things
+
+- **What helped.** `Parse.readsPickBy`, `readsMany1`, `readsLines` and
+  `readsSections` made the parser proof 30 lines, with `?` showing the
+  one equation `rfl` closed. `List.memWithIndex`, `memFlatMap`,
+  `memMapElim`, `memFilter`, `Set.containsFromListIff`,
+  `Set.sizeDifferenceSubset` and `Set.sizeOfMembers` made part 2's
+  counting 60 lines; `sizeOfMembers` is exactly the "a set's size is the
+  count of a list's members that pass" bridge every count of distinct
+  cells needs. Pattern lambdas over pairs (`(((row, pixels)) => …)`)
+  arrived in goals as `.fst` and `.snd`, which the membership lemmas
+  took without unpacking. `omega` read `List.memRangeBounds`'s `0 ≤ x <
+  b` from a `let`.
+- **No record eta, again** (day 17, item 5): `{ rows = image.rows } =
+  image` isn't `rfl`; `Image.ext _ _ rfl` and a `rewrite` of it fixed
+  `isRectangleSound` and `flipTwice`.
+- **The example as a file.** The example is 107 lines, so it went to
+  `aoc/examples/2020/day20.txt` with `include`, as 2024's day 24 does,
+  rather than into a text block.
+
+### Size and time
+
+225 lines of program, 85 of spec, 599 of proofs (Parse 39, Corners 76,
+Orientations 309, Monsters 171, Proofs 4), 78 of tests (+1 answer test in
+`aoc_answers.rs`). By the clock: 06:18 start; Python answers at 06:21;
+program and both answers, first run, at 06:25; tests passing and
+committed at 06:29; spec and the parser's proof at 06:32; part 1 exactly
+at 06:33; flips at 06:35; transpose lemmas at 06:36; `rotateEdges` at
+06:37; `withinOrientations` at 06:38; `matchedOriented` at 06:39;
+`roughAtIff` to `monsterPixelsIff` at 06:41 to 06:43; the rectangle
+check at 06:45; break checks and counterexamples at 06:45; `roughnessExactly`
+at 06:48 and `roughnessTurned` at 06:50; these notes after.
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2020.Day20` | 3.1 s user |
+| `stitchwort check --no-cache Aoc.Year2020.Day20.Proofs` | 9.4 s user |
+| `stitchwort test --no-cache Aoc.Year2020.Day20.Tests` (21 tests) | 9.2 s user |
+| `stitchwort audit Aoc.Year2020.Day20` (77 theorems) | 4.1 s |
+| `stitchwort run Aoc.Year2020.Day20.main` on the input | 5.9 s user (`--native` 2.4 s) |
+| `task test:one -- year2020_day20` | 16 s for the test |
+
+`STITCHWORT_TIMINGS=1` puts the Proofs namespace at 3.6 s of elaboration
+and 1.2 s in the kernel, of which `roughnessTurned` is 1.7 s and 1.0 s
+(item 2) and `roughnessExactly` 1.0 s; the rest are under 0.2 s each.
+(My Python took 108 s, from a naive backtracking assembly that re-turns
+every tile at every step; it isn't a fair comparison.)
+
+### Ranked
+
+1. No grid-turning library: rotate, flip, orientations, edges, crop and
+   paste written for the day, and 120 lines of general transpose,
+   `reverse` and `last` lemmas to say what a quarter turn does to the
+   edges (item 1). Library (Aoc.Common and std); medium.
+2. A hypothesis whose type has computed can't be rewritten by the rule
+   it was stated with; needed a `memEq` helper, `Eq.trans` chains, and a
+   program change for a `find` that blew the rewrite budget, which still
+   costs 2.7 s of checking (item 2). Elaborator; medium.
+3. A variable named `at` is read as `rewrite … at`'s target, silently
+   (item 3). Parser or message; small.
+4. Counting and filtering by a proposition (`NumberWith`, `Kept`) are
+   imported from day 19 or rewritten (item 4). Library; small.
+5. No `Ord Position` or pair order, so sets of positions are `Set (List
+   Nat)` (item 5). Library; small.
+6. Smaller: `And`'s fields not listed; `n + 1` patterns; `Text.concat`;
+   record eta (items 6, 7). Each small.
