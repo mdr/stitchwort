@@ -6,9 +6,9 @@ use std::rc::Rc;
 use stitchwort_core::budget::{ResourceError, Result};
 use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::value::{
-    Closure, Elim, Head, Mode, Relation, Spine, apply_icit, call_args, conv, eval, expand_step,
-    force, force_solved, is_folded, matches_at_once, opens_by_tree, proof_field, proof_param,
-    quote, quote_at_most, quote_folded, same_closure_solved, same_stuck_trees, sealed,
+    Closure, Elim, Head, Mode, Relation, ShapeKey, ShapeMemo, Spine, apply_icit, call_args, conv,
+    eval, expand_step, force, force_solved, is_folded, matches_at_once, opens_by_tree, proof_field,
+    proof_param, quote, quote_at_most, quote_folded, same_closure_solved, same_stuck_trees, sealed,
     underapplied, unfold_folded, unfold_once,
 };
 use stitchwort_core::{BigUint, DefId, Ev, Icit, Term, Value};
@@ -112,11 +112,13 @@ pub(crate) fn unify_waiting(
 ) -> Result<Answer> {
     let waiting = Scoped::set(&g.attempt.waiting, Some(Vec::new()));
     let saved_pending = Scoped::set(&g.attempt.pending, pending.clone());
+    let memo = Scoped::set(&g.attempt.call_memo, None);
     let result = run(
         g,
         vec![Task::Values(level, a.clone(), b.clone())],
         Mode::Normal,
     );
+    drop(memo);
     drop(saved_pending);
     let waiting = waiting.finish().unwrap_or_default();
     Ok(match result? {
@@ -248,12 +250,26 @@ fn literal_seen_through(g: &Unifier<'_>, m: usize, other: &Value) -> Option<(Val
 /// `mode` is where the comparison starts; a [`Task::Mode`] switches it for
 /// the pairs above it on the list ([`push_in_shortcut`]).
 fn run(g: &Unifier<'_>, mut work: Vec<Task>, mode: Mode) -> Result<bool> {
+    let outermost = g.attempt.call_memo.borrow().is_none();
+    let _memo = outermost.then(|| Scoped::set(&g.attempt.call_memo, Some(CallMemo::default())));
     let mut mode = mode;
     while let Some(task) = work.pop() {
+        // A pair of calls compared to the end without failing.
+        if let Task::Open(..) = task {
+            continue;
+        }
         g.machine.budget.step()?;
         let same = match task {
+            Task::Open(..) => unreachable!("taken above"),
             Task::Proof(level, a, b) => proof_position(g, level, &a, &b)?,
             Task::Values(level, a, b) => {
+                if let Some(at) = call_key(g, mode, level, &a, &b)? {
+                    if known_different(g, &at, &a, &b) {
+                        record_different(g, &work);
+                        return Ok(false);
+                    }
+                    work.push(Task::Open(at, a.clone(), b.clone()));
+                }
                 if unify_step(g, level, &a, &b, &mut work, mode)? {
                     true
                 } else if stale(g, &a)? || stale(g, &b)? {
@@ -306,6 +322,7 @@ fn run(g: &Unifier<'_>, mut work: Vec<Task>, mode: Mode) -> Result<bool> {
             }
         };
         if !same {
+            record_different(g, &work);
             return Ok(false);
         }
     }
@@ -378,6 +395,7 @@ pub(crate) fn unify_solving_arguments(
     b: &Value,
 ) -> Result<bool> {
     let _solving = ScopedCell::set(&g.attempt.solving_arguments, true);
+    let _memo = Scoped::set(&g.attempt.call_memo, None);
     unify(g, level, a, b)
 }
 
@@ -393,6 +411,7 @@ pub(crate) fn unify_awaiting_helpers(
     awaited: HashSet<usize>,
 ) -> Result<bool> {
     let _awaited = Scoped::set(&g.attempt.awaited_helpers, Some(awaited));
+    let _memo = Scoped::set(&g.attempt.call_memo, None);
     unify(g, level, a, b)
 }
 
@@ -428,7 +447,9 @@ pub(crate) fn unify_postponing(
     b: &Value,
 ) -> Result<Option<Vec<RowConstraint>>> {
     let postponed = Scoped::set(&g.attempt.postponed, Some(Vec::new()));
+    let memo = Scoped::set(&g.attempt.call_memo, None);
     let result = unify(g, level, a, b);
+    drop(memo);
     let postponed = postponed.finish().unwrap_or_default();
     Ok(result?.then_some(postponed))
 }
@@ -978,6 +999,121 @@ enum Task {
     Later(usize, Value, Value, usize, Mode),
     /// From here down the list, compare in this mode.
     Mode(Mode),
+    /// Below the parts of a pair of calls of one definition still being
+    /// compared: if the comparison fails while this is on the list, so did
+    /// that pair ([`CallMemo`]).
+    Open(ShapeKey<CallKey>, Value, Value),
+}
+
+// Two calls of one definition are compared by their arguments first, then
+// by their unfoldings, and the unfoldings usually contain the arguments
+// again: `Parse.exactly 35 p` against `Parse.exactly 36 p` compares the
+// calls of the next level down once in the arguments and once more in the
+// unfoldings, and so on down, about 2³⁵ comparisons in all. Outside solving
+// from arguments, `unify_step` answers "different" for such a nested pair
+// at once, inside a comparison of arguments (SW-1506), which is only a
+// shortcut there. While solving from arguments it is more than that, so
+// there the outermost comparison keeps a record of the pairs of calls found
+// different in it instead, and a pair met again is answered at once: each
+// pair is compared once, and the chain takes a step per level (SW-1521).
+// The pairs are found again by their shapes (as `same_stuck_trees` finds
+// pairs found equal), not their addresses: a call in a closure's body is
+// built anew each time the closure is applied.
+//
+// Why it can't change an answer: a comparison is a function of the pair,
+// the level, the mode, what has been solved and put aside, and the context
+// the outermost comparison set up (`Attempt::pending`, `solving_arguments`,
+// `awaited_helpers`; each entry point that sets them starts a record of its
+// own). What has been solved is told by the `meta_epoch` and the length of
+// the trail: within an epoch solutions are only added, and taking one back
+// starts a new epoch. A pair is recorded only if it failed with nothing
+// solved or put aside since its comparison started and nothing taken back,
+// so comparing it again from there would fail the same way and leave
+// nothing behind, which is what answering at once does. Only while no pair
+// may wait (`Attempt::waiting` empty, as everywhere but the outermost
+// comparison of `unify_waiting`): there a failing part can be set aside.
+// A pair is recorded when the comparison it is part of fails: the work list
+// is depth first, so the pairs whose `Task::Open` is still on it are those
+// the failing part belongs to, and each on its own would have taken the
+// same steps to the same failure. So a pair met again fails the whole
+// comparison at once, as that failure did, rather than answering `false`
+// for the pair alone (which [`run`] could still put aside as blocked). The
+// record ends with the outermost comparison.
+
+/// The pairs of calls of one definition found different during one
+/// outermost comparison, filed by [`CallKey`] and found again by their
+/// shapes (`ShapeMemo`); see the note above.
+#[derive(Default)]
+pub(crate) struct CallMemo(ShapeMemo<CallKey>);
+
+/// What a pair of calls in a [`CallMemo`] is filed under besides its
+/// shapes: mode, level, the definition called, and what had been solved
+/// and put aside when it was compared ([`Effects`]).
+type CallKey = (Mode, usize, DefId, Effects);
+
+/// What a comparison has done so far, as far as a later one can tell: the
+/// `meta_epoch`, the length of the trail, and how many row constraints
+/// [`unify_postponing`] has put aside.
+type Effects = (u64, usize, usize);
+
+fn effects(g: &Unifier<'_>) -> Effects {
+    (
+        g.store.meta_epoch.get(),
+        g.store.meta_trail.borrow().len(),
+        g.attempt.postponed.borrow().as_ref().map_or(0, Vec::len),
+    )
+}
+
+/// Where `a` against `b` is filed in the [`CallMemo`] now, if they are
+/// calls of one definition and the record applies: while solving from
+/// arguments, and no pair may wait.
+fn call_key(
+    g: &Unifier<'_>,
+    mode: Mode,
+    level: usize,
+    a: &Value,
+    b: &Value,
+) -> Result<Option<ShapeKey<CallKey>>> {
+    let (Value::Call(i1, _, _), Value::Call(i2, _, _)) = (a, b) else {
+        return Ok(None);
+    };
+    if i1 != i2 || !g.attempt.solving_arguments.get() || g.attempt.waiting.borrow().is_some() {
+        return Ok(None);
+    }
+    let mut memo = g.attempt.call_memo.borrow_mut();
+    let Some(memo) = memo.as_mut() else {
+        return Ok(None);
+    };
+    memo.0
+        .file(&g.ev, (mode, level, *i1, effects(g)), a, b)
+        .map(Some)
+}
+
+/// Whether `a` against `b`, filed at `at`, was found different
+/// ([`CallMemo`]).
+fn known_different(g: &Unifier<'_>, at: &ShapeKey<CallKey>, a: &Value, b: &Value) -> bool {
+    g.attempt
+        .call_memo
+        .borrow()
+        .as_ref()
+        .is_some_and(|memo| memo.0.contains(at, a, b))
+}
+
+/// Records as different the pairs whose comparison was open when the
+/// comparison `work` is the rest of failed, those that solved nothing.
+fn record_different(g: &Unifier<'_>, work: &[Task]) {
+    let now = effects(g);
+    let mut memo = g.attempt.call_memo.borrow_mut();
+    let Some(memo) = memo.as_mut() else {
+        return;
+    };
+    for task in work {
+        if let Task::Open(at, a, b) = task
+            && at.0.3 == now
+        {
+            memo.0.insert(*at, a, b);
+        }
+    }
 }
 
 /// Whether `v` may be a definition stuck on an unknown, as far as can be
@@ -1156,7 +1292,8 @@ fn unify_step(
     // solve an unknown the unfolding is stuck on, so it is more than a
     // shortcut, and `pick ?b (two 3)` against `pick True (two 4)` needs
     // `two 3` and `two 4` unfolded inside it
-    // (examples/accept/unknown-solved-from-call-arguments.sw).
+    // (examples/accept/unknown-solved-from-call-arguments.sw); there the
+    // record of pairs found different ([`CallMemo`]) keeps it linear.
     if let (Value::Call(i1, _, _), Value::Call(i2, _, _)) = (a, b)
         && i1 == i2
         && g.attempt.argument_checks.get() > 0
@@ -1693,7 +1830,7 @@ fn unify_pair(g: &Unifier<'_>, pair: Task, mode: Mode) -> Result<bool> {
     match pair {
         Task::Values(l, x, y) => unify_in(g, l, &x, &y, mode),
         Task::Proof(l, x, y) => proof_position(g, l, &x, &y),
-        Task::Codomains(..) | Task::Later(..) | Task::Mode(_) => {
+        Task::Codomains(..) | Task::Later(..) | Task::Mode(_) | Task::Open(..) => {
             unreachable!("not from spine_pairs")
         }
     }

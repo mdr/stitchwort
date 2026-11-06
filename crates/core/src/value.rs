@@ -3110,6 +3110,60 @@ impl Drop for TreeMemo {
     }
 }
 
+/// Pairs of values remembered by their shapes, as [`TreeMemo`] remembers
+/// them, for a caller of its own: the elaborator's record of pairs of
+/// calls found different (`CallMemo` in its `unify.rs`). A pair is filed
+/// under the caller's key `K` and the [`shape_hash`]es of its two sides,
+/// and is found again only by a pair [`identical`] to it, side by side, so
+/// one rebuilt (a call in a closure's body, evaluated again under the same
+/// binder) is found where its address would not be. The values are kept,
+/// and the shapes hashed, for as long as the memo lives.
+pub struct ShapeMemo<K> {
+    shapes: ShapeCache,
+    pairs: HashMap<ShapeKey<K>, Vec<(Value, Value)>>,
+}
+
+/// Where a pair is filed in a [`ShapeMemo`]: the caller's key and the two
+/// sides' shape hashes.
+pub type ShapeKey<K> = (K, u64, u64);
+
+impl<K> Default for ShapeMemo<K> {
+    fn default() -> Self {
+        ShapeMemo {
+            shapes: ShapeCache::default(),
+            pairs: HashMap::default(),
+        }
+    }
+}
+
+impl<K: std::hash::Hash + Eq> ShapeMemo<K> {
+    /// Where `a` against `b` is filed under `key`: hashes both, a budget
+    /// step per part not hashed before.
+    pub fn file(&mut self, g: &Ev, key: K, a: &Value, b: &Value) -> Result<ShapeKey<K>> {
+        let ha = shape_hash(g, &mut self.shapes, a)?;
+        let hb = shape_hash(g, &mut self.shapes, b)?;
+        Ok((key, ha, hb))
+    }
+
+    /// Whether a pair identical to `a` against `b` is filed at `at`.
+    pub fn contains(&self, at: &ShapeKey<K>, a: &Value, b: &Value) -> bool {
+        !shortcuts_disabled()
+            && self.pairs.get(at).is_some_and(|pairs| {
+                pairs.iter().any(|(x, y)| {
+                    identical(Same::Values(x, a), None) && identical(Same::Values(y, b), None)
+                })
+            })
+    }
+
+    /// Files `a` against `b` at `at`.
+    pub fn insert(&mut self, at: ShapeKey<K>, a: &Value, b: &Value) {
+        self.pairs
+            .entry(at)
+            .or_default()
+            .push((a.clone(), b.clone()));
+    }
+}
+
 /// A part of a value to hash for [`shape_hash`]. The ones that are a shared
 /// allocation (all but `Value`) are remembered by address in a
 /// [`ShapeCache`].
