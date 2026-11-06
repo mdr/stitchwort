@@ -9153,16 +9153,16 @@
     },
     {
       "id": 1484,
-      "title": "Aoc.Common: an integer east/north vector with headings, quarter turns (quarterLeft/Right, rotated), plus/times and Manhattan length, with full-turn and left-is-right lemmas (from 2020 day 12's Turns.sw; 2024 day 14 could use it)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "title": "Aoc.Common plane library: Point (x, y: Int), Heading, Box, lemmas, Heading.toDirection; move 2020 day 12, 2021 day 17, 2024 day 13 onto it (D2456)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1484",
       "labels": [
         "aoc"
       ],
-      "body": "From 2020 day 12 (SW-1483), 5 Nov 2026.",
+      "body": "From 2020 day 12 (SW-1483), 5 Nov 2026.\n\nD2456 (Matt, 6 Nov 2026): yes, a plane library in Aoc.Common: Point { x: Int, y: Int } (x right, y up), Heading (N/E/S/W, quarter turns, step), Box, lemmas, Heading.toDirection; move 2020 day 12, 2021 day 17, 2024 day 13 onto it. Started on Sonnet, expected: 90 min.",
       "created": "2026-11-05",
-      "updated": "2026-11-05",
+      "updated": "2026-11-06",
       "commits": []
     },
     {
@@ -10756,7 +10756,7 @@
       "labels": [
         "research"
       ],
-      "body": "D2451 (Matt, 6 Nov 2026): yes, analysis-only Opus lane. Started on Opus, expected: 75 min.\n\nDone (8924ceb03), merged: docs/research/aoc-2020-friction-days-10-20.md. Top five: proofs follow the source not the computed goal (10 of 11 days); fast lookups + profiler; every well-formed input parses; grid geometry in Aoc.Common; count by a proposition, fuel loops. 7 duplicate pairs, ~11 untracked findings, Q1-Q6 (D2453-D2458). Model result: Opus, worked, 7 min (est. 75).\n\nD questions from its Q1-Q6: D2453 (design note: rewrite/match look at the goal as written first, SW-706/1589/1562; run the refines-nothing warning SW-1485 now) [rec: yes]; D2454 (prove every well-formed input parses: SW-1584 + a two-day pilot, then decide; close SW-1229) [rec: yes]; D2455 (Some { … } means Some ({ … }) for a record argument, small syntax proposal) [rec: yes]; D2456 (day 12: a new Vector type with quarter turns) [rec: yes]; D2457 (record eta: Opus design note now) [rec: yes]; D2458 (schedule the profiler SW-1528 now, Sonnet, after a scope check) [rec: yes].\n\nD2453 (Matt, 6 Nov 2026): yes, both: an Opus design note on rewrite/match looking at the goal as written first (SW-706, SW-1589, SW-1562), and the refines-nothing warning SW-1485 now.\n\nD2454 (Matt, 6 Nov 2026): yes (SW-1584 Runs lemmas, a two-day trial, then decide on a sweep; close SW-1229), on condition that a brief literature review first confirms Reads/Runs follows established patterns for verified parsers ('if we're doing something very standard, then yeah, let's proceed'). Gate: SW-1611.\n\nD2455 (Matt, 6 Nov 2026): instead of changing what Some { … } means, an Opus design note reviewing record and constructor brace syntax in the round (expressions and patterns), other languages with sources, alternatives, usage counts from the repo. 'It should look at other languages. It should try and consider alternatives.' Revisits D1370, D593, D605. Ticket SW-1613.",
+      "body": "D2451 (Matt, 6 Nov 2026): yes, analysis-only Opus lane. Started on Opus, expected: 75 min.\n\nDone (8924ceb03), merged: docs/research/aoc-2020-friction-days-10-20.md. Top five: proofs follow the source not the computed goal (10 of 11 days); fast lookups + profiler; every well-formed input parses; grid geometry in Aoc.Common; count by a proposition, fuel loops. 7 duplicate pairs, ~11 untracked findings, Q1-Q6 (D2453-D2458). Model result: Opus, worked, 7 min (est. 75).\n\nD questions from its Q1-Q6: D2453 (design note: rewrite/match look at the goal as written first, SW-706/1589/1562; run the refines-nothing warning SW-1485 now) [rec: yes]; D2454 (prove every well-formed input parses: SW-1584 + a two-day pilot, then decide; close SW-1229) [rec: yes]; D2455 (Some { … } means Some ({ … }) for a record argument, small syntax proposal) [rec: yes]; D2456 (day 12: a new Vector type with quarter turns) [rec: yes]; D2457 (record eta: Opus design note now) [rec: yes]; D2458 (schedule the profiler SW-1528 now, Sonnet, after a scope check) [rec: yes].\n\nD2453 (Matt, 6 Nov 2026): yes, both: an Opus design note on rewrite/match looking at the goal as written first (SW-706, SW-1589, SW-1562), and the refines-nothing warning SW-1485 now.\n\nD2454 (Matt, 6 Nov 2026): yes (SW-1584 Runs lemmas, a two-day trial, then decide on a sweep; close SW-1229), on condition that a brief literature review first confirms Reads/Runs follows established patterns for verified parsers ('if we're doing something very standard, then yeah, let's proceed'). Gate: SW-1611.\n\nD2455 (Matt, 6 Nov 2026): instead of changing what Some { … } means, an Opus design note reviewing record and constructor brace syntax in the round (expressions and patterns), other languages with sources, alternatives, usage counts from the repo. 'It should look at other languages. It should try and consider alternatives.' Revisits D1370, D593, D605. Ticket SW-1613.\n\nD2456 (Matt, 6 Nov 2026): yes, a plane library in Aoc.Common: Point { x: Int, y: Int } (x right, y up), Heading (N/E/S/W, quarter turns, step), Box, lemmas, Heading.toDirection; move 2020 day 12, 2021 day 17, 2024 day 13 onto it. Ticket SW-1484.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
