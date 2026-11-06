@@ -11800,13 +11800,13 @@
     {
       "id": 1673,
       "title": "Test: stitchwort check + test every docs/tutorial/*.sw (release build), in the guide test binary or a task target (D2512)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1673",
       "labels": [
         "tooling"
       ],
-      "body": "D2512 (Matt, 6 Nov 2026): tutorials live in docs/tutorial/, with a test that checks and tests every file there. Sonnet, small.\n\nStarted on Sonnet, expected: 30 min.",
+      "body": "D2512 (Matt, 6 Nov 2026): tutorials live in docs/tutorial/, with a test that checks and tests every file there. Sonnet, small.\n\nStarted on Sonnet, expected: 30 min.\n\nDone, merged (43ebddbae): the_tutorials_check_and_pass_their_tests in crates/cli/tests/guide.rs runs check and test on each docs/tutorial/*.sw with --no-cache, naming the file and command on failure; passes on main; a broken rfl fails it with the E-REFL diagnostic. Model result: Sonnet, worked, 6 min (est. 30).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
