@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: braces after `Meeting` as an argument need brackets
+    ╭─[ reject/ctor-braces-pipe-braced-argument.sw:11:28 ]
+    │
+ 11 │ def p: Ev := three |> keep Meeting { title = "a" }
+    │                            ───────────┬───────────  
+    │                                       ╰───────────── braces after `Meeting` as an argument need brackets
+    │ 
+    │ Note: `Meeting` is declared with its fields in braces, so braces after it name its fields: write `(Meeting { … })` to build a `Meeting` by its fields, or `Meeting ({ … })` to pass a record
+────╯

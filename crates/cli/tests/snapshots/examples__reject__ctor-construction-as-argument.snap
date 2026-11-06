@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-PARSE] Error: braces after `Dot` as an argument need brackets
-   ╭─[ reject/ctor-construction-as-argument.sw:8:33 ]
+   ╭─[ reject/ctor-construction-as-argument.sw:8:29 ]
    │
  8 │ def d: Option Shape := Some Dot { ref = 1, id = "a" }
-   │                                 ┬  
-   │                                 ╰── braces after `Dot` as an argument need brackets
+   │                             ────────────┬────────────  
+   │                                         ╰────────────── braces after `Dot` as an argument need brackets
    │ 
-   │ Note: write `(Dot { … })` to build a `Dot` by its fields, or `Dot ({ … })` to pass `Dot` and a record
+   │ Note: `Dot` is declared with its fields in braces, so braces after it name its fields: write `(Dot { … })` to build a `Dot` by its fields, or `Dot ({ … })` to pass a record
 ───╯

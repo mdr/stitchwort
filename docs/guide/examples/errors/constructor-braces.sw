@@ -1,3 +1,5 @@
 type Person = { name: Text, age: Nat }
 
-def found: Option Person := Some { name = "Ada", age = 36 }
+type Booking = | Guest { person: Person }
+
+def ada: Booking := Guest { name = "Ada", age = 36 }

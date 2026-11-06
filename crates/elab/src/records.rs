@@ -453,8 +453,8 @@ impl Elaborator {
                 format!("({} {{ … }})", g.data(r).ctors()[0].name)
             };
             e = e.with_note(format!(
-                "braces right after a constructor name its own fields; to {verb} the `{}` \
-                 it holds, write `{} {braces}`",
+                "`{1}` is declared with its fields in braces, so braces after it name its own \
+                 fields; to {verb} the `{0}` it holds, write `{1} {braces}`",
                 g.data(r).name(),
                 ctor.name
             ));
@@ -463,15 +463,292 @@ impl Elaborator {
     }
 }
 
-/// `C { f = e, … }` in an expression (docs/proposals/variant-fields.md
-/// §4.5): the positional application `C e₁ … eₙ`, the explicit fields'
-/// values in declaration order, which is then elaborated as if written so
-/// (the same term, so the same hash). As for a record literal, every
-/// explicit field is given once; implicit fields are left to unification,
-/// as in a positional application. `expected`, where known, only adds a
-/// note when the names are those of the record a one-field constructor
-/// holds. Fields with defaults may be left out
-/// (docs/proposals/named-arguments.md §5.1).
+/// A note for braces after a constructor declared with brackets that look
+/// like they were meant to name its fields.
+pub(crate) struct ArgumentHint {
+    /// The braces, and the constructor with them.
+    record: Span,
+    call: Span,
+    note: String,
+    /// The first explicit field's type, if it is a data type that is not a
+    /// record: the braces can't be that, so they can't be an argument for it.
+    first: Option<String>,
+}
+
+impl ArgumentHint {
+    /// `e`, with the note if it is about the record the braces make.
+    pub(crate) fn apply(&self, e: Diagnostic) -> Diagnostic {
+        let about_record = matches!(
+            e.code,
+            "E-NOT-A-RECORD" | "E-TYPE-MISMATCH" | "E-UNKNOWN-FIELD" | "E-CANNOT-INFER"
+        ) && e
+            .labels
+            .first()
+            .is_some_and(|l| l.span == self.record || l.span == self.call);
+        if about_record {
+            e.with_note(self.note.clone())
+        } else {
+            e
+        }
+    }
+}
+
+/// The hint for braces `record` after `written` if every name in them is one
+/// of `written`'s explicit fields: it is declared with brackets, so they are
+/// its first argument, not its fields.
+fn argument_hint(
+    cx: &Ctx,
+    written: &ast::Name,
+    fields: &[(ast::Name, Expr)],
+    record: &Expr,
+    call: Span,
+) -> Option<ArgumentHint> {
+    let (d, c) = cx.e.ctor_named(&written.text, written.span).ok()?;
+    let g = cx.g();
+    let ctor = &g.data(d).ctors()[c];
+    let explicit: Vec<&str> = (0..ctor.fields.len())
+        .filter(|&i| !ctor.implicit.get(i).copied().unwrap_or(false))
+        .map(|i| &*ctor.fields[i].0)
+        .collect();
+    if fields.is_empty() || !fields.iter().all(|(n, _)| explicit.contains(&&*n.text)) {
+        return None;
+    }
+    let name = &ctor.name;
+    let given: Vec<String> = fields
+        .iter()
+        .map(|(n, _)| format!("({} := …)", n.text))
+        .collect();
+    let first = ctor
+        .fields
+        .iter()
+        .enumerate()
+        .find(|(i, _)| !ctor.implicit.get(*i).copied().unwrap_or(false))
+        .and_then(|(_, (_, ty))| match ty.strip_loc() {
+            stitchwort_core::Term::Data(dd, _) if !g.data(*dd).record() => {
+                Some(g.data(*dd).name().to_string())
+            }
+            _ => None,
+        });
+    Some(ArgumentHint {
+        first,
+        record: record.span(),
+        call,
+        note: format!(
+            "`{name}` is declared with its fields in brackets, so braces after it are its \
+             first argument, not its fields; to give fields by name, write `{name} {}`, or \
+             declare it `| {name} {{ … }}`",
+            given.join(" ")
+        ),
+    })
+}
+
+/// What braces right after an uppercase name are.
+enum Braces {
+    /// The fields of constructor `c` of `d`, declared with its fields in
+    /// braces.
+    Fields(DataId, usize),
+    /// A record literal, the argument of what the name is: a constructor
+    /// declared with brackets, or a function.
+    Argument(Expr),
+}
+
+/// Which `{ f = e, … }` after `written` is, by how `written` is declared
+/// (docs/proposals/brace-syntax-review.md §5, option D): never by the field
+/// names or the types.
+fn braces(
+    cx: &Ctx,
+    written: &ast::Name,
+    fields: &[(ast::Name, Expr)],
+    span: Span,
+) -> Result<Braces> {
+    match cx.e.ctor_named(&written.text, written.span) {
+        Ok((d, c)) if cx.g().data(d).ctors()[c].braced => Ok(Braces::Fields(d, c)),
+        Ok(_) => Ok(Braces::Argument(braces_record(written, fields, span))),
+        Err(e) if e.code == "E-NOT-A-CONSTRUCTOR" => {
+            not_a_ctor(cx, written, e)?;
+            Ok(Braces::Argument(braces_record(written, fields, span)))
+        }
+        Err(e) => Err(e),
+    }
+}
+
+/// The braces written after `written` as a record literal.
+fn braces_record(written: &ast::Name, fields: &[(ast::Name, Expr)], span: Span) -> Expr {
+    Expr::Record {
+        base: None,
+        fields: fields.to_vec(),
+        span: Span {
+            start: written.span.end + 1,
+            ..span
+        },
+    }
+}
+
+/// The error for braces after constructor `written`, declared with its
+/// fields in braces, where they can't name its fields: as an argument
+/// (`f C { … }`), or at the head of an application with more arguments
+/// (`C { … } x`).
+fn braced_ctor_error(written: &ast::Name, span: Span, argument: bool) -> Diagnostic {
+    let name = &written.text;
+    if argument {
+        error(
+            "E-PARSE",
+            span,
+            format!("braces after `{name}` as an argument need brackets"),
+        )
+        .with_note(format!(
+            "`{name}` is declared with its fields in braces, so braces after it name its \
+             fields: write `({name} {{ … }})` to build a `{name}` by its fields, or `{name} ({{ … }})` \
+             to pass a record"
+        ))
+    } else {
+        error(
+            "E-PARSE",
+            span,
+            format!("braces after `{name}` name its fields, and take no further arguments"),
+        )
+        .with_note(format!(
+            "`{name}` is declared with its fields in braces; to pass a record as its first \
+             argument, write it in brackets: `{name} ({{ … }}) …`"
+        ))
+    }
+}
+
+/// The application `expr` with each `C { … }` in it that is a record
+/// argument spelt out, as `C ({ … })` is: at its head, `C { … } x`, or as an
+/// argument, `f C { … }` (where `f` takes `C`, then the record). `None` if
+/// there is none. A `C` declared with its fields in braces is refused
+/// there (docs/proposals/brace-syntax-review.md §5, D2483).
+pub(crate) fn brace_arguments(cx: &Ctx, expr: &Expr) -> Result<Option<Expr>> {
+    let Expr::App(f, a) = expr else {
+        return Ok(None);
+    };
+    let f2 = brace_arguments(cx, f)?;
+    let arg = match &**a {
+        Expr::CtorFields {
+            ctor,
+            fields,
+            span,
+            argument: true,
+        } => Some(match braces(cx, ctor, fields, *span)? {
+            Braces::Fields(..) => return Err(braced_ctor_error(ctor, *span, true)),
+            Braces::Argument(record) => (Expr::Var(ctor.clone()), record),
+        }),
+        _ => None,
+    };
+    let head = match (&**f, &f2) {
+        (
+            Expr::CtorFields {
+                ctor,
+                fields,
+                span,
+                argument: false,
+            },
+            None,
+        ) => Some(match braces(cx, ctor, fields, *span)? {
+            Braces::Fields(..) => return Err(braced_ctor_error(ctor, *span, false)),
+            Braces::Argument(record) => {
+                Expr::App(Box::new(Expr::Var(ctor.clone())), Box::new(record))
+            }
+        }),
+        _ => f2,
+    };
+    if head.is_none() && arg.is_none() {
+        return Ok(None);
+    }
+    let f = Box::new(head.unwrap_or_else(|| (**f).clone()));
+    Ok(Some(match arg {
+        None => Expr::App(f, a.clone()),
+        Some((ctor, record)) => Expr::App(Box::new(Expr::App(f, Box::new(ctor))), Box::new(record)),
+    }))
+}
+
+/// A constructor and the fields a call of it with named arguments gives.
+pub(crate) type NamedCall = (DataId, usize, Vec<(ast::Name, Expr)>);
+
+/// `C (f := e) …`: constructor `C` applied with some explicit fields by
+/// name, and every explicit field it leaves out having a default
+/// (docs/proposals/brace-syntax-review.md §5, D2485). The constructor, and
+/// the fields as `C { f = e, … }` would give them: the positional arguments
+/// fill the fields without defaults that are not named, in order. `None` if
+/// the call is anything else, which is elaborated as any application.
+pub(crate) fn named_ctor_call(cx: &Ctx, expr: &Expr) -> Result<Option<NamedCall>> {
+    use crate::check::{Arg, spine};
+    let (Expr::Var(head), args) = spine(expr) else {
+        return Ok(None);
+    };
+    if !head.text.starts_with(|ch: char| ch.is_uppercase())
+        || !args.iter().any(|a| matches!(a, Arg::NamedExplicit(..)))
+        || !args
+            .iter()
+            .all(|a| matches!(a, Arg::Explicit(_) | Arg::NamedExplicit(..)))
+        || cx.lookup(&head.text).is_some()
+    {
+        return Ok(None);
+    }
+    let Ok((d, c)) = cx.e.ctor_named(&head.text, head.span) else {
+        return Ok(None);
+    };
+    let g = cx.g();
+    let ctor = &g.data(d).ctors()[c];
+    let explicit: Vec<usize> = (0..ctor.fields.len())
+        .filter(|&i| !ctor.implicit.get(i).copied().unwrap_or(false))
+        .collect();
+    if explicit
+        .iter()
+        .all(|&i| cx.e.field_default(d, c, i).is_none())
+    {
+        return Ok(None);
+    }
+    let mut fields: Vec<(ast::Name, Expr)> = Vec::new();
+    for arg in &args {
+        if let Arg::NamedExplicit(name, value) = arg {
+            if !explicit.iter().any(|&i| *ctor.fields[i].0 == *name.text) {
+                return Ok(None);
+            }
+            fields.push(((*name).clone(), (*value).clone()));
+        }
+    }
+    let named: Vec<String> = fields.iter().map(|(n, _)| n.text.to_string()).collect();
+    let mut unnamed = explicit.iter().filter(|&&i| {
+        cx.e.field_default(d, c, i).is_none() && !named.iter().any(|n| **n == *ctor.fields[i].0)
+    });
+    for arg in &args {
+        if let Arg::Explicit(value) = arg {
+            let Some(&i) = unnamed.next() else {
+                return Ok(None);
+            };
+            fields.push((
+                ast::Name {
+                    text: ctor.fields[i].0.to_string(),
+                    span: value.span(),
+                },
+                (*value).clone(),
+            ));
+        }
+    }
+    let left_out = |i: &usize| !fields.iter().any(|(n, _)| *n.text == *ctor.fields[*i].0);
+    if explicit
+        .iter()
+        .filter(|i| left_out(i))
+        .any(|&i| cx.e.field_default(d, c, i).is_none())
+        || !explicit.iter().any(left_out)
+    {
+        return Ok(None);
+    }
+    Ok(Some((d, c, fields)))
+}
+
+/// `C { f = e, … }` in an expression: for a `C` declared with its fields
+/// in braces (docs/proposals/variant-fields.md §4.5), the positional
+/// application `C e₁ … eₙ`, the explicit fields' values in declaration
+/// order, which is then elaborated as if written so (the same term, so the
+/// same hash). For any other `C` the braces are a record passed to it,
+/// `C ({ … })`. As for a record literal, every explicit field is given once;
+/// implicit fields are left to unification, as in a positional application.
+/// `expected`, where known, only adds a note when the names are those of the
+/// record a one-field constructor holds. Fields with defaults may be left
+/// out (docs/proposals/named-arguments.md §5.1).
 pub(crate) fn ctor_fields(
     cx: &mut Ctx,
     written: &ast::Name,
@@ -479,12 +756,28 @@ pub(crate) fn ctor_fields(
     span: Span,
     expected: Option<&Value>,
 ) -> Result<Construction> {
-    let (d, c) = match cx.e.ctor_named(&written.text, written.span) {
-        Ok(found) => found,
-        Err(e) if e.code == "E-NOT-A-CONSTRUCTOR" => {
-            return not_a_ctor(cx, written, fields, span, e).map(Construction::Positional);
+    let (d, c) = match braces(cx, written, fields, span)? {
+        Braces::Fields(d, c) => (d, c),
+        Braces::Argument(record) => {
+            let hint = argument_hint(cx, written, fields, &record, span);
+            if let Some(hint) = &hint
+                && let Some(first) = &hint.first
+            {
+                return Err(Diagnostic::error(
+                    "E-NOT-A-RECORD",
+                    format!(
+                        "braces after `{}` are its first argument, a `{first}`, not its fields",
+                        written.text
+                    ),
+                )
+                .with_label(hint.record, "this record is not a field's value")
+                .with_note(hint.note.clone()));
+            }
+            return Ok(Construction::Argument(
+                Expr::App(Box::new(Expr::Var(written.clone())), Box::new(record)),
+                hint,
+            ));
         }
-        Err(e) => return Err(e),
     };
     let g = cx.g();
     let ctor = &g.data(d).ctors()[c];
@@ -561,6 +854,9 @@ pub(crate) fn ctor_fields(
 pub(crate) enum Construction {
     /// The positional application, every explicit field given.
     Positional(Expr),
+    /// `C` applied to the braces as a record, with what to add to the error
+    /// if the record turns out not to be what `C` takes.
+    Argument(Expr, Option<ArgumentHint>),
     /// Constructor `c` of `d`, leaving out fields that have defaults
     /// (`defaults::ctor_with_defaults`).
     Defaults(DataId, usize),
@@ -570,13 +866,7 @@ pub(crate) enum Construction {
 /// braces' old meaning, a record literal as its argument: `AtR { q = … }`
 /// in a type indexed by a record. A record type's own name is refused,
 /// `e`, with a note: its literal is written without the name.
-fn not_a_ctor(
-    cx: &Ctx,
-    written: &ast::Name,
-    fields: &[(ast::Name, Expr)],
-    span: Span,
-    e: Diagnostic,
-) -> Result<Expr> {
+fn not_a_ctor(cx: &Ctx, written: &ast::Name, e: Diagnostic) -> Result<()> {
     if matches!(
         cx.e.resolve_exact(written),
         Ok((crate::Global::Data(d), ..)) if cx.g().data(d).record()
@@ -587,18 +877,7 @@ fn not_a_ctor(
             written.text
         )));
     }
-    let record = Expr::Record {
-        base: None,
-        fields: fields.to_vec(),
-        span: Span {
-            start: written.span.end + 1,
-            ..span
-        },
-    };
-    Ok(Expr::App(
-        Box::new(Expr::Var(written.clone())),
-        Box::new(record),
-    ))
+    Ok(())
 }
 
 /// Whether record type `r` has a field `name`.

@@ -189,7 +189,8 @@ impl Walk {
                 if let Expr::Var(name) = head {
                     let spans = (args.iter())
                         .map(|a| match a {
-                            Expr::NamedArg(..) => None,
+                            // `C { … }` may be `C` and a record, two arguments.
+                            Expr::NamedArg(..) | Expr::CtorFields { argument: true, .. } => None,
                             other => Some(other.span()),
                         })
                         .collect();
@@ -608,7 +609,7 @@ type RangeOptions = {
 }
 
 type Shape =
-  | Circle (radius: Nat) (id: Text := "anonymous")
+  | Circle { radius: Nat, id: Text := "anonymous" }
 
 def leavesStartOut: RangeOptions := { stop = 10 }
 def givesStart: RangeOptions := { start = 2, stop = 10 }
@@ -650,7 +651,7 @@ type RangeOptions = {
 }
 
 type Shape =
-  | Circle (radius: Nat) (id: Text DEFAULT2)
+  | Circle { radius: Nat, id: Text DEFAULT2 }
 
 def literal: RangeOptions := { start = 2, stop = 10, step = 3 }
 def construction: Shape := Circle { id = "a", radius = 1 }

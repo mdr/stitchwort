@@ -56,6 +56,7 @@ fn declare(
                 .collect(),
             result: Vec::new(),
             implicit: Vec::new(),
+            braced: false,
         })
         .collect();
     define_data_group(g, vec![(ids[0], ctors)]).map_err(|d| d.code)?;

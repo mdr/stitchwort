@@ -21,8 +21,10 @@
 //!
 //! Elements are shown with `toSource`. A constructor is its name, then its
 //! fields, each in brackets when it has spaces and isn't already one piece
-//! (`Node (Leaf 1) (Leaf 2)`, `Some (-5)`); a record is `{ name = "tea",
-//! price = 3 }`, and `{}` with nothing to show.
+//! (`Node (Leaf 1) (Leaf 2)`, `Some (-5)`, `Some { price = 3 }`); a
+//! constructor declared with its fields in braces is shown by field name,
+//! `Meeting { title = "a" }`; a record is `{ name = "tea", price = 3 }`, and
+//! `{}` with nothing to show.
 //!
 //! ```text
 //! T.%show : [%p0 : _] -> [auto show: Std.Show %p0] -> (%r : T %p0) -> Std.Text
@@ -511,6 +513,7 @@ impl Elaborator {
             for (c, ctor) in ctors.iter().enumerate() {
                 let kinds = &member_fields[c];
                 let count = ctor.fields.len();
+                let braced = ctor.braced && !ctor.implicit.contains(&true);
                 let shown: Vec<usize> = (0..count).filter(|k| kinds[*k] != Field::Proof).collect();
                 let mut pieces: Vec<Expr> = Vec::new();
                 if record {
@@ -524,6 +527,15 @@ impl Elaborator {
                         }
                         pieces.push(text(" }"));
                     }
+                } else if braced && !shown.is_empty() {
+                    // By field name, as it is written: `Meeting { title = "a" }`.
+                    pieces.push(text(&ctor.name));
+                    for (i, &k) in shown.iter().enumerate() {
+                        let open = if i == 0 { " { " } else { ", " };
+                        pieces.push(text(&format!("{open}{} = ", ctor.fields[k].0)));
+                        pieces.push(element(c, k));
+                    }
+                    pieces.push(text(" }"));
                 } else {
                     pieces.push(text(&ctor.name));
                     for &k in &shown {

@@ -1548,6 +1548,7 @@ impl Elaborator {
                     implicit: Vec::new(),
                     defaults: Vec::new(),
                     result: None,
+                    braced: false,
                 })
                 .collect(),
             record: false,
@@ -2268,6 +2269,7 @@ impl Elaborator {
                 fields,
                 result: Vec::new(),
                 implicit: Vec::new(),
+                braced: ctor.braced,
             });
         }
         Ok(core_ctors)
@@ -3994,8 +3996,25 @@ impl Elaborator {
                 fields,
                 rest,
                 span,
+                ..
             } => {
                 let (data, ctor) = self.ctor_named(&name.text, name.span)?;
+                // Declared with brackets, the braces are a record pattern for
+                // its argument, as `C ({ … })` is
+                // (docs/proposals/brace-syntax-review.md §5).
+                if !self.ev().data(data).ctors()[ctor].braced {
+                    return Ok(Some(CtorPattern {
+                        data,
+                        ctor,
+                        args: vec![match pattern {
+                            Cow::Borrowed(p @ Pattern::CtorFields { .. }) => {
+                                Cow::Borrowed(p.as_record().expect("a CtorFields"))
+                            }
+                            _ => Cow::Owned(pattern.as_record().expect("a CtorFields").clone()),
+                        }],
+                        span: *span,
+                    }));
+                }
                 Ok(Some(match pattern {
                     Cow::Borrowed(Pattern::CtorFields { fields, .. }) => {
                         self.ctor_fields_pattern(data, ctor, name, fields, *rest, *span, ty)?

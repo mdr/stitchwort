@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-PARSE] Error: braces after `Circle` name its fields, and take no further arguments
-   ╭─[ reject/ctor-construction-further-argument.sw:8:46 ]
+   ╭─[ reject/ctor-construction-further-argument.sw:8:17 ]
    │
  8 │ def c: Shape := Circle { ref = 1, id = "a" } "t"
-   │                                              ─┬─  
-   │                                               ╰─── braces after `Circle` name its fields, and take no further arguments
+   │                 ──────────────┬─────────────  
+   │                               ╰─────────────── braces after `Circle` name its fields, and take no further arguments
    │ 
-   │ Note: to pass a record as `Circle`'s first argument, write it in brackets: `Circle ({ … }) …`
+   │ Note: `Circle` is declared with its fields in braces; to pass a record as its first argument, write it in brackets: `Circle ({ … }) …`
 ───╯

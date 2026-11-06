@@ -817,18 +817,26 @@ impl<'g> Printer<'g> {
                     shown.push(format!("..{}", self.print(names, tail, Prec::Arrow)));
                     return (format!("[{}]", shown.join(", ")), Prec::Atom);
                 }
-                // Braces right after a constructor name its fields, so a
-                // record given to one is in brackets: `Cons ({ x = 1 })
-                // rest`, not `Cons { x = 1 } rest` (SW-1000).
-                let mut text = self.g.data(*d).ctors[*c].name.to_string();
+                let ctor = &self.g.data(*d).ctors[*c];
+                let mut text = ctor.name.to_string();
+                // A constructor declared with its fields in braces is shown
+                // by field name, as it can be written. (With implicit fields
+                // it is shown positionally, which braces can't say.)
+                if ctor.braced && !args.is_empty() && !ctor.implicit.contains(&true) {
+                    let fields: Vec<String> = ctor
+                        .fields
+                        .iter()
+                        .zip(args)
+                        .map(|((f, _), a)| format!("{f} = {}", self.print(names, a, Prec::Arrow)))
+                        .collect();
+                    return (format!("{text} {{ {} }}", fields.join(", ")), Prec::App);
+                }
+                // After a constructor declared with brackets, braces are a
+                // record argument like any other: `Cons { x = 1 } rest`.
                 for arg in args {
                     let shown = self.print(names, arg, Prec::Atom);
-                    if shown.starts_with('{') {
-                        text.push_str(&format!(" ({shown})"));
-                    } else {
-                        text.push(' ');
-                        text.push_str(&shown);
-                    }
+                    text.push(' ');
+                    text.push_str(&shown);
                 }
                 let prec = if args.is_empty() {
                     Prec::Atom

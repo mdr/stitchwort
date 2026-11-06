@@ -22,9 +22,10 @@ theorem sameValue: plain = { name = "Ada", greeting = "Hello", punctuation = "!"
 -- A constructor's fields may have defaults too.
 type Shape =
   | Circle (id: Text) (radius: Nat)
-  | Square (id: Text) (side: Nat := 1)
+  | Square { id: Text, side: Nat := 1 }
 
 test "constructor defaults" := Square { id = "unit" } == Square "unit" 1
+test "named arguments fill them too" := Circle (id := "c") (radius := 1) == Circle "c" 1
 
 -- A function's parameters may have defaults too. They are given by name, and
 -- a call that leaves one out gets the default.

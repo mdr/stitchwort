@@ -1,4 +1,5 @@
--- Named-field constructor patterns (docs/proposals/variant-fields.md §4):
+-- Named-field constructor patterns (docs/proposals/variant-fields.md §4): for
+-- a constructor declared with its fields in braces, `| C { f: T, … }`,
 -- `C { f = p, g, .. }` matches a `C`, naming its fields as a record pattern
 -- names a record's. It means the positional pattern with `_` for the fields
 -- left out, so coverage is the positional pattern's.
@@ -8,9 +9,9 @@ import Std (Eq, Int, List, Nat, Option)
 type Point = { x: Int, y: Int }
 
 type Shape =
-  | Dot (ref: Nat) (id: Text) (start: Int)
-  | Circle (ref: Nat) (id: Text) (start: Int) (text: Text)
-  | Polygon (ref: Nat) (id: Text) (start: Int) (duration: Nat) (points: List Point)
+  | Dot { ref: Nat, id: Text, start: Int }
+  | Circle { ref: Nat, id: Text, start: Int, text: Text }
+  | Polygon { ref: Nat, id: Text, start: Int, duration: Nat, points: List Point }
 
 -- A punned field binds a variable of its name; `..` ignores the rest.
 -- Without `..`, every field is named. Each arm names `id`: no counting.
@@ -80,7 +81,7 @@ def nestedOption: Option Shape → Nat
   | _ => 0
 
 -- A one-constructor type, in `let` and in a lambda's bracketed parameter.
-type Size = | MkSize (width: Nat) (height: Nat)
+type Size = | MkSize { width: Nat, height: Nat }
 
 def area (s: Size): Nat :=
   let MkSize { width, height } := s
@@ -93,18 +94,18 @@ test "let and lambda" := area (MkSize 2 3) == 6 ∧ widths [MkSize 4 1] == [4]
 -- Parameters: the fields' types are the constructor's, instantiated.
 type Box (a: Type) =
   | Empty
-  | Full (content: a) (count: Nat)
+  | Full { content: a, count: Nat }
 
 def contentOr (d: a): Box a → a
   | Full { content, .. } => content
-  | Empty { } => d
+  | Empty => d
 
 test "parameters" := contentOr 0 (Full 7 2) == 7 ∧ contentOr 0 Empty == 0
 
 -- Implicit fields are skipped by braces, as by positional patterns.
 type Vec (a: Type): Nat → Type =
   | VNil: Vec a 0
-  | VCons [n: Nat] (head: a) (tail: Vec a n): Vec a (Succ n)
+  | VCons [n: Nat] { head: a, tail: Vec a n }: Vec a (Succ n)
 
 def headOf (xs: Vec a (Succ n)): a := match xs with
   | VCons { head, .. } => head
@@ -113,7 +114,7 @@ def headOf (xs: Vec a (Succ n)): a := match xs with
 -- as the constructor's positional argument is in brackets.
 type Person = { name: Text, age: Nat }
 
-type Wrap = | W (person: Person)
+type Wrap = | W { person: Person }
 
 def nameByField: Wrap → Text
   | W { person = { name, .. }, .. } => name

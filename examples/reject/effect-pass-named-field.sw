@@ -12,7 +12,7 @@ def IsDone [a: Type]: Effect.Comp Effect.NoOp Effect.NoRes a → Prop
   | Call () rest
 
 type Labelled =
-  | MkLabelled (label: Nat) (inner: Effect.Comp Effect.NoOp Effect.NoRes Nat)
+  | MkLabelled { label: Nat, inner: Effect.Comp Effect.NoOp Effect.NoRes Nat }
 
 def labelledDone: Labelled → Prop
   | MkLabelled label inner => IsDone inner

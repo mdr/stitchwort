@@ -2,14 +2,14 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-UNKNOWN-FIELD] Error: `Some` has no field `name`
-   ╭─[ reject/ctor-construction-record-argument.sw:8:32 ]
-   │
- 8 │ def tea: Option Item := Some { name = "tea", price = 3 }
-   │                                ──┬─  
-   │                                  ╰─── `Some` has no field `name`
-   │ 
-   │ Note 1: `Some`'s fields are `value`
-   │ 
-   │ Note 2: braces right after a constructor name its own fields; to build the `Item` it holds, write `Some ({ … })`
-───╯
+[E-UNKNOWN-FIELD] Error: `Tea` has no field `name`
+    ╭─[ reject/ctor-construction-record-argument.sw:10:25 ]
+    │
+ 10 │ def tea: Order := Tea { name = "tea", price = 3 }
+    │                         ──┬─  
+    │                           ╰─── `Tea` has no field `name`
+    │ 
+    │ Note 1: `Tea`'s fields are `item`
+    │ 
+    │ Note 2: `Tea` is declared with its fields in braces, so braces after it name its own fields; to build the `Item` it holds, write `Tea ({ … })`
+────╯

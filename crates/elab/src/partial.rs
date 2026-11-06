@@ -300,6 +300,7 @@ impl Elaborator {
                     .collect(),
                 result: Vec::new(),
                 implicit: Vec::new(),
+                braced: false,
             })
             .collect();
         kernel::define_data_group(&mut self.kernel, vec![(req, ctors)])

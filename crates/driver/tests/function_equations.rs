@@ -464,7 +464,7 @@ fn branch_equations() {
             (
                 "firstBig.eq2.true",
                 "(x: Nat) → (rest: List Nat) → (big: 10 ≤ x) → \
-                 firstBig [x, ..rest] = Some ({ value = x, isBig = big })",
+                 firstBig [x, ..rest] = Some { value = x, isBig = big }",
             ),
             (
                 "firstBig.eq2.false",

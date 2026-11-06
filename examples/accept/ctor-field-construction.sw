@@ -1,22 +1,23 @@
--- Named construction (docs/proposals/variant-fields.md §4.5):
--- `C { f = e, g }` builds a `C` by field name. It is the positional
--- application `C e …` with the fields in declaration order: the same term.
+-- Named construction (docs/proposals/variant-fields.md §4.5): a constructor
+-- declared with its fields in braces, `| C { f: T, … }`, is built by field
+-- name, `C { f = e, g }`. It is the positional application `C e …` with the
+-- fields in declaration order: the same term.
 
 import Std (Eq, Int, IO, List, Nat, Option, Pair)
 
 type Shape =
-  | Dot (ref: Nat) (id: Text)
-  | Circle (ref: Nat) (id: Text) (text: Text)
+  | Dot { ref: Nat, id: Text }
+  | Circle { ref: Nat, id: Text, text: Text }
 
 type Item = { name: Text, price: Nat }
 
 type Vec (a: Type): Nat → Type =
   | VNil: Vec a 0
-  | VCons [n: Nat] (x: a) (xs: Vec a n): Vec a (Succ n)
+  | VCons [n: Nat] { x: a, xs: Vec a n }: Vec a (Succ n)
 
-type Pos = | MkPos (n: Nat) (ok: 0 < n)
+type Pos = | MkPos { n: Nat, ok: 0 < n }
 
-type Box (a: Type) = | MkBox (inner: a) (label: Text)
+type Box (a: Type) = | MkBox { inner: a, label: Text }
 
 -- Fields come in any order; a bare field is punned (`id` is `id = id`).
 def circle (id: Text): Shape := Circle { text = "t", id, ref = 1 }
@@ -40,20 +41,21 @@ def three: Pos := MkPos { n = 3, ok = omega }
 
 -- A parameterised type; fields nest.
 def boxed: Box (Option Shape) :=
-  MkBox { label = "b", inner = Some { value = Dot { id = "d", ref = 0 } } }
+  MkBox { label = "b", inner = Some (Dot { id = "d", ref = 0 }) }
 
 test "nesting" :=
   (match boxed.inner with
     | Some s => idOf s
     | None => "") == "d"
 
--- A record argument: in brackets, or by the constructor's field name.
-def tea: Option Item := Some ({ name = "tea", price = 3 })
-def coffee: Option Item := Some { value = { name = "coffee", price = 4 } }
+-- `Some` is declared with brackets, so braces after it are a record
+-- argument, as after a function. Its field can still be named, with `(f := e)`.
+def tea: Option Item := Some { name = "tea", price = 3 }
+def coffee: Option Item := Some (value := { name = "coffee", price = 4 })
 
 test "a record argument both ways" :=
   (tea == Some ({ name = "tea", price = 3 }))
-    ∧ (coffee == Some { value = { name = "coffee", price = 4 } })
+    ∧ (coffee == Some { name = "coffee", price = 4 })
 
 -- A field access on the result.
 test "field access" := (Circle { ref = 1, id = "a", text = "t" }).id == "a"

@@ -3,7 +3,7 @@
 -- (docs/proposals/named-arguments.md §5.1).
 
 type Shape =
-  | Circle (radius: Nat) (id: Text := "anonymous")
+  | Circle { radius: Nat, id: Text := "anonymous" }
   | Square (side: Nat)
 
 def shape: Shape := Circle { id = "a" }
