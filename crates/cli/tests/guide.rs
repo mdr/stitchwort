@@ -5,6 +5,7 @@
 //!   tests, except those in `errors/` (which must fail to check) and
 //!   `failing/` (which check, and have a failing test). The project in
 //!   `project/` checks and passes its tests.
+//! - Every `.sw` file in `docs/tutorial/` checks and passes its tests.
 //! - In the chapters, a fenced block right after `<!-- snippet: FILE -->`
 //!   is that file, and one after `<!-- snippet: FILE#NAME -->` is the lines
 //!   between `-- begin NAME` and `-- end NAME` in it (other such marker lines
@@ -405,4 +406,38 @@ fn the_guide_examples_check_and_pass_their_tests() {
 fn the_guide_project_checks_and_passes_its_tests() {
     let (passed, printed) = stitchwort(&["test", "--project", "project"], None);
     assert!(passed, "{printed}");
+}
+
+/// Every `.sw` file in `docs/tutorial/` checks and passes its tests.
+#[test]
+fn the_tutorials_check_and_pass_their_tests() {
+    let folder = guide().join("../tutorial");
+    let mut files: Vec<PathBuf> = std::fs::read_dir(&folder)
+        .expect("docs/tutorial")
+        .map(|entry| entry.expect("an entry").path())
+        .filter(|path| path.extension().is_some_and(|e| e == "sw"))
+        .collect();
+    files.sort();
+    assert!(!files.is_empty(), "no tutorials in {}", folder.display());
+    let mut problems = Vec::new();
+    for file in &files {
+        let name = file.file_name().unwrap().to_string_lossy().into_owned();
+        for command in ["check", "test"] {
+            let output = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+                .args([command, &name, "--no-cache"])
+                .current_dir(&folder)
+                .stdin(Stdio::null())
+                .output()
+                .expect("run stitchwort");
+            if !output.status.success() {
+                problems.push(format!(
+                    "docs/tutorial/{name}: `stitchwort {command}` failed:\n{}{}",
+                    String::from_utf8_lossy(&output.stdout),
+                    String::from_utf8_lossy(&output.stderr)
+                ));
+                break;
+            }
+        }
+    }
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
 }
