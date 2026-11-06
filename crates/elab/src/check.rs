@@ -1045,7 +1045,42 @@ impl<'e> Ctx<'e> {
         self.alias_notes(expected, found, ALIAS_NOTE_DEPTH, &mut notes);
         let d = notes.into_iter().fold(d, |d, note| d.with_note(note));
         let d = self.with_opaque_notes(d, &[expected, found]);
+        let d = self.unknown_notes(d, &[&expected_shown, &found_shown], &[expected, found]);
         self.unrefined_hint(d, expected, found)
+    }
+
+    /// A note for each unknown printed as `?N` in `shown` whose origin is
+    /// recorded ([`stitchwort_core::globals::Meta::origin`]): what it stands
+    /// for, so that the message doesn't leave `?N` unexplained.
+    fn unknown_notes(&self, mut d: Diagnostic, shown: &[&str], values: &[&Value]) -> Diagnostic {
+        let mut seen = Vec::new();
+        for value in values {
+            let Ok(term) = crate::interfaces::scanned(self, value) else {
+                continue;
+            };
+            let Ok(term) = self.e.zonk_keeping(&term, self.level(), &|_| true) else {
+                continue;
+            };
+            for (t, _) in term.subterms() {
+                let Term::Meta(m) = t else { continue };
+                let name = format!("?{m}");
+                let printed = shown.iter().any(|s| {
+                    s.match_indices(&name).any(|(i, _)| {
+                        !s[i + name.len()..].starts_with(|c: char| c.is_ascii_digit())
+                    })
+                });
+                if !printed || seen.contains(m) || self.g().meta_solution(*m).is_some() {
+                    continue;
+                }
+                seen.push(*m);
+                if let Some(origin) = self.metas().meta_origin(*m) {
+                    d = d.with_note(format!(
+                        "`{name}` is {origin}, which wasn't worked out from the other arguments or the expected type"
+                    ));
+                }
+            }
+        }
+        d
     }
 
     /// SW-832: a side that is a definition kept folded in the message (an
@@ -2504,6 +2539,10 @@ fn apply_args_postponing(
             }
             Arg::Explicit(value) => {
                 (term, ty) = insert_with(cx, term, ty, supply)?;
+                let hole_of = match (value, force(&cx.g(), ty.clone())?) {
+                    (Expr::Hole(_), Value::Pi(x, ..)) => Some(x),
+                    _ => None,
+                };
                 let (dom, cod) = function_parts(cx, &ty).map_err(|e| {
                     not_a_function_hint(cx, &term, previous_function_name, value, e)
                 })?;
@@ -2550,7 +2589,12 @@ fn apply_args_postponing(
                 let snapshot = (expecting.is_some() && only_lambdas_depend_on_it(&cod.body, &[]))
                     .then(|| crate::undo::Snapshot::take(cx));
                 let value = match check_arg(cx, &term, value, &dom) {
-                    Ok(value) => value,
+                    Ok(value) => {
+                        if let Some(x) = &hole_of {
+                            note_origin(cx, &value, x, &term);
+                        }
+                        value
+                    }
                     Err(e) if crate::undo::fatal(&e) => return Err(e),
                     Err(e) => {
                         let Some(snapshot) = snapshot else {
@@ -3417,15 +3461,34 @@ fn insert_with(
     mut ty: Value,
     supply: &mut Supply,
 ) -> Result<(Term, Value)> {
-    while let Value::Pi(_, icit, dom, cod) = force(&cx.g(), ty.clone())?
+    while let Value::Pi(x, icit, dom, cod) = force(&cx.g(), ty.clone())?
         && icit.is_implicit()
     {
         let meta = supplied_arg(cx, icit, &dom, supply);
+        note_origin(cx, &meta, &x, &term);
         let value = cx.eval(&meta)?;
         term = Term::app_icit(term, meta, icit);
         ty = cod.apply(&cx.g(), value)?;
     }
     Ok((term, ty))
+}
+
+/// Records that unknown `meta` is parameter `param` of the call `callee`
+/// (a call, or a name applied to arguments so far), for messages that
+/// print it as `?N` ([`stitchwort_core::globals::Meta::origin`]). The first
+/// recorded origin stays.
+fn note_origin(cx: &Ctx, meta: &Term, param: &Name, callee: &Term) {
+    let Term::Meta(m) = meta.spine().0 else {
+        return;
+    };
+    if cx.metas().meta_origin(*m).is_some() {
+        return;
+    }
+    let origin = match callee.spine().0 {
+        Term::Def(id) => format!("the argument `{param}` of `{}`", cx.g().def(*id).name()),
+        _ => format!("the argument `{param}`"),
+    };
+    cx.metas().set_meta_origin(*m, origin.into());
 }
 
 pub(crate) fn implicit_arg(cx: &mut Ctx, icit: Icit, ty: &Value) -> Term {
@@ -3524,8 +3587,9 @@ fn insert_until(
             Value::Pi(x, icit, _, _) if icit.is_implicit() && *x == *name.text => {
                 return Ok((term, ty));
             }
-            Value::Pi(_, icit, dom, cod) if icit.is_implicit() => {
+            Value::Pi(x, icit, dom, cod) if icit.is_implicit() => {
                 let meta = supplied_arg(cx, icit, &dom, supply);
+                note_origin(cx, &meta, &x, &term);
                 let value = cx.eval(&meta)?;
                 term = Term::app_icit(term, meta, icit);
                 ty = cod.apply(&cx.g(), value)?;
