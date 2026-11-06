@@ -13207,14 +13207,14 @@
     {
       "id": 1712,
       "title": "Design note: bound unfolded readback by making the elaborator's searches look at goals as written (D2514); revisits D484; unblocks record eta (SW-1667)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1712",
       "labels": [
         "proposal"
       ],
       "epic": "goal-as-written",
-      "body": "D2514 (Matt, 6 Nov 2026). D2518: started read-and-write only, Opus, expected: 90 min.",
+      "body": "D2514 (Matt, 6 Nov 2026). D2518: started read-and-write only, Opus, expected: 90 min.\n\nNote merged: docs/proposals/bounded-readback.md (20ee1b6ca). Capped unfolded readback (calls over 100k nodes kept, D1280 revived), one lazy reader answering each site's question from the goal as written, output terms folded; stages 0-7. Questions D2519-D2524, D2528, D2529. Model result: Opus, worked, 15 min (est. 90).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
