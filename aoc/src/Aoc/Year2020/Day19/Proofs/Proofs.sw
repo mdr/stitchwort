@@ -1,0 +1,114 @@
+--| Day 19 proved: when `Rules.productive` holds (the rules are ranked by
+--| `Rules.rank`, below `Rules.rankBound`), `matchesCompletely` is true of a
+--| message exactly when the message completely matches rule 0 in the
+--| puzzle's sense (Sound.sw, Complete.sw), so the program's count is the
+--| spec's answer and the only one, in both parts. Parse.sw has that the
+--| parser reads the puzzle's format.
+
+namespace Aoc.Year2020.Day19.Proofs
+import Aoc.Year2020.Day19 (..)
+import Aoc.Year2020.Day19.Spec (..)
+import Aoc.Year2020.Day19 (Spec)
+import Std (Bool, Char, DecEq, Eq, Exists, List, Nat, Option, Void)
+
+-- The ranks
+
+theorem chainBounded (rules: Rules): (fuel: Nat) → (number: Nat) → rules.chain fuel number ≤ fuel
+  | Zero, number => omega
+  | Succ more, number =>
+    match looked: rules.rule number with
+      | Some (Alternatives sequences) =>
+        match found: List.maximum (List.map sequences (sequence => rules.chainThrough more sequence)) with
+          | None => omega
+          | Some most =>
+            match List.memMapElim (sequence => rules.chainThrough more sequence) most sequences (And.left (List.maximumSome _ most found)) with
+              | Witness sequence (Both chosen made) =>
+                rewrite <- made in
+                  match sequence with
+                    | [] => omega
+                    | [only] => omega [chainBounded rules more only]
+                    | [first, second, ..others] => omega
+      | Some (Letter letter) => omega
+      | None => omega
+
+theorem rankBelow (rules: Rules) (number: Nat): rules.rank number < rules.rankBound :=
+  omega [chainBounded rules (rules.numbered.length + 1) number]
+
+theorem lookupMember: (entries: List (Nat, Rule)) → (number: Nat) → (rule: Rule) → entries.lookup number = Some rule → (number, rule) ∈ entries
+  | [], number, rule, found => Option.noneNotSome rule found
+  | [(entryNumber, value), ..rest], number, rule, found =>
+    match same: entryNumber == number with
+      | True => Inl (rewrite DecEq.sound same, Option.someInjective found in rfl)
+      | False => Inr (lookupMember rest number rule found)
+
+theorem productiveRanked (rules: Rules) (rank: Nat → Nat) (bound: Nat) (below: (number: Nat) → rank number < bound)
+    (productive: rules.productiveWith rank = True): Ranked rules rank bound :=
+  Both below (number sequences looked sequence chosen =>
+    let entryProductive := List.allMember _ rules.numbered productive (number, Alternatives sequences)
+      (lookupMember rules.numbered number (Alternatives sequences) looked)
+    let sequenceProductive := List.allMember _ sequences entryProductive sequence chosen
+    match sequence with
+      | [] => Void.exfalso (Bool.falseNotTrue sequenceProductive)
+      | [single] => Both (List.consNotNil single []) (only same => rewrite <- List.consInjectiveHead single only [] [] same in omega [sequenceProductive])
+      | [first, second, ..others] => Both (List.consNotNil first [second, ..others]) (only same => Void.exfalso (List.consNotNil second others (Eq.cong (.drop 1) same))))
+
+-- Deciding a message
+
+theorem anyEmpty (lefts: List (List Char)) (any: lefts.any .isEmpty = True): [] ∈ lefts :=
+  List.anyTrueElim lefts List.isEmpty _ any (left member empty =>
+    match left with
+      | [] => member
+      | [letter, ..rest] => Void.exfalso (Bool.falseNotTrue empty))
+
+theorem matchesCompletelyCorrect (rules: Rules) (productive: rules.productive = True) (message: Message):
+    rules.matchesCompletely message = True ↔ MatchesCompletely rules message :=
+  let ranked := productiveRanked rules rules.rank rules.rankBound (rankBelow rules) productive
+  {
+    forward = matches =>
+      match sound rules (rules.enough message) 0 message.letters [] (anyEmpty _ matches) with
+        | Witness read (Both split leads) => rewrite split in leads [] [] MatchesNothing,
+    backward = matched =>
+      let enough: message.letters.length * rules.rankBound + rules.rank 0 < rules.enough message :=
+        let same: (message.letters.length + 1) * rules.rankBound = message.letters.length * rules.rankBound + rules.rankBound := ring
+        omega [same, rankBelow rules 0]
+      let found := completeAll rules rules.rank rules.rankBound ranked [0] message.letters matched (rules.enough message) enough []
+      match (List.memFlatMap (left => rules.leftAfterAll (rules.enough message) [] left) [] (rules.leftAfter (rules.enough message) 0 (message.letters ++ []))).forward found with
+        | Witness middle (Both first (Inl empty)) => rewrite empty, List.appendNil message.letters at first in List.anyOfMem _ List.isEmpty [] rfl first
+        | Witness middle (Both first (Inr never)) => Void.exfalso never
+  }
+
+-- Counting
+
+theorem numberWithCount [p: a → Prop] (decide: a → Bool) (decides: (item: a) → decide item = True ↔ p item):
+    (items: List a) → (answer: Nat) → NumberWith p items answer ↔ answer = items.count decide
+  | [], answer => { forward = none => none, backward = none => none }
+  | [item, ..rest], answer =>
+    let later := numberWithCount decide decides rest
+    rewrite List.countCons rest item decide in
+      match decided: decide item with
+        | True =>
+          let holds := (decides item).forward decided
+          {
+            forward = counted =>
+              match counted with
+                | Inl (Both yes (Witness others (Both number more))) => omega [(later others).forward number]
+                | Inr (Both no number) => Void.exfalso (no holds),
+            backward = same => Inl (Both holds (Witness (rest.count decide) (Both ((later (rest.count decide)).backward rfl) (omega))))
+          }
+        | False =>
+          let fails: ¬p item := holds => Bool.falseNotTrue (Eq.trans (Eq.sym decided) ((decides item).backward holds))
+          {
+            forward = counted =>
+              match counted with
+                | Inl (Both yes more) => Void.exfalso (fails yes)
+                | Inr (Both no number) => (later answer).forward number,
+            backward = same => Inr (Both fails ((later answer).backward (omega)))
+          }
+
+theorem part1Exactly (received: Received) (productive: received.rules.productive = True) (answer: Nat):
+    Spec.Part1 received answer ↔ answer = received.matchingCount :=
+  numberWithCount received.rules.matchesCompletely (matchesCompletelyCorrect received.rules productive) received.messages answer
+
+theorem part2Exactly (received: Received) (productive: received.withLoops.rules.productive = True) (answer: Nat):
+    Spec.Part2 received answer ↔ answer = received.withLoops.matchingCount :=
+  numberWithCount received.withLoops.rules.matchesCompletely (matchesCompletelyCorrect received.withLoops.rules productive) received.messages answer
