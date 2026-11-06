@@ -1,5 +1,5 @@
 {
-  "next": 1740,
+  "next": 1741,
   "tickets": [
     {
       "id": 47,
@@ -13618,6 +13618,21 @@
       ],
       "epic": "goal-as-written",
       "body": "From SW-1728, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1740,
+      "title": "[Sonnet] Bounded readback stage 0a: trip-journal's failing read-back sites on lane/SW-1642, and the D2544 experiment (record eta rule 2 off in search read-backs); measurement only",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1740",
+      "labels": [
+        "design"
+      ],
+      "epic": "goal-as-written",
+      "body": "D2545 order (Matt, 6 Nov 2026). See docs/proposals/bounded-readback.md stage 0a. Started on Sonnet, expected: 60 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
