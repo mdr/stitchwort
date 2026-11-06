@@ -10526,13 +10526,13 @@
     {
       "id": 1582,
       "title": "JS extraction of examples/extract integers and safe-numbers differs from their committed snapshots with main's binary: find out why the extract test doesn't catch it, or whether it fails (found in SW-1564's review)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1582",
       "labels": [
         "tests"
       ],
-      "body": "From SW-1564's Opus review, 6 Nov 2026.\n\nSW-1564's lane: on main, extract's generated_code_is_stable, int_is_bound_to_the_prelude and a_changed_int_operation_loses_only_its_native fail, and rt::lower comparisons fails on a Std.Int.decEq diff: Int drift, already on main (from tonight's SW-1558 negSuccInjective change, probably).",
+      "body": "From SW-1564's Opus review, 6 Nov 2026.\n\nSW-1564's lane: on main, extract's generated_code_is_stable, int_is_bound_to_the_prelude and a_changed_int_operation_loses_only_its_native fail, and rt::lower comparisons fails on a Std.Int.decEq diff: Int drift, already on main (from tonight's SW-1558 negSuccInjective change, probably).\n\nStarted overnight on Sonnet, expected: 30 min (hard stop 07:50).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
