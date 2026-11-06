@@ -9938,13 +9938,13 @@
     {
       "id": 1540,
       "title": "Aoc.Common: move day 16's settle/eliminate with validity and uniqueness theorems, generic over DecEq, for 2020 day 21",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1540",
       "labels": [
         "aoc"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).",
+      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).\n\nStarted overnight on Sonnet, expected: 45 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
