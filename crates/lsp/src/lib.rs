@@ -440,11 +440,13 @@ enum SearchKind {
 impl Search {
     /// The answer: the code actions, or the context, or null. `stack` is
     /// the stack of the thread it runs on, `wanted` how many closing
-    /// proofs it stops at.
+    /// proofs it stops at, `library` the library checked ahead of time
+    /// ([`Options::library`]), if the host has it.
     fn run(
         self,
         stack: usize,
         wanted: usize,
+        library: Option<&Arc<LibraryBundle>>,
         source: &dyn Source,
         cancel: Arc<AtomicBool>,
     ) -> serde_json::Value {
@@ -466,7 +468,7 @@ impl Search {
                 context_at(stack, source, target, line, character, cancel)
             }
             SearchKind::Members { dot, wanted } => {
-                members_at(stack, source, target, dot, wanted, cancel)
+                members_at(stack, library, source, target, dot, wanted, cancel)
             }
         }
     }
@@ -495,7 +497,10 @@ impl Searcher {
         };
         let cancel = Arc::new(AtomicBool::new(false));
         let (stack, wanted) = (self.options.stack, self.options.search_wanted);
-        search.run(stack, wanted, &*self.source, cancel).to_string()
+        let library = self.options.library.get();
+        search
+            .run(stack, wanted, library, &*self.source, cancel)
+            .to_string()
     }
 }
 
@@ -576,7 +581,14 @@ fn run_search(
         serde_json::Value::Null
     } else {
         let cancel = job.pending.cancel.clone();
-        (job.search).run(options.stack, options.search_wanted, source, cancel)
+        let library = options.library.get();
+        (job.search).run(
+            options.stack,
+            options.search_wanted,
+            library,
+            source,
+            cancel,
+        )
     };
     searches.running.fetch_sub(1, Ordering::SeqCst);
     searched(&job.id, &job.pending, job.version, result, sender, searches);
@@ -2742,8 +2754,13 @@ fn context_at(
 
 /// The completion items after the `.` at byte `dot` of the document
 /// `target` ([`SearchKind::Members`]).
+///
+/// It costs a check of the file, so the library comes from a check cache:
+/// a project's, the folder's of a file on its own, or else the one the
+/// host checked ahead of time (`library`, the playground's).
 fn members_at(
     stack: usize,
+    library: Option<&Arc<LibraryBundle>>,
     source: &dyn Source,
     target: SearchTarget,
     dot: usize,
@@ -2752,6 +2769,18 @@ fn members_at(
 ) -> serde_json::Value {
     let mut session = Session::for_stack(stack);
     session.share_cancel_flag(cancel);
+    if target.project.is_none() {
+        match target.path.parent().and_then(|dir| source.file_cache(dir)) {
+            Some(dir) => session.use_check_cache(&dir),
+            None => {
+                if let Some(bundle) = library {
+                    session
+                        .elab
+                        .set_check_cache(Rc::new(BundleStore(bundle.clone())));
+                }
+            }
+        }
+    }
     let found = match target.project {
         Some((root, relative, mut open)) => {
             let base = source.files(&root);
