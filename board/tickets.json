@@ -9294,13 +9294,13 @@
     {
       "id": 1494,
       "title": "Std: divisibility bridges: Nat.dividesIff (divides d n = True ↔ ∃ t, n = t * d), dividesAdd, dividesMul, (x + z) % m = x % m when z % m = 0",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1494",
       "labels": [
         "std"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1492 (day 13) or SW-1119.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1492 (day 13) or SW-1119.\n\nStarted on Sonnet (SW-1494 with SW-1495), expected: 45 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -9308,13 +9308,13 @@
     {
       "id": 1495,
       "title": "Std: List.minBy lemmas (member, key ≤ every member's, first on a tie)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1494",
       "labels": [
         "std"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1492 (day 13) or SW-1119.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1492 (day 13) or SW-1119.\n\nStarted on Sonnet (SW-1494 with SW-1495), expected: 45 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
