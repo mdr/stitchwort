@@ -44,6 +44,7 @@ test "on a tie the first listed bus wins" := part1 "11\n4,6" == Ok (Some 4)
 
 test "two buses with a common factor still line up" := part2 (schedule "4,x,6") == Ok (Some 4)
 test "the period after them is their lcm, 12" := Alignment.start.addAll [{ id = 4, offset = 0 }, { id = 6, offset = 2 }] == Some ({ time = 4, period = 12 })
+test "stepping by the product of the IDs would skip 16 here" := part2 (schedule "4,x,6,x,5") == Ok (Some 16)
 test "buses that can never line up" := part2 (schedule "4,6") == Ok None
 test "one bus lines up at once" := part2 (schedule "x,x,5") == Ok (Some 3)
 
