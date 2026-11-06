@@ -957,7 +957,7 @@ impl Reader {
             Some((id, _)) if id == lib.modulo || id == lib.int_mod => {
                 Some("a remainder isn't a ring operation")
             }
-            _ if cx.show(&value).starts_with("Nat.pow ") => {
+            _ if def_args(&value).is_some_and(|(id, _)| &**g.def(id).path() == "Std.Nat.pow") => {
                 Some("a power is multiplied out only when its exponent is a number")
             }
             _ => None,

@@ -21,13 +21,13 @@ expression: json
           "type": "Nat"
         }
       ],
-      "lemma": "theorem gGoal1 (xs: List Nat) (k: Nat) (other: Nat): List.length (List.filter xs (c => c == other)) < List.length xs := ?",
-      "target": "List.length (List.filter xs (c => c == other)) < List.length xs"
+      "lemma": "theorem gGoal1 (xs: List Nat) (k: Nat) (other: Nat): (xs.filter (c => c == other)).length < xs.length := ?",
+      "target": "(xs.filter (c => c == other)).length < xs.length"
     },
     "labels": [
       {
         "file": 0,
-        "message": "xs: List Nat\nk: Nat\nother: Nat\n⊢ List.length (List.filter xs (c => c == other)) < List.length xs",
+        "message": "xs: List Nat\nk: Nat\nother: Nat\n⊢ (xs.filter (c => c == other)).length < xs.length",
         "range": [
           10,
           100,
@@ -66,15 +66,15 @@ expression: json
         {
           "name": "left",
           "type": "List Nat",
-          "value": "List.filter xs (c => c == other)"
+          "value": "xs.filter (c => c == other)"
         }
       ],
-      "target": "List.length (List.filter xs (c => c == other)) < List.length xs"
+      "target": "(xs.filter (c => c == other)).length < xs.length"
     },
     "labels": [
       {
         "file": 0,
-        "message": "xs: List Nat\nk: Nat\nother: Nat\nleft: List Nat := List.filter xs (c => c == other)\n⊢ List.length (List.filter xs (c => c == other)) < List.length xs",
+        "message": "xs: List Nat\nk: Nat\nother: Nat\nleft: List Nat := xs.filter (c => c == other)\n⊢ (xs.filter (c => c == other)).length < xs.length",
         "range": [
           15,
           56,

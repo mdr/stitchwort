@@ -117,7 +117,7 @@ fn a_library_name_shows_header_doc_location_and_theorems() {
     );
     // The parameters only later ones use are left out of a statement.
     assert!(
-        lines[at + 1].ends_with("List.filterMap xs (x => Some (f x)) = List.map xs f"),
+        lines[at + 1].ends_with("xs.filterMap (x => Some (f x)) = xs.map f"),
         "{}",
         lines[at + 1]
     );

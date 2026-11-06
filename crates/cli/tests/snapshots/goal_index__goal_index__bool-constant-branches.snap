@@ -83,7 +83,7 @@ expression: json
     ],
     "message": "in `allTwo`",
     "notes": [
-      "this statement is false; a counterexample:\n  b = True\n  c = False\n`List.all [b, c] (x => x) = b` is false:\n  left:  False\n  right: True"
+      "this statement is false; a counterexample:\n  b = True\n  c = False\n`[b, c].all (x => x) = b` is false:\n  left:  False\n  right: True"
     ],
     "range": [
       10,
@@ -138,7 +138,7 @@ expression: json
     ],
     "message": "in `anyTwo`",
     "notes": [
-      "this statement is false; a counterexample:\n  b = False\n  c = True\n`List.any [b, c] (x => x) = b` is false:\n  left:  True\n  right: False"
+      "this statement is false; a counterexample:\n  b = False\n  c = True\n`[b, c].any (x => x) = b` is false:\n  left:  True\n  right: False"
     ],
     "range": [
       12,
