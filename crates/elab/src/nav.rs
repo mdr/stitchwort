@@ -1051,16 +1051,29 @@ impl Elaborator {
                 !self.tables.helper_keys.contains_key(key) && !is_generated_name(g, key)
             })
             .filter(|(_, _, global, _)| !matches!(global, Global::Failed))
-            .map(|(name, key, global, level)| ScopeName {
-                name,
-                kind: self.global_kind(global),
-                ty: self.global_type(global),
-                own: level == crate::scope::Level::Module,
-                key: crate::scope::display(&key).to_string(),
+            .map(|(name, key, global, level)| {
+                self.scope_name(name, &key, global, level == crate::scope::Level::Module)
             })
             .collect();
         out.sort_by(|a, b| (!a.own, &a.name).cmp(&(!b.own, &b.name)));
         out
+    }
+
+    /// `key`, written `name`, for completion.
+    pub(crate) fn scope_name(
+        &self,
+        name: String,
+        key: &str,
+        global: Global,
+        own: bool,
+    ) -> ScopeName {
+        ScopeName {
+            name,
+            kind: self.global_kind(global),
+            ty: self.global_type(global),
+            own,
+            key: crate::scope::display(key).to_string(),
+        }
     }
 
     fn global_kind(&self, global: Global) -> &'static str {

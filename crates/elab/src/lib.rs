@@ -52,6 +52,7 @@ mod module;
 mod named;
 mod nav;
 mod no_effect;
+pub use dot::DUMMY as COMPLETION_DUMMY;
 pub use nav::{NavIndex, NavRef, NavSymbol, NavTarget, ScopeName, std_source};
 mod cases;
 mod numbers;

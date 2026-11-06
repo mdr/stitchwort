@@ -332,6 +332,7 @@ pub(crate) fn infer_dot(
     field: &AstName,
     args: &[Arg],
 ) -> Result<(Term, Value)> {
+    probe_members(cx, recv, field);
     match dot_or_block(cx, recv, field, args)? {
         Dotted::Done(term, ty) => Ok((term, ty)),
         Dotted::Blocked(blocked) => queue_call(cx, recv, field, args, Route::Dot, blocked),
@@ -2051,6 +2052,7 @@ pub(crate) fn infer_call(
     field: &AstName,
     args: &[Arg],
 ) -> Result<(Term, Value)> {
+    probe_members(cx, recv, field);
     match call_or_block(cx, recv, field, args)? {
         Dotted::Done(term, ty) => Ok((term, ty)),
         Dotted::Blocked(blocked) => queue_call(cx, recv, field, args, Route::Call, blocked),
@@ -2111,6 +2113,103 @@ fn mark_failed(cx: &Ctx, key: CallKey) {
 fn has_failed(cx: &Ctx, key: CallKey) -> bool {
     let (m, t) = state(cx);
     cx.e.caches.dot_failed.borrow().contains(&(key, m, t))
+}
+
+// ---- completion -----------------------------------------------------------
+
+/// The name an editor writes after a `.` to complete there, so that the
+/// text parses ([`Elaborator::probe_members`]).
+pub const DUMMY: &str = "stitchwortCompletion";
+
+/// If completion asks what can follow `recv.` ([`Elaborator::probe_members`],
+/// the editor having written a dummy name as `field`): notes it, by the
+/// rule `recv.field` itself is looked up by. A namespace written before the
+/// dot gives its members; a value, the functions of the namespaces its
+/// type's view goes through that take it first, with the extensions
+/// visible. Nothing else changes: the receiver is elaborated and undone.
+pub(crate) fn probe_members(cx: &mut Ctx, recv: &Expr, field: &AstName) {
+    if field.text.rsplit('.').next() != Some(DUMMY) || !cx.e.take_members_probe(field.span) {
+        return;
+    }
+    let found = members_after(cx, recv).unwrap_or_default();
+    cx.e.found_members(found);
+}
+
+fn members_after(cx: &mut Ctx, recv: &Expr) -> Result<Vec<crate::nav::ScopeName>> {
+    if let Some((written, _)) = dotted(recv) {
+        let first = written.split('.').next().unwrap_or_default();
+        if cx.lookup(first).is_none() {
+            let found: Vec<crate::nav::ScopeName> = (cx.e.namespace_members(&written).into_iter())
+                .filter(|(_, key, _)| !cx.e.tables.helper_keys.contains_key(key))
+                .filter(|(_, key, _)| !crate::equations::is_generated_name(&cx.g(), key))
+                .map(|(name, key, global)| match global {
+                    Some(global) => cx.e.scope_name(name, &key, global, false),
+                    None => crate::nav::ScopeName {
+                        name,
+                        key: scope::display(&key).to_string(),
+                        kind: "namespace",
+                        ty: None,
+                        own: false,
+                    },
+                })
+                .collect();
+            if !found.is_empty() {
+                return Ok(found);
+            }
+        }
+    }
+    let before = crate::undo::Snapshot::take(cx);
+    let found = receiver_members(cx, recv);
+    before.restore(cx);
+    found
+}
+
+/// The members `recv.` reaches, by its type.
+fn receiver_members(cx: &mut Ctx, recv: &Expr) -> Result<Vec<crate::nav::ScopeName>> {
+    let (rterm, rty) = infer(cx, recv)?;
+    let (rterm, rty) = insert(cx, rterm, rty)?;
+    let start = view_start(cx, &rterm, &rty)?;
+    let g = cx.g();
+    let mut out: Vec<crate::nav::ScopeName> = Vec::new();
+    for h in heads(&g, start)? {
+        let prefix = format!("{}.", namespace(cx, h));
+        let member = |key: &str| {
+            key.strip_prefix(prefix.as_str())
+                .filter(|m| !m.contains('.') && !m.starts_with('%'))
+                .map(str::to_string)
+        };
+        let mut keys: Vec<(String, String)> = (cx.e.scope.keys())
+            .filter_map(|k| Some((member(k)?, k.clone())))
+            .collect();
+        for (extension, target) in cx.e.scope.all_extended() {
+            if let Some(m) = member(target)
+                && matches!(cx.e.visible_extension(target), scope::Extension::Found(e) if e == *extension)
+            {
+                keys.push((m, extension.clone()));
+            }
+        }
+        keys.sort();
+        for (name, key) in keys {
+            if out.iter().any(|n| n.name == name) || cx.e.tables.helper_keys.contains_key(&key) {
+                continue;
+            }
+            let Some((global, _)) = cx.e.scope.get(&key) else {
+                continue;
+            };
+            let fits = match global {
+                Global::Def(id) => {
+                    !crate::equations::is_generated_name(&g, &key)
+                        && receiver_place(cx, &params(&g, id), h)?.is_some()
+                }
+                Global::Pending(_, crate::library::PendingKind::Def) => true,
+                _ => false,
+            };
+            if fits {
+                out.push(cx.e.scope_name(name, &key, global, false));
+            }
+        }
+    }
+    Ok(out)
 }
 
 #[cfg(test)]

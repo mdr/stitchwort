@@ -368,13 +368,36 @@ impl Session {
             Some(c) => json!({"triggerKind": 2, "triggerCharacter": c}),
             None => json!({"triggerKind": 1}),
         };
-        let found = self.request(
+        let found = self.request_waiting(
             "textDocument/completion",
             json!({"textDocument": {"uri": URI},
                    "position": {"line": line, "character": character},
                    "context": context}),
         );
-        found.as_array().cloned().unwrap_or_default()
+        let items = found.get("items").unwrap_or(&found);
+        items.as_array().cloned().unwrap_or_default()
+    }
+
+    /// The reply's `result`, ticking the server until it comes: a request
+    /// answered from a search.
+    fn request_waiting(&mut self, method: &str, params: Value) -> Value {
+        let id = self.next_id;
+        self.next_id += 1;
+        let message = json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params});
+        let mut out = self.server.receive(&message.to_string());
+        loop {
+            for m in std::mem::take(&mut out) {
+                let m: Value = serde_json::from_str(&m).unwrap();
+                if m["id"] == id && m.get("method").is_none() {
+                    assert!(m.get("error").is_none(), "{m}");
+                    return m["result"].clone();
+                }
+                self.note(m);
+            }
+            let (sent, more) = self.server.tick();
+            assert!(more || !sent.is_empty(), "no answer to {method}");
+            out = sent;
+        }
     }
 }
 
@@ -439,5 +462,56 @@ fn completion_keeps_the_locals_of_a_declaration_that_does_not_parse() {
         let items = s.complete_at_end(&broken, 7, None);
         assert_eq!(labels(&items)[..3], ["doubled", "m", "count"]);
         item(&items, "helper");
+    });
+}
+
+const MEMBERS: &str = "namespace Demo\nimport Std (List)\n\n\
+    type Shape = { width: Nat, height: Nat }\n\n\
+    def Shape.area (s: Shape): Nat := s.width * s.height\n\n\
+    def f (xs: List Nat) (s: Shape): Nat :=\n  xs.length + s.area\n";
+
+#[test]
+fn completion_after_a_dot_offers_the_receivers_members() {
+    big_stack(|| {
+        let mut s = Session::open(MEMBERS);
+        // Just typed: the text doesn't parse.
+        let typing = MEMBERS.replace("  xs.length + s.area\n", "  xs.\n");
+        s.change(2, &typing);
+        let items = s.complete_at_end(&typing, 8, Some("."));
+        let shown = labels(&items);
+        for name in ["length", "map", "filter"] {
+            item(&items, name);
+        }
+        // Not what takes no list first, nor a constructor.
+        assert!(
+            !shown.contains(&"Cons") && !shown.contains(&"replicate"),
+            "{shown:?}"
+        );
+        // A record: its fields and its namespace's functions.
+        let typing = MEMBERS.replace("  xs.length + s.area\n", "  xs.length + s.ar\n");
+        s.change(3, &typing);
+        let items = s.complete_at_end(&typing, 8, None);
+        for name in ["area", "width", "height"] {
+            item(&items, name);
+        }
+    });
+}
+
+#[test]
+fn completion_after_a_namespace_offers_its_members() {
+    big_stack(|| {
+        let mut s = Session::open(MEMBERS);
+        let typing = MEMBERS.replace("  xs.length + s.area\n", "  List.\n");
+        s.change(2, &typing);
+        let items = s.complete_at_end(&typing, 8, Some("."));
+        for name in ["length", "map", "Cons", "replicate"] {
+            item(&items, name);
+        }
+        let typing = MEMBERS.replace("  xs.length + s.area\n", "  Std.\n");
+        s.change(3, &typing);
+        let items = s.complete_at_end(&typing, 8, Some("."));
+        for name in ["List", "Nat", "Map"] {
+            item(&items, name);
+        }
     });
 }

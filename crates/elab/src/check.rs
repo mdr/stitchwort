@@ -1829,6 +1829,15 @@ fn infer_app_with(cx: &mut Ctx, head: &Expr, args: &[Arg], fill: bool) -> Result
         cx.e.note_local(cx, name, &head.1);
         return apply_args(cx, head, args);
     }
+    if let Some((written, last)) = name.text.rsplit_once('.')
+        && last == crate::dot::DUMMY
+    {
+        let recv = Expr::Var(AstName {
+            text: written.into(),
+            span: name.span,
+        });
+        crate::dot::probe_members(cx, &recv, name);
+    }
     if let Some(d) = crate::opaque::no_unfold_equation(cx.e, name) {
         return Err(d);
     }

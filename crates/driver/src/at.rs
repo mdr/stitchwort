@@ -16,7 +16,7 @@ use stitchwort_syntax::Severity;
 
 use crate::completion::{self, Parameter};
 use crate::driver::Session;
-use crate::live::{FileAnswers, LiveRef, Place};
+use crate::live::{FileAnswers, LiveRef, Place, ScopeName};
 use crate::nav::Range;
 use crate::project::Files;
 use crate::search_at::{
@@ -636,6 +636,62 @@ impl Session {
         line: u32,
         character: u32,
     ) -> Option<Context> {
+        let text = self.probe_project(project, files, path, cache, |e, file, text| {
+            e.probe_context(file, offset_at(text, line, character) as u32);
+        })?;
+        self.probed(&text)
+    }
+
+    /// What can be written after the `.` at byte `dot` of `text`, a file
+    /// on its own named `name`, loaded into this session (a fresh one): the
+    /// file is checked with a dummy name after the dot, which a probe
+    /// records the members for ([`stitchwort_elab::Elaborator::
+    /// probe_members`]), so it costs a check of the file. `wanted` is the
+    /// part of the name typed already, which the dummy replaces. None if
+    /// checking never reaches the dot.
+    pub fn members_at_text(
+        &mut self,
+        name: &str,
+        text: &str,
+        dot: usize,
+        wanted: usize,
+    ) -> Option<Vec<ScopeName>> {
+        let probed = with_dummy(text, dot, wanted);
+        self.elab.enable_navigation();
+        self.elab
+            .probe_members(self.sources.next_id(), (dot + 1) as u32);
+        let _ = self.load(name, &probed);
+        self.elab.take_probed_members()
+    }
+
+    /// [`Session::members_at_text`] for a file of a project, read as
+    /// [`Session::context_at_project`] reads one: `files` give its text
+    /// with the dummy written in already ([`with_dummy`]).
+    pub fn members_at_project(
+        &mut self,
+        project: &str,
+        files: &dyn Files,
+        path: &str,
+        cache: Option<&std::path::Path>,
+        dot: usize,
+    ) -> Option<Vec<ScopeName>> {
+        self.probe_project(project, files, path, cache, |e, file, _| {
+            e.probe_members(file, (dot + 1) as u32);
+        })?;
+        self.elab.take_probed_members()
+    }
+
+    /// Loads the project up to the namespace of its file `path`, and that
+    /// namespace with the probe `probe` sets (given the file's id and
+    /// text): its text, if it got that far.
+    fn probe_project(
+        &mut self,
+        project: &str,
+        files: &dyn Files,
+        path: &str,
+        cache: Option<&std::path::Path>,
+        probe: impl FnOnce(&stitchwort_elab::Elaborator, stitchwort_syntax::FileId, &str),
+    ) -> Option<String> {
         if let Some(dir) = cache {
             self.use_check_cache(dir);
         }
@@ -656,12 +712,22 @@ impl Session {
         let ns = (analysis.namespaces.iter())
             .find(|n| n.files.contains(&file_id))
             .map(|n| n.name.clone())?;
-        let offset = offset_at(&text, line, character) as u32;
         // Namespaces that use the file's are not checked, and the others
         // only matter to the file's: the probe goes in just before the
         // file's namespace would be checked, which the file id keys.
-        self.elab.probe_context(file_id, offset);
+        probe(&self.elab, file_id, &text);
         self.load_for_goal(project, &analysis, &ns).ok()?;
-        self.probed(&text)
+        Some(text)
     }
+}
+
+/// The name completion writes after a `.` so that the text parses while
+/// the members are found.
+pub use stitchwort_elab::COMPLETION_DUMMY as DUMMY;
+
+/// `text` with the `wanted` bytes after the `.` at byte `dot` replaced by
+/// [`DUMMY`].
+pub fn with_dummy(text: &str, dot: usize, wanted: usize) -> String {
+    let after = (dot + 1 + wanted).min(text.len());
+    format!("{}{DUMMY}{}", &text[..dot + 1], &text[after..])
 }

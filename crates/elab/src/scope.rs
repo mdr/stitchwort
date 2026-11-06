@@ -1054,7 +1054,7 @@ impl Elaborator {
     }
 
     /// [`Elaborator::resolve`], finding library-internal declarations too.
-    fn resolve_any(&self, written: &str) -> Resolved<'_> {
+    pub(crate) fn resolve_any(&self, written: &str) -> Resolved<'_> {
         // A name the compiler wrote for a declaration it has already found
         // (a shared-field update's constructors): exactly that key.
         if let Some(key) = written.strip_prefix(EXACT_KEY) {
@@ -2781,6 +2781,68 @@ impl Elaborator {
                 _ => None,
             })
             .collect()
+    }
+}
+
+impl Elaborator {
+    /// The members of the namespace written `written` (`List`, `Std`,
+    /// `Shop.Spec`) that it reaches here: each as written after it, with
+    /// its key and what it is, then the namespaces under it that are no
+    /// declaration (`(name, key, None)`). Empty if `written` isn't a
+    /// namespace here.
+    pub(crate) fn namespace_members(&self, written: &str) -> Vec<(String, String, Option<Global>)> {
+        let (first, rest) = match written.split_once('.') {
+            Some((first, rest)) => (first, format!(".{rest}")),
+            None => (written, String::new()),
+        };
+        let mut prefixes: BTreeSet<String> = [
+            format!("{}{written}.", self.root()),
+            format!("{written}."),
+            format!("{STD}.{written}."),
+        ]
+        .into_iter()
+        .collect();
+        prefixes.extend(
+            self.imported_namespaces(first)
+                .into_iter()
+                .map(|q| format!("{q}{rest}.")),
+        );
+        let mut out: Vec<(String, String, Option<Global>)> = Vec::new();
+        let mut reached: BTreeSet<&str> = BTreeSet::new();
+        for key in self.scope.entries.keys() {
+            for prefix in &prefixes {
+                let Some(member) = key.strip_prefix(prefix.as_str()) else {
+                    continue;
+                };
+                if member.contains('.') || member.starts_with('%') {
+                    continue;
+                }
+                if let Resolved::Found {
+                    key: found,
+                    global,
+                    rest,
+                    ..
+                } = self.resolve_any(&format!("{written}.{member}"))
+                    && found == key
+                    && rest.is_empty()
+                    && !out.iter().any(|(m, ..)| m == member)
+                {
+                    reached.insert(prefix);
+                    out.push((member.to_string(), key.clone(), Some(global)));
+                }
+            }
+        }
+        for ns in self.scope.namespaces.keys() {
+            for prefix in &reached {
+                if let Some(member) = ns.strip_prefix(prefix)
+                    && !member.contains('.')
+                    && !out.iter().any(|(m, ..)| m == member)
+                {
+                    out.push((member.to_string(), ns.clone(), None));
+                }
+            }
+        }
+        out
     }
 }
 

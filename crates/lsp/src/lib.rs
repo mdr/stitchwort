@@ -143,7 +143,7 @@ pub fn capabilities() -> serde_json::Value {
         "definitionProvider": true,
         "documentLinkProvider": true,
         "hoverProvider": true,
-        "completionProvider": { "triggerCharacters": ["(", "["] },
+        "completionProvider": { "triggerCharacters": ["(", "[", "."] },
         "signatureHelpProvider": { "triggerCharacters": ["(", "[", " "] },
         "inlayHintProvider": true,
         "semanticTokensProvider": {
@@ -432,6 +432,9 @@ enum SearchKind {
     },
     /// The context at a position ([`Main::context_at`]).
     ContextAt { line: u32, character: u32 },
+    /// What can follow the `.` at byte `dot`, after `wanted` bytes of a
+    /// name typed ([`Main::member_completion`]).
+    Members { dot: usize, wanted: usize },
 }
 
 impl Search {
@@ -461,6 +464,9 @@ impl Search {
             }
             SearchKind::ContextAt { line, character } => {
                 context_at(stack, source, target, line, character, cancel)
+            }
+            SearchKind::Members { dot, wanted } => {
+                members_at(stack, source, target, dot, wanted, cancel)
             }
         }
     }
@@ -641,14 +647,22 @@ impl Main {
 
     /// Answers a request other than `shutdown`, now or from a search.
     fn request(&self, request: Request) {
-        if request.method == request::CodeActionRequest::METHOD {
+        let request = if request.method == request::CodeActionRequest::METHOD {
             self.code_action(request);
+            return;
         } else if request.method == CONTEXT_AT {
             self.context_at(request);
+            return;
+        } else if request.method == request::Completion::METHOD {
+            match self.member_completion(request) {
+                Some(request) => request,
+                None => return,
+            }
         } else {
-            let response = self.answer(request);
-            let _ = self.connection.sender.send(response.into());
-        }
+            request
+        };
+        let response = self.answer(request);
+        let _ = self.connection.sender.send(response.into());
     }
 
     /// `textDocument/codeAction` on an open goal `?` (SW-915 stage 2):
@@ -766,6 +780,37 @@ impl Main {
             target,
             kind: SearchKind::ContextAt { line, character },
         });
+    }
+
+    /// Completion after a `.` (`xs.`, `List.`): what the receiver or the
+    /// namespace has, found by checking the file again with a dummy name
+    /// after the dot ([`pos::DUMMY`]), on a search thread as the context at
+    /// a position is: the text doesn't parse as typed, and the receiver's
+    /// type may be new. The request back if it isn't after a dot.
+    fn member_completion(&self, request: Request) -> Option<Request> {
+        let Ok(p) = parse::<lsp_types::CompletionParams>(&request) else {
+            return Some(request);
+        };
+        let at = p.text_document_position;
+        let uri = at.text_document.uri;
+        let Some(text) = self.texts.borrow().get(&uri).cloned() else {
+            return Some(request);
+        };
+        let complete::Typed::Member { dot, wanted, .. } =
+            complete::typed(&text, offset_at(&text, at.position))
+        else {
+            return Some(request);
+        };
+        let wanted = wanted.len();
+        let Some(target) = self.search_target(&uri) else {
+            return Some(request);
+        };
+        self.queue_search(request.id, &uri.clone(), "completion", move |_| Search {
+            uri,
+            target,
+            kind: SearchKind::Members { dot, wanted },
+        });
+        None
     }
 
     fn answer_null(&self, id: lsp_server::RequestId) {
@@ -2693,6 +2738,51 @@ fn context_at(
         }),
         None => serde_json::Value::Null,
     }
+}
+
+/// The completion items after the `.` at byte `dot` of the document
+/// `target` ([`SearchKind::Members`]).
+fn members_at(
+    stack: usize,
+    source: &dyn Source,
+    target: SearchTarget,
+    dot: usize,
+    wanted: usize,
+    cancel: Arc<AtomicBool>,
+) -> serde_json::Value {
+    let mut session = Session::for_stack(stack);
+    session.share_cancel_flag(cancel);
+    let found = match target.project {
+        Some((root, relative, mut open)) => {
+            let base = source.files(&root);
+            let text = pos::with_dummy(&target.text, dot, wanted);
+            open.insert(relative.clone(), text);
+            let files = stitchwort_driver::search_at::Overlay {
+                base: &*base,
+                texts: open,
+            };
+            let name = root
+                .file_name()
+                .map_or("project".to_string(), |n| n.to_string_lossy().into_owned());
+            let cache = source.project_cache(&root);
+            session.members_at_project(&name, &files, &relative, cache.as_deref(), dot)
+        }
+        None => {
+            let name = target
+                .path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("file.sw");
+            session.members_at_text(name, &target.text, dot, wanted)
+        }
+    };
+    drop(session);
+    let items: Vec<lsp_types::CompletionItem> = found
+        .unwrap_or_default()
+        .iter()
+        .map(|n| complete::name_item(n, '1'))
+        .collect();
+    serde_json::to_value(items).unwrap_or_default()
 }
 
 /// What replaces the goal `?` at `range` of `text` (the file at `path`, on
