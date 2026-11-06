@@ -2468,6 +2468,23 @@ fn innermost_difference<'a>(mut a: &'a Term, mut b: &'a Term) -> (&'a Term, &'a 
     (a, b)
 }
 
+/// The scrutinee of an enclosing `match` that is written in one of `a` and
+/// `b` and not in the other: the `match` replaced it in the other (in the
+/// goal and in the hypotheses it mentioned), while a fact stated inside the
+/// `match` still says it.
+fn replaced_by_match(cx: &Ctx, a: &Term, b: &Term) -> Option<Term> {
+    let g = cx.g();
+    let level = cx.level();
+    let mentions = |term: &Term, needle: &Term| {
+        term.subterms()
+            .any(|(t, binders)| binders == 0 && crate::matching::same(t, needle))
+    };
+    cx.scrutinees.iter().rev().find_map(|(base, needle, _, _)| {
+        let needle = needle.shift(&g, level - base, 0).ok()?;
+        (mentions(a, &needle) != mentions(b, &needle)).then_some(needle)
+    })
+}
+
 /// A note naming two listed atoms that apply the same function to the same
 /// arguments but one, so no fact can connect them without saying what the
 /// differing arguments are.
@@ -2484,13 +2501,20 @@ fn atoms_differing_in_one_argument(cx: &Ctx, quoter: &Quoter) -> Option<String> 
                 continue;
             };
             let (x, y) = innermost_difference(x, y);
-            return Some(format!(
+            let mut note = format!(
                 "`{}` and `{}` differ only in `{}` and `{}`, and no fact connects them",
                 atom_name(cx, quoter, i),
                 atom_name(cx, quoter, j),
                 shown(x),
                 shown(y)
-            ));
+            );
+            if let Some(scrutinee) = replaced_by_match(cx, &a.term, &b.term) {
+                note.push_str(&format!(
+                    "; these differ because the `match` on `{}` replaced it in one of them. State the fact before the `match`, or split with `if h:` instead",
+                    shown(&scrutinee)
+                ));
+            }
+            return Some(note);
         }
     }
     None
