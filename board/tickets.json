@@ -1,5 +1,5 @@
 {
-  "next": 1490,
+  "next": 1491,
   "tickets": [
     {
       "id": 47,
@@ -9224,13 +9224,27 @@
     {
       "id": 1489,
       "title": "Playground: a live goals panel that follows the cursor (as VS Code's) and share a snippet by URL (source compressed into the fragment, no server) — roadmap step 3",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1489",
       "labels": [
         "editor"
       ],
-      "body": "From docs/proposals/editor-and-playground-roadmap.md §4 step 3 (rows 3 and P1), after steps 1-2 (SW-1117 done tonight). Orchestrator's call overnight (medium): next on the editor track.\n\nStarted on Sonnet, expected: 90 min (2 browser runs).",
+      "body": "From docs/proposals/editor-and-playground-roadmap.md §4 step 3 (rows 3 and P1), after steps 1-2 (SW-1117 done tonight). Orchestrator's call overnight (medium): next on the editor track.\n\nStarted on Sonnet, expected: 90 min (2 browser runs).\n\nDone (8962117c2, b538f4103), merged: goals panel under the editor via stitchwort/goalAt (150 ms debounce; shown only while the file has an open goal); Share button: #s/<deflate-raw base64url>, clipboard + address bar, warns over 8 KB, AoC days share as #aoc links; opening a link keeps stitchwort.draft until the first edit, with 'Back to my work'. The stale Goals-section test (old [GOAL] Goal: text, since SW-1432) updated. Browser: the new and updated tests pass. Model result: Sonnet, worked, 7 + 8 min (est. 90).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1490,
+      "title": "crates/web: is the wasm checker's [GOAL] Goal: text (reports_open_goals_apart_from_warnings_and_errors) still used now the page takes goals from the language server (SW-1432)? Remove the dead path or note who uses it",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "playground"
+      ],
+      "body": "From SW-1489, 6 Nov 2026. Small improvement.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
