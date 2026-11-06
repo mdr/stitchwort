@@ -8,11 +8,11 @@
 --| The proofs are in `Aoc.Year2024.Day16.Proofs` (Proofs/) and the tests in
 --| `Aoc.Year2024.Day16.Tests` (Tests/); `run` checks neither. Positions,
 --| steps and the parser are the shared grid code's (`Aoc.Common`,
---| Common/Grid.sw); the reindeer's compass headings map onto its directions
---| (`Heading.toDirection`).
+--| Common/Grid.sw), and the reindeer's compass headings are Common/Plane.sw's
+--| (`Heading.toDirection` maps them onto the grid's directions).
 
 namespace Aoc.Year2024.Day16
-import Aoc.Common (Direction, Position, parseGrid)
+import Aoc.Common (Heading, Position, headings, parseGrid)
 import Std (Bool, DecEq, Eq, Exists, Fail, Graph, IO, List, Map, Nat, Option, Parse, Set, Text, Void)
 
 def main(): {IO, Fail} () :=
@@ -43,36 +43,6 @@ def parseMaze (input: Text): {Fail} Maze :=
     end = tiles.findOnly End "E tile"
   }
 
---| The way the reindeer faces, by the compass.
-type Heading =
-  | East
-  | South
-  | West
-  | North
-
-def headings: List Heading := [East, South, West, North]
-
-def Heading.clockwise: Heading → Heading
-  | East => South
-  | South => West
-  | West => North
-  | North => East
-
-def Heading.counterclockwise: Heading → Heading
-  | East => North
-  | North => West
-  | West => South
-  | South => East
-
---| On the map, north is up: east is a step right (a column on), south a
---| step down (a row on). (`Aoc.Year2024.Day16.Proofs` shows this is a
---| bijection, with clockwise a right turn.)
-def Heading.toDirection: Heading → Direction
-  | East => Right
-  | South => Down
-  | West => Left
-  | North => Up
-
 --| Where the reindeer is and which way it faces.
 type Reindeer = { position: Position, facing: Heading }
 
@@ -100,7 +70,7 @@ def Maze.backward (maze: Maze) (reindeer: Reindeer): List Reindeer :=
 
 --| The two turns, each costing 1000.
 def Reindeer.turns (reindeer: Reindeer): List (Reindeer, Nat) :=
-  [(reindeer.turned reindeer.facing.clockwise, 1000), (reindeer.turned reindeer.facing.counterclockwise, 1000)]
+  [(reindeer.turned reindeer.facing.turnRight, 1000), (reindeer.turned reindeer.facing.turnLeft, 1000)]
 
 --| What one move leads to, with its cost.
 def Maze.after (maze: Maze) (reindeer: Reindeer): List (Reindeer, Nat) :=

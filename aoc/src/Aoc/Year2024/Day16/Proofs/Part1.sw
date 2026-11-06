@@ -7,6 +7,7 @@
 namespace Aoc.Year2024.Day16.Proofs
 import Aoc.Year2024.Day16 (..)
 import Aoc.Year2024.Day16.Spec (..)
+import Aoc.Common (Heading, headings)
 import Std (And, Bool, Eq, Exists, Graph, List, Map, Nat, Option, Or, Void)
 
 --| Some moves from the start end at `reindeer`, scoring `cost`.

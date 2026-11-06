@@ -6,7 +6,7 @@
 namespace Aoc.Year2024.Day16.Proofs
 import Aoc.Year2024.Day16 (..)
 import Aoc.Year2024.Day16.Spec (..)
-import Aoc.Common (Direction, Position)
+import Aoc.Common (Direction, Heading, Position)
 import Aoc.Common.Proofs (oppositeOpposite, stepOpposite)
 import Std (And, Bool, Eq, Exists, List, Nat, Option, Or, Void)
 
@@ -73,10 +73,10 @@ theorem beforeSound (maze: Maze): (reindeer: Reindeer) → maze.holds reindeer =
     match List.memAppend (previous, weight) _ _ edge with
       | Inr (Inl turn) =>
         rewrite <- Eq.cong Pair.fst turn, <- Eq.cong Pair.snd turn in
-          Witness Counterclockwise (Both (rewrite clockwiseThenCounter facing in rfl) rfl)
+          Witness Counterclockwise (Both (rewrite Aoc.Common.Proofs.headingTurnLeftRight facing in rfl) rfl)
       | Inr (Inr (Inl turn)) =>
         rewrite <- Eq.cong Pair.fst turn, <- Eq.cong Pair.snd turn in
-          Witness Clockwise (Both (rewrite counterThenClockwise facing in rfl) rfl)
+          Witness Clockwise (Both (rewrite Aoc.Common.Proofs.headingTurnRightLeft facing in rfl) rfl)
       | Inr (Inr (Inr none)) => Void.exfalso none
       | Inl backward =>
         match stepped: position.step facing.toDirection.opposite with
@@ -96,9 +96,9 @@ theorem beforeComplete (maze: Maze): (reindeer: Reindeer) → maze.holds reindee
     move maze reindeer way = Some next → (reindeer, way.points) ∈ maze.before next
   | { position, facing }, holds, Clockwise, next, moved =>
     rewrite <- Option.someInjective moved in
-      List.memAppendRight _ _ _ (Inr (Inl (rewrite clockwiseThenCounter facing in rfl)))
+      List.memAppendRight _ _ _ (Inr (Inl (rewrite Aoc.Common.Proofs.headingTurnLeftRight facing in rfl)))
   | { position, facing }, holds, Counterclockwise, next, moved =>
-    rewrite <- Option.someInjective moved in List.memAppendRight _ _ _ (Inl (rewrite counterThenClockwise facing in rfl))
+    rewrite <- Option.someInjective moved in List.memAppendRight _ _ _ (Inl (rewrite Aoc.Common.Proofs.headingTurnRightLeft facing in rfl))
   | { position, facing }, holds, Forward, next, moved =>
     match stepped: position.step facing.toDirection with
       | None => Void.exfalso (Option.noneNotSome next moved)

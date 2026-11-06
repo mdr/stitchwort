@@ -17,7 +17,7 @@
 --| `Aoc.Year2020.Day19.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2020.Day19
-import Std (Char, Fail, IO, List, Nat, Option, Parse, Text)
+import Std (Char, Fail, IO, List, Map, Nat, Option, Parse, Text)
 
 def main(): {IO, Fail} () :=
   let received := parseReceived IO.readAll()
@@ -33,6 +33,13 @@ type Rules = { numbered: List (Nat, Rule) }
 
 --| The rule with this number, the first if two have it.
 def Rules.rule (rules: Rules) (number: Nat): Option Rule := rules.numbered.lookup number
+
+--| The rules by number, for looking one up without going down the list.
+--| Entries earlier in the list win, so it agrees with [`Rules.rule`]
+--| (`Aoc.Year2020.Day19.Proofs.tableRule`).
+def ruleTable: (entries: List (Nat, Rule)) → Map Nat Rule
+  | [] => Map.empty
+  | [(number, rule), ..later] => ruleTable later |> .insert number rule
 
 type Message = { letters: List Char }
 
@@ -76,27 +83,39 @@ def parseReceived (input: Text): {Fail} Received := Parse.all input received
 
 -- Matching
 
+--| What is left of `message` after a letter rule: the rest, if it starts
+--| with that letter.
+def leftAfterLetter (letter: Char) (message: List Char): List (List Char) :=
+  match message with
+    | [first, ..rest] => if first == letter then [rest] else []
+    | [] => []
+
 --| What can be left of `message` after rule `number` matches a start of
---| it, one entry for each way it can. Each rule within a rule takes one
---| `fuel`; with none left, nothing matches.
-def Rules.leftAfter (rules: Rules) (fuel: Nat) (number: Nat) (message: List Char): List (List Char) :=
+--| it, one entry for each way it can, with `rule` giving the rule for a
+--| number. Each rule within a rule takes one `fuel`; with none left,
+--| nothing matches.
+def leftAfterWith (rule: Nat → Option Rule) (fuel: Nat) (number: Nat) (message: List Char): List (List Char) :=
   match fuel with
     | Zero => []
     | Succ more =>
-      match rules.rule number with
+      match rule number with
         | None => []
-        | Some (Letter letter) =>
-          match message with
-            | [first, ..rest] => if first == letter then [rest] else []
-            | [] => []
-        | Some (Alternatives sequences) => sequences.flatMap (sequence => rules.leftAfterAll more sequence message)
+        | Some (Letter letter) => leftAfterLetter letter message
+        | Some (Alternatives sequences) => sequences.flatMap (sequence => leftAfterAllWith rule more sequence message)
 
 --| What can be left of `message` after the rules of `sequence` match a
 --| start of it, one after another.
-def Rules.leftAfterAll (rules: Rules) (fuel: Nat) (sequence: List Nat) (message: List Char): List (List Char) :=
+def leftAfterAllWith (rule: Nat → Option Rule) (fuel: Nat) (sequence: List Nat) (message: List Char): List (List Char) :=
   match sequence with
     | [] => [message]
-    | [number, ..later] => rules.leftAfter fuel number message |> .flatMap (left => rules.leftAfterAll fuel later left)
+    | [number, ..later] => leftAfterWith rule fuel number message |> .flatMap (left => leftAfterAllWith rule fuel later left)
+
+--| [`leftAfterWith`] looking rules up in the list, the first with a number.
+def Rules.leftAfter (rules: Rules) (fuel: Nat) (number: Nat) (message: List Char): List (List Char) :=
+  leftAfterWith rules.rule fuel number message
+
+def Rules.leftAfterAll (rules: Rules) (fuel: Nat) (sequence: List Nat) (message: List Char): List (List Char) :=
+  leftAfterAllWith rules.rule fuel sequence message
 
 --| A rule's alternatives are never empty, and a rule's alternative that
 --| is one rule leads to a lower `rank`. Then every rule reads a letter, and
@@ -140,10 +159,17 @@ def Rules.productive (rules: Rules): Bool := rules.productiveWith rules.rank
 --| or follows a chain of one-rule alternatives a step.
 def Rules.enough (rules: Rules) (message: Message): Nat := (message.letters.length + 1) * rules.rankBound
 
-def Rules.matchesCompletely (rules: Rules) (message: Message): Bool :=
-  rules.leftAfter (rules.enough message) 0 message.letters |> .any .isEmpty
+--| Whether the rule 0 matches the whole message. The rules are looked up
+--| in a table made for the call, so a caller matching many messages
+--| should share it with [`Rules.matchesCompletelyIn`].
+def Rules.matchesCompletely (rules: Rules) (message: Message): Bool := rules.matchesCompletelyIn (ruleTable rules.numbered) message
 
-def Received.matchingCount (received: Received): Nat := received.messages.count received.rules.matchesCompletely
+def Rules.matchesCompletelyIn (rules: Rules) (table: Map Nat Rule) (message: Message): Bool :=
+  leftAfterWith table.get (rules.enough message) 0 message.letters |> .any .isEmpty
+
+def Received.matchingCount (received: Received): Nat :=
+  let table := ruleTable received.rules.numbered
+  received.messages.count (received.rules.matchesCompletelyIn table)
 
 --| Part 2: "replace rules 8: 42 and 11: 42 31 with 8: 42 | 42 8 and 11:
 --| 42 31 | 42 11 31". Put first, they're the rules with those numbers.

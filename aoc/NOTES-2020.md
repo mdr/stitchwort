@@ -5364,6 +5364,21 @@ lookup to be the spec's, and `Map.getFromList` gives `Map.lookupLast`
 (by `Ord.compare`) where the spec has `List.lookup` (by `==`), with no
 lemma between them.
 
+**Fixed (SW-1636).** The matcher now takes the lookup as a function
+(`leftAfterWith`), `matchesCompletely` builds `ruleTable` once per call
+and `matchingCount` once for all messages. `ruleTable` inserts the
+entries from the last to the first, so the first wins as `List.lookup`
+does, and `Proofs/Table.sw` shows `table.get` agrees with `Rules.rule`
+(`tableGet`, by `Map.getInsert`, `Map.getInsertOther`: no `Map.fromList`
+and so no `lookupLast` lemma needed) and that the matcher gives the
+same answer for lookups that agree (`leftAfterSame`). `Rules.leftAfter`
+and the spec still read the list, and every theorem keeps its
+statement. The profile (`--profile`) showed 84% of 18 s of profiled run
+in `List.lookup`; now the run is 7.6 s to 2.3 s user (the machine was
+loaded, so both are measured back to back), with `Map.Tree.get` and
+`Nat.compare` at 35% of the profile. Part 1 and 2 are 182 and 334 as
+before.
+
 ### 4. Std has no count of a proposition, and few `lookup` lemmas
 
 `NumberWith p items answer` and `numberWithCount` (it is `answer =
@@ -5434,7 +5449,7 @@ at 06:09; the parser's proof at 06:09 to 06:10; the audit, timings, the
 | `stitchwort check --no-cache Aoc.Year2020.Day19.Proofs` | 4.9 s user |
 | `stitchwort test --no-cache Aoc.Year2020.Day19.Tests` (19 tests) | 8.3 s user |
 | `stitchwort audit Aoc.Year2020.Day19` (51 theorems) | under 1 s (warm) |
-| `stitchwort run Aoc.Year2020.Day19.main` on the input | 6.5 s user (`--native` 3.2 s; Python 0.3 s) |
+| `stitchwort run Aoc.Year2020.Day19.main` on the input | 6.5 s user (`--native` 3.2 s; Python 0.3 s); 2.3 s with the rule table (SW-1636; 7.6 s user the same day without it) |
 | `task test:one -- year2020_day19` | 17 s for the test |
 
 `STITCHWORT_TIMINGS=1` puts the Proofs namespace at 338 ms of

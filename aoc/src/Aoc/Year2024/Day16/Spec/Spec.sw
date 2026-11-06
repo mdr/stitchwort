@@ -1,6 +1,6 @@
 --| Day 16 as the puzzle states it, over the program's maze: which tiles are
 --| open (`isOpen`), the compass headings and their quarter turns
---| (`clockwise`, `counterclockwise`), and the tile one step ahead (the
+--| (`turnRight`, `turnLeft`), and the tile one step ahead (the
 --| shared grid code's `step`, with north up: east is a column on and south
 --| a row on, `Heading.toDirection`). The proofs (Proofs/) show the
 --| program's answers are these, for every maze whose S and E are open
@@ -8,7 +8,7 @@
 
 namespace Aoc.Year2024.Day16.Spec
 import Aoc.Year2024.Day16 (..)
-import Aoc.Common (Position)
+import Aoc.Common (Heading, Position)
 import Std (And, Exists, Iff, List, Nat, Option, Set)
 
 --| "They can move forward one tile at a time (increasing their score by 1
@@ -31,8 +31,8 @@ def move (maze: Maze) (reindeer: Reindeer): Move → Option Reindeer
     match reindeer.position.step reindeer.facing.toDirection with
       | Some next => if maze.isOpen next then Some ({ reindeer | position = next }) else None
       | None => None
-  | Clockwise => Some ({ reindeer | facing = reindeer.facing.clockwise })
-  | Counterclockwise => Some ({ reindeer | facing = reindeer.facing.counterclockwise })
+  | Clockwise => Some ({ reindeer | facing = reindeer.facing.turnRight })
+  | Counterclockwise => Some ({ reindeer | facing = reindeer.facing.turnLeft })
 
 --| How the reindeer stands before each move and after the last; `None` if a
 --| move runs into a wall.
