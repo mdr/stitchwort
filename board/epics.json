@@ -45,11 +45,9 @@
         "Kernel primitive projections, eta rules 1 and 2, with accept and must-reject tests (SW-1642, on lane/SW-1642)",
         "Fields of glued calls stay calls; std, roguelike and 2021 day 13 pass at about +2% cost (SW-1667, on lane/SW-1642)"
       ],
-      "now": [
-        "Paused for the night: SW-1744 found the cause (Float.add opened by rule 2) and a prototype fix; D2551-D2553 open"
-      ],
+      "now": [],
       "next": [
-        "Why main passes trip-journal; hold Float operations on unknown inputs (SW-1744, D2550)"
+        "Resume SW-1667 with the Float.add hold (D2551, D2552)"
       ],
       "links": [
         "docs/proposals/record-eta.md",
