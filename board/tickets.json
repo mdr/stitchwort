@@ -11338,13 +11338,13 @@
     {
       "id": 1640,
       "title": "Total division (D2469-D2473): / and % (and every Int division, modNat, ceilDiv) total with x / 0 = 0, x % 0 = x; natives and JS for the zero case (Int natives panic/throw today); lemmas drop the hypothesis where it holds at 0; AoC and std callers lose their ≠ 0 proofs; guide and syntax.md",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1640",
       "labels": [
         "std"
       ],
-      "body": "D2469-D2474 (Matt, 6 Nov 2026): all as recommended in docs/proposals/total-division.md: / and % total on Nat and Int with Lean's values (x / 0 = 0, x % 0 = x), for all Int divisions; Int.modNat and Nat.ceilDiv total with the bound a lemma; lemmas true at 0 drop the hypothesis, the rest keep [auto ok: d ≠ 0]; auto improvement to the backlog. 'Make them total.' Opus (std core, natives bound by hash: run bound_to_the_prelude), expected: 150 min.",
+      "body": "D2469-D2474 (Matt, 6 Nov 2026): all as recommended in docs/proposals/total-division.md: / and % total on Nat and Int with Lean's values (x / 0 = 0, x % 0 = x), for all Int divisions; Int.modNat and Nat.ceilDiv total with the bound a lemma; lemmas true at 0 drop the hypothesis, the rest keep [auto ok: d ≠ 0]; auto improvement to the backlog. 'Make them total.' Opus (std core, natives bound by hash: run bound_to_the_prelude), expected: 150 min.\n\nStarted on Opus, expected: 150 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
