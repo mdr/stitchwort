@@ -1,8 +1,11 @@
 # Proposal: `rewrite` and `match` look at the goal as written first
 
-**Status:** draft 1, 6 November 2026. Ticket SW-706 (D1422; D2453, Matt, 6 Nov 2026: "yes"),
-covering SW-1589 and SW-1562 too. Nothing is built; this note stops for Matt's decisions
-([§8](#8-decisions), Q1–Q6). Written against `main` at `cb58d7916`. Migration cost (hashes,
+**Status:** decided (D2475–D2480, Matt, 6 Nov 2026: all as recommended), being built. Ticket
+SW-706 (D1422; D2453, Matt, 6 Nov 2026: "yes"), covering SW-1589 and SW-1562 too. Stage 1
+(`rewrite`) is built (SW-1627, `crates/elab/src/rewrite/as_written.rs`); stage 2 (`match` and
+`cases`) is built (SW-1628, `crates/elab/src/matching/as_written.rs`; as built, below the
+plan in [§6](#6-recommendation-and-staged-plan)); stages 3–5 are not. Draft 1 was the design
+note, which stopped for Matt's decisions ([§8](#8-decisions), Q1–Q6). Written against `main` at `cb58d7916`. Migration cost (hashes,
 snapshots, sweeps) is not counted; options are judged by where they end up.
 
 Related notes: [folded-goals.md](folded-goals.md) (SW-742, 28 Oct: the same question for AoC
@@ -472,6 +475,21 @@ terms (different motives), so they get an Opus review (D2364).
    expected 120 min. `match` and `cases` face the same instance-choice question when the
    scrutinee has unknowns or several candidates: the folded search must pick the occurrence
    today's would, or fall back (SW-1627's `todays_instance`).
+
+   *As built (SW-1628).* The targets (goal, variables' types) are read back folded from the
+   values as bound; a subterm is an occurrence if it has the scrutinee's head as written and
+   unifies with it **solving nothing** (no unknown solved, made or left waiting), so there is
+   no instance to choose: the scrutinees are known before generalising (D2090's wait), and
+   where both searches find something they find the same thing. The completeness check is
+   stronger than "no copy left": each generalised target, read back unfolded, must *agree*
+   with today's generalisation of it, the same term except where the folded one has the
+   scrutinee's variable and today's has a subterm that unifies with the scrutinee (an
+   occurrence written differently, day 19). That also catches a closed scrutinee that computes
+   to a constructor (`match h: isBig 20` on `pick (isBig 20) = 1`: today's goal is `1 = 1`, the
+   folded one would be `pick x = 1`), which "no copy left" would let through and which would
+   change the arms. Every variable today copies must be copied too, and the folded motive must
+   type-check now (also for `cases`), else today's generalisation, unchanged. Counts under
+   `STITCHWORT_MATCH_METRICS`.
 3. **SW-1538's transport on the folded forms** (SW-1562), after SW-1604's fixes to the same
    function: test the scrutinee as written against `found` and `expected` read back folded,
    then today's test. Sonnet, 45 min.

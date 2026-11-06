@@ -260,6 +260,14 @@ Import what you use: std's theorems live in namespaces that need an import
   not there to find in either (8 items in agentic-proving.md §5 E). Give the rule its arguments
   when you can (§6). Inside a function argument it goes through the
   call's congruence lemma (`List.mapCong`, …).
+- **`match e:` and `cases`** look for `e` the same way: in the goal and
+  the hypotheses *as written* first, comparing up to computation, so
+  `xs.map (f a)` finds the goal's `xs.map (y => f a y)` and the arms keep
+  the goal's calls (`double a`, not `a + a`). They keep that only when it
+  replaces everything the search *as it computes* would; otherwise (a copy
+  of `e` inside a definition the goal mentions, or an `e` that computes
+  to a constructor) they replace what that search finds, and the arms'
+  goals hold no calls (`examples/accept/match-as-written.sw`).
 - **`calc`** chains steps `_ = e := proof`, `_ <= e`, `_ < e`; a step with
   no proof is `rfl`. Use it when `rewrite` picks the wrong occurrence, or
   to say exactly which form you want.
@@ -361,8 +369,9 @@ Each was run on the example named; the output is quoted, shortened.
     unchanged. It is given when the arms don't use `h`, and also when they
     fail to check, so that the arms' errors (an unsolved `?42`, an unfolded
     parser run) are read beside the cause. The note shows the goal as the
-    search saw it; write `e` as that shows it (a function argument as the
-    lambda `y => f x y`, not `f x`). Day 12's `% 90` against the program's
+    search saw it; write `e` as that shows it. (A function argument written
+    `f x` where the goal has `y => f x y` is found as written, unless the
+    occurrence is only inside a call.) Day 12's `% 90` against the program's
     `% 45` is this (`examples/reject/match-not-found-arm-fails.sw`).
   - `E-REWRITE-MOTIVE`: replacing the term makes the goal ill-typed, usually
     because an `auto` proof (the `d != 0` in `x % d`) is about it. Rewrite a

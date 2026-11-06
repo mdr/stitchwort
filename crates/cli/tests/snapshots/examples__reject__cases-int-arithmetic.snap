@@ -1,5 +1,6 @@
 ---
 source: crates/cli/tests/examples.rs
+assertion_line: 666
 expression: output
 ---
 [E-CASES] Error: `cases` can't close the case command = Up units✝, depth = n✝.toInt (fallback)
@@ -9,7 +10,7 @@ expression: output
     │                                                                                                                                            ──┬──  
     │                                                                                                                                              ╰──── this `cases`
     │ 
-    │ Note 1: goal: (n✝ + units✝).toInt = n✝.toInt + (-units✝.toInt)
+    │ Note 1: goal: (n✝ + units✝).toInt = n✝.toInt - units✝.toInt
     │ 
     │ Note 2: it stopped here because the goal is stuck on `n✝`, a `Nat`, which `cases` doesn't take apart; give this case's proof as `cases in t`
     │ 
