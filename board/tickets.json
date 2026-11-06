@@ -1,5 +1,5 @@
 {
-  "next": 1532,
+  "next": 1534,
   "tickets": [
     {
       "id": 47,
@@ -9742,13 +9742,13 @@
     {
       "id": 1526,
       "title": "omega: E-OMEGA-INTERNAL quoting 1 + later as later + 1 after a rewrite (repro dev/repros/omega3.sw, day 15)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1526",
       "labels": [
         "elab"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1519 (2020 day 15).\n\nStarted overnight on Sonnet (SW-1526 with SW-1527), expected: 50 min.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1519 (2020 day 15).\n\nStarted overnight on Sonnet (SW-1526 with SW-1527), expected: 50 min.\n\nDone (e5aef1524), merged: the goal after rewrite held a Nat.add stuck on a since-solved Meta in a projection; omega's final unify(proved, expected) now retries against the re-read goal (as its fact check does). Emitted term unchanged (kernel re-checks it), so no Opus review (orchestrator's call). Example accept/omega-after-rewrite-field-turn. Model result: Sonnet, worked, 5 min (est. 50, with SW-1527).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -9756,13 +9756,13 @@
     {
       "id": 1527,
       "title": "False E-ABILITY: a pipe starting with an IO call and ending in a Fail method (IO.args() |> .headOr \"2020\" |> .toNatOrFail) in a {IO, Fail} function (repro dev/repros/pipe.sw, day 15)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1526",
       "labels": [
         "> .headOr \"2020\" |> .toNatOrFail) in a {IO, Fail} function (repro dev/repros/pipe.sw, day 15)|elab"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1519 (2020 day 15).\n\nStarted overnight on Sonnet (SW-1526 with SW-1527), expected: 50 min.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1519 (2020 day 15).\n\nStarted overnight on Sonnet (SW-1526 with SW-1527), expected: 50 min.\n\nDone (bff406408), merged: comp_compound's Field arm, once the receiver is run, elaborates a performing dot call with comp_app and wraps it (as pipe_call does); also fixes (IO.args().headOr \"x\").toNatOrFail. Examples accept/pipe-io-then-fail-method, reject/pipe-io-then-fail-method-not-allowed. Model result: Sonnet, worked, 5 min (est. 50, with SW-1526).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -9819,6 +9819,34 @@
         "std"
       ],
       "body": "Filed overnight 6 Nov 2026 from SW-1519 (2020 day 15).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1532,
+      "title": "ring.rs:1281 has the same 'quoted goal means' final check as omega had (SW-1526): retry against the re-read goal there too, with a repro",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "From SW-1526/SW-1527, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1533,
+      "title": "E-TYPE-MISMATCH on let l := IO.args(); l.headOr \"2020\" |> .toNatOrFail in {IO, Fail}: receiver_type can't type a chained call, so the Fail goes undetected (SW-1527)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "> .toNatOrFail in {IO, Fail}: receiver_type can't type a chained call, so the Fail goes undetected (SW-1527)|elab"
+      ],
+      "body": "From SW-1526/SW-1527, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
