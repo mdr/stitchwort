@@ -15,13 +15,13 @@ theorem negSuccIs (steps: Nat): NegSucc steps = (Succ steps).toInt * -1 := rewri
 
 --| Moving `tiles` tiles one at a time is adding `tiles` and wrapping.
 theorem moveWrap (size: Nat) (ok: size ≠ 0) (x: Nat) (inside: x < size):
-    (tiles: Int) → move size tiles x = Int.modNat (x.toInt + tiles) size [ok := ok]
+    (tiles: Int) → move size tiles x = Int.modNat (x.toInt + tiles) size
   | OfNat steps =>
-    rewrite iterateWrap size ok 1 (forward size) (y below => forwardWrap size ok y below) steps x inside,
+    rewrite iterateWrap size ok 1 (forward size) (y below => forwardWrap size y below) steps x inside,
       (ring: x.toInt + steps.toInt * 1 = x.toInt + OfNat steps)
   | NegSucc steps =>
-    Eq.trans (iterateWrap size ok (-1) (backward size) (y below => backwardWrap size ok y below) (Succ steps) x inside)
-      (Eq.cong (distance => Int.modNat (x.toInt + distance) size [ok := ok]) (Eq.sym (negSuccIs steps)))
+    Eq.trans (iterateWrap size ok (-1) (backward size) (y below => backwardWrap size y below) (Succ steps) x inside)
+      (Eq.cong (distance => Int.modNat (x.toInt + distance) size) (Eq.sym (negSuccIs steps)))
 
 --| One second, tile by tile, is the velocity's offset, wrapped.
 theorem secondWrap (space: Space) (velocity: Offset) (position: Position) (inside: space.contains position = True):
@@ -51,11 +51,11 @@ theorem periodic (space: Space) (seconds: Nat) (robot: Robot):
     space.positionAfter (seconds + space.period) robot = space.positionAfter seconds robot :=
   positionExt (space.positionAfter (seconds + space.period) robot) (space.positionAfter seconds robot)
     (rewrite Nat.mulComm space.width space.height in
-      wrapPeriodic space.height space.heightPositive space.width robot.position.row.toInt seconds robot.velocity.rows)
-    (wrapPeriodic space.width space.widthPositive space.height robot.position.column.toInt seconds robot.velocity.columns)
+      wrapPeriodic space.height space.width robot.position.row.toInt seconds robot.velocity.rows)
+    (wrapPeriodic space.width space.height robot.position.column.toInt seconds robot.velocity.columns)
 
 --| On a line of `size` tiles, `size * laps` more seconds change nothing.
-theorem wrapPeriodic (size: Nat) (ok: size ≠ 0) (laps: Nat) (start: Int) (seconds: Nat) (velocity: Int):
-    Int.modNat (start + velocity * (seconds + size * laps).toInt) size [ok := ok] = Int.modNat (start + velocity * seconds.toInt) size [ok := ok] :=
+theorem wrapPeriodic (size: Nat) (laps: Nat) (start: Int) (seconds: Nat) (velocity: Int):
+    Int.modNat (start + velocity * (seconds + size * laps).toInt) size = Int.modNat (start + velocity * seconds.toInt) size :=
   rewrite (ring: start + velocity * (seconds + size * laps).toInt = start + velocity * seconds.toInt + size.toInt * (laps.toInt * velocity))
-  in Int.modNatAddMulInt (start + velocity * seconds.toInt) size [ok := ok] (laps.toInt * velocity)
+  in Int.modNatAddMulInt (start + velocity * seconds.toInt) size (laps.toInt * velocity)

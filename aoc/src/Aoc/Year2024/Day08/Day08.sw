@@ -61,12 +61,9 @@ def antinodesOf (far: Position) (near: Position): List Position :=
   let steps := if difference.rows % 3 == 0 && difference.columns % 3 == 0 then [difference, (divideBy difference 3).negate] else [difference]
   steps.filterMap near.offset
 
---| Both parts divided by `divisor`, rounding down; unchanged for 0.
-def divideBy (offset: Offset): Nat → Offset
-  | Zero => offset
-  | Succ below =>
-    let divisor := (Succ below).toInt
-    { rows = offset.rows / divisor, columns = offset.columns / divisor }
+--| Both parts divided by `divisor`, rounding down.
+def divideBy (offset: Offset) (divisor: Nat): Offset :=
+  { rows = offset.rows / divisor.toInt, columns = offset.columns / divisor.toInt }
 
 --| The smallest step from `start` towards `end` that lands on grid points:
 --| the offset between them divided by the greatest common divisor of its

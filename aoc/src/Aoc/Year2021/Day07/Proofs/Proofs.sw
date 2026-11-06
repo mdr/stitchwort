@@ -70,7 +70,7 @@ theorem distanceIs (crab: Nat) (position: Nat): distance crab position = crab.ab
 --| Part 2's fuel never falls as the crab goes further.
 theorem growingFuelMonotone (a: Nat) (b: Nat) (le: a ≤ b): growingFuel a ≤ growingFuel b :=
   Nat.leDivOfMulLe ((a + (a * a)) / 2) (b + (b * b)) 2
-    (omega [Nat.divMulLe (a + (a * a)) 2 (Nat.succNotZero 1), Nat.leMulRight a b a le, Nat.leMulRight a b b le, Nat.mulComm b a])
+    (omega [Nat.divMulLe (a + (a * a)) 2, Nat.leMulRight a b a le, Nat.leMulRight a b b le, Nat.mulComm b a])
 
 --| Folding `Nat.min` gives at most the start and each element.
 theorem foldMinLe: (xs: List Nat) → (start: Nat) → xs.foldLeft start Nat.min ≤ start

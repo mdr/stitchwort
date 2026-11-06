@@ -22,7 +22,7 @@ theorem iterateCycles (f: a → a) (period: Nat) (cycle: (x: a) → Nat.iterate 
 theorem iterateMod (f: a → a) (period: Nat) [auto positive: period ≠ 0] (cycle: (x: a) → Nat.iterate period f x = x) (count: Nat) (x: a):
     Nat.iterate count f x = Nat.iterate (count % period) f x :=
   calc Nat.iterate count f x
-    _ = Nat.iterate ((count / period) * period + count % period) f x := rewrite <- Nat.divModEq count period positive in rfl
+    _ = Nat.iterate ((count / period) * period + count % period) f x := rewrite <- Nat.divModEq count period in rfl
     _ = Nat.iterate (count % period) f (Nat.iterate ((count / period) * period) f x) := Nat.iterateAdd f ((count / period) * period) (count % period) x
     _ = Nat.iterate (count % period) f x := rewrite iterateCycles f period cycle (count / period) x in rfl
 
