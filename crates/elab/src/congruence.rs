@@ -670,116 +670,59 @@ pub(crate) fn sketch(g: &Ev, f: DefId) -> String {
     format!("theorem {name}Cong{params}{premises}: {name}{left} = {name}{right}")
 }
 
-#[cfg(test)]
-mod tests {
-    //! Every congruence lemma in the standard library must pass the check
-    //! `decreasing` makes of it. `rewrite` also accepts `…CongMem`,
-    //! `…CongRange` and `…CongRangeFrom` (their statements have facts in
-    //! their premises, which [`validate_cong`] doesn't accept), so this test
-    //! covers only `…Cong`, the one family [`lookup`] (and so `decreasing`)
-    //! recognises.
-
-    use std::collections::BTreeMap;
-
-    use stitchwort_core::DefId;
-    use stitchwort_syntax::{Severity, SourceMap};
-
-    use super::*;
-    use crate::{Elaborator, Global};
-
-    /// The suffix `decreasing` finds a function's congruence lemma by
-    /// (`congruence::lookup`). The others in [`SUFFIXES`] are `rewrite`'s.
+/// Checks every `…Cong` lemma of the standard library, loaded in `e`, as
+/// `decreasing` does ([`validate_cong`]); returns how many it checked and
+/// one message for each that fails. `rewrite` also accepts `…CongMem`,
+/// `…CongRange` and `…CongRangeFrom` (their statements have facts in their
+/// premises, which [`validate_cong`] doesn't accept), so this covers only
+/// `…Cong`, the one family [`lookup`] (and so `decreasing`) recognises. For
+/// the test `every_std_congruence_lemma_passes_validate_cong` in the driver.
+#[doc(hidden)]
+pub fn std_congruence_failures(e: &Elaborator) -> (usize, Vec<String>) {
+    // The suffix `decreasing` finds a function's congruence lemma by
+    // (`lookup`); the others in [`SUFFIXES`] are `rewrite`'s.
     const DECREASING_SUFFIX: &str = "Cong";
+    let mut total = 0;
+    let mut failures = Vec::new();
+    let g = e.ev();
 
-    const STACK: usize = 64 * 1024 * 1024;
-
-    /// Runs `test` with the core and every library file loaded, on a thread
-    /// with room for the elaborator's stack.
-    fn with_standard_library(test: impl FnOnce(&Elaborator) + Send + 'static) {
-        std::thread::Builder::new()
-            .stack_size(256 << 20)
-            .spawn(move || {
-                let mut sources = SourceMap::new();
-                let file = sources.add("<prelude>", crate::prelude());
-                let core = stitchwort_syntax::parse_module(file, crate::prelude())
-                    .expect("the core parses");
-                let mut e = Elaborator::new();
-                e.unit.loading_prelude = true;
-                let diagnostics = e.elaborate_module(&core);
-                assert!(
-                    diagnostics.iter().all(|d| d.severity != Severity::Error),
-                    "the core checks: {diagnostics:?}"
-                );
-                e.finish_core().expect("a complete core");
-                let index = crate::LibraryIndex::standard(STACK).expect("the library index");
-                e.install_library(index);
-                e.load_all_libraries().expect("the library checks");
-                test(&e);
-            })
-            .expect("a thread")
-            .join()
-            .expect("the test passes");
+    for (i, def) in g.env.defs().iter().enumerate() {
+        let name = def.name().to_string();
+        let Some(base) = name.strip_suffix(DECREASING_SUFFIX) else {
+            continue;
+        };
+        // The same lookup as `lookup`: `Std.`-qualified, else as
+        // written.
+        let f = [format!("Std.{base}"), base.to_string()]
+            .into_iter()
+            .find_map(|key| match e.scope.get(&key) {
+                Some((Global::Def(id), _)) => Some(id),
+                _ => None,
+            });
+        let Some(f) = f else { continue };
+        // `decreasing` looks a lemma up only for a call that has a
+        // function argument containing the recursive call. A
+        // function with no function parameter can't have one, so
+        // lemmas named after such a function (`Int.addCong`,
+        // `Int.mulCong`: congruence of equal arguments, not `FCong`)
+        // aren't candidates and aren't in `FCong`'s shape. Every
+        // other `…Cong` a function has is checked.
+        let (ftel, _) = split_pis(g.def(f).ty(), None);
+        if !ftel
+            .iter()
+            .any(|b| matches!(b.ty.strip_loc(), Term::Pi(..)))
+        {
+            continue;
+        }
+        total += 1;
+        let why = match validate_cong(&g, f, DefId(i)) {
+            Ok(Ok(_)) => None,
+            Ok(Err(why)) => Some(why),
+            Err(d) => Some(d.message.to_string()),
+        };
+        if let Some(why) = why {
+            failures.push(format!("{name}: {why}"));
+        }
     }
-
-    /// A std lemma `FCong` used to be allowed implicit parameters, which
-    /// `rewrite` accepted but `decreasing`'s [`validate_cong`] rejected
-    /// (`Option.mapCong`): no test caught it. This one checks every
-    /// `…Cong` declaration whose `F` is a definition, as `decreasing` would.
-    #[test]
-    fn every_std_congruence_lemma_passes_validate_cong() {
-        with_standard_library(|e| {
-            let g = e.ev();
-            let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
-            let mut failures = Vec::new();
-            for (i, def) in g.env.defs().iter().enumerate() {
-                let name = def.name().to_string();
-                let Some(base) = name.strip_suffix(DECREASING_SUFFIX) else {
-                    continue;
-                };
-                // The same lookup as `lookup`: `Std.`-qualified, else as
-                // written.
-                let f = [format!("Std.{base}"), base.to_string()]
-                    .into_iter()
-                    .find_map(|key| match e.scope.get(&key) {
-                        Some((Global::Def(id), _)) => Some(id),
-                        _ => None,
-                    });
-                let Some(f) = f else { continue };
-                // `decreasing` looks a lemma up only for a call that has a
-                // function argument containing the recursive call. A
-                // function with no function parameter can't have one, so
-                // lemmas named after such a function (`Int.addCong`,
-                // `Int.mulCong`: congruence of equal arguments, not `FCong`)
-                // aren't candidates and aren't in `FCong`'s shape. Every
-                // other `…Cong` a function has is checked.
-                let (ftel, _) = split_pis(g.def(f).ty(), None);
-                if !ftel
-                    .iter()
-                    .any(|b| matches!(b.ty.strip_loc(), Term::Pi(..)))
-                {
-                    continue;
-                }
-                *counts.entry(DECREASING_SUFFIX).or_default() += 1;
-                let why = match validate_cong(&g, f, DefId(i)) {
-                    Ok(Ok(_)) => None,
-                    Ok(Err(why)) => Some(why),
-                    Err(d) => Some(d.message.to_string()),
-                };
-                if let Some(why) = why {
-                    failures.push(format!("{name}: {why}"));
-                }
-            }
-            let total: usize = counts.values().sum();
-            assert!(
-                total > 0,
-                "the standard library declares no congruence lemmas"
-            );
-            assert!(
-                failures.is_empty(),
-                "{} of {total} std congruence lemmas fail validate_cong:\n{}",
-                failures.len(),
-                failures.join("\n")
-            );
-        });
-    }
+    (total, failures)
 }

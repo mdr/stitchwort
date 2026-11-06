@@ -18,6 +18,7 @@ mod chain;
 mod check;
 pub mod closing;
 mod congruence;
+pub use congruence::std_congruence_failures;
 pub mod counterexample;
 mod data_auto;
 mod decreasing;

@@ -100,6 +100,7 @@ fn limits(session: &Session, max_output: Option<usize>, scope: LimitScope) -> Li
 /// `main` of a single file, lowered.
 fn single(source: &str) -> (Session, Program) {
     let mut session = Session::for_stack(STACK);
+    session.use_test_std_cache();
     session
         .load("test.sw", source)
         .unwrap_or_else(|e| panic!("doesn't check: {e:?}"));
@@ -129,6 +130,7 @@ fn rogue() -> (Session, Program) {
         })
         .collect();
     let mut session = Session::for_stack(STACK);
+    session.use_test_std_cache();
     session
         .load_project_sources("rogue", files, &Target::Namespaces(vec!["Rogue".into()]))
         .unwrap_or_else(|e| panic!("doesn't check: {e:#?}"));
