@@ -119,14 +119,14 @@ def Rules.chain (rules: Rules) (fuel: Nat) (number: Nat): Nat :=
     | Zero => 0
     | Succ more =>
       match rules.rule number with
-        | Some (Alternatives sequences) =>
-          sequences.map (sequence =>
-            match sequence with
-              | [only] => rules.chain more only + 1
-              | _ => 0)
-          |> .maximum
-          |> .getOrElse 0
+        | Some (Alternatives sequences) => sequences.map (rules.chainThrough more) |> .maximum |> .getOrElse 0
         | _ => 0
+
+--| The longest chain through an alternative: none unless it is one rule.
+def Rules.chainThrough (rules: Rules) (fuel: Nat): (sequence: List Nat) → Nat
+  | [] => 0
+  | [only] => rules.chain fuel only + 1
+  | [first, second, ..more] => 0
 
 --| More than any chain of one-rule alternatives can be long, when no rule
 --| can come back to itself through them.
