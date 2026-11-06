@@ -7,15 +7,15 @@ expression: output
    │
  7 │ theorem reverseKeeps (t: Text): Text.fromList (List.reverse (Text.toList t)) = t := rfl
    │                                                                                     ─┬─  
-   │                                                                                      ╰─── `Text.fromList (List.reverse (Text.toList t))` and `t` aren't equal
+   │                                                                                      ╰─── `Text.fromList t.toList.reverse` and `t` aren't equal
    │ 
-   │ Note 1: computing the left side gives `MkText (List.reverseOnto (Text.toList t) [])`
+   │ Note 1: computing the left side gives `MkText (t.toList.reverseOnto [])`
    │ 
    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
    │ 
    │ Note 3: this statement is false; a counterexample:
    │           t = "ab"
-   │         `Text.fromList (List.reverse (Text.toList t)) = t` is false:
+   │         `Text.fromList t.toList.reverse = t` is false:
    │           left:  "ba"
    │           right: "ab"
    │           first difference at [0]: 'b' vs 'a'
@@ -25,11 +25,11 @@ expression: output
    │
  9 │ theorem asciiOnly (c: Char): Char.toNat c < 128 := rfl
    │                                                    ─┬─  
-   │                                                     ╰─── `Char.toNat c <= 127` and `True` aren't equal
+   │                                                     ╰─── `c.toNat <= 127` and `True` aren't equal
    │ 
    │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
    │ 
    │ Note 2: this statement is false; a counterexample:
    │           c = '\u{80}'
-   │         `Char.toNat c < 128` is false
+   │         `c.toNat < 128` is false
 ───╯

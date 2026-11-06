@@ -2,7 +2,7 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-AUTO-STUCK] Error: can't decide `Packet.size q ≤ Packet.%m1%size items` here
+[E-AUTO-STUCK] Error: can't decide `q.size ≤ Packet.%m1%size items` here
     ╭─[ reject/nested-data-auto-other-list.sw:13:106 ]
     │
  13 │ theorem elsewhere (q: Packet) (items: List Packet) (others: List Packet) (h: List.Mem q others): Unit := memberSmaller q items

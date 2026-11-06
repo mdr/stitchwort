@@ -399,8 +399,8 @@ theorem countAboveLe (k: Nat) (xs: List Nat): countAbove k xs ≤ xs.length :=
    │                                  y: Nat
    │                                  ys: List Nat
    │                                  h: k ≤ y
-   │                                  ih: countAbove k ys ≤ Std.List.length ys
-   │                                  ⊢ countAbove k ys ≤ Std.List.length ys
+   │                                  ih: countAbove k ys ≤ ys.length
+   │                                  ⊢ countAbove k ys ≤ ys.length
 ───╯
 1 goal open: the declarations with them, and what uses them, aren't finished, so they aren't checked
 ```
@@ -475,8 +475,8 @@ theorem countBigAtMost (xs: List Nat): countBig xs ≤ xs.length :=
    │                                x: Nat
    │                                rest: List Nat
    │                                big: 4 ≤ x
-   │                                ih: countBig rest ≤ Std.List.length rest
-   │                                ⊢ countBig rest ≤ Std.List.length rest
+   │                                ih: countBig rest ≤ rest.length
+   │                                ⊢ countBig rest ≤ rest.length
 ───╯
 1 goal open: the declarations with them, and what uses them, aren't finished, so they aren't checked
 ```

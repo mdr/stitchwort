@@ -7,7 +7,7 @@ expression: output
    │
  8 │     _ = xs |> List.sum := h
    │                           ┬  
-   │                           ╰── this proves `List.sum xs = 3`
+   │                           ╰── this proves `xs.sum = 3`
    │ 
-   │ Note: the line says `3 = List.sum xs`
+   │ Note: the line says `3 = xs.sum`
 ───╯

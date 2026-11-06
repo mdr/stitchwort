@@ -2,12 +2,12 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-REWRITE-NOTHING] Error: `rewrite` found no `Std.Decidable.toBool (Std.Decidable.not (Std.Nat.decEq a b))` in the goal
+[E-REWRITE-NOTHING] Error: `rewrite` found no `(a.decEq b).not.toBool` in the goal
    ╭─[ reject/rewrite-nothing-bool-ne.sw:5:11 ]
    │
  5 │   rewrite h in rfl
    │           ┬  
-   │           ╰── looking for `Std.Decidable.toBool (Std.Decidable.not (Std.Nat.decEq a b))`
+   │           ╰── looking for `(a.decEq b).not.toBool`
    │ 
    │ Note 1: `!=` here is the proposition `≠`; for the `Bool` test write `((a != b): Bool)`
    │ 

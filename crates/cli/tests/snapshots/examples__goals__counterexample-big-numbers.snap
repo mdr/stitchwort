@@ -9,7 +9,7 @@ expression: output
     │                                                                                                    ┬  
     │                                                                                                    ╰── n: Nat
     │                                                                                                        count: Nat
-    │                                                                                                        ⊢ Nat.shiftRight (doubleTimes n count) count = n
+    │                                                                                                        ⊢ (doubleTimes n count).shiftRight count = n
 ────╯
 [GOAL] Goal: in `powTwoIsPow`
     ╭─[ goals/counterexample-big-numbers.sw:26:74 ]

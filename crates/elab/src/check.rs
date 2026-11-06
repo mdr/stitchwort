@@ -1588,10 +1588,10 @@ pub(crate) const NE_AS_PROP_NOTE: &str =
     "`!=` here is the proposition `≠`; for the `Bool` test write `((a != b): Bool)`";
 
 /// Whether the expected type mentions a proposition `≠` and what was found
-/// is a `Bool` test (`Decidable.toBool …`): a `Bool` `!=` that was read as `≠`
+/// is a `Bool` test (`Decidable.toBool …`, or `….toBool`): a `Bool` `!=` that was read as `≠`
 /// because it sits beside `=` in a statement.
 pub(crate) fn ne_read_as_prop(expected: &str, found: &str) -> bool {
-    expected.contains(" ≠ ") && found.contains("Decidable.toBool")
+    expected.contains(" ≠ ") && (found.contains("Decidable.toBool") || found.contains(".toBool"))
 }
 
 /// Whether two forced types are built by the same outermost former (the
