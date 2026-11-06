@@ -1,5 +1,5 @@
 -- Chapter 6: a tour of the standard library.
-import Std (Each, List, Map, NonEmptyList, Nat, Option, Result, Set, Text, Vec)
+import Std (Array, Each, List, Map, NonEmptyList, Nat, Option, Result, Set, Text, Vec)
 import Std.Each (each)
 
 -- begin lists
@@ -108,3 +108,15 @@ test "a Vec knows its length" := row.toList == [4, 5, 6]
 test "head needs no Option" := row.head == 4
 test "zipWith needs equal lengths" := (Vec.zipWith row row (a b => a + b)).toList == [8, 10, 12]
 -- end vec
+
+-- begin array
+def tally (digits: List Nat): Array Nat :=
+  digits.foldLeft (Array.replicate (count := 10) 0) (counts digit => counts.modify digit (n => n + 1))
+
+test "an array of counts" := (tally [3, 1, 3, 3]).toList == [0, 1, 0, 3, 0, 0, 0, 0, 0, 0]
+test "get gives an Option" := (tally [3]).get 3 == Some 1 ∧ (tally [3]).get 10 == None
+test "getOr gives a fallback" := (tally [3]).getOr 12 0 == 0
+test "set out of range changes nothing" := ([5, 6].toArray).set 2 9 == [5, 6].toArray
+
+test "getLt needs no Option when the index is in range" := ([7, 8, 9].toArray).getLt 1 == 8
+-- end array
