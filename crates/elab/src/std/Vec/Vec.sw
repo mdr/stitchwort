@@ -84,7 +84,7 @@ def Vec.toList: (xs: Vec a n) → List a
 -- indexed-families.md §8.1.)
 def Vec.fromListN: (n: Nat) → (xs: List a) → (lengthEq: List.length xs = n) → Vec a n
   | Zero, [], _ => VNil
-  | Succ k, [x, ..xs], ok => VCons [n := k] x (Vec.fromListN k xs (Nat.succInjective (List.length xs) k ok))
+  | Succ k, [x, ..xs], ok => VCons [n := k] x (Vec.fromListN k xs (Nat.succInjective ok))
   | Zero, [x, ..xs], ok => Void.absurd (Nat.succNotZero (List.length xs) ok)
   | Succ k, [], ok => Void.absurd (Nat.zeroNotSucc k ok)
 
@@ -168,7 +168,7 @@ instance Vec.instOrd [auto ord: Ord a]: Ord (Vec a n) := Ord.byKey Vec.toList Ve
 
 theorem Vec.toListFromListN: (n: Nat) → (xs: List a) → (ok: List.length xs = n) → Vec.toList (Vec.fromListN n xs ok) = xs
   | Zero, [], _ => rfl
-  | Succ k, [x, ..xs], ok => Eq.cong (Cons x) (Vec.toListFromListN k xs (Nat.succInjective (List.length xs) k ok))
+  | Succ k, [x, ..xs], ok => Eq.cong (Cons x) (Vec.toListFromListN k xs (Nat.succInjective ok))
   | Zero, [x, ..xs], ok => Void.exfalso (Nat.succNotZero (List.length xs) ok)
   | Succ k, [], ok => Void.exfalso (Nat.zeroNotSucc k ok)
 
@@ -223,9 +223,9 @@ theorem Vec.fromListNProofs (n: Nat) (xs: List a) (p: List.length xs = n) (q: Li
 
 theorem Vec.ofListDecSucc (y: a) (zs: List a) (k: Nat): (d: Decidable (List.length zs = k)) → (d2: Decidable (List.length [y, ..zs] = Succ k)) →
     Vec.ofListDec (Succ k) [y, ..zs] d2 = Option.map (Vec.ofListDec k zs d) (ys => VCons y ys)
-  | Yes ok, Yes ok2 => Eq.cong Some (Eq.cong (VCons y) (Vec.fromListNProofs k zs (Nat.succInjective (List.length zs) k ok2) ok))
+  | Yes ok, Yes ok2 => Eq.cong Some (Eq.cong (VCons y) (Vec.fromListNProofs k zs (Nat.succInjective ok2) ok))
   | Yes ok, No r => Void.exfalso (r (Eq.cong Succ ok))
-  | No r, Yes ok2 => Void.exfalso (r (Nat.succInjective (List.length zs) k ok2))
+  | No r, Yes ok2 => Void.exfalso (r (Nat.succInjective ok2))
   | No r, No r2 => rfl
 
 --| `ofList` of a list one longer: its tail's vector, with the head in front.

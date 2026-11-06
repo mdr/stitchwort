@@ -35,7 +35,7 @@ theorem Nat.zeroNotSucc (n: Nat): 0 ≠ Succ n
 theorem Nat.succNotZero (n: Nat): Succ n ≠ 0
   | p => Nat.zeroNotSucc n (Eq.sym p)
 
-theorem Nat.succInjective (m: Nat) (n: Nat) (p: Succ m = Succ n): m = n := Eq.cong Nat.pred p
+theorem Nat.succInjective [m: Nat] [n: Nat] (p: Succ m = Succ n): m = n := Eq.cong Nat.pred p
 
 --| `Unit` (true) for `False` and `Void` (false) for `True`: how `False ≠ True` is proved.
 def Bool.IsFalse: (b: Bool) → Prop

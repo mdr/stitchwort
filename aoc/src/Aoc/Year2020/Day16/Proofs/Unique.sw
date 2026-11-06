@@ -36,7 +36,7 @@ theorem replicateAgrees (rules: List Rule): (other: List Rule) → (count: Nat) 
   | [], Succ count, same, members => Void.exfalso (Nat.zeroNotSucc _ same)
   | [rule, ..other], Zero, same, members => Void.exfalso (Nat.succNotZero _ same)
   | [rule, ..other], Succ count, same, members =>
-    Both (members rule (Inl rfl)) (replicateAgrees rules other count (Nat.succInjective _ _ same) (later member => members later (Inr member)))
+    Both (members rule (Inl rfl)) (replicateAgrees rules other count (Nat.succInjective same) (later member => members later (Inr member)))
 
 --| If the elimination settles every position, every order the puzzle
 --| allows is the one it found.

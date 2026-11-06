@@ -716,7 +716,8 @@ fn rewrite_once(
     let mut equation = elaborate_rule(cx, rule, place)?;
     let lhs_term = cx.quote(&equation.lhs)?;
     let Some(key) = key(&lhs_term, 0) else {
-        return Err(waiting_head(cx, &lhs_term)?.unwrap_or_else(|| unknown_head(rule, place)));
+        return Err(waiting_head(cx, &lhs_term)?
+            .unwrap_or_else(|| unknown_head(rule, place, &equation.premises)));
     };
     // First the calls with occurrences inside the functions passed to them
     // that use the functions' variables, each rewritten by its congruence
@@ -919,7 +920,8 @@ fn replace_occurrences(
     let g = cx.g();
     let lhs_term = cx.quote(&equation.lhs)?;
     let Some(key) = key(&lhs_term, 0) else {
-        return Err(waiting_head(cx, &lhs_term)?.unwrap_or_else(|| unknown_head(rule, place)));
+        return Err(waiting_head(cx, &lhs_term)?
+            .unwrap_or_else(|| unknown_head(rule, place, &equation.premises)));
     };
     let open = equation.open(&lhs_term);
     let level = cx.level();
@@ -1574,8 +1576,32 @@ fn waiting_head(cx: &Ctx, side: &Term) -> Result<Option<Diagnostic>> {
     }
 }
 
-fn unknown_head(rule: &RewriteRule, place: Place) -> Diagnostic {
+fn unknown_head(rule: &RewriteRule, place: Place, premises: &[Premise]) -> Diagnostic {
     let side = if rule.reverse { "right" } else { "left" };
+    // Explicit arguments left off the rule's end become unknowns, and a side
+    // that is just one of them (`Nat.oneMul`'s `1 * n` computes to `n`) has
+    // no head: the fix is to write the argument, not an implicit one.
+    let left_off: Vec<String> = premises
+        .iter()
+        .filter_map(|p| p.name.as_ref().map(|n| format!("`{n}`")))
+        .collect();
+    let note = if left_off.is_empty() {
+        "give the implicit arguments explicitly, such as `[f := …]`".to_string()
+    } else {
+        format!(
+            "the rule's explicit argument{} {} {} left off, and the {side} side computes to {}: \
+             write {} after the rule, such as `rule value`",
+            if left_off.len() == 1 { "" } else { "s" },
+            left_off.join(", "),
+            if left_off.len() == 1 { "is" } else { "are" },
+            if left_off.len() == 1 {
+                "it"
+            } else {
+                "one of them"
+            },
+            if left_off.len() == 1 { "it" } else { "them" },
+        )
+    };
     Diagnostic::error(
         "E-REWRITE-RULE",
         format!("this equation's {side} side starts with an unknown function"),
@@ -1587,7 +1613,7 @@ fn unknown_head(rule: &RewriteRule, place: Place) -> Diagnostic {
             place.the()
         ),
     )
-    .with_note("give the implicit arguments explicitly, such as `[f := …]`")
+    .with_note(note)
 }
 
 /// The goal as it was written (a `calc` step's line, or the type of the

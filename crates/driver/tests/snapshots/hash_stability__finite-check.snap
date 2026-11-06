@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/hash_stability.rs
-assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Main.Ten 31da06ed1a78f02069b5f8e474c977866d4dc8d064bffcf41e828f42e1c35523
@@ -33,11 +32,11 @@ Main.Ten.%decEq bae0e5424b7b03d529aa35cd85a3d23678504aed0d2c58094eaa02653a92c64f
 Main.Ten.%instDecEq d0b58d2702829c0869c2093ea9fd2f021a5937a060259a4d8b4db0b1e8dea25b
 Main.Ten.%show cf2e1d079bdf506e2eab46fcde6fbad3035e9a4cfa17f7257e4e0c483f518388
 Main.Ten.%instShow 8a338f5dcafed7e79bc6232b6973c1af435bfd5a248a6826e400ee908f451497
-Main.Ten.%compare 26e7cb2cecfb2e42b44cb1da2846c8c06e6937e96c4f6986cf07571dfd258b61
-Main.Ten.%equal 840c11ad260244c2b9e2ae63cc538a306a57d0948f987dc3d0cb1d00acda601f
-Main.Ten.%flip d1e1a722d98eb41745f787aba25e8a559de5c30594387a8913fc61b2bc6c9637
-Main.Ten.%trans d3d2863d59308a7c5acac1048c264625cbbc0afb8b3d4866d19b96bc36425b51
-Main.Ten.%instOrd 7ab322cc2e7b406a32797eac72125eedf197b21fb2a3c25bc4a8aaedc2f15f8e
+Main.Ten.%compare 780dc566dfbb1ff99d3ff4f140c64d7e6e11e174f0578195e4a5296b1e6ca695
+Main.Ten.%equal fe012559deed00596debae8060122ea7f4224175c63a149d8561c5baa71818c8
+Main.Ten.%flip d9d67ac7286e715ca7caf837e777efa285a0ce724c05847d722257bf84e5095f
+Main.Ten.%trans b26b5c3573197f4c806fe8170852c6a459b14b26181f2f125d3d329110538ea5
+Main.Ten.%instOrd c0ee6b80a72dbbbd06a11dfae0aca7535ce0313392130f57018417d83dcab7fe
 Main.Ten.%%mk%F%0 0627ca4522fc06fbd14c0b0a848f1e526f48f0c36bbba689930072acbf254746
 Main.Ten.%%mk%F%1 66f7f0231bed41b8959ae38ab5290e32c635f1f4fe3384a40b690e9cf1d393de
 Main.Ten.%%mk%F%2 337ba3e30892468e3c6a9d26201350862e9a6e3f296f2a7c03ad7af6cb53855d

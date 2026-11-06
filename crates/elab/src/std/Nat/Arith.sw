@@ -8,7 +8,7 @@
 
 theorem Nat.addCancelLeft: (a: Nat) → (b: Nat) → (c: Nat) → a + b = a + c → b = c
   | Zero, b, c, h => h
-  | Succ a, b, c, h => Nat.addCancelLeft a b c (Nat.succInjective (a + b) (a + c) h)
+  | Succ a, b, c, h => Nat.addCancelLeft a b c (Nat.succInjective h)
 
 theorem Nat.mulDistribLeft (a: Nat) (b: Nat) (c: Nat): a * (b + c) = a * b + a * c := Eq.trans (Nat.mulComm a (b + c)) (Eq.trans (Nat.mulDistribRight b c a) (Eq.trans (Eq.cong (t => t + c * a) (Nat.mulComm b a)) (Eq.cong (t => a * b + t) (Nat.mulComm c a))))
 
@@ -428,7 +428,7 @@ theorem Nat.addSelfNotSelf (a: Nat) (h: 1 ≤ a) (e: a + a = a): Void :=
 
 theorem Nat.doubleNotOne: (k: Nat) → k + k = 1 → Void
   | Zero, e => Nat.zeroNotSucc 0 e
-  | Succ k, e => Nat.succNotZero (k + k) (Eq.trans (Eq.sym (Nat.addSucc k k)) (Nat.succInjective (k + Succ k) 0 e))
+  | Succ k, e => Nat.succNotZero (k + k) (Eq.trans (Eq.sym (Nat.addSucc k k)) (Nat.succInjective e))
 
 theorem Nat.posOfDouble: (k: Nat) → (n: Nat) → k + k = n → 1 ≤ n → 1 ≤ k
   | Zero, n, e, h => Void.exfalso (Bool.falseNotTrue (rewrite <- e at h))

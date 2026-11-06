@@ -244,13 +244,13 @@ theorem List.allLengthZero: (rows: List (List a)) → (n: Nat) → List.length r
   | [r, ..rs], Zero, hl, hr => Void.exfalso (Nat.succNotZero (List.length rs) hl)
   | [r, ..rs], Succ m, hl, Both hr hrs =>
     Eq.trans (Eq.cong (t => [t, ..rs]) (List.lengthZero r hr))
-      (Eq.cong (Cons []) (List.allLengthZero rs m (Nat.succInjective (List.length rs) m hl) hrs))
+      (Eq.cong (Cons []) (List.allLengthZero rs m (Nat.succInjective hl) hrs))
 
 theorem List.tailsAllLength: (rows: List (List a)) → (k: Nat) → List.AllLength (Succ k) rows →
     List.AllLength k (List.map rows (.drop 1))
   | [], k, hr => Trivial
   | [[], ..rs], k, Both hr hrs => Void.exfalso (Nat.zeroNotSucc k hr)
-  | [[y, ..ys], ..rs], k, Both hr hrs => Both (Nat.succInjective (List.length ys) k hr) (List.tailsAllLength rs k hrs)
+  | [[y, ..ys], ..rs], k, Both hr hrs => Both (Nat.succInjective hr) (List.tailsAllLength rs k hrs)
 
 theorem List.headsLength: (rows: List (List a)) → (k: Nat) → List.AllLength (Succ k) rows →
     List.length (List.filterMap rows (.get 0)) = List.length rows
@@ -278,7 +278,7 @@ theorem List.transposeNCons: (heads: List a) → (h: Nat) → (cols: List (List 
   | [], Succ m, cols, hl, hc => Void.exfalso (Nat.zeroNotSucc m hl)
   | [x, ..xs], Succ m, cols, hl, hc =>
     Eq.cong (Cons [x, ..List.filterMap cols (.get 0)])
-      (List.transposeNCons xs m (List.map cols (.drop 1)) (Nat.succInjective (List.length xs) m hl) (List.tailsAllLength cols m hc))
+      (List.transposeNCons xs m (List.map cols (.drop 1)) (Nat.succInjective hl) (List.tailsAllLength cols m hc))
 
 theorem List.transposeNTwice: (w: Nat) → (h: Nat) → (rows: List (List a)) → List.length rows = h → List.AllLength w rows →
     List.transposeN h (List.transposeN w rows) = rows
@@ -989,7 +989,7 @@ theorem List.lengthZipWith3 (f: a → b → c → e): (xs: List a) → (ys: List
   | [x, ..xs], [], zs, h1, h2 => Void.exfalso (Nat.zeroNotSucc (List.length xs) h1)
   | [x, ..xs], [y, ..ys], [], h1, h2 => Void.exfalso (Nat.zeroNotSucc (List.length xs) h2)
   | [x, ..xs], [y, ..ys], [z, ..zs], h1, h2 =>
-    rewrite List.lengthZipWith3 f xs ys zs (Nat.succInjective (List.length ys) (List.length xs) h1) (Nat.succInjective (List.length zs) (List.length xs) h2)
+    rewrite List.lengthZipWith3 f xs ys zs (Nat.succInjective h1) (Nat.succInjective h2)
 
 --| Lists zipped in step are no longer than the first.
 theorem List.lengthZipWithLe (f: a → b → c): (xs: List a) → (ys: List b) → List.length (List.zipWith xs ys f) ≤ List.length xs
@@ -1308,12 +1308,12 @@ theorem List.pigeonholeExample: ¬List.Distinct [1, 2, 1] :=
 
 theorem List.distinctExample: List.Distinct [1, 2] :=
   Both (m => match m with
-      | Inl p => Nat.succNotZero 0 (Nat.succInjective 1 0 p)
+      | Inl p => Nat.succNotZero 0 (Nat.succInjective p)
       | Inr v => v)
     (Both (m => m) Trivial)
 
 theorem List.distinctMapExample: List.Distinct (List.map [1, 2] Succ) :=
-  List.distinctMap [1, 2] List.distinctExample Succ (x y p => Nat.succInjective x y p)
+  List.distinctMap [1, 2] List.distinctExample Succ (x y p => Nat.succInjective p)
 
 theorem List.consInjectiveExample (ys: List Nat) (zs: List Nat) (p: [1, ..ys] = [1, ..zs]): ys = zs := List.consInjective 1 ys zs p
 
@@ -1348,7 +1348,7 @@ theorem List.distinctAppendExample: List.Distinct (List.append [1] [2]) :=
     (Both (m => m) Trivial)
     (Both (m => m) Trivial)
     (Both (m => match m with
-      | Inl p => Nat.succNotZero 0 (Nat.succInjective 1 0 p)
+      | Inl p => Nat.succNotZero 0 (Nat.succInjective p)
       | Inr v => v) Trivial)
 
 --| What `List.All` says of an element of the list.
@@ -1809,7 +1809,7 @@ theorem List.findKeyDistinct [auto eq: DecEq k] (key: a → k): (xs: List a) →
 theorem List.findKeyDistinctExample: List.find [(1, "a"), (2, "b")] (y => y.fst == 2) = Some (2, "b") :=
   List.findKeyDistinct Pair.fst [(1, "a"), (2, "b")]
     (Both (m => match m with
-        | Inl p => Nat.succNotZero 0 (Nat.succInjective 1 0 p)
+        | Inl p => Nat.succNotZero 0 (Nat.succInjective p)
         | Inr v => v)
       (Both (m => m) Trivial))
     (2, "b") (Inr (Inl rfl))
@@ -2746,7 +2746,7 @@ theorem List.lengthZipWith (f: a → b → c): (xs: List a) → (ys: List b) →
 theorem List.zipWithAppend (f: a → b → c) (xs2: List a) (ys2: List b): (xs: List a) → (ys: List b) → List.length xs = List.length ys →
     List.zipWith (xs ++ xs2) (ys ++ ys2) f = List.zipWith xs ys f ++ List.zipWith xs2 ys2 f
   | [], [], same => rfl
-  | [x, ..xs], [y, ..ys], same => rewrite List.zipWithAppend f xs2 ys2 xs ys (Nat.succInjective (List.length xs) (List.length ys) same) in rfl
+  | [x, ..xs], [y, ..ys], same => rewrite List.zipWithAppend f xs2 ys2 xs ys (Nat.succInjective same) in rfl
   | [], [y, ..ys], same => Void.exfalso (omega)
   | [x, ..xs], [], same => Void.exfalso (omega)
 
@@ -2823,7 +2823,7 @@ theorem List.all2ReplicateOf [r: a → b → Prop] (y: b): (xs: List a) → (n: 
   | [], Succ n, same, related => Void.exfalso (Nat.zeroNotSucc _ same)
   | [x, ..xs], Zero, same, related => Void.exfalso (Nat.succNotZero _ same)
   | [x, ..xs], Succ n, same, related =>
-    Both (related x (Inl rfl)) (List.all2ReplicateOf y xs n (Nat.succInjective _ _ same) (z member => related z (Inr member)))
+    Both (related x (Inl rfl)) (List.all2ReplicateOf y xs n (Nat.succInjective same) (z member => related z (Inr member)))
 
 --| Zipping two lists of the same length gives a list of that length (unlike
 --| [`List.lengthZipWith`], which gives the shorter of the two).
@@ -2831,7 +2831,7 @@ theorem List.lengthZipWithEq (f: a → b → c): (xs: List a) → (ys: List b) �
   | [], [], same => rfl
   | [], [y, ..ys], same => Void.exfalso (Nat.zeroNotSucc _ same)
   | [x, ..xs], [], same => Void.exfalso (Nat.succNotZero _ same)
-  | [x, ..xs], [y, ..ys], same => Eq.cong Succ (List.lengthZipWithEq f xs ys (Nat.succInjective _ _ same))
+  | [x, ..xs], [y, ..ys], same => Eq.cong Succ (List.lengthZipWithEq f xs ys (Nat.succInjective same))
 
 --| Where `r` holds of every result of `f` and its first argument, the zip of
 --| two lists of the same length is related, place by place, to the first.
@@ -2841,7 +2841,7 @@ theorem List.all2ZipWithLeft (f: a → b → c) (r: c → a → Prop) (pointwise
   | [], [y, ..ys], same => Void.exfalso (Nat.zeroNotSucc _ same)
   | [x, ..xs], [], same => Void.exfalso (Nat.succNotZero _ same)
   | [x, ..xs], [y, ..ys], same =>
-    Both (pointwise x y) (List.all2ZipWithLeft f r pointwise xs ys (Nat.succInjective _ _ same))
+    Both (pointwise x y) (List.all2ZipWithLeft f r pointwise xs ys (Nat.succInjective same))
 
 --| Where `r` holds of every result of `f` and its second argument, the zip of
 --| two lists of the same length is related, place by place, to the second.
@@ -2851,7 +2851,7 @@ theorem List.all2ZipWithRight (f: a → b → c) (r: c → b → Prop) (pointwis
   | [], [y, ..ys], same => Void.exfalso (Nat.zeroNotSucc _ same)
   | [x, ..xs], [], same => Void.exfalso (Nat.succNotZero _ same)
   | [x, ..xs], [y, ..ys], same =>
-    Both (pointwise x y) (List.all2ZipWithRight f r pointwise xs ys (Nat.succInjective _ _ same))
+    Both (pointwise x y) (List.all2ZipWithRight f r pointwise xs ys (Nat.succInjective same))
 
 --| A list with no element equal to `x` counts none: `xs.contains x` is
 --| `False` exactly when `x` is not among `xs`.
