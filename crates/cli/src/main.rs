@@ -154,6 +154,16 @@ enum Command {
         /// anything didn't
         #[arg(long, requires = "native")]
         verbose: bool,
+        /// After the run, print on standard error where its time went: for
+        /// each definition, its calls, and its self and total time, sampled
+        /// every millisecond. An interrupted run (Ctrl-C, `timeout`) prints
+        /// the profile so far. Only on the fast runtime
+        #[arg(long, conflicts_with_all = ["js", "reference", "native", "alloc_trace"])]
+        profile: bool,
+        /// With --profile, how many definitions to show, most self time
+        /// first (0 for all)
+        #[arg(long, value_name = "N", default_value_t = 25, requires = "profile")]
+        profile_top: usize,
         /// The project folder, if not the folder you're in or the nearest
         /// one above it
         #[arg(long)]
@@ -607,6 +617,8 @@ fn run(cli: Cli) -> ExitCode {
             reference,
             native,
             verbose,
+            profile,
+            profile_top,
             project,
             alloc_trace,
             cache,
@@ -618,6 +630,7 @@ fn run(cli: Cli) -> ExitCode {
                 js,
                 reference,
                 native.then_some(verbose),
+                profile.then_some(profile_top),
                 alloc_trace.as_deref(),
                 project.as_deref(),
                 &cache,
@@ -1560,11 +1573,13 @@ fn load_main(
 }
 
 /// `run`: a file's `main`, or a function of the project by its full name.
+#[allow(clippy::too_many_arguments)] // one per `run` option
 fn run_target(
     target: &str,
     js: bool,
     reference: bool,
     native: Option<bool>,
+    profile: Option<usize>,
     alloc_trace: Option<&Path>,
     project: Option<&Path>,
     cache: &CacheArgs,
@@ -1589,6 +1604,9 @@ fn run_target(
             trace: alloc_trace.is_some(),
         },
         None if reference => Runner::Reference,
+        None if profile.is_some() => Runner::Profile {
+            top: profile.unwrap_or_default(),
+        },
         None => Runner::Machine,
     };
     let (mut session, main, _) = match load_main(target, project, cache) {
@@ -2746,6 +2764,8 @@ enum Runner {
     /// the runtime for the allocation trace.
     #[cfg_attr(not(feature = "native"), allow(dead_code))]
     Native { verbose: bool, trace: bool },
+    /// The fast runtime, profiled; the report shows `top` rows.
+    Profile { top: usize },
 }
 
 fn run_main(session: &mut Session, main: &Main, runner: Runner) -> ExitCode {
@@ -2769,6 +2789,9 @@ fn run_main(session: &mut Session, main: &Main, runner: Runner) -> ExitCode {
     let result = match runner {
         Runner::Reference => session.run_main_on(main, &mut input, &mut output, &mut terminal),
         Runner::Machine => session.run_main_fast_on(main, &mut input, &mut output, &mut terminal),
+        Runner::Profile { top } => {
+            run_main_profiled(session, main, top, &mut input, &mut output, &mut terminal)
+        }
         #[cfg(feature = "native")]
         Runner::Native { verbose, .. } => run_main_native(
             native.expect("compiled for `run --native`"),
@@ -2797,6 +2820,36 @@ fn run_main(session: &mut Session, main: &Main, runner: Runner) -> ExitCode {
             ExitCode::from(2)
         }
     }
+}
+
+/// `run --profile`: `main` on the fast runtime, profiled, with the profile on
+/// standard error after the run, or when a signal ends it.
+fn run_main_profiled(
+    session: &Session,
+    main: &Main,
+    top: usize,
+    input: &mut impl std::io::BufRead,
+    output: &mut impl std::io::Write,
+    terminal: &mut dyn stitchwort_cli::run::Terminal,
+) -> Result<(), stitchwort_cli::run::RunError> {
+    let every = std::time::Duration::from_millis(1);
+    let sampling = stitchwort_rt::profile::Sampling::Every(every);
+    let (result, profile) =
+        session.run_main_fast_profiling_on(main, sampling, input, output, terminal, |profile| {
+            #[cfg(unix)]
+            {
+                let profile = profile.clone();
+                stitchwort_host::terminal::on_signal(move || {
+                    eprint!("{}", profile.report(top));
+                });
+            }
+            #[cfg(not(unix))]
+            let _ = profile;
+        });
+    if let Some(profile) = profile {
+        eprint!("{}", profile.report(top));
+    }
+    result
 }
 
 /// `main` compiled for `run --native`: the code (with its image), and the

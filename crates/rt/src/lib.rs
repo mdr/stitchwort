@@ -30,6 +30,7 @@ pub mod natives;
 pub mod opt;
 pub mod pretty;
 mod prims;
+pub mod profile;
 pub mod run;
 pub mod shared;
 pub mod specialise;
@@ -44,7 +45,7 @@ pub use lower::{lower_definitions, lower_global, lower_main};
 pub use machine::Machine;
 pub use run::{
     Advanced, Executor, LimitScope, LiveLimits, LiveRun, Outcome, Policy, RouteCounts, run_main,
-    run_main_counting, run_main_counting_on, run_main_native, run_main_on, run_main_with,
-    run_partial,
+    run_main_counting, run_main_counting_on, run_main_native, run_main_on, run_main_profiling_on,
+    run_main_with, run_partial,
 };
 pub use shared::Limits;

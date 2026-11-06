@@ -24,6 +24,7 @@
 //!   the reference evaluator, and running out is a [`ResourceError`].
 
 use std::rc::Rc;
+use std::sync::Arc;
 
 use smallvec::SmallVec;
 
@@ -37,6 +38,7 @@ use crate::effect::{
 use crate::ir::{GlobalId, GlobalKind, HoleOp, PrimOp, Program, Shapes};
 use crate::natives::TextNative;
 use crate::prims;
+use crate::profile::{Profile, Profiler, Sampling};
 pub use crate::shared::Limits;
 use crate::shared::{arity, body_name, deepest};
 use crate::value::{Fields, Fun, Value};
@@ -113,6 +115,8 @@ pub(crate) struct State {
     /// Instructions executed so far by [`run`], added to the thread's total
     /// ([`instructions_executed`]) as each run ends.
     executed: u64,
+    /// The profiler, for `run --profile` ([`crate::profile`]).
+    profile: Option<Box<Profiler>>,
 }
 
 /// The program a machine runs: borrowed, or shared with whatever else holds
@@ -181,9 +185,19 @@ impl<'p> Machine<'p> {
                 counts: EffectCounts::default(),
                 deepest: Vec::new(),
                 executed: 0,
+                profile: None,
             },
             program,
         }
+    }
+
+    /// Profiles everything the machine runs from now on: calls and time
+    /// per definition ([`crate::profile`]), in the profile returned.
+    pub fn start_profile(&mut self, sampling: Sampling) -> Arc<Profile> {
+        let profiler = Profiler::new(&self.program, &self.image, sampling);
+        let profile = profiler.profile();
+        self.st.profile = Some(Box::new(profiler));
+        profile
     }
 
     /// The effect runtime's work so far ([`crate::effect`]), for tests.
@@ -368,6 +382,16 @@ impl State {
         self.deepest = deepest(self.frames.iter().map(|frame| frame.code));
     }
 
+    /// Tells the profiler, if there is one, that the top frame has just
+    /// been pushed, or (`tail`) replaced. Off, this is the only cost.
+    #[inline(always)]
+    fn profile_entered(&mut self, tail: bool) {
+        if let Some(profiler) = &mut self.profile {
+            let depth = self.frames.len() - 1;
+            profiler.entered(self.frames[depth].code, depth, tail);
+        }
+    }
+
     #[inline]
     fn enter_frame(&mut self) -> Result<()> {
         self.steps += 1;
@@ -447,6 +471,7 @@ impl State {
             env,
             ret,
         });
+        self.profile_entered(false);
         Ok(())
     }
 
@@ -468,6 +493,7 @@ impl State {
             base + image.codes[code as usize].regs as usize,
             Value::Erased,
         );
+        self.profile_entered(true);
         Ok(())
     }
 
@@ -1071,6 +1097,7 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                         env: None,
                         ret: Ret::Reg(u32::try_from(base + dst as usize).expect("fits")),
                     });
+                    st.profile_entered(false);
                     continue 'outer;
                 }
                 Instr::TailCall { g, args } => {
@@ -1187,6 +1214,7 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                             env,
                             ret: Ret::Reg(to),
                         });
+                        st.profile_entered(false);
                         continue 'outer;
                     }
                     for r in ops!(args) {
