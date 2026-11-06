@@ -1,0 +1,24 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/match-not-found-unnamed.sw:13:17 ]
+    │
+ 13 │     | Succ k => Nat.succNotZero k
+    │                 ────────┬────────  
+    │                         ╰────────── expected `n + n = n + n`, but this has type `Succ k ≠ 0`
+    │ 
+    │ Note: this expression is a function still waiting for one more argument
+────╯
+[W-MATCH-NOT-FOUND] Warning: this `match` didn't find its expression in the goal, so every arm has the goal unchanged
+    ╭─[ reject/match-not-found-unnamed.sw:11:9 ]
+    │
+ 11 │   match n * 2 with
+    │         ──┬──  
+    │           ╰──── looked for `n * 2`
+    │ 
+    │ Note 1: in the goal `n + n = n + n`
+    │ 
+    │ Note 2: the search compares what terms compute to: write the expression as the goal shows it (or `rewrite` the goal to the form you want, or bind it with a `let` before the `match`)
+────╯
