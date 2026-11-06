@@ -3,10 +3,10 @@ source: crates/driver/tests/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Main.shortNumber 07a182825335be44c16a6a33c29a75edf738de7c34a6f8789800f0f2d6331017
-Main.test "three digits" b1e0a58fb767c687ffccf9b99ac0fe1781332fa961bab45bd8100103c7b1edb4
-Main.test "four digits" 69039a5924aef1e7b55771b56845abca84cb64d1ca0df6e930c17160378b8e25
+Main.test "three digits" 534a01ede27600d15f648534ebda15cab65114f0f0ba9b70da92de39efa8e209
+Main.test "four digits" f1d3922f000b3fa55425ac4eabd9bfee9bc1fc5bc6ccedd5ef182b2444f45a23
 Main.check 6205e3f6cfe2cc13a2b29aede2e06fb3976112c07f206fcdaf7af13d4f17303c
 Main.before 42f85bc0875eca366312fedd3d234cc89a211a3ba7093840ab970944f027e426
 Main.after 6239b0fefbd87cffadd1145279f7529de1b9ea6a3d4c0b5188a1143db07d7f05
 Main.atStart b26ae6652f63e71ea6ffd73818416e241221260c44d27c455111e112151ed922
-Main.test "at the start" a5a7da84d339441a879e6d2cae3e40e2e80ff4bf176d3648d9f8c4dd14aaf8c9
+Main.test "at the start" 63895569c2a893701be51d2eeec5b97600cb21396765950889038b3531adc70c
