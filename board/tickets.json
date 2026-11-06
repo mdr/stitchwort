@@ -13091,7 +13091,7 @@
     {
       "id": 1705,
       "title": "Epics on the board (D2517): board/epics.json (goal, status, done milestones, now, next, links), an epic field on tickets, an Epics view on the board page; tag the backlog and recent done tickets; status replies organised by epic",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1705",
       "labels": [
