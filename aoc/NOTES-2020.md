@@ -2516,6 +2516,12 @@ CPU time (the machine was loaded; user time is the figure to read):
 elaboration, `runFromSound` the largest at 123 ms; the rest of the cold
 time is std's modules.
 
+**Completeness (SW-1624).** `Proofs/ParseComplete.sw` (day 9 already has a
+`Complete.sw`, for the sliding window), 33 lines, about 3 minutes. One number a line:
+`runsNumber` is `Parse.runsNat` with an empty `rest`, `parseComplete` is
+`Parse.runsEachLine`, and `writtenUnique` and `inputUnique` follow as in day 2.
+The only friction was the name clash, and the record eta for `XmasData`.
+
 ### Ranked
 
 1. A proof can't follow a program's `if a && b` with one `match`: the
