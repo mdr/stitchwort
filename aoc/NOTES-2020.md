@@ -3550,6 +3550,19 @@ checks, the audit, timing and these notes.
 and 33 ms in the kernel (`readsNotes`, `stepDescribes` and `readsSlot` the
 largest, about 60 ms each); the rest of the cold time is std's modules.
 
+**Completeness (SW-1625).** `Proofs/Complete.sw`, 105 lines, about 2 minutes
+(first try after the day-12 file). `runsSlot` (22) covers both slot kinds:
+`optional (char 'x')` either runs (`runsOptional`) or declines
+(`Parse.declinesRuns` with a digit-start `declinesX`), then `nat`, then
+`runsIf` for the nonzero check; `runsNotes` (28) is `runsBind` over `nat`,
+`newline`, and `Parse.runsSepBy1Of` for the comma list, where the side
+conditions are one predicate, `CannotStart Parse.isDigit` (a comma and the
+final line breaks cannot continue a number; `noDigits` turns it into the
+`takeWhile` that `runsNat` wants) and `declinesComma` for the list end.
+`parseComplete` takes a named `InputWritten` (the soundness conclusion);
+`writtenUnique` one line. The spec is tight enough for uniqueness. Mutation:
+`','` to `';'` in the program breaks `runsNotes`.
+
 ### Ranked
 
 1. Std has `gcd` and Bézout but no `lcm`, coprimality, Euclid's lemma or
