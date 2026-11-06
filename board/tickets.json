@@ -10554,13 +10554,13 @@
     {
       "id": 1584,
       "title": "Std: Parse.Runs lemmas for many1, sepBy, sepBy1, lines, sections, repeat, natDigits, int, digit, spaces1, takeWhile1, attempt, label, all, line (SW-1563)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1584",
       "labels": [
         "std"
       ],
-      "body": "From SW-1563, 6 Nov 2026.\n\nD2454 (Matt, 6 Nov 2026): yes (SW-1584 Runs lemmas, a two-day trial, then decide on a sweep; close SW-1229), on condition that a brief literature review first confirms Reads/Runs follows established patterns for verified parsers ('if we're doing something very standard, then yeah, let's proceed'). Gate: SW-1611.\n\nStarted on Sonnet (D2454, condition met by SW-1611), expected: 90 min. Also: fix Reads.sw's doc, which calls TRX and Baanen & Swierstra soundness-only (both prove both directions). Pilot after this: SW-1612.",
+      "body": "From SW-1563, 6 Nov 2026.\n\nD2454 (Matt, 6 Nov 2026): yes (SW-1584 Runs lemmas, a two-day trial, then decide on a sweep; close SW-1229), on condition that a brief literature review first confirms Reads/Runs follows established patterns for verified parsers ('if we're doing something very standard, then yeah, let's proceed'). Gate: SW-1611.\n\nStarted on Sonnet (D2454, condition met by SW-1611), expected: 90 min. Also: fix Reads.sw's doc, which calls TRX and Baanen & Swierstra soundness-only (both prove both directions). Pilot after this: SW-1612.\n\nDone (8471e03e9), merged. Runs (and Declines where needed) for every listed combinator, plus newline/blankLine, StepsRun/RepeatRuns, runsAll, runsLine, runsIf; runsEachLine already existed. Eight worked examples (runsLinesExample, runsSectionsExample, …). Reads.sw doc corrected (TRX, Baanen & Swierstra prove both directions). Statements checked by the orchestrator (many1, sepBy/sepBy1, lines, sections, takeWhile1, natDigits, int, repeat, line, all). Lane tests: hash_stability, bound_to_the_prelude, natives, load set, std tests. Model result: Sonnet, worked, 21 min (est. 90). Next: pilot SW-1612.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10946,7 +10946,7 @@
     {
       "id": 1612,
       "title": "Pilot (D2454): every well-formed input parses, on two AoC 2020 days (one simple like day 2, one with sepBy or sections): Written line e → Runs line line [] e, then the whole input via runsEachLine, plus the uniqueness corollary; record proof size and minutes, by kind of side condition (look-ahead, Declines). After SW-1584",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
