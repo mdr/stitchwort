@@ -10946,13 +10946,13 @@
     {
       "id": 1612,
       "title": "Pilot (D2454): every well-formed input parses, on two AoC 2020 days (one simple like day 2, one with sepBy or sections): Written line e → Runs line line [] e, then the whole input via runsEachLine, plus the uniqueness corollary; record proof size and minutes, by kind of side condition (look-ahead, Declines). After SW-1584",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1612",
       "labels": [
         "aoc"
       ],
-      "body": "From SW-1611's literature check, 6 Nov 2026 (docs/research/parser-proofs-literature.md). If hand-writing dominates, next is automation, not a different spec. Then decide the sweep (D2454).",
+      "body": "From SW-1611's literature check, 6 Nov 2026 (docs/research/parser-proofs-literature.md). If hand-writing dominates, next is automation, not a different spec. Then decide the sweep (D2454).\n\nStarted on Sonnet, expected: 90 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
