@@ -92,6 +92,13 @@ pub struct OutlineItem {
     pub parent: Option<usize>,
 }
 
+/// A top-level declaration of a namespace, as `LiveProject::declared` has it.
+struct Declared {
+    namespace: String,
+    kind: &'static str,
+    ty: Option<String>,
+}
+
 #[derive(Clone, Debug)]
 pub struct LiveDiagnostic {
     pub severity: Severity,
@@ -416,6 +423,11 @@ pub struct LiveProject {
     parsed: BTreeMap<String, ParsedFile>,
     /// Whether the files were read again since [`LiveProject::take_outlines`].
     outlines_stale: bool,
+    /// The top-level declarations of every namespace, by name, each with
+    /// its namespace, kind and written signature: what
+    /// `importable_from_project` filters for each file. Made from the
+    /// syntax on the first answers after the files are read again.
+    declared: Option<BTreeMap<String, Vec<Declared>>>,
     /// For each file of a namespace last checked cleanly (not failed or
     /// skipped): its text then and what was answered for it, plain data
     /// that holds nothing of the session. A namespace skipped because an
@@ -481,6 +493,7 @@ impl LiveProject {
             library_answered: false,
             parsed: BTreeMap::new(),
             outlines_stale: true,
+            declared: None,
             last_good: BTreeMap::new(),
             names: BTreeMap::new(),
         }
@@ -655,6 +668,7 @@ impl LiveProject {
         self.library_answered = true;
         let mut answers = answers_from(&index, &wanted, "stitchwort.yaml");
         self.keep_last_good(&mut answers);
+        self.declared_names();
         for (place, file) in answers.iter_mut() {
             if let Place::Program(path) = place
                 && let Some(names) = self.names.get(path)
@@ -745,17 +759,42 @@ impl LiveProject {
         else {
             return Vec::new();
         };
+        let Some(declared) = &self.declared else {
+            return Vec::new();
+        };
         let cyclic: BTreeSet<String> = dependents(analysis, own).into_iter().collect();
         let visible: BTreeSet<&str> = names.iter().map(|n| n.name.as_str()).collect();
-        let mut by_name: BTreeMap<String, Vec<(&str, &'static str)>> = BTreeMap::new();
+        declared
+            .iter()
+            .filter(|(name, _)| !visible.contains(name.as_str()))
+            .filter_map(|(name, found)| {
+                let mut usable = found.iter().filter(|d| !cyclic.contains(&d.namespace));
+                match (usable.next(), usable.next()) {
+                    (Some(d), None) => Some(ScopeName {
+                        key: format!("{}.{name}", d.namespace),
+                        import: Some((d.namespace.clone(), name.clone())),
+                        name: name.clone(),
+                        kind: d.kind,
+                        ty: d.ty.clone(),
+                        own: false,
+                    }),
+                    _ => None,
+                }
+            })
+            .collect()
+    }
+
+    /// Makes `declared`, if the files were read again since it was.
+    fn declared_names(&mut self) {
+        if self.declared.is_some() {
+            return;
+        }
+        let mut declared: BTreeMap<String, Vec<Declared>> = BTreeMap::new();
         for parsed in self.parsed.values() {
             let Some(namespace) = &parsed.module.namespace else {
                 continue;
             };
             let namespace = namespace.path.text.as_str();
-            if cyclic.contains(namespace) {
-                continue;
-            }
             for item in syntactic_outline(parsed) {
                 let Some(name) = item
                     .name
@@ -764,32 +803,19 @@ impl LiveProject {
                 else {
                     continue;
                 };
-                if item.parent.is_none()
-                    && item.kind != "test"
-                    && !name.contains('.')
-                    && !visible.contains(name)
-                {
-                    by_name
+                if item.parent.is_none() && item.kind != "test" && !name.contains('.') {
+                    declared
                         .entry(name.to_string())
                         .or_default()
-                        .push((namespace, item.kind));
+                        .push(Declared {
+                            namespace: namespace.to_string(),
+                            kind: item.kind,
+                            ty: item.ty,
+                        });
                 }
             }
         }
-        by_name
-            .into_iter()
-            .filter_map(|(name, found)| match found.as_slice() {
-                &[(namespace, kind)] => Some(ScopeName {
-                    key: format!("{namespace}.{name}"),
-                    import: Some((namespace.to_string(), name.clone())),
-                    name,
-                    kind,
-                    ty: None,
-                    own: false,
-                }),
-                _ => None,
-            })
-            .collect()
+        self.declared = Some(declared);
     }
 
     /// The outline of every file of the project, read from its syntax alone
@@ -857,6 +883,7 @@ impl LiveProject {
         self.dirty = false;
         self.parse_scratch();
         self.outlines_stale = true;
+        self.declared = None;
         let mut namespace_files: BTreeMap<String, Vec<(String, String)>> = BTreeMap::new();
         for (path, parsed) in &self.parsed {
             let name = if parsed.errors.is_empty() {
@@ -1181,6 +1208,20 @@ fn lsp_range(text: &str, start: usize, end: usize) -> Range {
     [l1, c1, l2, c2]
 }
 
+/// What a definition's header writes after its name (`(b: Box): Nat`, or
+/// just the type, `Nat`, with no parameters), on one line.
+fn written_signature(
+    text: &str,
+    name: &stitchwort_syntax::ast::Name,
+    span: stitchwort_syntax::Span,
+) -> Option<String> {
+    let header = text.get(name.span.end as usize..span.end as usize)?;
+    let header = header.split(":=").next()?;
+    let header = header.split_whitespace().collect::<Vec<_>>().join(" ");
+    let header = header.strip_prefix(": ").map_or(header.as_str(), |t| t);
+    (!header.is_empty()).then(|| header.to_string())
+}
+
 /// The outline of a parsed file, read from its syntax alone: the
 /// declarations as written (not the generated ones), named as the checked
 /// outline names them. It exists before the file is checked, which lets a
@@ -1210,11 +1251,12 @@ fn syntactic_outline(file: &ParsedFile) -> Vec<OutlineItem> {
                 name: String,
                 kind: &'static str,
                 range: Range,
-                parent: Option<usize>| {
+                parent: Option<usize>,
+                ty: Option<String>| {
         out.push(OutlineItem {
             name,
             kind,
-            ty: None,
+            ty,
             range,
             full_range: range,
             parent,
@@ -1238,18 +1280,32 @@ fn syntactic_outline(file: &ParsedFile) -> Vec<OutlineItem> {
                     "data"
                 };
                 let full = format!("{prefix}{}", name.text);
-                let owner = item(&mut out, full, kind, name_range(name), None);
+                let owner = item(&mut out, full, kind, name_range(name), None, None);
                 for ctor in ctors {
                     if *record {
                         for binder in &ctor.fields {
                             for field in &binder.names {
                                 let full = format!("{prefix}{}.{}", name.text, field.text);
-                                item(&mut out, full, "field", name_range(field), Some(owner));
+                                item(
+                                    &mut out,
+                                    full,
+                                    "field",
+                                    name_range(field),
+                                    Some(owner),
+                                    None,
+                                );
                             }
                         }
                     } else {
                         let full = format!("{prefix}{}", ctor.name.text);
-                        item(&mut out, full, "ctor", name_range(&ctor.name), Some(owner));
+                        item(
+                            &mut out,
+                            full,
+                            "ctor",
+                            name_range(&ctor.name),
+                            Some(owner),
+                            None,
+                        );
                     }
                 }
             }
@@ -1258,6 +1314,7 @@ fn syntactic_outline(file: &ParsedFile) -> Vec<OutlineItem> {
                 theorem,
                 instance,
                 synonym,
+                span,
                 ..
             } => {
                 let kind = if *theorem {
@@ -1270,19 +1327,29 @@ fn syntactic_outline(file: &ParsedFile) -> Vec<OutlineItem> {
                     "def"
                 };
                 let full = format!("{prefix}{}", name.text);
-                item(&mut out, full, kind, name_range(name), None);
+                let ty = (!*synonym)
+                    .then(|| written_signature(text, name, *span))
+                    .flatten();
+                item(&mut out, full, kind, name_range(name), None, ty);
             }
             Decl::Ability { name, ops, .. } => {
                 let full = format!("{prefix}{}", name.text);
-                let owner = item(&mut out, full, "ability", name_range(name), None);
+                let owner = item(&mut out, full, "ability", name_range(name), None, None);
                 for (op, _) in ops {
                     let full = format!("{prefix}{}.{}", name.text, op.text);
-                    item(&mut out, full, "op", name_range(op), Some(owner));
+                    item(&mut out, full, "op", name_range(op), Some(owner), None);
                 }
             }
             Decl::Test { name, span, .. } => {
                 let range = lsp_range(text, span.start as usize, span.end as usize);
-                item(&mut out, format!("{prefix}{name}"), "test", range, None);
+                item(
+                    &mut out,
+                    format!("{prefix}{name}"),
+                    "test",
+                    range,
+                    None,
+                    None,
+                );
             }
             Decl::Equation { .. } => {}
         }

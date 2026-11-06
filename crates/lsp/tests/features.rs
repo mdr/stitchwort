@@ -574,7 +574,7 @@ fn open_in_project(main: &str) -> Session {
         ),
         (
             "src/Other.sw",
-            "namespace Proj.Other\n\ndef value: Nat := 1\n",
+            "namespace Proj.Other\n\ndef value: Nat := 1\n\ndef scale (k n: Nat): Nat := k * n\n",
         ),
         (
             "src/Uses.sw",
@@ -645,6 +645,12 @@ fn completion_after_a_dot_in_a_project_checks_only_what_the_namespace_needs() {
             found["additionalTextEdits"][0]["newText"],
             "import Proj.Other (value)\n"
         );
+        // Its type is shown as written, though the namespace isn't checked.
+        assert_eq!(found["detail"], "def: Nat");
+        let typing = format!("{main}def h: Nat := sc\n");
+        s.change(8, &typing);
+        let items = s.complete_at_end(&typing, 4, None);
+        assert_eq!(item(&items, "scale")["detail"], "def: (k n: Nat): Nat");
         let typing = format!("{main}def h: Nat := ga\n");
         s.change(7, &typing);
         let items = s.complete_at_end(&typing, 4, None);
