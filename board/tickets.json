@@ -9602,13 +9602,13 @@
     {
       "id": 1516,
       "title": "Code actions on a goal in a project file (search_at.rs) load all 255 namespaces (~3.3 s on day 11); narrow like SW-1503's load_for_probe if the search never suggests lemmas from namespaces the file doesn't import (check first)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1516",
       "labels": [
         "editor"
       ],
-      "body": "From SW-1503, 6 Nov 2026.",
+      "body": "From SW-1503, 6 Nov 2026.\n\nStarted overnight on Sonnet, expected: 45 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
