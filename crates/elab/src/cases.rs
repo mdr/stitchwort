@@ -130,6 +130,8 @@ pub(crate) struct Run {
     over: Cell<bool>,
     /// The split that exceeded the budget, `x : T`, when it was a fallback.
     over_fallback: RefCell<Option<String>>,
+    /// Whether an `Int` was split into its constructors (`OfNat`, `NegSucc`).
+    split_int: Cell<bool>,
     /// For each atom in `atoms`, its type, when it is a variable.
     atom_types: RefCell<Vec<Option<Value>>>,
     /// When the budget ran out and every atom split was a variable of a
@@ -216,6 +218,7 @@ fn cases_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         span: *span,
         cases: Cell::new(1),
         atoms: RefCell::new(Vec::new()),
+        split_int: Cell::new(false),
         closed: RefCell::new(Closed::default()),
         over: Cell::new(false),
         over_fallback: RefCell::new(None),
@@ -287,6 +290,13 @@ fn budget_error(run: &Run) -> Diagnostic {
             .collect::<Vec<_>>()
             .join(", ")
     ));
+    if run.split_int.get() {
+        d = d.with_note(
+            "`cases` is taking an `Int` apart into `OfNat` and `NegSucc` (`Int.natAbs`, `max`, \
+             `Int.subNatNat` … test them); split on a comparison of the `Int`s instead, as `match \
+             a <= b with` or an `if` the goal depends on, and let `omega` read each side",
+        );
+    }
     if let Some(open) = &*run.open_at.borrow() {
         d = d.with_note(format!("the first case still open: {open}"));
     }
@@ -1750,6 +1760,9 @@ fn split_on(cx: &mut Ctx, run: &Rc<Run>, atom: Atom, goal: &Value, fallback: boo
             _ => None,
         };
         run.atom_types.borrow_mut().push(ty);
+        if g.env.registry().loaded_data(Builtin::Int) == Some(atom.d) {
+            run.split_int.set(true);
+        }
     }
     run.cases.set(run.cases.get() + data.ctors().len() - 1);
     if run.cases.get() > CASES {
