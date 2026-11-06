@@ -147,6 +147,13 @@ theorem Nat.divZero: (n: Nat) → n / 0 = 0
   | Zero => rfl
   | Succ n => rfl
 
+--| Counting divisions by 0 gives 0, whatever the fuel: `Nat.divStep` stops at
+--| a divisor of 0. `omega` uses it for `n / 0`, which is `Nat.divFuel n n 0`,
+--| stuck on the fuel `n` when `n` is unknown.
+theorem Nat.divFuelZero: (fuel: Nat) → (n: Nat) → Nat.divFuel fuel n 0 = 0
+  | Zero, n => rfl
+  | Succ fuel, n => rfl
+
 --| The remainder of dividing by 0 is the number itself (Lean's `Nat.mod_zero`).
 theorem Nat.modZero: (n: Nat) → n % 0 = n
   | Zero => rfl

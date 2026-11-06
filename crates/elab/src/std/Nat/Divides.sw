@@ -124,6 +124,13 @@ theorem Nat.mulSelfZero (n: Nat) (h: n * n = 0): n = 0 :=
     | Inl z => z
     | Inr z => z
 
+--| A square is 1 only for 1.
+theorem Nat.mulSelfOne (n: Nat) (square: n * n = 1): n = 1 :=
+  match n with
+    | 0 => Void.exfalso (omega)
+    | 1 => rfl
+    | Succ (Succ more) => Void.exfalso (omega [Nat.leMulRight 2 (Succ (Succ more)) (Succ (Succ more)) (omega)])
+
 --| The greatest common divisor, by Euclid's algorithm: `Nat.gcd 12 18` is 6,
 --| and `Nat.gcd n 0` is `n`, so `Nat.gcd 0 0` is 0.
 @[tailrec]
