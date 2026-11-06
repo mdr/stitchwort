@@ -1,5 +1,5 @@
 {
-  "next": 1703,
+  "next": 1704,
   "tickets": [
     {
       "id": 47,
@@ -12192,13 +12192,13 @@
     {
       "id": 1701,
       "title": "Daily tier 6 Nov evening, semantic group: int ×4 (both modes agree), proof_masks ×5, extract generated_code_is_stable and run_lines_agree_with_the_reference_evaluator fail; bisect and fix",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1701",
       "labels": [
         "regression"
       ],
-      "body": "Daily tier 6 Nov 17:07 (log scratchpad/daily2). D2516: fix, rerun only the failures.\n\nStarted on Opus, expected: 60 min (D2516: rerun only the failures).",
+      "body": "Daily tier 6 Nov 17:07 (log scratchpad/daily2). D2516: fix, rerun only the failures.\n\nStarted on Opus, expected: 60 min (D2516: rerun only the failures).\n\nLane done (0eef624d5): all ten caused by SW-1640 (total division) leaving tests behind; no mode disagreement. int: removed the dropped proof argument, now covers divisor 0; proof_masks: stand-ins safeModNat/safeMod with an unused proof; extract: integers.sw rejects → run lines, 15 stale generated-code snapshots re-taken. Waiting to merge until the daily remainder finishes. Model result: Opus, worked, 16 min (est. 60).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -12213,6 +12213,20 @@
         "regression"
       ],
       "body": "Daily tier 6 Nov 17:07. memguard: 10.69 GB for that one test.\n\nStarted on Opus, expected: 60 min (D2516: rerun only the failures).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1703,
+      "title": "extract generated_code_is_stable stops at its first stale snapshot (SW-1640 left 15); report every stale one; and briefs that change natives or extraction should run it (SW-1701)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "body": "From SW-1701, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
