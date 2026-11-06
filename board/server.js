@@ -16,12 +16,15 @@ const clients = new Set();
 let lastStamp = '';
 
 function stamp() {
-  try {
-    const s = fs.statSync(FILE);
-    return `${s.mtimeMs}:${s.size}`;
-  } catch (_) {
-    return 'none';
-  }
+  const one = (f) => {
+    try {
+      const s = fs.statSync(f);
+      return `${s.mtimeMs}:${s.size}`;
+    } catch (_) {
+      return 'none';
+    }
+  };
+  return `${one(FILE)}|${one(lib.epicsFile(FILE))}`;
 }
 
 function broadcast() {
@@ -40,7 +43,7 @@ function scheduleBroadcast() {
 lastStamp = stamp();
 try {
   fs.watch(path.dirname(FILE), (_event, name) => {
-    if (!name || name === path.basename(FILE)) scheduleBroadcast();
+    if (!name || name === path.basename(FILE) || name === 'epics.json') scheduleBroadcast();
   });
 } catch (_) { /* polling below still covers it */ }
 setInterval(broadcast, 2000).unref?.();
@@ -48,7 +51,13 @@ setInterval(() => { for (const res of clients) res.write(': keepalive\n\n'); }, 
 
 function snapshot() {
   const d = lib.load(FILE);
-  return { next: d.next, tickets: d.tickets, statuses: lib.STATUSES, agents: lib.AGENTS.filter(Boolean) };
+  let epics = [];
+  try {
+    epics = lib.epicSummaries(d, FILE);
+  } catch (e) {
+    if (!(e instanceof lib.BoardError)) throw e; // a broken epics.json must not take the board down
+  }
+  return { next: d.next, tickets: d.tickets, statuses: lib.STATUSES, agents: lib.AGENTS.filter(Boolean), epics };
 }
 
 function send(res, code, obj) {
@@ -76,7 +85,7 @@ function readJson(req) {
   });
 }
 
-const EDITABLE = ['title', 'status', 'agent', 'where', 'body', 'labels', 'commits'];
+const EDITABLE = ['title', 'status', 'agent', 'where', 'epic', 'body', 'labels', 'commits'];
 const pick = (o) => Object.fromEntries(EDITABLE.filter((k) => k in o).map((k) => [k, o[k]]));
 
 async function api(req, res, url) {
@@ -89,11 +98,11 @@ async function api(req, res, url) {
   const id = m[1] ? Number(m[1]) : null;
   if (req.method === 'POST' && id === null) {
     const fields = pick(await readJson(req));
-    return send(res, 201, lib.update((d) => lib.addTicket(d, fields), FILE));
+    return send(res, 201, lib.update((d) => lib.addTicket(d, fields, FILE), FILE));
   }
   if (req.method === 'PATCH' && id !== null) {
     const fields = pick(await readJson(req));
-    return send(res, 200, lib.update((d) => lib.editTicket(d, id, fields), FILE));
+    return send(res, 200, lib.update((d) => lib.editTicket(d, id, fields, FILE), FILE));
   }
   if (req.method === 'DELETE' && id !== null) {
     return send(res, 200, lib.update((d) => lib.removeTicket(d, id), FILE));

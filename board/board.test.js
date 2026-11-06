@@ -289,3 +289,102 @@ test('the committed archive is well-formed and disjoint from the board', () => {
     assert.ok(ts.every((t) => t.updated.startsWith(file.slice(0, 7))), file);
   }
 });
+
+function epicFixture() {
+  const f = tmpFile();
+  const mk = (id, status, extra = {}) => ({ id, title: `Epic ${id}`, goal: `goal ${id}`, status, done: ['d1'], now: ['n1'], next: ['x1', 'x2'], links: ['docs/a.md'], ...extra });
+  fs.writeFileSync(path.join(path.dirname(f), 'epics.json'), JSON.stringify({ epics: [mk('alpha', 'active'), mk('beta', 'paused')] }));
+  for (const t of ['one', 'two', 'three']) cli(f, 'add', t);
+  return f;
+}
+
+test('epic field: add and edit validate the id, empty clears, untagged tickets keep their shape', () => {
+  const f = epicFixture();
+  assert.equal(cli(f, 'add', 'tagged', '--epic', 'alpha').out, 'SW-4');
+  assert.equal(lib.load(f).tickets[3].epic, 'alpha');
+  assert.equal(cli(f, 'edit', '1', '--epic', 'beta').code, 0);
+  assert.equal(lib.load(f).tickets[0].epic, 'beta');
+  const bad = cli(f, 'edit', '2', '--epic', 'nope');
+  assert.equal(bad.code, 1);
+  assert.match(bad.err, /^board: unknown epic "nope" \(.*alpha, beta\)$/);
+  assert.equal(cli(f, 'add', 'x', '--epic', 'nope').code, 1);
+  assert.equal(lib.load(f).next, 5);
+  assert.equal('epic' in lib.load(f).tickets[1], false);
+  assert.equal(fs.readFileSync(f, 'utf8').split('"epic"').length - 1, 2);
+  assert.equal(cli(f, 'edit', '1', '--epic', '').code, 0);
+  assert.equal('epic' in lib.load(f).tickets[0], false);
+  assert.match(cli(f, 'show', '4').out, /epic: {4}alpha/);
+  // Without an epics.json nothing validates.
+  const g = tmpFile();
+  cli(g, 'add', 't');
+  assert.equal(cli(g, 'edit', '1', '--epic', 'alpha').code, 1);
+});
+
+test('list --epic, epics and epic', () => {
+  const f = epicFixture();
+  cli(f, 'edit', '1', '--epic', 'alpha');
+  cli(f, 'edit', '2', '--epic', 'alpha');
+  cli(f, 'move', '2', 'done');
+  cli(f, 'edit', '3', '--epic', 'beta');
+  assert.deepEqual(cli(f, 'list', '--epic', 'alpha').out.split('\n').map((l) => l.split(' ')[0]), ['SW-1', 'SW-2']);
+  assert.equal(cli(f, 'list', '--epic', 'nope').code, 1);
+  const summary = cli(f, 'epics').out;
+  assert.match(summary, /^alpha {2}Epic alpha {2}\[active\] {2}open 1, done 1\n {2}now: {2}n1\n {2}next: 1\. x1 {2}2\. x2\nbeta {2}Epic beta {2}\[paused\] {2}open 1, done 0/);
+  const js = JSON.parse(cli(f, 'epics', '--json').out);
+  assert.deepEqual(js.map((e) => [e.id, e.open, e.doneCount]), [['alpha', 1, 1], ['beta', 1, 0]]);
+  const one = cli(f, 'epic', 'alpha').out;
+  assert.match(one, /^alpha {2}Epic alpha {2}\[active\]\ngoal: goal alpha\nopen: 1 {3}done: 1/);
+  assert.match(one, /open tickets:\nSW-1 /);
+  assert.equal(one.includes('SW-2 '), false);
+  assert.equal(cli(f, 'epic', 'nope').code, 1);
+  assert.equal(cli(f, 'epic').code, 1);
+});
+
+test('a bad epics.json status is reported', () => {
+  const f = epicFixture();
+  fs.writeFileSync(path.join(path.dirname(f), 'epics.json'), JSON.stringify({ epics: [{ id: 'a', status: 'sleeping' }] }));
+  const r = cli(f, 'epics');
+  assert.equal(r.code, 1);
+  assert.match(r.err, /epic a has status "sleeping"/);
+});
+
+test('apply-epics sets epics without touching updated, keeps existing ones unless --force', () => {
+  const f = epicFixture();
+  const d = lib.load(f);
+  d.tickets.forEach((t) => { t.updated = '2026-01-01'; });
+  lib.save(d, f);
+  cli(f, 'edit', '3', '--epic', 'beta');
+  const map = path.join(path.dirname(f), 'map.json');
+  fs.writeFileSync(map, JSON.stringify({ 1: 'alpha', 2: 'beta', 3: 'alpha', 99: 'alpha' }));
+  const r = cli(f, 'apply-epics', map);
+  assert.equal(r.code, 0);
+  assert.equal(r.out, 'epics set on 2 tickets; 1 already had another epic (kept; --force overwrites); 1 not on the board');
+  const ts = lib.load(f).tickets;
+  assert.deepEqual(ts.map((t) => t.epic), ['alpha', 'beta', 'beta']);
+  assert.equal(ts[0].updated, '2026-01-01');
+  assert.match(cli(f, 'apply-epics', map, '--force').out, /^epics set on 1 ticket;/);
+  assert.equal(lib.load(f).tickets[2].epic, 'alpha');
+  // An unknown epic id changes nothing.
+  fs.writeFileSync(map, JSON.stringify({ 1: 'beta', 2: 'nope' }));
+  const before = fs.readFileSync(f, 'utf8');
+  const bad = cli(f, 'apply-epics', map);
+  assert.equal(bad.code, 1);
+  assert.match(bad.err, /unknown epic "nope"/);
+  assert.equal(fs.readFileSync(f, 'utf8'), before);
+  assert.equal(cli(f, 'apply-epics', path.join(path.dirname(f), 'missing.json')).code, 1);
+});
+
+test('the committed epics.json and epic-tags.json are consistent', () => {
+  const board = path.join(__dirname, 'tickets.json');
+  const epics = lib.loadEpics(board);
+  const ids = epics.map((e) => e.id);
+  assert.equal(new Set(ids).size, ids.length);
+  assert.ok(epics.length >= 1, "no epics");
+  for (const e of epics) {
+    assert.ok(e.goal && e.done.length && e.next.length, e.id);
+    for (const l of e.links.filter((x) => x.includes('/'))) assert.ok(fs.existsSync(path.join(__dirname, '..', l)), `${e.id}: ${l}`);
+  }
+  const tags = JSON.parse(fs.readFileSync(path.join(__dirname, 'epic-tags.json'), 'utf8'));
+  for (const [k, v] of Object.entries(tags)) { lib.parseId(k); assert.ok(ids.includes(v), `SW-${k}: ${v}`); }
+  for (const t of lib.load(board).tickets) if (t.epic) assert.ok(ids.includes(t.epic), `SW-${t.id}`);
+});
