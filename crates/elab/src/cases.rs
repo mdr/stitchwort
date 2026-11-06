@@ -46,6 +46,10 @@
 //! `t = Cons x xs`) isn't split again, so `cases` never does induction by
 //! itself ([`Finder::shared`]).
 //!
+//! An `Int` `==` that something outside tests (`if x + 1 == y then …`) is
+//! split as the `Bool` it is, not through `Int.decEq` into the `Int`'s
+//! constructors ([`number_equality`]).
+//!
 //! `Int`'s own arithmetic (`-x`, `+`, `-`, `*`, `/`, `%`, `<=`, `<`, and
 //! `Int.subNatNat`, which they compute through) is as far in as the search
 //! goes (SW-937): what its case trees test (`OfNat`/`NegSucc` of an
@@ -1450,6 +1454,13 @@ impl<'a, 'e> Finder<'a, 'e> {
                     None => break,
                 },
             };
+            // A comparison of numbers that something outside tests (`if
+            // x + 1 == y then …`) is one atom, true or false, which `omega`
+            // reads in each case; its `Decidable` and its operands are
+            // `Int`'s insides.
+            if best.is_some() && number_equality(&g, &force(&g, raw.clone())?) {
+                break;
+            }
             match self.ctors(d) {
                 Some(n) if !self.is_known(&raw)? && !has_meta(self.cx, &raw)? => {
                     let atom = Atom {
@@ -1596,6 +1607,15 @@ fn int_arithmetic(g: &Ev, value: &Value) -> bool {
             &**g.def(*id).path(),
             "Std.Int.subNatNat" | "Std.Int.subNatNatFrom"
         )
+}
+
+/// Whether `value` (forced) is a call of `Int.decEq`: the decision an `Int`
+/// `==` computes through.
+fn number_equality(g: &Ev, value: &Value) -> bool {
+    let Value::Neutral(Head::Def(id), _) = value else {
+        return false;
+    };
+    g.env.registry().loaded_def(Builtin::DecEqInt) == Some(*id)
 }
 
 /// The hypotheses that `cases` follows (D1318), latest first: each equation
