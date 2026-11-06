@@ -12080,13 +12080,13 @@
     {
       "id": 1693,
       "title": "Search no longer lists rewrite Nat.addComm a b in rfl for twice (a + b) = twice (b + a) since SW-1627 (stage 1); what_closes_a_goal_in_a_project closing 5 → 3; find why, then fix or accept the snapshot",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1693",
       "labels": [
         "search"
       ],
-      "body": "From SW-1688, 6 Nov 2026. The proof still checks on every build. Orchestrator's call: investigate before accepting.\n\nStarted on Sonnet, expected: 40 min.",
+      "body": "From SW-1688, 6 Nov 2026. The proof still checks on every build. Orchestrator's call: investigate before accepting.\n\nStarted on Sonnet, expected: 40 min.\n\nDone, merged (b01fc6159). Cause: not the occurrence test; search_at.rs deduped rewrites by resulting goal text, and as-written goals made doubleSwap and Nat.addComm leave the same text. Now dedupes by goal and lemma name. Snapshot: closing 5, rewrites 8. On main: search 13/13. Model result: Sonnet, worked, 8 min (est. 40).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
