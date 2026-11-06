@@ -12,10 +12,11 @@
         "out-of-resources check uses the as-written result (SW-1630)",
         "Goals and messages print dot calls and operators as written (SW-1674)",
         "Comparative study of how other provers bound unfolding (SW-1718)",
-        "Opus review of the bounded-readback note: proceed with changes (SW-1717)"
+        "Opus review of the bounded-readback note: proceed with changes (SW-1717)",
+        "Direction set: compute to decide, search what you see; limits fail, no cap (D2541-D2545, SW-1726)"
       ],
       "now": [
-        "Bounded readback: note revision 2 and strategy review in; waiting on D2541-D2545 and the note's questions"
+        "Note revision 3 for the new direction (SW-1728); stage 0a after the profiling lane"
       ],
       "next": [
         "Finish the design note that bounds unfolded readback by making the searches look at goals as written everywhere, revisiting D484 (SW-1712, D2514); it also unblocks record eta",

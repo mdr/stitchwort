@@ -1,5 +1,5 @@
 {
-  "next": 1728,
+  "next": 1729,
   "tickets": [
     {
       "id": 47,
@@ -13207,14 +13207,14 @@
     {
       "id": 1712,
       "title": "Design note: bound unfolded readback by making the elaborator's searches look at goals as written (D2514); revisits D484; unblocks record eta (SW-1667)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1712",
       "labels": [
         "proposal"
       ],
       "epic": "goal-as-written",
-      "body": "D2514 (Matt, 6 Nov 2026). D2518: started read-and-write only, Opus, expected: 90 min.\n\nNote merged: docs/proposals/bounded-readback.md (20ee1b6ca). Capped unfolded readback (calls over 100k nodes kept, D1280 revived), one lazy reader answering each site's question from the goal as written, output terms folded; stages 0-7. Questions D2519-D2524, D2528, D2529. Model result: Opus, worked, 15 min (est. 90).",
+      "body": "D2514 (Matt, 6 Nov 2026). D2518: started read-and-write only, Opus, expected: 90 min.\n\nNote merged: docs/proposals/bounded-readback.md (20ee1b6ca). Capped unfolded readback (calls over 100k nodes kept, D1280 revived), one lazy reader answering each site's question from the goal as written, output terms folded; stages 0-7. Questions D2519-D2524, D2528, D2529. Model result: Opus, worked, 15 min (est. 90).\n\nDecisions (Matt, 6 Nov 2026, took SW-1726's recommendations): D2541 yes (compute to decide; D484's search clause retired). D2542 yes (searches rewrite only what is visible, Lean's rule; reverses Q4; the seven proofs it breaks get rewritten; unconfirmed warnings go; E-REFL note for copies left inside calls). D2543 yes (limits fail, never switch; no cap for now). D2544 yes (stage 0a tries record eta rule 2 off in search read-backs). D2545 yes (order 0a; 1, 0b, 4, 5; D1433 rewrite f; 3, 6a, 6b; SW-1667 resumes when 0a's failing sites have moved). Knock-on: D2520 yes narrowed (reader without exact agreement); D2523, D2535, D2536, D2538 yes; D2540 yes in principle; D2519, D2529, D2533 deferred; D2534 replaced by D2542; D2539 moot; D2537 amended by D2545; D1433 yes.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -13422,7 +13422,7 @@
         "design"
       ],
       "epic": "goal-as-written",
-      "body": "Matt, 6 Nov 2026: asked for Opus to ponder this before the bounded-readback decisions. Read, web and write only. Started on Opus, expected: 75 min.\n\nDone, merged: docs/reviews/SW-1726-unfolding-strategy.md (8aef0f9aa). Verdict: keep 'it computes' for deciding (conversion, rfl, decide, cases); don't copy Lean's transparency; retire D484's promise that searches see the fully computed goal (search what you see, Lean's rule, option B); limits fail, never switch; defer the cap. New questions D2541-D2545. Model result: Opus, worked, 8 min (est. 75).",
+      "body": "Matt, 6 Nov 2026: asked for Opus to ponder this before the bounded-readback decisions. Read, web and write only. Started on Opus, expected: 75 min.\n\nDone, merged: docs/reviews/SW-1726-unfolding-strategy.md (8aef0f9aa). Verdict: keep 'it computes' for deciding (conversion, rfl, decide, cases); don't copy Lean's transparency; retire D484's promise that searches see the fully computed goal (search what you see, Lean's rule, option B); limits fail, never switch; defer the cap. New questions D2541-D2545. Model result: Opus, worked, 8 min (est. 75).\n\nDecisions (Matt, 6 Nov 2026, took SW-1726's recommendations): D2541 yes (compute to decide; D484's search clause retired). D2542 yes (searches rewrite only what is visible, Lean's rule; reverses Q4; the seven proofs it breaks get rewritten; unconfirmed warnings go; E-REFL note for copies left inside calls). D2543 yes (limits fail, never switch; no cap for now). D2544 yes (stage 0a tries record eta rule 2 off in search read-backs). D2545 yes (order 0a; 1, 0b, 4, 5; D1433 rewrite f; 3, 6a, 6b; SW-1667 resumes when 0a's failing sites have moved). Knock-on: D2520 yes narrowed (reader without exact agreement); D2523, D2535, D2536, D2538 yes; D2540 yes in principle; D2519, D2529, D2533 deferred; D2534 replaced by D2542; D2539 moot; D2537 amended by D2545; D1433 yes.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -13438,6 +13438,21 @@
       ],
       "epic": "docs-tutorials",
       "body": "From SW-1726, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1728,
+      "title": "[Opus] bounded-readback.md revision 3: rewrite for D2541-D2545 (compute to decide, search what you see, limits fail, cap deferred), restage, and plan the seven proofs D2542 breaks",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1728",
+      "labels": [
+        "design"
+      ],
+      "epic": "goal-as-written",
+      "body": "From D2541-D2545 (Matt, 6 Nov 2026). Read and write only. Started on Opus, expected: 45 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
