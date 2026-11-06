@@ -45,7 +45,7 @@
         "Fields of glued calls stay calls; std, roguelike and 2021 day 13 pass at about +2% cost (SW-1667, on lane/SW-1642)"
       ],
       "now": [
-        "SW-1667 resumed with the Float.add hold"
+        "Opus review of the whole record eta branch (SW-1764); then whole AoC and the roguelike, with Matt's OK"
       ],
       "next": [
         "Resume SW-1667 with the Float.add hold (D2551, D2552)"
