@@ -1,5 +1,5 @@
 {
-  "next": 1617,
+  "next": 1618,
   "tickets": [
     {
       "id": 47,
@@ -9154,13 +9154,13 @@
     {
       "id": 1484,
       "title": "Aoc.Common plane library: Point (x, y: Int), Heading, Box, lemmas, Heading.toDirection; move 2020 day 12, 2021 day 17, 2024 day 13 onto it (D2456)",
-      "status": "doing",
-      "agent": "Sonnet",
-      "where": ".claude/worktrees/SW-1484",
+      "status": "next",
+      "agent": "",
+      "where": "",
       "labels": [
         "aoc"
       ],
-      "body": "From 2020 day 12 (SW-1483), 5 Nov 2026.\n\nD2456 (Matt, 6 Nov 2026): yes, a plane library in Aoc.Common: Point { x: Int, y: Int } (x right, y up), Heading (N/E/S/W, quarter turns, step), Box, lemmas, Heading.toDirection; move 2020 day 12, 2021 day 17, 2024 day 13 onto it. Started on Sonnet, expected: 90 min.",
+      "body": "From 2020 day 12 (SW-1483), 5 Nov 2026.\n\nD2456 (Matt, 6 Nov 2026): yes, a plane library in Aoc.Common: Point { x: Int, y: Int } (x right, y up), Heading (N/E/S/W, quarter turns, step), Box, lemmas, Heading.toDirection; move 2020 day 12, 2021 day 17, 2024 day 13 onto it. Started on Sonnet, expected: 90 min.\n\nD2487 (Matt, 6 Nov 2026): not decided between widening Point and a second type; instead an Opus design lane for a flexible 2D library: 'it's nice to be able to distinguish between nat and int worlds', the y-up/y-down convention question, 'a flexible library that doesn't overcommit you … the Advent of Code problems could pick what they need that fits their frame of the world'. SW-1484 waits for the note. Waits for SW-1617.",
       "created": "2026-11-05",
       "updated": "2026-11-06",
       "commits": []
@@ -11009,6 +11009,20 @@
         "docs"
       ],
       "body": "From SW-1613, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1617,
+      "title": "Design note: a flexible 2D geometry library for Aoc.Common (Nat grids and Int planes, y-up/y-down conventions, directions/headings, offsets, boxes, lines), so each day picks what fits its frame (D2487)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1617",
+      "labels": [
+        "design"
+      ],
+      "body": "D2487 (Matt, 6 Nov 2026): not decided between widening Point and a second type; instead an Opus design lane for a flexible 2D library: 'it's nice to be able to distinguish between nat and int worlds', the y-up/y-down convention question, 'a flexible library that doesn't overcommit you … the Advent of Code problems could pick what they need that fits their frame of the world'. SW-1484 waits for the note. Started on Opus, analysis only, expected: 90 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
