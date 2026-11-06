@@ -9603,8 +9603,8 @@
       "id": 1516,
       "title": "Code actions on a goal in a project file (search_at.rs) load all 255 namespaces (~3.3 s on day 11); narrow like SW-1503's load_for_probe if the search never suggests lemmas from namespaces the file doesn't import (check first)",
       "status": "next",
-      "agent": "Sonnet",
-      "where": ".claude/worktrees/SW-1516",
+      "agent": "",
+      "where": "",
       "labels": [
         "editor"
       ],
@@ -9771,8 +9771,8 @@
       "id": 1528,
       "title": "Runtime profiler for stitchwort run (where a program's time goes); days 11 and 15 found it only by timing variants of main",
       "status": "backlog",
-      "agent": "Sonnet",
-      "where": ".claude/worktrees/SW-1528",
+      "agent": "",
+      "where": "",
       "labels": [
         "tools"
       ],
