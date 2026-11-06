@@ -13505,9 +13505,9 @@
     {
       "id": 1732,
       "title": "aoc_answers: parallel day loop and a warm cache in daily (~1½ min daily tail)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1732",
       "labels": [
         "perf"
       ],
@@ -13520,9 +13520,9 @@
     {
       "id": 1733,
       "title": "Web AoC test (every_aoc_day_checks…): check once, not per step (1-1½ min daily tail)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1732",
       "labels": [
         "perf"
       ],

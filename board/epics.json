@@ -460,7 +460,9 @@
         "LSP AoC tests: shutdown cancels the check; 465 s → 194 s (SW-1731)",
         "Daily tier in one run again, 27.9 min, no memory kills; test time 11,295 → 11,111 s (D2546)"
       ],
-      "now": [],
+      "now": [
+        "The two slowest single tests: AoC answers and the playground AoC test (SW-1732, SW-1733)"
+      ],
       "next": [
         "LSP AoC tests check AoC once (SW-1731); lsp::features replays std (SW-1686)",
         "aoc_answers and web AoC tests (SW-1732, SW-1733); threads-required (SW-1734)",
