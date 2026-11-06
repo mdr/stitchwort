@@ -1030,6 +1030,11 @@ fn generalised_now(
     } else {
         Vec::new()
     };
+    if skip.is_none() {
+        let ifs = decision_if(cx, &exprs, &normals, &type_terms, goal, &goal_term)?;
+        not_found.retain(|(i, _)| ifs.iter().all(|(j, _)| i != j));
+        not_found.extend(ifs);
+    }
     // The generalisation as written, if it found something that agrees
     // with the usual test, and if its motive checks now: check 3 of
     // `as_written`, made even for `cases`, whose usual motive is left to the
@@ -1232,9 +1237,18 @@ fn in_arms(
         let used = body.as_ref().ok().map(|body| free_levels(body, depth));
         let mut warnings = cx.e.attempt.lambda_warnings.borrow_mut();
         for (i, warning) in not_found {
-            let unused = (equations.iter()).any(|&(j, level)| {
-                j == i && used.as_ref().is_none_or(|used| !used.contains(&level))
-            });
+            // A `match` on a decision that the `if` doesn't hold is wrong
+            // however its arms turn out. One without a name has no equation
+            // to be unused, so is given only when its arms fail: a pass
+            // there is a case split for evidence.
+            let unused = warning.code == "W-MATCH-DECISION-IF"
+                || if exprs[i].name.is_none() {
+                    body.is_err()
+                } else {
+                    (equations.iter()).any(|&(j, level)| {
+                        j == i && used.as_ref().is_none_or(|used| !used.contains(&level))
+                    })
+                };
             let span = warning.labels.first().map(|l| l.span);
             let warned = (warnings.iter())
                 .any(|w| w.code == warning.code && w.labels.first().map(|l| l.span) == span);
@@ -1529,8 +1543,7 @@ fn not_found(
     for (((i, s), normal), &unread) in exprs.iter().enumerate().zip(normals).zip(unread) {
         // One larger than every type and the goal occurs in none of them.
         let found = |t: &Term| normal.as_ref().is_some_and(|n| occurs(n, t));
-        if s.name.is_none()
-            || unread
+        if unread
             || normal
                 .as_ref()
                 .is_some_and(|n| matches!(n.strip_loc(), Term::Var(_)))
@@ -1568,6 +1581,86 @@ fn not_found(
             );
         }
         out.push((i, warning));
+    }
+    Ok(out)
+}
+
+/// The warnings, by scrutinee index, for a `match` on a decision that
+/// computes to `Bool.decTrue b`, found in neither the goal nor a hypothesis,
+/// when `b` is the condition of a `Bool.ifThenElse` in one of them: an `if`
+/// whose branches don't use its proof is a test of `b`, so the decision
+/// refines nothing there. Matching on `b` itself refines the `if` in either
+/// form (D1073).
+fn decision_if(
+    cx: &Ctx,
+    exprs: &[Scrut],
+    normals: &[Option<Term>],
+    type_terms: &[Term],
+    goal: &Value,
+    goal_normal: &Term,
+) -> Result<Vec<(usize, Diagnostic)>> {
+    use stitchwort_core::registry::Builtin;
+    let g = cx.g();
+    let reg = &g.env.registry();
+    let is = |t: &Term, b| matches!(t, Term::Def(id) if reg.def(b) == Some(*id));
+    let mut out = Vec::new();
+    let unsettled = goal_normal
+        .subterms()
+        .any(|(t, _)| matches!(t, Term::Meta(_)));
+    if unsettled || !crate::patlet::proposition(cx, goal)? {
+        return Ok(out);
+    }
+    let hypotheses = || {
+        (type_terms.iter().enumerate())
+            .filter(|(_, t)| !matches!(t, Term::Refl))
+            .map(|(l, t)| (Some(l), t))
+            .chain([(None, goal_normal)])
+    };
+    for (i, (s, normal)) in exprs.iter().zip(normals).enumerate() {
+        let Some(normal) = normal else {
+            continue;
+        };
+        let (head, args) = normal.spine();
+        let [b] = args[..] else {
+            continue;
+        };
+        if !is(head, Builtin::DecTrue) || hypotheses().any(|(_, t)| occurs(normal, t)) {
+            continue;
+        }
+        let tests = |t: &Term| {
+            t.subterms().any(|(t, under)| {
+                let (head, args) = t.spine();
+                is(head, Builtin::IfThenElse)
+                    && args.get(1).is_some_and(|c| same_shifted(b, c, under, 0))
+            })
+        };
+        let Some((place, _)) = hypotheses().find(|(_, t)| tests(t)) else {
+            continue;
+        };
+        let names = cx.shown_names(false);
+        let shown = |t: &Term| pretty::term_for_message_in(&g, cx.e, &names, t);
+        let looked = shown(normal);
+        let condition = shown(b);
+        let place = match place {
+            Some(l) => format!("in `{}`", names[l]),
+            None => "in the goal".to_string(),
+        };
+        out.push((
+            i,
+            Diagnostic::warning(
+                "W-MATCH-DECISION-IF",
+                format!("this `match` on a decision doesn't refine the `if` {place}"),
+            )
+            .with_label(s.span, format!("looked for `{looked}`"))
+            .with_note(format!(
+                "the `if` tests the `Bool` `{condition}` directly, since its branches don't use \
+                 the proof of the comparison, so it doesn't hold the decision"
+            ))
+            .with_note(format!(
+                "match on the condition instead: `match h: {condition} with | True => … | False => …`; \
+                 that refines the `if` whichever form it has"
+            )),
+        ));
     }
     Ok(out)
 }
