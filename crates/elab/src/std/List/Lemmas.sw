@@ -1529,6 +1529,134 @@ theorem List.minimumSameMembers [auto ord: Ord a] (xs: List a) (ys: List a) (int
           let (Both yIn yLeast) := List.minimumSome ys y my
           Eq.cong Some (Ord.leAntisymm x y (xLeast y (back y yIn)) (yLeast x (into x xIn)))
 
+-- `List.minBy`: the result is a member, its key is at most every member's,
+-- and no member before it has a key as small (the first of the smallest wins).
+
+--| Folding with `List.minByStep` gives a key at most the start's, and the
+--| start or a member.
+theorem List.foldMinByLeStart [auto ord: Ord b] (f: a → b): (xs: List a) → (start: a) → f (List.foldLeft xs start (List.minByStep f)) <= f start
+  | [], start => Ord.leRefl (f start)
+  | [y, ..ys], start =>
+    match order: Ord.compare (f start) (f y) with
+      | Greater =>
+        let flipped: Ord.compare (f y) (f start) = Less := rewrite order at ord.flip (f start) (f y)
+        Ord.leTrans (f (List.foldLeft ys y (List.minByStep f))) (f y) (f start) (List.foldMinByLeStart f ys y)
+          (Ord.lessLe (f y) (f start) (ord.lessThanOf (f y) (f start) flipped))
+      | Less => List.foldMinByLeStart f ys start
+      | Equal => List.foldMinByLeStart f ys start
+
+--| Folding with `List.minByStep` gives a key at most each member's.
+theorem List.foldMinByLeMember [auto ord: Ord b] (f: a → b): (xs: List a) → (start: a) → (x: a) → x ∈ xs → f (List.foldLeft xs start (List.minByStep f)) <= f x
+  | [], start, x, member => Void.exfalso member
+  | [y, ..ys], start, x, Inl same =>
+    rewrite Eq.sym same in
+      match order: Ord.compare (f start) (f y) with
+        | Greater => List.foldMinByLeStart f ys y
+        | Less =>
+          Ord.leTrans (f (List.foldLeft ys start (List.minByStep f))) (f start) (f y) (List.foldMinByLeStart f ys start)
+            (ord.lessEqOf (f start) (f y) (greater => Ordering.lessNotGreater (Eq.trans (Eq.sym order) greater)))
+        | Equal =>
+          Ord.leTrans (f (List.foldLeft ys start (List.minByStep f))) (f start) (f y) (List.foldMinByLeStart f ys start)
+            (ord.lessEqOf (f start) (f y) (greater => Ordering.equalNotGreater (Eq.trans (Eq.sym order) greater)))
+  | [y, ..ys], start, x, Inr member =>
+    match order: Ord.compare (f start) (f y) with
+      | Greater => List.foldMinByLeMember f ys y x member
+      | Less => List.foldMinByLeMember f ys start x member
+      | Equal => List.foldMinByLeMember f ys start x member
+
+--| Folding with `List.minByStep` gives the start or a member.
+theorem List.foldMinByMember [auto ord: Ord b] (f: a → b): (xs: List a) → (start: a) → (List.foldLeft xs start (List.minByStep f) = start) ∨ (List.foldLeft xs start (List.minByStep f) ∈ xs)
+  | [], start => Inl rfl
+  | [y, ..ys], start =>
+    match order: Ord.compare (f start) (f y) with
+      | Greater =>
+        match List.foldMinByMember f ys y with
+          | Inl same => Inr (Inl (Eq.sym same))
+          | Inr member => Inr (Inr member)
+      | Less =>
+        match List.foldMinByMember f ys start with
+          | Inl same => Inl same
+          | Inr member => Inr (Inr member)
+      | Equal =>
+        match List.foldMinByMember f ys start with
+          | Inl same => Inl same
+          | Inr member => Inr (Inr member)
+
+--| The case of [`List.foldMinByFirst`] where the start is kept over `y`: given
+--| the split for `start :: ys`, which leaves `y` out, `y` goes after the start.
+theorem List.foldMinByFirstKeep [auto ord: Ord b] (f: a → b) (ys: List a) (start: a) (y: a) (kept: f start <= f y)
+    (split: ∃ (before: List a) => ∃ (after: List a) =>
+      ([start, ..ys] = before ++ [List.foldLeft ys start (List.minByStep f), ..after]) ∧ ((z: a) → z ∈ before → f (List.foldLeft ys start (List.minByStep f)) < f z)):
+    ∃ (before: List a) => ∃ (after: List a) =>
+      ([start, y, ..ys] = before ++ [List.foldLeft ys start (List.minByStep f), ..after]) ∧ ((z: a) → z ∈ before → f (List.foldLeft ys start (List.minByStep f)) < f z) :=
+  match split with
+    | Witness [] (Witness after (Both same earlier)) =>
+      let isStart: start = List.foldLeft ys start (List.minByStep f) := List.consInjectiveHead start _ ys after same
+      Witness [] (Witness [y, ..ys] (Both (rewrite <- isStart in rfl) (z member => Void.exfalso member)))
+    | Witness [c, ..before] (Witness after (Both same earlier)) =>
+      let isStart: start = c := List.consInjectiveHead start c ys (before ++ [List.foldLeft ys start (List.minByStep f), ..after]) same
+      let rest: ys = before ++ [List.foldLeft ys start (List.minByStep f), ..after] := Eq.cong (.drop 1) same
+      let belowStart: f (List.foldLeft ys start (List.minByStep f)) < f start := rewrite <- isStart at (earlier c (Inl rfl))
+      Witness [start, y, ..before] (Witness after (Both
+        (Eq.cong (t => [start, y, ..t]) rest)
+        (z member =>
+          match member with
+            | Inl same => rewrite <- same in belowStart
+            | Inr (Inl same) => rewrite <- same in Ord.lessLeTrans (f (List.foldLeft ys start (List.minByStep f))) (f start) (f y) belowStart kept
+            | Inr (Inr inBefore) => earlier z (Inr inBefore))))
+
+--| The result of folding with `List.minByStep` from `start` over `xs` is the
+--| first element of `start :: xs` whose key is the smallest: the list splits
+--| around it, and every element before it has a strictly larger key.
+theorem List.foldMinByFirst [auto ord: Ord b] (f: a → b): (xs: List a) → (start: a) →
+    ∃ (before: List a) => ∃ (after: List a) =>
+      ([start, ..xs] = before ++ [List.foldLeft xs start (List.minByStep f), ..after]) ∧ ((y: a) → y ∈ before → f (List.foldLeft xs start (List.minByStep f)) < f y)
+  | [], start => Witness [] (Witness [] (Both rfl (y member => Void.exfalso member)))
+  | [y, ..ys], start =>
+    match order: Ord.compare (f start) (f y) with
+      | Greater =>
+        let flipped: Ord.compare (f y) (f start) = Less := rewrite order at ord.flip (f start) (f y)
+        let startAbove: f y < f start := ord.lessThanOf (f y) (f start) flipped
+        match List.foldMinByFirst f ys y with
+          | Witness before (Witness after (Both split earlier)) =>
+            Witness [start, ..before] (Witness after (Both
+              (rewrite split in rfl)
+              (z member =>
+                match member with
+                  | Inl same =>
+                    rewrite <- same in
+                      Ord.leLessTrans (f (List.foldLeft ys y (List.minByStep f))) (f y) (f start) (List.foldMinByLeStart f ys y) startAbove
+                  | Inr inBefore => earlier z inBefore)))
+      | Less => List.foldMinByFirstKeep f ys start y (ord.lessEqOf (f start) (f y) (greater => Ordering.lessNotGreater (Eq.trans (Eq.sym order) greater))) (List.foldMinByFirst f ys start)
+      | Equal => List.foldMinByFirstKeep f ys start y (ord.lessEqOf (f start) (f y) (greater => Ordering.equalNotGreater (Eq.trans (Eq.sym order) greater))) (List.foldMinByFirst f ys start)
+
+--| `List.minBy` finds a member, and its key is at most every member's.
+theorem List.minBySome [auto ord: Ord b] (xs: List a) (f: a → b) (least: a) (found: List.minBy xs f = Some least):
+    (least ∈ xs) ∧ ((x: a) → x ∈ xs → f least <= f x) :=
+  match xs with
+    | [] => Void.exfalso (Option.noneNotSome least found)
+    | [y, ..ys] =>
+      let same := Option.someInjective found
+      Both
+        (match List.foldMinByMember f ys y with
+          | Inl isY => Inl (Eq.sym (Eq.trans (Eq.sym same) isY))
+          | Inr member => Inr (rewrite same at member))
+        (x member =>
+          rewrite Eq.sym same in
+            match member with
+              | Inl isY => rewrite Eq.sym isY in List.foldMinByLeStart f ys y
+              | Inr inRest => List.foldMinByLeMember f ys y x inRest)
+
+--| `List.minBy` finds the FIRST element with the smallest key: the list
+--| splits around the result, and every element before it has a strictly
+--| larger key.
+theorem List.minByFirst [auto ord: Ord b] (xs: List a) (f: a → b) (least: a) (found: List.minBy xs f = Some least):
+    ∃ (before: List a) => ∃ (after: List a) => (xs = before ++ [least, ..after]) ∧ ((x: a) → x ∈ before → f least < f x) :=
+  match xs with
+    | [] => Void.exfalso (Option.noneNotSome least found)
+    | [y, ..ys] =>
+      rewrite <- Option.someInjective found in List.foldMinByFirst f ys y
+
 -- `List.maximum`, as for `List.minimum` above: the greatest of a list that
 -- holds `most` and nothing else is `most`, an empty list has none, and what
 -- it finds is in the list and at least each element. (`List.foldMaxGe`,

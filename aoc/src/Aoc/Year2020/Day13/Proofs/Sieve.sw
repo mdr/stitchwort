@@ -28,29 +28,12 @@ theorem describesEarliest [fits: Nat → Prop] [alignment: Alignment] (described
       match Iff.forward (And.right described t) h with
         | Witness periods same => omega)
 
-theorem dividesMod (m: Nat) [auto ok: m ≠ 0] (n: Nat): Nat.divides m n = (n % m == 0) :=
-  match m with
-    | Zero => Void.exfalso (ok rfl)
-    | Succ d => rfl
-
-theorem addMultiple (x: Nat) (z: Nat) (m: Nat) [auto ok: m ≠ 0] (h: z % m = 0): (x + z) % m = x % m :=
-  calc (x + z) % m
-    _ = (x + z % m) % m := Eq.sym (Nat.addModMod x z m)
-    _ = (x + 0) % m := rewrite h in rfl
-    _ = x % m := rewrite Nat.addZero x in rfl
-
-theorem multipleMod (q: Nat) (z: Nat) (m: Nat) [auto ok: m ≠ 0] (h: z % m = 0): (q * z) % m = 0 :=
-  calc (q * z) % m
-    _ = (q * (z % m)) % m := Eq.sym (Nat.mulModMod q z m)
-    _ = (q * 0) % m := rewrite h in rfl
-    _ = 0 := rewrite Nat.mulZero q in rfl
-
 --| How the sieve sees one bus: whether it departs `periods` periods on.
 def suits (alignment: Alignment) (bus: Bus) (periods: Nat): Bool := bus.departsAfter (alignment.time + periods * alignment.period)
 
 theorem suitsMod (alignment: Alignment) (bus: Bus) [auto ok: bus.id ≠ 0] (periods: Nat):
     suits alignment bus periods = ((alignment.time + periods * alignment.period + bus.offset) % bus.id == 0) :=
-  dividesMod bus.id _
+  Nat.dividesMod bus.id _
 
 --| Suiting comes round every `id` periods.
 theorem suitsRound (alignment: Alignment) (bus: Bus) [auto ok: bus.id ≠ 0] (periods: Nat):
@@ -84,7 +67,7 @@ theorem suitsMultiple (alignment: Alignment) (bus: Bus) [auto ok: bus.id ≠ 0] 
   let x := alignment.time + p * alignment.period + bus.offset
   let moved: alignment.time + (p + q * d) * alignment.period + bus.offset = x + q * (d * alignment.period) := ring
   rewrite suitsMod alignment bus (p + q * d), suitsMod alignment bus p, moved,
-    addMultiple x (q * (d * alignment.period)) bus.id (multipleMod q (d * alignment.period) bus.id h) in rfl
+    Nat.modAddOfModZero x (q * (d * alignment.period)) bus.id (Nat.modMulOfModZero q (d * alignment.period) bus.id h) in rfl
 
 theorem stepDescribes [fits: Nat → Prop] [alignment: Alignment] (bus: Bus) [auto ok: bus.id ≠ 0] (described: Describes fits alignment)
     (first: Nat) (firstSuits: suits alignment bus first = True) (firstLeast: (e: Nat) → e < first → suits alignment bus e = False)

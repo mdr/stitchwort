@@ -11,10 +11,7 @@ import Std (Eq, Iff, List, Nat, Option, Void)
 --| Every bus in service has an ID of at least 1: what the parser checks.
 def IdsPositive (notes: Notes): Prop := (id: Nat) → Listed id ∈ notes.schedule → id ≠ 0
 
-theorem departsAfterSpec (bus: Bus) (t: Nat): bus.departsAfter t = True ↔ Spec.Departs bus.id (t + bus.offset) := {
-  forward = h => Nat.dividesElim _ bus.id (t + bus.offset) h (trips same => Witness trips same),
-  backward = (Witness trips same) => rewrite same in Nat.dividesMul bus.id trips
-}
+theorem departsAfterSpec (bus: Bus) (t: Nat): bus.departsAfter t = True ↔ Spec.Departs bus.id (t + bus.offset) := Nat.dividesIff bus.id (t + bus.offset)
 
 def busesFrom (start: Nat) (schedule: List Slot): List Bus := List.filterMap (List.withIndexFrom start schedule) (((offset, slot)) => slot.bus offset)
 
