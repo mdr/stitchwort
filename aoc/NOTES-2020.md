@@ -5307,6 +5307,24 @@ elaboration and 23 ms in the kernel, most of it the parser's proofs
 (`readsReceived` 108 ms, `readsNumbered` 75 ms, `readsRuleBody` 68 ms);
 the rest of the cold time is std's.
 
+**Completeness (SW-1625).** `Proofs/ParseComplete.sw` (the day's
+`Complete.sw` is the matcher's completeness, a different thing), 245 lines,
+about 10 minutes. Two nested `sepBy1`s are the hard part: a sequence of
+numbers inside a ` | ` list. Each ends at a different place, so the follower
+predicate is a disjunction, `SeqFollow` = "cannot start with a digit or a
+space" or "is ` | ` and more"; the inner number list declines at ` | ` by
+`declinesAfter` (a space is read, then `nat` declines on `|`), and the outer
+`text " | "` declines at the line's end by a `stripPrefixChars` that needs
+`Text.sameChar ' ' char = False` from `seqChar char = False` (`notSpace`, via
+`Text.sameCharEq`). `runsRuleBody` (35) is `runsOneOfFirst` for a letter and
+`runsOneOfNext` for sequences, the first alternative declining because a
+sequence list starts with a digit (`sequencesStart` digs it out of the
+nested `SepBy`). The messages are day 6's `manyRunsLetters` pattern (copied:
+`Parse.runsMany1Symbols` in SW-1624 will replace it). `runsOneOfFirst _ _`
+wouldn't elaborate under `rewrite … in` (its parser stayed a metavariable); a
+`let` with the stated type fixed it. The spec is tight enough for
+uniqueness.
+
 ### Ranked
 
 1. Counting exactly with a fuel-bounded matcher needs a rank for the
