@@ -33,11 +33,11 @@ def firstDeep: List Leaf → Option Exploding
   | [leaf, ..rest] =>
     if 4 < leaf.depth then
       match rest with
-        | [next, ..after] => Some ({ before = [], left = leaf, right = next, after })
+        | [next, ..after] => Some { before = [], left = leaf, right = next, after }
         | [] => None
     else
       match firstDeep rest with
-        | Some found => Some ({ found | before = [leaf, ..found.before] })
+        | Some found => Some { found | before = [leaf, ..found.before] }
         | None => None
 
 --| `amount` added to the first regular number, if there is one.

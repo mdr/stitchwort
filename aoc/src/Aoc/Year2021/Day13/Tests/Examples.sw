@@ -52,7 +52,7 @@ theorem smallParses: Fail.toResult (() => parsePaper """
   3,0
 
   fold along y=1
-  """) = Ok ({ dots = [{ x = 1, y = 2 }, { x = 3, y = 0 }], folds = [AlongY 1] }) := rfl
+  """) = Ok { dots = [{ x = 1, y = 2 }, { x = 3, y = 0 }], folds = [AlongY 1] } := rfl
 
 test "parse the example" := example.dots.length == 18 && example.folds == [AlongY 7, AlongX 5]
 test "example, part 1" := solvePart1 example == 17

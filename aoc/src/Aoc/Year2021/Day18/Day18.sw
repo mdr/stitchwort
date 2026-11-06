@@ -52,13 +52,13 @@ def addRightmost (amount: Nat): Number → Number
 --| pairs, exploded; `depth` is how many pairs the number is inside.
 def explode (depth: Nat): Number → Option Explosion
   | Regular _ => None
-  | Pair (Regular a) (Regular b) => if 4 ≤ depth then Some ({ toLeft = a, number = Regular 0, toRight = b }) else None
+  | Pair (Regular a) (Regular b) => if 4 ≤ depth then Some { toLeft = a, number = Regular 0, toRight = b } else None
   | Pair left right =>
     match explode (depth + 1) left with
-      | Some inLeft => Some ({ toLeft = inLeft.toLeft, number = Pair inLeft.number (addLeftmost inLeft.toRight right), toRight = 0 })
+      | Some inLeft => Some { toLeft = inLeft.toLeft, number = Pair inLeft.number (addLeftmost inLeft.toRight right), toRight = 0 }
       | None =>
         match explode (depth + 1) right with
-          | Some inRight => Some ({ toLeft = 0, number = Pair (addRightmost inRight.toLeft left) inRight.number, toRight = inRight.toRight })
+          | Some inRight => Some { toLeft = 0, number = Pair (addRightmost inRight.toLeft left) inRight.number, toRight = inRight.toRight }
           | None => None
 
 --| The leftmost regular number of 10 or more, split into its halves (the

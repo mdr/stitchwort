@@ -20,7 +20,7 @@ theorem readsInstruction: Parse.Reads instruction InstructionWritten :=
     match found with
       | Some u =>
         Parse.readsThen (Parse.readsExactly 36 maskBit MaskBitWritten readsMaskBit) (symbols bits (Both each count) =>
-          Parse.readsDone (SetMask ({ bits })) _ (Witness symbols (Both (rewrite maybe, List.appendNil symbols in rfl) (Both each count))))
+          Parse.readsDone (SetMask { bits }) _ (Witness symbols (Both (rewrite maybe, List.appendNil symbols in rfl) (Both each count))))
       | None =>
         Parse.readsThen (Parse.readsText "mem[") (openRead u opened =>
           Parse.readsThen Parse.readsNat (addressRead address addressDecimal =>

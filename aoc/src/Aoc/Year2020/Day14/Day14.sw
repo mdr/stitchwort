@@ -89,7 +89,7 @@ def instruction(): {Parse} Instruction :=
   match Parse.optional (() => Parse.text "mask = ") with
     | Some _ =>
       let bits := Parse.exactly 36 maskBit
-      SetMask ({ bits })
+      SetMask { bits }
     | None =>
       Parse.text "mem["
       let address := Parse.nat()

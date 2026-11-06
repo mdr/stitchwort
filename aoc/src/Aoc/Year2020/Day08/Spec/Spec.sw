@@ -82,8 +82,8 @@ def Repair (program: Program) (index: Nat) (repaired: Program): Prop :=
   repaired.instructions.length = program.instructions.length
     ∧ ((other: Nat) → other ≠ index → repaired.instructions.get other = program.instructions.get other)
     ∧ (∃ (argument: Int) =>
-      (program.instructions.get index = Some ({ operation = Jmp, argument }) ∧ repaired.instructions.get index = Some ({ operation = Nop, argument }))
-        ∨ (program.instructions.get index = Some ({ operation = Nop, argument }) ∧ repaired.instructions.get index = Some ({ operation = Jmp, argument })))
+      (program.instructions.get index = Some { operation = Jmp, argument } ∧ repaired.instructions.get index = Some { operation = Nop, argument })
+        ∨ (program.instructions.get index = Some { operation = Nop, argument } ∧ repaired.instructions.get index = Some { operation = Jmp, argument }))
 
 --| "What is the value of the accumulator after the program terminates?"
 --| Repairing one instruction makes it terminate, with `answer`.

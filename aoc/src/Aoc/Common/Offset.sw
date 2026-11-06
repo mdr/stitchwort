@@ -50,7 +50,7 @@ def Position.offset (position: Position) (offset: Offset): Option Position :=
     | Some row =>
       match (position.column.toInt + offset.columns).toNatChecked with
         | None => None
-        | Some column => Some ({ row, column })
+        | Some column => Some { row, column }
 
 --| The position `offset` away, if it is on the grid's rectangle.
 def Grid.offset (grid: Grid a) (position: Position) (offset: Offset): Option Position :=

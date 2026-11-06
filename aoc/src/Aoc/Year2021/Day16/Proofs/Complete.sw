@@ -59,7 +59,7 @@ theorem countStep (wanted: Wanted) (later: Wanted) (reader: BitReader) (afterVer
 theorem typeIdSmall (operatorType: OperatorType): typeId operatorType < 8 := cases
 
 --| A packet's bits aren't empty, so when filling bits, another is wanted.
-theorem fillingNext (rest: List Bool): (packet: Packet) → nextWanted Filling ({ unread = encode packet ++ rest }) = Some Filling
+theorem fillingNext (rest: List Bool): (packet: Packet) → nextWanted Filling { unread = encode packet ++ rest } = Some Filling
   | Literal _ _ => rfl
   | Operator _ _ _ ({ head = _, tail = _ }) => rfl
   | Comparator _ _ _ _ _ => rfl
@@ -71,7 +71,7 @@ theorem operatorStepComplete (wanted: Wanted) (later: Wanted) (more: List Bool) 
     (subPackets: List Packet) (packet: Packet)
     (made: operatorOf version operatorType lengthType subPackets = Some packet) (small: version < 8)
     (fits: fitsLength lengthType subPackets.length (encodeAll subPackets) = True)
-    (filled: readPackets Filling ({ unread = encodeAll subPackets }) = Some (subPackets, { unread = [] }))
+    (filled: readPackets Filling { unread = encodeAll subPackets } = Some (subPackets, { unread = [] }))
     (counted: readPackets (Packets subPackets.length) { unread = encodeAll subPackets ++ more } = Some (subPackets, { unread = more }))
     (next: nextWanted wanted { unread = operatorBits version (typeId operatorType) lengthType subPackets.length (encodeAll subPackets) ++ more } = Some later):
     readPackets wanted { unread = operatorBits version (typeId operatorType) lengthType subPackets.length (encodeAll subPackets) ++ more } =
@@ -157,19 +157,19 @@ theorem countPair (first: Packet) (second: Packet) (formedFirst: wellFormed firs
   rewrite List.appendAssoc (encode first) (encodeAll [second]) more, step1, List.appendAssoc (encode second) [] more, step2 in rfl
 
 --| Filling packets' bits reads them all back.
-theorem fillComplete: (packets: List Packet) → allWellFormed packets = True → readPackets Filling ({ unread = encodeAll packets }) = Some (packets, { unread = [] })
-  | [], formed => rewrite readPackets.unfold Filling ({ unread = [] }) in rfl
+theorem fillComplete: (packets: List Packet) → allWellFormed packets = True → readPackets Filling { unread = encodeAll packets } = Some (packets, { unread = [] })
+  | [], formed => rewrite readPackets.unfold Filling { unread = [] } in rfl
   | [packet, ..rest], formed => fillCons packet rest formed
 
 --| The same for a first packet and the rest.
 theorem fillCons (packet: Packet) (rest: List Packet) (formed: allWellFormed [packet, ..rest] = True):
-    readPackets Filling ({ unread = encodeAll [packet, ..rest] }) = Some ([packet, ..rest], { unread = [] }) :=
+    readPackets Filling { unread = encodeAll [packet, ..rest] } = Some ([packet, ..rest], { unread = [] }) :=
   let step := stepComplete Filling Filling (encodeAll rest) packet (Bool.andLeft formed) (fillingNext (encodeAll rest) packet)
   rewrite step, fillComplete rest (Bool.andRight formed) in rfl
 
 --| The same for two packets, spelled out for the same reason.
 theorem fillPair (first: Packet) (second: Packet) (formedFirst: wellFormed first = True) (formedSecond: wellFormed second = True):
-    readPackets Filling ({ unread = encodeAll [first, second] }) = Some ([first, second], { unread = [] }) :=
+    readPackets Filling { unread = encodeAll [first, second] } = Some ([first, second], { unread = [] }) :=
   let step1 := stepComplete Filling Filling (encodeAll [second]) first formedFirst (fillingNext (encodeAll [second]) first)
   let step2 := stepComplete Filling Filling [] second formedSecond (fillingNext [] second)
   rewrite step1, step2 in rfl

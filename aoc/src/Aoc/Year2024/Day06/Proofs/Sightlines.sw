@@ -97,7 +97,7 @@ theorem ofRepresents (obstructions: Set Position): Represents (Sightlines.of obs
 
 --| One step: turning at an obstruction ahead, and leaving past the edge.
 theorem stepTurns (lab: Lab) (guard: Guard) (ahead: Position) (inFront: lab.ahead guard = Some ahead) (blocked: lab.obstructions.contains ahead = True):
-    lab.step guard = Some ({ guard | facing = guard.facing.turnRight }) :=
+    lab.step guard = Some { guard | facing = guard.facing.turnRight } :=
   rewrite inFront, blocked in rfl
 
 theorem stepLeaves (lab: Lab) (guard: Guard) (inFront: lab.ahead guard = None): lab.step guard = None :=
@@ -131,7 +131,7 @@ theorem walkFirst (lab: Lab) (guard: Guard) (next: Guard) (stepped: lab.step gua
 theorem walkUpTurn (lab: Lab) (column: Nat) (obstruction: Nat) (blocked: lab.obstructions.contains { row = obstruction, column } = True):
     (moves: Nat) → (row: Nat) → obstruction + Succ moves = row →
       ((other: Nat) → obstruction < other → other < row → lab.obstructions.contains { row = other, column } = False) →
-      walk lab (Some ({ position = { row, column }, facing = Up })) (Succ moves) = Some ({ position = { row = obstruction + 1, column }, facing = Right })
+      walk lab (Some { position = { row, column }, facing = Up }) (Succ moves) = Some { position = { row = obstruction + 1, column }, facing = Right }
   | Zero, row, distance, free =>
     rewrite (omega [distance]: obstruction + 1 = row) in
     stepTurns lab { position = { row, column }, facing = Up } { row = row - 1, column } (aheadUp lab row column (omega [distance]))
@@ -146,7 +146,7 @@ theorem walkUpTurn (lab: Lab) (column: Nat) (obstruction: Nat) (blocked: lab.obs
 
 --| Facing up with nothing above in the column: she walks off the top.
 theorem walkUpLeave (lab: Lab) (column: Nat): (row: Nat) → ((other: Nat) → other < row → lab.obstructions.contains { row = other, column } = False) →
-    walk lab (Some ({ position = { row, column }, facing = Up })) (Succ row) = None
+    walk lab (Some { position = { row, column }, facing = Up }) (Succ row) = None
   | Zero, free => rfl
   | Succ row, free =>
     Eq.trans
@@ -161,7 +161,7 @@ theorem walkDownTurn (lab: Lab) (column: Nat) (obstruction: Nat) (fits: obstruct
     (blocked: lab.obstructions.contains { row = obstruction, column } = True):
     (moves: Nat) → (row: Nat) → row + Succ moves = obstruction →
       ((other: Nat) → row < other → other < obstruction → lab.obstructions.contains { row = other, column } = False) →
-      walk lab (Some ({ position = { row, column }, facing = Down })) (Succ moves) = Some ({ position = { row = obstruction - 1, column }, facing = Left })
+      walk lab (Some { position = { row, column }, facing = Down }) (Succ moves) = Some { position = { row = obstruction - 1, column }, facing = Left }
   | Zero, row, distance, free =>
     rewrite (omega [distance]: obstruction - 1 = row) in
     stepTurns lab { position = { row, column }, facing = Down } { row = row + 1, column } (aheadDown lab row column (omega [distance, fits]))
@@ -178,7 +178,7 @@ theorem walkDownTurn (lab: Lab) (column: Nat) (obstruction: Nat) (fits: obstruct
 theorem walkDownLeave (lab: Lab) (column: Nat):
     (moves: Nat) → (row: Nat) → row + Succ moves = lab.height →
       ((other: Nat) → row < other → other < lab.height → lab.obstructions.contains { row = other, column } = False) →
-      walk lab (Some ({ position = { row, column }, facing = Down })) (Succ moves) = None
+      walk lab (Some { position = { row, column }, facing = Down }) (Succ moves) = None
   | Zero, row, distance, free => stepLeaves lab { position = { row, column }, facing = Down } (aheadDownEdge lab row column (omega [distance]))
   | Succ moves, row, distance, free =>
     Eq.trans
@@ -194,7 +194,7 @@ theorem walkRightTurn (lab: Lab) (row: Nat) (obstruction: Nat) (fits: obstructio
     (blocked: lab.obstructions.contains { row, column = obstruction } = True):
     (moves: Nat) → (column: Nat) → column + Succ moves = obstruction →
       ((other: Nat) → column < other → other < obstruction → lab.obstructions.contains { row, column = other } = False) →
-      walk lab (Some ({ position = { row, column }, facing = Right })) (Succ moves) = Some ({ position = { row, column = obstruction - 1 }, facing = Down })
+      walk lab (Some { position = { row, column }, facing = Right }) (Succ moves) = Some { position = { row, column = obstruction - 1 }, facing = Down }
   | Zero, column, distance, free =>
     rewrite (omega [distance]: obstruction - 1 = column) in
     stepTurns lab { position = { row, column }, facing = Right } { row, column = column + 1 } (aheadRight lab row column (omega [distance, fits]))
@@ -212,7 +212,7 @@ theorem walkRightTurn (lab: Lab) (row: Nat) (obstruction: Nat) (fits: obstructio
 theorem walkRightLeave (lab: Lab) (row: Nat):
     (moves: Nat) → (column: Nat) → column + Succ moves = lab.width →
       ((other: Nat) → column < other → other < lab.width → lab.obstructions.contains { row, column = other } = False) →
-      walk lab (Some ({ position = { row, column }, facing = Right })) (Succ moves) = None
+      walk lab (Some { position = { row, column }, facing = Right }) (Succ moves) = None
   | Zero, column, distance, free => stepLeaves lab { position = { row, column }, facing = Right } (aheadRightEdge lab row column (omega [distance]))
   | Succ moves, column, distance, free =>
     Eq.trans
@@ -227,7 +227,7 @@ theorem walkRightLeave (lab: Lab) (row: Nat):
 theorem walkLeftTurn (lab: Lab) (row: Nat) (obstruction: Nat) (blocked: lab.obstructions.contains { row, column = obstruction } = True):
     (moves: Nat) → (column: Nat) → obstruction + Succ moves = column →
       ((other: Nat) → obstruction < other → other < column → lab.obstructions.contains { row, column = other } = False) →
-      walk lab (Some ({ position = { row, column }, facing = Left })) (Succ moves) = Some ({ position = { row, column = obstruction + 1 }, facing = Up })
+      walk lab (Some { position = { row, column }, facing = Left }) (Succ moves) = Some { position = { row, column = obstruction + 1 }, facing = Up }
   | Zero, column, distance, free =>
     rewrite (omega [distance]: obstruction + 1 = column) in
     stepTurns lab { position = { row, column }, facing = Left } { row, column = column - 1 } (aheadLeft lab row column (omega [distance]))
@@ -243,7 +243,7 @@ theorem walkLeftTurn (lab: Lab) (row: Nat) (obstruction: Nat) (blocked: lab.obst
 --| Facing left with nothing to the left in the row: she walks off the left
 --| edge.
 theorem walkLeftLeave (lab: Lab) (row: Nat): (column: Nat) → ((other: Nat) → other < column → lab.obstructions.contains { row, column = other } = False) →
-    walk lab (Some ({ position = { row, column }, facing = Left })) (Succ column) = None
+    walk lab (Some { position = { row, column }, facing = Left }) (Succ column) = None
   | Zero, free => rfl
   | Succ column, free =>
     Eq.trans
