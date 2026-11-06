@@ -3279,6 +3279,20 @@ notes.
 elaboration and 12 ms in the kernel (`readsInstruction` the largest, 48
 ms); the rest of the cold time is std's modules.
 
+**Completeness (SW-1625).** `Proofs/Complete.sw`, 60 lines, about 4 minutes
+(including the CLI build). `runsAction` (13) is `Parse.runsPick` once per
+action with the earlier letters as `before` (their `WordsAbsent` is `Both rfl
+...`, since the letters are literals); `runsInstruction` (14) chains
+`runsBind` over `action` and `nat`, then `runsIf` for the multiple-of-90
+check, whose failing branch `turnFails` (4) rules out from the spec's last
+conjunct; `parseComplete` goes through `Parse.runsEachLine` and
+`writtenUnique` through `Parse.runsRun`-style `okInjective`. The spec
+(`InstructionWritten`) is tight enough: the line fixes the letter, the digits
+and the value, so uniqueness needed nothing more. No `Declines`: the digits
+run to the end of the line (`rest = []`). Friction: a parameter named `action`
+shadows the parser `action`; `runsBind` wants the first part's rest as
+`digits ++ []`, not `digits`. Statements of `Parse.sw` unchanged.
+
 ### Ranked
 
 1. Aoc.Common has no `Int` vector with compass headings, quarter-turn
@@ -3536,6 +3550,19 @@ checks, the audit, timing and these notes.
 and 33 ms in the kernel (`readsNotes`, `stepDescribes` and `readsSlot` the
 largest, about 60 ms each); the rest of the cold time is std's modules.
 
+**Completeness (SW-1625).** `Proofs/Complete.sw`, 105 lines, about 2 minutes
+(first try after the day-12 file). `runsSlot` (22) covers both slot kinds:
+`optional (char 'x')` either runs (`runsOptional`) or declines
+(`Parse.declinesRuns` with a digit-start `declinesX`), then `nat`, then
+`runsIf` for the nonzero check; `runsNotes` (28) is `runsBind` over `nat`,
+`newline`, and `Parse.runsSepBy1Of` for the comma list, where the side
+conditions are one predicate, `CannotStart Parse.isDigit` (a comma and the
+final line breaks cannot continue a number; `noDigits` turns it into the
+`takeWhile` that `runsNat` wants) and `declinesComma` for the list end.
+`parseComplete` takes a named `InputWritten` (the soundness conclusion);
+`writtenUnique` one line. The spec is tight enough for uniqueness. Mutation:
+`','` to `';'` in the program breaks `runsNotes`.
+
 ### Ranked
 
 1. Std has `gcd` and Bézout but no `lcm`, coprimality, Euclid's lemma or
@@ -3789,6 +3816,19 @@ that), the audit, timing and these notes.
 `STITCHWORT_TIMINGS=1` puts the Proofs namespace at 305 ms of
 elaboration and 33 ms in the kernel (`readsInstruction` 203 ms of it,
 2.4 million steps); the rest of the cold time is std's modules.
+
+**Completeness (SW-1625).** `Proofs/Complete.sw`, 96 lines, about 3 minutes.
+`eachSteps` (14) turns the spec's `Parse.Each` of the 36 mask symbols into the
+`steps` that `Parse.runsExactly` wants; it is generic (any `p` and `spec`
+with a per-part run) and a candidate for std if another day needs it.
+`runsMaskBit` (5) is `runsPick` per symbol; `runsInstruction` (35) has the mask
+arm (`runsOptional` of the text, then `runsExactly`) and the write arm
+(`declinesRuns` of `text "mask = "` against `"mem["`, which is `rfl`, then
+`runsBind` over text, `nat`, text, `nat`); `startsComplete` (4) is the converse
+of `startsWritten`; `parseComplete` goes through `runsEachLine` and the
+`startsWithMask` check, `writtenUnique` as before. No `Declines` case work
+beyond the one `rfl`: every `nat` is followed by a literal or the line end.
+The spec is tight enough for uniqueness.
 
 ### Ranked
 
@@ -4049,6 +4089,16 @@ these notes.
 
 `STITCHWORT_TIMINGS=1` puts the Proofs namespace at 30 ms of
 elaboration and 8 ms in the kernel; the rest of the cold time is std's.
+
+**Completeness (SW-1625).** `Proofs/Complete.sw`, 63 lines, about 2 minutes.
+The parser is `sepBy1 nat (char ',')` in a record, so `runsStarting` (14) is
+`Parse.runsSepBy1Of` under `runsMap`, with the same side conditions as day 13's
+schedule: `CannotStart Parse.isDigit` as `valueEnd` (a comma and the final
+line breaks cannot continue a number), `declinesComma` for the list end, and
+`runsNumber` (5) from `runsNat`. `noDigits` and `declinesComma` are copies of
+day 13's (a `Parse.declinesCharAtBreaks` and a `CannotStart isDigit`-to-`takeWhile`
+lemma in std would remove them; file as a finding). The spec is tight
+enough for uniqueness; `InputWritten` names the soundness conclusion.
 
 ### Ranked
 
@@ -4383,6 +4433,26 @@ the timings and these notes.
 elaboration and 30 ms in the kernel (`readsNotes` 247 ms of it, 3.3
 million steps); the rest of the cold time is std's modules.
 
+**Completeness (SW-1625).** `Proofs/Complete.sw`, 204 lines, about 8
+minutes. The biggest of the sweep so far, in three parts. The pieces
+(`runsRange`, `runsRule`, `runsTicket`, 8 to 20 lines each) are `runsBind`
+chains as in days 2 and 13, with `Parse.runsSepBy1Of` for a ticket's commas;
+`runsNotes` (48) is the ten-step chain with `runsLinesOf` for the rules and the
+nearby tickets, and `runsBlankLineOf` for the two blank lines. The side
+conditions are two classifications of what follows a number:
+`CannotStart Parse.isDigit` (after a range or a ticket's number) and
+`CannotStart continues` (`continues` = digit or comma, after a whole
+ticket, so that the comma list ends). The third part is the one std's
+helpers don't cover (about 45 lines, `declinesRuleBeforeBreak` and its
+neighbours): the rules end at a blank line, and `declinesLinesAtBlank` wants
+`rule` to decline from its first character alone, but a field name may start
+with a carriage return or a space, so `rule` declines at the blank line only
+because its name run reaches the line feed and no colon follows. A std
+helper whose `declinesP` hypothesis is "the input is spaces, a line break and
+anything" instead of `CannotStart canStart` would remove it (finding). The
+spec is tight enough for uniqueness. Mutation: `" or "` to `" OR "` breaks
+`runsRule`.
+
 ### Ranked
 
 1. A helper lemma about a variable doesn't fit inside a `match` on one of
@@ -4646,6 +4716,20 @@ and these notes.
 
 `STITCHWORT_TIMINGS=1` puts the Proofs namespace at 138 ms of
 elaboration and 24 ms in the kernel; the rest of the cold time is std's.
+
+**Completeness (SW-1625).** `Proofs/Complete.sw`, 116 lines, about 4
+minutes. The parser is `Aoc.Common.parseGrid`, so the proof is day 3's
+(SW-1624) in this day's terms: the rows by the `many1`-of-single-characters
+pattern (`runsCube`, `manyRunsCubes`, `runsRow`, 40 lines), `runsEachLine`
+with a membership-aware weakening (a row of a rectangle with a cell is
+non-empty), and `checkGrid` passing a rectangle through (`checkGridComplete`).
+Those last three (`findNoneOfMem`, `findNoneWithIndexFrom`,
+`checkGridComplete`, `all2WeakenMem`, 33 lines) and `Parse.runsMany1Symbols`
+are the same lemmas SW-1624 adds to std and `Aoc.Common.Proofs` for day 3;
+they are copied here, not put in std, so the two lanes do not collide, and
+this file should drop them for those after both merge. The soundness
+conclusion is already two conjuncts, so `InputWritten` names it and
+`writtenUnique` is one line.
 
 ### Ranked
 
@@ -5237,6 +5321,24 @@ elaboration and 23 ms in the kernel, most of it the parser's proofs
 (`readsReceived` 108 ms, `readsNumbered` 75 ms, `readsRuleBody` 68 ms);
 the rest of the cold time is std's.
 
+**Completeness (SW-1625).** `Proofs/ParseComplete.sw` (the day's
+`Complete.sw` is the matcher's completeness, a different thing), 245 lines,
+about 10 minutes. Two nested `sepBy1`s are the hard part: a sequence of
+numbers inside a ` | ` list. Each ends at a different place, so the follower
+predicate is a disjunction, `SeqFollow` = "cannot start with a digit or a
+space" or "is ` | ` and more"; the inner number list declines at ` | ` by
+`declinesAfter` (a space is read, then `nat` declines on `|`), and the outer
+`text " | "` declines at the line's end by a `stripPrefixChars` that needs
+`Text.sameChar ' ' char = False` from `seqChar char = False` (`notSpace`, via
+`Text.sameCharEq`). `runsRuleBody` (35) is `runsOneOfFirst` for a letter and
+`runsOneOfNext` for sequences, the first alternative declining because a
+sequence list starts with a digit (`sequencesStart` digs it out of the
+nested `SepBy`). The messages are day 6's `manyRunsLetters` pattern (copied:
+`Parse.runsMany1Symbols` in SW-1624 will replace it). `runsOneOfFirst _ _`
+wouldn't elaborate under `rewrite … in` (its parser stayed a metavariable); a
+`let` with the stated type fixed it. The spec is tight enough for
+uniqueness.
+
 ### Ranked
 
 1. Counting exactly with a fuel-bounded matcher needs a rank for the
@@ -5530,6 +5632,19 @@ and 1.2 s in the kernel, of which `roughnessTurned` is 1.7 s and 1.0 s
 (item 2) and `roughnessExactly` 1.0 s; the rest are under 0.2 s each.
 (My Python took 108 s, from a naive backtracking assembly that re-turns
 every tile at every step; it isn't a fair comparison.)
+
+**Completeness (SW-1625).** `Proofs/Complete.sw`, 149 lines, about 4
+minutes. The shape is day 6's: a heading, then lines inside sections. The rows
+(`runsRow`, `manyRunsPixels`, `eachPixels`, 40 lines in all) are the
+`many1`-of-single-characters pattern again, copied with a `pixelSymbol` in
+place of day 6's letters (`Parse.runsMany1Symbols` from SW-1624 replaces it
+once merged). `stripDifferent` (6) proves `stripPrefixChars` is `None` when
+the first character differs, for `pick`'s `WordsAbsent` and for the `Tile `
+heading at the end of the sections. `runsTile` (32) is a five-step chain ending
+in `runsLinesOf` with `LinesEnd`; `runsJigsaw` is `runsSectionsOf` with
+`declinesSectionsAtBreaks` on `T`. No friction beyond a `rewrite e` that
+the checker flagged as not needed. The spec is tight enough for uniqueness
+(`Jigsaw.rectangular` is a separate function, not part of the parse).
 
 ### Ranked
 
