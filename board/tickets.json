@@ -10092,13 +10092,13 @@
     {
       "id": 1551,
       "title": "Std == lemmas: List.beqCons, List.beqNilCons, DecEq.neSelf ((x != x) = False), generated T.beqMk for one-field records (day 17)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1551",
       "labels": [
         "std"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).",
+      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).\n\nStarted overnight on Sonnet (SW-1551, SW-1555, SW-1558 together), expected: 45 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10148,13 +10148,13 @@
     {
       "id": 1555,
       "title": "Std: Map.containsFilter ((m.filter p).contains k = (m.get k).any (p k)), Set.countToList (day 17)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1551",
       "labels": [
         "std"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).",
+      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).\n\nStarted overnight on Sonnet (SW-1551, SW-1555, SW-1558 together), expected: 45 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10190,13 +10190,13 @@
     {
       "id": 1558,
       "title": "Std: make Int.negSuccInjective's m and n implicit, as Nat.succInjective (D2422, SW-1544)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1551",
       "labels": [
         "std"
       ],
-      "body": "From SW-1544, 6 Nov 2026. Small.",
+      "body": "From SW-1544, 6 Nov 2026. Small.\n\nStarted overnight on Sonnet (SW-1551, SW-1555, SW-1558 together), expected: 45 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
