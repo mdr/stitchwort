@@ -533,3 +533,35 @@ fn dot_calls_keep_the_call_form_for_a_bare_global_receiver() {
     // A local variable is a fine receiver.
     assert_eq!(show(&p, &["t"], &call(v(0))), "t.size");
 }
+
+/// A receiver that can't go before a dot (`x✝`) keeps the call form at
+/// every level of a chain of calls, and is printed once per level: the
+/// dot form's test of it isn't repeated by the plain call (SW-1708, where
+/// printing a goal after `cases` took minutes).
+#[test]
+fn a_chain_of_calls_on_an_anonymous_receiver_prints_without_exponential_work() {
+    let mut p = Prelude::new();
+    let tree = data(&mut p.g, "Tree", vec![], Sort::Type(0));
+    stitchwort_core::check::define_ctors(&mut p.g, tree, vec![ctor("Tip", vec![])]).expect("Tree");
+    let tree_ty = Term::Data(tree, vec![]);
+    let size = define(
+        &mut p.g,
+        "Tree.size",
+        arrow(tree_ty.clone(), tree_ty.clone()),
+        lam("t", v(0)),
+    )
+    .unwrap();
+    let chain =
+        |depth: usize| (0..depth).fold(v(0), |receiver, _| app(Term::Def(size), [receiver]));
+    let text = |depth: usize| {
+        (0..depth).fold("x✝".to_string(), |receiver, i| match i {
+            0 => format!("Tree.size {receiver}"),
+            _ => format!("Tree.size ({receiver})"),
+        })
+    };
+    assert_eq!(
+        show(&p, &["x✝"], &chain(3)),
+        "Tree.size (Tree.size (Tree.size x✝))"
+    );
+    assert_eq!(show(&p, &["x✝"], &chain(40)), text(40));
+}

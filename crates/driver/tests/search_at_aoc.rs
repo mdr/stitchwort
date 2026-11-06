@@ -13,6 +13,8 @@
 //!
 //! `STITCHWORT_AT_BENCH_ONLY=Year2024/Day06` limits it to the goals whose
 //! file path contains that text (any tier but merge and lane).
+//! `STITCHWORT_AT_BENCH_VERBOSE=1` prints each goal as it starts and, with
+//! its time, as it ends, to find the slow ones while it runs.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -219,6 +221,16 @@ fn run(case: &Case, files: &dyn Files, cache: &Path) -> Outcome {
     let found = session.search_at_project(&goal, &AtOptions::default());
     drop(session);
     let time = started.elapsed();
+    if std::env::var_os("STITCHWORT_AT_BENCH_VERBOSE").is_some() {
+        eprintln!(
+            "done  {:>6.2} s {}:{} {} := {}",
+            time.as_secs_f64(),
+            case.path,
+            case.line,
+            case.theorem,
+            case.proof
+        );
+    }
     let mut outcome = Outcome {
         case: case.clone(),
         time,
