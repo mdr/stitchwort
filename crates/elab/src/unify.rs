@@ -1151,10 +1151,16 @@ fn unify_step(
     // shortcut. Without this, each level of such calls is compared twice
     // over, once by the arguments of the level around it and once in its
     // unfolding, so `Parse.exactly 35 p` against `Parse.exactly 36 p` takes
-    // about 2³⁵ comparisons.
+    // about 2³⁵ comparisons. Not while solving from arguments
+    // (`unify_solving_arguments`): there the comparison of arguments can
+    // solve an unknown the unfolding is stuck on, so it is more than a
+    // shortcut, and `pick ?b (two 3)` against `pick True (two 4)` needs
+    // `two 3` and `two 4` unfolded inside it
+    // (examples/accept/unknown-solved-from-call-arguments.sw).
     if let (Value::Call(i1, _, _), Value::Call(i2, _, _)) = (a, b)
         && i1 == i2
         && g.attempt.argument_checks.get() > 0
+        && !g.attempt.solving_arguments.get()
     {
         return Ok(false);
     }
