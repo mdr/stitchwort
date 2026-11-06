@@ -2734,3 +2734,60 @@ theorem List.all2WithIndex (r: a → b → Prop): (start: Nat) → (xs: List a) 
   | start, [x, ..xs], [y, ..ys], all => Both (And.left all) (List.all2WithIndex r (Succ start) xs ys (And.right all))
   | start, [], [y, ..ys], all => Void.exfalso all
   | start, [x, ..xs], [], all => Void.exfalso all
+
+--| Zipped lists are as long as the shorter of the two.
+theorem List.lengthZipWith (f: a → b → c): (xs: List a) → (ys: List b) → List.length (List.zipWith xs ys f) = Nat.min (List.length xs) (List.length ys)
+  | [], ys => rfl
+  | [x, ..xs], [] => rfl
+  | [x, ..xs], [y, ..ys] => rewrite List.lengthZipWith f xs ys, Nat.minSucc (List.length xs) (List.length ys) in rfl
+
+--| Zipping appended lists, when the first parts have the same length, is
+--| appending what the parts zip to.
+theorem List.zipWithAppend (f: a → b → c) (xs2: List a) (ys2: List b): (xs: List a) → (ys: List b) → List.length xs = List.length ys →
+    List.zipWith (xs ++ xs2) (ys ++ ys2) f = List.zipWith xs ys f ++ List.zipWith xs2 ys2 f
+  | [], [], same => rfl
+  | [x, ..xs], [y, ..ys], same => rewrite List.zipWithAppend f xs2 ys2 xs ys (Nat.succInjective (List.length xs) (List.length ys) same) in rfl
+  | [], [y, ..ys], same => Void.exfalso (omega)
+  | [x, ..xs], [], same => Void.exfalso (omega)
+
+--| Zipping two lists of the same length, each with one more element on the
+--| end, adds `f` of the two to the end.
+theorem List.zipWithSnoc (f: a → b → c) (x: a) (y: b) (xs: List a) (ys: List b) (same: List.length xs = List.length ys):
+    List.zipWith (xs ++ [x]) (ys ++ [y]) f = List.zipWith xs ys f ++ [f x y] :=
+  rewrite List.zipWithAppend f [x] [y] xs ys same in rfl
+
+--| Mapping the first list before zipping is zipping with `f` composed with
+--| the map.
+theorem List.zipWithMapLeft (f: b → c → d) (g: a → b): (xs: List a) → (ys: List c) →
+    List.zipWith (List.map xs g) ys f = List.zipWith xs ys (x y => f (g x) y)
+  | [], ys => rfl
+  | [x, ..xs], [] => rfl
+  | [x, ..xs], [y, ..ys] => rewrite List.zipWithMapLeft f g xs ys in rfl
+
+--| Mapping the second list before zipping is zipping with `f` composed with
+--| the map.
+theorem List.zipWithMapRight (f: a → c → d) (g: b → c): (xs: List a) → (ys: List b) →
+    List.zipWith xs (List.map ys g) f = List.zipWith xs ys (x y => f x (g y))
+  | [], ys => rfl
+  | [x, ..xs], [] => rfl
+  | [x, ..xs], [y, ..ys] => rewrite List.zipWithMapRight f g xs ys in rfl
+
+--| Mapping over zipped lists is zipping with `f` followed by the map.
+theorem List.mapZipWith (f: a → b → c) (g: c → d): (xs: List a) → (ys: List b) →
+    List.map (List.zipWith xs ys f) g = List.zipWith xs ys (x y => g (f x y))
+  | [], ys => rfl
+  | [x, ..xs], [] => rfl
+  | [x, ..xs], [y, ..ys] => rewrite List.mapZipWith f g xs ys in rfl
+
+--| Zipping with the arguments to `f` swapped is zipping the lists the other
+--| way round.
+theorem List.zipWithSwap (f: a → b → c): (xs: List a) → (ys: List b) →
+    List.zipWith ys xs (y x => f x y) = List.zipWith xs ys f
+  | [], [] => rfl
+  | [], [y, ..ys] => rfl
+  | [x, ..xs], [] => rfl
+  | [x, ..xs], [y, ..ys] => rewrite List.zipWithSwap f xs ys in rfl
+
+test "List.zipWith lemmas" :=
+  List.zipWith ([1, 2] ++ [3]) ([10, 20] ++ [30, 40]) (x y => x + y) == [11, 22, 33]
+    ∧ List.length (List.zipWith [1, 2, 3] [4, 5] (x y => x + y)) == 2
