@@ -3997,13 +3997,13 @@
     {
       "id": 1121,
       "title": "Test Explorer and code lenses (run main, run test, audit theorem), then rename",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1121",
       "labels": [
         "editor"
       ],
-      "body": "Roadmap step 7. D2245 (Matt): Test Explorer covers project tests only. Rename waits for SW-1114 (projections) to be checked on program files. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2263 (Matt, 3 Nov): not started yet; editor-roadmap implementation waits until the tidy-ups (state migration, std) settle.\n\nD2513 (Matt, 6 Nov 2026): yes, start now. Code lenses (run test, run main) on every file including single files like docs/tutorial; the Testing panel for projects (D2245). Rename stays out (waits for SW-1114). Started on Sonnet, expected: 120 min, code lenses first.",
+      "body": "Roadmap step 7. D2245 (Matt): Test Explorer covers project tests only. Rename waits for SW-1114 (projections) to be checked on program files. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2263 (Matt, 3 Nov): not started yet; editor-roadmap implementation waits until the tidy-ups (state migration, std) settle.\n\nD2513 (Matt, 6 Nov 2026): yes, start now. Code lenses (run test, run main) on every file including single files like docs/tutorial; the Testing panel for projects (D2245). Rename stays out (waits for SW-1114). Started on Sonnet, expected: 120 min, code lenses first.\n\nDone, merged (c422773ab): code lenses from the server (lens.rs), runs.js Testing panel for projects, stitchwort test --only/--json. On main: test_json 5/5, code_lenses, lens unit tests, extension runner tests 7/7, tutorial test passed. Extension reinstalled. Not yet tried in VS Code by hand. Model result: Sonnet, worked, 22 min (est. 120).",
       "created": "2026-11-03",
       "updated": "2026-11-06",
       "commits": []
@@ -11912,13 +11912,13 @@
     {
       "id": 1681,
       "title": "LSP: documentSymbol answers an empty outline when asked before the file's first check finishes (VS Code asks once on open, so Cmd-Shift-O shows 'No editor symbols'); wait for the check, or send a refresh when it's done (Matt, tutorial step 1)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1681",
       "labels": [
         "editor"
       ],
-      "body": "Found by Matt in the tutorial, 6 Nov 2026. Reproduced over stdio: documentSymbol straight after didOpen gives 0 symbols; after publishDiagnostics, 26. Repro script: scratchpad sym.py.\n\nStarted on Sonnet, expected: 40 min.",
+      "body": "Found by Matt in the tutorial, 6 Nov 2026. Reproduced over stdio: documentSymbol straight after didOpen gives 0 symbols; after publishDiagnostics, 26. Repro script: scratchpad sym.py.\n\nStarted on Sonnet, expected: 40 min.\n\nDone, merged (cca3e15f0): while a file has no checked results, documentSymbol answers from a parse of its text (outline_of_text in live.rs; no-namespace files as Main). Repro on main: 26 symbols straight after didOpen. Model result: Sonnet, worked (ran the 8-min features binary, over budget), 29 min (est. 40).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
