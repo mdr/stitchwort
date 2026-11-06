@@ -1,5 +1,5 @@
 {
-  "next": 1602,
+  "next": 1604,
   "tickets": [
     {
       "id": 47,
@@ -77,7 +77,7 @@
     {
       "id": 112,
       "title": "Array type with get/set/length",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -85,9 +85,9 @@
         "aoc",
         "design"
       ],
-      "body": "A compact native `Array a` with get/set/length (like compact text), proposed as capability #4 in docs/aoc-2025.md:688 for days 4, 8 and 9. The std library has `Vec` (length-indexed, std/Vec/Vec.sw) but it is a linked list, so access is O(n). Concrete use case (D107, 20 Oct 2026): AoC day 4 part 2 would use a worklist (remove a roll, recheck its 8 neighbours) with O(1) grid access; today `sweep` (aoc/src/Aoc/Day04/Day04.sw:112) walks the whole grid about 60 times (5 s). Large item: design note first (Opus), then a design review before building.\n\nFirst step: measure whether it is really needed now that days 4 to 7 exist (aoc-2025.md says to measure after days 4-5) and whether `Vec`-based approaches suffice; then the design note (kernel representation, how it hashes, proofs about it, JS extraction as a JS array, and what `set` costs in a pure language: copy vs persistent structure).\n\nDone when: the measurement and note exist and a build/don't-build decision is recorded; building is a separate ticket.\n\nHistory: D107; aoc-2025.md capability #4.\n\n22 Oct 2026 (day 4 research, D427): day 4 doesn't need a native array — the committed Vec program runs in 0.61 s, a Set worklist in 1.65 s. If an array is built, it should carry its length in the type (bjornestol's Lean day 4 spends ~60 lines of Array.set lemmas keeping rows rectangular). docs/comparisons/aoc-day04-community.md.\n\n24 Oct 2026 (board review): wording update. `sweep` (Day04.sw:112) no longer exists: Day 4 now settles with settleRows over Vec (aoc/src/Aoc/Day04/Day04.sw:99, decreasing, SW-276). Days 4 to 9 all exist, so the \"measure first\" step can be answered from them.\n\nBacklog review, 4 Nov 2026: the motivating paragraph above is out of date. `sweep` and Aoc/Day04/Day04.sw:112 no longer exist (Day 4 is now under aoc/src/Aoc/Year2024/Day04/; `settle` became `decreasing`, 904029fba, SW-276); the 5 s figure is from before. First step now: re-measure Day 4 part 2 (2024) and 2025 days 4/8/9. SW-808 now lists 'array with constant-time indexing' as a DUPLICATE of this ticket, so this is the survivor. Related motivation: SW-813, SW-814 (interpreter and Map speed).",
+      "body": "A compact native `Array a` with get/set/length (like compact text), proposed as capability #4 in docs/aoc-2025.md:688 for days 4, 8 and 9. The std library has `Vec` (length-indexed, std/Vec/Vec.sw) but it is a linked list, so access is O(n). Concrete use case (D107, 20 Oct 2026): AoC day 4 part 2 would use a worklist (remove a roll, recheck its 8 neighbours) with O(1) grid access; today `sweep` (aoc/src/Aoc/Day04/Day04.sw:112) walks the whole grid about 60 times (5 s). Large item: design note first (Opus), then a design review before building.\n\nFirst step: measure whether it is really needed now that days 4 to 7 exist (aoc-2025.md says to measure after days 4-5) and whether `Vec`-based approaches suffice; then the design note (kernel representation, how it hashes, proofs about it, JS extraction as a JS array, and what `set` costs in a pure language: copy vs persistent structure).\n\nDone when: the measurement and note exist and a build/don't-build decision is recorded; building is a separate ticket.\n\nHistory: D107; aoc-2025.md capability #4.\n\n22 Oct 2026 (day 4 research, D427): day 4 doesn't need a native array — the committed Vec program runs in 0.61 s, a Set worklist in 1.65 s. If an array is built, it should carry its length in the type (bjornestol's Lean day 4 spends ~60 lines of Array.set lemmas keeping rows rectangular). docs/comparisons/aoc-day04-community.md.\n\n24 Oct 2026 (board review): wording update. `sweep` (Day04.sw:112) no longer exists: Day 4 now settles with settleRows over Vec (aoc/src/Aoc/Day04/Day04.sw:99, decreasing, SW-276). Days 4 to 9 all exist, so the \"measure first\" step can be answered from them.\n\nBacklog review, 4 Nov 2026: the motivating paragraph above is out of date. `sweep` and Aoc/Day04/Day04.sw:112 no longer exist (Day 4 is now under aoc/src/Aoc/Year2024/Day04/; `settle` became `decreasing`, 904029fba, SW-276); the 5 s figure is from before. First step now: re-measure Day 4 part 2 (2024) and 2025 days 4/8/9. SW-808 now lists 'array with constant-time indexing' as a DUPLICATE of this ticket, so this is the survivor. Related motivation: SW-813, SW-814 (interpreter and Map speed).\n\nSame request as SW-1473 (array design note, docs/proposals/arrays.md, 6 Nov 2026); closed into it.",
       "created": "2026-10-19",
-      "updated": "2026-11-04",
+      "updated": "2026-11-06",
       "commits": []
     },
     {
@@ -9000,13 +9000,13 @@
     {
       "id": 1473,
       "title": "Std: a persistent array with get/set lemmas for grid simulations: 2020 day 11's main takes 19 s, mostly Map walks per neighbour (4 s under --js)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1473",
       "labels": [
         "std"
       ],
-      "body": "From 2020 day 11 (SW-1470), 5 Nov 2026.\n\nDay 15 (SW-1519, 6 Nov): 30M Map turns take 357 s interpreted, 127 s --js, 84 s native vs Python's 7 s; nearly all the time is Map (depth ~22, Ord comparison, node allocation, balancing). An array (or a Nat-keyed map) is the fix.\n\nD2450 (Matt, 6 Nov 2026): yes, 'do a full design note with Opus, thoroughly search both the literature for this and how other functional languages, Lean, Haskell, Rocq, Idris, Agda etc.' Started on Opus (design note, docs/proposals/), expected: 120 min.\n\nSW-112 (older array ticket) is the same request (SW-1598); see it for history.",
+      "body": "From 2020 day 11 (SW-1470), 5 Nov 2026.\n\nDay 15 (SW-1519, 6 Nov): 30M Map turns take 357 s interpreted, 127 s --js, 84 s native vs Python's 7 s; nearly all the time is Map (depth ~22, Ord comparison, node allocation, balancing). An array (or a Nat-keyed map) is the fix.\n\nD2450 (Matt, 6 Nov 2026): yes, 'do a full design note with Opus, thoroughly search both the literature for this and how other functional languages, Lean, Haskell, Rocq, Idris, Agda etc.' Started on Opus (design note, docs/proposals/), expected: 120 min.\n\nSW-112 (older array ticket) is the same request (SW-1598); see it for history.\n\nDesign note done (c38c0e683), merged: docs/proposals/arrays.md, 67 sources. Recommendation: Array a = { toList: List a } for proofs (Lean's design, no kernel change, no axiom); one buffer at runtime via hash-bound natives, set in place when unshared (needs natives taking owned arguments); version arrays (Baker) in JS; all-or-nothing loud binding (SW-1582); a copy counter. Estimates for day 15 part 2: machine 8-20 s (now 357), native 2-5 s (84), --js 10-25 s (127), inferred. Independent of in-place-reuse D2273-D2277. Questions Q1-Q10 = D2459-D2468, waiting for Matt. Model result: Opus, worked, 15 min (est. 120).",
       "created": "2026-11-05",
       "updated": "2026-11-06",
       "commits": []
@@ -10799,6 +10799,34 @@
         "regression"
       ],
       "body": "Daily tier 6 Nov 2026 morning; details in the triage report (scratchpad/daily/). Bench: check-number-* improved 10-38%; extract-js input set changed (55 vs 53 files).\n\nStarted on Sonnet (D2452: fix and rerun only the failing tests), expected: 45 min.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1602,
+      "title": "2020 day 15: Starting.next recomputes starting.numbers.length every turn (~0.5 µs/turn); hoist it, before arrays make it dominate (SW-1473)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "From SW-1473, 6 Nov 2026. Small.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1603,
+      "title": "Design question: a Nat-keyed map (Haskell's IntMap) for sparse keys, separate from arrays (SW-1473)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "body": "From SW-1473, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
