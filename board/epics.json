@@ -457,7 +457,9 @@
         "No counterexample search after a resource failure; untimed searches bounded: resources test 319 s → 9 s (SW-1730)",
         "lsp::features replays std from the test cache: 16 tests in 27 s, 9.2 → 4.2 GB (SW-1686)",
         "LSP AoC tests: shutdown cancels the check; 465 s → 194 s (SW-1731)",
-        "Daily tier in one run again, 27.9 min, no memory kills; test time 11,295 → 11,111 s (D2546)"
+        "Daily tier in one run again, 27.9 min, no memory kills; test time 11,295 → 11,111 s (D2546)",
+        "task test:affected picks tests from a diff, within a budget (SW-1752)",
+        "Web AoC test 417 → 169 s, AoC answers 444 → 174 s (SW-1732, SW-1733)"
       ],
       "now": [
         "Merge tier profile (SW-1751)",

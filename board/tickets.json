@@ -1,5 +1,5 @@
 {
-  "next": 1760,
+  "next": 1761,
   "tickets": [
     {
       "id": 47,
@@ -13505,14 +13505,14 @@
     {
       "id": 1732,
       "title": "aoc_answers: parallel day loop and a warm cache in daily (~1½ min daily tail)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1732",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From the SW-1716 profile, fix 8. See docs/reviews/SW-1716-dev-loop-profile.md §6.",
+      "body": "From the SW-1716 profile, fix 8. See docs/reviews/SW-1716-dev-loop-profile.md §6.\n\nDone, merged (c60882547). Web test: sessions replay the library like the page (days phase ~125 → ~20 s); aoc_answers: day loop on the bounded pool and in the corpus-sweeps group. On main: aoc_answers 174 s (444 s in the daily run), web test 169 s (417 s). Floor now the whole-project check (~2 min). Model result: Sonnet, worked (aoc_answers gain not shown under load), 40 min (est. 75).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -13520,14 +13520,14 @@
     {
       "id": 1733,
       "title": "Web AoC test (every_aoc_day_checks…): check once, not per step (1-1½ min daily tail)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1732",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From the SW-1716 profile, fix 9. See docs/reviews/SW-1716-dev-loop-profile.md §6.",
+      "body": "From the SW-1716 profile, fix 9. See docs/reviews/SW-1716-dev-loop-profile.md §6.\n\nDone, merged (c60882547). Web test: sessions replay the library like the page (days phase ~125 → ~20 s); aoc_answers: day loop on the bounded pool and in the corpus-sweeps group. On main: aoc_answers 174 s (444 s in the daily run), web test 169 s (417 s). Floor now the whole-project check (~2 min). Model result: Sonnet, worked (aoc_answers gain not shown under load), 40 min (est. 75).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -13805,14 +13805,14 @@
     {
       "id": 1752,
       "title": "[Sonnet] Affected-test selection: a task that picks the nextest filter for a diff from the files it touches (crate graph, which binaries read which std/examples/aoc files), for lanes and the orchestrator's verifiers",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1752",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "Overnight 6-7 Nov 2026 (Matt: focus on test suites, merge gates, compile times). Today verifier filters are picked by hand.",
+      "body": "Overnight 6-7 Nov 2026 (Matt: focus on test suites, merge gates, compile times). Today verifier filters are picked by hand.\n\nDone, merged (df66bf527, 9380ffeb8): dev/test-affected + dev/test-affected.toml, task test:affected (--dry-run, --explain, --range, --budget), cuts by rule rank to fit the budget, refuses empty filters (nextest --no-tests=fail). Dry runs over 10 merges sensible; real runs 21 s and 41 s. 17 Python tests pass on main. Proposed CLAUDE.md wording for Matt in the morning. Follow-ups: inventory drift, std-file→AoC mapping, selector log dirties lanes. Model result: Sonnet, worked, 30 min (est. 90).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -13918,6 +13918,21 @@
       ],
       "epic": "goal-as-written",
       "body": "From the stage 1 review, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1760,
+      "title": "test:affected follow-ups: refresh the test inventory after merges that add tests; map std files to the examples/AoC days that use them; dev/selector-log.tsv is tracked, so lanes that run test:selected dirty it (git-ignore or log in main only)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1752, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
