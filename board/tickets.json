@@ -1,5 +1,5 @@
 {
-  "next": 1597,
+  "next": 1598,
   "tickets": [
     {
       "id": 47,
@@ -8768,9 +8768,9 @@
       "labels": [
         "lsp"
       ],
-      "body": "From SW-1403, 5 Nov 2026.\n\nExplained (66c811e79), merged: both limit bytes of stack, but wasm frames hold only address-taken locals, so the same bytes buy more depth; release native needs ~1.5x the wasm guard to check std (512 KiB leaves Float/Theory out; 640 KiB+ none), debug far more. Written up in playground-editor.md and on WASM_GUARD. Options: A calibrate a native mimic at 1.5x; B also limit by frame count (same in every build; changes Depth for all hosts); C leave it (wasm is the reference). Orchestrator chose C for now; B goes to Matt as a D question in the morning. Also seen: driver --test nesting's long_list_literals tests fail in debug builds only (pre-existing, same cause).",
+      "body": "From SW-1403, 5 Nov 2026.\n\nExplained (66c811e79), merged: both limit bytes of stack, but wasm frames hold only address-taken locals, so the same bytes buy more depth; release native needs ~1.5x the wasm guard to check std (512 KiB leaves Float/Theory out; 640 KiB+ none), debug far more. Written up in playground-editor.md and on WASM_GUARD. Options: A calibrate a native mimic at 1.5x; B also limit by frame count (same in every build; changes Depth for all hosts); C leave it (wasm is the reference). Orchestrator chose C for now; B goes to Matt as a D question in the morning. Also seen: driver --test nesting's long_list_literals tests fail in debug builds only (pre-existing, same cause).\n\nD2449 answered (Matt, 6 Nov 2026): keep C; B parked as SW-1597 ('doesn't sound super pressing').",
       "created": "2026-11-05",
-      "updated": "2026-11-05",
+      "updated": "2026-11-06",
       "commits": []
     },
     {
@@ -10729,6 +10729,20 @@
         "kernel"
       ],
       "body": "D2448 (Matt, 6 Nov 2026): C for now, record the research so it can be picked up if a similar issue comes up. Everything is in docs/proposals/glued-closed-types.md §6 (why parked, the patch dev/patches/sw-1534-glued-closed-types.patch, the evidence still to collect, unverified prior-art beliefs, the scoped-cache idea). Trigger: a real proof whose closed statement names a big computation, or the next kernel folding work.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1597,
+      "title": "Revisit: also limit the checker's stack by frame count, so native, debug and wasm builds agree on 'too deep' (SW-1456 option B; D2449, parked)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "kernel"
+      ],
+      "body": "D2449 (Matt, 6 Nov 2026): keep C (wasm is the reference; a native mimic uses ~1.5x the guard; written up in docs/proposals/playground-editor.md and on WASM_GUARD); B on the backlog. Trigger: a real 'works in the browser, fails on the command line' report. Also seen: driver nesting's long_list_literals fail in debug builds only (same cause).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
