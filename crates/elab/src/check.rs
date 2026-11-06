@@ -6410,6 +6410,17 @@ fn infer_tuple(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<(Term, Value)> {
 }
 
 pub fn check_type(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Sort)> {
+    check_type_defaulting(cx, expr, Sort::Type(0))
+}
+
+/// [`check_type`], where an expression whose type of types isn't known yet
+/// (a method call on a lambda parameter whose type comes later) is taken
+/// to be in `default`: `Prop` for an operand of `∧`, `∨` and `¬`.
+pub(crate) fn check_type_defaulting(
+    cx: &mut Ctx,
+    expr: &Expr,
+    default: Sort,
+) -> Result<(Term, Sort)> {
     let span = expr.span();
     if let Expr::Unit(_) = expr {
         return Ok((
@@ -6455,8 +6466,8 @@ pub fn check_type(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Sort)> {
         Value::Sort(s) => Ok((term, s)),
         ty @ Value::Neutral(Head::Meta(_), _) => {
             // An unknown type of types defaults to `Type`.
-            if cx.unify(&ty, &Value::Sort(Sort::Type(0)))? {
-                Ok((term, Sort::Type(0)))
+            if cx.unify(&ty, &Value::Sort(default))? {
+                Ok((term, default))
             } else {
                 Err(not_a_type(cx, span, &ty))
             }

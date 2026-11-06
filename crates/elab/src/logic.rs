@@ -627,7 +627,7 @@ pub(crate) fn as_prop(cx: &mut Ctx, logic: Logic) -> Result<Term> {
             "`{what}` here is on propositions; for a `Bool` `b`, the proposition that it's \
              true is `b = True`"
         );
-        match check_type(cx, e) {
+        match crate::check::check_type_defaulting(cx, e, Sort::Prop) {
             Ok((term, Sort::Prop)) => Ok(term),
             Ok(_) => Err(
                 Diagnostic::error("E-TYPE-MISMATCH", "expected a proposition")

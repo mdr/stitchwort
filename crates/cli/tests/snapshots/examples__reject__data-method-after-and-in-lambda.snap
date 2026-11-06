@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/data-method-after-and-in-lambda.sw:10:44 ]
+    │
+ 10 │   List.All (slot => slot.candidates = [] ∧ slot.size) slots
+    │                                            ────┬────  
+    │                                                ╰────── expected `Prop`, but this has type `Nat`
+────╯
