@@ -1,5 +1,5 @@
 {
-  "next": 1516,
+  "next": 1518,
   "tickets": [
     {
       "id": 47,
@@ -9420,13 +9420,13 @@
     {
       "id": 1503,
       "title": "Completion after a dot answered on the checker's live session (rewind to the edited namespace, check the dummy, rewind): one namespace check instead of a full file check (4.5-6.7 s today); context-at-a-position gains too",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1503",
       "labels": [
         "editor"
       ],
-      "body": "From SW-1120, 6 Nov 2026.\n\nStarted overnight on Opus (editor speed is the night's first priority; live-session rewinding is tricky), expected: 90 min.",
+      "body": "From SW-1120, 6 Nov 2026.\n\nStarted overnight on Opus (editor speed is the night's first priority; live-session rewinding is tricky), expected: 90 min.\n\nDone (38a9ad305), merged: Session::load_for_probe loads only what the file's namespace uses (as the live checker does) instead of load_for_goal's 255 namespaces; probe_project uses it (dot completion, contextAt, case split). Day 11: dot 3.5-4.3 → 0.6 s, contextAt 3.6 → 0.7 s. Live session untouched. Remaining 0.6 s is library load + project read per request: D2446 (a kept-alive session per search thread). D2445 moot. Model result: Opus, worked, 26 min (est. 90).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -9595,6 +9595,34 @@
         "elab"
       ],
       "body": "From SW-1507, 6 Nov 2026: andLeLeft needed a helper proved by Nat.mulComm. Small improvement.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1516,
+      "title": "Code actions on a goal in a project file (search_at.rs) load all 255 namespaces (~3.3 s on day 11); narrow like SW-1503's load_for_probe if the search never suggests lemmas from namespaces the file doesn't import (check first)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor"
+      ],
+      "body": "From SW-1503, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1517,
+      "title": "Completion: Proj. lists nothing for a project's root prefix (Std. works)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor"
+      ],
+      "body": "From SW-1503, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
