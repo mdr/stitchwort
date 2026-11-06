@@ -27,7 +27,7 @@ theorem stepsRefl: (slots: List Slot) → List.All2 Step slots slots
 
 theorem keepsStep (next: List Slot) (slots: List Slot) (candidates: List (List Rule)) (steps: List.All2 Step next slots) (keeps: Keeps slots candidates):
     Keeps next candidates :=
-  all2Compose (after before fields step kept => Both (Eq.trans (And.left step) (And.left kept)) (And.right step (And.right kept))) next slots candidates steps keeps
+  List.all2Compose (after before fields step kept => Both (Eq.trans (And.left step) (And.left kept)) (And.right step (And.right kept))) next slots candidates steps keeps
 
 theorem settledCons (slot: Slot) (slots: List Slot): settledFields [slot, ..slots] = settledFields [slot] ++ settledFields slots :=
   match field: slot.field with
@@ -55,12 +55,6 @@ theorem settleSteps (settled: List Rule): (slots: List Slot) → (next: List Slo
                 rewrite <- Option.someInjective same in And.left (List.memFilter slot.candidates (rule => not (settled.contains rule)) (rewrite left in Inl rfl))))
                 (stepsRefl slots)
           | [first, second, ..more] => passSteps settled slot slots next found (settleSteps settled slots)
-
-theorem notContainedCount (rule: Rule) (fields: List Rule) (absent: fields.contains rule = False): fields.count (field => field == rule) = 0 :=
-  List.countNone fields (field => field == rule) (field member =>
-    match same: field == rule with
-      | True => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym absent) ((List.memContains fields rule).backward (rewrite <- DecEq.sound same in member))))
-      | False => rfl)
 
 --| What one round adds to the settled fields: one field, not settled before.
 def Adds (settled: List Rule) (next: List Slot) (slots: List Slot): Prop :=
@@ -105,7 +99,7 @@ theorem settleOnce (slots: List Slot) (next: List Slot) (found: settle (settledF
         rewrite counts other in
           match same: rule == other with
             | True =>
-              let none := notContainedCount rule (settledFields slots) fresh
+              let none := List.countZeroOfNotContains (settledFields slots) rule fresh
               rewrite <- DecEq.sound same in omega
             | False =>
               let before := once other
@@ -133,7 +127,7 @@ theorem eliminateFinds (candidates: List (List Rule)): (rounds: Nat) → (slots:
         match allSettledFields slots settled done with
           | Both fields same =>
             rewrite <- Option.someInjective found in
-              Both (all2Compose (rule slot fields isField kept => rewrite <- And.left kept in And.right kept rule isField) settled slots candidates fields keeps)
+              Both (List.all2Compose (rule slot fields isField kept => rewrite <- And.left kept in And.right kept rule isField) settled slots candidates fields keeps)
                 (rule => rewrite same in once rule)
       | None =>
         match rounds with
