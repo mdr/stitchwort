@@ -37,6 +37,9 @@ pub struct Meta {
     /// to refuse pairing values whose types plainly differ (SW-919), so it
     /// may be missing.
     pub ty: Option<(Value, usize)>,
+    /// For a message that prints it as `?N`: which argument of which call it
+    /// stands for ("the argument `b` of `lem`").
+    pub origin: Option<Rc<str>>,
 }
 
 pub struct MetaStore {
@@ -125,8 +128,19 @@ impl MetaStore {
             span,
             ignorable: None,
             ty: None,
+            origin: None,
         });
         metas.len() - 1
+    }
+
+    /// Records what unknown `m` stands for (see [`Meta::origin`]).
+    pub fn set_meta_origin(&self, m: usize, origin: Rc<str>) {
+        self.metas.borrow_mut()[m].origin = Some(origin);
+    }
+
+    /// See [`Meta::origin`].
+    pub fn meta_origin(&self, m: usize) -> Option<Rc<str>> {
+        self.metas.borrow()[m].origin.clone()
     }
 
     /// Records metavariable `m`'s type (see [`Meta::ty`]): `ty`, the type
