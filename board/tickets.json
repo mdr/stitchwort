@@ -11114,13 +11114,13 @@
     {
       "id": 1624,
       "title": "Parser completeness sweep: 2020 days 3, 4, 5, 7, 8, 9, 10, 11: each line parses, the whole input parses, the parse is unique (as SW-1612's days 2 and 6), using SW-1620's helpers",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1624",
       "labels": [
         "aoc"
       ],
-      "body": "D2497 (Matt, 6 Nov 2026): yes, the helpers (SW-1620) then the completeness sweep over the 19 days with parser soundness (2020 days 3-20 except 6, and the two 2021 days), in two or three Sonnet lanes; remove day 18's second parser. After SW-1620.",
+      "body": "D2497 (Matt, 6 Nov 2026): yes, the helpers (SW-1620) then the completeness sweep over the 19 days with parser soundness (2020 days 3-20 except 6, and the two 2021 days), in two or three Sonnet lanes; remove day 18's second parser. After SW-1620.\n\nStarted on Sonnet, expected: 120 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11128,13 +11128,13 @@
     {
       "id": 1625,
       "title": "Parser completeness sweep: 2020 days 12, 13, 14, 15, 16, 17, 19, 20: each line parses, the whole input parses, the parse is unique (as SW-1612's days 2 and 6), using SW-1620's helpers",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1625",
       "labels": [
         "aoc"
       ],
-      "body": "D2497 (Matt, 6 Nov 2026): yes, the helpers (SW-1620) then the completeness sweep over the 19 days with parser soundness (2020 days 3-20 except 6, and the two 2021 days), in two or three Sonnet lanes; remove day 18's second parser. After SW-1620.",
+      "body": "D2497 (Matt, 6 Nov 2026): yes, the helpers (SW-1620) then the completeness sweep over the 19 days with parser soundness (2020 days 3-20 except 6, and the two 2021 days), in two or three Sonnet lanes; remove day 18's second parser. After SW-1620.\n\nStarted on Sonnet, expected: 120 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
