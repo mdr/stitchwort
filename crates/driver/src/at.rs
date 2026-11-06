@@ -687,8 +687,18 @@ impl Session {
             .rsplit(|c: char| !(c.is_alphanumeric() || c == '_' || c == '\'' || c == '.'))
             .next()
             .unwrap_or_default();
+        // A relative prefix (`Other.` in `Proj.Main`) means the namespace
+        // beside the file's own.
+        let own = text
+            .lines()
+            .find_map(|l| l.strip_prefix("namespace "))
+            .map(str::trim)
+            .unwrap_or_default();
+        let beside = own.rfind('.').map_or("", |i| &own[..=i]);
         for ns in &namespaces {
-            let Some(under) = ns.strip_prefix(&format!("{written}.")) else {
+            let Some(under) = (ns.strip_prefix(&format!("{written}.")))
+                .or_else(|| ns.strip_prefix(&format!("{beside}{written}.")))
+            else {
                 continue;
             };
             let name = under.split('.').next().unwrap_or_default();

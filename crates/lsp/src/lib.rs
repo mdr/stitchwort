@@ -106,7 +106,14 @@ pub struct Options {
     pub refresh_tokens: bool,
     /// The same for inlay hints (`workspace/inlayHint/refresh`).
     pub refresh_hints: bool,
+    /// The members found after the last `.` completed, with the text they
+    /// were found from ([`members_at`]), so that the request after the
+    /// first letter typed, which asks again, doesn't check the file again.
+    pub members: Arc<Mutex<Option<FoundMembers>>>,
 }
+
+/// The members found for a document text (see [`Options::members`]).
+pub type FoundMembers = (String, Vec<stitchwort_driver::live::ScopeName>);
 
 impl Options {
     pub fn new(stack: usize) -> Self {
@@ -122,6 +129,7 @@ impl Options {
             library: Arc::default(),
             refresh_tokens: false,
             refresh_hints: false,
+            members: Arc::default(),
         }
     }
 }
@@ -2886,33 +2894,68 @@ fn members_at(
     {
         session.use_check_cache(&dir);
     }
-    let found = match target.project {
-        Some((root, relative, mut open)) => {
-            let base = source.files(&root);
-            let text = pos::with_dummy(&target.text, dot, wanted);
-            open.insert(relative.clone(), text);
-            let files = stitchwort_driver::search_at::Overlay {
-                base: &*base,
-                texts: open,
-            };
-            let name = root
-                .file_name()
-                .map_or("project".to_string(), |n| n.to_string_lossy().into_owned());
-            let cache = source.project_cache(&root);
-            session.members_at_project(&name, &files, &relative, cache.as_deref(), dot)
-        }
+    let key = members_key(&target, dot, wanted);
+    let cached = lock(&server.members)
+        .as_ref()
+        .filter(|(k, _)| *k == key)
+        .map(|(_, found)| found.clone());
+    let found = match cached {
+        Some(found) => Some(found),
         None => {
-            let name = target
-                .path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("file.sw");
-            session.members_at_text(name, &target.text, dot, wanted)
+            let found = match target.project {
+                Some((root, relative, mut open)) => {
+                    let base = source.files(&root);
+                    let text = pos::with_dummy(&target.text, dot, wanted);
+                    open.insert(relative.clone(), text);
+                    let files = stitchwort_driver::search_at::Overlay {
+                        base: &*base,
+                        texts: open,
+                    };
+                    let name = root
+                        .file_name()
+                        .map_or("project".to_string(), |n| n.to_string_lossy().into_owned());
+                    let cache = source.project_cache(&root);
+                    session.members_at_project(&name, &files, &relative, cache.as_deref(), dot)
+                }
+                None => {
+                    let name = target
+                        .path
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("file.sw");
+                    session.members_at_text(name, &target.text, dot, wanted)
+                }
+            };
+            if let Some(found) = &found {
+                *lock(&server.members) = Some((key, found.clone()));
+            }
+            found
         }
     };
     drop(session);
-    let items = complete::member_items(&found.unwrap_or_default());
-    serde_json::to_value(items).unwrap_or_default()
+    // Most of a type's members are lemmas (a list has ~450 members): they
+    // wait for a first letter, which makes the client ask again.
+    let found = found.unwrap_or_default();
+    let bare = wanted == 0;
+    let (found, hidden): (Vec<_>, Vec<_>) = found
+        .into_iter()
+        .partition(|n| !(bare && n.kind == "theorem"));
+    serde_json::json!({
+        "isIncomplete": !hidden.is_empty(),
+        "items": complete::member_items(&found),
+    })
+}
+
+/// What [`members_at`] finds depends on the document with the typed part of
+/// the name replaced by the dummy, not on the part typed: the same before
+/// and after a letter is typed.
+fn members_key(target: &SearchTarget, dot: usize, wanted: usize) -> String {
+    let text = pos::with_dummy(&target.text, dot, wanted);
+    let others = target.project.as_ref().map(|(root, relative, open)| {
+        let others: Vec<_> = open.iter().filter(|(p, _)| *p != relative).collect();
+        (root, relative, others)
+    });
+    format!("{:?}\n{others:?}\n{text}", target.path)
 }
 
 /// What replaces the goal `?` at `range` of `text` (the file at `path`, on

@@ -27,7 +27,9 @@ struct Session {
     diagnostics: Vec<Value>,
     /// The methods of the requests the server made of the client.
     asked: Vec<String>,
-    memory: Arc<Memory>,
+    /// Runs the searches, keeping what it found for the next ones, as the
+    /// playground's second worker does.
+    searcher: Arc<stitchwort_lsp::Searcher>,
 }
 
 impl Session {
@@ -63,7 +65,7 @@ impl Session {
             next_id: 1,
             diagnostics: Vec::new(),
             asked: Vec::new(),
-            memory,
+            searcher: Arc::new(stitchwort_lsp::Searcher::new(Options::new(STACK), memory)),
         };
         s.request("initialize", json!({ "capabilities": capabilities }));
         s.notify("initialized", json!({}));
@@ -126,7 +128,7 @@ impl Session {
             assert!(m["id"] != id, "answered without a search: {m}");
             self.note(m);
         }
-        let searcher = stitchwort_lsp::Searcher::new(Options::new(STACK), self.memory.clone());
+        let searcher = self.searcher.clone();
         for job in self.server.take_searches() {
             let job: Value = serde_json::from_str(&job).unwrap();
             let result = searcher.run(&job["search"].to_string());
@@ -392,6 +394,13 @@ impl Session {
     /// The completion items at the end of the line `line`, as the editor
     /// asks while a name is typed; with `trigger`, just after it was typed.
     fn complete_at_end(&mut self, text: &str, line: usize, trigger: Option<&str>) -> Vec<Value> {
+        let found = self.complete_list(text, line, trigger);
+        let items = found.get("items").unwrap_or(&found);
+        items.as_array().cloned().unwrap_or_default()
+    }
+
+    /// [`Session::complete_at_end`], the whole answer.
+    fn complete_list(&mut self, text: &str, line: usize, trigger: Option<&str>) -> Value {
         let character = text.lines().nth(line).unwrap().chars().count();
         let context = match trigger {
             Some(c) => json!({"triggerKind": 2, "triggerCharacter": c}),
@@ -404,12 +413,10 @@ impl Session {
         let params = json!({"textDocument": {"uri": URI},
                "position": {"line": line, "character": character},
                "context": context});
-        let found = match after_dot {
+        match after_dot {
             true => self.request_searched("textDocument/completion", params),
             false => self.request("textDocument/completion", params),
-        };
-        let items = found.get("items").unwrap_or(&found);
-        items.as_array().cloned().unwrap_or_default()
+        }
     }
 }
 
@@ -513,14 +520,23 @@ fn completion_after_a_dot_offers_the_receivers_members() {
             at("map") < at("filter") && at("filter") < at("length"),
             "{ordered:?}"
         );
-        assert!(
-            at("length") < at("lengthMap") && at("length") < 60,
-            "{ordered:?}"
-        );
+        assert!(at("length") < 60, "{ordered:?}");
         assert!(ordered[..3].iter().all(|l| l.len() <= 3), "{ordered:?}");
+        // Theorems wait for a first letter; the client asks again then.
+        assert!(!shown.contains(&"lengthMap"), "{shown:?}");
+        let list = s.complete_list(&typing, 8, Some("."));
+        assert_eq!(list["isIncomplete"], true);
+        let typed = MEMBERS.replace("  xs.length + s.area\n", "  xs.len\n");
+        s.change(3, &typed);
+        let list = s.complete_list(&typed, 8, None);
+        assert_eq!(list["isIncomplete"], false);
+        let items = list["items"].as_array().unwrap();
+        let ordered = in_order(items);
+        let at = |name: &str| ordered.iter().position(|l| *l == name).unwrap();
+        assert!(at("length") < at("lengthMap"), "{ordered:?}");
         // A record: its fields first, then its namespace's functions.
         let typing = MEMBERS.replace("  xs.length + s.area\n", "  s.\n");
-        s.change(3, &typing);
+        s.change(4, &typing);
         let items = s.complete_at_end(&typing, 8, Some("."));
         assert_eq!(&in_order(&items)[..3], ["width", "height", "area"]);
     });
@@ -562,7 +578,11 @@ fn open_in_project(main: &str) -> Session {
         ),
         (
             "src/Uses.sw",
-            "namespace Proj.Uses\nimport Proj.Main (f)\n\ndef g: Nat := 2\n",
+            "namespace Proj.Uses\nimport Proj.Main (f)\n\ndef gather: Nat := 2\n",
+        ),
+        (
+            "src/Sub.sw",
+            "namespace Proj.Other.Sub\n\ndef deep: Nat := 3\n",
         ),
     ];
     memory.add(MemoryProject {
@@ -605,6 +625,30 @@ fn completion_after_a_dot_in_a_project_checks_only_what_the_namespace_needs() {
         for name in ["Base", "Other", "Main"] {
             assert_eq!(item(&items, name)["kind"], 9, "{:?}", labels(&items));
         }
+        // A prefix relative to the file's namespace (`Other.` for
+        // `Proj.Other.`) lists the namespaces under it, as the full one.
+        let typing = main.replace("b.twice", "Other.");
+        s.change(5, &typing);
+        let items = s.complete_at_end(&typing, 3, Some("."));
+        assert_eq!(item(&items, "Sub")["kind"], 9, "{:?}", labels(&items));
+        // A name of a namespace the file doesn't import comes with the
+        // import, unless that namespace uses this one (a cycle).
+        let typing = format!("{main}def h: Nat := va\n");
+        s.change(6, &typing);
+        let items = s.complete_at_end(&typing, 4, None);
+        let found = item(&items, "value");
+        assert_eq!(
+            found["labelDetails"]["description"],
+            "import Proj.Other (value)"
+        );
+        assert_eq!(
+            found["additionalTextEdits"][0]["newText"],
+            "import Proj.Other (value)\n"
+        );
+        let typing = format!("{main}def h: Nat := ga\n");
+        s.change(7, &typing);
+        let items = s.complete_at_end(&typing, 4, None);
+        assert!(!labels(&items).contains(&"gather"), "{:?}", labels(&items));
     });
 }
 
