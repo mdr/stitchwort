@@ -12178,13 +12178,13 @@
     {
       "id": 1700,
       "title": "function_equations: four tests expect List.head xs etc. but the printer now gives xs.head (SW-1674): a_destructuring_let_before_a_tail_split_gets_its_branches, a_match_below_a_lifted_alternative_refines_where_its_variable_is_bound, branch_equations, a_match_on_several_expressions_is_stated_as_on_their_tuple; and look at (x => (x.decEq 0).toBool) cell.column = True",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1700",
       "labels": [
         "tests"
       ],
-      "body": "From SW-1696, 6 Nov 2026. Expect the daily tier to show these too.\n\nD2516 (Matt, 6 Nov 2026): fix the daily tier's failures without asking first, and then rerun only the failing tests, not the whole tier.\n\nWidened to the daily tier's display group: function_equations ×4, function_induct ×2, records projections_and_equality_are_generated, postponement a_waiting_comparison_that_fails…, resources running_out_generalising_a_match_points_at_it, project rogue_goals_keep_the_dungeon_folded, examples soundness_examples_fail_for_the_expected_reason, fmt_repo tracked_sw_files_are_formatted.\n\nStarted on Sonnet, expected: 45 min (D2516: rerun only the failures).\n\nLane done (c71775d00): 10 display-only (SW-1674 dot form; soundness snapshots read, verdicts unchanged); resources test renamed for SW-1630's intended behaviour (match uses the goal as written with W-MATCH-UNCONFIRMED); fmt_repo: row1.sw formatted, two parse-rejection repros excluded. Waiting to merge until the daily remainder finishes. Model result: Sonnet, worked, 17 min (est. 45).\n\nMerged to main; verifier rerunning its failing tests.",
+      "body": "From SW-1696, 6 Nov 2026. Expect the daily tier to show these too.\n\nD2516 (Matt, 6 Nov 2026): fix the daily tier's failures without asking first, and then rerun only the failing tests, not the whole tier.\n\nWidened to the daily tier's display group: function_equations ×4, function_induct ×2, records projections_and_equality_are_generated, postponement a_waiting_comparison_that_fails…, resources running_out_generalising_a_match_points_at_it, project rogue_goals_keep_the_dungeon_folded, examples soundness_examples_fail_for_the_expected_reason, fmt_repo tracked_sw_files_are_formatted.\n\nStarted on Sonnet, expected: 45 min (D2516: rerun only the failures).\n\nLane done (c71775d00): 10 display-only (SW-1674 dot form; soundness snapshots read, verdicts unchanged); resources test renamed for SW-1630's intended behaviour (match uses the goal as written with W-MATCH-UNCONFIRMED); fmt_repo: row1.sw formatted, two parse-rejection repros excluded. Waiting to merge until the daily remainder finishes. Model result: Sonnet, worked, 17 min (est. 45).\n\nMerged to main; verifier rerunning its failing tests.\n\nVerified on main: the failing tests rerun, 33/33 passed (129 s).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -12192,13 +12192,13 @@
     {
       "id": 1701,
       "title": "Daily tier 6 Nov evening, semantic group: int ×4 (both modes agree), proof_masks ×5, extract generated_code_is_stable and run_lines_agree_with_the_reference_evaluator fail; bisect and fix",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1701",
       "labels": [
         "regression"
       ],
-      "body": "Daily tier 6 Nov 17:07 (log scratchpad/daily2). D2516: fix, rerun only the failures.\n\nStarted on Opus, expected: 60 min (D2516: rerun only the failures).\n\nLane done (0eef624d5): all ten caused by SW-1640 (total division) leaving tests behind; no mode disagreement. int: removed the dropped proof argument, now covers divisor 0; proof_masks: stand-ins safeModNat/safeMod with an unused proof; extract: integers.sw rejects → run lines, 15 stale generated-code snapshots re-taken. Waiting to merge until the daily remainder finishes. Model result: Opus, worked, 16 min (est. 60).\n\nMerged to main; verifier rerunning its failing tests.",
+      "body": "Daily tier 6 Nov 17:07 (log scratchpad/daily2). D2516: fix, rerun only the failures.\n\nStarted on Opus, expected: 60 min (D2516: rerun only the failures).\n\nLane done (0eef624d5): all ten caused by SW-1640 (total division) leaving tests behind; no mode disagreement. int: removed the dropped proof argument, now covers divisor 0; proof_masks: stand-ins safeModNat/safeMod with an unused proof; extract: integers.sw rejects → run lines, 15 stale generated-code snapshots re-taken. Waiting to merge until the daily remainder finishes. Model result: Opus, worked, 16 min (est. 60).\n\nMerged to main; verifier rerunning its failing tests.\n\nVerified on main: the failing tests rerun, 33/33 passed (129 s).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -12206,13 +12206,13 @@
     {
       "id": 1702,
       "title": "Daily tier: conv_shortcut every_rejected_example_gets_the_same_verdict_without_the_shortcut uses 10.7 GB and got the tier killed by the 16 GB memory guard (this morning it passed)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1702",
       "labels": [
         "regression"
       ],
-      "body": "Daily tier 6 Nov 17:07. memguard: 10.69 GB for that one test.\n\nStarted on Opus, expected: 60 min (D2516: rerun only the failures).\n\nMerged to main; verifier rerunning its failing tests.\n\nLane (565652fbb): culprit parser-count-differs-from-lemma-with-unknown.sw (SW-1521), newly in the sample; ShapeMemo kept every pair with shortcuts off (test/reference builds only). Now keeps nothing then; example on NEEDS_THE_SHORTCUT. 12 GB+ → 1.38 GB, 33 s. Model result: Opus, worked, 31 min (est. 60).",
+      "body": "Daily tier 6 Nov 17:07. memguard: 10.69 GB for that one test.\n\nStarted on Opus, expected: 60 min (D2516: rerun only the failures).\n\nMerged to main; verifier rerunning its failing tests.\n\nLane (565652fbb): culprit parser-count-differs-from-lemma-with-unknown.sw (SW-1521), newly in the sample; ShapeMemo kept every pair with shortcuts off (test/reference builds only). Now keeps nothing then; example on NEEDS_THE_SHORTCUT. 12 GB+ → 1.38 GB, 33 s. Model result: Opus, worked, 31 min (est. 60).\n\nVerified on main: the failing tests rerun, 33/33 passed (129 s).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
