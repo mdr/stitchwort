@@ -93,13 +93,17 @@ the fixed merge tier, the daily tier or the full tier.
    its profiles and last known time. Times come from nextest's JUnit files;
    each run folds in, the latest wins. `task test:selected` folds its own
    JUnit times as it ends, so the next run cannot overwrite them unread.
-2. It acts as the selector: it follows [test-selector.md](test-selector.md)
-   with the merge's diff, the lane's report and the inventory, and works
-   out a filterset, an `EXAMPLES` value (one substring, or a comma-separated
-   list) and an estimate, always including the fixed core (core, syntax, one
-   AoC day).
-3. It runs `SELECTOR_ESTIMATE=N [EXAMPLES=x] nix develop -c task
-   test:selected -- '<filterset>'`, which runs `task test:features` and
+2. It works out the selection. `nix develop -c task test:affected --
+   --dry-run --range OLD..NEW` (OLD the commit before the batch's first
+   merge) does it by rule (`dev/test-affected.toml`; docs/testing.md, "The
+   affected-test selection"): a filterset, `EXAMPLES`, an estimate and what
+   it cut to fit the 90 s budget, always including the fixed core (core,
+   syntax, one AoC day). The verifier takes that as the start and adds what
+   the diff needs beyond the rules, following [test-selector.md](test-selector.md)
+   with the lane's report and the inventory.
+3. It runs the selection: `nix develop -c task test:affected -- --range
+   OLD..NEW` as it stands, or `SELECTOR_ESTIMATE=N [EXAMPLES=x] nix develop
+   -c task test:selected -- '<filterset>'` for an edited one. Both run `task test:features` and
    `cargo fmt --check`, then nextest as `test:merge` does, and logs a line
    to `dev/selector-log.tsv`.
 
