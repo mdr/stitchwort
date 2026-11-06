@@ -13640,14 +13640,14 @@
     {
       "id": 1741,
       "title": "Fill the test std cache once per run: a nextest setup script for the eager-session binaries plus a shared stack-size constant (14 s per binary that checks std from source; SW-1729's plan)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1741",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From SW-1729, 6 Nov 2026. Estimate 45-60 min.\n\nNow the fix for SW-1745 (D2560). SW-1751's TestCacheTurn already fills an empty std cache once per stack size within a run; check what's left. Also: the check cache's fingerprint doesn't cover crates/dev-features (a dev-dependency that switches on core features stack-check/test-bypass); add it (SW-1753). Started on Sonnet, expected: 45 min.",
+      "body": "From SW-1729, 6 Nov 2026. Estimate 45-60 min.\n\nNow the fix for SW-1745 (D2560). SW-1751's TestCacheTurn already fills an empty std cache once per stack size within a run; check what's left. Also: the check cache's fingerprint doesn't cover crates/dev-features (a dev-dependency that switches on core features stack-check/test-bypass); add it (SW-1753). Started on Sonnet, expected: 45 min.\n\nDone, merged (5c9cd6b9c): lsp features tests take TestCacheTurn (cold CPU 371 → 181 s for the measured set); fingerprint covers crates/dev-features (with tests). On main: the lsp features and memory binaries pass cold, 21/21 in 28 s. The first affected-test run had 10 lsp tests SIGTERMed: dev/run-selected's 4 GB memguard (STITCHWORT_MEM_CAP_GB_MERGE) killed cold lsp processes, not a fault in this change. Model result: Sonnet, worked, 30 min (est. 45).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -13932,7 +13932,7 @@
         "tooling"
       ],
       "epic": "dev-loop-speed",
-      "body": "From SW-1752, 6 Nov 2026.",
+      "body": "From SW-1752, 6 Nov 2026.\n\nAlso: test:selected runs under the merge tier's 4 GB memguard, so a selection that includes several cold lsp features tests gets SIGTERMed (SW-1741's verifier, 6 Nov 23:49). The selector should know heavy tests' memory, or test:selected should get a higher cap. And dev/selector-log.tsv now merges by union (.gitattributes).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
