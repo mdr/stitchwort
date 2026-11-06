@@ -1,5 +1,5 @@
 {
-  "next": 1680,
+  "next": 1681,
   "tickets": [
     {
       "id": 47,
@@ -10246,7 +10246,7 @@
     {
       "id": 1562,
       "title": "Match-equation transport only fires when the scrutinee appears literally in a type's computed form; a lemma over a definition that hides it still mismatches (SW-1538)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -11184,13 +11184,13 @@
     {
       "id": 1629,
       "title": "Goal as written, stage 3: SW-1538's match-equation transport on the folded forms (SW-1562) (D2476)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "elab"
       ],
-      "body": "D2475-D2480 (Matt, 6 Nov 2026): all as recommended in docs/proposals/goal-as-written.md: rewrite/match/cases/transport look as written first with a completeness check and today's search as fallback; the as-written search may solve a rule's unknowns; keep today's reach into hidden copies, no occurrence selection now (D2478); out-of-resources check uses the as-written result; rewrite f later. 'happy to go with your recommendation.' Sonnet, 45 min. After stage 2.\n\nD2506 (Matt, 6 Nov 2026): SW-1627 stays on Sonnet with the Opus review, but from now on core language changes (kernel, rewrite/match tactics, unifier, syntax, std core) go to Opus: 'core/kernel language changes feel like we can afford a bit more intelligence to be safe!' So: Opus.\n\nRun soon after SW-1628 (its review's a4.sw: once match refines the eta form, a lemma stated in that form stops fitting until the transport handles folded forms).\n\nLane done (07f08630c, 1d152f9b6), in Opus review. transport_target reuses stage 2's occurrence test; kept only if equal to today's unfolded, term for term, except the eta position; as written first then today's per side. SW-1562 and a4.sw now check (rescued); hidden-copy case falls back. 96 hash snapshots moved (1,257 prelude motives keep calls). Model result: Opus, pending review, 30 min (est. 60).",
+      "body": "D2475-D2480 (Matt, 6 Nov 2026): all as recommended in docs/proposals/goal-as-written.md: rewrite/match/cases/transport look as written first with a completeness check and today's search as fallback; the as-written search may solve a rule's unknowns; keep today's reach into hidden copies, no occurrence selection now (D2478); out-of-resources check uses the as-written result; rewrite f later. 'happy to go with your recommendation.' Sonnet, 45 min. After stage 2.\n\nD2506 (Matt, 6 Nov 2026): SW-1627 stays on Sonnet with the Opus review, but from now on core language changes (kernel, rewrite/match tactics, unifier, syntax, std core) go to Opus: 'core/kernel language changes feel like we can afford a bit more intelligence to be safe!' So: Opus.\n\nRun soon after SW-1628 (its review's a4.sw: once match refines the eta form, a lemma stated in that form stops fitting until the transport handles folded forms).\n\nLane done (07f08630c, 1d152f9b6), in Opus review. transport_target reuses stage 2's occurrence test; kept only if equal to today's unfolded, term for term, except the eta position; as written first then today's per side. SW-1562 and a4.sw now check (rescued); hidden-copy case falls back. 96 hash snapshots moved (1,257 prelude motives keep calls). Model result: Opus, pending review, 30 min (est. 60).\n\nOpus review: merge (strict agreement check, result type re-unified and kernel-checked, failures fall back to unchanged code; tried dependent hypotheses, scrutinee in hypothesis and goal, let, hidden copies, both-succeed-but-differ: nothing that checks on main fails; no measurable slowdown). Merged; snapshot conflict regenerated; 21 tests on main (hashes, pins, examples, goals, std, tutorial) passed. Model result: Opus, worked, 30 min (est. 60).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11891,6 +11891,20 @@
         "runtime"
       ],
       "body": "From SW-1638, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1680,
+      "title": "Match-equation transport: when an argument's transport is kept but the call around it still mismatches, the error shows an internal J (…) term instead of a plain expected/found; drop the argument's transport or hide J in messages (SW-1629 review)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "errors"
+      ],
+      "body": "From the SW-1629 Opus review, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
