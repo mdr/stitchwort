@@ -10386,13 +10386,13 @@
     {
       "id": 1572,
       "title": "Rewrite messages: E-REWRITE-MOTIVE/E-REWRITE-NOTHING show Decidable.toBool for a Bool != read as ≠ (give them SW-1553's note); a rewrite that runs out of size doesn't record which definition's call was too large (SW-1554)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1572",
       "labels": [
         "diagnostics"
       ],
-      "body": "From SW-1553/1554, 6 Nov 2026. Small.",
+      "body": "From SW-1553/1554, 6 Nov 2026. Small.\n\nStarted overnight on Sonnet (SW-1572 with SW-1573), expected: 30 min (hard stop 07:45).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10400,13 +10400,13 @@
     {
       "id": 1573,
       "title": "E-CASES-BUDGET: when the split candidates are Int insides (Int.natAbs, max, subNatNat …), say so and suggest splitting the comparison instead (SW-1550)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1572",
       "labels": [
         "diagnostics"
       ],
-      "body": "From SW-1550, 6 Nov 2026. Also: update aoc/NOTES-2020.md day 17 item 1 to say it's fixed.",
+      "body": "From SW-1550, 6 Nov 2026. Also: update aoc/NOTES-2020.md day 17 item 1 to say it's fixed.\n\nStarted overnight on Sonnet (SW-1572 with SW-1573), expected: 30 min (hard stop 07:45).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
