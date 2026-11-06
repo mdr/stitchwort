@@ -455,7 +455,8 @@
       "done": [
         "Baseline from the 6 Nov daily tier: 3 h 8 min of test time, ten binaries over half of it",
         "Profile: rebuilds 131-136 s, mostly optimising 137 test binaries; std check 14 s (SW-1716)",
-        "Incremental release builds in the devShell: one-line elab edit 156 s → 21 s (SW-1729)"
+        "Incremental release builds in the devShell: one-line elab edit 156 s → 21 s (SW-1729)",
+        "No counterexample search after a resource failure; untimed searches bounded: resources test 319 s → 9 s (SW-1730)"
       ],
       "now": [
         "LSP AoC tests check AoC once (SW-1731)",

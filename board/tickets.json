@@ -13475,14 +13475,14 @@
     {
       "id": 1730,
       "title": "[Sonnet] Untimed counterexample searches dominate the slowest tests: resources 3.8 s (5 Nov) → 173 s, rewind's examples tail; bisect (suspect SW-1304), skip the search after a resource failure, bound untimed searches by work",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1730",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From the SW-1716 profile, fix 2. See docs/reviews/SW-1716-dev-loop-profile.md §6.",
+      "body": "From the SW-1716 profile, fix 2. See docs/reviews/SW-1716-dev-loop-profile.md §6.\n\nDone, merged (6f60b2074). Cause: not SW-1304; the range lemmas of 3-4 Nov (SW-1357/1358 range, e.g. List.rangeSnoc) made the resources test's 281 searches on theorems failing by a dependency's E-RESOURCE cost 5-11 s each; rewind's tail was 50 out-of-steps inputs per search. Fix: no search after a resource failure (also through failed dependencies); untimed searches stop after 5 out-of-steps inputs. resources 319 s → 9 s; rewind examples 193 → ~115 s. On main: 14/14 (76 s). Model result: Sonnet, worked, 51 min (est. 75).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
