@@ -500,6 +500,19 @@ terms (different motives), so they get an Opus review (D2364).
    a `match found: xs.map (f a)` now refines a goal written `xs.map (y => f a y)`, so a lemma
    stated in that eta form and used in the arms no longer fits the refined goal, and the
    transport, still syntactic, doesn't rewrite it back (the review's `a4.sw`).
+
+   *As built (SW-1629).* In `along_match_equation_now`, each side that may hold the scrutinee
+   is tried as written before today's test: the side and the scrutinee (the equation's left
+   side) read back folded, and stage 2's occurrence test (head as written, equal by
+   computation solving nothing, the variable surviving unfolding). The result is kept only if,
+   read back unfolded, it agrees with today's generalisation of the same side (stage 2's check
+   2), so today's syntactic copies are all rewritten and the only extra ones are the scrutinee
+   written otherwise; then the same `J` is built from it (sides unified solving nothing, the
+   motive zonked and kernel-checked). Any error on the path but a real E-RESOURCE, a
+   disagreement, or a transport that doesn't fit falls back to today's test, unchanged.
+   Counted under `STITCHWORT_MATCH_METRICS` as `transport-as-written`. Accept:
+   `examples/accept/match-equation-as-written.sw` (the lemma up to eta against a goal as
+   usual, SW-1562; `a4.sw`; a copy hidden in a definition falls back).
 4. **A bounded completeness check (Q5).** When the check's unfolded read-back runs out, use the
    folded result, with a note, where today ends in E-RESOURCE (day 11's `settle … 1000`).
    After 2; 45 min.
