@@ -1,9 +1,8 @@
 --| Day 18 proved, about the input text: for every input the parser reads,
 --| each line is the expression the parser gave for it, written out with a
---| shape the part's rules allow (Parse.sw), and the program's answer is the
---| sum of those expressions' values, so it is an answer the spec allows.
---| Not proved: that the rules allow only one expression for a line, so
---| not that the answer is the only one.
+--| shape the part's rules allow (Parse.sw); a line means no other
+--| expression under those rules (Unique.sw); so the program's answer, the
+--| sum of those expressions' values, is the spec's answer and the only one.
 
 namespace Aoc.Year2020.Day18.Proofs
 import Aoc.Year2020.Day18 (..)
@@ -38,13 +37,25 @@ theorem samePrecedenceRanked: Ranked Spec.part1Strength 0 samePrecedence.levels 
 
 theorem additionFirstRanked: Ranked Spec.part2Strength 0 additionFirst.levels := Both (Both rfl Trivial) (Both (Both rfl Trivial) Trivial)
 
---| Part 1: for every input the parser reads with the same precedence for
---| `+` and `*`, its sum is an answer the spec allows.
-theorem part1Correct (input: Text) (homework: Homework) (parsed: Fail.toResult (() => parseHomework input samePrecedence) = Ok homework):
-    Spec.Part1 input homework.sum :=
-  answerCorrect input samePrecedence Spec.part1Strength samePrecedenceRanked homework parsed
+--| The spec's answer is the program's and no other, under rules the
+--| program's levels rank and list exactly.
+theorem answerExactly (input: Text) (precedence: Precedence) (strengthOf: Operator → Nat) (ranked: Ranked strengthOf 0 precedence.levels)
+    (exact: Exact strengthOf 0 precedence.levels) (homework: Homework) (parsed: Fail.toResult (() => parseHomework input precedence) = Ok homework)
+    (answer: Nat): Spec.Answer strengthOf input answer ↔ answer = homework.sum := {
+  forward = (Witness expressions (Both means summed)) =>
+    let same := linesUnique precedence.levels strengthOf exact (input.lines.map Text.toList) expressions homework.expressions means
+      (parseMeans input precedence strengthOf ranked homework parsed)
+    Eq.trans summed (rewrite same in Eq.sym (sumSpec homework)),
+  backward = same => rewrite same in answerCorrect input precedence strengthOf ranked homework parsed
+}
 
---| Part 2: the same, with `+` before `*`.
-theorem part2Correct (input: Text) (homework: Homework) (parsed: Fail.toResult (() => parseHomework input additionFirst) = Ok homework):
-    Spec.Part2 input homework.sum :=
-  answerCorrect input additionFirst Spec.part2Strength additionFirstRanked homework parsed
+--| Part 1: for every input the parser reads with `+` and `*` on one
+--| level, its sum is the spec's answer and the only one.
+theorem part1Exactly (input: Text) (homework: Homework) (parsed: Fail.toResult (() => parseHomework input samePrecedence) = Ok homework) (answer: Nat):
+    Spec.Part1 input answer ↔ answer = homework.sum :=
+  answerExactly input samePrecedence Spec.part1Strength samePrecedenceRanked samePrecedenceExact homework parsed answer
+
+--| Part 2: the same, with `+` on a level below `*`.
+theorem part2Exactly (input: Text) (homework: Homework) (parsed: Fail.toResult (() => parseHomework input additionFirst) = Ok homework) (answer: Nat):
+    Spec.Part2 input answer ↔ answer = homework.sum :=
+  answerExactly input additionFirst Spec.part2Strength additionFirstRanked additionFirstExact homework parsed answer

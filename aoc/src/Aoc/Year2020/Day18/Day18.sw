@@ -10,8 +10,8 @@
 --| level each, loosest first, and each level is a left-to-right chain of
 --| the next level's expressions. The parser builds the expression's tree,
 --| brackets included, so the proofs can say which tree a line is. The
---| proofs, that the parser's tree is one the part's rules allow for the
---| line and that the answer is the sum of their values, are in
+--| proofs, that the parser's tree is the only one the part's rules allow
+--| for the line and that the answer is the sum of their values, are in
 --| `Aoc.Year2020.Day18.Proofs` (Proofs/), and the tests in
 --| `Aoc.Year2020.Day18.Tests` (Tests/); `run` checks neither.
 

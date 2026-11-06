@@ -4685,19 +4685,34 @@ Proved (`Aoc.Year2020.Day18.Proofs`), every theorem in the direction
   ranked by `strengthOf`, whatever `precedence.expression` reads is an
   expression written out that follows the strengths: `Parse.Reads (() =>
   precedence.expression) (Spec.Means strengthOf)`.
+- `size`, the reader `stepOperator`, `readLevel`, `readOperand`,
+  `readBracketed`, `readSteps` (four functions defined together, with
+  fuel), `Exact`, `Stop`, `Complete`, and `symbolInjective`,
+  `stepFound`, `stepSound`, `stepNone`, `stopUp`, `stopStep`,
+  `stopClose`, `stopNil`, `readNumber`, `Spine`, `spine`,
+  `spineStarts`, `readStepsStep`, `readStepsStop`, `loop`,
+  `readParenthesised`, `readLevelChain`, `bindsZero`, `sizePositive`,
+  `afterStart`, `levelInner`, `levelComplete` (Unique.sw): when the
+  levels hold every operator, a strength a level (`Exact`), the reader,
+  given enough fuel, reads back every expression a line `Means`, from
+  the line followed by anything that doesn't continue it. So
+  `meansUnique`: two expressions a line means are equal; and
+  `linesUnique`, the same for a list of lines. `samePrecedenceExact` and
+  `additionFirstExact` check `Exact` for both parts. The reader is the
+  proof's own, not the program's parser (item 1); a test checks it
+  agrees with the parser on every line of the examples and the input.
 - `valueSpec`, `sumSpec`, `parseMeans`, `answerCorrect`,
-  `samePrecedenceRanked`, `additionFirstRanked`, `part1Correct`,
-  `part2Correct` (Proofs.sw): if `parseHomework input samePrecedence`
-  gives `homework`, then `Spec.Part1 input homework.sum`, and the same
-  for `additionFirst` and `Spec.Part2`: each line `Means` the expression
-  the program read for it, and the answer is the sum of their values.
+  `samePrecedenceRanked`, `additionFirstRanked`, `answerExactly`,
+  `part1Exactly`, `part2Exactly` (Proofs.sw): if `parseHomework input
+  samePrecedence` gives `homework`, then `Spec.Part1 input answer ↔
+  answer = homework.sum`, and the same for `additionFirst` and
+  `Spec.Part2`: each line `Means` the expression the program read for
+  it and no other, and the answer is the sum of their values, so the
+  program's answer is the spec's and the only one.
 
-Not proved: that a line means only one expression under a part's rules
-(that the grammar is unambiguous), so not that the program's answer is
-the only one the spec allows, as days 16 and 17 could say (item 1); that
-every well-formed input parses (as on days 2 to 17); that `main` uses
-`samePrecedence` for part 1 and `additionFirst` for part 2 (it reads
-so). There is no added hypothesis and no `opaque`.
+Not proved: that every well-formed input parses (as on days 2 to 17);
+that `main` uses `samePrecedence` for part 1 and `additionFirst` for
+part 2 (it reads so). There is no added hypothesis and no `opaque`.
 
 Breaking the program made the proofs fail: part 2's levels in the wrong
 order (`[[Plus], [Times]]`) fails `additionFirstRanked` (`rfl`); part
@@ -4706,32 +4721,57 @@ order (`[[Plus], [Times]]`) fails `additionFirstRanked` (`rfl`); part
 bracketed operand fails `readsOperand`; `groupLeft` building `Operation
 found right left` fails `foldSteps`; a chain whose operands are whole
 expressions (so `1 * 2 + 3` could group either way) fails `readsLevel`;
-`*` adding fails `valueSpec`. The audit (with the counterexample search):
-`audited 49 theorems: 0 failed, 0 with warnings, 49 passed`.
+`*` adding fails `valueSpec`. Breaking the spec: letting an operation's
+right side bind as strongly as its operator (an ambiguous grammar:
+`1 + 2 + 3` groups either way) fails `spine` in Unique.sw, as it should;
+giving `*` strength 1 in part 2 fails `additionFirstRanked` and
+`additionFirstExact`. The audit (with the counterexample search):
+`audited 113 theorems: 0 failed, 9 with warnings, 104 passed`; the
+warnings are narrow hypotheses random inputs rarely meet
+(`stepOperator … = Some …` in `stepSound`, the reader's generated
+equations, a test helper's `Err` arm), not vacuous (SW-1261, as on
+earlier days).
 
-### 1. Nothing to prove a grammar unambiguous with, or a parser complete
+### 1. Unambiguity needs a second parser, written for the proof
 
 Days 16 and 17 ended in "the program's answer is the spec's and the
 only one". Here that needs "a line means one expression under a part's
-rules", and I didn't prove it. `Parse.Reads` is soundness only, as its
-docs say (and docs/proposals/parser-combinators.md: "Completeness (that
-a parser succeeds on good input) isn't stated"), so the usual route,
-"the parser reads every written tree back as itself, and it's a
-function", has nothing to stand on. A direct proof over the characters
-needs either a left inverse with fuel, proved complete with an
-invariant for the chain's loop, or a notion of an operator at depth 0
-in a balanced string and four kinds of `a ++ b = c ++ d` splits (an
-operation's split against a bracket's, against another split, …). I
-worked out both designs on paper and started neither: each is a few
-hundred lines of list surgery, and std has no lemma splitting `a ++ b =
-c ++ d` (only `appendEqDrop` for a known prefix) and none for balanced
-brackets. A newcomer stating the honest spec gets soundness in
-an hour and then has no way forward. What would help most: completeness
-lemmas beside the `Reads` ones (`Parse.Accepts p spec follow`: for any
-`read` and `value` with `spec read value`, `p` run on `read ++ rest`,
-with `rest` such that `follow rest`, reads `read` and gives `value`), one
-per combinator as now, so unambiguity is soundness plus completeness;
-short of that, `List.appendEqAppend` and a balanced-brackets toolkit.
+rules". `Parse.Reads` is soundness only, as its docs say (and
+docs/proposals/parser-combinators.md: "Completeness (that a parser
+succeeds on good input) isn't stated"), so the usual route, "the
+parser reads every written tree back as itself, and it's a function",
+can't use the program's parser. I wrote a second one in the proofs: a
+pure reader over `List Char` (`readLevel`, `readOperand`,
+`readBracketed`, `readSteps`: four functions defined together, with
+fuel, 50 lines), the same grammar as the program's, and proved it
+complete: with enough fuel it reads back every expression a line
+means, followed by anything that doesn't continue it. Two expressions
+of one line are then the reader's one answer. The induction is on a
+size bound (parentheses go back to the loosest level, so neither the
+tree nor the levels alone get smaller), and a level's chain is a
+`Spine`, a relation recording the steps after the first operand with
+their count, so the fuel can be counted one a step. Unique.sw is 423
+lines, the reader 50 of them; after 12 minutes of design it took 9 to
+write and check: mutual recursion over fuel was accepted as written,
+every lemma but `loop` checked once its brackets balanced, and `omega`
+did all the fuel arithmetic. So this is reachable, but the duplication is
+the cost: the theorem is about a reader that isn't the program's
+parser, and a test has to check that they agree. A newcomer wouldn't
+think of the second parser. What would let the proof be about the
+program's own parser: completeness lemmas beside the `Reads` ones
+(`Parse.Accepts p spec follow`: for any `read` and `value` with `spec
+read value`, `p` run on `read ++ rest`, with `follow rest`, reads `read`
+and gives `value`), one per combinator; then unambiguity is soundness
+plus completeness plus the runner being a function.
+
+`loop`'s last step was the one hitch: `rewrite shifted, …` (with
+`shifted: fuel + Succ steps = Succ fuel + steps`) was `E-REWRITE-NOTHING`
+"found no `Succ (fuel + steps)` in the goal", because the arm's patterns
+had already computed the goal past `fuel + Succ steps` into `readSteps`'s
+inner `match`. Note 1 showed the computed goal, and Note 4 explained the
+`(match …)`; an `Eq.trans` chain of `Eq.cong`s, which never looks inside
+the goal, checked at once. As days 11, 12 and 15 found, which form a goal
+is in after a `match` can't be seen in the source.
 
 ### 2. A `{Parse}` function's `foldLeft` is an effect, so `readsDone` can't take it
 
@@ -4804,15 +4844,19 @@ top-level parser `def expression(): {Parse} …`, which is passed bare as
 
 ### 5. Smaller things
 
-- **What helped.** All the proofs took about 10 minutes, and most lemmas
-  checked as first written. `Parse.recursive` and `readsRecursive`, used
+- **What helped.** The parser's soundness took about 6 minutes and
+  uniqueness about 20, and most lemmas checked as first written. `Parse.recursive` and `readsRecursive`, used
   here by AoC for the first time (2021 day 18's snailfish parser recurses
   with its own fuel and its parse isn't proved), made the parentheses one
   hypothesis: assume the nested parser reads `Level strengthOf 0`, prove
   each level does. `readsOneOf`, `readsPickBy` (the operator table from
   the printer `Operator.spaced`), `readsMany` and the `readsThen` chain
   did the rest; `omega` closed `bindsWeaken`; `foldSteps`, the chain's
-  invariant, needed no help with `groupLeft` unfolding a step.
+  invariant, needed no help with `groupLeft` unfolding a step. For the
+  reader, `List.takeWhileAppend`, `dropWhileAppend`, `dropWhileStops`,
+  `findSome` and `findNoneNotMem` were each found by one grep, and
+  `W-LAMBDA-SHADOW` caught three lambdas whose `operator` parameter hid
+  the program's parser `operator`.
 - **No `chainLeft`.** Parsec's `chainl1` (and Scala's `chainl1`, Megaparsec's
   `makeExprParser`) is what a newcomer reaches for; std `Parse` has none,
   so `step`, `chain` and `groupLeft` are 12 lines of program and
@@ -4830,33 +4874,38 @@ top-level parser `def expression(): {Parse} …`, which is passed bare as
 
 ### Size and time
 
-107 lines of program, 88 of spec, 159 of proofs (Parse 109, Proofs 50),
-58 of tests (+1 answer test in `aoc_answers.rs`). By the clock: 04:53
-start; Python answers at 04:57; program and both answers at 05:01, tests
-passing at 05:02; parser proofs at 05:06, the top theorems at 05:08; the
-audit and a commit at 05:09; then working out the uniqueness proof's two
-designs (item 1), the break checks, the timings and these notes.
+107 lines of program, 88 of spec, 593 of proofs (Parse 109, Unique 423,
+Proofs 61), 75 of tests (+1 answer test in `aoc_answers.rs`). By the
+clock: 04:53 start; Python answers at 04:57; program and both answers at
+05:01, tests passing at 05:02; parser proofs at 05:06, the soundness
+theorems at 05:08, committed at 05:09; break checks and a first draft of
+these notes by 05:20; designing the uniqueness proof from 05:10 to 05:22;
+the reader at 05:24 (and its test), completeness at 05:28, `meansUnique`
+at 05:30, the parts' `Exact` and the answers' "only one" theorems at
+05:31; then the spec break checks, the timings and these notes.
 
 | command | time |
 | --- | --- |
-| `stitchwort check --no-cache Aoc.Year2020.Day18.Proofs` | 5.8 s user |
+| `stitchwort check --no-cache Aoc.Year2020.Day18.Proofs` | 4.6 s user |
 | `stitchwort check --no-cache Aoc.Year2020.Day18` | 1.7 s user |
-| `stitchwort test --no-cache Aoc.Year2020.Day18.Tests` (16 tests) | 6.1 s user |
-| `stitchwort audit Aoc.Year2020.Day18` (49 theorems) | 0.7 s user (warm) |
+| `stitchwort test --no-cache Aoc.Year2020.Day18.Tests` (18 tests) | 5.6 s user |
+| `stitchwort audit Aoc.Year2020.Day18` (113 theorems) | 1.5 s user (warm) |
 | `stitchwort run Aoc.Year2020.Day18.main` on the input | 0.68 s user (`--js` 0.98 s, `--native` 0.81 s) |
 | `task test:one -- year2020_day18` | 2.4 s for the test (49 s with building the test binaries) |
 
-`STITCHWORT_TIMINGS=1` puts the Proofs namespace at 105 ms of
-elaboration and 9 ms in the kernel (`readsChain` 43 ms of it, 620,000
-steps); the rest of the cold time is std's.
+`STITCHWORT_TIMINGS=1` puts the Proofs namespace at 188 ms of
+elaboration and 38 ms in the kernel (`readsChain` 41 ms and
+`readsOperand` 37 ms of the elaboration, 620,000 and 560,000 steps); the
+rest of the cold time is std's.
 
 ### Ranked
 
-1. Unambiguity can't be proved with what std has: `Parse.Reads` is
-   soundness only, with no completeness lemmas, and there's no
-   `appendEqAppend` or balanced-brackets toolkit; so the day stops at
-   "an answer the spec allows", not "the only one" (item 1). Library;
-   large (completeness lemmas per combinator), small (the list lemmas).
+1. `Parse.Reads` is soundness only, so "a line means one expression"
+   (the answer is the only one) needed a second, pure parser written for
+   the proof and 370 lines proving it complete, with a test that it
+   agrees with the program's; completeness lemmas per combinator would
+   let the proof be about the program's own parser (item 1). Library;
+   large.
 2. An effect-polymorphic `foldLeft` in a `{Parse}` function is
    elaborated as an effect, so `readsDone` can't take it, and the error
    names `Effect.foldComp` (item 2). Elaborator or message; small to
@@ -4870,4 +4919,6 @@ steps); the rest of the cold time is std's.
    Parsec users call `chainl1` (item 5). Library; small.
 6. Smaller: arms can't be written for a theorem whose result unfolds to
    a function (`Parse.Reads`); a `: T` ascription can't start a line;
-   `foldLeft`'s mismatch doesn't name `initial` (item 4). Each small.
+   `foldLeft`'s mismatch doesn't name `initial` (item 4); `rewrite` with an
+   equation the goal has computed past after a `match` (item 1). Each
+   small.
