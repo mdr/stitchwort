@@ -10756,7 +10756,7 @@
       "labels": [
         "research"
       ],
-      "body": "D2451 (Matt, 6 Nov 2026): yes, analysis-only Opus lane. Started on Opus, expected: 75 min.\n\nDone (8924ceb03), merged: docs/research/aoc-2020-friction-days-10-20.md. Top five: proofs follow the source not the computed goal (10 of 11 days); fast lookups + profiler; every well-formed input parses; grid geometry in Aoc.Common; count by a proposition, fuel loops. 7 duplicate pairs, ~11 untracked findings, Q1-Q6 (D2453-D2458). Model result: Opus, worked, 7 min (est. 75).",
+      "body": "D2451 (Matt, 6 Nov 2026): yes, analysis-only Opus lane. Started on Opus, expected: 75 min.\n\nDone (8924ceb03), merged: docs/research/aoc-2020-friction-days-10-20.md. Top five: proofs follow the source not the computed goal (10 of 11 days); fast lookups + profiler; every well-formed input parses; grid geometry in Aoc.Common; count by a proposition, fuel loops. 7 duplicate pairs, ~11 untracked findings, Q1-Q6 (D2453-D2458). Model result: Opus, worked, 7 min (est. 75).\n\nD questions from its Q1-Q6: D2453 (design note: rewrite/match look at the goal as written first, SW-706/1589/1562; run the refines-nothing warning SW-1485 now) [rec: yes]; D2454 (prove every well-formed input parses: SW-1584 + a two-day pilot, then decide; close SW-1229) [rec: yes]; D2455 (Some { … } means Some ({ … }) for a record argument, small syntax proposal) [rec: yes]; D2456 (day 12: a new Vector type with quarter turns) [rec: yes]; D2457 (record eta: Opus design note now) [rec: yes]; D2458 (schedule the profiler SW-1528 now, Sonnet, after a scope check) [rec: yes].",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
