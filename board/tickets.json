@@ -1,5 +1,5 @@
 {
-  "next": 1586,
+  "next": 1587,
   "tickets": [
     {
       "id": 47,
@@ -10526,13 +10526,13 @@
     {
       "id": 1582,
       "title": "JS extraction of examples/extract integers and safe-numbers differs from their committed snapshots with main's binary: find out why the extract test doesn't catch it, or whether it fails (found in SW-1564's review)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1582",
       "labels": [
         "tests"
       ],
-      "body": "From SW-1564's Opus review, 6 Nov 2026.\n\nSW-1564's lane: on main, extract's generated_code_is_stable, int_is_bound_to_the_prelude and a_changed_int_operation_loses_only_its_native fail, and rt::lower comparisons fails on a Std.Int.decEq diff: Int drift, already on main (from tonight's SW-1558 negSuccInjective change, probably).\n\nStarted overnight on Sonnet, expected: 30 min (hard stop 07:50).",
+      "body": "From SW-1564's Opus review, 6 Nov 2026.\n\nSW-1564's lane: on main, extract's generated_code_is_stable, int_is_bound_to_the_prelude and a_changed_int_operation_loses_only_its_native fail, and rt::lower comparisons fails on a Std.Int.decEq diff: Int drift, already on main (from tonight's SW-1558 negSuccInjective change, probably).\n\nStarted overnight on Sonnet, expected: 30 min (hard stop 07:50).\n\nDone (a21530e4d), merged: INT_NATIVES' DecEqInt hash was stale after 6c6df5055 (SW-1558; maybe also 1940e241e), so Int.decEq silently lost its native and the JS inlined the match. Repinned; no snapshot changes; the computation is unchanged. Model result: Sonnet, worked, 10 min (est. 30).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10575,6 +10575,20 @@
         "std"
       ],
       "body": "From SW-1583, 6 Nov 2026: day 18's Unique.sw grew 423 → 466 lines without them.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1586,
+      "title": "A std lemma edit that a natively bound definition depends on silently drops the native (SW-1582: Int.decEq after SW-1558); make the merge-tier selection include extract's *_bound_to_the_prelude tests when std core changes, or make a lost native a warning at build time",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "body": "From SW-1582, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
