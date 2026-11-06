@@ -4090,6 +4090,16 @@ these notes.
 `STITCHWORT_TIMINGS=1` puts the Proofs namespace at 30 ms of
 elaboration and 8 ms in the kernel; the rest of the cold time is std's.
 
+**Completeness (SW-1625).** `Proofs/Complete.sw`, 63 lines, about 2 minutes.
+The parser is `sepBy1 nat (char ',')` in a record, so `runsStarting` (14) is
+`Parse.runsSepBy1Of` under `runsMap`, with the same side conditions as day 13's
+schedule: `CannotStart Parse.isDigit` as `valueEnd` (a comma and the final
+line breaks cannot continue a number), `declinesComma` for the list end, and
+`runsNumber` (5) from `runsNat`. `noDigits` and `declinesComma` are copies of
+day 13's (a `Parse.declinesCharAtBreaks` and a `CannotStart isDigit`-to-`takeWhile`
+lemma in std would remove them; file as a finding). The spec is tight
+enough for uniqueness; `InputWritten` names the soundness conclusion.
+
 ### Ranked
 
 1. Part 2 takes six minutes on `stitchwort run` (84 s native, 127 s JS,
