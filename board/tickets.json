@@ -12080,13 +12080,13 @@
     {
       "id": 1693,
       "title": "Search no longer lists rewrite Nat.addComm a b in rfl for twice (a + b) = twice (b + a) since SW-1627 (stage 1); what_closes_a_goal_in_a_project closing 5 → 3; find why, then fix or accept the snapshot",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1693",
       "labels": [
         "search"
       ],
-      "body": "From SW-1688, 6 Nov 2026. The proof still checks on every build. Orchestrator's call: investigate before accepting.",
+      "body": "From SW-1688, 6 Nov 2026. The proof still checks on every build. Orchestrator's call: investigate before accepting.\n\nStarted on Sonnet, expected: 40 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
