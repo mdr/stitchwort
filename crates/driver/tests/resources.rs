@@ -626,27 +626,30 @@ fn a_match_reads_its_scrutinee_back_only_as_far_as_it_could_occur() {
         .expect("checks within the size limit");
 }
 
-/// A `match` whose goal does mention a scrutinee that large still reads the
-/// goal back: running out there points at the `match`.
+/// A `match` whose goal does mention a scrutinee that large can't read the
+/// goal back unfolded; it generalises the goal as written instead, with a
+/// warning that copies hidden inside calls weren't looked for (SW-1630).
 #[test]
-fn running_out_generalising_a_match_points_at_it() {
+fn a_match_whose_goal_is_too_large_to_read_back_uses_the_goal_as_written() {
     let mut session = Session::new();
     session.load("search.sw", SEARCH).expect("checks");
     session.elab.options.limits = Limits {
         size: 1_000,
         ..Limits::default()
     };
-    let diagnostics = session
+    session
         .load(
             "use.sw",
             "theorem same (xs: List Nat): isSome (answer xs) = isSome (answer xs) :=\n  \
              match answer xs with\n    | Some n => rfl\n    | None => rfl\n",
         )
-        .unwrap_err();
-    let resource = diagnostics
-        .iter()
-        .find(|d| d.code == "E-RESOURCE")
-        .unwrap_or_else(|| panic!("{diagnostics:?}"));
-    let labels: Vec<&str> = resource.labels.iter().map(|l| l.message.as_str()).collect();
-    assert_eq!(labels, ["while generalising this `match`"], "{resource:?}");
+        .expect("checks with the goal as written");
+    assert!(
+        session
+            .warnings
+            .iter()
+            .any(|w| w.code == "W-MATCH-UNCONFIRMED"),
+        "{:?}",
+        session.warnings
+    );
 }

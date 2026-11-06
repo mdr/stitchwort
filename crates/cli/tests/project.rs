@@ -513,7 +513,7 @@ fn rogue_goals_keep_the_dungeon_folded() {
         "{text}"
     );
     assert!(
-        text.contains("wall: isWall state.level (Position.toward state.player direction) = True"),
+        text.contains("wall: isWall state.level (state.player.toward direction) = True"),
         "{text}"
     );
     assert!(!text.contains("['#'"), "the map is unfolded:\n{text}");

@@ -197,9 +197,9 @@ fn each_kind_of_recursion_and_split() {
                 "lastOr.induct",
                 "(motive: Nat → List Nat → Nat → Prop) → (eq1: (d: Nat) → motive d [] d) → \
                  (eq2Some: (d: Nat) → (x: Nat) → (rest: List Nat) → (y: Nat) → \
-                 List.head rest = Some y → motive y rest (lastOr y rest) → \
+                 rest.head = Some y → motive y rest (lastOr y rest) → \
                  motive d [x, ..rest] (lastOr y rest)) → \
-                 (eq2None: (d: Nat) → (x: Nat) → (rest: List Nat) → List.head rest = None → \
+                 (eq2None: (d: Nat) → (x: Nat) → (rest: List Nat) → rest.head = None → \
                  motive d [x, ..rest] x) → \
                  (d: Nat) → (x: List Nat) → motive d x (lastOr d x)",
             ),
@@ -343,7 +343,7 @@ theorem unfoldNone (seed: s) (step: s → Option (Pair a s)) (measure: s → Nat
         assert!(
             deep.contains(
                 "(eq2Alt2: (x: ((Nat, Nat), Nat)) → (rest: List ((Nat, Nat), Nat)) → \
-                 (a: Nat) → (b: Nat) → (c: Nat) → List.head rest = Some ((a, b), c) → \
+                 (a: Nat) → (b: Nat) → (c: Nat) → rest.head = Some ((a, b), c) → \
                  motive rest (deep rest) → motive [x, ..rest] (a + b + c + deep rest))"
             ),
             "{deep}"
@@ -354,7 +354,7 @@ theorem unfoldNone (seed: s) (step: s → Option (Pair a s)) (measure: s → Nat
                 "(eq2Alt2: (x: ((Nat, Nat), Nat, Nat)) → \
                  (rest: List ((Nat, Nat), Nat, Nat)) → \
                  (a: Nat) → (b: Nat) → (c: Nat) → (e: Nat) → \
-                 List.head rest = Some ((a, b), c, e) → \
+                 rest.head = Some ((a, b), c, e) → \
                  motive rest (both rest) → \
                  motive [x, ..rest] (a + b + c + e + both rest))"
             ),
@@ -371,7 +371,7 @@ theorem unfoldNone (seed: s) (step: s → Option (Pair a s)) (measure: s → Nat
         assert!(
             before.contains(
                 "(n: Nat) → (a: Nat) → (b: Nat) → (w: Fin n) → \
-                 List.head rest = Some (MkS3 n (a, b) w)"
+                 rest.head = Some (MkS3 n (a, b) w)"
             ),
             "{before}"
         );
