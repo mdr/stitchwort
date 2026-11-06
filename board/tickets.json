@@ -14000,9 +14000,9 @@
     {
       "id": 1765,
       "title": "Daily tier: replay std from the test cache in the examples and hash_stability sweeps (hash_stability prelude stays the single from-source check), and a fill-the-cache-first group so waiting tests don't hold slots (SW-1761)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1765",
       "labels": [
         "perf"
       ],
