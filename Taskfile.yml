@@ -118,6 +118,20 @@ tasks:
     cmds:
       - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release $({{.SCOPE}} -- {{.CLI_ARGS}}) {{.CLI_ARGS}}'
 
+  test:affected:
+    desc: "Run the tests a diff can affect (task test:affected; -- --dry-run prints only, --explain says why)"
+    summary: |
+      Picks the nextest filter for a diff from the files it touches
+      (dev/test-affected, rules in dev/test-affected.toml), checks that it
+      selects tests, then runs it as `task test:selected` does. The input is
+      this checkout's work since its merge base with main; `-- --range
+      OLD..NEW` or `-- --paths F...` change that. `-- --dry-run` prints the
+      filter, EXAMPLES, estimated time and what was cut for the budget
+      (`--budget SECONDS`, default 90) without running; `--explain` adds why
+      each test was chosen. Needs the inventory (task test:inventory).
+    cmds:
+      - '{{.ROOT_DIR}}/dev/test-affected --run {{.CLI_ARGS}}'
+
   test:features:
     desc: Fail if the dev and test cargo invocations compile any crate with more than one feature set (3 s, builds nothing)
     summary: |
@@ -279,8 +293,8 @@ tasks:
     cmds:
       - nix build .#stitchwort-full --no-link --option cores {{.GATE_CORES | default 6}} --option max-jobs {{.GATE_JOBS | default 2}}
 
-  test:affected:
-    desc: "Whole-area test suites for the areas the change since BASE touches (dev/t affected; minutes)"
+  test:areas:
+    desc: "Whole-area test suites for the areas the change since BASE touches (dev/t affected; minutes). Was test:affected"
     cmds:
       - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- dev/t affected {{.CLI_ARGS}}'
 

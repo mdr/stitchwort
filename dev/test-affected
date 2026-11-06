@@ -1,0 +1,591 @@
+#!/usr/bin/env python3
+"""Affected-test selection (SW-1752): the nextest filter for a diff.
+
+  dev/test-affected [--range A..B | --paths P...] [--budget SECONDS]
+                    [--explain] [--dry-run | --run] [--validate]
+                    [--inventory FILE] [--rules FILE]
+
+Maps the changed files to the tests that can be affected, with the table
+dev/test-affected.toml (paths to test binaries and names) and, for a file no
+rule covers, the crate graph (`cargo metadata`). Prints a nextest filterset
+(`-E`), the EXAMPLES value for the example sweeps, an estimated time from the
+inventory's last known timings (dev/test-inventory) and, when the estimate is
+over the budget (default 90 s), what it cut, least relevant first.
+
+The default input is the work in this checkout against its merge base with
+`main` (committed or not). `--range main...HEAD` or `--range OLD..NEW` names
+a range (the orchestrator's verifier gives the batch); `--paths` gives files.
+Needs the inventory (`task test:inventory`), looked for in this checkout's
+target/ and then the main checkout's. `--run` (what `task test:affected` does)
+checks that the filter selects tests, then runs `task test:selected`;
+`--dry-run` only prints. Test with: python3 dev/test-affected_test.py
+"""
+import argparse
+import importlib.machinery
+import importlib.util
+import json
+import os
+import re
+import subprocess
+import sys
+import tomllib
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DEFAULT_BUDGET = 90.0
+# One example in a named sweep: the setup of its test plus its own run.
+EXAMPLE_FIXED, EXAMPLE_EACH = 1.0, 0.7
+
+SWEEP_BINARIES = [
+    {"package": "cli", "binary": "examples", "test": "^(accepted|rejected|soundness|goal)_(examples|projects)_"},
+    {"binary": "hash_stability", "test": "^(examples|projects)$"},
+]
+SWEEP_NARROW = {"accept": r"^accepted_", "reject": r"^rejected_", "goals": r"^goal_"}
+
+
+def load_inventory_module():
+    loader = importlib.machinery.SourceFileLoader("inv", os.path.join(ROOT, "dev", "test-inventory"))
+    mod = importlib.util.module_from_spec(importlib.util.spec_from_loader("inv", loader))
+    loader.exec_module(mod)
+    return mod
+
+
+def git(*args):
+    r = subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True)
+    if r.returncode != 0:
+        sys.exit("FAIL: git %s\n%s" % (" ".join(args), r.stderr.strip()))
+    return r.stdout
+
+
+# ------------------------------------------------------------------ changed files
+
+def changed_files(range_=None):
+    """Files changed in `range_`, or (default) in this checkout since its
+    merge base with main, uncommitted and untracked files included."""
+    if range_:
+        return sorted(set(git("diff", "--name-only", range_).split()))
+    base = git("merge-base", "main", "HEAD").strip()
+    files = set(git("diff", "--name-only", base).split())
+    files |= set(git("ls-files", "--others", "--exclude-standard").split())
+    return sorted(files)
+
+
+def glob_re(pattern):
+    out, i = "", 0
+    while i < len(pattern):
+        if pattern.startswith("**/", i):
+            out += "(?:.*/)?"
+            i += 3
+        elif pattern.startswith("**", i):
+            out += ".*"
+            i += 2
+        elif pattern[i] == "*":
+            out += "[^/]*"
+            i += 1
+        elif pattern[i] == "?":
+            out += "[^/]"
+            i += 1
+        else:
+            out += re.escape(pattern[i])
+            i += 1
+    return re.compile("^" + out + "$")
+
+
+def globs_match(patterns, path):
+    return any(glob_re(p).match(path) for p in patterns)
+
+
+# ------------------------------------------------------------------ selectors
+
+def short_binary(t):
+    return t["binary"].split("::", 1)[1] if "::" in t["binary"] else None
+
+
+def pkg_full(short):
+    return short if short.startswith("stitchwort-") else "stitchwort-" + short
+
+
+def selector_matches(sel, t):
+    if "profile" in sel:
+        return sel["profile"] in t["profiles"]
+    if "package" in sel and t["package"] != pkg_full(sel["package"]):
+        return False
+    if sel.get("lib") and short_binary(t) is not None:
+        return False
+    if "binary" in sel and short_binary(t) != sel["binary"]:
+        return False
+    if "test" in sel and not re.search(sel["test"], t["name"]):
+        return False
+    if "not_test" in sel and re.search(sel["not_test"], t["name"]):
+        return False
+    return True
+
+
+def render_test(regex, negate=False):
+    exact = re.fullmatch(r"\^(\w+)\$", regex)
+    body = "test(=%s)" % exact.group(1) if exact else "test(/%s/)" % regex
+    return ("!" + body) if negate else body
+
+
+def render_selector(sel, profile_filters):
+    if "profile" in sel:
+        return "(" + profile_filters[sel["profile"]] + ")"
+    parts = []
+    if "package" in sel:
+        parts.append("package(%s)" % pkg_full(sel["package"]))
+    if sel.get("lib"):
+        parts.append("kind(lib)")
+    if "binary" in sel:
+        parts.append("binary(%s)" % sel["binary"])
+    if "test" in sel:
+        parts.append(render_test(sel["test"]))
+    if "not_test" in sel:
+        parts.append(render_test(sel["not_test"], True))
+    if not parts:
+        sys.exit("FAIL: empty selector in the rules")
+    text = " & ".join(parts)
+    return "(" + text + ")" if len(parts) > 1 else text
+
+
+def profile_filters(nextest_toml):
+    cfg = tomllib.load(open(nextest_toml, "rb"))["profile"]
+    return {name: " ".join(p["default-filter"].split()) for name, p in cfg.items() if "default-filter" in p}
+
+
+# ------------------------------------------------------------------ rules
+
+def load_rules(path):
+    cfg = tomllib.load(open(path, "rb"))
+    return cfg
+
+
+def example_names():
+    """What EXAMPLES parts can match: file names under examples/ (not
+    projects) and project folder names, as the sweeps read them."""
+    names = []
+    root = os.path.join(ROOT, "examples")
+    for dirpath, dirs, files in os.walk(root):
+        if os.path.relpath(dirpath, root).split(os.sep)[0] == "projects":
+            continue
+        names += [f for f in files if f.endswith(".sw")]
+    proj = os.path.join(root, "projects")
+    if os.path.isdir(proj):
+        for kind in os.listdir(proj):
+            kd = os.path.join(proj, kind)
+            if os.path.isdir(kd):
+                names += [d for d in os.listdir(kd) if os.path.isdir(os.path.join(kd, d))]
+    return names
+
+
+def changed_test_names(path, range_):
+    """The test functions a diff of `path` adds or edits, read from the
+    added `fn` lines and the hunk headers' enclosing function."""
+    if range_ is None:
+        args = ["diff", "-U0", git("merge-base", "main", "HEAD").strip(), "--", path]
+    else:
+        args = ["diff", "-U0", range_, "--", path]
+    text = git(*args)
+    return sorted(set(re.findall(r"^\+\s*(?:pub )?(?:async )?fn (\w+)", text, re.M))
+                  | set(re.findall(r"^@@[^@]*@@ (?:pub )?(?:async )?fn (\w+)", text, re.M)))
+
+
+TEST_NAMES = {"range": None, "enabled": False}
+
+
+def dynamic_rules(path):
+    """Rules read off one path's own shape (see the end of the rules file)."""
+    out = []
+    if m := re.fullmatch(r"crates/(\w+)/tests/(\w+)(?:\.rs|/main\.rs)", path):
+        binary = {"package": m.group(1), "binary": m.group(2)}
+        names = changed_test_names(path, TEST_NAMES["range"]) if TEST_NAMES["enabled"] else []
+        if names:
+            out.append({"id": "test-file-changed", "rank": 1, "why": "the tests of %s that the diff touches" % path,
+                        "select": [dict(binary, test="^(%s)$" % "|".join(names))]})
+            out.append({"id": "test-file", "rank": 2, "cheap_only": 5.0, "why": "the rest of %s, its quick tests" % path,
+                        "select": [binary]})
+        else:
+            out.append({"id": "test-file", "rank": 1, "why": "the changed test file itself", "select": [binary]})
+    if m := re.fullmatch(r"crates/(\w+)/tests/common/.*", path):
+        out.append({"id": "test-common", "rank": 1, "why": "shared test code is used by the crate's tests",
+                    "select": [{"package": m.group(1)}]})
+    name = folder = None
+    if m := re.fullmatch(r"examples/projects/(\w+)/([^/]+)/.*", path):
+        name, folder = m.group(2), m.group(1)
+    elif m := re.fullmatch(r"examples/(\w+)/([^/]+)\.sw", path):
+        name, folder = m.group(2), m.group(1)
+    elif m := re.fullmatch(r"crates/cli/tests/snapshots/examples__(\w+)__(.+)\.snap", path):
+        name, folder = m.group(2), m.group(1)
+    elif m := re.fullmatch(r"crates/driver/tests/snapshots/hash_stability__(.+)\.snap", path):
+        name, folder = m.group(1), "hash"
+    if name:
+        extra = []
+        if folder == "extract":
+            extra.append({"package": "cli", "binary": "extract", "test": "^generated_code_is_stable$"})
+        if folder == "hash":
+            extra.append({"binary": "hash_stability", "test": "^(examples|projects)$"})
+        out.append({"id": "example", "rank": 1, "examples": [name], "hash_only": folder == "hash",
+                    "why": "the example %s, in the sweeps that check it" % name, "select": extra})
+    if m := re.fullmatch(r"aoc/src/Aoc/Year(\d{4})/Day(\d{2})(?:/.*|\.sw)", path):
+        out.append({"id": "aoc-day", "rank": 1,
+                    "why": "that day's answers",
+                    "select": [{"binary": "aoc_answers", "test": "^year%s_day%s$" % m.groups()}],
+                    "note": "proof lanes: also task audit:touched -- Aoc.Year%s.Day%s" % m.groups()})
+    return out
+
+
+def crate_graph():
+    """{crate short name: set of workspace crates that depend on it}."""
+    r = subprocess.run(["cargo", "metadata", "--no-deps", "--format-version", "1", "--offline"],
+                       cwd=ROOT, capture_output=True, text=True)
+    if r.returncode != 0:
+        return None
+    meta = json.loads(r.stdout)
+    names = {p["name"] for p in meta["packages"]}
+    users = {}
+    for p in meta["packages"]:
+        for d in p["dependencies"]:
+            if d["name"] in names and d.get("kind") in (None, "normal"):
+                users.setdefault(d["name"], set()).add(p["name"])
+    return users
+
+
+def transitive_users(users, crate):
+    seen, todo = set(), [crate]
+    while todo:
+        for u in users.get(todo.pop(), ()):
+            if u not in seen:
+                seen.add(u)
+                todo.append(u)
+    return seen
+
+
+def fallback_rules(path, cfg, users, notes):
+    """The crate graph for a file no rule covers: the crate's own tests, then
+    the lane areas of the crates that depend on it."""
+    m = re.match(r"crates/([\w-]+)/", path)
+    if not m:
+        return []
+    crate = m.group(1)
+    out = [{"id": "crate-%s" % crate, "rank": 2, "why": "no rule for %s: the crate's own tests" % path,
+            "select": [{"package": crate, "not_test": "^$"}], "cheap_only": True}]
+    if users is None:
+        notes.append("cargo metadata failed: the dependents of %s were not added" % crate)
+        return out
+    lanes = []
+    for u in sorted(transitive_users(users, "stitchwort-" + crate)):
+        lane = cfg["lane_of"].get(u.removeprefix("stitchwort-"))
+        if lane and lane not in lanes:
+            lanes.append(lane)
+    if lanes:
+        out.append({"id": "dependents-of-%s" % crate, "rank": 3,
+                    "why": "no rule for %s: the lane areas of the crates that depend on %s" % (path, crate),
+                    "select": [{"profile": lane} for lane in lanes]})
+    return out
+
+
+# ------------------------------------------------------------------ selection
+
+class Rule:
+    def __init__(self, spec, files):
+        self.id, self.rank = spec["id"], spec["rank"]
+        self.spec, self.files = spec, files
+        self.select = list(spec.get("select", []))
+        self.examples = list(spec.get("examples", []))
+        self.sample = bool(spec.get("sample"))
+        self.why, self.note = spec.get("why", ""), spec.get("note")
+        self.cheap_only = spec.get("cheap_only") or False
+        self.hash_only = bool(spec.get("hash_only", False))
+
+
+def assign_rules(files, cfg, users, notes):
+    """{rule id: Rule} for the changed files; files nothing covers are in
+    `uncovered`. Also returns the per-file explanation."""
+    rules = {}
+    why_file = {}
+    static = cfg["rule"]
+    for f in files:
+        if globs_match(cfg.get("ignore", []), f):
+            why_file[f] = ["ignored (documentation or board data)"]
+            continue
+        hits = [r for r in static if r.get("paths") and globs_match(r["paths"], f)]
+        dyn = dynamic_rules(f)
+        if dyn or any(not r.get("fallback") for r in hits):
+            hits = [r for r in hits if not r.get("fallback")]
+        hits = hits + dyn
+        if not hits:
+            hits = fallback_rules(f, cfg, users, notes)
+        if not hits:
+            notes.append("no rule or crate covers %s" % f)
+        why_file[f] = [h["id"] for h in hits] or ["nothing"]
+        for h in hits:
+            r = rules.setdefault(h["id"], Rule(dict(h, select=[], examples=[]), []))
+            r.files.append(f)
+            for sel in h.get("select", []):
+                if sel not in r.select:
+                    r.select.append(sel)
+            r.examples += [e for e in h.get("examples", []) if e not in r.examples]
+            if "hash_only" in h:
+                r.hash_only = r.hash_only and h["hash_only"]
+    for r in cfg["rule"]:
+        if r.get("always"):
+            rules.setdefault(r["id"], Rule(r, []))
+    # Named examples are swept by a rule of their own, less relevant than the
+    # rule's direct tests, unless the examples are what changed.
+    for key, r in list(rules.items()):
+        if r.examples:
+            rank = r.rank if r.id == "example" else max(r.rank, 2)
+            sweep = Rule({"id": r.id + "-sweeps",
+                          "rank": rank, "select": SWEEP_BINARIES[1:] if r.hash_only else SWEEP_BINARIES, "examples": r.examples,
+                          "sample": r.sample, "why": "the sweeps over " + ", ".join(r.examples)}, r.files)
+            r.examples = []
+            rules[key + "/sweeps"] = sweep
+    return rules, why_file
+
+
+def example_selectors(examples):
+    return list(SWEEP_BINARIES) if examples else []
+
+
+def rule_selectors(rule):
+    return list(rule.select)
+
+
+def tests_of(rule, inv):
+    limit = 30.0 if rule.cheap_only is True else rule.cheap_only
+    out = set()
+    for t in inv:
+        for s in rule_selectors(rule):
+            if selector_matches(s, t) and not (rule.cheap_only and (t["time"] or 0) > limit):
+                out.add(t["id"])
+    return out
+
+
+def pick_examples(rules, names, notes):
+    """The EXAMPLES value, or None when the sweeps must keep their sample."""
+    wants = []
+    for r in rules:
+        wants += r.examples
+    wants = list(dict.fromkeys(wants))
+    if not wants:
+        return None, wants
+    if any(r.sample for r in rules):
+        notes.append("EXAMPLES left unset: %s also need the sweeps' sample" % ", ".join(r.id for r in rules if r.sample))
+        return None, wants
+    real = [w for w in wants if any(w in n for n in names)]
+    for w in wants:
+        if w not in real:
+            notes.append("EXAMPLES part %r matches no example, dropped" % w)
+    return (",".join(real) or None), wants
+
+
+def estimate_of(inv_mod, inv, ids, examples):
+    """The inventory's estimate; with EXAMPLES the sweeps only run the named
+    examples, so their sampled times are cut to a few seconds."""
+    if examples:
+        n = len(examples.split(","))
+        cap = EXAMPLE_FIXED + EXAMPLE_EACH * n * 3
+        inv = [dict(t, time=min(t["time"], cap)) if t["time_known"] and t["id"] in ids and is_sweep(t) else t for t in inv]
+    return inv_mod.estimate(inv, ids)
+
+
+def is_sweep(t):
+    return any(selector_matches(s, t) for s in SWEEP_BINARIES)
+
+
+def select(files, cfg, inv_mod, inv, budget, notes, use_crate_graph=True, names=None):
+    users = crate_graph() if use_crate_graph else None
+    rules, why_file = assign_rules(files, cfg, users if use_crate_graph else {}, notes)
+    names = example_names() if names is None else names
+    ordered = sorted(rules.values(), key=lambda r: (r.rank, r.id))
+    sets = {}
+    for r in ordered:
+        sets[r.id + id(r).__str__()] = tests_of(r, inv)
+        if not sets[r.id + id(r).__str__()] and r.rank > 0 and (r.select or r.examples):
+            notes.append("rule %s selects no test in the inventory (stale inventory or a rule to fix)" % r.id)
+    kept = list(ordered)
+    cut = []
+    by_id = {t["id"]: t for t in inv}
+
+    def current(which=None):
+        which = kept if which is None else which
+        examples, _ = pick_examples(which, names, [])
+        ids = set().union(*[sets[r.id + id(r).__str__()] for r in which]) if which else set()
+        return ids, examples, estimate_of(inv_mod, inv, ids, examples)
+
+    ids, examples, est = current()
+    # Over the budget: cut whole rules, the least relevant rank first and,
+    # within a rank, the one that lowers the estimate most. The most
+    # relevant rank keeps its last rule. Then put back what still fits,
+    # most relevant first, so a cut that overshot is undone.
+    ranks_of = lambda: sorted({r.rank for r in kept if r.rank >= 1}, reverse=True)
+    while est["estimate"] > budget:
+        best = None
+        for rank in ranks_of():
+            group = [r for r in kept if r.rank == rank]
+            if rank == min(ranks_of()) and len(group) == 1:
+                continue
+            trial = [(est["estimate"] - current([x for x in kept if x is not r])[2]["estimate"], r) for r in group]
+            trial = [t for t in trial if t[0] > 0]
+            if trial:
+                best = max(trial, key=lambda t: t[0])
+                break
+        if not best:
+            # Sweeps are one at a time, so no single rule may move the
+            # estimate: cut the one with the most time of its own.
+            for rank in ranks_of():
+                group = [r for r in kept if r.rank == rank]
+                if rank == min(ranks_of()) and len(group) == 1:
+                    continue
+                spend = []
+                for r in group:
+                    others = set().union(*[sets[x.id + id(x).__str__()] for x in kept if x is not r])
+                    own = sets[r.id + id(r).__str__()] - others
+                    spend.append((sum(by_id[i]["time"] if by_id[i]["time_known"] else inv_mod.UNKNOWN_SECONDS for i in own), r))
+                spend = [t for t in spend if t[0] > 0]
+                if spend:
+                    best = max(spend, key=lambda t: t[0])
+                    break
+        if not best:
+            break
+        kept.remove(best[1])
+        cut.append(best[1])
+        ids, examples, est = current()
+    for r in sorted(cut, key=lambda r: (r.rank, r.id)):
+        if current(kept + [r])[2]["estimate"] <= budget:
+            kept.append(r)
+            cut.remove(r)
+    kept.sort(key=lambda r: ordered.index(r))
+    def own_seconds(r):
+        others = set().union(*[sets[x.id + id(x).__str__()] for x in kept])
+        return round(sum(by_id[i]["time"] if by_id[i]["time_known"] else inv_mod.UNKNOWN_SECONDS
+                         for i in sets[r.id + id(r).__str__()] - others), 1)
+    cut = [(r, own_seconds(r)) for r in cut]
+    examples, wanted = pick_examples(kept, names, notes)
+    ids, _, est = current()
+    return {"rules": kept, "cut": cut, "ids": ids, "examples": examples, "estimate": est,
+            "why_file": why_file, "sets": {r.id: sets[r.id + id(r).__str__()] for r in ordered}}
+
+
+def build_filter(kept, profiles):
+    clauses = []
+    for r in kept:
+        for s in rule_selectors(r):
+            c = render_selector(s, profiles)
+            if c not in clauses:
+                clauses.append(c)
+    return " | ".join(clauses)
+
+
+# ------------------------------------------------------------------ output
+
+def report(res, files, profiles, budget, explain, inv):
+    out = []
+    flt = build_filter(res["rules"], profiles)
+    est = res["estimate"]
+    out.append("FILTER: %s" % flt)
+    out.append("EXAMPLES: %s" % (res["examples"] or "none"))
+    out.append("ESTIMATE: %s s (%d tests, %d of unknown time); budget %g s" % (
+        est["estimate"], est["count"], est["unknown"], budget))
+    if res["cut"]:
+        out.append("WARNING: over the %g s budget; cut, least relevant first:" % budget)
+        for r, saved in res["cut"]:
+            out.append("  - %s (rank %d, about %s s of its tests are its own): %s" % (r.id, r.rank, saved, r.why))
+    elif est["estimate"] > budget:
+        out.append("WARNING: over the %g s budget with only the most relevant tests; nothing left to cut" % budget)
+    notes = [r.note for r in res["rules"] if r.note]
+    for n in dict.fromkeys(notes):
+        out.append("NOTE: " + n)
+    if explain:
+        out.append("")
+        out.append("WHY (changed file -> rules):")
+        for f in files:
+            out.append("  %s -> %s" % (f, ", ".join(res["why_file"].get(f, ["?"]))))
+        out.append("RULES (tests each selects; a test in several rules is counted once above):")
+        by_id = {t["id"]: t for t in inv}
+        for r in res["rules"]:
+            ids = res["sets"][r.id]
+            out.append("  [%d] %s: %d tests - %s" % (r.rank, r.id, len(ids), r.why))
+            per = {}
+            for i in sorted(ids):
+                per.setdefault(by_id[i]["binary"], []).append(by_id[i]["name"])
+            for b, ns in sorted(per.items()):
+                shown = ", ".join(ns) if len(ns) <= 4 else "%d tests" % len(ns)
+                out.append("        %s: %s" % (b, shown))
+    return "\n".join(out), flt
+
+
+def find_inventory(path):
+    if path:
+        return path
+    here = os.path.join(ROOT, "target", "test-inventory.json")
+    if os.path.exists(here):
+        return here
+    common = git("rev-parse", "--git-common-dir").strip()
+    main = os.path.join(os.path.dirname(os.path.abspath(os.path.join(ROOT, common))), "target", "test-inventory.json")
+    if os.path.exists(main):
+        return main
+    sys.exit("FAIL: no test inventory; run `task test:inventory` first")
+
+
+def nextest_count(flt):
+    r = subprocess.run(["cargo", "nextest", "list", "--release", "--workspace", "--ignore-default-filter",
+                        "--message-format", "json", "-E", flt], cwd=ROOT, capture_output=True, text=True)
+    if r.returncode != 0:
+        sys.exit("FAIL: nextest rejects the filter:\n" + r.stderr[-1500:])
+    suites = json.loads(r.stdout)["rust-suites"]
+    return sum(1 for s in suites.values() for c in s["testcases"].values() if c["filter-match"]["status"] == "matches")
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--range", help="a git range (OLD..NEW or A...B); default: this checkout since the merge base with main")
+    ap.add_argument("--paths", nargs="+", help="changed files, instead of a git range")
+    ap.add_argument("--budget", type=float, default=float(os.environ.get("TEST_AFFECTED_BUDGET", DEFAULT_BUDGET)))
+    ap.add_argument("--explain", action="store_true", help="show why each test was chosen")
+    ap.add_argument("--dry-run", action="store_true", help="print the selection only (the default)")
+    ap.add_argument("--run", action="store_true", help="run the selection with task test:selected")
+    ap.add_argument("--validate", action="store_true", help="ask nextest how many tests the filter selects (builds the tests)")
+    ap.add_argument("--inventory")
+    ap.add_argument("--rules", default=os.path.join(ROOT, "dev", "test-affected.toml"))
+    ap.add_argument("--no-crate-graph", action="store_true")
+    a = ap.parse_args()
+
+    files = sorted(set(a.paths)) if a.paths else changed_files(a.range)
+    TEST_NAMES.update(enabled=not a.paths, range=a.range)
+    inv_mod = load_inventory_module()
+    inv = json.load(open(find_inventory(a.inventory)))["tests"]
+    cfg = load_rules(a.rules)
+    profiles = profile_filters(os.path.join(ROOT, ".config", "nextest.toml"))
+    notes = []
+    if not files:
+        print("No changed files (on main with a clean tree? give --range OLD..NEW).")
+        return 0
+    live = [f for f in files if not globs_match(cfg.get("ignore", []), f)]
+    if not live:
+        print("NOTHING TO RUN: only documentation and board files changed (%d files)." % len(files))
+        return 0
+    res = select(files, cfg, inv_mod, inv, a.budget, notes, use_crate_graph=not a.no_crate_graph)
+    text, flt = report(res, files, profiles, a.budget, a.explain, inv)
+    print(text)
+    for n in dict.fromkeys(notes):
+        print("NOTE: " + n)
+    if not res["ids"]:
+        print("FAIL: the selection is empty", file=sys.stderr)
+        return 2
+    if (a.run and not a.dry_run) or a.validate:
+        n = nextest_count(flt)
+        print("validated: nextest selects %d tests (inventory: %d)" % (n, res["estimate"]["count"]))
+        if n == 0:
+            print("FAIL: the filter selects no tests", file=sys.stderr)
+            return 2
+    if a.run and not a.dry_run:
+        env = dict(os.environ, SELECTOR_ESTIMATE=str(res["estimate"]["estimate"]))
+        if res["examples"]:
+            env["EXAMPLES"] = res["examples"]
+        else:
+            env.pop("EXAMPLES", None)
+        return subprocess.call(["task", "test:selected", "--", flt], cwd=ROOT, env=env)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

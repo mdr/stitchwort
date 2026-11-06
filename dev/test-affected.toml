@@ -1,0 +1,391 @@
+# The rules for dev/test-affected (SW-1752): which tests a changed file can
+# affect. Read by `task test:affected`; the design is in docs/testing.md, "The
+# affected-test selection". Extend this table, not the script.
+#
+# A rule applies to a changed file when one of its `paths` globs matches (`*`
+# stays inside a folder, `**` crosses folders). A rule with `fallback = true`
+# applies to a file only when no other rule matched it, so a narrow rule
+# (`omega*.rs`) takes its file out of the broad one (`crates/elab/**`). A file
+# no rule matches falls back to the tests of its crate (and the lane areas of
+# the crates that depend on it, from `cargo metadata`), unless it is
+# documentation or board data (`ignore` below).
+#
+# `rank` says how relevant a rule's tests are. When the estimate is over the
+# budget the rules are cut from the highest rank down:
+#   1  the tests of the thing that changed
+#   2  what reads it: sweeps, other areas, formatting
+#   3  the crate-graph fallback for dependents
+# The `fixed-core` rule (rank 0) is never cut.
+#
+# `select` clauses are ANDed inside a clause and ORed between clauses:
+#   package   short crate name (`elab` for stitchwort-elab)
+#   binary    test binary (`hash_stability`); the crate's own unit tests are
+#             `lib = true`
+#   test      regex searched in the test name (`^omega`, a nextest `test(/…/)`)
+#   not_test  regex of names to leave out
+#   profile   every test of a nextest profile (`lane-std`); the profile's
+#             filterset is pasted in, and its tests are read from the inventory
+# `examples = ["name"]` adds those names to EXAMPLES and selects the example
+# sweeps (cli `examples`, driver `hash_stability`), which then cover only the
+# named examples. `sample = true` is a rule that wants the sweeps' ordinary
+# sample, so a diff that also names examples keeps EXAMPLES unset.
+
+ignore = ["docs/**", "board/**", "**/*.md", "web/**/*.html", "LICENSE", ".gitignore", ".github/**", ".claude/**", "dev/*.md"]
+
+# The crate each lane area is named for, used for the fallback's dependents.
+[lane_of]
+syntax = "lane-syntax"
+core = "lane-core"
+elab = "lane-elab"
+rt = "lane-rt"
+js = "lane-js"
+native = "lane-native"
+host = "lane-rt"
+fmt = "lane-fmt"
+lsp = "lane-lsp"
+cli = "lane-cli"
+web = "lane-web"
+bench = "lane-bench"
+standalone = "lane-cli"
+
+[[rule]]
+id = "fixed-core"
+rank = 0
+always = true
+why = "the kernel, the parser and one AoC day end to end: an unsound result or a broken pipeline shows here"
+select = [
+  { package = "core" },
+  { package = "syntax" },
+  { binary = "aoc_answers", test = "^year2024_day04$" },
+]
+
+# ---------------------------------------------------------------- library
+
+[[rule]]
+id = "std"
+rank = 1
+paths = ["crates/elab/src/std/**", "std/**"]
+sample = true
+why = "a library file changes its own tests, the prelude and example hashes, and the formatting of .sw sources"
+select = [
+  { profile = "lane-std" },
+  { binary = "hash_stability", test = "^(prelude|examples)$" },
+  { binary = "pinned_hashes" },
+  { binary = "std_library", test = "^the_standard_library_passes_its_own_tests$" },
+]
+
+[[rule]]
+id = "std-sweeps"
+rank = 2
+paths = ["crates/elab/src/std/**", "std/**"]
+sample = true
+why = "the accepted and rejected examples use the library"
+select = [
+  { package = "cli", binary = "examples", test = "^(accepted|rejected)_examples_" },
+  { package = "cli", binary = "fmt", test = "^the_repository_sources_are_formatted$" },
+]
+
+[[rule]]
+id = "std-core"
+rank = 1
+paths = ["crates/elab/src/std/core/**", "crates/elab/src/std/order.txt", "crates/elab/src/std/*.txt"]
+why = "core files are what natives and printed positions are bound to"
+select = [
+  { test = "bound_to_the_(prelude|library)" },
+  { binary = "navigation", test = "^references_of_a_project$" },
+]
+
+[[rule]]
+id = "sw-format"
+rank = 2
+paths = ["**/*.sw"]
+why = "every .sw file must be formatted"
+select = [
+  { package = "cli", binary = "fmt", test = "^the_repository_sources_are_formatted$" },
+]
+
+# ---------------------------------------------------------------- elaborator
+
+[[rule]]
+id = "elab-omega"
+rank = 1
+paths = ["crates/elab/src/omega*.rs"]
+examples = ["omega", "auto-omega"]
+why = "the omega procedure"
+select = [
+  { package = "elab", test = "omega" },
+  { package = "driver", binary = "search_at", test = "omega" },
+  { package = "driver", binary = "std_library", test = "omega" },
+  { package = "driver", binary = "number_patterns" },
+]
+
+[[rule]]
+id = "elab-matching"
+rank = 1
+paths = ["crates/elab/src/matching*", "crates/elab/src/matching/**", "crates/elab/src/patlet.rs", "crates/elab/src/missing.rs", "crates/elab/src/redundant.rs", "crates/elab/src/cases.rs"]
+examples = ["match", "pattern", "redundant"]
+why = "match elaboration and its coverage and redundancy checks"
+select = [
+  { package = "elab", lib = true },
+  { package = "driver", binary = "number_patterns" },
+  { package = "driver", binary = "int_patterns" },
+  { package = "cli", binary = "redundant_arms" },
+]
+
+[[rule]]
+id = "elab-rewrite"
+rank = 1
+paths = ["crates/elab/src/rewrite*", "crates/elab/src/rewrite/**", "crates/elab/src/calc.rs", "crates/elab/src/congruence.rs", "crates/elab/src/ring.rs"]
+examples = ["rewrite", "calc"]
+why = "rewriting and calculation proofs"
+select = [
+  { package = "elab", lib = true },
+  { package = "driver", binary = "rewrite" },
+  { package = "driver", binary = "update_lemmas" },
+]
+
+[[rule]]
+id = "elab-equations"
+rank = 1
+paths = ["crates/elab/src/equation*", "crates/elab/src/equations/**", "crates/elab/src/induct*", "crates/elab/src/decreasing.rs", "crates/elab/src/derive*.rs"]
+examples = ["equation", "induct", "derive"]
+why = "function equations, induction and derived instances"
+select = [
+  { package = "elab", lib = true },
+  { package = "driver", binary = "function_equations" },
+  { package = "driver", binary = "function_induct" },
+]
+
+[[rule]]
+id = "elab-search"
+rank = 1
+paths = ["crates/elab/src/search.rs", "crates/elab/src/nav.rs", "crates/elab/src/goals.rs"]
+why = "the search and navigation over goals"
+select = [
+  { profile = "lane-search" },
+  { package = "driver", binary = "navigation" },
+]
+
+[[rule]]
+id = "elab-general"
+rank = 1
+fallback = true
+paths = ["crates/elab/**"]
+why = "an elaborator change: its lane area and the example sweeps"
+select = [
+  { profile = "lane-elab" },
+]
+
+[[rule]]
+id = "elab-general-sweeps"
+rank = 2
+fallback = true
+paths = ["crates/elab/**"]
+sample = true
+why = "the elaborator decides every example's verdict and hashes"
+select = [
+  { package = "cli", binary = "examples", test = "^(accepted|rejected|soundness)_examples_" },
+  { binary = "hash_stability", test = "^(prelude|examples)$" },
+  { package = "driver", binary = "pinned_hashes" },
+]
+
+# ---------------------------------------------------------------- kernel and syntax
+
+[[rule]]
+id = "core-pretty"
+rank = 1
+paths = ["crates/core/src/pretty*"]
+why = "terms print in every error message"
+select = [
+  { package = "core", binary = "pretty" },
+  { package = "core", lib = true },
+  { package = "cli", binary = "examples", test = "^rejected_examples_" },
+]
+
+[[rule]]
+id = "core-general"
+rank = 1
+fallback = true
+paths = ["crates/core/**"]
+why = "the kernel: its lane area"
+select = [
+  { profile = "lane-core" },
+]
+
+[[rule]]
+id = "core-general-sweeps"
+rank = 2
+fallback = true
+paths = ["crates/core/**"]
+sample = true
+why = "every hash comes from the kernel"
+select = [
+  { binary = "hash_stability", test = "^(prelude|examples)$" },
+]
+
+[[rule]]
+id = "syntax-general"
+rank = 1
+paths = ["crates/syntax/**"]
+why = "the parser: its tests, the formatter that prints what it reads, and the language server's parsing"
+select = [
+  { profile = "lane-syntax" },
+  { profile = "lane-fmt" },
+  { profile = "lane-lsp" },
+]
+
+[[rule]]
+id = "fmt-general"
+rank = 1
+paths = ["crates/fmt/**"]
+why = "the formatter"
+select = [
+  { profile = "lane-fmt" },
+]
+
+# ---------------------------------------------------------------- runtime and tools
+
+[[rule]]
+id = "rt"
+rank = 1
+paths = ["crates/rt/**", "crates/host/**"]
+why = "the runtime"
+select = [
+  { profile = "lane-rt" },
+  { profile = "lane-effects" },
+]
+
+[[rule]]
+id = "native"
+rank = 1
+paths = ["crates/native/**"]
+why = "native code generation"
+select = [
+  { profile = "lane-native" },
+]
+
+[[rule]]
+id = "js"
+rank = 1
+paths = ["crates/js/**"]
+why = "the JavaScript backend"
+select = [
+  { profile = "lane-js" },
+]
+
+[[rule]]
+id = "lsp"
+rank = 1
+paths = ["crates/lsp/**"]
+why = "the language server"
+select = [
+  { profile = "lane-lsp" },
+  { package = "lsp" },
+]
+
+[[rule]]
+id = "cli-search"
+rank = 1
+paths = ["crates/cli/src/search*", "crates/cli/src/doc*"]
+why = "stitchwort search and doc"
+select = [
+  { profile = "lane-search" },
+]
+
+[[rule]]
+id = "cli-general"
+rank = 1
+fallback = true
+paths = ["crates/cli/**", "crates/standalone/**"]
+why = "the command line"
+select = [
+  { profile = "lane-cli" },
+]
+
+[[rule]]
+id = "web"
+rank = 1
+paths = ["crates/web/**"]
+why = "the playground"
+select = [
+  { profile = "lane-web" },
+]
+
+[[rule]]
+id = "bench"
+rank = 1
+paths = ["crates/bench/**"]
+select = [
+  { profile = "lane-bench" },
+]
+
+[[rule]]
+id = "driver-general"
+rank = 1
+fallback = true
+paths = ["crates/driver/**"]
+why = "the driver: loading and the project tests"
+select = [
+  { profile = "lane-core" },
+  { package = "driver", binary = "project" },
+  { package = "driver", binary = "namespaces" },
+  { package = "driver", binary = "multi_file" },
+]
+
+[[rule]]
+id = "driver-general-sweeps"
+rank = 2
+fallback = true
+paths = ["crates/driver/**"]
+sample = true
+why = "the driver computes every hash"
+select = [
+  { profile = "lane-hashes" },
+]
+
+[[rule]]
+id = "build-config"
+rank = 2
+paths = ["Cargo.toml", "Cargo.lock", "crates/*/Cargo.toml", "rust-toolchain*", ".cargo/**", "flake.nix", "flake.lock", "nix/**"]
+why = "build inputs change everything: the merge tier is the selection"
+select = [
+  { profile = "merge" },
+]
+
+[[rule]]
+id = "test-config"
+rank = 1
+paths = [".config/nextest.toml", "Taskfile.yml", "dev/*"]
+why = "the lane profiles and the selection tools"
+select = [
+  { package = "cli", binary = "audit" },
+]
+note = "also run: task test:lanes-nonempty (every lane profile selects tests)"
+
+# ---------------------------------------------------------------- data
+
+[[rule]]
+id = "games-rogue"
+rank = 1
+paths = ["games/**"]
+why = "the roguelike's checks and plays"
+select = [
+  { test = "roguel" },
+]
+
+[[rule]]
+id = "aoc-common"
+rank = 1
+paths = ["aoc/src/Aoc/Common/**", "aoc/stitchwort.yaml"]
+why = "shared AoC code: the lane sample of days"
+select = [
+  { profile = "lane-aoc" },
+]
+note = "proof lanes: also task audit:touched -- Aoc.Common"
+
+# Rules the script builds from the path itself (see `dynamic` in the script):
+#   crates/X/tests/NAME.rs         the binary NAME of package X
+#   examples/<folder>/NAME.sw      EXAMPLES=NAME and the sweeps
+#   examples/projects/<f>/NAME/**  EXAMPLES=NAME and the sweeps
+#   crates/cli/tests/snapshots/examples__<folder>__NAME.snap   the same
+#   aoc/src/Aoc/YearYYYY/DayDD/**  aoc_answers yearYYYY_dayDD
