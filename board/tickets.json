@@ -9602,13 +9602,13 @@
     {
       "id": 1516,
       "title": "Code actions on a goal in a project file (search_at.rs) load all 255 namespaces (~3.3 s on day 11); narrow like SW-1503's load_for_probe if the search never suggests lemmas from namespaces the file doesn't import (check first)",
-      "status": "doing",
+      "status": "next",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1516",
       "labels": [
         "editor"
       ],
-      "body": "From SW-1503, 6 Nov 2026.\n\nStarted overnight on Sonnet, expected: 45 min.",
+      "body": "From SW-1503, 6 Nov 2026.\n\nStarted overnight on Sonnet, expected: 45 min.\n\nInvestigated overnight (Sonnet, 15 min, no code change): narrowing to load_for_probe takes day 11's code action from 4.5 s to 1.9 s with the same result, but loses SW-915's intended cross-namespace suggestions (e.g. 2024 day 15 coversSelf from day 23's firstOfTwo); candidates drop (2021 day 18: 81 → 67 matched), no benchmark outcome changed. Options: (1) narrow by default + 'search wider' action; (2) narrow then wide, two stages; (3) keep. D2447 for Matt [rec: 1].",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
