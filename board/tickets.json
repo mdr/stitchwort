@@ -8972,7 +8972,7 @@
     {
       "id": 1471,
       "title": "Editor: in a file whose import failed, hover and go-to-definition are empty until the import is fixed (the dependent is skipped and its earlier answers rewound); keep its last good answers, marked stale, instead",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1471",
       "labels": [
