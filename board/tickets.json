@@ -1,5 +1,5 @@
 {
-  "next": 1492,
+  "next": 1493,
   "tickets": [
     {
       "id": 47,
@@ -9259,6 +9259,20 @@
         "playground"
       ],
       "body": "From SW-1458, 6 Nov 2026. Small improvement.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1492,
+      "title": "AoC 2020 day 13 (Shuttle Search): spec, efficient solution, proofs, tests, friction notes in aoc/NOTES-2020.md",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1492",
+      "labels": [
+        "aoc"
+      ],
+      "body": "D2443 (Matt): carry on further if there's time. Overnight, Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day13.\n\nStarted on Opus, expected: 120 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
