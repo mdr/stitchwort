@@ -13,7 +13,9 @@ Related notes: [folded-goals.md](folded-goals.md) (SW-742, 28 Oct: the same ques
 calls, D483, D484), [rewrite-hypothesis.md](rewrite-hypothesis.md) (`rewrite … at h`,
 D463–D465), [glued-closed-types.md](glued-closed-types.md) (SW-1534, parked),
 [docs/research/aoc-2020-friction-days-10-20.md](../research/aoc-2020-friction-days-10-20.md)
-§2 theme A (the evidence).
+§2 theme A (the evidence), [bounded-readback.md](bounded-readback.md) (SW-1712, D2514: the
+completeness checks and fallbacks on a capped normal form, read lazily; replaces stage 4's
+warnings if decided).
 
 Labels:
 
