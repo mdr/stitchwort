@@ -290,3 +290,22 @@ fn check_counterexamples_prints_never_held_hypotheses_without_verbose() {
         String::from_utf8_lossy(&output.stderr)
     );
 }
+
+/// SW-1525: a statement naming a computation too big to read back in normal
+/// form is out of scope for the search, not a hang.
+#[test]
+fn a_statement_naming_a_huge_computation_skips_its_search() {
+    let source = "def countdown (acc: Nat): Nat → Nat\n  | 0 => acc\n  | Succ k => countdown (acc + 1) k\n\n\
+                  def Big (n: Nat): Prop := n = n\n\n\
+                  theorem big (m: Nat): Big (countdown 0 100000000) := rfl\n";
+    let (code, out) = audit_file("huge", source, &["--verbose"]);
+    assert_eq!(code, 0, "{out}");
+    assert!(
+        out.contains("search: not applicable: reading the statement back took more than"),
+        "{out}"
+    );
+    assert!(
+        out.ends_with("0 failed, 0 with warnings, 4 passed\n"),
+        "{out}"
+    );
+}
