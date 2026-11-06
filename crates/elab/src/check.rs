@@ -1335,58 +1335,72 @@ impl<'e> Ctx<'e> {
                     continue;
                 }
                 let built = crate::undo::attempt(self, |cx| {
-                    let with = |side: &Term| abstract_needle(&g, source, level, &needle, 0, side);
-                    if !cx.unify(&cx.eval(&with(&lhs)?)?, scrutinee_side)?
-                        || !cx.unify(&cx.eval(&with(&rhs)?)?, value_side)?
-                    {
-                        return Ok(None);
-                    }
-                    // The kernel's `J motive base h`, with `h: lhs = rhs`, has
-                    // type `motive rhs h`, and `base` has type `motive lhs refl`.
-                    // Backward, the motive is `T y → T lhs`, from the identity.
-                    let at_y = abstract_needle(&g, source, level, &needle, 2, &Term::Var(1))?;
-                    let (body, base) = match forward {
-                        true => (at_y, term.clone()),
-                        false => {
-                            let at_lhs = source.shift(&g, 3, 0)?;
-                            let id = Term::Lam("x".into(), Icit::Explicit, Rc::new(Term::Var(0)));
-                            (
-                                Term::Pi(
-                                    "x".into(),
-                                    Icit::Explicit,
-                                    Rc::new(at_y),
-                                    Rc::new(at_lhs),
-                                ),
-                                id,
-                            )
+                    crate::undo::transaction(cx, |cx| {
+                        let with =
+                            |side: &Term| abstract_needle(&g, source, level, &needle, 0, side);
+                        let trail = cx.metas().meta_trail.borrow().len();
+                        if !cx.unify(&cx.eval(&with(&lhs)?)?, scrutinee_side)?
+                            || !cx.unify(&cx.eval(&with(&rhs)?)?, value_side)?
+                        {
+                            return Ok(None);
                         }
-                    };
-                    // Replacing every occurrence can leave a type that no
-                    // longer checks (a proof about the scrutinee inside it):
-                    // then this isn't a rewrite, and the mismatch stands.
-                    if !body.subterms().any(|(t, _)| matches!(t, Term::Meta(_))) {
-                        let mut kcx = crate::rewrite::kernel_context(cx)?;
-                        let y = Value::var(kcx.level());
-                        kcx.bind("y".into(), (*carrier).clone());
-                        kcx.bind(
-                            "p".into(),
-                            Value::Eq(carrier.clone(), lhs_value.clone(), Rc::new(y)),
+                        // Matching the two sides must not solve an unknown: one
+                        // in `expected` (a lemma's `_` predicate, say) would be
+                        // solved from the branch's value, not the scrutinee
+                        // (`_ x = True` against `True = True` gives `x => True`),
+                        // where the comparison before this one would have waited
+                        // for something else to fix it (SW-1600).
+                        if cx.metas().meta_trail.borrow().len() != trail {
+                            return Ok(None);
+                        }
+                        // The kernel's `J motive base h`, with `h: lhs = rhs`, has
+                        // type `motive rhs h`, and `base` has type `motive lhs refl`.
+                        // Backward, the motive is `T y → T lhs`, from the identity.
+                        let at_y = abstract_needle(&g, source, level, &needle, 2, &Term::Var(1))?;
+                        let (body, base) = match forward {
+                            true => (at_y, term.clone()),
+                            false => {
+                                let at_lhs = source.shift(&g, 3, 0)?;
+                                let id =
+                                    Term::Lam("x".into(), Icit::Explicit, Rc::new(Term::Var(0)));
+                                (
+                                    Term::Pi(
+                                        "x".into(),
+                                        Icit::Explicit,
+                                        Rc::new(at_y),
+                                        Rc::new(at_lhs),
+                                    ),
+                                    id,
+                                )
+                            }
+                        };
+                        // Replacing every occurrence can leave a type that no
+                        // longer checks (a proof about the scrutinee inside it):
+                        // then this isn't a rewrite, and the mismatch stands.
+                        if !body.subterms().any(|(t, _)| matches!(t, Term::Meta(_))) {
+                            let mut kcx = crate::rewrite::kernel_context(cx)?;
+                            let y = Value::var(kcx.level());
+                            kcx.bind("y".into(), (*carrier).clone());
+                            kcx.bind(
+                                "p".into(),
+                                Value::Eq(carrier.clone(), lhs_value.clone(), Rc::new(y)),
+                            );
+                            crate::kernel::without_glue(&g, || {
+                                crate::kernel::check_type(&mut kcx, &body)
+                            })?;
+                        }
+                        let motive = Term::Lam(
+                            "y".into(),
+                            Icit::Explicit,
+                            Rc::new(Term::Lam("p".into(), Icit::Explicit, Rc::new(body))),
                         );
-                        crate::kernel::without_glue(&g, || {
-                            crate::kernel::check_type(&mut kcx, &body)
-                        })?;
-                    }
-                    let motive = Term::Lam(
-                        "y".into(),
-                        Icit::Explicit,
-                        Rc::new(Term::Lam("p".into(), Icit::Explicit, Rc::new(body))),
-                    );
-                    let proof = Term::Var(level - 1 - equation);
-                    let j = Term::J(Rc::new(motive), Rc::new(base), Rc::new(proof));
-                    Ok(Some(match forward {
-                        true => j,
-                        false => Term::app(j, term.clone()),
-                    }))
+                        let proof = Term::Var(level - 1 - equation);
+                        let j = Term::J(Rc::new(motive), Rc::new(base), Rc::new(proof));
+                        Ok(Some(match forward {
+                            true => j,
+                            false => Term::app(j, term.clone()),
+                        }))
+                    })
                 })?
                 .flatten();
                 if built.is_some() {
