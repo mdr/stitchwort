@@ -257,7 +257,9 @@
         "Rewrite messages: E-REWRITE-NOTHING and E-REWRITE-MOTIVE notes (SW-1451, SW-1572)",
         "Warnings when a match refines nothing (SW-1485, SW-1575)"
       ],
-      "now": [],
+      "now": [
+        "Decision-match warning and the not-found warning for unnamed matches (SW-1719, SW-1721)"
+      ],
       "next": [
         "A warning when a match on a decision misses an if that tests it (SW-1719)",
         "The not-found warning for unnamed matches (SW-1721)",

@@ -13310,14 +13310,14 @@
     {
       "id": 1719,
       "title": "[Sonnet] W-MATCH-DECISION-IF: warn when a match on a decision computing to Bool.decTrue b finds nothing but b is an if's condition (named or unnamed matches); docs/syntax.md, the guide and the proving guide teach matching on the condition (D2525)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1719",
       "labels": [
         "diagnostics"
       ],
       "epic": "diagnostics",
-      "body": "D2525 (Matt, 6 Nov 2026): yes, option (a) of docs/proposals/decision-match-refines-bool-if.md (SW-1694). Expected: 2 h on Sonnet.",
+      "body": "D2525 (Matt, 6 Nov 2026): yes, option (a) of docs/proposals/decision-match-refines-bool-if.md (SW-1694). Expected: 2 h on Sonnet.\n\nStarted on Sonnet with SW-1721 folded in, expected: 2 h.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
