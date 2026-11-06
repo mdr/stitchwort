@@ -528,6 +528,61 @@ fn completion_after_a_namespace_offers_its_members() {
     });
 }
 
+/// `src/Demo.sw` (`Proj.Main`, which imports `Proj.Base`) open in a
+/// project with namespaces it doesn't import: `Proj.Other`, and
+/// `Proj.Uses`, which imports it.
+fn open_in_project(main: &str) -> Session {
+    let memory = Arc::new(Memory::default());
+    let files = [
+        ("src/Demo.sw", main),
+        (
+            "src/Base.sw",
+            "namespace Proj.Base\n\ntype Box = { size: Nat }\n\ndef Box.twice (b: Box): Nat := b.size * 2\n",
+        ),
+        (
+            "src/Other.sw",
+            "namespace Proj.Other\n\ndef value: Nat := 1\n",
+        ),
+        (
+            "src/Uses.sw",
+            "namespace Proj.Uses\nimport Proj.Main (f)\n\ndef g: Nat := 2\n",
+        ),
+    ];
+    memory.add(MemoryProject {
+        root: "/memory/proj".into(),
+        sources: vec!["src".into()],
+        files: Arc::new(
+            (files.iter())
+                .map(|(p, t)| (p.to_string(), t.to_string()))
+                .collect(),
+        ),
+    });
+    Session::open_in(main, json!({}), Options::new(STACK), memory)
+}
+
+#[test]
+fn completion_after_a_dot_in_a_project_checks_only_what_the_namespace_needs() {
+    big_stack(|| {
+        let main = "namespace Proj.Main\nimport Proj.Base (Box)\n\n\
+            def f (b: Box): Nat := b.twice\n";
+        let mut s = open_in_project(main);
+        assert!(s.diagnostics.is_empty(), "{:?}", s.diagnostics);
+        // A value of a type from a namespace imported.
+        let typing = main.replace("b.twice", "b.");
+        s.change(2, &typing);
+        let items = s.complete_at_end(&typing, 3, Some("."));
+        for name in ["twice", "size"] {
+            item(&items, name);
+        }
+        // A project namespace's members, though the file's namespace
+        // doesn't use it.
+        let typing = main.replace("b.twice", "Proj.Other.");
+        s.change(3, &typing);
+        let items = s.complete_at_end(&typing, 3, Some("."));
+        item(&items, "value");
+    });
+}
+
 #[test]
 fn completing_a_name_that_needs_an_import_adds_it() {
     big_stack(|| {

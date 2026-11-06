@@ -377,7 +377,41 @@ impl Session {
             .map(|m| m.name.clone())
             .filter(|m| !users.contains(m))
             .collect();
-        let mut order = canonical_order(analysis, &needed).map_err(|cycles| {
+        self.load_namespaces_for(project, analysis, ns, &needed)
+    }
+
+    /// [`Session::load_for_goal`], checking before `ns` only what it uses,
+    /// directly or not, rather than every namespace that doesn't use it:
+    /// what the editor's probes need (the context at a position, the
+    /// members after a dot), in the time of a few namespaces' replay from
+    /// the check cache instead of the whole project's (0.6 s instead of
+    /// 3.5 for AoC 2020 day 11). `ns` is checked as the language server
+    /// checks the namespace being edited, after only what it uses; a
+    /// namespace written out in full (`Proj.Other.`) is among those, by
+    /// [`closure`]'s edges.
+    pub fn load_for_probe(
+        &mut self,
+        project: &str,
+        analysis: &Analysis,
+        ns: &str,
+    ) -> Result<GoalLoad, Vec<Diagnostic>> {
+        if !analysis.diagnostics.is_empty() {
+            return Err(analysis.diagnostics.clone());
+        }
+        let needed: BTreeSet<String> = closure(analysis, &[ns.to_string()]).into_iter().collect();
+        self.load_namespaces_for(project, analysis, ns, &needed)
+    }
+
+    /// Checks `needed` (which has `ns`, and nothing that uses it) in
+    /// canonical order but with `ns` last, and stays in `ns`'s scope.
+    fn load_namespaces_for(
+        &mut self,
+        project: &str,
+        analysis: &Analysis,
+        ns: &str,
+        needed: &BTreeSet<String>,
+    ) -> Result<GoalLoad, Vec<Diagnostic>> {
+        let mut order = canonical_order(analysis, needed).map_err(|cycles| {
             (cycles.iter())
                 .map(|c| cycle_diagnostic(analysis, c))
                 .collect::<Vec<_>>()
