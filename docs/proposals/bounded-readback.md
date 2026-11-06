@@ -8,7 +8,7 @@ reader has no exact-agreement contract and starts in stage 4 (D2520 narrowed); t
 completeness checks and both "unconfirmed" warnings go (D2542, replacing D2534); a plan for
 the proofs D2542 breaks ([§8](#8-the-proof-migration-d2542)); `rewrite f` (D1433) joins the
 plan; stages re-planned and re-estimated ([§7](#7-stages)); D2539 is moot; two new questions,
-D2546 and D2547 ([§10](#10-decisions)).
+D2548 and D2549 ([§10](#10-decisions)).
 
 *Revision 2* (SW-1722, 6 Nov 2026) answered the review
 ([SW-1717](../reviews/SW-1717-bounded-readback-review.md)) and the comparative study
@@ -19,7 +19,7 @@ reader memoises negative answers (S4). Its cap and agreement machinery are what 
 drops.
 
 **Status:** draft 3, design only. Its direction is decided ([Decided](#decided)); two
-detail questions are open (D2546, D2547). Ticket SW-1712, from D2514 (Matt, 6 Nov 2026:
+detail questions are open (D2548, D2549). Ticket SW-1712, from D2514 (Matt, 6 Nov 2026:
 "bound unfolded readback by making the elaborator's searches look at goals as written,
 starting with a short design note on Opus that revisits D484; accessor types read back as
 written too"). Unblocks record eta (SW-1642, SW-1667). Revision 3 was written against `main`
@@ -93,7 +93,7 @@ Revision 2's questions, as they now stand:
 | D2539 (programs never choose on a kept call) | moot: no call is kept | — |
 | D2540 (a recovered `E-RESOURCE` never chooses) | **yes in principle**; 0c finds the places, stage 7 changes them | §4.4 |
 
-Open: **D2546** (what "visible" means for `match`) and **D2547** (a visible occurrence whose
+Open: **D2548** (what "visible" means for `match`) and **D2549** (a visible occurrence whose
 motive doesn't type-check), in [§10](#10-decisions).
 
 ## Contents
@@ -448,7 +448,7 @@ and running today's unfolded search alongside. **[cited: goal-as-written.md §6 
 
 Two details are open:
 
-- **What "visible" means for `match`** (D2546). A `match` searches several targets: the goal
+- **What "visible" means for `match`** (D2548). A `match` searches several targets: the goal
   and the variables' types. The rule above treats them as one search (anything visible
   anywhere means no target is looked inside), which is what makes it one rule. SW-1628
   also built two refinements of "visible" that are not agreement with today: a scrutinee
@@ -456,13 +456,13 @@ Two details are open:
   `keep 3 (isBig n)`, `keep a b := a`), and a closed scrutinee that computes to a constructor
   (`match h: isBig 20` on `pick (isBig 20) = 1`) is decided by computing, not generalised.
   Both are cheap (`mentions` and evaluation) and both are D2541's split: computing decides.
-  D2546 keeps them.
-- **A visible occurrence whose motive doesn't type-check** (D2547). 2025 day 1's
+  D2548 keeps them.
+- **A visible occurrence whose motive doesn't type-check** (D2549). 2025 day 1's
   `Part2.sw:82` rewrites `d` where `/` holds a hidden proof argument `d ≠ 0`: abstracting the
   visible `d` gives a motive that isn't type-correct, while today's unfolded one is
   (goal-as-written.md §5.3). The built stage 1 falls back when anything on the as-written
   path fails, including the motive's check. Lean fails here ("motive is not type correct"),
-  a well-known Lean pain point. D2547 keeps the fallback: a visible result with no
+  a well-known Lean pain point. D2549 keeps the fallback: a visible result with no
   well-typed motive is treated as nothing visible. That is not a limit switching the
   answer: there is no as-written answer to switch from.
 
@@ -717,8 +717,8 @@ survives; R (`rewrite f`), M (the migration) and 7 are new; 2 is deferred (§9).
 | 4 | **R** `rewrite f`: one step of `f` by name (D1433) | a new rule form; no existing term moves | new accept and reject examples; guide and `syntax.md` examples | Opus (a tactic, D2506) | yes (generates `J` terms) | 90 | — |
 | 5 | **M** the measured proofs rewritten (§8) | seven declarations' proof terms; their hashes | each declaration checked on its own | Sonnet | — | 45 | R |
 | 5 | **3** the reader's `find` | nothing (used by no site yet) | §4.2's five unit tests; one both-ways measurement over std (D2536) | Opus | — | 120 | 4, D2520 |
-| 6 | **6a** `rewrite` under D2542 | motives where the fallback runs; first visible instance; `W-REWRITE-UNCONFIRMED` gone; E-REFL's note; any further broken proofs fixed | goal-as-written stage 1 repros, `as-written-unconfirmed.sw` renamed, day 11's `settledExactly`; one background run of std, AoC, rogue (D2536) | Opus | yes (motives) | 100 | 3, M, D2547 |
-| 7 | **6b** `match`, `cases` and the transport under D2542 | `match` motives and arms where the fallback runs; `W-MATCH-UNCONFIRMED` gone | `match-equation-as-written.sw`, goal-as-written's stage 2 repros, `as-written-unconfirmed-slow-check.sw`; one background run (D2536) | Opus | yes (motives) | 110 | 6a, D2546 |
+| 6 | **6a** `rewrite` under D2542 | motives where the fallback runs; first visible instance; `W-REWRITE-UNCONFIRMED` gone; E-REFL's note; any further broken proofs fixed | goal-as-written stage 1 repros, `as-written-unconfirmed.sw` renamed, day 11's `settledExactly`; one background run of std, AoC, rogue (D2536) | Opus | yes (motives) | 100 | 3, M, D2549 |
+| 7 | **6b** `match`, `cases` and the transport under D2542 | `match` motives and arms where the fallback runs; `W-MATCH-UNCONFIRMED` gone | `match-equation-as-written.sw`, goal-as-written's stage 2 repros, `as-written-unconfirmed-slow-check.sw`; one background run (D2536) | Opus | yes (motives) | 110 | 6a, D2548 |
 | 8 | **7** a recovered `E-RESOURCE` never chooses (D2540) | the sites 0c listed fail instead of recovering | 0c's declarations, one by one | Sonnet | yes (elaboration choices) | 45 | 0c, 6b |
 
 Rows with the same order number can run side by side. In all, about 900 minutes (15 hours):
@@ -794,7 +794,7 @@ otherwise change. 4 comes before 3, as D2545 orders, so the reader module is cre
   against a whole read-back and a syntactic search), reported, not enforced.
 - **6a. `rewrite` under D2542** (§4.1). In `rewrite_once` and `rewrite/under.rs`: the
   as-written result whenever there is one; otherwise `find` with motives from the opened
-  calls (D2538); a visible result whose motive fails falls back as today (D2547). Removed:
+  calls (D2538); a visible result whose motive fails falls back as today (D2549). Removed:
   `hidden_copy_in`, `todays_instance`, the unconfirmed path and `W-REWRITE-UNCONFIRMED`, the
   unfolded search alongside. Added: E-REFL's note (§4.1). Then one background run of std, AoC
   and the roguelike (D2536): every declaration that fails is fixed in this lane as in §8,
@@ -803,7 +803,7 @@ otherwise change. 4 comes before 3, as D2545 orders, so the reader module is cre
   guide's proofs chapter; folded-calls.md's D484 entry gets a line pointing to §5.
 - **6b. `match`, `cases` and the transport under D2542.** `generalised_now`, `normals`, the
   transport test (`along_match_equation_now`): the as-written generalisation whenever the
-  scrutinee is visible in any target, with D2546's two refinements; otherwise `find`.
+  scrutinee is visible in any target, with D2548's two refinements; otherwise `find`.
   Removed: the agreement checks (`matching/as_written.rs:649–690`, SW-1629's), the unconfirmed
   path and `W-MATCH-UNCONFIRMED`. Kept: the `let` rule (a `let`'s copy is never abstracted,
   since it would forget its value), the motive check. Then the same background run and
@@ -843,14 +843,14 @@ confirm them under D2542.
 |---|---|---|---|---|---|
 | 1 | `labelledAtStart`, field `stored` (`aoc/src/Aoc/Year2025/Day08/Proofs/Labels.sw:107`) | `rewrite storedAtStart n b h in rfl` | the goal `(Circuits.separate n).labels.get b = Some ((Circuits.separate n).labelOf b)` has the left side visible on the left, and a copy inside `labelOf b` (the source note's "inside `Map.Raw.fromListChecked`'s unfolding") | rewrite the visible copy with the lemma about it: `rewrite labelAtStart n b h in storedAtStart n b h` (`labelAtStart` is at `:103`). Under either rule `labelOf b` is visible, and what is left is `storedAtStart`'s statement | M |
 | 2 | `labelledMoved`, field `stored` (`Labels.sw:153`) | `rewrite movedStored c f s n inv.stored b h in rfl` | the same shape: a copy inside `(moved c f s).labelOf b` | `rewrite movedLabel c f s n inv.stored b h in movedStored c f s n inv.stored b h` (`movedLabel` is at `:134`) | M |
-| 3 | `stepRight` (`aoc/src/Aoc/Year2025/Day01/Proofs/Part2.sw:82`) | `_ = (Succ a + n) / d := rewrite (omega: d = Succ a)` | not a hidden copy: `/` holds a hidden proof argument `d ≠ 0`, so the motive that abstracts the visible `d` isn't type-correct (goal-as-written.md §5.3) | none needed if D2547 is yes (the built fallback keeps it checking, as it does today). If no: rewrite the other side, `rewrite same` (the arm's `same: Succ a = d`), which replaces the visible `Succ a` and leaves `d`, and so the proof argument, alone | 6a, only if D2547 is no |
+| 3 | `stepRight` (`aoc/src/Aoc/Year2025/Day01/Proofs/Part2.sw:82`) | `_ = (Succ a + n) / d := rewrite (omega: d = Succ a)` | not a hidden copy: `/` holds a hidden proof argument `d ≠ 0`, so the motive that abstracts the visible `d` isn't type-correct (goal-as-written.md §5.3) | none needed if D2549 is yes (the built fallback keeps it checking, as it does today). If no: rewrite the other side, `rewrite same` (the arm's `same: Succ a = d`), which replaces the visible `Succ a` and leaves `d`, and so the proof argument, alone | 6a, only if D2549 is no |
 | 4 | `rightCount` (`Part2.sw:94`) | `rewrite zerosLandedOnCons …, rightCount (Dial.move dial (Right 1)) k, Mod.valueOfInt (dial.position.toInt + Nat.toInt 1)` | `Mod.valueOfInt`'s left side `(Mod.ofInt …).value` is visible in the division, and a copy is inside `Dial.isZero (Dial.move dial (Right 1))`, whose unfolding is `Mod.isZero` and then `.value == 0` | open the two calls first, so both copies are visible: `…, rightCount …, Dial.isZero, Mod.isZero, Mod.valueOfInt …` with R's `rewrite f` | M |
 | 5 | `countWithin1`, second cons arm (`aoc/src/Aoc/Year2020/Day17/Proofs/Neighbours.sw:41`) | `rewrite countPrefixed (x - 1) …, countPrefixed x …, countPrefixed (x + 1) …, countWithin1 xs ys in windowAnd …` | not established from the source: one of the four rules has a visible copy and a hidden one, most likely inside `List.sumBy` (from `List.countFlatMap`'s right side) | in 6a: E-REFL's note names the copy; then one more rewrite of that copy, or `rewrite List.sumBy` first so all three summands are visible | 6a |
 | 6 | `Result.traverseCons` (`crates/elab/src/std/Result/Result.sw:71`) | `match e: f x with …` | the goal `Result.traverse [x, ..xs] f = Result.flatMap (f x) …` has `f x` visible on the right and a copy inside `Result.traverse` on the left, so the left side doesn't compute in the arms and the next `rewrite` finds nothing | open `Result.traverse` first: `rewrite Result.traverse in match e: f x with …`. Its unfolding `Result.traverseLoop f [] [x, ..xs]` steps at once to the loop's `match f x`, so the copy is visible to the `match` under either rule | M |
 | 7 | `List.foldMaxMem` (`crates/elab/src/std/List/Lemmas.sw:2206`) | `match h: Nat.leq start y with …` inside the `Inl e` arm | `e: List.foldLeft ys (Nat.max start y) Nat.max = …` holds `Nat.leq start y` only inside `Nat.max`, and on 28 Oct the scrutinee was found elsewhere first, so `e` was not refined. Whether it is still visible in the goal as `main` reads it back now is not established: if nothing is visible anywhere, the fallback refines `e` and nothing breaks | split first, recurse second: `match h: Nat.leq start y` before `List.foldMaxMem ys (Nat.max start y)`, so no hypothesis holds the copy yet; in each arm `Nat.max start y` computes to `y` or `start`, and the recursive call is made at that value | M |
 
 So M rewrites five (1, 2, 4, 6, 7) in forms that check under both rules; 6a takes row 5,
-where the copy has to be found by running, and row 3 only if D2547 is no.
+where the copy has to be found by running, and row 3 only if D2549 is no.
 
 **The seven are a lower bound.** The `rewrite` measurement read std from the prelude cache
 (so std's own rewrites weren't measured), predates the AoC days merged since `cb58d7916`, and
@@ -889,7 +889,7 @@ the history (`git show 2991bb684:docs/proposals/bounded-readback.md`).
 D2541–D2545 and the earlier questions are recorded under [Decided](#decided). Two new
 questions, raised by writing §4.1 for the code SW-1628 and SW-1627 built:
 
-- **D2546: what "visible" means for `match`** (6b). (1) A `match` is one search over all its
+- **D2548: what "visible" means for `match`** (6b). (1) A `match` is one search over all its
   targets (the goal and the variables' types): if the scrutinee is visible in any of them, no
   target is looked inside. (2) SW-1628's two refinements stay: a scrutinee counts as visible
   only where its variable survives the target's unfolding (not inside `keep 3 (isBig n)`),
@@ -899,7 +899,7 @@ questions, raised by writing §4.1 for the code SW-1628 and SW-1627 built:
   7), but would bring back days 10 and 14's reach for hypotheses. (2) is D2541's split applied to `match`:
   these are cases where computing decides, and both are cheap (`mentions`, evaluation); without
   them a `match` would generalise occurrences the arms can't use.]
-- **D2547: a visible occurrence whose motive doesn't type-check** (6a, 6b). Treat it as
+- **D2549: a visible occurrence whose motive doesn't type-check** (6a, 6b). Treat it as
   nothing visible and look inside, as the built stage 1 does on any failure of the as-written
   path, rather than fail as Lean does ("motive is not type correct"). [rec: yes. It is not a
   limit choosing an answer, since there is no well-typed as-written answer; it keeps
