@@ -12122,13 +12122,13 @@
     {
       "id": 1696,
       "title": "Printer: a bare constructor or constant as receiver prints Tip.size, which reads as a name path; and function_equations' search_makes_the_equations_of_a_file_with_its_own_constructors fails on main since SW-1674",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1696",
       "labels": [
         "editor"
       ],
-      "body": "Found by the SW-1630 lane, confirmed on main 6 Nov 2026: left [k: Type] → [v: Type] → Tip.size = 0, right … Map.Tree.size Tip = 0.",
+      "body": "Found by the SW-1630 lane, confirmed on main 6 Nov 2026: left [k: Type] → [v: Type] → Tip.size = 0, right … Map.Tree.size Tip = 0.\n\nStarted on Sonnet, expected: 30 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
