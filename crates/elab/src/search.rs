@@ -119,6 +119,15 @@ impl Pattern {
             Err(_) => "?".into(),
         }
     }
+
+    /// [`Pattern::show`] with calls written as calls, so that
+    /// `List.append` and `Text.append` differ (both print as `++`).
+    pub fn show_calls(&self, g: &Ev) -> String {
+        match stitchwort_core::value::quote_folded(g, 0, &self.value) {
+            Ok(t) => stitchwort_core::pretty::term_calls(g, &[], &t),
+            Err(_) => "?".into(),
+        }
+    }
 }
 
 /// The type of a pattern or a target, as far as search compares them.

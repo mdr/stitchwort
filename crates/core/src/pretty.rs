@@ -74,6 +74,16 @@ pub fn term_in(g: &Ev, scope: &dyn NameScope, names: &[Name], term: &Term) -> St
     Printer::new(g, Some(scope)).print(&mut names, term, Prec::Arrow)
 }
 
+/// [`term`], with every call written as a call: `List.append xs ys`, not
+/// `xs ++ ys`, and `List.length xs`, not `xs.length`. For telling apart
+/// terms that the sugar prints alike.
+pub fn term_calls(g: &Ev, names: &[Name], term: &Term) -> String {
+    let mut names = names.to_vec();
+    let printer = Printer::new(g, None);
+    printer.calls.set(true);
+    printer.print(&mut names, term, Prec::Arrow)
+}
+
 /// Prints `term` with ASCII operators (`&&`, `!=`, `->`), for text inside
 /// exported JavaScript, where the reader writes `!=` and not `≠` (D1223).
 pub fn term_ascii(g: &Ev, names: &[Name], term: &Term) -> String {
@@ -420,6 +430,8 @@ struct Printer<'g> {
     /// Write the operators in ASCII (`&&`, `!=`, `->`), for text a
     /// JavaScript developer reads (D1223).
     ascii: Cell<bool>,
+    /// Write calls as calls: no dot calls, no `++` for the appends.
+    calls: Cell<bool>,
     /// Write a decided equation as the `a == b` that elaborates to it
     /// ([`Printer::decided_equation`]): in a goal, which is pasted back.
     equations: Cell<bool>,
@@ -439,6 +451,7 @@ impl<'g> Printer<'g> {
             depth: Cell::new(0),
             show_hidden: Cell::new(false),
             ascii: Cell::new(false),
+            calls: Cell::new(false),
             equations: Cell::new(false),
             scope,
             meant: RefCell::new(HashMap::default()),
@@ -1312,6 +1325,7 @@ impl<'g> Printer<'g> {
             return Some(("/", Prec::Mul, n, d));
         }
         if let [lhs, rhs] = args
+            && !self.calls.get()
             && matches!(
                 self.g.env.registry().def_builtin(id),
                 Some(Builtin::Append | Builtin::TextAppend)
@@ -1753,7 +1767,7 @@ impl<'g> Printer<'g> {
             return Some((op, operand, lhs, rhs));
         }
         let op = match reg.def_builtin(*id)? {
-            Builtin::Append | Builtin::TextAppend => "++",
+            Builtin::Append | Builtin::TextAppend if !self.calls.get() => "++",
             _ => return None,
         };
         Some((op, Prec::Add, lhs, rhs))
@@ -2204,7 +2218,7 @@ impl<'g> Printer<'g> {
     /// anonymous `x✝`, a number, an elided part, or a bare global name,
     /// which would read as a path).
     fn dot_call(&self, names: &mut Vec<Name>, id: DefId, args: &[&Term]) -> Option<(String, Prec)> {
-        if self.ascii.get() {
+        if self.ascii.get() || self.calls.get() {
             return None;
         }
         let def = self.g.def(id);
