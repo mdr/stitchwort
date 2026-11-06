@@ -7,9 +7,9 @@ expression: output
     │
  18 │ theorem wrongRepeated (r: Range) (k: Nat) (n: Nat): r.repeated k n = 0 := rfl
     │                                                                           ─┬─  
-    │                                                                            ╰─── `Range.repeated r k n` and `0` aren't equal
+    │                                                                            ╰─── `r.repeated k n` and `0` aren't equal
     │ 
-    │ Note 1: computing the left side gives `if Std.Decidable.toBool (Std.Decidable.not (Nat.decEq … 0)) then if (if … then … else …) <= (if … then … else …) then List.foldLeft … 0 … * (… / 2) else 0 else 0`
+    │ Note 1: computing the left side gives `if ((List.foldLeft … 0 …).decEq 0).not.toBool then if (if … <= … then … / … else Nat.pow 10 …) <= (if … <= … then … - 1 else … / …) then (List.rangeFrom n 0).foldLeft 0 (acc x => …) * (… * … / 2) else 0 else 0`
     │ 
     │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
     │ 
@@ -17,7 +17,7 @@ expression: output
     │           r = { lo = 0, hi = 1 }
     │           k = 1
     │           n = 1
-    │         `Range.repeated r k n = 0` is false:
+    │         `r.repeated k n = 0` is false:
     │           left:  1
     │           right: 0
 ────╯

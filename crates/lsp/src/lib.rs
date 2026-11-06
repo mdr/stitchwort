@@ -43,6 +43,7 @@ use stitchwort_driver::check_cache::{BundleRecorder, BundleStore, CheckCache, Li
 use stitchwort_driver::driver::Session;
 use stitchwort_driver::live::{
     Answers, FileAnswers, LiveFile, LiveProject, LiveRef, Loc, OutlineItem, Place, Progress,
+    outline_of_text,
 };
 use stitchwort_driver::marks as pos_marks;
 use stitchwort_elab::cache::{Key, Store};
@@ -55,6 +56,7 @@ use wasm::FileUrl as _;
 mod arms;
 mod complete;
 mod imports;
+mod lens;
 mod source;
 pub use source::{Disk, Memory, MemoryProject, ProjectFiles, Source};
 
@@ -166,6 +168,7 @@ pub fn capabilities() -> serde_json::Value {
         "experimental": { "hoverRange": true },
         "referencesProvider": true,
         "documentSymbolProvider": true,
+        "codeLensProvider": { "resolveProvider": false },
         "workspaceSymbolProvider": true,
         "documentFormattingProvider": true,
         "documentRangeFormattingProvider": true,
@@ -206,6 +209,10 @@ fn initialize(params: &serde_json::Value, options: &mut Options) -> (serde_json:
 pub fn serve(connection: Connection, options: Options) -> Result<(), String> {
     serve_from(connection, options, Arc::new(Disk))
 }
+
+/// The parser's stack budget for an outline made on the request thread,
+/// which is not the checker's big-stack thread; deeper text is cut short.
+const OUTLINE_STACK: usize = 512 * 1024;
 
 /// [`serve`], reading files from `source`.
 pub fn serve_from(
@@ -1407,16 +1414,37 @@ impl Main {
             }),
             request::DocumentSymbolRequest::METHOD => {
                 parse::<lsp_types::DocumentSymbolParams>(&request).map(|p| {
-                    let outline = locate(&nav, &p.text_document.uri)
-                        .and_then(|(_, ws, place)| ws.files.get(&place))
-                        .map(|f| DocumentSymbolResponse::Nested(document_symbols(&f.outline)));
-                    serde_json::to_value(outline)
+                    let uri = &p.text_document.uri;
+                    // Until the file's first check has finished, the outline
+                    // comes from its text alone: the client asks once, as
+                    // the file opens, and keeps the answer.
+                    let outline = match locate(&nav, uri).and_then(|(_, ws, p)| ws.files.get(&p)) {
+                        Some(f) => Some(document_symbols(&f.outline)),
+                        None => (uri.scheme() == "file" && std_path(uri).is_none())
+                            .then(|| self.text(uri))
+                            .flatten()
+                            .map(|text| document_symbols(&outline_of_text(&text, OUTLINE_STACK))),
+                    };
+                    serde_json::to_value(outline.map(DocumentSymbolResponse::Nested))
                 })
             }
             request::WorkspaceSymbolRequest::METHOD => {
                 parse::<lsp_types::WorkspaceSymbolParams>(&request).map(|p| {
                     let found = workspace_symbols(&nav, &p.query);
                     serde_json::to_value(WorkspaceSymbolResponse::Flat(found))
+                })
+            }
+            request::CodeLensRequest::METHOD => {
+                parse::<lsp_types::CodeLensParams>(&request).map(|p| {
+                    let texts = self.texts.borrow();
+                    let uri = &p.text_document.uri;
+                    let lenses = match texts.get(uri) {
+                        Some(text) if uri.scheme() == "file" => {
+                            lens::code_lenses(uri.as_str(), text)
+                        }
+                        _ => Vec::new(),
+                    };
+                    Ok(serde_json::Value::Array(lenses))
                 })
             }
             GOAL_AT => parse::<lsp_types::TextDocumentPositionParams>(&request)

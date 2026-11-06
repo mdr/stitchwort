@@ -224,7 +224,7 @@ fn a_file_is_searched_with_its_own_names_even_if_it_doesnt_check() {
     assert_eq!(
         out,
         " 1. Main.twiceLength  theorem · instance · conclusion\n    \
-         (xs: List Nat) → List.length (twice xs) = List.length xs + List.length xs\n    \
+         (xs: List Nat) → (twice xs).length = xs.length + xs.length\n    \
          a.sw:5\n\
          1 result, filtered pass\n"
     );
@@ -286,10 +286,7 @@ fn the_query_log_gets_a_line_per_search() {
     assert!(first.get("cwd").is_none(), "{first}");
     assert!(!text.contains(&*dir.display().to_string()), "{text}");
     assert_eq!(first["query"], "_ ++ _ = _");
-    assert_eq!(
-        first["elaborated"],
-        serde_json::json!(["List.append ?1 ?2 = ?3", "Text.append ?0 ?1 = ?2"])
-    );
+    assert_eq!(first["elaborated"], serde_json::json!(["?1 ++ ?2 = ?3"]));
     let results = first["results"].as_array().unwrap();
     assert_eq!(results.len(), 3, "{first}");
     assert_eq!(results[0]["rank"], 1);

@@ -161,65 +161,22 @@ theorem manhattanZero: (Coords.zero: Coords f).manhattan = 0 := rfl
 theorem manhattanZeroOnly (coords: Coords f) (zero: coords.manhattan = 0): coords = Coords.zero :=
   coordsExt _ _ (Int.natAbsZero coords.x (omega)) (Int.natAbsZero coords.y (omega))
 
-theorem natAbsNegate (x: Int): (0 - x).natAbs = x.natAbs :=
-  match Int.natAbsCases x, Int.natAbsCases (0 - x) with
-    | Inl a, Inl b => omega
-    | Inl a, Inr b => omega
-    | Inr a, Inl b => omega
-    | Inr a, Inr b => omega
-
-theorem natSquareOne (n: Nat) (square: n * n = 1): n = 1 :=
-  match n with
-    | 0 => Void.exfalso (omega)
-    | 1 => rfl
-    | Succ (Succ more) => Void.exfalso (omega [Nat.leMulRight 2 (Succ (Succ more)) (Succ (Succ more)) (omega)])
-
 theorem manhattanNegate (coords: Coords f): coords.negate.manhattan = coords.manhattan :=
-  rewrite natAbsNegate coords.x, natAbsNegate coords.y in rfl
+  rewrite Int.natAbsNegate coords.x, Int.natAbsNegate coords.y in rfl
 
 theorem manhattanTimes (coords: Coords f) (factor: Int): (coords.times factor).manhattan = coords.manhattan * factor.natAbs :=
   rewrite Int.natAbsMul coords.x factor, Int.natAbsMul coords.y factor in ring
 
 --| A frame's `up` is 1 or -1, so it keeps lengths.
-theorem upAbs [auto frame: Frame f]: frame.up.natAbs = 1 :=
-  natSquareOne frame.up.natAbs (omega [Int.mulSelf frame.up, frame.unit])
+theorem upAbs [auto frame: Frame f]: frame.up.natAbs = 1 := Int.natAbsOfMulSelfOne frame.up frame.unit
 
 --| A quarter turn keeps the length, in every frame.
 theorem manhattanTurnRight [auto frame: Frame f] (coords: Coords f): coords.turnRight.manhattan = coords.manhattan :=
-  rewrite natAbsNegate (frame.up * coords.x), Int.natAbsMul frame.up coords.y, Int.natAbsMul frame.up coords.x, upAbs [frame := frame] in
+  rewrite Int.natAbsNegate (frame.up * coords.x), Int.natAbsMul frame.up coords.y, Int.natAbsMul frame.up coords.x, upAbs [frame := frame] in
     omega
 
-theorem natAbsAdd (x: Int) (y: Int): (x + y).natAbs ≤ x.natAbs + y.natAbs :=
-  match Int.natAbsCases x, Int.natAbsCases y, Int.natAbsCases (x + y) with
-    | Inl a, Inl b, Inl c => omega
-    | Inl a, Inl b, Inr c => omega
-    | Inl a, Inr b, Inl c => omega
-    | Inl a, Inr b, Inr c => omega
-    | Inr a, Inl b, Inl c => omega
-    | Inr a, Inl b, Inr c => omega
-    | Inr a, Inr b, Inl c => omega
-    | Inr a, Inr b, Inr c => omega
-
 theorem manhattanTriangle (coords: Coords f) (other: Coords f): (coords.plus other).manhattan ≤ coords.manhattan + other.manhattan :=
-  omega [natAbsAdd coords.x other.x, natAbsAdd coords.y other.y]
-
-theorem natAbsSub (x: Int) (y: Int): (x - y).natAbs = (y - x).natAbs :=
-  match Int.natAbsCases (x - y), Int.natAbsCases (y - x) with
-    | Inl a, Inl b => omega
-    | Inl a, Inr b => omega
-    | Inr a, Inl b => omega
-    | Inr a, Inr b => omega
-
-theorem natAbsTriangle (a: Int) (b: Int) (c: Int): (a - c).natAbs ≤ (a - b).natAbs + (b - c).natAbs :=
-  match Int.natAbsCases (a - c), Int.natAbsCases (a - b), Int.natAbsCases (b - c) with
-    | Inl p, Inl q, Inl r => omega
-    | Inl p, Inl q, Inr r => omega
-    | Inl p, Inr q, Inl r => omega
-    | Inl p, Inr q, Inr r => omega
-    | Inr p, Inl q, Inl r => omega
-    | Inr p, Inl q, Inr r => omega
-    | Inr p, Inr q, Inl r => omega
-    | Inr p, Inr q, Inr r => omega
+  omega [Int.natAbsAdd coords.x other.x, Int.natAbsAdd coords.y other.y]
 
 theorem distanceSelf (coords: Coords f): coords.distance coords = 0 :=
   let sameX: coords.x - coords.x = 0 := omega
@@ -227,11 +184,11 @@ theorem distanceSelf (coords: Coords f): coords.distance coords = 0 :=
   rewrite sameX, sameY in rfl
 
 theorem distanceSymm (coords: Coords f) (other: Coords f): coords.distance other = other.distance coords :=
-  rewrite natAbsSub coords.x other.x, natAbsSub coords.y other.y in rfl
+  rewrite Int.natAbsSubComm coords.x other.x, Int.natAbsSubComm coords.y other.y in rfl
 
 theorem distanceTriangle (coords: Coords f) (other: Coords f) (third: Coords f): coords.distance third ≤ coords.distance other + other.distance third :=
-  let xs: (Coords.minus coords third).x.natAbs ≤ (Coords.minus coords other).x.natAbs + (Coords.minus other third).x.natAbs := natAbsTriangle coords.x other.x third.x
-  let ys: (Coords.minus coords third).y.natAbs ≤ (Coords.minus coords other).y.natAbs + (Coords.minus other third).y.natAbs := natAbsTriangle coords.y other.y third.y
+  let xs: (Coords.minus coords third).x.natAbs ≤ (Coords.minus coords other).x.natAbs + (Coords.minus other third).x.natAbs := Int.natAbsTriangle coords.x other.x third.x
+  let ys: (Coords.minus coords third).y.natAbs ≤ (Coords.minus coords other).y.natAbs + (Coords.minus other third).y.natAbs := Int.natAbsTriangle coords.y other.y third.y
   omega
 
 --| Only a place itself is at distance 0 from it.

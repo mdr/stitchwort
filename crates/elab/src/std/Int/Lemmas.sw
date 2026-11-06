@@ -19,6 +19,47 @@ theorem Int.natAbsCases: (x: Int) → (Nat.toInt (Int.natAbs x) = x) ∨ (Nat.to
   | OfNat n => Inl rfl
   | NegSucc n => Inr rfl
 
+-- Sizes. `omega` knows what `Int.natAbs x` is (`Int.natAbsDichotomy`), so
+-- each of these is `omega`; they're stated for `rewrite` and for listing
+-- as facts where the goal's terms only match after rewriting.
+
+--| `x ≤ |x|`.
+theorem Int.leNatAbs (x: Int): x ≤ Nat.toInt (Int.natAbs x) := omega
+
+--| `-x ≤ |x|`.
+theorem Int.negLeNatAbs (x: Int): 0 - x ≤ Nat.toInt (Int.natAbs x) := omega
+
+--| `|x| = x` for `x` that isn't negative.
+theorem Int.natAbsOfNonneg (x: Int) (nonneg: 0 ≤ x): Nat.toInt (Int.natAbs x) = x := omega
+
+--| `|x| = -x` for negative `x`.
+theorem Int.natAbsOfNeg (x: Int) (neg: x < 0): Nat.toInt (Int.natAbs x) = 0 - x := omega
+
+--| `|-x| = |x|`, with `-x` written `0 - x` (`Int.natAbsNeg` is the same for
+--| `Int.neg x`).
+theorem Int.natAbsNegate (x: Int): Int.natAbs (0 - x) = Int.natAbs x := omega
+
+--| `|x - y| = |y - x|`.
+theorem Int.natAbsSubComm (x: Int) (y: Int): Int.natAbs (x - y) = Int.natAbs (y - x) := omega
+
+--| The triangle inequality, `|x + y| ≤ |x| + |y|` (Lean's `Int.natAbs_add_le`).
+theorem Int.natAbsAdd (x: Int) (y: Int): Int.natAbs (x + y) ≤ Int.natAbs x + Int.natAbs y := omega
+
+--| `|x - y| ≤ |x| + |y|` (Lean's `Int.natAbs_sub_le`).
+theorem Int.natAbsSubLe (x: Int) (y: Int): Int.natAbs (x - y) ≤ Int.natAbs x + Int.natAbs y := omega
+
+--| The triangle inequality for distances: going from `a` to `c` by way of
+--| `b` is no shorter, `|a - c| ≤ |a - b| + |b - c|`.
+theorem Int.natAbsTriangle (a: Int) (b: Int) (c: Int): Int.natAbs (a - c) ≤ Int.natAbs (a - b) + Int.natAbs (b - c) := omega
+
+--| The reverse triangle inequality, `|x| - |y| ≤ |x - y|`, with `Nat`
+--| subtraction on the left (so it's 0 when `|x| ≤ |y|`).
+theorem Int.natAbsSubNatAbs (x: Int) (y: Int): Int.natAbs x - Int.natAbs y ≤ Int.natAbs (x - y) := omega
+
+--| Only 1 and -1 square to 1, and both have size 1.
+theorem Int.natAbsOfMulSelfOne (x: Int) (square: x * x = 1): Int.natAbs x = 1 :=
+  Nat.mulSelfOne (Int.natAbs x) (omega [Int.mulSelf x])
+
 --| A number between `-|d|` and `|d|`, exclusive, is smaller in size than
 --| `d`.
 theorem Int.natAbsLt (x: Int) (d: Int) (low: 0 - Nat.toInt (Int.natAbs d) < x) (high: x < Nat.toInt (Int.natAbs d)):

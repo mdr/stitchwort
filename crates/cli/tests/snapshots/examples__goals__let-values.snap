@@ -8,7 +8,7 @@ expression: output
  7 │   ?
    │   ┬  
    │   ╰── xs: List Nat
-   │       total: Nat := sum xs
-   │       count: Nat := Std.List.length xs
+   │       total: Nat := xs.sum
+   │       count: Nat := xs.length
    │       ⊢ Nat
 ───╯

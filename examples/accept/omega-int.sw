@@ -52,5 +52,10 @@ theorem negativeDivisor (x: Int): x % (-3) < 3 := omega
 
 theorem minusOneHalf: (-1) / 2 = -1 := omega
 
+-- By 0, `x / 0` and `x % 0` compute to `0` and `x`.
+theorem divZero (x: Int): x / 0 = 0 := omega
+
+theorem modZero (x: Int): x % 0 = x := omega
+
 -- `x * y` and `y * x` are one unknown, by `Int.mulComm`.
 theorem productOrder (x: Int) (y: Int) (h: x * y = 5): y * x = 5 := omega

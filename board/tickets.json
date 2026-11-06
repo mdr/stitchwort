@@ -1,5 +1,5 @@
 {
-  "next": 1680,
+  "next": 1691,
   "tickets": [
     {
       "id": 47,
@@ -3997,15 +3997,15 @@
     {
       "id": 1121,
       "title": "Test Explorer and code lenses (run main, run test, audit theorem), then rename",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1121",
       "labels": [
         "editor"
       ],
-      "body": "Roadmap step 7. D2245 (Matt): Test Explorer covers project tests only. Rename waits for SW-1114 (projections) to be checked on program files. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2263 (Matt, 3 Nov): not started yet; editor-roadmap implementation waits until the tidy-ups (state migration, std) settle.",
+      "body": "Roadmap step 7. D2245 (Matt): Test Explorer covers project tests only. Rename waits for SW-1114 (projections) to be checked on program files. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2263 (Matt, 3 Nov): not started yet; editor-roadmap implementation waits until the tidy-ups (state migration, std) settle.\n\nD2513 (Matt, 6 Nov 2026): yes, start now. Code lenses (run test, run main) on every file including single files like docs/tutorial; the Testing panel for projects (D2245). Rename stays out (waits for SW-1114). Started on Sonnet, expected: 120 min, code lenses first.\n\nDone, merged (c422773ab): code lenses from the server (lens.rs), runs.js Testing panel for projects, stitchwort test --only/--json. On main: test_json 5/5, code_lenses, lens unit tests, extension runner tests 7/7, tutorial test passed. Extension reinstalled. Not yet tried in VS Code by hand. Model result: Sonnet, worked, 22 min (est. 120).",
       "created": "2026-11-03",
-      "updated": "2026-11-03",
+      "updated": "2026-11-06",
       "commits": []
     },
     {
@@ -10246,7 +10246,7 @@
     {
       "id": 1562,
       "title": "Match-equation transport only fires when the scrutinee appears literally in a type's computed form; a lemma over a definition that hides it still mismatches (SW-1538)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -11184,13 +11184,13 @@
     {
       "id": 1629,
       "title": "Goal as written, stage 3: SW-1538's match-equation transport on the folded forms (SW-1562) (D2476)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "elab"
       ],
-      "body": "D2475-D2480 (Matt, 6 Nov 2026): all as recommended in docs/proposals/goal-as-written.md: rewrite/match/cases/transport look as written first with a completeness check and today's search as fallback; the as-written search may solve a rule's unknowns; keep today's reach into hidden copies, no occurrence selection now (D2478); out-of-resources check uses the as-written result; rewrite f later. 'happy to go with your recommendation.' Sonnet, 45 min. After stage 2.\n\nD2506 (Matt, 6 Nov 2026): SW-1627 stays on Sonnet with the Opus review, but from now on core language changes (kernel, rewrite/match tactics, unifier, syntax, std core) go to Opus: 'core/kernel language changes feel like we can afford a bit more intelligence to be safe!' So: Opus.\n\nRun soon after SW-1628 (its review's a4.sw: once match refines the eta form, a lemma stated in that form stops fitting until the transport handles folded forms).\n\nLane done (07f08630c, 1d152f9b6), in Opus review. transport_target reuses stage 2's occurrence test; kept only if equal to today's unfolded, term for term, except the eta position; as written first then today's per side. SW-1562 and a4.sw now check (rescued); hidden-copy case falls back. 96 hash snapshots moved (1,257 prelude motives keep calls). Model result: Opus, pending review, 30 min (est. 60).",
+      "body": "D2475-D2480 (Matt, 6 Nov 2026): all as recommended in docs/proposals/goal-as-written.md: rewrite/match/cases/transport look as written first with a completeness check and today's search as fallback; the as-written search may solve a rule's unknowns; keep today's reach into hidden copies, no occurrence selection now (D2478); out-of-resources check uses the as-written result; rewrite f later. 'happy to go with your recommendation.' Sonnet, 45 min. After stage 2.\n\nD2506 (Matt, 6 Nov 2026): SW-1627 stays on Sonnet with the Opus review, but from now on core language changes (kernel, rewrite/match tactics, unifier, syntax, std core) go to Opus: 'core/kernel language changes feel like we can afford a bit more intelligence to be safe!' So: Opus.\n\nRun soon after SW-1628 (its review's a4.sw: once match refines the eta form, a lemma stated in that form stops fitting until the transport handles folded forms).\n\nLane done (07f08630c, 1d152f9b6), in Opus review. transport_target reuses stage 2's occurrence test; kept only if equal to today's unfolded, term for term, except the eta position; as written first then today's per side. SW-1562 and a4.sw now check (rescued); hidden-copy case falls back. 96 hash snapshots moved (1,257 prelude motives keep calls). Model result: Opus, pending review, 30 min (est. 60).\n\nOpus review: merge (strict agreement check, result type re-unified and kernel-checked, failures fall back to unchanged code; tried dependent hypotheses, scrutinee in hypothesis and goal, let, hidden copies, both-succeed-but-differ: nothing that checks on main fails; no measurable slowdown). Merged; snapshot conflict regenerated; 21 tests on main (hashes, pins, examples, goals, std, tutorial) passed. Model result: Opus, worked, 30 min (est. 60).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11198,13 +11198,13 @@
     {
       "id": 1630,
       "title": "Goal as written, stage 4: when the completeness check runs out of resources, use the as-written result with a note instead of E-RESOURCE (D2479)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "review",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1630",
       "labels": [
         "elab"
       ],
-      "body": "D2475-D2480 (Matt, 6 Nov 2026): all as recommended in docs/proposals/goal-as-written.md: rewrite/match/cases/transport look as written first with a completeness check and today's search as fallback; the as-written search may solve a rule's unknowns; keep today's reach into hidden copies, no occurrence selection now (D2478); out-of-resources check uses the as-written result; rewrite f later. 'happy to go with your recommendation.' 45 min. After stage 2.\n\nD2506 (Matt, 6 Nov 2026): SW-1627 stays on Sonnet with the Opus review, but from now on core language changes (kernel, rewrite/match tactics, unifier, syntax, std core) go to Opus: 'core/kernel language changes feel like we can afford a bit more intelligence to be safe!' So: Opus.",
+      "body": "D2475-D2480 (Matt, 6 Nov 2026): all as recommended in docs/proposals/goal-as-written.md: rewrite/match/cases/transport look as written first with a completeness check and today's search as fallback; the as-written search may solve a rule's unknowns; keep today's reach into hidden copies, no occurrence selection now (D2478); out-of-resources check uses the as-written result; rewrite f later. 'happy to go with your recommendation.' 45 min. After stage 2.\n\nD2506 (Matt, 6 Nov 2026): SW-1627 stays on Sonnet with the Opus review, but from now on core language changes (kernel, rewrite/match tactics, unifier, syntax, std core) go to Opus: 'core/kernel language changes feel like we can afford a bit more intelligence to be safe!' So: Opus.\n\nStarted on Opus, expected: 60 min.\n\nLane done (52b8bb3c2), in Opus review. Only \"too large to show\" is recovered (undo::recoverable); rewrite and match use the as-written result with W-REWRITE-UNCONFIRMED / W-MATCH-UNCONFIRMED; a hidden copy found by a completed check keeps today's error. Day 11's settle … 1000 checks with the warning (file restored). Orchestrator's calls (implementation): keep the lane's step where match falls back to today's confirmed result when only the as-written check runs out; keep the two warning codes. Model result: Opus, pending review, 62 min (est. 60).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11478,13 +11478,13 @@
     {
       "id": 1650,
       "title": "Std Int.natAbs lemmas (negate, add, sub, triangle) and omega support for natAbs; the plane library needed local case-split helpers (SW-1484)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "done",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1650",
       "labels": [
         "std"
       ],
-      "body": "From SW-1484, 6 Nov 2026. natAbsNegate/natAbsAdd/natAbsTriangle/natSquareOne live in Aoc.Common.Proofs.Plane for now.",
+      "body": "From SW-1484, 6 Nov 2026. natAbsNegate/natAbsAdd/natAbsTriangle/natSquareOne live in Aoc.Common.Proofs.Plane for now.\n\nStarted on Opus in one lane (SW-1650 with SW-1669; omega is a core tactic, D2506), expected: 90 min.\n\nLane done (75bc1fef3), in Opus review. natAbsDichotomy split tried only after a first failure (orchestrator's call: goals without natAbs unaffected); Nat.divFuel f x 0 an atom with divFuelZero; 16 std lemmas, statements checked by the orchestrator; Plane's 5 helpers removed. Model result: Opus, pending review, 40 min (est. 90).\n\nOpus review: merge (every fact a kernel-checked std lemma application with the right arguments; first attempt unchanged; divisor-0 return before the divisor - 1; reject examples genuinely false; cost ~6 ms per failing 4-size goal). Merged; snapshots re-accepted in dot form; on main: omega examples, std, guides, Aoc.Common.Proofs clean. Model result: Opus, worked, 40 min (est. 90).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11604,13 +11604,13 @@
     {
       "id": 1659,
       "title": "2020 day 19: dedupe each rule's leftovers with Set (2.9 vs 4.2 s in an earlier experiment) (SW-1636)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1665",
       "labels": [
         "aoc"
       ],
-      "body": "From SW-1636, 6 Nov 2026.",
+      "body": "From SW-1636, 6 Nov 2026.\n\nStarted on Sonnet in one lane (SW-1665 with SW-1670, SW-1659), expected: 45 min.\n\nClosed, no gain: after the Map table (SW-1636) day 19 runs in 2.1 s; .distinct on alternatives 2.6 s, on leftovers 2.8 s; no rule has two ways to the same rest on this input. Noted in NOTES-2020.md.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11688,13 +11688,13 @@
     {
       "id": 1665,
       "title": "2024 day 14: Space's widthPositive/heightPositive proof fields could go now that wrap is total; proofs take bounds from their inside hypotheses (SW-1640)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1665",
       "labels": [
         "aoc"
       ],
-      "body": "From SW-1640, 6 Nov 2026.",
+      "body": "From SW-1640, 6 Nov 2026.\n\nStarted on Sonnet in one lane (SW-1665 with SW-1670, SW-1659), expected: 45 min.\n\nClosed, can't: part2Never needs period ≠ 0 (Nat.modLess), which StartInside can't give for an empty robot list (width 0 would make part2Never false); Space.fromArgs relies on the fields to reject a zero size (SW-1665 lane, 6 Nov 2026).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11744,13 +11744,13 @@
     {
       "id": 1669,
       "title": "omega: add Nat.divZero (n / 0 = 0) as a fact for a literal 0 divisor; today it can't prove n / 0 = 0 for a variable n (SW-1640 review)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "done",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1650",
       "labels": [
         "elab"
       ],
-      "body": "From the SW-1640 Opus review, 6 Nov 2026. Opus (D2506).",
+      "body": "From the SW-1640 Opus review, 6 Nov 2026. Opus (D2506).\n\nStarted on Opus in one lane (SW-1650 with SW-1669; omega is a core tactic, D2506), expected: 90 min.\n\nOpus review: merge (every fact a kernel-checked std lemma application with the right arguments; first attempt unchanged; divisor-0 return before the divisor - 1; reject examples genuinely false; cost ~6 ms per failing 4-size goal). Merged; snapshots re-accepted in dot form; on main: omega examples, std, guides, Aoc.Common.Proofs clean. Model result: Opus, worked, 40 min (est. 90).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11758,13 +11758,13 @@
     {
       "id": 1670,
       "title": "2024 day 14: iterateWrap and moveWrap keep a redundant size ≠ 0 (they also take x < size); drop it per D2470 (SW-1640 review)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1665",
       "labels": [
         "aoc"
       ],
-      "body": "From the SW-1640 Opus review, 6 Nov 2026.",
+      "body": "From the SW-1640 Opus review, 6 Nov 2026.\n\nStarted on Sonnet in one lane (SW-1665 with SW-1670, SW-1659), expected: 45 min.\n\nDone, merged (a343d7f74): iterateWrap and moveWrap lose (ok: size ≠ 0); the successor case derives it from x < size. Checked clean on main. Model result: Sonnet, worked, 5 min (est. 45).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11814,13 +11814,13 @@
     {
       "id": 1674,
       "title": "Goals and messages write dot calls and operators as plain calls (Coupon.apply coupon total for coupon.apply total, List.append rest others for rest ++ others); show them as the source does — the tutorial has to explain it twice (SW-1666)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1674",
       "labels": [
         "editor"
       ],
-      "body": "From the tutorial lane SW-1666, 6 Nov 2026. A newcomer can't match the goal to their code.",
+      "body": "From the tutorial lane SW-1666, 6 Nov 2026. A newcomer can't match the goal to their code.\n\nStarted on Sonnet, expected: 90 min.\n\nMerged (ff46f8404, 25 min, est. 90). Post-merge verifier (170 tests, 460 s): 13 fail in goal_index, search, test_failures, doc and lsp binaries the lane didn't run. Mostly display snapshots; search's what-closes counts changed (5 → 3), and lemmas_check_as_the_same_goal fails. Back to the lane to fix, from main.\n\nFixes merged (fa26075d4): 9 of the 13 were display snapshots, now accepted; ring.rs checked Nat.pow by printed text, now by definition. The other 4 were already on main (2021 day 18, SW-1688). Pasted lemmas still check as the same goal. Model result: Sonnet, needed fixes (ran too few message-printing test binaries; 13 failures, 9 its own), 55 min (est. 90).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11828,13 +11828,13 @@
     {
       "id": 1675,
       "title": "VS Code README overstates hover on ? (the server returns nothing; the goal shows via the diagnostic) and 'type of the selected expression' (a hover carries only a position) (SW-1666)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1675",
       "labels": [
         "editor"
       ],
-      "body": "From SW-1666, 6 Nov 2026.",
+      "body": "From SW-1666, 6 Nov 2026.\n\nStarted on Sonnet in one lane (SW-1675 with SW-1676, SW-1685), expected: 40 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11842,13 +11842,13 @@
     {
       "id": 1676,
       "title": "Editor shows notes unnumbered ('Note:') where the CLI numbers them ('Note 3'); number them in diagnostics too (SW-1666)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1675",
       "labels": [
         "editor"
       ],
-      "body": "From SW-1666, 6 Nov 2026.",
+      "body": "From SW-1666, 6 Nov 2026.\n\nStarted on Sonnet in one lane (SW-1675 with SW-1676, SW-1685), expected: 40 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11891,6 +11891,160 @@
         "runtime"
       ],
       "body": "From SW-1638, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1680,
+      "title": "Match-equation transport: when an argument's transport is kept but the call around it still mismatches, the error shows an internal J (…) term instead of a plain expected/found; drop the argument's transport or hide J in messages (SW-1629 review)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "errors"
+      ],
+      "body": "From the SW-1629 Opus review, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1681,
+      "title": "LSP: documentSymbol answers an empty outline when asked before the file's first check finishes (VS Code asks once on open, so Cmd-Shift-O shows 'No editor symbols'); wait for the check, or send a refresh when it's done (Matt, tutorial step 1)",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1681",
+      "labels": [
+        "editor"
+      ],
+      "body": "Found by Matt in the tutorial, 6 Nov 2026. Reproduced over stdio: documentSymbol straight after didOpen gives 0 symbols; after publishDiagnostics, 26. Repro script: scratchpad sym.py.\n\nStarted on Sonnet, expected: 40 min.\n\nDone, merged (cca3e15f0): while a file has no checked results, documentSymbol answers from a parse of its text (outline_of_text in live.rs; no-namespace files as Main). Repro on main: 26 symbols straight after didOpen. Model result: Sonnet, worked (ran the 8-min features binary, over budget), 29 min (est. 40).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1682,
+      "title": "Testing panel: the project-wide run is one stitchwort test --json over the whole project (all of AoC, slow); split it per namespace group (SW-1121)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor"
+      ],
+      "body": "From SW-1121, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1683,
+      "title": "CLI names files relative to the project's parent in project mode (aoc/src/…) but to the current directory in file mode; make them consistent (SW-1121)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "cli"
+      ],
+      "body": "From SW-1121, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1684,
+      "title": "Testing panel finds tests by a regex over ^test \"…\"; serve them from the server instead (SW-1121)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor"
+      ],
+      "body": "From SW-1121, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1685,
+      "title": "stitchwort test --only NAME --json: ok is true when nothing matches, though the exit status is 1; make ok false (SW-1121)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1675",
+      "labels": [
+        "cli"
+      ],
+      "body": "From SW-1121, 6 Nov 2026.\n\nStarted on Sonnet in one lane (SW-1675 with SW-1676, SW-1685), expected: 40 min.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1686,
+      "title": "stitchwort-lsp features tests take ~8 min in release (16 tests, each checks std; 550 s for one in debug), and test:lane AREA=lsp doesn't cover them; find why std is so slow there (SW-1681)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "body": "From SW-1681, 6 Nov 2026. The lane ran the whole binary, which overran the test budget.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1687,
+      "title": "matching.rs blocker reads back unfolded with an unlabelled ?, so a too-large hypothesis's error points at the whole theorem (SW-1477 shape); label it (SW-1630)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "errors"
+      ],
+      "body": "From SW-1630, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1688,
+      "title": "Regression on main: 2021 day 18 Proofs has 5 E-TYPE-MISMATCH (Split.sw:40: a No arm's hypothesis keeps if 10 <= value then … instead of None); also what_closes_a_goal_in_a_project's search found 3 not 5. Suspect SW-1629 (stage 3 transport); the D2507 whole-AoC check after SW-1628 at 14:13 had 0 errors",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1688",
+      "labels": [
+        "regression"
+      ],
+      "body": "Found by the SW-1674 lane, 6 Nov 2026: fails the same on SW-1674's parent. Breaks lsp tests a_newer_edit_cancels_the_check_running, aoc_navigation_matches_check_index, workspace_symbols_cover_namespaces_not_checked_yet.\n\nStarted on Opus, expected: 45 min.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1689,
+      "title": "omega: when the split budget runs out on natAbs dichotomies, the note says 'split by match first'; suggest listing a natAbs lemma instead (omega.rs:2857, SW-1650 review)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "errors"
+      ],
+      "body": "From the SW-1650 review.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1690,
+      "title": "omega: add the always-true t ≤ |t| and 0 - t ≤ |t| before splitting, so size goals keep their split budget; and Or goals see natAbs dichotomies (x.natAbs = y.natAbs → x = y ∨ x = 0 - y fails; Lean proves it) (SW-1650 review)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tactics"
+      ],
+      "body": "From the SW-1650 review, 6 Nov 2026. Also Int.toNat and Int max/min the same way.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []

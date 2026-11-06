@@ -1,6 +1,5 @@
 ---
 source: crates/cli/tests/examples.rs
-assertion_line: 624
 expression: output
 ---
 [E-REFL] Error: `rfl` can't prove this
@@ -8,11 +7,11 @@ expression: output
     │
  12 │     (List.range 0 4 |> .all (p c)) = (p c 0 && p c 1 && p c 2 && p c 3) := rfl
     │                                                                            ─┬─  
-    │                                                                             ╰─── `List.all (0 ..< 4) (p c)` and `p c 0 && p c 1 && p c 2 && p c 3` aren't equal
+    │                                                                             ╰─── `(0 ..< 4).all (p c)` and `p c 0 && p c 1 && p c 2 && p c 3` aren't equal
     │ 
-    │ Note 1: computing both sides gives `Std.Decidable.toBool (Std.Nat.decEqFrom (Succ c) (… + 7) (Std.Nat.equal c …) rfl) && Std.Decidable.toBool (Std.Nat.decEqFrom … … … rfl) && Std.Decidable.toBool … && Std.Decidable.toBool … && True` and `Std.Decidable.toBool (Std.Nat.decEqFrom (Succ c) (… + 7) (Std.Nat.equal c …) rfl) && Std.Decidable.toBool (Std.Nat.decEqFrom … … … rfl) && Std.Decidable.toBool … && Std.Decidable.toBool …`
+    │ Note 1: computing both sides gives `((Succ c).decEqFrom (… + c + 7) (c.equal (… + 6)) rfl).toBool && ((… + 2).decEqFrom (… + 9) (Std.Nat.equal … …) rfl).toBool && (Std.Nat.decEqFrom … … … rfl).toBool && (Std.Nat.decEqFrom … … … rfl).toBool && True` and `((Succ c).decEqFrom (… + c + 7) (c.equal (… + 6)) rfl).toBool && ((… + 2).decEqFrom (… + 9) (Std.Nat.equal … …) rfl).toBool && (Std.Nat.decEqFrom … … … rfl).toBool && (Std.Nat.decEqFrom … … … rfl).toBool`
     │ 
-    │ Note 2: they first differ at `if Std.Decidable.toBool (Std.Nat.decEqFrom … … … rfl) then True else False` against `Std.Decidable.toBool (Std.Nat.decEqFrom (… + 4) (… + 19) (Std.Nat.equal … …) rfl)`
+    │ Note 2: they first differ at `if ((… + c + 4).decEqFrom (… + c + 19) ((… + c).equal (… + 15)) rfl).toBool then True else False` against `((3 * c + c + 4).decEqFrom (c * 3 + c + 19) ((3 * c + c).equal (c * 3 + c + 15)) rfl).toBool`
     │ 
     │ Note 3: `rfl` proves `a = b` only when both sides compute to the same value
 ────╯

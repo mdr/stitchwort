@@ -15,12 +15,12 @@ expression: json
         {
           "name": "total",
           "type": "Nat",
-          "value": "sum xs"
+          "value": "xs.sum"
         },
         {
           "name": "count",
           "type": "Nat",
-          "value": "Std.List.length xs"
+          "value": "xs.length"
         }
       ],
       "target": "Nat"
@@ -28,7 +28,7 @@ expression: json
     "labels": [
       {
         "file": 0,
-        "message": "xs: List Nat\ntotal: Nat := sum xs\ncount: Nat := Std.List.length xs\n⊢ Nat",
+        "message": "xs: List Nat\ntotal: Nat := xs.sum\ncount: Nat := xs.length\n⊢ Nat",
         "range": [
           6,
           2,

@@ -63,7 +63,8 @@
 //! facts `q * k <= x` and `x < (q + 1) * k` (`Nat.divFuelLe`,
 //! `Nat.divFuelBound`, whose fuel `f + 1` is `x` or a number more,
 //! `Nat.leAddLeft`); `x % k` computes to `x - q * k`, a subtraction atom
-//! over it.
+//! over it. `x / 0`, stuck as `Nat.divFuel f x 0` on the fuel `f`, is an
+//! atom with the fact that it is 0 (`Nat.divFuelZero f x`).
 //!
 //! **`Int`** works the same way over `Int` syntax (`ITerm`), read as `Int`
 //! arithmetic computes: `a <= b` is `Int.leq a b = True`, `a < b` is
@@ -75,7 +76,10 @@
 //! `0 - n` there). `Int` atoms have no bound. `x / k` and
 //! `x % k` for a nonzero number `k` are atoms with the facts
 //! `k * (x / k) + x % k = x`, `0 <= x % k` and `x % k < |k|`
-//! (`Int.divAddMod`, `Int.modNonneg`, `Int.modLtAbs`). A goal that
+//! (`Int.divAddMod`, `Int.modNonneg`, `Int.modLtAbs`). `Int.natAbs t` is a
+//! `Nat` atom; if the goal doesn't follow without more about it,
+//! [`linear_split`] tries again with the disjunction `Int.natAbsDichotomy t`
+//! among the facts, split as any other. A goal that
 //! isn't arithmetic is proved by refuting the facts (`Void.exfalso`/`Void.absurd`). Anything else is an atom: two
 //! subterms are one atom if they're the same term, or if a bounded
 //! conversion check says so; an inconclusive check keeps them apart. A
@@ -147,11 +151,13 @@ pub(crate) const LIBRARY: &[&str] = &[
     "Std.Nat.mulComm",
     "Std.Nat.divFuelLe",
     "Std.Nat.divFuelBound",
+    "Std.Nat.divFuelZero",
     "Std.Nat.leAddLeft",
     "Std.Int.mulComm",
     "Std.Int.divAddMod",
     "Std.Int.modNonneg",
     "Std.Int.modLtAbs",
+    "Std.Int.natAbsDichotomy",
 ];
 
 pub(crate) static LIBRARY_NAMES: LazyLock<Vec<ast::Name>> = LazyLock::new(|| {
@@ -417,11 +423,13 @@ struct Lib {
     mul_comm: DefId,
     div_fuel_le: DefId,
     div_fuel_bound: DefId,
+    div_fuel_zero: DefId,
     int_mul_comm: DefId,
     int_div_add_mod: DefId,
     int_mod_nonneg: DefId,
     int_mod_lt_abs: DefId,
     int_ne_zero: DefId,
+    nat_abs_dichotomy: DefId,
     succ_not_zero: DefId,
     le_refl: DefId,
     le_add_left: DefId,
@@ -448,6 +456,7 @@ struct Lib {
     int_mul: DefId,
     int_div: DefId,
     int_mod: DefId,
+    nat_abs: DefId,
     int_leq: DefId,
     int_less: DefId,
     sub_nat_nat: DefId,
@@ -699,11 +708,13 @@ impl Lib {
             mul_comm: def("Std.Nat.mulComm")?,
             div_fuel_le: def("Std.Nat.divFuelLe")?,
             div_fuel_bound: def("Std.Nat.divFuelBound")?,
+            div_fuel_zero: def("Std.Nat.divFuelZero")?,
             int_mul_comm: def("Std.Int.mulComm")?,
             int_div_add_mod: def("Std.Int.divAddMod")?,
             int_mod_nonneg: def("Std.Int.modNonneg")?,
             int_mod_lt_abs: def("Std.Int.modLtAbs")?,
             int_ne_zero: def("Std.Int.neZeroOfNatAbs")?,
+            nat_abs_dichotomy: def("Std.Int.natAbsDichotomy")?,
             succ_not_zero: def("Std.Nat.succNotZero")?,
             le_refl: def("Std.Nat.leRefl")?,
             le_add_left: def("Std.Nat.leAddLeft")?,
@@ -729,6 +740,7 @@ impl Lib {
             int_mul: builtin_def(cx, Builtin::IntMul)?,
             int_div: builtin_def(cx, Builtin::IntDiv)?,
             int_mod: builtin_def(cx, Builtin::IntMod)?,
+            nat_abs: builtin_def(cx, Builtin::IntNatAbs)?,
             int_leq: builtin_def(cx, Builtin::IntLeq)?,
             int_less: builtin_def(cx, Builtin::IntLess)?,
             sub_nat_nat: def("Std.Int.subNatNat")?,
@@ -1324,7 +1336,7 @@ fn unsupported_goal(cx: &Ctx, goal: &Value, span: Span) -> Diagnostic {
     Diagnostic::error("E-OMEGA", format!("`omega` can't prove `{}`", cx.show(goal)))
         .with_label(span, "unsupported structure: this goal isn't linear arithmetic on `Nat` or `Int`")
         .with_note(
-            "`omega` proves `a <= b`, `a < b` and `a = b` between `Nat`s or `Int`s built from `+`, `-`, numbers, multiplication, division and remainder by a number, `Nat.toInt`, `Nat.max` and `Nat.min`, `Void`, and `Not`, `Or`, `&&`, `||`, `not` and `… = True`/`False` around comparisons",
+            "`omega` proves `a <= b`, `a < b` and `a = b` between `Nat`s or `Int`s built from `+`, `-`, numbers, multiplication, division and remainder by a number, `Nat.toInt`, `Int.natAbs`, `Nat.max` and `Nat.min`, `Void`, and `Not`, `Or`, `&&`, `||`, `not` and `… = True`/`False` around comparisons",
         )
 }
 
@@ -1897,7 +1909,7 @@ struct Atom {
 }
 
 /// A division atom found while quoting: atom `q` is `numerator / divisor`
-/// for a positive number `divisor`.
+/// for a number `divisor` (0 only as `Nat.divFuel fuel numerator 0`).
 #[derive(Clone)]
 struct Division {
     q: usize,
@@ -2178,7 +2190,7 @@ impl Quoter {
         Ok(matches.then(|| (m.clone(), n.clone())))
     }
 
-    /// `x / k` for a number `k > 0`: `Nat.div x k`, `Nat.divFuel f x k`
+    /// `x / k` for a number `k`: `Nat.div x k`, `Nat.divFuel f x k`
     /// (which it computes to, `f` being `x`), or `Nat.divStep b f x k`, which
     /// `Nat.divFuel (Succ f) x k` computes to once `x` has a number added:
     /// `(n + 1) / 2` is `Nat.divStep (1 <= n) n (n + 1) 2`, and `(n + 3) / 2`
@@ -2190,11 +2202,11 @@ impl Quoter {
         lib: &Lib,
         value: &Value,
     ) -> Result<Option<(Value, Value, BigUint)>> {
-        let (numerator, fuel, divisor) =
+        let (numerator, fuel, divisor, step) =
             if let Some([fuel, n, d]) = call_args(value, lib.div_fuel).as_deref() {
-                (n.clone(), fuel.clone(), d.clone())
+                (n.clone(), fuel.clone(), d.clone(), false)
             } else if let Some([n, d]) = call_args(value, lib.div).as_deref() {
-                (n.clone(), n.clone(), d.clone())
+                (n.clone(), n.clone(), d.clone(), false)
             } else if let Some([_, fuel, n, d]) = call_args(value, lib.div_step).as_deref() {
                 let fuel = Term::ctor(lib.succ.0, lib.succ.1, vec![cx.quote_folded(fuel)?]);
                 // Only the step that `Nat.divFuel (Succ fuel) n d` takes, so
@@ -2207,12 +2219,17 @@ impl Quoter {
                 if !crate::matching::same(&cx.quote(&computed)?, &cx.quote(value)?) {
                     return Ok(None);
                 }
-                (n.clone(), cx.eval(&fuel)?, d.clone())
+                (n.clone(), cx.eval(&fuel)?, d.clone(), true)
             } else {
                 return Ok(None);
             };
+        // A divisor of 0 only as `Nat.divFuel f x 0`, which is what
+        // `Nat.divZero`'s fact is about: a `Nat.divStep` by 0 always computes
+        // (its comparison `Nat.leq 0 x` is `True`), so it isn't stuck here.
         Ok(match force(&cx.g(), divisor)? {
-            Value::Nat(k) if *k != BigUint::default() => Some((numerator, fuel, (*k).clone())),
+            Value::Nat(k) if *k != BigUint::default() || !step => {
+                Some((numerator, fuel, (*k).clone()))
+            }
             _ => None,
         })
     }
@@ -2492,9 +2509,14 @@ fn atoms_differing_in_one_argument(cx: &Ctx, quoter: &Quoter) -> Option<String> 
     let shown = |t: &Term| {
         stitchwort_core::pretty::term_for_message_in(&cx.g(), cx.e, &cx.shown_names(false), t)
     };
+    // Sizes are connected, through `Int.natAbsDichotomy`.
+    let size = |value: &Value| {
+        matches!(value, Value::Neutral(Head::Def(id), _)
+            if cx.g().env.registry().is_def(Builtin::IntNatAbs, *id))
+    };
     for (i, a) in quoter.atoms.iter().enumerate() {
         for (j, b) in quoter.atoms.iter().enumerate().skip(i + 1) {
-            if a.int != b.int {
+            if a.int != b.int || (size(&a.value) && size(&b.value)) {
                 continue;
             }
             let Some((x, y)) = one_argument_apart(&a.term, &b.term) else {
@@ -2746,12 +2768,22 @@ fn linear_split(
     let reader = read_context(cx, lib, extra)?;
     let found = reader.disjunctions.clone();
     let snapshot = crate::undo::Snapshot::take(cx);
-    let failure = match linear_once(cx, lib, goal, expected, span, reader) {
+    let mut sizes = Vec::new();
+    let failure = match linear_once(cx, lib, goal, expected, span, reader, &mut sizes) {
         Ok(proof) => return Ok(proof),
         Err(e) if crate::undo::fatal(&e) => return Err(e),
         Err(e) => e,
     };
     snapshot.restore(cx);
+    // Atoms `Int.natAbs t` the facts don't say anything about yet: try again
+    // with `Int.natAbsDichotomy t` among them, a disjunction split like any
+    // other (costing nothing when one side contradicts the facts at once).
+    let dichotomies = nat_abs_dichotomies(cx, lib, extra, &sizes)?;
+    if !dichotomies.is_empty() {
+        let mut extra = extra.to_vec();
+        extra.extend(dichotomies);
+        return linear_split(cx, lib, goal, expected, &extra, span, split, splits);
+    }
     let case = |cx: &mut Ctx, extra: &[Extra], split: &Split, splits: &mut usize| {
         linear_split(cx, lib, goal, expected, extra, span, split, splits)
     };
@@ -2883,7 +2915,7 @@ fn refuted_case(
     let void = Value::Data(lib.void, Vec::new());
     let made = assuming(cx, "case", side, extra, |cx, extra| {
         let reader = read_context(cx, lib, extra)?;
-        let proof = linear_once(cx, lib, &Goal::Void, &void, span, reader)?;
+        let proof = linear_once(cx, lib, &Goal::Void, &void, span, reader, &mut Vec::new())?;
         let which = match is_prop(cx, expected)? {
             Some(false) => lib.absurd,
             _ => lib.exfalso,
@@ -3036,7 +3068,49 @@ fn assuming(
     Ok(Term::Lam(name.into(), Icit::Explicit, Rc::new(made?)))
 }
 
-/// Proves a linear goal (or `Void`) from the facts `reader` read.
+/// `Int.natAbsDichotomy t` for each `t` in `sizes` (the arguments of the
+/// atoms `Int.natAbs t` that quoting found), as facts given by term, leaving
+/// out those already in `extra`. Its type is
+/// `(0 ≤ t ∧ (Int.natAbs t).toInt = t) ∨ (t < 0 ∧ (Int.natAbs t).toInt = 0 - t)`,
+/// proved in std by cases on `t` (`OfNat n`: both sides are `rfl`; `NegSucc
+/// n`: likewise), so the kernel checks the fact like any lemma application.
+fn nat_abs_dichotomies(
+    cx: &mut Ctx,
+    lib: &Lib,
+    extra: &[Extra],
+    sizes: &[Value],
+) -> Result<Vec<Extra>> {
+    let mut known = Vec::new();
+    for e in extra {
+        known.push(cx.quote(&e.ty)?);
+    }
+    let mut made = Vec::new();
+    for t in sizes {
+        let (term, ty) = lemma(cx, lib.nat_abs_dichotomy, &[both(cx, t)?])?;
+        let quoted = cx.quote(&ty)?;
+        if known.iter().any(|k| crate::matching::same(k, &quoted)) {
+            continue;
+        }
+        known.push(quoted);
+        let shown = cx.show(t);
+        let argument = if shown.contains(' ') {
+            format!("({shown})")
+        } else {
+            shown
+        };
+        made.push(Extra {
+            term,
+            ty,
+            name: format!("`Int.natAbsDichotomy {argument}`"),
+            written: None,
+        });
+    }
+    Ok(made)
+}
+
+/// Proves a linear goal (or `Void`) from the facts `reader` read. `sizes`
+/// gets the argument `t` of each atom `Int.natAbs t`, for
+/// [`nat_abs_dichotomies`] should this fail.
 fn linear_once(
     cx: &mut Ctx,
     lib: &Lib,
@@ -3044,6 +3118,7 @@ fn linear_once(
     expected: &Value,
     span: Span,
     reader: Reader,
+    sizes: &mut Vec<Value>,
 ) -> Result<Term> {
     let mut quoter = Quoter::default();
     let unknown = |what: &str| {
@@ -3111,6 +3186,11 @@ fn linear_once(
                     sides,
                 });
             }
+        }
+    }
+    for atom in &quoter.atoms {
+        if let Some([t]) = call_args(&atom.value, lib.nat_abs).as_deref() {
+            sizes.push(t.clone());
         }
     }
     // What each operation atom is, proved by `rfl`: the environment holds
@@ -3299,11 +3379,29 @@ fn int_division_facts(cx: &Ctx, lib: &Lib, division: &IntDivision) -> Result<Vec
 }
 
 /// The facts saying what `division`'s atom `q = x / k` is, from
-/// `Nat.divFuelLe x x k` and `Nat.divFuelBound x x k`.
+/// `Nat.divFuelLe x x k` and `Nat.divFuelBound x x k`, or for `k = 0` from
+/// `Nat.divFuelZero`.
 fn division_facts(cx: &Ctx, lib: &Lib, quoter: &Quoter, division: &Division) -> Result<Vec<Fact>> {
     let number = |k: BigUint| (nat_term(k.clone()), Value::Nat(Rc::new(k)));
     let numerator = both(cx, &division.numerator)?;
     let fuel = both(cx, &division.fuel)?;
+    let origin = format!("what `{}` is", atom_name(cx, quoter, division.q));
+    let mut reader = Reader {
+        lib,
+        facts: Vec::new(),
+        disjunctions: Vec::new(),
+        skipped: Vec::new(),
+        waiting: Vec::new(),
+    };
+    // `x / 0`: the atom is `Nat.divFuel f x 0`, and `Nat.divFuelZero f x`
+    // proves it is 0 (by cases on the fuel `f`: `Nat.divFuel 0 x 0` is 0,
+    // and `Nat.divFuel (f + 1) x 0` takes a `Nat.divStep` that stops at the
+    // divisor 0). Then `x % 0`, which computes to `x - (x / 0) * 0`, is `x`.
+    if division.divisor == BigUint::default() {
+        let (proof, prop) = lemma(cx, lib.div_fuel_zero, &[fuel, numerator])?;
+        reader.read(cx, proof, &prop, &origin, 0)?;
+        return Ok(reader.facts);
+    }
     let divisor = number(division.divisor.clone());
     let low = lemma(
         cx,
@@ -3338,14 +3436,6 @@ fn division_facts(cx: &Ctx, lib: &Lib, quoter: &Quoter, division: &Division) -> 
             &[fuel, numerator, divisor, nonzero, enough_fuel],
         )?),
         None => None,
-    };
-    let origin = format!("what `{}` is", atom_name(cx, quoter, division.q));
-    let mut reader = Reader {
-        lib,
-        facts: Vec::new(),
-        disjunctions: Vec::new(),
-        skipped: Vec::new(),
-        waiting: Vec::new(),
     };
     for (proof, prop) in std::iter::once(low).chain(high) {
         reader.read(cx, proof, &prop, &origin, 0)?;

@@ -33,6 +33,14 @@ theorem Int.natAbsNeg: (x: Int) → Int.natAbs (Int.neg x) = Int.natAbs x
   | OfNat (Succ n) => rfl
   | NegSucc n => rfl
 
+--| `|x|` is `x` when `x` isn't negative, and `-x` when it is (Lean's
+--| `Int.natAbs_dichotomy`). `omega` splits on this for each `Int.natAbs x`
+--| it meets, so a goal about sizes needs no case split by hand.
+theorem Int.natAbsDichotomy: (x: Int) →
+    (0 ≤ x ∧ Nat.toInt (Int.natAbs x) = x) ∨ (x < 0 ∧ Nat.toInt (Int.natAbs x) = 0 - x)
+  | OfNat n => Inl (Both rfl rfl)
+  | NegSucc n => Inr (Both rfl rfl)
+
 -- Lemmas (checkpoint 2): division. Division is total (`x / 0 = 0`, `x % 0 =
 -- x`); the lemmas that need a divisor that isn't 0 take it as an `auto`
 -- argument, found as `auto` finds any fact.
@@ -49,6 +57,13 @@ theorem Int.modNatToInt: (x: Int) → (d: Nat) → [auto ok: d ≠ 0] →
   | x, Zero => Void.exfalso (ok rfl)
   | OfNat m, Succ n => rfl
   | NegSucc m, Succ n => rfl
+
+--| Dividing by 0 gives 0 (Lean's `Int.ediv_zero`), by computation.
+theorem Int.divZero (x: Int): x / 0 = 0 := rfl
+
+--| The remainder of dividing by 0 is the number itself (Lean's
+--| `Int.emod_zero`), by computation.
+theorem Int.modZero (x: Int): x % 0 = x := rfl
 
 theorem Int.toIntDiv (n: Nat): (d: Nat) →
     Nat.toInt (n / d) = Nat.toInt n / Nat.toInt d

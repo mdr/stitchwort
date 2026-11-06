@@ -2,16 +2,16 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-OMEGA] Error: `omega` can't prove `2 ≤ List.foldLeft counts Add.zero (acc x => acc + x.snd)`
+[E-OMEGA] Error: `omega` can't prove `2 ≤ counts.foldLeft Add.zero (acc x => acc + x.snd)`
     ╭─[ reject/search-after-call-false.sw:11:50 ]
     │
  11 │   match moreThanOne (entry => entry.snd) counts (omega [given]) with
     │                                                  ──────┬──────  
     │                                                        ╰──────── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
     │ 
-    │ Note 1: facts: `1 ≤ List.foldLeft counts Add.zero (acc x => acc + x.snd)` (given), `1 ≤ List.foldLeft counts Add.zero (acc x => acc + x.snd)` (listed fact 1)
+    │ Note 1: facts: `1 ≤ counts.foldLeft Add.zero (acc x => acc + x.snd)` (given), `1 ≤ counts.foldLeft Add.zero (acc x => acc + x.snd)` (listed fact 1)
     │ 
-    │ Note 2: atoms: `List.foldLeft counts Add.zero (acc x => acc + x.snd)`
+    │ Note 2: atoms: `counts.foldLeft Add.zero (acc x => acc + x.snd)`
     │ 
-    │ Note 3: an integer model of the arithmetic abstraction (it may not be a real counterexample): List.foldLeft counts Add.zero (acc x => acc + x.snd) = 1
+    │ Note 3: an integer model of the arithmetic abstraction (it may not be a real counterexample): counts.foldLeft Add.zero (acc x => acc + x.snd) = 1
 ────╯

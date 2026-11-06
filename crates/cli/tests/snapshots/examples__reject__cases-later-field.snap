@@ -15,7 +15,7 @@ expression: output
    │ 
    │ Note 3: %fact2: xs = ys
    │ 
-   │ Note 4: goal: List.length xs = 5
+   │ Note 4: goal: xs.length = 5
    │ 
    │ Note 5: it stopped here because the goal is stuck on `xs`, a `List`, which `cases` doesn't take apart; give this case's proof as `cases in t`
    │ 
@@ -25,7 +25,7 @@ expression: output
    │           y = 0
    │           ys = []
    │         `[x, ..xs] = [y, ..ys]` holds
-   │         `List.length xs = 5` is false:
+   │         `xs.length = 5` is false:
    │           left:  0
    │           right: 5
 ───╯

@@ -17,13 +17,13 @@ expression: json
           "type": "Nat"
         }
       ],
-      "lemma": "theorem doubleTimesHalvedGoal1 (n: Nat) (count: Nat): Nat.shiftRight (doubleTimes n count) count = n := ?",
-      "target": "Nat.shiftRight (doubleTimes n count) count = n"
+      "lemma": "theorem doubleTimesHalvedGoal1 (n: Nat) (count: Nat): (doubleTimes n count).shiftRight count = n := ?",
+      "target": "(doubleTimes n count).shiftRight count = n"
     },
     "labels": [
       {
         "file": 0,
-        "message": "n: Nat\ncount: Nat\n⊢ Nat.shiftRight (doubleTimes n count) count = n",
+        "message": "n: Nat\ncount: Nat\n⊢ (doubleTimes n count).shiftRight count = n",
         "range": [
           14,
           99,

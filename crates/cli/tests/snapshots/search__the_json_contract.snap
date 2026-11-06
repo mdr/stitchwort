@@ -12,7 +12,7 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
     "truncated": false
   },
   "query": {
-    "elaborated": "List.length (twice ?1) = ?2",
+    "elaborated": "(twice ?1).length = ?2",
     "holes": [],
     "kinds": [
       "theorem",
@@ -38,7 +38,7 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
       "relation": "instance",
       "size": 25,
       "summary": null,
-      "type": "(xs: List Nat) → List.length (twice xs) = List.length xs + List.length xs"
+      "type": "(xs: List Nat) → (twice xs).length = xs.length + xs.length"
     }
   ],
   "searchTier": "filtered",

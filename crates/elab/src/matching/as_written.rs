@@ -107,7 +107,7 @@ pub(super) struct Written {
 
 /// What an attempt came to, counted under `STITCHWORT_MATCH_METRICS`.
 #[derive(Clone, Copy)]
-pub(super) enum Outcome {
+pub(crate) enum Outcome {
     /// Agrees with the usual test (and perhaps found more).
     Kept,
     /// The usual test found nothing anywhere; this did.
@@ -128,6 +128,19 @@ pub(super) enum Outcome {
 /// Prints `outcome` for the `match` at `span` when
 /// `STITCHWORT_MATCH_METRICS` is set.
 pub(super) fn report(outcome: Outcome, span: stitchwort_syntax::Span) {
+    report_as("match-as-written", outcome, span);
+}
+
+/// Prints `outcome` for the transport along the equation of the `match`
+/// whose scrutinee is at `span` ([`transport_target`]) when
+/// `STITCHWORT_MATCH_METRICS` is set. [`Outcome::Unchecked`] is a target
+/// found and agreeing whose transport didn't fit: the other side or the
+/// kernel's check of the motive said no.
+pub(crate) fn report_transport(outcome: Outcome, span: stitchwort_syntax::Span) {
+    report_as("transport-as-written", outcome, span);
+}
+
+fn report_as(what: &str, outcome: Outcome, span: stitchwort_syntax::Span) {
     if std::env::var_os("STITCHWORT_MATCH_METRICS").is_none() {
         return;
     }
@@ -140,7 +153,7 @@ pub(super) fn report(outcome: Outcome, span: stitchwort_syntax::Span) {
         Outcome::Unchecked => "unchecked",
         Outcome::Unconfirmed => "unconfirmed",
     };
-    eprintln!("match-as-written: {name} at={}", span.start);
+    eprintln!("{what}: {name} at={}", span.start);
 }
 
 /// The generalisation as written, if it found something and passes checks
@@ -418,6 +431,105 @@ enum Unfolded {
     Misshapen,
     /// Too large to build (only looked past without the usual test).
     TooLarge,
+}
+
+/// SW-1562, goal-as-written.md stage 3: for the transport along a named
+/// `match`'s equation `e = s` ([`Ctx::along_match_equation`]), `source` (a
+/// type in the current context, one side of a mismatch) with every
+/// occurrence of the scrutinee `e` (`lhs`, as the equation holds it)
+/// replaced by a new variable after the context, found as written: `source`
+/// and `e` read back folded, a candidate headed as `e` is written and equal
+/// to it by computation, solving nothing ([`Finder::occurrence`]). So a
+/// lemma's type that has `e` in another form than the scrutinee's normal
+/// form (`xs.map (y => f a y)` for `xs.map (f a)`), which the transport's
+/// syntactic test on normal forms misses, is still rewritten.
+///
+/// `todays` is what the transport's own test makes of `source`: its normal
+/// form with each syntactic occurrence of `e`'s normal form replaced by the
+/// same variable (`todays_found` if there was one). The result is kept only
+/// if it agrees with that, as stage 2's check 2 ([`Finder::agree`]): read
+/// back unfolded, it is `todays` except that it may have the variable where
+/// `todays` has a subterm equal to `e` (an occurrence written otherwise).
+/// So everything the usual test replaces is replaced here too: an
+/// occurrence hidden inside a call kept folded, which this can't see and
+/// the usual test replaces, makes the two differ, and the caller then
+/// transports as before. Nothing is replaced that isn't `e` by computation,
+/// and since the usual test replaces every syntactic copy, the motive the
+/// caller builds from this is the usual one up to computation and those
+/// extra occurrences, with calls kept as calls.
+///
+/// Whatever the search solves or binds is undone, it runs within its own
+/// budget, and every error but running out of resources overall is an
+/// [`Outcome::Failed`]. Otherwise `Err` gives why nothing is kept, and the
+/// caller makes the usual test.
+pub(crate) fn transport_target(
+    cx: &mut Ctx,
+    lhs: &Value,
+    source: &Value,
+    todays: &Term,
+    todays_found: bool,
+) -> Result<std::result::Result<(Term, Outcome), Outcome>> {
+    let g = cx.g();
+    let snapshot = Snapshot::take(cx);
+    let mut remaining = search_budget(cx);
+    let tried = g.machine.budget.limited(&mut remaining, || {
+        transport_search(cx, lhs, source, todays, todays_found)
+    });
+    snapshot.restore(cx);
+    match tried {
+        Ok(Some(found)) => Ok(found),
+        // Over this attempt's own budget.
+        Ok(None) => Ok(Err(Outcome::Failed)),
+        Err(e) if fatal(&e) => Err(e),
+        Err(_) => Ok(Err(Outcome::Failed)),
+    }
+}
+
+fn transport_search(
+    cx: &mut Ctx,
+    lhs: &Value,
+    source: &Value,
+    todays: &Term,
+    todays_found: bool,
+) -> Result<std::result::Result<(Term, Outcome), Outcome>> {
+    let g = cx.g();
+    let level = cx.level();
+    let written = cx.quote_folded(lhs)?;
+    let Some(key) = key(&written, 0) else {
+        return Ok(Err(Outcome::Nothing));
+    };
+    let source_written = cx.quote_folded(source)?;
+    let finder = Finder {
+        cx: RefCell::new(cx),
+        needles: vec![Needle {
+            written,
+            value: lhs.clone(),
+            key,
+        }],
+        base: level,
+        depth: level + 1,
+        hits: RefCell::new(Vec::new()),
+        error: RefCell::new(None),
+    };
+    let generalised = finder.generalise(&g, &source_written)?;
+    if finder.hits.borrow().is_empty() {
+        return Ok(Err(Outcome::Nothing));
+    }
+    let Some(unfolded) = finder.unfolded(&generalised)? else {
+        return Ok(Err(Outcome::Incomplete));
+    };
+    // Found only inside a call that drops it: nothing to rewrite.
+    if !finder.survivors(&unfolded)[0] {
+        return Ok(Err(Outcome::Nothing));
+    }
+    if !finder.agree(&g, &unfolded, todays, 0)? {
+        return Ok(Err(Outcome::Incomplete));
+    }
+    let outcome = match todays_found {
+        true => Outcome::Kept,
+        false => Outcome::Rescued,
+    };
+    Ok(Ok((generalised, outcome)))
 }
 
 /// A scrutinee as the search looks for it.

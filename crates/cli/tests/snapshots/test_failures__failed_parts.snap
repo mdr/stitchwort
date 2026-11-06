@@ -97,8 +97,8 @@ expression: "run(&dir, &[\"--no-cache\"])"
       right: (Some 1, None)
       first difference at .1: Some 2 vs None (different constructors: Some and None)
   ✗ constructor field                     ran  (`==` is False)
-      left:  Some ({ id = "x", tags = [1, 2, 3] })
-      right: Some ({ id = "x", tags = [1, 2, 9] })
+      left:  Some { id = "x", tags = [1, 2, 3] }
+      right: Some { id = "x", tags = [1, 2, 9] }
       first difference at .Some.value.tags[2]: 3 vs 9
   ✗ list length mismatch inside a record  ran  (`==` is False)
       left:  { id = "x", tags = [1, 2, 3] }
