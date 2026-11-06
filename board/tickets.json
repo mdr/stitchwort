@@ -1,5 +1,5 @@
 {
-  "next": 1627,
+  "next": 1632,
   "tickets": [
     {
       "id": 47,
@@ -703,11 +703,11 @@
     {
       "id": 706,
       "title": "rewrite: look for the lemma's left side in the goal as written first (isSafe r as a call), fall back to the computed-goal search; measure on AoC and std proofs first (D1422; revisits D484; trigger: AoC 2024 day 2 rewrite isSafeCorrect _)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-706",
       "labels": [],
-      "body": "\n\nD2453 (Matt, 6 Nov 2026): yes, both: an Opus design note on rewrite/match looking at the goal as written first (SW-706, SW-1589, SW-1562), and the refines-nothing warning SW-1485 now. Started on Opus as the design note (docs/proposals/), expected: 120 min.\n\nDesign note done (f5b4063ab), merged: docs/proposals/goal-as-written.md; prototype kept as dev/patches/sw-706-folded-rewrite.patch. Finding: D1431 (folded-first with a completeness check) was closed 4 Nov as answered but never built. Recommendation: rewrite/match/cases/transport search the goal as printed first, keep it only when no copy hides inside a call, else today's search. Prototype on AoC: 4,276 of 5,282 rewrites found as written; 759 still need today's search; time +10% at most; breaks 1 declaration (2025 day 1 Part2.sw:82, / hidden proof) vs Lean's rule 5. Kernel terms change (hash snapshots move). Q1-Q6 = D2475-D2480, waiting for Matt. Model result: Opus, worked, 22 min (est. 120).\n\nD questions: D2475 rewrite as written first with completeness check and fallback [rec: yes]; D2476 same for match/cases (up to eta) and the transport [rec: yes]; D2477 as-written search may fill a rule's unknowns (D1432) [rec: yes]; D2478 keep today's reach into hidden copies, no occurrence selection [rec: keep]; D2479 completeness check out of resources → use the as-written result [rec: yes]; D2480 rewrite f as one step of f (D1433), after stage 1 [rec: yes].",
+      "body": "\n\nD2453 (Matt, 6 Nov 2026): yes, both: an Opus design note on rewrite/match looking at the goal as written first (SW-706, SW-1589, SW-1562), and the refines-nothing warning SW-1485 now. Started on Opus as the design note (docs/proposals/), expected: 120 min.\n\nDesign note done (f5b4063ab), merged: docs/proposals/goal-as-written.md; prototype kept as dev/patches/sw-706-folded-rewrite.patch. Finding: D1431 (folded-first with a completeness check) was closed 4 Nov as answered but never built. Recommendation: rewrite/match/cases/transport search the goal as printed first, keep it only when no copy hides inside a call, else today's search. Prototype on AoC: 4,276 of 5,282 rewrites found as written; 759 still need today's search; time +10% at most; breaks 1 declaration (2025 day 1 Part2.sw:82, / hidden proof) vs Lean's rule 5. Kernel terms change (hash snapshots move). Q1-Q6 = D2475-D2480, waiting for Matt. Model result: Opus, worked, 22 min (est. 120).\n\nD questions: D2475 rewrite as written first with completeness check and fallback [rec: yes]; D2476 same for match/cases (up to eta) and the transport [rec: yes]; D2477 as-written search may fill a rule's unknowns (D1432) [rec: yes]; D2478 keep today's reach into hidden copies, no occurrence selection [rec: keep]; D2479 completeness check out of resources → use the as-written result [rec: yes]; D2480 rewrite f as one step of f (D1433), after stage 1 [rec: yes].\n\nD2475-D2480 (Matt, 6 Nov 2026): all as recommended in docs/proposals/goal-as-written.md: rewrite/match/cases/transport look as written first with a completeness check and today's search as fallback; the as-written search may solve a rule's unknowns; keep today's reach into hidden copies, no occurrence selection now (D2478); out-of-resources check uses the as-written result; rewrite f later. 'happy to go with your recommendation.' Stages: SW-1627 SW-1628 SW-1629 SW-1630 SW-1631.",
       "created": "2026-10-28",
       "updated": "2026-11-06",
       "commits": []
@@ -10252,7 +10252,7 @@
       "labels": [
         "elab"
       ],
-      "body": "Filed overnight 6 Nov 2026.\n\nD2453 (Matt, 6 Nov 2026): yes, both: an Opus design note on rewrite/match looking at the goal as written first (SW-706, SW-1589, SW-1562), and the refines-nothing warning SW-1485 now. Covered by the SW-706 note.",
+      "body": "Filed overnight 6 Nov 2026.\n\nD2453 (Matt, 6 Nov 2026): yes, both: an Opus design note on rewrite/match looking at the goal as written first (SW-706, SW-1589, SW-1562), and the refines-nothing warning SW-1485 now. Covered by the SW-706 note.\n\nD2475-D2480 (Matt, 6 Nov 2026): all as recommended in docs/proposals/goal-as-written.md: rewrite/match/cases/transport look as written first with a completeness check and today's search as fallback; the as-written search may solve a rule's unknowns; keep today's reach into hidden copies, no occurrence selection now (D2478); out-of-resources check uses the as-written result; rewrite f later. 'happy to go with your recommendation.' Built by the goal-as-written stages (SW-1627 for 1589's rewrite at h; SW-1629 for 1562).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10630,7 +10630,7 @@
       "labels": [
         "elab"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1580 (2020 day 20).\n\nD2453 (Matt, 6 Nov 2026): yes, both: an Opus design note on rewrite/match looking at the goal as written first (SW-706, SW-1589, SW-1562), and the refines-nothing warning SW-1485 now. Covered by the SW-706 note.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1580 (2020 day 20).\n\nD2453 (Matt, 6 Nov 2026): yes, both: an Opus design note on rewrite/match looking at the goal as written first (SW-706, SW-1589, SW-1562), and the refines-nothing warning SW-1485 now. Covered by the SW-706 note.\n\nD2475-D2480 (Matt, 6 Nov 2026): all as recommended in docs/proposals/goal-as-written.md: rewrite/match/cases/transport look as written first with a completeness check and today's search as fallback; the as-written search may solve a rule's unknowns; keep today's reach into hidden copies, no occurrence selection now (D2478); out-of-resources check uses the as-written result; rewrite f later. 'happy to go with your recommendation.' Built by the goal-as-written stages (SW-1627 for 1589's rewrite at h; SW-1629 for 1562).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11149,6 +11149,76 @@
         "aoc"
       ],
       "body": "D2497 (Matt, 6 Nov 2026): yes, the helpers (SW-1620) then the completeness sweep over the 19 days with parser soundness (2020 days 3-20 except 6, and the two 2021 days), in two or three Sonnet lanes; remove day 18's second parser. After SW-1620.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1627,
+      "title": "Goal as written, stage 1: rewrite (goal and at h) searches the goal as written first, completeness check, today's search as fallback; remove day 20's memEq (goal-as-written.md §6; D2475, D2477)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "D2475-D2480 (Matt, 6 Nov 2026): all as recommended in docs/proposals/goal-as-written.md: rewrite/match/cases/transport look as written first with a completeness check and today's search as fallback; the as-written search may solve a rule's unknowns; keep today's reach into hidden copies, no occurrence selection now (D2478); out-of-resources check uses the as-written result; rewrite f later. 'happy to go with your recommendation.' Sonnet with an Opus review (kernel terms change), expected: 120 min.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1628,
+      "title": "Goal as written, stage 2: match and cases as written first (folded-goals.md option B in generalised_now), scrutinee found up to eta (day 19) (D2476)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "D2475-D2480 (Matt, 6 Nov 2026): all as recommended in docs/proposals/goal-as-written.md: rewrite/match/cases/transport look as written first with a completeness check and today's search as fallback; the as-written search may solve a rule's unknowns; keep today's reach into hidden copies, no occurrence selection now (D2478); out-of-resources check uses the as-written result; rewrite f later. 'happy to go with your recommendation.' Opus, expected: 120 min. After stage 1.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1629,
+      "title": "Goal as written, stage 3: SW-1538's match-equation transport on the folded forms (SW-1562) (D2476)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "D2475-D2480 (Matt, 6 Nov 2026): all as recommended in docs/proposals/goal-as-written.md: rewrite/match/cases/transport look as written first with a completeness check and today's search as fallback; the as-written search may solve a rule's unknowns; keep today's reach into hidden copies, no occurrence selection now (D2478); out-of-resources check uses the as-written result; rewrite f later. 'happy to go with your recommendation.' Sonnet, 45 min. After stage 2.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1630,
+      "title": "Goal as written, stage 4: when the completeness check runs out of resources, use the as-written result with a note instead of E-RESOURCE (D2479)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "D2475-D2480 (Matt, 6 Nov 2026): all as recommended in docs/proposals/goal-as-written.md: rewrite/match/cases/transport look as written first with a completeness check and today's search as fallback; the as-written search may solve a rule's unknowns; keep today's reach into hidden copies, no occurrence selection now (D2478); out-of-resources check uses the as-written result; rewrite f later. 'happy to go with your recommendation.' 45 min. After stage 2.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1631,
+      "title": "Goal as written, stage 5: rewrite f as one unfolding step of f (D1433, D2480)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "D2475-D2480 (Matt, 6 Nov 2026): all as recommended in docs/proposals/goal-as-written.md: rewrite/match/cases/transport look as written first with a completeness check and today's search as fallback; the as-written search may solve a rule's unknowns; keep today's reach into hidden copies, no occurrence selection now (D2478); out-of-resources check uses the as-written result; rewrite f later. 'happy to go with your recommendation.' Any time after stage 1.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
