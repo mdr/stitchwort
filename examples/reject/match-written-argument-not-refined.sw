@@ -1,7 +1,9 @@
 -- expect-error: E-TYPE-MISMATCH
--- Inside a branch of `match e: flag c with`, `h` is refined, but an argument
+-- Inside a branch of `match flag c with`, `hc` is refined, but an argument
 -- written out (`reach flag (Succ k) c d`) is elaborated afresh and still has
--- the condition in it. `_` would be inferred from `h` instead (SW-194).
+-- the condition in it. `_` would be inferred from `hc` instead (SW-194); and
+-- had the `match` named its equation, `hc` would be rewritten along it
+-- (SW-1538).
 -- `andRight` takes its booleans explicitly, so the example can still write
 -- one out: `Bool.andRight` has them implicit, with nothing to write.
 
@@ -21,6 +23,6 @@ theorem andRight (a: Bool) (b: Bool) (h: (a ∧ b) = True): b = True := Bool.and
 
 theorem skip (flag: Nat → Bool) (k: Nat) (c: Nat) (d: Nat) (b: Bool) (hc: (b ∧ reach flag (Succ k) c d) = True):
     Bool.not (flag c) = True → reach flag k c d = True :=
-  match e: flag c with
+  match flag c with
     | True  => n => Void.exfalso (Bool.falseNotTrue n)
     | False => n => andRight b (reach flag (Succ k) c d) hc

@@ -1039,8 +1039,9 @@ fn generalised_now(
             .zip(&normals)
             .filter_map(|((i, s), normal)| {
                 let normal = normal.as_ref()?;
+                let equation = equations.iter().find(|&&(j, _)| j == i).map(|&(_, l)| l);
                 (!matches!(normal.strip_loc(), Term::Var(_)))
-                    .then(|| (base, normal.clone(), s.span, base + i))
+                    .then(|| (base, normal.clone(), s.span, base + i, equation))
             }),
     );
     let body = in_alternatives(cx, kind, alts, &levels, |cx| {

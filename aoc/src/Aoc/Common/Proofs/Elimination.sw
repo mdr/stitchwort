@@ -78,21 +78,18 @@ theorem settleAdds [auto eq: DecEq a] (settled: List a): (slots: List (Slot a)) 
   | [slot, ..slots], next, found =>
     match pick: slot.choice with
       | Some existing =>
-        let passed := passAdds settled slot slots next found (settleAdds settled slots)
-        rewrite pick at passed in passed
+        passAdds settled slot slots next found (settleAdds settled slots)
       | None =>
         match left: slot.remaining settled with
           | [] =>
-            let passed := passAdds settled slot slots next found (settleAdds settled slots)
-            rewrite pick at passed in passed
+            passAdds settled slot slots next found (settleAdds settled slots)
           | [only] =>
             let kept := And.right (List.memFilter slot.candidates (item => not (settled.contains item)) (rewrite left in Inl rfl))
             rewrite <- Option.someInjective found in
               Witness only (Both (Bool.notTrue _ kept) (other =>
                 Eq.trans (List.countCons (chosen slots) only (pick => pick == other)) (Nat.addComm _ _)))
           | [first, second, ..more] =>
-            let passed := passAdds settled slot slots next found (settleAdds settled slots)
-            rewrite pick at passed in passed
+            passAdds settled slot slots next found (settleAdds settled slots)
 
 theorem settleOnce [auto eq: DecEq a] (slots: List (Slot a)) (next: List (Slot a)) (found: settle (chosen slots) slots = Some next) (once: ChosenOnce slots): ChosenOnce next :=
   match settleAdds (chosen slots) slots next found with
