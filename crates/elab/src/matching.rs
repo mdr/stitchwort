@@ -764,8 +764,25 @@ fn blocker(
             }
         }
     }
+    // Where the unfolded read-back is too large (and the `match` would fail
+    // with `E-RESOURCE`), the folded one: a call shows its arguments, and an
+    // unknown in what it computes to comes from them, as a definition's
+    // body is closed. One missed (in a helper not lifted yet) can only make
+    // the motive check, or the kernel, reject the result.
+    let read = |v: &Value| -> Result<Term> {
+        match quote(&g, base, v) {
+            Err(e) => {
+                let e: Diagnostic = e.into();
+                match crate::undo::recoverable(cx, &e) {
+                    true => Ok(stitchwort_core::value::quote_folded(&g, base, v)?),
+                    false => Err(e),
+                }
+            }
+            Ok(t) => Ok(t),
+        }
+    };
     for l in 0..base {
-        if let Some(m) = first_meta(&quote(&g, base, &cx.types[l])?, &unsolved) {
+        if let Some(m) = first_meta(&read(&cx.types[l])?, &unsolved) {
             return Ok(Some(m));
         }
     }
@@ -774,7 +791,7 @@ fn blocker(
     }
     let pending = crate::queue::pending(cx)?;
     let is_pending = |m: usize| pending.contains(&m) && Some(m) != own;
-    Ok(first_meta(&quote(&g, base, goal)?, &is_pending))
+    Ok(first_meta(&read(goal)?, &is_pending))
 }
 
 /// The first unknown in `t` that `which` picks.
@@ -884,14 +901,27 @@ fn generalised_now(
     let in_match = |e: stitchwort_core::budget::ResourceError| {
         ran_out_at(e.into(), span, "while generalising this `match`")
     };
-    let type_terms: Vec<Term> = (0..base)
-        .map(|l| match skip.is_some_and(|skip| skip(cx, l)) {
-            // Never copied, so never read (`cannot_occur` passes over it).
-            true => Ok(Term::Refl),
-            false => quote(&g, base, &cx.types[l]).map_err(in_match),
-        })
-        .collect::<Result<_>>()?;
-    let goal_term = quote(&g, base, goal).map_err(in_match)?;
+    let read = || -> Result<(Vec<Term>, Term)> {
+        let type_terms: Vec<Term> = (0..base)
+            .map(|l| match skip.is_some_and(|skip| skip(cx, l)) {
+                // Never copied, so never read (`cannot_occur` passes over it).
+                true => Ok(Term::Refl),
+                false => quote(&g, base, &cx.types[l]).map_err(in_match),
+            })
+            .collect::<Result<_>>()?;
+        Ok((type_terms, quote(&g, base, goal).map_err(in_match)?))
+    };
+    let (type_terms, goal_term) = match read() {
+        Ok(read) => read,
+        // Too large to read back unfolded, so the usual occurrence test
+        // can't run and this `match` fails today: as written, unconfirmed.
+        Err(e) if crate::undo::recoverable(cx, &e) => {
+            return unconfirmed_now(
+                cx, columns, exprs, alts, absurd, span, kind, goal, base, skip, e,
+            );
+        }
+        Err(e) => return Err(e),
+    };
     let (normals, unread) = normals(cx, &exprs, &type_terms, &goal_term, base)?;
     // The first version's limitations (§4.4).
     for (i, a) in exprs.iter().enumerate() {
@@ -1009,6 +1039,120 @@ fn generalised_now(
             (bound, later)
         }
     };
+    in_arms(
+        cx,
+        &columns,
+        &exprs,
+        alts,
+        absurd,
+        span,
+        kind,
+        base,
+        bound,
+        motive_later,
+        &normals,
+        not_found,
+    )
+}
+
+/// The generalisation as written, for when the goal or a variable's type is
+/// too large to read back unfolded (`cause`), so that the usual occurrence
+/// test can't run and the `match` would fail with `E-RESOURCE`: the
+/// scrutinees found as written are abstracted without the checks against
+/// the usual test (`as_written`, stage 4 of goal-as-written.md, D2479), and
+/// `W-MATCH-UNCONFIRMED` says so. If nothing is found as written, or the
+/// motive doesn't check, `cause` is the error, as before.
+///
+/// That is sound because nothing rests on those checks: the motive is
+/// type-checked now and the helper's type and its uses by the kernel. What
+/// can differ from what the usual test would have done, could it run, is
+/// only which hypotheses are refined: a copy of the scrutinee hidden inside
+/// a call stays unrefined, so an arm that needed it fails with its own
+/// error. Nothing false can be accepted.
+#[allow(clippy::too_many_arguments)]
+fn unconfirmed_now(
+    cx: &mut Ctx,
+    columns: Vec<Column>,
+    exprs: Vec<Scrut>,
+    alts: &[Alt],
+    absurd: &[Vec<Pattern>],
+    span: stitchwort_syntax::Span,
+    kind: MatchKind,
+    goal: &Value,
+    base: usize,
+    skip: Option<Skip>,
+    cause: Diagnostic,
+) -> Result<Term> {
+    let Some(written) = as_written::unconfirmed(cx, &exprs, goal, base, skip, span)? else {
+        return Err(cause);
+    };
+    let today = as_written::Today {
+        occurrences: &[],
+        copied: &[],
+        type_terms: &[],
+        goal_term: &Term::Refl,
+    };
+    let bound = crate::undo::attempt(cx, |cx| {
+        let bound = bind_generalised(cx, &exprs, &today, Some(&written), base)?;
+        let checks = motive_checks_now(cx, base, &bound.extra, &bound.motive, span)?;
+        Ok(checks.then_some(bound))
+    });
+    let bound = match bound {
+        Ok(Some(Some(bound))) => bound,
+        Err(e) if crate::undo::fatal(&e) && !crate::undo::recoverable(cx, &e) => return Err(e),
+        _ => {
+            as_written::report(as_written::Outcome::Unchecked, span);
+            return Err(cause);
+        }
+    };
+    crate::undo::recovered(cx);
+    as_written::report(written.outcome, span);
+    let at = exprs.first().map_or(span, |s| s.span);
+    let warning = as_written::unconfirmed_warning(at);
+    {
+        let mut warnings = cx.e.attempt.lambda_warnings.borrow_mut();
+        let first = Some(at);
+        if !(warnings.iter())
+            .any(|w| w.code == warning.code && w.labels.first().map(|l| l.span) == first)
+        {
+            warnings.push(warning);
+        }
+    }
+    let normals = vec![None; exprs.len()];
+    in_arms(
+        cx,
+        &columns,
+        &exprs,
+        alts,
+        absurd,
+        span,
+        kind,
+        base,
+        bound,
+        false,
+        &normals,
+        Vec::new(),
+    )
+}
+
+/// A generalised `match`'s alternatives checked against its motive, and
+/// its helper drafted: the rest of [`generalised_now`] once the
+/// generalisation is chosen.
+#[allow(clippy::too_many_arguments)]
+fn in_arms(
+    cx: &mut Ctx,
+    columns: &[Column],
+    exprs: &[Scrut],
+    alts: &[Alt],
+    absurd: &[Vec<Pattern>],
+    span: stitchwort_syntax::Span,
+    kind: MatchKind,
+    base: usize,
+    bound: Bound,
+    motive_later: bool,
+    normals: &[Option<Term>],
+    not_found: Vec<(usize, Diagnostic)>,
+) -> Result<Term> {
     let Bound {
         extra,
         equations,
@@ -1030,7 +1174,7 @@ fn generalised_now(
         exprs
             .iter()
             .enumerate()
-            .zip(&normals)
+            .zip(normals)
             .filter_map(|((i, s), normal)| {
                 let normal = normal.as_ref()?;
                 let equation = equations.iter().find(|&&(j, _)| j == i).map(|&(_, l)| l);

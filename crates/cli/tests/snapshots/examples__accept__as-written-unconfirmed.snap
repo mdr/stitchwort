@@ -1,0 +1,30 @@
+---
+source: crates/cli/tests/examples.rs
+expression: warnings
+---
+[W-MATCH-UNCONFIRMED] Warning: this `match` refined the goal and hypotheses as they are written, without checking for copies of its expression hidden inside calls
+    ╭─[ accept/as-written-unconfirmed.sw:27:16 ]
+    │
+ 27 │   match found: settle x k limit with
+    │                ────────┬───────  
+    │                        ╰───────── this is refined where the goal and hypotheses show it
+    │ 
+    │ Note 1: the goal or a hypothesis is too large once its calls are computed, so the usual search, over what they compute to, couldn't run
+    │ 
+    │ Note 2: a copy left inside a call shows up as an error in an arm; the proof itself is checked in full
+    │ 
+    │ Note 3: to let the full search run, make the large argument a variable: state a lemma for any `n`
+────╯
+[W-REWRITE-UNCONFIRMED] Warning: `rewrite` rewrote where the rule's left side is shown, without checking for copies of it hidden inside calls
+    ╭─[ accept/as-written-unconfirmed.sw:33:11 ]
+    │
+ 33 │   rewrite settles in h
+    │           ───┬───  
+    │              ╰───── rewritten where it is shown
+    │ 
+    │ Note 1: the goal is too large once its calls are computed, so the usual search, over what it computes to, couldn't run
+    │ 
+    │ Note 2: a copy left inside a call (or an unknown of the rule solved differently) shows up as an error in a later step; the proof itself is checked in full
+    │ 
+    │ Note 3: to let the full search run, make the large argument a variable: state a lemma for any `n`
+────╯

@@ -390,6 +390,16 @@ Each was run on the example named; the output is quoted, shortened.
   - `E-REWRITE-BUDGET`: the comparisons were too expensive. That says
     nothing about whether the occurrence is there; use a more specific rule
     or `calc`.
+  - `W-REWRITE-UNCONFIRMED`, `W-MATCH-UNCONFIRMED`: the search over what
+    the goal computes to ran out (the goal is too large unfolded, or the
+    budget went), where the `rewrite` or `match` used to fail with
+    `E-RESOURCE` or `E-REWRITE-BUDGET`, so the term was replaced only where
+    the goal and hypotheses show it, without checking for copies inside
+    calls. The proof is still checked in full: a copy left inside a call
+    makes a later step fail (the body, an arm) with its own error, never
+    makes a wrong proof check (`examples/accept/as-written-unconfirmed.sw`,
+    `examples/reject/as-written-unconfirmed-copy.sw`). To get the full
+    search back, make the large argument a variable.
 - **`E-AUTO-NONE`, `E-AUTO-FALSE`, `E-AUTO-STUCK`**: no decision procedure
   (or one not yet checked, `examples/reject/auto-waiting.sw`); the
   proposition is false (`examples/reject/auto-membership-absent.sw`); it's
@@ -434,6 +444,13 @@ Each was run on the example named; the output is quoted, shortened.
   it by replacing parts with `?`. Then see §6. Other forms: "a value was
   too large to show" (aoc/NOTES-2024.md:1479–1485). Two of the roguelike's
   three failures in one proof were this (games/rogue/PROOFS.md:216–226).
+  A `rewrite` or `match` whose goal (or a hypothesis) is too large once its
+  calls are computed, on a call with a large literal such as
+  `settle plan 1000`, no longer fails this way when the term is shown in the
+  goal: it is rewritten or refined where it is shown, with
+  `W-REWRITE-UNCONFIRMED` or `W-MATCH-UNCONFIRMED` (below). Where it
+  isn't shown, it is still `E-RESOURCE`: state the lemma for any `limit`
+  and instantiate it (AoC 2020 day 11's `settledExactly`).
 - **`E-TYPE-MISMATCH` with a computed type**: the expected type is shown as
   it computes, which can look unlike what you wrote: `lcg seed < 2147483648`
   is expected as `… % 2147483648 ≤ 2147483647`, and `Nat.modLt _ _` with

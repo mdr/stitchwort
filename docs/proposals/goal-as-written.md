@@ -503,6 +503,20 @@ terms (different motives), so they get an Opus review (D2364).
 4. **A bounded completeness check (Q5).** When the check's unfolded read-back runs out, use the
    folded result, with a note, where today ends in E-RESOURCE (day 11's `settle … 1000`).
    After 2; 45 min.
+
+   *As built (SW-1630).* Reached only where today fails: a read-back running out of size
+   (`E-RESOURCE` "too large to show", which unlike running out of steps, stack or time leaves
+   the declaration able to go on) or, for `rewrite`, of the search budget (`E-REWRITE-BUDGET`).
+   `rewrite`: when the goal or the rule's left side is too large to read back unfolded, the
+   as-written search runs with the completeness check made if it can finish; a hidden copy it
+   finds still fails as before. When the goal reads back but the completeness check or today's
+   instance runs out, today's search runs; only if it runs out too is the as-written result
+   used. `match`/`cases`: when the goal or a variable's type is too large to read back, the
+   as-written generalisation is made without checks 1 and 2 (they compare with the usual test,
+   which can't run): copies are the variables whose types hold an occurrence as written, a
+   `let` only where its unfolded type still holds it; the motive is checked now as always.
+   Warnings `W-REWRITE-UNCONFIRMED` and `W-MATCH-UNCONFIRMED`. Day 11's `settledExactly`
+   written with `roundLimit` now checks, with the warning.
 5. **`rewrite f` (D1433, Q6).** As in folded-goals.md option D. Any time after 1.
 
 ### 6.1 Evidence still to collect

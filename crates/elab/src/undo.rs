@@ -116,6 +116,23 @@ pub(crate) fn fatal(e: &Diagnostic) -> bool {
     e.code == "E-RESOURCE"
 }
 
+/// Whether `e` is running out of resources in a way the declaration can go
+/// on from: a value too large to read back, with the operation itself not
+/// out of steps, stack or time (those are sticky, [`Budget::exhausted`]).
+///
+/// [`Budget::exhausted`]: stitchwort_core::budget::Budget::exhausted
+///
+/// A caller that goes on from it calls [`recovered`].
+pub(crate) fn recoverable(cx: &Ctx, e: &Diagnostic) -> bool {
+    fatal(e) && cx.g().machine.budget.exhausted().is_none()
+}
+
+/// After going on from a [`recoverable`] error: the definition it noted as
+/// too large is forgotten, so a later report doesn't name it.
+pub(crate) fn recovered(cx: &Ctx) {
+    cx.g().machine.budget.take_too_large();
+}
+
 /// Runs `f`, undoing everything it did unless it gives `Ok(Some(_))`.
 /// `Ok(None)` means this way didn't work, so another may be tried; other
 /// errors are passed on, after undoing, except running out of resources,
