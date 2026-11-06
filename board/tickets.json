@@ -1,5 +1,5 @@
 {
-  "next": 1761,
+  "next": 1762,
   "tickets": [
     {
       "id": 47,
@@ -13790,14 +13790,14 @@
     {
       "id": 1751,
       "title": "[Sonnet] Profile the merge tier (task test:merge, meant to be under 90 s): time it on main, find what's slow, trim or fix",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1751",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "Overnight 6-7 Nov 2026 (Matt: focus on test suites, merge gates, compile times). Run test:merge once before and once after.",
+      "body": "Overnight 6-7 Nov 2026 (Matt: focus on test suites, merge gates, compile times). Run test:merge once before and once after.\n\nDone, merged (ff5e3cde7): one doc test fills the shared search cache first (priorities); merge tier runs 14 AoC days, not 20 (rest stay in daily); named_calls_keep_every_hash takes a quarter in merge; TestCacheTurn: one process fills an empty test std cache, the others wait and replay (sweep cold 133 s CPU → 22 s). Merge tier cold 153-172 s → 121.5 s under load (CPU 1141 → 1031 s). Floor ~105 s on 10 cores at that CPU. Model result: Sonnet, worked (90 s target not reached), 39 min (est. 75).\nOn main after merge: task test:merge 1094/1094, tests 104 s (175 s incl. rebuild after the merge), load ~20.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -13933,6 +13933,21 @@
       ],
       "epic": "dev-loop-speed",
       "body": "From SW-1752, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1761,
+      "title": "[Sonnet] Merge tier toward 90 s: pinned_hashes, hash_stability prelude and validate_cong each check std from source (~13 s CPU each); hash_stability sweep workers each build a session from source; cli build tests 82-105 s; the examples/hash sweeps are the tier's long poles",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1761",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1751, 6 Nov 2026. Expected: 75 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []

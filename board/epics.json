@@ -459,10 +459,11 @@
         "LSP AoC tests: shutdown cancels the check; 465 s → 194 s (SW-1731)",
         "Daily tier in one run again, 27.9 min, no memory kills; test time 11,295 → 11,111 s (D2546)",
         "task test:affected picks tests from a diff, within a budget (SW-1752)",
-        "Web AoC test 417 → 169 s, AoC answers 444 → 174 s (SW-1732, SW-1733)"
+        "Web AoC test 417 → 169 s, AoC answers 444 → 174 s (SW-1732, SW-1733)",
+        "Merge tier trimmed: 104 s of tests on main, from 153-172 s (SW-1751)"
       ],
       "now": [
-        "Merge tier profile (SW-1751)",
+        "Merge tier toward 90 s (SW-1761)",
         "Caches that survive a compiler change: design (SW-1753)"
       ],
       "next": [
