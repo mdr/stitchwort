@@ -12,7 +12,7 @@ use stitchwort_core::native::Native;
 use stitchwort_rt::Program;
 use stitchwort_rt::effect::EffectOp;
 use stitchwort_rt::ir::{Expr, GlobalId, GlobalKind, HoleOp, Lit, MatchKind, PrimOp};
-use stitchwort_rt::natives::{FloatPrim, IntNative, TextNative};
+use stitchwort_rt::natives::{ArrayNative, FloatPrim, IntNative, TextNative};
 
 #[derive(Clone, Debug)]
 pub enum V {
@@ -22,6 +22,8 @@ pub enum V {
     /// A `Float`, by its bits, the NaN canonical.
     Float(u64),
     Ctor(u32, Rc<[V]>),
+    /// An `Array`: copied on every change, which the reference doesn't mind.
+    Array(Rc<Vec<V>>),
     Fun(Rc<Fun>),
     Erased,
 }
@@ -734,8 +736,7 @@ impl<'p> Interp<'p> {
             PrimOp::Delay(_) => return Err("unsupported: a partial computation".into()),
             PrimOp::Effect(op) => return self.effect(op, args),
             PrimOp::Hole(op) => hole(op, &args)?,
-            // The machine's own (tests/arrays.rs).
-            PrimOp::Array(op) => return Err(format!("the array native {op:?}")),
+            PrimOp::Array(a) => array(op, a, &args)?,
             // On the bits, written apart from the runtime's (which works on
             // `f64`s): the model's definitions (std/Float/Float.sw), with
             // `f64` only for the rounding operations.
@@ -858,4 +859,69 @@ fn fill(cell: &Rc<[V]>, i: usize, value: V) {
     // from the loop that made it, which is the only code running, and the
     // field holds `Erased`, which owns nothing.
     unsafe { std::ptr::write(hole, value) }
+}
+
+/// The array natives, by their meaning (docs/proposals/arrays.md §4.1): an
+/// index past the end reads as `None` / the default and leaves a `set` alone.
+fn array(op: PrimOp, a: ArrayNative, args: &[V]) -> R<V> {
+    let items = |v: &V| match v {
+        V::Array(items) => Ok(items.clone()),
+        other => Err(format!("{op:?}: expected an Array, got {other:?}")),
+    };
+    // An index too big for a `usize` is past the end of any array.
+    let index = |v: &V| match v {
+        V::Nat(n) => Ok(usize::try_from(n).unwrap_or(usize::MAX)),
+        other => Err(format!("{op:?}: expected a Nat, got {other:?}")),
+    };
+    Ok(match a {
+        ArrayNative::FromList => {
+            let mut out = Vec::new();
+            let mut l = args[0].clone();
+            while let V::Ctor(1, cell) = l {
+                out.push(cell[0].clone());
+                l = cell[1].clone();
+            }
+            V::Array(Rc::new(out))
+        }
+        ArrayNative::ToList => list(items(&args[0])?.to_vec()),
+        ArrayNative::Size => V::Nat(items(&args[0])?.len().into()),
+        ArrayNative::Get => match items(&args[0])?.get(index(&args[1])?) {
+            Some(x) => some(x.clone()),
+            None => none(),
+        },
+        ArrayNative::GetOr => match items(&args[0])?.get(index(&args[1])?) {
+            Some(x) => x.clone(),
+            None => args[2].clone(),
+        },
+        ArrayNative::GetLt => items(&args[0])?
+            .get(index(&args[1])?)
+            .cloned()
+            .ok_or("`Array.getLt` out of range")?,
+        ArrayNative::Replicate => {
+            let count = index(&args[0])?;
+            if count > 1 << 24 {
+                return Err("unsupported: a huge `Array.replicate`".into());
+            }
+            V::Array(Rc::new(vec![args[1].clone(); count]))
+        }
+        ArrayNative::Set => {
+            let mut out = (*items(&args[0])?).clone();
+            if let Some(slot) = out.get_mut(index(&args[1])?) {
+                *slot = args[2].clone();
+            }
+            V::Array(Rc::new(out))
+        }
+        ArrayNative::Push => {
+            let mut out = (*items(&args[0])?).clone();
+            out.push(args[1].clone());
+            V::Array(Rc::new(out))
+        }
+        ArrayNative::Pop => {
+            let mut out = (*items(&args[0])?).clone();
+            match out.pop() {
+                Some(last) => some(ctor(0, vec![V::Array(Rc::new(out)), last])),
+                None => none(),
+            }
+        }
+    })
 }
