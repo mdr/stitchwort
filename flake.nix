@@ -381,7 +381,14 @@
             # Nix
             pkgs.nixfmt
           ];
-          env = pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux (muslEnv pkgs);
+          env = {
+            # Local release builds (every test build) recompile incrementally:
+            # a one-line `elab` edit rebuilds in about 20 s, not 130 s. Only
+            # the devShell sets this; the package and check builds above do not
+            # inherit it, so the distributed binary is built from scratch.
+            CARGO_PROFILE_RELEASE_INCREMENTAL = "true";
+          }
+          // pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux (muslEnv pkgs);
         };
       });
 

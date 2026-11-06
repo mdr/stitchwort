@@ -174,6 +174,8 @@ task test:gate                                 # nix flake check: the daily tier
 task test:browser                              # the playground in headless Chrome: about 35 s
 ```
 
+**Incremental release builds (SW-1729).** The devShell sets `CARGO_PROFILE_RELEASE_INCREMENTAL=true`, so the release builds the tests use recompile incrementally: after a one-line `elab` edit, `cargo nextest run --no-run --release --workspace` takes about 20 s instead of about 2½ minutes (21 s against 156 s on 6 Nov 2026, on a busy machine). A first build is no faster, and a target folder is about 2 GB bigger (4.9 GB against 2.9 GB after both kinds of build). Only the devShell sets it: the package and check builds in `flake.nix` are crane derivations that don't read the devShell's environment, so the distributed binary and `nix flake check` are built as before. Whether kache caches incremental compiles isn't established (`kache stats` shows no separate count); the 21 s rebuild was measured in a worktree with kache on, and hits on the workspace crates were rare anyway.
+
 ### Hash dumps
 
 To show what a change to the elaborator does to the declarations it accepts, dump every declaration's hash before and after it and diff the two. `hash_stability`'s ignored test `dump` loads the whole library and one project, and writes one sorted line per declaration (`path hash`, `data path hash` for types) to the file `HASH_DUMP` names:
