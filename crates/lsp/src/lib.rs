@@ -1447,6 +1447,20 @@ impl Main {
                     Ok(serde_json::Value::Array(lenses))
                 })
             }
+            lens::TESTS => parse::<lsp_types::CodeLensParams>(&request).map(|p| {
+                // Open documents as the editor has them; other files as
+                // they are on disk, so the panel can list a whole project.
+                let uri = &p.text_document.uri;
+                let text = self.texts.borrow().get(uri).cloned().or_else(|| {
+                    let path = uri.to_file_path().ok()?;
+                    std::fs::read_to_string(path).ok()
+                });
+                let tests = match text {
+                    Some(text) if uri.scheme() == "file" => lens::test_list(&text),
+                    _ => Vec::new(),
+                };
+                Ok(serde_json::Value::Array(tests))
+            }),
             GOAL_AT => parse::<lsp_types::TextDocumentPositionParams>(&request)
                 .map(|p| serde_json::to_value(goal_at(&nav, &p.text_document.uri, p.position))),
             request::Formatting::METHOD => parse::<lsp_types::DocumentFormattingParams>(&request)

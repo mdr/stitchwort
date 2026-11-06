@@ -2920,3 +2920,44 @@ fn code_lenses_sit_above_tests_and_main() {
     assert_eq!(none, json!([]));
     client.shutdown();
 }
+
+/// `stitchwort/tests` (SW-1684) lists a file's tests with their namespace and
+/// range: from the editor's text when the file is open, from disk when not.
+#[test]
+fn tests_request_lists_tests_open_or_on_disk() {
+    let dir = std::env::temp_dir().join(format!("sw-tests-request-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let on_disk = dir.join("disk.sw");
+    std::fs::write(&on_disk, "namespace D\n\ntest \"from disk\" := 1 == 1\n").unwrap();
+    let disk_uri = format!("file://{}", on_disk.display());
+    let open_uri = format!("file://{}", dir.join("open.sw").display());
+    let mut client = Client::start();
+    client.open(
+        &open_uri,
+        "namespace O.P\n\ntest \"a\" := 1 == 1\n\ndef broken := (\n",
+    );
+    let open = client.request(
+        "stitchwort/tests",
+        json!({"textDocument": {"uri": open_uri}}),
+    );
+    assert_eq!(open.as_array().unwrap().len(), 1, "{open}");
+    assert_eq!(open[0]["name"], "a");
+    assert_eq!(open[0]["namespace"], "O.P");
+    assert_eq!(
+        open[0]["range"]["start"],
+        json!({"line": 2, "character": 0})
+    );
+    let disk = client.request(
+        "stitchwort/tests",
+        json!({"textDocument": {"uri": disk_uri}}),
+    );
+    assert_eq!(disk[0]["name"], "from disk");
+    assert_eq!(disk[0]["namespace"], "D");
+    let missing = client.request(
+        "stitchwort/tests",
+        json!({"textDocument": {"uri": "file:///no/such/file.sw"}}),
+    );
+    assert_eq!(missing, json!([]));
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
