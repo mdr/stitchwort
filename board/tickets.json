@@ -1,5 +1,5 @@
 {
-  "next": 1705,
+  "next": 1706,
   "tickets": [
     {
       "id": 47,
@@ -12241,6 +12241,20 @@
         "elab"
       ],
       "body": "From SW-1700, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1705,
+      "title": "Epics on the board (D2517): board/epics.json (goal, status, done milestones, now, next, links), an epic field on tickets, an Epics view on the board page; tag the backlog and recent done tickets; status replies organised by epic",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1705",
+      "labels": [
+        "board"
+      ],
+      "body": "D2517 (Matt, 6 Nov 2026): yes, set up epics that way. Started on Sonnet, expected: 60 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
