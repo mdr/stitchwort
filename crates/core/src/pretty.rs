@@ -418,6 +418,17 @@ enum Prec {
 /// (`Printer::bool_if`).
 type Branch = (Name, Rc<Term>);
 
+/// What [`Printer::dot_call`] made of a call.
+enum Dot {
+    /// The dot form.
+    Call((String, Prec)),
+    /// Not a dot call, and the receiver was printed to find that out
+    /// (at [`Prec::Atom`], as an argument is): the plain call reuses it.
+    Declined(String),
+    /// Not a dot call, nothing printed.
+    No,
+}
+
 struct Printer<'g> {
     g: &'g Ev<'g>,
     /// Whether something was too deeply nested to print, and shown as `…`.
@@ -1156,10 +1167,19 @@ impl<'g> Printer<'g> {
                 if self.show_hidden.get() {
                     return self.applied_with_hidden(names, term);
                 }
-                if let Term::Def(id) = head
-                    && let Some(shown) = self.dot_call(names, *id, &args)
-                {
-                    return shown;
+                if let Term::Def(id) = head {
+                    match self.dot_call(names, *id, &args) {
+                        Dot::Call(shown) => return shown,
+                        // Printing the receiver again would double the work
+                        // at each receiver in a chain of such calls.
+                        Dot::Declined(receiver) => {
+                            let head = self.print(names, head, Prec::App);
+                            let head = format!("{head} {receiver}");
+                            let (text, _) = self.applied(names, head, args[1..].iter().copied());
+                            return (text, Prec::App);
+                        }
+                        Dot::No => {}
+                    }
                 }
                 let head = self.print(names, head, Prec::App);
                 self.applied(names, head, args.into_iter())
@@ -2208,8 +2228,6 @@ impl<'g> Printer<'g> {
         format!("({})", items.join(", "))
     }
 
-    /// An application with every argument, those the compiler fills in
-    /// (implicit and `auto`) in brackets.
     /// A saturated call of `Ns.f` whose first explicit parameter has the
     /// type `Ns`, as the dot call that elaborates to it: `coupon.apply
     /// total`. Not for a partial call (`Coupon.apply coupon` stays a call,
@@ -2217,18 +2235,20 @@ impl<'g> Printer<'g> {
     /// text, nor when the receiver can't be written before a dot (an
     /// anonymous `x✝`, a number, an elided part, or a bare global name,
     /// which would read as a path).
-    fn dot_call(&self, names: &mut Vec<Name>, id: DefId, args: &[&Term]) -> Option<(String, Prec)> {
+    fn dot_call(&self, names: &mut Vec<Name>, id: DefId, args: &[&Term]) -> Dot {
         if self.ascii.get() || self.calls.get() {
-            return None;
+            return Dot::No;
         }
         let def = self.g.def(id);
-        let (namespace, last) = def.path.rsplit_once('.')?;
+        let Some((namespace, last)) = def.path.rsplit_once('.') else {
+            return Dot::No;
+        };
         if !last.starts_with(|c: char| c.is_alphabetic() || c == '_')
             || !last
                 .chars()
                 .all(|c| c.is_alphanumeric() || c == '_' || c == '\'')
         {
-            return None;
+            return Dot::No;
         }
         let mut parameters = 0;
         let mut first = None;
@@ -2241,17 +2261,19 @@ impl<'g> Printer<'g> {
             ty = codomain.strip_loc();
         }
         let Some(Term::Data(d, _)) = first else {
-            return None;
+            return Dot::No;
         };
         if args.len() < parameters || &*self.g.data(*d).path != namespace {
-            return None;
+            return Dot::No;
         }
-        let (receiver, rest) = args.split_first()?;
+        let Some((receiver, rest)) = args.split_first() else {
+            return Dot::No;
+        };
         let text = self.print(names, receiver, Prec::Atom);
         // A number reads better as an argument, `Nat.pow 10 k`, than as
         // `(10).pow k`; an elided receiver is no receiver to read.
         if text.contains('✝') || text == "…" || text.starts_with(|c: char| c.is_ascii_digit()) {
-            return None;
+            return Dot::Declined(text);
         }
         // `Tip.size` and `Main.shopping.total` read as name paths, and
         // `(Tip).size` looks odd, so a bare global stays a plain call.
@@ -2260,11 +2282,13 @@ impl<'g> Printer<'g> {
             Term::Def(_) | Term::Data(..) | Term::Ctor(..)
         ) && !text.contains([' ', '(', '[', '{'])
         {
-            return None;
+            return Dot::Declined(text);
         }
-        Some(self.applied(names, format!("{text}.{last}"), rest.iter().copied()))
+        Dot::Call(self.applied(names, format!("{text}.{last}"), rest.iter().copied()))
     }
 
+    /// An application with every argument, those the compiler fills in
+    /// (implicit and `auto`) in brackets.
     fn applied_with_hidden(&self, names: &mut Vec<Name>, term: &Term) -> (String, Prec) {
         let mut args = Vec::new();
         let mut head = term.strip_loc();

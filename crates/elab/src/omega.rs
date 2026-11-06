@@ -3280,7 +3280,6 @@ fn linear_once(
             });
         }
     }
-    let shown = show_goal(cx, &quoter, goal, sides.as_ref(), expected);
     let ints: Vec<bool> = quoter.atoms.iter().map(|a| a.int).collect();
     let mut certs: Vec<Cert> = Vec::new();
     for neg in negations(goal, sides.as_ref(), n).ok_or_else(too_large)? {
@@ -3310,6 +3309,9 @@ fn linear_once(
                 } else {
                     "the facts"
                 };
+                // Shown only now: a goal can be large to print, and most
+                // calls succeed.
+                let shown = show_goal(cx, &quoter, goal, sides.as_ref(), expected);
                 return Err(failed(
                     cx,
                     &shown,
