@@ -3817,6 +3817,19 @@ that), the audit, timing and these notes.
 elaboration and 33 ms in the kernel (`readsInstruction` 203 ms of it,
 2.4 million steps); the rest of the cold time is std's modules.
 
+**Completeness (SW-1625).** `Proofs/Complete.sw`, 96 lines, about 3 minutes.
+`eachSteps` (14) turns the spec's `Parse.Each` of the 36 mask symbols into the
+`steps` that `Parse.runsExactly` wants; it is generic (any `p` and `spec`
+with a per-part run) and a candidate for std if another day needs it.
+`runsMaskBit` (5) is `runsPick` per symbol; `runsInstruction` (35) has the mask
+arm (`runsOptional` of the text, then `runsExactly`) and the write arm
+(`declinesRuns` of `text "mask = "` against `"mem["`, which is `rfl`, then
+`runsBind` over text, `nat`, text, `nat`); `startsComplete` (4) is the converse
+of `startsWritten`; `parseComplete` goes through `runsEachLine` and the
+`startsWithMask` check, `writtenUnique` as before. No `Declines` case work
+beyond the one `rfl`: every `nat` is followed by a literal or the line end.
+The spec is tight enough for uniqueness.
+
 ### Ranked
 
 1. Checking a parser proof against a parser that differs in one literal
