@@ -11926,13 +11926,13 @@
     {
       "id": 1682,
       "title": "Testing panel: the project-wide run is one stitchwort test --json over the whole project (all of AoC, slow); split it per namespace group (SW-1121)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1682",
       "labels": [
         "editor"
       ],
-      "body": "From SW-1121, 6 Nov 2026.",
+      "body": "From SW-1121, 6 Nov 2026.\n\nStarted on Sonnet in one lane (SW-1682 with SW-1684), expected: 60 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11954,13 +11954,13 @@
     {
       "id": 1684,
       "title": "Testing panel finds tests by a regex over ^test \"…\"; serve them from the server instead (SW-1121)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1682",
       "labels": [
         "editor"
       ],
-      "body": "From SW-1121, 6 Nov 2026.",
+      "body": "From SW-1121, 6 Nov 2026.\n\nStarted on Sonnet in one lane (SW-1682 with SW-1684), expected: 60 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
