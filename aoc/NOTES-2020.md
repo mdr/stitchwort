@@ -3511,3 +3511,259 @@ largest, about 60 ms each); the rest of the cold time is std's modules.
 5. `stitchwort doc` shows `eq.ifTrue` without its premise and can't look
    it up (item 4); a parameter hiding a function gets no note (item 4);
    `Some { … }` again (item 5). Each small.
+
+## Day 14: Docking Data
+
+The ferry's initialization program, one instruction a line: `mask =`
+and 36 characters of `0`, `1` and `X` (the most significant bit first),
+or `mem[8] = 11`, a write of 11 to address 8. Memory holds 36-bit numbers
+and starts as all 0s. Part 1: the mask's 0s and 1s overwrite the value's
+bits, its Xs keep them. Part 2: the mask changes the address instead (0
+keeps the bit, 1 sets it, X is floating: both values), and the value goes
+to every address that results. Each answer is the sum of the values left
+in memory. Answers on Matt's input (572 instructions, 100 masks with 4 to
+9 Xs, 472 writes): 13496669152158 and 3278997609887; the examples give
+165 (part 1) and 208 (part 2, the second example), as the puzzle says,
+and the second example gives 51 for part 1. Matt's Scala (`Day14.scala`)
+masks with `&` and `|` on `Long`s and expands the floating bits with
+`floaters.subsets()`; I didn't run it. An independent Python script
+(the same masks on `int`s, `itertools.product` over the floating bits)
+agrees on all four answers.
+
+The domain types are `MaskBit` (`Off`, `On`, `X`, with `symbol`,
+`isOn` and `isFloating`), `Mask` (its bits, with `width`, `ones`,
+`floating`, `applyTo value` and `decode address`), `Instruction`
+(`SetMask mask` or `Write address value`), `Program` (the instructions)
+and `Computer` (the mask last set and memory, a `Map Nat Nat`, with
+`setMask`, `writeValue`, `writeDecoded`, `run` and `memorySum`); the
+answers are `program.valueSum` and `program.decodedSum`, a `foldLeft` of
+`run` with each part's write. Part 1 is the textbook `(value & floating)
+| ones`, with std's `Nat.and` and `Nat.or`. Part 2 expands the floating
+bits on the address's bit list, `Nat.toBits` of it beside the mask's
+bits: an X doubles the list, so a write makes `2 ^ k` addresses for `k`
+Xs. The input's masks have at most 9, so part 2 makes 83,520 writes
+(80,123 addresses end up written), and `main` takes 1.7 s user. The
+parser rejects a program whose first line isn't a mask, so the initial
+mask (empty) never applies.
+
+The program and its 18 tests passed on the first run, after one
+`E-UNKNOWN-FIELD` for `SetMask { bits = … }` (item 6). The part 1
+example can't be run through part 2: its mask has 34 Xs, so its first
+write is to 2 ^ 34 addresses (my first cross-check script hung on it;
+the puzzle gives no part 2 answer for it, and the tests don't ask).
+
+The spec (`Spec/Spec.sw`) shares the program's data types (`MaskBit`,
+`Mask`, `Instruction`, `Program`) and none of its functions. It has
+`MaskBitWritten`, `DecimalWritten`, `InstructionWritten` ("mask = ",
+then 36 mask characters; "mem[", the address in decimal, "] = ", the
+value in decimal) and `ProgramWritten` (one instruction a line, the
+first setting the mask); `Memory`, a function from address to value,
+`empty` ("the entire 36-bit address space begins initialized to the
+value 0"), and `SumOfMemory memory answer` ("the sum of all values left
+in memory": the sum over some list of distinct addresses that includes
+every address not holding 0); `Machine`, `step` and `run`, the program
+read with a part's write (last write wins, since each write replaces
+the function at what it writes); part 1's `overwrite` ("a 0 or 1
+overwrites the corresponding bit in the value, while an X leaves the
+bit in the value unchanged") and `masked` (the value's `Nat.toBits`
+beside the mask, overwritten, read back with `Nat.fromBits`), and
+`writeMasked`; part 2's `bitFits` and `allFit` (the puzzle's three rules
+for an address bit, a floating bit fitting either), `Decodes mask
+address target` (`target` is an address of the mask's width all of whose
+bits fit) and `writeDecoded` (every target it decodes to holds the
+value); `Part1` and `Part2`. Bits are lists of `Bool`s throughout, as
+std's `Nat.toBits` writes them; the width is the mask's, which
+`ProgramWritten` makes 36. The spec's memory is a function and its sum
+an `∃`, so the tests don't run it.
+
+Proved (`Aoc.Year2020.Day14.Proofs`):
+
+- `readsMaskBit`, `readsInstruction`, `startsWritten`, `parseWritten`
+  (Parse.sw): if `parseProgram` reads `input`, each line is its
+  instruction written out, and the first sets the mask.
+- `zipWithSnoc`, `lastBitAnd`, `lastBitOr`, `toBitsAnd`, `toBitsOr`,
+  `lowBitAnd`, `andLe`, `orBelow`, `maskedBits`, `applyToMasked`
+  (Bits.sw): the bits of `Nat.and m n` and `Nat.or m n` are the two
+  numbers' bits zipped with `&&` and `||`; `Nat.and m n ≤ n`, and an
+  `or` of numbers below `2 ^ k` is below it; so `mask.applyTo value` is
+  `Spec.masked mask value` for every mask and value.
+- `decodedFit`, `fitDecoded`, `decodeSound`, `decodeComplete`,
+  `decodeContains` (Decode.sw): a list of bits is in `decodeBits` exactly
+  when it has the mask's length and fits; so `target ∈ mask.decode
+  address` exactly when `Spec.Decodes mask address target`.
+- `getOrInsert`, `getOrInsertAll`, `entryValue`, `sumOfMap` (Memory.sw):
+  reading the map after inserts, and that a function the map describes
+  has the sum of the map's values as its `SumOfMemory`.
+- `memOfRemoveFirst`, `memRemoveFirst`, `distinctRemoveFirst`,
+  `sumsAgree`, `sumOfMemoryUnique` (Sum.sw): two lists of distinct
+  addresses with the same addresses not holding 0 sum to the same, so
+  `SumOfMemory` names one number.
+- `Agrees`, `startAgrees`, `WritesAgree`, `stepAgrees`, `foldAgrees`,
+  `writeValueAgrees`, `writeDecodedAgrees`, `part1Rules`, `part2Rules`
+  (Parts.sw): the computer and the spec's machine agree (same mask; the
+  map read with 0 for a missing address is the spec's memory) after each
+  instruction, so each part's answer is its spec's sum.
+- `part1Correct`, `part2Correct`, `part1Exactly`, `part2Exactly` (both
+  `↔`) (Proofs.sw): for every input the parser reads, its lines are the
+  program written out and each answer is the spec's; each answer is the
+  spec's sum and no other number is. The `↔`s hold for every program,
+  parsed or not.
+
+Not proved: that every well-formed input parses (as on days 2 to 13).
+Nothing else; there is no added hypothesis. The spec takes the width
+from the mask, so the theorems hold for masks of any width, and values
+and addresses wider than the mask are cut to it, as a 36-bit memory
+would; every value and address in the input is below 2 ^ 36 (the
+largest value is 1062419043). Part 1 writes to the address as given, so
+an address of 2 ^ 36 or more would be its own cell there and not in part
+2; the puzzle's addresses are 36-bit and the input's below 65536.
+
+Breaking the program made the proofs fail: `ones` replaced by `floating`
+in `applyTo` fails `applyToMasked`; an `Off` bit decoded as 1 fails
+`decodedFit` and `fitDecoded`; an X decoded only as 0 fails `decodedFit`
+and `fitDecoded`; part 1 writing the value unmasked fails
+`writeValueAgrees`; and a sum one too big fails `part1Rules` and `part2Rules`. The parser reading 35 mask characters instead of 36 is item 4: the check ran for over five minutes without an answer, and I stopped it. The
+audit (with the counterexample search): `audited 76 theorems: 0 failed,
+0 with warnings, 76 passed`.
+
+### 1. Std's bits are close; the bridge from `and`/`or` to `toBits` is missing
+
+Std has more than I expected: `Nat.and`, `Nat.or`, `Nat.xor` and
+`Nat.testBit` with `testBitAnd`/`testBitOr`, `Nat.fromBits` and
+`Nat.toBits` with both round trips (`fromBitsToBits`, `toBitsFromBits`)
+and `fromBitsBelow`. That made a bit-list spec the natural one and the
+`and`/`or` program provable. Two halves don't meet, though: the
+`testBit` lemmas speak of bit `i` of a number, the `toBits` lemmas of a
+list, and nothing links them (no `testBit (fromBits bits) i`, no
+`toBits` of an `and`). I wrote `toBitsAnd` and `toBitsOr` (the bits of
+`Nat.and m n` are the bits of `m` and `n` zipped with `&&`; 7 lines
+each, with `lastBitAnd` and `zipWithSnoc`), and the bounds `andLe`
+(`Nat.and m n ≤ n`) and `orBelow` (an `or` of two numbers below `2 ^ k`
+is below it); std has `xorBelow` but neither of these. Std also has no
+complement or "clear these bits" (`Nat.not` within a width, or
+`Nat.andNot`), which is what part 2's "X clears, then set" looks like
+in the textbook solution, and no `Nat.setBit`/`clearBit`. Each of
+`Nat.toBitsAnd`, `Nat.toBitsOr`, `Nat.toBitsXor`, `Nat.andLe` and
+`Nat.orBelow` is generic and small; with them, Bits.sw would be
+`maskedBits` and the 9-line `applyToMasked`.
+
+### 2. "The sum of all values in memory" over a 2 ^ 36 address space
+
+The puzzle's answer is a sum over every address, and the spec's memory
+is a function, so the honest spec is a sum over its support: some list
+of distinct addresses containing every address not holding 0
+(`SumOfMemory`). That needs two things std doesn't have. The program's
+side: `Map.values.sum` as a sum over `Map.keys` of `getOr` (I wrote
+`entryValue` and `sumOfMap`, 25 lines, from `Map.memToList`,
+`Map.keysDistinct` and `List.foldLeftMap`), and reading `getOr` after
+`insert` (`getOrInsert`, `getOrInsertAll`: std has `Map.getInsert` and
+`getInsertOther` on `get`, and `getOrFoldCount` for counting, but no
+`getOr` form with an `if`). The spec's side: that the sum doesn't
+depend on the list (`sumsAgree`, 45 lines, with `memOfRemoveFirst`,
+`memRemoveFirst` and `distinctRemoveFirst`, which std lacks for
+`removeFirst`; std has `sumByPerm` but no "distinct lists with the same
+members are permutations"). A std `List.sumByDistinctSupport` (two
+distinct lists that hold the same `x` with `f x ≠ 0` have the same
+`sumBy f`) and `Map.sumValues` (`m.values.sum = m.keys.sumBy (k =>
+m.getOr k 0)`) would make Memory.sw and Sum.sw two calls; any puzzle
+whose answer sums a sparse grid or memory needs them.
+
+### 3. No `zipWith` lemmas
+
+`List.zipWith` has nothing proved about it beyond `zipWith3`'s and
+`zipWith4`'s nil cases: no length, no append (`zipWithSnoc`, which I
+wrote), no `map`, no membership. `Nat.toBits` builds its list from the
+end, so every bit-by-bit fact goes through a snoc lemma.
+
+### 4. A wrong literal in a parser makes the proof check run for minutes
+
+Breaking the parser to read `Parse.exactly 35 maskBit` left
+`readsInstruction` saying `Parse.readsExactly 36 maskBit …`. Checking
+it ran at full CPU for over five minutes with no output, and I stopped
+it. With the proof's hole in place of the length (`?`) it still didn't
+finish in 90 s; with the proof saying 35 too, the real error
+(`List.length bits = 36` against `= 35`) came in 0.7 s. So the time
+goes on comparing `Parse.exactly 35 maskBit` with `Parse.exactly 36
+maskBit`, which the checker apparently unfolds through the parser's
+handler instead of comparing the two literals. A newcomer who changes
+a number in a parser and not in its proof gets a hang, not an error;
+a step limit with a message naming the two terms would say where.
+
+### 5. A `rewrite` changed what the next one looked for, out of sight
+
+In `toBitsAnd` the goal's last bit is `Nat.and m n % 2 == 1` and its
+other bits are about `Nat.and m n / 2`. Rewriting with `Nat.andDiv`
+first, then with the last-bit lemma, failed: "`rewrite` found no
+`Nat.and m n % 2`", the goal shown with that bit elided as
+`[Std.Decidable.toBool …]`. Rewriting the last bit first worked. The
+`% 2` apparently computes to something containing the `/ 2`, which the
+first rule then rewrote. The message's Note 1 ("goal after the 2 rules
+before this one") was the right hint, but the elided `…` hid the place;
+showing the subterm where the left side was expected would have said
+it at once.
+
+### 6. Smaller things
+
+- **What helped.** The proofs took about 15 minutes, and nearly every
+  lemma checked as first written. `Parse.readsExactly` made "36 mask
+  characters" one call; `readsPickBy` with a `symbol` method, as on
+  day 12, made each mask character one; `List.memMapElim`,
+  `memAppend`, `memMap`, `memAppendLeft`/`Right` were all the decoder's
+  proof needed; `cases` closed `maskedBits`' four-way Bool case and
+  `getOrInsertAll`'s `if`s; `Map.keysDistinct` and `Map.memKeys` gave
+  the program's addresses for `SumOfMemory` directly. Writing the
+  spec's machine as a top-level `step` (not a `let` inside `run`) let
+  one generic `foldAgrees` prove both parts.
+- **`SetMask { bits = … }`, again.** `E-UNKNOWN-FIELD` with the note to
+  write `SetMask ({ … })`: days 5, 8 and 13 reported it.
+- **`rewrite … at <term>`** isn't allowed with `in`, and `E-REWRITE-TARGET`
+  said exactly what to do ("drop `in …` to use the rewritten term
+  directly"); without `in`, it is a neat way to restate a lemma.
+- **The part 1 example is a trap for part 2.** Its 34 Xs mean `2 ^ 34`
+  writes; a test that runs both parts on every example hangs. Nothing
+  for Stitchwort to fix, but `stitchwort test` has no option for a
+  per-test time limit (`--help` lists none) to turn the hang into a
+  failure; I saw the problem in my Python first.
+
+### Size and time
+
+138 lines of program, 124 of spec, 457 of proofs (Parse 51, Bits 85,
+Decode 95, Memory 45, Sum 89, Parts 61, Proofs 31), 66 of tests (+1
+answer test in `aoc_answers.rs`). By the clock: 01:02 start; program and
+tests passing at 01:12; the bit lemmas at 01:17, the decoder at 01:19,
+memory and both parts at 01:21, the parser at 01:23, uniqueness and the
+top-level theorems at 01:25; then the break checks (item 4 took most of
+that), the audit, timing and these notes.
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2020.Day14.Proofs` | 6.5 s user |
+| `stitchwort check --no-cache Aoc.Year2020.Day14` | 2.6 s user |
+| `stitchwort test --no-cache Aoc.Year2020.Day14.Tests` (18 tests) | 3.8 s user |
+| `stitchwort audit Aoc.Year2020.Day14` (76 theorems) | 6.3 s user |
+| `stitchwort run Aoc.Year2020.Day14.main` on the input | 1.8 s user |
+| `task test:one -- year2020_day14` | 9.2 s for the test (2 min 10 s with building the test binaries) |
+
+`STITCHWORT_TIMINGS=1` puts the Proofs namespace at 305 ms of
+elaboration and 33 ms in the kernel (`readsInstruction` 203 ms of it,
+2.4 million steps); the rest of the cold time is std's modules.
+
+### Ranked
+
+1. Checking a parser proof against a parser that differs in one literal
+   (`exactly 35` against `exactly 36`) runs for minutes with no output
+   instead of a type error (item 4). Checker; medium (find where the
+   comparison unfolds the parser, and bound or short-cut it).
+2. Std has no lemmas from `Nat.and`/`Nat.or` to `Nat.toBits`
+   (`toBitsAnd`, `toBitsOr`), no `Nat.andLe`/`Nat.orBelow` bounds, no
+   complement or `andNot`, and no `zipWith` lemmas (items 1, 3).
+   Library; small.
+3. A sum over a sparse memory: no `Map.sumValues` (values as a `sumBy`
+   over keys), no `getOr` after `insert` with an `if`, no `removeFirst`
+   membership lemmas, and no "distinct lists with the same nonzero
+   members have the same `sumBy`"; 70 lines here (item 2). Library;
+   small.
+4. A `rewrite` that changes the subterm the next rule looks for shows
+   the goal with that subterm elided (item 5). Message; small.
+5. Smaller: `SetMask { … }` again; no per-test time limit in
+   `stitchwort test` (item 6). Each small.
