@@ -3863,7 +3863,9 @@ fn callbacks_apply_no_function_where_it_is_made() {
 /// their definitions (`DATA_INT`), must agree with each other and with
 /// `BigInt` arithmetic written out here, on all small pairs, values around
 /// the 64- and 128-bit boundaries, and seeded pseudo-random big values. Each
-/// division convention must satisfy `a == d*q + r` and its range law.
+/// division convention must satisfy `a == d*q + r` and its range law, and
+/// give `a / 0 = 0` and `a % 0 = a` (`Int.modNat a 0` is `a.toNat`), as
+/// `Nat` division does.
 #[test]
 fn int_natives_agree_with_the_definitions() {
     let examples = examples();
@@ -3931,14 +3933,15 @@ const floored = (a, d) => {
 };
 const truncated = (a, d) => [a / d, a % d];
 
-const refusesZero = (m, name, ...args) =>
-  assert.throws(() => m[name](...args), (e) => e instanceof m.StitchwortInputError);
-
 for (const m of [native, data]) {
-  for (const name of ["eucDiv", "eucMod", "tdiv", "tmod", "fdiv", "fmod", "modNat"]) {
-    for (const a of all) {
-      refusesZero(m, name, a, 0n);
-      checked += 1;
+  for (const a of all) {
+    for (const name of ["eucDiv", "tdiv", "fdiv"]) same(m[name](a, 0n), 0n, `${name} ${a} 0`);
+    for (const name of ["eucMod", "tmod", "fmod"]) same(m[name](a, 0n), a, `${name} ${a} 0`);
+    same(m.modNat(a, 0n), a < 0n ? 0n : a, `modNat ${a} 0`);
+  }
+  for (let n = 0n; n <= 12n; n++) {
+    for (let d = 0n; d <= 5n; d++) {
+      same(m.natDivMod(n, d), d === 0n ? [0n, n] : [n / d, n % d], `natDivMod ${n} ${d}`);
     }
   }
 }
@@ -4715,7 +4718,7 @@ assert.deepEqual(m.parse("-12"), of(-12n));
 assert.deepEqual(m.negatives([0n, 4n]), [of(-1n), of(-5n)]);
 assert.deepEqual(m.apply({ count: 3n, delta: of(-10n) }), { count: 3n, delta: of(-7n) });
 // The divisor's precondition is still checked.
-refused(() => m.eucMod(of(5n), of(0n)));
+refused(() => m.divide(of(5n), of(0n)));
 // A bare bigint is no longer an Int.
 refused(() => m.neg(5n));
 refused(() => m.add(of(1n), 2n));

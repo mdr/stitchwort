@@ -546,7 +546,7 @@ impl<'p> Interp<'p> {
                     Native::DivFuel => {
                         let (n, d) = (nat(&args[1])?, nat(&args[2])?);
                         if d == BigUint::ZERO {
-                            V::Nat(a)
+                            V::Nat(BigUint::ZERO)
                         } else {
                             V::Nat((n / d).min(a))
                         }
@@ -559,9 +559,18 @@ impl<'p> Interp<'p> {
             PrimOp::TextEqual => boolean(text(&args[0])? == text(&args[1])?),
             PrimOp::Int(i) => {
                 use IntNative::*;
+                // Every division is total: by 0, the quotient is 0 and the
+                // remainder the dividend.
+                let trunc = |a: &BigInt, d: &BigInt| {
+                    if d.sign() == Sign::NoSign {
+                        (BigInt::ZERO, a.clone())
+                    } else {
+                        (a / d, a % d)
+                    }
+                };
                 let euclid = |a: &BigInt, d: &BigInt| {
-                    let (q, r) = (a / d, a % d);
-                    if r.sign() == Sign::Minus {
+                    let (q, r) = trunc(a, d);
+                    if r.sign() == Sign::Minus && d.sign() != Sign::NoSign {
                         if d.sign() == Sign::Plus {
                             (q - 1, r + d)
                         } else {
@@ -572,8 +581,9 @@ impl<'p> Interp<'p> {
                     }
                 };
                 let floor = |a: &BigInt, d: &BigInt| {
-                    let (q, r) = (a / d, a % d);
-                    if r.sign() != Sign::NoSign
+                    let (q, r) = trunc(a, d);
+                    if d.sign() != Sign::NoSign
+                        && r.sign() != Sign::NoSign
                         && (r.sign() == Sign::Minus) != (d.sign() == Sign::Minus)
                     {
                         (q - 1, r + d)
@@ -602,13 +612,14 @@ impl<'p> Interp<'p> {
                             IntMul => V::Int(a * int(&args[1])?),
                             IntDiv => V::Int(euclid(&a, &int(&args[1])?).0),
                             IntMod => V::Int(euclid(&a, &int(&args[1])?).1),
-                            IntTDiv => V::Int(&a / int(&args[1])?),
-                            IntTMod => V::Int(&a % int(&args[1])?),
+                            IntTDiv => V::Int(trunc(&a, &int(&args[1])?).0),
+                            IntTMod => V::Int(trunc(&a, &int(&args[1])?).1),
                             IntFDiv => V::Int(floor(&a, &int(&args[1])?).0),
                             IntFMod => V::Int(floor(&a, &int(&args[1])?).1),
                             IntModNat => {
                                 let d = BigInt::from(nat(&args[1])?);
-                                V::Nat(int_nat(euclid(&a, &d).1))
+                                let r = euclid(&a, &d).1;
+                                V::Nat(r.to_biguint().unwrap_or_default())
                             }
                             DecEqInt => decision(a == int(&args[1])?),
                             IntLeq => boolean(a <= int(&args[1])?),

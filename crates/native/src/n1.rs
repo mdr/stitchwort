@@ -3912,7 +3912,7 @@ impl Gen<'_, '_> {
             self.b.switch_to_block(small);
             let z = if division {
                 // `divFuel fuel n d`, as `prims::div_fuel` computes it on
-                // words: `fuel` if `d` is 0, else the smaller of `fuel` and
+                // words: 0 if `d` is 0, else the smaller of `fuel` and
                 // `n / d`. (The unused division by 0 would trap, so the
                 // divisor is made 1 then.)
                 let (fuel, n, d) = (loaded[0].0[1], loaded[1].0[1], loaded[2].0[1]);
@@ -3921,7 +3921,8 @@ impl Gen<'_, '_> {
                 let safe = self.b.ins().select(zero, one, d);
                 let quotient = self.b.ins().udiv(n, safe);
                 let least = self.b.ins().umin(fuel, quotient);
-                self.b.ins().select(zero, fuel, least)
+                let none = self.iconst(0);
+                self.b.ins().select(zero, none, least)
             } else {
                 let (x, y) = (loaded[0].0[1], loaded[1].0[1]);
                 match op {

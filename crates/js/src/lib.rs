@@ -5125,7 +5125,7 @@ fn native_js(op: native::Native) -> &'static str {
         Native::Leq => "(m) => (n) => ({ tag: m <= n ? \"True\" : \"False\" })",
         Native::EqNat => "(m) => (n) => ({ tag: m === n ? \"True\" : \"False\" })",
         Native::DivFuel => {
-            "(fuel) => (n) => (d) => { if (d === 0n) return fuel; const q = n / d; return q < fuel ? q : fuel; }"
+            "(fuel) => (n) => (d) => { if (d === 0n) return 0n; const q = n / d; return q < fuel ? q : fuel; }"
         }
         Native::DecEqNat => "(m) => (n) => ({ tag: m === n ? \"Yes\" : \"No\" })",
         // Proofs, so they're erased and never emitted.
@@ -5255,7 +5255,9 @@ fn float_native_js(op: FloatPrim, native_int: bool, native_text: bool) -> String
 /// `/` and `%` truncate towards zero, and `%` takes the dividend's sign
 /// (truncated division); the Euclidean and floored conventions correct that
 /// by one step where the remainder has the wrong sign (Leijen, "Division and
-/// modulus for computer scientists").
+/// modulus for computer scientists"). BigInt throws on a zero divisor, where
+/// the prelude's divisions give 0 and leave the dividend as the remainder, so
+/// each tests for it first.
 fn int_native_js(op: IntNative) -> &'static str {
     match op {
         IntNative::NatToInt => "(n) => n",
@@ -5265,22 +5267,24 @@ fn int_native_js(op: IntNative) -> &'static str {
         IntNative::IntMul => "(a) => (b) => a * b",
         // Euclidean: the remainder is never negative.
         IntNative::IntDiv => {
-            "(a) => (d) => { const q = a / d, r = a % d; return r < 0n ? (d > 0n ? q - 1n : q + 1n) : q; }"
+            "(a) => (d) => { if (d === 0n) return 0n; const q = a / d, r = a % d; return r < 0n ? (d > 0n ? q - 1n : q + 1n) : q; }"
         }
         IntNative::IntMod => {
-            "(a) => (d) => { const r = a % d; return r < 0n ? (d > 0n ? r + d : r - d) : r; }"
+            "(a) => (d) => { if (d === 0n) return a; const r = a % d; return r < 0n ? (d > 0n ? r + d : r - d) : r; }"
         }
-        IntNative::IntTDiv => "(a) => (d) => a / d",
-        IntNative::IntTMod => "(a) => (d) => a % d",
+        IntNative::IntTDiv => "(a) => (d) => (d === 0n ? 0n : a / d)",
+        IntNative::IntTMod => "(a) => (d) => (d === 0n ? a : a % d)",
         // Floored: the remainder has the divisor's sign.
         IntNative::IntFDiv => {
-            "(a) => (d) => { const q = a / d, r = a % d; return r !== 0n && (r < 0n) !== (d < 0n) ? q - 1n : q; }"
+            "(a) => (d) => { if (d === 0n) return 0n; const q = a / d, r = a % d; return r !== 0n && (r < 0n) !== (d < 0n) ? q - 1n : q; }"
         }
         IntNative::IntFMod => {
-            "(a) => (d) => { const r = a % d; return r !== 0n && (r < 0n) !== (d < 0n) ? r + d : r; }"
+            "(a) => (d) => { if (d === 0n) return a; const r = a % d; return r !== 0n && (r < 0n) !== (d < 0n) ? r + d : r; }"
         }
-        // The divisor is a positive `Nat`.
-        IntNative::IntModNat => "(a) => (d) => { const r = a % d; return r < 0n ? r + d : r; }",
+        // The divisor is a `Nat`; by 0 it's `(a % 0).toNat`.
+        IntNative::IntModNat => {
+            "(a) => (d) => { if (d === 0n) return a < 0n ? 0n : a; const r = a % d; return r < 0n ? r + d : r; }"
+        }
         IntNative::DecEqInt => "(a) => (b) => ({ tag: a === b ? \"Yes\" : \"No\" })",
         IntNative::IntLeq => "(a) => (b) => ({ tag: a <= b ? \"True\" : \"False\" })",
         IntNative::IntLess => "(a) => (b) => ({ tag: a < b ? \"True\" : \"False\" })",

@@ -128,7 +128,7 @@ const TEXT_NATIVES: &[(Builtin, TextNative, &str)] = &[
     (
         Builtin::NatToText,
         TextNative::NatToText,
-        "842a9ca54d7a397d3d4f43a3050c80e7b496368440a27c96049bee9391c953f5",
+        "158940e00fe15b728004ba2320151434757b5f5ae3173511855cf86106b2645c",
     ),
     (
         Builtin::TextToNat,
@@ -402,37 +402,37 @@ const INT_NATIVES: &[(Builtin, IntNative, &str)] = &[
     (
         Builtin::IntDiv,
         IntNative::IntDiv,
-        "1b53672b2ffd5c45aa4e3768ffcf6e2c9d4ab62ed5c4a393ae86051f5f1061f4",
+        "4ca08f568e7446cbd914942d9506f0ce13201e32eae270f0a65abfae040e2f97",
     ),
     (
         Builtin::IntMod,
         IntNative::IntMod,
-        "c6ece0a13ec35aa56f653f7c173f1843951f942328fab3218fa84a60eba4c601",
+        "a7c50c3c72bd16a6a4b4e69b2da0699b4d5bdfc2407c84dbf238c541d6c69b18",
     ),
     (
         Builtin::IntTDiv,
         IntNative::IntTDiv,
-        "f4db3bdc7f1eec3fe4d1b4207a775793ec7a4a583df996c07fd08e879f043d2c",
+        "52db60c4f09b0da44a2f328f587e3895e5784e9d0786aa577342803e61fd0101",
     ),
     (
         Builtin::IntTMod,
         IntNative::IntTMod,
-        "4d488633c11022f01c86e2c11da667248fde671383a85ceb216d4099679380cd",
+        "d4a4b79f52653e3658ea39c93da6e368d8bacea46b841873615f94afc3827758",
     ),
     (
         Builtin::IntFDiv,
         IntNative::IntFDiv,
-        "240cedf9eaca9d90a29698fb0f720d59b3b64e4d8618f9fecb6ea56baed1269d",
+        "85659c0fb0e8d5fa549d4e61eae05ce32564cd2d3258cbf0018397d3d8792e65",
     ),
     (
         Builtin::IntFMod,
         IntNative::IntFMod,
-        "b1cc5e169126333eea6876fca9b3659fd2eed854b5e6d00d597361f1b8034e94",
+        "ae8240304ae2a2199043fb241344a698988f8ab2d4965d0aa2527aec0b7e62a5",
     ),
     (
         Builtin::IntModNat,
         IntNative::IntModNat,
-        "d97e65e16d6bd51e2046adf50b30ba2760a05bf8dec98f9c977c6fd7c1710c6b",
+        "020c47367b21ab954fe1b4d21089307f262248fefa0ec67ce37d39a24262dc16",
     ),
     (
         Builtin::DecEqInt,
@@ -482,7 +482,7 @@ const INT_NATIVES: &[(Builtin, IntNative, &str)] = &[
     (
         Builtin::IntToText,
         IntNative::IntToText,
-        "01bbbab975f2a902a8f5c9b2dc4f013457d4f326d2322ad36eec06f687b37537",
+        "502e9eee9f2cadbdc3ad81bc1d948cbe300f1a706f69670ae51d09192d7ede9b",
     ),
     (
         Builtin::TextToInt,

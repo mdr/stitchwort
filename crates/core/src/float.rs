@@ -81,11 +81,11 @@ pub const FLOAT_DATA_HASH: &str =
 pub const NATIVE_HASHES: &[(Builtin, &str)] = &[
     (
         Builtin::FloatNeg,
-        "7e3a394e5ce5f08407999dc329afafd39dbbfaa81f68db99589e2fde2f0ac153",
+        "a6c859e6b2e9964265929960a35346a3854867b86a7296f4382b8e18e94e7412",
     ),
     (
         Builtin::FloatAbs,
-        "89f1b3a1f4e945ac4718e02c1b398259b6d8b7ed92e181fa3ba408dbdfce3b17",
+        "81051b826865566686ce5f8b99e8a1c019ec4205e8f8dbb605aa40ffc7fda3a7",
     ),
     (
         Builtin::FloatIsNaN,
@@ -109,15 +109,15 @@ pub const NATIVE_HASHES: &[(Builtin, &str)] = &[
     ),
     (
         Builtin::FloatToInt,
-        "a976f3400a2348a5f3f8990e0cfb782dc09c792caca56902da8c9cdbe48312e8",
+        "333b00241e0d3551d40c53d39c1aed97abdd4d2298d8924ee8b5d49d8ece285d",
     ),
     (
         Builtin::FloatAdd,
-        "7764a8f657ddfb6ba9b534128b5bb8e3356849d40f5683b3b43435d95e1c42ec",
+        "be6ff45c7df219b92a805d1ee897189237b557010e35e4aebdc981b44b18b120",
     ),
     (
         Builtin::FloatSub,
-        "36e03c9573be7d5780906d11e9144bed304ec41b302ec95f5234e2562f62f333",
+        "1776934647d4562507954b36dc5bce9604e31d1735832f9143326e1cd05e9386",
     ),
     (
         Builtin::FloatBitsExt,
