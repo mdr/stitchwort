@@ -11478,13 +11478,13 @@
     {
       "id": 1650,
       "title": "Std Int.natAbs lemmas (negate, add, sub, triangle) and omega support for natAbs; the plane library needed local case-split helpers (SW-1484)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1650",
       "labels": [
         "std"
       ],
-      "body": "From SW-1484, 6 Nov 2026. natAbsNegate/natAbsAdd/natAbsTriangle/natSquareOne live in Aoc.Common.Proofs.Plane for now.",
+      "body": "From SW-1484, 6 Nov 2026. natAbsNegate/natAbsAdd/natAbsTriangle/natSquareOne live in Aoc.Common.Proofs.Plane for now.\n\nStarted on Opus in one lane (SW-1650 with SW-1669; omega is a core tactic, D2506), expected: 90 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11744,13 +11744,13 @@
     {
       "id": 1669,
       "title": "omega: add Nat.divZero (n / 0 = 0) as a fact for a literal 0 divisor; today it can't prove n / 0 = 0 for a variable n (SW-1640 review)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1650",
       "labels": [
         "elab"
       ],
-      "body": "From the SW-1640 Opus review, 6 Nov 2026. Opus (D2506).",
+      "body": "From the SW-1640 Opus review, 6 Nov 2026. Opus (D2506).\n\nStarted on Opus in one lane (SW-1650 with SW-1669; omega is a core tactic, D2506), expected: 90 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
