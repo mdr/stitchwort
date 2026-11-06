@@ -11198,13 +11198,13 @@
     {
       "id": 1630,
       "title": "Goal as written, stage 4: when the completeness check runs out of resources, use the as-written result with a note instead of E-RESOURCE (D2479)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1630",
       "labels": [
         "elab"
       ],
-      "body": "D2475-D2480 (Matt, 6 Nov 2026): all as recommended in docs/proposals/goal-as-written.md: rewrite/match/cases/transport look as written first with a completeness check and today's search as fallback; the as-written search may solve a rule's unknowns; keep today's reach into hidden copies, no occurrence selection now (D2478); out-of-resources check uses the as-written result; rewrite f later. 'happy to go with your recommendation.' 45 min. After stage 2.\n\nD2506 (Matt, 6 Nov 2026): SW-1627 stays on Sonnet with the Opus review, but from now on core language changes (kernel, rewrite/match tactics, unifier, syntax, std core) go to Opus: 'core/kernel language changes feel like we can afford a bit more intelligence to be safe!' So: Opus.",
+      "body": "D2475-D2480 (Matt, 6 Nov 2026): all as recommended in docs/proposals/goal-as-written.md: rewrite/match/cases/transport look as written first with a completeness check and today's search as fallback; the as-written search may solve a rule's unknowns; keep today's reach into hidden copies, no occurrence selection now (D2478); out-of-resources check uses the as-written result; rewrite f later. 'happy to go with your recommendation.' 45 min. After stage 2.\n\nD2506 (Matt, 6 Nov 2026): SW-1627 stays on Sonnet with the Opus review, but from now on core language changes (kernel, rewrite/match tactics, unifier, syntax, std core) go to Opus: 'core/kernel language changes feel like we can afford a bit more intelligence to be safe!' So: Opus.\n\nStarted on Opus, expected: 60 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11814,13 +11814,13 @@
     {
       "id": 1674,
       "title": "Goals and messages write dot calls and operators as plain calls (Coupon.apply coupon total for coupon.apply total, List.append rest others for rest ++ others); show them as the source does — the tutorial has to explain it twice (SW-1666)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1674",
       "labels": [
         "editor"
       ],
-      "body": "From the tutorial lane SW-1666, 6 Nov 2026. A newcomer can't match the goal to their code.",
+      "body": "From the tutorial lane SW-1666, 6 Nov 2026. A newcomer can't match the goal to their code.\n\nStarted on Sonnet, expected: 90 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
