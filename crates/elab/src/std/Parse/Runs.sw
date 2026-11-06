@@ -1,3 +1,4 @@
+import Parse.Problem (Literal)
 import Effect.AlwaysTreeOf (AlwaysCall)
 
 -- Completeness: what a parser does on good input, beside the soundness
@@ -9,8 +10,9 @@ import Effect.AlwaysTreeOf (AlwaysCall)
 -- program's parser is the only one that reads a text, or that it accepts
 -- every well-formed input, builds a `Runs` from the pieces' lemmas
 -- ([`Parse.runsNat`], [`Parse.runsChar`], …) and the combinators' ([`Parse.runsBind`],
--- [`Parse.runsOneOfFirst`], [`Parse.runsMany`], [`Parse.runsChainLeft`]), and
--- [`Parse.runsRun`] turns it into `Parse.run input p = Ok value`. For example,
+-- [`Parse.runsOneOfFirst`], [`Parse.runsMany`], [`Parse.runsChainLeft`],
+-- [`Parse.runsRecursive`]), and [`Parse.runsRun`] (or [`Parse.runsWhole`])
+-- turns it into `Parse.run input p = Ok value`. For example,
 -- `Parse.runsSumExample` below proves that "1+2" parses to 3 with a
 -- `chainLeft`.
 --
@@ -336,39 +338,43 @@ theorem Parse.runsOptional (p: () → {Parse} a) (read: List Char) (rest: List C
 --| that read nothing (see the header), so an alternative is skipped when the
 --| one before it declines, whether or not it got partway. `p` run alone from
 --| there would stop with a failure (not a fatal one, which nothing backs up).
-def Parse.Declines (p: () → {Parse} a) (input: List Char): Prop := Parse.Runs (() => Parse.optional p) [] input None
+def Parse.Declines (p: () → {Parse} a) (input: List Char): Prop :=
+  (state: Parse.State) → state.at.rest = input → state.at.left = state.at.rest.length →
+    Parse.runFrom state (() => (Parse.optional p, Parse.mark())) = Ok (None, state.at)
+
+--| `optional p` where `p` declines: it reads nothing and gives `None`.
+theorem Parse.declinesRuns (p: () → {Parse} a) (input: List Char) (declines: Parse.Declines p input):
+    Parse.Runs (() => Parse.optional p) [] input None :=
+  state starts honest => Witness state.at (Both (declines state starts honest) (Both starts (Both (rewrite starts at honest in honest) rfl)))
 
 --| If `p` declines, so does `p` followed by anything. (If `p` succeeds and
---| the rest fails, the sequence declines too, but that is not proved here.)
+--| the rest declines, see [`Parse.declinesAfter`].)
 theorem Parse.declinesBind (p: () → {Parse} a) (j: a → {Parse} b) (input: List Char) (declines: Parse.Declines p input):
     Parse.Declines (() => j (p())) input :=
   state starts honest =>
-    match declines state starts honest with
-      | Witness m (Both ran rest) =>
-        let tree := Effect.Always.tree (x => Unit) (p ()) (Effect.alwaysUnit (p ()))
-        Witness m (Both (Parse.optionalFromNoneBind p tree state.at state j m ran) rest)
+    Parse.optionalFromNoneBind p (Effect.Always.tree (x => Unit) (p ()) (Effect.alwaysUnit (p ()))) state.at state j state.at (declines state starts honest)
 
 --| `text expected` declines where the input doesn't start with it.
 theorem Parse.declinesText (expected: Text) (input: List Char) (absent: Text.stripPrefixChars expected.toList input = None):
     Parse.Declines (() => Parse.text expected) input :=
   state starts honest =>
-    Witness state.at (Both (rewrite starts, absent in rfl) (Both starts (Both (rewrite starts at honest in honest) rfl)))
+    rewrite starts, absent in rfl
 
 --| `satisfy` declines at the end of the input.
 theorem Parse.declinesSatisfyEnd (what: Text) (passes: Char → Bool): Parse.Declines (() => Parse.satisfy what passes) [] :=
   state starts honest =>
-    Witness state.at (Both (rewrite starts in rfl) (Both starts (Both (rewrite starts at honest in honest) rfl)))
+    rewrite starts in rfl
 
 --| `satisfy` declines where the next character doesn't pass.
 theorem Parse.declinesSatisfy (what: Text) (passes: Char → Bool) (char: Char) (rest: List Char) (fails: passes char = False):
     Parse.Declines (() => Parse.satisfy what passes) [char, ..rest] :=
   state starts honest =>
-    Witness state.at (Both (rewrite starts, fails in rfl) (Both starts (Both (rewrite starts at honest in honest) rfl)))
+    rewrite starts, fails in rfl
 
 --| `nat` declines where the input doesn't start with a digit.
 theorem Parse.declinesNat (input: List Char) (stops: input.takeWhile Parse.isDigit = []): Parse.Declines Parse.nat input :=
   state starts honest =>
-    Witness state.at (Both (rewrite starts, List.spanAppend Parse.isDigit [] input rfl stops in rfl) (Both starts (Both (rewrite starts at honest in honest) rfl)))
+    rewrite starts, List.spanAppend Parse.isDigit [] input rfl stops in rfl
 
 --| `oneOf [first, ..others]` where `first` succeeds: it gives `first`'s
 --| value, whatever the others would do.
@@ -388,7 +394,7 @@ theorem Parse.runsOneOfNext (first: () → {Parse} a) (next: () → {Parse} a) (
     (declines: Parse.Declines first (read ++ rest)) (runsNext: Parse.Runs (() => Parse.oneOf [next, ..more]) read rest v):
     Parse.Runs (() => Parse.oneOf [first, next, ..more]) read rest v :=
   Parse.runsBind (() => Parse.optional first) (found => Parse.valueOr found (() => Parse.oneOfFrom next more)) [] read read rest None v rfl
-    declines runsNext
+    (Parse.declinesRuns first (read ++ rest) declines) runsNext
 
 theorem Parse.runsFromManyStepSome (before: Parse.Mark) (v: a) (next: a → {Parse} b) (done: () → b) (middle: Parse.State) (read: List Char)
     (rest: List Char) (value: b) (advanced: before.offset < middle.at.offset) (runsNext: Parse.RunsFrom middle (() => next v) read rest value):
@@ -444,7 +450,7 @@ theorem Parse.runsManyFuel (p: () → {Parse} a): (steps: List (List Char, a)) �
       (Parse.runsFromMark state (before => Parse.manyStep before (Parse.optional p) (v => Parse.manyFuel more p [v, ..found]) (() => found.reverse)) [] rest
         found.reverse
         (Parse.runsFromBind state (() => Parse.optional p)
-          (found2 => Parse.manyStep state.at found2 (v => Parse.manyFuel more p [v, ..found]) (() => found.reverse)) [] [] [] rest None found.reverse rfl declines
+          (found2 => Parse.manyStep state.at found2 (v => Parse.manyFuel more p [v, ..found]) (() => found.reverse)) [] [] [] rest None found.reverse rfl (Parse.declinesRuns p rest declines)
           (middle atRest honest2 offset => Parse.runsPure found.reverse rest middle))) starts honest
   | [(read, v), ..steps], rest, Succ more, found, enough, Both nonEmpty (Both runsP later), state, starts, honest =>
     let short: steps.length < more := omega [enough]
@@ -498,8 +504,8 @@ theorem Parse.runsChainStep (operand: () → {Parse} a) (operator: () → {Parse
     (Parse.runsMap operand (y => (combine, y)) operandRead rest right runsOperand)
 
 --| A step of `chainLeft` declines where the operator does: the usual way a
---| chain ends. (A step whose operator is there but whose operand isn't also
---| declines, which is not proved here.)
+--| chain ends. (A step whose operator is there but whose operand isn't
+--| declines too, by [`Parse.declinesAfter`].)
 theorem Parse.declinesChainStep (operand: () → {Parse} a) (operator: () → {Parse} (a → a → a)) (input: List Char)
     (declines: Parse.Declines operator input): Parse.Declines (() => Parse.chainStep operand operator) input :=
   Parse.declinesBind operator (c =>
@@ -595,3 +601,233 @@ theorem Parse.runsSumExample: Parse.run ['1', '+', '2'] Parse.RunsExamples.sum =
             (Parse.runsNat ['2'] [] (List.consNotNil '2' []) rfl rfl))
           (Parse.declinesChainStep Parse.nat Parse.RunsExamples.plus []
             (Parse.declinesBind (() => Parse.char '+') (u => Parse.RunsExamples.add) [] (Parse.declinesCharEnd '+'))))))
+
+--| `literal` where the input starts with the characters: it gives `True`.
+theorem Parse.runsLiteral (chars: List Char) (rest: List Char): Parse.Runs (() => Parse.literal chars) chars rest True :=
+  state starts honest =>
+    let lengths: state.at.rest.length = chars.length + rest.length := rewrite starts in List.lengthAppend chars rest
+    Witness (state.advance rest chars.length).at
+      (Both (rewrite Parse.runFromLiteralThere state chars rest (hit => (hit, Parse.mark())) starts in rfl)
+        (Both rfl (Both (omega [honest, lengths]) rfl)))
+
+--| None of `choices`' words is a start of `input`.
+def Parse.WordsAbsent (input: List Char): (choices: List (Text, a)) → Prop
+  | [] => True = True
+  | [choice, ..more] => Text.stripPrefixChars choice.fst.toList input = None ∧ Parse.WordsAbsent input more
+
+--| The search `pick` makes, past the words of `before` that don't start the input,
+--| finds `found`, whose word does.
+theorem Parse.runsFindWord (found: (Text, a)) (later: List (Text, a)) (rest: List Char): (before: List (Text, a)) →
+    Parse.WordsAbsent (found.fst.toList ++ rest) before →
+    Parse.Runs (() => (before ++ [found, ..later]).find (choice => Parse.literal choice.fst.toList)) found.fst.toList rest (Some found)
+  | [], absent, state, starts, honest =>
+    Parse.runsBind (() => Parse.literal found.fst.toList)
+      (hit => if hit then Some found else later.find (choice => Parse.literal choice.fst.toList))
+      found.fst.toList [] found.fst.toList rest True (Some found) (Eq.sym (List.appendNil found.fst.toList))
+      (Parse.runsLiteral found.fst.toList rest) (Parse.runsPure (Some found) rest) state starts honest
+  | [choice, ..more], Both gone absent, state, starts, honest =>
+    match Parse.runsFindWord found later rest more absent state starts honest with
+      | Witness m (Both ran others) => Witness m (Both (Eq.trans (rewrite starts, gone in rfl) ran) others)
+
+--| `pick` where `word` is the first of the choices to come next: `before` are the
+--| choices tried first, none of which starts the input (words are tried in
+--| order, so a word that starts another must come after it), and `later` the
+--| rest. It reads `word` and gives its value.
+theorem Parse.runsPick (before: List (Text, a)) (word: Text) (value: a) (later: List (Text, a)) (rest: List Char)
+    (absent: Parse.WordsAbsent (word.toList ++ rest) before): Parse.Runs (() => Parse.pick (before ++ [(word, value), ..later])) word.toList rest value :=
+  Parse.runsBind (() => (before ++ [(word, value), ..later]).find (choice => Parse.literal choice.fst.toList))
+    (found =>
+      match found with
+        | Some (word2, value2) => value2
+        | None =>
+          Parse.noteWords (before ++ [(word, value), ..later])
+          Empty.absurd Parse.stop())
+    word.toList [] word.toList rest (Some (word, value)) value (Eq.sym (List.appendNil word.toList))
+    (Parse.runsFindWord (word, value) later rest before absent) (Parse.runsPure value rest)
+
+--| If `optionalFrom s0 q` backs up from `s`, so does `optionalFrom start q`,
+--| to `start`: `q` stops on its own, wherever the optional took its mark.
+theorem Parse.optionalFromNoneStart (q: () → {Parse} a) (tree: Effect.AlwaysTree (x => Unit) (q ())) (s0: Parse.Mark) (start: Parse.Mark)
+    (s: Parse.State) (h: Parse.runFrom s (() => (Parse.optionalFrom s0 q, Parse.mark())) = Ok (None, s0)):
+    Parse.runFrom s (() => (Parse.optionalFrom start q, Parse.mark())) = Ok (None, start) :=
+  match reify q with
+    | return x => Void.exfalso (Option.someNotNone x (Pair.mkInjectiveFst (Result.okInjective h)))
+    | Parse.span passes, r =>
+      match tree with
+        | AlwaysCall later => Parse.optionalFromNoneStart (() => r (s.span passes).fst) (later (s.span passes).fst) s0 start (s.span passes).snd h
+    | Parse.next passes, r =>
+      match tree with
+        | AlwaysCall later =>
+          Eq.trans (Parse.runFromNext s passes (y => (Parse.optionalFrom start (() => r y), Parse.mark())))
+            (Parse.optionalFromNoneStart (() => r (s.next passes).fst) (later (s.next passes).fst) s0 start (s.next passes).snd
+              (Eq.trans (Eq.sym (Parse.runFromNext s passes (y => (Parse.optionalFrom s0 (() => r y), Parse.mark())))) h))
+    | Parse.literal chars, r =>
+      match tree with
+        | AlwaysCall later =>
+          Eq.trans (Parse.runFromLiteral s chars (y => (Parse.optionalFrom start (() => r y), Parse.mark())))
+            (Parse.optionalFromNoneStart (() => r (s.literal chars).fst) (later (s.literal chars).fst) s0 start (s.literal chars).snd
+              (Eq.trans (Eq.sym (Parse.runFromLiteral s chars (y => (Parse.optionalFrom s0 (() => r y), Parse.mark())))) h))
+    | Parse.mark u, r =>
+      match tree with
+        | AlwaysCall later => Parse.optionalFromNoneStart (() => r s.at) (later s.at) s0 start s h
+    | Parse.reset at, r =>
+      match tree with
+        | AlwaysCall later => Parse.optionalFromNoneStart (() => r ()) (later ()) s0 start { s | at } h
+    | Parse.note problem, r =>
+      match tree with
+        | AlwaysCall later => Parse.optionalFromNoneStart (() => r ()) (later ()) s0 start (s.note problem) h
+    | Parse.stop u, r => rfl
+    | Parse.fatal message, r => Void.exfalso (Result.errNotOk h)
+
+--| `p` succeeded from `s` to `after`, and from there `j` of its value backs up
+--| to `start`: so `optionalFrom start` of `p` then `j` does, from `s`.
+theorem Parse.optionalFromNoneAfter (p: () → {Parse} a) (tree: Effect.AlwaysTree (x => Unit) (p ())) (start: Parse.Mark) (s: Parse.State)
+    (j: a → {Parse} c) (v: a) (after: Parse.State) (ran: Parse.runFrom s (() => (p(), Parse.mark())) = Ok (v, after.at))
+    (stops: Parse.runFrom after (() => (Parse.optionalFrom start (() => j v), Parse.mark())) = Ok (None, start)):
+    Parse.runFrom s (() => (Parse.optionalFrom start (() => j (p())), Parse.mark())) = Ok (None, start) :=
+  match reify p with
+    | return x =>
+      let same := Result.okInjective ran
+      let valueSame: x = v := Pair.mkInjectiveFst same
+      let atSame: s.at = after.at := Pair.mkInjectiveSnd same
+      let stops2 := rewrite <- valueSame at stops in stops
+      let moved := Parse.runFromAt (() => (Parse.optionalFrom start (() => j x), Parse.mark())) after s (None, start) stops2
+      let moved2 := rewrite <- atSame at moved in moved
+      rewrite Parse.withAtSelf s at moved2 in moved2
+    | Parse.span passes, q =>
+      match tree with
+        | AlwaysCall later => Parse.optionalFromNoneAfter (() => q (s.span passes).fst) (later (s.span passes).fst) start (s.span passes).snd j v after ran stops
+    | Parse.next passes, q =>
+      match tree with
+        | AlwaysCall later =>
+          Eq.trans (Parse.runFromNext s passes (y => (Parse.optionalFrom start (() => j (q y)), Parse.mark())))
+            (Parse.optionalFromNoneAfter (() => q (s.next passes).fst) (later (s.next passes).fst) start (s.next passes).snd j v after
+              (Eq.trans (Eq.sym (Parse.runFromNext s passes (y => (q y, Parse.mark())))) ran) stops)
+    | Parse.literal chars, q =>
+      match tree with
+        | AlwaysCall later =>
+          Eq.trans (Parse.runFromLiteral s chars (y => (Parse.optionalFrom start (() => j (q y)), Parse.mark())))
+            (Parse.optionalFromNoneAfter (() => q (s.literal chars).fst) (later (s.literal chars).fst) start (s.literal chars).snd j v after
+              (Eq.trans (Eq.sym (Parse.runFromLiteral s chars (y => (q y, Parse.mark())))) ran) stops)
+    | Parse.mark u, q =>
+      match tree with
+        | AlwaysCall later => Parse.optionalFromNoneAfter (() => q s.at) (later s.at) start s j v after ran stops
+    | Parse.reset at, q =>
+      match tree with
+        | AlwaysCall later => Parse.optionalFromNoneAfter (() => q ()) (later ()) start { s | at } j v after ran stops
+    | Parse.note problem, q =>
+      match tree with
+        | AlwaysCall later => Parse.optionalFromNoneAfter (() => q ()) (later ()) start (s.note problem) j v after ran stops
+    | Parse.stop u, q => Void.exfalso (Result.errNotOk ran)
+    | Parse.fatal message, q => Void.exfalso (Result.errNotOk ran)
+
+--| `p` followed by something that declines declines too, where `p` succeeds:
+--| "an operator is there but no operand".
+theorem Parse.declinesAfter (p: () → {Parse} a) (j: a → {Parse} b) (read: List Char) (rest: List Char) (v: a) (runsP: Parse.Runs p read rest v)
+    (declines: Parse.Declines (() => j v) rest): Parse.Declines (() => j (p())) (read ++ rest) :=
+  state starts honest =>
+    match runsP state starts honest with
+      | Witness m (Both ran (Both mrest (Both mleft moff))) =>
+        let middle: Parse.State := { state | at = m }
+        let honest1: middle.at.left = middle.at.rest.length := rewrite mrest in mleft
+        Parse.optionalFromNoneAfter p (Effect.Always.tree (x => Unit) (p ()) (Effect.alwaysUnit (p ()))) state.at state j v middle ran
+          (Parse.optionalFromNoneStart (() => j v) (Effect.Always.tree (x => Unit) (j v) (Effect.alwaysUnit (j v))) m state.at middle
+            (declines middle mrest honest1))
+
+--| `note` reads nothing.
+theorem Parse.runsNote (problem: Parse.Problem) (rest: List Char): Parse.Runs (() => Parse.note problem) [] rest () :=
+  state starts honest =>
+    Witness (state.note problem).at
+      (Both rfl (Both (rewrite Parse.noteAt state problem in starts) (Both (rewrite Parse.noteAt state problem in rewrite starts at honest in honest)
+        (rewrite Parse.noteAt state problem in rfl))))
+
+--| `noteWords` reads nothing.
+theorem Parse.runsNoteWords (rest: List Char): (words: List (Text, a)) → Parse.Runs (() => Parse.noteWords words) [] rest ()
+  | [], state, starts, honest => Parse.runsPure () rest state starts honest
+  | [(word, value), ..more], state, starts, honest =>
+    Parse.runsBind (() => Parse.note (Literal word)) (u => Parse.noteWords more) [] [] [] rest () ()
+      rfl (Parse.runsNote (Literal word) rest) (Parse.runsNoteWords rest more) state starts honest
+
+--| `stop` declines.
+theorem Parse.declinesStop (input: List Char): Parse.Declines (() => (Empty.absurd Parse.stop(): a)) input :=
+  state starts honest => rfl
+
+--| The search `pick` makes, when none of the words comes next, finds none.
+theorem Parse.runsFindNone (rest: List Char): (choices: List (Text, a)) → Parse.WordsAbsent rest choices →
+    Parse.Runs (() => choices.find (choice => Parse.literal choice.fst.toList)) [] rest None
+  | [], absent, state, starts, honest => Parse.runsPure None rest state starts honest
+  | [choice, ..more], Both gone absent, state, starts, honest =>
+    match Parse.runsFindNone rest more absent state starts honest with
+      | Witness m (Both ran others) => Witness m (Both (Eq.trans (rewrite starts, gone in rfl) ran) others)
+
+--| `pick` declines where none of its words comes next.
+theorem Parse.declinesPick (choices: List (Text, a)) (input: List Char) (absent: Parse.WordsAbsent input choices):
+    Parse.Declines (() => Parse.pick choices) input :=
+  Parse.declinesAfter (() => choices.find (choice => Parse.literal choice.fst.toList))
+    (found =>
+      match found with
+        | Some (word2, value2) => value2
+        | None =>
+          Parse.noteWords choices
+          Empty.absurd Parse.stop())
+    [] input None (Parse.runsFindNone input choices absent)
+    (Parse.declinesAfter (() => Parse.noteWords choices) (u => Empty.absurd Parse.stop()) [] input () (Parse.runsNoteWords input choices)
+      (Parse.declinesStop input))
+
+--| `recursiveFuel`, by induction on the fuel.
+theorem Parse.runsRecursiveFuel (body: (() → {Parse} a) → {Parse} a) (good: List Char → List Char → a → Prop)
+    (step: (self: () → {Parse} a) → (read: List Char) → (rest: List Char) → (v: a) → good read rest v →
+      ((nestedRead: List Char) → (nestedRest: List Char) → (w: a) → good nestedRead nestedRest w → nestedRead.length < read.length →
+        Parse.Runs self nestedRead nestedRest w) →
+      Parse.Runs (() => body self) read rest v):
+    (fuel: Nat) → (read: List Char) → (rest: List Char) → (v: a) → good read rest v → read.length < fuel →
+    Parse.Runs (() => Parse.recursiveFuel fuel body) read rest v
+  | Zero, read, rest, v, holds, small, state, starts, honest => Void.exfalso (omega [small])
+  | Succ more, read, rest, v, holds, small, state, starts, honest =>
+    step (() => Parse.recursiveFuel more body) read rest v holds
+      (nestedRead nestedRest w nestedHolds shorter =>
+        Parse.runsRecursiveFuel body good step more nestedRead nestedRest w nestedHolds (omega [small, shorter]))
+      state starts honest
+
+--| `recursive body`, where `good` says which reads of `body`'s nested parser are
+--| expected: if `body self` reads whatever is `good`, provided `self` reads
+--| each `good` read that is shorter than it, then `recursive body` reads it.
+--| (Each nesting of a parenthesised expression reads at least the
+--| parentheses, so the nested call reads less than the call around it.)
+theorem Parse.runsRecursive (body: (() → {Parse} a) → {Parse} a) (good: List Char → List Char → a → Prop)
+    (step: (self: () → {Parse} a) → (read: List Char) → (rest: List Char) → (v: a) → good read rest v →
+      ((nestedRead: List Char) → (nestedRest: List Char) → (w: a) → good nestedRead nestedRest w → nestedRead.length < read.length →
+        Parse.Runs self nestedRead nestedRest w) →
+      Parse.Runs (() => body self) read rest v)
+    (read: List Char) (rest: List Char) (v: a) (holds: good read rest v): Parse.Runs (() => Parse.recursive body) read rest v :=
+  state starts honest =>
+    let lengths: state.at.rest.length = read.length + rest.length := rewrite starts in List.lengthAppend read rest
+    let small: read.length < state.at.left + 1 := omega [lengths, honest]
+    Parse.runsFromMark state (at => Parse.recursiveFuel (at.left + 1) body) read rest v
+      (Parse.runsRecursiveFuel body good step (state.at.left + 1) read rest v holds small state) starts honest
+
+--| `end` where nothing is left.
+theorem Parse.runsEnd: Parse.Runs Parse.end [] [] () :=
+  state starts honest =>
+    let atEnd: state.at.left = 0 := rewrite starts at honest in honest
+    Witness state.at (Both (rewrite atEnd in rfl) (Both starts (Both atEnd rfl)))
+
+--| `whole chars p` where `p` reads all of `chars`.
+--| `p` reads all of `chars`, so `Parse.whole chars p` (the runner under `all`,
+--| `line` and `eachLine`) gives its value.
+theorem Parse.runsWhole (chars: List Char) (p: () → {Parse} a) (v: a) (runs: Parse.Runs p chars [] v): Parse.whole chars p = Ok v :=
+  Parse.runsRun
+    (() =>
+      let value := p()
+      Parse.end()
+      value)
+    chars v
+    (Parse.runsBind p (value =>
+        Parse.end()
+        value)
+      chars [] chars [] v v (Eq.sym (List.appendNil chars)) runs
+      (Parse.runsBind Parse.end (u => v) [] [] [] [] () v rfl Parse.runsEnd (Parse.runsPure v [])))
+
+--| `pick` takes the first word that comes next: "*" after "+" fails to start "*x".
+theorem Parse.runsPickExample: Parse.Runs (() => Parse.pick [("+", 1), ("*", 2)]) ['*'] ['x'] 2 :=
+  Parse.runsPick [("+", 1)] "*" 2 [] ['x'] (Both rfl rfl)
