@@ -153,3 +153,104 @@ theorem rotateEdges (image: Image) (k: Nat) (sized: List.AllLength (Succ k) imag
               (Eq.trans (Eq.cong (rows => rows.headOr []) same) (headReverse [] image.rows))
           rewrite width in rewrite <- top, <- toRight, <- bottom, <- toLeft in rfl
   shaped image.rows.reverse rfl
+
+-- Every orientation's edges are the tile's, some reversed
+
+--| Every row `width` long, and at least one row: what the tiles are, and
+--| what turns and flips keep.
+def Rectangle (image: Image): Prop := ∃ (k: Nat) => List.AllLength (Succ k) image.rows ∧ image.rows ≠ []
+
+theorem allLengthFlip (n: Nat): (rows: List (List Pixel)) → List.AllLength n rows → List.AllLength n (rows.map (.reverse))
+  | [], sized => Trivial
+  | [row, ..rest], Both sized more => Both (rewrite List.lengthReverse row in sized) (allLengthFlip n rest more)
+
+theorem rectangleFlip (image: Image) (rectangle: Rectangle image): Rectangle image.flip :=
+  match rectangle with
+    | Witness k (Both sized nonEmpty) =>
+      Witness k (Both (allLengthFlip (Succ k) image.rows sized) (empty => nonEmpty (List.lengthZero image.rows (rewrite <- List.lengthMap image.rows (.reverse), empty in rfl))))
+
+theorem rectangleRotate (image: Image) (rectangle: Rectangle image): Rectangle image.rotate :=
+  match rectangle with
+    | Witness k (Both sized nonEmpty) =>
+      let reversedSized: List.AllLength (Succ k) image.rows.reverse := allLengthReverseOnto (Succ k) image.rows [] sized Trivial
+      let shaped: (turned: List (List Pixel)) → turned = image.rows.reverse → Rectangle { rows = turned.transpose } :=
+        turned same =>
+          match turned with
+            | [] => Void.exfalso (nonEmpty (reverseNil image.rows (Eq.sym same)))
+            | [first, ..rest] =>
+              let turnedSized: List.AllLength (Succ k) [first, ..rest] := rewrite <- same at reversedSized in reversedSized
+              let width: first.length = Succ k := turnedSized.left
+              rewrite width in
+                Witness rest.length (Both (List.columnsAllLength (Succ k) [first, ..rest] (Succ rest.length) rfl turnedSized) (List.consNotNil _ _))
+      shaped image.rows.reverse rfl
+
+--| Each edge of `other` fits an edge of `image`.
+def Within (image: Image) (other: Image): Prop :=
+  (edge: List Pixel) → edge ∈ Spec.edges other → ∃ (original: List Pixel) => original ∈ Spec.edges image ∧ Spec.Fit edge original
+
+theorem fitTrans [edge: List Pixel] [middle: List Pixel] [original: List Pixel] (first: Spec.Fit edge middle) (second: Spec.Fit middle original): Spec.Fit edge original :=
+  match first with
+    | Inl same =>
+      match second with
+        | Inl again => Inl (rewrite same, again in rfl)
+        | Inr reversed => Inr (rewrite same, reversed in rfl)
+    | Inr reversed =>
+      match second with
+        | Inl again => Inr (rewrite reversed, again in rfl)
+        | Inr twice => Inl (rewrite reversed, twice in List.reverseReverse original)
+
+theorem withinTrans [a: Image] [b: Image] [c: Image] (first: Within a b) (second: Within b c): Within a c :=
+  edge onC =>
+    match second edge onC with
+      | Witness middle (Both onB fitB) =>
+        match first middle onB with
+          | Witness original (Both onA fitA) => Witness original (Both onA (fitTrans fitB fitA))
+
+theorem withinSelf (image: Image): Within image image := edge member => Witness edge (Both member (Inl rfl))
+
+theorem memEq [x: a] [xs: List a] [ys: List a] (same: xs = ys) (member: x ∈ xs): x ∈ ys := rewrite same at member in member
+
+theorem withinFlip (image: Image): Within image image.flip :=
+  edge member =>
+    match (memEq (flipEdges image) member) with
+        | Inl same => Witness (image.rows.headOr []) (Both (Inl rfl) (Inr (Eq.sym same)))
+        | Inr (Inl same) => Witness (image.rows.map (row => row.headOr Calm)) (Both (Inr (Inr (Inr (Inl rfl)))) (Inl (Eq.sym same)))
+        | Inr (Inr (Inl same)) => Witness (image.rows.last.getOrElse []) (Both (Inr (Inr (Inl rfl))) (Inr (Eq.sym same)))
+        | Inr (Inr (Inr (Inl same))) => Witness (image.rows.map (row => row.last.getOrElse Calm)) (Both (Inr (Inl rfl)) (Inl (Eq.sym same)))
+        | Inr (Inr (Inr (Inr never))) => Void.exfalso never
+
+theorem withinRotate (image: Image) (rectangle: Rectangle image): Within image image.rotate :=
+  match rectangle with
+    | Witness k (Both sized nonEmpty) =>
+      edge member =>
+        match (memEq (rotateEdges image k sized nonEmpty) member) with
+            | Inl same => Witness (image.rows.map (row => row.headOr Calm)) (Both (Inr (Inr (Inr (Inl rfl)))) (Inr (Eq.sym same)))
+            | Inr (Inl same) => Witness (image.rows.headOr []) (Both (Inl rfl) (Inl (Eq.sym same)))
+            | Inr (Inr (Inl same)) => Witness (image.rows.map (row => row.last.getOrElse Calm)) (Both (Inr (Inl rfl)) (Inr (Eq.sym same)))
+            | Inr (Inr (Inr (Inl same))) => Witness (image.rows.last.getOrElse []) (Both (Inr (Inr (Inl rfl))) (Inl (Eq.sym same)))
+            | Inr (Inr (Inr (Inr never))) => Void.exfalso never
+
+--| Every edge of every orientation of a rectangle fits one of its own edges.
+theorem withinOrientations (image: Image) (rectangle: Rectangle image) (turned: Image) (member: turned ∈ image.orientations): Within image turned :=
+  let r1 := withinRotate image rectangle
+  let rect1 := rectangleRotate image rectangle
+  let r2 := withinTrans r1 (withinRotate image.rotate rect1)
+  let rect2 := rectangleRotate image.rotate rect1
+  let r3 := withinTrans r2 (withinRotate image.rotate.rotate rect2)
+  let f0 := withinFlip image
+  let flipped := rectangleFlip image rectangle
+  let f1 := withinTrans f0 (withinRotate image.flip flipped)
+  let flipped1 := rectangleRotate image.flip flipped
+  let f2 := withinTrans f1 (withinRotate image.flip.rotate flipped1)
+  let flipped2 := rectangleRotate image.flip.rotate flipped1
+  let f3 := withinTrans f2 (withinRotate image.flip.rotate.rotate flipped2)
+  match member with
+    | Inl same => rewrite <- same in withinSelf image
+    | Inr (Inl same) => rewrite <- same in r1
+    | Inr (Inr (Inl same)) => rewrite <- same in r2
+    | Inr (Inr (Inr (Inl same))) => rewrite <- same in r3
+    | Inr (Inr (Inr (Inr (Inl same)))) => rewrite <- same in f0
+    | Inr (Inr (Inr (Inr (Inr (Inl same))))) => rewrite <- same in f1
+    | Inr (Inr (Inr (Inr (Inr (Inr (Inl same)))))) => rewrite <- same in f2
+    | Inr (Inr (Inr (Inr (Inr (Inr (Inr (Inl same))))))) => rewrite <- same in f3
+    | Inr (Inr (Inr (Inr (Inr (Inr (Inr (Inr never))))))) => Void.exfalso never
