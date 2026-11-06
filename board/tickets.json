@@ -9770,13 +9770,13 @@
     {
       "id": 1528,
       "title": "Runtime profiler for stitchwort run (where a program's time goes); days 11 and 15 found it only by timing variants of main",
-      "status": "doing",
+      "status": "backlog",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1528",
       "labels": [
         "tools"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1519 (2020 day 15).\n\nStarted overnight on Sonnet (SW-1528 with SW-1536), expected: 40 min.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1519 (2020 day 15).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -9784,13 +9784,13 @@
     {
       "id": 1529,
       "title": "Message: Parse.readsWeaken over readsMap: say which implicit (p, weaker) failed to infer instead of pointing into Parse.nat (day 15)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1528",
       "labels": [
         "diagnostics"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1519 (2020 day 15).",
+      "body": "Filed overnight 6 Nov 2026 from SW-1519 (2020 day 15).\n\nStarted overnight on Sonnet in worktree SW-1528 (branch lane/SW-1528, with SW-1536; the worktree was misnamed), expected: 40 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
