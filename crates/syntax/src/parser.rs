@@ -95,7 +95,6 @@ pub fn parse_module_recovering(
     let mut decls = Vec::new();
     let mut errors: Vec<Diagnostic> = Vec::new();
     let mut failed = Vec::new();
-    let mut fieldless = Vec::new();
     let groups = match split_decls(&tokens) {
         Ok(groups) => groups,
         Err(d) => return (Module::default(), vec![*d]),
@@ -179,11 +178,9 @@ pub fn parse_module_recovering(
             }
             continue;
         }
-        parser.fieldless = std::mem::take(&mut fieldless);
         let parsed = parser
             .decl()
             .and_then(|parsed| parser.finish().map(|()| parsed));
-        fieldless = std::mem::take(&mut parser.fieldless);
         match parsed {
             Ok(mut parsed) => {
                 // A declaration with attributes is a data type or a
@@ -342,12 +339,7 @@ fn with_span(p: Pattern, span: Span) -> Pattern {
         Pattern::Ctor(name, args, _) => Pattern::Ctor(name, args, span),
         Pattern::CtorFields {
             ctor, fields, rest, ..
-        } => Pattern::CtorFields {
-            ctor,
-            fields,
-            rest,
-            span,
-        },
+        } => Pattern::ctor_fields(ctor, fields, rest, span),
         other => other,
     }
 }
@@ -548,18 +540,11 @@ struct Parser<'t> {
     /// Built once per declaration, so that skipping a bracketed group is one
     /// lookup (the lambda scan and `is_pi_binder`).
     matching: Vec<u32>,
-    /// Constructors with no explicit fields declared earlier in this file
-    /// (the error for braces after one says it has nothing to build by
-    /// field).
-    fieldless: Vec<String>,
     /// How deep the recursion may go.
     stack: StackLimit,
 }
 
 const NO_PARTNER: u32 = u32::MAX;
-
-/// The prelude's constructors with no fields, which a file doesn't declare.
-const PRELUDE_FIELDLESS: [&str; 5] = ["None", "Nil", "True", "False", "Zero"];
 
 /// Whether the `{` at `tokens[open]`, where a result type starts (after a
 /// declaration's `:` or an arrow), is a record literal or update rather
@@ -710,7 +695,6 @@ impl<'t> Parser<'t> {
             rewrite_at: false,
             let_value: None,
             matching: match_brackets(tokens),
-            fieldless: Vec::new(),
             stack,
         }
     }
@@ -1607,11 +1591,12 @@ impl<'t> Parser<'t> {
     }
 
     /// Constructor `name`'s arguments, from here to a token `stop` accepts:
-    /// positional patterns, or braces naming its fields, `C { f = p, g, .. }`
-    /// (docs/proposals/variant-fields.md §4). Braces right after a
-    /// constructor always name its fields and take no further arguments; a
-    /// record pattern as a positional argument is written in brackets,
-    /// `C ({ … })`.
+    /// positional patterns, or braces right after the name, `C { f = p, g,
+    /// .. }`. The braces name `C`'s fields if it is declared with its fields
+    /// in braces, and are a record pattern for its argument if it is declared
+    /// with brackets: the elaborator decides (`Pattern::CtorFields`). They
+    /// take no further arguments; a pattern with more is written `C ({ … })
+    /// …`.
     fn ctor_args(
         &mut self,
         name: Name,
@@ -1627,37 +1612,38 @@ impl<'t> Parser<'t> {
                 return Err(error(
                     self.here(),
                     format!(
-                        "braces after `{}` name its fields, and take no further arguments",
+                        "braces after `{}` in a pattern take no further arguments",
                         name.text
                     ),
                 )
                 .with_note(format!(
-                    "to match a record as `{0}`'s first argument, write it in brackets: \
-                     `{0} ({{ … }}) …`",
+                    "to match a record as `{0}`'s first argument and then more, write it \
+                     in brackets: `{0} ({{ … }}) …`",
                     name.text
                 ))
                 .into());
             }
-            return Ok(Pattern::CtorFields {
-                ctor: name,
-                fields,
-                rest,
-                span,
-            });
+            return Ok(Pattern::ctor_fields(name, fields, rest, span));
         }
         let mut args = Vec::new();
         while !stop(self.peek()) {
             if self.peek() == Some(&Tok::LBrace) {
-                return Err(error(
-                    self.here(),
-                    format!(
-                        "a record pattern as an argument of `{}` is written in brackets: `({{ … }})`",
-                        name.text
-                    ),
-                )
-                .with_note(
-                    "braces name a constructor's fields only right after it: `C { f = p, .. }`",
-                ).into());
+                // A record pattern after another argument is one more
+                // argument; after a constructor name it would be that
+                // constructor's braces.
+                if matches!(self.tokens[self.pos - 1].tok, Tok::Upper(_)) {
+                    return Err(error(
+                        self.here(),
+                        format!(
+                            "a record pattern after a constructor in an argument of `{}` is written in brackets: `({{ … }})`",
+                            name.text
+                        ),
+                    )
+                    .with_note("braces after a constructor name are matched as its own: `C { f = p, .. }`")
+                    .into());
+                }
+                args.push(self.record_pattern()?);
+                continue;
             }
             if self.argument_minus_at(self.pos) {
                 // `Some -1`: a negative number, as `(-1)` is (D1470).
@@ -1853,10 +1839,52 @@ impl<'t> Parser<'t> {
                     let name =
                         self.upper("a constructor name (starting with an uppercase letter)")?;
                     let mut fields = Vec::new();
-                    let mut implicit = Vec::new();
+                    let mut implicit: Vec<bool> = Vec::new();
                     let mut defaults = Vec::new();
+                    let mut braced = false;
                     loop {
-                        if self.peek() == Some(&Tok::LParen) {
+                        if self.peek() == Some(&Tok::LBrace) && !braced {
+                            // `| C { f: T, … }`: the explicit fields in
+                            // braces, instead of brackets.
+                            if fields.iter().zip(&implicit).any(|(_, i)| !*i) {
+                                return Err(error(
+                                    self.here(),
+                                    format!(
+                                        "`{}` has fields in brackets already; declare all of \
+                                         its explicit fields in brackets or all in braces",
+                                        name.text
+                                    ),
+                                )
+                                .into());
+                            }
+                            braced = true;
+                            let open = self.here();
+                            let written = self.braced_fields()?;
+                            if written.is_empty() {
+                                return Err(error(
+                                    open,
+                                    format!("`{}` declares no fields in its braces", name.text),
+                                )
+                                .with_note("a constructor without fields is just `| C`")
+                                .into());
+                            }
+                            for (binder, default) in written {
+                                fields.push(binder);
+                                implicit.push(false);
+                                defaults.push(default);
+                            }
+                        } else if self.peek() == Some(&Tok::LParen) {
+                            if braced {
+                                return Err(error(
+                                    self.here(),
+                                    format!(
+                                        "`{}` has its fields in braces already; declare all of \
+                                         its explicit fields in braces or all in brackets",
+                                        name.text
+                                    ),
+                                )
+                                .into());
+                            }
                             let (binder, default) = self.binder_with_default()?;
                             fields.push(binder);
                             implicit.push(false);
@@ -1886,9 +1914,6 @@ impl<'t> Parser<'t> {
                     if defaults.iter().all(Option::is_none) {
                         defaults.clear();
                     }
-                    if implicit.iter().all(|implicit| *implicit) {
-                        self.fieldless.push(name.text.clone());
-                    }
                     ctors.push(CtorDecl {
                         attrs,
                         name,
@@ -1896,6 +1921,7 @@ impl<'t> Parser<'t> {
                         implicit,
                         defaults,
                         result,
+                        braced,
                     });
                 }
                 if ctors.is_empty() {
@@ -1923,34 +1949,7 @@ impl<'t> Parser<'t> {
     /// constructor of the data type `data`, named `%mk`, which source can't
     /// write (so `data.mk` is free for a function).
     fn record_fields(&mut self, data: &Name) -> Result<CtorDecl> {
-        self.expect(Tok::LBrace, "`{`")?;
-        let mut fields = Vec::new();
-        let mut defaults = Vec::new();
-        if self.peek() != Some(&Tok::RBrace) {
-            loop {
-                if self.peek() == Some(&Tok::RBrace) {
-                    break;
-                }
-                let attrs = self.attributes()?;
-                let field = self.lower("a field name")?;
-                self.expect(Tok::Colon, "`:`")?;
-                let ty = self.expr()?;
-                defaults.push(if self.eat(&Tok::ColonEq) {
-                    Some(self.expr()?)
-                } else {
-                    None
-                });
-                fields.push(Binder {
-                    names: vec![field],
-                    ty,
-                    attrs,
-                });
-                if !self.eat(&Tok::Comma) {
-                    break;
-                }
-            }
-        }
-        self.expect(Tok::RBrace, "`,` or `}`")?;
+        let (fields, mut defaults): (Vec<_>, Vec<_>) = self.braced_fields()?.into_iter().unzip();
         if defaults.iter().all(Option::is_none) {
             defaults.clear();
         }
@@ -1964,7 +1963,45 @@ impl<'t> Parser<'t> {
             implicit: Vec::new(),
             defaults,
             result: None,
+            braced: false,
         })
+    }
+
+    /// Fields in braces, `{ name : Text, step : Nat := 1 }`: one binder for
+    /// each, with its default. A record's, or a constructor's declared with
+    /// `| C { … }`.
+    fn braced_fields(&mut self) -> Result<Vec<(Binder, Option<Expr>)>> {
+        self.expect(Tok::LBrace, "`{`")?;
+        let mut out = Vec::new();
+        if self.peek() != Some(&Tok::RBrace) {
+            loop {
+                if self.peek() == Some(&Tok::RBrace) {
+                    break;
+                }
+                let attrs = self.attributes()?;
+                let field = self.lower("a field name")?;
+                self.expect(Tok::Colon, "`:`")?;
+                let ty = self.expr()?;
+                let default = if self.eat(&Tok::ColonEq) {
+                    Some(self.expr()?)
+                } else {
+                    None
+                };
+                out.push((
+                    Binder {
+                        names: vec![field],
+                        ty,
+                        attrs,
+                    },
+                    default,
+                ));
+                if !self.eat(&Tok::Comma) {
+                    break;
+                }
+            }
+        }
+        self.expect(Tok::RBrace, "`,` or `}`")?;
+        Ok(out)
     }
 
     /// `ability Name (params) where`, then one operation per line.
@@ -4178,14 +4215,13 @@ impl<'t> Parser<'t> {
             let end = self.tokens[self.pos - 1].span;
             expr = Expr::Bracketed(Box::new(expr), start.to(end));
         }
-        if let Expr::CtorFields { ctor, .. } = &expr
-            && self.starts_atom()
-        {
-            return Err(self.ctor_fields_then_argument(ctor).into());
-        }
         while self.starts_atom() {
             if self.peek() == Some(&Tok::Dot) && self.tokens[self.pos].line_start {
                 return Err(self.section_line().into());
+            }
+            if matches!(self.peek(), Some(Tok::Upper(_))) && self.peek_at(1) == Some(&Tok::LBrace) {
+                expr = self.brace_argument(expr)?;
+                continue;
             }
             let arg = self.atom(false)?;
             if section && let Expr::Lam(_, body, span) = &mut expr {
@@ -4200,25 +4236,6 @@ impl<'t> Parser<'t> {
             return Err(self.cases_in_argument().into());
         }
         Ok(expr)
-    }
-
-    /// `C { … } x`: an argument after named construction. Out of line, like
-    /// the other errors here, so it doesn't add to `app`'s stack frame, which
-    /// every level of nesting pays for.
-    #[inline(never)]
-    fn ctor_fields_then_argument(&self, ctor: &Name) -> Diagnostic {
-        error(
-            self.here(),
-            format!(
-                "braces after `{}` name its fields, and take no further arguments",
-                ctor.text
-            ),
-        )
-        .with_note(format!(
-            "to pass a record as `{0}`'s first argument, write it in brackets: \
-             `{0} ({{ … }}) …`",
-            ctor.text
-        ))
     }
 
     /// A line starting with `.name`, as an argument of the line before.
@@ -4327,17 +4344,17 @@ impl<'t> Parser<'t> {
     /// An atom followed by any field accesses, `p.address.city`. The `.` is
     /// written with no space on either side.
     ///
-    /// At the head of an application (`head`), a constructor followed by
-    /// braces is named construction, `C { f = e, … }`
-    /// (docs/proposals/variant-fields.md §4.5). As an argument it is
-    /// refused: `f C { … }` could mean either `f (C { … })` or `f C ({ … })`.
+    /// At the head of an application (`head`), an uppercase name followed by
+    /// braces is `C { f = e, … }`: named construction or a record argument,
+    /// as `C` is declared (`ctor_fields_expr`). As an argument (`f C { … }`)
+    /// `app` takes it (`brace_argument`).
     fn atom(&mut self, head: bool) -> Result<Expr> {
         let section = self.peek() == Some(&Tok::Dot);
         let start = self.here();
         let upper = matches!(self.peek(), Some(Tok::Upper(_)));
         let mut expr = self.atom_base()?;
-        if upper && self.peek() == Some(&Tok::LBrace) {
-            expr = self.ctor_fields_expr(expr, head)?;
+        if upper && head && self.peek() == Some(&Tok::LBrace) {
+            expr = self.ctor_fields_expr(expr)?;
         }
         loop {
             if matches!(expr, Expr::Var(_) | Expr::Field(..)) && self.unit_call() {
@@ -4412,60 +4429,64 @@ impl<'t> Parser<'t> {
         Ok(Expr::Field(Box::new(recv), field))
     }
 
-    /// `C { f = e, g }` after constructor `ctor`: its fields, named
-    /// (docs/proposals/variant-fields.md §4.5). Not as an argument (`head`
-    /// false), and not an update: those are written in brackets.
+    /// `C { f = e, g }` at the head of an application: braces right after an
+    /// uppercase name. Whether they name `C`'s fields or are a record passed
+    /// to it depends on how `C` is declared, which the elaborator knows
+    /// (docs/proposals/brace-syntax-review.md §5), so a literal is kept as
+    /// [`Expr::CtorFields`]. An update, `C { r | f = e }`, is never a
+    /// construction: it is `C` applied to the updated record.
     #[inline(never)]
-    fn ctor_fields_expr(&mut self, ctor: Expr, head: bool) -> Result<Expr> {
+    fn ctor_fields_expr(&mut self, ctor: Expr) -> Result<Expr> {
         let Expr::Var(ctor) = &ctor else {
             unreachable!("an uppercase name is a variable")
         };
         let ctor = ctor.clone();
-        let brace = self.here();
-        if !head {
-            return Err(error(
-                brace,
-                format!("braces after `{}` as an argument need brackets", ctor.text),
-            )
-            .with_note(if PRELUDE_FIELDLESS.contains(&ctor.text.as_str()) || self.fieldless.contains(&ctor.text) {
-                format!(
-                    "`{0}` has no fields to build it by, so write the record in brackets, \
-                     `({{ … }})`, to pass it as an argument",
-                    ctor.text
-                )
-            } else {
-                format!(
-                    "write `({0} {{ … }})` to build a `{0}` by its fields, or `{0} ({{ … }})` to \
-                     pass `{0}` and a record",
-                    ctor.text
-                )
-            })
-            .into());
+        let mut record = self.record_expr()?;
+        if matches!(&record, Expr::Record { base: Some(_), .. }) {
+            return Ok(Expr::App(Box::new(Expr::Var(ctor)), Box::new(record)));
         }
-        let Expr::Record { base, fields, span } = &mut self.record_expr()? else {
+        let Expr::Record { fields, span, .. } = &mut record else {
             unreachable!("record_expr makes a record")
         };
         let (fields, span) = (std::mem::take(fields), *span);
-        if base.is_some() {
-            return Err(error(
-                brace,
-                format!(
-                    "braces after `{}` name its fields; an update isn't one of them",
-                    ctor.text
-                ),
-            )
-            .with_note(format!(
-                "to pass an updated record as `{0}`'s argument, write it in brackets: \
-                 `{0} ({{ r | … }})`",
-                ctor.text
-            ))
-            .into());
-        }
         Ok(Expr::CtorFields {
             span: ctor.span.to(span),
             ctor,
             fields,
+            argument: false,
         })
+    }
+
+    /// `f C { … }`: braces right after an uppercase name that is an argument
+    /// of `f`, applied to `f`. As at the head of an application, an update
+    /// is `C` and a record passed on; a literal is kept for the elaborator,
+    /// which refuses it for a constructor declared with its fields in braces.
+    #[inline(never)]
+    fn brace_argument(&mut self, f: Expr) -> Result<Expr> {
+        let ctor = match &self.atom_base()? {
+            Expr::Var(ctor) => ctor.clone(),
+            _ => unreachable!("an uppercase name is a variable"),
+        };
+        let mut record = self.record_expr()?;
+        if matches!(&record, Expr::Record { base: Some(_), .. }) {
+            return Ok(Expr::App(
+                Box::new(Expr::App(Box::new(f), Box::new(Expr::Var(ctor)))),
+                Box::new(record),
+            ));
+        }
+        let Expr::Record { fields, span, .. } = &mut record else {
+            unreachable!("record_expr makes a record")
+        };
+        let (fields, span) = (std::mem::take(fields), *span);
+        Ok(Expr::App(
+            Box::new(f),
+            Box::new(Expr::CtorFields {
+                span: ctor.span.to(span),
+                ctor,
+                fields,
+                argument: true,
+            }),
+        ))
     }
 
     /// `{ name = e, age }` (a literal; `age` is punned) or `{ base | age = e }`
@@ -5506,11 +5527,14 @@ mod tests {
     }
 
     #[test]
-    fn braces_after_a_constructor_take_no_further_arguments() {
+    fn braces_after_a_constructor_pattern_take_no_further_arguments() {
         let e = parse_error("def f : L -> Nat\n  | Cons { name, .. } rest => 0\n");
         assert!(e.message.contains("take no further arguments"), "{e:?}");
         assert!(e.notes[0].contains("Cons ({ … })"), "{e:?}");
-        let e = parse_error("def f : E -> Nat\n  | MkEntry r { name, .. } => 0\n");
+        // After another argument, a record pattern is one more argument.
+        let module = parse("def f : E -> Nat\n  | MkEntry r { name, .. } => 0\n");
+        assert_eq!(module.decls.len(), 2);
+        let e = parse_error("def f : E -> Nat\n  | Pair Filling { name, .. } => 0\n");
         assert!(e.message.contains("written in brackets"), "{e:?}");
     }
 
@@ -5555,15 +5579,46 @@ mod tests {
     }
 
     #[test]
-    fn braces_after_a_constructor_expression_are_its_fields_alone() {
-        let e = parse_error("def f : L := Cons { head = 1 } rest\n");
-        assert!(e.message.contains("take no further arguments"), "{e:?}");
-        assert!(e.notes[0].contains("Cons ({ … })"), "{e:?}");
-        let e = parse_error("def f : L := g Cons { head = 1 }\n");
-        assert!(e.message.contains("as an argument need brackets"), "{e:?}");
-        assert!(e.notes[0].contains("(Cons { … })"), "{e:?}");
-        let e = parse_error("def f : L := Some { r | a = 1 }\n");
-        assert!(e.message.contains("an update isn't one of them"), "{e:?}");
+    fn braces_after_a_constructor_expression_are_left_to_the_elaborator() {
+        // Whether they name the constructor's fields or are a record argument
+        // depends on how it is declared, so the parser keeps a literal as is,
+        // at the head and as an argument, with the arguments after it.
+        let Expr::App(head, _) = &rhs("def f : L := Cons { head = 1 } rest\n") else {
+            panic!("expected an application");
+        };
+        assert!(matches!(
+            &**head,
+            Expr::CtorFields {
+                argument: false,
+                ..
+            }
+        ));
+        let Expr::App(_, arg) = &rhs("def f : L := g Cons { head = 1 }\n") else {
+            panic!("expected an application");
+        };
+        assert!(matches!(&**arg, Expr::CtorFields { argument: true, .. }));
+        // An update is never a construction: the constructor, then the record.
+        let Expr::App(head, arg) = &rhs("def f : L := Some { r | a = 1 }\n") else {
+            panic!("expected an application");
+        };
+        assert!(matches!(&**head, Expr::Var(n) if n.text == "Some"));
+        assert!(matches!(&**arg, Expr::Record { base: Some(_), .. }));
+    }
+
+    #[test]
+    fn a_constructor_declared_with_its_fields_in_braces() {
+        let module = parse(
+            "type Event =\n  | Meeting { title : Text, minutes : Nat := 30 }\n  | Reminder (title : Text)\n  | Node [n : Nat] { x : Nat }\n",
+        );
+        let Decl::Data { ctors, .. } = &module.decls[0] else {
+            panic!("expected a data declaration");
+        };
+        assert!(ctors[0].braced && !ctors[1].braced);
+        assert_eq!(ctors[0].fields.len(), 2);
+        assert_eq!(ctors[0].defaults.len(), 2);
+        assert_eq!(ctors[2].implicit, [true, false]);
+        let e = parse_error("type T =\n  | C (a : Nat) { b : Nat }\n");
+        assert!(e.message.contains("fields in brackets already"), "{e:?}");
     }
 
     #[test]

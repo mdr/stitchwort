@@ -601,6 +601,10 @@ pub struct Ctor {
     /// (it fills implicit fields in, and patterns skip them). Hashed when any
     /// is.
     pub implicit: Vec<bool>,
+    /// Whether the explicit fields were declared in braces, `| C { f: T }`:
+    /// then braces after `C` name its fields; otherwise they are an ordinary
+    /// record argument. Only the elaborator reads it. Hashed when set.
+    pub braced: bool,
 }
 
 /// The kernel's side of a session: the declarations admitted, the

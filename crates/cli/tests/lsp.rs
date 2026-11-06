@@ -749,7 +749,7 @@ fn a_looping_test_never_runs() {
 }
 
 /// A false theorem's error carries the counterexample the search found, as
-/// `Note:` lines of the diagnostic's message (D1158).
+/// numbered `Note N:` lines of the diagnostic's message (D1158).
 #[test]
 fn a_false_theorem_gets_a_counterexample_note() {
     let dir = temp_dir("counterexample");
@@ -763,7 +763,29 @@ fn a_false_theorem_gets_a_counterexample_note() {
     assert_eq!(codes(&found), ["E-REFL"], "{found:?}");
     let message = found[0]["message"].as_str().unwrap();
     assert!(
-        message.contains("Note: this statement is false; a counterexample:\n  a = 0\n  b = 1"),
+        message.contains("Note 2: this statement is false; a counterexample:\n  a = 0\n  b = 1"),
+        "{message}"
+    );
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Several notes are numbered as on the command line (`Note 1:`, `Note 2:`),
+/// so "see note 3" in a message matches what the editor shows (SW-1676).
+#[test]
+fn several_notes_are_numbered_like_the_command_line() {
+    let dir = temp_dir("numbered-notes");
+    let file = dir.join("notes.sw");
+    let text = "def f (a: Nat) (b: Nat): List Nat := [a, b, 1]\n\ntheorem g (a: Nat) (b: Nat): f a b = [a, b, 2] := rfl\n";
+    std::fs::write(&file, text).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, text);
+    let found = client.diagnostics(&uri, 1);
+    assert_eq!(codes(&found), ["E-REFL"], "{found:?}");
+    let message = found[0]["message"].as_str().unwrap();
+    assert!(
+        message.contains("\nNote 1: ") && message.contains("\nNote 2: "),
         "{message}"
     );
     client.shutdown();
@@ -775,10 +797,12 @@ fn a_false_theorem_gets_a_counterexample_note() {
 struct IndexJson(Value);
 
 impl IndexJson {
-    fn of(project: &Path) -> IndexJson {
+    /// The index of `project`'s namespaces `namespaces` (and what they use).
+    fn of(project: &Path, namespaces: &[&str]) -> IndexJson {
         let out = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
             .args(["check", "--index", "-", "--project"])
             .arg(project)
+            .args(namespaces)
             .output()
             .unwrap();
         IndexJson(serde_json::from_slice(&out.stdout).expect("an index"))
@@ -914,7 +938,22 @@ fn place(project: &Path, location: &Value) -> String {
 #[test]
 fn aoc_navigation_matches_check_index() {
     let project = aoc();
-    let index = IndexJson::of(&project);
+    // The two days and everything that uses them, which holds every
+    // reference the editor can find to their names. (Indexing the whole
+    // project would check all of AoC with navigation, to compare three files.)
+    let index = IndexJson::of(
+        &project,
+        &[
+            "Aoc.Year2025.Day01",
+            "Aoc.Year2025.Day01.Proofs",
+            "Aoc.Year2025.Day01.Spec",
+            "Aoc.Year2025.Day01.Tests",
+            "Aoc.Year2025.Day05",
+            "Aoc.Year2025.Day05.Proofs",
+            "Aoc.Year2025.Day05.Spec",
+            "Aoc.Year2025.Day05.Tests",
+        ],
+    );
     let mut client = Client::start();
     let files = [
         "src/Aoc/Year2025/Day01/Day01.sw",
@@ -2136,6 +2175,14 @@ fn an_open_goal_is_an_information_diagnostic() {
         "{message}"
     );
 
+    // Hovering the `?` shows the same goal.
+    let hover = client.at("textDocument/hover", &uri, 2, 44);
+    let shown = hover["contents"]["value"].as_str().unwrap_or_default();
+    assert!(
+        shown.contains("n: Nat") && shown.contains("\u{22a2} double n = n + n"),
+        "{hover}"
+    );
+
     // The proof written: the goal is gone.
     client.change(&uri, 2, &with_goal.replace("?", "rfl"));
     let found = client.diagnostics(&uri, 2);
@@ -2843,6 +2890,91 @@ fn names_in_library_tests_navigate() {
         ask_in_library(&mut client, "Set/Set.sw", "Set.remove Set.example 2", 11);
     assert!(definition["uri"].is_string(), "{definition}");
     assert!(shown.contains("Set.example"), "{shown}");
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Run icons (SW-1121, D2513): a lens above each test, one for all of them
+/// above the first, and one above `main`, in any file that is open, before
+/// it has been checked and while it has errors.
+#[test]
+fn code_lenses_sit_above_tests_and_main() {
+    let uri = "file:///lenses/a.sw";
+    let text = "def main (): Unit := ()\n\ntest \"first\" := 1 == 1\n\ntest \"second\" := 2 == 2\n\ndef broken := (\n";
+    let mut client = Client::start();
+    client.open(uri, text);
+    let lenses = client.request(
+        "textDocument/codeLens",
+        json!({"textDocument": {"uri": uri}}),
+    );
+    let summary: Vec<(u64, &str, Value)> = lenses
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|l| {
+            (
+                l["range"]["start"]["line"].as_u64().unwrap(),
+                l["command"]["command"].as_str().unwrap(),
+                l["command"]["arguments"].clone(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        summary,
+        [
+            (2, "stitchwort.runTests", json!([uri])),
+            (0, "stitchwort.runMain", json!([uri])),
+            (2, "stitchwort.runTest", json!([uri, "first"])),
+            (4, "stitchwort.runTest", json!([uri, "second"])),
+        ]
+    );
+    // A library document gets none.
+    client.open("stitchwort-std:List/Toolkit.sw", "test \"x\" := 1 == 1\n");
+    let none = client.request(
+        "textDocument/codeLens",
+        json!({"textDocument": {"uri": "stitchwort-std:List/Toolkit.sw"}}),
+    );
+    assert_eq!(none, json!([]));
+    client.shutdown();
+}
+
+/// `stitchwort/tests` (SW-1684) lists a file's tests with their namespace and
+/// range: from the editor's text when the file is open, from disk when not.
+#[test]
+fn tests_request_lists_tests_open_or_on_disk() {
+    let dir = std::env::temp_dir().join(format!("sw-tests-request-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let on_disk = dir.join("disk.sw");
+    std::fs::write(&on_disk, "namespace D\n\ntest \"from disk\" := 1 == 1\n").unwrap();
+    let disk_uri = format!("file://{}", on_disk.display());
+    let open_uri = format!("file://{}", dir.join("open.sw").display());
+    let mut client = Client::start();
+    client.open(
+        &open_uri,
+        "namespace O.P\n\ntest \"a\" := 1 == 1\n\ndef broken := (\n",
+    );
+    let open = client.request(
+        "stitchwort/tests",
+        json!({"textDocument": {"uri": open_uri}}),
+    );
+    assert_eq!(open.as_array().unwrap().len(), 1, "{open}");
+    assert_eq!(open[0]["name"], "a");
+    assert_eq!(open[0]["namespace"], "O.P");
+    assert_eq!(
+        open[0]["range"]["start"],
+        json!({"line": 2, "character": 0})
+    );
+    let disk = client.request(
+        "stitchwort/tests",
+        json!({"textDocument": {"uri": disk_uri}}),
+    );
+    assert_eq!(disk[0]["name"], "from disk");
+    assert_eq!(disk[0]["namespace"], "D");
+    let missing = client.request(
+        "stitchwort/tests",
+        json!({"textDocument": {"uri": "file:///no/such/file.sw"}}),
+    );
+    assert_eq!(missing, json!([]));
     client.shutdown();
     let _ = std::fs::remove_dir_all(&dir);
 }

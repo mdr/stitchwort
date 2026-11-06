@@ -373,6 +373,11 @@ impl<'g> Hasher<'g> {
                     self.bool(*i);
                 }
             }
+            // Declared with its fields in braces, only when so: such a
+            // constructor reads braces after it differently.
+            if ctor.braced {
+                self.tag("braced");
+            }
             for r in &ctor.result {
                 self.term(r)?;
             }

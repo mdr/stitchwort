@@ -216,11 +216,11 @@ fn year2020_day14() {
     check("2020", "14");
 }
 
-/// Part 2 is 30,000,000 turns of a `Map` lookup and insert: about six minutes
-/// on `stitchwort run` (aoc/NOTES-2020.md, day 15). Part 1 is checked on the
-/// real input by the day's own tests.
+/// Part 2 is 30,000,000 turns of an array read and write: about half a
+/// minute on `stitchwort run`, with a 30,000,000-element array. Part 1 is
+/// checked on the real input by the day's own tests.
 #[test]
-#[ignore = "about six minutes: part 2 plays 30,000,000 turns"]
+#[ignore = "about half a minute: part 2 plays 30,000,000 turns"]
 fn year2020_day15() {
     check("2020", "15");
 }
@@ -464,11 +464,14 @@ fn every_day_from_the_whole_projects_cache() {
         "check failed:\n{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    for (year, day, _, _) in ANSWERS {
-        if SLOW.contains(&(*year, *day)) {
-            continue;
-        }
+    // The days are independent and only read the cache; each run is a child
+    // process, so the pool's threads need no stack of their own.
+    let days: Vec<_> = ANSWERS
+        .iter()
+        .filter(|(year, day, _, _)| !SLOW.contains(&(*year, *day)))
+        .collect();
+    stitchwort_driver::driver::par_map(1 << 20, &days, |(year, day, _, _)| {
         check_with(year, day, &["--cache-dir", cache_dir]);
-    }
+    });
     let _ = std::fs::remove_dir_all(&cache);
 }

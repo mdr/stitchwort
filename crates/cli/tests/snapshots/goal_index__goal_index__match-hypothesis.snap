@@ -18,16 +18,16 @@ expression: json
         },
         {
           "name": "h",
-          "type": "Std.List.length xs = Succ k"
+          "type": "xs.length = Succ k"
         }
       ],
-      "lemma": "def describeGoal1 (xs: List Nat) (k: Nat) (h: Std.List.length xs = Succ k): Text := ?",
+      "lemma": "def describeGoal1 (xs: List Nat) (k: Nat) (h: xs.length = Succ k): Text := ?",
       "target": "Text"
     },
     "labels": [
       {
         "file": 0,
-        "message": "xs: List Nat\nk: Nat\nh: Std.List.length xs = Succ k\n⊢ Text",
+        "message": "xs: List Nat\nk: Nat\nh: xs.length = Succ k\n⊢ Text",
         "range": [
           4,
           14,

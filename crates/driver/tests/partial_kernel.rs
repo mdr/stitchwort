@@ -470,6 +470,7 @@ fn a_data_type_recursing_through_delay_is_refused() {
         fields: vec![("d".into(), field, span())],
         result: Vec::new(),
         implicit: Vec::new(),
+        braced: false,
     }];
     assert_eq!(code(check::define_ctors(g, bad, ctors)), "E-POSITIVITY");
 }

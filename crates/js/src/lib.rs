@@ -25,8 +25,8 @@ use stitchwort_core::{
 use stitchwort_rt::erasure::{def_shape, text_literal};
 use stitchwort_rt::hoist::SigMaps;
 use stitchwort_rt::natives::{
-    FloatPrim, Representation, float_data, int_data, nat_data, safe_int_data, safe_nat_data,
-    text_data,
+    ArrayNative, FloatPrim, Representation, bind_array, float_data, int_data, nat_data,
+    safe_int_data, safe_nat_data, text_data,
 };
 use stitchwort_rt::specialise::{self, Specialiser};
 // Shared with the runtime (D389), and part of this crate's interface.
@@ -80,6 +80,10 @@ pub enum Boundary {
     Char,
     /// `readonly T[]` as a function's parameter, `T[]` elsewhere.
     List(Box<Boundary>),
+    /// The library's `Array T` (std/Array/Array.sw), as a list is: a version
+    /// array inside generated code ([`VERSION_ARRAYS`]), whose elements are
+    /// copied in and out.
+    Array(Box<Boundary>),
     /// The prelude's `Option T` (the `DataId`), as `T | undefined`: in a
     /// record's field, an optional property (D582). An `Option (Option T)`'s
     /// inner `Option` is the tagged [`Boundary::Data`] instead, so `Some None`
@@ -109,6 +113,7 @@ impl Boundary {
         match self {
             Boundary::Param(i) => args[*i].clone(),
             Boundary::List(elem) => Boundary::List(Box::new(elem.instantiate(args))),
+            Boundary::Array(elem) => Boundary::Array(Box::new(elem.instantiate(args))),
             Boundary::Option(d, inner) => Boundary::Option(*d, Box::new(inner.instantiate(args))),
             Boundary::Map(d, key, value) => {
                 Boundary::Map(*d, key.clone(), Box::new(value.instantiate(args)))
@@ -139,7 +144,9 @@ impl Boundary {
     fn has_map(&self) -> bool {
         match self {
             Boundary::Map(..) => true,
-            Boundary::List(elem) | Boundary::Option(_, elem) => elem.has_map(),
+            Boundary::List(elem) | Boundary::Array(elem) | Boundary::Option(_, elem) => {
+                elem.has_map()
+            }
             Boundary::Data(_, args) => args.iter().any(Boundary::has_map),
             _ => false,
         }
@@ -150,7 +157,9 @@ impl Boundary {
     fn mentions(&self, leaf: &Boundary) -> bool {
         self == leaf
             || match self {
-                Boundary::List(elem) | Boundary::Option(_, elem) => elem.mentions(leaf),
+                Boundary::List(elem) | Boundary::Array(elem) | Boundary::Option(_, elem) => {
+                    elem.mentions(leaf)
+                }
                 Boundary::Map(_, key, elem) => key.mentions(leaf) || elem.mentions(leaf),
                 Boundary::Data(_, args) => args.iter().any(|a| a.mentions(leaf)),
                 _ => false,
@@ -386,6 +395,12 @@ fn boundary(
                 (Some(Builtin::List), [elem]) => Ok(Boundary::List(Box::new(boundary(
                     g, elem, params, visiting,
                 )?))),
+                // The library's `Array`, which is a version array inside
+                // generated code whenever it's loaded (the generator refuses a
+                // program whose arrays don't bind).
+                (_, [elem]) if g.env.registry().is_data(Builtin::Array, *d) => Ok(Boundary::Array(
+                    Box::new(boundary(g, elem, params, visiting)?),
+                )),
                 (Some(Builtin::Option), [elem]) => {
                     let inner = boundary(g, elem, params, visiting)?;
                     check_codec(g, *d, visiting)?;
@@ -864,6 +879,9 @@ pub fn generate_exports(
     if codegen.float.is_some() {
         js.push_str(FLOAT_BITS);
     }
+    if codegen.array.is_some() {
+        js.push_str(VERSION_ARRAYS);
+    }
     if codegen.text.is_some() {
         js.push_str(TEXT_AS_STRING);
         js.push_str(CHARS_OF_TEXT);
@@ -1051,7 +1069,9 @@ pub fn generate_exports(
 /// nested one (not counting the fields of data types).
 fn names_option(g: &View<'_>, b: &Boundary) -> bool {
     match b {
-        Boundary::List(elem) | Boundary::Map(_, _, elem) => names_option(g, elem),
+        Boundary::List(elem) | Boundary::Array(elem) | Boundary::Map(_, _, elem) => {
+            names_option(g, elem)
+        }
         Boundary::Option(..) => names_option(g, &b.payload()),
         Boundary::Data(d, args) => {
             g.env.registry().is_data(Builtin::Option, *d) || args.iter().any(|a| names_option(g, a))
@@ -1093,7 +1113,9 @@ fn input_datas(g: &View<'_>, boundary_datas: &[DataId]) -> Result<HashSet<DataId
         .collect();
     fn mentions(b: &Boundary, inputs: &HashSet<DataId>) -> bool {
         match b {
-            Boundary::List(elem) | Boundary::Option(_, elem) => mentions(elem, inputs),
+            Boundary::List(elem) | Boundary::Array(elem) | Boundary::Option(_, elem) => {
+                mentions(elem, inputs)
+            }
             Boundary::Map(_, key, value) => mentions(key, inputs) || mentions(value, inputs),
             Boundary::Data(d, args) => {
                 inputs.contains(d) || args.iter().any(|a| mentions(a, inputs))
@@ -1159,7 +1181,7 @@ fn collect_datas(g: &View<'_>, b: &Boundary, out: &mut Vec<DataId>) {
         | Boundary::Text
         | Boundary::Char
         | Boundary::Param(_) => {}
-        Boundary::List(elem) => collect_datas(g, elem, out),
+        Boundary::List(elem) | Boundary::Array(elem) => collect_datas(g, elem, out),
         Boundary::Map(_, key, elem) => {
             collect_datas(g, key, out);
             collect_datas(g, elem, out);
@@ -1229,6 +1251,8 @@ const outOfResources = (name, e) =>
 // doesn't use up the JS stack:
 // - a leaf (`NAT`, `BOOL`, `TEXT`, `CHAR`) is decoded and encoded in one step;
 // - `list(t)` is an array;
+// - `array(t)` is the library's `Array`, an array too, and a version array
+//   inside generated code (its helpers are there whenever it can cross);
 // - `data(info, args)` is a data type applied to its arguments: a tagged
 //   object, with the constructors and fields given by `define`, or for a
 //   record, an object without a tag;
@@ -1265,6 +1289,9 @@ const LEAF = 0, LIST = 1, DATA = 2, PARAM = 3, OPTION = 4, MAP = 5;
 let typeCount = 0;
 const leaf = (dec, enc) => ({ kind: LEAF, open: false, id: typeCount++, dec, enc });
 const list = (elem) => (elem.list ??= { kind: LIST, open: elem.open, id: typeCount++, elem });
+// (Its type is cached as `arrayOf`, since `array` marks an array's type.)
+const array = (elem) =>
+  (elem.arrayOf ??= { kind: LIST, open: elem.open, id: typeCount++, elem, array: true });
 const option = (elem) => (elem.option ??= { kind: OPTION, open: elem.open, id: typeCount++, elem });
 // A map's keys are `TEXT`, or a `js.unboxed` record over it (`key`).
 const map = (elem, key = TEXT) => {
@@ -1344,7 +1371,7 @@ const define = (
 const close = (t, args) =>
   !t.open ? t
   : t.kind === PARAM ? args[t.i]
-  : t.kind === LIST ? list(close(t.elem, args))
+  : t.kind === LIST ? (t.array ? array : list)(close(t.elem, args))
   : t.kind === OPTION ? option(close(t.elem, args))
   : t.kind === MAP ? map(close(t.elem, args), t.key)
   : data(t.info, t.args.map((a) => close(a, args)));
@@ -1446,6 +1473,115 @@ const textOfChars = (chars) => {
   const parts = [];
   for (let l = chars; l.tag === "Cons"; l = l.tail) parts.push(encodeChar(l.head));
   return parts.join("");
+};
+"#;
+
+/// The library's `Array` inside generated code: a version array (Baker's
+/// shallow binding, as in Conchon and Filliâtre's persistent arrays and
+/// Rocq's `kernel/parray.ml`; docs/proposals/arrays.md §4.3, D2462).
+const VERSION_ARRAYS: &str = r#"// An array is a version: the newest holds the buffer (`items`), and each
+// older one is a change to the version after it (`next`): `op` is
+// `ARRAY_SET` (position `index` holds `value`), `ARRAY_POP` (without the last
+// element) or `ARRAY_PUSH` (with `value` added). `set`, `push` and `pop` on the
+// newest change the buffer in place and leave the old version a change, so
+// a version used once is O(1) a step. Reading an older one first reroots:
+// the changes between it and the buffer are undone, in a loop, and each
+// version passed becomes the change that redoes it, so every version still
+// reads as it did.
+const ARRAY_SET = 0, ARRAY_POP = 1, ARRAY_PUSH = 2;
+const arrayOfItems = (items) => ({ items, op: ARRAY_SET, index: 0, value: undefined, next: null });
+// `a`'s elements, with `a` made the version that holds the buffer.
+const reroot = (a) => {
+  const path = [];
+  let t = a;
+  for (; t.items === null; t = t.next) path.push(t);
+  const items = t.items;
+  for (let k = path.length - 1; k >= 0; k--) {
+    const p = path[k];
+    if (p.op === ARRAY_SET) {
+      const old = items[p.index];
+      items[p.index] = p.value;
+      t.op = ARRAY_SET;
+      t.index = p.index;
+      t.value = old;
+    } else if (p.op === ARRAY_POP) {
+      t.op = ARRAY_PUSH;
+      t.value = items.pop();
+    } else {
+      items.push(p.value);
+      t.op = ARRAY_POP;
+      t.value = undefined;
+    }
+    t.items = null;
+    t.next = p;
+    p.items = items;
+    p.next = null;
+    p.value = undefined;
+    t = p;
+  }
+  return items;
+};
+const arrayItems = (a) => a.items ?? reroot(a);
+// `a`'s successor, which takes the buffer, `a` becoming a change to it.
+const arrayChanged = (a, items, op, index, value) => {
+  const b = arrayOfItems(items);
+  a.items = null;
+  a.op = op;
+  a.index = index;
+  a.value = value;
+  a.next = b;
+  return b;
+};
+// `{ toList = xs }`.
+const arrayOfList = (xs) => {
+  const items = [];
+  for (let l = xs; l.tag === "Cons"; l = l.tail) items.push(l.head);
+  return arrayOfItems(items);
+};
+// `toList`, made fresh.
+const listOfArray = (a) => {
+  const items = arrayItems(a);
+  let list = { tag: "Nil" };
+  for (let i = items.length - 1; i >= 0; i--) list = { tag: "Cons", head: items[i], tail: list };
+  return list;
+};
+// A `Nat` index's position, if it's in range: past 2^53 it's past the end
+// of any array, and `Number` keeps it there.
+const arrayGet = (a, i) => {
+  const items = arrayItems(a);
+  const n = Number(i);
+  return n < items.length ? { tag: "Some", value: items[n] } : { tag: "None" };
+};
+const arrayGetOr = (a, i, fallback) => {
+  const items = arrayItems(a);
+  const n = Number(i);
+  return n < items.length ? items[n] : fallback;
+};
+// Past the end the array is unchanged: the same version.
+const arraySet = (a, i, v) => {
+  const items = arrayItems(a);
+  const n = Number(i);
+  if (n >= items.length) return a;
+  const b = arrayChanged(a, items, ARRAY_SET, n, items[n]);
+  items[n] = v;
+  return b;
+};
+// An empty array is made fresh rather than changed: `Array.empty` is one
+// constant every use shares, and changing it would leave each array built
+// from it a change away from every other.
+const arrayPush = (a, v) => {
+  const items = arrayItems(a);
+  if (items.length === 0) return arrayOfItems([v]);
+  const b = arrayChanged(a, items, ARRAY_POP, 0, undefined);
+  items.push(v);
+  return b;
+};
+const arrayPop = (a) => {
+  const items = arrayItems(a);
+  if (items.length === 0) return { tag: "None" };
+  const last = items.pop();
+  const b = arrayChanged(a, items, ARRAY_PUSH, 0, last);
+  return { tag: "Some", value: { tag: "MkPair", fst: b, snd: last } };
 };
 "#;
 
@@ -1767,7 +1903,9 @@ const decode = (t, x, root, seen = new Map()) => {
           break;
         }
         frames.pop();
-        if (f.fields === undefined) {
+        if (f.t.array) {
+          value = arrayOfItems(f.out);
+        } else if (f.fields === undefined) {
           value = { tag: "Nil" };
           for (let i = f.n - 1; i >= 0; i--) value = { tag: "Cons", head: f.out[i], tail: value };
           // The map of the entries, by the library's own `Map.fromList`.
@@ -1817,7 +1955,9 @@ const encode = (t, v) => {
     } else if (t.kind === DATA && t.info.strings) {
       value = t.info.internal.get(v.tag).external;
     } else if (t.kind === LIST) {
-      frames.push({ t, v, fields: undefined, out: [] });
+      // An array's elements are copied out first: encoding one of them may
+      // reroot the array they're in.
+      frames.push({ t, v: t.array ? listOfArray(v) : v, fields: undefined, out: [] });
     } else if (t.kind === MAP) {
       // `v` is the rest of the entries, in key order. The object is a plain
       // one, and each key is defined on it as an ordinary property: a key
@@ -1976,6 +2116,12 @@ struct Gen<'g> {
     float: Option<DataId>,
     /// The `Float` operations with native JS, and which.
     float_natives: HashMap<DefId, FloatPrim>,
+    /// The library's `Array`, if it's loaded: then an array is a version
+    /// array ([`VERSION_ARRAYS`]; docs/proposals/arrays.md §4.3).
+    array: Option<DataId>,
+    /// Its operations with native JS: all of them, or the program is
+    /// refused ([`stitchwort_rt::natives::ArrayBinding::refusal`]).
+    array_natives: HashMap<DefId, ArrayNative>,
     /// Per definition, computed on first use ([`Gen::try_info`]).
     infos: Vec<OnceCell<DefInfo>>,
     /// The prelude's `ifThenElse`, which `if` becomes.
@@ -2178,6 +2324,16 @@ impl<'g> Gen<'g> {
             float_natives,
         } = Representation::new(g, options.native_text, options.native_int)
             .map_err(Diagnostic::from)?;
+        // All or nothing, and loud, as on the machine: an array without its
+        // natives would run each O(1) operation as an O(n) one on its list.
+        let arrays = bind_array(g).map_err(Diagnostic::from)?;
+        if let Some(why) = arrays.refusal() {
+            return Err(Diagnostic::error("E-BUILTIN", why));
+        }
+        let (array, array_natives) = match arrays.applies() {
+            Some((d, natives)) => (Some(d), natives),
+            None => (None, HashMap::default()),
+        };
         Ok(Gen {
             g,
             nat,
@@ -2187,6 +2343,8 @@ impl<'g> Gen<'g> {
             int_natives,
             float,
             float_natives,
+            array,
+            array_natives,
             infos: g.env.defs().iter().map(|_| OnceCell::new()).collect(),
             if_then_else: g.env.registry().def(Builtin::IfThenElse),
             elim_dec: g.env.registry().def(Builtin::ElimDec),
@@ -2324,7 +2482,7 @@ impl<'g> Gen<'g> {
     /// generated code: at the boundary such a record is still an object
     /// with its field, and the codecs unbox and rebox it.
     pub(crate) fn unboxed(&self, d: DataId) -> Option<usize> {
-        if Some(d) == self.float {
+        if Some(d) == self.float || Some(d) == self.array {
             return None;
         }
         self.g.data(d).unboxed_field()
@@ -2336,6 +2494,7 @@ impl<'g> Gen<'g> {
             || self.text_natives.contains_key(&id)
             || self.int_natives.contains_key(&id)
             || self.float_natives.contains_key(&id)
+            || self.array_natives.contains_key(&id)
             || self.effect_native(id).is_some()
     }
 
@@ -2552,6 +2711,9 @@ impl<'g> Gen<'g> {
         }
         if let Some(op) = self.int_natives.get(&id) {
             return Some(int_native_js(*op).into());
+        }
+        if let Some(op) = self.array_natives.get(&id) {
+            return Some(array_native_js(*op).into());
         }
         self.kernel_native(id).map(|op| native_js(op).into())
     }
@@ -2932,6 +3094,20 @@ impl<'g> Gen<'g> {
                 let _ = writeln!(out, "{pad}const {} = charsOfText({scrutinee});", var(level));
             }
             out.push_str(&body);
+        } else if Some(*d) == self.array {
+            // A version array. Matching `{ toList = xs }` makes the list of
+            // its elements, but only if `xs` is used.
+            let level = env.len();
+            env.push(false);
+            let body = match &branches[0].body {
+                Some(body) => self.tree(body, env, depth, self_call)?,
+                None => format!("{pad}throw new Error(\"unreachable\");\n"),
+            };
+            env.truncate(level);
+            if mentions(&body, &var(level)) {
+                let _ = writeln!(out, "{pad}const {} = listOfArray({scrutinee});", var(level));
+            }
+            out.push_str(&body);
         } else if data.record() {
             // A record has one constructor and no tag.
             branch(&mut out, 0, &branches[0], depth)?;
@@ -2957,6 +3133,7 @@ impl<'g> Gen<'g> {
         if data.sort() == Sort::Prop
             || data.record()
             || Some(d) == self.float
+            || Some(d) == self.array
             || Some(d) == self.text
             || Some(d) == self.nat
             || Some(d) == self.int
@@ -3370,6 +3547,7 @@ impl<'g> Gen<'g> {
             || Some(*d) == self.nat
             || Some(*d) == self.int
             || Some(*d) == self.float
+            || Some(*d) == self.array
             || self.unboxed(*d).is_some()
         {
             return None;
@@ -3908,6 +4086,12 @@ impl<'g> Gen<'g> {
                         Some(text) => js_string_literal(&text),
                         None => format!("textOfChars({})", self.expr(&args[0], env)?),
                     });
+                }
+                if Some(*d) == self.array {
+                    let field = data
+                        .unboxed_field()
+                        .expect("an array is a record of one field");
+                    return Ok(format!("arrayOfList({})", self.expr(&args[field], env)?));
                 }
                 if Some(*d) == self.nat {
                     // Count the `Succ`s: `Succ (Succ x)` is `x + 2n`, and a
@@ -4651,6 +4835,7 @@ impl<'g> Gen<'g> {
             Boundary::Text => "TEXT".into(),
             Boundary::Char => "CHAR".into(),
             Boundary::List(elem) => format!("list({})", self.type_expr(elem)),
+            Boundary::Array(elem) => format!("array({})", self.type_expr(elem)),
             Boundary::Option(_, inner) => format!("option({})", self.type_expr(inner)),
             Boundary::Map(_, key, value) if **key == Boundary::Text => {
                 format!("map({})", self.type_expr(value))
@@ -4888,6 +5073,10 @@ impl<'g> Gen<'g> {
                 self.ts_type(key, readonly, params, inputs),
                 self.ts_type(value, readonly, params, inputs)
             ),
+            // An array crosses as a list does.
+            Boundary::Array(elem) => {
+                self.ts_type(&Boundary::List(elem.clone()), readonly, params, inputs)
+            }
             Boundary::List(elem) if readonly => {
                 // `readonly readonly T[][]` isn't TypeScript, and a union
                 // needs its parentheses too.
@@ -5140,7 +5329,7 @@ fn native_js(op: native::Native) -> &'static str {
         Native::Leq => "(m) => (n) => ({ tag: m <= n ? \"True\" : \"False\" })",
         Native::EqNat => "(m) => (n) => ({ tag: m === n ? \"True\" : \"False\" })",
         Native::DivFuel => {
-            "(fuel) => (n) => (d) => { if (d === 0n) return fuel; const q = n / d; return q < fuel ? q : fuel; }"
+            "(fuel) => (n) => (d) => { if (d === 0n) return 0n; const q = n / d; return q < fuel ? q : fuel; }"
         }
         Native::DecEqNat => "(m) => (n) => ({ tag: m === n ? \"Yes\" : \"No\" })",
         // Proofs, so they're erased and never emitted.
@@ -5270,7 +5459,9 @@ fn float_native_js(op: FloatPrim, native_int: bool, native_text: bool) -> String
 /// `/` and `%` truncate towards zero, and `%` takes the dividend's sign
 /// (truncated division); the Euclidean and floored conventions correct that
 /// by one step where the remainder has the wrong sign (Leijen, "Division and
-/// modulus for computer scientists").
+/// modulus for computer scientists"). BigInt throws on a zero divisor, where
+/// the prelude's divisions give 0 and leave the dividend as the remainder, so
+/// each tests for it first.
 fn int_native_js(op: IntNative) -> &'static str {
     match op {
         IntNative::NatToInt => "(n) => n",
@@ -5280,22 +5471,24 @@ fn int_native_js(op: IntNative) -> &'static str {
         IntNative::IntMul => "(a) => (b) => a * b",
         // Euclidean: the remainder is never negative.
         IntNative::IntDiv => {
-            "(a) => (d) => { const q = a / d, r = a % d; return r < 0n ? (d > 0n ? q - 1n : q + 1n) : q; }"
+            "(a) => (d) => { if (d === 0n) return 0n; const q = a / d, r = a % d; return r < 0n ? (d > 0n ? q - 1n : q + 1n) : q; }"
         }
         IntNative::IntMod => {
-            "(a) => (d) => { const r = a % d; return r < 0n ? (d > 0n ? r + d : r - d) : r; }"
+            "(a) => (d) => { if (d === 0n) return a; const r = a % d; return r < 0n ? (d > 0n ? r + d : r - d) : r; }"
         }
-        IntNative::IntTDiv => "(a) => (d) => a / d",
-        IntNative::IntTMod => "(a) => (d) => a % d",
+        IntNative::IntTDiv => "(a) => (d) => (d === 0n ? 0n : a / d)",
+        IntNative::IntTMod => "(a) => (d) => (d === 0n ? a : a % d)",
         // Floored: the remainder has the divisor's sign.
         IntNative::IntFDiv => {
-            "(a) => (d) => { const q = a / d, r = a % d; return r !== 0n && (r < 0n) !== (d < 0n) ? q - 1n : q; }"
+            "(a) => (d) => { if (d === 0n) return 0n; const q = a / d, r = a % d; return r !== 0n && (r < 0n) !== (d < 0n) ? q - 1n : q; }"
         }
         IntNative::IntFMod => {
-            "(a) => (d) => { const r = a % d; return r !== 0n && (r < 0n) !== (d < 0n) ? r + d : r; }"
+            "(a) => (d) => { if (d === 0n) return a; const r = a % d; return r !== 0n && (r < 0n) !== (d < 0n) ? r + d : r; }"
         }
-        // The divisor is a positive `Nat`.
-        IntNative::IntModNat => "(a) => (d) => { const r = a % d; return r < 0n ? r + d : r; }",
+        // The divisor is a `Nat`; by 0 it's `(a % 0).toNat`.
+        IntNative::IntModNat => {
+            "(a) => (d) => { if (d === 0n) return a < 0n ? 0n : a; const r = a % d; return r < 0n ? r + d : r; }"
+        }
         IntNative::DecEqInt => "(a) => (b) => ({ tag: a === b ? \"Yes\" : \"No\" })",
         IntNative::IntLeq => "(a) => (b) => ({ tag: a <= b ? \"True\" : \"False\" })",
         IntNative::IntLess => "(a) => (b) => ({ tag: a < b ? \"True\" : \"False\" })",
@@ -5323,6 +5516,27 @@ fn int_native_js(op: IntNative) -> &'static str {
   const n = BigInt(s);
   return { tag: "Some", value: s === t ? n : -n };
 }"#
+        }
+    }
+}
+
+/// JS for an array native, on [`VERSION_ARRAYS`]'s helpers, which are in
+/// scope. Each computes what the definition it replaces computes on the
+/// array's list (`stitchwort_rt::natives::ArrayNative`).
+fn array_native_js(op: ArrayNative) -> &'static str {
+    match op {
+        ArrayNative::FromList => "arrayOfList",
+        ArrayNative::ToList => "listOfArray",
+        ArrayNative::Size => "(a) => BigInt(arrayItems(a).length)",
+        ArrayNative::Get => "(a) => (i) => arrayGet(a, i)",
+        ArrayNative::GetOr => "(a) => (i) => (fallback) => arrayGetOr(a, i, fallback)",
+        // The erased proof says the index is in range.
+        ArrayNative::GetLt => "(a) => (i) => arrayItems(a)[Number(i)]",
+        ArrayNative::Set => "(a) => (i) => (v) => arraySet(a, i, v)",
+        ArrayNative::Push => "(a) => (v) => arrayPush(a, v)",
+        ArrayNative::Pop => "arrayPop",
+        ArrayNative::Replicate => {
+            "(count) => (x) => arrayOfItems(new Array(Number(count)).fill(x))"
         }
     }
 }
@@ -5970,6 +6184,10 @@ pub fn boundary_literal(g: &View<'_>, b: &Boundary, value: &Value) -> Result<Str
             }
             _ => Err(stuck()),
         },
+        // An array is its list.
+        (Boundary::Array(elem), Value::Ctor(_, 0, fields)) if fields.len() == 1 => {
+            boundary_literal(g, &Boundary::List(elem.clone()), &fields[0])
+        }
         // A list, possibly ending in a compact one, walked one cell at a time
         // as matching would.
         (Boundary::List(elem), _) => {

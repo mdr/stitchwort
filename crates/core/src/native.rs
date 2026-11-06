@@ -975,7 +975,7 @@ fn run_numbers(g: &Ev, native: Native, args: &[BigUint]) -> Option<Value> {
         (Native::Leq, [m, n]) => bool_value(g, m <= n),
         (Native::EqNat, [m, n]) => bool_value(g, m == n),
         (Native::DivFuel, [fuel, n, d]) => nat(if d.is_zero() {
-            fuel.clone()
+            BigUint::zero()
         } else {
             fuel.min(&(n / d)).clone()
         }),

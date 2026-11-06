@@ -18,10 +18,10 @@ theorem chainBounded (rules: Rules): (fuel: Nat) → (number: Nat) → rules.cha
   | Succ more, number =>
     match looked: rules.rule number with
       | Some (Alternatives sequences) =>
-        match found: List.maximum (List.map sequences (sequence => rules.chainThrough more sequence)) with
+        match found: sequences.map (rules.chainThrough more) |> .maximum with
           | None => omega
           | Some most =>
-            match List.memMapElim (sequence => rules.chainThrough more sequence) most sequences (And.left (List.maximumSome _ most found)) with
+            match List.memMapElim (rules.chainThrough more) most sequences (And.left (List.maximumSome _ most found)) with
               | Witness sequence (Both chosen made) =>
                 rewrite <- made in
                   match sequence with
@@ -60,10 +60,15 @@ theorem anyEmpty (lefts: List (List Char)) (any: lefts.any .isEmpty = True): [] 
       | [] => member
       | [letter, ..rest] => Void.exfalso (Bool.falseNotTrue empty))
 
+--| `matchesCompletely` reads the rules from a table, but the list gives its answer.
+theorem matchesCompletelyList (rules: Rules) (message: Message):
+    rules.matchesCompletely message = (rules.leftAfter (rules.enough message) 0 message.letters |> .any .isEmpty) :=
+  rewrite leftAfterSame (ruleTable rules.numbered).get rules.rule (tableRule rules) (rules.enough message) 0 message.letters in rfl
+
 theorem matchesCompletelyCorrect (rules: Rules) (productive: rules.productive = True) (message: Message):
     rules.matchesCompletely message = True ↔ MatchesCompletely rules message :=
   let ranked := productiveRanked rules rules.rank rules.rankBound (rankBelow rules) productive
-  {
+  rewrite matchesCompletelyList rules message in {
     forward = matches =>
       match sound rules (rules.enough message) 0 message.letters [] (anyEmpty _ matches) with
         | Witness read (Both split leads) => rewrite split in leads [] [] MatchesNothing,

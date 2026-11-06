@@ -281,6 +281,7 @@ fn run_on<E: Executor>(
     output: &mut impl Write,
     terminal: &mut dyn Terminal,
 ) -> (Result<Outcome, RunError>, RouteCounts) {
+    crate::prims::reset_array_copies();
     let delay = match executor.entry() {
         Ok(delay) => delay,
         Err(e) => return (Err(entry_error(&executor, e)), RouteCounts::default()),
@@ -288,6 +289,12 @@ fn run_on<E: Executor>(
     let mut runner = Runner::new(executor, limits, *policy, Box::new(terminal));
     let result = runner.run(delay, &mut Blocking(input), output);
     let result = result.map_err(|e| runner.explain(e));
+    // On standard error, after the program's own output, so that it never
+    // mixes with what the program prints.
+    if let Some(note) = crate::prims::array_copy_note(crate::prims::array_copies()) {
+        let _ = output.flush();
+        eprintln!("{note}");
+    }
     (result, runner.counts)
 }
 

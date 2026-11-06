@@ -18,26 +18,32 @@ fn warnings(text: &str) -> Vec<Diagnostic> {
         .collect()
 }
 
-const ITEM: &str = "import Std (Option)\n\ntype Item = { value: Nat, fits: Bool }\n\n";
+const ITEM: &str = "import Std (Option)\n\ntype Item = { value: Nat, fits: Bool }\n\ntype Box = | Held { item: Item }\n\n";
 
 #[test]
 fn naming_a_field_the_record_has_too_warns() {
     let found = warnings(&format!(
-        "{ITEM}def get: Option Item -> Nat\n  | Some {{ value = n, .. }} => n.value\n  | None => 0\n"
+        "{ITEM}def get: Box -> Item\n  | Held {{ item = i, .. }} => i\n"
     ));
+    assert!(found.is_empty(), "{found:#?}");
+    let found = warnings(
+        "type Item = { item: Nat, fits: Bool }\n\ntype Box = | Held { item: Item }\n\n\
+         def get: Box -> Nat\n  | Held { item = n, .. } => n.item\n",
+    );
     let [w] = &found[..] else {
         panic!("{found:#?}");
     };
     assert_eq!(w.severity, Severity::Warning);
-    assert!(w.message.contains("`Some`'s own field `value`"), "{w:?}");
-    assert!(w.notes[0].contains("Some ({ … })"), "{w:?}");
+    assert!(w.message.contains("`Held`'s own field `item`"), "{w:?}");
+    assert!(w.notes[0].contains("Held ({ … })"), "{w:?}");
 }
 
 #[test]
 fn the_bracketed_record_argument_and_positional_patterns_dont_warn() {
     let found = warnings(&format!(
-        "{ITEM}def get: Option Item -> Nat\n  | Some ({{ value = n, .. }}) => n\n  | None => 0\n\n\
-         def get2: Option Item -> Nat\n  | Some i => i.value\n  | None => 0\n"
+        "{ITEM}def get: Box -> Nat\n  | Held ({{ value = n, .. }}) => n\n\n\
+         def get2: Box -> Nat\n  | Held i => i.value\n\n\
+         def get3: Option Item -> Nat\n  | Some {{ value = n, .. }} => n\n  | None => 0\n"
     ));
     assert!(found.is_empty(), "{found:#?}");
 }
@@ -45,7 +51,7 @@ fn the_bracketed_record_argument_and_positional_patterns_dont_warn() {
 #[test]
 fn a_field_the_record_lacks_doesnt_warn() {
     let found = warnings(
-        "type Person = { name: Text, age: Nat }\n\ntype Wrap = | W (person: Person)\n\n\
+        "type Person = { name: Text, age: Nat }\n\ntype Wrap = | W { person: Person }\n\n\
          def nameOf: Wrap -> Text\n  | W { person = { name, .. }, .. } => name\n",
     );
     assert!(found.is_empty(), "{found:#?}");
@@ -56,9 +62,9 @@ fn a_field_the_record_lacks_doesnt_warn() {
 // switching between the two forms never moves a hash.
 
 const TYPES: &str = "import Std (Option)\n\n\
-type Shape =\n  | Dot (ref: Nat) (id: Text)\n  | Circle (ref: Nat) (id: Text) (text: Text)\n\n\
-type Vec (a: Type): Nat -> Type =\n  | VNil: Vec a 0\n  | VCons (x: a) (xs: Vec a n): Vec a (Succ n)\n\n\
-type Pos = | MkPos (n: Nat) (ok: n > 0)\n\n\
+type Shape =\n  | Dot { ref: Nat, id: Text }\n  | Circle { ref: Nat, id: Text, text: Text }\n\n\
+type Vec (a: Type): Nat -> Type =\n  | VNil: Vec a 0\n  | VCons { x: a, xs: Vec a n }: Vec a (Succ n)\n\n\
+type Pos = | MkPos { n: Nat, ok: n > 0 }\n\n\
 type Item = { name: Text, price: Nat }\n\n";
 
 /// The definitions the hash test compares.
@@ -101,8 +107,8 @@ fn named_construction_hashes_as_the_positional_form() {
          def b (id: Text): Shape := Dot { id, ref = 2 }\n\n\
          def v: Vec Nat 2 := VCons { xs = VCons { x = 2, xs = VNil }, x = 1 }\n\n\
          def p: Pos := MkPos { ok = omega, n = 3 }\n\n\
-         def o: Option Shape := Some { value = Circle { ref = 1, id = \"a\", text = \"t\" } }\n\n\
-         def r: Option Item := Some { value = { name = \"tea\", price = 3 } }\n",
+         def o: Option Shape := Some (value := Circle { ref = 1, id = \"a\", text = \"t\" })\n\n\
+         def r: Option Item := Some { name = \"tea\", price = 3 }\n",
     );
     assert_eq!(positional.len(), 6, "{positional:?}");
     assert_eq!(positional, named);
@@ -140,11 +146,6 @@ fn named_construction_is_refused_like_a_record_literal() {
             "`n` is an implicit field of `VCons`",
         ),
         (
-            "def c: Option Item := Some { name = \"tea\", price = 3 }\n",
-            "E-UNKNOWN-FIELD",
-            "`Some` has no field `name`",
-        ),
-        (
             "def c: Item := Item { name = \"tea\", price = 3 }\n",
             "E-NOT-A-CONSTRUCTOR",
             "`Item` isn't a constructor",
@@ -159,11 +160,6 @@ fn named_construction_is_refused_like_a_record_literal() {
             "E-PARSE",
             "as an argument need brackets",
         ),
-        (
-            "def c (i: Item): Option Item := Some { i | price = 3 }\n",
-            "E-PARSE",
-            "an update isn't one of them",
-        ),
     ];
     for (text, code, message) in cases {
         let found = errors(text);
@@ -174,4 +170,45 @@ fn named_construction_is_refused_like_a_record_literal() {
             "{text}: {found:#?}"
         );
     }
+}
+
+// Braces after a constructor declared with brackets are a record argument,
+// as after a function (docs/proposals/brace-syntax-review.md §5): the same
+// term as the bracketed form.
+#[test]
+fn braces_after_a_bracket_declared_constructor_hash_as_the_bracketed_form() {
+    let bracketed = hashes(
+        "def a: Option Item := Some ({ name = \"tea\", price = 3 })\n\n\
+         def b (i: Item): Option Item := Some ({ i | price = 4 })\n\n\
+         def o: Result Item Text := Ok ({ name = \"tea\", price = 3 })\n",
+    );
+    let braces = hashes(
+        "def a: Option Item := Some { name = \"tea\", price = 3 }\n\n\
+         def b (i: Item): Option Item := Some { i | price = 4 }\n\n\
+         def o: Result Item Text := Ok { name = \"tea\", price = 3 }\n",
+    );
+    assert_eq!(bracketed.len(), 3, "{bracketed:?}");
+    assert_eq!(bracketed, braces);
+}
+
+#[test]
+fn a_bracket_declared_constructors_braces_take_a_record_pattern_and_more_arguments() {
+    let found = errors(
+        "type Tagged = | Tag (item: Item) (tag: Text)\n\n\
+         def hot: Tagged := Tag { name = \"tea\", price = 3 } \"hot\"\n\n\
+         def name: Option Item -> Text\n  | Some { name, .. } => name\n  | None => \"\"\n\n\
+         def pick (t: Tagged) (i: Item): Text := i.name\n\n\
+         def p: Text := pick hot { name = \"x\", price = 1 }\n",
+    );
+    assert!(found.is_empty(), "{found:#?}");
+}
+
+#[test]
+fn named_arguments_on_a_constructor_fill_the_defaults() {
+    let found = errors(
+        "type Marked = | Mark (id: Text) (size: Nat := 3)\n\n\
+         def a: Marked := Mark (id := \"a\")\n\n\
+         theorem same: Mark (id := \"a\") = Mark \"a\" 3 := rfl\n",
+    );
+    assert!(found.is_empty(), "{found:#?}");
 }

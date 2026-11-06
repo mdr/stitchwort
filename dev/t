@@ -9,7 +9,7 @@ Usage: dev/t affected [--dry-run] [BASE]
        dev/t help
 
 Everything else that used to be here is a task: `task --list` (Taskfile.yml).
-This script is what `task test:affected` runs.
+This script is what `task test:areas` runs.
 
 `dev/t affected [BASE]` runs the test suites of the areas the change
 touches, never more. The change is `git diff BASE...HEAD` (BASE defaults to

@@ -4,7 +4,7 @@
 //! `Delay` values) must print what the machine prints, make the same
 //! allocation trace event for event, and stop at the same step and frame
 //! limits, with the edge cases: numbers beyond a machine word, division by
-//! zero as the machine has it (`Nat.divFuel` returns its fuel), empty text.
+//! zero (`n / 0 = 0`, `n % 0 = n`), empty text.
 
 mod common;
 
@@ -12,8 +12,7 @@ use common::*;
 use stitchwort_driver::driver::with_stack;
 
 /// `Nat` division and remainder: words on the inline path, numbers beyond a
-/// word on the runtime's, and `Nat.divFuel` with a divisor of 0 (which has no
-/// proof obligation, unlike `/`).
+/// word on the runtime's, and a divisor of 0, by `/` and by `Nat.divFuel`.
 const NAT_DIVISION: &str = r#"import Std (IO, List, Nat)
 
 def big: Nat := 100000000000 * 100000000000 * 1000 + 12345
@@ -21,14 +20,15 @@ def big: Nat := 100000000000 * 100000000000 * 1000 + 12345
 def divisions: List (Pair Nat Nat) :=
   [MkPair 0 1, MkPair 7 2, MkPair 7 7, MkPair 6 7, MkPair 18446744073709551615 3,
    MkPair 18446744073709551615 18446744073709551615, MkPair 100 1, MkPair big 7,
-   MkPair 5 big, MkPair big big, MkPair big 1000000007, MkPair 1000 18446744073709551616]
+   MkPair 5 big, MkPair big big, MkPair big 1000000007, MkPair 1000 18446744073709551616,
+   MkPair 7 0, MkPair big 0]
 
 def divide: Pair Nat Nat → Nat
   | MkPair n d => Nat.divFuel n n (d + 1) + Nat.divFuel n n 0 + Nat.divFuel 3 n (d + 1) + Nat.divFuel 0 n d
 
 def quotients: List (Pair Nat Nat) → Text
   | [] => "."
-  | Cons (MkPair n d) rest => "${n / (d + 1)}:${n % (d + 1)};${divide (MkPair n d)} " ++ quotients rest
+  | Cons (MkPair n d) rest => "${n / (d + 1)}:${n % (d + 1)};${n / d}:${n % d};${divide (MkPair n d)} " ++ quotients rest
 
 def run (n: Nat): Text :=
   quotients divisions ++ "${List.foldLeft (List.range 0 n) 0 (acc k => acc + (k * 31 + 7) % 13 + (k * 31 + 7) / 13)}"
@@ -38,7 +38,7 @@ def main(): {IO} () :=
 "#;
 
 /// `Int`: matches, comparisons, negation, subtraction of mixed sizes, big
-/// values, division and remainder of every sign, `Int.toText`.
+/// values, division and remainder of every sign and by 0, `Int.toText`.
 const INTS: &str = r#"import Std (IO, List, Text, Int)
 
 def values: List Int :=
@@ -63,8 +63,7 @@ def arithmetic: Pair Int Int → Text
 
 def quotient: Pair Int Int → Text
   | MkPair x y =>
-    if h: y ≠ Int.OfNat 0 then Int.toText (Int.tdiv x y) ++ "," ++ Int.toText (Int.fdiv x y) ++ "," ++ Int.toText (x / y) ++ "," ++ Int.toText (x % y) ++ "," ++ Int.toText (Int.abs x)
-    else "0"
+    Int.toText (Int.tdiv x y) ++ "," ++ Int.toText (Int.tmod x y) ++ "," ++ Int.toText (Int.fdiv x y) ++ "," ++ Int.toText (Int.fmod x y) ++ "," ++ Int.toText (x / y) ++ "," ++ Int.toText (x % y) ++ "," ++ Int.toText (Int.abs x) ++ "," ++ "${Int.modNat x (Int.natAbs y)}"
 
 def main(): {IO} () :=
   let ps := pairs values values

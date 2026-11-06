@@ -182,6 +182,7 @@ pub fn ctor(name: &str, fields: Vec<(&str, Term)>) -> CtorDecl {
             .collect(),
         result: Vec::new(),
         implicit: Vec::new(),
+        braced: false,
     }
 }
 

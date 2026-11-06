@@ -47,7 +47,7 @@ test "the example's notes" := (parsed example).map (notes => (notes.rules.map (.
   Ok (["class", "row", "seat"], [7, 1, 14], [[7, 3, 47], [40, 4, 50], [55, 2, 20], [38, 6, 12]])
 
 test "the example's second rule" := (parsed example).map (notes => notes.rules.get 1) ==
-  Ok (Some ({ field = "row", first = { low = 6, high = 11 }, second = { low = 33, high = 44 } }))
+  Ok (Some { field = "row", first = { low = 6, high = 11 }, second = { low = 33, high = 44 } })
 
 test "the example, part 1" := errorRate example == Ok 71
 test "the example, one valid ticket" := (parsed example).map (notes => notes.validTickets.map (.values)) == Ok [[7, 3, 47]]

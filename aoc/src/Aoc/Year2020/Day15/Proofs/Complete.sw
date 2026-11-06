@@ -8,25 +8,11 @@ import Aoc.Year2020.Day15 (..)
 import Aoc.Year2020.Day15.Spec (NumberWritten, StartingWritten)
 import Std (Bool, Char, Eq, Exists, Fail, List, NonEmptyList, Parse, Result, Text, Void)
 
-theorem noDigits (rest: List Char) (stops: Parse.CannotStart Parse.isDigit rest): rest.takeWhile Parse.isDigit = [] :=
-  match rest with
-    | [] => rfl
-    | [char, ..more] => rewrite stops char more rfl in rfl
-
 theorem runsNumber (read: List Char) (number: Nat) (after: List Char) (written: NumberWritten read number) (stops: Parse.CannotStart Parse.isDigit after):
     Parse.Runs Parse.nat read after number :=
   match written with
     | Both nonEmpty (Both allDigits decimal) =>
-      rewrite decimal in Parse.runsNat read after nonEmpty allDigits (noDigits after stops)
-
-theorem declinesComma (rest: List Char) (breaks: Parse.OnlyBreaks rest): Parse.Declines (() => Parse.char ',') rest :=
-  match rest with
-    | [] => Parse.declinesCharEnd ','
-    | [char, ..more] =>
-      Parse.declinesChar ',' char more
-        (match Parse.lineBreakChar char (Bool.andLeft breaks) with
-          | Inl same => rewrite same in rfl
-          | Inr same => rewrite same in rfl)
+      rewrite decimal in Parse.runsNatBefore read after nonEmpty allDigits stops
 
 theorem runsStarting (read: List Char) (starting2: Starting) (written: StartingWritten read starting2) (ending: List Char) (breaks: Parse.OnlyBreaks ending):
     Parse.Runs starting read ending starting2 :=
@@ -41,7 +27,7 @@ theorem runsStarting (read: List Char) (starting2: Starting) (written: StartingW
           (read2 u same => rewrite same in List.consNotNil ',' [])
           (read2 after u same => rewrite same in (char more found => rewrite <- List.consInjectiveHead _ _ _ _ found in rfl))
           (Parse.cannotStartAtBreaks Parse.isDigit rfl rfl ending breaks)
-          (Parse.declinesSepStep Parse.nat (() => Parse.char ',') ending (declinesComma ending breaks))
+          (Parse.declinesSepStep Parse.nat (() => Parse.char ',') ending (Parse.declinesCharCannotStart ',' (char => char == ',') rfl ending (Parse.cannotStartAtBreaks (char => char == ',') rfl rfl ending breaks)))
           read head tail written3)
 
 --| The soundness theorem's conclusion: the input is the numbers written out,

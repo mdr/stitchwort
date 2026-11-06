@@ -4254,7 +4254,12 @@ fn comp_compound(
         }
         // `C { f = e, … }`: as a record literal, the fields run in the
         // order written (docs/proposals/variant-fields.md §4.5).
-        Expr::CtorFields { ctor, fields, span } => {
+        Expr::CtorFields {
+            ctor,
+            fields,
+            span,
+            argument,
+        } => {
             let mut pure = Vec::new();
             for (i, (name, value)) in fields.iter().enumerate() {
                 pure.push((name.clone(), part(cx, i, value, &mut bound)?));
@@ -4263,6 +4268,7 @@ fn comp_compound(
                 ctor: ctor.clone(),
                 fields: pure,
                 span: *span,
+                argument: *argument,
             }
         }
         Expr::Field(e, name) if receiver_passed(cx, e, name)? => expr.clone(),

@@ -153,6 +153,7 @@ impl Elaborator {
             fields: out,
             result,
             implicit: fields.iter().map(|f| f.3).collect(),
+            braced: ctor.braced,
         })
     }
 

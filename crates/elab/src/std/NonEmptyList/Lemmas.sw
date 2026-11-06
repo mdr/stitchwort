@@ -30,7 +30,7 @@ theorem NonEmptyList.toListToNonEmpty (xs: NonEmptyList a): List.toNonEmpty xs.t
 
 theorem List.nonEmptyNil: List.nonEmpty ([]: List a) = None := rfl
 
-theorem List.nonEmptyCons (x: a) (rest: List a): List.nonEmpty [x, ..rest] = Some ({ head = x, tail = rest }) := rfl
+theorem List.nonEmptyCons (x: a) (rest: List a): List.nonEmpty [x, ..rest] = Some { head = x, tail = rest } := rfl
 
 theorem NonEmptyList.nonEmptyToList (xs: NonEmptyList a): List.nonEmpty xs.toList = Some xs :=
   match xs with

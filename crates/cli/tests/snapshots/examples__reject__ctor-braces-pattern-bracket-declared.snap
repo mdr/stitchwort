@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-NOT-A-RECORD] Error: this is a record pattern, but it matches a `Nat`, which isn't a record
+   ╭─[ reject/ctor-braces-pattern-bracket-declared.sw:6:5 ]
+   │
+ 6 │   | Some { name, .. } => name
+   │     ────────┬────────  
+   │             ╰────────── this is a record pattern, but it matches a `Nat`, which isn't a record
+───╯

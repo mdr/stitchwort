@@ -401,6 +401,48 @@ def main(): {IO} () :=
     assert_eq!(out.lines().count(), 2 * 10 + 2 * 15 + 2, "{out}");
 }
 
+/// Dividing by 0 gives 0 and leaves the dividend as the remainder, for
+/// `Nat` and every `Int` division, on words and beyond them, the same on
+/// the machine as in the definitions.
+#[test]
+fn dividing_by_zero() {
+    let (out, result) = both_ways(
+        r#"
+import Std (Nat, Text, Int)
+
+def big: Nat := 18446744073709551616 * 3 + 5
+
+def nats: List Nat := [0, 7, big]
+
+def ints: List Int := [0, 7, -7, Nat.toInt big, -(Nat.toInt big)]
+
+def zero (n: Nat): Nat := n - n
+
+def natLine (n: Nat): Text :=
+  Text.join [Nat.toText (n / zero n), Nat.toText (n % zero n), Nat.toText (Nat.ceilDiv n (zero n))] ' '
+
+def intLine (a: Int): Text :=
+  let d := a - a
+  Text.join [Int.toText (a / d), Int.toText (a % d), Int.toText (Int.tdiv a d), Int.toText (Int.tmod a d),
+    Int.toText (Int.fdiv a d), Int.toText (Int.fmod a d), Nat.toText (Int.modNat a (Int.natAbs d))] ' '
+
+def main(): {IO} () :=
+  IO.print (Text.join (nats.map natLine) ',')
+  IO.print (Text.join (ints.map intLine) ',')
+"#,
+        b"",
+    );
+    assert_eq!(result, Ok(()));
+    let big = "55340232221128654853";
+    assert_eq!(
+        out,
+        format!(
+            "0 0 0,0 7 0,0 {big} 0\n0 0 0 0 0 0 0,0 7 0 7 0 7 7,0 -7 0 -7 0 -7 0,\
+             0 {big} 0 {big} 0 {big} {big},0 -{big} 0 -{big} 0 -{big} 0\n"
+        )
+    );
+}
+
 /// A list of a million numbers, built and summed by non-tail recursion:
 /// a million frames deep, on the machine's own stack, then freed.
 #[test]

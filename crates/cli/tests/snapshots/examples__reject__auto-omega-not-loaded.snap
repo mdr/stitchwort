@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-AUTO-STUCK] Error: can't decide `high - low ≠ 0` here
-   ╭─[ reject/auto-omega-not-loaded.sw:7:80 ]
+   ╭─[ reject/auto-omega-not-loaded.sw:9:60 ]
    │
- 7 │ def remainderOfGap (n: Nat) (low: Nat) (high: Nat) (below: low < high): Nat := n % (high - low)
-   │                                                                                ───────┬───────  
-   │                                                                                       ╰───────── it involves values that aren't known here, and computing it doesn't settle it
+ 9 │ def gap (low: Nat) (high: Nat) (below: low < high): Nat := nonzero (high - low)
+   │                                                            ─────────┬─────────  
+   │                                                                     ╰─────────── it involves values that aren't known here, and computing it doesn't settle it
    │ 
    │ Note: establish it first, with `if h: … then … else …`
 ───╯

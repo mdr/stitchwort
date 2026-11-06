@@ -517,7 +517,23 @@ mod tests {
         big(every_aoc_day_body);
     }
 
+    /// Checks the library once and has every later session in this thread
+    /// replay it, as the page does from `std.cache` (`load_library_cache`).
+    /// Without it each of the test's sessions would check the library from
+    /// source, about 10 s each.
+    fn replay_the_library_from_one_check() {
+        use stitchwort_driver::check_cache::BundleRecorder;
+        let mut session = new_session(&[], &[]);
+        let recorder = std::rc::Rc::new(BundleRecorder::default());
+        session.elab.set_check_cache(recorder.clone());
+        let left_out = session.elab.load_libraries_that_check();
+        let bundle = std::sync::Arc::new(recorder.finish(left_out));
+        let set = super::super::SHARED.with(|options| options.library.set(bundle).is_ok());
+        assert!(set, "the library was already cached");
+    }
+
     fn every_aoc_day_body() {
+        replay_the_library_from_one_check();
         let (paths, texts) = aoc_files();
         let outline = outline_project(PROJECT, paths.clone(), texts.clone());
         assert!(

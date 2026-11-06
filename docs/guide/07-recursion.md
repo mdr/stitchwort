@@ -118,21 +118,19 @@ def countDown (n: Nat) (step: Nat): Nat
 ───╯
 ```
 
-The message shows the fact as you wrote it. The note gives the usual fix: test the fact with `if h: … then … else …`. In the `then` branch the fact is in scope, and the call finds it. Euclid's algorithm needs this, since `omega` doesn't reason about `%` by a variable: `a % b < b` holds once `b != 0`, and the test puts it in scope:
+The message shows the fact as you wrote it. The note gives the usual fix: test the fact with `if h: … then … else …`. In the `then` branch the fact is in scope, and the call finds it. Euclid's algorithm needs this, since `omega` doesn't reason about `%` by a variable: `a % b < b` holds whenever `b != 0`, and the test puts it in scope:
 
 <!-- snippet: recursion.sw#gcd -->
 ```stitchwort
 def gcd (a: Nat) (b: Nat): Nat
     decreasing b
 :=
-  if nonzero: b ≠ 0 then
-    if smaller: a % b < b then gcd b (a % b) else a
-  else a
+  if smaller: a % b < b then gcd b (a % b) else a
 
 test "gcd" := gcd 84 36 == 12
 ```
 
-Here `a % b < b` always holds, so the inner `else` never runs; the test is there to give the compiler the fact. A proof can also be given directly, as `[decreasing := proof]` after the call. With a pair of measures, `decreasing (m, n)`, each call makes `m` smaller, or keeps `m` and makes `n` smaller, as in Ackermann's function, whose calls `omega` proves:
+Here the `else` runs only when `b` is 0 (`a % 0` is `a`, [chapter 2](02-values-and-definitions.md#dividing-by-zero)), where `gcd a 0` is `a` anyway; the test is there to give the compiler the fact. A proof can also be given directly, as `[decreasing := proof]` after the call. With a pair of measures, `decreasing (m, n)`, each call makes `m` smaller, or keeps `m` and makes `n` smaller, as in Ackermann's function, whose calls `omega` proves:
 
 <!-- snippet: recursion.sw#lexicographic -->
 ```stitchwort

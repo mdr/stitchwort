@@ -172,7 +172,7 @@ theorem mergeAlbumsSelf (trip: Trip) (lids: List.Distinct (List.map trip.legs (l
 
 theorem mergeItinerarySelf: (plan: Option Itinerary) → mergeItinerary plan plan = plan
   | None => rfl
-  | Some ({ fileId, places }) => rewrite DecEq.refl fileId, List.appendNewBySelf places (place => place.id) in rfl
+  | Some { fileId, places } => rewrite DecEq.refl fileId, List.appendNewBySelf places (place => place.id) in rfl
 
 theorem mergeSummarySelf (trip: Trip): mergeSummary trip trip trip.legs = trip.summary := rewrite DecEq.refl trip.legs in rfl
 

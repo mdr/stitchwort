@@ -277,8 +277,12 @@ pub fn canonical_dump(e: &Elaborator) -> String {
         for ctor in data.ctors() {
             let _ = write!(
                 out,
-                "\n  ctor {} sorts {:?} erased {:?} implicit {:?}",
-                ctor.name, ctor.field_sorts, ctor.field_erased, ctor.implicit
+                "\n  ctor {} sorts {:?} erased {:?} implicit {:?}{}",
+                ctor.name,
+                ctor.field_sorts,
+                ctor.field_erased,
+                ctor.implicit,
+                if ctor.braced { " braced" } else { "" }
             );
             for (x, t) in &ctor.fields {
                 let _ = write!(out, "\n    field {x} ");

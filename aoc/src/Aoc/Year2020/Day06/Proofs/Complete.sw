@@ -10,22 +10,10 @@ import Std (Bool, Char, DecEq, Eq, Exists, Fail, List, NonEmptyList, Parse, Resu
 theorem runsAsValue (p: () → {Parse} a) (read: List Char) (rest: List Char) (v: a) (w: a) (same: v = w) (runs: Parse.Runs p read rest v): Parse.Runs p read rest w :=
   rewrite same at runs in runs
 
-theorem joinLetters: (letters: List Char) → Parse.joinReads (letters.map (letter => ([letter], letter))) = letters
-  | [] => rfl
-  | [letter, ..more] => rewrite joinLetters more in rfl
-
-theorem valuesLetters: (letters: List Char) → Parse.stepValues (letters.map (letter => ([letter], letter))) = letters
-  | [] => rfl
-  | [letter, ..more] => rewrite valuesLetters more in rfl
-
-theorem manyRunsLetters: (letters: List Char) → (rest: List Char) → letters.all isQuestion = True → Parse.CannotStart isQuestion rest →
-    Parse.ManyRuns (() => Parse.satisfy "a question, 'a' to 'z'" isQuestion) (letters.map (letter => ([letter], letter))) rest
-  | [], [], all, stops => Parse.declinesSatisfyEnd _ _
-  | [], [char, ..more], all, stops => Parse.declinesSatisfy _ _ char more (stops char more rfl)
-  | [letter, ..more], rest, all, stops =>
-    Both (List.consNotNil letter [])
-      (Both (Parse.runsSatisfy _ _ letter (Parse.joinReads (more.map (letter2 => ([letter2], letter2))) ++ rest) (Bool.andLeft all))
-        (manyRunsLetters more rest (Bool.andRight all) stops))
+theorem declinesLetter (rest: List Char) (stops: Parse.CannotStart isQuestion rest): Parse.Declines (() => Parse.satisfy "a question, 'a' to 'z'" isQuestion) rest :=
+  match rest with
+    | [] => Parse.declinesSatisfyEnd _ _
+    | [char, ..more] => Parse.declinesSatisfy _ _ char more (stops char more rfl)
 
 theorem runsPerson (read: List Char) (who: Person) (written: PersonWritten read who) (rest: List Char) (stops: Parse.CannotStart isQuestion rest):
     Parse.Runs person read rest who :=
@@ -39,21 +27,15 @@ theorem runsPerson (read: List Char) (who: Person) (written: PersonWritten read 
           let sameSet: ({ answers = [letter, ..more].toSet }: Person) = who :=
             match who with
               | { answers } => rewrite sameAnswers in rfl
-          let lettersRun := Parse.runsMany1 (() => Parse.satisfy "a question, 'a' to 'z'" isQuestion) [letter] letter (more.map (letter2 => ([letter2], letter2))) rest
-            (Parse.runsSatisfy _ _ letter _ (Bool.andLeft questions))
-            (manyRunsLetters more rest (Bool.andRight questions) stops)
-          let lettersRead := rewrite joinLetters more, valuesLetters more at lettersRun in lettersRun
+          let lettersRun := Parse.runsMany1Symbols (() => Parse.satisfy "a question, 'a' to 'z'" isQuestion) (letter2 => letter2) isQuestion
+            (letter2 after ok => Parse.runsSatisfy _ _ letter2 after ok) declinesLetter letter more rest (rewrite List.mapId more in questions) stops
+          let lettersRead := rewrite List.mapId more at lettersRun in lettersRun
           runsAsValue person [letter, ..more] rest _ who sameSet
-            (Parse.runsMap (() => Parse.many1 (() => Parse.satisfy "a question, 'a' to 'z'" isQuestion)) _ ([letter] ++ more) rest
+            (Parse.runsMap (() => Parse.many1 (() => Parse.satisfy "a question, 'a' to 'z'" isQuestion)) _ [letter, ..more] rest
               (NonEmptyList.cons letter more) lettersRead)
 
 theorem spaceNotQuestion (char: Char) (isSpace: Parse.isSpace char = True): isQuestion char = False :=
   Bool.orElim isSpace (space => rewrite DecEq.sound space in rfl) (tab => rewrite DecEq.sound tab in rfl)
-
-theorem declinesLetter (rest: List Char) (stops: Parse.CannotStart isQuestion rest): Parse.Declines (() => Parse.satisfy "a question, 'a' to 'z'" isQuestion) rest :=
-  match rest with
-    | [] => Parse.declinesSatisfyEnd _ _
-    | [char, ..more] => Parse.declinesSatisfy _ _ char more (stops char more rfl)
 
 theorem declinesPerson (rest: List Char) (stops: Parse.CannotStart isQuestion rest): Parse.Declines person rest :=
   Parse.declinesBind (() => Parse.many1 (() => Parse.satisfy "a question, 'a' to 'z'" isQuestion)) _ rest

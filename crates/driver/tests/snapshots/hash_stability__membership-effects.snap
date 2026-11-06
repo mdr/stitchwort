@@ -20,7 +20,7 @@ Main.loudNotMember c3164afde935f8cfd9cbe5fa84c3c5009a25e9e90f1569227867376653338
 Main.test "in a map, in a filter" a24f6e56a69c47d6ee2ef1efd5fe0152603f1a4bba2a9a741c6013af03cde335
 Main.test "not in a map, in a filter" d777ba47ce393f212f411008dd5b780d02cec54fd789c07ec52c5ef4d6a31486
 Main.test "in a map, in all" 92ef2c73aa78a317565c0df06ca6aa62848ef6582748e92127689d24c64193a3
-Main.test "join by key" e74d498c3b8e58849f616b082b968f0db0530974bc3e0fdc3bff07eede29e67c
+Main.test "join by key" 984acb42f032331059a0360d986860413b2ed905c94811f3d956f3a8f6bb9715
 Main.test "comparison" a4cc1deb4c01627f40a1a58b7e6224a0ef7186ffe05b43cd746204c94ca040dc
 Main.test "not a comparison" fa827431f42bc229ea44c77bfd167ba875a78de89f75b35164ffd8a8f2edc580
 Main.test "not equal" 8cc76c036c22c91557ea50c0429674a6da279b4514621a17996ca1e5c3f436c5

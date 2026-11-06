@@ -349,7 +349,7 @@ fn hidden_name_note(shown: &str) -> Option<String> {
 pub(crate) fn from_yes(cx: &mut Ctx, goal: &Value, decision: Term) -> Result<Term> {
     let from_yes = builtin_def(cx, Builtin::FromYes)?;
     let (unit, trivial) = builtin_ctor(cx, Builtin::Trivial)?;
-    let goal_term = cx.quote(goal)?;
+    let goal_term = cx.quote_folded(goal)?;
     Ok(Term::app(
         Term::app(
             Term::app_icit(Term::Def(from_yes), goal_term, Icit::Implicit),
@@ -776,25 +776,72 @@ fn lex_less(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Option<Term>> {
 
 /// A term of type `Decidable prop`, from the decision procedures in scope.
 ///
-/// The search sees the unfolded proposition (D484,
-/// docs/proposals/folded-calls.md): it runs with gluing off, on `prop`
-/// read back and computed again unglued. Otherwise a procedure would be
-/// matched against a call by its arguments before unfolding (`y < 10`
-/// decided by `Nat.decLessThan y 10` rather than `Nat.decLessEq y 9`, as
-/// `y < 10` computes to `y <= 9`), and the decisions found, and so the
-/// elaborated terms, would depend on gluing.
+/// The search sees what the proposition computes to (D484, D2535,
+/// docs/proposals/bounded-readback.md §2.6): it runs with gluing off, on
+/// `prop` read back folded and computed again unglued. Unglued, evaluation
+/// unfolds every call it meets, so procedures are matched against what the
+/// proposition computes to (`y < 10` decided by `Nat.decLessEq y 9`, as
+/// `y < 10` computes to `y <= 9`, not by `Nat.decLessThan y 10`), and the
+/// decisions found, and so the elaborated terms, don't depend on gluing.
+/// The folded read-back keeps the calls, so it stays small where the
+/// unfolded one wouldn't.
+///
+/// With `STITCHWORT_DECIDE_BOTH` set, it also decides from the unfolded
+/// read-back, undoes that, and reports on standard error where the two
+/// decisions differ: a check that the folded read-back changes nothing.
 pub fn decide(cx: &mut Ctx, prop: &Value, depth: usize) -> Result<Term> {
     let g = cx.g();
     if !g.machine.glue.get() {
         return decide_unglued(cx, prop, depth);
     }
-    let written = cx.quote(prop)?;
+    let both = std::env::var_os("STITCHWORT_DECIDE_BOTH").is_some();
+    let unfolded = if both {
+        let snapshot = crate::undo::Snapshot::take(cx);
+        let written = cx.quote(prop);
+        let found = decide_from(cx, written, depth);
+        let shown = decided(cx, &found);
+        snapshot.restore(cx);
+        Some(shown)
+    } else {
+        None
+    };
+    let written = cx.quote_folded(prop);
+    let found = decide_from(cx, written, depth);
+    if let Some(unfolded) = unfolded {
+        let folded = decided(cx, &found);
+        if folded != unfolded {
+            eprintln!(
+                "decide differs on `{}`:\n  unfolded: {unfolded}\n  folded:   {folded}",
+                cx.show(prop)
+            );
+        }
+    }
+    found
+}
+
+/// [`decide`] from the proposition read back as `written`, evaluated
+/// unglued.
+fn decide_from(cx: &mut Ctx, written: Result<Term>, depth: usize) -> Result<Term> {
+    let g = cx.g();
+    let written = written?;
     g.machine.glue.set(false);
     let found = cx
         .eval(&written)
         .and_then(|prop| decide_unglued(cx, &prop, depth));
     g.machine.glue.set(true);
     found
+}
+
+/// A decision's term with its solved unknowns filled in, or its error's
+/// code and message, for [`decide`]'s comparison.
+fn decided(cx: &Ctx, found: &Result<Term>) -> String {
+    match found {
+        Ok(term) => match cx.e.zonk_keeping(term, cx.level(), &|_| true) {
+            Ok(term) => format!("{term:?}"),
+            Err(e) => format!("{term:?} (unzonked: {})", e.message),
+        },
+        Err(e) => format!("error {}: {}", e.code, e.message),
+    }
 }
 
 /// [`decide`], with gluing off.

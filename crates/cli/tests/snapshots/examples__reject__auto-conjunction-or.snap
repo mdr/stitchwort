@@ -3,11 +3,11 @@ source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-AUTO-STUCK] Error: can't decide `b ≠ 0` here
-   ╭─[ reject/auto-conjunction-or.sw:5:28 ]
+   ╭─[ reject/auto-conjunction-or.sw:7:28 ]
    │
- 5 │   if b != 0 || c != 0 then a % b else 0
-   │                            ──┬──  
-   │                              ╰──── it involves values that aren't known here, and computing it doesn't settle it
+ 7 │   if b != 0 || c != 0 then nonzero b else 0
+   │                            ────┬────  
+   │                                ╰────── it involves values that aren't known here, and computing it doesn't settle it
    │ 
    │ Note: establish it first, with `if h: … then … else …`
 ───╯

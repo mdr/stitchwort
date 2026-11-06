@@ -11,5 +11,5 @@ expression: output
     │ 
     │ Note 1: `W`'s fields are `person`
     │ 
-    │ Note 2: braces right after a constructor name its own fields; to match the `Person` it holds, write `W ({ … })`
+    │ Note 2: `W` is declared with its fields in braces, so braces after it name its own fields; to match the `Person` it holds, write `W ({ … })`
 ────╯

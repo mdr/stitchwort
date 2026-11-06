@@ -1,6 +1,5 @@
 ---
 source: crates/cli/tests/goal_index.rs
-assertion_line: 141
 expression: json
 ---
 [
@@ -14,13 +13,13 @@ expression: json
           "type": "Nat"
         }
       ],
-      "lemma": "theorem lengthThroughGoal1 (n: Nat): List.length (1 ..= n) = n := ?",
-      "target": "List.length (1 ..= n) = n"
+      "lemma": "theorem lengthThroughGoal1 (n: Nat): (1 ..= n).length = n := ?",
+      "target": "(1 ..= n).length = n"
     },
     "labels": [
       {
         "file": 0,
-        "message": "n: Nat\n⊢ List.length (1 ..= n) = n",
+        "message": "n: Nat\n⊢ (1 ..= n).length = n",
         "range": [
           5,
           56,
@@ -49,13 +48,13 @@ expression: json
           "type": "Nat"
         }
       ],
-      "lemma": "theorem lengthUpToGoal1 (n: Nat): List.length (0 ..= n) = n + 1 := ?",
-      "target": "List.length (0 ..= n) = n + 1"
+      "lemma": "theorem lengthUpToGoal1 (n: Nat): (0 ..= n).length = n + 1 := ?",
+      "target": "(0 ..= n).length = n + 1"
     },
     "labels": [
       {
         "file": 0,
-        "message": "n: Nat\n⊢ List.length (0 ..= n) = n + 1",
+        "message": "n: Nat\n⊢ (0 ..= n).length = n + 1",
         "range": [
           7,
           61,

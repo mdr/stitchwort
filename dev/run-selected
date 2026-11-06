@@ -18,7 +18,7 @@ out=$(mktemp)
 start=$(date +%s)
 "$root/dev/memguard" --cap-gb "${STITCHWORT_MEM_CAP_GB_MERGE:-4}" -- cargo nextest run --release \
   $("$root/dev/test-scope" --profile merge --ignore-default-filter -E "$filter") \
-  --profile merge --ignore-default-filter -E "$filter" 2>&1 | tee "$out"
+  --profile merge --ignore-default-filter --no-tests=fail -E "$filter" 2>&1 | tee "$out"
 status=${PIPESTATUS[0]}
 actual=$(( $(date +%s) - start ))
 # Keep this run's times: the next merge or selection run overwrites the JUnit

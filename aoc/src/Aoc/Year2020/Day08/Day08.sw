@@ -107,8 +107,8 @@ def Outcome.terminated: Outcome → Option Int := match some
 def Instruction.repaired (instruction: Instruction): Option Instruction :=
   match instruction.operation with
     | Acc => None
-    | Jmp => Some ({ instruction | operation = Nop })
-    | Nop => Some ({ instruction | operation = Jmp })
+    | Jmp => Some { instruction | operation = Nop }
+    | Nop => Some { instruction | operation = Jmp }
 
 --| The accumulator at the end, if the code terminates with `instruction`
 --| at `position` repaired.

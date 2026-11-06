@@ -37,6 +37,8 @@ const outOfResources = (name, e) =>
 // doesn't use up the JS stack:
 // - a leaf (`NAT`, `BOOL`, `TEXT`, `CHAR`) is decoded and encoded in one step;
 // - `list(t)` is an array;
+// - `array(t)` is the library's `Array`, an array too, and a version array
+//   inside generated code (its helpers are there whenever it can cross);
 // - `data(info, args)` is a data type applied to its arguments: a tagged
 //   object, with the constructors and fields given by `define`, or for a
 //   record, an object without a tag;
@@ -73,6 +75,9 @@ const LEAF = 0, LIST = 1, DATA = 2, PARAM = 3, OPTION = 4, MAP = 5;
 let typeCount = 0;
 const leaf = (dec, enc) => ({ kind: LEAF, open: false, id: typeCount++, dec, enc });
 const list = (elem) => (elem.list ??= { kind: LIST, open: elem.open, id: typeCount++, elem });
+// (Its type is cached as `arrayOf`, since `array` marks an array's type.)
+const array = (elem) =>
+  (elem.arrayOf ??= { kind: LIST, open: elem.open, id: typeCount++, elem, array: true });
 const option = (elem) => (elem.option ??= { kind: OPTION, open: elem.open, id: typeCount++, elem });
 // A map's keys are `TEXT`, or a `js.unboxed` record over it (`key`).
 const map = (elem, key = TEXT) => {
@@ -152,7 +157,7 @@ const define = (
 const close = (t, args) =>
   !t.open ? t
   : t.kind === PARAM ? args[t.i]
-  : t.kind === LIST ? list(close(t.elem, args))
+  : t.kind === LIST ? (t.array ? array : list)(close(t.elem, args))
   : t.kind === OPTION ? option(close(t.elem, args))
   : t.kind === MAP ? map(close(t.elem, args), t.key)
   : data(t.info, t.args.map((a) => close(a, args)));
@@ -541,7 +546,9 @@ const decode = (t, x, root, seen = new Map()) => {
           break;
         }
         frames.pop();
-        if (f.fields === undefined) {
+        if (f.t.array) {
+          value = arrayOfItems(f.out);
+        } else if (f.fields === undefined) {
           value = { tag: "Nil" };
           for (let i = f.n - 1; i >= 0; i--) value = { tag: "Cons", head: f.out[i], tail: value };
           // The map of the entries, by the library's own `Map.fromList`.
@@ -591,7 +598,9 @@ const encode = (t, v) => {
     } else if (t.kind === DATA && t.info.strings) {
       value = t.info.internal.get(v.tag).external;
     } else if (t.kind === LIST) {
-      frames.push({ t, v, fields: undefined, out: [] });
+      // An array's elements are copied out first: encoding one of them may
+      // reroot the array they're in.
+      frames.push({ t, v: t.array ? listOfArray(v) : v, fields: undefined, out: [] });
     } else if (t.kind === MAP) {
       // `v` is the rest of the entries, in key order. The object is a plain
       // one, and each key is defined on it as an ordinary property: a key
@@ -933,7 +942,7 @@ const $Std$dChar$dtoNat = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dNat$ddivFuel = (fuel, n, d) => { if (d === 0n) return fuel; const q = n / d; return q < fuel ? q : fuel; };
+const $Std$dNat$ddivFuel = (fuel, n, d) => { if (d === 0n) return 0n; const q = n / d; return q < fuel ? q : fuel; };
 const $Std$dNat$ddiv = (v0, v1) => $Std$dNat$ddivFuel(v0, v0, v1);
 const $Std$dNat$dmod = (v0, v1) => $Std$dNat$dsub(v0, $Std$dNat$dmul($Std$dNat$ddiv(v0, v1), v1));
 const $Std$dList$dtailOf = (v1) => {

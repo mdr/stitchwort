@@ -30,10 +30,10 @@ type Hidden.Cell = { value: Nat }
 
 type Cell = { value: Nat }
 
-def hidden (n: Nat): Option Hidden.Cell := Some ({ value = n })
+def hidden (n: Nat): Option Hidden.Cell := Some { value = n }
 
 def one: Nat := 1
 
-test "the other side says" := hidden 1 == Some ({ value = one })
+test "the other side says" := hidden 1 == Some { value = one }
 
 test "appended" := [{ value = 2 }] ++ [({ value = 3 }: Hidden.Cell)] == [{ value = 2 }, { value = 3 }]

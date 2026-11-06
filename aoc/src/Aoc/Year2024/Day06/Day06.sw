@@ -68,10 +68,10 @@ def Lab.startGuard (lab: Lab): Guard := { position = lab.start, facing = Up }
 def Lab.ahead (lab: Lab) (guard: Guard): Option Position :=
   let { row, column } := guard.position
   match guard.facing with
-    | Up => if row == 0 then None else Some ({ row = row - 1, column })
-    | Right => if column + 1 < lab.width then Some ({ row, column = column + 1 }) else None
-    | Down => if row + 1 < lab.height then Some ({ row = row + 1, column }) else None
-    | Left => if column == 0 then None else Some ({ row, column = column - 1 })
+    | Up => if row == 0 then None else Some { row = row - 1, column }
+    | Right => if column + 1 < lab.width then Some { row, column = column + 1 } else None
+    | Down => if row + 1 < lab.height then Some { row = row + 1, column } else None
+    | Left => if column == 0 then None else Some { row, column = column - 1 }
 
 --| One step of the protocol: turn right if something is directly in front,
 --| else step forward. `None` once the guard leaves the mapped area.

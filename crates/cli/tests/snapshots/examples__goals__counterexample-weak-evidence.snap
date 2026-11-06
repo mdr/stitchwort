@@ -9,5 +9,5 @@ expression: output
     │                                                                                    ┬  
     │                                                                                    ╰── xs: List Nat
     │                                                                                        h: increasing xs = True
-    │                                                                                        ⊢ List.length xs ≤ 5
+    │                                                                                        ⊢ xs.length ≤ 5
 ────╯

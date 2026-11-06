@@ -1300,6 +1300,17 @@ impl<'e> Ctx<'e> {
     }
 
     /// [`Ctx::along_match_equation`], its errors not yet turned into `None`.
+    ///
+    /// Each side that may have the scrutinee is tried as written first
+    /// (goal-as-written.md stage 3, SW-1562): the side and the scrutinee
+    /// read back folded, an occurrence found by computation, so a lemma
+    /// stated with the scrutinee in another form than its normal form
+    /// (up to eta, as after a `match` refined the goal as written) still
+    /// fits. That result is used only where it agrees with the usual test's
+    /// on everything the usual test finds ([`crate::matching::transport_target`]);
+    /// otherwise, and if its transport doesn't fit, the usual test follows,
+    /// unchanged: the scrutinee's normal form, found syntactically in the
+    /// side's normal form.
     fn along_match_equation_now(
         &mut self,
         term: &Term,
@@ -1311,7 +1322,7 @@ impl<'e> Ctx<'e> {
         let found_term = quote(&g, level, found)?;
         let expected_term = quote(&g, level, expected)?;
         let scrutinees = self.scrutinees.clone();
-        for (base, needle, _, _, equation) in scrutinees.iter().rev() {
+        for (base, needle, span, _, equation) in scrutinees.iter().rev() {
             let Some(equation) = *equation else { continue };
             let Ok(needle) = needle.shift(&g, level - base, 0) else {
                 continue;
@@ -1323,89 +1334,74 @@ impl<'e> Ctx<'e> {
                 continue;
             };
             let (lhs, rhs) = (quote(&g, level, &lhs)?, quote(&g, level, &rhs)?);
+            let along = Along {
+                term,
+                carrier: &carrier,
+                lhs_value: &lhs_value,
+                lhs: &lhs,
+                rhs: &rhs,
+                equation,
+            };
             // `forward`: `found` has the scrutinee, `expected` its value.
             // Both may mention it (a goal that computed to it again), so
             // each way is tried where its side does.
             for forward in [true, false] {
-                let (source, scrutinee_side, value_side) = match forward {
+                let (source, source_value, value_side) = match forward {
                     true => (&found_term, found, expected),
                     false => (&expected_term, expected, found),
                 };
-                if !crate::matching::occurs(&needle, source) {
+                // The usual test's generalisation of this side: the variable
+                // for the scrutinee one past the context.
+                let todays = match abstract_needle(&g, source, level, &needle, 1, &Term::Var(0)) {
+                    Ok(todays) => todays,
+                    Err(e) if crate::undo::fatal(&e) => return Err(e),
+                    Err(_) => continue,
+                };
+                let todays_found = crate::matching::occurs(&needle, source);
+                // As written first. Its errors, but for running out of
+                // resources, are a fall-back to the usual test, as is a
+                // transport from it that doesn't fit.
+                let written = crate::undo::attempt(self, |cx| {
+                    crate::matching::transport_target(
+                        cx,
+                        &lhs_value,
+                        source_value,
+                        &todays,
+                        todays_found,
+                    )
+                })?;
+                match written {
+                    Some(Ok((generalised, outcome))) => {
+                        let built = crate::undo::attempt(self, |cx| {
+                            let codomain = cx.quote_folded(source_value)?;
+                            cx.transport_along(
+                                &along,
+                                forward,
+                                (&generalised, &codomain),
+                                source_value,
+                                value_side,
+                            )
+                        })?
+                        .flatten();
+                        if built.is_some() {
+                            crate::matching::report_transport(outcome, *span);
+                            return Ok(built);
+                        }
+                        crate::matching::report_transport(
+                            crate::matching::AsWritten::Unchecked,
+                            *span,
+                        );
+                    }
+                    Some(Err(outcome)) => crate::matching::report_transport(outcome, *span),
+                    None => {
+                        crate::matching::report_transport(crate::matching::AsWritten::Failed, *span)
+                    }
+                }
+                if !todays_found {
                     continue;
                 }
                 let built = crate::undo::attempt(self, |cx| {
-                    crate::undo::transaction(cx, |cx| {
-                        let with =
-                            |side: &Term| abstract_needle(&g, source, level, &needle, 0, side);
-                        let trail = cx.metas().meta_trail.borrow().len();
-                        if !cx.unify(&cx.eval(&with(&lhs)?)?, scrutinee_side)?
-                            || !cx.unify(&cx.eval(&with(&rhs)?)?, value_side)?
-                        {
-                            return Ok(None);
-                        }
-                        // Matching the two sides must not solve an unknown: one
-                        // in `expected` (a lemma's `_` predicate, say) would be
-                        // solved from the branch's value, not the scrutinee
-                        // (`_ x = True` against `True = True` gives `x => True`),
-                        // where the comparison before this one would have waited
-                        // for something else to fix it (SW-1600).
-                        if cx.metas().meta_trail.borrow().len() != trail {
-                            return Ok(None);
-                        }
-                        // The kernel's `J motive base h`, with `h: lhs = rhs`, has
-                        // type `motive rhs h`, and `base` has type `motive lhs refl`.
-                        // Backward, the motive is `T y → T lhs`, from the identity.
-                        let at_y = abstract_needle(&g, source, level, &needle, 2, &Term::Var(1))?;
-                        let (body, base) = match forward {
-                            true => (at_y, term.clone()),
-                            false => {
-                                let at_lhs = source.shift(&g, 3, 0)?;
-                                let id =
-                                    Term::Lam("x".into(), Icit::Explicit, Rc::new(Term::Var(0)));
-                                (
-                                    Term::Pi(
-                                        "x".into(),
-                                        Icit::Explicit,
-                                        Rc::new(at_y),
-                                        Rc::new(at_lhs),
-                                    ),
-                                    id,
-                                )
-                            }
-                        };
-                        // `body` was quoted before the matching above, which may
-                        // have solved unknowns in it; one still unsolved can't be
-                        // checked, so the mismatch stands rather than the motive
-                        // going in unchecked.
-                        let Ok(body) = cx.e.zonk(&body, level + 2) else {
-                            return Ok(None);
-                        };
-                        // Replacing every occurrence can leave a type that no
-                        // longer checks (a proof about the scrutinee inside it):
-                        // then this isn't a rewrite, and the mismatch stands.
-                        let mut kcx = crate::rewrite::kernel_context(cx)?;
-                        let y = Value::var(kcx.level());
-                        kcx.bind("y".into(), (*carrier).clone());
-                        kcx.bind(
-                            "p".into(),
-                            Value::Eq(carrier.clone(), lhs_value.clone(), Rc::new(y)),
-                        );
-                        crate::kernel::without_glue(&g, || {
-                            crate::kernel::check_type(&mut kcx, &body)
-                        })?;
-                        let motive = Term::Lam(
-                            "y".into(),
-                            Icit::Explicit,
-                            Rc::new(Term::Lam("p".into(), Icit::Explicit, Rc::new(body))),
-                        );
-                        let proof = Term::Var(level - 1 - equation);
-                        let j = Term::J(Rc::new(motive), Rc::new(base), Rc::new(proof));
-                        Ok(Some(match forward {
-                            true => j,
-                            false => Term::app(j, term.clone()),
-                        }))
-                    })
+                    cx.transport_along(&along, forward, (&todays, source), source_value, value_side)
                 })?
                 .flatten();
                 if built.is_some() {
@@ -1414,6 +1410,99 @@ impl<'e> Ctx<'e> {
             }
         }
         Ok(None)
+    }
+
+    /// `along.term` rewritten along the equation `along.equation: lhs =
+    /// rhs`, from `scrutinee_side` to `value_side` (forward: `along.term`
+    /// proves `scrutinee_side`) or back. `generalised` is `scrutinee_side`
+    /// with the occurrences to rewrite replaced by a variable one past the
+    /// context, and `codomain` is `scrutinee_side` itself, both read back
+    /// (folded or not, as the caller found them); `value_side` must be
+    /// `generalised` with `rhs` there. `None` if it doesn't fit; whatever was
+    /// solved is then undone.
+    fn transport_along(
+        &mut self,
+        along: &Along,
+        forward: bool,
+        (generalised, codomain): (&Term, &Term),
+        scrutinee_side: &Value,
+        value_side: &Value,
+    ) -> Result<Option<Term>> {
+        let g = self.g();
+        let level = self.level();
+        crate::undo::transaction(self, |cx| {
+            let with = |side: &Term| -> Term {
+                Term::app(
+                    Term::Lam("y".into(), Icit::Explicit, Rc::new(generalised.clone())),
+                    side.clone(),
+                )
+            };
+            let trail = cx.metas().meta_trail.borrow().len();
+            if !cx.unify(&cx.eval(&with(along.lhs))?, scrutinee_side)?
+                || !cx.unify(&cx.eval(&with(along.rhs))?, value_side)?
+            {
+                return Ok(None);
+            }
+            // Matching the two sides must not solve an unknown: one
+            // in `expected` (a lemma's `_` predicate, say) would be
+            // solved from the branch's value, not the scrutinee
+            // (`_ x = True` against `True = True` gives `x => True`),
+            // where the comparison before this one would have waited
+            // for something else to fix it (SW-1600).
+            if cx.metas().meta_trail.borrow().len() != trail {
+                return Ok(None);
+            }
+            // The kernel's `J motive base h`, with `h: lhs = rhs`, has
+            // type `motive rhs h`, and `base` has type `motive lhs refl`.
+            // Backward, the motive is `T y → T lhs`, from the identity.
+            // `generalised` has `y` one past the context; under `p` too, it
+            // is one further out.
+            let at_y = generalised.shift(&g, 1, 0)?;
+            let (body, base) = match forward {
+                true => (at_y, along.term.clone()),
+                false => {
+                    let at_lhs = codomain.shift(&g, 3, 0)?;
+                    let id = Term::Lam("x".into(), Icit::Explicit, Rc::new(Term::Var(0)));
+                    (
+                        Term::Pi("x".into(), Icit::Explicit, Rc::new(at_y), Rc::new(at_lhs)),
+                        id,
+                    )
+                }
+            };
+            // `body` was quoted before the matching above, which may
+            // have solved unknowns in it; one still unsolved can't be
+            // checked, so the mismatch stands rather than the motive
+            // going in unchecked.
+            let Ok(body) = cx.e.zonk(&body, level + 2) else {
+                return Ok(None);
+            };
+            // Replacing every occurrence can leave a type that no
+            // longer checks (a proof about the scrutinee inside it):
+            // then this isn't a rewrite, and the mismatch stands.
+            let mut kcx = crate::rewrite::kernel_context(cx)?;
+            let y = Value::var(kcx.level());
+            kcx.bind("y".into(), along.carrier.clone());
+            kcx.bind(
+                "p".into(),
+                Value::Eq(
+                    Rc::new(along.carrier.clone()),
+                    Rc::new(along.lhs_value.clone()),
+                    Rc::new(y),
+                ),
+            );
+            crate::kernel::without_glue(&g, || crate::kernel::check_type(&mut kcx, &body))?;
+            let motive = Term::Lam(
+                "y".into(),
+                Icit::Explicit,
+                Rc::new(Term::Lam("p".into(), Icit::Explicit, Rc::new(body))),
+            );
+            let proof = Term::Var(level - 1 - along.equation);
+            let j = Term::J(Rc::new(motive), Rc::new(base), Rc::new(proof));
+            Ok(Some(match forward {
+                true => j,
+                false => Term::app(j, along.term.clone()),
+            }))
+        })
     }
 
     /// Whether `term`, with `needle` replaced by the variable at `var`,
@@ -1441,6 +1530,20 @@ impl<'e> Ctx<'e> {
         };
         quote(&g, level, &value).is_ok_and(|t| crate::matching::same(&t, refined))
     }
+}
+
+/// What [`Ctx::transport_along`] rewrites, and along which equation.
+struct Along<'a> {
+    /// The proof whose type mismatches.
+    term: &'a Term,
+    /// The equation `lhs = rhs`, `lhs` the scrutinee and `rhs` the
+    /// variable standing for it: its type, and its sides (`lhs` also as a
+    /// value), and its level.
+    carrier: &'a Value,
+    lhs_value: &'a Value,
+    lhs: &'a Term,
+    rhs: &'a Term,
+    equation: usize,
 }
 
 /// `term` (in a context of `level` variables) with each occurrence of
@@ -1485,10 +1588,10 @@ pub(crate) const NE_AS_PROP_NOTE: &str =
     "`!=` here is the proposition `≠`; for the `Bool` test write `((a != b): Bool)`";
 
 /// Whether the expected type mentions a proposition `≠` and what was found
-/// is a `Bool` test (`Decidable.toBool …`): a `Bool` `!=` that was read as `≠`
+/// is a `Bool` test (`Decidable.toBool …`, or `….toBool`): a `Bool` `!=` that was read as `≠`
 /// because it sits beside `=` in a statement.
 pub(crate) fn ne_read_as_prop(expected: &str, found: &str) -> bool {
-    expected.contains(" ≠ ") && found.contains("Decidable.toBool")
+    expected.contains(" ≠ ") && (found.contains("Decidable.toBool") || found.contains(".toBool"))
 }
 
 /// Whether two forced types are built by the same outermost former (the
@@ -1622,6 +1725,16 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         let (term, ty) = infer_inner(cx, text)?;
         cx.e.note_expr(cx, text.span(), &ty, false);
         return Ok((term, ty));
+    }
+    if let Expr::App(..) = expr
+        && let Some(rewritten) = records::brace_arguments(cx, expr)?
+    {
+        return infer_inner(cx, &rewritten);
+    }
+    if let Expr::App(..) = expr
+        && let Some((d, c, fields)) = records::named_ctor_call(cx, expr)?
+    {
+        return crate::defaults::ctor_with_defaults(cx, d, c, &fields, None);
     }
     // Code that performs operations, in a pure context: it may only perform
     // what it handles itself.
@@ -2002,9 +2115,17 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             fields,
             ..
         } => records::infer_update(cx, base, fields),
-        Expr::CtorFields { ctor, fields, span } => {
+        Expr::CtorFields {
+            ctor, fields, span, ..
+        } => {
             match records::ctor_fields(cx, ctor, fields, *span, None)? {
                 records::Construction::Positional(positional) => infer_inner(cx, &positional),
+                records::Construction::Argument(positional, hint) => {
+                    infer_inner(cx, &positional).map_err(|e| match &hint {
+                        Some(hint) => hint.apply(e),
+                        None => e,
+                    })
+                }
                 records::Construction::Defaults(d, c) => {
                     crate::defaults::ctor_with_defaults(cx, d, c, fields, None)
                 }
@@ -4032,6 +4153,16 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         cx.e.note_expr(cx, text.span(), expected, true);
         return Ok(term);
     }
+    if let Expr::App(..) = expr
+        && let Some(rewritten) = records::brace_arguments(cx, expr)?
+    {
+        return check_inner(cx, &rewritten, expected);
+    }
+    if let Expr::App(..) = expr
+        && let Some((d, c, fields)) = records::named_ctor_call(cx, expr)?
+    {
+        return Ok(crate::defaults::ctor_with_defaults(cx, d, c, &fields, Some(expected))?.0);
+    }
     let g = cx.g();
     let named = expected;
     let expected = force(&g, expected.clone())?;
@@ -4560,16 +4691,25 @@ pub(crate) fn check_value(
         (Expr::Record { base, fields, .. }, _) => {
             records::check_record(cx, base.as_deref(), fields, &expected)
         }
-        (Expr::CtorFields { ctor, fields, span }, _) => {
-            match records::ctor_fields(cx, ctor, fields, *span, Some(&expected))? {
-                records::Construction::Positional(positional) => {
-                    check_inner(cx, &positional, &expected)
-                }
-                records::Construction::Defaults(d, c) => {
-                    Ok(crate::defaults::ctor_with_defaults(cx, d, c, fields, Some(&expected))?.0)
-                }
+        (
+            Expr::CtorFields {
+                ctor, fields, span, ..
+            },
+            _,
+        ) => match records::ctor_fields(cx, ctor, fields, *span, Some(&expected))? {
+            records::Construction::Positional(positional) => {
+                check_inner(cx, &positional, &expected)
             }
-        }
+            records::Construction::Argument(positional, hint) => {
+                check_inner(cx, &positional, &expected).map_err(|e| match &hint {
+                    Some(hint) => hint.apply(e),
+                    None => e,
+                })
+            }
+            records::Construction::Defaults(d, c) => {
+                Ok(crate::defaults::ctor_with_defaults(cx, d, c, fields, Some(&expected))?.0)
+            }
+        },
         // A quotient form, with the expected type to find its implicit
         // arguments from.
         (Expr::Var(_) | Expr::App(..), _) if crate::quot::applied(cx, expr).is_some() => {
@@ -4837,7 +4977,7 @@ fn proof_expected(cx: &Ctx, expected: &Value) -> Result<bool> {
     if matches!(ty, Value::Sort(_) | Value::Neutral(Head::Meta(_), _)) {
         return Ok(false);
     }
-    let term = cx.quote(&ty)?;
+    let term = cx.quote_folded(&ty)?;
     let mut kcx = crate::rewrite::kernel_context(cx)?;
     match crate::kernel::without_glue(&g, || crate::kernel::infer(&mut kcx, &term)) {
         Ok((_, sort)) => Ok(matches!(force(&g, sort)?, Value::Sort(Sort::Prop))),

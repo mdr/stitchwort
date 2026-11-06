@@ -180,7 +180,7 @@ def mergeAlbums (local: Trip) (remote: Trip) (legs: List Leg): List Album :=
 -- ones); otherwise the remote plan wins, if there is one.
 def mergeItinerary: Option Itinerary → Option Itinerary → Option Itinerary
   | Some old, Some new =>
-    if old.fileId == new.fileId then Some ({ new | places = List.appendNewBy new.places old.places (place => place.id) })
+    if old.fileId == new.fileId then Some { new | places = List.appendNewBy new.places old.places (place => place.id) }
     else Some new
   | None, Some new => Some new
   | old, None => old

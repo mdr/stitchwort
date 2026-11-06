@@ -1,7 +1,7 @@
 -- Integers, extracted to JS (docs/proposals/integers.md): an `Int` is a
--- `bigint` of either sign at the boundary and inside generated code, and
--- each `/` and `%` is justified by a proof, checked at compile time or, for
--- an export's precondition, at runtime.
+-- `bigint` of either sign at the boundary and inside generated code. Every
+-- division is total (`x / 0 = 0`, `x % 0 = x`); an export can still ask for a
+-- divisor that isn't 0, a precondition checked at runtime.
 --
 -- run: dial (-18)
 -- run: divide (-7) 2
@@ -17,7 +17,7 @@ import Std (Decidable, Int, List, Nat, Option, Text)
 -- Where a dial at 0 ends up after `x` clicks, on a dial of 100.
 export def dial (x: Int): Int := x % 100
 
--- Each of the three conventions, and the precondition checked in JS.
+-- Each of the three conventions, and a precondition checked in JS.
 export def divide (a: Int) (d: Int): [auto ok: d ≠ 0] → List Int := [a / d, a % d, Int.tdiv a d, Int.tmod a d, Int.fdiv a d, Int.fmod a d]
 
 export def describe: Int → Text
@@ -36,19 +36,21 @@ export def sub (a: Int) (b: Int): Int := a - b
 
 export def mul (a: Int) (b: Int): Int := a * b
 
-export def eucDiv (a: Int) (d: Int): [auto ok: d ≠ 0] → Int := a / d
+export def eucDiv (a: Int) (d: Int): Int := a / d
 
-export def eucMod (a: Int) (d: Int): [auto ok: d ≠ 0] → Int := a % d
+export def eucMod (a: Int) (d: Int): Int := a % d
 
-export def tdiv (a: Int) (d: Int): [auto ok: d ≠ 0] → Int := Int.tdiv a d
+export def tdiv (a: Int) (d: Int): Int := Int.tdiv a d
 
-export def tmod (a: Int) (d: Int): [auto ok: d ≠ 0] → Int := Int.tmod a d
+export def tmod (a: Int) (d: Int): Int := Int.tmod a d
 
-export def fdiv (a: Int) (d: Int): [auto ok: d ≠ 0] → Int := Int.fdiv a d
+export def fdiv (a: Int) (d: Int): Int := Int.fdiv a d
 
-export def fmod (a: Int) (d: Int): [auto ok: d ≠ 0] → Int := Int.fmod a d
+export def fmod (a: Int) (d: Int): Int := Int.fmod a d
 
-export def modNat (a: Int) (d: Nat): [auto ok: d ≠ 0] → Nat := Int.modNat a d
+export def modNat (a: Int) (d: Nat): Nat := Int.modNat a d
+
+export def natDivMod (n: Nat) (d: Nat): List Nat := [n / d, n % d]
 
 export def decEq (a: Int) (b: Int): Bool := Decidable.toBool (Int.decEq a b)
 
@@ -86,13 +88,16 @@ export def parse (t: Text): Option Int := Text.toInt t
 -- run: fdiv 7 (-2)
 -- run: fmod 7 (-2)
 -- run: modNat (-7) 3
--- rejects: eucDiv (OfNat 5) (OfNat 0)
--- rejects: eucMod (NegSucc 4) (OfNat 0)
--- rejects: tdiv (OfNat 5) (OfNat 0)
--- rejects: tmod (OfNat 5) (OfNat 0)
--- rejects: fdiv (OfNat 5) (OfNat 0)
--- rejects: fmod (OfNat 5) (OfNat 0)
--- rejects: modNat (OfNat 5) 0
+-- run: eucDiv 5 0
+-- run: eucMod (-5) 0
+-- run: tdiv 5 0
+-- run: tmod (-5) 0
+-- run: fdiv (-5) 0
+-- run: fmod 5 0
+-- run: modNat (-5) 0
+-- run: modNat 5 0
+-- run: natDivMod 7 0
+-- run: natDivMod 7 2
 -- run: decEq 5 5
 -- run: decEq 5 (-5)
 -- run: leq (-5) (-5)

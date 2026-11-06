@@ -67,7 +67,7 @@ def Space.contains (space: Space) (position: Position): Bool := position.within 
 
 --| The tile `offset` from `position`, wrapping round the space's edges.
 def Space.wrap (space: Space) (position: Position) (offset: Offset): Position :=
-  position.wrap offset space.height space.width [tall := space.heightPositive] [wide := space.widthPositive]
+  position.wrap offset space.height space.width
 
 --| Where `robot` is after `seconds` seconds: the velocity times the
 --| seconds away, wrapping round the space.

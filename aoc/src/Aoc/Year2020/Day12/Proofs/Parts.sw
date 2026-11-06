@@ -6,6 +6,7 @@ namespace Aoc.Year2020.Day12.Proofs
 import Aoc.Year2020.Day12 (..)
 import Aoc.Year2020.Day12 (Spec)
 import Aoc.Year2020.Day12.Spec (along, turned, unit)
+import Aoc.Common (Coords, Heading)
 import Std (Eq, Int, List, Nat)
 
 --| Folding commutes with a map that commutes with each step.
@@ -14,12 +15,15 @@ theorem foldLeftRelate (relate: s → t) (f: s → a → s) (g: t → a → t) (
   | [], x => rfl
   | [item, ..rest], x => rewrite <- commutes x item in foldLeftRelate relate f g commutes rest (f x item)
 
+theorem alongTimes (location: Location) (step: Location) (distance: Nat): along location step distance = location.plus (step.times distance.toInt) :=
+  Coords.ext _ _ (ring) (ring)
+
 theorem alongUnit (location: Location) (heading: Heading) (distance: Nat): along location (unit heading) distance = location.moved heading distance :=
   match heading with
-    | North => Location.ext _ _ (omega) (omega)
-    | South => Location.ext _ _ (omega) (omega)
-    | East => Location.ext _ _ (omega) (omega)
-    | West => Location.ext _ _ (omega) (omega)
+    | North => Coords.ext _ _ (omega) (omega)
+    | South => Coords.ext _ _ (omega) (omega)
+    | East => Coords.ext _ _ (omega) (omega)
+    | West => Coords.ext _ _ (omega) (omega)
 
 --| Part 1's ship as the spec sees it: facing a step, not a heading.
 def Ship.inSpec (ship: Ship): Spec.Ship := { position = ship.location, facing = unit ship.facing }
@@ -42,7 +46,7 @@ theorem steerFollows (ship: WaypointShip) (instruction: Instruction): Spec.steer
       match action with
         | Move heading => rewrite alongUnit ship.waypoint heading value in rfl
         | Turn side => rewrite rotatedTurned side value ship.waypoint in rfl
-        | Forward => rfl
+        | Forward => rewrite alongTimes ship.location ship.waypoint value in rfl
 
 theorem part1Rules (route: Route): Spec.Part1 route.instructions route.shipDistance :=
   rewrite <- foldLeftRelate Ship.inSpec Ship.follow Spec.navigate (ship instruction => Eq.sym (navigateFollows ship instruction)) route.instructions Ship.start in rfl

@@ -113,11 +113,11 @@ def firstBig: List Nat → Option Big
   | [] => None
   | [x, ..rest] =>
     match big: Nat.leq 10 x with
-      | True => Some ({ value = x, isBig = big })
+      | True => Some { value = x, isBig = big }
       | False => firstBig rest
 
 theorem firstBigHit (x: Nat) (rest: List Nat) (h: Nat.leq 10 x = True):
-    firstBig [x, ..rest] = Some ({ value = x, isBig = h }) :=
+    firstBig [x, ..rest] = Some { value = x, isBig = h } :=
   firstBig.eq2.true x rest h
 
 theorem firstBigSkip (x: Nat) (rest: List Nat) (h: Nat.leq 10 x = False):

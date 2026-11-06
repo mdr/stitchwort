@@ -74,6 +74,16 @@ pub fn term_in(g: &Ev, scope: &dyn NameScope, names: &[Name], term: &Term) -> St
     Printer::new(g, Some(scope)).print(&mut names, term, Prec::Arrow)
 }
 
+/// [`term`], with every call written as a call: `List.append xs ys`, not
+/// `xs ++ ys`, and `List.length xs`, not `xs.length`. For telling apart
+/// terms that the sugar prints alike.
+pub fn term_calls(g: &Ev, names: &[Name], term: &Term) -> String {
+    let mut names = names.to_vec();
+    let printer = Printer::new(g, None);
+    printer.calls.set(true);
+    printer.print(&mut names, term, Prec::Arrow)
+}
+
 /// Prints `term` with ASCII operators (`&&`, `!=`, `->`), for text inside
 /// exported JavaScript, where the reader writes `!=` and not `≠` (D1223).
 pub fn term_ascii(g: &Ev, names: &[Name], term: &Term) -> String {
@@ -393,6 +403,8 @@ enum Prec {
     /// `a ..< b`, `a ..= b`: between comparisons and `+` and `++`, not
     /// associative.
     Range,
+    /// `a ++ b`: looser than `+`, grouping to the right.
+    Append,
     Add,
     /// `*`, `/`, `%`: tighter than `+`, looser than a prefix minus.
     Mul,
@@ -406,6 +418,17 @@ enum Prec {
 /// (`Printer::bool_if`).
 type Branch = (Name, Rc<Term>);
 
+/// What [`Printer::dot_call`] made of a call.
+enum Dot {
+    /// The dot form.
+    Call((String, Prec)),
+    /// Not a dot call, and the receiver was printed to find that out
+    /// (at [`Prec::Atom`], as an argument is): the plain call reuses it.
+    Declined(String),
+    /// Not a dot call, nothing printed.
+    No,
+}
+
 struct Printer<'g> {
     g: &'g Ev<'g>,
     /// Whether something was too deeply nested to print, and shown as `…`.
@@ -418,6 +441,8 @@ struct Printer<'g> {
     /// Write the operators in ASCII (`&&`, `!=`, `->`), for text a
     /// JavaScript developer reads (D1223).
     ascii: Cell<bool>,
+    /// Write calls as calls: no dot calls, no `++` for the appends.
+    calls: Cell<bool>,
     /// Write a decided equation as the `a == b` that elaborates to it
     /// ([`Printer::decided_equation`]): in a goal, which is pasted back.
     equations: Cell<bool>,
@@ -437,6 +462,7 @@ impl<'g> Printer<'g> {
             depth: Cell::new(0),
             show_hidden: Cell::new(false),
             ascii: Cell::new(false),
+            calls: Cell::new(false),
             equations: Cell::new(false),
             scope,
             meant: RefCell::new(HashMap::default()),
@@ -817,18 +843,26 @@ impl<'g> Printer<'g> {
                     shown.push(format!("..{}", self.print(names, tail, Prec::Arrow)));
                     return (format!("[{}]", shown.join(", ")), Prec::Atom);
                 }
-                // Braces right after a constructor name its fields, so a
-                // record given to one is in brackets: `Cons ({ x = 1 })
-                // rest`, not `Cons { x = 1 } rest` (SW-1000).
-                let mut text = self.g.data(*d).ctors[*c].name.to_string();
+                let ctor = &self.g.data(*d).ctors[*c];
+                let mut text = ctor.name.to_string();
+                // A constructor declared with its fields in braces is shown
+                // by field name, as it can be written. (With implicit fields
+                // it is shown positionally, which braces can't say.)
+                if ctor.braced && !args.is_empty() && !ctor.implicit.contains(&true) {
+                    let fields: Vec<String> = ctor
+                        .fields
+                        .iter()
+                        .zip(args)
+                        .map(|((f, _), a)| format!("{f} = {}", self.print(names, a, Prec::Arrow)))
+                        .collect();
+                    return (format!("{text} {{ {} }}", fields.join(", ")), Prec::App);
+                }
+                // After a constructor declared with brackets, braces are a
+                // record argument like any other: `Cons { x = 1 } rest`.
                 for arg in args {
                     let shown = self.print(names, arg, Prec::Atom);
-                    if shown.starts_with('{') {
-                        text.push_str(&format!(" ({shown})"));
-                    } else {
-                        text.push(' ');
-                        text.push_str(&shown);
-                    }
+                    text.push(' ');
+                    text.push_str(&shown);
                 }
                 let prec = if args.is_empty() {
                     Prec::Atom
@@ -1084,6 +1118,7 @@ impl<'g> Printer<'g> {
                         let (left, right) = match prec {
                             Prec::Add => (Prec::Add, Prec::App),
                             Prec::Mul => (Prec::Mul, Prec::Neg),
+                            Prec::Append => (Prec::Add, Prec::Append),
                             _ => (Prec::Add, Prec::Add),
                         };
                         let lhs = self.print(names, lhs, left);
@@ -1131,6 +1166,20 @@ impl<'g> Printer<'g> {
                 }
                 if self.show_hidden.get() {
                     return self.applied_with_hidden(names, term);
+                }
+                if let Term::Def(id) = head {
+                    match self.dot_call(names, *id, &args) {
+                        Dot::Call(shown) => return shown,
+                        // Printing the receiver again would double the work
+                        // at each receiver in a chain of such calls.
+                        Dot::Declined(receiver) => {
+                            let head = self.print(names, head, Prec::App);
+                            let head = format!("{head} {receiver}");
+                            let (text, _) = self.applied(names, head, args[1..].iter().copied());
+                            return (text, Prec::App);
+                        }
+                        Dot::No => {}
+                    }
                 }
                 let head = self.print(names, head, Prec::App);
                 self.applied(names, head, args.into_iter())
@@ -1307,6 +1356,15 @@ impl<'g> Printer<'g> {
         }
         if let Some((n, d)) = self.quotient_args(id, args) {
             return Some(("/", Prec::Mul, n, d));
+        }
+        if let [lhs, rhs] = args
+            && !self.calls.get()
+            && matches!(
+                self.g.env.registry().def_builtin(id),
+                Some(Builtin::Append | Builtin::TextAppend)
+            )
+        {
+            return Some(("++", Prec::Append, lhs, rhs));
         }
         let path = &self.g.def(id).path;
         let (op, prec, field) = match path.strip_prefix("Std.")? {
@@ -1742,7 +1800,7 @@ impl<'g> Printer<'g> {
             return Some((op, operand, lhs, rhs));
         }
         let op = match reg.def_builtin(*id)? {
-            Builtin::Append | Builtin::TextAppend => "++",
+            Builtin::Append | Builtin::TextAppend if !self.calls.get() => "++",
             _ => return None,
         };
         Some((op, Prec::Add, lhs, rhs))
@@ -2181,6 +2239,65 @@ impl<'g> Printer<'g> {
             .map(|t| self.print(names, t, Prec::Arrow))
             .collect();
         format!("({})", items.join(", "))
+    }
+
+    /// A saturated call of `Ns.f` whose first explicit parameter has the
+    /// type `Ns`, as the dot call that elaborates to it: `coupon.apply
+    /// total`. Not for a partial call (`Coupon.apply coupon` stays a call,
+    /// as the dot form would read as a different function), nor in ASCII
+    /// text, nor when the receiver can't be written before a dot (an
+    /// anonymous `x✝`, a number, an elided part, or a bare global name,
+    /// which would read as a path).
+    fn dot_call(&self, names: &mut Vec<Name>, id: DefId, args: &[&Term]) -> Dot {
+        if self.ascii.get() || self.calls.get() {
+            return Dot::No;
+        }
+        let def = self.g.def(id);
+        let Some((namespace, last)) = def.path.rsplit_once('.') else {
+            return Dot::No;
+        };
+        if !last.starts_with(|c: char| c.is_alphabetic() || c == '_')
+            || !last
+                .chars()
+                .all(|c| c.is_alphanumeric() || c == '_' || c == '\'')
+        {
+            return Dot::No;
+        }
+        let mut parameters = 0;
+        let mut first = None;
+        let mut ty = def.ty.strip_loc();
+        while let Term::Pi(_, icit, domain, codomain) = ty {
+            if *icit == Icit::Explicit {
+                parameters += 1;
+                first.get_or_insert(domain.strip_loc());
+            }
+            ty = codomain.strip_loc();
+        }
+        let Some(Term::Data(d, _)) = first else {
+            return Dot::No;
+        };
+        if args.len() < parameters || &*self.g.data(*d).path != namespace {
+            return Dot::No;
+        }
+        let Some((receiver, rest)) = args.split_first() else {
+            return Dot::No;
+        };
+        let text = self.print(names, receiver, Prec::Atom);
+        // A number reads better as an argument, `Nat.pow 10 k`, than as
+        // `(10).pow k`; an elided receiver is no receiver to read.
+        if text.contains('✝') || text == "…" || text.starts_with(|c: char| c.is_ascii_digit()) {
+            return Dot::Declined(text);
+        }
+        // `Tip.size` and `Main.shopping.total` read as name paths, and
+        // `(Tip).size` looks odd, so a bare global stays a plain call.
+        if matches!(
+            receiver.strip_loc(),
+            Term::Def(_) | Term::Data(..) | Term::Ctor(..)
+        ) && !text.contains([' ', '(', '[', '{'])
+        {
+            return Dot::Declined(text);
+        }
+        Dot::Call(self.applied(names, format!("{text}.{last}"), rest.iter().copied()))
     }
 
     /// An application with every argument, those the compiler fills in

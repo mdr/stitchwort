@@ -46,9 +46,9 @@ theorem explodeHeight: (depth: Nat) → (number: Number) → (exploded: Explosio
 
 theorem splitHeight: (number: Number) → (split2: Number) → split number = Some split2 → height split2 ≤ height number + 1
   | Regular value, split2, some =>
-    match Nat.decLessThan 9 value with
-      | Yes _ => rewrite <- Option.someInjective some in omega
-      | No _ => Void.exfalso (Option.noneNotSome split2 some)
+    match Nat.leq 10 value with
+      | True => rewrite <- Option.someInjective some in omega
+      | False => Void.exfalso (Option.noneNotSome split2 some)
   | Pair left right, split2, some =>
     match el: split left with
       | Some left2 => rewrite <- Option.someInjective some in omega [splitHeight left left2 el]

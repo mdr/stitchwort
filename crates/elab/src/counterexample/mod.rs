@@ -93,6 +93,13 @@ const CONFIRM_STEPS: u64 = 50_000_000;
 const OUT_OF_STEPS_IN_A_ROW: usize = 20;
 const OUT_OF_STEPS: usize = 50;
 
+/// The same limit for an untimed search (tests, benchmarks). An input that
+/// runs out of steps costs a million of them, about 0.15 s, and without the
+/// wall-time limit that stops a timed search after one or two, fifty would
+/// cost seconds on every failing theorem. Counting steps, it doesn't vary
+/// with the machine's load.
+const UNTIMED_OUT_OF_STEPS: usize = 5;
+
 /// How many random inputs are drawn and run at a time, so that a search
 /// that stops early (on its time) has drawn no more than it ran.
 const RANDOM_CHUNK: usize = 250;
@@ -708,6 +715,11 @@ impl Elaborator {
     ) -> Option<Batch> {
         let g = &self.ev();
         let falsified = checker.hypotheses as u64 + 1;
+        let out_of_steps_limit = if self.options.untimed_counterexamples {
+            UNTIMED_OUT_OF_STEPS
+        } else {
+            OUT_OF_STEPS
+        };
         let mut found = None;
         let mut stopped = false;
         let mut timed_out = false;
@@ -731,7 +743,9 @@ impl Elaborator {
                 return false;
             }
             in_a_row = if result.is_none() { in_a_row + 1 } else { 0 };
-            if counted && (in_a_row >= OUT_OF_STEPS_IN_A_ROW || log.out_of_steps >= OUT_OF_STEPS) {
+            if counted
+                && (in_a_row >= OUT_OF_STEPS_IN_A_ROW || log.out_of_steps >= out_of_steps_limit)
+            {
                 stopped = true;
                 return false;
             }

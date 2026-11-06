@@ -8,5 +8,5 @@ expression: output
  7 │ theorem shown (xs: List Nat): xs.any isSmall = xs.any (n => isSmall n) := ?
    │                                                                           ┬  
    │                                                                           ╰── xs: List Nat
-   │                                                                               ⊢ List.any xs isSmall = List.any xs (n => isSmall n)
+   │                                                                               ⊢ xs.any isSmall = xs.any (n => isSmall n)
 ───╯

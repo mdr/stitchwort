@@ -50,7 +50,7 @@ def Position.offset (position: Position) (offset: Offset): Option Position :=
     | Some row =>
       match (position.column.toInt + offset.columns).toNatChecked with
         | None => None
-        | Some column => Some ({ row, column })
+        | Some column => Some { row, column }
 
 --| The position `offset` away, if it is on the grid's rectangle.
 def Grid.offset (grid: Grid a) (position: Position) (offset: Offset): Option Position :=
@@ -62,7 +62,7 @@ def Grid.offset (grid: Grid a) (position: Position) (offset: Offset): Option Pos
 --| columns whose edges wrap round: moving down past the last row comes back
 --| in at the top, and up past the top in at the bottom; the same for
 --| columns.
-def Position.wrap (position: Position) (offset: Offset) (height: Nat) (width: Nat) [auto tall: height ≠ 0] [auto wide: width ≠ 0]: Position := {
-  row = Int.modNat (position.row.toInt + offset.rows) height [ok := tall],
-  column = Int.modNat (position.column.toInt + offset.columns) width [ok := wide]
+def Position.wrap (position: Position) (offset: Offset) (height: Nat) (width: Nat): Position := {
+  row = Int.modNat (position.row.toInt + offset.rows) height,
+  column = Int.modNat (position.column.toInt + offset.columns) width
 }

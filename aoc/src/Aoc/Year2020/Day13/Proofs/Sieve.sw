@@ -31,27 +31,27 @@ theorem describesEarliest [fits: Nat → Prop] [alignment: Alignment] (described
 --| How the sieve sees one bus: whether it departs `periods` periods on.
 def suits (alignment: Alignment) (bus: Bus) (periods: Nat): Bool := bus.departsAfter (alignment.time + periods * alignment.period)
 
-theorem suitsMod (alignment: Alignment) (bus: Bus) [auto ok: bus.id ≠ 0] (periods: Nat):
+theorem suitsMod (alignment: Alignment) (bus: Bus) (periods: Nat):
     suits alignment bus periods = ((alignment.time + periods * alignment.period + bus.offset) % bus.id == 0) :=
   Nat.dividesMod bus.id _
 
 --| Suiting comes round every `id` periods.
-theorem suitsRound (alignment: Alignment) (bus: Bus) [auto ok: bus.id ≠ 0] (periods: Nat):
+theorem suitsRound (alignment: Alignment) (bus: Bus) (periods: Nat):
     suits alignment bus periods = suits alignment bus (periods % bus.id) :=
-  let split := Nat.divModEq periods bus.id ok
+  let split := Nat.divModEq periods bus.id
   let moved: alignment.time + periods * alignment.period + bus.offset
       = (alignment.time + periods % bus.id * alignment.period + bus.offset) + (periods / bus.id * alignment.period) * bus.id :=
     ring [alignment.period * split]
   rewrite suitsMod alignment bus periods, suitsMod alignment bus (periods % bus.id), moved,
     Nat.modAddMul (alignment.time + periods % bus.id * alignment.period + bus.offset) (periods / bus.id * alignment.period) bus.id in rfl
 
-theorem suitsTrue (alignment: Alignment) (bus: Bus) [auto ok: bus.id ≠ 0] (periods: Nat) (h: suits alignment bus periods = True):
+theorem suitsTrue (alignment: Alignment) (bus: Bus) (periods: Nat) (h: suits alignment bus periods = True):
     (alignment.time + periods * alignment.period + bus.offset) % bus.id = 0 :=
   DecEq.sound (rewrite <- suitsMod alignment bus periods in h)
 
 --| Once both `p` and `p + d` periods suit the bus, `d` periods are a
 --| multiple of its ID.
-theorem periodDivides (alignment: Alignment) (bus: Bus) [auto ok: bus.id ≠ 0] (p: Nat) (d: Nat)
+theorem periodDivides (alignment: Alignment) (bus: Bus) (p: Nat) (d: Nat)
     (now: suits alignment bus p = True) (later: suits alignment bus (p + d) = True): (d * alignment.period) % bus.id = 0 :=
   let x := alignment.time + p * alignment.period + bus.offset
   let moved: alignment.time + (p + d) * alignment.period + bus.offset = x + d * alignment.period := ring
@@ -62,14 +62,14 @@ theorem periodDivides (alignment: Alignment) (bus: Bus) [auto ok: bus.id ≠ 0] 
     _ = 0 := rewrite <- moved in suitsTrue alignment bus (p + d) later
 
 --| Stepping on by a multiple of the ID's worth of periods changes nothing.
-theorem suitsMultiple (alignment: Alignment) (bus: Bus) [auto ok: bus.id ≠ 0] (p: Nat) (q: Nat) (d: Nat) (h: (d * alignment.period) % bus.id = 0):
+theorem suitsMultiple (alignment: Alignment) (bus: Bus) (p: Nat) (q: Nat) (d: Nat) (h: (d * alignment.period) % bus.id = 0):
     suits alignment bus (p + q * d) = suits alignment bus p :=
   let x := alignment.time + p * alignment.period + bus.offset
   let moved: alignment.time + (p + q * d) * alignment.period + bus.offset = x + q * (d * alignment.period) := ring
   rewrite suitsMod alignment bus (p + q * d), suitsMod alignment bus p, moved,
     Nat.modAddOfModZero x (q * (d * alignment.period)) bus.id (Nat.modMulOfModZero q (d * alignment.period) bus.id h) in rfl
 
-theorem stepDescribes [fits: Nat → Prop] [alignment: Alignment] (bus: Bus) [auto ok: bus.id ≠ 0] (described: Describes fits alignment)
+theorem stepDescribes [fits: Nat → Prop] [alignment: Alignment] (bus: Bus) (described: Describes fits alignment)
     (first: Nat) (firstSuits: suits alignment bus first = True) (firstLeast: (e: Nat) → e < first → suits alignment bus e = False)
     (again: Nat) (againSuits: suits alignment bus (first + 1 + again) = True)
     (againLeast: (e: Nat) → e < again → suits alignment bus (first + 1 + e) = False):
@@ -91,7 +91,7 @@ theorem stepDescribes [fits: Nat → Prop] [alignment: Alignment] (bus: Bus) [au
             if early: j < first then Void.exfalso (Bool.falseNotTrue (rewrite firstLeast j early at jSuits in jSuits))
             else
               let k := j - first
-              let split := Nat.divModEq k (again + 1) (omega)
+              let split := Nat.divModEq k (again + 1)
               let r := k % (again + 1)
               let q := k / (again + 1)
               let rBelow := Nat.modLess k (again + 1) (omega)
@@ -113,7 +113,7 @@ theorem suitsRoundOnce (alignment: Alignment) (bus: Bus) [auto ok: bus.id ≠ 0]
   let multiple: (bus.id * alignment.period) % bus.id = 0 := rewrite Nat.mulComm bus.id alignment.period in Nat.modAddMul 0 alignment.period bus.id
   Eq.trans (Eq.cong (n => suits alignment bus n) (omega: p + 1 + (bus.id - 1) = p + 1 * bus.id)) (suitsMultiple alignment bus p 1 bus.id multiple)
 
-theorem addDescribes [fits: Nat → Prop] [alignment: Alignment] (bus: Bus) [auto ok: bus.id ≠ 0] (described: Describes fits alignment)
+theorem addDescribes [fits: Nat → Prop] [alignment: Alignment] (bus: Bus) (described: Describes fits alignment)
     (next: Alignment) (added: alignment.add bus = Some next): Describes (t => fits t ∧ bus.departsAfter t = True) next :=
   match found: (0 ..< bus.id).find (suits alignment bus) with
     | None => Void.exfalso (Option.noneNotSome next (rewrite found at added in added))

@@ -40,7 +40,6 @@ type Slope = { right: Nat, down: Nat }
 --| The trees at each step on `slope` from the top left, the first step's
 --| square onwards, until a step goes past the bottom.
 def treesOn (map: Grid Square) (slope: Slope): Nat :=
-  let nonZero := map.widthNonZero
   let find := map.lookupOr Open
   List.rangeFrom (count := map.height) (start := 1)
     |> .takeWhile (step => step * slope.down < map.height)

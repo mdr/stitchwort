@@ -12,7 +12,7 @@ theorem dragSign: (dx: Int) → dx - dx.sign = drag dx
   | OfNat (Succ k) => rfl
   | NegSucc k => rfl
 
-theorem stepIsMove (probe: Probe): step probe = move probe := rewrite dragSign probe.dx in rfl
+theorem stepIsMove (probe: Probe): step probe = move probe := rewrite dragSign probe.velocity.x in rfl
 
 --| The probe after `n` steps of the program, from `velocity`.
 def flight (n: Nat) (velocity: Velocity): Probe := Nat.iterate n step (launch velocity)
@@ -22,11 +22,11 @@ theorem flightIsAfter (n: Nat) (velocity: Velocity): flight n velocity = after n
 
 --| After `n` steps the y velocity is `n` less, and twice the height gained
 --| is `n * (2 * dy + 1 - n)`.
-theorem dyAfter: (n: Nat) → (probe: Probe) → (Nat.iterate n step probe).dy = probe.dy - n.toInt
+theorem dyAfter: (n: Nat) → (probe: Probe) → (Nat.iterate n step probe).velocity.y = probe.velocity.y - n.toInt
   | 0, probe => omega
   | Succ n, probe => omega [dyAfter n (step probe)]
 
-theorem yAfter: (n: Nat) → (probe: Probe) → 2 * (Nat.iterate n step probe).y = 2 * probe.y + n.toInt * (2 * probe.dy + 1 - n.toInt)
+theorem yAfter: (n: Nat) → (probe: Probe) → 2 * (Nat.iterate n step probe).position.y = 2 * probe.position.y + n.toInt * (2 * probe.velocity.y + 1 - n.toInt)
   | 0, probe => ring
   | Succ n, probe => ring [yAfter n (step probe)]
 
@@ -38,7 +38,7 @@ theorem signCases: (dx: Int) → (dx.sign = 1 ∧ 0 < dx) ∨ (dx.sign = 0 ∧ d
 
 --| Once past the target, the probe stays past it.
 theorem pastStays (target: Target) (probe: Probe) (h: past target probe = True): past target (step probe) = True :=
-  omega [signCases probe.dx]
+  omega [signCases probe.velocity.x]
 
 --| A probe past the target isn't in it.
 theorem pastOutside (target: Target) (probe: Probe) (h: past target probe = True): inTarget target probe = False := cases

@@ -36,7 +36,7 @@ def base: Trip := {
     { id = 1, start = 0.0, label = "morning", photos = [Plain 1, Panorama 2 180] },
     { id = 2, start = 600.0, label = "crossing", photos = [Plain 3] }
   ],
-  itinerary = Some ({ fileId = 7, places = [{ id = 1, name = "museum" }, { id = 2, name = "park" }] }),
+  itinerary = Some { fileId = 7, places = [{ id = 1, name = "museum" }, { id = 2, name = "park" }] },
   summary = Some (summarize [walk, ferry])
 }
 
@@ -137,7 +137,7 @@ test "a photo moved remotely stays in the local album" :=
 
 -- A replaced itinerary: the remote copy loaded another plan.
 
-def newPlan: Trip := { base | itinerary = Some ({ fileId = 8, places = [{ id = 1, name = "harbour" }] }) }
+def newPlan: Trip := { base | itinerary = Some { fileId = 8, places = [{ id = 1, name = "harbour" }] } }
 
 test "a replaced plan frees the local stops linked to the old one" :=
   let merged := merge base newPlan

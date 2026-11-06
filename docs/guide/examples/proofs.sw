@@ -47,6 +47,8 @@ theorem twiceIsDouble (n: Nat): double n = 2 * n := omega
 theorem stepBack (n: Nat) (x: Int) (h: x < n.toInt): x - 1 < n.toInt - 1 := omega
 
 theorem thirdOfTriple (k: Int): (3 * k) / 3 = k := omega
+
+theorem sizeOfSum (x: Int) (y: Int): (x + y).natAbs ≤ x.natAbs + y.natAbs := omega
 -- end omega
 
 -- begin omega-logic

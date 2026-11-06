@@ -27,8 +27,8 @@ theorem repeatingAtMod (pattern: List Square) (nonEmpty: pattern.length ≠ 0) (
 --| The program's lookup at the wrapped column is the repeating map's
 --| square.
 theorem lookupSquareAt (map: Grid Square) (rectangle: map.Rectangle) (nonZero: map.width ≠ 0) (position: Position):
-    (map.lookupOr Open ({ row = position.row, column = position.column % map.width }) == Tree) = (squareAt map position == Some Tree) :=
-  rewrite lookupOrAt map Open ({ row = position.row, column = position.column % map.width }) in
+    (map.lookupOr Open { row = position.row, column = position.column % map.width } == Tree) = (squareAt map position == Some Tree) :=
+  rewrite lookupOrAt map Open { row = position.row, column = position.column % map.width } in
     match found: map.rows.get position.row with
       | Some pattern =>
         let long: pattern.length = map.width := rectangle pattern (List.memOfGet map.rows position.row pattern found)

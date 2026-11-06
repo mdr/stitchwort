@@ -6,7 +6,7 @@
 namespace Aoc.Year2024.Day16.Tests
 import Aoc.Year2024.Day16 (..)
 import Aoc.Year2024.Day16.Spec (Move, follow, score, startingReindeer)
-import Aoc.Common (Direction, Position)
+import Aoc.Common (Direction, Heading, Position, headings)
 import Std (Fail, List, Map, Nat, Option, Result, Set, Text)
 
 def first: Text := """
@@ -127,9 +127,9 @@ test "steps" :=
   step (at 0 0) North == None && step (at 0 0) West == None && step (at 0 0) East == Some (at 0 1) && step (at 0 0) South == Some (at 1 0)
     && step (at 3 4) North == Some (at 2 4) && step (at 3 4) West == Some (at 3 3)
 test "turns" :=
-  headings.map (facing => facing.clockwise) == [South, West, North, East]
-    && headings.map (facing => facing.counterclockwise) == [North, East, South, West]
-test "headings and directions" := headings.map Heading.toDirection == [Right, Down, Left, Up]
+  headings.map (facing => facing.turnRight) == [East, South, West, North]
+    && headings.map (facing => facing.turnLeft) == [West, North, East, South]
+test "headings and directions" := headings.map Heading.toDirection == [Up, Right, Down, Left]
 test "moves out of the start of the one-turn maze" :=
   onMaze oneTurn (turned => turned.after turned.startReindeer |> .map (edge => (edge.fst.position, edge.fst.facing, edge.snd)))
     == Ok [(at 2 2, East, 1), (at 2 1, South, 1000), (at 2 1, North, 1000)]
@@ -140,18 +140,18 @@ test "moves into the end of the one-turn maze" :=
 test "scores from the start of the one-turn maze" :=
   onMaze oneTurn (turned => turned.fromStart.toList |> .map (entry => (entry.fst.position, entry.fst.facing, entry.snd)))
     == Ok [
+      (at 1 2, North, 1002),
       (at 1 2, East, 2002),
       (at 1 2, South, 3002),
       (at 1 2, West, 2002),
-      (at 1 2, North, 1002),
+      (at 2 1, North, 1000),
       (at 2 1, East, 0),
       (at 2 1, South, 1000),
       (at 2 1, West, 2000),
-      (at 2 1, North, 1000),
+      (at 2 2, North, 1001),
       (at 2 2, East, 1),
       (at 2 2, South, 1001),
-      (at 2 2, West, 2001),
-      (at 2 2, North, 1001)
+      (at 2 2, West, 2001)
     ]
 test "the best tiles of the first example" :=
   onMaze first (found => (found.bestTiles.contains (at 13 1), found.bestTiles.contains (at 1 1))) == Ok (True, False)

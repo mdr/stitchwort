@@ -30,8 +30,7 @@ theorem busesFromHas: (start: Nat) → (schedule: List Slot) → (id: Nat) → L
   | start, [OutOfService, ..rest], id, Inl same => Void.exfalso (Bool.falseNotTrue (Eq.cong isListed same))
   | start, [OutOfService, ..rest], id, Inr member => busesFromHas (Succ start) rest id member
 
-theorem nextDepartureIs (bus: Bus) [auto ok: bus.id ≠ 0] (from: Nat): bus.nextDeparture from = Nat.ceilDiv from bus.id * bus.id :=
-  Bus.nextDeparture.eq.ifTrue bus from ok
+theorem nextDepartureIs (bus: Bus) (from: Nat): bus.nextDeparture from = Nat.ceilDiv from bus.id * bus.id := rfl
 
 --| The next departure is a departure, at or after `from`, and no departure
 --| at or after `from` is earlier.

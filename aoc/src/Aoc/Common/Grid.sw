@@ -13,7 +13,7 @@
 --| (Offset.sw).
 
 namespace Aoc.Common
-import Std (Decidable, DecEq, Fail, Fin, List, Map, Nat, Option, Parse, Text)
+import Std (Array, Decidable, DecEq, Fail, Fin, List, Nat, Option, Parse, Text)
 import Std.Parse (many1)
 
 --| A position on a grid: row 0 is the top row, column 0 the left column.
@@ -56,13 +56,13 @@ def Position.step (position: Position): Direction → Option Position
   | Up =>
     match position.row with
       | Zero => None
-      | Succ above => Some ({ position | row = above })
-  | Right => Some ({ position | column = position.column + 1 })
-  | Down => Some ({ position | row = position.row + 1 })
+      | Succ above => Some { position | row = above }
+  | Right => Some { position | column = position.column + 1 }
+  | Down => Some { position | row = position.row + 1 }
   | Left =>
     match position.column with
       | Zero => None
-      | Succ before => Some ({ position | column = before })
+      | Succ before => Some { position | column = before }
 
 --| The positions one step up, right, down and left: two to four of them.
 def Position.neighbours (position: Position): List Position := directions.filterMap position.step
@@ -199,17 +199,18 @@ def Grid.map (grid: Grid a) (f: Position → a → b): Grid b :=
   { rows = mapCells grid.rows f, nonEmpty = rewrite mapFirstWidth grid.rows f in grid.nonEmpty }
 
 --| `at`, through a table built once: `let find := grid.lookup` and then
---| `find position` takes O(log n). (`lookupAt` says it is `at`.)
+--| `find position` takes O(1) when run, the table an array of rows, each an
+--| array of cells. (`lookupAt` says it is `at`.)
 def Grid.lookup (grid: Grid a): Position → Option a :=
-  let table := grid.rows.map (row => row.map Some |> Map.byPosition) |> Map.byPosition
-  position => table.getOr position.row Map.empty |> .getOr position.column None
+  let table := grid.rows.map (.toArray) |> .toArray
+  position => table.getOr position.row Array.empty |> .get position.column
 
 --| The same with `fallback` off the grid, for the inner loops of searches:
 --| no `Option` to take apart. (`lookupOrAt` says it is `at` or
 --| `fallback`.)
 def Grid.lookupOr (grid: Grid a) (fallback: a): Position → a :=
-  let table := grid.rows.map Map.byPosition |> Map.byPosition
-  position => table.getOr position.row Map.empty |> .getOr position.column fallback
+  let table := grid.rows.map (.toArray) |> .toArray
+  position => table.getOr position.row Array.empty |> .getOr position.column fallback
 
 -- Parsing
 

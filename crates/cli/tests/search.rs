@@ -224,7 +224,7 @@ fn a_file_is_searched_with_its_own_names_even_if_it_doesnt_check() {
     assert_eq!(
         out,
         " 1. Main.twiceLength  theorem · instance · conclusion\n    \
-         (xs: List Nat) → List.length (twice xs) = List.length xs + List.length xs\n    \
+         (xs: List Nat) → (twice xs).length = xs.length + xs.length\n    \
          a.sw:5\n\
          1 result, filtered pass\n"
     );

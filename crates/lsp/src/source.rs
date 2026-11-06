@@ -117,6 +117,9 @@ impl Source for Disk {
 #[derive(Default)]
 pub struct Memory {
     projects: RwLock<Vec<MemoryProject>>,
+    /// A check cache folder shared by every project and file, if any: for
+    /// tests, which replay the library from a cache of their own.
+    cache: Option<PathBuf>,
 }
 
 /// One project of a [`Memory`].
@@ -132,6 +135,15 @@ pub struct MemoryProject {
 }
 
 impl Memory {
+    /// A source whose projects and files check through the cache in
+    /// `cache`, instead of having none.
+    pub fn with_cache(cache: PathBuf) -> Self {
+        Memory {
+            projects: RwLock::default(),
+            cache: Some(cache),
+        }
+    }
+
     /// Adds a project, or replaces the one at the same folder.
     pub fn add(&self, project: MemoryProject) {
         let mut projects = self.projects.write().unwrap_or_else(|e| e.into_inner());
@@ -219,11 +231,11 @@ impl Source for Memory {
     }
 
     fn project_cache(&self, _: &Path) -> Option<PathBuf> {
-        None
+        self.cache.clone()
     }
 
     fn file_cache(&self, _: &Path) -> Option<PathBuf> {
-        None
+        self.cache.clone()
     }
 }
 

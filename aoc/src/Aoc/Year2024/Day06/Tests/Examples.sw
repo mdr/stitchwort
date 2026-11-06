@@ -51,7 +51,7 @@ test "the guard turns at the first obstruction" :=
   onExample (lab => stepsFrom lab lab.startGuard 6 |> .map (guard => (guard.position, guard.facing)))
     == Ok [(at 5 4, Up), (at 4 4, Up), (at 3 4, Up), (at 2 4, Up), (at 1 4, Up), (at 1 4, Right)]
 test "the next turn is short of the obstruction ahead" :=
-  onExample (lab => (Sightlines.of lab.obstructions).nextTurn lab.startGuard) == Ok (Some ({ position = at 1 4, facing = Right }))
+  onExample (lab => (Sightlines.of lab.obstructions).nextTurn lab.startGuard) == Ok (Some { position = at 1 4, facing = Right })
 test "no next turn with nothing ahead" :=
   onExample (lab => (Sightlines.of lab.obstructions).nextTurn { position = at 9 4, facing = Down }) == Ok None
 --| The jumping loop test agrees with the step-by-step walk (still on the map
@@ -74,7 +74,7 @@ test "a square route loops" := (labOf [".#...", "....#", ".....", "#^...", "...#
 test "one obstruction can close a square" := (labOf [".#...", "....#", ".....", ".^...", "...#."]).map solvePart2 == Ok (Some 1)
 test "no obstruction can trap a guard in one column" := (labOf [".", ".", "^"]).map solvePart2 == Ok (Some 0)
 
-test "parse the example's first row" := labOf ["..#^"] == Ok ({ height = 1, width = 4, obstructions = [at 0 2].toSet, start = at 0 3 })
+test "parse the example's first row" := labOf ["..#^"] == Ok { height = 1, width = 4, obstructions = [at 0 2].toSet, start = at 0 3 }
 test "a stray character" := labOf ["..", ".x", "^."] == Err "line 2: expected '.', '#' or '^', got 'x'"
 test "a short line" := labOf ["...", "..", "^.."] == Err "line 2: expected 3 characters, as on the first line, got 2"
 test "no guard" := labOf ["..", ".."] == Err "expected a guard (^) on the map, found none"

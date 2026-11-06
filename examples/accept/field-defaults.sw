@@ -72,27 +72,28 @@ def boxed: Box Nat := { item = 5 }
 
 test "generic" := boxed.label == "box" ∧ boxed.extra == []
 
--- Constructor fields: named construction leaves them out, positional and
--- named-argument calls give every field.
+-- Constructor fields: named construction, and named arguments, leave them
+-- out; a positional call gives every field.
 type Shape =
-  | Circle (radius: Nat) (id: Text := "anonymous")
+  | Circle { radius: Nat, id: Text := "anonymous" }
   | Square (side: Nat) (id: Text := "square")
 
 def idOf (shape: Shape): Text := shape.id
 
 test "named construction" := idOf (Circle { radius = 1 }) == "anonymous"
 test "positional construction gives every field" := idOf (Circle 1 "c") == "c"
-test "named arguments wait for every field" :=
-  let waiting := Circle (radius := 1)
-  idOf (waiting "d") == "d"
+test "named arguments fill them too" := idOf (Square (side := 3)) == "square"
+test "a named argument can give one" := idOf (Square (id := "s") (side := 3)) == "s"
+test "a positional argument is the field without a default" :=
+  Square 3 (id := "t") == Square 3 "t"
 test "without an expected type" :=
-  let made := Square { side = 2 }
+  let made := Square (side := 2)
   made == Square 2 "square"
 
 -- An indexed family: implicit fields are inferred, defaults filled.
 type Tower: Nat → Type =
-  | Ground (name: Text := "ground"): Tower 0
-  | Floor [n: Nat] (below: Tower n) (name: Text := "floor"): Tower (Succ n)
+  | Ground { name: Text := "ground" }: Tower 0
+  | Floor [n: Nat] { below: Tower n, name: Text := "floor" }: Tower (Succ n)
 
 def towerName (tower: Tower n): Text := tower.name
 

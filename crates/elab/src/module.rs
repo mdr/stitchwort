@@ -142,6 +142,9 @@ pub(crate) struct ItemInfo {
     /// For an instance: what the head of the type it's for names (`Item` in
     /// `DecEq Item`), the same way.
     pub head: Option<Global>,
+    /// It failed by running out of resources, or by using a declaration
+    /// that did.
+    pub ran_out: bool,
 }
 
 /// One file of the module being elaborated.
@@ -407,7 +410,14 @@ impl Elaborator {
                 let label = self.component_label(&items, &component);
                 crate::timings::decl_end(&self.ev(), label);
             }
+            let ran_out = diagnostics[before..]
+                .iter()
+                .any(|(_, d)| d.code == "E-RESOURCE");
             self.blame_failed_dependency(&component, before, diagnostics.as_mut_slice());
+            let ran_out = ran_out || self.blamed_on_ran_out(&component, &diagnostics[before..]);
+            for &i in &component {
+                self.unit.module.items[i].ran_out = ran_out;
+            }
             // The open goals, printed while their metavariables are solved.
             let goals = self.take_goals();
             let errors: Vec<&str> = diagnostics[before..]
@@ -472,7 +482,11 @@ impl Elaborator {
                 // A theorem whose statement checked but whose proof didn't
                 // (or is wholly `?`): is the statement false? Said as a note
                 // on its first error, or on its goal (D1154, D1158).
-                if component.len() == 1 {
+                // Not one that ran out of resources, or used what did:
+                // nothing found on a spent budget says anything about its
+                // statement, and the reader needs the resource error, not a
+                // search (SW-1730).
+                if component.len() == 1 && !ran_out {
                     self.note_counterexample(&items[component[0]], &mut diagnostics[before..]);
                 }
             }
@@ -567,6 +581,26 @@ impl Elaborator {
             diagnostics.extend(self.doc_link_warnings(files));
         }
         diagnostics
+    }
+
+    /// Whether `diagnostics` blame a declaration of `component`'s that
+    /// failed by running out of resources, and nothing else.
+    fn blamed_on_ran_out(&self, component: &[usize], diagnostics: &[(usize, Diagnostic)]) -> bool {
+        let errors = || {
+            diagnostics
+                .iter()
+                .filter(|(_, d)| d.severity == Severity::Error)
+        };
+        errors().next().is_some()
+            && errors().all(|(_, d)| d.code == "E-FAILED-DEPENDENCY")
+            && component
+                .iter()
+                .flat_map(|i| &self.unit.module.items[*i].deps)
+                .filter(|d| d.speculative.is_none() && !component.contains(&d.item))
+                .any(|d| {
+                    let used = &self.unit.module.items[d.item];
+                    used.status.failed() && used.ran_out
+                })
     }
 
     /// After the single declaration `item` failed, with `diagnostics`: if
@@ -916,6 +950,7 @@ impl Elaborator {
                     instance,
                     interface: None,
                     head: None,
+                    ran_out: false,
                 });
                 items.push(Item {
                     decl,
@@ -1371,6 +1406,11 @@ impl Elaborator {
             Self::member_key(&data_key, &c.name.text) == key
                 || key == data_key && c.name.text == name.text
         })?;
+        // Braces after a constructor declared with brackets are a record
+        // pattern, not its fields.
+        if matches!(slot, CtorSlot::Named(_)) && !decl.braced {
+            return None;
+        }
         // The explicit fields, one per name.
         let explicit: Vec<(&ast::Name, &Expr)> = decl
             .fields

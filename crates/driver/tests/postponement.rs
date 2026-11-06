@@ -366,7 +366,10 @@ theorem wrong (xs: List R) (ys: List R) (h: List.Perm xs ys): List.any xs (r => 
     assert_eq!(errors[0].code, "E-TYPE-MISMATCH", "{errors:#?}");
     let message = format!("{:?}", errors[0]);
     assert!(!message.contains('?'), "no unknown is shown: {message}");
-    assert!(message.contains("R.contains r 4") && message.contains("R.contains r 3"));
+    assert!(
+        message.contains("r.contains 4") && message.contains("r.contains 3"),
+        "{message}"
+    );
     assert!(pointed_at(source, &errors).starts_with("List.anyPerm xs ys h"));
 }
 

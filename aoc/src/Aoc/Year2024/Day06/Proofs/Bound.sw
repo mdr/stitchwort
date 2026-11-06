@@ -107,7 +107,7 @@ theorem guardExt: (one: Guard) → (other: Guard) → one.position.row = other.p
 --| A cell's row: `row * width + column` with `column < width` determines
 --| `row`.
 theorem rowOfCell (width: Nat) (positive: width ≠ 0) (row: Nat) (column: Nat) (small: column < width): (row * width + column) / width = row :=
-  rewrite (omega: row * width + column = column + row * width), Nat.divAddMul column row width [ok := positive], Nat.divSmall column width [ok := positive] small in rfl
+  rewrite (omega: row * width + column = column + row * width), Nat.divAddMul column row width [ok := positive], Nat.divSmall column width small in rfl
 
 --| Different states on the map have different numbers.
 theorem stateCodeInjective (lab: Lab) (one: Guard) (other: Guard) (oneInside: onMap lab one.position = True) (otherInside: onMap lab other.position = True)

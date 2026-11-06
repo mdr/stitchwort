@@ -7,7 +7,7 @@
 namespace Aoc.Year2024.Day16.Proofs
 import Aoc.Year2024.Day16 (..)
 import Aoc.Year2024.Day16.Spec (..)
-import Aoc.Common (Position)
+import Aoc.Common (Heading, Position, headings)
 import Std (And, Bool, DecEq, Eq, Exists, Graph, Iff, List, Map, Nat, Option, Or, Set, Void)
 
 --| From `reindeer`, on an open tile, some moves end on the end tile,

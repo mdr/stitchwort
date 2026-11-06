@@ -132,21 +132,20 @@ def Int.toText: (x: Int) → Text
 --| (`Int.divAddMod`, `Int.modNonneg`, `Int.modLtAbs`.)
 --| With [`Int.mod`], `dividend = divisor * (dividend / divisor) + dividend % divisor`
 --| with `0 <= dividend % divisor < |divisor|`, whatever the signs, so `-18 % 100` is `82`.
--- Each case divides naturals by a `Succ n`, which `auto` sees isn't zero.
--- The divisor can't be zero, but the case still has to be covered: `ok`
--- rules it out.
-def Int.div: (dividend: Int) → (divisor: Int) → [auto ok: divisor ≠ OfNat 0] → Int
-  | dividend, OfNat Zero => Void.absurd (ok rfl)
+--| Dividing by 0 gives 0, as for `Nat`: `x / 0 = 0` and `x % 0 = x`.
+def Int.div: (dividend: Int) → (divisor: Int) → Int
+  | dividend, OfNat Zero => OfNat Zero
   | OfNat m, OfNat (Succ n) => OfNat (m / Succ n)
   | NegSucc m, OfNat (Succ n) => NegSucc (m / Succ n)
   | OfNat m, NegSucc n => Int.neg (OfNat (m / Succ n))
   | NegSucc m, NegSucc n => OfNat (Succ (m / Succ n))
 
 --| `dividend % divisor`, Euclidean: never negative, and below `|divisor|`, so `-18 % 100` is `82`.
+--| The remainder of dividing by 0 is the dividend: `x % 0 = x`, negative or not.
 -- For `NegSucc m`, `m % Succ n <= n`, so the subtraction doesn't stop at
 -- zero.
-def Int.mod: (dividend: Int) → (divisor: Int) → [auto ok: divisor ≠ OfNat 0] → Int
-  | dividend, OfNat Zero => Void.absurd (ok rfl)
+def Int.mod: (dividend: Int) → (divisor: Int) → Int
+  | dividend, OfNat Zero => dividend
   | OfNat m, OfNat (Succ n) => OfNat (m % Succ n)
   | NegSucc m, OfNat (Succ n) => OfNat (n - m % Succ n)
   | OfNat m, NegSucc n => OfNat (m % Succ n)

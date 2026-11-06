@@ -664,8 +664,11 @@ impl<'a> Compiler<'a> {
                     self.emit(Instr::Prim { dst, op: *op, args });
                 }
             }
+            // A consuming native takes its operands as a call does: each
+            // read for the last time is moved in, so an array nothing else
+            // holds reaches it with a count of 1 and is changed in place.
             Expr::Prim(op, args) => {
-                let args = self.operand_ops(args, live, false);
+                let args = self.operand_ops(args, live, op.consumes());
                 self.simple(Instr::Prim { dst, op: *op, args }, dst, tail);
             }
             Expr::PartialApp(g, args) => {

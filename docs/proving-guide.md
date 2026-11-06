@@ -119,7 +119,11 @@ changes only together with the code that builds them.
       │                          ⊢ Succ (List.length (List.append rest ys)) = List.length rest + List.length ys + 1
    ```
 
-   Goals are shown computed, not as written. A declaration with a `?` is
+   Goals are shown as written: a call stays a call until it can take a
+   step at once, and then it is shown after that step. Here
+   `List.length (List.append (Cons x rest) ys)` matches on its `Cons` at
+   once, so it shows as `Succ (…)`, while `List.length rest` stays as it
+   is (§3 says what `rewrite` and `match` search). A declaration with a `?` is
    unfinished, not wrong: later declarations can use it by its type, so you
    can state lemmas with `?`, use them in the main theorem, and prove them
    afterwards. But `check` fails while any `?` is open, and so does `audit`
@@ -231,7 +235,12 @@ Import what you use: std's theorems live in namespaces that need an import
   nothing about. It reads a hypothesis `x ∈ a ..< b` (or `..=`) as `a ≤ x` and
   `x < b`, and proves such a goal from the bounds. It doesn't know what `% 2` is: pass `Nat.divModEq` and
   `Nat.modLess` for each (aoc/NOTES-2024.md:7304–7311). Its failure
-  message's model "may not be a real counterexample".
+  message's model "may not be a real counterexample". Division is total
+  (`x / 0 = 0`, `x % 0 = x`, as in Lean), so `Nat.divModEq` and most
+  remainder lemmas (`Nat.modMod`, `Nat.modAddMul`, `Nat.mulModMod`) hold for
+  every divisor and take no hypothesis; the few that are false at 0
+  (`Nat.modLess`, `Nat.modLt`, `Nat.divAddMul`, `Int.modNatLt`) ask for
+  `d ≠ 0`.
 - **`auto`** isn't a proof term: it is the compiler filling an `[auto h: P]`
   argument, from evidence given by name, a hypothesis in scope of exactly
   that type, or a decision procedure (DESIGN.md "`auto` and `Decidable`").
@@ -251,10 +260,23 @@ Import what you use: std's theorems live in namespaces that need an import
   goal and checks `t` against the result; `rewrite <- p`, `rewrite p at h`.
   It needs a known goal (`E-REWRITE-NO-GOAL` otherwise). It replaces every
   occurrence of the first instance it matches. It looks for the left side
-  in the goal *as it computes*, so a definition the goal already unfolded
-  isn't there to find (8 items in agentic-proving.md §5 E). Give the rule its arguments
+  in the goal *as written* first (the form goals are printed in, calls kept,
+  so `rewrite isSafeCorrect _` finds `isSafe { levels = xs }` and the next
+  goal keeps `isSafe`), and uses that when no copy of the left side is
+  left hidden inside a call; otherwise, and when it finds nothing, in the
+  goal *as it computes*, so a rule can still rewrite inside a definition.
+  What the goal already unfolded (a call that steps at once, arithmetic) is
+  not there to find in either (8 items in agentic-proving.md §5 E). Give the rule its arguments
   when you can (§6). Inside a function argument it goes through the
   call's congruence lemma (`List.mapCong`, …).
+- **`match e:` and `cases`** look for `e` the same way: in the goal and
+  the hypotheses *as written* first, comparing up to computation, so
+  `xs.map (f a)` finds the goal's `xs.map (y => f a y)` and the arms keep
+  the goal's calls (`double a`, not `a + a`). They keep that only when it
+  replaces everything the search *as it computes* would; otherwise (a copy
+  of `e` inside a definition the goal mentions, or an `e` that computes
+  to a constructor) they replace what that search finds, and the arms'
+  goals hold no calls (`examples/accept/match-as-written.sw`).
 - **`calc`** chains steps `_ = e := proof`, `_ <= e`, `_ < e`; a step with
   no proof is `rfl`. Use it when `rewrite` picks the wrong occurrence, or
   to say exactly which form you want.
@@ -339,14 +361,16 @@ Each was run on the example named; the output is quoted, shortened.
   says the fix: a top-level helper with a written signature
   (`examples/reject/match-bad-motive.sw`).
 - **`E-REWRITE-*`**:
-  - `E-REWRITE-NOTHING`: the left side isn't in the goal as it computes. The
+  - `E-REWRITE-NOTHING`: the left side isn't in the goal as written, nor as it computes. The
     notes show the goal "as written" and "as it computes", and say when the
     goal already holds by computing (`examples/reject/rewrite-nothing.sw`).
     A `match c: e` refines the hypotheses that mention `e` as well as the
     goal, so inside its arm a hypothesis already has the branch's form: use
     it as it is rather than rewriting it
     (`examples/reject/rewrite-refined-by-match.sw`). A proof follows a
-    program's `if` by matching on its `Bool`, also for `if a && b`: one
+    program's `if` by matching on its `Bool` (its condition), not on the
+    comparison's decision, which can silently miss an `if` compiled to a `Bool`
+    test (`W-MATCH-DECISION-IF`, below), also for `if a && b`: one
     `match e: a && b with` refines the goal, and `omega` reads `e` as
     `a ∧ b` or `¬(a ∧ b)` (`examples/accept/match-if-and.sw`). Usually the goal
     unfolded the definition first: rewrite with a lemma about the unfolded
@@ -356,12 +380,26 @@ Each was run on the example named; the output is quoted, shortened.
     unchanged. It is given when the arms don't use `h`, and also when they
     fail to check, so that the arms' errors (an unsolved `?42`, an unfolded
     parser run) are read beside the cause. The note shows the goal as the
-    search saw it; write `e` as that shows it (a function argument as the
-    lambda `y => f x y`, not `f x`). Day 12's `% 90` against the program's
+    search saw it; write `e` as that shows it. (A function argument written
+    `f x` where the goal has `y => f x y` is found as written, unless the
+    occurrence is only inside a call.) Day 12's `% 90` against the program's
     `% 45` is this (`examples/reject/match-not-found-arm-fails.sw`).
+    An unnamed `match` is given it too, but only when its arms fail: it
+    is often a case split for the arms' own sake (SW-1721,
+    `examples/reject/match-not-found-unnamed.sw`).
+  - `W-MATCH-DECISION-IF`: a `match` on a decision (`Nat.decLessThan 9
+    value`) that finds neither the decision nor a hypothesis holding it, while
+    its `Bool` (`Nat.leq 10 value`) is the condition of an `if` in the goal or a
+    hypothesis. An `if` whose branches don't use its comparison's proof is a
+    test of the `Bool`, so the decision match refines nothing in it. The
+    warning names the condition: `match h: 10 <= value with | True => … |
+    False => …`, which refines the `if` whichever form it has. Given for
+    named and unnamed matches, whether or not the arms fail
+    (`examples/reject/match-decision-if.sw`, 2021 day 18's `split`).
   - `E-REWRITE-MOTIVE`: replacing the term makes the goal ill-typed, usually
-    because an `auto` proof (the `d != 0` in `x % d`) is about it. Rewrite a
-    larger term (`x % d`), or use `calc` (`examples/reject/rewrite-motive-auto.sw`).
+    because an `auto` proof (the `i < xs.length` in `xs.getLt i`) is about
+    it. Rewrite a larger term (`xs.getLt i`), or use `calc`
+    (`examples/reject/rewrite-motive-auto.sw`).
   - `E-REWRITE-PREMISE`: the rule matched but its premise (`x ≤ n`) isn't a
     hypothesis and `omega` can't prove it; give it in the rule
     (`examples/reject/rewrite-premise-unproved.sw`).
@@ -370,6 +408,16 @@ Each was run on the example named; the output is quoted, shortened.
   - `E-REWRITE-BUDGET`: the comparisons were too expensive. That says
     nothing about whether the occurrence is there; use a more specific rule
     or `calc`.
+  - `W-REWRITE-UNCONFIRMED`, `W-MATCH-UNCONFIRMED`: the search over what
+    the goal computes to ran out (the goal is too large unfolded, or the
+    budget went), where the `rewrite` or `match` used to fail with
+    `E-RESOURCE` or `E-REWRITE-BUDGET`, so the term was replaced only where
+    the goal and hypotheses show it, without checking for copies inside
+    calls. The proof is still checked in full: a copy left inside a call
+    makes a later step fail (the body, an arm) with its own error, never
+    makes a wrong proof check (`examples/accept/as-written-unconfirmed.sw`,
+    `examples/reject/as-written-unconfirmed-copy.sw`). To get the full
+    search back, make the large argument a variable.
 - **`E-AUTO-NONE`, `E-AUTO-FALSE`, `E-AUTO-STUCK`**: no decision procedure
   (or one not yet checked, `examples/reject/auto-waiting.sw`); the
   proposition is false (`examples/reject/auto-membership-absent.sw`); it's
@@ -414,6 +462,13 @@ Each was run on the example named; the output is quoted, shortened.
   it by replacing parts with `?`. Then see §6. Other forms: "a value was
   too large to show" (aoc/NOTES-2024.md:1479–1485). Two of the roguelike's
   three failures in one proof were this (games/rogue/PROOFS.md:216–226).
+  A `rewrite` or `match` whose goal (or a hypothesis) is too large once its
+  calls are computed, on a call with a large literal such as
+  `settle plan 1000`, no longer fails this way when the term is shown in the
+  goal: it is rewritten or refined where it is shown, with
+  `W-REWRITE-UNCONFIRMED` or `W-MATCH-UNCONFIRMED` (below). Where it
+  isn't shown, it is still `E-RESOURCE`: state the lemma for any `limit`
+  and instantiate it (AoC 2020 day 11's `settledExactly`).
 - **`E-TYPE-MISMATCH` with a computed type**: the expected type is shown as
   it computes, which can look unlike what you wrote: `lcg seed < 2147483648`
   is expected as `… % 2147483648 ≤ 2147483647`, and `Nat.modLt _ _` with

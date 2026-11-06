@@ -289,3 +289,222 @@ test('the committed archive is well-formed and disjoint from the board', () => {
     assert.ok(ts.every((t) => t.updated.startsWith(file.slice(0, 7))), file);
   }
 });
+
+function epicFixture() {
+  const f = tmpFile();
+  const mk = (id, status, extra = {}) => ({ id, title: `Epic ${id}`, goal: `goal ${id}`, status, done: ['d1'], now: ['n1'], next: ['x1', 'x2'], links: ['docs/a.md'], ...extra });
+  fs.writeFileSync(path.join(path.dirname(f), 'epics.json'), JSON.stringify({ epics: [mk('alpha', 'active'), mk('beta', 'paused')] }));
+  for (const t of ['one', 'two', 'three']) cli(f, 'add', t);
+  return f;
+}
+
+test('epic field: add and edit validate the id, empty clears, untagged tickets keep their shape', () => {
+  const f = epicFixture();
+  assert.equal(cli(f, 'add', 'tagged', '--epic', 'alpha').out, 'SW-4');
+  assert.equal(lib.load(f).tickets[3].epic, 'alpha');
+  assert.equal(cli(f, 'edit', '1', '--epic', 'beta').code, 0);
+  assert.equal(lib.load(f).tickets[0].epic, 'beta');
+  const bad = cli(f, 'edit', '2', '--epic', 'nope');
+  assert.equal(bad.code, 1);
+  assert.match(bad.err, /^board: unknown epic "nope" \(.*alpha, beta\)$/);
+  assert.equal(cli(f, 'add', 'x', '--epic', 'nope').code, 1);
+  assert.equal(lib.load(f).next, 5);
+  assert.equal('epic' in lib.load(f).tickets[1], false);
+  assert.equal(fs.readFileSync(f, 'utf8').split('"epic"').length - 1, 2);
+  assert.equal(cli(f, 'edit', '1', '--epic', '').code, 0);
+  assert.equal('epic' in lib.load(f).tickets[0], false);
+  assert.match(cli(f, 'show', '4').out, /epic: {4}alpha/);
+  // Without an epics.json nothing validates.
+  const g = tmpFile();
+  cli(g, 'add', 't');
+  assert.equal(cli(g, 'edit', '1', '--epic', 'alpha').code, 1);
+});
+
+test('list --epic, epics and epic', () => {
+  const f = epicFixture();
+  cli(f, 'edit', '1', '--epic', 'alpha');
+  cli(f, 'edit', '2', '--epic', 'alpha');
+  cli(f, 'move', '2', 'done');
+  cli(f, 'edit', '3', '--epic', 'beta');
+  assert.deepEqual(cli(f, 'list', '--epic', 'alpha').out.split('\n').map((l) => l.split(' ')[0]), ['SW-1', 'SW-2']);
+  assert.equal(cli(f, 'list', '--epic', 'nope').code, 1);
+  const summary = cli(f, 'epics').out;
+  assert.match(summary, /^alpha {2}Epic alpha {2}\[active\] {2}open 1, done 1\n {2}now: {2}n1\n {2}next: 1\. x1 {2}2\. x2\nbeta {2}Epic beta {2}\[paused\] {2}open 1, done 0/);
+  const js = JSON.parse(cli(f, 'epics', '--json').out);
+  assert.deepEqual(js.map((e) => [e.id, e.open, e.doneCount]), [['alpha', 1, 1], ['beta', 1, 0]]);
+  const one = cli(f, 'epic', 'alpha').out;
+  assert.match(one, /^alpha {2}Epic alpha {2}\[active\]\ngoal: goal alpha\nopen: 1 {3}done: 1/);
+  assert.match(one, /open tickets:\nSW-1 /);
+  assert.equal(one.includes('SW-2 '), false);
+  assert.equal(cli(f, 'epic', 'nope').code, 1);
+  assert.equal(cli(f, 'epic').code, 1);
+});
+
+test('a bad epics.json status is reported', () => {
+  const f = epicFixture();
+  fs.writeFileSync(path.join(path.dirname(f), 'epics.json'), JSON.stringify({ epics: [{ id: 'a', status: 'sleeping' }] }));
+  const r = cli(f, 'epics');
+  assert.equal(r.code, 1);
+  assert.match(r.err, /epic a has status "sleeping"/);
+});
+
+test('apply-epics sets epics without touching updated, keeps existing ones unless --force', () => {
+  const f = epicFixture();
+  const d = lib.load(f);
+  d.tickets.forEach((t) => { t.updated = '2026-01-01'; });
+  lib.save(d, f);
+  cli(f, 'edit', '3', '--epic', 'beta');
+  const map = path.join(path.dirname(f), 'map.json');
+  fs.writeFileSync(map, JSON.stringify({ 1: 'alpha', 2: 'beta', 3: 'alpha', 99: 'alpha' }));
+  const r = cli(f, 'apply-epics', map);
+  assert.equal(r.code, 0);
+  assert.equal(r.out, 'epics set on 2 tickets; 1 already had another epic (kept; --force overwrites); 1 not on the board');
+  const ts = lib.load(f).tickets;
+  assert.deepEqual(ts.map((t) => t.epic), ['alpha', 'beta', 'beta']);
+  assert.equal(ts[0].updated, '2026-01-01');
+  assert.match(cli(f, 'apply-epics', map, '--force').out, /^epics set on 1 ticket;/);
+  assert.equal(lib.load(f).tickets[2].epic, 'alpha');
+  // An unknown epic id changes nothing.
+  fs.writeFileSync(map, JSON.stringify({ 1: 'beta', 2: 'nope' }));
+  const before = fs.readFileSync(f, 'utf8');
+  const bad = cli(f, 'apply-epics', map);
+  assert.equal(bad.code, 1);
+  assert.match(bad.err, /unknown epic "nope"/);
+  assert.equal(fs.readFileSync(f, 'utf8'), before);
+  assert.equal(cli(f, 'apply-epics', path.join(path.dirname(f), 'missing.json')).code, 1);
+});
+
+test('the committed epics.json and epic-tags.json are consistent', () => {
+  const board = path.join(__dirname, 'tickets.json');
+  const epics = lib.loadEpics(board);
+  const ids = epics.map((e) => e.id);
+  assert.equal(new Set(ids).size, ids.length);
+  assert.ok(epics.length >= 1, "no epics");
+  for (const e of epics) {
+    assert.ok(e.goal && e.done.length && e.next.length, e.id);
+    for (const l of e.links.filter((x) => x.includes('/'))) assert.ok(fs.existsSync(path.join(__dirname, '..', l)), `${e.id}: ${l}`);
+  }
+  const tags = JSON.parse(fs.readFileSync(path.join(__dirname, 'epic-tags.json'), 'utf8'));
+  for (const [k, v] of Object.entries(tags)) { lib.parseId(k); assert.ok(ids.includes(v), `SW-${k}: ${v}`); }
+  for (const t of lib.load(board).tickets) if (t.epic) assert.ok(ids.includes(t.epic), `SW-${t.id}`);
+});
+
+// ---- documents and links ----
+const links = require('./links');
+
+function repoWith(files) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'board-docs-'));
+  for (const [rel, text] of Object.entries(files)) {
+    fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
+    fs.writeFileSync(path.join(root, rel), text);
+  }
+  return root;
+}
+
+test('resolveDoc serves tracked documents and refuses everything else', () => {
+  const root = repoWith({ 'docs/a.md': '# A', 'x/b.sw': 'def', 'secret.md': 's', 'docs/pic.png': 'x', 'docs/c.md': 'c' });
+  const outside = path.join(path.dirname(root), 'outside.md');
+  fs.writeFileSync(outside, 'out');
+  fs.symlinkSync(outside, path.join(root, 'docs/link.md'));
+  const tracked = new Set(['docs/a.md', 'x/b.sw', 'docs/pic.png', 'docs/link.md', 'docs/c.md']);
+  const ok = (rel) => lib.resolveDoc(root, rel, tracked);
+  assert.equal(ok('docs/a.md').kind, 'markdown');
+  assert.equal(ok('x/b.sw').kind, 'text');
+  assert.equal(ok('secret.md'), null, 'untracked');
+  assert.equal(ok('docs/pic.png'), null, 'not a document extension');
+  assert.equal(ok('docs/link.md'), null, 'symlink out of the repo');
+  assert.equal(ok('docs/../secret.md'), null);
+  assert.equal(ok('../outside.md'), null);
+  assert.equal(ok('docs/./a.md'), null);
+  assert.equal(ok('/etc/passwd'), null);
+  assert.equal(ok(path.join(root, 'docs/a.md')), null, 'absolute path');
+  assert.equal(ok('docs//a.md'), null);
+  assert.equal(ok('docs\\a.md'), null);
+  assert.equal(ok('docs/a.md\0.png'), null);
+  assert.equal(ok(''), null);
+  assert.equal(ok('docs'), null);
+});
+
+test('trackedFiles lists what git tracks, not untracked files', (t) => {
+  const root = repoWith({ 'a.md': '1', 'dir/b.sw': '2', 'untracked.md': '3' });
+  const git = (...a) => spawnSync('git', a, { cwd: root, encoding: 'utf8' });
+  if (git('init', '-q').status !== 0) return t.skip('git not available');
+  git('add', 'a.md', 'dir/b.sw');
+  const set = lib.trackedFiles(root);
+  assert.deepEqual([...set].sort(), ['a.md', 'dir/b.sw']);
+  assert.equal(lib.resolveDoc(root, 'untracked.md', set), null);
+});
+
+test('tokenize finds repo paths, tickets and decisions', () => {
+  const kinds = (s) => links.tokenize(s).filter((x) => x.kind).map((x) => [x.kind, x.text]);
+  assert.deepEqual(kinds('see docs/proposals/x.md and aoc/NOTES-2020.md.'), [['path', 'docs/proposals/x.md'], ['path', 'aoc/NOTES-2020.md']]);
+  const seg = links.tokenize('at crates/elab/src/check.rs:2242, then')[1];
+  assert.deepEqual([seg.kind, seg.path, seg.line, seg.text], ['path', 'crates/elab/src/check.rs', 2242, 'crates/elab/src/check.rs:2242']);
+  assert.deepEqual(kinds('SW-1642 (D2514) D2475-D2480'), [['ticket', 'SW-1642'], ['decision', 'D2514'], ['decision', 'D2475'], ['decision', 'D2480']]);
+  assert.equal(links.tokenize('SW-1642')[0].id, 1642);
+  // not links: bare file names, URLs, other words
+  assert.deepEqual(kinds('README.md, https://example.com/a/b.md, CD2514, XSW-1, D12, notes.txt'), []);
+  assert.deepEqual(kinds('docs/reviews/SW-1700-x.md'), [['path', 'docs/reviews/SW-1700-x.md']]);
+  assert.equal(links.tokenize('plain text')[0].text, 'plain text');
+  assert.equal(links.docHref('a b/c.md', 7), '/doc/a%20b/c.md#L7');
+});
+
+test('resolveRelative resolves links inside a document and refuses escapes', () => {
+  const r = (from, href) => links.resolveRelative(from, href);
+  assert.deepEqual(r('docs/proposals/a.md', 'b.md'), { path: 'docs/proposals/b.md', fragment: '' });
+  assert.deepEqual(r('docs/proposals/a.md', '../syntax.md#top'), { path: 'docs/syntax.md', fragment: 'top' });
+  assert.deepEqual(r('docs/a.md', '#sec'), { path: 'docs/a.md', fragment: 'sec' });
+  assert.deepEqual(r('docs/a.md', '/crates/x.rs'), { path: 'crates/x.rs', fragment: '' });
+  assert.equal(r('docs/a.md', '../../x.md'), null);
+  assert.equal(r('docs/a.md', 'https://example.com/x.md'), null);
+  assert.equal(r('docs/a.md', 'mailto:a@b.c'), null);
+});
+
+test('review files are discovered by their ticket, including archived ones', () => {
+  const tracked = new Set(['docs/reviews/SW-10-topic.md', 'docs/reviews/SW-11-other.md', 'docs/reviews/SW-12-x.md',
+    'docs/reviews/README.md', 'docs/reviews/SW-10-topic.html', 'docs/reviews/sub/SW-10-x.md', 'docs/proposals/p.md']);
+  assert.deepEqual(lib.reviewDocs(tracked, new Set([10, 12])), ['docs/reviews/SW-10-topic.md', 'docs/reviews/SW-12-x.md']);
+
+  const f = tmpFile();
+  fs.writeFileSync(path.join(path.dirname(f), 'epics.json'), JSON.stringify({ epics: [
+    { id: 'e1', title: 'E1', status: 'active', links: ['docs/proposals/p.md', 'D2514', 'docs/proposals/missing.md', 'docs/proposals/p.md:3'] }] }));
+  fs.writeFileSync(f, JSON.stringify({ next: 20, tickets: [
+    { id: 10, title: 'a', status: 'done', epic: 'e1' }, { id: 11, title: 'b', status: 'next' }] }));
+  fs.mkdirSync(path.join(path.dirname(f), 'archive'));
+  fs.writeFileSync(path.join(path.dirname(f), 'archive', '2026-10.json'), JSON.stringify({ tickets: [{ id: 12, title: 'old', status: 'done', epic: 'e1' }] }));
+  const root = repoWith({ 'docs/proposals/p.md': '# The proposal\n', 'docs/reviews/SW-10-topic.md': '# Review of ten\n', 'docs/reviews/SW-11-other.md': '# no', 'docs/reviews/SW-12-x.md': 'no heading' });
+  const epic = lib.loadEpics(f)[0];
+  const got = lib.epicDocs(epic, lib.load(f).tickets, tracked, root, f);
+  assert.deepEqual(got.docs.map((d) => [d.path, d.title, d.review]), [
+    ['docs/proposals/p.md', 'The proposal', false],
+    ['docs/reviews/SW-10-topic.md', 'Review of ten', true],
+    ['docs/reviews/SW-12-x.md', '', true]]);
+  assert.deepEqual(got.links, ['D2514', 'docs/proposals/missing.md']);
+});
+
+test('the server serves documents and refuses the rest', async () => {
+  const root = repoWith({ 'docs/a.md': '# A\n', 'u.md': 'untracked' });
+  const git = (...a) => spawnSync('git', a, { cwd: root, encoding: 'utf8' });
+  if (git('init', '-q').status !== 0) return;
+  git('add', 'docs/a.md');
+  const f = tmpFile();
+  const port = 8100 + Math.floor(Math.random() * 800);
+  const child = spawn(process.execPath, [path.join(__dirname, 'server.js')], { env: { ...process.env, BOARD_FILE: f, BOARD_ROOT: root, PORT: String(port) } });
+  try {
+    await new Promise((resolve, reject) => { child.stdout.once('data', resolve); child.once('exit', reject); });
+    const get = (p) => new Promise((resolve, reject) => {
+      require('http').get({ host: '127.0.0.1', port, path: p }, (res) => {
+        let body = ''; res.on('data', (c) => { body += c; }); res.on('end', () => resolve({ code: res.statusCode, body }));
+      }).on('error', reject);
+    });
+    assert.equal((await get('/doc/docs/a.md')).code, 200);
+    assert.equal((await get('/doc/docs/a.md?raw')).body, '# A\n');
+    assert.equal((await get('/doc/u.md')).code, 404);
+    assert.equal((await get('/doc/docs/..%2Fu.md')).code, 404);
+    assert.equal((await get('/doc/%2e%2e/etc/passwd')).code, 404);
+    assert.equal((await get('/doc//etc/passwd')).code, 404);
+    assert.equal((await get('/links.js')).code, 200);
+  } finally {
+    child.kill();
+  }
+});

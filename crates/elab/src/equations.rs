@@ -611,13 +611,16 @@ fn expand_one(p: &Pattern) -> Vec<(Pattern, Vec<Span>)> {
             fields,
             rest,
             span,
+            ..
         } => {
             let ps: Vec<Pattern> = fields.iter().map(|(_, p)| p.clone()).collect();
-            many(&ps, &|qs| Pattern::CtorFields {
-                ctor: ctor.clone(),
-                fields: fields.iter().map(|(n, _)| n.clone()).zip(qs).collect(),
-                rest: *rest,
-                span: *span,
+            many(&ps, &|qs| {
+                Pattern::ctor_fields(
+                    ctor.clone(),
+                    fields.iter().map(|(n, _)| n.clone()).zip(qs).collect(),
+                    *rest,
+                    *span,
+                )
             })
         }
         Pattern::Var(_)

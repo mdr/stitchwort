@@ -106,3 +106,46 @@ theorem t (a: Nat) (b: Nat) (h: a = b) (p: b + 1 = 1 + b): a + 1 = 1 + a :=
 ";
     assert_eq!(codes(None, text), Vec::<&str>::new());
 }
+
+/// `f (sumMap g 40)` is shown in the goal; `hide f g` computes to another
+/// `f` of a long sum, which only a comparison tells apart from the rule's
+/// left side.
+const CHECK_RUNS_OUT: &str = "\
+def sumMap (g: Nat -> Nat): Nat -> Nat
+  | Zero => 0
+  | Succ n => g (Succ n) + sumMap g n
+
+def hide (f: Nat -> Nat) (g: Nat -> Nat): Nat := f (sumMap g 39)
+
+theorem t (g: Nat -> Nat) (f: Nat -> Nat) (h: (n: Nat) -> f (sumMap g n) = 0) (q: Nat -> Nat -> Prop)
+    (k: q 0 (hide f g)): q (f (sumMap g 40)) (hide f g) :=
+  rewrite h 40 in k
+";
+
+/// The codes of the errors and warnings loading `text` gives, with the
+/// search budget set.
+fn codes_and_warnings(budget: Option<u64>, text: &str) -> (Vec<&'static str>, Vec<&'static str>) {
+    let mut session = Session::new();
+    session.elab.options.rewrite_budget = budget;
+    let errors = match session.load("test.sw", text) {
+        Ok(_) => Vec::new(),
+        Err(errors) => errors.iter().map(|e| e.code).collect(),
+    };
+    let warnings = session.warnings.iter().map(|w| w.code).collect();
+    (errors, warnings)
+}
+
+#[test]
+fn a_rewrite_whose_check_runs_out_of_the_budget_is_used_as_written() {
+    // With the whole budget, the completeness check finds no hidden copy.
+    assert_eq!(codes_and_warnings(None, CHECK_RUNS_OUT), (vec![], vec![]));
+    // With a small one (but enough for the search as written, which finds
+    // `f (sumMap g 40)` without computing), the check, comparing `hide f g`'s
+    // unfolding, and the usual search both run out, where the `rewrite`
+    // failed with `E-REWRITE-BUDGET`: the rewrite as written is used, with a
+    // warning (goal-as-written.md, stage 4).
+    assert_eq!(
+        codes_and_warnings(Some(100), CHECK_RUNS_OUT),
+        (vec![], vec!["W-REWRITE-UNCONFIRMED"])
+    );
+}

@@ -6,8 +6,8 @@
 import Std (List, Nat, Vec)
 
 type Shape =
-  | Dot (ref: Nat) (id: Text) (start: Nat)
-  | Circle (ref: Nat) (id: Text) (start: Nat) (text: Text)
+  | Dot { ref: Nat, id: Text, start: Nat }
+  | Circle { ref: Nat, id: Text, start: Nat, text: Text }
 
 def s: Shape := Circle 1 "a" 0 "t"
 

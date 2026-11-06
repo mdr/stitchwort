@@ -3397,6 +3397,24 @@ shadows the parser `action`; `runsBind` wants the first part's rest as
 5. Smaller: `omega` doesn't read a `!=` (`Decidable.not`) in a `Bool`
    hypothesis (item 4); no `Result.getOr` (item 5). Each small.
 
+### Moved onto the plane library (SW-1484, 6 Nov 2026)
+
+The day's own `Heading`, `Location { east, north }` (with `moved`, `plus`,
+`times`, `rotated`, `manhattan`) and `Heading.clockwise`/`turned` are gone:
+`Location` is an alias for Aoc.Common's `Coords YUp`, and `Heading` is
+Common's (`turned`, `moved`, `turnRight`, `manhattan`). The answers are the
+same (415 and 29401 on the input; 0.57 s user against 0.48 s before, the
+frame dictionary being passed at run time). The spec keeps its own
+`unit`, `along`, `quarterLeft`/`quarterRight` and `manhattan`, now on
+`Coords YUp` (`east` is `x`, `north` is `y`); Proofs/Turns.sw went from 81 to
+63 lines: `iterateCycles`/`iterateMod` moved to Aoc.Common.Proofs, and
+the heading lemma is the library's `coordsTurnedHeading` plus two
+one-line links (`quarterRightTurn`, `unitStep`). The program and spec still
+compute the quarter turn separately, so the proof still says the spec's
+turn is the library's. The one wrinkle: the library's `times` multiplies on
+the right (`x * factor`), the spec's `along` on the left, so
+`steerFollows`' forward case needed `alongTimes` (`ring`).
+
 ## Day 13: Shuttle Search
 
 Your notes on the shuttle buses: the earliest time you could leave, then
@@ -5346,6 +5364,30 @@ lookup to be the spec's, and `Map.getFromList` gives `Map.lookupLast`
 (by `Ord.compare`) where the spec has `List.lookup` (by `==`), with no
 lemma between them.
 
+Update (6 Nov 2026, SW-1659): the run is now 2.1 s user with the table
+alone (release build, `stitchwort run`), so the 2.9 s above no longer
+stands as a gain. Deduplicating with `List.distinct` (a `Set` inside), on
+a rule's alternatives or on the leftovers between a sequence's rules,
+leaves the call counts as they were (2.44 M `List.map`, 4.31 M
+`Map.get`) and costs time: 2.6 s and 2.8 s user. On this input no rule has
+two ways to leave the same rest, so there is nothing to remove. Not
+adopted.
+
+**Fixed (SW-1636).** The matcher now takes the lookup as a function
+(`leftAfterWith`), `matchesCompletely` builds `ruleTable` once per call
+and `matchingCount` once for all messages. `ruleTable` inserts the
+entries from the last to the first, so the first wins as `List.lookup`
+does, and `Proofs/Table.sw` shows `table.get` agrees with `Rules.rule`
+(`tableGet`, by `Map.getInsert`, `Map.getInsertOther`: no `Map.fromList`
+and so no `lookupLast` lemma needed) and that the matcher gives the
+same answer for lookups that agree (`leftAfterSame`). `Rules.leftAfter`
+and the spec still read the list, and every theorem keeps its
+statement. The profile (`--profile`) showed 84% of 18 s of profiled run
+in `List.lookup`; now the run is 7.6 s to 2.3 s user (the machine was
+loaded, so both are measured back to back), with `Map.Tree.get` and
+`Nat.compare` at 35% of the profile. Part 1 and 2 are 182 and 334 as
+before.
+
 ### 4. Std has no count of a proposition, and few `lookup` lemmas
 
 `NumberWith p items answer` and `numberWithCount` (it is `answer =
@@ -5416,7 +5458,7 @@ at 06:09; the parser's proof at 06:09 to 06:10; the audit, timings, the
 | `stitchwort check --no-cache Aoc.Year2020.Day19.Proofs` | 4.9 s user |
 | `stitchwort test --no-cache Aoc.Year2020.Day19.Tests` (19 tests) | 8.3 s user |
 | `stitchwort audit Aoc.Year2020.Day19` (51 theorems) | under 1 s (warm) |
-| `stitchwort run Aoc.Year2020.Day19.main` on the input | 6.5 s user (`--native` 3.2 s; Python 0.3 s) |
+| `stitchwort run Aoc.Year2020.Day19.main` on the input | 6.5 s user (`--native` 3.2 s; Python 0.3 s); 2.3 s with the rule table (SW-1636; 7.6 s user the same day without it) |
 | `task test:one -- year2020_day19` | 17 s for the test |
 
 `STITCHWORT_TIMINGS=1` puts the Proofs namespace at 338 ms of

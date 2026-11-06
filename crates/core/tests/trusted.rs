@@ -49,6 +49,7 @@ fn trusted_copy(a: &Kernel) -> Kernel {
                     field_erased: c.field_erased.clone(),
                     result: c.result.clone(),
                     implicit: c.implicit.clone(),
+                    braced: c.braced,
                 })
                 .collect();
             check::admit_trusted_data_group(&mut b, vec![(ids[0], ctors)]).expect("defined");
@@ -252,6 +253,7 @@ fn a_trusted_constructor_of_the_wrong_shape_is_refused() {
         field_erased: vec![],
         result: vec![],
         implicit: vec![false],
+        braced: false,
     };
     assert_eq!(
         code(check::admit_trusted_data_group(

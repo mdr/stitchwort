@@ -190,15 +190,21 @@ pub enum Expr {
         fields: Vec<(Name, Expr)>,
         span: Span,
     },
-    /// `C { f = e, g }`: constructor `C` applied to its explicit fields,
-    /// named, in any order (a punned field `{ g }` is `{ g = g }`). Braces
-    /// right after a constructor always name its fields; a record literal as
-    /// its positional argument is written in brackets, `C ({ … })`, which is
-    /// `App(C, Record { … })` (docs/proposals/variant-fields.md §4.5).
+    /// `C { f = e, g }`: braces right after an uppercase name. If `C` is a
+    /// constructor declared with its fields in braces, this is `C` applied to
+    /// its explicit fields, named, in any order (a punned field `{ g }` is
+    /// `{ g = g }`). For any other `C` (declared with brackets, or a
+    /// function) the braces are an ordinary record argument, `App(C,
+    /// Record { … })`, as `C ({ … })` is. The parser can't tell which, so the
+    /// elaborator decides (docs/proposals/brace-syntax-review.md §5).
+    ///
+    /// `argument`: written as an argument of an application, `f C { … }`,
+    /// where a brace-declared `C` is refused.
     CtorFields {
         ctor: Name,
         fields: Vec<(Name, Expr)>,
         span: Span,
+        argument: bool,
     },
     /// `calc e0` followed by steps `_ = e1 := proof`, one per line
     /// (docs/syntax.md, calc): a chain of relations from `e0` to the last
@@ -824,21 +830,65 @@ pub enum Pattern {
         rest: bool,
         span: Span,
     },
-    /// `C { f = p, g, .. }`: constructor `C` with its explicit fields named,
-    /// as in a record pattern; the fields left out are `_` (with `rest`).
-    /// Braces right after a constructor always name its fields; a record
-    /// pattern as its positional argument is written in brackets,
-    /// `C ({ … })`, which is `Ctor(C, [Record { … }])`
-    /// (docs/proposals/variant-fields.md §4).
+    /// `C { f = p, g, .. }`: if `C` is declared with its fields in braces,
+    /// constructor `C` with its explicit fields named, as in a record
+    /// pattern; the fields left out are `_` (with `rest`). If `C` is declared
+    /// with brackets, the braces are a record pattern for its argument,
+    /// `Ctor(C, [Record { … }])`, as `C ({ … })` is; the elaborator decides
+    /// (docs/proposals/brace-syntax-review.md §5).
     CtorFields {
         ctor: Name,
         fields: Vec<(Name, Pattern)>,
         rest: bool,
         span: Span,
+        /// The `Record` pattern that is `C`'s argument if `C` is declared with
+        /// brackets, made on first use so that the elaborator can borrow it
+        /// like any other pattern ([`Pattern::as_record`]).
+        record: std::sync::OnceLock<Box<Pattern>>,
     },
     /// `p | q | …`: matches if any alternative does. The alternatives bind
     /// no variables; an arm with one is checked as one arm per alternative.
     Or(Vec<Pattern>, Span),
+}
+
+impl Pattern {
+    /// `C { f = p, g, .. }`.
+    pub fn ctor_fields(
+        ctor: Name,
+        fields: Vec<(Name, Pattern)>,
+        rest: bool,
+        span: Span,
+    ) -> Pattern {
+        Pattern::CtorFields {
+            ctor,
+            fields,
+            rest,
+            span,
+            record: std::sync::OnceLock::new(),
+        }
+    }
+
+    /// For a `CtorFields`: the same braces as a record pattern, the argument
+    /// of a constructor declared with brackets.
+    pub fn as_record(&self) -> Option<&Pattern> {
+        let Pattern::CtorFields {
+            fields,
+            rest,
+            span,
+            record,
+            ..
+        } = self
+        else {
+            return None;
+        };
+        Some(record.get_or_init(|| {
+            Box::new(Pattern::Record {
+                fields: fields.clone(),
+                rest: *rest,
+                span: *span,
+            })
+        }))
+    }
 }
 
 impl Decl {
@@ -915,6 +965,11 @@ pub struct CtorDecl {
     /// The result type, `: Vec a (Succ n)`, if written
     /// (docs/proposals/indexed-families.md §7.1).
     pub result: Option<Expr>,
+    /// Whether the explicit fields are declared in braces, `| C { f: T }`,
+    /// rather than in brackets, `| C (f: T)`. That decides what braces
+    /// after `C` mean, in expressions and patterns
+    /// (docs/proposals/brace-syntax-review.md §5, option D).
+    pub braced: bool,
 }
 
 #[derive(Clone, Debug)]

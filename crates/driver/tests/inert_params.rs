@@ -73,11 +73,9 @@ fn the_library_listing() {
     }
     println!("{listing}");
     let inert = |name: &str, param: usize| g.def(find(g, name)).is_inert(param);
-    // The motivating definitions keep their masks (§7.3's table).
+    // The motivating definitions keep their masks (§7.3's table; `Nat.div`,
+    // `Nat.mod` and `Int.modNat` were in it until division became total).
     assert!(inert("Void.absurd", 1));
-    assert!(inert("Nat.div", 2));
-    assert!(inert("Nat.mod", 2));
-    assert!(inert("Int.modNat", 2));
     assert!(inert("Fin.ofNatLt", 2));
 }
 

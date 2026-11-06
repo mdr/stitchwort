@@ -9,9 +9,6 @@ import Aoc.Year2024.Day11 (..)
 import Aoc.Year2024.Day11.Spec (..)
 import Std (Bool, DecEq, Eq, List, Nat, Void)
 
---| A power of 10 isn't 0.
-theorem powTenNotZero (exponent: Nat): Nat.pow 10 exponent ≠ 0 := zero => omega [Nat.powSuccPos 9 exponent, zero]
-
 --| The stone is its left half shifted past the right half's digits, plus its
 --| right half.
 theorem recombine (stone: Nat) (half: Nat):
@@ -47,14 +44,14 @@ theorem recombineHalves (stone: Nat) (even: stone.digitCount % 2 = 0):
 theorem splitLeft (stone: Nat) (even: stone.digitCount % 2 = 0):
     stone / Nat.pow 10 (stone.digitCount / 2) = Nat.fromDigits (stone.digits.toList.take (stone.digitCount / 2)) :=
   let half := stone.digitCount / 2
-  Nat.divUnique stone (Nat.pow 10 half) [ok := powTenNotZero half] (Nat.fromDigits ((Nat.digits stone).toList.take half))
+  Nat.divUnique stone (Nat.pow 10 half) (Nat.fromDigits ((Nat.digits stone).toList.take half))
     (Nat.fromDigits ((Nat.digits stone).toList.drop half)) (rightHalfSmall stone even) (recombineHalves stone even)
 
 --| The remainder is the right half.
 theorem splitRight (stone: Nat) (even: stone.digitCount % 2 = 0):
     stone % Nat.pow 10 (stone.digitCount / 2) = Nat.fromDigits (stone.digits.toList.drop (stone.digitCount / 2)) :=
   let half := stone.digitCount / 2
-  Nat.modUnique stone (Nat.pow 10 half) [ok := powTenNotZero half] (Nat.fromDigits ((Nat.digits stone).toList.take half))
+  Nat.modUnique stone (Nat.pow 10 half) (Nat.fromDigits ((Nat.digits stone).toList.take half))
     (Nat.fromDigits ((Nat.digits stone).toList.drop half)) (rightHalfSmall stone even) (recombineHalves stone even)
 
 --| The program changes a stone as the puzzle says.

@@ -158,7 +158,7 @@ pub fn goals_of(file: &FileAnswers) -> Vec<Goal> {
             {
                 body.push(first.clone());
             }
-            body.extend(d.notes.iter().map(|n| format!("Note: {n}")));
+            body.extend(note_lines(&d.notes));
             Some(Goal {
                 range: d.range,
                 owner: d
@@ -176,6 +176,20 @@ pub fn goals_of(file: &FileAnswers) -> Vec<Goal> {
                     .collect(),
                 text: body.join("\n"),
             })
+        })
+        .collect()
+}
+
+/// The notes of a diagnostic as the command line labels them: `Note: …` for
+/// a lone note, `Note 1: …`, `Note 2: …` when there are several, so a
+/// message that refers to "note 3" matches what the editor shows.
+pub fn note_lines(notes: &[String]) -> Vec<String> {
+    notes
+        .iter()
+        .enumerate()
+        .map(|(i, note)| match notes.len() {
+            1 => format!("Note: {note}"),
+            _ => format!("Note {}: {note}", i + 1),
         })
         .collect()
 }
@@ -293,7 +307,26 @@ pub fn hover_at(
     if let Some(found) = selection.and_then(|s| selection_hover(file, place, text, s)) {
         return Some(found);
     }
-    reference_at(file, place, line, character).map(|r| hover_of(&r))
+    if let Some(r) = reference_at(file, place, line, character) {
+        return Some(hover_of(&r));
+    }
+    // A `?` itself: its goal, as the Goals panel shows it.
+    let at = (line, character);
+    let goal = goals_of(file)
+        .into_iter()
+        .find(|g| (g.range[0], g.range[1]) <= at && at <= (g.range[2], g.range[3]))?;
+    let mut markdown = String::from("```stitchwort\n");
+    for local in &goal.context {
+        markdown.push_str(&format!("{}: {}\n", local.name, local.ty));
+    }
+    markdown.push_str(&format!("⊢ {}\n```", goal.goal));
+    if !goal.text.is_empty() {
+        markdown.push_str(&format!("\n\n{}", goal.text));
+    }
+    Some(Hover {
+        range: goal.range,
+        markdown,
+    })
 }
 
 /// The type of the smallest expression containing `selection`.

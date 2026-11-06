@@ -39,10 +39,10 @@ def keyAt (rows: List (List (Option k))) (aim: Position): Option k := rows.getOr
 --| button in that direction"; none off the top or the left.
 def moved (aim: Position) (direction: Direction): Option Position :=
   match direction with
-    | Up => if aim.row == 0 then None else Some ({ aim | row = aim.row - 1 })
-    | Down => Some ({ aim | row = aim.row + 1 })
-    | Left => if aim.column == 0 then None else Some ({ aim | column = aim.column - 1 })
-    | Right => Some ({ aim | column = aim.column + 1 })
+    | Up => if aim.row == 0 then None else Some { aim | row = aim.row - 1 }
+    | Down => Some { aim | row = aim.row + 1 }
+    | Left => if aim.column == 0 then None else Some { aim | column = aim.column - 1 }
+    | Right => Some { aim | column = aim.column + 1 }
 
 --| The keys a robot presses when driven by `presses`, its arm at `aim`:
 --| "the A button causes the robot to briefly move forward, pressing the

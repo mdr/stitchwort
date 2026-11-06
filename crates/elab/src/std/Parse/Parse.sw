@@ -144,7 +144,7 @@ def Parse.runFrom (initial: Parse.State) (parser: () → {Parse} a): Result a Pa
       | Parse.reset at, k => state => k () { state | at }
       | Parse.note problem, k => state => k () (state.note problem)
       | Parse.stop u, k => state => Err state.failure
-      | Parse.fatal message, k => state => Err ({ offset = state.at.offset, messages = [message], expected = [], width = 0 })
+      | Parse.fatal message, k => state => Err { offset = state.at.offset, messages = [message], expected = [], width = 0 }
   go initial
 
 --| The state at the start of `input`.
@@ -815,7 +815,7 @@ theorem Parse.runFromStop (state: Parse.State) (k: Empty → {Parse} a):
     Parse.runFrom state (() => k Parse.stop()) = Err state.failure := rfl
 
 theorem Parse.runFromFatal (state: Parse.State) (message: Text) (k: Empty → {Parse} a):
-    Parse.runFrom state (() => k (Parse.fatal message)) = Err ({ offset = state.at.offset, messages = [message], expected = [], width = 0 }) := rfl
+    Parse.runFrom state (() => k (Parse.fatal message)) = Err { offset = state.at.offset, messages = [message], expected = [], width = 0 } := rfl
 
 --| `next`: the handler's step, as `Parse.State.next` gives it.
 theorem Parse.runFromNext (state: Parse.State) (passes: Char → Bool) (k: Option Char → {Parse} a):
@@ -980,7 +980,7 @@ theorem Parse.runFromOneOfExample (state: Parse.State) (rest: List Char) (k: Nat
 
 theorem Parse.runPure (input: List Char) (value: a): Parse.run input (() => value) = Ok value := rfl
 
-theorem Parse.runFail (message: Text): Parse.run [] (() => (Parse.fail message: Nat)) = Err ({ offset = 0, messages = [message], expected = [], width = 0 }) := rfl
+theorem Parse.runFail (message: Text): Parse.run [] (() => (Parse.fail message: Nat)) = Err { offset = 0, messages = [message], expected = [], width = 0 } := rfl
 
 -- Tests. Each runs a parser with `Parse.line` (errors give the column) or
 -- `Parse.all` (the line and column).

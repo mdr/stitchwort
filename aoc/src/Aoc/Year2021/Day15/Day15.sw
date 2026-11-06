@@ -76,7 +76,7 @@ def wrap (level: Nat): Nat := if level > 9 then level - 9 else level
 --| and column divided by the cave's height and width) raises the level at
 --| the same place in the first tile (the remainders) by the tile's row
 --| plus its column.
-def Cave.tiles (cave: Cave) [auto tall: cave.height ≠ 0] [auto wide: cave.width ≠ 0]: RiskMap :=
+def Cave.tiles (cave: Cave): RiskMap :=
   let find := cave.levels
   let height := cave.height
   let width := cave.width

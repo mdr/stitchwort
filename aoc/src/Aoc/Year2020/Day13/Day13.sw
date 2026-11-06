@@ -53,14 +53,13 @@ type Bus = { id: Nat, offset: Nat }
 
 def Slot.bus (slot: Slot) (offset: Nat): Option Bus :=
   match slot with
-    | Listed id => Some ({ id, offset })
+    | Listed id => Some { id, offset }
     | OutOfService => None
 
 def Notes.buses (notes: Notes): List Bus := notes.schedule.withIndex.filterMap (((offset, slot)) => slot.bus offset)
 
 --| The first time at or after `from` that the bus departs.
-def Bus.nextDeparture (bus: Bus) (from: Nat): Nat :=
-  if positive: bus.id ≠ 0 then Nat.ceilDiv from bus.id * bus.id else from
+def Bus.nextDeparture (bus: Bus) (from: Nat): Nat := Nat.ceilDiv from bus.id * bus.id
 
 --| Part 1: the ID of the bus that leaves first from when you can leave,
 --| times the minutes you wait for it.

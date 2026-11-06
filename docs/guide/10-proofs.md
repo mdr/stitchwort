@@ -170,9 +170,11 @@ theorem twiceIsDouble (n: Nat): double n = 2 * n := omega
 theorem stepBack (n: Nat) (x: Int) (h: x < n.toInt): x - 1 < n.toInt - 1 := omega
 
 theorem thirdOfTriple (k: Int): (3 * k) / 3 = k := omega
+
+theorem sizeOfSum (x: Int) (y: Int): (x + y).natAbs ≤ x.natAbs + y.natAbs := omega
 ```
 
-On `Int`, an unknown may be negative, while `n.toInt` of a `Nat` is known to be at least 0, so `Nat` and `Int` facts mix; `x / 3` and `x % 3` are unknowns with `3 * (x / 3) + x % 3 = x` and `0 ≤ x % 3 < 3`. If the facts contradict each other, `omega` proves any goal, not only an arithmetic one. `omega [p, q]` adds the facts `p` and `q`, such as lemmas applied to arguments. Anything that isn't linear arithmetic (`x * y`, `xs.length`, a function call) is treated as an unknown number, though a field of a record written out, `{ row = 1, column = 0 }.row`, is computed first.
+On `Int`, an unknown may be negative, while `n.toInt` of a `Nat` is known to be at least 0, so `Nat` and `Int` facts mix; `x / 3` and `x % 3` are unknowns with `3 * (x / 3) + x % 3 = x` and `0 ≤ x % 3 < 3`. `x.natAbs`, the size of `x`, is known to be `x` or `0 - x`, so `(x + y).natAbs ≤ x.natAbs + y.natAbs` is `omega` too. If the facts contradict each other, `omega` proves any goal, not only an arithmetic one. `omega [p, q]` adds the facts `p` and `q`, such as lemmas applied to arguments. Anything that isn't linear arithmetic (`x * y`, `xs.length`, a function call) is treated as an unknown number, though a field of a record written out, `{ row = 1, column = 0 }.row`, is computed first.
 
 Comparisons may be joined with `&&`, `||` and `not`, as `Bool`s (`(a == b || a < c) = True`) or as propositions (`p ∨ q`, `p ∧ q`, `¬p`), and `==` and `!=` on numbers count as comparisons. A fact that is a disjunction is split into its two cases, each proved separately, when the other facts aren't enough (up to 8 splits); a goal that is one is proved by cases on one side, the other side proved where it fails:
 
@@ -399,8 +401,8 @@ theorem countAboveLe (k: Nat) (xs: List Nat): countAbove k xs ≤ xs.length :=
    │                                  y: Nat
    │                                  ys: List Nat
    │                                  h: k ≤ y
-   │                                  ih: countAbove k ys ≤ Std.List.length ys
-   │                                  ⊢ countAbove k ys ≤ Std.List.length ys
+   │                                  ih: countAbove k ys ≤ ys.length
+   │                                  ⊢ countAbove k ys ≤ ys.length
 ───╯
 1 goal open: the declarations with them, and what uses them, aren't finished, so they aren't checked
 ```
@@ -475,20 +477,20 @@ theorem countBigAtMost (xs: List Nat): countBig xs ≤ xs.length :=
    │                                x: Nat
    │                                rest: List Nat
    │                                big: 4 ≤ x
-   │                                ih: countBig rest ≤ Std.List.length rest
-   │                                ⊢ countBig rest ≤ Std.List.length rest
+   │                                ih: countBig rest ≤ rest.length
+   │                                ⊢ countBig rest ≤ rest.length
 ───╯
 1 goal open: the declarations with them, and what uses them, aren't finished, so they aren't checked
 ```
 
-Not every arm gets an equation. Where the right side uses the proof of a condition (`| (n, len) if n != 0 => len % n` needs `n ≠ 0` for the `%`), the equation isn't generated and naming it says why; prove that case by hand, with `f.unfold` or by matching on the condition. The rules are in [syntax.md](../syntax.md), under "Guards".
+Not every arm gets an equation. Where the right side computes on the proof of a condition, the equation isn't generated and naming it says why; prove that case by hand, with `f.unfold` or by matching on the condition. An arm that only passes the proof on, where nothing computes on it (as `Fin.ofNatLt n i h` takes `h: i < n`), gets its equation. The rules are in [syntax.md](../syntax.md), under "Guards".
 
 ## Decisions and facts
 
 `Bool` and statements are different things. `n == 0` is a `Bool`, a value computed at run time. `n = 0` is a statement, a type whose values are proofs. A statement that can be **decided** (equations on types with `==`, comparisons on numbers) can be used as a condition, and then the branches know which way it went:
 
-- `if n != 0 then a else b` makes the fact `n != 0` available in `a`. That's how `/` found its proof in [chapter 2](02-values-and-definitions.md#division-needs-a-reason).
-- `if a && b then …` gives the branch `a ∧ b`, and `auto` uses each part of a conjunction in scope: `if b != 0 && c != 0 then a % b` checks. (When `b` itself needs the fact from `a`, as in `n != 0 && len % n == 0`, the branch doesn't get the conjunction.)
+- `if n != 0 then a else b` makes the fact `n != 0` available in `a`, where an `auto` argument finds it: in `if n != 0 then Nat.modLt x n else …`, the lemma's `[auto ok: n ≠ 0]` is that fact ([chapter 2](02-values-and-definitions.md#dividing-by-zero)).
+- `if a && b then …` gives the branch `a ∧ b`, and `auto` uses each part of a conjunction in scope: `if i < xs.length && j < xs.length then xs.getLt i` checks. (When `b` itself needs the fact from `a`, as in `i < xs.length && xs.getLt i == x`, the branch doesn't get the conjunction.)
 - `if h: P then a else b` also names the fact: `h: P` in `a`, and `h: ¬P` in `b`.
 - A parameter `[auto ok: P]` asks the caller for a proof of `P`, found automatically from the facts in scope, or by deciding `P` when its values are known.
 
@@ -552,6 +554,8 @@ theorem clampToAtMost (limit: Nat) (n: Nat): clampTo limit n ≤ limit :=
 
 On `Nat`, the statement `a <= b` computes to `Nat.leq a b = True`, and goals are shown computed: that is shown as `a ≤ b`, and the `Bool` `Nat.leq a b` alone as `a <= b`. In the `True` branch the goal is then exactly `fits`, and in the `False` branch it is `limit <= limit`, which `Nat.leRefl limit` proves.
 
+The `match` looks for `e` in the goal as you wrote it first, so where it finds every occurrence there, the branches keep the goal's calls: matching on `flag` in `(if flag then double a else 0) = …` leaves `double a = …` in the `True` branch, not `a + a = …`. Here the condition is only inside `clampTo`, so it is found in what `clampTo limit n` computes to, and the branches show that.
+
 The `match` replaces `e` in the goal and in the hypotheses, but not in a lemma you call inside a branch: `clampToAtMost limit n` still says `clampTo limit n ≤ limit`, where the `True` branch's goal has `n ≤ limit`. Since they differ only in `e` against its value, the lemma's proof is rewritten along `fits` for you:
 
 <!-- snippet: proofs.sw#match-lemma -->
@@ -562,7 +566,9 @@ theorem clampToFits (limit: Nat) (n: Nat): clampTo limit n ≤ limit ∧ clampTo
     | False => Both (clampToAtMost limit n) omega
 ```
 
-That needs the equation's name: in a `match` without one, the error says to add it. The same goes the other way: a lemma's premise `Nat.leq n limit = True`, written in the `True` branch, is proved by `fits`, which says exactly that, and `rfl` can't prove it.
+The lemma's type is searched for `e` as the goal is, so it fits even where it writes `e` differently, up to computation (`xs.map (y => f a y)` for `xs.map (f a)`). That needs the equation's name: in a `match` without one, the error says to add it. The same goes the other way: a lemma's premise `Nat.leq n limit = True`, written in the `True` branch, is proved by `fits`, which says exactly that, and `rfl` can't prove it.
+
+To split on an `if`, match on its condition, not on the comparison's decision (`match Nat.decLessThan n limit with | Yes … | No …`). A decision match gives you evidence, but it refines an `if` only if the `if` still holds the decision, and that depends on the definition: an `if` whose branches don't use the proof of its comparison is compiled to a test of the `Bool`, and a decision match then finds nothing to replace. The compiler warns (`W-MATCH-DECISION-IF`) and says what to write instead. Matching on the condition works whichever way the `if` was compiled (`examples/accept/match-decision-if.sw`).
 
 ## Membership, "if and only if", "there exists"
 
@@ -601,7 +607,7 @@ def pick (v: Vec Nat 3): Nat := v.get 2
 theorem pickTrio: pick (VCons 1 (VCons 2 (VCons 3 VNil))) = 3 := rfl
 ```
 
-`v.get 2` needs a `Fin 3`; a `2` is accepted because it's below 3, and `v.get 3` would be an error. A proof is just the most extreme case of this: a type that mentions values, such as `x + 1 <= 10`, with no data in it. You'll find proofs inside ordinary types too, as fields: `type Dial (highest: Nat) = { position: Nat, inRange: position <= highest }` is a number that is known to be in range, everywhere it goes.
+`v.get 2` needs a `Fin 3`; a `2` is accepted because it's below 3, and `v.get 3` would be an error. A proof is just the most extreme case of this: a type that mentions values, such as `x + 1 <= 10`, with no data in it. You'll find proofs inside ordinary types too, as fields: `type Dial (highest: Nat) = { position: Nat, inRange: position <= highest }` is a number that is known to be in range, everywhere it goes. Reading the field, `d.inRange`, gives that proof at its type as the record declares it, `d.position <= highest`: hovers and messages show a field's type as written, not what the definitions in it compute to.
 
 ## A specification and its program
 

@@ -56,6 +56,7 @@ function hoverRangeParams(uri, position, selection) {
 }
 
 const GOAL_AT = 'stitchwort/goalAt';
+const TESTS = 'stitchwort/tests';
 
 const escapeHtml = (s) =>
   String(s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
@@ -76,6 +77,7 @@ function goalHtml(answer) {
 
 module.exports = {
   GOAL_AT,
+  TESTS,
   escapeHtml,
   goalHtml,
   hoverRangeParams,

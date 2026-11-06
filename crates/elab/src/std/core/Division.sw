@@ -7,7 +7,8 @@
 -- Division
 
 --| Counts how many times `divisor` fits into `n`, using `fuel` to stay structurally
---| recursive (`n` is always enough fuel when `divisor` isn't zero).
+--| recursive (`n` is always enough fuel when `divisor` isn't zero). It's 0 when
+--| `divisor` is 0.
 def Nat.divFuel: (fuel: Nat) → (n: Nat) → (divisor: Nat) → Nat
   | Zero, n, divisor => 0
   | Succ fuel, n, divisor => Nat.divStep (Nat.leq divisor n) fuel n divisor
@@ -22,19 +23,26 @@ def Nat.divFuel: (fuel: Nat) → (n: Nat) → (divisor: Nat) → Nat
 -- branch. Since `x + 12345` computes to 12345 `Succ`s around `x`, the `if`
 -- put 12345 nested steps into the normal form of `(x + 12345) / d`, a term
 -- growing with the square of the constant (docs/proposals/division.md).
+-- A zero divisor always fits, and counts as fitting no times, which makes
+-- `n / 0 = 0`. The test is in the step, after the comparison, so that `0 / d`
+-- is 0 and a stuck `n / d` is still one stuck comparison.
 @[noReceiver]
 def Nat.divStep: (fits: Bool) → (fuel: Nat) → (n: Nat) → (divisor: Nat) → Nat
   | False, fuel, n, divisor => 0
-  | True, fuel, n, divisor => Succ (Nat.divFuel fuel (n - divisor) divisor)
+  | True, fuel, n, Zero => 0
+  | True, fuel, n, Succ divisor => Succ (Nat.divFuel fuel (n - Succ divisor) (Succ divisor))
 
---| `n / divisor`, rounded down: `17 / 5` is 3. It needs a proof that `divisor` isn't zero, which `auto` finds.
-def Nat.div (n: Nat) (divisor: Nat): [auto ok: divisor ≠ 0] → Nat := Nat.divFuel n n divisor
+--| `n / divisor`, rounded down: `17 / 5` is 3. Dividing by 0 gives 0, as in
+--| Lean: `n / 0 = 0`, so that `n = (n / d) * d + n % d` holds for every `d`.
+--| Lemmas that need a divisor that isn't 0 (`Nat.modLt`) take it as a hypothesis.
+def Nat.div (n: Nat) (divisor: Nat): Nat := Nat.divFuel n n divisor
 
---| `n % divisor`, the remainder of `n / divisor`: `17 % 5` is 2.
+--| `n % divisor`, the remainder of `n / divisor`: `17 % 5` is 2. The
+--| remainder of dividing by 0 is the number itself: `n % 0 = n`.
 -- The quotient goes on the left: `*` recurses on its left argument, so
 -- `(n / divisor) * 100` stays put while checking, where `100 * (n / divisor)` would
 -- unfold into a hundred additions.
-def Nat.mod (n: Nat) (divisor: Nat): [auto ok: divisor ≠ 0] → Nat := n - (n / divisor) * divisor
+def Nat.mod (n: Nat) (divisor: Nat): Nat := n - (n / divisor) * divisor
 
 theorem Nat.leSucc: (n: Nat) → n ≤ Succ n
   | Zero => rfl

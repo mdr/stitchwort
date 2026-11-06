@@ -3,16 +3,20 @@
 // docs/proposals/language-server.md). The server does diagnostics, definition,
 // hover, references and the outline; `vscode-languageclient` carries them.
 // What stays here: starting the server, and the text of library files
-// (`stitchwort-std:`, from `stitchwort std-source`). The grammar and language
+// (`stitchwort-std:`, from `stitchwort std-source`), and the run icons and the
+// Testing panel (runs.js), which run the CLI. The grammar and language
 // configuration are declarative, in package.json.
 
 const vscode = require('vscode');
 const cp = require('child_process');
 const { LanguageClient } = require('vscode-languageclient/node');
 const cfg = require('./client');
+const runs = require('./runs');
 
 /** @type {LanguageClient | undefined} */
 let client;
+/** @type {Promise<void> | undefined} resolves when the server is up */
+let clientStarted;
 let warnedMissingCli = false;
 
 function configuredPath() {
@@ -52,7 +56,8 @@ function startClient() {
     },
   };
   client = new LanguageClient('stitchwort', 'Stitchwort', serverOptions, clientOptions);
-  client.start().catch((err) => {
+  clientStarted = client.start();
+  clientStarted.catch((err) => {
     if (!warnedMissingCli) {
       warnedMissingCli = true;
       vscode.window.showWarningMessage(
@@ -170,6 +175,15 @@ function activate(context) {
     { dispose: stopClient },
   );
   startClient();
+  // The server's list of a file's tests; rejects when there's no server, and
+  // the Testing panel then reads the text instead.
+  const serverTests = async (uri) => {
+    const c = client;
+    if (!c || !clientStarted) throw new Error('no server');
+    await clientStarted;
+    return c.sendRequest(cfg.TESTS, { textDocument: { uri } });
+  };
+  runs.register(context, () => cfg.cliPath(configuredPath()), serverTests);
 }
 
 function deactivate() {

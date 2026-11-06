@@ -7,7 +7,7 @@ import Std (List, Option, Text)
 
 def written (input: Text): List (List Char) := input.lines.map Text.toList
 
-test "example, the spec" := seat "FBFBBFFRLR".toList == Some ({ row = 44, column = 5 })
+test "example, the spec" := seat "FBFBBFFRLR".toList == Some { row = 44, column = 5 }
 test "the other examples, the spec" := seatIds (written """
   BFFFBBFRRR
   FFFBBBFRRR

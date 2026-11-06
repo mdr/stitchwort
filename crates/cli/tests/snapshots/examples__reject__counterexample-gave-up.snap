@@ -7,7 +7,7 @@ expression: output
    │
  6 │ theorem longLists (xs: List Nat) (h: List.length xs = 50): List.length xs = 0 := rfl
    │                                                                                  ─┬─  
-   │                                                                                   ╰─── `List.length xs` and `0` aren't equal
+   │                                                                                   ╰─── `xs.length` and `0` aren't equal
    │ 
    │ Note: `rfl` proves `a = b` only when both sides compute to the same value
 ───╯

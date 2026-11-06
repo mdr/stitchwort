@@ -32,7 +32,7 @@ def numbers (line: Text): List Nat := line.split ',' |> .filterMap Text.toNat
 - **Full names.** `Std.Text.toNat` always works.
 - **Syntax.** `+`, `==`, `++`, `if`, literals and `${…}` always mean the library's.
 
-`import N (a, b)` brings particular names into scope: `import Std.Fail (fail, need)` lets you write `fail` for `Fail.fail`. `import N (..)` brings every name declared directly in `N`, at a lower priority than the file's own names and named imports. Types outside the prelude, such as `Map`, `Set`, `Vec` and `Float`, need an import even for the type's name.
+`import N (a, b)` brings particular names into scope: `import Std.Fail (fail, need)` lets you write `fail` for `Fail.fail`. `import N (..)` brings every name declared directly in `N`, at a lower priority than the file's own names and named imports. Types outside the prelude, such as `Map`, `Set`, `Vec`, `Array` and `Float`, need an import even for the type's name.
 
 A short name means, first found: a local variable, the file's own declaration, a name imported by name, a name from an `(..)` import, the prelude. So a file can declare its own `length` or `Option` without a clash.
 
@@ -133,7 +133,7 @@ import Std (Fail, Map)
 
 def read (line: Text): Result Order Text := Fail.toResult (() => Order.read line)
 
-test "reads an order" := read "tea 3" == Ok ({ product = "tea", quantity = 3 })
+test "reads an order" := read "tea 3" == Ok { product = "tea", quantity = 3 }
 test "refuses a bad quantity" := read "tea lots" == Err "expected a quantity, got 'lots'"
 test "prices an order" := ({ product = "milk", quantity = 2 }: Order).price == Some 180
 test "an unknown product has no price" := ({ product = "cake", quantity = 1 }: Order).price == None
@@ -285,6 +285,37 @@ test "membership" := seen.contains 2 ∧ ¬(seen.contains 5)
 test "set algebra" := Set.union seen [9].toSet == [1, 2, 3, 9].toSet
 test "union a list of sets" := sets.unionAll == [1, 2, 3].toSet
 ```
+
+### Array
+
+Reach for an `Array a` when a program keeps **indexed state and updates it in a loop**: a table of counters, a board of cells, the numbers a game has said so far. A list reads and changes position `i` in `i` steps, so a loop over a million positions is quadratic; an array does either in one step. When you only walk a collection from one end to the other, or build it once and read it, a `List` is simpler and as fast.
+
+An array is not in the prelude: write `import Std (Array)`. Building one from a list with `.toArray` (a dot call, as ever) needs no import.
+
+<!-- snippet: library.sw#array -->
+```stitchwort
+def tally (digits: List Nat): Array Nat :=
+  digits.foldLeft (Array.replicate (count := 10) 0) (counts digit => counts.modify digit (n => n + 1))
+
+test "an array of counts" := (tally [3, 1, 3, 3]).toList == [0, 1, 0, 3, 0, 0, 0, 0, 0, 0]
+test "get gives an Option" := (tally [3]).get 3 == Some 1 ∧ (tally [3]).get 10 == None
+test "getOr gives a fallback" := (tally [3]).getOr 12 0 == 0
+test "set out of range changes nothing" := ([5, 6].toArray).set 2 9 == [5, 6].toArray
+
+test "getLt needs no Option when the index is in range" := ([7, 8, 9].toArray).getLt 1 == 8
+```
+
+Nothing panics. `get array i` is an `Option`, `None` past the end; `getOr array i fallback` takes the answer for that case; and `getLt array i` takes a proof that `i < array.size`, found by `auto` where the compiler can see it (as for a literal array above, or after a check such as `if i < array.size`), so the result needs no `Option` at all. `set array i x` past the end leaves the array unchanged, as `List.set` does, and so do `modify` and `swap`. The rest: `size`, `push`, `pop`, `replicate`, `tabulate`, `map`, `foldLeft`, `withIndex`, `toList` and `toVec`. Two arrays are equal when their lists are, and `toList` is what a proof sees: an array *is* its list, so every list lemma applies, and the proofs about a program that uses arrays are the proofs about the lists it would have used.
+
+**In place.** `set`, `push`, `pop` and `modify` take the array and give back a new one, but when nothing else holds the old one, `stitchwort run` (and `--native`, and the playground) changes the same buffer instead of copying it. That is what makes the loop above linear. It only works while you pass the new array on and don't use the old one again. If you do (the old array is kept in a variable you read later, a `Map`, a closure), the first change must copy it first: the answer is still right, but that step takes time in proportion to the array's size, which brings back the cost you used an array to avoid. Under `--js` every operation runs as written, on the list, so it is correct but slow.
+
+A run that makes many large copies says so when it ends:
+
+```
+note: an array was copied 4000 times because something else still held it (the largest had 5000 elements); `set`, `push` and `pop` change an array in place only when nothing else holds it, so keep one version in use and pass it on (docs/proposals/arrays.md §6.1)
+```
+
+It appears after ten copies of a thousand elements or more. It means some loop is holding on to an old version of the array: look for a place that uses the array both before and after a `set`, such as comparing the new array with the old one, or a step that returns a pair containing both. The note never appears for an array that is changed in place, and a short array never triggers it.
 
 ### NonEmptyList
 

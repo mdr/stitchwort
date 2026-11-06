@@ -27,7 +27,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
 
-use crossbeam_channel::{Receiver, RecvTimeoutError, Sender};
+use crossbeam_channel::{Receiver, RecvTimeoutError, Sender, TryRecvError};
 use lsp_server::{Connection, ErrorCode, Message, Notification, Request, Response};
 use lsp_types::notification::Notification as _;
 use lsp_types::request::Request as _;
@@ -43,6 +43,7 @@ use stitchwort_driver::check_cache::{BundleRecorder, BundleStore, CheckCache, Li
 use stitchwort_driver::driver::Session;
 use stitchwort_driver::live::{
     Answers, FileAnswers, LiveFile, LiveProject, LiveRef, Loc, OutlineItem, Place, Progress,
+    outline_of_text,
 };
 use stitchwort_driver::marks as pos_marks;
 use stitchwort_elab::cache::{Key, Store};
@@ -55,6 +56,7 @@ use wasm::FileUrl as _;
 mod arms;
 mod complete;
 mod imports;
+mod lens;
 mod source;
 pub use source::{Disk, Memory, MemoryProject, ProjectFiles, Source};
 
@@ -166,6 +168,7 @@ pub fn capabilities() -> serde_json::Value {
         "experimental": { "hoverRange": true },
         "referencesProvider": true,
         "documentSymbolProvider": true,
+        "codeLensProvider": { "resolveProvider": false },
         "workspaceSymbolProvider": true,
         "documentFormattingProvider": true,
         "documentRangeFormattingProvider": true,
@@ -206,6 +209,10 @@ fn initialize(params: &serde_json::Value, options: &mut Options) -> (serde_json:
 pub fn serve(connection: Connection, options: Options) -> Result<(), String> {
     serve_from(connection, options, Arc::new(Disk))
 }
+
+/// The parser's stack budget for an outline made on the request thread,
+/// which is not the checker's big-stack thread; deeper text is cut short.
+const OUTLINE_STACK: usize = 512 * 1024;
 
 /// [`serve`], reading files from `source`.
 pub fn serve_from(
@@ -275,6 +282,8 @@ pub fn serve_from(
         document_changes,
     };
     let result = main.run();
+    // Stops the check in progress; the checker then sees the channel closed.
+    main.cancel.store(true, Ordering::Relaxed);
     drop(main);
     for worker in workers {
         let _ = worker.join();
@@ -1407,10 +1416,18 @@ impl Main {
             }),
             request::DocumentSymbolRequest::METHOD => {
                 parse::<lsp_types::DocumentSymbolParams>(&request).map(|p| {
-                    let outline = locate(&nav, &p.text_document.uri)
-                        .and_then(|(_, ws, place)| ws.files.get(&place))
-                        .map(|f| DocumentSymbolResponse::Nested(document_symbols(&f.outline)));
-                    serde_json::to_value(outline)
+                    let uri = &p.text_document.uri;
+                    // Until the file's first check has finished, the outline
+                    // comes from its text alone: the client asks once, as
+                    // the file opens, and keeps the answer.
+                    let outline = match locate(&nav, uri).and_then(|(_, ws, p)| ws.files.get(&p)) {
+                        Some(f) => Some(document_symbols(&f.outline)),
+                        None => (uri.scheme() == "file" && std_path(uri).is_none())
+                            .then(|| self.text(uri))
+                            .flatten()
+                            .map(|text| document_symbols(&outline_of_text(&text, OUTLINE_STACK))),
+                    };
+                    serde_json::to_value(outline.map(DocumentSymbolResponse::Nested))
                 })
             }
             request::WorkspaceSymbolRequest::METHOD => {
@@ -1419,6 +1436,33 @@ impl Main {
                     serde_json::to_value(WorkspaceSymbolResponse::Flat(found))
                 })
             }
+            request::CodeLensRequest::METHOD => {
+                parse::<lsp_types::CodeLensParams>(&request).map(|p| {
+                    let texts = self.texts.borrow();
+                    let uri = &p.text_document.uri;
+                    let lenses = match texts.get(uri) {
+                        Some(text) if uri.scheme() == "file" => {
+                            lens::code_lenses(uri.as_str(), text)
+                        }
+                        _ => Vec::new(),
+                    };
+                    Ok(serde_json::Value::Array(lenses))
+                })
+            }
+            lens::TESTS => parse::<lsp_types::CodeLensParams>(&request).map(|p| {
+                // Open documents as the editor has them; other files as
+                // they are on disk, so the panel can list a whole project.
+                let uri = &p.text_document.uri;
+                let text = self.texts.borrow().get(uri).cloned().or_else(|| {
+                    let path = uri.to_file_path().ok()?;
+                    std::fs::read_to_string(path).ok()
+                });
+                let tests = match text {
+                    Some(text) if uri.scheme() == "file" => lens::test_list(&text),
+                    _ => Vec::new(),
+                };
+                Ok(serde_json::Value::Array(tests))
+            }),
             GOAL_AT => parse::<lsp_types::TextDocumentPositionParams>(&request)
                 .map(|p| serde_json::to_value(goal_at(&nav, &p.text_document.uri, p.position))),
             request::Formatting::METHOD => parse::<lsp_types::DocumentFormattingParams>(&request)
@@ -2088,9 +2132,17 @@ impl Checker {
                     Err(_) => return,
                 }
             }
-            while let Ok(edit) = edits.try_recv() {
-                self.apply(edit);
-                edited = true;
+            loop {
+                match edits.try_recv() {
+                    Ok(edit) => {
+                        self.apply(edit);
+                        edited = true;
+                    }
+                    Err(TryRecvError::Empty) => break,
+                    // The client has gone: the rest of the project isn't
+                    // worth checking.
+                    Err(TryRecvError::Disconnected) => return,
+                }
             }
             // Wait for typing to pause.
             while edited && !self.options.debounce.is_zero() {
@@ -2761,9 +2813,9 @@ fn diagnostic(
         message.push('\n');
         message.push_str(first);
     }
-    for note in &d.notes {
-        message.push_str("\nNote: ");
-        message.push_str(note);
+    for note in pos::note_lines(&d.notes) {
+        message.push('\n');
+        message.push_str(&note);
     }
     let related: Vec<DiagnosticRelatedInformation> = d
         .labels

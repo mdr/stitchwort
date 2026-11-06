@@ -108,6 +108,15 @@ impl Session {
         self.run_selected(cache, &|test| !test.library, Runner::Machine)
     }
 
+    /// [`Session::run_tests_fast`], for only the tests `keep` keeps.
+    pub fn run_tests_fast_where(
+        &self,
+        cache: &Cache,
+        keep: impl Fn(&stitchwort_elab::TestDecl) -> bool,
+    ) -> Vec<TestResult> {
+        self.run_selected(cache, &|test| !test.library && keep(test), Runner::Machine)
+    }
+
     /// Runs the tests of the core and of the library files loaded (all of
     /// them, in [`Session::with_library_tests`]).
     pub fn run_library_tests(&self, cache: &Cache) -> Vec<TestResult> {

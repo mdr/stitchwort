@@ -8,6 +8,9 @@
 //!   whose proof is erased) is just its tag: no allocation. One with fields
 //!   is its tag and one reference-counted array of them.
 //! - Text is a reference-counted string.
+//! - An `Array` (std/Array/Array.sw) is a reference-counted buffer of its
+//!   elements, which a consuming native changes in place when it holds the
+//!   only reference ([`crate::prims`]).
 //! - Freeing never recurses: dropping the last reference to a long list (or
 //!   a long chain of closures) frees it with a work list (`Drop` for
 //!   [`Fields`], [`Fun`] and [`Delay`]).
@@ -47,6 +50,8 @@ pub enum Value {
     Fun(Rc<Fun>),
     /// A partial computation, which only the runner looks inside.
     Delay(Rc<Delay>),
+    /// An `Array`: its elements, in order.
+    Array(Rc<Vec<Value>>),
 }
 
 /// A constructor's runtime fields.
@@ -229,7 +234,10 @@ impl Value {
     /// Whether it may own other values that dropping it could free.
     #[inline]
     fn is_deep(&self) -> bool {
-        matches!(self, Value::Data(..) | Value::Fun(_) | Value::Delay(_))
+        matches!(
+            self,
+            Value::Data(..) | Value::Fun(_) | Value::Delay(_) | Value::Array(_)
+        )
     }
 }
 
@@ -252,6 +260,11 @@ fn take_children(v: &mut Value, out: &mut Vec<Value>) {
         Value::Delay(d) => {
             if let Some(d) = Rc::get_mut(d) {
                 d.take_children(out);
+            }
+        }
+        Value::Array(items) => {
+            if let Some(items) = Rc::get_mut(items) {
+                take_from(items, out);
             }
         }
         _ => {}

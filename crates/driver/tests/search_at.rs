@@ -189,10 +189,7 @@ fn rewrites_show_the_goal_they_leave() {
     let report = at(GOALS, line);
     let first = &report.rewrites[0];
     assert_eq!(first.proof, "rewrite List.lengthAppend xs ys in ?");
-    assert_eq!(
-        first.goal,
-        "List.length xs + List.length ys = List.length ys + List.length xs"
-    );
+    assert_eq!(first.goal, "xs.length + ys.length = ys.length + xs.length");
     assert_eq!((first.closes, first.checked), (Some("omega"), "kernel"));
     // Then `omega` closes it: a closing suggestion.
     assert_eq!(

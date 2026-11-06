@@ -5,7 +5,8 @@
 -- From std's lemmas on what parsers do on good input (Std/Parse/Runs.sw).
 
 namespace Aoc.Year2020.Day17.Proofs
-import Aoc.Common (Grid, checkGrid, firstRagged, firstWidth, parseGrid)
+import Aoc.Common (Grid, parseGrid)
+import Aoc.Common.Proofs (parseGridComplete)
 import Aoc.Year2020.Day17 (..)
 import Aoc.Year2020.Day17.Spec (RowWritten, symbol)
 import Std (Bool, Char, DecEq, Eq, Exists, Fail, List, Nat, NonEmptyList, Option, Parse, Result, Text, Void)
@@ -32,66 +33,19 @@ theorem declinesCube (rest: List Char) (stops: Parse.CannotStart cubeChar rest):
         Both (stripDifferent '#' [] char more (Bool.orFalseLeft _ _ (stops char more rfl)))
           (Both (stripDifferent '.' [] char more (Bool.orFalseRight _ _ (stops char more rfl))) rfl))
 
-theorem joinCubes: (states: List CubeState) → Parse.joinReads (states.map (state => ([symbol state], state))) = states.map symbol
+theorem allCubes: (states: List CubeState) → (states.map symbol).all cubeChar = True
   | [] => rfl
-  | [state, ..more] => rewrite joinCubes more in rfl
-
-theorem valuesCubes: (states: List CubeState) → Parse.stepValues (states.map (state => ([symbol state], state))) = states
-  | [] => rfl
-  | [state, ..more] => rewrite valuesCubes more in rfl
-
-theorem manyRunsCubes: (states: List CubeState) → (rest: List Char) → Parse.CannotStart cubeChar rest →
-    Parse.ManyRuns cubeState (states.map (state => ([symbol state], state))) rest
-  | [], rest, stops => declinesCube rest stops
-  | [state, ..more], rest, stops =>
-    Both (List.consNotNil (symbol state) [])
-      (Both (runsCube state (Parse.joinReads (more.map (state2 => ([symbol state2], state2))) ++ rest)) (manyRunsCubes more rest stops))
+  | [state, ..more] => rewrite allCubes more in (match state with | Active => rfl | Inactive => rfl)
 
 theorem runsRow (line: List Char) (row: List CubeState) (written: RowWritten line row) (nonEmpty: row ≠ []):
     Parse.Runs (() => Parse.many1 cubeState |> .toList) line [] row :=
   match row, nonEmpty with
     | [], notEmpty => Void.exfalso (notEmpty rfl)
     | [state, ..more], notEmpty =>
-      let runs := Parse.runsMany1 cubeState [symbol state] state (more.map (state2 => ([symbol state2], state2))) []
-        (runsCube state _) (manyRunsCubes more [] (char more2 found => Void.exfalso (List.consNotNil char more2 (Eq.sym found))))
-      let read := rewrite joinCubes more, valuesCubes more at runs in runs
       rewrite written in
-        Parse.runsMap (() => Parse.many1 cubeState) NonEmptyList.toList ([symbol state] ++ more.map symbol) [] (NonEmptyList.cons state more) read
-
--- `checkGrid` passes a rectangle through. (Also in SW-1624's lemmas for day 3.)
-
-theorem findNoneOfMem (p: a → Bool): (xs: List a) → ((x: a) → x ∈ xs → p x = False) → List.find xs p = None
-  | [], fails => rfl
-  | [x, ..rest], fails =>
-    rewrite fails x (Inl rfl) in findNoneOfMem p rest (y member => fails y (Inr member))
-
-theorem findNoneWithIndexFrom (p: a → Bool): (i: Nat) → (xs: List a) → List.find xs p = None → List.find (List.withIndexFrom i xs) (((_, x)) => p x) = None
-  | i, [], h => rfl
-  | i, [x, ..rest], h =>
-    match e: p x with
-      | False => findNoneWithIndexFrom p (Succ i) rest h
-      | True => Void.exfalso (Option.someNotNone x h)
-
-theorem checkGridComplete (grid: Grid a) (rectangle: grid.Rectangle): Fail.toResult (() => checkGrid grid.rows) = Ok grid :=
-  match decided: Nat.decEq (firstWidth grid.rows) 0 with
-    | Yes empty => Void.exfalso (grid.widthNonZero empty)
-    | No wide =>
-      match ragged: firstRagged grid.rows with
-        | Some (index, row) =>
-          Void.exfalso (Option.noneNotSome (index, row)
-            (Eq.trans (Eq.sym (findNoneWithIndexFrom (row => row.length != firstWidth grid.rows) 0 grid.rows
-              (findNoneOfMem (row => row.length != firstWidth grid.rows) grid.rows (row member => rewrite rectangle row member in DecEq.neSelf (firstWidth grid.rows))))) ragged))
-        | None =>
-          match grid with
-            | { rows, nonEmpty } => rfl
-
-theorem all2WeakenMem [r: a → b → Prop] [s: a → b → Prop]:
-    (xs: List a) → (ys: List b) → ((x: a) → (y: b) → y ∈ ys → r x y → s x y) → List.All2 r xs ys → List.All2 s xs ys
-  | [], [], implies, all => Trivial
-  | [x, ..xs], [y, ..ys], implies, all =>
-    Both (implies x y (Inl rfl) (And.left all)) (all2WeakenMem xs ys (x2 y2 member => implies x2 y2 (Inr member)) (And.right all))
-  | [], [y, ..ys], implies, all => Void.exfalso all
-  | [x, ..xs], [], implies, all => Void.exfalso all
+        Parse.runsMap (() => Parse.many1 cubeState) NonEmptyList.toList ([state, ..more].map symbol) [] (NonEmptyList.cons state more)
+          (Parse.runsMany1Symbols cubeState symbol cubeChar (state2 after _ => runsCube state2 after) declinesCube state more []
+            (allCubes [state, ..more]) (char more2 found => Void.exfalso (List.consNotNil char more2 (Eq.sym found))))
 
 --| The soundness theorem's conclusion: every line of the input is its row of the slice written out, and the slice is a rectangle.
 def InputWritten (input: Text) (slice2: Slice): Prop :=
@@ -103,11 +57,9 @@ theorem parseComplete (input: Text) (slice2: Slice) (written: InputWritten input
     | { grid }, Both lines rectangle =>
       let rowsRead: Fail.toResult (() => Parse.eachLine input (() => Parse.many1 cubeState |> .toList)) = Ok grid.rows :=
         Parse.runsEachLine input (() => Parse.many1 cubeState |> .toList) grid.rows
-          (all2WeakenMem _ _ (line row member same =>
+          (List.all2WeakenMem _ _ (line row member same =>
             runsRow line row same (rowEmpty => grid.widthNonZero (Eq.trans (Eq.sym (rectangle row member)) (rewrite rowEmpty in rfl)))) lines)
-      let gridRead: Fail.toResult (() => parseGrid input cubeState) = Ok grid :=
-        rewrite Fail.toResultThen (() => Parse.eachLine input (() => Parse.many1 cubeState |> .toList)) checkGrid in
-          rewrite rowsRead in checkGridComplete grid rectangle
+      let gridRead: Fail.toResult (() => parseGrid input cubeState) = Ok grid := parseGridComplete input cubeState grid rectangle rowsRead
       rewrite Fail.toResultThen (() => parseGrid input cubeState) (grid2 => ({ grid = grid2 }: Slice)) in
         rewrite gridRead in rfl
 

@@ -10,7 +10,7 @@ Syntax colouring for `.sw` files, and a thin client for the language server
   `"` strings with `${…}` interpolation and escapes, and `'` chars with escapes)
   and the playground highlighter in `web/index.html`. If the lexer changes,
   update `syntaxes/stitchwort.tmLanguage.json`.
-- `?` goal holes are highlighted; the language server shows each hole's goal on hover.
+- `?` goal holes are highlighted; the language server shows each hole's goal on hover, in the diagnostic, and in the Goals panel.
 - **From the server**, through the standard protocol: diagnostics as you type,
   go to definition, find references, hover, the outline, completion (locals,
   names in scope, members after a `.`, and library names that add their
@@ -29,6 +29,34 @@ Syntax colouring for `.sw` files, and a thin client for the language server
   declaration that has one (then the nearest `?`), it shows that goal;
   elsewhere it says there is none. It shows what the server already published
   as the blue diagnostics, so it also stays through an edit that doesn't parse.
+- **Run icons** (SW-1121, D2513). The server offers code lenses
+  (`textDocument/codeLens`, `crates/lsp/src/lens.rs`) in every `.sw` file, a
+  single file outside a project too: "▶ Run test" above each `test`, "▶ Run
+  tests" above the first test when the file has more than one, and "▶ Run"
+  above `main`. The commands (`stitchwort.runTest`, `.runTests`, `.runMain`)
+  are implemented here in `runs.js`. A test run is `stitchwort test FILE
+  [--only NAME] --json` in the file's folder (the file is saved first); for a
+  file of a project it is the file's namespace instead, `stitchwort test
+  Aoc.Day01.Tests --json` in the project folder (the CLI refuses a project
+  file on its own), and the results are narrowed to the file. The
+  result is a message, the Output channel "Stitchwort Tests" lists each test
+  and for a failure the two sides, and failed tests are marked as errors in
+  the file until the next edit. "▶ Run" starts `stitchwort run FILE` in a
+  terminal, so input works.
+- **Testing panel** (D2245: project tests only). A Test Explorer controller,
+  "Stitchwort", lists the tests of every `.sw` file under a `stitchwort.yaml`
+  (project, then file, then test; listed by the server's `stitchwort/tests`
+  request, or by reading the text if the server doesn't answer, and kept up
+  to date as you type and as files change). Run, or Run Test at any level,
+  runs `stitchwort test [NAMESPACE] [--only NAME] --json` in the project
+  folder. Running a whole project splits it by namespace (the first three
+  components, so one day of `aoc/` each), three runs at a time, and
+  results appear as each run finishes; Stop kills the rest. A
+  failure appears at the test's line (or at the false part of an `&&`) as a
+  message with the two sides, shown as expected (right) and actual (left)
+  when it is a comparison. A result from the cache has the description
+  "cached" (and says so in the run's output). Debugging and coverage profiles
+  are not offered.
 - **Formatting.** Format Document and Format Selection work, served by
   `stitchwort lsp` (a file with a syntax error is left alone). Format on save is
   off, as in VS Code generally; to turn it on for Stitchwort files, add
@@ -85,6 +113,10 @@ publishDiagnostics, definition, hover, references, documentSymbol); the tests
 start it the way the client starts the real one. `task test:vscode` runs
 `npm ci` first if `node_modules` is missing.
 
+`runner.js` (the CLI arguments and JSON, finding a file's project, reading test
+declarations) is tested against a stub program in `test/runner.test.js`; the
+glue in `runs.js` is not.
+
 The VS Code glue in `extension.js` isn't covered by tests (the Goals panel's
 page body, `goalHtml`, is, in `client.js`).
 
@@ -95,7 +127,7 @@ error into a `.sw` file without saving and see the squiggle; F12 on a name,
 Shift-F12 on a definition, hover on a use, and the outline (Cmd-Shift-O) give
 the answers they gave before; write a `?` as a proof and run "Stitchwort: Show Goals": the panel shows the
 goal, follows the cursor and updates as you type; F12 on a library name opens the library file
-(a `stitchwort-std:` document in bundle mode); set `stitchwort.path` to a wrong path and see the warning.
+(a `stitchwort-std:` document in bundle mode); set `stitchwort.path` to a wrong path and see the warning. Open `docs/tutorial/01-proving-programs.sw`: "▶ Run test" appears above tests and works (a file outside a project); open `aoc/` and see the Testing panel list the days' tests, run one, and break one to see the failure at its line.
 
 ## Uninstall
 

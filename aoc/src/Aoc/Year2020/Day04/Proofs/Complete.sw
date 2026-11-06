@@ -36,17 +36,12 @@ theorem runsFieldPieces (key: Key) (value: Text) (nonEmpty: value.toList ≠ [])
         (Parse.runsTakeWhile1 _ _ value.toList rest nonEmpty values stops)
         (Parse.runsPure _ rest)))
 
-theorem takeWhileStops (rest: List Char) (stops: Parse.CannotStart isValueChar rest): rest.takeWhile isValueChar = [] :=
-  match rest with
-    | [] => rfl
-    | [char, ..more] => rewrite stops char more rfl in rfl
-
 theorem runsField (read: List Char) (f: Field) (written: FieldWritten read f) (rest: List Char) (stops: Parse.CannotStart isValueChar rest):
     Parse.Runs field read rest f :=
   match written with
     | Both split (Both nonEmpty values) =>
       let sameField: ({ key = f.key, value = Text.fromList f.value.toList }: Field) = f := rewrite Text.fromToList f.value in fieldEta f
-      rewrite split in runsAsValue field _ rest _ f sameField (runsFieldPieces f.key f.value nonEmpty values rest (takeWhileStops rest stops))
+      rewrite split in runsAsValue field _ rest _ f sameField (runsFieldPieces f.key f.value nonEmpty values rest (Parse.takeWhileOfCannotStart isValueChar rest stops))
 
 theorem spaceNotValue (char: Char) (isSpace: Parse.isSpace char = True): isValueChar char = False :=
   Bool.orElim isSpace (space => rewrite DecEq.sound space in rfl) (tab => rewrite DecEq.sound tab in rfl)

@@ -953,7 +953,7 @@ impl Elaborator {
         let elaborated = (|| -> Result<(Term, Term)> {
             let mut cx = Ctx::new(self, expr.span());
             let (term, ty) = infer(&mut cx, expr)?;
-            Ok((term, cx.quote(&ty)?))
+            Ok((term, cx.quote_folded(&ty)?))
         })();
         let goals = if elaborated.is_ok() && self.pending_goals() > 0 {
             Some(self.take_goals())
@@ -1033,7 +1033,7 @@ impl Elaborator {
                 cx.bind(name, ty);
                 binders.push(goals::SnapBinder::Lam(name.into(), ty_term));
             }
-            let target_term = cx.quote(&target)?;
+            let target_term = cx.quote_folded(&target)?;
             let term = check::check(&mut cx, body, &target)?;
             Ok(goals::close_over(&binders, term, target_term))
         })();
@@ -1077,7 +1077,7 @@ impl Elaborator {
             if matches!(expr, Expr::App(..) | Expr::Binary(..)) {
                 (term, ty) = check::insert(&mut cx, term, ty)?;
             }
-            Ok((term, cx.quote(&ty)?))
+            Ok((term, cx.quote_folded(&ty)?))
         })();
         self.decl.owner.borrow_mut().clear();
         let (term, ty) = elaborated?;
@@ -1372,7 +1372,7 @@ impl Elaborator {
                         let bool_ty = Value::Data(bool_data, Vec::new());
                         let ty = effects::comp_type(&cx, &row, bool_ty)?;
                         let term = check::check(&mut cx, expr, &ty)?;
-                        (term, cx.quote(&ty)?)
+                        (term, cx.quote_folded(&ty)?)
                     } else {
                         // A condition, as `if` takes: a `Bool`, or a decided
                         // proposition.
@@ -1548,6 +1548,7 @@ impl Elaborator {
                     implicit: Vec::new(),
                     defaults: Vec::new(),
                     result: None,
+                    braced: false,
                 })
                 .collect(),
             record: false,
@@ -2271,6 +2272,7 @@ impl Elaborator {
                 fields,
                 result: Vec::new(),
                 implicit: Vec::new(),
+                braced: ctor.braced,
             });
         }
         Ok(core_ctors)
@@ -3997,8 +3999,25 @@ impl Elaborator {
                 fields,
                 rest,
                 span,
+                ..
             } => {
                 let (data, ctor) = self.ctor_named(&name.text, name.span)?;
+                // Declared with brackets, the braces are a record pattern for
+                // its argument, as `C ({ … })` is
+                // (docs/proposals/brace-syntax-review.md §5).
+                if !self.ev().data(data).ctors()[ctor].braced {
+                    return Ok(Some(CtorPattern {
+                        data,
+                        ctor,
+                        args: vec![match pattern {
+                            Cow::Borrowed(p @ Pattern::CtorFields { .. }) => {
+                                Cow::Borrowed(p.as_record().expect("a CtorFields"))
+                            }
+                            _ => Cow::Owned(pattern.as_record().expect("a CtorFields").clone()),
+                        }],
+                        span: *span,
+                    }));
+                }
                 Ok(Some(match pattern {
                     Cow::Borrowed(Pattern::CtorFields { fields, .. }) => {
                         self.ctor_fields_pattern(data, ctor, name, fields, *rest, *span, ty)?

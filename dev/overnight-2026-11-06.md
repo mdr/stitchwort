@@ -1,0 +1,84 @@
+# Overnight run, 6–7 November 2026
+
+Matt, 6 Nov ~22:25: "focus on optimizing our test suites, our merge gates,
+compile times, and that kind of stuff." The orchestrator rereads this file after
+compaction and adds to its log.
+
+## Limits
+
+- **Usage (D2555, Matt):** stop automatically at 94% of the weekly allowance
+  (`~/.claude/usage.json`, `seven_day.used_percentage`). No new lanes from 90%.
+  At the start it was 75% used, 86.5% of the week gone, and it resets on 7 Nov at 21:00.
+- **No daily tier** unless Matt agrees (D2556, open: one run at about 6am to
+  measure the night's savings).
+- **Checks stay short** (D2441). Lanes that time builds or tests run alone, or
+  give their numbers with the machine's load noted.
+- **Decisions:** the small and medium ones are the orchestrator's, listed in
+  the morning. The large ones wait as D questions. D2551–D2554 are kept free
+  for SW-1744.
+
+## Focus: the Developer loop speed epic
+
+Until they finish, these keep running: SW-1744 (record eta: trip-journal and the Float
+hold), SW-1746 (bounded readback stage 1) and SW-1732/1733 (the slow AoC tests).
+After them the Goals as written and Record eta work pauses.
+
+The queue, best value first:
+
+1. SW-1751: profile the merge tier and fix what's slow.
+2. SW-1752: affected-test selection for lanes and verifiers.
+3. SW-1753 (Opus): a design for caches that survive a compiler change
+   (SW-1745); built if the design is clear.
+4. SW-1754: compile time after incremental builds (test-profile settings, lld,
+   SW-1738); timed alone.
+5. SW-1735 (kache) and SW-1742 (mimalloc): measured on a quiet machine.
+6. SW-1741 (the std cache filled once per run) and SW-1734 (heavy sweeps
+   kept from overlapping).
+7. Next slowest daily binaries: rewind, operators, extract, std_library.
+8. Only if time is left: SW-1736 (one test binary per crate), and SW-1737 as a plan
+   only.
+
+## Morning summary
+
+By epic: what merged, before and after numbers, what's running, what stopped
+and why, open D questions, usage.
+
+## Log
+
+- 22:30: plan written; SW-1744, SW-1746 and SW-1732/1733 running.
+
+## Backup queue, so work carries on until 8am (Matt: "make progress all the way through")
+
+Take these in order, once the speed queue above is empty or blocked.
+
+1. **More speed work.**
+   - The findings from each speed lane become small fix lanes straight away.
+   - The next slowest binaries in tonight's daily run: rewind 807 s, the web
+     tests 613 s, extract 544 s, std_library 510 s, check_cache 376 s,
+     run_js 332 s, operators 267 s.
+   - `test:lane` areas that don't cover what they claim. The lsp features
+     gap was SW-1686; look for others.
+   - Lane rebuild time on a fresh worktree: kache, and copying a warm
+     target folder.
+2. **DeepSeek for the mechanical speed work.** SW-1736 (one test binary per
+   crate) is mostly moving files. It costs none of the Claude allowance, so it
+   stretches the night if usage gets close to 94%. DeepSeek has its own quota and may run out (Matt): if a run fails with a quota or rate error, fall back to GLM, then Sonnet, and write it in the log.
+3. **Bounded readback, already approved (D2545):**
+   - stage 1b (SW-1748);
+   - SW-1743 and the swallowed-error sites;
+   - SW-1749, the omega and ring atom comparison;
+   - stage 4, and stage 5 (error notes, Sonnet or DeepSeek);
+   - R, `rewrite f` (D1433, decided yes), on Opus.
+
+   Only one lane at a time in elab's matching and unify code.
+4. **Small fixes from the backlog** (Matt likes them), on Sonnet or
+   DeepSeek: diagnostics, docs (SW-1616), std lemmas.
+5. **Read-only analysis lanes** if the machine is busy timing things: reviews
+   of merged work, syntheses and designs.
+- 22:40: Matt: "crack on"; DeepSeek's quota may run out too, so fall back to GLM and then Sonnet.
+- 22:31: SW-1744 in (report on main, prototype on its branch); D2551-D2553 left for Matt; SW-1751 started.
+- 22:32: SW-1746 (stage 1) built, all its tests passed, 0 decide differences over 187 std decisions; its Opus review SW-1756 started (it hands terms to the kernel). Usage 76%.
+- 22:41: Matt delegated D2551-D2553; all decided yes (see SW-1744). SW-1667 is queued to resume.
+- 22:49: stage 1 merged, 23/23 on main. Goals as written paused.
+- 23:00: SW-1732/1733 merged (web AoC test: its days phase went from ~125 s to ~20 s; aoc_answers runs on the bounded pool, gain not shown under load 40-80); its check is running. SW-1752 is done and waits for the next batch. SW-1667 resumed (Opus) and SW-1753 started (Opus). Lesson: three lanes timing builds and tests at once push the load to 40-80, so timing lanes should run fewer at a time.
+- 23:07: SW-1732/1733 checked on main (aoc_answers 174 s, web 169 s); SW-1752 test:affected merged, its own selection 598/598 in 7 s. Verifiers start from test:affected from now on.

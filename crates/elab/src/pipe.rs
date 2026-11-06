@@ -42,6 +42,8 @@ pub(crate) fn as_call(value: Expr, f: &Expr) -> Expr {
 
 /// `value |> f`.
 pub(crate) fn infer_pipe(cx: &mut Ctx, value: &Expr, f: &Expr) -> Result<(Term, Value)> {
+    let rewritten = crate::records::brace_arguments(cx, f)?;
+    let f = rewritten.as_ref().unwrap_or(f);
     let (head, mut args) = crate::check::spine(f);
     // A number literal takes its type from where it's used: `5 |> f` is
     // `f 5`, whatever number type `f` takes.

@@ -7,15 +7,15 @@ expression: output
    │
  8 │ theorem equalsItself (x: Float): Float.ieeeEq x x = True := rfl
    │                                                             ─┬─  
-   │                                                              ╰─── `Float.ieeeEq x x` and `True` aren't equal
+   │                                                              ╰─── `x.ieeeEq x` and `True` aren't equal
    │ 
-   │ Note 1: computing the left side gives `not (Std.Nat.equal x.bits 9221120237041090560) && (Std.Nat.equal x.bits x.bits || (Std.Nat.equal x.bits 0 || Std.Nat.equal x.bits 9223372036854775808) && (Std.Nat.equal x.bits 0 || Std.Nat.equal x.bits 9223372036854775808))`
+   │ Note 1: computing the left side gives `(x.bits.equal 9221120237041090560).not && (x.bits.equal x.bits || (x.bits.equal 0 || x.bits.equal 9223372036854775808) && (x.bits.equal 0 || x.bits.equal 9223372036854775808))`
    │ 
    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
    │ 
    │ Note 3: this statement is false; a counterexample:
    │           x = Float.nan
-   │         `Float.ieeeEq x x = True` is false:
+   │         `x.ieeeEq x = True` is false:
    │           left:  False
    │           right: True
 ───╯
@@ -24,26 +24,26 @@ expression: output
     │
  10 │ theorem belowFour (i: Fin 5): Fin.toNat i < 4 := rfl
     │                                                  ─┬─  
-    │                                                   ╰─── `Fin.toNat i <= 3` and `True` aren't equal
+    │                                                   ╰─── `i.toNat <= 3` and `True` aren't equal
     │ 
     │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
     │ 
     │ Note 2: this statement is false; a counterexample:
     │           i = 4
-    │         `Fin.toNat i < 4` is false
+    │         `i.toNat < 4` is false
 ────╯
 [E-REFL] Error: `rfl` can't prove this
     ╭─[ reject/counterexample-library-types.sw:12:54 ]
     │
  12 │ theorem headIsZero (v: Vec Nat 3): Vec.head v = 0 := rfl
     │                                                      ─┬─  
-    │                                                       ╰─── `Vec.head v` and `0` aren't equal
+    │                                                       ╰─── `v.head` and `0` aren't equal
     │ 
     │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
     │ 
     │ Note 2: this statement is false; a counterexample:
     │           v = Vec.fromList [1, 0, 0]
-    │         `Vec.head v = 0` is false:
+    │         `v.head = 0` is false:
     │           left:  1
     │           right: 0
 ────╯
@@ -52,13 +52,13 @@ expression: output
     │
  14 │ theorem mapEmpty (m: Map Nat Nat): Map.size m = 0 := rfl
     │                                                      ─┬─  
-    │                                                       ╰─── `Map.size m` and `0` aren't equal
+    │                                                       ╰─── `m.size` and `0` aren't equal
     │ 
     │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
     │ 
     │ Note 2: this statement is false; a counterexample:
     │           m = Map.fromList [(0, 0)]
-    │         `Map.size m = 0` is false:
+    │         `m.size = 0` is false:
     │           left:  1
     │           right: 0
 ────╯
@@ -67,15 +67,15 @@ expression: output
     │
  16 │ theorem setEmpty (s: Set Nat): Set.size s = 0 := rfl
     │                                                  ─┬─  
-    │                                                   ╰─── `Set.size s` and `0` aren't equal
+    │                                                   ╰─── `s.size` and `0` aren't equal
     │ 
-    │ Note 1: computing the left side gives `Map.size s.items`
+    │ Note 1: computing the left side gives `s.items.size`
     │ 
     │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
     │ 
     │ Note 3: this statement is false; a counterexample:
     │           s = { items = Map.fromList [(0, ())] }
-    │         `Set.size s = 0` is false:
+    │         `s.size = 0` is false:
     │           left:  1
     │           right: 0
 ────╯

@@ -1,8 +1,19 @@
 # Proposal: `rewrite` and `match` look at the goal as written first
 
-**Status:** draft 1, 6 November 2026. Ticket SW-706 (D1422; D2453, Matt, 6 Nov 2026: "yes"),
-covering SW-1589 and SW-1562 too. Nothing is built; this note stops for Matt's decisions
-([§8](#8-decisions), Q1–Q6). Written against `main` at `cb58d7916`. Migration cost (hashes,
+**Status:** decided (D2475–D2480, Matt, 6 Nov 2026: all as recommended), stages 1–4 built;
+**Q4 (D2478) reversed by D2542** and D484's search clause retired by D2541 (Matt, 6 Nov 2026,
+after the strategy review [SW-1726](../reviews/SW-1726-unfolding-strategy.md)): searches now
+take Lean's rule, option B below, and the completeness check, today's instance, the agreement
+checks and stage 4's warnings are removed by
+[bounded-readback.md](bounded-readback.md)'s stages 6a and 6b (§8 there lists the proofs
+this breaks). Ticket
+SW-706 (D1422; D2453, Matt, 6 Nov 2026: "yes"), covering SW-1589 and SW-1562 too. Stage 1
+(`rewrite`) is built (SW-1627, `crates/elab/src/rewrite/as_written.rs`); stage 2 (`match` and
+`cases`) is built (SW-1628, `crates/elab/src/matching/as_written.rs`); stages 3 and 4 are
+built (SW-1629, SW-1630); each "as built" is below its plan in
+[§6](#6-recommendation-and-staged-plan). Stage 5 (`rewrite f`, D1433) is now stage R of
+bounded-readback.md. Draft 1 was the design
+note, which stopped for Matt's decisions ([§8](#8-decisions), Q1–Q6). Written against `main` at `cb58d7916`. Migration cost (hashes,
 snapshots, sweeps) is not counted; options are judged by where they end up.
 
 Related notes: [folded-goals.md](folded-goals.md) (SW-742, 28 Oct: the same question for AoC
@@ -10,7 +21,8 @@ Related notes: [folded-goals.md](folded-goals.md) (SW-742, 28 Oct: the same ques
 calls, D483, D484), [rewrite-hypothesis.md](rewrite-hypothesis.md) (`rewrite … at h`,
 D463–D465), [glued-closed-types.md](glued-closed-types.md) (SW-1534, parked),
 [docs/research/aoc-2020-friction-days-10-20.md](../research/aoc-2020-friction-days-10-20.md)
-§2 theme A (the evidence).
+§2 theme A (the evidence), [bounded-readback.md](bounded-readback.md) (SW-1712, D2514, revision 3: Lean's rule
+for searches under D2542, the fallback read lazily, no size cap, stage 4's warnings removed).
 
 Labels:
 
@@ -64,7 +76,8 @@ the real version must fall back on (§5). Lean's rule broke five.
 **What it does not do.** Days 10 and 14 were hurt by `rewrite` and `match` reaching *into*
 hidden copies; the completeness check keeps that behaviour (it is what `std` relies on).
 Changing it is Lean's rule (only what is visible), which breaks existing proofs; Q4
-recommends keeping today's reach, with occurrence selection as the later remedy if needed. Arithmetic that computes as it is
+recommends keeping today's reach, with occurrence selection as the later remedy if needed.
+*Later:* D2542 (6 Nov 2026) reversed Q4 and took Lean's rule; see the status line. Arithmetic that computes as it is
 elaborated (day 13's `+ 1`) is not helped by any of this.
 
 ## 1. The problem
@@ -182,6 +195,9 @@ the source shows.**
 - **D484** (folded-calls.md, Oct 2026): `rewrite` and the decision search see the unfolded
   goal, "so every existing proof keeps working and only the written-back terms and messages
   change". The reason was no regressions, not that the unfolded search is better.
+  *Later:* D2541 (6 Nov 2026) retired its search clause and kept its decision clause:
+  conversion, `rfl`, `decide`, `cases` and tests compute; searches act on what is visible
+  (bounded-readback.md §5).
 - **SW-742 / folded-goals.md** (28 Oct) proposed exactly the shape of this note for 2024's
   days: folded-first with a completeness check for `match`, `cases` and `rewrite` (its option
   B), a folded search to solve a rule's unknowns (C), `rewrite f` (D), and a read-back fix (A).
@@ -316,11 +332,16 @@ For `rewrite` (goal and `at h`) and for `match`/`cases`:
 of it (the arm's goal keeps `readSteps`, `Grid.at`, `sumBy`); (d) day 19 if the folded search
 compares by unification (it does, step 2), and SW-1562 by the same change in the transport.
 *Doesn't fix* (c): day 10's hidden copy inside `canFeed` and day 14's `/ 2` inside `% 2` make
-the check fail, so today's behaviour runs. *Breaks:* nothing, by construction, except where a
-later step depended on the next goal being unfolded and the folded one is used: the prototype
-measures that (§5).
+the check fail, so today's behaviour runs. *Breaks:* nothing that checked, provided the folded result is the rewrite today's search would
+make. Two things can differ: a later step that depended on the next goal being unfolded (the
+prototype measures that, §5), and, for a rule with unknowns, the instance chosen (`comm _ _`
+finds the visible `add a b` where today's first occurrence in the unfolded goal is
+`add c (add a b)`). SW-1627 therefore also runs today's search and falls back when its instance
+differs.
 
 ### B. Lean's rule: as written where found, else today's search
+
+*Chosen later by D2542 (6 Nov 2026), with the fallback read lazily (bounded-readback.md §4).*
 
 Steps 1, 2 and 4 of A without the check: a visible occurrence is used even if hidden copies
 remain. *Fixes* (c) too. *Breaks* `Result.traverseCons` and `List.foldMaxMem` in std
@@ -466,13 +487,68 @@ terms (different motives), so they get an Opus review (D2364).
    the folded attempt, so a scrutinee written up to eta is found (day 19, `eta.sw`). Accept:
    folded-goals.md repro 1 (the arms keep `concatenate`), `Result.traverseCons`'s and
    `List.foldMaxMem`'s shapes (fall back), `eta.sw`. Opus (the motive and its copies);
-   expected 120 min.
+   expected 120 min. `match` and `cases` face the same instance-choice question when the
+   scrutinee has unknowns or several candidates: the folded search must pick the occurrence
+   today's would, or fall back (SW-1627's `todays_instance`).
+
+   *As built (SW-1628).* The targets (goal, variables' types) are read back folded from the
+   values as bound; a subterm is an occurrence if it has the scrutinee's head as written and
+   unifies with it **solving nothing** (no unknown solved, made or left waiting), so there is
+   no instance to choose: the scrutinees are known before generalising (D2090's wait), and
+   where both searches find something they find the same thing. The completeness check is
+   stronger than "no copy left": each generalised target, read back unfolded, must *agree*
+   with today's generalisation of it, the same term except where the folded one has the
+   scrutinee's variable and today's has a subterm that unifies with the scrutinee (an
+   occurrence written differently, day 19). That also catches a closed scrutinee that computes
+   to a constructor (`match h: isBig 20` on `pick (isBig 20) = 1`: today's goal is `1 = 1`, the
+   folded one would be `pick x = 1`), which "no copy left" would let through and which would
+   change the arms. A scrutinee counts as found only where its variable survives the target's
+   unfolding (not inside `keep 3 (isBig n)` with `keep a b := a`). The copies are exactly
+   today's, plus a variable whose generalised type unfolded still holds the scrutinee's variable
+   (or mentions such a copy), never a `let`, whose copy would forget its value (the Opus
+   review's `let k: Ignore Nat (isBig n) := 5`). The folded motive must type-check now (also for
+   `cases`), and any error on the path falls back: today's generalisation, unchanged. Counts
+   under `STITCHWORT_MATCH_METRICS`.
 3. **SW-1538's transport on the folded forms** (SW-1562), after SW-1604's fixes to the same
    function: test the scrutinee as written against `found` and `expected` read back folded,
-   then today's test. Sonnet, 45 min.
+   then today's test. Sonnet, 45 min. Known gap until then (accepted under D2476): with stage 2
+   a `match found: xs.map (f a)` now refines a goal written `xs.map (y => f a y)`, so a lemma
+   stated in that eta form and used in the arms no longer fits the refined goal, and the
+   transport, still syntactic, doesn't rewrite it back (the review's `a4.sw`).
+
+   *As built (SW-1629).* In `along_match_equation_now`, each side that may hold the scrutinee
+   is tried as written before today's test: the side and the scrutinee (the equation's left
+   side) read back folded, and stage 2's occurrence test (head as written, equal by
+   computation solving nothing, the variable surviving unfolding). The result is kept only if,
+   read back unfolded, it agrees with today's generalisation of the same side (stage 2's check
+   2), so today's syntactic copies are all rewritten and the only extra ones are the scrutinee
+   written otherwise; then the same `J` is built from it (sides unified solving nothing, the
+   motive zonked and kernel-checked). Any error on the path but a real E-RESOURCE, a
+   disagreement, or a transport that doesn't fit falls back to today's test, unchanged.
+   Counted under `STITCHWORT_MATCH_METRICS` as `transport-as-written`. Accept:
+   `examples/accept/match-equation-as-written.sw` (the lemma up to eta against a goal as
+   usual, SW-1562; `a4.sw`; a copy hidden in a definition falls back).
 4. **A bounded completeness check (Q5).** When the check's unfolded read-back runs out, use the
    folded result, with a note, where today ends in E-RESOURCE (day 11's `settle … 1000`).
    After 2; 45 min.
+
+   *As built (SW-1630).* Reached only where today fails: a read-back running out of size
+   (`E-RESOURCE` "too large to show", which unlike running out of steps, stack or time leaves
+   the declaration able to go on) or, for `rewrite`, of the search budget (`E-REWRITE-BUDGET`).
+   `rewrite`: when the goal or the rule's left side is too large to read back unfolded, the
+   as-written search runs with the completeness check made if it can finish; a hidden copy it
+   finds still fails as before. When the goal reads back but the completeness check or today's
+   instance runs out, today's search runs; only if it runs out too is the as-written result
+   used. `match`/`cases`: when the goal or a variable's type is too large to read back, the
+   as-written generalisation is made without checks 1 and 2 (they compare with the usual test,
+   which can't run): copies are the variables whose types hold an occurrence as written, a
+   `let` only where its unfolded type still holds it; the motive is checked now as always.
+   Warnings `W-REWRITE-UNCONFIRMED` and `W-MATCH-UNCONFIRMED`, dropped with an attempt that
+   is undone. The motive check on this path has its own budget (`UNCONFIRMED_BUDGET`, 100,000
+   steps): comparing values too large to read back can take minutes (the review's `outer x k
+   12` over `settle x k 40`), so past it the `match` or `rewrite` fails as before
+   (`examples/reject/as-written-unconfirmed-slow-check.sw`). Day 11's `settledExactly` written
+   with `roundLimit` now checks, with the warning.
 5. **`rewrite f` (D1433, Q6).** As in folded-goals.md option D. Any time after 1.
 
 ### 6.1 Evidence still to collect
@@ -533,14 +609,19 @@ The orchestrator assigns D numbers.
   (day 19), and for SW-1538's transport (SW-1562)? [rec: yes]
 - **Q3.** When the rule has unknowns, may the as-written search solve them by the call's
   arguments (`rewrite isSafeCorrect _` finds `isSafe { levels = … }`)? This is D1432, still
-  open; it only turns failures into successes. [rec: yes]
+  open; it turns failures into successes, but it can pick a different instance than today's
+  search (SW-1627 falls back when it does). [rec: yes]
 - **Q4.** Keep today's reach into hidden copies (days 10 and 14) when the as-written result is
   incomplete, rather than Lean's rule of rewriting only what is visible (option B), which
   breaks two std proofs and five AoC declarations? Occurrence selection (`rewrite (at := 2)`)
   stays unbuilt until a proof needs it. [rec: keep today's; no new form now]
+  **Decided D2478 as recommended, then reversed by D2542** (Matt, 6 Nov 2026): Lean's rule,
+  option B. The seven proofs it breaks are rewritten (bounded-readback.md §8); occurrence
+  selection stays unbuilt.
 - **Q5.** When the completeness check itself runs out of resources, use the as-written result
   (with a note saying hidden copies weren't looked at) instead of failing with E-RESOURCE? It
-  changes only proofs that fail today. [rec: yes, as stage 4]
+  changes only proofs that fail today. [rec: yes, as stage 4] *Superseded by D2542:* with
+  no completeness check there is nothing to run out of, and the warnings go.
 - **Q6.** Build `rewrite f` as one step of `f` (D1433, still open) after stage 1? [rec: yes]
 
 ## 9. Sources

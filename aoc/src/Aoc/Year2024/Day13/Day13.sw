@@ -11,6 +11,7 @@
 --| `Aoc.Year2024.Day13.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2024.Day13
+import Aoc.Common (Coords, Unoriented)
 import Std (Fail, IO, Int, List, Nat, Option, Parse, Text, uncurry)
 import Std.Parse (nat, newline, sections, text)
 
@@ -20,14 +21,12 @@ def main(): {IO, Fail} () :=
   IO.print "Part 2: ${solvePart2 machines}"
 
 --| How far a button moves the claw, or how far the prize is from where the
---| claw starts.
-type Offset = { x: Int, y: Int }
-
-type Machine = { buttonA: Offset, buttonB: Offset, prize: Offset }
+--| claw starts: `Unoriented`, as the puzzle has no up.
+type Machine = { buttonA: Coords Unoriented, buttonB: Coords Unoriented, prize: Coords Unoriented }
 
 --| "X+94, Y+34" for a button, "X=8400, Y=5400" for the prize: `sign` is the
 --| "+" or the "=".
-def offset (sign: Text): {Parse} Offset :=
+def offset (sign: Text): {Parse} Coords Unoriented :=
   text "X${sign}"
   let x := nat()
   text ", Y${sign}"
@@ -86,13 +85,13 @@ def Machine.fewestTokensWithin (machine: Machine) (limit: Nat): Option Nat :=
 
 --| How many presses of a button that moves the claw `step` move it exactly
 --| `distance`, if some number does.
-def Offset.pressesToCover (step: Offset) (distance: Offset): Option Nat :=
+def pressesToCover (step: Coords Unoriented) (distance: Coords Unoriented): Option Nat :=
   let count := if step.x ≠ 0 then distance.x / step.x else if step.y ≠ 0 then distance.y / step.y else 0
   if count * step.x == distance.x && count * step.y == distance.y then count.toNatChecked else None
 
 --| The prize's offset after `presses` of a button that moves the claw `step`.
-def Machine.remaining (machine: Machine) (step: Offset) (presses: Nat): Offset :=
-  { x = machine.prize.x - presses.toInt * step.x, y = machine.prize.y - presses.toInt * step.y }
+def Machine.remaining (machine: Machine) (step: Coords Unoriented) (presses: Nat): Coords Unoriented :=
+  machine.prize.minus (step.times presses.toInt)
 
 --| The fewest tokens for buttons along the same line. Swapping presses of
 --| one button for presses of the other that move the claw as far keeps a
@@ -103,11 +102,11 @@ def Machine.collinearTokens (machine: Machine): Option Nat :=
   let buttonB := machine.buttonB
   let fewerA :=
     List.range 0 (Nat.max buttonB.x.natAbs buttonB.y.natAbs + 1)
-      |> .filterMap (aPresses => buttonB.pressesToCover (machine.remaining buttonA aPresses) |> .map (tokens aPresses))
+      |> .filterMap (aPresses => pressesToCover buttonB (machine.remaining buttonA aPresses) |> .map (tokens aPresses))
   let fewerB :=
     List.range 0 (Nat.max buttonA.x.natAbs buttonA.y.natAbs + 1)
       |> .filterMap (bPresses =>
-        buttonA.pressesToCover (machine.remaining buttonB bPresses) |> .map (aPresses => tokens aPresses bPresses))
+        pressesToCover buttonA (machine.remaining buttonB bPresses) |> .map (aPresses => tokens aPresses bPresses))
   (fewerA ++ fewerB).minimum
 
 --| The fewest tokens that win, with no limit on presses.
@@ -118,8 +117,7 @@ def Machine.fewestTokens (machine: Machine): Option Nat :=
 
 --| Part 2's prize, 10000000000000 further along both axes.
 def Machine.corrected (machine: Machine): Machine :=
-  let prize := machine.prize
-  { machine | prize = { x = prize.x + 10000000000000, y = prize.y + 10000000000000 } }
+  { machine | prize = machine.prize.plus { x = 10000000000000, y = 10000000000000 } }
 
 def solvePart1 (machines: List Machine): Nat := machines.sumBy (machine => machine.fewestTokensWithin 100 |> .getOrElse 0)
 

@@ -147,7 +147,7 @@ Put the cursor on a `?` and a panel under the editor shows the goal there: what 
 `editors/vscode/` is a VS Code extension: syntax colouring, and a client for `stitchwort lsp`. Install it with `./editors/vscode/install.sh`, and make sure `stitchwort` is on your `PATH` (or set `stitchwort.path`). The language server gives:
 
 - errors and warnings as you type, for single files and whole projects;
-- hover: a name's type, full name and doc comment, or the type of the selected expression;
+- hover: a name's type, full name and doc comment, a `?`'s goal, or (in VS Code, with a selection) the type of the selected expression;
 - go to definition and find references, including into the standard library, whose files open read-only; an `include "path"` string is a link that opens the included file;
 - the outline and workspace symbols;
 - completion of parameter names after `(` or `[` in a call (`clampTo (` offers `low`, `high` and `value`);
@@ -159,4 +159,6 @@ Put the cursor on a `?` and a panel under the editor shows the goal there: what 
 - the type of a `let` whose type you didn't write, shown after its name (`let total` becomes `total: Nat`), once something uses the variable; no other inlay hints;
 - colours from what the checker resolved each name to: functions, types, constructors, variables, theorems and abilities, with declarations in bold (VS Code: semantic highlighting; the playground draws them too);
 - formatting (Format Document and Format Selection);
+- **run icons** above the declarations, in any `.sw` file (a single file outside a project too): "▶ Run test" above each `test`, "▶ Run tests" above the first when the file has several, and "▶ Run" above `main`. A test shows its result in a message, and a failure lists the two sides of its comparison in the Output panel and marks the line in the file. "▶ Run" starts `stitchwort run` in a terminal, so it can read input. They use the same `stitchwort test` and `stitchwort run` you can type yourself; `stitchwort test FILE --only "name" --json` is the form with one test's result as JSON;
+- **the Testing panel** (the flask icon) lists the tests of the files of a project, those under a `stitchwort.yaml`: run all of them, a file, or one test, and see a failure at its line, with the two sides. A result that came from the test cache is marked "cached". Files outside a project use the run icons instead;
 - **goals**: each `?` in a proof shows what has to go there, and the command "Stitchwort: Show Goals" opens a panel that follows the cursor ([chapter 10](10-proofs.md)).

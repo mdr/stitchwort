@@ -35,9 +35,9 @@ theorem splitNoneLeaves (depth: Nat): (number: Number) → split number = None �
 theorem splitSomeLeaves (depth: Nat): (number: Number) → (split2: Number) → split number = Some split2 → (rest: List Leaf) →
     splitLeaves (leaves depth number ++ rest) = Some (leaves depth split2 ++ rest)
   | Regular value, split2, some, rest =>
-    match Nat.decLessThan 9 value with
-      | Yes _ => rewrite <- Option.someInjective some in rfl
-      | No _ => Void.exfalso (Option.noneNotSome split2 some)
+    match Nat.leq 10 value with
+      | True => rewrite <- Option.someInjective some in rfl
+      | False => Void.exfalso (Option.noneNotSome split2 some)
   | Pair left right, split2, some, rest =>
     match el: split left with
       | Some left2 =>

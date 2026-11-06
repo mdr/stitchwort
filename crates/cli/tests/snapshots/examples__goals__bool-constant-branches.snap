@@ -22,7 +22,7 @@ expression: output
     │ Note: this statement is false; a counterexample:
     │         b = True
     │         c = False
-    │       `List.all [b, c] (x => x) = b` is false:
+    │       `[b, c].all (x => x) = b` is false:
     │         left:  False
     │         right: True
 ────╯
@@ -38,7 +38,7 @@ expression: output
     │ Note: this statement is false; a counterexample:
     │         b = False
     │         c = True
-    │       `List.any [b, c] (x => x) = b` is false:
+    │       `[b, c].any (x => x) = b` is false:
     │         left:  True
     │         right: False
 ────╯

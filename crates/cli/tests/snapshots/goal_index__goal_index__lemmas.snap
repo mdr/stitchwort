@@ -1,6 +1,5 @@
 ---
 source: crates/cli/tests/goal_index.rs
-assertion_line: 199
 expression: "format!(\"{made} lemmas, {} goals without one\\n\\n{}\", summary.len() - made,\nsummary.join(\"\\n\"))"
 ---
 58 lemmas, 12 goals without one
@@ -10,14 +9,14 @@ bool-constant-branches goal 1: theorem orFalseGoal1 (b: Bool): b = (if b then Tr
 bool-constant-branches goal 2: theorem allTwoGoal1 (b: Bool) (c: Bool): (b && c && True) = b := ?
 bool-constant-branches goal 3: theorem anyTwoGoal1 (b: Bool) (c: Bool): (b || c || False) = b := ?
 bool-constant-branches goal 4: theorem besideBoolGoal1 (k: Nat) (b: Bool): (k <= 2) = (k <= 2 && b) := ?
-call-under-binder goal 1: theorem shownGoal1 (xs: List Nat): List.any xs isSmall = List.any xs (n => isSmall n) := ?
+call-under-binder goal 1: theorem shownGoal1 (xs: List Nat): xs.any isSmall = xs.any (n => isSmall n) := ?
 constant-by-name goal 1: theorem healedAtMostGoal1 (hitPoints: Nat) (rooms: List Nat) (same: rooms = startingRooms): healed hitPoints ≤ maxHitPoints := ?
 counterexample-at-hole goal 1: theorem doubleIsSquareGoal1 (n: Nat): n + n = n * n := ?
-counterexample-big-numbers goal 1: theorem doubleTimesHalvedGoal1 (n: Nat) (count: Nat): Nat.shiftRight (doubleTimes n count) count = n := ?
+counterexample-big-numbers goal 1: theorem doubleTimesHalvedGoal1 (n: Nat) (count: Nat): (doubleTimes n count).shiftRight count = n := ?
 counterexample-big-numbers goal 2: theorem powTwoIsPowGoal1 (fuel: Nat) (k: Nat): powTwo fuel k = Nat.pow 2 k := ?
-counterexample-out-of-steps goal 1: theorem slowGoal1 (n: Nat): countDown (Nat.max n 100000000) = 1 := ?
-counterexample-weak-evidence goal 1: theorem shortIncreasingGoal1 (xs: List Nat) (h: increasing xs = True): List.length xs ≤ 5 := ?
-decreasing-callback-argument goal 1: theorem gGoal1 (xs: List Nat) (k: Nat) (other: Nat): List.length (List.filter xs (c => c == other)) < List.length xs := ?
+counterexample-out-of-steps goal 1: theorem slowGoal1 (n: Nat): countDown (n.max 100000000) = 1 := ?
+counterexample-weak-evidence goal 1: theorem shortIncreasingGoal1 (xs: List Nat) (h: increasing xs = True): xs.length ≤ 5 := ?
+decreasing-callback-argument goal 1: theorem gGoal1 (xs: List Nat) (k: Nat) (other: Nat): (xs.filter (c => c == other)).length < xs.length := ?
 decreasing-callback-argument goal 2: no lemma
 distinct-names goal 1: theorem belowGoal1 (x: Nat) (xs: List Nat): ∃ (x1: Nat) => x1 < x := ?
 distinct-names goal 2: no lemma
@@ -35,7 +34,7 @@ logic-notation goal 1: theorem shownGoal1 (x: Nat) (y: Nat) (xs: List Nat) (p: P
 match-arm-pattern-order goal 1: def sumRestOrZeroGoal1 (xs: List Nat) (x: Nat) (rest: List Nat) (h: xs = [x, ..rest]): Nat := ?
 match-branches goal 1: theorem addZeroGoal1: 0 = 0 := ?
 match-branches goal 2: theorem addZeroGoal2 (k: Nat): Succ k = Succ k := ?
-match-hypothesis goal 1: def describeGoal1 (xs: List Nat) (k: Nat) (h: Std.List.length xs = Succ k): Text := ?
+match-hypothesis goal 1: def describeGoal1 (xs: List Nat) (k: Nat) (h: xs.length = Succ k): Text := ?
 match-hypothesis-folded goal 1: theorem steppedGoal1 (row: Nat) (column: Nat) (wall: isWall row column = False): row = row := ?
 match-induct goal 1: theorem firstBigIsBigGoal1 (xs: List Nat) (y: Nat) (found: None = Some y): 10 ≤ y := ?
 match-induct goal 2: theorem firstBigIsBigGoal2 (xs: List Nat) (y: Nat) (x: Nat) (rest: List Nat) (big: 10 ≤ x) (found: Some x = Some y): 10 ≤ y := ?
@@ -50,22 +49,22 @@ param-default-shown goal 1: theorem rangeGoalGoal1 (a: Nat) (b: Nat): range a b 
 param-default-shown goal 2: theorem scaledGoalGoal1 (a: Nat): scaled a = a + (a * 2) := ?
 param-default-shown goal 3: no lemma
 proof-hole goal 1: theorem addZeroGoal1 (n: Nat): n = n := ?
-ranges goal 1: theorem lengthThroughGoal1 (n: Nat): List.length (1 ..= n) = n := ?
-ranges goal 2: theorem lengthUpToGoal1 (n: Nat): List.length (0 ..= n) = n + 1 := ?
+ranges goal 1: theorem lengthThroughGoal1 (n: Nat): (1 ..= n).length = n := ?
+ranges goal 2: theorem lengthUpToGoal1 (n: Nat): (0 ..= n).length = n + 1 := ?
 ranges goal 3: theorem membersGoal1 (x: Nat) (n: Nat): x ∈ 2 ..< n := ?
 ranges goal 4: theorem pairsGoal1 (n: Nat): 1 ..= n = 1 ..= n := ?
 readable-forms goal 1: theorem memberOfTailGoal1 (y: Nat) (ys: List Nat) (h: y ∈ [y, ..ys]): y ∈ ys := ?
 readable-forms goal 2: theorem keysLessGoal1 (x: Float) (y: Float) (h: x < y) (keys: x < y): x = x := ?
 readable-forms goal 3: theorem deeperGoal1 (f: List Leaf → Nat) (leaf: Leaf) (rest: List Leaf): f [{ leaf | depth = leaf.depth + 1 }, ..rest] = f rest := ?
 readable-forms goal 4: theorem rewrittenGoal1 (n: Nat) (h: n = 3): n = 3 := ?
-record-update goal 1: theorem renamedKeepsRefGoal1 (shape: Shape) (newId: Text): ({ shape | id = Std.Text.append newId "!" }.ref = shape.ref) := ?
+record-update goal 1: theorem renamedKeepsRefGoal1 (shape: Shape) (newId: Text): ({ shape | id = newId ++ "!" }.ref = shape.ref) := ?
 record-update goal 2: theorem renamedTwiceGoal1 (shape: Shape) (other: Shape) (newId: Text) (newRef: Nat): ({ pick shape other | id = newId, ref = newRef } = { other | ref = newRef, id = newId }) := ?
 record-update goal 3: theorem paidGoal1 (player: Player) (amount: Nat) (same: ({ player | gold = amount } = player)): ({ player | hitPoints = 3, gold = amount } = { player | hitPoints = 3 }) := ?
 reify-return goal 1: no lemma
 reify-return goal 2: no lemma
 reify-return goal 3: no lemma
 sections goal 1: no lemma
-sections goal 2: theorem countBelowGoal1 (xs: List Nat) (n: Nat): Std.List.count xs (< n) ≤ Std.List.length xs := ?
+sections goal 2: theorem countBelowGoal1 (xs: List Nat) (n: Nat): xs.count (< n) ≤ xs.length := ?
 step-then-folded goal 1: theorem stepsAtOnceGoal1 (a: Nat) (b: Nat): concatenate a b = concatenate a b := ?
 sums-as-written goal 1: theorem plusOneGoal1 (x: Nat): x + 1 = x + 1 := ?
 sums-as-written goal 2: theorem plusThreeGoal1 (x: Nat) (y: Nat): x + 3 = y + x + 2 := ?

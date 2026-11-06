@@ -2500,6 +2500,8 @@ pub struct CtorDecl {
     /// Which fields are implicit (`[n: T]`), for the elaborator: the kernel
     /// checks them like any other. Empty means none is.
     pub implicit: Vec<bool>,
+    /// Whether the explicit fields are declared in braces (`Ctor::braced`).
+    pub braced: bool,
 }
 
 /// Checks and adds the constructors of a data type added by
@@ -2734,6 +2736,7 @@ fn admit_data_group(
                 field_erased,
                 result: result.0,
                 implicit,
+                braced: ctor.braced,
             });
         }
         out.push((d, checked));

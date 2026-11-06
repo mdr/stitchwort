@@ -795,7 +795,7 @@ impl LiveProject {
                 continue;
             };
             let namespace = namespace.path.text.as_str();
-            for item in syntactic_outline(parsed) {
+            for item in syntactic_outline(parsed, None) {
                 let Some(name) = item
                     .name
                     .strip_prefix(namespace)
@@ -828,7 +828,7 @@ impl LiveProject {
         Some(
             self.parsed
                 .iter()
-                .map(|(path, file)| (path.clone(), syntactic_outline(file)))
+                .map(|(path, file)| (path.clone(), syntactic_outline(file, None)))
                 .collect(),
         )
     }
@@ -1222,16 +1222,42 @@ fn written_signature(
     (!header.is_empty()).then(|| header.to_string())
 }
 
+/// The outline of program text, read from its syntax alone, for a file
+/// asked about before its first check has finished.
+pub fn outline_of_text(text: &str, stack: usize) -> Vec<OutlineItem> {
+    let mut sources = stitchwort_syntax::SourceMap::new();
+    let id = sources.add("outline".to_string(), text.to_string());
+    let (module, errors) = parse_module_recovering(id, text, stack);
+    // A file on its own, without a namespace line, is the namespace `Main`.
+    syntactic_outline(
+        &ParsedFile {
+            path: String::new(),
+            display: String::new(),
+            id,
+            text: text.to_string(),
+            module,
+            errors,
+        },
+        Some("Main"),
+    )
+}
+
 /// The outline of a parsed file, read from its syntax alone: the
 /// declarations as written (not the generated ones), named as the checked
 /// outline names them. It exists before the file is checked, which lets a
 /// workspace search cover the namespaces the checker hasn't reached yet.
-fn syntactic_outline(file: &ParsedFile) -> Vec<OutlineItem> {
+/// A file without a namespace line has none, unless `implicit_namespace`
+/// names the one it gets.
+fn syntactic_outline(file: &ParsedFile, implicit_namespace: Option<&str>) -> Vec<OutlineItem> {
     use stitchwort_syntax::ast::{Decl, Name};
-    let Some(namespace) = &file.module.namespace else {
-        return Vec::new();
+    let namespace = match &file.module.namespace {
+        Some(namespace) => namespace.path.text.as_str(),
+        None => match implicit_namespace {
+            Some(name) => name,
+            None => return Vec::new(),
+        },
     };
-    let prefix = format!("{}.", namespace.path.text);
+    let prefix = format!("{namespace}.");
     let text = &file.text;
     // A name's range: the last component of a dotted name, as the checked
     // outline has it.

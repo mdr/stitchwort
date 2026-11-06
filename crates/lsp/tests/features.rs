@@ -9,6 +9,14 @@ use stitchwort_lsp::{Inline, Memory, MemoryProject, Options};
 const STACK: usize = 256 * 1024 * 1024;
 const URI: &str = "file:///memory/proj/src/Demo.sw";
 
+/// A project source whose checks replay the standard library from the test
+/// std cache (docs/testing.md, "The test std cache") instead of checking it
+/// from source in every test. The first test to run writes the entries.
+fn cached_memory() -> Arc<Memory> {
+    let dir = stitchwort_driver::driver::test_std_cache_dir(STACK).join("lsp");
+    Arc::new(Memory::with_cache(dir))
+}
+
 /// Runs `body` on a thread with a big stack.
 fn big_stack(body: impl FnOnce() + Send + 'static) {
     std::thread::Builder::new()
@@ -45,7 +53,7 @@ impl Session {
     }
 
     fn open_using(text: &str, capabilities: Value, options: Options) -> Session {
-        let memory = Arc::new(Memory::default());
+        let memory = cached_memory();
         memory.add(MemoryProject {
             root: "/memory/proj".into(),
             sources: vec!["src".into()],
@@ -565,7 +573,7 @@ fn completion_after_a_namespace_offers_its_members() {
 /// project with namespaces it doesn't import: `Proj.Other`, and
 /// `Proj.Uses`, which imports it.
 fn open_in_project(main: &str) -> Session {
-    let memory = Arc::new(Memory::default());
+    let memory = cached_memory();
     let files = [
         ("src/Demo.sw", main),
         (
@@ -792,5 +800,48 @@ fn a_variable_of_an_arm_splits_into_its_types_constructors() {
         assert_eq!(new_text, "  | Some None => ?\n  | Some (Some value) => ?");
         let (_, new_text) = split(&mut s, 7, 4);
         assert_eq!(new_text, "  | [] => 0\n  | [x, ..xs] => 0");
+    });
+}
+
+#[test]
+fn the_outline_asked_as_the_file_opens_is_not_empty() {
+    big_stack(|| {
+        let text =
+            "namespace Demo\n\ntype Color = | Red | Green\n\ndef pick (c: Color): Nat := 1\n";
+        let memory = cached_memory();
+        memory.add(MemoryProject {
+            root: "/memory/proj".into(),
+            sources: vec!["src".into()],
+            files: Arc::new([("src/Demo.sw".to_string(), text.to_string())].into()),
+        });
+        let mut s = Session {
+            server: Inline::new(Options::new(STACK), memory.clone()).unwrap(),
+            next_id: 1,
+            diagnostics: Vec::new(),
+            asked: Vec::new(),
+            searcher: Arc::new(stitchwort_lsp::Searcher::new(Options::new(STACK), memory)),
+        };
+        s.request("initialize", json!({"capabilities": {}}));
+        s.notify("initialized", json!({}));
+        s.notify(
+            "textDocument/didOpen",
+            json!({"textDocument": {"uri": URI, "languageId": "stitchwort", "version": 1, "text": text}}),
+        );
+        // No tick yet: the file has not been checked.
+        let names = |symbols: &Value| -> Vec<String> {
+            symbols
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|s| s["name"].as_str().unwrap().to_string())
+                .collect()
+        };
+        let params = json!({"textDocument": {"uri": URI}});
+        let early = s.request("textDocument/documentSymbol", params.clone());
+        assert!(names(&early).contains(&"Color".to_string()), "{early}");
+        assert!(names(&early).contains(&"pick".to_string()), "{early}");
+        s.settle();
+        let late = s.request("textDocument/documentSymbol", params);
+        assert_eq!(names(&early), names(&late));
     });
 }

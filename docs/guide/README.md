@@ -9,6 +9,8 @@ This guide is for programmers who know a language like Scala or TypeScript. It d
 
 The guide explains how things work and why, shows the idioms, and shows what the compiler says when something is wrong and how to read it. Where it says less than the reference, it links to it.
 
+To learn proving about programs hands-on in VS Code first, open the tutorial [tutorial/01-proving-programs.sw](../tutorial/01-proving-programs.sw) in the editor and follow its steps (about 40 minutes).
+
 ## Chapters
 
 1. [Getting started](01-getting-started.md): installing, the `stitchwort` command, projects, the playground and editor support.
@@ -31,4 +33,4 @@ Every piece of Stitchwort code in this guide is quoted from a file in [examples/
 task guide:update    # STITCHWORT_GUIDE_UPDATE=1 cargo nextest run --release -p stitchwort-cli --test guide
 ```
 
-and review the diff. In the Markdown source, a comment before each block says where it comes from: `<!-- snippet: values.sw#blocks -->` is the part of `examples/values.sw` between `-- begin blocks` and `-- end blocks`, `<!-- snippet: FILE@name -->` is the declaration `name`, and `<!-- output: check errors/divide.sw -->` is what `stitchwort check errors/divide.sw` prints, run in `examples/`.
+and review the diff. In the Markdown source, a comment before each block says where it comes from: `<!-- snippet: values.sw#blocks -->` is the part of `examples/values.sw` between `-- begin blocks` and `-- end blocks`, `<!-- snippet: FILE@name -->` is the declaration `name`, and `<!-- output: check errors/missing-case.sw -->` is what `stitchwort check errors/missing-case.sw` prints, run in `examples/`.

@@ -22,7 +22,7 @@
 </section>
 
 <section data-slug="variant-fields" data-title="Constructors with named fields">
-  <p>A constructor's fields have names, and you can use them. <code>Circle { radius = 3, id }</code> builds one by name, in any order, and a pattern <code>Circle { radius, .. }</code> picks fields by name. When every constructor has a field of the same name and type, as <code>id</code> is here, the field works on the whole type: <code>shape.id</code> reads it and <code>{ shape | id = x }</code> changes it, whichever constructor the shape is.</p>
+  <p>Declare a constructor's fields in braces, <code>| Circle { id: Text, radius: Nat }</code>, and you can use their names. <code>Circle { radius = 3, id }</code> builds one by name, in any order, and a pattern <code>Circle { radius, .. }</code> picks fields by name. When every constructor has a field of the same name and type, as <code>id</code> is here, the field works on the whole type: <code>shape.id</code> reads it and <code>{ shape | id = x }</code> changes it, whichever constructor the shape is. A constructor declared with brackets, like <code>Some</code>, takes braces as a record argument instead: <code>Some { name = "tea", price = 3 }</code>.</p>
   <pre data-src="04-variant-fields.sw"></pre>
 </section>
 
@@ -74,6 +74,12 @@
 <section data-slug="map-and-set" data-title="Map and Set">
   <p><code>Map k v</code> and <code>Set k</code> are ordered collections: they keep their keys sorted, so <code>toList</code>, <code>keys</code> and printing come out in a fixed order, and two maps with the same entries are equal. Insert, lookup and remove are logarithmic. They live in <code>Std</code> and need an import.</p>
   <pre data-src="14-map-set.sw"></pre>
+</section>
+
+<section data-slug="arrays" data-title="Arrays: state updated in place">
+  <p>When a program keeps numbers by position and changes them in a loop (a table of counters, the cells of a board), use an <code>Array</code>. Reading and changing a position takes one step, and when nothing else holds the array, the change happens <b>in place</b>, with no copy. Advent of Code 2020 day 15, a memory game of thirty million turns that updates a table of positions, went from 357 seconds with a Map to 16 seconds with an array, with the same answer and the same proofs. An array is its list to a proof, so the list lemmas still apply. <code>get</code> gives an <code>Option</code>, <code>getOr</code> a fallback, and <code>getLt</code> a plain value when the index is known to be in range; nothing panics. It needs <code>import Std (Array)</code>.</p>
+  <pre data-src="35-arrays.sw"></pre>
+  <p class="guide-note">One thing to know: if you keep the old array and use it after a change, the change must copy it first. The answer is still right, but a run that does this many times on big arrays prints a note saying so at its end.</p>
 </section>
 
 <section data-slug="namespaces-and-projects" data-title="Namespaces, imports and projects">

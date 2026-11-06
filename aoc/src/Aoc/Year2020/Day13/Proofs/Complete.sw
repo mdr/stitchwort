@@ -17,11 +17,6 @@ theorem digitNotX (char: Char) (isDigit: Parse.isDigit char = True): (char == 'x
     | False => rfl
     | True => Void.exfalso (Bool.trueNotFalse (Eq.sym (rewrite DecEq.sound e at isDigit in isDigit)))
 
-theorem noDigits (rest: List Char) (stops: Parse.CannotStart Parse.isDigit rest): rest.takeWhile Parse.isDigit = [] :=
-  match rest with
-    | [] => rfl
-    | [char, ..more] => rewrite stops char more rfl in rfl
-
 theorem declinesX (read: List Char) (after: List Char) (some: read ≠ []) (all: read.all Parse.isDigit = True):
     Parse.Declines (() => Parse.char 'x') (read ++ after) :=
   match read with
@@ -43,19 +38,10 @@ theorem runsSlot (read: List Char) (slot2: Slot) (written: SlotWritten read slot
           Parse.runsBind (() => Parse.optional (() => Parse.char 'x')) _ [] read read after None (Listed id) rfl
             (Parse.declinesRuns (() => Parse.char 'x') (read ++ after) (declinesX read after nonEmpty allDigits))
             (Parse.runsBind Parse.nat _ read [] read after (Parse.digitsValue read) (Listed id) (Eq.sym (List.appendNil read))
-              (Parse.runsNat read ([] ++ after) nonEmpty allDigits (noDigits after stops))
+              (Parse.runsNatBefore read ([] ++ after) nonEmpty allDigits stops)
               (Parse.runsIf (Parse.digitsValue read == 0) _ _ [] after (Listed id)
                 (zero => Void.exfalso (notZero (Eq.trans decimal (DecEq.sound zero))))
                 (nonZero => runsAsValue (() => Listed (Parse.digitsValue read)) [] after _ _ (rewrite decimal in rfl) (Parse.runsPure (Listed (Parse.digitsValue read)) after))))
-
-theorem declinesComma (rest: List Char) (breaks: Parse.OnlyBreaks rest): Parse.Declines (() => Parse.char ',') rest :=
-  match rest with
-    | [] => Parse.declinesCharEnd ','
-    | [char, ..more] =>
-      Parse.declinesChar ',' char more
-        (match Parse.lineBreakChar char (Bool.andLeft breaks) with
-          | Inl same => rewrite same in rfl
-          | Inr same => rewrite same in rfl)
 
 theorem notesEta (notes2: Notes): { earliest = notes2.earliest, schedule = notes2.schedule } = notes2 :=
   match notes2 with
@@ -73,8 +59,8 @@ theorem runsNotes (read: List Char) (notes2: Notes) (written: NotesWritten read 
           rewrite split in
             runsAsValue notes _ ending _ notes2 sameNotes
               (Parse.runsBind Parse.nat _ digits (lineBreak ++ entries) _ ending (Parse.digitsValue digits) _ rfl
-                (Parse.runsNat digits ((lineBreak ++ entries) ++ ending) nonEmpty allDigits
-                  (noDigits _ (rewrite List.appendAssoc lineBreak entries ending in Parse.cannotStartAfterBreak Parse.isDigit rfl rfl lineBreak (entries ++ ending) isBreak)))
+                (Parse.runsNatBefore digits ((lineBreak ++ entries) ++ ending) nonEmpty allDigits
+                  (rewrite List.appendAssoc lineBreak entries ending in Parse.cannotStartAfterBreak Parse.isDigit rfl rfl lineBreak (entries ++ ending) isBreak))
                 (Parse.runsBind Parse.newline _ lineBreak entries _ ending () _ rfl
                   (Parse.runsNewline lineBreak (entries ++ ending) isBreak)
                   (Parse.runsBind (() => Parse.sepBy1 slot (() => Parse.char ',')) _ entries [] _ ending (NonEmptyList.cons head tail) _ (Eq.sym (List.appendNil entries))
@@ -84,7 +70,7 @@ theorem runsNotes (read: List Char) (notes2: Notes) (written: NotesWritten read 
                       (read2 u same3 => rewrite same3 in List.consNotNil ',' [])
                       (read2 after u same3 => rewrite same3 in (char more found => rewrite <- List.consInjectiveHead _ _ _ _ found in rfl))
                       (Parse.cannotStartAtBreaks Parse.isDigit rfl rfl ending breaks)
-                      (Parse.declinesSepStep slot (() => Parse.char ',') ending (declinesComma ending breaks))
+                      (Parse.declinesSepStep slot (() => Parse.char ',') ending (Parse.declinesCharCannotStart ',' (char => char == ',') rfl ending (Parse.cannotStartAtBreaks (char => char == ',') rfl rfl ending breaks)))
                       entries head tail listed2)
                     (Parse.runsPure { earliest = Parse.digitsValue digits, schedule = (NonEmptyList.cons head tail).toList } ending))))
 

@@ -224,7 +224,8 @@ const TEST_STD_CACHE_GRACE: std::time::Duration = std::time::Duration::from_secs
 /// temporary folder if that is not found. The stack is part of the cache's
 /// key, and a unit's entries for other keys are evicted when it is
 /// written, so each stack has a folder of its own.
-fn test_std_cache_dir(stack: usize) -> std::path::PathBuf {
+#[doc(hidden)]
+pub fn test_std_cache_dir(stack: usize) -> std::path::PathBuf {
     let target = std::env::current_exe().ok().and_then(|exe| {
         exe.ancestors()
             .find(|a| a.file_name().is_some_and(|n| n == "target"))
@@ -1300,6 +1301,20 @@ impl Session {
     }
 
     /// The text and place of the expression at `span`.
+    /// Where the test `name` of `namespace` starts (its `test` keyword, or
+    /// the attributes before it): `text` is empty, `line` and `column`
+    /// count from 1.
+    pub fn test_location(&self, namespace: &str, name: &str) -> Option<Part> {
+        let test = self
+            .elab
+            .tests()
+            .iter()
+            .find(|t| t.namespace == namespace && t.name == name)?;
+        let mut at = self.part(test.span)?;
+        at.text.clear();
+        Some(at)
+    }
+
     fn part(&self, span: stitchwort_syntax::Span) -> Option<Part> {
         if span.file.index() >= self.sources.len() {
             return None;

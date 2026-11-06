@@ -196,7 +196,7 @@ theorem Nat.fromDigitsAcc (n: Nat) (acc: List Nat): Nat.fromDigits (Nat.digitsAc
         (Eq.trans (Nat.fromDigitsAcc (n / 10) [n % 10, ..acc] [decreasing := Nat.divTenLess n e])
           (Eq.trans (Eq.cong (t => (n / 10) * Nat.pow 10 (Succ (List.length acc)) + t) (Nat.fromDigitsCons (n % 10) acc))
             (Eq.trans (Nat.shiftDigitArith (n / 10) (n % 10) (Nat.pow 10 (List.length acc)) (Nat.fromDigits acc))
-              (Eq.cong (t => t * Nat.pow 10 (List.length acc) + Nat.fromDigits acc) (Eq.sym (Nat.divModEq n 10 (Nat.succNotZero 9)))))))
+              (Eq.cong (t => t * Nat.pow 10 (List.length acc) + Nat.fromDigits acc) (Eq.sym (Nat.divModEq n 10))))))
 
 theorem Nat.fromDigitsDigitsAcc (n: Nat): Nat.fromDigits (Nat.digitsAcc n []) = n :=
   rewrite Nat.fromDigitsAcc n [] in ring

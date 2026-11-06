@@ -44,7 +44,7 @@ def List.toNonEmpty (xs: List a) [auto nonEmpty: xs ≠ []]: NonEmptyList a :=
 --| and tail; to keep a proof that the list isn't empty, use [`List.toNonEmpty`].
 def List.nonEmpty: (xs: List a) → Option (NonEmptyList a)
   | [] => None
-  | [x, ..rest] => Some ({ head = x, tail = rest })
+  | [x, ..rest] => Some { head = x, tail = rest }
 
 --| The number of elements, at least one ([`NonEmptyList.lengthPos`]): the length of `toList` ([`NonEmptyList.lengthToList`]).
 def NonEmptyList.length (xs: NonEmptyList a): Nat := Succ (List.length xs.tail)

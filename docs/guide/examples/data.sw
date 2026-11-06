@@ -74,7 +74,7 @@ test "or are given" := ({ text = "tea", limit = 3 }: Query).limit == 3
 
 -- begin named-construction
 type Event =
-  | Meeting (title: Text) (minutes: Nat := 30) (room: Text)
+  | Meeting { title: Text, minutes: Nat := 30, room: Text }
   | Reminder (title: Text)
 
 def standup: Event := Meeting { title = "Standup", room = "Blue" }
@@ -86,6 +86,16 @@ def Event.length: Event → Nat
 
 test "default minutes" := standup.length == 30
 -- end named-construction
+
+-- begin braces-argument
+def found: Option Person := Some { name = "Ada", age = 36 }
+
+def nameOr (fallback: Text): Option Person → Text
+  | Some { name, .. } => name
+  | None => fallback
+
+test "braces are a record argument" := nameOr "nobody" found == "Ada"
+-- end braces-argument
 
 -- begin shared-fields
 test "every Event has a title" := review.title == "Review"
@@ -163,9 +173,9 @@ test "conditions on cases" := grade 95 == "distinction" ∧ grade 60 == "pass" �
 def share (total: Nat) (parts: Nat): Nat :=
   match total, parts with
     | amount, count if count != 0 => amount / count
-    | _, _ => 0
+    | amount, _ => amount
 
-test "a condition gives a fact" := share 12 4 == 3 ∧ share 12 0 == 0
+test "a condition picks the arm" := share 12 4 == 3 ∧ share 12 0 == 12
 -- end guards
 
 -- begin synonyms

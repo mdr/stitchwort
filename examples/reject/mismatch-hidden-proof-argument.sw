@@ -3,7 +3,7 @@
 -- shown: `transported n m` takes a proof that `n = m` and computes with it
 -- (`J`), so calls with two different proofs of it differ (SW-28). The
 -- message shows the proofs in brackets. A proof a definition never computes
--- with, like `Int.modNat`'s, is skipped instead (accept/proof-irrelevance.sw).
+-- with, like `Fin.ofNatLt`'s, is skipped instead (accept/proof-irrelevance.sw).
 
 import Std (Nat)
 
