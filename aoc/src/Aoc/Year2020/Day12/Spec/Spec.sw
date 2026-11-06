@@ -1,13 +1,14 @@
 --| Day 12 as the puzzle states it, about the instructions (the program's
 --| `Instruction`, an action and a value) and places (the program's
---| `Location`, east and north of the start): how each instruction is
+--| `Location`, `x` east and `y` north of the start): how each instruction is
 --| written, what it does to the ship in each part, and the answer. Which
 --| way the ship faces is a step east or north, here, not a compass point,
 --| and a turn is turning that step; nothing else is shared with the
 --| program. The proofs (Proofs/) show the program computes these.
 
 namespace Aoc.Year2020.Day12.Spec
-import Aoc.Year2020.Day12 (Action, Heading, Instruction, Location, Side)
+import Aoc.Common (Heading)
+import Aoc.Year2020.Day12 (Action, Instruction, Location, Side)
 import Std (Char, Int, List, Nat, Parse)
 
 -- The format
@@ -37,21 +38,21 @@ def InstructionWritten (read: List Char) (instruction: Instruction): Prop :=
 
 --| A step of one unit north, south, east or west.
 def unit: Heading → Location
-  | North => { east = 0, north = 1 }
-  | South => { east = 0, north = -1 }
-  | East => { east = 1, north = 0 }
-  | West => { east = -1, north = 0 }
+  | North => { x = 0, y = 1 }
+  | South => { x = 0, y = -1 }
+  | East => { x = 1, y = 0 }
+  | West => { x = -1, y = 0 }
 
 --| `distance` steps of `step` on from `location`.
 def along (location: Location) (step: Location) (distance: Nat): Location :=
-  { east = location.east + distance.toInt * step.east, north = location.north + distance.toInt * step.north }
+  { x = location.x + distance.toInt * step.x, y = location.y + distance.toInt * step.y }
 
 --| A quarter turn left (counter-clockwise) about the start: east becomes
 --| north, and north becomes west.
-def quarterLeft (location: Location): Location := { east = 0 - location.north, north = location.east }
+def quarterLeft (location: Location): Location := { x = 0 - location.y, y = location.x }
 
 --| A quarter turn right (clockwise): east becomes south.
-def quarterRight (location: Location): Location := { east = location.north, north = 0 - location.east }
+def quarterRight (location: Location): Location := { x = location.y, y = 0 - location.x }
 
 --| Turned `degrees` to `side`, a multiple of 90 (InstructionWritten): that
 --| many quarter turns.
@@ -63,7 +64,7 @@ def turned (side: Side) (degrees: Nat) (location: Location): Location :=
 --| "The Manhattan distance between that location and the ship's starting
 --| position": "the sum of the absolute values of its east/west position and
 --| its north/south position".
-def manhattan (location: Location): Nat := location.east.natAbs + location.north.natAbs
+def manhattan (location: Location): Nat := location.x.natAbs + location.y.natAbs
 
 -- Part 1
 
@@ -71,7 +72,7 @@ def manhattan (location: Location): Nat := location.east.natAbs + location.north
 type Ship = { position: Location, facing: Location }
 
 --| "The ship starts by facing east."
-def start: Ship := { position = { east = 0, north = 0 }, facing = unit East }
+def start: Ship := { position = { x = 0, y = 0 }, facing = unit East }
 
 --| "Action N means to move north by the given value", and S, E and W
 --| likewise; "Action L means to turn left the given number of degrees", and
@@ -96,7 +97,7 @@ type Steered = { position: Location, waypoint: Location }
 
 --| "The waypoint starts 10 units east and 1 unit north relative to the
 --| ship."
-def steeredStart: Steered := { position = { east = 0, north = 0 }, waypoint = { east = 10, north = 1 } }
+def steeredStart: Steered := { position = { x = 0, y = 0 }, waypoint = { x = 10, y = 1 } }
 
 --| "Action N means to move the waypoint north by the given value", and S,
 --| E and W likewise; "Action L means to rotate the waypoint around the ship

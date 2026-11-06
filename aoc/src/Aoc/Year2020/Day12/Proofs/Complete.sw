@@ -4,6 +4,7 @@
 -- From std's lemmas on what parsers do on good input (Std/Parse/Runs.sw).
 
 namespace Aoc.Year2020.Day12.Proofs
+import Aoc.Common (Heading)
 import Aoc.Year2020.Day12 (..)
 import Aoc.Year2020.Day12.Spec (ActionWritten, InstructionWritten)
 import Std (Bool, Char, Eq, Exists, Fail, List, Parse, Result, Text, Void)
