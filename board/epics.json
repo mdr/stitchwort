@@ -436,6 +436,24 @@
         "Audit stage 2: --base and minima (SW-1029)"
       ],
       "links": []
+    },
+    {
+      "id": "dev-loop-speed",
+      "title": "Developer loop speed",
+      "goal": "Builds, test runs and lanes are fast and light enough that changes flow without waiting on the machine.",
+      "status": "active",
+      "done": [
+        "Baseline from the 6 Nov daily tier: 3 h 8 min of test time, ten binaries over half of it"
+      ],
+      "now": [
+        "Profiling the build, link and test costs (SW-1716)"
+      ],
+      "next": [
+        "Fix lanes from the profile's ranked list"
+      ],
+      "links": [
+        "D2532"
+      ]
     }
   ]
 }

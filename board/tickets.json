@@ -1,5 +1,5 @@
 {
-  "next": 1716,
+  "next": 1717,
   "tickets": [
     {
       "id": 47,
@@ -13258,6 +13258,21 @@
       ],
       "epic": "proof-search",
       "body": "From SW-1708, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1716,
+      "title": "[Opus] Profile the developer loop: Rust build and link times, std setup cost per test, the slowest test binaries; ranked fixes with expected savings (D2532)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1716",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "D2532 (Matt, 6 Nov 2026): yes. Profiling only; allowed a few timed builds and one run of each of the ten slowest daily-tier binaries. Report: docs/reviews/SW-N-dev-loop-profile.md. Started on Opus, expected: 90 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
