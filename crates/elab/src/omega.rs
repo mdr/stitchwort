@@ -185,6 +185,29 @@ pub(crate) fn check_omega(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result
     crate::queue::tactic_or_wait(cx, expr, expected, omega_goal)
 }
 
+/// A fact listed in `omega [...]` as written, for the shapes that are short
+/// and common (names, numbers, applications, dots and operators); `None` for
+/// the rest, which a message names by position. The elaborator holds no
+/// source text, so this prints the syntax tree.
+fn written(expr: &Expr) -> Option<String> {
+    fn go(expr: &Expr, nested: bool) -> Option<String> {
+        let wrap = |text: String| if nested { format!("({text})") } else { text };
+        Some(match expr {
+            Expr::Var(name) => name.text.clone(),
+            Expr::Num(n, _) => n.to_string(),
+            Expr::Field(e, name) => format!("{}.{}", go(e, true)?, name.text),
+            Expr::App(f, x) => wrap(format!("{} {}", go(f, false)?, go(x, true)?)),
+            Expr::Bracketed(e, _) => format!("({})", go(e, false)?),
+            Expr::Binary(op, a, b) => {
+                wrap(format!("{} {} {}", go(a, true)?, op.symbol(), go(b, true)?))
+            }
+            _ => return None,
+        })
+    }
+    let text = go(expr, false)?;
+    (text.chars().count() <= 60).then_some(text)
+}
+
 /// [`check_omega`]'s `omega` itself, counted where the goal holds an
 /// unknown the declaration will still settle (`queue::counted_search`).
 fn omega_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
@@ -198,6 +221,7 @@ fn omega_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             term,
             ty,
             name: format!("listed fact {}", i + 1),
+            written: written(fact),
         });
     }
     let lib = Lib::new(cx, *span)?;
@@ -304,6 +328,8 @@ struct Extra {
     term: Term,
     ty: Value,
     name: String,
+    /// The fact as the program wrote it, when [`written`] can say.
+    written: Option<String>,
 }
 
 /// The definitions and constructors the proof is made of.
@@ -336,6 +362,8 @@ struct Lib {
     prop_or_elim: DefId,
     to_bool_sound: DefId,
     to_bool_false: DefId,
+    decidable_not: DefId,
+    not_not_of: DefId,
     to_bool_of: DefId,
     to_bool_of_not: DefId,
     and_fst: DefId,
@@ -615,6 +643,8 @@ impl Lib {
             prop_or_elim: def("Std.Or.elim")?,
             to_bool_sound: def("Std.Decidable.toBoolSound")?,
             to_bool_false: def("Std.Decidable.toBoolFalse")?,
+            decidable_not: def("Std.Decidable.not")?,
+            not_not_of: def("Std.Decidable.notNotOf")?,
             to_bool_of: def("Std.Decidable.toBoolOf")?,
             to_bool_of_not: def("Std.Decidable.toBoolOfNot")?,
             and_fst: def("Std.And.left")?,
@@ -1501,6 +1531,15 @@ impl Reader<'_> {
                     (false, Some(BoolForm::ToBool(p, d))) => {
                         let args = [both(cx, &p)?, both(cx, &d)?, (proof.clone(), prop.clone())];
                         let (not_p, ty) = lemma(cx, lib.to_bool_false, &args)?;
+                        // `a != b` is the decision of `¬(a = b)`, so its
+                        // `False` is `¬¬(a = b)`: the decision of `a = b`
+                        // inside it is decided, and the double negation goes.
+                        let d_forced = force(&cx.g(), d.clone())?;
+                        if let Some([q, d0]) = call_args(&d_forced, lib.decidable_not).as_deref() {
+                            let args = [both(cx, q)?, both(cx, d0)?, (not_p.clone(), ty.clone())];
+                            let (q_holds, q_ty) = lemma(cx, lib.not_not_of, &args)?;
+                            return self.read(cx, q_holds, &q_ty, origin, depth + 1);
+                        }
                         self.read(cx, not_p, &ty, origin, depth + 1)?;
                     }
                     (true, Some(BoolForm::Or(p, q))) => {
@@ -2429,6 +2468,23 @@ fn innermost_difference<'a>(mut a: &'a Term, mut b: &'a Term) -> (&'a Term, &'a 
     (a, b)
 }
 
+/// The scrutinee of an enclosing `match` that is written in one of `a` and
+/// `b` and not in the other: the `match` replaced it in the other (in the
+/// goal and in the hypotheses it mentioned), while a fact stated inside the
+/// `match` still says it.
+fn replaced_by_match(cx: &Ctx, a: &Term, b: &Term) -> Option<Term> {
+    let g = cx.g();
+    let level = cx.level();
+    let mentions = |term: &Term, needle: &Term| {
+        term.subterms()
+            .any(|(t, binders)| binders == 0 && crate::matching::same(t, needle))
+    };
+    cx.scrutinees.iter().rev().find_map(|(base, needle, _, _)| {
+        let needle = needle.shift(&g, level - base, 0).ok()?;
+        (mentions(a, &needle) != mentions(b, &needle)).then_some(needle)
+    })
+}
+
 /// A note naming two listed atoms that apply the same function to the same
 /// arguments but one, so no fact can connect them without saying what the
 /// differing arguments are.
@@ -2445,13 +2501,20 @@ fn atoms_differing_in_one_argument(cx: &Ctx, quoter: &Quoter) -> Option<String> 
                 continue;
             };
             let (x, y) = innermost_difference(x, y);
-            return Some(format!(
+            let mut note = format!(
                 "`{}` and `{}` differ only in `{}` and `{}`, and no fact connects them",
                 atom_name(cx, quoter, i),
                 atom_name(cx, quoter, j),
                 shown(x),
                 shown(y)
-            ));
+            );
+            if let Some(scrutinee) = replaced_by_match(cx, &a.term, &b.term) {
+                note.push_str(&format!(
+                    "; these differ because the `match` on `{}` replaced it in one of them. State the fact before the `match`, or split with `if h:` instead",
+                    shown(&scrutinee)
+                ));
+            }
+            return Some(note);
         }
     }
     None
@@ -2873,7 +2936,9 @@ fn read_context<'l>(cx: &mut Ctx, lib: &'l Lib, extra: &[Extra]) -> Result<Reade
         if reader.facts.len() + reader.disjunctions.len() == before {
             reader.waiting.push(format!(
                 "`omega` couldn't use {}: `{}` isn't an arithmetic fact it reads",
-                e.name,
+                e.written
+                    .as_ref()
+                    .map_or_else(|| e.name.clone(), |text| format!("listed fact `{text}`")),
                 cx.show(&e.ty)
             ));
         }
@@ -2961,6 +3026,7 @@ fn assuming(
             term: e.term.shift(&cx.g(), 1, 0)?,
             ty: e.ty.clone(),
             name: e.name.clone(),
+            written: e.written.clone(),
         });
     }
     let mark = cx.mark();

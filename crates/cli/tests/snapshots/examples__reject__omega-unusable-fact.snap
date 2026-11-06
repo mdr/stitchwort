@@ -13,7 +13,7 @@ expression: output
    │ 
    │ Note 2: atoms: `x`
    │ 
-   │ Note 3: `omega` couldn't use listed fact 1: `x ∈ xs` isn't an arithmetic fact it reads
+   │ Note 3: `omega` couldn't use listed fact `h`: `x ∈ xs` isn't an arithmetic fact it reads
    │ 
    │ Note 4: an integer model of the arithmetic abstraction (it may not be a real counterexample): x = 1
    │ 

@@ -1,0 +1,34 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-OMEGA] Error: `omega` can't prove `g False ≤ k`
+    ╭─[ reject/omega-atoms-differ-by-match.sw:10:16 ]
+    │
+ 10 │     | False => omega [bound (x <= y)]
+    │                ───────────┬──────────  
+    │                           ╰──────────── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
+    │ 
+    │ Note 1: facts: `g (x <= y) ≤ k` (listed fact 1)
+    │ 
+    │ Note 2: atoms: `g False`, `k`, `g (x <= y)`
+    │ 
+    │ Note 3: `g False` and `g (x <= y)` differ only in `False` and `x <= y`, and no fact connects them; these differ because the `match` on `x <= y` replaced it in one of them. State the fact before the `match`, or split with `if h:` instead
+    │ 
+    │ Note 4: an integer model of the arithmetic abstraction (it may not be a real counterexample): g False = 1, k = 0, g (x <= y) = 0
+────╯
+[E-OMEGA] Error: `omega` can't prove `g True ≤ k`
+   ╭─[ reject/omega-atoms-differ-by-match.sw:9:15 ]
+   │
+ 9 │     | True => omega [bound (x <= y)]
+   │               ───────────┬──────────  
+   │                          ╰──────────── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
+   │ 
+   │ Note 1: facts: `g (x <= y) ≤ k` (listed fact 1)
+   │ 
+   │ Note 2: atoms: `g True`, `k`, `g (x <= y)`
+   │ 
+   │ Note 3: `g True` and `g (x <= y)` differ only in `True` and `x <= y`, and no fact connects them; these differ because the `match` on `x <= y` replaced it in one of them. State the fact before the `match`, or split with `if h:` instead
+   │ 
+   │ Note 4: an integer model of the arithmetic abstraction (it may not be a real counterexample): g True = 1, k = 0, g (x <= y) = 0
+───╯
