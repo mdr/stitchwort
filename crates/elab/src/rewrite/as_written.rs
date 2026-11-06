@@ -24,17 +24,16 @@
 //! what is visible, leave hidden copies) was not taken: it breaks proofs that
 //! rewrite a copy inside a definition (goal-as-written.md, option B).
 
-use std::cell::{Cell, RefCell};
-
 use stitchwort_core::{Term, Value};
 use stitchwort_syntax::ast::RewriteRule;
 
 use super::{
-    Equation, Place, Replaced, Search, Shape, discharge, kernel_context, key,
+    Equation, Place, Replaced, Search, Shape, discharge, key, pending_metas, replace_occurrences,
     replace_occurrences_as,
 };
 use crate::check::{Ctx, Result};
 use crate::lift::replace_with;
+use crate::matching::same;
 use crate::undo::{Snapshot, fatal};
 
 /// The rewrite as written, if it found something and left no hidden copy.
@@ -45,9 +44,19 @@ pub(super) fn first(
     place: Place,
     equation: &Equation,
     goal: &Value,
+    unfolded: (&Value, &Term),
     remaining: &mut u64,
 ) -> Result<Option<Replaced>> {
-    attempt(cx, rule, place, equation, goal, remaining, true)
+    attempt(
+        cx,
+        rule,
+        place,
+        equation,
+        goal,
+        Some(unfolded),
+        remaining,
+        true,
+    )
 }
 
 /// The rewrite as written even if copies stay hidden, for when the usual
@@ -60,7 +69,7 @@ pub(super) fn rescue(
     goal: &Value,
     remaining: &mut u64,
 ) -> Result<Option<Replaced>> {
-    attempt(cx, rule, place, equation, goal, remaining, false)
+    attempt(cx, rule, place, equation, goal, None, remaining, false)
 }
 
 /// What an attempt came to, counted under `STITCHWORT_REWRITE_METRICS`.
@@ -76,19 +85,23 @@ enum Outcome {
     Unchecked,
 }
 
+#[allow(clippy::too_many_arguments)]
 fn attempt(
     cx: &mut Ctx,
     rule: &RewriteRule,
     place: Place,
     equation: &Equation,
     goal: &Value,
+    unfolded: Option<(&Value, &Term)>,
     remaining: &mut u64,
     complete: bool,
 ) -> Result<Option<Replaced>> {
     let snapshot = Snapshot::take(cx);
     // A failed attempt costs the usual search nothing.
     let mut spare = *remaining;
-    let tried = search(cx, rule, place, equation, goal, complete, &mut spare);
+    let tried = search(
+        cx, rule, place, equation, goal, unfolded, complete, &mut spare,
+    );
     let (outcome, kept) = match tried {
         Ok((Outcome::Kept, replaced)) => {
             *remaining = spare;
@@ -118,29 +131,30 @@ fn attempt(
     Ok(kept)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn search(
     cx: &mut Ctx,
     rule: &RewriteRule,
     place: Place,
     equation: &Equation,
     goal: &Value,
+    unfolded: Option<(&Value, &Term)>,
     complete: bool,
     remaining: &mut u64,
 ) -> Result<(Outcome, Option<Replaced>)> {
+    // Today's choice of instance, for a rule with unknowns, found before
+    // anything is solved ([`other_instance`]).
+    let todays = match unfolded {
+        Some((value, term)) if complete && equation.open(&cx.quote(&equation.lhs)?) => {
+            todays_instance(cx, rule, place, equation, value, term, remaining)?
+        }
+        _ => None,
+    };
     let mut written = cx.quote_folded(goal)?;
     // The `auto` proofs a call carries are not in the unfolded goal, where
     // `rewrite_once` proves the pending ones first; here they show, and a
     // motive holding one cannot be checked.
-    let pending: Vec<usize> = written
-        .subterms()
-        .filter_map(|(t, _)| {
-            if let Term::Meta(m) = t {
-                Some(*m)
-            } else {
-                None
-            }
-        })
-        .collect();
+    let pending = pending_metas(&written);
     if !pending.is_empty() && cx.e.prove_now(&|m| pending.contains(&m))? {
         written = cx.quote_folded(goal)?;
     }
@@ -169,6 +183,11 @@ fn search(
         .any(|(t, _)| matches!(t, Term::Meta(_)))
     {
         return Ok((Outcome::Unchecked, None));
+    }
+    if let Some(todays) = &todays
+        && !same(todays, &cx.quote(&equation.lhs)?)
+    {
+        return Ok((Outcome::Incomplete, None));
     }
     if complete && hidden_copy(cx, rule, place, equation, &step.motive, remaining)? {
         return Ok((Outcome::Incomplete, None));
@@ -218,25 +237,9 @@ fn hidden_copy_in(
         return Ok(true);
     };
     let level = cx.level();
-    let kcx = kernel_context(cx)?;
-    let search = Search {
-        kcx: RefCell::new(kcx),
-        cx: RefCell::new(cx),
-        rule,
-        place,
-        carrier: &equation.carrier,
-        lhs: &equation.lhs,
-        lhs_term: RefCell::new(lhs_term),
-        key,
-        recent: 0,
-        by_instances: false,
-        folded: false,
-        rule_metas: equation.rule_metas,
-        remaining: Cell::new(*remaining),
-        stats: RefCell::new(Default::default()),
-        error: RefCell::new(None),
-        first: RefCell::new(None),
-    };
+    let search = Search::new(
+        cx, rule, place, equation, lhs_term, key, 0, false, false, *remaining,
+    )?;
     let moved = |l| Ok(Term::Var(level + 2 - 1 - l));
     let outcome = replace_with(&g, &unfolded, level, &moved, &|t, under| {
         search.visit(t, under)
@@ -249,4 +252,45 @@ fn hidden_copy_in(
     drop(search);
     outcome?;
     Ok(matched > 0)
+}
+
+/// The left side as today's search, over the unfolded goal, solves a rule's
+/// unknowns: by the first occurrence in pre-order. `None` if it finds no
+/// occurrence. Whatever it solves is undone.
+///
+/// The as-written search can pick a different instance (`comm _ _` finds
+/// `add a b` where it is shown, but the unfolded goal has `add c (add a b)`
+/// first), and the completeness check, which looks for further copies of
+/// the instance already chosen, can't see that. A rewrite with a different
+/// instance is not what the rule did before, so it is treated as incomplete.
+fn todays_instance(
+    cx: &mut Ctx,
+    rule: &RewriteRule,
+    place: Place,
+    equation: &Equation,
+    goal: &Value,
+    term: &Term,
+    remaining: &mut u64,
+) -> Result<Option<Term>> {
+    let snapshot = Snapshot::take(cx);
+    let found = replace_occurrences(
+        cx,
+        rule,
+        place,
+        equation,
+        goal,
+        Shape::Whole(term),
+        0,
+        false,
+        remaining,
+    )
+    .and_then(|replaced| {
+        if replaced.step.is_some() {
+            cx.quote(&equation.lhs).map(Some)
+        } else {
+            Ok(None)
+        }
+    });
+    snapshot.restore(cx);
+    found
 }

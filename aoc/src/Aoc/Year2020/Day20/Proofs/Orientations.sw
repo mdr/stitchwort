@@ -208,6 +208,8 @@ theorem withinTrans [a: Image] [b: Image] [c: Image] (first: Within a b) (second
 
 theorem withinSelf (image: Image): Within image image := edge member => Witness edge (Both member (Inl rfl))
 
+-- Still needed by `orientedFit`: its goal `edge ∈ Spec.edges turned` arrives with `turned` substituted, already
+-- stepped to a disjunction, so `rewrite` has no `Spec.edges …` to find there; a variable `xs` keeps `∈` folded.
 theorem memEq [x: a] [xs: List a] [ys: List a] (same: xs = ys) (member: x ∈ xs): x ∈ ys := rewrite same at member in member
 
 theorem withinFlip (image: Image): Within image image.flip :=

@@ -337,6 +337,19 @@ fn rewrite_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     Ok(term)
 }
 
+/// The unknowns in `term`: the `auto` proofs still to be found.
+fn pending_metas(term: &Term) -> Vec<usize> {
+    term.subterms()
+        .filter_map(|(t, _)| {
+            if let Term::Meta(m) = t {
+                Some(*m)
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
 /// One rule's rewrite of the goal (or of a target's type).
 struct Step {
     /// `x _ => G[x]`.
@@ -719,16 +732,7 @@ fn rewrite_once(
     let mut goal_term = cx.quote(&goal_value)?;
     // An `auto` proof still to be found inside the goal could depend on what
     // is replaced, which only shows once it is found.
-    let pending: Vec<usize> = goal_term
-        .subterms()
-        .filter_map(|(t, _)| {
-            if let Term::Meta(m) = t {
-                Some(*m)
-            } else {
-                None
-            }
-        })
-        .collect();
+    let pending = pending_metas(&goal_term);
     if !pending.is_empty() && cx.e.prove_now(&|m| pending.contains(&m))? {
         goal_term = cx.quote(&goal_value)?;
     }
@@ -789,7 +793,15 @@ fn rewrite_once(
     }
     let shape = Shape::Whole(&current_term);
     let (replaced, discharged) = if steps.is_empty() {
-        match as_written::first(cx, rule, place, &equation, goal, remaining)? {
+        match as_written::first(
+            cx,
+            rule,
+            place,
+            &equation,
+            goal,
+            (&current, &current_term),
+            remaining,
+        )? {
             Some(replaced) => (replaced, true),
             None => {
                 let replaced = replace_solving_instances(
@@ -1000,25 +1012,18 @@ fn replace_occurrences_as(
     };
     let open = equation.open(&lhs_term);
     let level = cx.level();
-    let kcx = kernel_context(cx)?;
-    let search = Search {
-        kcx: RefCell::new(kcx),
-        cx: RefCell::new(cx),
+    let search = Search::new(
+        cx,
         rule,
         place,
-        carrier: &equation.carrier,
-        lhs: &equation.lhs,
-        lhs_term: RefCell::new(lhs_term),
+        equation,
+        lhs_term,
         key,
         recent,
         by_instances,
         folded,
-        rule_metas: equation.rule_metas,
-        remaining: Cell::new(*remaining),
-        stats: RefCell::new(Stats::default()),
-        error: RefCell::new(None),
-        first: RefCell::new(None),
-    };
+        *remaining,
+    )?;
     // The goal with the occurrences replaced by `x`, under `x _ =>`.
     let moved = |l| Ok(Term::Var(level + 2 - 1 - l));
     let searched_term = match shape {
@@ -1182,6 +1187,42 @@ struct Search<'a, 'e> {
     error: RefCell<Option<Diagnostic>>,
     /// The first occurrence selected, in the goal's own context.
     first: RefCell<Option<Term>>,
+}
+
+impl<'a, 'e> Search<'a, 'e> {
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        cx: &'a mut Ctx<'e>,
+        rule: &'a RewriteRule,
+        place: Place<'a>,
+        equation: &'a Equation,
+        lhs_term: Term,
+        key: Key,
+        recent: usize,
+        by_instances: bool,
+        folded: bool,
+        remaining: u64,
+    ) -> Result<Self> {
+        let kcx = kernel_context(cx)?;
+        Ok(Search {
+            kcx: RefCell::new(kcx),
+            cx: RefCell::new(cx),
+            rule,
+            place,
+            carrier: &equation.carrier,
+            lhs: &equation.lhs,
+            lhs_term: RefCell::new(lhs_term),
+            key,
+            recent,
+            by_instances,
+            folded,
+            rule_metas: equation.rule_metas,
+            remaining: Cell::new(remaining),
+            stats: RefCell::new(Stats::default()),
+            error: RefCell::new(None),
+            first: RefCell::new(None),
+        })
+    }
 }
 
 impl Search<'_, '_> {

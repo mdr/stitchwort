@@ -316,9 +316,12 @@ For `rewrite` (goal and `at h`) and for `match`/`cases`:
 of it (the arm's goal keeps `readSteps`, `Grid.at`, `sumBy`); (d) day 19 if the folded search
 compares by unification (it does, step 2), and SW-1562 by the same change in the transport.
 *Doesn't fix* (c): day 10's hidden copy inside `canFeed` and day 14's `/ 2` inside `% 2` make
-the check fail, so today's behaviour runs. *Breaks:* nothing, by construction, except where a
-later step depended on the next goal being unfolded and the folded one is used: the prototype
-measures that (§5).
+the check fail, so today's behaviour runs. *Breaks:* nothing that checked, provided the folded result is the rewrite today's search would
+make. Two things can differ: a later step that depended on the next goal being unfolded (the
+prototype measures that, §5), and, for a rule with unknowns, the instance chosen (`comm _ _`
+finds the visible `add a b` where today's first occurrence in the unfolded goal is
+`add c (add a b)`). SW-1627 therefore also runs today's search and falls back when its instance
+differs.
 
 ### B. Lean's rule: as written where found, else today's search
 
@@ -466,7 +469,9 @@ terms (different motives), so they get an Opus review (D2364).
    the folded attempt, so a scrutinee written up to eta is found (day 19, `eta.sw`). Accept:
    folded-goals.md repro 1 (the arms keep `concatenate`), `Result.traverseCons`'s and
    `List.foldMaxMem`'s shapes (fall back), `eta.sw`. Opus (the motive and its copies);
-   expected 120 min.
+   expected 120 min. `match` and `cases` face the same instance-choice question when the
+   scrutinee has unknowns or several candidates: the folded search must pick the occurrence
+   today's would, or fall back (SW-1627's `todays_instance`).
 3. **SW-1538's transport on the folded forms** (SW-1562), after SW-1604's fixes to the same
    function: test the scrutinee as written against `found` and `expected` read back folded,
    then today's test. Sonnet, 45 min.
@@ -533,7 +538,8 @@ The orchestrator assigns D numbers.
   (day 19), and for SW-1538's transport (SW-1562)? [rec: yes]
 - **Q3.** When the rule has unknowns, may the as-written search solve them by the call's
   arguments (`rewrite isSafeCorrect _` finds `isSafe { levels = … }`)? This is D1432, still
-  open; it only turns failures into successes. [rec: yes]
+  open; it turns failures into successes, but it can pick a different instance than today's
+  search (SW-1627 falls back when it does). [rec: yes]
 - **Q4.** Keep today's reach into hidden copies (days 10 and 14) when the as-written result is
   incomplete, rather than Lean's rule of rewriting only what is visible (option B), which
   breaks two std proofs and five AoC declarations? Occurrence selection (`rewrite (at := 2)`)

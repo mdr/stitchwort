@@ -603,7 +603,7 @@ left side read back folded first, comparing calls of the same definition by
 their arguments, and keeps that result only if the new goal, unfolded, holds no
 further copy of the left side and the folded motive checks; otherwise, and when
 it finds nothing, it searches the unfolded goal exactly as D484 describes. The
-proofs that worked still do; the next goal keeps its calls.
+proofs that worked still do, with one condition: for a rule with open arguments the folded result must pick the same instance as the unfolded search (otherwise the unfolded search runs). The next goal keeps its calls.
 
 *Calls that match at once are written unfolded* (`value.rs`
 `matches_at_once`). A call whose case tree starts with a case on an

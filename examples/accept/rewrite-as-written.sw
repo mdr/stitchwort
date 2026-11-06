@@ -52,3 +52,17 @@ theorem hiddenProof (d: Nat) [auto ok: d ≠ 0] (a: Nat) (n: Nat) (same: Succ a 
 theorem hiddenProofPlain (d: Nat) (a: Nat) (n: Nat) [auto ok: d ≠ 0] (same: d = Succ a):
     (d + n) / d = (Succ a + n) / d :=
   rewrite same
+
+def add (x: Nat) (y: Nat): Nat :=
+  match y with
+    | Zero => x
+    | Succ k => Succ (add x k)
+
+def wrap (n: Nat) (k: Nat): Nat := add k n
+
+-- With unknowns, the instance is the one the search over the computed goal
+-- would pick, `add c (add a b)` (first in that goal), not the `add a b`
+-- the goal shows; the as-written result is dropped for that reason.
+theorem sameInstance (comm: (x: Nat) → (y: Nat) → add x y = add y x) (a: Nat) (b: Nat) (c: Nat):
+    wrap (add a b) c = add (add a b) c :=
+  rewrite comm _ _ in rfl
