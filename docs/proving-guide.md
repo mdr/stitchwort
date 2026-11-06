@@ -119,7 +119,11 @@ changes only together with the code that builds them.
       │                          ⊢ Succ (List.length (List.append rest ys)) = List.length rest + List.length ys + 1
    ```
 
-   Goals are shown computed, not as written. A declaration with a `?` is
+   Goals are shown as written: a call stays a call until it can take a
+   step at once, and then it is shown after that step. Here
+   `List.length (List.append (Cons x rest) ys)` matches on its `Cons` at
+   once, so it shows as `Succ (…)`, while `List.length rest` stays as it
+   is (§3 says what `rewrite` and `match` search). A declaration with a `?` is
    unfinished, not wrong: later declarations can use it by its type, so you
    can state lemmas with `?`, use them in the main theorem, and prove them
    afterwards. But `check` fails while any `?` is open, and so does `audit`
