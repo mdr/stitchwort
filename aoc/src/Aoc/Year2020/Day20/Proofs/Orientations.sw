@@ -212,7 +212,7 @@ theorem memEq [x: a] [xs: List a] [ys: List a] (same: xs = ys) (member: x ∈ xs
 
 theorem withinFlip (image: Image): Within image image.flip :=
   edge member =>
-    match (memEq (flipEdges image) member) with
+    match (rewrite flipEdges image at member) with
       | Inl same => Witness (image.rows.headOr []) (Both (Inl rfl) (Inr (Eq.sym same)))
       | Inr (Inl same) => Witness (image.rows.map (row => row.headOr Calm)) (Both (Inr (Inr (Inr (Inl rfl)))) (Inl (Eq.sym same)))
       | Inr (Inr (Inl same)) => Witness (image.rows.last.getOrElse []) (Both (Inr (Inr (Inl rfl))) (Inr (Eq.sym same)))
@@ -223,7 +223,7 @@ theorem withinRotate (image: Image) (rectangle: Rectangle image): Within image i
   match rectangle with
     | Witness k (Both sized nonEmpty) =>
       edge member =>
-        match (memEq (rotateEdges image k sized nonEmpty) member) with
+        match (rewrite rotateEdges image k sized nonEmpty at member) with
           | Inl same => Witness (image.rows.map (row => row.headOr Calm)) (Both (Inr (Inr (Inr (Inl rfl)))) (Inr (Eq.sym same)))
           | Inr (Inl same) => Witness (image.rows.headOr []) (Both (Inl rfl) (Inl (Eq.sym same)))
           | Inr (Inr (Inl same)) => Witness (image.rows.map (row => row.last.getOrElse Calm)) (Both (Inr (Inl rfl)) (Inr (Eq.sym same)))

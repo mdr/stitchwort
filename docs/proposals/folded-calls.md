@@ -337,7 +337,8 @@ eat into the smaller namespaces' gains.
    `calc` moved (`hash_stability` snapshots `calc`, `operators`, `prelude`).
 2. **Next: glued values (b)**, in stages (§7), with gluing off in the kernel
    (D483) and with `rewrite` and other searches still seeing the unfolded
-   goal (D484), so no proof needs to change.
+   goal (D484), so no proof needs to change. (`rewrite` has since looked at
+   the folded goal first, with the unfolded one as the fallback: SW-1627.)
 3. **Not:** (a) alone (impossible), (a′) refolding (fragile), (c) sharing
    (memory only, unless the kernel changes), the `match`-helper fix (no gain).
 
@@ -592,9 +593,17 @@ one is used for:
   `value_for_goal`). An `rfl` failure's "computing … gives" note still
   shows the normal form (`Ctx::show_unfolded`), since that's what it says.
 
-`rewrite`'s search, `refold`'s comparison, `unify_index`'s occurs check,
-the decision search (D484), `omega` and the other places that look at a
-term's shape still use `quote`, so they see what they saw before.
+`refold`'s comparison, `unify_index`'s occurs check, the decision search
+(D484), `omega` and the other places that look at a term's shape still use
+`quote`, so they see what they saw before.
+
+*`rewrite` is the exception (SW-1627, D2475; docs/proposals/goal-as-written.md).*
+D484 had it search the unfolded goal. It now searches the goal and the rule's
+left side read back folded first, comparing calls of the same definition by
+their arguments, and keeps that result only if the new goal, unfolded, holds no
+further copy of the left side and the folded motive checks; otherwise, and when
+it finds nothing, it searches the unfolded goal exactly as D484 describes. The
+proofs that worked still do; the next goal keeps its calls.
 
 *Calls that match at once are written unfolded* (`value.rs`
 `matches_at_once`). A call whose case tree starts with a case on an
