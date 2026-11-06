@@ -18,10 +18,10 @@ theorem chainBounded (rules: Rules): (fuel: Nat) → (number: Nat) → rules.cha
   | Succ more, number =>
     match looked: rules.rule number with
       | Some (Alternatives sequences) =>
-        match found: List.maximum (List.map sequences (sequence => rules.chainThrough more sequence)) with
+        match found: sequences.map (rules.chainThrough more) |> .maximum with
           | None => omega
           | Some most =>
-            match List.memMapElim (sequence => rules.chainThrough more sequence) most sequences (And.left (List.maximumSome _ most found)) with
+            match List.memMapElim (rules.chainThrough more) most sequences (And.left (List.maximumSome _ most found)) with
               | Witness sequence (Both chosen made) =>
                 rewrite <- made in
                   match sequence with

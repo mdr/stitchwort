@@ -77,7 +77,7 @@ const SEARCH_BUDGET: u64 = 1_000_000;
 /// The budget for one `rewrite`: a test's setting applies to its program,
 /// not to the library's own rewrites, which always get the default (the
 /// library checks the same whatever program needed it).
-fn search_budget(cx: &Ctx) -> u64 {
+pub(crate) fn search_budget(cx: &Ctx) -> u64 {
     match cx.e.unit.loading_prelude {
         true => SEARCH_BUDGET,
         false => cx.e.options.rewrite_budget.unwrap_or(SEARCH_BUDGET),
@@ -1424,7 +1424,7 @@ fn has_carrier(cx: &Ctx, kcx: &mut kernel::Ctx, term: &Term, carrier: &Value) ->
 
 /// The part of a term that decides which candidates are worth comparing.
 #[derive(Clone, PartialEq)]
-enum Key {
+pub(crate) enum Key {
     Def(DefId, usize),
     Ctor(DataId, usize, usize),
     Data(DataId, usize),
@@ -1438,7 +1438,7 @@ enum Key {
 
 /// The key of `term`, a subterm under `under` binders; `None` if it can't be
 /// an occurrence: a metavariable, or a bound variable, at its head.
-fn key(term: &Term, under: usize) -> Option<Key> {
+pub(crate) fn key(term: &Term, under: usize) -> Option<Key> {
     let mut args = 0;
     let mut head = term.strip_loc();
     while let Term::App(f, _, _) = head {
@@ -1469,7 +1469,7 @@ fn key(term: &Term, under: usize) -> Option<Key> {
 }
 
 /// Whether `term`, under `under` binders of the goal, mentions one of them.
-fn mentions_bound(term: &Term, under: usize) -> bool {
+pub(crate) fn mentions_bound(term: &Term, under: usize) -> bool {
     under > 0
         && term.subterms().any(|(t, binders)| match t {
             Term::Var(ix) | Term::Case(ix, ..) | Term::NumCase(ix, ..) => {

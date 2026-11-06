@@ -552,6 +552,8 @@ theorem clampToAtMost (limit: Nat) (n: Nat): clampTo limit n ≤ limit :=
 
 On `Nat`, the statement `a <= b` computes to `Nat.leq a b = True`, and goals are shown computed: that is shown as `a ≤ b`, and the `Bool` `Nat.leq a b` alone as `a <= b`. In the `True` branch the goal is then exactly `fits`, and in the `False` branch it is `limit <= limit`, which `Nat.leRefl limit` proves.
 
+The `match` looks for `e` in the goal as you wrote it first, so where it finds every occurrence there, the branches keep the goal's calls: matching on `flag` in `(if flag then double a else 0) = …` leaves `double a = …` in the `True` branch, not `a + a = …`. Here the condition is only inside `clampTo`, so it is found in what `clampTo limit n` computes to, and the branches show that.
+
 The `match` replaces `e` in the goal and in the hypotheses, but not in a lemma you call inside a branch: `clampToAtMost limit n` still says `clampTo limit n ≤ limit`, where the `True` branch's goal has `n ≤ limit`. Since they differ only in `e` against its value, the lemma's proof is rewritten along `fits` for you:
 
 <!-- snippet: proofs.sw#match-lemma -->

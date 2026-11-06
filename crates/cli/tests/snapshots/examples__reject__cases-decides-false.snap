@@ -9,7 +9,7 @@ expression: output
     │                                                ──┬──  
     │                                                  ╰──── this `cases`
     │ 
-    │ Note 1: goal: K0 = K2 ∨ K1 = K2 ∨ Void
+    │ Note 1: goal: K0 = pick True ∨ K1 = pick True ∨ Void
     │ 
     │ Note 2: the goal isn't stuck on anything `cases` can take apart, and neither `rfl`, a contradiction, a hypothesis, `omega` nor deciding it (as `byDecision` does) proves it; give this case's proof as `cases in t`
     │ 

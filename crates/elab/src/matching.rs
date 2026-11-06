@@ -31,6 +31,8 @@ use crate::check::{Ctx, Result, infer, insert};
 use crate::lift::{self, Draft};
 use crate::{Row, UNIT_PATTERN, check_tree_here};
 
+mod as_written;
+
 fn parts(expr: &Expr) -> (&[Scrutinee], &[Alt], stitchwort_syntax::Span, MatchKind) {
     let Expr::Match {
         scrutinees,
@@ -877,7 +879,6 @@ fn generalised_now(
     skip: Option<Skip>,
 ) -> Result<Term> {
     let g = cx.g();
-    let e = exprs.len();
     // What the scrutinees are looked for in: the variables' types and the
     // goal, as types hold them.
     let in_match = |e: stitchwort_core::budget::ResourceError| {
@@ -954,7 +955,14 @@ fn generalised_now(
             .with_label(s.span, "this scrutinee"));
         }
     }
-    let not_found = if skip.is_none() {
+    let today = as_written::Today {
+        occurrences: &occurrences,
+        copied: &copied,
+        type_terms: &type_terms,
+        goal_term: &goal_term,
+    };
+    let written = as_written::first(cx, &exprs, &today, goal, base, skip, span)?;
+    let mut not_found = if skip.is_none() {
         not_found(
             cx,
             &exprs,
@@ -968,59 +976,45 @@ fn generalised_now(
     } else {
         Vec::new()
     };
-    // Bind the scrutinees' variables, then the copies.
-    let mut extra = Vec::new();
-    for s in &exprs {
-        cx.bind_hidden(scrutinee_name(s), s.ty.clone());
-        if let Some(l) = s.alias {
-            cx.rebind(l, cx.level() - 1);
-        }
-        extra.push(s.term.clone());
-    }
-    let mut copies = HashMap::default();
-    for (i, &l) in copied.iter().enumerate() {
-        let depth = base + e + i;
-        let generalise = Generalise {
-            base,
-            depth,
-            exprs: &occurrences,
-            copies: &copies,
-        };
-        let ty = generalise.apply(&g, &type_terms[l])?;
-        let value = cx.eval(&ty)?;
-        cx.bind_hidden(cx.names[l].clone(), value);
-        cx.rebind(l, depth);
-        copies.insert(l, depth);
-        extra.push(Term::Var(base - 1 - l));
-    }
-    // The equations, after the motive is built: `h : e = s`, about the
-    // original expression.
-    let mut equations = Vec::new();
-    for (i, s) in exprs.iter().enumerate() {
-        if let Some(h) = &s.name {
-            let depth = cx.level();
-            equations.push((i, depth));
-            let shift = |t: &Term| t.shift(&g, depth - base, 0);
-            let eq = Term::Eq(
-                Some(Rc::new(shift(&s.ty_term)?)),
-                Rc::new(shift(&s.term)?),
-                Rc::new(Term::Var(depth - 1 - (base + i))),
-            );
-            let value = cx.eval(&eq)?;
-            cx.bind(&h.text, value);
-            extra.push(Term::Refl);
+    // The generalisation as written, if it found something that agrees
+    // with the usual test, and if its motive checks now: check 3 of
+    // `as_written`, made even for `cases`, whose usual motive is left to the
+    // kernel. Otherwise the usual one, exactly as before.
+    let snapshot = crate::undo::Snapshot::take(cx);
+    let mut kept = None;
+    if let Some(w) = &written {
+        // Any error on this path but running out of resources falls back.
+        let bound = crate::undo::attempt(cx, |cx| {
+            let bound = bind_generalised(cx, &exprs, &today, Some(w), base)?;
+            let checks = motive_checks_now(cx, base, &bound.extra, &bound.motive, span)?;
+            Ok(checks.then_some(bound))
+        })?
+        .flatten();
+        if let Some(bound) = bound {
+            as_written::report(w.outcome, span);
+            // Found as written, so not "not found".
+            not_found.retain(|(i, _)| !w.found[*i]);
+            kept = Some(bound);
+        } else {
+            as_written::report(as_written::Outcome::Unchecked, span);
+            snapshot.restore(cx);
         }
     }
-    let depth = cx.level();
-    let generalise = Generalise {
-        base,
-        depth,
-        exprs: &occurrences,
-        copies: &copies,
+    let (bound, motive_later) = match kept {
+        Some(bound) => (bound, false),
+        None => {
+            let bound = bind_generalised(cx, &exprs, &today, None, base)?;
+            let later =
+                skip.is_none() && check_motive(cx, base, &bound.extra, &bound.motive, span)?;
+            (bound, later)
+        }
     };
-    let goal_term = generalise.apply(&g, &goal_term)?;
-    let motive = cx.eval(&goal_term)?;
-    let motive_later = skip.is_none() && check_motive(cx, base, &extra, &motive, span)?;
+    let Bound {
+        extra,
+        equations,
+        depth,
+        motive,
+    } = bound;
     let levels: Vec<usize> = columns
         .iter()
         .map(|c| match c {
@@ -1086,6 +1080,97 @@ fn generalised_now(
         motive_later,
         Some((levels, eqs)),
     )
+}
+
+/// A generalised `match`'s variables bound and its motive made: the
+/// arguments its helper is passed, the equations `h : e = s` (scrutinee
+/// index, level), and the motive, in `depth` variables.
+struct Bound {
+    extra: Vec<Term>,
+    equations: Vec<(usize, usize)>,
+    depth: usize,
+    motive: Value,
+}
+
+/// Binds the scrutinees' variables, then the copies, then the equations,
+/// and makes the motive: from `written` if given (`as_written`), else by
+/// the usual occurrence test (`today`).
+fn bind_generalised(
+    cx: &mut Ctx,
+    exprs: &[Scrut],
+    today: &as_written::Today,
+    written: Option<&as_written::Written>,
+    base: usize,
+) -> Result<Bound> {
+    let g = cx.g();
+    let e = exprs.len();
+    let mut extra = Vec::new();
+    for s in exprs {
+        cx.bind_hidden(scrutinee_name(s), s.ty.clone());
+        if let Some(l) = s.alias {
+            cx.rebind(l, cx.level() - 1);
+        }
+        extra.push(s.term.clone());
+    }
+    let copied: Vec<usize> = match written {
+        Some(w) => w.copied.iter().map(|(l, _)| *l).collect(),
+        None => today.copied.to_vec(),
+    };
+    let mut copies = HashMap::default();
+    for (i, &l) in copied.iter().enumerate() {
+        let depth = base + e + i;
+        let ty = match written {
+            Some(w) => as_written::moved(&g, &w.copied[i].1, base, e, depth, &copies)?,
+            None => Generalise {
+                base,
+                depth,
+                exprs: today.occurrences,
+                copies: &copies,
+            }
+            .apply(&g, &today.type_terms[l])?,
+        };
+        let value = cx.eval(&ty)?;
+        cx.bind_hidden(cx.names[l].clone(), value);
+        cx.rebind(l, depth);
+        copies.insert(l, depth);
+        extra.push(Term::Var(base - 1 - l));
+    }
+    // The equations, after the motive is built: `h : e = s`, about the
+    // original expression.
+    let mut equations = Vec::new();
+    for (i, s) in exprs.iter().enumerate() {
+        if let Some(h) = &s.name {
+            let depth = cx.level();
+            equations.push((i, depth));
+            let shift = |t: &Term| t.shift(&g, depth - base, 0);
+            let eq = Term::Eq(
+                Some(Rc::new(shift(&s.ty_term)?)),
+                Rc::new(shift(&s.term)?),
+                Rc::new(Term::Var(depth - 1 - (base + i))),
+            );
+            let value = cx.eval(&eq)?;
+            cx.bind(&h.text, value);
+            extra.push(Term::Refl);
+        }
+    }
+    let depth = cx.level();
+    let goal_term = match written {
+        Some(w) => as_written::moved(&g, &w.goal, base, e, depth, &copies)?,
+        None => Generalise {
+            base,
+            depth,
+            exprs: today.occurrences,
+            copies: &copies,
+        }
+        .apply(&g, today.goal_term)?,
+    };
+    let motive = cx.eval(&goal_term)?;
+    Ok(Bound {
+        extra,
+        equations,
+        depth,
+        motive,
+    })
 }
 
 /// The scrutinees' normal forms, for the occurrence test: each as types
@@ -1323,26 +1408,7 @@ fn check_motive(
     motive: &Value,
     span: stitchwort_syntax::Span,
 ) -> Result<bool> {
-    // The type it would have if it used every variable the `match` added
-    // (the body is only looked at for the variables it mentions).
-    let draft = Draft {
-        meta: usize::MAX,
-        span,
-        env: cx.env.clone(),
-        types: cx.types.clone(),
-        names: cx.names.clone(),
-        base,
-        extra: extra.to_vec(),
-        body: uses_all(base, cx.level()),
-        goal: cx.quote(motive)?,
-        kinds: cx.kinds.clone(),
-        lets: cx.lets.clone(),
-        order: cx.order.clone(),
-        local: None,
-        update: None,
-        motive_later: false,
-        columns: None,
-    };
+    let draft = motive_draft(cx, base, extra, cx.quote(motive)?, span);
     match cx.e.lifted_type(&draft) {
         Ok(ty) => motive_holds(cx.e, &ty, span).map(|()| false),
         Err(d) if crate::undo::fatal(&d) => Err(d),
@@ -1354,6 +1420,61 @@ fn check_motive(
             crate::queue::note_motive_later(cx.e);
             Ok(true)
         }
+    }
+}
+
+/// The draft of a generalised `match`'s helper that uses every variable
+/// the `match` added, with motive `goal`: its type is the whole motive (the
+/// body is only looked at for the variables it mentions).
+fn motive_draft(
+    cx: &Ctx,
+    base: usize,
+    extra: &[Term],
+    goal: Term,
+    span: stitchwort_syntax::Span,
+) -> Draft {
+    Draft {
+        meta: usize::MAX,
+        span,
+        env: cx.env.clone(),
+        types: cx.types.clone(),
+        names: cx.names.clone(),
+        base,
+        extra: extra.to_vec(),
+        body: uses_all(base, cx.level()),
+        goal,
+        kinds: cx.kinds.clone(),
+        lets: cx.lets.clone(),
+        order: cx.order.clone(),
+        local: None,
+        update: None,
+        motive_later: false,
+        columns: None,
+    }
+}
+
+/// Whether the motive of a generalisation as written (`as_written`) checks
+/// now, as the helper's type will hold it: read back folded, as
+/// [`lift::draft_with`] reads it. `false` if it is ill-formed, or can't be
+/// built yet (an unknown is left for lifting): either way the caller falls
+/// back to the usual motive, which [`check_motive`] then checks as before.
+fn motive_checks_now(
+    cx: &Ctx,
+    base: usize,
+    extra: &[Term],
+    motive: &Value,
+    span: stitchwort_syntax::Span,
+) -> Result<bool> {
+    let draft = motive_draft(cx, base, extra, cx.quote_folded(motive)?, span);
+    let ty = match cx.e.lifted_type(&draft) {
+        Ok(ty) => ty,
+        Err(d) if crate::undo::fatal(&d) => return Err(d),
+        Err(_) => return Ok(false),
+    };
+    match motive_holds(cx.e, &ty, span) {
+        Ok(()) => Ok(true),
+        Err(d) if crate::undo::fatal(&d) => Err(d),
+        Err(_) => Ok(false),
     }
 }
 
