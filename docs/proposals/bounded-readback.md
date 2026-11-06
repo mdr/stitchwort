@@ -1,7 +1,7 @@
 # Proposal: bounded read-back: the elaborator looks at goals as written and unfolds only what it needs
 
 **Status:** draft 1, 6 November 2026, design only, stopped for Matt's decisions
-([§8](#8-decisions), D2519–D2526). Ticket SW-1712, from D2514 (Matt, 6 Nov 2026: "bound
+([§8](#8-decisions), D2519–D2529). Ticket SW-1712, from D2514 (Matt, 6 Nov 2026: "bound
 unfolded readback by making the elaborator's searches look at goals as written, starting with
 a short design note on Opus that revisits D484; accessor types read back as written too").
 Unblocks record eta (SW-1642, SW-1667). Written against `main` at `e0f9d7809` and
@@ -542,7 +542,7 @@ says it too (stage 6's lane).
 **What record eta needs first.** Stages 1 and 2 make trip-journal *correct* (no
 "too large to show"). Stages 3 to 6 make it *fast*. Whether 1 and 2 are enough to resume
 SW-1667 is stage 0's answer: if trip-journal under stage 2 takes more than about twice its
-time on `main`, SW-1667 waits for stage 6. See D2525.
+time on `main`, SW-1667 waits for stage 6. See D2528.
 
 ## 8. Decisions
 
@@ -578,11 +578,11 @@ time on `main`, SW-1667 waits for stage 6. See D2525.
   both-ways switch or the metrics on, stopped at 6 minutes as D2507's verifier is. [rec: yes.
   §5's "nothing changes on `main`" is a measured claim, and these are the stages that rest
   on it.]
-- **D2525.** Order: 0, 1, 2 first; SW-1667 resumes after stage 2 if trip-journal then takes
+- **D2528.** Order: 0, 1, 2 first; SW-1667 resumes after stage 2 if trip-journal then takes
   at most twice its time on `main`, else after stage 6; stages 3 to 7 continue on `main` in
   any case. [rec: yes. Record eta needs correctness first, and the speed stages can't change
   results.]
-- **D2526.** `CAP` stays fixed at 100,000 with no per-proof syntax to lift it (D1281,
+- **D2529.** `CAP` stays fixed at 100,000 with no per-proof syntax to lift it (D1281,
   deferred with D1280). [rec: yes, until a proof needs more. `rewrite f` (goal-as-written.md
   Q6) or `f.unfold` is the way into a large call.]
 
