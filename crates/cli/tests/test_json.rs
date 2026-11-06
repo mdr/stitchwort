@@ -115,6 +115,7 @@ fn only_with_no_such_test_fails_and_says_so() {
     assert!(out.contains("0 test(s)"), "{out}");
     let (v, ok) = json(&dir, &["--json", "--only", "nope"]);
     assert!(!ok);
+    assert_eq!(v["ok"], false);
     assert_eq!(v["tests"].as_array().unwrap().len(), 0);
 }
 
