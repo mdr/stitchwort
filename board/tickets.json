@@ -1,5 +1,5 @@
 {
-  "next": 1489,
+  "next": 1490,
   "tickets": [
     {
       "id": 47,
@@ -9219,6 +9219,20 @@
       "body": "From 2020 day 12 (SW-1483), 5 Nov 2026.\n\nStarted on Sonnet (omega bundle: SW-1488, SW-1472, SW-1466), expected: 50 min.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
+      "commits": []
+    },
+    {
+      "id": 1489,
+      "title": "Playground: a live goals panel that follows the cursor (as VS Code's) and share a snippet by URL (source compressed into the fragment, no server) — roadmap step 3",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1489",
+      "labels": [
+        "editor"
+      ],
+      "body": "From docs/proposals/editor-and-playground-roadmap.md §4 step 3 (rows 3 and P1), after steps 1-2 (SW-1117 done tonight). Orchestrator's call overnight (medium): next on the editor track.\n\nStarted on Sonnet, expected: 90 min (2 browser runs).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
       "commits": []
     }
   ]
