@@ -152,10 +152,11 @@ def Jigsaw.rowAfter (jigsaw: Jigsaw) (tile: Tile): (fuel: Nat) → List Tile
 def Jigsaw.rowsFrom (jigsaw: Jigsaw) (first: Tile): (fuel: Nat) → List (List Tile)
   | Zero => []
   | Succ fuel =>
-    let row := [first, ..jigsaw.rowAfter first jigsaw.tiles.length]
-    match jigsaw.below first with
-      | Some next => [row, ..jigsaw.rowsFrom next fuel]
-      | None => [row]
+    let below :=
+      match jigsaw.below first with
+        | Some next => jigsaw.rowsFrom next fuel
+        | None => []
+    [[first, ..jigsaw.rowAfter first jigsaw.tiles.length], ..below]
 
 --| A corner, turned so that its top and left edges fit no other tile's:
 --| the image's top left tile.

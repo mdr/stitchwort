@@ -5268,6 +5268,12 @@ Proved (`Aoc.Year2020.Day20.Proofs`):
   last rows and columns of a transposed rectangle (`firstColumn`,
   `lastColumn`, `columnsFirst`, `columnsLast`) and a few `reverse` and
   `last` lemmas.
+- Arrangement.sw: `neighbourFound`, `rightOfFits`, `belowFits`,
+  `rowAfterFits`, `rowsFromFits`: from any first tile, every row of the
+  arrangement fits edge to edge (`RowFits`: each tile's left edge is
+  the right edge of the one before), and so does the first column
+  (`ColumnFits`, top against bottom); each placed tile is an orientation
+  of an input tile with another id than its neighbour (`TurnedOther`).
 - Monsters.sw: `roughAtIff` (the program's rough positions are the
   image's `#`s), `monsterIff` and `monsterStartsIff` (the program's
   monster starts are exactly the places the spec has a monster that
@@ -5282,9 +5288,11 @@ Proved (`Aoc.Year2020.Day20.Proofs`):
   monster`, `monster` is one of the sea monster's orientations, and the
   image has a monster that way round).
 
-Not proved: that `arrange` assembles the image the puzzle means (that
-every placed tile's edges equal its neighbours', that each tile is used
-once, that the arrangement is square), and that `interior` and
+Not proved: that `arrange` assembles the image the puzzle means: that
+the columns after the first line up top to bottom (the program checks
+only the first, and relies on the puzzle's promise that edges match
+uniquely), that each tile is used once and every tile is used, and that
+the arrangement is square; and that `interior` and
 `Arrangement.image` strip and join the tiles as the puzzle says: part 2's
 theorems are about whatever image they are given. That a corner by the
 spec's count is a corner of the assembled image (it is when border edges
@@ -5303,12 +5311,13 @@ case fails `fitsIff`; `matches` without `other.id != tile.id` fails
 keeping `Calm` fails `roughAtIff`; `shift` adding 1 fails `monsterIff`
 and `monsterPixelsIff`; `flip` reversing the rows' order fails
 `flipTwice`, `flipEdges` and `rectangleFlip`; `rotate` without the
-`reverse` fails `rotateEdges` and `rectangleRotate`; and `monsterStarts` looking
+`reverse` fails `rotateEdges` and `rectangleRotate`; `below` comparing
+top with top fails `belowFits`; and `monsterStarts` looking
 one row past the bottom fails `monsterStartsIff`, though by a mismatch
 with the proof's restatement of `starts`, not by a counterexample.
-`check --counterexamples`: 0 false, 10 none found, 5 gave up, 44 not
-applicable. The audit: `audited 82 theorems: 0 failed, 0 with warnings,
-82 passed`.
+`check --counterexamples`: 0 false, 10 none found, 5 gave up, 49 not
+applicable. The audit: `audited 90 theorems: 0
+failed, 0 with warnings, 90 passed`.
 
 ### 1. Turning a grid has no library, and its facts are 120 lines of transpose lemmas
 
@@ -5430,8 +5439,8 @@ pairs in std, would let it be a `Set Position`.
 
 ### Size and time
 
-225 lines of program, 85 of spec, 634 of proofs (Parse 39, Corners 76,
-Orientations 309, Monsters 205, Proofs 5), 78 of tests (+1 answer test in
+226 lines of program, 85 of spec, 715 of proofs (Parse 39, Corners 76,
+Orientations 309, Arrangement 79, Monsters 205, Proofs 6), 78 of tests (+1 answer test in
 `aoc_answers.rs`). By the clock: 06:18 start; Python answers at 06:21;
 program and both answers, first run, at 06:25; tests passing and
 committed at 06:29; spec and the parser's proof at 06:32; part 1 exactly
@@ -5440,7 +5449,11 @@ at 06:33; flips at 06:35; transpose lemmas at 06:36; `rotateEdges` at
 `roughAtIff` to `monsterPixelsIff` at 06:41 to 06:43; the rectangle
 check at 06:45; break checks and counterexamples at 06:45; `roughnessExactly`
 at 06:48 and `roughnessTurned` at 06:50; these notes at 06:51 to 06:55;
-`roughAtDistinct` at 06:58.
+`roughAtDistinct` at 06:58; Arrangement.sw at 07:01 to 07:03, which
+needed `rowsFrom` to put the row's cons outside the `match` on `below`,
+so that `ColumnFits` could compute on its result (item 2's kind of
+friction: a theorem about a list built under a `match` waits on the
+`match`).
 
 | command | time |
 | --- | --- |
