@@ -105,6 +105,20 @@ impl Place<'_> {
 
 /// `rewrite` where nothing says what to prove.
 pub(crate) fn infer_rewrite(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
+    infer_rewrite_inner(cx, expr).map_err(|d| resource_in_rewrite(d, expr))
+}
+
+/// An `E-RESOURCE` that has no place of its own (a value too large to show
+/// comes from the kernel, which has no span) gets the `rewrite` it ran out in.
+fn resource_in_rewrite(d: Diagnostic, expr: &Expr) -> Diagnostic {
+    if d.code == "E-RESOURCE" && d.labels.is_empty() {
+        d.with_label(expr.span(), "ran out of resources in this `rewrite`")
+    } else {
+        d
+    }
+}
+
+fn infer_rewrite_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
     let Expr::Rewrite { rules, target, .. } = expr else {
         unreachable!("only called on a rewrite");
     };
@@ -237,6 +251,7 @@ fn rewrite_at(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Te
 /// (`queue::tactic_or_wait`; docs/proposals/postponement.md, step 4.2).
 pub(crate) fn check_rewrite(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     crate::queue::tactic_or_wait(cx, expr, expected, rewrite_goal)
+        .map_err(|d| resource_in_rewrite(d, expr))
 }
 
 /// [`check_rewrite`]'s rewrite itself.

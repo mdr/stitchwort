@@ -1042,6 +1042,13 @@ impl<'e> Ctx<'e> {
         } else {
             d
         };
+        let d = if ne_read_as_prop(&expected_shown, &found_shown) {
+            d.with_note(
+                "`!=` here is the proposition `≠`; for the `Bool` test write `((a != b): Bool)`",
+            )
+        } else {
+            d
+        };
         let mut notes = Vec::new();
         self.alias_notes(expected, found, ALIAS_NOTE_DEPTH, &mut notes);
         let d = notes.into_iter().fold(d, |d, note| d.with_note(note));
@@ -1264,6 +1271,13 @@ fn bool_function_found_prop(expected: &str, found: &str) -> bool {
         (expected.rsplit_once(" → "), found.rsplit_once(" → ")),
         (Some((e, "Bool")), Some((f, "Prop"))) if e == f
     )
+}
+
+/// Whether the expected type mentions a proposition `≠` and what was found
+/// is a `Bool` test (`Decidable.toBool …`): a `Bool` `!=` that was read as `≠`
+/// because it sits beside `=` in a statement.
+fn ne_read_as_prop(expected: &str, found: &str) -> bool {
+    expected.contains(" ≠ ") && found.contains("Decidable.toBool")
 }
 
 /// Whether two forced types are built by the same outermost former (the
