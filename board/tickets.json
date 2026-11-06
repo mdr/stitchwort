@@ -1,5 +1,5 @@
 {
-  "next": 1610,
+  "next": 1611,
   "tickets": [
     {
       "id": 47,
@@ -10792,13 +10792,13 @@
     {
       "id": 1601,
       "title": "Daily tier 6 Nov, smaller failures: 5 W-DOC-LINK in the prelude (natives the_real_prelude_registers_every_native; likely the Parse.Runs docs); navigation__nav-project.snap gains ': Nat' for a local (accept if right); partial_kernel test text expects Effect.now's old signature (SW-1258); std_library small programs now load 11 files not 5 (find the new dependency before updating); bench check-text-literal allocations +24%",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1601",
       "labels": [
         "regression"
       ],
-      "body": "Daily tier 6 Nov 2026 morning; details in the triage report (scratchpad/daily/). Bench: check-number-* improved 10-38%; extract-js input set changed (55 vs 53 files).\n\nStarted on Sonnet (D2452: fix and rerun only the failing tests), expected: 45 min.",
+      "body": "Daily tier 6 Nov 2026 morning; details in the triage report (scratchpad/daily/). Bench: check-number-* improved 10-38%; extract-js input set changed (55 vs 53 files).\n\nStarted on Sonnet (D2452: fix and rerun only the failing tests), expected: 45 min.\n\nDone (da415a3a0), merged. Doc links: five core docs linked Toolkit/Lemmas names (core is elaborated alone), now code spans. Nav snapshot accepted (let start := 0 is Nat). partial_kernel strings updated (Effect.now, Delay's (a: Type), foldD's (delay: …)). Load set back to 5 files: 38fde7be9 (SW-1352) put omega-proved range lemmas in List/Toolkit; hand-proved there now, the iff forms moved to List/Lemmas. Bench: check-text-literal/nested-parens +24% allocations was 1c09035f9 (SW-1235) prelude_fieldless() per Parser, fixed with a static array; check-closed-* (+13% visits, +11.6% allocations) and check-number-* peak heap not traced, baseline not repinned (SW-1610). Model result: Sonnet, worked, 55 min (est. 45).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10911,6 +10911,20 @@
         "unifier"
       ],
       "body": "From SW-1600, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1610,
+      "title": "Bench: find what raised check-closed-* (~+13% visits, +11.6% allocations, 179k → 203k, between 5 Nov 08:38 0e2bf68ac and 6 Nov) and check-number-* peak heap (+13-30%), then repin the baseline (also extract-js 53 → 55 inputs); counts_have_not_regressed fails until then (SW-1601)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "body": "From SW-1601, 6 Nov 2026. Also: doc links in std/core can only name core items (prelude elaborated alone).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
