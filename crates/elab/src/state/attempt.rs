@@ -140,6 +140,10 @@ pub(crate) struct Attempt {
     pub(crate) awaited_helpers: RefCell<Option<HashSet<usize>>>,
     /// While `unify::unify_solving_arguments` runs. Set by a guard.
     pub(crate) solving_arguments: Cell<bool>,
+    /// How many comparisons of two calls of one definition by their
+    /// arguments (`unify::unify_step`'s first rule) are open around the
+    /// current pair. Set by a guard.
+    pub(crate) argument_checks: Cell<usize>,
     /// The solutions made while comparing two calls of a definition stuck
     /// on an unknown by their arguments (`unify::unify_step`): each
     /// metavariable and its place in `MetaStore::meta_trail`. Equal arguments
@@ -240,6 +244,7 @@ impl Attempt {
             postponed: _,
             awaited_helpers: _,
             solving_arguments: _,
+            argument_checks: _,
             pending: _,
             waiting: _,
         } = self;
@@ -290,6 +295,7 @@ impl Attempt {
             postponed: _,
             awaited_helpers: _,
             solving_arguments: _,
+            argument_checks: _,
             pending: _,
             waiting: _,
         } = self;
@@ -356,6 +362,7 @@ impl Attempt {
             postponed: _,
             awaited_helpers: _,
             solving_arguments: _,
+            argument_checks: _,
             pending: _,
             waiting: _,
         } = self;
@@ -410,6 +417,7 @@ impl Attempt {
             postponed: _,
             awaited_helpers: _,
             solving_arguments: _,
+            argument_checks: _,
             pending: _,
             waiting: _,
         } = self;
