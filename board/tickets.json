@@ -1,5 +1,5 @@
 {
-  "next": 1536,
+  "next": 1537,
   "tickets": [
     {
       "id": 47,
@@ -9672,13 +9672,13 @@
     {
       "id": 1521,
       "title": "Unifier: the 2^n blowup can still occur while solving from arguments (a lemma with _ args on a repeated-parser goal); memoise pairs found different within one argument comparison, as the kernel does (SW-1506)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1521",
       "labels": [
         "elab"
       ],
-      "body": "From SW-1506, 6 Nov 2026.\n\nStarted overnight on Opus (unifier completeness and speed), expected: 60 min.",
+      "body": "From SW-1506, 6 Nov 2026.\n\nStarted overnight on Opus (unifier completeness and speed), expected: 60 min.\n\nDone (288b7b633), merged: CallMemo in unify.rs (ShapeMemo in core/value.rs, structural): while solving from arguments, a same-function call pair whose comparison failed with no unknown solved, no undo, no constraint set aside is recorded under (meta epoch, trail length, set-aside count); a repeat fails the comparison at once. Fresh record per context-changing entry point; off where a part may be set aside. 2^n → flat (n=35: minutes → 0.25 s). SW-1506's shortcut kept as the fast path (orchestrator's call: +0.5% work vs +2.3% memo alone). Independent Opus review: merge, none found. Model result: Opus, worked, 44 min (est. 60).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -9875,6 +9875,20 @@
         "aoc"
       ],
       "body": "D2443 (Matt): carry on further if there's time. Overnight, Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day16.\n\nStarted on Opus, expected: 120 min.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1536,
+      "title": "Message: in a mismatch for lem _, the unsolved _ prints as ?0; say it's the argument that couldn't be worked out (SW-1521)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "From SW-1521, 6 Nov 2026. Small.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
