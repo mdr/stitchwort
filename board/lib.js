@@ -3,6 +3,8 @@
 // Standard library only. Used by the CLI (board/board) and the server.
 const fs = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
+const links = require('./links');
 
 const STATUSES = ['backlog', 'next', 'doing', 'review', 'done'];
 const AGENTS = ['', 'Opus', 'Sonnet', 'DeepSeek', 'GLM', 'Matt', 'Claude'];
@@ -295,9 +297,83 @@ function removeTicket(data, id) {
   return t; // data.next is untouched: numbers are never reused
 }
 
+// Documents: git-tracked files under the repo root that the server shows at /doc/<path>.
+const repoRoot = () => path.resolve(__dirname, '..');
+
+// The set of git-tracked paths (repo-relative, '/'-separated).
+function trackedFiles(root = repoRoot()) {
+  const out = execFileSync('git', ['ls-files', '-z'], { cwd: root, maxBuffer: 1 << 28 });
+  return new Set(out.toString('utf8').split('\0').filter(Boolean));
+}
+
+// Maps a requested path to { abs, kind } if it is a tracked, servable document, else
+// null. Refuses anything not already in normal form (`..`, `.`, `//`, a leading `/`,
+// backslashes, NUL), anything untracked, and symlinks that leave the repo.
+function resolveDoc(root, rel, tracked) {
+  if (typeof rel !== 'string' || !rel || rel.includes('\0') || rel.includes('\\') || rel.startsWith('/')) return null;
+  if (rel.split('/').some((seg) => seg === '' || seg === '.' || seg === '..')) return null;
+  if (!tracked.has(rel)) return null;
+  const kind = links.docKind(rel);
+  if (!kind) return null;
+  const abs = path.join(root, rel);
+  try {
+    const real = fs.realpathSync(abs);
+    const base = fs.realpathSync(root);
+    if (real !== base && !real.startsWith(base + path.sep)) return null;
+    if (!fs.statSync(real).isFile()) return null;
+  } catch (_) {
+    return null;
+  }
+  return { abs, kind };
+}
+
+// First `# ` heading of a markdown file, or '' (for labels in lists).
+function docTitle(root, rel) {
+  try {
+    const head = fs.readFileSync(path.join(root, rel), 'utf8').slice(0, 4000);
+    const m = /^#\s+(.+?)\s*#*\s*$/m.exec(head);
+    return m ? m[1] : '';
+  } catch (_) {
+    return '';
+  }
+}
+
+// docs/reviews/SW-N-topic.md files whose ticket number is in `ticketIds`.
+function reviewDocs(tracked, ticketIds) {
+  const out = [];
+  for (const p of tracked) {
+    const m = /^docs\/reviews\/SW-(\d+)-[^/]+\.md$/.exec(p);
+    if (m && ticketIds.has(Number(m[1]))) out.push(p);
+  }
+  return out.sort();
+}
+
+// For the epic cards: `docs` (the epic's `links` that are documents, plus the review
+// files of its tickets, live or archived) and `links` (the rest of its links).
+function epicDocs(epic, tickets, tracked, root = repoRoot(), file = defaultFile()) {
+  const isDoc = (l) => {
+    const m = /^([^:]+?)(?::\d+)?$/.exec(l);
+    return !!m && tracked.has(m[1]) && !!links.docKind(m[1]);
+  };
+  const linkDocs = epic.links.filter(isDoc).map((l) => l.replace(/:\d+$/, ''));
+  const hasReviews = [...tracked].some((p) => p.startsWith('docs/reviews/SW-'));
+  let reviews = [];
+  if (hasReviews) {
+    const ids = new Set(tickets.filter((t) => t.epic === epic.id).map((t) => t.id));
+    for (const t of loadArchived(file)) if (t.epic === epic.id) ids.add(t.id);
+    reviews = reviewDocs(tracked, ids);
+  }
+  const paths = [...new Set([...linkDocs, ...reviews])];
+  return {
+    docs: paths.map((p) => ({ path: p, title: docTitle(root, p), review: reviews.includes(p) })),
+    links: epic.links.filter((l) => !isDoc(l)),
+  };
+}
+
 module.exports = {
   STATUSES, AGENTS, BoardError, defaultFile, load, save, serialize, update, find, parseId,
   addTicket, editTicket, removeTicket, normalizeTicket, today,
   archiveDir, loadArchived, findArchived, archiveBefore,
+  repoRoot, trackedFiles, resolveDoc, docTitle, reviewDocs, epicDocs,
   EPIC_STATUSES, epicsFile, loadEpics, checkEpic, epicSummaries, applyEpics,
 };

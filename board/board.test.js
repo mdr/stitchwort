@@ -388,3 +388,123 @@ test('the committed epics.json and epic-tags.json are consistent', () => {
   for (const [k, v] of Object.entries(tags)) { lib.parseId(k); assert.ok(ids.includes(v), `SW-${k}: ${v}`); }
   for (const t of lib.load(board).tickets) if (t.epic) assert.ok(ids.includes(t.epic), `SW-${t.id}`);
 });
+
+// ---- documents and links ----
+const links = require('./links');
+
+function repoWith(files) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'board-docs-'));
+  for (const [rel, text] of Object.entries(files)) {
+    fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
+    fs.writeFileSync(path.join(root, rel), text);
+  }
+  return root;
+}
+
+test('resolveDoc serves tracked documents and refuses everything else', () => {
+  const root = repoWith({ 'docs/a.md': '# A', 'x/b.sw': 'def', 'secret.md': 's', 'docs/pic.png': 'x', 'docs/c.md': 'c' });
+  const outside = path.join(path.dirname(root), 'outside.md');
+  fs.writeFileSync(outside, 'out');
+  fs.symlinkSync(outside, path.join(root, 'docs/link.md'));
+  const tracked = new Set(['docs/a.md', 'x/b.sw', 'docs/pic.png', 'docs/link.md', 'docs/c.md']);
+  const ok = (rel) => lib.resolveDoc(root, rel, tracked);
+  assert.equal(ok('docs/a.md').kind, 'markdown');
+  assert.equal(ok('x/b.sw').kind, 'text');
+  assert.equal(ok('secret.md'), null, 'untracked');
+  assert.equal(ok('docs/pic.png'), null, 'not a document extension');
+  assert.equal(ok('docs/link.md'), null, 'symlink out of the repo');
+  assert.equal(ok('docs/../secret.md'), null);
+  assert.equal(ok('../outside.md'), null);
+  assert.equal(ok('docs/./a.md'), null);
+  assert.equal(ok('/etc/passwd'), null);
+  assert.equal(ok(path.join(root, 'docs/a.md')), null, 'absolute path');
+  assert.equal(ok('docs//a.md'), null);
+  assert.equal(ok('docs\\a.md'), null);
+  assert.equal(ok('docs/a.md\0.png'), null);
+  assert.equal(ok(''), null);
+  assert.equal(ok('docs'), null);
+});
+
+test('trackedFiles lists what git tracks, not untracked files', (t) => {
+  const root = repoWith({ 'a.md': '1', 'dir/b.sw': '2', 'untracked.md': '3' });
+  const git = (...a) => spawnSync('git', a, { cwd: root, encoding: 'utf8' });
+  if (git('init', '-q').status !== 0) return t.skip('git not available');
+  git('add', 'a.md', 'dir/b.sw');
+  const set = lib.trackedFiles(root);
+  assert.deepEqual([...set].sort(), ['a.md', 'dir/b.sw']);
+  assert.equal(lib.resolveDoc(root, 'untracked.md', set), null);
+});
+
+test('tokenize finds repo paths, tickets and decisions', () => {
+  const kinds = (s) => links.tokenize(s).filter((x) => x.kind).map((x) => [x.kind, x.text]);
+  assert.deepEqual(kinds('see docs/proposals/x.md and aoc/NOTES-2020.md.'), [['path', 'docs/proposals/x.md'], ['path', 'aoc/NOTES-2020.md']]);
+  const seg = links.tokenize('at crates/elab/src/check.rs:2242, then')[1];
+  assert.deepEqual([seg.kind, seg.path, seg.line, seg.text], ['path', 'crates/elab/src/check.rs', 2242, 'crates/elab/src/check.rs:2242']);
+  assert.deepEqual(kinds('SW-1642 (D2514) D2475-D2480'), [['ticket', 'SW-1642'], ['decision', 'D2514'], ['decision', 'D2475'], ['decision', 'D2480']]);
+  assert.equal(links.tokenize('SW-1642')[0].id, 1642);
+  // not links: bare file names, URLs, other words
+  assert.deepEqual(kinds('README.md, https://example.com/a/b.md, CD2514, XSW-1, D12, notes.txt'), []);
+  assert.deepEqual(kinds('docs/reviews/SW-1700-x.md'), [['path', 'docs/reviews/SW-1700-x.md']]);
+  assert.equal(links.tokenize('plain text')[0].text, 'plain text');
+  assert.equal(links.docHref('a b/c.md', 7), '/doc/a%20b/c.md#L7');
+});
+
+test('resolveRelative resolves links inside a document and refuses escapes', () => {
+  const r = (from, href) => links.resolveRelative(from, href);
+  assert.deepEqual(r('docs/proposals/a.md', 'b.md'), { path: 'docs/proposals/b.md', fragment: '' });
+  assert.deepEqual(r('docs/proposals/a.md', '../syntax.md#top'), { path: 'docs/syntax.md', fragment: 'top' });
+  assert.deepEqual(r('docs/a.md', '#sec'), { path: 'docs/a.md', fragment: 'sec' });
+  assert.deepEqual(r('docs/a.md', '/crates/x.rs'), { path: 'crates/x.rs', fragment: '' });
+  assert.equal(r('docs/a.md', '../../x.md'), null);
+  assert.equal(r('docs/a.md', 'https://example.com/x.md'), null);
+  assert.equal(r('docs/a.md', 'mailto:a@b.c'), null);
+});
+
+test('review files are discovered by their ticket, including archived ones', () => {
+  const tracked = new Set(['docs/reviews/SW-10-topic.md', 'docs/reviews/SW-11-other.md', 'docs/reviews/SW-12-x.md',
+    'docs/reviews/README.md', 'docs/reviews/SW-10-topic.html', 'docs/reviews/sub/SW-10-x.md', 'docs/proposals/p.md']);
+  assert.deepEqual(lib.reviewDocs(tracked, new Set([10, 12])), ['docs/reviews/SW-10-topic.md', 'docs/reviews/SW-12-x.md']);
+
+  const f = tmpFile();
+  fs.writeFileSync(path.join(path.dirname(f), 'epics.json'), JSON.stringify({ epics: [
+    { id: 'e1', title: 'E1', status: 'active', links: ['docs/proposals/p.md', 'D2514', 'docs/proposals/missing.md', 'docs/proposals/p.md:3'] }] }));
+  fs.writeFileSync(f, JSON.stringify({ next: 20, tickets: [
+    { id: 10, title: 'a', status: 'done', epic: 'e1' }, { id: 11, title: 'b', status: 'next' }] }));
+  fs.mkdirSync(path.join(path.dirname(f), 'archive'));
+  fs.writeFileSync(path.join(path.dirname(f), 'archive', '2026-10.json'), JSON.stringify({ tickets: [{ id: 12, title: 'old', status: 'done', epic: 'e1' }] }));
+  const root = repoWith({ 'docs/proposals/p.md': '# The proposal\n', 'docs/reviews/SW-10-topic.md': '# Review of ten\n', 'docs/reviews/SW-11-other.md': '# no', 'docs/reviews/SW-12-x.md': 'no heading' });
+  const epic = lib.loadEpics(f)[0];
+  const got = lib.epicDocs(epic, lib.load(f).tickets, tracked, root, f);
+  assert.deepEqual(got.docs.map((d) => [d.path, d.title, d.review]), [
+    ['docs/proposals/p.md', 'The proposal', false],
+    ['docs/reviews/SW-10-topic.md', 'Review of ten', true],
+    ['docs/reviews/SW-12-x.md', '', true]]);
+  assert.deepEqual(got.links, ['D2514', 'docs/proposals/missing.md']);
+});
+
+test('the server serves documents and refuses the rest', async () => {
+  const root = repoWith({ 'docs/a.md': '# A\n', 'u.md': 'untracked' });
+  const git = (...a) => spawnSync('git', a, { cwd: root, encoding: 'utf8' });
+  if (git('init', '-q').status !== 0) return;
+  git('add', 'docs/a.md');
+  const f = tmpFile();
+  const port = 8100 + Math.floor(Math.random() * 800);
+  const child = spawn(process.execPath, [path.join(__dirname, 'server.js')], { env: { ...process.env, BOARD_FILE: f, BOARD_ROOT: root, PORT: String(port) } });
+  try {
+    await new Promise((resolve, reject) => { child.stdout.once('data', resolve); child.once('exit', reject); });
+    const get = (p) => new Promise((resolve, reject) => {
+      require('http').get({ host: '127.0.0.1', port, path: p }, (res) => {
+        let body = ''; res.on('data', (c) => { body += c; }); res.on('end', () => resolve({ code: res.statusCode, body }));
+      }).on('error', reject);
+    });
+    assert.equal((await get('/doc/docs/a.md')).code, 200);
+    assert.equal((await get('/doc/docs/a.md?raw')).body, '# A\n');
+    assert.equal((await get('/doc/u.md')).code, 404);
+    assert.equal((await get('/doc/docs/..%2Fu.md')).code, 404);
+    assert.equal((await get('/doc/%2e%2e/etc/passwd')).code, 404);
+    assert.equal((await get('/doc//etc/passwd')).code, 404);
+    assert.equal((await get('/links.js')).code, 200);
+  } finally {
+    child.kill();
+  }
+});
