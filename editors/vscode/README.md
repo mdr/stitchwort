@@ -15,7 +15,7 @@ Syntax colouring for `.sw` files, and a thin client for the language server
   go to definition, find references, hover, the outline, completion (locals,
   names in scope, members after a `.`, and library names that add their
   import), signature help in a
-  call's arguments, the add-import quick fix on an unknown name, inlay hints
+  call's arguments, the add-import quick fix on an unknown name, "Add the missing arms" on a non-exhaustive `match`, "Split `x` into its cases" on a variable of an arm, inlay hints
   for the type of a `let` whose type isn't written, and semantic colours for
   names the checker resolved (functions, types, constructors, variables,
   theorems, abilities). An `include`

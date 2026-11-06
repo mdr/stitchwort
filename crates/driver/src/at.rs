@@ -523,14 +523,14 @@ fn goal_line(range: Range) -> GoalAt {
 /// on its own, named `name`) with a proof that closes it; `cache` is the
 /// check cache's folder, if one is used. `None` if the search can't run.
 pub fn actions_at_text(
-    stack: usize,
+    new_session: &dyn Fn() -> Session,
     name: &str,
     text: &str,
     range: Range,
     options: &AtOptions,
     cache: Option<&std::path::Path>,
 ) -> Option<Vec<Action>> {
-    let report = search_at_text(stack, name, text, goal_line(range), options, cache).ok()?;
+    let report = search_at_text(new_session, name, text, goal_line(range), options, cache).ok()?;
     Some(actions_from(&report, text, range))
 }
 
@@ -718,6 +718,21 @@ impl Session {
         probe(&self.elab, file_id, &text);
         self.load_for_goal(project, &analysis, &ns).ok()?;
         Some(text)
+    }
+}
+
+impl Session {
+    /// The patterns that split the variable `local` of `context` into its
+    /// constructors (`MissingCases::fills` form), if its type is a data
+    /// type this session knows ([`stitchwort_elab::Elaborator::
+    /// constructor_patterns`]).
+    pub fn split_patterns(&self, context: &Context, local: &str) -> Option<Vec<String>> {
+        let ty = &context.locals.iter().rev().find(|l| l.name == local)?.ty;
+        let head = ty.split_whitespace().next()?;
+        if !head.starts_with(|c: char| c.is_alphabetic()) {
+            return None;
+        }
+        self.elab.constructor_patterns(head)
     }
 }
 

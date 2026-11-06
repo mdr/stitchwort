@@ -46,12 +46,13 @@ use stitchwort_driver::live::{
 };
 use stitchwort_driver::marks as pos_marks;
 use stitchwort_elab::cache::{Key, Store};
-use stitchwort_syntax::{Severity, SourceMap};
+use stitchwort_syntax::{MissingCases, Severity, SourceMap};
 
 use stitchwort_core::budget::Instant;
 #[cfg(target_family = "wasm")]
 use wasm::FileUrl as _;
 
+mod arms;
 mod complete;
 mod imports;
 mod source;
@@ -432,43 +433,87 @@ enum SearchKind {
     },
     /// The context at a position ([`Main::context_at`]).
     ContextAt { line: u32, character: u32 },
+    /// Splitting the variable of an arm into its type's constructors
+    /// ([`Main::code_action`]), after the quick fixes `fixes` already found.
+    Split {
+        split: arms::Split,
+        versioned: Option<i32>,
+        fixes: serde_json::Value,
+    },
     /// What can follow the `.` at byte `dot`, after `wanted` bytes of a
     /// name typed ([`Main::member_completion`]).
     Members { dot: usize, wanted: usize },
 }
 
 impl Search {
-    /// The answer: the code actions, or the context, or null. `stack` is
-    /// the stack of the thread it runs on, `wanted` how many closing
-    /// proofs it stops at, `library` the library checked ahead of time
-    /// ([`Options::library`]), if the host has it.
+    /// The answer: the code actions, or the context, or null, with the
+    /// stack and the check cache of `server`, and as many closing proofs as
+    /// it wants.
     fn run(
         self,
-        stack: usize,
-        wanted: usize,
-        library: Option<&Arc<LibraryBundle>>,
+        server: &Options,
         source: &dyn Source,
         cancel: Arc<AtomicBool>,
     ) -> serde_json::Value {
         let Search { uri, target, kind } = self;
         match kind {
             SearchKind::CodeAction { range, versioned } => {
-                let options = pos::action_options(wanted);
+                let options = pos::action_options(server.search_wanted);
                 let found = match target.project {
                     Some((root, relative, open)) => project_closing_actions(
-                        stack, source, &root, &relative, open, range, cancel, &options,
+                        server, source, &root, &relative, open, range, cancel, &options,
                     ),
                     None => {
-                        closing_actions(stack, source, &target.path, &target.text, range, &options)
+                        closing_actions(server, source, &target.path, &target.text, range, &options)
                     }
                 };
                 code_actions(found, &uri, range, versioned)
             }
             SearchKind::ContextAt { line, character } => {
-                context_at(stack, source, target, line, character, cancel)
+                context_at(server, source, target, line, character, cancel)
+            }
+            SearchKind::Split {
+                split,
+                versioned,
+                fixes,
+            } => {
+                let text = target.text.clone();
+                let patterns = with_context(
+                    server,
+                    source,
+                    target,
+                    split.body.0,
+                    split.body.1,
+                    cancel,
+                    |session, context| session.split_patterns(&context?, &split.name),
+                );
+                let mut actions = fixes.as_array().cloned().unwrap_or_default();
+                if let Some(edit) = patterns
+                    .filter(|p| p.len() > 1)
+                    .and_then(|p| arms::split_arm(&text, &split, &p))
+                {
+                    let edits = [edit];
+                    let edit = match versioned {
+                        Some(version) => serde_json::json!({"documentChanges": [{
+                            "textDocument": {"uri": uri.as_str(), "version": version},
+                            "edits": edits,
+                        }]}),
+                        None => serde_json::json!({"changes": {uri.as_str(): edits}}),
+                    };
+                    actions.push(serde_json::json!({
+                        "title": format!("Split `{}` into its cases", split.name),
+                        "kind": "refactor.rewrite",
+                        "edit": edit,
+                    }));
+                }
+                if actions.is_empty() {
+                    serde_json::Value::Null
+                } else {
+                    serde_json::Value::Array(actions)
+                }
             }
             SearchKind::Members { dot, wanted } => {
-                members_at(stack, library, source, target, dot, wanted, cancel)
+                members_at(server, source, target, dot, wanted, cancel)
             }
         }
     }
@@ -496,11 +541,7 @@ impl Searcher {
             return "null".to_string();
         };
         let cancel = Arc::new(AtomicBool::new(false));
-        let (stack, wanted) = (self.options.stack, self.options.search_wanted);
-        let library = self.options.library.get();
-        search
-            .run(stack, wanted, library, &*self.source, cancel)
-            .to_string()
+        search.run(&self.options, &*self.source, cancel).to_string()
     }
 }
 
@@ -581,14 +622,7 @@ fn run_search(
         serde_json::Value::Null
     } else {
         let cancel = job.pending.cancel.clone();
-        let library = options.library.get();
-        (job.search).run(
-            options.stack,
-            options.search_wanted,
-            library,
-            source,
-            cancel,
-        )
+        (job.search).run(options, source, cancel)
     };
     searches.running.fetch_sub(1, Ordering::SeqCst);
     searched(&job.id, &job.pending, job.version, result, sender, searches);
@@ -704,6 +738,24 @@ impl Main {
         };
         let (Some(range), Some(target)) = (goal, self.search_target(&uri)) else {
             let fixes = self.import_fixes(&uri, &p.context.diagnostics);
+            let split = {
+                let texts = self.texts.borrow();
+                let at = p.range.start;
+                (texts.get(&uri)).and_then(|t| arms::split_target(t, at.line, at.character))
+            };
+            if let (Some(split), Some(target)) = (split, self.search_target(&uri)) {
+                let document_changes = self.document_changes;
+                self.queue_search(id, &uri.clone(), "codeAction", move |version| Search {
+                    uri,
+                    target,
+                    kind: SearchKind::Split {
+                        split,
+                        versioned: document_changes.then_some(version),
+                        fixes,
+                    },
+                });
+                return;
+            }
             let _ = self
                 .connection
                 .sender
@@ -731,8 +783,39 @@ impl Main {
         };
         let version = lock(&self.searches.versions).get(uri).copied();
         let mut actions = Vec::new();
+        let with_edit = |edit: lsp_types::TextEdit| {
+            let edits = [edit];
+            match version.filter(|_| self.document_changes) {
+                Some(version) => serde_json::json!({"documentChanges": [{
+                    "textDocument": {"uri": uri.as_str(), "version": version},
+                    "edits": edits,
+                }]}),
+                None => serde_json::json!({"changes": {uri.as_str(): edits}}),
+            }
+        };
         for d in diagnostics {
-            let Some(import) = d.data.as_ref().and_then(|data| data.get("import")) else {
+            let Some(data) = d.data.as_ref() else {
+                continue;
+            };
+            if let Some(arms) = data.get("missing").and_then(|m| m.get("arms")) {
+                let fills: Vec<String> = arms
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|a| a.as_str().map(str::to_string))
+                    .collect();
+                if let Some(edit) = arms::add_arms(text, d.range, &fills) {
+                    actions.push(serde_json::json!({
+                        "title": if fills.len() == 1 { "Add the missing arm" } else { "Add the missing arms" },
+                        "kind": "quickfix",
+                        "diagnostics": [d],
+                        "edit": with_edit(edit),
+                        "isPreferred": actions.is_empty(),
+                    }));
+                }
+                continue;
+            }
+            let Some(import) = data.get("import") else {
                 continue;
             };
             let (Some(path), Some(item)) = (
@@ -744,19 +827,11 @@ impl Main {
             let Some(edit) = imports::add_import(text, path, item) else {
                 continue;
             };
-            let edits = [edit];
-            let edit = match version.filter(|_| self.document_changes) {
-                Some(version) => serde_json::json!({"documentChanges": [{
-                    "textDocument": {"uri": uri.as_str(), "version": version},
-                    "edits": edits,
-                }]}),
-                None => serde_json::json!({"changes": {uri.as_str(): edits}}),
-            };
             actions.push(serde_json::json!({
                 "title": format!("Add `import {path} ({item})`"),
                 "kind": "quickfix",
                 "diagnostics": [d],
-                "edit": edit,
+                "edit": with_edit(edit),
                 "isPreferred": actions.is_empty(),
             }));
         }
@@ -2706,24 +2781,52 @@ fn diagnostic(
         message,
         related_information: (!related.is_empty()).then_some(related),
         tags: None,
-        data: d
-            .import
-            .as_ref()
-            .map(|i| serde_json::json!({ "import": { "path": i.path, "item": i.item } })),
+        data: match (&d.import, &d.missing) {
+            (Some(i), _) => {
+                Some(serde_json::json!({ "import": { "path": i.path, "item": i.item } }))
+            }
+            (None, Some(m)) if !m.fills.is_empty() => Some(serde_json::json!({
+                "missing": { "arms": &m.fills[..m.fills.len().min(MissingCases::CAP)], "more": m.more() }
+            })),
+            _ => None,
+        },
     }
 }
 
 /// The answer to `stitchwort/contextAt` at `line` and `character` of the
 /// document `target` ([`Main::context_at`]).
 fn context_at(
-    stack: usize,
+    server: &Options,
     source: &dyn Source,
     target: SearchTarget,
     line: u32,
     character: u32,
     cancel: Arc<AtomicBool>,
 ) -> serde_json::Value {
-    let mut session = Session::for_stack(stack);
+    let found = with_context(server, source, target, line, character, cancel, |_, c| c);
+    match found {
+        Some(c) => serde_json::json!({
+            "range": range(c.range),
+            "type": c.ty,
+            "checked": c.checked,
+            "locals": c.locals,
+        }),
+        None => serde_json::Value::Null,
+    }
+}
+
+/// Checks the document `target` with a probe at `line` and `character`, and
+/// gives `then` the session it ran in and the context found there.
+fn with_context<R>(
+    server: &Options,
+    source: &dyn Source,
+    target: SearchTarget,
+    line: u32,
+    character: u32,
+    cancel: Arc<AtomicBool>,
+    then: impl FnOnce(&Session, Option<pos::Context>) -> R,
+) -> R {
+    let mut session = search_session(server);
     session.share_cancel_flag(cancel);
     let found = match target.project {
         Some((root, relative, open)) => {
@@ -2747,46 +2850,41 @@ fn context_at(
             session.context_at_text(name, &target.text, line, character)
         }
     };
-    drop(session);
-    match found {
-        Some(c) => serde_json::json!({
-            "range": range(c.range),
-            "type": c.ty,
-            "checked": c.checked,
-            "locals": c.locals,
-        }),
-        None => serde_json::Value::Null,
+    then(&session, found)
+}
+
+/// A session for a proof search. With the library's check cache loaded
+/// ([`Options::library`]) it is made as the server's own sessions are, so
+/// that the cache's keys match and the search doesn't check the library
+/// again (seconds); otherwise it is a plain session. Navigation recording
+/// only adds to what a session keeps; it doesn't change what it elaborates.
+fn search_session(server: &Options) -> Session {
+    if server.library.get().is_some() {
+        library_session(server)
+    } else {
+        Session::for_stack(server.stack)
     }
 }
 
 /// The completion items after the `.` at byte `dot` of the document
-/// `target` ([`SearchKind::Members`]).
-///
-/// It costs a check of the file, so the library comes from a check cache:
-/// a project's, the folder's of a file on its own, or else the one the
-/// host checked ahead of time (`library`, the playground's).
+/// `target` ([`SearchKind::Members`]). It costs a check of the file, so a
+/// file on its own reads the library from its folder's check cache when
+/// there is one, as a project's file does from the project's.
 fn members_at(
-    stack: usize,
-    library: Option<&Arc<LibraryBundle>>,
+    server: &Options,
     source: &dyn Source,
     target: SearchTarget,
     dot: usize,
     wanted: usize,
     cancel: Arc<AtomicBool>,
 ) -> serde_json::Value {
-    let mut session = Session::for_stack(stack);
+    let mut session = search_session(server);
     session.share_cancel_flag(cancel);
-    if target.project.is_none() {
-        match target.path.parent().and_then(|dir| source.file_cache(dir)) {
-            Some(dir) => session.use_check_cache(&dir),
-            None => {
-                if let Some(bundle) = library {
-                    session
-                        .elab
-                        .set_check_cache(Rc::new(BundleStore(bundle.clone())));
-                }
-            }
-        }
+    if target.project.is_none()
+        && server.library.get().is_none()
+        && let Some(dir) = target.path.parent().and_then(|dir| source.file_cache(dir))
+    {
+        session.use_check_cache(&dir);
     }
     let found = match target.project {
         Some((root, relative, mut open)) => {
@@ -2824,7 +2922,7 @@ fn members_at(
 /// What replaces the goal `?` at `range` of `text` (the file at `path`, on
 /// its own) with a proof that closes it.
 fn closing_actions(
-    stack: usize,
+    server: &Options,
     source: &dyn Source,
     path: &Path,
     text: &str,
@@ -2836,7 +2934,14 @@ fn closing_actions(
         .and_then(|n| n.to_str())
         .unwrap_or("file.sw");
     let cache = path.parent().and_then(|dir| source.file_cache(dir));
-    pos::actions_at_text(stack, name, text, ranged(range), options, cache.as_deref())
+    pos::actions_at_text(
+        &|| search_session(server),
+        name,
+        text,
+        ranged(range),
+        options,
+        cache.as_deref(),
+    )
 }
 
 /// [`closing_actions`] for a goal in the file `relative` of the project in
@@ -2844,7 +2949,7 @@ fn closing_actions(
 /// editor (`open`, by path in the project).
 #[allow(clippy::too_many_arguments)]
 fn project_closing_actions(
-    stack: usize,
+    server: &Options,
     source: &dyn Source,
     root: &Path,
     relative: &str,
@@ -2864,7 +2969,7 @@ fn project_closing_actions(
         .file_name()
         .map_or("project".to_string(), |n| n.to_string_lossy().into_owned());
     let cache = source.project_cache(root);
-    let mut session = Session::for_stack(stack);
+    let mut session = search_session(server);
     session.share_cancel_flag(cancel);
     let found = session.actions_at_project(
         &name,

@@ -1,5 +1,5 @@
 {
-  "next": 1491,
+  "next": 1503,
   "tickets": [
     {
       "id": 47,
@@ -3969,13 +3969,13 @@
     {
       "id": 1119,
       "title": "Fill a non-exhaustive match and case split (from E-NONEXHAUSTIVE with a structured list of missing cases)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1119",
       "labels": [
         "editor"
       ],
-      "body": "Roadmap step 4; search_at has the paste machinery. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2263 (Matt, 3 Nov): not started yet; editor-roadmap implementation waits until the tidy-ups (state migration, std) settle.\n\nStarted overnight on Sonnet (roadmap step 4, orchestrator's call), expected: 90 min.",
+      "body": "Roadmap step 4; search_at has the paste machinery. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2263 (Matt, 3 Nov): not started yet; editor-roadmap implementation waits until the tidy-ups (state migration, std) settle.\n\nStarted overnight on Sonnet (roadmap step 4, orchestrator's call), expected: 90 min.\n\nDone on lane/SW-1119, merged: E-NONEXHAUSTIVE carries data.missing (arms, with field-name holes ‹name›; message unchanged); 'Add the missing arms' inserts | pat => ? after the last arm with fresh names; 'Split x into its cases' on an arm's pattern variable (type from the contextAt probe; constructors from Elaborator::constructor_patterns; data types only). Not done: header parameters, variables used in the body, tuples; no browser test. Model result: Sonnet, worked, 35 min (est. 90).",
       "created": "2026-11-03",
       "updated": "2026-11-06",
       "commits": []
@@ -3983,15 +3983,15 @@
     {
       "id": 1120,
       "title": "Name completion on a persistent worker session (LSP and playground)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1120",
       "labels": [
         "editor"
       ],
-      "body": "Roadmap step 6. D2243 (orchestrator, delegated by Matt): in the playground, start with an approximation from the last good index; move to a persistent session after. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2263 (Matt, 3 Nov): not started yet; editor-roadmap implementation waits until the tidy-ups (state migration, std) settle.",
+      "body": "Roadmap step 6. D2243 (orchestrator, delegated by Matt): in the playground, start with an approximation from the last good index; move to a persistent session after. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2263 (Matt, 3 Nov): not started yet; editor-roadmap implementation waits until the tidy-ups (state migration, std) settle.\n\nStarted overnight on Opus (roadmap step 6; steps 1-5 done or running; orchestrator's call), expected: 150 min, in stages that each ship.",
       "created": "2026-11-03",
-      "updated": "2026-11-03",
+      "updated": "2026-11-06",
       "commits": []
     },
     {
@@ -8519,15 +8519,15 @@
     {
       "id": 1439,
       "title": "Dot calls on receivers with no written type (pattern or for binders) still link to every *.name in the module, so the SW-1420 false mutual group can recur; infer the receiver's type from pattern binders and record fields, and have E-DECREASING's 'call each other' note say when a group exists only because of a .name guess (as speculative_note does)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1439",
       "labels": [
         "elab"
       ],
-      "body": "From SW-1420, 5 Nov 2026.",
+      "body": "From SW-1420, 5 Nov 2026.\n\nStarted overnight on Sonnet, expected: 60 min.",
       "created": "2026-11-05",
-      "updated": "2026-11-05",
+      "updated": "2026-11-06",
       "commits": []
     },
     {
@@ -8790,13 +8790,13 @@
     {
       "id": 1458,
       "title": "Playground: the proof-search worker (lsp-search-worker.js) still checks std itself; its sessions aren't navigable, so it needs its own std.cache bundle (~14 MB) or a cache shared across modes",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1460",
       "labels": [
         "playground"
       ],
-      "body": "From SW-1432, 5 Nov 2026.\n\nStarted on Sonnet (SW-1460 with SW-1458), expected: 60 min.",
+      "body": "From SW-1432, 5 Nov 2026.\n\nStarted on Sonnet (SW-1460 with SW-1458), expected: 60 min.\n\nDone (b9fa6e467), merged: search sessions come from the server's Options (library_session when the cache is loaded), so the bundle's keys match; the search worker fetches and gunzips std.cache.gz. One search in Node 17.4 s → 2.7 s first, 1.75 s after (memory 183 → 229 MB). Not a cache-key change (option b rejected: nav_tag is deliberate). Orchestrator's review: navigation recording only adds data, and searched proofs are pasted into the source and re-checked, so no soundness exposure. Model result: Sonnet, worked, 20 min (est. 60, with SW-1460).",
       "created": "2026-11-05",
       "updated": "2026-11-06",
       "commits": []
@@ -8818,13 +8818,13 @@
     {
       "id": 1460,
       "title": "Playground: three workers (page, runner, server) each fetch and decode the 14 MB std.cache; share one decoded copy or fetch it once, and measure memory",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1460",
       "labels": [
         "playground"
       ],
-      "body": "From SW-1432, 5 Nov 2026.\n\nStarted on Sonnet (SW-1460 with SW-1458), expected: 60 min.",
+      "body": "From SW-1432, 5 Nov 2026.\n\nStarted on Sonnet (SW-1460 with SW-1458), expected: 60 min.\n\nClosed, not needed: measured in Node, the cache adds ~18 MB peak and ~8 MB resident per wasm instance (~4 instances: <100 MB peak, ~30 MB resident), small beside a search session's 183-229 MB; the browser's HTTP cache serves the repeat fetches. Model result: as SW-1458.",
       "created": "2026-11-05",
       "updated": "2026-11-06",
       "commits": []
@@ -9245,6 +9245,174 @@
         "playground"
       ],
       "body": "From SW-1489, 6 Nov 2026. Small improvement.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1491,
+      "title": "Proof search: search_at_text loads all of std eagerly for every search, so entries the cache leaves out are re-checked each time; try a lazy library load to cut the remaining ~1.75 s",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "playground"
+      ],
+      "body": "From SW-1458, 6 Nov 2026. Small improvement.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1492,
+      "title": "AoC 2020 day 13 (Shuttle Search): spec, efficient solution, proofs, tests, friction notes in aoc/NOTES-2020.md",
+      "status": "done",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1492",
+      "labels": [
+        "aoc"
+      ],
+      "body": "D2443 (Matt): carry on further if there's time. Overnight, Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day13.\n\nStarted on Opus, expected: 120 min.\n\nDone on lane/SW-1492, merged: 2165 and 534035653563227. Part 2 sieve measures the period (first two fits, no product), so no coprimality needed; test 4,x,6,x,5 = 16 catches the product version. Proved: part1Correct, part1AnswersIff, part2Correct, part2Exactly (↔), part2NoneIff; only hypothesis IDs ≥ 1, from the parser. Orchestrator checked the spec statements (D2436). Audit 60/60. Friction: NOTES-2020 Day 13. Model result: Opus, worked, 30 min (est. 120).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1493,
+      "title": "Std: Nat.lcm (lcmDivides), Nat.Coprime, Euclid's lemma, and Nat.solveCongruences (earliest solution and period, day 13's sieve proof as its spec)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1492 (day 13) or SW-1119.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1494,
+      "title": "Std: divisibility bridges: Nat.dividesIff (divides d n = True ↔ ∃ t, n = t * d), dividesAdd, dividesMul, (x + z) % m = x % m when z % m = 0",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1492 (day 13) or SW-1119.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1495,
+      "title": "Std: List.minBy lemmas (member, key ≤ every member's, first on a tie)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1492 (day 13) or SW-1119.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1496,
+      "title": "Message: ring [h * c] says 'takes equations between Nats, and this is Nat'; lead with the hint that a coefficient goes before its hypothesis",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1492 (day 13) or SW-1119.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1497,
+      "title": "stitchwort doc lists f.eq.ifTrue without its premise, and doc f.eq.ifTrue says no declaration named",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tools"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1492 (day 13) or SW-1119.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1498,
+      "title": "Message: a parameter that hides a same-named function gives a bare type mismatch; say which is meant and the function's full name",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1492 (day 13) or SW-1119.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1499,
+      "title": "Editor: case split for header parameters (body becomes match x with …), and split-and-fill when the body uses the variable",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1492 (day 13) or SW-1119.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1500,
+      "title": "Navigation: record types for unused pattern binders (hover, inlay hints); case split works around it with a probe",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1492 (day 13) or SW-1119.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1501,
+      "title": "Tests: crates/lsp/tests/features.rs Session::open checks std each time (~20 s); share a warmed session or replay the cache",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1492 (day 13) or SW-1119.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1502,
+      "title": "AoC 2020 day 14 (Docking Data): spec, efficient solution, proofs, tests, friction notes in aoc/NOTES-2020.md",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1502",
+      "labels": [
+        "aoc"
+      ],
+      "body": "D2443 (Matt): carry on further if there's time. Overnight, Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day14.\n\nStarted on Opus, expected: 120 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []

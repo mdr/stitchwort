@@ -3255,3 +3255,259 @@ ms); the rest of the cold time is std's modules.
    D2422; trivial each.
 5. Smaller: `omega` doesn't read a `!=` (`Decidable.not`) in a `Bool`
    hypothesis (item 4); no `Result.getOr` (item 5). Each small.
+
+## Day 13: Shuttle Search
+
+Your notes on the shuttle buses: the earliest time you could leave, then
+the schedule, bus IDs and `x`s for buses out of service. A bus departs at
+every multiple of its ID. Part 1: the earliest bus you can take, its ID
+times the minutes you wait. Part 2: the earliest time `t` at which the
+first listed bus departs and each later one departs as many minutes after
+`t` as it is further down the list. Answers on Matt's input (9 buses in
+service, all primes, the largest 977): 2165 and 534035653563227; the
+example gives 295 and 1068781, and the five further schedules 3417,
+754018, 779210, 1261476 and 1202161486, as the puzzle says. Matt's Scala
+(`Day13.scala`) walks the clock minute by minute for part 1 and solves
+part 2 by the Chinese remainder theorem with the extended Euclidean
+algorithm, asserting the IDs are coprime; I didn't run it. An independent
+Python script (the usual sieve, stepping by the product of the IDs so far)
+agrees on all seven answers.
+
+The domain types are `Slot` (`Listed id` or `OutOfService`), `Notes` (the
+earliest time and the schedule), `Bus` (an ID and its offset down the
+schedule, `notes.buses`) with `bus.nextDeparture from` and
+`bus.departsAfter time`, and `Alignment` (a time and a period: the times
+that suit the buses so far are that time and every period after it). Part
+1 is `notes.earliestBus`: the smallest next departure (`minimumOf`), the
+first bus that leaves then, its ID times the wait. Part 2 is
+`notes.earliestLineUp`, a sieve, one bus at a time. The design decision is
+the period. The textbook sieve multiplies it by each bus's ID, which is
+right only when the IDs are pairwise coprime; this one measures it: after
+finding the first suitable time for the new bus, it looks for the next,
+and the distance between them is the new period (which is the lcm of the
+IDs so far). Both searches look at most `id` periods ahead, since suiting
+a bus with ID `id` comes round every `id` periods, so there is no
+unbounded loop and no fuel:
+
+```stitchwort
+def Alignment.add (alignment: Alignment) (bus: Bus): Option Alignment :=
+  let suits := (periods: Nat) => bus.departsAfter (alignment.time + periods * alignment.period)
+  0 ..< bus.id |> .find suits |> .map (first =>
+    let again := 0 ..< bus.id |> .find (more => suits (first + 1 + more)) |> .getOrElse 0
+    { time = alignment.time + first * alignment.period, period = (again + 1) * alignment.period })
+```
+
+The program and its 23 tests passed on the first run once two test
+expectations of mine were corrected (`4,6` can never line up, `4,x,6`
+lines up at 4; I had them swapped); `main` takes 0.32 s user on the input.
+The test `4,x,6,x,5` (answer 16) is the one that tells the two sieves
+apart: stepping by the product of the IDs gives 76, skipping 16 because
+4 and 6 share a factor. Every example and the input pass either way (and
+Matt's Scala would stop on its coprimality assertion).
+
+The spec (`Spec/Spec.sw`) shares the program's `Notes` and `Slot` and
+none of its functions. It has `SlotWritten` and `NotesWritten` (the
+timestamp in decimal, a line break, the entries separated by commas; an
+ID is decimal and at least 1, since it is how often the bus leaves),
+`Departs id time` ("the bus with ID 5 departs from the sea port at
+timestamps 0, 5, 10, 15": `time` is some number of trips times `id`),
+`Part1` (a listed bus departing at or after the earliest time, with no
+listed bus departing at or after it any earlier, and the answer its ID
+times the wait), `LinedUp schedule t` (walking the schedule: a listed bus
+departs at `t`, then the rest line up from `t + 1`; "an x in the schedule
+means there are no constraints") and `Part2` (lined up, and no earlier
+time is). The spec isn't computable (`Departs` is an `∃`, `Part2` a
+`∀`), so the tests don't run it.
+
+Proved (`Aoc.Year2020.Day13.Proofs`):
+
+- `readsSlot`, `readsNotes`, `parseWritten` (Parse.sw): if `parseNotes`
+  reads `input`, the input is the notes written out, then any line
+  breaks; `writtenPositive`: so every ID read is at least 1.
+- `Describes`, `startDescribes`, `describesEarliest`, `suitsRound`,
+  `periodDivides`, `suitsMultiple`, `stepDescribes`, `addDescribes`,
+  `addNone`, `addAllDescribes`, `addAllNone` (Sieve.sw): an alignment
+  describes a set of times when they are exactly its time plus whole
+  periods; with no buses, the start does; suiting a bus comes round every
+  `id` periods; once `p` and `p + d` periods both suit a bus, `d` periods
+  are a multiple of its ID, and adding a multiple of `d` changes nothing;
+  so adding a bus gives an alignment describing the times that also suit
+  that bus, or none when no time does. Every bus's ID is positive: that is
+  the only hypothesis.
+- `departsAfterSpec`, `linedUpFrom`, `busesLinedUp`, `part2Rules`,
+  `part2Never` (Part2.sw): the program's buses all depart at their
+  offsets after `t` exactly when the schedule lines up at `t`; so the
+  sieve's time is the spec's answer, and when it finds none, no time
+  lines up.
+- `memBusesFrom`, `busesFromHas`, `nextDepartureFirst`, `part1Rules`,
+  `part1Answers` (Part1.sw): a bus's next departure is the first time at
+  or after yours that it departs; the program's answer is the spec's; and
+  it answers whenever a bus is in service.
+- `part1Correct`, `part1AnswersIff`, `part2Correct`, `part2Exactly` (↔),
+  `part2NoneIff` (↔) (Proofs.sw): for every input the parser reads, the
+  input is the notes written out; part 1's answer is the spec's, and there
+  is one exactly when some bus is in service; part 2's answer is the
+  spec's earliest time and no other number is; and part 2 has no answer
+  exactly when no time lines up.
+
+Not proved: that every well-formed input parses (as on days 2 to 12). The
+theorems about `Notes` take `IdsPositive notes` (every listed ID is at
+least 1), which the parser establishes (`parsedPositive`), so the
+theorems about the input have no added hypothesis. Part 1 has no `↔`: if
+two buses first left at the same minute the puzzle wouldn't say which to
+take, and `Part1` names either's answer; the program takes the first
+listed. No coprimality is assumed anywhere.
+
+Breaking the program made the proofs fail: a period of `(again + 2)`
+periods, or a first time one period late, fails `addDescribes` (at its
+call of `stepDescribes`); searching only `0 ..< bus.id - 1` fails
+`addDescribes` and `addNone`; the next departure computed from `from + 1`
+fails `nextDepartureIs`; an offset one too many in `departsAfter` fails
+`departsAfterSpec` and `suitsMod`; and the textbook period, `bus.id *
+alignment.period`, fails `addDescribes` (and two tests). The audit (with
+the counterexample search): `audited 60 theorems: 0 failed, 0 with
+warnings, 60 passed`.
+
+### 1. No lcm, no coprimality, no simultaneous congruences in std
+
+Part 2 is the Chinese remainder theorem, and a newcomer will reach for it
+or for the sieve that steps by the product of the IDs. Std has
+`Nat.gcd`, `Nat.gcdDivides` and `Nat.gcdBezout` (over `Int`; from 2024's
+day 8), and nothing after them: no `Nat.lcm`, no "a common multiple of
+`a` and `b` is a multiple of their lcm", no `Coprime`, no Euclid's lemma
+(`a` coprime to `b` and dividing `b * c` divides `c`), no
+`Nat.extendedGcd`, no congruence solver. Proving the textbook sieve
+"earliest" needs exactly those: that stepping by the product (or the lcm)
+skips no solution is the lcm's universal property, from Bézout over
+`Int` and back to `Nat`. I measured the period instead, which turns the
+proof into remainder arithmetic (Sieve.sw, 197 lines, 15 minutes); a
+newcomer who wrote the textbook sieve would have had to stop at
+soundness, or prove Euclid's lemma first. What would have made the step
+a call: std `Nat.lcm` with `Nat.lcmDivides` (`a ∣ x → b ∣ x → lcm a b ∣
+x`) and `Nat.coprimeMulDivides`, and a `Nat.solveCongruences: List (Nat,
+Nat) → Option (Nat, Nat)` (each a remainder and a modulus; the earliest
+solution and the period, or none) with this day's `Describes` as its
+spec. 2016's day 15 is the same problem and 2023's day 8 needs an lcm;
+2024's day 14 took `width * height` as its period, which is the lcm
+only because its sides are coprime (NOTES-2024 day 14).
+
+### 2. Divisibility is a `Bool`, and its lemmas are about `%`
+
+The program says "departs" as `Nat.divides bus.id (time + bus.offset)`
+(total: no `id ≠ 0` to supply), the spec as `∃ trips, time = trips * id`,
+and the proofs work with `% id = 0` (whose lemmas need `[auto ok: id ≠
+0]`). I wrote `dividesMod` (`Nat.divides m n = (n % m == 0)` for `m ≠
+0`), `addMultiple` (`z % m = 0 → (x + z) % m = x % m`), `multipleMod`
+(`z % m = 0 → q * z % m = 0`) and `departsAfterSpec` (`Nat.divides`
+against the `∃`, through `Nat.dividesElim`'s continuation and
+`Nat.dividesMul`). Each is three lines and generic. Std has
+`Nat.modAddMul`, `Nat.addModMod` and `Nat.mulModMod` to build them from,
+but no `Nat.dividesIff` (`Nat.divides d n = True ↔ ∃ t, n = t * d`), no
+`Nat.dividesAdd`, `Nat.dividesMulLeft` or `Nat.dividesSub`, and no
+divisibility proposition with `∣` notation, so a statement about
+divisibility chooses between a `Bool`, an `∃` and a remainder each time.
+
+### 3. No `List.minBy` lemmas
+
+Part 1 wants `notes.buses.minBy departure`. Std has `List.minBy` and no
+theorem about it (2024's day 21 proved its own `minByStepPasses`), so I
+wrote `minimumOf` (the smallest departure) and then `find` (the first bus
+leaving then): two passes, but `List.minimumSome` (member, and below
+every member) and `List.findSome` made the proof direct. A
+`List.minBySome` (the result is a member and its key is at most every
+member's; the first such on a tie) would let the program say what it
+means.
+
+### 4. Messages
+
+- **`ring [split * alignment.period]`** is `E-RING` "`ring` takes
+  equations between `Nat`s, and this is `Nat`", underlining
+  `alignment.period`: contradictory as worded. Note 2, "a coefficient goes
+  before its hypothesis: `c * h`", is the fix (`ring [alignment.period *
+  split]`); it should be the message.
+- **A parameter that hides a function.** In `parseWritten (input: Text)
+  (notes: Notes)`, `Parse.allReads input notes …` meant the parser
+  function `notes` and got the parameter: "expected `() → {Parse} ?0
+  input notes parsed`, but this has type `Notes`". A note "`notes` here is
+  the parameter; the function is `Aoc.Year2020.Day13.notes`" would say
+  why.
+- **`stitchwort doc` and a definition's `if h:` equations.** `doc
+  Bus.nextDeparture` lists `nextDeparture.eq.ifTrue` as `nextDeparture bus
+  from = Nat.ceilDiv from bus.id * bus.id`, without its premise `bus.id ≠
+  0` (it shows `ifFalse`'s), and `doc …nextDeparture.eq.ifTrue` is "no
+  declaration named". I found the premise by calling it with one. (Day
+  12 noted the same for a record's `ext`.)
+- **What helped.** `E-REWRITE-NOTHING`'s "inside the `match`, … `added`
+  is already refined: use it as it is" (three times, each exactly right);
+  `E-ARITY`'s note that `id ≠ 0` "unfolds to a function type … and so it
+  adds 1 argument(s) to match"; `E-REWRITE-TARGET` saying to name the
+  term with `let`.
+
+### 5. Smaller things
+
+- **What helped.** The proofs took 15 minutes, nearly all of it Sieve.sw.
+  `List.findRangeSome` and `List.findRangeNone` (what `find` over `0 ..<
+  n` finds is the least that passes; finding nothing means none in range
+  does) made both searches one call each, so bounded searches in the
+  program cost nothing in the proofs. `ring [tIs, alignment.period *
+  jIs]` closed the one non-linear step, and `omega [split]` with
+  `Nat.divModEq` split `j - first` into whole periods and a remainder. A
+  `match r with | Zero | Succ s` on a `let`-bound remainder refined the
+  hypotheses that mentioned it. `Nat.ceilDivLe` and `Nat.leCeilDivMul`
+  were the whole of part 1's "next departure". Parse.sw followed day 12's
+  shape and checked on the first try.
+- **`Some { … }`, again, four times.** `Some { id, offset }` in the
+  program, `Ok { … }` and `Some { … }` in tests, `Witness { … } …` in a
+  proof: each `E-UNKNOWN-FIELD` or `E-PARSE` with a note saying to bracket
+  it. Days 5 and 8 reported it; it costs a round trip each time, and the
+  bracketed reading is the only one that typechecks.
+- **Arithmetic in `rewrite` depends on what computes.** `rewrite (omega:
+  p + 1 + (bus.id - 1) = p + 1 * bus.id) in …` found no `Succ (p +
+  (bus.id - 1))` in a goal that printed `p + (bus.id - 1) + 1`, and
+  `rewrite (omega: first + (again + 1) = first + 1 + again)` was "the goal
+  already computed past it". `Eq.cong (n => suits alignment bus n)
+  (omega: …)` did it. Which side of a `+ 1` computes is guesswork until
+  the message says.
+- **The ID has to be positive in three places.** The program needs `if
+  positive: bus.id ≠ 0` only to supply `Nat.ceilDiv`'s `auto` argument;
+  the proofs thread `IdsPositive` from the parser. I didn't try a proof
+  field in `Bus` (`positive: id ≠ 0`), which would carry it.
+
+### Size and time
+
+97 lines of program, 66 of spec, 469 of proofs (Parse 55, Sieve 197,
+Part2 60, Part1 89, Proofs 68), 65 of tests (+1 answer test in
+`aoc_answers.rs`). By the clock: 00:28 start; program and tests passing at
+00:36; the sieve proved at 00:47, everything at 00:51; then the break
+checks, the audit, timing and these notes.
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2020.Day13.Proofs` | 4.9 s user |
+| `stitchwort check --no-cache Aoc.Year2020.Day13` | 1.4 s user |
+| `stitchwort test --no-cache Aoc.Year2020.Day13.Tests` (23 tests) | 1.4 s user |
+| `task audit:touched -- Aoc.Year2020.Day13` (60 theorems) | 3.1 s user |
+| `stitchwort run Aoc.Year2020.Day13.main` on the input | 0.32 s user |
+| `task test:one -- year2020_day13` | 3.2 s for the test |
+
+`STITCHWORT_TIMINGS=1` puts the Proofs namespace at 281 ms of elaboration
+and 33 ms in the kernel (`readsNotes`, `stepDescribes` and `readsSlot` the
+largest, about 60 ms each); the rest of the cold time is std's modules.
+
+### Ranked
+
+1. Std has `gcd` and Bézout but no `lcm`, coprimality, Euclid's lemma or
+   congruence solver, so the textbook sieve's "earliest" was out of reach
+   without proving them first; measuring the period avoided it (item 1).
+   Library; medium (a `Nat.solveCongruences` with this day's proof,
+   small).
+2. No `Nat.dividesIff` or divisibility lemmas (`dividesAdd`,
+   `dividesMul`), and no `∣` proposition; every day with divisibility
+   writes the bridge between `Nat.divides`, `∃` and `%` (item 2).
+   Library; small.
+3. No `List.minBy` lemmas (item 3). Library; small.
+4. `ring`'s message for a coefficient after its hypothesis reads as a
+   contradiction (item 4). Message; trivial.
+5. `stitchwort doc` shows `eq.ifTrue` without its premise and can't look
+   it up (item 4); a parameter hiding a function gets no note (item 4);
+   `Some { … }` again (item 5). Each small.
