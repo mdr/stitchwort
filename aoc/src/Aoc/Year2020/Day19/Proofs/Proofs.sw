@@ -54,20 +54,11 @@ theorem productiveRanked (rules: Rules) (rank: Nat → Nat) (bound: Nat) (below:
 
 -- Deciding a message
 
-theorem anyEmpty: (lefts: List (List Char)) → lefts.any .isEmpty = True → [] ∈ lefts
-  | [], any => Bool.falseNotTrue any
-  | [left, ..others], any =>
+theorem anyEmpty (lefts: List (List Char)) (any: lefts.any .isEmpty = True): [] ∈ lefts :=
+  List.anyTrueElim lefts List.isEmpty _ any (left member empty =>
     match left with
-      | [] => Inl rfl
-      | [letter, ..rest] => Inr (anyEmpty others any)
-
-theorem emptyAny: (lefts: List (List Char)) → [] ∈ lefts → lefts.any .isEmpty = True
-  | [], member => Void.exfalso member
-  | [left, ..others], Inl same => rewrite same in rfl
-  | [left, ..others], Inr later =>
-    match left with
-      | [] => rfl
-      | [letter, ..rest] => emptyAny others later
+      | [] => member
+      | [letter, ..rest] => Void.exfalso (Bool.falseNotTrue empty))
 
 theorem matchesCompletelyCorrect (rules: Rules) (productive: rules.productive = True) (message: Message):
     rules.matchesCompletely message = True ↔ MatchesCompletely rules message :=
@@ -82,7 +73,7 @@ theorem matchesCompletelyCorrect (rules: Rules) (productive: rules.productive = 
         omega [same, rankBelow rules 0]
       let found := completeAll rules rules.rank rules.rankBound ranked [0] message.letters matched (rules.enough message) enough []
       match (List.memFlatMap (left => rules.leftAfterAll (rules.enough message) [] left) [] (rules.leftAfter (rules.enough message) 0 (message.letters ++ []))).forward found with
-        | Witness middle (Both first (Inl empty)) => rewrite empty, List.appendNil message.letters at first in emptyAny _ first
+        | Witness middle (Both first (Inl empty)) => rewrite empty, List.appendNil message.letters at first in List.anyOfMem _ List.isEmpty [] rfl first
         | Witness middle (Both first (Inr never)) => Void.exfalso never
   }
 
