@@ -681,7 +681,7 @@ impl Session {
         self.elab.take_probed_members()
     }
 
-    /// Loads the project up to the namespace of its file `path`, and that
+    /// Loads what the namespace of the project's file `path` uses, and that
     /// namespace with the probe `probe` sets (given the file's id and
     /// text): its text, if it got that far.
     fn probe_project(
@@ -712,11 +712,10 @@ impl Session {
         let ns = (analysis.namespaces.iter())
             .find(|n| n.files.contains(&file_id))
             .map(|n| n.name.clone())?;
-        // Namespaces that use the file's are not checked, and the others
-        // only matter to the file's: the probe goes in just before the
-        // file's namespace would be checked, which the file id keys.
+        // The probe goes in just before the file's namespace is checked,
+        // which the file id keys.
         probe(&self.elab, file_id, &text);
-        self.load_for_goal(project, &analysis, &ns).ok()?;
+        self.load_for_probe(project, &analysis, &ns).ok()?;
         Some(text)
     }
 }
