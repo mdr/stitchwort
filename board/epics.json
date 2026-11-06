@@ -35,7 +35,9 @@
         "Kernel primitive projections, eta rules 1 and 2, with accept and must-reject tests (SW-1642, on lane/SW-1642)",
         "Fields of glued calls stay calls; std, roguelike and 2021 day 13 pass at about +2% cost (SW-1667, on lane/SW-1642)"
       ],
-      "now": [],
+      "now": [
+        "Paused on the D2514 design note (lane/SW-1642 kept)"
+      ],
       "next": [
         "Wait for the goals-as-written design note (D2514); the trip-journal example fails because rule 2 computes under binders and the unfolded readback is too large",
         "Finish stage 1b on lane/SW-1642 (SW-1667), then an Opus review",
@@ -59,11 +61,12 @@
         "Completion after a dot on the live session, with imports and no theorem noise (SW-1503, SW-1505, SW-1520)",
         "Signature help and parameter names on hover (SW-1334, SW-1383)",
         "Run icons and the Testing panel over stitchwort test --json (SW-1682, SW-1684)",
-        "Outline answers before the file is checked (SW-1681)"
+        "Outline answers before the file is checked (SW-1681)",
+        "Hover on ? shows its goal; notes numbered like the CLI (SW-1675, SW-1676)"
       ],
       "now": [],
       "next": [
-        "Hover on a bare ? (the README overstates it; the server returns nothing today) and a better light bulb there (SW-1677)",
+        "Quieter light-bulb suggestions on a bare ? (SW-1677)",
         "Make the lsp features tests fit a lane's budget (SW-1686)",
         "Case split for header parameters (SW-1499)"
       ],
@@ -315,11 +318,11 @@
         "Test cache key no longer fingerprints std's text (SW-1329)",
         "stitchwort audit for proof lanes (SW-912)",
         "Daily-tier fallout fixed after total division and function equations (SW-1306, SW-1700, SW-1701)",
-        "Memory guard cases (SW-921, SW-1052)"
+        "Memory guard cases (SW-921, SW-1052)",
+        "Daily tier 6 Nov evening: 36 failures fixed across three lanes (SW-1700, SW-1701, SW-1702)"
       ],
       "now": [
-        "Daily-tier conv_shortcut test over its memory guard (SW-1702)",
-        "Reviewing the fixes for the daily tier's display and total-division failures (SW-1700, SW-1701)"
+        "Daily-tier fixes: search display and the ++ readings (SW-1706), array natives on the IR path (SW-1707), slow search_at_aoc (SW-1708)"
       ],
       "next": [
         "Audit stage 2: --base and minima (SW-1029)",
