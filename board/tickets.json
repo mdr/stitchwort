@@ -1,5 +1,5 @@
 {
-  "next": 1574,
+  "next": 1580,
   "tickets": [
     {
       "id": 47,
@@ -10372,13 +10372,13 @@
     {
       "id": 1571,
       "title": "AoC 2020 day 19 (Monster Messages): spec, efficient solution, proofs, tests, friction notes in aoc/NOTES-2020.md",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1571",
       "labels": [
         "aoc"
       ],
-      "body": "D2443 (Matt): carry on further if there's time. Overnight, Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day19.\n\nStarted on Opus, expected: 120 min.",
+      "body": "D2443 (Matt): carry on further if there's time. Overnight, Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day19.\n\nStarted on Opus, expected: 120 min.\n\nDone (8dfc16247, cbc175055, 35884ced1, f1afcef19), merged: 182 and 334 (6.5 s). Spec: inductive Matches over the rule table (covers part 2's loops), answer = number of messages matching rule 0 completely. Proved: soundness for any fuel; for productive rule tables (every alternative non-empty, single-rule alternatives go down a ranking), Part1/Part2 answer ↔ answer = the program's count. The input passing the productive check is tested, not proved. Orchestrator checked the spec (D2436). Audit 51/51. Model result: Opus, worked, 38 min (est. 120).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10407,6 +10407,90 @@
         "diagnostics"
       ],
       "body": "From SW-1550, 6 Nov 2026. Also: update aoc/NOTES-2020.md day 17 item 1 to say it's fixed.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1574,
+      "title": "Aoc.Common.Grammar: rule table, leftovers matcher, soundness and completeness under a checkable productive condition, proved once (day 19)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1571 (2020 day 19).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1575,
+      "title": "Warn when match h: e refines nothing because e isn't in the goal (written differently, e.g. an expanded lambda); show the goal's form or match up to eta (day 19)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1571 (2020 day 19).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1576,
+      "title": "A record method that builds a Map from a field is rebuilt on every call (day 19: 6.5 s → 2+ min); guide note on keeping derived tables, or a lint for Map.fromList of a field in a hot function (day 19)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1571 (2020 day 19).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1577,
+      "title": "Std: a count of a proposition (List.NumberWith-style) linked to List.count when a Bool decides it; List.lookup lemmas (lookup = Some v → (k, v) ∈ xs, bridge to Map.lookupLast) (day 19)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1571 (2020 day 19).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1578,
+      "title": "Small messages and signatures: E-UNKNOWN-NAME for Char.isAlpha should suggest isAsciiLowercase/Uppercase; List.memFlatMap's function, element and list implicit; an arm proving Void could hint Void.exfalso (day 19)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1571 (2020 day 19).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1579,
+      "title": "Day 19's matcher is 20× slower than Python: dedupe leftovers (2.9 s), or look at the interpreter's cost for flatMap (day 19)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "performance"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1571 (2020 day 19).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
