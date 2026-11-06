@@ -47,9 +47,12 @@ def Game.reply (game: Game): Nat :=
   if before == 0 then 0 else game.turn - before
 
 --| What the next turn says: the next starting number while there is one,
---| then the rules' reply.
-def Starting.next (starting: Starting) (game: Game): Nat :=
-  if game.turn < starting.numbers.length then starting.numbers.toList.getOr game.turn 0 else game.reply
+--| then the rules' reply. `count` is the number of starting numbers; the
+--| game loop passes it in, so a turn does not count the list again.
+def Starting.nextAfter (starting: Starting) (count: Nat) (game: Game): Nat :=
+  if game.turn < count then starting.numbers.toList.getOr game.turn 0 else game.reply
+
+def Starting.next (starting: Starting) (game: Game): Nat := starting.nextAfter starting.numbers.length game
 
 def Starting.takeTurn (starting: Starting) (game: Game): Game := game.say (starting.next game)
 
@@ -62,4 +65,5 @@ def Starting.numberSpoken (starting: Starting) (turn: Nat): Nat :=
   match turn with
     | Zero => 0
     | Succ later =>
-      Nat.iterate later starting.takeTurn (Game.begin (starting.room turn) starting.numbers.head) |> .last
+      let count := starting.numbers.length
+      Nat.iterate later (game => game.say (starting.nextAfter count game)) (Game.begin (starting.room turn) starting.numbers.head) |> .last
