@@ -437,7 +437,7 @@ const INT_NATIVES: &[(Builtin, IntNative, &str)] = &[
     (
         Builtin::DecEqInt,
         IntNative::DecEqInt,
-        "bfb9d75432dc4f02599ca684c24b40096a63cafc987808a93c5fe28d31371f8b",
+        "5dd2b4e35593ffe88e70b21f871b9a0f9bfada56fcc5803b23b1a2b6cb543ecc",
     ),
     (
         Builtin::IntLeq,
