@@ -1,5 +1,5 @@
 {
-  "next": 1559,
+  "next": 1573,
   "tickets": [
     {
       "id": 47,
@@ -9910,13 +9910,13 @@
     {
       "id": 1538,
       "title": "A helper lemma about a variable doesn't fit inside a match on one of its fields (arm goal refined, lemma type not); refine terms in the arm, or accept the match equation where rfl is expected; the error's '_' hint doesn't apply (day 16)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1538",
       "labels": [
         "elab"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).\n\nStarted overnight on Opus (match refinement in the elaborator), expected: 75 min.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).\n\nStarted overnight on Opus (match refinement in the elaborator), expected: 75 min.\n\nLane done (cfe4a4e91, merge of main 613b529a5): a named match's equation transports proofs (J, forward/backward) where an arm would otherwise mismatch; unnamed: better E-TYPE-MISMATCH and E-REFL notes. Day 16 / Aoc.Common elimination workaround removed. Generates kernel terms: Opus review started (D2364). Orchestrator's calls (to list for Matt): keep the automatic transport (proofs only, only where it would fail); keep rfl meaning 'computes'.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10078,13 +10078,13 @@
     {
       "id": 1550,
       "title": "cases over Int/Nat comparisons takes Int apart and hits the 64-case limit; split comparisons as atoms and close with omega (day 17, Neighbours.sw:31)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1550",
       "labels": [
         "tactics"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).",
+      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).\n\nStarted overnight on Sonnet, expected: 50 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10092,13 +10092,13 @@
     {
       "id": 1551,
       "title": "Std == lemmas: List.beqCons, List.beqNilCons, DecEq.neSelf ((x != x) = False), generated T.beqMk for one-field records (day 17)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1551",
       "labels": [
         "std"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).\n\nStarted overnight on Sonnet (SW-1551, SW-1555, SW-1558 together), expected: 45 min.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).\n\nStarted overnight on Sonnet (SW-1551, SW-1555, SW-1558 together), expected: 45 min.\n\nDone (6c6df5055), merged: List.beqCons, beqNilCons, beqConsNil, DecEq.neSelf, Map.containsFilter (Map.getFilter's argument order), Set.countToList; Int.negSuccInjective [m n] implicit (2 std callers). Day 17 drops 4 local copies. 42 hash snapshots regenerated. Orchestrator checked the statements (D2436). Model result: Sonnet, worked, 10 min (est. 45).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10120,13 +10120,13 @@
     {
       "id": 1553,
       "title": "A Bool != beside = in a statement is read as ≠ and the errors talk about Decidable; warn or suggest ((a != b): Bool) (day 17)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1553",
       "labels": [
         "diagnostics"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).",
+      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).\n\nStarted overnight on Sonnet (SW-1553 with SW-1554), expected: 40 min.\n\nDone (c0f5aadb0), merged: E-TYPE-MISMATCH gets 'Note: != here is the proposition ≠; for the Bool test write ((a != b): Bool)' (direct cases already had hints); E-RESOURCE inside a rewrite is labelled 'ran out of resources in this rewrite'. Not done: the unfolded definition's name (not recorded there); the note on E-REWRITE-MOTIVE/NOTHING. Model result: Sonnet, worked, 10 min (est. 40).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10134,13 +10134,13 @@
     {
       "id": 1554,
       "title": "E-RESOURCE 'a value was too large to show' from a rewrite: name the rewrite and the definition being unfolded (day 17)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1553",
       "labels": [
         "diagnostics"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).",
+      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).\n\nStarted overnight on Sonnet (SW-1553 with SW-1554), expected: 40 min.\n\nDone (c0f5aadb0), merged: E-TYPE-MISMATCH gets 'Note: != here is the proposition ≠; for the Bool test write ((a != b): Bool)' (direct cases already had hints); E-RESOURCE inside a rewrite is labelled 'ran out of resources in this rewrite'. Not done: the unfolded definition's name (not recorded there); the note on E-REWRITE-MOTIVE/NOTHING. Model result: Sonnet, worked, 10 min (est. 40).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10148,13 +10148,13 @@
     {
       "id": 1555,
       "title": "Std: Map.containsFilter ((m.filter p).contains k = (m.get k).any (p k)), Set.countToList (day 17)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1551",
       "labels": [
         "std"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).\n\nStarted overnight on Sonnet (SW-1551, SW-1555, SW-1558 together), expected: 45 min.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).\n\nStarted overnight on Sonnet (SW-1551, SW-1555, SW-1558 together), expected: 45 min.\n\nDone (6c6df5055), merged: List.beqCons, beqNilCons, beqConsNil, DecEq.neSelf, Map.containsFilter (Map.getFilter's argument order), Set.countToList; Int.negSuccInjective [m n] implicit (2 std callers). Day 17 drops 4 local copies. 42 hash snapshots regenerated. Orchestrator checked the statements (D2436). Model result: Sonnet, worked, 10 min (est. 45).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10176,13 +10176,13 @@
     {
       "id": 1557,
       "title": "AoC 2020 day 18 (Operation Order): spec, efficient solution, proofs, tests, friction notes in aoc/NOTES-2020.md",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1557",
       "labels": [
         "aoc"
       ],
-      "body": "D2443 (Matt): carry on further if there's time. Overnight, Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day18.\n\nStarted on Opus, expected: 120 min.",
+      "body": "D2443 (Matt): carry on further if there's time. Overnight, Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day18.\n\nStarted on Opus, expected: 120 min.\n\nDone (38efb53f1, c6a719b31, 5a9bfd76d), merged: 15285807527593 and 461295257566346 (0.68 s). Spec: a line means a tree when it is the tree written out and each operation's left side binds at least as strongly as its operator, the right more strongly. Proved, given the parser succeeded: Part1/Part2 input answer ↔ answer = the program's sum (exact, unique: the grammar is unambiguous). Uniqueness goes through a second pure reader (Proofs/Unique.sw), tested to agree with the parser. Not proved: every well-formed input parses. Orchestrator checked the spec (D2436). Audit 113: 9 warnings (narrow hypotheses, SW-1261). Model result: Opus, worked, 40 min (est. 120).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10190,13 +10190,209 @@
     {
       "id": 1558,
       "title": "Std: make Int.negSuccInjective's m and n implicit, as Nat.succInjective (D2422, SW-1544)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1551",
       "labels": [
         "std"
       ],
-      "body": "From SW-1544, 6 Nov 2026. Small.\n\nStarted overnight on Sonnet (SW-1551, SW-1555, SW-1558 together), expected: 45 min.",
+      "body": "From SW-1544, 6 Nov 2026. Small.\n\nStarted overnight on Sonnet (SW-1551, SW-1555, SW-1558 together), expected: 45 min.\n\nDone (6c6df5055), merged: List.beqCons, beqNilCons, beqConsNil, DecEq.neSelf, Map.containsFilter (Map.getFilter's argument order), Set.countToList; Int.negSuccInjective [m n] implicit (2 std callers). Day 17 drops 4 local copies. 42 hash snapshots regenerated. Orchestrator checked the statements (D2436). Model result: Sonnet, worked, 10 min (est. 45).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1559,
+      "title": "Generate T.beqMk (== on a one-field record is == on its field) for records (SW-1551)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Filed overnight 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1560,
+      "title": "Std: Int.ofNatInjective's m and n implicit, as Nat.succInjective (D2422, SW-1558)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Filed overnight 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1561,
+      "title": "A pair (n, rfl) where an ∃ is expected gives E-CANNOT-INFER for the rfl; (a, b) for a ∧ b is a mismatch that doesn't suggest Both (SW-1538)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "Filed overnight 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1562,
+      "title": "Match-equation transport only fires when the scrutinee appears literally in a type's computed form; a lemma over a definition that hides it still mismatches (SW-1538)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "Filed overnight 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1563,
+      "title": "Parse completeness lemmas: per combinator, good input parses (beside the soundness ones), so uniqueness proofs can use the program's own parser (day 18)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1557 (2020 day 18).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1564,
+      "title": "List.foldLeft with a pure lambda inside a {Parse} function is compiled as a Parse step (Parse.readsDone can't take it; error names Std.Effect.foldComp); compile pure, or explain (day 18)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1557 (2020 day 18).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1565,
+      "title": "E-ABILITY when a method is passed where () → {Parse} a is expected: suggest () => x.method, not adding Parse to the function's type (day 18)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1557 (2020 day 18).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1566,
+      "title": "readsDone's _ spec not worked out after lets that bound its proof: say why, suggest writing the spec out (day 18)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1557 (2020 day 18).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1567,
+      "title": "Std: Parse.chainLeft (Parsec chainl1) with a readsChainLeft lemma; maybe precedence levels on top (day 18, 47 lines)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1557 (2020 day 18).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1568,
+      "title": "Pattern arms for theorems whose result is Parse.Reads: count only the arrows written in the statement (day 18)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1557 (2020 day 18).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1569,
+      "title": "Allow a ': T' type annotation to start a line, as SW-1513 did for ∧ (day 18)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "syntax"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1557 (2020 day 18).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1570,
+      "title": "rewrite after a match has computed the goal past the term: note so and suggest an Eq.trans/Eq.cong chain (day 18)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1557 (2020 day 18).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1571,
+      "title": "AoC 2020 day 19 (Monster Messages): spec, efficient solution, proofs, tests, friction notes in aoc/NOTES-2020.md",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1571",
+      "labels": [
+        "aoc"
+      ],
+      "body": "D2443 (Matt): carry on further if there's time. Overnight, Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day19.\n\nStarted on Opus, expected: 120 min.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1572,
+      "title": "Rewrite messages: E-REWRITE-MOTIVE/E-REWRITE-NOTHING show Decidable.toBool for a Bool != read as ≠ (give them SW-1553's note); a rewrite that runs out of size doesn't record which definition's call was too large (SW-1554)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "From SW-1553/1554, 6 Nov 2026. Small.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []

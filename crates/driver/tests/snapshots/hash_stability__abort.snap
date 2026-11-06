@@ -39,8 +39,8 @@ Main.test "too few fields" df330e9aac2a3960c37c6931f4b8793d1455549397f1a61421741
 Main.test "empty line" e3aef075dac56490ad76fb2fc6e5b5a0cd5b5df97dbb7f98e75a1e0cd913caad
 Main.test "all lines" d2078084d40ca7795ad1552d12ed338340330803627a29719c44a6bf76c05213
 Main.test "one bad line" c36b2458331b3b3ddc1b9d26751ea50f1ecd4f66d1c7bff6753fec2770788cc1
-Main.test "default" 3c74813e642449925002310a6bf6b8d18bdab756d1df80527a2b46e60d5ae091
-Main.test "a number or zero" 59488f120e9b66c5cf089b58ad81d152594aa174573dbbf703eceae5d6b88fcc
+Main.test "default" 3f2a5172e094ba10f04393d9718d31869cb3a05dfb655fdf5093f443a5192ec6
+Main.test "a number or zero" 0e8d260456fa5c13bd6025b13279f229a738b195da34256b023f882b5fca88b3
 Main.test "with IO" c10bfc2ac0fe3fa4d4fa03aae8cf68a71e0324b2f8cd45c6ae126e697f0f7d0d
 Main.test "with IO, then a bad line" c17ae392afe1a3197c5484e30db5bd818a48fb1465311a9c73eb2a792f6b59f5
 Main.parsesL68 181e4c4248186b01da5e49fd0920bf144cd150d834f858e6bfb112f1baa06a1b

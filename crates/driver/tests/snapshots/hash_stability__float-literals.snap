@@ -19,9 +19,9 @@ Main.test "0.5 + -1" 85e53cd91e4510efc06732b51adb4218541e1027ba6b1497a120c2d465a
 Main.test "a decimal literal makes the group a Float" df0eb3faafe6315ea3de2692724b486d53cc7fcb46a253083869bf29c78ac3dd
 Main.minusZero 570ef8138abdddd290a0a186191d520f4c28fbf45d724150ae6425c3858ca9f5
 Main.test "minus zero is -0.0" 7eff5d14b60a0bffe55b5c526470805f6bf4acc217637be1f5564d15cf2e1e0f
-Main.test "minus zero, otherwise an Int" cd8f12060a5aae7d0a5cc2d26acb8e70859299b6a6cdaddc07dc24393b1a53cf
+Main.test "minus zero, otherwise an Int" 12f6e12583521c4c8101d0571061ea0aefa44053a886f1b22b50b4e70fb7c0da
 Main.idInt abc8e7350afdebddaa9e0a6884374609298de30c57ef2471b4b66d9376e7ded0
-Main.test "a leaf with a literal inside doesn't decide before the minus" 0c43a0b59e9455e24712d35cc4b01e56f9b8e0c3020581ec6918086b78101ea1
+Main.test "a leaf with a literal inside doesn't decide before the minus" ac763516c167e17e529314ede66e9a8f66dce2b90530202bc47e2f28078dba07
 Main.minus1000 239385168f46e82b1e4ed2b702b795fff384e68891b4b3e26bbad3bf51581b6d
 Main.plusMinusOne 984527a8ea3367f1bccc1c1e6fb6e15f1e7e4d5dd4868e07ce4dbe3a24f0a299
 Main.minusOnePlus 4cd8ecca6da8b1a50e347a969a4bbf920e6709e53682f0208f4b55f8054b7e51

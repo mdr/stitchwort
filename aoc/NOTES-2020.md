@@ -4622,3 +4622,311 @@ elaboration and 24 ms in the kernel; the rest of the cold time is std's.
    from `match`). Checker or message; small to medium.
 6. Smaller: no `Int` ranges; no record eta; `Map.containsFilter` and
    `Set.countToList` missing (item 5). Each small.
+
+## Day 18: Operation Order
+
+Each line of the homework is an expression of numbers, `+`, `*` and
+parentheses (`2 * 3 + (4 * 5)`), and each part is the sum of the lines'
+values under its own rules: in part 1, `+` and `*` bind equally and are
+evaluated left to right; in part 2, `+` binds tighter than `*`.
+Parentheses come first in both. Answers on Matt's input (372 lines, up
+to 155 characters, every number one digit, parentheses up to three
+deep): 15285807527593 and 461295257566346; the puzzle's six examples
+give 71, 51, 26, 437, 12240, 13632 and 231, 51, 46, 1445, 669060, 23340.
+Matt's Scala (`Day18.scala`) is two Scala parser-combinator grammars that
+evaluate as they parse, `expr0 ~ rep(("+" | "*") ~ expr0)` folded from
+the left, and for part 2 an `addExpr` level under `*`; I didn't run it.
+An independent Python script (a shunting-yard evaluator with a
+precedence table) agrees on both answers and every example.
+
+The domain types are `Operator` (`Plus`, `Times`, with `spaced`, how the
+homework writes it, and `apply`), `Expression` (`Number`, `Operation
+operator left right`, `Parenthesised inner`: the tree as written,
+parentheses included, so a proof can say which tree a line is; with
+`value`), `Precedence` (`levels`, the operators a level each, loosest
+first: `samePrecedence` is `[[Plus, Times]]`, `additionFirst` is
+`[[Times], [Plus]]`) and `Homework` (`expressions`, with `sum`). One
+parser serves both parts: `level expression levels` is `operand` (a
+number, or `(`, a whole expression, `)`) when no levels are left, and
+otherwise a `chain` of the next level's expressions joined by this
+level's operators (`Parse.many` of a `step`, an operator and an
+operand), grouped from the left by `groupLeft`; `precedence.expression`
+is `Parse.recursive (self => level self precedence.levels)`, `self`
+being the parser for inside parentheses. The program and its 16 tests
+passed on the second run (item 3 had the first).
+
+The spec (`Spec/Spec.sw`) shares `Operator` and `Expression` and nothing
+else. `NumberWritten`, `symbol` and `Written expression read` (an
+operation is its left side, the operator with a space either side, its
+right side; parentheses with nothing inside them but the expression);
+the rules as a strength per operator, `part1Strength` (0 for both) and
+`part2Strength` (`+` 1, `*` 0); `BindsAtLeast strengthOf strength
+expression` (a number or parentheses always do, an operation when its
+operator's strength is at least `strength`); `Follows strengthOf
+expression` (in every operation the left side binds at least as strongly
+as the operator, the right side more strongly); `Means strengthOf read
+expression` (`Written` and `Follows`); its own `value`; and `Answer
+strengthOf input answer` (some expressions, one per line, each `Means`
+its line, and `answer` the sum of their values), with `Part1` and
+`Part2`. I chose a relation on trees over the alternatives the brief
+offered because it is the only one that is honest about this input: a
+printer with "the part's minimal parentheses" is false, since one line
+serves both parts and its parentheses are redundant under one of them
+(`(2 * 3) + 4` needs none in part 1), and the input has such lines; a
+grammar over the characters with a nonterminal per level is the same
+thing said of strings, and would need a recursion on the characters
+(parentheses don't make the tree smaller) where `Written` recurses on
+the tree. "Evaluated left to right" is the left side allowed to bind
+equally and the right side not; "parentheses can override this order" is
+a bracketed side allowed anywhere, which is why the parentheses are in
+the tree. The rules as strengths are the spec's, and the program's
+levels are a list; the proofs connect them with a hypothesis that each
+level holds operators of one strength, 0 up (`Ranked`), checked for each
+part by `rfl`.
+
+Proved (`Aoc.Year2020.Day18.Proofs`), every theorem in the direction
+"the parser succeeded, so …":
+
+- `Ranked`, `Level`, `bindsWeaken`, `spacedWritten`, `readsOperator`,
+  `readsOperand`, `StepRead`, `readsStep`, `foldSteps`, `readsChain`,
+  `readsLevel`, `readsExpression` (Parse.sw): when the levels are
+  ranked by `strengthOf`, whatever `precedence.expression` reads is an
+  expression written out that follows the strengths: `Parse.Reads (() =>
+  precedence.expression) (Spec.Means strengthOf)`.
+- `size`, the reader `stepOperator`, `readLevel`, `readOperand`,
+  `readBracketed`, `readSteps` (four functions defined together, with
+  fuel), `Exact`, `Stop`, `Complete`, and `symbolInjective`,
+  `stepFound`, `stepSound`, `stepNone`, `stopUp`, `stopStep`,
+  `stopClose`, `stopNil`, `readNumber`, `Spine`, `spine`,
+  `spineStarts`, `readStepsStep`, `readStepsStop`, `loop`,
+  `readParenthesised`, `readLevelChain`, `bindsZero`, `sizePositive`,
+  `afterStart`, `levelInner`, `levelComplete` (Unique.sw): when the
+  levels hold every operator, a strength a level (`Exact`), the reader,
+  given enough fuel, reads back every expression a line `Means`, from
+  the line followed by anything that doesn't continue it. So
+  `meansUnique`: two expressions a line means are equal; and
+  `linesUnique`, the same for a list of lines. `samePrecedenceExact` and
+  `additionFirstExact` check `Exact` for both parts. The reader is the
+  proof's own, not the program's parser (item 1); a test checks it
+  agrees with the parser on every line of the examples and the input.
+- `valueSpec`, `sumSpec`, `parseMeans`, `answerCorrect`,
+  `samePrecedenceRanked`, `additionFirstRanked`, `answerExactly`,
+  `part1Exactly`, `part2Exactly` (Proofs.sw): if `parseHomework input
+  samePrecedence` gives `homework`, then `Spec.Part1 input answer ↔
+  answer = homework.sum`, and the same for `additionFirst` and
+  `Spec.Part2`: each line `Means` the expression the program read for
+  it and no other, and the answer is the sum of their values, so the
+  program's answer is the spec's and the only one.
+
+Not proved: that every well-formed input parses (as on days 2 to 17);
+that `main` uses `samePrecedence` for part 1 and `additionFirst` for
+part 2 (it reads so). There is no added hypothesis and no `opaque`.
+
+Breaking the program made the proofs fail: part 2's levels in the wrong
+order (`[[Plus], [Times]]`) fails `additionFirstRanked` (`rfl`); part
+1's split into two levels fails `samePrecedenceRanked`; `Plus` written as
+`" * "` fails `spacedWritten`; dropping `Parenthesised` around a
+bracketed operand fails `readsOperand`; `groupLeft` building `Operation
+found right left` fails `foldSteps`; a chain whose operands are whole
+expressions (so `1 * 2 + 3` could group either way) fails `readsLevel`;
+`*` adding fails `valueSpec`. Breaking the spec: letting an operation's
+right side bind as strongly as its operator (an ambiguous grammar:
+`1 + 2 + 3` groups either way) fails `spine` in Unique.sw, as it should;
+giving `*` strength 1 in part 2 fails `additionFirstRanked` and
+`additionFirstExact`. The audit (with the counterexample search):
+`audited 113 theorems: 0 failed, 9 with warnings, 104 passed`; the
+warnings are narrow hypotheses random inputs rarely meet
+(`stepOperator … = Some …` in `stepSound`, the reader's generated
+equations, a test helper's `Err` arm), not vacuous (SW-1261, as on
+earlier days).
+
+### 1. Unambiguity needs a second parser, written for the proof
+
+Days 16 and 17 ended in "the program's answer is the spec's and the
+only one". Here that needs "a line means one expression under a part's
+rules". `Parse.Reads` is soundness only, as its docs say (and
+docs/proposals/parser-combinators.md: "Completeness (that a parser
+succeeds on good input) isn't stated"), so the usual route, "the
+parser reads every written tree back as itself, and it's a function",
+can't use the program's parser. I wrote a second one in the proofs: a
+pure reader over `List Char` (`readLevel`, `readOperand`,
+`readBracketed`, `readSteps`: four functions defined together, with
+fuel, 50 lines), the same grammar as the program's, and proved it
+complete: with enough fuel it reads back every expression a line
+means, followed by anything that doesn't continue it. Two expressions
+of one line are then the reader's one answer. The induction is on a
+size bound (parentheses go back to the loosest level, so neither the
+tree nor the levels alone get smaller), and a level's chain is a
+`Spine`, a relation recording the steps after the first operand with
+their count, so the fuel can be counted one a step. Unique.sw is 423
+lines, the reader 50 of them; after 12 minutes of design it took 9 to
+write and check: mutual recursion over fuel was accepted as written,
+every lemma but `loop` checked once its brackets balanced, and `omega`
+did all the fuel arithmetic. So this is reachable, but the duplication is
+the cost: the theorem is about a reader that isn't the program's
+parser, and a test has to check that they agree. A newcomer wouldn't
+think of the second parser. What would let the proof be about the
+program's own parser: completeness lemmas beside the `Reads` ones
+(`Parse.Accepts p spec follow`: for any `read` and `value` with `spec
+read value`, `p` run on `read ++ rest`, with `follow rest`, reads `read`
+and gives `value`), one per combinator; then unambiguity is soundness
+plus completeness plus the runner being a function.
+
+`loop`'s last step was the one hitch: `rewrite shifted, …` (with
+`shifted: fuel + Succ steps = Succ fuel + steps`) was `E-REWRITE-NOTHING`
+"found no `Succ (fuel + steps)` in the goal", because the arm's patterns
+had already computed the goal past `fuel + Succ steps` into `readSteps`'s
+inner `match`. Note 1 showed the computed goal, and Note 4 explained the
+`(match …)`; an `Eq.trans` chain of `Eq.cong`s, which never looks inside
+the goal, checked at once. As days 11, 12 and 15 found, which form a goal
+is in after a `match` can't be seen in the source.
+
+### 2. A `{Parse}` function's `foldLeft` is an effect, so `readsDone` can't take it
+
+`chain` first ended `rest.foldLeft first (left (found, right) =>
+Operation found left right)`. `List.foldLeft` is effect-polymorphic (`f:
+b → a → {e} b`), and inside a `{Parse}` function it was elaborated as a
+`Parse` computation, though the lambda is pure; so the proof's last
+step, `Parse.readsDone (rest.foldLeft …) _ …`, was `E-TYPE-MISMATCH`
+"they first differ at `Std.Effect.runPure (Std.Effect.foldComp … … …)
+state` against `Ok (List.foldLeft steps first …, state.at)`". Moving the
+fold into a pure function, `groupLeft first steps`, checked at once. The
+message names `foldComp`, which nothing in the source says, and a
+newcomer has no way to know a pure call can become an effect. The
+elaborator could instantiate an effect-polymorphic call at no effects
+when its function arguments are pure, or the mismatch could note "this
+`List.foldLeft` was elaborated with the `Parse` effect; move it into a
+pure function".
+
+### 3. `precedence.expression` as a parser argument runs it
+
+`Parse.eachLine input precedence.expression`, with `def
+Precedence.expression (precedence: Precedence): {Parse} Expression`, is
+`E-ABILITY` "this may perform `Parse`, which isn't allowed here", with
+"add `Parse` to the function's type … or handle it". The dot call ran
+the parser, where `eachLine` wants a thunk; `() =>
+precedence.expression` is the fix. Eight lines reproduce it (a record, a
+`{Parse}` method on it, and `Parse.eachLine input digits.parser` in a
+`{Fail}` function). Where the expected type is `() → {Parse} a`, the
+note could say "this runs `precedence.expression` here; to pass it as a
+parser, write `() => precedence.expression`". The same holds for a
+top-level parser `def expression(): {Parse} …`, which is passed bare as
+`expression`; the receiver form is what makes it look like a value.
+
+### 4. Messages
+
+- **`readsDone`'s `_` spec, after a `let`.** In `readsChain`'s last
+  step, `Parse.readsDone folded _ level` (with `level` a `let`-bound proof
+  of the right fact) was `E-TYPE-MISMATCH` "expected `?25 strengthOf
+  strength operators term ranked readsTerm firstRead first …`", with
+  "`?25` is the `_` for the argument `spec` of `Parse.readsDone`, which
+  wasn't worked out". Before the `let`, `rewrite List.appendNil restRead
+  in …` there was `E-REWRITE-NOTHING` against the same unsolved goal. In
+  `readsOperand`, two `readsDone … _ (Both …)` checked. Writing the spec
+  out, `(read value => Level strengthOf strength (firstRead ++ (restRead
+  ++ read)) value)`, fixed it. The note says what wasn't worked out but
+  not why, nor that writing the spec out is the way round.
+- **Arms for a theorem whose result is `Parse.Reads`.** `readsLevel`'s
+  arms `| [], strength, ranked => …` are `E-ARITY`: `Parse.Reads` unfolds
+  to a function type, so the arms need five more patterns. The note says
+  exactly that and suggests returning a lambda; std's own
+  `readsRecursiveFuel` is written `:= fuel => match fuel with`, and so is
+  `readsLevel` now, with `And.left ranked` for the pattern `Both here
+  rest` it could no longer use. A good message about a rule a newcomer
+  wouldn't expect: the arms could count only the arrows written in the
+  statement.
+- **A `: T` ascription on its own line.** `(rewrite … in\n  proof\n  :
+  Level …)` is `E-PARSE` "expected an expression, but found `:`"; a `let
+  level: Level … := …` says the same. Like day 15's `∧`, which SW-1513
+  fixed.
+- **`foldLeft`'s argument order.** `rest.foldLeft (lambda) first` is
+  "this is a function, but the expected type is `?2 operators term first
+  rest`", which doesn't name the parameter (`initial`) the lambda landed
+  on.
+- **Good ones.** The parser's own errors read well with no labels:
+  `1 + 2 * ` is "line 1, column 9: expected a number or '(', got the end
+  of the line", `(1 + 2` is "expected ' + ', ' * ' or ')'", and `1 + 2)`
+  is "expected ' + ', ' * ' or the end of the line, got ')'". `E-ARITY`'s
+  note above, and `E-UNKNOWN-NAME`'s "`Eq` is `Std.Eq`; add `import Std
+  (Eq)`".
+
+### 5. Smaller things
+
+- **What helped.** The parser's soundness took about 6 minutes and
+  uniqueness about 20, and most lemmas checked as first written. `Parse.recursive` and `readsRecursive`, used
+  here by AoC for the first time (2021 day 18's snailfish parser recurses
+  with its own fuel and its parse isn't proved), made the parentheses one
+  hypothesis: assume the nested parser reads `Level strengthOf 0`, prove
+  each level does. `readsOneOf`, `readsPickBy` (the operator table from
+  the printer `Operator.spaced`), `readsMany` and the `readsThen` chain
+  did the rest; `omega` closed `bindsWeaken`; `foldSteps`, the chain's
+  invariant, needed no help with `groupLeft` unfolding a step. For the
+  reader, `List.takeWhileAppend`, `dropWhileAppend`, `dropWhileStops`,
+  `findSome` and `findNoneNotMem` were each found by one grep, and
+  `W-LAMBDA-SHADOW` caught three lambdas whose `operator` parameter hid
+  the program's parser `operator`.
+- **No `chainLeft`.** Parsec's `chainl1` (and Scala's `chainl1`, Megaparsec's
+  `makeExprParser`) is what a newcomer reaches for; std `Parse` has none,
+  so `step`, `chain` and `groupLeft` are 12 lines of program and
+  `readsStep`, `foldSteps` and `readsChain` 35 of proof. A
+  `Parse.chainLeft term operator` with a `readsChainLeft` stated over a
+  `groupLeft`-shaped spec would make both parts a call; precedence
+  levels over it (`level` here) are a further small step.
+- **Operators with their spaces.** The operator table reads `" + "`, so
+  `1+2` is refused, as the puzzle's format allows (and as a test checks);
+  the spec writes the spaces out too. A tokenizer that skips spaces
+  would be kinder to hand-typed input but would make the spec talk about
+  tokens.
+- **`List.allMem (p) (x) (xs)`** takes the element before the list; my
+  first call had them the other way round, which the mismatch made plain.
+
+### Size and time
+
+107 lines of program, 88 of spec, 593 of proofs (Parse 109, Unique 423,
+Proofs 61), 75 of tests (+1 answer test in `aoc_answers.rs`). By the
+clock: 04:53 start; Python answers at 04:57; program and both answers at
+05:01, tests passing at 05:02; parser proofs at 05:06, the soundness
+theorems at 05:08, committed at 05:09; break checks and a first draft of
+these notes by 05:20; designing the uniqueness proof from 05:10 to 05:22;
+the reader at 05:24 (and its test), completeness at 05:28, `meansUnique`
+at 05:30, the parts' `Exact` and the answers' "only one" theorems at
+05:31; then the spec break checks, the timings and these notes.
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2020.Day18.Proofs` | 4.6 s user |
+| `stitchwort check --no-cache Aoc.Year2020.Day18` | 1.7 s user |
+| `stitchwort test --no-cache Aoc.Year2020.Day18.Tests` (18 tests) | 5.6 s user |
+| `stitchwort audit Aoc.Year2020.Day18` (113 theorems) | 1.5 s user (warm) |
+| `stitchwort run Aoc.Year2020.Day18.main` on the input | 0.68 s user (`--js` 0.98 s, `--native` 0.81 s) |
+| `task test:one -- year2020_day18` | 2.4 s for the test (49 s with building the test binaries) |
+
+`STITCHWORT_TIMINGS=1` puts the Proofs namespace at 188 ms of
+elaboration and 38 ms in the kernel (`readsChain` 41 ms and
+`readsOperand` 37 ms of the elaboration, 620,000 and 560,000 steps); the
+rest of the cold time is std's.
+
+### Ranked
+
+1. `Parse.Reads` is soundness only, so "a line means one expression"
+   (the answer is the only one) needed a second, pure parser written for
+   the proof and 370 lines proving it complete, with a test that it
+   agrees with the program's; completeness lemmas per combinator would
+   let the proof be about the program's own parser (item 1). Library;
+   large.
+2. An effect-polymorphic `foldLeft` in a `{Parse}` function is
+   elaborated as an effect, so `readsDone` can't take it, and the error
+   names `Effect.foldComp` (item 2). Elaborator or message; small to
+   medium.
+3. `precedence.expression` passed as a parser runs it, and `E-ABILITY`
+   says to add `Parse` to the function's type rather than to write `() =>`
+   (item 3). Message; small.
+4. `readsDone`'s `_` spec isn't worked out after a `let`, and the note
+   doesn't say to write it out (item 4). Elaborator or message; small.
+5. No `Parse.chainLeft` with a reads lemma: 47 lines here for what
+   Parsec users call `chainl1` (item 5). Library; small.
+6. Smaller: arms can't be written for a theorem whose result unfolds to
+   a function (`Parse.Reads`); a `: T` ascription can't start a line;
+   `foldLeft`'s mismatch doesn't name `initial` (item 4); `rewrite` with an
+   equation the goal has computed past after a `match` (item 1). Each
+   small.

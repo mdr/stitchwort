@@ -101,6 +101,12 @@ theorem Nat.mulRightCancelBool [a: Nat] [b: Nat] [c: Nat] (nz: c ≠ 0): (a * c 
         | Yes e => Void.exfalso (differ (Nat.mulRightCancel a b c nz e))
         | No e => rfl
 
+--| A value is never `!=` to itself.
+theorem DecEq.neSelf [auto eq: DecEq a] (x: a): ((x != x): Bool) = False :=
+  match e: ((x != x): Bool) with
+    | True => Void.exfalso (DecEq.neTrue e rfl)
+    | False => rfl
+
 --| `x == y` is `y == x`.
 theorem DecEq.eqComm [auto eq: DecEq a] (x: a) (y: a): (x == y) = (y == x) :=
   Bool.eqOf (x == y) (y == x) (h => rewrite DecEq.sound h in DecEq.refl y) (h => rewrite DecEq.sound h in DecEq.refl x)
