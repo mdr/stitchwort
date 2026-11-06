@@ -998,7 +998,10 @@ impl Elaborator {
         let (n, mut fields) = match r {
             Ref::Name(n) => (n, Vec::new()),
             Ref::Dot(n, field, receiver) => {
-                if let Some(namespace) = receiver.and_then(|head| self.data_namespace(head)) {
+                if let Some(namespace) = receiver
+                    .and_then(|r| r.written())
+                    .and_then(|head| self.data_namespace(head))
+                {
                     // The receiver's type is the data type `T`, whose dot
                     // calls mean `T.field` and nothing else.
                     if let Some(f) = index.owner(&format!("{namespace}.{field}"))
