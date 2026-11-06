@@ -9826,13 +9826,13 @@
     {
       "id": 1532,
       "title": "ring.rs:1281 has the same 'quoted goal means' final check as omega had (SW-1526): retry against the re-read goal there too, with a repro",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1532",
       "labels": [
         "elab"
       ],
-      "body": "From SW-1526/SW-1527, 6 Nov 2026.\n\nStarted overnight on Sonnet (SW-1532 with SW-1533), expected: 40 min.",
+      "body": "From SW-1526/SW-1527, 6 Nov 2026.\n\nStarted overnight on Sonnet (SW-1532 with SW-1533), expected: 40 min.\n\nDone (de73159ce), merged: reproduced (E-RING-INTERNAL after rewrite on a field turn); ring's final check retries against the re-read goal; term unchanged. Example accept/ring-after-rewrite-field-turn. Model result: Sonnet, worked, 17 min (est. 40, with SW-1533).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -9840,13 +9840,13 @@
     {
       "id": 1533,
       "title": "E-TYPE-MISMATCH on let l := IO.args(); l.headOr \"2020\" |> .toNatOrFail in {IO, Fail}: receiver_type can't type a chained call, so the Fail goes undetected (SW-1527)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1532",
       "labels": [
         "> .toNatOrFail in {IO, Fail}: receiver_type can't type a chained call, so the Fail goes undetected (SW-1527)|elab"
       ],
-      "body": "From SW-1526/SW-1527, 6 Nov 2026.\n\nStarted overnight on Sonnet (SW-1532 with SW-1533), expected: 40 min.",
+      "body": "From SW-1526/SW-1527, 6 Nov 2026.\n\nStarted overnight on Sonnet (SW-1532 with SW-1533), expected: 40 min.\n\nDone (f32be797e), merged: not IO-specific; headOr returns its type parameter, so call_result found no head; new generic_result reads the parameter off the receiver's actual type for dot calls. Examples accept/pipe-io-bound-then-fail-method, reject extended. Not done: plain f x returning a parameter, results like List a. Model result: as SW-1532.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
