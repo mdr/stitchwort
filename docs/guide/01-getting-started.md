@@ -140,6 +140,8 @@ The playground is a browser page with an editor, the compiler (built to WebAssem
 
 Its tabs check the code, run its tests, evaluate an expression, show the generated JavaScript and TypeScript, and run `main` with input you type.
 
+Put the cursor on a `?` and a panel under the editor shows the goal there: what has to go in its place, and the names in scope, as VS Code's goals panel does. **Share** copies a link that carries the program itself in its address (compressed, nothing is stored on a server); opening it shows that program and leaves your own saved work alone until you edit it. For an Advent of Code day, Share links to the day.
+
 ## Editor support
 
 `editors/vscode/` is a VS Code extension: syntax colouring, and a client for `stitchwort lsp`. Install it with `./editors/vscode/install.sh`, and make sure `stitchwort` is on your `PATH` (or set `stitchwort.path`). The language server gives:

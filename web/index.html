@@ -309,6 +309,17 @@
   pre.errors { color: var(--bad); }
   pre.warnings { color: var(--warn); }
   pre.goals { color: var(--goal); }
+  .goalpanel {
+    border: 1px solid var(--line); border-left: 3px solid var(--goal); border-radius: 8px;
+    background: var(--petal); padding: 8px 12px; max-height: 12rem; overflow: auto;
+    font-family: var(--mono); font-variation-settings: "MONO" 1; font-size: 12.5px; line-height: 1.45;
+  }
+  .goalpanel[hidden] { display: none; }
+  .goalpanel .owner, .goalpanel .none { color: var(--muted); font-family: var(--sans, inherit); font-size: 0.8rem; }
+  .goalpanel .row { white-space: pre-wrap; }
+  .goalpanel .row b { font-weight: 600; }
+  .goalpanel .row i { font-style: normal; color: var(--muted); }
+  .goalpanel .target { color: var(--goal); font-weight: 600; white-space: pre-wrap; border-top: 1px solid var(--line); margin-top: 6px; padding-top: 6px; }
   .goalbox { border-left: 3px solid var(--goal); padding-left: 10px; margin: 0 0 8px; }
 
   .evalrow, .runrow { display: flex; gap: 8px; }
@@ -518,6 +529,7 @@
       <span id="status" class="status idle">Loading the compiler…</span>
       <span id="link-notice" class="status idle" role="status" hidden></span>
       <button id="warning-count" class="status warn" type="button" title="Show the warnings" hidden></button>
+      <button id="share" type="button" title="Copy a link to this program (the code is in the link itself); for an Advent of Code day, a link to the day">Share</button>
       <button id="format" type="button" title="Format the code (Shift+Alt+F)">Format</button>
       <button id="run" class="primary run" type="button" title="Run main (Ctrl+Enter)">Run ▸</button>
     </div>
@@ -537,6 +549,7 @@
     </div>
     <div class="editor" id="editor">
     </div>
+    <div id="goalpanel" class="goalpanel" role="region" aria-label="Goal at the cursor" aria-live="polite" hidden></div>
   </section>
 
   <section class="pane" aria-label="Results">
@@ -1944,6 +1957,110 @@ export def area: Shape -> Nat
     try { history.replaceState(null, "", `#${hash}`); } catch {}
   }
 
+  // Share by URL. A program on its own travels in the fragment, `#s/<text>`:
+  // deflate-raw, then base64url, with no server. Opening such a link shows the
+  // text without touching the saved draft; the draft is replaced only when the
+  // person edits (`leaveShared`), and "Back to my draft" returns to it.
+  const SHARE_WARN = 8 * 1024;
+  const SHARE_MAX_TEXT = 1 << 20;
+  let sharedOpen = false;
+
+  const toBase64Url = (bytes) => {
+    let bin = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  };
+  const fromBase64Url = (text) => Uint8Array.from(atob(text.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+
+  async function packText(text) {
+    const stream = new Blob([text]).stream().pipeThrough(new CompressionStream("deflate-raw"));
+    return toBase64Url(new Uint8Array(await new Response(stream).arrayBuffer()));
+  }
+
+  /** The text a fragment `s/<packed>` carries, or null if it isn't one or is damaged (or absurdly large). */
+  async function unpackText(hash) {
+    const m = /^s\/([A-Za-z0-9_-]+)$/.exec(hash);
+    if (!m) return null;
+    try {
+      const reader = new Blob([fromBase64Url(m[1])]).stream().pipeThrough(new DecompressionStream("deflate-raw")).getReader();
+      const chunks = [];
+      let size = 0;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        size += value.length;
+        if (size > SHARE_MAX_TEXT) { reader.cancel(); return null; }
+        chunks.push(value);
+      }
+      return new TextDecoder("utf-8", { fatal: true }).decode(await new Blob(chunks).arrayBuffer());
+    } catch {
+      return null;
+    }
+  }
+
+  function leaveShared() {
+    if (!sharedOpen) return;
+    sharedOpen = false;
+    banner.hidden = true;
+    // The address now names no one's text but the person's own.
+    try { history.replaceState(null, "", location.pathname + location.search); } catch {}
+  }
+
+  /** Shows the shared text as a program on its own; the saved draft stays as it is until an edit. */
+  async function openShared(text) {
+    project = null;
+    filebar.hidden = true;
+    setRunHint();
+    picker.selectedIndex = -1;
+    sharedOpen = true;
+    showText(text);
+    evalImports = [];
+    evalInput = "";
+    setRunInput("");
+    runResult.replaceChildren();
+    banner.replaceChildren(
+      el("span", {}, "Opened from a shared link. Your own work is kept until you edit this."),
+      el("button", { type: "button", onclick: backToDraft }, "Back to my work"));
+    banner.hidden = false;
+    refresh();
+  }
+
+  async function backToDraft() {
+    const draftText = stored("stitchwort.draft");
+    const inputText = stored("stitchwort.input");
+    sharedOpen = false;
+    const id = stored("stitchwort.example") || "ex-lists";
+    const named = projectOfId(id);
+    await loadExample(id);
+    if (!named && draftText) { showText(draftText); refresh(); }
+    if (!named && inputText !== null) { setRunInput(inputText); storeInput("stitchwort.input"); }
+  }
+
+  async function share() {
+    let link;
+    if (project) {
+      const hash = hashFor(picker.value);
+      if (!hash) return notify("Nothing to share here");
+      link = `${location.origin}${location.pathname}#${hash}`;
+    } else {
+      link = `${location.origin}${location.pathname}#s/${await packText(source.user.state.doc.toString())}`;
+    }
+    try { history.replaceState(null, "", link.slice(link.indexOf("#"))); } catch {}
+    let copied = true;
+    try { await navigator.clipboard.writeText(link); } catch { copied = false; }
+    const size = link.length > SHARE_WARN ? ` It is ${(link.length / 1024).toFixed(1)} KB: some chat and mail apps cut links that long.` : "";
+    const edited = project ? " The link opens the day as bundled, without your edits." : "";
+    notify((copied ? "Link copied." : "The link is in the address bar.") + edited + size);
+  }
+  document.getElementById("share").addEventListener("click", share);
+
+  async function openSharedHash(hash) {
+    const text = await unpackText(hash);
+    if (text !== null) return openShared(text);
+    await loadExample("ex-lists");
+    notify("That shared link is damaged; showing the default example");
+  }
+
   /** Opens the entry a fragment names, or the default one with a notice. */
   async function openFromHash(hash) {
     const id = await idForHash(hash);
@@ -1996,6 +2113,7 @@ export def area: Shape -> Nat
   });
 
   async function loadExample(id) {
+    sharedOpen = false;
     const named = projectOfId(id);
     if (named) return loadProject(named, Number(id.slice(named.length + 1)) || 0);
     project = null;
@@ -2464,7 +2582,8 @@ export def area: Shape -> Nat
     worker: new URL(`lsp-worker.js${LOAD}`, import.meta.url),
     module: await wasm.catch(() => null),
     load: LOAD,
-    onInput: refresh,
+    onInput: () => { leaveShared(); refresh(); },
+    onGoal: showGoal,
     // A jump to a file of the project, from go to definition or a reference.
     onFile: (path) => { if (!project?.texts.has(path)) return false; openFile(path); return true; },
     onStd: (path) => {
@@ -2472,15 +2591,33 @@ export def area: Shape -> Nat
       document.getElementById("std-name").textContent = path ?? "";
       formatButton.disabled = !!path;
     },
-    onNotice: (text) => {
-      clearTimeout(noticeTimer);
-      linkNotice.textContent = text;
-      linkNotice.hidden = !text;
-      noticeTimer = setTimeout(() => { linkNotice.hidden = true; }, 8000);
-    },
+    onNotice: (text) => notify(text),
     run: () => { if (runButton.disabled) return false; runMain(); return true; },
   });
   window.editor = source;
+
+  function notify(text) {
+    clearTimeout(noticeTimer);
+    linkNotice.textContent = text;
+    linkNotice.hidden = !text;
+    noticeTimer = setTimeout(() => { linkNotice.hidden = true; }, 8000);
+  }
+
+  // The goal at the caret (the server's `stitchwort/goalAt`, as VS Code's
+  // Goals panel asks it): shown under the editor, and only while the file has
+  // an open goal, so the editor doesn't change height as the caret moves.
+  const goalPanel = document.getElementById("goalpanel");
+  function showGoal(answer, any) {
+    goalPanel.hidden = !any;
+    if (!any) return;
+    if (!answer) { goalPanel.replaceChildren(el("span", { className: "none" }, "No goal at the cursor")); return; }
+    goalPanel.replaceChildren(
+      el("div", { className: "owner" }, `in ${answer.owner}`),
+      ...(answer.context ?? []).map((h) => el("div", { className: "row" },
+        el("b", {}, h.name), `: ${h.type}`, ...(h.value === undefined ? [] : [el("i", {}, ` := ${h.value}`)]))),
+      el("div", { className: "target" }, `⊢ ${answer.goal}`),
+    );
+  }
 
   /** Shows a program on its own. */
   function showText(text) {
@@ -2503,7 +2640,7 @@ export def area: Shape -> Nat
   let timer = null;
   function refresh() {
     if (project) saveOpenFile();
-    else store("stitchwort.draft", source.value);
+    else if (!sharedOpen) store("stitchwort.draft", source.value);
     clearTimeout(timer);
     timer = setTimeout(render, 250);
   }
@@ -2677,7 +2814,8 @@ export def area: Shape -> Nat
   if (startHash && startGuide === null) {
     // A link opens as choosing that entry does, except that the saved draft
     // of a built-in example is kept if it is the one last open.
-    openFromHash(startHash).then(() => { if (picker.value === chosen && !projectOfId(chosen)) restoreDraft(); });
+    if (startHash.startsWith("s/")) openSharedHash(startHash);
+    else openFromHash(startHash).then(() => { if (picker.value === chosen && !projectOfId(chosen)) restoreDraft(); });
   } else {
     // The editor is set up behind the guide, which a `#guide` link opens
     // (the example's own link would take its place in the address bar).
@@ -2697,6 +2835,7 @@ export def area: Shape -> Nat
     if (slug !== null) { showGuide(slug); return; }
     hideGuide();
     if (!hash) return;
+    if (hash.startsWith("s/")) { openSharedHash(hash); return; }
     const id = await idForHash(hash);
     if (id !== null && id === picker.value) return;
     openFromHash(hash);

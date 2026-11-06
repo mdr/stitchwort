@@ -85,6 +85,7 @@ export class Editor {
    *   onInput()                   the text changed (by typing, a format, a code action; not by `value =`)
    *   onFile(path)                a jump to a file of the project: the page opens it (and calls `open`)
    *   onStd(path | null)          a library file is shown, or the user's text is back
+   *   onGoal(answer, any)         the goal at the caret (`stitchwort/goalAt`'s answer, or null) and whether the document has any open goal
    *   onNotice(text)              something to tell the person (a search is running, a request failed)
    *   run()                       Ctrl+Enter
    *   format()                    Shift+Alt+F: when given, instead of the server's formatting
@@ -105,6 +106,7 @@ export class Editor {
     this.stdTexts = new Map();
     this.stdWaiting = new Map();
     this.silent = 0;
+    this.goalAsked = 0;
     this.stats = { ready: null, crashed: null, restarts: 0, published: [], publishedTotal: 0, isolated: false, firstDiagnostics: null, ticks: 0, idle: false };
     this.projects = [];
     /** The diagnostics the server last published for each document, by uri. */
@@ -158,6 +160,7 @@ export class Editor {
           stats.firstDiagnostics ??= now;
           this.published.set(m.params.uri, m.params.diagnostics);
           this.scheduleMarks(m.params.uri);
+          this.scheduleGoal(m.params.uri);
         } else if (m.method === "stitchwort/checked") {
           for (const [uri, version] of Object.entries(m.params.versions)) this.checkedVersions.set(uri, version);
         }
@@ -289,6 +292,7 @@ export class Editor {
     const { options } = this;
     const input = EditorView.updateListener.of((u) => {
       if (u.docChanged && !this.silent && !readOnly) options.onInput?.();
+      if ((u.selectionSet || u.docChanged) && !readOnly && u.view === this.user) this.scheduleGoal(uri);
       // A jump within the file leaves a way back.
       if (u.transactions.some((tr) => tr.isUserEvent("select.definition"))) {
         if (this.skipBack) this.skipBack = false;
@@ -358,6 +362,9 @@ export class Editor {
     for (const v of [...this.views.values(), ...this.stdViews.values()]) v.dom.style.display = v === view ? "" : "none";
     if (height) view.dom.style.height = height;
     this.shown = view;
+    const uri = [...this.views].find(([, v]) => v === view)?.[0];
+    if (uri) this.scheduleGoal(uri);
+    else this.options.onGoal?.(null, false);
     view.requestMeasure();
     if (focused) view.focus();
   }
@@ -497,6 +504,7 @@ export class Editor {
     }
     this.user = view;
     this.show(view);
+    this.scheduleGoal(uri);
     if (restore && !fresh) {
       view.requestMeasure({ read: () => null, write: () => { view.scrollDOM.scrollTop = restore.top; view.scrollDOM.scrollLeft = restore.left; } });
     }
@@ -605,6 +613,34 @@ export class Editor {
     this.view.dispatch({ selection: { anchor: Math.min(there.anchor, length), head: Math.min(there.head, length) } });
     this.view.scrollDOM.scrollTop = there.top;
     this.view.scrollDOM.scrollLeft = there.left;
+  }
+
+  // ---- The goal at the caret -------------------------------------------------
+
+  /** Asks for the goal at the caret of `uri` soon, after the caret or the text stops moving. */
+  scheduleGoal(uri) {
+    if (!this.options.onGoal || this.user !== this.views.get(uri)) return;
+    clearTimeout(this.goalTimer);
+    this.goalTimer = setTimeout(() => this.refreshGoal(uri), 150);
+  }
+
+  /**
+   * The same request as VS Code's Goals panel: the server answers from the
+   * goals it last published, so there is no second check.
+   */
+  async refreshGoal(uri) {
+    const view = this.views.get(uri);
+    const plugin = view && LSPPlugin.get(view);
+    if (!plugin || view !== this.user) return;
+    if (this.shown !== view) return this.options.onGoal(null, false);
+    const any = (this.published.get(uri) ?? []).some((d) => d.code === "GOAL");
+    const asked = ++this.goalAsked;
+    let answer = null;
+    if (any) {
+      const position = plugin.toPosition(view.state.selection.main.head);
+      answer = await plugin.client.request("stitchwort/goalAt", { textDocument: { uri }, position }).catch(() => null);
+    }
+    if (asked === this.goalAsked) this.options.onGoal(answer, any);
   }
 
   // ---- Semantic colours and inlay hints -----------------------------------------
