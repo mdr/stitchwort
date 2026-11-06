@@ -1,5 +1,5 @@
 {
-  "next": 1609,
+  "next": 1610,
   "tickets": [
     {
       "id": 47,
@@ -10778,13 +10778,13 @@
     {
       "id": 1600,
       "title": "Regression: AoC 2024 day 24 Proofs/Complete.sw:72 no longer checks: in List.memFilterIntro waiting _ member isReady the _ is solved as x => True instead of gate => gate.ready values (daily tier 6 Nov; 6 tests); bisect the overnight elaborator/unifier merges",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1600",
       "labels": [
         "regression"
       ],
-      "body": "Daily tier 6 Nov 2026 morning (log: scratchpad/daily/daily.log). Fails: aoc_answers every_day_from_the_whole_projects_cache, lsp a_newer_edit_cancels…, aoc_navigation_matches_check_index, workspace_symbols_cover…, operators primitive_and_uniform_lowering_agree…, web every_aoc_day_checks…. Day 24 and memFilterIntro untouched overnight. Suspects: 288b7b633 (SW-1521 memo), f32be797e (SW-1533), 242952d19/47d4dc611 (SW-1564), 4ffb9f03f (SW-1550), 2ac0dbb1a (SW-1541).\n\nD2452 (Matt, 6 Nov 2026): yes, a fourth lane beside the three analysis lanes; 'fix the 11 tests and then rerun them', not the whole daily tier. Started on Opus, expected: 60 min.",
+      "body": "Daily tier 6 Nov 2026 morning (log: scratchpad/daily/daily.log). Fails: aoc_answers every_day_from_the_whole_projects_cache, lsp a_newer_edit_cancels…, aoc_navigation_matches_check_index, workspace_symbols_cover…, operators primitive_and_uniform_lowering_agree…, web every_aoc_day_checks…. Day 24 and memFilterIntro untouched overnight. Suspects: 288b7b633 (SW-1521 memo), f32be797e (SW-1533), 242952d19/47d4dc611 (SW-1564), 4ffb9f03f (SW-1550), 2ac0dbb1a (SW-1541).\n\nD2452 (Matt, 6 Nov 2026): yes, a fourth lane beside the three analysis lanes; 'fix the 11 tests and then rerun them', not the whole daily tier. Started on Opus, expected: 60 min.\n\nDone (7a22813c6), merged. Culprit c1a6e0dac (SW-1538), found by bisect: along_match_equation matched True = True against ?p other = True and solved ?p := x => True, before the call could wait for the expected type. Fix: a transport that solves any unknown gives up; each try in a transaction, so failed tries are undone (also fixes SW-1604's second bug). Kernel terms unchanged for existing programs (hash_stability). New example match-equation-leaves-unknown-predicate. Lane tests: the six failing tests pass, Day 24 namespaces, examples, elab lane (156). Model result: Opus, worked, 42 min (est. 60).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10840,7 +10840,7 @@
       "labels": [
         "elab"
       ],
-      "body": "From SW-1599's review, 6 Nov 2026. Not unsound (kernel re-checks), wrong messages. Repros in dev/repros/sw-1599: meta-motive*.sw (+ -unnamed copies), leak.sw. Fix: re-quote/substitute solved unknowns before the check (None if any remain); undo on Ok(None). Add the repros as reject examples. Serialise after SW-1600 (also in check.rs).",
+      "body": "From SW-1599's review, 6 Nov 2026. Not unsound (kernel re-checks), wrong messages. Repros in dev/repros/sw-1599: meta-motive*.sw (+ -unnamed copies), leak.sw. Fix: re-quote/substitute solved unknowns before the check (None if any remain); undo on Ok(None). Add the repros as reject examples. Serialise after SW-1600 (also in check.rs).\n\nSecond bug (failed tries keep solutions) fixed by SW-1600 (transaction per try, and a transport that solves anything gives up). First bug (motive check skipped when the body has an unknown) still open; recheck its repros on main.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10897,6 +10897,20 @@
         "std"
       ],
       "body": "From SW-1594, 6 Nov 2026. Small.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1609,
+      "title": "Unifier: ?p Γ other with other already in Γ fails instead of solving (a non-pattern spine); old behaviour, calls rely on waiting (SW-1600)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "unifier"
+      ],
+      "body": "From SW-1600, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
