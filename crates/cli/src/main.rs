@@ -1378,10 +1378,17 @@ struct TestOutput<'a> {
 }
 
 impl TestOutput<'_> {
-    /// Prints the results, as text or as JSON.
-    fn print(&self, session: &Session, results: &[TestResult], grouped: bool) -> ExitCode {
+    /// Prints the results, as text or as JSON. `asked_for_some`: the run
+    /// named what to test (`--only`, a namespace), so no results is a failure.
+    fn print(
+        &self,
+        session: &Session,
+        results: &[TestResult],
+        grouped: bool,
+        asked_for_some: bool,
+    ) -> ExitCode {
         if self.json {
-            print_tests_json(session, results)
+            print_tests_json(session, results, asked_for_some)
         } else {
             print_tests(results, grouped)
         }
@@ -1422,7 +1429,7 @@ fn test(
             }
             let cache = test_cache(cache, Path::new("."));
             let results = run_tests(&session, &cache);
-            let code = output.print(&session, &results, false);
+            let code = output.print(&session, &results, false, output.only.is_some());
             let code = if verified(&cache) {
                 code
             } else {
@@ -1462,7 +1469,12 @@ fn test(
             }
             let cache = test_cache(cache, &project.dir);
             let results = run_tests(&session, &cache);
-            let code = output.print(&session, &results, true);
+            let code = output.print(
+                &session,
+                &results,
+                true,
+                output.only.is_some() || target_name.is_some(),
+            );
             let code = if verified(&cache) {
                 code
             } else {
@@ -1496,7 +1508,7 @@ fn test(
 /// Prints the results as `test --json` describes: one JSON object, with
 /// where each test is declared and, for a failure, the message an editor
 /// shows and the sides it compares.
-fn print_tests_json(session: &Session, results: &[TestResult]) -> ExitCode {
+fn print_tests_json(session: &Session, results: &[TestResult], asked_for_some: bool) -> ExitCode {
     let tests: Vec<serde_json::Value> = results
         .iter()
         .map(|r| {
@@ -1541,7 +1553,8 @@ fn print_tests_json(session: &Session, results: &[TestResult]) -> ExitCode {
             test
         })
         .collect();
-    let ok = results.iter().all(|r| r.outcome == Outcome::Passed);
+    let ok = results.iter().all(|r| r.outcome == Outcome::Passed)
+        && !(asked_for_some && results.is_empty());
     println!("{}", serde_json::json!({"ok": ok, "tests": tests}));
     exit(ok)
 }
