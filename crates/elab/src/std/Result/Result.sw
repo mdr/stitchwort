@@ -84,6 +84,17 @@ theorem Result.traverseAll2 (f: a → Result b e) (r: a → b → Prop) (each: (
           | Err m => Void.exfalso (Result.errNotOk later)
           | Ok zs => rewrite <- Result.okInjective later in Both (each x y first) (Result.traverseAll2 f r each rest zs e))
 
+--| The converse of [`Result.traverseAll2`]: if `f` gives `Ok y` for every
+--| pair that `r` relates, then `traverse` over lists `r` relates pairwise
+--| gives `Ok` of the second list.
+theorem Result.traverseOfAll2 (f: a → Result b e) (r: a → b → Prop) (each: (x: a) → (y: b) → r x y → f x = Ok y):
+    (xs: List a) → (ys: List b) → List.All2 r xs ys → Result.traverse xs f = Ok ys
+  | [], [], all => rfl
+  | [x, ..rest], [y, ..more], all =>
+    rewrite Result.traverseCons f x rest, each x y (And.left all), Result.traverseOfAll2 f r each rest more (And.right all) in rfl
+  | [], [y, ..more], all => Void.exfalso all
+  | [x, ..rest], [], all => Void.exfalso all
+
 --| The value in an `Option`, or `Err err`: `t.toNat.toResult "not a number"`.
 def Option.toResult: (option: Option a) → (err: e) → Result a e
   | None, err => Err err

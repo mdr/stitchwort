@@ -831,3 +831,18 @@ theorem Parse.runsWhole (chars: List Char) (p: () → {Parse} a) (v: a) (runs: P
 --| `pick` takes the first word that comes next: "*" after "+" fails to start "*x".
 theorem Parse.runsPickExample: Parse.Runs (() => Parse.pick [("+", 1), ("*", 2)]) ['*'] ['x'] 2 :=
   Parse.runsPick [("+", 1)] "*" 2 [] ['x'] (Both rfl rfl)
+
+--| Each line of `input` runs `p` to its value (`Runs` the line's characters
+--| with nothing left over): `Parse.eachLine input p` gives those values. The
+--| converse of [`Parse.eachLineReads`].
+theorem Parse.runsEachLine (input: Text) (p: () → {Parse} a) (values: List a)
+    (runs: List.All2 (line v => Parse.Runs p line [] v) (input.lines.map Text.toList) values):
+    Fail.toResult (() => Parse.eachLine input p) = Ok values :=
+  rewrite Fail.toResultMap _ input.lines.withIndex in
+  Result.traverseOfAll2 _ (entry v => Parse.Runs p entry.snd.toList [] v)
+    (entry v run =>
+      match entry with
+        | (index, line) => rewrite Parse.runsWhole line.toList p v run in rfl)
+    input.lines.withIndex values
+    (List.all2OfWithIndex (line v => Parse.Runs p line.toList [] v) 0 input.lines values
+      (List.all2OfMapLeft Text.toList (line v => Parse.Runs p line [] v) input.lines values runs))

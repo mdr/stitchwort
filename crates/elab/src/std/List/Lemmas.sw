@@ -2741,6 +2741,14 @@ theorem List.all2MapLeft (f: a → c) (r: c → b → Prop): (xs: List a) → (y
   | [], [y, ..ys], all => Void.exfalso all
   | [x, ..xs], [], all => Void.exfalso all
 
+--| The converse of [`List.all2MapLeft`]: a relation between the mapped list
+--| and the values holds of each element's image.
+theorem List.all2OfMapLeft (f: a → c) (r: c → b → Prop): (xs: List a) → (ys: List b) → List.All2 r (xs.map f) ys → List.All2 (x y => r (f x) y) xs ys
+  | [], [], all => Trivial
+  | [x, ..xs], [y, ..ys], all => Both (And.left all) (List.all2OfMapLeft f r xs ys (And.right all))
+  | [], [y, ..ys], all => Void.exfalso all
+  | [x, ..xs], [], all => Void.exfalso all
+
 theorem List.all2Length (r: a → b → Prop): (xs: List a) → (ys: List b) → List.All2 r xs ys → xs.length = ys.length
   | [], [], all => rfl
   | [x, ..xs], [y, ..ys], all => Eq.cong Succ (List.all2Length r xs ys (And.right all))
@@ -2752,6 +2760,15 @@ theorem List.all2WithIndex (r: a → b → Prop): (start: Nat) → (xs: List a) 
     List.All2 (entry y => r entry.snd y) (List.withIndexFrom start xs) ys → List.All2 r xs ys
   | start, [], [], all => Trivial
   | start, [x, ..xs], [y, ..ys], all => Both (And.left all) (List.all2WithIndex r (Succ start) xs ys (And.right all))
+  | start, [], [y, ..ys], all => Void.exfalso all
+  | start, [x, ..xs], [], all => Void.exfalso all
+
+--| The converse of [`List.all2WithIndex`]: a relation of the elements holds
+--| of the numbered list too, ignoring the numbers.
+theorem List.all2OfWithIndex (r: a → b → Prop): (start: Nat) → (xs: List a) → (ys: List b) →
+    List.All2 r xs ys → List.All2 (entry y => r entry.snd y) (List.withIndexFrom start xs) ys
+  | start, [], [], all => Trivial
+  | start, [x, ..xs], [y, ..ys], all => Both (And.left all) (List.all2OfWithIndex r (Succ start) xs ys (And.right all))
   | start, [], [y, ..ys], all => Void.exfalso all
   | start, [x, ..xs], [], all => Void.exfalso all
 
