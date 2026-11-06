@@ -14,11 +14,10 @@
         "Comparative study of how other provers bound unfolding (SW-1718)",
         "Opus review of the bounded-readback note: proceed with changes (SW-1717)",
         "Direction set: compute to decide, search what you see; limits fail, no cap (D2541-D2545, SW-1726)",
-        "Bounded readback note revision 3 (SW-1728)"
+        "Bounded readback note revision 3 (SW-1728)",
+        "Stage 0a: trip-journal fails through Float arithmetic on symbolic record fields; 33 failing sites mapped (SW-1740)"
       ],
-      "now": [
-        "Stage 0a: trip-journal on the record eta branch (SW-1740)"
-      ],
+      "now": [],
       "next": [
         "Finish the design note that bounds unfolded readback by making the searches look at goals as written everywhere, revisiting D484 (SW-1712, D2514); it also unblocks record eta",
         "Stage 5: rewrite f means one unfolding step of f (SW-1631; SW-796 is the same ticket)",

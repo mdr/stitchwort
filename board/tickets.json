@@ -1,5 +1,5 @@
 {
-  "next": 1743,
+  "next": 1744,
   "tickets": [
     {
       "id": 47,
@@ -13625,14 +13625,14 @@
     {
       "id": 1740,
       "title": "[Sonnet] Bounded readback stage 0a: trip-journal's failing read-back sites on lane/SW-1642, and the D2544 experiment (record eta rule 2 off in search read-backs); measurement only",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1740",
       "labels": [
         "design"
       ],
       "epic": "goal-as-written",
-      "body": "D2545 order (Matt, 6 Nov 2026). See docs/proposals/bounded-readback.md stage 0a. Started on Sonnet, expected: 60 min.",
+      "body": "D2545 order (Matt, 6 Nov 2026). See docs/proposals/bounded-readback.md stage 0a. Started on Sonnet, expected: 60 min.\n\nReport on main: docs/reviews/SW-1740-stage-0a.md (from ea5b9e003; the branch's EXPERIMENT commits stay on lane/SW-1740, never merge). On the branch, one error at WellFormed (Trip/Model.sw:163) from accessors: pinFits unfolds Float addition/comparison on symbolic leg.start/duration into bit-level formulas, 10M nodes. With stage-1 stand-ins, 33 resource errors remain in Trip.Proofs (rewrite_once 21, ignorable_arguments 13, zonk_changed 9, generalised_now 8, error notes 10, decide 1). D2544 experiment: Trip.Model passes, Proofs 33 → 12 resource errors but 21 E-REWRITE-NOTHING; breaks Float.sw's proofs if global; not adopted. SW-1667 resumes after 6b at the earliest. Suggests holding Float operations on stuck arguments folded. Model result: Sonnet, worked, 57 min (est. 60).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -13663,6 +13663,21 @@
       ],
       "epic": "dev-loop-speed",
       "body": "From SW-1729, 6 Nov 2026: no reliable 5% gain at load 25-35.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1743,
+      "title": "ignorable_arguments (check.rs) swallows its size error with .ok()? yet each swallowed failure still costs a 10M-node read-back (SW-1740)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "goal-as-written",
+      "body": "From SW-1740, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
