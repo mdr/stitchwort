@@ -7,9 +7,6 @@ import Aoc.Year2020.Day17 (..)
 import Aoc.Year2020.Day17 (Spec)
 import Std (Bool, Eq, List, Map, Nat, Option, Set)
 
-theorem setCount (set: Set Cube) (p: Cube → Bool): set.count p = set.toList.count p :=
-  Set.foldLeftToList set 0 (n key => Nat.succIf n (p key))
-
 theorem countsActive (active: Set Cube) (cube: Cube):
     (Map.counts (active.toList.flatMap (.neighbours))).getOr cube 0 = Spec.activeNeighbours active cube :=
   calc (Map.counts (active.toList.flatMap (.neighbours))).getOr cube 0
@@ -17,18 +14,7 @@ theorem countsActive (active: Set Cube) (cube: Cube):
     _ = active.toList.sumBy (other => other.neighbours.count (== cube)) := List.countFlatMap (.neighbours) (== cube) active.toList
     _ = active.toList.sumBy (other => Bool.toNat (Spec.neighbours other cube)) := List.sumByCong active.toList _ _ (other => countNeighbours other cube)
     _ = active.toList.count (other => Spec.neighbours other cube) := Eq.sym (List.countSumBy active.toList _)
-    _ = Spec.activeNeighbours active cube := Eq.sym (setCount active _)
-
---| A key is in a filtered map exactly when it was in the map, with a
---| value the filter keeps.
-theorem containsFilter [auto ord: Ord k] (m: Map k v) (p: k → v → Bool) (key: k):
-    (m.filter p).contains key = (m.get key).any (p key) :=
-  rewrite Map.getFilter m key p in
-    match m.get key with
-      | Some value => match p key value with
-        | True => rfl
-        | False => rfl
-      | None => rfl
+    _ = Spec.activeNeighbours active cube := Eq.sym (Set.countToList active _)
 
 theorem activeNextRule (active: Bool) (count: Nat) (near: Nat) (same: count = near):
     (count == 3 || (count == 2 && active)) = (if active then near == 2 || near == 3 else near == 3) :=
@@ -48,7 +34,7 @@ theorem cycleActive (pocket: Pocket) (cube: Cube): pocket.cycle.active.contains 
   let near := countsActive pocket.active cube
   calc pocket.cycle.active.contains cube
     _ = (counts.filter pocket.activeNext).contains cube := Map.containsKeySet (counts.filter pocket.activeNext) cube
-    _ = (counts.get cube).any (pocket.activeNext cube) := containsFilter counts pocket.activeNext cube
+    _ = (counts.get cube).any (pocket.activeNext cube) := Map.containsFilter counts cube pocket.activeNext
     _ = Spec.activeAfter pocket.active cube :=
       match found: counts.get cube with
         | Some count => activeNextRule (pocket.active.contains cube) count (Spec.activeNeighbours pocket.active cube) near

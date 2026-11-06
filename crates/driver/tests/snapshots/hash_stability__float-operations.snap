@@ -25,13 +25,13 @@ Main.test "round NaN" 39ddec3f4776d375da05ecd0b81e5435e36b064b5c9cfe956d867f9aef
 Main.test "ofInt" 5454c0c6f7529ab83de21bcff918e73f1b5d3fe6c535e39a1b26573126dcf7e7
 Main.test "ofNat ties to even" a33f3ac19604a8b0a9f83f6d7a5b74679eac2c1d930523860a3e9380fe709003
 Main.test "ofNat beyond the largest" cb9236c75c804a6c706f3526bb5280c31b4fc3bff51a69563ec90c31e3ff3b7f
-Main.test "toInt of minus zero" 347d9757079eb4161bf7f56462a092feb4eae3f02db4c91e91ae0697a3ec2388
-Main.test "toInt of a whole number" 56e1b5ff53a2438720b587a64cdaeb3d35a98478e9b8f0642e3a69b17ef605a0
-Main.test "toInt of a fraction" 4d089a51a984aab99c13958d349ad5c57051e7577ba83c608677c6ad683ee8f3
-Main.test "toInt of infinity" 1830b4ce1e98b6055576544526217a02c8acd1b3c0045f489ecac04c94b781e0
-Main.test "toInt of 1e100, which isn't 10^100" 437013496f01b24868105d692f72d79c1b2a0d00bddd8faad78251463635b8d3
+Main.test "toInt of minus zero" e74bdcbf291fd0158ea8c7a5f5df77ea3c618dbf52c2af562c6cdcb27df3621f
+Main.test "toInt of a whole number" 8759e2a16f5b5994aa72e0bed0007b6c2f0578da574562ef54f5a439574179dc
+Main.test "toInt of a fraction" 7a02e86695b036953bb1d8983c169b1ec9a8be7cac1dd0aa2da689429ceff769
+Main.test "toInt of infinity" 739bba9bd11c3720ed37b1d5d4beda168670e0e6ce76f3931f1d037c7fbb621d
+Main.test "toInt of 1e100, which isn't 10^100" 9d02125eff664d12ccfe64256b210250fbf13187113d4fb495df7f069d72c8ae
 Main.test "toInt of the largest" 58a8e2482225f91443e621fd1b57c42e5e69c3027781a88d7c74333467f59ce4
-Main.test "toSafeInt" 8f2876ab4622eb4103b2db9d98ff17ab1a41e16b1f393452742830ca821d866c
+Main.test "toSafeInt" 84932bf8fb5363522e5943f5098613dbcf0e08ed0108232017c5f656ea586bb5
 Main.test "toSafeNat of a negative" adfb04df27e1a799489a8c06b4e6af3ac81689f23b877d405cc8d01273911b92
 Main.test "SafeNat.toFloat" d1a4f111a0d907934e7f621bb4449d78520f13daf374ff7da747148537337b00
 Main.test "isFinite" 2916ec0f84b53f3b5fb9f1f998076a089ca811bfad110babd131f85d41d4b7c7

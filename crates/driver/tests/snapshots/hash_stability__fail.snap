@@ -39,8 +39,8 @@ Main.test "too few fields" 9c81301530f5407474d1daa9bf51b380a3c11da821029a019ada1
 Main.test "empty direction" 366726976e52877a37b03eb75ce9824f483f710561df1a8f39f806a843e6895e
 Main.test "all lines" 587c3d55b37ab385fae13e9e3d59922c147990ff8891b1eaa845691484f6b96e
 Main.test "one bad line" 9b350df2108e0938e593e21b5c534e98d3b50d4ea246396d51d476a2fbdbf3e0
-Main.test "default" 8c9a895e56018e4e227145278d5ed6641b15dbba4e989b09481e51bd476bfddd
-Main.test "a number or minus one" 65d24aa9e3dd1b3c2ffe867b2369af7e90147ec977cc02ac663c44653b09419a
+Main.test "default" bd99b549aa8fae9292a5cc49e3f310400c92e93a7d389bbf36469c6886a4ce6c
+Main.test "a number or minus one" 8169dd001c8543432277b9361e3b428b1b0afcab5bd1c084f9e29007b14adc3d
 Main.test "with IO" 135d4bf1eeee6c51d303024d0afcafddc92e011ae9274def7851e1fc4eb728c6
 Main.test "with IO, then a bad line" 1c2a14ce7e62d6ac5525f32698ece938c42fe1f190482522a2e51e115e5a0590
 Main.test "Abort to Fail" 7497bfc38a21f728be369e2b6559a29346842006178371d4dcec99801025d816

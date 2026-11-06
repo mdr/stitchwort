@@ -6,19 +6,10 @@ import Aoc.Year2020.Day17 (..)
 import Aoc.Year2020.Day17 (Spec)
 import Std (Bool, DecEq, Eq, Int, List, Nat, Void)
 
---| Two lists with a first element are equal when their first elements are
---| and the rests are.
-theorem equalCons [auto eq: DecEq a] (x: a) (xs: List a) (y: a) (ys: List a): ([x, ..xs] == [y, ..ys]) = (x == y ∧ xs == ys) :=
-  Bool.eqOf _ _
-    (same =>
-      let lists := DecEq.sound same
-      rewrite List.consInjectiveHead x y xs ys lists, (Eq.cong (.drop 1) lists: xs = ys) in Bool.andIntro (DecEq.refl y) (DecEq.refl ys))
-    (both => rewrite DecEq.sound (Bool.andLeft both), DecEq.sound (Bool.andRight both) in DecEq.refl [y, ..ys])
-
 theorem countPrefixed (here: Int) (others: List (List Int)) (y: Int) (ys: List Int):
     (others.map (more => [here, ..more])).count (== [y, ..ys]) = (if here == y then others.count (== ys) else 0) :=
   rewrite List.countMap others (== [y, ..ys]) (more => [here, ..more]) in
-    rewrite List.countCongMem others (more => [here, ..more] == [y, ..ys]) (more => here == y ∧ more == ys) (more _ => equalCons here more y ys) in
+    rewrite List.countCongMem others (more => [here, ..more] == [y, ..ys]) (more => here == y ∧ more == ys) (more _ => List.beqCons here more y ys) in
       match here == y with
         | True => rfl
         | False => List.countFalse others
@@ -74,15 +65,10 @@ theorem equalCubes (here: List Int) (there: List Int): (({ coordinates = here }:
     (same => rewrite (Eq.cong (.coordinates) (DecEq.sound same): here = there) in DecEq.refl there)
     (same => rewrite DecEq.sound same in DecEq.refl ({ coordinates = there }: Cube))
 
-theorem differentSelf [auto eq: DecEq a] (x: a): ((x != x): Bool) = False :=
-  match e: ((x != x): Bool) with
-    | True => Void.exfalso (DecEq.neTrue e rfl)
-    | False => rfl
-
 theorem differentCubes (here: List Int) (there: List Int): ((({ coordinates = here }: Cube) != { coordinates = there }): Bool) = ((here != there): Bool) :=
   match e: ((here != there): Bool) with
     | True => DecEq.trueOfNe (same => DecEq.neTrue e (Eq.cong (.coordinates) same))
-    | False => rewrite DecEq.neFalse here there e in differentSelf ({ coordinates = there }: Cube)
+    | False => rewrite DecEq.neFalse here there e in DecEq.neSelf ({ coordinates = there }: Cube)
 
 theorem countNeighbours: (cube: Cube) → (other: Cube) → cube.neighbours.count (== other) = Bool.toNat (Spec.neighbours cube other)
   | { coordinates = here }, { coordinates = there } =>

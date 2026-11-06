@@ -44,7 +44,7 @@ Main.test "splitOn empty text" 1eb168f807acc1613001ceb8b1551085a8e63693bb8727a3d
 Main.test "splitOn empty separator" 8fee85be8162845ba24d7809c8cfec902bff176d6a4ca90422f9136b64e57cbf
 Main.test "splitOn overlap" 7ad55d2f8a6d444d58ea54becbfb5b3f85b06b6f1b99cae92a56be52d5bc88d7
 Main.test "splitOn partial prefix" 14d7fa9c1189ab560b90522776bda576f99371f59848dd13e97870a801f566a9
-Main.test "turn left" 2c051932776ea83a25a6b82265ddf7b3f3990707d5dadd7fc1139807662f3a88
-Main.test "turn right" 911d25c8ec85430ad0f56517f067b2c5a195f2b8a0aaf62e3779a6fdb7e46efa
-Main.test "turn bad" b58296dd2dfc7ad5fe8511cbd1fcb8cd851e3a9751cbb0b131239e1a16aa66f3
+Main.test "turn left" 3414957876a1aa96f1b25935f778be62b9b4d47e29f2be8d0669e58e1932cfe2
+Main.test "turn right" a15c0576de9342e9ee0293e19811e68c381cbac2cedbac3c437766531cc77759
+Main.test "turn bad" 1f47b1a4917c036d7d5822ad0ed377d58daa46d1a34ffc70786341e5b014b351
 Main.test "lines then turn" 148b881226662773247574d84357f246ee9c64c652515e71b9329773b551eceb

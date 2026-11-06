@@ -47,4 +47,4 @@ Main.relabel 238eb5b03358c3889e5552a69a0b949cfcee70b4ec43e88465a799867d81583b
 Main.test "type-changing update" 2a214927675811011d89af312ec029662a5e74e6be0f18ebcaac33049b881bf2
 Main.test "type-changing update, inferred" d7a3668a3d7922655491fe7a387ad4bc193138f8782dda770a82e3788b7e18fd
 Main.test "one parameter changes" c0e1bda2c858aaa9af6c5906abd03118f3292bdc70c28fb05d648d8bc149bdca
-Main.test "an update that keeps the type" 06261bd915d888a779481638b681944e6ec6eaea71664f4e54b4d950d8d073c1
+Main.test "an update that keeps the type" 36f9fb4ab59ff8a1274a407e42c80c0ce5afd8517083144156b5ec087b77b06a

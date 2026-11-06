@@ -735,6 +735,17 @@ theorem Map.getFilter [auto ord: Ord k] (m: Map k v) (key: k) (p: k → v → Bo
       (Eq.trans (Map.Spec.lookupFilter p key None (Map.toList m) (Map.toListSorted m))
         (Eq.cong (.filter (p key)) (Eq.sym (Map.getToList m key)))))
 
+--| A key is in a filtered map exactly when it is in the map with a value `p`
+--| keeps.
+theorem Map.containsFilter [auto ord: Ord k] (m: Map k v) (key: k) (p: k → v → Bool):
+    Map.contains (Map.filter m p) key = Option.any (Map.get m key) (p key) :=
+  rewrite Map.getFilter m key p in
+    match Map.get m key with
+      | Some value => match p key value with
+        | True => rfl
+        | False => rfl
+      | None => rfl
+
 --| What a fold over sorted entries leaves at `key`, for a step that changes
 --| only the key it's given (`atKey`, `elsewhere`), such as inserting each
 --| entry in turn. A sorted list has at most one entry at `key`.
