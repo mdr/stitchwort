@@ -10540,13 +10540,13 @@
     {
       "id": 1583,
       "title": "Std: a Parse.Runs lemma for eachLine (converses of all2MapLeft, all2WithIndex, Result.traverseAll2, Fail.toResultMap); then day 18's Unique.sw can use the program's parser (~150-250 of 423 lines go) (SW-1563)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1583",
       "labels": [
         "std"
       ],
-      "body": "From SW-1563, 6 Nov 2026.",
+      "body": "From SW-1563, 6 Nov 2026.\n\nStarted overnight on Sonnet, expected: 55 min (hard stop 07:50).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
