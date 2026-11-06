@@ -9916,7 +9916,7 @@
       "labels": [
         "elab"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).\n\nStarted overnight on Opus (match refinement in the elaborator), expected: 75 min.\n\nLane done (cfe4a4e91, merge of main 613b529a5): a named match's equation transports proofs (J, forward/backward) where an arm would otherwise mismatch; unnamed: better E-TYPE-MISMATCH and E-REFL notes. Day 16 / Aoc.Common elimination workaround removed. Generates kernel terms: Opus review started (D2364). Orchestrator's calls (to list for Matt): keep the automatic transport (proofs only, only where it would fail); keep rfl meaning 'computes'.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).\n\nStarted overnight on Opus (match refinement in the elaborator), expected: 75 min.\n\nLane done (cfe4a4e91, merge of main 613b529a5): a named match's equation transports proofs (J, forward/backward) where an arm would otherwise mismatch; unnamed: better E-TYPE-MISMATCH and E-REFL notes. Day 16 / Aoc.Common elimination workaround removed. Generates kernel terms: Opus review started (D2364). Orchestrator's calls (to list for Matt): keep the automatic transport (proofs only, only where it would fail); keep rfl meaning 'computes'.\n\nReview fixes done (d0fcfe6cc): motive kernel-checked before the J; errors inside become None; E-REFL note only for scrutinee/branch-value sides, no unification; softer wording; two reject examples. Waits for the next batch.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10316,13 +10316,13 @@
     {
       "id": 1567,
       "title": "Std: Parse.chainLeft (Parsec chainl1) with a readsChainLeft lemma; maybe precedence levels on top (day 18, 47 lines)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1567",
       "labels": [
         "std"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1557 (2020 day 18).",
+      "body": "Filed overnight 6 Nov 2026 from SW-1557 (2020 day 18).\n\nStarted overnight on Sonnet, expected: 50 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
