@@ -2780,6 +2780,12 @@ binaries in a new worktree), break checks and these notes.
 elaboration and 41 ms in the kernel; the rest of the cold time is std's
 modules.
 
+**Completeness (SW-1624).** `Proofs/Complete.sw`, 33 lines, about 2 minutes: day 9's file with the
+names changed (`RatingWritten` is `NumberWritten`, `Bag` is `XmasData`), the same
+`parseNat`-per-line parser. Both days would be one lemma in
+`Aoc.Common` (`Parse.eachLine input Parse.nat` read back from its lines);
+not extracted, since it is two small files and a third such day would be the time.
+
 ### Ranked
 
 1. `omega` silently drops a fact whose `≤` is `Ord`'s `<=` (from
