@@ -14,5 +14,5 @@ expression: output
     │ 
     │ Note 1: what's expected was refined by the `match`: it has `None` where this has the scrutinee. The goal, the hypotheses and the `let`-bound lemmas from before the `match` are refined; the `match`'s own equation and terms written in the branch aren't
     │ 
-    │ Note 2: name the `match`'s equation, `match h: … with`: a proof whose type has the scrutinee where this branch has its value, or the other way round, is then rewritten along it. Or bind the lemma with `let` before the `match`, so it is refined like the hypotheses
+    │ Note 2: name the `match`'s equation, `match h: … with`: a proof whose type has the scrutinee where this branch has its value, or the other way round, is then rewritten along it where the rewritten type still checks (otherwise `rewrite h at …` says why not). Or bind the lemma with `let` before the `match`, so it is refined like the hypotheses
 ────╯

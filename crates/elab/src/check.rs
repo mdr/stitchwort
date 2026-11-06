@@ -1184,8 +1184,9 @@ impl<'e> Ctx<'e> {
             let name_it = (proof && equation.is_none()).then_some(
                 "name the `match`'s equation, `match h: … with`: a proof whose type has the \
                  scrutinee where this branch has its value, or the other way round, is then \
-                 rewritten along it. Or bind the lemma with `let` before the `match`, so it is \
-                 refined like the hypotheses",
+                 rewritten along it where the rewritten type still checks (otherwise `rewrite \
+                 h at …` says why not). Or bind the lemma with `let` before the `match`, so it \
+                 is refined like the hypotheses",
             );
             // What's expected is `found` refined by the `match`: a hypothesis
             // or `let`-bound lemma from before it, given the match's own
@@ -1287,24 +1288,37 @@ impl<'e> Ctx<'e> {
         found: &Value,
         expected: &Value,
     ) -> Result<Option<Term>> {
-        // Only on the way to a mismatch: one that can't be read back stays
-        // that mismatch.
+        // Only on the way to a mismatch: anything that fails here but for
+        // running out of resources leaves that mismatch to be reported.
         if self.scrutinees.iter().all(|s| s.4.is_none())
             || !crate::rewrite::is_proof_type(self, found).unwrap_or(false)
         {
             return Ok(None);
         }
+        let attempt = crate::undo::attempt(self, |cx| {
+            cx.along_match_equation_now(term, found, expected)
+        });
+        Ok(attempt?.flatten())
+    }
+
+    /// [`Ctx::along_match_equation`], its errors not yet turned into `None`.
+    fn along_match_equation_now(
+        &mut self,
+        term: &Term,
+        found: &Value,
+        expected: &Value,
+    ) -> Result<Option<Term>> {
         let g = self.g();
         let level = self.level();
-        let (Ok(found_term), Ok(expected_term)) =
-            (quote(&g, level, found), quote(&g, level, expected))
-        else {
-            return Ok(None);
-        };
+        let found_term = quote(&g, level, found)?;
+        let expected_term = quote(&g, level, expected)?;
         let scrutinees = self.scrutinees.clone();
         for (base, needle, _, _, equation) in scrutinees.iter().rev() {
             let Some(equation) = *equation else { continue };
             let Ok(needle) = needle.shift(&g, level - base, 0) else {
+                continue;
+            };
+            let Value::Eq(carrier, lhs_value, _) = force(&g, self.types[equation].clone())? else {
                 continue;
             };
             let Value::Eq(_, lhs, rhs) = force(&g, self.types[equation].clone())? else {
@@ -1322,7 +1336,7 @@ impl<'e> Ctx<'e> {
                 if !crate::matching::occurs(&needle, source) {
                     continue;
                 }
-                let built = crate::undo::transaction(self, |cx| {
+                let built = crate::undo::attempt(self, |cx| {
                     let with = |side: &Term| abstract_needle(&g, source, level, &needle, 0, side);
                     if !cx.unify(&cx.eval(&with(&lhs)?)?, scrutinee_side)?
                         || !cx.unify(&cx.eval(&with(&rhs)?)?, value_side)?
@@ -1349,6 +1363,21 @@ impl<'e> Ctx<'e> {
                             )
                         }
                     };
+                    // Replacing every occurrence can leave a type that no
+                    // longer checks (a proof about the scrutinee inside it):
+                    // then this isn't a rewrite, and the mismatch stands.
+                    if !body.subterms().any(|(t, _)| matches!(t, Term::Meta(_))) {
+                        let mut kcx = crate::rewrite::kernel_context(cx)?;
+                        let y = Value::var(kcx.level());
+                        kcx.bind("y".into(), (*carrier).clone());
+                        kcx.bind(
+                            "p".into(),
+                            Value::Eq(carrier.clone(), lhs_value.clone(), Rc::new(y)),
+                        );
+                        crate::kernel::without_glue(&g, || {
+                            crate::kernel::check_type(&mut kcx, &body)
+                        })?;
+                    }
                     let motive = Term::Lam(
                         "y".into(),
                         Icit::Explicit,
@@ -1360,7 +1389,8 @@ impl<'e> Ctx<'e> {
                         true => j,
                         false => Term::app(j, term.clone()),
                     }))
-                })?;
+                })?
+                .flatten();
                 if built.is_some() {
                     return Ok(built);
                 }
@@ -6801,40 +6831,38 @@ fn same_function(cx: &Ctx, a: &Value, b: &Value) -> Option<String> {
 fn match_equation_note(cx: &Ctx, a: &Value, b: &Value) -> Option<String> {
     let g = cx.g();
     let level = cx.level();
-    let (ta, tb) = (quote(&g, level, a).ok()?, quote(&g, level, b).ok()?);
-    cx.scrutinees.iter().rev().find_map(|(base, needle, _, var, equation)| {
-        let needle = needle.shift(&g, level - base, 0).ok()?;
-        let contains = |t: &Term| crate::matching::occurs(&needle, t);
-        if !contains(&ta) && !contains(&tb) {
-            return None;
-        }
-        match equation {
-            Some(eq) => {
-                let Value::Eq(_, lhs, rhs) = force(&g, cx.types[*eq].clone()).ok()? else {
-                    return None;
-                };
-                let same = |x: &Value, y: &Value| cx.unify(x, y).ok();
-                let name = &cx.names[*eq];
-                if same(&lhs, a)? && same(&rhs, b)? {
-                    Some(format!("the `match`'s equation `{name}` proves it: pass `{name}`"))
-                } else if same(&lhs, b)? && same(&rhs, a)? {
-                    Some(format!(
-                        "the `match`'s equation `{name}` proves it the other way round: pass \
-                         `Eq.sym {name}`"
-                    ))
-                } else {
-                    None
-                }
+    // Compared as normal forms, so that building the note solves nothing.
+    let read = |v: &Value| quote(&g, level, v).ok();
+    let (ta, tb) = (read(a)?, read(b)?);
+    let same = crate::matching::same;
+    cx.scrutinees
+        .iter()
+        .rev()
+        .find_map(|(base, needle, _, var, equation)| {
+            let needle = needle.shift(&g, level - base, 0).ok()?;
+            let value = read(cx.env.get(*var)?)?;
+            // The sides are the scrutinee and this branch's value of it.
+            let forward = same(&ta, &needle) && same(&tb, &value);
+            let backward = same(&tb, &needle) && same(&ta, &value);
+            if !forward && !backward {
+                return None;
             }
-            None => {
+            let Some(eq) = equation else {
                 let value = cx.refined_value(*var)?;
-                Some(format!(
-                    "this mentions the `match`'s scrutinee, which this branch knows is `{value}`; \
-                     name the `match`'s equation, `match h: … with`, and pass `h`, which says so"
-                ))
-            }
-        }
-    })
+                return Some(format!(
+                    "this branch of the `match` knows the scrutinee is `{value}`; name the \
+                 `match`'s equation, `match h: … with`, and pass `h`, which says so"
+                ));
+            };
+            let name = &cx.names[*eq];
+            Some(match forward {
+                true => format!("the `match`'s equation `{name}` proves it: pass `{name}`"),
+                false => format!(
+                    "the `match`'s equation `{name}` proves it the other way round: pass \
+                 `Eq.sym {name}`"
+                ),
+            })
+        })
 }
 
 /// The `E-REFL` error for sides `a` and `b` that aren't equal (kept out of

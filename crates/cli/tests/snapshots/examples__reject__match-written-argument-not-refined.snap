@@ -21,7 +21,7 @@ expression: output
     │     
     │     Note 1: this was refined by the `match`: it has `False` where what's expected has the scrutinee. The goal and the hypotheses are refined; what's expected comes from terms written in the branch (a lemma's premise, or an explicit argument), which aren't. Write `_` for such an argument, so it is inferred from this
     │     
-    │     Note 2: name the `match`'s equation, `match h: … with`: a proof whose type has the scrutinee where this branch has its value, or the other way round, is then rewritten along it. Or bind the lemma with `let` before the `match`, so it is refined like the hypotheses
+    │     Note 2: name the `match`'s equation, `match h: … with`: a proof whose type has the scrutinee where this branch has its value, or the other way round, is then rewritten along it where the rewritten type still checks (otherwise `rewrite h at …` says why not). Or bind the lemma with `let` before the `match`, so it is refined like the hypotheses
     │     
     │     Note 3: `(match …)` is a `match` written inside `reach`, marked "this `match`" above; the compiler turned it into a function that source can't name. The same `match` written again is another such function, equal to it only if neither calls the definition it's written in. To state a lemma about it, make it a local `def` in its arm and refer to it as `owner.name`, where `owner` is the definition it is written in (docs/syntax.md, "Proving things about a definition with an inner `match`")
 ────╯
