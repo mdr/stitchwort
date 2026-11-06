@@ -4196,7 +4196,18 @@ fn comp_compound(
         }
         Expr::Field(e, name) if receiver_passed(cx, e, name)? => expr.clone(),
         Expr::Field(e, name) => {
-            Expr::Field(Box::new(run_first(cx, e, row, &mut bound)?), name.clone())
+            let receiver = run_first(cx, e, row, &mut bound)?;
+            // With the receiver run, its type is known, so the call can turn
+            // out to perform operations itself (`(IO.args().headOr "1")
+            // .toNatOrFail` in `{IO, Fail}`); it was only seen to when the
+            // receiver could be typed without running it.
+            if !bound.is_empty() && dot_performs(cx, &receiver, name, 0)? {
+                let call = Expr::Field(Box::new(receiver), name.clone());
+                let (term, ty, _) = comp_app(cx, &call, row, expected)?;
+                let result = wrap(cx, row, bound, term, &ty)?;
+                return Ok((result, ty));
+            }
+            Expr::Field(Box::new(receiver), name.clone())
         }
         Expr::Binary(BinOp::Append, a, b) => {
             let a = run_first(cx, a, row, &mut bound)?;
