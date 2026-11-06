@@ -153,7 +153,12 @@ Use the cheapest model that can do the work well. Provisional (D2208, Matt,
   `(passes.map (.seatId)).sort |> gap`. Neither is absolute; brackets are
   fine where they read better (Matt, 4 Nov 2026). Convert with the dot
   form, `image.roughAt.toSet` (and `.toMap`), not `Set.fromList
-  image.roughAt` (Matt, 6 Nov 2026).
+  image.roughAt` (Matt, 6 Nov 2026). Reach for the clause lambdas
+  (`docs/syntax.md`, "Clause lambdas") instead of a lambda that only
+  matches: filter on a pattern then map the matched part is
+  `pixels.withIndex.filterMap (match some | (column, Rough) => [row,
+  column])`, a test of a pattern is `matches | …`, and a lambda straight
+  into a `match` is `match | …` (Matt, 6 Nov 2026).
 - Before committing, run `stitchwort fmt` on the `.sw` files you touched,
   plus `cargo fmt` and clippy.
 
