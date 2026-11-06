@@ -10260,13 +10260,13 @@
     {
       "id": 1563,
       "title": "Parse completeness lemmas: per combinator, good input parses (beside the soundness ones), so uniqueness proofs can use the program's own parser (day 18)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1563",
       "labels": [
         "std"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1557 (2020 day 18).",
+      "body": "Filed overnight 6 Nov 2026 from SW-1557 (2020 day 18).\n\nStarted overnight on Sonnet, expected: 60 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
