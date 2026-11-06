@@ -8846,29 +8846,29 @@
     {
       "id": 1462,
       "title": "Inlay hints: a let whose variable is never used gets no type hint, because only used locals' types are published; record let binder types in the elaborator's navigation data",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1462",
       "labels": [
         "editor"
       ],
-      "body": "From SW-1117, 5 Nov 2026. Small improvement.\n\nStarted on Sonnet (SW-1462 with SW-1463), expected: 50 min.",
+      "body": "From SW-1117, 5 Nov 2026. Small improvement.\n\nStarted on Sonnet (SW-1462 with SW-1463), expected: 50 min.\n\nDone (63b93ad72), merged: nav.rs note_let_binder records a let binder's type (pure and effectful lets; lambda parameters too); ActiveCall.head_at lets printed_signature take the reference at the call's head, falling back to the name match. Tests in features.rs. Model result: Sonnet, worked, 12 min (est. 50).",
       "created": "2026-11-05",
-      "updated": "2026-11-05",
+      "updated": "2026-11-06",
       "commits": []
     },
     {
       "id": 1463,
       "title": "Signature help matches the called function by its last name segment among the file's references, so two functions with the same short name in one file can show the wrong signature; resolve the call's head by position instead",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1462",
       "labels": [
         "editor"
       ],
-      "body": "From SW-1117, 5 Nov 2026. Small improvement.\n\nStarted on Sonnet (SW-1462 with SW-1463), expected: 50 min.",
+      "body": "From SW-1117, 5 Nov 2026. Small improvement.\n\nStarted on Sonnet (SW-1462 with SW-1463), expected: 50 min.\n\nDone (63b93ad72), merged: nav.rs note_let_binder records a let binder's type (pure and effectful lets; lambda parameters too); ActiveCall.head_at lets printed_signature take the reference at the call's head, falling back to the name match. Tests in features.rs. Model result: Sonnet, worked, 12 min (est. 50).",
       "created": "2026-11-05",
-      "updated": "2026-11-05",
+      "updated": "2026-11-06",
       "commits": []
     },
     {
