@@ -1,10 +1,18 @@
 # Proposal: `rewrite` and `match` look at the goal as written first
 
-**Status:** decided (D2475–D2480, Matt, 6 Nov 2026: all as recommended), being built. Ticket
+**Status:** decided (D2475–D2480, Matt, 6 Nov 2026: all as recommended), stages 1–4 built;
+**Q4 (D2478) reversed by D2542** and D484's search clause retired by D2541 (Matt, 6 Nov 2026,
+after the strategy review [SW-1726](../reviews/SW-1726-unfolding-strategy.md)): searches now
+take Lean's rule, option B below, and the completeness check, today's instance, the agreement
+checks and stage 4's warnings are removed by
+[bounded-readback.md](bounded-readback.md)'s stages 6a and 6b (§8 there lists the proofs
+this breaks). Ticket
 SW-706 (D1422; D2453, Matt, 6 Nov 2026: "yes"), covering SW-1589 and SW-1562 too. Stage 1
 (`rewrite`) is built (SW-1627, `crates/elab/src/rewrite/as_written.rs`); stage 2 (`match` and
-`cases`) is built (SW-1628, `crates/elab/src/matching/as_written.rs`; as built, below the
-plan in [§6](#6-recommendation-and-staged-plan)); stages 3–5 are not. Draft 1 was the design
+`cases`) is built (SW-1628, `crates/elab/src/matching/as_written.rs`); stages 3 and 4 are
+built (SW-1629, SW-1630); each "as built" is below its plan in
+[§6](#6-recommendation-and-staged-plan). Stage 5 (`rewrite f`, D1433) is now stage R of
+bounded-readback.md. Draft 1 was the design
 note, which stopped for Matt's decisions ([§8](#8-decisions), Q1–Q6). Written against `main` at `cb58d7916`. Migration cost (hashes,
 snapshots, sweeps) is not counted; options are judged by where they end up.
 
@@ -13,9 +21,8 @@ Related notes: [folded-goals.md](folded-goals.md) (SW-742, 28 Oct: the same ques
 calls, D483, D484), [rewrite-hypothesis.md](rewrite-hypothesis.md) (`rewrite … at h`,
 D463–D465), [glued-closed-types.md](glued-closed-types.md) (SW-1534, parked),
 [docs/research/aoc-2020-friction-days-10-20.md](../research/aoc-2020-friction-days-10-20.md)
-§2 theme A (the evidence), [bounded-readback.md](bounded-readback.md) (SW-1712, D2514, revision 2: the
-completeness checks and fallbacks on a capped normal form, read lazily; stage 4's warnings
-removed only where the cap kept a call, D2534).
+§2 theme A (the evidence), [bounded-readback.md](bounded-readback.md) (SW-1712, D2514, revision 3: Lean's rule
+for searches under D2542, the fallback read lazily, no size cap, stage 4's warnings removed).
 
 Labels:
 
@@ -69,7 +76,8 @@ the real version must fall back on (§5). Lean's rule broke five.
 **What it does not do.** Days 10 and 14 were hurt by `rewrite` and `match` reaching *into*
 hidden copies; the completeness check keeps that behaviour (it is what `std` relies on).
 Changing it is Lean's rule (only what is visible), which breaks existing proofs; Q4
-recommends keeping today's reach, with occurrence selection as the later remedy if needed. Arithmetic that computes as it is
+recommends keeping today's reach, with occurrence selection as the later remedy if needed.
+*Later:* D2542 (6 Nov 2026) reversed Q4 and took Lean's rule; see the status line. Arithmetic that computes as it is
 elaborated (day 13's `+ 1`) is not helped by any of this.
 
 ## 1. The problem
@@ -187,6 +195,9 @@ the source shows.**
 - **D484** (folded-calls.md, Oct 2026): `rewrite` and the decision search see the unfolded
   goal, "so every existing proof keeps working and only the written-back terms and messages
   change". The reason was no regressions, not that the unfolded search is better.
+  *Later:* D2541 (6 Nov 2026) retired its search clause and kept its decision clause:
+  conversion, `rfl`, `decide`, `cases` and tests compute; searches act on what is visible
+  (bounded-readback.md §5).
 - **SW-742 / folded-goals.md** (28 Oct) proposed exactly the shape of this note for 2024's
   days: folded-first with a completeness check for `match`, `cases` and `rewrite` (its option
   B), a folded search to solve a rule's unknowns (C), `rewrite f` (D), and a read-back fix (A).
@@ -329,6 +340,8 @@ finds the visible `add a b` where today's first occurrence in the unfolded goal 
 differs.
 
 ### B. Lean's rule: as written where found, else today's search
+
+*Chosen later by D2542 (6 Nov 2026), with the fallback read lazily (bounded-readback.md §4).*
 
 Steps 1, 2 and 4 of A without the check: a visible occurrence is used even if hidden copies
 remain. *Fixes* (c) too. *Breaks* `Result.traverseCons` and `List.foldMaxMem` in std
@@ -602,9 +615,13 @@ The orchestrator assigns D numbers.
   incomplete, rather than Lean's rule of rewriting only what is visible (option B), which
   breaks two std proofs and five AoC declarations? Occurrence selection (`rewrite (at := 2)`)
   stays unbuilt until a proof needs it. [rec: keep today's; no new form now]
+  **Decided D2478 as recommended, then reversed by D2542** (Matt, 6 Nov 2026): Lean's rule,
+  option B. The seven proofs it breaks are rewritten (bounded-readback.md §8); occurrence
+  selection stays unbuilt.
 - **Q5.** When the completeness check itself runs out of resources, use the as-written result
   (with a note saying hidden copies weren't looked at) instead of failing with E-RESOURCE? It
-  changes only proofs that fail today. [rec: yes, as stage 4]
+  changes only proofs that fail today. [rec: yes, as stage 4] *Superseded by D2542:* with
+  no completeness check there is nothing to run out of, and the warnings go.
 - **Q6.** Build `rewrite f` as one step of `f` (D1433, still open) after stage 1? [rec: yes]
 
 ## 9. Sources
