@@ -5673,15 +5673,15 @@
     {
       "id": 1238,
       "title": "Design note: a total % and / on Nat (no proof that the divisor isn't 0, e.g. n % 0 = n as in Lean), with a review of comparable languages; and the alternatives (Grid carrying a non-zero width, proof irrelevance for if h: equations)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1238",
       "labels": [
         "design"
       ],
-      "body": "Matt, 4 Nov 2026: 'I think it might be interesting to consider a total modular operator. Add it to the backlog as something to consider. We would want to do a design review of simple languages in the space.' From AoC 2020 day 3 friction item 1 (aoc/NOTES-2020.md). Migration cost (hashes, sweeps) doesn't count; judge by end state. Survey: Lean 4, Idris 2, Agda, Rocq, F*, Dafny, Liquid Haskell, Koka, Gleam, Elm, Roc, Lean's x/0 = 0 convention and its effect on lemmas.",
+      "body": "Matt, 4 Nov 2026: 'I think it might be interesting to consider a total modular operator. Add it to the backlog as something to consider. We would want to do a design review of simple languages in the space.' From AoC 2020 day 3 friction item 1 (aoc/NOTES-2020.md). Migration cost (hashes, sweeps) doesn't count; judge by end state. Survey: Lean 4, Idris 2, Agda, Rocq, F*, Dafny, Liquid Haskell, Koka, Gleam, Elm, Roc, Lean's x/0 = 0 convention and its effect on lemmas.\n\nStarted 6 Nov 2026 on Opus as an analysis-only lane (D2451's third candidate), expected: 90 min.",
       "created": "2026-11-04",
-      "updated": "2026-11-05",
+      "updated": "2026-11-06",
       "commits": []
     },
     {
