@@ -1,5 +1,5 @@
 {
-  "next": 1712,
+  "next": 1714,
   "tickets": [
     {
       "id": 47,
@@ -12926,14 +12926,14 @@
     {
       "id": 1694,
       "title": "match on a decision (Nat.decLessThan) doesn't refine an if that became a plain Bool test on it; also generalise b when the scrutinee is Bool.decTrue b? Language design, would start as a proposal (SW-1688)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1694",
       "labels": [
         "proposal"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-1688, 6 Nov 2026. Workaround: match on the Bool.",
+      "body": "From SW-1688, 6 Nov 2026. Workaround: match on the Bool.\n\nD2518 (Matt, 6 Nov 2026): proposal started, read-and-write only, Opus, expected: 60 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -13186,6 +13186,35 @@
       ],
       "epic": "test-infra",
       "body": "Daily tier 6 Nov evening, the builtins debug run. Doctests: all 17 passed.\n\nDone, merged (1ed925458): registry is_data/is_def use loaded_data/loaded_def, so an unloaded built-in is never matched. Release already fell through correctly (debug_assert only). On main: builtins debug 9/9. Model result: Sonnet, worked, 5 min (est. 30).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1712,
+      "title": "Design note: bound unfolded readback by making the elaborator's searches look at goals as written (D2514); revisits D484; unblocks record eta (SW-1667)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1712",
+      "labels": [
+        "proposal"
+      ],
+      "epic": "goal-as-written",
+      "body": "D2514 (Matt, 6 Nov 2026). D2518: started read-and-write only, Opus, expected: 90 min.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1713,
+      "title": "Review the epics: read tickets by body, fix misfiled tags, flag stale tickets, draft better next steps (D2517 follow-up)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1713",
+      "labels": [
+        "board"
+      ],
+      "body": "D2518: read-and-write only, Sonnet, expected: 60 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
