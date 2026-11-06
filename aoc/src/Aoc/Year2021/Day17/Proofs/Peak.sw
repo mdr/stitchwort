@@ -33,8 +33,8 @@ theorem twicePeakAt: (dy: Int) → dy.toNat.toInt * (2 * dy + 1 - dy.toNat.toInt
   | OfNat k => ring [triangleDouble k]
   | NegSucc k => rfl
 
-theorem peakAbove (velocity: Velocity) (n: Nat): (flight n velocity).y ≤ (peak velocity).toInt :=
-  omega [yFlight velocity n, twiceBelowPeak velocity.dy n]
+theorem peakAbove (velocity: Velocity) (n: Nat): (flight n velocity).position.y ≤ (peak velocity).toInt :=
+  omega [yFlight velocity n, twiceBelowPeak velocity.y n]
 
-theorem peakReached (velocity: Velocity): (flight velocity.dy.toNat velocity).y = (peak velocity).toInt :=
-  omega [yFlight velocity (Int.toNat velocity.dy), twicePeakAt velocity.dy]
+theorem peakReached (velocity: Velocity): (flight velocity.y.toNat velocity).position.y = (peak velocity).toInt :=
+  omega [yFlight velocity (Int.toNat velocity.y), twicePeakAt velocity.y]
