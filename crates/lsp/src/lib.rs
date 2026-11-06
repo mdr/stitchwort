@@ -46,12 +46,13 @@ use stitchwort_driver::live::{
 };
 use stitchwort_driver::marks as pos_marks;
 use stitchwort_elab::cache::{Key, Store};
-use stitchwort_syntax::{Severity, SourceMap};
+use stitchwort_syntax::{MissingCases, Severity, SourceMap};
 
 use stitchwort_core::budget::Instant;
 #[cfg(target_family = "wasm")]
 use wasm::FileUrl as _;
 
+mod arms;
 mod imports;
 mod source;
 pub use source::{Disk, Memory, MemoryProject, ProjectFiles, Source};
@@ -686,8 +687,39 @@ impl Main {
         };
         let version = lock(&self.searches.versions).get(uri).copied();
         let mut actions = Vec::new();
+        let with_edit = |edit: lsp_types::TextEdit| {
+            let edits = [edit];
+            match version.filter(|_| self.document_changes) {
+                Some(version) => serde_json::json!({"documentChanges": [{
+                    "textDocument": {"uri": uri.as_str(), "version": version},
+                    "edits": edits,
+                }]}),
+                None => serde_json::json!({"changes": {uri.as_str(): edits}}),
+            }
+        };
         for d in diagnostics {
-            let Some(import) = d.data.as_ref().and_then(|data| data.get("import")) else {
+            let Some(data) = d.data.as_ref() else {
+                continue;
+            };
+            if let Some(arms) = data.get("missing").and_then(|m| m.get("arms")) {
+                let fills: Vec<String> = arms
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|a| a.as_str().map(str::to_string))
+                    .collect();
+                if let Some(edit) = arms::add_arms(text, d.range, &fills) {
+                    actions.push(serde_json::json!({
+                        "title": if fills.len() == 1 { "Add the missing arm" } else { "Add the missing arms" },
+                        "kind": "quickfix",
+                        "diagnostics": [d],
+                        "edit": with_edit(edit),
+                        "isPreferred": actions.is_empty(),
+                    }));
+                }
+                continue;
+            }
+            let Some(import) = data.get("import") else {
                 continue;
             };
             let (Some(path), Some(item)) = (
@@ -699,19 +731,11 @@ impl Main {
             let Some(edit) = imports::add_import(text, path, item) else {
                 continue;
             };
-            let edits = [edit];
-            let edit = match version.filter(|_| self.document_changes) {
-                Some(version) => serde_json::json!({"documentChanges": [{
-                    "textDocument": {"uri": uri.as_str(), "version": version},
-                    "edits": edits,
-                }]}),
-                None => serde_json::json!({"changes": {uri.as_str(): edits}}),
-            };
             actions.push(serde_json::json!({
                 "title": format!("Add `import {path} ({item})`"),
                 "kind": "quickfix",
                 "diagnostics": [d],
-                "edit": edit,
+                "edit": with_edit(edit),
                 "isPreferred": actions.is_empty(),
             }));
         }
@@ -2595,10 +2619,15 @@ fn diagnostic(
         message,
         related_information: (!related.is_empty()).then_some(related),
         tags: None,
-        data: d
-            .import
-            .as_ref()
-            .map(|i| serde_json::json!({ "import": { "path": i.path, "item": i.item } })),
+        data: match (&d.import, &d.missing) {
+            (Some(i), _) => {
+                Some(serde_json::json!({ "import": { "path": i.path, "item": i.item } }))
+            }
+            (None, Some(m)) if !m.fills.is_empty() => Some(serde_json::json!({
+                "missing": { "arms": &m.fills[..m.fills.len().min(MissingCases::CAP)], "more": m.more() }
+            })),
+            _ => None,
+        },
     }
 }
 

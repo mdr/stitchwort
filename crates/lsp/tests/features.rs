@@ -348,3 +348,73 @@ fn hover_works_in_a_library_file_whether_or_not_the_library_was_replayed() {
         assert!(replayed["contents"].is_object(), "replayed: {replayed}");
     });
 }
+
+/// `text` with the first quick fix for its non-exhaustive match applied.
+fn filled(text: &str) -> String {
+    let mut s = Session::open(text);
+    let d = s
+        .diagnostics
+        .iter()
+        .find(|d| d["code"] == "E-NONEXHAUSTIVE")
+        .unwrap_or_else(|| panic!("{:?}", s.diagnostics))
+        .clone();
+    let actions = s.request(
+        "textDocument/codeAction",
+        json!({"textDocument": {"uri": URI}, "range": d["range"],
+               "context": {"diagnostics": [d]}}),
+    );
+    let action = &actions[0];
+    assert!(
+        action["title"]
+            .as_str()
+            .unwrap()
+            .starts_with("Add the missing arm"),
+        "{action}"
+    );
+    let edit = &action["edit"]["documentChanges"][0]["edits"][0];
+    let (line, character) = (
+        edit["range"]["start"]["line"].as_u64().unwrap() as usize,
+        edit["range"]["start"]["character"].as_u64().unwrap() as usize,
+    );
+    let offset: usize = text
+        .split_inclusive('\n')
+        .take(line)
+        .map(str::len)
+        .sum::<usize>()
+        + character;
+    let mut out = text.to_string();
+    out.insert_str(offset, edit["newText"].as_str().unwrap());
+    out
+}
+
+#[test]
+fn a_non_exhaustive_match_gets_its_missing_arms_added() {
+    big_stack(|| {
+        // Equations on an Option.
+        assert_eq!(
+            filled("namespace Demo\n\ndef b: Option Nat -> Nat\n  | Some n => n\n"),
+            "namespace Demo\n\ndef b: Option Nat -> Nat\n  | Some n => n\n  | None => ?\n"
+        );
+        // A list: the rest gets a name, and the head avoids the names in use.
+        assert_eq!(
+            filled(
+                "namespace Demo\n\ndef f (x: Nat): List Nat -> Nat\n  | [] => x\n  | [y] => y\n"
+            ),
+            "namespace Demo\n\ndef f (x: Nat): List Nat -> Nat\n  | [] => x\n  | [y] => y\n  | [z, w, ..xs] => ?\n"
+        );
+        // A user type: the declared field names.
+        assert_eq!(
+            filled(
+                "namespace Demo\n\ntype Shape =\n  | Dot (ref: Nat)\n  | Circle (ref: Nat) (text: Text)\n\ndef a: Shape -> Nat\n  | Dot r => r\n\ndef z: Nat := 0\n"
+            ),
+            "namespace Demo\n\ntype Shape =\n  | Dot (ref: Nat)\n  | Circle (ref: Nat) (text: Text)\n\ndef a: Shape -> Nat\n  | Dot r => r\n  | Circle ref text => ?\n\ndef z: Nat := 0\n"
+        );
+        // A nested pattern in a tuple, and a `match` expression.
+        assert_eq!(
+            filled(
+                "namespace Demo\n\ndef n (xs: List Nat): Nat := 1 + match xs with\n  | [] => 0\n"
+            ),
+            "namespace Demo\n\ndef n (xs: List Nat): Nat := 1 + match xs with\n  | [] => 0\n  | [x, ..xs1] => ?\n"
+        );
+    });
+}

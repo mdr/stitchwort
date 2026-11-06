@@ -66,23 +66,22 @@ enum Shape {
 /// message listing them as arms, and the `missing` data for the index.
 pub(crate) fn diagnostic(span: Span, cases: Vec<(Vec<usize>, String)>) -> Diagnostic {
     let mut d = Diagnostic::error("E-NONEXHAUSTIVE", "").with_label(span, "");
-    d.detail_mut().missing = Some(MissingCases {
-        patterns: Vec::new(),
-        order: Vec::new(),
-    });
+    d.detail_mut().missing = Some(MissingCases::default());
     describe(&mut d, cases);
     d
 }
 
 /// Sets `d`'s message, label and `missing` to list `cases`: sorted in tree
-/// order, each once, and the first [`MissingCases::CAP`] shown.
+/// order, each once, and the first [`MissingCases::CAP`] shown. A case's
+/// text is its [`MissingCases::fills`] form, with the field names marked.
 fn describe(d: &mut Diagnostic, mut cases: Vec<(Vec<usize>, String)>) {
     cases.sort();
     let mut seen = HashSet::default();
     cases.retain(|(_, p)| seen.insert(p.clone()));
     let missing = MissingCases {
         order: cases.iter().map(|(o, _)| o.clone()).collect(),
-        patterns: cases.into_iter().map(|(_, p)| p).collect(),
+        patterns: cases.iter().map(|(_, p)| unmarked(p)).collect(),
+        fills: cases.into_iter().map(|(_, p)| p).collect(),
     };
     let headline = match missing.patterns.as_slice() {
         [one] => format!("missing case: no arm matches `{one}`"),
@@ -122,6 +121,24 @@ pub(crate) fn merge<T>(cx: &crate::check::Ctx, start: usize, result: Result<T>) 
     Err(first)
 }
 
+/// `text` with each field name marker (`‹name›`) written as `_`.
+fn unmarked(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut skipping = false;
+    for c in text.chars() {
+        match c {
+            '‹' => {
+                skipping = true;
+                out.push('_');
+            }
+            '›' => skipping = false,
+            _ if !skipping => out.push(c),
+            _ => {}
+        }
+    }
+    out
+}
+
 /// Whether `d` lists missing cases.
 pub(crate) fn listed(d: &Diagnostic) -> bool {
     d.code == "E-NONEXHAUSTIVE" && d.missing_data().is_some()
@@ -140,7 +157,7 @@ pub(crate) fn fold(all: Vec<Diagnostic>) -> Vec<Diagnostic> {
             m.order
                 .iter()
                 .cloned()
-                .zip(m.patterns.iter().cloned())
+                .zip(m.fills.iter().cloned())
                 .collect()
         };
         let slot = if listed(&d) {
@@ -324,7 +341,21 @@ impl Elaborator {
         if reg.ctor(Builtin::UnitValue) == here {
             return "()".to_string();
         }
-        let args: Vec<String> = fields.into_iter().map(shown).collect();
+        let args: Vec<String> = (0..ctor.fields.len())
+            .filter(|&i| !ctor.implicit.get(i).copied().unwrap_or(false))
+            .map(|i| {
+                let arg = shown(base + i);
+                // A field nothing looked at keeps its name, for the editor
+                // to bind a variable of that name.
+                let name = &*ctor.fields[i].0;
+                let named = name.starts_with(|c: char| c.is_lowercase());
+                if arg == "_" && named && name.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                    format!("‹{name}›")
+                } else {
+                    arg
+                }
+            })
+            .collect();
         if args.is_empty() {
             return ctor.name.to_string();
         }

@@ -65,10 +65,15 @@ pub struct SuggestedImport {
 /// The cases a `match` leaves out (SW-1027): each a row of patterns, one
 /// per scrutinee, separated by commas, that pastes as an arm's patterns
 /// (`Tri _ _`, `Some _, True`).
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct MissingCases {
     /// Every one of them, in the order of the constructors.
     pub patterns: Vec<String>,
+    /// The same cases, for the editor's "add the missing arms": a field of
+    /// a constructor that no arm looked at is `‹name›` (its declared
+    /// name) where `patterns` has `_`, so the arm can bind a variable of
+    /// that name. Parallel to `patterns`.
+    pub fills: Vec<String>,
     /// Where each of `patterns` is in the case tree: the constructor taken
     /// at each split, so that the cases from several branches sort in the
     /// order of the constructors. Not shown.

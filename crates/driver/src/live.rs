@@ -20,8 +20,8 @@ use std::rc::Rc;
 
 use stitchwort_elab::project::{IncludeFiles, NamespaceSyntax, SourceUnit};
 use stitchwort_syntax::{
-    Diagnostic, GoalData, Severity, SourceMap, SuggestedImport, parse_module_recovering,
-    parse_namespace_line,
+    Diagnostic, GoalData, MissingCases, Severity, SourceMap, SuggestedImport,
+    parse_module_recovering, parse_namespace_line,
 };
 
 use crate::driver::Session;
@@ -104,6 +104,8 @@ pub struct LiveDiagnostic {
     pub goal: Option<GoalData>,
     /// For an unknown name an import brings in: the import to add.
     pub import: Option<SuggestedImport>,
+    /// For a non-exhaustive `match`: the arms it lacks.
+    pub missing: Option<MissingCases>,
 }
 
 /// Everything known about one file.
@@ -349,6 +351,7 @@ pub fn answers_from(index: &Index, wanted: &BTreeSet<String>, unplaced: &str) ->
             notes: d.notes.clone(),
             goal: d.goal.clone(),
             import: d.import.clone(),
+            missing: d.missing.clone(),
         });
     }
     out
