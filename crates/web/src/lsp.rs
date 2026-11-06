@@ -34,7 +34,7 @@ impl LanguageServer {
         })
     }
 
-    /// Reads the standard library's check cache (`pkg/std.cache`, made by
+    /// Reads the standard library's check cache (`pkg/std.cache.gz`, decompressed by the worker; made by
     /// [`build_library_cache`] when the page was built). The projects and
     /// files loaded after it replay the library files instead of checking
     /// them, so a project's first check takes seconds, not tens of them.
@@ -138,7 +138,7 @@ impl Default for SearchWorker {
 }
 
 /// Checks the standard library as the language server's projects load it
-/// in the worker and returns its check cache, for `pkg/std.cache`
+/// in the worker and returns its check cache, for `pkg/std.cache.gz`
 /// (`web/bundle-std-cache.mjs`, from `web/build.sh`). Call after
 /// `load_std`. Fails if the cache doesn't load back; `describe_library_cache`
 /// says what it holds.

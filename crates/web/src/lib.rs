@@ -60,7 +60,7 @@ fn new_session() -> Session {
     SHARED.with(stitchwort_lsp::library_session)
 }
 
-/// Reads the standard library's check cache (`pkg/std.cache`, made by
+/// Reads the standard library's check cache (`pkg/std.cache.gz`, decompressed by the worker; made by
 /// `build_library_cache` when the page was built) for every session made
 /// after it. `false` if the bytes aren't a cache this build made, or one was
 /// read already: the library is then checked as before. Call after
