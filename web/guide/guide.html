@@ -76,6 +76,12 @@
   <pre data-src="14-map-set.sw"></pre>
 </section>
 
+<section data-slug="arrays" data-title="Arrays: state updated in place">
+  <p>When a program keeps numbers by position and changes them in a loop (a table of counters, the cells of a board), use an <code>Array</code>. Reading and changing a position takes one step, and when nothing else holds the array, the change happens <b>in place</b>, with no copy. Advent of Code 2020 day 15, a memory game of thirty million turns that updates a table of positions, went from 357 seconds with a list to 27 seconds with an array, with the same answer and the same proofs. An array is its list to a proof, so the list lemmas still apply. <code>get</code> gives an <code>Option</code>, <code>getOr</code> a fallback, and <code>getLt</code> a plain value when the index is known to be in range; nothing panics. It needs <code>import Std (Array)</code>.</p>
+  <pre data-src="35-arrays.sw"></pre>
+  <p class="guide-note">One thing to know: if you keep the old array and use it after a change, the change must copy it first. The answer is still right, but a run that does this many times on big arrays prints a note saying so at its end.</p>
+</section>
+
 <section data-slug="namespaces-and-projects" data-title="Namespaces, imports and projects">
   <p>Names live in namespaces. The library is <code>Std</code>; a few things (<code>Nat</code>, <code>List</code>, <code>Option</code>, <code>==</code>) are always in scope, and <code>import Std (Option)</code> brings in the rest of a namespace such as <code>Option.map</code>. A type owns a namespace (<code>Item.cost</code>), and a <code>namespace Shop</code> line at the top of a file puts the whole file in one. A <b>project</b> is a folder with a <code>stitchwort.yaml</code> of such files; try the Advent of Code entries in the Example menu to see one.</p>
   <pre data-src="15-namespaces.sw"></pre>
