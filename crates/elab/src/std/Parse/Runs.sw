@@ -1075,6 +1075,18 @@ theorem Parse.runsIntUnsigned (digits: List Char) (rest: List Char) (some: digit
       [] digits digits rest False (Parse.digitsValue digits).toInt rfl (Parse.runsLiteralAbsent ['+'] (digits ++ rest) (Parse.digitsNotSign '+' digits rest some all rfl))
       (Parse.runsMap Parse.nat (m => m.toInt) digits rest (Parse.digitsValue digits) (Parse.runsNat digits rest some all stops)))
 
+--| `int` on what [`Parse.IntRead`] says it reads (a '-', a '+' or no sign, then
+--| digits), with `rest` not starting with another digit: it gives the number.
+--| The converse of [`Parse.readsInt`].
+theorem Parse.runsIntRead (read: List Char) (n: Int) (written: Parse.IntRead read n) (rest: List Char) (stops: rest.takeWhile Parse.isDigit = []):
+    Parse.Runs Parse.int read rest n :=
+  match written with
+    | Witness digits (Both some (Both all form)) =>
+      match form with
+        | Inl (Both same value) => rewrite same, value in Parse.runsIntNegative digits rest some all stops
+        | Inr (Inl (Both same value)) => rewrite same, value in Parse.runsIntPositive digits rest some all stops
+        | Inr (Inr (Both same value)) => rewrite same, value in Parse.runsIntUnsigned digits rest some all stops
+
 --| The rounds of a repetition that must all succeed (as `exactly`'s): each
 --| `Runs` `p` for its text, seeing what follows it (the later rounds' text,
 --| then `rest`).

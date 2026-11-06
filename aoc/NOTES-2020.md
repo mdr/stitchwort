@@ -2205,6 +2205,15 @@ CPU time (load not measured):
 `STITCHWORT_TIMINGS=1` puts the Proofs namespace at 152 ms of
 elaboration; the rest of the cold time is std's modules.
 
+**Completeness (SW-1624).** `Proofs/Complete.sw`, 55 lines, about 6 minutes.
+The first day to need std for a number: `Parse.runsIntRead` (new, in
+`Parse/Runs.sw`) is `Parse.readsInt`'s converse, a three-way case over
+`IntRead` onto the existing `runsIntNegative`/`Positive`/`Unsigned`; the
+argument comes last on its line, so its look-ahead is `[]` and `rfl`.
+`runsOperation` is three `Parse.runsPick` cases as in day 4. `ArgumentWritten`
+is `IntRead`, which lets `+0`, `-0` and `0` all through, but they are one
+number and each line is its own text, so `writtenUnique` and `inputUnique` hold.
+
 ### Ranked
 
 1. A method with the same short name as another type's (`Instruction.run`
