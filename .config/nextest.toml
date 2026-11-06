@@ -237,6 +237,7 @@ filter = """
 | (package(stitchwort-cli) & binary(examples) & test(/^(accepted|rejected|soundness|goal)_(examples|projects)_/))
 | (package(stitchwort-cli) & binary(run_js) & test(=examples_print_the_same_both_ways))
 | (package(stitchwort-cli) & binary(run_reference) & test(=examples_print_the_same_both_ways))
+| (package(stitchwort-cli) & binary(aoc_answers) & test(=every_day_from_the_whole_projects_cache))
 """
 test-group = "corpus-sweeps"
 
