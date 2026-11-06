@@ -3203,6 +3203,9 @@ point at it.
   `Result.isErr`, `Result` lacks the `Option`-like accessors a test
   reaches for. And `Option`'s is `getOrElse`, so `getOr` (the name
   `Map.getOr` and the index lemmas use) isn't there for either.
+  (Correction, SW-1488: `Result.getOrElse` does exist, so the test
+  could have written `.getOrElse []` directly; what remains is the
+  naming split, `getOrElse` on `Option`/`Result` and `getOr` on `Map`.)
 - **The puzzle doesn't say turns are quarter turns.** The program and
   the spec both need a reading of "turn left the given number of
   degrees" for a ship that faces N, S, E or W; Matt's Scala rounds
