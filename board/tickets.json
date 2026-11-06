@@ -11828,13 +11828,13 @@
     {
       "id": 1675,
       "title": "VS Code README overstates hover on ? (the server returns nothing; the goal shows via the diagnostic) and 'type of the selected expression' (a hover carries only a position) (SW-1666)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1675",
       "labels": [
         "editor"
       ],
-      "body": "From SW-1666, 6 Nov 2026.",
+      "body": "From SW-1666, 6 Nov 2026.\n\nStarted on Sonnet in one lane (SW-1675 with SW-1676, SW-1685), expected: 40 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11842,13 +11842,13 @@
     {
       "id": 1676,
       "title": "Editor shows notes unnumbered ('Note:') where the CLI numbers them ('Note 3'); number them in diagnostics too (SW-1666)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1675",
       "labels": [
         "editor"
       ],
-      "body": "From SW-1666, 6 Nov 2026.",
+      "body": "From SW-1666, 6 Nov 2026.\n\nStarted on Sonnet in one lane (SW-1675 with SW-1676, SW-1685), expected: 40 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11968,13 +11968,13 @@
     {
       "id": 1685,
       "title": "stitchwort test --only NAME --json: ok is true when nothing matches, though the exit status is 1; make ok false (SW-1121)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1675",
       "labels": [
         "cli"
       ],
-      "body": "From SW-1121, 6 Nov 2026.",
+      "body": "From SW-1121, 6 Nov 2026.\n\nStarted on Sonnet in one lane (SW-1675 with SW-1676, SW-1685), expected: 40 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
