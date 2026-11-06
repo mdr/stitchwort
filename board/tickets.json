@@ -9420,13 +9420,13 @@
     {
       "id": 1503,
       "title": "Completion after a dot answered on the checker's live session (rewind to the edited namespace, check the dummy, rewind): one namespace check instead of a full file check (4.5-6.7 s today); context-at-a-position gains too",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1503",
       "labels": [
         "editor"
       ],
-      "body": "From SW-1120, 6 Nov 2026.",
+      "body": "From SW-1120, 6 Nov 2026.\n\nStarted overnight on Opus (editor speed is the night's first priority; live-session rewinding is tricky), expected: 90 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
