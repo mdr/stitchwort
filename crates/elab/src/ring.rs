@@ -1274,7 +1274,9 @@ fn emit(
         }
         ty = cod.apply(&g, Value::var(cx.level()))?;
     }
-    if !cx.unify(&ty, expected)? {
+    // A goal stuck on an unknown solved since (`?1 x`, in a field projection,
+    // say) computes once read again.
+    if !cx.unify(&ty, expected)? && !cx.unify(&ty, &cx.eval(&cx.quote(expected)?)?)? {
         return Err(internal(
             span,
             format!(
