@@ -1906,6 +1906,22 @@ CPU time (load average about 40):
 the rest of the cold time is std's modules (the program's 4.9 s against day
 6's 2.5 s is presumably `Std.Graph` and `Map`; not broken down).
 
+**Completeness (SW-1624).** `Proofs/Complete.sw`, 154 lines, about 10 minutes.
+One lemma per parser (`runsWord`, `runsColour`, `runsContent`,
+`runsContentList`, `runsContents`, `runsRule`), each a chain of `Parse.runsBind`
+mirroring the parser, with the record etas (`colourEta`, `contentEta`,
+`ruleEta`, `rulesEta`) as in day 2. The only look-aheads are a word before a
+space (`rfl`), a count before a space, and the colour before ` bag(s)` or `
+bags contain`, whose first character is a space whatever the count (`bagStops`,
+by cases on `count == 1`). The one real choice is `oneOf [before "no other bags",
+contentList]`: `runsOneOfNext` needs the first alternative to decline, which
+holds because a list of contents starts with a digit (`listStartsWithDigit`
+unpacks `SepBy` to the first content's digits; `noOtherAbsent` is the `n`
+against a digit). `ContentWritten` writes `bag` or `bags` from the content's
+own count, so the spec is tight and `writtenUnique` (a line) and `inputUnique`
+(an input) hold with no change to `Spec.sw`. Breaking the parser
+(`" bags contain "` to `" bags contains "`) breaks `runsRule`.
+
 ### Ranked
 
 1. Part 2's cycle bound is unproved: std's pigeonhole is `Nat.pigeonhole`
