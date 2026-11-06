@@ -465,7 +465,7 @@
       ],
       "now": [
         "Merge tier toward 90 s (SW-1761)",
-        "Std cache once per run; dev-features in the cache fingerprint (SW-1741)"
+        "Compile time after incremental builds (SW-1754)"
       ],
       "next": [
         "Merge tier profile (SW-1751); affected-test selection (SW-1752)",

@@ -13835,9 +13835,9 @@
     {
       "id": 1754,
       "title": "[Sonnet] Compile time after incremental builds: where a 21 s rebuild goes now; try test-profile settings (codegen-units, per-crate opt-level), lld (SW-1738); measure alone",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1754",
       "labels": [
         "perf"
       ],
