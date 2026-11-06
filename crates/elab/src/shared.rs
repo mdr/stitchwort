@@ -25,7 +25,7 @@ use std::rc::Rc;
 use crate::kernel;
 use stitchwort_core::collections::HashMap;
 use stitchwort_core::term::Branch;
-use stitchwort_core::value::{conv, eval, force, quote, unused};
+use stitchwort_core::value::{conv, eval, force, quote_folded, unused};
 use stitchwort_core::{DataId, DefId, Icit, Name, Sort, Term, Value};
 use stitchwort_syntax::ast::{self, Alt, Bracket, Expr, MatchKind, Pattern, Scrutinee};
 
@@ -243,7 +243,7 @@ impl Elaborator {
                     None => unused(),
                 });
             }
-            let result = quote(g, n + 1, &eval(g, &env, &first.fields[positions[0]].1)?)?;
+            let result = quote_folded(g, n + 1, &eval(g, &env, &first.fields[positions[0]].1)?)?;
             let args: Vec<Term> = (0..n).map(|k| Term::Var(n - 1 - k)).collect();
             let mut ty = Term::Pi(
                 "r".into(),
@@ -597,7 +597,7 @@ fn update_match(
             cx.alias(base_name, level);
         }
         _ => {
-            let ty_term = cx.quote(ty)?;
+            let ty_term = cx.quote_folded(ty)?;
             cx.define(
                 Some(base_name),
                 base_name.into(),
@@ -630,7 +630,7 @@ fn update_match(
             } else if let Some(p) = accessor {
                 let mut term = Term::Def(p);
                 for v in params {
-                    term = Term::app_icit(term, cx.quote(v)?, Icit::Implicit);
+                    term = Term::app_icit(term, cx.quote_folded(v)?, Icit::Implicit);
                 }
                 let base_var = Term::Var(cx.level() - 1 - base_level);
                 cx.eval(&Term::app(term, base_var))?
@@ -641,7 +641,7 @@ fn update_match(
         }
         let field_ty = eval(&g, &env, &first.fields[positions[0]].1)?;
         let term = check(cx, expr, &field_ty)?;
-        let ty_term = cx.quote(&field_ty)?;
+        let ty_term = cx.quote_folded(&field_ty)?;
         let x = new_name(field);
         cx.define(
             Some(&x),

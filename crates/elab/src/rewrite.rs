@@ -1602,7 +1602,7 @@ fn check_motive(
     if body.subterms().any(|(t, _)| matches!(t, Term::Meta(_))) {
         return Ok(());
     }
-    let zonked = |v: &Value| cx.eval(&cx.quote(v)?);
+    let zonked = |v: &Value| cx.eval(&cx.quote_folded(v)?);
     let (carrier, rhs) = (zonked(carrier)?, zonked(rhs)?);
     let mut kcx = kernel_context(cx)?;
     let x = Value::var(kcx.level());

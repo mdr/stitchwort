@@ -4977,7 +4977,7 @@ fn proof_expected(cx: &Ctx, expected: &Value) -> Result<bool> {
     if matches!(ty, Value::Sort(_) | Value::Neutral(Head::Meta(_), _)) {
         return Ok(false);
     }
-    let term = cx.quote(&ty)?;
+    let term = cx.quote_folded(&ty)?;
     let mut kcx = crate::rewrite::kernel_context(cx)?;
     match crate::kernel::without_glue(&g, || crate::kernel::infer(&mut kcx, &term)) {
         Ok((_, sort)) => Ok(matches!(force(&g, sort)?, Value::Sort(Sort::Prop))),
