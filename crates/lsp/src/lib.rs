@@ -56,6 +56,7 @@ use wasm::FileUrl as _;
 mod arms;
 mod complete;
 mod imports;
+mod lens;
 mod source;
 pub use source::{Disk, Memory, MemoryProject, ProjectFiles, Source};
 
@@ -167,6 +168,7 @@ pub fn capabilities() -> serde_json::Value {
         "experimental": { "hoverRange": true },
         "referencesProvider": true,
         "documentSymbolProvider": true,
+        "codeLensProvider": { "resolveProvider": false },
         "workspaceSymbolProvider": true,
         "documentFormattingProvider": true,
         "documentRangeFormattingProvider": true,
@@ -1430,6 +1432,19 @@ impl Main {
                 parse::<lsp_types::WorkspaceSymbolParams>(&request).map(|p| {
                     let found = workspace_symbols(&nav, &p.query);
                     serde_json::to_value(WorkspaceSymbolResponse::Flat(found))
+                })
+            }
+            request::CodeLensRequest::METHOD => {
+                parse::<lsp_types::CodeLensParams>(&request).map(|p| {
+                    let texts = self.texts.borrow();
+                    let uri = &p.text_document.uri;
+                    let lenses = match texts.get(uri) {
+                        Some(text) if uri.scheme() == "file" => {
+                            lens::code_lenses(uri.as_str(), text)
+                        }
+                        _ => Vec::new(),
+                    };
+                    Ok(serde_json::Value::Array(lenses))
                 })
             }
             GOAL_AT => parse::<lsp_types::TextDocumentPositionParams>(&request)

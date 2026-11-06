@@ -130,6 +130,16 @@ enum Command {
         /// check that the cache's key covers everything a result depends on
         #[arg(long, conflicts_with = "no_cache")]
         verify_cache: bool,
+        /// Run only the test with this name (as written between the quotes
+        /// in `test "name" := …`)
+        #[arg(long, value_name = "NAME")]
+        only: Option<String>,
+        /// Print the results as one JSON object on standard output, for
+        /// editors: `{"ok", "tests": [{"namespace", "name", "outcome"
+        /// ("passed", "failed" or "unfinished"), "cached", "file", "line",
+        /// "column", "message", "failure"?}]}`
+        #[arg(long)]
+        json: bool,
     },
     /// Type-check a file, then run its `main`; or run a function of the
     /// project by its full name (`Day05.main`). Reads standard input and
@@ -604,12 +614,18 @@ fn run(cli: Cli) -> ExitCode {
             project,
             reference,
             verify_cache,
+            only,
+            json,
         } => test(
             target.as_deref(),
             &cache,
             project.as_deref(),
             reference,
             verify_cache,
+            &TestOutput {
+                only: only.as_deref(),
+                json,
+            },
         ),
         Command::Run {
             target,
@@ -1355,12 +1371,30 @@ fn verified(cache: &Cache) -> bool {
     v.disagreements.is_empty()
 }
 
+/// What `test` runs and how it prints: `--only` and `--json`.
+struct TestOutput<'a> {
+    only: Option<&'a str>,
+    json: bool,
+}
+
+impl TestOutput<'_> {
+    /// Prints the results, as text or as JSON.
+    fn print(&self, session: &Session, results: &[TestResult], grouped: bool) -> ExitCode {
+        if self.json {
+            print_tests_json(session, results)
+        } else {
+            print_tests(results, grouped)
+        }
+    }
+}
+
 fn test(
     target: Option<&str>,
     cache: &CacheArgs,
     project: Option<&Path>,
     reference: bool,
     verify_cache: bool,
+    output: &TestOutput,
 ) -> ExitCode {
     let mut session = new_session(false);
     let test_cache = |cache: &CacheArgs, base: &Path| {
@@ -1372,10 +1406,11 @@ fn test(
         }
     };
     let run_tests = |session: &Session, cache: &Cache| {
+        let keep = |test: &stitchwort_elab::TestDecl| output.only.is_none_or(|n| n == test.name);
         if reference {
-            session.run_tests(cache)
+            session.run_tests_where(cache, keep)
         } else {
-            session.run_tests_fast(cache)
+            session.run_tests_fast_where(cache, keep)
         }
     };
     match target {
@@ -1386,7 +1421,8 @@ fn test(
                 return ExitCode::FAILURE;
             }
             let cache = test_cache(cache, Path::new("."));
-            let code = print_tests(&run_tests(&session, &cache), false);
+            let results = run_tests(&session, &cache);
+            let code = output.print(&session, &results, false);
             let code = if verified(&cache) {
                 code
             } else {
@@ -1397,7 +1433,18 @@ fn test(
             // didn't run.
             let goals = goals_open(&reported);
             report_goals(goals);
-            if goals > 0 { ExitCode::FAILURE } else { code }
+            let none = output.only.is_some_and(|name| {
+                let none = results.is_empty();
+                if none {
+                    eprintln!("warning: no test is called '{name}'");
+                }
+                none
+            });
+            if goals > 0 || none {
+                ExitCode::FAILURE
+            } else {
+                code
+            }
         }
         _ => {
             let Some(project) = locate_project(project, "test", "test hello.sw") else {
@@ -1415,7 +1462,7 @@ fn test(
             }
             let cache = test_cache(cache, &project.dir);
             let results = run_tests(&session, &cache);
-            let code = print_tests(&results, true);
+            let code = output.print(&session, &results, true);
             let code = if verified(&cache) {
                 code
             } else {
@@ -1424,8 +1471,12 @@ fn test(
             discard(session);
             // A target that matched no tests (a typo, a namespace without
             // any) must never look like a pass.
-            let none = match target_name {
-                Some(name) if results.is_empty() => {
+            let none = match (target_name, output.only) {
+                (_, Some(name)) if results.is_empty() => {
+                    eprintln!("warning: no test is called '{name}'");
+                    true
+                }
+                (Some(name), _) if results.is_empty() => {
                     eprintln!("warning: no tests matched '{name}'");
                     true
                 }
@@ -1440,6 +1491,59 @@ fn test(
             }
         }
     }
+}
+
+/// Prints the results as `test --json` describes: one JSON object, with
+/// where each test is declared and, for a failure, the message an editor
+/// shows and the sides it compares.
+fn print_tests_json(session: &Session, results: &[TestResult]) -> ExitCode {
+    let tests: Vec<serde_json::Value> = results
+        .iter()
+        .map(|r| {
+            let (outcome, message) = match r.outcome {
+                Outcome::Passed => ("passed", None),
+                Outcome::Failed => {
+                    let message = match r.detail.as_ref().and_then(|d| d.comparison.as_ref()) {
+                        Some(c) => format!("`{}` is False", c.op),
+                        None => "evaluated to False".to_string(),
+                    };
+                    ("failed", Some(message))
+                }
+                Outcome::OutOfResources(e) => ("unfinished", Some(format!("no result: {e}"))),
+            };
+            let at = session.test_location(&r.namespace, &r.name);
+            let mut test = serde_json::json!({
+                "namespace": r.namespace,
+                "name": r.name,
+                "outcome": outcome,
+                "cached": r.cached,
+                "file": at.as_ref().map(|a| a.file.clone()),
+                "line": at.as_ref().map(|a| a.line),
+                "column": at.as_ref().map(|a| a.column),
+                "message": message,
+            });
+            if let Some(detail) = &r.detail {
+                let part = detail.part.as_ref().map(|p| {
+                    serde_json::json!({
+                        "text": p.text, "file": p.file, "line": p.line, "column": p.column,
+                    })
+                });
+                let comparison = detail.comparison.as_ref().map(|c| {
+                    serde_json::json!({
+                        "op": c.op,
+                        "left": c.left_lines.as_ref().unwrap_or(&c.left),
+                        "right": c.right_lines.as_ref().unwrap_or(&c.right),
+                        "difference": c.difference,
+                    })
+                });
+                test["failure"] = serde_json::json!({"part": part, "comparison": comparison});
+            }
+            test
+        })
+        .collect();
+    let ok = results.iter().all(|r| r.outcome == Outcome::Passed);
+    println!("{}", serde_json::json!({"ok": ok, "tests": tests}));
+    exit(ok)
 }
 
 /// Prints the results, with each namespace's name above its tests if

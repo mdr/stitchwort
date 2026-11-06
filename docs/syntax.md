@@ -156,6 +156,8 @@ export def total: List Nat -> Nat
   | Cons x xs => x + total xs
 ```
 
+`stitchwort test` also takes `--only "name"`, to run the one test of that name, and `--json`, to print the results as one JSON object (`ok`, and per test `namespace`, `name`, `outcome` (`passed`, `failed` or `unfinished`), `cached`, `file`, `line`, `column`, `message`, and for a failure the `comparison` sides and the false `part`) for editors: the VS Code run icons above each `test` and `main`, and its Testing panel, use them.
+
 When a test fails, `stitchwort test` and the playground's Tests tab say why, as far as they can (D601). If the test is a comparison (`==`, `!=`, `=`, `<`, `<=`, `>`, `>=`), they show the values of its two sides, in the order written; for two lists or two texts that aren't equal, also where they first differ (counting from 0):
 
 ```

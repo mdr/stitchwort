@@ -2846,3 +2846,47 @@ fn names_in_library_tests_navigate() {
     client.shutdown();
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// Run icons (SW-1121, D2513): a lens above each test, one for all of them
+/// above the first, and one above `main`, in any file that is open, before
+/// it has been checked and while it has errors.
+#[test]
+fn code_lenses_sit_above_tests_and_main() {
+    let uri = "file:///lenses/a.sw";
+    let text = "def main (): Unit := ()\n\ntest \"first\" := 1 == 1\n\ntest \"second\" := 2 == 2\n\ndef broken := (\n";
+    let mut client = Client::start();
+    client.open(uri, text);
+    let lenses = client.request(
+        "textDocument/codeLens",
+        json!({"textDocument": {"uri": uri}}),
+    );
+    let summary: Vec<(u64, &str, Value)> = lenses
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|l| {
+            (
+                l["range"]["start"]["line"].as_u64().unwrap(),
+                l["command"]["command"].as_str().unwrap(),
+                l["command"]["arguments"].clone(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        summary,
+        [
+            (2, "stitchwort.runTests", json!([uri])),
+            (0, "stitchwort.runMain", json!([uri])),
+            (2, "stitchwort.runTest", json!([uri, "first"])),
+            (4, "stitchwort.runTest", json!([uri, "second"])),
+        ]
+    );
+    // A library document gets none.
+    client.open("stitchwort-std:List/Toolkit.sw", "test \"x\" := 1 == 1\n");
+    let none = client.request(
+        "textDocument/codeLens",
+        json!({"textDocument": {"uri": "stitchwort-std:List/Toolkit.sw"}}),
+    );
+    assert_eq!(none, json!([]));
+    client.shutdown();
+}
