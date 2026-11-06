@@ -53,7 +53,7 @@ def wrapped: Wrapped := { n = 3, ok = { proof = rfl } }
 -- 10: containers.
 type Inventory = { stock: Map Text Nat }
 
-def inv: Inventory := { stock = Map.fromList [("apple", 3), ("pear", 5)] }
+def inv: Inventory := { stock = [("apple", 3), ("pear", 5)].toMap }
 
 -- 11: a one-method interface.
 interface Describe (a: Type) =
@@ -79,7 +79,7 @@ test "maybe" := orZero { inner = None } == 0 ∧ orZero { inner = Some 4 } == 4
 test "constructor as function" := (List.map [1, 2, 3] (x => ({ n = x }: Count))) == [{ n = 1 }, { n = 2 }, { n = 3 }]
 test "no field" := wrapped.n == 3
 test "two fields" := ({ a = 1, b = "x" }: Pair2) == { a = 1, b = "x" }
-test "map of records" := (Map.fromList [(1, ({ n = 5 }: Count))]).get 1 == Some ({ n = 5 })
+test "map of records" := [(1, ({ n = 5 }: Count))].toMap.get 1 == Some ({ n = 5 })
 test "inventory" := inv.stock.get "pear" == Some 5
 test "interface" := Describe.describe ({ n = 4 }: Count) == "count 4"
 
@@ -115,18 +115,18 @@ def main(): {IO} () :=
   IO.print "${wrapped.n}"
   IO.print "${({ a = 1, b = "x" }: Pair2)}"
   IO.print "-- containers"
-  let m: Map Nat Count := Map.fromList [(2, { n = 20 }), (1, { n = 10 })]
+  let m: Map Nat Count := [(2, { n = 20 }), (1, { n = 10 })].toMap
   IO.print "${m}"
   IO.print "${m.get 2} ${m.get 3} ${m.size}"
   IO.print "${m.insert 3 { n = 30 }}"
   IO.print "${m.toList}"
-  IO.print "${m == Map.fromList [(1, { n = 10 }), (2, { n = 20 })]}"
-  let s: Set UserId := Set.fromList [{ value = "b" }, { value = "a" }, { value = "b" }]
+  IO.print "${m == [(1, { n = 10 }), (2, { n = 20 })].toMap}"
+  let s: Set UserId := [{ value = "b" }, { value = "a" }, { value = "b" }].toSet
   IO.print "${s} ${s.size}"
   IO.print "${s.contains { value = "a" }}"
-  IO.print "${s == Set.fromList [{ value = "a" }, { value = "b" }]}"
+  IO.print "${s == [{ value = "a" }, { value = "b" }].toSet}"
   IO.print "${inv.stock}"
-  IO.print "${inv == { stock = Map.fromList [("pear", 5), ("apple", 3)] }}"
+  IO.print "${inv == { stock = [("pear", 5), ("apple", 3)].toMap }}"
   IO.print "${{ inv | stock = inv.stock.insert "fig" 1 }.stock.size}"
   IO.print "-- interface"
   IO.print (Describe.describe ({ n = 4 }: Count))

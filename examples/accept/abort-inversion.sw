@@ -107,9 +107,9 @@ theorem pickFromBinOrFailFound (warehouse: Warehouse) (order: Order) (picked: Pa
       rewrite foundBin, <- Result.okInjective result in rfl))
 
 def warehouse: Warehouse := {
-  stock = Map.fromList [("bolt", 40), ("nut", 5)],
-  locations = Map.fromList [("bolt", "A1"), ("nut", "B2")],
-  bins = Map.fromList [("A1", { label = "A1", aisle = 1 })]
+  stock = [("bolt", 40), ("nut", 5)].toMap,
+  locations = [("bolt", "A1"), ("nut", "B2")].toMap,
+  bins = [("A1", { label = "A1", aisle = 1 })].toMap
 }
 
 test "a pick" := pickOrder warehouse { item = "bolt", quantity = 15 } == Some ({ item = "bolt", bin = { label = "A1", aisle = 1 }, quantity = 15, left = 25 })

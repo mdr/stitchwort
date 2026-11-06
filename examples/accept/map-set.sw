@@ -13,7 +13,7 @@ test "counting" := (wordCounts ["b", "a", "b", "c", "b"]).toList == [("a", 1), (
 
 -- Maps are equal when they have the same entries, in whatever order they
 -- were made.
-test "equal maps" := wordCounts ["b", "a", "b"] == Map.fromList [("b", 2), ("a", 1)] ∧ wordCounts ["a"] ≠ wordCounts ["a", "a"]
+test "equal maps" := wordCounts ["b", "a", "b"] == [("b", 2), ("a", 1)].toMap ∧ wordCounts ["a"] ≠ wordCounts ["a", "a"]
 
 -- A set of pairs: the positions a walk visits, ordered by row, then column.
 def step: (Nat, Nat) → Char → (Nat, Nat)
@@ -51,7 +51,7 @@ def descending: Ord Nat :=
     (x y => Nat.compareFlip y x)
     (x y z h1 h2 => Nat.compareTrans z y x h2 h1)
 
-def down: Map Nat Text [ord := descending] := Map.fromList [(1, "a"), (3, "c"), (2, "b")]
+def down: Map Nat Text [ord := descending] := [(1, "a"), (3, "c"), (2, "b")].toMap
 
 test "given by name" := down.keys == [3, 2, 1]
 
@@ -106,7 +106,7 @@ test "counts" := (Map.counts ["b", "a", "b"]).toList == [("a", 1), ("b", 2)]
 test "groupBy" := ([1, 2, 3, 4, 5].groupBy (n => n % 2)).map (group => group.toList) |> .toList == [(0, [2, 4]), (1, [1, 3, 5])]
 test "unionWith" := (Map.unionWith (wordCounts ["a", "b"]) (wordCounts ["b", "c"]) Nat.add).toList == [("a", 1), ("b", 2), ("c", 1)]
 test "min and below" := (wordCounts ["b", "a", "c"]).min == Some ("a", 1) ∧ (wordCounts ["b", "a", "c"]).below "c" == Some ("b", 1)
-test "keySet" := (wordCounts ["b", "a"]).keySet == Set.fromList ["a", "b"]
+test "keySet" := (wordCounts ["b", "a"]).keySet == ["a", "b"].toSet
 test "isSubset" := Set.isSubset (visited "R") (visited "RD") ∧ not (Set.isSubset (visited "RD") (visited "R"))
 
 -- What an intersection holds and how large it is, from the library's theorems.

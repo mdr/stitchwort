@@ -49,7 +49,7 @@ test "sort" :=
   List.sort [Packets [Number 1], Number 3, Packets [], Number 0] ==
     [Number 0, Number 3, Packets [], Packets [Number 1]]
 test "contains" := [Number 1, example].contains example
-test "map keys" := (Map.fromList [(example, 1), (Number 2, 2)]).get example == Some 1
+test "map keys" := [(example, 1), (Number 2, 2)].toMap.get example == Some 1
 
 -- `auto`, `if h:` and a proposition where a `Bool` is expected decide an
 -- equation between packets with the derived instance, which also computes
