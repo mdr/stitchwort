@@ -78,21 +78,12 @@ def operand (expression: () → {Parse} Expression): {Parse} Expression :=
 
 def operator (operators: List Operator): {Parse} Operator := Parse.pick (operators.map (operator => (operator.spaced, operator)))
 
---| One of `operators` and the operand after it.
-def step (operators: List Operator) (term: () → {Parse} Expression): {Parse} (Operator, Expression) :=
-  let found := operator operators
-  let right := term()
-  (found, right)
-
---| `first`, then each step's operator and operand, grouped from the left.
-def groupLeft (first: Expression) (steps: List (Operator, Expression)): Expression :=
-  steps.foldLeft first (left (found, right) => Operation found left right)
+--| The expression node an operator builds from its two sides.
+def Operator.node (operator: Operator): Expression → Expression → Expression := left right => Operation operator left right
 
 --| `term`s joined by `operators`, grouped from the left.
 def chain (operators: List Operator) (term: () → {Parse} Expression): {Parse} Expression :=
-  let first := term()
-  let rest := Parse.many (() => step operators term)
-  groupLeft first rest
+  Parse.chainLeft term (() => Operator.node (operator operators))
 
 --| An expression whose loosest operators are the first of `levels`;
 --| `expression` reads a whole one, for inside parentheses.

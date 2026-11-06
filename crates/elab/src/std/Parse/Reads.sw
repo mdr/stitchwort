@@ -797,6 +797,57 @@ theorem Parse.readsSepBy (p: () → {Parse} a) (separator: () → {Parse} ()) (s
         | Witness None (Both none same) => Inl (Both none same)
         | Witness (Some found) (Both holds same) => Inr (Witness found (Both holds same)))
 
+--| What one step of `chainLeft` read: the operator's part, then the operand's.
+def Parse.ChainStep (spec: List Char → a → Prop) (operatorSpec: List Char → (a → a → a) → Prop) (read: List Char) (found: (a → a → a, a)): Prop :=
+  ∃ (operatorRead: List Char) => ∃ (operandRead: List Char) =>
+    read = operatorRead ++ operandRead ∧ operatorSpec operatorRead found.fst ∧ spec operandRead found.snd
+
+--| Folding the steps from the left keeps what `result` says, if `result` is
+--| kept by each single step.
+theorem Parse.chainLeftFold (spec: List Char → a → Prop) (operatorSpec: List Char → (a → a → a) → Prop) (result: List Char → a → Prop)
+    (step: (leftRead: List Char) → (operatorRead: List Char) → (operandRead: List Char) → (left: a) → (combine: a → a → a) → (right: a) →
+      result leftRead left → operatorSpec operatorRead combine → spec operandRead right → result (leftRead ++ (operatorRead ++ operandRead)) (combine left right)):
+    (steps: List (a → a → a, a)) → (left: a) → (leftRead: List Char) → (restRead: List Char) →
+      result leftRead left → Parse.Each (Parse.ChainStep spec operatorSpec) restRead steps →
+      result (leftRead ++ restRead) (Parse.chainFold left steps)
+  | [], left, leftRead, restRead, holds, none => rewrite none, List.appendNil leftRead in holds
+  | [(combine, right), ..later], left, leftRead, restRead, holds,
+    Witness stepRead (Witness laterRead (Both split (Both (Witness operatorRead (Witness operandRead (Both stepSplit (Both operatorHolds operandHolds)))) each))) =>
+    let combined: result (leftRead ++ stepRead) (combine left right) :=
+      rewrite stepSplit in step leftRead operatorRead operandRead left combine right holds operatorHolds operandHolds
+    rewrite split, Eq.sym (List.appendAssoc leftRead stepRead laterRead) in
+      Parse.chainLeftFold spec operatorSpec result step later (combine left right) (leftRead ++ stepRead) laterRead combined each
+
+--| `chainLeft operand operator` reads what `result` says if `result` holds of
+--| a first operand, and is kept by each further operator and operand joined
+--| on: the induction principle of the left fold. `result leftRead left` says
+--| that `leftRead` gave the value `left`; a proof of a shape the whole chain
+--| has (a tree whose operators are of one strength, say) states it as `result`.
+theorem Parse.readsChainLeft (operand: () → {Parse} a) (operator: () → {Parse} (a → a → a)) (spec: List Char → a → Prop)
+    (operatorSpec: List Char → (a → a → a) → Prop) (result: List Char → a → Prop)
+    (readsOperand: Parse.Reads operand spec) (readsOperator: Parse.Reads operator operatorSpec)
+    (start: (read: List Char) → (value: a) → spec read value → result read value)
+    (step: (leftRead: List Char) → (operatorRead: List Char) → (operandRead: List Char) → (left: a) → (combine: a → a → a) → (right: a) →
+      result leftRead left → operatorSpec operatorRead combine → spec operandRead right → result (leftRead ++ (operatorRead ++ operandRead)) (combine left right)):
+    Parse.Reads (() => Parse.chainLeft operand operator) result :=
+  Parse.readsThen readsOperand (firstRead first firstHolds =>
+    Parse.readsThen
+      (Parse.readsMany
+        (() =>
+          let combine := operator()
+          let right := operand()
+          (combine, right))
+        (Parse.ChainStep spec operatorSpec)
+        (Parse.readsThen readsOperator (operatorRead combine operatorHolds =>
+          Parse.readsThen readsOperand (operandRead right operandHolds =>
+            Parse.readsDone (combine, right) _ (Witness operatorRead (Witness operandRead (Both (rewrite List.appendNil operandRead in rfl) (Both operatorHolds operandHolds))))))))
+      (restRead steps each =>
+        let folded := Parse.chainFold first steps
+        let holds: result (firstRead ++ (restRead ++ [])) folded :=
+          rewrite List.appendNil restRead in
+            Parse.chainLeftFold spec operatorSpec result step steps first firstRead restRead (start firstRead first firstHolds) each
+        Parse.readsDone folded (read value => result (firstRead ++ (restRead ++ read)) value) holds))
+
 --| Replace a repetition's values, one part at a time: if each value `spec`
 --| read can be another value `other` read, and `related` to it, then the
 --| same text, separators and all, reads a repetition of `other` values,

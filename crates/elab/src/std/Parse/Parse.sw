@@ -454,6 +454,24 @@ def Parse.sepByValues: (found: Option (NonEmptyList a)) → List a
 def Parse.sepBy (parser: () → {Parse} a) (separator: () → {Parse} ()): {Parse} List a :=
   Parse.sepByValues (Parse.optional (() => Parse.sepBy1 parser separator))
 
+--| `first` combined with each operator and operand of `steps` in turn, from the left.
+-- A function of its own so that proofs (Parse/Reads.sw) can name it.
+def Parse.chainFold (first: a) (steps: List (a → a → a, a)): a :=
+  steps.foldLeft first (left (combine, right) => combine left right)
+
+--| `operand`, then `operator` and `operand` again as long as both match,
+--| combined from the left (Parsec's `chainl1`). `operator` gives the function
+--| that joins what is on its sides: with `operator` reading `+` as `(+)`,
+--| `1+2+3` is `(1 + 2) + 3`. At least one operand; an operator without an
+--| operand after it is left unread (the loop backs up to before the operator).
+def Parse.chainLeft (operand: () → {Parse} a) (operator: () → {Parse} (a → a → a)): {Parse} a :=
+  let first := operand()
+  let rest := Parse.many (() =>
+    let combine := operator()
+    let right := operand()
+    (combine, right))
+  Parse.chainFold first rest
+
 --| One `parser` per line, at least one (a `NonEmptyList`). The line break after
 --| the last is left for what comes next.
 def Parse.lines (parser: () → {Parse} a): {Parse} NonEmptyList a := Parse.sepBy1 parser Parse.newline
@@ -1088,6 +1106,13 @@ test "Parse: many, reading nothing, inside optional" :=
     "column 1: `many`: the parser matched without reading anything"
 test "Parse: many1" := Parse.Tests.lineResult "aa" (() => (Parse.many1 (() => Parse.satisfy "an a" (== 'a'))).toList) == Ok ['a', 'a']
 test "Parse: many1, error" := Parse.Tests.lineResult "" (() => (Parse.many1 (() => Parse.satisfy "an a" (== 'a'))).toList) == Err "column 1: expected an a, got the end of the line"
+def Parse.Tests.minus(): {Parse} (Nat → Nat → Nat) :=
+  Parse.char '-'
+  (left right => left - right)
+
+test "Parse: chainLeft" := Parse.Tests.lineResult "8-3-2" (() => Parse.chainLeft Parse.nat Parse.Tests.minus) == Ok 3
+test "Parse: chainLeft, one operand" := Parse.Tests.lineResult "7" (() => Parse.chainLeft Parse.nat Parse.Tests.minus) == Ok 7
+test "Parse: chainLeft, error" := Parse.Tests.lineResult "" (() => Parse.chainLeft Parse.nat Parse.Tests.minus) == Err "column 1: expected a number, got the end of the line"
 test "Parse: sepBy" := Parse.Tests.lineResult "1,2,3" (() => Parse.sepBy Parse.nat (() => Parse.char ',')) == Ok [1, 2, 3]
 test "Parse: sepBy, none" := Parse.Tests.lineResult "" (() => Parse.sepBy Parse.nat (() => Parse.char ',')) == Ok []
 test "Parse: sepBy1, error" := Parse.Tests.lineResult "1,2," (() => (Parse.sepBy1 Parse.nat (() => Parse.char ',')).toList) == Err "column 5: expected a number, got the end of the line"
