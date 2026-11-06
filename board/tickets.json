@@ -9714,13 +9714,13 @@
     {
       "id": 1524,
       "title": "Completion: project names from unchecked namespaces show no type; show it from the outline when the declaration writes one; and measure importable_from_project's per-check cost on a large project (it walks every parsed file's outline)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1524",
       "labels": [
         "editor"
       ],
-      "body": "From SW-1505, 6 Nov 2026. Small.\n\nStarted overnight on Sonnet, expected: 40 min.",
+      "body": "From SW-1505, 6 Nov 2026. Small.\n\nStarted overnight on Sonnet, expected: 40 min.\n\nDone (b99d28eed), merged: LiveProject.declared (built once after files are read again, 14 ms on aoc's 546 files) replaces the per-file outline walk (6.7 ms → ~1 ms per file). syntactic_outline fills ty from the written header (def/theorem/instance), so completion details read 'def: (k n: Nat): Nat'; document symbols of unchecked files show it too (lib.rs:1803 reads item.ty). Model result: Sonnet, worked, 20 min (est. 40).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
