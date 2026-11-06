@@ -1289,8 +1289,9 @@ const LEAF = 0, LIST = 1, DATA = 2, PARAM = 3, OPTION = 4, MAP = 5;
 let typeCount = 0;
 const leaf = (dec, enc) => ({ kind: LEAF, open: false, id: typeCount++, dec, enc });
 const list = (elem) => (elem.list ??= { kind: LIST, open: elem.open, id: typeCount++, elem });
+// (Its type is cached as `arrayOf`, since `array` marks an array's type.)
 const array = (elem) =>
-  (elem.array ??= { kind: LIST, open: elem.open, id: typeCount++, elem, array: true });
+  (elem.arrayOf ??= { kind: LIST, open: elem.open, id: typeCount++, elem, array: true });
 const option = (elem) => (elem.option ??= { kind: OPTION, open: elem.open, id: typeCount++, elem });
 // A map's keys are `TEXT`, or a `js.unboxed` record over it (`key`).
 const map = (elem, key = TEXT) => {
