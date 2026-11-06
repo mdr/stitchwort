@@ -2,24 +2,24 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-OMEGA] Error: `omega` can't prove `(Int.natAbs x).toInt = x`
+[E-OMEGA] Error: `omega` can't prove `x.natAbs.toInt = x`
    ╭─[ reject/omega-nat-abs-false.sw:6:53 ]
    │
  6 │ theorem absSelf (x: Int): Nat.toInt x.natAbs = x := omega
    │                                                     ──┬──  
    │                                                       ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
    │ 
-   │ Note 1: facts: `x < 0` (case), `(Int.natAbs x).toInt = 0 - x` (case)
+   │ Note 1: facts: `x < 0` (case), `x.natAbs.toInt = 0 - x` (case)
    │ 
-   │ Note 2: atoms: `Int.natAbs x`, `x`
+   │ Note 2: atoms: `x.natAbs`, `x`
    │ 
-   │ Note 3: an integer model of the arithmetic abstraction (it may not be a real counterexample): Int.natAbs x = 1, x = -1
+   │ Note 3: an integer model of the arithmetic abstraction (it may not be a real counterexample): x.natAbs = 1, x = -1
    │ 
-   │ Note 4: in the case `x < 0 ∧ (Int.natAbs x).toInt = 0 - x` of the disjunction from `Int.natAbsDichotomy x`
+   │ Note 4: in the case `x < 0 ∧ x.natAbs.toInt = 0 - x` of the disjunction from `Int.natAbsDichotomy x`
    │ 
    │ Note 5: this statement is false; a counterexample:
    │           x = -1
-   │         `(Int.natAbs x).toInt = x` is false:
+   │         `x.natAbs.toInt = x` is false:
    │           left:  1
    │           right: -1
 ───╯

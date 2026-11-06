@@ -2,25 +2,25 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-OMEGA] Error: `omega` can't prove `Int.natAbs (x - y) ≤ Int.natAbs x`
+[E-OMEGA] Error: `omega` can't prove `(x - y).natAbs ≤ x.natAbs`
    ╭─[ reject/omega-nat-abs-sub-false.sw:6:66 ]
    │
  6 │ theorem absSubLe (x: Int) (y: Int): (x - y).natAbs ≤ x.natAbs := omega
    │                                                                  ──┬──  
    │                                                                    ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
    │ 
-   │ Note 1: facts: `0 ≤ x - y` (case), `(Int.natAbs (x - y)).toInt = x - y` (case), `0 ≤ x` (case), `(Int.natAbs x).toInt = x` (case)
+   │ Note 1: facts: `0 ≤ x - y` (case), `((x - y).natAbs).toInt = x - y` (case), `0 ≤ x` (case), `x.natAbs.toInt = x` (case)
    │ 
-   │ Note 2: atoms: `Int.natAbs (x - y)`, `Int.natAbs x`, `x`, `y`
+   │ Note 2: atoms: `(x - y).natAbs`, `x.natAbs`, `x`, `y`
    │ 
-   │ Note 3: an integer model of the arithmetic abstraction (it may not be a real counterexample): Int.natAbs (x - y) = 1, Int.natAbs x = 0, x = 0, y = -1
+   │ Note 3: an integer model of the arithmetic abstraction (it may not be a real counterexample): (x - y).natAbs = 1, x.natAbs = 0, x = 0, y = -1
    │ 
-   │ Note 4: in the case `0 ≤ x ∧ (Int.natAbs x).toInt = x` of the disjunction from `Int.natAbsDichotomy x`
+   │ Note 4: in the case `0 ≤ x ∧ x.natAbs.toInt = x` of the disjunction from `Int.natAbsDichotomy x`
    │ 
-   │ Note 5: in the case `0 ≤ x - y ∧ (Int.natAbs (x - y)).toInt = x - y` of the disjunction from `Int.natAbsDichotomy (x - y)`
+   │ Note 5: in the case `0 ≤ x - y ∧ (x - y).natAbs.toInt = x - y` of the disjunction from `Int.natAbsDichotomy (x - y)`
    │ 
    │ Note 6: this statement is false; a counterexample:
    │           x = 0
    │           y = 1
-   │         `Int.natAbs (x - y) ≤ Int.natAbs x` is false
+   │         `(x - y).natAbs ≤ x.natAbs` is false
 ───╯
