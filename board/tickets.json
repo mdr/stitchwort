@@ -1,5 +1,5 @@
 {
-  "next": 1717,
+  "next": 1719,
   "tickets": [
     {
       "id": 47,
@@ -13273,6 +13273,36 @@
       ],
       "epic": "dev-loop-speed",
       "body": "D2532 (Matt, 6 Nov 2026): yes. Profiling only; allowed a few timed builds and one run of each of the ten slowest daily-tier binaries. Report: docs/reviews/SW-N-dev-loop-profile.md. Started on Opus, expected: 90 min.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1717,
+      "title": "[Opus] Independent review of docs/proposals/bounded-readback.md (SW-1712, D2514): soundness of the capped form and the lazy reader's equivalence claim, D484 change, stage order; report docs/reviews/SW-N-bounded-readback-review.md",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1717",
+      "labels": [
+        "review"
+      ],
+      "epic": "goal-as-written",
+      "body": "Matt, 6 Nov 2026: yes to an Opus review. Read-only. Started on Opus, expected: 60 min.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1718,
+      "title": "[Opus] Comparative study: how Lean 4, Coq/Rocq, Agda, Idris 2 and others bound unfolding when elaborating (whnf vs full normalisation, reducibility, glued evaluation, keyed matching, kabstract); lessons for bounded readback; report docs/reviews/SW-N-unfolding-comparison.md",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1718",
+      "labels": [
+        "research"
+      ],
+      "epic": "goal-as-written",
+      "body": "Matt, 6 Nov 2026: asked for a comparative study alongside the SW-1712 review. Read and web only. Started on Opus, expected: 75 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
