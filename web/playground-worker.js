@@ -21,7 +21,7 @@ let bindings = null;
 let ready = null;
 // The standard library's files, fetched beside the WebAssembly (pkg/std.bundle,
 // with the worker's `?v=…`) and given to the compiler before its first use,
-// and the library as the build checked it (pkg/std.cache, the same file the
+// and the library as the build checked it (pkg/std.cache.gz, the same file the
 // language server's worker reads), so that tests, runs and evaluations replay
 // the library instead of checking it again. A cache that is missing or
 // another build's leaves them checking it, as before.
@@ -102,8 +102,8 @@ self.onmessage = async ({ data }) => {
       .then((r) => { if (!r.ok) throw new Error(`std.bundle: HTTP ${r.status}`); return r.arrayBuffer(); })
       .then(async (bytes) => {
         b.load_std(new Uint8Array(bytes));
-        const cache = await fetch(`./pkg/std.cache${self.location.search}`)
-          .then((r) => (r.ok ? r.arrayBuffer() : null))
+        const cache = await fetch(`./pkg/std.cache.gz${self.location.search}`)
+          .then((r) => (r.ok ? new Response(r.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer() : null))
           .catch(() => null);
         if (cache) b.load_library_cache(new Uint8Array(cache));
       });

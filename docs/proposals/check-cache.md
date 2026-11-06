@@ -270,6 +270,11 @@ way the hasher walks terms, not with serde. There are three reasons:
    sharing, or at least decide about it, where serde would silently copy
    shared subterms.
 
+Terms are written as a table of nodes. A node's children are written as how
+far back they are, not by number, and a span in a list in source order as a
+step from the previous one's start: the encoding is the same size at most,
+and the repeats compress (SW-1455).
+
 An entry is a header, then the body, then a checksum. The header holds the
 format version, the key, the machine salt and the dependency list with
 expected hashes. Entries are written atomically. A small `stitchwort cache

@@ -172,6 +172,9 @@ pub trait Refs {
     fn def(&mut self, w: &mut Writer, id: DefId);
     fn data(&mut self, w: &mut Writer, id: DataId);
     fn span(&mut self, w: &mut Writer, span: Span);
+    /// A span whose start is written as the step from `prev`, which becomes
+    /// this span's start: for lists in source order.
+    fn span_after(&mut self, w: &mut Writer, span: Span, prev: &mut u32);
 }
 
 /// How to read them back.
@@ -179,6 +182,16 @@ pub trait ReadRefs {
     fn def(&self, r: &mut Reader) -> Read<DefId>;
     fn data(&self, r: &mut Reader) -> Read<DataId>;
     fn span(&self, r: &mut Reader) -> Read<Span>;
+    fn span_after(&self, r: &mut Reader, prev: &mut u32) -> Read<Span>;
+}
+
+/// A signed step as an unsigned number, small steps either way being small.
+pub fn zigzag(step: i64) -> u64 {
+    ((step << 1) ^ (step >> 63)) as u64
+}
+
+pub fn unzigzag(n: u64) -> i64 {
+    (n >> 1) as i64 ^ -((n & 1) as i64)
 }
 
 // Node tags.
@@ -226,6 +239,9 @@ pub struct TermWriter {
     ids: HashMap<*const Term, u32>,
     pub strings: Vec<String>,
     string_ids: HashMap<String, u32>,
+    /// Where the last `Loc` node's span started: they are written as steps
+    /// from it.
+    last_loc: u32,
 }
 
 /// A term that can't be written: one with a metavariable, which never
@@ -276,8 +292,11 @@ impl TermWriter {
         Ok(self.ids[&std::ptr::from_ref(root)])
     }
 
+    /// How far back from the node being written `t` is, less one: a node's
+    /// children are written just before it, so these are small numbers
+    /// (and repeat, which compresses well), where node numbers only grow.
     fn id(&self, t: &Rc<Term>) -> u64 {
-        u64::from(self.ids[&std::ptr::from_ref(t.as_ref())])
+        u64::from(self.count - 1 - self.ids[&std::ptr::from_ref(t.as_ref())])
     }
 
     fn name(&mut self, n: &Name) {
@@ -436,7 +455,7 @@ impl TermWriter {
             }
             Term::Loc(span, b) => {
                 self.nodes.u8(LOC);
-                refs.span(&mut self.nodes, *span);
+                refs.span_after(&mut self.nodes, *span, &mut self.last_loc);
                 let b = self.id(b);
                 self.nodes.uint(b);
             }
@@ -571,6 +590,20 @@ impl Terms {
         }
     }
 
+    /// A child of the node being read, written as how far back it is
+    /// ([`TermWriter::id`]).
+    fn child(&self, r: &mut Reader) -> Read<Rc<Term>> {
+        let back = r.usize()?;
+        self.back(back)
+    }
+
+    fn back(&self, back: usize) -> Read<Rc<Term>> {
+        match self.nodes.len().checked_sub(back.saturating_add(1)) {
+            Some(i) => Ok(self.nodes[i].clone()),
+            None => bad("a term out of range"),
+        }
+    }
+
     /// Reads `count` nodes.
     pub fn read_nodes(&mut self, r: &mut Reader, refs: &dyn ReadRefs, count: usize) -> Read<()> {
         self.nodes.reserve(count);
@@ -580,6 +613,7 @@ impl Terms {
             2 => Ok(Icit::Auto),
             _ => bad("an unknown kind of parameter"),
         };
+        let mut last_loc = 0;
         for _ in 0..count {
             let t = match r.u8()? {
                 VAR => Term::Var(r.usize()?),
@@ -587,14 +621,14 @@ impl Terms {
                 DATA => {
                     let d = refs.data(r)?;
                     let n = r.count(1)?;
-                    let args = (0..n).map(|_| self.rc(r)).collect::<Read<_>>()?;
+                    let args = (0..n).map(|_| self.child(r)).collect::<Read<_>>()?;
                     Term::Data(d, args)
                 }
                 CTOR => {
                     let d = refs.data(r)?;
                     let c = r.usize()?;
                     let n = r.count(1)?;
-                    let args = (0..n).map(|_| self.rc(r)).collect::<Read<_>>()?;
+                    let args = (0..n).map(|_| self.child(r)).collect::<Read<_>>()?;
                     Term::Ctor(d, c, args)
                 }
                 NAT => Term::Nat(Rc::new(BigUint::from_bytes_le(r.blob()?))),
@@ -606,22 +640,22 @@ impl Terms {
                 PI => {
                     let x = self.name(r)?;
                     let i = read_icit(r)?;
-                    Term::Pi(x, i, self.rc(r)?, self.rc(r)?)
+                    Term::Pi(x, i, self.child(r)?, self.child(r)?)
                 }
                 LAM => {
                     let x = self.name(r)?;
                     let i = read_icit(r)?;
-                    Term::Lam(x, i, self.rc(r)?)
+                    Term::Lam(x, i, self.child(r)?)
                 }
                 APP => {
                     let i = read_icit(r)?;
-                    Term::App(self.rc(r)?, self.rc(r)?, i)
+                    Term::App(self.child(r)?, self.child(r)?, i)
                 }
-                ANN => Term::Ann(self.rc(r)?, self.rc(r)?),
+                ANN => Term::Ann(self.child(r)?, self.child(r)?),
                 LET => {
                     let x = self.name(r)?;
                     let erased = r.bool()?;
-                    Term::Let(x, self.rc(r)?, self.rc(r)?, self.rc(r)?, erased)
+                    Term::Let(x, self.child(r)?, self.child(r)?, self.child(r)?, erased)
                 }
                 CASE => {
                     let x = r.usize()?;
@@ -633,10 +667,7 @@ impl Terms {
                         let names = (0..k).map(|_| self.name(r)).collect::<Read<_>>()?;
                         let body = match r.usize()? {
                             0 => None,
-                            i => match self.nodes.get(i - 1) {
-                                Some(t) => Some(t.clone()),
-                                None => return bad("a term out of range"),
-                            },
+                            i => Some(self.back(i - 1)?),
                         };
                         branches.push(Branch { names, body });
                     }
@@ -650,35 +681,32 @@ impl Terms {
                         let value = Rc::new(BigUint::from_bytes_le(r.blob()?));
                         arms.push(NumArm {
                             value,
-                            body: self.rc(r)?,
+                            body: self.child(r)?,
                         });
                     }
-                    Term::NumCase(x, arms.into(), self.rc(r)?)
+                    Term::NumCase(x, arms.into(), self.child(r)?)
                 }
                 EQ => {
                     let ty = match r.usize()? {
                         0 => None,
-                        i => match self.nodes.get(i - 1) {
-                            Some(t) => Some(t.clone()),
-                            None => return bad("a term out of range"),
-                        },
+                        i => Some(self.back(i - 1)?),
                     };
-                    Term::Eq(ty, self.rc(r)?, self.rc(r)?)
+                    Term::Eq(ty, self.child(r)?, self.child(r)?)
                 }
                 REFL => Term::Refl,
-                J => Term::J(self.rc(r)?, self.rc(r)?, self.rc(r)?),
+                J => Term::J(self.child(r)?, self.child(r)?, self.child(r)?),
                 QUOT => {
                     let Some(form) = read_quot_form(r.u8()?) else {
                         return bad("an unknown quotient form");
                     };
                     let erased = r.bool()?;
                     let n = r.count(1)?;
-                    let args = (0..n).map(|_| self.rc(r)).collect::<Read<_>>()?;
+                    let args = (0..n).map(|_| self.child(r)).collect::<Read<_>>()?;
                     Term::Quot(form, args, erased)
                 }
                 LOC => {
-                    let span = refs.span(r)?;
-                    Term::Loc(span, self.rc(r)?)
+                    let span = refs.span_after(r, &mut last_loc)?;
+                    Term::Loc(span, self.child(r)?)
                 }
                 _ => return bad("an unknown kind of term"),
             };

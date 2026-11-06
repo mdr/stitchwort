@@ -2280,7 +2280,7 @@ test("in a project, an error in the day's program is underlined", async (page) =
   await openDay(page, 2);
   await page.until(DAY2_TABS_READY);
   await untilPublished(page, "Day02.sw", 1, 150000);
-  // With the library's check cache (pkg/std.cache) the first marks come in seconds.
+  // With the library's check cache (pkg/std.cache.gz) the first marks come in seconds.
   console.log(`    (first diagnostics ${Date.now() - opened} ms after opening the day; library cache: ${await page.ev(`window.editor.stats.libraryCache`)})`);
   console.log(`    (stats: ${JSON.stringify(await page.ev(`(({ ready, libraryCacheMs, longestTick, ticks }) => ({ ready, libraryCacheMs, longestTick, ticks }))(window.editor.stats)`))})`);
   assert.equal(await page.ev(`window.editor.stats.libraryCache`), true, "the library's check cache was read");
