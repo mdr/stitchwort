@@ -2456,11 +2456,17 @@ fn named_arguments_hover_and_complete_parameter_names() {
             "textDocument/completion",
             json!({"textDocument": {"uri": uri}, "position": {"line": line, "character": character}, "context": {"triggerKind": 1}}),
         );
+        // The parameter names, which come before the names in scope.
         found
             .as_array()
             .map(|items| {
                 items
                     .iter()
+                    .filter(|i| {
+                        i["insertText"]
+                            .as_str()
+                            .is_some_and(|t| t.ends_with(" := "))
+                    })
                     .map(|i| i["label"].as_str().unwrap().to_string())
                     .collect()
             })

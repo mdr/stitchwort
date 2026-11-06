@@ -2739,6 +2739,49 @@ impl Elaborator {
         out.sort();
         out
     }
+
+    /// Every short name the current file can write, with the key it
+    /// resolves to, what that is and the level that decides it: the
+    /// candidates for completing a name. A name that is ambiguous here is
+    /// left out, as is one only the compiler writes (`%…`).
+    pub(crate) fn short_names_visible(&self) -> Vec<(String, String, Global, Level)> {
+        let mut shorts: BTreeSet<&str> = BTreeSet::new();
+        let root = self.root();
+        for key in self.scope.entries.keys() {
+            let rest = if root.is_empty() {
+                Some(key.as_str())
+            } else {
+                key.strip_prefix(root)
+            };
+            if let Some(rest) = rest.filter(|r| !r.contains('.')) {
+                shorts.insert(rest);
+            }
+        }
+        let file = self.current_file();
+        if let Some(table) = self.scope.imports.get(file) {
+            shorts.extend(table.keys().map(String::as_str));
+        }
+        if let Some(table) = self.scope.wildcards.get(file) {
+            shorts.extend(table.keys().map(String::as_str));
+        }
+        shorts.extend(
+            PRELUDE
+                .iter()
+                .copied()
+                .filter(|x| self.scope.std_root.contains_key(*x)),
+        );
+        shorts.extend(self.scope.followers.keys().map(String::as_str));
+        shorts
+            .into_iter()
+            .filter(|x| !x.is_empty() && !x.starts_with('%'))
+            .filter_map(|x| match self.resolve_short(x, true) {
+                Resolved::Found {
+                    global, key, level, ..
+                } => Some((x.to_string(), key.to_string(), global, level)),
+                _ => None,
+            })
+            .collect()
+    }
 }
 
 /// The target of the alias `key`, if it is one.

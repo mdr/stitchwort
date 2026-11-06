@@ -52,6 +52,7 @@ use stitchwort_core::budget::Instant;
 #[cfg(target_family = "wasm")]
 use wasm::FileUrl as _;
 
+mod complete;
 mod imports;
 mod source;
 pub use source::{Disk, Memory, MemoryProject, ProjectFiles, Source};
@@ -292,12 +293,30 @@ struct WorkspaceNav {
     /// Whether the key is a project's folder (else a file's path).
     project: bool,
     files: BTreeMap<Place, FileAnswers>,
+    /// For a file whose text doesn't parse now: the answers of the last
+    /// check in which it did, for completing in the declaration being
+    /// typed, which the check now has nothing for.
+    parsed: BTreeMap<Place, FileAnswers>,
     /// Each source file's outline from its syntax alone, by path: covers
     /// the namespaces not checked yet (a file checked is in `files`).
     outlines: BTreeMap<String, Vec<OutlineItem>>,
 }
 
 impl WorkspaceNav {
+    /// Stores the answers for `place`, keeping the last ones that parsed
+    /// while it doesn't.
+    fn store(&mut self, place: Place, file: FileAnswers) {
+        let broken = |f: &FileAnswers| f.diagnostics.iter().any(|d| d.code == "E-PARSE");
+        if !broken(&file) {
+            self.parsed.remove(&place);
+        } else if let Some(old) = self.files.remove(&place)
+            && !broken(&old)
+        {
+            self.parsed.insert(place.clone(), old);
+        }
+        self.files.insert(place, file);
+    }
+
     fn uri(&self, root: &Path, place: &Place) -> Option<Url> {
         match place {
             Place::Library(std) => library_uri(std),
@@ -982,35 +1001,59 @@ impl Main {
         }
     }
 
-    /// The parameter names to complete after `(` or `[` in a call (docs/
-    /// proposals/named-arguments.md §6.3): those of the function not given
-    /// by name yet. The function is found by its name among the file's last
-    /// published references, so an edit that doesn't parse (the call being
-    /// typed) doesn't hide it.
+    /// `textDocument/completion`. After `(` or `[` in a call, the
+    /// parameter names to give by name (docs/proposals/named-arguments.md
+    /// §6.3): those of the function not given by name yet, found by its name
+    /// among the file's last published references, so an edit that doesn't
+    /// parse (the call being typed) doesn't hide it. Elsewhere, the names in
+    /// scope ([`complete`]), with those parameter names first inside a call.
     fn completions(
         &self,
         nav: &Nav,
         uri: &Url,
         at: Position,
+        trigger: Option<&str>,
     ) -> Option<Vec<lsp_types::CompletionItem>> {
         let texts = self.texts.borrow();
         let text = texts.get(uri)?;
         let (_, ws, place) = locate(nav, uri)?;
         let file = ws.files.get(&place)?;
-        let signature = pos::signature_at(file, text, offset_at(text, at))?;
-        let items = signature
-            .wanted()
-            .map(|p| lsp_types::CompletionItem {
-                insert_text: Some(format!("{} := ", p.name)),
-                detail: Some(match &p.default {
-                    Some(default) => format!("{} := {default}", p.name),
-                    None => p.ty.clone(),
-                }),
-                kind: Some(lsp_types::CompletionItemKind::VARIABLE),
-                label: p.name.clone(),
-                ..Default::default()
+        let offset = offset_at(text, at);
+        let mut items: Vec<lsp_types::CompletionItem> = pos::signature_at(file, text, offset)
+            .map(|signature| {
+                signature
+                    .wanted()
+                    .map(|p| lsp_types::CompletionItem {
+                        insert_text: Some(format!("{} := ", p.name)),
+                        detail: Some(match &p.default {
+                            Some(default) => format!("{} := {default}", p.name),
+                            None => p.ty.clone(),
+                        }),
+                        kind: Some(lsp_types::CompletionItemKind::VARIABLE),
+                        sort_text: Some(format!("! {}", p.name)),
+                        label: p.name.clone(),
+                        ..Default::default()
+                    })
+                    .collect()
             })
-            .collect();
+            .unwrap_or_default();
+        if matches!(trigger, Some("(" | "[")) {
+            return Some(items);
+        }
+        let parsed = ws.parsed.get(&place);
+        match complete::typed(text, offset) {
+            complete::Typed::Nothing => {}
+            complete::Typed::Name { .. } => {
+                let answers: Vec<&FileAnswers> = std::iter::once(file).chain(parsed).collect();
+                let locals = complete::locals(&answers, &place, (at.line, at.character));
+                let names = match (&file.names, parsed) {
+                    (names, Some(p)) if names.is_empty() => &p.names,
+                    (names, _) => names,
+                };
+                items.extend(complete::scope_items(locals, names));
+            }
+            complete::Typed::Member { .. } => {}
+        }
         Some(items)
     }
 
@@ -1170,7 +1213,11 @@ impl Main {
             request::Completion::METHOD => {
                 parse::<lsp_types::CompletionParams>(&request).map(|p| {
                     let at = p.text_document_position;
-                    let items = self.completions(&nav, &at.text_document.uri, at.position);
+                    let trigger = p
+                        .context
+                        .as_ref()
+                        .and_then(|c| c.trigger_character.as_deref());
+                    let items = self.completions(&nav, &at.text_document.uri, at.position, trigger);
                     serde_json::to_value(items.map(lsp_types::CompletionResponse::Array))
                 })
             }
@@ -2071,7 +2118,7 @@ impl Checker {
                 // Only what changed, or is for a newer version of the text.
                 let shown = (version, diagnostics.clone());
                 if self.published.get(&uri) == Some(&shown) {
-                    ws.files.insert(place, file);
+                    ws.store(place, file);
                     continue;
                 }
                 self.published.insert(uri.clone(), shown);
@@ -2081,7 +2128,7 @@ impl Checker {
                     version,
                 });
             }
-            ws.files.insert(place, file);
+            ws.store(place, file);
         }
         drop(guard);
         for params in notes {

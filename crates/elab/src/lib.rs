@@ -52,7 +52,7 @@ mod module;
 mod named;
 mod nav;
 mod no_effect;
-pub use nav::{NavIndex, NavRef, NavSymbol, NavTarget, std_source};
+pub use nav::{NavIndex, NavRef, NavSymbol, NavTarget, ScopeName, std_source};
 mod cases;
 mod numbers;
 mod omega;

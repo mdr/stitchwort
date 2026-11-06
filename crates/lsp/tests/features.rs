@@ -348,3 +348,96 @@ fn hover_works_in_a_library_file_whether_or_not_the_library_was_replayed() {
         assert!(replayed["contents"].is_object(), "replayed: {replayed}");
     });
 }
+
+impl Session {
+    /// Replaces the document's text, as version `version`, and checks it.
+    fn change(&mut self, version: i32, text: &str) {
+        self.notify(
+            "textDocument/didChange",
+            json!({"textDocument": {"uri": URI, "version": version},
+                   "contentChanges": [{"text": text}]}),
+        );
+        self.settle();
+    }
+
+    /// The completion items at the end of the line `line`, as the editor
+    /// asks while a name is typed; with `trigger`, just after it was typed.
+    fn complete_at_end(&mut self, text: &str, line: usize, trigger: Option<&str>) -> Vec<Value> {
+        let character = text.lines().nth(line).unwrap().chars().count();
+        let context = match trigger {
+            Some(c) => json!({"triggerKind": 2, "triggerCharacter": c}),
+            None => json!({"triggerKind": 1}),
+        };
+        let found = self.request(
+            "textDocument/completion",
+            json!({"textDocument": {"uri": URI},
+                   "position": {"line": line, "character": character},
+                   "context": context}),
+        );
+        found.as_array().cloned().unwrap_or_default()
+    }
+}
+
+fn labels(items: &[Value]) -> Vec<&str> {
+    items.iter().map(|i| i["label"].as_str().unwrap()).collect()
+}
+
+fn item<'i>(items: &'i [Value], label: &str) -> &'i Value {
+    items
+        .iter()
+        .find(|i| i["label"] == label)
+        .unwrap_or_else(|| panic!("no `{label}` in {:?}", labels(items)))
+}
+
+const IN_SCOPE: &str = "namespace Demo\nimport Std (Map)\n\n\
+    def helper (n: Nat): Nat := n + 1\n\n\
+    def f (count: Nat) (m: Map Nat Nat): Nat :=\n  let doubled := count * 2\n  doubled + co\n";
+
+#[test]
+fn completion_offers_locals_then_the_namespace_then_imports_and_defaults() {
+    big_stack(|| {
+        let mut s = Session::open(IN_SCOPE);
+        let items = s.complete_at_end(IN_SCOPE, 7, None);
+        let shown = labels(&items);
+        // The locals bound before the cursor, nearest first.
+        assert_eq!(shown[..3], ["doubled", "m", "count"], "{shown:?}");
+        assert!(
+            item(&items, "count")["detail"]
+                .as_str()
+                .unwrap()
+                .contains("Nat")
+        );
+        let rank = |label: &str| {
+            item(&items, label)["sortText"]
+                .as_str()
+                .unwrap()
+                .to_string()
+        };
+        assert!(rank("doubled") < rank("helper") && rank("helper") < rank("Map"));
+        assert!(rank("helper") < rank("Nat"));
+        assert_eq!(item(&items, "helper")["detail"], "def: Nat → Nat");
+        // Constructors of a default type, and what the import brings.
+        for name in ["Map", "Some", "Cons", "List"] {
+            item(&items, name);
+        }
+        // The rest of a library namespace needs an import.
+        assert!(!shown.contains(&"map"), "{shown:?}");
+    });
+}
+
+#[test]
+fn completion_keeps_the_locals_of_a_declaration_that_does_not_parse() {
+    big_stack(|| {
+        let mut s = Session::open(IN_SCOPE);
+        let broken = IN_SCOPE.replace("doubled + co\n", "doubled + (co\n");
+        s.change(2, &broken);
+        assert!(
+            s.diagnostics.iter().any(|d| d["code"] == "E-PARSE"),
+            "{:?}",
+            s.diagnostics
+        );
+        let items = s.complete_at_end(&broken, 7, None);
+        assert_eq!(labels(&items)[..3], ["doubled", "m", "count"]);
+        item(&items, "helper");
+    });
+}
