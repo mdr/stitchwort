@@ -1,5 +1,5 @@
 {
-  "next": 1614,
+  "next": 1615,
   "tickets": [
     {
       "id": 47,
@@ -9168,13 +9168,13 @@
     {
       "id": 1485,
       "title": "Warn when match e: refines nothing (e in neither the goal nor a hypothesis): the arms' errors then point away from the cause",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1485",
       "labels": [
         "messages"
       ],
-      "body": "From 2020 day 12 (SW-1483), 5 Nov 2026.\n\nAlso covers SW-1575 (duplicate, closed; SW-1598).\n\nD2453 (Matt, 6 Nov 2026): yes, both: an Opus design note on rewrite/match looking at the goal as written first (SW-706, SW-1589, SW-1562), and the refines-nothing warning SW-1485 now. Next free slot, on Sonnet.\n\nStarted on Sonnet, expected: 60 min.",
+      "body": "From 2020 day 12 (SW-1483), 5 Nov 2026.\n\nAlso covers SW-1575 (duplicate, closed; SW-1598).\n\nD2453 (Matt, 6 Nov 2026): yes, both: an Opus design note on rewrite/match looking at the goal as written first (SW-706, SW-1589, SW-1562), and the refines-nothing warning SW-1485 now. Next free slot, on Sonnet.\n\nStarted on Sonnet, expected: 60 min.\n\nDone (f5ed23e24), merged. W-MATCH-NOT-FOUND already existed but was added only after the arms checked, so it never fired when an arm failed (days 12, 19). Now given when the arms fail too; not while the goal holds an unknown; new note for the eta case (goal has a lambda, scrutinee none). Named match only. False positives over all of aoc/: none in passing code. Lane tests: examples, std, elab lane 156. Model result: Sonnet, worked, 46 min (est. 60).",
       "created": "2026-11-05",
       "updated": "2026-11-06",
       "commits": []
@@ -10967,6 +10967,20 @@
         "design"
       ],
       "body": "D2455 (Matt, 6 Nov 2026): instead of changing what Some { … } means, an Opus design note reviewing record and constructor brace syntax in the round (expressions and patterns), other languages with sources, alternatives, usage counts from the repo. 'It should look at other languages. It should try and consider alternatives.' Revisits D1370, D593, D605. Started on Opus, analysis only, expected: 90 min.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1614,
+      "title": "W-MATCH-NOT-FOUND after failing arms: also given for a match used only for its equation h (arms can't be checked for using h when they fail); look at whether the failing arm mentions h in the source (SW-1485); also real matching up to eta (SW-706 stage 2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "From SW-1485, 6 Nov 2026. Seen in examples match-equation-not-rfl, match-refl-false-premise.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
