@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ABILITY] Error: this may perform `Parse`, which isn't allowed here
+    ╭─[ reject/method-passed-as-thunk.sw:12:3 ]
+    │
+ 12 │   Parse.eachLine input digits.parser
+    │   ─────────────────┬────────────────  
+    │                    ╰────────────────── `Parse` isn't in the abilities of the enclosing function or handler
+    │ 
+    │ Note 1: add `Parse` to the function's type (`-> {Parse …} …`), or handle it
+    │ 
+    │ Note 2: `digits.parser` runs here; this parameter takes a function of `()`, so to pass it, not run it, write `() => digits.parser`
+────╯
