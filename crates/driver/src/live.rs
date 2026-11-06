@@ -408,6 +408,12 @@ pub struct LiveProject {
     parsed: BTreeMap<String, ParsedFile>,
     /// Whether the files were read again since [`LiveProject::take_outlines`].
     outlines_stale: bool,
+    /// For each file of a namespace last checked cleanly (not failed or
+    /// skipped): its text then and what was answered for it, plain data
+    /// that holds nothing of the session. A namespace skipped because an
+    /// import failed serves these in place of the answers it has no check
+    /// for, while its text is the same ([`LiveProject::answers`]).
+    last_good: BTreeMap<String, (String, FileAnswers)>,
 }
 
 impl LiveProject {
@@ -463,6 +469,7 @@ impl LiveProject {
             library_answered: false,
             parsed: BTreeMap::new(),
             outlines_stale: true,
+            last_good: BTreeMap::new(),
         }
     }
 
@@ -623,6 +630,7 @@ impl LiveProject {
         let index = index_data_of(&self.session, &root, &diagnostics, library);
         self.library_answered = true;
         let mut answers = answers_from(&index, &wanted, "stitchwort.yaml");
+        self.keep_last_good(&mut answers);
         if !library {
             // The index left out the library files' references, bar a few
             // that remain (some 300 of Set.sw's 640, SW-1110); published,
@@ -631,6 +639,61 @@ impl LiveProject {
             answers.retain(|place, _| !matches!(place, Place::Library(_)));
         }
         answers
+    }
+
+    /// A namespace skipped because an import failed was not elaborated, so
+    /// it has no answers of its own; its files serve the ones they had when
+    /// last checked cleanly, as long as their text is unchanged (the
+    /// positions in them would be wrong otherwise: then they have none).
+    /// Diagnostics are always the fresh ones. A namespace that failed
+    /// itself, or one not in the project any more, keeps nothing.
+    fn keep_last_good(&mut self, answers: &mut Answers) {
+        if !self.fatal.is_empty() {
+            self.last_good.clear();
+            return;
+        }
+        let mut live: BTreeSet<&str> = BTreeSet::new();
+        for step in &self.steps {
+            for (path, text) in &step.files {
+                let place = Place::Program(path.clone());
+                match step.outcome {
+                    NamespaceOutcome::Checked => {
+                        live.insert(path);
+                        if let Some(now) = answers.get(&place) {
+                            let mut good = now.clone();
+                            good.diagnostics.clear();
+                            self.last_good.insert(path.clone(), (text.clone(), good));
+                        }
+                    }
+                    NamespaceOutcome::Skipped => {
+                        let Some((then, good)) = self.last_good.get(path) else {
+                            continue;
+                        };
+                        if then != text {
+                            self.last_good.remove(path);
+                            continue;
+                        }
+                        live.insert(path);
+                        if let Some(now) = answers.get_mut(&place) {
+                            now.refs = good.refs.clone();
+                            now.exprs = good.exprs.clone();
+                            now.outline = good.outline.clone();
+                        }
+                    }
+                    NamespaceOutcome::Failed => {}
+                }
+            }
+        }
+        // Namespaces rewound and not yet checked again keep their entries.
+        let unchecked: BTreeSet<&str> = self
+            .plan
+            .iter()
+            .filter_map(|n| self.namespace_files.get(n))
+            .flatten()
+            .map(|(p, _)| p.as_str())
+            .collect();
+        self.last_good
+            .retain(|p, _| live.contains(p.as_str()) || unchecked.contains(p.as_str()));
     }
 
     /// The outline of every file of the project, read from its syntax alone

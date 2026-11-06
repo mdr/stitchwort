@@ -393,6 +393,28 @@ fn failed_import_body() {
     };
     let sent = settle(&mut server);
     assert_eq!(codes(&sent, "Second"), Some(vec![]));
+    // Hover and go-to-definition on `one` in `three`'s body, line 3.
+    let mut next_id = 100;
+    let mut ask = |server: &mut Inline, method: &str| -> Value {
+        next_id += 1;
+        let mut sent = server.receive(
+            &json!({"jsonrpc": "2.0", "id": next_id, "method": method, "params": {
+                "textDocument": {"uri": uri("Second")},
+                "position": {"line": 3, "character": 19},
+            }})
+            .to_string(),
+        );
+        sent.extend(settle(server).iter().map(|m| m.to_string()));
+        (sent.iter())
+            .map(|m| serde_json::from_str::<Value>(m).unwrap())
+            .find(|m| m["id"] == next_id)
+            .map(|m| m["result"].clone())
+            .unwrap_or(Value::Null)
+    };
+    let hover = ask(&mut server, "textDocument/hover");
+    let definition = ask(&mut server, "textDocument/definition");
+    assert!(hover.to_string().contains("one"), "{hover}");
+    assert!(definition.to_string().contains("First.sw"), "{definition}");
 
     // Breaking the shared file after the dependent was checked clean.
     change(&mut server, 2, broken);
@@ -402,10 +424,14 @@ fn failed_import_body() {
         codes(&sent, "Second"),
         Some(vec!["E-NAMESPACE-FAILED".into()])
     );
+    // The skipped dependent keeps its last good hover and definition.
+    assert_eq!(ask(&mut server, "textDocument/hover"), hover);
+    assert_eq!(ask(&mut server, "textDocument/definition"), definition);
 
     // Fixing the shared file checks the dependent again.
     change(&mut server, 3, good);
     let sent = settle(&mut server);
     assert_eq!(codes(&sent, "First"), Some(vec![]));
     assert_eq!(codes(&sent, "Second"), Some(vec![]));
+    assert_eq!(ask(&mut server, "textDocument/hover"), hover);
 }
