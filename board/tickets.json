@@ -791,13 +791,13 @@
     {
       "id": 789,
       "title": "Consider D1426: Record eta in the kernel, or a generated T.ext lemma per record",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-789",
       "labels": [
         "decision"
       ],
-      "body": "p = { row = p.row, column = p.column } isn't true by computation; roguelike, day 5 and day 6 hit it. Lean and Agda have kernel eta. Rec: kernel record eta after a short design note (trusted code).\n\nReminder (D1981, Matt, 30 Oct 2026): once proof irrelevance (SW-93) is built, record eta must apply only to records with at least one field that isn't a proof. A record whose fields are all proofs then behaves like a unit type, and eta on it breaks transitivity of conversion (docs/research/kernel.md §5.2; Lennon-Bertrand FSCD25, Rosain et al. POPL26; Rocq requires at least one relevant field). records.md §7.1 condition 4 should say so.\n\nD2457 (Matt, 6 Nov 2026): yes, an Opus design note for kernel record eta, limited to records with at least one non-proof field (D1981), building on records.md §7. Started on Opus (design note), expected: 90 min.",
+      "body": "p = { row = p.row, column = p.column } isn't true by computation; roguelike, day 5 and day 6 hit it. Lean and Agda have kernel eta. Rec: kernel record eta after a short design note (trusted code).\n\nReminder (D1981, Matt, 30 Oct 2026): once proof irrelevance (SW-93) is built, record eta must apply only to records with at least one field that isn't a proof. A record whose fields are all proofs then behaves like a unit type, and eta on it breaks transitivity of conversion (docs/research/kernel.md §5.2; Lennon-Bertrand FSCD25, Rosain et al. POPL26; Rocq requires at least one relevant field). records.md §7.1 condition 4 should say so.\n\nD2457 (Matt, 6 Nov 2026): yes, an Opus design note for kernel record eta, limited to records with at least one non-proof field (D1981), building on records.md §7. Started on Opus (design note), expected: 90 min.\n\nDesign note done (13f62f10d), merged: docs/proposals/record-eta.md; prototype at dev/patches/sw-789-record-eta-prototype.patch. Recommendation: eta for every single-constructor, non-recursive type in Type with a non-proof field (D1981), Pair included, via a new kernel projection form without parameters; rule 1 (literal = unknown record field-wise) and rule 2 (match on an unknown record takes its only branch, fields from the unforced record); unifier the same, off in first_order; T.ext stays. Prototype: 8 sampled workarounds removable, each failing without eta; one breakage (2021 day 13 Picture.sw:45, a workaround that becomes rfl); cost +4.6% instructions on aoc/, +5.0% rogue (rule 2). Q1-Q8 = D2498-D2505, waiting for Matt. Model result: Opus, worked, 43 min (est. 90).",
       "created": "2026-10-28",
       "updated": "2026-11-06",
       "commits": []
