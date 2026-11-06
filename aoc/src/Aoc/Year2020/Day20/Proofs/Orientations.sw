@@ -254,3 +254,38 @@ theorem withinOrientations (image: Image) (rectangle: Rectangle image) (turned: 
     | Inr (Inr (Inr (Inr (Inr (Inr (Inl same)))))) => rewrite <- same in f2
     | Inr (Inr (Inr (Inr (Inr (Inr (Inr (Inl same))))))) => rewrite <- same in f3
     | Inr (Inr (Inr (Inr (Inr (Inr (Inr (Inr never))))))) => Void.exfalso never
+
+--| An edge that fits one of a rectangle's edges is an edge of one of its
+--| orientations: itself, a quarter turn, or its mirror image.
+theorem orientedFit (image: Image) (rectangle: Rectangle image) [edge: List Pixel] [original: List Pixel]
+    (onImage: original ∈ Spec.edges image) (fit: Spec.Fit edge original): ∃ (turned: Image) => turned ∈ image.orientations ∧ edge ∈ Spec.edges turned :=
+  let flipped: image.flip ∈ image.orientations := Inr (Inr (Inr (Inr (Inl rfl))))
+  let rotated: image.rotate ∈ image.orientations := Inr (Inl rfl)
+  match fit with
+    | Inl same => Witness image (Both (Inl rfl) (rewrite same in onImage))
+    | Inr reversed =>
+      match rectangle with
+        | Witness k (Both sized nonEmpty) =>
+          let turnedEdges := rotateEdges image k sized nonEmpty
+          match onImage with
+            | Inl top => Witness image.flip (Both flipped (memEq (Eq.sym (flipEdges image)) (rewrite reversed, <- top in Inl rfl)))
+            | Inr (Inl right) => Witness image.rotate (Both rotated (memEq (Eq.sym turnedEdges) (rewrite reversed, <- right in Inr (Inr (Inl rfl)))))
+            | Inr (Inr (Inl bottom)) => Witness image.flip (Both flipped (memEq (Eq.sym (flipEdges image)) (rewrite reversed, <- bottom in Inr (Inr (Inl rfl)))))
+            | Inr (Inr (Inr (Inl left))) => Witness image.rotate (Both rotated (memEq (Eq.sym turnedEdges) (rewrite reversed, <- left in Inl rfl)))
+            | Inr (Inr (Inr (Inr never))) => Void.exfalso never
+
+--| The puzzle's words: an edge matches another tile's when that tile, in
+--| some orientation, has it as an edge. For rectangular tiles that is
+--| `Spec.Matched`, whose edges fit forwards or reversed.
+theorem matchedOriented (jigsaw: Jigsaw) (rectangles: (tile: Tile) → tile ∈ jigsaw.tiles → Rectangle tile.image) (tile: Tile) (edge: List Pixel):
+    Spec.Matched jigsaw tile edge
+      ↔ ∃ (other: Tile) => other ∈ jigsaw.tiles ∧ other.id ≠ tile.id ∧ ∃ (turned: Image) => turned ∈ other.image.orientations ∧ edge ∈ Spec.edges turned := {
+  forward = matched =>
+    match matched with
+      | Witness other (Both member (Both different (Witness original (Both onOther fit)))) =>
+        Witness other (Both member (Both different (orientedFit other.image (rectangles other member) onOther fit))),
+  backward = oriented =>
+    match oriented with
+      | Witness other (Both member (Both different (Witness turned (Both isTurned onTurned)))) =>
+        Witness other (Both member (Both different (withinOrientations other.image (rectangles other member) turned isTurned edge onTurned)))
+}
