@@ -1,5 +1,5 @@
 {
-  "next": 1502,
+  "next": 1503,
   "tickets": [
     {
       "id": 47,
@@ -8519,15 +8519,15 @@
     {
       "id": 1439,
       "title": "Dot calls on receivers with no written type (pattern or for binders) still link to every *.name in the module, so the SW-1420 false mutual group can recur; infer the receiver's type from pattern binders and record fields, and have E-DECREASING's 'call each other' note say when a group exists only because of a .name guess (as speculative_note does)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1439",
       "labels": [
         "elab"
       ],
-      "body": "From SW-1420, 5 Nov 2026.",
+      "body": "From SW-1420, 5 Nov 2026.\n\nStarted overnight on Sonnet, expected: 60 min.",
       "created": "2026-11-05",
-      "updated": "2026-11-05",
+      "updated": "2026-11-06",
       "commits": []
     },
     {
@@ -9399,6 +9399,20 @@
         "tests"
       ],
       "body": "Filed overnight 6 Nov 2026 from SW-1492 (day 13) or SW-1119.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1502,
+      "title": "AoC 2020 day 14 (Docking Data): spec, efficient solution, proofs, tests, friction notes in aoc/NOTES-2020.md",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1502",
+      "labels": [
+        "aoc"
+      ],
+      "body": "D2443 (Matt): carry on further if there's time. Overnight, Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day14.\n\nStarted on Opus, expected: 120 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
