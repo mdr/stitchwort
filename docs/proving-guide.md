@@ -351,6 +351,14 @@ Each was run on the example named; the output is quoted, shortened.
     `a ∧ b` or `¬(a ∧ b)` (`examples/accept/match-if-and.sw`). Usually the goal
     unfolded the definition first: rewrite with a lemma about the unfolded
     form, or state the step with `calc`.
+  - `W-MATCH-NOT-FOUND`: a `match h: e` whose `e` is in neither the goal nor
+    a hypothesis (as they compute) refines nothing, so each arm has the goal
+    unchanged. It is given when the arms don't use `h`, and also when they
+    fail to check, so that the arms' errors (an unsolved `?42`, an unfolded
+    parser run) are read beside the cause. The note shows the goal as the
+    search saw it; write `e` as that shows it (a function argument as the
+    lambda `y => f x y`, not `f x`). Day 12's `% 90` against the program's
+    `% 45` is this (`examples/reject/match-not-found-arm-fails.sw`).
   - `E-REWRITE-MOTIVE`: replacing the term makes the goal ill-typed, usually
     because an `auto` proof (the `d != 0` in `x % d`) is about it. Rewrite a
     larger term (`x % d`), or use `calc` (`examples/reject/rewrite-motive-auto.sw`).

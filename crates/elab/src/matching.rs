@@ -1048,12 +1048,16 @@ fn generalised_now(
         let body = crate::families::warn_unreachable(cx, |cx| check_tree_here(cx, &tree, &motive));
         cx.scrutinees.truncate(known);
         body
-    })?;
+    });
     if !not_found.is_empty() {
-        let used = free_levels(&body, depth);
+        // If the alternatives failed, whether they use an equation isn't
+        // known; the failure is then likely to be this (SW-1485).
+        let used = body.as_ref().ok().map(|body| free_levels(body, depth));
         let mut warnings = cx.e.attempt.lambda_warnings.borrow_mut();
         for (i, warning) in not_found {
-            let unused = (equations.iter()).any(|&(j, level)| j == i && !used.contains(&level));
+            let unused = (equations.iter()).any(|&(j, level)| {
+                j == i && used.as_ref().is_none_or(|used| !used.contains(&level))
+            });
             let span = warning.labels.first().map(|l| l.span);
             let warned = (warnings.iter())
                 .any(|w| w.code == warning.code && w.labels.first().map(|l| l.span) == span);
@@ -1062,6 +1066,7 @@ fn generalised_now(
             }
         }
     }
+    let body = body?;
     let eqs = (0..levels.len())
         .map(|c| {
             let i = match columns[c] {
@@ -1229,7 +1234,7 @@ fn ran_out_at(d: Diagnostic, span: stitchwort_syntax::Span, label: &str) -> Diag
 /// so every alternative has the goal unchanged. Each is given only if the
 /// alternatives don't use its equation either, and only in a proof, whose
 /// goal is a proposition. The note shows the goal as the occurrence test
-/// saw it. None is given for one left uncomputed with free variables
+/// saw it, and none if the goal holds an unknown. None is given for one left uncomputed with free variables
 /// (`unread`): its normal form might have been a variable, which this
 /// never warns about.
 #[allow(clippy::too_many_arguments)]
@@ -1245,7 +1250,12 @@ fn not_found(
 ) -> Result<Vec<(usize, Diagnostic)>> {
     let g = cx.g();
     let mut out = Vec::new();
-    if !crate::patlet::proposition(cx, goal)? {
+    // A goal holding an unknown may still be filled in with the expression,
+    // as a failed first try at a call's arguments shows.
+    let unsettled = goal_normal
+        .subterms()
+        .any(|(t, _)| matches!(t, Term::Meta(_)));
+    if unsettled || !crate::patlet::proposition(cx, goal)? {
         return Ok(out);
     }
     for (((i, s), normal), &unread) in exprs.iter().enumerate().zip(normals).zip(unread) {
@@ -1268,20 +1278,28 @@ fn not_found(
             normal.as_ref().unwrap_or(&s.term),
         );
         let goal_shown = pretty::term_for_message_in(&g, cx.e, &cx.shown_names(false), goal_normal);
-        out.push((
-            i,
-            Diagnostic::warning(
-                "W-MATCH-NOT-FOUND",
-                "this `match` didn't find its expression in the goal, so every arm has the \
-                 goal unchanged",
-            )
-            .with_label(s.span, format!("looked for `{shown}`"))
-            .with_note(format!("in the goal `{goal_shown}`"))
-            .with_note(
-                "the search compares what terms compute to: write the expression as the goal \
-                 shows it",
-            ),
-        ));
+        // `f x` and `y => f x y` are different terms to the search.
+        let has_lambda = |t: &Term| t.subterms().any(|(t, _)| matches!(t, Term::Lam(..)));
+        let eta = has_lambda(goal_normal) && !normal.as_ref().is_some_and(has_lambda);
+        let mut warning = Diagnostic::warning(
+            "W-MATCH-NOT-FOUND",
+            "this `match` didn't find its expression in the goal, so every arm has the goal \
+             unchanged",
+        )
+        .with_label(s.span, format!("looked for `{shown}`"))
+        .with_note(format!("in the goal `{goal_shown}`"))
+        .with_note(
+            "the search compares what terms compute to: write the expression as the goal \
+             shows it (or `rewrite` the goal to the form you want, or bind it with a `let` \
+             before the `match`)",
+        );
+        if eta {
+            warning = warning.with_note(
+                "the goal has a function written as a lambda: a function given without its \
+                 argument (`f x`) is not the same term as `y => f x y`, so write the lambda",
+            );
+        }
+        out.push((i, warning));
     }
     Ok(out)
 }
