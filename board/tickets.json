@@ -1,5 +1,5 @@
 {
-  "next": 1653,
+  "next": 1656,
   "tickets": [
     {
       "id": 47,
@@ -11156,13 +11156,13 @@
     {
       "id": 1627,
       "title": "Goal as written, stage 1: rewrite (goal and at h) searches the goal as written first, completeness check, today's search as fallback; remove day 20's memEq (goal-as-written.md §6; D2475, D2477)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1627",
       "labels": [
         "elab"
       ],
-      "body": "D2475-D2480 (Matt, 6 Nov 2026): all as recommended in docs/proposals/goal-as-written.md: rewrite/match/cases/transport look as written first with a completeness check and today's search as fallback; the as-written search may solve a rule's unknowns; keep today's reach into hidden copies, no occurrence selection now (D2478); out-of-resources check uses the as-written result; rewrite f later. 'happy to go with your recommendation.' Sonnet with an Opus review (kernel terms change), expected: 120 min.\n\nStarted on Sonnet, expected: 120 min.\n\nD2506 (Matt, 6 Nov 2026): SW-1627 stays on Sonnet with the Opus review, but from now on core language changes (kernel, rewrite/match tactics, unifier, syntax, std core) go to Opus: 'core/kernel language changes feel like we can afford a bit more intelligence to be safe!'",
+      "body": "D2475-D2480 (Matt, 6 Nov 2026): all as recommended in docs/proposals/goal-as-written.md: rewrite/match/cases/transport look as written first with a completeness check and today's search as fallback; the as-written search may solve a rule's unknowns; keep today's reach into hidden copies, no occurrence selection now (D2478); out-of-resources check uses the as-written result; rewrite f later. 'happy to go with your recommendation.' Sonnet with an Opus review (kernel terms change), expected: 120 min.\n\nStarted on Sonnet, expected: 120 min.\n\nD2506 (Matt, 6 Nov 2026): SW-1627 stays on Sonnet with the Opus review, but from now on core language changes (kernel, rewrite/match tactics, unifier, syntax, std core) go to Opus: 'core/kernel language changes feel like we can afford a bit more intelligence to be safe!'\n\nLane done (51d501dfa), in Opus review. rewrite/as_written.rs: folded search keyed by the left side as written, arguments compared so unknowns solve; kept only if the completeness check (ordinary search over the unfolded motive finds nothing else), no failure on the folded path, and no unsolved metas in the motive (so it's kernel-checked); else today's search; rescued if today's finds nothing. Counts AoC: 4411 folded, 1006 none as written, 12 incomplete, 109 unchecked (metas), 2 failed, 0 rescued; rogue 793/89/–/2. AoC 0 errors before and after, time ~67 → ~64 s; 111 hash snapshots and Float.neg/abs/sub pins moved. Day 20: 2 of 6 memEq uses removed; 4 in orientedFit remain (goal steps to a disjunction at once). Model result: Sonnet, worked (pending review), 45 min (est. 120).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11513,6 +11513,48 @@
         "aoc"
       ],
       "body": "From SW-1484, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1653,
+      "title": "Day 20 orientedFit's four memEq uses: the goal edge ∈ Spec.edges turned arrives with turned := image.flip substituted and steps to a disjunction at once, so no folded form exists; needs a binder substitution that keeps the call folded, or rewrite f (D1433, SW-1631) (SW-1627)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "From SW-1627, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1654,
+      "title": "rewrite as written, stage 1b: recover the 109 'motive unchecked' fallbacks (unsolved metas) by kernel-checking the motive with its metas abstracted (SW-1627)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "From SW-1627, 6 Nov 2026. Opus (D2506).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1655,
+      "title": "Float native hash pins break on any change to std proof terms, with a hard-to-diagnose panic; the_float_bindings_are_the_pinned_declarations prints the new hashes — say so in the panic, or pin by something that ignores proof terms (SW-1627)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "runtime"
+      ],
+      "body": "From SW-1627, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
