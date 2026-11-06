@@ -19,8 +19,8 @@ use std::collections::BTreeSet;
 use serde::Serialize;
 use stitchwort_core::globals::{HashKey, State};
 use stitchwort_core::value::force;
-use stitchwort_core::{DefId, Ev, Value};
-use stitchwort_elab::counterexample::Budget;
+use stitchwort_core::{DefId, Ev, Limits, Value};
+use stitchwort_elab::counterexample::{Budget, STATEMENT_STEPS};
 
 use crate::axioms::AxiomWalk;
 use crate::counterexample::{TheoremSearch, Verdict};
@@ -261,7 +261,11 @@ impl Session {
     ) -> TheoremSearch {
         let (log, note) = self.elab.search_counterexample(id, budget);
         let g = &self.elab.ev();
-        let saved = g.machine.budget.start(self.elab.options.limits);
+        let limits = Limits {
+            work: self.elab.options.limits.work.min(STATEMENT_STEPS),
+            ..self.elab.options.limits
+        };
+        let saved = g.machine.budget.start(limits);
         let refutes = concludes_empty(g, id);
         g.machine.budget.restore(saved);
         TheoremSearch {

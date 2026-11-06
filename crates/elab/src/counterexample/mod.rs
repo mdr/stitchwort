@@ -36,7 +36,7 @@ use std::rc::Rc;
 
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{eval, force, quote, quote_at_most};
-use stitchwort_core::{BigUint, DefId, Icit, Limits, Name, Sort, Term, Value};
+use stitchwort_core::{BigUint, DefId, Icit, Limits, Name, ResourceError, Sort, Term, Value};
 
 use crate::check::{Ctx, builtin_data, builtin_def};
 use crate::{Elaborator, shown};
@@ -104,6 +104,13 @@ pub const RANDOM_SIZE: usize = 40;
 /// The most nodes the checker reads back of a part of the statement (a
 /// hypothesis, an input's type, the conclusion) in normal form.
 const STATEMENT_NODES: u64 = 100_000;
+
+/// The most evaluation steps reading a theorem's statement back may take
+/// (building the checker, deciding whether it concludes `Void`): reading the
+/// statement back in normal form runs any computation it names, which can be
+/// as large as a theorem about the 30,000,000th turn of a game. Past this the
+/// theorem is out of scope for the search.
+pub const STATEMENT_STEPS: u64 = 5_000_000;
 
 /// The normal form of `value`, a part of the statement, or why the search
 /// won't run on it: past [`STATEMENT_NODES`], reading it back would build a
@@ -307,11 +314,22 @@ impl Elaborator {
     ) -> (SearchLog, Option<String>) {
         let started = clock::now();
         let theorem = self.kernel.def(def).name().to_string();
-        let saved = self.kernel.machine.budget.start(self.options.limits);
+        let limits = Limits {
+            work: self.options.limits.work.min(STATEMENT_STEPS),
+            ..self.options.limits
+        };
+        let saved = self.kernel.machine.budget.start(limits);
         let datas = (self.kernel.env.defs().len(), self.kernel.env.datas().len());
         let built = self.build_checker(def);
+        let ran_out = self.kernel.machine.budget.exhausted();
         self.clear_metas();
         self.kernel.machine.budget.restore(saved);
+        let built = match (built, ran_out) {
+            (Err(_), Some(ResourceError::Work)) => Err(format!(
+                "reading the statement back took more than {STATEMENT_STEPS} evaluation steps"
+            )),
+            (built, _) => built,
+        };
         let mut log = SearchLog {
             theorem,
             ..SearchLog::default()
