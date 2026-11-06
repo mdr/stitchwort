@@ -1,5 +1,5 @@
 {
-  "next": 1514,
+  "next": 1515,
   "tickets": [
     {
       "id": 47,
@@ -9238,13 +9238,13 @@
     {
       "id": 1490,
       "title": "crates/web: is the wasm checker's [GOAL] Goal: text (reports_open_goals_apart_from_warnings_and_errors) still used now the page takes goals from the language server (SW-1432)? Remove the dead path or note who uses it",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1504",
       "labels": [
         "playground"
       ],
-      "body": "From SW-1489, 6 Nov 2026. Small improvement.\n\nStarted overnight on Sonnet (SW-1504 with SW-1490), expected: 40 min.",
+      "body": "From SW-1489, 6 Nov 2026. Small improvement.\n\nStarted overnight on Sonnet (SW-1504 with SW-1490), expected: 40 min.\n\nClosed, still used: render() in web/index.html falls back to the wasm check (ask(requestFor('check'))) when serverCheck() returns null, and reads checked.goals from it. Removing it means dropping that fallback first.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -9434,13 +9434,13 @@
     {
       "id": 1504,
       "title": "Browser test: typing xs. in the playground offers a member (completion path through @codemirror/lsp-client and the search worker)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1504",
       "labels": [
         "playground"
       ],
-      "body": "From SW-1120, 6 Nov 2026.\n\nStarted overnight on Sonnet (SW-1504 with SW-1490), expected: 40 min.",
+      "body": "From SW-1120, 6 Nov 2026.\n\nStarted overnight on Sonnet (SW-1504 with SW-1490), expected: 40 min.\n\nDone (52c9cd6fb), merged: three browser tests; completion already worked in the browser (dot members ~2 s via the search worker). Model result: Sonnet, worked, 10 min (est. 40, with SW-1490).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -9567,6 +9567,20 @@
         "syntax"
       ],
       "body": "Filed overnight 6 Nov 2026 from SW-1502 (day 14) or SW-1494.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1514,
+      "title": "Completion after a bare xs. shows only the first 100 options alphabetically (all… first), hiding length/map until a letter is typed; rank by use or kind, or sort common members first",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor"
+      ],
+      "body": "From SW-1504, 6 Nov 2026. Small improvement.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
