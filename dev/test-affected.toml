@@ -171,7 +171,6 @@ id = "elab-general"
 rank = 1
 fallback = true
 paths = ["crates/elab/**"]
-sample = true
 why = "an elaborator change: its lane area and the example sweeps"
 select = [
   { profile = "lane-elab" },
@@ -208,10 +207,19 @@ id = "core-general"
 rank = 1
 fallback = true
 paths = ["crates/core/**"]
-sample = true
-why = "the kernel: its lane area, and the evaluators and hash snapshots built on it"
+why = "the kernel: its lane area"
 select = [
   { profile = "lane-core" },
+]
+
+[[rule]]
+id = "core-general-sweeps"
+rank = 2
+fallback = true
+paths = ["crates/core/**"]
+sample = true
+why = "every hash comes from the kernel"
+select = [
   { binary = "hash_stability", test = "^(prelude|examples)$" },
 ]
 
@@ -316,14 +324,23 @@ id = "driver-general"
 rank = 1
 fallback = true
 paths = ["crates/driver/**"]
-sample = true
-why = "the driver: hashes, loading and the project tests"
+why = "the driver: loading and the project tests"
 select = [
-  { profile = "lane-hashes" },
   { profile = "lane-core" },
   { package = "driver", binary = "project" },
   { package = "driver", binary = "namespaces" },
   { package = "driver", binary = "multi_file" },
+]
+
+[[rule]]
+id = "driver-general-sweeps"
+rank = 2
+fallback = true
+paths = ["crates/driver/**"]
+sample = true
+why = "the driver computes every hash"
+select = [
+  { profile = "lane-hashes" },
 ]
 
 [[rule]]
@@ -338,7 +355,7 @@ select = [
 [[rule]]
 id = "test-config"
 rank = 1
-paths = [".config/nextest.toml", "Taskfile.yml", "dev/test-*"]
+paths = [".config/nextest.toml", "Taskfile.yml", "dev/*"]
 why = "the lane profiles and the selection tools"
 select = [
   { package = "cli", binary = "audit" },
