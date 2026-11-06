@@ -27,7 +27,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
 
-use crossbeam_channel::{Receiver, RecvTimeoutError, Sender};
+use crossbeam_channel::{Receiver, RecvTimeoutError, Sender, TryRecvError};
 use lsp_server::{Connection, ErrorCode, Message, Notification, Request, Response};
 use lsp_types::notification::Notification as _;
 use lsp_types::request::Request as _;
@@ -282,6 +282,8 @@ pub fn serve_from(
         document_changes,
     };
     let result = main.run();
+    // Stops the check in progress; the checker then sees the channel closed.
+    main.cancel.store(true, Ordering::Relaxed);
     drop(main);
     for worker in workers {
         let _ = worker.join();
@@ -2130,9 +2132,17 @@ impl Checker {
                     Err(_) => return,
                 }
             }
-            while let Ok(edit) = edits.try_recv() {
-                self.apply(edit);
-                edited = true;
+            loop {
+                match edits.try_recv() {
+                    Ok(edit) => {
+                        self.apply(edit);
+                        edited = true;
+                    }
+                    Err(TryRecvError::Empty) => break,
+                    // The client has gone: the rest of the project isn't
+                    // worth checking.
+                    Err(TryRecvError::Disconnected) => return,
+                }
             }
             // Wait for typing to pause.
             while edited && !self.options.debounce.is_zero() {
