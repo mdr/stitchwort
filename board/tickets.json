@@ -1,5 +1,5 @@
 {
-  "next": 1521,
+  "next": 1524,
   "tickets": [
     {
       "id": 47,
@@ -9462,13 +9462,13 @@
     {
       "id": 1506,
       "title": "Checker hangs (5+ min) on a parser proof whose literal differs from the parser's (exactly 35 vs readsExactly 36); should be a quick type mismatch (day 14)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1506",
       "labels": [
         "elab"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1502 (day 14) or SW-1494.\n\nStarted overnight on Opus (tricky bug), expected: 60 min.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1502 (day 14) or SW-1494.\n\nStarted overnight on Opus (tricky bug), expected: 60 min.\n\nDone (500c5dbfc, 435b8afd8), merged: elaborator unifier only (kernel untouched). Inside same_arguments_solving_nothing's argument check (argument_checks counter), two calls of one function with differing arguments answer 'different' without unfolding, except while solving from arguments. Day 14 off-by-one: >5 min → 1.0 s; 2020 proofs 13.9 → 12.3 s. Independent Opus review found a completeness loss under unify_solving_arguments (pick ?b (two 3) vs pick True (two 4)); fixed by the solving_arguments exception, examples accept/unknown-solved-from-call-arguments and reject/parser-count-differs-from-lemma. Not done: error pointing at 35 vs 36. Model result: Opus, needed fixes (completeness under solving-from-arguments), 51 + 6 min (est. 60).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -9665,6 +9665,48 @@
         "editor"
       ],
       "body": "From SW-1514, 6 Nov 2026. Small.\n\nStarted overnight on Sonnet (SW-1520 with SW-1505), expected: 45 min.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1521,
+      "title": "Unifier: the 2^n blowup can still occur while solving from arguments (a lemma with _ args on a repeated-parser goal); memoise pairs found different within one argument comparison, as the kernel does (SW-1506)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "From SW-1506, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1522,
+      "title": "Type mismatch for a parser lemma off by one repetition: point at the differing argument (35 vs 36), not 'Done … against Call …' (SW-1506)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "From SW-1506, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1523,
+      "title": "Kernel conversion likely has the same doubling for fresh nested calls (its record is by call identity); low priority until such a term reaches the kernel (SW-1506)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "kernel"
+      ],
+      "body": "From SW-1506, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
