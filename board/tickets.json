@@ -3997,15 +3997,15 @@
     {
       "id": 1121,
       "title": "Test Explorer and code lenses (run main, run test, audit theorem), then rename",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1121",
       "labels": [
         "editor"
       ],
-      "body": "Roadmap step 7. D2245 (Matt): Test Explorer covers project tests only. Rename waits for SW-1114 (projections) to be checked on program files. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2263 (Matt, 3 Nov): not started yet; editor-roadmap implementation waits until the tidy-ups (state migration, std) settle.",
+      "body": "Roadmap step 7. D2245 (Matt): Test Explorer covers project tests only. Rename waits for SW-1114 (projections) to be checked on program files. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2263 (Matt, 3 Nov): not started yet; editor-roadmap implementation waits until the tidy-ups (state migration, std) settle.\n\nD2513 (Matt, 6 Nov 2026): yes, start now. Code lenses (run test, run main) on every file including single files like docs/tutorial; the Testing panel for projects (D2245). Rename stays out (waits for SW-1114). Started on Sonnet, expected: 120 min, code lenses first.",
       "created": "2026-11-03",
-      "updated": "2026-11-03",
+      "updated": "2026-11-06",
       "commits": []
     },
     {
