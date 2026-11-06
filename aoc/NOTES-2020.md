@@ -4955,6 +4955,24 @@ warnings are narrow hypotheses random inputs rarely meet
 equations, a test helper's `Err` arm), not vacuous (SW-1261, as on
 earlier days).
 
+**Completeness (SW-1626).** Day 18 already had its completeness proof: the
+"second parser" the ticket meant had been replaced by SW-1583 (see the update
+under item 1), so the proof was already about the program's own
+`precedence.expression`, through `Parse.Runs`. What SW-1626 did: renamed
+`Proofs/Unique.sw` to `Proofs/Complete.sw` (466 lines before, 481 after), renamed `meansUnique` to `writtenUnique` (the same statement; `linesUnique`
+and `Proofs.sw` use the new name, and nothing else did), and added
+`parseComplete`: if every line `Means` an expression under rules whose
+operators the levels list exactly (`Exact`), `parseHomework input precedence`
+gives `{ expressions }`. It is `Parse.runsEachLine` over the file's
+`runsExpression`, which builds the line's `Parse.Runs`; it checked on the
+first try, about 3 minutes in all. The statement is the converse of
+`parseMeans`, with `Exact` added because the converse needs the levels to hold
+every operator (without it a line using an operator the levels omit would
+not parse). The spec is tight enough for uniqueness; no counterexample.
+Nothing was removed, so no other file lost a theorem. Audit: `audited 69
+theorems: 0 failed, 0 with warnings, 69 passed`. Changing the `(` the
+parser reads fails `runsOperandParen`.
+
 ### 1. Unambiguity needs a second parser, written for the proof
 
 Days 16 and 17 ended in "the program's answer is the spec's and the

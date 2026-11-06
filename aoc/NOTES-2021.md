@@ -2315,6 +2315,24 @@ Round` fails `tokenOfChar`.
 Most proofs checked first time or second; the scan/grammar bridge took
 about ten tries in all, mostly over list shapes (item 6).
 
+**Completeness (SW-1626).** `Proofs/Complete.sw`, 70 lines, about 5 minutes
+(the CLI was already built). Of the 2021 days' `Proofs/Parse.sw` files, only
+this one and day 16's state what the parser read of the text (the others
+prove properties of the parsed value: shapes, bounds, distinct rules, a
+rectangle); so these were the two in scope. `runsToken` (8 arms, one per
+token) is `Parse.runsLabel` over `Parse.runsPick`, with the earlier tokens'
+characters as the `WordsAbsent` proof, `rfl` for each since they are literals;
+`declinesTokenEnd` is `declinesPick` at the end; a line's rounds are
+`tokenSteps`, one `([char], token)` per token, so `runsLine` is
+`Parse.runsMany`, and `parseComplete` and `writtenUnique` follow as on 2020
+day 2. The hypothesis is `parseReadsLines`'s conclusion (`lines.map (tokens =>
+tokens.map Token.char) = input.lines.map Text.toList`) and the spec is tight
+enough: a line's characters fix its tokens. Friction: a lemma parameter named
+`token` hid the parser `token` (`E-TYPE-MISMATCH` pointing at the type, with
+the right note); a `rewrite <- …` of the goal went wrong where rewriting the
+`Runs` hypothesis with `rewrite … at runs` did not. Dropping the first token
+from the parser's table fails `runsToken`.
+
 ### 1. Std.Parse can't be reasoned about
 
 The natural parser, `Parse.eachLine input (() => many1 (() => pick
@@ -3961,6 +3979,23 @@ allows a final line break, which a trimmed text can't end with: std's
 `Text.trimLast` says so. Proofs/Parse.sw's parser part went from 29
 lines to 27; Day16.sw from 274 to 278. A bad digit now says "column 4:
 expected a hexadecimal digit or the end of the line, got 'G'".
+
+**Completeness (SW-1626).** `Proofs/ReadsBack.sw` (`Complete.sw` was taken by
+the decoder's), 81 lines, about 6 minutes. The parser's soundness theorem is
+`readBitsHex`: what `readBits` reads has the puzzle's `transmissionBits`. Its
+converse, `parseComplete`, takes `transmissionBits input.trim.toList = Some
+bits` and gives `readBits input = Ok bits`. `hexValueOf` (16 arms, like
+`hexAgree`) turns a character the puzzle's table knows into one the program's
+`hexValue` reads, with the same bits; `runsHexDigit` and `declinesHexDigitEnd`
+are the digit parser's pieces (`runsBind` over `runsSatisfy` and a `need` on
+`Some`); `runsDigits` builds the steps of `many hexDigit` by recursion on the
+characters; `runsWithFinalLineBreakNone` and `Parse.runsLine` finish it.
+`writtenUnique` is two `parseComplete`s and `okInjective`: the spec
+(`transmissionBits`) is already a function of the text, so uniqueness was never
+in doubt, and it holds. The values `readDigits` gives are not in the spec (only
+their bits are), so nothing is said of them beyond that. The six audit warnings
+are earlier theorems' (`readGroups*`, `soundStep`, `literalHere`, `countHere`),
+not new. Dropping the `trim` from `readDigits` fails `Parse.sw`'s `readDigitsBits`.
 
 ### 1. BUG: `cases` panics
 
