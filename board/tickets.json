@@ -1,5 +1,5 @@
 {
-  "next": 1756,
+  "next": 1757,
   "tickets": [
     {
       "id": 47,
@@ -13715,7 +13715,7 @@
     {
       "id": 1746,
       "title": "[Opus] Bounded readback stage 1: output terms read back folded (accessor types first; equations.rs excluded), decide reads back folded and evaluates with gluing off (D2523, D2535); hashes and Float pins move once",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1746",
       "labels": [
@@ -13858,6 +13858,21 @@
       ],
       "epic": "record-eta",
       "body": "From SW-1744, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1756,
+      "title": "[Opus] Review bounded readback stage 1 (lane/SW-1746, 28cc45f04): output terms folded incl. terms handed to the kernel (rewrite.rs:1605, check.rs:4980), decide folded, 70 hash snapshots and 3 Float pins moved; check affected AoC proofs",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1746",
+      "labels": [
+        "review"
+      ],
+      "epic": "goal-as-written",
+      "body": "Kernel-term change (D2364). Started on Opus, expected: 45 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
