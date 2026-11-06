@@ -173,26 +173,30 @@ def Jigsaw.assemble (jigsaw: Jigsaw): {Fail} Image := jigsaw.arrange.image
 def seaMonster: Image :=
   { rows = ["                  # ", "#    ##    ##    ###", " #  #  #  #  #  #   "].map (line => line.toList.map (char => if char == '#' then Rough else Calm)) }
 
---| A pixel's position, `[row, column]`, counting from the top left.
+--| Where the rough pixels are, as `[row, column]`, counting from the top
+--| left: a `List Nat` rather than a `Position`, which has no order for a `Set`.
 def Image.roughAt (image: Image): List (List Nat) :=
   image.rows.withIndex.flatMap (((row, pixels)) =>
     pixels.withIndex.filter (((_, pixel)) => pixel == Rough) |> .map (((column, _)) => [row, column]))
 
-def shift (by: List Nat) (at: List Nat): List Nat := List.zipWith at by (a b => a + b)
+--| `at` moved down and right by `by`.
+def shift (by: List Nat) (at: List Nat): List Nat := List.zipWith by at (a b => a + b)
 
---| The rough pixels of `image` that are part of a copy of `monster`, as
---| drawn (not turned).
-def Image.monsterPixels (image: Image) (monster: Image): Set (List Nat) :=
+--| Where a copy of `monster`, as drawn (not turned), has its top left in
+--| `image`: every rough pixel of the copy on a rough pixel of the image.
+def Image.monsterStarts (image: Image) (monster: Image): List (List Nat) :=
   let rough := Set.fromList image.roughAt
-  let shape := monster.roughAt
   let height := image.rows.length
   let width := image.rows.headOr [] |> .length
   let monsterHeight := monster.rows.length
   let monsterWidth := monster.rows.headOr [] |> .length
   let starts := List.range 0 (height + 1 - monsterHeight) |> .flatMap (row => List.range 0 (width + 1 - monsterWidth) |> .map (column => [row, column]))
-  starts.filter (start => shape.all (at => rough.contains (shift start at)))
-    |> .flatMap (start => shape.map (shift start))
-    |> Set.fromList
+  starts.filter (start => monster.roughAt.all (at => rough.contains (shift start at)))
+
+--| The rough pixels of `image` that are part of a copy of `monster`, as
+--| drawn (not turned).
+def Image.monsterPixels (image: Image) (monster: Image): Set (List Nat) :=
+  image.monsterStarts monster |> .flatMap (start => monster.roughAt.map (shift start)) |> Set.fromList
 
 --| The rough pixels in no sea monster, in the first of the monster's
 --| orientations that appears at all (the puzzle's image has one).

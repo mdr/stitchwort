@@ -54,3 +54,14 @@ def Kept (p: a → Prop): (items: List a) → (kept: List a) → Prop
 --| "Multiply the IDs of the four corner tiles together."
 def Part1 (jigsaw: Jigsaw) (answer: Nat): Prop :=
   ∃ (corners: List Tile) => Kept (Corner jigsaw) jigsaw.tiles corners ∧ answer = (corners.map (.id)).product
+
+-- Sea monsters
+
+--| The pixel at `row` and `column`, counting from the top left; none off
+--| the image.
+def pixelAt (image: Image) (row: Nat) (column: Nat): Option Pixel := (image.rows.get row).flatMap (pixels => pixels.get column)
+
+--| A sea monster, as `monster` draws it, with its top left at `row` and
+--| `column` of `image`: each `#` of the monster is on a `#` of the image.
+def MonsterAt (image: Image) (monster: Image) (row: Nat) (column: Nat): Prop :=
+  (r: Nat) → (c: Nat) → pixelAt monster r c = Some Rough → pixelAt image (row + r) (column + c) = Some Rough
