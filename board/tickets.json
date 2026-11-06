@@ -11912,13 +11912,13 @@
     {
       "id": 1681,
       "title": "LSP: documentSymbol answers an empty outline when asked before the file's first check finishes (VS Code asks once on open, so Cmd-Shift-O shows 'No editor symbols'); wait for the check, or send a refresh when it's done (Matt, tutorial step 1)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1681",
       "labels": [
         "editor"
       ],
-      "body": "Found by Matt in the tutorial, 6 Nov 2026. Reproduced over stdio: documentSymbol straight after didOpen gives 0 symbols; after publishDiagnostics, 26. Repro script: scratchpad sym.py.",
+      "body": "Found by Matt in the tutorial, 6 Nov 2026. Reproduced over stdio: documentSymbol straight after didOpen gives 0 symbols; after publishDiagnostics, 26. Repro script: scratchpad sym.py.\n\nStarted on Sonnet, expected: 40 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
