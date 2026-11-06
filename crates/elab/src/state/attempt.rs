@@ -166,6 +166,14 @@ pub(crate) struct Attempt {
     pub(crate) waiting: RefCell<Option<Vec<Waiting>>>,
 }
 
+/// The warnings undoing an attempt drops ([`Mark`]): those that say
+/// something about what the attempt did.
+const UNDONE_WARNINGS: [&str; 3] = [
+    crate::no_effect::CODE,
+    "W-REWRITE-UNCONFIRMED",
+    "W-MATCH-UNCONFIRMED",
+];
+
 /// Where an [`Attempt`] was: lengths only, so taking one allocates nothing.
 /// The tables keyed by metavariable need no entry: they are cut by the
 /// metavariables' own mark, which `undo::Snapshot` keeps.
@@ -181,8 +189,9 @@ pub(crate) struct Mark {
     defaulted_records: usize,
     drafts: usize,
     local_keys: usize,
-    /// How many warnings were noted: a `W-NO-EFFECT` found in an attempt
-    /// undone is dropped, since it was judged with what the attempt assumed.
+    /// How many warnings were noted: one of [`UNDONE_WARNINGS`] found in an
+    /// attempt undone is dropped, since it was judged with what the attempt
+    /// assumed (or, for the `UNCONFIRMED` ones, describes a result undone).
     lambda_warnings: usize,
     branch_errors: usize,
     meta_names: usize,
@@ -332,7 +341,7 @@ impl Attempt {
         let mut i = 0;
         lambda_warnings.borrow_mut().retain(|w| {
             i += 1;
-            i <= mark.lambda_warnings || w.code != crate::no_effect::CODE
+            i <= mark.lambda_warnings || !UNDONE_WARNINGS.contains(&w.code)
         });
     }
 

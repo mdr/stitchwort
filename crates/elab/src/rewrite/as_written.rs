@@ -53,7 +53,7 @@ use super::{
 use crate::check::{Ctx, Result};
 use crate::lift::replace_with;
 use crate::matching::same;
-use crate::undo::{Snapshot, fatal, recoverable};
+use crate::undo::{Snapshot, fatal, recoverable, recovered};
 
 /// What [`first`] came to.
 pub(super) enum First {
@@ -245,6 +245,7 @@ fn attempt(
         }
         Err(e) if mode == Mode::Complete && ran_out(cx, &e) => {
             snapshot.restore(cx);
+            recovered(cx);
             (Outcome::RanOut, None)
         }
         Err(e) if fatal(&e) => return Err(e),
@@ -298,18 +299,40 @@ fn search(
     if !pending.is_empty() && cx.e.prove_now(&|m| pending.contains(&m))? {
         written = cx.quote_folded(goal)?;
     }
-    let replaced = replace_occurrences_as(
-        cx,
-        rule,
-        place,
-        equation,
-        goal,
-        Shape::Whole(&written),
-        0,
-        false,
-        true,
-        remaining,
-    )?;
+    let replace = |cx: &mut Ctx, remaining: &mut u64| {
+        replace_occurrences_as(
+            cx,
+            rule,
+            place,
+            equation,
+            goal,
+            Shape::Whole(&written),
+            0,
+            false,
+            true,
+            remaining,
+        )
+    };
+    let replaced = match mode {
+        // Only where the usual search ran out, so that today this fails at
+        // once: the motive's check and round trip compare a goal too large
+        // to read back, which can be as slow, and the comparisons' budget
+        // doesn't cover them. The completeness check after this is bounded
+        // by the size of what it reads back.
+        Mode::Unconfirmed => {
+            let g = cx.g();
+            let mut cap = super::UNCONFIRMED_BUDGET;
+            match g
+                .machine
+                .budget
+                .limited(&mut cap, || replace(cx, remaining))?
+            {
+                Some(replaced) => replaced,
+                None => return Ok((Outcome::Failed, None)),
+            }
+        }
+        _ => replace(cx, remaining)?,
+    };
     let Some(step) = &replaced.step else {
         return Ok((Outcome::Nothing, None));
     };
@@ -387,8 +410,10 @@ fn hidden_copy_in(
     remaining: &mut u64,
 ) -> Result<bool> {
     let g = cx.g();
-    let unfolded = cx.quote(&cx.eval(motive)?)?;
+    // The left side first: where it is too large to read back, the check
+    // can't be made, and the goal's unfolding, often as large, isn't built.
     let lhs_term = cx.quote(&equation.lhs)?;
+    let unfolded = cx.quote(&cx.eval(motive)?)?;
     let Some(key) = key(&lhs_term, 0) else {
         // Nothing to compare by: don't trust the as-written result.
         return Ok(true);

@@ -528,8 +528,12 @@ terms (different motives), so they get an Opus review (D2364).
    as-written generalisation is made without checks 1 and 2 (they compare with the usual test,
    which can't run): copies are the variables whose types hold an occurrence as written, a
    `let` only where its unfolded type still holds it; the motive is checked now as always.
-   Warnings `W-REWRITE-UNCONFIRMED` and `W-MATCH-UNCONFIRMED`. Day 11's `settledExactly`
-   written with `roundLimit` now checks, with the warning.
+   Warnings `W-REWRITE-UNCONFIRMED` and `W-MATCH-UNCONFIRMED`, dropped with an attempt that
+   is undone. The motive check on this path has its own budget (`UNCONFIRMED_BUDGET`, 100,000
+   steps): comparing values too large to read back can take minutes (the review's `outer x k
+   12` over `settle x k 40`), so past it the `match` or `rewrite` fails as before
+   (`examples/reject/as-written-unconfirmed-slow-check.sw`). Day 11's `settledExactly` written
+   with `roundLimit` now checks, with the warning.
 5. **`rewrite f` (D1433, Q6).** As in folded-goals.md option D. Any time after 1.
 
 ### 6.1 Evidence still to collect

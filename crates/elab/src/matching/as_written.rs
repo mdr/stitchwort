@@ -80,7 +80,7 @@ use super::{Generalise, Scrut, Skip, free_levels, is_var, same};
 use crate::check::{Ctx, Result};
 use crate::lift::replace_with;
 use crate::rewrite::{Key, key, mentions_bound, search_budget};
-use crate::undo::{Snapshot, fatal, recoverable};
+use crate::undo::{Snapshot, fatal, recoverable, recovered};
 
 /// What the usual occurrence test made of the `match`, in its context.
 pub(super) struct Today<'a> {
@@ -184,7 +184,10 @@ pub(super) fn first(
         // A check too large to make, where the usual test could run: its
         // result, as before stage 2.
         Err(e) if fatal(&e) && !recoverable(cx, &e) => return Err(e),
-        Err(_) => Outcome::Failed,
+        Err(_) => {
+            recovered(cx);
+            Outcome::Failed
+        }
     };
     report(outcome, span);
     Ok(None)
@@ -214,7 +217,10 @@ pub(super) fn unconfirmed(
         Ok(Some(Err(outcome))) => outcome,
         Ok(None) => Outcome::Failed,
         Err(e) if fatal(&e) && !recoverable(cx, &e) => return Err(e),
-        Err(_) => Outcome::Failed,
+        Err(_) => {
+            recovered(cx);
+            Outcome::Failed
+        }
     };
     report(outcome, span);
     Ok(None)
@@ -297,6 +303,7 @@ fn search(
             Ok(Some(t)) => Ok(Unfolded::Term(t)),
             Ok(None) => Ok(Unfolded::Misshapen),
             Err(e) if today.is_none() && recoverable(&finder.cx.borrow(), &e) => {
+                recovered(&finder.cx.borrow());
                 Ok(Unfolded::TooLarge)
             }
             Err(e) => Err(e),

@@ -1,10 +1,11 @@
 -- expect-error: E-TYPE-MISMATCH
--- expect-warning: W-REWRITE-UNCONFIRMED
 -- A `rewrite` that could only look at the goal as written (its unfolding is
 -- too large) leaves a copy of the left side hidden inside a call. That never
 -- makes a wrong proof check: the next step fails, here the body `h`, which
 -- needs the copy inside `settled` rewritten too.
--- (examples/accept/as-written-unconfirmed.sw)
+-- (examples/accept/as-written-unconfirmed.sw) The
+-- `rewrite` fails as a whole, so its `W-REWRITE-UNCONFIRMED` is dropped
+-- with what it did.
 import Std (Bool, Eq, Nat, Option)
 
 def step (n: Nat) (k: Nat): Nat := n * k + 1
