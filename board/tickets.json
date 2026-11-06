@@ -9924,13 +9924,13 @@
     {
       "id": 1539,
       "title": "Std: List.All2 toolkit (compose, refl, replicate, zipWith pointwise, equal-lengths lengthZipWith) (day 16)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1539",
       "labels": [
         "std"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).\n\nStarted overnight on Sonnet (SW-1539 with SW-1542), expected: 45 min.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).\n\nStarted overnight on Sonnet (SW-1539 with SW-1542), expected: 45 min.\n\nDone (fdd9dc04c), merged: List.all2Compose, all2Refl, all2Replicate, all2ReplicateOf, lengthZipWithEq, all2ZipWithLeft/Right, countZeroOfNotContains, distinctOfCounts (all2Length existed). Day 16 drops 5 local copies (audit 75 → 70). Prelude hashes: additions only. Orchestrator checked the statements (D2436). Model result: Sonnet, worked, 15 min (est. 45).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -9966,13 +9966,13 @@
     {
       "id": 1542,
       "title": "Std: List.distinctOfCounts, List.countZeroOfNotContains (day 16)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1539",
       "labels": [
         "std"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).\n\nStarted overnight on Sonnet (SW-1539 with SW-1542), expected: 45 min.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).\n\nStarted overnight on Sonnet (SW-1539 with SW-1542), expected: 45 min.\n\nDone (fdd9dc04c), merged: List.all2Compose, all2Refl, all2Replicate, all2ReplicateOf, lengthZipWithEq, all2ZipWithLeft/Right, countZeroOfNotContains, distinctOfCounts (all2Length existed). Day 16 drops 5 local copies (audit 75 → 70). Prelude hashes: additions only. Orchestrator checked the statements (D2436). Model result: Sonnet, worked, 15 min (est. 45).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
