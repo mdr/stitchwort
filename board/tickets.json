@@ -9006,7 +9006,7 @@
       "labels": [
         "std"
       ],
-      "body": "From 2020 day 11 (SW-1470), 5 Nov 2026.\n\nDay 15 (SW-1519, 6 Nov): 30M Map turns take 357 s interpreted, 127 s --js, 84 s native vs Python's 7 s; nearly all the time is Map (depth ~22, Ord comparison, node allocation, balancing). An array (or a Nat-keyed map) is the fix.\n\nD2450 (Matt, 6 Nov 2026): yes, 'do a full design note with Opus, thoroughly search both the literature for this and how other functional languages, Lean, Haskell, Rocq, Idris, Agda etc.' Started on Opus (design note, docs/proposals/), expected: 120 min.",
+      "body": "From 2020 day 11 (SW-1470), 5 Nov 2026.\n\nDay 15 (SW-1519, 6 Nov): 30M Map turns take 357 s interpreted, 127 s --js, 84 s native vs Python's 7 s; nearly all the time is Map (depth ~22, Ord comparison, node allocation, balancing). An array (or a Nat-keyed map) is the fix.\n\nD2450 (Matt, 6 Nov 2026): yes, 'do a full design note with Opus, thoroughly search both the literature for this and how other functional languages, Lean, Haskell, Rocq, Idris, Agda etc.' Started on Opus (design note, docs/proposals/), expected: 120 min.\n\nSW-112 (older array ticket) is the same request (SW-1598); see it for history.",
       "created": "2026-11-05",
       "updated": "2026-11-06",
       "commits": []
@@ -10750,13 +10750,13 @@
     {
       "id": 1598,
       "title": "Synthesis of AoC 2020 friction notes, days 10-20: recurring gaps ranked by days hit and cost, linked to filed tickets, duplicates found, the few changes that remove most friction (docs/research/)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
         "research"
       ],
-      "body": "D2451 (Matt, 6 Nov 2026): yes, analysis-only Opus lane. Started on Opus, expected: 75 min.",
+      "body": "D2451 (Matt, 6 Nov 2026): yes, analysis-only Opus lane. Started on Opus, expected: 75 min.\n\nDone (8924ceb03), merged: docs/research/aoc-2020-friction-days-10-20.md. Top five: proofs follow the source not the computed goal (10 of 11 days); fast lookups + profiler; every well-formed input parses; grid geometry in Aoc.Common; count by a proposition, fuel loops. 7 duplicate pairs, ~11 untracked findings, Q1-Q6 (D2453-D2458). Model result: Opus, worked, 7 min (est. 75).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
