@@ -79,3 +79,4 @@ Take these in order, once the speed queue above is empty or blocked.
 - 22:31: SW-1744 in (report on main, prototype on its branch); D2551-D2553 left for Matt; SW-1751 started.
 - 22:32: SW-1746 (stage 1) built, all its tests passed, 0 decide differences over 187 std decisions; its Opus review SW-1756 started (it hands terms to the kernel). Usage 76%.
 - 22:41: Matt delegated D2551-D2553; all decided yes (see SW-1744). SW-1667 is queued to resume.
+- 22:49: stage 1 merged, 23/23 on main. Goals as written paused.
