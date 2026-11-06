@@ -26,10 +26,10 @@ fn naming_a_field_the_record_has_too_warns() {
         "{ITEM}def get: Box -> Item\n  | Held {{ item = i, .. }} => i\n"
     ));
     assert!(found.is_empty(), "{found:#?}");
-    let found = warnings(&format!(
-        "type Item = {{ item: Nat, fits: Bool }}\n\ntype Box = | Held {{ item: Item }}\n\n\
-         def get: Box -> Nat\n  | Held {{ item = n, .. }} => n.item\n"
-    ));
+    let found = warnings(
+        "type Item = { item: Nat, fits: Bool }\n\ntype Box = | Held { item: Item }\n\n\
+         def get: Box -> Nat\n  | Held { item = n, .. } => n.item\n",
+    );
     let [w] = &found[..] else {
         panic!("{found:#?}");
     };

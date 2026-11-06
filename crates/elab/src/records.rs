@@ -648,16 +648,16 @@ pub(crate) fn brace_arguments(cx: &Ctx, expr: &Expr) -> Result<Option<Expr>> {
     }))
 }
 
+/// A constructor and the fields a call of it with named arguments gives.
+pub(crate) type NamedCall = (DataId, usize, Vec<(ast::Name, Expr)>);
+
 /// `C (f := e) …`: constructor `C` applied with some explicit fields by
 /// name, and every explicit field it leaves out having a default
 /// (docs/proposals/brace-syntax-review.md §5, D2485). The constructor, and
 /// the fields as `C { f = e, … }` would give them: the positional arguments
 /// fill the fields without defaults that are not named, in order. `None` if
 /// the call is anything else, which is elaborated as any application.
-pub(crate) fn named_ctor_call(
-    cx: &Ctx,
-    expr: &Expr,
-) -> Result<Option<(DataId, usize, Vec<(ast::Name, Expr)>)>> {
+pub(crate) fn named_ctor_call(cx: &Ctx, expr: &Expr) -> Result<Option<NamedCall>> {
     use crate::check::{Arg, spine};
     let (Expr::Var(head), args) = spine(expr) else {
         return Ok(None);
