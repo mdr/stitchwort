@@ -43,7 +43,7 @@ instance Fin.instShow: Show (Fin n) := Show.fromText (i => Nat.toText (Fin.toNat
 --| decides `i = j`).
 theorem Fin.toNatInjective: (i: Fin n) → (j: Fin n) → Fin.toNat i = Fin.toNat j → i = j
   | FZero, FZero, h => rfl
-  | FSucc i, FSucc j, h => Eq.cong FSucc (Fin.toNatInjective i j (Nat.succInjective (Fin.toNat i) (Fin.toNat j) h))
+  | FSucc i, FSucc j, h => Eq.cong FSucc (Fin.toNatInjective i j (Nat.succInjective h))
   | FZero, FSucc j, h => Void.exfalso (Nat.zeroNotSucc (Fin.toNat j) h)
   | FSucc i, FZero, h => Void.exfalso (Nat.succNotZero (Fin.toNat i) h)
 

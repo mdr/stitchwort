@@ -2,6 +2,6 @@
 source: crates/driver/tests/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
-Main.r 635077ce3366eb91ebb662efbfa4dd98918a971d38115dc80ae6bb22b487282b
-Main.test "m is an Int" 61726c92d387af9402592e355f534b2a7fc92d92e1fd19a2ba66e79b0353d3be
-Main.test "and not a Nat" ce0e2748b6ab1f63e5de56b3f64c570af1eb8d80ff53aee8004769e136f48050
+Main.r 31338aa23491b17ddca1eeb72ebe5a2e7cb7bf986515fce92b93015c4dcdb467
+Main.test "m is an Int" 0471a96e48b5525a43079e92681c9337cc16ab02862fa9274fbaeb3344913907
+Main.test "and not a Nat" 0bb058ed615dc81a10be4250b868e349843a011c64158d4b1af336b88ab501a4

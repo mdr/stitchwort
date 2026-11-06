@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-REWRITE-RULE] Error: this equation's left side starts with an unknown function
+   ╭─[ reject/rewrite-rule-explicit-argument-left-off.sw:7:11 ]
+   │
+ 7 │   rewrite Nat.oneMul in Nat.addZero n
+   │           ─────┬────  
+   │                ╰────── there is no function or constructor of its left side to look for in the goal
+   │ 
+   │ Note: the rule's explicit argument `n` is left off, and the left side computes to it: write it after the rule, such as `rule value`
+───╯

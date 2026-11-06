@@ -3,7 +3,7 @@
 --| scanning error rate (Part1.sw); and when the program gives a part 2
 --| answer, it is the departure product under an order of the fields the
 --| puzzle allows, and under every such order (Part2.sw, with the
---| candidates in Candidates.sw, the elimination in Eliminate.sw, and in
+--| candidates in Candidates.sw, the elimination in `Aoc.Common.Proofs`, and in
 --| Unique.sw that no other order fits). Whether part 2 gives an answer
 --| depends on the notes: the elimination can get stuck where more than one
 --| order fits (the tests have one); on the puzzle's input it doesn't.
