@@ -1,0 +1,29 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+     ╭─[ reject/reads-weaken-over-map-implicits.sw:15:3 ]
+     │
+  15 │ ╭─▶   Parse.readsWeaken
+     ┆ ┆   
+  18 │ ├─▶     (read value h => h)
+     │ │                             
+     │ ╰───────────────────────────── expected `(state: Parse.State) → (value: Starting) → (after: Parse.Mark) → state.at.left = List.length state.at.rest → Parse.runFrom state (arg => …) = Ok (value, after) → ∃ (read: List Char) => … = … ∧ … ∧ …`, but this has type `Parse.Reads ?1 (x x1 => ∃ (v: NonEmptyList Nat) => Parse.SepBy (read n => read ≠ [] ∧ List.all read Parse.isDigit = True ∧ n = Parse.digitsValue read) (x x2 => x = [',']) x v ∧ x1 = ?7 v)`
+     │
+     ├─[ std/Parse/Parse.sw:232:63 ]
+     │
+ 234 │ ╭─▶   match Parse.span Parse.isDigit with
+     ┆ ┆   
+ 236 │ ├─▶     | digits => digits.map (digit => digit.digitValue.getOrElse 0) |> Nat.fromDigits
+     │ │                                                                                          
+     │ ╰────────────────────────────────────────────────────────────────────────────────────────── this `match`
+     │     
+     │     Note 1: `?1` is the implicit argument `p` of `Parse.readsWeaken`, which wasn't worked out from the other arguments or the expected type; give it with `[p := …]`
+     │     
+     │     Note 2: they first differ at `Std.Effect.bind (Std.Effect.bind ((match …) …) (first => …)) (x => Done …)` against `?1 ()`, in `Std.Effect.bind (Std.Effect.bind (Std.Effect.bind … …) (x => …)) (x => Call … …)`
+     │     
+     │     Note 3: `Parse.Reads ?1 (x x1 => ∃ (v: NonEmptyList Nat) => Parse.SepBy (read n => read ≠ [] ∧ List.all read Parse.isDigit = True ∧ n = Parse.digitsValue read) (x x2 => x = [',']) x v ∧ x1 = ?7 v)` is `(state: Parse.State) → (value: Starting) → (after: Parse.Mark) → state.at.left = List.length state.at.rest → Std.Effect.runPure (Std.Effect.foldComp … … …) state = Ok (value, after) → ∃ (read: List Char) => … = … ∧ … ∧ …`
+     │     
+     │     Note 4: `(match …)` is a `match` written inside `Parse.nat`, marked "this `match`" above; the compiler turned it into a function that source can't name. The same `match` written again is another such function, equal to it only if neither calls the definition it's written in. To state a lemma about it, make it a local `def` in its arm and refer to it as `owner.name`, where `owner` is the definition it is written in (docs/syntax.md, "Proving things about a definition with an inner `match`")
+─────╯

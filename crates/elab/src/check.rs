@@ -1006,6 +1006,7 @@ impl<'e> Ctx<'e> {
             "type mismatch",
             format!("expected `{expected_shown}`, but this has type `{found_shown}`"),
         );
+        let d = self.unknown_notes(d, &[&expected_shown, &found_shown], &[expected, found]);
         let d = if hidden {
             d.with_note(
                 "the two types differ only in arguments the compiler fills in, shown here in \
@@ -1045,7 +1046,6 @@ impl<'e> Ctx<'e> {
         self.alias_notes(expected, found, ALIAS_NOTE_DEPTH, &mut notes);
         let d = notes.into_iter().fold(d, |d, note| d.with_note(note));
         let d = self.with_opaque_notes(d, &[expected, found]);
-        let d = self.unknown_notes(d, &[&expected_shown, &found_shown], &[expected, found]);
         self.unrefined_hint(d, expected, found)
     }
 
@@ -1074,9 +1074,7 @@ impl<'e> Ctx<'e> {
                 }
                 seen.push(*m);
                 if let Some(origin) = self.metas().meta_origin(*m) {
-                    d = d.with_note(format!(
-                        "`{name}` is {origin}, which wasn't worked out from the other arguments or the expected type"
-                    ));
+                    d = d.with_note(format!("`{name}` is {origin}"));
                 }
             }
         }
@@ -2591,7 +2589,7 @@ fn apply_args_postponing(
                 let value = match check_arg(cx, &term, value, &dom) {
                     Ok(value) => {
                         if let Some(x) = &hole_of {
-                            note_origin(cx, &value, x, &term);
+                            note_origin(cx, &value, x, &term, true);
                         }
                         value
                     }
@@ -3465,7 +3463,7 @@ fn insert_with(
         && icit.is_implicit()
     {
         let meta = supplied_arg(cx, icit, &dom, supply);
-        note_origin(cx, &meta, &x, &term);
+        note_origin(cx, &meta, &x, &term, false);
         let value = cx.eval(&meta)?;
         term = Term::app_icit(term, meta, icit);
         ty = cod.apply(&cx.g(), value)?;
@@ -3477,16 +3475,25 @@ fn insert_with(
 /// (a call, or a name applied to arguments so far), for messages that
 /// print it as `?N` ([`stitchwort_core::globals::Meta::origin`]). The first
 /// recorded origin stays.
-fn note_origin(cx: &Ctx, meta: &Term, param: &Name, callee: &Term) {
+fn note_origin(cx: &Ctx, meta: &Term, param: &Name, callee: &Term, hole: bool) {
     let Term::Meta(m) = meta.spine().0 else {
         return;
     };
     if cx.metas().meta_origin(*m).is_some() {
         return;
     }
-    let origin = match callee.spine().0 {
-        Term::Def(id) => format!("the argument `{param}` of `{}`", cx.g().def(*id).name()),
-        _ => format!("the argument `{param}`"),
+    let of = match callee.spine().0 {
+        Term::Def(id) => format!(" of `{}`", cx.g().def(*id).name()),
+        _ => String::new(),
+    };
+    let origin = if hole {
+        format!(
+            "the `_` for the argument `{param}`{of}, which wasn't worked out from the other arguments or the expected type"
+        )
+    } else {
+        format!(
+            "the implicit argument `{param}`{of}, which wasn't worked out from the other arguments or the expected type; give it with `[{param} := …]`"
+        )
     };
     cx.metas().set_meta_origin(*m, origin.into());
 }
@@ -3589,7 +3596,7 @@ fn insert_until(
             }
             Value::Pi(x, icit, dom, cod) if icit.is_implicit() => {
                 let meta = supplied_arg(cx, icit, &dom, supply);
-                note_origin(cx, &meta, &x, &term);
+                note_origin(cx, &meta, &x, &term, false);
                 let value = cx.eval(&meta)?;
                 term = Term::app_icit(term, meta, icit);
                 ty = cod.apply(&cx.g(), value)?;

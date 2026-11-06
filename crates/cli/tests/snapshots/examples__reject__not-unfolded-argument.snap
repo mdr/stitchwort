@@ -9,5 +9,9 @@ expression: output
     │                                ──────┬──────  
     │                                      ╰──────── expected `one () = one ()`, but this has type `Holds (arg => ?1 (?0 ()))`
     │ 
-    │ Note: `Holds (arg => ?1 (?0 ()))` is `?1 (?0 ()) = ?1 (?0 ())`
+    │ Note 1: `?1` is the `_` for the argument `j` of `composite`, which wasn't worked out from the other arguments or the expected type
+    │ 
+    │ Note 2: `?0` is the `_` for the argument `p` of `composite`, which wasn't worked out from the other arguments or the expected type
+    │ 
+    │ Note 3: `Holds (arg => ?1 (?0 ()))` is `?1 (?0 ()) = ?1 (?0 ())`
 ────╯

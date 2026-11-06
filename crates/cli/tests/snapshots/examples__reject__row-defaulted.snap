@@ -11,5 +11,7 @@ expression: output
     │                              │    
     │                              ╰──── expected `Nat`, but this has type `Answer ?2`
     │ 
-    │ Note: nothing said which abilities this call may perform, so its row defaulted to the empty row (pure); give the callback's type, or annotate the result, if it was meant to perform something
+    │ Note 1: `?2` is the implicit argument `flag` of `countAll`, which wasn't worked out from the other arguments or the expected type; give it with `[flag := …]`
+    │ 
+    │ Note 2: nothing said which abilities this call may perform, so its row defaulted to the empty row (pure); give the callback's type, or annotate the result, if it was meant to perform something
 ────╯

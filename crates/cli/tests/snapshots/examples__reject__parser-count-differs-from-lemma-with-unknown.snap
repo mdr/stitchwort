@@ -9,5 +9,5 @@ expression: output
     │                                                                                                         ──┬──  
     │                                                                                                           ╰──── expected `tagged True (arg => Parse.exactly 35 Parse.digit) = (arg => Parse.exactly 36 Parse.digit)`, but this has type `tagged ?0 (arg => Parse.exactly 36 Parse.digit) = (arg => Parse.exactly 36 Parse.digit)`
     │ 
-    │ Note: `?0` is the argument `b` of `lem`, which wasn't worked out from the other arguments or the expected type
+    │ Note: `?0` is the `_` for the argument `b` of `lem`, which wasn't worked out from the other arguments or the expected type
 ────╯
