@@ -4717,6 +4717,20 @@ and these notes.
 `STITCHWORT_TIMINGS=1` puts the Proofs namespace at 138 ms of
 elaboration and 24 ms in the kernel; the rest of the cold time is std's.
 
+**Completeness (SW-1625).** `Proofs/Complete.sw`, 121 lines, about 4
+minutes. The parser is `Aoc.Common.parseGrid`, so the proof is day 3's
+(SW-1624) in this day's terms: the rows by the `many1`-of-single-characters
+pattern (`runsCube`, `manyRunsCubes`, `runsRow`, 40 lines), `runsEachLine`
+with a membership-aware weakening (a row of a rectangle with a cell is
+non-empty), and `checkGrid` passing a rectangle through (`checkGridComplete`).
+Those last three (`findNoneOfMem`, `findNoneWithIndexFrom`,
+`checkGridComplete`, `all2WeakenMem`, 33 lines) and `Parse.runsMany1Symbols`
+are the same lemmas SW-1624 adds to std and `Aoc.Common.Proofs` for day 3;
+they are copied here, not put in std, so the two lanes do not collide, and
+this file should drop them for those after both merge. The soundness
+conclusion is already two conjuncts, so `InputWritten` names it and
+`writtenUnique` is one line.
+
 ### Ranked
 
 1. `cases` over three `Int` comparisons takes `Int` apart and runs out
