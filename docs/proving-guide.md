@@ -217,7 +217,10 @@ Import what you use: std's theorems live in namespaces that need an import
   (`theorem t: (x: Bool) → P x := cases`). When nothing is stuck and nothing
   closes it, it falls back to splitting a variable the goal mentions, the
   one that makes the fewest cases. `cases in t` tries `t` in every case
-  first. At most **64 cases**, then `E-CASES-BUDGET`. It doesn't do
+  first. An `Int` `==` that a test depends on (`if x + 1 == y then …`) is
+  split as one `Bool`, true or false, and `omega` reads it in each case;
+  `cases` doesn't take the `Int` apart into `OfNat` and `NegSucc`. At most
+  **64 cases**, then `E-CASES-BUDGET`. It doesn't do
   induction (`List`, `Nat`). Examples: `examples/accept/cases-*.sw`.
 - **`omega`** proves `<=`, `<`, `=` on `Nat` and `Int` (and contradictions)
   from every arithmetic fact in scope: parameters, pattern variables, `if

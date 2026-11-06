@@ -21,27 +21,7 @@ theorem countPrefixedNil (here: Int) (others: List (List Int)): (others.map (mor
 --| of `x`.
 theorem window (x: Int) (y: Int):
     (if x + (-1) == y then 1 else 0) + (if x == y then 1 else 0) + (if x + 1 == y then 1 else 0) = Bool.toNat (x + (-1) <= y && y <= x + 1) :=
-  match d: x + (-1) <= y && y <= x + 1 with
-    | True => match a: x + (-1) == y with
-      | True => match b: x == y with
-        | True => omega
-        | False => match c: x + 1 == y with
-          | True => omega
-          | False => omega
-      | False => match b: x == y with
-        | True => match c: x + 1 == y with
-          | True => omega
-          | False => omega
-        | False => match c: x + 1 == y with
-          | True => omega
-          | False => omega
-    | False => match a: x + (-1) == y with
-      | True => omega
-      | False => match b: x == y with
-        | True => omega
-        | False => match c: x + 1 == y with
-          | True => omega
-          | False => omega
+  cases
 
 theorem windowAnd (x: Int) (y: Int) (rest: Bool):
     (if x + (-1) == y then Bool.toNat rest else 0) + (if x == y then Bool.toNat rest else 0) + (if x + 1 == y then Bool.toNat rest else 0)
