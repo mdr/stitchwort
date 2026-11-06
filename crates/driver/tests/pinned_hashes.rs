@@ -5,7 +5,8 @@
 //! (`stitchwort_core::nat_add`), compact text (`chars`), `Float` and its
 //! kernel natives (`float`), and the runtimes' representations and natives
 //! (`stitchwort_rt::natives`). A binding whose declaration changed is
-//! dropped without a word, by design: the declaration then runs as written,
+//! dropped without a word, by design (except arrays', which refuse the
+//! program instead): the declaration then runs as written,
 //! slower but right. So a library change can switch a native off silently:
 //! changing `Nat.divFuel` (SW-922) unbound `Nat.toText`'s and eight `Int`
 //! natives in the runtimes, and only a JS snapshot and an allocation count
@@ -64,6 +65,17 @@ fn bindings(g: &stitchwort_core::Ev) -> Vec<(String, Option<String>, bool)> {
         out.push(rt(b.name, b.hash, b.bound));
     }
     for b in natives::bind_float_natives(g).expect("hashes") {
+        out.push(rt(b.name, b.hash, b.bound));
+    }
+    // Arrays bind all or nothing: a program that loads `Array` without
+    // them is refused, so this is the same check made before review.
+    let array = natives::bind_array(g).expect("hashes");
+    out.push(rt(
+        "Array",
+        array.hash.clone(),
+        array.bound && array.data.is_some(),
+    ));
+    for b in array.natives {
         out.push(rt(b.name, b.hash, b.bound));
     }
     for (name, builtin, pinned, found) in [

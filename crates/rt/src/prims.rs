@@ -21,7 +21,7 @@ use stitchwort_core::native::Native;
 use stitchwort_core::partial::Primitive;
 
 use crate::ir::{HoleOp, PrimOp, Shapes};
-use crate::natives::{FloatPrim, IntNative, TextNative};
+use crate::natives::{ArrayNative, FloatPrim, IntNative, TextNative};
 use crate::value::{Delay, Fields, Value};
 
 fn bad(op: PrimOp, v: &Value) -> ! {
@@ -431,6 +431,15 @@ pub fn eval(s: &Shapes, op: PrimOp, args: &[&Value]) -> Value {
             }
         }
         PrimOp::Hole(op) => hole(op, args),
+        PrimOp::Array(a) if a.consumes() => {
+            // Given only a reference, the array is shared: the operation
+            // copies it, and the copy is counted. The machine and native
+            // code give these operations their array by value
+            // ([`eval_owned`]); this is for a caller that has only
+            // references.
+            eval_owned(s, op, args.iter().map(|v| (*v).clone()))
+        }
+        PrimOp::Array(a) => array(s, op, a, args),
         PrimOp::Effect(op) => {
             unreachable!("the machine runs the effect runtime's {op:?} on its frames")
         }
@@ -693,6 +702,178 @@ fn text(s: &Shapes, op: PrimOp, t: TextNative, args: &[&Value]) -> Value {
             Some(d) => some(s, parse_nat(d)),
         },
         TextFold => bad(op, args[0]),
+    }
+}
+
+// ---------------------------------------------------------------- arrays
+
+/// Copies made by a consuming array native whose array was shared: how many,
+/// how many of those were large, and the largest. A copy is always right,
+/// but it is O(n) where an unshared array's change is O(1), so a run that
+/// makes many large ones says so at its end ([`array_copy_note`]).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ArrayCopies {
+    pub count: u64,
+    /// Copies of at least [`LARGE_COPY`] elements.
+    pub large: u64,
+    /// The most elements one copy copied.
+    pub largest: u64,
+}
+
+/// A copy this long is worth a note when there are many of them.
+pub const LARGE_COPY: u64 = 1_000;
+
+/// How many large copies a run makes before its end says so.
+pub const NOTED_COPIES: u64 = 10;
+
+thread_local! {
+    static ARRAY_COPIES: std::cell::Cell<ArrayCopies> =
+        const { std::cell::Cell::new(ArrayCopies { count: 0, large: 0, largest: 0 }) };
+}
+
+/// The copies counted on this thread since [`reset_array_copies`].
+pub fn array_copies() -> ArrayCopies {
+    ARRAY_COPIES.with(std::cell::Cell::get)
+}
+
+/// Starts the count again, as a run starts.
+pub fn reset_array_copies() {
+    ARRAY_COPIES.with(|c| c.set(ArrayCopies::default()));
+}
+
+/// What a run that copied this much should be told, if anything: enough
+/// large copies that they may well be most of its time.
+pub fn array_copy_note(copies: ArrayCopies) -> Option<String> {
+    (copies.large >= NOTED_COPIES).then(|| {
+        format!(
+            "note: an array was copied {} times because something else still held it \
+             (the largest had {} elements); `set`, `push` and `pop` change an array in place \
+             only when nothing else holds it, so keep one version in use and pass it on \
+             (docs/proposals/arrays.md §6.1)",
+            copies.count, copies.largest
+        )
+    })
+}
+
+fn array_of(op: PrimOp, v: &Value) -> &Rc<Vec<Value>> {
+    match v {
+        Value::Array(items) => items,
+        other => bad(op, other),
+    }
+}
+
+/// An index that fits a `usize`; a big number is past the end of any array.
+fn index_of(op: PrimOp, v: &Value) -> Option<usize> {
+    match v {
+        Value::Nat(i) => usize::try_from(*i).ok(),
+        Value::BigNat(_) => None,
+        other => bad(op, other),
+    }
+}
+
+/// The buffer to change: the array's own if this is its only reference,
+/// otherwise a counted copy.
+fn unshared(items: &mut Rc<Vec<Value>>) -> &mut Vec<Value> {
+    if Rc::get_mut(items).is_none() {
+        let len = items.len() as u64;
+        // An empty array (`Array.empty`, a constant every use shares) costs
+        // nothing to copy.
+        ARRAY_COPIES.with(|c| {
+            if len == 0 {
+                return;
+            }
+            let mut n = c.get();
+            n.count += 1;
+            n.large += u64::from(len >= LARGE_COPY);
+            n.largest = n.largest.max(len);
+            c.set(n);
+        });
+        *items = Rc::new((**items).clone());
+    }
+    Rc::get_mut(items).expect("a new buffer is unique")
+}
+
+/// The array operations that only read their array.
+fn array(s: &Shapes, op: PrimOp, a: ArrayNative, args: &[&Value]) -> Value {
+    match a {
+        ArrayNative::FromList => Value::Array(Rc::new(items(s, args[0]).cloned().collect())),
+        ArrayNative::ToList => list(s, (**array_of(op, args[0])).clone()),
+        ArrayNative::Size => Value::Nat(array_of(op, args[0]).len() as u64),
+        ArrayNative::Get => {
+            match index_of(op, args[1]).and_then(|i| array_of(op, args[0]).get(i)) {
+                Some(x) => some(s, x.clone()),
+                None => Value::Tag(s.none),
+            }
+        }
+        ArrayNative::GetOr => {
+            match index_of(op, args[1]).and_then(|i| array_of(op, args[0]).get(i)) {
+                Some(x) => x.clone(),
+                None => args[2].clone(),
+            }
+        }
+        // The erased proof says the index is in range.
+        ArrayNative::GetLt => {
+            match index_of(op, args[1]).and_then(|i| array_of(op, args[0]).get(i)) {
+                Some(x) => x.clone(),
+                None => panic!("internal error: `Array.getLt` out of range, against its proof"),
+            }
+        }
+        ArrayNative::Replicate => {
+            let Some(count) = index_of(op, args[0]) else {
+                panic!("internal error: `Array.replicate` of more elements than memory holds")
+            };
+            Value::Array(Rc::new(vec![args[1].clone(); count]))
+        }
+        ArrayNative::Set | ArrayNative::Push | ArrayNative::Pop => {
+            unreachable!("a consuming array native is run by `eval_owned`")
+        }
+    }
+}
+
+/// A native operation given its arguments by value: an array native that
+/// [consumes](ArrayNative::consumes) its array changes it in place when it
+/// was the array's last reference. Every other operation is [`eval`]'s.
+pub fn eval_owned(s: &Shapes, op: PrimOp, args: impl IntoIterator<Item = Value>) -> Value {
+    let mut args = args.into_iter();
+    let PrimOp::Array(a) = op else {
+        let args: smallvec::SmallVec<[Value; 4]> = args.collect();
+        let refs: smallvec::SmallVec<[&Value; 4]> = args.iter().collect();
+        return eval(s, op, &refs);
+    };
+    if !a.consumes() {
+        let args: smallvec::SmallVec<[Value; 4]> = args.collect();
+        let refs: smallvec::SmallVec<[&Value; 4]> = args.iter().collect();
+        return array(s, op, a, &refs);
+    }
+    let mut items = match args.next() {
+        Some(Value::Array(items)) => items,
+        Some(other) => bad(op, &other),
+        None => panic!("internal error: %{} given no array", op.name()),
+    };
+    let mut arg = || args.next().expect("the operation's arguments");
+    match a {
+        ArrayNative::Set => {
+            let index = arg();
+            let value = arg();
+            // Past the end the array is unchanged, so it isn't copied.
+            if let Some(i) = index_of(op, &index).filter(|i| *i < items.len()) {
+                unshared(&mut items)[i] = value;
+            }
+            Value::Array(items)
+        }
+        ArrayNative::Push => {
+            let value = arg();
+            unshared(&mut items).push(value);
+            Value::Array(items)
+        }
+        ArrayNative::Pop => {
+            if items.is_empty() {
+                return Value::Tag(s.none);
+            }
+            let last = unshared(&mut items).pop().expect("not empty");
+            some(s, Value::data(s.pair, [Value::Array(items), last]))
+        }
+        _ => unreachable!("only the consuming natives get here"),
     }
 }
 

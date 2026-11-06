@@ -2147,6 +2147,7 @@ fn helper_addresses() -> Vec<(&'static str, *const u8)> {
         ("sw_empty_cell", abi::sw_empty_cell as *const u8),
         ("sw_drop_reuse", abi::sw_drop_reuse as *const u8),
         ("sw_prim", abi::sw_prim as *const u8),
+        ("sw_prim_owned", abi::sw_prim_owned as *const u8),
         ("sw_test", abi::sw_test as *const u8),
         ("sw_nat_pred", abi::sw_nat_pred as *const u8),
         ("sw_num_switch", abi::sw_num_switch as *const u8),
@@ -2185,6 +2186,7 @@ struct Helpers {
     empty_cell: FuncId,
     drop_reuse: FuncId,
     prim: FuncId,
+    prim_owned: FuncId,
     test: FuncId,
     nat_pred: FuncId,
     num_switch: FuncId,
@@ -2237,6 +2239,7 @@ impl Helpers {
             empty_cell: declare("sw_empty_cell", &[I64, I64], &[])?,
             drop_reuse: declare("sw_drop_reuse", &[p, p], &[])?,
             prim: declare("sw_prim", &[p, I32, p, I64, p], &[])?,
+            prim_owned: declare("sw_prim_owned", &[p, I32, p, I64, p], &[])?,
             test: declare("sw_test", &[p, I32, p, I64], &[I64])?,
             nat_pred: declare("sw_nat_pred", &[p, p], &[])?,
             num_switch: declare("sw_num_switch", &[p, I32, p], &[I64])?,
@@ -3294,6 +3297,7 @@ impl Gen<'_, '_> {
                 op: PrimOp::Text(TextNative::TextFold),
                 args,
             } => self.text_fold(pc, dst, args),
+            Instr::Prim { dst, op, args } if op.consumes() => self.prim_owned(pc, dst, op, args),
             Instr::Prim { dst, op, args } => self.prim(pc, dst, op, args),
             Instr::Test { op, args, target } => {
                 let o = ops(code, args).to_vec();
@@ -3869,6 +3873,24 @@ impl Gen<'_, '_> {
         self.call_helper(self.helpers.unary, &[self.ctx, op, from, to]);
         let r = self.load(Loc::Mem(to, 0));
         self.assign(pc, dst, r);
+    }
+
+    /// A native that takes its operands by value (`abi::sw_prim_owned`):
+    /// each is moved in on its last use, as a constructor's fields are, so
+    /// an array nothing else holds is changed in place.
+    fn prim_owned(&mut self, pc: usize, dst: Reg, op: PrimOp, args: Ops) {
+        let values = self.operands(args);
+        for (i, v) in values.iter().enumerate() {
+            let at = self.temp_address(i * VALUE_SIZE);
+            self.store(Loc::Mem(at, 0), *v);
+        }
+        let from = self.temp_address(0);
+        let out = self.temp_address(values.len() * VALUE_SIZE);
+        let op = self.i32const(self.numbering.op(op));
+        let n = self.iconst(values.len() as u64);
+        self.call_helper(self.helpers.prim_owned, &[self.ctx, op, from, n, out]);
+        let v = self.load(Loc::Mem(out, 0));
+        self.assign(pc, dst, v);
     }
 
     fn prim(&mut self, pc: usize, dst: Reg, op: PrimOp, args: Ops) {

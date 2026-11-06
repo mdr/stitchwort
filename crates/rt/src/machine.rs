@@ -566,6 +566,11 @@ impl State {
                     self.fold_start(program, image, f, z, &t, ret)
                 }
                 GlobalKind::Native(PrimOp::Effect(op)) => self.effect(program, image, *op, n, ret),
+                GlobalKind::Native(op) if op.consumes() => {
+                    let at = self.regs.len() - n;
+                    let args: SmallVec<[Value; 4]> = self.regs.drain(at..).collect();
+                    Ok(Some((prims::eval_owned(&program.shapes, *op, args), ret)))
+                }
                 GlobalKind::Native(op) => {
                     let at = self.regs.len() - n;
                     if self.limits.number_words {
@@ -1169,6 +1174,11 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                             save!();
                             st.charge(cost)?;
                         }
+                    }
+                    if op.consumes() {
+                        let owned: SmallVec<[Value; 4]> = o.iter().map(|r| get!(*r)).collect();
+                        reg!(dst) = prims::eval_owned(s, op, owned);
+                        continue;
                     }
                     let v = match o {
                         [a] => prims::eval(s, op, &[&reg!(*a)]),

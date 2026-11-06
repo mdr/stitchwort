@@ -25,7 +25,7 @@ use crate::ir::{
     Arm, Body, CtorInfo, Expr, Global, GlobalId, GlobalKind, Lambda, LambdaId, Lit, MainRow,
     MatchKind, PrimOp, Program, Shapes, Slot, TypeId, TypeInfo,
 };
-use crate::natives::{FloatPrim, IntNative, Representation, TextNative};
+use crate::natives::{ArrayNative, FloatPrim, IntNative, Representation, TextNative, bind_array};
 use crate::opt::{Types, optimize};
 use crate::specialise::{self, Specialiser};
 
@@ -296,6 +296,11 @@ struct Frame {
 struct Lowerer<'g> {
     g: &'g Ev<'g>,
     repr: Representation,
+    /// The library's `Array`, if it is loaded: an array is then a buffer.
+    array: Option<DataId>,
+    /// Its operations with native implementations: all of them, or the
+    /// program is refused ([`crate::natives::ArrayBinding::refusal`]).
+    array_natives: HashMap<DefId, ArrayNative>,
     shapes: Vec<OnceCell<DefShape>>,
     if_then_else: Option<DefId>,
     to_bool: Option<DefId>,
@@ -345,9 +350,21 @@ impl<'g> Lowerer<'g> {
                 "the prelude's `Text` doesn't have the representation the runtime expects",
             ));
         }
+        // All or nothing, and loud: an array without its natives would run
+        // each O(1) operation as an O(n) one on its list.
+        let arrays = bind_array(g).map_err(Diagnostic::from)?;
+        if let Some(why) = arrays.refusal() {
+            return Err(Diagnostic::error("E-BUILTIN", why));
+        }
+        let (array, array_natives) = match arrays.applies() {
+            Some((d, natives)) => (Some(d), natives),
+            None => (None, HashMap::default()),
+        };
         Ok(Lowerer {
             g,
             repr,
+            array,
+            array_natives,
             shapes: g.env.defs().iter().map(|_| OnceCell::new()).collect(),
             if_then_else: g.env.registry().def(Builtin::IfThenElse),
             to_bool: g.env.registry().def(Builtin::ToBool),
@@ -394,6 +411,9 @@ impl<'g> Lowerer<'g> {
         }
         if let Some(op) = self.repr.float_natives.get(&id) {
             return Some(PrimOp::Float(*op));
+        }
+        if let Some(op) = self.array_natives.get(&id) {
+            return Some(PrimOp::Array(*op));
         }
         if let Some(op) = self.effect.as_ref().and_then(|e| e.native(id)) {
             return Some(PrimOp::Effect(op));
@@ -1006,6 +1026,16 @@ impl<'g> Lowerer<'g> {
                 ),
             });
         }
+        if Some(d) == self.array {
+            // `{ toList = xs }`: the buffer of the list's elements.
+            let field = data
+                .unboxed_field()
+                .expect("an array is a record of one field");
+            return Ok(Expr::Prim(
+                PrimOp::Array(ArrayNative::FromList),
+                vec![self.expr(&args[field])?],
+            ));
+        }
         if Some(d) == self.repr.float {
             // `{ bits = b, valid = _ }`: a literal if `b` is a number,
             // otherwise the double made from the bits.
@@ -1089,6 +1119,7 @@ impl<'g> Lowerer<'g> {
         }
         if let Some(field) = data.unboxed_field()
             && Some(d) != self.repr.float
+            && Some(d) != self.array
         {
             // A record stored as its one run-time field (D866): the field is
             // the value matched, so its level stands for the scrutinee's own
@@ -1109,6 +1140,34 @@ impl<'g> Lowerer<'g> {
             return out;
         }
         let scrutinee = self.var(ix);
+        if Some(d) == self.array {
+            // Matching an array's record gives its list, built from the
+            // buffer only if the branch reads it.
+            let Some(branch) = branches.first() else {
+                return Ok(Expr::Unreachable);
+            };
+            let mark = self.mark();
+            let slot = self.bind_slot();
+            let body = match &branch.body {
+                Some(body) => self.expr(body),
+                None => Ok(Expr::Unreachable),
+            };
+            let used = self.slot_used(slot);
+            self.leave(mark);
+            let body = body?;
+            return Ok(if used {
+                Expr::Let(
+                    slot,
+                    Box::new(Expr::Prim(
+                        PrimOp::Array(ArrayNative::ToList),
+                        vec![scrutinee],
+                    )),
+                    Box::new(body),
+                )
+            } else {
+                body
+            });
+        }
         if Some(d) == self.repr.float {
             // A `Float` is a double: matching its record gives its bits
             // (the proof field is erased).

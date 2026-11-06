@@ -723,6 +723,8 @@ impl<'p> Interp<'p> {
             PrimOp::Delay(_) => return Err("unsupported: a partial computation".into()),
             PrimOp::Effect(op) => return self.effect(op, args),
             PrimOp::Hole(op) => hole(op, &args)?,
+            // The machine's own (tests/arrays.rs).
+            PrimOp::Array(op) => return Err(format!("the array native {op:?}")),
             // On the bits, written apart from the runtime's (which works on
             // `f64`s): the model's definitions (std/Float/Float.sw), with
             // `f64` only for the rounding operations.

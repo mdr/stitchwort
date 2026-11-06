@@ -30,7 +30,7 @@ use stitchwort_core::partial::Primitive;
 use stitchwort_core::{BigUint, DataId, DefId, native};
 
 use crate::effect::EffectOp;
-use crate::natives::{FloatPrim, IntNative, TextNative};
+use crate::natives::{ArrayNative, FloatPrim, IntNative, TextNative};
 
 /// A slot of a frame.
 pub type Slot = u32;
@@ -312,6 +312,11 @@ pub enum PrimOp {
     Effect(EffectOp),
     /// The cells of a call modulo a constructor ([`crate::trmc`]).
     Hole(HoleOp),
+    /// An `Array` operation, where an array is a buffer (`Value::Array`);
+    /// `FromList` is also the record's constructor, and `ToList` takes it
+    /// apart. Those that [consume](ArrayNative::consumes) their array are
+    /// given it by value.
+    Array(ArrayNative),
 }
 
 /// The operations on a chain of constructor cells that a loop links one
@@ -333,6 +338,12 @@ impl HoleOp {
 }
 
 impl PrimOp {
+    /// Whether it takes its first argument by value: the machine and native
+    /// code move it in on its last use ([`ArrayNative::consumes`]).
+    pub fn consumes(self) -> bool {
+        matches!(self, PrimOp::Array(op) if op.consumes())
+    }
+
     /// How many arguments it takes.
     pub fn arity(self) -> u32 {
         use native::Native;
@@ -379,6 +390,7 @@ impl PrimOp {
                 HoleOp::Fill => 3,
                 HoleOp::Take => 1,
             },
+            PrimOp::Array(op) => op.arity(),
         }
     }
 
@@ -395,6 +407,7 @@ impl PrimOp {
             PrimOp::Float(op) => format!("Float{op:?}"),
             PrimOp::Effect(op) => format!("Effect{op:?}"),
             PrimOp::Hole(op) => format!("Hole{op:?}"),
+            PrimOp::Array(op) => format!("Array{op:?}"),
         }
     }
 }
