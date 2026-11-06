@@ -80,6 +80,7 @@ pub const TAG_TAG: u8 = 7;
 pub const TAG_DATA: u8 = 8;
 pub const TAG_FUN: u8 = 9;
 pub const TAG_DELAY: u8 = 10;
+pub const TAG_ARRAY: u8 = 11;
 
 /// The tags of the values that hold a reference ([`Value::owns`]): bit `t`
 /// is set for tag `t`. Each of them keeps an `Rc`'s address at byte 8.
@@ -88,7 +89,8 @@ pub const OWNING_TAGS: u64 = (1 << TAG_BIG_NAT)
     | (1 << TAG_TEXT)
     | (1 << TAG_DATA)
     | (1 << TAG_FUN)
-    | (1 << TAG_DELAY);
+    | (1 << TAG_DELAY)
+    | (1 << TAG_ARRAY);
 
 /// A value is three words: the tag (byte 0) and a constructor's tag (bytes
 /// 4–7) in the first, then the payload.
@@ -228,6 +230,7 @@ fn probe() -> Result<(), String> {
             Value::Delay(Rc::new(crate::value::Delay::Now(Value::Erased))),
             TAG_DELAY,
         ),
+        (Value::Array(Rc::new(vec![Value::Nat(1)])), TAG_ARRAY),
     ];
     for (v, tag) in &tags {
         check(words(v)[0] as u8 == *tag, &format!("{v:?}'s tag"))?;
@@ -271,7 +274,7 @@ fn probe() -> Result<(), String> {
     )?;
     check(counts_at(allocation(&tv)).0 == 2, "a text's count")?;
     probe_functions()?;
-    for v in [&tags[2].0, &tags[4].0, &tags[9].0, &tags[10].0] {
+    for v in [&tags[2].0, &tags[4].0, &tags[9].0, &tags[10].0, &tags[11].0] {
         let copy = v.clone();
         let ok = counts_at(allocation(v)).0 == 2;
         drop(copy);
@@ -1557,6 +1560,32 @@ pub unsafe extern "C" fn sw_prim(
     }
 }
 
+/// A native operation that [consumes](PrimOp::consumes) its first operand,
+/// on the `n` values at `args` (moved in: the caller doesn't use them
+/// again), written to `dst`.
+///
+/// # Safety
+/// As [`sw_prim`], except that `args` points at `n` values native code owns
+/// and `dst` at space for one (uninitialised).
+#[allow(unsafe_code)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
+pub unsafe extern "C" fn sw_prim_owned(
+    context: *const Context,
+    op: u32,
+    args: *mut Value,
+    n: u64,
+    dst: *mut Value,
+) {
+    // SAFETY: the caller's contract; each value is read out once, after
+    // which the caller treats its slot as empty.
+    unsafe {
+        let (shapes, op) = shapes_and_op(context, op);
+        let owned = (0..n as usize).map(|i| args.add(i).read());
+        let v = crate::prims::eval_owned(shapes, op, owned.collect::<Vec<Value>>());
+        dst.write(v);
+    }
+}
+
 /// The program's shapes and operation `op`, from the context's tables.
 ///
 /// # Safety
@@ -1991,6 +2020,13 @@ pub unsafe extern "C" fn sw_apply_prepare(
         let mut bound = None;
         match &**h {
             Fun::Global(g) => match program.globals[*g as usize].kind {
+                Kind::Native(op) if op.consumes() => {
+                    value = Some(crate::prims::eval_owned(
+                        &program.shapes,
+                        op,
+                        std::mem::take(&mut all),
+                    ));
+                }
                 Kind::Native(op) if applicable_native(op) => {
                     let v = {
                         let refs: Vec<&Value> = all.iter().collect();

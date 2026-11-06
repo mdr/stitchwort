@@ -7,15 +7,16 @@
 --|
 --|   $ cd aoc && stitchwort run Aoc.Year2020.Day15.main < inputs/2020/day15.txt
 --|
---| The game keeps a `Map` from each number to the turn it was last spoken
---| (before the latest turn), so a turn is a lookup and an insert. The proofs,
+--| The game keeps an `Array`, by number, of the turn each number was last
+--| spoken (before the latest turn), 0 for one not spoken yet, so a turn is a
+--| read and a write, each O(1) and the write in place. The proofs,
 --| that the parser reads the puzzle's format and that the game says what the
 --| puzzle's rules say on every turn, are in `Aoc.Year2020.Day15.Proofs`
 --| (Proofs/), and the tests in `Aoc.Year2020.Day15.Tests` (Tests/); `run`
 --| checks neither.
 
 namespace Aoc.Year2020.Day15
-import Std (Fail, IO, List, Map, Nat, NonEmptyList, Parse)
+import Std (Array, Fail, IO, List, Nat, NonEmptyList, Parse)
 
 def main(): {IO, Fail} () :=
   let starting := parseStarting IO.readAll()
@@ -29,22 +30,21 @@ def starting(): {Parse} Starting := { numbers = Parse.sepBy1 Parse.nat (() => Pa
 def parseStarting (input: Text): {Fail} Starting := Parse.all input starting
 
 --| The game after some turns: the turn just taken (from 1), the number
---| spoken on it, and for every number spoken on an earlier turn, the latest
---| such turn.
-type Game = { turn: Nat, last: Nat, lastSeen: Map Nat Nat }
+--| spoken on it, and by number, the latest earlier turn that spoke it, or 0
+--| if none did. Turns count from 1, so 0 is never a turn.
+type Game = { turn: Nat, last: Nat, lastSeen: Array Nat }
 
---| After the first turn, which says `first`.
-def Game.begin (first: Nat): Game := { turn = 1, last = first, lastSeen = Map.empty }
+--| After the first turn, which says `first`, with room for the numbers below `room`.
+def Game.begin (room: Nat) (first: Nat): Game := { turn = 1, last = first, lastSeen = Array.replicate (count := room) 0 }
 
 def Game.say (game: Game) (number: Nat): Game :=
-  { turn = game.turn + 1, last = number, lastSeen = game.lastSeen.insert game.last game.turn }
+  { turn = game.turn + 1, last = number, lastSeen = game.lastSeen.set game.last game.turn }
 
 --| What the rules say after the last number: 0 if it was new, else how
 --| many turns ago it was spoken before.
 def Game.reply (game: Game): Nat :=
-  match game.lastSeen.get game.last with
-    | Some before => game.turn - before
-    | None => 0
+  let before := game.lastSeen.getOr game.last 0
+  if before == 0 then 0 else game.turn - before
 
 --| What the next turn says: the next starting number while there is one,
 --| then the rules' reply.
@@ -53,8 +53,13 @@ def Starting.next (starting: Starting) (game: Game): Nat :=
 
 def Starting.takeTurn (starting: Starting) (game: Game): Game := game.say (starting.next game)
 
+--| Room for every number spoken in the first `turns` turns: a reply is less
+--| than the turn it's said on, and a starting number at most the largest.
+def Starting.room (starting: Starting) (turns: Nat): Nat := turns + starting.numbers.toList.maximum.getOrElse 0 + 1
+
 --| The number spoken on `turn`, counting from 1; 0 for turn 0.
 def Starting.numberSpoken (starting: Starting) (turn: Nat): Nat :=
   match turn with
     | Zero => 0
-    | Succ later => Nat.iterate later starting.takeTurn (Game.begin starting.numbers.head) |> .last
+    | Succ later =>
+      Nat.iterate later starting.takeTurn (Game.begin (starting.room turn) starting.numbers.head) |> .last

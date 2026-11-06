@@ -5,7 +5,7 @@
 
 namespace Aoc.Common.Proofs
 import Aoc.Common (..)
-import Std (Bool, DecEq, Eq, Exists, Fin, Iff, List, Map, Nat, Option, Void)
+import Std (Array, Bool, DecEq, Eq, Exists, Fin, Iff, List, Nat, Option, Void)
 
 -- Rows of cells
 
@@ -211,25 +211,17 @@ theorem atOfWithin (grid: Grid a) (rectangle: grid.Rectangle) (position: Positio
 
 --| The fast lookup is `at`.
 theorem lookupAt (grid: Grid a) (position: Position): grid.lookup position = grid.at position :=
-  let byRow := (row: List a) => row.map Some |> Map.byPosition
-  rewrite Map.getOrByPosition (grid.rows.map byRow) position.row Map.empty, List.getOrGet (grid.rows.map byRow) position.row Map.empty,
-    List.getMap grid.rows byRow position.row in
+  rewrite List.getOrGet (grid.rows.map List.toArray) position.row Array.empty, List.getMap grid.rows List.toArray position.row in
     match List.get grid.rows position.row with
       | None => rfl
-      | Some line =>
-        rewrite Map.getOrByPosition (line.map Some) position.column None, List.getOrGet (line.map Some) position.column None,
-          List.getMap line Some position.column in
-          match List.get line position.column with
-            | None => rfl
-            | Some x => rfl
+      | Some line => rfl
 
 --| The fast lookup with a fallback is `at`, or the fallback off the grid.
 theorem lookupOrAt (grid: Grid a) (fallback: a) (position: Position): grid.lookupOr fallback position = (grid.at position).getOrElse fallback :=
-  rewrite Map.getOrByPosition (grid.rows.map Map.byPosition) position.row Map.empty,
-    List.getOrGet (grid.rows.map Map.byPosition) position.row Map.empty, List.getMap grid.rows Map.byPosition position.row in
+  rewrite List.getOrGet (grid.rows.map List.toArray) position.row Array.empty, List.getMap grid.rows List.toArray position.row in
     match List.get grid.rows position.row with
       | None => rfl
-      | Some line => rewrite Map.getOrByPosition line position.column fallback in List.getOrGet line position.column fallback
+      | Some line => List.getOrGet line position.column fallback
 
 --| `isRectangle` is `Rectangle`.
 theorem isRectangleIff (grid: Grid a): grid.isRectangle = True ↔ grid.Rectangle := {

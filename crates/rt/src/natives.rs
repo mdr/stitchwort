@@ -715,3 +715,234 @@ impl Representation {
             || self.float_natives.contains_key(&id)
     }
 }
+
+/// An `Array` operation with a native implementation, where an array is one
+/// buffer of values (`Value::Array`; docs/proposals/arrays.md §4.2). Like the
+/// other natives these are trusted, and each computes what the definition it
+/// replaces computes on the array's list: out of range, `get` is `None`,
+/// `getOr` the fallback, and `set` leaves the array as it was. `FromList`
+/// and `ToList` are the record's constructor and its `toList` field.
+///
+/// `Set`, `Push` and `Pop` take the array they change by value
+/// ([`ArrayNative::consumes`]): when that was its last reference they change
+/// the buffer in place, and otherwise copy it first, which the copy counter
+/// counts (`crate::prims::array_copies`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ArrayNative {
+    FromList,
+    ToList,
+    Size,
+    Get,
+    GetOr,
+    GetLt,
+    Set,
+    Push,
+    Pop,
+    Replicate,
+}
+
+impl ArrayNative {
+    pub const ALL: [ArrayNative; 10] = [
+        ArrayNative::FromList,
+        ArrayNative::ToList,
+        ArrayNative::Size,
+        ArrayNative::Get,
+        ArrayNative::GetOr,
+        ArrayNative::GetLt,
+        ArrayNative::Set,
+        ArrayNative::Push,
+        ArrayNative::Pop,
+        ArrayNative::Replicate,
+    ];
+
+    /// How many runtime arguments it takes (`getLt`'s proof is erased).
+    pub fn arity(self) -> u32 {
+        match self {
+            ArrayNative::FromList | ArrayNative::ToList | ArrayNative::Size | ArrayNative::Pop => 1,
+            ArrayNative::Get | ArrayNative::GetLt | ArrayNative::Push | ArrayNative::Replicate => 2,
+            ArrayNative::GetOr | ArrayNative::Set => 3,
+        }
+    }
+
+    /// Whether it takes its first argument, the array, by value: the
+    /// operations that change it.
+    pub fn consumes(self) -> bool {
+        matches!(
+            self,
+            ArrayNative::Set | ArrayNative::Push | ArrayNative::Pop
+        )
+    }
+}
+
+/// Each array native with a definition, the definition it replaces, and that
+/// definition's content hash, as for [`TEXT_NATIVES`]. Unlike the text
+/// natives they bind all or nothing ([`ArrayBinding::refusal`]): a lost
+/// array native would turn an O(1) operation into an O(n) one through the
+/// list, which is a hang rather than a slowdown (SW-1582).
+const ARRAY_NATIVES: &[(Builtin, ArrayNative, &str)] = &[
+    (
+        Builtin::ArraySize,
+        ArrayNative::Size,
+        "3c39c99c9c13625e7958636ac8f2846c7d3602b3dbd12e6e8e5d7e52e103fb94",
+    ),
+    (
+        Builtin::ArrayGet,
+        ArrayNative::Get,
+        "6b41677bb704884e48b9153595a88244908327ac613cf35208a76e34763fa144",
+    ),
+    (
+        Builtin::ArrayGetOr,
+        ArrayNative::GetOr,
+        "a1655db7071885d0fb8053272beab0809f178440ee96eff1c45e81611a39e630",
+    ),
+    (
+        Builtin::ArrayGetLt,
+        ArrayNative::GetLt,
+        "16baf6632826c3d51720f53d5349dd76d5f8edde040fd9829c8c9913e3742b3a",
+    ),
+    (
+        Builtin::ArraySet,
+        ArrayNative::Set,
+        "e3dc7603de1f7138400aa975330e9199a9ad73bd4c89499e5006d9b4b3ad821f",
+    ),
+    (
+        Builtin::ArrayPush,
+        ArrayNative::Push,
+        "349967d17cfeca33d41dcafa57656c7721c395193224de9b71c5df74ac3455de",
+    ),
+    (
+        Builtin::ArrayPop,
+        ArrayNative::Pop,
+        "f276faee627c6281c0a8eb3075a2cab912fb6a6f830da35f828a2d1c2bfbf74d",
+    ),
+    (
+        Builtin::ArrayReplicate,
+        ArrayNative::Replicate,
+        "0be1b473fe95e3410fe7cb0cdf238c8e79f12107cb42d968ba308fde2c7163f5",
+    ),
+];
+
+/// The content hash of the library's `Array` (std/Array/Array.sw), which the
+/// buffer representation was written for: a record of one field, a `List`.
+/// It and every entry of [`ARRAY_NATIVES`] apply together or not at all.
+pub const ARRAY_DATA_HASH: &str =
+    "d17cac33bd251d71f7d539b50a71d9b4577439afca590cb92b487577f91908c9";
+
+/// Whether the buffer representation applies to the library's `Array`, and
+/// to which of its definitions the natives apply.
+pub struct ArrayBinding {
+    /// The library's `Array`, if its file is loaded.
+    pub data: Option<DataId>,
+    /// Its content hash, in hex.
+    pub hash: Option<String>,
+    /// Whether it's the data type the representation was written for.
+    pub bound: bool,
+    pub natives: Vec<NativeBinding<ArrayNative>>,
+}
+
+impl ArrayBinding {
+    /// The representation and natives, if the file is loaded and every one
+    /// of them is bound.
+    pub fn applies(&self) -> Option<(DataId, HashMap<DefId, ArrayNative>)> {
+        let data = self.data?;
+        if self.refusal().is_some() {
+            return None;
+        }
+        let natives = self
+            .natives
+            .iter()
+            .filter_map(|b| Some((b.id?, b.native)))
+            .collect();
+        Some((data, natives))
+    }
+
+    /// Why a program that loads `Array` can't run, if it can't: the data type
+    /// or one of the natives isn't the declaration it was written for. A
+    /// program that doesn't load the file is never refused.
+    pub fn refusal(&self) -> Option<String> {
+        self.data?;
+        let mut stale: Vec<String> = Vec::new();
+        if !self.bound {
+            stale.push(format!(
+                "`Array` ({})",
+                self.hash.as_deref().unwrap_or("none")
+            ));
+        }
+        for b in &self.natives {
+            if !b.bound {
+                stale.push(format!(
+                    "`{}` ({})",
+                    b.name,
+                    b.hash.as_deref().unwrap_or("missing")
+                ));
+            }
+        }
+        (!stale.is_empty()).then(|| {
+            format!(
+                "the library's arrays aren't the declarations the runtime's array natives were \
+                 written for: {}; check each native against the changed definition, then update \
+                 its hash in crates/rt/src/natives.rs",
+                stale.join(", ")
+            )
+        })
+    }
+}
+
+/// Matches the buffer representation with the library's `Array`, and each
+/// array native with the definition it replaces, by content hash.
+pub fn bind_array(g: &Ev) -> Result<ArrayBinding, ResourceError> {
+    let _op = g
+        .machine
+        .budget
+        .operation(Limits::stack_only(Limits::default().stack));
+    let data = g.env.registry().loaded_data(Builtin::Array);
+    let hash = match data {
+        Some(d) => data_hash(g, d)?.map(|h| h.hex()),
+        None => None,
+    };
+    Ok(ArrayBinding {
+        data,
+        bound: hash.as_deref() == Some(ARRAY_DATA_HASH),
+        hash,
+        natives: bind_natives(g, ARRAY_NATIVES)?,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn binding(data: bool, bound: bool, native_bound: bool) -> ArrayBinding {
+        ArrayBinding {
+            data: data.then_some(DataId(0)),
+            hash: Some("cafe".into()),
+            bound,
+            natives: vec![NativeBinding {
+                name: "Array.set",
+                native: ArrayNative::Set,
+                id: Some(DefId(0)),
+                hash: Some("beef".into()),
+                bound: native_bound,
+            }],
+        }
+    }
+
+    /// All or nothing: one stale native refuses the program, naming it, and
+    /// nothing applies; a program that doesn't load `Array` is never refused.
+    #[test]
+    fn arrays_bind_all_or_nothing() {
+        let stale = binding(true, true, false);
+        let why = stale.refusal().expect("refused");
+        assert!(why.contains("`Array.set` (beef)"), "{why}");
+        assert!(stale.applies().is_none());
+        assert!(
+            binding(true, false, true)
+                .refusal()
+                .expect("refused")
+                .contains("`Array` (cafe)")
+        );
+        assert!(binding(false, false, false).refusal().is_none());
+        let (_, natives) = binding(true, true, true).applies().expect("applies");
+        assert_eq!(natives.get(&DefId(0)), Some(&ArrayNative::Set));
+    }
+}
