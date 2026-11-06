@@ -51,7 +51,7 @@ fn main() {
         root.join("Cargo.toml").display()
     );
     let lock = std::fs::read(&lock).ok();
-    let crates = fingerprint::source_crates(&root, "crates/driver");
+    let crates = fingerprint::check_crates(&root);
     let mut sources = Vec::new();
     for dir in &crates {
         // The files hashed, one by one: a directory is scanned whole, and

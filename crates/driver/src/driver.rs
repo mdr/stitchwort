@@ -247,13 +247,14 @@ pub fn test_std_cache_dir(stack: usize) -> std::path::PathBuf {
 /// the cache, holding the build's fingerprint, tells later processes (and
 /// the holder's own next sessions) that the cache is full, so replays don't
 /// queue for the lock.
-struct TestCacheTurn {
+#[doc(hidden)]
+pub struct TestCacheTurn {
     file: Option<std::fs::File>,
     marker: std::path::PathBuf,
 }
 
 impl TestCacheTurn {
-    fn take(cache_dir: &std::path::Path) -> Self {
+    pub fn take(cache_dir: &std::path::Path) -> Self {
         let marker = cache_dir.with_extension("done");
         let none = |marker| TestCacheTurn { file: None, marker };
         let full = |marker: &std::path::Path| {
@@ -290,8 +291,14 @@ impl TestCacheTurn {
         }
     }
 
+    /// Whether this process is the one to fill the cache (the others waited
+    /// for it, or found it full).
+    pub fn is_filling(&self) -> bool {
+        self.file.is_some()
+    }
+
     /// The library loaded through the cache: it is full.
-    fn finish(&self) {
+    pub fn finish(&self) {
         if self.file.is_some() {
             let _ = std::fs::write(&self.marker, FINGERPRINT);
         }
