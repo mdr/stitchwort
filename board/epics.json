@@ -252,14 +252,11 @@
         "Goal printing: captured variables, arm names, %match names (SW-1000)",
         "Type mismatches show the first difference (SW-1236)",
         "Rewrite messages: E-REWRITE-NOTHING and E-REWRITE-MOTIVE notes (SW-1451, SW-1572)",
-        "Warnings when a match refines nothing (SW-1485, SW-1575)"
+        "Warnings when a match refines nothing (SW-1485, SW-1575)",
+        "W-MATCH-DECISION-IF, and W-MATCH-NOT-FOUND for unnamed failing matches (SW-1719, SW-1721)"
       ],
-      "now": [
-        "Decision-match warning and the not-found warning for unnamed matches (SW-1719, SW-1721)"
-      ],
+      "now": [],
       "next": [
-        "A warning when a match on a decision misses an if that tests it (SW-1719)",
-        "The not-found warning for unnamed matches (SW-1721)",
         "Missing-case follow-ups: number, Char, Int and Fin misses (SW-1034)",
         "Message batches: rewrite finds nothing, off-by-one parser lemma, a parameter hiding a function (SW-1511, SW-1522, SW-1498)",
         "Print list spreads as written (SW-1469); stop a match used only for its equation getting W-MATCH-NOT-FOUND (SW-1614)"

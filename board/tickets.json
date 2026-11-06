@@ -13310,14 +13310,14 @@
     {
       "id": 1719,
       "title": "[Sonnet] W-MATCH-DECISION-IF: warn when a match on a decision computing to Bool.decTrue b finds nothing but b is an if's condition (named or unnamed matches); docs/syntax.md, the guide and the proving guide teach matching on the condition (D2525)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1719",
       "labels": [
         "diagnostics"
       ],
       "epic": "diagnostics",
-      "body": "D2525 (Matt, 6 Nov 2026): yes, option (a) of docs/proposals/decision-match-refines-bool-if.md (SW-1694). Expected: 2 h on Sonnet.\n\nStarted on Sonnet with SW-1721 folded in, expected: 2 h.",
+      "body": "D2525 (Matt, 6 Nov 2026): yes, option (a) of docs/proposals/decision-match-refines-bool-if.md (SW-1694). Expected: 2 h on Sonnet.\n\nStarted on Sonnet with SW-1721 folded in, expected: 2 h.\n\nDone, merged (0885437bf): W-MATCH-DECISION-IF (named and unnamed; replaces W-MATCH-NOT-FOUND for the same scrutinee); docs in syntax.md, proving guide, guide 10-proofs; examples accept/reject match-decision-if, reject/match-not-found-unnamed. On main: every accepted and rejected example passes (88 s), match hash snapshots and elab matching tests 10/10. Model result: Sonnet, worked, 45 min (est. 120).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -13340,14 +13340,14 @@
     {
       "id": 1721,
       "title": "W-MATCH-NOT-FOUND never fires for unnamed matches (matching.rs:1509), so other silent misses go unreported (SW-1694)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "diagnostics"
       ],
       "epic": "diagnostics",
-      "body": "From SW-1694, 6 Nov 2026.",
+      "body": "From SW-1694, 6 Nov 2026.\n\nDone in SW-1719: unnamed matches get W-MATCH-NOT-FOUND only when their arms fail (a passing unnamed match is a case split; no new warnings on passing proofs). One snapshot moved, accurately (match-refl-false-premise).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
