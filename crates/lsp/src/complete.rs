@@ -215,6 +215,42 @@ pub fn name_item(n: &ScopeName, rank: char) -> CompletionItem {
     }
 }
 
+/// The items after a dot, in the order an editor should list them (it
+/// shows a limited number, then filters by what is typed): fields; then
+/// sub-namespaces, types, constructors, the other declarations and last
+/// the theorems, each kind together; within a kind, the declarations of the first namespace
+/// reached (the receiver's type's own) before the others (the extensions
+/// and the types it unfolds to); within those, shorter names before
+/// longer, then alphabetical. `found` comes in that namespace order.
+pub fn member_items(found: &[ScopeName]) -> Vec<CompletionItem> {
+    let mut namespaces: Vec<&str> = Vec::new();
+    found
+        .iter()
+        .map(|n| {
+            let home = n.key.strip_suffix(n.name.as_str()).unwrap_or_default();
+            let group = match namespaces.iter().position(|h| *h == home) {
+                Some(i) => i,
+                None => {
+                    namespaces.push(home);
+                    namespaces.len() - 1
+                }
+            };
+            let class = match n.kind {
+                "field" => 0,
+                "namespace" => 1,
+                "data" | "record" | "interface" | "ability" => 2,
+                "ctor" => 3,
+                "theorem" => 5,
+                _ => 4,
+            };
+            let mut item = name_item(n, '1');
+            let length = n.name.chars().count();
+            item.sort_text = Some(format!("{class}{:02}{length:03}{}", group.min(99), n.name));
+            item
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

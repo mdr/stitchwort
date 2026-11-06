@@ -2848,7 +2848,6 @@ impl Elaborator {
                 .map(|q| format!("{q}{rest}.")),
         );
         let mut out: Vec<(String, String, Option<Global>)> = Vec::new();
-        let mut reached: BTreeSet<&str> = BTreeSet::new();
         for key in self.scope.entries.keys() {
             for prefix in &prefixes {
                 let Some(member) = key.strip_prefix(prefix.as_str()) else {
@@ -2867,14 +2866,13 @@ impl Elaborator {
                     && rest.is_empty()
                     && !out.iter().any(|(m, ..)| m == member)
                 {
-                    reached.insert(prefix);
                     out.push((member.to_string(), key.clone(), Some(global)));
                 }
             }
         }
         for ns in self.scope.namespaces.keys() {
-            for prefix in &reached {
-                if let Some(member) = ns.strip_prefix(prefix)
+            for prefix in &prefixes {
+                if let Some(member) = ns.strip_prefix(prefix.as_str())
                     && !member.contains('.')
                     && !out.iter().any(|(m, ..)| m == member)
                 {
