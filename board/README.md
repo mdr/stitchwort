@@ -17,17 +17,20 @@ Only Node's standard library is used; there is nothing to install.
 ## Command line
 
 ```
-board list [--archived] [--status S] [--agent A] [--label L] [--json]
+board list [--archived] [--status S] [--agent A] [--label L] [--epic ID] [--json]
 board show N [--json]               # also finds archived tickets (read-only)
-board add "title" [--status S] [--agent A] [--where W] [--label L]... [--body TEXT | --body-file F]
+board add "title" [--status S] [--agent A] [--where W] [--epic ID] [--label L]... [--body TEXT | --body-file F]
 board move N STATUS
 board assign N AGENT [--where W]     # a backlog/next ticket also moves to doing
 board unassign N                     # clears agent and where
-board edit N [--title T] [--status S] [--agent A] [--where W] [--body TEXT | --body-file F]
+board edit N [--title T] [--status S] [--agent A] [--where W] [--epic ID|''] [--body TEXT | --body-file F]
              [--label L]...          # replace the labels
              [--add-label L]... [--rm-label L]...
 board commit N HASH...               # record commits on the ticket
 board rm N
+board epics [--json]                # each epic: status, now, next, open/done counts
+board epic ID [--json]              # one epic in full, with its open tickets
+board apply-epics FILE [--force]    # set tickets' epics from a { "12": "epic-id" } file
 board archive --before DATE         # move old done tickets to board/archive/
 ```
 
@@ -35,7 +38,7 @@ board archive --before DATE         # move old done tickets to board/archive/
 - `add` prints the new id (`SW-12`), so scripts can capture it:
   `id=$(board/board add "Fix the thing" --label bug)`.
 - `--body-file -` reads the body from standard input.
-- `archive` is described under "Archive" below.
+- `archive` is described under "Archive" below; epics under "Epics".
 - Statuses: `backlog`, `next`, `doing`, `review`, `done`.
 - Agents: `Opus`, `Sonnet`, `DeepSeek`, `GLM`, `Matt`, `Claude`, or empty.
 - Errors go to standard error with a message and exit status 1 (2 for no command).
@@ -58,6 +61,7 @@ number, so diffs are readable.
       "agent": "",
       "where": "worktree, branch or clone path, or empty",
       "labels": ["elab", "bug"],
+      "epic": "goal-as-written",
       "body": "markdown, as long as it needs to be",
       "created": "2026-10-19",
       "updated": "2026-10-19",
@@ -67,6 +71,7 @@ number, so diffs are readable.
 }
 ```
 
+- `epic` is optional (one-off tickets have none) and is left out of the file when empty. Its value is an epic id from [`epics.json`](epics.json); the CLI and the server refuse ids not in that file. `--epic ''` clears it.
 - Tickets display as `SW-12`. Numbers are unique and never reused: `next` is the
   number the next ticket gets, it only increases, and `rm` does not give a
   number back. (If the file is edited by hand so `next` is too low, loading
@@ -83,6 +88,40 @@ number, so diffs are readable.
 - Labels are free text. The ones in use: `kernel`, `elab`, `syntax`, `js`,
   `web`, `playground`, `aoc`, `docs`, `design`, `multi-file`, `tooling`,
   `stdlib`, `proof`, `bug`.
+
+## Epics
+
+An epic is a big track of work: where it has got to, what is running, what comes
+next. [`epics.json`](epics.json) holds them (committed, edited by hand by the
+orchestrator); tickets point at one with their `epic` field. The board page opens
+on the Epics view.
+
+```json
+{ "epics": [ {
+    "id": "goal-as-written",           // short slug, lower case, digits and hyphens
+    "title": "Goals as written",
+    "goal": "One plain sentence: the end state.",
+    "status": "active | paused | waiting-on-matt | done",
+    "done": ["milestones in plain words, newest last (SW-1627)"],
+    "now": ["what is running"],
+    "next": ["the next one to three steps, in order"],
+    "links": ["docs/proposals/goal-as-written.md", "D2475"]
+} ] }
+```
+
+- `board epics` prints each epic's title, status, now, next and its open and done
+  ticket counts; `board epic ID` prints one epic in full with its open tickets;
+  `board list --epic ID` lists its tickets of every status.
+- The counts cover live tickets only: done tickets that have been archived stop
+  counting, so an epic's `done` milestones (not its count) are the record.
+- Keep `done`/`now`/`next` current when lanes merge; that is the point of the page.
+  A ticket with no sensible epic stays untagged; new findings get an epic when
+  they are filed (`board add ... --epic ID`) or at triage.
+- `board apply-epics FILE` sets epics in bulk from a JSON object of ticket number
+  to epic id (`epic-tags.json` is the first tagging). It validates every id first,
+  does not change `updated` (so Done keeps its order), skips tickets that already
+  have a different epic unless `--force`, and reports how many it set, kept and
+  could not find.
 
 ## Archive
 
@@ -114,7 +153,14 @@ moved 297 tickets.
 
 ## Web page
 
-Columns Backlog, Next, In progress, Review, Done (Done shows the most recent
+The page opens on the Epics view: one card per epic with its status, goal, the
+latest three done milestones (older ones fold away), now, next, links and the
+open and done ticket counts. Click a card to see that epic's tickets in the
+columns below; "All epics" returns, and the Epics and Board buttons switch views
+(`#epics`, `#board` and `#epic/ID` in the address select them). The Epic filter
+in the header does the same, and "(no epic)" shows the untagged tickets.
+
+Board view: columns Backlog, Next, In progress, Review, Done (Done shows the most recent
 twelve; "Show all" expands it). Cards show the id, title, agent (coloured chip),
 labels and `where`. Drag a card to another column to move it, click it to edit
 every field (the body is plain text with a simple markdown preview), use
@@ -122,7 +168,7 @@ every field (the body is plain text with a simple markdown preview), use
 the page. Filter by agent, label or text; the bar under the header shows who has
 what in progress or review.
 
-The JSON API used by the page: `GET /api/board`, `POST /api/tickets`,
+The JSON API used by the page: `GET /api/board` (tickets, plus `epics` with counts), `POST /api/tickets`,
 `PATCH /api/tickets/N`, `DELETE /api/tickets/N`, and `GET /api/events`
 (Server-Sent Events, one `changed` event per file change).
 

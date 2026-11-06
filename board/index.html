@@ -21,6 +21,7 @@
   }
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
 header { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--border); }
 h1 { font-size: 16px; margin: 0; }
@@ -73,13 +74,34 @@ form.editor textarea { min-height: 220px; font-family: ui-monospace, Menlo, mono
 .tabs button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
 #toast { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); background: var(--danger); color: #fff; padding: 8px 14px; border-radius: 6px; display: none; }
 #conn { font-size: 12px; color: var(--muted); }
+#epics { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; padding: 12px 16px; align-items: start; }
+.epic { background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--a-none); border-radius: 8px; padding: 10px 12px; cursor: pointer; box-shadow: var(--shadow); }
+.epic:hover, .epic:focus { border-color: var(--accent); outline: none; }
+.epic[data-status="active"] { --a-none: var(--a-Matt); }
+.epic[data-status="paused"] { --a-none: var(--a-Sonnet); }
+.epic[data-status="waiting-on-matt"] { --a-none: var(--a-Claude); }
+.epic[data-status="done"] { --a-none: var(--a-none-grey, #7a8497); opacity: .8; }
+.epic h3 { margin: 0 0 4px; font-size: 15px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.epic .goal { margin: 0 0 8px; color: var(--muted); }
+.epic .counts { margin-left: auto; font-size: 12px; font-weight: normal; color: var(--muted); }
+.epic h4 { margin: 8px 0 2px; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.epic ul, .epic ol { margin: 0; padding-left: 1.3em; }
+.epic li { margin: 1px 0; }
+.epic .none { color: var(--muted); }
+.epic .links { margin-top: 8px; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.epic details summary { cursor: pointer; color: var(--muted); font-size: 12px; }
+#epicNote { padding: 8px 16px; color: var(--muted); }
+#banner { display: none; padding: 8px 16px; border-bottom: 1px solid var(--border); gap: 10px; align-items: center; }
+#banner.show { display: flex; }
 @media (max-width: 760px) { #board { grid-template-columns: repeat(5, 260px); } .row2 { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
 <header>
   <h1>Stitchwort board</h1>
+  <span class="tabs"><button type="button" id="vEpics" aria-pressed="true">Epics</button><button type="button" id="vBoard" aria-pressed="false">Board</button></span>
   <button class="primary" id="add">+ Add ticket</button>
+  <label>Epic <select id="fEpic"></select></label>
   <label>Agent <select id="fAgent"></select></label>
   <label>Label <select id="fLabel"></select></label>
   <input id="fText" type="search" placeholder="Search title and text" size="22">
@@ -87,7 +109,9 @@ form.editor textarea { min-height: 220px; font-family: ui-monospace, Menlo, mono
   <span id="conn">connecting...</span>
 </header>
 <div id="summary"></div>
-<main id="board"></main>
+<div id="banner"><button type="button" id="back">All epics</button><strong id="bannerTitle"></strong><span id="bannerGoal" style="color:var(--muted)"></span></div>
+<main id="epics"></main>
+<main id="board" hidden></main>
 
 <dialog id="dlg">
   <form class="editor" id="form" method="dialog">
@@ -97,7 +121,10 @@ form.editor textarea { min-height: 220px; font-family: ui-monospace, Menlo, mono
       <label>Status <select id="eStatus"></select></label>
       <label>Agent <select id="eAgent"></select></label>
     </div>
-    <label>Where (worktree, branch or clone) <input id="eWhere"></label>
+    <div class="row2">
+      <label>Where (worktree, branch or clone) <input id="eWhere"></label>
+      <label>Epic <select id="eEpic"></select></label>
+    </div>
     <div class="row2">
       <label>Labels (comma separated) <input id="eLabels"></label>
       <label>Commits (comma separated) <input id="eCommits"></label>
@@ -121,7 +148,8 @@ form.editor textarea { min-height: 220px; font-family: ui-monospace, Menlo, mono
 const $ = (id) => document.getElementById(id);
 const COLS = [['backlog', 'Backlog'], ['next', 'Next'], ['doing', 'In progress'], ['review', 'Review'], ['done', 'Done']];
 const DONE_LIMIT = 12;
-let state = { tickets: [], agents: [], statuses: [] };
+let state = { tickets: [], agents: [], statuses: [], epics: [] };
+let view = 'epics'; // 'epics' (the landing view) or 'board'
 let showAllDone = false;
 let editing = null; // ticket id, or 'new'
 const store = {
@@ -160,14 +188,18 @@ async function refresh() {
 }
 
 function filtered() {
-  const a = $('fAgent').value, l = $('fLabel').value, q = $('fText').value.trim().toLowerCase();
+  const a = $('fAgent').value, l = $('fLabel').value, q = $('fText').value.trim().toLowerCase(), ep = $('fEpic').value;
   return state.tickets.filter((t) =>
+    (!ep || (ep === '(none)' ? !t.epic : t.epic === ep)) &&
     (!a || (a === '(none)' ? !t.agent : t.agent === a)) && (!l || t.labels.includes(l)) &&
     (!q || (t.title + ' ' + t.body + ' SW-' + t.id).toLowerCase().includes(q)));
 }
 
 function fillFilters() {
-  const keepA = $('fAgent').value, keepL = $('fLabel').value;
+  const keepA = $('fAgent').value, keepL = $('fLabel').value, keepE = $('fEpic').value;
+  $('fEpic').replaceChildren(el('option', { value: '', text: 'all' }), el('option', { value: '(none)', text: '(no epic)' }),
+    ...state.epics.map((e) => el('option', { value: e.id, text: e.title })));
+  $('fEpic').value = keepE;
   const labels = [...new Set(state.tickets.flatMap((t) => t.labels))].sort();
   $('fAgent').replaceChildren(el('option', { value: '', text: 'all' }), el('option', { value: '(none)', text: '(unassigned)' }),
     ...state.agents.map((a) => el('option', { value: a, text: a })));
@@ -189,9 +221,59 @@ function card(t) {
   return c;
 }
 
+function epicCard(e) {
+  const list = (tag, xs) => xs.length ? el(tag, {}, ...xs.map((x) => el('li', { text: x }))) : el('div', { class: 'none', text: 'nothing' });
+  const c = el('article', { class: 'epic', 'data-status': e.status, tabindex: '0', 'data-epic': e.id },
+    el('h3', {}, e.title, el('span', { class: 'chip', text: e.status }),
+      el('span', { class: 'counts', text: `${e.open} open, ${e.doneCount} done` })),
+    el('p', { class: 'goal', text: e.goal }),
+    el('h4', { text: 'Done' }),
+    e.done.length > 3 ? el('details', {}, el('summary', { text: `${e.done.length - 3} earlier` }), list('ul', e.done.slice(0, -3))) : null,
+    list('ul', e.done.slice(-3)),
+    el('h4', { text: 'Now' }), list('ul', e.now),
+    el('h4', { text: 'Next' }), list('ol', e.next),
+    e.links.length ? el('div', { class: 'links', text: e.links.join(' / ') }) : null);
+  const open = () => showEpic(e.id);
+  c.addEventListener('click', (ev) => { if (!ev.target.closest('summary')) open(); });
+  c.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') open(); });
+  return c;
+}
+
+function renderEpics() {
+  const noEpic = state.tickets.filter((t) => !t.epic && t.status !== 'done').length;
+  $('epics').replaceChildren(
+    ...state.epics.map(epicCard),
+    state.epics.length ? null : el('p', { class: 'none', text: 'No epics defined (board/epics.json).' }));
+  $('epics').append(el('p', { id: 'epicNote' }, `${noEpic} open tickets have no epic. `,
+    el('a', { href: '#', text: 'Show them', onclick: (ev) => { ev.preventDefault(); showEpic('(none)'); } })));
+}
+
+function showEpic(id) {
+  $('fEpic').value = id; store.set('fEpic', id);
+  setView('board');
+}
+
+function setView(v) {
+  view = v;
+  const board = v === 'board';
+  $('epics').hidden = board; $('board').hidden = !board;
+  $('vEpics').setAttribute('aria-pressed', String(!board)); $('vBoard').setAttribute('aria-pressed', String(board));
+  history.replaceState(null, '', board ? (($('fEpic').value && $('fEpic').value !== '(none)') ? '#epic/' + $('fEpic').value : '#board') : '#epics');
+  render();
+}
+
 function render() {
   fillFilters();
-  const ts = filtered();
+  const ep = state.epics.find((e) => e.id === $('fEpic').value);
+  $('banner').classList.toggle('show', view === 'board' && !!$('fEpic').value);
+  $('bannerTitle').textContent = ep ? ep.title : '(tickets with no epic)';
+  $('bannerGoal').textContent = ep ? ep.goal : '';
+  if (view === 'epics') { renderEpics(); }
+  renderSummary();
+  if (view === 'board') renderBoard();
+}
+
+function renderSummary() {
   // Summary of work in progress, by agent (unfiltered).
   const doing = state.tickets.filter((t) => t.status === 'doing' || t.status === 'review');
   const by = new Map();
@@ -200,6 +282,10 @@ function render() {
     ...(by.size ? [...by].map(([k, v]) => el('span', { class: 'item' },
       el('span', { class: 'chip agent', 'data-agent': k, text: k }),
       v.map((t) => el('span', { text: 'SW-' + t.id + (t.status === 'review' ? ' (review)' : '') })))) : [el('span', { text: 'nothing in progress or review' })]));
+}
+
+function renderBoard() {
+  const ts = filtered();
   const board = $('board');
   board.replaceChildren(...COLS.map(([status, label]) => {
     let list = ts.filter((t) => t.status === status);
@@ -279,12 +365,13 @@ function showTab(view) {
 }
 function openEditor(id, status) {
   editing = id;
-  const t = id === 'new' ? { title: '', status: status || 'backlog', agent: '', where: '', labels: [], commits: [], body: '', created: '', updated: '' } : state.tickets.find((x) => x.id === id);
+  const t = id === 'new' ? { title: '', status: status || 'backlog', agent: '', where: '', epic: view === 'board' ? ($('fEpic').value === '(none)' ? '' : $('fEpic').value) : '', labels: [], commits: [], body: '', created: '', updated: '' } : state.tickets.find((x) => x.id === id);
   if (!t) return;
   $('dlgTitle').textContent = id === 'new' ? 'New ticket' : 'SW-' + t.id;
   $('eStatus').replaceChildren(...COLS.map(([s, l]) => el('option', { value: s, text: l })));
+  $('eEpic').replaceChildren(el('option', { value: '', text: '(no epic)' }), ...state.epics.map((e) => el('option', { value: e.id, text: e.title })));
   $('eAgent').replaceChildren(el('option', { value: '', text: '(unassigned)' }), ...state.agents.map((a) => el('option', { value: a, text: a })));
-  $('eTitle').value = t.title; $('eStatus').value = t.status; $('eAgent').value = t.agent; $('eWhere').value = t.where;
+  $('eTitle').value = t.title; $('eStatus').value = t.status; $('eAgent').value = t.agent; $('eWhere').value = t.where; $('eEpic').value = t.epic || '';
   $('eLabels').value = t.labels.join(', '); $('eCommits').value = t.commits.join(', '); $('eBody').value = t.body;
   $('eInfo').textContent = t.created ? `created ${t.created}, updated ${t.updated}` : '';
   $('del').style.display = id === 'new' ? 'none' : ''; $('confirm').classList.remove('show');
@@ -303,20 +390,24 @@ $('delYes').addEventListener('click', async () => {
 });
 $('form').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const fields = { title: $('eTitle').value, status: $('eStatus').value, agent: $('eAgent').value, where: $('eWhere').value,
+  const fields = { title: $('eTitle').value, status: $('eStatus').value, agent: $('eAgent').value, where: $('eWhere').value, epic: $('eEpic').value,
     labels: splitList($('eLabels').value), commits: splitList($('eCommits').value), body: $('eBody').value };
   try {
     if (editing === 'new') await api('POST', '/api/tickets', fields);
     else {
       // Send only what changed, so edits made elsewhere to other fields survive.
       const old = state.tickets.find((x) => x.id === editing) || {};
-      const diff = Object.fromEntries(Object.entries(fields).filter(([k, v]) => JSON.stringify(v) !== JSON.stringify(old[k])));
+      const diff = Object.fromEntries(Object.entries(fields).filter(([k, v]) => JSON.stringify(v) !== JSON.stringify(k === 'epic' ? (old.epic || '') : old[k])));
       if (Object.keys(diff).length) await api('PATCH', '/api/tickets/' + editing, diff);
     }
     $('dlg').close(); refresh();
   } catch (err) { toast(err.message); }
 });
 for (const id of ['fAgent', 'fLabel']) $(id).addEventListener('change', () => { store.set(id, $(id).value); render(); });
+$('fEpic').addEventListener('change', () => { store.set('fEpic', $('fEpic').value); setView('board'); });
+$('vEpics').addEventListener('click', () => setView('epics'));
+$('vBoard').addEventListener('click', () => setView('board'));
+$('back').addEventListener('click', () => { $('fEpic').value = ''; store.set('fEpic', ''); setView('epics'); });
 $('fText').addEventListener('input', render);
 
 // ---- live updates: Server-Sent Events, with polling as a fallback ----
@@ -329,7 +420,12 @@ function connect() {
 setInterval(() => { if (document.visibilityState === 'visible' && !$('dlg').open) refresh(); }, 5000);
 refresh().then(() => {
   for (const id of ['fAgent', 'fLabel']) { const v = store.get(id); if ([...$(id).options].some((o) => o.value === v)) $(id).value = v; }
-  render(); connect();
+  // The landing view is the epics; a #board or #epic/ID link opens the board.
+  const m = /^#epic\/(.+)$/.exec(location.hash);
+  if (m && state.epics.some((e) => e.id === m[1])) { $('fEpic').value = m[1]; setView('board'); }
+  else if (location.hash === '#board') { $('fEpic').value = ''; setView('board'); }
+  else { $('fEpic').value = ''; setView('epics'); }
+  connect();
 });
 </script>
 </body>

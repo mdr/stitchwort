@@ -5,23 +5,26 @@ const fs = require('fs');
 const lib = require('./lib');
 
 const USAGE = `usage: board <command> [args]
-  list [--archived] [--status S] [--agent A] [--label L] [--json]
+  list [--archived] [--status S] [--agent A] [--label L] [--epic ID] [--json]
   show N [--json]                   (also finds archived tickets, read-only)
-  add "title" [--status S] [--agent A] [--where W] [--label L]... [--body TEXT | --body-file F]
+  add "title" [--status S] [--agent A] [--where W] [--epic ID] [--label L]... [--body TEXT | --body-file F]
   move N STATUS
   assign N AGENT [--where W]        (also moves a backlog/next ticket to doing)
   unassign N
-  edit N [--title T] [--status S] [--agent A] [--where W] [--body TEXT | --body-file F]
+  edit N [--title T] [--status S] [--agent A] [--where W] [--epic ID|''] [--body TEXT | --body-file F]
          [--label L]... | [--add-label L]... [--rm-label L]...
   commit N HASH...
   rm N
+  epics [--json]                    (each epic: status, now, next, open/done counts)
+  epic ID [--json]                  (one epic in full, with its open tickets)
+  apply-epics FILE [--force]        (set tickets' epics from a { "SW number": "epic id" } file)
   archive --before DATE             (moves done tickets updated before DATE to archive/YYYY-MM.json)
 statuses: ${lib.STATUSES.join(', ')}
 agents:   ${lib.AGENTS.filter(Boolean).join(', ')}
 N is a ticket number, with or without the SW- prefix. BOARD_FILE overrides the data file.`;
 
 const REPEATABLE = new Set(['label', 'add-label', 'rm-label']);
-const WITH_VALUE = new Set(['before', 'status', 'agent', 'where', 'body', 'body-file', 'title', ...REPEATABLE]);
+const WITH_VALUE = new Set(['before', 'status', 'agent', 'where', 'epic', 'body', 'body-file', 'title', ...REPEATABLE]);
 
 function parseArgs(argv) {
   const pos = [];
@@ -31,7 +34,7 @@ function parseArgs(argv) {
     if (a === '--') { pos.push(...argv.slice(i + 1)); break; }
     if (!a.startsWith('--')) { pos.push(a); continue; }
     let [name, value] = a.slice(2).split(/=(.*)/s, 2);
-    if (name === 'json' || name === 'archived') { opt[name] = true; continue; }
+    if (name === 'json' || name === 'archived' || name === 'force') { opt[name] = true; continue; }
     if (!WITH_VALUE.has(name)) throw new lib.BoardError(`unknown option --${name}`);
     if (value === undefined) {
       if (i + 1 >= argv.length) throw new lib.BoardError(`--${name} needs a value`);
@@ -63,6 +66,17 @@ function row(t) {
   return `${sid(t).padEnd(7)} ${t.status.padEnd(7)}${who} ${t.title}${labels}`;
 }
 
+function epicBlock(e, ts) {
+  const lines = [`${e.id}  ${e.title}  [${e.status}]`, `goal: ${e.goal}`, `open: ${e.open}   done: ${e.doneCount}`];
+  const section = (name, xs) => { if (xs.length) lines.push('', `${name}:`, ...xs.map((x) => `  - ${x}`)); };
+  section('done', e.done);
+  section('now', e.now);
+  section('next', e.next);
+  section('links', e.links);
+  if (ts) lines.push('', 'open tickets:', ...(ts.length ? ts.map(row) : ['  (none)']));
+  return lines.join('\n');
+}
+
 function show(t) {
   const lines = [
     `${sid(t)}  ${t.title}`,
@@ -70,6 +84,7 @@ function show(t) {
     `agent:   ${t.agent || '-'}`,
     `where:   ${t.where || '-'}`,
     `labels:  ${t.labels.join(', ') || '-'}`,
+    `epic:    ${t.epic || '-'}`,
     `created: ${t.created}   updated: ${t.updated}`,
     `commits: ${t.commits.join(', ') || '-'}`,
     '',
@@ -102,6 +117,7 @@ function main(argv) {
       if (opt.status) ts = ts.filter((t) => t.status === opt.status);
       if (opt.agent) ts = ts.filter((t) => t.agent.toLowerCase() === opt.agent.toLowerCase());
       if (opt.label) ts = ts.filter((t) => t.labels.includes(opt.label[0]));
+      if (opt.epic) { lib.checkEpic(opt.epic); ts = ts.filter((t) => t.epic === opt.epic); }
       if (opt.json) console.log(JSON.stringify(ts, null, 2));
       else ts.forEach((t) => console.log(row(t)));
       return 0;
@@ -113,6 +129,40 @@ function main(argv) {
       const t = live || lib.findArchived(id);
       if (!t) throw new lib.BoardError(`no ticket SW-${id}`);
       console.log(opt.json ? JSON.stringify(t, null, 2) : show(t) + (live ? '' : '\n\n(archived, read-only)'));
+      return 0;
+    }
+    case 'epics': {
+      noExtra(pos, 0);
+      const es = lib.epicSummaries(lib.load());
+      if (opt.json) { console.log(JSON.stringify(es, null, 2)); return 0; }
+      for (const e of es) {
+        console.log(`${e.id}  ${e.title}  [${e.status}]  open ${e.open}, done ${e.doneCount}`);
+        console.log(`  now:  ${e.now.join('; ') || '-'}`);
+        console.log(`  next: ${e.next.map((x, i) => `${i + 1}. ${x}`).join('  ') || '-'}`);
+      }
+      return 0;
+    }
+    case 'epic': {
+      if (pos.length < 1) throw new lib.BoardError('missing epic id');
+      noExtra(pos, 1);
+      const d = lib.load();
+      const e = lib.epicSummaries(d).find((x) => x.id === pos[0]);
+      if (!e) throw new lib.BoardError(`unknown epic "${pos[0]}" (one of: ${lib.loadEpics().map((x) => x.id).join(', ') || 'none defined'})`);
+      const ts = d.tickets.filter((t) => t.epic === e.id && t.status !== 'done');
+      console.log(opt.json ? JSON.stringify({ ...e, tickets: ts }, null, 2) : epicBlock(e, ts));
+      return 0;
+    }
+    case 'apply-epics': {
+      if (pos.length < 1) throw new lib.BoardError('missing mapping file');
+      noExtra(pos, 1);
+      let mapping;
+      try {
+        mapping = JSON.parse(fs.readFileSync(pos[0], 'utf8'));
+      } catch (e) {
+        throw new lib.BoardError(`cannot read ${pos[0]}: ${e.message}`);
+      }
+      const r = lib.applyEpics(mapping, { force: !!opt.force });
+      console.log(`epics set on ${r.set.length} ticket${r.set.length === 1 ? '' : 's'}; ${r.kept.length} already had another epic (kept; --force overwrites); ${r.missing.length} not on the board`);
       return 0;
     }
     case 'archive': {
@@ -129,6 +179,7 @@ function main(argv) {
       if (opt.status) fields.status = opt.status;
       if (opt.agent !== undefined) fields.agent = opt.agent;
       if (opt.where !== undefined) fields.where = opt.where;
+      if (opt.epic !== undefined) fields.epic = opt.epic;
       if (opt.label) fields.labels = opt.label;
       const body = bodyOf(opt);
       if (body !== undefined) fields.body = body;
@@ -172,14 +223,14 @@ function main(argv) {
       const t = lib.update((d) => {
         const cur = lib.find(d, id);
         const f = {};
-        for (const k of ['title', 'status', 'agent', 'where']) if (opt[k] !== undefined) f[k] = opt[k];
+        for (const k of ['title', 'status', 'agent', 'where', 'epic']) if (opt[k] !== undefined) f[k] = opt[k];
         if (body !== undefined) f.body = body;
         if (opt.label) f.labels = opt.label;
         if (opt['add-label'] || opt['rm-label']) {
           const base = f.labels || cur.labels;
           f.labels = base.filter((l) => !(opt['rm-label'] || []).includes(l)).concat(opt['add-label'] || []);
         }
-        if (Object.keys(f).length === 0) throw new lib.BoardError('nothing to edit (give --title, --status, --agent, --where, --body, --label, ...)');
+        if (Object.keys(f).length === 0) throw new lib.BoardError('nothing to edit (give --title, --status, --agent, --where, --epic, --body, --label, ...)');
         return lib.editTicket(d, id, f);
       });
       console.log(`${sid(t)} updated`);
