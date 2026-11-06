@@ -3996,7 +3996,7 @@ impl Elaborator {
                 fields,
                 rest,
                 span,
-                record,
+                ..
             } => {
                 let (data, ctor) = self.ctor_named(&name.text, name.span)?;
                 // Declared with brackets, the braces are a record pattern for
@@ -4007,10 +4007,10 @@ impl Elaborator {
                         data,
                         ctor,
                         args: vec![match pattern {
-                            Cow::Borrowed(Pattern::CtorFields { record, .. }) => {
-                                Cow::Borrowed(&**record)
+                            Cow::Borrowed(p @ Pattern::CtorFields { .. }) => {
+                                Cow::Borrowed(p.as_record().expect("a CtorFields"))
                             }
-                            _ => Cow::Owned((**record).clone()),
+                            _ => Cow::Owned(pattern.as_record().expect("a CtorFields").clone()),
                         }],
                         span: *span,
                     }));

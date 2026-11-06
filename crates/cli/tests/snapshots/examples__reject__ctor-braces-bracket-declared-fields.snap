@@ -2,12 +2,12 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-CANNOT-INFER] Error: `Circle` is missing 1 argument(s)
-   ╭─[ reject/ctor-braces-bracket-declared-fields.sw:8:17 ]
+[E-NOT-A-RECORD] Error: braces after `Circle` are its first argument, a `Text`, not its fields
+   ╭─[ reject/ctor-braces-bracket-declared-fields.sw:8:24 ]
    │
  8 │ def c: Shape := Circle { id = "a", radius = 1 }
-   │                 ───────────────┬───────────────  
-   │                                ╰───────────────── add the missing arguments, or a type annotation
+   │                        ────────────┬───────────  
+   │                                    ╰───────────── this record is not a field's value
    │ 
    │ Note: `Circle` is declared with its fields in brackets, so braces after it are its first argument, not its fields; to give fields by name, write `Circle (id := …) (radius := …)`, or declare it `| Circle { … }`
 ───╯

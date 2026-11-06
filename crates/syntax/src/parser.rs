@@ -1858,7 +1858,17 @@ impl<'t> Parser<'t> {
                                 .into());
                             }
                             braced = true;
-                            for (binder, default) in self.braced_fields()? {
+                            let open = self.here();
+                            let written = self.braced_fields()?;
+                            if written.is_empty() {
+                                return Err(error(
+                                    open,
+                                    format!("`{}` declares no fields in its braces", name.text),
+                                )
+                                .with_note("a constructor without fields is just `| C`")
+                                .into());
+                            }
+                            for (binder, default) in written {
                                 fields.push(binder);
                                 implicit.push(false);
                                 defaults.push(default);

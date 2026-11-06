@@ -1371,6 +1371,11 @@ impl Elaborator {
             Self::member_key(&data_key, &c.name.text) == key
                 || key == data_key && c.name.text == name.text
         })?;
+        // Braces after a constructor declared with brackets are a record
+        // pattern, not its fields.
+        if matches!(slot, CtorSlot::Named(_)) && !decl.braced {
+            return None;
+        }
         // The explicit fields, one per name.
         let explicit: Vec<(&ast::Name, &Expr)> = decl
             .fields

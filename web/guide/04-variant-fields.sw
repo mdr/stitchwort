@@ -26,8 +26,8 @@ type Item = { name: Text, price: Nat }
 
 def tea: Option Item := Some { name = "tea", price = 3 }
 
-def Item.label: Option Item → Text
+def labelOf: Option Item → Text
   | Some { name, .. } => name
   | None => "none"
 
-test "a record in a constructor" := tea.label == "tea"
+test "a record in a constructor" := labelOf tea == "tea"

@@ -841,10 +841,10 @@ pub enum Pattern {
         fields: Vec<(Name, Pattern)>,
         rest: bool,
         span: Span,
-        /// The same fields as the `Record` pattern that is `C`'s argument if
-        /// `C` is declared with brackets, kept so that the elaborator can
-        /// borrow it like any other pattern. Made by [`Pattern::ctor_fields`].
-        record: Box<Pattern>,
+        /// The `Record` pattern that is `C`'s argument if `C` is declared with
+        /// brackets, made on first use so that the elaborator can borrow it
+        /// like any other pattern ([`Pattern::as_record`]).
+        record: std::sync::OnceLock<Box<Pattern>>,
     },
     /// `p | q | …`: matches if any alternative does. The alternatives bind
     /// no variables; an arm with one is checked as one arm per alternative.
@@ -852,26 +852,42 @@ pub enum Pattern {
 }
 
 impl Pattern {
-    /// `C { f = p, g, .. }`, with the record pattern it is if `C` is declared
-    /// with brackets.
+    /// `C { f = p, g, .. }`.
     pub fn ctor_fields(
         ctor: Name,
         fields: Vec<(Name, Pattern)>,
         rest: bool,
         span: Span,
     ) -> Pattern {
-        let record = Box::new(Pattern::Record {
-            fields: fields.clone(),
-            rest,
-            span,
-        });
         Pattern::CtorFields {
             ctor,
             fields,
             rest,
             span,
-            record,
+            record: std::sync::OnceLock::new(),
         }
+    }
+
+    /// For a `CtorFields`: the same braces as a record pattern, the argument
+    /// of a constructor declared with brackets.
+    pub fn as_record(&self) -> Option<&Pattern> {
+        let Pattern::CtorFields {
+            fields,
+            rest,
+            span,
+            record,
+            ..
+        } = self
+        else {
+            return None;
+        };
+        Some(record.get_or_init(|| {
+            Box::new(Pattern::Record {
+                fields: fields.clone(),
+                rest: *rest,
+                span: *span,
+            })
+        }))
     }
 }
 

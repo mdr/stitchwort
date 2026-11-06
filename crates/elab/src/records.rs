@@ -470,6 +470,9 @@ pub(crate) struct ArgumentHint {
     record: Span,
     call: Span,
     note: String,
+    /// The first explicit field's type, if it is a data type that is not a
+    /// record: the braces can't be that, so they can't be an argument for it.
+    first: Option<String>,
 }
 
 impl ArgumentHint {
@@ -515,7 +518,19 @@ fn argument_hint(
         .iter()
         .map(|(n, _)| format!("({} := …)", n.text))
         .collect();
+    let first = ctor
+        .fields
+        .iter()
+        .enumerate()
+        .find(|(i, _)| !ctor.implicit.get(*i).copied().unwrap_or(false))
+        .and_then(|(_, (_, ty))| match ty.strip_loc() {
+            stitchwort_core::Term::Data(dd, _) if !g.data(*dd).record() => {
+                Some(g.data(*dd).name().to_string())
+            }
+            _ => None,
+        });
     Some(ArgumentHint {
+        first,
         record: record.span(),
         call,
         note: format!(
@@ -745,6 +760,19 @@ pub(crate) fn ctor_fields(
         Braces::Fields(d, c) => (d, c),
         Braces::Argument(record) => {
             let hint = argument_hint(cx, written, fields, &record, span);
+            if let Some(hint) = &hint
+                && let Some(first) = &hint.first
+            {
+                return Err(Diagnostic::error(
+                    "E-NOT-A-RECORD",
+                    format!(
+                        "braces after `{}` are its first argument, a `{first}`, not its fields",
+                        written.text
+                    ),
+                )
+                .with_label(hint.record, "this record is not a field's value")
+                .with_note(hint.note.clone()));
+            }
             return Ok(Construction::Argument(
                 Expr::App(Box::new(Expr::Var(written.clone())), Box::new(record)),
                 hint,
