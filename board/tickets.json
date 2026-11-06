@@ -1,5 +1,5 @@
 {
-  "next": 1700,
+  "next": 1701,
   "tickets": [
     {
       "id": 47,
@@ -12122,13 +12122,13 @@
     {
       "id": 1696,
       "title": "Printer: a bare constructor or constant as receiver prints Tip.size, which reads as a name path; and function_equations' search_makes_the_equations_of_a_file_with_its_own_constructors fails on main since SW-1674",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1696",
       "labels": [
         "editor"
       ],
-      "body": "Found by the SW-1630 lane, confirmed on main 6 Nov 2026: left [k: Type] → [v: Type] → Tip.size = 0, right … Map.Tree.size Tip = 0.\n\nStarted on Sonnet, expected: 30 min.\n\nD2515 (Matt, 6 Nov 2026): pause after this and the stage 4 check; then push main with nothing running, run the daily tier (approved), and fix what it finds.",
+      "body": "Found by the SW-1630 lane, confirmed on main 6 Nov 2026: left [k: Type] → [v: Type] → Tip.size = 0, right … Map.Tree.size Tip = 0.\n\nStarted on Sonnet, expected: 30 min.\n\nD2515 (Matt, 6 Nov 2026): pause after this and the stage 4 check; then push main with nothing running, run the daily tier (approved), and fix what it finds.\n\nDone, merged (346ea9ab2): dot_call keeps the call form for a bare Def/Data/Ctor receiver. On main: target test, pretty unit test, goals passed. Model result: Sonnet, worked, 10 min (est. 30).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -12171,6 +12171,20 @@
         "errors"
       ],
       "body": "From the SW-1630 reviews, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1700,
+      "title": "function_equations: four tests expect List.head xs etc. but the printer now gives xs.head (SW-1674): a_destructuring_let_before_a_tail_split_gets_its_branches, a_match_below_a_lifted_alternative_refines_where_its_variable_is_bound, branch_equations, a_match_on_several_expressions_is_stated_as_on_their_tuple; and look at (x => (x.decEq 0).toBool) cell.column = True",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "body": "From SW-1696, 6 Nov 2026. Expect the daily tier to show these too.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
