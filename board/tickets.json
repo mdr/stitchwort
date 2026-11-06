@@ -9854,13 +9854,13 @@
     {
       "id": 1534,
       "title": "check hangs on a theorem whose statement names a large computation (countdown 0 N = countdown 0 N with a proof; n = countdown 0 100000000 takes ~7 s at N = 1M): find where elaboration or conversion evaluates it (SW-1525)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1534",
       "labels": [
         "elab"
       ],
-      "body": "From SW-1525, 6 Nov 2026.",
+      "body": "From SW-1525, 6 Nov 2026.\n\nStarted overnight on Opus (a hang in elaboration or conversion; tricky), expected: 60 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
