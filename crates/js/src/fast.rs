@@ -130,6 +130,8 @@ impl Gen<'_> {
         let text = match (decode, b) {
             (true, Boundary::List(elem)) => self.dec_list(&name, b, elem),
             (false, Boundary::List(elem)) => self.enc_list(&name, elem),
+            (true, Boundary::Array(elem)) => self.dec_array(&name, b, elem),
+            (false, Boundary::Array(elem)) => self.enc_array(&name, elem),
             (true, Boundary::Map(_, key, value)) => self.dec_map(&name, b, key, value),
             (false, Boundary::Map(_, _, value)) => self.enc_map(&name, value),
             (true, Boundary::Data(d, args)) => self.dec_data(&name, b, *d, args),
@@ -163,7 +165,7 @@ impl Gen<'_> {
                     self.dec_expr(&b.payload(), var)
                 )
             }
-            Boundary::List(_) | Boundary::Map(..) | Boundary::Data(..) => {
+            Boundary::List(_) | Boundary::Array(_) | Boundary::Map(..) | Boundary::Data(..) => {
                 format!("{}({var})", self.fast_decoder(b))
             }
             // Never in a closed type: the general decoder is left to say.
@@ -185,7 +187,7 @@ impl Gen<'_> {
                     self.enc_expr(&b.payload(), &payload)
                 )
             }
-            Boundary::List(_) | Boundary::Map(..) | Boundary::Data(..) => {
+            Boundary::List(_) | Boundary::Array(_) | Boundary::Map(..) | Boundary::Data(..) => {
                 format!("{}({var})", self.fast_encoder(b))
             }
             _ => "fail()".to_string(),
@@ -217,7 +219,9 @@ impl Gen<'_> {
                 let repr = repr(self.g, *d);
                 repr.string_enum || (repr.unboxed && self.shallow(&self.unboxed_field(*d)))
             }
-            Boundary::List(_) | Boundary::Map(..) | Boundary::Param(_) => false,
+            Boundary::List(_) | Boundary::Array(_) | Boundary::Map(..) | Boundary::Param(_) => {
+                false
+            }
             _ => true,
         }
     }
@@ -300,6 +304,54 @@ impl Gen<'_> {
             "function {name}(v) {{
 {guard}  const out = [];
   for (let l = v; l.tag === \"Cons\"; l = l.tail) out.push({item});
+{unguard}  return out;
+}}
+"
+        )
+    }
+
+    /// As [`Fast::dec_list`], into a version array.
+    fn dec_array(&self, name: &str, b: &Boundary, elem: &Boundary) -> String {
+        let ty = self.type_const(b);
+        let lookup = Self::memo_lookup(&ty, "  ");
+        let item = self.dec_expr(elem, "r");
+        format!(
+            "function {name}(x) {{
+  if (!Array.isArray(x)) throw FAIL;
+{lookup}  done.set(x, INSIDE);
+  depth++;
+  const n = x.length;
+  const items = [];
+  for (let i = 0; i < n; i++) {{
+    if (!hasOwn(x, i)) throw FAIL;
+    const r = x[i];
+    items.push({item});
+  }}
+  depth--;
+  const array = arrayOfItems(items);
+  done.set(x, array);
+  return array;
+}}
+"
+        )
+    }
+
+    /// As [`Fast::enc_list`], from a copy of the elements: encoding one of
+    /// them may reroot the array they're in.
+    fn enc_array(&self, name: &str, elem: &Boundary) -> String {
+        let shallow = self.shallow(elem);
+        let guard = if shallow {
+            ""
+        } else {
+            "  if (++depth > MAX_DEPTH) throw FAIL;\n"
+        };
+        let unguard = if shallow { "" } else { "  depth--;\n" };
+        let item = self.enc_expr(elem, "items[i]");
+        format!(
+            "function {name}(v) {{
+{guard}  const items = arrayItems(v).slice();
+  const out = [];
+  for (let i = 0; i < items.length; i++) out.push({item});
 {unguard}  return out;
 }}
 "

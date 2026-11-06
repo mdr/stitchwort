@@ -523,6 +523,19 @@ At the boundary an `Array T` crosses as a TS array, as `List T` does today
 (`readonly T[]` as a parameter, `T[]` elsewhere) **[checked: `crates/js/src/lib.rs:81`]**.
 Decoding builds the newest version from a copy. Encoding reroots and copies out.
 
+**As built (SW-1638, D2462).** `VERSION_ARRAYS` in `crates/js/src/lib.rs`: a version is
+one object shape, `{ items, op, index, value, next }`, where the newest has `items` and an
+older one a `set`, `push` or `pop` change (`op`) towards `next`. The same natives as the
+machine's are bound by hash through `bind_array`, all or nothing (`E-BUILTIN`); the
+record's constructor is `arrayOfList` and its match `listOfArray`, made only if the branch
+reads the list. `push` on an empty array makes a fresh one, so the shared `Array.empty`
+constant never becomes a change. At the boundary `Array T` is `Boundary::Array`, a `T[]`;
+encoding copies the elements out before encoding any, since encoding one could reroot the
+array (a `Tree` holding an older version of the array it is in). Day 15 on its input
+**[ran]**: 23 s user (57 s real, the machine loaded), 3.0 GB peak, the same answers;
+before, 127 s. 100,000 `set`s on one array finish in a few seconds
+(`crates/cli/tests/run_js.rs`).
+
 Small `Nat`s are `bigint` in generated JS. That is a large share of the 5.2 s against the
 0.52 s of an `Int32Array` **[ran]**, and it is compilation.md's T5/D1922 question, separate
 from this note.

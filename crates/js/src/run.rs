@@ -159,6 +159,9 @@ pub fn generate_program_with(
     if codegen.float.is_some() {
         js.push_str(crate::FLOAT_BITS);
     }
+    if codegen.array.is_some() {
+        js.push_str(crate::VERSION_ARRAYS);
+    }
     js.push_str(TEXT_AS_STRING);
     js.push_str(CHARS_OF_TEXT);
     js.push_str(TEXT_OF_CHARS);

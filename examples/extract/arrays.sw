@@ -1,12 +1,16 @@
--- Arrays (std/Array/Array.sw) in the generated JS, which runs their list
--- definitions until JS has a native array (docs/proposals/arrays.md §4.3):
--- the same answers, at list speed.
+-- Arrays (std/Array/Array.sw) in the generated JS, where an array is a
+-- version array (docs/proposals/arrays.md §4.3): the same answers as the
+-- list definitions, with `set` and `push` O(1) on the newest version. At the
+-- boundary an array crosses as a list does.
 --
 -- run: fillSum 50
 -- run: fillSum 0
 -- run: sharedSum 20
 -- run: pushPop 30
 -- run: lookups 10
+-- run: doubled [1, 2, 3].toArray
+-- run: doubled Array.empty
+-- run: bumped [[1, 2].toArray, Array.empty, [5, 6, 7].toArray] 1
 import Std (Array, List, Nat, Option)
 
 --| Sets each index to twice itself, then sums them.
@@ -32,3 +36,9 @@ export def pushPop (n: Nat): Nat :=
 export def lookups (n: Nat): Nat :=
   let array := Array.tabulate n (i => i + 1)
   (array.get (n / 2)).getOrElse 0 + array.getOr (n + 3) 100 + array.size
+
+--| An array in and out.
+export def doubled (array: Array Nat): Array Nat := array.map (x => x * 2)
+
+--| Arrays inside a list, each set at `index` where it has one.
+export def bumped (arrays: List (Array Nat)) (index: Nat): List (Array Nat) := arrays.map (array => array.set index 9)

@@ -37,6 +37,8 @@ const outOfResources = (name, e) =>
 // doesn't use up the JS stack:
 // - a leaf (`NAT`, `BOOL`, `TEXT`, `CHAR`) is decoded and encoded in one step;
 // - `list(t)` is an array;
+// - `array(t)` is the library's `Array`, an array too, and a version array
+//   inside generated code (its helpers are there whenever it can cross);
 // - `data(info, args)` is a data type applied to its arguments: a tagged
 //   object, with the constructors and fields given by `define`, or for a
 //   record, an object without a tag;
@@ -73,6 +75,9 @@ const LEAF = 0, LIST = 1, DATA = 2, PARAM = 3, OPTION = 4, MAP = 5;
 let typeCount = 0;
 const leaf = (dec, enc) => ({ kind: LEAF, open: false, id: typeCount++, dec, enc });
 const list = (elem) => (elem.list ??= { kind: LIST, open: elem.open, id: typeCount++, elem });
+// (Its type is cached as `arrayOf`, since `array` marks an array's type.)
+const array = (elem) =>
+  (elem.arrayOf ??= { kind: LIST, open: elem.open, id: typeCount++, elem, array: true });
 const option = (elem) => (elem.option ??= { kind: OPTION, open: elem.open, id: typeCount++, elem });
 // A map's keys are `TEXT`, or a `js.unboxed` record over it (`key`).
 const map = (elem, key = TEXT) => {
@@ -152,7 +157,7 @@ const define = (
 const close = (t, args) =>
   !t.open ? t
   : t.kind === PARAM ? args[t.i]
-  : t.kind === LIST ? list(close(t.elem, args))
+  : t.kind === LIST ? (t.array ? array : list)(close(t.elem, args))
   : t.kind === OPTION ? option(close(t.elem, args))
   : t.kind === MAP ? map(close(t.elem, args), t.key)
   : data(t.info, t.args.map((a) => close(a, args)));
@@ -211,6 +216,110 @@ const scalars = (x) => {
 };
 const encodeChar = (v) => String.fromCodePoint(Number(v.code));
 
+// An array is a version: the newest holds the buffer (`items`), and each
+// older one is a change to the version after it (`next`): `op` is
+// `ARRAY_SET` (position `index` holds `value`), `ARRAY_POP` (without the last
+// element) or `ARRAY_PUSH` (with `value` added). `set`, `push` and `pop` on the
+// newest change the buffer in place and leave the old version a change, so
+// a version used once is O(1) a step. Reading an older one first reroots:
+// the changes between it and the buffer are undone, in a loop, and each
+// version passed becomes the change that redoes it, so every version still
+// reads as it did.
+const ARRAY_SET = 0, ARRAY_POP = 1, ARRAY_PUSH = 2;
+const arrayOfItems = (items) => ({ items, op: ARRAY_SET, index: 0, value: undefined, next: null });
+// `a`'s elements, with `a` made the version that holds the buffer.
+const reroot = (a) => {
+  const path = [];
+  let t = a;
+  for (; t.items === null; t = t.next) path.push(t);
+  const items = t.items;
+  for (let k = path.length - 1; k >= 0; k--) {
+    const p = path[k];
+    if (p.op === ARRAY_SET) {
+      const old = items[p.index];
+      items[p.index] = p.value;
+      t.op = ARRAY_SET;
+      t.index = p.index;
+      t.value = old;
+    } else if (p.op === ARRAY_POP) {
+      t.op = ARRAY_PUSH;
+      t.value = items.pop();
+    } else {
+      items.push(p.value);
+      t.op = ARRAY_POP;
+      t.value = undefined;
+    }
+    t.items = null;
+    t.next = p;
+    p.items = items;
+    p.next = null;
+    p.value = undefined;
+    t = p;
+  }
+  return items;
+};
+const arrayItems = (a) => a.items ?? reroot(a);
+// `a`'s successor, which takes the buffer, `a` becoming a change to it.
+const arrayChanged = (a, items, op, index, value) => {
+  const b = arrayOfItems(items);
+  a.items = null;
+  a.op = op;
+  a.index = index;
+  a.value = value;
+  a.next = b;
+  return b;
+};
+// `{ toList = xs }`.
+const arrayOfList = (xs) => {
+  const items = [];
+  for (let l = xs; l.tag === "Cons"; l = l.tail) items.push(l.head);
+  return arrayOfItems(items);
+};
+// `toList`, made fresh.
+const listOfArray = (a) => {
+  const items = arrayItems(a);
+  let list = { tag: "Nil" };
+  for (let i = items.length - 1; i >= 0; i--) list = { tag: "Cons", head: items[i], tail: list };
+  return list;
+};
+// A `Nat` index's position, if it's in range: past 2^53 it's past the end
+// of any array, and `Number` keeps it there.
+const arrayGet = (a, i) => {
+  const items = arrayItems(a);
+  const n = Number(i);
+  return n < items.length ? { tag: "Some", value: items[n] } : { tag: "None" };
+};
+const arrayGetOr = (a, i, fallback) => {
+  const items = arrayItems(a);
+  const n = Number(i);
+  return n < items.length ? items[n] : fallback;
+};
+// Past the end the array is unchanged: the same version.
+const arraySet = (a, i, v) => {
+  const items = arrayItems(a);
+  const n = Number(i);
+  if (n >= items.length) return a;
+  const b = arrayChanged(a, items, ARRAY_SET, n, items[n]);
+  items[n] = v;
+  return b;
+};
+// An empty array is made fresh rather than changed: `Array.empty` is one
+// constant every use shares, and changing it would leave each array built
+// from it a change away from every other.
+const arrayPush = (a, v) => {
+  const items = arrayItems(a);
+  if (items.length === 0) return arrayOfItems([v]);
+  const b = arrayChanged(a, items, ARRAY_POP, 0, undefined);
+  items.push(v);
+  return b;
+};
+const arrayPop = (a) => {
+  const items = arrayItems(a);
+  if (items.length === 0) return { tag: "None" };
+  const last = items.pop();
+  const b = arrayChanged(a, items, ARRAY_PUSH, 0, last);
+  return { tag: "Some", value: { tag: "MkPair", fst: b, snd: last } };
+};
 const TEXT = leaf(wellFormed, (v) => v);
 
 // A list of the array's items.
@@ -541,7 +650,9 @@ const decode = (t, x, root, seen = new Map()) => {
           break;
         }
         frames.pop();
-        if (f.fields === undefined) {
+        if (f.t.array) {
+          value = arrayOfItems(f.out);
+        } else if (f.fields === undefined) {
           value = { tag: "Nil" };
           for (let i = f.n - 1; i >= 0; i--) value = { tag: "Cons", head: f.out[i], tail: value };
           // The map of the entries, by the library's own `Map.fromList`.
@@ -591,7 +702,9 @@ const encode = (t, v) => {
     } else if (t.kind === DATA && t.info.strings) {
       value = t.info.internal.get(v.tag).external;
     } else if (t.kind === LIST) {
-      frames.push({ t, v, fields: undefined, out: [] });
+      // An array's elements are copied out first: encoding one of them may
+      // reroot the array they're in.
+      frames.push({ t, v: t.array ? listOfArray(v) : v, fields: undefined, out: [] });
     } else if (t.kind === MAP) {
       // `v` is the rest of the entries, in key order. The object is a plain
       // one, and each key is defined on it as an ordinary property: a key
@@ -728,49 +841,6 @@ const encodeFast = (fast, t, v) => {
 const $Std$dNat$dadd = (m, n) => m + n;
 const $Std$dNat$dsub = (m, n) => (m >= n ? m - n : 0n);
 const $Std$dNat$dmul = (m, n) => m * n;
-const $Std$dList$dlengthOnto = (v1, v2) => {
-  let s1 = v1, s2 = v2;
-  for (;;) {
-    const v1 = s1, v2 = s2;
-    switch (v1.tag) {
-      case "Nil": {
-        return v2;
-      }
-      case "Cons": {
-        const v3 = v1.head;
-        const v4 = v1.tail;
-        s1 = v4;
-        s2 = (v2 + 1n);
-        continue;
-      }
-    }
-    throw new Error("unreachable");
-  }
-};
-const $Std$dList$dlength = (v1) => $Std$dList$dlengthOnto(v1, 0n);
-const $Std$dList$dappend = (v1, v2) => {
-  let s1 = v1, s2 = v2;
-  let h$ = null, l$ = null, k$ = null;
-  for (;;) {
-    const v1 = s1, v2 = s2;
-    switch (v1.tag) {
-      case "Nil": {
-        { const r$ = v2; if (l$ === null) return r$; l$[k$] = r$; return h$; }
-      }
-      case "Cons": {
-        const v3 = v1.head;
-        const v4 = v1.tail;
-        const c1$ = { tag: "Cons", head: v3, tail: null };
-        if (l$ === null) { h$ = c1$; } else { l$[k$] = c1$; }
-        l$ = c1$; k$ = "tail";
-        s1 = v4;
-        s2 = v2;
-        continue;
-      }
-    }
-    throw new Error("unreachable");
-  }
-};
 const $Std$dPair$dfst = (v2) => {
   switch (v2.tag) {
     case "MkPair": {
@@ -790,25 +860,6 @@ const $Std$dPair$dsnd = (v2) => {
     }
   }
   throw new Error("unreachable");
-};
-const $Std$dList$dreverseOnto = (v1, v2) => {
-  let s1 = v1, s2 = v2;
-  for (;;) {
-    const v1 = s1, v2 = s2;
-    switch (v1.tag) {
-      case "Nil": {
-        return v2;
-      }
-      case "Cons": {
-        const v3 = v1.head;
-        const v4 = v1.tail;
-        s1 = v4;
-        s2 = { tag: "Cons", head: v3, tail: v2 };
-        continue;
-      }
-    }
-    throw new Error("unreachable");
-  }
 };
 const $Std$dNat$ddivFuel = (fuel, n, d) => { if (d === 0n) return fuel; const q = n / d; return q < fuel ? q : fuel; };
 const $Std$dNat$ddiv = (v0, v1) => $Std$dNat$ddivFuel(v0, v0, v1);
@@ -867,77 +918,6 @@ const $Std$dList$dfoldLeft$e = (v4, v5, v6) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dList$dget = (v1, v2) => {
-  let s1 = v1, s2 = v2;
-  for (;;) {
-    const v1 = s1, v2 = s2;
-    switch (v1.tag) {
-      case "Nil": {
-        return { tag: "None" };
-      }
-      case "Cons": {
-        const v3 = v1.head;
-        const v4 = v1.tail;
-        if (v2 === 0n) {
-          return { tag: "Some", value: v3 };
-        } else {
-          const v5 = v2 - 1n;
-          s1 = v4;
-          s2 = v5;
-          continue;
-        }
-      }
-    }
-    throw new Error("unreachable");
-  }
-};
-const $Std$dList$dset = (v1, v2, v3) => {
-  let s1 = v1, s2 = v2, s3 = v3;
-  let h$ = null, l$ = null, k$ = null;
-  for (;;) {
-    const v1 = s1, v2 = s2, v3 = s3;
-    switch (v1.tag) {
-      case "Nil": {
-        { const r$ = { tag: "Nil" }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
-      }
-      case "Cons": {
-        const v4 = v1.head;
-        const v5 = v1.tail;
-        if (v2 === 0n) {
-          { const r$ = { tag: "Cons", head: v3, tail: v5 }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
-        } else {
-          const v6 = v2 - 1n;
-          const c1$ = { tag: "Cons", head: v4, tail: null };
-          if (l$ === null) { h$ = c1$; } else { l$[k$] = c1$; }
-          l$ = c1$; k$ = "tail";
-          s1 = v5;
-          s2 = v6;
-          s3 = v3;
-          continue;
-        }
-      }
-    }
-    throw new Error("unreachable");
-  }
-};
-const $Std$dList$dreplicate = (v1, v2) => {
-  let s1 = v1, s2 = v2;
-  let h$ = null, l$ = null, k$ = null;
-  for (;;) {
-    const v1 = s1, v2 = s2;
-    if (v1 === 0n) {
-      { const r$ = { tag: "Nil" }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
-    } else {
-      const v3 = v1 - 1n;
-      const c1$ = { tag: "Cons", head: v2, tail: null };
-      if (l$ === null) { h$ = c1$; } else { l$[k$] = c1$; }
-      l$ = c1$; k$ = "tail";
-      s1 = v3;
-      s2 = v2;
-      continue;
-    }
-  }
-};
 const $Std$dList$drangeFrom = (v0, v1) => {
   let s0 = v0, s1 = v1;
   let h$ = null, l$ = null, k$ = null;
@@ -957,61 +937,23 @@ const $Std$dList$drangeFrom = (v0, v1) => {
   }
 };
 const $Std$dList$drange = (v0, v1) => $Std$dList$drangeFrom($Std$dNat$dsub(v1, v0), v0);
-const $Std$dList$dreverse = (v1) => $Std$dList$dreverseOnto(v1, { tag: "Nil" });
-const $Std$dList$dgetOr = (v1, v2, v3) => {
-  let s1 = v1, s2 = v2, s3 = v3;
-  for (;;) {
-    const v1 = s1, v2 = s2, v3 = s3;
-    switch (v1.tag) {
-      case "Nil": {
-        return v3;
-      }
-      case "Cons": {
-        const v4 = v1.head;
-        const v5 = v1.tail;
-        if (v2 === 0n) {
-          return v4;
-        } else {
-          const v6 = v2 - 1n;
-          s1 = v5;
-          s2 = v6;
-          s3 = v3;
-          continue;
-        }
-      }
-    }
-    throw new Error("unreachable");
-  }
-};
 const $Std$dArray$dtoList = (v1) => {
-  const v2 = v1;
+  const v2 = listOfArray(v1);
   return v2;
 };
-const $Std$dArray$dempty = { tag: "Nil" };
-const $Std$dArray$dreplicate = $Std$dList$dreplicate;
-const $Std$dArray$dtabulate = (v1, v2) => $Std$dList$dmap$e($Std$dList$drange(0n, v1), v2);
-const $Std$dArray$dsize = (v1) => $Std$dList$dlength($Std$dArray$dtoList(v1));
-const $Std$dArray$dget = (v1, v2) => $Std$dList$dget($Std$dArray$dtoList(v1), v2);
-const $Std$dArray$dgetOr = (v1, v2, v3) => $Std$dList$dgetOr($Std$dArray$dtoList(v1), v2, v3);
-const $Std$dArray$dset = (v1, v2, v3) => $Std$dList$dset($Std$dArray$dtoList(v1), v2, v3);
-const $Std$dArray$dpush = (v1, v2) => $Std$dList$dappend($Std$dArray$dtoList(v1), { tag: "Cons", head: v2, tail: { tag: "Nil" } });
-const $Std$dArray$dpop$d$gmatch1 = (v1) => {
-  switch (v1.tag) {
-    case "Nil": {
-      return { tag: "None" };
-    }
-    case "Cons": {
-      const v2 = v1.head;
-      const v3 = v1.tail;
-      return { tag: "Some", value: { tag: "MkPair", fst: $Std$dList$dreverse(v3), snd: v2 } };
-    }
-  }
-  throw new Error("unreachable");
-};
-const $Std$dArray$dpop = (v1) => $Std$dArray$dpop$d$gmatch1($Std$dList$dreverse($Std$dArray$dtoList(v1)));
+const $Std$dArray$dempty = arrayOfList({ tag: "Nil" });
+const $Std$dArray$dreplicate = (count, x) => arrayOfItems(new Array(Number(count)).fill(x));
+const $Std$dArray$dtabulate = (v1, v2) => arrayOfList($Std$dList$dmap$e($Std$dList$drange(0n, v1), v2));
+const $Std$dArray$dsize = (a) => BigInt(arrayItems(a).length);
+const $Std$dArray$dget = (a, i) => arrayGet(a, i);
+const $Std$dArray$dgetOr = (a, i, fallback) => arrayGetOr(a, i, fallback);
+const $Std$dArray$dset = (a, i, v) => arraySet(a, i, v);
+const $Std$dArray$dpush = (a, v) => arrayPush(a, v);
+const $Std$dArray$dpop = arrayPop;
+const $Std$dArray$dmap = (v2, v3) => arrayOfList($Std$dList$dmap$e($Std$dArray$dtoList(v2), v3));
 const $Std$dArray$dfoldLeft = (v2, v3, v4) => $Std$dList$dfoldLeft$e($Std$dArray$dtoList(v2), v3, v4);
-const $Main$dfillSum = (v0) => $Std$dArray$dfoldLeft($Std$dList$dfoldLeft$e($Std$dList$drange(0n, v0), $Std$dList$dreplicate(v0, 0n), ((v1) => ((v2) => $Std$dArray$dset(v1, v2, $Std$dNat$dmul(v2, 2n))))), 0n, ((v1) => ((v2) => $Std$dNat$dadd(v1, v2))));
-const $Main$dsharedSum = (v0) => { const v1 = $Std$dList$dreplicate(v0, 1n); return $Std$dList$dfoldLeft$e($Std$dList$drange(0n, v0), 0n, ((v2) => ((v3) => $Std$dNat$dadd($Std$dNat$dadd(v2, $Std$dArray$dgetOr($Std$dArray$dset(v1, v3, 5n), v3, 0n)), $Std$dArray$dgetOr(v1, v3, 0n))))); };
+const $Main$dfillSum = (v0) => $Std$dArray$dfoldLeft($Std$dList$dfoldLeft$e($Std$dList$drange(0n, v0), $Std$dArray$dreplicate(v0, 0n), ((v1) => ((v2) => $Std$dArray$dset(v1, v2, $Std$dNat$dmul(v2, 2n))))), 0n, ((v1) => ((v2) => $Std$dNat$dadd(v1, v2))));
+const $Main$dsharedSum = (v0) => { const v1 = $Std$dArray$dreplicate(v0, 1n); return $Std$dList$dfoldLeft$e($Std$dList$drange(0n, v0), 0n, ((v2) => ((v3) => $Std$dNat$dadd($Std$dNat$dadd(v2, $Std$dArray$dgetOr($Std$dArray$dset(v1, v3, 5n), v3, 0n)), $Std$dArray$dgetOr(v1, v3, 0n))))); };
 const $Main$dpushPop$d$gmatch1 = (v0, v1) => {
   switch (v1.tag) {
     case "None": {
@@ -1033,6 +975,8 @@ const $Main$dpushPop$d$gmatch1 = (v0, v1) => {
 };
 const $Main$dpushPop = (v0) => $Std$dPair$dsnd($Std$dList$dfoldLeft$e($Std$dList$drange(0n, v0), { tag: "MkPair", fst: $Std$dList$dfoldLeft$e($Std$dList$drange(0n, v0), $Std$dArray$dempty, ($Std$dArray$dpush$c ??= ($p1) => ($p2) => $Std$dArray$dpush($p1, $p2))), snd: 0n }, ((v1) => ((v2) => $Main$dpushPop$d$gmatch1(v1, $Std$dArray$dpop($Std$dPair$dfst(v1)))))));
 const $Main$dlookups = (v0) => { const v1 = $Std$dArray$dtabulate(v0, ((v1) => $Std$dNat$dadd(v1, 1n))); return $Std$dNat$dadd($Std$dNat$dadd($Std$dOption$dgetOrElse($Std$dArray$dget(v1, $Std$dNat$ddiv(v0, 2n)), 0n), $Std$dArray$dgetOr(v1, $Std$dNat$dadd(v0, 3n), 100n)), $Std$dArray$dsize(v1)); };
+const $Main$ddoubled = (v0) => $Std$dArray$dmap(v0, ((v1) => $Std$dNat$dmul(v1, 2n)));
+const $Main$dbumped = (v0, v1) => $Std$dList$dmap$e(v0, ((v2) => $Std$dArray$dset(v2, v1, 9n)));
 
 function $$fillSum(arg0) {
   try {
@@ -1070,18 +1014,101 @@ function $$lookups(arg0) {
   }
 }
 
+function $$doubled(arg0) {
+  try {
+    const v0 = decodeFast(dec$3, ty$2, arg0, "array");
+    return encodeFast(enc$4, ty$2, $Main$ddoubled(v0));
+  } catch (e) {
+    throw outOfResources("doubled", e);
+  }
+}
+
+function $$bumped(arg0, arg1) {
+  try {
+    const v0 = decodeFast(dec$5, ty$3, arg0, "arrays");
+    const v1 = decodeFast(dec$1, ty$1, arg1, "index");
+    return encodeFast(enc$6, ty$3, $Main$dbumped(v0, v1));
+  } catch (e) {
+    throw outOfResources("bumped", e);
+  }
+}
+
 // The fast path's codecs, one decoder and one encoder for each type that
 // crosses (see `decodeFast`).
 const ty$1 = NAT;
+const ty$2 = array(NAT);
+const ty$3 = list(array(NAT));
 function dec$1(x) {
   return NAT.dec(x);
 }
 function enc$2(v) {
   return NAT.enc(v);
 }
+function dec$3(x) {
+  if (!Array.isArray(x)) throw FAIL;
+  const done = memoOf(ty$2);
+  const known = done.get(x);
+  if (known !== undefined) {
+    if (known === INSIDE) throw FAIL;
+    return known;
+  }
+  if (depth >= MAX_DEPTH) return decodeDeep(ty$2, x);
+  done.set(x, INSIDE);
+  depth++;
+  const n = x.length;
+  const items = [];
+  for (let i = 0; i < n; i++) {
+    if (!hasOwn(x, i)) throw FAIL;
+    const r = x[i];
+    items.push(NAT.dec(r));
+  }
+  depth--;
+  const array = arrayOfItems(items);
+  done.set(x, array);
+  return array;
+}
+function enc$4(v) {
+  const items = arrayItems(v).slice();
+  const out = [];
+  for (let i = 0; i < items.length; i++) out.push(NAT.enc(items[i]));
+  return out;
+}
+function dec$5(x) {
+  if (!Array.isArray(x)) throw FAIL;
+  const done = memoOf(ty$3);
+  const known = done.get(x);
+  if (known !== undefined) {
+    if (known === INSIDE) throw FAIL;
+    return known;
+  }
+  if (depth >= MAX_DEPTH) return decodeDeep(ty$3, x);
+  done.set(x, INSIDE);
+  depth++;
+  const n = x.length;
+  let first = null, last = null;
+  for (let i = 0; i < n; i++) {
+    if (!hasOwn(x, i)) throw FAIL;
+    const r = x[i];
+    const cell = { tag: "Cons", head: dec$3(r), tail: null };
+    if (last === null) first = cell; else last.tail = cell;
+    last = cell;
+  }
+  const nil = { tag: "Nil" };
+  if (last === null) first = nil; else last.tail = nil;
+  depth--;
+  done.set(x, first);
+  return first;
+}
+function enc$6(v) {
+  if (++depth > MAX_DEPTH) throw FAIL;
+  const out = [];
+  for (let l = v; l.tag === "Cons"; l = l.tail) out.push(enc$4(l.head));
+  depth--;
+  return out;
+}
 
 // Definitions used as values, taking their arguments one at a time, each
 // made at its first use.
 var $Std$dArray$dpush$c;
 
-export { $$fillSum as fillSum, $$sharedSum as sharedSum, $$pushPop as pushPop, $$lookups as lookups };
+export { $$fillSum as fillSum, $$sharedSum as sharedSum, $$pushPop as pushPop, $$lookups as lookups, $$doubled as doubled, $$bumped as bumped };

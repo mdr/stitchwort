@@ -27,7 +27,7 @@
 -- the "Stitchwort" channel in the Output panel: it is the language
 -- server's log.
 --
--- Three more things to try now, as you'll use them throughout:
+-- A few more things to try now, as you'll use them throughout:
 --
 -- - Hover over a use of a name, such as `totalOf` in its own second arm:
 --   the box shows its type, its doc, and the equations the compiler made
@@ -247,7 +247,7 @@ theorem mergeTotal (basket: Basket) (other: Basket): (basket.merge other).total 
 
 -- ## Step 6. Side conditions and `auto`
 --
--- Splitting the bill only makes sense between at least one person. The
+-- Splitting the bill only makes sense with at least one person. The
 -- parameter `[auto someone: people ≠ 0]` is a proof the caller has to
 -- give, but doesn't write: the checker finds it itself, by deciding the
 -- statement when the numbers are known, or from a fact in scope.

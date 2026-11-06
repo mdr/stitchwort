@@ -384,6 +384,86 @@ def main () : {IO} () :=
     );
 }
 
+/// Arrays are version arrays in JS (docs/proposals/arrays.md §4.3): an old
+/// version reads as it was after newer ones have changed the buffer, whether
+/// it was left by `set`, `push` or `pop`, and however far it is from the
+/// newest (2,000 versions, read oldest first, then alternately the two ends).
+/// The machine copies each shared array, and says so on standard error, so
+/// only the output is compared.
+#[test]
+fn old_array_versions_read_as_they_were() {
+    let path = source_file(
+        "array-versions.sw",
+        r#"
+import Std (Array, List, Nat, Option, Text)
+
+--| Each version of an array as it grows, newest first: each sets one more
+--| element, then pushes.
+def versions (n: Nat): List (Array Nat) :=
+  (List.range 0 n).foldLeft [Array.replicate (count := 3) 0] (versions i =>
+    match versions with
+      | [newest, ..older] => [(newest.set i (i + 1)).push i, newest, ..older]
+      | [] => [])
+
+def show (array: Array Nat): Text := "${array.toList}"
+
+def main(): {IO} () :=
+  let a := [1, 2, 3].toArray
+  let b := a.set 0 10
+  let c := b.push 4
+  let d := a.set 2 30
+  IO.print "${show a} ${show b} ${show c} ${show d} ${c.size} ${a.size}"
+  match c.pop with
+    | Some (rest, x) => IO.print "${show rest} ${x} ${show c} ${show (b.set 5 1)} ${show b}"
+    | None => IO.print "none"
+  match b.pop with
+    | Some (rest, x) => IO.print "${show rest} ${x} ${show (rest.push 7)} ${show b} ${show c}"
+    | None => IO.print "none"
+  let empty: Array Nat := Array.empty
+  IO.print "${show (empty.push 1)} ${show (empty.push 2)} ${show empty} ${empty.pop.isSome}"
+  let all := versions 2000
+  let oldest := all.reverse
+  IO.print "${oldest.map (version => version.size) |> .sum}"
+  IO.print "${oldest.map (version => version.getOr 5 0 + version.getOr 1999 0) |> .sum}"
+  IO.print "${all.zip oldest |> .map (pair => pair.fst.getOr 1 0 + pair.snd.getOr 1 9) |> .sum}"
+"#,
+    );
+    let js = same_both_ways(&path, b"", false);
+    assert!(js.status.success(), "{}", text(&js.stderr));
+    assert!(
+        text(&js.stdout).starts_with(
+            "[1, 2, 3] [10, 2, 3] [10, 2, 3, 4] [1, 2, 30] 4 3\n\
+             [10, 2, 3] 4 [10, 2, 3, 4] [10, 2, 3] [10, 2, 3]\n\
+             [10, 2] 3 [10, 2, 7] [10, 2, 3] [10, 2, 3, 4]\n\
+             [1] [2] [] False\n"
+        ),
+        "{}",
+        text(&js.stdout)
+    );
+}
+
+/// A loop of 100,000 `set`s on one array is O(1) a step under `--js` too:
+/// on the list definitions it took hours.
+#[test]
+fn a_hundred_thousand_array_sets_run_quickly() {
+    let path = source_file(
+        "array-sets.sw",
+        r#"
+import Std (Array, List, Nat)
+
+def main(): {IO} () :=
+  let filled := (List.range 0 100000).foldLeft (Array.replicate (count := 100000) 0) (array i => array.set i (i * 3))
+  IO.print "${filled.getOr 99999 0} ${filled.size} ${filled.getOr 100000 7}"
+"#,
+    );
+    let started = std::time::Instant::now();
+    let js = run(&path, true, b"");
+    let took = started.elapsed();
+    assert!(js.status.success(), "{}", text(&js.stderr));
+    assert_eq!(text(&js.stdout), "299997 100000 7\n");
+    assert!(took.as_secs() < 60, "took {took:?}");
+}
+
 /// D922: the arguments supplied before the erased parameter are computed
 /// once, outside the adapter closure, not on every call of it. Purity hides
 /// this from the output, so this checks the generated JS: `slow n` is the
