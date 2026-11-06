@@ -322,11 +322,10 @@
         "stitchwort audit for proof lanes (SW-912)",
         "Daily-tier fallout fixed after total division and function equations (SW-1306, SW-1700, SW-1701)",
         "Memory guard cases (SW-921, SW-1052)",
-        "Daily tier 6 Nov evening: 36 failures fixed across three lanes (SW-1700, SW-1701, SW-1702)"
+        "Daily tier 6 Nov evening: 36 failures fixed across three lanes (SW-1700, SW-1701, SW-1702)",
+        "Daily tier 6 Nov evening: all 41 failures fixed and verified on main (SW-1700-1702, SW-1706-1708, SW-1711)"
       ],
-      "now": [
-        "Slow search_at_aoc after today's merges (SW-1708)"
-      ],
+      "now": [],
       "next": [
         "Slow tests: lsp features (SW-1686, SW-1501), guide test (SW-1549), merge tier (SW-1386)",
         "Daily-tier follow-ups: re-record the bench baseline and find the rises (SW-1342, SW-1622), report every stale extract snapshot (SW-1703), unsupported natives in the rt harness (SW-1710)"

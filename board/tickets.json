@@ -1,5 +1,5 @@
 {
-  "next": 1715,
+  "next": 1716,
   "tickets": [
     {
       "id": 47,
@@ -13147,14 +13147,14 @@
     {
       "id": 1708,
       "title": "Daily tier: search_at_aoc search_at_on_aoc_goals ran 33 min (44 min CPU) on the daily sample and was stopped; documented as about 10 min for every goal in the full tier. Find what made it slow today",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1708",
       "labels": [
         "regression"
       ],
-      "epic": "test-infra",
-      "body": "Daily tier 6 Nov evening; stopped by the orchestrator at 33 min. D2516.\n\nStarted on Opus, expected: 60 min.",
+      "epic": "proof-search",
+      "body": "Daily tier 6 Nov evening; stopped by the orchestrator at 33 min. D2516.\n\nStarted on Opus, expected: 60 min.\n\nDone, merged (612d9592e; pretty.rs conflict with SW-1706 resolved by hand). Cause: SW-1674's dot_call printed a turned-down receiver twice, exponential on x✝ chains; omega printed its goal eagerly. Daily sample 33 min+ → ~80 s. On main: search_at_aoc, pretty, search_at, search_match, reject examples, goals: 45/45 (115 s). Model result: Opus, worked, 40 min (est. 60).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -13243,6 +13243,21 @@
         "board"
       ],
       "body": "D2530 (Matt, 6 Nov 2026): yes. Started on Sonnet, expected: 45 min.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1715,
+      "title": "Search's per-goal deadline bounds evaluation only; printing and other non-evaluating work can run past it (one slow print stalled search_at_aoc); check the budget in the printer or print less; and look for other tactics that print messages they only use on failure (SW-1708)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "search"
+      ],
+      "epic": "proof-search",
+      "body": "From SW-1708, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
