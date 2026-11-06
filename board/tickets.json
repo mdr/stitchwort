@@ -9938,13 +9938,13 @@
     {
       "id": 1540,
       "title": "Aoc.Common: move day 16's settle/eliminate with validity and uniqueness theorems, generic over DecEq, for 2020 day 21",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1540",
       "labels": [
         "aoc"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).\n\nStarted overnight on Sonnet, expected: 45 min.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).\n\nStarted overnight on Sonnet, expected: 45 min.\n\nDone (b15646bb9), merged: Aoc.Common assign (candidates per position, DecEq), assignFinds (picks a candidate at each position, distinct), assignOnly (every such distinct choice equals it); Common tests incl. day 21's shape. Day 16's Eliminate.sw deleted. Orchestrator checked the statements (D2436). Model result: Sonnet, worked, 7 min (est. 45).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
