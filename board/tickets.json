@@ -9448,13 +9448,13 @@
     {
       "id": 1505,
       "title": "Completion: offer the import for names from other namespaces of the project (cycle check)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1520",
       "labels": [
         "editor"
       ],
-      "body": "From SW-1120, 6 Nov 2026.",
+      "body": "From SW-1120, 6 Nov 2026.\n\nStarted overnight on Sonnet (SW-1520 with SW-1505), expected: 45 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -9658,13 +9658,13 @@
     {
       "id": 1520,
       "title": "Completion after a dot: hide theorems (most of ~450 std lemma members) until a letter is typed; and a relative prefix (Other. inside Proj.Main) lists unloaded namespaces",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1520",
       "labels": [
         "editor"
       ],
-      "body": "From SW-1514, 6 Nov 2026. Small.",
+      "body": "From SW-1514, 6 Nov 2026. Small.\n\nStarted overnight on Sonnet (SW-1520 with SW-1505), expected: 45 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
