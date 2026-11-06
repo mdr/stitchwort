@@ -13790,7 +13790,7 @@
     {
       "id": 1751,
       "title": "[Sonnet] Profile the merge tier (task test:merge, meant to be under 90 s): time it on main, find what's slow, trim or fix",
-      "status": "doing",
+      "status": "next",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1751",
       "labels": [
@@ -13805,7 +13805,7 @@
     {
       "id": 1752,
       "title": "[Sonnet] Affected-test selection: a task that picks the nextest filter for a diff from the files it touches (crate graph, which binaries read which std/examples/aoc files), for lanes and the orchestrator's verifiers",
-      "status": "doing",
+      "status": "next",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1752",
       "labels": [
