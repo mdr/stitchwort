@@ -76,3 +76,4 @@ Take these in order, once the speed queue above is empty or blocked.
 5. **Read-only analysis lanes** if the machine is busy timing things: reviews
    of merged work, syntheses and designs.
 - 22:40: Matt: "crack on"; DeepSeek's quota may run out too, so fall back to GLM and then Sonnet.
+- 22:31: SW-1744 in (report on main, prototype on its branch); D2551-D2553 left for Matt; SW-1751 started.

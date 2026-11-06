@@ -1,5 +1,5 @@
 {
-  "next": 1755,
+  "next": 1756,
   "tickets": [
     {
       "id": 47,
@@ -13685,14 +13685,14 @@
     {
       "id": 1744,
       "title": "[Opus] Why main passes trip-journal and lane/SW-1642 doesn't; try holding Float operations on stuck arguments folded in the unfolded read-back (D2550)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1744",
       "labels": [
         "design"
       ],
       "epic": "record-eta",
-      "body": "D2550 (Matt, 6 Nov 2026): yes. From SW-1740 (docs/reviews/SW-1740-stage-0a.md). On the record eta branch; starts after the D2546 daily run. Expected: 90 min on Opus.",
+      "body": "D2550 (Matt, 6 Nov 2026): yes. From SW-1740 (docs/reviews/SW-1740-stage-0a.md). On the record eta branch; starts after the D2546 daily run. Expected: 90 min on Opus.\n\nReport on main: docs/reviews/SW-1744-trip-journal-float.md (fb5e2af77); PROTOTYPE fb90f4379 stays on lane/SW-1744 (record eta's rule 2 doesn't fire inside Float.add's case tree). Why main passes: Float.add matches both doubles as records and is stuck on unknowns; rule 2 opens it on the branch, computing into Float.Model.addBits on unknown bits (Leg.start/duration 1.79M times each). A read-back hold doesn't work (breaks Float.rankIeeeLe/Lt; and the call is already gone). With the prototype trip-journal checks in ~4.0 s vs 3.1 s on main; std checks. Open for Matt: D2551 (keep Float.add stuck under record eta, on lane/SW-1642), D2552 (resume SW-1667 now, amending D2545), D2553 (no per-definition 'stays folded' marker yet). Not yet run on the prototype: AoC, roguelike, hash stability, float gate. Model result: Opus, worked, 20 min (est. 90).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -13790,7 +13790,7 @@
     {
       "id": 1751,
       "title": "[Sonnet] Profile the merge tier (task test:merge, meant to be under 90 s): time it on main, find what's slow, trim or fix",
-      "status": "next",
+      "status": "doing",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1751",
       "labels": [
@@ -13843,6 +13843,21 @@
       ],
       "epic": "dev-loop-speed",
       "body": "Overnight 6-7 Nov 2026 (Matt: focus on test suites, merge gates, compile times). Builds timed on a quiet machine.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1755,
+      "title": "Must-pass example: x + y on unknown Floats shows as written; and trip-journal as a check on the record eta lane (SW-1744)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "record-eta",
+      "body": "From SW-1744, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []

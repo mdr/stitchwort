@@ -46,7 +46,7 @@
         "Fields of glued calls stay calls; std, roguelike and 2021 day 13 pass at about +2% cost (SW-1667, on lane/SW-1642)"
       ],
       "now": [
-        "Why main passes trip-journal; the Float hold (SW-1744)"
+        "Paused for the night: SW-1744 found the cause (Float.add opened by rule 2) and a prototype fix; D2551-D2553 open"
       ],
       "next": [
         "Why main passes trip-journal; hold Float operations on unknown inputs (SW-1744, D2550)"
