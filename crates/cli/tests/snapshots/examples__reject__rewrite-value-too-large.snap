@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-RESOURCE] Error: ran out of resources: a value was too large to show
+    ╭─[ reject/rewrite-value-too-large.sw:16:3 ]
+    │
+ 16 │   rewrite same in h
+    │   ────────┬────────  
+    │           ╰────────── ran out of resources in this `rewrite`
+    │ 
+    │ Note 1: this isn't a type error or a failed test: there's no answer within the limits
+    │ 
+    │ Note 2: it happened while checking `big`
+────╯
