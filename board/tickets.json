@@ -1,5 +1,5 @@
 {
-  "next": 1581,
+  "next": 1582,
   "tickets": [
     {
       "id": 47,
@@ -10274,13 +10274,13 @@
     {
       "id": 1564,
       "title": "List.foldLeft with a pure lambda inside a {Parse} function is compiled as a Parse step (Parse.readsDone can't take it; error names Std.Effect.foldComp); compile pure, or explain (day 18)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1564",
       "labels": [
         "elab"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1557 (2020 day 18).\n\nStarted overnight on Sonnet (SW-1564 with SW-1565), expected: 50 min.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1557 (2020 day 18).\n\nStarted overnight on Sonnet (SW-1564 with SW-1565), expected: 50 min.\n\nLane done (47d4dc611 SW-1564, b1de9a79f SW-1565): comp_app settles a call's still-unknown row as empty when the enclosing row has abilities (a pure foldLeft in {Parse} is a plain call; 4 effect examples' hashes changed); E-ABILITY note suggests () => x.method when the parameter is a thunk. Model: Sonnet, 28 min (est. 50). SW-1564 changes elaboration of existing effect programs: Opus review started.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10288,13 +10288,13 @@
     {
       "id": 1565,
       "title": "E-ABILITY when a method is passed where () → {Parse} a is expected: suggest () => x.method, not adding Parse to the function's type (day 18)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1564",
       "labels": [
         "diagnostics"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1557 (2020 day 18).\n\nStarted overnight on Sonnet (SW-1564 with SW-1565), expected: 50 min.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1557 (2020 day 18).\n\nStarted overnight on Sonnet (SW-1564 with SW-1565), expected: 50 min.\n\nLane done (47d4dc611 SW-1564, b1de9a79f SW-1565): comp_app settles a call's still-unknown row as empty when the enclosing row has abilities (a pure foldLeft in {Parse} is a plain call; 4 effect examples' hashes changed); E-ABILITY note suggests () => x.method when the parameter is a thunk. Model: Sonnet, 28 min (est. 50). SW-1564 changes elaboration of existing effect programs: Opus review started.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10505,6 +10505,20 @@
         "aoc"
       ],
       "body": "D2443 (Matt): carry on further if there's time. Overnight, Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day20.\n\nStarted on Opus, expected: 90 min (hard stop 07:55 for the morning summary).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1581,
+      "title": "Effects: the unknown-row lifting fixed in comp_app (SW-1564) may also happen at the end of comp_check_in and in comp_infer; settling there broke List.cross; understand why (SW-1564)|elab",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "From SW-1564, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
