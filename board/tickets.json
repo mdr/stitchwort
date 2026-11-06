@@ -1,5 +1,5 @@
 {
-  "next": 1660,
+  "next": 1661,
   "tickets": [
     {
       "id": 47,
@@ -11330,7 +11330,7 @@
       "labels": [
         "aoc"
       ],
-      "body": "D2459-D2468 (Matt, 6 Nov 2026): all as recommended in docs/proposals/arrays.md: Array a = a std record around a list (no kernel change); no length in the type for now; in place when unshared on the interpreter/native; version arrays in JS; a copy counter with an end-of-run note; all-or-nothing loud native binding (E-BUILTIN); API get → Option, getOr, getLt with auto, out-of-range set leaves it unchanged, nothing panics; back Aoc.Common's grid lookups with arrays, std Grid later; packed buffers only if measured; staging: type + natives + in place together, then JS, then docs. After SW-1637.",
+      "body": "D2459-D2468 (Matt, 6 Nov 2026): all as recommended in docs/proposals/arrays.md: Array a = a std record around a list (no kernel change); no length in the type for now; in place when unshared on the interpreter/native; version arrays in JS; a copy counter with an end-of-run note; all-or-nothing loud native binding (E-BUILTIN); API get → Option, getOr, getLt with auto, out-of-range set leaves it unchanged, nothing panics; back Aoc.Common's grid lookups with arrays, std Grid later; packed buffers only if measured; staging: type + natives + in place together, then JS, then docs. After SW-1637.\n\nD2508 (Matt, 6 Nov 2026): Array stays behind an import (import Std (Array)), like Map, Set and Vec; .toArray works without it. 'we may want to revisit this in the future, but require an import for now.'",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11611,6 +11611,20 @@
         "aoc"
       ],
       "body": "From SW-1636, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1660,
+      "title": "Revisit default imports for the collections together (Map, Set, Vec, Array): should any join the prelude? (D2508)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "language"
+      ],
+      "body": "D2508 (Matt, 6 Nov 2026): Array stays behind an import (import Std (Array)), like Map, Set and Vec; .toArray works without it. 'we may want to revisit this in the future, but require an import for now.'",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
