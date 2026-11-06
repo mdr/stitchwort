@@ -62,7 +62,7 @@ Take these in order, once the speed queue above is empty or blocked.
      target folder.
 2. **DeepSeek for the mechanical speed work.** SW-1736 (one test binary per
    crate) is mostly moving files. It costs none of the Claude allowance, so it
-   stretches the night if usage gets close to 94%.
+   stretches the night if usage gets close to 94%. DeepSeek has its own quota and may run out (Matt): if a run fails with a quota or rate error, fall back to GLM, then Sonnet, and write it in the log.
 3. **Bounded readback, already approved (D2545):**
    - stage 1b (SW-1748);
    - SW-1743 and the swallowed-error sites;
@@ -75,3 +75,4 @@ Take these in order, once the speed queue above is empty or blocked.
    DeepSeek: diagnostics, docs (SW-1616), std lemmas.
 5. **Read-only analysis lanes** if the machine is busy timing things: reviews
    of merged work, syntheses and designs.
+- 22:40: Matt: "crack on"; DeepSeek's quota may run out too, so fall back to GLM and then Sonnet.
