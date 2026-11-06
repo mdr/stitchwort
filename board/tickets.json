@@ -1,5 +1,5 @@
 {
-  "next": 1673,
+  "next": 1674,
   "tickets": [
     {
       "id": 47,
@@ -11708,7 +11708,7 @@
       "labels": [
         "docs"
       ],
-      "body": "Matt, 6 Nov 2026: 'an introductory tutorial to theorem proving in Stitchwort … pitch to a competent programmer who doesn't really know much about theorem proving … load it in VS Code and they'd be told what to do … how to invoke the VS Code extension and use holes … part one of N.' Opus (teaching judgement, accuracy about the editor), expected: 90 min.\n\nStarted on Opus, expected: 90 min.",
+      "body": "Matt, 6 Nov 2026: 'an introductory tutorial to theorem proving in Stitchwort … pitch to a competent programmer who doesn't really know much about theorem proving … load it in VS Code and they'd be told what to do … how to invoke the VS Code extension and use holes … part one of N.' Opus (teaching judgement, accuracy about the editor), expected: 90 min.\n\nStarted on Opus, expected: 90 min.\n\nD2512 (Matt, 6 Nov 2026): tutorials live in docs/tutorial/, with a test that checks and tests every file there.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11793,6 +11793,20 @@
         "runtime"
       ],
       "body": "From SW-1657, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1673,
+      "title": "Test: stitchwort check + test every docs/tutorial/*.sw (release build), in the guide test binary or a task target (D2512)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "body": "D2512 (Matt, 6 Nov 2026): tutorials live in docs/tutorial/, with a test that checks and tests every file there. Sonnet, small.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []

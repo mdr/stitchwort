@@ -301,6 +301,7 @@ test "an array of counts" := (tally [3, 1, 3, 3]).toList == [0, 1, 0, 3, 0, 0, 0
 test "get gives an Option" := (tally [3]).get 3 == Some 1 ∧ (tally [3]).get 10 == None
 test "getOr gives a fallback" := (tally [3]).getOr 12 0 == 0
 test "set out of range changes nothing" := ([5, 6].toArray).set 2 9 == [5, 6].toArray
+
 test "getLt needs no Option when the index is in range" := ([7, 8, 9].toArray).getLt 1 == 8
 ```
 

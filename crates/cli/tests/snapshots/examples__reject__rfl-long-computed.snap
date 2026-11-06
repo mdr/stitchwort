@@ -9,7 +9,7 @@ expression: output
     │                                                                           ─┬─  
     │                                                                            ╰─── `Range.repeated r k n` and `0` aren't equal
     │ 
-    │ Note 1: computing the left side gives `Std.Decidable.elim (Std.Decidable.not (Nat.decEq (List.foldLeft (List.rangeFrom n 0) 0 (acc x => …)) 0)) (_ => Std.Decidable.elim (Std.Bool.decTrue (… <= …)) (_ => … * …) (_ => 0)) (_ => 0)`
+    │ Note 1: computing the left side gives `if Std.Decidable.toBool (Std.Decidable.not (Nat.decEq … 0)) then if (if … then … else …) <= (if … then … else …) then List.foldLeft … 0 … * (… / 2) else 0 else 0`
     │ 
     │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
     │ 
