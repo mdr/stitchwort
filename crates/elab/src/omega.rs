@@ -512,7 +512,9 @@ impl Ranges {
     /// or builds it, and its three arguments: `x` and the range's.
     fn parts(&self, cx: &Ctx, prop: &Value) -> Result<Option<RangeParts>> {
         let args = match prop {
-            Value::Call(id, spine, _) if *id == self.mem => {
+            Value::Call(id, spine, _)
+                if *id == self.mem && !stitchwort_core::value::is_call_field(spine) =>
+            {
                 stitchwort_core::value::call_args(spine)
             }
             Value::Neutral(Head::Def(id), spine) if *id == self.mem => spine
@@ -559,7 +561,9 @@ impl Ranges {
             return Ok(None);
         };
         let found = match xs {
-            Value::Call(id, spine, _) if *id == self.range => {
+            Value::Call(id, spine, _)
+                if *id == self.range && !stitchwort_core::value::is_call_field(spine) =>
+            {
                 let ends = stitchwort_core::value::call_args(spine);
                 let [(a, _), (b, _)] = ends.as_slice() else {
                     return Ok(None);
@@ -2430,10 +2434,24 @@ fn has_meta(term: &Term) -> bool {
     term.subterms().any(|(t, _)| matches!(t, Term::Meta(_)))
 }
 
-/// Whether `a` and `b` apply the same head to as many arguments.
+/// Whether `a` and `b` apply the same head to as many arguments, and take
+/// the same fields of that.
 fn same_shape(a: &Term, b: &Term) -> bool {
+    // Fields of calls (`(f x).i`) by the call's shape and the same fields.
+    let (a, fields_a) = peel_fields(a);
+    let (b, fields_b) = peel_fields(b);
     let ((head_a, args_a), (head_b, args_b)) = (a.spine(), b.spine());
-    args_a.len() == args_b.len() && crate::matching::same(head_a, head_b)
+    fields_a == fields_b && args_a.len() == args_b.len() && crate::matching::same(head_a, head_b)
+}
+
+/// `term` without the projections outside it, and those, outermost first.
+fn peel_fields(mut term: &Term) -> (&Term, Vec<(DataId, usize)>) {
+    let mut fields = Vec::new();
+    while let Term::Proj(d, i, inner) = term.strip_loc() {
+        fields.push((*d, *i));
+        term = inner;
+    }
+    (term, fields)
 }
 
 /// Two terms that apply the same head to the same arguments but one, and

@@ -1508,8 +1508,15 @@ pub(crate) fn same(a: &Term, b: &Term) -> bool {
             same(t1, t2) && same(v1, v2) && same(b1, b2)
         }
         (Quot(f1, xs, _), Quot(f2, ys, _)) => f1 == f2 && all(xs, ys),
-        // Case trees aren't in types or scrutinees.
-        _ => false,
+        // Every other pair differs (case trees aren't in types or
+        // scrutinees); listed by the left side so that a new kind of term is
+        // a compile error here.
+        (
+            Var(_) | Def(_) | Data(..) | Ctor(..) | Nat(_) | Chars(_) | Sort(_) | Pi(..) | Lam(..)
+            | App(..) | Ann(..) | Let(..) | Case(..) | NumCase(..) | Eq(..) | Refl | J(..)
+            | Proj(..) | Quot(..) | Loc(..) | Meta(_),
+            _,
+        ) => false,
     }
 }
 
@@ -1558,7 +1565,12 @@ pub(crate) fn same_shifted(a: &Term, b: &Term, by: usize, cutoff: usize) -> bool
         }
         (Quot(f1, xs, _), Quot(f2, ys, _)) => f1 == f2 && all(xs, ys),
         // As in `same`.
-        _ => false,
+        (
+            Var(_) | Def(_) | Data(..) | Ctor(..) | Nat(_) | Chars(_) | Sort(_) | Pi(..) | Lam(..)
+            | App(..) | Ann(..) | Let(..) | Case(..) | NumCase(..) | Eq(..) | Refl | J(..)
+            | Proj(..) | Quot(..) | Loc(..) | Meta(_),
+            _,
+        ) => false,
     }
 }
 

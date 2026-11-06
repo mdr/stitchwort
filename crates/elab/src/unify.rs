@@ -6,10 +6,11 @@ use std::rc::Rc;
 use stitchwort_core::budget::{ResourceError, Result};
 use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::value::{
-    Closure, Elim, Head, Mode, Relation, ShapeKey, ShapeMemo, Spine, apply_icit, call_args, conv,
-    eval, expand_step, force, force_solved, has_eta, is_folded, matches_at_once, opens_by_tree,
-    project, proof_field, proof_param, quote, quote_at_most, quote_folded, same_closure_solved,
-    same_stuck_trees, sealed, underapplied, unfold_folded, unfold_once,
+    Closure, Elim, Head, Mode, Relation, ShapeKey, ShapeMemo, Spine, apply_icit, conv, eval,
+    expand_step, force, force_solved, has_eta, is_call_field, is_folded, matches_at_once,
+    opens_by_tree, project, project_call, proof_field, proof_param, quote, quote_at_most,
+    quote_folded, same_closure_solved, same_stuck_trees, sealed, underapplied, unfold_folded,
+    unfold_once,
 };
 use stitchwort_core::{BigUint, DefId, Ev, Icit, Term, Value};
 use stitchwort_core::{nat_add, native};
@@ -1307,14 +1308,26 @@ fn unify_step(
     if meta_against_call(g, level, a, b)? {
         return Ok(true);
     }
+    let (unforced_a, unforced_b) = (a, b);
     let a = force(g, a.clone())?;
     let b = force(g, b.clone())?;
     let is_meta = |v: &Value| matches!(v, Value::Neutral(Head::Meta(_), _));
+    // A constructor against a stuck field of a call (`(f x).i`, folded) is
+    // left to rule 1 below, which keeps the call in what it solves.
+    let ctor_against_field = |x: &Value, y: &Value| {
+        matches!(x, Value::Ctor(d, 0, _) if has_eta(&g.ev, *d))
+            && matches!(y, Value::Neutral(Head::Def(_), s) if is_call_field(s))
+    };
     // Dictionaries left folded by name (`Def::fold`), as in `conv`: the same
     // one's arguments first (what that solves is kept only if they all
     // unify), otherwise unfolded. A metavariable against one is solved with
     // it, by name, below. Before numbers, as in `conv`.
-    if !is_meta(&a) && !is_meta(&b) && (is_folded(g, &a) || is_folded(g, &b)) {
+    if !is_meta(&a)
+        && !is_meta(&b)
+        && (is_folded(g, &a) || is_folded(g, &b))
+        && !ctor_against_field(&a, &b)
+        && !ctor_against_field(&b, &a)
+    {
         if let (Value::Neutral(Head::Def(i1), s1), Value::Neutral(Head::Def(i2), s2)) = (&a, &b)
             && i1 == i2
             && same_arguments(g, level, *i1, s1, s2)?
@@ -1628,8 +1641,19 @@ fn unify_step(
         | (n @ Value::Neutral(..), Value::Ctor(d, 0, fs))
             if has_eta(&g.ev, *d) && !NO_ETA.with(|c| c.get()) && !blocked(g, n)? =>
         {
+            // The fields of a call that computed to `n` are taken of the
+            // call ([`project_call`]): the same values, by definition, with
+            // the call kept in what they solve, as rule 2 keeps it.
+            let unforced = if std::ptr::eq(n, &a) {
+                unforced_a
+            } else {
+                unforced_b
+            };
             for (k, x) in fs.iter().enumerate().rev() {
-                let projected = project(*d, k, n.clone());
+                let projected = match unforced {
+                    call @ Value::Call(..) => project_call(*d, k, call.clone()),
+                    _ => project(*d, k, n.clone()),
+                };
                 work.push(if mode == Mode::Normal && proof_field(g, *d, 0, k) {
                     Task::Proof(level, x.clone(), projected)
                 } else {
@@ -1672,8 +1696,7 @@ fn same_field_records(
     if (d1, i1) != (d2, i2) {
         return Ok(false);
     }
-    let record =
-        |h: &Head, s: &Spine| Value::Neutral(*h, Spine::from(s[..s.len() - 1].to_vec()));
+    let record = |h: &Head, s: &Spine| Value::Neutral(*h, Spine::from(s[..s.len() - 1].to_vec()));
     let trail = g.store.meta_trail.borrow().len();
     let task = Task::Values(level, record(h1, s1), record(h2, s2));
     if nested(g, || run(g, vec![task], mode))? {
@@ -1705,7 +1728,8 @@ fn one_step_apart(g: &Unifier<'_>, level: usize, a: &Value, b: &Value) -> Result
     let (Value::Call(i1, s1, _), Value::Call(i2, s2, _)) = (a, b) else {
         return Ok(false);
     };
-    if i1 == i2 || !g.machine.glue.get() {
+    // Fields of calls aren't calls of their definition.
+    if i1 == i2 || !g.machine.glue.get() || is_call_field(s1) || is_call_field(s2) {
         return Ok(false);
     }
     let (head, spine, mut other) = match (unknown_argument(g, s1)?, unknown_argument(g, s2)?) {
@@ -1723,6 +1747,7 @@ fn one_step_apart(g: &Unifier<'_>, level: usize, a: &Value, b: &Value) -> Result
         other = unfold_once(g, *id, args.clone())?;
         if let Value::Call(id, args, _) = &other
             && *id == head
+            && !is_call_field(args)
         {
             return same_arguments(g, level, head, spine, args);
         }
@@ -2274,8 +2299,17 @@ fn rename(
         Value::Call(id, spine, unfolding) if !matches_at_once(g, id, &spine)? => {
             let mut term = Term::Def(id);
             let mut written = Ok(());
-            for (arg, icit) in call_args(&spine) {
-                match rename(g, m, renaming, dom, cod, &arg, true) {
+            for elim in spine.iter() {
+                let (arg, icit) = match elim {
+                    Elim::App(arg, icit) => (arg, *icit),
+                    // A field of a call ([`stitchwort_core::value::project_call`]).
+                    Elim::Proj(d, i) => {
+                        term = Term::Proj(*d, *i, Rc::new(term));
+                        continue;
+                    }
+                    Elim::J { .. } => unreachable!("a call's spine has no `J`"),
+                };
+                match rename(g, m, renaming, dom, cod, arg, true) {
                     Ok(arg) => term = Term::app_icit(term, arg, icit),
                     Err(e) => {
                         written = Err(e);

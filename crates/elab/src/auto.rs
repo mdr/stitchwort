@@ -557,6 +557,9 @@ fn size_from_member(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
         let Value::Call(_, spine, _) = &ty else {
             continue;
         };
+        if stitchwort_core::value::is_call_field(spine) {
+            continue;
+        }
         let args = stitchwort_core::value::call_args(spine);
         let Some((elem, _)) = args.first() else {
             continue;

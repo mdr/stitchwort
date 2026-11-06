@@ -43,7 +43,9 @@ pub enum Value {
     /// gluing ([`Machine::glue`](crate::machine::Machine::glue), docs/proposals/folded-calls.md). It means
     /// its unfolding, which [`force`] computes the first time something
     /// looks inside and every copy of the call then shares. The spine has
-    /// only applications.
+    /// an application for each parameter, then perhaps projections: a
+    /// field of the call's record ([`project_call`]), which means that
+    /// field of the unfolding.
     Call(DefId, Spine, Rc<Unfolding>),
     /// Only while running a partial computation (`step.rs`): the rest of a
     /// handled computation, captured where an operation reached its handler
@@ -59,19 +61,25 @@ pub enum Value {
 /// from another epoch may have used a metavariable solution that's since
 /// been taken back, so it's computed again; one from epoch 0 was made with
 /// no metavariables (by the kernel: `Def::ty_value`), so it holds in any.
+///
+/// For a call whose spine ends in a projection, `base` is the unfolding of
+/// the call without it, so the fields of one call share its unfolding.
 #[derive(Debug, Default)]
-pub struct Unfolding(std::cell::RefCell<Option<(u64, Value)>>);
+pub struct Unfolding {
+    value: std::cell::RefCell<Option<(u64, Value)>>,
+    base: Option<Rc<Unfolding>>,
+}
 
 impl Unfolding {
     fn get(&self, g: &Ev) -> Option<Value> {
-        match &*self.0.borrow() {
+        match &*self.value.borrow() {
             Some((epoch, value)) if *epoch == 0 || *epoch == g.metas.epoch() => Some(value.clone()),
             _ => None,
         }
     }
 
     fn set(&self, g: &Ev, value: Value) {
-        *self.0.borrow_mut() = Some((g.metas.epoch(), value));
+        *self.value.borrow_mut() = Some((g.metas.epoch(), value));
     }
 }
 
@@ -426,7 +434,7 @@ fn detach(value: Value, empty: &Rc<[Value]>, pending: &mut Vec<Value>) {
         }
         Value::Call(_, spine, unfolding) => {
             if let Ok(unfolding) = Rc::try_unwrap(unfolding)
-                && let Some((_, value)) = unfolding.0.into_inner()
+                && let Some((_, value)) = unfolding.value.into_inner()
             {
                 pending.push(value);
             }
@@ -575,8 +583,23 @@ pub fn force_solved(g: &Ev, value: Value) -> Result<Value> {
 /// Glued call `id spine` unfolded one step: its case tree run, the calls in
 /// what it returns kept as calls rather than forced.
 pub fn unfold_once(g: &Ev, id: DefId, spine: Spine) -> Result<Value> {
+    // A field of a call: that field of the call's step.
+    if let Some(&Elim::Proj(d, i)) = spine.last() {
+        let base = unfold_once(g, id, spine[..spine.len() - 1].iter().cloned().collect())?;
+        return match base {
+            call @ Value::Call(..) => Ok(project_call(d, i, call)),
+            other => Ok(project(d, i, force(g, other)?)),
+        };
+    }
     let start = unfold_now(g, id, spine, false)?;
     run(g, start)
+}
+
+/// Whether glued call spine `spine` is a field of a call ([`project_call`]):
+/// it ends in a projection. Code that reads a call as its definition
+/// applied to arguments ([`call_args`]) must not take such a call for one.
+pub fn is_call_field(spine: &[Elim]) -> bool {
+    matches!(spine.last(), Some(Elim::Proj(..)))
 }
 
 /// Whether glued call `id spine` takes a step at once by matching: its case
@@ -589,6 +612,14 @@ pub fn unfold_once(g: &Ev, id: DefId, spine: Spine) -> Result<Value> {
 /// `Succ (List.length xs)`, while `invalid r` or `List.length (f xs)` stay
 /// calls (docs/proposals/folded-calls.md, stage 3).
 pub fn matches_at_once(g: &Ev, id: DefId, spine: &Spine) -> Result<bool> {
+    // A field of a call ([`project_call`]) steps when the call does.
+    if is_call_field(spine) {
+        let call = spine
+            .iter()
+            .take_while(|e| matches!(e, Elim::App(..)))
+            .count();
+        return matches_at_once(g, id, &spine[..call].iter().cloned().collect());
+    }
     let def = g.def(id);
     let Some(body) = body_seen(g, id) else {
         return Ok(false);
@@ -611,7 +642,8 @@ pub fn matches_at_once(g: &Ev, id: DefId, spine: &Spine) -> Result<bool> {
     ))
 }
 
-/// A glued call's arguments, in order, with how each is passed.
+/// A glued call's arguments, in order, with how each is passed. Not for a
+/// field of a call ([`is_call_field`]), which isn't its definition applied.
 pub fn call_args(spine: &Spine) -> Vec<(Value, Icit)> {
     spine
         .iter()
@@ -799,6 +831,11 @@ enum Frame {
     AppTo(Value, Icit),
     /// The unfolding of a call, to force and then keep.
     Unfolded(Rc<Unfolding>, DefId),
+    /// The forced value of the call that field call `id spine` (spine
+    /// ending in projection `d`, `i`; [`project_call`]) takes field `i`
+    /// of, and whether it's been unfolded already if it was a folded call.
+    /// (Boxed: it's large, and rare.)
+    CallField(Box<(DataId, usize, DefId, Spine, bool)>),
 }
 
 #[cfg(any(test, feature = "reference"))]
@@ -866,10 +903,27 @@ fn force_call(
 ) -> Result<Control> {
     Ok(match unfolding.get(g) {
         Some(unfolded) => Control::Force(unfolded),
-        None => {
-            push(g, stack, Frame::Unfolded(unfolding, id))?;
-            unfold_now(g, id, spine, false)?
-        }
+        None => match spine.last() {
+            // A field of a call: the call without it, forced, then the field.
+            Some(&Elim::Proj(d, i)) => {
+                let base = Value::Call(
+                    id,
+                    spine[..spine.len() - 1].iter().cloned().collect(),
+                    unfolding.base.clone().unwrap_or_default(),
+                );
+                push(g, stack, Frame::Unfolded(unfolding, id))?;
+                push(
+                    g,
+                    stack,
+                    Frame::CallField(Box::new((d, i, id, spine, false))),
+                )?;
+                Control::Force(base)
+            }
+            _ => {
+                push(g, stack, Frame::Unfolded(unfolding, id))?;
+                unfold_now(g, id, spine, false)?
+            }
+        },
     })
 }
 
@@ -910,7 +964,7 @@ fn run(g: &Ev, mut control: Control) -> Result<Value> {
                 match &*node {
                     Term::Case(ix, ..) | Term::NumCase(ix, ..) => {
                         let scrutinee = env[env.len() - 1 - ix].clone();
-                        if needs_forcing(g, &scrutinee) || is_folded(g, &scrutinee) {
+                        if needs_forcing(g, &scrutinee) || folded_call(g, &scrutinee) {
                             push(
                                 g,
                                 &mut stack,
@@ -1342,7 +1396,7 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
             Control::Force(value)
         }
         // A folded call is taken apart: it unfolds.
-        Frame::LiftForced { term, env, stuck } if is_folded(g, &value) => {
+        Frame::LiftForced { term, env, stuck } if folded_call(g, &value) => {
             unfold_for(g, stack, value, Frame::LiftReady { term, env, stuck })?
         }
         Frame::LiftForced { term, env, stuck } | Frame::LiftReady { term, env, stuck } => {
@@ -1425,7 +1479,7 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
         }
         // A folded call is taken apart: it unfolds (in this machine, so a
         // proof made of many folded steps needs no Rust stack).
-        Frame::JForced { term, env } if is_folded(g, &value) => {
+        Frame::JForced { term, env } if folded_call(g, &value) => {
             unfold_for(g, stack, value, Frame::JReady { term, env })?
         }
         Frame::JForced { term, env } | Frame::JReady { term, env } => {
@@ -1453,14 +1507,52 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
                 other => panic!("internal error: J applied to {}", describe(&other)),
             }
         }
+        // A field of a glued call waits for the call, as rule 2's do.
+        Frame::ProjOf(d, i) if matches!(value, Value::Call(..)) => {
+            Control::Return(project_call(d, i, value))
+        }
         Frame::ProjOf(d, i) => {
             push(g, stack, Frame::ProjForced(d, i))?;
             Control::Force(value)
         }
-        Frame::ProjForced(d, i) if is_folded(g, &value) => {
+        Frame::ProjForced(d, i) if folded_call(g, &value) => {
             unfold_for(g, stack, value, Frame::ProjReady(d, i))?
         }
         Frame::ProjForced(d, i) | Frame::ProjReady(d, i) => Control::Return(project(d, i, value)),
+        Frame::CallField(field) if !field.4 && folded_call(g, &value) => {
+            let (d, i, id, spine, _) = *field;
+            unfold_for(
+                g,
+                stack,
+                value,
+                Frame::CallField(Box::new((d, i, id, spine, true))),
+            )?
+        }
+        Frame::CallField(field) => {
+            let (d, i, id, spine, _) = *field;
+            // A call that steps at once is named by its step, as it's read
+            // back (`(if True then x else y).i` is `x.i`).
+            if matches!(value, Value::Neutral(ref head, _) if !matches!(head, Head::Meta(_)))
+                && matches_at_once(g, id, &spine)?
+            {
+                return Ok(Control::Force(unfold_once(g, id, spine)?));
+            }
+            Control::Return(match value {
+                // Stuck, the field is the field call itself, as a folded call
+                // ([`is_folded`]): `(f x).i` stays in goals as that, as
+                // `f x` does, rather than as the projection of what `f x`
+                // computed to. It's a name for that projection, which is
+                // stuck too: the machine takes it apart as stuck, and a
+                // comparison that finds it different from something
+                // unfolds it to the projection first (`conv`, the
+                // unifier), so it's equal to exactly what that is. An
+                // unknown's field stays one, which the unifier can solve.
+                Value::Neutral(head, _) if !matches!(head, Head::Meta(_)) => {
+                    Value::Neutral(Head::Def(id), spine)
+                }
+                other => project(d, i, other),
+            })
+        }
         Frame::JMotive {
             term,
             env,
@@ -1482,7 +1574,7 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
             Control::Return(Value::Neutral(head, spine))
         }
         // A folded call is taken apart: it unfolds.
-        Frame::Scrutinee { tree, env, stuck } if is_folded(g, &value) => {
+        Frame::Scrutinee { tree, env, stuck } if folded_call(g, &value) => {
             unfold_for(g, stack, value, Frame::ScrutineeReady { tree, env, stuck })?
         }
         Frame::Scrutinee { tree, env, stuck } | Frame::ScrutineeReady { tree, env, stuck } => {
@@ -1495,7 +1587,7 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
                 Value::Neutral(Head::Def(i2), s2) if *i2 == id && s2.ptr_eq(&spine) => {
                     resume(g, next, value, stack)?
                 }
-                _ if is_folded(g, &value) => unfold_for(g, stack, value, next)?,
+                _ if folded_call(g, &value) => unfold_for(g, stack, value, next)?,
                 _ => {
                     push(g, stack, next)?;
                     Control::Force(value)
@@ -1515,6 +1607,18 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
                     },
                 )?;
                 apply_step(value, arg, icit)
+            }
+            // A field of a glued call waits for the call, as with `ProjOf`.
+            Some(&Elim::Proj(d, i)) if matches!(value, Value::Call(..)) => {
+                push(
+                    g,
+                    stack,
+                    Frame::Replay {
+                        spine,
+                        next: next + 1,
+                    },
+                )?;
+                Control::Return(project_call(d, i, value))
             }
             Some(Elim::J { .. } | Elim::Proj(..)) => {
                 push(g, stack, Frame::ReplayElim { spine, next })?;
@@ -1604,8 +1708,8 @@ fn branch(
     value: Value,
 ) -> Result<Control> {
     // A folded call was unfolded before this (`Frame::Scrutinee`).
-    let (d, branches) = match &*tree {
-        Term::Case(_, d, branches) => (d, branches),
+    let (d, branches, scrutinee) = match &*tree {
+        Term::Case(ix, d, branches) => (d, branches, &env[env.len() - 1 - ix]),
         Term::NumCase(_, arms, default) => {
             let next = match native::view(g, &value)? {
                 // A number: its arm, or the default.
@@ -1660,15 +1764,13 @@ fn branch(
         // `b.items`, which the unifier compares by their records). Not while
         // a program runs (its values are closed).
         //
-        // `n` is the scrutinee forced. The note (§6.4) asks for projections
-        // of the scrutinee as it was, so that a glued call stays a call in
-        // the fields (`(Set.map s f).items`, not the inside of `Set.map`'s
-        // unfolding); that needs a projection that waits on a call, which
-        // isn't built yet, and some `rewrite`s don't find their call
-        // without it (std `Set/Spec.sw`).
+        // The fields are projections of the scrutinee as it was (§6.4): a
+        // glued call stays a call in them ([`project_call`]), so a goal
+        // keeps `(Set.map s f).items` rather than the inside of `Set.map`'s
+        // unfolding. Both mean the same.
         n @ Value::Neutral(..) if eta_case(g, *d) => {
             let k = g.data(*d).ctors[0].fields.len();
-            (0, (0..k).map(|i| project(*d, i, n.clone())).collect())
+            (0, eta_fields(*d, k, scrutinee, n))
         }
         _ => return stuck_tree(g, stuck),
     };
@@ -1706,6 +1808,27 @@ pub fn project(d: DataId, i: usize, value: Value) -> Value {
     }
 }
 
+/// Field `i` of glued call `call`, of eta type `d`, still a call: `(f x).i`.
+/// Rule 2 binds a branch's fields to these when its scrutinee was a call
+/// that computed to a neutral (record-eta.md §6.4): projections of what it
+/// computed to would lose the call from goals, where `rewrite` and `match`
+/// look for it. It means `project(d, i, force(call))`, which forcing it
+/// computes ([`force_call`]), sharing the call's unfolding; so it's equal
+/// to that by definition, and two of them with the same definition,
+/// arguments and fields are equal (`same_spines`, which pairs the
+/// projections), as fields of equal values are.
+pub fn project_call(d: DataId, i: usize, call: Value) -> Value {
+    let Value::Call(id, mut spine, unfolding) = call else {
+        unreachable!("project_call takes a call")
+    };
+    spine.push(Elim::Proj(d, i));
+    let unfolding = Rc::new(Unfolding {
+        value: Default::default(),
+        base: Some(unfolding),
+    });
+    Value::Call(id, spine, unfolding)
+}
+
 /// Whether data type `d` has record eta. A type the environment doesn't hold
 /// (only unit tests build such values) has none.
 pub fn has_eta(g: &Ev, d: DataId) -> bool {
@@ -1716,6 +1839,18 @@ pub fn has_eta(g: &Ev, d: DataId) -> bool {
 /// record eta (rule 2, [`branch`]): `d` has eta and no program is running.
 fn eta_case(g: &Ev, d: DataId) -> bool {
     has_eta(g, d) && !g.machine.erasure.program_running()
+}
+
+/// Rule 2's `k` fields for a `case` on type `d` whose scrutinee was
+/// `unforced` and is the neutral `forced`: fields of the call if it was a
+/// glued call, else projections of the neutral.
+fn eta_fields(d: DataId, k: usize, unforced: &Value, forced: Value) -> Vec<Value> {
+    match unforced {
+        Value::Call(..) => (0..k)
+            .map(|i| project_call(d, i, unforced.clone()))
+            .collect(),
+        _ => (0..k).map(|i| project(d, i, forced.clone())).collect(),
+    }
 }
 
 /// What `value` is known not to be: something only for a variable on its
@@ -1859,23 +1994,14 @@ fn unfold_for(g: &Ev, stack: &mut Vec<Frame>, value: Value, next: Frame) -> Resu
     };
     let def = g.def(id);
     let body = def.body.as_ref().expect("checked by is_folded");
-    let args: Option<Vec<Value>> = spine
-        .iter()
-        .map(|e| match e {
-            Elim::App(v, _) => Some(v.clone()),
-            Elim::J { .. } | Elim::Proj(..) => None,
-        })
-        .collect();
-    let Some(args) = args else {
-        return resume(g, next, Value::Neutral(Head::Def(id), spine), stack);
-    };
+    let (args, call, _) = folded_parts(g, id, &spine);
     let tree = Term::peel_lams_rc(body, def.arity);
     push(
         g,
         stack,
-        Frame::Unfolding(Box::new((id, spine.clone(), next))),
+        Frame::Unfolding(Box::new((id, call.clone(), next))),
     )?;
-    Ok(Control::Tree(tree, args, Some((id, spine, false))))
+    Ok(Control::Tree(tree, args, Some((id, call, false))))
 }
 
 /// Whether `value` is a dictionary left folded by name ([`folds`]) that
@@ -1884,12 +2010,57 @@ fn unfold_for(g: &Ev, stack: &mut Vec<Frame>, value: Value, next: Frame) -> Resu
 /// or comparing it with something that isn't the same call with the same
 /// arguments, looks at its body (docs/proposals/map-equality.md §7.2: the
 /// policy changes what's shown and when things are computed, never what's
-/// equal).
+/// equal). Or a stuck field of a call, `(f x).i` (`Frame::CallField`): any
+/// definition applied to all its parameters, then projected, which is
+/// compared as what it unfolds to; the machine takes it apart as it is,
+/// stuck (as it does any stuck call, [`folded_call`]).
 pub fn is_folded(g: &Ev, value: &Value) -> bool {
+    match value {
+        Value::Neutral(Head::Def(id), spine) if is_call_field(spine) => {
+            let arity = g.def(*id).arity;
+            spine.len() > arity
+                && spine[..arity].iter().all(|e| matches!(e, Elim::App(..)))
+                && spine[arity..].iter().all(|e| matches!(e, Elim::Proj(..)))
+                && body_seen(g, *id).is_some()
+        }
+        _ => folded_call(g, value),
+    }
+}
+
+/// [`is_folded`] but for fields of calls: a folded call the machine unfolds
+/// to take it apart.
+fn folded_call(g: &Ev, value: &Value) -> bool {
     matches!(value, Value::Neutral(Head::Def(id), spine)
         if (folds(g, *id) || folds_on_lift(g, *id) || native::folds_mul(g, *id, spine))
             && spine.len() == g.def(*id).arity
             && body_seen(g, *id).is_some())
+}
+
+/// Folded call `id spine` ([`is_folded`]) as the call, of which it may be
+/// fields: its arguments, the spine of the call, and the projections taken
+/// of that, first first.
+fn folded_parts(g: &Ev, id: DefId, spine: &Spine) -> (Vec<Value>, Spine, Vec<(DataId, usize)>) {
+    let arity = g.def(id).arity;
+    let call: Spine = if spine.len() == arity {
+        spine.clone()
+    } else {
+        spine[..arity].iter().cloned().collect()
+    };
+    let args = call
+        .iter()
+        .map(|e| match e {
+            Elim::App(v, _) => v.clone(),
+            Elim::J { .. } | Elim::Proj(..) => unreachable!("checked by is_folded"),
+        })
+        .collect();
+    let fields = spine[arity..]
+        .iter()
+        .map(|e| match e {
+            Elim::Proj(d, i) => (*d, *i),
+            Elim::App(..) | Elim::J { .. } => unreachable!("checked by is_folded"),
+        })
+        .collect();
+    (args, call, fields)
 }
 
 /// Whether definition `id`, applied to all its parameters, stays folded when
@@ -1937,29 +2108,29 @@ pub fn unfold_folded(g: &Ev, value: &Value) -> Result<Option<Value>> {
         let Value::Neutral(Head::Def(id), spine) = v else {
             unreachable!()
         };
-        let (id, spine) = (*id, spine.clone());
+        let id = *id;
         let def = g.def(id);
         let body = def.body.as_ref().expect("checked by is_folded");
-        let args: Option<Vec<Value>> = spine
-            .iter()
-            .map(|e| match e {
-                Elim::App(v, _) => Some(v.clone()),
-                Elim::J { .. } | Elim::Proj(..) => None,
-            })
-            .collect();
-        let Some(args) = args else {
-            return Ok(current);
-        };
+        let (args, call, fields) = folded_parts(g, id, spine);
         let tree = Term::peel_lams_rc(body, def.arity);
-        let next = run(
+        let mut next = run(
             g,
-            Control::Tree(tree, args, Some((id, spine.clone(), false))),
+            Control::Tree(tree, args, Some((id, call.clone(), false))),
         )?;
         if let Value::Neutral(Head::Def(id2), s2) = &next
             && *id2 == id
-            && s2.ptr_eq(&spine)
+            && s2.ptr_eq(&call)
         {
             return Ok(current); // stuck
+        }
+        // A field of the call: the fields of its unfolding.
+        for (d, i) in fields {
+            let base = force(g, next)?;
+            let base = match unfold_folded(g, &base)? {
+                Some(unfolded) => force(g, unfolded)?,
+                None => base,
+            };
+            next = project(d, i, base);
         }
         current = Some(next);
     }
@@ -2125,10 +2296,12 @@ fn quote_as(
                 done.push(Term::Eq(Some(rc(ty)), rc(a), rc(b)));
             }
             QuoteTask::Spine(head, shape) => {
-                let n: usize = shape.iter().map(|s| s.parts()).sum();
+                let n = shape.iter().map(|s| s.parts()).sum::<usize>()
+                    + usize::from(matches!(head, SpineHead::Part));
                 let mut parts = done.split_off(done.len() - n).into_iter();
                 let (mut term, shape) = match head {
                     SpineHead::Term(term) => (term, &shape[..]),
+                    SpineHead::Part => (parts.next().expect("a head"), &shape[..]),
                     // The form's own arguments, then what applies its result.
                     SpineHead::Quot(form, k) => {
                         let args = parts.by_ref().take(k).map(Rc::new).collect();
@@ -2194,6 +2367,8 @@ impl SpineShape {
 /// The head of a neutral value being quoted.
 pub(crate) enum SpineHead {
     Term(Term),
+    /// The first part, quoted before the eliminations' parts.
+    Part,
     /// A quotient form, whose arguments are the first this many
     /// eliminations.
     Quot(QuotForm, usize),
@@ -2234,13 +2409,19 @@ fn visit(
     let value = if !mode.unfolds() {
         match force_solved(g, value)? {
             Value::Call(id, spine, _) if !matches_at_once(g, id, &spine)? => {
-                let args = call_args(&spine);
-                tasks.push(QuoteTask::Spine(
-                    SpineHead::Term(Term::Def(id)),
-                    args.iter().map(|(_, i)| SpineShape::App(*i)).collect(),
-                ));
-                for (v, _) in args.into_iter().rev() {
-                    tasks.push(QuoteTask::Visit(level, v));
+                let shapes = spine
+                    .iter()
+                    .map(|elim| match elim {
+                        Elim::App(_, i) => SpineShape::App(*i),
+                        Elim::Proj(d, i) => SpineShape::Proj(*d, *i),
+                        Elim::J { .. } => unreachable!("a call's spine has no `J`"),
+                    })
+                    .collect();
+                tasks.push(QuoteTask::Spine(SpineHead::Term(Term::Def(id)), shapes));
+                for elim in spine.iter().rev() {
+                    if let Elim::App(v, _) = elim {
+                        tasks.push(QuoteTask::Visit(level, v.clone()));
+                    }
                 }
                 return Ok(());
             }
@@ -2253,7 +2434,26 @@ fn visit(
             other => force(g, other)?,
         }
     } else {
-        force(g, value)?
+        let value = force(g, value)?;
+        // A stuck field of a call (`Frame::CallField`), `(f x).i`: the field
+        // of the call read back unfolded, as a field of anything else is.
+        if let Value::Neutral(Head::Def(id), spine) = &value
+            && is_call_field(spine)
+            && is_folded(g, &value)
+        {
+            let (_, call, fields) = folded_parts(g, *id, spine);
+            let shapes = fields
+                .iter()
+                .map(|&(d, i)| SpineShape::Proj(d, i))
+                .collect();
+            tasks.push(QuoteTask::Spine(SpineHead::Part, shapes));
+            tasks.push(QuoteTask::Visit(
+                level,
+                Value::Call(*id, call, Rc::default()),
+            ));
+            return Ok(());
+        }
+        value
     };
     match value {
         Value::Sort(s) => done.push(Term::Sort(s)),
@@ -2982,7 +3182,8 @@ fn walk_tree(g: &Ev, mut tree: Rc<Term>, mut env: Vec<Value>) -> Result<TreeEnd>
         let node = Term::strip_loc_rc(&tree);
         match &*node {
             Term::Case(ix, d, branches) => {
-                let scrutinee = force(g, env[env.len() - 1 - ix].clone())?;
+                let unforced = env[env.len() - 1 - ix].clone();
+                let scrutinee = force(g, unforced.clone())?;
                 match &scrutinee {
                     Value::Ctor(_, c, fields) => {
                         let Some(body) = branches[*c].body.clone() else {
@@ -2993,15 +3194,15 @@ fn walk_tree(g: &Ev, mut tree: Rc<Term>, mut env: Vec<Value>) -> Result<TreeEnd>
                     }
                     // Record eta's rule 2, as evaluation takes it (`branch`):
                     // so a tree is compared from where its call is stuck.
-                    Value::Neutral(..) if !is_folded(g, &scrutinee) && eta_case(g, *d) => {
+                    Value::Neutral(..) if !folded_call(g, &scrutinee) && eta_case(g, *d) => {
                         let Some(body) = branches[0].body.clone() else {
                             return Ok(TreeEnd::Other);
                         };
                         let k = g.data(*d).ctors[0].fields.len();
-                        env.extend((0..k).map(|i| project(*d, i, scrutinee.clone())));
+                        env.extend(eta_fields(*d, k, &unforced, scrutinee.clone()));
                         tree = body;
                     }
-                    Value::Neutral(..) if !is_folded(g, &scrutinee) => {
+                    Value::Neutral(..) if !folded_call(g, &scrutinee) => {
                         return Ok(TreeEnd::Stuck(node, env, scrutinee));
                     }
                     _ => return Ok(TreeEnd::Other),
@@ -3823,7 +4024,7 @@ fn same_layer<'v>(a: &'v Value, b: &'v Value, work: &mut Vec<Same<'v>>) -> bool 
                         work.push(Same::Values(b1, b2));
                     }
                     (Elim::Proj(d1, i1), Elim::Proj(d2, i2)) if d1 == d2 && i1 == i2 => {}
-                    _ => return false,
+                    (Elim::App(..) | Elim::J { .. } | Elim::Proj(..), _) => return false,
                 }
             }
             true
@@ -3840,12 +4041,30 @@ fn same_layer<'v>(a: &'v Value, b: &'v Value, work: &mut Vec<Same<'v>>) -> bool 
                     (Elim::App(x, i1), Elim::App(y, i2)) if i1 == i2 => {
                         work.push(Same::Values(x, y));
                     }
-                    _ => return false,
+                    (Elim::Proj(d1, j1), Elim::Proj(d2, j2)) if d1 == d2 && j1 == j2 => {}
+                    (Elim::App(..) | Elim::J { .. } | Elim::Proj(..), _) => return false,
                 }
             }
             true
         }
-        _ => false,
+        // Every other pair differs; listed by the left side so that a new kind
+        // of value is a compile error here.
+        (
+            Value::Sort(_)
+            | Value::Pi(..)
+            | Value::Lam(..)
+            | Value::Data(..)
+            | Value::Ctor(..)
+            | Value::Nat(_)
+            | Value::NatAdd(..)
+            | Value::Chars(_)
+            | Value::Eq(..)
+            | Value::Refl
+            | Value::Neutral(..)
+            | Value::Call(..)
+            | Value::Resumption(_),
+            _,
+        ) => false,
     }
 }
 
