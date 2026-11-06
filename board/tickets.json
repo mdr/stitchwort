@@ -9574,13 +9574,13 @@
     {
       "id": 1514,
       "title": "Completion after a bare xs. shows only the first 100 options alphabetically (all… first), hiding length/map until a letter is typed; rank by use or kind, or sort common members first",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1514",
       "labels": [
         "editor"
       ],
-      "body": "From SW-1504, 6 Nov 2026. Small improvement.",
+      "body": "From SW-1504, 6 Nov 2026. Small improvement.\n\nStarted overnight on Sonnet (SW-1514 with SW-1517), expected: 40 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -9616,13 +9616,13 @@
     {
       "id": 1517,
       "title": "Completion: Proj. lists nothing for a project's root prefix (Std. works)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1514",
       "labels": [
         "editor"
       ],
-      "body": "From SW-1503, 6 Nov 2026.",
+      "body": "From SW-1503, 6 Nov 2026.\n\nStarted overnight on Sonnet (SW-1514 with SW-1517), expected: 40 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
