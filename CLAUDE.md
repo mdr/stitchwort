@@ -151,7 +151,9 @@ Use the cheapest model that can do the work well. Provisional (D2208, Matt,
   (D2367). Prefer chaining forward with dots and pipes to nested brackets
   where it reads more naturally: `passes.map .seatId |> .sort |> gap`, not
   `(passes.map (.seatId)).sort |> gap`. Neither is absolute; brackets are
-  fine where they read better (Matt, 4 Nov 2026).
+  fine where they read better (Matt, 4 Nov 2026). Convert with the dot
+  form, `image.roughAt.toSet` (and `.toMap`), not `Set.fromList
+  image.roughAt` (Matt, 6 Nov 2026).
 - Before committing, run `stitchwort fmt` on the `.sw` files you touched,
   plus `cargo fmt` and clippy.
 

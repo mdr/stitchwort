@@ -1,5 +1,5 @@
 {
-  "next": 1594,
+  "next": 1595,
   "tickets": [
     {
       "id": 47,
@@ -10687,6 +10687,20 @@
         "diagnostics"
       ],
       "body": "Filed overnight 6 Nov 2026 from SW-1580 (2020 day 20).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1594,
+      "title": "Sweep: Set.fromList xs → xs.toSet and Map.fromList xs → xs.toMap at call sites (about 99 and 68 uses across aoc, examples, docs, std call sites); std's definitions and lemmas about fromList stay (Matt, 6 Nov 2026)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "style"
+      ],
+      "body": "Matt, 6 Nov 2026: 'I would much prefer we use .toSet where possible.' Now in CLAUDE.md's call-site bullet. Proofs that rewrite with Set.fromList lemmas may need the toSet form or an unfold; judge by end state (hashes will change).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
