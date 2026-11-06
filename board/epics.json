@@ -224,7 +224,8 @@
         "Globals split 8a-8f (SW-1186 to SW-1191)",
         "Proof irrelevance stage 1 and 2 (SW-93, SW-1429)",
         "Unifier fixes: one-step unfolding and arguments-from-conclusion (SW-1226, SW-1227)",
-        "Tail-resumptive and checked @[tailrec] (SW-1222, SW-1232)"
+        "Tail-resumptive and checked @[tailrec] (SW-1222, SW-1232)",
+        "Decision-match proposal decided: warn and document, not a new matching mode (SW-1694, D2525-D2527)"
       ],
       "now": [],
       "next": [
@@ -254,6 +255,8 @@
       ],
       "now": [],
       "next": [
+        "A warning when a match on a decision misses an if that tests it (SW-1719)",
+        "The not-found warning for unnamed matches (SW-1721)",
         "Missing-case follow-ups: number, Char, Int and Fin misses (SW-1034)",
         "Message batches: rewrite finds nothing, off-by-one parser lemma, a parameter hiding a function (SW-1511, SW-1522, SW-1498)",
         "Print list spreads as written (SW-1469); stop a match used only for its equation getting W-MATCH-NOT-FOUND (SW-1614)"

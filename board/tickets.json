@@ -1,5 +1,5 @@
 {
-  "next": 1719,
+  "next": 1722,
   "tickets": [
     {
       "id": 47,
@@ -12938,14 +12938,14 @@
     {
       "id": 1694,
       "title": "match on a decision (Nat.decLessThan) doesn't refine an if that became a plain Bool test on it; also generalise b when the scrutinee is Bool.decTrue b? Language design, would start as a proposal (SW-1688)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1694",
       "labels": [
         "proposal"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-1688, 6 Nov 2026. Workaround: match on the Bool.\n\nD2518 (Matt, 6 Nov 2026): proposal started, read-and-write only, Opus, expected: 60 min.\n\nProposal merged: docs/proposals/decision-match-refines-bool-if.md (f716ca643). Recommends (a): document matching on the condition, and a warning W-MATCH-DECISION-IF; reject (b) (breaks cellSomeInside), (c), (d1), (d2); backlog (d3). Waiting on D2525-D2527. Model result: Opus, worked, 6 min (est. 60).",
+      "body": "From SW-1688, 6 Nov 2026. Workaround: match on the Bool.\n\nD2518 (Matt, 6 Nov 2026): proposal started, read-and-write only, Opus, expected: 60 min.\n\nProposal merged: docs/proposals/decision-match-refines-bool-if.md (f716ca643). Recommends (a): document matching on the condition, and a warning W-MATCH-DECISION-IF; reject (b) (breaks cellSomeInside), (c), (d1), (d2); backlog (d3). Waiting on D2525-D2527. Model result: Opus, worked, 6 min (est. 60).\n\nDecisions (Matt, 6 Nov 2026, took the recommendations): D2525 yes, option (a) → SW-1719. D2526 yes, (b), (c), (d1), (d2) rejected. D2527 yes, (d3) to the backlog → SW-1720. Side finding → SW-1721.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -13303,6 +13303,51 @@
       ],
       "epic": "goal-as-written",
       "body": "Matt, 6 Nov 2026: asked for a comparative study alongside the SW-1712 review. Read and web only. Started on Opus, expected: 75 min.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1719,
+      "title": "[Sonnet] W-MATCH-DECISION-IF: warn when a match on a decision computing to Bool.decTrue b finds nothing but b is an if's condition (named or unnamed matches); docs/syntax.md, the guide and the proving guide teach matching on the condition (D2525)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "epic": "diagnostics",
+      "body": "D2525 (Matt, 6 Nov 2026): yes, option (a) of docs/proposals/decision-match-refines-bool-if.md (SW-1694). Expected: 2 h on Sonnet.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1720,
+      "title": "[Opus] Decision match narrows an if compiled to a Bool test: replace b only where it is an if's condition (option d3); reconsider if W-MATCH-DECISION-IF fires often (D2527)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "match"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "D2527 (Matt, 6 Nov 2026): backlog. See docs/proposals/decision-match-refines-bool-if.md (SW-1694). About a day on Opus, plus a whole-AoC run to confirm.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1721,
+      "title": "W-MATCH-NOT-FOUND never fires for unnamed matches (matching.rs:1509), so other silent misses go unreported (SW-1694)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "epic": "diagnostics",
+      "body": "From SW-1694, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
