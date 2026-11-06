@@ -9,17 +9,25 @@
 //! day 19) is not found at all. Here the same targets are read back folded
 //! (calls as calls, [`Ctx::quote_folded`]) from the values as bound, and a
 //! subterm is an occurrence if it has the scrutinee's head as written
-//! ([`key`]) and unifies with it, solving nothing.
+//! ([`key`]) and is equal to it by computation, solving nothing
+//! ([`Finder::occurrence`]). A scrutinee counts as found only where its
+//! variable survives the generalised target's unfolding: one found inside
+//! `keep 3 (isBig n)`, with `keep a b := a`, changes nothing the arms see.
 //!
 //! The result is kept only if it does what the usual test does, and more
 //! only where that test missed an occurrence written differently:
 //!
-//! 1. Every variable the usual test copies is copied here too.
+//! 1. **The copies.** Exactly the variables the usual test copies, plus one
+//!    whose generalised type, unfolded, still holds a scrutinee's variable
+//!    (an occurrence the usual test missed, which check 2 verifies), or
+//!    whose unfolded type mentions such a copy. Never an extra `let`: its
+//!    copy forgets the value (`let k: Ignore Nat (isBig n) := 5` would lose
+//!    `k = 5` in the arms).
 //! 2. **Completeness and the same instance.** Each generalised target (the
 //!    goal, and the type of each variable copied here), read back unfolded,
-//!    agrees with what the usual test makes of it ([`agrees`]): the same
+//!    agrees with what the usual test makes of it ([`Finder::agree`]): the same
 //!    term, except that where the usual result still has a subterm equal
-//!    (by unification, solving nothing) to a scrutinee, this one may have
+//!    (by computation, solving nothing) to a scrutinee, this one may have
 //!    the scrutinee's variable. So an occurrence hidden inside a call kept
 //!    folded, which the usual test replaces and this one can't see, makes
 //!    the two differ, and so does a call that computes on the scrutinee
@@ -91,7 +99,7 @@ pub(super) enum Outcome {
     /// The usual test found nothing anywhere; this did.
     Rescued,
     /// Found, but it disagrees with the usual test: a copy is hidden in a
-    /// call, or a variable the usual test copies isn't copied here.
+    /// call, or a scrutinee's type mentions an extra copy.
     Incomplete,
     /// Found nothing as written.
     Nothing,
@@ -138,7 +146,7 @@ pub(super) fn first(
         search(cx, exprs, today, goal, base, skip)
     });
     snapshot.restore(cx);
-    let written = match tried {
+    let outcome = match tried {
         Ok(Some(Ok(written))) => return Ok(Some(written)),
         Ok(Some(Err(outcome))) => outcome,
         // Over this attempt's own budget.
@@ -146,7 +154,7 @@ pub(super) fn first(
         Err(e) if fatal(&e) => return Err(e),
         Err(_) => Outcome::Failed,
     };
-    report(written, span);
+    report(outcome, span);
     Ok(None)
 }
 
@@ -181,8 +189,9 @@ fn search(
             false => cx.quote_folded(&cx.types[l]).map(Some),
         })
         .collect::<Result<Vec<_>>>()?;
+    let is_let: Vec<bool> = (0..base).map(|l| cx.lets[l].is_some()).collect();
     let unrefined: Vec<bool> = (0..base)
-        .map(|l| is_var(&cx.env[l], l) || cx.lets[l].is_some())
+        .map(|l| is_var(&cx.env[l], l) || is_let[l])
         .collect();
     let finder = Finder {
         cx: RefCell::new(cx),
@@ -193,49 +202,63 @@ fn search(
         error: RefCell::new(None),
     };
     let goal_generalised = finder.generalise(&g, &goal_written)?;
-    let mut found = vec![false; e];
-    for &i in finder.hits.borrow().iter() {
-        found[i] = true;
-    }
-    // The variables to copy, chosen as the usual test chooses them (by the
-    // folded types: a call's unfolding can only drop free variables, so this
-    // copies at least the dependents the unfolded types would give).
+    let Some(goal_unfolded) = finder.unfolded(&goal_generalised)? else {
+        return Ok(Err(Outcome::Incomplete));
+    };
+    // A scrutinee counts as found only where its variable survives
+    // unfolding: one found inside a call that drops it (`keep 3 (isBig n)`,
+    // with `keep a b := a`) replaces nothing the arms could see.
+    let mut found = finder.survivors(&goal_unfolded);
+    // The variables to copy: exactly those the usual test copies, plus,
+    // never a `let` (a copy forgets its value, SW-1628 review), one whose
+    // type unfolded still holds a scrutinee's variable (an occurrence the
+    // usual test missed, written differently, which check 2 verifies) or
+    // whose unfolded type mentions such a copy, as the usual test's rule for
+    // dependents reads it. A hit that vanishes on unfolding copies nothing.
     let mut copied: Vec<(usize, Term)> = Vec::new();
+    let mut unfolded_types: Vec<Term> = Vec::new();
     for (l, ty) in types_written.iter().enumerate() {
         let Some(ty) = ty else { continue };
         if !unrefined[l] {
             continue;
         }
+        let todays = today.copied.contains(&l);
         let before = finder.hits.borrow().len();
         let generalised = finder.generalise(&g, ty)?;
-        let hits = finder.hits.borrow()[before..].to_vec();
-        let depends = free_levels(ty, base)
+        let hit = finder.hits.borrow().len() > before;
+        let depends = free_levels(&today.type_terms[l], base)
             .iter()
             .any(|f| copied.iter().any(|(c, _)| c == f));
-        if !hits.is_empty() || depends {
-            for i in hits {
-                found[i] = true;
-            }
-            copied.push((l, generalised));
+        if !todays && (is_let[l] || (!hit && !depends)) {
+            continue;
         }
+        let Some(unfolded) = finder.unfolded(&generalised)? else {
+            return Ok(Err(Outcome::Incomplete));
+        };
+        let survivors = finder.survivors(&unfolded);
+        if !todays && !depends && !survivors.iter().any(|&s| s) {
+            continue;
+        }
+        for (f, s) in found.iter_mut().zip(survivors) {
+            *f |= s;
+        }
+        copied.push((l, generalised));
+        unfolded_types.push(unfolded);
     }
     if !found.iter().any(|&f| f) {
         return Ok(Err(Outcome::Nothing));
     }
-    // As in the usual test: a scrutinee's type can't mention a copy.
+    // As in the usual test: a scrutinee's type can't mention a copy (only
+    // an extra copy can make it, so this disagrees with the usual test).
     if exprs.iter().any(|s| {
         free_levels(&s.ty_term, base)
             .iter()
             .any(|f| copied.iter().any(|(c, _)| c == f))
     }) {
-        return Ok(Err(Outcome::Failed));
+        return Ok(Err(Outcome::Incomplete));
     }
     let todays_found = !today.copied.is_empty()
         || (today.occurrences.iter().flatten()).any(|n| super::occurs(n, today.goal_term));
-    // Check 1.
-    if (today.copied.iter()).any(|l| !copied.iter().any(|(c, _)| c == l)) {
-        return Ok(Err(Outcome::Incomplete));
-    }
     // Check 2, on the goal and every copy's type.
     let todays = Generalise {
         base,
@@ -243,12 +266,12 @@ fn search(
         exprs: today.occurrences,
         copies: &Default::default(),
     };
-    let mut pairs = vec![(&goal_generalised, todays.apply(&g, today.goal_term)?)];
-    for (l, ty) in &copied {
-        pairs.push((ty, todays.apply(&g, &today.type_terms[*l])?));
+    let mut pairs = vec![(goal_unfolded, todays.apply(&g, today.goal_term)?)];
+    for ((l, _), unfolded) in copied.iter().zip(unfolded_types) {
+        pairs.push((unfolded, todays.apply(&g, &today.type_terms[*l])?));
     }
-    for (written, usual) in pairs {
-        if !finder.agrees(&g, written, &usual)? {
+    for (unfolded, usual) in pairs {
+        if !finder.agree(&g, &unfolded, &usual, 0)? {
             return Ok(Err(Outcome::Incomplete));
         }
     }
@@ -332,14 +355,14 @@ impl Finder<'_, '_> {
     }
 
     /// Whether `t`, under `under` binders of a target in the `match`'s
-    /// context, is scrutinee `i`: the same term, or one that unifies with
-    /// it solving nothing (no unknown solved, made or left waiting). One
-    /// that would solve something to match is not an occurrence: the usual
-    /// test's syntactic comparison never solves anything, and a choice made
-    /// by solving could differ from it.
+    /// context, is scrutinee `i`: the same term, or one equal to it by
+    /// computation ([`Ctx::conv_now`], up to eta), which solves nothing,
+    /// postpones nothing and makes no unknown. One that would need an
+    /// unknown solved to match is not an occurrence: the usual test's
+    /// syntactic comparison never solves anything, and a choice made by
+    /// solving could differ from it.
     fn occurrence(&self, i: usize, t: &Term, under: usize) -> Result<bool> {
-        let mut cx = self.cx.borrow_mut();
-        let cx: &mut Ctx = &mut cx;
+        let cx = self.cx.borrow();
         let g = cx.g();
         let level = cx.level();
         let candidate = if under == 0 {
@@ -357,53 +380,60 @@ impl Finder<'_, '_> {
         if same(&candidate, &needle.written) {
             return Ok(true);
         }
-        let snapshot = Snapshot::take(cx);
-        let waiting = cx.e.attempt.queue.len();
-        let unified = cx
+        match cx
             .eval(&candidate)
-            .and_then(|value| cx.unify(&value, &needle.value));
-        let quiet = snapshot.solved_since(cx).is_empty()
-            && cx.metas().metas.borrow().len() == snapshot.metas()
-            && cx.e.attempt.queue.len() == waiting;
-        snapshot.restore(cx);
-        match unified {
-            Ok(unified) => Ok(unified && quiet),
+            .and_then(|value| cx.conv_now(&value, &needle.value))
+        {
+            Ok(equal) => Ok(equal),
             Err(e) if fatal(&e) => Err(e),
             Err(_) => Ok(false),
         }
     }
 
-    /// Check 2: whether `written` (a generalised target as written), read
-    /// back unfolded, agrees with `usual` (the usual test's generalisation
-    /// of the same target, read back unfolded), both in `depth` variables.
+    /// `written` (a generalised target, in `depth` variables) read back
+    /// unfolded, in the same variables; `None` if the read-back isn't the
+    /// shape it should be.
+    fn unfolded(&self, written: &Term) -> Result<Option<Term>> {
+        let e = self.depth - self.base;
+        let cx = self.cx.borrow();
+        // Under a binder per scrutinee, so that `eval` and `quote` see them
+        // as variables.
+        let mut lambdas = written.clone();
+        for _ in 0..e {
+            lambdas = Term::Lam("s".into(), Icit::Explicit, Rc::new(lambdas));
+        }
+        let mut body = cx.quote(&cx.eval(&lambdas)?)?;
+        for _ in 0..e {
+            let Term::Lam(_, _, inner) = &body else {
+                return Ok(None);
+            };
+            body = inner.as_ref().clone();
+        }
+        Ok(Some(body))
+    }
+
+    /// Which scrutinees' variables occur in `unfolded` (in `depth`
+    /// variables).
+    fn survivors(&self, unfolded: &Term) -> Vec<bool> {
+        let mut out = vec![false; self.depth - self.base];
+        for level in free_levels(unfolded, self.depth) {
+            if level >= self.base {
+                out[level - self.base] = true;
+            }
+        }
+        out
+    }
+
+    /// Check 2: whether `a` (a generalised target as written, read back
+    /// unfolded by [`Finder::unfolded`]) agrees with `b` (the usual test's
+    /// generalisation of the same target), both in `depth` variables, `a`
+    /// and `b` being subterms under `under` binders of the target.
     ///
     /// Both are read back by the same rules from the same goal, so where
     /// they abstract the same subterms they are the same term. Where they
-    /// differ, `written` may have a scrutinee's variable where `usual` has a
-    /// subterm that is that scrutinee written otherwise (an occurrence the
+    /// differ, `a` may have a scrutinee's variable where `b` has a subterm
+    /// that is that scrutinee written otherwise (an occurrence the
     /// syntactic test missed); any other difference fails.
-    fn agrees(&self, g: &Ev, written: &Term, usual: &Term) -> Result<bool> {
-        let e = self.depth - self.base;
-        let unfolded = {
-            let cx = self.cx.borrow();
-            // Under a binder per scrutinee, so that `eval` and `quote` see
-            // them as variables.
-            let mut lambdas = written.clone();
-            for _ in 0..e {
-                lambdas = Term::Lam("s".into(), Icit::Explicit, Rc::new(lambdas));
-            }
-            let mut body = cx.quote(&cx.eval(&lambdas)?)?;
-            for _ in 0..e {
-                let Term::Lam(_, _, inner) = &body else {
-                    return Ok(false);
-                };
-                body = inner.as_ref().clone();
-            }
-            body
-        };
-        self.agree(g, &unfolded, usual, 0)
-    }
-
     fn agree(&self, g: &Ev, a: &Term, b: &Term, under: usize) -> Result<bool> {
         if super::same(a, b) {
             return Ok(true);

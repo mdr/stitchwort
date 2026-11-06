@@ -1,6 +1,5 @@
 ---
 source: crates/cli/tests/examples.rs
-assertion_line: 666
 expression: output
 ---
 [E-CASES] Error: `cases` can't close the case b = True

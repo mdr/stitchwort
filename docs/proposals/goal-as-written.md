@@ -487,12 +487,19 @@ terms (different motives), so they get an Opus review (D2364).
    occurrence written differently, day 19). That also catches a closed scrutinee that computes
    to a constructor (`match h: isBig 20` on `pick (isBig 20) = 1`: today's goal is `1 = 1`, the
    folded one would be `pick x = 1`), which "no copy left" would let through and which would
-   change the arms. Every variable today copies must be copied too, and the folded motive must
-   type-check now (also for `cases`), else today's generalisation, unchanged. Counts under
-   `STITCHWORT_MATCH_METRICS`.
+   change the arms. A scrutinee counts as found only where its variable survives the target's
+   unfolding (not inside `keep 3 (isBig n)` with `keep a b := a`). The copies are exactly
+   today's, plus a variable whose generalised type unfolded still holds the scrutinee's variable
+   (or mentions such a copy), never a `let`, whose copy would forget its value (the Opus
+   review's `let k: Ignore Nat (isBig n) := 5`). The folded motive must type-check now (also for
+   `cases`), and any error on the path falls back: today's generalisation, unchanged. Counts
+   under `STITCHWORT_MATCH_METRICS`.
 3. **SW-1538's transport on the folded forms** (SW-1562), after SW-1604's fixes to the same
    function: test the scrutinee as written against `found` and `expected` read back folded,
-   then today's test. Sonnet, 45 min.
+   then today's test. Sonnet, 45 min. Known gap until then (accepted under D2476): with stage 2
+   a `match found: xs.map (f a)` now refines a goal written `xs.map (y => f a y)`, so a lemma
+   stated in that eta form and used in the arms no longer fits the refined goal, and the
+   transport, still syntactic, doesn't rewrite it back (the review's `a4.sw`).
 4. **A bounded completeness check (Q5).** When the check's unfolded read-back runs out, use the
    folded result, with a note, where today ends in E-RESOURCE (day 11's `settle … 1000`).
    After 2; 45 min.

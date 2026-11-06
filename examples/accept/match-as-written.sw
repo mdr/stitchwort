@@ -60,3 +60,31 @@ theorem armsKeepCalls (doubled: (n: Nat) → double n = 2 * n) (flag: Bool) (a: 
   match e: flag with
     | True => rewrite doubled a in rfl
     | False => rfl
+
+def Ignore (a: Type) (b: Bool): Type := a
+
+-- `k`'s type mentions `isBig n` only as written (it computes to `Nat`), so
+-- the search over the computed goal doesn't copy `k`, and neither does the
+-- one as written: a copy would forget that `k` is 5.
+theorem letKept (n: Nat): pick (isBig n) ≤ 1 :=
+  let k: Ignore Nat (isBig n) := 5
+  match e: isBig n with
+    | True => (let same: k = 5 := rfl; omega)
+    | False => (let same: k = 5 := rfl; omega)
+
+def bump (n: Nat): Nat :=
+  let k: Ignore Nat (isBig n) := 5
+  match e: isBig n with
+    | True => k
+    | False => k + 1
+
+theorem bumpValue: bump 20 = 5 := rfl
+
+def keep (a: Nat) (b: Bool): Nat := a
+
+-- `isBig n` is shown, but `keep` drops it, so nothing the arms see would
+-- change: not found, and the warning says so.
+theorem vanishing (n: Nat): keep 3 (isBig n) = 3 :=
+  match e: isBig n with
+    | True => rfl
+    | False => rfl

@@ -983,8 +983,14 @@ fn generalised_now(
     let snapshot = crate::undo::Snapshot::take(cx);
     let mut kept = None;
     if let Some(w) = &written {
-        let bound = bind_generalised(cx, &exprs, &today, Some(w), base)?;
-        if motive_checks_now(cx, base, &bound.extra, &bound.motive, span)? {
+        // Any error on this path but running out of resources falls back.
+        let bound = crate::undo::attempt(cx, |cx| {
+            let bound = bind_generalised(cx, &exprs, &today, Some(w), base)?;
+            let checks = motive_checks_now(cx, base, &bound.extra, &bound.motive, span)?;
+            Ok(checks.then_some(bound))
+        })?
+        .flatten();
+        if let Some(bound) = bound {
             as_written::report(w.outcome, span);
             // Found as written, so not "not found".
             not_found.retain(|(i, _)| !w.found[*i]);
@@ -1402,26 +1408,7 @@ fn check_motive(
     motive: &Value,
     span: stitchwort_syntax::Span,
 ) -> Result<bool> {
-    // The type it would have if it used every variable the `match` added
-    // (the body is only looked at for the variables it mentions).
-    let draft = Draft {
-        meta: usize::MAX,
-        span,
-        env: cx.env.clone(),
-        types: cx.types.clone(),
-        names: cx.names.clone(),
-        base,
-        extra: extra.to_vec(),
-        body: uses_all(base, cx.level()),
-        goal: cx.quote(motive)?,
-        kinds: cx.kinds.clone(),
-        lets: cx.lets.clone(),
-        order: cx.order.clone(),
-        local: None,
-        update: None,
-        motive_later: false,
-        columns: None,
-    };
+    let draft = motive_draft(cx, base, extra, cx.quote(motive)?, span);
     match cx.e.lifted_type(&draft) {
         Ok(ty) => motive_holds(cx.e, &ty, span).map(|()| false),
         Err(d) if crate::undo::fatal(&d) => Err(d),
@@ -1433,6 +1420,36 @@ fn check_motive(
             crate::queue::note_motive_later(cx.e);
             Ok(true)
         }
+    }
+}
+
+/// The draft of a generalised `match`'s helper that uses every variable
+/// the `match` added, with motive `goal`: its type is the whole motive (the
+/// body is only looked at for the variables it mentions).
+fn motive_draft(
+    cx: &Ctx,
+    base: usize,
+    extra: &[Term],
+    goal: Term,
+    span: stitchwort_syntax::Span,
+) -> Draft {
+    Draft {
+        meta: usize::MAX,
+        span,
+        env: cx.env.clone(),
+        types: cx.types.clone(),
+        names: cx.names.clone(),
+        base,
+        extra: extra.to_vec(),
+        body: uses_all(base, cx.level()),
+        goal,
+        kinds: cx.kinds.clone(),
+        lets: cx.lets.clone(),
+        order: cx.order.clone(),
+        local: None,
+        update: None,
+        motive_later: false,
+        columns: None,
     }
 }
 
@@ -1448,24 +1465,7 @@ fn motive_checks_now(
     motive: &Value,
     span: stitchwort_syntax::Span,
 ) -> Result<bool> {
-    let draft = Draft {
-        meta: usize::MAX,
-        span,
-        env: cx.env.clone(),
-        types: cx.types.clone(),
-        names: cx.names.clone(),
-        base,
-        extra: extra.to_vec(),
-        body: uses_all(base, cx.level()),
-        goal: cx.quote_folded(motive)?,
-        kinds: cx.kinds.clone(),
-        lets: cx.lets.clone(),
-        order: cx.order.clone(),
-        local: None,
-        update: None,
-        motive_later: false,
-        columns: None,
-    };
+    let draft = motive_draft(cx, base, extra, cx.quote_folded(motive)?, span);
     let ty = match cx.e.lifted_type(&draft) {
         Ok(ty) => ty,
         Err(d) if crate::undo::fatal(&d) => return Err(d),
