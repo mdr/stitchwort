@@ -124,6 +124,9 @@ Use the cheapest model that can do the work well. Provisional (D2208, Matt,
 ## Lane agents
 
 - Work only in your worktree and branch. Don't merge into `main` or push.
+  Don't use `git stash`: every worktree shares one stash list, so a
+  `stash pop` can take another lane's work (SW-1612). Commit, or keep a
+  patch file in the scratchpad.
 - Move your own ticket as described in `board/README.md`, and report what
   you did, what you didn't do, and which tests you ran.
 - Keep to your brief's time estimate: run `date` at the start and at each
