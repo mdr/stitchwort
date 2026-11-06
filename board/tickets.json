@@ -10106,13 +10106,13 @@
     {
       "id": 1552,
       "title": "Aoc.Common.Life: generic count-map step with countsActive and cycleActive, given a neighbour-counting fact; for 2020 day 24 (day 17)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1552",
       "labels": [
         "aoc"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).\n\nStarted overnight on Sonnet, expected: 50 min.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).\n\nStarted overnight on Sonnet, expected: 50 min.\n\nDone, merged: Aoc.Common lifeCounts, lifeStep; countsActive (count kept = live cells adjacent, given (neighbours a).count (== b) = toNat (adjacent a b)); stepActive (after the step, cell alive ↔ rule (alive?) (count), given rule _ 0 = False). Tests incl. a hex rule (day 24). Day 17's statements unchanged, 12 lines fewer. Orchestrator checked the statements (D2436). Model result: Sonnet, worked, 7 min (est. 50).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
