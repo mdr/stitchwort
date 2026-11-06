@@ -2911,11 +2911,7 @@ fn members_at(
         }
     };
     drop(session);
-    let items: Vec<lsp_types::CompletionItem> = found
-        .unwrap_or_default()
-        .iter()
-        .map(|n| complete::name_item(n, '1'))
-        .collect();
+    let items = complete::member_items(&found.unwrap_or_default());
     serde_json::to_value(items).unwrap_or_default()
 }
 

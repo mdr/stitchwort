@@ -417,6 +417,13 @@ fn labels(items: &[Value]) -> Vec<&str> {
     items.iter().map(|i| i["label"].as_str().unwrap()).collect()
 }
 
+/// The labels in the order the editor lists them: by `sortText`.
+fn in_order(items: &[Value]) -> Vec<&str> {
+    let mut items: Vec<&Value> = items.iter().collect();
+    items.sort_by_key(|i| i["sortText"].as_str().unwrap_or(""));
+    items.iter().map(|i| i["label"].as_str().unwrap()).collect()
+}
+
 fn item<'i>(items: &'i [Value], label: &str) -> &'i Value {
     items
         .iter()
@@ -499,13 +506,23 @@ fn completion_after_a_dot_offers_the_receivers_members() {
             !shown.contains(&"Cons") && !shown.contains(&"replicate"),
             "{shown:?}"
         );
-        // A record: its fields and its namespace's functions.
-        let typing = MEMBERS.replace("  xs.length + s.area\n", "  xs.length + s.ar\n");
+        // Functions before theorems, shorter names first, then by name.
+        let ordered = in_order(&items);
+        let at = |name: &str| ordered.iter().position(|l| *l == name).unwrap();
+        assert!(
+            at("map") < at("filter") && at("filter") < at("length"),
+            "{ordered:?}"
+        );
+        assert!(
+            at("length") < at("lengthMap") && at("length") < 60,
+            "{ordered:?}"
+        );
+        assert!(ordered[..3].iter().all(|l| l.len() <= 3), "{ordered:?}");
+        // A record: its fields first, then its namespace's functions.
+        let typing = MEMBERS.replace("  xs.length + s.area\n", "  s.\n");
         s.change(3, &typing);
-        let items = s.complete_at_end(&typing, 8, None);
-        for name in ["area", "width", "height"] {
-            item(&items, name);
-        }
+        let items = s.complete_at_end(&typing, 8, Some("."));
+        assert_eq!(&in_order(&items)[..3], ["width", "height", "area"]);
     });
 }
 
@@ -580,6 +597,14 @@ fn completion_after_a_dot_in_a_project_checks_only_what_the_namespace_needs() {
         s.change(3, &typing);
         let items = s.complete_at_end(&typing, 3, Some("."));
         item(&items, "value");
+        // The project's root prefix: its namespaces, though the file
+        // doesn't use them.
+        let typing = main.replace("b.twice", "Proj.");
+        s.change(4, &typing);
+        let items = s.complete_at_end(&typing, 3, Some("."));
+        for name in ["Base", "Other", "Main"] {
+            assert_eq!(item(&items, name)["kind"], 9, "{:?}", labels(&items));
+        }
     });
 }
 

@@ -884,6 +884,7 @@ fn find_in_view(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<Lo
                 // A field of a dictionary is its record's own projection, not
                 // the method of that name (docs/proposals/interfaces.md §5.1).
                 if let TyHead::Data(d) = h
+                    && cx.e.kernel.data(d).record()
                     && let Some(info) = cx.e.tables.interfaces.get(&d)
                     && let Some(i) = g.data(d).ctors()[0]
                         .fields
@@ -948,6 +949,7 @@ fn find_in_view(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<Lo
                     None => {}
                 }
                 if let TyHead::Data(d) = h
+                    && cx.e.kernel.data(d).record()
                     && g.data(d).record()
                     && g.data(d).ctors()[0]
                         .fields
@@ -967,6 +969,7 @@ fn find_in_view(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<Lo
                 // A field some constructors have, that isn't shared
                 // (docs/proposals/variant-fields.md §5.3).
                 if let TyHead::Data(d) = h
+                    && cx.e.kernel.data(d).record()
                     && !g.data(d).record()
                     && let Some((message, note)) =
                         cx.e.unshared_member(d, &field.text, &shown(recv))
@@ -2189,7 +2192,13 @@ fn receiver_members(cx: &mut Ctx, recv: &Expr) -> Result<Vec<crate::nav::ScopeNa
                 keys.push((m, extension.clone()));
             }
         }
-        keys.sort();
+        // The type's own namespace before the extensions.
+        keys.sort_by_key(|(name, key)| {
+            (
+                key.strip_suffix(name.as_str()) != Some(prefix.as_str()),
+                name.clone(),
+            )
+        });
         for (name, key) in keys {
             if out.iter().any(|n| n.name == name) || cx.e.tables.helper_keys.contains_key(&key) {
                 continue;
@@ -2206,7 +2215,15 @@ fn receiver_members(cx: &mut Ctx, recv: &Expr) -> Result<Vec<crate::nav::ScopeNa
                 _ => false,
             };
             if fits {
-                out.push(cx.e.scope_name(name, &key, global, false));
+                let mut found = cx.e.scope_name(name, &key, global, false);
+                if let TyHead::Data(d) = h
+                    && cx.e.kernel.data(d).record()
+                    && (cx.e.kernel.data(d).ctors().iter())
+                        .any(|c| c.fields.iter().any(|(f, _)| **f == *found.name))
+                {
+                    found.kind = "field";
+                }
+                out.push(found);
             }
         }
     }

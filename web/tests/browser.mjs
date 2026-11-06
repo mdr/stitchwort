@@ -790,8 +790,9 @@ test("typing a dot after a List offers its members (through the search worker)",
   // The server checks a copy of the file with a dummy in place of the member: a few seconds.
   await page.until(`!!document.querySelector(".cm-tooltip-autocomplete")`, 60000, "the member list");
   const labels = await completions(page);
-  assert.ok(labels.includes("all"), `offered ${JSON.stringify(labels.slice(0, 10))}`);
-  // Typing more narrows it (the list shows only the first hundred), and accepting inserts the member.
+  // The list shows only the first hundred, the common functions first (shorter names, then theorems).
+  assert.ok(labels.includes("map") && labels.includes("length"), `offered ${JSON.stringify(labels.slice(0, 10))}`);
+  // Typing more narrows it, and accepting inserts the member.
   await page.type("len");
   await page.until(`(() => { const l = document.querySelector(".cm-tooltip-autocomplete"); return l && l.innerText.includes("length"); })()`, 30000, "the narrowed list");
   const narrowed = await completions(page);

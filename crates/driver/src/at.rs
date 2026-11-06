@@ -636,7 +636,7 @@ impl Session {
         line: u32,
         character: u32,
     ) -> Option<Context> {
-        let text = self.probe_project(project, files, path, cache, |e, file, text| {
+        let (text, _) = self.probe_project(project, files, path, cache, |e, file, text| {
             e.probe_context(file, offset_at(text, line, character) as u32);
         })?;
         self.probed(&text)
@@ -675,10 +675,35 @@ impl Session {
         cache: Option<&std::path::Path>,
         dot: usize,
     ) -> Option<Vec<ScopeName>> {
-        self.probe_project(project, files, path, cache, |e, file, _| {
-            e.probe_members(file, (dot + 1) as u32);
-        })?;
-        self.elab.take_probed_members()
+        let (text, namespaces) =
+            self.probe_project(project, files, path, cache, |e, file, _| {
+                e.probe_members(file, (dot + 1) as u32);
+            })?;
+        let mut found = self.elab.take_probed_members()?;
+        // After a prefix of the project's namespaces (`Proj.`), those under
+        // it, though the file's namespace doesn't use them and they aren't
+        // loaded.
+        let written = text[..dot]
+            .rsplit(|c: char| !(c.is_alphanumeric() || c == '_' || c == '\'' || c == '.'))
+            .next()
+            .unwrap_or_default();
+        for ns in &namespaces {
+            let Some(under) = ns.strip_prefix(&format!("{written}.")) else {
+                continue;
+            };
+            let name = under.split('.').next().unwrap_or_default();
+            if !written.is_empty() && !found.iter().any(|n| n.name == name) {
+                found.push(ScopeName {
+                    name: name.to_string(),
+                    key: format!("{written}.{name}"),
+                    kind: "namespace",
+                    ty: None,
+                    own: false,
+                    import: None,
+                });
+            }
+        }
+        Some(found)
     }
 
     /// Loads what the namespace of the project's file `path` uses, and that
@@ -691,7 +716,7 @@ impl Session {
         path: &str,
         cache: Option<&std::path::Path>,
         probe: impl FnOnce(&stitchwort_elab::Elaborator, stitchwort_syntax::FileId, &str),
-    ) -> Option<String> {
+    ) -> Option<(String, Vec<String>)> {
         if let Some(dir) = cache {
             self.use_check_cache(dir);
         }
@@ -716,7 +741,10 @@ impl Session {
         // which the file id keys.
         probe(&self.elab, file_id, &text);
         self.load_for_probe(project, &analysis, &ns).ok()?;
-        Some(text)
+        Some((
+            text,
+            analysis.namespaces.iter().map(|n| n.name.clone()).collect(),
+        ))
     }
 }
 
