@@ -215,8 +215,11 @@ def Image.roughnessWith (image: Image) (monster: Image): Nat := (Set.fromList im
 --| copies in one).
 def Image.monsterTurned (image: Image): Option Image := seaMonster.orientations.find (monster => (image.monsterPixels monster).size > 0)
 
+--| The rough pixels in no sea monster, turned as `turned` says; all of
+--| them if there are no sea monsters.
+def Image.roughnessFor (image: Image): (turned: Option Image) → Nat
+  | Some monster => image.roughnessWith monster
+  | None => (Set.fromList image.roughAt).size
+
 --| The rough pixels in no sea monster, turned the way the image has them.
-def Image.roughness (image: Image): Nat :=
-  match image.monsterTurned with
-    | Some monster => image.roughnessWith monster
-    | None => (Set.fromList image.roughAt).size
+def Image.roughness (image: Image): Nat := image.roughnessFor image.monsterTurned

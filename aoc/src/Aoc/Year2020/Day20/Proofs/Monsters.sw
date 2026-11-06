@@ -155,3 +155,17 @@ theorem roughnessExactly (image: Image) (monster: Image) (cells: List (List Nat)
     forward = numbered => rewrite (counted.forward numbered) in omega,
     backward = same => counted.backward (omega)
   }
+
+theorem someMember [auto ord: Ord k] (set: Set k) (nonEmpty: (set.size > 0) = True): ∃ (key: k) => set.contains key = True :=
+  match listed: set.toList with
+    | [] => Void.exfalso (Bool.falseNotTrue (rewrite Set.sizeToList set, listed at nonEmpty in nonEmpty))
+    | [key, ..rest] => Witness key ((Set.memToList set key).forward (rewrite listed in Inl rfl))
+
+--| The orientation part 2 counts with is one of the sea monster's, and the
+--| image has a sea monster that way round.
+theorem roughnessTurned (image: Image) (monster: Image) (found: image.monsterTurned = Some monster):
+    image.roughness = image.roughnessWith monster ∧ monster ∈ seaMonster.orientations ∧ ∃ (at: List Nat) => Spec.Covered image monster at :=
+  match List.findSome seaMonster.orientations (turned => (image.monsterPixels turned).size > 0) monster found with
+    | Both some member =>
+      match someMember (image.monsterPixels monster) some with
+        | Witness at covered => Both (Eq.cong image.roughnessFor found) (Both member (Witness at ((monsterPixelsIff image monster at).forward covered)))
