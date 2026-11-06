@@ -60,10 +60,15 @@ theorem anyEmpty (lefts: List (List Char)) (any: lefts.any .isEmpty = True): [] 
       | [] => member
       | [letter, ..rest] => Void.exfalso (Bool.falseNotTrue empty))
 
+--| `matchesCompletely` reads the rules from a table, but the list gives its answer.
+theorem matchesCompletelyList (rules: Rules) (message: Message):
+    rules.matchesCompletely message = (rules.leftAfter (rules.enough message) 0 message.letters |> .any .isEmpty) :=
+  rewrite leftAfterSame (ruleTable rules.numbered).get rules.rule (tableRule rules) (rules.enough message) 0 message.letters in rfl
+
 theorem matchesCompletelyCorrect (rules: Rules) (productive: rules.productive = True) (message: Message):
     rules.matchesCompletely message = True ↔ MatchesCompletely rules message :=
   let ranked := productiveRanked rules rules.rank rules.rankBound (rankBelow rules) productive
-  {
+  rewrite matchesCompletelyList rules message in {
     forward = matches =>
       match sound rules (rules.enough message) 0 message.letters [] (anyEmpty _ matches) with
         | Witness read (Both split leads) => rewrite split in leads [] [] MatchesNothing,
