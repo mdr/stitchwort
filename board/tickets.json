@@ -1,5 +1,5 @@
 {
-  "next": 1611,
+  "next": 1612,
   "tickets": [
     {
       "id": 47,
@@ -10560,7 +10560,7 @@
       "labels": [
         "std"
       ],
-      "body": "From SW-1563, 6 Nov 2026.",
+      "body": "From SW-1563, 6 Nov 2026.\n\nD2454 (Matt, 6 Nov 2026): yes (SW-1584 Runs lemmas, a two-day trial, then decide on a sweep; close SW-1229), on condition that a brief literature review first confirms Reads/Runs follows established patterns for verified parsers ('if we're doing something very standard, then yeah, let's proceed'). Gate: SW-1611.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10756,7 +10756,7 @@
       "labels": [
         "research"
       ],
-      "body": "D2451 (Matt, 6 Nov 2026): yes, analysis-only Opus lane. Started on Opus, expected: 75 min.\n\nDone (8924ceb03), merged: docs/research/aoc-2020-friction-days-10-20.md. Top five: proofs follow the source not the computed goal (10 of 11 days); fast lookups + profiler; every well-formed input parses; grid geometry in Aoc.Common; count by a proposition, fuel loops. 7 duplicate pairs, ~11 untracked findings, Q1-Q6 (D2453-D2458). Model result: Opus, worked, 7 min (est. 75).\n\nD questions from its Q1-Q6: D2453 (design note: rewrite/match look at the goal as written first, SW-706/1589/1562; run the refines-nothing warning SW-1485 now) [rec: yes]; D2454 (prove every well-formed input parses: SW-1584 + a two-day pilot, then decide; close SW-1229) [rec: yes]; D2455 (Some { … } means Some ({ … }) for a record argument, small syntax proposal) [rec: yes]; D2456 (day 12: a new Vector type with quarter turns) [rec: yes]; D2457 (record eta: Opus design note now) [rec: yes]; D2458 (schedule the profiler SW-1528 now, Sonnet, after a scope check) [rec: yes].\n\nD2453 (Matt, 6 Nov 2026): yes, both: an Opus design note on rewrite/match looking at the goal as written first (SW-706, SW-1589, SW-1562), and the refines-nothing warning SW-1485 now.",
+      "body": "D2451 (Matt, 6 Nov 2026): yes, analysis-only Opus lane. Started on Opus, expected: 75 min.\n\nDone (8924ceb03), merged: docs/research/aoc-2020-friction-days-10-20.md. Top five: proofs follow the source not the computed goal (10 of 11 days); fast lookups + profiler; every well-formed input parses; grid geometry in Aoc.Common; count by a proposition, fuel loops. 7 duplicate pairs, ~11 untracked findings, Q1-Q6 (D2453-D2458). Model result: Opus, worked, 7 min (est. 75).\n\nD questions from its Q1-Q6: D2453 (design note: rewrite/match look at the goal as written first, SW-706/1589/1562; run the refines-nothing warning SW-1485 now) [rec: yes]; D2454 (prove every well-formed input parses: SW-1584 + a two-day pilot, then decide; close SW-1229) [rec: yes]; D2455 (Some { … } means Some ({ … }) for a record argument, small syntax proposal) [rec: yes]; D2456 (day 12: a new Vector type with quarter turns) [rec: yes]; D2457 (record eta: Opus design note now) [rec: yes]; D2458 (schedule the profiler SW-1528 now, Sonnet, after a scope check) [rec: yes].\n\nD2453 (Matt, 6 Nov 2026): yes, both: an Opus design note on rewrite/match looking at the goal as written first (SW-706, SW-1589, SW-1562), and the refines-nothing warning SW-1485 now.\n\nD2454 (Matt, 6 Nov 2026): yes (SW-1584 Runs lemmas, a two-day trial, then decide on a sweep; close SW-1229), on condition that a brief literature review first confirms Reads/Runs follows established patterns for verified parsers ('if we're doing something very standard, then yeah, let's proceed'). Gate: SW-1611.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10925,6 +10925,20 @@
         "perf"
       ],
       "body": "From SW-1601, 6 Nov 2026. Also: doc links in std/core can only name core items (prelude elaborated alone).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1611,
+      "title": "Brief literature review: are Stitchwort's parser proofs (Parse.Reads soundness, Parse.Runs completeness, per-combinator lemmas, maximal munch, non-committing alternatives) the standard approach for verified parser combinators? Gate for D2454",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1611",
+      "labels": [
+        "research"
+      ],
+      "body": "D2454 (Matt, 6 Nov 2026): yes (SW-1584 Runs lemmas, a two-day trial, then decide on a sweep; close SW-1229), on condition that a brief literature review first confirms Reads/Runs follows established patterns for verified parsers ('if we're doing something very standard, then yeah, let's proceed'). Started on Opus, analysis only, expected: 40 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
