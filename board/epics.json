@@ -12,9 +12,7 @@
         "out-of-resources check uses the as-written result (SW-1630)",
         "Goals and messages print dot calls and operators as written (SW-1674)"
       ],
-      "now": [
-        "Design note: bounded readback, goals as written in every search (SW-1712, D2514)"
-      ],
+      "now": [],
       "next": [
         "Finish the design note that bounds unfolded readback by making the searches look at goals as written everywhere, revisiting D484 (SW-1712, D2514); it also unblocks record eta",
         "Stage 5: rewrite f means one unfolding step of f (SW-1631; SW-796 is the same ticket)",
@@ -24,7 +22,8 @@
         "docs/proposals/goal-as-written.md",
         "docs/proposals/folded-goals.md",
         "D2475-D2480",
-        "D2514"
+        "D2514",
+        "docs/proposals/bounded-readback.md"
       ]
     },
     {
@@ -38,7 +37,7 @@
         "Fields of glued calls stay calls; std, roguelike and 2021 day 13 pass at about +2% cost (SW-1667, on lane/SW-1642)"
       ],
       "now": [
-        "Paused; the design note that unblocks it is being written (SW-1712)"
+        "Paused; the note that unblocks it is in (docs/proposals/bounded-readback.md), waiting on D2519-D2524, D2528, D2529"
       ],
       "next": [
         "Wait for the goals-as-written design note (SW-1712, D2514): the trip-journal example fails because rule 2 computes under binders and the unfolded readback is too large",
@@ -48,7 +47,8 @@
       "links": [
         "docs/proposals/record-eta.md",
         "D2498-D2511",
-        "D2514"
+        "D2514",
+        "docs/proposals/bounded-readback.md"
       ]
     },
     {
@@ -223,9 +223,7 @@
         "Unifier fixes: one-step unfolding and arguments-from-conclusion (SW-1226, SW-1227)",
         "Tail-resumptive and checked @[tailrec] (SW-1222, SW-1232)"
       ],
-      "now": [
-        "Proposal: should matching on a decision narrow a Bool if (SW-1694)"
-      ],
+      "now": [],
       "next": [
         "Fix the check that hangs on a theorem whose statement names a large computation: the kernel evaluates a closed statement unfolded (SW-1534)",
         "Postponement: close the two queue gaps and keep the expected type folded (SW-1003, SW-1008, SW-1009)",
@@ -235,7 +233,8 @@
         "docs/proposals/elaborator-state.md",
         "docs/proposals/postponement.md",
         "docs/proposals/globals-split.md",
-        "docs/proposals/proof-irrelevance.md"
+        "docs/proposals/proof-irrelevance.md",
+        "docs/proposals/decision-match-refines-bool-if.md"
       ]
     },
     {

@@ -13236,13 +13236,13 @@
     {
       "id": 1714,
       "title": "Board: serve repo documents at /doc/<path> (rendered, read-only, tracked files), auto-link docs paths, SW-N and D numbers in ticket bodies and epic links; reviews saved as docs/reviews/SW-N-topic.md (D2530)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1714",
       "labels": [
         "board"
       ],
-      "body": "D2530 (Matt, 6 Nov 2026): yes. Started on Sonnet, expected: 45 min.",
+      "body": "D2530 (Matt, 6 Nov 2026): yes. Started on Sonnet, expected: 45 min.\n\nDone, merged (8dcde9e26): /doc serves tracked files (markdown rendered, source with line numbers), auto-links paths, SW and D numbers, epic Documents lists including docs/reviews. Board tests 30/30 on main. Model result: Sonnet, worked, 10 min (est. 45).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
