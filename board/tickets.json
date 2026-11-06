@@ -10274,13 +10274,13 @@
     {
       "id": 1564,
       "title": "List.foldLeft with a pure lambda inside a {Parse} function is compiled as a Parse step (Parse.readsDone can't take it; error names Std.Effect.foldComp); compile pure, or explain (day 18)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1564",
       "labels": [
         "elab"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1557 (2020 day 18).\n\nStarted overnight on Sonnet (SW-1564 with SW-1565), expected: 50 min.\n\nLane done (47d4dc611 SW-1564, b1de9a79f SW-1565): comp_app settles a call's still-unknown row as empty when the enclosing row has abilities (a pure foldLeft in {Parse} is a plain call; 4 effect examples' hashes changed); E-ABILITY note suggests () => x.method when the parameter is a thunk. Model: Sonnet, 28 min (est. 50). SW-1564 changes elaboration of existing effect programs: Opus review started.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1557 (2020 day 18).\n\nStarted overnight on Sonnet (SW-1564 with SW-1565), expected: 50 min.\n\nLane done (47d4dc611 SW-1564, b1de9a79f SW-1565): comp_app settles a call's still-unknown row as empty when the enclosing row has abilities (a pure foldLeft in {Parse} is a plain call; 4 effect examples' hashes changed); E-ABILITY note suggests () => x.method when the parameter is a thunk. Model: Sonnet, 28 min (est. 50). SW-1564 changes elaboration of existing effect programs: Opus review started.\n\nMerged after Opus review (sound; meaning of the four changed examples unchanged). Review fixes: extract JS snapshots for effect-handlers/effect-state accepted; effect_runtime talliedChecked now 10 jumps (a loop, as tallied); guard row_in_result (don't settle when the row is in the result type; accept example row-in-result-type-call). Model result: Sonnet, needed fixes (stale extract snapshots, a narrow early-settle regression), 28 + 12 min (est. 50).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10288,13 +10288,13 @@
     {
       "id": 1565,
       "title": "E-ABILITY when a method is passed where () → {Parse} a is expected: suggest () => x.method, not adding Parse to the function's type (day 18)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1564",
       "labels": [
         "diagnostics"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1557 (2020 day 18).\n\nStarted overnight on Sonnet (SW-1564 with SW-1565), expected: 50 min.\n\nLane done (47d4dc611 SW-1564, b1de9a79f SW-1565): comp_app settles a call's still-unknown row as empty when the enclosing row has abilities (a pure foldLeft in {Parse} is a plain call; 4 effect examples' hashes changed); E-ABILITY note suggests () => x.method when the parameter is a thunk. Model: Sonnet, 28 min (est. 50). SW-1564 changes elaboration of existing effect programs: Opus review started.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1557 (2020 day 18).\n\nStarted overnight on Sonnet (SW-1564 with SW-1565), expected: 50 min.\n\nLane done (47d4dc611 SW-1564, b1de9a79f SW-1565): comp_app settles a call's still-unknown row as empty when the enclosing row has abilities (a pure foldLeft in {Parse} is a plain call; 4 effect examples' hashes changed); E-ABILITY note suggests () => x.method when the parameter is a thunk. Model: Sonnet, 28 min (est. 50). SW-1564 changes elaboration of existing effect programs: Opus review started.\n\nMerged after Opus review (sound; meaning of the four changed examples unchanged). Review fixes: extract JS snapshots for effect-handlers/effect-state accepted; effect_runtime talliedChecked now 10 jumps (a loop, as tallied); guard row_in_result (don't settle when the row is in the result type; accept example row-in-result-type-call). Model result: Sonnet, needed fixes (stale extract snapshots, a narrow early-settle regression), 28 + 12 min (est. 50).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10532,7 +10532,7 @@
       "labels": [
         "tests"
       ],
-      "body": "From SW-1564's Opus review, 6 Nov 2026.",
+      "body": "From SW-1564's Opus review, 6 Nov 2026.\n\nSW-1564's lane: on main, extract's generated_code_is_stable, int_is_bound_to_the_prelude and a_changed_int_operation_loses_only_its_native fail, and rt::lower comparisons fails on a Std.Int.decEq diff: Int drift, already on main (from tonight's SW-1558 negSuccInjective change, probably).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
