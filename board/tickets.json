@@ -1,5 +1,5 @@
 {
-  "next": 1682,
+  "next": 1687,
   "tickets": [
     {
       "id": 47,
@@ -3997,7 +3997,7 @@
     {
       "id": 1121,
       "title": "Test Explorer and code lenses (run main, run test, audit theorem), then rename",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1121",
       "labels": [
@@ -11912,13 +11912,83 @@
     {
       "id": 1681,
       "title": "LSP: documentSymbol answers an empty outline when asked before the file's first check finishes (VS Code asks once on open, so Cmd-Shift-O shows 'No editor symbols'); wait for the check, or send a refresh when it's done (Matt, tutorial step 1)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1681",
       "labels": [
         "editor"
       ],
       "body": "Found by Matt in the tutorial, 6 Nov 2026. Reproduced over stdio: documentSymbol straight after didOpen gives 0 symbols; after publishDiagnostics, 26. Repro script: scratchpad sym.py.\n\nStarted on Sonnet, expected: 40 min.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1682,
+      "title": "Testing panel: the project-wide run is one stitchwort test --json over the whole project (all of AoC, slow); split it per namespace group (SW-1121)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor"
+      ],
+      "body": "From SW-1121, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1683,
+      "title": "CLI names files relative to the project's parent in project mode (aoc/src/…) but to the current directory in file mode; make them consistent (SW-1121)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "cli"
+      ],
+      "body": "From SW-1121, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1684,
+      "title": "Testing panel finds tests by a regex over ^test \"…\"; serve them from the server instead (SW-1121)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor"
+      ],
+      "body": "From SW-1121, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1685,
+      "title": "stitchwort test --only NAME --json: ok is true when nothing matches, though the exit status is 1; make ok false (SW-1121)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "cli"
+      ],
+      "body": "From SW-1121, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1686,
+      "title": "stitchwort-lsp features tests take ~8 min in release (16 tests, each checks std; 550 s for one in debug), and test:lane AREA=lsp doesn't cover them; find why std is so slow there (SW-1681)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "body": "From SW-1681, 6 Nov 2026. The lane ran the whole binary, which overran the test budget.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
