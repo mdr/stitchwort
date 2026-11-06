@@ -5364,6 +5364,15 @@ lookup to be the spec's, and `Map.getFromList` gives `Map.lookupLast`
 (by `Ord.compare`) where the spec has `List.lookup` (by `==`), with no
 lemma between them.
 
+Update (6 Nov 2026, SW-1659): the run is now 2.1 s user with the table
+alone (release build, `stitchwort run`), so the 2.9 s above no longer
+stands as a gain. Deduplicating with `List.distinct` (a `Set` inside), on
+a rule's alternatives or on the leftovers between a sequence's rules,
+leaves the call counts as they were (2.44 M `List.map`, 4.31 M
+`Map.get`) and costs time: 2.6 s and 2.8 s user. On this input no rule has
+two ways to leave the same rest, so there is nothing to remove. Not
+adopted.
+
 **Fixed (SW-1636).** The matcher now takes the lookup as a function
 (`leftAfterWith`), `matchesCompletely` builds `ruleTable` once per call
 and `matchingCount` once for all messages. `ruleTable` inserts the
