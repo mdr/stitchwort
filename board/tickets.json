@@ -1,5 +1,5 @@
 {
-  "next": 1739,
+  "next": 1740,
   "tickets": [
     {
       "id": 47,
@@ -13430,14 +13430,14 @@
     {
       "id": 1727,
       "title": "docs/proving-guide.md:122 says 'Goals are shown computed, not as written', out of date since goal-as-written (SW-1726)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "docs"
       ],
       "epic": "docs-tutorials",
-      "body": "From SW-1726, 6 Nov 2026.",
+      "body": "From SW-1726, 6 Nov 2026.\n\nDone in SW-1728.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -13445,14 +13445,14 @@
     {
       "id": 1728,
       "title": "[Opus] bounded-readback.md revision 3: rewrite for D2541-D2545 (compute to decide, search what you see, limits fail, cap deferred), restage, and plan the seven proofs D2542 breaks",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1728",
       "labels": [
         "design"
       ],
       "epic": "goal-as-written",
-      "body": "From D2541-D2545 (Matt, 6 Nov 2026). Read and write only. Started on Opus, expected: 45 min.",
+      "body": "From D2541-D2545 (Matt, 6 Nov 2026). Read and write only. Started on Opus, expected: 45 min.\n\nDone, merged (d8cd85693): revision 3. Stages 0a; 1, 0b, 0c; 4, 5; R (rewrite f); M (migration), 3; 6a; 6b; 7: about 15 h. Cap deferred. Migration plan for the seven proofs. Questions D2548 (match as one search, keeps SW-1628's refinements) and D2549 (look inside when a visible occurrence gives an ill-typed motive). Model result: Opus, worked, 11 min (est. 45).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -13603,6 +13603,21 @@
       ],
       "epic": "dev-loop-speed",
       "body": "From the SW-1716 profile, fix 11. See docs/reviews/SW-1716-dev-loop-profile.md §6.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1739,
+      "title": "KNOWN_CAP (unify.rs:973) answers 'may mention' when it runs out instead of failing; the one leftover against D2543 (only makes the unifier postpone)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "epic": "goal-as-written",
+      "body": "From SW-1728, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
