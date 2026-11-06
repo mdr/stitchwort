@@ -17,13 +17,13 @@ expression: json
           "type": "increasing xs = True"
         }
       ],
-      "lemma": "theorem shortIncreasingGoal1 (xs: List Nat) (h: increasing xs = True): List.length xs ≤ 5 := ?",
-      "target": "List.length xs ≤ 5"
+      "lemma": "theorem shortIncreasingGoal1 (xs: List Nat) (h: increasing xs = True): xs.length ≤ 5 := ?",
+      "target": "xs.length ≤ 5"
     },
     "labels": [
       {
         "file": 0,
-        "message": "xs: List Nat\nh: increasing xs = True\n⊢ List.length xs ≤ 5",
+        "message": "xs: List Nat\nh: increasing xs = True\n⊢ xs.length ≤ 5",
         "range": [
           13,
           83,
