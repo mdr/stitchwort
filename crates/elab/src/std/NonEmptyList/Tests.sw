@@ -67,5 +67,5 @@ test "NonEmptyList.contains, any, all" :=
     NonEmptyList.example.all (x => x > 0) ∧ !NonEmptyList.example.all (x => x > 1)
 
 test "List.toNonEmpty, List.nonEmpty" :=
-  ([1, 2, 3].toNonEmpty).toList == [1, 2, 3] ∧ ([1, 2, 3].nonEmpty == Some ({ head = 1, tail = [2, 3] })) ∧
+  ([1, 2, 3].toNonEmpty).toList == [1, 2, 3] ∧ ([1, 2, 3].nonEmpty == Some { head = 1, tail = [2, 3] }) ∧
     (([]: List Nat).nonEmpty == None)
