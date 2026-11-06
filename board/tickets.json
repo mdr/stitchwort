@@ -10834,13 +10834,13 @@
     {
       "id": 1604,
       "title": "SW-1538 follow-up: along_match_equation (check.rs:1367) skips the kernel motive check when the body has an unknown, though it was quoted before the unifications solved it (wrong-binder/E-UNSOLVED errors instead of the clear mismatch); and failed attempts (check.rs:1296, 1337) keep their solved unknowns, since undo::attempt commits on Ok(Some(None))",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1604",
       "labels": [
         "elab"
       ],
-      "body": "From SW-1599's review, 6 Nov 2026. Not unsound (kernel re-checks), wrong messages. Repros in dev/repros/sw-1599: meta-motive*.sw (+ -unnamed copies), leak.sw. Fix: re-quote/substitute solved unknowns before the check (None if any remain); undo on Ok(None). Add the repros as reject examples. Serialise after SW-1600 (also in check.rs).\n\nSecond bug (failed tries keep solutions) fixed by SW-1600 (transaction per try, and a transport that solves anything gives up). First bug (motive check skipped when the body has an unknown) still open; recheck its repros on main.",
+      "body": "From SW-1599's review, 6 Nov 2026. Not unsound (kernel re-checks), wrong messages. Repros in dev/repros/sw-1599: meta-motive*.sw (+ -unnamed copies), leak.sw. Fix: re-quote/substitute solved unknowns before the check (None if any remain); undo on Ok(None). Add the repros as reject examples. Serialise after SW-1600 (also in check.rs).\n\nSecond bug (failed tries keep solutions) fixed by SW-1600 (transaction per try, and a transport that solves anything gives up). First bug (motive check skipped when the body has an unknown) still open; recheck its repros on main.\n\nStarted on Sonnet (the remaining first bug), expected: 45 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
