@@ -2122,6 +2122,21 @@ theorem Parse.manyRunsSymbols (p: () → {Parse} a) (symbol: a → Char) (canSta
         (runsItem v (Parse.joinReads (more.map (w => ([symbol w], w))) ++ rest) (Bool.andLeft all))
         (Parse.manyRunsSymbols p symbol canStart runsItem declinesP rest stops more (Bool.andRight all)))
 
+--| The rounds of `exactly` over items that `p` reads a character each
+--| (`symbol`), see [`Parse.manyRunsSymbols`]; nothing is asked of what follows.
+theorem Parse.stepsRunSymbols (p: () → {Parse} a) (symbol: a → Char) (runsItem: (v: a) → (after: List Char) → Parse.Runs p [symbol v] after v)
+    (rest: List Char): (items: List a) → Parse.StepsRun p (items.map (v => ([symbol v], v))) rest
+  | [] => rfl
+  | [v, ..more] => Both (runsItem v _) (Parse.stepsRunSymbols p symbol runsItem rest more)
+
+--| `exactly count p` over `count` items that `p` reads a character each: it
+--| gives the items. For a fixed-width code written one character per item.
+theorem Parse.runsExactlySymbols (count: Nat) (p: () → {Parse} a) (symbol: a → Char) (runsItem: (v: a) → (after: List Char) → Parse.Runs p [symbol v] after v)
+    (items: List a) (rest: List Char) (counted: items.length = count): Parse.Runs (() => Parse.exactly count p) (items.map symbol) rest items :=
+  let runs := Parse.runsExactly count p (items.map (v => ([symbol v], v))) rest (rewrite List.lengthMap items _ in counted)
+    (Parse.stepsRunSymbols p symbol runsItem rest items)
+  rewrite Parse.joinReadsSymbols symbol items, Parse.stepValuesSymbols symbol items at runs in runs
+
 --| `many1 p` over a non-empty list of items that `p` reads a character each
 --| (`symbol`, see [`Parse.manyRunsSymbols`]): it gives the items. For a row of
 --| cells drawn as single characters.

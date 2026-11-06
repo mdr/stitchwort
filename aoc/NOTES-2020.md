@@ -1329,6 +1329,16 @@ CPU time (load average about 33):
 | `stitchwort run Aoc.Year2020.Day05.main` on the input | 0.4 s user |
 | the first `stitchwort search` in the worktree | 65 s user, 84 s wall |
 
+**Completeness (SW-1624).** `Proofs/Complete.sw`, 58 lines, about 6 minutes. A pass is
+`exactly 7 frontBack` then `exactly 3 leftRight`, so the new std lemma
+`Parse.runsExactlySymbols` (`exactly` over items read one character each,
+no look-ahead needed) gives each half, `runsHalf` is one letter (it needs the
+two letters to differ, `rfl` for F/B and L/R), and `runsPass` is two
+`runsBind` and a `runsPure` plus the record eta. `PassWritten` is tight
+(lengths 7 and 3, and `written` is injective on bits), so `writtenUnique` holds
+for a line and `inputUnique` for an input. No look-ahead at all: the lines are
+fixed width, so `eachLine`'s end-of-line needs nothing from `rest`.
+
 ### Ranked
 
 1. Std lacks `Nat.fromBitsAppend` and `Nat.fromBitsBelow` (and a
