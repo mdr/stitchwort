@@ -1467,10 +1467,10 @@
         "tooling",
         "research"
       ],
-      "epic": "test-infra",
+      "epic": "audit-fuzzing",
       "body": "D2040 (Matt, 30 Oct 2026: yes): stitchwort audit is the check every proof lane runs before reporting and the merge gate runs. Spec: docs/research/agentic-proving.md T1 (and T2 for the vacuity verdict). Stage 1 (small): for named theorems or a namespace, report and fail on axioms beyond an allowlist and unfinished closure (anything depending on a ?), and warn on vacuous hypotheses (held in 0 of N cases). Stage 2: statement type hash with --base REV / --challenge FILE. Stage 3: erased-hash changes to definitions the theorems mention and changed instances. Exit status as lake comparator's. Then wire it into lane instructions and task test:merge.\n\n\nLane log (audit stage 1):\n- 30 Oct: audit command working in file mode (axioms/unfinished/vacuous verdicts, --json, --strict); GaveUp split into NeverHeld (0 of N) and GaveUp (<10%). Next: corpus runs, tests, docs.\n- 30 Oct: done on branch worktree-agent-a1f5cb6bb55d21fec (47eb1e13, 2b6fc4f7). Corpus: std 2322 thms 5 warn, aoc 1366 thms 16 warn, rogue 190 thms 3 warn, 0 fail; all warnings narrow hypotheses, none found really vacuous. Full-corpus cost with search ~340 s (aoc 222, std 99, rogue 20); --no-search warm 3 s for aoc. Lane tiers cli/elab/examples/hashes pass; clippy, fmt clean.\n\nClosed 4 Nov 2026 (backlog review): audit stage 1 shipped (c2b8e0f96, merged 47eb1e137; crates/driver/src/audit.rs). Stages 2-3 are covered by SW-1029.",
       "created": "2026-10-30",
-      "updated": "2026-11-04",
+      "updated": "2026-11-06",
       "commits": [
         "c2b8e0f9"
       ]
@@ -5188,10 +5188,10 @@
       "labels": [
         "elab"
       ],
-      "epic": "test-infra",
+      "epic": "audit-fuzzing",
       "body": "Full tier at 1cef1def (SW-1175): fuzz_elab mutated_examples_check_without_internal_errors failed. Oracle 3 (kernel rejected an elaborated term): case 1050, seed 0x5eede1ab00000685, rng state 0xe3a9eaefcf2cbaaa, from accept/match.sw: E-TYPE-MISMATCH. Input saved (copy outside target/) in the orchestrator's scratchpad as 5eede1ab00000685-1050.sw. Find whether this is new tonight (elaborator-state steps 6a-7, SW-1179) or older, minimise, and fix the elaborator so it reports an error or builds a well-typed term. Expected: 60 min.\n\nProgress (Opus, 04:59-05:20): commit 6b93dea2 on lane/SW-1182. Cause: equation generation, not the elaborator proper. `lenZero` in accept/match.sw (`match h: xs.length with | Zero => Yes rfl`) lifts to a helper whose result type mentions the matched column, so branch equations `lenZero.eq.zero/.succ` were stated ill-typed; the kernel refused them (E-REFL, E-TYPE-MISMATCH) and one_equation swallowed that as a skip (\"the kernel refused the generated proof\"). It happens on the unmutated example too; oracle 3 fired because it matches by message and the mutation added user E-TYPE-MISMATCH errors with the same \"type mismatch\" message. Not tonight's work: 8cffe0be (before SW-1152) refuses the same two terms. Fix: helper_call skips a match whose helper's result type mentions what it matches, with a reason. Test: function_equations a_generalising_matchs_branches_are_skipped_not_refused. Ran: function_equations + function_induct binaries (14 pass); fuzz_elab with FUZZ_CASES=1051 once (pass, 84 s). Follow-up: oracle 3 matches by message alone, so any swallowed kernel refusal plus an unrelated user error with the same message fails it.\n\n\nCause: lenZero in examples/accept/match.sw (a match h: whose helper result type mentions the scrutinee) had ill-typed branch equations the kernel refused silently; the mutation added a user E-TYPE-MISMATCH with the same message, which oracle 3 matched. Pre-existing (reproduced at 8cffe0be). Fix: skip such equations with a reason.\nModel result: Opus, worked, 21 min (est. 60)\n",
       "created": "2026-11-04",
-      "updated": "2026-11-04",
+      "updated": "2026-11-06",
       "commits": []
     },
     {
@@ -5491,10 +5491,10 @@
       "labels": [
         "perf"
       ],
-      "epic": "test-infra",
+      "epic": "audit-fuzzing",
       "body": "SW-1199 item 2. driver::axioms::axioms walks each theorem's dependency tree from scratch; walk each declaration once per audit. Est. ~1.5 s per audit. Small (30-60 lines, driver only), low risk.\n\nD2303 (Matt, 4 Nov 2026): do it. DeepSeek in scratch clone scratch-sw-1201, expected: 45 min.\n\n\nMeasured (DeepSeek, warm, one run each): aoc audit --no-search 5.73 -> 3.68 s CPU, output identical. Model result: DeepSeek, worked, 31 min (est. 45). Nit filed: Tarjan arrays sized to the whole environment are allocated per theorem.\n",
       "created": "2026-11-04",
-      "updated": "2026-11-04",
+      "updated": "2026-11-06",
       "commits": []
     },
     {
@@ -7034,10 +7034,10 @@
       "labels": [
         "tooling"
       ],
-      "epic": "test-infra",
+      "epic": "audit-fuzzing",
       "body": "Reported by three lanes and a verifier on 4-5 Nov: nix develop -c task audit:touched -- <Ns> gives 'there's no stitchwort.yaml in … or any folder above it' unless run from aoc/; lanes then ran stitchwort audit directly. Make the task find the project (cd into aoc/ when the namespace starts with Aoc., games/rogue for Rogue., or take a DIR), and say in its error which directory to run from.\n\nFixed by the orchestrator (Taskfile one-liner): from the repo root, audit:touched cds into aoc/ for Aoc.* and games/rogue for Rogue*; elsewhere it runs in the current folder as before. Tested from the root (Aoc.Year2020.Day05, Rogue) and from aoc/.",
       "created": "2026-11-05",
-      "updated": "2026-11-05",
+      "updated": "2026-11-06",
       "commits": []
     },
     {
@@ -7064,10 +7064,10 @@
       "labels": [
         "tooling"
       ],
-      "epic": "test-infra",
+      "epic": "audit-fuzzing",
       "body": "From SW-1287: after day 11 moved onto Cavern {grid: Grid Nat}, its audit shows 3-4 'no input made the hypotheses true' warnings that vary between runs (cascade.eq2.ifFalse, firstSync.eq2.ifTrue, stableOfCount, stableAtSize, flashersOnGrid). Look at how audit generates records with non-empty proofs and small Nats; a per-day generator hint or wider Nat range may be enough. Also from SW-1287: Grid-level at/cells/map lemmas in Aoc.Common.Proofs would save later days going through .grid.rows.\n\nDone (Sonnet, 50 min, est. 120; 85c21f7d5): causes: random sizes ramped over the whole 10,000-input budget but the 500 ms limit stopped after ~250 inputs (sizes never past ~2), and the wall clock made results vary. Now: random inputs in sweeps of size 1-40 skewed small, numbers up to >= 16, edge numbers rarer inside larger inputs, and the audit budget 1,500 inputs with a 2 s backstop, so results are deterministic unless a statement is slow (check --counterexamples unchanged). 2021 day 11 warnings 4-6 -> 0; days 12, 16 much faster; 16 and 18 still warn where a hypothesis needs an input computed from another (equational hypotheses: would need building inputs by construction, a design note). Orchestrator's call: 1,500 deterministic inputs over ~250 clock-limited ones is more coverage in practice, fine. Model result: Sonnet, worked, 50 min (est. 120).\n\nMerged c069a29fb; verified: merge tier 1080, audit and counterexample tests 43/43, 2021 day 11 audit twice identical (0 warnings), Common, full audit.",
       "created": "2026-11-05",
-      "updated": "2026-11-05",
+      "updated": "2026-11-06",
       "commits": []
     },
     {

@@ -428,7 +428,11 @@
       "title": "Audit and fuzzing",
       "goal": "Every theorem is re-checked by an independent audit, and the checker is fuzzed for soundness bugs.",
       "status": "active",
-      "done": [],
+      "done": [
+        "stitchwort audit: axioms, unfinished and vacuity checks for proof lanes (SW-912, D2040)",
+        "Audit generators reach interesting values in AoC records (SW-1304)",
+        "fuzz_elab found a kernel rejection from a mutated match (SW-1182)"
+      ],
       "now": [],
       "next": [
         "Audit stage 2: --base and minima (SW-1029)"
