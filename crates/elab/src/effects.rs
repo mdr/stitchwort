@@ -3479,15 +3479,14 @@ fn comp_app(
             continue;
         }
         let param = param_types.get(i).and_then(Option::as_ref);
-        owned.push(match arg {
-            Expr::NamedArg(name, value, span, bracket) => Expr::NamedArg(
-                name.clone(),
-                Box::new(run_argument(cx, value, param, row, &mut bound)?),
-                *span,
-                *bracket,
-            ),
-            other => run_argument(cx, other, param, row, &mut bound)?,
-        });
+        let ran = match arg {
+            Expr::NamedArg(name, value, span, bracket) => {
+                run_argument(cx, value, param, row, &mut bound)
+                    .map(|run| Expr::NamedArg(name.clone(), Box::new(run), *span, *bracket))
+            }
+            other => run_argument(cx, other, param, row, &mut bound),
+        };
+        owned.push(ran.map_err(|e| thunk_hint(cx, arg_value(arg), param, e))?);
     }
 
     // Apply the head one argument at a time: when a partial application is
@@ -3606,6 +3605,18 @@ fn comp_app(
         }
     };
     let (term, ty) = insert(cx, term, ty)?;
+    // Every argument is checked and the call's row is still unknown: none of
+    // them performs anything (a pure callback to `List.foldLeft`), so in a
+    // row with abilities the call is a plain one, not a step of that row.
+    // Left unknown, lifting the call into `row` would make it that row's
+    // (SW-1564). A row the result's type mentions (`{e} (Nat → {e} Nat)`)
+    // is left to the expected type.
+    let ty = if row.labels.is_empty() || row_in_result(cx, &ty)? {
+        ty
+    } else {
+        settle_empty(cx, &ty)?;
+        cx.eval(&cx.quote(&ty)?)?
+    };
     let mut written = None;
     let (result, result_ty) = match comp_parts(cx, &ty)? {
         Some((from, t)) => (lift(cx, term, from, row, &t)?, t),
@@ -3627,6 +3638,66 @@ fn comp_app(
     }
     let result = wrap(cx, row, bound, result, &result_ty)?;
     Ok((result, result_ty, written))
+}
+
+/// An `E-ABILITY` for an argument run on the spot, going to a parameter
+/// `() → {E} a` that wants a thunk (`Parse.eachLine input digits.parser`):
+/// the note says the argument runs there, and how to pass it instead. Any
+/// other error is returned as it is.
+fn thunk_hint(cx: &Ctx, arg: &Expr, param: Option<&Value>, e: Diagnostic) -> Diagnostic {
+    if e.code != "E-ABILITY" || !matches!(arg, Expr::Var(_) | Expr::Field(..) | Expr::App(..)) {
+        return e;
+    }
+    let Some(param) = param else {
+        return e;
+    };
+    let g = cx.g();
+    let Ok(Value::Pi(_, Icit::Explicit, dom, cod)) = force(&g, param.clone()) else {
+        return e;
+    };
+    let Ok(dom) = force(&g, (*dom).clone()) else {
+        return e;
+    };
+    let Ok(unit) = data(cx, Builtin::UnitType) else {
+        return e;
+    };
+    if !matches!(dom, Value::Data(d, _) if d == unit) {
+        return e;
+    }
+    let Ok(cod) = cod.apply(&g, Value::var(cx.level())) else {
+        return e;
+    };
+    if !matches!(written_results(cx, &cod), Ok(Some(_))) {
+        return e;
+    }
+    let text = crate::queue::syntax(arg);
+    e.with_note(format!(
+        "`{text}` runs here; this parameter takes a function of `()`, so to pass it, not run it, write `() => {text}`"
+    ))
+}
+
+/// Whether `ty`, a computation whose row is an unknown, mentions that
+/// unknown in its value type.
+fn row_in_result(cx: &Ctx, ty: &Value) -> Result<bool> {
+    let Some((row, t)) = comp_parts(cx, ty)? else {
+        return Ok(false);
+    };
+    let Some(tail) = &row.tail else {
+        return Ok(false);
+    };
+    let Some(m) = cx.quote(tail)?.subterms().find_map(|(t, _)| {
+        if let Term::Meta(m) = t {
+            Some(*m)
+        } else {
+            None
+        }
+    }) else {
+        return Ok(false);
+    };
+    Ok(cx
+        .quote(&t)?
+        .subterms()
+        .any(|(t, _)| matches!(t, Term::Meta(n) if *n == m)))
 }
 
 /// The stages of a curried effectful function reached inside the function a

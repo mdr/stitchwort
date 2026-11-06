@@ -392,7 +392,7 @@ fn state_handlers_run_as_a_loop_where_they_fit() {
             // in three: 1 + 6 + 3 = 10.
             ("tallied", codes, 10),
             ("talliedOpen", codes, 10),
-            ("talliedChecked", codes, 0),
+            ("talliedChecked", codes, 10),
             // `get`, `put` and `get` again for each element.
             ("stores", &[4, 0, 7], 9),
             ("storesEta", &[4, 0, 7], 0),
