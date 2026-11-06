@@ -13,7 +13,7 @@ const run = require('./runner');
 const cfg = require('./client');
 
 /** @param {() => string} cliPath */
-function register(context, cliPath) {
+function register(context, cliPath, serverTests) {
   const output = vscode.window.createOutputChannel('Stitchwort Tests');
   const failures = vscode.languages.createDiagnosticCollection('stitchwort-tests');
   /** @type {vscode.Terminal | undefined} */
@@ -97,19 +97,21 @@ function register(context, cliPath) {
     vscode.workspace.onDidChangeTextDocument((e) => failures.delete(e.document.uri)),
   );
 
-  registerTestingPanel(context, cliPath);
+  registerTestingPanel(context, cliPath, serverTests);
 }
 
 // The Testing panel: a controller whose items are the tests of the project's
-// files, found by reading the text; a run asks the CLI (`stitchwort test
-// --json`, in the project folder) and reports each test where it is.
-function registerTestingPanel(context, cliPath) {
+// files, as the server lists them (`stitchwort/tests`; `serverTests(uri)`),
+// or by reading the text when it doesn't answer; a run asks the CLI
+// (`stitchwort test --json`, in the project folder) and reports each test
+// where it is.
+function registerTestingPanel(context, cliPath, serverTests) {
   const controller = vscode.tests.createTestController('stitchwort', 'Stitchwort');
   context.subscriptions.push(controller);
   const exists = (p) => fs.existsSync(p);
 
   // Data kept per item.
-  /** @type {WeakMap<vscode.TestItem, {project: string, file?: string, name?: string}>} */
+  /** @type {WeakMap<vscode.TestItem, {project: string, file?: string, name?: string, namespace?: string}>} */
   const info = new WeakMap();
   /** @type {Map<string, vscode.TestItem>} project folder -> item */
   const projects = new Map();
@@ -145,8 +147,20 @@ function registerTestingPanel(context, cliPath) {
     return item;
   }
 
-  function setTests(item, uri, text) {
-    const found = run.discoverTests(text);
+  // The tests of a file: the server's, or the text's.
+  // After one failed ask the rest of a sweep skips the server.
+  let serverUp = true;
+  const testsOf = (uri, text) =>
+    run.discover(() => {
+      if (!serverUp) return Promise.reject(new Error('server not answering'));
+      return Promise.resolve(serverTests(uri.toString())).catch((e) => {
+        serverUp = false;
+        throw e;
+      });
+    }, text);
+
+  function setTests(item, uri, found) {
+    info.get(item).namespace = found.length ? found[0].namespace : undefined;
     const keep = new Set(found.map((t) => t.name));
     item.children.forEach((child) => {
       if (!keep.has(info.get(child).name)) item.children.delete(child.id);
@@ -167,29 +181,30 @@ function registerTestingPanel(context, cliPath) {
   async function refreshFile(uri) {
     if (uri.scheme !== 'file' || !uri.fsPath.endsWith('.sw')) return;
     const doc = await vscode.workspace.openTextDocument(uri);
-    const text = doc.getText();
     const item = fileItem(uri);
     if (!item) return;
-    const found = run.discoverTests(text);
+    const found = await testsOf(uri, () => doc.getText());
     if (found.length === 0) {
       const parent = projects.get(info.get(item).project);
       if (parent) parent.children.delete(item.id);
       return;
     }
-    setTests(item, uri, text);
+    setTests(item, uri, found);
   }
 
   async function discoverAll() {
+    serverUp = true;
     const files = await vscode.workspace.findFiles('**/*.sw', '**/{node_modules,.stitchwort,target}/**');
     for (const uri of files) {
       if (!rootOf(uri)) continue;
-      // Reading the files directly keeps hundreds of unopened files out of
-      // the editor's document list.
+      // The server reads unopened files itself (and the fallback reads them
+      // directly), which keeps hundreds of them out of the editor's document
+      // list.
       try {
-        const text = fs.readFileSync(uri.fsPath, 'utf8');
-        if (!/^test\s+"/m.test(text)) continue;
+        const found = await testsOf(uri, () => fs.readFileSync(uri.fsPath, 'utf8'));
+        if (found.length === 0) continue;
         const item = fileItem(uri);
-        if (item) setTests(item, uri, text);
+        if (item) setTests(item, uri, found);
       } catch (e) {
         // unreadable file: skip
       }
@@ -212,9 +227,11 @@ function registerTestingPanel(context, cliPath) {
     }),
   );
 
-  // What a request covers, as CLI runs: the whole project, or one file, or
-  // one test. A request for a project item is the project's one run; the
-  // rest are grouped by file.
+  // What a request covers, as CLI runs: one test, or one file, or a project.
+  // A project (or any item above the files) is split into one run per group
+  // of namespaces (`groupNamespaces`), so the panel fills in as each finishes
+  // instead of after the slowest. Returns `{ item, project, target?, only?,
+  // file?, covered, error? }` per run.
   function plan(request) {
     const roots = request.include && request.include.length ? [...request.include] : [...projects.values()];
     const excluded = new Set((request.exclude || []).map((i) => i.id));
@@ -223,7 +240,30 @@ function registerTestingPanel(context, cliPath) {
       if (excluded.has(item.id)) continue;
       const data = info.get(item);
       if (!data) continue;
-      jobs.push({ item, project: data.project, file: data.file, only: data.name });
+      const covered = leaves(item).filter((i) => info.get(i).name !== undefined);
+      if (data.file) {
+        const doc = vscode.workspace.textDocuments.find((d) => d.uri.fsPath === data.file);
+        const where = run.testTarget(data.file, data.project, doc ? doc.getText() : fs.readFileSync(data.file, 'utf8'));
+        jobs.push({ item, project: data.project, file: data.file, only: data.name, target: where.target, error: where.error, covered });
+        continue;
+      }
+      // A project: its files, by namespace.
+      const files = [];
+      item.children.forEach((f) => files.push(f));
+      const withNs = files.filter((f) => info.get(f).namespace);
+      for (const f of files.filter((f) => !info.get(f).namespace)) {
+        const error = run.testTarget(info.get(f).file, data.project, '').error;
+        jobs.push({ item: f, project: data.project, error, covered: leaves(f).filter((i) => info.get(i).name !== undefined) });
+      }
+      for (const group of run.groupNamespaces(withNs.map((f) => info.get(f).namespace))) {
+        const inside = withNs.filter((f) => run.inGroup(info.get(f).namespace, group));
+        jobs.push({
+          item,
+          project: data.project,
+          target: group,
+          covered: inside.flatMap((f) => leaves(f).filter((i) => info.get(i).name !== undefined)),
+        });
+      }
     }
     return jobs;
   }
@@ -234,56 +274,78 @@ function registerTestingPanel(context, cliPath) {
     return out;
   };
 
+  // Reports one finished CLI run on the items it covered.
+  function report(testRun, job, result) {
+    const { covered } = job;
+    if (result.cancelled) {
+      covered.forEach((i) => testRun.skipped(i));
+      return;
+    }
+    if (result.error) {
+      for (const i of covered) testRun.errored(i, new vscode.TestMessage(result.error));
+      testRun.appendOutput(result.error.replace(/\r?\n/g, '\r\n') + '\r\n');
+      return;
+    }
+    const reported = new Set();
+    for (const t of result.tests) {
+      const abs = t.file ? run.reportedPath(job.project, job.project, t.file) : job.file;
+      const item = covered.find((i) => info.get(i).name === t.name && (!abs || info.get(i).file === abs));
+      testRun.appendOutput(`${run.summaryLine(t)}\r\n`);
+      if (!item) continue;
+      reported.add(item.id);
+      item.description = t.cached ? 'cached' : undefined;
+      if (t.outcome === 'passed') {
+        testRun.passed(item);
+      } else {
+        const message = new vscode.TestMessage(run.failureText(t));
+        const c = t.failure && t.failure.comparison;
+        if (c && typeof c.left === 'string') {
+          message.actualOutput = c.left;
+          message.expectedOutput = c.right;
+        }
+        const at = t.failure && t.failure.part ? t.failure.part : t;
+        const where = at.file ? run.reportedPath(job.project, job.project, at.file) : info.get(item).file;
+        message.location = new vscode.Location(vscode.Uri.file(where), range(at.line, at.column));
+        if (t.outcome === 'failed') testRun.failed(item, message);
+        else testRun.errored(item, message);
+      }
+    }
+    // Tests the run did not mention (the file was edited meanwhile).
+    for (const i of covered) if (!reported.has(i.id)) testRun.skipped(i);
+  }
+
   async function runHandler(request, token) {
     const testRun = controller.createTestRun(request);
-    for (const job of plan(request)) {
-      if (token.isCancellationRequested) break;
-      const covered = leaves(job.item).filter((i) => info.get(i).name !== undefined);
-      covered.forEach((i) => testRun.started(i));
-      let target;
+    const abort = new AbortController();
+    token.onCancellationRequested(() => abort.abort());
+    const jobs = plan(request);
+    for (const job of jobs) {
       if (job.file) {
         const doc = vscode.workspace.textDocuments.find((d) => d.uri.fsPath === job.file);
         if (doc && doc.isDirty) await doc.save();
-        const where = run.testTarget(job.file, job.project, fs.readFileSync(job.file, 'utf8'));
-        if (where.error) {
-          for (const i of covered) testRun.errored(i, new vscode.TestMessage(where.error));
-          continue;
-        }
-        target = where.target;
       }
-      const result = await run.runTestsJson(cliPath(), run.testArgs({ target, only: job.only }), job.project);
-      if (result.error) {
-        for (const i of covered) testRun.errored(i, new vscode.TestMessage(result.error));
-        testRun.appendOutput(result.error.replace(/\r?\n/g, '\r\n') + '\r\n');
-        continue;
-      }
-      const reported = new Set();
-      for (const t of result.tests) {
-        const abs = t.file ? run.reportedPath(job.project, job.project, t.file) : job.file;
-        const item = covered.find((i) => info.get(i).name === t.name && (!abs || info.get(i).file === abs));
-        testRun.appendOutput(`${run.summaryLine(t)}\r\n`);
-        if (!item) continue;
-        reported.add(item.id);
-        item.description = t.cached ? 'cached' : undefined;
-        if (t.outcome === 'passed') {
-          testRun.passed(item);
-        } else {
-          const message = new vscode.TestMessage(run.failureText(t));
-          const c = t.failure && t.failure.comparison;
-          if (c && typeof c.left === 'string') {
-            message.actualOutput = c.left;
-            message.expectedOutput = c.right;
-          }
-          const at = t.failure && t.failure.part ? t.failure.part : t;
-          const where = at.file ? run.reportedPath(job.project, job.project, at.file) : info.get(item).file;
-          message.location = new vscode.Location(vscode.Uri.file(where), range(at.line, at.column));
-          if (t.outcome === 'failed') testRun.failed(item, message);
-          else testRun.errored(item, message);
-        }
-      }
-      // Tests the run did not mention (the file was edited meanwhile).
-      for (const i of covered) if (!reported.has(i.id)) testRun.skipped(i);
     }
+    const runnable = [];
+    for (const job of jobs) {
+      if (job.error) {
+        for (const i of job.covered) testRun.errored(i, new vscode.TestMessage(job.error));
+      } else {
+        job.covered.forEach((i) => testRun.started(i));
+        runnable.push(job);
+      }
+    }
+    await run.runPool(
+      runnable,
+      run.PARALLEL_RUNS,
+      (job) => run.runTestsJson(cliPath(), run.testArgs({ target: job.target, only: job.only }), job.project, abort.signal),
+      (job, result) => {
+        job.done = true;
+        report(testRun, job, result);
+      },
+      () => token.isCancellationRequested,
+    );
+    // Runs that never started because of a stop.
+    for (const job of runnable) if (!job.done) job.covered.forEach((i) => testRun.skipped(i));
     testRun.end();
   }
 

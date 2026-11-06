@@ -79,3 +79,90 @@ test('reported file names: project names start with the project folder', () => {
   assert.strictEqual(run.reportedPath('/t', undefined, '01.sw'), '/t/01.sw');
   assert.strictEqual(run.reportedPath('/t', undefined, '/x/y.sw'), '/x/y.sw');
 });
+
+test('the server\'s tests are used, with the file\'s namespace', async () => {
+  const answer = [
+    { name: 'a', namespace: 'N.M', range: { start: { line: 4, character: 2 }, end: { line: 5, character: 0 } } },
+    { name: 'b', namespace: null, range: { start: { line: 9, character: 0 }, end: { line: 9, character: 9 } } },
+  ];
+  assert.deepStrictEqual(await run.discover(async () => answer, 'unused'), [
+    { name: 'a', namespace: 'N.M', line: 4, character: 2 },
+    { name: 'b', namespace: undefined, line: 9, character: 0 },
+  ]);
+  // No regex involved: the server's list is taken as it is, even when empty.
+  assert.deepStrictEqual(await run.discover(async () => [], 'test "x" := true\n'), []);
+});
+
+test('without an answer from the server the text is read', async () => {
+  const text = 'namespace Q\n\ntest "t" := true\n';
+  const want = [{ name: 't', line: 2, character: 0, namespace: 'Q' }];
+  assert.deepStrictEqual(await run.discover(async () => { throw new Error('no server'); }, text), want);
+  assert.deepStrictEqual(await run.discover(async () => ({ not: 'a list' }), () => text), want);
+  const started = Date.now();
+  assert.deepStrictEqual(await run.discover(() => new Promise(() => {}), text, 30), want);
+  assert.ok(Date.now() - started < 2000);
+});
+
+test('namespaces are grouped to cover the project without overlap', () => {
+  const found = run.groupNamespaces([
+    'Aoc.Year2020.Day01', 'Aoc.Year2020.Day01.Proofs', 'Aoc.Year2020.Day02.Proofs.Deep',
+    'Aoc.Common', 'Aoc.Common.Tests', 'Aoc.Common.Proofs', 'Solo',
+  ]);
+  assert.deepStrictEqual(found, ['Aoc.Common', 'Aoc.Year2020.Day01', 'Aoc.Year2020.Day02', 'Solo']);
+  assert.ok(run.inGroup('Aoc.Common.Tests', 'Aoc.Common'));
+  assert.ok(!run.inGroup('Aoc.Commonly', 'Aoc.Common'));
+});
+
+test('the pool runs a few at a time, reports each as it finishes, and stops starting on cancel', async () => {
+  let running = 0;
+  let peak = 0;
+  const order = [];
+  const jobs = [60, 10, 10, 10, 10, 10];
+  let stop = false;
+  await run.runPool(
+    jobs.map((ms, i) => ({ ms, i })),
+    2,
+    async (job) => {
+      running++;
+      peak = Math.max(peak, running);
+      await new Promise((r) => setTimeout(r, job.ms));
+      running--;
+      return job.i;
+    },
+    (job, result) => {
+      order.push(result);
+      if (result === 3) stop = true;
+    },
+    () => stop,
+  );
+  assert.strictEqual(peak, 2);
+  // Job 0 is slow: the quick ones are reported before it, and nothing starts after the stop.
+  assert.ok(order.indexOf(1) < order.indexOf(0));
+  assert.ok(!order.includes(5));
+});
+
+test('per-group runs against a stub CLI report progressively and a stop kills the rest', async () => {
+  // Group "slow" takes a while; the others answer at once.
+  const cli = stub(`
+case "$2" in
+  slow) sleep 5;;
+esac
+echo '{"ok":true,"tests":[{"name":"'$2'","outcome":"passed","cached":false,"file":"f.sw"}]}'`);
+  const groups = ['A', 'B', 'slow', 'C'];
+  const abort = new AbortController();
+  const done = [];
+  const started = Date.now();
+  await run.runPool(
+    groups,
+    2,
+    (g) => run.runTestsJson(cli, run.testArgs({ target: g }), os.tmpdir(), abort.signal),
+    (g, result) => {
+      done.push([g, result.cancelled ? 'cancelled' : result.tests && result.tests[0].name]);
+      if (g === 'C') abort.abort();
+    },
+    () => abort.signal.aborted,
+  );
+  assert.ok(Date.now() - started < 4000, 'the slow run was killed, not waited for');
+  assert.deepStrictEqual(done.slice(0, 3), [['A', 'A'], ['B', 'B'], ['C', 'C']]);
+  assert.deepStrictEqual(done[3], ['slow', 'cancelled']);
+});

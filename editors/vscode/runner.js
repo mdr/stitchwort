@@ -27,9 +27,12 @@ function testArgs({ target, only }) {
 // the program's JSON, or `{ error }` when it printed none (the file didn't
 // check, no such test, no program): the error is what it wrote on standard
 // error. Failing tests are not errors: the exit status is nonzero then too.
-function runTestsJson(cli, args, cwd) {
+// With a `signal` (an AbortSignal), aborting kills the program and resolves to
+// `{ error, cancelled: true }`.
+function runTestsJson(cli, args, cwd, signal) {
   return new Promise((resolve) => {
-    cp.execFile(cli, args, { cwd, maxBuffer: 64 * 1024 * 1024 }, (err, stdout, stderr) => {
+    cp.execFile(cli, args, { cwd, maxBuffer: 64 * 1024 * 1024, signal }, (err, stdout, stderr) => {
+      if (signal && signal.aborted) return resolve({ error: 'cancelled', cancelled: true, stderr });
       try {
         const parsed = JSON.parse(stdout);
         if (parsed && Array.isArray(parsed.tests)) return resolve({ ...parsed, stderr });
@@ -71,6 +74,45 @@ function summary(tests) {
   return `${parts.join(', ')}${cached ? ` (${cached} from the cache)` : ''}`;
 }
 
+// The `test "name"` declarations of a file as the server lists them
+// (`stitchwort/tests`, crates/lsp/src/lens.rs), in the shape `discoverTests`
+// returns plus the file's `namespace`; undefined if the answer isn't a list.
+function fromServerTests(answer) {
+  if (!Array.isArray(answer)) return undefined;
+  return answer.map((t) => ({
+    name: t.name,
+    namespace: t.namespace || undefined,
+    line: t.range.start.line,
+    character: t.range.start.character,
+  }));
+}
+
+// A file's tests, from the server through `ask` (a function from the request
+// name to a promise of the answer), or by reading the text with
+// `discoverTests` when the server doesn't answer: no server yet, an old one
+// that doesn't know the request, or no answer within `timeoutMs`. `text` is
+// read lazily, only for the fallback.
+async function discover(ask, text, timeoutMs = 5000) {
+  let timer;
+  try {
+    const answer = await Promise.race([
+      ask(),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error('timed out')), timeoutMs);
+      }),
+    ]);
+    const found = fromServerTests(answer);
+    if (found) return found;
+  } catch (e) {
+    // fall through
+  } finally {
+    clearTimeout(timer);
+  }
+  const read = typeof text === 'function' ? text() : text;
+  const namespace = namespaceOf(read);
+  return discoverTests(read).map((t) => ({ ...t, namespace }));
+}
+
 // The `test "name"` declarations of a file's text, as the Testing panel lists
 // them before anything has run: `{ name, line, character }`, line from 0.
 // Read with a pattern rather than a parse, so it works on every keystroke;
@@ -91,6 +133,37 @@ function discoverTests(text) {
   });
   return found;
 }
+
+// The CLI targets that together cover `namespaces` (those of the files that
+// have tests), one per group: each namespace cut to its first `depth`
+// components (`Aoc.Year2020.Day11.Proofs` -> `Aoc.Year2020.Day11`), and a
+// group inside another dropped, since a namespace target runs its whole
+// subtree and the runs must not overlap. Sorted.
+function groupNamespaces(namespaces, depth = 3) {
+  const cut = [...new Set(namespaces.map((n) => n.split('.').slice(0, depth).join('.')))].sort();
+  return cut.filter((g) => !cut.some((o) => o !== g && g.startsWith(`${o}.`)));
+}
+
+// Whether `namespace` is `group` or inside it.
+const inGroup = (namespace, group) => namespace === group || namespace.startsWith(`${group}.`);
+
+// Runs `work(job)` for each of `jobs`, at most `limit` at a time, and calls
+// `onDone(job, result)` as each finishes, so a caller reports progressively.
+// Once `cancelled()` is true no further job starts. Resolves when the
+// started ones are done.
+async function runPool(jobs, limit, work, onDone, cancelled = () => false) {
+  let next = 0;
+  const worker = async () => {
+    while (next < jobs.length && !cancelled()) {
+      const job = jobs[next++];
+      onDone(job, await work(job));
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, jobs.length) }, worker));
+}
+
+// How many `stitchwort test` runs the panel keeps going at once.
+const PARALLEL_RUNS = 3;
 
 // The folder of the nearest `stitchwort.yaml` at or above `file`, not above
 // `stop`: the project a file's tests belong to, if any. `exists` tells
@@ -148,5 +221,11 @@ module.exports = {
   failureText,
   summary,
   discoverTests,
+  fromServerTests,
+  discover,
+  groupNamespaces,
+  inGroup,
+  runPool,
+  PARALLEL_RUNS,
   projectOf,
 };
