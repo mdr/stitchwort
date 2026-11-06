@@ -3980,6 +3980,23 @@ allows a final line break, which a trimmed text can't end with: std's
 lines to 27; Day16.sw from 274 to 278. A bad digit now says "column 4:
 expected a hexadecimal digit or the end of the line, got 'G'".
 
+**Completeness (SW-1626).** `Proofs/ReadsBack.sw` (`Complete.sw` was taken by
+the decoder's), 81 lines, about 6 minutes. The parser's soundness theorem is
+`readBitsHex`: what `readBits` reads has the puzzle's `transmissionBits`. Its
+converse, `parseComplete`, takes `transmissionBits input.trim.toList = Some
+bits` and gives `readBits input = Ok bits`. `hexValueOf` (16 arms, like
+`hexAgree`) turns a character the puzzle's table knows into one the program's
+`hexValue` reads, with the same bits; `runsHexDigit` and `declinesHexDigitEnd`
+are the digit parser's pieces (`runsBind` over `runsSatisfy` and a `need` on
+`Some`); `runsDigits` builds the steps of `many hexDigit` by recursion on the
+characters; `runsWithFinalLineBreakNone` and `Parse.runsLine` finish it.
+`writtenUnique` is two `parseComplete`s and `okInjective`: the spec
+(`transmissionBits`) is already a function of the text, so uniqueness was never
+in doubt, and it holds. The values `readDigits` gives are not in the spec (only
+their bits are), so nothing is said of them beyond that. The six audit warnings
+are earlier theorems' (`readGroups*`, `soundStep`, `literalHere`, `countHere`),
+not new. Dropping the `trim` from `readDigits` fails `Parse.sw`'s `readDigitsBits`.
+
 ### 1. BUG: `cases` panics
 
 Flipping `if more then` to `if not more then` in `readGroups`, or
