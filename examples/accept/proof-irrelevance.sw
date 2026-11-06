@@ -11,19 +11,24 @@ type Box (a: Prop): Type =
 def Box.unbox [a: Prop]: Box a → a
   | MkBox h => h
 
--- The motivating programs: a divisor's proof, and a character's.
-theorem sameMod (x: Int): Int.modNat x 100 [ok := Nat.succNotZero 99] = Int.modNat x 100 := rfl
+-- The motivating programs: a divisor's proof, and a character's. `wrap` and
+-- `remainder` take a proof that the divisor isn't 0 and never compute with it.
+def wrap (x: Int) (d: Nat) [auto ok: d ≠ 0]: Nat := Int.modNat x d
+
+def remainder (x: Nat) (d: Nat) [auto ok: d ≠ 0]: Nat := x % d
+
+theorem sameMod (x: Int): wrap x 100 [ok := Nat.succNotZero 99] = wrap x 100 := rfl
 
 theorem charProof (p: Char.isScalar 97 = True): MkChar 97 p = 'a' := rfl
 
 theorem sameModLiteral (p: 100 ≠ 0) (q: 100 ≠ 0):
-    Int.modNat 7 100 [ok := p] = Int.modNat 7 100 [ok := q] := rfl
+    wrap 7 100 [ok := p] = wrap 7 100 [ok := q] := rfl
 
 theorem sameModDivisor (x: Int) (d: Nat) (p: d ≠ 0) (q: d ≠ 0):
-    Int.modNat x d [ok := p] = Int.modNat x d [ok := q] := rfl
+    wrap x d [ok := p] = wrap x d [ok := q] := rfl
 
 theorem sameNatMod (x: Nat) (p: 100 ≠ 0) (q: 100 ≠ 0):
-    Nat.mod x 100 [ok := p] = Nat.mod x 100 [ok := q] := rfl
+    remainder x 100 [ok := p] = remainder x 100 [ok := q] := rfl
 
 -- Constructors' proof fields.
 theorem boxEq (a: Prop) (p: a) (q: a): MkBox p = MkBox q := rfl

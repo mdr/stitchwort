@@ -31,4 +31,4 @@ Every piece of Stitchwort code in this guide is quoted from a file in [examples/
 task guide:update    # STITCHWORT_GUIDE_UPDATE=1 cargo nextest run --release -p stitchwort-cli --test guide
 ```
 
-and review the diff. In the Markdown source, a comment before each block says where it comes from: `<!-- snippet: values.sw#blocks -->` is the part of `examples/values.sw` between `-- begin blocks` and `-- end blocks`, `<!-- snippet: FILE@name -->` is the declaration `name`, and `<!-- output: check errors/divide.sw -->` is what `stitchwort check errors/divide.sw` prints, run in `examples/`.
+and review the diff. In the Markdown source, a comment before each block says where it comes from: `<!-- snippet: values.sw#blocks -->` is the part of `examples/values.sw` between `-- begin blocks` and `-- end blocks`, `<!-- snippet: FILE@name -->` is the declaration `name`, and `<!-- output: check errors/missing-case.sw -->` is what `stitchwort check errors/missing-case.sw` prints, run in `examples/`.

@@ -231,7 +231,12 @@ Import what you use: std's theorems live in namespaces that need an import
   nothing about. It reads a hypothesis `x ∈ a ..< b` (or `..=`) as `a ≤ x` and
   `x < b`, and proves such a goal from the bounds. It doesn't know what `% 2` is: pass `Nat.divModEq` and
   `Nat.modLess` for each (aoc/NOTES-2024.md:7304–7311). Its failure
-  message's model "may not be a real counterexample".
+  message's model "may not be a real counterexample". Division is total
+  (`x / 0 = 0`, `x % 0 = x`, as in Lean), so `Nat.divModEq` and most
+  remainder lemmas (`Nat.modMod`, `Nat.modAddMul`, `Nat.mulModMod`) hold for
+  every divisor and take no hypothesis; the few that are false at 0
+  (`Nat.modLess`, `Nat.modLt`, `Nat.divAddMul`, `Int.modNatLt`) ask for
+  `d ≠ 0`.
 - **`auto`** isn't a proof term: it is the compiler filling an `[auto h: P]`
   argument, from evidence given by name, a hypothesis in scope of exactly
   that type, or a decision procedure (DESIGN.md "`auto` and `Decidable`").
@@ -365,8 +370,9 @@ Each was run on the example named; the output is quoted, shortened.
     lambda `y => f x y`, not `f x`). Day 12's `% 90` against the program's
     `% 45` is this (`examples/reject/match-not-found-arm-fails.sw`).
   - `E-REWRITE-MOTIVE`: replacing the term makes the goal ill-typed, usually
-    because an `auto` proof (the `d != 0` in `x % d`) is about it. Rewrite a
-    larger term (`x % d`), or use `calc` (`examples/reject/rewrite-motive-auto.sw`).
+    because an `auto` proof (the `i < xs.length` in `xs.getLt i`) is about
+    it. Rewrite a larger term (`xs.getLt i`), or use `calc`
+    (`examples/reject/rewrite-motive-auto.sw`).
   - `E-REWRITE-PREMISE`: the rule matched but its premise (`x ≤ n`) isn't a
     hypothesis and `omega` can't prove it; give it in the rule
     (`examples/reject/rewrite-premise-unproved.sw`).

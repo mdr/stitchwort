@@ -14,7 +14,7 @@ def area (width: Nat) (height: Nat): Nat := width * height
 -- begin docs
 --| How many shelves `width` wide fit along a wall, rounded down. A width of 0
 --| fits none. For the floor see [`area`].
-def shelves (wall: Nat) (width: Nat): Nat := if width ≠ 0 then wall / width else 0
+def shelves (wall: Nat) (width: Nat): Nat := wall / width
 
 test "shelves" := shelves 250 60 == 4 ∧ shelves 250 0 == 0
 -- end docs
@@ -76,13 +76,13 @@ test "converting" := balance.toNat == 0 ∧ (7: Nat).toInt == 7
 test "absolute value" := Int.natAbs balance == 2
 -- end int
 
--- begin division-proof
-def averageOf (total: Nat) (count: Nat): Nat :=
-  if count ≠ 0 then total / count else 0
+-- begin division-by-zero
+test "dividing by 0" := 7 / 0 == 0 ∧ 7 % 0 == 7
 
-def meanOf (total: Nat) (count: Nat): Nat :=
-  if count = 0 then 0 else total / count
--- end division-proof
+def averageOf (total: Nat) (count: Nat): Nat := total / count
+
+test "the average of nothing" := averageOf 10 0 == 0
+-- end division-by-zero
 
 -- begin chars
 def initial (name: Text): Char :=

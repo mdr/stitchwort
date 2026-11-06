@@ -316,12 +316,12 @@ test "conditions on cases" := grade 95 == "distinction" ∧ grade 60 == "pass" �
 def share (total: Nat) (parts: Nat): Nat :=
   match total, parts with
     | amount, count if count != 0 => amount / count
-    | _, _ => 0
+    | amount, _ => amount
 
-test "a condition gives a fact" := share 12 4 == 3 ∧ share 12 0 == 0
+test "a condition picks the arm" := share 12 4 == 3 ∧ share 12 0 == 12
 ```
 
-The condition is also a fact in its arm, as in an `if` ([chapter 2](02-values-and-definitions.md#division-needs-a-reason)): `count != 0` is what lets `amount / count` check. One condition covers the whole arm. With several patterns (`| a, b if a < b =>`) it comes once, after the last, and with alternatives (`| 'a' | 'e' if strict =>`) it is tested for whichever alternative matched.
+The condition is also a fact in its arm, as in an `if` ([chapter 2](02-values-and-definitions.md#dividing-by-zero)): in `share`'s first arm `count != 0` is known, so a proof or an `auto` argument there can use it. One condition covers the whole arm. With several patterns (`| a, b if a < b =>`) it comes once, after the last, and with alternatives (`| 'a' | 'e' if strict =>`) it is tested for whichever alternative matched.
 
 The compiler doesn't reason about conditions, so an arm with one covers nothing when it checks that every case is handled. Two conditions that between them cover every number still leave the case missing, and the message points at the guarded arms:
 

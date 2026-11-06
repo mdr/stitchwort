@@ -27,7 +27,7 @@ A comment line that starts `--|` documents the declaration below it. The compile
 ```stitchwort
 --| How many shelves `width` wide fit along a wall, rounded down. A width of 0
 --| fits none. For the floor see [`area`].
-def shelves (wall: Nat) (width: Nat): Nat := if width ≠ 0 then wall / width else 0
+def shelves (wall: Nat) (width: Nat): Nat := wall / width
 
 test "shelves" := shelves 250 60 == 4 ∧ shelves 250 0 == 0
 ```
@@ -151,41 +151,20 @@ test "absolute value" := Int.natAbs balance == 2
 
 `n.toInt` converts a `Nat` to an `Int`, `i.toNat` the other way (negative numbers become 0), and `Int.natAbs` gives the absolute value as a `Nat`.
 
-### Division needs a reason
+### Dividing by zero
 
-`total / count` needs to know that `count` isn't zero, because division by zero has no answer. The compiler looks for that fact among the conditions that hold where the division is written. A `Bool` test doesn't give it one:
+`/` and `%` always give an answer. Dividing by 0 gives 0, and the remainder is then the number itself: `7 / 0` is 0 and `7 % 0` is 7, as in Lean, Rocq and Isabelle. With those values `n = (n / d) * d + n % d` holds for every `d`, 0 included. `Int`'s divisions do the same.
 
-<!-- snippet: errors/divide.sw -->
+<!-- snippet: values.sw#division-by-zero -->
 ```stitchwort
-def average (total: Nat) (count: Nat): Nat :=
-  if count == 0 then 0 else total / count
+test "dividing by 0" := 7 / 0 == 0 ∧ 7 % 0 == 7
+
+def averageOf (total: Nat) (count: Nat): Nat := total / count
+
+test "the average of nothing" := averageOf 10 0 == 0
 ```
 
-<!-- output: check errors/divide.sw -->
-```text
-[E-AUTO-STUCK] Error: can't decide `count ≠ 0` here
-   ╭─[ errors/divide.sw:2:29 ]
-   │
- 2 │   if count == 0 then 0 else total / count
-   │                             ──────┬──────
-   │                                   ╰──────── it involves values that aren't known here, and computing it doesn't settle it
-   │
-   │ Note: establish it first, with `if h: … then … else …`
-───╯
-```
-
-`count == 0` is a `Bool`: it computes `True` or `False`, but says nothing to the compiler about `count`. Write the condition as a statement instead, `count != 0` or `count = 0` (one `=`: equality as a statement), and each branch knows which way it went:
-
-<!-- snippet: values.sw#division-proof -->
-```stitchwort
-def averageOf (total: Nat) (count: Nat): Nat :=
-  if count ≠ 0 then total / count else 0
-
-def meanOf (total: Nat) (count: Nat): Nat :=
-  if count = 0 then 0 else total / count
-```
-
-In `averageOf`'s `then` branch, `count != 0` is a fact in scope, and `/` finds it; in `meanOf`'s `else` branch the fact is `¬(count = 0)`, which is the same thing. A fact that the divisor is at least 1 does too: with `h: 0 < count` in scope, `total / count` needs nothing more. For a literal divisor (`n / 2`) the compiler checks the fact by computing it, so nothing needs to be written. [Chapter 10](10-proofs.md) explains these facts in general: they are proofs, and `[auto …]` parameters ask for them.
+Where 0 should mean something else, say so with an `if` or a guard, as `share` does in [chapter 3](03-data.md#conditions-on-cases). A claim about the result is a different matter: `x % d < d` holds only when `d` isn't 0, so the lemma that says it, `Nat.modLt`, asks for that fact, and a proof using it has to have the fact at hand ([chapter 10](10-proofs.md)). The usual way is a condition written as a statement, `if d != 0` or `if d = 0` (one `=`: equality as a statement): each branch then knows which way it went. A `Bool` test, `if d == 0`, computes `True` or `False` but tells the compiler nothing about `d`.
 
 ### Other number types
 

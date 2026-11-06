@@ -2,23 +2,22 @@
 
 import Std (Bool, Void)
 
--- `/` needs a proof that the divisor isn't zero. For a literal, `auto`
--- decides it at compile time.
+-- Division is total: `n / 0 = 0` and `n % 0 = n`.
 def half (n: Nat): Nat := n / 2
 
 theorem sevenHalves: 7 / 2 = 3 := rfl
 
 theorem sevenMod: 7 % 2 = 1 := rfl
 
--- For a divisor only known at runtime, establish it first: inside the `then`
--- branch, `h: d != 0` is in scope, and `auto` finds it.
-def safeDiv (n: Nat) (d: Nat): Nat := if h: d ≠ 0 then n / d else 0
+-- An `if` on a proposition decides it at runtime.
+def safeDiv (n: Nat) (d: Nat): Nat := if d ≠ 0 then n / d else 0
 
 theorem safeDivByZero: safeDiv 5 0 = 0 := rfl
 
 theorem safeDivWorks: safeDiv 9 3 = 3 := rfl
 
--- A function can ask for a proof itself, and its callers' `auto` provides it.
+-- A function can ask for a proof itself, and its callers' `auto` provides it:
+-- here, so that there is no average of nothing.
 def average (total: Nat) (count: Nat): [auto ok: count ≠ 0] → Nat := total / count
 
 def averageOfThree: Nat := average 12 3

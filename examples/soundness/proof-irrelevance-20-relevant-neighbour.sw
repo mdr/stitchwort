@@ -3,5 +3,7 @@
 -- `sameMod` and its variants in accept/proof-irrelevance.sw.
 import Std (Int, Nat)
 
+def wrap (x: Int) (d: Nat) [auto ok: d ≠ 0]: Nat := Int.modNat x d
+
 theorem t20 (x: Int) (y: Int) (p: 100 ≠ 0):
-    Int.modNat x 100 [ok := p] = Int.modNat y 100 [ok := p] := rfl
+    wrap x 100 [ok := p] = wrap y 100 [ok := p] := rfl

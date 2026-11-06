@@ -40,17 +40,20 @@ theorem shownAndHidden (xs: List Nat) (h: xs.all (n => n < 20) = True):
     xs.all (n => n < 20) = safe { levels = xs } :=
   rewrite h
 
--- A division carries a proof that the divisor is not zero, which a goal as
+-- `per` carries a proof that the divisor is not zero, which a goal as
 -- written would have to rewrite too (its type is `d ≠ 0`, not `x' ≠ 0`), so
 -- the search falls back to the computed goal, where the proof is gone. (The
--- shape of aoc 2025 day 1, Part2.sw: a step in a `calc`.)
+-- shape of aoc 2025 day 1, Part2.sw, when its `/` took a proof: a step in a
+-- `calc`.)
+def per (n: Nat) (d: Nat) [auto ok: d ≠ 0]: Nat := n / d
+
 theorem hiddenProof (d: Nat) [auto ok: d ≠ 0] (a: Nat) (n: Nat) (same: Succ a = d):
-    (d + n) / d = (Succ a + n) / d :=
-  calc (d + n) / d
-    _ = (Succ a + n) / d := rewrite (omega: d = Succ a)
+    per (d + n) d = per (Succ a + n) d :=
+  calc per (d + n) d
+    _ = per (Succ a + n) d := rewrite (omega: d = Succ a)
 
 theorem hiddenProofPlain (d: Nat) (a: Nat) (n: Nat) [auto ok: d ≠ 0] (same: d = Succ a):
-    (d + n) / d = (Succ a + n) / d :=
+    per (d + n) d = per (Succ a + n) d :=
   rewrite same
 
 def add (x: Nat) (y: Nat): Nat :=

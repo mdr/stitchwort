@@ -163,9 +163,9 @@ test "conditions on cases" := grade 95 == "distinction" ∧ grade 60 == "pass" �
 def share (total: Nat) (parts: Nat): Nat :=
   match total, parts with
     | amount, count if count != 0 => amount / count
-    | _, _ => 0
+    | amount, _ => amount
 
-test "a condition gives a fact" := share 12 4 == 3 ∧ share 12 0 == 0
+test "a condition picks the arm" := share 12 4 == 3 ∧ share 12 0 == 12
 -- end guards
 
 -- begin synonyms
