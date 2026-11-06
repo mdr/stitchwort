@@ -11170,13 +11170,13 @@
     {
       "id": 1628,
       "title": "Goal as written, stage 2: match and cases as written first (folded-goals.md option B in generalised_now), scrutinee found up to eta (day 19) (D2476)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1628",
       "labels": [
         "elab"
       ],
-      "body": "D2475-D2480 (Matt, 6 Nov 2026): all as recommended in docs/proposals/goal-as-written.md: rewrite/match/cases/transport look as written first with a completeness check and today's search as fallback; the as-written search may solve a rule's unknowns; keep today's reach into hidden copies, no occurrence selection now (D2478); out-of-resources check uses the as-written result; rewrite f later. 'happy to go with your recommendation.' Opus, expected: 120 min. After stage 1.\n\nStarted on Opus, expected: 120 min.\n\nD2507 (Matt, 6 Nov 2026): after merge the orchestrator's verifier runs one whole-AoC + roguelike check --no-cache in the background, stopped at 6 min: 'two to three minutes is okay, but not 20 minutes.' Not inside the lane.\n\nLane done (2a6042480, c16fa8f8f), for Opus review. crates/elab/src/matching/as_written.rs: generalised match/cases reads goal and types back folded, occurrence = same head as written + unifies solving nothing (no instance to choose). Kept only if (1) every variable today copies is copied, (2) each generalised target read back unfolded agrees with today's (same term, or scrutinee variable where today's has the scrutinee written otherwise, e.g. eta), (3) the folded motive type-checks now (also for cases), (4) within budget; else today's path unchanged. Check 2 also catches a closed scrutinee computing to a constructor (pick (isBig 20)). STITCHWORT_MATCH_METRICS counts. Example examples/accept/match-as-written.sw (eta, hidden copy falls back, computed-away falls back, arms keep calls). Day 19 chainBounded scrutinee and memMapElim now as written (note: the as-written form also checks on main today, the day's original failure no longer reproduces there). 44 hash snapshots moved + 1 new; 3 E-CASES note snapshots now show calls (one shows `pick True` where it showed `K2`). Counts 2020 days 10/18/19: 144 folded, 6 incomplete, ~113 nothing each; day 20: 218/20/181; 0 rescued; times equal (day 20 3.51 → 3.26 s user). Tests: lane elab 156/156, examples accept+reject 2/2, std 1/1, hash/pins/bound_to_the_prelude 16/16, day 19 check + audit 71/71. ~55 min (est. 120).\n\nLane done (2a6042480, c16fa8f8f), in Opus review. matching/as_written.rs: scrutinee found as written by unification solving nothing; kept only if every copied hypothesis matches, each rewritten goal/hypothesis unfolded equals today's (eta difference allowed), motive checks, within budget; else today's behaviour. Day 19 eta shape now checks; arms keep calls. Counts: days 10/18/19 144 folded, 6 incomplete each; day 20 218/20; time unchanged or faster. 44 hash snapshots moved. Orchestrator's call: keep the strict equal-to-today check (a closed scrutinee that computes to a constructor would otherwise pick the wrong arm). Model result: Opus, pending review, 55 min (est. 120).\n\nOpus review (6 Nov 2026): sound (kernel-checked motive, snapshots restored, solving-nothing enforced). One regression: the search copies extra hypotheses whose occurrence unfolds away (check 1 only asks today's ⊆ these), so a copied let loses its value (a7.sw: E-REFL on the lane, checks on main); same blind spot drops W-MATCH-NOT-FOUND (b1.sw). Also: errors on the kept path don't fall back. Accepted by design (D2476): extra refinement can break a lemma in eta form (a4.sw) until stage 3. Fixes sent to the lane.",
+      "body": "D2475-D2480 (Matt, 6 Nov 2026): all as recommended in docs/proposals/goal-as-written.md: rewrite/match/cases/transport look as written first with a completeness check and today's search as fallback; the as-written search may solve a rule's unknowns; keep today's reach into hidden copies, no occurrence selection now (D2478); out-of-resources check uses the as-written result; rewrite f later. 'happy to go with your recommendation.' Opus, expected: 120 min. After stage 1.\n\nStarted on Opus, expected: 120 min.\n\nD2507 (Matt, 6 Nov 2026): after merge the orchestrator's verifier runs one whole-AoC + roguelike check --no-cache in the background, stopped at 6 min: 'two to three minutes is okay, but not 20 minutes.' Not inside the lane.\n\nLane done (2a6042480, c16fa8f8f), for Opus review. crates/elab/src/matching/as_written.rs: generalised match/cases reads goal and types back folded, occurrence = same head as written + unifies solving nothing (no instance to choose). Kept only if (1) every variable today copies is copied, (2) each generalised target read back unfolded agrees with today's (same term, or scrutinee variable where today's has the scrutinee written otherwise, e.g. eta), (3) the folded motive type-checks now (also for cases), (4) within budget; else today's path unchanged. Check 2 also catches a closed scrutinee computing to a constructor (pick (isBig 20)). STITCHWORT_MATCH_METRICS counts. Example examples/accept/match-as-written.sw (eta, hidden copy falls back, computed-away falls back, arms keep calls). Day 19 chainBounded scrutinee and memMapElim now as written (note: the as-written form also checks on main today, the day's original failure no longer reproduces there). 44 hash snapshots moved + 1 new; 3 E-CASES note snapshots now show calls (one shows `pick True` where it showed `K2`). Counts 2020 days 10/18/19: 144 folded, 6 incomplete, ~113 nothing each; day 20: 218/20/181; 0 rescued; times equal (day 20 3.51 → 3.26 s user). Tests: lane elab 156/156, examples accept+reject 2/2, std 1/1, hash/pins/bound_to_the_prelude 16/16, day 19 check + audit 71/71. ~55 min (est. 120).\n\nLane done (2a6042480, c16fa8f8f), in Opus review. matching/as_written.rs: scrutinee found as written by unification solving nothing; kept only if every copied hypothesis matches, each rewritten goal/hypothesis unfolded equals today's (eta difference allowed), motive checks, within budget; else today's behaviour. Day 19 eta shape now checks; arms keep calls. Counts: days 10/18/19 144 folded, 6 incomplete each; day 20 218/20; time unchanged or faster. 44 hash snapshots moved. Orchestrator's call: keep the strict equal-to-today check (a closed scrutinee that computes to a constructor would otherwise pick the wrong arm). Model result: Opus, pending review, 55 min (est. 120).\n\nOpus review (6 Nov 2026): sound (kernel-checked motive, snapshots restored, solving-nothing enforced). One regression: the search copies extra hypotheses whose occurrence unfolds away (check 1 only asks today's ⊆ these), so a copied let loses its value (a7.sw: E-REFL on the lane, checks on main); same blind spot drops W-MATCH-NOT-FOUND (b1.sw). Also: errors on the kept path don't fall back. Accepted by design (D2476): extra refinement can break a lemma in eta form (a4.sw) until stage 3. Fixes sent to the lane.\n\nFixes (b98072f41): a hit counts only if the scrutinee's variable survives unfolding; copies = today's plus only those still holding the scrutinee after unfolding (never an extra let); kept-path errors fall back; conv_now for the quietness test. a7/b1 behave as main; a4 (eta lemma after more refinement) left for stage 3 (D2476). Merged; snapshots regenerated; 19 tests (hashes, pins, examples, std) passed; D2507 whole-AoC check --no-cache: 0 errors in 1 min 36 s, roguelike 0 errors in 4.5 s. Model result: Opus, needed fixes (extra copies, found by the Opus review), 75 min (est. 120).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11310,13 +11310,13 @@
     {
       "id": 1638,
       "title": "Arrays stage 3: JS extraction with version arrays (Baker), correct on old versions, O(1) when each version is used once (D2462)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1638",
       "labels": [
         "runtime"
       ],
-      "body": "D2459-D2468 (Matt, 6 Nov 2026): all as recommended in docs/proposals/arrays.md: Array a = a std record around a list (no kernel change); no length in the type for now; in place when unshared on the interpreter/native; version arrays in JS; a copy counter with an end-of-run note; all-or-nothing loud native binding (E-BUILTIN); API get → Option, getOr, getLt with auto, out-of-range set leaves it unchanged, nothing panics; back Aoc.Common's grid lookups with arrays, std Grid later; packed buffers only if measured; staging: type + natives + in place together, then JS, then docs. After SW-1637.",
+      "body": "D2459-D2468 (Matt, 6 Nov 2026): all as recommended in docs/proposals/arrays.md: Array a = a std record around a list (no kernel change); no length in the type for now; in place when unshared on the interpreter/native; version arrays in JS; a copy counter with an end-of-run note; all-or-nothing loud native binding (E-BUILTIN); API get → Option, getOr, getLt with auto, out-of-range set leaves it unchanged, nothing panics; back Aoc.Common's grid lookups with arrays, std Grid later; packed buffers only if measured; staging: type + natives + in place together, then JS, then docs. After SW-1637.\n\nStarted on Opus at 14:05, expected: 120 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11324,13 +11324,13 @@
     {
       "id": 1639,
       "title": "Arrays stage 4: back Aoc.Common's Grid lookups with arrays; guide, syntax.md and feature tour for Array (D2466, D2468)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1639",
       "labels": [
         "aoc"
       ],
-      "body": "D2459-D2468 (Matt, 6 Nov 2026): all as recommended in docs/proposals/arrays.md: Array a = a std record around a list (no kernel change); no length in the type for now; in place when unshared on the interpreter/native; version arrays in JS; a copy counter with an end-of-run note; all-or-nothing loud native binding (E-BUILTIN); API get → Option, getOr, getLt with auto, out-of-range set leaves it unchanged, nothing panics; back Aoc.Common's grid lookups with arrays, std Grid later; packed buffers only if measured; staging: type + natives + in place together, then JS, then docs. After SW-1637.\n\nD2508 (Matt, 6 Nov 2026): Array stays behind an import (import Std (Array)), like Map, Set and Vec; .toArray works without it. 'we may want to revisit this in the future, but require an import for now.'",
+      "body": "D2459-D2468 (Matt, 6 Nov 2026): all as recommended in docs/proposals/arrays.md: Array a = a std record around a list (no kernel change); no length in the type for now; in place when unshared on the interpreter/native; version arrays in JS; a copy counter with an end-of-run note; all-or-nothing loud native binding (E-BUILTIN); API get → Option, getOr, getLt with auto, out-of-range set leaves it unchanged, nothing panics; back Aoc.Common's grid lookups with arrays, std Grid later; packed buffers only if measured; staging: type + natives + in place together, then JS, then docs. After SW-1637.\n\nD2508 (Matt, 6 Nov 2026): Array stays behind an import (import Std (Array)), like Map, Set and Vec; .toArray works without it. 'we may want to revisit this in the future, but require an import for now.'\n\nStarted on Sonnet at 14:05, expected: 60 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11576,13 +11576,13 @@
     {
       "id": 1657,
       "title": "2020 day 15 on Array: 39% of the run is List.lengthOnto (180M calls): Array.size runs its list definition somewhere in the game loop instead of the native (SW-1637)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1657",
       "labels": [
         "runtime"
       ],
-      "body": "From SW-1637, 6 Nov 2026. Supersedes the length part of SW-1602.",
+      "body": "From SW-1637, 6 Nov 2026. Supersedes the length part of SW-1602.\n\nStarted on Sonnet at 14:05, expected: 60 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
