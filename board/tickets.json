@@ -1,5 +1,5 @@
 {
-  "next": 1674,
+  "next": 1680,
   "tickets": [
     {
       "id": 47,
@@ -11310,13 +11310,13 @@
     {
       "id": 1638,
       "title": "Arrays stage 3: JS extraction with version arrays (Baker), correct on old versions, O(1) when each version is used once (D2462)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1638",
       "labels": [
         "runtime"
       ],
-      "body": "D2459-D2468 (Matt, 6 Nov 2026): all as recommended in docs/proposals/arrays.md: Array a = a std record around a list (no kernel change); no length in the type for now; in place when unshared on the interpreter/native; version arrays in JS; a copy counter with an end-of-run note; all-or-nothing loud native binding (E-BUILTIN); API get → Option, getOr, getLt with auto, out-of-range set leaves it unchanged, nothing panics; back Aoc.Common's grid lookups with arrays, std Grid later; packed buffers only if measured; staging: type + natives + in place together, then JS, then docs. After SW-1637.\n\nStarted on Opus at 14:05, expected: 120 min.",
+      "body": "D2459-D2468 (Matt, 6 Nov 2026): all as recommended in docs/proposals/arrays.md: Array a = a std record around a list (no kernel change); no length in the type for now; in place when unshared on the interpreter/native; version arrays in JS; a copy counter with an end-of-run note; all-or-nothing loud native binding (E-BUILTIN); API get → Option, getOr, getLt with auto, out-of-range set leaves it unchanged, nothing panics; back Aoc.Common's grid lookups with arrays, std Grid later; packed buffers only if measured; staging: type + natives + in place together, then JS, then docs. After SW-1637.\n\nStarted on Opus at 14:05, expected: 120 min.\n\nDone, merged. Version arrays in generated JS (reroot by loop), natives bound all-or-nothing, Array crosses the boundary as T[]; day 15 --js 127 → 23 s user; 100k sets in 6.8 s. Model result: Opus, worked, 32 min (est. 120).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11702,13 +11702,13 @@
     {
       "id": 1666,
       "title": "Tutorial part 1: a .sw file that teaches a programmer theorem proving about programs in VS Code: the extension, holes, goals, hovers, quick fixes; first theorems about small functions (Matt's request)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1666",
       "labels": [
         "docs"
       ],
-      "body": "Matt, 6 Nov 2026: 'an introductory tutorial to theorem proving in Stitchwort … pitch to a competent programmer who doesn't really know much about theorem proving … load it in VS Code and they'd be told what to do … how to invoke the VS Code extension and use holes … part one of N.' Opus (teaching judgement, accuracy about the editor), expected: 90 min.\n\nStarted on Opus, expected: 90 min.\n\nD2512 (Matt, 6 Nov 2026): tutorials live in docs/tutorial/, with a test that checks and tests every file there.",
+      "body": "Matt, 6 Nov 2026: 'an introductory tutorial to theorem proving in Stitchwort … pitch to a competent programmer who doesn't really know much about theorem proving … load it in VS Code and they'd be told what to do … how to invoke the VS Code extension and use holes … part one of N.' Opus (teaching judgement, accuracy about the editor), expected: 90 min.\n\nStarted on Opus, expected: 90 min.\n\nD2512 (Matt, 6 Nov 2026): tutorials live in docs/tutorial/, with a test that checks and tests every file there.\n\nDone, merged. docs/tutorial/01-proving-programs.sw (341 lines, 8 steps: setup, a basket program, rfl, holes with match/Add the missing arms/omega, induction as recursion with rewrite, auto, four breaks, recap); editor features confirmed against the language server; 13 variants each run once; reviewed by the orchestrator. Model result: Opus, worked, 20 min (est. 90).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11807,6 +11807,90 @@
         "tooling"
       ],
       "body": "D2512 (Matt, 6 Nov 2026): tutorials live in docs/tutorial/, with a test that checks and tests every file there. Sonnet, small.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1674,
+      "title": "Goals and messages write dot calls and operators as plain calls (Coupon.apply coupon total for coupon.apply total, List.append rest others for rest ++ others); show them as the source does — the tutorial has to explain it twice (SW-1666)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor"
+      ],
+      "body": "From the tutorial lane SW-1666, 6 Nov 2026. A newcomer can't match the goal to their code.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1675,
+      "title": "VS Code README overstates hover on ? (the server returns nothing; the goal shows via the diagnostic) and 'type of the selected expression' (a hover carries only a position) (SW-1666)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor"
+      ],
+      "body": "From SW-1666, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1676,
+      "title": "Editor shows notes unnumbered ('Note:') where the CLI numbers them ('Note 3'); number them in diagnostics too (SW-1666)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor"
+      ],
+      "body": "From SW-1666, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1677,
+      "title": "Light bulb on a bare ? offers noisy suggestions (Std.Bool.notFalse (… <= total) cases); rank or filter them (SW-1666)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor"
+      ],
+      "body": "From SW-1666, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1678,
+      "title": "Machine: pushPop copies the array on every pop (~7,000 copies; the copy note fires) because a pair holding it through state.fst keeps it shared (arrays.md §5 projection order) (SW-1638)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "runtime"
+      ],
+      "body": "From SW-1638, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1679,
+      "title": "JS: day 15 under --js peaks at 3.0 GB vs the prototype's 1.17 GB; and a top-level constant array other than Array.empty keeps every later version reachable (SW-1638)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "runtime"
+      ],
+      "body": "From SW-1638, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
