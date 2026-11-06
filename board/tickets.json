@@ -1,5 +1,5 @@
 {
-  "next": 1701,
+  "next": 1703,
   "tickets": [
     {
       "id": 47,
@@ -12184,7 +12184,35 @@
       "labels": [
         "tests"
       ],
-      "body": "From SW-1696, 6 Nov 2026. Expect the daily tier to show these too.\n\nD2516 (Matt, 6 Nov 2026): fix the daily tier's failures without asking first, and then rerun only the failing tests, not the whole tier.",
+      "body": "From SW-1696, 6 Nov 2026. Expect the daily tier to show these too.\n\nD2516 (Matt, 6 Nov 2026): fix the daily tier's failures without asking first, and then rerun only the failing tests, not the whole tier.\n\nWidened to the daily tier's display group: function_equations ×4, function_induct ×2, records projections_and_equality_are_generated, postponement a_waiting_comparison_that_fails…, resources running_out_generalising_a_match_points_at_it, project rogue_goals_keep_the_dungeon_folded, examples soundness_examples_fail_for_the_expected_reason, fmt_repo tracked_sw_files_are_formatted.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1701,
+      "title": "Daily tier 6 Nov evening, semantic group: int ×4 (both modes agree), proof_masks ×5, extract generated_code_is_stable and run_lines_agree_with_the_reference_evaluator fail; bisect and fix",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "regression"
+      ],
+      "body": "Daily tier 6 Nov 17:07 (log scratchpad/daily2). D2516: fix, rerun only the failures.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1702,
+      "title": "Daily tier: conv_shortcut every_rejected_example_gets_the_same_verdict_without_the_shortcut uses 10.7 GB and got the tier killed by the 16 GB memory guard (this morning it passed)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "regression"
+      ],
+      "body": "Daily tier 6 Nov 17:07. memguard: 10.69 GB for that one test.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
