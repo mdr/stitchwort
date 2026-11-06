@@ -1,0 +1,125 @@
+diff --git a/crates/elab/src/rewrite.rs b/crates/elab/src/rewrite.rs
+index 9eac3bd8b..719c0af9c 100644
+--- a/crates/elab/src/rewrite.rs
++++ b/crates/elab/src/rewrite.rs
+@@ -783,13 +783,56 @@ fn rewrite_once(
+         equation = elaborate_rule(cx, rule, place)?;
+     }
+     let shape = Shape::Whole(&current_term);
+-    let replaced = if steps.is_empty() {
++    let mut replaced = if steps.is_empty() {
+         replace_solving_instances(cx, rule, place, &equation, &current, shape, 0, remaining)?
+     } else {
+         replace_occurrences(
+             cx, rule, place, &equation, &current, shape, 0, false, remaining,
+         )?
+     };
++    // SW-706 prototype: the same search over the goal read back folded
++    // (calls as calls), for the left side read back folded.
++    if let Ok(mode) = std::env::var("SW706") && steps.is_empty() {
++        let attempt = Snapshot::take(cx);
++        // `goal`, not `current`: that one is forced, its outer call unfolded.
++        let folded_term = cx.quote_folded(goal)?;
++        let mut spare = *remaining;
++        let tried = replace_occurrences_as(
++            cx, rule, place, &equation, goal, Shape::Whole(&folded_term), 0, false, true, &mut spare,
++        );
++        let line = rule.proof.span();
++        let tag = match (&tried, &replaced.step) {
++            (Ok(Replaced { step: Some(f), .. }), Some(t)) => {
++                let fq = cx.quote_folded(&f.goal)?;
++                let tq = cx.quote_folded(&t.goal)?;
++                let same_goal = crate::undo::unify(cx, &f.goal, &t.goal)?;
++                let differs_shown = !same(&fq, &tq);
++                match (same_goal, mode.as_str()) {
++                    (true, _) => if differs_shown { "kept-folded" } else { "kept-same" },
++                    (false, _) => "differs",
++                }
++            }
++            (Ok(Replaced { step: Some(_), .. }), None) => "rescued",
++            (Ok(Replaced { step: None, .. }), Some(_)) => "unfolded-only",
++            (Ok(Replaced { step: None, .. }), None) => "neither",
++            (Err(_), Some(_)) => "folded-error",
++            (Err(_), None) => "folded-error-neither",
++        };
++        eprintln!("SW706 {tag} {:?}", line);
++        let use_folded = match (tag, mode.as_str()) {
++            ("kept-folded", "check" | "lean") | ("rescued", _) => true,
++            ("differs", "lean") => true,
++            _ => false,
++        };
++        if use_folded {
++            if let Ok(r) = tried {
++                *remaining = spare;
++                replaced = r;
++            }
++        } else {
++            attempt.restore(cx);
++        }
++    }
+     let found = replaced.stats;
+     stats.add(&found);
+     match replaced.step {
+@@ -931,9 +974,25 @@ fn replace_occurrences(
+     recent: usize,
+     by_instances: bool,
+     remaining: &mut u64,
++) -> Result<Replaced> {
++    replace_occurrences_as(cx, rule, place, equation, goal, shape, recent, by_instances, false, remaining)
++}
++
++#[allow(clippy::too_many_arguments)]
++fn replace_occurrences_as(
++    cx: &mut Ctx,
++    rule: &RewriteRule,
++    place: Place,
++    equation: &Equation,
++    goal: &Value,
++    shape: Shape,
++    recent: usize,
++    by_instances: bool,
++    folded: bool,
++    remaining: &mut u64,
+ ) -> Result<Replaced> {
+     let g = cx.g();
+-    let lhs_term = cx.quote(&equation.lhs)?;
++    let lhs_term = if folded { cx.quote_folded(&equation.lhs)? } else { cx.quote(&equation.lhs)? };
+     let Some(key) = key(&lhs_term, 0) else {
+         return Err(waiting_head(cx, &lhs_term)?
+             .unwrap_or_else(|| unknown_head(rule, place, &equation.premises)));
+@@ -952,6 +1011,7 @@ fn replace_occurrences(
+         key,
+         recent,
+         by_instances,
++        folded,
+         rule_metas: equation.rule_metas,
+         remaining: Cell::new(*remaining),
+         stats: RefCell::new(Stats::default()),
+@@ -1109,6 +1169,8 @@ struct Search<'a, 'e> {
+     /// the arguments of calls of the same definition
+     /// ([`crate::unify::unify_solving_arguments`]).
+     by_instances: bool,
++    /// SW-706 prototype: the goal and left side are read back folded.
++    folded: bool,
+     /// Metavariables from this index on were made for the rule.
+     rule_metas: usize,
+     remaining: Cell<u64>,
+@@ -1210,6 +1272,9 @@ impl Search<'_, '_> {
+                 if crate::undo::unify(cx, &value, self.lhs)? {
+                     return Ok(true);
+                 }
++                if self.folded && crate::undo::unify_solving_arguments(cx, &value, self.lhs)? {
++                    return Ok(true);
++                }
+                 // A `match` in the rule not lifted yet: an occurrence if it turns
+                 // out to be the same as the one here.
+                 Ok(crate::lift::mentions_draft(cx, &self.lhs_term.borrow())
+@@ -1232,7 +1297,7 @@ impl Search<'_, '_> {
+                     snapshot.restore(cx);
+                     return Ok(None);
+                 }
+-                let solved = cx.quote(self.lhs)?;
++                let solved = if self.folded { cx.quote_folded(self.lhs)? } else { cx.quote(self.lhs)? };
+                 *self.lhs_term.borrow_mut() = solved;
+                 Ok(Some(candidate))
+             }
