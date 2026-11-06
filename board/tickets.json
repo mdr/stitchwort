@@ -1,5 +1,5 @@
 {
-  "next": 1692,
+  "next": 1693,
   "tickets": [
     {
       "id": 47,
@@ -11828,13 +11828,13 @@
     {
       "id": 1675,
       "title": "VS Code README overstates hover on ? (the server returns nothing; the goal shows via the diagnostic) and 'type of the selected expression' (a hover carries only a position) (SW-1666)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1675",
       "labels": [
         "editor"
       ],
-      "body": "From SW-1666, 6 Nov 2026.\n\nStarted on Sonnet in one lane (SW-1675 with SW-1676, SW-1685), expected: 40 min.",
+      "body": "From SW-1666, 6 Nov 2026.\n\nStarted on Sonnet in one lane (SW-1675 with SW-1676, SW-1685), expected: 40 min.\n\nDone, merged: Hover on ? now shows the goal (hover_at); README and getting-started reworded (hover on a selection does give its type). On main: 14 targeted tests passed. Model result: Sonnet, worked, 25 min for three (est. 40).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11842,13 +11842,13 @@
     {
       "id": 1676,
       "title": "Editor shows notes unnumbered ('Note:') where the CLI numbers them ('Note 3'); number them in diagnostics too (SW-1666)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1675",
       "labels": [
         "editor"
       ],
-      "body": "From SW-1666, 6 Nov 2026.\n\nStarted on Sonnet in one lane (SW-1675 with SW-1676, SW-1685), expected: 40 min.",
+      "body": "From SW-1666, 6 Nov 2026.\n\nStarted on Sonnet in one lane (SW-1675 with SW-1676, SW-1685), expected: 40 min.\n\nDone, merged: note_lines numbers notes like the CLI in diagnostics and the Goals panel. On main: 14 targeted tests passed. Model result: Sonnet, worked, 25 min for three (est. 40).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11968,13 +11968,13 @@
     {
       "id": 1685,
       "title": "stitchwort test --only NAME --json: ok is true when nothing matches, though the exit status is 1; make ok false (SW-1121)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1675",
       "labels": [
         "cli"
       ],
-      "body": "From SW-1121, 6 Nov 2026.\n\nStarted on Sonnet in one lane (SW-1675 with SW-1676, SW-1685), expected: 40 min.",
+      "body": "From SW-1121, 6 Nov 2026.\n\nStarted on Sonnet in one lane (SW-1675 with SW-1676, SW-1685), expected: 40 min.\n\nDone, merged: ok false when --only or a namespace matches nothing. On main: 14 targeted tests passed. Model result: Sonnet, worked, 25 min for three (est. 40).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -12059,6 +12059,20 @@
         "tactics"
       ],
       "body": "From the SW-1630 review, 6 Nov 2026 (s4/m5.sw atHyp).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1692,
+      "title": "test --json: ok can be true while the exit status is 1 because goals are open; and the editor doesn't pad a multi-line note's continuation lines as the CLI does (SW-1675)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "cli"
+      ],
+      "body": "From SW-1675, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
