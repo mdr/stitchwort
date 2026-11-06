@@ -77,7 +77,11 @@ Use the cheapest model that can do the work well. Provisional (D2208, Matt,
   lemmas, work near the kernel or proof generation, tasks where generality
   and design judgement matter, and changes across several crates where a
   wrong guess would spread. Try Sonnet first unless the work needs Opus as
-  above (D2365, Matt, 4 Nov 2026).
+  above (D2365, Matt, 4 Nov 2026). Core language changes are the
+  exception: the kernel, tactics such as `rewrite` and `match`, the
+  unifier, syntax and std core go to Opus, since the extra care is worth
+  its cost there (D2506, Matt, 6 Nov 2026: "core/kernel language changes
+  feel like we can afford a bit more intelligence to be safe").
 - **Escalating:** a lane that finds its work too hard stops and says so
   (what it tried, where it's stuck); the orchestrator may then rerun it on
   Opus, from the lane's branch (D2365).
