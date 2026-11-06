@@ -26,6 +26,7 @@ import init, { load_std, std_source, LanguageServer } from "./pkg/stitchwort_web
 
 let server = null;
 let module = null;
+let load = "";
 let bundle = null;
 const projects = [];
 let begin;
@@ -34,9 +35,9 @@ let begin;
 let libraryCache = null;
 const started = new Promise((ok) => { begin = ok; });
 const ready = (async () => {
-  const { module: compiled, load } = await started;
+  const first = await started;
+  ({ module, load } = first);
   const t0 = performance.now();
-  module = compiled;
   await init({ module_or_path: module });
   const cache = fetch(new URL(`./pkg/std.cache.gz${load}`, import.meta.url))
     .then((r) => (r.ok ? new Response(r.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer() : null))
@@ -65,7 +66,7 @@ const key = (id) => JSON.stringify(id);
 
 function startSearcher() {
   searcher = new Worker(new URL("./lsp-search-worker.js", import.meta.url), { type: "module" });
-  searcher.postMessage({ module, bundle, projects });
+  searcher.postMessage({ module, bundle, projects, load });
   searcher.onmessage = ({ data }) => {
     if (data.result !== undefined && running) {
       const done = running;

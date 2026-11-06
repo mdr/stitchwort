@@ -416,32 +416,31 @@ enum SearchKind {
 }
 
 impl Search {
-    /// The answer: the code actions, or the context, or null. `stack` is
-    /// the stack of the thread it runs on, `wanted` how many closing
-    /// proofs it stops at.
+    /// The answer: the code actions, or the context, or null, with the
+    /// stack and the check cache of `server`, and as many closing proofs as
+    /// it wants.
     fn run(
         self,
-        stack: usize,
-        wanted: usize,
+        server: &Options,
         source: &dyn Source,
         cancel: Arc<AtomicBool>,
     ) -> serde_json::Value {
         let Search { uri, target, kind } = self;
         match kind {
             SearchKind::CodeAction { range, versioned } => {
-                let options = pos::action_options(wanted);
+                let options = pos::action_options(server.search_wanted);
                 let found = match target.project {
                     Some((root, relative, open)) => project_closing_actions(
-                        stack, source, &root, &relative, open, range, cancel, &options,
+                        server, source, &root, &relative, open, range, cancel, &options,
                     ),
                     None => {
-                        closing_actions(stack, source, &target.path, &target.text, range, &options)
+                        closing_actions(server, source, &target.path, &target.text, range, &options)
                     }
                 };
                 code_actions(found, &uri, range, versioned)
             }
             SearchKind::ContextAt { line, character } => {
-                context_at(stack, source, target, line, character, cancel)
+                context_at(server, source, target, line, character, cancel)
             }
         }
     }
@@ -469,8 +468,7 @@ impl Searcher {
             return "null".to_string();
         };
         let cancel = Arc::new(AtomicBool::new(false));
-        let (stack, wanted) = (self.options.stack, self.options.search_wanted);
-        search.run(stack, wanted, &*self.source, cancel).to_string()
+        search.run(&self.options, &*self.source, cancel).to_string()
     }
 }
 
@@ -551,7 +549,7 @@ fn run_search(
         serde_json::Value::Null
     } else {
         let cancel = job.pending.cancel.clone();
-        (job.search).run(options.stack, options.search_wanted, source, cancel)
+        (job.search).run(options, source, cancel)
     };
     searches.running.fetch_sub(1, Ordering::SeqCst);
     searched(&job.id, &job.pending, job.version, result, sender, searches);
@@ -2605,14 +2603,14 @@ fn diagnostic(
 /// The answer to `stitchwort/contextAt` at `line` and `character` of the
 /// document `target` ([`Main::context_at`]).
 fn context_at(
-    stack: usize,
+    server: &Options,
     source: &dyn Source,
     target: SearchTarget,
     line: u32,
     character: u32,
     cancel: Arc<AtomicBool>,
 ) -> serde_json::Value {
-    let mut session = Session::for_stack(stack);
+    let mut session = search_session(server);
     session.share_cancel_flag(cancel);
     let found = match target.project {
         Some((root, relative, open)) => {
@@ -2648,10 +2646,23 @@ fn context_at(
     }
 }
 
+/// A session for a proof search. With the library's check cache loaded
+/// ([`Options::library`]) it is made as the server's own sessions are, so
+/// that the cache's keys match and the search doesn't check the library
+/// again (seconds); otherwise it is a plain session. Navigation recording
+/// only adds to what a session keeps; it doesn't change what it elaborates.
+fn search_session(server: &Options) -> Session {
+    if server.library.get().is_some() {
+        library_session(server)
+    } else {
+        Session::for_stack(server.stack)
+    }
+}
+
 /// What replaces the goal `?` at `range` of `text` (the file at `path`, on
 /// its own) with a proof that closes it.
 fn closing_actions(
-    stack: usize,
+    server: &Options,
     source: &dyn Source,
     path: &Path,
     text: &str,
@@ -2663,7 +2674,14 @@ fn closing_actions(
         .and_then(|n| n.to_str())
         .unwrap_or("file.sw");
     let cache = path.parent().and_then(|dir| source.file_cache(dir));
-    pos::actions_at_text(stack, name, text, ranged(range), options, cache.as_deref())
+    pos::actions_at_text(
+        &|| search_session(server),
+        name,
+        text,
+        ranged(range),
+        options,
+        cache.as_deref(),
+    )
 }
 
 /// [`closing_actions`] for a goal in the file `relative` of the project in
@@ -2671,7 +2689,7 @@ fn closing_actions(
 /// editor (`open`, by path in the project).
 #[allow(clippy::too_many_arguments)]
 fn project_closing_actions(
-    stack: usize,
+    server: &Options,
     source: &dyn Source,
     root: &Path,
     relative: &str,
@@ -2691,7 +2709,7 @@ fn project_closing_actions(
         .file_name()
         .map_or("project".to_string(), |n| n.to_string_lossy().into_owned());
     let cache = source.project_cache(root);
-    let mut session = Session::for_stack(stack);
+    let mut session = search_session(server);
     session.share_cancel_flag(cancel);
     let found = session.actions_at_project(
         &name,

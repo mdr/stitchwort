@@ -1549,11 +1549,11 @@ fn try_rule(checker: &mut Checker, rp: &Rule, target_now: &str) -> Option<Rewrit
 /// What closes goal `at` of `text`, a file on its own named `name`: loaded
 /// into a session that then loads the whole library to search, and into a
 /// second with only the file, to check the proofs in (as
-/// [`Session::search_at`] explains). With `cache`, both load through that
+/// [`Session::search_at`] explains); `new_session` makes both. With `cache`, both load through that
 /// check cache. For the language server's code action; the command does
 /// the same with the file's includes and project context.
 pub fn search_at_text(
-    stack: usize,
+    new_session: &dyn Fn() -> Session,
     name: &str,
     text: &str,
     at: GoalAt,
@@ -1568,7 +1568,7 @@ pub fn search_at_text(
         diagnostics.append(&mut session.warnings);
         diagnostics
     };
-    let mut session = Session::for_stack(stack);
+    let mut session = new_session();
     let diagnostics = load(&mut session);
     let file = (session.sources.iter())
         .filter(|(_, f)| f.name == name)
@@ -1581,7 +1581,7 @@ pub fn search_at_text(
         .elab
         .load_all_libraries()
         .map_err(|_| "the library didn't load".to_string())?;
-    let mut checking = Session::for_stack(stack);
+    let mut checking = new_session();
     load(&mut checking);
     session
         .search_at(&found, name, options, &Scope::File, Some(&mut checking))

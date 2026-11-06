@@ -523,14 +523,14 @@ fn goal_line(range: Range) -> GoalAt {
 /// on its own, named `name`) with a proof that closes it; `cache` is the
 /// check cache's folder, if one is used. `None` if the search can't run.
 pub fn actions_at_text(
-    stack: usize,
+    new_session: &dyn Fn() -> Session,
     name: &str,
     text: &str,
     range: Range,
     options: &AtOptions,
     cache: Option<&std::path::Path>,
 ) -> Option<Vec<Action>> {
-    let report = search_at_text(stack, name, text, goal_line(range), options, cache).ok()?;
+    let report = search_at_text(new_session, name, text, goal_line(range), options, cache).ok()?;
     Some(actions_from(&report, text, range))
 }
 
