@@ -1,5 +1,5 @@
 {
-  "next": 1525,
+  "next": 1532,
   "tickets": [
     {
       "id": 47,
@@ -9006,9 +9006,9 @@
       "labels": [
         "std"
       ],
-      "body": "From 2020 day 11 (SW-1470), 5 Nov 2026.",
+      "body": "From 2020 day 11 (SW-1470), 5 Nov 2026.\n\nDay 15 (SW-1519, 6 Nov): 30M Map turns take 357 s interpreted, 127 s --js, 84 s native vs Python's 7 s; nearly all the time is Map (depth ~22, Ord comparison, node allocation, balancing). An array (or a Nat-keyed map) is the fix.",
       "created": "2026-11-05",
-      "updated": "2026-11-05",
+      "updated": "2026-11-06",
       "commits": []
     },
     {
@@ -9644,13 +9644,13 @@
     {
       "id": 1519,
       "title": "AoC 2020 day 15 (Rambunctious Recitation): spec, efficient solution, proofs, tests, friction notes in aoc/NOTES-2020.md",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1519",
       "labels": [
         "aoc"
       ],
-      "body": "D2443 (Matt): carry on further if there's time. Overnight, Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day15.\n\nStarted on Opus, expected: 120 min.",
+      "body": "D2443 (Matt): carry on further if there's time. Overnight, Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day15.\n\nStarted on Opus, expected: 120 min.\n\nDone (1d94a86c9), merged: 249 and 41687. Proved: numberSpokenSpec (every turn), correct (input written as the spec says, answer = Spec.numberSpoken for every turn); stated for every turn because the audit's counterexample search hung computing turn 30000000. Part 2: 357 s interpreted, 127 s --js, 84 s native (Python 7 s); the time is Map. year2020_day15 answers test #[ignore]d plus a SLOW list for the every-day run (orchestrator's call). Orchestrator checked the spec (D2436). Audit 32/32. Model result: Opus, worked, 38 min (est. 120).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -9721,6 +9721,104 @@
         "editor"
       ],
       "body": "From SW-1505, 6 Nov 2026. Small.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1525,
+      "title": "Audit: the counterexample search's statement read-back (statement_part, counterexample/mod.rs:111) limits nodes but not steps, so it hangs on a statement naming a large computation (day 15, turn 30000000)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "audit"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1519 (2020 day 15).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1526,
+      "title": "omega: E-OMEGA-INTERNAL quoting 1 + later as later + 1 after a rewrite (repro dev/repros/omega3.sw, day 15)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1519 (2020 day 15).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1527,
+      "title": "False E-ABILITY: a pipe starting with an IO call and ending in a Fail method (IO.args() |> .headOr \"2020\" |> .toNatOrFail) in a {IO, Fail} function (repro dev/repros/pipe.sw, day 15)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "> .headOr \"2020\" |> .toNatOrFail) in a {IO, Fail} function (repro dev/repros/pipe.sw, day 15)|elab"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1519 (2020 day 15).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1528,
+      "title": "Runtime profiler for stitchwort run (where a program's time goes); days 11 and 15 found it only by timing variants of main",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tools"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1519 (2020 day 15).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1529,
+      "title": "Message: Parse.readsWeaken over readsMap: say which implicit (p, weaker) failed to infer instead of pointing into Parse.nat (day 15)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1519 (2020 day 15).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1530,
+      "title": "stitchwort test: a way to mark a slow test so the default run leaves it out (day 15)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tools"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1519 (2020 day 15).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1531,
+      "title": "Std: List.findIndex lemmas (day 15)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1519 (2020 day 15).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
