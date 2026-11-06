@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Document - Stitchwort board</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #f4f5f7; --panel: #e9ebef; --card: #ffffff; --text: #1d2330; --muted: #657084;
+  --border: #d2d6de; --accent: #2f6fdb; --danger: #c2362b; --hl: #fff3b0;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #14171d; --panel: #1d222b; --card: #262c37; --text: #e6e9ef; --muted: #98a2b5; --border: #353d4b; --accent: #6b9cf2; --danger: #ef7468; --hl: #4a4420; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+a { color: var(--accent); }
+header { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: baseline; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--panel); position: sticky; top: 0; z-index: 1; }
+header .path { font-family: ui-monospace, Menlo, monospace; font-size: 13px; overflow-wrap: anywhere; }
+header .spacer { flex: 1; }
+header small { color: var(--muted); }
+main { max-width: 52em; margin: 16px auto; padding: 8px 28px 40px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; }
+main.wide { max-width: none; margin: 16px; padding: 0; overflow-x: auto; }
+h1, h2, h3, h4, h5, h6 { line-height: 1.25; margin: 1.4em 0 .4em; scroll-margin-top: 56px; }
+h1 { font-size: 1.7em; border-bottom: 1px solid var(--border); padding-bottom: .2em; margin-top: .8em; } h2 { font-size: 1.35em; border-bottom: 1px solid var(--border); padding-bottom: .15em; } h3 { font-size: 1.15em; } h4, h5, h6 { font-size: 1em; }
+p { margin: .6em 0; } ul, ol { margin: .4em 0; padding-left: 1.6em; } li { margin: .15em 0; }
+li > ul, li > ol { margin: .15em 0; }
+code { background: var(--panel); padding: 0 4px; border-radius: 3px; font-family: ui-monospace, Menlo, monospace; font-size: .88em; }
+pre { background: var(--panel); padding: 10px 12px; border-radius: 6px; overflow: auto; line-height: 1.4; }
+pre code { background: none; padding: 0; font-size: 13px; }
+blockquote { margin: .6em 0; padding: 0 1em; border-left: 3px solid var(--border); color: var(--muted); }
+hr { border: 0; border-top: 1px solid var(--border); margin: 1.4em 0; }
+.tablewrap { overflow-x: auto; margin: .7em 0; }
+table { border-collapse: collapse; } th, td { border: 1px solid var(--border); padding: 4px 9px; vertical-align: top; } th { background: var(--panel); }
+.deadlink { border-bottom: 1px dotted var(--muted); cursor: help; }
+.flash { background: var(--hl); outline: 6px solid var(--hl); border-radius: 2px; }
+table.src { border: 0; width: 100%; font: 13px/1.45 ui-monospace, Menlo, monospace; }
+table.src td { border: 0; padding: 0 10px; white-space: pre; }
+table.src td.n { text-align: right; color: var(--muted); user-select: none; position: sticky; left: 0; background: var(--card); border-right: 1px solid var(--border); }
+table.src tr.flash td { background: var(--hl); outline: 0; }
+#err { padding: 24px; color: var(--danger); }
+</style>
+</head>
+<body>
+<header>
+  <a href="/">&larr; Board</a>
+  <span class="path" id="path"></span>
+  <span class="spacer"></span>
+  <small><a id="raw" href="#">raw</a></small>
+</header>
+<main id="doc"></main>
+<script src="/links.js"></script>
+<script src="/render.js"></script>
+<script>
+'use strict';
+const path = decodeURIComponent(location.pathname.replace(/^\/doc\//, ''));
+const doc = document.getElementById('doc');
+document.getElementById('path').textContent = path;
+document.getElementById('raw').href = location.pathname + '?raw';
+document.title = path + ' - Stitchwort board';
+
+function flash(node) {
+  document.querySelectorAll('.flash').forEach((n) => n.classList.remove('flash'));
+  if (!node) return;
+  node.classList.add('flash');
+  node.scrollIntoView({ block: 'center' });
+}
+function jump() {
+  const h = decodeURIComponent(location.hash.slice(1));
+  if (!h) return;
+  const lm = /^L(\d+)$/.exec(h);
+  if (!lm) { const t = document.getElementById(h); if (t) t.scrollIntoView(); return; }
+  const n = Number(lm[1]);
+  if (BoardLinks.docKind(path) === 'text') return flash(document.getElementById('L' + n));
+  // Markdown: the last top-level block that starts at or before the line.
+  let best = null;
+  for (const c of doc.children) { const l = Number(c.getAttribute('data-line')); if (l && l <= n) best = c; }
+  flash(best);
+}
+
+(async () => {
+  try {
+    const res = await fetch(location.pathname + '?raw');
+    if (!res.ok) throw new Error(res.status + ' ' + (await res.text()));
+    const text = await res.text();
+    if (BoardLinks.docKind(path) === 'markdown') {
+      doc.append(BoardRender.markdown(text, { doc: path, lines: true }));
+      const h1 = doc.querySelector('h1');
+      if (h1) document.title = h1.textContent + ' - Stitchwort board';
+    } else {
+      doc.className = 'wide';
+      const lines = text.replace(/\n$/, '').split('\n');
+      const { el } = BoardRender;
+      doc.append(el('table', { class: 'src' }, el('tbody', {}, lines.map((l, i) =>
+        el('tr', { id: 'L' + (i + 1) }, el('td', { class: 'n', text: String(i + 1) }), el('td', { text: l }))))));
+    }
+    jump();
+  } catch (e) {
+    doc.id = 'err'; doc.textContent = 'Could not load this document: ' + e.message;
+  }
+})();
+window.addEventListener('hashchange', jump);
+</script>
+</body>
+</html>

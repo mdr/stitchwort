@@ -11,6 +11,25 @@ const HOST = '127.0.0.1';
 const PORT = Number(process.env.PORT || 8020);
 const FILE = lib.defaultFile();
 const PAGE = path.join(__dirname, 'index.html');
+const ROOT = process.env.BOARD_ROOT || lib.repoRoot();
+const STATIC = {
+  '/links.js': ['links.js', 'text/javascript; charset=utf-8'],
+  '/render.js': ['render.js', 'text/javascript; charset=utf-8'],
+};
+
+// git ls-files is cheap, but not worth running for every request.
+let trackedCache = { at: 0, set: new Set() };
+function tracked() {
+  if (Date.now() - trackedCache.at > 3000) {
+    try {
+      trackedCache = { at: Date.now(), set: lib.trackedFiles(ROOT) };
+    } catch (e) {
+      console.error('git ls-files failed:', e.message);
+      trackedCache = { at: Date.now(), set: new Set() };
+    }
+  }
+  return trackedCache.set;
+}
 
 const clients = new Set();
 let lastStamp = '';
@@ -53,7 +72,8 @@ function snapshot() {
   const d = lib.load(FILE);
   let epics = [];
   try {
-    epics = lib.epicSummaries(d, FILE);
+    const set = tracked();
+    epics = lib.epicSummaries(d, FILE).map((e) => ({ ...e, ...lib.epicDocs(e, d.tickets, set, ROOT, FILE) }));
   } catch (e) {
     if (!(e instanceof lib.BoardError)) throw e; // a broken epics.json must not take the board down
   }
@@ -110,6 +130,27 @@ async function api(req, res, url) {
   return send(res, 405, { error: 'method not allowed' });
 }
 
+function serveDoc(_req, res, url) {
+  let rel;
+  try {
+    rel = decodeURIComponent(url.pathname.slice('/doc/'.length));
+  } catch (_) {
+    rel = null;
+  }
+  const doc = rel && lib.resolveDoc(ROOT, rel, tracked());
+  if (!doc) {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    return res.end('not a tracked document of this repository');
+  }
+  const headers = { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' };
+  if (url.searchParams.has('raw')) {
+    res.writeHead(200, { ...headers, 'Content-Type': 'text/plain; charset=utf-8' });
+    return res.end(fs.readFileSync(doc.abs));
+  }
+  res.writeHead(200, { ...headers, 'Content-Type': 'text/html; charset=utf-8' });
+  res.end(fs.readFileSync(path.join(__dirname, 'doc.html')));
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${HOST}:${PORT}`);
   // Refuse requests whose Host is not us (DNS rebinding).
@@ -122,6 +163,11 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
       return res.end(fs.readFileSync(PAGE));
     }
+    if (STATIC[url.pathname]) {
+      res.writeHead(200, { 'Content-Type': STATIC[url.pathname][1], 'Cache-Control': 'no-store' });
+      return res.end(fs.readFileSync(path.join(__dirname, STATIC[url.pathname][0])));
+    }
+    if (url.pathname.startsWith('/doc/')) return serveDoc(req, res, url);
     if (url.pathname === '/api/events') {
       res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive' });
       res.write('retry: 2000\n\n');

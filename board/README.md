@@ -168,7 +168,34 @@ every field (the body is plain text with a simple markdown preview), use
 the page. Filter by agent, label or text; the bar under the header shows who has
 what in progress or review.
 
-The JSON API used by the page: `GET /api/board` (tickets, plus `epics` with counts), `POST /api/tickets`,
+### Documents and links
+
+The board links to the repo's documents, so a proposal, note or review is one click
+from the ticket or epic that mentions it.
+
+- `/doc/<repo-relative path>` shows a git-tracked file: `.md` as a readable page
+  (headings, lists, tables, code blocks; links between documents resolve relative to
+  the file, so a proposal's link to another proposal works), and `.sw`, `.txt`,
+  source and config files (`rs`, `toml`, `json`, `js`, `ts`, `html`, `css`, `nix`,
+  `sh`, `yml`) as plain text with line numbers. `/doc/PATH#L120` highlights line 120
+  (in markdown, the block holding that source line). `?raw` returns the bytes as
+  `text/plain`. Only files in `git ls-files` are served (the list is re-read every
+  few seconds); `..`, `.`, absolute paths, backslashes, untracked files, other
+  extensions and symlinks that leave the repo are refused with 404. Page text is
+  built from DOM nodes, never as HTML, so a document cannot inject markup.
+- Auto-links, in ticket bodies (the editor's Preview tab) and in epic `links`, `done`,
+  `now` and `next` text: a repo path with at least one directory (`docs/proposals/x.md`,
+  `aoc/NOTES-2020.md`, `crates/elab/src/check.rs:2242`, where `:2242` jumps to the
+  line) opens `/doc`; `SW-1642` opens that ticket (`/#ticket/1642` from elsewhere);
+  `D2514` opens the board filtered by that text, so the tickets that record the
+  decision show (`/#find/D2514`). The patterns are in [`links.js`](links.js), shared
+  by the server and the pages, and the markdown renderer is [`render.js`](render.js).
+- On each epic card, **Documents** lists the epic's `links` that are tracked
+  documents, plus every `docs/reviews/SW-N-*.md` file whose ticket N has this epic
+  (live or archived). The other links (decision numbers, directories) stay in the
+  links line. See [`../docs/reviews/README.md`](../docs/reviews/README.md).
+
+The JSON API used by the page: `GET /api/board` (tickets, plus `epics` with counts, `docs` and the non-document `links`), `POST /api/tickets`,
 `PATCH /api/tickets/N`, `DELETE /api/tickets/N`, and `GET /api/events`
 (Server-Sent Events, one `changed` event per file change).
 

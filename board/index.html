@@ -89,6 +89,14 @@ form.editor textarea { min-height: 220px; font-family: ui-monospace, Menlo, mono
 .epic li { margin: 1px 0; }
 .epic .none { color: var(--muted); }
 .epic .links { margin-top: 8px; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.epic .docs { list-style: none; padding-left: 0; }
+.epic .docs .docpath { display: block; color: var(--muted); font-size: 12px; font-family: ui-monospace, Menlo, monospace; overflow-wrap: anywhere; }
+.epic .docs .chip { margin-left: 6px; }
+.epic a, .rendered a { color: var(--accent); }
+.rendered h6 { margin: .6em 0 .2em; } .rendered ol { margin: .3em 0; padding-left: 1.4em; }
+.rendered table { border-collapse: collapse; } .rendered th, .rendered td { border: 1px solid var(--border); padding: 2px 6px; }
+.rendered blockquote { margin: .4em 0; padding: 0 .8em; border-left: 3px solid var(--border); color: var(--muted); }
+.rendered .deadlink { border-bottom: 1px dotted var(--muted); }
 .epic details summary { cursor: pointer; color: var(--muted); font-size: 12px; }
 #epicNote { padding: 8px 16px; color: var(--muted); }
 #banner { display: none; padding: 8px 16px; border-bottom: 1px solid var(--border); gap: 10px; align-items: center; }
@@ -143,6 +151,8 @@ form.editor textarea { min-height: 220px; font-family: ui-monospace, Menlo, mono
 </dialog>
 <div id="toast"></div>
 
+<script src="/links.js"></script>
+<script src="/render.js"></script>
 <script>
 'use strict';
 const $ = (id) => document.getElementById(id);
@@ -222,7 +232,7 @@ function card(t) {
 }
 
 function epicCard(e) {
-  const list = (tag, xs) => xs.length ? el(tag, {}, ...xs.map((x) => el('li', { text: x }))) : el('div', { class: 'none', text: 'nothing' });
+  const list = (tag, xs) => xs.length ? el(tag, {}, ...xs.map((x) => BoardRender.linkify(x, el('li'), linkCtx))) : el('div', { class: 'none', text: 'nothing' });
   const c = el('article', { class: 'epic', 'data-status': e.status, tabindex: '0', 'data-epic': e.id },
     el('h3', {}, e.title, el('span', { class: 'chip', text: e.status }),
       el('span', { class: 'counts', text: `${e.open} open, ${e.doneCount} done` })),
@@ -232,9 +242,14 @@ function epicCard(e) {
     list('ul', e.done.slice(-3)),
     el('h4', { text: 'Now' }), list('ul', e.now),
     el('h4', { text: 'Next' }), list('ol', e.next),
-    e.links.length ? el('div', { class: 'links', text: e.links.join(' / ') }) : null);
+    (e.docs || []).length ? el('h4', { text: 'Documents' }) : null,
+    (e.docs || []).length ? el('ul', { class: 'docs' }, e.docs.map((d) => el('li', {},
+      el('a', { href: BoardLinks.docHref(d.path), target: '_blank', rel: 'noopener', title: d.path, text: d.title || d.path }),
+      d.review ? el('span', { class: 'chip', text: 'review' }) : null,
+      d.title ? el('span', { class: 'docpath', text: ' ' + d.path }) : null))) : null,
+    e.links.length ? BoardRender.linkify(e.links.join(' / '), el('div', { class: 'links' }), linkCtx) : null);
   const open = () => showEpic(e.id);
-  c.addEventListener('click', (ev) => { if (!ev.target.closest('summary')) open(); });
+  c.addEventListener('click', (ev) => { if (!ev.target.closest('summary, a')) open(); });
   c.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') open(); });
   return c;
 }
@@ -311,50 +326,19 @@ function renderBoard() {
   }));
 }
 
-// ---- simple markdown, built with DOM nodes (never innerHTML) ----
-function inline(text, parent) {
-  const re = /(`[^`]+`|\*\*[^*]+\*\*|\[[^\]]+\]\(https?:\/\/[^)\s]+\)|https?:\/\/[^\s)]+)/g;
-  let last = 0, m;
-  while ((m = re.exec(text))) {
-    if (m.index > last) parent.append(text.slice(last, m.index));
-    const s = m[0];
-    if (s[0] === '`') parent.append(el('code', { text: s.slice(1, -1) }));
-    else if (s.startsWith('**')) parent.append(el('strong', { text: s.slice(2, -2) }));
-    else if (s[0] === '[') { const k = s.indexOf(']('); parent.append(el('a', { href: s.slice(k + 2, -1), target: '_blank', rel: 'noopener', text: s.slice(1, k) })); }
-    else parent.append(el('a', { href: s, target: '_blank', rel: 'noopener', text: s }));
-    last = m.index + s.length;
-  }
-  if (last < text.length) parent.append(text.slice(last));
+// ---- links: tickets open the editor, D-numbers filter the board ----
+function openTicket(id) {
+  if (!state.tickets.some((t) => t.id === id)) { toast(`SW-${id} is not on the board (archived or unknown)`); return; }
+  openEditor(id);
 }
-function markdown(src) {
-  const out = document.createDocumentFragment();
-  const lines = src.split('\n');
-  let i = 0;
-  while (i < lines.length) {
-    const line = lines[i];
-    if (line.startsWith('```')) {
-      const buf = []; i++;
-      while (i < lines.length && !lines[i].startsWith('```')) buf.push(lines[i++]);
-      i++; out.append(el('pre', {}, el('code', { text: buf.join('\n') })));
-    } else if (/^#{1,6}\s/.test(line)) {
-      const h = el('h4'); inline(line.replace(/^#+\s*/, ''), h); out.append(h); i++;
-    } else if (/^\s*[-*]\s/.test(line)) {
-      const ul = el('ul');
-      while (i < lines.length && /^\s*[-*]\s/.test(lines[i])) {
-        const li = el('li'); inline(lines[i].replace(/^\s*[-*]\s/, ''), li); i++;
-        while (i < lines.length && /^\s+\S/.test(lines[i]) && !/^\s*[-*]\s/.test(lines[i])) { li.append(' '); inline(lines[i++].trim(), li); }
-        ul.append(li);
-      }
-      out.append(ul);
-    } else if (!line.trim()) { i++; }
-    else {
-      const p = el('p'); const buf = [];
-      while (i < lines.length && lines[i].trim() && !lines[i].startsWith('```') && !/^#{1,6}\s/.test(lines[i]) && !/^\s*[-*]\s/.test(lines[i])) buf.push(lines[i++]);
-      inline(buf.join(' '), p); out.append(p);
-    }
-  }
-  return out;
+function findText(text) {
+  $('dlg').close();
+  $('fEpic').value = ''; store.set('fEpic', '');
+  $('fText').value = text;
+  setView('board');
 }
+const linkCtx = { onTicket: openTicket, onFind: findText };
+const markdown = (src) => BoardRender.markdown(src, { ...linkCtx, headingBase: 2 });
 
 // ---- editor ----
 const splitList = (s) => s.split(',').map((x) => x.trim()).filter(Boolean);
@@ -421,8 +405,11 @@ setInterval(() => { if (document.visibilityState === 'visible' && !$('dlg').open
 refresh().then(() => {
   for (const id of ['fAgent', 'fLabel']) { const v = store.get(id); if ([...$(id).options].some((o) => o.value === v)) $(id).value = v; }
   // The landing view is the epics; a #board or #epic/ID link opens the board.
+  const tm = /^#ticket\/(\d+)$/.exec(location.hash), fm = /^#find\/(.+)$/.exec(location.hash);
   const m = /^#epic\/(.+)$/.exec(location.hash);
-  if (m && state.epics.some((e) => e.id === m[1])) { $('fEpic').value = m[1]; setView('board'); }
+  if (tm) { $('fEpic').value = ''; setView('board'); openTicket(Number(tm[1])); }
+  else if (fm) { $('fEpic').value = ''; $('fText').value = decodeURIComponent(fm[1]); setView('board'); }
+  else if (m && state.epics.some((e) => e.id === m[1])) { $('fEpic').value = m[1]; setView('board'); }
   else if (location.hash === '#board') { $('fEpic').value = ''; setView('board'); }
   else { $('fEpic').value = ''; setView('epics'); }
   connect();
