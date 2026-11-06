@@ -77,3 +77,4 @@ Take these in order, once the speed queue above is empty or blocked.
    of merged work, syntheses and designs.
 - 22:40: Matt: "crack on"; DeepSeek's quota may run out too, so fall back to GLM and then Sonnet.
 - 22:31: SW-1744 in (report on main, prototype on its branch); D2551-D2553 left for Matt; SW-1751 started.
+- 22:32: SW-1746 (stage 1) built, all its tests passed, 0 decide differences over 187 std decisions; its Opus review SW-1756 started (it hands terms to the kernel). Usage 76%.
