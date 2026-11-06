@@ -9000,13 +9000,13 @@
     {
       "id": 1473,
       "title": "Std: a persistent array with get/set lemmas for grid simulations: 2020 day 11's main takes 19 s, mostly Map walks per neighbour (4 s under --js)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1473",
       "labels": [
         "std"
       ],
-      "body": "From 2020 day 11 (SW-1470), 5 Nov 2026.\n\nDay 15 (SW-1519, 6 Nov): 30M Map turns take 357 s interpreted, 127 s --js, 84 s native vs Python's 7 s; nearly all the time is Map (depth ~22, Ord comparison, node allocation, balancing). An array (or a Nat-keyed map) is the fix.",
+      "body": "From 2020 day 11 (SW-1470), 5 Nov 2026.\n\nDay 15 (SW-1519, 6 Nov): 30M Map turns take 357 s interpreted, 127 s --js, 84 s native vs Python's 7 s; nearly all the time is Map (depth ~22, Ord comparison, node allocation, balancing). An array (or a Nat-keyed map) is the fix.\n\nD2450 (Matt, 6 Nov 2026): yes, 'do a full design note with Opus, thoroughly search both the literature for this and how other functional languages, Lean, Haskell, Rocq, Idris, Agda etc.' Started on Opus (design note, docs/proposals/), expected: 120 min.",
       "created": "2026-11-05",
       "updated": "2026-11-06",
       "commits": []
