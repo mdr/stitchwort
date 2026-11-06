@@ -1,5 +1,5 @@
 {
-  "next": 1748,
+  "next": 1751,
   "tickets": [
     {
       "id": 47,
@@ -13677,7 +13677,7 @@
         "perf"
       ],
       "epic": "goal-as-written",
-      "body": "From SW-1740, 6 Nov 2026.",
+      "body": "From SW-1740, 6 Nov 2026.\n\nSW-1747: also rewrite.rs:707 and lib.rs:4954 answer 'no' when the read-back fails; all three are stage 4. And effects.rs:4131, induct_match.rs:429, rewrite.rs:1918-1919 read back with ? only for a note or hint, so they can replace the intended error: stage 5.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -13730,14 +13730,59 @@
     {
       "id": 1747,
       "title": "[Sonnet] Bounded readback stage 0b: classify the remaining unfolded read-back sites (interfaces.rs first); no build",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1747",
       "labels": [
         "design"
       ],
       "epic": "goal-as-written",
-      "body": "D2545 order. See docs/proposals/bounded-readback.md stage 0b. Expected: 60 min.",
+      "body": "D2545 order. See docs/proposals/bounded-readback.md stage 0b. Expected: 60 min.\n\nDone, merged (ef21538bf): 288 sites. Stage 1: 126 (115 output sites, not ~25: effects.rs 31, derive_induct.rs 30, interfaces.rs 10); 4: 41; 5: 28; 6a: 18; 6b: 20; equations.rs 6 stay; 22 fit no stage (omega/ring atom comparison); 27 not read-backs. 224 propagate E-RESOURCE, 30 swallow, 5 recover differently (stage 7 list), 4 behind a cap that changes the answer (interfaces.rs:1388 scanned, matching.rs:1428, unify.rs:177, :978). Model result: Sonnet, worked, 6 min (est. 60).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1748,
+      "title": "Bounded readback stage 1b: the remaining output-term sites (effects.rs 31, derive_induct.rs 30, interfaces.rs 10; 10 eval(quote(v)) round trips to check); hashes of derived and effectful std declarations move",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "epic": "goal-as-written",
+      "body": "From SW-1747's site table (docs/reviews/SW-1747-stage-0b-sites.md). SW-1746 keeps to the note's §2.5 list.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1749,
+      "title": "Bounded readback gap: omega.rs (21) and ring.rs (1) identify atoms by comparing unfolded read-backs syntactically; no stage covers them; compare by conversion instead",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "epic": "goal-as-written",
+      "body": "From SW-1747. Trip-journal doesn't need it.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1750,
+      "title": "Limits that choose rather than fail (D2543): interfaces.rs:1388 scanned (instance search reads unfolded to 100k nodes, then folded; 8 uses), matching.rs:1428, unify.rs:177/978 (KNOWN_CAP, SW-1739); add to stage 7's list",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "epic": "goal-as-written",
+      "body": "From SW-1747.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []

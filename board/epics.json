@@ -15,11 +15,11 @@
         "Opus review of the bounded-readback note: proceed with changes (SW-1717)",
         "Direction set: compute to decide, search what you see; limits fail, no cap (D2541-D2545, SW-1726)",
         "Bounded readback note revision 3 (SW-1728)",
-        "Stage 0a: trip-journal fails through Float arithmetic on symbolic record fields; 33 failing sites mapped (SW-1740)"
+        "Stage 0a: trip-journal fails through Float arithmetic on symbolic record fields; 33 failing sites mapped (SW-1740)",
+        "Stage 0b: all 288 read-back sites classified (SW-1747)"
       ],
       "now": [
-        "Stage 1: output terms and decide read folded (SW-1746)",
-        "Stage 0b: classify the remaining sites (SW-1747)"
+        "Stage 1 (note's list): output terms and decide read folded (SW-1746)"
       ],
       "next": [
         "Finish the design note that bounds unfolded readback by making the searches look at goals as written everywhere, revisiting D484 (SW-1712, D2514); it also unblocks record eta",
