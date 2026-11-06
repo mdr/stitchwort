@@ -1,5 +1,5 @@
 {
-  "next": 1587,
+  "next": 1594,
   "tickets": [
     {
       "id": 47,
@@ -10498,13 +10498,13 @@
     {
       "id": 1580,
       "title": "AoC 2020 day 20 (Jurassic Jigsaw): spec, efficient solution, proofs, tests, friction notes in aoc/NOTES-2020.md",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1580",
       "labels": [
         "aoc"
       ],
-      "body": "D2443 (Matt): carry on further if there's time. Overnight, Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day20.\n\nStarted on Opus, expected: 90 min (hard stop 07:55 for the morning summary).",
+      "body": "D2443 (Matt): carry on further if there's time. Overnight, Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day20.\n\nStarted on Opus, expected: 90 min (hard stop 07:55 for the morning summary).\n\nDone (2b86365ce..7f4cb167e), merged: 66020135789767 and 1537 (5.9 s). Part 1 exact, no hypotheses (corner = a tile with exactly two edges matching another tile's, in some orientation). Orientations: 8, edges under flip/turn, matchedOriented. Assembly: rows fit and the first column fits; later columns, each tile once, squareness, stripping not proved (relies on the puzzle's uniqueness promise). Part 2: for the assembled image, monster positions, covered pixels and roughness equal the spec's. Orchestrator checked the spec (D2436). Audit 90/90. Model result: Opus, worked, 48 min (est. 90).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10589,6 +10589,104 @@
         "tests"
       ],
       "body": "From SW-1582, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1587,
+      "title": "Aoc.Common image orientations: rotate, flip, orientations, edges, crop, paste, with rotateEdges, flipEdges and withinOrientations proved once (day 20)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1580 (2020 day 20).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1588,
+      "title": "Std: transpose lemmas (first/last row and column of a transposed rectangle), last (reverse xs) = head xs (day 20, now in Day20 Orientations.sw)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1580 (2020 day 20).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1589,
+      "title": "Rewrite a hypothesis by its stated type, not its computed one (transport by the declared type, as Lean's ▸) (day 20)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1580 (2020 day 20).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1590,
+      "title": "A variable named at is silently read as rewrite's at marker: parse it as the variable, or say so (day 20)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "syntax"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1580 (2020 day 20).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1591,
+      "title": "Std: filter and count by a proposition (Kept, keptFilter, NumberWith, numberWithCount) so days 19 and 20 stop defining them; day 20 imports day 19's (day 20)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1580 (2020 day 20).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1592,
+      "title": "Ord for Aoc.Common Position, or a lexicographic order for pairs in std (day 20)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1580 (2020 day 20).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1593,
+      "title": "Messages: list And's fields (left/right) when one is misnamed; suggest Succ n for an n + 1 pattern (day 20)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1580 (2020 day 20).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
