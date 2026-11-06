@@ -4,6 +4,7 @@
 namespace Aoc.Year2020.Day20.Proofs
 import Aoc.Year2020.Day20 (..)
 import Aoc.Year2020.Day20 (Spec)
+import Aoc.Year2020.Day19.Proofs (numberWithCount)
 import Std (Bool, DecEq, Eq, List, Nat, Option, Pair, Set, Void)
 
 theorem roughAtIff (image: Image) (at: List Nat):
@@ -115,4 +116,42 @@ theorem monsterPixelsIff (image: Image) (monster: Image) (at: List Nat):
           inPixels.backward
             ((List.memFlatMap place at (image.monsterStarts monster)).backward
               (Witness [row, column] (Both isStart (rewrite same in List.memMap monster.roughAt [r, c] onMonster (shift [row, column])))))
+  }
+
+--| Counted over any listing of the image's `#`s, the spec's roughness with
+--| sea monsters as `monster` draws them is the program's, and only it.
+theorem roughnessExactly (image: Image) (monster: Image) (cells: List (List Nat)) (listed: Spec.RoughCells image cells) (answer: Nat):
+    Spec.Roughness image monster cells answer ↔ answer = image.roughnessWith monster :=
+  let rough := Set.fromList image.roughAt
+  let covered := image.monsterPixels monster
+  let free := (at: List Nat) => not (covered.contains at)
+  let roughCell: (at: List Nat) → at ∈ cells → rough.contains at = True :=
+    at member => (Set.containsFromListIff image.roughAt at).backward ((roughAtIff image at).backward ((listed.right at).forward member))
+  let decides: (at: List Nat) → free at = True ↔ ¬Spec.Covered image monster at :=
+    at => {
+      forward = isFree => isCovered => Bool.falseNotTrue (Eq.trans (Eq.sym (Bool.notTrue _ isFree)) ((monsterPixelsIff image monster at).backward isCovered)),
+      backward = notCovered =>
+        match found: covered.contains at with
+          | True => Void.exfalso (notCovered ((monsterPixelsIff image monster at).forward found))
+          | False => rfl
+    }
+  let counted := numberWithCount free decides cells answer
+  let subset: (at: List Nat) → covered.contains at = True → rough.contains at = True :=
+    at isCovered =>
+      match (monsterPixelsIff image monster at).forward isCovered with
+        | Witness row (Witness column (Witness r (Witness c (Both rowFits (Both columnFits (Both monsterAt (Both drawn same))))))) =>
+          (Set.containsFromListIff image.roughAt at).backward
+            ((roughAtIff image at).backward (Witness (row + r) (Witness (column + c) (Both same (monsterAt r c drawn)))))
+  let parts := Set.sizeDifferenceSubset rough covered subset
+  let freeSize := Set.sizeOfMembers (Set.difference rough covered) cells free listed.left
+    (at inDifference =>
+      let inRough := ((Set.containsDifferenceIff rough at covered).forward inDifference).left
+      match (roughAtIff image at).forward ((Set.containsFromListIff image.roughAt at).forward inRough) with
+        | found => (List.memContains cells at).backward ((listed.right at).backward found))
+    (key listedHere =>
+      rewrite Set.containsDifference rough key covered, roughCell key ((List.memContains cells key).forward listedHere) in rfl)
+  let lengthCount := List.lengthFilter cells free
+  {
+    forward = numbered => rewrite (counted.forward numbered) in omega,
+    backward = same => counted.backward (omega)
   }

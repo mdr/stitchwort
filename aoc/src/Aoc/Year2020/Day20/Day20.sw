@@ -207,8 +207,16 @@ def Image.monsterStarts (image: Image) (monster: Image): List (List Nat) :=
 def Image.monsterPixels (image: Image) (monster: Image): Set (List Nat) :=
   image.monsterStarts monster |> .flatMap (start => monster.roughAt.map (shift start)) |> Set.fromList
 
---| The rough pixels in no sea monster, in the first of the monster's
---| orientations that appears at all (the puzzle's image has one).
+--| The rough pixels in no copy of `monster`, as drawn.
+def Image.roughnessWith (image: Image) (monster: Image): Nat := (Set.fromList image.roughAt).size - (image.monsterPixels monster).size
+
+--| The sea monster turned the way the image has them: the first of its
+--| orientations of which the image has a copy (the puzzle's image has
+--| copies in one).
+def Image.monsterTurned (image: Image): Option Image := seaMonster.orientations.find (monster => (image.monsterPixels monster).size > 0)
+
+--| The rough pixels in no sea monster, turned the way the image has them.
 def Image.roughness (image: Image): Nat :=
-  let found := seaMonster.orientations.map image.monsterPixels |> .find (pixels => pixels.size > 0)
-  image.roughAt.length - (found.map (.size) |> .getOrElse 0)
+  match image.monsterTurned with
+    | Some monster => image.roughnessWith monster
+    | None => (Set.fromList image.roughAt).size

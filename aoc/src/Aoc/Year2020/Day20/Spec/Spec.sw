@@ -75,3 +75,11 @@ def Covered (image: Image) (monster: Image) (at: List Nat): Prop :=
       ∧ MonsterAt image monster row column
       ∧ pixelAt monster r c = Some Rough
       ∧ at = [row + r, column + c]
+
+--| `cells` lists each `#` of the image once, as `[row, column]`.
+def RoughCells (image: Image) (cells: List (List Nat)): Prop :=
+  List.Distinct cells ∧ ((at: List Nat) → at ∈ cells ↔ ∃ (row: Nat) => ∃ (column: Nat) => at = [row, column] ∧ pixelAt image row column = Some Rough)
+
+--| "How many # are not part of a sea monster?", with sea monsters as
+--| `monster` draws them, counted over a listing of the image's `#`s.
+def Roughness (image: Image) (monster: Image) (cells: List (List Nat)) (answer: Nat): Prop := NumberWith (at => ¬Covered image monster at) cells answer
