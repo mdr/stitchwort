@@ -88,3 +88,31 @@ theorem monsterStartsIff (image: Image) (monster: Image) (start: List Nat):
               (Witness row (Both (List.memRangeOf row 0 rows (omega)) (List.memMap _ column (List.memRangeOf column 0 columns (omega)) (column => [row, column]))))
           rewrite same in List.memFilterIntro starts isMonster inStarts ((monsterIff image monster row column).backward monsterAt)
   }
+
+--| The pixels the program counts as part of a sea monster are exactly the
+--| spec's.
+theorem monsterPixelsIff (image: Image) (monster: Image) (at: List Nat):
+    (image.monsterPixels monster).contains at = True ↔ Spec.Covered image monster at :=
+  let place := (start: List Nat) => monster.roughAt.map (shift start)
+  let inPixels := Set.containsFromListIff ((image.monsterStarts monster).flatMap place) at
+  {
+    forward = contained =>
+      match (List.memFlatMap place at (image.monsterStarts monster)).forward (inPixels.forward contained) with
+        | Witness start (Both isStart inPlace) =>
+          match (monsterStartsIff image monster start).forward isStart with
+            | Witness row (Witness column (Both same (Both rowFits (Both columnFits monsterAt)))) =>
+              match List.memMapElim (shift start) at monster.roughAt inPlace with
+                | Witness drawn (Both onMonster shifted) =>
+                  match (roughAtIff monster drawn).forward onMonster with
+                    | Witness r (Witness c (Both drawnAt rough)) =>
+                      Witness row (Witness column (Witness r (Witness c
+                        (Both rowFits (Both columnFits (Both monsterAt (Both rough (rewrite <- shifted, same, drawnAt in rfl)))))))),
+    backward = covered =>
+      match covered with
+        | Witness row (Witness column (Witness r (Witness c (Both rowFits (Both columnFits (Both monsterAt (Both rough same))))))) =>
+          let isStart := (monsterStartsIff image monster [row, column]).backward (Witness row (Witness column (Both rfl (Both rowFits (Both columnFits monsterAt)))))
+          let onMonster := (roughAtIff monster [r, c]).backward (Witness r (Witness c (Both rfl rough)))
+          inPixels.backward
+            ((List.memFlatMap place at (image.monsterStarts monster)).backward
+              (Witness [row, column] (Both isStart (rewrite same in List.memMap monster.roughAt [r, c] onMonster (shift [row, column])))))
+  }

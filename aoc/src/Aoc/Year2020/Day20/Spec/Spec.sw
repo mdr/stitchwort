@@ -65,3 +65,13 @@ def pixelAt (image: Image) (row: Nat) (column: Nat): Option Pixel := (image.rows
 --| `column` of `image`: each `#` of the monster is on a `#` of the image.
 def MonsterAt (image: Image) (monster: Image) (row: Nat) (column: Nat): Prop :=
   (r: Nat) → (c: Nat) → pixelAt monster r c = Some Rough → pixelAt image (row + r) (column + c) = Some Rough
+
+--| `at` is under a `#` of a sea monster, as `monster` draws it, that lies
+--| within `image` (its height, and its first row's width).
+def Covered (image: Image) (monster: Image) (at: List Nat): Prop :=
+  ∃ (row: Nat) => ∃ (column: Nat) => ∃ (r: Nat) => ∃ (c: Nat) =>
+    row + monster.rows.length ≤ image.rows.length
+      ∧ column + (monster.rows.headOr []).length ≤ (image.rows.headOr []).length
+      ∧ MonsterAt image monster row column
+      ∧ pixelAt monster r c = Some Rough
+      ∧ at = [row + r, column + c]
