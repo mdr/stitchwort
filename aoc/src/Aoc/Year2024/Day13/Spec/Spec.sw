@@ -3,7 +3,7 @@
 --| whose buttons don't move the claw along the same line.
 
 namespace Aoc.Year2024.Day13.Spec
-import Aoc.Year2024.Day13 (Machine, Offset)
+import Aoc.Year2024.Day13 (Machine)
 import Std (Int, List, Nat, Option)
 
 --| "It costs 3 tokens to push the A button and 1 token to push the B button."

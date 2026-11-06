@@ -64,11 +64,10 @@ def placed (target: Target): Bool := 0 < target.left ∧ target.top < 0
 
 def launch (velocity: Velocity): Probe := { position = Coords.zero, velocity }
 
-def step (probe: Probe): Probe :=
-  {
-    position = probe.position.plus probe.velocity,
-    velocity = { x = probe.velocity.x - probe.velocity.x.sign, y = probe.velocity.y - 1 }
-  }
+def step (probe: Probe): Probe := {
+  position = probe.position.plus probe.velocity,
+  velocity = { x = probe.velocity.x - probe.velocity.x.sign, y = probe.velocity.y - 1 }
+}
 
 def inTarget (target: Target) (probe: Probe): Bool := target.contains probe.position
 

@@ -12,11 +12,10 @@ def drag (dx: Int): Int := if 0 < dx then dx - 1 else if dx < 0 then dx + 1 else
 
 --| One step: the probe moves by its velocity, drag acts on the x velocity,
 --| and gravity lowers the y velocity by 1.
-def move (probe: Probe): Probe :=
-  {
-    position = { x = probe.position.x + probe.velocity.x, y = probe.position.y + probe.velocity.y },
-    velocity = { x = drag probe.velocity.x, y = probe.velocity.y - 1 }
-  }
+def move (probe: Probe): Probe := {
+  position = { x = probe.position.x + probe.velocity.x, y = probe.position.y + probe.velocity.y },
+  velocity = { x = drag probe.velocity.x, y = probe.velocity.y - 1 }
+}
 
 --| The probe after `n` steps, launched from (0, 0) with `velocity`.
 def after (n: Nat) (velocity: Velocity): Probe := Nat.iterate n move { position = { x = 0, y = 0 }, velocity }
