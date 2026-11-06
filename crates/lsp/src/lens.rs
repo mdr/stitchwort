@@ -14,24 +14,58 @@ pub const RUN_TESTS: &str = "stitchwort.runTests";
 /// `stitchwort.runMain` runs the file's `main`.
 pub const RUN_MAIN: &str = "stitchwort.runMain";
 
+/// The custom request that lists a document's tests, for the editor's
+/// Testing panel (SW-1684).
+pub const TESTS: &str = "stitchwort/tests";
+
+fn parse(text: &str) -> stitchwort_syntax::ast::Module {
+    let file = SourceMap::new().add("input.sw", text);
+    stitchwort_syntax::parse_module_recovering(file, text, stitchwort_syntax::DEFAULT_STACK).0
+}
+
+/// An LSP position for a byte offset of `text`.
+fn position(text: &str, offset: u32) -> Value {
+    let before = &text[..(offset as usize).min(text.len())];
+    let line = before.matches('\n').count();
+    let from = before.rfind('\n').map_or(0, |i| i + 1);
+    let character = before[from..].encode_utf16().count();
+    json!({"line": line, "character": character})
+}
+
+/// The tests of the document `text`, for `stitchwort/tests`: each as
+/// `{name, namespace, range}`, with `namespace` null when the file has no
+/// `namespace` line and `range` covering the whole declaration. Read from the
+/// syntax alone, like the lenses, so it works on files that don't check.
+pub fn test_list(text: &str) -> Vec<Value> {
+    let module = parse(text);
+    let namespace = module.namespace.as_ref().map(|n| n.path.text.clone());
+    module
+        .decls
+        .iter()
+        .filter_map(|d| match d {
+            Decl::Test { name, span, .. } => Some(json!({
+                "name": name,
+                "namespace": namespace,
+                "range": {
+                    "start": position(text, span.start),
+                    "end": position(text, span.end),
+                },
+            })),
+            _ => None,
+        })
+        .collect()
+}
+
 /// The lenses of the document `text` at `uri`, as LSP `CodeLens` values:
 /// "Run test" above each test, "Run tests" above the first when there are
 /// several, and "Run" above `main`. Read from the syntax alone, so they
 /// appear before the file is checked and survive errors elsewhere in it.
 /// Every command's first argument is the document's URI.
 pub fn code_lenses(uri: &str, text: &str) -> Vec<Value> {
-    let file = SourceMap::new().add("input.sw", text);
-    let (module, _) =
-        stitchwort_syntax::parse_module_recovering(file, text, stitchwort_syntax::DEFAULT_STACK);
+    let module = parse(text);
     let at = |offset: u32| {
-        let before = &text[..(offset as usize).min(text.len())];
-        let line = before.matches('\n').count();
-        let from = before.rfind('\n').map_or(0, |i| i + 1);
-        let character = before[from..].encode_utf16().count();
-        json!({
-            "start": {"line": line, "character": character},
-            "end": {"line": line, "character": character},
-        })
+        let p = position(text, offset);
+        json!({"start": p, "end": p})
     };
     let lens = |offset: u32, title: &str, command: &str, mut arguments: Vec<Value>| {
         arguments.insert(0, json!(uri));
@@ -104,6 +138,23 @@ mod tests {
         );
         let args = &lenses[3]["command"]["arguments"];
         assert_eq!(args, &json!(["file:///x.sw", "b c"]));
+    }
+
+    #[test]
+    fn test_list_names_namespace_and_range() {
+        let text = "namespace A.B\n\ntest \"a\" := 1 == 1\n";
+        let list = test_list(text);
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0]["name"], "a");
+        assert_eq!(list[0]["namespace"], "A.B");
+        assert_eq!(
+            list[0]["range"]["start"],
+            json!({"line": 2, "character": 0})
+        );
+        assert_eq!(
+            test_list("test \"x\" := 1 == 1\n")[0]["namespace"],
+            Value::Null
+        );
     }
 
     #[test]

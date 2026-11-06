@@ -45,9 +45,13 @@ Syntax colouring for `.sw` files, and a thin client for the language server
   terminal, so input works.
 - **Testing panel** (D2245: project tests only). A Test Explorer controller,
   "Stitchwort", lists the tests of every `.sw` file under a `stitchwort.yaml`
-  (project, then file, then test; found by reading the files, and kept up to
-  date as you type and as files change). Run, or Run Test at any level, runs
-  `stitchwort test [NAMESPACE] [--only NAME] --json` in the project folder. A
+  (project, then file, then test; listed by the server's `stitchwort/tests`
+  request, or by reading the text if the server doesn't answer, and kept up
+  to date as you type and as files change). Run, or Run Test at any level,
+  runs `stitchwort test [NAMESPACE] [--only NAME] --json` in the project
+  folder. Running a whole project splits it by namespace (the first three
+  components, so one day of `aoc/` each), three runs at a time, and
+  results appear as each run finishes; Stop kills the rest. A
   failure appears at the test's line (or at the false part of an `&&`) as a
   message with the two sides, shown as expected (right) and actual (left)
   when it is a comparison. A result from the cache has the description
