@@ -30,6 +30,7 @@ const ANSWERS: &[(&str, &str, &str, &str)] = &[
     ("2020", "12", "415", "29401"),
     ("2020", "13", "2165", "534035653563227"),
     ("2020", "14", "13496669152158", "3278997609887"),
+    ("2020", "15", "249", "41687"),
     ("2021", "01", "1616", "1645"),
     ("2021", "02", "1635930", "1781819478"),
     ("2021", "03", "4191876", "3414905"),
@@ -79,6 +80,10 @@ const ANSWERS: &[(&str, &str, &str, &str)] = &[
     ("2025", "08", "42315", "8079278220"),
     ("2025", "09", "4756718172", "1665679194"),
 ];
+
+/// Days whose `main` takes minutes, left out of the runs over every day: each
+/// has its own test, ignored unless asked for.
+const SLOW: &[(&str, &str)] = &[("2020", "15")];
 
 /// Spawns `command` while holding [`SPAWN`].
 fn spawn(command: &mut Command) -> Child {
@@ -204,6 +209,15 @@ fn year2020_day13() {
 #[test]
 fn year2020_day14() {
     check("2020", "14");
+}
+
+/// Part 2 is 30,000,000 turns of a `Map` lookup and insert: about six minutes
+/// on `stitchwort run` (aoc/NOTES-2020.md, day 15). Part 1 is checked on the
+/// real input by the day's own tests.
+#[test]
+#[ignore = "about six minutes: part 2 plays 30,000,000 turns"]
+fn year2020_day15() {
+    check("2020", "15");
 }
 
 #[test]
@@ -421,6 +435,9 @@ fn every_day_from_the_whole_projects_cache() {
         String::from_utf8_lossy(&output.stderr)
     );
     for (year, day, _, _) in ANSWERS {
+        if SLOW.contains(&(*year, *day)) {
+            continue;
+        }
         check_with(year, day, &["--cache-dir", cache_dir]);
     }
     let _ = std::fs::remove_dir_all(&cache);

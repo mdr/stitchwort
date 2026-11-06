@@ -3767,3 +3767,265 @@ elaboration and 33 ms in the kernel (`readsInstruction` 203 ms of it,
    the goal with that subterm elided (item 5). Message; small.
 5. Smaller: `SetMask { … }` again; no per-test time limit in
    `stitchwort test` (item 6). Each small.
+
+## Day 15: Rambunctious Recitation
+
+The elves' memory game. The input is one line of starting numbers
+separated by commas, read out one a turn; after them, each turn
+considers the number spoken last: if that was its first time, the
+player says 0, else how many turns apart it is from when it was spoken
+before. Part 1: the 2020th number spoken; part 2: the 30,000,000th.
+Answers on Matt's input (`15,12,0,14,3,1`): 249 and 41687; the example
+`0,3,6` gives 436, and the six further starting lists give 1, 10, 27,
+78, 438 and 1836, as the puzzle says. Matt's Scala (`Day15.scala`)
+keeps an immutable `Map` from number to the turn it was last spoken,
+as this program does; I didn't run it. An independent Python script
+(a `dict`, the same loop) agrees on both answers and the example's part
+1, in 7.2 s for part 2. Part 2 speaks 3,611,894 distinct numbers, the
+largest 29,469,422.
+
+The domain types are `Starting` (the starting numbers, a
+`NonEmptyList Nat`, since the parser reads them with `sepBy1`) and
+`Game` (the turn just taken, the number spoken on it, and `lastSeen`, a
+`Map Nat Nat` from every number spoken before that turn to the latest
+turn it was spoken), with `Game.begin first`, `game.say number`,
+`game.reply` (0, or the turn minus the map's entry for the last
+number), `starting.next game` (the next starting number while there is
+one, else the reply), `starting.takeTurn game` (`game.say (starting.next
+game)`) and `starting.numberSpoken turn`, `Nat.iterate` of `takeTurn`
+from the first turn. Both parts are `numberSpoken` at their turn. The
+program and its 12 tests passed on the first run.
+
+The spec (`Spec/Spec.sw`) shares `Starting` and nothing else.
+`NumberWritten` and `StartingWritten` (the numbers in decimal, separated
+by commas); `turnsBack number older`, how many turns back `number` was
+last spoken, looking over the numbers spoken before the latest, the most
+recent first; `reply` ("If that was the first time the number has been
+spoken, the current player says 0. Otherwise, … how many turns apart
+the number is from when it was previously spoken"), `spoken starting
+turns`, the numbers spoken in the first `turns` turns, the most recent
+first (a starting number while there is one, then the `reply` to
+everything before), `numberSpoken` (the head of that) and `Answer
+starting turn answer`. The spec looks back over the whole game every
+turn, so it is quadratic; the tests run it to turn 2020 on the example
+and check it against the program for the first 300 turns of the input.
+
+Proved (`Aoc.Year2020.Day15.Proofs`):
+
+- `readsStarting`, `parseWritten` (Parse.sw): if `parseStarting` reads
+  `input`, the input is the starting numbers written out, then any line
+  breaks.
+- `Tracks`, `turnsBackAtMost`, `beginTracks`, `mapShift`, `sayTracks`,
+  `replyTracks` (Game.sw): the invariant is that a game tracks the spec's
+  list of numbers spoken when its last number is the list's head, its
+  turn is the list's length, and for every number its map holds what
+  `turnsBack` gives over the rest of the list, as a turn (`game.turn -
+  back`). `say` keeps it; under it, `game.reply` is `Spec.reply`.
+- `Playing`, `beginPlaying`, `nextAgrees`, `takeTurnPlaying`,
+  `lastTracks`, `iterateTurn`, `numberSpokenSpec` (Turns.sw): every
+  turn the program takes is the spec's next turn, so for every starting
+  list and every turn, `starting.numberSpoken turn = Spec.numberSpoken
+  starting.numbers.toList turn`.
+- `correct` (Proofs.sw): for every input the parser reads and every
+  turn, the input is the starting numbers written out and
+  `starting.numberSpoken turn` is the spec's `Answer` for that turn.
+  Part 1 is turn 2020 and part 2 turn 30000000; the theorem isn't stated
+  for those two turns (item 2).
+
+Not proved: that every well-formed input parses (as on days 2 to 14);
+that `main` asks for turns 2020 and 30000000 (it reads so). There is no
+added hypothesis and no `opaque`.
+
+Breaking the program made the proofs fail: the reply one too big fails
+`replyTracks` (`omega`, with a model); the map recording the turn after
+the one it should fails `sayTracks`; `<=` for `<` in `next` (a starting
+number too many) fails `nextAgrees`; a new number answered with 1
+instead of 0 fails `replyTracks`. The audit (with the counterexample
+search): `audited 32 theorems: 0 failed, 0 with warnings, 32 passed`.
+
+### 1. Slow: part 2 is 30,000,000 turns of a `Map` walk, about six minutes
+
+`stitchwort run` takes 357 s of CPU for both parts (part 1 is 2020 turns
+and takes no time), so `aoc_answers.rs` has the day's test `#[ignore]`d
+(run it with `--ignored`) and leaves it out of its run over every day,
+and the Stitchwort tests check part 1 on the input and part 2 not at
+all. On each runtime, for the whole program:
+
+| runtime | time (user) | per million turns | peak memory |
+| --- | --- | --- | --- |
+| `stitchwort run` | 357 s | 11.9 s (8.4 s for the first million) | 688 MB |
+| `run --js` | 127 s (145 s real) | 4.2 s | 2.2 GB |
+| `run --native` (a `task build` binary) | 84 s | 2.8 s | 726 MB |
+| Python, a `dict` | 7.2 s | 0.24 s | |
+
+The time is all the map. On `stitchwort run`, a million turns of the
+same loop with a two-field record and no map take 0.1 s; with an insert
+into a map of 4,096 keys each turn, 4.4 s. With 3.6 million keys the
+weight-balanced tree is over 20 levels deep, and each level is a
+comparison through the `Ord` dictionary (an `Ordering` value back), a
+new node, and a balance check that multiplies sizes; a turn does a
+`get` and an `insert`. Sampling the interpreter (macOS `sample`, 8 s
+into a 3-million-turn run) puts 64% of the time in the machine's
+dispatch loop, 10% in dropping values, 5% growing its value stacks and
+about 4% in malloc and free; nothing in the samples names the
+Stitchwort functions. Under `--js` every `Nat` is a `bigint` (the
+tree's sizes too) and every node and `Ordering` an object, hence the
+2.2 GB. There is no profiler for running programs (`STITCHWORT_TIMINGS`
+covers checking), as on day 11; I found the split by timing variants of
+`main`.
+
+What would make this fast: a dense array from number to turn (the
+numbers are below the turn count), which std doesn't have (SW-1473
+asks for a persistent array; this day wants one updated in place, since
+the old versions are never read again: a `State`-style mutable array, or
+in-place update when the array is unshared). Short of that, a `Map`
+specialised to `Nat` keys (a Patricia trie, Haskell's `IntMap`) would
+drop the dictionary calls and the balance arithmetic. A newcomer writes
+exactly this program (it is Matt's Scala), and waits six minutes with
+nothing to say where the time goes.
+
+### 2. The counterexample search never finishes on a theorem that names turn 30000000
+
+As first written, Proofs.sw had `part1Correct` and `part2Correct`, each
+ending in `Spec.Part2 starting (starting.numberSpoken 30000000)` (`Part2`
+being `answer = Spec.numberSpoken starting.numbers.toList 30000000`).
+Both checked at once. `stitchwort audit Aoc.Year2020.Day15` then ran at
+full CPU until my 120 s timeout, and `audit Proofs.part2Correct` alone
+until a 60 s one; `audit --no-search` passed in 0.5 s. `part1Correct`
+came back (within 30 s) with "not applicable: the statement's normal
+form has more than 100000 nodes". The search reads back each part of
+the statement in normal form (`statement_part`,
+crates/elab/src/counterexample/mod.rs:111), bounded by the number of
+nodes but not by steps, and computing the spec's game 30 million turns
+deep, quadratically, before the first node comes back never ends; the
+2 s budget per theorem (`--counterexample-budget`) doesn't cover it. So
+`task audit:touched`, which the merge verifier runs, would hang on this
+day. I stated `correct` for every turn instead, which is stronger and
+which the search handles (`numberSpokenSpec`: "none in 844 cases"), and
+dropped `Part1`/`Part2` from the spec for one `Answer starting turn`.
+A step budget on that read-back, giving "not applicable" as the node
+limit does, would let a theorem say "the 30000000th".
+
+### 3. `omega` made a proof that doesn't check
+
+`numberSpokenSpec` needs the final game's turn: `iterateTurn` gives
+`(Game.begin _).turn + later`, and I wrote
+
+```stitchwort
+let turns: final.turn = Succ later := rewrite iterateTurn starting later _ in omega
+```
+
+which is `E-OMEGA-INTERNAL`: "the quoted goal means `later + 1 = Succ
+later`, not the goal `1 + later = Succ later`", with "this is a bug in
+the compiler's `omega`". `rfl` there failed too ("`1 + later` and `Succ
+later` aren't equal"), though in a scratch file `1 + c = Succ c` is
+`rfl`. `Eq.trans (iterateTurn starting later _) (Nat.addComm 1 later)`
+works. It reproduces in 11 lines with a two-field record, a `step`
+that adds 1 to its turn, an `iterTurn` lemma like `iterateTurn` and the
+same `let` (the scratch file is in the lane's report). The message was
+right to blame itself, which saved time.
+
+### 4. `Parse.readsWeaken` over `Parse.readsMap` needs both its implicits named
+
+`starting()` builds a record from `sepBy1`, so its proof is
+`readsWeaken (readsMap … (numbers => { numbers }) _ (readsSepBy1 …))
+(…)`. As written, that is `E-TYPE-MISMATCH` pointing into `Parse.nat`'s
+inner `match` ("they first differ at `Std.Effect.bind (…)` against `?1
+()`", with Note 3 explaining compiler-made `match` functions), which is
+about `readsWeaken`'s parser `p`, not `Parse.nat`. With `[p := starting]`
+the next error was the `weaker` spec as `?2 read { numbers = numbers }`;
+with `[weaker := StartingWritten]` too, it checked. The expected type
+says both. A newcomer reading "differ at … `?1 ()`" in std's parser
+wouldn't guess to name the parser; a note like "`?1` is `readsWeaken`'s
+`p`; name it with `[p := …]`" would say it. Day 13's parsers ended in
+`Parse.readsDone` and never met this.
+
+### 5. Messages
+
+- **A pipe into an effectful method.** In a `{IO, Fail}` function,
+  `let turns := IO.args() |> .headOr "2020" |> .toNatOrFail` is
+  `E-ABILITY`: "this may perform `Fail`, which isn't allowed here …
+  `Fail` isn't in the abilities of the enclosing function or handler",
+  which it is. `Text.toNatOrFail (IO.args().headOr "2020")` works, and so
+  do `"2020" |> .toNatOrFail` and `["2020"] |> .headOr "1" |>
+  .toNatOrFail`: it takes the pipe starting with an `IO` call. Four
+  lines (`import Std (Fail, IO, List, Text)`, a `main` with that `let`
+  and a print) reproduce it.
+- **`∧` at the start of a line.** A theorem type split as `(∃ … =>`
+  on one line, its body on the next, and `∧ Spec.Part1 …` on a third at
+  the first line's column, is `E-PARSE` "expected an expression, but
+  found `&&`". It wants the `∧` indented further; the message calls my
+  `∧` `&&` and doesn't mention the column, which the `let` message
+  does.
+- **Good ones.** `E-IMPORT-CLASH` for importing the spec's `spoken`
+  into a test namespace that defines its own said exactly what to do;
+  `E-REWRITE-NOTHING`'s notes showed the goal had computed `spoken
+  (Succ later)` away, which is what led to `lastTracks`.
+
+### 6. Smaller things
+
+- **What helped.** The proofs took about 10 minutes. `Nat.iterateKeeps`
+  is the invariant argument in one call; `Map.getInsert` and
+  `getInsertOther` were the whole map side; `readsSepBy1` and
+  `readsNat` gave the format. The program's first `takeTurn`, `if …
+  then game.say a else game.say game.reply`, didn't refine under
+  `match below: game.turn < …` (the goal had already computed `<` into
+  `<=` of the tail, as days 11 and 12 found); moving the `if` into
+  `starting.next`, so a turn is one `say`, made the turn one rewrite
+  with `replyTracks` and read better too.
+- **`(1 ..= 10).toList`** is `E-UNKNOWN-FIELD` (a range is already a
+  `List`); obvious once read, but `toList` on a range is what Scala and
+  Kotlin readers write.
+- **`List.findIndex`** exists, with no lemmas, and is built on
+  `findIndexFrom start`, so a cons step needs the start generalised; the
+  spec's `turnsBack` is its own three lines instead.
+- **No way to mark a slow test.** `stitchwort test` has no tag or
+  option to leave a test out by default, so part 2 isn't a Stitchwort
+  test at all; in Rust it is `#[ignore]` plus a `SLOW` list for the
+  every-day run.
+- **`{ g | … }` in a lambda** for a benchmark needed `(g: Game) =>`;
+  `E-CANNOT-INFER` said so.
+
+### Size and time
+
+60 lines of program, 53 of spec, 130 of proofs (Parse 19, Game 56,
+Turns 36, Proofs 19), 50 of tests (+1 answer test in `aoc_answers.rs`,
+ignored by default). By the clock: 02:29 start; program and tests
+passing at 02:36; part 2 measured on three runtimes 02:37 to 03:02 in
+the background; the game invariant at 02:41, the turn-by-turn proofs at
+02:43, the parser at 02:45, the top theorem at 02:46; then item 2 (the
+audit hang and the restatement), the break checks, the timings and
+these notes.
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2020.Day15.Proofs` | 6.2 s user |
+| `stitchwort check --no-cache Aoc.Year2020.Day15` | 2.6 s user |
+| `stitchwort test --no-cache Aoc.Year2020.Day15.Tests` (17 tests) | 6.6 s user |
+| `stitchwort audit Aoc.Year2020.Day15` (32 theorems) | 5.6 s user |
+| `stitchwort run Aoc.Year2020.Day15.main` on the input | 357 s user |
+
+`STITCHWORT_TIMINGS=1` puts the Proofs namespace at 30 ms of
+elaboration and 8 ms in the kernel; the rest of the cold time is std's.
+
+### Ranked
+
+1. Part 2 takes six minutes on `stitchwort run` (84 s native, 127 s JS,
+   7 s in Python): 30 million `Map` gets and inserts on a 3.6-million-key
+   tree, nearly all the time in the tree; no array to use instead, and
+   no profiler for running programs (item 1). Library and runtime;
+   large (a mutable or in-place array with lemmas), medium (a `Nat`-keyed
+   map).
+2. The counterexample search's read-back of a statement has no step
+   limit, so `audit` (and `audit:touched` in the merge verifier) never
+   finishes on a theorem naming turn 30000000 (item 2). Tool; small.
+3. `E-OMEGA-INTERNAL` on `1 + later = Succ later` after a `rewrite`,
+   with an 11-line repro (item 3). Checker; small to medium.
+4. `IO.args() |> … |> .toNatOrFail` is a false `E-ABILITY` (item 5).
+   Checker; small to medium.
+5. `readsWeaken` over `readsMap` needs `[p := …]` and `[weaker := …]`,
+   and the error points into `Parse.nat` (item 4). Message or std;
+   small.
+6. Smaller: `∧` continuation reported as `&&` without the column; no
+   slow-test marker in `stitchwort test`; `findIndex` has no lemmas
+   (items 5, 6). Each small.
