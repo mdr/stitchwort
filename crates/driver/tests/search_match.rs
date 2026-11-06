@@ -202,7 +202,7 @@ fn an_append_of_holes_is_tried_as_lists_and_as_texts() {
     assert!(report.query.resolutions.is_empty(), "{:?}", report.query);
     assert_eq!(
         report.query.elaborated.as_deref(),
-        Some("List.length (List.append ?2 ?3) = ?5")
+        Some("(?2 ++ ?3).length = ?5")
     );
 }
 

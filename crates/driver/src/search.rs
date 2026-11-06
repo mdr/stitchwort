@@ -460,6 +460,8 @@ pub struct QueryJson {
     /// When the pattern has overloaded operators whose operands' type
     /// nothing says (`_ ++ _`), every reading that elaborated and was
     /// searched (SW-927), `elaborated` first; absent when there is one.
+    /// Written with calls as calls (`List.append ?1 ?2 = ?3`), since `++`
+    /// and dot calls would print different readings alike.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub resolutions: Vec<String>,
     pub names: Vec<String>,
@@ -643,7 +645,7 @@ impl Session {
         // Each reading of the pattern's overloaded operators that
         // elaborates is searched, and the results merged (SW-927).
         let mut holes = Vec::new();
-        let mut readings: Vec<(String, Found)> = Vec::new();
+        let mut readings: Vec<(String, String, Found)> = Vec::new();
         if let Some(text) = &query.pattern {
             let expr = self.parse_expression("<pattern>", text)?;
             let mut first_error = None;
@@ -652,13 +654,16 @@ impl Session {
                     Ok((patterns, named)) => {
                         let g = &self.elab.ev();
                         let shown = patterns[0].show(g);
+                        let calls = patterns[0].show_calls(g);
                         // The same pattern up to how its holes are
                         // numbered (`List.length (_ ++ _) = _` as written,
                         // its `++` settled by `List.length`, and the
                         // reading with the first hole a list) is searched
                         // once.
-                        let key = holes_renumbered(&shown);
-                        if readings.iter().any(|(s, _)| holes_renumbered(s) == key) {
+                        // Compared as calls: `List.append` and
+                        // `Text.append` both print as `++`.
+                        let key = holes_renumbered(&calls);
+                        if readings.iter().any(|(_, c, _)| holes_renumbered(c) == key) {
                             continue;
                         }
                         for h in named {
@@ -667,7 +672,7 @@ impl Session {
                             }
                         }
                         let found = self.elab.search(&patterns, &candidates, &opts, &keep);
-                        readings.push((shown, found));
+                        readings.push((shown, calls, found));
                     }
                     Err(d) => {
                         first_error.get_or_insert(d);
@@ -679,15 +684,15 @@ impl Session {
             }
         }
         let g = &self.elab.ev();
-        let elaborated = readings.first().map(|(s, _)| s.clone());
+        let elaborated = readings.first().map(|(s, _, _)| s.clone());
         let resolutions: Vec<String> = if readings.len() > 1 {
-            readings.iter().map(|(s, _)| s.clone()).collect()
+            readings.iter().map(|(_, c, _)| c.clone()).collect()
         } else {
             Vec::new()
         };
         let pattern = !readings.is_empty();
         let found = if pattern {
-            merge(g, readings.into_iter().map(|(_, f)| f).collect())
+            merge(g, readings.into_iter().map(|(_, _, f)| f).collect())
         } else {
             let mut stats = Stats::default();
             let mut hits = list(g, &candidates, &keep, &mut stats);

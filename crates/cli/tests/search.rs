@@ -286,7 +286,10 @@ fn the_query_log_gets_a_line_per_search() {
     assert!(first.get("cwd").is_none(), "{first}");
     assert!(!text.contains(&*dir.display().to_string()), "{text}");
     assert_eq!(first["query"], "_ ++ _ = _");
-    assert_eq!(first["elaborated"], serde_json::json!(["?1 ++ ?2 = ?3"]));
+    assert_eq!(
+        first["elaborated"],
+        serde_json::json!(["List.append ?1 ?2 = ?3", "Text.append ?0 ?1 = ?2"])
+    );
     let results = first["results"].as_array().unwrap();
     assert_eq!(results.len(), 3, "{first}");
     assert_eq!(results[0]["rank"], 1);
