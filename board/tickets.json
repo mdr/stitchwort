@@ -13295,14 +13295,14 @@
     {
       "id": 1718,
       "title": "[Opus] Comparative study: how Lean 4, Coq/Rocq, Agda, Idris 2 and others bound unfolding when elaborating (whnf vs full normalisation, reducibility, glued evaluation, keyed matching, kabstract); lessons for bounded readback; report docs/reviews/SW-N-unfolding-comparison.md",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1718",
       "labels": [
         "research"
       ],
       "epic": "goal-as-written",
-      "body": "Matt, 6 Nov 2026: asked for a comparative study alongside the SW-1712 review. Read and web only. Started on Opus, expected: 75 min.",
+      "body": "Matt, 6 Nov 2026: asked for a comparative study alongside the SW-1712 review. Read and web only. Started on Opus, expected: 75 min.\n\nDone, merged: docs/reviews/SW-1718-unfolding-comparison.md (af5e976b6). Lean and Agda have record eta's rule 2 too; Lean never reads goals back fully unfolded, Agda's with/rewrite do and its manual warns. No system caps size for search or unification (Idris 2's 25-application limit on solutions is closest, the reverse of D1280); all use transparency/opacity; size caps only for printing. Suggestions S1-S8 for the note (recommends S2, S4, S5, S7; S6 as a stage 0 count). Model result: Opus, worked, 12 min (est. 75).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
