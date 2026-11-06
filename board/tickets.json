@@ -13105,13 +13105,14 @@
     {
       "id": 1706,
       "title": "Daily tier: search: rewrites_show_the_goal_they_leave expects List.length form (display, SW-1674); search_match an_append_of_holes_is_tried_as_lists_and_as_texts lost its two resolutions (List.append and Text.append now print the same ?1 ++ ?2 = ?3 and dedupe away)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1706",
       "labels": [
         "search"
       ],
-      "body": "Daily tier 6 Nov evening. D2516.\n\nStarted on Sonnet, expected: 30 min.",
+      "epic": "test-infra",
+      "body": "Daily tier 6 Nov evening. D2516.\n\nStarted on Sonnet, expected: 30 min.\n\nDone, merged (191ca2d5c): search dedupes readings by their call form (pretty::term_calls), and resolutions print as List.append ?1 ?2 = ?3 / Text.append ?0 ?1 = ?2. On main: 5 tests passed. Model result: Sonnet, worked, 15 min (est. 30).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
