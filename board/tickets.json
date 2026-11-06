@@ -1,5 +1,5 @@
 {
-  "next": 1688,
+  "next": 1689,
   "tickets": [
     {
       "id": 47,
@@ -12003,6 +12003,20 @@
         "errors"
       ],
       "body": "From SW-1630, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1688,
+      "title": "Regression on main: 2021 day 18 Proofs has 5 E-TYPE-MISMATCH (Split.sw:40: a No arm's hypothesis keeps if 10 <= value then … instead of None); also what_closes_a_goal_in_a_project's search found 3 not 5. Suspect SW-1629 (stage 3 transport); the D2507 whole-AoC check after SW-1628 at 14:13 had 0 errors",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "regression"
+      ],
+      "body": "Found by the SW-1674 lane, 6 Nov 2026: fails the same on SW-1674's parent. Breaks lsp tests a_newer_edit_cancels_the_check_running, aoc_navigation_matches_check_index, workspace_symbols_cover_namespaces_not_checked_yet.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
