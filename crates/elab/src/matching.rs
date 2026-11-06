@@ -32,6 +32,7 @@ use crate::lift::{self, Draft};
 use crate::{Row, UNIT_PATTERN, check_tree_here};
 
 mod as_written;
+pub(crate) use as_written::{Outcome as AsWritten, report_transport, transport_target};
 
 fn parts(expr: &Expr) -> (&[Scrutinee], &[Alt], stitchwort_syntax::Span, MatchKind) {
     let Expr::Match {

@@ -564,7 +564,7 @@ theorem clampToFits (limit: Nat) (n: Nat): clampTo limit n ≤ limit ∧ clampTo
     | False => Both (clampToAtMost limit n) omega
 ```
 
-That needs the equation's name: in a `match` without one, the error says to add it. The same goes the other way: a lemma's premise `Nat.leq n limit = True`, written in the `True` branch, is proved by `fits`, which says exactly that, and `rfl` can't prove it.
+The lemma's type is searched for `e` as the goal is, so it fits even where it writes `e` differently, up to computation (`xs.map (y => f a y)` for `xs.map (f a)`). That needs the equation's name: in a `match` without one, the error says to add it. The same goes the other way: a lemma's premise `Nat.leq n limit = True`, written in the `True` branch, is proved by `fits`, which says exactly that, and `rfl` can't prove it.
 
 ## Membership, "if and only if", "there exists"
 
