@@ -9672,13 +9672,13 @@
     {
       "id": 1521,
       "title": "Unifier: the 2^n blowup can still occur while solving from arguments (a lemma with _ args on a repeated-parser goal); memoise pairs found different within one argument comparison, as the kernel does (SW-1506)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1521",
       "labels": [
         "elab"
       ],
-      "body": "From SW-1506, 6 Nov 2026.",
+      "body": "From SW-1506, 6 Nov 2026.\n\nStarted overnight on Opus (unifier completeness and speed), expected: 60 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
