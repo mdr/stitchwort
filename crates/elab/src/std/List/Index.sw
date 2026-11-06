@@ -84,7 +84,7 @@ theorem List.extGetOr (d: a): (xs: List a) → (ys: List a) → List.length xs =
   | [x, ..xs], [], e, h => Void.exfalso (Nat.succNotZero (List.length xs) e)
   | [x, ..xs], [y, ..ys], e, h =>
     Eq.trans (Eq.cong (z => [z, ..xs]) (h 0 rfl))
-      (Eq.cong (Cons y) (List.extGetOr d xs ys (Nat.succInjective (List.length xs) (List.length ys) e) (i hi => h (Succ i) hi)))
+      (Eq.cong (Cons y) (List.extGetOr d xs ys (Nat.succInjective e) (i hi => h (Succ i) hi)))
 
 --| Index i of a block of k elements written n times is index `i % k` of the block.
 theorem List.getOrConcatReplicate (b: List a) (d: a) (k: Nat) [auto hk: k ≠ 0] (hb: List.length b = k): (n: Nat) → (i: Nat) → i < n * k →
@@ -153,7 +153,7 @@ theorem List.getOrZipWith3 (f: a → b → c → e) (d1: a) (d2: b) (d3: c) (d: 
   | [x, ..xs], [y, ..ys], [], h1, h2, i => Void.exfalso (Nat.zeroNotSucc (List.length xs) h2)
   | [x, ..xs], [y, ..ys], [z, ..zs], h1, h2, Zero => rfl
   | [x, ..xs], [y, ..ys], [z, ..zs], h1, h2, Succ i =>
-    List.getOrZipWith3 f d1 d2 d3 d hd xs ys zs (Nat.succInjective (List.length ys) (List.length xs) h1) (Nat.succInjective (List.length zs) (List.length xs) h2) i
+    List.getOrZipWith3 f d1 d2 d3 d hd xs ys zs (Nat.succInjective h1) (Nat.succInjective h2) i
 
 theorem List.getOrMap: (xs: List a) → (i: Nat) → (d: a) → (f: a → b) → List.getOr (List.map xs f) i (f d) = f (List.getOr xs i d)
   | [], i, d, f => rfl

@@ -159,7 +159,7 @@ fn linear_program(n: usize) -> String {
         "{VEC}
 def fromListN: (n: Nat) -> (xs: List a) -> List.length xs = n -> Vec a n
   | 0, Nil, _             => VNil
-  | Succ k, Cons x xs, ok => VCons [n := k] x (fromListN k xs (Nat.succInjective _ _ ok))
+  | Succ k, Cons x xs, ok => VCons [n := k] x (fromListN k xs (Nat.succInjective ok))
   | 0, Cons _ _, ok       => Void.absurd (Nat.succNotZero _ ok)
   | Succ _, Nil, ok       => Void.absurd (Nat.zeroNotSucc _ ok)
 

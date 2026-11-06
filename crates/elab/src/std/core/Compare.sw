@@ -22,13 +22,13 @@ theorem Ordering.equalNotLess: Equal ≠ Less
   | p => Nat.zeroNotSucc 0 (Eq.sym (Eq.cong Ordering.index p))
 
 theorem Ordering.equalNotGreater: Equal ≠ Greater
-  | p => Nat.zeroNotSucc 0 (Nat.succInjective 0 1 (Eq.cong Ordering.index p))
+  | p => Nat.zeroNotSucc 0 (Nat.succInjective (Eq.cong Ordering.index p))
 
 theorem Ordering.greaterNotLess: Greater ≠ Less
   | p => Nat.zeroNotSucc 1 (Eq.sym (Eq.cong Ordering.index p))
 
 theorem Ordering.greaterNotEqual: Greater ≠ Equal
-  | p => Nat.zeroNotSucc 0 (Nat.succInjective 0 1 (Eq.sym (Eq.cong Ordering.index p)))
+  | p => Nat.zeroNotSucc 0 (Nat.succInjective (Eq.sym (Eq.cong Ordering.index p)))
 
 theorem Ordering.indexInjective: (c: Ordering) → (d: Ordering) → Ordering.index c = Ordering.index d → c = d
   | Less, Less, h => rfl
@@ -36,9 +36,9 @@ theorem Ordering.indexInjective: (c: Ordering) → (d: Ordering) → Ordering.in
   | Less, Greater, h => Void.exfalso (Nat.zeroNotSucc 1 h)
   | Equal, Less, h => Void.exfalso (Nat.succNotZero 0 h)
   | Equal, Equal, h => rfl
-  | Equal, Greater, h => Void.exfalso (Nat.zeroNotSucc 0 (Nat.succInjective 0 1 h))
+  | Equal, Greater, h => Void.exfalso (Nat.zeroNotSucc 0 (Nat.succInjective h))
   | Greater, Less, h => Void.exfalso (Nat.succNotZero 1 h)
-  | Greater, Equal, h => Void.exfalso (Nat.succNotZero 0 (Nat.succInjective 1 0 h))
+  | Greater, Equal, h => Void.exfalso (Nat.succNotZero 0 (Nat.succInjective h))
   | Greater, Greater, h => rfl
 
 theorem Ordering.andThenEqual: (c: Ordering) → (d: Ordering) → Ordering.andThen c d = Equal → (c = Equal) ∧ (d = Equal)

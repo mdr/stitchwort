@@ -71,7 +71,7 @@ theorem Int.negSuccNotOfNat (m: Nat) (n: Nat): NegSucc m ≠ OfNat n
 
 theorem Int.ofNatInjective (m: Nat) (n: Nat) (p: OfNat m = OfNat n): m = n := Eq.cong Int.toNat p
 
-theorem Int.negSuccInjective (m: Nat) (n: Nat) (p: NegSucc m = NegSucc n): m = n := Nat.succInjective m n (Eq.cong Int.natAbs p)
+theorem Int.negSuccInjective (m: Nat) (n: Nat) (p: NegSucc m = NegSucc n): m = n := Nat.succInjective (Eq.cong Int.natAbs p)
 
 --| Decides whether two `OfNat`s are equal, from a decision about their numbers.
 def Int.decOfNat (m: Nat) (n: Nat): (dec: Decidable (m = n)) → Decidable (OfNat m = OfNat n)

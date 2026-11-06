@@ -1,0 +1,5 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+Main.predEq cbe89b2570fd4d61e0256e558d26eda28c8e33d7d6561f4df474e8f278ee762e
