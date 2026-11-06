@@ -706,10 +706,14 @@ test("a ? program shows its open goals in a Goals section", async (page) => {
   await page.untilStatus("1 goal open");
   let s = await shown();
   assert.deepEqual(s.headings, ["Goals (1 open)"]);
-  assert.match(s.goals, /^\[GOAL\] Goal:/);
+  assert.match(s.goals, /^in `two_is_two`\n⊢ two = 2/);
   assert.match(s.goals, /⊢ two = 2/);
   assert.equal(s.errors, null);
   assert.doesNotMatch(s.output, /Every definition type-checks/);
+  // A goal with names in scope lists them (the server's message carries the context).
+  await page.setSource("theorem plus_zero (n : Nat) : n + 0 = n := ?\n");
+  await page.untilStatus("1 goal open");
+  assert.match((await shown()).goals, /^in `plus_zero`\nn: Nat\n⊢ /);
   // Beside an error: the goals come first, the errors in their own box.
   await page.setSource("def two : Nat := 2\n\ntheorem two_is_two : two = 2 := ?\n\ndef bad : Nat := rfl\n");
   await page.untilStatus("Doesn’t check");
