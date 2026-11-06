@@ -43,7 +43,7 @@ theorem pickBin (warehouse: Warehouse) (order: Order) (pick: Pick) (h: pickOrder
 theorem pickOrderSome (warehouse: Warehouse) (order: Order) (onHand: Nat) (label: Text) (bin: Bin)
     (foundStock: warehouse.stock.get order.item = Some onHand) (foundLabel: warehouse.locations.get order.item = Some label)
     (foundBin: warehouse.bins.get label = Some bin) (enough: order.quantity <= onHand):
-    pickOrder warehouse order = Some ({ item = order.item, bin, quantity = order.quantity, left = onHand - order.quantity }) :=
+    pickOrder warehouse order = Some { item = order.item, bin, quantity = order.quantity, left = onHand - order.quantity } :=
   rewrite foundStock, foundLabel, foundBin, enough in rfl
 
 -- A step that is a call to another `{Abort}` function: `Abort.thenEqSome`
@@ -112,7 +112,7 @@ def warehouse: Warehouse := {
   bins = [("A1", { label = "A1", aisle = 1 })].toMap
 }
 
-test "a pick" := pickOrder warehouse { item = "bolt", quantity = 15 } == Some ({ item = "bolt", bin = { label = "A1", aisle = 1 }, quantity = 15, left = 25 })
+test "a pick" := pickOrder warehouse { item = "bolt", quantity = 15 } == Some { item = "bolt", bin = { label = "A1", aisle = 1 }, quantity = 15, left = 25 }
 test "not enough" := pickOrder warehouse { item = "bolt", quantity = 41 } == None
 test "no such bin" := pickOrder warehouse { item = "nut", quantity = 1 } == None
 test "no such item" := pickOrder warehouse { item = "washer", quantity = 1 } == None

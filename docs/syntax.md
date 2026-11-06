@@ -725,7 +725,7 @@ export declare function ownerOf(orders: { readonly [k: OrderId]: UserId }, o: Or
 
    ```
    def Email.parse (t: Text): Option Email :=
-     if h: Email.isValid t = True then Some ({ value = t, valid = h }) else None
+     if h: Email.isValid t = True then Some { value = t, valid = h } else None
    ```
 
    Code that may fail says `{Fail}` instead and uses `Email.parse t |> .orFail "not an email address: ${t}"`. An export that returns `Option Email` gives JavaScript `string | undefined`; one that takes an `Email` refuses a string that fails the rule (`e: proof field `valid` ... doesn't hold`).
@@ -1222,7 +1222,7 @@ def firstBig: List Nat → Option Big
   | Nil => None
   | Cons x rest =>
     match big: Nat.leq 10 x with
-      | True => Some ({ value = x, isBig = big })
+      | True => Some { value = x, isBig = big }
       | False => firstBig rest
 
 def countFresh: List Bool → Nat

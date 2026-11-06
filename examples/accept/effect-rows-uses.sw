@@ -90,7 +90,7 @@ type Hit = { row: Nat, column: Nat }
 
 def prefixed (c: Nat) (paths: List (List Hit)): {Fail} List (List Hit) :=
   Fail.ensure (c < 10) "too far"
-  paths.map (Cons ({ row = 0, column = c }))
+  paths.map (Cons { row = 0, column = c })
 
 test "a constructor with a record literal, in a computation" :=
   Fail.toResult (() => prefixed 2 [[]]) == Ok [[{ row = 0, column = 2 }]]

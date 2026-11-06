@@ -54,7 +54,7 @@ def tea: Option Item := Some { name = "tea", price = 3 }
 def coffee: Option Item := Some (value := { name = "coffee", price = 4 })
 
 test "a record argument both ways" :=
-  (tea == Some ({ name = "tea", price = 3 }))
+  (tea == Some { name = "tea", price = 3 })
     ∧ (coffee == Some { name = "coffee", price = 4 })
 
 -- A field access on the result.
