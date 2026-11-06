@@ -3969,15 +3969,15 @@
     {
       "id": 1119,
       "title": "Fill a non-exhaustive match and case split (from E-NONEXHAUSTIVE with a structured list of missing cases)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1119",
       "labels": [
         "editor"
       ],
-      "body": "Roadmap step 4; search_at has the paste machinery. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2263 (Matt, 3 Nov): not started yet; editor-roadmap implementation waits until the tidy-ups (state migration, std) settle.",
+      "body": "Roadmap step 4; search_at has the paste machinery. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2263 (Matt, 3 Nov): not started yet; editor-roadmap implementation waits until the tidy-ups (state migration, std) settle.\n\nStarted overnight on Sonnet (roadmap step 4, orchestrator's call), expected: 90 min.",
       "created": "2026-11-03",
-      "updated": "2026-11-03",
+      "updated": "2026-11-06",
       "commits": []
     },
     {
