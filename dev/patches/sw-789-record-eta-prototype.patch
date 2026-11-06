@@ -1,0 +1,252 @@
+diff --git a/crates/cli/src/main.rs b/crates/cli/src/main.rs
+index 81e61ec40..ae610b29b 100644
+--- a/crates/cli/src/main.rs
++++ b/crates/cli/src/main.rs
+@@ -513,6 +513,21 @@ fn exit_quietly_on_broken_pipe() {
+ }
+ 
+ fn main() -> ExitCode {
++    struct EtaCount;
++    impl Drop for EtaCount {
++        fn drop(&mut self) {
++            if std::env::var_os("SW_ETA_COUNT").is_some() {
++                use std::sync::atomic::Ordering::Relaxed;
++                eprintln!(
++                    "eta fired: conv {}, unifier {}, case {}",
++                    stitchwort_core::value::ETA_FIRES.load(Relaxed),
++                    stitchwort_core::value::ETA_FIRES_UNIFY.load(Relaxed),
++                    stitchwort_core::value::ETA_CASES.load(Relaxed)
++                );
++            }
++        }
++    }
++    let _eta_count = EtaCount;
+     exit_quietly_on_broken_pipe();
+     let cli = Cli::parse();
+     FULL_GOALS.store(cli.full_goals, std::sync::atomic::Ordering::Relaxed);
+diff --git a/crates/core/src/check.rs b/crates/core/src/check.rs
+index 805054279..e2fa338ae 100644
+--- a/crates/core/src/check.rs
++++ b/crates/core/src/check.rs
+@@ -2339,6 +2339,7 @@ fn push_data_group(
+             group: group.clone(),
+             nestable: Rc::from([]),
+             proof_params: proof_params.clone(),
++            eta_projections: None,
+             defs_before,
+             datas_before,
+             state: State::Pending,
+@@ -3682,6 +3683,33 @@ pub fn add_validator(
+     })
+ }
+ 
++/// PROTOTYPE (SW-789): gives record `d` eta, with `projections` as its
++/// fields' projections, when it's eligible: a record with one constructor,
++/// no parameters or indices, not in `Prop`, alone in its group, with a field
++/// that isn't a proof. Returns whether it did. (Doesn't check that no field
++/// mentions the type, nor that the projections are the projections.)
++pub fn prototype_set_eta(g: &mut Kernel, d: DataId, projections: Vec<crate::DefId>) -> bool {
++    if std::env::var_os("SW_NO_ETA").is_some() {
++        return false;
++    }
++    let Some(data) = g.env.datas().get(d.0) else {
++        return false;
++    };
++    let eligible = data.record
++        && data.state == State::Final
++        && data.ctors.len() == 1
++        && data.params.is_empty()
++        && data.indices.is_empty()
++        && data.sort != Sort::Prop
++        && data.group.len() == 1
++        && projections.len() == data.ctors[0].fields.len()
++        && data.ctors[0].field_sorts.iter().any(|s| *s != Sort::Prop);
++    if eligible {
++        g.env.datas_mut()[d.0].eta_projections = Some(projections.into());
++    }
++    eligible
++}
++
+ /// Adds a decision procedure for proof field `field` of constructor `ctor`
+ /// of data type `d`, which extracted JS runs on a decoded value to establish
+ /// the proof the input doesn't carry (docs/proposals/records.md §11.3). It
+diff --git a/crates/core/src/globals.rs b/crates/core/src/globals.rs
+index ba94f5131..7edc1f4a6 100644
+--- a/crates/core/src/globals.rs
++++ b/crates/core/src/globals.rs
+@@ -423,6 +423,9 @@ pub struct Data {
+     /// the group is declared, on both paths; empty if that ran out of budget.
+     /// Not hashed: a function of what is.
+     pub(crate) proof_params: Rc<[bool]>,
++    /// PROTOTYPE (SW-789): the projections that record eta compares a
++    /// neutral's fields with, when the type has eta.
++    pub(crate) eta_projections: Option<Rc<[crate::DefId]>>,
+     /// How many definitions, and data types, existed when this type's group
+     /// was declared. Its fields may only use those (and its group's
+     /// members), since anything declared later could mention this type and
+@@ -497,6 +500,11 @@ impl Data {
+         &self.proof_params
+     }
+ 
++    /// PROTOTYPE (SW-789): eta projections.
++    pub fn eta_projections(&self) -> Option<&Rc<[crate::DefId]>> {
++        self.eta_projections.as_ref()
++    }
++
+     /// Whether parameter `i` is a proof (see the field).
+     pub fn is_proof_param(&self, i: usize) -> bool {
+         self.proof_params.get(i).copied().unwrap_or(false)
+diff --git a/crates/core/src/value.rs b/crates/core/src/value.rs
+index 0a52bcf46..bf5c329d1 100644
+--- a/crates/core/src/value.rs
++++ b/crates/core/src/value.rs
+@@ -1614,6 +1614,34 @@ fn branch(
+         v if erase::is_erased(&v) && g.data(*d).sort == Sort::Prop && !branches.is_empty() => {
+             (0, vec![erased(); g.data(*d).ctors[0].fields.len()])
+         }
++        // PROTOTYPE (SW-789): a record with eta takes its only branch on a
++        // neutral, with the neutral's projections as its fields.
++        n @ Value::Neutral(..)
++            if !matches!(&n, Value::Neutral(Head::Meta(_), _))
++                && !g.machine.erasure.program_running()
++                && !env_flag(&NO_ETA_CASE, "SW_NO_ETA_CASE")
++                && let Some(projections) = eta_projections(g, *d) =>
++        {
++            ETA_CASES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++            // Projections of the scrutinee as it was before forcing (a glued
++            // call stays the call), so goals keep the calls people wrote.
++            let n = match &*tree {
++                Term::Case(ix, ..) if !env_flag(&ETA_FORCED, "SW_ETA_FORCED") => {
++                    env[env.len() - 1 - ix].clone()
++                }
++                _ => n,
++            };
++            let fields = projections
++                .iter()
++                .map(|p| {
++                    Value::Neutral(
++                        Head::Def(*p),
++                        Spine::from(vec![Elim::App(n.clone(), Icit::Explicit)]),
++                    )
++                })
++                .collect();
++            (0, fields)
++        }
+         _ => return stuck_tree(g, stuck),
+     };
+     let Some(body) = branches[c].body.clone() else {
+@@ -2668,10 +2696,45 @@ fn conv_step(
+             work.push(ConvTask::Values(level, force(g, a)?, force(g, b)?));
+             true
+         }
++        // PROTOTYPE (SW-789): record eta, a record literal against a
++        // neutral: field by field against the neutral's projections.
++        (Value::Ctor(d, 0, fs), n @ Value::Neutral(..))
++        | (n @ Value::Neutral(..), Value::Ctor(d, 0, fs))
++            if let Some(projections) = eta_projections(g, *d) =>
++        {
++            ETA_FIRES.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++            for (k, x) in fs.iter().enumerate().rev() {
++                if mode == Mode::Shortcut || !proof_field(g, *d, 0, k) {
++                    let projected = Value::Neutral(
++                        Head::Def(projections[k]),
++                        Spine::from(vec![Elim::App(n.clone(), Icit::Explicit)]),
++                    );
++                    work.push(ConvTask::Values(level, x.clone(), projected));
++                }
++            }
++            true
++        }
+         _ => push_eta(g, level, &a, &b, work)?,
+     })
+ }
+ 
++static NO_ETA_CASE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
++static ETA_FORCED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
++
++fn env_flag(cell: &std::sync::OnceLock<bool>, name: &str) -> bool {
++    *cell.get_or_init(|| std::env::var_os(name).is_some())
++}
++
++/// PROTOTYPE (SW-789): how often the kernel's and the unifier's eta fired.
++pub static ETA_FIRES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++pub static ETA_CASES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++pub static ETA_FIRES_UNIFY: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
++
++/// PROTOTYPE (SW-789): the projections of data type `d` if it has eta.
++pub fn eta_projections(g: &Ev, d: DataId) -> Option<Rc<[DefId]>> {
++    g.env.datas().get(d.0).and_then(|data| data.eta_projections().cloned())
++}
++
+ /// The pairs of values in two spines of the same length, or `None` if their
+ /// eliminations don't match. For a definition's spine, the arguments at its
+ /// inert positions are left out (docs/proposals/proof-irrelevance.md §7.2):
+diff --git a/crates/elab/src/records.rs b/crates/elab/src/records.rs
+index b1568074f..c026565b4 100644
+--- a/crates/elab/src/records.rs
++++ b/crates/elab/src/records.rs
+@@ -47,6 +47,9 @@ impl Elaborator {
+     /// derived.
+     pub(crate) fn after_record(&mut self, d: DataId, interface: bool) -> Result<()> {
+         let projections = self.projections(d, interface)?;
++        if !interface && let Some(all) = projections.iter().copied().collect::<Option<Vec<_>>>() {
++            stitchwort_core::check::prototype_set_eta(&mut self.kernel, d, all);
++        }
+         self.tables
+             .records
+             .insert(&self.session.owners, d, RecordInfo { projections });
+diff --git a/crates/elab/src/unify.rs b/crates/elab/src/unify.rs
+index 2dea63cb1..eb2044d8c 100644
+--- a/crates/elab/src/unify.rs
++++ b/crates/elab/src/unify.rs
+@@ -1610,10 +1610,38 @@ fn unify_step(
+             }
+             same
+         }
++        // PROTOTYPE (SW-789): record eta, as in `conv`; not inside
++        // `first_order` (whose pairs needn't have one type), and not against
++        // a value stuck on an unknown, which may still compute.
++        (Value::Ctor(d, 0, fs), n @ Value::Neutral(..))
++        | (n @ Value::Neutral(..), Value::Ctor(d, 0, fs))
++            if !NO_ETA.with(|c| c.get())
++                && let Some(projections) = stitchwort_core::value::eta_projections(&g.ev, *d)
++                && !blocked(g, n)? =>
++        {
++            stitchwort_core::value::ETA_FIRES_UNIFY.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
++            for (k, x) in fs.iter().enumerate().rev() {
++                let projected = Value::Neutral(
++                    Head::Def(projections[k]),
++                    vec![Elim::App(n.clone(), stitchwort_core::Icit::Explicit)].into(),
++                );
++                work.push(if mode == Mode::Normal && proof_field(g, *d, 0, k) {
++                    Task::Proof(level, x.clone(), projected)
++                } else {
++                    Task::Values(level, x.clone(), projected)
++                });
++            }
++            true
++        }
+         _ => push_eta(&g.ev, level, &a, &b, work)?,
+     })
+ }
+ 
++thread_local! {
++    /// PROTOTYPE (SW-789): set inside `first_order`.
++    static NO_ETA: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
++}
++
+ /// Lazy delta, aimed narrowly (docs/proposals/proofs-about-definitions.md
+ /// §5 A, D2341): a call of one definition with an unknown for a whole
+ /// argument, `Effect.bind (?p ()) ?j`, against a call of another, `line ()`,
+@@ -1928,7 +1956,10 @@ fn first_order(
+     } else {
+         Mode::Shortcut
+     };
+-    if !unify_in(g, level, x, y, mode)? {
++    let outer = NO_ETA.with(|c| c.replace(true));
++    let same = unify_in(g, level, x, y, mode);
++    NO_ETA.with(|c| c.set(outer));
++    if !same? {
+         return Ok(false);
+     }
+     // Pairing the last arguments can solve `?m` itself: `?m a b = f c ?m`

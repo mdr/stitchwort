@@ -1,0 +1,721 @@
+# Record eta in the kernel
+
+*SW-789 (D1426, D1981, D2457), 6 November 2026. A design note: nothing
+here is merged. It builds on [records.md](records.md) draft 2 §7 ("Stage 2:
+projections and eta in the kernel") and brings it up to date with what has
+been built since: proof irrelevance stage 1 (SW-93), glued calls
+(folded-calls.md) and the generated `T.ext` lemmas (SW-263). A throwaway
+prototype of the two rules, for records without parameters, was measured on
+`main` at `2f43d4878` and is kept as
+`dev/patches/sw-789-record-eta-prototype.patch`.*
+
+**In short.** A record should equal the record built from its own fields,
+and a function that matches a record should compute on an unknown record,
+both by `rfl`. Today neither holds, and proofs work around it with `T.ext`,
+hand-written `positionEta` lemmas and record matches. The recommendation is
+the one records.md §7 drafted, now cheap to justify because proof
+irrelevance already put the "both sides have one type" contract in place:
+primitive projections without parameters, plus two conversion rules, for
+every one-constructor, non-recursive type in `Type` with at least one field
+that isn't a proof (D1981). The prototype (records without parameters only)
+turned all eight sampled workarounds into `rfl` or plain field access,
+broke one proof (itself a workaround, which becomes `rfl`), and cost 0.2%
+of checking time for the rule comparing a record literal with an unknown
+record, and about 5% for the rule that lets a `match` on an unknown record
+compute.
+
+## Contents
+
+1. The problem
+2. What Stitchwort does today
+3. Prior art
+4. The design questions
+5. Options
+6. Recommendation: the rules in full
+7. Soundness, in plain words
+8. The unifier
+9. Hashes, caches and existing programs
+10. Measurements from the prototype
+11. What it removes, and what stays (`T.ext`)
+12. Risks
+13. Evidence still to collect
+14. Staged plan
+15. Decisions
+16. Sources
+
+## 1. The problem
+
+A record is its fields. Given `p: Position`, the value `{ row = p.row,
+column = p.column }` is `p`, and everyone reading the code knows it. The
+checker doesn't: today
+
+```
+theorem positionEta (p: Position): p = { row = p.row, column = p.column } := rfl
+```
+
+fails with `E-REFL`. This is the *eta* rule for records ("a record equals
+the record built from its own fields"), and Stitchwort's kernel doesn't
+have it. Functions have it already (`f` equals `x => f x`).
+
+It shows up in two ways.
+
+**A record built from fields doesn't equal the record.** The proof has to
+take the record apart or call an extensionality lemma:
+
+- the roguelike states it by hand and uses it five times
+  (`games/rogue/src/Rogue/Proofs/Position.sw:15`, `positionEta`, proved by
+  matching `p`; used in `Reach.sw:114-140` as `Eq.sym (positionEta origin)`);
+- 2024 day 6 has the same lemma (`Year2024/Day06/Proofs/Part2.sw:91`) and
+  rewrites with it; 2025 day 2 has `templateEta` (`Templates.sw:127`);
+- 2020 day 20: "`{ rows = image.rows } = image` isn't `rfl`; `Image.ext _ _
+  rfl` and a `rewrite` of it fixed `isRectangleSound` and `flipTwice`"
+  (aoc/NOTES-2020.md, day 20 §7);
+- 2021 day 13: `rewrite Point.ext ({ x = spot.x, y = spot.y }) spot rfl rfl
+  in rfl` (`Year2021/Day13/Proofs/Picture.sw:45`).
+
+**A function that matches a record is stuck on an unknown record.**
+
+```
+def down (p: Position): Position := match p with
+  | { row, column } => { row = row + 1, column }
+
+theorem downColumn (p: Position): (down p).column = p.column := rfl   -- fails today
+```
+
+`down p` can't compute until `p` is a literal record, so the proof matches
+`p` first (`| { row, column } => rfl`). This is the commoner way to meet
+the problem, and the one people find hardest to see, because nothing in the
+goal says what is stuck:
+
+- 2020 day 17: "`startsPocket` had `slice.grid.at at = Some state` where
+  `Starts` wants `slice.grid.at { row = at.row, column = at.column }` …
+  Matching `at` as `{ row, column }` first fixed it" (NOTES-2020.md, day 17
+  §5);
+- 2020 day 1, for pairs: "`findTriple`'s `match` has the arm `Some (b, c)`;
+  writing `| Some (p, q) =>` computes it. Fair (pairs have no eta), … but it
+  took a moment to see why" (NOTES-2020.md, day 1);
+- the roguelike's notes (`games/rogue/PROOFS.md`), lanes SW-960 (4
+  sightings), SW-990 (4), SW-999 (3), and theme K of
+  docs/research/aoc-2020-friction-days-10-20.md.
+
+Proofs in aoc/ and games/rogue/ contain 108 record patterns (`| { row,
+column } =>` and the like) against 8 in the programs; many of the 108 are
+there only to make something compute.
+
+## 2. What Stitchwort does today
+
+These are the facts the design depends on, checked in the code at
+`2f43d4878`.
+
+- **Records are ordinary data types** (records.md §6.2). `type Position =
+  { row: Nat, column: Nat }` is a data type with one constructor
+  `Position.%mk` and a flag `record` (for the JS form). The fields'
+  projections `Position.row` are **ordinary definitions** with a case tree,
+  generated by the elaborator (`crates/elab/src/records.rs`,
+  `shared.rs:accessors`). They take the type's parameters first, then the
+  record: `NonEmptyList.head : [a: Type] → NonEmptyList a → a`.
+- **The kernel has no projection form.** `Term` has `Case`, `Ctor`,
+  `App`…, but no `Proj` (`crates/core/src/term.rs:161`); a value stuck on a
+  projection is `Neutral(Def(Position.row), [p])`.
+- **A constructor value carries no parameters.** `Value::Ctor(d, c,
+  fields)` (`value.rs:28`): `MkPair 1 True` doesn't record `Nat` and
+  `Bool`.
+- **Conversion is untyped.** `conv(a, b)` (`value.rs:2294`) is given two
+  values and no type. It already relies on a **same-type precondition**:
+  proofs are skipped by *position* (a constructor's proof field, a data
+  type's proof parameter, a definition's inert argument), which is sound
+  only because both sides have one type. Proof irrelevance stage 1 made this
+  a stated contract and audited every caller
+  (proof-irrelevance.md §7.4). records.md §7.3 had proposed the same
+  contract for eta; **it is now already in force**, so eta adds no new
+  obligation on callers.
+- **Eta for functions** is a `Lam` against anything (`value.rs`, the
+  `(Value::Lam(..), other)` arm), plus partly applied definitions
+  (`push_eta`). Record eta would be its twin.
+- **Glued calls** (`Value::Call`, folded-calls.md): two calls of one
+  definition are compared by their arguments first (in *shortcut* mode,
+  where constructors' proof fields are compared rather than skipped) and by
+  their unfoldings if that fails. A call against anything else is forced
+  first.
+- **The elaborator's unifier** (`crates/elab/src/unify.rs`) mirrors `conv`
+  with metavariables, and has one place where the two sides needn't share a
+  type: the `first_order` fallback (`?m … x ≡ f … y` tried as `x ≡ y`),
+  guarded by `apart` (SW-919).
+- **Generated extensionality lemmas** (SW-263, `derive_ext.rs`): for most
+  records `T.ext x y (f₁Eq: x.f₁ = y.f₁) …: x = y`, with proof fields left
+  out. 34 uses in aoc/ and games/rogue/.
+
+## 3. Prior art
+
+Verified against current sources this session (§16 lists them).
+
+| System | Record eta? | Where it lives | Which records | Projections | Proof/unit-like condition |
+|---|---|---|---|---|---|
+| **Lean 4** | yes | kernel `is_def_eq_core`, after lazy delta: `try_eta_struct` [L1] | non-recursive structures (one constructor, no indices) [L1, L2] | primitive `Expr.proj`, no parameters; `reduce_proj_core` refuses a projection of another type's constructor [L1] | typed: `try_eta_struct_core` first checks `is_def_eq` of the two sides' *types* [L1]; separate `is_def_eq_unit_like` for structures whose fields are all proofs or unit-like, again by type [L1]. Matching a structure-typed neutral expands it to `mk x.1 … x.n` (`to_cnstr_when_structure`), except for non-singleton propositions [L2] |
+| **Lean 4 elaborator** | yes | `Meta.isDefEqEtaStruct` [L3] | same | same | solves `Fin.mk ?n ?h =?= Fin.mk n h` through projections; skips proof fields ("likely solved using proof irrelevance") unless the field is an unassigned metavariable [L3] |
+| **Agda** | yes, by default | type-directed conversion | all records except coinductive ones; recursive ones too, with a warning when unguarded; `no-eta-equality` turns it off [A1] | projections are functions the checker knows | conversion is typed, so unit-like records are handled by type; "a regular source of bugs" [LB §4.4]. The unifier eta-expands metavariables of record type [A2] |
+| **Rocq** | with primitive projections | untyped conversion | non-recursive records declared with `Primitive Projections`; `match` on them is desugared to projections [R1] | primitive, parameters not stored; compatibility constants for partial application [R1] | every record must have **at least one relevant field**: no definitional unit type [LB §4.4] |
+| **Idris 2** | no | – | records are sugar for one constructor plus projections; eta lemmas are proved and applied by hand [I1] | ordinary functions | – |
+| **Stitchwort today** | no (functions only) | – | – | generated definitions | – |
+
+Two results bear directly on the design:
+
+- **Untyped conversion and unit-like types.** Lennon-Bertrand (FSCD 2025)
+  §4.4: the definitional unit rule "completely wrecks completeness of
+  neutral comparison, since any two neutrals are convertible", and leaks
+  through other eta laws (`N → (Σ x: ⊤. ⊤)` is unit-like too). "Rocq
+  instead commits to untyped conversion, but must therefore enforce all
+  record types to have at least one relevant field, forbidding the
+  definitional unit type. Lean takes an intermediate solution, re-inferring
+  the type of neutrals on the fly" [LB].
+- **The same problem with proof fields.** Rosain et al. (POPL 2026) forbid
+  primitive projections for records whose fields are all strict
+  propositions, with the `Pair` example `p ≡ {fst p; snd p} ≡ … ≡ q`
+  (docs/research/kernel.md §5.2, card C12; I couldn't fetch the PDF again
+  this session, so this is from that earlier verified reading). Lean's
+  fieldless-only unit-like rule gave a non-transitive conversion, the Lean
+  Kernel Arena's `eta-unit-like-proof-field` (kernel.md §5.2, card C24).
+
+Stitchwort's conversion is untyped like Rocq's, so it takes Rocq's
+condition: D1981.
+
+## 4. The design questions
+
+1. **Which types get eta?** Declared records only, or also `Pair` and other
+   one-constructor data types?
+2. **How does the kernel decide?** From the declaration, checked when the
+   data group is admitted, or from a flag the elaborator sets?
+3. **What does eta compare a field with?** It needs "field `i` of the
+   neutral `n`" as a value. Today that's a call of a generated definition,
+   which takes the type's parameters, and the constructor side doesn't know
+   them.
+4. **Where in conversion?** One-sided rule (constructor against neutral);
+   and the matching rule (a `case` on a neutral record takes its branch).
+5. **Proof irrelevance**: which fields count, and why "at least one non-proof
+   field" is the right line.
+6. **Glued calls and shortcut mode.**
+7. **The unifier**: metavariables, `first_order`.
+8. **Hashes and existing programs.**
+9. **Cost.**
+
+## 5. Options
+
+### Option A: no kernel eta; keep and improve `T.ext`
+
+Generate `T.eta (x: T): x = { f₁ = x.f₁, … }` per record as well as
+`T.ext`, and teach `rewrite`/`simp`-style tactics to use them.
+
+- For: no trusted code changes.
+- Against: it fixes only the first symptom. A function that matches a
+  record stays stuck on an unknown record, which is the commoner and more
+  confusing case (§1). Every proof still has to know to reach for the lemma.
+  Lean, Agda and Rocq all made this definitional.
+
+### Option B: eta through the generated projection definitions
+
+Keep projections as ordinary definitions; let the kernel know, per eta
+record, which definitions are its projections (checked to be the canonical
+`case` at admission), and compare `fs[i]` with `R.fᵢ n`.
+
+- For: no new term form; no hash changes for code that uses records.
+- Against: **it can't handle parameters.** `NonEmptyList.head` takes `a`
+  first, and a constructor value doesn't carry `a`, so the kernel can't
+  build `NonEmptyList.head a n` from `MkNonEmptyList h t` against `n`. The
+  matching rule (§6.4) has the same problem: a `case` node names the data
+  type, not its parameters. Pairs, `NonEmptyList a`, `Mod n`, `Map k v`
+  and `Set k` all have parameters. (The prototype took this option and so
+  covers only records without parameters: enough to measure, not to ship.)
+
+### Option C: primitive projections (records.md §7.2), recommended
+
+A new core form `Proj(D, i, t)` and a neutral elimination `Elim::Proj(D,
+i)`, with **no parameters** in either, as in Lean's `Expr.proj` and Rocq's
+primitive projections. The type of `Proj(D, i, t)` comes from the type of
+`t` when it's inferred. The elaborator emits `Proj` for `p.row` on an eta
+record (instead of calling the generated definition, which stays as a
+compatibility function for partial application `(.row)`, as Rocq's
+compatibility constants do [R1]).
+
+- For: handles parameters; matches the systems with untyped conversion; the
+  evaluation rule is one line; a stuck projection is an ordinary neutral.
+- Against: one more core form touches every pass over `Term`/`Value`
+  (evaluation, readback, hashing, pretty-printing, erasure, JS and native
+  back ends, termination, the reference evaluator). Hashes of code using
+  eta records change once.
+
+### Option D: type-directed eta (Lean's kernel, Agda)
+
+Give `conv` the types, or re-infer neutrals' types on failure.
+
+- For: would allow eta for unit-like records.
+- Against: `conv` has no types and its callers don't have them for nested
+  positions; adding them is a rewrite of the kernel's conversion. Unit-like
+  records aren't wanted (D1981). Not worth it.
+
+## 6. Recommendation: the rules in full
+
+Option C, as records.md §7 drafted, with the changes below.
+
+### 6.1 Which types: an *eta type*
+
+The kernel computes, when a data group is admitted and final, whether each
+type **has eta**. It does, exactly when:
+
+1. it has one constructor and no indices;
+2. it lives in `Type i`, not `Prop`;
+3. it is **non-recursive**: its group is just itself and no field's type
+   mentions it (read from the kernel's group, as records.md §7.1 says);
+4. **at least one field is not a proof**: its declared sort, the same
+   `field_sorts[k]` that conversion's proof masks read (`proof_field`,
+   `value.rs`), isn't `Prop` (D1981);
+5. it isn't an interface dictionary (Q4), and wasn't declared `no-eta`
+   (Q3).
+
+Conditions 1 to 4 are a function of the declaration, so there is nothing to
+trust from the elaborator and nothing extra to hash, except the `no-eta`
+mark if Q3 adds one. They include zero-field records (no field, so no
+non-proof field), which records.md §7.1 excluded separately; D1981 now
+covers both.
+
+**Which types, concretely.** Every declared record that passes; and `Pair`,
+which isn't declared with record syntax but is exactly a two-field record
+(Q2). I recommend eta be about the shape, not the syntax: any
+one-constructor, non-recursive data type that passes 1 to 4 has it, so
+`type Wrapper = | Wrap (inner: Nat)` gets it too. That is what Lean does
+(every non-recursive structure-like inductive). The record flag stays a JS
+representation choice, as records.md §6.2 intended.
+
+In the library that gives eta to `Pair`, `NonEmptyList`, `Mod`, `SafeNat`,
+`SafeInt`, `Float` (a record `{ bits, valid }`), `Map`, `Set`, `Graph` and
+`Console`. `Option` and `List` (two constructors), `ProofBox` (`{ proof: p
+}`, only a proof field), `Iff` and `And` (in `Prop`) and `UnitType` (no
+fields) get none.
+
+### 6.2 New core forms
+
+As records.md §7.2, unchanged: `Term::Proj(D, i, t)` and `Elim::Proj(D,
+i)`. Typing infers `t`'s type, reduces it to `Data(D', ps)`, **requires `D'
+= D`** (the Lean CVE shape, records.md [L4]) and `D` an eta type, and gives
+field `i`'s declared type with `ps` and `Proj(D, j, t)` for each earlier
+field `j` substituted. A `Proj` term is inferable, not only checkable.
+
+Evaluation: `Proj(D, i, Ctor(D, 0, fs)) ⟶ fs[i]`; on a neutral, push
+`Elim::Proj(D, i)`; on a glued call, force it first; on anything else
+(only an ill-typed term) stuck. On a compact representation (`Nat`,
+`Chars`) never: those types have two constructors.
+
+### 6.3 Rule 1: a constructor against a neutral
+
+In `conv_step`, after glued calls are forced and before the final
+`push_eta` (where today the pair answers "different"):
+
+> `Ctor(D, 0, fs) ≡ n`, for an eta type `D` and a neutral `n`, holds when
+> `fs[i] ≡ Proj(D, i, n)` for every field `i`, skipping proof fields in the
+> normal mode and comparing them in shortcut mode, exactly as `Ctor`
+> against `Ctor` does. Symmetrically for `n ≡ Ctor(…)`.
+
+No types are needed: `D` is in the constructor. The pairs are pushed left to
+right, as for two constructors, so earlier fields (which later fields'
+types mention) are compared first, which the same-type contract needs.
+
+### 6.4 Rule 2: a `case` on a neutral eta value takes its branch
+
+In case-tree evaluation (`branch`, `value.rs`), and in the walkers that
+mirror it (`walk_tree` for comparing stuck trees, the reference evaluator):
+
+> `Case(x, D, [b])` with `x` a neutral value of eta type `D` takes branch
+> `b`, with its fields bound to `Proj(D, i, x)`.
+
+**The projections are of `x` as it was before it was forced.** A
+scrutinee that's a glued call (`Sightlines.of obstructions`) is forced to
+see whether it's a constructor; if it isn't, the fields must be
+`Proj(D, i, Sightlines.of obstructions)`, not projections of what the call
+computed to. The prototype first did the latter, and two proofs in aoc/
+broke: a `rewrite folded in` (2024 day 6, `Sightlines.sw:94`) no longer
+found `Sightlines.of obstructions` in the goal, because the goal now held
+its unfolding, and a `rewrite Point.ext …` (2021 day 13) found a motive that
+didn't type-check. Projecting the unforced scrutinee fixed the first with
+no change to the proof; the second is a genuine workaround for the missing
+rule, and becomes `rfl` (§11). It's the same principle as a stuck `case`
+today, which leaves the definition applied to its original arguments.
+
+`Case` names `D`, so again no types are needed. Not when `x` is an unsolved
+metavariable (the elaborator solves it instead) and not while a program
+runs (values are closed then). This is what makes `down p` compute and
+removes the need to match records in proofs. It's Lean's
+`to_cnstr_when_structure` [L2] and Rocq's desugaring of `match` on primitive
+records into projections [R1].
+
+The projection definitions themselves stay as they are: `Position.row`'s
+body is a `case` on its argument, and on a neutral `p` it now takes the
+branch and returns `Proj(Position, 0, p)`, which is the right answer. For
+eta records the elaborator emits `Proj` directly for `p.row` (cheaper, and
+what readback prints as `p.row`); the definition remains for `(.row)` and
+partial application.
+
+### 6.5 Glued calls and shortcut mode
+
+- Rule 1 sits after the arm that forces a glued call, so it never sees a
+  `Call`; a call that unfolds to a constructor is compared constructor to
+  constructor, as now.
+- In shortcut mode rule 1 compares proof fields, like `Ctor` against
+  `Ctor`. That keeps the shortcut's guarantee (it says "equal" only where
+  unfolding would), and folded-calls.md's `Box.unbox (MkBox p)` example
+  stays correct.
+- `CallMemo` needs nothing: rule 1 adds equalities between values, and the
+  memo only records "different".
+- Rule 2 makes some calls that were stuck compute. A glued call is still
+  unfolded only when something looks inside it, so it costs nothing until
+  then.
+
+### 6.6 Termination and the termination checker
+
+As records.md §7.4 and §7.5: rule 1 replaces one comparison with
+comparisons of strictly smaller constructor parts; rule 2 takes one `case`
+node and creates none; following projections of a neutral ends after as
+many steps as the instantiated type's record nesting, because eta types are
+non-recursive. A projection of a parameter is a descendant (`<`) for the
+termination checker; rebuilding a record never is.
+
+## 7. Soundness, in plain words
+
+**Why the rules are true.** Think of a record type as the set of tuples of
+its fields. Every element *is* the tuple of its coordinates, so "`p` equals
+the record of `p`'s fields" holds for every `p`, and a `match` on `p` with
+one branch picks that branch with `p`'s fields. Nothing else in that model
+changes, so adding the rules can't prove anything false. This is the
+standard model argument for pairs with surjective pairing (records.md §7.6;
+an argument, not a mechanised proof).
+
+**Why the same-type contract is enough.** Rule 1 doesn't check that `n` is
+really a `D`. It doesn't have to, because conversion is only ever asked
+about two values of one type (the contract proof irrelevance already relies
+on, audited in proof-irrelevance.md §7.4): if `Ctor(D, …)` has type `A`,
+then `A` is `D ps`, so `n` is a `D ps` too. Inside, each pair it pushes,
+`fs[i]` and `Proj(D, i, n)`, has field `i`'s type once the earlier fields
+have compared equal (or been skipped as proofs). The one place where the
+two sides of a comparison needn't share a type is the unifier's
+`first_order` fallback, where eta is off (§8).
+
+**Why at least one non-proof field (D1981).** With proof irrelevance,
+conversion treats any two proofs in the same position as equal. Take a
+record whose only field is a proof, `type Small = { ok: n < 10 }`, and two
+different unknowns `x, y: Small`. Eta would say `x ≡ { ok = x.ok }`;
+irrelevance says `{ ok = x.ok } ≡ { ok = y.ok }`; eta again says `{ ok =
+y.ok } ≡ y`. But `x` against `y` directly compares two different variables
+and says "different". So "equal" stops being transitive, and which proofs
+check would depend on the order things are compared in. That is the bug
+Lean's kernel had and Rocq rules out [LB §4.4]. With a field that isn't a
+proof, the chain breaks at that field: `{ value = x.value, … } ≡ { value =
+y.value, … }` needs `x.value ≡ y.value`, which for two unknowns holds only
+when `x ≡ y` already does.
+
+The "is a proof" test in condition 4 must be the very same test the proof
+masks use (the field's declared sort), and it is: both read
+`field_sorts`. A field declared in `Type` can't hold a proof, since
+universes are exact (`Prop : Type 0`, no cumulativity; proof-irrelevance.md
+§3, assumption 3 of §5.6); if cumulativity ever came, this argument would
+have to be redone along with that one.
+
+Could a non-proof field's *type* be unit-like and bring the problem back
+through the leak Lennon-Bertrand describes (`N → (Σ x: ⊤. ⊤)`)? Only if some
+type in `Type` were unit-like to begin with, and by induction none is: a
+function type into `Prop` is itself in `Prop` (so it's a proof field), and
+every eta type has a non-proof field whose type, by the same argument, isn't
+unit-like. Types without eta are never unit-like, because two unknowns of
+them are compared as unknowns.
+
+**The danger case** is a `Proj` naming one type applied to a value of
+another: typing requires `D' = D`, and evaluation refuses a mismatched
+constructor (records.md §7.6, the Lean CVE). Tests in records.md §14 cover
+it: two records with the same layout (`Person` and `Pet`) never convert;
+`Box Nat` and `Box Bool` don't.
+
+## 8. The unifier
+
+The elaborator's unifier gets the same two rules (it uses the core's
+evaluator, so rule 2 comes for free), with three points:
+
+1. **Metavariables first.** `?m ≡ Ctor(D, …)` solves `?m`; the meta arms
+   already come before the fallback where rule 1 sits, so nothing changes
+   there. Eta doesn't expand a metavariable into a record of new
+   metavariables (Agda does [A2]; there's no need yet).
+2. **A constructor with unknowns against a known value solves them through
+   projections.** `{ row = ?r, column = ?c } ≡ p` solves `?r := p.row` and
+   `?c := p.column`, as Lean's `Fin.mk ?n ?h =?= …` [L3]. Proof fields go
+   through the unifier's proof task, as for two constructors.
+3. **Not against a value stuck on an unknown, and not in `first_order`.**
+   Against `n` stuck on an unsolved metavariable, rule 1 would split the
+   problem into projections of a term that may still compute, so the pair
+   keeps today's behaviour (it waits or fails). Inside `first_order`'s
+   pairing of last arguments, whose types needn't agree, eta is off: a
+   `Point` literal against an `Other` neutral could otherwise unify field by
+   field through junk projections. records.md §7.3 asked for this; the
+   prototype does it with a scoped flag.
+
+## 9. Hashes, caches and existing programs
+
+- **Hashes.** Eta types are computed from the declaration, so data
+  hashes don't change, except for a `no-eta` mark if Q3 adds one. The new
+  `Proj` form is hashed; code that writes `p.field` on an eta record
+  elaborates to `Proj` and its hash changes once. Snapshot updates are
+  mechanical (migration cost doesn't count).
+- **Accepted programs mostly stay accepted.** The kernel only gains
+  equalities: rule 1 turns some "different" answers into "equal", rule 2
+  lets some stuck computations go on, so a term the kernel accepted it
+  still accepts (barring the resource budget, if rule 2 made some
+  comparison compute much further: not seen). The *elaborator* can behave differently, though, because
+  tactics look at what goals compute to. With both rules the prototype
+  checked all of aoc/ (287 namespaces) and games/rogue/ except one proof,
+  2021 day 13's `rewrite Point.ext …`, a workaround for the missing rule
+  that now fails and becomes `rfl` (§11).
+- **Could elaboration change?** Yes, slightly: the unifier now solves some
+  problems it used to postpone or fail, so a hole can be filled differently.
+  Beyond day 13, nothing broke in aoc/ or the roguelike; `snap:hashes` and the example
+  snapshots will show any changed term.
+- **Runtime and JS.** Unchanged: rule 2 is off while a program runs, and
+  `Proj` compiles to field access (the JS form is already an object with
+  named fields, and `Pair` keeps its tag).
+
+## 10. Measurements from the prototype
+
+The prototype (`dev/patches/sw-789-record-eta-prototype.patch`, reverted)
+implements rules 1 and 2 through the generated projection definitions
+(Option B), so only for records **without parameters** that are declared
+with record syntax; it doesn't add `Proj` or touch `Pair`. Eta is given by
+`prototype_set_eta` from the elaborator after a record's projections are
+made, with conditions 1, 2, 4 and "group of one" (not the full condition 3).
+Environment variables switch it for comparison: `SW_NO_ETA=1` turns both
+rules off, `SW_NO_ETA_CASE=1` only rule 2, `SW_ETA_FORCED=1` projects the
+forced scrutinee in rule 2 (the first, wrong version, §6.4), and
+`SW_ETA_COUNT=1` prints how often each rule fired. Release build, `check
+--no-cache`, M-series Mac with other lanes running.
+
+The steady measure is instructions retired (`/usr/bin/time -l`), which
+other lanes' load doesn't move; seconds are user CPU and are noisy here.
+
+| What | Without eta | Rule 1 only | Rules 1 and 2 |
+|---|---:|---:|---:|
+| all of aoc/ (287 namespaces), instructions | 657.3 G, 657.1 G | not counted | 686.8 G, 687.2 G (**+4.6%**) |
+| all of aoc/, user seconds | 68.9, 65.4 (earlier: 65.9, 63.2) | 66.0, 70.1 | 67.3, 66.9 |
+| games/rogue/ (3 namespaces), instructions | 49.40 G, 49.39 G | 49.48 G, 49.50 G (**+0.2%**) | 51.85 G, 51.84 G (**+5.0%**) |
+| games/rogue/, user seconds | 5.00, 4.91 | 4.79, 4.78, 4.84 | 5.08, 5.34 |
+
+(The aoc/ runs with both rules include day 13's one failing proof, §11,
+so they skip a little work; the difference is real but small either way.)
+
+How often the rules fired:
+
+| Where | Rule 1 in `conv` | Rule 1 in the unifier | Rule 2 (`case` on a neutral) |
+|---|---:|---:|---:|
+| aoc/ | 7,030 | 7,015 | 4,727,128 |
+| games/rogue/ | 1,361 | 1,778 | 214,331 |
+
+**Rule 1 is free**: a few thousand firings, each replacing an answer of
+"different" with a few field comparisons, cost 0.2%. **Rule 2 costs about
+5%.** It fires millions of times, and the cost per firing (about 11,000
+instructions in the roguelike) is far more than building the fields, so
+most of it is the computation it unblocks: functions over records that used
+to stop at an unknown record now run on, inside goals the elaborator
+computes and searches. That is the feature, but it should be profiled in
+stage 1: with primitive `Proj` each firing is cheaper than the prototype's
+(which builds a projection call per field), and it may pay to bind the
+fields lazily. Even at 5%, rule 2 is worth its cost (Q7).
+
+The bench counts weren't run: they don't exercise records beyond what aoc/
+does, and the run budget went on the two projects.
+
+## 11. What it removes, and what stays (`T.ext`)
+
+Tried on the prototype: each workaround below was removed, and the
+namespace checked with eta and failed without it (`SW_NO_ETA=1`), so every
+row is a live case, not a guess.
+
+| Sighting | Today | With eta | Rule |
+|---|---|---|---|
+| rogue `positionEta` (`Proofs/Position.sw:15`) | proved by matching `p` | `:= rfl` | 1 |
+| rogue `Reach.sw:114-140`, four uses | `Eq.sym (positionEta origin)`, `rewrite … in Eq.sym (positionEta target)` | `rfl`, `rewrite … in rfl` | 1 |
+| 2025 day 2 `templateEta` use (`Templates.sw:147`) | `Inl (templateEta template)` | `Inl rfl` | 1 |
+| 2024 day 6 (`Part2.sw:98`) | `rewrite positionEta position at …` | the `rewrite` deleted | 1 |
+| 2020 day 20 (`Orientations.sw:305`) | `Image.ext _ _ rfl` | `rfl` | 1 |
+| 2021 day 13 (`Picture.sw:45`) | `rewrite Point.ext ({ x = spot.x, y = spot.y }) spot rfl rfl in rfl` | `rfl` | 1 |
+| 2020 day 17 `startsPocket` (`Boot.sw:18`) | `match at with \| { row, column } => …` | `at.column`, `at.row` directly | 2 |
+| `Aoc.Common` `offsetOf` (`Proofs/Offset.sw:54`) | `match next with \| { row, column } => rfl` | `rfl` | 2 |
+
+The `positionEta` and `templateEta` lemmas themselves become one-line
+`rfl`s, and could go.
+
+One of these is also the one proof eta *breaks*: with eta, day 13's
+`rewrite Point.ext …` fails (`E-REWRITE-MOTIVE`: abstracting `{ x = spot.x,
+y = spot.y }` now catches `spot` too), and `rfl` replaces it. In the whole
+of aoc/ and games/rogue/ that's the only failure with the final prototype:
+1 of 290 namespaces, a workaround for the missing rule.
+
+**`T.ext` stays.** It says something eta doesn't: two records are equal when
+their fields are *provably* equal, not only equal by computation.
+Of the 34 uses in aoc/ and games/rogue/, the large majority pass field
+proofs that aren't `rfl` (`omega`, `Mod.addNatZero …`, `Eq.cong Pair.fst
+same`); only the all-`rfl` uses (`Image.ext _ _ rfl`, `Point.ext … rfl rfl`)
+become plain `rfl`. With proof irrelevance and eta, `T.ext` could become a
+one-line proof (`rewrite` each field equation, then `rfl`), but its
+statement doesn't change. SW-1487 (`T.ext` with implicit records) is
+unaffected.
+
+## 12. Risks
+
+- **Trusted code grows.** A new core form (`Proj`) in every pass, two new
+  conversion rules and a changed `branch`. Mitigation: the reference
+  evaluator (`reference.rs`) gets the same rules, so differential testing
+  compares them; the fuzzers (`fuzz:kernel`, `fuzz:soundness`) run over
+  records with and without proof fields; the must-reject tests below.
+- **Order of rules in `conv_step`.** Rule 1 must come after numbers,
+  compact lists, folded dictionaries and glued calls, and before the final
+  "different". A misplaced rule could compare a constructor with an
+  unforced call; that's a missed equality, not unsoundness, but tests pin
+  the order.
+- **Heterogeneous comparisons.** A future caller that breaks the same-type
+  contract would now be wrong in one more way. The contract already exists;
+  the risk is the same as for proof irrelevance and is covered by its audit.
+- **Natively bound types.** `Float` is a record `{ bits, valid }` with
+  natives behind it. Rule 2 could make a function that matches `Float` on an
+  unknown float compute where it used to stay folded, changing which goals
+  people see. Low risk; check the float tests (Q5).
+- **Interface dictionaries** are records folded by name; eta on them would
+  interact with instance search and dictionary folding. Excluded (Q4).
+- **Goals change shape.** A goal that used to show `down p` stuck now shows
+  `{ row = p.row + 1, column = p.column }`. Mostly better; some messages and
+  snapshots change. `rewrite`, which finds what to replace by computing,
+  is the tool most exposed: the prototype's first version of rule 2 broke
+  a rewrite (§6.4) by losing the glued call in a projection. With that
+  fixed, one proof written around the lack of eta (2021 day 13's `rewrite
+  Point.ext …`, whose motive now sees through the record) failed and became
+  `rfl`. Stage 1 fixes such proofs in the same lane; other projects would
+  meet the same, rarely.
+
+## 13. Evidence still to collect
+
+- The prototype covered records without parameters only. The real
+  implementation should measure `Pair` eta on aoc/, since pairs are far more
+  common than records (pattern lambdas `((row, pixels)) => …`), and rule 2
+  on pairs will fire much more often.
+- Which of the 108 record patterns in proofs become unnecessary: a sweep
+  after stage 2 lands, as a separate small lane.
+- Whether rule 2 makes any proof slower by unfolding calls that used to
+  stay stuck (the bench's instruction counts, once).
+
+## 14. Staged plan
+
+Each stage is a lane; stages 1 and 2 are kernel work (Opus, reviewed as
+kernel changes).
+
+1. **Kernel: eta types, `Proj`, rules 1 and 2** (records.md §14's raw-kernel
+   tests, plus: the D1981 must-reject, a proof-only record where `x ≡ y`
+   must not follow; two layouts never convert; `Box Nat` against `Box
+   Bool`; a projection of the wrong type refused; nested `Box (Box (Box
+   (List Nat)))` blocks after the record layers; the reference evaluator
+   agreeing). The elaborator emits `Proj` for field access on eta types.
+2. **Unifier**: rule 1 with metavariables first, not against blocked
+   values, off in `first_order`; the records.md §7.3 elaborator tests.
+3. **`Pair`** gains eta (it already passes the conditions; the stage is
+   about measuring and updating snapshots).
+4. **Clean-up sweep** (Sonnet): remove `positionEta`/`templateEta`, the
+   all-`rfl` `T.ext` calls and the record matches in proofs that exist only
+   to compute; update the guide's records chapter (`docs/guide/`) and
+   `docs/syntax.md` to say `p = { … p's fields … }` is `rfl`, with the
+   `no-eta` spelling if Q3 adds it.
+
+## 15. Decisions
+
+**Q1. Build record eta in the kernel as primitive projections plus two
+rules (Option C), rather than lemmas only (A), projection definitions (B) or
+typed conversion (D)?** Rec: yes, C. B can't do parameters (pairs), A
+leaves functions that match records stuck, D is a rewrite for no gain.
+
+**Q2. Eta by shape, for every one-constructor, non-recursive data type in
+`Type` with a non-proof field, including `Pair`, not only types declared
+with record syntax?** Rec: yes. It's what Lean does, the condition is the
+kernel's to check, and pairs are the commonest case (day 1). The record
+flag stays a JS representation choice.
+
+**Q3. A way to turn eta off for one type (`no-eta`, as Agda's
+`no-eta-equality`)?** Rec: not now. Nothing needs it yet; it can be added
+later as a hashed mark without changing anything else.
+
+**Q4. No eta for interface dictionaries?** Rec: yes, none. They're folded
+by name and compared by instance; eta brings nothing there and touches
+instance search.
+
+**Q5. Is a changed goal shape acceptable where rule 2 lets a stuck
+function compute (`down p` shown as a record literal)?** Rec: yes; it's the
+point. Snapshots and messages that change are updated in the same lane.
+
+**Q6. Keep the generated `T.ext` lemmas?** Rec: yes. They state equality
+from provable field equalities, which eta doesn't give; only their all-`rfl`
+uses go.
+
+**Q7. Accept up to about 5% more checking time for rule 2 (the
+prototype's cost on aoc/ and the roguelike), with stage 1 asked to profile
+and reduce it?** Rec: yes. Rule 1 alone is free but leaves functions that
+match records stuck, which is the commoner complaint.
+
+**Q8. Stage it as §14: kernel (Opus), unifier, `Pair`, then a clean-up
+sweep (Sonnet)?** Rec: yes; stages 1 and 2 could be one lane if the kernel
+lane finishes early.
+
+## 16. Sources
+
+Checked this session (6 November 2026):
+
+- [L1] Lean 4 kernel, `src/kernel/type_checker.cpp` (master):
+  `try_eta_struct_core` (non-recursive structure, `is_def_eq` of the two
+  types, projection per field), `is_def_eq_unit_like`, `is_unit_like`
+  (fields proofs or unit-like), `infer_proj`'s check for `Prop`
+  structures, `reduce_proj_core` (refuses another type's constructor), and
+  the order in `is_def_eq_core` (proof irrelevance, then lazy delta, then
+  function and structure eta, then unit-like).
+  https://github.com/leanprover/lean4/blob/master/src/kernel/type_checker.cpp
+- [L2] Lean 4 kernel, `src/kernel/inductive.h`: `is_non_rec_structure`
+  ("an inductive type with one constructor and no indices") and
+  `to_cnstr_when_structure` ("We do not perform eta for non-singleton
+  propositions").
+  https://github.com/leanprover/lean4/blob/master/src/kernel/inductive.h
+- [L3] Lean 4 elaborator, `src/Lean/Meta/ExprDefEq.lean`:
+  `isDefEqEtaStruct` and its proof-field shortcut.
+  https://github.com/leanprover/lean4/blob/master/src/Lean/Meta/ExprDefEq.lean
+- [A1] Agda documentation, "Record Types": eta by default except
+  coinductive records, `eta-equality`/`no-eta-equality`/`pattern`, warning
+  for unguarded recursive records.
+  https://agda.readthedocs.io/en/latest/language/record-types.html
+- [A2] Agda's metavariable machinery: `etaExpandMeta`, eta-expanding
+  blocking record metavariables (Hackage docs, Agda 2.4.2 and 2.6.1
+  `EtaExpand`; issues agda/agda#3597 and #5823 for the loops this caused).
+  https://hackage.haskell.org/package/Agda-2.4.2/docs/Agda-TypeChecking-MetaVars.html,
+  https://github.com/agda/agda/issues/3597
+- [R1] Rocq reference manual, "Record types", Primitive Projections: the
+  flag and attribute, eta for non-recursive records, `match` desugared to
+  projections, parameters absent from the kernel's representation,
+  compatibility constants.
+  https://rocq-prover.org/doc/master/refman/language/core/records.html
+- [LB] Lennon-Bertrand, *What does it take to certify a conversion
+  checker?*, FSCD 2025 (LIPIcs 337, 27), arXiv 2502.15500v3, §4.4
+  "Extensions and limits": definitional unit, unit-like leaks, Rocq's "at
+  least one relevant field", Lean's re-inference. Read in full text.
+  https://arxiv.org/abs/2502.15500
+- [I1] Idris 2 has no record eta in conversion; records are a
+  one-constructor data type plus projections, and eta lemmas are proved by
+  hand: Allais, *Seamless, Correct, and Generic Programming over Serialised
+  Data*, arXiv 2310.13441 (2023). Not checked against the current Idris 2
+  source; no issue or changelog found adding it.
+  https://arxiv.org/abs/2310.13441
+
+From earlier verified readings, not re-fetched:
+
+- Rosain, Díaz, Maillard, Sozeau, Tabareau, Tanter, Winterhalter, *Bounded
+  Sort Polymorphism with Elimination Constraints*, POPL 2026 (PACMPL 10,
+  article 90), §6: no primitive projections for records whose fields are all
+  in `SProp` (docs/research/kernel.md card C12; the author's PDF link
+  returned 404 today).
+- Lean Kernel Arena test `eta-unit-like-proof-field` and lean4#15372
+  (kernel.md cards C24, C20).
+- records.md's own sources [L3], [L4] (the Lean projection CVE) and [P1]
+  (Abel and Coquand, untyped conversion with surjective pairs).
