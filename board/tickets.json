@@ -1,5 +1,5 @@
 {
-  "next": 1612,
+  "next": 1613,
   "tickets": [
     {
       "id": 47,
@@ -5545,15 +5545,15 @@
     {
       "id": 1229,
       "title": "Design note: completeness of parsers (well-formed text parses), after one-step unfolding",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "design"
       ],
-      "body": "D2345. Matt accepted the plan in docs/proposals/proofs-about-definitions.md (D2340-D2345, 4 Nov 2026).",
+      "body": "D2345. Matt accepted the plan in docs/proposals/proofs-about-definitions.md (D2340-D2345, 4 Nov 2026).\n\nClosed by D2454 (Matt, 6 Nov 2026): overtaken by SW-1563 (Parse.Runs); literature check SW-1611.",
       "created": "2026-11-04",
-      "updated": "2026-11-04",
+      "updated": "2026-11-06",
       "commits": []
     },
     {
@@ -10554,13 +10554,13 @@
     {
       "id": 1584,
       "title": "Std: Parse.Runs lemmas for many1, sepBy, sepBy1, lines, sections, repeat, natDigits, int, digit, spaces1, takeWhile1, attempt, label, all, line (SW-1563)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1584",
       "labels": [
         "std"
       ],
-      "body": "From SW-1563, 6 Nov 2026.\n\nD2454 (Matt, 6 Nov 2026): yes (SW-1584 Runs lemmas, a two-day trial, then decide on a sweep; close SW-1229), on condition that a brief literature review first confirms Reads/Runs follows established patterns for verified parsers ('if we're doing something very standard, then yeah, let's proceed'). Gate: SW-1611.",
+      "body": "From SW-1563, 6 Nov 2026.\n\nD2454 (Matt, 6 Nov 2026): yes (SW-1584 Runs lemmas, a two-day trial, then decide on a sweep; close SW-1229), on condition that a brief literature review first confirms Reads/Runs follows established patterns for verified parsers ('if we're doing something very standard, then yeah, let's proceed'). Gate: SW-1611.\n\nStarted on Sonnet (D2454, condition met by SW-1611), expected: 90 min. Also: fix Reads.sw's doc, which calls TRX and Baanen & Swierstra soundness-only (both prove both directions). Pilot after this: SW-1612.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10932,13 +10932,27 @@
     {
       "id": 1611,
       "title": "Brief literature review: are Stitchwort's parser proofs (Parse.Reads soundness, Parse.Runs completeness, per-combinator lemmas, maximal munch, non-committing alternatives) the standard approach for verified parser combinators? Gate for D2454",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1611",
       "labels": [
         "research"
       ],
-      "body": "D2454 (Matt, 6 Nov 2026): yes (SW-1584 Runs lemmas, a two-day trial, then decide on a sweep; close SW-1229), on condition that a brief literature review first confirms Reads/Runs follows established patterns for verified parsers ('if we're doing something very standard, then yeah, let's proceed'). Started on Opus, analysis only, expected: 40 min.",
+      "body": "D2454 (Matt, 6 Nov 2026): yes (SW-1584 Runs lemmas, a two-day trial, then decide on a sweep; close SW-1229), on condition that a brief literature review first confirms Reads/Runs follows established patterns for verified parsers ('if we're doing something very standard, then yeah, let's proceed'). Started on Opus, analysis only, expected: 40 min.\n\nDone (2b04e78d8), merged: docs/research/parser-proofs-literature.md, 15 sources (8 read in full). Verdict: standard. Reads/Runs match the soundness/completeness theorems of Vermillion and Jourdan-Pottier-Leroy; Written is a Narcissus-style format relation; Declines is the usual PEG choice rule. Differences: proofs built by hand per day from combinator lemmas (as Danielsson/EverParse/Narcissus, which automate it); uniqueness comes almost free from completeness + determinism; round trip with a printer is the other spec style. D2454's condition met. Model result: Opus, worked, 6 min (est. 40).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1612,
+      "title": "Pilot (D2454): every well-formed input parses, on two AoC 2020 days (one simple like day 2, one with sepBy or sections): Written line e → Runs line line [] e, then the whole input via runsEachLine, plus the uniqueness corollary; record proof size and minutes, by kind of side condition (look-ahead, Declines). After SW-1584",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "From SW-1611's literature check, 6 Nov 2026 (docs/research/parser-proofs-literature.md). If hand-writing dominates, next is automation, not a different spec. Then decide the sweep (D2454).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
