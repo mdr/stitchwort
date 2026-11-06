@@ -98,6 +98,7 @@ impl LanguageServer {
 pub struct SearchWorker {
     inner: stitchwort_lsp::Searcher,
     projects: Arc<Memory>,
+    library: Arc<OnceLock<Arc<LibraryBundle>>>,
 }
 
 #[wasm_bindgen]
@@ -106,10 +107,19 @@ impl SearchWorker {
     #[wasm_bindgen(constructor)]
     pub fn new() -> SearchWorker {
         let projects = Arc::new(Memory::default());
+        let options = search_options();
+        let library = options.library.clone();
         SearchWorker {
-            inner: stitchwort_lsp::Searcher::new(search_options(), projects.clone()),
+            inner: stitchwort_lsp::Searcher::new(options, projects.clone()),
             projects,
+            library,
         }
+    }
+
+    /// As [`LanguageServer::load_library_cache`]: the searches then replay
+    /// the library instead of checking it again.
+    pub fn load_library_cache(&self, bytes: &[u8]) -> bool {
+        LibraryBundle::decode(bytes).is_some_and(|b| self.library.set(Arc::new(b)).is_ok())
     }
 
     /// As [`LanguageServer::add_project`].
