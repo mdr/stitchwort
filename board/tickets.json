@@ -1,5 +1,5 @@
 {
-  "next": 1637,
+  "next": 1640,
   "tickets": [
     {
       "id": 47,
@@ -9000,13 +9000,13 @@
     {
       "id": 1473,
       "title": "Std: a persistent array with get/set lemmas for grid simulations: 2020 day 11's main takes 19 s, mostly Map walks per neighbour (4 s under --js)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1473",
       "labels": [
         "std"
       ],
-      "body": "From 2020 day 11 (SW-1470), 5 Nov 2026.\n\nDay 15 (SW-1519, 6 Nov): 30M Map turns take 357 s interpreted, 127 s --js, 84 s native vs Python's 7 s; nearly all the time is Map (depth ~22, Ord comparison, node allocation, balancing). An array (or a Nat-keyed map) is the fix.\n\nD2450 (Matt, 6 Nov 2026): yes, 'do a full design note with Opus, thoroughly search both the literature for this and how other functional languages, Lean, Haskell, Rocq, Idris, Agda etc.' Started on Opus (design note, docs/proposals/), expected: 120 min.\n\nSW-112 (older array ticket) is the same request (SW-1598); see it for history.\n\nDesign note done (c38c0e683), merged: docs/proposals/arrays.md, 67 sources. Recommendation: Array a = { toList: List a } for proofs (Lean's design, no kernel change, no axiom); one buffer at runtime via hash-bound natives, set in place when unshared (needs natives taking owned arguments); version arrays (Baker) in JS; all-or-nothing loud binding (SW-1582); a copy counter. Estimates for day 15 part 2: machine 8-20 s (now 357), native 2-5 s (84), --js 10-25 s (127), inferred. Independent of in-place-reuse D2273-D2277. Questions Q1-Q10 = D2459-D2468, waiting for Matt. Model result: Opus, worked, 15 min (est. 120).",
+      "body": "From 2020 day 11 (SW-1470), 5 Nov 2026.\n\nDay 15 (SW-1519, 6 Nov): 30M Map turns take 357 s interpreted, 127 s --js, 84 s native vs Python's 7 s; nearly all the time is Map (depth ~22, Ord comparison, node allocation, balancing). An array (or a Nat-keyed map) is the fix.\n\nD2450 (Matt, 6 Nov 2026): yes, 'do a full design note with Opus, thoroughly search both the literature for this and how other functional languages, Lean, Haskell, Rocq, Idris, Agda etc.' Started on Opus (design note, docs/proposals/), expected: 120 min.\n\nSW-112 (older array ticket) is the same request (SW-1598); see it for history.\n\nDesign note done (c38c0e683), merged: docs/proposals/arrays.md, 67 sources. Recommendation: Array a = { toList: List a } for proofs (Lean's design, no kernel change, no axiom); one buffer at runtime via hash-bound natives, set in place when unshared (needs natives taking owned arguments); version arrays (Baker) in JS; all-or-nothing loud binding (SW-1582); a copy counter. Estimates for day 15 part 2: machine 8-20 s (now 357), native 2-5 s (84), --js 10-25 s (127), inferred. Independent of in-place-reuse D2273-D2277. Questions Q1-Q10 = D2459-D2468, waiting for Matt. Model result: Opus, worked, 15 min (est. 120).\n\nD2459-D2468 (Matt, 6 Nov 2026): all as recommended in docs/proposals/arrays.md: Array a = a std record around a list (no kernel change); no length in the type for now; in place when unshared on the interpreter/native; version arrays in JS; a copy counter with an end-of-run note; all-or-nothing loud native binding (E-BUILTIN); API get → Option, getOr, getLt with auto, out-of-range set leaves it unchanged, nothing panics; back Aoc.Common's grid lookups with arrays, std Grid later; packed buffers only if measured; staging: type + natives + in place together, then JS, then docs. Stages: SW-1637, SW-1638, SW-1639.",
       "created": "2026-11-05",
       "updated": "2026-11-06",
       "commits": []
@@ -11289,6 +11289,48 @@
         "aoc"
       ],
       "body": "From SW-1528's profile, 6 Nov 2026. Day 19 takes 6.5 s vs Python 0.3 s.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1637,
+      "title": "Arrays stage 1+2 (arrays.md): std Array a (record around a list) with get/getOr/getLt/set/size/push… and lemmas; hash-bound natives taking owned arguments; in-place set when unshared; copy counter; all-or-nothing E-BUILTIN binding; measure 2020 day 15 and day 11 (D2459-D2465, D2468)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "runtime"
+      ],
+      "body": "D2459-D2468 (Matt, 6 Nov 2026): all as recommended in docs/proposals/arrays.md: Array a = a std record around a list (no kernel change); no length in the type for now; in place when unshared on the interpreter/native; version arrays in JS; a copy counter with an end-of-run note; all-or-nothing loud native binding (E-BUILTIN); API get → Option, getOr, getLt with auto, out-of-range set leaves it unchanged, nothing panics; back Aoc.Common's grid lookups with arrays, std Grid later; packed buffers only if measured; staging: type + natives + in place together, then JS, then docs. Opus (runtime ownership, natives), expected: 180 min.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1638,
+      "title": "Arrays stage 3: JS extraction with version arrays (Baker), correct on old versions, O(1) when each version is used once (D2462)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "runtime"
+      ],
+      "body": "D2459-D2468 (Matt, 6 Nov 2026): all as recommended in docs/proposals/arrays.md: Array a = a std record around a list (no kernel change); no length in the type for now; in place when unshared on the interpreter/native; version arrays in JS; a copy counter with an end-of-run note; all-or-nothing loud native binding (E-BUILTIN); API get → Option, getOr, getLt with auto, out-of-range set leaves it unchanged, nothing panics; back Aoc.Common's grid lookups with arrays, std Grid later; packed buffers only if measured; staging: type + natives + in place together, then JS, then docs. After SW-1637.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1639,
+      "title": "Arrays stage 4: back Aoc.Common's Grid lookups with arrays; guide, syntax.md and feature tour for Array (D2466, D2468)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "D2459-D2468 (Matt, 6 Nov 2026): all as recommended in docs/proposals/arrays.md: Array a = a std record around a list (no kernel change); no length in the type for now; in place when unshared on the interpreter/native; version arrays in JS; a copy counter with an end-of-run note; all-or-nothing loud native binding (E-BUILTIN); API get → Option, getOr, getLt with auto, out-of-range set leaves it unchanged, nothing panics; back Aoc.Common's grid lookups with arrays, std Grid later; packed buffers only if measured; staging: type + natives + in place together, then JS, then docs. After SW-1637.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
