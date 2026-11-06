@@ -26,6 +26,7 @@ export declare function tmod(a: bigint, d: bigint): bigint;
 export declare function fdiv(a: bigint, d: bigint): bigint;
 export declare function fmod(a: bigint, d: bigint): bigint;
 export declare function modNat(a: bigint, d: bigint): bigint;
+export declare function natDivMod(n: bigint, d: bigint): bigint[];
 export declare function decEq(a: bigint, b: bigint): boolean;
 export declare function leq(a: bigint, b: bigint): boolean;
 export declare function less(a: bigint, b: bigint): boolean;

@@ -92,16 +92,20 @@ def t1R: TBox := MkTBox Bool
 -- Test 2: a type argument of a definition is relevant.
 def t2L (n: Nat): Nat := choose Nat n
 def t2R (n: Nat): Nat := choose Bool n
--- §2.1: the divisor proof of a stuck `Int.modNat` is skipped.
-def sameModL (x: Int) (p: 100 ≠ 0) (q: 100 ≠ 0): Nat := Int.modNat x 100 [ok := p]
-def sameModR (x: Int) (p: 100 ≠ 0) (q: 100 ≠ 0): Nat := Int.modNat x 100 [ok := q]
+-- Division is total, so these stand in for `Int.modNat` and `Nat.mod` as they
+-- were when §2.1 and test 20 were written: an inert divisor proof.
+def safeModNat (x: Int) (d: Nat) (ok: d ≠ 0): Nat := Int.modNat x d
+def safeMod (x: Nat) (d: Nat) (ok: d ≠ 0): Nat := Nat.mod x d
+-- §2.1: the divisor proof of a stuck `safeModNat` is skipped.
+def sameModL (x: Int) (p: 100 ≠ 0) (q: 100 ≠ 0): Nat := safeModNat x 100 p
+def sameModR (x: Int) (p: 100 ≠ 0) (q: 100 ≠ 0): Nat := safeModNat x 100 q
 -- Test 20 and its partners.
-def t20L (x: Int) (y: Int) (p: 100 ≠ 0): Nat := Int.modNat x 100 [ok := p]
-def t20R (x: Int) (y: Int) (p: 100 ≠ 0): Nat := Int.modNat y 100 [ok := p]
-def t20dL (x: Int) (d: Nat) (p: d ≠ 0) (q: d ≠ 0): Nat := Int.modNat x d [ok := p]
-def t20dR (x: Int) (d: Nat) (p: d ≠ 0) (q: d ≠ 0): Nat := Int.modNat x d [ok := q]
-def t20nL (x: Nat) (p: 100 ≠ 0) (q: 100 ≠ 0): Nat := Nat.mod x 100 [ok := p]
-def t20nR (x: Nat) (p: 100 ≠ 0) (q: 100 ≠ 0): Nat := Nat.mod x 100 [ok := q]
+def t20L (x: Int) (y: Int) (p: 100 ≠ 0): Nat := safeModNat x 100 p
+def t20R (x: Int) (y: Int) (p: 100 ≠ 0): Nat := safeModNat y 100 p
+def t20dL (x: Int) (d: Nat) (p: d ≠ 0) (q: d ≠ 0): Nat := safeModNat x d p
+def t20dR (x: Int) (d: Nat) (p: d ≠ 0) (q: d ≠ 0): Nat := safeModNat x d q
+def t20nL (x: Nat) (p: 100 ≠ 0) (q: 100 ≠ 0): Nat := safeMod x 100 p
+def t20nR (x: Nat) (p: 100 ≠ 0) (q: 100 ≠ 0): Nat := safeMod x 100 q
 -- §2.2: a hand-built character is the literal.
 def handBuiltL (p: Char.isScalar 97 = True): Char := MkChar 97 p
 def handBuiltR (p: Char.isScalar 97 = True): Char := 'a'
