@@ -57,9 +57,9 @@ def Image.columns (image: Image): List (List Pixel) := image.rows.transpose
 type Edge = { pixels: List Pixel }
 
 def Image.top (image: Image): Edge := { pixels = image.rows.headOr [] }
-def Image.bottom (image: Image): Edge := { pixels = image.rows.reverse.headOr [] }
-def Image.left (image: Image): Edge := { pixels = image.columns.headOr [] }
-def Image.right (image: Image): Edge := { pixels = image.columns.reverse.headOr [] }
+def Image.bottom (image: Image): Edge := { pixels = image.rows.last.getOrElse [] }
+def Image.left (image: Image): Edge := { pixels = image.rows.map (row => row.headOr Calm) }
+def Image.right (image: Image): Edge := { pixels = image.rows.map (row => row.last.getOrElse Calm) }
 
 --| Clockwise from the top.
 def Image.edges (image: Image): List Edge := [image.top, image.right, image.bottom, image.left]
@@ -86,10 +86,18 @@ def tile(): {Parse} Tile :=
   let id := Parse.nat()
   Parse.char ':'
   Parse.newline()
-  let rows := Parse.lines (() => Parse.many1 pixel |> .toList)
+  let rows := Parse.lines pixelRow
   { id, image = { rows = rows.toList } }
 
-def parseJigsaw (input: Text): {Fail} Jigsaw := Parse.all input (() => { tiles = Parse.sections tile |> .toList })
+def pixelRow(): {Parse} List Pixel :=
+  let pixels := Parse.many1 pixel
+  pixels.toList
+
+def jigsaw(): {Parse} Jigsaw :=
+  let tiles := Parse.sections tile
+  { tiles = tiles.toList }
+
+def parseJigsaw (input: Text): {Fail} Jigsaw := Parse.all input jigsaw
 
 -- Part 1
 
