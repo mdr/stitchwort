@@ -170,9 +170,11 @@ theorem twiceIsDouble (n: Nat): double n = 2 * n := omega
 theorem stepBack (n: Nat) (x: Int) (h: x < n.toInt): x - 1 < n.toInt - 1 := omega
 
 theorem thirdOfTriple (k: Int): (3 * k) / 3 = k := omega
+
+theorem sizeOfSum (x: Int) (y: Int): (x + y).natAbs ≤ x.natAbs + y.natAbs := omega
 ```
 
-On `Int`, an unknown may be negative, while `n.toInt` of a `Nat` is known to be at least 0, so `Nat` and `Int` facts mix; `x / 3` and `x % 3` are unknowns with `3 * (x / 3) + x % 3 = x` and `0 ≤ x % 3 < 3`. If the facts contradict each other, `omega` proves any goal, not only an arithmetic one. `omega [p, q]` adds the facts `p` and `q`, such as lemmas applied to arguments. Anything that isn't linear arithmetic (`x * y`, `xs.length`, a function call) is treated as an unknown number, though a field of a record written out, `{ row = 1, column = 0 }.row`, is computed first.
+On `Int`, an unknown may be negative, while `n.toInt` of a `Nat` is known to be at least 0, so `Nat` and `Int` facts mix; `x / 3` and `x % 3` are unknowns with `3 * (x / 3) + x % 3 = x` and `0 ≤ x % 3 < 3`. `x.natAbs`, the size of `x`, is known to be `x` or `0 - x`, so `(x + y).natAbs ≤ x.natAbs + y.natAbs` is `omega` too. If the facts contradict each other, `omega` proves any goal, not only an arithmetic one. `omega [p, q]` adds the facts `p` and `q`, such as lemmas applied to arguments. Anything that isn't linear arithmetic (`x * y`, `xs.length`, a function call) is treated as an unknown number, though a field of a record written out, `{ row = 1, column = 0 }.row`, is computed first.
 
 Comparisons may be joined with `&&`, `||` and `not`, as `Bool`s (`(a == b || a < c) = True`) or as propositions (`p ∨ q`, `p ∧ q`, `¬p`), and `==` and `!=` on numbers count as comparisons. A fact that is a disjunction is split into its two cases, each proved separately, when the other facts aren't enough (up to 8 splits); a goal that is one is proved by cases on one side, the other side proved where it fails:
 

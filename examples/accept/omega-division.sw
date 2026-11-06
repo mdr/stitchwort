@@ -26,3 +26,12 @@ theorem smallDivZero (n: Nat) (h: n < 5): n / 5 = 0 := omega
 
 -- Nested: a quarter is a half of a half.
 theorem quarterLe (n: Nat): n / 2 / 2 ≤ n / 2 := omega
+
+-- By 0: `n / 0 = 0` (`Nat.divFuelZero`, whatever the fuel), so `n % 0 = n`.
+theorem divZero (n: Nat): n / 0 = 0 := omega
+
+theorem succDivZero (n: Nat): (n + 1) / 0 = 0 := omega
+
+theorem modZero (n: Nat): n % 0 = n := omega
+
+theorem divZeroLe (m: Nat) (n: Nat): m / 0 ≤ n := omega

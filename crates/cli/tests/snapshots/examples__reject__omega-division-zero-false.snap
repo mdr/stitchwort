@@ -1,0 +1,23 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-OMEGA] Error: `omega` can't prove `n / 0 = n`
+   ╭─[ reject/omega-division-zero-false.sw:5:44 ]
+   │
+ 5 │ theorem divZeroSelf (n: Nat): n / 0 = n := omega
+   │                                            ──┬──  
+   │                                              ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
+   │ 
+   │ Note 1: facts: `n / 0 = 0` (what `n / 0` is)
+   │ 
+   │ Note 2: atoms: `n / 0`, `n`
+   │ 
+   │ Note 3: an integer model of the arithmetic abstraction (it may not be a real counterexample): n / 0 = 0, n = 1
+   │ 
+   │ Note 4: this statement is false; a counterexample:
+   │           n = 1
+   │         `n / 0 = n` is false:
+   │           left:  0
+   │           right: 1
+───╯
