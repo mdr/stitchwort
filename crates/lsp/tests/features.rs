@@ -9,6 +9,14 @@ use stitchwort_lsp::{Inline, Memory, MemoryProject, Options};
 const STACK: usize = 256 * 1024 * 1024;
 const URI: &str = "file:///memory/proj/src/Demo.sw";
 
+/// A project source whose checks replay the standard library from the test
+/// std cache (docs/testing.md, "The test std cache") instead of checking it
+/// from source in every test. The first test to run writes the entries.
+fn cached_memory() -> Arc<Memory> {
+    let dir = stitchwort_driver::driver::test_std_cache_dir(STACK).join("lsp");
+    Arc::new(Memory::with_cache(dir))
+}
+
 /// Runs `body` on a thread with a big stack.
 fn big_stack(body: impl FnOnce() + Send + 'static) {
     std::thread::Builder::new()
@@ -45,7 +53,7 @@ impl Session {
     }
 
     fn open_using(text: &str, capabilities: Value, options: Options) -> Session {
-        let memory = Arc::new(Memory::default());
+        let memory = cached_memory();
         memory.add(MemoryProject {
             root: "/memory/proj".into(),
             sources: vec!["src".into()],
@@ -565,7 +573,7 @@ fn completion_after_a_namespace_offers_its_members() {
 /// project with namespaces it doesn't import: `Proj.Other`, and
 /// `Proj.Uses`, which imports it.
 fn open_in_project(main: &str) -> Session {
-    let memory = Arc::new(Memory::default());
+    let memory = cached_memory();
     let files = [
         ("src/Demo.sw", main),
         (
@@ -800,7 +808,7 @@ fn the_outline_asked_as_the_file_opens_is_not_empty() {
     big_stack(|| {
         let text =
             "namespace Demo\n\ntype Color = | Red | Green\n\ndef pick (c: Color): Nat := 1\n";
-        let memory = Arc::new(Memory::default());
+        let memory = cached_memory();
         memory.add(MemoryProject {
             root: "/memory/proj".into(),
             sources: vec!["src".into()],

@@ -224,7 +224,8 @@ const TEST_STD_CACHE_GRACE: std::time::Duration = std::time::Duration::from_secs
 /// temporary folder if that is not found. The stack is part of the cache's
 /// key, and a unit's entries for other keys are evicted when it is
 /// written, so each stack has a folder of its own.
-fn test_std_cache_dir(stack: usize) -> std::path::PathBuf {
+#[doc(hidden)]
+pub fn test_std_cache_dir(stack: usize) -> std::path::PathBuf {
     let target = std::env::current_exe().ok().and_then(|exe| {
         exe.ancestors()
             .find(|a| a.file_name().is_some_and(|n| n == "target"))
