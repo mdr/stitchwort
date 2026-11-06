@@ -1,5 +1,5 @@
 {
-  "next": 1711,
+  "next": 1712,
   "tickets": [
     {
       "id": 47,
@@ -13171,6 +13171,21 @@
       ],
       "epic": "test-infra",
       "body": "From SW-1707, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1711,
+      "title": "Daily tier (builtins, debug): a_programs_own_list_crosses_the_js_boundary_as_itself panics at registry.rs:599, 'compiler code uses the library built-in Array before its file loads': JS boundary code asks for Array when the program doesn't import it (D2508, SW-1638)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "js"
+      ],
+      "epic": "test-infra",
+      "body": "Daily tier 6 Nov evening, the builtins debug run. Doctests: all 17 passed.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
