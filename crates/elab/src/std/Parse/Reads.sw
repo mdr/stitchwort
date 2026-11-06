@@ -15,12 +15,15 @@ import Effect.AlwaysTreeOf (AlwaysCall)
 --|       List.All2 (Parse.Each tokenSpec) (input.lines.map Text.toList) lines :=
 --|     Parse.eachLineReads input _ _ lines parsed (Parse.readsMany _ _ readsToken)
 --|
---| The statement is soundness only, as for Hoare triples and for the
---| refinement specs of verified parsers (Baanen and Swierstra, "Combining
---| predicate transformer semantics for effects", 2020; TRX's big-step
---| semantics of PEGs, Koprowski and Binsztok, 2010): it says nothing about
---| when a parser succeeds, only what a success means, which is what a
---| program's theorems need of its input.
+--| `Reads` is the soundness half: it says nothing about when a parser
+--| succeeds, only what a success means, which is what a program's theorems
+--| need of its input. The completeness half, that a parser does succeed on
+--| good input, is `Parse.Runs` (Parse/Runs.sw). Verified parsers state both:
+--| TRX's big-step semantics of PEGs (Koprowski and Binsztok, 2010) is proved
+--| sound and complete, and so are the refinement specs of Baanen and Swierstra
+--| ("Combining predicate transformer semantics for effects", 2020), where
+--| soundness alone would be a Hoare triple. See
+--| docs/research/parser-proofs-literature.md.
 --|
 --| A spec relates what was read to the value, not to what comes after it,
 --| so "a number, and then no more digits" isn't said. And `reset` can go
