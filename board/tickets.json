@@ -11240,13 +11240,13 @@
     {
       "id": 1633,
       "title": "Brace syntax sweep: C ({ … }) → C { … } across aoc, games, examples, std, guide (~140 sites) (D2486)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1633",
       "labels": [
         "style"
       ],
-      "body": "D2481-D2486 (Matt, 6 Nov 2026): all as recommended in docs/proposals/brace-syntax-review.md: the declaration decides what braces after a constructor mean (brace-declared constructors by field name; bracket-declared ones take a record argument); patterns follow; braces in argument position; show prints accordingly; named arguments on a constructor fill field defaults; then sweep C ({ … }) → C { … }. Replaces D1370 (a). After SW-1632. DeepSeek or Sonnet.\n\nStarted on DeepSeek (opencode, scratch clone .claude/worktrees/scratch-sw-1633) at 13:32, expected: 45 min.",
+      "body": "D2481-D2486 (Matt, 6 Nov 2026): all as recommended in docs/proposals/brace-syntax-review.md: the declaration decides what braces after a constructor mean (brace-declared constructors by field name; bracket-declared ones take a record argument); patterns follow; braces in argument position; show prints accordingly; named arguments on a constructor fill field defaults; then sweep C ({ … }) → C { … }. Replaces D1370 (a). After SW-1632. DeepSeek or Sonnet.\n\nStarted on DeepSeek (opencode, scratch clone .claude/worktrees/scratch-sw-1633) at 13:32, expected: 45 min.\n\nDone, merged (8d9d00f35, 5069ec839, 262f583bd): 119 sites across std, examples, guide, web/guide and aoc; skipped annotations, tuples, trailing arguments, brace-declared constructors, proposals and reject examples. Reviewed line by line: each change only drops the brackets. Lane checked 28 AoC namespaces, std, accept examples, guides. On main: hash_stability, accept examples, guides, std and 5 AoC namespaces pass; the reject-example failure (rfl-long-computed) and the chapter 6 quote failure came from SW-1640 and SW-1639 and were fixed by accepting the new snapshot and refreshing the quote. Model result: DeepSeek, worked, 31 min (est. 45).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
