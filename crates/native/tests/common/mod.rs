@@ -28,6 +28,7 @@ pub fn lowered(source: &str) -> (Program, Limits) {
 /// [`lowered`], for a thread with `stack` bytes of stack.
 pub fn lowered_for(source: &str, stack: usize) -> (Program, Limits) {
     let mut session = Session::for_stack(stack);
+    session.use_test_std_cache();
     session
         .load("test.sw", source)
         .unwrap_or_else(|e| panic!("doesn't check: {e:?}"));

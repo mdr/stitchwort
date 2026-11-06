@@ -56,6 +56,7 @@ fn run(source: &str, trace: bool) -> Run {
     let source = source.to_string();
     with_stack(STACK, move || {
         let mut session = Session::for_stack(STACK);
+        session.use_test_std_cache();
         session
             .load("test.sw", &source)
             .unwrap_or_else(|e| panic!("doesn't check: {e:?}"));

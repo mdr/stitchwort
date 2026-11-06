@@ -83,10 +83,11 @@ fn a_filter_part_that_matches_nothing_is_an_error() {
     );
 }
 
-/// How many workers a sweep uses. Each loads the whole library (seconds of
-/// CPU) to check a few milliseconds of examples, so in the merge tier and the
-/// lanes, with their quarter sample and every core already busy, two repeat
-/// the load least; the daily and full tiers check everything and use them all.
+/// How many workers a sweep uses. Each has a whole library loaded, which
+/// costs seconds of CPU where it's checked from source, for a few
+/// milliseconds of examples, so in the merge tier and the lanes, with their
+/// quarter sample and every core already busy, two repeat the load least; the
+/// daily and full tiers check everything and use them all.
 fn workers() -> usize {
     match tier() {
         Tier::Merge | Tier::Lane => 2,
@@ -94,13 +95,21 @@ fn workers() -> usize {
     }
 }
 
-/// A worker's eager session (every library file loaded, which takes a
-/// second or two), marked so that each example can be checked in it and
-/// then rewound: as a fresh eager session, without loading the library
-/// again for every example. The rewind tests check that rewinding gives
-/// exactly what a fresh session does.
+/// A worker's eager session (every library file loaded), marked so that each
+/// example can be checked in it and then rewound: as a fresh eager session,
+/// without loading the library again for every example. The rewind tests
+/// check that rewinding gives exactly what a fresh session does.
+///
+/// In the merge tier and the lanes the library is replayed from the test std
+/// cache: `prelude` checks it from source in the same run and holds every
+/// hash of it to its snapshot, and an example's hashes come out the same only
+/// if the library it uses does. The daily and full tiers check it from source
+/// in every worker.
 fn eager_worker() -> (Session, Mark) {
-    let mut session = Session::eager_from_source_for_stack(STACK);
+    let mut session = match tier() {
+        Tier::Merge | Tier::Lane => Session::eager_for_stack(STACK),
+        _ => Session::eager_from_source_for_stack(STACK),
+    };
     let mark = session.mark();
     (session, mark)
 }

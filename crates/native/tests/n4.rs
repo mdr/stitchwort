@@ -391,6 +391,7 @@ fn effect_examples_agree_with_the_machine() {
                 .join(name);
             let text = std::fs::read_to_string(&path).expect("readable example");
             let mut session = Session::for_stack(STACK);
+            session.use_test_std_cache();
             session
                 .load(name, &text)
                 .unwrap_or_else(|e| panic!("{name} doesn't check: {e:?}"));

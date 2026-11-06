@@ -67,6 +67,12 @@ fn have_cc() -> bool {
     found
 }
 
+/// The check cache every test here shares: the library replays from it
+/// instead of being checked from source by each build and run (about 10 s of
+/// CPU each). Keys hold the sources by content, so sharing is safe; the
+/// first writers fill it, concurrently, which the cache allows.
+const CACHE: &str = concat!(env!("CARGO_TARGET_TMPDIR"), "/build-tests-cache");
+
 /// A fresh folder for one test.
 fn work_dir(name: &str) -> PathBuf {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR"))
@@ -129,11 +135,11 @@ fn run_executable(exe: &Path, input: &[u8]) -> Output {
 /// input.
 fn same_as_run(dir: &Path, name: &str, source: &str, inputs: &[&[u8]]) -> (PathBuf, Output) {
     std::fs::write(dir.join(name), source).expect("write the source");
-    build(dir, &[name, "--no-cache", "-o", "program"]);
+    build(dir, &[name, "--cache-dir", CACHE, "-o", "program"]);
     let exe = dir.join("program");
     let mut first = None;
     for input in inputs {
-        let ran = stitchwort(dir, &["run", "--no-cache", name], input);
+        let ran = stitchwort(dir, &["run", "--cache-dir", CACHE, name], input);
         let built = run_executable(&exe, input);
         assert_eq!(text(&built.stdout), text(&ran.stdout), "standard output");
         assert_eq!(text(&built.stderr), text(&ran.stderr), "standard error");
@@ -192,7 +198,7 @@ fn an_executable_gets_its_arguments() {
         "import Std (IO, List, Text)\ndef main () : {IO} () := IO.print (Text.joinWith (IO.args ()) \"|\")\n",
     )
     .expect("write the source");
-    build(&dir, &["args.sw", "--no-cache", "-o", "program"]);
+    build(&dir, &["args.sw", "--cache-dir", CACHE, "-o", "program"]);
     let built = run_with_input(
         {
             let mut command = Command::new(dir.join("program"));
@@ -204,7 +210,15 @@ fn an_executable_gets_its_arguments() {
     assert_eq!(text(&built.stdout), "1|two words\n");
     let ran = stitchwort(
         &dir,
-        &["run", "--no-cache", "args.sw", "--", "1", "two words"],
+        &[
+            "run",
+            "--cache-dir",
+            CACHE,
+            "args.sw",
+            "--",
+            "1",
+            "two words",
+        ],
         b"",
     );
     assert_eq!(text(&ran.stdout), text(&built.stdout));
@@ -219,7 +233,7 @@ fn the_executable_is_named_after_its_file_and_signed() {
     }
     let dir = work_dir("named");
     std::fs::write(dir.join("echo.sw"), ECHO).expect("write the source");
-    build(&dir, &["echo.sw", "--no-cache"]);
+    build(&dir, &["echo.sw", "--cache-dir", CACHE]);
     let exe = dir.join("echo");
     assert_eq!(
         text(&run_executable(&exe, b"x\n").stdout),
@@ -312,7 +326,7 @@ fn the_executable_links_only_system_libraries() {
     }
     let dir = work_dir("system-libs");
     std::fs::write(dir.join("echo.sw"), ECHO).expect("write the source");
-    build(&dir, &["echo.sw", "--no-cache"]);
+    build(&dir, &["echo.sw", "--cache-dir", CACHE]);
     assert_system_libraries_only(&dir.join("echo"));
 }
 
@@ -324,7 +338,7 @@ fn the_native_executable_links_only_system_libraries() {
     }
     let dir = work_dir("system-libs-native");
     std::fs::write(dir.join("echo.sw"), ECHO).expect("write the source");
-    build(&dir, &["echo.sw", "--native", "--no-cache"]);
+    build(&dir, &["echo.sw", "--native", "--cache-dir", CACHE]);
     assert_system_libraries_only(&dir.join("echo"));
 }
 
@@ -367,9 +381,9 @@ fn a_program_out_of_frames_reports_as_run_does() {
                     IO.print \"before\"\n  \
                     IO.print (Nat.toText (count (5 * 1000 * 1000)))\n";
     std::fs::write(dir.join("runaway.sw"), source).expect("write the source");
-    build(&dir, &["runaway.sw", "--no-cache"]);
+    build(&dir, &["runaway.sw", "--cache-dir", CACHE]);
     let built = run_executable(&dir.join("runaway"), b"");
-    let ran = stitchwort(&dir, &["run", "--no-cache", "runaway.sw"], b"");
+    let ran = stitchwort(&dir, &["run", "--cache-dir", CACHE, "runaway.sw"], b"");
     assert_eq!(built.status.code(), Some(2));
     assert_eq!(ran.status.code(), Some(2));
     assert_eq!(text(&built.stdout), "before\n");
@@ -408,7 +422,7 @@ fn link_failures_are_explained() {
     let build_with = |variable: &str, value: &OsStr| {
         let mut command = Command::new(env!("CARGO_BIN_EXE_stitchwort"));
         command
-            .args(["build", "echo.sw", "--no-cache"])
+            .args(["build", "echo.sw", "--cache-dir", CACHE])
             .current_dir(&dir)
             .env("STITCHWORT_RUNTIME", runtime_library())
             .env(variable, value);
@@ -659,7 +673,7 @@ fn the_terminal_is_put_back_after_q_and_after_ctrl_c() {
         include_str!("../../../examples/accept/terminal-walk.sw"),
     )
     .expect("write the source");
-    build(&dir, &["walk.sw", "--no-cache"]);
+    build(&dir, &["walk.sw", "--cache-dir", CACHE]);
     let walk = dir.join("walk");
     let Some(mut s) = pty::Session::start(&[walk.as_os_str()], false) else {
         return;
@@ -685,7 +699,7 @@ fn the_terminal_is_put_back_after_q_and_after_ctrl_c() {
            IO.print \"not reached\"\n",
     )
     .expect("write the source");
-    build(&dir, &["interrupt.sw", "--no-cache"]);
+    build(&dir, &["interrupt.sw", "--cache-dir", CACHE]);
     let interrupt = dir.join("interrupt");
     let Some(mut s) = pty::Session::start(&[interrupt.as_os_str()], false) else {
         return;
@@ -753,12 +767,15 @@ fn assert_signed(exe: &Path) {
 #[cfg(feature = "native")]
 fn native_same_as_run(dir: &Path, name: &str, source: &str, input: &[u8]) -> (PathBuf, Output) {
     std::fs::write(dir.join(name), source).expect("write the source");
-    build(dir, &[name, "--native", "--no-cache", "-o", "program"]);
+    build(
+        dir,
+        &[name, "--native", "--cache-dir", CACHE, "-o", "program"],
+    );
     let exe = dir.join("program");
     let built = run_executable(&exe, input);
     for runner in [
-        &["run", "--native", "--no-cache", name][..],
-        &["run", "--no-cache", name],
+        &["run", "--native", "--cache-dir", CACHE, name][..],
+        &["run", "--cache-dir", CACHE, name],
     ] {
         let ran = stitchwort(dir, runner, input);
         assert_eq!(
@@ -837,7 +854,7 @@ fn verbose_says_what_was_compiled() {
         std::fs::write(dir.join(name), source).expect("write");
         let output = stitchwort(
             &dir,
-            &["build", name, "--native", "--verbose", "--no-cache"],
+            &["build", name, "--native", "--verbose", "--cache-dir", CACHE],
             b"",
         );
         assert!(output.status.success(), "{}", text(&output.stderr));
@@ -924,7 +941,7 @@ fn native_code_out_of_frames_reports_as_run_does() {
                   def main () : {IO} () :=\n  \
                     IO.print (Nat.toText (count (5 * 1000 * 1000)))\n";
     std::fs::write(dir.join("runaway.sw"), source).expect("write the source");
-    build(&dir, &["runaway.sw", "--native", "--no-cache"]);
+    build(&dir, &["runaway.sw", "--native", "--cache-dir", CACHE]);
     let exe = dir.join("runaway");
     assert!(!native_trampolines(&exe).is_empty(), "`count` is compiled");
     let built = run_executable(&exe, b"");
@@ -945,8 +962,8 @@ fn native_code_out_of_frames_reports_as_run_does() {
         "{stderr}"
     );
     for runner in [
-        &["run", "--native", "--no-cache", "runaway.sw"][..],
-        &["run", "--no-cache", "runaway.sw"],
+        &["run", "--native", "--cache-dir", CACHE, "runaway.sw"][..],
+        &["run", "--cache-dir", CACHE, "runaway.sw"],
     ] {
         let ran = stitchwort(&dir, runner, b"");
         assert_eq!(ran.status.code(), Some(2), "{runner:?}");
@@ -1126,17 +1143,17 @@ fn a_program_over_the_stack_cap_fails_to_build() {
     };
     refused(&stitchwort(
         &dir,
-        &["run", "--native", "--no-cache", "wide.sw"],
+        &["run", "--native", "--cache-dir", CACHE, "wide.sw"],
         b"",
     ));
-    let ran = stitchwort(&dir, &["run", "--no-cache", "wide.sw"], b"");
+    let ran = stitchwort(&dir, &["run", "--cache-dir", CACHE, "wide.sw"], b"");
     assert_eq!(text(&ran.stdout), "10\n", "{}", text(&ran.stderr));
     if !have_cc() {
         return;
     }
     refused(&stitchwort(
         &dir,
-        &["build", "wide.sw", "--native", "--no-cache"],
+        &["build", "wide.sw", "--native", "--cache-dir", CACHE],
         b"",
     ));
     assert!(!dir.join("wide").exists(), "an executable was written");
@@ -1163,22 +1180,22 @@ fn a_failed_layout_probe_fails_the_build() {
         command.current_dir(&dir).args(args).env(probe, "1");
         run_with_input(command, b"")
     };
-    let ran = with_probe_failing(&["run", "--native", "--no-cache", "hello.sw"]);
+    let ran = with_probe_failing(&["run", "--native", "--cache-dir", CACHE, "hello.sw"]);
     assert_eq!(ran.status.code(), Some(1));
     assert_eq!(text(&ran.stderr), format!("error: {message}"));
     assert_eq!(text(&ran.stdout), "");
     // The machine doesn't probe.
-    let ran = with_probe_failing(&["run", "--no-cache", "hello.sw"]);
+    let ran = with_probe_failing(&["run", "--cache-dir", CACHE, "hello.sw"]);
     assert_eq!(text(&ran.stdout), "hello\n");
     if !have_cc() {
         return;
     }
-    let built = with_probe_failing(&["build", "hello.sw", "--native", "--no-cache"]);
+    let built = with_probe_failing(&["build", "hello.sw", "--native", "--cache-dir", CACHE]);
     assert_eq!(built.status.code(), Some(1));
     assert_eq!(text(&built.stderr), format!("error: {message}"));
     assert!(!dir.join("hello").exists(), "an executable was written");
 
-    build(&dir, &["hello.sw", "--native", "--no-cache"]);
+    build(&dir, &["hello.sw", "--native", "--cache-dir", CACHE]);
     let mut command = Command::new(dir.join("hello"));
     command.env(probe, "1");
     let started = run_with_input(command, b"");

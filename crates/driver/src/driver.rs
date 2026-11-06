@@ -600,6 +600,24 @@ impl Session {
         Ok(session)
     }
 
+    /// For a test of what a program does, not of how the library checks:
+    /// in the merge tier and the lanes, library files load through the test
+    /// std cache (the one [`Session::eager_for_stack`] fills), where they
+    /// would each be checked from source in every session, which was most
+    /// of the CPU of the tests that make many. The daily and full tiers
+    /// still check from source. `Session::eager_from_source_for_stack` is
+    /// for the tests of that check.
+    #[doc(hidden)]
+    pub fn use_test_std_cache(&mut self) {
+        if !matches!(tier(), Tier::Merge | Tier::Lane) {
+            return;
+        }
+        let dir = test_std_cache_dir(self.elab.options.limits.stack);
+        self.elab.set_check_cache(std::rc::Rc::new(
+            crate::check_cache::CheckCache::with_grace(&dir, TEST_STD_CACHE_GRACE),
+        ));
+    }
+
     /// Loads library files and project namespaces from, and keeps them in,
     /// the check cache in the cache directory `dir`
     /// (docs/proposals/check-cache.md). Off unless

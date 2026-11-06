@@ -173,7 +173,7 @@ fn pinned_in(text: &str) -> Vec<String> {
 
 #[test]
 fn every_binding_by_hash_applies_to_the_library() {
-    let found = with_session(STACK, Session::eager_from_source_for_stack, |session| {
+    let found = with_session(STACK, Session::eager_for_stack, |session| {
         bindings(&session.elab.ev())
     });
     let unbound: Vec<String> = found
@@ -215,4 +215,26 @@ fn the_scan_finds_pinned_hashes() {
         "b".repeat(65)
     );
     assert_eq!(pinned_in(&text), vec![pin]);
+}
+
+/// Every `…Cong` lemma of the library passes the check `decreasing` makes of
+/// it (once, `Option.mapCong` had implicit parameters that `rewrite` accepted
+/// and `decreasing` rejected, and no test noticed). Checked on the library as
+/// the test std cache replays it; `prelude` in `hash_stability` checks the
+/// library from source.
+#[test]
+fn every_std_congruence_lemma_passes_validate_cong() {
+    let (total, failures) = with_session(STACK, Session::eager_for_stack, |session| {
+        stitchwort_elab::std_congruence_failures(&session.elab)
+    });
+    assert!(
+        total > 0,
+        "the standard library declares no congruence lemmas"
+    );
+    assert!(
+        failures.is_empty(),
+        "{} of {total} std congruence lemmas fail validate_cong:\n{}",
+        failures.len(),
+        failures.join("\n")
+    );
 }

@@ -37,6 +37,7 @@ fn accept(name: &str) -> String {
 
 fn session(source: &str) -> Session {
     let mut session = Session::for_stack(STACK);
+    session.use_test_std_cache();
     session
         .load("test.sw", source)
         .unwrap_or_else(|e| panic!("doesn't check: {e:?}"));

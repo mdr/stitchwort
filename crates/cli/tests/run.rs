@@ -19,6 +19,11 @@ use stitchwort_cli::driver::Session;
 /// that inherited the read end kept it open, and the write succeeded.
 static SPAWN: Mutex<()> = Mutex::new(());
 
+/// The check cache the runs here share, so that the library replays from it
+/// instead of being checked from source by each run (cache keys hold the
+/// sources by content, and concurrent first writers are safe).
+const CACHE: &str = concat!(env!("CARGO_TARGET_TMPDIR"), "/run-tests-cache");
+
 /// Spawns `command` while holding [`SPAWN`].
 fn spawn(command: &mut Command) -> Child {
     let _guard = SPAWN.lock().unwrap_or_else(|e| e.into_inner());
@@ -50,7 +55,7 @@ fn run(path: &Path, input: &[u8]) -> Output {
 fn run_in(cwd: &Path, target: &std::ffi::OsStr, input: &[u8]) -> Output {
     let mut child = spawn(
         Command::new(env!("CARGO_BIN_EXE_stitchwort"))
-            .args(["run", "--no-cache"])
+            .args(["run", "--cache-dir", CACHE])
             .arg(target)
             .current_dir(cwd)
             .stdin(Stdio::piped())
@@ -157,7 +162,7 @@ fn the_example_session() {
 fn the_prompt_appears_before_the_program_reads() {
     let mut child = spawn(
         Command::new(env!("CARGO_BIN_EXE_stitchwort"))
-            .args(["run", "--no-cache"])
+            .args(["run", "--cache-dir", CACHE])
             .arg(example("adder.sw"))
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -282,7 +287,7 @@ fn a_write_error_is_an_error() {
         let (reader, writer) = std::io::pipe().expect("a pipe");
         drop(reader);
         Command::new(env!("CARGO_BIN_EXE_stitchwort"))
-            .args(["run", "--no-cache"])
+            .args(["run", "--cache-dir", CACHE])
             .arg(&path)
             .stdin(Stdio::null())
             .stdout(writer)
@@ -428,7 +433,7 @@ fn run_three_ways(path: &Path, input: &[u8]) -> Vec<(&'static str, String, Strin
         .into_iter()
         .map(|flag| {
             let mut command = Command::new(env!("CARGO_BIN_EXE_stitchwort"));
-            command.args(["run", "--no-cache"]);
+            command.args(["run", "--cache-dir", CACHE]);
             if !flag.is_empty() {
                 command.arg(flag);
             }
@@ -669,7 +674,7 @@ fn an_endless_partial_main_runs_until_stopped() {
     );
     let mut child = spawn(
         Command::new(env!("CARGO_BIN_EXE_stitchwort"))
-            .args(["run", "--no-cache"])
+            .args(["run", "--cache-dir", CACHE])
             .arg(&path)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
@@ -847,7 +852,7 @@ fn the_arguments_after_a_double_dash_are_the_programs() {
     );
     let run_with = |flags: &[&str], args: &[&str]| {
         let output = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
-            .args(["run", "--no-cache"])
+            .args(["run", "--cache-dir", CACHE])
             .args(flags)
             .arg(&path)
             .args(args)
@@ -887,7 +892,7 @@ fn list_builders_run_on_two_million_elements() {
     let want = "2100000\n1050000\n4200000\n4200000\n";
     let run_with = |flags: &[&str]| {
         let output = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
-            .args(["run", "--no-cache"])
+            .args(["run", "--cache-dir", CACHE])
             .args(flags)
             .arg(&path)
             .output()
