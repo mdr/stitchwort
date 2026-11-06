@@ -5619,6 +5619,20 @@ and 1.2 s in the kernel, of which `roughnessTurned` is 1.7 s and 1.0 s
 (My Python took 108 s, from a naive backtracking assembly that re-turns
 every tile at every step; it isn't a fair comparison.)
 
+**Completeness (SW-1625).** `Proofs/Complete.sw`, 150 lines, about 4
+minutes. The shape is day 6's: a heading, then lines inside sections. The rows
+(`runsRow`, `manyRunsPixels`, `eachPixels`, 40 lines in all) are the
+`many1`-of-single-characters pattern again, copied with a `pixelSymbol` in
+place of day 6's letters (`Parse.runsMany1Symbols` from SW-1624 replaces it
+once merged). `stripDifferent` (6) proves `stripPrefixChars` is `None` when
+the first character differs, for `pick`'s `WordsAbsent` and for the `Tile `
+heading at the end of the sections. `runsTile` (32) is a five-step chain ending
+in `runsLinesOf` with `LinesEnd`; `runsJigsaw` is `runsSectionsOf` with
+`declinesSectionsAtBreaks` on `T`. No friction beyond the `rewrite e` that
+the checker flagged as not needed. The spec is tight enough for uniqueness;
+the rectangle check is in the program, not the parser, so it is not part of
+`JigsawWritten`.
+
 ### Ranked
 
 1. No grid-turning library: rotate, flip, orientations, edges, crop and
