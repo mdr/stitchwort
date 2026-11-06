@@ -657,6 +657,38 @@ theorem Map.getInsertKeeps [auto ord: Ord k] (m: Map k v) (key: k) (value: v) (f
       Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym fresh) (rewrite <- equal in Map.containsOfGet m other found there)))
     | False => Eq.trans (Map.getInsertOther key value other (DecEq.soundFalse other key same) m) there
 
+--| Reading after an insert gives the new value at the key and what was there
+--| elsewhere.
+theorem Map.getOrInsert [auto ord: Ord k] (m: Map k v) (key: k) (value: v) (other: k) (fallback: v):
+    (m.insert key value).getOr other fallback = (if key == other then value else m.getOr other fallback) :=
+  match same: key == other with
+    | True => rewrite <- DecEq.sound same in (rewrite Map.getInsert key value m in rfl)
+    | False =>
+      let apart: other ≠ key := isSame => Bool.trueNotFalse (rewrite isSame, DecEq.refl key at same in same)
+      rewrite Map.getInsertOther key value other apart m in rfl
+
+--| Inserting one value at each of several keys: reading a key among them
+--| gives the value, any other key gives what the map held.
+theorem Map.getOrInsertAll [auto ord: Ord k] (value: v) (other: k) (fallback: v): (keys: List k) → (m: Map k v) →
+    (keys.foldLeft m (written key => written.insert key value)).getOr other fallback
+      = (if keys.contains other then value else m.getOr other fallback)
+  | [], m => rfl
+  | [key, ..rest], m =>
+    rewrite Map.getOrInsertAll value other fallback rest (m.insert key value), Map.getOrInsert m key value other fallback in cases
+
+--| The values add up to the same as `f` over the keys, when `f` reads the map
+--| (with 0 for a key not in it): the way to sum a map's values with a spec
+--| function over its keys.
+theorem Map.sumValuesEqSumByKeys [auto ord: Ord k] (m: Map k Nat) (f: k → Nat) (reads: (key: k) → f key = m.getOr key 0):
+    m.values.sum = m.keys.sumBy f :=
+  calc m.values.sum
+    _ = m.toList.sumBy Pair.snd := List.foldLeftMap m.toList 0 Nat.add Pair.snd
+    _ = m.toList.sumBy (entry => f entry.fst) :=
+      List.sumByCongMem m.toList Pair.snd (entry => f entry.fst)
+        (((key, value)) member =>
+          Eq.sym (Eq.trans (reads key) (rewrite (Map.memToList m key value).forward member in rfl)))
+    _ = m.keys.sumBy f := Eq.sym (List.foldLeftMap m.toList 0 (total key => total + f key) Pair.fst)
+
 --| A key `contains` finds has a value.
 theorem Map.getOfContains [auto ord: Ord k] (m: Map k v) (key: k) (there: Map.contains m key = True): Exists v (value => Map.get m key = Some value) :=
   match found: Map.get m key with

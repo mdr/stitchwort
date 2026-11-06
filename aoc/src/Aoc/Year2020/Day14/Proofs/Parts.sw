@@ -40,14 +40,14 @@ theorem writeValueAgrees: WritesAgree Computer.writeValue Spec.writeMasked :=
   computer machine address value agrees =>
     Both rfl
       (other =>
-        rewrite getOrInsert computer.memory address (computer.mask.applyTo value) other, applyToMasked computer.mask value, And.left agrees,
+        rewrite Map.getOrInsert computer.memory address (computer.mask.applyTo value) other 0, applyToMasked computer.mask value, And.left agrees,
           And.right agrees other in rfl)
 
 theorem writeDecodedAgrees: WritesAgree Computer.writeDecoded Spec.writeDecoded :=
   computer machine address value agrees =>
     Both rfl
       (other =>
-        rewrite getOrInsertAll value other (computer.mask.decode address) computer.memory, decodeContains computer.mask address other, And.left agrees,
+        rewrite Map.getOrInsertAll value other 0 (computer.mask.decode address) computer.memory, decodeContains computer.mask address other, And.left agrees,
           And.right agrees other in rfl)
 
 --| Part 1's answer is the spec's sum of memory, for any program.
