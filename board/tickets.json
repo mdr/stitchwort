@@ -9924,13 +9924,13 @@
     {
       "id": 1539,
       "title": "Std: List.All2 toolkit (compose, refl, replicate, zipWith pointwise, equal-lengths lengthZipWith) (day 16)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1539",
       "labels": [
         "std"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).",
+      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).\n\nStarted overnight on Sonnet (SW-1539 with SW-1542), expected: 45 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -9966,13 +9966,13 @@
     {
       "id": 1542,
       "title": "Std: List.distinctOfCounts, List.countZeroOfNotContains (day 16)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1539",
       "labels": [
         "std"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).",
+      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).\n\nStarted overnight on Sonnet (SW-1539 with SW-1542), expected: 45 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
