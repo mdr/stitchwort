@@ -11114,13 +11114,13 @@
     {
       "id": 1624,
       "title": "Parser completeness sweep: 2020 days 3, 4, 5, 7, 8, 9, 10, 11: each line parses, the whole input parses, the parse is unique (as SW-1612's days 2 and 6), using SW-1620's helpers",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1624",
       "labels": [
         "aoc"
       ],
-      "body": "D2497 (Matt, 6 Nov 2026): yes, the helpers (SW-1620) then the completeness sweep over the 19 days with parser soundness (2020 days 3-20 except 6, and the two 2021 days), in two or three Sonnet lanes; remove day 18's second parser. After SW-1620.\n\nStarted on Sonnet, expected: 120 min.",
+      "body": "D2497 (Matt, 6 Nov 2026): yes, the helpers (SW-1620) then the completeness sweep over the 19 days with parser soundness (2020 days 3-20 except 6, and the two 2021 days), in two or three Sonnet lanes; remove day 18's second parser. After SW-1620.\n\nStarted on Sonnet, expected: 120 min.\n\nDone, merged. Days 3, 4, 5, 7, 8, 9 (ParseComplete.sw), 10, 11: runs…, parseComplete, writtenUnique (+ inputUnique on 5, 7-10). Statements checked: InputWritten = parseWritten's conclusion, except days 3 (adds map.Rectangle, needed since checkGrid rejects ragged grids; the soundness side doesn't state it). Std: many1/exactly over one-character items (runsMany1Symbols…), declinesOneOfTwo, runsIntRead, List all2WeakenMem/findNoneOfMem/findNoneWithIndexFrom; Aoc.Common.Proofs.GridParse checkGridComplete/parseGridComplete. Audit: 0 failed; 1 vacuity warning each on day 3 answersCorrect (existing) and day 5 writtenUnique (search can't build a pass). Model result: Sonnet, worked, 15 min (est. 120).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11442,7 +11442,7 @@
       "labels": [
         "std"
       ],
-      "body": "From SW-1625, 6 Nov 2026. After SW-1624 merges.",
+      "body": "From SW-1625, 6 Nov 2026. After SW-1624 merges.\n\nSW-1624 merged: std now has runsMany1Symbols, all2WeakenMem, findNoneOfMem, findNoneWithIndexFrom and Aoc.Common checkGridComplete, so day 17's copies and days 6/19/20's many1 code can switch to them. Also: day 4's oneOf [space, newline] end-of-list lemmas → a std version generic in the separator; days 9/10 share an eachLine nat lemma if a third appears. Convention: ParseComplete.sw where Complete.sw is taken.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
