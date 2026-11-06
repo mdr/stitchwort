@@ -1,5 +1,5 @@
 {
-  "next": 1572,
+  "next": 1573,
   "tickets": [
     {
       "id": 47,
@@ -10120,13 +10120,13 @@
     {
       "id": 1553,
       "title": "A Bool != beside = in a statement is read as ≠ and the errors talk about Decidable; warn or suggest ((a != b): Bool) (day 17)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1553",
       "labels": [
         "diagnostics"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).\n\nStarted overnight on Sonnet (SW-1553 with SW-1554), expected: 40 min.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).\n\nStarted overnight on Sonnet (SW-1553 with SW-1554), expected: 40 min.\n\nDone (c0f5aadb0), merged: E-TYPE-MISMATCH gets 'Note: != here is the proposition ≠; for the Bool test write ((a != b): Bool)' (direct cases already had hints); E-RESOURCE inside a rewrite is labelled 'ran out of resources in this rewrite'. Not done: the unfolded definition's name (not recorded there); the note on E-REWRITE-MOTIVE/NOTHING. Model result: Sonnet, worked, 10 min (est. 40).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10134,13 +10134,13 @@
     {
       "id": 1554,
       "title": "E-RESOURCE 'a value was too large to show' from a rewrite: name the rewrite and the definition being unfolded (day 17)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1553",
       "labels": [
         "diagnostics"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).\n\nStarted overnight on Sonnet (SW-1553 with SW-1554), expected: 40 min.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).\n\nStarted overnight on Sonnet (SW-1553 with SW-1554), expected: 40 min.\n\nDone (c0f5aadb0), merged: E-TYPE-MISMATCH gets 'Note: != here is the proposition ≠; for the Bool test write ((a != b): Bool)' (direct cases already had hints); E-RESOURCE inside a rewrite is labelled 'ran out of resources in this rewrite'. Not done: the unfolded definition's name (not recorded there); the note on E-REWRITE-MOTIVE/NOTHING. Model result: Sonnet, worked, 10 min (est. 40).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10379,6 +10379,20 @@
         "aoc"
       ],
       "body": "D2443 (Matt): carry on further if there's time. Overnight, Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day19.\n\nStarted on Opus, expected: 120 min.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1572,
+      "title": "Rewrite messages: E-REWRITE-MOTIVE/E-REWRITE-NOTHING show Decidable.toBool for a Bool != read as ≠ (give them SW-1553's note); a rewrite that runs out of size doesn't record which definition's call was too large (SW-1554)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "From SW-1553/1554, 6 Nov 2026. Small.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
