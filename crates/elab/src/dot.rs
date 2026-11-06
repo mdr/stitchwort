@@ -884,7 +884,6 @@ fn find_in_view(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<Lo
                 // A field of a dictionary is its record's own projection, not
                 // the method of that name (docs/proposals/interfaces.md §5.1).
                 if let TyHead::Data(d) = h
-                    && cx.e.kernel.data(d).record()
                     && let Some(info) = cx.e.tables.interfaces.get(&d)
                     && let Some(i) = g.data(d).ctors()[0]
                         .fields
@@ -949,7 +948,6 @@ fn find_in_view(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<Lo
                     None => {}
                 }
                 if let TyHead::Data(d) = h
-                    && cx.e.kernel.data(d).record()
                     && g.data(d).record()
                     && g.data(d).ctors()[0]
                         .fields
@@ -969,7 +967,6 @@ fn find_in_view(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<Lo
                 // A field some constructors have, that isn't shared
                 // (docs/proposals/variant-fields.md §5.3).
                 if let TyHead::Data(d) = h
-                    && cx.e.kernel.data(d).record()
                     && !g.data(d).record()
                     && let Some((message, note)) =
                         cx.e.unshared_member(d, &field.text, &shown(recv))
