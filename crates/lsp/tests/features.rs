@@ -794,3 +794,46 @@ fn a_variable_of_an_arm_splits_into_its_types_constructors() {
         assert_eq!(new_text, "  | [] => 0\n  | [x, ..xs] => 0");
     });
 }
+
+#[test]
+fn the_outline_asked_as_the_file_opens_is_not_empty() {
+    big_stack(|| {
+        let text =
+            "namespace Demo\n\ntype Color = | Red | Green\n\ndef pick (c: Color): Nat := 1\n";
+        let memory = Arc::new(Memory::default());
+        memory.add(MemoryProject {
+            root: "/memory/proj".into(),
+            sources: vec!["src".into()],
+            files: Arc::new([("src/Demo.sw".to_string(), text.to_string())].into()),
+        });
+        let mut s = Session {
+            server: Inline::new(Options::new(STACK), memory.clone()).unwrap(),
+            next_id: 1,
+            diagnostics: Vec::new(),
+            asked: Vec::new(),
+            searcher: Arc::new(stitchwort_lsp::Searcher::new(Options::new(STACK), memory)),
+        };
+        s.request("initialize", json!({"capabilities": {}}));
+        s.notify("initialized", json!({}));
+        s.notify(
+            "textDocument/didOpen",
+            json!({"textDocument": {"uri": URI, "languageId": "stitchwort", "version": 1, "text": text}}),
+        );
+        // No tick yet: the file has not been checked.
+        let names = |symbols: &Value| -> Vec<String> {
+            symbols
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|s| s["name"].as_str().unwrap().to_string())
+                .collect()
+        };
+        let params = json!({"textDocument": {"uri": URI}});
+        let early = s.request("textDocument/documentSymbol", params.clone());
+        assert!(names(&early).contains(&"Color".to_string()), "{early}");
+        assert!(names(&early).contains(&"pick".to_string()), "{early}");
+        s.settle();
+        let late = s.request("textDocument/documentSymbol", params);
+        assert_eq!(names(&early), names(&late));
+    });
+}
