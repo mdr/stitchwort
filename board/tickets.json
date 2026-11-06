@@ -9154,13 +9154,13 @@
     {
       "id": 1484,
       "title": "Aoc.Common plane library, stage 1 of aoc-geometry.md: Plane.sw with Frame, YUp/YDown/Unoriented, Coords f, Heading, Box f, lemmas, conversions; move 2020 day 12, 2021 day 17, 2024 day 13 onto it",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1484",
       "labels": [
         "aoc"
       ],
-      "body": "From 2020 day 12 (SW-1483), 5 Nov 2026.\n\nD2456 (Matt, 6 Nov 2026): yes, a plane library in Aoc.Common: Point { x: Int, y: Int } (x right, y up), Heading (N/E/S/W, quarter turns, step), Box, lemmas, Heading.toDirection; move 2020 day 12, 2021 day 17, 2024 day 13 onto it. Started on Sonnet, expected: 90 min.\n\nD2487 (Matt, 6 Nov 2026): not decided between widening Point and a second type; instead an Opus design lane for a flexible 2D library: 'it's nice to be able to distinguish between nat and int worlds', the y-up/y-down convention question, 'a flexible library that doesn't overcommit you … the Advent of Code problems could pick what they need that fits their frame of the world'. SW-1484 waits for the note. Waits for SW-1617.\n\nD2488-D2496 (Matt, 6 Nov 2026): yes to docs/proposals/aoc-geometry.md's recommendations, with the new Int type named Coords (Coords YUp / Coords YDown / Coords Unoriented), not Vector. Days may add a local alias where it reads better (e.g. type Location = Coords YUp), 'just in case Coords YUp and Coords YDown read weirdly'. Rescoped to stage 1 of the note. Sonnet, next free slot, expected: 90 min.",
+      "body": "From 2020 day 12 (SW-1483), 5 Nov 2026.\n\nD2456 (Matt, 6 Nov 2026): yes, a plane library in Aoc.Common: Point { x: Int, y: Int } (x right, y up), Heading (N/E/S/W, quarter turns, step), Box, lemmas, Heading.toDirection; move 2020 day 12, 2021 day 17, 2024 day 13 onto it. Started on Sonnet, expected: 90 min.\n\nD2487 (Matt, 6 Nov 2026): not decided between widening Point and a second type; instead an Opus design lane for a flexible 2D library: 'it's nice to be able to distinguish between nat and int worlds', the y-up/y-down convention question, 'a flexible library that doesn't overcommit you … the Advent of Code problems could pick what they need that fits their frame of the world'. SW-1484 waits for the note. Waits for SW-1617.\n\nD2488-D2496 (Matt, 6 Nov 2026): yes to docs/proposals/aoc-geometry.md's recommendations, with the new Int type named Coords (Coords YUp / Coords YDown / Coords Unoriented), not Vector. Days may add a local alias where it reads better (e.g. type Location = Coords YUp), 'just in case Coords YUp and Coords YDown read weirdly'. Rescoped to stage 1 of the note. Sonnet, next free slot, expected: 90 min.\n\nStarted (stage 1) on Sonnet, expected: 90 min.",
       "created": "2026-11-05",
       "updated": "2026-11-06",
       "commits": []
