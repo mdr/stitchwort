@@ -9714,13 +9714,13 @@
     {
       "id": 1524,
       "title": "Completion: project names from unchecked namespaces show no type; show it from the outline when the declaration writes one; and measure importable_from_project's per-check cost on a large project (it walks every parsed file's outline)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1524",
       "labels": [
         "editor"
       ],
-      "body": "From SW-1505, 6 Nov 2026. Small.",
+      "body": "From SW-1505, 6 Nov 2026. Small.\n\nStarted overnight on Sonnet, expected: 40 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
