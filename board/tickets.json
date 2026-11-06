@@ -1,5 +1,5 @@
 {
-  "next": 1583,
+  "next": 1585,
   "tickets": [
     {
       "id": 47,
@@ -10260,13 +10260,13 @@
     {
       "id": 1563,
       "title": "Parse completeness lemmas: per combinator, good input parses (beside the soundness ones), so uniqueness proofs can use the program's own parser (day 18)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1563",
       "labels": [
         "std"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1557 (2020 day 18).\n\nStarted overnight on Sonnet, expected: 60 min.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1557 (2020 day 18).\n\nStarted overnight on Sonnet, expected: 60 min.\n\nDone (aee884925, 5a8ee799b), merged: crates/elab/src/std/Parse/Runs.sw. Parse.Runs p read rest v (from any honest state on read ++ rest, p succeeds with v leaving exactly rest), Declines (optional p gives None without reading; alternatives back up, they don't commit), ManyRuns; runs lemmas for pure, bind, map, span/literal/satisfy/char/text, nat and spaces (maximal munch side conditions), token, optional, oneOf, pick, many, chainLeft, recursive; runsRun, runsWhole. Prelude hashes: additions only. Orchestrator checked Runs/RunsFrom/Declines (D2436). Model result: Sonnet, worked, 30 min (est. 60).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10533,6 +10533,34 @@
         "tests"
       ],
       "body": "From SW-1564's Opus review, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1583,
+      "title": "Std: a Parse.Runs lemma for eachLine (converses of all2MapLeft, all2WithIndex, Result.traverseAll2, Fail.toResultMap); then day 18's Unique.sw can use the program's parser (~150-250 of 423 lines go) (SW-1563)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From SW-1563, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1584,
+      "title": "Std: Parse.Runs lemmas for many1, sepBy, sepBy1, lines, sections, repeat, natDigits, int, digit, spaces1, takeWhile1, attempt, label, all, line (SW-1563)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From SW-1563, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
