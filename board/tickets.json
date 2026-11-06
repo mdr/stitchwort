@@ -3983,15 +3983,15 @@
     {
       "id": 1120,
       "title": "Name completion on a persistent worker session (LSP and playground)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1120",
       "labels": [
         "editor"
       ],
-      "body": "Roadmap step 6. D2243 (orchestrator, delegated by Matt): in the playground, start with an approximation from the last good index; move to a persistent session after. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2263 (Matt, 3 Nov): not started yet; editor-roadmap implementation waits until the tidy-ups (state migration, std) settle.",
+      "body": "Roadmap step 6. D2243 (orchestrator, delegated by Matt): in the playground, start with an approximation from the last good index; move to a persistent session after. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2263 (Matt, 3 Nov): not started yet; editor-roadmap implementation waits until the tidy-ups (state migration, std) settle.\n\nStarted overnight on Opus (roadmap step 6; steps 1-5 done or running; orchestrator's call), expected: 150 min, in stages that each ship.",
       "created": "2026-11-03",
-      "updated": "2026-11-03",
+      "updated": "2026-11-06",
       "commits": []
     },
     {
