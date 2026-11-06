@@ -62,7 +62,7 @@ export def area (rect: Rect): List Nat := [rect.width, rect.height, rect.area]
 
 -- A constructor's field.
 type Shape =
-  | Circle (radius: Nat) (label: Text := "circle")
+  | Circle { radius: Nat, label: Text := "circle" }
   | Dot
 
 export def label: Shape → Text

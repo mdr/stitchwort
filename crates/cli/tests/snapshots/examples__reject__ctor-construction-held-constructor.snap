@@ -2,14 +2,14 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-UNKNOWN-FIELD] Error: `Ok` has no field `initial`
+[E-UNKNOWN-FIELD] Error: `MkParsed` has no field `initial`
     ╭─[ reject/ctor-construction-held-constructor.sw:10:34 ]
     │
- 10 │ def same: Bool := parsed == Ok { initial = 1, gates = 2 }
+ 10 │ def parsed: Parsed := MkParsed { initial = 1, gates = 2 }
     │                                  ───┬───  
-    │                                     ╰───── `Ok` has no field `initial`
+    │                                     ╰───── `MkParsed` has no field `initial`
     │ 
-    │ Note 1: `Ok`'s fields are `value`
+    │ Note 1: `MkParsed`'s fields are `outputs`
     │ 
-    │ Note 2: braces right after a constructor name its own fields; to build the `Outputs` it holds, write `Ok (Make { … })`
+    │ Note 2: `MkParsed` is declared with its fields in braces, so braces after it name its own fields; to build the `Outputs` it holds, write `MkParsed (Make { … })`
 ────╯

@@ -2,12 +2,12 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-PARSE] Error: braces after `Cons` name its fields, and take no further arguments
+[E-PARSE] Error: braces after `Cons` in a pattern take no further arguments
    ╭─[ reject/ctor-fields-further-argument.sw:9:23 ]
    │
  9 │   | Cons { name, .. } rest => name
    │                       ──┬─  
-   │                         ╰─── braces after `Cons` name its fields, and take no further arguments
+   │                         ╰─── braces after `Cons` in a pattern take no further arguments
    │ 
-   │ Note: to match a record as `Cons`'s first argument, write it in brackets: `Cons ({ … }) …`
+   │ Note: to match a record as `Cons`'s first argument and then more, write it in brackets: `Cons ({ … }) …`
 ───╯

@@ -22,7 +22,7 @@
 </section>
 
 <section data-slug="variant-fields" data-title="Constructors with named fields">
-  <p>A constructor's fields have names, and you can use them. <code>Circle { radius = 3, id }</code> builds one by name, in any order, and a pattern <code>Circle { radius, .. }</code> picks fields by name. When every constructor has a field of the same name and type, as <code>id</code> is here, the field works on the whole type: <code>shape.id</code> reads it and <code>{ shape | id = x }</code> changes it, whichever constructor the shape is.</p>
+  <p>Declare a constructor's fields in braces, <code>| Circle { id: Text, radius: Nat }</code>, and you can use their names. <code>Circle { radius = 3, id }</code> builds one by name, in any order, and a pattern <code>Circle { radius, .. }</code> picks fields by name. When every constructor has a field of the same name and type, as <code>id</code> is here, the field works on the whole type: <code>shape.id</code> reads it and <code>{ shape | id = x }</code> changes it, whichever constructor the shape is. A constructor declared with brackets, like <code>Some</code>, takes braces as a record argument instead: <code>Some { name = "tea", price = 3 }</code>.</p>
   <pre data-src="04-variant-fields.sw"></pre>
 </section>
 

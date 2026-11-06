@@ -2985,6 +2985,7 @@ pub(crate) mod proof_fixture {
                 .collect(),
             result: Vec::new(),
             implicit: Vec::new(),
+            braced: false,
         }
     }
 

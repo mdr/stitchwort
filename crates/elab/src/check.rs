@@ -1623,6 +1623,16 @@ fn infer_inner(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         cx.e.note_expr(cx, text.span(), &ty, false);
         return Ok((term, ty));
     }
+    if let Expr::App(..) = expr
+        && let Some(rewritten) = records::brace_arguments(cx, expr)?
+    {
+        return infer_inner(cx, &rewritten);
+    }
+    if let Expr::App(..) = expr
+        && let Some((d, c, fields)) = records::named_ctor_call(cx, expr)?
+    {
+        return crate::defaults::ctor_with_defaults(cx, d, c, &fields, None);
+    }
     // Code that performs operations, in a pure context: it may only perform
     // what it handles itself.
     if effects::may_perform(cx, expr)? {
@@ -2002,9 +2012,17 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             fields,
             ..
         } => records::infer_update(cx, base, fields),
-        Expr::CtorFields { ctor, fields, span } => {
+        Expr::CtorFields {
+            ctor, fields, span, ..
+        } => {
             match records::ctor_fields(cx, ctor, fields, *span, None)? {
                 records::Construction::Positional(positional) => infer_inner(cx, &positional),
+                records::Construction::Argument(positional, hint) => {
+                    infer_inner(cx, &positional).map_err(|e| match &hint {
+                        Some(hint) => hint.apply(e),
+                        None => e,
+                    })
+                }
                 records::Construction::Defaults(d, c) => {
                     crate::defaults::ctor_with_defaults(cx, d, c, fields, None)
                 }
@@ -4032,6 +4050,16 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         cx.e.note_expr(cx, text.span(), expected, true);
         return Ok(term);
     }
+    if let Expr::App(..) = expr
+        && let Some(rewritten) = records::brace_arguments(cx, expr)?
+    {
+        return check_inner(cx, &rewritten, expected);
+    }
+    if let Expr::App(..) = expr
+        && let Some((d, c, fields)) = records::named_ctor_call(cx, expr)?
+    {
+        return Ok(crate::defaults::ctor_with_defaults(cx, d, c, &fields, Some(expected))?.0);
+    }
     let g = cx.g();
     let named = expected;
     let expected = force(&g, expected.clone())?;
@@ -4560,10 +4588,21 @@ pub(crate) fn check_value(
         (Expr::Record { base, fields, .. }, _) => {
             records::check_record(cx, base.as_deref(), fields, &expected)
         }
-        (Expr::CtorFields { ctor, fields, span }, _) => {
+        (
+            Expr::CtorFields {
+                ctor, fields, span, ..
+            },
+            _,
+        ) => {
             match records::ctor_fields(cx, ctor, fields, *span, Some(&expected))? {
                 records::Construction::Positional(positional) => {
                     check_inner(cx, &positional, &expected)
+                }
+                records::Construction::Argument(positional, hint) => {
+                    check_inner(cx, &positional, &expected).map_err(|e| match &hint {
+                        Some(hint) => hint.apply(e),
+                        None => e,
+                    })
                 }
                 records::Construction::Defaults(d, c) => {
                     Ok(crate::defaults::ctor_with_defaults(cx, d, c, fields, Some(&expected))?.0)

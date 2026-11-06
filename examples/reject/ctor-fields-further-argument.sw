@@ -1,6 +1,6 @@
 -- expect-error: E-PARSE
--- Braces after a constructor name its fields and take no further
--- arguments: a record as its first argument is written `Cons ({ … }) rest`.
+-- Braces after a constructor in a pattern take no further arguments: a
+-- record as its first argument, and more after it, is written `Cons ({ … }) rest`.
 
 type Person = { name: Text, age: Nat }
 

@@ -4,6 +4,6 @@
 
 type Vec (a: Type): Nat → Type =
   | VNil: Vec a 0
-  | VCons [n: Nat] (x: a) (xs: Vec a n): Vec a (Succ n)
+  | VCons [n: Nat] { x: a, xs: Vec a n }: Vec a (Succ n)
 
 def one: Vec Nat 1 := VCons { n = 0, x = 1, xs = VNil }

@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: `Circle` has fields in brackets already; declare all of its explicit fields in brackets or all in braces
+   ╭─[ reject/ctor-braces-mixed-declaration.sw:4:34 ]
+   │
+ 4 │ type Shape = | Circle (id: Text) { radius: Nat }
+   │                                  ┬  
+   │                                  ╰── `Circle` has fields in brackets already; declare all of its explicit fields in brackets or all in braces
+───╯

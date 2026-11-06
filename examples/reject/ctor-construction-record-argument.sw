@@ -1,8 +1,10 @@
 -- expect-error: E-UNKNOWN-FIELD
--- Braces right after a constructor name its fields, even when its one field
--- holds a record: the record argument is `Some ({ … })`, or by field,
--- `Some { value = { … } }`.
+-- Braces right after a constructor declared with its fields in braces name
+-- its fields, even when its one field holds a record: the record argument is
+-- `Tea ({ … })`, or by field, `Tea { item = { … } }`.
 
 type Item = { name: Text, price: Nat }
 
-def tea: Option Item := Some { name = "tea", price = 3 }
+type Order = | Tea { item: Item }
+
+def tea: Order := Tea { name = "tea", price = 3 }

@@ -1606,6 +1606,7 @@ impl Elaborator {
                 for r in &ctor.result {
                     e.term(r);
                 }
+                e.w.bool(ctor.braced);
             }
             e.w.bool(data.record());
             e.w.usize(data.group().len());
@@ -1964,6 +1965,7 @@ struct CtorEntry {
     field_erased: Vec<bool>,
     implicit: Vec<bool>,
     result: Vec<Term>,
+    braced: bool,
 }
 
 /// A data type, read.
@@ -2403,6 +2405,7 @@ impl Elaborator {
                 let field_erased = body.bools()?;
                 let m = body.count()?;
                 let result = (0..m).map(|_| body.term()).collect::<Read<_>>()?;
+                let braced = body.r.bool()?;
                 ctors.push(CtorEntry {
                     name,
                     fields,
@@ -2410,6 +2413,7 @@ impl Elaborator {
                     field_erased,
                     implicit,
                     result,
+                    braced,
                 });
             }
             datas.push(DataEntry {
@@ -2749,6 +2753,7 @@ impl Elaborator {
                                         field_erased: c.field_erased.clone(),
                                         result: c.result.clone(),
                                         implicit: c.implicit.clone(),
+                                        braced: c.braced,
                                     })
                                     .collect();
                                 (DataId(base_datas + m), ctors)

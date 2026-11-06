@@ -168,22 +168,10 @@ Use an `Option` field when a value can really be missing.
 
 ### Constructors with named fields
 
-A constructor's fields can be given by name too, and can have defaults. `Meeting { … }` builds a `Meeting` from named fields, and the pattern `Meeting { minutes, .. }` reads them:
+A constructor can be declared with its fields in braces instead of brackets, and then it is built and matched by field name. The fields can have defaults. `Meeting { … }` builds a `Meeting` from named fields, in any order, and the pattern `Meeting { minutes, .. }` reads them:
 
 <!-- snippet: data.sw#named-construction -->
 ```stitchwort
-type Event =
-  | Meeting (title: Text) (minutes: Nat := 30) (room: Text)
-  | Reminder (title: Text)
-
-def standup: Event := Meeting { title = "Standup", room = "Blue" }
-def review: Event := Meeting { title = "Review", minutes = 60, room = "Red" }
-
-def Event.length: Event → Nat
-  | Meeting { minutes, .. } => minutes
-  | Reminder _ => 0
-
-test "default minutes" := standup.length == 30
 ```
 
 When every constructor of a type has a field with the same name and type, it is a **shared field**: you can read it and update it without matching first. `title` is shared by both kinds of `Event`, `minutes` isn't:
@@ -197,33 +185,25 @@ def retitled: Event := { standup | title = "Daily" }
 test "shared-field update" := retitled.title == "Daily" ∧ retitled.length == 30
 ```
 
-### A common mistake: braces after a constructor
+### Braces after a constructor
 
-Braces right after a constructor always name *that constructor's* fields. To put a record inside a constructor, bracket it:
+The way a constructor is declared decides what braces after it mean. A constructor declared with brackets, like `Some (value: a)` and most of your own, takes braces as an ordinary record argument, as a function does, in expressions and in patterns:
+
+<!-- snippet: data.sw#braces-argument -->
+```stitchwort
+```
+
+One declared with braces, like `Meeting` above, takes braces as its own fields. So a record that you want to give such a constructor goes in brackets, `Guest ({ name = "Ada", age = 36 })`, or is given by its field, `Guest { person = { name = "Ada", age = 36 }, seat = 1 }`; the error says so:
 
 <!-- snippet: errors/constructor-braces.sw -->
 ```stitchwort
-type Person = { name: Text, age: Nat }
-
-def found: Option Person := Some { name = "Ada", age = 36 }
 ```
 
 <!-- output: check errors/constructor-braces.sw -->
 ```text
-[E-UNKNOWN-FIELD] Error: `Some` has no field `name`
-   ╭─[ errors/constructor-braces.sw:3:36 ]
-   │
- 3 │ def found: Option Person := Some { name = "Ada", age = 36 }
-   │                                    ──┬─
-   │                                      ╰─── `Some` has no field `name`
-   │
-   │ Note 1: `Some`'s fields are `value`
-   │
-   │ Note 2: braces right after a constructor name its own fields; to build the `Person` it holds, write `Some ({ … })`
-───╯
 ```
 
-The second note says what to write: `Some ({ name = "Ada", age = 36 })`.
+Naming a bracket-declared constructor's fields works with named arguments instead, `Circle (id := "a") (radius := 1)`, which also fill the defaults of fields left out.
 
 ## Patterns
 
