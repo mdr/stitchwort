@@ -12533,14 +12533,14 @@
     {
       "id": 1667,
       "title": "Record eta stage 1b: glued calls whose spine may end in projections (~64 Value::Call sites plus omega/auto/ring call_args users), on lane/SW-1642; then std and rogue pass, snapshots, profile rule 2 (D2509)",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1642",
       "labels": [
         "kernel"
       ],
       "epic": "record-eta",
-      "body": "D2509-D2511 (Matt, 6 Nov 2026): all as recommended: next an Opus lane on lane/SW-1642 building glued calls whose spine may end in projections (about half a day), before the unifier and Pair stages; for now eta only for types declared as records (departs from D2499 until stage 3); rule 2 fires on unknowns and the unifier compares two records first when both sides end in the same projection. Opus, expected: 240 min; an Opus review follows.\n\nStarted 14:35 by resuming SW-1642's lane (same context and branch).\n\nLane progress (be69745c3, 8943bf9fe, c91991954 on lane/SW-1642): fields of glued calls stay calls (project_call, Frame::CallField); std's own test, roguelike Rules.sw:51 and 2021 day 13 pass; cost roguelike +2.2%, days −5%. Blocked: trip-journal example project fails (rule 2 computes under binders, unfolded quote hits 'too large to show'); a_namespace_checked_alone_has_the_same_hashes likely the same. Waiting on D2514 (how to bound unfolded readback). 2 h 15 min of est. 4 h.\n\nD2514 (Matt, 6 Nov 2026): as recommended: bound unfolded readback by making the elaborator's searches look at goals as written, starting with a short design note on Opus that revisits D484; accessor types read back as written too. Not started yet.\n\nDecided by the orchestrator (Matt, 6 Nov 2026 ~23:00: 'you need to make your best choices on those'): D2551 yes, the general rule 'a definition with a native implementation keeps its record patterns stuck on unknowns' (today only Float.add), on lane/SW-1642. D2552 yes, SW-1667 resumes ahead of bounded-readback stages 1-6b (amends D2545; those stages stay for main). D2553 yes, no per-definition 'stays folded' marker until a second definition needs one. Why: SW-1744 traced the blowup to one cause, the prototype removes every failure stage 0a found, std and the pinned Float hashes check, and on main it changes nothing. Whole-AoC and roguelike checks on the branch still need Matt's OK before SW-1667 merges.",
+      "body": "D2509-D2511 (Matt, 6 Nov 2026): all as recommended: next an Opus lane on lane/SW-1642 building glued calls whose spine may end in projections (about half a day), before the unifier and Pair stages; for now eta only for types declared as records (departs from D2499 until stage 3); rule 2 fires on unknowns and the unifier compares two records first when both sides end in the same projection. Opus, expected: 240 min; an Opus review follows.\n\nStarted 14:35 by resuming SW-1642's lane (same context and branch).\n\nLane progress (be69745c3, 8943bf9fe, c91991954 on lane/SW-1642): fields of glued calls stay calls (project_call, Frame::CallField); std's own test, roguelike Rules.sw:51 and 2021 day 13 pass; cost roguelike +2.2%, days −5%. Blocked: trip-journal example project fails (rule 2 computes under binders, unfolded quote hits 'too large to show'); a_namespace_checked_alone_has_the_same_hashes likely the same. Waiting on D2514 (how to bound unfolded readback). 2 h 15 min of est. 4 h.\n\nD2514 (Matt, 6 Nov 2026): as recommended: bound unfolded readback by making the elaborator's searches look at goals as written, starting with a short design note on Opus that revisits D484; accessor types read back as written too. Not started yet.\n\nDecided by the orchestrator (Matt, 6 Nov 2026 ~23:00: 'you need to make your best choices on those'): D2551 yes, the general rule 'a definition with a native implementation keeps its record patterns stuck on unknowns' (today only Float.add), on lane/SW-1642. D2552 yes, SW-1667 resumes ahead of bounded-readback stages 1-6b (amends D2545; those stages stay for main). D2553 yes, no per-definition 'stays folded' marker until a second definition needs one. Why: SW-1744 traced the blowup to one cause, the prototype removes every failure stage 0a found, std and the pinned Float hashes check, and on main it changes nothing. Whole-AoC and roguelike checks on the branch still need Matt's OK before SW-1667 merges.\n\nResumed 23:00 6 Nov on Opus with the SW-1744 hold, expected: 2 h.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -13820,9 +13820,9 @@
     {
       "id": 1753,
       "title": "[Opus] Design: test check caches that survive a compiler change without hiding failures (SW-1745); note first, build if clear",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1753",
       "labels": [
         "perf"
       ],

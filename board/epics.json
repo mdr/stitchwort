@@ -38,13 +38,15 @@
       "id": "record-eta",
       "title": "Record eta",
       "goal": "A record equals the record built from its own fields, without a hand-written lemma, so proofs about records stop needing T.ext.",
-      "status": "paused",
+      "status": "active",
       "done": [
         "Design note and decisions (D2498-D2505)",
         "Kernel primitive projections, eta rules 1 and 2, with accept and must-reject tests (SW-1642, on lane/SW-1642)",
         "Fields of glued calls stay calls; std, roguelike and 2021 day 13 pass at about +2% cost (SW-1667, on lane/SW-1642)"
       ],
-      "now": [],
+      "now": [
+        "SW-1667 resumed with the Float.add hold"
+      ],
       "next": [
         "Resume SW-1667 with the Float.add hold (D2551, D2552)"
       ],
@@ -458,7 +460,8 @@
         "Daily tier in one run again, 27.9 min, no memory kills; test time 11,295 → 11,111 s (D2546)"
       ],
       "now": [
-        "The two slowest single tests: AoC answers and the playground AoC test (SW-1732, SW-1733)"
+        "Merge tier profile (SW-1751)",
+        "Caches that survive a compiler change: design (SW-1753)"
       ],
       "next": [
         "Merge tier profile (SW-1751); affected-test selection (SW-1752)",
