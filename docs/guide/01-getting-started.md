@@ -147,7 +147,7 @@ Put the cursor on a `?` and a panel under the editor shows the goal there: what 
 `editors/vscode/` is a VS Code extension: syntax colouring, and a client for `stitchwort lsp`. Install it with `./editors/vscode/install.sh`, and make sure `stitchwort` is on your `PATH` (or set `stitchwort.path`). The language server gives:
 
 - errors and warnings as you type, for single files and whole projects;
-- hover: a name's type, full name and doc comment, or the type of the selected expression;
+- hover: a name's type, full name and doc comment, a `?`'s goal, or (in VS Code, with a selection) the type of the selected expression;
 - go to definition and find references, including into the standard library, whose files open read-only; an `include "path"` string is a link that opens the included file;
 - the outline and workspace symbols;
 - completion of parameter names after `(` or `[` in a call (`clampTo (` offers `low`, `high` and `value`);

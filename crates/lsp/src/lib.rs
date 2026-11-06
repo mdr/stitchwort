@@ -2789,9 +2789,9 @@ fn diagnostic(
         message.push('\n');
         message.push_str(first);
     }
-    for note in &d.notes {
-        message.push_str("\nNote: ");
-        message.push_str(note);
+    for note in pos::note_lines(&d.notes) {
+        message.push('\n');
+        message.push_str(&note);
     }
     let related: Vec<DiagnosticRelatedInformation> = d
         .labels

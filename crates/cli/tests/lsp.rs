@@ -749,7 +749,7 @@ fn a_looping_test_never_runs() {
 }
 
 /// A false theorem's error carries the counterexample the search found, as
-/// `Note:` lines of the diagnostic's message (D1158).
+/// numbered `Note N:` lines of the diagnostic's message (D1158).
 #[test]
 fn a_false_theorem_gets_a_counterexample_note() {
     let dir = temp_dir("counterexample");
@@ -763,7 +763,29 @@ fn a_false_theorem_gets_a_counterexample_note() {
     assert_eq!(codes(&found), ["E-REFL"], "{found:?}");
     let message = found[0]["message"].as_str().unwrap();
     assert!(
-        message.contains("Note: this statement is false; a counterexample:\n  a = 0\n  b = 1"),
+        message.contains("Note 2: this statement is false; a counterexample:\n  a = 0\n  b = 1"),
+        "{message}"
+    );
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Several notes are numbered as on the command line (`Note 1:`, `Note 2:`),
+/// so "see note 3" in a message matches what the editor shows (SW-1676).
+#[test]
+fn several_notes_are_numbered_like_the_command_line() {
+    let dir = temp_dir("numbered-notes");
+    let file = dir.join("notes.sw");
+    let text = "def f (a: Nat) (b: Nat): List Nat := [a, b, 1]\n\ntheorem g (a: Nat) (b: Nat): f a b = [a, b, 2] := rfl\n";
+    std::fs::write(&file, text).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, text);
+    let found = client.diagnostics(&uri, 1);
+    assert_eq!(codes(&found), ["E-REFL"], "{found:?}");
+    let message = found[0]["message"].as_str().unwrap();
+    assert!(
+        message.contains("\nNote 1: ") && message.contains("\nNote 2: "),
         "{message}"
     );
     client.shutdown();
@@ -2134,6 +2156,14 @@ fn an_open_goal_is_an_information_diagnostic() {
             && message.contains("n: Nat")
             && message.contains("\u{22a2} double n = n + n"),
         "{message}"
+    );
+
+    // Hovering the `?` shows the same goal.
+    let hover = client.at("textDocument/hover", &uri, 2, 44);
+    let shown = hover["contents"]["value"].as_str().unwrap_or_default();
+    assert!(
+        shown.contains("n: Nat") && shown.contains("\u{22a2} double n = n + n"),
+        "{hover}"
     );
 
     // The proof written: the goal is gone.
