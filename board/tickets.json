@@ -1,5 +1,5 @@
 {
-  "next": 1649,
+  "next": 1650,
   "tickets": [
     {
       "id": 47,
@@ -11142,13 +11142,13 @@
     {
       "id": 1626,
       "title": "Parser completeness sweep: 2020 day 18 (and drop its 370-line second parser for uniqueness) and the two 2021 days with parser soundness: each line parses, the whole input parses, the parse is unique (as SW-1612's days 2 and 6), using SW-1620's helpers",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1626",
       "labels": [
         "aoc"
       ],
-      "body": "D2497 (Matt, 6 Nov 2026): yes, the helpers (SW-1620) then the completeness sweep over the 19 days with parser soundness (2020 days 3-20 except 6, and the two 2021 days), in two or three Sonnet lanes; remove day 18's second parser. After SW-1620.\n\nStarted on Sonnet, expected: 90 min.",
+      "body": "D2497 (Matt, 6 Nov 2026): yes, the helpers (SW-1620) then the completeness sweep over the 19 days with parser soundness (2020 days 3-20 except 6, and the two 2021 days), in two or three Sonnet lanes; remove day 18's second parser. After SW-1620.\n\nStarted on Sonnet, expected: 90 min.\n\nDone, merged. Day 18's second parser was already gone (SW-1583); Unique.sw → Complete.sw, meansUnique → writtenUnique (statement kept), new parseComplete: converse of parseMeans, needing Exact (levels list the operators exactly) rather than Ranked. 2021: only days 10 and 16 have parser soundness; both now have parseComplete (statements checked: hypotheses = parseReadsLines' conclusion; transmissionBits = Some bits) and writtenUnique. Audit 0 new warnings. Model result: Sonnet, worked, 10 min (est. 90).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11457,6 +11457,20 @@
         "elab"
       ],
       "body": "From SW-1625, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1649,
+      "title": "Parser soundness for the 2021 days whose Parse.sw proves only properties of the value (days 5, 6, 8, 9, 11-15, 17, 18); days 9, 11, 15 share a grid parser, so one lemma could serve three (SW-1626)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "From SW-1626, 6 Nov 2026. Optional.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
