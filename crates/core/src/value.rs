@@ -3138,8 +3138,12 @@ impl<K> Default for ShapeMemo<K> {
 
 impl<K: std::hash::Hash + Eq> ShapeMemo<K> {
     /// Where `a` against `b` is filed under `key`: hashes both, a budget
-    /// step per part not hashed before.
+    /// step per part not hashed before. With the shortcuts off nothing is
+    /// hashed, as nothing is filed (see [`ShapeMemo::insert`]).
     pub fn file(&mut self, g: &Ev, key: K, a: &Value, b: &Value) -> Result<ShapeKey<K>> {
+        if shortcuts_disabled() {
+            return Ok((key, 0, 0));
+        }
         let ha = shape_hash(g, &mut self.shapes, a)?;
         let hb = shape_hash(g, &mut self.shapes, b)?;
         Ok((key, ha, hb))
@@ -3155,8 +3159,15 @@ impl<K: std::hash::Hash + Eq> ShapeMemo<K> {
             })
     }
 
-    /// Files `a` against `b` at `at`.
+    /// Files `a` against `b` at `at`. With the shortcuts off this keeps
+    /// nothing, as [`TreeMemo`] keeps nothing: the memo is never consulted
+    /// then, and a comparison it would have cut short (about 2ⁿ pairs for
+    /// `n` nested calls) would otherwise keep every pair, and every value
+    /// hashed, until it ends.
     pub fn insert(&mut self, at: ShapeKey<K>, a: &Value, b: &Value) {
+        if shortcuts_disabled() {
+            return;
+        }
         self.pairs
             .entry(at)
             .or_default()
@@ -3457,8 +3468,10 @@ thread_local! {
 /// Turns the identical-closure shortcut of [`conv`] (and of the elaborator's
 /// unification), and the record of pairs of calls found equal
 /// ([`same_stuck_trees`]), and the kernel's comparison of two glued calls
-/// by their arguments first ([`CallMemo`]), off, or back on, on this
-/// thread: for tests comparing the verdicts with and without them.
+/// by their arguments first ([`CallMemo`]), and the records of a
+/// [`ShapeMemo`] (the elaborator's pairs of calls found different), off,
+/// or back on, on this thread: for tests comparing the verdicts with and
+/// without them.
 #[cfg(any(test, feature = "reference"))]
 pub fn set_shortcuts_disabled(disabled: bool) {
     SHORTCUTS_OFF.with(|s| s.set(disabled));
