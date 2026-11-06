@@ -1,5 +1,5 @@
 {
-  "next": 1538,
+  "next": 1547,
   "tickets": [
     {
       "id": 47,
@@ -9868,13 +9868,13 @@
     {
       "id": 1535,
       "title": "AoC 2020 day 16 (Ticket Translation): spec, efficient solution, proofs, tests, friction notes in aoc/NOTES-2020.md",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1535",
       "labels": [
         "aoc"
       ],
-      "body": "D2443 (Matt): carry on further if there's time. Overnight, Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day16.\n\nStarted on Opus, expected: 120 min.",
+      "body": "D2443 (Matt): carry on further if there's time. Overnight, Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day16.\n\nStarted on Opus, expected: 120 min.\n\nDone (b25df3921, 0fceaccf6), merged: 21071 and 3429967441937 (0.5 s). Part 1 exact; part 2: if the elimination finds an order, it satisfies Spec.FieldOrder and every FieldOrder equals it (answer unique). Not proved: elimination succeeds whenever exactly one order fits. Orchestrator checked the spec (D2436). Audit 75: 1 warning (generated eliminate equation, SW-1261). Model result: Opus, worked, 38 min (est. 120).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -9903,6 +9903,132 @@
         "elab"
       ],
       "body": "From SW-1534, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1538,
+      "title": "A helper lemma about a variable doesn't fit inside a match on one of its fields (arm goal refined, lemma type not); refine terms in the arm, or accept the match equation where rfl is expected; the error's '_' hint doesn't apply (day 16)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1539,
+      "title": "Std: List.All2 toolkit (compose, refl, replicate, zipWith pointwise, equal-lengths lengthZipWith) (day 16)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1540,
+      "title": "Aoc.Common: move day 16's settle/eliminate with validity and uniqueness theorems, generic over DecEq, for 2020 day 21",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1541,
+      "title": "A Prop-returning method after ∧ inside a lambda is reported as 'a type of data, not a proposition' (day 16, 7-line repro in its notes)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1542,
+      "title": "Std: List.distinctOfCounts, List.countZeroOfNotContains (day 16)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1543,
+      "title": "readsMap over { field = p() |> f } fails inside Parse.nat even with implicits named (day 16)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "> f } fails inside Parse.nat even with implicits named (day 16)|elab"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1544,
+      "title": "Messages: rewrite Nat.oneMul asks for implicit arguments when the missing one is explicit; Nat.succInjective's m and n should be implicit (D2422) (day 16)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1545,
+      "title": "Warn when a lambda parameter hides a local the body uses, not only a function (day 16)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1546,
+      "title": "Proving guide: the rewrite h at h in h idiom for bringing a lemma into a refined goal's form (day 16)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
