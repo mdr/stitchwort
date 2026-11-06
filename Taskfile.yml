@@ -173,7 +173,7 @@ tasks:
     desc: Merge tier, under 90 s on a 10-core M1 Pro; run after every merge
     summary: |
       A broad smoke test: the feature sets, rustfmt, the parser and kernel,
-      a sample of the accepted and rejected examples, half the AoC days'
+      a sample of the accepted and rejected examples, 14 of the AoC days'
       answers, a quarter of the examples' hash snapshots, and more (the
       `merge` profile in .config/nextest.toml). Clippy is in the daily tier.
     env:

@@ -237,6 +237,75 @@ pub fn test_std_cache_dir(stack: usize) -> std::path::PathBuf {
         .join(stack.to_string())
 }
 
+/// Lets one process at a time load the library into an empty test std cache.
+///
+/// After a compiler change every test process finds the cache empty and would
+/// check the whole library itself, all at once (a sweep's eight workers
+/// included): ten times the work, on the cores that the other tests need.
+/// The first process takes an advisory lock beside the cache directory and
+/// loads; the others wait for it, then replay what it wrote. A marker beside
+/// the cache, holding the build's fingerprint, tells later processes (and
+/// the holder's own next sessions) that the cache is full, so replays don't
+/// queue for the lock.
+struct TestCacheTurn {
+    file: Option<std::fs::File>,
+    marker: std::path::PathBuf,
+}
+
+impl TestCacheTurn {
+    fn take(cache_dir: &std::path::Path) -> Self {
+        let marker = cache_dir.with_extension("done");
+        let none = |marker| TestCacheTurn { file: None, marker };
+        let full = |marker: &std::path::Path| {
+            std::fs::read_to_string(marker).is_ok_and(|text| text == FINGERPRINT)
+        };
+        if full(&marker) {
+            return none(marker);
+        }
+        let lock = cache_dir.with_extension("lock");
+        let file = lock
+            .parent()
+            .and_then(|parent| std::fs::create_dir_all(parent).ok())
+            .and_then(|()| {
+                std::fs::OpenOptions::new()
+                    .create(true)
+                    .write(true)
+                    .truncate(false)
+                    .open(&lock)
+                    .ok()
+            });
+        let Some(file) = file else {
+            return none(marker);
+        };
+        if file.lock().is_err() {
+            return none(marker);
+        }
+        if full(&marker) {
+            let _ = file.unlock();
+            return none(marker);
+        }
+        TestCacheTurn {
+            file: Some(file),
+            marker,
+        }
+    }
+
+    /// The library loaded through the cache: it is full.
+    fn finish(&self) {
+        if self.file.is_some() {
+            let _ = std::fs::write(&self.marker, FINGERPRINT);
+        }
+    }
+}
+
+impl Drop for TestCacheTurn {
+    fn drop(&mut self) {
+        if let Some(file) = &self.file {
+            let _ = file.unlock();
+        }
+    }
+}
+
 impl Session {
     /// A session for a thread with `stack` bytes of stack.
     pub fn for_stack(stack: usize) -> Self {
@@ -506,12 +575,20 @@ impl Session {
                 crate::check_cache::CheckCache::with_grace(&dir, TEST_STD_CACHE_GRACE),
             ));
         }
+        // One process checks the library into an empty test cache at a time
+        // (see `TestCacheTurn`); with the cache empty after a compiler change,
+        // every test in every process would otherwise check it at once.
+        let _turn = (eager && matches!(std_cache, StdCache::Test))
+            .then(|| TestCacheTurn::take(&test_std_cache_dir(session.elab.options.limits.stack)));
         if eager && let Err(diagnostics) = session.elab.load_all_libraries() {
             return Err(report(
                 &session.sources,
                 "the standard library doesn't check",
                 &diagnostics,
             ));
+        }
+        if let Some(turn) = &_turn {
+            turn.finish();
         }
         Ok(session)
     }

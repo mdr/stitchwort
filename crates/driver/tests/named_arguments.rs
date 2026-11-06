@@ -17,6 +17,9 @@
 //! `named_forms_have_the_positional_hash` checks pairs written both ways in
 //! one file: method sections, dot notation, pipes and constructors.
 //!
+//! Every file in the daily and full tiers, a quarter of them (`tier_sample`)
+//! in the merge tier.
+//!
 //! `NAMED_ARGUMENTS=<text>` limits the differential test to the files whose
 //! name contains it.
 
@@ -25,7 +28,7 @@ use std::path::Path;
 
 use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
 use stitchwort_core::{DataId, DefId, Icit, Term};
-use stitchwort_driver::driver::{Session, par_map_with, with_session, with_stack};
+use stitchwort_driver::driver::{Session, par_map_with, tier_sample, with_session, with_stack};
 use stitchwort_driver::rewind::Mark;
 use stitchwort_syntax::ast::{Clause, Decl, Expr, Pattern};
 use stitchwort_syntax::{SourceMap, Span, parse_module};
@@ -469,6 +472,7 @@ fn named_calls_keep_every_hash() {
         .filter(|p| p.file_name().unwrap().to_string_lossy().contains(&filter))
         .collect();
     files.sort();
+    let files = tier_sample(files, 1);
     let results = par_map_with(STACK, &files, eager_worker, |(session, mark), path| {
         let name = path.display().to_string();
         let text = std::fs::read_to_string(path).unwrap();
