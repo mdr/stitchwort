@@ -482,3 +482,54 @@ fn tells_apart_terms_that_differ_only_in_implicit_arguments() {
     let found = difference(&p, &["x"], &a, &b).expect("a difference");
     assert_eq!((found.left.as_str(), found.right.as_str()), ("x", "x + 1"));
 }
+
+/// A call of `Tree.size` shows as a dot call when the receiver can be
+/// written before a dot, and as a plain call when a bare global name would
+/// read as a path (`Tip.size`, SW-1696).
+#[test]
+fn dot_calls_keep_the_call_form_for_a_bare_global_receiver() {
+    let mut p = Prelude::new();
+    let tree = data(&mut p.g, "Tree", vec![], Sort::Type(0));
+    stitchwort_core::check::define_ctors(
+        &mut p.g,
+        tree,
+        vec![
+            ctor("Tip", vec![]),
+            ctor(
+                "Bin",
+                vec![
+                    ("left", Term::Data(tree, vec![])),
+                    ("right", Term::Data(tree, vec![])),
+                ],
+            ),
+        ],
+    )
+    .expect("Tree");
+    let tree_ty = Term::Data(tree, vec![]);
+    let size = define(
+        &mut p.g,
+        "Tree.size",
+        arrow(tree_ty.clone(), tree_ty.clone()),
+        lam("t", v(0)),
+    )
+    .unwrap();
+    let origin = define(
+        &mut p.g,
+        "origin",
+        tree_ty.clone(),
+        Term::Ctor(tree, 0, vec![]),
+    )
+    .unwrap();
+    let call = |receiver: Term| app(Term::Def(size), [receiver]);
+    let tip = || Term::Ctor(tree, 0, vec![]);
+
+    // A bare constructor: `Tip.size` would be a name path.
+    assert_eq!(show(&p, &[], &call(tip())), "Tree.size Tip");
+    // A bare constant, likewise.
+    assert_eq!(show(&p, &[], &call(Term::Def(origin))), "Tree.size origin");
+    // A constructor with arguments is bracketed, so it reads as a call.
+    let bin = Term::ctor(tree, 1, vec![tip(), tip()]);
+    assert_eq!(show(&p, &[], &call(bin)), "(Bin Tip Tip).size");
+    // A local variable is a fine receiver.
+    assert_eq!(show(&p, &["t"], &call(v(0))), "t.size");
+}

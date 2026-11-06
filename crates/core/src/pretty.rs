@@ -2201,7 +2201,8 @@ impl<'g> Printer<'g> {
     /// total`. Not for a partial call (`Coupon.apply coupon` stays a call,
     /// as the dot form would read as a different function), nor in ASCII
     /// text, nor when the receiver can't be written before a dot (an
-    /// anonymous `x✝`, a number, an elided part).
+    /// anonymous `x✝`, a number, an elided part, or a bare global name,
+    /// which would read as a path).
     fn dot_call(&self, names: &mut Vec<Name>, id: DefId, args: &[&Term]) -> Option<(String, Prec)> {
         if self.ascii.get() {
             return None;
@@ -2232,19 +2233,20 @@ impl<'g> Printer<'g> {
             return None;
         }
         let (receiver, rest) = args.split_first()?;
-        let mut text = self.print(names, receiver, Prec::Atom);
+        let text = self.print(names, receiver, Prec::Atom);
         // A number reads better as an argument, `Nat.pow 10 k`, than as
         // `(10).pow k`; an elided receiver is no receiver to read.
         if text.contains('✝') || text == "…" || text.starts_with(|c: char| c.is_ascii_digit()) {
             return None;
         }
-        // `(Main.shopping).total`, not the name `Main.shopping.total`.
-        let global = matches!(
+        // `Tip.size` and `Main.shopping.total` read as name paths, and
+        // `(Tip).size` looks odd, so a bare global stays a plain call.
+        if matches!(
             receiver.strip_loc(),
             Term::Def(_) | Term::Data(..) | Term::Ctor(..)
-        );
-        if global && text.contains('.') {
-            text = format!("({text})");
+        ) && !text.contains([' ', '(', '[', '{'])
+        {
+            return None;
         }
         Some(self.applied(names, format!("{text}.{last}"), rest.iter().copied()))
     }
