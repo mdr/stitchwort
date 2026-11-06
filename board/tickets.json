@@ -11436,13 +11436,13 @@
     {
       "id": 1647,
       "title": "Dedupe the completeness proofs after SW-1624: day 17's copies of day 3's checkGridComplete/findNoneOfMem/findNoneWithIndexFrom/all2WeakenMem; many1-of-symbols (days 6, 17, 19, 20) → a std runsMany1Symbols; noDigits/declinesComma/runsNumber (days 13, 15, 16) → std CannotStart isDigit lemmas; day 14's eachSteps to std (SW-1625)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1647",
       "labels": [
         "std"
       ],
-      "body": "From SW-1625, 6 Nov 2026. After SW-1624 merges.\n\nSW-1624 merged: std now has runsMany1Symbols, all2WeakenMem, findNoneOfMem, findNoneWithIndexFrom and Aoc.Common checkGridComplete, so day 17's copies and days 6/19/20's many1 code can switch to them. Also: day 4's oneOf [space, newline] end-of-list lemmas → a std version generic in the separator; days 9/10 share an eachLine nat lemma if a third appears. Convention: ParseComplete.sw where Complete.sw is taken.",
+      "body": "From SW-1625, 6 Nov 2026. After SW-1624 merges.\n\nSW-1624 merged: std now has runsMany1Symbols, all2WeakenMem, findNoneOfMem, findNoneWithIndexFrom and Aoc.Common checkGridComplete, so day 17's copies and days 6/19/20's many1 code can switch to them. Also: day 4's oneOf [space, newline] end-of-list lemmas → a std version generic in the separator; days 9/10 share an eachLine nat lemma if a third appears. Convention: ParseComplete.sw where Complete.sw is taken.\n\nStarted on Sonnet (with SW-1646's day 16 helper), expected: 60 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
