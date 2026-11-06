@@ -9826,13 +9826,13 @@
     {
       "id": 1532,
       "title": "ring.rs:1281 has the same 'quoted goal means' final check as omega had (SW-1526): retry against the re-read goal there too, with a repro",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1532",
       "labels": [
         "elab"
       ],
-      "body": "From SW-1526/SW-1527, 6 Nov 2026.",
+      "body": "From SW-1526/SW-1527, 6 Nov 2026.\n\nStarted overnight on Sonnet (SW-1532 with SW-1533), expected: 40 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -9840,13 +9840,13 @@
     {
       "id": 1533,
       "title": "E-TYPE-MISMATCH on let l := IO.args(); l.headOr \"2020\" |> .toNatOrFail in {IO, Fail}: receiver_type can't type a chained call, so the Fail goes undetected (SW-1527)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1532",
       "labels": [
         "> .toNatOrFail in {IO, Fail}: receiver_type can't type a chained call, so the Fail goes undetected (SW-1527)|elab"
       ],
-      "body": "From SW-1526/SW-1527, 6 Nov 2026.",
+      "body": "From SW-1526/SW-1527, 6 Nov 2026.\n\nStarted overnight on Sonnet (SW-1532 with SW-1533), expected: 40 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
