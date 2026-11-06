@@ -1,5 +1,5 @@
 {
-  "next": 1664,
+  "next": 1666,
   "tickets": [
     {
       "id": 47,
@@ -10882,7 +10882,7 @@
       "labels": [
         "docs"
       ],
-      "body": "From SW-1238, 6 Nov 2026. One-line fixups.",
+      "body": "From SW-1238, 6 Nov 2026. One-line fixups.\n\nFixed by SW-1640 (syntax.md, 10-proofs.md).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11338,13 +11338,13 @@
     {
       "id": 1640,
       "title": "Total division (D2469-D2473): / and % (and every Int division, modNat, ceilDiv) total with x / 0 = 0, x % 0 = x; natives and JS for the zero case (Int natives panic/throw today); lemmas drop the hypothesis where it holds at 0; AoC and std callers lose their ≠ 0 proofs; guide and syntax.md",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1640",
       "labels": [
         "std"
       ],
-      "body": "D2469-D2474 (Matt, 6 Nov 2026): all as recommended in docs/proposals/total-division.md: / and % total on Nat and Int with Lean's values (x / 0 = 0, x % 0 = x), for all Int divisions; Int.modNat and Nat.ceilDiv total with the bound a lemma; lemmas true at 0 drop the hypothesis, the rest keep [auto ok: d ≠ 0]; auto improvement to the backlog. 'Make them total.' Opus (std core, natives bound by hash: run bound_to_the_prelude), expected: 150 min.\n\nStarted on Opus, expected: 150 min.",
+      "body": "D2469-D2474 (Matt, 6 Nov 2026): all as recommended in docs/proposals/total-division.md: / and % total on Nat and Int with Lean's values (x / 0 = 0, x % 0 = x), for all Int divisions; Int.modNat and Nat.ceilDiv total with the bound a lemma; lemmas true at 0 drop the hypothesis, the rest keep [auto ok: d ≠ 0]; auto improvement to the backlog. 'Make them total.' Opus (std core, natives bound by hash: run bound_to_the_prelude), expected: 150 min.\n\nStarted on Opus, expected: 150 min.\n\nLane done (f6514d948, 64d3c33b1, d118885cf), in Opus review (omega proof terms, natives by hash). / and % total on Nat and every Int division, x / 0 = 0, x % 0 = x on kernel defs, machine, reference, native, JS; ~40 lemmas drop the hypothesis, ~16 keep it; AoC: 2020 day 13's 8 of 11 lose bus.id ≠ 0, Common wrap, 2024 days 7, 8, 14, 2025 days 1, 2 and others; only hypotheses dropped. 295 hash snapshots moved; Float/Int/Nat pins re-taken. Guide 'Dividing by zero'. Model result: Opus, pending review, 52 min (est. 150).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11667,6 +11667,34 @@
         "errors"
       ],
       "body": "From SW-1632, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1664,
+      "title": "Test reporter shows the wrong conjunct of a failing ∧ test, with equal sides ('left 7, right 7') (SW-1640)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "body": "From SW-1640, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1665,
+      "title": "2024 day 14: Space's widthPositive/heightPositive proof fields could go now that wrap is total; proofs take bounds from their inside hypotheses (SW-1640)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "From SW-1640, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
