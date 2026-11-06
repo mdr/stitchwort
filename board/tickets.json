@@ -1,5 +1,5 @@
 {
-  "next": 1744,
+  "next": 1745,
   "tickets": [
     {
       "id": 47,
@@ -13678,6 +13678,21 @@
       ],
       "epic": "goal-as-written",
       "body": "From SW-1740, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1744,
+      "title": "[Opus] Why main passes trip-journal and lane/SW-1642 doesn't; try holding Float operations on stuck arguments folded in the unfolded read-back (D2550)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "epic": "record-eta",
+      "body": "D2550 (Matt, 6 Nov 2026): yes. From SW-1740 (docs/reviews/SW-1740-stage-0a.md). On the record eta branch; starts after the D2546 daily run. Expected: 90 min on Opus.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []

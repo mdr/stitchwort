@@ -46,9 +46,7 @@
         "Paused; the note that unblocks it is in (docs/proposals/bounded-readback.md), waiting on D2519-D2524, D2528, D2529"
       ],
       "next": [
-        "Wait for the goals-as-written design note (SW-1712, D2514): the trip-journal example fails because rule 2 computes under binders and the unfolded readback is too large",
-        "Finish stage 1b on lane/SW-1642 (SW-1667), then an Opus review",
-        "Then unifier eta (SW-1643), Pair eta (SW-1644) and the clean-up sweep (SW-1645); make the term comparisons exhaustive on the way (SW-1668)"
+        "Why main passes trip-journal; hold Float operations on unknown inputs (SW-1744, D2550)"
       ],
       "links": [
         "docs/proposals/record-eta.md",
