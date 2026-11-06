@@ -1,5 +1,5 @@
 {
-  "next": 1585,
+  "next": 1586,
   "tickets": [
     {
       "id": 47,
@@ -10540,13 +10540,13 @@
     {
       "id": 1583,
       "title": "Std: a Parse.Runs lemma for eachLine (converses of all2MapLeft, all2WithIndex, Result.traverseAll2, Fail.toResultMap); then day 18's Unique.sw can use the program's parser (~150-250 of 423 lines go) (SW-1563)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1583",
       "labels": [
         "std"
       ],
-      "body": "From SW-1563, 6 Nov 2026.\n\nStarted overnight on Sonnet, expected: 55 min (hard stop 07:50).",
+      "body": "From SW-1563, 6 Nov 2026.\n\nStarted overnight on Sonnet, expected: 55 min (hard stop 07:50).\n\nDone (019212c7f, e48ce4916), merged: Parse.runsEachLine (every line Runs → eachLine gives Ok values), Result.traverseOfAll2, List.all2OfMapLeft, List.all2OfWithIndex. Day 18: meansUnique now runsRun on the program's parser for both trees + okInjective; the pure reader and its agreement test are gone, so the top theorems no longer lean on a test; statements unchanged; Unique.sw 423 → 466 lines; audit 97, 0 warnings. Orchestrator checked the statements (D2436). Model result: Sonnet, worked, 13 min (est. 55).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10561,6 +10561,20 @@
         "std"
       ],
       "body": "From SW-1563, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1585,
+      "title": "Std: a Parse.runsChainLeft variant taking steps innermost-first (as a left-nested tree gives them), and a first-occurrence (NotMem-style) lemma; would remove day 18's chainOf/snoc lemmas, NotOperator and runsOperatorFrom (SW-1583)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From SW-1583, 6 Nov 2026: day 18's Unique.sw grew 423 → 466 lines without them.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
