@@ -1483,3 +1483,83 @@ theorem List.sortedDedup [auto eq: DecEq a] (le: a → a → Bool): (xs: List a)
 --| A sum over the first n + 1 numbers is the first term and the sum over the rest.
 theorem List.sumByRangeSucc (f: Nat → Nat) (n: Nat): List.sumBy (List.range 0 (Succ n)) f = f 0 + List.sumBy (List.range 0 n) (i => f (Succ i)) :=
   rewrite List.sumByCons (List.rangeFrom n 1) 0 f, List.sumByRangeShift f n 0 in rfl
+
+--| Removing one element keeps the rest: everything left in
+--| `ys.removeFirst x` was in `ys`.
+theorem List.memOfRemoveFirst [auto eq: DecEq a]: (ys: List a) → (x: a) → (y: a) → y ∈ ys.removeFirst x → y ∈ ys
+  | [], x, y, member => member
+  | [first, ..ys], x, y, member =>
+    match e: first == x with
+      | True => Inr member
+      | False =>
+        match member with
+          | Inl same => Inl same
+          | Inr later => Inr (List.memOfRemoveFirst ys x y later)
+
+--| `removeFirst x` loses only `x`: an element different from `x` that was in
+--| the list is still there.
+theorem List.memRemoveFirst [auto eq: DecEq a]: (ys: List a) → (x: a) → (y: a) → y ≠ x → y ∈ ys → y ∈ ys.removeFirst x
+  | [], x, y, apart, member => member
+  | [first, ..ys], x, y, apart, member =>
+    match e: first == x with
+      | True =>
+        match member with
+          | Inl same => Void.exfalso (apart (Eq.trans (Eq.sym same) (DecEq.sound e)))
+          | Inr later => later
+      | False =>
+        match member with
+          | Inl same => Inl same
+          | Inr later => Inr (List.memRemoveFirst ys x y apart later)
+
+--| Removing an element from a list without repeats leaves a list without
+--| repeats that no longer holds the element.
+theorem List.distinctRemoveFirst [auto eq: DecEq a]: (ys: List a) → (x: a) → ys.Distinct → (ys.removeFirst x).Distinct ∧ x ∉ ys.removeFirst x
+  | [], x, distinct => Both Trivial (member => member)
+  | [first, ..ys], x, (Both fresh distinct) =>
+    match e: first == x with
+      | True => Both distinct (rewrite <- DecEq.sound e in fresh)
+      | False =>
+        match List.distinctRemoveFirst ys x distinct with
+          | Both restDistinct absent =>
+            Both (Both (member => fresh (List.memOfRemoveFirst ys x first member)) restDistinct)
+              (member =>
+                match member with
+                  | Inl same => DecEq.soundFalse first x e same
+                  | Inr later => absent later)
+
+--| Two lists without repeats that hold the same elements where `f` is not 0
+--| have the same `sumBy f`: elements where `f` is 0 add nothing, so the lists
+--| may differ in those.
+theorem List.sumByDistinctNonzero [auto eq: DecEq a] (f: a → Nat): (xs: List a) → (ys: List a) → xs.Distinct → ys.Distinct →
+    ((x: a) → f x ≠ 0 → x ∈ xs → x ∈ ys) → ((x: a) → f x ≠ 0 → x ∈ ys → x ∈ xs) →
+      xs.sumBy f = ys.sumBy f
+  | [], ys, distinctX, distinctY, there, back =>
+    Eq.sym
+      (List.sumByZeroIntro ys f
+        (x member =>
+          match zero: f x with
+            | 0 => rfl
+            | Succ more => Void.exfalso (back x (rewrite zero in Nat.succNotZero more) member)))
+  | [x, ..rest], ys, (Both fresh distinctRest), distinctY, there, back =>
+    rewrite List.sumByCons rest x f in
+      match zero: f x with
+        | 0 =>
+          List.sumByDistinctNonzero f rest ys distinctRest distinctY (y nonzero member => there y nonzero (Inr member))
+            (y nonzero member =>
+              match back y nonzero member with
+                | Inl same => Void.exfalso (nonzero (rewrite <- same in zero))
+                | Inr later => later)
+        | Succ more =>
+          let nonzero: f x ≠ 0 := rewrite zero in Nat.succNotZero more
+          let found := there x nonzero (Inl rfl)
+          match List.distinctRemoveFirst ys x distinctY with
+            | Both restDistinct absent =>
+              rewrite List.sumByRemoveFirst ys x found f, zero in
+                Eq.cong (total => Succ more + total)
+                  (List.sumByDistinctNonzero f rest (ys.removeFirst x) distinctRest restDistinct
+                    (y nonzero member =>
+                      List.memRemoveFirst ys x y (same => fresh (rewrite same at member in member)) (there y nonzero (Inr member)))
+                    (y nonzero member =>
+                      match back y nonzero (List.memOfRemoveFirst ys x y member) with
+                        | Inl same => Void.exfalso (absent (rewrite <- same at member in member))
+                        | Inr later => later))
