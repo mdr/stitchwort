@@ -10792,13 +10792,13 @@
     {
       "id": 1601,
       "title": "Daily tier 6 Nov, smaller failures: 5 W-DOC-LINK in the prelude (natives the_real_prelude_registers_every_native; likely the Parse.Runs docs); navigation__nav-project.snap gains ': Nat' for a local (accept if right); partial_kernel test text expects Effect.now's old signature (SW-1258); std_library small programs now load 11 files not 5 (find the new dependency before updating); bench check-text-literal allocations +24%",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1601",
       "labels": [
         "regression"
       ],
-      "body": "Daily tier 6 Nov 2026 morning; details in the triage report (scratchpad/daily/). Bench: check-number-* improved 10-38%; extract-js input set changed (55 vs 53 files).",
+      "body": "Daily tier 6 Nov 2026 morning; details in the triage report (scratchpad/daily/). Bench: check-number-* improved 10-38%; extract-js input set changed (55 vs 53 files).\n\nStarted on Sonnet (D2452: fix and rerun only the failing tests), expected: 45 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
