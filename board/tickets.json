@@ -12938,14 +12938,14 @@
     {
       "id": 1694,
       "title": "match on a decision (Nat.decLessThan) doesn't refine an if that became a plain Bool test on it; also generalise b when the scrutinee is Bool.decTrue b? Language design, would start as a proposal (SW-1688)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1694",
       "labels": [
         "proposal"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-1688, 6 Nov 2026. Workaround: match on the Bool.\n\nD2518 (Matt, 6 Nov 2026): proposal started, read-and-write only, Opus, expected: 60 min.",
+      "body": "From SW-1688, 6 Nov 2026. Workaround: match on the Bool.\n\nD2518 (Matt, 6 Nov 2026): proposal started, read-and-write only, Opus, expected: 60 min.\n\nProposal merged: docs/proposals/decision-match-refines-bool-if.md (f716ca643). Recommends (a): document matching on the condition, and a warning W-MATCH-DECISION-IF; reject (b) (breaks cellSomeInside), (c), (d1), (d2); backlog (d3). Waiting on D2525-D2527. Model result: Opus, worked, 6 min (est. 60).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
