@@ -10918,13 +10918,13 @@
     {
       "id": 1610,
       "title": "Bench: find what raised check-closed-* (~+13% visits, +11.6% allocations, 179k → 203k, between 5 Nov 08:38 0e2bf68ac and 6 Nov) and check-number-* peak heap (+13-30%), then repin the baseline (also extract-js 53 → 55 inputs); counts_have_not_regressed fails until then (SW-1601)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1610",
       "labels": [
         "perf"
       ],
-      "body": "From SW-1601, 6 Nov 2026. Also: doc links in std/core can only name core items (prelude elaborated alone).",
+      "body": "From SW-1601, 6 Nov 2026. Also: doc links in std/core can only name core items (prelude elaborated alone).\n\nStarted on Sonnet, expected: 60 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
