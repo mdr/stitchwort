@@ -444,6 +444,38 @@ impl Session {
         )
     }
 
+    /// [`Session::run_main_fast_on`], profiled (`stitchwort run --profile`):
+    /// `started` gets the profile as the run starts, and it comes back with
+    /// the result, unless `main` couldn't be lowered.
+    #[allow(clippy::type_complexity)]
+    pub fn run_main_fast_profiling_on(
+        &self,
+        main: &Main,
+        sampling: stitchwort_rt::profile::Sampling,
+        input: &mut impl BufRead,
+        output: &mut impl Write,
+        terminal: &mut dyn Terminal,
+        started: impl FnOnce(&std::sync::Arc<stitchwort_rt::profile::Profile>),
+    ) -> (
+        Result<(), RunError>,
+        Option<std::sync::Arc<stitchwort_rt::profile::Profile>>,
+    ) {
+        let program = match self.lower_fast(main) {
+            Ok(program) => program,
+            Err(e) => return (Err(e), None),
+        };
+        let (result, profile) = stitchwort_rt::run_main_profiling_on(
+            &program,
+            stitchwort_rt::Limits::from_core(self.elab.options.limits),
+            sampling,
+            input,
+            output,
+            terminal,
+            started,
+        );
+        (result, Some(profile))
+    }
+
     /// Runs `main` as [`Session::run_main`] does, within `policy`, telling
     /// `trace` each thing it does, in order. Doesn't flush `output`.
     pub fn run_main_with(

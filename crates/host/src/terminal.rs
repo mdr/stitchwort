@@ -40,6 +40,19 @@ struct Saved {
 /// Keys mode, while it's on. Shared with the signal thread.
 static KEYS: Mutex<Option<Saved>> = Mutex::new(None);
 
+/// What the signal thread does after putting the terminal back, before the
+/// signal ends the process ([`on_signal`]).
+static ON_SIGNAL: Mutex<Option<Box<dyn Fn() + Send>>> = Mutex::new(None);
+
+/// Has the signal thread ([`catch_signals`]) run `report` when a signal
+/// ends the run, after the terminal is put back: `run --profile` prints
+/// the profile of an interrupted run this way.
+pub fn on_signal(report: impl Fn() + Send + 'static) {
+    *ON_SIGNAL
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(Box::new(report));
+}
+
 fn keys() -> MutexGuard<'static, Option<Saved>> {
     // A panic while it was held changes nothing that matters here.
     KEYS.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
@@ -111,6 +124,11 @@ pub fn catch_signals() {
         .spawn(move || {
             let Ok(caught) = set.wait() else { return };
             restore();
+            if let Ok(hook) = ON_SIGNAL.try_lock()
+                && let Some(report) = &*hook
+            {
+                report();
+            }
             // Unblocked in this thread only, with its default action, the
             // signal ends the process with the status a shell expects.
             let mut one = SigSet::empty();

@@ -14,6 +14,35 @@ Exit codes: 0 on success; 1 when the program doesn't check, or `main` fails with
 
 `stitchwort run --native` is a fourth, experimental way: the functions `main` calls run as native code where they and everything they reach compile, and on the fast runtime otherwise (`--verbose` says which). It needs a build with the `native` feature, which `task build` makes.
 
+## Finding where the time goes
+
+`stitchwort run --profile` runs the program as usual, then prints on standard error where its time went, one row per definition. Here is 2020 day 11 of the AoC solutions (`aoc/`), a seating simulation that takes 20 s:
+
+```
+$ stitchwort run --profile --profile-top 8 Aoc.Year2020.Day11.main < inputs/2020/day11.txt
+Part 1: 2354
+Part 2: 2072
+profile: 21.247 s in the program, 15,782 samples every 1 ms
+  self %    self s   total %   total s          calls  definition
+   68.3%    14.517     68.3%    14.517    113,607,401  Std.Map.Tree.get
+   10.1%     2.156     72.1%    15.310      9,789,020  Std.List.foldLeft
+    3.0%     0.640     97.8%    20.778      3,234,903  Std.List.map
+    2.6%     0.544      2.6%     0.544      3,045,338  Std.List.withIndexFrom
+    2.5%     0.526      4.0%     0.844      1,492,400  Std.Map.Tree.joinBuilt
+    2.3%     0.488     61.9%    13.154      8,347,578  Std.List.count.λ
+    1.8%     0.379     83.2%    17.686      9,771,000  Aoc.Year2020.Day11.Layout.round.λ
+    1.6%     0.342     59.6%    12.671      8,515,402  Aoc.Common.Grid.lookup.λ
+  (69 more; --profile-top 0 shows them all)
+```
+
+- **calls** is exact: how many times the definition was entered, each step of a loop included.
+- **self** is the time spent in the definition's own code, **total** the time with it anywhere on the stack (so it includes what it calls). A recursive definition's time is counted once, however deep it goes. Times are sampled every millisecond, so small numbers are rough.
+- A lambda is counted under the definition it's written in, with `.λ` after: `Grid.lookup.λ` is the lambda inside `Grid.lookup`. A small function the optimiser inlined has no row of its own; its time is its caller's.
+
+Read it from the top: two thirds of the run is `Map.Tree.get`, and the rows below say who calls it: `Grid.lookup`'s lambda is 60% of the run in total but under 2% itself. Every neighbour of every seat is a `Map` lookup, and 14.5 s over 113.6 million steps of `get` is 128 ns a step. Dividing a total by its calls gives the cost of one call.
+
+A run that's too slow to wait for can be stopped: Ctrl-C, or `timeout 30 stitchwort run --profile …`, prints the profile so far. `--profile-top N` shows N rows (25 by default; 0 for all). Profiling slows a run by a few percent, and only `stitchwort run` on the fast runtime profiles (not `--js`, `--native` or `--reference`).
+
 ## A standalone executable
 
 `stitchwort build FILE` (or a project folder, or a function's full name) writes an executable that runs `main` and needs neither `stitchwort` nor the source. It links with the system's C compiler (`$CC`, or `cc`). `-o` names the executable; `--native` compiles `main` and everything it reaches to native code, and fails if any of it can't be.
@@ -133,7 +162,7 @@ The details, and the exact rules for each type, are in [syntax.md](../syntax.md#
 - **Numbers are unbounded.** `Nat` and `Int` never overflow. On the fast runtime a number that fits 64 bits is a machine integer and a bigger one a big integer; in JavaScript every `Nat` and `Int` is a `bigint`.
 - **Tail calls are loops.** A function whose recursive call is the last thing it does runs in constant stack everywhere. That matters most in an exported module, which runs on the app's own JavaScript stack: there, a deep non-tail recursion over a long list can run out of stack (a `StitchwortResourceError`), so use an accumulator, as `sumFast` does in [chapter 10](10-proofs.md). The fast runtime has its own stack, and `stitchwort run --js` runs the program in a worker with a large one.
 - **Proofs cost nothing at run time.** Theorems, proof fields and `auto` proofs are erased. A one-field record is stored as its field.
-- **Checking can compute.** Tests and `rfl` proofs run code while checking. That's usually fast, but a proof that needs to compute a lot shows up as slow checking; `STITCHWORT_TIMINGS=1` prints where the time went, declaration by declaration.
+- **Checking can compute.** Tests and `rfl` proofs run code while checking. That's usually fast, but a proof that needs to compute a lot shows up as slow checking; `STITCHWORT_TIMINGS=1` prints where the time went, declaration by declaration. For a slow run, `stitchwort run --profile` (above).
 - **Results are cached.** The check cache and the test cache are keyed by content, so after the first run only what changed is checked and tested again.
 - **`include` is cheap.** A file read with `include "…"` becomes one compact text literal, so a large puzzle input costs no more than a string of the same size.
 

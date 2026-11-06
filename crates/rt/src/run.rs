@@ -186,6 +186,31 @@ pub trait Executor {
     fn depth_report(&self) -> Option<String>;
 }
 
+/// [`run_main_on`], profiled ([`crate::profile`]): `started` gets the
+/// profile before the run starts (to report it if the run is interrupted),
+/// and it comes back with the result.
+pub fn run_main_profiling_on(
+    program: &Program,
+    limits: Limits,
+    sampling: crate::profile::Sampling,
+    input: &mut impl BufRead,
+    output: &mut impl Write,
+    terminal: &mut dyn Terminal,
+    started: impl FnOnce(&std::sync::Arc<crate::profile::Profile>),
+) -> (
+    Result<(), RunError>,
+    std::sync::Arc<crate::profile::Profile>,
+) {
+    let image = crate::code::compile(program);
+    let mut machine = Machine::with_image(program, image, limits);
+    let profile = machine.start_profile(sampling);
+    started(&profile);
+    let result = run_on(machine, limits, &Policy::default(), input, output, terminal).0;
+    let flushed = output.flush();
+    let result = result.and_then(|_| flushed.map_err(RunError::Write));
+    (result, profile)
+}
+
 /// Runs a program as [`run_main_on`] does, as native code: `code`, every
 /// body `main` reaches (its entry included), with the outline of the
 /// program it was compiled from ([`crate::native_abi::Crossing::outline`]),
