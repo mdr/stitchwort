@@ -1,5 +1,5 @@
 {
-  "next": 1710,
+  "next": 1711,
   "tickets": [
     {
       "id": 47,
@@ -13119,13 +13119,14 @@
     {
       "id": 1707,
       "title": "Daily tier: rt lower the_library_lowers_and_its_tests_agree: std test \"array: get\" fails on the IR: 'the array native FromList' (arrays, SW-1637/1638)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1707",
       "labels": [
         "runtime"
       ],
-      "body": "Daily tier 6 Nov evening. D2516.\n\nStarted on Sonnet, expected: 45 min.",
+      "epic": "test-infra",
+      "body": "Daily tier 6 Nov evening. D2516.\n\nStarted on Sonnet, expected: 45 min.\n\nDone, merged (04fe51997): the cause was the lowering tests' reference interpreter (crates/rt/tests/interp), whose array arm returned an error; it now implements all ten array natives. Runtime unchanged. On main: the test passed (24 s). Model result: Sonnet, worked, 10 min (est. 45).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -13154,6 +13155,21 @@
         "tests"
       ],
       "body": "From SW-1702, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1710,
+      "title": "rt lowering tests: the reference interpreter's harness fails on any error not starting with 'unsupported', so the next native it lacks breaks the daily tier; make a missing native 'unsupported' or lint it (SW-1707)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "test-infra",
+      "body": "From SW-1707, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
