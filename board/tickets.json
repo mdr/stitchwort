@@ -9910,13 +9910,13 @@
     {
       "id": 1538,
       "title": "A helper lemma about a variable doesn't fit inside a match on one of its fields (arm goal refined, lemma type not); refine terms in the arm, or accept the match equation where rfl is expected; the error's '_' hint doesn't apply (day 16)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1538",
       "labels": [
         "elab"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).",
+      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).\n\nStarted overnight on Opus (match refinement in the elaborator), expected: 75 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
