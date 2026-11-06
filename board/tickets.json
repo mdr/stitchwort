@@ -703,11 +703,11 @@
     {
       "id": 706,
       "title": "rewrite: look for the lemma's left side in the goal as written first (isSafe r as a call), fall back to the computed-goal search; measure on AoC and std proofs first (D1422; revisits D484; trigger: AoC 2024 day 2 rewrite isSafeCorrect _)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-706",
       "labels": [],
-      "body": "\n\nD2453 (Matt, 6 Nov 2026): yes, both: an Opus design note on rewrite/match looking at the goal as written first (SW-706, SW-1589, SW-1562), and the refines-nothing warning SW-1485 now. Started on Opus as the design note (docs/proposals/), expected: 120 min.",
+      "body": "\n\nD2453 (Matt, 6 Nov 2026): yes, both: an Opus design note on rewrite/match looking at the goal as written first (SW-706, SW-1589, SW-1562), and the refines-nothing warning SW-1485 now. Started on Opus as the design note (docs/proposals/), expected: 120 min.\n\nDesign note done (f5b4063ab), merged: docs/proposals/goal-as-written.md; prototype kept as dev/patches/sw-706-folded-rewrite.patch. Finding: D1431 (folded-first with a completeness check) was closed 4 Nov as answered but never built. Recommendation: rewrite/match/cases/transport search the goal as printed first, keep it only when no copy hides inside a call, else today's search. Prototype on AoC: 4,276 of 5,282 rewrites found as written; 759 still need today's search; time +10% at most; breaks 1 declaration (2025 day 1 Part2.sw:82, / hidden proof) vs Lean's rule 5. Kernel terms change (hash snapshots move). Q1-Q6 = D2475-D2480, waiting for Matt. Model result: Opus, worked, 22 min (est. 120).",
       "created": "2026-10-28",
       "updated": "2026-11-06",
       "commits": []
@@ -867,9 +867,9 @@
       "labels": [
         "decision"
       ],
-      "body": "Folded goals note on branch worktree-agent-a4d41ce184555fffb (SW-742; stage 1 merged). Lean's simpler rule breaks std and ~55 AoC proofs. Rec: yes.\n\nD2360 (Matt, 4 Nov 2026: 'happy to go with your best recommendation'): closed as answered by events: yes: goals stay folded in rewrite/match (docs/proposals/folded-goals.md; SW-742, SW-1052, SW-1106).",
+      "body": "Folded goals note on branch worktree-agent-a4d41ce184555fffb (SW-742; stage 1 merged). Lean's simpler rule breaks std and ~55 AoC proofs. Rec: yes.\n\nD2360 (Matt, 4 Nov 2026: 'happy to go with your best recommendation'): closed as answered by events: yes: goals stay folded in rewrite/match (docs/proposals/folded-goals.md; SW-742, SW-1052, SW-1106).\n\nCorrection (SW-706, 6 Nov 2026): D1431's folded-first rewrite with a completeness check was closed as answered by events, but was never built (rewrite.rs rewrite_once, matching.rs generalised_now still search the computed goal). Taken up again in docs/proposals/goal-as-written.md (D2475).",
       "created": "2026-10-28",
-      "updated": "2026-11-04",
+      "updated": "2026-11-06",
       "commits": []
     },
     {
