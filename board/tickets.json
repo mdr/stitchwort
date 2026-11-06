@@ -1,5 +1,5 @@
 {
-  "next": 1550,
+  "next": 1557,
   "tickets": [
     {
       "id": 47,
@@ -10036,13 +10036,13 @@
     {
       "id": 1547,
       "title": "AoC 2020 day 17 (Conway Cubes): spec, efficient solution, proofs, tests, friction notes in aoc/NOTES-2020.md",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1547",
       "labels": [
         "aoc"
       ],
-      "body": "D2443 (Matt): carry on further if there's time. Overnight, Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day17.\n\nStarted on Opus, expected: 120 min.",
+      "body": "D2443 (Matt): carry on further if there's time. Overnight, Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day17.\n\nStarted on Opus, expected: 120 min.\n\nDone (d85fc8e21, 5fef2c138), merged: 289 and 2084; 8.4 s both parts (part 1 0.8 s). Proved for any parsed input and any number of dimensions: Spec.Answer slice d answer ↔ answer = the program's count (exact and unique). Not proved: every well-formed input parses. Orchestrator checked the spec (D2436). Audit 43/43. Model result: Opus, worked, 33 min (est. 120).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10071,6 +10071,104 @@
         "tests"
       ],
       "body": "From SW-1513, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1550,
+      "title": "cases over Int/Nat comparisons takes Int apart and hits the 64-case limit; split comparisons as atoms and close with omega (day 17, Neighbours.sw:31)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tactics"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1551,
+      "title": "Std == lemmas: List.beqCons, List.beqNilCons, DecEq.neSelf ((x != x) = False), generated T.beqMk for one-field records (day 17)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1552,
+      "title": "Aoc.Common.Life: generic count-map step with countsActive and cycleActive, given a neighbour-counting fact; for 2020 day 24 (day 17)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1553,
+      "title": "A Bool != beside = in a statement is read as ≠ and the errors talk about Decidable; warn or suggest ((a != b): Bool) (day 17)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1554,
+      "title": "E-RESOURCE 'a value was too large to show' from a rewrite: name the rewrite and the definition being unfolded (day 17)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1555,
+      "title": "Std: Map.containsFilter ((m.filter p).contains k = (m.get k).any (p k)), Set.countToList (day 17)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1556,
+      "title": "Int ranges (-2 ..= 4) (day 17; the error note says they are still to come)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "language"
+      ],
+      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
