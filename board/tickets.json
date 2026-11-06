@@ -1,5 +1,5 @@
 {
-  "next": 1558,
+  "next": 1559,
   "tickets": [
     {
       "id": 47,
@@ -9952,13 +9952,13 @@
     {
       "id": 1541,
       "title": "A Prop-returning method after ∧ inside a lambda is reported as 'a type of data, not a proposition' (day 16, 7-line repro in its notes)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1541",
       "labels": [
         "elab"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).\n\nStarted overnight on Sonnet (SW-1541 with SW-1544), expected: 45 min.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).\n\nStarted overnight on Sonnet (SW-1541 with SW-1544), expected: 45 min.\n\nDone (2ac0dbb1a SW-1541, 22f209e6a and 1940e241e SW-1544), merged: check_type_defaulting: operands of ∧ ∨ ¬ whose sort isn't known yet default to Prop (a Nat method there now says 'expected Prop, but this has type Nat'); rewrite's unknown-head note names left-off explicit arguments; Nat.succInjective [m n] implicit, 33 call sites; 651 prelude hashes and 235 hash snapshots regenerated (by design). Model result: Sonnet, worked, 28 min (est. 45).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -9994,13 +9994,13 @@
     {
       "id": 1544,
       "title": "Messages: rewrite Nat.oneMul asks for implicit arguments when the missing one is explicit; Nat.succInjective's m and n should be implicit (D2422) (day 16)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1541",
       "labels": [
         "diagnostics"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).\n\nStarted overnight on Sonnet (SW-1541 with SW-1544), expected: 45 min.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).\n\nStarted overnight on Sonnet (SW-1541 with SW-1544), expected: 45 min.\n\nDone (2ac0dbb1a SW-1541, 22f209e6a and 1940e241e SW-1544), merged: check_type_defaulting: operands of ∧ ∨ ¬ whose sort isn't known yet default to Prop (a Nat method there now says 'expected Prop, but this has type Nat'); rewrite's unknown-head note names left-off explicit arguments; Nat.succInjective [m n] implicit, 33 call sites; 651 prelude hashes and 235 hash snapshots regenerated (by design). Model result: Sonnet, worked, 28 min (est. 45).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10183,6 +10183,20 @@
         "aoc"
       ],
       "body": "D2443 (Matt): carry on further if there's time. Overnight, Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day18.\n\nStarted on Opus, expected: 120 min.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1558,
+      "title": "Std: make Int.negSuccInjective's m and n implicit, as Nat.succInjective (D2422, SW-1544)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From SW-1544, 6 Nov 2026. Small.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
