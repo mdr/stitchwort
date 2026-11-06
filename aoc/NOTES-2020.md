@@ -477,6 +477,24 @@ CPU time (load average over 100, so wall-clock times meant nothing):
 About 15 minutes in all, from reading the puzzle to the proofs checking,
 besides a 3-minute build of the CLI.
 
+**Completeness (pilot, SW-1612).** `Proofs/Complete.sw`, 55 lines (47 of
+proof), about 6 minutes by the clock including the CLI build, written from
+`Runs.sw` without reading the day's soundness proof again. `runsPieces`
+(21 lines) is the whole parser: seven `Parse.runsBind`, one per statement, with
+`_` for every continuation, which unifies against `line` (no restating of the
+body, unlike `readsBind`, ranked item 1 below); `runsLine` (9) unpacks `Written`
+and puts the entry back together; `entryEta` (4) and `runsAs` (4) exist
+because records have no eta (`{ low = e.low, … } = e` needs a `match`);
+`parseComplete` is one line through `Parse.runsEachLine` and `List.all2Weaken`,
+and `writtenUnique` (two entries written by one line are equal) one line from
+`Parse.runsRun`. The side conditions cost almost nothing here: each
+look-ahead (`nat` before `-` and before a space, `takeWhile1` at the end) is
+`rfl`, because what follows is a literal character or `[]`; there is no
+`Declines`. The Text/List conversions were the only friction
+(`Text.fromToList`, `entryEta`). The proofs namespace went from 5.8 s to 7.4 s
+(`check --no-cache`, user); `audit:touched` 16 theorems, 0 failed. Breaking
+the parser (`char '-'` to `char '='`) breaks `runsLine`.
+
 ### Ranked
 
 1. A proof about a named parser has to restate its body for
@@ -1520,6 +1538,30 @@ CPU time (load average about 50):
 | `task audit:touched -- Aoc.Year2020.Day06` (36 theorems) | 2.2 s user |
 | `stitchwort run Aoc.Year2020.Day06.main` on the input | 0.7 s user |
 | `task test:one -- year2020_day06` | 7.3 s wall |
+
+**Completeness (pilot, SW-1612).** `Proofs/Complete.sw`, 316 lines after
+`fmt`, about 9 minutes by the clock after day 2, with day 2's recipe (`_` for
+continuations in `Parse.runsBind`) known. By kind of work: the generic
+`sepBy1` machinery (`manyRunsOfEach`, `runsSepBy1Of`, 55 lines: turn
+`Parse.SepBy`/`Parse.Each` into `ManyRuns` and `runsSepBy1`, with the
+look-ahead and the list's end as hypotheses; nothing in it is about day 6, a
+std candidate); look-ahead for maximal munch (`NoQuestionNext`, the break and
+space characters not being questions, about 45 lines); `Declines` at the ends
+of the two lists (`declinesLine…`, `declinesGroup`, `declinesSection…`,
+about 115 lines, the largest part and mostly case analysis on whether the
+trailing line breaks `\n`, `\r\n` or `\r` form a line break, a blank line or
+nothing); the leaves and the whole (`runsPerson`, `runsGroup`,
+`runsSections`, `parseComplete`, `writtenUnique`, about 85 lines); and
+conversions (`joinLetters`, `valuesLetters`, `Set.ext` for the person's set,
+no record eta, about 30 lines). The statement is the soundness theorem's
+conclusion turned round (`InputWritten`), so any ending of line breaks that
+`Parse.all` allows is covered; that is what the `Declines` cases are for. The
+proofs namespace went from 6.9 s to 10.7 s (`check --no-cache`, user).
+`audit:touched`: 47 theorems, 0 failed, 4 warned (`breakChar`,
+`breakNotQuestion`, `lineBreakNoQuestion`, `allBreaksNoQuestion`: the
+counterexample search never produces a line break character, so it says the
+hypotheses held in no case; they hold for `'\n'`). Breaking the program
+(`lines person` to `sections person`) breaks the proofs (3 errors).
 
 ### Ranked
 
