@@ -9728,13 +9728,13 @@
     {
       "id": 1525,
       "title": "Audit: the counterexample search's statement read-back (statement_part, counterexample/mod.rs:111) limits nodes but not steps, so it hangs on a statement naming a large computation (day 15, turn 30000000)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1525",
       "labels": [
         "audit"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1519 (2020 day 15).",
+      "body": "Filed overnight 6 Nov 2026 from SW-1519 (2020 day 15).\n\nStarted overnight on Sonnet, expected: 40 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -9742,13 +9742,13 @@
     {
       "id": 1526,
       "title": "omega: E-OMEGA-INTERNAL quoting 1 + later as later + 1 after a rewrite (repro dev/repros/omega3.sw, day 15)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1526",
       "labels": [
         "elab"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1519 (2020 day 15).",
+      "body": "Filed overnight 6 Nov 2026 from SW-1519 (2020 day 15).\n\nStarted overnight on Sonnet (SW-1526 with SW-1527), expected: 50 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -9756,13 +9756,13 @@
     {
       "id": 1527,
       "title": "False E-ABILITY: a pipe starting with an IO call and ending in a Fail method (IO.args() |> .headOr \"2020\" |> .toNatOrFail) in a {IO, Fail} function (repro dev/repros/pipe.sw, day 15)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1526",
       "labels": [
         "> .headOr \"2020\" |> .toNatOrFail) in a {IO, Fail} function (repro dev/repros/pipe.sw, day 15)|elab"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1519 (2020 day 15).",
+      "body": "Filed overnight 6 Nov 2026 from SW-1519 (2020 day 15).\n\nStarted overnight on Sonnet (SW-1526 with SW-1527), expected: 50 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
