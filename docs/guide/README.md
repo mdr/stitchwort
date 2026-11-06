@@ -9,6 +9,8 @@ This guide is for programmers who know a language like Scala or TypeScript. It d
 
 The guide explains how things work and why, shows the idioms, and shows what the compiler says when something is wrong and how to read it. Where it says less than the reference, it links to it.
 
+To learn proving about programs hands-on in VS Code first, open the tutorial [tutorial/01-proving-programs.sw](../tutorial/01-proving-programs.sw) in the editor and follow its steps (about 40 minutes).
+
 ## Chapters
 
 1. [Getting started](01-getting-started.md): installing, the `stitchwort` command, projects, the playground and editor support.
