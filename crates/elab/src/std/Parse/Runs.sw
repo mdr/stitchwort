@@ -1772,6 +1772,325 @@ theorem Parse.runsSections (p: () → {Parse} a) (firstRead: List Char) (first: 
     Parse.Runs (() => Parse.sections p) (firstRead ++ Parse.joinReads steps) rest (NonEmptyList.cons first (Parse.stepValues steps)) :=
   Parse.runsSepBy1 p Parse.blankLine firstRead first steps rest runsFirst manyRuns
 
+-- Completeness of a whole repetition from what its soundness spec says was
+-- written (SW-1620). A proof that a format is accepted starts from the
+-- `Parse.SepBy` (or `Parse.Each`) of the pieces' specs, which is how the
+-- soundness lemmas speak, and ends in `Runs`; these lemmas turn one into the
+-- other. A look-ahead predicate `valueEnd` says what each value may be
+-- followed by (the maximal munch of the value's last piece), and the list's end
+-- is where a round declines.
+
+--| The rounds of a `sepBy1` after its first value, built from what
+--| [`Parse.Each`] says was written: a separator then a value, each round
+--| reading something, each value (parsed by `p`, with `spec`) seeing the
+--| look-ahead `valueEnd` on what follows it. `afterFirst` is the text of all the
+--| rounds and `values` their values; the conclusion splits it into
+--| [`Parse.ManyRuns`] steps, and says `valueEnd` holds after the first value
+--| too (what follows `afterFirst` is `rest`, where `declinesEnd` says a round
+--| declines). Use it through [`Parse.runsSepBy1Of`], [`Parse.runsLinesOf`] or
+--| [`Parse.runsSectionsOf`].
+theorem Parse.manyRunsOfEach (p: () → {Parse} a) (separator: () → {Parse} ()) (spec: List Char → a → Prop) (sepSpec: List Char → () → Prop)
+    (valueEnd: List Char → Prop) (rest: List Char)
+    (runsValue: (read: List Char) → (v: a) → (after: List Char) → spec read v → valueEnd after → Parse.Runs p read after v)
+    (runsSeparator: (read: List Char) → (after: List Char) → (u: ()) → sepSpec read u → Parse.Runs separator read after ())
+    (separatorNotEmpty: (read: List Char) → (u: ()) → sepSpec read u → read ≠ [])
+    (afterSeparator: (read: List Char) → (after: List Char) → (u: ()) → sepSpec read u → valueEnd (read ++ after))
+    (restEnd: valueEnd rest) (declinesEnd: Parse.Declines (() => Parse.sepStep p separator) rest):
+    (afterFirst: List Char) → (values: List a) → Parse.Each (Parse.Then sepSpec (u => spec)) afterFirst values →
+      ∃ (steps: List (List Char, a)) =>
+        afterFirst = Parse.joinReads steps ∧ values = Parse.stepValues steps ∧ Parse.ManyRuns (() => Parse.sepStep p separator) steps rest
+          ∧ valueEnd (afterFirst ++ rest)
+  | afterFirst, [], each => Witness [] (Both each (Both rfl (Both declinesEnd (rewrite each in restEnd))))
+  | afterFirst, [value, ..values], Witness stepRead (Witness remaining (Both split (Both (Witness separatorRead (Witness valueRead (Witness u (Both stepSplit (Both sepOk valueOk))))) more))) =>
+    match Parse.manyRunsOfEach p separator spec sepSpec valueEnd rest runsValue runsSeparator separatorNotEmpty afterSeparator restEnd declinesEnd remaining values more with
+      | Witness steps (Both remainingIs (Both valuesAre (Both manyRuns remainingEnd))) =>
+        let laterEnd: valueEnd (Parse.joinReads steps ++ rest) := rewrite remainingIs at remainingEnd in remainingEnd
+        let notEmpty: stepRead ≠ [] :=
+          match separatorRead with
+            | [] => Void.exfalso (separatorNotEmpty [] u sepOk rfl)
+            | [char, ..others] => rewrite stepSplit in List.consNotNil char (others ++ valueRead)
+        let joined: afterFirst ++ rest = separatorRead ++ (valueRead ++ (remaining ++ rest)) :=
+          rewrite split, stepSplit, List.appendAssoc separatorRead valueRead remaining, List.appendAssoc separatorRead (valueRead ++ remaining) rest,
+            List.appendAssoc valueRead remaining rest in rfl
+        Witness [(stepRead, value), ..steps]
+          (Both (rewrite split, remainingIs in rfl)
+            (Both (rewrite valuesAre in rfl)
+              (Both
+                (Both notEmpty
+                  (Both
+                    (rewrite stepSplit in
+                      Parse.runsSepStep p separator separatorRead valueRead (Parse.joinReads steps ++ rest) value
+                        (runsSeparator separatorRead (valueRead ++ (Parse.joinReads steps ++ rest)) u sepOk)
+                        (runsValue valueRead value (Parse.joinReads steps ++ rest) valueOk laterEnd))
+                    manyRuns))
+                (rewrite joined in afterSeparator separatorRead (valueRead ++ (remaining ++ rest)) u sepOk))))
+
+--| `sepBy1 p separator` reads what [`Parse.SepBy`] says was written: the text
+--| `read` as these values. Give how `p` runs on a value written by `spec`
+--| (`runsValue`, where the value's follower satisfies the look-ahead
+--| `valueEnd`, the maximal munch of its last piece), how the separator runs on
+--| what `sepSpec` says (`runsSeparator`), that a separator reads something
+--| (`separatorNotEmpty`, which `many` needs of each round), that `valueEnd`
+--| holds after a separator (`afterSeparator`) and at the end of the list
+--| (`restEnd`, on the `rest` that follows), and that a round declines on
+--| `rest` (`declinesEnd`, the end of the list; for line breaks see
+--| [`Parse.declinesLinesAtBreaks`]). [`Parse.runsLinesOf`] and
+--| [`Parse.runsSectionsOf`] are the cases of `lines` and `sections`.
+theorem Parse.runsSepBy1Of (p: () → {Parse} a) (separator: () → {Parse} ()) (spec: List Char → a → Prop) (sepSpec: List Char → () → Prop)
+    (valueEnd: List Char → Prop) (rest: List Char)
+    (runsValue: (read: List Char) → (v: a) → (after: List Char) → spec read v → valueEnd after → Parse.Runs p read after v)
+    (runsSeparator: (read: List Char) → (after: List Char) → (u: ()) → sepSpec read u → Parse.Runs separator read after ())
+    (separatorNotEmpty: (read: List Char) → (u: ()) → sepSpec read u → read ≠ [])
+    (afterSeparator: (read: List Char) → (after: List Char) → (u: ()) → sepSpec read u → valueEnd (read ++ after))
+    (restEnd: valueEnd rest) (declinesEnd: Parse.Declines (() => Parse.sepStep p separator) rest)
+    (read: List Char) (head: a) (tail: List a) (written: Parse.SepBy spec sepSpec read (NonEmptyList.cons head tail)):
+    Parse.Runs (() => Parse.sepBy1 p separator) read rest (NonEmptyList.cons head tail) :=
+  match written with
+    | Witness firstRead (Witness afterFirst (Witness firstValue (Both split (Both firstOk (Both isHead each))))) =>
+      match Parse.manyRunsOfEach p separator spec sepSpec valueEnd rest runsValue runsSeparator separatorNotEmpty afterSeparator restEnd declinesEnd afterFirst tail each with
+        | Witness steps (Both afterIs (Both tailIs (Both manyRuns firstEnd))) =>
+          rewrite split, afterIs, tailIs in
+            Parse.runsSepBy1 p separator firstRead head steps rest
+              (runsValue firstRead head (Parse.joinReads steps ++ rest) (rewrite isHead at firstOk in firstOk) (rewrite afterIs at firstEnd in firstEnd)) manyRuns
+
+--| A line break, "\n" or "\r\n", reads something.
+theorem Parse.lineBreakNotEmpty (read: List Char) (u: ()) (isBreak: Parse.LineBreak read): read ≠ [] :=
+  match isBreak with
+    | Inl same => rewrite same in List.consNotNil '\n' []
+    | Inr same => rewrite same in List.consNotNil '\r' ['\n']
+
+--| A blank line reads something.
+theorem Parse.blankLineNotEmpty (read: List Char) (u: ()) (isBlank: Parse.BlankLine read): read ≠ [] :=
+  match isBlank with
+    | Witness first (Witness middle (Witness last (Both split (Both firstBreak (Both spaced lastBreak))))) =>
+      match first, firstBreak with
+        | [], Inl impossible => Void.exfalso (List.consNotNil '\n' [] (Eq.sym impossible))
+        | [], Inr impossible => Void.exfalso (List.consNotNil '\r' ['\n'] (Eq.sym impossible))
+        | [char, ..others], isBreak => rewrite split in List.consNotNil char (others ++ (middle ++ last))
+
+--| `blankLine` on what [`Parse.BlankLine`] says it reads.
+theorem Parse.runsBlankLineOf (read: List Char) (rest: List Char) (isBlank: Parse.BlankLine read): Parse.Runs Parse.blankLine read rest () :=
+  match isBlank with
+    | Witness first (Witness middle (Witness last (Both split (Both firstBreak (Both spaced lastBreak))))) =>
+      rewrite split in Parse.runsBlankLine first middle last rest firstBreak spaced lastBreak
+
+--| `lines p` reads what [`Parse.SepBy`] with line breaks says was written, as
+--| [`Parse.runsSepBy1Of`] with `newline` as the separator (so `runsSeparator`,
+--| `separatorNotEmpty` and the look-ahead before the separator are given:
+--| `afterBreak` says `valueEnd` holds after a line break).
+theorem Parse.runsLinesOf (p: () → {Parse} a) (spec: List Char → a → Prop) (valueEnd: List Char → Prop) (rest: List Char)
+    (runsValue: (read: List Char) → (v: a) → (after: List Char) → spec read v → valueEnd after → Parse.Runs p read after v)
+    (afterBreak: (read: List Char) → (after: List Char) → Parse.LineBreak read → valueEnd (read ++ after))
+    (restEnd: valueEnd rest) (declinesEnd: Parse.Declines (() => Parse.sepStep p Parse.newline) rest)
+    (read: List Char) (head: a) (tail: List a) (written: Parse.SepBy spec (read2 u => Parse.LineBreak read2) read (NonEmptyList.cons head tail)):
+    Parse.Runs (() => Parse.lines p) read rest (NonEmptyList.cons head tail) :=
+  Parse.runsSepBy1Of p Parse.newline spec (read2 u => Parse.LineBreak read2) valueEnd rest runsValue
+    (read2 after u isBreak => Parse.runsNewline read2 after isBreak) Parse.lineBreakNotEmpty
+    (read2 after u isBreak => afterBreak read2 after isBreak) restEnd declinesEnd read head tail written
+
+--| `sections p` reads what [`Parse.SepBy`] with blank lines says was written, as
+--| [`Parse.runsSepBy1Of`] with `blankLine` as the separator (`afterBlank` says
+--| `valueEnd` holds after a blank line).
+theorem Parse.runsSectionsOf (p: () → {Parse} a) (spec: List Char → a → Prop) (valueEnd: List Char → Prop) (rest: List Char)
+    (runsValue: (read: List Char) → (v: a) → (after: List Char) → spec read v → valueEnd after → Parse.Runs p read after v)
+    (afterBlank: (read: List Char) → (after: List Char) → Parse.BlankLine read → valueEnd (read ++ after))
+    (restEnd: valueEnd rest) (declinesEnd: Parse.Declines (() => Parse.sepStep p Parse.blankLine) rest)
+    (read: List Char) (head: a) (tail: List a) (written: Parse.SepBy spec (read2 u => Parse.BlankLine read2) read (NonEmptyList.cons head tail)):
+    Parse.Runs (() => Parse.sections p) read rest (NonEmptyList.cons head tail) :=
+  Parse.runsSepBy1Of p Parse.blankLine spec (read2 u => Parse.BlankLine read2) valueEnd rest runsValue
+    (read2 after u isBlank => Parse.runsBlankLineOf read2 after isBlank) Parse.blankLineNotEmpty
+    (read2 after u isBlank => afterBlank read2 after isBlank) restEnd declinesEnd read head tail written
+
+-- The end of a list of lines or sections: what follows the last value is line
+-- breaks to the end of the input (which `Parse.all` allows), or, for lines
+-- inside sections, a blank line and then the next section. A value `p` that
+-- can't start with a line break, a space or a tab declines there, so the round
+-- after the last value declines, which `Parse.ManyRuns` needs.
+
+--| The text is only line feeds and carriage returns: what `Parse.all` lets
+--| follow its parser.
+def Parse.OnlyBreaks (input: List Char): Prop := input.all (char => char == '\n' ∨ char == '\r') = True
+
+--| A line feed or carriage return is one or the other.
+theorem Parse.lineBreakChar (char: Char) (isBreak: (char == '\n' ∨ char == '\r') = True): char = '\n' ∨ char = '\r' :=
+  Bool.orElim isBreak (lf => Inl (DecEq.sound lf)) (cr => Inr (DecEq.sound cr))
+
+--| `canStart` is false of the input's first character, if it has one: a
+--| parser whose first character always satisfies `canStart` declines here.
+def Parse.CannotStart (canStart: Char → Bool) (input: List Char): Prop :=
+  (char: Char) → (more: List Char) → input = [char, ..more] → canStart char = False
+
+--| Only line breaks (`\n`, `\r`) can't start what `canStart` allows, if it
+--| allows neither.
+theorem Parse.cannotStartAtBreaks (canStart: Char → Bool) (lf: canStart '\n' = False) (cr: canStart '\r' = False):
+    (input: List Char) → Parse.OnlyBreaks input → Parse.CannotStart canStart input
+  | [], only, char, more, found => Void.exfalso (List.consNotNil char more (Eq.sym found))
+  | [first, ..others], only, char, more, found =>
+    rewrite <- List.consInjectiveHead _ _ _ _ found in
+      match Parse.lineBreakChar first (Bool.andLeft only) with
+        | Inl same => rewrite same in lf
+        | Inr same => rewrite same in cr
+
+--| A line break, "\n" or "\r\n", is followed by nothing that starts with it.
+theorem Parse.cannotStartAfterBreak (canStart: Char → Bool) (lf: canStart '\n' = False) (cr: canStart '\r' = False)
+    (lineBreak: List Char) (after: List Char) (isBreak: Parse.LineBreak lineBreak): Parse.CannotStart canStart (lineBreak ++ after) :=
+  match isBreak with
+    | Inl same => rewrite same in (char more found => rewrite <- List.consInjectiveHead _ _ _ _ found in lf)
+    | Inr same => rewrite same in (char more found => rewrite <- List.consInjectiveHead _ _ _ _ found in cr)
+
+--| A blank line, then anything, doesn't start with what `canStart` allows,
+--| if it allows no line break, space or tab.
+theorem Parse.cannotStartAtBlank (canStart: Char → Bool) (lf: canStart '\n' = False) (cr: canStart '\r' = False)
+    (space: (char: Char) → Parse.isSpace char = True → canStart char = False)
+    (blank: List Char) (more: List Char) (isBlank: Parse.BlankLine blank): Parse.CannotStart canStart (blank ++ more) :=
+  match isBlank with
+    | Witness first (Witness middle (Witness last (Both split (Both firstBreak (Both spaced lastBreak))))) =>
+      rewrite split, List.appendAssoc first (middle ++ last) more, List.appendAssoc middle last more in
+        Parse.cannotStartAfterBreak canStart lf cr first (middle ++ (last ++ more)) firstBreak
+
+--| What can follow a block of lines (a `lines` inside `sections`): only line
+--| breaks, or a blank line and then anything.
+def Parse.LinesEnd (input: List Char): Prop :=
+  Parse.OnlyBreaks input ∨ ∃ (blank: List Char) => ∃ (more: List Char) => Parse.BlankLine blank ∧ input = blank ++ more
+
+--| A blank line and then anything is a [`Parse.LinesEnd`].
+theorem Parse.linesEndAfterBlank (blank: List Char) (after: List Char) (isBlank: Parse.BlankLine blank): Parse.LinesEnd (blank ++ after) :=
+  Inr (Witness blank (Witness after (Both isBlank rfl)))
+
+--| Line breaks only are a [`Parse.LinesEnd`].
+theorem Parse.linesEndAtBreaks (input: List Char) (only: Parse.OnlyBreaks input): Parse.LinesEnd input := Inl only
+
+--| `canStart` is false of a [`Parse.LinesEnd`]'s first character, if it allows
+--| no line break, space or tab.
+theorem Parse.cannotStartAtLinesEnd (canStart: Char → Bool) (lf: canStart '\n' = False) (cr: canStart '\r' = False)
+    (space: (char: Char) → Parse.isSpace char = True → canStart char = False)
+    (input: List Char) (end: Parse.LinesEnd input): Parse.CannotStart canStart input :=
+  match end with
+    | Inl only => Parse.cannotStartAtBreaks canStart lf cr input only
+    | Inr (Witness blank (Witness more (Both isBlank same))) => rewrite same in Parse.cannotStartAtBlank canStart lf cr space blank more isBlank
+
+--| A round of `lines p` (a line break then `p`) declines on only line breaks,
+--| given that `p` declines wherever its first character can't be one `canStart`
+--| allows: either the line break isn't there, or `p` finds only line breaks
+--| after it.
+theorem Parse.declinesLinesAtBreaks (p: () → {Parse} a) (canStart: Char → Bool)
+    (declinesP: (input: List Char) → Parse.CannotStart canStart input → Parse.Declines p input)
+    (lf: canStart '\n' = False) (cr: canStart '\r' = False) (input: List Char) (only: Parse.OnlyBreaks input):
+    Parse.Declines (() => Parse.sepStep p Parse.newline) input :=
+  match input with
+    | [] => Parse.declinesSepStep p Parse.newline [] (Parse.declinesNewline [] rfl rfl)
+    | [char, ..more] =>
+      let only1: Parse.OnlyBreaks more := Bool.andRight only
+      match Parse.lineBreakChar char (Bool.andLeft only) with
+        | Inl same =>
+          rewrite same in
+            Parse.declinesAfter Parse.newline (u => p()) ['\n'] more () (Parse.runsNewline ['\n'] more (Inl rfl))
+              (declinesP more (Parse.cannotStartAtBreaks canStart lf cr more only1))
+        | Inr same =>
+          rewrite same in
+            match more with
+              | [] => Parse.declinesSepStep p Parse.newline ['\r'] (Parse.declinesNewline ['\r'] rfl rfl)
+              | [next, ..later] =>
+                let only2: Parse.OnlyBreaks later := Bool.andRight only1
+                match Parse.lineBreakChar next (Bool.andLeft only1) with
+                  | Inl same2 =>
+                    rewrite same2 in
+                      Parse.declinesAfter Parse.newline (u => p()) ['\r', '\n'] later () (Parse.runsNewline ['\r', '\n'] later (Inr rfl))
+                        (declinesP later (Parse.cannotStartAtBreaks canStart lf cr later only2))
+                  | Inr same2 =>
+                    rewrite same2 in
+                      Parse.declinesSepStep p Parse.newline ['\r', '\r', ..later] (Parse.declinesNewline ['\r', '\r', ..later] rfl rfl)
+
+--| A round of `lines p` declines at a blank line (then anything): the line break
+--| is there, and `p` would start at the blank line's spaces or line break.
+theorem Parse.declinesLinesAtBlank (p: () → {Parse} a) (canStart: Char → Bool)
+    (declinesP: (input: List Char) → Parse.CannotStart canStart input → Parse.Declines p input)
+    (lf: canStart '\n' = False) (cr: canStart '\r' = False) (space: (char: Char) → Parse.isSpace char = True → canStart char = False)
+    (blank: List Char) (more: List Char) (isBlank: Parse.BlankLine blank):
+    Parse.Declines (() => Parse.sepStep p Parse.newline) (blank ++ more) :=
+  match isBlank with
+    | Witness first (Witness middle (Witness last (Both split (Both firstBreak (Both spaced lastBreak))))) =>
+      let after := middle ++ (last ++ more)
+      let afterCannot: Parse.CannotStart canStart after :=
+        match middle with
+          | [] => Parse.cannotStartAfterBreak canStart lf cr last more lastBreak
+          | [blank1, ..others] => char rest found => rewrite <- List.consInjectiveHead _ _ _ _ found in space blank1 (Bool.andLeft spaced)
+      rewrite split, List.appendAssoc first (middle ++ last) more, List.appendAssoc middle last more in
+        Parse.declinesAfter Parse.newline (u => p()) first after () (Parse.runsNewline first after firstBreak) (declinesP after afterCannot)
+
+--| A round of `lines p` declines at a [`Parse.LinesEnd`]: line breaks only, or a
+--| blank line. This is the end of lines inside sections.
+theorem Parse.declinesLinesAtLinesEnd (p: () → {Parse} a) (canStart: Char → Bool)
+    (declinesP: (input: List Char) → Parse.CannotStart canStart input → Parse.Declines p input)
+    (lf: canStart '\n' = False) (cr: canStart '\r' = False) (space: (char: Char) → Parse.isSpace char = True → canStart char = False)
+    (input: List Char) (end: Parse.LinesEnd input): Parse.Declines (() => Parse.sepStep p Parse.newline) input :=
+  match end with
+    | Inl only => Parse.declinesLinesAtBreaks p canStart declinesP lf cr input only
+    | Inr (Witness blank (Witness more (Both isBlank same))) => rewrite same in Parse.declinesLinesAtBlank p canStart declinesP lf cr space blank more isBlank
+
+--| A round of `sections p` (a blank line then `p`) after a first line break
+--| `first` and only line breaks `more`: either the blank line isn't there, or
+--| it is and `p` finds only line breaks after it.
+theorem Parse.declinesSectionsAfterBreak (p: () → {Parse} a) (canStart: Char → Bool)
+    (declinesP: (input: List Char) → Parse.CannotStart canStart input → Parse.Declines p input)
+    (lf: canStart '\n' = False) (cr: canStart '\r' = False) (first: List Char) (isBreak: Parse.LineBreak first)
+    (more: List Char) (only: Parse.OnlyBreaks more): Parse.Declines (() => Parse.sepStep p Parse.blankLine) (first ++ more) :=
+  match more with
+    | [] =>
+      Parse.declinesSepStep p Parse.blankLine (first ++ [])
+        (Parse.declinesBlankLineAfter first [] [] isBreak rfl rfl (Parse.declinesNewline [] rfl rfl))
+    | [char, ..others] =>
+      let only1: Parse.OnlyBreaks others := Bool.andRight only
+      match Parse.lineBreakChar char (Bool.andLeft only) with
+        | Inl same =>
+          rewrite same in
+            rewrite <- List.appendAssoc first ['\n'] others in
+              Parse.declinesAfter Parse.blankLine (u => p()) (first ++ ['\n']) others ()
+                (Parse.runsBlankLine first [] ['\n'] others isBreak rfl (Inl rfl)) (declinesP others (Parse.cannotStartAtBreaks canStart lf cr others only1))
+        | Inr same =>
+          rewrite same in
+            match others with
+              | [] =>
+                Parse.declinesSepStep p Parse.blankLine (first ++ ['\r'])
+                  (Parse.declinesBlankLineAfter first [] ['\r'] isBreak rfl rfl (Parse.declinesNewline ['\r'] rfl rfl))
+              | [next, ..later] =>
+                let only2: Parse.OnlyBreaks later := Bool.andRight only1
+                match Parse.lineBreakChar next (Bool.andLeft only1) with
+                  | Inl same2 =>
+                    rewrite same2 in
+                      rewrite <- List.appendAssoc first ['\r', '\n'] later in
+                        Parse.declinesAfter Parse.blankLine (u => p()) (first ++ ['\r', '\n']) later ()
+                          (Parse.runsBlankLine first [] ['\r', '\n'] later isBreak rfl (Inr rfl)) (declinesP later (Parse.cannotStartAtBreaks canStart lf cr later only2))
+                  | Inr same2 =>
+                    rewrite same2 in
+                      Parse.declinesSepStep p Parse.blankLine (first ++ ['\r', '\r', ..later])
+                        (Parse.declinesBlankLineAfter first [] ['\r', '\r', ..later] isBreak rfl rfl (Parse.declinesNewline ['\r', '\r', ..later] rfl rfl))
+
+--| A round of `sections p` declines on only line breaks (the end of the input
+--| that `Parse.all` allows after the last section), given that `p` declines
+--| wherever its first character can't be one `canStart` allows.
+theorem Parse.declinesSectionsAtBreaks (p: () → {Parse} a) (canStart: Char → Bool)
+    (declinesP: (input: List Char) → Parse.CannotStart canStart input → Parse.Declines p input)
+    (lf: canStart '\n' = False) (cr: canStart '\r' = False) (input: List Char) (only: Parse.OnlyBreaks input):
+    Parse.Declines (() => Parse.sepStep p Parse.blankLine) input :=
+  match input with
+    | [] => Parse.declinesSepStep p Parse.blankLine [] (Parse.declinesBlankLine [] (Parse.declinesNewline [] rfl rfl))
+    | [char, ..more] =>
+      let only1: Parse.OnlyBreaks more := Bool.andRight only
+      match Parse.lineBreakChar char (Bool.andLeft only) with
+        | Inl same => rewrite same in Parse.declinesSectionsAfterBreak p canStart declinesP lf cr ['\n'] (Inl rfl) more only1
+        | Inr same =>
+          rewrite same in
+            match more with
+              | [] => Parse.declinesSepStep p Parse.blankLine ['\r'] (Parse.declinesBlankLine ['\r'] (Parse.declinesNewline ['\r'] rfl rfl))
+              | [next, ..later] =>
+                match Parse.lineBreakChar next (Bool.andLeft only1) with
+                  | Inl same2 => rewrite same2 in Parse.declinesSectionsAfterBreak p canStart declinesP lf cr ['\r', '\n'] (Inr rfl) later (Bool.andRight only1)
+                  | Inr same2 =>
+                    rewrite same2 in
+                      Parse.declinesSepStep p Parse.blankLine ['\r', '\r', ..later]
+                        (Parse.declinesBlankLine ['\r', '\r', ..later] (Parse.declinesNewline ['\r', '\r', ..later] rfl rfl))
+
 def Parse.RunsExamples.numbers(): {Parse} NonEmptyList Nat := Parse.lines Parse.nat
 
 --| "1", a line break and "22" are `lines nat`: [1, 22].
