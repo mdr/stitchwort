@@ -4780,6 +4780,21 @@ inner `match`. Note 1 showed the computed goal, and Note 4 explained the
 `(match …)`; an `Eq.trans` chain of `Eq.cong`s, which never looks inside
 the goal, checked at once. As days 11, 12 and 15 found, which form a goal
 is in after a `match` can't be seen in the source.
+**Update (SW-1583, 6 Nov 2026).** With SW-1563's `Parse.Runs` lemmas,
+the second reader is gone: Unique.sw now builds `Parse.Runs` for the
+program's own `precedence.expression` (operand by `runsOneOfFirst` /
+`runsOneOfNext` with `declinesBind` on `nat`, parentheses by
+`runsRecursive`, operators by `runsPick` / `declinesPick`, a level's
+chain by `runsChainLeft` over a list of steps), and `meansUnique` is
+that `Parse.run` is a function (`runsRun`). `Tests/Reader.sw` went with
+the reader. Unique.sw is 466 lines, not fewer: the chain's steps are a
+list the induction builds at the end (`chainOf`, with snoc lemmas for
+`joinReads`, `stepValues` and `chainFold`), and the operator word needs
+its own first-occurrence lemma (`runsOperatorFrom`). What the proof is
+about is now the program, which the test no longer has to vouch for.
+`Parse.runsEachLine` (std) was added for the same lane; day 18's proof
+does not need it yet, since `parseMeans` goes through `eachLineReads`.
+
 
 ### 2. A `{Parse}` function's `foldLeft` is an effect, so `readsDone` can't take it
 
