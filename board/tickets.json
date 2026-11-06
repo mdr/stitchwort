@@ -11604,13 +11604,13 @@
     {
       "id": 1659,
       "title": "2020 day 19: dedupe each rule's leftovers with Set (2.9 vs 4.2 s in an earlier experiment) (SW-1636)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1665",
       "labels": [
         "aoc"
       ],
-      "body": "From SW-1636, 6 Nov 2026.\n\nStarted on Sonnet in one lane (SW-1665 with SW-1670, SW-1659), expected: 45 min.",
+      "body": "From SW-1636, 6 Nov 2026.\n\nStarted on Sonnet in one lane (SW-1665 with SW-1670, SW-1659), expected: 45 min.\n\nClosed, no gain: after the Map table (SW-1636) day 19 runs in 2.1 s; .distinct on alternatives 2.6 s, on leftovers 2.8 s; no rule has two ways to the same rest on this input. Noted in NOTES-2020.md.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11688,13 +11688,13 @@
     {
       "id": 1665,
       "title": "2024 day 14: Space's widthPositive/heightPositive proof fields could go now that wrap is total; proofs take bounds from their inside hypotheses (SW-1640)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1665",
       "labels": [
         "aoc"
       ],
-      "body": "From SW-1640, 6 Nov 2026.\n\nStarted on Sonnet in one lane (SW-1665 with SW-1670, SW-1659), expected: 45 min.",
+      "body": "From SW-1640, 6 Nov 2026.\n\nStarted on Sonnet in one lane (SW-1665 with SW-1670, SW-1659), expected: 45 min.\n\nClosed, can't: part2Never needs period ≠ 0 (Nat.modLess), which StartInside can't give for an empty robot list (width 0 would make part2Never false); Space.fromArgs relies on the fields to reject a zero size (SW-1665 lane, 6 Nov 2026).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11758,13 +11758,13 @@
     {
       "id": 1670,
       "title": "2024 day 14: iterateWrap and moveWrap keep a redundant size ≠ 0 (they also take x < size); drop it per D2470 (SW-1640 review)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1665",
       "labels": [
         "aoc"
       ],
-      "body": "From the SW-1640 Opus review, 6 Nov 2026.\n\nStarted on Sonnet in one lane (SW-1665 with SW-1670, SW-1659), expected: 45 min.",
+      "body": "From the SW-1640 Opus review, 6 Nov 2026.\n\nStarted on Sonnet in one lane (SW-1665 with SW-1670, SW-1659), expected: 45 min.\n\nDone, merged (a343d7f74): iterateWrap and moveWrap lose (ok: size ≠ 0); the successor case derives it from x < size. Checked clean on main. Model result: Sonnet, worked, 5 min (est. 45).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
