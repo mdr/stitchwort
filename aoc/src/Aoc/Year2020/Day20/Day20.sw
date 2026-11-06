@@ -187,7 +187,7 @@ def seaMonster: Image :=
 --| left: a `List Nat` rather than a `Position`, which has no order for a `Set`.
 def Image.roughAt (image: Image): List (List Nat) :=
   image.rows.withIndex.flatMap (((row, pixels)) =>
-    pixels.withIndex.filter (((_, pixel)) => pixel == Rough) |> .map (((column, _)) => [row, column]))
+    pixels.withIndex.filterMap (match some | (column, Rough) => [row, column]))
 
 --| `at` moved down and right by `by`.
 def shift (by: List Nat) (at: List Nat): List Nat := List.zipWith by at (a b => a + b)
@@ -195,7 +195,7 @@ def shift (by: List Nat) (at: List Nat): List Nat := List.zipWith by at (a b => 
 --| Where a copy of `monster`, as drawn (not turned), has its top left in
 --| `image`: every rough pixel of the copy on a rough pixel of the image.
 def Image.monsterStarts (image: Image) (monster: Image): List (List Nat) :=
-  let rough := Set.fromList image.roughAt
+  let rough := image.roughAt.toSet
   let height := image.rows.length
   let width := image.rows.headOr [] |> .length
   let monsterHeight := monster.rows.length
@@ -206,10 +206,10 @@ def Image.monsterStarts (image: Image) (monster: Image): List (List Nat) :=
 --| The rough pixels of `image` that are part of a copy of `monster`, as
 --| drawn (not turned).
 def Image.monsterPixels (image: Image) (monster: Image): Set (List Nat) :=
-  image.monsterStarts monster |> .flatMap (start => monster.roughAt.map (shift start)) |> Set.fromList
+  image.monsterStarts monster |> .flatMap (start => monster.roughAt.map (shift start)) |> .toSet
 
 --| The rough pixels in no copy of `monster`, as drawn.
-def Image.roughnessWith (image: Image) (monster: Image): Nat := (Set.fromList image.roughAt).size - (image.monsterPixels monster).size
+def Image.roughnessWith (image: Image) (monster: Image): Nat := image.roughAt.toSet.size - (image.monsterPixels monster).size
 
 --| The sea monster turned the way the image has them: the first of its
 --| orientations of which the image has a copy (the puzzle's image has
@@ -220,7 +220,7 @@ def Image.monsterTurned (image: Image): Option Image := seaMonster.orientations.
 --| them if there are no sea monsters.
 def Image.roughnessFor (image: Image): (turned: Option Image) → Nat
   | Some monster => image.roughnessWith monster
-  | None => (Set.fromList image.roughAt).size
+  | None => image.roughAt.toSet.size
 
 --| The rough pixels in no sea monster, turned the way the image has them.
 def Image.roughness (image: Image): Nat := image.roughnessFor image.monsterTurned

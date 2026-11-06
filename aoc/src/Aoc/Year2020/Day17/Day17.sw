@@ -74,7 +74,7 @@ type Pocket = { active: Set Cube }
 --| The pocket before any cycle: the slice's active cubes, in `dimensions`
 --| dimensions.
 def Slice.pocket (slice: Slice) (dimensions: Nat): Pocket :=
-  { active = slice.grid.positionsWhere (== Active) |> .map (Cube.inSlice dimensions) |> Set.fromList }
+  { active = slice.grid.positionsWhere (== Active) |> .map (Cube.inSlice dimensions) |> .toSet }
 
 --| Whether a cube that is (or isn't) `active`, with `count` active
 --| neighbours, is active after the cycle.

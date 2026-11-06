@@ -36,7 +36,7 @@ type Window = { numbers: List Nat }
 --| Whether `number` is the sum of two numbers of the window with different
 --| values: some `a` whose partner `number - a` is in the window too.
 def Window.sumsTo (window: Window) (number: Nat): Bool :=
-  let present := Set.fromList window.numbers
+  let present := window.numbers.toSet
   window.numbers.any (a => a <= number && a + a != number && present.contains (number - a))
 
 --| The first number of `front.drop preamble` that its `preamble` numbers
