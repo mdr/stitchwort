@@ -494,6 +494,7 @@ const PRINTS_UNKNOWNS: &[&str] = &[
     "reject/lambda-after-expected-unfolded.sw",
     "reject/lambda-pattern-annotation-shape.sw",
     "reject/not-unfolded-argument.sw",
+    "reject/parser-count-differs-from-lemma-with-unknown.sw",
     "reject/pipe-wrong-type.sw",
     "reject/plus-unknown-against-itself.sw",
     "reject/plus-unknown-against-zero.sw",

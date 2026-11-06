@@ -144,6 +144,9 @@ pub(crate) struct Attempt {
     /// arguments (`unify::unify_step`'s first rule) are open around the
     /// current pair. Set by a guard.
     pub(crate) argument_checks: Cell<usize>,
+    /// While the outermost `unify::run` of a comparison runs: the pairs of
+    /// calls found different in it (`unify::CallMemo`). Set by a guard.
+    pub(crate) call_memo: RefCell<Option<crate::unify::CallMemo>>,
     /// The solutions made while comparing two calls of a definition stuck
     /// on an unknown by their arguments (`unify::unify_step`): each
     /// metavariable and its place in `MetaStore::meta_trail`. Equal arguments
@@ -245,6 +248,7 @@ impl Attempt {
             awaited_helpers: _,
             solving_arguments: _,
             argument_checks: _,
+            call_memo: _,
             pending: _,
             waiting: _,
         } = self;
@@ -296,6 +300,7 @@ impl Attempt {
             awaited_helpers: _,
             solving_arguments: _,
             argument_checks: _,
+            call_memo: _,
             pending: _,
             waiting: _,
         } = self;
@@ -363,6 +368,7 @@ impl Attempt {
             awaited_helpers: _,
             solving_arguments: _,
             argument_checks: _,
+            call_memo: _,
             pending: _,
             waiting: _,
         } = self;
@@ -418,6 +424,7 @@ impl Attempt {
             awaited_helpers: _,
             solving_arguments: _,
             argument_checks: _,
+            call_memo: _,
             pending: _,
             waiting: _,
         } = self;
