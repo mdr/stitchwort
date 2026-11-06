@@ -4484,6 +4484,10 @@ as atoms and closed each case with `omega` before looking inside a
 number, this would be `cases`; or `omega` could split `if`s on
 comparisons itself.
 
+Fixed (SW-1550): `cases` keeps an `Int` `==` that a test depends on as
+one `Bool` atom, so `window` is now `cases`. `E-CASES-BUDGET` also says
+when it is taking an `Int` apart (SW-1573).
+
 ### 2. `==` on a list or a record doesn't compute, and std has no lemmas for it
 
 `Map.counts` counts with `== cube`, so the proof meets `[here, ..more]

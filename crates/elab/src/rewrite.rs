@@ -57,7 +57,7 @@ use stitchwort_syntax::ast::{Expr, Name as AstName, RewriteRule};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::calc::lemma;
-use crate::check::{Ctx, Piped, Result, check, infer, insert};
+use crate::check::{Ctx, NE_AS_PROP_NOTE, Piped, Result, check, infer, insert, ne_read_as_prop};
 use crate::lift::replace_with;
 use crate::matching::same;
 use crate::undo::{Snapshot, fatal};
@@ -1444,6 +1444,7 @@ fn check_motive(
             "rewrite a larger term that contains it (such as `x % d`), or state the step with \
              `calc`",
         ))
+        .map_err(|d| ne_note(d, &written(cx, body), &shown(cx, lhs)))
         .map_err(
             |d| match crate::equation_notes::branch_note(cx.e, &[body]) {
                 Some(note) => d.with_note(note),
@@ -1817,6 +1818,9 @@ fn nothing_found(
         1 => " after the rule before this one".to_string(),
         _ => format!(" after the {index} rules before this one"),
     };
+    if ne_read_as_prop(&goal_text, &shown_lhs) {
+        error = error.with_note(NE_AS_PROP_NOTE);
+    }
     match as_written.map(|t| written(cx, &t)) {
         Some(text) if text != goal_text => {
             error = error
@@ -1961,6 +1965,15 @@ fn budget_error(
         );
     }
     error.with_note("state the step with `calc`, or rewrite with a more specific equation")
+}
+
+/// `d` with the `!=` note when a `Bool` `!=` (`lhs`) was read as `≠` in `goal`.
+fn ne_note(d: Diagnostic, goal: &str, lhs: &str) -> Diagnostic {
+    if ne_read_as_prop(goal, lhs) {
+        d.with_note(NE_AS_PROP_NOTE)
+    } else {
+        d
+    }
 }
 
 fn round_trip_error(
