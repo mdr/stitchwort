@@ -1768,7 +1768,10 @@ fn branch(
         // glued call stays a call in them ([`project_call`]), so a goal
         // keeps `(Set.map s f).items` rather than the inside of `Set.map`'s
         // unfolding. Both mean the same.
-        n @ Value::Neutral(..) if eta_case(g, *d) => {
+        n @ Value::Neutral(..)
+            if eta_case(g, *d)
+                && !matches!(&stuck, Some((id, ..)) if crate::float::eta_held(g, *id)) =>
+        {
             let k = g.data(*d).ctors[0].fields.len();
             (0, eta_fields(*d, k, scrutinee, n))
         }

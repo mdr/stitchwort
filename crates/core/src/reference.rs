@@ -75,7 +75,7 @@ pub fn eval(g: &Ev, env: &[Value], term: &Term) -> Result<Value> {
             env.push(eval(g, &env, value)?);
             eval(g, &env, body)?
         }
-        Term::Case(..) | Term::NumCase(..) => eval_tree(g, env.to_vec(), term, false)?
+        Term::Case(..) | Term::NumCase(..) => eval_tree(g, env.to_vec(), term, false, false)?
             .expect("internal error: a case outside a definition's case tree got stuck"),
         Term::Eq(ty, a, b) => Value::Eq(
             Rc::new(eval(
@@ -300,8 +300,13 @@ fn unfold(g: &Ev, id: DefId, spine: Vec<Elim>) -> Result<Value> {
             })
             .collect();
         if let Some(args) = args
-            && let Some(value) =
-                eval_tree(g, args, body.peel_lams(def.arity), folds_on_lift(g, id))?
+            && let Some(value) = eval_tree(
+                g,
+                args,
+                body.peel_lams(def.arity),
+                folds_on_lift(g, id),
+                crate::float::eta_held(g, id),
+            )?
         {
             return Ok(value);
         }
@@ -366,7 +371,13 @@ fn unfold_folded(g: &Ev, value: Value) -> Result<Value> {
             })
             .collect();
         if let Some(args) = args
-            && let Some(next) = eval_tree(g, args, body.peel_lams(g.def(*id).arity), false)?
+            && let Some(next) = eval_tree(
+                g,
+                args,
+                body.peel_lams(g.def(*id).arity),
+                false,
+                crate::float::eta_held(g, *id),
+            )?
         {
             return unfold_folded(g, force(g, next)?);
         }
@@ -383,14 +394,20 @@ fn number_view(g: &Ev, value: &Value) -> Result<(num_bigint::BigUint, Option<Val
     native::view_with(g, &value, force)
 }
 
-fn eval_tree(g: &Ev, mut env: Vec<Value>, term: &Term, fold_lifts: bool) -> Result<Option<Value>> {
+fn eval_tree(
+    g: &Ev,
+    mut env: Vec<Value>,
+    term: &Term,
+    fold_lifts: bool,
+    eta_held: bool,
+) -> Result<Option<Value>> {
     match term.strip_loc() {
         Term::Case(ix, d, branches) => {
             let (c, fields) = match unfold_folded(g, force(g, env[env.len() - 1 - ix].clone())?)? {
                 Value::Ctor(_, c, fields) => (c, fields.to_vec()),
                 // Record eta, rule 2: the only branch, with the fields
                 // projected.
-                n @ Value::Neutral(..) if eta_case(g, *d) => {
+                n @ Value::Neutral(..) if eta_case(g, *d) && !eta_held => {
                     let k = g.data(*d).ctors[0].fields.len();
                     let fields = (0..k)
                         .map(|i| project(g, *d, i, n.clone()))
@@ -410,7 +427,7 @@ fn eval_tree(g: &Ev, mut env: Vec<Value>, term: &Term, fold_lifts: bool) -> Resu
                 return Ok(None);
             };
             env.extend(fields);
-            eval_tree(g, env, body, fold_lifts)
+            eval_tree(g, env, body, fold_lifts, eta_held)
         }
         Term::NumCase(ix, arms, default) => {
             let (k, base) = number_view(g, &env[env.len() - 1 - ix])?;
@@ -433,7 +450,7 @@ fn eval_tree(g: &Ev, mut env: Vec<Value>, term: &Term, fold_lifts: bool) -> Resu
             } else {
                 return Ok(None);
             };
-            eval_tree(g, env, body, fold_lifts)
+            eval_tree(g, env, body, fold_lifts, eta_held)
         }
         // A `Quot.lift` leaf counts as a case on its quotient: stuck, the
         // definition stays folded (`fold_lifts`: only one marked for it,
