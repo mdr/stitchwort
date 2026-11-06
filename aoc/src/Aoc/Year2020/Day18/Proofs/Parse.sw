@@ -49,45 +49,20 @@ theorem readsOperand (strengthOf: Operator → Nat) (strength: Nat) (expression:
                   (Both follows Trivial))))))
         Trivial))
 
---| What a step of a chain reads: an operator of the level, then the next
---| level's expression.
-def StepRead (strengthOf: Operator → Nat) (strength: Nat) (operators: List Operator) (read: List Char) (found: (Operator, Expression)): Prop :=
-  ∃ (rightRead: List Char) =>
-    read = [' ', Spec.symbol found.fst, ' '] ++ rightRead ∧ found.fst ∈ operators ∧ Level strengthOf (strength + 1) rightRead found.snd
-
-theorem readsStep (strengthOf: Operator → Nat) (strength: Nat) (operators: List Operator) (term: () → {Parse} Expression)
-    (readsTerm: Parse.Reads term (Level strengthOf (strength + 1))): Parse.Reads (() => step operators term) (StepRead strengthOf strength operators) :=
-  Parse.readsThen (readsOperator operators) (operatorRead found (Both member spaced) =>
-    Parse.readsThen readsTerm (rightRead right level =>
-      Parse.readsDone (found, right) _ (Witness rightRead (Both (rewrite spaced, List.appendNil rightRead in rfl) (Both member level)))))
-
---| Folding the steps from the left keeps what a level reads.
-theorem foldSteps (strengthOf: Operator → Nat) (strength: Nat) (operators: List Operator)
-    (ranked: List.All (operator => strengthOf operator = strength) operators):
-    (steps: List (Operator, Expression)) → (left: Expression) → (leftRead: List Char) → (restRead: List Char) →
-      Level strengthOf strength leftRead left → Parse.Each (StepRead strengthOf strength operators) restRead steps →
-      Level strengthOf strength (leftRead ++ restRead) (groupLeft left steps)
-  | [], left, leftRead, restRead, level, none => rewrite none, List.appendNil leftRead in level
-  | [(found, right), ..later], left, leftRead, restRead, Both written (Both follows binds),
-    Witness stepRead (Witness laterRead (Both split (Both (Witness rightRead (Both spaced (Both member (Both rightWritten (Both rightFollows rightBinds))))) each))) =>
-    let same: strengthOf found = strength := List.allMem _ found operators ranked member
-    let combined: Level strengthOf strength (leftRead ++ stepRead) (Operation found left right) :=
-      Both (Witness leftRead (Witness rightRead (Both (rewrite spaced in rfl) (Both written rightWritten))))
-        (Both (Both (rewrite same in binds) (Both (rewrite same in rightBinds) (Both follows rightFollows))) (omega [same]))
-    rewrite split, Eq.sym (List.appendAssoc leftRead stepRead laterRead) in
-      foldSteps strengthOf strength operators ranked later (Operation found left right) (leftRead ++ stepRead) laterRead combined each
-
 theorem readsChain (strengthOf: Operator → Nat) (strength: Nat) (operators: List Operator) (term: () → {Parse} Expression)
     (ranked: List.All (operator => strengthOf operator = strength) operators)
     (readsTerm: Parse.Reads term (Level strengthOf (strength + 1))): Parse.Reads (() => chain operators term) (Level strengthOf strength) :=
-  Parse.readsThen readsTerm (firstRead first (Both written (Both follows binds)) =>
-    Parse.readsThen (Parse.readsMany (() => step operators term) _ (readsStep strengthOf strength operators term readsTerm)) (restRead steps each =>
-      let folded := groupLeft first steps
-      let level: Level strengthOf strength (firstRead ++ (restRead ++ [])) folded :=
-        rewrite List.appendNil restRead in
-          foldSteps strengthOf strength operators ranked steps first firstRead restRead
-            (Both written (Both follows (bindsWeaken strengthOf strength first binds))) each
-      Parse.readsDone folded (read value => Level strengthOf strength (firstRead ++ (restRead ++ read)) value) level))
+  Parse.readsChainLeft term (() => Operator.node (operator operators)) (Level strengthOf (strength + 1))
+    (read combine => ∃ (found: Operator) => (found ∈ operators ∧ read = [' ', Spec.symbol found, ' ']) ∧ combine = Operator.node found)
+    (Level strengthOf strength) readsTerm
+    (Parse.readsMap (() => operator operators) Operator.node _ (readsOperator operators))
+    (read first (Both written (Both follows binds)) => Both written (Both follows (bindsWeaken strengthOf strength first binds)))
+    (leftRead operatorRead rightRead left combine right (Both written (Both follows binds))
+      (Witness found (Both (Both member spaced) same)) (Both rightWritten (Both rightFollows rightBinds)) =>
+      let sameStrength: strengthOf found = strength := List.allMem _ found operators ranked member
+      rewrite same, spaced in
+        Both (Witness leftRead (Witness rightRead (Both rfl (Both written rightWritten))))
+          (Both (Both (rewrite sameStrength in binds) (Both (rewrite sameStrength in rightBinds) (Both follows rightFollows))) (omega [sameStrength])))
 
 theorem readsLevel (strengthOf: Operator → Nat) (expression: () → {Parse} Expression) (readsExpression: Parse.Reads expression (Level strengthOf 0)):
     (levels: List (List Operator)) → (strength: Nat) → Ranked strengthOf strength levels →
