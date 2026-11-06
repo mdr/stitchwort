@@ -10316,13 +10316,13 @@
     {
       "id": 1567,
       "title": "Std: Parse.chainLeft (Parsec chainl1) with a readsChainLeft lemma; maybe precedence levels on top (day 18, 47 lines)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1567",
       "labels": [
         "std"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1557 (2020 day 18).\n\nStarted overnight on Sonnet, expected: 50 min.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1557 (2020 day 18).\n\nStarted overnight on Sonnet, expected: 50 min.\n\nDone, merged: Parse.chainLeft (operand) (operator), Parse.chainFold, Parse.readsChainLeft (an invariant: start for one operand, step for each operator and operand; the left fold's induction principle). Day 18: 49 lines deleted, 14 added; its statements unchanged. Prelude hashes: additions only. Guide chapter 08 mentions it. Orchestrator checked the statement (D2436). Model result: Sonnet, worked, 12 min (est. 50).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
