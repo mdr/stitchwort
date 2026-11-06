@@ -8972,15 +8972,15 @@
     {
       "id": 1471,
       "title": "Editor: in a file whose import failed, hover and go-to-definition are empty until the import is fixed (the dependent is skipped and its earlier answers rewound); keep its last good answers, marked stale, instead",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1471",
       "labels": [
         "editor"
       ],
-      "body": "From SW-1459, 5 Nov 2026.",
+      "body": "From SW-1459, 5 Nov 2026.\n\nStarted on Sonnet (overnight editor track), expected: 60 min.",
       "created": "2026-11-05",
-      "updated": "2026-11-05",
+      "updated": "2026-11-06",
       "commits": []
     },
     {
