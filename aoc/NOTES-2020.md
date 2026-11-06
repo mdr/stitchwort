@@ -4358,3 +4358,259 @@ million steps); the rest of the cold time is std's modules.
    `Nat.succInjective`'s explicit `m n`; no warning for a lambda
    parameter hiding a local; `Some { … }` again; no `List.countOf`
    (items 6, 7). Each small.
+
+## Day 17: Conway Cubes
+
+A Game of Life in an infinite grid of cubes. The input is a flat slice
+(`#` active, `.` inactive) at z = 0; every other cube starts inactive. In
+a cycle every cube changes at once by its active neighbours (the cubes
+within 1 in every coordinate, 26 of them in three dimensions): an active
+cube stays active with 2 or 3, an inactive one becomes active with
+exactly 3. Part 1: the active cubes after six cycles in three dimensions;
+part 2: the same in four (80 neighbours). Answers on Matt's input (8 by
+8): 289 and 2084; the example gives 112 and 848, and 11, 21, 38 active
+cubes after its first three cycles (29 and 60 in four dimensions), as
+the puzzle's pictures show. Matt's Scala (`Day17.scala`) checks every
+cube of the bounding box each cycle, counting neighbours in the set; I
+didn't run it. An independent Python script (a `Counter` of neighbour
+hits, the same algorithm as here) agrees on both answers and the
+example's, in 0.24 s for both. Part 2's last cycle has 2,628 active
+cubes and 27,108 counted ones; the six cycles make 383,120 neighbour
+hits.
+
+The domain types are `CubeState` (`Active`, `Inactive`, with `symbol`),
+`Slice` (the input, a `Grid CubeState` from `Aoc.Common.parseGrid`),
+`Cube` (`coordinates`, a `List Int`, with an `Ord` by them, so one
+program serves both parts) and `Pocket` (`active`, a `Set Cube`). A
+cube's `neighbours` are `within1 coordinates` (every list within 1 in
+each place, 3 ^ n of them) without itself; `Cube.inSlice dimensions at`
+is the slice position's cube, padded with zeros; `slice.pocket
+dimensions`, `pocket.cycle`, `pocket.boot` (`Nat.iterate 6`) and
+`pocket.activeCount`. A cycle is `Map.counts` of every active cube's
+neighbours (so only cubes next to an active one are looked at), then
+`filter pocket.activeNext` (3, or 2 and active) and `keySet`: three
+lines. The program and its 15 tests passed on the first run.
+
+The spec (`Spec/Spec.sw`) shares the data types and `Cube`'s order (for
+`Set Cube`) and nothing else. `symbol` and `RowWritten` (a line is its
+row, a character a cube); `Starts slice dimensions start` (a cube is in
+`start` exactly when it is `[x, y, 0, …]` for an active cube at column
+`x`, row `y` of the slice); `within1` on two coordinate lists (as many
+of each, each pair at most 1 apart) and `neighbours other cube` ("any of
+the 26 other cubes where any of their coordinates differ by at most 1":
+a different cube, `within1`); `activeNeighbours active cube`, a
+`Set.count`; `activeAfter` (the puzzle's four sentences of rules);
+`Cycle before after` (a cube is in `after` exactly when `activeAfter
+before` says so: "all cubes simultaneously change their state"),
+`Cycles`, and `Answer slice dimensions answer` (some `start` and `final`
+with `Starts`, `Cycles 6` and `answer = final.size`). The spec never
+lists a cube's neighbours: it counts the active cubes that are
+neighbours, which reads as the puzzle does and is what the program's
+counting adds up to, so no proof needs the relation's symmetry.
+
+Proved (`Aoc.Year2020.Day17.Proofs`):
+
+- `readsCubeState`, `gridWritten`, `parseWritten` (Parse.sw, day 11's
+  three lemmas with the names changed): if `parseSlice` reads `input`,
+  each line of the input is its row of the slice, and the slice is a
+  rectangle.
+- `equalCons`, `countPrefixed`, `countPrefixedNil`, `window`,
+  `windowAnd`, `countWithin1`, `equalCubes`, `differentSelf`,
+  `differentCubes`, `countNeighbours` (Neighbours.sw): `within1 xs` holds
+  `ys` once if `Spec.within1 xs ys` and otherwise not at all, so for any
+  cubes, `cube.neighbours.count (== other)` is 1 if `Spec.neighbours
+  cube other` and 0 if not.
+- `setCount`, `countsActive`, `containsFilter`, `activeNextRule`,
+  `noneRule`, `cycleActive` (Cycle.sw): the count `Map.counts` keeps for
+  a cube is `Spec.activeNeighbours` (0 when it has no entry), so for
+  every pocket and cube, `pocket.cycle.active.contains cube =
+  Spec.activeAfter pocket.active cube`.
+- `startsPocket`, `cycles` (Boot.sw): `Spec.Starts slice dimensions
+  (slice.pocket dimensions).active`, and `Spec.Cycles n pocket.active
+  (Nat.iterate n Pocket.cycle pocket).active` for every `n`.
+- `startsUnique`, `cyclesUnique`, `answerExactly`, `correct` (Proofs.sw):
+  for every input the parser reads and any number of dimensions, the
+  lines are the slice's rows, and `Spec.Answer slice dimensions answer ↔
+  answer = (slice.pocket dimensions |> .boot |> .activeCount)`: the
+  program's count is the answer and the only one.
+
+Not proved: that every well-formed input parses (as on days 2 to 16);
+that `main` asks for 3 and 4 dimensions (it reads so). There is no added
+hypothesis and no `opaque`. The theorems hold in any number of
+dimensions, including 0 and 1, where `Starts` pads nothing and the
+slice's cubes still have two coordinates; the puzzle asks only for 3 and
+4.
+
+Breaking the program made the proofs fail: `count == 4` for `count == 3`
+in `activeNext` fails `cycleActive` (`activeNextRule` no longer fits its
+`Some` arm), as does `count == 1` for `count == 2`;
+swapping `x` and `y` in `Cube.inSlice` fails `startsPocket`. Dropping
+`coordinate + 1` from `within1`, or the filter that leaves a cube out of
+its own neighbours, fails `countWithin1` and `countNeighbours`, but only
+as `E-REWRITE-NOTHING`, since the proofs' rewrites follow the program's
+shape. The audit (with the counterexample search): `audited 43
+theorems: 0 failed, 0 with warnings, 43 passed`.
+
+### 1. `cases` on three `Int` comparisons splits `Int`'s insides and gives up
+
+The one fact about numbers the proof needs: of `x - 1`, `x` and `x + 1`,
+`y` equals one exactly when it is within 1 of `x`, as a count. As
+
+```stitchwort
+theorem window (x: Int) (y: Int):
+    (if x + (-1) == y then 1 else 0) + (if x == y then 1 else 0) + (if x + 1 == y then 1 else 0) = Bool.toNat (x + (-1) <= y && y <= x + 1) :=
+  cases
+```
+
+it is `E-CASES-BUDGET`, and Note 1 lists what it split: "`x + (-1)`, `y`,
+`Std.Nat.decEq n✝¹ n✝`, `x`, … `Int.subNatNat 1 (Succ n✝)`, …
+`Int.subNatNatFrom 1 (Succ n✝) n✝`": it took `Int` apart into its
+constructors instead of splitting the four `Bool` comparisons, each of
+which `omega` reads (a `match a: x + (-1) == y` hands it `x - 1 = y` or
+`x - 1 ≠ y`). What checks is a hand-written tree of `match`es on the
+four comparisons, 16 arms each closed by `omega` (Neighbours.sw:31–53),
+22 lines for a fact Lean's `omega` or `decide` would take in one. 2021
+day 2's notes saw `cases` show `Int`'s insides in a failed case; here it
+blocks a true lemma. If `cases` split comparisons of `Int`s (and `Nat`s)
+as atoms and closed each case with `omega` before looking inside a
+number, this would be `cases`; or `omega` could split `if`s on
+comparisons itself.
+
+### 2. `==` on a list or a record doesn't compute, and std has no lemmas for it
+
+`Map.counts` counts with `== cube`, so the proof meets `[here, ..more]
+== [y, ..ys]` (from the coordinates) and `{ coordinates = x } ==
+other` (from `Cube`'s derived equality). Neither computes when the
+parts are variables: the goal shows `Std.Decidable.toBool
+(Std.Decidable.not (List.decEq (x y => Int.decEq x y) coordinates
+here))` and `(Cube.%decEq …)`. I wrote `equalCons` (`([x, ..xs] == [y,
+..ys]) = (x == y ∧ xs == ys)`), `equalCubes`, `differentCubes` (the same
+for `!=`) and `differentSelf` (`(x != x) = False`), 25 lines, each a
+`Bool.eqOf` over `DecEq.sound` and `DecEq.refl`. `stitchwort search
+'(([?a, ..?b]: List _) == [?c, ..?d]) = _'` gave 348 results in the
+relaxed pass, none about lists. Std candidates: `List.beqCons`,
+`List.beqNilCons`, `DecEq.neSelf`; and for records, a generated
+`T.beqMk` (`({ f = a }: T) == { f = b }` is `a == b`, for one field),
+since every domain type with `DecEq` meets this the first time a proof
+counts or looks one up.
+
+### 3. A `Bool` `!=` on both sides of `=` is read as `≠`
+
+`differentCubes` was first stated `(({ coordinates = here }: Cube) != {
+coordinates = there }) = (here != there)`. It checked as a statement,
+but as an equation of two propositions `≠`, and its proof's `DecEq.trueOfNe`
+was "expected `({ coordinates = here } ≠ { coordinates = there }) =
+(here ≠ there)`, but this has type `Std.Decidable.toBool … = True`";
+used in a `rewrite`, it was `E-REWRITE-MOTIVE` ("expected `Decidable
+x'`, but this has type `Decidable ({ coordinates = here } ≠ …)`"),
+which says nothing about `Bool`. Writing `((a != b): Bool)` on each
+side, as std does, fixed both. A statement whose `!=` is elaborated as
+`≠` next to `=` could warn, or the mismatch note could say "this `!=`
+was read as the proposition `≠`; write `((a != b): Bool)` for the
+`Bool`".
+
+### 4. `rewrite` with the program's answer: "a value was too large to show"
+
+`answerExactly`'s backward half, given `same: answer =
+(slice.pocket dimensions |> .boot |> .activeCount)`, was first `rewrite
+same in activeCountAnswer slice dimensions` (the lemma that the
+program's count satisfies `Answer`). That is `E-RESOURCE`, "a value was
+too large to show … the value being shown was a call of
+`Pocket.activeCount`, computed far enough to be very large", pointing at
+the whole theorem. Passing `same` as the last component of the witness,
+with no `rewrite`, checks at once; so does `Eq.trans counted (Eq.cong
+Set.size finalSame)` for the forward half in place of `rewrite counted,
+finalSame in rfl`, which failed the same way. Days 11 of 2020 and of
+2021 met this message from a `match`; here the trigger is a `rewrite`
+whose right side is six cycles of the program on an unknown slice.
+Nothing needed showing, and the note doesn't say which `rewrite` it was
+in; the guide's bisecting with `?` found it in two runs.
+
+### 5. Smaller things
+
+- **What helped.** All the proofs took about 20 minutes. `Map.counts`
+  with `Map.getOrCounts` (`(Map.counts xs).getOr x 0 = xs.count (==
+  x)`) made the key lemma, the count kept for a cube is its active
+  neighbours, a five-step `calc` with `List.countFlatMap`,
+  `List.sumByCong`, `List.countSumBy` and `Set.foldLeftToList`; I had
+  expected to write the counting fold's invariant by hand. `Map.getFilter`,
+  `Map.containsKeySet`, `Set.containsFromListIff`, `Set.ext`,
+  `Set.extIff`, `List.memMapElim`, `List.countFilter`,
+  `List.countFalse` and day 11's `memGridPositionsWhere` were each found
+  by one grep. Stating `Cycle` as a relation, with `Set.ext` giving its
+  uniqueness, gave the "the only answer" theorem in 20 lines.
+- **Fast enough.** 8.4 s for both parts on `stitchwort run` (part 1 0.8
+  s), 3.0 s `--native`, 1.4 s `--js`, 0.24 s in Python: 383,120
+  `insertWith`s into maps of up to 27,108 `List Int` keys, about 20 µs
+  each on the interpreter. No `#[ignore]`.
+- **No `Int` ranges.** A test's box of cubes, `(-2 ..= 4)`, is "this is
+  negative, but a `Nat` is expected here", with the good note "ranges
+  exist for `Nat` only so far (`Int` is to come)"; `(0 ..= 6).map (n =>
+  n.toInt - 2)` works. Every grid puzzle with negative coordinates wants
+  `Int` ranges.
+- **No record eta.** `startsPocket` had `slice.grid.at at = Some state`
+  where `Starts` wants `slice.grid.at { row = at.row, column = at.column
+  }`: a mismatch inside `cellAt`'s `match`. Matching `at` as `{ row,
+  column }` first fixed it (the `match` refines the hypotheses). As day 1
+  found for pairs; a record of `Nat`s could have eta.
+- **A lemma about a `match` must not write one.** `containsFilter` first
+  ended `= (match m.get key with | Some value => p key value | None =>
+  False)`, and its use against the same `match` written in a `calc` step
+  is a mismatch of two hidden functions; the note says exactly why.
+  `(m.get key).any (p key)` says the same with a name. Std candidates:
+  `Map.containsFilter` in that form, and `Set.countToList` (`set.count
+  p = set.toList.count p`, `setCount` here, one line through
+  `Set.foldLeftToList`, but not findable as a `count` lemma).
+- **A Life step for `Aoc.Common`.** The cycle is generic in all but its
+  neighbours: given `neighbours: p → List p` and the fact that each
+  `neighbours q` holds `x` once exactly when some relation `R q x`
+  holds, `Map.counts` gives each point's count of active `R`-neighbours
+  (`countsActive` and `cycleActive` use nothing of `Cube` but that
+  fact). 2020 day 24 part 2 is the same Life over hexagonal tiles, and
+  day 11's rule is a cousin; `Aoc.Common.Life` with `step` and its two
+  theorems would make day 24's proof a lemma about hex neighbours.
+
+### Size and time
+
+90 lines of program, 74 of spec, 274 of proofs (Parse 40, Neighbours
+105, Cycle 58, Boot 29, Proofs 42), 70 of tests (+1 answer test in
+`aoc_answers.rs`). By the clock: 04:18 start; program and example
+answers at 04:27, input answers at 04:29 (9 s), tests passing at 04:32;
+`countWithin1` at 04:38 (most of it item 1), `countNeighbours` at 04:40,
+`cycleActive` at 04:42 (Cycle.sw and Boot.sw took four minutes), the
+top theorems and the audit by 04:45; then the break checks, the timings
+and these notes.
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2020.Day17.Proofs` | 8.9 s user |
+| `stitchwort check --no-cache Aoc.Year2020.Day17` | 4.9 s user |
+| `stitchwort test --no-cache Aoc.Year2020.Day17.Tests` (15 tests) | 15.6 s user |
+| `stitchwort audit Aoc.Year2020.Day17` (43 theorems) | 6.2 s user |
+| `stitchwort run Aoc.Year2020.Day17.main` on the input | 8.4 s user (part 1 0.8 s) |
+| `task test:one -- year2020_day17` | 12.5 s for the test (2 min 15 s with building the test binaries) |
+
+`STITCHWORT_TIMINGS=1` puts the Proofs namespace at 138 ms of
+elaboration and 24 ms in the kernel; the rest of the cold time is std's.
+
+### Ranked
+
+1. `cases` over three `Int` comparisons takes `Int` apart and runs out
+   of cases, where splitting the comparisons and calling `omega` closes
+   each; a 3-line fact took 22 lines of `match` (item 1). Tactic;
+   medium.
+2. `==` on a list with a head, or on a record, doesn't compute on
+   variables, and std has no `beqCons`, `neSelf` or per-record `==`
+   lemma: 25 lines of `Bool.eqOf` plumbing; `search` doesn't find
+   anything for the pattern (item 2). Library (and generated lemmas);
+   small.
+3. A Life step with its two theorems belongs in `Aoc.Common` for 2020
+   day 24 (item 5). AoC library; small.
+4. A `Bool` `!=` beside `=` in a statement is read as `≠`, and the errors
+   that follow are about `Decidable`, not `Bool` (item 3). Message;
+   small.
+5. `rewrite` with an equation whose side is the program's answer is
+   E-RESOURCE "too large to show", naming no `rewrite` (item 4; day 11 of 2020 and of 2021
+   from `match`). Checker or message; small to medium.
+6. Smaller: no `Int` ranges; no record eta; `Map.containsFilter` and
+   `Set.countToList` missing (item 5). Each small.

@@ -76,13 +76,17 @@ type Pocket = { active: Set Cube }
 def Slice.pocket (slice: Slice) (dimensions: Nat): Pocket :=
   { active = slice.grid.positionsWhere (== Active) |> .map (Cube.inSlice dimensions) |> Set.fromList }
 
+--| Whether `cube`, with `count` active neighbours, is active after the
+--| cycle.
+def Pocket.activeNext (pocket: Pocket) (cube: Cube) (count: Nat): Bool := count == 3 || (count == 2 && pocket.active.contains cube)
+
 --| Every cube changes at once. A cube next to no active cube has no
 --| active neighbours, so it is inactive after the cycle; the others are
 --| the keys of `activeNeighbours`, the count for each cube of how many
 --| active cubes it neighbours.
 def Pocket.cycle (pocket: Pocket): Pocket :=
   let activeNeighbours := pocket.active.toList.flatMap (.neighbours) |> Map.counts
-  { active = activeNeighbours.filter (cube count => count == 3 || (count == 2 && pocket.active.contains cube)) |> .keySet }
+  { active = activeNeighbours.filter pocket.activeNext |> .keySet }
 
 --| "Starting with your given initial configuration, simulate six cycles."
 def Pocket.boot (pocket: Pocket): Pocket := Nat.iterate 6 Pocket.cycle pocket
