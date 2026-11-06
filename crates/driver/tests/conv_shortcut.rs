@@ -20,6 +20,14 @@ use stitchwort_driver::driver::{Session, par_map, tier_sample, with_stack};
 
 const STACK: usize = 64 * 1024 * 1024;
 
+/// Examples whose check only ends in reasonable time because of a shortcut,
+/// left out of the comparison (they are still checked by the other example
+/// tests). `parser-count-differs-from-lemma-with-unknown.sw` is answered by
+/// the unifier's record of pairs of calls found different (SW-1521), which
+/// answers "different", not "equal": without it the comparison takes about
+/// 2³⁵ steps (SW-1702).
+const NEEDS_THE_SHORTCUT: &[&str] = &["reject/parser-count-differs-from-lemma-with-unknown.sw"];
+
 fn examples() -> Vec<(String, String)> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples");
     let mut found = Vec::new();
@@ -32,6 +40,9 @@ fn examples() -> Vec<(String, String)> {
         paths.sort();
         for path in paths {
             let name = format!("{dir}/{}", path.file_name().unwrap().to_string_lossy());
+            if NEEDS_THE_SHORTCUT.contains(&name.as_str()) {
+                continue;
+            }
             found.push((name, std::fs::read_to_string(&path).expect("readable")));
         }
     }
