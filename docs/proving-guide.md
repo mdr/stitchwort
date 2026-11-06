@@ -522,6 +522,14 @@ program can be an enormous term.
   `E-RESOURCE` respectively (aoc/NOTES-2024.md:5922–5924, 7272–7284;
   games/rogue/NOTES.md:283–305). Split the statement so the big term is a
   variable (§2, item 3), compare by name, or make it opaque.
+- **A statement with no parameters is computed when it is declared.**
+  `theorem t: countdown 0 100000000 = countdown 0 100000000 := rfl` runs
+  the whole loop before the proof is looked at (minutes; at 1,000,000
+  steps, 1.2 s): the kernel evaluates a closed statement in full. Give the
+  theorem a parameter (state it for any count, as days usually do) or name
+  the big value with a definition, and the call stays folded. Kept as is
+  for now (D2448); the design and a patch that removes the cost are in
+  [glued-closed-types.md](proposals/glued-closed-types.md).
 - **Leave rules no open arguments you could give.** On a scratch file with
   an opaque `lcg`, `rewrite lcg.unfold in …` took 25 s to check, and
   `rewrite lcg.unfold seed in …` and `unfolding lcg` took 0.2 s each (run

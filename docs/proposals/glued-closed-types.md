@@ -1,7 +1,10 @@
 # Keeping calls folded in a theorem's closed statement
 
-**Status:** draft 1, 6 November 2026. Ticket SW-1534 (from SW-1525). A
-kernel change, so it waits for Matt's decisions ([§5](#5-decisions)).
+**Status:** parked, 6 November 2026 (D2448, Matt: option C for now;
+"definitely record any research we've done so far so we can pick it up
+again"). Ticket SW-1534 (from SW-1525); revisit ticket SW-1596. The
+documented workaround is in the proving guide, §6. Read
+[§6](#6-why-parked-and-what-to-do-on-revisiting) before picking it up.
 Related: [folded-calls.md](folded-calls.md) (glued calls, D483; "As built
 (stage 4)" is where the rule this note revisits was set),
 [opaque-definitions.md](opaque-definitions.md) (the transparency set).
@@ -136,3 +139,48 @@ and then under the empty one, which must not see the opaque body.
   cache keyed by the modes it was computed in (option A)? [rec: yes]
 - **Q2.** If not A, which: B (lazy, closed types glued for the body only)
   or C (document the cost)? [rec: B]
+
+## 6. Why parked, and what to do on revisiting
+
+**Decided (D2448, Matt, 6 Nov 2026):** C for now: the kernel is unchanged
+and the cost is documented (proving guide §6, "A statement with no
+parameters is computed when it is declared"). A stays the preferred fix
+when this is picked up.
+
+**Why it's low priority.** No real proof has hit it. The incident behind
+SW-1525 (2020 day 15, theorems naming turn 30,000,000) was the audit's
+counterexample search reading the statement back, not the kernel: those
+theorems had a parameter (the starting numbers), so they checked at once.
+SW-1525 capped that read-back at 5M steps. The kernel case needs a
+statement with no parameters at all that spells out a computation of
+millions of steps; it was found only by the constructed repro in §1.
+AoC theorems are stated for any input, so they have parameters.
+
+**What exists.**
+- The experiment for A: `dev/patches/sw-1534-glued-closed-types.patch`
+  (gluing on in `push_def`, closed types glued again in `admit_group`; no
+  `Unfolding` mode check yet). Measured in §3: N = 100,000,000 from over
+  60 s to 0.17 s; core (175) and elab (156) lanes passed.
+- The evidence list in §4, still to collect.
+
+**Gap: prior art not checked for this question.** folded-calls.md §3
+compares Lean 4, Agda, Rocq, Idris 2 and smalltt on gluing in general, but
+not on what this decision turns on: how each kernel records a closed
+statement, and whether a cache of unfoldings ever crosses settings
+(transparency, erasure). Unverified beliefs, from memory, to check against
+sources before deciding:
+- Lean 4's kernel keeps statements as terms; declaring a theorem only
+  infers that its type is a sort (to weak head), so `countdown 0 N` isn't
+  run, and `rfl` on identical terms is settled by comparing them. Its
+  kernel caches (whnf, defeq) live in one type-checker run and are dropped
+  after the declaration.
+- Agda and Rocq likewise work on terms and unfold on demand.
+- Idris 2 glues (`Glued`: a term with its lazily computed normal form);
+  how long its normal forms live hasn't been looked at.
+
+If the Lean point holds, it suggests a variant between A and B: glue the
+statement, but scope remembered unfoldings to one check (as Lean's caches
+are), which keeps folded-calls.md's invariant "nothing glued outlives the
+check" without B's cost of every citing theorem recomputing. First step on
+revisiting: an Opus lane adds a verified prior-art section here (sources
+for each claim) and says whether it changes the recommendation.

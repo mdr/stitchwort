@@ -1,5 +1,5 @@
 {
-  "next": 1596,
+  "next": 1597,
   "tickets": [
     {
       "id": 47,
@@ -9860,7 +9860,7 @@
       "labels": [
         "elab"
       ],
-      "body": "From SW-1525, 6 Nov 2026.\n\nStarted overnight on Opus (a hang in elaboration or conversion; tricky), expected: 60 min.\n\nInvestigated (Opus, ~15-50 min): the kernel's push_def evaluates a closed statement unglued (folded-calls.md stage 4 choice), so countdown 0 N is computed in full before the proof is looked at (sample: all time in push_def → eval). Not a true hang: the 10G-step budget ends it after minutes. Experiment (glue kept type values) fixes it (N = 1e8: >60 s → 0.17 s; core and elab lanes pass); patch kept at dev/patches/sw-1534-glued-closed-types.patch. Proposal merged: docs/proposals/glued-closed-types.md, options A (glue kept type values, cache keyed by mode, ~15 trusted lines), B (lazy ty_value), C (document). D2448 for Matt [rec: A].",
+      "body": "From SW-1525, 6 Nov 2026.\n\nStarted overnight on Opus (a hang in elaboration or conversion; tricky), expected: 60 min.\n\nInvestigated (Opus, ~15-50 min): the kernel's push_def evaluates a closed statement unglued (folded-calls.md stage 4 choice), so countdown 0 N is computed in full before the proof is looked at (sample: all time in push_def → eval). Not a true hang: the 10G-step budget ends it after minutes. Experiment (glue kept type values) fixes it (N = 1e8: >60 s → 0.17 s; core and elab lanes pass); patch kept at dev/patches/sw-1534-glued-closed-types.patch. Proposal merged: docs/proposals/glued-closed-types.md, options A (glue kept type values, cache keyed by mode, ~15 trusted lines), B (lazy ty_value), C (document). D2448 for Matt [rec: A].\n\nD2448 answered (Matt, 6 Nov 2026): C for now (documented in the proving guide §6); A parked, research recorded in the proposal's §6; revisit SW-1596.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10715,6 +10715,20 @@
         "editor"
       ],
       "body": "D2446 (Matt, 6 Nov 2026): park for now, reconsider later. Today each search loads the file's dependencies afresh (0.6 s since SW-1503). Kept sessions would cost memory per thread (unmeasured) and need invalidating when a dependency changes.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1596,
+      "title": "Revisit: kernel keeps a closed statement folded (glued-closed-types.md option A, or a check-scoped cache variant); first a verified prior-art check of Lean 4, Agda, Rocq, Idris 2 (D2448, parked)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "kernel"
+      ],
+      "body": "D2448 (Matt, 6 Nov 2026): C for now, record the research so it can be picked up if a similar issue comes up. Everything is in docs/proposals/glued-closed-types.md §6 (why parked, the patch dev/patches/sw-1534-glued-closed-types.patch, the evidence still to collect, unverified prior-art beliefs, the scoped-cache idea). Trigger: a real proof whose closed statement names a big computation, or the next kernel folding work.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
