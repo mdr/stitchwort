@@ -12184,7 +12184,7 @@
       "labels": [
         "tests"
       ],
-      "body": "From SW-1696, 6 Nov 2026. Expect the daily tier to show these too.",
+      "body": "From SW-1696, 6 Nov 2026. Expect the daily tier to show these too.\n\nD2516 (Matt, 6 Nov 2026): fix the daily tier's failures without asking first, and then rerun only the failing tests, not the whole tier.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
