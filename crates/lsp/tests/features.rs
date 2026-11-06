@@ -27,6 +27,7 @@ struct Session {
     diagnostics: Vec<Value>,
     /// The methods of the requests the server made of the client.
     asked: Vec<String>,
+    memory: Arc<Memory>,
 }
 
 impl Session {
@@ -58,10 +59,11 @@ impl Session {
 
     fn open_in(text: &str, capabilities: Value, options: Options, memory: Arc<Memory>) -> Session {
         let mut s = Session {
-            server: Inline::new(options, memory).unwrap(),
+            server: Inline::new(options, memory.clone()).unwrap(),
             next_id: 1,
             diagnostics: Vec::new(),
             asked: Vec::new(),
+            memory,
         };
         s.request("initialize", json!({ "capabilities": capabilities }));
         s.notify("initialized", json!({}));
@@ -110,6 +112,33 @@ impl Session {
         for m in self.server.receive(&message.to_string()) {
             self.note(serde_json::from_str(&m).unwrap());
         }
+    }
+
+    /// [`Session::request`] for a request the server answers from a search
+    /// worker (a code action away from a `?`, `stitchwort/contextAt`): the
+    /// search is run here, as the playground's second worker would.
+    fn request_searched(&mut self, method: &str, params: Value) -> Value {
+        let id = self.next_id;
+        self.next_id += 1;
+        let message = json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params});
+        for m in self.server.receive(&message.to_string()) {
+            let m: Value = serde_json::from_str(&m).unwrap();
+            assert!(m["id"] != id, "answered without a search: {m}");
+            self.note(m);
+        }
+        let searcher = stitchwort_lsp::Searcher::new(Options::new(STACK), self.memory.clone());
+        for job in self.server.take_searches() {
+            let job: Value = serde_json::from_str(&job).unwrap();
+            let result = searcher.run(&job["search"].to_string());
+            for m in self.server.searched(&job["id"].to_string(), &result) {
+                let m: Value = serde_json::from_str(&m).unwrap();
+                if m["id"] == id {
+                    return m["result"].clone();
+                }
+                self.note(m);
+            }
+        }
+        panic!("no answer to {method}");
     }
 
     /// The reply's `result`.
@@ -346,5 +375,112 @@ fn hover_works_in_a_library_file_whether_or_not_the_library_was_replayed() {
         options.library.set(Arc::new(bundle)).ok().unwrap();
         let replayed = hover_in_library(Session::open_loose(USES_LIBRARY, options));
         assert!(replayed["contents"].is_object(), "replayed: {replayed}");
+    });
+}
+
+/// `text` with the first quick fix for its non-exhaustive match applied.
+fn filled(text: &str) -> String {
+    let mut s = Session::open(text);
+    let d = s
+        .diagnostics
+        .iter()
+        .find(|d| d["code"] == "E-NONEXHAUSTIVE")
+        .unwrap_or_else(|| panic!("{:?}", s.diagnostics))
+        .clone();
+    let actions = s.request(
+        "textDocument/codeAction",
+        json!({"textDocument": {"uri": URI}, "range": d["range"],
+               "context": {"diagnostics": [d]}}),
+    );
+    let action = &actions[0];
+    assert!(
+        action["title"]
+            .as_str()
+            .unwrap()
+            .starts_with("Add the missing arm"),
+        "{action}"
+    );
+    let edit = &action["edit"]["documentChanges"][0]["edits"][0];
+    let (line, character) = (
+        edit["range"]["start"]["line"].as_u64().unwrap() as usize,
+        edit["range"]["start"]["character"].as_u64().unwrap() as usize,
+    );
+    let offset: usize = text
+        .split_inclusive('\n')
+        .take(line)
+        .map(str::len)
+        .sum::<usize>()
+        + character;
+    let mut out = text.to_string();
+    out.insert_str(offset, edit["newText"].as_str().unwrap());
+    out
+}
+
+#[test]
+fn a_non_exhaustive_match_gets_its_missing_arms_added() {
+    big_stack(|| {
+        // Equations on an Option.
+        assert_eq!(
+            filled("namespace Demo\n\ndef b: Option Nat -> Nat\n  | Some n => n\n"),
+            "namespace Demo\n\ndef b: Option Nat -> Nat\n  | Some n => n\n  | None => ?\n"
+        );
+        // A list: the rest gets a name, and the head avoids the names in use.
+        assert_eq!(
+            filled(
+                "namespace Demo\n\ndef f (x: Nat): List Nat -> Nat\n  | [] => x\n  | [y] => y\n"
+            ),
+            "namespace Demo\n\ndef f (x: Nat): List Nat -> Nat\n  | [] => x\n  | [y] => y\n  | [z, w, ..xs] => ?\n"
+        );
+        // A user type: the declared field names.
+        assert_eq!(
+            filled(
+                "namespace Demo\n\ntype Shape =\n  | Dot (ref: Nat)\n  | Circle (ref: Nat) (text: Text)\n\ndef a: Shape -> Nat\n  | Dot r => r\n\ndef z: Nat := 0\n"
+            ),
+            "namespace Demo\n\ntype Shape =\n  | Dot (ref: Nat)\n  | Circle (ref: Nat) (text: Text)\n\ndef a: Shape -> Nat\n  | Dot r => r\n  | Circle ref text => ?\n\ndef z: Nat := 0\n"
+        );
+        // A nested pattern in a tuple, and a `match` expression.
+        assert_eq!(
+            filled(
+                "namespace Demo\n\ndef n (xs: List Nat): Nat := 1 + match xs with\n  | [] => 0\n"
+            ),
+            "namespace Demo\n\ndef n (xs: List Nat): Nat := 1 + match xs with\n  | [] => 0\n  | [x, ..xs1] => ?\n"
+        );
+    });
+}
+
+#[test]
+fn a_variable_of_an_arm_splits_into_its_types_constructors() {
+    big_stack(|| {
+        let text = "namespace Demo\n\ndef f: Option (Option Nat) -> Nat\n  | Some o => ?\n  | None => 0\n\ndef g: List Nat -> Nat\n  | xs => 0\n";
+        let mut s = Session::open(text);
+        let split = |s: &mut Session, line: u32, character: u32| {
+            let actions = s.request_searched(
+                "textDocument/codeAction",
+                json!({"textDocument": {"uri": URI},
+                       "range": {"start": {"line": line, "character": character},
+                                 "end": {"line": line, "character": character}},
+                       "context": {"diagnostics": []}}),
+            );
+            let action = actions
+                .as_array()
+                .and_then(|a| {
+                    a.iter()
+                        .find(|a| a["title"].as_str().is_some_and(|t| t.starts_with("Split")))
+                })
+                .unwrap_or_else(|| panic!("{actions}"))
+                .clone();
+            (
+                action["title"].as_str().unwrap().to_string(),
+                action["edit"]["documentChanges"][0]["edits"][0]["newText"]
+                    .as_str()
+                    .unwrap()
+                    .to_string(),
+            )
+        };
+        let (title, new_text) = split(&mut s, 3, 9);
+        assert_eq!(title, "Split `o` into its cases");
+        assert_eq!(new_text, "  | Some None => ?\n  | Some (Some value) => ?");
+        let (_, new_text) = split(&mut s, 7, 4);
+        assert_eq!(new_text, "  | [] => 0\n  | [x, ..xs] => 0");
     });
 }

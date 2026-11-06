@@ -153,6 +153,8 @@ Put the cursor on a `?` and a panel under the editor shows the goal there: what 
 - completion of parameter names after `(` or `[` in a call (`clampTo (` offers `low`, `high` and `value`);
 - signature help in a call's arguments: the function's parameters, with the one you are writing highlighted (a `(low := 1)` highlights `low`);
 - a quick fix on an unknown name that needs an import (`Map` without `import Std (Map)`): "Add `import Std (Map)`" inserts it, into an existing `import Std (…)` line if there is one;
+- a quick fix on a `match` that leaves cases out (`E-NONEXHAUSTIVE`): "Add the missing arms" adds one arm per missing case after the last arm, each with `?` as its body and variables named after the constructor's fields (`| Circle ref text => ?`, `| [x, ..xs] => ?`);
+- "Split `x` into its cases", with the cursor on a variable in an arm's patterns whose right-hand side doesn't use it: the arm becomes one arm per constructor of the variable's type (`| Some o => ?` on an `Option Nat` becomes `| None => ?` and `| Some value => ?`), for data types without indices;
 - the type of a `let` whose type you didn't write, shown after its name (`let total` becomes `total: Nat`), once something uses the variable; no other inlay hints;
 - colours from what the checker resolved each name to: functions, types, constructors, variables, theorems and abilities, with declarations in bold (VS Code: semantic highlighting; the playground draws them too);
 - formatting (Format Document and Format Selection);

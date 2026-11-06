@@ -66,23 +66,22 @@ enum Shape {
 /// message listing them as arms, and the `missing` data for the index.
 pub(crate) fn diagnostic(span: Span, cases: Vec<(Vec<usize>, String)>) -> Diagnostic {
     let mut d = Diagnostic::error("E-NONEXHAUSTIVE", "").with_label(span, "");
-    d.detail_mut().missing = Some(MissingCases {
-        patterns: Vec::new(),
-        order: Vec::new(),
-    });
+    d.detail_mut().missing = Some(MissingCases::default());
     describe(&mut d, cases);
     d
 }
 
 /// Sets `d`'s message, label and `missing` to list `cases`: sorted in tree
-/// order, each once, and the first [`MissingCases::CAP`] shown.
+/// order, each once, and the first [`MissingCases::CAP`] shown. A case's
+/// text is its [`MissingCases::fills`] form, with the field names marked.
 fn describe(d: &mut Diagnostic, mut cases: Vec<(Vec<usize>, String)>) {
     cases.sort();
     let mut seen = HashSet::default();
     cases.retain(|(_, p)| seen.insert(p.clone()));
     let missing = MissingCases {
         order: cases.iter().map(|(o, _)| o.clone()).collect(),
-        patterns: cases.into_iter().map(|(_, p)| p).collect(),
+        patterns: cases.iter().map(|(_, p)| unmarked(p)).collect(),
+        fills: cases.into_iter().map(|(_, p)| p).collect(),
     };
     let headline = match missing.patterns.as_slice() {
         [one] => format!("missing case: no arm matches `{one}`"),
@@ -122,6 +121,36 @@ pub(crate) fn merge<T>(cx: &crate::check::Ctx, start: usize, result: Result<T>) 
     Err(first)
 }
 
+/// The hole for a field called `name`: `‹name›` when that is a name the
+/// editor can bind a variable to (not a generated one), else `_`.
+fn hole(name: &str) -> String {
+    let usable = name.starts_with(|c: char| c.is_lowercase())
+        && name.chars().all(|c| c.is_alphanumeric() || c == '_');
+    if usable {
+        format!("‹{name}›")
+    } else {
+        "_".to_string()
+    }
+}
+
+/// `text` with each field name marker (`‹name›`) written as `_`.
+fn unmarked(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut skipping = false;
+    for c in text.chars() {
+        match c {
+            '‹' => {
+                skipping = true;
+                out.push('_');
+            }
+            '›' => skipping = false,
+            _ if !skipping => out.push(c),
+            _ => {}
+        }
+    }
+    out
+}
+
 /// Whether `d` lists missing cases.
 pub(crate) fn listed(d: &Diagnostic) -> bool {
     d.code == "E-NONEXHAUSTIVE" && d.missing_data().is_some()
@@ -140,7 +169,7 @@ pub(crate) fn fold(all: Vec<Diagnostic>) -> Vec<Diagnostic> {
             m.order
                 .iter()
                 .cloned()
-                .zip(m.patterns.iter().cloned())
+                .zip(m.fills.iter().cloned())
                 .collect()
         };
         let slot = if listed(&d) {
@@ -176,6 +205,47 @@ pub(crate) fn fold(all: Vec<Diagnostic>) -> Vec<Diagnostic> {
 }
 
 impl Elaborator {
+    /// The patterns that split a value of the data type named `name`, one
+    /// per constructor, in the form of [`MissingCases::fills`]: a list as
+    /// `[]` and `[_, .._]`, a pair as `(_, _)`, a field with a declared
+    /// name as `‹name›`. The last type of that name is taken, so a program's
+    /// own shadows the library's. `None` for a name that isn't a data type
+    /// here, and for an indexed family (some constructors may not fit).
+    pub fn constructor_patterns(&self, name: &str) -> Option<Vec<String>> {
+        let g = &self.ev();
+        let reg = g.env.registry();
+        let d = DataId(g.env.datas().iter().rposition(|d| &**d.name() == name)?);
+        let data = g.data(d);
+        if !data.indices().is_empty() || data.ctors().is_empty() {
+            return None;
+        }
+        let non_empty = reg.loaded_data(Builtin::NonEmptyList) == Some(d);
+        let mut out = Vec::new();
+        for (c, ctor) in data.ctors().iter().enumerate() {
+            let here = Some((d, c));
+            let fields: Vec<usize> = (0..ctor.fields.len())
+                .filter(|&i| !ctor.implicit.get(i).copied().unwrap_or(false))
+                .collect();
+            out.push(if reg.ctor(Builtin::Nil) == here {
+                "[]".to_string()
+            } else if (non_empty || reg.ctor(Builtin::Cons) == here) && fields.len() == 2 {
+                "[_, .._]".to_string()
+            } else if reg.ctor(Builtin::MkPair) == here && fields.len() == 2 {
+                "(_, _)".to_string()
+            } else if reg.ctor(Builtin::UnitValue) == here {
+                "()".to_string()
+            } else {
+                let mut text = ctor.name.to_string();
+                for i in fields {
+                    text.push(' ');
+                    text.push_str(&hole(&ctor.fields[i].0));
+                }
+                text
+            });
+        }
+        Some(out)
+    }
+
     /// Writes into each `Tree::Missing` the pattern row it stands for.
     /// `root` is the levels of the columns the tree splits.
     pub(crate) fn annotate(&self, tree: &mut Tree, root: &[usize]) {
@@ -324,7 +394,17 @@ impl Elaborator {
         if reg.ctor(Builtin::UnitValue) == here {
             return "()".to_string();
         }
-        let args: Vec<String> = fields.into_iter().map(shown).collect();
+        let args: Vec<String> = (0..ctor.fields.len())
+            .filter(|&i| !ctor.implicit.get(i).copied().unwrap_or(false))
+            .map(|i| {
+                let arg = shown(base + i);
+                if arg == "_" {
+                    hole(&ctor.fields[i].0)
+                } else {
+                    arg
+                }
+            })
+            .collect();
         if args.is_empty() {
             return ctor.name.to_string();
         }
