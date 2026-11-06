@@ -119,12 +119,10 @@ fn project(g: &Ev, d: crate::term::DataId, i: usize, value: Value) -> Result<Val
     })
 }
 
-/// Whether a `case` on type `d` takes its only branch on the neutral
-/// `value` by record eta's rule 2: `d` has eta and `value` isn't an
-/// unsolved metavariable.
-fn eta_case(g: &Ev, d: crate::term::DataId, value: &Value) -> bool {
+/// Whether a `case` on type `d` takes its only branch on a neutral by
+/// record eta's rule 2: `d` has eta.
+fn eta_case(g: &Ev, d: crate::term::DataId) -> bool {
     g.env.datas().get(d.0).is_some_and(|data| data.eta())
-        && !matches!(value, Value::Neutral(Head::Meta(_), _))
 }
 
 pub fn apply_closure(g: &Ev, closure: &Closure, arg: Value) -> Result<Value> {
@@ -392,7 +390,7 @@ fn eval_tree(g: &Ev, mut env: Vec<Value>, term: &Term, fold_lifts: bool) -> Resu
                 Value::Ctor(_, c, fields) => (c, fields.to_vec()),
                 // Record eta, rule 2: the only branch, with the fields
                 // projected.
-                n @ Value::Neutral(..) if eta_case(g, *d, &n) => {
+                n @ Value::Neutral(..) if eta_case(g, *d) => {
                     let k = g.data(*d).ctors[0].fields.len();
                     let fields = (0..k)
                         .map(|i| project(g, *d, i, n.clone()))
@@ -833,7 +831,7 @@ fn same_trees(
                             }
                             None => return Ok(None),
                         },
-                        Value::Neutral(..) if !is_folded(g, &s) && eta_case(g, *d, &s) => {
+                        Value::Neutral(..) if !is_folded(g, &s) && eta_case(g, *d) => {
                             match &branches[0].body {
                                 Some(body) => {
                                     let k = g.data(*d).ctors[0].fields.len();

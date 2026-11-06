@@ -2227,6 +2227,12 @@ pub fn mark_no_eta(g: &mut Kernel, id: DataId) {
 //    and universes are exact, so a field in `Type` never holds a proof.
 // 5. It isn't marked `no_eta` (interface dictionaries; that only removes
 //    equalities).
+// 6. For now, it was declared as a record (`Data::record`, fixed and hashed
+//    when declared). Eta by shape (D2499: `Pair`, `Char`, `Text` and other
+//    one-constructor types written with `|`) is stage 3 (SW-1644): it
+//    changes far more goals (every function matching a `Char` computes on
+//    an unknown one), so it's measured and its proofs updated there. Like
+//    5, this only withholds equalities.
 //
 // All of it is read from the declaration, so the elaborator is trusted
 // with nothing but the mark in 5. Rule 1 doesn't check that `n` is a value
@@ -2241,6 +2247,7 @@ pub(crate) fn has_eta(data: &Data) -> bool {
     };
     let me = data.group[0];
     data.state == State::Final
+        && data.record
         && !data.no_eta
         && data.indices.is_empty()
         && data.sort != Sort::Prop

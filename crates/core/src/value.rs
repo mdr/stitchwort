@@ -1652,10 +1652,21 @@ fn branch(
         // of such a type is its constructor applied to its fields (the
         // conditions are at `check::has_eta`), so whatever `n` turns out to
         // be, this is the branch it takes, with these fields; and it ends,
-        // since it removes a `case` and adds none. Not for an unsolved
-        // metavariable (the elaborator solves it instead), nor while a
-        // program runs (its values are closed).
-        n @ Value::Neutral(..) if eta_case(g, *d, &n) => {
+        // since it removes a `case` and adds none. An unsolved metavariable
+        // counts as unknown too: the kernel never sees one, and to the
+        // elaborator `?r.row` is as stuck as `match ?r` was, but now it has
+        // the shape the other side of a comparison computes to
+        // (`Bag.has ?b x` against `Bag.has b x` meet at `?b.items` and
+        // `b.items`, which the unifier compares by their records). Not while
+        // a program runs (its values are closed).
+        //
+        // `n` is the scrutinee forced. The note (§6.4) asks for projections
+        // of the scrutinee as it was, so that a glued call stays a call in
+        // the fields (`(Set.map s f).items`, not the inside of `Set.map`'s
+        // unfolding); that needs a projection that waits on a call, which
+        // isn't built yet, and some `rewrite`s don't find their call
+        // without it (std `Set/Spec.sw`).
+        n @ Value::Neutral(..) if eta_case(g, *d) => {
             let k = g.data(*d).ctors[0].fields.len();
             (0, (0..k).map(|i| project(*d, i, n.clone())).collect())
         }
@@ -1701,13 +1712,10 @@ pub fn has_eta(g: &Ev, d: DataId) -> bool {
     g.env.datas().get(d.0).is_some_and(|data| data.eta)
 }
 
-/// Whether a `case` on type `d` takes its only branch on `value`, a forced
-/// neutral, by record eta (rule 2, [`branch`]): `d` has eta, `value` isn't
-/// an unsolved metavariable, and no program is running.
-fn eta_case(g: &Ev, d: DataId, value: &Value) -> bool {
-    has_eta(g, d)
-        && !matches!(value, Value::Neutral(Head::Meta(_), _))
-        && !g.machine.erasure.program_running()
+/// Whether a `case` on type `d` takes its only branch on a neutral by
+/// record eta (rule 2, [`branch`]): `d` has eta and no program is running.
+fn eta_case(g: &Ev, d: DataId) -> bool {
+    has_eta(g, d) && !g.machine.erasure.program_running()
 }
 
 /// What `value` is known not to be: something only for a variable on its
@@ -2985,9 +2993,7 @@ fn walk_tree(g: &Ev, mut tree: Rc<Term>, mut env: Vec<Value>) -> Result<TreeEnd>
                     }
                     // Record eta's rule 2, as evaluation takes it (`branch`):
                     // so a tree is compared from where its call is stuck.
-                    Value::Neutral(..)
-                        if !is_folded(g, &scrutinee) && eta_case(g, *d, &scrutinee) =>
-                    {
+                    Value::Neutral(..) if !is_folded(g, &scrutinee) && eta_case(g, *d) => {
                         let Some(body) = branches[0].body.clone() else {
                             return Ok(TreeEnd::Other);
                         };

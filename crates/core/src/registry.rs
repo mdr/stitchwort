@@ -675,13 +675,6 @@ pub fn bind_data(g: &mut Kernel, d: DataId) -> Option<Builtin> {
             }
         }
         g.env.registry_mut().entries.extend(new);
-        // `Pair` passes record eta's conditions, but turning it on is its
-        // own stage (SW-1644, docs/proposals/record-eta.md §14): until then
-        // the prelude's `Pair` has none. Removing eta only removes
-        // equalities.
-        if b == Builtin::Pair {
-            g.env.datas_mut()[d.0].eta = false;
-        }
         Some(b)
     })
 }

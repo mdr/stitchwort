@@ -1502,6 +1502,12 @@ fn unify_step(
                 |v: &Value| matches!(v, Value::Neutral(Head::Meta(m), _) if awaited_helper(g, *m));
             awaited(&a) || awaited(&b)
         }
+        (Value::Neutral(Head::Meta(_), _), Value::Neutral(..))
+        | (Value::Neutral(..), Value::Neutral(Head::Meta(_), _))
+            if same_field_records(g, level, &a, &b, mode)? =>
+        {
+            true
+        }
         (Value::Neutral(Head::Meta(m), spine), other)
         | (other, Value::Neutral(Head::Meta(m), spine)) => {
             solve(g, level, *m, spine, other)? || first_order(g, level, *m, spine, other)?
@@ -1640,6 +1646,43 @@ thread_local! {
     /// Set while `first_order` pairs last arguments, whose types needn't
     /// agree: record eta is off there.
     static NO_ETA: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Record eta (docs/proposals/record-eta.md §8): the same field of an
+/// unknown and of another value, `?b.items` against `b.items`, compared by
+/// their records first. Rule 2 leaves a call stuck on `?b` at `?b.items`
+/// while the same call on `b` runs on to `b.items`; without eta, both stopped
+/// at a call of the projection function (`Bag.items ?b` against `Bag.items
+/// b`), whose arguments were unified. This keeps that answer. One field
+/// doesn't determine `?b`, so it's a first try only: undone if the records
+/// don't unify, and what it solves is noted as lossy.
+fn same_field_records(
+    g: &Unifier<'_>,
+    level: usize,
+    a: &Value,
+    b: &Value,
+    mode: Mode,
+) -> Result<bool> {
+    let (Value::Neutral(h1, s1), Value::Neutral(h2, s2)) = (a, b) else {
+        return Ok(false);
+    };
+    let (Some(Elim::Proj(d1, i1)), Some(Elim::Proj(d2, i2))) = (s1.last(), s2.last()) else {
+        return Ok(false);
+    };
+    if (d1, i1) != (d2, i2) {
+        return Ok(false);
+    }
+    let record =
+        |h: &Head, s: &Spine| Value::Neutral(*h, Spine::from(s[..s.len() - 1].to_vec()));
+    let trail = g.store.meta_trail.borrow().len();
+    let task = Task::Values(level, record(h1, s1), record(h2, s2));
+    if nested(g, || run(g, vec![task], mode))? {
+        note_lossy(g, trail);
+        Ok(true)
+    } else {
+        undo_since(g, trail);
+        Ok(false)
+    }
 }
 
 /// Lazy delta, aimed narrowly (docs/proposals/proofs-about-definitions.md

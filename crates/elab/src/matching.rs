@@ -1501,6 +1501,7 @@ pub(crate) fn same(a: &Term, b: &Term) -> bool {
             types && same(a1, a2) && same(b1, b2)
         }
         (J(m1, b1, p1), J(m2, b2, p2)) => same(m1, m2) && same(b1, b2) && same(p1, p2),
+        (Proj(d1, i1, t1), Proj(d2, i2, t2)) => d1 == d2 && i1 == i2 && same(t1, t2),
         // Their erasure flags are worked out from the rest (hashing ignores
         // them too).
         (Let(_, t1, v1, b1, _), Let(_, t2, v2, b2, _)) => {
@@ -1551,6 +1552,7 @@ pub(crate) fn same_shifted(a: &Term, b: &Term, by: usize, cutoff: usize) -> bool
         (J(m1, b1, p1), J(m2, b2, p2)) => {
             go(m1, m2, cutoff) && go(b1, b2, cutoff) && go(p1, p2, cutoff)
         }
+        (Proj(d1, i1, t1), Proj(d2, i2, t2)) => d1 == d2 && i1 == i2 && go(t1, t2, cutoff),
         (Let(_, t1, v1, b1, _), Let(_, t2, v2, b2, _)) => {
             go(t1, t2, cutoff) && go(v1, v2, cutoff) && go(b1, b2, cutoff + 1)
         }

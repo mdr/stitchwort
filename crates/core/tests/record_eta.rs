@@ -18,6 +18,23 @@ use stitchwort_core::term::Term;
 use stitchwort_core::value::{Value, conv, eval};
 use stitchwort_core::{DataId, Sort, reference};
 
+/// A data type declared as a record (stage 1 gives eta only to those).
+fn record(
+    g: &mut stitchwort_core::Kernel,
+    name: &str,
+    params: Vec<(&str, Term)>,
+    sort: Sort,
+) -> DataId {
+    let params = params.into_iter().map(|(x, t)| (x.into(), t)).collect();
+    check::declare_data_group_as(
+        g,
+        params,
+        sort,
+        vec![(name.into(), name.into(), span(), true)],
+    )
+    .expect("parameters check")[0]
+}
+
 fn proj(d: DataId, i: usize, t: Term) -> Term {
     Term::Proj(d, i, Rc::new(t))
 }
@@ -25,7 +42,7 @@ fn proj(d: DataId, i: usize, t: Term) -> Term {
 /// `type Pos = MkPos (row: Nat) (column: Nat)`.
 fn position(p: &mut Prelude) -> DataId {
     let nat = p.nat_ty();
-    let pos = data(&mut p.g, "Pos", vec![], Sort::Type(0));
+    let pos = record(&mut p.g, "Pos", vec![], Sort::Type(0));
     check::define_ctors(
         &mut p.g,
         pos,
@@ -37,7 +54,7 @@ fn position(p: &mut Prelude) -> DataId {
 
 /// `type Box (a: Type) = MkBox (value: a)`.
 fn boxed(p: &mut Prelude) -> DataId {
-    let b = data(&mut p.g, "Box", vec![("a", ty())], Sort::Type(0));
+    let b = record(&mut p.g, "Box", vec![("a", ty())], Sort::Type(0));
     check::define_ctors(&mut p.g, b, vec![ctor("MkBox", vec![("value", v(0))])]).expect("Box");
     b
 }
@@ -62,6 +79,11 @@ fn eta_is_decided_from_the_declaration() {
     assert!(p.g.data(b).eta(), "with a parameter");
     assert!(!p.g.data(p.nat).eta(), "two constructors");
     assert!(!p.g.data(p.list).eta(), "two constructors");
+    // Stage 1: one constructor, but not declared as a record (SW-1644).
+    let nat = p.nat_ty();
+    let wrap = data(&mut p.g, "Wrap", vec![], Sort::Type(0));
+    check::define_ctors(&mut p.g, wrap, vec![ctor("Wrap", vec![("inner", nat)])]).expect("Wrap");
+    assert!(!p.g.data(wrap).eta(), "not a record");
 }
 
 #[test]
@@ -185,7 +207,7 @@ fn a_proof_field_is_skipped_beside_a_data_field() {
     // `type S = MkS (value: Nat) (ok: value = value)`.
     let mut p = Prelude::new();
     let nat = p.nat_ty();
-    let s = data(&mut p.g, "S", vec![], Sort::Type(0));
+    let s = record(&mut p.g, "S", vec![], Sort::Type(0));
     check::define_ctors(
         &mut p.g,
         s,
@@ -213,7 +235,7 @@ fn a_proof_field_is_skipped_beside_a_data_field() {
 fn a_record_of_proofs_only_has_no_eta() {
     let mut p = Prelude::new();
     let nat = p.nat_ty();
-    let small = data(&mut p.g, "Small", vec![], Sort::Type(0));
+    let small = record(&mut p.g, "Small", vec![], Sort::Type(0));
     let zero = p.num(0);
     check::define_ctors(
         &mut p.g,
@@ -248,7 +270,7 @@ fn a_record_of_proofs_only_has_no_eta() {
 #[test]
 fn a_record_with_no_fields_has_no_eta() {
     let mut p = Prelude::new();
-    let unit = data(&mut p.g, "Unit", vec![], Sort::Type(0));
+    let unit = record(&mut p.g, "Unit", vec![], Sort::Type(0));
     check::define_ctors(&mut p.g, unit, vec![ctor("MkUnit", vec![])]).expect("Unit");
     assert!(!p.g.data(unit).eta());
     let unit_ty = Term::data(unit, vec![]);
@@ -260,12 +282,12 @@ fn a_record_with_no_fields_has_no_eta() {
 fn a_recursive_type_has_no_eta() {
     let mut p = Prelude::new();
     // `type Rose = MkRose (kids: List Rose)`: one constructor, but recursive.
-    let rose = data(&mut p.g, "Rose", vec![], Sort::Type(0));
+    let rose = record(&mut p.g, "Rose", vec![], Sort::Type(0));
     let kids = Term::data(p.list, vec![Term::data(rose, vec![])]);
     check::define_ctors(&mut p.g, rose, vec![ctor("MkRose", vec![("kids", kids)])]).expect("Rose");
     assert!(!p.g.data(rose).eta());
     // `type Loop = MkLoop (next: Loop)`.
-    let lp = data(&mut p.g, "Loop", vec![], Sort::Type(0));
+    let lp = record(&mut p.g, "Loop", vec![], Sort::Type(0));
     let lp_ty = Term::data(lp, vec![]);
     check::define_ctors(
         &mut p.g,
@@ -324,7 +346,7 @@ fn a_proposition_has_no_eta() {
     // `type Has: Prop = MkHas (n: Nat) (ok: n = n)`.
     let mut p = Prelude::new();
     let nat = p.nat_ty();
-    let has = data(&mut p.g, "Has", vec![], Sort::Prop);
+    let has = record(&mut p.g, "Has", vec![], Sort::Prop);
     check::define_ctors(
         &mut p.g,
         has,
@@ -354,7 +376,7 @@ fn an_interface_dictionary_has_no_eta_and_hashes_apart() {
     let mut p = Prelude::new();
     let nat = p.nat_ty();
     let make = |p: &mut Prelude, name: &str, mark: bool| {
-        let d = data(&mut p.g, name, vec![], Sort::Type(0));
+        let d = record(&mut p.g, name, vec![], Sort::Type(0));
         if mark {
             check::mark_no_eta(&mut p.g, d);
         }
@@ -383,8 +405,8 @@ fn an_interface_dictionary_has_no_eta_and_hashes_apart() {
 fn a_projection_of_another_type_is_refused() {
     let mut p = Prelude::new();
     let nat = p.nat_ty();
-    let person = data(&mut p.g, "Person", vec![], Sort::Type(0));
-    let pet = data(&mut p.g, "Pet", vec![], Sort::Type(0));
+    let person = record(&mut p.g, "Person", vec![], Sort::Type(0));
+    let pet = record(&mut p.g, "Pet", vec![], Sort::Type(0));
     for d in [person, pet] {
         check::define_ctors(
             &mut p.g,
