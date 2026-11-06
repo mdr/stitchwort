@@ -11,10 +11,11 @@
         "match-equation transport on the folded goal (SW-1629)",
         "out-of-resources check uses the as-written result (SW-1630)",
         "Goals and messages print dot calls and operators as written (SW-1674)",
-        "Comparative study of how other provers bound unfolding (SW-1718)"
+        "Comparative study of how other provers bound unfolding (SW-1718)",
+        "Opus review of the bounded-readback note: proceed with changes (SW-1717)"
       ],
       "now": [
-        "Opus review of the bounded-readback note (SW-1717)"
+        "Revising the bounded-readback note from its review and the study (SW-1722)"
       ],
       "next": [
         "Finish the design note that bounds unfolded readback by making the searches look at goals as written everywhere, revisiting D484 (SW-1712, D2514); it also unblocks record eta",

@@ -1,5 +1,5 @@
 {
-  "next": 1722,
+  "next": 1723,
   "tickets": [
     {
       "id": 47,
@@ -13280,14 +13280,14 @@
     {
       "id": 1717,
       "title": "[Opus] Independent review of docs/proposals/bounded-readback.md (SW-1712, D2514): soundness of the capped form and the lazy reader's equivalence claim, D484 change, stage order; report docs/reviews/SW-N-bounded-readback-review.md",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1717",
       "labels": [
         "review"
       ],
       "epic": "goal-as-written",
-      "body": "Matt, 6 Nov 2026: yes to an Opus review. Read-only. Started on Opus, expected: 60 min.",
+      "body": "Matt, 6 Nov 2026: yes to an Opus review. Read-only. Started on Opus, expected: 60 min.\n\nDone, merged: docs/reviews/SW-1717-bounded-readback-review.md (d98ca2f71). Verdict: proceed with changes. H1 lazy reader's pruning misses unifier matches (proof positions, rule unknowns, folded-form variables); H2 cap defined two ways; H3 cap doesn't bound literal-driven recursion, so D2521 would turn warnings into errors; H4 D1280's measurement predates record eta. M3: decide needs no cap. Proposes stage 0a (trip-journal only). Model result: Opus, worked, 13 min (est. 60).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -13348,6 +13348,21 @@
       ],
       "epic": "diagnostics",
       "body": "From SW-1694, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1722,
+      "title": "[Opus] Revise docs/proposals/bounded-readback.md from the SW-1717 review and the SW-1718 study; restate its questions for Matt",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1722",
+      "labels": [
+        "design"
+      ],
+      "epic": "goal-as-written",
+      "body": "From SW-1717 (proceed with changes) and SW-1718 (S1-S8). Read and write only. Started on Opus, expected: 60 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
