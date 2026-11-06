@@ -9952,13 +9952,13 @@
     {
       "id": 1541,
       "title": "A Prop-returning method after ∧ inside a lambda is reported as 'a type of data, not a proposition' (day 16, 7-line repro in its notes)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1541",
       "labels": [
         "elab"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).",
+      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).\n\nStarted overnight on Sonnet (SW-1541 with SW-1544), expected: 45 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -9994,13 +9994,13 @@
     {
       "id": 1544,
       "title": "Messages: rewrite Nat.oneMul asks for implicit arguments when the missing one is explicit; Nat.succInjective's m and n should be implicit (D2422) (day 16)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1541",
       "labels": [
         "diagnostics"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).",
+      "body": "Filed overnight 6 Nov 2026 from SW-1535 (2020 day 16).\n\nStarted overnight on Sonnet (SW-1541 with SW-1544), expected: 45 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
