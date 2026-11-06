@@ -614,14 +614,16 @@ impl Registry {
             .find(|b| self.entries.get(b) == Some(&Entry::Data(d)))
     }
 
-    /// Whether `d` is built-in data type `b`.
+    /// Whether `d` is built-in data type `b`. False while `b`'s library file
+    /// hasn't loaded: a type that exists can't be one that doesn't.
     pub fn is_data(&self, b: Builtin, d: DataId) -> bool {
-        self.data(b) == Some(d)
+        self.loaded_data(b) == Some(d)
     }
 
-    /// Whether `id` is built-in definition `b`.
+    /// Whether `id` is built-in definition `b`. False while `b`'s library
+    /// file hasn't loaded.
     pub fn is_def(&self, b: Builtin, id: DefId) -> bool {
-        self.def(b) == Some(id)
+        self.loaded_def(b) == Some(id)
     }
 
     /// The built-in definition `id` is, if any.
