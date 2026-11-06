@@ -1,5 +1,5 @@
 {
-  "next": 1618,
+  "next": 1620,
   "tickets": [
     {
       "id": 47,
@@ -11016,13 +11016,41 @@
     {
       "id": 1617,
       "title": "Design note: a flexible 2D geometry library for Aoc.Common (Nat grids and Int planes, y-up/y-down conventions, directions/headings, offsets, boxes, lines), so each day picks what fits its frame (D2487)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1617",
       "labels": [
         "design"
       ],
-      "body": "D2487 (Matt, 6 Nov 2026): not decided between widening Point and a second type; instead an Opus design lane for a flexible 2D library: 'it's nice to be able to distinguish between nat and int worlds', the y-up/y-down convention question, 'a flexible library that doesn't overcommit you … the Advent of Code problems could pick what they need that fits their frame of the world'. SW-1484 waits for the note. Started on Opus, analysis only, expected: 90 min.",
+      "body": "D2487 (Matt, 6 Nov 2026): not decided between widening Point and a second type; instead an Opus design lane for a flexible 2D library: 'it's nice to be able to distinguish between nat and int worlds', the y-up/y-down convention question, 'a flexible library that doesn't overcommit you … the Advent of Code problems could pick what they need that fits their frame of the world'. SW-1484 waits for the note. Started on Opus, analysis only, expected: 90 min.\n\nDone (84dda831f), merged: docs/proposals/aoc-geometry.md. Survey: 28 of 71 days use coordinates (19 Nat grids, 3 shared Point, 3 Int planes, 2 in 3D+); y down in 23, up in 2, none in 3; ~370 duplicated lines. Recommendation: Nat and Int stay separate; Position/Offset/Grid/Direction unchanged; new Int type with the y convention as a type parameter (YUp/YDown/Unoriented), turn lemmas proved once for both; Direction and a new Heading both describe the picture; Point (Nat) keeps y down; Size, Box f. Sketch type-checks, day 12 runs on it. Q1-Q9 = D2488-D2496 (Q3 proposes the name Vector, which Matt questioned for D2456). Model result: Opus, worked, 13 min (est. 90).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1618,
+      "title": "Check SW-1592 is stale: records already get a derived Ord (2024 day 6 Set of positions, day 12 Map keyed by position); if so close it, drop Point.instOrd (Common/Point.sw:20), fix the 2020 day 20 note's item 5 (SW-1617)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "From SW-1617, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1619,
+      "title": "type YUp = | YUp (a type and its constructor with the same name) makes every use E-AMBIGUOUS; say so in the message or docs (SW-1617)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "From SW-1617, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
