@@ -1,0 +1,8 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+Main.firstTurn 7bd9a437caee554f5da47d42393cedc74a05c99d0476d410e8a086362197e4b7
+Main.turns 0757819bba70fa15d6562895356b31550f53a9cf9ffb381f3a95d5d0bde8aa76
+Main.turnsInBrackets 0757819bba70fa15d6562895356b31550f53a9cf9ffb381f3a95d5d0bde8aa76
+Main.main baab0cca5af725ee264c804694b1de26beebf5564b5d09296b68398e2dea628a

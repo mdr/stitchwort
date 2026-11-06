@@ -1971,9 +1971,11 @@ fn call_result(cx: &Ctx, expr: &Expr, depth: usize) -> Result<Option<Ty>> {
         }
         head = f;
     }
+    let mut receiver = None;
     let id = match head {
         Expr::Field(inner, f) if helper(cx, inner, f).is_none() => {
             explicit += 1;
+            receiver = Some(&**inner);
             match target_within(cx, inner, f, depth - 1)? {
                 Some(id) => id,
                 None => return Ok(None),
@@ -2011,7 +2013,10 @@ fn call_result(cx: &Ctx, expr: &Expr, depth: usize) -> Result<Option<Ty>> {
             let cod = cod.clone();
             term = cod;
         }
-        if left == 0 && !matches!(term.strip_loc(), Term::Pi(..)) {
+        // A result that is a type parameter (`headOr`'s `a`) is read from the
+        // receiver's type below.
+        let generic = receiver.is_some() && matches!(term.strip_loc(), Term::Var(..));
+        if left == 0 && !generic && !matches!(term.strip_loc(), Term::Pi(..)) {
             // A call that performs operations: the receiver is what it returns.
             let term = crate::effects::comp_result_term(cx, &term).unwrap_or(term);
             return Ok(Some(Ty::Term(term, env)));
@@ -2019,14 +2024,20 @@ fn call_result(cx: &Ctx, expr: &Expr, depth: usize) -> Result<Option<Ty>> {
     }
     let mut ty = crate::kernel::def_ty(&g, id)?;
     let mut level = cx.level();
+    // The type of the first explicit parameter (the receiver's place), and the
+    // levels of the stand-ins for the parameters before it.
+    let mut first = None;
     loop {
         match force(&g, ty)? {
-            Value::Pi(_, icit, _, cod) => {
+            Value::Pi(_, icit, dom, cod) => {
                 if !icit.is_implicit() {
                     if explicit == 0 {
                         return Ok(None);
                     }
                     explicit -= 1;
+                    if first.is_none() {
+                        first = Some((*dom).clone());
+                    }
                 }
                 ty = cod.apply(&g, Value::var(level))?;
                 level += 1;
@@ -2036,11 +2047,56 @@ fn call_result(cx: &Ctx, expr: &Expr, depth: usize) -> Result<Option<Ty>> {
                     Some((_, value)) => value,
                     None => other,
                 };
+                let value = match (receiver, first) {
+                    (Some(recv), Some(first)) => generic_result(cx, recv, first, value, depth - 1)?,
+                    _ => value,
+                };
                 return Ok(Some(Ty::Value(value)));
             }
             _ => return Ok(None),
         }
     }
+}
+
+/// A call's result `result` that is one of its type parameters, read off the
+/// receiver's type: for `l.headOr d` with `l: List Text`, where `headOr` takes
+/// a `List a`, `a` is `Text`. `receiver_param` is the receiver's parameter
+/// type. Anything else is returned as it is.
+fn generic_result(
+    cx: &Ctx,
+    recv: &Expr,
+    receiver_param: Value,
+    result: Value,
+    depth: usize,
+) -> Result<Value> {
+    let g = cx.g();
+    let Value::Neutral(Head::Var(wanted, _), spine) = &result else {
+        return Ok(result);
+    };
+    if !spine.is_empty() {
+        return Ok(result);
+    }
+    let Value::Data(d, formals) = force(&g, receiver_param)? else {
+        return Ok(result);
+    };
+    let Some(index) = formals.iter().position(
+        |f| matches!(f, Value::Neutral(Head::Var(l, _), s) if l == wanted && s.is_empty()),
+    ) else {
+        return Ok(result);
+    };
+    let Some(ty) = receiver_type(cx, recv, depth)? else {
+        return Ok(result);
+    };
+    let ty = match ty {
+        Ty::Value(v) => v,
+        Ty::Term(term, env) => eval(&g, &env, &term)?,
+    };
+    Ok(match force(&g, ty)? {
+        Value::Data(e, actuals) if e == d && actuals.len() == formals.len() => {
+            actuals[index].clone()
+        }
+        _ => result,
+    })
 }
 
 /// `recv.field args` inferred as its prefix form where that stands for it
