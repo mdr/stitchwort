@@ -1,5 +1,5 @@
 {
-  "next": 1751,
+  "next": 1755,
   "tickets": [
     {
       "id": 47,
@@ -13707,7 +13707,7 @@
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From the D2546 daily run, 6 Nov 2026.",
+      "body": "From the D2546 daily run, 6 Nov 2026.\n\nDesign lane: SW-1753.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -13783,6 +13783,66 @@
       ],
       "epic": "goal-as-written",
       "body": "From SW-1747.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1751,
+      "title": "[Sonnet] Profile the merge tier (task test:merge, meant to be under 90 s): time it on main, find what's slow, trim or fix",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1751",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "Overnight 6-7 Nov 2026 (Matt: focus on test suites, merge gates, compile times). Run test:merge once before and once after.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1752,
+      "title": "[Sonnet] Affected-test selection: a task that picks the nextest filter for a diff from the files it touches (crate graph, which binaries read which std/examples/aoc files), for lanes and the orchestrator's verifiers",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1752",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "Overnight 6-7 Nov 2026 (Matt: focus on test suites, merge gates, compile times). Today verifier filters are picked by hand.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1753,
+      "title": "[Opus] Design: test check caches that survive a compiler change without hiding failures (SW-1745); note first, build if clear",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "Overnight 6-7 Nov 2026 (Matt: focus on test suites, merge gates, compile times). Stale caches must never mask a real failure.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1754,
+      "title": "[Sonnet] Compile time after incremental builds: where a 21 s rebuild goes now; try test-profile settings (codegen-units, per-crate opt-level), lld (SW-1738); measure alone",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "Overnight 6-7 Nov 2026 (Matt: focus on test suites, merge gates, compile times). Builds timed on a quiet machine.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []

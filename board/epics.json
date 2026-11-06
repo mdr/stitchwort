@@ -464,10 +464,11 @@
         "The two slowest single tests: AoC answers and the playground AoC test (SW-1732, SW-1733)"
       ],
       "next": [
-        "LSP AoC tests check AoC once (SW-1731); lsp::features replays std (SW-1686)",
-        "aoc_answers and web AoC tests (SW-1732, SW-1733); threads-required (SW-1734)",
-        "Measure kache (SW-1735); lld (SW-1738)",
-        "Bigger: one test binary per crate (SW-1736); split elab (SW-1737)"
+        "Merge tier profile (SW-1751); affected-test selection (SW-1752)",
+        "Caches that survive a compiler change (SW-1753, SW-1745)",
+        "Compile time after incremental builds (SW-1754); kache (SW-1735); mimalloc (SW-1742)",
+        "Std cache once per run (SW-1741); sweeps not overlapping (SW-1734)",
+        "Bigger: one test binary per crate (SW-1736); split elab, plan only (SW-1737)"
       ],
       "links": [
         "D2532",
