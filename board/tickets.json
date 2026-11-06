@@ -1,5 +1,5 @@
 {
-  "next": 1687,
+  "next": 1688,
   "tickets": [
     {
       "id": 47,
@@ -11198,13 +11198,13 @@
     {
       "id": 1630,
       "title": "Goal as written, stage 4: when the completeness check runs out of resources, use the as-written result with a note instead of E-RESOURCE (D2479)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1630",
       "labels": [
         "elab"
       ],
-      "body": "D2475-D2480 (Matt, 6 Nov 2026): all as recommended in docs/proposals/goal-as-written.md: rewrite/match/cases/transport look as written first with a completeness check and today's search as fallback; the as-written search may solve a rule's unknowns; keep today's reach into hidden copies, no occurrence selection now (D2478); out-of-resources check uses the as-written result; rewrite f later. 'happy to go with your recommendation.' 45 min. After stage 2.\n\nD2506 (Matt, 6 Nov 2026): SW-1627 stays on Sonnet with the Opus review, but from now on core language changes (kernel, rewrite/match tactics, unifier, syntax, std core) go to Opus: 'core/kernel language changes feel like we can afford a bit more intelligence to be safe!' So: Opus.\n\nStarted on Opus, expected: 60 min.",
+      "body": "D2475-D2480 (Matt, 6 Nov 2026): all as recommended in docs/proposals/goal-as-written.md: rewrite/match/cases/transport look as written first with a completeness check and today's search as fallback; the as-written search may solve a rule's unknowns; keep today's reach into hidden copies, no occurrence selection now (D2478); out-of-resources check uses the as-written result; rewrite f later. 'happy to go with your recommendation.' 45 min. After stage 2.\n\nD2506 (Matt, 6 Nov 2026): SW-1627 stays on Sonnet with the Opus review, but from now on core language changes (kernel, rewrite/match tactics, unifier, syntax, std core) go to Opus: 'core/kernel language changes feel like we can afford a bit more intelligence to be safe!' So: Opus.\n\nStarted on Opus, expected: 60 min.\n\nLane done (52b8bb3c2), in Opus review. Only \"too large to show\" is recovered (undo::recoverable); rewrite and match use the as-written result with W-REWRITE-UNCONFIRMED / W-MATCH-UNCONFIRMED; a hidden copy found by a completed check keeps today's error. Day 11's settle … 1000 checks with the warning (file restored). Orchestrator's calls (implementation): keep the lane's step where match falls back to today's confirmed result when only the as-written check runs out; keep the two warning codes. Model result: Opus, pending review, 62 min (est. 60).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11478,13 +11478,13 @@
     {
       "id": 1650,
       "title": "Std Int.natAbs lemmas (negate, add, sub, triangle) and omega support for natAbs; the plane library needed local case-split helpers (SW-1484)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1650",
       "labels": [
         "std"
       ],
-      "body": "From SW-1484, 6 Nov 2026. natAbsNegate/natAbsAdd/natAbsTriangle/natSquareOne live in Aoc.Common.Proofs.Plane for now.\n\nStarted on Opus in one lane (SW-1650 with SW-1669; omega is a core tactic, D2506), expected: 90 min.",
+      "body": "From SW-1484, 6 Nov 2026. natAbsNegate/natAbsAdd/natAbsTriangle/natSquareOne live in Aoc.Common.Proofs.Plane for now.\n\nStarted on Opus in one lane (SW-1650 with SW-1669; omega is a core tactic, D2506), expected: 90 min.\n\nLane done (75bc1fef3), in Opus review. natAbsDichotomy split tried only after a first failure (orchestrator's call: goals without natAbs unaffected); Nat.divFuel f x 0 an atom with divFuelZero; 16 std lemmas, statements checked by the orchestrator; Plane's 5 helpers removed. Model result: Opus, pending review, 40 min (est. 90).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11744,7 +11744,7 @@
     {
       "id": 1669,
       "title": "omega: add Nat.divZero (n / 0 = 0) as a fact for a literal 0 divisor; today it can't prove n / 0 = 0 for a variable n (SW-1640 review)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1650",
       "labels": [
@@ -11989,6 +11989,20 @@
         "tests"
       ],
       "body": "From SW-1681, 6 Nov 2026. The lane ran the whole binary, which overran the test budget.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1687,
+      "title": "matching.rs blocker reads back unfolded with an unlabelled ?, so a too-large hypothesis's error points at the whole theorem (SW-1477 shape); label it (SW-1630)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "errors"
+      ],
+      "body": "From SW-1630, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
