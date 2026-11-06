@@ -10778,13 +10778,13 @@
     {
       "id": 1600,
       "title": "Regression: AoC 2024 day 24 Proofs/Complete.sw:72 no longer checks: in List.memFilterIntro waiting _ member isReady the _ is solved as x => True instead of gate => gate.ready values (daily tier 6 Nov; 6 tests); bisect the overnight elaborator/unifier merges",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1600",
       "labels": [
         "regression"
       ],
-      "body": "Daily tier 6 Nov 2026 morning (log: scratchpad/daily/daily.log). Fails: aoc_answers every_day_from_the_whole_projects_cache, lsp a_newer_edit_cancels…, aoc_navigation_matches_check_index, workspace_symbols_cover…, operators primitive_and_uniform_lowering_agree…, web every_aoc_day_checks…. Day 24 and memFilterIntro untouched overnight. Suspects: 288b7b633 (SW-1521 memo), f32be797e (SW-1533), 242952d19/47d4dc611 (SW-1564), 4ffb9f03f (SW-1550), 2ac0dbb1a (SW-1541).",
+      "body": "Daily tier 6 Nov 2026 morning (log: scratchpad/daily/daily.log). Fails: aoc_answers every_day_from_the_whole_projects_cache, lsp a_newer_edit_cancels…, aoc_navigation_matches_check_index, workspace_symbols_cover…, operators primitive_and_uniform_lowering_agree…, web every_aoc_day_checks…. Day 24 and memFilterIntro untouched overnight. Suspects: 288b7b633 (SW-1521 memo), f32be797e (SW-1533), 242952d19/47d4dc611 (SW-1564), 4ffb9f03f (SW-1550), 2ac0dbb1a (SW-1541).\n\nD2452 (Matt, 6 Nov 2026): yes, a fourth lane beside the three analysis lanes; 'fix the 11 tests and then rerun them', not the whole daily tier. Started on Opus, expected: 60 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
