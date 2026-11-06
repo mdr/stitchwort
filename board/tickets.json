@@ -1,5 +1,5 @@
 {
-  "next": 1666,
+  "next": 1669,
   "tickets": [
     {
       "id": 47,
@@ -11372,7 +11372,7 @@
       "labels": [
         "kernel"
       ],
-      "body": "D2498-D2505 (Matt, 6 Nov 2026): all as recommended in docs/proposals/record-eta.md: kernel record eta with primitive projections (no parameters) and the two rules; eta by shape incl. Pair; no no-eta opt-out now; no eta for interface dictionaries; accept goals changing shape; keep T.ext; accept ~5% checking cost (profile it); staged kernel (Opus), unifier, Pair, clean-up sweep (Sonnet). Opus, expected: 180 min.\n\nStarted on Opus, expected: 180 min.\n\nD2507 (Matt, 6 Nov 2026): after merge the orchestrator's verifier runs one whole-AoC + roguelike check --no-cache in the background, stopped at 6 min: 'two to three minutes is okay, but not 20 minutes.' Not inside the lane.",
+      "body": "D2498-D2505 (Matt, 6 Nov 2026): all as recommended in docs/proposals/record-eta.md: kernel record eta with primitive projections (no parameters) and the two rules; eta by shape incl. Pair; no no-eta opt-out now; no eta for interface dictionaries; accept goals changing shape; keep T.ext; accept ~5% checking cost (profile it); staged kernel (Opus), unifier, Pair, clean-up sweep (Sonnet). Opus, expected: 180 min.\n\nStarted on Opus, expected: 180 min.\n\nD2507 (Matt, 6 Nov 2026): after merge the orchestrator's verifier runs one whole-AoC + roguelike check --no-cache in the background, stopped at 6 min: 'two to three minutes is okay, but not 20 minutes.' Not inside the lane.\n\nLane stopped short (603b4acd6, a48ac7eb6): kernel Proj, has_eta, rules 1 and 2 built; 175 core + 16 record_eta tests (9 accept, 7 must-reject) pass; std fails at Set/Spec.sw:503,601 (rewrites no longer find Set.foldLeft/Set.map) and rogue Rules.sw:51, because a primitive Proj can't wait on a glued call (§6.4). Three shortcuts tried, each fails std or rogue. Cost so far +1-2% on rogue. D2509-D2511 (Matt, 6 Nov 2026): all as recommended: next an Opus lane on lane/SW-1642 building glued calls whose spine may end in projections (about half a day), before the unifier and Pair stages; for now eta only for types declared as records (departs from D2499 until stage 3); rule 2 fires on unknowns and the unifier compares two records first when both sides end in the same projection. Model result: Opus, stopped short (glued-call projections unspecified), 170 min (est. 180).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11695,6 +11695,48 @@
         "aoc"
       ],
       "body": "From SW-1640, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1666,
+      "title": "Tutorial part 1: a .sw file that teaches a programmer theorem proving about programs in VS Code: the extension, holes, goals, hovers, quick fixes; first theorems about small functions (Matt's request)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1666",
+      "labels": [
+        "docs"
+      ],
+      "body": "Matt, 6 Nov 2026: 'an introductory tutorial to theorem proving in Stitchwort … pitch to a competent programmer who doesn't really know much about theorem proving … load it in VS Code and they'd be told what to do … how to invoke the VS Code extension and use holes … part one of N.' Opus (teaching judgement, accuracy about the editor), expected: 90 min.\n\nStarted on Opus, expected: 90 min.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1667,
+      "title": "Record eta stage 1b: glued calls whose spine may end in projections (~64 Value::Call sites plus omega/auto/ring call_args users), on lane/SW-1642; then std and rogue pass, snapshots, profile rule 2 (D2509)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1642",
+      "labels": [
+        "kernel"
+      ],
+      "body": "D2509-D2511 (Matt, 6 Nov 2026): all as recommended: next an Opus lane on lane/SW-1642 building glued calls whose spine may end in projections (about half a day), before the unifier and Pair stages; for now eta only for types declared as records (departs from D2499 until stage 3); rule 2 fires on unknowns and the unifier compares two records first when both sides end in the same projection. Opus, expected: 240 min; an Opus review follows.\n\nStarted 14:35 by resuming SW-1642's lane (same context and branch).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1668,
+      "title": "Pairwise term comparisons with _ => false wildcards (matching::same, same_shifted) silently answer wrong for new term forms; make them exhaustive (SW-1642)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "From SW-1642, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
