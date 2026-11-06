@@ -1,5 +1,5 @@
 {
-  "next": 1661,
+  "next": 1664,
   "tickets": [
     {
       "id": 47,
@@ -10988,13 +10988,13 @@
     {
       "id": 1615,
       "title": "E-UNKNOWN-FIELD after a constructor with several fields (Cons { row = 0, column = c }) lacks the 'write C ({ … })' note; only 'Cons's fields are head, tail' (SW-1613)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "diagnostics"
       ],
-      "body": "From SW-1613, 6 Nov 2026. Small; whatever D2481 decides.",
+      "body": "From SW-1613, 6 Nov 2026. Small; whatever D2481 decides.\n\nCovered by SW-1632's new note on bracket-declared constructors (records.rs).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11170,13 +11170,13 @@
     {
       "id": 1628,
       "title": "Goal as written, stage 2: match and cases as written first (folded-goals.md option B in generalised_now), scrutinee found up to eta (day 19) (D2476)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1628",
       "labels": [
         "elab"
       ],
-      "body": "D2475-D2480 (Matt, 6 Nov 2026): all as recommended in docs/proposals/goal-as-written.md: rewrite/match/cases/transport look as written first with a completeness check and today's search as fallback; the as-written search may solve a rule's unknowns; keep today's reach into hidden copies, no occurrence selection now (D2478); out-of-resources check uses the as-written result; rewrite f later. 'happy to go with your recommendation.' Opus, expected: 120 min. After stage 1.\n\nStarted on Opus, expected: 120 min.\n\nD2507 (Matt, 6 Nov 2026): after merge the orchestrator's verifier runs one whole-AoC + roguelike check --no-cache in the background, stopped at 6 min: 'two to three minutes is okay, but not 20 minutes.' Not inside the lane.",
+      "body": "D2475-D2480 (Matt, 6 Nov 2026): all as recommended in docs/proposals/goal-as-written.md: rewrite/match/cases/transport look as written first with a completeness check and today's search as fallback; the as-written search may solve a rule's unknowns; keep today's reach into hidden copies, no occurrence selection now (D2478); out-of-resources check uses the as-written result; rewrite f later. 'happy to go with your recommendation.' Opus, expected: 120 min. After stage 1.\n\nStarted on Opus, expected: 120 min.\n\nD2507 (Matt, 6 Nov 2026): after merge the orchestrator's verifier runs one whole-AoC + roguelike check --no-cache in the background, stopped at 6 min: 'two to three minutes is okay, but not 20 minutes.' Not inside the lane.\n\nLane done (2a6042480, c16fa8f8f), for Opus review. crates/elab/src/matching/as_written.rs: generalised match/cases reads goal and types back folded, occurrence = same head as written + unifies solving nothing (no instance to choose). Kept only if (1) every variable today copies is copied, (2) each generalised target read back unfolded agrees with today's (same term, or scrutinee variable where today's has the scrutinee written otherwise, e.g. eta), (3) the folded motive type-checks now (also for cases), (4) within budget; else today's path unchanged. Check 2 also catches a closed scrutinee computing to a constructor (pick (isBig 20)). STITCHWORT_MATCH_METRICS counts. Example examples/accept/match-as-written.sw (eta, hidden copy falls back, computed-away falls back, arms keep calls). Day 19 chainBounded scrutinee and memMapElim now as written (note: the as-written form also checks on main today, the day's original failure no longer reproduces there). 44 hash snapshots moved + 1 new; 3 E-CASES note snapshots now show calls (one shows `pick True` where it showed `K2`). Counts 2020 days 10/18/19: 144 folded, 6 incomplete, ~113 nothing each; day 20: 218/20/181; 0 rescued; times equal (day 20 3.51 → 3.26 s user). Tests: lane elab 156/156, examples accept+reject 2/2, std 1/1, hash/pins/bound_to_the_prelude 16/16, day 19 check + audit 71/71. ~55 min (est. 120).\n",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11226,13 +11226,13 @@
     {
       "id": 1632,
       "title": "Brace syntax: the declaration decides (D2481-D2485): constructors declared with braced fields are built/matched by name; bracket-declared ones take braces as a record argument (Some { name = \"tea\" }, | Some { name, .. } =>, Some { r | … }); braces in argument position; show; named constructor arguments fill defaults; guide, syntax.md, feature tour",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1632",
       "labels": [
         "syntax"
       ],
-      "body": "D2481-D2486 (Matt, 6 Nov 2026): all as recommended in docs/proposals/brace-syntax-review.md: the declaration decides what braces after a constructor mean (brace-declared constructors by field name; bracket-declared ones take a record argument); patterns follow; braces in argument position; show prints accordingly; named arguments on a constructor fill field defaults; then sweep C ({ … }) → C { … }. Replaces D1370 (a). Sonnet, expected: 150 min; a user-visible language change, so docs/guide, docs/syntax.md and web/guide get updated.\n\nStarted on Sonnet, expected: 150 min.\n\nD2506 (Matt, 6 Nov 2026): SW-1627 stays on Sonnet with the Opus review, but from now on core language changes (kernel, rewrite/match tactics, unifier, syntax, std core) go to Opus: 'core/kernel language changes feel like we can afford a bit more intelligence to be safe!' Running on Sonnet when decided, so it gets an Opus review before merging, as SW-1627.",
+      "body": "D2481-D2486 (Matt, 6 Nov 2026): all as recommended in docs/proposals/brace-syntax-review.md: the declaration decides what braces after a constructor mean (brace-declared constructors by field name; bracket-declared ones take a record argument); patterns follow; braces in argument position; show prints accordingly; named arguments on a constructor fill field defaults; then sweep C ({ … }) → C { … }. Replaces D1370 (a). Sonnet, expected: 150 min; a user-visible language change, so docs/guide, docs/syntax.md and web/guide get updated.\n\nStarted on Sonnet, expected: 150 min.\n\nD2506 (Matt, 6 Nov 2026): SW-1627 stays on Sonnet with the Opus review, but from now on core language changes (kernel, rewrite/match tactics, unifier, syntax, std core) go to Opus: 'core/kernel language changes feel like we can afford a bit more intelligence to be safe!' Running on Sonnet when decided, so it gets an Opus review before merging, as SW-1627.\n\nDone, merged. Built: brace declarations; braces after a bracket-declared constructor are a record argument (expressions, patterns, updates, argument position, pipes); show follows; C (f := e) fills defaults; kernel constructor carries a braced flag (hashed only when set; presentational only, per the Opus review); cache FORMAT 28; ~17 example constructors migrated; guide, syntax.md, tour. Opus review: sound; fixes made (tour page, pipe grouping, pre-pass E-INTERNAL, nested-pattern cost 5.1 → 0.38 s, early E-NOT-A-RECORD for the wrong reading, docs, | C {} refused). Accepted change from main (D2481): | Some { value } on Option R binds R's value field (main warned W-RECORD-ARGUMENT; none in the repo). Lane's whole-AoC check (pre-fix): 0 errors. On main after snapshot conflicts: 35 tests (examples, guide, ctor_fields, named_arguments, hashes, pins, std) passed. Model result: Sonnet, needed fixes (pipe, pre-pass, tour page, found by the Opus review), 115 min (est. 150).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11240,7 +11240,7 @@
     {
       "id": 1633,
       "title": "Brace syntax sweep: C ({ … }) → C { … } across aoc, games, examples, std, guide (~140 sites) (D2486)",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
@@ -11625,6 +11625,48 @@
         "language"
       ],
       "body": "D2508 (Matt, 6 Nov 2026): Array stays behind an import (import Std (Array)), like Map, Set and Vec; .toArray works without it. 'we may want to revisit this in the future, but require an import for now.'",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1661,
+      "title": "Brace syntax gaps: f Meeting { e | … } with brace-declared Meeting isn't refused (parser makes it a bracketed argument first; needs a base field on CtorFields); the pipe refusal misses a literal left side (3 |> keep Meeting { … }) (SW-1632)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "syntax"
+      ],
+      "body": "From SW-1632, 6 Nov 2026. Opus (D2506).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1662,
+      "title": "Constructor field defaults aren't filled by position: Mark \"m\" with | Mark (id: Text) (size: Nat := 3) fails, while a def with the same parameters fills it (SW-1632 review)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "From the SW-1632 Opus review, 6 Nov 2026; same on main.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1663,
+      "title": "Brace syntax error notes: mention the declaration style for | Some { name, .. } on Option Nat, the E-ARITY Label case, and Meeting { e | minutes = 4 } (bare E-CANNOT-INFER) (SW-1632)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "errors"
+      ],
+      "body": "From SW-1632, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
