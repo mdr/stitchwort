@@ -519,7 +519,7 @@ impl Ranges {
                 .iter()
                 .filter_map(|e| match e {
                     Elim::App(v, icit) => Some((v.clone(), *icit)),
-                    Elim::J { .. } => None,
+                    Elim::J { .. } | Elim::Proj(..) => None,
                 })
                 .collect(),
             // `Mem x xs` unfolded: `Any (y => y = x) xs`.
@@ -815,7 +815,7 @@ fn call_args(value: &Value, def: DefId) -> Option<Vec<Value>> {
             .iter()
             .map(|e| match e {
                 Elim::App(v, _) => Some(v.clone()),
-                Elim::J { .. } => None,
+                Elim::J { .. } | Elim::Proj(..) => None,
             })
             .collect(),
         _ => None,

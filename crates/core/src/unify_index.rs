@@ -387,6 +387,7 @@ fn value_levels(g: &Ev, level: usize, value: &Value, out: &mut Vec<usize>) -> Re
             match elim {
                 Elim::App(arg, _) => todo.push(arg),
                 Elim::J { motive, base } => todo.extend([&**motive, &**base]),
+                Elim::Proj(..) => {}
             }
         }
     }

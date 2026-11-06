@@ -7,9 +7,9 @@ use stitchwort_core::budget::{ResourceError, Result};
 use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::value::{
     Closure, Elim, Head, Mode, Relation, ShapeKey, ShapeMemo, Spine, apply_icit, call_args, conv,
-    eval, expand_step, force, force_solved, is_folded, matches_at_once, opens_by_tree, proof_field,
-    proof_param, quote, quote_at_most, quote_folded, same_closure_solved, same_stuck_trees, sealed,
-    underapplied, unfold_folded, unfold_once,
+    eval, expand_step, force, force_solved, has_eta, is_folded, matches_at_once, opens_by_tree,
+    project, proof_field, proof_param, quote, quote_at_most, quote_folded, same_closure_solved,
+    same_stuck_trees, sealed, underapplied, unfold_folded, unfold_once,
 };
 use stitchwort_core::{BigUint, DefId, Ev, Icit, Term, Value};
 use stitchwort_core::{nat_add, native};
@@ -1610,8 +1610,36 @@ fn unify_step(
             }
             same
         }
+        // Record eta, rule 1, as in `conv` (docs/proposals/record-eta.md
+        // §6.3, §8): a constructor of a type with eta against an unknown
+        // value, field by field against its projections; so `{ row = ?r, ..
+        // }` against `p` solves `?r` as `p.row`. Unknowns come first (their
+        // arms are above). Not against a value stuck on an unsolved unknown,
+        // which may still compute to a constructor (it waits, as before),
+        // and not inside `first_order`, whose pairs needn't have one type
+        // (the same-type contract rule 1 relies on).
+        (Value::Ctor(d, 0, fs), n @ Value::Neutral(..))
+        | (n @ Value::Neutral(..), Value::Ctor(d, 0, fs))
+            if has_eta(&g.ev, *d) && !NO_ETA.with(|c| c.get()) && !blocked(g, n)? =>
+        {
+            for (k, x) in fs.iter().enumerate().rev() {
+                let projected = project(*d, k, n.clone());
+                work.push(if mode == Mode::Normal && proof_field(g, *d, 0, k) {
+                    Task::Proof(level, x.clone(), projected)
+                } else {
+                    Task::Values(level, x.clone(), projected)
+                });
+            }
+            true
+        }
         _ => push_eta(&g.ev, level, &a, &b, work)?,
     })
+}
+
+thread_local! {
+    /// Set while `first_order` pairs last arguments, whose types needn't
+    /// agree: record eta is off there.
+    static NO_ETA: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
 /// Lazy delta, aimed narrowly (docs/proposals/proofs-about-definitions.md
@@ -1819,6 +1847,9 @@ fn spine_pairs(
                 pairs.push(Task::Values(level, (**m1).clone(), (**m2).clone()));
                 pairs.push(Task::Values(level, (**b1).clone(), (**b2).clone()));
             }
+            (Elim::Proj(d1, i1), Elim::Proj(d2, i2)) if d1 == d2 && i1 == i2 => {
+                arguments = false;
+            }
             _ => return None,
         }
     }
@@ -1928,7 +1959,10 @@ fn first_order(
     } else {
         Mode::Shortcut
     };
-    if !unify_in(g, level, x, y, mode)? {
+    let outer = NO_ETA.with(|c| c.replace(true));
+    let same = unify_in(g, level, x, y, mode);
+    NO_ETA.with(|c| c.set(outer));
+    if !same? {
         return Ok(false);
     }
     // Pairing the last arguments can solve `?m` itself: `?m a b = f c ?m`
@@ -2130,7 +2164,7 @@ fn solve(g: &Unifier<'_>, level: usize, m: usize, spine: &[Elim], rhs: &Value) -
                 }
                 _ => return Ok(false),
             },
-            Elim::J { .. } => return Ok(false),
+            Elim::J { .. } | Elim::Proj(..) => return Ok(false),
         }
     }
     // A variable given twice (`?m x t x`: a proof's unknown, applied to every
@@ -2258,7 +2292,9 @@ fn rename(
                         .iter()
                         .map(|e| match e {
                             Elim::App(v, _) => go(v).map(Rc::new),
-                            Elim::J { .. } => unreachable!("counted applications"),
+                            Elim::J { .. } | Elim::Proj(..) => {
+                                unreachable!("counted applications")
+                            }
                         })
                         .collect::<Renamed<_>>()?;
                     (Term::Quot(form, args, false), &spine[n..])
@@ -2281,6 +2317,7 @@ fn rename_spine(go: &dyn Fn(&Value) -> Renamed<Term>, head: Term, spine: &[Elim]
             Elim::J { motive, base } => {
                 Term::J(Rc::new(go(motive)?), Rc::new(go(base)?), Rc::new(term))
             }
+            Elim::Proj(d, i) => Term::Proj(*d, *i, Rc::new(term)),
         };
     }
     Ok(term)
@@ -2344,7 +2381,7 @@ fn prune(
                 }
                 _ => return Ok(None),
             },
-            Elim::J { .. } => return Ok(None),
+            Elim::J { .. } | Elim::Proj(..) => return Ok(None),
         }
     }
     if levels.iter().all(|l| renaming.contains_key(l)) {
@@ -2549,6 +2586,7 @@ pub(crate) fn fold_back(
             (None, None, None) => None,
             (m2, b2, p2) => Some(Term::J(or(m2, m), or(b2, b), or(p2, p))),
         },
+        Term::Proj(d, i, t) => go(t, under)?.map(|t| Term::Proj(*d, *i, t)),
         Term::Quot(form, args, e) => all(args, under)?.map(|args| Term::Quot(*form, args, *e)),
         Term::Loc(span, t) => go(t, under)?.map(|t| Term::Loc(*span, t)),
     })
@@ -2899,6 +2937,7 @@ fn zonk_changed(
             (None, None, None) => None,
             (m2, b2, p2) => Some(Term::J(or(m2, m), or(b2, b), or(p2, p))),
         },
+        Term::Proj(d, i, t) => go(t, level)?.map(|t| Term::Proj(*d, *i, t)),
         Term::Quot(form, args, e) => all(args)?.map(|args| Term::Quot(*form, args, *e)),
         Term::Loc(span, t) => go(t, level)?.map(|t| Term::Loc(*span, t)),
     })

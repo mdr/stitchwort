@@ -1156,6 +1156,19 @@ impl<'g> Printer<'g> {
                 (format!("{lhs} = {rhs}"), Prec::Eq)
             }
             Term::J(m, b, p) => self.applied(names, "J".into(), [&**m, &**b, &**p].into_iter()),
+            // A projection, as field access is written: `p.row`.
+            Term::Proj(d, i, t) => {
+                let t = self.print(names, t, Prec::Atom);
+                let field = self
+                    .g
+                    .env
+                    .datas()
+                    .get(d.0)
+                    .and_then(|data| data.ctors.first())
+                    .and_then(|ctor| ctor.fields.get(*i))
+                    .map_or_else(|| i.to_string(), |(name, _)| name.to_string());
+                (format!("{t}.{field}"), Prec::Atom)
+            }
             // As written: `Quot.mk a`, the implicit arguments hidden unless
             // asked for (`Quot.mk [Bool] [AllTrue] a`).
             Term::Quot(form, args, _) => {
@@ -2551,6 +2564,9 @@ fn mismatch_within(
                 path,
                 &mut [(&**m, &**n), (&**x, &**y), (&**p, &**q)].into_iter(),
             );
+        }
+        (Term::Proj(d1, i1, x), Term::Proj(d2, i2, y)) if d1 == d2 && i1 == i2 => {
+            return pairs(path, &mut [(&**x, &**y)].into_iter());
         }
         (Term::Quot(f, xs, _), Term::Quot(h, ys, _)) if f == h && xs.len() == ys.len() => {
             let skip = if explicit_only { f.implicit() } else { 0 };

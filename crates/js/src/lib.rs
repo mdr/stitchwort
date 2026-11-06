@@ -3971,6 +3971,21 @@ impl<'g> Gen<'g> {
             }
             // Proofs are erased, and transport along an equality does nothing.
             Term::J(_, base, _) => self.expr(base, env)?,
+            // A field, read as a `match` on the record reads it.
+            Term::Proj(d, i, t) => {
+                if self.g.data(*d).ctors()[0].field_erased[*i] {
+                    "undefined".into()
+                } else {
+                    let x = self.expr(t, env)?;
+                    if Some(*d) == self.float {
+                        format!("toCanonicalBits({x})")
+                    } else if self.unboxed(*d).is_some() {
+                        x
+                    } else {
+                        format!("({x}){}", member(&field_key_at(self.g, *d, 0, *i)))
+                    }
+                }
+            }
             Term::Data(..)
             | Term::Sort(_)
             | Term::Pi(..)

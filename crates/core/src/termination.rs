@@ -513,6 +513,9 @@ impl Walker<'_> {
                 self.walk(b)?;
                 self.walk(p)?;
             }
+            // A projection gives no evidence of descent here (`relate`
+            // doesn't look through it): conservative, never unsound.
+            Term::Proj(_, _, t) => self.walk(t)?,
         }
         Ok(())
     }

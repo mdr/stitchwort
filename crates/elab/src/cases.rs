@@ -1702,7 +1702,7 @@ fn blocker(cx: &Ctx, value: &Value) -> Result<Option<(Value, DataId)>> {
     for elim in spine.iter().take(def.arity()) {
         match elim {
             Elim::App(v, _) => env.push(v.clone()),
-            Elim::J { .. } => return Ok(None),
+            Elim::J { .. } | Elim::Proj(..) => return Ok(None),
         }
     }
     let mut tree = Term::peel_lams_rc(body, def.arity());

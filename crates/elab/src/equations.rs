@@ -5129,6 +5129,7 @@ fn rebuild(t: &Term, f: Sub<'_>) -> stitchwort_core::budget::Result<Term> {
             Term::Eq(ty, f(a, 0)?, f(b, 0)?)
         }
         Term::J(m, b, p) => Term::J(f(m, 0)?, f(b, 0)?, f(p, 0)?),
+        Term::Proj(d, i, t) => Term::Proj(*d, *i, f(t, 0)?),
         Term::Case(i, d, branches) => Term::Case(
             *i,
             *d,
@@ -5321,6 +5322,7 @@ fn remap(
                 Term::Eq(ty, sub!(a, k), sub!(b, k))
             }
             Term::J(m, b, p) => Term::J(sub!(m, k), sub!(b, k), sub!(p, k)),
+            Term::Proj(d, i, t) => Term::Proj(*d, *i, sub!(t, k)),
             Term::Quot(form, args, erased) => {
                 let mut out = Vec::new();
                 for a in args {
@@ -5416,6 +5418,7 @@ fn beta_rec(g: &Ev, t: Term) -> stitchwort_core::budget::Result<Term> {
         Term::Let(x, a, v, b, e) => Term::Let(x.clone(), go(a)?, go(v)?, go(b)?, *e),
         Term::Eq(ty, a, b) => Term::Eq(ty.as_ref().map(go).transpose()?, go(a)?, go(b)?),
         Term::J(m, b, p) => Term::J(go(m)?, go(b)?, go(p)?),
+        Term::Proj(d, i, x) => Term::Proj(*d, *i, go(x)?),
         _ => t,
     })
 }
@@ -5450,6 +5453,7 @@ fn unmark(g: &Ev, d: &Def, t: &Term) -> stitchwort_core::budget::Result<Term> {
             Term::Let(x, a, v, b, e) => Term::Let(x.clone(), sub(a)?, sub(v)?, sub(b)?, *e),
             Term::Eq(ty, a, b) => Term::Eq(ty.as_ref().map(sub).transpose()?, sub(a)?, sub(b)?),
             Term::J(m, b, p) => Term::J(sub(m)?, sub(b)?, sub(p)?),
+            Term::Proj(d, i, x) => Term::Proj(*d, *i, sub(x)?),
             _ => t.clone(),
         })
     }

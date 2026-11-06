@@ -729,7 +729,7 @@ fn def_args(value: &Value) -> Option<(DefId, Vec<Value>)> {
                 .iter()
                 .map(|e| match e {
                     Elim::App(v, _) => Some(v.clone()),
-                    Elim::J { .. } => None,
+                    Elim::J { .. } | Elim::Proj(..) => None,
                 })
                 .collect();
             Some((*id, args?))

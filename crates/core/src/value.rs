@@ -171,7 +171,7 @@ pub fn quot_mk_rep(value: &Value) -> Option<&Value> {
         Value::Neutral(Head::Quot(QuotForm::Mk), spine) if spine.len() == QuotForm::Mk.arity() => {
             match &spine[2] {
                 Elim::App(a, _) => Some(a),
-                Elim::J { .. } => None,
+                Elim::J { .. } | Elim::Proj(..) => None,
             }
         }
         _ => None,
@@ -203,6 +203,9 @@ pub enum Elim {
         motive: Box<Value>,
         base: Box<Value>,
     },
+    /// Field `i` of a value of data type `DataId`, which has eta
+    /// ([`Term::Proj`]): stuck because the value is unknown.
+    Proj(DataId, usize),
 }
 
 /// The eliminations applied to a neutral value's head, in order: shared, so
@@ -442,6 +445,7 @@ fn detach(value: Value, empty: &Rc<[Value]>, pending: &mut Vec<Value>) {
                         pending.push(*motive);
                         pending.push(*base);
                     }
+                    Elim::Proj(..) => {}
                 }
             }
         }
@@ -551,7 +555,10 @@ pub fn force_solved(g: &Ev, value: Value) -> Result<Value> {
         let Some(solution) = g.meta_solution(*m) else {
             return Ok(value);
         };
-        if spine.iter().any(|e| matches!(e, Elim::J { .. })) {
+        if spine
+            .iter()
+            .any(|e| matches!(e, Elim::J { .. } | Elim::Proj(..)))
+        {
             return force(g, value);
         }
         let mut applied = solution;
@@ -610,7 +617,9 @@ pub fn call_args(spine: &Spine) -> Vec<(Value, Icit)> {
         .iter()
         .map(|elim| match elim {
             Elim::App(v, i) => (v.clone(), *i),
-            Elim::J { .. } => unreachable!("a call's spine has only applications"),
+            Elim::J { .. } | Elim::Proj(..) => {
+                unreachable!("a call's spine has only applications")
+            }
         })
         .collect()
 }
@@ -715,6 +724,14 @@ enum Frame {
     JForced { term: Rc<Term>, env: Env },
     /// The forced proof of `J`, already unfolded if it was a folded call.
     JReady { term: Rc<Term>, env: Env },
+    /// The value a projection `Term::Proj(d, i, _)` takes field `i` of,
+    /// which is forced next.
+    ProjOf(DataId, usize),
+    /// The forced value a projection takes a field of.
+    ProjForced(DataId, usize),
+    /// The forced value a projection takes a field of, already unfolded if
+    /// it was a folded call.
+    ProjReady(DataId, usize),
     /// The motive of a stuck `J` (the base is next).
     JMotive {
         term: Rc<Term>,
@@ -775,8 +792,9 @@ enum Frame {
     /// A metavariable's solution, or the result of applying it so far:
     /// apply the eliminations of `spine` from `next` on, then force again.
     Replay { spine: Spine, next: usize },
-    /// The forced value a `J` elimination at `spine[next]` applies to.
-    ReplayJ { spine: Spine, next: usize },
+    /// The forced value a `J` elimination or a projection at `spine[next]`
+    /// applies to.
+    ReplayElim { spine: Spine, next: usize },
     /// The forced function of an application of a call to `arg`.
     AppTo(Value, Icit),
     /// The unfolding of a call, to force and then keep.
@@ -1200,6 +1218,10 @@ fn eval_step(g: &Ev, term: Rc<Term>, env: Env, stack: &mut Vec<Frame>) -> Result
             )?;
             Control::Eval(proof, env)
         }
+        Term::Proj(d, i, t) => {
+            push(g, stack, Frame::ProjOf(*d, *i))?;
+            Control::Eval(t.clone(), env)
+        }
     })
 }
 
@@ -1431,6 +1453,14 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
                 other => panic!("internal error: J applied to {}", describe(&other)),
             }
         }
+        Frame::ProjOf(d, i) => {
+            push(g, stack, Frame::ProjForced(d, i))?;
+            Control::Force(value)
+        }
+        Frame::ProjForced(d, i) if is_folded(g, &value) => {
+            unfold_for(g, stack, value, Frame::ProjReady(d, i))?
+        }
+        Frame::ProjForced(d, i) | Frame::ProjReady(d, i) => Control::Return(project(d, i, value)),
         Frame::JMotive {
             term,
             env,
@@ -1486,26 +1516,28 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
                 )?;
                 apply_step(value, arg, icit)
             }
-            Some(Elim::J { .. }) => {
-                push(g, stack, Frame::ReplayJ { spine, next })?;
+            Some(Elim::J { .. } | Elim::Proj(..)) => {
+                push(g, stack, Frame::ReplayElim { spine, next })?;
                 Control::Force(value)
             }
         },
-        Frame::ReplayJ { spine, next } => {
+        Frame::ReplayElim { spine, next } => {
             let elim = spine[next].clone();
-            let Elim::J { base, .. } = &elim else {
-                unreachable!("a `ReplayJ` frame is for a `J` elimination")
-            };
             // Only while elaborating (a metavariable's solution), so the
-            // machine this starts for a folded proof is bounded by the program.
+            // machine this starts for a folded value is bounded by the
+            // program.
             let value = unfold_folded(g, &value)?.unwrap_or(value);
-            let result = match value {
-                Value::Refl => (**base).clone(),
-                Value::Neutral(head, mut s) => {
-                    s.push(elim.clone());
-                    Value::Neutral(head, s)
-                }
-                other => panic!("internal error: J applied to {}", describe(&other)),
+            let result = match &elim {
+                Elim::Proj(d, i) => project(*d, *i, value),
+                Elim::J { base, .. } => match value {
+                    Value::Refl => (**base).clone(),
+                    Value::Neutral(head, mut s) => {
+                        s.push(elim.clone());
+                        Value::Neutral(head, s)
+                    }
+                    other => panic!("internal error: J applied to {}", describe(&other)),
+                },
+                Elim::App(..) => unreachable!("a `ReplayElim` frame is for a `J` or a projection"),
             };
             push(
                 g,
@@ -1614,6 +1646,19 @@ fn branch(
         v if erase::is_erased(&v) && g.data(*d).sort == Sort::Prop && !branches.is_empty() => {
             (0, vec![erased(); g.data(*d).ctors[0].fields.len()])
         }
+        // Record eta, rule 2 (docs/proposals/record-eta.md §6.4): a `case`
+        // on an unknown value of a type with eta takes its only branch, its
+        // fields bound to the value's projections. Sound because every value
+        // of such a type is its constructor applied to its fields (the
+        // conditions are at `check::has_eta`), so whatever `n` turns out to
+        // be, this is the branch it takes, with these fields; and it ends,
+        // since it removes a `case` and adds none. Not for an unsolved
+        // metavariable (the elaborator solves it instead), nor while a
+        // program runs (its values are closed).
+        n @ Value::Neutral(..) if eta_case(g, *d, &n) => {
+            let k = g.data(*d).ctors[0].fields.len();
+            (0, (0..k).map(|i| project(*d, i, n.clone())).collect())
+        }
         _ => return stuck_tree(g, stuck),
     };
     let Some(body) = branches[c].body.clone() else {
@@ -1627,6 +1672,42 @@ fn branch(
     };
     env.extend(fields);
     Ok(Control::Tree(body, env, stuck))
+}
+
+/// Field `i` of `value`, a forced value of data type `d`, which has eta
+/// ([`Term::Proj`]): the constructor's field, or the projection left stuck
+/// on an unknown. A constructor of another type (the Lean projection bug,
+/// docs/proposals/records.md §7.6) is never taken apart: the kernel's typing
+/// refuses such a projection, so only an ill-typed term could reach it.
+pub fn project(d: DataId, i: usize, value: Value) -> Value {
+    match value {
+        Value::Ctor(d2, 0, fields) if d2 == d && i < fields.len() => fields[i].clone(),
+        Value::Neutral(head, mut spine) => {
+            spine.push(Elim::Proj(d, i));
+            Value::Neutral(head, spine)
+        }
+        // While running, an erased value's parts are erased too.
+        v if erase::is_erased(&v) => v,
+        other => panic!(
+            "internal error: projecting field {i} of {}",
+            describe(&other)
+        ),
+    }
+}
+
+/// Whether data type `d` has record eta. A type the environment doesn't hold
+/// (only unit tests build such values) has none.
+pub fn has_eta(g: &Ev, d: DataId) -> bool {
+    g.env.datas().get(d.0).is_some_and(|data| data.eta)
+}
+
+/// Whether a `case` on type `d` takes its only branch on `value`, a forced
+/// neutral, by record eta (rule 2, [`branch`]): `d` has eta, `value` isn't
+/// an unsolved metavariable, and no program is running.
+fn eta_case(g: &Ev, d: DataId, value: &Value) -> bool {
+    has_eta(g, d)
+        && !matches!(value, Value::Neutral(Head::Meta(_), _))
+        && !g.machine.erasure.program_running()
 }
 
 /// What `value` is known not to be: something only for a variable on its
@@ -1708,7 +1789,7 @@ fn unfold_now(g: &Ev, id: DefId, spine: Spine, glue: bool) -> Result<Control> {
             .iter()
             .map(|e| match e {
                 Elim::App(v, _) => Some(v.clone()),
-                Elim::J { .. } => None,
+                Elim::J { .. } | Elim::Proj(..) => None,
             })
             .collect();
         if let Some(args) = args {
@@ -1774,7 +1855,7 @@ fn unfold_for(g: &Ev, stack: &mut Vec<Frame>, value: Value, next: Frame) -> Resu
         .iter()
         .map(|e| match e {
             Elim::App(v, _) => Some(v.clone()),
-            Elim::J { .. } => None,
+            Elim::J { .. } | Elim::Proj(..) => None,
         })
         .collect();
     let Some(args) = args else {
@@ -1855,7 +1936,7 @@ pub fn unfold_folded(g: &Ev, value: &Value) -> Result<Option<Value>> {
             .iter()
             .map(|e| match e {
                 Elim::App(v, _) => Some(v.clone()),
-                Elim::J { .. } => None,
+                Elim::J { .. } | Elim::Proj(..) => None,
             })
             .collect();
         let Some(args) = args else {
@@ -2036,7 +2117,7 @@ fn quote_as(
                 done.push(Term::Eq(Some(rc(ty)), rc(a), rc(b)));
             }
             QuoteTask::Spine(head, shape) => {
-                let n: usize = shape.iter().map(|s| if s.is_some() { 1 } else { 2 }).sum();
+                let n: usize = shape.iter().map(|s| s.parts()).sum();
                 let mut parts = done.split_off(done.len() - n).into_iter();
                 let (mut term, shape) = match head {
                     SpineHead::Term(term) => (term, &shape[..]),
@@ -2046,16 +2127,17 @@ fn quote_as(
                         (Term::Quot(form, args, false), &shape[k..])
                     }
                 };
-                for &icit in shape {
-                    term = match icit {
-                        Some(icit) => {
+                for &elim in shape {
+                    term = match elim {
+                        SpineShape::App(icit) => {
                             Term::app_icit(term, parts.next().expect("an argument"), icit)
                         }
-                        None => {
+                        SpineShape::J => {
                             let motive = parts.next().expect("a motive");
                             let base = parts.next().expect("a base");
                             Term::J(rc(motive), rc(base), rc(term))
                         }
+                        SpineShape::Proj(d, i) => Term::Proj(d, i, rc(term)),
                     };
                 }
                 done.push(term);
@@ -2076,9 +2158,29 @@ enum QuoteTask {
     Ctor(DataId, usize, usize),
     NatAdd(Rc<BigUint>),
     Eq,
-    /// A head and its eliminations: `Some(icit)` an application, `None` a
-    /// `J` (whose motive and base come first).
-    Spine(SpineHead, Vec<Option<Icit>>),
+    /// A head and its eliminations.
+    Spine(SpineHead, Vec<SpineShape>),
+}
+
+/// One elimination of a [`QuoteTask::Spine`].
+#[derive(Clone, Copy)]
+enum SpineShape {
+    /// An application: one part.
+    App(Icit),
+    /// A `J`: two parts, its motive and base.
+    J,
+    /// A projection: no part.
+    Proj(DataId, usize),
+}
+
+impl SpineShape {
+    fn parts(self) -> usize {
+        match self {
+            SpineShape::App(_) => 1,
+            SpineShape::J => 2,
+            SpineShape::Proj(..) => 0,
+        }
+    }
 }
 
 /// The head of a neutral value being quoted.
@@ -2127,7 +2229,7 @@ fn visit(
                 let args = call_args(&spine);
                 tasks.push(QuoteTask::Spine(
                     SpineHead::Term(Term::Def(id)),
-                    args.iter().map(|(_, i)| Some(*i)).collect(),
+                    args.iter().map(|(_, i)| SpineShape::App(*i)).collect(),
                 ));
                 for (v, _) in args.into_iter().rev() {
                     tasks.push(QuoteTask::Visit(level, v));
@@ -2205,14 +2307,15 @@ fn visit(
             for elim in &spine {
                 match elim {
                     Elim::App(v, i) => {
-                        shape.push(Some(*i));
+                        shape.push(SpineShape::App(*i));
                         parts.push(v.clone());
                     }
                     Elim::J { motive, base } => {
-                        shape.push(None);
+                        shape.push(SpineShape::J);
                         parts.push((**motive).clone());
                         parts.push((**base).clone());
                     }
+                    Elim::Proj(d, i) => shape.push(SpineShape::Proj(*d, *i)),
                 }
             }
             tasks.push(QuoteTask::Spine(head, shape));
@@ -2668,6 +2771,35 @@ fn conv_step(
             work.push(ConvTask::Values(level, force(g, a)?, force(g, b)?));
             true
         }
+        // Record eta, rule 1 (docs/proposals/record-eta.md §6.3): a
+        // constructor of a type with eta against an unknown `n` is equal when
+        // each field is equal to `n`'s projection. True because every value
+        // of such a type is its constructor applied to its fields (the
+        // conditions are at `check::has_eta`). Nothing checks that `n` is a
+        // value of that type: both sides have one type (the precondition of
+        // `conv`), the constructor's. Fields go left to right, so each pair
+        // has one type once the earlier ones are equal (or skipped as
+        // proofs, which in normal mode are, exactly as for two
+        // constructors, and compared in shortcut mode). It ends: each pair
+        // is a strictly smaller part of the constructor against a
+        // projection, and only finitely many projections of `n` can be
+        // taken, the type not being recursive. Only after glued calls are
+        // forced (above), so it never sees a call.
+        (Value::Ctor(d, 0, fs), n @ Value::Neutral(..))
+        | (n @ Value::Neutral(..), Value::Ctor(d, 0, fs))
+            if has_eta(g, *d) =>
+        {
+            for (k, x) in fs.iter().enumerate().rev() {
+                if mode == Mode::Shortcut || !proof_field(g, *d, 0, k) {
+                    work.push(ConvTask::Values(
+                        level,
+                        x.clone(),
+                        project(*d, k, n.clone()),
+                    ));
+                }
+            }
+            true
+        }
         _ => push_eta(g, level, &a, &b, work)?,
     })
 }
@@ -2709,6 +2841,9 @@ fn spine_pairs(
                 arguments = false;
                 pairs.push(ConvTask::Values(level, (**m1).clone(), (**m2).clone()));
                 pairs.push(ConvTask::Values(level, (**b1).clone(), (**b2).clone()));
+            }
+            (Elim::Proj(d1, i1), Elim::Proj(d2, i2)) if d1 == d2 && i1 == i2 => {
+                arguments = false;
             }
             _ => return None,
         }
@@ -2838,7 +2973,7 @@ fn walk_tree(g: &Ev, mut tree: Rc<Term>, mut env: Vec<Value>) -> Result<TreeEnd>
         g.machine.budget.step()?;
         let node = Term::strip_loc_rc(&tree);
         match &*node {
-            Term::Case(ix, _, branches) => {
+            Term::Case(ix, d, branches) => {
                 let scrutinee = force(g, env[env.len() - 1 - ix].clone())?;
                 match &scrutinee {
                     Value::Ctor(_, c, fields) => {
@@ -2846,6 +2981,18 @@ fn walk_tree(g: &Ev, mut tree: Rc<Term>, mut env: Vec<Value>) -> Result<TreeEnd>
                             return Ok(TreeEnd::Other);
                         };
                         env.extend(fields.iter().cloned());
+                        tree = body;
+                    }
+                    // Record eta's rule 2, as evaluation takes it (`branch`):
+                    // so a tree is compared from where its call is stuck.
+                    Value::Neutral(..)
+                        if !is_folded(g, &scrutinee) && eta_case(g, *d, &scrutinee) =>
+                    {
+                        let Some(body) = branches[0].body.clone() else {
+                            return Ok(TreeEnd::Other);
+                        };
+                        let k = g.data(*d).ctors[0].fields.len();
+                        env.extend((0..k).map(|i| project(*d, i, scrutinee.clone())));
                         tree = body;
                     }
                     Value::Neutral(..) if !is_folded(g, &scrutinee) => {
@@ -2884,7 +3031,7 @@ pub fn same_stuck_trees(
             .iter()
             .map(|e| match e {
                 Elim::App(v, _) => v.clone(),
-                Elim::J { .. } => unreachable!("checked by opens_by_tree"),
+                Elim::J { .. } | Elim::Proj(..) => unreachable!("checked by opens_by_tree"),
             })
             .collect();
         (Term::peel_lams_rc(body, def.arity), args)
@@ -3314,6 +3461,7 @@ fn shape_hash(g: &Ev, cache: &mut ShapeCache, value: &Value) -> Result<u64> {
                                     1u8.hash(&mut h);
                                     parts.extend([Part::Value(motive), Part::Value(base)]);
                                 }
+                                Elim::Proj(d, i) => (2u8, d, i).hash(&mut h),
                             }
                         }
                     }
@@ -3372,6 +3520,10 @@ fn shape_hash(g: &Ev, cache: &mut ShapeCache, value: &Value) -> Result<u64> {
                             }
                             Term::J(m, b, p) => {
                                 parts.extend([Part::Term(m), Part::Term(b), Part::Term(p)]);
+                            }
+                            Term::Proj(d, i, t) => {
+                                (d, i).hash(&mut h);
+                                parts.push(Part::Term(t));
                             }
                             Term::Quot(f, xs, e) => {
                                 (f, e, xs.len()).hash(&mut h);
@@ -3664,6 +3816,7 @@ fn same_layer<'v>(a: &'v Value, b: &'v Value, work: &mut Vec<Same<'v>>) -> bool 
                         work.push(Same::Values(m1, m2));
                         work.push(Same::Values(b1, b2));
                     }
+                    (Elim::Proj(d1, i1), Elim::Proj(d2, i2)) if d1 == d2 && i1 == i2 => {}
                     _ => return false,
                 }
             }
@@ -3760,6 +3913,13 @@ fn same_term_layer<'v>(a: &'v Term, b: &'v Term, work: &mut Vec<Same<'v>>) -> bo
             both(m1, m2);
             both(b1, b2);
             both(p1, p2);
+            true
+        }
+        (Term::Proj(d1, i1, t1), Term::Proj(d2, i2, t2)) => {
+            if d1 != d2 || i1 != i2 {
+                return false;
+            }
+            both(t1, t2);
             true
         }
         (Term::Quot(f1, xs, e1), Term::Quot(f2, ys, e2)) => {

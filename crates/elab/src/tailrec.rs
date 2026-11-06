@@ -555,6 +555,7 @@ impl Walk<'_> {
                     self.walk(arg, &Pos::Not(why), depth);
                 }
             }
+            Term::Proj(_, _, t) => self.walk(t, &Pos::Not(Why::Scrutinee), depth),
             // Types, proofs and numbers make no calls.
             Term::Data(..)
             | Term::Pi(..)

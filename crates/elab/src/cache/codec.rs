@@ -214,6 +214,7 @@ const REFL: u8 = 15;
 const J: u8 = 16;
 const LOC: u8 = 17;
 const QUOT: u8 = 18;
+const PROJ: u8 = 19;
 
 /// The byte a quotient form is written as.
 fn quot_form_tag(form: QuotForm) -> u8 {
@@ -434,6 +435,13 @@ impl TermWriter {
                 self.nodes.uint(b);
             }
             Term::Refl => self.nodes.u8(REFL),
+            Term::Proj(d, i, t) => {
+                self.nodes.u8(PROJ);
+                refs.data(&mut self.nodes, *d);
+                self.nodes.usize(*i);
+                let t = self.id(t);
+                self.nodes.uint(t);
+            }
             Term::J(m, b, p) => {
                 self.nodes.u8(J);
                 let (m, b, p) = (self.id(m), self.id(b), self.id(p));
@@ -472,7 +480,7 @@ fn each_child<'t>(t: &'t Term, f: &mut dyn FnMut(&'t Term)) {
             f(a);
             f(b);
         }
-        Term::Lam(_, _, b) | Term::Loc(_, b) => f(b),
+        Term::Lam(_, _, b) | Term::Loc(_, b) | Term::Proj(_, _, b) => f(b),
         Term::Let(_, a, v, b, _) => {
             f(a);
             f(v);
@@ -527,7 +535,9 @@ pub fn references(t: &Term, defs: &mut dyn FnMut(DefId), datas: &mut dyn FnMut(D
         }
         match t {
             Term::Def(id) => defs(*id),
-            Term::Data(d, _) | Term::Ctor(d, _, _) | Term::Case(_, d, _) => datas(*d),
+            Term::Data(d, _) | Term::Ctor(d, _, _) | Term::Case(_, d, _) | Term::Proj(d, ..) => {
+                datas(*d)
+            }
             _ => {}
         }
         each_child(t, &mut |c| stack.push(c));
@@ -695,6 +705,11 @@ impl Terms {
                 }
                 REFL => Term::Refl,
                 J => Term::J(self.child(r)?, self.child(r)?, self.child(r)?),
+                PROJ => {
+                    let d = refs.data(r)?;
+                    let i = r.usize()?;
+                    Term::Proj(d, i, self.child(r)?)
+                }
                 QUOT => {
                     let Some(form) = read_quot_form(r.u8()?) else {
                         return bad("an unknown quotient form");

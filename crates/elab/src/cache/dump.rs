@@ -155,6 +155,10 @@ fn term(out: &mut String, t: &Term) {
                 out.push_str("(J");
                 children.extend([&**m, &**b, &**p]);
             }
+            Term::Proj(d, i, t) => {
+                let _ = write!(out, "(Proj D{}.{i}", d.0);
+                children.push(t);
+            }
             Term::Quot(form, args, erased) => {
                 let _ = write!(out, "({} {erased}", form.name());
                 children.extend(args.iter().map(|a| &**a));
@@ -181,6 +185,7 @@ fn term(out: &mut String, t: &Term) {
                 | Term::NumCase(..)
                 | Term::Eq(..)
                 | Term::J(..)
+                | Term::Proj(..)
                 | Term::Quot(..)
                 | Term::Loc(..)
         );

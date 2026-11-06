@@ -179,6 +179,7 @@ pub fn data_hash(g: &Ev, id: DataId) -> Result<Option<ContentHash>> {
         h.term(ty)?;
     }
     h.auto_params(data);
+    h.no_eta(data);
     h.indices(data)?;
     h.ctors(data)?;
     let hash = h.finish();
@@ -285,6 +286,7 @@ fn data_group_hashes(g: &Ev, members: &[DataId]) -> Result<()> {
         let data = g.data(members[m]);
         h.tag("data");
         h.str(&data.path);
+        h.no_eta(data);
         h.indices(data)?;
         h.ctors(data)?;
     }
@@ -388,6 +390,14 @@ impl<'g> Hasher<'g> {
         self.tag("auto");
         for a in &data.auto_params {
             self.bool(*a);
+        }
+    }
+
+    /// Whether a data type is marked as having no eta (`check::mark_no_eta`):
+    /// nothing at all when it isn't, so other types hash as before.
+    fn no_eta(&mut self, data: &Data) {
+        if data.no_eta {
+            self.tag("no-eta");
         }
     }
 
@@ -641,6 +651,12 @@ impl<'g> Hasher<'g> {
                 Term::J(m, b, p) => {
                     self.tag("j");
                     pending.extend([Item::Term(m), Item::Term(b), Item::Term(p)]);
+                }
+                Term::Proj(d, i, t) => {
+                    self.tag("proj");
+                    self.data_ref(*d)?;
+                    self.usize(*i);
+                    pending.push(Item::Term(t));
                 }
                 // Each form its own tag (so `Quot.ind` and `Quot.sound` with
                 // the same arguments differ), then every argument, implicit

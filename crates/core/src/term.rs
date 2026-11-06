@@ -204,6 +204,13 @@ pub enum Term {
     Refl,
     /// `J motive base proof`: transport along an equality.
     J(Rc<Term>, Rc<Term>, Rc<Term>),
+    /// `t.i`: field `i` of `t`, a value of data type `DataId`, which must
+    /// have eta ([`crate::globals::Data::eta`]; docs/proposals/record-eta.md
+    /// §6.2). Like Lean's and Rocq's primitive projections it doesn't store
+    /// the type's parameters: its type comes from `t`'s, inferred, which
+    /// must be `DataId` itself applied to them. It computes on a constructor
+    /// and is stuck (`Elim::Proj`) on anything else.
+    Proj(DataId, usize, Rc<Term>),
     /// A quotient form applied to all of its arguments, implicit ones
     /// included (docs/proposals/map-equality.md §7.1, D860). The flag is
     /// D921's erasure flag: for `Quot.mk`, whether the representative is
@@ -268,7 +275,7 @@ fn has_unique_child(term: &Term) -> bool {
     let unique = |t: &Rc<Term>| Rc::strong_count(t) == 1;
     match term {
         Term::Pi(_, _, a, b) | Term::App(a, b, _) | Term::Ann(a, b) => unique(a) || unique(b),
-        Term::Lam(_, _, b) | Term::Loc(_, b) => unique(b),
+        Term::Lam(_, _, b) | Term::Loc(_, b) | Term::Proj(_, _, b) => unique(b),
         Term::Let(_, a, v, b, _) => unique(a) || unique(v) || unique(b),
         Term::Data(_, args) | Term::Ctor(_, _, args) | Term::Quot(_, args, _) => {
             args.iter().any(unique)
@@ -300,7 +307,7 @@ fn take_children(term: &mut Term, leaf: &Rc<Term>, pending: &mut Vec<Rc<Term>>) 
             take(a);
             take(b);
         }
-        Term::Lam(_, _, b) | Term::Loc(_, b) => take(b),
+        Term::Lam(_, _, b) | Term::Loc(_, b) | Term::Proj(_, _, b) => take(b),
         Term::Let(_, a, v, b, _) => {
             take(a);
             take(v);
@@ -394,6 +401,26 @@ impl Term {
     /// when it checks it.
     pub fn let_(x: Name, ty: Term, value: Term, body: Term) -> Term {
         Term::Let(x, Rc::new(ty), Rc::new(value), Rc::new(body), false)
+    }
+
+    /// Projection `t.i` of a type whose constructor has `fields` fields, as
+    /// the match it means, `(x => match x with | C f₀ … => fᵢ) t`: for back
+    /// ends that compile matches and have no field access of their own.
+    pub fn proj_as_match(d: DataId, i: usize, fields: usize, t: Rc<Term>) -> Term {
+        let names = (0..fields).map(|k| Name::from(format!("%f{k}"))).collect();
+        let case = Term::Case(
+            0,
+            d,
+            Rc::from([Branch {
+                names,
+                body: Some(Rc::new(Term::Var(fields - 1 - i))),
+            }]),
+        );
+        Term::App(
+            Rc::new(Term::Lam(Name::from("%r"), Icit::Explicit, Rc::new(case))),
+            t,
+            Icit::Explicit,
+        )
     }
 
     pub fn app(f: Term, a: Term) -> Term {
@@ -590,6 +617,7 @@ impl Term {
                 go(b, cutoff)?,
             ),
             Term::J(m, b, p) => Term::J(go(m, cutoff)?, go(b, cutoff)?, go(p, cutoff)?),
+            Term::Proj(d, i, t) => Term::Proj(*d, *i, go(t, cutoff)?),
             Term::Quot(form, args, erased) => Term::Quot(
                 *form,
                 args.iter().map(|a| go(a, cutoff)).collect::<Result<_>>()?,
@@ -662,6 +690,7 @@ impl Term {
                 go(b, f)?,
             ),
             Term::J(m, b, p) => Term::J(go(m, f)?, go(b, f)?, go(p, f)?),
+            Term::Proj(d, i, t) => Term::Proj(*d, *i, go(t, f)?),
             Term::Quot(form, args, erased) => Term::Quot(
                 *form,
                 args.iter().map(|a| go(a, f)).collect::<Result<_>>()?,
@@ -751,7 +780,7 @@ impl Term {
                 f(b, 0);
                 f(p, 0);
             }
-            Term::Loc(_, t) => f(t, 0),
+            Term::Loc(_, t) | Term::Proj(_, _, t) => f(t, 0),
         }
     }
 }

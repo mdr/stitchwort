@@ -102,7 +102,29 @@ pub fn eval(g: &Ev, env: &[Value], term: &Term) -> Result<Value> {
         // The one computation rule: `Quot.lift f h (Quot.mk a)` is `f a`.
         Term::Quot(form, args, _) => eval_quot(g, env, *form, args)?,
         Term::Loc(_, t) => eval(g, env, t)?,
+        Term::Proj(d, i, t) => project(g, *d, *i, eval(g, env, t)?)?,
     })
+}
+
+/// Field `i` of a value of data type `d`, which has eta: the constructor's
+/// field, or the projection stuck on an unknown.
+fn project(g: &Ev, d: crate::term::DataId, i: usize, value: Value) -> Result<Value> {
+    Ok(match unfold_folded(g, force(g, value)?)? {
+        Value::Ctor(d2, 0, fields) if d2 == d => fields[i].clone(),
+        Value::Neutral(head, mut spine) => {
+            spine.push(Elim::Proj(d, i));
+            Value::Neutral(head, spine)
+        }
+        _ => panic!("internal error: a projection of a non-record"),
+    })
+}
+
+/// Whether a `case` on type `d` takes its only branch on the neutral
+/// `value` by record eta's rule 2: `d` has eta and `value` isn't an
+/// unsolved metavariable.
+fn eta_case(g: &Ev, d: crate::term::DataId, value: &Value) -> bool {
+    g.env.datas().get(d.0).is_some_and(|data| data.eta())
+        && !matches!(value, Value::Neutral(Head::Meta(_), _))
 }
 
 pub fn apply_closure(g: &Ev, closure: &Closure, arg: Value) -> Result<Value> {
@@ -138,6 +160,7 @@ fn apply_spine(g: &Ev, mut value: Value, spine: &[Elim]) -> Result<Value> {
                 }
                 _ => panic!("internal error: J applied to a non-proof"),
             },
+            Elim::Proj(d, i) => project(g, *d, *i, value)?,
         };
     }
     Ok(value)
@@ -224,6 +247,7 @@ pub fn expand_term(g: &Ev, term: &Term) -> Term {
         ),
         Term::Eq(ty, a, b) => Term::Eq(ty.as_ref().map(go), go(a), go(b)),
         Term::J(m, b, p) => Term::J(go(m), go(b), go(p)),
+        Term::Proj(d, i, t) => Term::Proj(*d, *i, go(t)),
         Term::Quot(form, args, e) => Term::Quot(*form, args.iter().map(go).collect(), *e),
         Term::Loc(span, t) => Term::Loc(*span, go(t)),
     }
@@ -274,7 +298,7 @@ fn unfold(g: &Ev, id: DefId, spine: Vec<Elim>) -> Result<Value> {
             .iter()
             .map(|e| match e {
                 Elim::App(v, _) => Some(v.clone()),
-                Elim::J { .. } => None,
+                Elim::J { .. } | Elim::Proj(..) => None,
             })
             .collect();
         if let Some(args) = args
@@ -340,7 +364,7 @@ fn unfold_folded(g: &Ev, value: Value) -> Result<Value> {
             .iter()
             .map(|e| match e {
                 Elim::App(v, _) => Some(v.clone()),
-                Elim::J { .. } => None,
+                Elim::J { .. } | Elim::Proj(..) => None,
             })
             .collect();
         if let Some(args) = args
@@ -366,6 +390,15 @@ fn eval_tree(g: &Ev, mut env: Vec<Value>, term: &Term, fold_lifts: bool) -> Resu
         Term::Case(ix, d, branches) => {
             let (c, fields) = match unfold_folded(g, force(g, env[env.len() - 1 - ix].clone())?)? {
                 Value::Ctor(_, c, fields) => (c, fields.to_vec()),
+                // Record eta, rule 2: the only branch, with the fields
+                // projected.
+                n @ Value::Neutral(..) if eta_case(g, *d, &n) => {
+                    let k = g.data(*d).ctors[0].fields.len();
+                    let fields = (0..k)
+                        .map(|i| project(g, *d, i, n.clone()))
+                        .collect::<Result<Vec<_>>>()?;
+                    (0, fields)
+                }
                 other @ (Value::Nat(_) | Value::NatAdd(..)) if Some(*d) == g.env.builtins().nat => {
                     match native::split_value(&other) {
                         Some(split) => split,
@@ -518,6 +551,7 @@ pub fn quote(g: &Ev, level: usize, value: &Value) -> Result<Term> {
                     Elim::J { motive, base } => {
                         Term::J(Rc::new(q(motive)?), Rc::new(q(base)?), Rc::new(term))
                     }
+                    Elim::Proj(d, i) => Term::Proj(*d, *i, Rc::new(term)),
                 };
             }
             term
@@ -548,7 +582,7 @@ fn quote_quot<'s>(
         .iter()
         .map(|e| match e {
             Elim::App(v, _) => quote(g, level, v).map(Rc::new),
-            Elim::J { .. } => unreachable!("counted applications"),
+            Elim::J { .. } | Elim::Proj(..) => unreachable!("counted applications"),
         })
         .collect::<Result<_>>()?;
     Ok((Term::Quot(form, args, false), &spine[n..]))
@@ -677,6 +711,20 @@ fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<boo
                 same
             }
         }
+        // Record eta, rule 1: a constructor against an unknown, field by
+        // field against its projections.
+        (Value::Ctor(d, 0, fs), n @ Value::Neutral(..))
+        | (n @ Value::Neutral(..), Value::Ctor(d, 0, fs))
+            if g.env.datas().get(d.0).is_some_and(|data| data.eta()) =>
+        {
+            for (k, x) in fs.iter().enumerate() {
+                let proof = mode == Mode::Normal && crate::value::proof_field(g, *d, 0, k);
+                if !proof && !conv_in(g, level, x, &project(g, *d, k, n.clone())?, mode)? {
+                    return Ok(false);
+                }
+            }
+            true
+        }
         (Value::Neutral(h1, s1), Value::Neutral(h2, s2)) => {
             let def = match h1 {
                 Head::Def(f) => Some(*f),
@@ -748,7 +796,7 @@ fn tree_of(g: &Ev, value: &Value) -> (Rc<Term>, Vec<Value>) {
         .iter()
         .map(|e| match e {
             Elim::App(v, _) => v.clone(),
-            Elim::J { .. } => unreachable!(),
+            Elim::J { .. } | Elim::Proj(..) => unreachable!(),
         })
         .collect();
     (
@@ -775,7 +823,7 @@ fn same_trees(
         let mut t = t.clone();
         loop {
             match t.strip_loc() {
-                Term::Case(ix, _, branches) => {
+                Term::Case(ix, d, branches) => {
                     let s = force(g, e[e.len() - 1 - ix].clone())?;
                     match &s {
                         Value::Ctor(_, c, fields) => match &branches[*c].body {
@@ -785,6 +833,18 @@ fn same_trees(
                             }
                             None => return Ok(None),
                         },
+                        Value::Neutral(..) if !is_folded(g, &s) && eta_case(g, *d, &s) => {
+                            match &branches[0].body {
+                                Some(body) => {
+                                    let k = g.data(*d).ctors[0].fields.len();
+                                    for i in 0..k {
+                                        e.push(project(g, *d, i, s.clone())?);
+                                    }
+                                    t = body.clone();
+                                }
+                                None => return Ok(None),
+                            }
+                        }
                         Value::Neutral(..) if !is_folded(g, &s) => return Ok(Some((t, Some(s)))),
                         _ => return Ok(None),
                     }
@@ -878,6 +938,7 @@ fn conv_spines(
                 true
             }
             (Elim::App(x, _), Elim::App(y, _)) => conv_in(g, level, x, y, mode)?,
+            (Elim::Proj(d1, i1), Elim::Proj(d2, i2)) => d1 == d2 && i1 == i2,
             (
                 Elim::J {
                     motive: m1,
@@ -1085,6 +1146,15 @@ fn unshielded(g: &Ev, body: &Term, arity: usize, marks: &[bool]) -> Option<(usiz
                 todo.push((m, binders, shielded));
                 todo.push((b, binders, shielded));
                 todo.push((p, binders, shielded));
+            }
+            // A projection of a marked parameter takes it apart.
+            Term::Proj(_, _, t) => {
+                if let Term::Var(ix) = t.strip_loc()
+                    && let Some(p) = marked_param(*ix, binders)
+                {
+                    return Some((p, "it is taken apart by a projection"));
+                }
+                todo.push((t, binders, shielded));
             }
             Term::Def(_)
             | Term::Nat(_)

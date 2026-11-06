@@ -431,6 +431,7 @@ fn go_replace(
             go(b, under)?,
         ),
         Term::J(m, b, p) => Term::J(go(m, under)?, go(b, under)?, go(p, under)?),
+        Term::Proj(d, i, t) => Term::Proj(*d, *i, go(t, under)?),
         Term::Quot(form, args, e) => Term::Quot(
             *form,
             args.iter().map(|a| go(a, under)).collect::<Result<_>>()?,
