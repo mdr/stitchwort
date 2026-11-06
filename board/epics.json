@@ -15,7 +15,7 @@
         "Opus review of the bounded-readback note: proceed with changes (SW-1717)"
       ],
       "now": [
-        "Revising the bounded-readback note from its review and the study (SW-1722)"
+        "Bounded readback note revision 2 in, waiting on D2519, D2520, D2523, D2529, D2533-D2540"
       ],
       "next": [
         "Finish the design note that bounds unfolded readback by making the searches look at goals as written everywhere, revisiting D484 (SW-1712, D2514); it also unblocks record eta",

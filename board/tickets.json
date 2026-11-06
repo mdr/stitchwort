@@ -1,5 +1,5 @@
 {
-  "next": 1723,
+  "next": 1726,
   "tickets": [
     {
       "id": 47,
@@ -13355,14 +13355,59 @@
     {
       "id": 1722,
       "title": "[Opus] Revise docs/proposals/bounded-readback.md from the SW-1717 review and the SW-1718 study; restate its questions for Matt",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1722",
       "labels": [
         "design"
       ],
       "epic": "goal-as-written",
-      "body": "From SW-1717 (proceed with changes) and SW-1718 (S1-S8). Read and write only. Started on Opus, expected: 60 min.",
+      "body": "From SW-1717 (proceed with changes) and SW-1718 (S1-S8). Read and write only. Started on Opus, expected: 60 min.\n\nDone, merged (e54cb5f50): revision 2. Kept D2519, D2520, D2523, D2529; withdrawn D2521, D2522, D2524, D2528 (replaced by D2534-D2537); new D2533, D2538, D2539, D2540. Stages 0a, 0b+1, 0c, 2, 3, 4, 5, 6a, 6b, about 16 h. Model result: Opus, worked, 7 min (est. 60).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1723,
+      "title": "Attach the bounded-readback 'left as it is' note to a later E-REFL in the same proof (SW-1717 review)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "epic": "goal-as-written",
+      "body": "From the bounded-readback review and revision, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1724,
+      "title": "Inferred abbreviation status for small non-recursive definitions, so keyed as-written searches see through them (SW-1718 S8)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "epic": "goal-as-written",
+      "body": "From the bounded-readback review and revision, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1725,
+      "title": "Check whether lane/SW-1642's unifier has eta for records whose fields are all proofs; affects the bounded reader's skipping rule (SW-1722)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "epic": "goal-as-written",
+      "body": "From the bounded-readback review and revision, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
