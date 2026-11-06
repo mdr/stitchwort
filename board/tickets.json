@@ -1,5 +1,5 @@
 {
-  "next": 1714,
+  "next": 1715,
   "tickets": [
     {
       "id": 47,
@@ -679,7 +679,7 @@
       "labels": [
         "parked"
       ],
-      "epic": "test-infra",
+      "epic": "audit-fuzzing",
       "body": "\nD1466 (Matt, 28 Oct 2026): not at this time.",
       "created": "2026-10-27",
       "updated": "2026-11-06",
@@ -692,7 +692,7 @@
       "agent": "",
       "where": "",
       "labels": [],
-      "epic": "test-infra",
+      "epic": "audit-fuzzing",
       "body": "",
       "created": "2026-10-27",
       "updated": "2026-10-27",
@@ -705,7 +705,7 @@
       "agent": "",
       "where": "",
       "labels": [],
-      "epic": "test-infra",
+      "epic": "audit-fuzzing",
       "body": "",
       "created": "2026-10-27",
       "updated": "2026-10-27",
@@ -718,7 +718,7 @@
       "agent": "",
       "where": "",
       "labels": [],
-      "epic": "test-infra",
+      "epic": "audit-fuzzing",
       "body": "",
       "created": "2026-10-27",
       "updated": "2026-10-27",
@@ -1567,7 +1567,7 @@
       "labels": [
         "tooling"
       ],
-      "epic": "proof-automation",
+      "epic": "proof-search",
       "body": "Search: (1) 'List.drop _ 0' is refused as 'a hole on its own' because it computes to xs; the message should say so. (2) search --at doesn't try cases as a closer: (a < b) = ¬(b ≤ a) which cases proves got nothing. (3) every --at run warned '3 comparisons ran out of steps'. (4) premise pattern '(?a < ?b) = not (?b ≤ ?a)' fell to the relaxed pass with unrelated results. (5) Option.map o (x => x) = o offered Option.orElseNone: correct but unexpected name (fine).\n\nFrom AoC 2021 day 3 (aoc/NOTES-2021.md, 31 Oct 2026).\n\n\n31 Oct (search lane, in 5cb4b8ff with SW-915 2b): (1) a pattern that computes to a hole says so; (2) cases tried as a closer (alone, obligations, after a rewrite), kernel-checked; (3) the 3 comparisons are always Std.Float.Theory overflowHalf/largestBelow/infinityAbove (magUnits 9218868437227405311 runs out of depth vs any Nat sum): the warning now names them. Not done: (4) relaxed pass for premise patterns.\n\nBacklog review, 4 Nov 2026: items (1)-(3) were done in 5cb4b8ff6 and (5) is fine as is; only (4) is open: premise pattern '(?a < ?b) = not (?b <= ?a)' falls to the relaxed pass with unrelated results.\n\nNote (moved from the where field, board audit 5 Nov 2026): (1)-(3) done in 5cb4b8ff; (4) premise-pattern relaxed pass, (5) naming left",
       "created": "2026-10-31",
       "updated": "2026-11-05",
@@ -1584,7 +1584,7 @@
       "labels": [
         "tooling"
       ],
-      "epic": "proof-automation",
+      "epic": "proof-search",
       "body": "From verifying search stage 2b (31 Oct 2026): on aoc 2021 Day02 horizontalAfter Nil case (goal start.horizontal = start.horizontal), --at says rfl/omega/cases/byDecision alone close it, then lists lemmas led by Aoc.Year2024.Day08.Proofs.gcdZero (another AoC day, needing an import of its proofs) and Int.natAbsToInt. When a tactic alone closes the goal, keep the lemma list short; prefer std and the file's own project neighbourhood over unrelated project namespaces; rank lemmas whose statement is only reflexive after computation lower. Also from stage 2b misses: lemmas that fit only after unfolding the goal's own definition (most misses), premises fillable only by theorems, goals that can't be written (E-SEARCH-AT on shadowed names), and slow re-checking of heavy namespaces (Day13 61 s).\n",
       "created": "2026-10-31",
       "updated": "2026-10-31",
@@ -2796,7 +2796,7 @@
         "tooling",
         "correctness"
       ],
-      "epic": "test-infra",
+      "epic": "audit-fuzzing",
       "body": "D2164 (Matt, 1 Nov 2026), queued. Catches an agent quietly weakening a theorem: added hypotheses (8 disclosed cases in AoC lanes, docs/research/agentic-proving.md:83, §5 row J) or a changed definition. --base REF: per theorem, compare a statement-only hash with the base (proof ignored); report changed or removed statements; also definitions theorems depend on, by erased program hash. --minimal (opt-in): drop each hypothesis, re-check, report unused ones. Lanes run audit --base main before reporting and justify each change; merges add it. Opus design (what counts as the same statement across renames/moves, new theorems, which definitions are 'the program'), then Sonnet CLI. Also update SW-912 (stage 1 shipped).",
       "created": "2026-11-01",
       "updated": "2026-11-01",
@@ -2997,7 +2997,7 @@
       "labels": [
         "search"
       ],
-      "epic": "proof-automation",
+      "epic": "proof-search",
       "body": "From SW-1017 (1 Nov 2026). (1) In-file confirmation of closing suggestions is unbounded: each pasted suggestion rechecks the whole namespace (about 72 s for three on Day16 Sound.sw:83; 218 s in a 600 s run). A deadline would drop slow real closers; option: keep it, mark \"not confirmed in the file\". (2) No per-check memory bound: Limits::size bounds quoting only, frames bounds recursion depth; a real cap needs allocation accounting or a term-size cap in the elaborator. (3) PER_CHECK_SHARE is half of --time; on a loaded machine an ordinary rfl (2.7-4.4 s) can approach 5 s at the default 10 s and be reported as gave-up.\n",
       "created": "2026-11-01",
       "updated": "2026-11-01",
@@ -5233,7 +5233,7 @@
       "labels": [
         "test"
       ],
-      "epic": "test-infra",
+      "epic": "audit-fuzzing",
       "body": "SW-1182: a silently skipped kernel refusal (E-TYPE-MISMATCH, 'type mismatch') was matched by an unrelated user error with the same message, so the oracle fired on a case that wasn't a user-visible bug. Compare code, message and labels instead. Also: per-alternative check would let catch-all branches of generalising matches keep their equations (small loss today).",
       "created": "2026-11-04",
       "updated": "2026-11-04",
@@ -6081,7 +6081,7 @@
         "search",
         "performance"
       ],
-      "epic": "proof-automation",
+      "epic": "proof-search",
       "body": "Found by SW-1224, 4 Nov 2026.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
@@ -6096,7 +6096,7 @@
       "labels": [
         "search"
       ],
-      "epic": "proof-automation",
+      "epic": "proof-search",
       "body": "Found by SW-1224, 4 Nov 2026.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
@@ -6218,7 +6218,7 @@
       "labels": [
         "aoc"
       ],
-      "epic": "aoc-older",
+      "epic": "aoc-common",
       "body": "Found by SW-1235, 4 Nov 2026.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
@@ -6415,7 +6415,7 @@
       "labels": [
         "audit"
       ],
-      "epic": "test-infra",
+      "epic": "audit-fuzzing",
       "body": "From AoC 2020 day 4 (SW-1249, NOTES-2020.md item 6, ranked 2). The audit's vacuity check tries random inputs and warns when none satisfy a theorem's hypotheses. On day 4 all 8-11 warnings were false, all on compiler-generated equations (heightValid.eq.some with hypothesis value.stripSuffix \"cm\" = Some number; Spec.validValue.eq.if… with (key == \"byr\") = True): random texts never hit the literals. Same blindness: check --counterexamples missed a deliberately broken height range (between 151 193). Options raised: (A) skip generated equations in the vacuity check (they come from the definition, so can't be misstated); (B) seed generators with the definition's literals.\n\nD2357 (Matt, 4 Nov): backlog only. Matt doubts random generation is a viable strategy for vacuity at all (hoping it finds inputs); revisit the approach itself (e.g. what a warning should require, or a non-random method) before doing A or B.\n\nFrom SW-1210 (merged, backlog review 4 Nov 2026), option C: satisfy hypotheses of the form `f x = y` / `f x = Some y` in the counterexample search by computing y from the generated x, so audit tests 'if the program returns X' theorems instead of warning they may be vacuous. From aoc/NOTES-2020.md day 1 item 5: 6 of day 1's 16 theorems gave up this way. Medium, a day or two.\nD2306 (Matt, 4 Nov 2026): backlog, consider later with evidence from other AoC days (2021/2024/2025 audits will have the same warnings).\nRelated, kept separate: SW-1063 (custom generators), SW-1247 (generator for non-equation proof fields).",
       "created": "2026-11-04",
       "updated": "2026-11-04",
@@ -6505,7 +6505,7 @@
       "labels": [
         "performance"
       ],
-      "epic": "performance",
+      "epic": "proof-search",
       "body": "From AoC 2020 day 4 (SW-1249), aoc/NOTES-2020.md item 7 (ranked 9). 'List.filter (List.map _ _) _ = _' took >2 min wall clock the first time, 3.4 s user the second, under load average ~70. Time it on an idle machine first; likely a cold index or cache build.",
       "created": "2026-11-04",
       "updated": "2026-11-04",
@@ -7259,7 +7259,7 @@
       "labels": [
         "tooling"
       ],
-      "epic": "test-infra",
+      "epic": "audit-fuzzing",
       "body": "From SW-1304: the remaining vacuity warnings (2021 day 16: 28, day 18: 17) are hypotheses like readNumber reader 3 = Some (version, after) where later inputs must equal what an earlier one computes. QuickChick-style construction; touches the checker term, input plans, shrinking and the display. Needs a design note first (Opus). Also: a constants dictionary of string literals (2021 day 12's \"end\").",
       "created": "2026-11-05",
       "updated": "2026-11-05",
@@ -7409,7 +7409,7 @@
       "labels": [
         "aoc"
       ],
-      "epic": "aoc-older",
+      "epic": "aoc-common",
       "body": "D2366 (Matt, 4 Nov): two types, Position {row, column} for grids and Point {x, y} for coordinate puzzles (Int where the puzzle can go negative), one documented conversion; each day uses its puzzle's language. 'Happy to maintain both for now. We can always revisit if we find ourselves repeating logic a lot or converting a lot.' Survey: docs/research/aoc-domain-types.md, 2024/13. Last item of SW-1289.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
@@ -9641,7 +9641,7 @@
       "labels": [
         "aoc"
       ],
-      "epic": "aoc-older",
+      "epic": "aoc-common",
       "body": "From 2020 day 11 (SW-1470), 5 Nov 2026.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
@@ -9656,7 +9656,7 @@
       "labels": [
         "aoc"
       ],
-      "epic": "aoc-older",
+      "epic": "aoc-common",
       "body": "From 2020 day 11 (SW-1470), 5 Nov 2026.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
@@ -9731,7 +9731,7 @@
       "labels": [
         "aoc"
       ],
-      "epic": "aoc-older",
+      "epic": "aoc-common",
       "body": "From 2020 day 11 (SW-1470), 5 Nov 2026.\n\nAlso covers SW-1590 (duplicate, closed; SW-1598).",
       "created": "2026-11-05",
       "updated": "2026-11-06",
@@ -9761,7 +9761,7 @@
       "labels": [
         "aoc"
       ],
-      "epic": "aoc-older",
+      "epic": "aoc-common",
       "body": "From 2020 day 11 (SW-1470), 5 Nov 2026.",
       "created": "2026-11-05",
       "updated": "2026-11-05",
@@ -9896,7 +9896,7 @@
       "labels": [
         "playground"
       ],
-      "epic": "editor-playground",
+      "epic": "proof-search",
       "body": "From SW-1458, 6 Nov 2026. Small improvement.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
@@ -10271,7 +10271,7 @@
       "labels": [
         "editor"
       ],
-      "epic": "editor-playground",
+      "epic": "proof-search",
       "body": "From SW-1503, 6 Nov 2026.\n\nStarted overnight on Sonnet, expected: 45 min.\n\nInvestigated overnight (Sonnet, 15 min, no code change): narrowing to load_for_probe takes day 11's code action from 4.5 s to 1.9 s with the same result, but loses SW-915's intended cross-namespace suggestions (e.g. 2024 day 15 coversSelf from day 23's firstOfTwo); candidates drop (2021 day 18: 81 → 67 matched), no benchmark outcome changed. Options: (1) narrow by default + 'search wider' action; (2) narrow then wide, two stages; (3) keep. D2447 for Matt [rec: 1].\n\nD2447 answered (Matt, 6 Nov 2026): option 1 (narrow by default to the file's dependencies, with a 'search the whole project' action), but keep it on the backlog for now.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
@@ -11141,7 +11141,7 @@
       "labels": [
         "aoc"
       ],
-      "epic": "aoc-2020",
+      "epic": "aoc-common",
       "body": "Filed overnight 6 Nov 2026 from SW-1571 (2020 day 19).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
@@ -11336,7 +11336,7 @@
       "labels": [
         "aoc"
       ],
-      "epic": "aoc-older",
+      "epic": "aoc-common",
       "body": "Filed overnight 6 Nov 2026 from SW-1580 (2020 day 20).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
@@ -11411,7 +11411,7 @@
       "labels": [
         "aoc"
       ],
-      "epic": "aoc-older",
+      "epic": "aoc-common",
       "body": "Filed overnight 6 Nov 2026 from SW-1580 (2020 day 20).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
@@ -11457,7 +11457,7 @@
         "editor",
         "parked"
       ],
-      "epic": "editor-playground",
+      "epic": "proof-search",
       "body": "D2446 (Matt, 6 Nov 2026): park for now, reconsider later. Today each search loads the file's dependencies afresh (0.6 s since SW-1503). Kept sessions would cost memory per thread (unmeasured) and need invalidating when a dependency changes.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
@@ -11804,7 +11804,7 @@
       "labels": [
         "aoc"
       ],
-      "epic": "aoc-older",
+      "epic": "aoc-common",
       "body": "From SW-1617, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
@@ -11849,7 +11849,7 @@
       "labels": [
         "audit"
       ],
-      "epic": "test-infra",
+      "epic": "audit-fuzzing",
       "body": "From SW-1612, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
@@ -13229,6 +13229,20 @@
         "board"
       ],
       "body": "D2518: read-and-write only, Sonnet, expected: 60 min.\n\nDone (6451a791b, files only; applied on main by the orchestrator): 40 retags; epics' goal/next/done redrafted (now kept); 6 duplicates or no-gain tickets closed (SW-796, 1560, 1501, 1641, 1622, 1579); 7 deferred tickets labelled parked. Stale candidates left for Matt: SW-795, 556, 1387, 1592, 1618, 741, 758, 762, 771, 808, 809, 816, 999, 978, 995, 965, 967, 1476, 791. Suggested splits: aoc-common, proof-search, audit-and-fuzzing; rename performance to Speed. Model result: Sonnet, worked, 5 min (est. 60).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1714,
+      "title": "Board: serve repo documents at /doc/<path> (rendered, read-only, tracked files), auto-link docs paths, SW-N and D numbers in ticket bodies and epic links; reviews saved as docs/reviews/SW-N-topic.md (D2530)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1714",
+      "labels": [
+        "board"
+      ],
+      "body": "D2530 (Matt, 6 Nov 2026): yes. Started on Sonnet, expected: 45 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []

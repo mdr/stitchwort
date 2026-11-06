@@ -104,7 +104,7 @@
     },
     {
       "id": "aoc-older",
-      "title": "Advent of Code 2021, 2024 and 2025, and the shared library",
+      "title": "Advent of Code 2021, 2024 and 2025",
       "goal": "The older years are proved and tidy, written with small domain types and one shared Aoc.Common library instead of repeated code.",
       "status": "active",
       "done": [
@@ -117,7 +117,6 @@
       "now": [],
       "next": [
         "Triage the old day-findings tickets (SW-741, SW-745, SW-758, SW-762, SW-771, SW-808, SW-809, SW-816 and SW-954 to SW-999) the way SW-808 was triaged: close what is done, split what is left into small tickets",
-        "Aoc.Common: compass directions and rays (SW-1475), image orientations (SW-1587), a cheaper Position.around (SW-1474)",
         "Parser guarantees: the 2021 days that prove only value properties (SW-1649), then 2024 and 2025 (SW-1020)"
       ],
       "links": [
@@ -329,7 +328,6 @@
         "Slow search_at_aoc after today's merges (SW-1708)"
       ],
       "next": [
-        "Audit stage 2: --base and minima (SW-1029)",
         "Slow tests: lsp features (SW-1686, SW-1501), guide test (SW-1549), merge tier (SW-1386)",
         "Daily-tier follow-ups: re-record the bench baseline and find the rises (SW-1342, SW-1622), report every stale extract snapshot (SW-1703), unsupported natives in the rt harness (SW-1710)"
       ],
@@ -367,7 +365,7 @@
     },
     {
       "id": "performance",
-      "title": "Arrays and performance",
+      "title": "Speed",
       "goal": "Checking a whole project and running a solution are both fast enough that waiting is not part of the workflow.",
       "status": "active",
       "done": [
@@ -389,6 +387,53 @@
         "docs/proposals/run-profiler.md",
         "docs/proposals/proof-check-speed.md"
       ]
+    },
+    {
+      "id": "aoc-common",
+      "title": "AoC shared library (Aoc.Common)",
+      "goal": "Logic repeated across AoC days lives once in Aoc.Common, with its lemmas, so each day reads in the problem's terms.",
+      "status": "active",
+      "done": [
+        "Plane library: Coords, Heading, Box (SW-1484)"
+      ],
+      "now": [],
+      "next": [
+        "Image orientations, compass directions and rays (SW-1587, SW-1475)",
+        "Ord for records used as keys (SW-1592, SW-1618)"
+      ],
+      "links": [
+        "aoc/src/Aoc/Common"
+      ]
+    },
+    {
+      "id": "proof-search",
+      "title": "Proof search and suggestions",
+      "goal": "When a goal is open, the editor and stitchwort search suggest proofs that check.",
+      "status": "active",
+      "done": [
+        "Closing search keeps different lemmas that reach the same goal (SW-1693)",
+        "search --at on AoC goals back to about 80 s (SW-1708)"
+      ],
+      "now": [],
+      "next": [
+        "Counterexamples and code actions follow-ups (SW-1239, SW-1240)",
+        "Search ranking (SW-1267, SW-1491)"
+      ],
+      "links": [
+        "docs/proposals/search.md"
+      ]
+    },
+    {
+      "id": "audit-fuzzing",
+      "title": "Audit and fuzzing",
+      "goal": "Every theorem is re-checked by an independent audit, and the checker is fuzzed for soundness bugs.",
+      "status": "active",
+      "done": [],
+      "now": [],
+      "next": [
+        "Audit stage 2: --base and minima (SW-1029)"
+      ],
+      "links": []
     }
   ]
 }
