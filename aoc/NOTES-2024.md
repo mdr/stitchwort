@@ -4004,6 +4004,18 @@ Release build, on a machine with a load average around 25 to 30:
    reached.
 10. No `import ... as` for clashing names (item 2). Fix: add an alias form.
 
+### Moved onto the plane library (SW-1484, 6 Nov 2026)
+
+The day's own `Offset { x, y }`, which hid Common's `Offset`, is gone: a
+button and the prize are `Coords Unoriented` (the claw has no up, and the
+type says so: such coordinates can't be turned or stepped north). The fields
+are still `x` and `y`, so the spec and every proof are unchanged apart from
+the import. `Machine.corrected` and `Machine.remaining` use `Coords.plus`,
+`minus` and `times`; `Offset.pressesToCover` became a plain function
+`pressesToCover`, since a method on another module's type isn't found by dot
+notation. Answers on the example are unchanged (480, 875318608908); there is
+no committed input for this day.
+
 ## Day 14: Restroom Redoubt
 
 Robots, each with a position `p=x,y` and a velocity `v=x,y` in "tiles per

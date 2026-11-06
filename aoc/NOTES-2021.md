@@ -4364,6 +4364,19 @@ Release build:
 5. Std lacks `Nat.iterate` congruence and invariant lemmas, `Int.toNat`
    lemmas and a `sumBetween` closed form (item 3).
 
+### Moved onto the plane library (SW-1484, 6 Nov 2026)
+
+`Target` is `Box YUp`, `Velocity` is `Coords YUp`, and `Probe` is
+`{ position, velocity }` of those, instead of the flat `x, y, dx, dy`;
+`inTarget` is `Box.contains` and the program's `step` adds with
+`Coords.plus`. The answers are unchanged (6786 and 2313). Every proof moved
+by renaming (`probe.dx` to `probe.velocity.x`, `velocity.dy` to
+`velocity.y`, `(flight n v).y` to `.position.y`); no `omega` or `ring` call
+changed, and `omega` reads `target.top` and `target.bottom` (which ask the
+frame) without help. The spec's `Within` reads the box's `low` and `high`
+corners directly, so it doesn't lean on the library's `top`/`bottom`. Gravity
+being `y - 1` is now the type's doing (`YUp`), not a comment's.
+
 ## Day 18: Snailfish
 
 Each line is a snailfish number: a pair whose two elements are regular

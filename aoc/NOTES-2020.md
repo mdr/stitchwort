@@ -3397,6 +3397,24 @@ shadows the parser `action`; `runsBind` wants the first part's rest as
 5. Smaller: `omega` doesn't read a `!=` (`Decidable.not`) in a `Bool`
    hypothesis (item 4); no `Result.getOr` (item 5). Each small.
 
+### Moved onto the plane library (SW-1484, 6 Nov 2026)
+
+The day's own `Heading`, `Location { east, north }` (with `moved`, `plus`,
+`times`, `rotated`, `manhattan`) and `Heading.clockwise`/`turned` are gone:
+`Location` is an alias for Aoc.Common's `Coords YUp`, and `Heading` is
+Common's (`turned`, `moved`, `turnRight`, `manhattan`). The answers are the
+same (415 and 29401 on the input; 0.57 s user against 0.48 s before, the
+frame dictionary being passed at run time). The spec keeps its own
+`unit`, `along`, `quarterLeft`/`quarterRight` and `manhattan`, now on
+`Coords YUp` (`east` is `x`, `north` is `y`); Proofs/Turns.sw went from 81 to
+63 lines: `iterateCycles`/`iterateMod` moved to Aoc.Common.Proofs, and
+the heading lemma is the library's `coordsTurnedHeading` plus two
+one-line links (`quarterRightTurn`, `unitStep`). The program and spec still
+compute the quarter turn separately, so the proof still says the spec's
+turn is the library's. The one wrinkle: the library's `times` multiplies on
+the right (`x * factor`), the spec's `along` on the left, so
+`steerFollows`' forward case needed `alongTimes` (`ring`).
+
 ## Day 13: Shuttle Search
 
 Your notes on the shuttle buses: the earliest time you could leave, then
