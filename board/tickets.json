@@ -1,5 +1,5 @@
 {
-  "next": 1729,
+  "next": 1739,
   "tickets": [
     {
       "id": 47,
@@ -12824,7 +12824,7 @@
       "labels": [
         "tests"
       ],
-      "epic": "test-infra",
+      "epic": "dev-loop-speed",
       "body": "From SW-1681, 6 Nov 2026. The lane ran the whole binary, which overran the test budget.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
@@ -13453,6 +13453,156 @@
       ],
       "epic": "goal-as-written",
       "body": "From D2541-D2545 (Matt, 6 Nov 2026). Read and write only. Started on Opus, expected: 45 min.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1729,
+      "title": "[Sonnet] Faster lane rebuilds: incremental local release builds (131 s → ~21 s per one-line edit), the test std cache filled once per build, mimalloc in test binaries; flake/Nix builds unchanged",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1729",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From the SW-1716 profile, fix 1, 7, 14. See docs/reviews/SW-1716-dev-loop-profile.md §6.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1730,
+      "title": "[Sonnet] Untimed counterexample searches dominate the slowest tests: resources 3.8 s (5 Nov) → 173 s, rewind's examples tail; bisect (suspect SW-1304), skip the search after a resource failure, bound untimed searches by work",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1730",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From the SW-1716 profile, fix 2. See docs/reviews/SW-1716-dev-loop-profile.md §6.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1731,
+      "title": "LSP AoC tests check AoC three times: a_newer_edit_cancels and aoc_navigation_matches_check_index miss the cache check --project warmed (430 s single-core)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From the SW-1716 profile, fix 4. See docs/reviews/SW-1716-dev-loop-profile.md §6.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1732,
+      "title": "aoc_answers: parallel day loop and a warm cache in daily (~1½ min daily tail)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From the SW-1716 profile, fix 8. See docs/reviews/SW-1716-dev-loop-profile.md §6.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1733,
+      "title": "Web AoC test (every_aoc_day_checks…): check once, not per step (1-1½ min daily tail)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From the SW-1716 profile, fix 9. See docs/reviews/SW-1716-dev-loop-profile.md §6.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1734,
+      "title": "nextest threads-required for the heavy sweeps, so they don't overlap in memory and thrash",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From the SW-1716 profile, fix 6. See docs/reviews/SW-1716-dev-loop-profile.md §6.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1735,
+      "title": "Measure kache on a quiet machine (26% of compile time served, 5.8 h a day waiting for permits); keep, tune or drop",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From the SW-1716 profile, fix 12. See docs/reviews/SW-1716-dev-loop-profile.md §6.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1736,
+      "title": "One integration-test binary per crate (137 now): 6-8 s off each incremental rebuild, ~2.5 GB disk per target",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From the SW-1716 profile, fix 5. See docs/reviews/SW-1716-dev-loop-profile.md §6.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1737,
+      "title": "[Opus plan] Split the elab crate (115,700 lines, the serial step of a clean build): 30-50 s off a clean build",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From the SW-1716 profile, fix 13. See docs/reviews/SW-1716-dev-loop-profile.md §6.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1738,
+      "title": "Try lld as the linker (23% faster links, 2-3 s per rebuild)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From the SW-1716 profile, fix 11. See docs/reviews/SW-1716-dev-loop-profile.md §6.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
