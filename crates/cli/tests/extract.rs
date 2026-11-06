@@ -496,6 +496,12 @@ fn random_value(g: &View<'_>, b: &Boundary, rng: &mut Rng, depth: usize) -> Valu
                 Value::Ctor(named("List"), 1, vec![head, tail].into())
             })
         }
+        // The library's record around a random list.
+        Boundary::Array(elem) => Value::Ctor(
+            named("Array"),
+            0,
+            vec![random_value(g, &Boundary::List(elem.clone()), rng, depth)].into(),
+        ),
         // Mostly small, sometimes around ±2^64 and ±2^128.
         Boundary::Int => {
             let magnitude = match rng.below(4) {
