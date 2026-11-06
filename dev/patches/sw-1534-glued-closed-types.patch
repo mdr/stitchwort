@@ -1,0 +1,28 @@
+diff --git a/crates/core/src/check.rs b/crates/core/src/check.rs
+index 805054279..c6229161b 100644
+--- a/crates/core/src/check.rs
++++ b/crates/core/src/check.rs
+@@ -1767,7 +1767,10 @@ fn admit_group(g: &Ev, members: &[(DefId, Term)]) -> Result<Vec<Term>> {
+         let mut cx = Ctx::new(g, def.span);
+         // Its body sees the opaque definitions it unfolds (`transparency`).
+         let _set = g.machine.transparent.set(def.transparent.clone());
+-        let ty = def_type(g, def)?;
++        let was0 = g.machine.glue.replace(true);
++        let ty = eval(g, &[], &def.ty);
++        g.machine.glue.set(was0);
++        let ty = ty?;
+         // Checking keeps every location and lambda, so the checked body has
+         // the same parameters; the termination checker refuses it if not.
+         // With gluing on, so that two calls of the same definition are
+@@ -1857,7 +1860,10 @@ fn push_def(
+     export: bool,
+     span: Span,
+ ) -> Result<DefId> {
+-    let ty_value = eval(&g.ev(), &[], &ty)?;
++    let was = g.machine.glue.replace(true);
++    let ty_value = eval(&g.ev(), &[], &ty);
++    g.machine.glue.set(was);
++    let ty_value = ty_value?;
+     g.env.defs_mut().push(Def {
+         name: name.clone(),
+         path: path.clone(),

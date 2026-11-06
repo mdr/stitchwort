@@ -1,5 +1,5 @@
 {
-  "next": 1537,
+  "next": 1538,
   "tickets": [
     {
       "id": 47,
@@ -9854,13 +9854,13 @@
     {
       "id": 1534,
       "title": "check hangs on a theorem whose statement names a large computation (countdown 0 N = countdown 0 N with a proof; n = countdown 0 100000000 takes ~7 s at N = 1M): find where elaboration or conversion evaluates it (SW-1525)",
-      "status": "doing",
+      "status": "next",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1534",
       "labels": [
         "elab"
       ],
-      "body": "From SW-1525, 6 Nov 2026.\n\nStarted overnight on Opus (a hang in elaboration or conversion; tricky), expected: 60 min.",
+      "body": "From SW-1525, 6 Nov 2026.\n\nStarted overnight on Opus (a hang in elaboration or conversion; tricky), expected: 60 min.\n\nInvestigated (Opus, ~15-50 min): the kernel's push_def evaluates a closed statement unglued (folded-calls.md stage 4 choice), so countdown 0 N is computed in full before the proof is looked at (sample: all time in push_def → eval). Not a true hang: the 10G-step budget ends it after minutes. Experiment (glue kept type values) fixes it (N = 1e8: >60 s → 0.17 s; core and elab lanes pass); patch kept at dev/patches/sw-1534-glued-closed-types.patch. Proposal merged: docs/proposals/glued-closed-types.md, options A (glue kept type values, cache keyed by mode, ~15 trusted lines), B (lazy ty_value), C (document). D2448 for Matt [rec: A].",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -9889,6 +9889,20 @@
         "diagnostics"
       ],
       "body": "From SW-1521, 6 Nov 2026. Small.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1537,
+      "title": "A slow check is invisible: a declaration that computes for minutes before E-RESOURCE gives no progress note; add a per-declaration step limit or a 'still checking X' note (SW-1534)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "From SW-1534, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
