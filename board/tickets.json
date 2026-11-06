@@ -1,5 +1,5 @@
 {
-  "next": 1518,
+  "next": 1519,
   "tickets": [
     {
       "id": 47,
@@ -9623,6 +9623,20 @@
         "editor"
       ],
       "body": "From SW-1503, 6 Nov 2026.\n\nStarted overnight on Sonnet (SW-1514 with SW-1517), expected: 40 min.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1518,
+      "title": "search_at_aoc: no real goal covers the '✝ name' kind since 2021 day 16 dropped lengthEvaluateAll (4956a48c8); find a new real goal with an inaccessible name",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "body": "Found in batch 75, 6 Nov 2026: search_at_on_real_2021_goals failed on the stale entry; orchestrator removed it. Small.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []

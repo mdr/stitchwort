@@ -452,8 +452,6 @@ const REAL: &[Real] = &[
         from: "--| `Some` of two pairs", until: None,
         to: "theorem takeAppendLength (xs: List a) (ys: List a) (k: Nat) (h: xs.length = k): (xs ++ ys).take k = xs := ?\n\n--| `Some` of two pairs",
         want: &["takeAppend"], exclude: &["Std.List.takeAppendLength"] },
-    Real { label: "lengthEvaluateAll's `Cons _ rest` (a `✝` name)", kind: "✝ name", path: "Day16/Proofs/Answers.sw",
-        from: "| [_, ..rest] => rewrite lengthEvaluateAll rest in rfl", until: None, to: "| [_, ..rest] => ?", want: &["lengthEvaluateAll"], exclude: &[] },
     Real { label: "groupsValue's `inner` (a lambda's binder named as a variable)", kind: "captured variable", path: "Day16/Proofs/Answers.sw",
         from: "rewrite Nat.fromBitsFrom acc (Nat.toBits 4 group), Nat.fromBitsToBits 4 group fits in rfl", until: None, to: "?", want: &["fromBitsFrom"], exclude: &[] },
     Real { label: "neighboursMono: `List.countLeMem` (count unfolded)", kind: "folded goal", path: "Day11/Proofs/Rounds.sw",
