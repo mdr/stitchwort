@@ -8,20 +8,6 @@ import Aoc.Year2020.Day14 (..)
 import Aoc.Year2020.Day14.Spec (InstructionWritten, MaskBitWritten, ProgramWritten, StartsWithMask)
 import Std (Bool, Char, Eq, Exists, Fail, List, Parse, Result, Text, Void)
 
---| The parts of a repetition, each run by `p`, are the steps `Parse.runsExactly` wants.
-theorem eachSteps (p: () → {Parse} a) (spec: List Char → a → Prop) (rest: List Char) (runs: (read: List Char) → (v: a) → (after: List Char) → spec read v → Parse.Runs p read after v):
-    (values: List a) → (read: List Char) → Parse.Each spec read values →
-    ∃ (steps: List (List Char, a)) =>
-      Parse.joinReads steps = read ∧ Parse.stepValues steps = values ∧ steps.length = values.length ∧ Parse.StepsRun p steps rest
-  | [], read, each => Witness [] (Both (Eq.sym each) (Both rfl (Both rfl rfl)))
-  | [v, ..values], read, Witness first (Witness more (Both split (Both ok each))) =>
-    match eachSteps p spec rest runs values more each with
-      | Witness steps (Both joined (Both valued (Both counted stepsRun))) =>
-        Witness [(first, v), ..steps]
-          (Both (rewrite split, joined in rfl)
-            (Both (rewrite valued in rfl)
-              (Both (rewrite counted in rfl) (Both (runs first v (Parse.joinReads steps ++ rest) ok) stepsRun))))
-
 theorem runsMaskBit (read: List Char) (bit: MaskBit) (rest: List Char) (written: MaskBitWritten read bit): Parse.Runs maskBit read rest bit :=
   match bit with
     | Off => rewrite written in Parse.runsPick [] "0" Off [("1", On), ("X", X)] rest rfl
@@ -35,7 +21,7 @@ theorem runsInstruction (read: List Char) (item: Instruction) (written: Instruct
         | { bits } =>
           match written with
             | Witness symbols (Both split (Both each count)) =>
-              match eachSteps maskBit MaskBitWritten [] runsMaskBit bits symbols each with
+              match Parse.eachSteps maskBit MaskBitWritten [] runsMaskBit bits symbols each with
                 | Witness steps (Both joined (Both valued (Both counted stepsRun))) =>
                   rewrite split in
                     Parse.runsBind (() => Parse.optional (() => Parse.text "mask = ")) _ "mask = ".toList symbols _ [] (Some ()) _ rfl
