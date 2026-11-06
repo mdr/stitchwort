@@ -11226,13 +11226,13 @@
     {
       "id": 1632,
       "title": "Brace syntax: the declaration decides (D2481-D2485): constructors declared with braced fields are built/matched by name; bracket-declared ones take braces as a record argument (Some { name = \"tea\" }, | Some { name, .. } =>, Some { r | … }); braces in argument position; show; named constructor arguments fill defaults; guide, syntax.md, feature tour",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1632",
       "labels": [
         "syntax"
       ],
-      "body": "D2481-D2486 (Matt, 6 Nov 2026): all as recommended in docs/proposals/brace-syntax-review.md: the declaration decides what braces after a constructor mean (brace-declared constructors by field name; bracket-declared ones take a record argument); patterns follow; braces in argument position; show prints accordingly; named arguments on a constructor fill field defaults; then sweep C ({ … }) → C { … }. Replaces D1370 (a). Sonnet, expected: 150 min; a user-visible language change, so docs/guide, docs/syntax.md and web/guide get updated.",
+      "body": "D2481-D2486 (Matt, 6 Nov 2026): all as recommended in docs/proposals/brace-syntax-review.md: the declaration decides what braces after a constructor mean (brace-declared constructors by field name; bracket-declared ones take a record argument); patterns follow; braces in argument position; show prints accordingly; named arguments on a constructor fill field defaults; then sweep C ({ … }) → C { … }. Replaces D1370 (a). Sonnet, expected: 150 min; a user-visible language change, so docs/guide, docs/syntax.md and web/guide get updated.\n\nStarted on Sonnet, expected: 150 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
