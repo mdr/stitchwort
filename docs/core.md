@@ -537,7 +537,7 @@ The interpreter (`stitchwort run`) makes the same functions loops in its IR (`cr
 | `W-UNREACHABLE` | A warning: an equation whose constructor can never match the indices there; it's dropped unchecked |
 | `W-REDUNDANT` | A warning: an arm, or an alternative of an or-pattern, that is never chosen because earlier arms (or alternatives) match every value it matches; it points at the earlier arm that does when one alone does. The standard library may have none |
 | `W-DOC-LINK` | A warning: a doc link, ``[`Name`]`` in a `--|` comment, that names nothing or names more than one thing, with the nearest name if there is one. The standard library may have none (`docs/syntax.md` "Doc links") |
-| `W-RECORD-ARGUMENT` | A warning: `C { f = … }` on a one-field constructor whose field holds a record that has a field `f` too names `C`'s own field; `C ({ … })` matches the record's |
+| `W-RECORD-ARGUMENT` | A warning: `C { f = … }` on a one-field constructor declared with braces, whose field holds a record that has a field `f` too, names `C`'s own field; `C ({ … })` matches the record's |
 | `E-ABILITY` | An operation or effectful call where its ability isn't allowed, or a malformed `ability` |
 | `E-HANDLER` | A handler without a `return` clause or a clause for every operation |
 | `E-EFFECT-ESCAPE` | A result type that depends on the result of an operation |

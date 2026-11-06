@@ -5518,11 +5518,14 @@ mod tests {
     }
 
     #[test]
-    fn braces_after_a_constructor_take_no_further_arguments() {
+    fn braces_after_a_constructor_pattern_take_no_further_arguments() {
         let e = parse_error("def f : L -> Nat\n  | Cons { name, .. } rest => 0\n");
         assert!(e.message.contains("take no further arguments"), "{e:?}");
         assert!(e.notes[0].contains("Cons ({ … })"), "{e:?}");
-        let e = parse_error("def f : E -> Nat\n  | MkEntry r { name, .. } => 0\n");
+        // After another argument, a record pattern is one more argument.
+        let module = parse("def f : E -> Nat\n  | MkEntry r { name, .. } => 0\n");
+        assert_eq!(module.decls.len(), 2);
+        let e = parse_error("def f : E -> Nat\n  | Pair Filling { name, .. } => 0\n");
         assert!(e.message.contains("written in brackets"), "{e:?}");
     }
 
@@ -5567,15 +5570,40 @@ mod tests {
     }
 
     #[test]
-    fn braces_after_a_constructor_expression_are_its_fields_alone() {
-        let e = parse_error("def f : L := Cons { head = 1 } rest\n");
-        assert!(e.message.contains("take no further arguments"), "{e:?}");
-        assert!(e.notes[0].contains("Cons ({ … })"), "{e:?}");
-        let e = parse_error("def f : L := g Cons { head = 1 }\n");
-        assert!(e.message.contains("as an argument need brackets"), "{e:?}");
-        assert!(e.notes[0].contains("(Cons { … })"), "{e:?}");
-        let e = parse_error("def f : L := Some { r | a = 1 }\n");
-        assert!(e.message.contains("an update isn't one of them"), "{e:?}");
+    fn braces_after_a_constructor_expression_are_left_to_the_elaborator() {
+        // Whether they name the constructor's fields or are a record argument
+        // depends on how it is declared, so the parser keeps a literal as is,
+        // at the head and as an argument, with the arguments after it.
+        let Expr::App(head, _) = &rhs("def f : L := Cons { head = 1 } rest\n") else {
+            panic!("expected an application");
+        };
+        assert!(matches!(&**head, Expr::CtorFields { argument: false, .. }));
+        let Expr::App(_, arg) = &rhs("def f : L := g Cons { head = 1 }\n") else {
+            panic!("expected an application");
+        };
+        assert!(matches!(&**arg, Expr::CtorFields { argument: true, .. }));
+        // An update is never a construction: the constructor, then the record.
+        let Expr::App(head, arg) = &rhs("def f : L := Some { r | a = 1 }\n") else {
+            panic!("expected an application");
+        };
+        assert!(matches!(&**head, Expr::Var(n) if n.text == "Some"));
+        assert!(matches!(&**arg, Expr::Record { base: Some(_), .. }));
+    }
+
+    #[test]
+    fn a_constructor_declared_with_its_fields_in_braces() {
+        let module = parse(
+            "type Event =\n  | Meeting { title : Text, minutes : Nat := 30 }\n  | Reminder (title : Text)\n  | Node [n : Nat] { x : Nat }\n",
+        );
+        let Decl::Data { ctors, .. } = &module.decls[0] else {
+            panic!("expected a data declaration");
+        };
+        assert!(ctors[0].braced && !ctors[1].braced);
+        assert_eq!(ctors[0].fields.len(), 2);
+        assert_eq!(ctors[0].defaults.len(), 2);
+        assert_eq!(ctors[2].implicit, [true, false]);
+        let e = parse_error("type T =\n  | C (a : Nat) { b : Nat }\n");
+        assert!(e.message.contains("fields in brackets already"), "{e:?}");
     }
 
     #[test]

@@ -172,6 +172,18 @@ A constructor can be declared with its fields in braces instead of brackets, and
 
 <!-- snippet: data.sw#named-construction -->
 ```stitchwort
+type Event =
+  | Meeting { title: Text, minutes: Nat := 30, room: Text }
+  | Reminder (title: Text)
+
+def standup: Event := Meeting { title = "Standup", room = "Blue" }
+def review: Event := Meeting { title = "Review", minutes = 60, room = "Red" }
+
+def Event.length: Event → Nat
+  | Meeting { minutes, .. } => minutes
+  | Reminder _ => 0
+
+test "default minutes" := standup.length == 30
 ```
 
 When every constructor of a type has a field with the same name and type, it is a **shared field**: you can read it and update it without matching first. `title` is shared by both kinds of `Event`, `minutes` isn't:
@@ -191,16 +203,39 @@ The way a constructor is declared decides what braces after it mean. A construct
 
 <!-- snippet: data.sw#braces-argument -->
 ```stitchwort
+def found: Option Person := Some { name = "Ada", age = 36 }
+
+def nameOr (fallback: Text): Option Person → Text
+  | Some { name, .. } => name
+  | None => fallback
+
+test "braces are a record argument" := nameOr "nobody" found == "Ada"
 ```
 
-One declared with braces, like `Meeting` above, takes braces as its own fields. So a record that you want to give such a constructor goes in brackets, `Guest ({ name = "Ada", age = 36 })`, or is given by its field, `Guest { person = { name = "Ada", age = 36 }, seat = 1 }`; the error says so:
+One declared with braces, like `Meeting` above, takes braces as its own fields. So a record that you want to give such a constructor goes in brackets, `Guest ({ name = "Ada", age = 36 })`, or is given by its field, `Guest { person = { name = "Ada", age = 36 } }`; the error says so:
 
 <!-- snippet: errors/constructor-braces.sw -->
 ```stitchwort
+type Person = { name: Text, age: Nat }
+
+type Booking = | Guest { person: Person }
+
+def ada: Booking := Guest { name = "Ada", age = 36 }
 ```
 
 <!-- output: check errors/constructor-braces.sw -->
 ```text
+[E-UNKNOWN-FIELD] Error: `Guest` has no field `name`
+   ╭─[ errors/constructor-braces.sw:5:29 ]
+   │
+ 5 │ def ada: Booking := Guest { name = "Ada", age = 36 }
+   │                             ──┬─
+   │                               ╰─── `Guest` has no field `name`
+   │
+   │ Note 1: `Guest`'s fields are `person`
+   │
+   │ Note 2: `Guest` is declared with its fields in braces, so braces after it name its own fields; to build the `Person` it holds, write `Guest ({ … })`
+───╯
 ```
 
 Naming a bracket-declared constructor's fields works with named arguments instead, `Circle (id := "a") (radius := 1)`, which also fill the defaults of fields left out.

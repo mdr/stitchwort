@@ -1,5 +1,5 @@
 type Person = { name: Text, age: Nat }
 
-type Guest = | Guest { person: Person, seat: Nat }
+type Booking = | Guest { person: Person }
 
-def ada: Guest := Guest { name = "Ada", age = 36 }
+def ada: Booking := Guest { name = "Ada", age = 36 }

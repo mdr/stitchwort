@@ -483,7 +483,7 @@ fn the_index_is_the_same_every_time() {
 /// type (docs/proposals/variant-fields.md §4.3).
 #[test]
 fn constructor_fields_in_patterns() {
-    let source = "type Shape =\n  | Dot (id: Text)\n  | Circle (id: Text) (count: Nat)\n\n\
+    let source = "type Shape =\n  | Dot { id: Text }\n  | Circle { id: Text, count: Nat }\n\n\
                   def label: Shape -> Text\n  | Circle { count = 0, .. } => \"none\"\n  \
                   | Circle { id, .. } => id\n  | Dot { id } => id\n";
     let mut session = Session::navigable();
@@ -492,8 +492,8 @@ fn constructor_fields_in_patterns() {
     let all = lines(&session, &index, "one.sw");
     for expected in [
         "one.sw:6:14 count -> Main.Shape.Circle.count [field] one.sw:3:24 : Nat",
-        "one.sw:7:14 id -> Main.Shape.Circle.id [field] one.sw:3:13 : Text",
-        "one.sw:8:11 id -> Main.Shape.Dot.id [field] one.sw:2:10 : Text",
+        "one.sw:7:14 id -> Main.Shape.Circle.id [field] one.sw:3:14 : Text",
+        "one.sw:8:11 id -> Main.Shape.Dot.id [field] one.sw:2:11 : Text",
         "one.sw:6:5 Circle -> Main.Shape.Circle [ctor] one.sw:3:5",
     ] {
         assert!(all.contains(expected), "missing `{expected}` in\n{all}");

@@ -19,17 +19,17 @@ fn warnings(text: &str) -> Vec<Diagnostic> {
 }
 
 const ITEM: &str =
-    "import Std (Option)\n\ntype Item = { value: Nat, fits: Bool }\n\ntype Held = | Held { item: Item }\n\n";
+    "import Std (Option)\n\ntype Item = { value: Nat, fits: Bool }\n\ntype Box = | Held { item: Item }\n\n";
 
 #[test]
 fn naming_a_field_the_record_has_too_warns() {
     let found = warnings(&format!(
-        "{ITEM}def get: Held -> Item\n  | Held {{ item = i, .. }} => i\n"
+        "{ITEM}def get: Box -> Item\n  | Held {{ item = i, .. }} => i\n"
     ));
     assert!(found.is_empty(), "{found:#?}");
     let found = warnings(&format!(
-        "type Item = {{ item: Nat, fits: Bool }}\n\ntype Held = | Held {{ item: Item }}\n\n\
-         def get: Held -> Nat\n  | Held {{ item = n, .. }} => n.item\n"
+        "type Item = {{ item: Nat, fits: Bool }}\n\ntype Box = | Held {{ item: Item }}\n\n\
+         def get: Box -> Nat\n  | Held {{ item = n, .. }} => n.item\n"
     ));
     let [w] = &found[..] else {
         panic!("{found:#?}");
@@ -42,8 +42,8 @@ fn naming_a_field_the_record_has_too_warns() {
 #[test]
 fn the_bracketed_record_argument_and_positional_patterns_dont_warn() {
     let found = warnings(&format!(
-        "{ITEM}def get: Held -> Nat\n  | Held ({{ value = n, .. }}) => n\n\n\
-         def get2: Held -> Nat\n  | Held i => i.value\n\n\
+        "{ITEM}def get: Box -> Nat\n  | Held ({{ value = n, .. }}) => n\n\n\
+         def get2: Box -> Nat\n  | Held i => i.value\n\n\
          def get3: Option Item -> Nat\n  | Some {{ value = n, .. }} => n\n  | None => 0\n"
     ));
     assert!(found.is_empty(), "{found:#?}");
@@ -195,8 +195,8 @@ fn braces_after_a_bracket_declared_constructor_hash_as_the_bracketed_form() {
 #[test]
 fn a_bracket_declared_constructors_braces_take_a_record_pattern_and_more_arguments() {
     let found = errors(
-        "type Tagged = | Tagged (item: Item) (tag: Text)\n\n\
-         def hot: Tagged := Tagged { name = \"tea\", price = 3 } \"hot\"\n\n\
+        "type Tagged = | Tag (item: Item) (tag: Text)\n\n\
+         def hot: Tagged := Tag { name = \"tea\", price = 3 } \"hot\"\n\n\
          def name: Option Item -> Text\n  | Some { name, .. } => name\n  | None => \"\"\n\n\
          def pick (t: Tagged) (i: Item): Text := i.name\n\n\
          def p: Text := pick hot { name = \"x\", price = 1 }\n",
@@ -207,8 +207,8 @@ fn a_bracket_declared_constructors_braces_take_a_record_pattern_and_more_argumen
 #[test]
 fn named_arguments_on_a_constructor_fill_the_defaults() {
     let found = errors(
-        "type Mark = | Mark (id: Text) (size: Nat := 3)\n\n\
-         def a: Mark := Mark (id := \"a\")\n\n\
+        "type Marked = | Mark (id: Text) (size: Nat := 3)\n\n\
+         def a: Marked := Mark (id := \"a\")\n\n\
          theorem same: Mark (id := \"a\") = Mark \"a\" 3 := rfl\n",
     );
     assert!(found.is_empty(), "{found:#?}");

@@ -1231,7 +1231,7 @@ def countFresh: List Bool → Nat
 ```
 
 gives `firstBig.eq2.true (x) (rest) (big: Nat.leq 10 x = True): firstBig
-(Cons x rest) = Some ({ value = x, isBig = big })`, the step a proof can't
+(Cons x rest) = Some { value = x, isBig = big }`, the step a proof can't
 take by `rewrite`, `match` or `cases`, and `countFresh.eq2.ifFalse (b) (rest)
 (notFresh: b = True): countFresh (Cons b rest) = countFresh rest`.
 
