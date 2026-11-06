@@ -13490,14 +13490,14 @@
     {
       "id": 1731,
       "title": "LSP AoC tests check AoC three times: a_newer_edit_cancels and aoc_navigation_matches_check_index miss the cache check --project warmed (430 s single-core)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1731",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From the SW-1716 profile, fix 4. See docs/reviews/SW-1716-dev-loop-profile.md §6.",
+      "body": "From the SW-1716 profile, fix 4. See docs/reviews/SW-1716-dev-loop-profile.md §6.\n\nDone, merged (6af85fb8e): the language server cancels its check at shutdown and the checker returns when its channel closes (the cancel test's 140-190 s was shutdown waiting on the rest of AoC); the navigation test indexes only the days it compares. 465 s → 194 s cold. On main: 19/19 (257 s; cold +nav+ty entries). Remaining: Day01/Proofs/Part2.sw's first editor check, ~126 s. Model result: Sonnet, worked, 34 min (est. 60).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
