@@ -13265,14 +13265,14 @@
     {
       "id": 1716,
       "title": "[Opus] Profile the developer loop: Rust build and link times, std setup cost per test, the slowest test binaries; ranked fixes with expected savings (D2532)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1716",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "D2532 (Matt, 6 Nov 2026): yes. Profiling only; allowed a few timed builds and one run of each of the ten slowest daily-tier binaries. Report: docs/reviews/SW-N-dev-loop-profile.md. Started on Opus, expected: 90 min.",
+      "body": "D2532 (Matt, 6 Nov 2026): yes. Profiling only; allowed a few timed builds and one run of each of the ten slowest daily-tier binaries. Report: docs/reviews/SW-N-dev-loop-profile.md. Started on Opus, expected: 90 min.\n\nDone, merged: docs/reviews/SW-1716-dev-loop-profile.md (48111d52e). Rebuild after a one-line core/elab edit 131-136 s, of which linking ~8%; optimising 137 test binaries from scratch is most of it. Incremental release builds: 21-22 s. Std check 14 s from source, 0.46 s from cache; 25% of it in the system allocator. Top fixes: incremental builds; untimed counterexample searches (resources 3.8 s → 173 s since 5 Nov); LSP AoC tests check AoC three times; SW-1686; one test binary per crate. kache served only 26% of compile time. Model result: Opus, worked, 63 min (est. 90).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
