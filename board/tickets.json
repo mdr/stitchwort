@@ -9580,7 +9580,7 @@
       "labels": [
         "editor"
       ],
-      "body": "From SW-1504, 6 Nov 2026. Small improvement.\n\nStarted overnight on Sonnet (SW-1514 with SW-1517), expected: 40 min.\n\nDone (e462b98a0), merged: sortText order fields > namespaces > types > constructors > functions > theorems; own namespace before extensions; shorter first (length ~45th of ~450 after xs.). receiver_members lists own functions first and marks single-constructor record fields as 'field'. namespace_members looks under every prefix; members_at_project adds unloaded project namespaces under the written prefix (Proj. offers Base, Other, Main). Browser test updated and passing. Model result: Sonnet, worked, 30 min (est. 40).",
+      "body": "From SW-1504, 6 Nov 2026. Small improvement.\n\nStarted overnight on Sonnet (SW-1514 with SW-1517), expected: 40 min.\n\nDone (e462b98a0), merged: sortText order fields > namespaces > types > constructors > functions > theorems; own namespace before extensions; shorter first (length ~45th of ~450 after xs.). receiver_members lists own functions first and marks single-constructor record fields as 'field'. namespace_members looks under every prefix; members_at_project adds unloaded project namespaces under the written prefix (Proj. offers Base, Other, Main). Browser test updated and passing. Model result: Sonnet, needed fixes (three stray record() conditions in dot.rs find_in_view broke the unshared-field error; found by batch 78, fixed in fea0ba31c), 30 min (est. 40).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
