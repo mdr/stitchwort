@@ -1,5 +1,5 @@
 {
-  "next": 1693,
+  "next": 1696,
   "tickets": [
     {
       "id": 47,
@@ -11926,13 +11926,13 @@
     {
       "id": 1682,
       "title": "Testing panel: the project-wide run is one stitchwort test --json over the whole project (all of AoC, slow); split it per namespace group (SW-1121)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1682",
       "labels": [
         "editor"
       ],
-      "body": "From SW-1121, 6 Nov 2026.\n\nStarted on Sonnet in one lane (SW-1682 with SW-1684), expected: 60 min.",
+      "body": "From SW-1121, 6 Nov 2026.\n\nStarted on Sonnet in one lane (SW-1682 with SW-1684), expected: 60 min.\n\nDone, merged (ce8f67a5f, b8cfd77f1): stitchwort/tests request, regex fallback; run-all as 72 namespace groups, 3 at a time; first result 14.8 s on aoc/. On main: LSP tests and 12/12 runner tests passed. Not tried in VS Code by hand. Model result: Sonnet, worked, 10 min for two (est. 60).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11954,13 +11954,13 @@
     {
       "id": 1684,
       "title": "Testing panel finds tests by a regex over ^test \"…\"; serve them from the server instead (SW-1121)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1682",
       "labels": [
         "editor"
       ],
-      "body": "From SW-1121, 6 Nov 2026.\n\nStarted on Sonnet in one lane (SW-1682 with SW-1684), expected: 60 min.",
+      "body": "From SW-1121, 6 Nov 2026.\n\nStarted on Sonnet in one lane (SW-1682 with SW-1684), expected: 60 min.\n\nDone, merged (ce8f67a5f, b8cfd77f1): stitchwort/tests request, regex fallback; run-all as 72 namespace groups, 3 at a time; first result 14.8 s on aoc/. On main: LSP tests and 12/12 runner tests passed. Not tried in VS Code by hand. Model result: Sonnet, worked, 10 min for two (est. 60).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -12010,13 +12010,13 @@
     {
       "id": 1688,
       "title": "Regression on main: 2021 day 18 Proofs has 5 E-TYPE-MISMATCH (Split.sw:40: a No arm's hypothesis keeps if 10 <= value then … instead of None); also what_closes_a_goal_in_a_project's search found 3 not 5. Suspect SW-1629 (stage 3 transport); the D2507 whole-AoC check after SW-1628 at 14:13 had 0 errors",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1688",
       "labels": [
         "regression"
       ],
-      "body": "Found by the SW-1674 lane, 6 Nov 2026: fails the same on SW-1674's parent. Breaks lsp tests a_newer_edit_cancels_the_check_running, aoc_navigation_matches_check_index, workspace_symbols_cover_namespaces_not_checked_yet.\n\nStarted on Opus, expected: 45 min.",
+      "body": "Found by the SW-1674 lane, 6 Nov 2026: fails the same on SW-1674's parent. Breaks lsp tests a_newer_edit_cancels_the_check_running, aoc_navigation_matches_check_index, workspace_symbols_cover_namespaces_not_checked_yet.\n\nStarted on Opus, expected: 45 min.\n\nDone, merged (a81a0f18d). Culprit: SW-1640 (total division, 81e63bec3), bisected; not SW-1629. Without /'s auto ok: argument, unused_proof_if makes the if a Bool test on Nat.leq, which matching on Nat.decLessThan never refined. Proofs now match on Nat.leq 10 value; example match-bool-if-division.sw. On main: day 18 0 errors; aoc_navigation and workspace_symbols lsp tests pass. The SW-1682 lane's run of every aoc/ namespace found no other failing day. Model result: Opus, worked, 33 min (est. 45).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -12073,6 +12073,48 @@
         "cli"
       ],
       "body": "From SW-1675, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1693,
+      "title": "Search no longer lists rewrite Nat.addComm a b in rfl for twice (a + b) = twice (b + a) since SW-1627 (stage 1); what_closes_a_goal_in_a_project closing 5 → 3; find why, then fix or accept the snapshot",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "search"
+      ],
+      "body": "From SW-1688, 6 Nov 2026. The proof still checks on every build. Orchestrator's call: investigate before accepting.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1694,
+      "title": "match on a decision (Nat.decLessThan) doesn't refine an if that became a plain Bool test on it; also generalise b when the scrutinee is Bool.decTrue b? Language design, would start as a proposal (SW-1688)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proposal"
+      ],
+      "body": "From SW-1688, 6 Nov 2026. Workaround: match on the Bool.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1695,
+      "title": "stitchwort test on a project returns nothing if any namespace fails to check; report the ones that did; and per-run startup is ~3.6 s CPU, so take several namespaces in one process (test A B C --json) (SW-1682)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "cli"
+      ],
+      "body": "From SW-1682, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
