@@ -10078,13 +10078,13 @@
     {
       "id": 1550,
       "title": "cases over Int/Nat comparisons takes Int apart and hits the 64-case limit; split comparisons as atoms and close with omega (day 17, Neighbours.sw:31)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1550",
       "labels": [
         "tactics"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).",
+      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).\n\nStarted overnight on Sonnet, expected: 50 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
