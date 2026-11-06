@@ -734,6 +734,18 @@ CPU time (load average about 70, so wall-clock times meant nothing):
 So the day's own proofs take about 0.3 s, the parser proof about 2.9 s, and
 a cold check of `Aoc.Common`, which every Grid day pays, 4.7 s.
 
+**Completeness (SW-1624).** `Proofs/Complete.sw`, 65 lines, about 6 minutes
+including std. A map is written and a rectangle: `parseWritten`'s conclusion
+does not say the grid is a rectangle (it follows from `parseGridRectangle`), so
+`InputWritten` is the rows' lines plus `Grid.Rectangle`, and `parseComplete`
+needs both (a ragged grid is "written" row by row yet `checkGrid` rejects it).
+`runsRow` reads a row through a new std lemma, `Parse.runsMany1Symbols` (many1
+of a parser that reads one character per item: also for day 11's seats), and
+`checkGridComplete` (new, `Aoc.Common.Proofs`) is `checkGrid`'s converse; it
+needed two small List lemmas (`findNoneOfMem`, `findNoneWithIndexFrom`) and
+`List.all2WeakenMem`, which gives each row's non-emptiness from the
+rectangle. `writtenUnique` is one line. Breaking `isSquare` breaks `runsSquare`.
+
 ### Ranked
 
 1. `%` by a width not known to be non-zero needs a proof, and an `if h:`

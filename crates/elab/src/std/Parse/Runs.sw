@@ -2091,6 +2091,47 @@ theorem Parse.declinesSectionsAtBreaks (p: () → {Parse} a) (canStart: Char →
                       Parse.declinesSepStep p Parse.blankLine ['\r', '\r', ..later]
                         (Parse.declinesBlankLine ['\r', '\r', ..later] (Parse.declinesNewline ['\r', '\r', ..later] rfl rfl))
 
+--| The text and the values of the rounds `many p` makes on items that `p`
+--| reads a character each (`symbol`): the steps are `([symbol v], v)`.
+theorem Parse.joinReadsSymbols (symbol: a → Char): (items: List a) → Parse.joinReads (items.map (v => ([symbol v], v))) = items.map symbol
+  | [] => rfl
+  | [v, ..more] => rewrite Parse.joinReadsSymbols symbol more in rfl
+
+--| See [`Parse.joinReadsSymbols`].
+theorem Parse.stepValuesSymbols (symbol: a → Char): (items: List a) → Parse.stepValues (items.map (v => ([symbol v], v))) = items
+  | [] => rfl
+  | [v, ..more] => rewrite Parse.stepValuesSymbols symbol more in rfl
+
+--| The rounds of `many p` over items that `p` reads one character each
+--| (`symbol v`, passing `canStart`), then `rest`, where `p` declines when
+--| `rest` can't start with a character that passes.
+theorem Parse.manyRunsSymbols (p: () → {Parse} a) (symbol: a → Char) (canStart: Char → Bool)
+    (runsItem: (v: a) → (after: List Char) → canStart (symbol v) = True → Parse.Runs p [symbol v] after v)
+    (declinesP: (input: List Char) → Parse.CannotStart canStart input → Parse.Declines p input) (rest: List Char) (stops: Parse.CannotStart canStart rest):
+    (items: List a) → (items.map symbol).all canStart = True → Parse.ManyRuns p (items.map (v => ([symbol v], v))) rest
+  | [], all => declinesP rest stops
+  | [v, ..more], all =>
+    Both (List.consNotNil (symbol v) [])
+      (Both
+        (runsItem v (Parse.joinReads (more.map (w => ([symbol w], w))) ++ rest) (Bool.andLeft all))
+        (Parse.manyRunsSymbols p symbol canStart runsItem declinesP rest stops more (Bool.andRight all)))
+
+--| `many1 p` over a non-empty list of items that `p` reads a character each
+--| (`symbol`, see [`Parse.manyRunsSymbols`]): it gives the items. For a row of
+--| cells drawn as single characters.
+theorem Parse.runsMany1Symbols (p: () → {Parse} a) (symbol: a → Char) (canStart: Char → Bool)
+    (runsItem: (v: a) → (after: List Char) → canStart (symbol v) = True → Parse.Runs p [symbol v] after v)
+    (declinesP: (input: List Char) → Parse.CannotStart canStart input → Parse.Declines p input) (first: a) (more: List a) (rest: List Char)
+    (all: ([first, ..more].map symbol).all canStart = True) (stops: Parse.CannotStart canStart rest):
+    Parse.Runs (() => Parse.many1 p) ([first, ..more].map symbol) rest (NonEmptyList.cons first more) :=
+  let steps := more.map (v => ([symbol v], v))
+  let joined := Parse.joinReadsSymbols symbol more
+  let valued := Parse.stepValuesSymbols symbol more
+  let manyRuns := Parse.manyRunsSymbols p symbol canStart runsItem declinesP rest stops more (Bool.andRight all)
+  let runs := Parse.runsMany1 p [symbol first] first steps rest
+    (rewrite joined in runsItem first (more.map symbol ++ rest) (Bool.andLeft all)) manyRuns
+  rewrite joined, valued at runs in runs
+
 def Parse.RunsExamples.numbers(): {Parse} NonEmptyList Nat := Parse.lines Parse.nat
 
 --| "1", a line break and "22" are `lines nat`: [1, 22].

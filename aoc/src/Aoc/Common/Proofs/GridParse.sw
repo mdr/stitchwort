@@ -49,3 +49,18 @@ theorem checkGridRows (rows: List (List a)) (grid: Grid a) (h: Fail.toResult (()
 theorem tallOfWide: (rows: List (List a)) → 0 < firstWidth rows → 0 < rows.length
   | [], wide => wide
   | [first, ..rest], wide => omega
+
+--| The converse of `checkGridOk`: a grid that is a rectangle, with a cell, is
+--| what `checkGrid` makes of its own rows.
+theorem checkGridComplete (grid: Grid a) (rectangle: grid.Rectangle): Fail.toResult (() => checkGrid grid.rows) = Ok grid :=
+  match decided: Nat.decEq (firstWidth grid.rows) 0 with
+    | Yes empty => Void.exfalso (grid.widthNonZero empty)
+    | No wide =>
+      match ragged: firstRagged grid.rows with
+        | Some (index, row) =>
+          Void.exfalso (Option.noneNotSome (index, row)
+            (Eq.trans (Eq.sym (List.findNoneWithIndexFrom (row => row.length != firstWidth grid.rows) 0 grid.rows
+              (List.findNoneOfMem (row => row.length != firstWidth grid.rows) grid.rows (row member => rewrite rectangle row member in DecEq.neSelf (firstWidth grid.rows))))) ragged))
+        | None =>
+          match grid with
+            | { rows, nonEmpty } => rfl
