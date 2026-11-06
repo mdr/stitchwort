@@ -1,5 +1,5 @@
 {
-  "next": 1519,
+  "next": 1520,
   "tickets": [
     {
       "id": 47,
@@ -9637,6 +9637,20 @@
         "tests"
       ],
       "body": "Found in batch 75, 6 Nov 2026: search_at_on_real_2021_goals failed on the stale entry; orchestrator removed it. Small.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1519,
+      "title": "AoC 2020 day 15 (Rambunctious Recitation): spec, efficient solution, proofs, tests, friction notes in aoc/NOTES-2020.md",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1519",
+      "labels": [
+        "aoc"
+      ],
+      "body": "D2443 (Matt): carry on further if there's time. Overnight, Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day15.\n\nStarted on Opus, expected: 120 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
