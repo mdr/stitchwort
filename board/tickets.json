@@ -11058,13 +11058,13 @@
     {
       "id": 1620,
       "title": "Std: parser completeness helpers from the SW-1612 pilot: move manyRunsOfEach and runsSepBy1Of (2020 day 6 Proofs/Complete.sw) into Parse/Runs.sw; add a list-end Declines lemma (sepStep p newline / blankLine declines on a run of line-break characters when p declines on text not starting with a p character); a break-character classification lemma; then day 6 uses them",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1620",
       "labels": [
         "std"
       ],
-      "body": "From SW-1612, 6 Nov 2026. Needed before the sweep (D2497).\n\nD2497 (Matt, 6 Nov 2026): yes, the helpers (SW-1620) then the completeness sweep over the 19 days with parser soundness (2020 days 3-20 except 6, and the two 2021 days), in two or three Sonnet lanes; remove day 18's second parser. Started on Sonnet, expected: 60 min.",
+      "body": "From SW-1612, 6 Nov 2026. Needed before the sweep (D2497).\n\nD2497 (Matt, 6 Nov 2026): yes, the helpers (SW-1620) then the completeness sweep over the 19 days with parser soundness (2020 days 3-20 except 6, and the two 2021 days), in two or three Sonnet lanes; remove day 18's second parser. Started on Sonnet, expected: 60 min.\n\nDone (84371dd3f), merged. Std (Parse/Runs.sw): manyRunsOfEach, runsSepBy1Of, runsLinesOf, runsSectionsOf, OnlyBreaks, CannotStart, LinesEnd and their lemmas, lineBreakChar, declinesLinesAt{Breaks,Blank,LinesEnd}, declinesSectionsAt{Breaks,AfterBreak}. Day 6 Complete.sw 316 → 104 lines, statements unchanged, audit 0 warnings. For the sweep: a day writes declinesP: (input) → CannotStart canStart input → Declines p input for its value parser and gets the list ends from std; valueEnd = CannotStart canStart for lines, LinesEnd inside sections; afterBreak = Parse.cannotStartAfterBreak canStart rfl rfl; comma sepBy: runsSepBy1Of + declinesSepStep. Model result: Sonnet, worked, 15 min (est. 60).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
