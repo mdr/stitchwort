@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-ABILITY] Error: this may perform `Fail`, which isn't allowed here
+   ╭─[ reject/pipe-io-then-fail-method-not-allowed.sw:7:3 ]
+   │
+ 7 │   IO.args() |> .headOr "2020" |> .toNatOrFail
+   │   ─────────────────────┬─────────────────────  
+   │                        ╰─────────────────────── `Fail` isn't in the abilities of the enclosing function or handler
+   │ 
+   │ Note: add `Fail` to the function's type (`-> {Fail …} …`), or handle it
+───╯
