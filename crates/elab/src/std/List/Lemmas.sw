@@ -1193,6 +1193,26 @@ theorem List.consInjective (x: a) (ys: List a) (zs: List a) (p: [x, ..ys] = [x, 
 theorem List.consInjectiveHead (x: a) (y: a) (xs: List a) (ys: List a) (p: [x, ..xs] = [y, ..ys]): x = y :=
   Eq.cong (list => (list.get 0).getOrElse x) p
 
+--| Two non-empty lists are `==` when their heads are and their tails are.
+theorem List.beqCons [auto eq: DecEq a] (x: a) (xs: List a) (y: a) (ys: List a): ([x, ..xs] == [y, ..ys]) = (x == y ∧ xs == ys) :=
+  Bool.eqOf _ _
+    (same =>
+      let lists := DecEq.sound same
+      rewrite List.consInjectiveHead x y xs ys lists, (Eq.cong (.drop 1) lists: xs = ys) in Bool.andIntro (DecEq.refl y) (DecEq.refl ys))
+    (both => rewrite DecEq.sound (Bool.andLeft both), DecEq.sound (Bool.andRight both) in DecEq.refl [y, ..ys])
+
+--| The empty list is never `==` to a non-empty one.
+theorem List.beqNilCons [auto eq: DecEq a] (y: a) (ys: List a): (([]: List a) == [y, ..ys]) = False :=
+  match e: (([]: List a) == [y, ..ys]) with
+    | True => Void.exfalso (List.nilNotCons y ys (DecEq.sound e))
+    | False => rfl
+
+--| A non-empty list is never `==` to the empty one.
+theorem List.beqConsNil [auto eq: DecEq a] (x: a) (xs: List a): ([x, ..xs] == ([]: List a)) = False :=
+  match e: ([x, ..xs] == ([]: List a)) with
+    | True => Void.exfalso (List.nilNotCons x xs (Eq.sym (DecEq.sound e)))
+    | False => rfl
+
 --| A list starting with x isn't among lists that all start with y, a
 --| different element.
 theorem List.notMemMapCons (x: a) (y: a) (ne: x ≠ y) (xs: List a): (ys: List (List a)) → [x, ..xs] ∉ List.map ys (Cons y)

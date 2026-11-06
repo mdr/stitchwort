@@ -290,7 +290,7 @@ theorem Float.keyOfInjective (a: Nat) (b: Nat):
     (p: Bool) → Nat.leq 9223372036854775808 a = p → (q: Bool) → Nat.leq 9223372036854775808 b = q
       → Float.keyOf a p = Float.keyOf b q → a = b
   | True, hp, True, hq, e =>
-    omega [Int.negSuccInjective (a - 9223372036854775808) (b - 9223372036854775808) e]
+    omega [Int.negSuccInjective e]
   | True, hp, False, hq, e => Void.exfalso (Int.negSuccNotOfNat (a - 9223372036854775808) b e)
   | False, hp, True, hq, e => Void.exfalso (Int.ofNatNotNegSucc a (b - 9223372036854775808) e)
   | False, hp, False, hq, e => Int.ofNatInjective a b e

@@ -368,6 +368,10 @@ theorem Set.foldEntries (f: b → k → b): (entries: List (k, ())) → (initial
 theorem Set.foldLeftToList (s: Set k [ord := o]) (initial: b) (f: b → k → b): Set.foldLeft s initial f = List.foldLeft (Set.toList s) initial f :=
   rewrite Map.foldLeftToList (acc key unit => f acc key) initial s.items in Set.foldEntries f (Map.toList s.items) initial
 
+--| Counting in a set counts in its list of keys.
+theorem Set.countToList (s: Set k [ord := o]) (p: k → Bool): Set.count s p = List.count (Set.toList s) p :=
+  Set.foldLeftToList s 0 (n key => Nat.succIf n (p key))
+
 --| A set's list of keys holds what the set holds.
 theorem Set.memToList [auto ord: Ord k] (s: Set k) (key: k): (List.Mem key (Set.toList s)) ↔ (Set.contains s key = True) := Map.memKeys s.items key
 
