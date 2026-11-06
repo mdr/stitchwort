@@ -4874,8 +4874,7 @@ earlier days).
 "second parser" the ticket meant had been replaced by SW-1583 (see the update
 under item 1), so the proof was already about the program's own
 `precedence.expression`, through `Parse.Runs`. What SW-1626 did: renamed
-`Proofs/Unique.sw` to `Proofs/Complete.sw` (466 lines before, 478 after, 12
-more), renamed `meansUnique` to `writtenUnique` (the same statement; `linesUnique`
+`Proofs/Unique.sw` to `Proofs/Complete.sw` (466 lines before, 481 after), renamed `meansUnique` to `writtenUnique` (the same statement; `linesUnique`
 and `Proofs.sw` use the new name, and nothing else did), and added
 `parseComplete`: if every line `Means` an expression under rules whose
 operators the levels list exactly (`Exact`), `parseHomework input precedence`
@@ -4886,8 +4885,7 @@ first try, about 3 minutes in all. The statement is the converse of
 every operator (without it a line using an operator the levels omit would
 not parse). The spec is tight enough for uniqueness; no counterexample.
 Nothing was removed, so no other file lost a theorem. Audit: `audited 69
-theorems: 0 failed, 0 with warnings, 69 passed` (the earlier 9 warnings were
-in the removed reader's era and are gone with it). Changing the `(` the
+theorems: 0 failed, 0 with warnings, 69 passed`. Changing the `(` the
 parser reads fails `runsOperandParen`.
 
 ### 1. Unambiguity needs a second parser, written for the proof
