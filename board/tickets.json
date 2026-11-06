@@ -703,13 +703,13 @@
     {
       "id": 706,
       "title": "rewrite: look for the lemma's left side in the goal as written first (isSafe r as a call), fall back to the computed-goal search; measure on AoC and std proofs first (D1422; revisits D484; trigger: AoC 2024 day 2 rewrite isSafeCorrect _)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-706",
       "labels": [],
-      "body": "",
+      "body": "\n\nD2453 (Matt, 6 Nov 2026): yes, both: an Opus design note on rewrite/match looking at the goal as written first (SW-706, SW-1589, SW-1562), and the refines-nothing warning SW-1485 now. Started on Opus as the design note (docs/proposals/), expected: 120 min.",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-11-06",
       "commits": []
     },
     {
@@ -9168,13 +9168,13 @@
     {
       "id": 1485,
       "title": "Warn when match e: refines nothing (e in neither the goal nor a hypothesis): the arms' errors then point away from the cause",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
         "messages"
       ],
-      "body": "From 2020 day 12 (SW-1483), 5 Nov 2026.\n\nAlso covers SW-1575 (duplicate, closed; SW-1598).",
+      "body": "From 2020 day 12 (SW-1483), 5 Nov 2026.\n\nAlso covers SW-1575 (duplicate, closed; SW-1598).\n\nD2453 (Matt, 6 Nov 2026): yes, both: an Opus design note on rewrite/match looking at the goal as written first (SW-706, SW-1589, SW-1562), and the refines-nothing warning SW-1485 now. Next free slot, on Sonnet.",
       "created": "2026-11-05",
       "updated": "2026-11-06",
       "commits": []
@@ -10252,7 +10252,7 @@
       "labels": [
         "elab"
       ],
-      "body": "Filed overnight 6 Nov 2026.",
+      "body": "Filed overnight 6 Nov 2026.\n\nD2453 (Matt, 6 Nov 2026): yes, both: an Opus design note on rewrite/match looking at the goal as written first (SW-706, SW-1589, SW-1562), and the refines-nothing warning SW-1485 now. Covered by the SW-706 note.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10630,7 +10630,7 @@
       "labels": [
         "elab"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1580 (2020 day 20).",
+      "body": "Filed overnight 6 Nov 2026 from SW-1580 (2020 day 20).\n\nD2453 (Matt, 6 Nov 2026): yes, both: an Opus design note on rewrite/match looking at the goal as written first (SW-706, SW-1589, SW-1562), and the refines-nothing warning SW-1485 now. Covered by the SW-706 note.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10756,7 +10756,7 @@
       "labels": [
         "research"
       ],
-      "body": "D2451 (Matt, 6 Nov 2026): yes, analysis-only Opus lane. Started on Opus, expected: 75 min.\n\nDone (8924ceb03), merged: docs/research/aoc-2020-friction-days-10-20.md. Top five: proofs follow the source not the computed goal (10 of 11 days); fast lookups + profiler; every well-formed input parses; grid geometry in Aoc.Common; count by a proposition, fuel loops. 7 duplicate pairs, ~11 untracked findings, Q1-Q6 (D2453-D2458). Model result: Opus, worked, 7 min (est. 75).\n\nD questions from its Q1-Q6: D2453 (design note: rewrite/match look at the goal as written first, SW-706/1589/1562; run the refines-nothing warning SW-1485 now) [rec: yes]; D2454 (prove every well-formed input parses: SW-1584 + a two-day pilot, then decide; close SW-1229) [rec: yes]; D2455 (Some { … } means Some ({ … }) for a record argument, small syntax proposal) [rec: yes]; D2456 (day 12: a new Vector type with quarter turns) [rec: yes]; D2457 (record eta: Opus design note now) [rec: yes]; D2458 (schedule the profiler SW-1528 now, Sonnet, after a scope check) [rec: yes].",
+      "body": "D2451 (Matt, 6 Nov 2026): yes, analysis-only Opus lane. Started on Opus, expected: 75 min.\n\nDone (8924ceb03), merged: docs/research/aoc-2020-friction-days-10-20.md. Top five: proofs follow the source not the computed goal (10 of 11 days); fast lookups + profiler; every well-formed input parses; grid geometry in Aoc.Common; count by a proposition, fuel loops. 7 duplicate pairs, ~11 untracked findings, Q1-Q6 (D2453-D2458). Model result: Opus, worked, 7 min (est. 75).\n\nD questions from its Q1-Q6: D2453 (design note: rewrite/match look at the goal as written first, SW-706/1589/1562; run the refines-nothing warning SW-1485 now) [rec: yes]; D2454 (prove every well-formed input parses: SW-1584 + a two-day pilot, then decide; close SW-1229) [rec: yes]; D2455 (Some { … } means Some ({ … }) for a record argument, small syntax proposal) [rec: yes]; D2456 (day 12: a new Vector type with quarter turns) [rec: yes]; D2457 (record eta: Opus design note now) [rec: yes]; D2458 (schedule the profiler SW-1528 now, Sonnet, after a scope check) [rec: yes].\n\nD2453 (Matt, 6 Nov 2026): yes, both: an Opus design note on rewrite/match looking at the goal as written first (SW-706, SW-1589, SW-1562), and the refines-nothing warning SW-1485 now.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
