@@ -1,5 +1,5 @@
 {
-  "next": 1580,
+  "next": 1581,
   "tickets": [
     {
       "id": 47,
@@ -10491,6 +10491,20 @@
         "performance"
       ],
       "body": "Filed overnight 6 Nov 2026 from SW-1571 (2020 day 19).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1580,
+      "title": "AoC 2020 day 20 (Jurassic Jigsaw): spec, efficient solution, proofs, tests, friction notes in aoc/NOTES-2020.md",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1580",
+      "labels": [
+        "aoc"
+      ],
+      "body": "D2443 (Matt): carry on further if there's time. Overnight, Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day20.\n\nStarted on Opus, expected: 90 min (hard stop 07:55 for the morning summary).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
