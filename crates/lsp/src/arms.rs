@@ -58,6 +58,135 @@ pub fn add_arms(text: &str, range: Range, fills: &[String]) -> Option<TextEdit> 
     Some(TextEdit::new(Range::new(at, at), new_text))
 }
 
+/// A variable in an arm's patterns that the cursor is on, and where the
+/// arm's right-hand side starts (where its type can be asked).
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+pub struct Split {
+    pub name: String,
+    /// The arm's line and the variable's columns in it.
+    pub line: u32,
+    pub columns: (u32, u32),
+    /// The start of the arm's right-hand side.
+    pub body: (u32, u32),
+}
+
+fn is_word(c: char) -> bool {
+    c.is_alphanumeric() || c == '_' || c == '\''
+}
+
+/// The variable of an arm's patterns at `(line, character)`, if the cursor
+/// is on one: a lowercase name between the arm's `|` and its `=>`, where
+/// the right-hand side doesn't use it (it is gone once the arm splits).
+pub fn split_target(text: &str, line: u32, character: u32) -> Option<Split> {
+    let lines: Vec<&str> = text.lines().collect();
+    let l = *lines.get(line as usize)?;
+    let chars: Vec<char> = l.chars().collect();
+    let bar = chars.iter().position(|c| !c.is_whitespace())?;
+    if chars.get(bar) != Some(&'|') || chars.get(bar + 1) != Some(&' ') {
+        return None;
+    }
+    let arrow = l.find("=>")?;
+    let arrow = l[..arrow].chars().count();
+    let at = character as usize;
+    let mut start = at.min(chars.len());
+    while start > 0 && is_word(chars[start - 1]) {
+        start -= 1;
+    }
+    let mut end = at.min(chars.len());
+    while end < chars.len() && is_word(chars[end]) {
+        end += 1;
+    }
+    if start <= bar + 1 || end > arrow || start >= end {
+        return None;
+    }
+    let name: String = chars[start..end].iter().collect();
+    if !name.starts_with(|c: char| c.is_lowercase()) {
+        return None;
+    }
+    let (arm_end, _) = arm_extent(&lines, line as usize);
+    let mut body = (line, u32::try_from(arrow + 2).ok()?);
+    let rest: String = chars[arrow + 2..].iter().collect();
+    let mut body_text = rest.clone();
+    if rest.trim().is_empty() {
+        let next = (line as usize + 1..=arm_end).find(|&i| !lines[i].trim().is_empty())?;
+        body = (
+            u32::try_from(next).ok()?,
+            u32::try_from(lines[next].len() - lines[next].trim_start().len()).ok()?,
+        );
+    } else {
+        let skip = rest.len() - rest.trim_start().len();
+        body.1 += u32::try_from(skip).ok()?;
+    }
+    for l in &lines[line as usize + 1..=arm_end] {
+        body_text.push(' ');
+        body_text.push_str(l);
+    }
+    let uses = body_text.split(|c: char| !is_word(c)).any(|w| w == name);
+    if uses {
+        return None;
+    }
+    Some(Split {
+        name,
+        line,
+        columns: (u32::try_from(start).ok()?, u32::try_from(end).ok()?),
+        body,
+    })
+}
+
+/// The last line of the arm that starts at line `first`, and the column of
+/// its `|`.
+fn arm_extent(lines: &[&str], first: usize) -> (usize, usize) {
+    let column = lines[first].len() - lines[first].trim_start().len();
+    let mut end = first;
+    for (i, line) in lines.iter().enumerate().skip(first + 1) {
+        let trimmed = line.trim_start();
+        let indent = line.len() - trimmed.len();
+        if trimmed.is_empty() || trimmed.starts_with("--") {
+            continue;
+        }
+        if indent > column {
+            end = i;
+        } else {
+            break;
+        }
+    }
+    (end, column)
+}
+
+/// The edit that replaces the arm of `split` with one arm per entry of
+/// `patterns` (`MissingCases::fills` form), each the arm with the variable
+/// written as that pattern.
+pub fn split_arm(text: &str, split: &Split, patterns: &[String]) -> Option<TextEdit> {
+    let lines: Vec<&str> = text.lines().collect();
+    let first = split.line as usize;
+    let (end, _) = arm_extent(&lines, first);
+    let head: Vec<char> = lines[first].chars().collect();
+    let (from, to) = (split.columns.0 as usize, split.columns.1 as usize);
+    let before: String = head[..from].iter().collect();
+    let after: String = head[to..].iter().collect();
+    let argument = !(before.trim_end().ends_with('|') || before.trim_end().ends_with(','));
+    let mut used = names_in_declaration(&lines, first);
+    used.retain(|u| *u != split.name);
+    let mut out = Vec::new();
+    for pattern in patterns {
+        let mut names = used.clone();
+        let bound = bind(pattern, &mut names);
+        let bound = if argument && bound.contains(' ') && !bound.starts_with(['[', '(']) {
+            format!("({bound})")
+        } else {
+            bound
+        };
+        out.push(format!("{before}{bound}{after}"));
+        out.extend(lines[first + 1..=end].iter().map(|l| l.to_string()));
+    }
+    let start = Position::new(split.line, 0);
+    let stop = Position::new(
+        u32::try_from(end).ok()?,
+        u32::try_from(lines[end].encode_utf16().count()).ok()?,
+    );
+    Some(TextEdit::new(Range::new(start, stop), out.join("\n")))
+}
+
 /// Every identifier in the declaration that holds line `line`: from the
 /// last line at column 0 up to it, to the next one after it.
 fn names_in_declaration(lines: &[&str], line: usize) -> Vec<String> {
@@ -177,5 +306,26 @@ mod tests {
             applied(text, &["[_, _, .._]", "(Some _, _)"]),
             "def f (x: List Nat): Nat\n  | [] => x\n  | [y, z, ..xs] => ?\n  | (Some y, z) => ?\n"
         );
+    }
+
+    #[test]
+    fn splits_the_variable_under_the_cursor() {
+        let text = "def f: Option (Option Nat) -> Nat\n  | Some o => ?\n  | None => 0\n";
+        let split = split_target(text, 1, 9).unwrap();
+        assert_eq!(split.name, "o");
+        assert_eq!(split.body, (1, 14));
+        let cases = ["None".to_string(), "Some ‹value›".to_string()];
+        let edit = split_arm(text, &split, &cases).unwrap();
+        assert_eq!(edit.range.start, Position::new(1, 0));
+        assert_eq!(
+            edit.new_text,
+            "  | Some None => ?\n  | Some (Some value) => ?"
+        );
+    }
+
+    #[test]
+    fn a_variable_the_body_uses_is_not_split() {
+        assert!(split_target("def f: Nat -> Nat\n  | n => n\n", 1, 4).is_none());
+        assert!(split_target("def f: Nat -> Nat\n  | Succ n => 0\n", 1, 2).is_none());
     }
 }

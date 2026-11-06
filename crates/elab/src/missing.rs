@@ -121,6 +121,18 @@ pub(crate) fn merge<T>(cx: &crate::check::Ctx, start: usize, result: Result<T>) 
     Err(first)
 }
 
+/// The hole for a field called `name`: `‹name›` when that is a name the
+/// editor can bind a variable to (not a generated one), else `_`.
+fn hole(name: &str) -> String {
+    let usable = name.starts_with(|c: char| c.is_lowercase())
+        && name.chars().all(|c| c.is_alphanumeric() || c == '_');
+    if usable {
+        format!("‹{name}›")
+    } else {
+        "_".to_string()
+    }
+}
+
 /// `text` with each field name marker (`‹name›`) written as `_`.
 fn unmarked(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
@@ -193,6 +205,47 @@ pub(crate) fn fold(all: Vec<Diagnostic>) -> Vec<Diagnostic> {
 }
 
 impl Elaborator {
+    /// The patterns that split a value of the data type named `name`, one
+    /// per constructor, in the form of [`MissingCases::fills`]: a list as
+    /// `[]` and `[_, .._]`, a pair as `(_, _)`, a field with a declared
+    /// name as `‹name›`. The last type of that name is taken, so a program's
+    /// own shadows the library's. `None` for a name that isn't a data type
+    /// here, and for an indexed family (some constructors may not fit).
+    pub fn constructor_patterns(&self, name: &str) -> Option<Vec<String>> {
+        let g = &self.ev();
+        let reg = g.env.registry();
+        let d = DataId(g.env.datas().iter().rposition(|d| &**d.name() == name)?);
+        let data = g.data(d);
+        if !data.indices().is_empty() || data.ctors().is_empty() {
+            return None;
+        }
+        let non_empty = reg.loaded_data(Builtin::NonEmptyList) == Some(d);
+        let mut out = Vec::new();
+        for (c, ctor) in data.ctors().iter().enumerate() {
+            let here = Some((d, c));
+            let fields: Vec<usize> = (0..ctor.fields.len())
+                .filter(|&i| !ctor.implicit.get(i).copied().unwrap_or(false))
+                .collect();
+            out.push(if reg.ctor(Builtin::Nil) == here {
+                "[]".to_string()
+            } else if (non_empty || reg.ctor(Builtin::Cons) == here) && fields.len() == 2 {
+                "[_, .._]".to_string()
+            } else if reg.ctor(Builtin::MkPair) == here && fields.len() == 2 {
+                "(_, _)".to_string()
+            } else if reg.ctor(Builtin::UnitValue) == here {
+                "()".to_string()
+            } else {
+                let mut text = ctor.name.to_string();
+                for i in fields {
+                    text.push(' ');
+                    text.push_str(&hole(&ctor.fields[i].0));
+                }
+                text
+            });
+        }
+        Some(out)
+    }
+
     /// Writes into each `Tree::Missing` the pattern row it stands for.
     /// `root` is the levels of the columns the tree splits.
     pub(crate) fn annotate(&self, tree: &mut Tree, root: &[usize]) {
@@ -345,12 +398,8 @@ impl Elaborator {
             .filter(|&i| !ctor.implicit.get(i).copied().unwrap_or(false))
             .map(|i| {
                 let arg = shown(base + i);
-                // A field nothing looked at keeps its name, for the editor
-                // to bind a variable of that name.
-                let name = &*ctor.fields[i].0;
-                let named = name.starts_with(|c: char| c.is_lowercase());
-                if arg == "_" && named && name.chars().all(|c| c.is_alphanumeric() || c == '_') {
-                    format!("‹{name}›")
+                if arg == "_" {
+                    hole(&ctor.fields[i].0)
                 } else {
                     arg
                 }

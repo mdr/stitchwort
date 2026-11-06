@@ -665,3 +665,18 @@ impl Session {
         self.probed(&text)
     }
 }
+
+impl Session {
+    /// The patterns that split the variable `local` of `context` into its
+    /// constructors (`MissingCases::fills` form), if its type is a data
+    /// type this session knows ([`stitchwort_elab::Elaborator::
+    /// constructor_patterns`]).
+    pub fn split_patterns(&self, context: &Context, local: &str) -> Option<Vec<String>> {
+        let ty = &context.locals.iter().rev().find(|l| l.name == local)?.ty;
+        let head = ty.split_whitespace().next()?;
+        if !head.starts_with(|c: char| c.is_alphabetic()) {
+            return None;
+        }
+        self.elab.constructor_patterns(head)
+    }
+}

@@ -414,6 +414,13 @@ enum SearchKind {
     },
     /// The context at a position ([`Main::context_at`]).
     ContextAt { line: u32, character: u32 },
+    /// Splitting the variable of an arm into its type's constructors
+    /// ([`Main::code_action`]), after the quick fixes `fixes` already found.
+    Split {
+        split: arms::Split,
+        versioned: Option<i32>,
+        fixes: serde_json::Value,
+    },
 }
 
 impl Search {
@@ -443,6 +450,46 @@ impl Search {
             }
             SearchKind::ContextAt { line, character } => {
                 context_at(stack, source, target, line, character, cancel)
+            }
+            SearchKind::Split {
+                split,
+                versioned,
+                fixes,
+            } => {
+                let text = target.text.clone();
+                let patterns = with_context(
+                    stack,
+                    source,
+                    target,
+                    split.body.0,
+                    split.body.1,
+                    cancel,
+                    |session, context| session.split_patterns(&context?, &split.name),
+                );
+                let mut actions = fixes.as_array().cloned().unwrap_or_default();
+                if let Some(edit) = patterns
+                    .filter(|p| p.len() > 1)
+                    .and_then(|p| arms::split_arm(&text, &split, &p))
+                {
+                    let edits = [edit];
+                    let edit = match versioned {
+                        Some(version) => serde_json::json!({"documentChanges": [{
+                            "textDocument": {"uri": uri.as_str(), "version": version},
+                            "edits": edits,
+                        }]}),
+                        None => serde_json::json!({"changes": {uri.as_str(): edits}}),
+                    };
+                    actions.push(serde_json::json!({
+                        "title": format!("Split `{}` into its cases", split.name),
+                        "kind": "refactor.rewrite",
+                        "edit": edit,
+                    }));
+                }
+                if actions.is_empty() {
+                    serde_json::Value::Null
+                } else {
+                    serde_json::Value::Array(actions)
+                }
             }
         }
     }
@@ -660,6 +707,24 @@ impl Main {
         };
         let (Some(range), Some(target)) = (goal, self.search_target(&uri)) else {
             let fixes = self.import_fixes(&uri, &p.context.diagnostics);
+            let split = {
+                let texts = self.texts.borrow();
+                let at = p.range.start;
+                (texts.get(&uri)).and_then(|t| arms::split_target(t, at.line, at.character))
+            };
+            if let (Some(split), Some(target)) = (split, self.search_target(&uri)) {
+                let document_changes = self.document_changes;
+                self.queue_search(id, &uri.clone(), "codeAction", move |version| Search {
+                    uri,
+                    target,
+                    kind: SearchKind::Split {
+                        split,
+                        versioned: document_changes.then_some(version),
+                        fixes,
+                    },
+                });
+                return;
+            }
             let _ = self
                 .connection
                 .sender
@@ -2641,6 +2706,29 @@ fn context_at(
     character: u32,
     cancel: Arc<AtomicBool>,
 ) -> serde_json::Value {
+    let found = with_context(stack, source, target, line, character, cancel, |_, c| c);
+    match found {
+        Some(c) => serde_json::json!({
+            "range": range(c.range),
+            "type": c.ty,
+            "checked": c.checked,
+            "locals": c.locals,
+        }),
+        None => serde_json::Value::Null,
+    }
+}
+
+/// Checks the document `target` with a probe at `line` and `character`, and
+/// gives `then` the session it ran in and the context found there.
+fn with_context<R>(
+    stack: usize,
+    source: &dyn Source,
+    target: SearchTarget,
+    line: u32,
+    character: u32,
+    cancel: Arc<AtomicBool>,
+    then: impl FnOnce(&Session, Option<pos::Context>) -> R,
+) -> R {
     let mut session = Session::for_stack(stack);
     session.share_cancel_flag(cancel);
     let found = match target.project {
@@ -2665,16 +2753,7 @@ fn context_at(
             session.context_at_text(name, &target.text, line, character)
         }
     };
-    drop(session);
-    match found {
-        Some(c) => serde_json::json!({
-            "range": range(c.range),
-            "type": c.ty,
-            "checked": c.checked,
-            "locals": c.locals,
-        }),
-        None => serde_json::Value::Null,
-    }
+    then(&session, found)
 }
 
 /// What replaces the goal `?` at `range` of `text` (the file at `path`, on
