@@ -1,5 +1,5 @@
 {
-  "next": 1582,
+  "next": 1583,
   "tickets": [
     {
       "id": 47,
@@ -10519,6 +10519,20 @@
         "elab"
       ],
       "body": "From SW-1564, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1582,
+      "title": "JS extraction of examples/extract integers and safe-numbers differs from their committed snapshots with main's binary: find out why the extract test doesn't catch it, or whether it fails (found in SW-1564's review)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "body": "From SW-1564's Opus review, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
