@@ -1300,6 +1300,20 @@ impl Session {
     }
 
     /// The text and place of the expression at `span`.
+    /// Where the test `name` of `namespace` starts (its `test` keyword, or
+    /// the attributes before it): `text` is empty, `line` and `column`
+    /// count from 1.
+    pub fn test_location(&self, namespace: &str, name: &str) -> Option<Part> {
+        let test = self
+            .elab
+            .tests()
+            .iter()
+            .find(|t| t.namespace == namespace && t.name == name)?;
+        let mut at = self.part(test.span)?;
+        at.text.clear();
+        Some(at)
+    }
+
     fn part(&self, span: stitchwort_syntax::Span) -> Option<Part> {
         if span.file.index() >= self.sources.len() {
             return None;

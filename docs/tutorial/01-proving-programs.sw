@@ -35,6 +35,8 @@
 -- - F12 on a name jumps to its definition, including into the standard
 --   library; Shift-F12 lists its uses.
 -- - Cmd-Shift-O (Ctrl-Shift-O) lists the declarations of this file.
+-- - Above each `test` there is a "▶ Run test" link (and "▶ Run" above
+--   `main`): click it to run that test and see the result.
 -- - Errors show as red squiggles as you type, without saving. The
 --   Problems panel (Cmd-Shift-M, Ctrl-Shift-M) lists them in full.
 --

@@ -3,13 +3,15 @@
 // docs/proposals/language-server.md). The server does diagnostics, definition,
 // hover, references and the outline; `vscode-languageclient` carries them.
 // What stays here: starting the server, and the text of library files
-// (`stitchwort-std:`, from `stitchwort std-source`). The grammar and language
+// (`stitchwort-std:`, from `stitchwort std-source`), and the run icons and the
+// Testing panel (runs.js), which run the CLI. The grammar and language
 // configuration are declarative, in package.json.
 
 const vscode = require('vscode');
 const cp = require('child_process');
 const { LanguageClient } = require('vscode-languageclient/node');
 const cfg = require('./client');
+const runs = require('./runs');
 
 /** @type {LanguageClient | undefined} */
 let client;
@@ -169,6 +171,7 @@ function activate(context) {
     }),
     { dispose: stopClient },
   );
+  runs.register(context, () => cfg.cliPath(configuredPath()));
   startClient();
 }
 
