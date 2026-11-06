@@ -11282,13 +11282,13 @@
     {
       "id": 1636,
       "title": "2020 day 19: 86% of the run is Std.List.lookup (48M calls), rules looked up by number in a list; build a Map (or array) once (profiler, SW-1528)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1636",
       "labels": [
         "aoc"
       ],
-      "body": "From SW-1528's profile, 6 Nov 2026. Day 19 takes 6.5 s vs Python 0.3 s.",
+      "body": "From SW-1528's profile, 6 Nov 2026. Day 19 takes 6.5 s vs Python 0.3 s.\n\nStarted on Sonnet in one lane (SW-1636 with SW-1652), expected: 45 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11506,13 +11506,13 @@
     {
       "id": 1652,
       "title": "Move 2024 day 16's own Heading onto Aoc.Common's (SW-1484)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1636",
       "labels": [
         "aoc"
       ],
-      "body": "From SW-1484, 6 Nov 2026.",
+      "body": "From SW-1484, 6 Nov 2026.\n\nStarted on Sonnet in one lane (SW-1636 with SW-1652), expected: 45 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
