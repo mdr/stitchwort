@@ -91,7 +91,7 @@ def Code.runFrom (code: Code) (unvisited: Set Nat) (state: State): Outcome
               [decreasing := omega [Set.sizeRemovePresent unvisited position fresh, Set.sizePositive unvisited position fresh]]
           else Loops state.accumulator
 
-def Code.run (code: Code): Outcome := code.runFrom (Set.fromList (0 ..< code.length)) start
+def Code.run (code: Code): Outcome := code.runFrom (0 ..< code.length).toSet start
 
 def solvePart1 (program: Program): {Fail} Int :=
   match program.code.run with

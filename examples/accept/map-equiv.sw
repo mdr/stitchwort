@@ -7,8 +7,8 @@
 import Std (Bool, Eq, List, Map, Nat, Set)
 
 -- The same entries, inserted in different orders: different trees, the same map.
-def forwards: Map Nat Text := Map.fromList [(1, "a"), (2, "b"), (3, "c"), (4, "d")]
-def backwards: Map Nat Text := Map.fromList [(4, "d"), (3, "c"), (2, "b"), (1, "a")]
+def forwards: Map Nat Text := [(1, "a"), (2, "b"), (3, "c"), (4, "d")].toMap
+def backwards: Map Nat Text := [(4, "d"), (3, "c"), (2, "b"), (1, "a")].toMap
 
 test "insertion order doesn't matter" := forwards == backwards
 test "a changed value does" := forwards ≠ backwards.insert 2 "B"
@@ -20,14 +20,14 @@ test "size is the number of entries" :=
 -- A record with a map in it gets `==`, the map compared by its entries.
 type Stock = { owner: Text, counts: Map Text Nat }
 
-def morning: Stock := { owner = "Ada", counts = Map.fromList [("nails", 3), ("screws", 5)] }
-def evening: Stock := { owner = "Ada", counts = Map.fromList [("screws", 5)] |> .insert "nails" 3 }
+def morning: Stock := { owner = "Ada", counts = [("nails", 3), ("screws", 5)].toMap }
+def evening: Stock := { owner = "Ada", counts = [("screws", 5)].toMap |> .insert "nails" 3 }
 
 test "records with maps" := morning == evening ∧ morning ≠ { owner = "Bo", counts = evening.counts }
 
 -- Sets: the same keys.
-test "sets in any order" := (Set.fromList [3, 1, 2]: Set Nat) == Set.fromList [2, 3, 1, 1]
-test "sets differ" := (Set.fromList [1, 2]: Set Nat) ≠ Set.fromList [1, 3]
+test "sets in any order" := ([3, 1, 2].toSet: Set Nat) == [2, 3, 1, 1].toSet
+test "sets differ" := ([1, 2].toSet: Set Nat) ≠ [1, 3].toSet
 
 -- Proofs. `size` counts the entries, for every map.
 theorem sizeIsLength (m: Map Text Nat): m.size = m.toList.length := Map.sizeToList m

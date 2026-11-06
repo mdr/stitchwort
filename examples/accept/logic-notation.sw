@@ -83,6 +83,6 @@ def inSet (s: Set Nat) (x: Nat): Bool := x in s
 
 theorem setHas (s: Set Nat) (x: Nat) (h: s.contains x = True): x ∈ s := h
 
-test "sets" := 3 ∈ Set.fromList [1, 2, 3] && 4 !in Set.fromList [1, 2, 3] && inSet (Set.fromList [7]) 7
+test "sets" := 3 ∈ [1, 2, 3].toSet && 4 !in [1, 2, 3].toSet && inSet [7].toSet 7
 
-test "map keys" := 1 in Map.fromList [(1, "one")] && 2 ∉ Map.fromList [(1, "one")]
+test "map keys" := 1 in [(1, "one")].toMap && 2 ∉ [(1, "one")].toMap

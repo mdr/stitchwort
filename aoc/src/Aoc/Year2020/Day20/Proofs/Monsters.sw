@@ -12,13 +12,14 @@ theorem roughAtIff (image: Image) (at: List Nat):
   forward = member =>
     match (List.memFlatMap _ at image.rows.withIndex).forward member with
       | Witness (row, pixels) (Both inRows inRow) =>
-        match List.memMapElim (cell => [row, cell.fst]) at _ inRow with
-          | Witness (column, pixel) (Both kept same) =>
-            match List.memFilter pixels.withIndex (cell => cell.snd == Rough) kept with
-              | Both inPixels rough =>
+        match (List.memFilterMap _ at pixels.withIndex).forward inRow with
+          | Witness (column, pixel) (Both inPixels kept) =>
+            match pixel with
+              | Rough =>
                 let rowFound := (List.memWithIndex image.rows row pixels).forward inRows
-                let pixelFound := (List.memWithIndex pixels column pixel).forward inPixels
-                Witness row (Witness column (Both (Eq.sym same) (rewrite rowFound, pixelFound, DecEq.sound rough in rfl))),
+                let pixelFound := (List.memWithIndex pixels column Rough).forward inPixels
+                Witness row (Witness column (Both (Eq.sym (Option.someInjective kept)) (rewrite rowFound, pixelFound in rfl)))
+              | Calm => Void.exfalso (Option.noneNotSome at kept),
   backward = found =>
     match found with
       | Witness row (Witness column (Both same rough)) =>
@@ -28,10 +29,7 @@ theorem roughAtIff (image: Image) (at: List Nat):
             let pixelFound: pixels.get column = Some Rough := rough
             (List.memFlatMap _ at image.rows.withIndex).backward
               (Witness (row, pixels) (Both ((List.memWithIndex image.rows row pixels).backward rowFound)
-                (rewrite same in
-                  List.memMap _ (column, Rough)
-                    (List.memFilterIntro pixels.withIndex (cell => cell.snd == Rough) ((List.memWithIndex pixels column Rough).backward pixelFound) rfl)
-                    (cell => [row, cell.fst]))))
+                (List.memFilterMapIntro _ (column, Rough) at pixels.withIndex ((List.memWithIndex pixels column Rough).backward pixelFound) (rewrite same in rfl))))
 }
 
 theorem monsterIff (image: Image) (monster: Image) (row: Nat) (column: Nat):
@@ -64,7 +62,7 @@ theorem monsterStartsIff (image: Image) (monster: Image) (start: List Nat):
           ∧ row + monster.rows.length ≤ image.rows.length
           ∧ column + (monster.rows.headOr []).length ≤ (image.rows.headOr []).length
           ∧ Spec.MonsterAt image monster row column :=
-  let rough := Set.fromList image.roughAt
+  let rough := image.roughAt.toSet
   let rows := image.rows.length + 1 - monster.rows.length
   let columns := (image.rows.headOr [] |> .length) + 1 - (monster.rows.headOr [] |> .length)
   let starts := List.range 0 rows |> .flatMap (row => List.range 0 columns |> .map (column => [row, column]))
@@ -122,7 +120,7 @@ theorem monsterPixelsIff (image: Image) (monster: Image) (at: List Nat):
 --| sea monsters as `monster` draws them is the program's, and only it.
 theorem roughnessExactly (image: Image) (monster: Image) (cells: List (List Nat)) (listed: Spec.RoughCells image cells) (answer: Nat):
     Spec.Roughness image monster cells answer ↔ answer = image.roughnessWith monster :=
-  let rough := Set.fromList image.roughAt
+  let rough := image.roughAt.toSet
   let covered := image.monsterPixels monster
   let free := (at: List Nat) => not (covered.contains at)
   let roughCell: (at: List Nat) → at ∈ cells → rough.contains at = True :=
@@ -177,11 +175,17 @@ theorem withIndexDistinct (xs: List a) (fallback: a): List.Distinct xs.withIndex
     List.distinctMap (List.range 0 xs.length) (List.distinctRange 0 xs.length) _ (i j same => omega [Eq.cong Pair.fst same])
 
 theorem rowCellsDistinct (row: Nat) (pixels: List Pixel):
-    List.Distinct ((pixels.withIndex.filter (cell => cell.snd == Rough)).map (cell => [row, cell.fst])) :=
+    List.Distinct (pixels.withIndex.filterMap (match some | (column, Rough) => [row, column])) :=
+  let f: (Nat, Pixel) → Option (List Nat) := match some | (column, Rough) => [row, column]
+  let hk: (cell: (Nat, Pixel)) → (at: List Nat) → f cell = Some at → at = [row, cell.fst] := cell at kept =>
+    match cell with
+      | (column, Rough) => Eq.sym (Option.someInjective kept)
+      | (column, Calm) => Void.exfalso (Option.noneNotSome at kept)
   let keyed: List.Distinct (pixels.withIndex.map (cell => [row, cell.fst])) :=
     rewrite List.withIndexFromRange pixels Calm 0, List.mapMap (List.range 0 pixels.length) (cell => [row, cell.fst]) (i => (0 + i, List.getOr pixels i Calm)) in
       List.distinctMap (List.range 0 pixels.length) (List.distinctRange 0 pixels.length) _ (i j same => omega [Eq.cong (xs => (xs.drop 1).headOr 0) same])
-  List.distinctMapFilter pixels.withIndex (cell => [row, cell.fst]) (cell => cell.snd == Rough) keyed
+  rewrite <- List.mapId (pixels.withIndex.filterMap (match some | (column, Rough) => [row, column])) in
+    List.distinctMapFilterMap f (cell => [row, cell.fst]) (at => at) hk pixels.withIndex keyed
 
 --| A cell names its row, and the row's pixels are the image's row there,
 --| so cells of different rows differ.
@@ -192,9 +196,11 @@ theorem roughAtDistinct (image: Image): List.Distinct image.roughAt :=
     (entry member at inRow =>
       match entry with
         | (row, pixels) =>
-          match List.memMapElim (cell => [row, cell.fst]) at _ inRow with
-            | Witness cell (Both kept same) =>
-              rewrite <- same, (List.memWithIndex image.rows row pixels).forward member in rfl)
+          match (List.memFilterMap _ at pixels.withIndex).forward inRow with
+            | Witness (column, pixel) (Both inPixels kept) =>
+              match pixel with
+                | Rough => rewrite <- Option.someInjective kept, (List.memWithIndex image.rows row pixels).forward member in rfl
+                | Calm => Void.exfalso (Option.noneNotSome at kept))
 
 theorem roughCells (image: Image): Spec.RoughCells image image.roughAt := Both (roughAtDistinct image) (at => roughAtIff image at)
 
