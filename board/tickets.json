@@ -1,5 +1,5 @@
 {
-  "next": 1656,
+  "next": 1657,
   "tickets": [
     {
       "id": 47,
@@ -11422,13 +11422,13 @@
     {
       "id": 1646,
       "title": "Parse std: a Declines helper for 'spaces, then a line break, then anything' (day 16 proved it locally in ~45 lines, declinesRuleBeforeBreak); CannotStart can't, since a field name may start with a space (SW-1625)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "std"
       ],
-      "body": "From SW-1625, 6 Nov 2026.",
+      "body": "From SW-1625, 6 Nov 2026.\n\nDone, merged. Std Parse/Runs.sw: takeWhileOfCannotStart, runsNatBefore, declinesCharCannotStart, declinesTakeWhile1, allSpacesThen, declinesAfterSpacesBreak (SW-1646's helper), eachSteps. Days 4, 6, 13-17, 19, 20 switched over: 222 lines removed, 44 added; no statement changed. Skipped day 4's separator-generic lemma (as long as what it replaces). Model result: Sonnet, worked, 40 min (est. 60).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11436,13 +11436,13 @@
     {
       "id": 1647,
       "title": "Dedupe the completeness proofs after SW-1624: day 17's copies of day 3's checkGridComplete/findNoneOfMem/findNoneWithIndexFrom/all2WeakenMem; many1-of-symbols (days 6, 17, 19, 20) → a std runsMany1Symbols; noDigits/declinesComma/runsNumber (days 13, 15, 16) → std CannotStart isDigit lemmas; day 14's eachSteps to std (SW-1625)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1647",
       "labels": [
         "std"
       ],
-      "body": "From SW-1625, 6 Nov 2026. After SW-1624 merges.\n\nSW-1624 merged: std now has runsMany1Symbols, all2WeakenMem, findNoneOfMem, findNoneWithIndexFrom and Aoc.Common checkGridComplete, so day 17's copies and days 6/19/20's many1 code can switch to them. Also: day 4's oneOf [space, newline] end-of-list lemmas → a std version generic in the separator; days 9/10 share an eachLine nat lemma if a third appears. Convention: ParseComplete.sw where Complete.sw is taken.\n\nStarted on Sonnet (with SW-1646's day 16 helper), expected: 60 min.",
+      "body": "From SW-1625, 6 Nov 2026. After SW-1624 merges.\n\nSW-1624 merged: std now has runsMany1Symbols, all2WeakenMem, findNoneOfMem, findNoneWithIndexFrom and Aoc.Common checkGridComplete, so day 17's copies and days 6/19/20's many1 code can switch to them. Also: day 4's oneOf [space, newline] end-of-list lemmas → a std version generic in the separator; days 9/10 share an eachLine nat lemma if a third appears. Convention: ParseComplete.sw where Complete.sw is taken.\n\nStarted on Sonnet (with SW-1646's day 16 helper), expected: 60 min.\n\nDone, merged. Std Parse/Runs.sw: takeWhileOfCannotStart, runsNatBefore, declinesCharCannotStart, declinesTakeWhile1, allSpacesThen, declinesAfterSpacesBreak (SW-1646's helper), eachSteps. Days 4, 6, 13-17, 19, 20 switched over: 222 lines removed, 44 added; no statement changed. Skipped day 4's separator-generic lemma (as long as what it replaces). Model result: Sonnet, worked, 40 min (est. 60).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -11555,6 +11555,20 @@
         "runtime"
       ],
       "body": "From SW-1627, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1656,
+      "title": "Std lemma for symbol-per-part repetitions (Each … to text equality) to replace days 6, 19, 20's local eachLetters/eachPixels (SW-1647)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From SW-1647, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
