@@ -1,5 +1,5 @@
 {
-  "next": 1726,
+  "next": 1727,
   "tickets": [
     {
       "id": 47,
@@ -13408,6 +13408,21 @@
       ],
       "epic": "goal-as-written",
       "body": "From the bounded-readback review and revision, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1726,
+      "title": "[Opus] Strategy review: Stitchwort's unfolding approach (glued NbE, as-written search, size cap) against Lean's transparency and others; are we overcommitting, should we copy Lean, or does ours suit practical program proving better? Report docs/reviews/SW-N-unfolding-strategy.md",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1726",
+      "labels": [
+        "design"
+      ],
+      "epic": "goal-as-written",
+      "body": "Matt, 6 Nov 2026: asked for Opus to ponder this before the bounded-readback decisions. Read, web and write only. Started on Opus, expected: 75 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
