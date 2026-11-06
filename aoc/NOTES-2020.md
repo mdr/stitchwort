@@ -4717,7 +4717,7 @@ and these notes.
 `STITCHWORT_TIMINGS=1` puts the Proofs namespace at 138 ms of
 elaboration and 24 ms in the kernel; the rest of the cold time is std's.
 
-**Completeness (SW-1625).** `Proofs/Complete.sw`, 121 lines, about 4
+**Completeness (SW-1625).** `Proofs/Complete.sw`, 116 lines, about 4
 minutes. The parser is `Aoc.Common.parseGrid`, so the proof is day 3's
 (SW-1624) in this day's terms: the rows by the `many1`-of-single-characters
 pattern (`runsCube`, `manyRunsCubes`, `runsRow`, 40 lines), `runsEachLine`
@@ -5633,7 +5633,7 @@ and 1.2 s in the kernel, of which `roughnessTurned` is 1.7 s and 1.0 s
 (My Python took 108 s, from a naive backtracking assembly that re-turns
 every tile at every step; it isn't a fair comparison.)
 
-**Completeness (SW-1625).** `Proofs/Complete.sw`, 150 lines, about 4
+**Completeness (SW-1625).** `Proofs/Complete.sw`, 149 lines, about 4
 minutes. The shape is day 6's: a heading, then lines inside sections. The rows
 (`runsRow`, `manyRunsPixels`, `eachPixels`, 40 lines in all) are the
 `many1`-of-single-characters pattern again, copied with a `pixelSymbol` in
@@ -5642,10 +5642,9 @@ once merged). `stripDifferent` (6) proves `stripPrefixChars` is `None` when
 the first character differs, for `pick`'s `WordsAbsent` and for the `Tile `
 heading at the end of the sections. `runsTile` (32) is a five-step chain ending
 in `runsLinesOf` with `LinesEnd`; `runsJigsaw` is `runsSectionsOf` with
-`declinesSectionsAtBreaks` on `T`. No friction beyond the `rewrite e` that
-the checker flagged as not needed. The spec is tight enough for uniqueness;
-the rectangle check is in the program, not the parser, so it is not part of
-`JigsawWritten`.
+`declinesSectionsAtBreaks` on `T`. No friction beyond a `rewrite e` that
+the checker flagged as not needed. The spec is tight enough for uniqueness
+(`Jigsaw.rectangular` is a separate function, not part of the parse).
 
 ### Ranked
 
