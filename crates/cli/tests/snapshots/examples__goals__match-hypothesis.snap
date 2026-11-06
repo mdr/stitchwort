@@ -9,6 +9,6 @@ expression: output
    │               ┬  
    │               ╰── xs: List Nat
    │                   k: Nat
-   │                   h: Std.List.length xs = Succ k
+   │                   h: xs.length = Succ k
    │                   ⊢ Text
 ───╯

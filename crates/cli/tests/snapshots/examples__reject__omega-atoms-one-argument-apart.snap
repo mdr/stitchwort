@@ -2,25 +2,25 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-OMEGA] Error: `omega` can't prove `List.length (List.take xs length) ≤ 3`
+[E-OMEGA] Error: `omega` can't prove `(xs.take length).length ≤ 3`
    ╭─[ reject/omega-atoms-one-argument-apart.sw:8:46 ]
    │
  8 │     List.length (List.take xs length) ≤ 3 := omega
    │                                              ──┬──  
    │                                                ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
    │ 
-   │ Note 1: facts: `List.length (List.take xs count) ≤ 3` (h)
+   │ Note 1: facts: `(xs.take count).length ≤ 3` (h)
    │ 
-   │ Note 2: atoms: `List.length (List.take xs length)`, `List.length (List.take xs count)`
+   │ Note 2: atoms: `(xs.take length).length`, `(xs.take count).length`
    │ 
-   │ Note 3: `List.length (List.take xs length)` and `List.length (List.take xs count)` differ only in `length` and `count`, and no fact connects them
+   │ Note 3: `(xs.take length).length` and `(xs.take count).length` differ only in `length` and `count`, and no fact connects them
    │ 
-   │ Note 4: an integer model of the arithmetic abstraction (it may not be a real counterexample): List.length (List.take xs length) = 4, List.length (List.take xs count) = 0
+   │ Note 4: an integer model of the arithmetic abstraction (it may not be a real counterexample): (xs.take length).length = 4, (xs.take count).length = 0
    │ 
    │ Note 5: this statement is false; a counterexample:
    │           xs = [0, 0, 0, 0]
    │           count = 0
    │           length = 4
-   │         `List.length (List.take xs count) ≤ 3` holds
-   │         `List.length (List.take xs length) ≤ 3` is false
+   │         `(xs.take count).length ≤ 3` holds
+   │         `(xs.take length).length ≤ 3` is false
 ───╯

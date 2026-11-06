@@ -144,11 +144,9 @@ theorem emptyTotal: Basket.empty.total = 0 := rfl
 --        in `couponNeverAdds`
 --        coupon: Coupon
 --        total: Nat
---        ⊢ Coupon.apply coupon total ≤ total
+--        ⊢ coupon.apply total ≤ total
 --
---    Goals write calls in full, with the function's name first:
---    `Coupon.apply coupon total` is the `coupon.apply total` of the
---    statement.
+--    The goal is the statement, as you wrote it.
 --
 --    For a goal that follows the cursor, run "Stitchwort: Show Goals" from
 --    the command palette: a panel opens beside the editor, and shows the
@@ -167,7 +165,7 @@ theorem emptyTotal: Basket.empty.total = 0 := rfl
 -- 3. Now there are three goals, one per coupon. Move between them and watch
 --    the Goals panel: in the `NoCoupon` arm the goal is `total ≤ total`,
 --    and in the `PenceOff` arm `total - pence ≤ total`. In each arm the
---    checker knows which coupon it is, so `Coupon.apply` has computed.
+--    checker knows which coupon it is, so `coupon.apply` has computed.
 --
 -- 4. These are all arithmetic, which `omega` proves: `+`, `-`,
 --    comparisons, and multiplying or dividing by a constant, using every
@@ -208,9 +206,8 @@ theorem couponNeverAdds (coupon: Coupon) (total: Nat): coupon.apply total ≤ to
 --
 -- 2. The second goal, in the Goals panel, is
 --
---        ⊢ Item.cost item + totalOf (List.append rest others) = Item.cost item + totalOf rest + totalOf others
+--        ⊢ item.cost + totalOf (rest ++ others) = item.cost + totalOf rest + totalOf others
 --
---    (`List.append rest others` is `rest ++ others`, written as a call.)
 --    The left side has `totalOf (rest ++ others)`, which is this same
 --    theorem for the shorter list `rest`. Calling the theorem on `rest`
 --    is how induction is written: `totalAppend others rest` is the
@@ -222,7 +219,7 @@ theorem couponNeverAdds (coupon: Coupon) (total: Nat): coupon.apply total ≤ to
 --    `rewrite totalAppend others rest` in the second arm. It is red,
 --    with `E-REFL`: hover over it, and the last note shows the goal after
 --    rewriting,
---    `Item.cost item + (totalOf rest + totalOf others) = Item.cost item + totalOf rest + totalOf others`.
+--    `item.cost + (totalOf rest + totalOf others) = item.cost + totalOf rest + totalOf others`.
 --    It's the same sum, bracketed differently. `Nat.addAssoc` is the
 --    library's lemma that moves the brackets (F12 on it shows its
 --    statement), and `rewrite` takes several equations, used in order.
@@ -295,7 +292,7 @@ theorem shareAtMost (basket: Basket) (people: Nat) (someone: people ≠ 0): bask
 -- `590`. `addCost` says
 --
 --     [E-REFL] `rfl` can't prove this
---     `Basket.total (Basket.add basket item)` and `Item.cost item + Basket.total basket` aren't equal
+--     `(basket.add item).total` and `item.cost + basket.total` aren't equal
 --
 -- and its notes show what each side computed to, `totalOf basket.items`
 -- against `item.pence * item.count + totalOf basket.items`, then a

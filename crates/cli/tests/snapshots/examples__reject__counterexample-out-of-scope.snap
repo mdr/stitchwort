@@ -7,7 +7,7 @@ expression: output
    │
  6 │ theorem mapKeeps (f: Nat → Nat) (xs: List Nat): List.map xs f = xs := rfl
    │                                                                       ─┬─  
-   │                                                                        ╰─── `List.map xs f` and `xs` aren't equal
+   │                                                                        ╰─── `xs.map f` and `xs` aren't equal
    │ 
    │ Note: `rfl` proves `a = b` only when both sides compute to the same value
 ───╯

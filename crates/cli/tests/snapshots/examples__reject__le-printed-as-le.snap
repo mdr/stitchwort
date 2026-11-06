@@ -7,7 +7,5 @@ expression: output
     │
  11 │   h
     │   ┬  
-    │   ╰── expected `List.count (List.takeWhile (List.rangeFrom width 1) (n => n * slope < height)) (n => n < … + … + List.length thirdRows + depth) = List.length firstRows + List.length secondRows + List.length thirdRows + depth`, but this has type `List.count (List.takeWhile (List.rangeFrom width 1) (n => n * slope <= height)) (n => n < … + … + List.length thirdRows + depth) = List.length firstRows + List.length secondRows + List.length thirdRows + depth`
-    │ 
-    │ Note: they first differ at `n * slope < height` against `n * slope <= height`, in `List.takeWhile (List.rangeFrom width 1) (n => n * slope < height)`
+    │   ╰── expected `((List.rangeFrom width 1).takeWhile (n => n * slope < height)).count (n => n < firstRows.length + secondRows.length + thirdRows.length + depth) = firstRows.length + secondRows.length + thirdRows.length + depth`, but this has type `((List.rangeFrom width 1).takeWhile (n => n * slope <= height)).count (n => n < firstRows.length + secondRows.length + thirdRows.length + depth) = firstRows.length + secondRows.length + thirdRows.length + depth`
 ────╯

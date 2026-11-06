@@ -7,7 +7,7 @@ expression: output
    │
  4 │ def neSymm (a: Nat) (b: Nat) (h: ((a != b): Bool) = True): (a != b) = (b != a) := h
    │                                                                                   ┬  
-   │                                                                                   ╰── expected `(a ≠ b) = (b ≠ a)`, but this has type `Std.Decidable.toBool (Std.Decidable.not (Std.Nat.decEq a b)) = True`
+   │                                                                                   ╰── expected `(a ≠ b) = (b ≠ a)`, but this has type `(a.decEq b).not.toBool = True`
    │ 
    │ Note: `!=` here is the proposition `≠`; for the `Bool` test write `((a != b): Bool)`
 ───╯

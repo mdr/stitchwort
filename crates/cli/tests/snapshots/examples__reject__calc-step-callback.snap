@@ -1,6 +1,5 @@
 ---
 source: crates/cli/tests/examples.rs
-assertion_line: 624
 expression: output
 ---
 [E-CALC-STEP] Error: this step doesn't prove what its line says
@@ -10,5 +9,5 @@ expression: output
    │                                                     ──────┬─────  
    │                                                           ╰─────── this proves `0 = 0`
    │ 
-   │ Note: the line says `List.sumBy (0 ..< n) (r => r) = List.sumBy (0 ..< n) (r => r + 0)`
+   │ Note: the line says `(0 ..< n).sumBy (r => r) = (0 ..< n).sumBy (r => r + 0)`
 ───╯

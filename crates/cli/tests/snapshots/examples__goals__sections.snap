@@ -11,15 +11,15 @@ expression: output
     │       items: List Item
     │       id: Nat
     │       n: Nat
-    │       matching: Nat := Std.List.count xs (== id)
-    │       flipped: Nat := Std.List.count xs (id ==)
-    │       others: Nat := Std.List.count xs (!= id)
-    │       next: List Nat := Std.List.map xs (+ 1)
-    │       doubled: List Nat := Std.List.map xs (n * 2 +)
-    │       small: List Nat := Std.List.filter xs (< n)
-    │       large: List Nat := Std.List.filter xs (n <)
-    │       total: Nat := Std.List.foldLeft xs 0 (+)
-    │       found: List Item := Std.List.filter items (x => x.id == id)
+    │       matching: Nat := xs.count (== id)
+    │       flipped: Nat := xs.count (id ==)
+    │       others: Nat := xs.count (!= id)
+    │       next: List Nat := xs.map (+ 1)
+    │       doubled: List Nat := xs.map (n * 2 +)
+    │       small: List Nat := xs.filter (< n)
+    │       large: List Nat := xs.filter (n <)
+    │       total: Nat := xs.foldLeft 0 (+)
+    │       found: List Item := items.filter (x => x.id == id)
     │       ⊢ Nat
 ────╯
 [GOAL] Goal: in `countBelow`
@@ -29,5 +29,5 @@ expression: output
     │                                                                           ┬  
     │                                                                           ╰── xs: List Nat
     │                                                                               n: Nat
-    │                                                                               ⊢ Std.List.count xs (< n) ≤ Std.List.length xs
+    │                                                                               ⊢ xs.count (< n) ≤ xs.length
 ────╯
