@@ -13,6 +13,10 @@
 //! `J M t (Eq.sym p)`, with `t` checked against `G[b]`. Elaboration only: the
 //! kernel re-checks the `J`.
 //!
+//! The search runs first over the goal and `a` as written (calls kept), and
+//! over the unfolded goal only if that finds nothing or isn't complete
+//! ([`as_written`]).
+//!
 //! **The search** walks the goal term in pre-order (a term before its parts,
 //! an application's arguments left to right) and never looks inside a
 //! selected occurrence, so matches don't overlap. Each candidate goes through
@@ -62,6 +66,7 @@ use crate::lift::replace_with;
 use crate::matching::same;
 use crate::undo::{Snapshot, fatal};
 
+mod as_written;
 mod under;
 
 /// Evaluation steps all the comparisons of one `rewrite` may use between
@@ -330,6 +335,19 @@ fn rewrite_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         term = Term::J(Rc::new(step.motive), Rc::new(term), Rc::new(step.proof));
     }
     Ok(term)
+}
+
+/// The unknowns in `term`: the `auto` proofs still to be found.
+fn pending_metas(term: &Term) -> Vec<usize> {
+    term.subterms()
+        .filter_map(|(t, _)| {
+            if let Term::Meta(m) = t {
+                Some(*m)
+            } else {
+                None
+            }
+        })
+        .collect()
 }
 
 /// One rule's rewrite of the goal (or of a target's type).
@@ -714,16 +732,7 @@ fn rewrite_once(
     let mut goal_term = cx.quote(&goal_value)?;
     // An `auto` proof still to be found inside the goal could depend on what
     // is replaced, which only shows once it is found.
-    let pending: Vec<usize> = goal_term
-        .subterms()
-        .filter_map(|(t, _)| {
-            if let Term::Meta(m) = t {
-                Some(*m)
-            } else {
-                None
-            }
-        })
-        .collect();
+    let pending = pending_metas(&goal_term);
     if !pending.is_empty() && cx.e.prove_now(&|m| pending.contains(&m))? {
         goal_term = cx.quote(&goal_value)?;
     }
@@ -783,18 +792,48 @@ fn rewrite_once(
         equation = elaborate_rule(cx, rule, place)?;
     }
     let shape = Shape::Whole(&current_term);
-    let replaced = if steps.is_empty() {
-        replace_solving_instances(cx, rule, place, &equation, &current, shape, 0, remaining)?
+    let (replaced, discharged) = if steps.is_empty() {
+        match as_written::first(
+            cx,
+            rule,
+            place,
+            &equation,
+            goal,
+            (&current, &current_term),
+            remaining,
+        )? {
+            Some(replaced) => (replaced, true),
+            None => {
+                let replaced = replace_solving_instances(
+                    cx, rule, place, &equation, &current, shape, 0, remaining,
+                )?;
+                // Nothing in the goal's unfolding either: a left side found
+                // only in the goal as written (hidden copies and all) is
+                // still better than none.
+                match replaced.step {
+                    None => {
+                        match as_written::rescue(cx, rule, place, &equation, goal, remaining)? {
+                            Some(rescued) => (rescued, true),
+                            None => (replaced, false),
+                        }
+                    }
+                    Some(_) => (replaced, false),
+                }
+            }
+        }
     } else {
-        replace_occurrences(
+        let replaced = replace_occurrences(
             cx, rule, place, &equation, &current, shape, 0, false, remaining,
-        )?
+        )?;
+        (replaced, false)
     };
     let found = replaced.stats;
     stats.add(&found);
     match replaced.step {
         Some(step) => {
-            discharge(cx, rule, &equation, 0, remaining)?;
+            if !discharged {
+                discharge(cx, rule, &equation, 0, remaining)?;
+            }
             steps.push(step);
         }
         // The rule matched only inside functions: what was made for it
@@ -932,32 +971,59 @@ fn replace_occurrences(
     by_instances: bool,
     remaining: &mut u64,
 ) -> Result<Replaced> {
+    replace_occurrences_as(
+        cx,
+        rule,
+        place,
+        equation,
+        goal,
+        shape,
+        recent,
+        by_instances,
+        false,
+        remaining,
+    )
+}
+
+/// [`replace_occurrences`], over the goal and the left side read back as
+/// they are written (`folded`, calls kept: [`as_written`]) or unfolded.
+#[allow(clippy::too_many_arguments)]
+fn replace_occurrences_as(
+    cx: &mut Ctx,
+    rule: &RewriteRule,
+    place: Place,
+    equation: &Equation,
+    goal: &Value,
+    shape: Shape,
+    recent: usize,
+    by_instances: bool,
+    folded: bool,
+    remaining: &mut u64,
+) -> Result<Replaced> {
     let g = cx.g();
-    let lhs_term = cx.quote(&equation.lhs)?;
+    let lhs_term = if folded {
+        cx.quote_folded(&equation.lhs)?
+    } else {
+        cx.quote(&equation.lhs)?
+    };
     let Some(key) = key(&lhs_term, 0) else {
         return Err(waiting_head(cx, &lhs_term)?
             .unwrap_or_else(|| unknown_head(rule, place, &equation.premises)));
     };
     let open = equation.open(&lhs_term);
     let level = cx.level();
-    let kcx = kernel_context(cx)?;
-    let search = Search {
-        kcx: RefCell::new(kcx),
-        cx: RefCell::new(cx),
+    let search = Search::new(
+        cx,
         rule,
         place,
-        carrier: &equation.carrier,
-        lhs: &equation.lhs,
-        lhs_term: RefCell::new(lhs_term),
+        equation,
+        lhs_term,
         key,
         recent,
         by_instances,
-        rule_metas: equation.rule_metas,
-        remaining: Cell::new(*remaining),
-        stats: RefCell::new(Stats::default()),
-        error: RefCell::new(None),
-        first: RefCell::new(None),
-    };
+        folded,
+        *remaining,
+    )?;
     // The goal with the occurrences replaced by `x`, under `x _ =>`.
     let moved = |l| Ok(Term::Var(level + 2 - 1 - l));
     let searched_term = match shape {
@@ -1109,6 +1175,10 @@ struct Search<'a, 'e> {
     /// the arguments of calls of the same definition
     /// ([`crate::unify::unify_solving_arguments`]).
     by_instances: bool,
+    /// Whether the goal and the left side are read back as written
+    /// ([`as_written`]): a candidate is then also compared by the arguments
+    /// of calls of the same definition, which solves the rule's unknowns.
+    folded: bool,
     /// Metavariables from this index on were made for the rule.
     rule_metas: usize,
     remaining: Cell<u64>,
@@ -1117,6 +1187,42 @@ struct Search<'a, 'e> {
     error: RefCell<Option<Diagnostic>>,
     /// The first occurrence selected, in the goal's own context.
     first: RefCell<Option<Term>>,
+}
+
+impl<'a, 'e> Search<'a, 'e> {
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        cx: &'a mut Ctx<'e>,
+        rule: &'a RewriteRule,
+        place: Place<'a>,
+        equation: &'a Equation,
+        lhs_term: Term,
+        key: Key,
+        recent: usize,
+        by_instances: bool,
+        folded: bool,
+        remaining: u64,
+    ) -> Result<Self> {
+        let kcx = kernel_context(cx)?;
+        Ok(Search {
+            kcx: RefCell::new(kcx),
+            cx: RefCell::new(cx),
+            rule,
+            place,
+            carrier: &equation.carrier,
+            lhs: &equation.lhs,
+            lhs_term: RefCell::new(lhs_term),
+            key,
+            recent,
+            by_instances,
+            folded,
+            rule_metas: equation.rule_metas,
+            remaining: Cell::new(remaining),
+            stats: RefCell::new(Stats::default()),
+            error: RefCell::new(None),
+            first: RefCell::new(None),
+        })
+    }
 }
 
 impl Search<'_, '_> {
@@ -1210,6 +1316,9 @@ impl Search<'_, '_> {
                 if crate::undo::unify(cx, &value, self.lhs)? {
                     return Ok(true);
                 }
+                if self.folded && crate::undo::unify_solving_arguments(cx, &value, self.lhs)? {
+                    return Ok(true);
+                }
                 // A `match` in the rule not lifted yet: an occurrence if it turns
                 // out to be the same as the one here.
                 Ok(crate::lift::mentions_draft(cx, &self.lhs_term.borrow())
@@ -1232,7 +1341,11 @@ impl Search<'_, '_> {
                     snapshot.restore(cx);
                     return Ok(None);
                 }
-                let solved = cx.quote(self.lhs)?;
+                let solved = if self.folded {
+                    cx.quote_folded(self.lhs)?
+                } else {
+                    cx.quote(self.lhs)?
+                };
                 *self.lhs_term.borrow_mut() = solved;
                 Ok(Some(candidate))
             }

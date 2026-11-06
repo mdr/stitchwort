@@ -251,8 +251,13 @@ Import what you use: std's theorems live in namespaces that need an import
   goal and checks `t` against the result; `rewrite <- p`, `rewrite p at h`.
   It needs a known goal (`E-REWRITE-NO-GOAL` otherwise). It replaces every
   occurrence of the first instance it matches. It looks for the left side
-  in the goal *as it computes*, so a definition the goal already unfolded
-  isn't there to find (8 items in agentic-proving.md §5 E). Give the rule its arguments
+  in the goal *as written* first (the form goals are printed in, calls kept,
+  so `rewrite isSafeCorrect _` finds `isSafe { levels = xs }` and the next
+  goal keeps `isSafe`), and uses that when no copy of the left side is
+  left hidden inside a call; otherwise, and when it finds nothing, in the
+  goal *as it computes*, so a rule can still rewrite inside a definition.
+  What the goal already unfolded (a call that steps at once, arithmetic) is
+  not there to find in either (8 items in agentic-proving.md §5 E). Give the rule its arguments
   when you can (§6). Inside a function argument it goes through the
   call's congruence lemma (`List.mapCong`, …).
 - **`calc`** chains steps `_ = e := proof`, `_ <= e`, `_ < e`; a step with
@@ -339,7 +344,7 @@ Each was run on the example named; the output is quoted, shortened.
   says the fix: a top-level helper with a written signature
   (`examples/reject/match-bad-motive.sw`).
 - **`E-REWRITE-*`**:
-  - `E-REWRITE-NOTHING`: the left side isn't in the goal as it computes. The
+  - `E-REWRITE-NOTHING`: the left side isn't in the goal as written, nor as it computes. The
     notes show the goal "as written" and "as it computes", and say when the
     goal already holds by computing (`examples/reject/rewrite-nothing.sw`).
     A `match c: e` refines the hypotheses that mention `e` as well as the
