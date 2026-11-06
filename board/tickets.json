@@ -10274,13 +10274,13 @@
     {
       "id": 1564,
       "title": "List.foldLeft with a pure lambda inside a {Parse} function is compiled as a Parse step (Parse.readsDone can't take it; error names Std.Effect.foldComp); compile pure, or explain (day 18)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1564",
       "labels": [
         "elab"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1557 (2020 day 18).",
+      "body": "Filed overnight 6 Nov 2026 from SW-1557 (2020 day 18).\n\nStarted overnight on Sonnet (SW-1564 with SW-1565), expected: 50 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10288,13 +10288,13 @@
     {
       "id": 1565,
       "title": "E-ABILITY when a method is passed where () → {Parse} a is expected: suggest () => x.method, not adding Parse to the function's type (day 18)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1564",
       "labels": [
         "diagnostics"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1557 (2020 day 18).",
+      "body": "Filed overnight 6 Nov 2026 from SW-1557 (2020 day 18).\n\nStarted overnight on Sonnet (SW-1564 with SW-1565), expected: 50 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
