@@ -1,0 +1,18 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/match-lemma-unnamed-equation.sw:21:15 ]
+    │
+ 20 │   match slot.field with
+    │         ─────┬────  
+    │              ╰────── this `match` replaced its scrutinee with `None` in this branch
+ 21 │     | None => widthUpTo slot
+    │               ───────┬──────  
+    │                      ╰──────── expected `slot.size ≤ slot.size + slot.size`, but this has type `width slot.field slot.size ≤ width slot.field slot.size + slot.size`
+    │ 
+    │ Note 1: what's expected was refined by the `match`: it has `None` where this has the scrutinee. The goal, the hypotheses and the `let`-bound lemmas from before the `match` are refined; the `match`'s own equation and terms written in the branch aren't
+    │ 
+    │ Note 2: name the `match`'s equation, `match h: … with`: a proof whose type has the scrutinee where this branch has its value, or the other way round, is then rewritten along it. Or bind the lemma with `let` before the `match`, so it is refined like the hypotheses
+────╯

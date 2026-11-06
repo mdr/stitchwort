@@ -82,21 +82,18 @@ theorem settleAdds (settled: List Rule): (slots: List Slot) → (next: List Slot
   | [slot, ..slots], next, found =>
     match field: slot.field with
       | Some existing =>
-        let passed := passAdds settled slot slots next found (settleAdds settled slots)
-        rewrite field at passed in passed
+        passAdds settled slot slots next found (settleAdds settled slots)
       | None =>
         match left: slot.remaining settled with
           | [] =>
-            let passed := passAdds settled slot slots next found (settleAdds settled slots)
-            rewrite field at passed in passed
+            passAdds settled slot slots next found (settleAdds settled slots)
           | [only] =>
             let kept := And.right (List.memFilter slot.candidates (rule => not (settled.contains rule)) (rewrite left in Inl rfl))
             rewrite <- Option.someInjective found in
               Witness only (Both (Bool.notTrue _ kept) (other =>
                 Eq.trans (List.countCons (settledFields slots) only (field => field == other)) (Nat.addComm _ _)))
           | [first, second, ..more] =>
-            let passed := passAdds settled slot slots next found (settleAdds settled slots)
-            rewrite field at passed in passed
+            passAdds settled slot slots next found (settleAdds settled slots)
 
 theorem settleOnce (slots: List Slot) (next: List Slot) (found: settle (settledFields slots) slots = Some next) (once: Once slots): Once next :=
   match settleAdds (settledFields slots) slots next found with

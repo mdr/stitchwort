@@ -843,7 +843,7 @@ fn replaced_by_match(cx: &Ctx, lhs: &Value, place: Place, error: Diagnostic) -> 
     let Ok(lhs_term) = cx.quote(lhs) else {
         return error;
     };
-    for (base, needle, span, var) in cx.scrutinees.iter().rev() {
+    for (base, needle, span, var, _) in cx.scrutinees.iter().rev() {
         let Ok(needle) = needle.shift(&g, level - base, 0) else {
             continue;
         };

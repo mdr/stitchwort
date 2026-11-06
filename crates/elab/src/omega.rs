@@ -2479,7 +2479,7 @@ fn replaced_by_match(cx: &Ctx, a: &Term, b: &Term) -> Option<Term> {
         term.subterms()
             .any(|(t, binders)| binders == 0 && crate::matching::same(t, needle))
     };
-    cx.scrutinees.iter().rev().find_map(|(base, needle, _, _)| {
+    cx.scrutinees.iter().rev().find_map(|(base, needle, ..)| {
         let needle = needle.shift(&g, level - base, 0).ok()?;
         (mentions(a, &needle) != mentions(b, &needle)).then_some(needle)
     })

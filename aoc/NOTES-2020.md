@@ -4188,6 +4188,14 @@ ran, which the source doesn't show. Accepting the equation wherever the
 refined form is expected (they are equal by the equation) would remove
 the guess.
 
+SW-1538 fixed both: in a named `match`, a proof whose type has the
+scrutinee where what's expected has the arm's value (or the other way
+round) is rewritten along the `match`'s equation, so `passAdds …` is now
+written directly in the three arms, and the equation fits where the
+refined form is expected. Without a name, `E-TYPE-MISMATCH` says to add
+one (or bind the lemma before the `match`); `E-REFL` names the equation
+where it, not `rfl`, proves a premise.
+
 ### 2. Std's `List.All2` has almost no toolkit
 
 `List.All2` has `all2Weaken`, `all2Length`, `all2Map`, `all2MapLeft` and

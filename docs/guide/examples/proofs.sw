@@ -168,6 +168,13 @@ theorem clampToAtMost (limit: Nat) (n: Nat): clampTo limit n ≤ limit :=
     | False => Nat.leRefl limit
 -- end match-equation
 
+-- begin match-lemma
+theorem clampToFits (limit: Nat) (n: Nat): clampTo limit n ≤ limit ∧ clampTo limit n ≤ n :=
+  match fits: Nat.leq n limit with
+    | True => Both (clampToAtMost limit n) (Nat.leRefl n)
+    | False => Both (clampToAtMost limit n) omega
+-- end match-lemma
+
 -- begin decide
 def firstOr (fallback: Nat) (xs: List Nat): Nat :=
   if nonempty: 0 < xs.length then xs.headOr fallback else fallback

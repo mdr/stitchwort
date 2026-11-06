@@ -552,6 +552,18 @@ theorem clampToAtMost (limit: Nat) (n: Nat): clampTo limit n ≤ limit :=
 
 On `Nat`, the statement `a <= b` computes to `Nat.leq a b = True`, and goals are shown computed: that is shown as `a ≤ b`, and the `Bool` `Nat.leq a b` alone as `a <= b`. In the `True` branch the goal is then exactly `fits`, and in the `False` branch it is `limit <= limit`, which `Nat.leRefl limit` proves.
 
+The `match` replaces `e` in the goal and in the hypotheses, but not in a lemma you call inside a branch: `clampToAtMost limit n` still says `clampTo limit n ≤ limit`, where the `True` branch's goal has `n ≤ limit`. Since they differ only in `e` against its value, the lemma's proof is rewritten along `fits` for you:
+
+<!-- snippet: proofs.sw#match-lemma -->
+```stitchwort
+theorem clampToFits (limit: Nat) (n: Nat): clampTo limit n ≤ limit ∧ clampTo limit n ≤ n :=
+  match fits: Nat.leq n limit with
+    | True => Both (clampToAtMost limit n) (Nat.leRefl n)
+    | False => Both (clampToAtMost limit n) omega
+```
+
+That needs the equation's name: in a `match` without one, the error says to add it. The same goes the other way: a lemma's premise `Nat.leq n limit = True`, written in the `True` branch, is proved by `fits`, which says exactly that, and `rfl` can't prove it.
+
 ## Membership, "if and only if", "there exists"
 
 Three more forms come up in statements, each with a Unicode spelling you may use instead:
