@@ -1,5 +1,5 @@
 {
-  "next": 1691,
+  "next": 1692,
   "tickets": [
     {
       "id": 47,
@@ -11204,7 +11204,7 @@
       "labels": [
         "elab"
       ],
-      "body": "D2475-D2480 (Matt, 6 Nov 2026): all as recommended in docs/proposals/goal-as-written.md: rewrite/match/cases/transport look as written first with a completeness check and today's search as fallback; the as-written search may solve a rule's unknowns; keep today's reach into hidden copies, no occurrence selection now (D2478); out-of-resources check uses the as-written result; rewrite f later. 'happy to go with your recommendation.' 45 min. After stage 2.\n\nD2506 (Matt, 6 Nov 2026): SW-1627 stays on Sonnet with the Opus review, but from now on core language changes (kernel, rewrite/match tactics, unifier, syntax, std core) go to Opus: 'core/kernel language changes feel like we can afford a bit more intelligence to be safe!' So: Opus.\n\nStarted on Opus, expected: 60 min.\n\nLane done (52b8bb3c2), in Opus review. Only \"too large to show\" is recovered (undo::recoverable); rewrite and match use the as-written result with W-REWRITE-UNCONFIRMED / W-MATCH-UNCONFIRMED; a hidden copy found by a completed check keeps today's error. Day 11's settle … 1000 checks with the warning (file restored). Orchestrator's calls (implementation): keep the lane's step where match falls back to today's confirmed result when only the as-written check runs out; keep the two warning codes. Model result: Opus, pending review, 62 min (est. 60).",
+      "body": "D2475-D2480 (Matt, 6 Nov 2026): all as recommended in docs/proposals/goal-as-written.md: rewrite/match/cases/transport look as written first with a completeness check and today's search as fallback; the as-written search may solve a rule's unknowns; keep today's reach into hidden copies, no occurrence selection now (D2478); out-of-resources check uses the as-written result; rewrite f later. 'happy to go with your recommendation.' 45 min. After stage 2.\n\nD2506 (Matt, 6 Nov 2026): SW-1627 stays on Sonnet with the Opus review, but from now on core language changes (kernel, rewrite/match tactics, unifier, syntax, std core) go to Opus: 'core/kernel language changes feel like we can afford a bit more intelligence to be safe!' So: Opus.\n\nStarted on Opus, expected: 60 min.\n\nLane done (52b8bb3c2), in Opus review. Only \"too large to show\" is recovered (undo::recoverable); rewrite and match use the as-written result with W-REWRITE-UNCONFIRMED / W-MATCH-UNCONFIRMED; a hidden copy found by a completed check keeps today's error. Day 11's settle … 1000 checks with the warning (file restored). Orchestrator's calls (implementation): keep the lane's step where match falls back to today's confirmed result when only the as-written check runs out; keep the two warning codes. Model result: Opus, pending review, 62 min (est. 60).\n\nOpus review: merge after fixes. (1) High: nested settle shapes (mt12.sw) never end on the lane (main: E-RESOURCE in 3 s); the kernel's identical/free_variables run outside the budget. (2) Medium: E-REWRITE-BUDGET with a pending unknown is accepted instead of queued. (3–5) Low: recoverable by elimination; warnings survive undo; stale too-large note. Back to the lane, expected: 60 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -12045,6 +12045,20 @@
         "tactics"
       ],
       "body": "From the SW-1650 review, 6 Nov 2026. Also Int.toNat and Int max/min the same way.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1691,
+      "title": "rewrite … at h with a too-large hypothesis type still ends in E-RESOURCE; stage 4 covers goals only (SW-1630 review)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tactics"
+      ],
+      "body": "From the SW-1630 review, 6 Nov 2026 (s4/m5.sw atHyp).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
