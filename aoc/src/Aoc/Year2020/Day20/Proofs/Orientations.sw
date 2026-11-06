@@ -114,3 +114,42 @@ theorem columnsLast (fallback: a) (width: Nat) (first: List a) (rest: List (List
     (List.transposeN width [first, ..rest]).map (column => column.last.getOrElse fallback) = List.last [first, ..rest] |> .getOrElse [] :=
   match lastMemCons first rest with
     | Witness row found => rewrite found in columnsLastRow fallback width [first, ..rest] row sized found
+
+theorem allLengthReverseOnto (n: Nat): (xs: List (List a)) → (acc: List (List a)) → List.AllLength n xs → List.AllLength n acc → List.AllLength n (List.reverseOnto xs acc)
+  | [], acc, sized, accSized => accSized
+  | [x, ..rest], acc, Both sized more, accSized => allLengthReverseOnto n rest [x, ..acc] more (Both sized accSized)
+
+theorem reverseNil (xs: List a) (empty: xs.reverse = []): xs = [] :=
+  List.lengthZero xs (rewrite <- List.lengthReverse xs, empty in rfl)
+
+--| Turned a quarter clockwise, a rectangle's left edge, reversed, is its
+--| top; its top is its right; its right, reversed, its bottom; and its
+--| bottom its left.
+theorem rotateEdges (image: Image) (k: Nat) (sized: List.AllLength (Succ k) image.rows) (nonEmpty: image.rows ≠ []):
+    Spec.edges image.rotate
+      = [(image.rows.map (row => row.headOr Calm)).reverse, image.rows.headOr [], (image.rows.map (row => row.last.getOrElse Calm)).reverse, image.rows.last.getOrElse []] :=
+  let reversedSized: List.AllLength (Succ k) image.rows.reverse := allLengthReverseOnto (Succ k) image.rows [] sized Trivial
+  let left := (image.rows.map (row => row.headOr Calm)).reverse
+  let right := (image.rows.map (row => row.last.getOrElse Calm)).reverse
+  let shaped: (turned: List (List Pixel)) → turned = image.rows.reverse →
+      Spec.edges { rows = turned.transpose } = [left, image.rows.headOr [], right, image.rows.last.getOrElse []] :=
+    turned same =>
+      match turned with
+        | [] => Void.exfalso (nonEmpty (reverseNil image.rows (Eq.sym same)))
+        | [first, ..rest] =>
+          let turnedSized: List.AllLength (Succ k) [first, ..rest] := rewrite <- same at reversedSized in reversedSized
+          let width: first.length = Succ k := turnedSized.left
+          let top: List.filterMap [first, ..rest] (.get 0) = left :=
+            Eq.trans (firstColumn Calm [first, ..rest] k turnedSized)
+              (Eq.trans (Eq.cong (rows => rows.map (row => row.headOr Calm)) same) (List.mapReverse image.rows (row => row.headOr Calm)))
+          let toRight: (List.transposeN (Succ k) [first, ..rest]).map (column => column.last.getOrElse Calm) = image.rows.headOr [] :=
+            Eq.trans (columnsLast Calm (Succ k) first rest turnedSized)
+              (Eq.trans (Eq.cong (rows => List.last rows |> .getOrElse []) same) (lastReverse [] image.rows))
+          let bottom: (List.transposeN (Succ k) [first, ..rest]).last.getOrElse [] = right :=
+            Eq.trans (lastColumn Calm k [first, ..rest] turnedSized)
+              (Eq.trans (Eq.cong (rows => rows.map (row => row.last.getOrElse Calm)) same) (List.mapReverse image.rows (row => row.last.getOrElse Calm)))
+          let toLeft: (List.transposeN (Succ k) [first, ..rest]).map (column => column.headOr Calm) = image.rows.last.getOrElse [] :=
+            Eq.trans (columnsFirst Calm (Succ k) first rest turnedSized)
+              (Eq.trans (Eq.cong (rows => rows.headOr []) same) (headReverse [] image.rows))
+          rewrite width in rewrite <- top, <- toRight, <- bottom, <- toLeft in rfl
+  shaped image.rows.reverse rfl
