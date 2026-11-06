@@ -1,5 +1,5 @@
 {
-  "next": 1765,
+  "next": 1766,
   "tickets": [
     {
       "id": 47,
@@ -13940,14 +13940,14 @@
     {
       "id": 1761,
       "title": "[Sonnet] Merge tier toward 90 s: pinned_hashes, hash_stability prelude and validate_cong each check std from source (~13 s CPU each); hash_stability sweep workers each build a session from source; cli build tests 82-105 s; the examples/hash sweeps are the tier's long poles",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1761",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From SW-1751, 6 Nov 2026. Expected: 75 min.",
+      "body": "From SW-1751, 6 Nov 2026. Expected: 75 min.\n\nDone, merged (9b9b44c07). On main after the merge (cold caches, load ~11-29): task test:merge 1094/1094, **76 s** of tests (104 s before SW-1761, 153-172 s before SW-1751); 140 s real including the rebuild. Left: a fill-the-cache-first group so waiters don't hold slots; replay in the daily tier for examples and hash sweeps (prelude stays from source); STITCHWORT_TIER unset means daily, so test:one checks from source. Model result: Sonnet, worked, 35 min (est. 75).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -13993,6 +13993,21 @@
       ],
       "epic": "record-eta",
       "body": "D2364 (kernel change). Started on Opus, expected: 60 min.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1765,
+      "title": "Daily tier: replay std from the test cache in the examples and hash_stability sweeps (hash_stability prelude stays the single from-source check), and a fill-the-cache-first group so waiting tests don't hold slots (SW-1761)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1761, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []

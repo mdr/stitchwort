@@ -461,18 +461,14 @@
         "task test:affected picks tests from a diff, within a budget (SW-1752)",
         "Web AoC test 417 → 169 s, AoC answers 444 → 174 s (SW-1732, SW-1733)",
         "Merge tier trimmed: 104 s of tests on main, from 153-172 s (SW-1751)",
-        "Cache key design: narrowing would help 3-4% of changes; fill once per run instead (SW-1753)"
+        "Cache key design: narrowing would help 3-4% of changes; fill once per run instead (SW-1753)",
+        "Merge tier 76 s on main, cold (from 153-172 s): std replayed where checking it isn't the point (SW-1761)"
       ],
       "now": [
-        "Merge tier toward 90 s (SW-1761)",
         "Compile time after incremental builds (SW-1754)"
       ],
       "next": [
-        "Merge tier profile (SW-1751); affected-test selection (SW-1752)",
-        "Caches that survive a compiler change (SW-1753, SW-1745)",
-        "Compile time after incremental builds (SW-1754); kache (SW-1735); mimalloc (SW-1742)",
-        "Std cache once per run (SW-1741); sweeps not overlapping (SW-1734)",
-        "Bigger: one test binary per crate (SW-1736); split elab, plan only (SW-1737)"
+        "Daily tier replays std in the sweeps (SW-1765)"
       ],
       "links": [
         "D2532",
