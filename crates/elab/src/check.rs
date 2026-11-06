@@ -4593,22 +4593,20 @@ pub(crate) fn check_value(
                 ctor, fields, span, ..
             },
             _,
-        ) => {
-            match records::ctor_fields(cx, ctor, fields, *span, Some(&expected))? {
-                records::Construction::Positional(positional) => {
-                    check_inner(cx, &positional, &expected)
-                }
-                records::Construction::Argument(positional, hint) => {
-                    check_inner(cx, &positional, &expected).map_err(|e| match &hint {
-                        Some(hint) => hint.apply(e),
-                        None => e,
-                    })
-                }
-                records::Construction::Defaults(d, c) => {
-                    Ok(crate::defaults::ctor_with_defaults(cx, d, c, fields, Some(&expected))?.0)
-                }
+        ) => match records::ctor_fields(cx, ctor, fields, *span, Some(&expected))? {
+            records::Construction::Positional(positional) => {
+                check_inner(cx, &positional, &expected)
             }
-        }
+            records::Construction::Argument(positional, hint) => {
+                check_inner(cx, &positional, &expected).map_err(|e| match &hint {
+                    Some(hint) => hint.apply(e),
+                    None => e,
+                })
+            }
+            records::Construction::Defaults(d, c) => {
+                Ok(crate::defaults::ctor_with_defaults(cx, d, c, fields, Some(&expected))?.0)
+            }
+        },
         // A quotient form, with the expected type to find its implicit
         // arguments from.
         (Expr::Var(_) | Expr::App(..), _) if crate::quot::applied(cx, expr).is_some() => {

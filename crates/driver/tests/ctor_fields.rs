@@ -18,8 +18,7 @@ fn warnings(text: &str) -> Vec<Diagnostic> {
         .collect()
 }
 
-const ITEM: &str =
-    "import Std (Option)\n\ntype Item = { value: Nat, fits: Bool }\n\ntype Box = | Held { item: Item }\n\n";
+const ITEM: &str = "import Std (Option)\n\ntype Item = { value: Nat, fits: Bool }\n\ntype Box = | Held { item: Item }\n\n";
 
 #[test]
 fn naming_a_field_the_record_has_too_warns() {

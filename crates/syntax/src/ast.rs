@@ -854,7 +854,12 @@ pub enum Pattern {
 impl Pattern {
     /// `C { f = p, g, .. }`, with the record pattern it is if `C` is declared
     /// with brackets.
-    pub fn ctor_fields(ctor: Name, fields: Vec<(Name, Pattern)>, rest: bool, span: Span) -> Pattern {
+    pub fn ctor_fields(
+        ctor: Name,
+        fields: Vec<(Name, Pattern)>,
+        rest: bool,
+        span: Span,
+    ) -> Pattern {
         let record = Box::new(Pattern::Record {
             fields: fields.clone(),
             rest,

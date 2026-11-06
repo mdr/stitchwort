@@ -4209,8 +4209,7 @@ impl<'t> Parser<'t> {
             if self.peek() == Some(&Tok::Dot) && self.tokens[self.pos].line_start {
                 return Err(self.section_line().into());
             }
-            if matches!(self.peek(), Some(Tok::Upper(_))) && self.peek_at(1) == Some(&Tok::LBrace)
-            {
+            if matches!(self.peek(), Some(Tok::Upper(_))) && self.peek_at(1) == Some(&Tok::LBrace) {
                 expr = self.brace_argument(expr)?;
                 continue;
             }
@@ -5577,7 +5576,13 @@ mod tests {
         let Expr::App(head, _) = &rhs("def f : L := Cons { head = 1 } rest\n") else {
             panic!("expected an application");
         };
-        assert!(matches!(&**head, Expr::CtorFields { argument: false, .. }));
+        assert!(matches!(
+            &**head,
+            Expr::CtorFields {
+                argument: false,
+                ..
+            }
+        ));
         let Expr::App(_, arg) = &rhs("def f : L := g Cons { head = 1 }\n") else {
             panic!("expected an application");
         };

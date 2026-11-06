@@ -622,14 +622,20 @@ pub(crate) fn brace_arguments(cx: &Ctx, expr: &Expr) -> Result<Option<Expr>> {
         _ => None,
     };
     let head = match (&**f, &f2) {
-        (Expr::CtorFields { ctor, fields, span, argument: false }, None) => {
-            Some(match braces(cx, ctor, fields, *span)? {
-                Braces::Fields(..) => return Err(braced_ctor_error(ctor, *span, false)),
-                Braces::Argument(record) => {
-                    Expr::App(Box::new(Expr::Var(ctor.clone())), Box::new(record))
-                }
-            })
-        }
+        (
+            Expr::CtorFields {
+                ctor,
+                fields,
+                span,
+                argument: false,
+            },
+            None,
+        ) => Some(match braces(cx, ctor, fields, *span)? {
+            Braces::Fields(..) => return Err(braced_ctor_error(ctor, *span, false)),
+            Braces::Argument(record) => {
+                Expr::App(Box::new(Expr::Var(ctor.clone())), Box::new(record))
+            }
+        }),
         _ => f2,
     };
     if head.is_none() && arg.is_none() {
@@ -638,10 +644,7 @@ pub(crate) fn brace_arguments(cx: &Ctx, expr: &Expr) -> Result<Option<Expr>> {
     let f = Box::new(head.unwrap_or_else(|| (**f).clone()));
     Ok(Some(match arg {
         None => Expr::App(f, a.clone()),
-        Some((ctor, record)) => Expr::App(
-            Box::new(Expr::App(f, Box::new(ctor))),
-            Box::new(record),
-        ),
+        Some((ctor, record)) => Expr::App(Box::new(Expr::App(f, Box::new(ctor))), Box::new(record)),
     }))
 }
 
@@ -676,7 +679,10 @@ pub(crate) fn named_ctor_call(
     let explicit: Vec<usize> = (0..ctor.fields.len())
         .filter(|&i| !ctor.implicit.get(i).copied().unwrap_or(false))
         .collect();
-    if explicit.iter().all(|&i| cx.e.field_default(d, c, i).is_none()) {
+    if explicit
+        .iter()
+        .all(|&i| cx.e.field_default(d, c, i).is_none())
+    {
         return Ok(None);
     }
     let mut fields: Vec<(ast::Name, Expr)> = Vec::new();
