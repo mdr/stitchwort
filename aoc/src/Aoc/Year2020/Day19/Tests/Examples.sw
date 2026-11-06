@@ -93,5 +93,6 @@ test "the rules are productive" :=
   [example1, example2].all (input => (parsed input).map (received => received.rules.productive && received.withLoops.rules.productive) == Ok True)
 test "a rule that comes back to itself without reading isn't productive" :=
   (parsed "0: 0 | 1\n1: \"a\"\n\na").map (received => received.rules.productive) == Ok False
+test "such a rule still matches" := (parsed "0: 0 | 1\n1: \"a\"\n\na\naa").map .matchingCount == Ok 1
 test "the rules must be followed by a blank line" := not (parsed "0: \"a\"\na").isOk
 test "a letter in quotes" := not (parsed "0: a\n\na").isOk

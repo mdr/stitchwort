@@ -4922,3 +4922,269 @@ rest of the cold time is std's.
    `foldLeft`'s mismatch doesn't name `initial` (item 4); `rewrite` with an
    equation the goal has computed past after a `match` (item 1). Each
    small.
+
+## Day 19: Monster Messages
+
+The input is numbered rules, a blank line, then messages of `a`s and
+`b`s. A rule is a letter in quotes (`4: "a"`), or alternatives separated
+by ` | `, each a sequence of rule numbers matched one after another
+(`1: 2 3 | 3 2`). Part 1: how many messages match rule 0 completely.
+Part 2: rules 8 and 11 become `8: 42 | 42 8` and `11: 42 31 | 42 11 31`,
+so they can repeat, and the same count. Answers on Matt's input (130
+rules, 458 messages of up to 96 letters): 182 and 334; the first example
+gives 2 (`ababbb` and `abbbab`), the second 3 and 12, as the puzzle says.
+Matt's Scala (`Day19.scala`) is the same algorithm: a rule gives the
+sequence of positions it can end at, from a start, so the recursive
+rules need nothing special; I didn't run it. An independent Python
+script (sets of end positions) agrees on all six numbers, in 0.3 s.
+
+The domain types are `Rule` (`Letter letter`, `Alternatives sequences`),
+`Rules` (`numbered`, the `(number, rule)` pairs as listed, with
+`rules.rule number`, `List.lookup`), `Message` (`letters`) and
+`Received` (`rules`, `messages`, with `received.matchingCount` and
+`received.withLoops`, part 2's rules listed in front so that a lookup
+finds them first). The matcher is two functions defined together:
+`rules.leftAfter fuel number message`, every way rule `number` can
+match a start of `message`, as what is left after each; and
+`rules.leftAfterAll fuel sequence message`, the same for a sequence, a
+`flatMap` over the first rule's leftovers. Each rule within a rule
+costs a fuel. A message matches completely when some leftover is empty
+(`rules.matchesCompletely`), with `rules.enough message`, `(letters + 1)
+* rules.rankBound`, as fuel. That is enough when no rule can come back
+to itself without reading a letter: `rules.productive` checks that every
+alternative is non-empty and that an alternative of a single rule leads
+to a lower `rules.rank` (the longest chain of single-rule alternatives,
+`rules.chain`, counted up to the number of rules), and a test checks it
+holds for the examples and the input, in both parts. The program was
+right on the first run; the tests needed the example text blocks fixed
+(the example files have no final line break, so my script put the
+closing `"""` on the last message's line).
+
+The spec (`Spec/Spec.sw`) shares the data types and nothing else.
+`NumberWritten`, `LetterWritten`, `SequenceWritten`, `RuleWritten`,
+`NumberedWritten`, `MessageWritten` and `ReceivedWritten` are the
+format, in `Parse.SepBy` terms as on day 16. `ruleNumbered rules
+number` is the first rule listed with that number (`List.lookup`; the
+puzzle numbers each rule once). `Matches rules sequence read` is an
+inductive relation, "`read` is matched by the rules of `sequence`, one
+after another", with three constructors: `MatchesNothing` (no rules,
+no letters), `MatchesLetter` (a letter rule takes the first letter, the
+rest of the sequence the rest) and `MatchesAlternative` (a rule with
+alternatives matches `read` by one of them, then the rest of the
+sequence matches `rest`, together `read ++ rest`). `MatchesCompletely
+rules message` is `Matches rules [0] message.letters`. `NumberWith p
+items answer` is "`answer` of the items have `p`", a count of a
+proposition; `Part1` is `NumberWith (MatchesCompletely received.rules)
+received.messages`, and `Part2` the same with `loopingRules`, the rules
+with the puzzle's two new ones listed first. The relation covers part
+2's recursion with no special case, and says nothing about fuel or
+order.
+
+Proved (`Aoc.Year2020.Day19.Proofs`):
+
+- `readsLetter`, `readsSequence`, `readsRuleBody`, `readsNumbered`,
+  `readsMessage`, `readsReceived`, `parseWritten` (Parse.sw): if
+  `parseReceived` reads `input`, the input is the rules and messages
+  written out as `ReceivedWritten` says, then any line breaks.
+- `ruleSpec`, `Leads`, `LeavesAfter`, `soundAll`, `sound` (Sound.sw),
+  soundness for any fuel and any rules: every leftover `leftAfter`
+  gives comes after a part of the message the rule matched, in the
+  spec's sense. The induction is on fuel, with the sequence inside it;
+  `Leads` (the part read can start a match of the rule followed by any
+  sequence) made the cons step need no inversion of `Matches`.
+- `Ranked`, `lengthPositive`, `matchedLength`, `Fuelled`, `scaleStep`,
+  `fuelledSplit`, `fuelledInner`, `completeAll` (Complete.sw),
+  completeness: for rules ranked below a `bound`, every match of a
+  sequence `Matches` has the matcher leave exactly what followed it,
+  given `Fuelled` fuel: a lone rule more than `read.length * bound`
+  plus its rank, a longer sequence `read.length * bound`. The induction
+  is on the `Matches` derivation; each rule within a rule either reads
+  a letter more than the rule around it or has a lower rank, which is
+  why this much is enough.
+- `chainBounded`, `rankBelow`, `lookupMember`, `productiveRanked`,
+  `anyEmpty`, `matchesCompletelyCorrect`, `numberWithCount`,
+  `part1Exactly`, `part2Exactly` (Proofs.sw): when `received.rules.productive`
+  holds, `Spec.Part1 received answer ↔ answer =
+  received.matchingCount`, and when `received.withLoops.rules.productive`
+  holds, the same for `Spec.Part2` and `received.withLoops.matchingCount`:
+  the program's count is the spec's answer and the only one.
+
+Not proved: that `productive` holds for the real input, in either part
+(a test checks it; a closed theorem would have to parse the 130 rules
+in the checker); that the parsed `Received` is the only one the input
+is written as, and that every well-formed input parses (as on days 2 to
+18); that `main` prints `matchingCount` and `withLoops.matchingCount`
+(it reads so). The hypothesis `productive` is the proof's, not the puzzle's: a
+cycle of single-rule alternatives (`0: 0 | 1`) only repeats derivations
+of the same letters, and the matcher still finds the match (a test
+checks `a`), but showing its fuel is enough there would need a
+pigeonhole argument over the rules, which I didn't attempt; a test
+checks that such rules aren't `productive`. There is no `opaque`.
+
+Breaking the program made the proofs fail: `leftAfterAll` of no rules
+leaving nothing fails `soundAll` and `completeAll`; a letter rule
+matching when `first != letter` fails `sound` and `completeAll`;
+`enough` without the `+ 1` fails `matchesCompletelyCorrect` (`omega`);
+`productiveWith` allowing `rank only <= rank entry.fst` fails
+`productiveRanked` (`omega`: "`rank single` and `rank number` differ
+only in `single` and `number`, and no fact connects them"); keeping
+only the first leftover (`.take 1`) fails `completeAll`. Breaking the
+spec: part 2's rule 11 as `42 31 | 42 11` fails `part2Exactly`. The
+audit: `audited 51 theorems: 0 failed, 0 with warnings, 51 passed`.
+
+### 1. Completeness needs a hand-made fuel bound
+
+Soundness took one try (3 minutes from the first `?`), and so did
+completeness once it was stated; the time went on what to state. The
+matcher needs fuel to be a definition at all, since a rule's first
+alternative starts where the rule did (`8: 42 | 42 8`, and `15: 1 | 14`
+in the second example, read nothing before recursing). The natural
+measure, the derivation, can't be the fuel: a `Matches` proof can't be
+taken apart to compute a `Nat`, and the program has no derivation to
+measure anyway. So the proof needs a bound from the rules: `Ranked`, a
+rank that single-rule alternatives lower, and `Fuelled`, a fuel per
+sequence by cases on its length; then the program needs a rank to
+offer (`chain`, `chainThrough`, `rankBound`, `productiveWith`, 35
+lines) and the proof that it is one (`chainBounded`, `productiveRanked`,
+`lookupMember`, 40 lines). Of 337 lines of proof, about 100 are fuel.
+A newcomer would write `fuel := 1000` and prove soundness; the honest
+count needs all of this. What would help: a `Aoc.Common.Grammar` (a
+rule table of letters and alternatives, a matcher, and its soundness
+and completeness under a checkable "productive" condition, proved
+once), since grammar days recur (2020 days 18 and 19, 2015 day 19's replacements); or
+well-founded recursion on a lexicographic measure that mentions a
+hypothesis, so `leftAfter` could be `decreasing (message.length, rank
+number)` and need no fuel, which `decreasing` can't say today because
+the rank is a parameter's property, not a computed value.
+
+### 2. `match h: e` with `e` written differently from the goal refines nothing, silently
+
+In `chainBounded`, `match found: sequences.map (rules.chainThrough more)
+|> .maximum with`, then `| None => omega`, was `E-OMEGA` with the atom
+`Option.getOrElse (List.maximum (List.map sequences (sequence =>
+Rules.chainThrough rules more sequence))) 0`: the goal had the lambda
+eta-expanded (the program's `sequences.map (rules.chainThrough more)`
+had been elaborated so), my scrutinee didn't, and the `match` found no
+occurrence to replace, so `found` was in scope but the goal unchanged.
+Writing the scrutinee as the goal shows it, `List.maximum (List.map
+sequences (sequence => rules.chainThrough more sequence))`, fixed it.
+Nothing said the `match` hadn't touched the goal. A warning there ("`e`
+doesn't occur in the goal; it has `List.maximum (List.map sequences
+(sequence => …))`") would have saved the guess, and matching up to eta
+would make it unnecessary.
+
+### 3. A derived table is recomputed on every call
+
+To try a `Map` for rule lookups I wrote `def Rules.table (rules: Rules):
+Map Nat Rule := Map.fromList rules.numbered.reverse` and `rules.rule
+number := rules.table.get number`: the run went from 6.5 s to more than
+two minutes before I stopped it, since the map is rebuilt on every
+lookup. Building it once and passing `table.get` to the matcher took
+4.2 s; deduplicating each rule's leftovers with `Set.fromList` as well,
+2.9 s. A newcomer reaches for a method on the record and doesn't see
+the cost. The guide could say how to keep a derived value (a record
+field filled by a constructor function), and a lint could flag
+`Map.fromList`/`Set.fromList` of a parameter's field in a function that
+a recursive one calls. I kept `List.lookup`: the proofs need the
+lookup to be the spec's, and `Map.getFromList` gives `Map.lookupLast`
+(by `Ord.compare`) where the spec has `List.lookup` (by `==`), with no
+lemma between them.
+
+### 4. Std has no count of a proposition, and few `lookup` lemmas
+
+`NumberWith p items answer` and `numberWithCount` (it is `answer =
+items.count decide` when `decide` decides `p`; 25 lines) are general,
+and every "how many satisfy the puzzle's condition" spec needs them
+when the condition is a relation, as here. Std has `List.count`
+(`Bool`) and `List.NumberWith` in SortLemmas.sw, which is something
+else. `List.lookup` has no lemmas at all: `lookupMember` (`xs.lookup k
+= Some v → (k, v) ∈ xs`, 5 lines) is the first one anybody needs.
+
+### 5. Messages
+
+- **`Char.isAlpha`.** `E-UNKNOWN-NAME` "`Char` has no `isAlpha`", with
+  no suggestion; std's names are `isAsciiLowercase` and
+  `isAsciiUppercase`, found by grep. Similar names (`Char.is…`) in the
+  note would do.
+- **Good ones.** `omega`'s "`rank single` and `rank number` differ only
+  in `single` and `number`, and no fact connects them" said exactly what
+  the broken `productiveWith` lost. `E-REWRITE-NOTHING`'s "`found` has
+  `most`: to rewrite a hypothesis rather than the goal, name it with
+  `at`" pointed at the right fix for item 2's first symptom. The
+  parser's failure on a text block with a stray `"""` was "line 12,
+  column 8: expected a letter or the end of the line, got ' '", which
+  located it at once.
+
+### 6. Smaller things
+
+- **What helped.** An inductive relation with implicit fields read as
+  the puzzle does, and matching on it with `[later := later]` named the
+  indices the recursive calls needed; `matchedLength` and `completeAll`
+  checked as first written. The two mutually recursive matcher functions
+  were accepted with no `decreasing`. `rewrite empty, List.appendNil
+  message.letters at first in …` did two rewrites of a hypothesis in
+  one step. `Parse.readsOneOf` over the two kinds of rule body,
+  `readsSepBy1` inside `readsSepBy1`, and `readsMany1` made the parser
+  proof 45 lines, written once. `stitchwort search` found
+  `Nat.leMulRight` for the fuel arithmetic, and `ring` gave `(n + 1) * k
+  = n * k + k` for `omega`, which treats `x * y` as an atom.
+- **`any` lemmas found late.** I wrote `anyEmpty` and `emptyAny` by
+  recursion before finding `List.anyTrueElim` and `List.anyOfMem`, which
+  made them 5 lines and one call. `stitchwort search 'List.any _ _ =
+  True → _'` finds them; I had grepped for `memAny`.
+- **`List.memFlatMap` takes all three arguments explicitly**, so
+  `(List.memFlatMap (left => rules.leftAfterAll fuel later left) left
+  (rules.leftAfter fuel number message)).forward found` restates what
+  `found` already says; with `f`, `y` and `xs` implicit it would be
+  `List.memFlatMap.forward found` (D2422's rule, but `f` is a function,
+  which that rule keeps explicit).
+- **A `Void` isn't any type.** `Bool.falseNotTrue empty` in an arm
+  whose type is `[] ∈ lefts` is `E-TYPE-MISMATCH` "expected `[] ∈ lefts`,
+  but this has type `Void`"; `Void.exfalso` is the fix, as always, and
+  the note could say so.
+
+### Size and time
+
+151 lines of program, 87 of spec, 337 of proofs (Parse 52, Sound 59,
+Complete 112, Proofs 114), 113 of tests (+1 answer test in
+`aoc_answers.rs`). By the clock: 05:36 start; Python answers at 05:41;
+program and both answers at 05:46; tests passing and committed at
+05:57; spec at 05:59; soundness at 06:01, completeness at 06:04, the
+answers' "exactly" theorems at 06:06, committed at 06:07; break checks
+at 06:09; the parser's proof at 06:09 to 06:10; the audit, timings, the
+`Map` and `Set` experiments and these notes after.
+
+| command | time |
+| --- | --- |
+| `stitchwort check --no-cache Aoc.Year2020.Day19` | 1.5 s user |
+| `stitchwort check --no-cache Aoc.Year2020.Day19.Proofs` | 4.9 s user |
+| `stitchwort test --no-cache Aoc.Year2020.Day19.Tests` (19 tests) | 8.3 s user |
+| `stitchwort audit Aoc.Year2020.Day19` (51 theorems) | under 1 s (warm) |
+| `stitchwort run Aoc.Year2020.Day19.main` on the input | 6.5 s user (`--native` 3.2 s; Python 0.3 s) |
+| `task test:one -- year2020_day19` | 17 s for the test |
+
+`STITCHWORT_TIMINGS=1` puts the Proofs namespace at 338 ms of
+elaboration and 23 ms in the kernel, most of it the parser's proofs
+(`readsReceived` 108 ms, `readsNumbered` 75 ms, `readsRuleBody` 68 ms);
+the rest of the cold time is std's.
+
+### Ranked
+
+1. Counting exactly with a fuel-bounded matcher needs a rank for the
+   rules, a program to compute it and 100 lines about fuel,
+   because a derivation can't be the fuel; an `Aoc.Common.Grammar` with
+   the matcher proved once, or `decreasing` on a measure from a
+   hypothesis, would remove it (item 1). Library or language; medium to
+   large.
+2. `match h: e` whose `e` differs from the goal's form (here only by eta)
+   refines nothing and says nothing (item 2). Elaborator or message;
+   small.
+3. A record method that builds a `Map` is rebuilt on every call: 6.5 s
+   became minutes; no guidance or lint (item 3). Guide or lint; small.
+   And the matcher is 20 times slower than Python's (6.5 s against 0.3
+   s), 2.9 s with a `Map` built once and deduplicated leftovers.
+4. No count of a proposition (`NumberWith`, `numberWithCount`) and no
+   `List.lookup` lemmas in std (item 4). Library; small.
+5. Smaller: `Char.isAlpha`'s message suggests nothing; `memFlatMap`'s
+   explicit arguments; a `Void` arm needs `Void.exfalso` with no hint
+   (items 5, 6). Each small.
