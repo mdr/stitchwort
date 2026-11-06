@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-PARSE] Error: expected the end of the declaration, but found `∧`
+   ╭─[ reject/operator-line-left-of-block.sw:7:3 ]
+   │
+ 7 │   ∧ b
+   │   ┬  
+   │   ╰── expected the end of the declaration, but found `∧`
+───╯

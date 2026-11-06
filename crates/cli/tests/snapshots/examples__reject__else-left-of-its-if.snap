@@ -2,10 +2,10 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-PARSE] Error: expected `else`, but the line starting with `else` is at or left of the enclosing block's column, so it starts a new statement
+[E-PARSE] Error: expected `else`, but the line starting with `else` (in column 3) is at or left of the enclosing block's column (5), so it starts a new statement
    ╭─[ reject/else-left-of-its-if.sw:7:3 ]
    │
  7 │   else 2
    │   ──┬─  
-   │     ╰─── expected `else`, but the line starting with `else` is at or left of the enclosing block's column, so it starts a new statement
+   │     ╰─── expected `else`, but the line starting with `else` (in column 3) is at or left of the enclosing block's column (5), so it starts a new statement
 ───╯
