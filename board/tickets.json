@@ -6780,9 +6780,9 @@
       "labels": [
         "diagnostics"
       ],
-      "body": "From SW-1227 (2020 day 2-style proofs).",
+      "body": "From SW-1227 (2020 day 2-style proofs).\n\nAlso covers SW-1566 (duplicate, closed; SW-1598).",
       "created": "2026-11-05",
-      "updated": "2026-11-05",
+      "updated": "2026-11-06",
       "commits": []
     },
     {
@@ -7396,9 +7396,9 @@
       "labels": [
         "std"
       ],
-      "body": "From SW-1356 (docs/proposals/ranges.md §13), D2405-D2413 approved by Matt 5 Nov 2026. Runs after the previous ranges step.",
+      "body": "From SW-1356 (docs/proposals/ranges.md §13), D2405-D2413 approved by Matt 5 Nov 2026. Runs after the previous ranges step.\n\nAlso covers SW-1556 (duplicate, closed; SW-1598).",
       "created": "2026-11-05",
-      "updated": "2026-11-05",
+      "updated": "2026-11-06",
       "commits": []
     },
     {
@@ -9104,9 +9104,9 @@
       "labels": [
         "aoc"
       ],
-      "body": "From 2020 day 11 (SW-1470), 5 Nov 2026.",
+      "body": "From 2020 day 11 (SW-1470), 5 Nov 2026.\n\nAlso covers SW-1590 (duplicate, closed; SW-1598).",
       "created": "2026-11-05",
-      "updated": "2026-11-05",
+      "updated": "2026-11-06",
       "commits": []
     },
     {
@@ -9174,9 +9174,9 @@
       "labels": [
         "messages"
       ],
-      "body": "From 2020 day 12 (SW-1483), 5 Nov 2026.",
+      "body": "From 2020 day 12 (SW-1483), 5 Nov 2026.\n\nAlso covers SW-1575 (duplicate, closed; SW-1598).",
       "created": "2026-11-05",
-      "updated": "2026-11-05",
+      "updated": "2026-11-06",
       "commits": []
     },
     {
@@ -10162,13 +10162,13 @@
     {
       "id": 1556,
       "title": "Int ranges (-2 ..= 4) (day 17; the error note says they are still to come)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "language"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).",
+      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).\n\nDuplicate of SW-1360 (SW-1598's synthesis, 6 Nov 2026); folded into it.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10302,13 +10302,13 @@
     {
       "id": 1566,
       "title": "readsDone's _ spec not worked out after lets that bound its proof: say why, suggest writing the spec out (day 18)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "diagnostics"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1557 (2020 day 18).",
+      "body": "Filed overnight 6 Nov 2026 from SW-1557 (2020 day 18).\n\nDuplicate of SW-1316 (SW-1598's synthesis, 6 Nov 2026); folded into it.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10428,13 +10428,13 @@
     {
       "id": 1575,
       "title": "Warn when match h: e refines nothing because e isn't in the goal (written differently, e.g. an expanded lambda); show the goal's form or match up to eta (day 19)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "diagnostics"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1571 (2020 day 19).",
+      "body": "Filed overnight 6 Nov 2026 from SW-1571 (2020 day 19).\n\nDuplicate of SW-1485 (SW-1598's synthesis, 6 Nov 2026); folded into it.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10462,7 +10462,7 @@
       "labels": [
         "std"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1571 (2020 day 19).",
+      "body": "Filed overnight 6 Nov 2026 from SW-1571 (2020 day 19).\n\nAlso covers SW-1591 (duplicate, closed; SW-1598).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10638,13 +10638,13 @@
     {
       "id": 1590,
       "title": "A variable named at is silently read as rewrite's at marker: parse it as the variable, or say so (day 20)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "syntax"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1580 (2020 day 20).",
+      "body": "Filed overnight 6 Nov 2026 from SW-1580 (2020 day 20).\n\nDuplicate of SW-1480 (SW-1598's synthesis, 6 Nov 2026); folded into it.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10652,13 +10652,13 @@
     {
       "id": 1591,
       "title": "Std: filter and count by a proposition (Kept, keptFilter, NumberWith, numberWithCount) so days 19 and 20 stop defining them; day 20 imports day 19's (day 20)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "std"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1580 (2020 day 20).",
+      "body": "Filed overnight 6 Nov 2026 from SW-1580 (2020 day 20).\n\nDuplicate of SW-1577 (SW-1598's synthesis, 6 Nov 2026); folded into it.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
