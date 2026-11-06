@@ -3387,9 +3387,9 @@ a call: std `Nat.lcm` with `Nat.lcmDivides` (`a ∣ x → b ∣ x → lcm a b �
 x`) and `Nat.coprimeMulDivides`, and a `Nat.solveCongruences: List (Nat,
 Nat) → Option (Nat, Nat)` (each a remainder and a modulus; the earliest
 solution and the period, or none) with this day's `Describes` as its
-spec. 2016's day 15 and 2023's day 8 are the same problem; 2024's day 14
-used `width * height` for an lcm because its sides were coprime
-(NOTES-2024 day 14).
+spec. 2016's day 15 is the same problem and 2023's day 8 needs an lcm;
+2024's day 14 took `width * height` as its period, which is the lcm
+only because its sides are coprime (NOTES-2024 day 14).
 
 ### 2. Divisibility is a `Bool`, and its lemmas are about `%`
 
