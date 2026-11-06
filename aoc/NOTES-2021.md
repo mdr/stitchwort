@@ -2315,6 +2315,24 @@ Round` fails `tokenOfChar`.
 Most proofs checked first time or second; the scan/grammar bridge took
 about ten tries in all, mostly over list shapes (item 6).
 
+**Completeness (SW-1626).** `Proofs/Complete.sw`, 70 lines, about 5 minutes
+(the CLI was already built). Of the 2021 days' `Proofs/Parse.sw` files, only
+this one and day 16's state what the parser read of the text (the others
+prove properties of the parsed value: shapes, bounds, distinct rules, a
+rectangle); so these were the two in scope. `runsToken` (8 arms, one per
+token) is `Parse.runsLabel` over `Parse.runsPick`, with the earlier tokens'
+characters as the `WordsAbsent` proof, `rfl` for each since they are literals;
+`declinesTokenEnd` is `declinesPick` at the end; a line's rounds are
+`tokenSteps`, one `([char], token)` per token, so `runsLine` is
+`Parse.runsMany`, and `parseComplete` and `writtenUnique` follow as on 2020
+day 2. The hypothesis is `parseReadsLines`'s conclusion (`lines.map (tokens =>
+tokens.map Token.char) = input.lines.map Text.toList`) and the spec is tight
+enough: a line's characters fix its tokens. Friction: a lemma parameter named
+`token` hid the parser `token` (`E-TYPE-MISMATCH` pointing at the type, with
+the right note); a `rewrite <- …` of the goal went wrong where rewriting the
+`Runs` hypothesis with `rewrite … at runs` did not. Dropping the first token
+from the parser's table fails `runsToken`.
+
 ### 1. Std.Parse can't be reasoned about
 
 The natural parser, `Parse.eachLine input (() => many1 (() => pick
