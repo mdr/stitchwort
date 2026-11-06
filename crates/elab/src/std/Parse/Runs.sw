@@ -874,6 +874,12 @@ theorem Parse.runsMany1 (p: () → {Parse} a) (firstRead: List Char) (first: a) 
 theorem Parse.declinesMany1 (p: () → {Parse} a) (input: List Char) (declines: Parse.Declines p input): Parse.Declines (() => Parse.many1 p) input :=
   Parse.declinesBind p (x => NonEmptyList.cons x (Parse.many p)) input declines
 
+--| `oneOf [first, next]` declines where both alternatives do.
+theorem Parse.declinesOneOfTwo (first: () → {Parse} a) (next: () → {Parse} a) (input: List Char) (declinesFirst: Parse.Declines first input)
+    (declinesNext: Parse.Declines next input): Parse.Declines (() => Parse.oneOf [first, next]) input :=
+  Parse.declinesAfter (() => Parse.optional first) (found => Parse.valueOr found (() => Parse.oneOfFrom next [])) [] input None
+    (Parse.declinesRuns first input declinesFirst) declinesNext
+
 --| A round of `sepBy`: the separator reads `separatorRead` (and sees the value
 --| and `rest` after it), then `p` reads `valueRead`.
 theorem Parse.runsSepStep (p: () → {Parse} a) (separator: () → {Parse} ()) (separatorRead: List Char) (valueRead: List Char) (rest: List Char) (v: a)

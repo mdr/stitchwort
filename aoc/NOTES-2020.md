@@ -1035,6 +1035,22 @@ So most of a cold check is shared: the rules and the parser proof each add
 well under a second to about 3.5 s that either alone pays (day 2's
 `readsLine` alone was 4.6 s; `readsThen` chains seem cheaper).
 
+**Completeness (SW-1624).** `Proofs/Complete.sw`, 184 lines, about 10 minutes.
+The shape is day 6's (`runsSectionsOf`, `InputWritten` the soundness conclusion
+as a `Prop`, `parseComplete`, `writtenUnique`), with fields inside a passport
+separated by `fieldBreak = oneOf [char ' ', newline]` instead of `lines`. That
+needed one std lemma, `Parse.declinesOneOfTwo`, and a day-local copy of the
+end-of-list lemmas for that separator (`declinesStepAtBreaks`, `…AtBlank`,
+`…AtLinesEnd`: day 6's `declinesLinesAt…` with `fieldBreak` for `newline`;
+a std version generic in the separator would serve any `lines`-like parser
+with a second separator character). `runsKey` is eight `Parse.runsPick`
+cases, each with `rfl` for the earlier words being absent (they differ in the
+first three letters); `declinesField` is `declinesPick` with `wordAbsent` per key
+(a key's first letter is a value character, a break or space is not). The
+spec is tight enough for uniqueness: values are runs of non-whitespace and
+keys differ, so the fields of a passport and the passports split one way.
+Breaking the parser (`char ':'` to `char '='`) breaks `runsFieldPieces`.
+
 ### Ranked
 
 1. No lemmas for `Text.toNat` or `Text.stripSuffix`, and `stripSuffix`
