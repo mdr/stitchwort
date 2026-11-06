@@ -458,8 +458,8 @@
         "Incremental release builds in the devShell: one-line elab edit 156 s → 21 s (SW-1729)"
       ],
       "now": [
-        "Untimed counterexample searches (SW-1730)",
-        "LSP AoC tests check AoC once (SW-1731)"
+        "LSP AoC tests check AoC once (SW-1731)",
+        "lsp::features replays std from the test cache (SW-1686)"
       ],
       "next": [
         "LSP AoC tests check AoC once (SW-1731); lsp::features replays std (SW-1686)",

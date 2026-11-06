@@ -12818,14 +12818,14 @@
     {
       "id": 1686,
       "title": "stitchwort-lsp features tests take ~8 min in release (16 tests, each checks std; 550 s for one in debug), and test:lane AREA=lsp doesn't cover them; find why std is so slow there (SW-1681)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1686",
       "labels": [
         "tests"
       ],
       "epic": "dev-loop-speed",
-      "body": "From SW-1681, 6 Nov 2026. The lane ran the whole binary, which overran the test budget.",
+      "body": "From SW-1681, 6 Nov 2026. The lane ran the whole binary, which overran the test budget.\n\nStarted on Sonnet (SW-1716 fix 3), expected: 60 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
