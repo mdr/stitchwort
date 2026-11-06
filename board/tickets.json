@@ -10106,13 +10106,13 @@
     {
       "id": 1552,
       "title": "Aoc.Common.Life: generic count-map step with countsActive and cycleActive, given a neighbour-counting fact; for 2020 day 24 (day 17)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1552",
       "labels": [
         "aoc"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).",
+      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).\n\nStarted overnight on Sonnet, expected: 50 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
