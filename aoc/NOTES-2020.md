@@ -4433,6 +4433,26 @@ the timings and these notes.
 elaboration and 30 ms in the kernel (`readsNotes` 247 ms of it, 3.3
 million steps); the rest of the cold time is std's modules.
 
+**Completeness (SW-1625).** `Proofs/Complete.sw`, 204 lines, about 8
+minutes. The biggest of the sweep so far, in three parts. The pieces
+(`runsRange`, `runsRule`, `runsTicket`, 8 to 20 lines each) are `runsBind`
+chains as in days 2 and 13, with `Parse.runsSepBy1Of` for a ticket's commas;
+`runsNotes` (48) is the ten-step chain with `runsLinesOf` for the rules and the
+nearby tickets, and `runsBlankLineOf` for the two blank lines. The side
+conditions are two classifications of what follows a number:
+`CannotStart Parse.isDigit` (after a range or a ticket's number) and
+`CannotStart continues` (`continues` = digit or comma, after a whole
+ticket, so that the comma list ends). The third part is the one std's
+helpers don't cover (about 45 lines, `declinesRuleBeforeBreak` and its
+neighbours): the rules end at a blank line, and `declinesLinesAtBlank` wants
+`rule` to decline from its first character alone, but a field name may start
+with a carriage return or a space, so `rule` declines at the blank line only
+because its name run reaches the line feed and no colon follows. A std
+helper whose `declinesP` hypothesis is "the input is spaces, a line break and
+anything" instead of `CannotStart canStart` would remove it (finding). The
+spec is tight enough for uniqueness. Mutation: `" or "` to `" OR "` breaks
+`runsRule`.
+
 ### Ranked
 
 1. A helper lemma about a variable doesn't fit inside a `match` on one of
