@@ -10386,13 +10386,13 @@
     {
       "id": 1572,
       "title": "Rewrite messages: E-REWRITE-MOTIVE/E-REWRITE-NOTHING show Decidable.toBool for a Bool != read as ≠ (give them SW-1553's note); a rewrite that runs out of size doesn't record which definition's call was too large (SW-1554)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1572",
       "labels": [
         "diagnostics"
       ],
-      "body": "From SW-1553/1554, 6 Nov 2026. Small.\n\nStarted overnight on Sonnet (SW-1572 with SW-1573), expected: 30 min (hard stop 07:45).",
+      "body": "From SW-1553/1554, 6 Nov 2026. Small.\n\nStarted overnight on Sonnet (SW-1572 with SW-1573), expected: 30 min (hard stop 07:45).\n\nDone (02c4a7097), merged: E-REWRITE-NOTHING gets SW-1553's != note (E-REWRITE-MOTIVE has the same check, untested: no repro reaches it); E-CASES-BUDGET adds a note when an Int is being taken apart, suggesting match a <= b / an if. Not done: naming the definition whose call was too large. Model result: Sonnet, worked, 15 min (est. 30).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10400,13 +10400,13 @@
     {
       "id": 1573,
       "title": "E-CASES-BUDGET: when the split candidates are Int insides (Int.natAbs, max, subNatNat …), say so and suggest splitting the comparison instead (SW-1550)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1572",
       "labels": [
         "diagnostics"
       ],
-      "body": "From SW-1550, 6 Nov 2026. Also: update aoc/NOTES-2020.md day 17 item 1 to say it's fixed.\n\nStarted overnight on Sonnet (SW-1572 with SW-1573), expected: 30 min (hard stop 07:45).",
+      "body": "From SW-1550, 6 Nov 2026. Also: update aoc/NOTES-2020.md day 17 item 1 to say it's fixed.\n\nStarted overnight on Sonnet (SW-1572 with SW-1573), expected: 30 min (hard stop 07:45).\n\nDone (02c4a7097), merged: E-REWRITE-NOTHING gets SW-1553's != note (E-REWRITE-MOTIVE has the same check, untested: no repro reaches it); E-CASES-BUDGET adds a note when an Int is being taken apart, suggesting match a <= b / an if. Not done: naming the definition whose call was too large. Model result: Sonnet, worked, 15 min (est. 30).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
