@@ -13178,9 +13178,9 @@
     {
       "id": 1711,
       "title": "Daily tier (builtins, debug): a_programs_own_list_crosses_the_js_boundary_as_itself panics at registry.rs:599, 'compiler code uses the library built-in Array before its file loads': JS boundary code asks for Array when the program doesn't import it (D2508, SW-1638)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1711",
       "labels": [
         "js"
       ],
