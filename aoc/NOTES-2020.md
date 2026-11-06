@@ -3279,6 +3279,20 @@ notes.
 elaboration and 12 ms in the kernel (`readsInstruction` the largest, 48
 ms); the rest of the cold time is std's modules.
 
+**Completeness (SW-1625).** `Proofs/Complete.sw`, 60 lines, about 4 minutes
+(including the CLI build). `runsAction` (13) is `Parse.runsPick` once per
+action with the earlier letters as `before` (their `WordsAbsent` is `Both rfl
+...`, since the letters are literals); `runsInstruction` (14) chains
+`runsBind` over `action` and `nat`, then `runsIf` for the multiple-of-90
+check, whose failing branch `turnFails` (4) rules out from the spec's last
+conjunct; `parseComplete` goes through `Parse.runsEachLine` and
+`writtenUnique` through `Parse.runsRun`-style `okInjective`. The spec
+(`InstructionWritten`) is tight enough: the line fixes the letter, the digits
+and the value, so uniqueness needed nothing more. No `Declines`: the digits
+run to the end of the line (`rest = []`). Friction: a parameter named `action`
+shadows the parser `action`; `runsBind` wants the first part's rest as
+`digits ++ []`, not `digits`. Statements of `Parse.sw` unchanged.
+
 ### Ranked
 
 1. Aoc.Common has no `Int` vector with compass headings, quarter-turn
