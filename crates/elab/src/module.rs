@@ -1375,9 +1375,9 @@ impl Elaborator {
         let explicit: Vec<(&ast::Name, &Expr)> = decl
             .fields
             .iter()
-            .zip(&decl.implicit)
-            .filter(|(_, implicit)| !**implicit)
-            .flat_map(|(b, _)| b.names.iter().map(move |n| (n, &b.ty)))
+            .enumerate()
+            .filter(|(i, _)| !decl.implicit.get(*i).copied().unwrap_or(false))
+            .flat_map(|(_, b)| b.names.iter().map(move |n| (n, &b.ty)))
             .collect();
         let (_, ty) = match slot {
             CtorSlot::Position(k) => *explicit.get(k)?,
@@ -2999,12 +2999,19 @@ fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                         then(
                             &mut stack,
                             args.iter()
-                                .enumerate()
-                                .map(|(k, arg)| match arg {
-                                    Pattern::Var(x) => {
-                                        Work::BindField(&x.text, n, CtorSlot::Position(k))
+                                .scan(0, |k, arg| {
+                                    // `[n := p]` names an implicit field; it
+                                    // takes no position.
+                                    if matches!(arg, Pattern::Named(..)) {
+                                        return Some(Work::Pattern(arg));
                                     }
-                                    _ => Work::Pattern(arg),
+                                    *k += 1;
+                                    Some(match arg {
+                                        Pattern::Var(x) => {
+                                            Work::BindField(&x.text, n, CtorSlot::Position(*k - 1))
+                                        }
+                                        _ => Work::Pattern(arg),
+                                    })
                                 })
                                 .collect(),
                         );
