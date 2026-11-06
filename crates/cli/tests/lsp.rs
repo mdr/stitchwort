@@ -797,10 +797,12 @@ fn several_notes_are_numbered_like_the_command_line() {
 struct IndexJson(Value);
 
 impl IndexJson {
-    fn of(project: &Path) -> IndexJson {
+    /// The index of `project`'s namespaces `namespaces` (and what they use).
+    fn of(project: &Path, namespaces: &[&str]) -> IndexJson {
         let out = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
             .args(["check", "--index", "-", "--project"])
             .arg(project)
+            .args(namespaces)
             .output()
             .unwrap();
         IndexJson(serde_json::from_slice(&out.stdout).expect("an index"))
@@ -936,7 +938,22 @@ fn place(project: &Path, location: &Value) -> String {
 #[test]
 fn aoc_navigation_matches_check_index() {
     let project = aoc();
-    let index = IndexJson::of(&project);
+    // The two days and everything that uses them, which holds every
+    // reference the editor can find to their names. (Indexing the whole
+    // project would check all of AoC with navigation, to compare three files.)
+    let index = IndexJson::of(
+        &project,
+        &[
+            "Aoc.Year2025.Day01",
+            "Aoc.Year2025.Day01.Proofs",
+            "Aoc.Year2025.Day01.Spec",
+            "Aoc.Year2025.Day01.Tests",
+            "Aoc.Year2025.Day05",
+            "Aoc.Year2025.Day05.Proofs",
+            "Aoc.Year2025.Day05.Spec",
+            "Aoc.Year2025.Day05.Tests",
+        ],
+    );
     let mut client = Client::start();
     let files = [
         "src/Aoc/Year2025/Day01/Day01.sw",
