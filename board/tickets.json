@@ -8972,13 +8972,13 @@
     {
       "id": 1471,
       "title": "Editor: in a file whose import failed, hover and go-to-definition are empty until the import is fixed (the dependent is skipped and its earlier answers rewound); keep its last good answers, marked stale, instead",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1471",
       "labels": [
         "editor"
       ],
-      "body": "From SW-1459, 5 Nov 2026.\n\nStarted on Sonnet (overnight editor track), expected: 60 min.",
+      "body": "From SW-1459, 5 Nov 2026.\n\nStarted on Sonnet (overnight editor track), expected: 60 min.\n\nDone (fcaab5c4d), merged: LiveProject.last_good keeps each clean file's text and answers (no diagnostics, no session); keep_last_good serves them for a skipped step when the text is unchanged; failed namespaces keep nothing. Known imprecision: a definition target inside the broken shared file uses its old ranges. Not done: a 'stale' marker in the UI; mapping through edits. Model result: Sonnet, worked, 14 min (est. 60).",
       "created": "2026-11-05",
       "updated": "2026-11-06",
       "commits": []
