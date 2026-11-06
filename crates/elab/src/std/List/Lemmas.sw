@@ -2788,6 +2788,97 @@ theorem List.zipWithSwap (f: a → b → c): (xs: List a) → (ys: List b) →
   | [x, ..xs], [] => rfl
   | [x, ..xs], [y, ..ys] => rewrite List.zipWithSwap f xs ys in rfl
 
+--| Chaining two `All2` facts through the middle list: if each `x`, `y`, `z`
+--| at the same place with `r x y` and `s y z` have `t x z`, then `r` from
+--| `xs` to `ys` and `s` from `ys` to `zs` give `t` from `xs` to `zs`.
+theorem List.all2Compose [r: a → b → Prop] [s: b → c → Prop] [t: a → c → Prop] (link: (x: a) → (y: b) → (z: c) → r x y → s y z → t x z):
+    (xs: List a) → (ys: List b) → (zs: List c) → List.All2 r xs ys → List.All2 s ys zs → List.All2 t xs zs
+  | [], [], [], first, second => Trivial
+  | [x, ..xs], [y, ..ys], [z, ..zs], first, second =>
+    Both (link x y z (And.left first) (And.left second)) (List.all2Compose link xs ys zs (And.right first) (And.right second))
+  | [], [], [z, ..zs], first, second => Void.exfalso second
+  | [], [y, ..ys], zs, first, second => Void.exfalso first
+  | [x, ..xs], [], zs, first, second => Void.exfalso first
+  | [x, ..xs], [y, ..ys], [], first, second => Void.exfalso second
+
+--| A list is related to itself, place by place, by any relation that holds
+--| of every element and itself.
+theorem List.all2Refl (r: a → a → Prop) (refl: (x: a) → r x x): (xs: List a) → List.All2 r xs xs
+  | [] => Trivial
+  | [x, ..xs] => Both (refl x) (List.all2Refl r refl xs)
+
+--| Against a list of `n` copies of `y`, every element of `xs` is related to
+--| `y`. The converse is [`List.all2ReplicateOf`].
+theorem List.all2Replicate [r: a → b → Prop] (y: b): (xs: List a) → (n: Nat) → List.All2 r xs (List.replicate n y) → (x: a) → x ∈ xs → r x y
+  | [], n, all, x, member => Void.exfalso member
+  | [z, ..zs], Zero, all, x, member => Void.exfalso all
+  | [z, ..zs], Succ n, all, x, Inl same => rewrite <- same in And.left all
+  | [z, ..zs], Succ n, all, x, Inr later => List.all2Replicate y zs n (And.right all) x later
+
+--| A list of `n` elements, each related to `y`, is related place by place to
+--| `n` copies of `y`. The converse is [`List.all2Replicate`].
+theorem List.all2ReplicateOf [r: a → b → Prop] (y: b): (xs: List a) → (n: Nat) → xs.length = n → ((x: a) → x ∈ xs → r x y) →
+    List.All2 r xs (List.replicate n y)
+  | [], Zero, same, related => Trivial
+  | [], Succ n, same, related => Void.exfalso (Nat.zeroNotSucc _ same)
+  | [x, ..xs], Zero, same, related => Void.exfalso (Nat.succNotZero _ same)
+  | [x, ..xs], Succ n, same, related =>
+    Both (related x (Inl rfl)) (List.all2ReplicateOf y xs n (Nat.succInjective _ _ same) (z member => related z (Inr member)))
+
+--| Zipping two lists of the same length gives a list of that length (unlike
+--| [`List.lengthZipWith`], which gives the shorter of the two).
+theorem List.lengthZipWithEq (f: a → b → c): (xs: List a) → (ys: List b) → xs.length = ys.length → (List.zipWith xs ys f).length = xs.length
+  | [], [], same => rfl
+  | [], [y, ..ys], same => Void.exfalso (Nat.zeroNotSucc _ same)
+  | [x, ..xs], [], same => Void.exfalso (Nat.succNotZero _ same)
+  | [x, ..xs], [y, ..ys], same => Eq.cong Succ (List.lengthZipWithEq f xs ys (Nat.succInjective _ _ same))
+
+--| Where `r` holds of every result of `f` and its first argument, the zip of
+--| two lists of the same length is related, place by place, to the first.
+theorem List.all2ZipWithLeft (f: a → b → c) (r: c → a → Prop) (pointwise: (x: a) → (y: b) → r (f x y) x):
+    (xs: List a) → (ys: List b) → xs.length = ys.length → List.All2 r (List.zipWith xs ys f) xs
+  | [], [], same => Trivial
+  | [], [y, ..ys], same => Void.exfalso (Nat.zeroNotSucc _ same)
+  | [x, ..xs], [], same => Void.exfalso (Nat.succNotZero _ same)
+  | [x, ..xs], [y, ..ys], same =>
+    Both (pointwise x y) (List.all2ZipWithLeft f r pointwise xs ys (Nat.succInjective _ _ same))
+
+--| Where `r` holds of every result of `f` and its second argument, the zip of
+--| two lists of the same length is related, place by place, to the second.
+theorem List.all2ZipWithRight (f: a → b → c) (r: c → b → Prop) (pointwise: (x: a) → (y: b) → r (f x y) y):
+    (xs: List a) → (ys: List b) → xs.length = ys.length → List.All2 r (List.zipWith xs ys f) ys
+  | [], [], same => Trivial
+  | [], [y, ..ys], same => Void.exfalso (Nat.zeroNotSucc _ same)
+  | [x, ..xs], [], same => Void.exfalso (Nat.succNotZero _ same)
+  | [x, ..xs], [y, ..ys], same =>
+    Both (pointwise x y) (List.all2ZipWithRight f r pointwise xs ys (Nat.succInjective _ _ same))
+
+--| A list with no element equal to `x` counts none: `xs.contains x` is
+--| `False` exactly when `x` is not among `xs`.
+theorem List.countZeroOfNotContains [auto eq: DecEq a] (xs: List a) (x: a) (absent: xs.contains x = False): xs.count (y => y == x) = 0 :=
+  List.countNone xs (y => y == x) (y member =>
+    match same: y == x with
+      | True => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym absent) ((List.memContains xs x).backward (rewrite <- DecEq.sound same in member))))
+      | False => rfl)
+
+--| If every value occurs in `xs` at most once (counted with `==`), `xs` has
+--| no repeats. Unlike [`List.distinctOfOccurrences`] this needs no key, and
+--| it holds of a list being built up, where each step changes one count.
+theorem List.distinctOfCounts [auto eq: DecEq a]: (xs: List a) → ((x: a) → xs.count (y => y == x) ≤ 1) → xs.Distinct
+  | [], counts => Trivial
+  | [x, ..xs], counts =>
+    Both
+      (member =>
+        let here := counts x
+        let positive := List.countPositive xs (y => y == x) x member (DecEq.refl x)
+        let split := List.countCons xs x (y => y == x)
+        let self := DecEq.refl x
+        rewrite split, self at here in omega)
+      (List.distinctOfCounts xs (other =>
+        let here := counts other
+        let split := List.countCons xs x (y => y == other)
+        rewrite split at here in omega))
+
 test "List.zipWith lemmas" :=
   List.zipWith ([1, 2] ++ [3]) ([10, 20] ++ [30, 40]) (x y => x + y) == [11, 22, 33]
     ∧ List.length (List.zipWith [1, 2, 3] [4, 5] (x y => x + y)) == 2
