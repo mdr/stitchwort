@@ -457,7 +457,7 @@ impl Search {
             } => {
                 let text = target.text.clone();
                 let patterns = with_context(
-                    stack,
+                    server,
                     source,
                     target,
                     split.body.0,
@@ -2704,10 +2704,7 @@ fn context_at(
     character: u32,
     cancel: Arc<AtomicBool>,
 ) -> serde_json::Value {
-<<<<<<< HEAD
-    let mut session = search_session(server);
-=======
-    let found = with_context(stack, source, target, line, character, cancel, |_, c| c);
+    let found = with_context(server, source, target, line, character, cancel, |_, c| c);
     match found {
         Some(c) => serde_json::json!({
             "range": range(c.range),
@@ -2722,7 +2719,7 @@ fn context_at(
 /// Checks the document `target` with a probe at `line` and `character`, and
 /// gives `then` the session it ran in and the context found there.
 fn with_context<R>(
-    stack: usize,
+    server: &Options,
     source: &dyn Source,
     target: SearchTarget,
     line: u32,
@@ -2730,8 +2727,7 @@ fn with_context<R>(
     cancel: Arc<AtomicBool>,
     then: impl FnOnce(&Session, Option<pos::Context>) -> R,
 ) -> R {
-    let mut session = Session::for_stack(stack);
->>>>>>> lane/SW-1119
+    let mut session = search_session(server);
     session.share_cancel_flag(cancel);
     let found = match target.project {
         Some((root, relative, open)) => {
