@@ -18,8 +18,8 @@ on `lane/SW-1642` too (H4); `decide` reads back folded (M3); messages elide with
 reader memoises negative answers (S4). Its cap and agreement machinery are what revision 3
 drops.
 
-**Status:** draft 3, design only. Its direction is decided ([Decided](#decided)); two
-detail questions are open (D2548, D2549). Ticket SW-1712, from D2514 (Matt, 6 Nov 2026:
+**Status:** draft 3, design only. Its direction is decided ([Decided](#decided)); D2548 and
+D2549 are decided yes (Matt, 6 Nov 2026). Ticket SW-1712, from D2514 (Matt, 6 Nov 2026:
 "bound unfolded readback by making the elaborator's searches look at goals as written,
 starting with a short design note on Opus that revisits D484; accessor types read back as
 written too"). Unblocks record eta (SW-1642, SW-1667). Revision 3 was written against `main`
@@ -93,8 +93,8 @@ Revision 2's questions, as they now stand:
 | D2539 (programs never choose on a kept call) | moot: no call is kept | — |
 | D2540 (a recovered `E-RESOURCE` never chooses) | **yes in principle**; 0c finds the places, stage 7 changes them | §4.4 |
 
-Open: **D2548** (what "visible" means for `match`) and **D2549** (a visible occurrence whose
-motive doesn't type-check), in [§10](#10-decisions).
+Decided yes (Matt, 6 Nov 2026): **D2548** (what "visible" means for `match`) and **D2549** (a
+visible occurrence whose motive doesn't type-check), in [§10](#10-decisions).
 
 ## Contents
 
@@ -886,8 +886,8 @@ the history (`git show 2991bb684:docs/proposals/bounded-readback.md`).
 
 ## 10. Decisions
 
-D2541–D2545 and the earlier questions are recorded under [Decided](#decided). Two new
-questions, raised by writing §4.1 for the code SW-1628 and SW-1627 built:
+D2541–D2545 and the earlier questions are recorded under [Decided](#decided). Two further
+questions, both decided yes by Matt on 6 Nov 2026, raised by writing §4.1 for the code SW-1628 and SW-1627 built:
 
 - **D2548: what "visible" means for `match`** (6b). (1) A `match` is one search over all its
   targets (the goal and the variables' types): if the scrutinee is visible in any of them, no

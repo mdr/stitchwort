@@ -13452,7 +13452,7 @@
         "design"
       ],
       "epic": "goal-as-written",
-      "body": "From D2541-D2545 (Matt, 6 Nov 2026). Read and write only. Started on Opus, expected: 45 min.\n\nDone, merged (d8cd85693): revision 3. Stages 0a; 1, 0b, 0c; 4, 5; R (rewrite f); M (migration), 3; 6a; 6b; 7: about 15 h. Cap deferred. Migration plan for the seven proofs. Questions D2548 (match as one search, keeps SW-1628's refinements) and D2549 (look inside when a visible occurrence gives an ill-typed motive). Model result: Opus, worked, 11 min (est. 45).",
+      "body": "From D2541-D2545 (Matt, 6 Nov 2026). Read and write only. Started on Opus, expected: 45 min.\n\nDone, merged (d8cd85693): revision 3. Stages 0a; 1, 0b, 0c; 4, 5; R (rewrite f); M (migration), 3; 6a; 6b; 7: about 15 h. Cap deferred. Migration plan for the seven proofs. Questions D2548 (match as one search, keeps SW-1628's refinements) and D2549 (look inside when a visible occurrence gives an ill-typed motive). Model result: Opus, worked, 11 min (est. 45).\n\nD2548 yes, D2549 yes (Matt, 6 Nov 2026, took the recommendations).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
