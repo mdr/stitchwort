@@ -10,3 +10,4 @@ def input: Text := include "../../../../../inputs/2020/day20.txt"
 test "real input, 144 tiles" := (parsed input).map (jigsaw => jigsaw.tiles.length) == Ok 144
 test "real input, part 1" := (parsed input).map (.cornerProduct) == Ok 66020135789767
 test "real input, part 2" := (assembled input).map (.roughness) == Ok 1537
+test "real input, the tiles are rectangles" := (parsed input).map (.rectangular) == Ok True

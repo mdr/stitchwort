@@ -58,3 +58,8 @@ test "a sea monster has 15 rough pixels" := seaMonster.roughAt.length == 15
 test "the example, part 2" := (assembled example).map (.roughness) == Ok 273
 
 test "a pixel is # or ." := not (parsed "Tile 1:\n#x\n..\n").isOk
+
+--| What `Proofs.matchedOriented` needs of the tiles.
+test "the example's tiles are rectangles" := (parsed example).map (.rectangular) == Ok True
+
+test "a tile with a short row isn't a rectangle" := not ({ rows = [[Rough, Calm], [Rough]] }: Image).isRectangle

@@ -79,6 +79,15 @@ def Tile.orientations (tile: Tile): List Tile := tile.image.orientations.map (im
 --| The tiles, as the input lists them.
 type Jigsaw = { tiles: List Tile }
 
+--| At least one row, a first row with a pixel, and every row as long as
+--| the first: what turning and flipping need (`Proofs.Rectangle`).
+def Image.isRectangle (image: Image): Bool :=
+  match image.rows with
+    | [] => False
+    | [first, ..rest] => first.length != 0 && image.rows.all (row => row.length == first.length)
+
+def Jigsaw.rectangular (jigsaw: Jigsaw): Bool := jigsaw.tiles.all (tile => tile.image.isRectangle)
+
 -- The format
 
 def tile(): {Parse} Tile :=

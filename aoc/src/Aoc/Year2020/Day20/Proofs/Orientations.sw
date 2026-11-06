@@ -5,7 +5,7 @@
 namespace Aoc.Year2020.Day20.Proofs
 import Aoc.Year2020.Day20 (..)
 import Aoc.Year2020.Day20 (Spec)
-import Std (Eq, List, Nat, Option, Void)
+import Std (Bool, DecEq, Eq, List, Nat, Option, Void)
 
 theorem orientationCount (image: Image): image.orientations.length = 8 := rfl
 
@@ -213,22 +213,22 @@ theorem memEq [x: a] [xs: List a] [ys: List a] (same: xs = ys) (member: x ∈ xs
 theorem withinFlip (image: Image): Within image image.flip :=
   edge member =>
     match (memEq (flipEdges image) member) with
-        | Inl same => Witness (image.rows.headOr []) (Both (Inl rfl) (Inr (Eq.sym same)))
-        | Inr (Inl same) => Witness (image.rows.map (row => row.headOr Calm)) (Both (Inr (Inr (Inr (Inl rfl)))) (Inl (Eq.sym same)))
-        | Inr (Inr (Inl same)) => Witness (image.rows.last.getOrElse []) (Both (Inr (Inr (Inl rfl))) (Inr (Eq.sym same)))
-        | Inr (Inr (Inr (Inl same))) => Witness (image.rows.map (row => row.last.getOrElse Calm)) (Both (Inr (Inl rfl)) (Inl (Eq.sym same)))
-        | Inr (Inr (Inr (Inr never))) => Void.exfalso never
+      | Inl same => Witness (image.rows.headOr []) (Both (Inl rfl) (Inr (Eq.sym same)))
+      | Inr (Inl same) => Witness (image.rows.map (row => row.headOr Calm)) (Both (Inr (Inr (Inr (Inl rfl)))) (Inl (Eq.sym same)))
+      | Inr (Inr (Inl same)) => Witness (image.rows.last.getOrElse []) (Both (Inr (Inr (Inl rfl))) (Inr (Eq.sym same)))
+      | Inr (Inr (Inr (Inl same))) => Witness (image.rows.map (row => row.last.getOrElse Calm)) (Both (Inr (Inl rfl)) (Inl (Eq.sym same)))
+      | Inr (Inr (Inr (Inr never))) => Void.exfalso never
 
 theorem withinRotate (image: Image) (rectangle: Rectangle image): Within image image.rotate :=
   match rectangle with
     | Witness k (Both sized nonEmpty) =>
       edge member =>
         match (memEq (rotateEdges image k sized nonEmpty) member) with
-            | Inl same => Witness (image.rows.map (row => row.headOr Calm)) (Both (Inr (Inr (Inr (Inl rfl)))) (Inr (Eq.sym same)))
-            | Inr (Inl same) => Witness (image.rows.headOr []) (Both (Inl rfl) (Inl (Eq.sym same)))
-            | Inr (Inr (Inl same)) => Witness (image.rows.map (row => row.last.getOrElse Calm)) (Both (Inr (Inl rfl)) (Inr (Eq.sym same)))
-            | Inr (Inr (Inr (Inl same))) => Witness (image.rows.last.getOrElse []) (Both (Inr (Inr (Inl rfl))) (Inl (Eq.sym same)))
-            | Inr (Inr (Inr (Inr never))) => Void.exfalso never
+          | Inl same => Witness (image.rows.map (row => row.headOr Calm)) (Both (Inr (Inr (Inr (Inl rfl)))) (Inr (Eq.sym same)))
+          | Inr (Inl same) => Witness (image.rows.headOr []) (Both (Inl rfl) (Inl (Eq.sym same)))
+          | Inr (Inr (Inl same)) => Witness (image.rows.map (row => row.last.getOrElse Calm)) (Both (Inr (Inl rfl)) (Inr (Eq.sym same)))
+          | Inr (Inr (Inr (Inl same))) => Witness (image.rows.last.getOrElse []) (Both (Inr (Inr (Inl rfl))) (Inl (Eq.sym same)))
+          | Inr (Inr (Inr (Inr never))) => Void.exfalso never
 
 --| Every edge of every orientation of a rectangle fits one of its own edges.
 theorem withinOrientations (image: Image) (rectangle: Rectangle image) (turned: Image) (member: turned ∈ image.orientations): Within image turned :=
@@ -289,3 +289,21 @@ theorem matchedOriented (jigsaw: Jigsaw) (rectangles: (tile: Tile) → tile ∈ 
       | Witness other (Both member (Both different (Witness turned (Both isTurned onTurned)))) =>
         Witness other (Both member (Both different (withinOrientations other.image (rectangles other member) turned isTurned edge onTurned)))
 }
+
+theorem allLengthOfAll (n: Nat): (rows: List (List Pixel)) → rows.all (row => row.length == n) = True → List.AllLength n rows
+  | [], all => Trivial
+  | [row, ..rest], all => Both (DecEq.sound (Bool.andLeft all)) (allLengthOfAll n rest (Bool.andRight all))
+
+theorem rowsRectangle: (rows: List (List Pixel)) → Image.isRectangle { rows } = True → Rectangle { rows }
+  | [], checked => Void.exfalso (Bool.falseNotTrue checked)
+  | [first, ..rest], checked =>
+    match width: first.length with
+      | Zero => Void.exfalso (Bool.falseNotTrue checked)
+      | Succ k => Witness k (Both (allLengthOfAll (Succ k) [first, ..rest] checked) (List.consNotNil first rest))
+
+theorem isRectangleSound (image: Image) (checked: image.isRectangle = True): Rectangle image :=
+  let eta: { rows = image.rows } = image := Image.ext _ _ rfl
+  rowsRectangle image.rows (rewrite eta in checked)
+
+theorem rectangularSound (jigsaw: Jigsaw) (checked: jigsaw.rectangular = True): (tile: Tile) → tile ∈ jigsaw.tiles → Rectangle tile.image :=
+  tile member => isRectangleSound tile.image (List.allMember _ jigsaw.tiles checked tile member)
