@@ -1,5 +1,5 @@
 {
-  "next": 1604,
+  "next": 1607,
   "tickets": [
     {
       "id": 47,
@@ -10764,13 +10764,13 @@
     {
       "id": 1599,
       "title": "Fresh-eyes review of the overnight 5-6 Nov elaborator/unifier changes (SW-1538, SW-1564, SW-1541, SW-1553, SW-1521, and others), read-only: bugs with line references",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
         "review"
       ],
-      "body": "D2451 (Matt, 6 Nov 2026): yes, analysis-only Opus lane. Started on Opus, expected: 75 min.",
+      "body": "D2451 (Matt, 6 Nov 2026): yes, analysis-only Opus lane. Started on Opus, expected: 75 min.\n\nDone, 6 Nov 2026: nothing unsound. Bugs: SW-1538's motive check skipped with unknowns and failed attempts leaking solutions (SW-1604); thunk let rejection, pre-existing (SW-1605); five small message/editor issues (SW-1606). SW-1521/1506 memo, SW-1564 otherwise, SW-1541, SW-1550, SW-1526/1532, SW-1527/1533, SW-1513, editor lanes checked sound. Repros copied to dev/repros/sw-1599. Model result: Opus, worked, 15 min (est. 75).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10827,6 +10827,48 @@
         "design"
       ],
       "body": "From SW-1473, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1604,
+      "title": "SW-1538 follow-up: along_match_equation (check.rs:1367) skips the kernel motive check when the body has an unknown, though it was quoted before the unifications solved it (wrong-binder/E-UNSOLVED errors instead of the clear mismatch); and failed attempts (check.rs:1296, 1337) keep their solved unknowns, since undo::attempt commits on Ok(Some(None))",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "From SW-1599's review, 6 Nov 2026. Not unsound (kernel re-checks), wrong messages. Repros in dev/repros/sw-1599: meta-motive*.sw (+ -unnamed copies), leak.sw. Fix: re-quote/substitute solved unknowns before the check (None if any remain); undo on Ok(None). Add the repros as reject examples. Serialise after SW-1600 (also in check.rs).",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1605,
+      "title": "Unannotated thunk let passed to an effectful parameter is rejected: let k := () => 5; twice k with twice (f: () → {Abort} Nat) gives 'expected {Abort} Nat, has Nat' on the 5; annotating k: () → Nat passes. Predates the overnight run (same with the 01:28 binary)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "From SW-1599's review, 6 Nov 2026; repros dev/repros/sw-1599/row4.sw, row5.sw, row7.sw. Checked by the orchestrator: identical errors from target/debug (built 01:28, before SW-1564) and target/release, so not SW-1564.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1606,
+      "title": "Small message fixes from SW-1599: rewrite.rs:1600 unknown-head note names hypotheses as left-off premises (name one only if the left side's head is its unknown; else suggest [f := …]); check.rs:1471 != note fires from printed text (record at parse time); parser.rs:979 spelled() picks the spelling by byte length so ↔/∉ print as <->/!in; live.rs:1219 written_signature cuts at the first := ((atLeast := 1)); risk: lsp member cache key ignores files on disk",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "From SW-1599's review, 6 Nov 2026; repros dev/repros/sw-1599: rewrite-head.sw, ne-note.sw, spelled-iff2.sw. DeepSeek candidate.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
