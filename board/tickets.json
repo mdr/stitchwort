@@ -1,5 +1,5 @@
 {
-  "next": 1535,
+  "next": 1536,
   "tickets": [
     {
       "id": 47,
@@ -9853,7 +9853,7 @@
     },
     {
       "id": 1534,
-      "title": "check hangs on a theorem whose statement names a large computation (countdown 0 N = countdown 0 N with a proof; n = countdown 0 100000000 takes ~7 s at N = 1M): find where elaboration or conversion evaluates it (SW-1525)|elab",
+      "title": "check hangs on a theorem whose statement names a large computation (countdown 0 N = countdown 0 N with a proof; n = countdown 0 100000000 takes ~7 s at N = 1M): find where elaboration or conversion evaluates it (SW-1525)",
       "status": "backlog",
       "agent": "",
       "where": "",
@@ -9861,6 +9861,20 @@
         "elab"
       ],
       "body": "From SW-1525, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1535,
+      "title": "AoC 2020 day 16 (Ticket Translation): spec, efficient solution, proofs, tests, friction notes in aoc/NOTES-2020.md",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1535",
+      "labels": [
+        "aoc"
+      ],
+      "body": "D2443 (Matt): carry on further if there's time. Overnight, Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day16.\n\nStarted on Opus, expected: 120 min.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
