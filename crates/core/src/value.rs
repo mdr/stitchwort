@@ -1769,8 +1769,7 @@ fn branch(
         // keeps `(Set.map s f).items` rather than the inside of `Set.map`'s
         // unfolding. Both mean the same.
         n @ Value::Neutral(..)
-            if eta_case(g, *d)
-                && !matches!(&stuck, Some((id, ..)) if crate::float::eta_held(g, *id)) =>
+            if eta_case(g, *d) && !matches!(&stuck, Some((id, ..)) if eta_held(g, *id)) =>
         {
             let k = g.data(*d).ctors[0].fields.len();
             (0, eta_fields(*d, k, scrutinee, n))
@@ -1842,6 +1841,20 @@ pub fn has_eta(g: &Ev, d: DataId) -> bool {
 /// record eta (rule 2, [`branch`]): `d` has eta and no program is running.
 fn eta_case(g: &Ev, d: DataId) -> bool {
     has_eta(g, d) && !g.machine.erasure.program_running()
+}
+
+/// Whether rule 2 is off in the case tree of definition `id`: it has a
+/// native implementation (D2551). Such a definition models a machine
+/// operation, and its record patterns are there to leave it stuck until its
+/// arguments are known (`Float.add`'s `| { bits = a, … }, { bits = b, … }`,
+/// so `x + y` stays as written on unknowns). Opening them on unknowns gives
+/// its model's arithmetic on unknown bits: all stuck, far larger than the
+/// call, and saying nothing more. Conversion then decides fewer equalities,
+/// never more, so this is sound; the reference evaluator holds the same
+/// definitions (`reference::eval_tree`). Today only `Float.add` has both a
+/// native and a record pattern.
+pub fn eta_held(g: &Ev, id: DefId) -> bool {
+    g.env.builtins().has_native(id)
 }
 
 /// Rule 2's `k` fields for a `case` on type `d` whose scrutinee was

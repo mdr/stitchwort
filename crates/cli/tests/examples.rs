@@ -394,6 +394,40 @@ fn load_project(name: &str, path: &Path, session: &mut Session) -> Result<(), Ve
         .map(|_| ())
 }
 
+/// What's wrong with accepted project `name`: errors, open goals or failed
+/// tests.
+fn accepted_project_failures(name: &str, path: &Path) -> Vec<String> {
+    let mut failures = Vec::new();
+    let mut session = untimed(Session::for_stack(STACK));
+    if let Err(diagnostics) = load_project(name, path, &mut session) {
+        failures.push(format!(
+            "{name}:\n{}",
+            rendered(&session.sources, &diagnostics)
+        ));
+        return failures;
+    }
+    if session
+        .warnings
+        .iter()
+        .any(|d| d.severity == Severity::Goal)
+    {
+        failures.push(format!(
+            "{name} has open goals:\n{}",
+            rendered(&session.sources, &session.warnings)
+        ));
+        return failures;
+    }
+    for result in session.run_tests(&Cache::disabled()) {
+        if result.outcome != Outcome::Passed {
+            failures.push(format!(
+                "{name}: test \"{}\" in {} failed\n",
+                result.name, result.namespace
+            ));
+        }
+    }
+    failures
+}
+
 #[test]
 fn accepted_projects_check() {
     let all = projects("accept");
@@ -401,35 +435,7 @@ fn accepted_projects_check() {
         assert!(!all.is_empty());
     }
     let failures: Vec<String> = par_map(STACK, &all, |(name, path)| {
-        let mut failures = Vec::new();
-        let mut session = untimed(Session::for_stack(STACK));
-        if let Err(diagnostics) = load_project(name, path, &mut session) {
-            failures.push(format!(
-                "{name}:\n{}",
-                rendered(&session.sources, &diagnostics)
-            ));
-            return failures;
-        }
-        if session
-            .warnings
-            .iter()
-            .any(|d| d.severity == Severity::Goal)
-        {
-            failures.push(format!(
-                "{name} has open goals:\n{}",
-                rendered(&session.sources, &session.warnings)
-            ));
-            return failures;
-        }
-        for result in session.run_tests(&Cache::disabled()) {
-            if result.outcome != Outcome::Passed {
-                failures.push(format!(
-                    "{name}: test \"{}\" in {} failed\n",
-                    result.name, result.namespace
-                ));
-            }
-        }
-        failures
+        accepted_project_failures(name, path)
     })
     .into_iter()
     .flatten()
@@ -439,6 +445,22 @@ fn accepted_projects_check() {
         "these projects should check but don't:\n\n{}",
         failures.join("\n")
     );
+}
+
+/// `trip-journal` in every tier, whatever the sample: its proofs read back
+/// `Float` sums of unknowns under binders, which record eta once computed
+/// into `Float.Model`'s bit arithmetic, too large to show (SW-1744, D2551).
+#[test]
+fn the_trip_journal_checks() {
+    let path =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/projects/accept/trip-journal");
+    let failures = par_map(STACK, &[path], |path| {
+        accepted_project_failures("trip-journal", path)
+    })
+    .into_iter()
+    .flatten()
+    .collect::<Vec<_>>();
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 
 #[test]

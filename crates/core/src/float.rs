@@ -799,16 +799,6 @@ fn known_bits(g: &Ev, data: DataId, value: &Value, force: Force) -> budget::Resu
         .filter(|b| is_valid(*b)))
 }
 
-/// Whether record eta's rule 2 is off in the case tree of definition `id`
-/// (SW-1744, PROTOTYPE): `Float.add`, whose record patterns are meant to
-/// leave it stuck until both doubles are known, as without eta. On unknown
-/// doubles its unfolding is `Float.Model`'s arithmetic on unknown bits, all
-/// stuck: far larger than the call, and saying nothing more. Never while a
-/// program runs, where the native computes it.
-pub fn eta_held(g: &Ev, id: DefId) -> bool {
-    g.env.builtins().float_native(id) == Some(FloatNative::Add)
-}
-
 /// Runs float primitive or native `id` on `spine`, if it is one, it has
 /// all its arguments, and their bits are known: `None` otherwise (it's
 /// stuck, or its definition unfolds).

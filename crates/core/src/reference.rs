@@ -305,7 +305,7 @@ fn unfold(g: &Ev, id: DefId, spine: Vec<Elim>) -> Result<Value> {
                 args,
                 body.peel_lams(def.arity),
                 folds_on_lift(g, id),
-                crate::float::eta_held(g, id),
+                crate::value::eta_held(g, id),
             )?
         {
             return Ok(value);
@@ -376,7 +376,7 @@ fn unfold_folded(g: &Ev, value: Value) -> Result<Value> {
                 args,
                 body.peel_lams(g.def(*id).arity),
                 false,
-                crate::float::eta_held(g, *id),
+                crate::value::eta_held(g, *id),
             )?
         {
             return unfold_folded(g, force(g, next)?);
