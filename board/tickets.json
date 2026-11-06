@@ -1,5 +1,5 @@
 {
-  "next": 1573,
+  "next": 1574,
   "tickets": [
     {
       "id": 47,
@@ -10078,13 +10078,13 @@
     {
       "id": 1550,
       "title": "cases over Int/Nat comparisons takes Int apart and hits the 64-case limit; split comparisons as atoms and close with omega (day 17, Neighbours.sw:31)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1550",
       "labels": [
         "tactics"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).\n\nStarted overnight on Sonnet, expected: 50 min.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1547 (2020 day 17).\n\nStarted overnight on Sonnet, expected: 50 min.\n\nDone (4ffb9f03f), merged: Finder::chain stops at Int.decEq when a Bool test is already the atom, so cases splits the comparison's truth, not the Int; omega closes the cases. Day 17 window: 22 lines → 1. Nat already worked. Existing kernel terms unchanged (hash_stability). Proving guide updated. Model result: Sonnet, worked, 13 min (est. 50).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10393,6 +10393,20 @@
         "diagnostics"
       ],
       "body": "From SW-1553/1554, 6 Nov 2026. Small.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1573,
+      "title": "E-CASES-BUDGET: when the split candidates are Int insides (Int.natAbs, max, subNatNat …), say so and suggest splitting the comparison instead (SW-1550)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "From SW-1550, 6 Nov 2026. Also: update aoc/NOTES-2020.md day 17 item 1 to say it's fixed.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
