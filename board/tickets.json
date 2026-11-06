@@ -11820,7 +11820,7 @@
       "labels": [
         "editor"
       ],
-      "body": "From the tutorial lane SW-1666, 6 Nov 2026. A newcomer can't match the goal to their code.\n\nStarted on Sonnet, expected: 90 min.",
+      "body": "From the tutorial lane SW-1666, 6 Nov 2026. A newcomer can't match the goal to their code.\n\nStarted on Sonnet, expected: 90 min.\n\nMerged (ff46f8404, 25 min, est. 90). Post-merge verifier (170 tests, 460 s): 13 fail in goal_index, search, test_failures, doc and lsp binaries the lane didn't run. Mostly display snapshots; search's what-closes counts changed (5 → 3), and lemmas_check_as_the_same_goal fails. Back to the lane to fix, from main.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
