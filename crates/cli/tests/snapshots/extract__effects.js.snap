@@ -892,7 +892,7 @@ const $Std$dDecidable$dnot = (v1) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dNat$ddivFuel = (fuel, n, d) => { if (d === 0n) return fuel; const q = n / d; return q < fuel ? q : fuel; };
+const $Std$dNat$ddivFuel = (fuel, n, d) => { if (d === 0n) return 0n; const q = n / d; return q < fuel ? q : fuel; };
 const $Std$dNat$ddiv = (v0, v1) => $Std$dNat$ddivFuel(v0, v0, v1);
 const $Std$dEffect$dfoldComp = (done, call, c) => effFold(done, call, c, null);
 const $Std$dEffect$dbind = effBind;

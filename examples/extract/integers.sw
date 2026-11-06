@@ -88,13 +88,16 @@ export def parse (t: Text): Option Int := Text.toInt t
 -- run: fdiv 7 (-2)
 -- run: fmod 7 (-2)
 -- run: modNat (-7) 3
--- rejects: eucDiv (OfNat 5) (OfNat 0)
--- rejects: eucMod (NegSucc 4) (OfNat 0)
--- rejects: tdiv (OfNat 5) (OfNat 0)
--- rejects: tmod (OfNat 5) (OfNat 0)
--- rejects: fdiv (OfNat 5) (OfNat 0)
--- rejects: fmod (OfNat 5) (OfNat 0)
--- rejects: modNat (OfNat 5) 0
+-- run: eucDiv 5 0
+-- run: eucMod (-5) 0
+-- run: tdiv 5 0
+-- run: tmod (-5) 0
+-- run: fdiv (-5) 0
+-- run: fmod 5 0
+-- run: modNat (-5) 0
+-- run: modNat 5 0
+-- run: natDivMod 7 0
+-- run: natDivMod 7 2
 -- run: decEq 5 5
 -- run: decEq 5 (-5)
 -- run: leq (-5) (-5)

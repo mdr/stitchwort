@@ -86,12 +86,6 @@ fn ex(v: Value) -> Arg {
     Arg(v, Icit::Explicit)
 }
 
-/// The proof of `d != 0` that division takes, as a variable: it's only used
-/// in the impossible branch, which a test never reaches with a closed divisor.
-fn proof(level: usize) -> Arg {
-    Arg(Value::var(level), Icit::Auto)
-}
-
 /// `f args` by the machine: its value and normal form.
 fn machine(g: &stitchwort_core::Ev, f: DefId, args: &[Arg], level: usize) -> (Value, String) {
     let mut v = value::eval(g, &[], &Term::Def(f)).expect("no limits");
@@ -213,15 +207,23 @@ fn edge_cases_agree_in_both_modes() {
         // Division on each side of zero, and by `1` and `-1`.
         for a in -4..=4i64 {
             for d in [-3, -2, -1, 1, 2, 3i64] {
-                let args = [ex(int(&g.ev(), a)), ex(int(&g.ev(), d)), proof(0)];
+                let args = [ex(int(&g.ev(), a)), ex(int(&g.ev(), d))];
                 let (q, r) = (a.div_euclid(d), a.rem_euclid(d));
-                computes(g, "Int.div", &args, 1, q);
-                computes(g, "Int.mod", &args, 1, r);
-                computes(g, "Int.tdiv", &args, 1, a / d);
-                computes(g, "Int.tmod", &args, 1, a % d);
+                computes(g, "Int.div", &args, 0, q);
+                computes(g, "Int.mod", &args, 0, r);
+                computes(g, "Int.tdiv", &args, 0, a / d);
+                computes(g, "Int.tmod", &args, 0, a % d);
                 let fq = (a as f64 / d as f64).floor() as i64;
-                computes(g, "Int.fdiv", &args, 1, fq);
-                computes(g, "Int.fmod", &args, 1, a - d * fq);
+                computes(g, "Int.fdiv", &args, 0, fq);
+                computes(g, "Int.fmod", &args, 0, a - d * fq);
+            }
+            // Division is total: `a / 0 = 0` and `a % 0 = a`.
+            let args = [ex(int(&g.ev(), a)), ex(int(&g.ev(), 0))];
+            for op in ["Int.div", "Int.tdiv", "Int.fdiv"] {
+                computes(g, op, &args, 0, 0);
+            }
+            for op in ["Int.mod", "Int.tmod", "Int.fmod"] {
+                computes(g, op, &args, 0, a);
             }
         }
     });
@@ -404,36 +406,19 @@ fn open_terms_agree_in_both_modes() {
             stuck(
                 g,
                 op,
-                &[
-                    ex(int(&g.ev(), 7)),
-                    ex(of_nat(&g.ev(), x.clone())),
-                    proof(1),
-                ],
+                &[ex(int(&g.ev(), 7)), ex(of_nat(&g.ev(), x.clone()))],
                 2,
             );
-            stuck(g, op, &[ex(int(&g.ev(), 7)), ex(x.clone()), proof(1)], 2);
+            stuck(g, op, &[ex(int(&g.ev(), 7)), ex(x.clone())], 2);
             for d in [-3, 3] {
-                let args = [
-                    ex(of_nat(&g.ev(), plus_var(1, 0))),
-                    ex(int(&g.ev(), d)),
-                    proof(1),
-                ];
+                let args = [ex(of_nat(&g.ev(), plus_var(1, 0))), ex(int(&g.ev(), d))];
                 run(g, def(&g.ev(), op), &args, 2);
-                let args = [
-                    ex(neg_succ(&g.ev(), x.clone())),
-                    ex(int(&g.ev(), d)),
-                    proof(1),
-                ];
+                let args = [ex(neg_succ(&g.ev(), x.clone())), ex(int(&g.ev(), d))];
                 run(g, def(&g.ev(), op), &args, 2);
             }
         }
-        stuck(
-            g,
-            "Int.modNat",
-            &[ex(int(&g.ev(), -18)), ex(x.clone()), proof(1)],
-            2,
-        );
-        let args = [ex(neg_succ(&g.ev(), x.clone())), ex(nat(100)), proof(1)];
+        stuck(g, "Int.modNat", &[ex(int(&g.ev(), -18)), ex(x.clone())], 2);
+        let args = [ex(neg_succ(&g.ev(), x.clone())), ex(nat(100))];
         run(g, def(&g.ev(), "Int.modNat"), &args, 2);
     });
 }
@@ -512,7 +497,7 @@ fn metavariables_under_int_operations() {
 }
 
 /// The operations, with their parameters' kinds: `I` an integer, `N` a
-/// natural, `P` the proof that the divisor isn't zero.
+/// natural.
 const OPS: &[(&str, &str)] = &[
     ("Int.neg", "I"),
     ("Int.add", "II"),
@@ -522,13 +507,13 @@ const OPS: &[(&str, &str)] = &[
     ("Int.less", "II"),
     ("Int.compare", "II"),
     ("Int.decEq", "II"),
-    ("Int.div", "IIP"),
-    ("Int.mod", "IIP"),
-    ("Int.tdiv", "IIP"),
-    ("Int.tmod", "IIP"),
-    ("Int.fdiv", "IIP"),
-    ("Int.fmod", "IIP"),
-    ("Int.modNat", "INP"),
+    ("Int.div", "II"),
+    ("Int.mod", "II"),
+    ("Int.tdiv", "II"),
+    ("Int.tmod", "II"),
+    ("Int.fdiv", "II"),
+    ("Int.fmod", "II"),
+    ("Int.modNat", "IN"),
     ("Int.subNatNat", "NN"),
 ];
 
@@ -543,7 +528,17 @@ fn floor_div(a: i64, d: i64) -> i64 {
 }
 
 /// What `op a b` should be, from Rust's own arithmetic, when it's a number.
+/// Division is total: by 0 the quotient is 0, the remainder `a`, and
+/// `Int.modNat a 0` is `a.toNat`.
 fn expected(op: &str, a: i64, b: i64) -> Option<i64> {
+    let division = op.ends_with("div") || op.ends_with("mod") || op == "Int.modNat";
+    if division && b == 0 {
+        return Some(match op {
+            "Int.modNat" => a.max(0),
+            _ if op.ends_with("div") => 0,
+            _ => a,
+        });
+    }
     Some(match op {
         "Int.neg" => -a,
         "Int.add" | "Int.subNatNat" => a + if op == "Int.add" { b } else { -b },
@@ -560,7 +555,7 @@ fn expected(op: &str, a: i64, b: i64) -> Option<i64> {
 }
 
 /// R2 test 1: every operation on every argument in `-12..=12` (naturals
-/// from 0, divisors not zero), natives on and off, in both evaluators.
+/// from 0, divisors 0 included), natives on and off, in both evaluators.
 #[test]
 fn every_operation_agrees_in_both_modes_on_small_arguments() {
     with_stack(STACK, || {
@@ -573,7 +568,7 @@ fn every_operation_agrees_in_both_modes_on_small_arguments() {
             for a in -12..=12i64 {
                 for b in if unary { 0..=0 } else { -12..=12 } {
                     let natural = |k: usize, i: i64| kinds.get(k) == Some(&b'N') && i < 0;
-                    if natural(0, a) || natural(1, b) || (kinds.len() == 3 && b == 0) {
+                    if natural(0, a) || natural(1, b) {
                         continue;
                     }
                     let arg = |k: usize, i: i64| match kinds[k] {
@@ -584,10 +579,7 @@ fn every_operation_agrees_in_both_modes_on_small_arguments() {
                     if !unary {
                         args.push(arg(1, b));
                     }
-                    if kinds.len() == 3 {
-                        args.push(proof(0));
-                    }
-                    let (v, nf) = run(g, id, &args, 1);
+                    let (v, nf) = run(g, id, &args, 0);
                     if let Some(want) = expected(op, a, b) {
                         let got = if op == "Int.modNat" {
                             as_nat(&g.ev(), &v)
@@ -694,11 +686,8 @@ fn big_values_agree_with_an_independent_implementation() {
                     "Int.fdiv" => fq.clone(),
                     _ => fr.clone(),
                 };
-                let mut args = vec![ex(big_int(&g.ev(), a)), ex(big_int(&g.ev(), d))];
-                if op.ends_with("div") || op.ends_with("mod") {
-                    args.push(proof(0));
-                }
-                let (v, nf) = machine(&g.ev(), *id, &args, 1);
+                let args = [ex(big_int(&g.ev(), a)), ex(big_int(&g.ev(), d))];
+                let (v, nf) = machine(&g.ev(), *id, &args, 0);
                 assert_eq!(as_big_int(&g.ev(), &v), Some(want), "{op} {a} {d}: {nf}");
             }
             let (v, nf) = machine(

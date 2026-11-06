@@ -755,6 +755,8 @@ define(info$Main$dEntry, [
 ]);
 
 const $Std$dNat$dadd = (m, n) => m + n;
+const $Std$dNat$dsub = (m, n) => (m >= n ? m - n : 0n);
+const $Std$dNat$dmul = (m, n) => m * n;
 const $Std$dBool$difThenElse = (v1, v2, v3) => {
   switch (v1.tag) {
     case "False": {
@@ -777,7 +779,6 @@ const $Std$dDecidable$dtoBool = (v1) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dNat$ddecEq = (m, n) => ({ tag: m === n ? "Yes" : "No" });
 const $Std$dDecidable$dnot = (v1) => {
   switch (v1.tag) {
     case "Yes": {
@@ -789,6 +790,9 @@ const $Std$dDecidable$dnot = (v1) => {
   }
   throw new Error("unreachable");
 };
+const $Std$dNat$ddivFuel = (fuel, n, d) => { if (d === 0n) return 0n; const q = n / d; return q < fuel ? q : fuel; };
+const $Std$dNat$ddiv = (v0, v1) => $Std$dNat$ddivFuel(v0, v0, v1);
+const $Std$dNat$dmod = (v0, v1) => $Std$dNat$dsub(v0, $Std$dNat$dmul($Std$dNat$ddiv(v0, v1), v1));
 const $Std$dText$dappend = (a, b) => a + b;
 const $Std$dNat$dtoText = (n) => n.toString();
 const $Std$dInt$dneg = (a) => -a;
@@ -802,17 +806,17 @@ const $Std$dInt$dleq = (a, b) => ({ tag: a <= b ? "True" : "False" });
 const $Std$dInt$dless = (a, b) => ({ tag: a < b ? "True" : "False" });
 const $Std$dInt$dcompare = (a, b) => ({ tag: a < b ? "Less" : a === b ? "Equal" : "Greater" });
 const $Std$dInt$dtoText = (a) => a.toString();
-const $Std$dInt$ddiv = (a, d) => { const q = a / d, r = a % d; return r < 0n ? (d > 0n ? q - 1n : q + 1n) : q; };
-const $Std$dInt$dmod = (a, d) => { const r = a % d; return r < 0n ? (d > 0n ? r + d : r - d) : r; };
+const $Std$dInt$ddiv = (a, d) => { if (d === 0n) return 0n; const q = a / d, r = a % d; return r < 0n ? (d > 0n ? q - 1n : q + 1n) : q; };
+const $Std$dInt$dmod = (a, d) => { if (d === 0n) return a; const r = a % d; return r < 0n ? (d > 0n ? r + d : r - d) : r; };
 const $Std$dNat$dtoInt = (n) => n;
 const $Std$dInt$dabs = (a) => (a < 0n ? -a : a);
 const $Std$dInt$dtoNatChecked = (a) => (a < 0n ? { tag: "None" } : { tag: "Some", value: a });
 const $Std$dInt$dsign = (a) => (a > 0n ? 1n : a < 0n ? -1n : 0n);
-const $Std$dInt$dmodNat = (a, d) => { const r = a % d; return r < 0n ? r + d : r; };
-const $Std$dInt$dtdiv = (a, d) => a / d;
-const $Std$dInt$dtmod = (a, d) => a % d;
-const $Std$dInt$dfdiv = (a, d) => { const q = a / d, r = a % d; return r !== 0n && (r < 0n) !== (d < 0n) ? q - 1n : q; };
-const $Std$dInt$dfmod = (a, d) => { const r = a % d; return r !== 0n && (r < 0n) !== (d < 0n) ? r + d : r; };
+const $Std$dInt$dmodNat = (a, d) => { if (d === 0n) return a < 0n ? 0n : a; const r = a % d; return r < 0n ? r + d : r; };
+const $Std$dInt$dtdiv = (a, d) => (d === 0n ? 0n : a / d);
+const $Std$dInt$dtmod = (a, d) => (d === 0n ? a : a % d);
+const $Std$dInt$dfdiv = (a, d) => { if (d === 0n) return 0n; const q = a / d, r = a % d; return r !== 0n && (r < 0n) !== (d < 0n) ? q - 1n : q; };
+const $Std$dInt$dfmod = (a, d) => { if (d === 0n) return a; const r = a % d; return r !== 0n && (r < 0n) !== (d < 0n) ? r + d : r; };
 const $Std$dOption$dmap = (v2, v3) => {
   switch (v2.tag) {
     case "None": {
@@ -891,6 +895,7 @@ const $Main$dtmod = $Std$dInt$dtmod;
 const $Main$dfdiv = $Std$dInt$dfdiv;
 const $Main$dfmod = $Std$dInt$dfmod;
 const $Main$dmodNat = $Std$dInt$dmodNat;
+const $Main$dnatDivMod = (v0, v1) => ({ tag: "Cons", head: $Std$dNat$ddiv(v0, v1), tail: { tag: "Cons", head: $Std$dNat$dmod(v0, v1), tail: { tag: "Nil" } } });
 const $Main$ddecEq = (v0, v1) => $Std$dDecidable$dtoBool($Std$dInt$ddecEq(v0, v1));
 const $Main$dleq = $Std$dInt$dleq;
 const $Main$dless = $Std$dInt$dless;
@@ -1113,9 +1118,6 @@ function $$eucDiv(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "d");
-    if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1, 0n)).tag !== "Yes") {
-      throw new StitchwortInputError("precondition `d != 0` doesn't hold");
-    }
     return encodeFast(enc$2, ty$1, $Main$deucDiv(v0, v1));
   } catch (e) {
     throw outOfResources("eucDiv", e);
@@ -1126,9 +1128,6 @@ function $$eucMod(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "d");
-    if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1, 0n)).tag !== "Yes") {
-      throw new StitchwortInputError("precondition `d != 0` doesn't hold");
-    }
     return encodeFast(enc$2, ty$1, $Main$deucMod(v0, v1));
   } catch (e) {
     throw outOfResources("eucMod", e);
@@ -1139,9 +1138,6 @@ function $$tdiv(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "d");
-    if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1, 0n)).tag !== "Yes") {
-      throw new StitchwortInputError("precondition `d != 0` doesn't hold");
-    }
     return encodeFast(enc$2, ty$1, $Main$dtdiv(v0, v1));
   } catch (e) {
     throw outOfResources("tdiv", e);
@@ -1152,9 +1148,6 @@ function $$tmod(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "d");
-    if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1, 0n)).tag !== "Yes") {
-      throw new StitchwortInputError("precondition `d != 0` doesn't hold");
-    }
     return encodeFast(enc$2, ty$1, $Main$dtmod(v0, v1));
   } catch (e) {
     throw outOfResources("tmod", e);
@@ -1165,9 +1158,6 @@ function $$fdiv(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "d");
-    if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1, 0n)).tag !== "Yes") {
-      throw new StitchwortInputError("precondition `d != 0` doesn't hold");
-    }
     return encodeFast(enc$2, ty$1, $Main$dfdiv(v0, v1));
   } catch (e) {
     throw outOfResources("fdiv", e);
@@ -1178,9 +1168,6 @@ function $$fmod(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "d");
-    if ($Std$dDecidable$dnot($Std$dInt$ddecEq(v1, 0n)).tag !== "Yes") {
-      throw new StitchwortInputError("precondition `d != 0` doesn't hold");
-    }
     return encodeFast(enc$2, ty$1, $Main$dfmod(v0, v1));
   } catch (e) {
     throw outOfResources("fmod", e);
@@ -1191,12 +1178,19 @@ function $$modNat(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$6, ty$5, arg1, "d");
-    if ($Std$dDecidable$dnot($Std$dNat$ddecEq(v1, 0n)).tag !== "Yes") {
-      throw new StitchwortInputError("precondition `d != 0` doesn't hold");
-    }
     return encodeFast(enc$7, ty$5, $Main$dmodNat(v0, v1));
   } catch (e) {
     throw outOfResources("modNat", e);
+  }
+}
+
+function $$natDivMod(arg0, arg1) {
+  try {
+    const v0 = decodeFast(dec$6, ty$5, arg0, "n");
+    const v1 = decodeFast(dec$6, ty$5, arg1, "d");
+    return encodeFast(enc$8, ty$4, $Main$dnatDivMod(v0, v1));
+  } catch (e) {
+    throw outOfResources("natDivMod", e);
   }
 }
 
@@ -1204,7 +1198,7 @@ function $$decEq(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "b");
-    return encodeFast(enc$8, ty$6, $Main$ddecEq(v0, v1));
+    return encodeFast(enc$9, ty$6, $Main$ddecEq(v0, v1));
   } catch (e) {
     throw outOfResources("decEq", e);
   }
@@ -1214,7 +1208,7 @@ function $$leq(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "b");
-    return encodeFast(enc$8, ty$6, $Main$dleq(v0, v1));
+    return encodeFast(enc$9, ty$6, $Main$dleq(v0, v1));
   } catch (e) {
     throw outOfResources("leq", e);
   }
@@ -1224,7 +1218,7 @@ function $$less(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "b");
-    return encodeFast(enc$8, ty$6, $Main$dless(v0, v1));
+    return encodeFast(enc$9, ty$6, $Main$dless(v0, v1));
   } catch (e) {
     throw outOfResources("less", e);
   }
@@ -1234,7 +1228,7 @@ function $$compare(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "a");
     const v1 = decodeFast(dec$1, ty$1, arg1, "b");
-    return encodeFast(enc$9, ty$7, $Main$dcompare(v0, v1));
+    return encodeFast(enc$10, ty$7, $Main$dcompare(v0, v1));
   } catch (e) {
     throw outOfResources("compare", e);
   }
@@ -1270,7 +1264,7 @@ function $$toNat(arg0) {
 function $$toNatChecked(arg0) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "x");
-    return encodeFast(enc$10, ty$8, $Main$dtoNatChecked(v0));
+    return encodeFast(enc$11, ty$8, $Main$dtoNatChecked(v0));
   } catch (e) {
     throw outOfResources("toNatChecked", e);
   }
@@ -1305,8 +1299,8 @@ function $$toText(arg0) {
 
 function $$parse(arg0) {
   try {
-    const v0 = decodeFast(dec$11, ty$3, arg0, "t");
-    return encodeFast(enc$12, ty$9, $Main$dparse(v0));
+    const v0 = decodeFast(dec$12, ty$3, arg0, "t");
+    return encodeFast(enc$13, ty$9, $Main$dparse(v0));
   } catch (e) {
     throw outOfResources("parse", e);
   }
@@ -1354,7 +1348,7 @@ function $$fields(arg0) {
 
 function $$optionInt(arg0) {
   try {
-    const v0 = decodeFast(dec$13, ty$9, arg0, "arg0");
+    const v0 = decodeFast(dec$14, ty$9, arg0, "arg0");
     return encodeFast(enc$2, ty$1, $Main$doptionInt(v0));
   } catch (e) {
     throw outOfResources("optionInt", e);
@@ -1363,8 +1357,8 @@ function $$optionInt(arg0) {
 
 function $$negateAll(arg0) {
   try {
-    const v0 = decodeFast(dec$14, ty$10, arg0, "xs");
-    return encodeFast(enc$15, ty$10, $Main$dnegateAll(v0));
+    const v0 = decodeFast(dec$15, ty$10, arg0, "xs");
+    return encodeFast(enc$16, ty$10, $Main$dnegateAll(v0));
   } catch (e) {
     throw outOfResources("negateAll", e);
   }
@@ -1372,8 +1366,8 @@ function $$negateAll(arg0) {
 
 function $$firstNeg(arg0) {
   try {
-    const v0 = decodeFast(dec$16, ty$2, arg0, "arg0");
-    return encodeFast(enc$12, ty$9, $Main$dfirstNeg(v0));
+    const v0 = decodeFast(dec$17, ty$2, arg0, "arg0");
+    return encodeFast(enc$13, ty$9, $Main$dfirstNeg(v0));
   } catch (e) {
     throw outOfResources("firstNeg", e);
   }
@@ -1381,8 +1375,8 @@ function $$firstNeg(arg0) {
 
 function $$apply(arg0) {
   try {
-    const v0 = decodeFast(dec$17, ty$11, arg0, "e");
-    return encodeFast(enc$18, ty$11, $Main$dapply(v0));
+    const v0 = decodeFast(dec$18, ty$11, arg0, "e");
+    return encodeFast(enc$19, ty$11, $Main$dapply(v0));
   } catch (e) {
     throw outOfResources("apply", e);
   }
@@ -1390,7 +1384,7 @@ function $$apply(arg0) {
 
 function $$entries(arg0) {
   try {
-    const v0 = decodeFast(dec$19, ty$12, arg0, "arg0");
+    const v0 = decodeFast(dec$20, ty$12, arg0, "arg0");
     return encodeFast(enc$2, ty$1, $Main$dentries(v0));
   } catch (e) {
     throw outOfResources("entries", e);
@@ -1458,9 +1452,14 @@ function enc$7(v) {
   return NAT.enc(v);
 }
 function enc$8(v) {
-  return BOOL.enc(v);
+  const out = [];
+  for (let l = v; l.tag === "Cons"; l = l.tail) out.push(NAT.enc(l.head));
+  return out;
 }
 function enc$9(v) {
+  return BOOL.enc(v);
+}
+function enc$10(v) {
   switch (v.tag) {
     case "Less": {
       const o = { $tag: "Less" };
@@ -1477,19 +1476,19 @@ function enc$9(v) {
     default: throw FAIL;
   }
 }
-function enc$10(v) {
+function enc$11(v) {
   return (v.tag === "None" ? undefined : NAT.enc(v.value));
 }
-function dec$11(x) {
+function dec$12(x) {
   return TEXT.dec(x);
 }
-function enc$12(v) {
+function enc$13(v) {
   return (v.tag === "None" ? undefined : INT.enc(v.value));
 }
-function dec$13(x) {
+function dec$14(x) {
   return (x === undefined ? { tag: "None" } : x === null ? fail() : { tag: "Some", value: INT.dec(x) });
 }
-function dec$14(x) {
+function dec$15(x) {
   if (!Array.isArray(x)) throw FAIL;
   const done = memoOf(ty$10);
   const known = done.get(x);
@@ -1515,12 +1514,12 @@ function dec$14(x) {
   done.set(x, first);
   return first;
 }
-function enc$15(v) {
+function enc$16(v) {
   const out = [];
   for (let l = v; l.tag === "Cons"; l = l.tail) out.push((l.head.tag === "None" ? undefined : INT.enc(l.head.value)));
   return out;
 }
-function dec$16(x) {
+function dec$17(x) {
   if (!Array.isArray(x)) throw FAIL;
   const done = memoOf(ty$2);
   const known = done.get(x);
@@ -1546,7 +1545,7 @@ function dec$16(x) {
   done.set(x, first);
   return first;
 }
-function dec$17(x) {
+function dec$18(x) {
   if (typeof x !== "object" || x === null || Array.isArray(x)) throw FAIL;
   if (!hasOwn(x, "count")) throw FAIL;
   const r0 = x.count;
@@ -1557,11 +1556,11 @@ function dec$17(x) {
   const o = { count: f0, delta: f1 };
   return o;
 }
-function enc$18(v) {
+function enc$19(v) {
   const o = { count: NAT.enc(v.count), delta: INT.enc(v.delta) };
   return o;
 }
-function dec$19(x) {
+function dec$20(x) {
   if (!Array.isArray(x)) throw FAIL;
   const done = memoOf(ty$12);
   const known = done.get(x);
@@ -1577,7 +1576,7 @@ function dec$19(x) {
   for (let i = 0; i < n; i++) {
     if (!hasOwn(x, i)) throw FAIL;
     const r = x[i];
-    const cell = { tag: "Cons", head: dec$17(r), tail: null };
+    const cell = { tag: "Cons", head: dec$18(r), tail: null };
     if (last === null) first = cell; else last.tail = cell;
     last = cell;
   }
@@ -1588,4 +1587,4 @@ function dec$19(x) {
   return first;
 }
 
-export { $$dial as dial, $$divide as divide, $$describe as describe, $$negatives as negatives, $$neg as neg, $$add as add, $$sub as sub, $$mul as mul, $$eucDiv as eucDiv, $$eucMod as eucMod, $$tdiv as tdiv, $$tmod as tmod, $$fdiv as fdiv, $$fmod as fmod, $$modNat as modNat, $$decEq as decEq, $$leq as leq, $$less as less, $$compare as compare, $$natAbs as natAbs, $$abs as abs, $$toNat as toNat, $$toNatChecked as toNatChecked, $$sign as sign, $$ofNat as ofNat, $$toText as toText, $$parse as parse, $$ofNats as ofNats, $$residue as residue, $$classify as classify, $$fields as fields, $$optionInt as optionInt, $$negateAll as negateAll, $$firstNeg as firstNeg, $$apply as apply, $$entries as entries };
+export { $$dial as dial, $$divide as divide, $$describe as describe, $$negatives as negatives, $$neg as neg, $$add as add, $$sub as sub, $$mul as mul, $$eucDiv as eucDiv, $$eucMod as eucMod, $$tdiv as tdiv, $$tmod as tmod, $$fdiv as fdiv, $$fmod as fmod, $$modNat as modNat, $$natDivMod as natDivMod, $$decEq as decEq, $$leq as leq, $$less as less, $$compare as compare, $$natAbs as natAbs, $$abs as abs, $$toNat as toNat, $$toNatChecked as toNatChecked, $$sign as sign, $$ofNat as ofNat, $$toText as toText, $$parse as parse, $$ofNats as ofNats, $$residue as residue, $$classify as classify, $$fields as fields, $$optionInt as optionInt, $$negateAll as negateAll, $$firstNeg as firstNeg, $$apply as apply, $$entries as entries };

@@ -929,7 +929,7 @@ const $Std$dChar$dtoNat = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dNat$ddivFuel = (fuel, n, d) => { if (d === 0n) return fuel; const q = n / d; return q < fuel ? q : fuel; };
+const $Std$dNat$ddivFuel = (fuel, n, d) => { if (d === 0n) return 0n; const q = n / d; return q < fuel ? q : fuel; };
 const $Std$dNat$ddiv = (v0, v1) => $Std$dNat$ddivFuel(v0, v0, v1);
 const $Std$dNat$dcompare = (v0, v1) => ($Std$dNat$dequal(v0, v1).tag === "True" ? { tag: "Equal" } : ($Std$dNat$dleq(v0, v1).tag === "True" ? { tag: "Less" } : { tag: "Greater" }));
 const $Std$dOrdering$dindex = (v0) => {
