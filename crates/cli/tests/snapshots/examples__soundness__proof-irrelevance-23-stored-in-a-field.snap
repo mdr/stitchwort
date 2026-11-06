@@ -7,7 +7,7 @@ expression: output
     │
  15 │ theorem t23 (d: Nat) (p: d ≠ 0) (q: d ≠ 0): Box.unbox (keep d p) = Box.unbox (keep d q) := rfl
     │                                                                                            ─┬─  
-    │                                                                                             ╰─── `Box.unbox (keep d p)` and `Box.unbox (keep d q)` aren't equal
+    │                                                                                             ╰─── `(keep d p).unbox` and `(keep d q).unbox` aren't equal
     │ 
     │ Note 1: computing both sides gives `p` and `q`
     │ 

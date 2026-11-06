@@ -9,7 +9,7 @@ expression: output
    │                                                    ─┬─  
    │                                                     ╰─── `wrap x 100` and `wrap y 100` aren't equal
    │ 
-   │ Note 1: computing both sides gives `Int.modNat x 100` and `Int.modNat y 100`
+   │ Note 1: computing both sides gives `x.modNat 100` and `y.modNat 100`
    │ 
    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
    │ 

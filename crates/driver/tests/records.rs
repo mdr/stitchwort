@@ -178,10 +178,7 @@ fn projections_and_equality_are_generated() {
         stitchwort_core::pretty::term(g, &[], def.ty())
     };
     assert_eq!(shown("Person.age"), "Person → Nat");
-    assert_eq!(
-        shown("Sized.ok"),
-        "(r: Sized) → List.length r.items = r.size"
-    );
+    assert_eq!(shown("Sized.ok"), "(r: Sized) → r.items.length = r.size");
     assert_eq!(shown("Box.value"), "[a: Type] → Box a → a");
     // A derived `DecEq` instance (docs/proposals/interfaces.md §5.11), also
     // for a proof field that's an equation, and with parameters.

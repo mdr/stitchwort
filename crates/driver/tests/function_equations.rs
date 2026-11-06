@@ -249,31 +249,31 @@ def ofName (name: List Char): Nat :=
         let cases = [
             (
                 "repair.eq.some.zero",
-                "(bits: Nat) → (b: Nat) → (isSome: List.head [bits] = Some b) → repair 0 bits = None",
+                "(bits: Nat) → (b: Nat) → (isSome: [bits].head = Some b) → repair 0 bits = None",
             ),
             (
                 "repair.eq.some.succ",
-                "(bits: Nat) → (fewer: Nat) → (b: Nat) → (isSome: List.head [bits] = Some b) → \
+                "(bits: Nat) → (fewer: Nat) → (b: Nat) → (isSome: [bits].head = Some b) → \
                  repair (Succ fewer) bits = Some (fewer + b)",
             ),
             (
                 "deeper.eq2.some.cons",
                 "(x: Nat) → (z: Nat) → (more: List Nat) → (y: Nat) → \
-                 (isSome: List.head [z, ..more] = Some y) → deeper [x, z, ..more] = y + z",
+                 (isSome: [z, ..more].head = Some y) → deeper [x, z, ..more] = y + z",
             ),
             (
                 "deeper.eq2.some.nil",
-                "(x: Nat) → (y: Nat) → (isSome: List.head [] = Some y) → deeper [x] = x",
+                "(x: Nat) → (y: Nat) → (isSome: [].head = Some y) → deeper [x] = x",
             ),
             (
                 "ofName.eq.some.alt1.alt1",
-                "(name: List Char) → (isSome: List.head name = Some 'x') → \
-                 (isAlt1: List.length name = 3) → ofName name = 1",
+                "(name: List Char) → (isSome: name.head = Some 'x') → \
+                 (isAlt1: name.length = 3) → ofName name = 1",
             ),
             (
                 "ofName.eq.some.alt1.alt2",
-                "(name: List Char) → (first: Char) → (isSome: List.head name = Some first) → \
-                 (isAlt1: List.length name = 3) → (notListed: first ∉ ['x']) → ofName name = 2",
+                "(name: List Char) → (first: Char) → (isSome: name.head = Some first) → \
+                 (isAlt1: name.length = 3) → (notListed: first ∉ ['x']) → ofName name = 2",
             ),
         ];
         let mut wrong = Vec::new();
@@ -490,12 +490,12 @@ fn branch_equations() {
             ),
             (
                 "headOr.eq.some",
-                "(d: Nat) → (xs: List Nat) → (x: Nat) → (isSome: List.head xs = Some x) → \
+                "(d: Nat) → (xs: List Nat) → (x: Nat) → (isSome: xs.head = Some x) → \
                  headOr d xs = x",
             ),
             (
                 "headOr.eq.none",
-                "(d: Nat) → (xs: List Nat) → (isNone: List.head xs = None) → headOr d xs = d",
+                "(d: Nat) → (xs: List Nat) → (isNone: xs.head = None) → headOr d xs = d",
             ),
             (
                 "both.eq.alt1",
@@ -509,16 +509,16 @@ fn branch_equations() {
             ),
             (
                 "firstTwo.eq.some.alt1",
-                "(xs: List Nat) → (isSome: List.head xs = Some 0) → firstTwo xs = 1",
+                "(xs: List Nat) → (isSome: xs.head = Some 0) → firstTwo xs = 1",
             ),
             (
                 "firstTwo.eq.some.succ",
-                "(xs: List Nat) → (n: Nat) → (isSome: List.head xs = Some (Succ n)) → \
+                "(xs: List Nat) → (n: Nat) → (isSome: xs.head = Some (Succ n)) → \
                  firstTwo xs = n",
             ),
             (
                 "firstTwo.eq.none",
-                "(xs: List Nat) → (isNone: List.head xs = None) → firstTwo xs = 0",
+                "(xs: List Nat) → (isNone: xs.head = None) → firstTwo xs = 0",
             ),
         ];
         let mut wrong = Vec::new();
@@ -584,13 +584,13 @@ fn a_destructuring_let_before_a_tail_split_gets_its_branches() {
             (
                 "cellAhead.eq.zero.ifTrue",
                 "(cell: Cell) → (isZero: cell.row = 0) → \
-                 (h1: (x => Decidable.toBool (Nat.decEq x 0)) cell.column = True) → \
+                 (h1: (x => (x.decEq 0).toBool) cell.column = True) → \
                  cellAhead cell = None",
             ),
             (
                 "cellAhead.eq.zero.ifFalse",
                 "(cell: Cell) → (isZero: cell.row = 0) → \
-                 (h1: (x => Decidable.toBool (Nat.decEq x 0)) cell.column = False) → \
+                 (h1: (x => (x.decEq 0).toBool) cell.column = False) → \
                  cellAhead cell = Some cell.column",
             ),
             (
@@ -734,9 +734,9 @@ theorem threeOther (a: Option Nat) (c: Nat) (ha: a = None) (hc: c = 0): three 1 
 fn a_match_on_several_expressions_is_stated_as_on_their_tuple() {
     with_source(SEVERAL.to_string(), |s| {
         let not_zero = "(k: Nat) → (a: Option Nat) → (b: Option Nat) → \
-                        (h1: Decidable.toBool (Nat.decEq k 0) = False)";
+                        (h1: (k.decEq 0).toBool = False)";
         let three_not_zero = "(k: Nat) → (a: Option Nat) → (b: Bool) → (c: Nat) → \
-                              (h1: Decidable.toBool (Nat.decEq k 0) = False)";
+                              (h1: (k.decEq 0).toBool = False)";
         let cases = [
             (
                 "two.eq.ifFalse.alt1",

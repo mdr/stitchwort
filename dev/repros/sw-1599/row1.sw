@@ -3,7 +3,7 @@ import Std (Abort, List, Nat, Option)
 def a1 (xs: List (Option Nat)): {Abort} Nat :=
   xs.foldLeft 0 (acc o => acc + Abort.need o)
 
-def a2 (xs: List (Option Nat)): {Abort} (List Nat) :=
+def a2 (xs: List (Option Nat)): {Abort} List Nat :=
   xs.foldLeft [] (acc o => [Abort.need o, ..acc])
 
 def step (acc: Nat) (o: Option Nat): {Abort} Nat := acc + Abort.need o

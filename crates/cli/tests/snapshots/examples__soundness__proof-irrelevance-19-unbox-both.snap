@@ -7,7 +7,7 @@ expression: output
     │
  12 │ theorem unboxBoth (a: Prop) (p: a) (q: a): Box.unbox (MkBox p) = Box.unbox (MkBox q) := rfl
     │                                                                                         ─┬─  
-    │                                                                                          ╰─── `Box.unbox (MkBox p)` and `Box.unbox (MkBox q)` aren't equal
+    │                                                                                          ╰─── `(MkBox p).unbox` and `(MkBox q).unbox` aren't equal
     │ 
     │ Note 1: computing both sides gives `p` and `q`
     │ 
