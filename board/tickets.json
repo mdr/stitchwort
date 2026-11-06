@@ -1,5 +1,5 @@
 {
-  "next": 1642,
+  "next": 1646,
   "tickets": [
     {
       "id": 47,
@@ -19,14 +19,14 @@
     {
       "id": 55,
       "title": "Records stage 2: projections and eta in the kernel",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "kernel",
         "proof"
       ],
-      "body": "Kernel projections and eta, so `p = (p.fst, p.snd)` holds by `rfl` for pairs and records (docs/aoc-2025.md:1302-1303, 'No pair eta'); see docs/proposals/records.md draft 2 §7 (Stage 2: projections and eta in the kernel). Includes the same-type rule and eta off in unification's `first_order` fallback. Do after proof irrelevance (SW-93) is decided.\n\nD8 (Matt, 19 Oct): not now; build when proofs about records need it.\n\nHistory: this was the 'Records follow-ups' umbrella. Split 19 Oct into SW-119 (done), SW-120 (termination through record fields, backlog), SW-121 (done); (.name) sections done (74db93a). 21 Oct review: `==` for records with proof fields is partly done (derived DecEq handles proofs of equations in DecEq types; other proof fields still E-INSTANCE-NONE, examples/reject/record-eqeq-proof-field.sw) -> SW-202; JS boundary proof fields for ordinary data types -> SW-203.\n\nDone when: `theorem eta (p: Pair a b): p = (p.fst, p.snd) := rfl` checks for pairs and for a record, with the tests of records.md §14.\n\n22 Oct 2026: D503 (Matt: yes) — build record eta after generated ext lemmas and glued values stage 1 land (both touch conversion).\n\nReminder (D1981, Matt, 30 Oct 2026): once proof irrelevance (SW-93) is built, record eta must apply only to records with at least one field that isn't a proof. A record whose fields are all proofs then behaves like a unit type, and eta on it breaks transitivity of conversion (docs/research/kernel.md §5.2; Lennon-Bertrand FSCD25, Rosain et al. POPL26; Rocq requires at least one relevant field). records.md §7.1 condition 4 should say so.\n\nFrom SW-568 (merged, backlog review 4 Nov 2026): 'No eta for records in conversion': `p = { row = p.row, column = p.column }` needs a match on p. Sightings: rogue PROOFS.md, SW-960 (4), SW-990 (4), SW-999 (3). The D1981 reminder above is the same text. SW-789 stays as the decision; its 'D8: not now' is overtaken because at least four lanes have now needed eta, so SW-789 is the live question.\n\nD2457 (Matt, 6 Nov 2026): yes, an Opus design note for kernel record eta, limited to records with at least one non-proof field (D1981), building on records.md §7. Ticket SW-789.",
+      "body": "Kernel projections and eta, so `p = (p.fst, p.snd)` holds by `rfl` for pairs and records (docs/aoc-2025.md:1302-1303, 'No pair eta'); see docs/proposals/records.md draft 2 §7 (Stage 2: projections and eta in the kernel). Includes the same-type rule and eta off in unification's `first_order` fallback. Do after proof irrelevance (SW-93) is decided.\n\nD8 (Matt, 19 Oct): not now; build when proofs about records need it.\n\nHistory: this was the 'Records follow-ups' umbrella. Split 19 Oct into SW-119 (done), SW-120 (termination through record fields, backlog), SW-121 (done); (.name) sections done (74db93a). 21 Oct review: `==` for records with proof fields is partly done (derived DecEq handles proofs of equations in DecEq types; other proof fields still E-INSTANCE-NONE, examples/reject/record-eqeq-proof-field.sw) -> SW-202; JS boundary proof fields for ordinary data types -> SW-203.\n\nDone when: `theorem eta (p: Pair a b): p = (p.fst, p.snd) := rfl` checks for pairs and for a record, with the tests of records.md §14.\n\n22 Oct 2026: D503 (Matt: yes) — build record eta after generated ext lemmas and glued values stage 1 land (both touch conversion).\n\nReminder (D1981, Matt, 30 Oct 2026): once proof irrelevance (SW-93) is built, record eta must apply only to records with at least one field that isn't a proof. A record whose fields are all proofs then behaves like a unit type, and eta on it breaks transitivity of conversion (docs/research/kernel.md §5.2; Lennon-Bertrand FSCD25, Rosain et al. POPL26; Rocq requires at least one relevant field). records.md §7.1 condition 4 should say so.\n\nFrom SW-568 (merged, backlog review 4 Nov 2026): 'No eta for records in conversion': `p = { row = p.row, column = p.column }` needs a match on p. Sightings: rogue PROOFS.md, SW-960 (4), SW-990 (4), SW-999 (3). The D1981 reminder above is the same text. SW-789 stays as the decision; its 'D8: not now' is overtaken because at least four lanes have now needed eta, so SW-789 is the live question.\n\nD2457 (Matt, 6 Nov 2026): yes, an Opus design note for kernel record eta, limited to records with at least one non-proof field (D1981), building on records.md §7. Ticket SW-789.\n\nD2498-D2505 (Matt, 6 Nov 2026): all as recommended in docs/proposals/record-eta.md: kernel record eta with primitive projections (no parameters) and the two rules; eta by shape incl. Pair; no no-eta opt-out now; no eta for interface dictionaries; accept goals changing shape; keep T.ext; accept ~5% checking cost (profile it); staged kernel (Opus), unifier, Pair, clean-up sweep (Sonnet). Stages: SW-1642, SW-1643, SW-1644, SW-1645.",
       "created": "2026-10-19",
       "updated": "2026-11-06",
       "commits": []
@@ -791,13 +791,13 @@
     {
       "id": 789,
       "title": "Consider D1426: Record eta in the kernel, or a generated T.ext lemma per record",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-789",
       "labels": [
         "decision"
       ],
-      "body": "p = { row = p.row, column = p.column } isn't true by computation; roguelike, day 5 and day 6 hit it. Lean and Agda have kernel eta. Rec: kernel record eta after a short design note (trusted code).\n\nReminder (D1981, Matt, 30 Oct 2026): once proof irrelevance (SW-93) is built, record eta must apply only to records with at least one field that isn't a proof. A record whose fields are all proofs then behaves like a unit type, and eta on it breaks transitivity of conversion (docs/research/kernel.md §5.2; Lennon-Bertrand FSCD25, Rosain et al. POPL26; Rocq requires at least one relevant field). records.md §7.1 condition 4 should say so.\n\nD2457 (Matt, 6 Nov 2026): yes, an Opus design note for kernel record eta, limited to records with at least one non-proof field (D1981), building on records.md §7. Started on Opus (design note), expected: 90 min.\n\nDesign note done (13f62f10d), merged: docs/proposals/record-eta.md; prototype at dev/patches/sw-789-record-eta-prototype.patch. Recommendation: eta for every single-constructor, non-recursive type in Type with a non-proof field (D1981), Pair included, via a new kernel projection form without parameters; rule 1 (literal = unknown record field-wise) and rule 2 (match on an unknown record takes its only branch, fields from the unforced record); unifier the same, off in first_order; T.ext stays. Prototype: 8 sampled workarounds removable, each failing without eta; one breakage (2021 day 13 Picture.sw:45, a workaround that becomes rfl); cost +4.6% instructions on aoc/, +5.0% rogue (rule 2). Q1-Q8 = D2498-D2505, waiting for Matt. Model result: Opus, worked, 43 min (est. 90).",
+      "body": "p = { row = p.row, column = p.column } isn't true by computation; roguelike, day 5 and day 6 hit it. Lean and Agda have kernel eta. Rec: kernel record eta after a short design note (trusted code).\n\nReminder (D1981, Matt, 30 Oct 2026): once proof irrelevance (SW-93) is built, record eta must apply only to records with at least one field that isn't a proof. A record whose fields are all proofs then behaves like a unit type, and eta on it breaks transitivity of conversion (docs/research/kernel.md §5.2; Lennon-Bertrand FSCD25, Rosain et al. POPL26; Rocq requires at least one relevant field). records.md §7.1 condition 4 should say so.\n\nD2457 (Matt, 6 Nov 2026): yes, an Opus design note for kernel record eta, limited to records with at least one non-proof field (D1981), building on records.md §7. Started on Opus (design note), expected: 90 min.\n\nDesign note done (13f62f10d), merged: docs/proposals/record-eta.md; prototype at dev/patches/sw-789-record-eta-prototype.patch. Recommendation: eta for every single-constructor, non-recursive type in Type with a non-proof field (D1981), Pair included, via a new kernel projection form without parameters; rule 1 (literal = unknown record field-wise) and rule 2 (match on an unknown record takes its only branch, fields from the unforced record); unifier the same, off in first_order; T.ext stays. Prototype: 8 sampled workarounds removable, each failing without eta; one breakage (2021 day 13 Picture.sw:45, a workaround that becomes rfl); cost +4.6% instructions on aoc/, +5.0% rogue (rule 2). Q1-Q8 = D2498-D2505, waiting for Matt. Model result: Opus, worked, 43 min (est. 90).\n\nD2498-D2505 (Matt, 6 Nov 2026): all as recommended in docs/proposals/record-eta.md: kernel record eta with primitive projections (no parameters) and the two rules; eta by shape incl. Pair; no no-eta opt-out now; no eta for interface dictionaries; accept goals changing shape; keep T.ext; accept ~5% checking cost (profile it); staged kernel (Opus), unifier, Pair, clean-up sweep (Sonnet). Stages: SW-1642, SW-1643, SW-1644, SW-1645.",
       "created": "2026-10-28",
       "updated": "2026-11-06",
       "commits": []
@@ -11359,6 +11359,62 @@
         "elab"
       ],
       "body": "D2469-D2474 (Matt, 6 Nov 2026): all as recommended in docs/proposals/total-division.md: / and % total on Nat and Int with Lean's values (x / 0 = 0, x % 0 = x), for all Int divisions; Int.modNat and Nat.ceilDiv total with the bound a lemma; lemmas true at 0 drop the hypothesis, the rest keep [auto ok: d ≠ 0]; auto improvement to the backlog. 'Make them total.'",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1642,
+      "title": "Record eta stage 1 (record-eta.md): kernel primitive projections without parameters, eta rules 1 and 2 for single-constructor non-recursive types in Type with a non-proof field (D1981), must-reject tests (§14); 2021 day 13 Picture.sw:45 becomes rfl; profile rule 2's cost (D2498, D2499, D2504)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "kernel"
+      ],
+      "body": "D2498-D2505 (Matt, 6 Nov 2026): all as recommended in docs/proposals/record-eta.md: kernel record eta with primitive projections (no parameters) and the two rules; eta by shape incl. Pair; no no-eta opt-out now; no eta for interface dictionaries; accept goals changing shape; keep T.ext; accept ~5% checking cost (profile it); staged kernel (Opus), unifier, Pair, clean-up sweep (Sonnet). Opus, expected: 180 min.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1643,
+      "title": "Record eta stage 2: unifier eta (after metas solved, never against a value stuck on a meta, off in first_order) (D2505)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "unifier"
+      ],
+      "body": "D2498-D2505 (Matt, 6 Nov 2026): all as recommended in docs/proposals/record-eta.md: kernel record eta with primitive projections (no parameters) and the two rules; eta by shape incl. Pair; no no-eta opt-out now; no eta for interface dictionaries; accept goals changing shape; keep T.ext; accept ~5% checking cost (profile it); staged kernel (Opus), unifier, Pair, clean-up sweep (Sonnet). After SW-1642.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1644,
+      "title": "Record eta stage 3: Pair eta (D2499, D2505)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "kernel"
+      ],
+      "body": "D2498-D2505 (Matt, 6 Nov 2026): all as recommended in docs/proposals/record-eta.md: kernel record eta with primitive projections (no parameters) and the two rules; eta by shape incl. Pair; no no-eta opt-out now; no eta for interface dictionaries; accept goals changing shape; keep T.ext; accept ~5% checking cost (profile it); staged kernel (Opus), unifier, Pair, clean-up sweep (Sonnet). After SW-1643.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1645,
+      "title": "Record eta stage 4: clean-up sweep: delete positionEta (rogue, 2024 day 6), templateEta (2025 day 2) and other eta workarounds; ~108 record patterns in proofs that only make something compute (D2505)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "style"
+      ],
+      "body": "D2498-D2505 (Matt, 6 Nov 2026): all as recommended in docs/proposals/record-eta.md: kernel record eta with primitive projections (no parameters) and the two rules; eta by shape incl. Pair; no no-eta opt-out now; no eta for interface dictionaries; accept goals changing shape; keep T.ext; accept ~5% checking cost (profile it); staged kernel (Opus), unifier, Pair, clean-up sweep (Sonnet). Sonnet, after SW-1644.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
