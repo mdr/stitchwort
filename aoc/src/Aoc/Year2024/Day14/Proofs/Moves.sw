@@ -14,21 +14,21 @@ import Std (Eq, Int, Nat)
 theorem negSuccIs (steps: Nat): NegSucc steps = (Succ steps).toInt * -1 := rewrite Nat.mulOne steps in rfl
 
 --| Moving `tiles` tiles one at a time is adding `tiles` and wrapping.
-theorem moveWrap (size: Nat) (ok: size ≠ 0) (x: Nat) (inside: x < size):
+theorem moveWrap (size: Nat) (x: Nat) (inside: x < size):
     (tiles: Int) → move size tiles x = Int.modNat (x.toInt + tiles) size
   | OfNat steps =>
-    rewrite iterateWrap size ok 1 (forward size) (y below => forwardWrap size y below) steps x inside,
+    rewrite iterateWrap size 1 (forward size) (y below => forwardWrap size y below) steps x inside,
       (ring: x.toInt + steps.toInt * 1 = x.toInt + OfNat steps)
   | NegSucc steps =>
-    Eq.trans (iterateWrap size ok (-1) (backward size) (y below => backwardWrap size y below) (Succ steps) x inside)
+    Eq.trans (iterateWrap size (-1) (backward size) (y below => backwardWrap size y below) (Succ steps) x inside)
       (Eq.cong (distance => Int.modNat (x.toInt + distance) size) (Eq.sym (negSuccIs steps)))
 
 --| One second, tile by tile, is the velocity's offset, wrapped.
 theorem secondWrap (space: Space) (velocity: Offset) (position: Position) (inside: space.contains position = True):
     second space velocity position = space.wrap position velocity :=
   positionExt (second space velocity position) (space.wrap position velocity)
-    (moveWrap space.height space.heightPositive position.row (omega) velocity.rows)
-    (moveWrap space.width space.widthPositive position.column (omega) velocity.columns)
+    (moveWrap space.height position.row (omega) velocity.rows)
+    (moveWrap space.width position.column (omega) velocity.columns)
 
 --| Seconds one at a time are wraps one at a time.
 theorem iterateSecond (space: Space) (velocity: Offset):
