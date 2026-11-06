@@ -793,6 +793,15 @@ fn unshared(items: &mut Rc<Vec<Value>>) -> &mut Vec<Value> {
     Rc::get_mut(items).expect("a new buffer is unique")
 }
 
+/// The steps `Array.replicate count _` is charged: its definition's loop
+/// takes one a element, and a count too big for a `u64` more than any limit.
+pub fn replicate_cost(count: &Value) -> u64 {
+    match count {
+        Value::Nat(n) => *n,
+        _ => u64::MAX,
+    }
+}
+
 /// The array operations that only read their array.
 fn array(s: &Shapes, op: PrimOp, a: ArrayNative, args: &[&Value]) -> Value {
     match a {

@@ -36,7 +36,7 @@ use crate::effect::{
     handler_for, jump_k, pair, resume_lazily, state_handler, state_k, state_step,
 };
 use crate::ir::{GlobalId, GlobalKind, HoleOp, PrimOp, Program, Shapes};
-use crate::natives::TextNative;
+use crate::natives::{ArrayNative, TextNative};
 use crate::prims;
 use crate::profile::{Profile, Profiler, Sampling};
 pub use crate::shared::Limits;
@@ -573,6 +573,12 @@ impl State {
                 }
                 GlobalKind::Native(op) => {
                     let at = self.regs.len() - n;
+                    if let PrimOp::Array(ArrayNative::Replicate) = op
+                        && let Err(e) = self.charge(prims::replicate_cost(&self.regs[at]))
+                    {
+                        self.regs.truncate(at);
+                        return Err(e);
+                    }
                     if self.limits.number_words {
                         let refs: SmallVec<[&Value; 4]> = self.regs[at..].iter().collect();
                         let cost = self.number_cost(*op, &refs);
@@ -1165,6 +1171,20 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                         pending = st.fold_start(program, image, f, z, &t, Ret::Reg(to))?;
                         continue 'outer;
                     }
+                    // Moved in, so read before anything borrows them; an
+                    // array operation has no number cost.
+                    if op.consumes() {
+                        let owned: SmallVec<[Value; 4]> = o.iter().map(|r| get!(*r)).collect();
+                        reg!(dst) = prims::eval_owned(s, op, owned);
+                        continue;
+                    }
+                    // As much work as the definition's loop, charged first, so
+                    // that a huge count runs out of steps as the definition
+                    // would rather than asking for the memory.
+                    if let PrimOp::Array(ArrayNative::Replicate) = op {
+                        save!();
+                        st.charge(prims::replicate_cost(&reg!(o[0])))?;
+                    }
                     if st.limits.number_words {
                         let refs: SmallVec<[&Value; 4]> =
                             o.iter().map(|r| &st.regs[base + *r as usize]).collect();
@@ -1174,11 +1194,6 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                             save!();
                             st.charge(cost)?;
                         }
-                    }
-                    if op.consumes() {
-                        let owned: SmallVec<[Value; 4]> = o.iter().map(|r| get!(*r)).collect();
-                        reg!(dst) = prims::eval_owned(s, op, owned);
-                        continue;
                     }
                     let v = match o {
                         [a] => prims::eval(s, op, &[&reg!(*a)]),

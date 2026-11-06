@@ -113,3 +113,24 @@ fn natives_as_function_values() {
     assert_eq!(out, "[1, 2, 3] [3, 3] 3 None [1, 2, 3]");
     assert_eq!(copies.count, 0, "{copies:?}");
 }
+
+/// An array kept in a record and changed as the record is rebuilt, as 2020
+/// day 15's `Game.say` does (arrays.md §5, item 2): the field's read is the
+/// record's last use, so the array is moved out of it and changed in place.
+#[test]
+fn an_array_in_a_record_is_changed_in_place() {
+    let (out, copies) = run("type Game = { turn: Nat, last: Nat, seen: Array Nat }\n\n\
+         def Game.say (game: Game) (number: Nat): Game :=\n  \
+         { turn = game.turn + 1, last = number, seen = game.seen.set game.last game.turn }\n\n\
+         def Game.reply (game: Game): Nat :=\n  \
+         let before := game.seen.getOr game.last 0\n  \
+         if before == 0 then 0 else game.turn - before\n\n\
+         def play: (n: Nat) → (game: Game) → Game\n  \
+         | Zero, game => game\n  \
+         | Succ k, game => play k (game.say game.reply)\n\n\
+         def main (): {IO} () :=\n  \
+         let game := play 20000 { turn = 1, last = 0, seen = Array.replicate (count := 20010) 0 }\n  \
+         IO.print (Show.toText game.last)\n");
+    assert_eq!(out, "7");
+    assert_eq!(copies, ArrayCopies::default());
+}
