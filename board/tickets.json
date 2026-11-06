@@ -1,5 +1,5 @@
 {
-  "next": 1503,
+  "next": 1506,
   "tickets": [
     {
       "id": 47,
@@ -3983,13 +3983,13 @@
     {
       "id": 1120,
       "title": "Name completion on a persistent worker session (LSP and playground)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1120",
       "labels": [
         "editor"
       ],
-      "body": "Roadmap step 6. D2243 (orchestrator, delegated by Matt): in the playground, start with an approximation from the last good index; move to a persistent session after. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2263 (Matt, 3 Nov): not started yet; editor-roadmap implementation waits until the tidy-ups (state migration, std) settle.\n\nStarted overnight on Opus (roadmap step 6; steps 1-5 done or running; orchestrator's call), expected: 150 min, in stages that each ship.",
+      "body": "Roadmap step 6. D2243 (orchestrator, delegated by Matt): in the playground, start with an approximation from the last good index; move to a persistent session after. From docs/proposals/editor-and-playground-roadmap.md (SW-1111).\n\nD2263 (Matt, 3 Nov): not started yet; editor-roadmap implementation waits until the tidy-ups (state migration, std) settle.\n\nStarted overnight on Opus (roadmap step 6; steps 1-5 done or running; orchestrator's call), expected: 150 min, in stages that each ship.\n\nDone (a7d95f58b, dbf9a4f5f, 6d3789493, 2e7e0415c, merge f5ff981ce), merged: (1) names in scope from the last check (locals nearest first, namespace, imports; kept while the file doesn't parse; ~0.3 ms); (2) after a dot: a dummy check (stitchwortCompletion) on the search threads, members of the receiver's type namespaces and visible extensions, or a namespace's members; 4.5-6.7 s per request on AoC 2020 day 11 with the project cache (142 s cold without one); '.' triggers; (3) library names one import away, with the import as an extra edit. Playground client unchanged (lsp-client already does completion), not browser-tested. Open: D2445 (dot completion speed). Model result: Opus, worked, 60 + 12 min (est. 150).",
       "created": "2026-11-03",
       "updated": "2026-11-06",
       "commits": []
@@ -9413,6 +9413,48 @@
         "aoc"
       ],
       "body": "D2443 (Matt): carry on further if there's time. Overnight, Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day14.\n\nStarted on Opus, expected: 120 min.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1503,
+      "title": "Completion after a dot answered on the checker's live session (rewind to the edited namespace, check the dummy, rewind): one namespace check instead of a full file check (4.5-6.7 s today); context-at-a-position gains too",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor"
+      ],
+      "body": "From SW-1120, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1504,
+      "title": "Browser test: typing xs. in the playground offers a member (completion path through @codemirror/lsp-client and the search worker)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "playground"
+      ],
+      "body": "From SW-1120, 6 Nov 2026.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1505,
+      "title": "Completion: offer the import for names from other namespaces of the project (cycle check)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor"
+      ],
+      "body": "From SW-1120, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
