@@ -11814,13 +11814,13 @@
     {
       "id": 1674,
       "title": "Goals and messages write dot calls and operators as plain calls (Coupon.apply coupon total for coupon.apply total, List.append rest others for rest ++ others); show them as the source does — the tutorial has to explain it twice (SW-1666)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1674",
       "labels": [
         "editor"
       ],
-      "body": "From the tutorial lane SW-1666, 6 Nov 2026. A newcomer can't match the goal to their code.\n\nStarted on Sonnet, expected: 90 min.\n\nMerged (ff46f8404, 25 min, est. 90). Post-merge verifier (170 tests, 460 s): 13 fail in goal_index, search, test_failures, doc and lsp binaries the lane didn't run. Mostly display snapshots; search's what-closes counts changed (5 → 3), and lemmas_check_as_the_same_goal fails. Back to the lane to fix, from main.",
+      "body": "From the tutorial lane SW-1666, 6 Nov 2026. A newcomer can't match the goal to their code.\n\nStarted on Sonnet, expected: 90 min.\n\nMerged (ff46f8404, 25 min, est. 90). Post-merge verifier (170 tests, 460 s): 13 fail in goal_index, search, test_failures, doc and lsp binaries the lane didn't run. Mostly display snapshots; search's what-closes counts changed (5 → 3), and lemmas_check_as_the_same_goal fails. Back to the lane to fix, from main.\n\nFixes merged (fa26075d4): 9 of the 13 were display snapshots, now accepted; ring.rs checked Nat.pow by printed text, now by definition. The other 4 were already on main (2021 day 18, SW-1688). Pasted lemmas still check as the same goal. Model result: Sonnet, needed fixes (ran too few message-printing test binaries; 13 failures, 9 its own), 55 min (est. 90).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
