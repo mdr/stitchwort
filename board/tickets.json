@@ -1,5 +1,5 @@
 {
-  "next": 1548,
+  "next": 1549,
   "tickets": [
     {
       "id": 47,
@@ -9784,13 +9784,13 @@
     {
       "id": 1529,
       "title": "Message: Parse.readsWeaken over readsMap: say which implicit (p, weaker) failed to infer instead of pointing into Parse.nat (day 15)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1528",
       "labels": [
         "diagnostics"
       ],
-      "body": "Filed overnight 6 Nov 2026 from SW-1519 (2020 day 15).\n\nStarted overnight on Sonnet in worktree SW-1528 (branch lane/SW-1528, with SW-1536; the worktree was misnamed), expected: 40 min.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1519 (2020 day 15).\n\nStarted overnight on Sonnet in worktree SW-1528 (branch lane/SW-1528, with SW-1536; the worktree was misnamed), expected: 40 min.\n\nDone on lane/SW-1528 (aca48b408 SW-1536, 487f7958b SW-1529), merged: Meta.origin records which argument of which call an unknown stands for (implicit insertion, explicit _); a type mismatch adds a note per unsolved ?N ('`?1` is the implicit argument `p` of `Parse.readsWeaken`, which wasn't worked out …; give it with [p := …]'). Five reject snapshots gained notes (reviewed in the lane). Not done: naming the unknown inline; unknowns from record/lambda checking have no origin. Model result: Sonnet, worked, 20 min (est. 40).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -9882,13 +9882,13 @@
     {
       "id": 1536,
       "title": "Message: in a mismatch for lem _, the unsolved _ prints as ?0; say it's the argument that couldn't be worked out (SW-1521)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1528",
       "labels": [
         "diagnostics"
       ],
-      "body": "From SW-1521, 6 Nov 2026. Small.\n\nStarted overnight on Sonnet (SW-1528 with SW-1536), expected: 40 min.",
+      "body": "From SW-1521, 6 Nov 2026. Small.\n\nStarted overnight on Sonnet (SW-1528 with SW-1536), expected: 40 min.\n\nDone on lane/SW-1528 (aca48b408 SW-1536, 487f7958b SW-1529), merged: Meta.origin records which argument of which call an unknown stands for (implicit insertion, explicit _); a type mismatch adds a note per unsolved ?N ('`?1` is the implicit argument `p` of `Parse.readsWeaken`, which wasn't worked out …; give it with [p := …]'). Five reject snapshots gained notes (reviewed in the lane). Not done: naming the unknown inline; unknowns from record/lambda checking have no origin. Model result: Sonnet, worked, 20 min (est. 40).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -10043,6 +10043,20 @@
         "aoc"
       ],
       "body": "D2443 (Matt): carry on further if there's time. Overnight, Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day17.\n\nStarted on Opus, expected: 120 min.",
+      "created": "2026-11-06",
+      "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1548,
+      "title": "Unsolved-unknown notes: unknowns made by record or lambda checking (e.g. ?7, a v => … inside readsMap's spec) have no recorded origin; record it there too (SW-1536)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "From SW-1536, 6 Nov 2026. Small.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
