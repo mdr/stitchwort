@@ -336,6 +336,8 @@ struct Lib {
     prop_or_elim: DefId,
     to_bool_sound: DefId,
     to_bool_false: DefId,
+    decidable_not: DefId,
+    not_not_of: DefId,
     to_bool_of: DefId,
     to_bool_of_not: DefId,
     and_fst: DefId,
@@ -615,6 +617,8 @@ impl Lib {
             prop_or_elim: def("Std.Or.elim")?,
             to_bool_sound: def("Std.Decidable.toBoolSound")?,
             to_bool_false: def("Std.Decidable.toBoolFalse")?,
+            decidable_not: def("Std.Decidable.not")?,
+            not_not_of: def("Std.Decidable.notNotOf")?,
             to_bool_of: def("Std.Decidable.toBoolOf")?,
             to_bool_of_not: def("Std.Decidable.toBoolOfNot")?,
             and_fst: def("Std.And.left")?,
@@ -1501,6 +1505,15 @@ impl Reader<'_> {
                     (false, Some(BoolForm::ToBool(p, d))) => {
                         let args = [both(cx, &p)?, both(cx, &d)?, (proof.clone(), prop.clone())];
                         let (not_p, ty) = lemma(cx, lib.to_bool_false, &args)?;
+                        // `a != b` is the decision of `¬(a = b)`, so its
+                        // `False` is `¬¬(a = b)`: the decision of `a = b`
+                        // inside it is decided, and the double negation goes.
+                        let d_forced = force(&cx.g(), d.clone())?;
+                        if let Some([q, d0]) = call_args(&d_forced, lib.decidable_not).as_deref() {
+                            let args = [both(cx, q)?, both(cx, d0)?, (not_p.clone(), ty.clone())];
+                            let (q_holds, q_ty) = lemma(cx, lib.not_not_of, &args)?;
+                            return self.read(cx, q_holds, &q_ty, origin, depth + 1);
+                        }
                         self.read(cx, not_p, &ty, origin, depth + 1)?;
                     }
                     (true, Some(BoolForm::Or(p, q))) => {
