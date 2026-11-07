@@ -2543,12 +2543,11 @@ texts, or suggest `Text.joinWith`.
   reversed list (`permFlatMapReverse`). Lean's core has
   `List.length_reverse`, `List.reverse_append` and `List.reverse_flatMap`
   (<https://leanprover-community.github.io/mathlib4_docs/Init/Data/List/Lemmas.html>).
-- `sumFilterMap`: the sum of a `filterMap` is a `sumBy` with 0 for `None`.
 - `filterMap` over `List.replicate n (Some x)` and `List.replicate n None`.
 - `List.joinWith` for texts (item 4).
 
-None added. Fix: the reverse lemmas (now needed on two days) and
-`sumFilterMap` in `List/Toolkit.sw`.
+Since then `sumFilterMap` (the sum of a `filterMap` is a `sumBy` with 0 for
+`None`) has been added to std (`List/Lemmas.sw`).
 
 ### 6. Proofs: `rewrite` misses a term the goal has unfolded, again
 
