@@ -21251,9 +21251,9 @@
     {
       "id": 2249,
       "title": "[Sonnet] Catch wasm32-only compile errors before the daily tier: a cargo check of stitchwort-web for wasm32-unknown-unknown in the merge tier or the lane test for core (5a19c406d's 1 << 40 broke the web build and only the daily tier saw it)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2249",
       "labels": [
         "tests"
       ],
