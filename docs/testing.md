@@ -203,6 +203,7 @@ HASH_DUMP=/tmp/rogue.txt HASH_DUMP_PROJECT=games/rogue cargo test --release -p s
 
 - `HASH_DUMP_PROJECT` is a project directory relative to the repository's root; `aoc` if unset.
 - With `HASH_DEPS` set to a second path, it also writes each definition's direct references, one line per definition, to work out which changed hashes only follow from another.
+- With `STITCHWORT_DEBUG_FORCE_UNGLUED` set, every folded read-back is preceded by an unfolded one with gluing off, which fills the cache of every call it reaches, its result and steps thrown away. A dump with it should equal one without (SW-1782): a difference means some reader used an unfolding computed in another mode. It makes the rogue dump about 2.5 times slower.
 - It runs on a thread with the command line's 64 MB stack, so a project loads as `stitchwort check` loads it (on the harness's default stack AoC ran out with `E-RESOURCE`, SW-906).
 - The accepted examples' and extract examples' hashes are the `hashes` area's snapshots: `STITCHWORT_TIER=full` with `cargo insta test` shows every one that changed. The merge tier asserts a fixed quarter of them and leaves the rest untouched; the daily and full tiers assert every one, so a new example's snapshot is missing, and noticed, there.
 

@@ -293,6 +293,155 @@ fn the_occurs_check_looks_at_a_calls_arguments() {
     assert!(!dropped, "`isZero (Succ y)` is `0`");
 }
 
+/// SW-1782: a call's kept unfolding is used only by a reader in modes it
+/// could have been computed in. `outer (Succ x)` steps at once to `Succ
+/// (twice x)`, and `twice` doesn't match at once, so read back folded it
+/// stays the call. Forced first with gluing off, `outer`'s call kept `Succ
+/// (Succ (Succ (double x)))`, with no call left in it, and the folded
+/// read-back wrote that.
+#[test]
+fn a_call_forced_unglued_reads_back_folded_as_if_never_forced() {
+    let d = defs();
+    let mut p = d.p;
+    let nat_ty = p.nat_ty();
+    let twice = define(
+        &mut p.g,
+        "twice",
+        arrow(nat_ty.clone(), nat_ty.clone()),
+        lam(
+            "n",
+            app(Term::Def(d.double), [Term::ctor(p.nat, 1, vec![v(0)])]),
+        ),
+    )
+    .expect("twice");
+    let outer = define(
+        &mut p.g,
+        "outer",
+        arrow(nat_ty.clone(), nat_ty),
+        lam(
+            "n",
+            case(
+                0,
+                p.nat,
+                vec![
+                    (vec![], Term::Ctor(p.nat, 0, vec![])),
+                    (
+                        vec!["m"],
+                        Term::ctor(p.nat, 1, vec![app(Term::Def(twice), [v(0)])]),
+                    ),
+                ],
+            ),
+        ),
+    )
+    .expect("outer");
+    let g = &p.g;
+    let term = app(Term::Def(outer), [Term::ctor(p.nat, 1, vec![v(0)])]);
+    let env = [Value::var(0)];
+    let read = |force_unglued_first: bool| {
+        g.machine.glue.set(true);
+        let call = eval(&g.ev(), &env, &term).unwrap();
+        if force_unglued_first {
+            g.machine.glue.set(false);
+            quote(&g.ev(), 1, &call).unwrap();
+            g.machine.glue.set(true);
+        }
+        let written = quote_folded(&g.ev(), 1, &call).unwrap();
+        g.machine.glue.set(false);
+        written
+    };
+    let fresh = read(false);
+    assert!(mentions(&fresh, twice), "{fresh:?}");
+    assert_eq!(format!("{:?}", read(true)), format!("{fresh:?}"));
+}
+
+/// The other way round, an unfolding computed glued serves a reader with
+/// gluing off, which forces the calls in it as it meets them.
+#[test]
+fn an_unfolding_computed_glued_serves_an_unglued_reader() {
+    let d = defs();
+    let g = &d.p.g;
+    let term = app(Term::Def(d.double), [d.p.num(20)]);
+    let steps = |v: Value, glue: bool| {
+        g.machine.glue.set(glue);
+        let before = g.machine.budget.total_work();
+        force(&g.ev(), v).unwrap();
+        g.machine.glue.set(false);
+        g.machine.budget.total_work() - before
+    };
+    g.machine.glue.set(true);
+    let call = eval(&g.ev(), &[], &term).unwrap();
+    assert!(steps(call.clone(), true) > 0);
+    assert_eq!(steps(call, false), 0, "reused");
+    g.machine.glue.set(true);
+    let call = eval(&g.ev(), &[], &term).unwrap();
+    assert!(steps(call.clone(), false) > 0);
+    assert!(steps(call, true) > 0, "computed again, glued");
+}
+
+/// An unfolding that used an opaque definition's body, computed while it
+/// was visible (in the transparency set, or while a program ran), isn't
+/// used once it's hidden again.
+#[test]
+fn an_unfolding_that_saw_an_opaque_body_isnt_used_once_it_is_hidden() {
+    let d = defs();
+    let mut p = d.p;
+    let nat_ty = p.nat_ty();
+    let id = stitchwort_core::check::declare_def(
+        &mut p.g,
+        &"two".into(),
+        &"two".into(),
+        &nat_ty,
+        false,
+        false,
+        span(),
+    )
+    .expect("two");
+    stitchwort_core::check::mark_opaque(&mut p.g, id);
+    let body = p.num(2);
+    stitchwort_core::check::define_def(&mut p.g, id, &body).expect("two");
+    let get = define(
+        &mut p.g,
+        "getTwo",
+        arrow(nat_ty.clone(), nat_ty),
+        lam("n", Term::Def(id)),
+    )
+    .expect("getTwo");
+    let g = &p.g;
+    let term = app(Term::Def(get), [p.num(0)]);
+    let hidden = |v: Value| {
+        let forced = force(&g.ev(), v).unwrap();
+        matches!(forced, Value::Neutral(stitchwort_core::value::Head::Def(i), _) if i == id)
+    };
+    let call = || {
+        g.machine.glue.set(true);
+        let call = eval(&g.ev(), &[], &term).unwrap();
+        g.machine.glue.set(false);
+        assert!(matches!(call, Value::Call(..)));
+        call
+    };
+    let shown = call();
+    {
+        let _set = g.machine.transparent.set(std::rc::Rc::from([id]));
+        assert!(!hidden(shown.clone()), "in the transparency set");
+    }
+    assert!(hidden(shown), "hidden again");
+    let ran = call();
+    {
+        let _running = g.machine.erasure.running();
+        assert!(!hidden(ran.clone()), "while a program runs");
+    }
+    assert!(hidden(ran), "hidden again");
+    // The same with erasure off: a program running is a mode of its own.
+    g.machine.erasure.set_disabled(true);
+    let ran = call();
+    {
+        let _running = g.machine.erasure.running();
+        assert!(!hidden(ran.clone()), "while a program runs, not erasing");
+    }
+    g.machine.erasure.set_disabled(false);
+    assert!(hidden(ran), "hidden again");
+}
+
 /// Metavariables with no solutions, at an epoch the test moves.
 struct Epoch(std::cell::Cell<u64>);
 
