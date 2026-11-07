@@ -1,5 +1,5 @@
 {
-  "next": 2115,
+  "next": 2116,
   "tickets": [
     {
       "id": 47,
@@ -18881,14 +18881,14 @@
     {
       "id": 2091,
       "title": "[Sonnet] Checker recovery follow-ups (SW-2087 C6-C9, SW-2094 lane 1): panic attribution inside its own catch (MEDIUM); home_of reads only sources; only an edit retries a quarantined project (D3000); tests that can fail",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2091",
       "labels": [
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From docs/reviews/SW-2087-checker-recovery-and-forget-since.md. After SW-2088/SW-2089 (same file). 45 min.\n\nAlso from docs/reviews/SW-2094-unifier-gaps-and-recovery.md (lane 1): work out which workspace to blame for a panic inside its own catch, with a fallback (MEDIUM: today reading a project that panics escapes and stops checking everywhere); home_of reads only the config's sources, not every .sw file; open_workspace reads the project once; build the Keeper before sessions drop; make the loose-file test able to fail (it passes on the old code); relative's doc comment; the in-memory source's copy of the source-folder rule. D3000 yes (orchestrator's call): only a change of a file's text retries a quarantined project, not an open or a peek. Now 60 min; after SW-2088/SW-2089.\n\nAlso from SW-2088: with more than one search worker the stop pop-up can appear once per worker; send it once.",
+      "body": "From docs/reviews/SW-2087-checker-recovery-and-forget-since.md. After SW-2088/SW-2089 (same file). 45 min.\n\nAlso from docs/reviews/SW-2094-unifier-gaps-and-recovery.md (lane 1): work out which workspace to blame for a panic inside its own catch, with a fallback (MEDIUM: today reading a project that panics escapes and stops checking everywhere); home_of reads only the config's sources, not every .sw file; open_workspace reads the project once; build the Keeper before sessions drop; make the loose-file test able to fail (it passes on the old code); relative's doc comment; the in-memory source's copy of the source-folder rule. D3000 yes (orchestrator's call): only a change of a file's text retries a quarantined project, not an open or a peek. Now 60 min; after SW-2088/SW-2089.\n\nAlso from SW-2088: with more than one search worker the stop pop-up can appear once per worker; send it once.\n\nDone, merged. Blame under its own catch (fallback: the file's path); Source::sources reads only the config's sources; Keeper built before sessions drop; one stop pop-up for the pool; C6-C9 tests (panic in apply, double fault, Close of a quarantined file; doubled log line); two new tests shown to fail on reverted code. On main: lsp 26/26, faults:: 25/25 twice. Model result: Sonnet, worked, 22 min (est. 75).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -18896,14 +18896,14 @@
     {
       "id": 2092,
       "title": "[Sonnet] Watch for flakiness: a_panicking_search_is_answered_and_the_next_search_works timed out once waiting for the server under a cold build (SW-2086); if it recurs, replace the wait with a deterministic signal",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "flaky"
       ],
       "epic": "test-infra",
-      "body": "From SW-2086. 30 min if it recurs.\n\nAgain in SW-2089's lane: a_panicking_search_is_answered_and_the_next_search_works and after_an_edit_a_panicked_search_is_tried_again timed out ('the server went quiet') once under load, passed on rerun; both take over 60 s cold. Recurred, so this is now worth doing.",
+      "body": "From SW-2086. 30 min if it recurs.\n\nAgain in SW-2089's lane: a_panicking_search_is_answered_and_the_next_search_works and after_an_edit_a_panicked_search_is_tried_again timed out ('the server went quiet') once under load, passed on rerun; both take over 60 s cold. Recurred, so this is now worth doing.\n\nDone in SW-2091. Cause: the test cache fill never wrote the search's own (+nav) entries, so the first search in a cold run checked std from source (over a minute); under load a code-action search hit its 5 s limit with nothing. Fix: the fill warms search entries; the two tests use searching_options (1 proof, 120 s, new Options::search_time) and wait for stitchwort/checked. Pair ~15 s in debug.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19234,6 +19234,21 @@
       ],
       "epic": "syntax-language",
       "body": "Read-only Opus lane, 7 Nov. Expected: 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2115,
+      "title": "[Sonnet] Language server: a stopped search supervisor still drains the shared job queue and answers its share with null while other workers run; add a searches-off flag (SW-2087 C6)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "epic": "editor-playground",
+      "body": "From SW-2091. After SW-2104 (same file). 30 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
