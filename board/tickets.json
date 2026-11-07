@@ -19616,14 +19616,14 @@
     {
       "id": 2140,
       "title": "[Sonnet] 2024 day 9: drawFiles (the files drawn as a disk) and the checksum of a drawing",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2140",
       "labels": [
         "proofs"
       ],
       "epic": "aoc-older",
-      "body": "From docs/proposals/map-set-list-model.md. Stage S3, can run beside SW-2138. 60 min.",
+      "body": "From docs/proposals/map-set-list-model.md. Stage S3, can run beside SW-2138. 60 min.\n\nDone, merged. Proofs/Disk.sw: Span.end/covers, Disk.at, drawFiles, Disk.Gap, Apart (distinct ids, pairwise Beside, within size); drawFilesAt/Past/File/Free pointwise; drawFilesChecksumCorrect: Apart size files → filesystemChecksum (drawFiles size files) = files.sumBy .checksum. Statements checked by the orchestrator (D2436). On main: day 9 tests and audit pass. Model result: Sonnet, worked, 6 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
