@@ -1,5 +1,5 @@
 {
-  "next": 2121,
+  "next": 2122,
   "tickets": [
     {
       "id": 47,
@@ -19324,6 +19324,21 @@
       ],
       "epic": "editor-playground",
       "body": "From docs/reviews/SW-2116-lsp-recovery-round-3.md (R10). Related: SW-957. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2121,
+      "title": "[Opus] Gap check: for each of the AoC friction synthesis's top gaps, what's done, what's planned (tickets, decisions), and what has no plan yet; recommend the next three pieces of work by AoC impact",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2121",
+      "labels": [
+        "review"
+      ],
+      "epic": "docs-tutorials",
+      "body": "Read-only Opus lane, 7 Nov. Expected: 40 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
