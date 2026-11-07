@@ -1,5 +1,5 @@
 {
-  "next": 1936,
+  "next": 1943,
   "tickets": [
     {
       "id": 47,
@@ -12735,9 +12735,9 @@
         "errors"
       ],
       "epic": "goal-as-written",
-      "body": "From the SW-1629 Opus review, 6 Nov 2026.",
+      "body": "From the SW-1629 Opus review, 6 Nov 2026.\n\nFrom docs/reviews/code-review-elab-tactics.md (F10): the printer shows every J alike; see SW-1940.",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -14803,7 +14803,7 @@
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 1). Expected: 45 min. Ready now.",
+      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 1). Expected: 45 min. Ready now.\n\nAbsorbed by SW-1937 (the tactics review's counterexample lane).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -14833,7 +14833,7 @@
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 3, 6). Waiting on D2584 (rec: yes). Expected: 60 min.",
+      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 3, 6). Waiting on D2584 (rec: yes). Expected: 60 min.\n\nFrom docs/reviews/code-review-elab-tactics.md (F3): search.rs:1402 already catches a panic per comparison and carries on in the same session, so the caught-panic case is live. D2701: remove that catch, let this ticket's worker-level catch answer 'no result' and drop the kept session [rec: yes].",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -14848,7 +14848,7 @@
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 4, 5). Two small fixes. Expected: 30 min.\n\nFrom docs/reviews/code-review-core.md (F10): Machine::reset should also clear glue and erasure's active flag (confirmed).",
+      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 4, 5). Two small fixes. Expected: 30 min.\n\nFrom docs/reviews/code-review-core.md (F10): Machine::reset should also clear glue and erasure's active flag (confirmed).\n\nFrom docs/reviews/code-review-elab-tactics.md (F3): the caught-panic case is already live (search.rs:1402); see SW-1820, D2701.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -16012,14 +16012,14 @@
     {
       "id": 1899,
       "title": "[Opus] Code review: crates/elab part 2, the tactics (rewrite, omega, omega_search, ring, search, closing, cases, calc, chain, congruence, saturate, counterexample, induct_match, decreasing, auto)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1899",
       "labels": [
         "review"
       ],
       "epic": "proof-automation",
-      "body": "Matt (7 Nov 2026): crate-by-crate code reviews, reading only. Expected: 90 min.",
+      "body": "Matt (7 Nov 2026): crate-by-crate code reviews, reading only. Expected: 90 min.\n\nDone, merged: docs/reviews/code-review-elab-tactics.md. No false theorem can check (every tactic term goes to the kernel; a wrong omega/ring certificate fails as a type error). 0 high, 7 medium, 10 low. Tickets SW-1936-SW-1942; notes on SW-1818, SW-1820, SW-1821, SW-1908, SW-1680. D2700, D2701 [rec: yes]. 15 min (est. 90).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -16154,7 +16154,7 @@
         "elab"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/code-review-elab-checking.md (tickets to file, 8; F5). D2653 [rec: yes]. 60 min. The 1 Nov review's §3.5.\n\nFrom docs/reviews/code-review-elab-rest.md (F21): take in part 3's new error-code sites too.",
+      "body": "From docs/reviews/code-review-elab-checking.md (tickets to file, 8; F5). D2653 [rec: yes]. 60 min. The 1 Nov review's §3.5.\n\nFrom docs/reviews/code-review-elab-rest.md (F21): take in part 3's new error-code sites too.\n\nFrom docs/reviews/code-review-elab-tactics.md (F8): typed error kinds; the 1 Nov finding still open in the tactics too.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -16561,6 +16561,111 @@
       ],
       "epic": "elaborator-kernel",
       "body": "From docs/reviews/code-review-elab-rest.md (ticket 11). F7. In a quiet window (D2652). 60-90 min each.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1936,
+      "title": "[Sonnet] omega/ring hardening: omega's internal error is turned into 'not proved' inside rewrite, cases and auto (hidden from users and fuzz_elab); add the stack-depth check to omega's and ring's readers (a deep stuck sum overflows the stack and kills the language server)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tactics"
+      ],
+      "epic": "proof-automation",
+      "body": "From docs/reviews/code-review-elab-tactics.md (F1, F2, F16). 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1937,
+      "title": "[Sonnet] Counterexample search in the editor: return its log instead of pushing it (ends SW-1818's leak), remember results per statement for the session, stop by input count with time as a backstop, start the timer after building the checker",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tactics"
+      ],
+      "epic": "proof-automation",
+      "body": "From docs/reviews/code-review-elab-tactics.md (F4-F6). D2700 [rec: yes]. 60-90 min. Absorbs SW-1818.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1938,
+      "title": "[Sonnet] Counterexample input keys; lower the checker once per search",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tactics"
+      ],
+      "epic": "proof-automation",
+      "body": "From docs/reviews/code-review-elab-tactics.md (F11, F12). 45 min. F11 low confidence: run first.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1939,
+      "title": "[DeepSeek] Tactics mechanical tidy-up",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tactics"
+      ],
+      "epic": "proof-automation",
+      "body": "From docs/reviews/code-review-elab-tactics.md (F13-F15). 30-45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1940,
+      "title": "[Sonnet] Compiler-made J terms shown as such in messages (the printer shows every J alike)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tactics"
+      ],
+      "epic": "proof-automation",
+      "body": "From docs/reviews/code-review-elab-tactics.md (F10). With SW-1680. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1941,
+      "title": "[Opus] Design note: one shared abstraction-and-transport module (find occurrences, build the motive, check it, transport: four copies in rewrite, match/cases, the match-equation transport, match induct; two check the motive differently)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tactics"
+      ],
+      "epic": "proof-automation",
+      "body": "From docs/reviews/code-review-elab-tactics.md (F7). After bounded readback 6a and 6b (SW-1839, SW-1840). 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1942,
+      "title": "[Sonnet] Check omega/ring output the way the kernel does; split omega.rs",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tactics"
+      ],
+      "epic": "proof-automation",
+      "body": "From docs/reviews/code-review-elab-tactics.md (F9, F17). Smaller. 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
