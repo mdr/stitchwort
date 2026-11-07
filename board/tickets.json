@@ -19871,9 +19871,9 @@
     {
       "id": 2157,
       "title": "[Opus] Numeric comparison misses folded call bases: Succ (innerN 0) = 2 := rfl fails though innerN 0 = 1 holds, in glued, unglued and the reference evaluator alike (native::compare_lazily, compare_with's always-no callbacks in value.rs and reference.rs, the unifier's native::compare); unfold folded call bases everywhere at once so the proof_equivalence matrix stays consistent",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2157",
       "labels": [
         "core"
       ],
