@@ -1,5 +1,5 @@
 {
-  "next": 2103,
+  "next": 2104,
   "tickets": [
     {
       "id": 47,
@@ -19054,6 +19054,21 @@
       ],
       "epic": "diagnostics",
       "body": "From docs/reviews/SW-2094-unifier-gaps-and-recovery.md (lane 3). 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2103,
+      "title": "[Opus] Fresh-eyes review of SW-2081 (every pin checked at binding; the stale-pin fallback made test-only; dev-features dependency cycle)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2103",
+      "labels": [
+        "review"
+      ],
+      "epic": "effects-native",
+      "body": "Read-only Opus lane, 7 Nov. Expected: 40 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
