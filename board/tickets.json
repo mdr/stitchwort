@@ -21086,9 +21086,9 @@
     {
       "id": 2238,
       "title": "[Sonnet] Std: move Bool.toNatEqZero/toNatAnd/toNatOdd out of List/SortLemmas.sw into their own Bool file after List/Sort.sw; usage examples for the SW-2171 lemmas; check other natAbs helpers in AoC that omega proves in one word (fold into SW-2167)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2238",
       "labels": [
         "std"
       ],
