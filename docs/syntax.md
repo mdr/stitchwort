@@ -1044,7 +1044,11 @@ theorem evensShort (n: Nat): List.length (evens n) <= n
   to another (`xs.map (x => if … then f … else …)`), or in an `if`'s
   condition, shows the `if _:` form, as an `if h:` always does. An `if`
   whose branches don't use its condition is the plain `if` as before
-  (`examples/accept/decreasing-plain-if.sw`).
+  (`examples/accept/decreasing-plain-if.sw`). If the compiler fails to
+  generate this form for a definition, which would be a bug in it, the
+  definition still checks, `f.unfold` shows the step `decreasing` made
+  (every such `if` in the `if _:` form, every `match` with its equation),
+  and `W-DECREASING-UNFOLD` says so.
 - **A `match` gives its equation to the recursive calls in its arms**
   (stage 2), named or not: in `match set.popMin with | Some (least, rest)
   => f rest …`, the call's proof has `set.popMin = Some (least, rest)` in

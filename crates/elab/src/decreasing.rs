@@ -101,12 +101,9 @@ pub(crate) struct Active {
     /// The second measure of a lexicographic pair, `decreasing (m1, m2)`.
     pub second: Option<Term>,
     pub header: usize,
-    /// While the step's own body is finished: plain `if`s whose proof the
-    /// branches use keep their tag (`logic::tag_plain`), for `plain.rs`.
-    pub keep_plain: Cell<bool>,
     /// The `match`es lifted from the step whose plain `if`s keep their
-    /// tags, as `keep_plain` leaves them, for `plain.rs`; the kernel has
-    /// them without.
+    /// tags (`Elaborator::settle_tagged_keeping`), for `plain.rs`; the
+    /// kernel has them without.
     pub tagged_helpers: std::cell::RefCell<HashMap<DefId, Term>>,
 }
 
@@ -1112,9 +1109,8 @@ impl Elaborator {
             let irrel = self.generated(&plan, |e| e.decreasing_irrel(&plan, step, go, respects))?;
             made.push(irrel);
             let mut twins = Vec::new();
-            let view = self
-                .plain_view(&plan, step, tagged.as_ref(), &st.helpers, &mut twins)
-                .map_err(|d| self.generator_failed(&plan, d))?;
+            let view =
+                self.plain_view_or_not(&plan, step, tagged.as_ref(), &st.helpers, &mut twins)?;
             made.extend(twins);
             if let Some(v) = &view {
                 made.extend([v.view, v.same]);
@@ -1422,7 +1418,6 @@ impl Elaborator {
             measure: plan.measure.clone(),
             second: plan.second.clone(),
             header: s,
-            keep_plain: Cell::new(false),
             tagged_helpers: Default::default(),
         });
         let ty_value = self.kernel.def(step).ty_value().clone();
@@ -1439,15 +1434,8 @@ impl Elaborator {
                 )
             })?;
             let joined = e.lift(&step_key, true)?;
-            let keep = |e: &Elaborator, on: bool| {
-                if let Some(active) = e.decl.decreasing.borrow().as_ref() {
-                    active.keep_plain.set(on);
-                }
-            };
-            keep(e, true);
-            let finished = e.finish(&term, 0);
-            keep(e, false);
-            Ok((finished?, joined))
+            let finished = e.finish_unsettled(&term, 0)?;
+            Ok((e.settle_tagged_keeping(&finished, true)?, joined))
         })?;
         if !joined.is_empty() {
             return Err(internal_error(
@@ -1469,19 +1457,10 @@ impl Elaborator {
     /// settled; in a `decreasing` body, the one with the tags of plain `if`s
     /// whose proof a recursive call uses is kept for `plain.rs`.
     pub(crate) fn lifted_helper_body(&self, id: DefId, lam: &Term) -> Result<Term> {
-        let keep = |on: bool| match self.decl.decreasing.borrow().as_ref() {
-            Some(active) => {
-                active.keep_plain.set(on);
-                true
-            }
-            None => false,
-        };
-        if !keep(true) {
+        if self.decl.decreasing.borrow().is_none() {
             return self.settle_tagged(lam);
         }
-        let tagged = self.settle_tagged(lam);
-        keep(false);
-        let tagged = tagged?;
+        let tagged = self.settle_tagged_keeping(lam, true)?;
         let stripped = self.settle_tagged(&tagged)?;
         if !same_term(&stripped, &tagged)
             && let Some(active) = self.decl.decreasing.borrow().as_ref()
@@ -1504,6 +1483,51 @@ impl Elaborator {
     fn generated_admit(&mut self, plan: &Plan, members: &[(DefId, Term)]) -> Result<()> {
         kernel::define_group(&mut self.kernel, &self.tables, members)
             .map_err(|d| self.generator_failed(plan, d))
+    }
+
+    /// [`Elaborator::plain_view`], or, if generating it fails, none: then
+    /// `f.unfold` is stated over `f.%step`, as before plain `if`s were shown,
+    /// with a warning. The definition and the rest are fine, so a gap in
+    /// `plain.rs` costs the plain view, not the program (D3100).
+    fn plain_view_or_not(
+        &mut self,
+        plan: &Plan,
+        step: DefId,
+        tagged: Option<&Term>,
+        helpers: &[DefId],
+        made: &mut Vec<DefId>,
+    ) -> Result<Option<plain::PlainView>> {
+        let mark = self.kernel.mark();
+        let mut lifted = Vec::new();
+        match self.plain_view(plan, step, tagged, helpers, made, &mut lifted) {
+            Ok(view) => {
+                lifted.into_iter().for_each(|l| self.tables.lifted.push(l));
+                Ok(view)
+            }
+            Err(d) if crate::undo::fatal(&d) => Err(d),
+            Err(d) => {
+                // The twins made before the failure go with the rest.
+                made.clear();
+                self.rewind_globals(&mark);
+                let reason = match d.labels.first() {
+                    Some(l) => format!("{}: {} ({})", d.code, d.message, l.message),
+                    None => format!("{}: {}", d.code, d.message),
+                };
+                self.unit.warnings.push(
+                    Diagnostic::warning(
+                        "W-DECREASING-UNFOLD",
+                        format!(
+                            "`{}.unfold` shows the step `decreasing` made, not the body as written",
+                            plan.name
+                        ),
+                    )
+                    .with_label(plan.span, "its plain form couldn't be generated")
+                    .with_note(format!("the reason: {reason}"))
+                    .with_note("this is a bug in the compiler, not in the program"),
+                );
+                Ok(None)
+            }
+        }
     }
 
     fn generator_failed(&self, plan: &Plan, d: Diagnostic) -> Diagnostic {
