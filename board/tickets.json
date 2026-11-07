@@ -1,5 +1,5 @@
 {
-  "next": 2252,
+  "next": 2253,
   "tickets": [
     {
       "id": 47,
@@ -20831,14 +20831,14 @@
     {
       "id": 2221,
       "title": "[Sonnet] decreasing stage 2 tests and docs (SW-2208 lane B): a nested match (twin calls twin), a dropped let, an equation used outside a proof, two scrutinees, a match under a lambda's f.unfold form, a pair measure; F5 (the unnamed equation reaches every proof in an arm) and F9 doc fixes",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2221",
       "labels": [
         "tests"
       ],
       "epic": "proof-automation",
-      "body": "From docs/reviews/SW-2208-decreasing-match-fact.md. Can run with SW-2165. 45 min.\n\n7 Nov: SW-2220 merged (F4 in), so the guard-call example can land. Add F8's unused twins under a lambda if SW-2209 doesn't cover them.",
+      "body": "From docs/reviews/SW-2208-decreasing-match-fact.md. Can run with SW-2165. 45 min.\n\n7 Nov: SW-2220 merged (F4 in), so the guard-call example can land. Add F8's unused twins under a lambda if SW-2209 doesn't cover them.\n\nDone, merged. Seven cases in decreasing-match-fact.sw with theorems that can fail; F5 and F9 docs (in_scope label left: it changes error snapshots). On main: decreasing examples 12/12, hash_stability 9/9. Unused twins -> SW-2252. Model result: Sonnet, worked, 7 min (est. 45).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21289,6 +21289,21 @@
       ],
       "epic": "elaborator-kernel",
       "body": "D3251 — Matt, 7 Nov 2026: \"do a sort of a full opus review of that idea. Maybe see what you can find in the literature or online discussions about language implementations.\" Read-only; web research. Output docs/reviews/SW-N-equality-rule.md. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2252,
+      "title": "[Sonnet] decreasing: don't make the twin and %same for a helper called only under a lambda when nothing uses them (or confirm SW-2209 makes them used)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "proof-automation",
+      "body": "From SW-2220/SW-2221 (SW-2208 F8). Check against SW-2209's design first. 30 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
