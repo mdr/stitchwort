@@ -1581,8 +1581,9 @@ impl<'g, K: Fn(usize) -> Option<Apart>> Unchanged<'g, K> {
 // Only read-backs whose term is used up here: never one put in a checked
 // term (`Term::Eq`'s type, in `infer`), so checked terms and their hashes
 // don't change; and not `unify_index`'s searches for free variables, since
-// `konst x y` mentions `y` where its unfolding doesn't. Outside a body
-// (types, `declare_def`) there are no calls, and these read back as `quote`.
+// `konst x y` mentions `y` where its unfolding doesn't. Outside a body and a
+// definition's signature (`declare_def`, SW-1779) there are no calls, and
+// these read back as `quote`.
 
 /// Whether the types of the binders after binder `i` in a telescope (data
 /// parameters, or constructor fields) mention it. If not, checking doesn't

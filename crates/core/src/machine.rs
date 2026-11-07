@@ -24,8 +24,8 @@ pub struct Machine {
     /// it only when something looks inside (glued evaluation,
     /// docs/proposals/folded-calls.md). Off unless the elaborator turns it
     /// on; the kernel is entered with it off and turns it on only to check
-    /// a definition's body (D483, `check.rs` `admit_group`); never while a
-    /// program runs.
+    /// a definition's body (D483, `check.rs` `admit_group`) and its
+    /// signature (`declare_def`, SW-1779); never while a program runs.
     pub glue: Cell<bool>,
     /// The opaque definitions whose bodies may be used now, sorted: the
     /// transparency set of the declaration being checked
