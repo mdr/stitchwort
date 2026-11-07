@@ -1,5 +1,5 @@
 {
-  "next": 2037,
+  "next": 2041,
   "tickets": [
     {
       "id": 47,
@@ -3386,9 +3386,9 @@
         "decision"
       ],
       "epic": "syntax-language",
-      "body": "D2171 (not decided; from the language-productivity report). Construction privacy / abstract types: stop code outside a namespace from building a value that breaks its invariant (e.g. a 2025 day 8 `Boxes` that isn't valid), so invariants needn't be re-proved at every use. Recommendation: [later: one Opus design note after function equations (D2163) and audit stage 2 (SW-1029)]. Also D2170 (not decided): the report's human-editor features (no agent evidence) get no tickets; recommendation [yes, note them as \"no agent evidence\" only].\n",
+      "body": "D2171 (not decided; from the language-productivity report). Construction privacy / abstract types: stop code outside a namespace from building a value that breaks its invariant (e.g. a 2025 day 8 `Boxes` that isn't valid), so invariants needn't be re-proved at every use. Recommendation: [later: one Opus design note after function equations (D2163) and audit stage 2 (SW-1029)]. Also D2170 (not decided): the report's human-editor features (no agent evidence) get no tickets; recommendation [yes, note them as \"no agent evidence\" only].\n\nFrom docs/proposals/private-helpers.md §5 (D2893): construction privacy stays a separate enforced feature, sharing only @[internal]'s owning-namespace boundary.",
       "created": "2026-11-02",
-      "updated": "2026-11-05",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -17640,13 +17640,13 @@
     {
       "id": 2008,
       "title": "[Opus] Design note: hiding internal step helpers (List.filterStep etc.) from std's public API",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2008",
       "labels": [
         "std"
       ],
-      "body": "From docs/reviews/code-review-std.md. D2823 [rec: yes]. 60 min.",
+      "body": "From docs/reviews/code-review-std.md. D2823 [rec: yes]. 60 min.\n\nDone, merged: docs/proposals/private-helpers.md. A list-only @[internal], not an enforced private (helpers appear in goals; users prove lemmas about them). D2890-D2893. Tickets SW-2037-SW-2040. 7 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -18040,6 +18040,62 @@
       ],
       "epic": "test-infra",
       "body": "Matt (7 Nov 2026): parallel review work. Expected: 75 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2037,
+      "title": "[Sonnet] @[internal]: hide a declaration (or a type's whole namespace) from completion, stitchwort doc, search (unless --all) and doc coverage; still usable by full name, import and dot; hover says internal; docs",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From docs/proposals/private-helpers.md. Ticket 1. D2890-D2892. 75 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2038,
+      "title": "[Sonnet] Mark std's internals @[internal] (~35 step helpers; Map.Tree, Map.Raw, Omega, Ring; ~480 declarations)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From docs/proposals/private-helpers.md. Ticket 2, after SW-2037. snap:hashes, hash_stability, bound_to_the_prelude. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2039,
+      "title": "[Sonnet] Public lemmas in place of helpers in std's theorems; then a std test that no public theorem mentions an internal",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From docs/proposals/private-helpers.md. Ticket 3, after SW-2038. 45-90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2040,
+      "title": "[DeepSeek] Completion and search filter hidden names differently (helper_keys vs % in the name): local-definition helpers probably show up in search; check and unify",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From docs/proposals/private-helpers.md. Finding from docs/proposals/private-helpers.md. 30 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
