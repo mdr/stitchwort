@@ -1,5 +1,5 @@
 {
-  "next": 1794,
+  "next": 1795,
   "tickets": [
     {
       "id": 47,
@@ -14420,14 +14420,29 @@
     {
       "id": 1793,
       "title": "dev/t (task test:areas) loops over crates/cli/tests/*.rs and passes --test lsp, --test extract etc., which no longer exist after the test-binary merges (SW-1790); fix it to the new groups or retire it in favour of test:affected",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1793",
       "labels": [
         "tooling"
       ],
       "epic": "dev-loop-speed",
-      "body": "From SW-1790, 7 Nov 2026.",
+      "body": "From SW-1790, 7 Nov 2026.\n\nDone, merged: dev/t deleted; task test:areas prints a pointer to test:affected and fails; dev/measure-state uses the new binaries. Lost: dev/t also ran the board's node tests, bash -n, a flake parse, clippy, and the VS Code/browser tasks by path; docs/testing.md now lists those to run by hand. Model result: Sonnet, worked, 4 min (est. 35).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1794,
+      "title": "test:affected selects nextest tests only; dev/t also ran non-Rust checks by path (board node tests for board/**, bash -n for dev/**, a flake parse for flake.nix, VS Code and browser tasks): add a small 'extra commands' rule kind (SW-1793)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1793.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
