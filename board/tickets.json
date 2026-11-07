@@ -1,5 +1,5 @@
 {
-  "next": 2104,
+  "next": 2105,
   "tickets": [
     {
       "id": 47,
@@ -18836,14 +18836,14 @@
     {
       "id": 2088,
       "title": "[Sonnet] Search budget shared across workers and not spent by the editor's automatic code-action requests (cursor moves at a goal whose search panics turn search off for the session): remember a panicked search and answer null until the text changes; the stop message's wording",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2089",
       "labels": [
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From docs/reviews/SW-2087-checker-recovery-and-forget-since.md. Lane 2, after SW-2086 (same file). 45 min.\n\nStarted 7 Nov in worktree .claude/worktrees/SW-2089 (branch lane/SW-2089: a numbering slip; the work is this ticket's).",
+      "body": "From docs/reviews/SW-2087-checker-recovery-and-forget-since.md. Lane 2, after SW-2086 (same file). 45 min.\n\nStarted 7 Nov in worktree .claude/worktrees/SW-2089 (branch lane/SW-2089: a numbering slip; the work is this ticket's).\n\nDone, merged (branch lane/SW-2089). Panicked search remembered by document, version and parameters, answered null until an edit or close; one budget for all workers; stop messages say to reload the window (checker messages too). Three new tests. On main: lsp 26/26, faults:: 21/21 twice. Model result: Sonnet, worked, 24 min (est. 45).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -18888,7 +18888,7 @@
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From docs/reviews/SW-2087-checker-recovery-and-forget-since.md. After SW-2088/SW-2089 (same file). 45 min.\n\nAlso from docs/reviews/SW-2094-unifier-gaps-and-recovery.md (lane 1): work out which workspace to blame for a panic inside its own catch, with a fallback (MEDIUM: today reading a project that panics escapes and stops checking everywhere); home_of reads only the config's sources, not every .sw file; open_workspace reads the project once; build the Keeper before sessions drop; make the loose-file test able to fail (it passes on the old code); relative's doc comment; the in-memory source's copy of the source-folder rule. D3000 yes (orchestrator's call): only a change of a file's text retries a quarantined project, not an open or a peek. Now 60 min; after SW-2088/SW-2089.",
+      "body": "From docs/reviews/SW-2087-checker-recovery-and-forget-since.md. After SW-2088/SW-2089 (same file). 45 min.\n\nAlso from docs/reviews/SW-2094-unifier-gaps-and-recovery.md (lane 1): work out which workspace to blame for a panic inside its own catch, with a fallback (MEDIUM: today reading a project that panics escapes and stops checking everywhere); home_of reads only the config's sources, not every .sw file; open_workspace reads the project once; build the Keeper before sessions drop; make the loose-file test able to fail (it passes on the old code); relative's doc comment; the in-memory source's copy of the source-folder rule. D3000 yes (orchestrator's call): only a change of a file's text retries a quarantined project, not an open or a peek. Now 60 min; after SW-2088/SW-2089.\n\nAlso from SW-2088: with more than one search worker the stop pop-up can appear once per worker; send it once.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19069,6 +19069,21 @@
       ],
       "epic": "effects-native",
       "body": "Read-only Opus lane, 7 Nov. Expected: 40 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2104,
+      "title": "[Sonnet] Language server race: a code action right after an edit's diagnostics are published can come back empty (about 1 run in 6), apparently because the new text's goals are recorded just after the diagnostics go out; the tests work around it with a retry loop (actions_after_edit)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "epic": "editor-playground",
+      "body": "From SW-2088. The editor could show a briefly empty light bulb after an edit. Fix the order, then drop the retry loop. After SW-2089/SW-2091 (same file). 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
