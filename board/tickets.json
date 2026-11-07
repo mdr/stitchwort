@@ -1,5 +1,5 @@
 {
-  "next": 2167,
+  "next": 2179,
   "tickets": [
     {
       "id": 47,
@@ -1616,9 +1616,9 @@
         "stdlib"
       ],
       "epic": "aoc-older",
-      "body": "From AoC 2021 day 7 (aoc/NOTES-2021.md, 31 Oct 2026). Std candidates: foldMinLe / foldMinLeMember (Nat.min versions of List.foldMaxGe / List.leFoldMax), sumByLeMember (sumByLe when terms are smaller only on members), division monotone (a ≤ b → a / d ≤ b / d), List.maximum lemmas. Also: Nat.divMulLe takes d ≠ 0 explicitly unlike Nat.leDivOfMulLe (inconsistent argument conventions). Search: the first search on a cold cache was slow (52 s pattern, 71 s --at, machine under load); warm --at 2-3 s.\n",
+      "body": "From AoC 2021 day 7 (aoc/NOTES-2021.md, 31 Oct 2026). Std candidates: foldMinLe / foldMinLeMember (Nat.min versions of List.foldMaxGe / List.leFoldMax), sumByLeMember (sumByLe when terms are smaller only on members), division monotone (a ≤ b → a / d ≤ b / d), List.maximum lemmas. Also: Nat.divMulLe takes d ≠ 0 explicitly unlike Nat.leDivOfMulLe (inconsistent argument conventions). Search: the first search on a cold cache was slow (52 s pattern, 71 s --at, machine under load); warm --at 2-3 s.\n\n7 Nov: docs/reviews/SW-2159-aoc-lemmas-to-std.md says which of its lanes absorbs this (SW-2169-SW-2175).",
       "created": "2026-10-31",
-      "updated": "2026-10-31",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -9552,9 +9552,9 @@
         "std"
       ],
       "epic": "std-library",
-      "body": "From 2020 day 10 (SW-1461), 5 Nov 2026. Small improvement.",
+      "body": "From 2020 day 10 (SW-1461), 5 Nov 2026. Small improvement.\n\n7 Nov: docs/reviews/SW-2159-aoc-lemmas-to-std.md says which of its lanes absorbs this (SW-2169-SW-2175).",
       "created": "2026-11-05",
-      "updated": "2026-11-05",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -9822,9 +9822,9 @@
         "std"
       ],
       "epic": "std-library",
-      "body": "From 2020 day 12 (SW-1483), 5 Nov 2026.",
+      "body": "From 2020 day 12 (SW-1483), 5 Nov 2026.\n\n7 Nov: becomes SW-2175 (docs/reviews/SW-2159-aoc-lemmas-to-std.md).",
       "created": "2026-11-05",
-      "updated": "2026-11-05",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -11187,9 +11187,9 @@
         "std"
       ],
       "epic": "std-library",
-      "body": "Filed overnight 6 Nov 2026 from SW-1571 (2020 day 19).\n\nAlso covers SW-1591 (duplicate, closed; SW-1598).",
+      "body": "Filed overnight 6 Nov 2026 from SW-1571 (2020 day 19).\n\nAlso covers SW-1591 (duplicate, closed; SW-1598).\n\n7 Nov (docs/reviews/SW-2159-aoc-lemmas-to-std.md): take 2020 day 19's numberWithCount as the proof.",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -11352,9 +11352,9 @@
         "std"
       ],
       "epic": "std-library",
-      "body": "Filed overnight 6 Nov 2026 from SW-1580 (2020 day 20).",
+      "body": "Filed overnight 6 Nov 2026 from SW-1580 (2020 day 20).\n\n7 Nov: docs/reviews/SW-2159-aoc-lemmas-to-std.md says which of its lanes absorbs this (SW-2169-SW-2175).",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -11655,9 +11655,9 @@
         "std"
       ],
       "epic": "std-library",
-      "body": "From SW-1594, 6 Nov 2026. Small.",
+      "body": "From SW-1594, 6 Nov 2026. Small.\n\n7 Nov: docs/reviews/SW-2159-aoc-lemmas-to-std.md says which of its lanes absorbs this (SW-2169-SW-2175).",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -17573,14 +17573,14 @@
     {
       "id": 2003,
       "title": "[Sonnet] Std lane C: move the lemmas AoC days wrote themselves into std",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "std"
       ],
       "epic": "std-library",
-      "body": "From docs/reviews/code-review-std.md (S3). 60 min.\n\nD2831 (every AoC lane ends by moving the generic lemmas it wrote to std or Aoc.Common) — answered by Matt's request, 7 Nov 2026: \"if they are reasonably generic facts that might have wider utility than just Advent of Code ... move them there and have a really rich standard library\". SW-2003 folds into SW-2159's lanes.",
+      "body": "From docs/reviews/code-review-std.md (S3). 60 min.\n\nD2831 (every AoC lane ends by moving the generic lemmas it wrote to std or Aoc.Common) — answered by Matt's request, 7 Nov 2026: \"if they are reasonably generic facts that might have wider utility than just Advent of Code ... move them there and have a really rich standard library\". SW-2003 folds into SW-2159's lanes.\n\n7 Nov: absorbed into SW-2169, SW-2170, SW-2171, SW-2174 (from docs/reviews/SW-2159-aoc-lemmas-to-std.md).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19601,14 +19601,14 @@
     {
       "id": 2139,
       "title": "[Sonnet] 2024 day 9: port to Map.insertIn/removeIn; a spec of leftmostFit",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2139",
       "labels": [
         "proofs"
       ],
       "epic": "aoc-older",
-      "body": "From docs/proposals/map-set-list-model.md. Stage S2, after SW-2138. 60 min.",
+      "body": "From docs/proposals/map-set-list-model.md. Stage S2, after SW-2138. 60 min.\n\nDone, merged. FreeSpace.add/remove on Map.insertIn/removeIn (removeIn drops emptied sets; answers unchanged since leftmostFit reads min). Proofs/FreeSpace.sw: has, hasAdd, hasRemove, hasOf, leftmostFitSome, leftmostFitNone (orchestrator checked the statements, D2436). Mutation check: < for <= breaks the proofs. On main: day 9 32/32 uncached, audit 96/96. Model result: Sonnet, worked, 6 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19653,7 +19653,7 @@
         "proofs"
       ],
       "epic": "aoc-common",
-      "body": "From docs/proposals/map-set-list-model.md. After SW-2138. 45 min.",
+      "body": "From docs/proposals/map-set-list-model.md. After SW-2138. 45 min.\n\n7 Nov: docs/reviews/SW-2159-aoc-lemmas-to-std.md says which of its lanes absorbs this (SW-2169-SW-2175).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19901,14 +19901,14 @@
     {
       "id": 2159,
       "title": "[Opus] Survey: generic lemmas in aoc/ (about lists, Nat, Int, Map, Set, Option, strings, folds, grids) that belong in std; dedupe against std and the open std-lemma tickets (SW-957, 1486, 1493, 1531, 1577, 1588 …); rank by generality and reuse; plan migration lanes",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2159",
       "labels": [
         "design"
       ],
       "epic": "std-library",
-      "body": "Matt, 7 Nov 2026: 'if they are reasonably generic facts that might have wider utility than just Advent of Code ... move them there and have a really rich standard library with a lot of proven facts about the functions. ... spin up an Opus job.' Read-only survey first (docs/reviews/SW-N-aoc-lemmas-to-std.md); moves are Sonnet/DeepSeek lanes per CLAUDE.md. 75 min.\n\nD2831 (every AoC lane ends by moving the generic lemmas it wrote to std or Aoc.Common) — answered by Matt's request, 7 Nov 2026: \"if they are reasonably generic facts that might have wider utility than just Advent of Code ... move them there and have a really rich standard library\". SW-2003 folds into SW-2159's lanes.",
+      "body": "Matt, 7 Nov 2026: 'if they are reasonably generic facts that might have wider utility than just Advent of Code ... move them there and have a really rich standard library with a lot of proven facts about the functions. ... spin up an Opus job.' Read-only survey first (docs/reviews/SW-N-aoc-lemmas-to-std.md); moves are Sonnet/DeepSeek lanes per CLAUDE.md. 75 min.\n\nD2831 (every AoC lane ends by moving the generic lemmas it wrote to std or Aoc.Common) — answered by Matt's request, 7 Nov 2026: \"if they are reasonably generic facts that might have wider utility than just Advent of Code ... move them there and have a really rich standard library\". SW-2003 folds into SW-2159's lanes.\n\nSurvey merged: docs/reviews/SW-2159-aoc-lemmas-to-std.md. ~130 of 3,018 AoC/rogue theorems are about std types only; ~30 restate std, ~25 are one-word tactic proofs, ~75 genuinely missing. D3130: only lemmas now, PrefixSums later (SW-2178) — orchestrator's call. Lanes: SW-2167 SW-2168 SW-2169 SW-2170 SW-2171 SW-2172 SW-2173 SW-2174 SW-2175; also SW-2176 SW-2177.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20014,6 +20014,186 @@
       ],
       "epic": "performance",
       "body": "From SW-2129, whose base was 75c41e620..eff1911ed. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2167,
+      "title": "[DeepSeek] Delete AoC lemmas that restate std (leBoth = Nat.leAntisym, boolOfIff = Bool.eqOf, natEqSelf = Nat.equalRefl, …) or that omega/cases/rfl closes in one word; point uses at std or the tactic",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proofs"
+      ],
+      "epic": "aoc-common",
+      "body": "From docs/reviews/SW-2159-aoc-lemmas-to-std.md, lane D0; its brief paragraph is in the report. No std edits. audit:touched on each changed namespace. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2168,
+      "title": "[Sonnet] 2024 day 12: total and its 12 lemmas onto std's sum-over-a-range lemmas",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proofs"
+      ],
+      "epic": "aoc-older",
+      "body": "From docs/reviews/SW-2159-aoc-lemmas-to-std.md, lane D1; its brief paragraph is in the report. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2169,
+      "title": "[Sonnet] Std from AoC, List 1: filterMap, map, distinct, index lemmas the days wrote themselves",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2169",
+      "labels": [
+        "proofs"
+      ],
+      "epic": "std-library",
+      "body": "From docs/reviews/SW-2159-aoc-lemmas-to-std.md, lane L1; its brief paragraph is in the report. Absorbs part of SW-2003; note SW-1608. snap:hashes, hash_stability, audit:touched per AoC namespace. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2170,
+      "title": "[Sonnet] Std from AoC, List 2: takeWhile, last/reverse, counts, sums, allSome, range counts",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proofs"
+      ],
+      "epic": "std-library",
+      "body": "From docs/reviews/SW-2159-aoc-lemmas-to-std.md, lane L2; its brief paragraph is in the report. After SW-2169 (same file). Absorbs SW-1588's list part, SW-1468, part of SW-2003. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2171,
+      "title": "[Sonnet] Std from AoC, Nat/Int/Bool arithmetic lemmas the days wrote themselves",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proofs"
+      ],
+      "epic": "std-library",
+      "body": "From docs/reviews/SW-2159-aoc-lemmas-to-std.md, lane N1; its brief paragraph is in the report. Absorbs part of SW-2003, SW-957's arithmetic. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2172,
+      "title": "[Sonnet] Std from AoC, Nat decimal digits and bits lemmas",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proofs"
+      ],
+      "epic": "std-library",
+      "body": "From docs/reviews/SW-2159-aoc-lemmas-to-std.md, lane N2; its brief paragraph is in the report. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2173,
+      "title": "[Sonnet] Std from AoC, Parse and Text: Parse.runsValueEq (2020's runsAsValue, defined in 8 days, used 27 times) and the rest",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proofs"
+      ],
+      "epic": "std-library",
+      "body": "From docs/reviews/SW-2159-aoc-lemmas-to-std.md, lane P; its brief paragraph is in the report. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2174,
+      "title": "[Sonnet] Std from AoC, Option/Pair/Map/Set lemmas",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proofs"
+      ],
+      "epic": "std-library",
+      "body": "From docs/reviews/SW-2159-aoc-lemmas-to-std.md, lane O; its brief paragraph is in the report. Absorbs or follows SW-2142; part of SW-2003. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2175,
+      "title": "[Sonnet] Std from AoC, folds and Nat.iterate (List.foldLeftRelate, iterateMod/iterateCycles)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proofs"
+      ],
+      "epic": "std-library",
+      "body": "From docs/reviews/SW-2159-aoc-lemmas-to-std.md, lane F; its brief paragraph is in the report. After SW-2147 (loop kit) and SW-2170. Closes SW-1486. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2176,
+      "title": "[Sonnet] 2021 day 1's spec onto std's List.windows",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proofs"
+      ],
+      "epic": "aoc-older",
+      "body": "From docs/reviews/SW-2159-aoc-lemmas-to-std.md (a statement change, so kept out of the move lanes). 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2177,
+      "title": "Naming: std's List.distinctSnoc is about the dedup function List.distinct, not the List.Distinct proposition, so the snoc lemma days need has no good name",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "naming"
+      ],
+      "epic": "std-library",
+      "body": "From docs/reviews/SW-2159-aoc-lemmas-to-std.md; for SW-2006's naming sweep.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2178,
+      "title": "Move Aoc.Common's PrefixSums (summed-area table with its block-sum proof) into std when an example outside AoC wants it",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "epic": "std-library",
+      "body": "From docs/reviews/SW-2159-aoc-lemmas-to-std.md. D3130: only lemmas move now (orchestrator's call).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
