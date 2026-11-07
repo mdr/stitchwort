@@ -99,3 +99,4 @@ Take these in order, once the speed queue above is empty or blocked.
 - 02:10: SW-1777 merged (analysis: cranelift isn't on the critical path; no change).
 - 02:19: SW-1775 merged (84 binaries were reached by no rule; now 6, listed); inventory refreshed on main. Filed SW-1778.
 - 02:27: SW-1763 (DeepSeek, 9 min) merged: Float sums print as x + y.
+- 02:28: SW-1776 held in review (three edits per new elab unit test vs an unmeasured ~25 s per clean build): D2565 for the morning. SW-1763 merged. SW-1743 started.

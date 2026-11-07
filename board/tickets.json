@@ -14165,14 +14165,14 @@
     {
       "id": 1776,
       "title": "[Sonnet] elab unit tests built into the library behind a unit-tests feature (dev-features turns it on), run by one small test binary with a guard that no test is left out: same 148 tests pass; one clean --timings build (split-elab.md stage 1)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1776",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From SW-1737, D2563/D2564. Expected: 45 min.",
+      "body": "From SW-1737, D2563/D2564. Expected: 45 min.\n\n7 Nov ~02:45, lane/SW-1776 (aba0f8be7): elab unit tests behind a unit-tests feature; [lib] test = false; 148 tests via a table (src/unit_tests.rs) and tests/unit.rs wrappers, guard every_unit_test_is_listed; same 145 names, all pass. Clean build: the 36 s elab lib-test compile becomes a 6 s unit binary; net saving not measurable under load (160 s before at load 11-19, 246 s after at load 19-31). Held, not merged: a new elab unit test now needs three edits (marked fn, table, wrapper) and a doc-alias marker instead of #[test]. That workflow cost touches every lane writing elab unit tests; the gain (≈20-30 s per clean build, a core freed per elab rebuild) is unmeasured. For Matt (D2565), after one quiet-machine measurement. Model result: Sonnet, worked, 19 min (est. 45).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
