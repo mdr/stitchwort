@@ -95,19 +95,16 @@ def Links.largestFrom (links: Links) (clique: Set Computer) (candidates: Set Com
 :=
   if clique.size + candidates.size ≤ best.size then best
   else
-    match candidates.popMin with
+    match found: candidates.popMin with
       | None => clique
       | Some (candidate, others) =>
-        -- Always true (`Set.sizePopMin`); the test puts it in scope for the
-        -- recursive calls.
-        if fewer: others.size < candidates.size then
-          let narrowed := links.neighbours candidate |> .intersect others
-          let withinOthers: narrowed.size ≤ others.size :=
-            Set.sizeSubset others narrowed (key inside =>
-              Bool.andRight (Eq.trans (Eq.sym (Set.containsIntersect (links.neighbours candidate) key others)) inside))
-          let withIt := links.largestFrom (clique.insert candidate) narrowed best [decreasing := omega [withinOthers, fewer]]
-          links.largestFrom clique others withIt
-        else best
+        let fewer := Set.sizePopMin candidates candidate others found
+        let narrowed := links.neighbours candidate |> .intersect others
+        let withinOthers: narrowed.size ≤ others.size :=
+          Set.sizeSubset others narrowed (key inside =>
+            Bool.andRight (Eq.trans (Eq.sym (Set.containsIntersect (links.neighbours candidate) key others)) inside))
+        let withIt := links.largestFrom (clique.insert candidate) narrowed best [decreasing := omega [withinOthers, fewer]]
+        links.largestFrom clique others withIt
 
 --| The largest set of computers that are all connected to each other.
 def Links.largestClique (links: Links): Party := { members = links.largestFrom Set.empty links.keySet Set.empty }

@@ -7476,6 +7476,13 @@ The `if fewer:` test is always true. It's there because the proofs can't
 step through the obvious version (`match found: candidates.popMin with`,
 using `found` for the decreasing proof; item 3).
 
+Later (SW-2030): in a `decreasing` definition, `f.unfold` now shows a
+`match`'s plain form, without its equation, so the program is the obvious
+version: `match found: candidates.popMin with`, then `let fewer :=
+Set.sizePopMin candidates candidate others found`. The guard and its dead
+`else` are gone, and `largestStep` no longer dismisses the `else` (its
+last arm is `rfl`).
+
 ### Proved, for every network
 
 The spec (`Spec/Spec.sw`) is about `Set Computer`, so "sets" and "largest"

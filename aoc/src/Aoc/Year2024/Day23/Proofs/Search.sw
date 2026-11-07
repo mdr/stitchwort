@@ -2,7 +2,7 @@
 
 namespace Aoc.Year2024.Day23.Proofs
 import Aoc.Year2024.Day23 (..)
-import Std (Bool, Decidable, Eq, Nat, Option, Set, Void)
+import Std (Bool, Eq, Nat, Option, Set, Void)
 
 --| Too few candidates left to beat `best`.
 theorem largestPruned (links: Links) (clique: Set Computer) (candidates: Set Computer) (best: Set Computer)
@@ -29,5 +29,4 @@ theorem largestStep (links: Links) (clique: Set Computer) (candidates: Set Compu
   rewrite Links.largestFrom.unfold links clique candidates best, found in
   match fits: Nat.leq (clique.size + candidates.size) best.size with
     | True => Void.exfalso (omega [beats, fits])
-    | False =>
-      Decidable.elimEq _ _ _ _ (fewer => rfl) (notFewer => Void.exfalso (notFewer (Set.sizePopMin candidates candidate others found)))
+    | False => rfl

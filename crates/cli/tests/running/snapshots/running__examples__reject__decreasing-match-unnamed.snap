@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-DECREASING] Error: can't show `rest.size < set.size` here, which `decreasing set.size` needs for this call
+    ╭─[ reject/decreasing-match-unnamed.sw:12:37 ]
+    │
+ 12 │     | Some (least, rest) => least + total rest
+    │                                     ─────┬────  
+    │                                          ╰────── this recursive call
+    │ 
+    │ Note 1: in scope: `set.popMin = Some (least, rest)` (this `match`'s arm)
+    │ 
+    │ Note 2: to use the `match`'s fact in a proof, name it, `match found: … with`, and pass `found` to a lemma: `[decreasing := omega [lemma found]]`
+    │ 
+    │ Note 3: give a proof with `[decreasing := …]`, or test it with `if rest.size < set.size then … else …`
+────╯

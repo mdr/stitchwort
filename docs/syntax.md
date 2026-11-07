@@ -1041,11 +1041,27 @@ theorem evensShort (n: Nat): List.length (evens n) <= n
   proof written out. `f.unfold` shows such an `if` as written, a plain `if`
   with no proof, wherever only the calls' proofs used the condition; one
   whose condition something else uses, or that sits inside a function passed
-  to another (`xs.map (x => if … then f … else …)`), in a `match` that isn't
-  the definition's own case split, or in an `if`'s condition, shows the
-  `if _:` form, as an `if h:` always does. An `if` whose branches don't use
-  its condition is the plain `if` as before
+  to another (`xs.map (x => if … then f … else …)`), or in an `if`'s
+  condition, shows the `if _:` form, as an `if h:` always does. An `if`
+  whose branches don't use its condition is the plain `if` as before
   (`examples/accept/decreasing-plain-if.sw`).
+- **A `match` gives its equation to the recursive calls in its arms**
+  (stage 2), named or not: in `match set.popMin with | Some (least, rest)
+  => f rest …`, the call's proof has `set.popMin = Some (least, rest)` in
+  scope, as `match found: …` would give it, and `match n - k with | Succ j
+  => f n (k + 1)` with `decreasing n - k` is proved by `omega` from `n - k
+  = Succ j` alone. A fact that only a lemma turns into the decrease needs
+  the name, to pass it: `match found: set.popMin with | Some (least, rest)
+  => f rest … [decreasing := Set.sizePopMin set least rest found]`; the
+  `E-DECREASING` message lists an unnamed one as "(this `match`'s arm)".
+  `f.unfold` shows the `match` without its equation, wherever only the
+  calls' proofs used it (or a `let` only they used, such as `let fewer :=
+  Set.sizePopMin …`), so a proof about `f` matches on the same scrutinee,
+  or rewrites it (`rewrite f.unfold x, popped in …`), as on any other: no
+  `E-MATCH-MOTIVE`. A plain `if` in such an arm is shown plain too. A
+  `match` inside a function passed to another (`xs.map (x => match … with
+  …)`) keeps its equation in `f.unfold`
+  (`examples/accept/decreasing-match-fact.sw`).
 - **A pair of measures**, `decreasing (m1, m2)`, is lexicographic (stage
   3d): every recursive call makes `m1` smaller (and `m2` may then be
   anything), or keeps `m1` the same and makes `m2` smaller. A call's proof
@@ -1980,7 +1996,7 @@ Patterns are those of arms: variables, `_`, numbers, constructors, tuples, recor
 
 There are two translations. If the `match` is the whole right-hand side of a definition, and every scrutinee is an unnamed parameter that its patterns haven't already taken apart, the `match` becomes part of the definition's case tree, as if you had written more arms. Any other `match` becomes a generated definition, named after the definition it is in (shown as `owner.%match1`, though error messages say "this `match`"), which takes the values it needs from the surrounding code and is called where the `match` was. A scrutinee that is a variable is refined in the branches, and so is everything whose type mentions it. A scrutinee that is any other expression is generalised: wherever it appears in the expected type, it's replaced by the pattern of the branch.
 
-`match h: e with` gives each branch an equation `h` about the original expression, such as `h: length xs = Zero` in the `Zero` branch. The expression is also generalised in the expected type, even when `e` is a variable. A `match` with a name is always generated as a definition.
+`match h: e with` gives each branch an equation `h` about the original expression, such as `h: length xs = Zero` in the `Zero` branch. The expression is also generalised in the expected type, even when `e` is a variable. A `match` with a name is always generated as a definition. In a definition with `decreasing`, a recursive call in an arm gets the equation without the name, and `f.unfold` leaves it out ([`decreasing`](#decreasing), stage 2).
 
 What a generalised `match` (an expression scrutinee, or any named one) replaces:
 

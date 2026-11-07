@@ -55,6 +55,33 @@ use crate::{Elaborator, Global, Result, kernel, scope};
 /// The parameter of `f.%step` that recursive calls stand for.
 pub(crate) const REC: &str = "%rec";
 
+/// The name of a `match`'s equation in a `decreasing` body when the source
+/// doesn't name it (`match e with`, an arm calling the definition): the
+/// call's proof can use it, and no source can name it.
+pub(crate) const FOUND: &str = "%found";
+
+/// Whether a `match` with alternatives `alts` is in a `decreasing` body and
+/// an alternative may call the definition: by name, as a function or a dot
+/// call, which is enough to give the `match` its equation (an unused one
+/// costs nothing, since `f.unfold` leaves it out).
+pub(crate) fn arms_call_itself(cx: &Ctx, alts: &[ast::Alt]) -> bool {
+    let Some(target) = cx.e.decl.decreasing.borrow().as_ref().map(|a| a.target) else {
+        return false;
+    };
+    let g = cx.g();
+    let full = g.def(target).name().to_string();
+    let last = full.rsplit('.').next().unwrap_or(&full);
+    let last_of = |text: &str| text.rsplit('.').next() == Some(last);
+    alts.iter().any(|alt| {
+        crate::module::free_names_of(&alt.body)
+            .iter()
+            .any(|r| match r {
+                crate::module::Ref::Name(n) => last_of(&n.text),
+                crate::module::Ref::Dot(_, method, _) => method == last,
+            })
+    })
+}
+
 /// The name of the auto parameter a recursive call's proof is passed as:
 /// `[decreasing := p]`.
 const PROOF: &str = "decreasing";
@@ -77,6 +104,10 @@ pub(crate) struct Active {
     /// While the step's own body is finished: plain `if`s whose proof the
     /// branches use keep their tag (`logic::tag_plain`), for `plain.rs`.
     pub keep_plain: Cell<bool>,
+    /// The `match`es lifted from the step whose plain `if`s keep their
+    /// tags, as `keep_plain` leaves them, for `plain.rs`; the kernel has
+    /// them without.
+    pub tagged_helpers: std::cell::RefCell<HashMap<DefId, Term>>,
 }
 
 /// A parameter in a telescope: its name, how it's passed, and its type (in
@@ -1080,12 +1111,11 @@ impl Elaborator {
             made.extend(st.made.iter().copied());
             let irrel = self.generated(&plan, |e| e.decreasing_irrel(&plan, step, go, respects))?;
             made.push(irrel);
-            let view = match &tagged {
-                Some(tagged) => self
-                    .plain_view(&plan, step, tagged)
-                    .map_err(|d| self.generator_failed(&plan, d))?,
-                None => None,
-            };
+            let mut twins = Vec::new();
+            let view = self
+                .plain_view(&plan, step, tagged.as_ref(), &st.helpers, &mut twins)
+                .map_err(|d| self.generator_failed(&plan, d))?;
+            made.extend(twins);
             if let Some(v) = &view {
                 made.extend([v.view, v.same]);
             }
@@ -1393,6 +1423,7 @@ impl Elaborator {
             second: plan.second.clone(),
             header: s,
             keep_plain: Cell::new(false),
+            tagged_helpers: Default::default(),
         });
         let ty_value = self.kernel.def(step).ty_value().clone();
         let written = Rc::new(self.kernel.def(step).ty().clone());
@@ -1431,6 +1462,33 @@ impl Elaborator {
         kernel::define_group(&mut self.kernel, &self.tables, &[(step, stripped)])
             .map_err(|d| self.explain_lifted(d))?;
         Ok((step, first_helper, tagged))
+    }
+
+    /// The body of `id`, a `match` lifted from the body being elaborated
+    /// (`lam`, its lambdas around a case tree), with its tagged `if`s
+    /// settled; in a `decreasing` body, the one with the tags of plain `if`s
+    /// whose proof a recursive call uses is kept for `plain.rs`.
+    pub(crate) fn lifted_helper_body(&self, id: DefId, lam: &Term) -> Result<Term> {
+        let keep = |on: bool| match self.decl.decreasing.borrow().as_ref() {
+            Some(active) => {
+                active.keep_plain.set(on);
+                true
+            }
+            None => false,
+        };
+        if !keep(true) {
+            return self.settle_tagged(lam);
+        }
+        let tagged = self.settle_tagged(lam);
+        keep(false);
+        let tagged = tagged?;
+        let stripped = self.settle_tagged(&tagged)?;
+        if !same_term(&stripped, &tagged)
+            && let Some(active) = self.decl.decreasing.borrow().as_ref()
+        {
+            active.tagged_helpers.borrow_mut().insert(id, tagged);
+        }
+        Ok(stripped)
     }
 
     /// Runs one step of generating, turning a refusal into a message that
@@ -2855,19 +2913,35 @@ pub(crate) fn explain_obligation(cx: &mut Ctx, goal: &Value, error: Diagnostic) 
 /// The equations in scope, as a note on `d`.
 fn in_scope(cx: &Ctx, d: Diagnostic) -> Diagnostic {
     let mut hypotheses = Vec::new();
+    let mut unnamed = false;
     for level in 0..cx.level() {
         let name = cx.names[level].to_string();
-        if name.starts_with('%') || name.is_empty() {
+        let found = name == FOUND;
+        if (name.starts_with('%') && !found) || name.is_empty() {
             continue;
         }
         if let Ok(Value::Eq(..)) = force(&cx.g(), cx.types[level].clone()) {
-            hypotheses.push(format!("`{name}: {}`", cx.show(&cx.types[level].clone())));
+            let ty = cx.show(&cx.types[level].clone());
+            hypotheses.push(if found {
+                unnamed = true;
+                format!("`{ty}` (this `match`'s arm)")
+            } else {
+                format!("`{name}: {ty}`")
+            });
         }
     }
-    if hypotheses.is_empty() {
+    let d = if hypotheses.is_empty() {
         d
     } else {
         d.with_note(format!("in scope: {}", hypotheses.join(", ")))
+    };
+    if unnamed {
+        d.with_note(
+            "to use the `match`'s fact in a proof, name it, `match found: … with`, and pass \
+             `found` to a lemma: `[decreasing := omega [lemma found]]`",
+        )
+    } else {
+        d
     }
 }
 
