@@ -130,7 +130,9 @@ pub struct Stats {
     /// built-ins than they say: what they added is undone, and the unit
     /// elaborated. With a complete key and a correct encoder this never
     /// happens (docs/proposals/check-cache-trust.md, D2800), so the
-    /// differential tests check there are none.
+    /// differential tests check there are none. Not counted when the
+    /// operation was cancelled meanwhile (the editor's next keystroke),
+    /// which also ends the kernel's calls.
     pub refused: usize,
     /// Namespaces a plain `check` reported from their entries without
     /// loading them, because nothing it checked needed them (SW-1193).
@@ -2604,7 +2606,8 @@ impl Elaborator {
     /// anything is admitted. If the kernel refuses anything (its structural
     /// checks: dependencies final, shapes right), or other built-ins are
     /// bound, what was added is removed and the file is elaborated instead.
-    /// That is never expected (`Stats::refused`).
+    /// That is never expected (`Stats::refused`), unless the operation was
+    /// cancelled meanwhile, which is not counted.
     fn admit_replayed(
         &mut self,
         defs: &[DefEntry],
@@ -2634,12 +2637,19 @@ impl Elaborator {
                 Ok(())
             });
         if let Err(why) = result {
-            self.session.cache_stats.refused += 1;
+            // A cancelled operation (an editor keystroke) ends the kernel's
+            // calls with an error that isn't the entry's fault: not counted.
+            if !self.kernel.machine.budget.cancelled() {
+                self.session.cache_stats.refused += 1;
+            }
             // Nothing else refers to what was added yet. Not
             // `Kernel::rewind`: an operation may be running (a namespace
             // that needs this file), whose budget must stay as it is.
             self.kernel.forget_since(&mark);
             if let Some(witness) = witness {
+                if let Some(left) = self.kernel.derived_state_since(&mark) {
+                    panic!("a refused replay's undo left derived state behind: {left}");
+                }
                 let now = self.undo_witness(forced);
                 assert!(
                     now == witness,
@@ -3209,3 +3219,30 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Rest> {
 
 #[doc(hidden)]
 pub use dump::canonical_dump;
+
+#[cfg(test)]
+mod tests {
+    use stitchwort_core::registry::Builtin;
+
+    use super::state;
+    use crate::Elaborator;
+
+    /// A namespace's entry that says it binds built-ins is refused before
+    /// anything reaches the kernel (only a library file's declarations are
+    /// bound), and is counted.
+    #[test]
+    fn a_namespace_entry_that_binds_builtins_is_refused_before_anything_is_admitted() {
+        let mut e = Elaborator::new();
+        let before = e.kernel.bindings_dump();
+        let result = e.admit_replayed(
+            &[],
+            &[],
+            &[(0, 0, Builtin::Nat)],
+            &state::TablesDelta::default(),
+            false,
+        );
+        assert!(result.is_err(), "the entry was admitted");
+        assert_eq!(e.session.cache_stats.refused, 1);
+        assert_eq!(e.kernel.bindings_dump(), before, "something was admitted");
+    }
+}

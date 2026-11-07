@@ -210,7 +210,8 @@ fn internal_error(params: &Value) -> bool {
     })
 }
 
-/// SW-1948: a panic in the checker used to end its thread silently.
+/// SW-1948: after a panic in the checker, the next edit is checked as usual,
+/// and one pop-up says the checker recovered.
 #[test]
 fn the_checker_recovers_after_a_panic() {
     let options = Options::new(STACK);

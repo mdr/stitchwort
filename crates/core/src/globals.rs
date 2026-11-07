@@ -749,8 +749,9 @@ impl Kernel {
 
     /// [`Kernel::forget_since`], then the budget is cleared, as if no
     /// operation were running: for rewinding a session between checks (the
-    /// language server), when none is. The cancellation flag is cleared
-    /// with the rest of the budget.
+    /// language server), when none is. The noted cancellation is cleared with
+    /// the rest of the budget; the shared flag itself is not (its owner
+    /// clears it).
     pub fn rewind(&mut self, mark: &KernelMark) {
         self.forget_since(mark);
         self.machine.reset();
@@ -770,6 +771,22 @@ impl Kernel {
         self.env.registry().dump(&mut out);
         self.env.builtins().dump(&mut out);
         out
+    }
+
+    /// What the derived caches still hold for declarations from `mark` on,
+    /// which [`Kernel::forget_since`] removed: content hashes (read by pin
+    /// checks and cache keys, so one left for a removed id would be read
+    /// again once the id is reused) and erasure. `None` if nothing.
+    pub fn derived_state_since(&self, mark: &KernelMark) -> Option<String> {
+        let hashes = (self.caches.hashes.borrow().keys())
+            .filter(|k| match k {
+                HashKey::Def(id) => id.0 >= mark.defs,
+                HashKey::Data(d) => d.0 >= mark.datas,
+            })
+            .count();
+        let erasure = (self.caches.erasure_defs.borrow().len()).saturating_sub(mark.defs);
+        (hashes + erasure > 0)
+            .then(|| format!("{hashes} content hashes and {erasure} erasure slots past the mark"))
     }
 }
 
