@@ -45,13 +45,16 @@
         "Kernel primitive projections, eta rules 1 and 2, with accept and must-reject tests (SW-1642, on lane/SW-1642)",
         "Fields of glued calls stay calls; std, roguelike and 2021 day 13 pass at about +2% cost (SW-1667, on lane/SW-1642)",
         "Opus review: kernel sound; merge after the cache fix (SW-1764)",
-        "Review fixes: the cache keeps the no-eta mark; more must-reject tests (SW-1768)"
+        "Review fixes: the cache keeps the no-eta mark; more must-reject tests (SW-1768)",
+        "Stages 1 and 1b: kernel projections, eta rules for records, glued calls ending in projections (SW-1642, SW-1667)",
+        "Plan for the remaining stages (docs/proposals/record-eta-remaining.md, SW-1849)"
       ],
       "now": [
-        "Ready to merge after one whole-AoC and roguelike run on the branch (needs Matt's OK)"
+        "Stages 1 and 1b merged; whole-AoC slowdown and Day20 failure being fixed (SW-1829; D2586 revert if no clear fix)"
       ],
       "next": [
-        "Resume SW-1667 with the Float.add hold (D2551, D2552)"
+        "Stage 2': tests, an example and the guide text record eta still lacks (SW-1643, D2630); the record sweep, 17 eta lemmas now rfl (SW-1645, D2631)",
+        "Stage 3: eta by shape (Pair, Text, Char...) measured with a stop point (SW-1851, D2632, D2633)"
       ],
       "links": [
         "docs/proposals/record-eta.md",

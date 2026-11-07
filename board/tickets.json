@@ -1,5 +1,5 @@
 {
-  "next": 1851,
+  "next": 1854,
   "tickets": [
     {
       "id": 47,
@@ -12180,9 +12180,9 @@
         "unifier"
       ],
       "epic": "record-eta",
-      "body": "D2498-D2505 (Matt, 6 Nov 2026): all as recommended in docs/proposals/record-eta.md: kernel record eta with primitive projections (no parameters) and the two rules; eta by shape incl. Pair; no no-eta opt-out now; no eta for interface dictionaries; accept goals changing shape; keep T.ext; accept ~5% checking cost (profile it); staged kernel (Opus), unifier, Pair, clean-up sweep (Sonnet). After SW-1642.\n\nOpus (kernel/unifier soundness; Matt, 6 Nov 2026).",
+      "body": "D2498-D2505 (Matt, 6 Nov 2026): all as recommended in docs/proposals/record-eta.md: kernel record eta with primitive projections (no parameters) and the two rules; eta by shape incl. Pair; no no-eta opt-out now; no eta for interface dictionaries; accept goals changing shape; keep T.ext; accept ~5% checking cost (profile it); staged kernel (Opus), unifier, Pair, clean-up sweep (Sonnet). After SW-1642.\n\nOpus (kernel/unifier soundness; Matt, 6 Nov 2026).\n\nSW-1849 (docs/proposals/record-eta-remaining.md, 7 Nov): stage 1 already built unifier eta (rule 1 with §8's restrictions, D2511's same-field rule). Becomes stage 2': elaborator-level tests (records.md §7.3/§14), a surface example in examples/, and the guide and syntax.md text stage 1 missed. Opus, 60 min, brief in §5. After SW-1829; not beside bounded readback 4a/4c (all edit unify.rs). D2630 [rec: yes].",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -12210,9 +12210,9 @@
         "style"
       ],
       "epic": "record-eta",
-      "body": "D2498-D2505 (Matt, 6 Nov 2026): all as recommended in docs/proposals/record-eta.md: kernel record eta with primitive projections (no parameters) and the two rules; eta by shape incl. Pair; no no-eta opt-out now; no eta for interface dictionaries; accept goals changing shape; keep T.ext; accept ~5% checking cost (profile it); staged kernel (Opus), unifier, Pair, clean-up sweep (Sonnet). Sonnet, after SW-1644.",
+      "body": "D2498-D2505 (Matt, 6 Nov 2026): all as recommended in docs/proposals/record-eta.md: kernel record eta with primitive projections (no parameters) and the two rules; eta by shape incl. Pair; no no-eta opt-out now; no eta for interface dictionaries; accept goals changing shape; keep T.ext; accept ~5% checking cost (profile it); staged kernel (Opus), unifier, Pair, clean-up sweep (Sonnet). Sonnet, after SW-1644.\n\nSW-1849 (docs/proposals/record-eta-remaining.md, 7 Nov): split (D2631, rec: yes). This ticket is now stage 4a, the record sweep: 17 hand-written eta lemmas about declared records are already rfl on main (2020 days 2-13 Complete.sw, positionEta, templateEta; greps and list in §3). Sonnet, 60 min, after SW-1829. The pair sweep is stage 4b, after stage 3.",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -13857,9 +13857,9 @@
         "tests"
       ],
       "epic": "record-eta",
-      "body": "From SW-1744, 6 Nov 2026.",
+      "body": "From SW-1744, 6 Nov 2026.\n\nSW-1849: done by SW-1667 once the float-sum-stays-a-sum snapshot is confirmed (D2634, rec: close).",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -15262,14 +15262,14 @@
     {
       "id": 1849,
       "title": "[Opus] Record eta: plan the remaining stages (unifier, Pair, clean-up sweep; D2498-D2505, D2509-D2511) now stage 1 and 1b are merged, with a brief per stage; design only",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1849",
       "labels": [
         "design"
       ],
       "epic": "record-eta",
-      "body": "Matt (7 Nov 2026): more design work. Expected: 60 min. No builds.",
+      "body": "Matt (7 Nov 2026): more design work. Expected: 60 min. No builds.\n\nDone, merged: docs/proposals/record-eta-remaining.md (record-eta.md points to it). Stage 2 mostly built already → 2' (tests, example, docs; SW-1643); record sweep now (SW-1645); stage 3 by shape with a stop point (SW-1851); pair sweep (SW-1852); accessor Proj if needed (SW-1853). Text is the one to watch in stage 3 (75 MkText matches). Guide and syntax.md never updated for record eta: in 2'. D2630-D2634 [rec: yes]; D2566 unchanged [yes]. 8 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15285,6 +15285,51 @@
       ],
       "epic": "docs-tutorials",
       "body": "Matt (7 Nov 2026): more analysis work. Expected: 60 min. No builds.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1851,
+      "title": "[Opus, Opus review] Record eta stage 3: eta by shape (Pair, and Text, Char, Omega.Env/Row, Ring.Env/Mono, Effect.SigMap), measured first; stop at +10% instructions, a namespace twice as slow, or more than five broken proofs; whole-AoC and rogue --no-cache with eta on and off (6 min cap each)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "kernel"
+      ],
+      "epic": "record-eta",
+      "body": "Brief in docs/proposals/record-eta-remaining.md §5. 180 min. After SW-1829 and bounded readback 0c (SW-1830), preferably after 4c (SW-1835). D2632, D2633 [rec: yes]; report accessor openings per type (D2566).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1852,
+      "title": "[Sonnet] Record eta stage 4b: the pair sweep (eta lemmas about pairs that stage 3 makes rfl)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proofs"
+      ],
+      "epic": "record-eta",
+      "body": "Brief in docs/proposals/record-eta-remaining.md §5. 45 min. After SW-1851.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1853,
+      "title": "[Opus] Record eta stage 5 (conditional): accessor bodies as Proj, only if stage 3's numbers call for it",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "kernel"
+      ],
+      "epic": "record-eta",
+      "body": "Brief in docs/proposals/record-eta-remaining.md §5. 60 min. After SW-1851.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
