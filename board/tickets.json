@@ -14540,14 +14540,14 @@
     {
       "id": 1801,
       "title": "[Opus] Design note: syntax node ids from the parser so elaborator cache keys never depend on the allocator (the remaining dot-cache variation in reads-weaken-over-map-implicits; also address-keyed tables in logic.rs, check.rs, named.rs) (SW-1800, D2573)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1801",
       "labels": [
         "bug"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-1800. See docs/reviews/SW-1800-dot-failed-cache.md. Also check pure-fold-in-parse-function, never reached.\n\nD2573 (Matt, 7 Nov 2026): yes, a design note first. Started: Opus, expected 60 min.",
+      "body": "From SW-1800. See docs/reviews/SW-1800-dot-failed-cache.md. Also check pure-fold-in-parse-function, never reached.\n\nD2573 (Matt, 7 Nov 2026): yes, a design note first. Started: Opus, expected 60 min.\n\nDone, merged: docs/proposals/syntax-node-ids.md. Recommends an id on Expr::Field (and the queue's DotCall) from a global counter, keying dot_heads/dot_failed by it; copies get new ids, so every lucky hit becomes the miss that's known right. Only the two dot tables are hazards; logic.rs/check.rs/named.rs keys are borrowed for their lifetime. Tables are tiny on AoC (max 98 entries per declaration). D2577-D2580 for Matt. 11 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
