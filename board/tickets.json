@@ -1,5 +1,5 @@
 {
-  "next": 2138,
+  "next": 2143,
   "tickets": [
     {
       "id": 47,
@@ -796,12 +796,12 @@
     {
       "id": 745,
       "title": "Std lemmas tying Map.alter/adjust, Set.insert/remove/min to a list model, then AoC 2024 day 9 part 2 proved equal to the spec (~1,000 lines est.)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-745",
       "labels": [],
       "epic": "aoc-older",
-      "body": "\n\n7 Nov: plan first (read-only Opus lane): docs/proposals/map-set-list-model.md, stages and briefs. From the AoC gap check: next since 28 Oct with an empty body.",
+      "body": "\n\n7 Nov: plan first (read-only Opus lane): docs/proposals/map-set-list-model.md, stages and briefs. From the AoC gap check: next since 28 Oct with an empty body.\n\nPlan merged: docs/proposals/map-set-list-model.md. The list model already exists (Map.toListAlter etc. since 23 Oct); proofs use per-key lemmas. D3070 yes (orchestrator's call). D3071 (the full day 9 proof, ~7 h) to Matt once S1-S3 (SW-2138, SW-2139, SW-2140) land; S4-S6 in SW-2141. SW-2142. SW-812 (Set.card) not needed, which settles D2834's condition.",
       "created": "2026-10-28",
       "updated": "2026-11-07",
       "commits": []
@@ -19579,6 +19579,81 @@
       ],
       "epic": "proof-automation",
       "body": "From docs/reviews/aoc-gaps-status-2026-11-07.md (no plan yet; termination and fuel is synthesis gap 7, 15+ days). Read-only Opus lane, 7 Nov. Expected: 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2138,
+      "title": "[Sonnet] Std: Map-of-sets (Map.containsIn, insertIn, removeIn, removeIn drops an emptied set) with ↔ lemmas; Set.minLeast, Set.minOfContains; List.minByNone, Option.filterEqNone; List.findIndex lemmas (absorbs SW-1531)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proofs"
+      ],
+      "epic": "std-library",
+      "body": "From docs/proposals/map-set-list-model.md. Stage S1, §5's brief. D3070 yes (orchestrator's call). snap:hashes, hash_stability. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2139,
+      "title": "[Sonnet] 2024 day 9: port to Map.insertIn/removeIn; a spec of leftmostFit",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proofs"
+      ],
+      "epic": "aoc-older",
+      "body": "From docs/proposals/map-set-list-model.md. Stage S2, after SW-2138. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2140,
+      "title": "[Sonnet] 2024 day 9: drawFiles (the files drawn as a disk) and the checksum of a drawing",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proofs"
+      ],
+      "epic": "aoc-older",
+      "body": "From docs/proposals/map-set-list-model.md. Stage S3, can run beside SW-2138. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2141,
+      "title": "[Opus] 2024 day 9 part 2 stages S4-S6: the spec's move on a drawing (the leftmost long-enough gap), starting free space, one step, the fold, part2Correct",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proofs"
+      ],
+      "epic": "aoc-older",
+      "body": "From docs/proposals/map-set-list-model.md. Stages S4 (Opus 90), S5 (Sonnet 75), S6 (Sonnet/Opus 90); split when started. Waits on D3071 (the full proof, about 4 more hours) after S1-S3 land.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2142,
+      "title": "[DeepSeek] Small std reuse: 2024 day 23's noneHeld (Day23/Proofs/Part2.sw:74) re-proves Set.missingOfMinNone; after SW-2138, day 6's Sightlines.add/lineAfterAdd onto insertIn and 2021 day 18's findUnreducedNone (Day18/Proofs/Parse.sw:23) onto the findIndex lemmas",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proofs"
+      ],
+      "epic": "aoc-common",
+      "body": "From docs/proposals/map-set-list-model.md. After SW-2138. 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
