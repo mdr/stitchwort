@@ -1,5 +1,5 @@
 {
-  "next": 2137,
+  "next": 2138,
   "tickets": [
     {
       "id": 47,
@@ -19564,6 +19564,21 @@
       ],
       "epic": "performance",
       "body": "From docs/proposals/interpreter-speed.md. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2137,
+      "title": "[Opus] Design item: an 'enough fuel finishes' lemma (a fuelled function given more fuel than its measure gives the same answer), so AoC days that use fuel can prove their answers without counting steps",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2137",
+      "labels": [
+        "design"
+      ],
+      "epic": "proof-automation",
+      "body": "From docs/reviews/aoc-gaps-status-2026-11-07.md (no plan yet; termination and fuel is synthesis gap 7, 15+ days). Read-only Opus lane, 7 Nov. Expected: 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
