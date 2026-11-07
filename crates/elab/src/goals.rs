@@ -581,7 +581,7 @@ impl Elaborator {
             .map(|p| {
                 // With gluing, as while checking: calls stay folded, also
                 // under binders.
-                let was = g.machine.glue.replace(self.options.glue);
+                let was = g.machine.glue.replace(self.gluing());
                 let printed = self.print_goal(p);
                 let snapshot = self.goal_snapshot_of(p);
                 g.machine.glue.set(was);
@@ -744,7 +744,7 @@ impl Elaborator {
             e: self,
             span: p.span,
         };
-        let was = g.machine.glue.replace(self.options.glue);
+        let was = g.machine.glue.replace(self.gluing());
         let locals = self.print_hypotheses(&scope, &p.names, &p.context);
         let ty = pretty::value_for_goal(g, &scope, &p.names, &p.ty);
         g.machine.glue.set(was);

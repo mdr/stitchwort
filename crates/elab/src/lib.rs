@@ -901,6 +901,15 @@ impl Elaborator {
         }
     }
 
+    /// Whether declarations are elaborated glued now: `options.glue`, except
+    /// that the library always is. The pins (`pins.rs`) hash library terms,
+    /// and a solved unknown is read back as the call it stands for only when
+    /// gluing is on (`unify::zonk_changed`), so an unglued library would
+    /// hash differently (`Float.neg`'s `rfl` argument, SW-2254).
+    pub(crate) fn gluing(&self) -> bool {
+        self.options.glue || self.unit.loading_prelude
+    }
+
     /// `f` with gluing on if [`Elaborator::glue`] is set: around the
     /// elaboration of one declaration (or component) or one expression.
     /// Evaluation outside it (running a program, the driver's own uses of
@@ -913,7 +922,7 @@ impl Elaborator {
         } else {
             self.caches.forget_dot_calls();
         }
-        let was = self.kernel.machine.glue.replace(self.options.glue);
+        let was = self.kernel.machine.glue.replace(self.gluing());
         let out = f(self);
         self.kernel.machine.glue.set(was);
         self.decl.reset();

@@ -941,7 +941,7 @@ impl Elaborator {
     /// elaborate, or that is a hole on its own (it would match everything).
     pub fn search_pattern(&mut self, expr: &Expr, holes: &[String]) -> Result<Vec<Pattern>> {
         self.clear_metas();
-        let was = self.kernel.machine.glue.replace(self.options.glue);
+        let was = self.kernel.machine.glue.replace(self.gluing());
         let saved = self.kernel.machine.budget.start(self.options.limits);
         let result = (|| -> Result<Vec<Pattern>> {
             let span = expr.span();
@@ -1156,7 +1156,7 @@ impl Elaborator {
     ) -> Option<Pattern> {
         self.clear_metas();
         let g = &self.unifier();
-        let was = g.machine.glue.replace(self.options.glue);
+        let was = g.machine.glue.replace(self.gluing());
         let made = (|| -> Res<Option<Pattern>> {
             let _op = g.machine.budget.attempt(ATTEMPT);
             let def = g.def(id);
@@ -1196,7 +1196,7 @@ impl Elaborator {
     pub fn use_pattern(&mut self, lemma: DefId, args: &[&Term], depth: usize) -> Option<Pattern> {
         self.clear_metas();
         let g = &self.unifier();
-        let was = g.machine.glue.replace(self.options.glue);
+        let was = g.machine.glue.replace(self.gluing());
         let made = (|| -> Res<Option<Pattern>> {
             let _op = g.machine.budget.attempt(ATTEMPT);
             let def = g.def(lemma);
@@ -1327,7 +1327,7 @@ impl Elaborator {
     /// written.
     pub fn type_index(&self, ty: &Term) -> Index {
         let g = &self.ev();
-        let was = g.machine.glue.replace(self.options.glue);
+        let was = g.machine.glue.replace(self.gluing());
         let found = (|| {
             let _op = g.machine.budget.attempt(ATTEMPT);
             let v = eval(g, &[], ty)?;
@@ -1461,7 +1461,7 @@ impl Elaborator {
             metas: g.store.metas.borrow().len().max(pattern.metas),
             trail: g.store.meta_trail.borrow().len(),
             frozen,
-            glue: g.machine.glue.replace(self.options.glue),
+            glue: g.machine.glue.replace(self.gluing()),
         };
         let span = candidate.item.span(g);
         let mode = opts.mode;
