@@ -14000,16 +14000,16 @@
     {
       "id": 1765,
       "title": "Daily tier: replay std from the test cache in the examples and hash_stability sweeps (hash_stability prelude stays the single from-source check), and a fill-the-cache-first group so waiting tests don't hold slots (SW-1761)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1765",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From SW-1761, 6 Nov 2026.",
+      "body": "From SW-1761, 6 Nov 2026.\n\nDone, merged (18bc65337): daily replays std in examples and hash_stability sweeps (full keeps source checks; prelude is the from-source check everywhere); pinned_hashes' binding test starts first to fill the cache. Daily examples + hash_stability cold 111 → 48 s wall, 956 → 351 s CPU. STITCHWORT_TIER default left as daily (test:one now replays anyway). On main: affected 699/699 in 40 s. Model result: Sonnet, worked, 13 min (est. 60).",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {

@@ -463,14 +463,14 @@
         "Web AoC test 417 → 169 s, AoC answers 444 → 174 s (SW-1732, SW-1733)",
         "Merge tier trimmed: 104 s of tests on main, from 153-172 s (SW-1751)",
         "Cache key design: narrowing would help 3-4% of changes; fill once per run instead (SW-1753)",
-        "Merge tier 76 s on main, cold (from 153-172 s): std replayed where checking it isn't the point (SW-1761)"
+        "Merge tier 76 s on main, cold (from 153-172 s): std replayed where checking it isn't the point (SW-1761)",
+        "Daily tier replays std in the sweeps: examples + hash_stability cold 111 → 48 s (SW-1765)"
       ],
       "now": [
-        "Compile time after incremental builds (SW-1754)"
+        "Compile time after incremental builds (SW-1754)",
+        "test:affected follow-ups: memory, inventory, std mapping (SW-1760)"
       ],
-      "next": [
-        "Daily tier replays std in the sweeps (SW-1765)"
-      ],
+      "next": [],
       "links": [
         "D2532",
         "docs/reviews/SW-1716-dev-loop-profile.md"
