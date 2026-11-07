@@ -14300,14 +14300,14 @@
     {
       "id": 1785,
       "title": "Bounded readback note: add stage 1b's 'left unfolded' list (field_type, move_to, the mentions tests, families/rows/rewrite round trips) to the stage 1 text, so a later stage doesn't fold them (SW-1784)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1785",
       "labels": [
         "docs"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-1784.",
+      "body": "From SW-1784.\n\nDone, merged: a 'Left unfolded in stage 1b' table under stage 1, each site located by grep on main. Model result: DeepSeek, worked, 8 min (est. 15).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
