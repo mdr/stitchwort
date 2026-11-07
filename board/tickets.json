@@ -1,5 +1,5 @@
 {
-  "next": 2095,
+  "next": 2098,
   "tickets": [
     {
       "id": 47,
@@ -18873,7 +18873,7 @@
         "cache"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/SW-2087-checker-recovery-and-forget-since.md (lane 4). 45 min.",
+      "body": "\n\nD2980: yes (orchestrator's call, 7 Nov). After SW-2089.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -18934,6 +18934,51 @@
       ],
       "epic": "record-eta",
       "body": "Read-only Opus lane, 7 Nov. Expected: 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2095,
+      "title": "[Opus] Match on a call's field, stage 1: an applied stuck field computes first, like any over-applied call; plus the Proj arm in match's as-written check",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "record-eta",
+      "body": "From docs/proposals/match-call-field.md stage 1 (D2990, D2992, orchestrator's call 7 Nov). Checks: match-field.sw as an accept example, an rfl conversion example, audit:touched on Aoc.Year2021.Day15 with the workarounds put back (incl. the let (Both ...) in Answers.sw:34); check reference.rs. 75 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2096,
+      "title": "[Opus] Match on a call's field, stage 2: rule 2 keeps folded calls (decreasing, Quot.lift leaf) as (f x).i, elaborator only",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "record-eta",
+      "body": "From docs/proposals/match-call-field.md stage 2 (D2991). After SW-2095. Checks: call-field-match3.sw as an accept example, audit:touched -- Aoc.Year2024.Day23 timed against main, audit:touched on namespaces with decreasing definitions returning records. 75 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2097,
+      "title": "[Sonnet] Match on a call's field, stage 3: remove the SW-1913 workarounds in 2021 day 15 and 2024 day 23",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "epic": "record-eta",
+      "body": "From docs/proposals/match-call-field.md stage 3. After SW-2096. audit:touched on the two days. 30 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
