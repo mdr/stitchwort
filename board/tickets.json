@@ -18798,7 +18798,7 @@
         "review"
       ],
       "epic": "docs-tutorials",
-      "body": "Matt (7 Nov 2026): spare capacity, no-build Opus lanes. Today raised D2556-D2970. Expected: 60 min.\n\nDone, merged: docs/reviews/open-decisions-2026-11-07.md. 155 open, 29 answered or overtaken, 3 duplicates, 8 overnight calls to ratify, 70 in a bulk-accept list. D2950-D2955 wording recorded on SW-2069. 16 min (est. 60).\n\nOrchestrator calls, 7 Nov (Matt: \"I can't possibly review 80 decisions.\"): the bulk list, the top 10 except D2760-D2763, D2970, D2980, D2990-D2992 taken as recommended; recorded in docs/reviews/open-decisions-2026-11-07.md. The rest are asked one at a time when a lane needs them.",
+      "body": "Matt (7 Nov 2026): spare capacity, no-build Opus lanes. Today raised D2556-D2970. Expected: 60 min.\n\nDone, merged: docs/reviews/open-decisions-2026-11-07.md. 155 open, 29 answered or overtaken, 3 duplicates, 8 overnight calls to ratify, 70 in a bulk-accept list. D2950-D2955 wording recorded on SW-2069. 16 min (est. 60).\n\nOrchestrator calls, 7 Nov (Matt: \"I can't possibly review 80 decisions.\"): the bulk list, the top 10 except D2760-D2763, D2970, D2980, D2990-D2992 taken as recommended; recorded in docs/reviews/open-decisions-2026-11-07.md. The rest are asked one at a time when a lane needs them.\n\nD2857 (push main) — Matt, 7 Nov 2026: \"Yeah, push the man if you like.\" Pushed ad49343d0.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
