@@ -19,15 +19,20 @@ use stitchwort_syntax::{DEFAULT_STACK, SourceMap, parse_module_within};
 /// Set in a child process.
 const CHILD: &str = "STITCHWORT_NESTING_CHILD";
 
-/// Runs `body` in a child process, as the test called `name`, and checks it
-/// passed. A stack overflow in the child is a failure here.
+/// Runs `body` in a child process, as the test called `name` (of this
+/// module), and checks it passed. A stack overflow in the child is a failure here.
 fn isolated(name: &str, body: impl FnOnce()) {
     if std::env::var_os(CHILD).is_some() {
         body();
         return;
     }
     let out = Command::new(std::env::current_exe().expect("the test binary"))
-        .args([name, "--exact", "--nocapture", "--test-threads=1"])
+        .args([
+            &format!("nesting::{name}"),
+            "--exact",
+            "--nocapture",
+            "--test-threads=1",
+        ])
         .env(CHILD, "1")
         .output()
         .expect("can run the test binary");

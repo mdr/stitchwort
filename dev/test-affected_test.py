@@ -93,7 +93,7 @@ class Render(unittest.TestCase):
             ({"package": "core"}, "package(stitchwort-core)"),
             ({"package": "elab", "lib": True}, "(package(stitchwort-elab) & kind(lib))"),
             ({"binary": "aoc_answers", "test": "^year2024_day04$"}, "(binary(aoc_answers) & test(=year2024_day04))"),
-            ({"package": "cli", "binary": "running", "test": "^aoc_answers::year2024_day04$"}, "(package(stitchwort-cli) & binary(running) & test(=aoc_answers::year2024_day04))"),
+            ({"package": "cli", "binary": "running", "test": "^aoc_answers::year2024_day04$"}, "(package(stitchwort-cli) & binary(running) & test(/^aoc_answers::year2024_day04$/))"),
             ({"test": "omega"}, "test(/omega/)"),
             ({"package": "cli", "binary": "fmt", "not_test": "^x$"}, "(package(stitchwort-cli) & binary(fmt) & !test(=x))"),
         ]
@@ -251,7 +251,7 @@ class MergeProfile(unittest.TestCase):
     def test_a_stale_merge_filter_is_noticed_and_rewritten(self):
         nm = load("nextest-merge")
         text = open(nm.NEXTEST).read()
-        stale = text.replace("binary(ability_errors)", "binary(ability_errorz)", 1)
+        stale = text.replace("package(stitchwort-syntax)", "package(stitchwort-syntaz)", 1)
         self.assertNotEqual(stale, text)
         self.assertEqual(nm.rewrite(stale), text)
 
