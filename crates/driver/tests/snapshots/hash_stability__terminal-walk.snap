@@ -48,5 +48,5 @@ Main.test "walls stop it" 409f4d76590ac14845aa224bdac7dc31e83fd107b543af1faddbbc
 Main.test "the far walls too" 7d53bfaabaf45bf01ce9e623978f641083f1b5deecc6f77542190d526b1ad772
 Main.test "other keys do nothing" 9644f8115c3e0349f8fb1c9919eea2614aff671ddc7d0c01125425544d51b250
 Main.test "q stops it" 6526e4269e61f5829c4019f38702b728f2f60a8c1e3270025b5c860cbed6cc37
-Main.test "one frame per key, and one at the start" c82170d760126c4e1b170e671f3781922cd0247fcd53d2d93cfb1d6db6cf8a00
-Main.test "main on piped input" 33bd81054deed9e1c69de976f7be907544858fbed30dfa364de3b18bc8c8bb22
+Main.test "one frame per key, and one at the start" b31fca87f6bc92ce0c445e30cd38024a4695372b3cb6365b4ef48b46ac79a84d
+Main.test "main on piped input" 0e41a02fa1c0f633833b74a87e6a990fccc62eaae302552bd7d6143de0dda023

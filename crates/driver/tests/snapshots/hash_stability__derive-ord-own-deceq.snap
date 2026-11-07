@@ -25,4 +25,4 @@ Main.test "major first" ab6c79a0561de99ce38fd2185af094833d1d5b4fe3f8ab02d4049aa3
 Main.test "then minor" ff15353d88d6903534e0b68b1eca809109d3b632ab59a5f73f284df098797cad
 Main.test "not less than itself" 42a2446f829429635a2fb2a0092ab900bd5510260ef6340c9bd9be9a7f5bff8e
 Main.test "equal" 6c92a72edfa5e13424e091abbf4d2b396672ee3929ae8b5b7f4c0e4c237570ca
-Main.test "sorted" e02ee8fc18a90b19dd127f762ca5be9de0f419e5ffe20335b27f28ff7c120ffa
+Main.test "sorted" 00c0d4a26e6705043f47778b4a485877cbc17177fabf58841b1f8374574d13eb
