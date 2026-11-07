@@ -1,5 +1,6 @@
 //! The crate's integration tests in one binary (docs/proposals/fewer-test-binaries.md).
 
+mod call_fields;
 mod conv_shortcut;
 mod counterexamples;
 mod decision_search;

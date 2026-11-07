@@ -1,0 +1,22 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[GOAL] Goal: in `fits`
+    ╭─[ goals/match-call-field-folded.sw:18:15 ]
+    │
+ 18 │     | True => ?
+    │               ┬  
+    │               ╰── n: Nat
+    │                   small: n ≤ 1
+    │                   ⊢ (pick n { items = [] }).items.length ≤ 100
+────╯
+[GOAL] Goal: in `fits`
+    ╭─[ goals/match-call-field-folded.sw:19:16 ]
+    │
+ 19 │     | False => ?
+    │                ┬  
+    │                ╰── n: Nat
+    │                    small: (n <= 1) = False
+    │                    ⊢ (pick n { items = [] }).items.length ≤ 100
+────╯

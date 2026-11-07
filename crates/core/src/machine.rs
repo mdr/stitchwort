@@ -27,6 +27,13 @@ pub struct Machine {
     /// a definition's body (D483, `check.rs` `admit_group`) and its
     /// signature (`declare_def`, SW-1779); never while a program runs.
     pub glue: Cell<bool>,
+    /// Whether the kernel is checking: set by [`in_kernel_modes`] for the
+    /// admission function it runs. Gluing alone doesn't say so, since the
+    /// kernel turns it on for a body and a signature; a mode that changes
+    /// what the elaborator's values look like but must leave the kernel's
+    /// evaluation as it is tests this too (record eta's fields of folded
+    /// calls, `value::eta_fields`).
+    pub kernel: Cell<bool>,
     /// The opaque definitions whose bodies may be used now, sorted: the
     /// transparency set of the declaration being checked
     /// (docs/proposals/opaque-definitions.md §6.4). Any other opaque
@@ -68,11 +75,13 @@ pub(crate) fn in_kernel_modes<T>(
 ) -> T {
     let m = &g.machine;
     let glue = m.glue.replace(false);
+    let kernel = m.kernel.replace(true);
     let transparent = m.transparent.0.replace(Rc::default());
     let erasure = m.erasure.stop();
     let out = f(g);
     let m = &g.machine;
     m.glue.set(glue);
+    m.kernel.set(kernel);
     *m.transparent.0.borrow_mut() = transparent;
     m.erasure.put_back(erasure);
     out

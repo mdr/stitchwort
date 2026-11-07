@@ -46,7 +46,9 @@ The missing `Proj` arm in `match`'s as-written check (review F5) is real but sma
 - **Stage 1:** applying (or `J` on) a stuck field of a call computes it first, the way an
   over-applied call already does; and F5's `Proj` arm.
 - **Stage 2:** rule 2 keeps a folded call in its fields as it keeps a glued one: `(f x).i`,
-  not `(the inside of f x).i`. Elaborator only; the kernel is unchanged.
+  not `(the inside of f x).i`. Elaborator only; the kernel is unchanged. (As built: gluing
+  alone doesn't mean "elaborator only", since the kernel checks bodies and signatures glued;
+  stage 2 is gated on `Machine::kernel` instead, §10.)
 - **Stage 3:** remove the three SW-1913 workarounds in 2021 day 15 and 2024 day 23.
 
 **The rule they give** (D2990): *a field of a call behaves like the call.* `(f x).i` is shown
@@ -62,8 +64,9 @@ among what they see; these stages fix what there is to see (§5).
 Three representations matter. All are in `crates/core/src/value.rs` **[checked]**.
 
 - **A glued call** `Value::Call(f, spine, cell)`: a definition applied to all its arguments,
-  not yet unfolded, with a cell for its unfolding. Elaboration only (`glue` on); the kernel
-  never makes one (`quote_folded`'s doc, `value.rs:2316-2321`).
+  not yet unfolded, with a cell for its unfolding. Only with `glue` on (`quote_folded`'s doc,
+  `value.rs:2316-2321`). That includes the kernel while it checks a definition's body or
+  signature (`check.rs`, `admit_group` and `declare_def`), which this note first missed (§10).
 - **A field of a glued call**, `Value::Call(f, [args…, .i], cell)` (`project_call`,
   `value.rs:1924-1934`). Rule 2 binds a branch's fields to these when the scrutinee was a
   glued call (`eta_fields`, `value.rs:1974-1990`), so that goals keep `(Set.map s f).items`
@@ -278,8 +281,8 @@ form only for fields that aren't functions. Narrower than 1a, and wrong for the 
 1a is right: the field can be passed as an argument (`boxEnter … risks.level position`) and
 applied inside, where the type at the application site is all that's known.
 
-**Recommendation: 1a now** (D2992). It's local, elaborator-only (stuck fields of calls exist
-only with gluing on), and it gives over-applied fields the rule over-applied calls already
+**Recommendation: 1a now** (D2992). It's local, glued evaluation only (stuck fields of calls
+exist only with gluing on; the kernel glues too, and §10 says why that's sound), and it gives over-applied fields the rule over-applied calls already
 follow. 1b stays the end state to consider in SW-1914.
 
 ### 4.2 Case 2, the folded call's field
@@ -291,8 +294,9 @@ stuck form `Neutral(Def f, [args…, .i])`. This shape is already there for glue
 its readers (§1): `is_folded` recognises it (a body, arguments, then projections), conversion
 unfolds it through `unfold_folded`, which handles fields (`value.rs:2264-2271`), and the
 unfolded read-back writes it as `Proj(i, f x)`, with `f x` read back as itself, since a folded
-call forced stays folded (`force_call` → `unfold_now` → `folds`). Only with gluing on, like the
-glued branch: the kernel keeps projecting the unfolding, which it never shows anyone.
+call forced stays folded (`force_call` → `unfold_now` → `folds`). Only in the elaborator: the
+kernel keeps projecting the unfolding, which it never shows anyone. (As built, that's
+`Machine::kernel`, not gluing, which the kernel turns on too; §10.)
 
 - *Why the forced value must be a stuck neutral.* Then every field is stuck either way (the
   projection of a neutral), so naming it by the call changes no computation, only its name.
@@ -301,7 +305,7 @@ glued branch: the kernel keeps projecting the unfolding, which it never shows an
 - *Cost.* A stuck field of a folded call has no cell, so conversion that meets it against
   something else unfolds the call again (F1's shape again). The read-back costs nothing extra:
   the call reads back as itself. Stage 2 measures day 23 and the `decreasing` days.
-- *Soundness.* The kernel is unchanged. In the elaborator the stuck form is another name for
+- *Soundness.* The kernel is unchanged (gated on `Machine::kernel`, §10). In the elaborator the stuck form is another name for
   the same projection, already relied on for glued calls; terms it reads back to are
   `Proj(D, i, f x)`, which the kernel checks itself.
 - *What it fixes.* §2.2: both probes, and day 23's original proof. Display: goals show
@@ -450,3 +454,29 @@ both.
 - **`cases`** (SW-2000's area) wasn't traced: its fallback reads stuck terms through
   `is_folded` (`cases.rs:1287`, `1348`), so stages 1 and 2 should help it, not hurt it, but
   that's unchecked.
+
+## 10. As built (stages 1 and 2)
+
+- **The kernel glues.** `in_kernel_modes` turns gluing off, but the kernel turns it on to check
+  every body (`admit_group`) and signature (`declare_def`), so glued calls and stuck fields of
+  calls exist in the kernel too. Stage 1's applied fields (`apply_field`, `Frame::FieldOf`)
+  therefore run in the kernel. That's sound (review SW-2108 F1): the path unfolds only a body
+  `body_seen` allows, runs in the same machine and budget, and takes and applies the field by
+  the ordinary rules, which is what unglued evaluation computes already.
+- **A `Quot.lift` leaf is computed through when a stuck field is applied** (SW-2108 F3 kept as
+  it was). The review proposed leaving the call folded there, on the premise that unglued
+  evaluation does. It doesn't: unglued, `f x` stays folded, but taking a field of it unfolds it
+  through the lift (`Frame::ProjForced`, `unfold_for`), and the reference does the same. Left
+  folded, glued `(f x).i a` is a rigid term no conversion opens, unequal to the unglued value
+  (`call_fields::a_lift_leaf_calls_applied_field_is_the_same_glued_and_unglued` fails that
+  way), which D3030 rules out. Showing `(f x).i a` folded needs §4.1's 1b.
+- **A call with a `Quot.lift` leaf is glued** (`folds` covers dictionaries, theorems and
+  `decreasing` definitions only), so its fields already took rule 2's glued branch; stage 2
+  matters for it only in values made unglued.
+- **Stage 2 is elaborator-only by a flag.** `Machine::kernel`, set by `in_kernel_modes`, says
+  the kernel is checking; folded calls keep their fields as `(f x).i` only when gluing is on and
+  it isn't (`names_folded_fields`). The kernel's values are as before. Two sites name them:
+  rule 2 (`eta_fields`), and a projection `Term::Proj` of a folded call (`Frame::FoldedField`),
+  which this note didn't trace (the goal `(pick n empty).items` is a projection, not an accessor
+  call).
+

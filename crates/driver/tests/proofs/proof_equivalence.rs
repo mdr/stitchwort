@@ -14,6 +14,13 @@
 //! storing its proof in a field (`keepK`), two definitions with the same
 //! case tree (`pickA`, `pickB`), and `applyAt` with a partially applied
 //! definition and its eta expansion.
+//!
+//! A second, smaller matrix does the same for fields of calls
+//! (docs/proposals/match-call-field.md): a field of a call stuck in its own
+//! case tree, of a call whose leaf is another call, and of a call with a
+//! `Quot.lift` leaf, applied; and a field of a `decreasing` definition's
+//! call, which the elaborator keeps as `(f x).i` (D3030: glued and unglued
+//! evaluation agree on what's equal).
 
 use stitchwort_core::term::Term;
 use stitchwort_core::value::{Value, conv, eval, set_shortcuts_disabled};
@@ -65,15 +72,17 @@ const N: usize = 3;
 const LEVEL: usize = 4;
 
 struct Sig {
-    nat: DataId,
-    tok: DataId,
-    pb: DataId,
+    datas: Vec<(&'static str, DataId)>,
     defs: Vec<(&'static str, DefId)>,
 }
 
 impl Sig {
     fn def(&self, name: &str) -> Term {
         Term::Def(self.defs.iter().find(|(n, _)| *n == name).expect(name).1)
+    }
+
+    fn data(&self, name: &str) -> DataId {
+        self.datas.iter().find(|(n, _)| *n == name).expect(name).1
     }
 }
 
@@ -106,13 +115,16 @@ const OPS: &[&str] = &[
 ];
 
 fn op(sig: &Sig, name: &str, x: Term) -> Term {
-    let pb = |v| Term::ctor(sig.pb, 0, vec![var(v, 0)]);
+    let pb = |v| Term::ctor(sig.data("PB"), 0, vec![var(v, 0)]);
     match name {
-        "Succ" => Term::ctor(sig.nat, 1, vec![x]),
+        "Succ" => Term::ctor(sig.data("Nat"), 1, vec![x]),
         "modP p" => app(sig.def("modP"), vec![x, var(P, 0)]),
         "modP q" => app(sig.def("modP"), vec![x, var(Q, 0)]),
         "tokNat t" => app(sig.def("tokNat"), vec![var(T, 0), x]),
-        "tokNat MkTok" => app(sig.def("tokNat"), vec![Term::ctor(sig.tok, 0, vec![]), x]),
+        "tokNat MkTok" => app(
+            sig.def("tokNat"),
+            vec![Term::ctor(sig.data("Tok"), 0, vec![]), x],
+        ),
         "unboxK p" => app(sig.def("unboxK"), vec![pb(P), x]),
         "unboxK q" => app(sig.def("unboxK"), vec![pb(Q), x]),
         "keepK p" => app(sig.def("keepK"), vec![x, var(P, 0)]),
@@ -132,17 +144,18 @@ fn op(sig: &Sig, name: &str, x: Term) -> Term {
     }
 }
 
-/// Every term up to depth 2, with a name for messages.
-fn terms(sig: &Sig) -> Vec<(String, Term)> {
+/// Every term up to depth 2 built by `ops` (each made by `op`), with a
+/// name for messages.
+fn terms(sig: &Sig, ops: &[&str], op: fn(&Sig, &str, Term) -> Term) -> Vec<(String, Term)> {
     let atoms = vec![
         ("n".to_string(), var(N, 0)),
-        ("0".to_string(), Term::ctor(sig.nat, 0, vec![])),
+        ("0".to_string(), Term::ctor(sig.data("Nat"), 0, vec![])),
     ];
     let mut level = atoms.clone();
     for _ in 0..2 {
         let mut next = atoms.clone();
         for (name, term) in &level {
-            for o in OPS {
+            for o in ops {
                 next.push((format!("{o} ({name})"), op(sig, o, term.clone())));
             }
         }
@@ -151,32 +164,22 @@ fn terms(sig: &Sig) -> Vec<(String, Term)> {
     level
 }
 
-fn signature(g: &Ev) -> Sig {
-    let data = |name: &str| {
-        DataId(
-            g.env
-                .datas()
-                .iter()
-                .position(|d| &**d.name() == name)
-                .unwrap_or_else(|| panic!("no `{name}`")),
-        )
-    };
-    let names = [
-        "modP", "tokNat", "unboxK", "keepK", "pickA", "pickB", "applyAt",
-    ];
-    let defs = names
+fn signature(g: &Ev, datas: &[&'static str], defs: &[&'static str]) -> Sig {
+    let datas = datas
+        .iter()
+        .map(|name| {
+            let id = g.env.datas().iter().position(|d| &**d.name() == *name);
+            (*name, DataId(id.unwrap_or_else(|| panic!("no `{name}`"))))
+        })
+        .collect();
+    let defs = defs
         .iter()
         .map(|name| {
             let id = g.env.defs().iter().position(|d| &**d.name() == *name);
             (*name, DefId(id.unwrap_or_else(|| panic!("no `{name}`"))))
         })
         .collect();
-    Sig {
-        nat: data("Nat"),
-        tok: data("Tok"),
-        pb: data("PB"),
-        defs,
-    }
+    Sig { datas, defs }
 }
 
 /// The equality matrix, by `value::conv` with gluing `glue` and the
@@ -232,10 +235,93 @@ fn every_pair_is_compared_alike_and_the_relation_is_an_equivalence() {
     let mut session = Session::eager();
     session.load("equivalence.sw", PROGRAM).expect("loads");
     let g = &session.elab.ev();
-    let sig = signature(g);
-    let terms = terms(&sig);
+    let sig = signature(
+        g,
+        &["Nat", "Tok", "PB"],
+        &[
+            "modP", "tokNat", "unboxK", "keepK", "pickA", "pickB", "applyAt",
+        ],
+    );
+    let terms = terms(&sig, OPS, op);
+    let count = compared_alike(g, &sig, &terms);
+    // The relation isn't trivial: some pairs differ only in proofs and are
+    // equal, others differ.
+    assert!(count > terms.len() && count < terms.len() * terms.len());
+}
+
+const FIELDS_PROGRAM: &str = r#"
+import Std (Nat)
+
+type Fn = { at: Nat → Nat }
+
+type Box = { value: Nat }
+
+def fieldOf (x: Nat): Fn :=
+  match x with
+    | Zero => { at = y => y }
+    | Succ m => { at = y => m }
+
+def viaCall (x: Nat): Fn := fieldOf x
+
+def NatEq (a: Nat) (b: Nat): Prop := a = b
+
+def liftFn (q: Quot Nat NatEq): Fn := Quot.lift (b => { at = y => b }) (x y h => rewrite h in rfl) q
+
+def countDown (x: Nat): Box
+  decreasing x
+:=
+  match x with
+    | Zero => { value = 0 }
+    | Succ m => countDown m [decreasing := omega]
+"#;
+
+/// The operations on fields of calls. `liftFn` takes the context's `t` as
+/// its quotient: evaluation doesn't look at types, and a variable is what
+/// leaves the lift stuck.
+const FIELD_OPS: &[&str] = &[
+    "Succ",
+    "fieldOf.at",
+    "viaCall.at",
+    "liftFn.at",
+    "countDown.value",
+];
+
+fn field_op(sig: &Sig, name: &str, x: Term) -> Term {
+    let field = |d: &str, def: &str, arg: Term| {
+        Term::Proj(sig.data(d), 0, app(sig.def(def), vec![arg]).into())
+    };
+    match name {
+        "Succ" => Term::ctor(sig.data("Nat"), 1, vec![x]),
+        "fieldOf.at" => app(field("Fn", "fieldOf", x.clone()), vec![x]),
+        "viaCall.at" => app(field("Fn", "viaCall", x.clone()), vec![x]),
+        "liftFn.at" => app(field("Fn", "liftFn", var(T, 0)), vec![x]),
+        "countDown.value" => field("Box", "countDown", x),
+        _ => unreachable!("{name}"),
+    }
+}
+
+#[test]
+fn fields_of_calls_are_compared_alike() {
+    let mut session = Session::eager();
+    session.load("fields.sw", FIELDS_PROGRAM).expect("loads");
+    let g = &session.elab.ev();
+    let sig = signature(
+        g,
+        &["Nat", "Fn", "Box"],
+        &["fieldOf", "viaCall", "liftFn", "countDown"],
+    );
+    let terms = terms(&sig, FIELD_OPS, field_op);
+    let count = compared_alike(g, &sig, &terms);
+    assert!(count > terms.len() && count < terms.len() * terms.len());
+}
+
+/// Checks that every pair of `terms` gets one answer glued, with the
+/// shortcuts disabled, unglued and from the reference evaluator; that the
+/// answers form an equivalence; and that equal stays equal once `n` is `0`
+/// or `1`. Returns how many pairs are equal.
+fn compared_alike(g: &Ev, sig: &Sig, terms: &[(String, Term)]) -> usize {
     let env: Vec<Value> = (0..LEVEL).map(Value::var).collect();
-    let glued = matrix(g, &env, &terms, GLUED);
+    let glued = matrix(g, &env, terms, GLUED);
     let others = [
         How {
             shortcuts: false,
@@ -252,7 +338,7 @@ fn every_pair_is_compared_alike_and_the_relation_is_an_equivalence() {
     ];
     let name = |i: usize| &terms[i].0;
     for how in others {
-        let other = matrix(g, &env, &terms, how);
+        let other = matrix(g, &env, terms, how);
         for i in 0..terms.len() {
             for j in 0..terms.len() {
                 assert_eq!(
@@ -287,14 +373,15 @@ fn every_pair_is_compared_alike_and_the_relation_is_an_equivalence() {
     }
     // Stable under substitution: equal stays equal with `n` known.
     let nat = |k: usize| {
-        (0..k).fold(Value::Ctor(sig.nat, 0, Vec::new().into()), |v, _| {
-            Value::Ctor(sig.nat, 1, [v].into())
+        let nat = sig.data("Nat");
+        (0..k).fold(Value::Ctor(nat, 0, Vec::new().into()), |v, _| {
+            Value::Ctor(nat, 1, [v].into())
         })
     };
     for k in [0, 1] {
         let mut known = env.clone();
         known[N] = nat(k);
-        let after = matrix(g, &known, &terms, GLUED);
+        let after = matrix(g, &known, terms, GLUED);
         for i in 0..terms.len() {
             for j in 0..terms.len() {
                 assert!(
@@ -306,8 +393,5 @@ fn every_pair_is_compared_alike_and_the_relation_is_an_equivalence() {
             }
         }
     }
-    // The relation isn't trivial: some pairs differ only in proofs and are
-    // equal, others differ.
-    let count = glued.iter().flatten().filter(|b| **b).count();
-    assert!(count > terms.len() && count < terms.len() * terms.len());
+    glued.iter().flatten().filter(|b| **b).count()
 }
