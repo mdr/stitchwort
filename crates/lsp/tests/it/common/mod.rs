@@ -26,9 +26,13 @@ pub fn cached_memory(stack: usize) -> Arc<Memory> {
                 sources: vec!["src".into()],
                 files: Arc::new([("src/Demo.sw".to_string(), text.to_string())].into()),
             });
+            let searches = dir.clone();
             std::thread::Builder::new()
                 .stack_size(stack)
-                .spawn(move || fill(text, memory, stack))
+                .spawn(move || {
+                    fill(text, memory, stack);
+                    fill_for_searches(&searches, stack);
+                })
                 .unwrap()
                 .join()
                 .unwrap();
@@ -36,6 +40,18 @@ pub fn cached_memory(stack: usize) -> Arc<Memory> {
         }
     });
     Arc::new(Memory::with_cache(dir))
+}
+
+/// Fills the cache with the entries a proof search reads. They are kept
+/// apart from the checker's (the unit's name has `+nav`, where the checker
+/// records the types of expressions as well), so without this the first
+/// search of a test run checks the whole library from source: over a minute
+/// in the release profile, and several in the debug one, with every other
+/// test that searches waiting for it.
+fn fill_for_searches(dir: &std::path::Path, stack: usize) {
+    let mut session = stitchwort_driver::driver::Session::for_stack(stack);
+    session.use_check_cache(dir);
+    assert!(session.load_libraries_for_probes());
 }
 
 fn fill(text: &str, memory: Arc<Memory>, stack: usize) {

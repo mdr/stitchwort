@@ -156,11 +156,21 @@ impl Server {
     }
 }
 
+/// Options for a test that runs a real search: it ends at its first proof
+/// and has all the time it needs, so the load of the machine can't make it
+/// find nothing (the search has a time limit of its own, 5 s by default).
+fn searching_options() -> Options {
+    let mut options = Options::new(STACK);
+    options.search_wanted = 1;
+    options.search_time = Duration::from_secs(120);
+    options
+}
+
 /// SW-1820, SW-1808 finding 3: the search worker's panic left the request
 /// unanswered and ended the only worker.
 #[test]
 fn a_panicking_search_is_answered_and_the_next_search_works() {
-    let options = Options::new(STACK);
+    let options = searching_options();
     options.faults.search_panics.store(1, Ordering::SeqCst);
     let mut s = Server::start(options);
     let first = s.code_action();
@@ -168,7 +178,7 @@ fn a_panicking_search_is_answered_and_the_next_search_works() {
         first.get("error").is_none() && first["result"].is_null(),
         "{first}"
     );
-    let second = actions_after_edit(&mut s, 2);
+    let second = code_action_after_edit(&mut s, 2);
     let actions = second["result"]
         .as_array()
         .unwrap_or_else(|| panic!("{second}"));
@@ -294,21 +304,107 @@ fn an_edit_to_a_project_that_keeps_panicking_costs_one_restart() {
 }
 
 /// SW-2086: a file on its own inside a project folder is a workspace of
-/// its own, for quarantine as for checking: an edit to it lifts its
-/// quarantine.
+/// its own, for quarantine as for checking. Closing and opening it again
+/// keeps it quarantined, and an edit lifts that and costs one restart.
 #[test]
 fn a_file_on_its_own_in_a_project_folder_is_quarantined_by_its_own_key() {
     const LOOSE: &str = "file:///memory/proj/Loose.sw";
+    const LOOSE_TEXT: &str = "namespace Loose\n\ndef h: Nat := 1\n";
     let options = Options::new(STACK);
     let faults = options.faults.clone();
-    *faults.checker_panic.lock().unwrap() = Some(("/memory/proj/Loose.sw".into(), usize::MAX));
+    // The open takes two panics to quarantine it, and the retry after the
+    // edit takes the third.
+    *faults.checker_panic.lock().unwrap() = Some(("/memory/proj/Loose.sw".into(), 3));
     let s = Server::bare(options);
-    s.open(LOOSE, "namespace Loose\n\ndef h: Nat := 1\n");
+    s.open(LOOSE, LOOSE_TEXT);
     s.diagnostics(LOOSE, internal_error);
-    *faults.checker_panic.lock().unwrap() = None;
+    s.notify(
+        "textDocument/didClose",
+        json!({"textDocument": {"uri": LOOSE}}),
+    );
+    s.diagnostics(LOOSE, |p| p["diagnostics"].as_array().unwrap().is_empty());
+    s.open(LOOSE, LOOSE_TEXT);
+    let again = s.diagnostics(LOOSE, |p| p["version"] == 1);
+    assert!(internal_error(&again["params"]), "{again}");
+    // The edit lifts the quarantine; the retry panics once more, and one
+    // restart is enough to quarantine it again.
     s.change(LOOSE, 2, "namespace Loose\n\ndef h: Nat := 2\n");
-    let fresh = s.diagnostics(LOOSE, |p| p["version"] == 2);
+    let retried = s.diagnostics(LOOSE, |p| p["version"] == 2);
+    assert!(internal_error(&retried["params"]), "{retried}");
+    let stopped = |p: &String| p.contains("stopped checking Loose.sw");
+    assert_eq!(s.pop_ups().iter().filter(|p| stopped(p)).count(), 2);
+    // The fault is spent: the next edit is checked.
+    s.change(LOOSE, 3, "namespace Loose\n\ndef h: Nat := 3\n");
+    let fresh = s.diagnostics(LOOSE, |p| p["version"] == 3);
     assert!(!internal_error(&fresh["params"]), "{fresh}");
+    s.stop();
+}
+
+/// SW-2091 (SW-2094 L1): working out which project to blame reads the
+/// project's configuration. When that panics too, the panic is still
+/// caught: the file is blamed on its own, and checking goes on.
+#[test]
+fn a_panic_while_blaming_is_caught_too() {
+    let options = Options::new(STACK);
+    let faults = options.faults.clone();
+    // The open's own read panics, and so does the blame's.
+    *faults.sources_panic.lock().unwrap() = Some(("/memory/proj".into(), 2));
+    let s = Server::bare(options);
+    s.open(URI, TEXT);
+    let shown = s.diagnostics(URI, |p| p["version"] == 1);
+    assert!(!internal_error(&shown["params"]), "{shown}");
+    s.wait_for(|m| m["method"] == "stitchwort/checked" && m["params"]["versions"][URI] == 1);
+    let pop_ups = s.pop_ups();
+    assert!(
+        pop_ups.iter().all(|p| !p.contains("Reload the window")),
+        "{pop_ups:?}"
+    );
+    s.stop();
+}
+
+/// SW-2091 (SW-2087 C9): a panic while applying an edit is blamed on the
+/// edit's workspace, and a second one with no edit between is quarantined.
+#[test]
+fn a_panic_while_applying_an_edit_is_blamed_on_its_project() {
+    let options = Options::new(STACK);
+    let faults = options.faults.clone();
+    let mut s = Server::start(options);
+    *faults.apply_panic.lock().unwrap() = Some(("/memory/proj/src/Demo.sw".into(), 1));
+    // Once: the successor opens the recorded text again.
+    s.change(URI, 2, &format!("{TEXT}-- edit 2\n"));
+    let fresh = s.diagnostics(URI, |p| p["version"] == 2);
+    assert!(!internal_error(&fresh["params"]), "{fresh}");
+    // Every time: the second panic quarantines the project, not the thread.
+    *faults.apply_panic.lock().unwrap() = Some(("/memory/proj/src/Demo.sw".into(), usize::MAX));
+    s.change(URI, 3, &format!("{TEXT}-- edit 3\n"));
+    s.change(URI, 4, &format!("{TEXT}-- edit 4\n"));
+    let shown = s.diagnostics(URI, internal_error);
+    assert_eq!(shown["params"]["diagnostics"].as_array().unwrap().len(), 1);
+    let pop_ups = s.pop_ups();
+    assert!(
+        pop_ups.iter().any(|p| p.contains("stopped checking proj")),
+        "{pop_ups:?}"
+    );
+    *faults.apply_panic.lock().unwrap() = None;
+    assert!(s.hover().get("error").is_none());
+    s.stop();
+}
+
+/// SW-2091 (SW-2087 C9): closing a quarantined file clears its error.
+#[test]
+fn closing_a_quarantined_file_clears_its_error() {
+    let options = Options::new(STACK);
+    let faults = options.faults.clone();
+    *faults.checker_panic.lock().unwrap() = Some(("/memory/proj/src/Demo.sw".into(), usize::MAX));
+    let s = Server::bare(options);
+    s.open(URI, TEXT);
+    s.diagnostics(URI, internal_error);
+    s.notify(
+        "textDocument/didClose",
+        json!({"textDocument": {"uri": URI}}),
+    );
+    let cleared = s.diagnostics(URI, |p| p["diagnostics"].as_array().unwrap().is_empty());
+    assert!(cleared["params"].get("version").is_none_or(Value::is_null));
     s.stop();
 }
 
@@ -383,26 +479,13 @@ fn opening_a_file_of_a_quarantined_project_does_not_retry_it() {
     s.stop();
 }
 
-/// Edits the text (a new version) and asks for the code action there.
+/// Edits the text (a new version) and asks for the code action there, once
+/// the server has said it has checked that version: the goals the search
+/// needs are recorded before the diagnostics are published.
 fn code_action_after_edit(s: &mut Server, version: i32) -> Value {
     s.change(URI, version, &format!("{TEXT}-- edit {version}\n"));
-    s.diagnostics(URI, |p| p["version"] == version);
+    s.wait_for(|m| m["method"] == "stitchwort/checked" && m["params"]["versions"][URI] == version);
     s.code_action()
-}
-
-/// The actions offered after an edit; asked again while the answer is
-/// empty, as the goals of the new text can be recorded just after its
-/// diagnostics are published.
-fn actions_after_edit(s: &mut Server, version: i32) -> Value {
-    let mut answer = code_action_after_edit(s, version);
-    for _ in 0..40 {
-        if answer["result"].as_array().is_some_and(|a| !a.is_empty()) {
-            break;
-        }
-        std::thread::sleep(Duration::from_millis(250));
-        answer = s.code_action();
-    }
-    answer
 }
 
 fn searches_stopped(s: &Server) -> bool {
@@ -476,12 +559,12 @@ fn repeated_code_actions_at_a_panicking_goal_spend_one_restart() {
 
 #[test]
 fn after_an_edit_a_panicked_search_is_tried_again() {
-    let options = Options::new(STACK);
+    let options = searching_options();
     options.faults.search_panics.store(1, Ordering::SeqCst);
     let mut s = Server::start(options);
     assert!(s.code_action()["result"].is_null());
     assert!(s.code_action()["result"].is_null());
-    let after = actions_after_edit(&mut s, 2);
+    let after = code_action_after_edit(&mut s, 2);
     assert!(
         after["result"].as_array().is_some_and(|a| !a.is_empty()),
         "{after}"

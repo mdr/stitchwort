@@ -58,6 +58,7 @@ mod complete;
 mod imports;
 mod lens;
 mod source;
+use source::sources_hold;
 pub use source::{Disk, Memory, MemoryProject, ProjectFiles, Source};
 
 /// The URI scheme of the embedded library's files, which the client shows
@@ -96,6 +97,10 @@ pub struct Options {
     /// candidates: a code action shows no more. A test sets one, so that a
     /// search ends at its first, whatever the load.
     pub search_wanted: usize,
+    /// How long a code action's search may run before it gives up with what
+    /// it has found. A test sets a long one, so that a loaded machine can't
+    /// make it find nothing.
+    pub search_time: Duration,
     /// The standard library checked ahead of time, for sessions with no
     /// check cache of their own (the playground's, `web/build.sh`): its
     /// entries are replayed instead of checking the library files again.
@@ -132,6 +137,11 @@ pub struct Faults {
     pub checker_panic: Mutex<Option<(PathBuf, usize)>>,
     /// Loading the project in this folder panics, every time.
     pub load_panic: Mutex<Option<PathBuf>>,
+    /// Reading the configuration of the project in this folder (to place a
+    /// file) panics, this many times.
+    pub sources_panic: Mutex<Option<(PathBuf, usize)>>,
+    /// Applying the next edits to this file panics, this many times.
+    pub apply_panic: Mutex<Option<(PathBuf, usize)>>,
 }
 
 impl Faults {
@@ -153,6 +163,29 @@ impl Faults {
             *left -= 1;
         }
         true
+    }
+
+    fn sources_panics_now(&self, dir: &Path) -> bool {
+        Self::counted(&self.sources_panic, dir)
+    }
+
+    fn apply_panics_now(&self, file: &Path) -> bool {
+        Self::counted(&self.apply_panic, file)
+    }
+
+    /// Whether `path` is the one `armed` names and has panics left, using
+    /// one.
+    fn counted(armed: &Mutex<Option<(PathBuf, usize)>>, path: &Path) -> bool {
+        let mut armed = lock(armed);
+        match armed.as_mut() {
+            Some((armed, left)) if armed == path && *left > 0 => {
+                if *left != usize::MAX {
+                    *left -= 1;
+                }
+                true
+            }
+            _ => false,
+        }
     }
 
     fn load_panics_now(&self, dir: &Path) -> bool {
@@ -183,6 +216,7 @@ impl Options {
             search_delay: Duration::ZERO,
             search_peak: Arc::default(),
             search_wanted: 3,
+            search_time: Duration::from_secs(5),
             library: Arc::default(),
             refresh_tokens: false,
             refresh_hints: false,
@@ -556,7 +590,8 @@ impl Search {
         let Search { uri, target, kind } = self;
         match kind {
             SearchKind::CodeAction { range, versioned } => {
-                let options = pos::action_options(server.search_wanted);
+                let mut options = pos::action_options(server.search_wanted);
+                options.time = server.search_time;
                 let found = match target.project {
                     Some((root, relative, open)) => project_closing_actions(
                         server, source, &root, &relative, open, range, cancel, &options,
@@ -677,6 +712,9 @@ struct Searches {
     running: std::sync::atomic::AtomicUsize,
     /// The restarts the search workers share ([`Budget`]).
     budget: Mutex<Budget>,
+    /// The pop-up saying searches have stopped has been sent: once for the
+    /// pool, whichever worker's supervisor finds the budget spent first.
+    told_stopped: AtomicBool,
     /// The searches that panicked: document, version and what was asked
     /// ([`Search::key`]). Asking again at the same text would panic again
     /// and spend the budget (VS Code asks whenever the cursor moves), so
@@ -723,11 +761,13 @@ fn keep_search_worker(
             Err(_) => notices.recovered(&format!("search worker {n} died; restarting it")),
         }
         if !lock(&searches.budget).spend() {
-            notices.always(
-                lsp_types::MessageType::ERROR,
-                "Stitchwort stopped running proof searches after repeated internal errors. \
-                 Reload the window to get them back.",
-            );
+            if !searches.told_stopped.swap(true, Ordering::SeqCst) {
+                notices.always(
+                    lsp_types::MessageType::ERROR,
+                    "Stitchwort stopped running proof searches after repeated internal errors. \
+                     Reload the window to get them back.",
+                );
+            }
             // Answered at once, rather than left waiting for a worker.
             for job in jobs {
                 searched(
@@ -802,6 +842,12 @@ impl Notices {
     /// in the session only.
     fn recovered(&self, what: &str) {
         eprintln!("stitchwort lsp: {what}");
+        self.tell_recovered();
+    }
+
+    /// The pop-up of [`Notices::recovered`], for a caller that has logged
+    /// the panic itself.
+    fn tell_recovered(&self) {
         if !self.told.swap(true, Ordering::SeqCst) {
             self.always(
                 lsp_types::MessageType::WARNING,
@@ -2487,10 +2533,8 @@ fn keep_checker(
             .workspace
             .as_ref()
             .map_or(String::new(), |w| format!(" in {}", w.display()));
-        eprintln!(
-            "stitchwort lsp: the checker panicked{place}: {}",
-            panic.message
-        );
+        let what = format!("the checker panicked{place}: {}", panic.message);
+        eprintln!("stitchwort lsp: {what}");
         let own_budget_spent = (panic.workspace.as_ref())
             .is_some_and(|w| !budgets.entry(w.clone()).or_default().spend());
         if !session.spend() {
@@ -2538,7 +2582,7 @@ fn keep_checker(
                 ),
             );
         } else {
-            notices.recovered(&format!("the checker panicked{place}: {}", panic.message));
+            notices.tell_recovered();
         }
         keeper = *kept;
     }
@@ -2688,8 +2732,11 @@ impl Checker {
                 .source
                 .find_project(path.parent().unwrap_or(Path::new("/")))?;
             let relative = relative(&dir, path)?;
-            let project = self.source.project(&dir)?;
-            sources_hold(&project.sources, &relative).then_some(dir)
+            if self.options.faults.sources_panics_now(&dir) {
+                panic!("injected fault reading a project's configuration");
+            }
+            let sources = self.source.sources(&dir)?;
+            sources_hold(&sources, &relative).then_some(dir)
         };
         in_project().unwrap_or_else(|| path.to_path_buf())
     }
@@ -2720,19 +2767,20 @@ impl Checker {
         self.published.insert(uri, shown);
     }
 
-    /// What the successor needs, if the checker panicked. Drops the sessions.
-    fn into_keeper(self) -> Keeper {
+    /// What the successor needs, if the checker panicked, moved out of
+    /// `self`: the sessions stay behind to be dropped afterwards.
+    fn take_keeper(&mut self) -> Keeper {
         Keeper {
-            open: self.open,
-            last: self.last,
-            also: self.also,
-            announced: self.announced,
+            open: std::mem::take(&mut self.open),
+            last: self.last.take(),
+            also: std::mem::take(&mut self.also),
+            announced: std::mem::take(&mut self.announced),
             requests: self.requests,
-            published: self.published,
-            quarantined: self.quarantined,
-            suspects: self.suspects,
-            retired: self.retired,
-            stopped: self.stopped,
+            published: std::mem::take(&mut self.published),
+            quarantined: std::mem::take(&mut self.quarantined),
+            suspects: std::mem::take(&mut self.suspects),
+            retired: std::mem::take(&mut self.retired),
+            stopped: self.stopped.take(),
         }
     }
 
@@ -2751,10 +2799,18 @@ impl Checker {
     ) -> Result<T, Panic> {
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f(self))).map_err(|payload| {
             Panic {
-                workspace: path.map(|p| self.workspace_of(p)),
+                workspace: path.map(|p| self.blame(p)),
                 message: panic_message(&*payload),
             }
         })
+    }
+
+    /// The workspace to blame for a panic on `path`. Working it out reads
+    /// the project's configuration, which may be what panicked, so it has a
+    /// catch of its own; failing that, the file is blamed on its own.
+    fn blame(&self, path: &Path) -> PathBuf {
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.workspace_of(path)))
+            .unwrap_or_else(|_| path.to_path_buf())
     }
 
     /// [`Checker::step`], catching a panic.
@@ -2773,12 +2829,16 @@ impl Checker {
 
     /// Checks until the client goes or something panics. Only the catches
     /// are around the steps: the sessions are dropped here, after the unwind
-    /// has finished, by the thread that is about to end.
+    /// has finished, by the thread that is about to end. The [`Keeper`] is
+    /// made before that, and the drop is under a catch, so a panic in a
+    /// session's `Drop` can't lose it.
     fn run(mut self, edits: &Receiver<Edit>) -> Exit {
-        match self.run_caught(edits) {
+        let exit = match self.run_caught(edits) {
             Ok(()) => Exit::Closed,
-            Err(panic) => Exit::Panicked(panic, Box::new(self.into_keeper())),
-        }
+            Err(panic) => Exit::Panicked(panic, Box::new(self.take_keeper())),
+        };
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| drop(self)));
+        exit
     }
 
     fn run_caught(&mut self, edits: &Receiver<Edit>) -> Result<(), Panic> {
@@ -3094,18 +3154,37 @@ impl Checker {
         }
     }
 
+    /// The open file `path` was closed while it shows only an error:
+    /// forgets it and clears the error.
+    fn close_error(&mut self, path: &Path) {
+        self.versions.remove(path);
+        if let Ok(uri) = Url::from_file_path(path) {
+            self.published.remove(&uri);
+            let params = PublishDiagnosticsParams {
+                uri,
+                diagnostics: Vec::new(),
+                version: None,
+            };
+            let n = Notification::new(notification::PublishDiagnostics::METHOD.to_string(), params);
+            let _ = self.sender.send(n.into());
+        }
+    }
+
     fn apply(&mut self, edit: Edit) {
         self.unanswered = true;
         self.record(&edit);
+        if let Some(path) = edit.path()
+            && self.options.faults.apply_panics_now(path)
+        {
+            panic!("injected fault applying an edit");
+        }
         if let Some(why) = self.stopped.clone() {
             match &edit {
                 Edit::Open { path, version, .. } | Edit::Change { path, version, .. } => {
                     self.versions.insert(path.clone(), *version);
                     self.show_error(path, &why);
                 }
-                Edit::Close { path } => {
-                    self.versions.remove(path);
-                }
+                Edit::Close { path } => self.close_error(path),
                 _ => {}
             }
             return;
@@ -3116,20 +3195,7 @@ impl Checker {
             Edit::Open { path, .. } if self.quarantine_key(path).is_none() => self.edited(path),
             Edit::Change { path, .. } => self.edited(path),
             Edit::Close { path } if self.quarantine_key(path).is_some() => {
-                self.versions.remove(path);
-                if let Ok(uri) = Url::from_file_path(path) {
-                    self.published.remove(&uri);
-                    let params = PublishDiagnosticsParams {
-                        uri,
-                        diagnostics: Vec::new(),
-                        version: None,
-                    };
-                    let n = Notification::new(
-                        notification::PublishDiagnostics::METHOD.to_string(),
-                        params,
-                    );
-                    let _ = self.sender.send(n.into());
-                }
+                self.close_error(path);
                 return;
             }
             _ => {}
@@ -3548,16 +3614,6 @@ fn trace(line: impl FnOnce() -> String) {
 }
 
 /// `path` within the folder `dir`, components joined by `/`.
-/// Whether `relative` (a path within a project) is a `.sw` file in one of
-/// its source folders.
-fn sources_hold(sources: &[String], relative: &str) -> bool {
-    relative.ends_with(".sw")
-        && sources.iter().any(|s| {
-            let s = s.trim_end_matches('/');
-            s.is_empty() || relative.strip_prefix(s).is_some_and(|r| r.starts_with('/'))
-        })
-}
-
 fn relative(dir: &Path, path: &Path) -> Option<String> {
     let rest = path.strip_prefix(dir).ok()?;
     let parts: Option<Vec<&str>> = rest.iter().map(|c| c.to_str()).collect();
