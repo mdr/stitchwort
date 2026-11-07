@@ -4904,7 +4904,7 @@
         "decision"
       ],
       "epic": "performance",
-      "body": "Matt (3 Nov): this might need fresh eyes; backlog, pick up again soon. D2273 extend code.rs's existing reuse in stages rather than a new ownership pass [rec yes]; D2274 start with a per-site reuse report (hidden --reuse-report) rather than a dbgTraceIfShared-style function [rec yes]; D2275 then inline small helpers so reuse crosses calls, before std rewrites for in-place trees [rec yes if the report confirms Map/Set are the top misses]; D2276 borrowed parameters only as a design note, only if read-only increments exceed ~20% of count operations [rec yes]; D2277 report and helper inlining now, effect-runtime node reuse after SW-593 [rec yes]. Possible tickets from the note: the reuse report; unused params/lets freed only at frame end; Text.append always copies; extra inc/dec per level in tail-recursive constructor loops.\n\nD2582 (Matt, 7 Nov 2026): started, Opus, fresh-eyes review of the note and D2273-D2277; no builds. Expected: 60 min.\n\nDone, merged: docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md. Recommends D2273-D2277 all yes (D2274 split into a site-naming copy note then --profile columns; D2275 conditional on the report). New: D2590 report in the shipped binary [yes], D2591 projection hoist only when a program shows it [yes, conditional], D2592 a pop that always returns the array [no for now]. SW-1678's copies are pushPop's (its None arm keeps the old state), not day 15's (0 copies). Tickets: SW-1809 SW-1810 SW-1811 SW-1812 SW-1813 SW-1814 SW-1815 SW-1816 SW-1817. 6 min (est. 60).",
+      "body": "Matt (3 Nov): this might need fresh eyes; backlog, pick up again soon. D2273 extend code.rs's existing reuse in stages rather than a new ownership pass [rec yes]; D2274 start with a per-site reuse report (hidden --reuse-report) rather than a dbgTraceIfShared-style function [rec yes]; D2275 then inline small helpers so reuse crosses calls, before std rewrites for in-place trees [rec yes if the report confirms Map/Set are the top misses]; D2276 borrowed parameters only as a design note, only if read-only increments exceed ~20% of count operations [rec yes]; D2277 report and helper inlining now, effect-runtime node reuse after SW-593 [rec yes]. Possible tickets from the note: the reuse report; unused params/lets freed only at frame end; Text.append always copies; extra inc/dec per level in tail-recursive constructor loops.\n\nD2582 (Matt, 7 Nov 2026): started, Opus, fresh-eyes review of the note and D2273-D2277; no builds. Expected: 60 min.\n\nDone, merged: docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md. Recommends D2273-D2277 all yes (D2274 split into a site-naming copy note then --profile columns; D2275 conditional on the report). New: D2590 report in the shipped binary [yes], D2591 projection hoist only when a program shows it [yes, conditional], D2592 a pop that always returns the array [no for now]. SW-1678's copies are pushPop's (its None arm keeps the old state), not day 15's (0 copies). Tickets: SW-1809 SW-1810 SW-1811 SW-1812 SW-1813 SW-1814 SW-1815 SW-1816 SW-1817. 6 min (est. 60).\n\nOpen decisions for Matt: D2273-D2277 [rec: yes to all; D2275 after the report's data], D2590 report in the shipped --profile [yes], D2591 projection hoist only when a program shows it [yes, conditional], D2592 a pop that always returns the array [no for now].",
       "created": "2026-11-03",
       "updated": "2026-11-07",
       "commits": []
@@ -14969,7 +14969,7 @@
         "kernel"
       ],
       "epic": "elaborator-kernel",
-      "body": "From the D2507 check, 7 Nov 08:11. Merge 319c28c0c. Expected: 60 min.",
+      "body": "From the D2507 check, 7 Nov 08:11. Merge 319c28c0c. Expected: 60 min.\n\nD2586 (open, for Matt): if this lane finds no clear fix within its hour, revert the record eta merge (319c28c0c) on main and fix it on the branch? [rec: yes]. main is not pushed past the merge until this is settled.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -14984,7 +14984,7 @@
         "readback"
       ],
       "epic": "goal-as-written",
-      "body": "Brief in docs/proposals/bounded-readback-remaining.md §5.2 (stage 0c). 45 min. Ready now (D2536). Beside 1c and R (SW-1631).",
+      "body": "Brief in docs/proposals/bounded-readback-remaining.md §5.2 (stage 0c). 45 min. Ready now (D2536). Beside 1c and R (SW-1631).\n\nPlan decisions for Matt (docs/proposals/bounded-readback-remaining.md §6): D2610 start R (rewrite f, SW-1631) now, amending D2545 [rec: yes]; D2611 scanned and mentions_unknown answer exactly, running out is E-RESOURCE (SW-1832) [rec: yes]; D2612 omega/ring atoms folded first then by conversion (SW-1837) [rec: yes]; D2613 D2543 covers questions with one answer, not limits that only change a representation or a search's next candidate [rec: yes]; D2614 a program relying on a limit's choice is rewritten in the lane that removes the limit, which stops if more than five need it [rec: yes].",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15014,7 +15014,7 @@
         "readback"
       ],
       "epic": "goal-as-written",
-      "body": "Brief in docs/proposals/bounded-readback-remaining.md §5.2 (stage 4a). 100 min. After SW-1830; D2611. Absorbs SW-1750, SW-1739, SW-1698.",
+      "body": "Brief in docs/proposals/bounded-readback-remaining.md §5.2 (stage 4a). 100 min. After SW-1830; D2611. Absorbs SW-1750, SW-1739, SW-1698.\n\nD2613, D2614 apply here too (see SW-1830's note).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []

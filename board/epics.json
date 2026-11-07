@@ -75,10 +75,12 @@
         "Outline answers before the file is checked (SW-1681)",
         "Hover on ? shows its goal; notes numbered like the CLI (SW-1675, SW-1676)",
         "Completion in a warm editor 480 ms → 1 ms: one std-loaded session per search thread, rewound (SW-1798)",
-        "Code action crash on an unapplied Succ or Cons fixed (SW-1799)"
+        "Code action crash on an unapplied Succ or Cons fixed (SW-1799)",
+        "Kept search session reviewed: answers sound (SW-1808)"
       ],
       "now": [],
       "next": [
+        "Kept search session: two leaks, panic recovery, hardening, a randomised test (SW-1818 to SW-1823; D2583, D2584)",
         "Text-only searches and the playground keep std loaded too (SW-1807)",
         "Quieter light-bulb suggestions on a bare ? (SW-1677)",
         "Editor hint on a recursive function: runs as a loop, or a frame per call (SW-1223; Matt said yes in D2315, now that @[tailrec] has landed)",
@@ -235,10 +237,15 @@
         "Unifier fixes: one-step unfolding and arguments-from-conclusion (SW-1226, SW-1227)",
         "Tail-resumptive and checked @[tailrec] (SW-1222, SW-1232)",
         "Decision-match proposal decided: warn and document, not a new matching mode (SW-1694, D2525-D2527)",
-        "Dot-call caches keyed by address: the reproduced wrong-hit case fixed (SW-1797, SW-1800); full fix designed (syntax-node-ids.md, SW-1801)"
+        "Dot-call caches keyed by address: the reproduced wrong-hit case fixed (SW-1797, SW-1800); full fix designed (syntax-node-ids.md, SW-1801)",
+        "Record eta stages 1 and 1b merged (SW-1642)",
+        "Stale stuck calls audited: eight sites, none unsound (SW-1321)"
       ],
-      "now": [],
+      "now": [
+        "Record eta merged; whole-AoC check 69 s → over 6 min, being fixed (SW-1829; D2586 revert if no clear fix)"
+      ],
       "next": [
+        "Stale stuck calls: unknowns inside constructor arguments, cached stuck results recomputed, tactics re-evaluate first (SW-1842, SW-1843, SW-1844); design note for the general fix (SW-1845, D2603)",
         "Syntax ids for dot calls, so no cache depends on memory addresses (SW-1803, D2577-D2580)",
         "Fix the check that hangs on a theorem whose statement names a large computation: the kernel evaluates a closed statement unfolded (SW-1534)",
         "Postponement: close the two queue gaps and keep the expected type folded (SW-1003, SW-1008, SW-1009)",
