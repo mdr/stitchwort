@@ -13970,16 +13970,16 @@
     {
       "id": 1763,
       "title": "A Float sum prints as x.add y, not x + y (SW-1708's dot-call printing); keep the operator for Float.add as for Nat",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1763",
       "labels": [
         "diagnostics"
       ],
       "epic": "diagnostics",
       "body": "From SW-1667, 6 Nov 2026; on main too.",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
