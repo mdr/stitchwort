@@ -488,6 +488,34 @@ fn code_action_after_edit(s: &mut Server, version: i32) -> Value {
     s.code_action()
 }
 
+/// SW-2104: a client that has seen the diagnostics of version N gets N's
+/// goals, however soon it asks: they are recorded before the diagnostics
+/// are sent. Without the goals the answer is the quick fixes, `[]`; with
+/// them the search runs, and here panics, which is answered with null (so
+/// no real search is needed).
+#[test]
+fn a_code_action_right_after_an_edits_diagnostics_finds_its_goal() {
+    for _ in 0..3 {
+        let options = Options::new(STACK);
+        options
+            .faults
+            .search_panics
+            .store(usize::MAX, Ordering::SeqCst);
+        let mut s = Server::start(options);
+        // Four panics fit in a restart budget.
+        for version in 2..=5 {
+            s.change(URI, version, &format!("{TEXT}-- edit {version}\n"));
+            s.diagnostics(URI, |p| p["version"] == version);
+            let answer = s.code_action();
+            assert!(
+                answer.get("error").is_none() && answer["result"].is_null(),
+                "version {version}: {answer}"
+            );
+        }
+        s.stop();
+    }
+}
+
 fn searches_stopped(s: &Server) -> bool {
     (s.pop_ups().iter()).any(|p| p.contains("stopped running proof searches"))
 }
