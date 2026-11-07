@@ -1,5 +1,5 @@
 {
-  "next": 2105,
+  "next": 2106,
   "tickets": [
     {
       "id": 47,
@@ -19084,6 +19084,21 @@
       ],
       "epic": "editor-playground",
       "body": "From SW-2088. The editor could show a briefly empty light bulb after an edit. Fix the order, then drop the retry loop. After SW-2089/SW-2091 (same file). 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2105,
+      "title": "[Sonnet] Later: on Linux (Overmind), measure how much of an incremental build is linking, and try mold or lld as the linker if it's a large share",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "Matt, 7 Nov 2026 (from a suggestion of Simon's): look at mold later. Mac builds use Apple's linker, so this is Linux-only. 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
