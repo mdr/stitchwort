@@ -3378,6 +3378,34 @@ fn conv_step(
                 // the group is admitted: compared in shortcut mode, so that
                 // the body being seen only ever adds equalities.
                 same_spines(g, level, f, s1, s2, memo)?
+            } else if opens_by_tree(g, &a) && opens_by_tree(g, &b) {
+                // Two calls of one definition stuck on a `case`: equal
+                // arguments make them equal, but different ones don't make
+                // them different (`ignoresFirst 1 x` against `ignoresFirst 2
+                // x`), so then they're compared by their case trees, as two
+                // different definitions are below; otherwise conversion
+                // isn't transitive (G6, docs/core.md). The arguments are
+                // compared here, each by a `conv` of its own, which recurses
+                // as the tree comparison does.
+                let same = match spine_pairs(g, level, def_head(h1), s1, s2) {
+                    Some(pairs) => {
+                        let mut same = true;
+                        for pair in pairs {
+                            let ConvTask::Values(l, x, y) = pair else {
+                                unreachable!()
+                            };
+                            if !conv_with(g, l, &x, &y, memo, mode)? {
+                                same = false;
+                                break;
+                            }
+                        }
+                        same
+                    }
+                    None => false,
+                };
+                same || same_stuck_trees(g, level, &a, &b, Relation::Conv, mode, &mut |l, x, y| {
+                    conv_with(g, l, x, y, memo, mode)
+                })?
             } else if underapplied(g, &a).is_none() && underapplied(g, &b).is_none() {
                 // Eta for definitions doesn't apply, so the spines must match.
                 match spine_pairs(g, level, def_head(h1), s1, s2) {
@@ -3400,7 +3428,8 @@ fn conv_step(
             }
         }
         // Two different definitions, each stuck on a `case`: compared by
-        // their case trees (`same_stuck_trees`). Like a partially applied
+        // their case trees (`same_stuck_trees`), as are two calls of one
+        // definition whose arguments differ (above). Like a partially applied
         // definition above, this recurses: once per level of nested calls of
         // such definitions, in their leaves (bounded by the program, as they
         // aren't recursive) and in the scrutinees and arguments compared

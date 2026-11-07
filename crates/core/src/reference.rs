@@ -842,12 +842,15 @@ fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<boo
                 && conv_in(g, level, y1, y2, mode)?
         }
         (Value::Refl, Value::Refl) => true,
-        // Two different definitions stuck on a `case`: by their case trees.
-        (Value::Neutral(Head::Def(i1), _), Value::Neutral(Head::Def(i2), _))
-            if i1 != i2
-                && crate::value::opens_by_tree(g, a)
-                && crate::value::opens_by_tree(g, b) =>
+        // Two calls stuck on a `case`: by their case trees. For two calls of
+        // one definition, equal arguments are enough, but different ones
+        // aren't a difference (G6, docs/core.md).
+        (Value::Neutral(Head::Def(i1), s1), Value::Neutral(Head::Def(i2), s2))
+            if crate::value::opens_by_tree(g, a) && crate::value::opens_by_tree(g, b) =>
         {
+            if i1 == i2 && conv_spines(g, level, Some(*i1), s1, s2, mode)? {
+                return Ok(true);
+            }
             // Pairs already found equal in the outermost tree comparison are
             // equal again (SW-395): without this, a chain of helpers each
             // calling the next in two branches takes 2^n comparisons here

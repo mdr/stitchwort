@@ -1600,6 +1600,34 @@ fn unify_step(
                         push_in_shortcut(work, mode, pairs);
                         true
                     }
+                    // Two calls of one definition stuck on a `case`, with no
+                    // unknown in sight: equal arguments make them equal, but
+                    // different ones don't make them different, so then
+                    // they're compared by their case trees, as `conv` does
+                    // (G6, docs/core.md). Whatever the failed try solved is
+                    // taken back first.
+                    Some(pairs) if opens_by_tree(g, &a) && opens_by_tree(g, &b) => {
+                        let trail = g.store.meta_trail.borrow().len();
+                        let spines = nested(g, || run(g, pairs.into_iter().rev().collect(), mode))?;
+                        if spines {
+                            true
+                        } else {
+                            undo_since(g, trail);
+                            let same = same_stuck_trees(
+                                g,
+                                level,
+                                &a,
+                                &b,
+                                Relation::Unify,
+                                mode,
+                                &mut |l, x, y| unify_in(g, l, x, y, mode),
+                            )?;
+                            if !same {
+                                undo_since(g, trail);
+                            }
+                            same
+                        }
+                    }
                     Some(pairs) => {
                         work.extend(pairs.into_iter().rev());
                         true

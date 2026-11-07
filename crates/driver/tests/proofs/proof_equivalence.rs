@@ -1303,7 +1303,6 @@ fn probe_g5_number_match_under_succ() {
 }
 
 #[test]
-#[ignore = "known failure G6 (stuck calls of one definition differing in an unused argument), fixed by SW-2243"]
 fn probe_g6_same_definition_stuck_calls() {
     load_probe(
         "g6.sw",
@@ -1333,7 +1332,6 @@ fn probe_g8_alike_number_matches() {
 /// `ignoresFirst 2 n` are both equal to `alsoIgnores 2 n`, so they must be
 /// equal to each other.
 #[test]
-#[ignore = "known failure G6 (conversion isn't transitive), fixed by SW-2243"]
 fn the_relation_is_transitive_over_an_unused_argument() {
     let mut session = Session::eager();
     session.load("wrap.sw", WRAP_PROGRAM).expect("loads");
