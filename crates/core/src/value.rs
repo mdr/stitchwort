@@ -1874,7 +1874,7 @@ fn branch(
             if eta_case(g, *d) && !matches!(&stuck, Some((id, ..)) if eta_held(g, *id)) =>
         {
             let k = g.data(*d).ctors[0].fields.len();
-            (0, eta_fields(*d, k, scrutinee, n))
+            (0, eta_fields(g, *d, k, scrutinee, n)?)
         }
         _ => return stuck_tree(g, stuck),
     };
@@ -1962,13 +1962,30 @@ pub fn eta_held(g: &Ev, id: DefId) -> bool {
 /// Rule 2's `k` fields for a `case` on type `d` whose scrutinee was
 /// `unforced` and is the neutral `forced`: fields of the call if it was a
 /// glued call, else projections of the neutral.
-fn eta_fields(d: DataId, k: usize, unforced: &Value, forced: Value) -> Vec<Value> {
-    match unforced {
-        Value::Call(..) => (0..k)
-            .map(|i| project_call(d, i, unforced.clone()))
-            .collect(),
-        _ => (0..k).map(|i| project(d, i, forced.clone())).collect(),
-    }
+///
+/// A field of a call comes with its unfolding kept when `forced` already
+/// says what forcing it would give (`Frame::CallField`): with `forced` not
+/// an unknown and the call not stepping at once, the field call itself,
+/// stuck. Forcing it would otherwise force the call again and unfold what
+/// that computed to, which `forced` is: for a call whose unfolding is
+/// itself a folded call taking apart the same kind of record (`Map.raw
+/// (blinkCounts m)`, with `blinkCounts` a `Map.foldLeft` of `m.raw`), each
+/// level did the one below twice, exponential in the depth (SW-1829).
+fn eta_fields(g: &Ev, d: DataId, k: usize, unforced: &Value, forced: Value) -> Result<Vec<Value>> {
+    let Value::Call(id, spine, _) = unforced else {
+        return Ok((0..k).map(|i| project(d, i, forced.clone())).collect());
+    };
+    let named = matches!(&forced, Value::Neutral(head, _) if !matches!(head, Head::Meta(_)))
+        && !matches_at_once(g, *id, spine)?;
+    Ok((0..k)
+        .map(|i| {
+            let field = project_call(d, i, unforced.clone());
+            if named && let Value::Call(id, spine, unfolding) = &field {
+                unfolding.set(g, Value::Neutral(Head::Def(*id), spine.clone()));
+            }
+            field
+        })
+        .collect())
 }
 
 /// What `value` is known not to be: something only for a variable on its
@@ -3347,7 +3364,7 @@ fn walk_tree(g: &Ev, mut tree: Rc<Term>, mut env: Vec<Value>, held: bool) -> Res
                             return Ok(TreeEnd::Other);
                         };
                         let k = g.data(*d).ctors[0].fields.len();
-                        env.extend(eta_fields(*d, k, &unforced, scrutinee.clone()));
+                        env.extend(eta_fields(g, *d, k, &unforced, scrutinee.clone())?);
                         tree = body;
                     }
                     Value::Neutral(..) if !folded_call(g, &scrutinee) => {
