@@ -1,5 +1,5 @@
 {
-  "next": 2122,
+  "next": 2124,
   "tickets": [
     {
       "id": 47,
@@ -12000,7 +12000,7 @@
         "elab"
       ],
       "epic": "goal-as-written",
-      "body": "D2475-D2480 (Matt, 6 Nov 2026): all as recommended in docs/proposals/goal-as-written.md: rewrite/match/cases/transport look as written first with a completeness check and today's search as fallback; the as-written search may solve a rule's unknowns; keep today's reach into hidden copies, no occurrence selection now (D2478); out-of-resources check uses the as-written result; rewrite f later. 'happy to go with your recommendation.' Any time after stage 1.\n\nD2506 (Matt, 6 Nov 2026): SW-1627 stays on Sonnet with the Opus review, but from now on core language changes (kernel, rewrite/match tactics, unifier, syntax, std core) go to Opus: 'core/kernel language changes feel like we can afford a bit more intelligence to be safe!' So: Opus.\n\nStage R of docs/proposals/bounded-readback-remaining.md (Opus, 90 min, Opus review). Can start now if Matt says D2610 yes (amends D2545).",
+      "body": "D2475-D2480 (Matt, 6 Nov 2026): all as recommended in docs/proposals/goal-as-written.md: rewrite/match/cases/transport look as written first with a completeness check and today's search as fallback; the as-written search may solve a rule's unknowns; keep today's reach into hidden copies, no occurrence selection now (D2478); out-of-resources check uses the as-written result; rewrite f later. 'happy to go with your recommendation.' Any time after stage 1.\n\nD2506 (Matt, 6 Nov 2026): SW-1627 stays on Sonnet with the Opus review, but from now on core language changes (kernel, rewrite/match tactics, unifier, syntax, std core) go to Opus: 'core/kernel language changes feel like we can afford a bit more intelligence to be safe!' So: Opus.\n\nStage R of docs/proposals/bounded-readback-remaining.md (Opus, 90 min, Opus review). Can start now if Matt says D2610 yes (amends D2545).\n\nD2610-D2614: yes (orchestrator's call, 7 Nov, recorded in docs/reviews/open-decisions-2026-11-07.md; Matt: \"I can't possibly review 80 decisions\").",
       "created": "2026-11-06",
       "updated": "2026-11-07",
       "commits": []
@@ -14984,7 +14984,7 @@
         "readback"
       ],
       "epic": "goal-as-written",
-      "body": "Brief in docs/proposals/bounded-readback-remaining.md §5.2 (stage 0c). 45 min. Ready now (D2536). Beside 1c and R (SW-1631).\n\nPlan decisions for Matt (docs/proposals/bounded-readback-remaining.md §6): D2610 start R (rewrite f, SW-1631) now, amending D2545 [rec: yes]; D2611 scanned and mentions_unknown answer exactly, running out is E-RESOURCE (SW-1832) [rec: yes]; D2612 omega/ring atoms folded first then by conversion (SW-1837) [rec: yes]; D2613 D2543 covers questions with one answer, not limits that only change a representation or a search's next candidate [rec: yes]; D2614 a program relying on a limit's choice is rewritten in the lane that removes the limit, which stops if more than five need it [rec: yes].",
+      "body": "Brief in docs/proposals/bounded-readback-remaining.md §5.2 (stage 0c). 45 min. Ready now (D2536). Beside 1c and R (SW-1631).\n\nPlan decisions for Matt (docs/proposals/bounded-readback-remaining.md §6): D2610 start R (rewrite f, SW-1631) now, amending D2545 [rec: yes]; D2611 scanned and mentions_unknown answer exactly, running out is E-RESOURCE (SW-1832) [rec: yes]; D2612 omega/ring atoms folded first then by conversion (SW-1837) [rec: yes]; D2613 D2543 covers questions with one answer, not limits that only change a representation or a search's next candidate [rec: yes]; D2614 a program relying on a limit's choice is rewritten in the lane that removes the limit, which stops if more than five need it [rec: yes].\n\nD2610-D2614: yes (orchestrator's call, 7 Nov, recorded in docs/reviews/open-decisions-2026-11-07.md; Matt: \"I can't possibly review 80 decisions\").",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -14999,7 +14999,7 @@
         "readback"
       ],
       "epic": "goal-as-written",
-      "body": "Brief in docs/proposals/bounded-readback-remaining.md §5.2 (stage 1c). 60 min. Ready now.",
+      "body": "Brief in docs/proposals/bounded-readback-remaining.md §5.2 (stage 1c). 60 min. Ready now.\n\nD2610-D2614: yes (orchestrator's call, 7 Nov, recorded in docs/reviews/open-decisions-2026-11-07.md; Matt: \"I can't possibly review 80 decisions\").",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15014,7 +15014,7 @@
         "readback"
       ],
       "epic": "goal-as-written",
-      "body": "Brief in docs/proposals/bounded-readback-remaining.md §5.2 (stage 4a). 100 min. After SW-1830; D2611. Absorbs SW-1750, SW-1739, SW-1698.\n\nD2613, D2614 apply here too (see SW-1830's note).\n\nFrom SW-1845: the reader's memo must not outlive one question unless its key moves when new solutions are added; keying by the epoch alone would keep stale 'doesn't mention' answers.",
+      "body": "Brief in docs/proposals/bounded-readback-remaining.md §5.2 (stage 4a). 100 min. After SW-1830; D2611. Absorbs SW-1750, SW-1739, SW-1698.\n\nD2613, D2614 apply here too (see SW-1830's note).\n\nFrom SW-1845: the reader's memo must not outlive one question unless its key moves when new solutions are added; keying by the epoch alone would keep stale 'doesn't mention' answers.\n\nD2610-D2614: yes (orchestrator's call, 7 Nov, recorded in docs/reviews/open-decisions-2026-11-07.md; Matt: \"I can't possibly review 80 decisions\").",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15089,7 +15089,7 @@
         "readback"
       ],
       "epic": "goal-as-written",
-      "body": "Brief in docs/proposals/bounded-readback-remaining.md §5.2 (stage O). 90 min. After SW-1830; D2612. Measures old and new answers side by side first.",
+      "body": "Brief in docs/proposals/bounded-readback-remaining.md §5.2 (stage O). 90 min. After SW-1830; D2612. Measures old and new answers side by side first.\n\nD2610-D2614: yes (orchestrator's call, 7 Nov, recorded in docs/reviews/open-decisions-2026-11-07.md; Matt: \"I can't possibly review 80 decisions\").",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15119,7 +15119,7 @@
         "readback"
       ],
       "epic": "goal-as-written",
-      "body": "Brief in docs/proposals/bounded-readback-remaining.md §5.2 (stage 6a). 100 min. After SW-1838 and SW-1833.\n\nFrom docs/proposals/rewrite-occurrence.md: three of the four occurrence days are a copy hidden inside what % computes to, which 6a fixes (it drops the check at as_written.rs:390-416). Also check Bits.sw:439 passes with its rules in the order first written.",
+      "body": "Brief in docs/proposals/bounded-readback-remaining.md §5.2 (stage 6a). 100 min. After SW-1838 and SW-1833.\n\nFrom docs/proposals/rewrite-occurrence.md: three of the four occurrence days are a copy hidden inside what % computes to, which 6a fixes (it drops the check at as_written.rs:390-416). Also check Bits.sw:439 passes with its rules in the order first written.\n\nD2610-D2614: yes (orchestrator's call, 7 Nov, recorded in docs/reviews/open-decisions-2026-11-07.md; Matt: \"I can't possibly review 80 decisions\").",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15134,7 +15134,7 @@
         "readback"
       ],
       "epic": "goal-as-written",
-      "body": "Brief in docs/proposals/bounded-readback-remaining.md §5.2 (stage 6b). 110 min. After SW-1839.",
+      "body": "Brief in docs/proposals/bounded-readback-remaining.md §5.2 (stage 6b). 110 min. After SW-1839.\n\nD2610-D2614: yes (orchestrator's call, 7 Nov, recorded in docs/reviews/open-decisions-2026-11-07.md; Matt: \"I can't possibly review 80 decisions\").",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -18986,14 +18986,14 @@
     {
       "id": 2098,
       "title": "[Sonnet] Elaborator fuzzer: 7 of 2,000 cases (seed 0x5eede1ab00000685: cases 105, 148, 150, 168, 558, 737, 1619) hit the 60 s hang limit on the laptop; find out whether they hang or are slow, and fix",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "fuzz"
       ],
       "epic": "audit-fuzzing",
-      "body": "From Overmind soak report 1 (Matt's laptop, NixOS i7-6700HQ 8 threads, 15 GiB; 7 Nov, commit a3c652a63). Mutated from reject/reads-weaken-over-map-implicits, accept/reads-done-spec-from-expected, reads-named-parser, int-literals-auto, reads-nested-binds, reject/parser-count-differs-from-lemma, accept/pure-fold-in-parse-function. Whole run 2,402 s there. The orchestrator is rerunning the seed on Speedwell to compare. 60 min.\n\nSpeedwell rerun, same seed and 2,000 cases (7 Nov, with three lanes building): passed, no case near the limit, 328 s (55.0% parsed, 78.3% reached the elaborator). The laptop took 2,402 s, 7x slower, against 2x on the AoC check. So likely slow there, not hangs. Suspect: the laptop's binary is the musl target, whose allocator is slow under threads. First step: on the laptop, time one of the 7 saved inputs with a glibc build against the musl one.\n\nSharper suspect: the CLI sets mimalloc as its global allocator (crates/cli/src/main.rs:515), so the AoC check (2x slower on the laptop) uses it; the fuzzer is a test binary (crates/driver/tests/fuzz_elab.rs) with no global allocator, so on Linux it uses musl's malloc (flake.nix builds for musl), which is slow with many threads (7x slower). Matt is asking Overmind to compare 200 cases with and without mimalloc in the test binary.\n\nConfirmed on Overmind (ad49343d0), 200 cases, same seed: default allocator 229.5 s and 225.3 s (warm), mimalloc in the test binary 37.5 s, same work (identical rates). About 6x: musl's allocator in test binaries. None of the 200 hit 60 s even on the default allocator; cases 558, 737, 1619 not reached. Fix: SW-2109. Then rerun the 2,000 on Overmind to settle the 7.\n\nSW-2109 merged. Remaining: rerun 2,000 cases on Overmind with mimalloc to settle cases 558, 737, 1619.\n\nMatt, 7 Nov 2026: \"yes\" (push main, then Overmind reruns 2,000 cases with mimalloc). Pushed 6f6dd5d57; sent to Overmind.\n\nOvermind soak job 2 (f06dd23cd, mimalloc), 13:45-13:56: 2,000 cases in 420.6 s (5.7x faster than run 1); FAILED 2: case 1095 oracle 2 from accept/partial-forwarding.sw, 'E-INTERNAL: internal error: `ask` is used before it's checked'; case 1834 oracle 4 (still running after 60 s) from reject/index-missing-arm.sw. None of 105/148/150/168/558/737/1619 failed (case numbers may map to different inputs since examples were added). Asked Overmind for both inputs and a rerun of the 7 saved files.",
+      "body": "From Overmind soak report 1 (Matt's laptop, NixOS i7-6700HQ 8 threads, 15 GiB; 7 Nov, commit a3c652a63). Mutated from reject/reads-weaken-over-map-implicits, accept/reads-done-spec-from-expected, reads-named-parser, int-literals-auto, reads-nested-binds, reject/parser-count-differs-from-lemma, accept/pure-fold-in-parse-function. Whole run 2,402 s there. The orchestrator is rerunning the seed on Speedwell to compare. 60 min.\n\nSpeedwell rerun, same seed and 2,000 cases (7 Nov, with three lanes building): passed, no case near the limit, 328 s (55.0% parsed, 78.3% reached the elaborator). The laptop took 2,402 s, 7x slower, against 2x on the AoC check. So likely slow there, not hangs. Suspect: the laptop's binary is the musl target, whose allocator is slow under threads. First step: on the laptop, time one of the 7 saved inputs with a glibc build against the musl one.\n\nSharper suspect: the CLI sets mimalloc as its global allocator (crates/cli/src/main.rs:515), so the AoC check (2x slower on the laptop) uses it; the fuzzer is a test binary (crates/driver/tests/fuzz_elab.rs) with no global allocator, so on Linux it uses musl's malloc (flake.nix builds for musl), which is slow with many threads (7x slower). Matt is asking Overmind to compare 200 cases with and without mimalloc in the test binary.\n\nConfirmed on Overmind (ad49343d0), 200 cases, same seed: default allocator 229.5 s and 225.3 s (warm), mimalloc in the test binary 37.5 s, same work (identical rates). About 6x: musl's allocator in test binaries. None of the 200 hit 60 s even on the default allocator; cases 558, 737, 1619 not reached. Fix: SW-2109. Then rerun the 2,000 on Overmind to settle the 7.\n\nSW-2109 merged. Remaining: rerun 2,000 cases on Overmind with mimalloc to settle cases 558, 737, 1619.\n\nMatt, 7 Nov 2026: \"yes\" (push main, then Overmind reruns 2,000 cases with mimalloc). Pushed 6f6dd5d57; sent to Overmind.\n\nOvermind soak job 2 (f06dd23cd, mimalloc), 13:45-13:56: 2,000 cases in 420.6 s (5.7x faster than run 1); FAILED 2: case 1095 oracle 2 from accept/partial-forwarding.sw, 'E-INTERNAL: internal error: `ask` is used before it's checked'; case 1834 oracle 4 (still running after 60 s) from reject/index-missing-arm.sw. None of 105/148/150/168/558/737/1619 failed (case numbers may map to different inputs since examples were added). Asked Overmind for both inputs and a rerun of the 7 saved files.\n\nOvermind follow-up: the 7 saved inputs from run 1 all finish in under 10 s through check (ordinary errors), so run 1's 60 s hits were allocator slowness. Both new failures reproduce on Speedwell: SW-2122 (E-INTERNAL), SW-2123 (huge index). Done.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19331,14 +19331,44 @@
     {
       "id": 2121,
       "title": "[Opus] Gap check: for each of the AoC friction synthesis's top gaps, what's done, what's planned (tickets, decisions), and what has no plan yet; recommend the next three pieces of work by AoC impact",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2121",
       "labels": [
         "review"
       ],
       "epic": "docs-tutorials",
-      "body": "Read-only Opus lane, 7 Nov. Expected: 40 min.",
+      "body": "Read-only Opus lane, 7 Nov. Expected: 40 min.\n\nDone, merged: docs/reviews/aoc-gaps-status-2026-11-07.md. Correction: D2610-D2614 were already taken (bulk, 7 Nov) but not recorded on the stage tickets; now recorded on SW-1830/1831/1631/1832/1837/1839/1840. 5 min (est. 40).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2122,
+      "title": "[Sonnet] E-INTERNAL from a fuzzed program: an ability operation whose return type names the operation itself (ask: () → {Env} ask) gives 'internal error: `ask` is used before it's checked'; it should be an ordinary error",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "diagnostics",
+      "body": "Found by Overmind's soak run 2 (SW-2098, fuzz case 1095). Repro: docs/repros/sw-2098/ask-before-checked.sw; reproduces on Speedwell in 1 s. Make it an ordinary error, add it as a reject example (snap:hashes not needed for rejects; check the reject snapshot), and see whether the fuzzer's other E-INTERNAL oracle paths have the same shape. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2123,
+      "title": "[Sonnet] A data type indexed by a huge literal (Vec a 2^128) makes check run for minutes (over 90 s on Speedwell, still going): find where the literal is unfolded to Succ and make it compute symbolically or fail with E-RESOURCE quickly",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "Found by Overmind's soak run 2 (SW-2098, fuzz case 1834, from reject/index-missing-arm.sw). Repro: docs/repros/sw-2098/huge-index.sw. D2543: limits fail, never choose. 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
