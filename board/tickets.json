@@ -1,5 +1,5 @@
 {
-  "next": 1943,
+  "next": 1948,
   "tickets": [
     {
       "id": 47,
@@ -15809,7 +15809,7 @@
         "kernel"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/code-review-core.md (F2, F16). D2640 [rec: yes]. 45 min.",
+      "body": "From docs/reviews/code-review-core.md (F2, F16). D2640 [rec: yes]. 45 min.\n\nFrom docs/reviews/code-review-js-native.md (D2710): the effect natives bind, foldComp, translate, runPure are replaced by name and arity on all three backends, and JS's rewrites of ifThenElse, Decidable.elim, Ord.compare, List.append, Nat.add likewise: pin them by content hash with the arrays' loud refusal, in this lane [rec: yes].",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15899,7 +15899,7 @@
         "rt"
       ],
       "epic": "effects-native",
-      "body": "From docs/reviews/code-review-rt.md (F1). 45 min.",
+      "body": "From docs/reviews/code-review-rt.md (F1). 45 min.\n\nFrom docs/reviews/code-review-js-native.md: confirmed, but the fix must be in generated code: native code keeps remaining steps in a register, so a helper charging the context charges a stale count; generated code subtracts the count before the call. JS counts no steps; a huge count can exhaust the JS engine's memory. Add native array tests (crates/native has none).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15929,7 +15929,7 @@
         "rt"
       ],
       "epic": "effects-native",
-      "body": "From docs/reviews/code-review-rt.md (F3). Unsafe boundary; the 1 Nov finding's open half. 60 min.",
+      "body": "From docs/reviews/code-review-rt.md (F3). Unsafe boundary; the 1 Nov finding's open half. 60 min.\n\nFrom docs/reviews/code-review-js-native.md: wider than the rt review said: native picks the direct call by the program's arity while the code's arity comes from the image (a mismatch passes the wrong argument count), and reads fields without checking shape (the machine panics; native reads out of bounds). The standalone path takes the encoded tables as a third input. Make it a design note first (Opus); D2711 in-process only [rec].",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -16027,14 +16027,14 @@
     {
       "id": 1900,
       "title": "[Opus] Code review: crates/js and crates/native (JS backend, native code generator and its unsafe boundary; 15.8k lines)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1900",
       "labels": [
         "review"
       ],
       "epic": "effects-native",
-      "body": "Matt (7 Nov 2026): crate-by-crate code reviews, reading only. Expected: 75 min.",
+      "body": "Matt (7 Nov 2026): crate-by-crate code reviews, reading only. Expected: 75 min.\n\nDone, merged: docs/reviews/code-review-js-native.md. Both backends sound; native does no unsafe work of its own, range-checks every image index while compiling. 0 high, 4 medium, 9 low. Folded into SW-1891 (replicate, fix in generated code), SW-1893 (trust boundary wider), SW-1885 (pin effect natives, D2710); new SW-1943-SW-1947. D2710, D2711. 15 min (est. 75).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -16666,6 +16666,81 @@
       ],
       "epic": "proof-automation",
       "body": "From docs/reviews/code-review-elab-tactics.md (F9, F17). Smaller. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1943,
+      "title": "[Sonnet] JS: a projection out of an Array compiles to (x).toList, undefined on a version array; compile projections as matches (low confidence it's reachable: check first)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "backends"
+      ],
+      "epic": "effects-native",
+      "body": "From docs/reviews/code-review-js-native.md. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1944,
+      "title": "[DeepSeek] JS generator panics turned into errors; stale comments",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "backends"
+      ],
+      "epic": "effects-native",
+      "body": "From docs/reviews/code-review-js-native.md. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1945,
+      "title": "[Sonnet] Quadratic code generation: native error exits spill every live register per call; JS rescans the whole body per let and per text or array match; measure first",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "backends"
+      ],
+      "epic": "effects-native",
+      "body": "From docs/reviews/code-review-js-native.md. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1946,
+      "title": "[Sonnet] Two small native fixes (see the review)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "backends"
+      ],
+      "epic": "effects-native",
+      "body": "From docs/reviews/code-review-js-native.md. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1947,
+      "title": "[DeepSeek] Split js/lib.rs (6,566 lines), pure move",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "backends"
+      ],
+      "epic": "effects-native",
+      "body": "From docs/reviews/code-review-js-native.md. 45 min. The 1 Nov finding.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
