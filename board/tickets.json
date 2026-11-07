@@ -1,5 +1,5 @@
 {
-  "next": 2093,
+  "next": 2094,
   "tickets": [
     {
       "id": 47,
@@ -15104,7 +15104,7 @@
         "readback"
       ],
       "epic": "goal-as-written",
-      "body": "Brief in docs/proposals/bounded-readback-remaining.md §5.2 (stage 3). 120 min. After SW-1832.",
+      "body": "Brief in docs/proposals/bounded-readback-remaining.md §5.2 (stage 3). 120 min. After SW-1832.\n\nFrom docs/proposals/match-call-field.md: the reader should treat a stuck field (f x).i as the call f x and open it the same way, and should not open folded calls.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -16244,7 +16244,7 @@
         "kernel"
       ],
       "epic": "elaborator-kernel",
-      "body": "SW-1829 confirmed the lead but it wasn't the regression; costs little today. Supersedes SW-1884's 'likely cause' framing.\n\nFrom docs/reviews/record-eta-as-merged.md: confirmed still in the code (value.rs:2237, 2614): conversion and the unfolded read-back re-run a stuck field call's base call once per field, the last instance of SW-1829's 2^n shape.",
+      "body": "SW-1829 confirmed the lead but it wasn't the regression; costs little today. Supersedes SW-1884's 'likely cause' framing.\n\nFrom docs/reviews/record-eta-as-merged.md: confirmed still in the code (value.rs:2237, 2614): conversion and the unfolded read-back re-run a stuck field call's base call once per field, the last instance of SW-1829's 2^n shape.\n\nFrom docs/proposals/match-call-field.md: option (b) would make D2992's general form (keep (cave.tiled).level position) cheap.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17498,14 +17498,14 @@
     {
       "id": 1998,
       "title": "[Opus] Unifier eta gaps: blocked_within doesn't count a projection of an unsolved meta as blocked (2020 day 20: ?b.rows); same_field_records drops the projection from a field call (f x).i and gets a stuck neutral (2021 day 11). Reverted patch in docs/repros/sw-1913/unify-fixes.patch; then drop the SW-1913 workarounds in those two days",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1998",
       "labels": [
         "unifier"
       ],
       "epic": "record-eta",
-      "body": "From SW-1913. Repros meta-record.sw, nested-implicit.sw. Fits stage 2' (SW-1643). D2850 [rec: keep the workarounds until this lands]. 60 min.",
+      "body": "From SW-1913. Repros meta-record.sw, nested-implicit.sw. Fits stage 2' (SW-1643). D2850 [rec: keep the workarounds until this lands]. 60 min.\n\nDone, merged. blocked_within counts a field of an unsolved unknown as blocked; same_field_records compares a stuck field of a kept call (is_folded) by the call, not any Def head (narrower than the patch). 2020 day 20 and 2021 day 11 back to original proofs, no statement changed. 2 accept + 1 reject examples. On main: elab 156/156, examples+hash_stability 9/9, whole AoC 287 namespaces 0 errors 69 s, rogue clean. Adds one narrow route to the SW-2078 panic (a put-aside ?r.f pair re-evaluated after first_order solved ?r with the wrong type). Model result: Opus, worked, 18 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17513,14 +17513,14 @@
     {
       "id": 1999,
       "title": "[Opus] match and the field of a call (f x).i: for non-recursive calls match doesn't look inside the call; for well-founded ones it shows their internals (2021 day 15, 2024 day 23); core value.rs Frame::CallField and its readback",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1999",
       "labels": [
         "core"
       ],
       "epic": "record-eta",
-      "body": "From SW-1913. Repros match-field.sw, call-field-match3.sw. Then drop the SW-1913 workarounds in those days. 90 min.\n\nFrom docs/reviews/record-eta-as-merged.md: match's check of its as-written result has no case for Proj, so it drops that result on exactly the goals eta changed; may be part of this.\n\nDesign first (read-only Opus lane, spare capacity, 7 Nov): docs/proposals/match-call-field.md.",
+      "body": "From SW-1913. Repros match-field.sw, call-field-match3.sw. Then drop the SW-1913 workarounds in those days. 90 min.\n\nFrom docs/reviews/record-eta-as-merged.md: match's check of its as-written result has no case for Proj, so it drops that result on exactly the goals eta changed; may be part of this.\n\nDesign first (read-only Opus lane, spare capacity, 7 Nov): docs/proposals/match-call-field.md.\n\nDesign done, merged: docs/proposals/match-call-field.md. Cause is the values, not match: an applied stuck field loses its call form (day 15); rule 2 keeps only glued calls, so folded decreasing calls show fuelled internals (day 23). Stages: 1 applied stuck fields compute first + Proj arm (Opus 75), 2 rule 2 keeps folded calls, elaborator only (Opus 75), 3 remove workarounds (Sonnet 30). D2990-D2992. 13 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -18693,7 +18693,7 @@
         "core"
       ],
       "epic": "record-eta",
-      "body": "From docs/reviews/record-eta-as-merged.md. Stop at 30 min with no repro. 60 min.",
+      "body": "From docs/reviews/record-eta-as-merged.md. Stop at 30 min with no repro. 60 min.\n\nFrom SW-1998: include the put-aside path for ?r.f (blocked_within now postpones it; re-evaluation can reach project's panic if first_order solved ?r with a value of another type).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -18904,6 +18904,21 @@
       ],
       "epic": "test-infra",
       "body": "From SW-2086. 30 min if it recurs.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2093,
+      "title": "[Sonnet] rewrite keys a projection by its field (Key::Proj(d, i))",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tactics"
+      ],
+      "epic": "proof-automation",
+      "body": "From docs/proposals/match-call-field.md. 30 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
