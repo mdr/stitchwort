@@ -2602,7 +2602,7 @@ fn force_unglued_first() -> bool {
 fn force_unglued(g: &Ev, level: usize, value: &Value) {
     let saved = g.machine.budget.start_attempt(crate::budget::Limits {
         work: 2_000_000,
-        stack: 1 << 40,
+        stack: usize::MAX,
         size: 1_000_000,
         frames: 100_000,
     });
