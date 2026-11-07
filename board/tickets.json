@@ -1,5 +1,5 @@
 {
-  "next": 2144,
+  "next": 2145,
   "tickets": [
     {
       "id": 47,
@@ -19669,6 +19669,21 @@
       ],
       "epic": "diagnostics",
       "body": "From docs/reviews/aoc-gaps-status-2026-11-07.md gap 4 (24+ days): these have tickets but no plan. Read-only Opus lane, 7 Nov. Expected: 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2144,
+      "title": "[Sonnet] Three lsp feature tests (semantic_tokens_colour_names..., signature_help_shows..., completion_offers_locals...) each take ~121 s on Overmind's merge tier and finish within a second of each other: likely all waiting on one cold check-cache fill; find what they wait for and make the fill shared or cheap",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "test-infra",
+      "body": "Overmind soak job 5 (f06dd23cd, Linux): merge tier 1183/1183 passed, 282 s of tests (target 90 s on the M1 Pro), load ~10.6 on 8 cores; these three dominate. Also slow there: doc::a_library_name_shows_header_doc_location_and_theorems 93.5 s, pinned_hashes::every_binding_by_hash_applies_to_the_library 85 s. Related: SW-2120 (cold first search). 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
