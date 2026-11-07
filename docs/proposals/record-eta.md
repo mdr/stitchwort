@@ -1,8 +1,9 @@
 # Record eta in the kernel
 
 *SW-789 (D1426, D1981, D2457), 6 November 2026; §6.4's field access
-revised by SW-1766, 7 November 2026. A design note: nothing here is
-merged. It builds on [records.md](records.md) draft 2 §7 ("Stage 2:
+revised by SW-1766, 7 November 2026. Stages 1 and 1b are merged (SW-1642,
+SW-1667, 7 November 2026); the stages left are planned in
+[record-eta-remaining.md](record-eta-remaining.md) (SW-1849). It builds on [records.md](records.md) draft 2 §7 ("Stage 2:
 projections and eta in the kernel") and brings it up to date with what has
 been built since: proof irrelevance stage 1 (SW-93), glued calls
 (folded-calls.md) and the generated `T.ext` lemmas (SW-263). A throwaway
@@ -691,7 +692,8 @@ unaffected.
 ## 14. Staged plan
 
 Each stage is a lane; stages 1 and 2 are kernel work (Opus, reviewed as
-kernel changes).
+kernel changes). Stages 1 and 1b are merged; what's left, with briefs, is
+in [record-eta-remaining.md](record-eta-remaining.md).
 
 1. **Kernel: eta types, `Proj`, rules 1 and 2** (records.md §14's raw-kernel
    tests, plus: the D1981 must-reject, a proof-only record where `x ≡ y`
