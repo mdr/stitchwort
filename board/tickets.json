@@ -1,5 +1,5 @@
 {
-  "next": 2250,
+  "next": 2251,
   "tickets": [
     {
       "id": 47,
@@ -21259,6 +21259,21 @@
       ],
       "epic": "test-infra",
       "body": "From Overmind job 8. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2250,
+      "title": "[Sonnet] Proof tidy-ups from soundness fuzz job 9: movesWalkBack (2024 day 16 Part2.sw:69) and sameTile (2024 day 15 Widen.sw:34) omega hints look redundant (a swapped hint still closes); orthogonalIntro (2024 day 12 Steps.sw:18) a 12-line proof omega closes; Rogue descendOutOfWalls (Walls.sw:27) has an unused hypothesis (inside)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proofs"
+      ],
+      "epic": "aoc-older",
+      "body": "From Overmind job 9 (7 Nov, 0fa08fe74, seed 0x7): 602 mutants, 586 rejected, 16 accepted, all judged true by reading; 0 findings. Check each: drop the hint if omega reads it from context (and say why), shorten orthogonalIntro, drop descendOutOfWalls's unused hypothesis and fix its callers. Tests: each day's stitchwort test and audit:touched; rogue check. 30 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
