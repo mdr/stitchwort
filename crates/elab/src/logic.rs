@@ -754,7 +754,7 @@ pub(crate) fn tag_plain(cx: &Ctx, decided: &Term, plain: &Term) -> Result<Term> 
 /// was written ([`tag_decision`]), in `term`, a finished body: on its `Bool`
 /// if neither branch mentions the proof, as `unused_proof_if` makes one whose
 /// branches are known not to; otherwise on the plain decision.
-pub(crate) fn settle_tagged(e: &crate::Elaborator, term: &Term) -> Result<Term> {
+pub(crate) fn settle_tagged(e: &crate::Elaborator, term: &Term, keep_plain: bool) -> Result<Term> {
     let g = &e.ev();
     let registry = g.env.registry();
     let (Some(elim), Some(ite)) = (
@@ -763,7 +763,6 @@ pub(crate) fn settle_tagged(e: &crate::Elaborator, term: &Term) -> Result<Term> 
     ) else {
         return Ok(term.clone());
     };
-    let keep_plain = (e.decl.decreasing.borrow().as_ref()).is_some_and(|a| a.keep_plain.get());
     Ok(term.rewrite_up(g, &mut |node| {
         let (head, args) = spine_icit(node);
         if !matches!(head, Term::Def(id) if *id == elim) || args.len() != 5 {

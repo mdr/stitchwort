@@ -52,6 +52,11 @@ pub struct Options {
     /// the declaration of this full path is admitted and bound
     /// (`refuse_replays_after`).
     pub(crate) refuse_replays_after: Option<String>,
+    /// For tests: generating the plain form of `f.unfold` for the
+    /// `decreasing` definition with this name fails, as a compiler bug in
+    /// it would (`decreasing.rs`, `plain_view_or_not`).
+    #[doc(hidden)]
+    pub refuse_plain_view: Option<String>,
     /// For the rewind test: a project's driver checks each namespace, rewinds
     /// to just before it, and checks it again (`rewind.rs`).
     #[doc(hidden)]
@@ -114,6 +119,8 @@ impl Options {
             check_cache: _,
             fail_replays_late: _,
             refuse_replays_after: _,
+            // Names a test's own definition.
+            refuse_plain_view: _,
             // Drives the rewind test.
             recheck_namespaces: _,
             // Caches only save work.

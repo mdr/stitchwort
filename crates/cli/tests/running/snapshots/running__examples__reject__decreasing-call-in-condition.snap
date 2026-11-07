@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-DECREASING] Error: a recursive call in an `if`'s condition can't be used with `decreasing` yet
+   ╭─[ reject/decreasing-call-in-condition.sw:6:1 ]
+   │
+ 6 │ def climbBoth (n: Nat) (i: Nat): Nat
+   │ ──────────────────┬─────────────────  
+   │                   ╰─────────────────── while checking this
+   │ 
+   │ Note: give this definition a fuel argument for now
+───╯

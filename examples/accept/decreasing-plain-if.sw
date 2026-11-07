@@ -31,6 +31,16 @@ def gcd (a: Nat) (b: Nat): Nat
 theorem gcdUnfolds (a: Nat) (b: Nat): gcd a b = (if a % b < b then gcd b (a % b) else a) :=
   gcd.unfold a b
 
+-- A proposition decided other than by a comparison (`Nat.decEq`): `f.unfold`
+-- shows the plain `if` through `Decidable.elimIf`.
+def countDown (n: Nat): Nat
+    decreasing n
+:=
+  if n = 0 then 0 else 1 + countDown (n - 1)
+
+theorem countDownUnfolds (n: Nat): countDown n = (if n = 0 then 0 else 1 + countDown (n - 1)) :=
+  countDown.unfold n
+
 -- Under another `if`, in an argument, and after a `let`.
 def climb (bound: Nat) (i: Nat) (up: Bool): Nat
     decreasing bound - i
@@ -57,5 +67,6 @@ theorem sumWhileUnfolds (bound: Nat) (i: Nat) (x: Nat) (xs: List Nat):
 
 test "countUp" := countUp 10 3 == 10
 test "gcd" := gcd 84 36 == 12
+test "countDown" := countDown 5 == 5
 test "climb" := climb 4 0 True == 3
 test "sumWhile" := sumWhile 2 0 [1, 2, 3, 4] == 6

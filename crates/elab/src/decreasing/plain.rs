@@ -66,8 +66,10 @@ struct Lemmas {
     /// The standard decisions of comparisons, each `Bool.decTrue` of the
     /// comparison's `Bool` (`bind::comparison`).
     comparisons: Vec<DefId>,
-    elim_if: DefId,
-    true_if: DefId,
+    /// `Decidable.elimIf` and `Bool.elimDecTrueIf`, if loaded: without
+    /// one, no `if` it would prove is shown plainly.
+    elim_if: Option<DefId>,
+    true_if: Option<DefId>,
     elim_cong: DefId,
     if_cong: DefId,
     /// The twins made so far, by the lifted `match` they're of.
@@ -329,13 +331,12 @@ impl Rec {
 }
 
 impl Lemmas {
-    fn new(g: &Ev) -> Result<Lemmas> {
+    /// `None` if the core definitions aren't all loaded, as early in the
+    /// core: then nothing is shown plainly.
+    fn new(g: &Ev) -> Option<Lemmas> {
         let r = &g.env.registry();
-        let def = |b: Builtin| {
-            r.def(b)
-                .ok_or_else(|| internal_error(&format!("`{}` isn't loaded", b.name())))
-        };
-        Ok(Lemmas {
+        let def = |b: Builtin| r.def(b);
+        Some(Lemmas {
             elim: def(Builtin::ElimDec)?,
             ite: def(Builtin::IfThenElse)?,
             to_bool: def(Builtin::ToBool)?,
@@ -351,8 +352,8 @@ impl Lemmas {
             .into_iter()
             .filter_map(|b| r.loaded_def(b))
             .collect(),
-            elim_if: def(Builtin::ElimDecIf)?,
-            true_if: def(Builtin::ElimDecTrueIf)?,
+            elim_if: def(Builtin::ElimDecIf),
+            true_if: def(Builtin::ElimDecTrueIf),
             elim_cong: def(Builtin::ElimDecCong)?,
             if_cong: def(Builtin::IfCong)?,
             twins: HashMap::default(),
@@ -363,8 +364,19 @@ impl Lemmas {
         matches!(head, Term::Def(d) if *d == id)
     }
 
-    /// Which lemma shows that deciding with `d` is the plain `if` on `b`.
+    /// Which lemma shows that deciding with `d` is the plain `if` on `b`,
+    /// if it's loaded.
     fn kind(&self, b: &Term, d: &Term) -> Option<Kind> {
+        let kind = self.shape(b, d)?;
+        match kind {
+            Kind::ToBool => self.elim_if,
+            Kind::DecTrue => self.true_if,
+        }
+        .map(|_| kind)
+    }
+
+    /// [`Lemmas::kind`], loaded or not.
+    fn shape(&self, b: &Term, d: &Term) -> Option<Kind> {
         let (bh, bargs) = spine_owned(b);
         if self.is(&bh, self.to_bool)
             && let Some((d2, _)) = bargs.last()
@@ -409,7 +421,7 @@ impl Lemmas {
                 }
                 Some(t)
             };
-            return self.kind(&body(&bh)?, &body(&dh)?);
+            return self.shape(&body(&bh)?, &body(&dh)?);
         }
         None
     }
@@ -466,9 +478,15 @@ impl Lemmas {
                 other => this.mark(g, other, depth, false, false, count),
             }
         };
+        // Where the proof doesn't reach, every tag goes: a type argument, a
+        // decision or a tag itself, which `pre` and `post` would otherwise
+        // rewrite apart.
+        let strip = |this: &Lemmas, a: &(Term, Icit), count: &mut usize| -> Result<(Term, Icit)> {
+            Ok((this.mark(g, &a.0, depth, false, false, count)?, a.1))
+        };
         if self.is(&head, self.elim) && args.len() == 5 {
             let (decision, tag) = match untag(g, &args[2].0)? {
-                Some((b, d)) => (d, Some(b)),
+                Some((b, d)) => (d, Some(self.mark(g, &b, depth, false, false, count)?)),
                 None => (args[2].0.clone(), None),
             };
             let decision = self.mark(g, &decision, depth, false, false, count)?;
@@ -501,8 +519,8 @@ impl Lemmas {
             return Ok(apps(
                 head,
                 [
-                    args[0].clone(),
-                    args[1].clone(),
+                    strip(self, &args[0], count)?,
+                    strip(self, &args[1], count)?,
                     (decision, args[2].1),
                     (y, args[3].1),
                     (n, args[4].1),
@@ -516,7 +534,7 @@ impl Lemmas {
             return Ok(apps(
                 head,
                 [
-                    args[0].clone(),
+                    strip(self, &args[0], count)?,
                     (cond, args[1].1),
                     (t, args[2].1),
                     (e, args[3].1),
@@ -552,6 +570,11 @@ impl Lemmas {
                 Rc::new(self.mark(g, e, depth, allowed, false, count)?),
                 Rc::new(self.mark(g, ty, depth, false, false, count)?),
             )),
+            // A tag not on a whole `Decidable.elim`'s decision.
+            Term::Let(name, ..) if &**name == PLAIN => match untag(g, t)? {
+                Some((_, d)) => self.mark(g, &d, depth, false, false, count),
+                None => Ok(t.clone()),
+            },
             Term::Let(x, ty, v, b, e) => Ok(Term::Let(
                 x.clone(),
                 Rc::new(self.mark(g, ty, depth, false, false, count)?),
@@ -578,6 +601,34 @@ impl Lemmas {
             }
             _ => self.mark(g, t, depth, true, true, count),
         }
+    }
+
+    /// How many tags `t` has, if each is on a whole `Decidable.elim`'s
+    /// decision or around a twin's call, as [`Lemmas::mark`] leaves them and
+    /// `pre`, `post` and the proof expect; `usize::MAX` if one isn't.
+    fn kept(&self, t: &Term) -> usize {
+        let mut tags = 0;
+        let mut placed = 0;
+        for (node, _) in t.subterms() {
+            match node {
+                Term::Let(name, _, _, body, _) if &**name == TWIN => {
+                    tags += 1;
+                    placed += usize::from(self.twin_of(body).is_some());
+                }
+                Term::Let(name, ..) if &**name == PLAIN => tags += 1,
+                Term::App(..) => {
+                    let (head, args) = spine_owned(node);
+                    placed += usize::from(
+                        self.is(&head, self.elim)
+                            && args.len() == 5
+                            && matches!(args[2].0.strip_loc(),
+                                Term::Let(name, ..) if &**name == PLAIN),
+                    );
+                }
+                _ => {}
+            }
+        }
+        if tags == placed { tags } else { usize::MAX }
     }
 
     /// `t` as `f.%step` has it: every tag dropped.
@@ -782,7 +833,8 @@ impl Lemmas {
                 let lemma = match kind {
                     Kind::ToBool => self.elim_if,
                     Kind::DecTrue => self.true_if,
-                };
+                }
+                .ok_or_else(|| internal_error("a plain `if` whose lemma isn't loaded"))?;
                 return Ok(Some(apps(Term::Def(lemma), lemma_args)));
             }
             if !tagged(&args[3].0) && !tagged(&args[4].0) {
@@ -865,7 +917,9 @@ impl Elaborator {
     /// `f.%plain` and `f.%plain.%same` for `f.%step` (`step`), whose body
     /// with its plain `if`s still tagged is `tagged` (`None`: it has none),
     /// and the twins of the `match`es lifted from it (`helpers`), which are
-    /// pushed to `made`; `None` when nothing can be shown plainly.
+    /// pushed to `made`, with the spans of their `match`es to `lifted`, for
+    /// `tables.lifted` once all succeeded; `None` when nothing can be shown
+    /// plainly.
     pub(super) fn plain_view(
         &mut self,
         plan: &Plan,
@@ -873,14 +927,20 @@ impl Elaborator {
         tagged: Option<&Term>,
         helpers: &[DefId],
         made: &mut Vec<DefId>,
+        lifted: &mut Vec<(DefId, Span)>,
     ) -> Result<Option<PlainView>> {
         let g = &self.ev();
-        let mut l = Lemmas::new(g)?;
+        let Some(mut l) = Lemmas::new(g) else {
+            return Ok(None);
+        };
         for &h in helpers {
-            if let Some(twin) = self.twin(&l, h, helpers)? {
+            if let Some(twin) = self.twin(&l, h, helpers, lifted)? {
                 made.extend([twin.twin, twin.same]);
                 l.twins.insert(h, twin);
             }
+        }
+        if (self.options.refuse_plain_view.as_deref()) == Some(&*plan.name) {
+            return Err(internal_error("refused for a test (`refuse_plain_view`)"));
         }
         let g = &self.ev();
         let body = match tagged {
@@ -923,7 +983,13 @@ impl Elaborator {
     /// `%rec` and the twin differs from it: it drops a parameter, or calls
     /// a twin itself. `helpers`: all those lifted from the step (one that
     /// calls itself or one after it, in a group, gets none).
-    fn twin(&mut self, l: &Lemmas, h: DefId, helpers: &[DefId]) -> Result<Option<Twin>> {
+    fn twin(
+        &mut self,
+        l: &Lemmas,
+        h: DefId,
+        helpers: &[DefId],
+        lifted: &mut Vec<(DefId, Span)>,
+    ) -> Result<Option<Twin>> {
         let g = &self.ev();
         let def = g.def(h);
         let Some(body) = def.body().cloned() else {
@@ -954,15 +1020,15 @@ impl Elaborator {
             return Ok(None);
         };
         let name: Name = format!("{}.%plain", def.name()).into();
-        let lifted = (self.tables.lifted.iter())
+        let lifted_at = (self.tables.lifted.iter())
             .find(|(id, _)| *id == h)
             .map(|(_, span)| *span);
-        let span = lifted.unwrap_or(def.span());
+        let span = lifted_at.unwrap_or(def.span());
         let Some(made) = self.plain_def(l, &tel, &result, rec, h, &body, true, &name, span)? else {
             return Ok(None);
         };
-        if let Some(span) = lifted {
-            self.tables.lifted.push((made.twin, span));
+        if let Some(span) = lifted_at {
+            lifted.push((made.twin, span));
         }
         Ok(Some(made))
     }
@@ -1001,6 +1067,11 @@ impl Elaborator {
         let adapted = dead_lets(g, &rec.adapt(g, &tree, a)?)?;
         let mut count = 0;
         let marked = l.mark_tree(g, &adapted, a, &mut count)?;
+        if l.kept(&marked) != count {
+            return Err(internal_error(
+                "the plain `if`s marked aren't the ones counted",
+            ));
+        }
         let post = l.post(g, &marked)?;
         // `%rec` without its proof: `(y…) -> B`.
         let k = rec.arity();
