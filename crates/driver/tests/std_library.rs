@@ -1118,8 +1118,15 @@ fn the_core_alone_runs_every_example_that_uses_no_library_name() {
     let ran = ran_alone.iter().filter(|r| **r).count();
     let used_the_library = ran_alone.len() - ran;
     eprintln!("core alone ran {ran}; {used_the_library} use a library name");
-    let full = stitchwort_driver::driver::tier() == stitchwort_driver::driver::Tier::Full;
-    assert!(ran > if full { 50 } else { 10 });
+    // The sample shrinks with the tier (`tier_sample`): about 125 sources
+    // in full, a quarter in daily, a sixteenth in merge and lanes.
+    use stitchwort_driver::driver::{tier, Tier};
+    let enough = match tier() {
+        Tier::Full => 50,
+        Tier::Daily => 10,
+        Tier::Merge | Tier::Lane => 3,
+    };
+    assert!(ran > enough, "only {ran} examples ran on the core alone");
 }
 
 /// Every compiler path that names a declaration, in a session whose library
