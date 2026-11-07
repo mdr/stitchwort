@@ -61,18 +61,28 @@
       # executables.md, "Static Linux executables"): `stitchwort` and the
       # runtime library it links executables with, with musl's own C
       # compiler for mimalloc and as the linker.
+      #
+      # The linker is that compiler wrapper told to use mold. GNU ld takes
+      # 1.70 s to link the CLI after a one-file change; mold takes 0.27 s,
+      # which makes the whole rebuild 2.26 s into 0.83 s (SW-2105, measured
+      # on x86_64 NixOS). `-B` points gcc at mold's `ld.mold`, which
+      # `-fuse-ld=mold` then selects; the wrapper passes both through. Not
+      # wild: it segfaults on this workspace.
       muslEnv =
         pkgs:
         let
           target = muslTarget pkgs;
           variable = builtins.replaceStrings [ "-" ] [ "_" ] target;
           cc = pkgs.pkgsStatic.stdenv.cc;
+          moldLinker = pkgs.writeShellScript "musl-cc-mold" ''
+            exec ${cc}/bin/${cc.targetPrefix}cc -B${pkgs.mold}/bin -fuse-ld=mold "$@"
+          '';
         in
         {
           CARGO_BUILD_TARGET = target;
           "CC_${variable}" = "${cc}/bin/${cc.targetPrefix}cc";
           "AR_${variable}" = "${cc}/bin/${cc.targetPrefix}ar";
-          "CARGO_TARGET_${nixpkgs.lib.toUpper variable}_LINKER" = "${cc}/bin/${cc.targetPrefix}cc";
+          "CARGO_TARGET_${nixpkgs.lib.toUpper variable}_LINKER" = "${moldLinker}";
         };
 
       # Builds and checks for the Rust workspace
