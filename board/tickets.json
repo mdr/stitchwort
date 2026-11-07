@@ -1,5 +1,5 @@
 {
-  "next": 2235,
+  "next": 2236,
   "tickets": [
     {
       "id": 47,
@@ -20688,7 +20688,7 @@
         "core"
       ],
       "epic": "record-eta",
-      "body": "From SW-2127. Rejects true proofs, never accepts false ones; still a D3030 bug. Possibly related to SW-2157 (numeric comparison misses folded call bases). Opus review after. 75 min.\n\n7 Nov, lane (lane/SW-2211, 3ba6189de, 23 min): cause not in `J`: a glued call against a number went to `native::compare_lazily`, which forced it to a folded `decreasing` call and kept that as a stuck base; unglued, the folded call is the whole side and conv's folded-call rule unfolds it. Also hit by `withProof (outerN 0)` (no `J`). Fix: `conv_step` forces a glued call met against a number and compares again from the top (compare_lazily forced it first anyway). Matrix gains withProof, jOuter, jRefl (failed before, pass now). docs/core.md conversion rule updated (D3210). Tests: proof_equivalence/call_fields/eta_fields 12 pass; test:lane core 179, elab 158 pass; AoC check --no-cache 287 namespaces, 0 errors, 73 s; rogue 3 namespaces, 0 errors, 12 s. No term changes, so no snap:hashes. SW-2157 is the general case (folded bases under `Succ`), not fixed here.\n\nMerged. On main: proof_equivalence, call_fields, eta_fields, hash_stability pass. Review SW-2234. Model result: Opus, worked, 23 min (est. 75). (The lane's own board note was committed with an orchestrator board commit.)",
+      "body": "From SW-2127. Rejects true proofs, never accepts false ones; still a D3030 bug. Possibly related to SW-2157 (numeric comparison misses folded call bases). Opus review after. 75 min.\n\n7 Nov, lane (lane/SW-2211, 3ba6189de, 23 min): cause not in `J`: a glued call against a number went to `native::compare_lazily`, which forced it to a folded `decreasing` call and kept that as a stuck base; unglued, the folded call is the whole side and conv's folded-call rule unfolds it. Also hit by `withProof (outerN 0)` (no `J`). Fix: `conv_step` forces a glued call met against a number and compares again from the top (compare_lazily forced it first anyway). Matrix gains withProof, jOuter, jRefl (failed before, pass now). docs/core.md conversion rule updated (D3210). Tests: proof_equivalence/call_fields/eta_fields 12 pass; test:lane core 179, elab 158 pass; AoC check --no-cache 287 namespaces, 0 errors, 73 s; rogue 3 namespaces, 0 errors, 12 s. No term changes, so no snap:hashes. SW-2157 is the general case (folded bases under `Succ`), not fixed here.\n\nMerged. On main: proof_equivalence, call_fields, eta_fields, hash_stability pass. Review SW-2234. Model result: Opus, worked, 23 min (est. 75). (The lane's own board note was committed with an orchestrator board commit.)\n\nReview SW-2234: sound, two low findings (SW-2235).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21026,14 +21026,29 @@
     {
       "id": 2234,
       "title": "[Opus] Review SW-2211 (conv_step forces a glued call met against a number; changes what kernel conversion accepts, D2364): soundness, budget, no loop, the unifier left alone, docs/core.md's clause",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2234",
       "labels": [
         "review"
       ],
       "epic": "record-eta",
-      "body": "Read-only Opus review, docs/reviews/SW-N-glued-call-against-number.md. 30 min.",
+      "body": "Read-only Opus review, docs/reviews/SW-N-glued-call-against-number.md. 30 min.\n\nDone, merged: docs/reviews/SW-2234-glued-call-against-number.md. Sound: everything newly accepted is definitional and matches unglued/reference; budget holds; unifier correctly untouched; core.md clause accurate. F1, F2 low -> SW-2235. F3 is SW-2157.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2235,
+      "title": "[Sonnet] SW-2234 F1/F2: reword value.rs:3255's 'this happens once a side' (it can fire twice: wrap 0 against 0, def wrap (x) := outerV x); add to proof_equivalence's matrix a non-decreasing definition returning a field of a call (valueOf x := (countDown x).value) and a decreasing definition whose leaf is that call",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "record-eta",
+      "body": "From docs/reviews/SW-2234-glued-call-against-number.md. After SW-2157 merges (same files). 30 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
