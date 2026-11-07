@@ -1,5 +1,5 @@
 {
-  "next": 1919,
+  "next": 1924,
   "tickets": [
     {
       "id": 47,
@@ -15757,14 +15757,14 @@
     {
       "id": 1882,
       "title": "[Opus] Code review: crates/driver (sessions, mark and rewind, projects, check cache, test std cache, navigation probes; 16.4k lines)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1882",
       "labels": [
         "review"
       ],
       "epic": "test-infra",
-      "body": "Matt (7 Nov 2026): crate-by-crate code reviews, reading only. Expected: 60 min.",
+      "body": "Matt (7 Nov 2026): crate-by-crate code reviews, reading only. Expected: 60 min.\n\nDone, merged: docs/reviews/code-review-driver.md. No cache hit can give what current code and sources wouldn't; rewind complete (table); the 1 Nov fingerprint finding fixed; no reachable panic. 0 high, 2 medium, 11 low. Tickets SW-1919 SW-1920 SW-1921 SW-1922 SW-1923; later: one shared project setup path for CLI and editor, measure eviction thrash on AoC. D2680 keep cache entries shared across dev/release builds [rec: yes, documented]. 15 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -16306,6 +16306,81 @@
       ],
       "epic": "syntax-language",
       "body": "From docs/reviews/code-review-syntax-opus.md (lane 7). 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1919,
+      "title": "[Sonnet] Check cache key fixes: a session with a custom prelude keys on the standard prelude's text (replay isn't rechecked: wrong results possible); a missing file in the evaluation fingerprint hashes as empty instead of failing the build; temp-file names can collide between threads",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "driver"
+      ],
+      "epic": "test-infra",
+      "body": "From docs/reviews/code-review-driver.md (lane A). M1, L3, L4. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1920,
+      "title": "[DeepSeek] A source subfolder that can't be listed is skipped silently (check passes without its files); a source 'folder' that is a file is reported as missing",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "driver"
+      ],
+      "epic": "diagnostics",
+      "body": "From docs/reviews/code-review-driver.md (lane B). M2. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1921,
+      "title": "[Sonnet] Test std cache: the 'cache is full' marker survives a std-only edit, so every test process rechecks the edited files at once; include the library's keys in the marker; its first tests",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "driver"
+      ],
+      "epic": "test-infra",
+      "body": "From docs/reviews/code-review-driver.md (lane C). L2. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1922,
+      "title": "[Sonnet] Editor freshness and panic safety: stale doc-link warnings on namespaces not rechecked, the single-file check takes warnings from before its mark, a panic in a check leaves cancel-watching on",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "driver"
+      ],
+      "epic": "editor-playground",
+      "body": "From docs/reviews/code-review-driver.md (lane D). L5-L7. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1923,
+      "title": "[DeepSeek] Driver tidy-ups: quadratic namespace-graph helpers; name Session::start's three booleans",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "driver"
+      ],
+      "epic": "test-infra",
+      "body": "From docs/reviews/code-review-driver.md (lane E). 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
