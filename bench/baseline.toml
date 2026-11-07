@@ -3,6 +3,9 @@
 # steps, visits, allocations and peak_bytes are deterministic: the same on
 # every run.
 # time_ms is the median wall time on the machine that recorded it.
+# run-machine-* run the runtime's machine, not the checker: their steps and
+# visits are 0, and machine_instructions is the machine's bytecode
+# instructions. Frames entered aren't exposed by the machine yet.
 
 [examples]
 inputs = "1498 files, c270566bf128d0e4"
@@ -201,3 +204,71 @@ visits = 204606
 allocations = 1192808
 peak_bytes = 3227250
 time_ms = 112.4
+
+[run-machine-calls]
+steps = 0
+visits = 0
+allocations = 247
+peak_bytes = 10056
+machine_instructions = 30200013
+time_ms = 457.9
+
+[run-machine-loop]
+steps = 0
+visits = 0
+allocations = 205
+peak_bytes = 3792
+machine_instructions = 20000013
+time_ms = 187.6
+
+[run-machine-closures]
+steps = 0
+visits = 0
+allocations = 201376
+peak_bytes = 12816292
+machine_instructions = 14400082
+time_ms = 163.7
+
+[run-machine-set]
+steps = 0
+visits = 0
+allocations = 1719446
+peak_bytes = 20069828
+machine_instructions = 80801244
+time_ms = 1245.2
+
+[run-machine-aoc-2020-19]
+inputs = "1 files, e22769a308077306"
+steps = 0
+visits = 0
+allocations = 10842796
+peak_bytes = 2799396
+machine_instructions = 132922314
+time_ms = 1834.0
+
+[run-machine-aoc-2021-11]
+inputs = "1 files, f807e66043e9dc65"
+steps = 0
+visits = 0
+allocations = 29600116
+peak_bytes = 346412
+machine_instructions = 567158236
+time_ms = 6899.9
+
+[run-machine-aoc-2024-09]
+inputs = "1 files, 4f431c207ca7ae79"
+steps = 0
+visits = 0
+allocations = 5822157
+peak_bytes = 23034472
+machine_instructions = 34140507
+time_ms = 549.6
+
+[run-machine-aoc-2021-15-part1]
+inputs = "1 files, c414923c87542324"
+steps = 0
+visits = 0
+allocations = 4381811
+peak_bytes = 5077268
+machine_instructions = 78741287
+time_ms = 936.0

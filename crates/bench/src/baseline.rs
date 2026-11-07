@@ -10,8 +10,12 @@
 //! visits = 234567
 //! allocations = 2345678
 //! peak_bytes = 3456789
+//! machine_instructions = 4567890
 //! time_ms = 950.2
 //! ```
+//!
+//! `machine_instructions` is only for the benchmarks that run the runtime's
+//! machine, and is left out (read as 0) for the others.
 
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
@@ -44,6 +48,9 @@ const HEADER: &str = "\
 # steps, visits, allocations and peak_bytes are deterministic: the same on
 # every run.
 # time_ms is the median wall time on the machine that recorded it.
+# run-machine-* run the runtime's machine, not the checker: their steps and
+# visits are 0, and machine_instructions is the machine's bytecode
+# instructions. Frames entered aren't exposed by the machine yet.
 ";
 
 impl Baseline {
@@ -70,6 +77,13 @@ impl Baseline {
             let _ = writeln!(out, "visits = {}", r.counts.visits);
             let _ = writeln!(out, "allocations = {}", r.counts.allocations);
             let _ = writeln!(out, "peak_bytes = {}", r.counts.peak_bytes);
+            if r.counts.machine_instructions != 0 {
+                let _ = writeln!(
+                    out,
+                    "machine_instructions = {}",
+                    r.counts.machine_instructions
+                );
+            }
             if let Some(ms) = r.time_ms {
                 let _ = writeln!(out, "time_ms = {ms:.1}");
             }
@@ -111,6 +125,7 @@ impl Baseline {
                 "visits" => fields.visits = Some(int()?),
                 "allocations" => fields.allocations = Some(int()?),
                 "peak_bytes" => fields.peak_bytes = Some(int()?),
+                "machine_instructions" => fields.machine_instructions = Some(int()?),
                 "time_ms" => {
                     let ms = value
                         .parse::<f64>()
@@ -143,6 +158,7 @@ struct Fields {
     visits: Option<u64>,
     allocations: Option<u64>,
     peak_bytes: Option<u64>,
+    machine_instructions: Option<u64>,
     time_ms: Option<f64>,
 }
 
@@ -155,6 +171,7 @@ impl Fields {
                 visits: self.visits.ok_or_else(|| missing("visits"))?,
                 allocations: self.allocations.ok_or_else(|| missing("allocations"))?,
                 peak_bytes: self.peak_bytes.ok_or_else(|| missing("peak_bytes"))?,
+                machine_instructions: self.machine_instructions.unwrap_or(0),
             },
             inputs: self.inputs,
             time_ms: self.time_ms,
@@ -226,17 +243,18 @@ fn percent(change: f64) -> String {
 }
 
 /// The counts, as (name in the file and table, value, whether it's bytes).
-fn counts(c: &Counts) -> [(&'static str, u64, bool); 4] {
+fn counts(c: &Counts) -> [(&'static str, u64, bool); 5] {
     [
         ("steps", c.steps, false),
         ("visits", c.visits, false),
         ("allocations", c.allocations, false),
         ("peak heap", c.peak_bytes, true),
+        ("machine instructions", c.machine_instructions, false),
     ]
 }
 
 /// Columns: a value and its change.
-const WIDTHS: [usize; 5] = [14, 13, 12, 9, 8];
+const WIDTHS: [usize; 6] = [14, 13, 12, 9, 14, 8];
 
 /// Compares `results` (by benchmark name, in suite order) with `baseline`.
 /// Measures are compared only for the same inputs, and times only if both
@@ -246,9 +264,16 @@ pub fn compare(baseline: &Baseline, results: &[(&str, &Record)], partial: bool) 
     let mut c = Comparison::default();
     let width = results.iter().map(|(n, _)| n.len()).max().unwrap_or(0);
     let mut header = format!("{:width$}", "");
-    for (label, w) in ["steps", "visits", "allocations", "peak heap", "time"]
-        .into_iter()
-        .zip(WIDTHS)
+    for (label, w) in [
+        "steps",
+        "visits",
+        "allocations",
+        "peak heap",
+        "machine instrs",
+        "time",
+    ]
+    .into_iter()
+    .zip(WIDTHS)
     {
         let _ = write!(header, "  {label:>w$} {:7}", "");
     }
@@ -273,11 +298,17 @@ pub fn compare(baseline: &Baseline, results: &[(&str, &Record)], partial: bool) 
             let b = before.map(|b| b[i].1);
             let delta = b.map(|b| change(n as f64, b as f64));
             let w = WIDTHS[i];
+            // The machine's column is empty for benchmarks that don't run it.
+            let blank = what == "machine instructions" && n == 0 && b.unwrap_or(0) == 0;
             let _ = write!(
                 row,
                 "  {:>w$} {:>7}",
-                show(n),
-                delta.map_or(String::new(), percent)
+                if blank { String::new() } else { show(n) },
+                if blank {
+                    String::new()
+                } else {
+                    delta.map_or(String::new(), percent)
+                }
             );
             let Some((b, delta)) = b.zip(delta) else {
                 continue;
@@ -302,7 +333,7 @@ pub fn compare(baseline: &Baseline, results: &[(&str, &Record)], partial: bool) 
         if let Some(ms) = now.time_ms {
             let b = comparable.and_then(|b| b.time_ms);
             let delta = b.map(|b| change(ms, b));
-            let w = WIDTHS[4];
+            let w = WIDTHS[5];
             let _ = write!(
                 row,
                 "  {:>w$} {:>7}",
@@ -343,6 +374,7 @@ mod tests {
                 visits: 500,
                 allocations,
                 peak_bytes,
+                machine_instructions: 0,
             },
             inputs: None,
             time_ms,

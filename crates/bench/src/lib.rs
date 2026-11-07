@@ -10,6 +10,13 @@
 //!   is, and a change in them is a change in the compiler. They don't see
 //!   everything: a loop that neither evaluates, recurses through a guarded
 //!   pass nor allocates costs time without changing them.
+//!
+//!   The `run-machine-*` benchmarks run the runtime's machine
+//!   (`stitchwort-rt`), not the checker: their `steps` and `visits` are 0,
+//!   and they record the machine's bytecode instructions instead
+//!   (`machine instructions`, `machine_instructions` in the baseline).
+//!   The older `run-` benchmarks run the reference evaluator, and their
+//!   `steps` are the checker's budget counter.
 //! - **Time**, the median of several runs. It's what matters in the end, but
 //!   other builds on the same machine make it noisy, so its threshold is
 //!   loose and it's never checked automatically.
@@ -87,6 +94,10 @@ impl Parts {
 pub struct Work {
     pub steps: u64,
     pub visits: u64,
+    /// Bytecode instructions the runtime's machine executed
+    /// (`stitchwort_rt::machine::instructions_executed`): the `run-machine-*`
+    /// benchmarks only, and 0 for the rest. Not the checker's `steps`.
+    pub machine_instructions: u64,
 }
 
 impl std::ops::Add for Work {
@@ -95,6 +106,7 @@ impl std::ops::Add for Work {
         Work {
             steps: self.steps + other.steps,
             visits: self.visits + other.visits,
+            machine_instructions: self.machine_instructions + other.machine_instructions,
         }
     }
 }
@@ -105,6 +117,7 @@ impl std::ops::Sub for Work {
         Work {
             steps: self.steps - other.steps,
             visits: self.visits - other.visits,
+            machine_instructions: self.machine_instructions - other.machine_instructions,
         }
     }
 }
@@ -128,15 +141,19 @@ pub struct Counts {
     pub visits: u64,
     pub allocations: u64,
     pub peak_bytes: u64,
+    /// The runtime machine's bytecode instructions ([`Work`]); 0 unless the
+    /// benchmark runs the machine.
+    pub machine_instructions: u64,
 }
 
 impl Counts {
-    fn named(&self) -> [(&'static str, u64); 4] {
+    fn named(&self) -> [(&'static str, u64); 5] {
         [
             ("steps", self.steps),
             ("visits", self.visits),
             ("allocations", self.allocations),
             ("peak bytes", self.peak_bytes),
+            ("machine instructions", self.machine_instructions),
         ]
     }
 }
@@ -154,6 +171,7 @@ impl Counts {
             && near(self.visits, other.visits)
             && near(self.allocations, other.allocations)
             && near(self.peak_bytes, other.peak_bytes)
+            && near(self.machine_instructions, other.machine_instructions)
     }
 }
 
@@ -213,6 +231,7 @@ pub fn measure(benchmark: &Benchmark) -> Result<Measurement, String> {
                 visits: work.visits,
                 allocations,
                 peak_bytes,
+                machine_instructions: work.machine_instructions,
             },
             inputs: prepared.inputs,
             time,
