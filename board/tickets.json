@@ -1,5 +1,5 @@
 {
-  "next": 2166,
+  "next": 2167,
   "tickets": [
     {
       "id": 47,
@@ -19451,14 +19451,14 @@
     {
       "id": 2129,
       "title": "[Sonnet] Interpreter speed stage 0a: runtime benchmarks run-machine-calls/-loop/-closures/-set plus AoC 2020 day 19, 2021 day 11, 2024 day 9 (bytecode instructions, frames, allocations, time); check whether 2021 day 15 part 1 can be one",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2129",
       "labels": [
         "rt"
       ],
       "epic": "performance",
-      "body": "From docs/proposals/interpreter-speed.md. 60 min.",
+      "body": "From docs/proposals/interpreter-speed.md. 60 min.\n\nDone, merged. Eight run-machine-* benchmarks with a machine-instructions column (counts deterministic; times from a loaded M1 Pro, re-record quiet). 2021 day 15 part 1 works as a benchmark (656, 0.94 s, 78.7M instrs); day 11 kept too (6.9 s, 567M). Frames entered not exposed: stage 0b. bench tests 14/15: the failure is SW-2166 (older checker benchmarks, not this lane). Model result: Sonnet, worked, 15 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19999,6 +19999,21 @@
       ],
       "epic": "proof-automation",
       "body": "From docs/reviews/SW-2145-decreasing-plain-if.md. Absorbs SW-2146 (the hash snapshot already lists f.eq.*/f.induct). After SW-2164. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2166,
+      "title": "[Sonnet] Bench: check-number-table and check-number-wide checker steps are up ~19% against bench/baseline.toml (baseline::counts_have_not_regressed fails); find the merge that raised them (suspects: SW-2029 decreasing plain if, SW-2096, SW-2126), and either fix a real regression or re-record with the reason",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2166",
+      "labels": [
+        "bench"
+      ],
+      "epic": "performance",
+      "body": "From SW-2129, whose base was 75c41e620..eff1911ed. 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
