@@ -1,5 +1,5 @@
 {
-  "next": 2047,
+  "next": 2056,
   "tickets": [
     {
       "id": 47,
@@ -3868,9 +3868,9 @@
         "tests"
       ],
       "epic": "test-infra",
-      "body": "From SW-1104 (closed, backlog review 4 Nov 2026; merged 7f44deed8, lane 04f66ce47). Leftovers:\n- D2231 item 3: sampling of the heavy sweeps (search_at_aoc, rewind /4-/8, erasure stride 4, cli examples stride 2-4, every_day_from_the_whole_projects_cache, web every_aoc_day, operators lowering; ~1500 CPU-s, costs coverage) was decided after the other items; still open.\n- Item 4: Session::eager_for_stack costs ~9.0 CPU-s per load; 136 tests ~1,220 CPU-s (13% of daily CPU). Sharing per binary does not work under nextest (process per test); options are an on-disk snapshot of the loaded library or fewer test processes.\n- Item 6: restate the budget for the 10-core M1 Pro (SW-1104 measured 20.7 min on 2 Nov before the fixes).\n- The orchestrator should run one daily tier after SW-1104's merge to measure (needs Matt's agreement on the number); docs/testing.md's daily memory row is out of date until then.\n- Also noted: the merge-tier selector estimate assumes sweeps never overlap (now conservative); web:pkg sources omit aoc/src/**/*.sw, games/rogue/src, web/*.sh.\n\nBoard audit (5 Nov 2026): the web:pkg sources sentence was fixed by SW-1108.",
+      "body": "From SW-1104 (closed, backlog review 4 Nov 2026; merged 7f44deed8, lane 04f66ce47). Leftovers:\n- D2231 item 3: sampling of the heavy sweeps (search_at_aoc, rewind /4-/8, erasure stride 4, cli examples stride 2-4, every_day_from_the_whole_projects_cache, web every_aoc_day, operators lowering; ~1500 CPU-s, costs coverage) was decided after the other items; still open.\n- Item 4: Session::eager_for_stack costs ~9.0 CPU-s per load; 136 tests ~1,220 CPU-s (13% of daily CPU). Sharing per binary does not work under nextest (process per test); options are an on-disk snapshot of the loaded library or fewer test processes.\n- Item 6: restate the budget for the 10-core M1 Pro (SW-1104 measured 20.7 min on 2 Nov before the fixes).\n- The orchestrator should run one daily tier after SW-1104's merge to measure (needs Matt's agreement on the number); docs/testing.md's daily memory row is out of date until then.\n- Also noted: the merge-tier selector estimate assumes sweeps never overlap (now conservative); web:pkg sources omit aoc/src/**/*.sw, games/rogue/src, web/*.sh.\n\nBoard audit (5 Nov 2026): the web:pkg sources sentence was fixed by SW-1108.\n\nFrom docs/reviews/code-review-tests.md (T1): 6 Nov daily 1,462 s; corpus sweeps ~16 min at two at a time; four tests check whole AoC from cold (417, 290, 195, 160 s). D2910: restate the budget from a quiet measured run after the cuts [rec: yes].",
       "created": "2026-11-02",
-      "updated": "2026-11-05",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -14578,7 +14578,7 @@
         "bug"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-1801. Waiting on Matt's D2577-D2580 (rec: yes to all). Expected: 90 min.\n\nMatt's decisions (docs/proposals/syntax-node-ids.md §7): D2577 a copy gets a new id [rec: yes]; D2578 ids only on dot-call syntax for now [rec: yes]; D2579 drop dot_owners and spans/epoch from the key in the same stage [rec: yes]; D2580 run it on Opus [rec: yes].\n\nFrom the syntax review (docs/reviews/code-review-syntax.md): Expr::Field can carry an id cheaply. A derived Clone would copy it, so the id needs its own type whose Clone takes a fresh number (D2577: copies get new ids); its Debug prints _ under the span-hiding flag so equivalence::shape still matches; use u64 (u32 can wrap in a long server session).\n\nFrom docs/reviews/code-review-elab-checking.md (F8): a cached dot-call head is reused stale across attempts; fold into this work. See also SW-1902.\n\nFrom docs/reviews/code-review-cli-lsp-web-fmt.md (lane F): the bench's step counts change with which thread runs an example; that's this work (SW-1797, SW-1800, SW-1801), not a new ticket.",
+      "body": "From SW-1801. Waiting on Matt's D2577-D2580 (rec: yes to all). Expected: 90 min.\n\nMatt's decisions (docs/proposals/syntax-node-ids.md §7): D2577 a copy gets a new id [rec: yes]; D2578 ids only on dot-call syntax for now [rec: yes]; D2579 drop dot_owners and spans/epoch from the key in the same stage [rec: yes]; D2580 run it on Opus [rec: yes].\n\nFrom the syntax review (docs/reviews/code-review-syntax.md): Expr::Field can carry an id cheaply. A derived Clone would copy it, so the id needs its own type whose Clone takes a fresh number (D2577: copies get new ids); its Debug prints _ under the span-hiding flag so equivalence::shape still matches; use u64 (u32 can wrap in a long server session).\n\nFrom docs/reviews/code-review-elab-checking.md (F8): a cached dot-call head is reused stale across attempts; fold into this work. See also SW-1902.\n\nFrom docs/reviews/code-review-cli-lsp-web-fmt.md (lane F): the bench's step counts change with which thread runs an example; that's this work (SW-1797, SW-1800, SW-1801), not a new ticket.\n\nFrom docs/reviews/code-review-tests.md: un-ignore a_postponed_dot_call_takes_the_same_steps_every_time in daily once this makes it pass every time.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -16079,7 +16079,7 @@
         "elab"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/code-review-elab-checking.md (tickets to file, 3; F3). D2651 [rec: yes]. 30-45 min.",
+      "body": "From docs/reviews/code-review-elab-checking.md (tickets to file, 3; F3). D2651 [rec: yes]. 30-45 min.\n\nFrom docs/reviews/code-review-tests.md (T13): correction: the daily tier runs builtins:: in the debug profile, so queue.rs's checks run once a day, but only on std. Fix still worth doing.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -16755,7 +16755,7 @@
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From docs/reviews/code-review-cli-lsp-web-fmt.md (lane A). D2730 [rec: recover; exit if recovery panics]. With SW-1820. 60 min.\n\nFrom docs/proposals/lsp-failure-policy.md: stage 3: recover on a fresh thread rebuilt from a handover record (open texts and versions, focus, last published); quarantine a project that panics twice with no edit; 5 restarts in 3 minutes then stop and say so. D2740 replaces D2730 [rec: recover in-process]; D2741, D2742. Sonnet (Opus if it stalls), 90 min, after SW-1820.",
+      "body": "From docs/reviews/code-review-cli-lsp-web-fmt.md (lane A). D2730 [rec: recover; exit if recovery panics]. With SW-1820. 60 min.\n\nFrom docs/proposals/lsp-failure-policy.md: stage 3: recover on a fresh thread rebuilt from a handover record (open texts and versions, focus, last published); quarantine a project that panics twice with no edit; 5 restarts in 3 minutes then stop and say so. D2740 replaces D2730 [rec: recover in-process]; D2741, D2742. Sonnet (Opus if it stalls), 90 min, after SW-1820.\n\nFrom docs/reviews/code-review-tests.md: add a hook that panics the checker on a marked file, so the fix is tested.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -16935,7 +16935,7 @@
         "test-infra"
       ],
       "epic": "dev-loop-speed",
-      "body": "From docs/proposals/kernel-merge-gate.md. Ticket 3. 30 min.",
+      "body": "From docs/proposals/kernel-merge-gate.md. Ticket 3. 30 min.\n\nFrom docs/reviews/code-review-tests.md (T4): widen to daily and full, from their junit times.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -16973,14 +16973,14 @@
     {
       "id": 1963,
       "title": "[Sonnet] Merge tier's AoC days check answers, not proofs (aoc_answers uses run …main); have them check the day's Proofs too, and see if AoC 2024 days 11-24 can get answers tests",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "test-infra"
       ],
       "epic": "dev-loop-speed",
-      "body": "From docs/proposals/kernel-merge-gate.md. Findings. 45 min.",
+      "body": "From docs/proposals/kernel-merge-gate.md. Findings. 45 min.\n\nSuperseded by SW-2051.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17010,7 +17010,7 @@
         "robustness"
       ],
       "epic": "test-infra",
-      "body": "From docs/proposals/deep-input.md. Stage 1. Absorbs SW-1875's deep generators. D2754 tier [rec: subset in merge tier under 5 s, full daily]. 75 min.",
+      "body": "From docs/proposals/deep-input.md. Stage 1. Absorbs SW-1875's deep generators. D2754 tier [rec: subset in merge tier under 5 s, full daily]. 75 min.\n\nFrom docs/reviews/code-review-tests.md: one test per shape and consumer (nextest isolates each pair, the selector sees them), not child processes in one test; include a \"\"\"/${…} shape (SW-1916).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -18032,14 +18032,14 @@
     {
       "id": 2036,
       "title": "[Opus] Review of the test suites: what each tier and area actually checks, overlap, gaps against the risks today's reviews found, slow tests that check little, flaky or clock-dependent tests",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2036",
       "labels": [
         "review"
       ],
       "epic": "test-infra",
-      "body": "Matt (7 Nov 2026): parallel review work. Expected: 75 min.",
+      "body": "Matt (7 Nov 2026): parallel review work. Expected: 75 min.\n\nDone, merged: docs/reviews/code-review-tests.md. 0 high, 9 medium, 8 low. Neither high finding today and most mediums would be caught by no test. D2910-D2913. Tickets SW-2047-SW-2055 (lane 2 is SW-1960); notes on SW-1903, SW-1948, SW-1965, SW-1803, SW-1095; SW-1963 superseded. 15 min (est. 75).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -18180,6 +18180,141 @@
         "backends"
       ],
       "body": "From SW-1997. Not reachable today.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2047,
+      "title": "[DeepSeek] Small tier fixes: tier() cross-checks NEXTEST_PROFILE; the log's stage column; the orphaned-snapshot script in test:daily; narrow the doctests",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "test-infra",
+      "body": "From docs/reviews/code-review-tests.md (§9 lane 1). 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2048,
+      "title": "[Sonnet] Daily overlaps: the web and LSP whole-AoC tests take a sample outside full (~550 test-s; longest test 417 s → <200 s), run_js input and doc split, hash_stability::projects out of merge",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "test-infra",
+      "body": "From docs/reviews/code-review-tests.md (§9 lane 3). After D2910. Needs Matt's OK to run the changed daily tests by name (D2913). 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2049,
+      "title": "[Sonnet] Deterministic search tests: a test-only candidate budget for search_at_aoc and search_at_bench (today an 80%/30% hit rate under a 10 s deadline, under load); the LSP cancel test on a blocking check cache instead of a sleep",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "test-infra",
+      "body": "From docs/reviews/code-review-tests.md (§9 lane 4). D2913. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2050,
+      "title": "[Sonnet] Reproducible sweep workers: fixed stripes per worker in par_map_with_at_most, and a failure report naming the worker's items (a rewind leak today fails a different example each run)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "test-infra",
+      "body": "From docs/reviews/code-review-tests.md (§9 lane 5). 40 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2051,
+      "title": "[Sonnet] AoC answers tests check proofs too, with a shared library cache (57 tests re-check std from source: 603 test-s in daily); measure AoC's own tests on a warm cache for daily",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "test-infra",
+      "body": "From docs/reviews/code-review-tests.md (§9 lane 6). After SW-1915 and D2912. Supersedes SW-1963. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2052,
+      "title": "[Sonnet] Test the timed counterexample search users get (.cargo/config.toml turns the timer off for every test)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "test-infra",
+      "body": "From docs/reviews/code-review-tests.md (§9 lane 7). 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2053,
+      "title": "[Sonnet] Growth tests instead of wall-clock bounds: no_effect's 20 levels, let_term's and resources' nested lets as step growth, bounds kept as a backstop",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "test-infra",
+      "body": "From docs/reviews/code-review-tests.md (§9 lane 8). Pairs with SW-1959. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2054,
+      "title": "[Sonnet] Measure, then fix, rewind::repeated_edits_…",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "test-infra",
+      "body": "From docs/reviews/code-review-tests.md (§9 lane 9). 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2055,
+      "title": "[Sonnet] Hash sweeps against the snapshots, after measuring the share of accept/extract",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "test-infra",
+      "body": "From docs/reviews/code-review-tests.md (§9 lane 10). 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
