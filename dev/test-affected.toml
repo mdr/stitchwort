@@ -64,7 +64,7 @@ why = "the kernel, the parser and one AoC day end to end: an unsound result or a
 select = [
   { package = "core" },
   { package = "syntax" },
-  { binary = "aoc_answers", test = "^year2024_day04$" },
+  { package = "cli", binary = "running", test = "^aoc_answers::year2024_day04$" },
 ]
 
 # ---------------------------------------------------------------- library
@@ -89,8 +89,8 @@ paths = ["crates/elab/src/std/**", "std/**"]
 sample = true
 why = "the accepted and rejected examples use the library"
 select = [
-  { package = "cli", binary = "examples", test = "^(accepted|rejected)_examples_" },
-  { package = "cli", binary = "fmt", test = "^the_repository_sources_are_formatted$" },
+  { package = "cli", binary = "running", test = "^examples::(accepted|rejected)_examples_" },
+  { package = "cli", binary = "tools", test = "^fmt::the_repository_sources_are_formatted$" },
 ]
 
 [[rule]]
@@ -109,7 +109,7 @@ rank = 2
 paths = ["**/*.sw"]
 why = "every .sw file must be formatted"
 select = [
-  { package = "cli", binary = "fmt", test = "^the_repository_sources_are_formatted$" },
+  { package = "cli", binary = "tools", test = "^fmt::the_repository_sources_are_formatted$" },
 ]
 
 # ---------------------------------------------------------------- elaborator
@@ -137,7 +137,7 @@ select = [
   { package = "elab", lib = true },
   { package = "driver", binary = "number_patterns" },
   { package = "driver", binary = "int_patterns" },
-  { package = "cli", binary = "redundant_arms" },
+  { package = "cli", binary = "tools", test = "^redundant_arms::" },
 ]
 
 [[rule]]
@@ -162,7 +162,7 @@ select = [
   { package = "elab", lib = true },
   { package = "driver", binary = "function_equations" },
   { package = "driver", binary = "function_induct" },
-  { package = "cli", binary = "doc_equations" },
+  { package = "cli", binary = "tools", test = "^doc_equations::" },
 ]
 
 [[rule]]
@@ -182,7 +182,7 @@ rank = 1
 paths = ["crates/elab/src/auto*.rs", "crates/elab/src/data_auto.rs", "crates/elab/src/membership.rs"]
 why = "auto must prove membership in a long list in a chain of cheap steps"
 select = [
-  { package = "cli", binary = "auto_membership_speed" },
+  { package = "cli", binary = "tools", test = "^auto_membership_speed::" },
 ]
 
 [[rule]]
@@ -203,7 +203,7 @@ paths = ["crates/elab/**"]
 sample = true
 why = "the elaborator decides every example's verdict and hashes"
 select = [
-  { package = "cli", binary = "examples", test = "^(accepted|rejected|soundness)_examples_" },
+  { package = "cli", binary = "running", test = "^examples::(accepted|rejected|soundness)_examples_" },
   { binary = "hash_stability", test = "^(prelude|examples)$" },
   { package = "driver", binary = "pinned_hashes" },
   { package = "driver", binary = "named_arguments" },
@@ -234,28 +234,28 @@ why = "the command line's quick tests (under 3 s each) in the binaries no lane a
 cheap_only = 3.0
 select = [
   { package = "cli", lib = true },
-  { package = "cli", binary = "project" },
-  { package = "cli", binary = "scope" },
-  { package = "cli", binary = "axioms" },
-  { package = "cli", binary = "receiver_first" },
-  { package = "cli", binary = "redundant_arms" },
-  { package = "cli", binary = "no_effect" },
-  { package = "cli", binary = "lambda_shadow" },
-  { package = "cli", binary = "indexed_families" },
-  { package = "cli", binary = "doc_equations" },
-  { package = "cli", binary = "test_failures" },
-  { package = "cli", binary = "test_json" },
-  { package = "cli", binary = "caching" },
-  { package = "cli", binary = "navigation" },
-  { package = "cli", binary = "std_dir" },
-  { package = "cli", binary = "timings" },
-  { package = "cli", binary = "auto_membership_speed" },
-  { package = "cli", binary = "opcode_census" },
-  { package = "cli", binary = "broken_pipe" },
-  { package = "cli", binary = "partial_handlers" },
-  { package = "cli", binary = "live_memory" },
-  { package = "cli", binary = "check_cache" },
-  { package = "cli", binary = "effect_differential" },
+  { package = "cli", binary = "tools", test = "^project::" },
+  { package = "cli", binary = "tools", test = "^scope::" },
+  { package = "cli", binary = "tools", test = "^axioms::" },
+  { package = "cli", binary = "tools", test = "^receiver_first::" },
+  { package = "cli", binary = "tools", test = "^redundant_arms::" },
+  { package = "cli", binary = "tools", test = "^no_effect::" },
+  { package = "cli", binary = "tools", test = "^lambda_shadow::" },
+  { package = "cli", binary = "tools", test = "^indexed_families::" },
+  { package = "cli", binary = "tools", test = "^doc_equations::" },
+  { package = "cli", binary = "tools", test = "^test_failures::" },
+  { package = "cli", binary = "tools", test = "^test_json::" },
+  { package = "cli", binary = "server", test = "^caching::" },
+  { package = "cli", binary = "server", test = "^navigation::" },
+  { package = "cli", binary = "tools", test = "^std_dir::" },
+  { package = "cli", binary = "tools", test = "^timings::" },
+  { package = "cli", binary = "tools", test = "^auto_membership_speed::" },
+  { package = "cli", binary = "tools", test = "^opcode_census::" },
+  { package = "cli", binary = "tools", test = "^broken_pipe::" },
+  { package = "cli", binary = "running", test = "^partial_handlers::" },
+  { package = "cli", binary = "server", test = "^live_memory::" },
+  { package = "cli", binary = "server", test = "^check_cache::" },
+  { package = "cli", binary = "extraction", test = "^effect_differential::" },
 ]
 
 [[rule]]
@@ -266,7 +266,7 @@ rank = 3
 paths = ["crates/syntax/**", "crates/core/**", "crates/elab/**", "crates/driver/**", "crates/cli/**"]
 why = "the guide quotes the compiler's output (error messages, printed terms) and checks it is unchanged"
 select = [
-  { package = "cli", binary = "guide", test = "^the_guide_quotes_its_examples_and_the_compiler$" },
+  { package = "cli", binary = "tools", test = "^guide::the_guide_quotes_its_examples_and_the_compiler$" },
 ]
 
 # ---------------------------------------------------------------- kernel and syntax
@@ -279,7 +279,7 @@ why = "terms print in every error message"
 select = [
   { package = "core", binary = "it", test = "^pretty::" },
   { package = "core", lib = true },
-  { package = "cli", binary = "examples", test = "^rejected_examples_" },
+  { package = "cli", binary = "running", test = "^examples::rejected_examples_" },
 ]
 
 [[rule]]
@@ -342,7 +342,7 @@ why = "lane-fmt leaves out the formatter's fuzzing and its run over every file i
 select = [
   { package = "fmt", binary = "it", test = "^repo::" },
   { package = "fmt", binary = "it", test = "^fuzz::" },
-  { package = "cli", binary = "fmt_repo" },
+  { package = "cli", binary = "tools", test = "^fmt_repo::" },
 ]
 
 [[rule]]
@@ -389,7 +389,7 @@ paths = ["crates/core/src/reference.rs", "crates/rt/**"]
 why = "the fast runtime against the reference evaluator, through the command (the whole-corpus runs are daily)"
 cheap_only = 10.0
 select = [
-  { package = "cli", binary = "run_reference" },
+  { package = "cli", binary = "running", test = "^run_reference::" },
 ]
 
 [[rule]]
@@ -399,7 +399,7 @@ rank = 2
 paths = ["crates/core/src/float.rs", "crates/js/**"]
 why = "Float at run time: the JS bits module and the Rust runtime agree"
 select = [
-  { package = "cli", binary = "float" },
+  { package = "cli", binary = "running", test = "^float::" },
 ]
 
 [[rule]]
@@ -428,8 +428,8 @@ paths = ["crates/js/**", "crates/rt/**"]
 why = "extraction and the node runs: the quick tests of cli extract and run_js, which lane-js mostly leaves out"
 cheap_only = 3.0
 select = [
-  { package = "cli", binary = "extract" },
-  { package = "cli", binary = "run_js" },
+  { package = "cli", binary = "extraction", test = "^extract::" },
+  { package = "cli", binary = "running", test = "^run_js::" },
 ]
 
 [[rule]]
@@ -459,7 +459,7 @@ paths = ["crates/cli/src/search*", "crates/cli/src/doc*"]
 why = "stitchwort search and doc"
 select = [
   { profile = "lane-search" },
-  { package = "cli", binary = "doc_equations" },
+  { package = "cli", binary = "tools", test = "^doc_equations::" },
 ]
 
 [[rule]]
@@ -489,7 +489,7 @@ rank = 1
 paths = ["docs/guide/**", "docs/tutorial/**"]
 why = "the guide's examples are checked, and what it quotes is what the compiler says"
 select = [
-  { package = "cli", binary = "guide" },
+  { package = "cli", binary = "tools", test = "^guide::" },
   { package = "web", test = "^tests::the_guide_examples_check$" },
 ]
 
@@ -549,7 +549,7 @@ rank = 1
 paths = [".config/nextest.toml", "Taskfile.yml", "dev/*"]
 why = "the lane profiles and the selection tools"
 select = [
-  { package = "cli", binary = "audit" },
+  { package = "cli", binary = "tools", test = "^audit::" },
 ]
 note = "also run: task test:lanes-nonempty (every lane profile selects tests)"
 

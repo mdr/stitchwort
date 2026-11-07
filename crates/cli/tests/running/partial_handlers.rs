@@ -17,7 +17,7 @@ use stitchwort_cli::render::render;
 use stitchwort_js::Options;
 
 /// Lane A's handled programs, in Stitchwort.
-const HANDLER_DEFINITIONS: &str = include_str!("../../driver/tests/partial_handlers.sw");
+const HANDLER_DEFINITIONS: &str = include_str!("../../../driver/tests/partial_handlers.sw");
 
 /// Loops for the stack tests, as in `crates/rt/tests/it/partial_handlers.rs`.
 const LOOPS: &str = r#"

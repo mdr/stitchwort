@@ -432,11 +432,13 @@ fn a_wildcard_makes_the_dependency() {
             ("stitchwort.yaml", ""),
             (
                 "src/zed.sw",
-                include_str!("../../../examples/projects/accept/wildcard-only-edge/src/zed.sw"),
+                include_str!("../../../../examples/projects/accept/wildcard-only-edge/src/zed.sw"),
             ),
             (
                 "src/alpha.sw",
-                include_str!("../../../examples/projects/accept/wildcard-only-edge/src/alpha.sw"),
+                include_str!(
+                    "../../../../examples/projects/accept/wildcard-only-edge/src/alpha.sw"
+                ),
             ),
         ],
     );

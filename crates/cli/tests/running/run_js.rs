@@ -7,7 +7,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 
-mod common;
+use crate::common;
 
 use stitchwort_cli::driver::par_map;
 

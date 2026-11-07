@@ -4,9 +4,7 @@
 //! normally, by an unhandled `Fail`, by `E-IO`, and by Ctrl-C (which still
 //! stops the program, D1248). The pseudo-terminal is `pty/mod.rs`'s.
 
-#![cfg(unix)]
-
-mod pty;
+use crate::pty;
 
 use std::ffi::OsStr;
 use std::path::PathBuf;
@@ -160,7 +158,7 @@ fn ctrl_c_stops_the_program_and_restores_the_terminal(js: bool) {
 fn the_walking_example_reads_one_key_at_a_time(js: bool) {
     let Some(mut s) = start(
         "terminal-walk.sw",
-        include_str!("../../../examples/accept/terminal-walk.sw"),
+        include_str!("../../../../examples/accept/terminal-walk.sw"),
         false,
         js,
     ) else {

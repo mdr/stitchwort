@@ -20,7 +20,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 
 #[cfg(unix)]
-mod pty;
+use crate::pty;
 
 /// The runtime library to link with: `STITCHWORT_RUNTIME`, or the newest
 /// `libstitchwort_standalone*.a` beside this test binary (in `deps/`).
@@ -352,7 +352,7 @@ fn a_failing_program_fails_as_it_does_under_run() {
     let (_, first) = same_as_run(
         &dir,
         "fail.sw",
-        include_str!("../../../examples/accept/main-fail.sw"),
+        include_str!("../../../../examples/accept/main-fail.sw"),
         &[b""],
     );
     assert_eq!(first.status.code(), Some(1));
@@ -670,7 +670,7 @@ fn the_terminal_is_put_back_after_q_and_after_ctrl_c() {
     let dir = work_dir("terminal");
     std::fs::write(
         dir.join("walk.sw"),
-        include_str!("../../../examples/accept/terminal-walk.sw"),
+        include_str!("../../../../examples/accept/terminal-walk.sw"),
     )
     .expect("write the source");
     build(&dir, &["walk.sw", "--cache-dir", CACHE]);
@@ -917,7 +917,7 @@ fn a_failing_program_built_native_fails_as_it_does_under_run() {
     let (_, failed) = native_same_as_run(
         &dir,
         "fail.sw",
-        include_str!("../../../examples/accept/main-fail.sw"),
+        include_str!("../../../../examples/accept/main-fail.sw"),
         b"",
     );
     assert_eq!(failed.status.code(), Some(1));
