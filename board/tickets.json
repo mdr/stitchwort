@@ -1,5 +1,5 @@
 {
-  "next": 1924,
+  "next": 1925,
   "tickets": [
     {
       "id": 47,
@@ -16381,6 +16381,21 @@
       ],
       "epic": "test-infra",
       "body": "From docs/reviews/code-review-driver.md (lane E). 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1924,
+      "title": "[Opus] Code review: crates/cli, lsp, web, fmt, bench, partial-model, standalone, host (the last crates; ~17k lines)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1924",
+      "labels": [
+        "review"
+      ],
+      "epic": "editor-playground",
+      "body": "Matt (7 Nov 2026): crate-by-crate code reviews, reading only. Expected: 75 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
