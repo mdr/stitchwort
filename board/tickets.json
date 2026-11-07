@@ -1,5 +1,5 @@
 {
-  "next": 2299,
+  "next": 2300,
   "tickets": [
     {
       "id": 47,
@@ -21910,10 +21910,10 @@
     },
     {
       "id": 2293,
-      "title": "[Sonnet] Comparative speed 1b: Python and Lean 4 ports of the ten programs (same algorithm, natural data structures, D3342), each with a README; answers checked against expected.txt on the Mac",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "title": "[Sonnet] Comparative speed 1b (Python): Python ports of the eight AoC programs (dijkstra, octopus, disk, expressions, scan, matcher, bridge; memory-game exists), same algorithm, natural data structures (D3342); also SW-2297 (memory-game at 30M turns)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2293",
       "labels": [
         "perf"
       ],
@@ -21926,9 +21926,9 @@
     {
       "id": 2294,
       "title": "[Sonnet] Comparative speed 1c: Lean 4 ports of three days' proofs (2024 day 2, 2020 day 18, 2021 day 15; same statements, same automation, Lean core and Std only) and the proof side of compare.sh",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2294",
       "labels": [
         "perf"
       ],
@@ -21971,14 +21971,14 @@
     {
       "id": 2297,
       "title": "[Sonnet] Comparative speed: 2020 day 15 now runs 3M turns in 1.7 s (Array), so bench at the full 30M turns instead of 3M: recompute expected.txt, update programs.toml and the plan's §2 row",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2292. 15 min. Fold into SW-2293 if that starts first.",
+      "body": "From SW-2292. 15 min. Fold into SW-2293 if that starts first.\n\nFolded into SW-2293.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21994,6 +21994,21 @@
       ],
       "epic": "comparative-speed",
       "body": "From SW-2292's check run (rough numbers, Mac). Paper lane first: read the native Int path. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2299,
+      "title": "[Sonnet] Comparative speed 1b (Lean): Lean 4 ports of the eight AoC programs (dijkstra, octopus, disk, expressions, scan, matcher, bridge, memory-game) in bench/compare/lean, same algorithm, natural data structures (D3342)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2299",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "Split from SW-2293. Plan: docs/proposals/comparative-speed.md. 90 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
