@@ -6,37 +6,13 @@ use std::sync::Arc;
 use serde_json::{Value, json};
 use stitchwort_lsp::{Inline, Memory, MemoryProject, Options};
 
+mod common;
+
 const STACK: usize = 256 * 1024 * 1024;
 const URI: &str = "file:///memory/proj/src/Demo.sw";
 
-/// A project source whose checks replay the standard library from the test
-/// std cache (docs/testing.md, "The test std cache") instead of checking it
-/// from source in every test. The first test to run writes the entries.
-///
-/// With the cache empty after a compiler change, every test process would
-/// check the library at once, so the first fills it alone (as
-/// `Session::eager_for_stack` does) by opening a small file, and the others
-/// wait for that and then replay.
 fn cached_memory() -> Arc<Memory> {
-    static FILLED: std::sync::Once = std::sync::Once::new();
-    let dir = stitchwort_driver::driver::test_std_cache_dir(STACK).join("lsp");
-    FILLED.call_once(|| {
-        let turn = stitchwort_driver::driver::TestCacheTurn::take(&dir);
-        if turn.is_filling() {
-            let text = "namespace Demo\n\ndef one: Nat := 1\n";
-            let memory = Arc::new(Memory::with_cache(dir.clone()));
-            memory.add(MemoryProject {
-                root: "/memory/proj".into(),
-                sources: vec!["src".into()],
-                files: Arc::new([("src/Demo.sw".to_string(), text.to_string())].into()),
-            });
-            big_stack(move || {
-                Session::open_in(text, json!({}), Options::new(STACK), memory);
-            });
-            turn.finish();
-        }
-    });
-    Arc::new(Memory::with_cache(dir))
+    common::cached_memory(STACK)
 }
 
 /// Runs `body` on a thread with a big stack.

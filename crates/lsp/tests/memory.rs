@@ -5,7 +5,9 @@
 use std::sync::Arc;
 
 use serde_json::{Value, json};
-use stitchwort_lsp::{Inline, Memory, MemoryProject, Options};
+use stitchwort_lsp::{Inline, MemoryProject, Options};
+
+mod common;
 
 const STACK: usize = 256 * 1024 * 1024;
 
@@ -30,7 +32,7 @@ fn project_body() {
         // Outside the source folders: not part of the project.
         ("notes/Stray.sw", "def broken: Nat := \"stray\"\n"),
     ];
-    let memory = Arc::new(Memory::default());
+    let memory = common::cached_memory(STACK);
     memory.add(MemoryProject {
         root: "/memory/proj".into(),
         sources: vec!["src".into()],
@@ -127,7 +129,7 @@ fn focus_body() {
             "namespace Other\n\ndef bad: Nat := \"other\"\n",
         ),
     ];
-    let memory = Arc::new(Memory::default());
+    let memory = common::cached_memory(STACK);
     memory.add(MemoryProject {
         root: "/memory/proj".into(),
         sources: vec!["src".into()],
@@ -217,7 +219,7 @@ fn cycle_body() {
             "namespace Second\nimport First (one)\n\ndef two: Nat := one\n",
         ),
     ];
-    let memory = Arc::new(Memory::default());
+    let memory = common::cached_memory(STACK);
     memory.add(MemoryProject {
         root: "/memory/proj".into(),
         sources: vec!["src".into()],
@@ -280,7 +282,7 @@ fn between_body() {
             "namespace Third\nimport Second (two)\nimport First (one)\n\ndef three: Nat := two + one\n",
         ),
     ];
-    let memory = Arc::new(Memory::default());
+    let memory = common::cached_memory(STACK);
     memory.add(MemoryProject {
         root: "/memory/proj".into(),
         sources: vec!["src".into()],
@@ -335,7 +337,7 @@ fn failed_import_body() {
     let good = "namespace First\n\ndef one: Nat := 1\n\ndef two: Nat := 2\n";
     let broken = "namespace First\n\ndef one: Nat := \"oops\"\n\ndef two: Nat := 2\n";
     let second = "namespace Second\nimport First (one, two)\n\ndef three: Nat := one + two\n\ndef four: Nat := three + one\n";
-    let memory = Arc::new(Memory::default());
+    let memory = common::cached_memory(STACK);
     memory.add(MemoryProject {
         root: "/memory/proj".into(),
         sources: vec!["src".into()],
