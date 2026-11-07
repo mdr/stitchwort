@@ -280,6 +280,15 @@ def countDown (x: Nat): Box
     | Zero => { value = 0 }
     | Succ m => countDown m [decreasing := omega]
 
+def valueOf (x: Nat): Nat := (countDown x).value
+
+def leafOf (x: Nat): Nat
+  decreasing x
+:=
+  match x with
+    | Zero => (countDown x).value
+    | Succ m => leafOf m [decreasing := omega]
+
 def inner (x: Nat): Box
   decreasing x
 :=
@@ -375,6 +384,8 @@ const FIELD_OPS: &[&str] = &[
     "viaCall.at",
     "liftFn.at",
     "countDown.value",
+    "valueOf",
+    "leafOf",
     "outer.value",
     "onOuter",
     "outerN",
@@ -397,6 +408,8 @@ fn field_op(sig: &Sig, name: &str, x: Term) -> Term {
         "viaCall.at" => app(field("Fn", "viaCall", x.clone()), vec![x]),
         "liftFn.at" => app(field("Fn", "liftFn", var(T, 0)), vec![x]),
         "countDown.value" => field("Box", "countDown", x),
+        "valueOf" => app(sig.def("valueOf"), vec![x]),
+        "leafOf" => app(sig.def("leafOf"), vec![x]),
         "outer.value" => field("Box", "outer", x),
         "onOuter" => app(sig.def("onOuter"), vec![x]),
         "outerN" => app(sig.def("outerN"), vec![x]),
@@ -434,6 +447,8 @@ fn fields_of_calls_are_compared_alike() {
             "viaCall",
             "liftFn",
             "countDown",
+            "valueOf",
+            "leafOf",
             "outer",
             "onOuter",
             "outerN",
@@ -468,6 +483,16 @@ fn fields_of_calls_are_compared_alike() {
             succ(call("withProof", nat(1))),
         ),
     ];
+    // `countDown` always returns 0, past a plain or a `decreasing` wrapper.
+    let zeros = [
+        ("valueOf (Succ (Succ (0)))", call("valueOf", nat(2))),
+        ("leafOf (Succ (Succ (0)))", call("leafOf", nat(2))),
+        (
+            "Succ (valueOf (leafOf (0)))",
+            succ(call("valueOf", call("leafOf", nat(0)))),
+        ),
+    ];
+    terms.extend(zeros.into_iter().map(|(name, t)| (name.to_string(), t)));
     terms.extend(twos.into_iter().map(|(name, t)| (name.to_string(), t)));
     let count = compared_alike(g, &sig, &terms);
     assert!(count > terms.len() && count < terms.len() * terms.len());
@@ -483,6 +508,17 @@ fn fields_of_calls_are_compared_alike() {
     ] {
         assert!(glued[at(name)][two], "{name} isn't 2");
     }
+    let zero = at("0");
+    for name in [
+        "valueOf (Succ (Succ (0)))",
+        "leafOf (Succ (Succ (0)))",
+        "valueOf (0)",
+        "leafOf (0)",
+    ] {
+        assert!(glued[at(name)][zero], "{name} isn't 0");
+    }
+    assert!(glued[at("valueOf (Succ (Succ (0)))")][at("leafOf (Succ (Succ (0)))")]);
+    assert!(glued[at("Succ (valueOf (leafOf (0)))")][at("Succ (0)")]);
 }
 
 /// Checks that every pair of `terms` gets one answer glued, in the kernel's
