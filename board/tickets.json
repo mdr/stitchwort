@@ -1,5 +1,5 @@
 {
-  "next": 2313,
+  "next": 2315,
   "tickets": [
     {
       "id": 47,
@@ -22166,14 +22166,14 @@
     {
       "id": 2310,
       "title": "[Sonnet] stitchwort check takes a theorem filter or file subset, so the comparative proof benchmark can time the same theorems as the Lean port (2020 day 18 has 23 of 49 ported, 2021 day 15 20 of 23)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2310",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2294. 45 min. Until then the proof ratios overstate our cost.\n\nMatt, 7 Nov 2026: \"Allowing Stitchwort checks to take a little theorem seems pretty sensible.\" User-visible CLI option: update the CLI docs and docs/guide where check is described. Next build slot.",
+      "body": "From SW-2294. 45 min. Until then the proof ratios overstate our cost.\n\nMatt, 7 Nov 2026: \"Allowing Stitchwort checks to take a little theorem seems pretty sensible.\" User-visible CLI option: update the CLI docs and docs/guide where check is described. Next build slot.\n\nDone, merged. --only THEOREM (repeatable, commas), skipped theorems not elaborated, output says how many NOT checked, cache bypassed. Docs: syntax.md, projects.md, guide 01 and 10. On main: check_only_named_theorems and hash_stability 10/10; day 18 --only chainOf: 6 of 49. Proof ratios still inflated by load (SW-2313). Model result: Sonnet, worked, 15 min (est. 45).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -22204,6 +22204,36 @@
       ],
       "epic": "elaborator-kernel",
       "body": "From SW-2308 step 1: with memo.record(true) re-enabled in same_stuck_trees, the slow-check example still times out at 30 s; sample shows check::infer -> Ctx::conv -> conv_with -> same_closure -> identical_within -> free_variables -> Term::subterms. SW-2306 F5 with a concrete case. 30-45 min. Repro: re-enable the record, time examples/reject/as-written-unconfirmed-slow-check.sw.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2313,
+      "title": "[Sonnet] Proof benchmark: the 'sw load' baseline imports only Std, so loading Std.Parse.Reads/Runs (~5 s of 8 s on 2020 day 18) lands in 'sw net'; use a baseline that imports the day's own dependencies, as the Lean side does with Lib",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2310. 20 min. Until then the proof ratios are inflated.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2314,
+      "title": "[Opus] Probe: check --only never changes a kept theorem's result (run each AoC proofs namespace with and without --only per theorem; any difference means a proof used a theorem without naming it)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2310's soundness caveat (auto, rewrite, lemma sets not audited). Skipped theorems aren't in scope, so the risk is a failure, not a false pass. 30 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
