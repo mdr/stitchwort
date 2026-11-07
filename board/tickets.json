@@ -13670,14 +13670,14 @@
     {
       "id": 1743,
       "title": "ignorable_arguments (check.rs) swallows its size error with .ok()? yet each swallowed failure still costs a 10M-node read-back (SW-1740)",
-      "status": "doing",
+      "status": "backlog",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1743",
       "labels": [
         "perf"
       ],
       "epic": "goal-as-written",
-      "body": "From SW-1740, 6 Nov 2026.\n\nSW-1747: also rewrite.rs:707 and lib.rs:4954 answer 'no' when the read-back fails; all three are stage 4. And effects.rs:4131, induct_match.rs:429, rewrite.rs:1918-1919 read back with ? only for a note or hint, so they can replace the intended error: stage 5.",
+      "body": "From SW-1740, 6 Nov 2026.\n\nSW-1747: also rewrite.rs:707 and lib.rs:4954 answer 'no' when the read-back fails; all three are stage 4. And effects.rs:4131, induct_match.rs:429, rewrite.rs:1918-1919 read back with ? only for a note or hint, so they can replace the intended error: stage 5.\n\n7 Nov ~03:10, lane/SW-1743 (340435397): quote_at_most(4096) with a quote_folded fallback; synthetic P18 case 7.1 s → 1.6 s in ignorable_arguments; 1354 affected tests pass, no hash moved. Not merged (my call): it adds a limit that chooses (answers differ by cap), which D2543 rules out; the fix belongs to stage 4's memoised mentions reader (decide from the value). Branch kept for stage 4. The rest of the cost is forcing a glued call like P18 n, exponential in depth because its args aren't shared. rewrite.rs:707 and lib.rs:4954 run only while building errors: stage 4. Model result: Sonnet, worked (but against D2543; brief should have said so), 26 min (est. 45).",
       "created": "2026-11-06",
       "updated": "2026-11-07",
       "commits": []
