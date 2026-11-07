@@ -14195,9 +14195,9 @@
     {
       "id": 1778,
       "title": "test:affected follow-ups from SW-1775: the cut can drop a rank-2 rule yet keep a rank-3 one that fits; inventory timings from loaded daily runs overstate lane cost; merge profile hand-copies lane filters (generate it); guide-quotes estimate (67 s) needs a warm re-measure",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1778",
       "labels": [
         "tooling"
       ],
