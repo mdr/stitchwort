@@ -282,7 +282,7 @@ Each of these not marked fixed fails today in every mode, glued and unglued. Non
 | Gap | What's answered "different" or "stuck" on a head that isn't rigid | Example | Ticket |
 |---|---|---|---|
 | G1 | the tree comparison's scrutinee is a folded call | `pickA (yes 0) x = pickB (yes 0) x` | SW-2257 |
-| G2 | R3 and R4 read `+`'s second argument without its head | `x + two 0 = Succ (Succ x)` | SW-2260 |
+| G2 | fixed (SW-2260): R3 and R4 read `+`'s second argument without its head; now a comparison, a `case` or a number `match` that reads a stuck `m + n` unfolds a folded call under `n`'s `Succ`s and reads the sum again (`nat_add::reread`), while evaluation leaves it as written | `x + two 0 = Succ (Succ x)` | SW-2260 |
 | G3 | the tree comparison's scrutinee is a number or a range | `pickA 3 x = pickB 3 x` | SW-2257 |
 | G4 | a float primitive's argument is a folded call | `Float.ofNat (two 0) = Float.ofNat 2` | SW-2262 |
 | G5 | a `NumCase` on `Succ` of a folded call | `isThree (Succ (two 0)) = 10` | SW-2262 |
