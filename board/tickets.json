@@ -1,5 +1,5 @@
 {
-  "next": 2292,
+  "next": 2297,
   "tickets": [
     {
       "id": 47,
@@ -21889,6 +21889,81 @@
       ],
       "epic": "comparative-speed",
       "body": "From SW-2290 (docs/proposals/comparative-speed.md): no existing plan covers startup, and it dominates every short program. 30 min to measure.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2292,
+      "title": "[Sonnet] Comparative speed 1a: the harness: bench/compare/, compare.sh, programs.toml, a 'compare' dev shell (Lean, hyperfine, PyPy), task bench:compare and bench:compare:check, null programs, the two classics (pidigits, binary-trees) in Stitchwort, the 2020 day 15 turn-count entry point; Mac runs only",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "Plan: docs/proposals/comparative-speed.md §7 (D3330, D3340 native faces Python and Lean, D3341 no targets, D3342 natural data structures). 90 min. First of stage 1.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2293,
+      "title": "[Sonnet] Comparative speed 1b: Python and Lean 4 ports of the ten programs (same algorithm, natural data structures, D3342), each with a README; answers checked against expected.txt on the Mac",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "Plan: docs/proposals/comparative-speed.md §7 (D3330, D3340 native faces Python and Lean, D3341 no targets, D3342 natural data structures). After SW-2292. 2-3 h: split into Python and Lean lanes side by side.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2294,
+      "title": "[Sonnet] Comparative speed 1c: Lean 4 ports of three days' proofs (2024 day 2, 2020 day 18, 2021 day 15; same statements, same automation, Lean core and Std only) and the proof side of compare.sh",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "Plan: docs/proposals/comparative-speed.md §7 (D3330, D3340 native faces Python and Lean, D3341 no targets, D3342 natural data structures). After SW-2292; side by side with SW-2293. 2 h; Opus only if a port fights back.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2295,
+      "title": "[Sonnet] Comparative speed 2: first measurement on Overmind (task bench:compare, bench:compare:check) and the report docs/reviews/SW-N-comparative-speed.md, with the first history.toml line",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "Plan: docs/proposals/comparative-speed.md §7 (D3330, D3340 native faces Python and Lean, D3341 no targets, D3342 natural data structures). After SW-2293 and SW-2294. 1.5 h.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2296,
+      "title": "[Opus] Comparative speed 3: where the gaps come from: profile the worst pairs, rank causes with measured shares, tie each to an existing plan, file tickets",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "Plan: docs/proposals/comparative-speed.md §7 (D3330, D3340 native faces Python and Lean, D3341 no targets, D3342 natural data structures). After SW-2295. 1 h. Absorbs the startup split (SW-2291) if not done by then.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []

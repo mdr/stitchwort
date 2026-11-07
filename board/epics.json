@@ -431,9 +431,11 @@
       ],
       "now": [],
       "next": [
-        "Stage 1: harness and ports (Sonnet, ~5 h over three lanes)",
-        "Stage 2: first Overmind measurement and report",
-        "Stage 3: ranked causes of the gaps (Opus)"
+        "Stage 1a: the harness (SW-2292, after the reset)",
+        "Stage 1b and 1c side by side: Python and Lean ports (SW-2293), proof ports (SW-2294)",
+        "Stage 2: first Overmind measurement and report (SW-2295)",
+        "Stage 3: ranked causes of the gaps (SW-2296)",
+        "Startup time (SW-2291)"
       ],
       "links": [
         "docs/proposals/comparative-speed.md"
