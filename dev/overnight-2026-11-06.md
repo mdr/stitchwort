@@ -90,3 +90,4 @@ Take these in order, once the speed queue above is empty or blocked.
 - 00:09: SW-1765 merged (daily examples and hash sweeps cold: 111 s → 48 s), 699/699 on main. SW-1760 started.
 - 00:23: SW-1760 merged. Filed SW-1769.
 - 00:25: SW-1768 done; record eta is ready to merge once Matt OKs the whole-AoC/roguelike run.
+- 01:00: found that SW-1754 had a worktree since 23:48 but no agent (I created the worktree and never launched it); started it now. Lesson: check ListAgents against the board's doing list at each heartbeat. Usage 76%.
