@@ -1,5 +1,5 @@
 {
-  "next": 2231,
+  "next": 2234,
   "tickets": [
     {
       "id": 47,
@@ -6416,9 +6416,9 @@
         "audit"
       ],
       "epic": "audit-fuzzing",
-      "body": "From AoC 2020 day 4 (SW-1249, NOTES-2020.md item 6, ranked 2). The audit's vacuity check tries random inputs and warns when none satisfy a theorem's hypotheses. On day 4 all 8-11 warnings were false, all on compiler-generated equations (heightValid.eq.some with hypothesis value.stripSuffix \"cm\" = Some number; Spec.validValue.eq.if… with (key == \"byr\") = True): random texts never hit the literals. Same blindness: check --counterexamples missed a deliberately broken height range (between 151 193). Options raised: (A) skip generated equations in the vacuity check (they come from the definition, so can't be misstated); (B) seed generators with the definition's literals.\n\nD2357 (Matt, 4 Nov): backlog only. Matt doubts random generation is a viable strategy for vacuity at all (hoping it finds inputs); revisit the approach itself (e.g. what a warning should require, or a non-random method) before doing A or B.\n\nFrom SW-1210 (merged, backlog review 4 Nov 2026), option C: satisfy hypotheses of the form `f x = y` / `f x = Some y` in the counterexample search by computing y from the generated x, so audit tests 'if the program returns X' theorems instead of warning they may be vacuous. From aoc/NOTES-2020.md day 1 item 5: 6 of day 1's 16 theorems gave up this way. Medium, a day or two.\nD2306 (Matt, 4 Nov 2026): backlog, consider later with evidence from other AoC days (2021/2024/2025 audits will have the same warnings).\nRelated, kept separate: SW-1063 (custom generators), SW-1247 (generator for non-equation proof fields).",
+      "body": "From AoC 2020 day 4 (SW-1249, NOTES-2020.md item 6, ranked 2). The audit's vacuity check tries random inputs and warns when none satisfy a theorem's hypotheses. On day 4 all 8-11 warnings were false, all on compiler-generated equations (heightValid.eq.some with hypothesis value.stripSuffix \"cm\" = Some number; Spec.validValue.eq.if… with (key == \"byr\") = True): random texts never hit the literals. Same blindness: check --counterexamples missed a deliberately broken height range (between 151 193). Options raised: (A) skip generated equations in the vacuity check (they come from the definition, so can't be misstated); (B) seed generators with the definition's literals.\n\nD2357 (Matt, 4 Nov): backlog only. Matt doubts random generation is a viable strategy for vacuity at all (hoping it finds inputs); revisit the approach itself (e.g. what a warning should require, or a non-random method) before doing A or B.\n\nFrom SW-1210 (merged, backlog review 4 Nov 2026), option C: satisfy hypotheses of the form `f x = y` / `f x = Some y` in the counterexample search by computing y from the generated x, so audit tests 'if the program returns X' theorems instead of warning they may be vacuous. From aoc/NOTES-2020.md day 1 item 5: 6 of day 1's 16 theorems gave up this way. Medium, a day or two.\nD2306 (Matt, 4 Nov 2026): backlog, consider later with evidence from other AoC days (2021/2024/2025 audits will have the same warnings).\nRelated, kept separate: SW-1063 (custom generators), SW-1247 (generator for non-equation proof fields).\n\n7 Nov: option A only, as SW-2232 (D3231).",
       "created": "2026-11-04",
-      "updated": "2026-11-04",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -20951,14 +20951,14 @@
     {
       "id": 2229,
       "title": "[Opus] Design note: should the audit stop warning about a theorem that checked code applies to concrete arguments (as Tests.extendedPinKept does)? That's a proved instance, not a random one (D2357)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2229",
       "labels": [
         "design"
       ],
       "epic": "audit-fuzzing",
-      "body": "From docs/reviews/SW-2219-trip-journal.md. D3221: design note first (orchestrator's call). Read-only. 45 min.",
+      "body": "From docs/reviews/SW-2219-trip-journal.md. D3221: design note first (orchestrator's call). Read-only. 45 min.\n\nDesign merged: docs/proposals/audit-proved-instances.md. D3231 yes (orchestrator's call). D3230 (proved instance passes, also under --strict) to Matt. D2357 (on SW-1261) asks for a non-random method, which this is. Stages SW-2231, SW-2232, SW-2233.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20974,6 +20974,51 @@
       ],
       "epic": "proof-automation",
       "body": "From SW-2164. Repro:\ndef weird2 (n: Nat) (i: Nat): Nat\n    decreasing n - i\n:=\n  if h: i + 1 ≤ n then\n    (if big: (if i + 2 ≤ n then weird2 n (i + 2) else 0) < 100 then 1 else 0) + weird2 n (i + 1)\n  else 0\nRefuse it cleanly as the unnamed case is (or support it). 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2231,
+      "title": "[Sonnet] Audit stage 1: find proved instances (a theorem applied to closed arguments in a checked declaration) by scanning kernel terms; such a theorem passes, also under --strict, with the witness in --verbose and JSON",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "audit"
+      ],
+      "epic": "audit-fuzzing",
+      "body": "From docs/proposals/audit-proved-instances.md. Waits on D3230 (Matt). Opus review after (a trust check). 75 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2232,
+      "title": "[DeepSeek] Audit stage 2: skip the vacuity search on generated equations, as check --counterexamples does (audit.rs:126 has no filter; counterexample.rs:210 has one)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "audit"
+      ],
+      "epic": "audit-fuzzing",
+      "body": "From docs/proposals/audit-proved-instances.md; SW-1261 option A. D3231 yes (orchestrator's call: the two commands disagree today). Trip journal goes from 14 warnings to 8. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2233,
+      "title": "[Sonnet] Trip journal: one-line witness theorems for its seven remaining audit warnings",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proofs"
+      ],
+      "epic": "docs-tutorials",
+      "body": "From docs/proposals/audit-proved-instances.md stage 4, after SW-2231. Could fold into SW-2225. 30 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
