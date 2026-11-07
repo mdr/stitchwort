@@ -1,5 +1,5 @@
 {
-  "next": 1803,
+  "next": 1808,
   "tickets": [
     {
       "id": 47,
@@ -12158,16 +12158,16 @@
     {
       "id": 1642,
       "title": "Record eta stage 1 (record-eta.md): kernel primitive projections without parameters, eta rules 1 and 2 for single-constructor non-recursive types in Type with a non-proof field (D1981), must-reject tests (§14); 2021 day 13 Picture.sw:45 becomes rfl; profile rule 2's cost (D2498, D2499, D2504)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1642",
       "labels": [
         "kernel"
       ],
       "epic": "record-eta",
-      "body": "D2498-D2505 (Matt, 6 Nov 2026): all as recommended in docs/proposals/record-eta.md: kernel record eta with primitive projections (no parameters) and the two rules; eta by shape incl. Pair; no no-eta opt-out now; no eta for interface dictionaries; accept goals changing shape; keep T.ext; accept ~5% checking cost (profile it); staged kernel (Opus), unifier, Pair, clean-up sweep (Sonnet). Opus, expected: 180 min.\n\nStarted on Opus, expected: 180 min.\n\nD2507 (Matt, 6 Nov 2026): after merge the orchestrator's verifier runs one whole-AoC + roguelike check --no-cache in the background, stopped at 6 min: 'two to three minutes is okay, but not 20 minutes.' Not inside the lane.\n\nLane stopped short (603b4acd6, a48ac7eb6): kernel Proj, has_eta, rules 1 and 2 built; 175 core + 16 record_eta tests (9 accept, 7 must-reject) pass; std fails at Set/Spec.sw:503,601 (rewrites no longer find Set.foldLeft/Set.map) and rogue Rules.sw:51, because a primitive Proj can't wait on a glued call (§6.4). Three shortcuts tried, each fails std or rogue. Cost so far +1-2% on rogue. D2509-D2511 (Matt, 6 Nov 2026): all as recommended: next an Opus lane on lane/SW-1642 building glued calls whose spine may end in projections (about half a day), before the unifier and Pair stages; for now eta only for types declared as records (departs from D2499 until stage 3); rule 2 fires on unknowns and the unifier compares two records first when both sides end in the same projection. Model result: Opus, stopped short (glued-call projections unspecified), 170 min (est. 180).",
+      "body": "D2498-D2505 (Matt, 6 Nov 2026): all as recommended in docs/proposals/record-eta.md: kernel record eta with primitive projections (no parameters) and the two rules; eta by shape incl. Pair; no no-eta opt-out now; no eta for interface dictionaries; accept goals changing shape; keep T.ext; accept ~5% checking cost (profile it); staged kernel (Opus), unifier, Pair, clean-up sweep (Sonnet). Opus, expected: 180 min.\n\nStarted on Opus, expected: 180 min.\n\nD2507 (Matt, 6 Nov 2026): after merge the orchestrator's verifier runs one whole-AoC + roguelike check --no-cache in the background, stopped at 6 min: 'two to three minutes is okay, but not 20 minutes.' Not inside the lane.\n\nLane stopped short (603b4acd6, a48ac7eb6): kernel Proj, has_eta, rules 1 and 2 built; 175 core + 16 record_eta tests (9 accept, 7 must-reject) pass; std fails at Set/Spec.sw:503,601 (rewrites no longer find Set.foldLeft/Set.map) and rogue Rules.sw:51, because a primitive Proj can't wait on a glued call (§6.4). Three shortcuts tried, each fails std or rogue. Cost so far +1-2% on rogue. D2509-D2511 (Matt, 6 Nov 2026): all as recommended: next an Opus lane on lane/SW-1642 building glued calls whose spine may end in projections (about half a day), before the unifier and Pair stages; for now eta only for types declared as records (departs from D2499 until stage 3); rule 2 fires on unknowns and the unifier compares two records first when both sides end in the same projection. Model result: Opus, stopped short (glued-call projections unspecified), 170 min (est. 180).\n\n7 Nov 08:00: waiting on Matt's D2575 (one whole-AoC + roguelike run on lane/SW-1642, then merge; expect the value.rs Unfolding conflict with SW-1782). Moved to review: no lane is working on it.",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -13542,7 +13542,7 @@
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From the SW-1716 profile, fix 6. See docs/reviews/SW-1716-dev-loop-profile.md §6.\n\n7 Nov ~02:05, lane/SW-1734 (7f5082978): corpus-sweeps threads-required=5, pooled tests 5 or 2, daily/full test-threads 10, test:merge STITCHWORT_TEST_THREADS=5. Merge tier neutral (A/B within 1%, CPU equal). Daily sweeps subset under load 16-34: per-test times 25-50% lower, wall not better (590 s old vs 665/1152 s new, too noisy). Held in review, not merged: no measured benefit yet; needs one daily run on a quiet machine (with D2556). Model result: Sonnet, worked, 60 min (est. 45).",
+      "body": "From the SW-1716 profile, fix 6. See docs/reviews/SW-1716-dev-loop-profile.md §6.\n\n7 Nov ~02:05, lane/SW-1734 (7f5082978): corpus-sweeps threads-required=5, pooled tests 5 or 2, daily/full test-threads 10, test:merge STITCHWORT_TEST_THREADS=5. Merge tier neutral (A/B within 1%, CPU equal). Daily sweeps subset under load 16-34: per-test times 25-50% lower, wall not better (590 s old vs 665/1152 s new, too noisy). Held in review, not merged: no measured benefit yet; needs one daily run on a quiet machine (with D2556). Model result: Sonnet, worked, 60 min (est. 45).\n\n7 Nov: needs a quiet daily run to show a benefit; folded into D2556's daily run.",
       "created": "2026-11-06",
       "updated": "2026-11-07",
       "commits": []
@@ -13557,9 +13557,9 @@
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From the SW-1716 profile, fix 12. See docs/reviews/SW-1716-dev-loop-profile.md §6.",
+      "body": "From the SW-1716 profile, fix 12. See docs/reviews/SW-1716-dev-loop-profile.md §6.\n\n7 Nov: not run overnight (the quiet window went to SW-1742). Needs a quiet machine; pair with SW-1802.",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -14022,7 +14022,7 @@
         "design"
       ],
       "epic": "record-eta",
-      "body": "From SW-1764, 7 Nov 2026.\n\n7 Nov 2026, 03:08-03:23 (est. 45 min): design only. record-eta.md §6.4 revised on lane/SW-1766: keep accessor calls for p.field; at stage 3 (Pair) measure accessor-opening cost and, if visible, give eta types' accessors the body Proj(D, i, x). Probes on lane/SW-1642's build (646b91ccf): rewrite both spellings, omega, match motives: all accepted, no difference found. D2566 opened (rec: yes). Moved to review.\n\nMerged (note only). D2566 for Matt: keep p.field as an accessor call, measure at the Pair stage, switch accessor bodies to Proj if the cost shows [rec: yes]. Model result: Opus, worked, 15 min (est. 45).",
+      "body": "From SW-1764, 7 Nov 2026.\n\n7 Nov 2026, 03:08-03:23 (est. 45 min): design only. record-eta.md §6.4 revised on lane/SW-1766: keep accessor calls for p.field; at stage 3 (Pair) measure accessor-opening cost and, if visible, give eta types' accessors the body Proj(D, i, x). Probes on lane/SW-1642's build (646b91ccf): rewrite both spellings, omega, match motives: all accepted, no difference found. D2566 opened (rec: yes). Moved to review.\n\nMerged (note only). D2566 for Matt: keep p.field as an accessor call, measure at the Pair stage, switch accessor bodies to Proj if the cost shows [rec: yes]. Model result: Opus, worked, 15 min (est. 45).\n\n7 Nov: note merged; waiting on Matt's D2566 (keep p.field as an accessor call).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -14172,7 +14172,7 @@
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From SW-1737, D2563/D2564. Expected: 45 min.\n\n7 Nov ~02:45, lane/SW-1776 (aba0f8be7): elab unit tests behind a unit-tests feature; [lib] test = false; 148 tests via a table (src/unit_tests.rs) and tests/unit.rs wrappers, guard every_unit_test_is_listed; same 145 names, all pass. Clean build: the 36 s elab lib-test compile becomes a 6 s unit binary; net saving not measurable under load (160 s before at load 11-19, 246 s after at load 19-31). Held, not merged: a new elab unit test now needs three edits (marked fn, table, wrapper) and a doc-alias marker instead of #[test]. That workflow cost touches every lane writing elab unit tests; the gain (≈20-30 s per clean build, a core freed per elab rebuild) is unmeasured. For Matt (D2565), after one quiet-machine measurement. Model result: Sonnet, worked, 19 min (est. 45).\n\nMeasured 02:35-02:40 (one run each, back to back, no kache, load 8-23): clean nextest --no-run build 164 s → 144 s real (-20 s, 12%), 1209 → 1075 s CPU (-134 s). D2565 for Matt: take three edits per new elab unit test (and no #[test]/IDE run lens on them) for that? A build.rs-generated table could cut it to one marker.",
+      "body": "From SW-1737, D2563/D2564. Expected: 45 min.\n\n7 Nov ~02:45, lane/SW-1776 (aba0f8be7): elab unit tests behind a unit-tests feature; [lib] test = false; 148 tests via a table (src/unit_tests.rs) and tests/unit.rs wrappers, guard every_unit_test_is_listed; same 145 names, all pass. Clean build: the 36 s elab lib-test compile becomes a 6 s unit binary; net saving not measurable under load (160 s before at load 11-19, 246 s after at load 19-31). Held, not merged: a new elab unit test now needs three edits (marked fn, table, wrapper) and a doc-alias marker instead of #[test]. That workflow cost touches every lane writing elab unit tests; the gain (≈20-30 s per clean build, a core freed per elab rebuild) is unmeasured. For Matt (D2565), after one quiet-machine measurement. Model result: Sonnet, worked, 19 min (est. 45).\n\nMeasured 02:35-02:40 (one run each, back to back, no kache, load 8-23): clean nextest --no-run build 164 s → 144 s real (-20 s, 12%), 1209 → 1075 s CPU (-134 s). D2565 for Matt: take three edits per new elab unit test (and no #[test]/IDE run lens on them) for that? A build.rs-generated table could cut it to one marker.\n\n7 Nov: waiting on Matt's D2565 (rec: yes only if a build.rs generates the table). Branch kept.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -14562,7 +14562,83 @@
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From SW-1742: 12% CPU on hash_stability prelude, 17% on std_library. Needs a quiet machine.",
+      "body": "From SW-1742: 12% CPU on hash_stability prelude, 17% on std_library. Needs a quiet machine.\n\nNeeds a quiet machine (load < 4): SW-1729's null result was load noise.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1803,
+      "title": "[Opus] Syntax ids stage 1 (syntax-node-ids.md): Expr::Field and the queue's DotCall get an id from a global counter; dot_heads/dot_failed key by it; drop dot_owners and the spans/epoch from the key; postponed-lambda-second-error, reads-weaken-over-map-implicits and pure-fold-in-parse-function repeat exactly, no hash moves; then bench examples repeat exactly again (tolerance back to 0, SW-1792)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "bug"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-1801. Waiting on Matt's D2577-D2580 (rec: yes to all). Expected: 90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1804,
+      "title": "Daily run to measure the overnight savings (D2556): one daily tier on a quiet machine, compared with the last one before 6 Nov; also shows whether threads-required (SW-1734) helps",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "test"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "Waiting on Matt's D2556. Run nothing else alongside.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1805,
+      "title": "CLAUDE.md: lane rules for dev/stop-mine (never pkill/killall, D2576), rm on a variable path (D2574, after SW-1800's rm -f /*), and test wording now that test:areas is retired (test:affected)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "Orchestrator's own edit once Matt answers D2574/D2576. Proposed stop-mine text is in the 7 Nov overnight plan (dev/overnight-2026-11-06.md).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1806,
+      "title": "[Sonnet] Bench: re-record the baseline times on a quiet machine (SW-1792 recorded them at load 12-30, 30-170% high), and consider a cut-down example set for task bench (examples still ~100 s)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "test-infra",
+      "body": "From SW-1792.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1807,
+      "title": "[Sonnet] Editor: the text-only search paths (members_at_text, context_at_text, actions_at_text) still load std per request, one case twice; and the playground (wasm) has the kept session off: measure its memory and turn it on if it fits (SW-1798)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "editor-playground",
+      "body": "From SW-1798.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []

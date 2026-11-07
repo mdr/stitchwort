@@ -72,10 +72,13 @@
         "Signature help and parameter names on hover (SW-1334, SW-1383)",
         "Run icons and the Testing panel over stitchwort test --json (SW-1682, SW-1684)",
         "Outline answers before the file is checked (SW-1681)",
-        "Hover on ? shows its goal; notes numbered like the CLI (SW-1675, SW-1676)"
+        "Hover on ? shows its goal; notes numbered like the CLI (SW-1675, SW-1676)",
+        "Completion in a warm editor 480 ms → 1 ms: one std-loaded session per search thread, rewound (SW-1798)",
+        "Code action crash on an unapplied Succ or Cons fixed (SW-1799)"
       ],
       "now": [],
       "next": [
+        "Text-only searches and the playground keep std loaded too (SW-1807)",
         "Quieter light-bulb suggestions on a bare ? (SW-1677)",
         "Editor hint on a recursive function: runs as a loop, or a frame per call (SW-1223; Matt said yes in D2315, now that @[tailrec] has landed)",
         "Case split for header parameters (SW-1499), then types for unused pattern binders (SW-1500)"
@@ -230,10 +233,12 @@
         "Proof irrelevance stage 1 and 2 (SW-93, SW-1429)",
         "Unifier fixes: one-step unfolding and arguments-from-conclusion (SW-1226, SW-1227)",
         "Tail-resumptive and checked @[tailrec] (SW-1222, SW-1232)",
-        "Decision-match proposal decided: warn and document, not a new matching mode (SW-1694, D2525-D2527)"
+        "Decision-match proposal decided: warn and document, not a new matching mode (SW-1694, D2525-D2527)",
+        "Dot-call caches keyed by address: the reproduced wrong-hit case fixed (SW-1797, SW-1800); full fix designed (syntax-node-ids.md, SW-1801)"
       ],
       "now": [],
       "next": [
+        "Syntax ids for dot calls, so no cache depends on memory addresses (SW-1803, D2577-D2580)",
         "Fix the check that hangs on a theorem whose statement names a large computation: the kernel evaluates a closed statement unfolded (SW-1534)",
         "Postponement: close the two queue gaps and keep the expected type folded (SW-1003, SW-1008, SW-1009)",
         "Well-founded recursion: the remaining stage 3 items (SW-199); kernel: refine context types lazily at case splits (SW-1066)"
@@ -336,8 +341,9 @@
       ],
       "now": [],
       "next": [
-        "Slow tests: lsp features (SW-1686, SW-1501), guide test (SW-1549), merge tier (SW-1386)",
-        "Daily-tier follow-ups: re-record the bench baseline and find the rises (SW-1342, SW-1622), report every stale extract snapshot (SW-1703), unsupported natives in the rt harness (SW-1710)"
+        "Slow tests: guide test (SW-1549), merge tier (SW-1386)",
+        "Daily-tier follow-ups: re-record the bench baseline and find the rises (SW-1342, SW-1622), report every stale extract snapshot (SW-1703), unsupported natives in the rt harness (SW-1710)",
+        "Bench baseline times re-recorded on a quiet machine; a smaller example set (SW-1806)"
       ],
       "links": [
         "docs/workflow.md",
@@ -476,18 +482,19 @@
         "Fewer test binaries: plan, script, rt pilot 13 → 3 (SW-1736)",
         "AoC check 18% fewer steps: a glued call no longer computed in full where only part is needed (SW-1779)",
         "Fewer test binaries: rt, core, syntax, native, fmt, lsp (166 → ~120; SW-1780, SW-1781)",
-        "Test binaries 166 → ~35: a core edit relinks 38 programs, not 136, 21% less CPU (SW-1790)"
+        "Test binaries 166 → ~35: a core edit relinks 38 programs, not 136, 21% less CPU (SW-1790)",
+        "task bench 11 → 2 min: examples on 8 fixed workers, run once (SW-1792)",
+        "test:affected runs the non-Rust checks too: board, shell, dev tools, flake (SW-1794)",
+        "lsp test binary 228 → 74 s warm (SW-1796); concurrency limit kept at 3 (SW-1795)",
+        "mimalloc: 12% less CPU on the std check, measured idle; in the library binary (SW-1742)",
+        "Check cache's own sweeps left unsampled: daily already samples 1 in 8 (SW-1773, D2571)"
       ],
-      "now": [
-        "Bench honest and faster (SW-1792)",
-        "Non-Rust checks in test:affected (SW-1794)",
-        "Editor tests' concurrency limit (SW-1795)"
-      ],
+      "now": [],
       "next": [
-        "mimalloc and kache measured on an idle machine (SW-1742, SW-1735)",
+        "Measure the overnight savings with one daily run on a quiet machine (SW-1804, D2556)",
+        "mimalloc in the other test binaries, and kache, measured on a quiet machine (SW-1802, SW-1735)",
         "elab unit tests in the library, if Matt takes the three-edit cost (SW-1776, D2565)",
-        "check_cache sweeps sampled in daily? Matt's call (SW-1773)",
-        "Measure the night's savings with one daily run (D2556)"
+        "Lane rules in CLAUDE.md: dev/stop-mine, rm on variables, test:affected wording (SW-1805, D2574, D2576)"
       ],
       "links": [
         "D2532",
