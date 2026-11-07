@@ -201,7 +201,19 @@ lsp-aoc-copy = { max-threads = 1 }
 # beside them.
 corpus-sweeps = { max-threads = 2 }
 
+# The language server's session tests (`stitchwort-lsp` `features` and
+# `memory`): each opens a Session on the library, 0.4 GB when the check cache is
+# warm and up to 1.3 GB while it is cold (the `memory` tests check a project and
+# hold 1.1 to 1.3 GB whatever the cache). Ten at once on a cold cache passed the
+# merge tier's 4 GB cap (SW-1760). Three at a time peaked at 3.1 GB cold, and
+# the whole set takes about the same warm (28 s).
+lsp-sessions = { max-threads = 3 }
+
 # Overrides in the default profile apply to every profile.
+[[profile.default.overrides]]
+filter = "package(stitchwort-lsp) & (binary(features) | binary(memory))"
+test-group = "lsp-sessions"
+
 [[profile.default.overrides]]
 filter = "package(stitchwort-cli) & binary(lsp) & test(/^(aoc_navigation_matches_check_index|workspace_symbols_cover_namespaces_not_checked_yet|a_newer_edit_cancels_the_check_running)$/)"
 test-group = "lsp-aoc-copy"
