@@ -20831,9 +20831,9 @@
     {
       "id": 2221,
       "title": "[Sonnet] decreasing stage 2 tests and docs (SW-2208 lane B): a nested match (twin calls twin), a dropped let, an equation used outside a proof, two scrutinees, a match under a lambda's f.unfold form, a pair measure; F5 (the unnamed equation reaches every proof in an arm) and F9 doc fixes",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2221",
       "labels": [
         "tests"
       ],
