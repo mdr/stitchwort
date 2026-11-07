@@ -1,5 +1,5 @@
 {
-  "next": 2272,
+  "next": 2273,
   "tickets": [
     {
       "id": 47,
@@ -21551,14 +21551,14 @@
     {
       "id": 2269,
       "title": "[Opus] SW-2268 F2: a failed same-definition argument try is followed by a tree try that compares the same inner pair again, so cost doubles per level (pred (pred (... a))) against (... b) gives E-RESOURCE at ~25 levels instead of a mismatch); TreeMemo remembers pairs found different; a nested-pred cost test",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2269",
       "labels": [
         "core"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/SW-2268-same-definition-trees.md. Regression risk from SW-2256: do first. Step 1 (~15 min): the cost test, showing the blow-up. Step 2 (~15 min): the memo.",
+      "body": "From docs/reviews/SW-2268-same-definition-trees.md. Regression risk from SW-2256: do first. Step 1 (~15 min): the cost test, showing the blow-up. Step 2 (~15 min): the memo.\n\nDone, merged. One memo for the argument and tree tries; 'different' remembered when no solution can arrive. New tests nested_stuck_calls_* (kernel one failed before). On main: proof_equivalence, call_fields, nested tests, hash_stability 28/28; elab 158/158; AoC --no-cache 64.0 s user (lane: 287/0 errors); rogue clean. Review SW-2272. Model result: Opus, worked, 15 min (est. 20).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21589,6 +21589,21 @@
       ],
       "epic": "elaborator-kernel",
       "body": "From docs/reviews/SW-2268-same-definition-trees.md. 15 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2272,
+      "title": "[Opus] Review SW-2269 (TreeMemo remembers pairs found different; recorded only when no unification is open, or the spines have no unknowns and eta is on): could a cached 'different' ever be stale (completeness, not soundness)?",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "review"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "Read-only, 15 min. After the weekly reset. Also note: with shortcuts off, nested failures still cost 2^n (test-only mode).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
