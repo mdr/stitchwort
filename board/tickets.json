@@ -1,5 +1,5 @@
 {
-  "next": 2213,
+  "next": 2214,
   "tickets": [
     {
       "id": 47,
@@ -20704,6 +20704,21 @@
       ],
       "epic": "test-infra",
       "body": "From Overmind job 7. 20 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2213,
+      "title": "[Opus] Read-only audit: do the language guide (docs/guide), docs/syntax.md and the feature tour (web/guide) cover what landed 6-7 Nov (decreasing stages 1 and 2, record eta, maps of sets, the List lemmas moved from AoC, the coming renames), accurately and with checked examples; is anything a newcomer would enjoy missing from the tour?",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2213",
+      "labels": [
+        "review"
+      ],
+      "epic": "docs-tutorials",
+      "body": "Read-only Opus lane, 7 Nov: docs/reviews/SW-N-guide-coverage.md. 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
