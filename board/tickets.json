@@ -14180,9 +14180,9 @@
     {
       "id": 1777,
       "title": "Analysis: do test binaries that never run native code need stitchwort-native, and so cranelift, which gates the clean build's test phase? (split-elab.md stage 3)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1777",
       "labels": [
         "perf"
       ],
