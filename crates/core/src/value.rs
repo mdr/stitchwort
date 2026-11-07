@@ -832,6 +832,10 @@ enum Frame {
     /// The forced value a projection takes a field of, already unfolded if
     /// it was a folded call.
     ProjReady(DataId, usize),
+    /// What folded call `f x` computed to, for its field `(f x).i`, kept
+    /// as that stuck form if what it computed to is stuck
+    /// ([`names_folded_fields`]). (Boxed: it's rare.)
+    FoldedField(Box<(DataId, usize, Value)>),
     /// The motive of a stuck `J` (the base is next).
     JMotive {
         term: Rc<Term>,
@@ -1667,7 +1671,19 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
             Control::Force(value)
         }
         Frame::ProjForced(d, i) if folded_call(g, &value) => {
-            unfold_for(g, stack, value, Frame::ProjReady(d, i))?
+            let next = if names_folded_fields(g) && is_eta_type(g, d) {
+                Frame::FoldedField(Box::new((d, i, project(d, i, value.clone()))))
+            } else {
+                Frame::ProjReady(d, i)
+            };
+            unfold_for(g, stack, value, next)?
+        }
+        Frame::FoldedField(field) => {
+            let (d, i, named) = *field;
+            Control::Return(match value {
+                Value::Neutral(head, _) if !matches!(head, Head::Meta(_)) => named,
+                other => project(d, i, other),
+            })
         }
         Frame::ProjForced(d, i) | Frame::ProjReady(d, i) => Control::Return(project(d, i, value)),
         Frame::CallField(field) if !field.unfolded && folded_call(g, &value) => {
@@ -1791,7 +1807,8 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
                 stack,
                 match then {
                     FieldUse::App(arg, icit) => Frame::AppTo(arg, icit),
-                    FieldUse::J { term, env } => Frame::JForced { term, env },
+                    // The field isn't forced yet: it may be a call.
+                    FieldUse::J { term, env } => Frame::JProof { term, env },
                 },
             )?;
             let arity = g.def(id).arity;
@@ -2040,6 +2057,15 @@ pub fn project_call(d: DataId, i: usize, call: Value) -> Value {
     Value::Call(id, spine, unfolding)
 }
 
+/// Whether a field of a folded call ([`folded_call`]) whose unfolding is
+/// stuck is kept as the stuck form `(f x).i` ([`eta_fields`], and
+/// `Frame::FoldedField` for a projection): while the elaborator glues, not
+/// in the kernel, which turns gluing on to check a body
+/// ([`Machine::kernel`](crate::machine::Machine::kernel)).
+fn names_folded_fields(g: &Ev) -> bool {
+    g.machine.glue.get() && !g.machine.kernel.get()
+}
+
 /// Whether data type `d` has record eta. A type the environment doesn't hold
 /// (only unit tests build such values) has none.
 pub fn is_eta_type(g: &Ev, d: DataId) -> bool {
@@ -2078,9 +2104,32 @@ pub fn eta_held(g: &Ev, id: DefId) -> bool {
 /// itself a folded call taking apart the same kind of record (`Map.raw
 /// (blinkCounts m)`, with `blinkCounts` a `Map.foldLeft` of `m.raw`), each
 /// level did the one below twice, exponential in the depth (SW-1829).
+///
+/// A folded call ([`folded_call`]: a `decreasing` definition or a
+/// dictionary; a call with a `Quot.lift` leaf is glued, and folded only in a
+/// value made unglued) is never glued, but its fields are kept as
+/// fields of the call too, the stuck form `(f x).i`, for the same reason:
+/// the projections of its unfolding would put its internals (a `decreasing`
+/// definition's fuelled helper) in goals, where a `match` on something its
+/// body tests would rewrite inside the call (docs/proposals/match-call-field.md
+/// §2.2, D2991). Only when `forced` is stuck and not an unknown: then every
+/// field is stuck either way, so this names it without changing what it
+/// computes to; conversion unfolds the stuck form ([`unfold_folded`]). Only
+/// in the elaborator, where goals are shown and searched: the kernel's
+/// evaluation is left as it was, gluing or not ([`Machine::kernel`]).
+///
+/// [`Machine::kernel`]: crate::machine::Machine::kernel
 fn eta_fields(g: &Ev, d: DataId, k: usize, unforced: &Value, forced: Value) -> Result<Vec<Value>> {
     let Value::Call(id, spine, _) = unforced else {
-        return Ok((0..k).map(|i| project(d, i, forced.clone())).collect());
+        let base = if names_folded_fields(g)
+            && matches!(&forced, Value::Neutral(head, _) if !matches!(head, Head::Meta(_)))
+            && folded_call(g, unforced)
+        {
+            unforced
+        } else {
+            &forced
+        };
+        return Ok((0..k).map(|i| project(d, i, base.clone())).collect());
     };
     let named = matches!(&forced, Value::Neutral(head, _) if !matches!(head, Head::Meta(_)))
         && !matches_at_once(g, *id, spine)?;
@@ -2250,8 +2299,19 @@ fn unfold_for(g: &Ev, stack: &mut Vec<Frame>, value: Value, next: Frame) -> Resu
 /// application or `J` computes first ([`unfold_field_for`]): only while
 /// gluing, where `Frame::CallField` and rule 2 name fields of calls stuck
 /// anywhere inside. Without gluing, such a value is a field of a call stuck
-/// in its own case tree, which computes to itself; the kernel's evaluation,
-/// and the reference evaluator's agreement with it, stay as they were.
+/// in its own case tree, which computes to itself.
+///
+/// The kernel reaches this too: it checks every body and signature glued
+/// (`check.rs`, `admit_group` and `declare_def`). That's sound: it unfolds
+/// only a body [`body_seen`] allows (a hidden opaque definition, or a member
+/// of the group being checked, which has no body yet, stays neutral); it
+/// runs the case tree in the same machine and budget; and it takes the
+/// field and applies it by the ordinary rules, so `(f x).i a` is the field
+/// of `f x`'s unfolding applied, by delta. That is what unglued evaluation
+/// gives already, since there `f x` unfolds when it's built, or, for a
+/// folded call, when a field of it is taken (through a `Quot.lift` leaf
+/// too, [`unfold_field_for`]). So it adds nothing to trust, and glued and
+/// unglued evaluation agree on what's equal (D3030).
 fn computes_field(g: &Ev, value: &Value) -> bool {
     g.machine.glue.get() && ends_in_field(value) && is_folded(g, value)
 }
@@ -2284,6 +2344,10 @@ fn unfold_field_for(
         stack,
         Frame::Unfolding(Box::new((id, call.clone(), next))),
     )?;
+    // A `Quot.lift` leaf is computed through, not left folded: unglued
+    // evaluation and the reference take a field of such a call through its
+    // lift too (`Frame::ProjForced`, `unfold_for`), and `(f x).i a` left
+    // folded would be a rigid term no conversion opens, unequal to theirs.
     Ok(Control::Tree(tree, args, Some((id, call, false))))
 }
 
