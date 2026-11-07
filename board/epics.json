@@ -429,11 +429,11 @@
         "Native build faces Python and compiled Lean; interpreter reported (D3340); no targets until the first measurement (D3341)",
         "Each language uses its natural data structures: no hobbled Python (D3342)",
         "Stage 1: harness, Python and Lean ports of ten programs, Lean ports of three days proofs; answer check 66/66 (SW-2292, SW-2293, SW-2299, SW-2294)",
-        "Big-number note (SW-2298)"
+        "Big-number note (SW-2298)",
+        "Proof baseline loads what each day uses: 2020 day 18 went from 37x to about 0.9x Lean, 2024 day 2 from 12x to 2x, 2021 day 15 about 4x (rough, one run, under load; SW-2313)"
       ],
       "now": [
-        "Scale inputs past 0.3 s (SW-2307, restarted)",
-        "Proof baseline loads the day's own dependencies (SW-2313)"
+        "Scale inputs past 0.3 s (SW-2307, restarted)"
       ],
       "next": [
         "Scale inputs past 0.3 s (SW-2307) and a check subset filter (SW-2310)",
