@@ -14030,9 +14030,9 @@
     {
       "id": 1767,
       "title": "Record eta code quality: two has_eta functions with different meanings, folded_call's doc, tuple-typed Frame::CallField, an omega spot that would drop a projection (SW-1764)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1642",
       "labels": [
         "cleanup"
       ],
