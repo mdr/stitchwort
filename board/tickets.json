@@ -1,5 +1,5 @@
 {
-  "next": 2264,
+  "next": 2265,
   "tickets": [
     {
       "id": 47,
@@ -21326,14 +21326,14 @@
     {
       "id": 2254,
       "title": "[Sonnet] With STITCHWORT_GLUE=0, std's Float file fails its pinned hashes (E-BUILTIN on Float.neg, abs, sub), so no program importing Float checks unglued",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2254",
       "labels": [
         "core"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/SW-2251-equality-rule.md (G4 can't run unglued). 30 min.",
+      "body": "From docs/reviews/SW-2251-equality-rule.md (G4 can't run unglued). 30 min.\n\nDone, merged. Cause: zonk_changed reads a solved unknown back as a call only when glued, so std's pins are hashes of the glued elaboration. Fix: Elaborator::gluing() = options.glue || loading_prelude (std always glued). Trade-off: STITCHWORT_GLUE=0 now only tests user code unglued (orchestrator's call, reversible). On main: pins, bound_to_the_prelude, hash_stability, proof_equivalence 20/20; unglued Float repro checks. Model result: Sonnet, worked, 8 min (est. 30).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21341,14 +21341,14 @@
     {
       "id": 2255,
       "title": "[Opus] Equality rule text: write D3250/D3260's rule into docs/core.md (say different or stuck only on a rigid head; an unfoldable stuck call compared by its case tree when its arguments differ; same definition with equal arguments an equal-only shortcut; the named limits every mode shares), no code",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2255",
       "labels": [
         "core"
       ],
       "epic": "elaborator-kernel",
-      "body": "Split from SW-2243 into ~15-min steps (Matt, 7 Nov: small scope near the quota). Flip the gap's #[ignore]d test in proof_equivalence.rs (SW-2242) and its probe in docs/repros/sw-2236/. D3250/D3260. 15-20 min.",
+      "body": "Split from SW-2243 into ~15-min steps (Matt, 7 Nov: small scope near the quota). Flip the gap's #[ignore]d test in proof_equivalence.rs (SW-2242) and its probe in docs/repros/sw-2236/. D3250/D3260. 15-20 min.\n\nDone, merged. Rule in core.md: rigid heads, rule E, rule C, limits, test of record, gaps table. Notes for the fix lanes: G9 means native + on Succ of a folded call (SW-2261), not omega's atoms; ignore reasons in proof_equivalence.rs still say SW-2243/2244, each fix lane updates its own; transitivity is checked on all pairs plus G6's triangle, not random triples. BLOCKED_DEPTH -> SW-2264. Model result: Opus, worked, 2 min (est. 15).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21356,9 +21356,9 @@
     {
       "id": 2256,
       "title": "[Opus] Equality G6: same-definition stuck calls with different arguments are compared by what they unfold to (transitivity)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2256",
       "labels": [
         "core"
       ],
@@ -21469,6 +21469,21 @@
       ],
       "epic": "elaborator-kernel",
       "body": "From SW-2242's not-done list. Scope it to one step before starting. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2264,
+      "title": "[Opus] Unifier: stale stuck calls are rechecked only three calls deep (BLOCKED_DEPTH), a limit that picks an answer (against D2543 and the equality rule); make it fail or postpone instead, or justify it in core.md",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-2251 F11 and SW-2255. Scope to ~15 min: first say what happens at depth 4 with a probe. 15 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
