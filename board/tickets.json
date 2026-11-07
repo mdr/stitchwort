@@ -1,5 +1,5 @@
 {
-  "next": 2029,
+  "next": 2033,
   "tickets": [
     {
       "id": 47,
@@ -1091,9 +1091,9 @@
       "where": "",
       "labels": [],
       "epic": "aoc-older",
-      "body": "Triage, 28 Oct (Opus, checked on main 38069cf5):\n- DONE: Char.isAsciiLowercase (f7264e47; std/Text/Basics.sw:40). Set membership Iff lemmas largely exist (Set/Spec.sw: containsToList, memToList, extIff, containsUnion, containsIntersect).\n- SPLIT: Set.sizeIntersect lemmas -> SW-841.\n- DUPLICATE: 'match found:' stepping -> SW-802 (D1439); dependent if choosing between proofs -> SW-373.\n- OPEN here: a 100-line theorem 16 s vs 2.2 s with let-bound proofs moved out (why?); lambda needing a later argument for pair.fst gives a same-type mismatch message (may be fixed by the SW-822 lane).\n\nBacklog review, 4 Nov 2026: nothing newer than the triage above; the OPEN items are the list of what is left (the pair.fst message may be fixed by the SW-822 lane: re-test).",
+      "body": "Triage, 28 Oct (Opus, checked on main 38069cf5):\n- DONE: Char.isAsciiLowercase (f7264e47; std/Text/Basics.sw:40). Set membership Iff lemmas largely exist (Set/Spec.sw: containsToList, memToList, extIff, containsUnion, containsIntersect).\n- SPLIT: Set.sizeIntersect lemmas -> SW-841.\n- DUPLICATE: 'match found:' stepping -> SW-802 (D1439); dependent if choosing between proofs -> SW-373.\n- OPEN here: a 100-line theorem 16 s vs 2.2 s with let-bound proofs moved out (why?); lambda needing a later argument for pair.fst gives a same-type mismatch message (may be fixed by the SW-822 lane).\n\nBacklog review, 4 Nov 2026: nothing newer than the triage above; the OPEN items are the list of what is left (the pair.fst message may be fixed by the SW-822 lane: re-test).\n\nFrom docs/proposals/decreasing-with-hypothesis.md: the match found: case for decreasing definitions moves to SW-2030.",
       "created": "2026-10-28",
-      "updated": "2026-11-04",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -17710,13 +17710,13 @@
     {
       "id": 2013,
       "title": "[Opus] Design item: a decreasing measure that uses a hypothesis",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2013",
       "labels": [
         "design"
       ],
-      "body": "From docs/research/aoc-friction-synthesis.md. 60 min.",
+      "body": "From docs/research/aoc-friction-synthesis.md. 60 min.\n\nDone, merged: docs/proposals/decreasing-with-hypothesis.md. Parameter hypotheses already work (std uses it three times); gaps: what a match found, what a plain if tested, what a recursive call returned. Facts from match/if reach the decrease proof automatically; f.unfold states the program as written. D2870-D2872. Tickets SW-2029-SW-2032. ~8 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17772,7 +17772,7 @@
       "labels": [
         "elab"
       ],
-      "body": "From docs/research/aoc-friction-synthesis.md. 30 min.",
+      "body": "From docs/research/aoc-friction-synthesis.md. 30 min.\n\nFrom docs/proposals/decreasing-with-hypothesis.md: the brief's example already works (a parameter steps ≤ fuel); the gap is facts from inside the body. 2024 day 23's measure proof is SW-841, a missing std lemma.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17927,6 +17927,62 @@
         "runtime"
       ],
       "body": "From docs/proposals/compute-once.md. From docs/proposals/compute-once.md (out of scope there). 60 min to design.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2029,
+      "title": "[Opus] decreasing: a plain if's condition reaches the decrease proof when a recursive call is under it; f.unfold still shows the plain if",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "From docs/proposals/decreasing-with-hypothesis.md. Stage 1. D2870 [rec: yes]. docs/syntax.md, guide 07-recursion; decreasing examples, a new accept example, changed reject snapshots, snap:hashes, hash_stability. 75 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2030,
+      "title": "[Opus] decreasing: a match's equation reaches the decrease proof, named or not, and stays out of f.unfold (2021 day 12's stuck proof, 2024 day 23's popMin)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "From docs/proposals/decreasing-with-hypothesis.md. Stage 2, after SW-2029. Takes over SW-809's match found: item for decreasing definitions. Check omega uses n - k = Succ j. 90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2031,
+      "title": "[Sonnet] Guide example: a function returning a record that carries its own decrease (2021 day 16's readPackets, 2020 day 19)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "body": "From docs/proposals/decreasing-with-hypothesis.md. Stage 3. D2871. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2032,
+      "title": "[Sonnet] Move 2024 day 23, 2021 day 16 and Graph.searchFrom off their decreasing workarounds (always-true run-time tests, two extra parameters)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "From docs/proposals/decreasing-with-hypothesis.md. Stage 4, after SW-2030. D2872. Targeted check and test, snap:hashes, hash_stability, audit:touched. 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
