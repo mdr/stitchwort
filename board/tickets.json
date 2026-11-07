@@ -1,5 +1,5 @@
 {
-  "next": 1994,
+  "next": 1995,
   "tickets": [
     {
       "id": 47,
@@ -11247,7 +11247,7 @@
         "elab"
       ],
       "epic": "effects-native",
-      "body": "From SW-1564, 6 Nov 2026.\n\nFrom docs/reviews/code-review-elab-rest.md (F2): SW-1564's settle-to-empty runs before the call's own postponed row comparisons are retried, probably why the same settle broke List.cross; see SW-1926.",
+      "body": "From SW-1564, 6 Nov 2026.\n\nFrom docs/reviews/code-review-elab-rest.md (F2): SW-1564's settle-to-empty runs before the call's own postponed row comparisons are retried, probably why the same settle broke List.cross; see SW-1926.\n\nFrom docs/proposals/row-settling-order.md: List.cross probably isn't F2 (nothing postponed there): SW-1564's failing experiment also left out re-evaluating the type after settling, and the settled unknown was likely the enclosing lambda's row. D2810: after SW-1926's fix, rerun as an experiment only and close if no user-visible gain [rec: yes].",
       "created": "2026-11-06",
       "updated": "2026-11-07",
       "commits": []
@@ -16418,14 +16418,14 @@
     {
       "id": 1926,
       "title": "[Opus] Effect rows: retry a call's own postponed row comparisons before settling its row to empty (comp_app, SW-1564), then retry SW-1581",
-      "status": "doing",
+      "status": "backlog",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1926",
       "labels": [
         "elab"
       ],
       "epic": "effects-native",
-      "body": "From docs/reviews/code-review-elab-rest.md (ticket 2). F2, F16. 60-90 min.",
+      "body": "From docs/reviews/code-review-elab-rest.md (ticket 2). F2, F16. 60-90 min.\n\nAnalysis done, merged: docs/proposals/row-settling-order.md (7 min). F2 confirmed by reading (logA in map-callback-effectful-later.sw should fail since SW-1564). Next, this ticket as the fix (Opus, 60-75 min): first run logA and check whether the settled unknown is the enclosing row's; one helper settle_own_empty in rows.rs (own unknown, own postponed comparisons retried first, not in the result type, recorded with settling_empty, type re-evaluated), used by comp_app and settle_let_lambda; settling_empty in pure_first; F16's fresh tails typed. Two examples and a unit test. F8 (SW-1927's retry) before or with it. D2811: unknown callback type falls back to pre-SW-1564 behaviour [rec: yes].",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17430,6 +17430,21 @@
       ],
       "epic": "editor-playground",
       "body": "From docs/proposals/deep-input.md (D2751). Expected: 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1994,
+      "title": "[Sonnet] Docs: why close_inferred_row and lift's divergence default settle rows early and are left alone",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "epic": "effects-native",
+      "body": "From docs/proposals/row-settling-order.md (ticket 3). 20 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
