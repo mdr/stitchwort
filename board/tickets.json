@@ -2789,7 +2789,7 @@
     {
       "id": 1029,
       "title": "audit stage 2: --base (statements and the program unchanged against a base branch) and --minimal (unused hypotheses)",
-      "status": "next",
+      "status": "backlog",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -2797,9 +2797,9 @@
         "correctness"
       ],
       "epic": "audit-fuzzing",
-      "body": "D2164 (Matt, 1 Nov 2026), queued. Catches an agent quietly weakening a theorem: added hypotheses (8 disclosed cases in AoC lanes, docs/research/agentic-proving.md:83, §5 row J) or a changed definition. --base REF: per theorem, compare a statement-only hash with the base (proof ignored); report changed or removed statements; also definitions theorems depend on, by erased program hash. --minimal (opt-in): drop each hypothesis, re-check, report unused ones. Lanes run audit --base main before reporting and justify each change; merges add it. Opus design (what counts as the same statement across renames/moves, new theorems, which definitions are 'the program'), then Sonnet CLI. Also update SW-912 (stage 1 shipped).",
+      "body": "D2164 (Matt, 1 Nov 2026), queued. Catches an agent quietly weakening a theorem: added hypotheses (8 disclosed cases in AoC lanes, docs/research/agentic-proving.md:83, §5 row J) or a changed definition. --base REF: per theorem, compare a statement-only hash with the base (proof ignored); report changed or removed statements; also definitions theorems depend on, by erased program hash. --minimal (opt-in): drop each hypothesis, re-check, report unused ones. Lanes run audit --base main before reporting and justify each change; merges add it. Opus design (what counts as the same statement across renames/moves, new theorems, which definitions are 'the program'), then Sonnet CLI. Also update SW-912 (stage 1 shipped).\n\n7 Nov: backlog, deprioritised. Matt, 7 Nov 2026: \"let's deprioritize Stitchwort audit work. I think it's not obviously high priority. Keep it on the backlog.\"",
       "created": "2026-11-01",
-      "updated": "2026-11-01",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -6416,7 +6416,7 @@
         "audit"
       ],
       "epic": "audit-fuzzing",
-      "body": "From AoC 2020 day 4 (SW-1249, NOTES-2020.md item 6, ranked 2). The audit's vacuity check tries random inputs and warns when none satisfy a theorem's hypotheses. On day 4 all 8-11 warnings were false, all on compiler-generated equations (heightValid.eq.some with hypothesis value.stripSuffix \"cm\" = Some number; Spec.validValue.eq.if… with (key == \"byr\") = True): random texts never hit the literals. Same blindness: check --counterexamples missed a deliberately broken height range (between 151 193). Options raised: (A) skip generated equations in the vacuity check (they come from the definition, so can't be misstated); (B) seed generators with the definition's literals.\n\nD2357 (Matt, 4 Nov): backlog only. Matt doubts random generation is a viable strategy for vacuity at all (hoping it finds inputs); revisit the approach itself (e.g. what a warning should require, or a non-random method) before doing A or B.\n\nFrom SW-1210 (merged, backlog review 4 Nov 2026), option C: satisfy hypotheses of the form `f x = y` / `f x = Some y` in the counterexample search by computing y from the generated x, so audit tests 'if the program returns X' theorems instead of warning they may be vacuous. From aoc/NOTES-2020.md day 1 item 5: 6 of day 1's 16 theorems gave up this way. Medium, a day or two.\nD2306 (Matt, 4 Nov 2026): backlog, consider later with evidence from other AoC days (2021/2024/2025 audits will have the same warnings).\nRelated, kept separate: SW-1063 (custom generators), SW-1247 (generator for non-equation proof fields).\n\n7 Nov: option A only, as SW-2232 (D3231).",
+      "body": "From AoC 2020 day 4 (SW-1249, NOTES-2020.md item 6, ranked 2). The audit's vacuity check tries random inputs and warns when none satisfy a theorem's hypotheses. On day 4 all 8-11 warnings were false, all on compiler-generated equations (heightValid.eq.some with hypothesis value.stripSuffix \"cm\" = Some number; Spec.validValue.eq.if… with (key == \"byr\") = True): random texts never hit the literals. Same blindness: check --counterexamples missed a deliberately broken height range (between 151 193). Options raised: (A) skip generated equations in the vacuity check (they come from the definition, so can't be misstated); (B) seed generators with the definition's literals.\n\nD2357 (Matt, 4 Nov): backlog only. Matt doubts random generation is a viable strategy for vacuity at all (hoping it finds inputs); revisit the approach itself (e.g. what a warning should require, or a non-random method) before doing A or B.\n\nFrom SW-1210 (merged, backlog review 4 Nov 2026), option C: satisfy hypotheses of the form `f x = y` / `f x = Some y` in the counterexample search by computing y from the generated x, so audit tests 'if the program returns X' theorems instead of warning they may be vacuous. From aoc/NOTES-2020.md day 1 item 5: 6 of day 1's 16 theorems gave up this way. Medium, a day or two.\nD2306 (Matt, 4 Nov 2026): backlog, consider later with evidence from other AoC days (2021/2024/2025 audits will have the same warnings).\nRelated, kept separate: SW-1063 (custom generators), SW-1247 (generator for non-equation proof fields).\n\n7 Nov: option A only, as SW-2232 (D3231).\n\n7 Nov: backlog, deprioritised. Matt, 7 Nov 2026: \"let's deprioritize Stitchwort audit work. I think it's not obviously high priority. Keep it on the backlog.\"",
       "created": "2026-11-04",
       "updated": "2026-11-07",
       "commits": []
@@ -7260,9 +7260,9 @@
         "tooling"
       ],
       "epic": "audit-fuzzing",
-      "body": "From SW-1304: the remaining vacuity warnings (2021 day 16: 28, day 18: 17) are hypotheses like readNumber reader 3 = Some (version, after) where later inputs must equal what an earlier one computes. QuickChick-style construction; touches the checker term, input plans, shrinking and the display. Needs a design note first (Opus). Also: a constants dictionary of string literals (2021 day 12's \"end\").",
+      "body": "From SW-1304: the remaining vacuity warnings (2021 day 16: 28, day 18: 17) are hypotheses like readNumber reader 3 = Some (version, after) where later inputs must equal what an earlier one computes. QuickChick-style construction; touches the checker term, input plans, shrinking and the display. Needs a design note first (Opus). Also: a constants dictionary of string literals (2021 day 12's \"end\").\n\n7 Nov: backlog, deprioritised. Matt, 7 Nov 2026: \"let's deprioritize Stitchwort audit work. I think it's not obviously high priority. Keep it on the backlog.\"",
       "created": "2026-11-05",
-      "updated": "2026-11-05",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -20988,7 +20988,7 @@
         "audit"
       ],
       "epic": "audit-fuzzing",
-      "body": "From docs/proposals/audit-proved-instances.md. Waits on D3230 (Matt). Opus review after (a trust check). 75 min.",
+      "body": "From docs/proposals/audit-proved-instances.md. Waits on D3230 (Matt). Opus review after (a trust check). 75 min.\n\n7 Nov: backlog, deprioritised. Matt, 7 Nov 2026: \"let's deprioritize Stitchwort audit work. I think it's not obviously high priority. Keep it on the backlog.\"",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21003,7 +21003,7 @@
         "audit"
       ],
       "epic": "audit-fuzzing",
-      "body": "From docs/proposals/audit-proved-instances.md; SW-1261 option A. D3231 yes (orchestrator's call: the two commands disagree today). Trip journal goes from 14 warnings to 8. 30 min.",
+      "body": "From docs/proposals/audit-proved-instances.md; SW-1261 option A. D3231 yes (orchestrator's call: the two commands disagree today). Trip journal goes from 14 warnings to 8. 30 min.\n\n7 Nov: backlog, deprioritised. Matt, 7 Nov 2026: \"let's deprioritize Stitchwort audit work. I think it's not obviously high priority. Keep it on the backlog.\"",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21018,7 +21018,7 @@
         "proofs"
       ],
       "epic": "docs-tutorials",
-      "body": "From docs/proposals/audit-proved-instances.md stage 4, after SW-2231. Could fold into SW-2225. 30 min.\n\n7 Nov: waits with SW-2222 (D3220 parked by Matt).",
+      "body": "From docs/proposals/audit-proved-instances.md stage 4, after SW-2231. Could fold into SW-2225. 30 min.\n\n7 Nov: waits with SW-2222 (D3220 parked by Matt).\n\n7 Nov: backlog, deprioritised. Matt, 7 Nov 2026: \"let's deprioritize Stitchwort audit work. I think it's not obviously high priority. Keep it on the backlog.\"",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
