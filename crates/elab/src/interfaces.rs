@@ -657,7 +657,7 @@ impl Elaborator {
             let mut shown = Vec::new();
             for &(field, parent) in path {
                 let proj = self.tables.interfaces[&at].projections[field];
-                let arg_term = cx.quote(&arg)?;
+                let arg_term = cx.quote_folded(&arg)?;
                 term = Term::app(
                     Term::app_icit(Term::Def(proj), arg_term, Icit::Implicit),
                     term,
@@ -1048,7 +1048,7 @@ pub(crate) fn attempt(
             unreachable!("an instance's parameters")
         };
         let (arg_term, value) = match p {
-            InstanceParam::Head(k) => (cx.quote(&args[*k])?, args[*k].clone()),
+            InstanceParam::Head(k) => (cx.quote_folded(&args[*k])?, args[*k].clone()),
             InstanceParam::Prerequisite => {
                 let meta = implicit_arg(cx, Icit::Auto, &dom);
                 if let Some(last) = cx.e.attempt.obligations.borrow_mut().last_mut() {
@@ -1272,6 +1272,18 @@ fn locals(cx: &Ctx) -> Result<Vec<Candidate>> {
     let g = cx.g();
     let mut out = Vec::new();
     for level in (0..cx.level()).rev() {
+        // The head is looked at glued first: forcing a glued call with
+        // gluing off (as `decide` searches) evaluates it all the way down,
+        // which for a hypothesis like `h: P20 n` with `P20 x := P19 x ∧ P19
+        // x` takes 2^20 steps (SW-1779). Gluing changes when a value is
+        // computed, not its head, so a local skipped here is one the
+        // unglued force would skip too; an interface is forced as before.
+        let was = g.machine.glue.replace(true);
+        let head = force(&g, cx.types[level].clone());
+        g.machine.glue.set(was);
+        if !matches!(head?, Value::Data(i, _) if cx.e.is_interface(i)) {
+            continue;
+        }
         let Value::Data(i, args) = force(&g, cx.types[level].clone())? else {
             continue;
         };
@@ -1288,7 +1300,7 @@ fn locals(cx: &Ctx) -> Result<Vec<Candidate>> {
             let info = &cx.e.tables.interfaces[&c.interface];
             for &(field, parent) in &info.supers {
                 let proj = info.projections[field];
-                let arg_term = cx.quote(&c.arg)?;
+                let arg_term = cx.quote_folded(&c.arg)?;
                 let field_name = &g.data(c.interface).ctors()[0].fields[field].0;
                 pending.push(Candidate {
                     term: Term::app(
@@ -1547,7 +1559,7 @@ pub(crate) fn ord(e: &Elaborator) -> Option<DataId> {
 /// it's `DecEq.decide x y` with that dictionary, found later if it can't be
 /// yet.
 pub(crate) fn decide_eq(cx: &mut Ctx, ty: &Value, x: &Value, y: &Value) -> Result<Term> {
-    let (xt, yt) = (cx.quote(x)?, cx.quote(y)?);
+    let (xt, yt) = (cx.quote_folded(x)?, cx.quote_folded(y)?);
     decide_eq_of(cx, ty, xt, yt)
 }
 
@@ -1572,14 +1584,14 @@ pub(crate) fn decide_eq_of(cx: &mut Ctx, ty: &Value, xt: Term, yt: Term) -> Resu
         && let Some(decide) = fields.first()
         && matches!(decide, Value::Neutral(Head::Def(_), _))
     {
-        let decide = cx.quote(decide)?;
+        let decide = cx.quote_folded(decide)?;
         return Ok(Term::app(Term::app(decide, xt), yt));
     }
     let Some((Global::Def(method), _)) = cx.e.scope.get("Std.DecEq.decide") else {
         unreachable!("`DecEq` has its method")
     };
     note_operator_dictionary(cx, &meta, method, 0);
-    let ty = cx.quote(ty)?;
+    let ty = cx.quote_folded(ty)?;
     let call = Term::app_icit(
         Term::app_icit(Term::Def(method), ty, Icit::Implicit),
         meta,
@@ -1792,12 +1804,12 @@ pub(crate) fn method_call(
     let found = unfold_folded(&g, &found)?.unwrap_or(found);
     let head = match found {
         Value::Ctor(_, 0, fields) if matches!(fields[index], Value::Neutral(Head::Def(_), _)) => {
-            cx.quote(&fields[index])?
+            cx.quote_folded(&fields[index])?
         }
         _ => {
             let method = cx.e.tables.interfaces[&interface].methods[index];
             note_operator_dictionary(cx, &meta, method, index);
-            let ty = cx.quote(ty)?;
+            let ty = cx.quote_folded(ty)?;
             Term::app_icit(
                 Term::app_icit(Term::Def(method), ty, Icit::Implicit),
                 meta,
@@ -1898,7 +1910,11 @@ impl Elaborator {
             Value::Ctor(_, 0, fields)
                 if matches!(fields[field], Value::Neutral(Head::Def(_), _)) =>
             {
-                Some(stitchwort_core::value::quote(g, depth, &fields[field])?)
+                Some(stitchwort_core::value::quote_folded(
+                    g,
+                    depth,
+                    &fields[field],
+                )?)
             }
             _ => None,
         })
@@ -1932,7 +1948,7 @@ pub(crate) fn relation_decider(cx: &Ctx, prop: &Value) -> Result<Option<Term>> {
                 return Ok(None);
             };
             let icit = if k == 1 { Icit::Auto } else { *icit };
-            term = Term::app_icit(term, cx.quote(v)?, icit);
+            term = Term::app_icit(term, cx.quote_folded(v)?, icit);
         }
         if spine.len() < 2 {
             return Ok(None);

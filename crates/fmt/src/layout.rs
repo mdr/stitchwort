@@ -827,15 +827,19 @@ impl<'a> Layout<'a> {
                     || (line.first() == h && tokens[h].tok != Tok::Pipe && line.src_col > 0)
             })
         };
-        // The header tokens that start a parameter: those outside brackets
-        // before the header's first `:` outside brackets, after which the
-        // result type follows.
+        // The header tokens that start a parameter, and the first token of
+        // the result type: those outside brackets before the header's first
+        // `:` outside brackets, after which the result type follows.
         let mut starts_param: HashSet<usize> = HashSet::new();
+        let mut result_start = None;
         if let Some((start, h)) = header {
             let mut depth = 0i32;
             for (j, t) in tokens.iter().enumerate().take(h).skip(start + 1) {
                 match t.tok {
-                    Tok::Colon if depth == 0 => break,
+                    Tok::Colon if depth == 0 => {
+                        result_start = Some(j + 1);
+                        break;
+                    }
                     Tok::LParen | Tok::LBracket | Tok::LBrace => {
                         if depth == 0 {
                             starts_param.insert(j);
@@ -847,17 +851,18 @@ impl<'a> Layout<'a> {
                 }
             }
         }
-        // A line starting a parameter further right than a header line above
-        // it belongs to the declaration like that line does, unless it sits
-        // inside a bracket the line above opened. Lines inside a parameter
-        // and lines of the result type keep their nesting.
+        // A line starting a parameter or the result type further right than
+        // a header line above it belongs to the declaration like that line
+        // does, unless it sits inside a bracket the line above opened.
+        // Further lines of the result type keep their nesting.
         for i in 0..lines.len() {
             if let Some(p) = parent[i]
                 && lines[i].closer_of.is_none()
                 && tcol[p] != 0
                 && in_header(i)
                 && in_header(p)
-                && starts_param.contains(&lines[i].first())
+                && (starts_param.contains(&lines[i].first())
+                    || Some(lines[i].first()) == result_start)
                 && !self.ends_with_opener(&lines[p])
             {
                 parent[i] = parent[p];

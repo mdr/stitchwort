@@ -2,8 +2,9 @@
 # Run the selector's choice (SW-1098): `task test:selected -- '<filterset>'`.
 # Same as test:merge (STITCHWORT_TIER=merge, memory guard, merge
 # profile) but with the profile's own filter ignored, so the selection may
-# include tests the merge tier leaves out. Appends a line to
-# dev/selector-log.tsv: date, commit, estimated s, actual s, result, failed
+# include tests the merge tier leaves out. In the main checkout it appends a
+# line to dev/selector-log.tsv (a lane's worktree doesn't: the file is tracked,
+# and lanes would each dirty it): date, commit, estimated s, actual s, result, failed
 # tests, EXAMPLES, filter. Env: SELECTOR_ESTIMATE (the selector's estimate, in s);
 # EXAMPLES is a substring or a comma-separated list of substrings.
 set -u
@@ -11,12 +12,15 @@ root=$(cd "$(dirname "$0")/.." && pwd)
 cd "$root"
 filter=${1:?usage: run-selected '<nextest filterset>'}
 log=dev/selector-log.tsv
-[ -e "$log" ] || printf 'date\tcommit\testimated_s\tactual_s\tresult\tfailed\texamples\tfilter\n' > "$log"
+# A linked worktree's git dir differs from the shared one.
+main_checkout=0
+[ "$(git rev-parse --path-format=absolute --git-dir)" = "$(git rev-parse --path-format=absolute --git-common-dir)" ] && main_checkout=1
+[ "$main_checkout" = 0 ] || [ -e "$log" ] || printf 'date\tcommit\testimated_s\tactual_s\tresult\tfailed\texamples\tfilter\n' > "$log"
 est=${SELECTOR_ESTIMATE:-$(dev/test-inventory --estimate "$filter" | sed -n '1s/.*ESTIMATE \([0-9.]*\) s.*/\1/p')}
 export STITCHWORT_TIER=merge
 out=$(mktemp)
 start=$(date +%s)
-"$root/dev/memguard" --cap-gb "${STITCHWORT_MEM_CAP_GB_MERGE:-4}" -- cargo nextest run --release \
+"$root/dev/memguard" --cap-gb "${STITCHWORT_MEM_CAP_GB_SELECTED:-16}" -- cargo nextest run --release \
   $("$root/dev/test-scope" --profile merge --ignore-default-filter -E "$filter") \
   --profile merge --ignore-default-filter --no-tests=fail -E "$filter" 2>&1 | tee "$out"
 status=${PIPESTATUS[0]}
@@ -30,6 +34,10 @@ fi
 failed=$(sed -E 's/\x1b\[[0-9;]*m//g' "$out" | grep -E '^\s+(FAIL|SIGABRT|SIGSEGV|TIMEOUT) ' | awk '{print $NF}' | sort -u | paste -sd, -)
 rm -f "$out"
 result=pass; [ "$status" -eq 0 ] || result=fail
-printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(date -u +%FT%TZ)" "$(git rev-parse --short HEAD)" "${est:-?}" "$actual" "$result" "$failed" "${EXAMPLES:-}" "$filter" >> "$log"
-echo "selected: $result in ${actual}s (estimated ${est:-?}s); logged in $log"
+if [ "$main_checkout" = 1 ]; then
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(date -u +%FT%TZ)" "$(git rev-parse --short HEAD)" "${est:-?}" "$actual" "$result" "$failed" "${EXAMPLES:-}" "$filter" >> "$log"
+  echo "selected: $result in ${actual}s (estimated ${est:-?}s); logged in $log"
+else
+  echo "selected: $result in ${actual}s (estimated ${est:-?}s); not logged (linked worktree)"
+fi
 exit "$status"

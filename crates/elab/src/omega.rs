@@ -4011,7 +4011,7 @@ fn emit(
         ))?;
         // A type stuck on an unknown solved since computes once read again.
         let prop = &quoted[f].fact.prop;
-        if !cx.unify(&meaning, prop)? && !cx.unify(&meaning, &cx.eval(&cx.quote(prop)?)?)? {
+        if !cx.unify(&meaning, prop)? && !cx.unify(&meaning, &cx.eval(&cx.quote_folded(prop)?)?)? {
             return Err(internal(
                 span,
                 format!(
@@ -4038,7 +4038,9 @@ fn emit(
     };
     // A goal stuck on an unknown solved since (`?1 x`, in a field projection,
     // say) computes once read again, as for a fact above.
-    if !cx.unify(&proved, expected)? && !cx.unify(&proved, &cx.eval(&cx.quote(expected)?)?)? {
+    if !cx.unify(&proved, expected)?
+        && !cx.unify(&proved, &cx.eval(&cx.quote_folded(expected)?)?)?
+    {
         return Err(internal(
             span,
             format!(

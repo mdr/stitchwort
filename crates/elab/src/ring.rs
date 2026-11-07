@@ -1276,7 +1276,7 @@ fn emit(
     }
     // A goal stuck on an unknown solved since (`?1 x`, in a field projection,
     // say) computes once read again.
-    if !cx.unify(&ty, expected)? && !cx.unify(&ty, &cx.eval(&cx.quote(expected)?)?)? {
+    if !cx.unify(&ty, expected)? && !cx.unify(&ty, &cx.eval(&cx.quote_folded(expected)?)?)? {
         return Err(internal(
             span,
             format!(

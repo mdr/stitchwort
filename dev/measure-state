@@ -52,8 +52,8 @@ task build >"$work/build.log" 2>&1 || { cat "$work/build.log"; exit 1; }
 bin="$root/target/release/stitchwort"
 [[ -x "$bin" ]] || bin="$(ls "$root"/target/*/release/stitchwort | head -1)"
 say "binary: $bin"
-cargo test --release -p stitchwort-cli --test lsp --no-run >"$work/build-lsp.log" 2>&1 || { cat "$work/build-lsp.log"; exit 1; }
-cargo test --release -p stitchwort-driver --test rewind --no-run >"$work/build-rewind.log" 2>&1 || { cat "$work/build-rewind.log"; exit 1; }
+cargo test --release -p stitchwort-cli --test server --no-run >"$work/build-lsp.log" 2>&1 || { cat "$work/build-lsp.log"; exit 1; }
+cargo test --release -p stitchwort-driver --test projects --no-run >"$work/build-rewind.log" 2>&1 || { cat "$work/build-rewind.log"; exit 1; }
 
 # --- The edit loop.
 loop_on() { # name project plan
@@ -61,7 +61,7 @@ loop_on() { # name project plan
   say "## Edit loop: $1"
   load "start"
   STATE_LOOP_NAME=$1 STATE_LOOP_PROJECT=$2 STATE_LOOP_PLAN=$3 \
-    fenced cargo test --release -p stitchwort-cli --test lsp -- --ignored --nocapture --test-threads=1 state_edit_loop
+    fenced cargo test --release -p stitchwort-cli --test server -- --ignored --nocapture --test-threads=1 lsp::state_edit_loop
   load "end"
 }
 if ! skipped loop; then
@@ -115,7 +115,7 @@ if ! skipped rewind; then
   say "## Mark and rewind on aoc"
   load start
   for i in $(seq "$CLI_RUNS"); do
-    fenced cargo test --release -p stitchwort-driver --test rewind -- --ignored --nocapture --test-threads=1 mark_and_rewind_cost_alone
+    fenced cargo test --release -p stitchwort-driver --test projects -- --ignored --nocapture --test-threads=1 rewind::mark_and_rewind_cost_alone
   done
   load end
 fi

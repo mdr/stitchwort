@@ -27,7 +27,7 @@ To learn proving about programs hands-on in VS Code first, open the tutorial [tu
 
 ## The examples are checked
 
-Every piece of Stitchwort code in this guide is quoted from a file in [examples/](examples/), and every compiler message and program output is what the compiler printed for it. The test `crates/cli/tests/guide.rs` checks that each example file type-checks and passes its tests (the files in `examples/errors/` must fail to check, and those in `examples/failing/` have failing tests), and that each quoted block still matches its file and the compiler's output. After changing an example or the compiler, regenerate the quoted blocks with
+Every piece of Stitchwort code in this guide is quoted from a file in [examples/](examples/), and every compiler message and program output is what the compiler printed for it. The test `crates/cli/tests/tools/guide.rs` checks that each example file type-checks and passes its tests (the files in `examples/errors/` must fail to check, and those in `examples/failing/` have failing tests), and that each quoted block still matches its file and the compiler's output. After changing an example or the compiler, regenerate the quoted blocks with
 
 ```sh
 task guide:update    # STITCHWORT_GUIDE_UPDATE=1 cargo nextest run --release -p stitchwort-cli --test guide

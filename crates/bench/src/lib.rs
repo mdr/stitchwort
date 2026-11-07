@@ -62,28 +62,22 @@ pub struct PartCounts {
     pub steps: u64,
     pub visits: u64,
     pub allocations: u64,
+    /// The most heap the part had in use at once, on its thread.
+    pub peak_bytes: u64,
 }
 
-/// Where a benchmark's work records its parts' counts. Room for them all is
-/// made before measuring starts, so recording them doesn't allocate and
-/// doesn't change the counts.
+/// Where a benchmark's work records its parts' counts, in the order of
+/// [`Prepared::parts`]. A benchmark with parts measures them on threads of
+/// its own, so its totals are the parts' (see [`measure`]). Room for them
+/// all is made before measuring starts, so recording them doesn't allocate.
 pub struct Parts(Vec<PartCounts>);
 
 impl Parts {
-    /// Starts a part: pass the result to [`Parts::finish`].
-    pub fn start(&self) -> u64 {
-        alloc::allocations()
-    }
-
-    /// Records a part, started at `start`, that did `work`.
-    pub fn finish(&mut self, start: u64, work: Work) {
+    /// Records the next part.
+    pub fn record(&mut self, counts: PartCounts) {
         // Past the room made for them, recording would allocate: drop it.
         if self.0.len() < self.0.capacity() {
-            self.0.push(PartCounts {
-                steps: work.steps,
-                visits: work.visits,
-                allocations: alloc::allocations() - start,
-            });
+            self.0.push(counts);
         }
     }
 }
@@ -147,12 +141,29 @@ impl Counts {
     }
 }
 
+impl Counts {
+    /// Whether `other` differs by no more than one part in 100,000 in any
+    /// count. The parts of a benchmark spread over threads (`examples`) are
+    /// not exactly the same on every run: a few examples, in 1,498, take a
+    /// few dozen steps more or fewer, as if something in them depended on
+    /// where the heap puts things, which another thread's allocations
+    /// change. It is a millionth of the whole.
+    fn close_to(&self, other: &Counts) -> bool {
+        let near = |a: u64, b: u64| a.abs_diff(b) <= a.max(b) / 100_000;
+        near(self.steps, other.steps)
+            && near(self.visits, other.visits)
+            && near(self.allocations, other.allocations)
+            && near(self.peak_bytes, other.peak_bytes)
+    }
+}
+
 impl PartCounts {
-    fn named(&self) -> [(&'static str, u64); 3] {
+    fn named(&self) -> [(&'static str, u64); 4] {
         [
             ("steps", self.steps),
             ("visits", self.visits),
             ("allocations", self.allocations),
+            ("peak bytes", self.peak_bytes),
         ]
     }
 }
@@ -187,8 +198,15 @@ pub fn measure(benchmark: &Benchmark) -> Result<Measurement, String> {
         let start = Instant::now();
         let work = (prepared.run)(&mut parts);
         let time = start.elapsed();
-        let (allocations, peak_bytes) = alloc::since(before);
+        let (mut allocations, mut peak_bytes) = alloc::since(before);
         let work = work?;
+        // Parts run on threads of their own: the benchmark's totals are
+        // theirs, and its peak the heaviest part's, since the heap in use
+        // overall would depend on how the threads interleave.
+        if !parts.0.is_empty() {
+            allocations = parts.0.iter().map(|p| p.allocations).sum();
+            peak_bytes = parts.0.iter().map(|p| p.peak_bytes).max().unwrap_or(0);
+        }
         Ok(Measurement {
             counts: Counts {
                 steps: work.steps,
@@ -218,6 +236,8 @@ pub struct Outcome {
     pub record: Record,
     /// If the counts differed between runs, which they shouldn't: how.
     pub variation: Option<String>,
+    /// Each part's counts from the first run ([`Prepared::parts`]).
+    pub parts: Vec<(String, PartCounts)>,
 }
 
 /// Runs `benchmark` `runs` times (at least once), timing it if `timed`.
@@ -227,7 +247,12 @@ pub fn run(benchmark: &Benchmark, runs: usize, timed: bool) -> Result<Outcome, S
     let mut variations = Vec::new();
     for run in 2..=runs.max(1) {
         let m = measure(benchmark)?;
-        if m.counts != first.counts {
+        let same = if first.parts.is_empty() {
+            m.counts == first.counts
+        } else {
+            m.counts.close_to(&first.counts)
+        };
+        if !same {
             variations.push(variation(&first, &m, run));
         }
         times.push(m.time);
@@ -241,6 +266,7 @@ pub fn run(benchmark: &Benchmark, runs: usize, timed: bool) -> Result<Outcome, S
             time_ms: timed.then_some(median.as_secs_f64() * 1000.0),
         },
         variation: (!variations.is_empty()).then(|| variations.concat()),
+        parts: first.parts,
     })
 }
 

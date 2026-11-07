@@ -10,27 +10,44 @@
 # the crates that depend on it, from `cargo metadata`), unless it is
 # documentation or board data (`ignore` below).
 #
+# A rule with `extra = true` adds its tests to whatever else matched the file,
+# and does not count as covering it: the fallback rules and the crate fallback
+# still apply.
+#
 # `rank` says how relevant a rule's tests are. When the estimate is over the
 # budget the rules are cut from the highest rank down:
 #   1  the tests of the thing that changed
 #   2  what reads it: sweeps, other areas, formatting
-#   3  the crate-graph fallback for dependents
+#   3  the crate-graph fallback for dependents, and one slow check of wide reach
 # The `fixed-core` rule (rank 0) is never cut.
+#
+# A rule may have `commands` instead of (or besides) `select`: shell commands
+# run from the repository root, for the checks that are not nextest tests.
+# `seconds` is the estimate for each command and counts towards the budget.
+# A command with `{path}` or `{test}` runs once per changed file ({test} is the
+# `_test.py` beside it, and the file is skipped if there is none); `shebang`, a
+# regex for the first line, limits the files. `manual` lists checks to run by
+# hand (too slow or heavy for here); they are shown, never run. `task
+# test:affected` runs commands of up to 10 s before nextest, the rest after.
 #
 # `select` clauses are ANDed inside a clause and ORed between clauses:
 #   package   short crate name (`elab` for stitchwort-elab)
-#   binary    test binary (`hash_stability`); the crate's own unit tests are
+#   binary    test binary (`library`); the crate's own unit tests are
 #             `lib = true`
 #   test      regex searched in the test name (`^omega`, a nextest `test(/…/)`)
 #   not_test  regex of names to leave out
 #   profile   every test of a nextest profile (`lane-std`); the profile's
 #             filterset is pasted in, and its tests are read from the inventory
 # `examples = ["name"]` adds those names to EXAMPLES and selects the example
-# sweeps (cli `examples`, driver `hash_stability`), which then cover only the
+# sweeps (cli `running` `examples::`, driver `library` `hash_stability::`), which then cover only the
 # named examples. `sample = true` is a rule that wants the sweeps' ordinary
 # sample, so a diff that also names examples keeps EXAMPLES unset.
 
-ignore = ["docs/**", "board/**", "**/*.md", "web/**/*.html", "LICENSE", ".gitignore", ".github/**", ".claude/**", "dev/*.md"]
+ignore = ["docs/**", "board/tickets.json", "board/archive/**", "**/*.md", "web/**/*.html", "LICENSE", ".gitignore", ".github/**", ".claude/**", "dev/*.md", ".gitattributes", "dev/selector-log.tsv"]
+
+# The guide's chapters and examples are tests (docs/guide, docs/tutorial), so
+# they are the exception to `ignore`.
+unignore = ["docs/guide/**", "docs/tutorial/**"]
 
 # The crate each lane area is named for, used for the fallback's dependents.
 [lane_of]
@@ -56,7 +73,7 @@ why = "the kernel, the parser and one AoC day end to end: an unsound result or a
 select = [
   { package = "core" },
   { package = "syntax" },
-  { binary = "aoc_answers", test = "^year2024_day04$" },
+  { package = "cli", binary = "running", test = "^aoc_answers::year2024_day04$" },
 ]
 
 # ---------------------------------------------------------------- library
@@ -69,9 +86,9 @@ sample = true
 why = "a library file changes its own tests, the prelude and example hashes, and the formatting of .sw sources"
 select = [
   { profile = "lane-std" },
-  { binary = "hash_stability", test = "^(prelude|examples)$" },
-  { binary = "pinned_hashes" },
-  { binary = "std_library", test = "^the_standard_library_passes_its_own_tests$" },
+  { package = "driver", binary = "library", test = "^hash_stability::(prelude|examples)$" },
+  { package = "driver", binary = "library", test = "^pinned_hashes::" },
+  { package = "driver", binary = "library", test = "^std_library::the_standard_library_passes_its_own_tests$" },
 ]
 
 [[rule]]
@@ -81,8 +98,8 @@ paths = ["crates/elab/src/std/**", "std/**"]
 sample = true
 why = "the accepted and rejected examples use the library"
 select = [
-  { package = "cli", binary = "examples", test = "^(accepted|rejected)_examples_" },
-  { package = "cli", binary = "fmt", test = "^the_repository_sources_are_formatted$" },
+  { package = "cli", binary = "running", test = "^examples::(accepted|rejected)_examples_" },
+  { package = "cli", binary = "tools", test = "^fmt::the_repository_sources_are_formatted$" },
 ]
 
 [[rule]]
@@ -92,7 +109,7 @@ paths = ["crates/elab/src/std/core/**", "crates/elab/src/std/order.txt", "crates
 why = "core files are what natives and printed positions are bound to"
 select = [
   { test = "bound_to_the_(prelude|library)" },
-  { binary = "navigation", test = "^references_of_a_project$" },
+  { package = "driver", binary = "projects", test = "^navigation::references_of_a_project$" },
 ]
 
 [[rule]]
@@ -101,7 +118,7 @@ rank = 2
 paths = ["**/*.sw"]
 why = "every .sw file must be formatted"
 select = [
-  { package = "cli", binary = "fmt", test = "^the_repository_sources_are_formatted$" },
+  { package = "cli", binary = "tools", test = "^fmt::the_repository_sources_are_formatted$" },
 ]
 
 # ---------------------------------------------------------------- elaborator
@@ -114,9 +131,9 @@ examples = ["omega", "auto-omega"]
 why = "the omega procedure"
 select = [
   { package = "elab", test = "omega" },
-  { package = "driver", binary = "search_at", test = "omega" },
-  { package = "driver", binary = "std_library", test = "omega" },
-  { package = "driver", binary = "number_patterns" },
+  { package = "driver", binary = "library", test = "^search_at::.*omega" },
+  { package = "driver", binary = "library", test = "^std_library::.*omega" },
+  { package = "driver", binary = "elaboration", test = "^number_patterns::" },
 ]
 
 [[rule]]
@@ -127,9 +144,9 @@ examples = ["match", "pattern", "redundant"]
 why = "match elaboration and its coverage and redundancy checks"
 select = [
   { package = "elab", lib = true },
-  { package = "driver", binary = "number_patterns" },
-  { package = "driver", binary = "int_patterns" },
-  { package = "cli", binary = "redundant_arms" },
+  { package = "driver", binary = "elaboration", test = "^number_patterns::" },
+  { package = "driver", binary = "elaboration", test = "^int_patterns::" },
+  { package = "cli", binary = "tools", test = "^redundant_arms::" },
 ]
 
 [[rule]]
@@ -140,8 +157,8 @@ examples = ["rewrite", "calc"]
 why = "rewriting and calculation proofs"
 select = [
   { package = "elab", lib = true },
-  { package = "driver", binary = "rewrite" },
-  { package = "driver", binary = "update_lemmas" },
+  { package = "driver", binary = "proofs", test = "^rewrite::" },
+  { package = "driver", binary = "proofs", test = "^update_lemmas::" },
 ]
 
 [[rule]]
@@ -152,8 +169,9 @@ examples = ["equation", "induct", "derive"]
 why = "function equations, induction and derived instances"
 select = [
   { package = "elab", lib = true },
-  { package = "driver", binary = "function_equations" },
-  { package = "driver", binary = "function_induct" },
+  { package = "driver", binary = "proofs", test = "^function_equations::" },
+  { package = "driver", binary = "proofs", test = "^function_induct::" },
+  { package = "cli", binary = "tools", test = "^doc_equations::" },
 ]
 
 [[rule]]
@@ -163,7 +181,17 @@ paths = ["crates/elab/src/search.rs", "crates/elab/src/nav.rs", "crates/elab/src
 why = "the search and navigation over goals"
 select = [
   { profile = "lane-search" },
-  { package = "driver", binary = "navigation" },
+  { package = "driver", binary = "projects", test = "^navigation::" },
+]
+
+[[rule]]
+id = "elab-auto"
+extra = true
+rank = 1
+paths = ["crates/elab/src/auto*.rs", "crates/elab/src/data_auto.rs", "crates/elab/src/membership.rs"]
+why = "auto must prove membership in a long list in a chain of cheap steps"
+select = [
+  { package = "cli", binary = "tools", test = "^auto_membership_speed::" },
 ]
 
 [[rule]]
@@ -184,9 +212,70 @@ paths = ["crates/elab/**"]
 sample = true
 why = "the elaborator decides every example's verdict and hashes"
 select = [
-  { package = "cli", binary = "examples", test = "^(accepted|rejected|soundness)_examples_" },
-  { binary = "hash_stability", test = "^(prelude|examples)$" },
-  { package = "driver", binary = "pinned_hashes" },
+  { package = "cli", binary = "running", test = "^examples::(accepted|rejected|soundness)_examples_" },
+  { package = "driver", binary = "library", test = "^hash_stability::(prelude|examples)$" },
+  { package = "driver", binary = "library", test = "^pinned_hashes::" },
+  { package = "driver", binary = "elaboration", test = "^named_arguments::" },
+]
+
+# The front end's own feature tests live in the driver's and the CLI's test
+# binaries (about 650 and 510 tests, 3700 s and 3500 s in all, mostly the
+# whole-corpus ones). These rules take the quick tests of each, so a change to
+# the parser, kernel, elaborator or driver runs something of the features no
+# narrower rule names. Rank 2: they are cut first when the budget is short.
+[[rule]]
+id = "front-end-quick-driver"
+extra = true
+rank = 2
+paths = ["crates/syntax/**", "crates/core/**", "crates/elab/**", "crates/driver/**"]
+why = "the driver's feature tests under 3 s each: elaboration, patterns, records, interfaces, partial functions, ..."
+cheap_only = 3.0
+select = [
+  { package = "driver" },
+]
+
+[[rule]]
+id = "front-end-quick-cli"
+extra = true
+rank = 2
+paths = ["crates/syntax/**", "crates/core/**", "crates/elab/**", "crates/driver/**", "crates/cli/**"]
+why = "the command line's quick tests (under 3 s each) in the binaries no lane area reaches: project, scope, axioms, test failures, ..."
+cheap_only = 3.0
+select = [
+  { package = "cli", lib = true },
+  { package = "cli", binary = "tools", test = "^project::" },
+  { package = "cli", binary = "tools", test = "^scope::" },
+  { package = "cli", binary = "tools", test = "^axioms::" },
+  { package = "cli", binary = "tools", test = "^receiver_first::" },
+  { package = "cli", binary = "tools", test = "^redundant_arms::" },
+  { package = "cli", binary = "tools", test = "^no_effect::" },
+  { package = "cli", binary = "tools", test = "^lambda_shadow::" },
+  { package = "cli", binary = "tools", test = "^indexed_families::" },
+  { package = "cli", binary = "tools", test = "^doc_equations::" },
+  { package = "cli", binary = "tools", test = "^test_failures::" },
+  { package = "cli", binary = "tools", test = "^test_json::" },
+  { package = "cli", binary = "server", test = "^caching::" },
+  { package = "cli", binary = "server", test = "^navigation::" },
+  { package = "cli", binary = "tools", test = "^std_dir::" },
+  { package = "cli", binary = "tools", test = "^timings::" },
+  { package = "cli", binary = "tools", test = "^auto_membership_speed::" },
+  { package = "cli", binary = "tools", test = "^opcode_census::" },
+  { package = "cli", binary = "tools", test = "^broken_pipe::" },
+  { package = "cli", binary = "running", test = "^partial_handlers::" },
+  { package = "cli", binary = "server", test = "^live_memory::" },
+  { package = "cli", binary = "server", test = "^check_cache::" },
+  { package = "cli", binary = "extraction", test = "^effect_differential::" },
+]
+
+[[rule]]
+id = "guide-quotes"
+extra = true
+# 25 s warm alone (7 Nov 2026, SW-1778); rank 2 would be 20 s or less.
+rank = 3
+paths = ["crates/syntax/**", "crates/core/**", "crates/elab/**", "crates/driver/**", "crates/cli/**"]
+why = "the guide quotes the compiler's output (error messages, printed terms) and checks it is unchanged"
+select = [
+  { package = "cli", binary = "tools", test = "^guide::the_guide_quotes_its_examples_and_the_compiler$" },
 ]
 
 # ---------------------------------------------------------------- kernel and syntax
@@ -197,9 +286,9 @@ rank = 1
 paths = ["crates/core/src/pretty*"]
 why = "terms print in every error message"
 select = [
-  { package = "core", binary = "pretty" },
+  { package = "core", binary = "it", test = "^pretty::" },
   { package = "core", lib = true },
-  { package = "cli", binary = "examples", test = "^rejected_examples_" },
+  { package = "cli", binary = "running", test = "^examples::rejected_examples_" },
 ]
 
 [[rule]]
@@ -213,6 +302,16 @@ select = [
 ]
 
 [[rule]]
+id = "core-all"
+extra = true
+rank = 2
+paths = ["crates/core/**", "crates/syntax/**"]
+why = "the rest of the kernel's own tests (groups, quotients, termination, ...): lane-core leaves them out, 40 s of CPU in all"
+select = [
+  { package = "core" },
+]
+
+[[rule]]
 id = "core-general-sweeps"
 rank = 2
 fallback = true
@@ -220,7 +319,7 @@ paths = ["crates/core/**"]
 sample = true
 why = "every hash comes from the kernel"
 select = [
-  { binary = "hash_stability", test = "^(prelude|examples)$" },
+  { package = "driver", binary = "library", test = "^hash_stability::(prelude|examples)$" },
 ]
 
 [[rule]]
@@ -243,6 +342,28 @@ select = [
   { profile = "lane-fmt" },
 ]
 
+[[rule]]
+id = "fmt-repo"
+extra = true
+rank = 2
+paths = ["crates/fmt/**", "crates/syntax/**"]
+why = "lane-fmt leaves out the formatter's fuzzing and its run over every file in the repository (30 s)"
+select = [
+  { package = "fmt", binary = "it", test = "^repo::" },
+  { package = "fmt", binary = "it", test = "^fuzz::" },
+  { package = "cli", binary = "tools", test = "^fmt_repo::" },
+]
+
+[[rule]]
+id = "fmt-hashes"
+extra = true
+rank = 3
+paths = ["crates/fmt/**", "crates/syntax/**"]
+why = "formatting must change no declaration's hash (a sweep, about 75 s)"
+select = [
+  { package = "driver", binary = "library", test = "^fmt_hashes::" },
+]
+
 # ---------------------------------------------------------------- runtime and tools
 
 [[rule]]
@@ -253,6 +374,41 @@ why = "the runtime"
 select = [
   { profile = "lane-rt" },
   { profile = "lane-effects" },
+  # Its own binary (it has a global allocator); its one test, about 3.4 s,
+  # sits just over rt-quick's 3 s line.
+  { package = "rt", binary = "state_match" },
+]
+
+[[rule]]
+id = "rt-quick"
+extra = true
+rank = 2
+paths = ["crates/rt/**", "crates/host/**", "crates/core/**"]
+why = "the runtime's other test binaries under 3 s each (lowering, arrays, profiles)"
+cheap_only = 3.0
+select = [
+  { package = "rt" },
+]
+
+[[rule]]
+id = "reference-evaluator"
+extra = true
+rank = 2
+paths = ["crates/core/src/reference.rs", "crates/rt/**"]
+why = "the fast runtime against the reference evaluator, through the command (the whole-corpus runs are daily)"
+cheap_only = 10.0
+select = [
+  { package = "cli", binary = "running", test = "^run_reference::" },
+]
+
+[[rule]]
+id = "float"
+extra = true
+rank = 2
+paths = ["crates/core/src/float.rs", "crates/js/**"]
+why = "Float at run time: the JS bits module and the Rust runtime agree"
+select = [
+  { package = "cli", binary = "running", test = "^float::" },
 ]
 
 [[rule]]
@@ -274,6 +430,18 @@ select = [
 ]
 
 [[rule]]
+id = "js-quick"
+extra = true
+rank = 2
+paths = ["crates/js/**", "crates/rt/**"]
+why = "extraction and the node runs: the quick tests of cli extract and run_js, which lane-js mostly leaves out"
+cheap_only = 3.0
+select = [
+  { package = "cli", binary = "extraction", test = "^extract::" },
+  { package = "cli", binary = "running", test = "^run_js::" },
+]
+
+[[rule]]
 id = "lsp"
 rank = 1
 paths = ["crates/lsp/**"]
@@ -284,12 +452,23 @@ select = [
 ]
 
 [[rule]]
+id = "lsp-in-the-playground"
+extra = true
+rank = 2
+paths = ["crates/lsp/**"]
+why = "the playground runs the language server in its worker (crates/web/src/lsp.rs)"
+select = [
+  { profile = "lane-web" },
+]
+
+[[rule]]
 id = "cli-search"
 rank = 1
 paths = ["crates/cli/src/search*", "crates/cli/src/doc*"]
 why = "stitchwort search and doc"
 select = [
   { profile = "lane-search" },
+  { package = "cli", binary = "tools", test = "^doc_equations::" },
 ]
 
 [[rule]]
@@ -300,6 +479,27 @@ paths = ["crates/cli/**", "crates/standalone/**"]
 why = "the command line"
 select = [
   { profile = "lane-cli" },
+]
+
+[[rule]]
+id = "partial-model"
+rank = 1
+paths = ["crates/partial-model/**"]
+why = "the model of partial functions and the driver tests that check the elaborator against it"
+select = [
+  { package = "partial-model" },
+  { package = "driver", binary = "proofs", test = "^partial::" },
+  { package = "driver", binary = "proofs", test = "^partial_kernel::" },
+]
+
+[[rule]]
+id = "guide"
+rank = 1
+paths = ["docs/guide/**", "docs/tutorial/**"]
+why = "the guide's examples are checked, and what it quotes is what the compiler says"
+select = [
+  { package = "cli", binary = "tools", test = "^guide::" },
+  { package = "web", test = "^tests::the_guide_examples_check$" },
 ]
 
 [[rule]]
@@ -327,9 +527,9 @@ paths = ["crates/driver/**"]
 why = "the driver: loading and the project tests"
 select = [
   { profile = "lane-core" },
-  { package = "driver", binary = "project" },
-  { package = "driver", binary = "namespaces" },
-  { package = "driver", binary = "multi_file" },
+  { package = "driver", binary = "projects", test = "^project::" },
+  { package = "driver", binary = "projects", test = "^namespaces::" },
+  { package = "driver", binary = "projects", test = "^multi_file::" },
 ]
 
 [[rule]]
@@ -358,9 +558,64 @@ rank = 1
 paths = [".config/nextest.toml", "Taskfile.yml", "dev/*"]
 why = "the lane profiles and the selection tools"
 select = [
-  { package = "cli", binary = "audit" },
+  { package = "cli", binary = "tools", test = "^audit::" },
 ]
 note = "also run: task test:lanes-nonempty (every lane profile selects tests)"
+
+# ------------------------------------------------- non-nextest checks
+# What the retired dev/t ran by changed path (SW-1794).
+
+[[rule]]
+id = "board-node-tests"
+rank = 1
+paths = ["board/*.js", "board/*.mjs", "board/board", "board/serve.sh", "board/*.html", "board/epics.json", "board/epic-tags.json"]
+why = "the board's node tests (board/board.test.js)"
+commands = ["cd board && node --test board.test.js"]
+seconds = 6
+
+[[rule]]
+id = "shell-syntax"
+rank = 1
+extra = true
+paths = ["**/*.sh", "dev/*", "board/board"]
+shebang = '^#!.*\b(ba)?sh\b'
+why = "bash -n on a changed shell script"
+commands = ["bash -n {path}"]
+seconds = 0.2
+
+[[rule]]
+id = "dev-tool-tests"
+rank = 1
+extra = true
+paths = ["dev/*"]
+why = "the _test.py beside a changed dev tool"
+commands = ["python3 {test}"]
+seconds = 3
+
+[[rule]]
+id = "flake-parse"
+rank = 2
+extra = true
+paths = ["flake.nix"]
+why = "flake.nix still parses and its outputs list"
+commands = ["nix-instantiate --parse flake.nix >/dev/null", "nix flake show --no-write-lock-file >/dev/null"]
+seconds = 2
+
+[[rule]]
+id = "playground-colour"
+rank = 1
+paths = ["web/**/*.js", "web/**/*.mjs", "web/tests/**"]
+why = "the playground tokenizer's colouring tests (no browser)"
+commands = ["node --test web/tests/colour.test.mjs"]
+seconds = 1
+manual = ["task test:browser (the playground in headless Chrome, builds the WebAssembly bundle, about 35 s)"]
+
+[[rule]]
+id = "vscode-extension"
+rank = 1
+paths = ["editors/vscode/**"]
+why = "the VS Code extension's client tests"
+manual = ["task test:vscode (needs npm ci in editors/vscode first)"]
 
 # ---------------------------------------------------------------- data
 
@@ -385,7 +640,9 @@ note = "proof lanes: also task audit:touched -- Aoc.Common"
 
 # Rules the script builds from the path itself (see `dynamic` in the script):
 #   crates/X/tests/NAME.rs         the binary NAME of package X
+#   crates/X/tests/BIN/NAME.rs     the tests `NAME::` of the merged binary BIN of package X
+#                                  (its main.rs and helper folders: the whole binary)
 #   examples/<folder>/NAME.sw      EXAMPLES=NAME and the sweeps
 #   examples/projects/<f>/NAME/**  EXAMPLES=NAME and the sweeps
-#   crates/cli/tests/snapshots/examples__<folder>__NAME.snap   the same
-#   aoc/src/Aoc/YearYYYY/DayDD/**  aoc_answers yearYYYY_dayDD
+#   crates/cli/tests/running/snapshots/running__examples__<folder>__NAME.snap   the same
+#   aoc/src/Aoc/YearYYYY/DayDD/**  cli running aoc_answers::yearYYYY_dayDD

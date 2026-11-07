@@ -18,6 +18,7 @@ mod chain;
 mod check;
 pub mod closing;
 mod congruence;
+pub use congruence::std_congruence_failures;
 pub mod counterexample;
 mod data_auto;
 mod decreasing;
@@ -905,6 +906,8 @@ impl Elaborator {
         self.decl.reset();
         if self.options.clear_caches_per_declaration {
             self.caches.clear();
+        } else {
+            self.caches.forget_dot_calls();
         }
         let was = self.kernel.machine.glue.replace(self.options.glue);
         let out = f(self);

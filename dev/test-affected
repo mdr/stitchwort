@@ -18,7 +18,17 @@ a range (the orchestrator's verifier gives the batch); `--paths` gives files.
 Needs the inventory (`task test:inventory`), looked for in this checkout's
 target/ and then the main checkout's. `--run` (what `task test:affected` does)
 checks that the filter selects tests, then runs `task test:selected`;
-`--dry-run` only prints. Test with: python3 dev/test-affected_test.py
+`--dry-run` only prints.
+
+A rule may also carry shell `commands` (the board's node tests, `bash -n` on a
+changed script, the `_test.py` beside a changed tool), each with an estimated
+`seconds` that counts towards the budget. A command with `{path}` or `{test}`
+runs once per changed file (`{test}` is the file's `_test.py`, skipped when
+there is none; `shebang` limits the files to those whose first line matches).
+`--run` runs the quick ones (up to FAST_COMMAND seconds) before nextest and the
+rest after it, and ends with each command's pass or fail. A rule's `manual`
+lines are checks too slow or too heavy to run here: they are listed as "run by
+hand". Test with: python3 dev/test-affected_test.py
 """
 import argparse
 import importlib.machinery
@@ -26,6 +36,8 @@ import importlib.util
 import json
 import os
 import re
+import shlex
+import shutil
 import subprocess
 import sys
 import tomllib
@@ -34,10 +46,13 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_BUDGET = 90.0
 # One example in a named sweep: the setup of its test plus its own run.
 EXAMPLE_FIXED, EXAMPLE_EACH = 1.0, 0.7
+# Commands estimated at no more than this many seconds run before nextest, so
+# a broken script fails before the long run starts.
+FAST_COMMAND = 10.0
 
 SWEEP_BINARIES = [
-    {"package": "cli", "binary": "examples", "test": "^(accepted|rejected|soundness|goal)_(examples|projects)_"},
-    {"binary": "hash_stability", "test": "^(examples|projects)$"},
+    {"package": "cli", "binary": "running", "test": "^examples::(accepted|rejected|soundness|goal)_(examples|projects)_"},
+    {"package": "driver", "binary": "library", "test": "^hash_stability::(examples|projects)$"},
 ]
 SWEEP_NARROW = {"accept": r"^accepted_", "reject": r"^rejected_", "goals": r"^goal_"}
 
@@ -191,10 +206,36 @@ def changed_test_names(path, range_):
 TEST_NAMES = {"range": None, "enabled": False}
 
 
+def has_tests(path):
+    try:
+        return "#[test]" in open(os.path.join(ROOT, path)).read()
+    except OSError:
+        return False
+
+
 def dynamic_rules(path):
     """Rules read off one path's own shape (see the end of the rules file)."""
     out = []
-    if m := re.fullmatch(r"crates/(\w+)/tests/(\w+)(?:\.rs|/main\.rs)", path):
+    if (m := re.fullmatch(r"crates/(\w+)/tests/(\w+)/(\w+)\.rs", path)) and \
+            os.path.exists(os.path.join(ROOT, "crates", m.group(1), "tests", m.group(2), "main.rs")):
+        # A module of a crate's one merged test binary (tests/NAME/main.rs;
+        # dev/merge-test-binaries): its tests are `module::name`. main.rs and
+        # helper modules, which no test is named for, select the whole binary.
+        binary = {"package": m.group(1), "binary": m.group(2)}
+        module = m.group(3)
+        if module != "main" and has_tests(path):
+            mod_sel = dict(binary, test="^%s::" % module)
+            names = changed_test_names(path, TEST_NAMES["range"]) if TEST_NAMES["enabled"] else []
+            if names:
+                out.append({"id": "test-file-changed", "rank": 1, "why": "the tests of %s that the diff touches" % path,
+                            "select": [dict(binary, test="^%s::(%s)$" % (module, "|".join(names)))]})
+                out.append({"id": "test-file", "rank": 2, "cheap_only": 5.0, "why": "the rest of %s, its quick tests" % path,
+                            "select": [mod_sel]})
+            else:
+                out.append({"id": "test-file", "rank": 1, "why": "the changed test module itself", "select": [mod_sel]})
+        else:
+            out.append({"id": "test-file", "rank": 1, "why": "the merged test binary's shared code", "select": [binary]})
+    elif m := re.fullmatch(r"crates/(\w+)/tests/(\w+)(?:\.rs|/main\.rs)", path):
         binary = {"package": m.group(1), "binary": m.group(2)}
         names = changed_test_names(path, TEST_NAMES["range"]) if TEST_NAMES["enabled"] else []
         if names:
@@ -204,6 +245,11 @@ def dynamic_rules(path):
                         "select": [binary]})
         else:
             out.append({"id": "test-file", "rank": 1, "why": "the changed test file itself", "select": [binary]})
+    if (m := re.fullmatch(r"crates/(\w+)/tests/(\w+)/(?!snapshots/)(?:\w+/)+[^/]+", path)) and \
+            os.path.exists(os.path.join(ROOT, "crates", m.group(1), "tests", m.group(2), "main.rs")):
+        # A helper folder (common/, pty/, a fixture) of a merged binary.
+        out.append({"id": "test-helper", "rank": 1, "why": "shared code of the merged test binary",
+                    "select": [{"package": m.group(1), "binary": m.group(2)}]})
     if m := re.fullmatch(r"crates/(\w+)/tests/common/.*", path):
         out.append({"id": "test-common", "rank": 1, "why": "shared test code is used by the crate's tests",
                     "select": [{"package": m.group(1)}]})
@@ -212,22 +258,22 @@ def dynamic_rules(path):
         name, folder = m.group(2), m.group(1)
     elif m := re.fullmatch(r"examples/(\w+)/([^/]+)\.sw", path):
         name, folder = m.group(2), m.group(1)
-    elif m := re.fullmatch(r"crates/cli/tests/snapshots/examples__(\w+)__(.+)\.snap", path):
+    elif m := re.fullmatch(r"crates/cli/tests/running/snapshots/running__examples__(\w+)__(.+)\.snap", path):
         name, folder = m.group(2), m.group(1)
-    elif m := re.fullmatch(r"crates/driver/tests/snapshots/hash_stability__(.+)\.snap", path):
+    elif m := re.fullmatch(r"crates/driver/tests/library/snapshots/library__hash_stability__(.+)\.snap", path):
         name, folder = m.group(1), "hash"
     if name:
         extra = []
         if folder == "extract":
-            extra.append({"package": "cli", "binary": "extract", "test": "^generated_code_is_stable$"})
+            extra.append({"package": "cli", "binary": "extraction", "test": "^extract::generated_code_is_stable$"})
         if folder == "hash":
-            extra.append({"binary": "hash_stability", "test": "^(examples|projects)$"})
+            extra.append({"package": "driver", "binary": "library", "test": "^hash_stability::(examples|projects)$"})
         out.append({"id": "example", "rank": 1, "examples": [name], "hash_only": folder == "hash",
                     "why": "the example %s, in the sweeps that check it" % name, "select": extra})
     if m := re.fullmatch(r"aoc/src/Aoc/Year(\d{4})/Day(\d{2})(?:/.*|\.sw)", path):
         out.append({"id": "aoc-day", "rank": 1,
                     "why": "that day's answers",
-                    "select": [{"binary": "aoc_answers", "test": "^year%s_day%s$" % m.groups()}],
+                    "select": [{"package": "cli", "binary": "running", "test": "^aoc_answers::year%s_day%s$" % m.groups()}],
                     "note": "proof lanes: also task audit:touched -- Aoc.Year%s.Day%s" % m.groups()})
     return out
 
@@ -294,6 +340,52 @@ class Rule:
         self.why, self.note = spec.get("why", ""), spec.get("note")
         self.cheap_only = spec.get("cheap_only") or False
         self.hash_only = bool(spec.get("hash_only", False))
+        self.commands = {}
+        self.manual = list(spec.get("manual", []))
+
+
+def sibling_test(path):
+    """The `_test.py` beside a tool: `dev/x_test.py` for `dev/x` or
+    `dev/x.py`, and a test file itself."""
+    if path.endswith("_test.py"):
+        return path
+    return (path[:-3] if path.endswith(".py") else path) + "_test.py"
+
+
+def has_shebang(pattern, path):
+    try:
+        with open(os.path.join(ROOT, path), errors="replace") as f:
+            return bool(re.search(pattern, f.readline()))
+    except OSError:
+        return False
+
+
+def expand_commands(spec, files):
+    """{command: seconds} for a rule's `commands` and the files that hit it.
+    A command with `{path}` or `{test}` is made once per file; a file that no
+    longer exists, fails the rule's `shebang` or has no test is skipped."""
+    secs = float(spec.get("seconds", 5))
+    out = {}
+    for tmpl in spec.get("commands", []):
+        if "{path}" not in tmpl and "{test}" not in tmpl:
+            out.setdefault(tmpl, secs)
+            continue
+        for f in files:
+            test = sibling_test(f)
+            if not os.path.exists(os.path.join(ROOT, f)):
+                continue
+            if spec.get("shebang") and not has_shebang(spec["shebang"], f):
+                continue
+            if "{test}" in tmpl and not os.path.exists(os.path.join(ROOT, test)):
+                continue
+            out.setdefault(tmpl.replace("{path}", shlex.quote(f)).replace("{test}", shlex.quote(test)), secs)
+    return out
+
+
+def is_ignored(cfg, path):
+    """Documentation and board data select nothing, but for the `unignore`d
+    folders (the guide's chapters and examples are tests)."""
+    return globs_match(cfg.get("ignore", []), path) and not globs_match(cfg.get("unignore", []), path)
 
 
 def assign_rules(files, cfg, users, notes):
@@ -303,16 +395,17 @@ def assign_rules(files, cfg, users, notes):
     why_file = {}
     static = cfg["rule"]
     for f in files:
-        if globs_match(cfg.get("ignore", []), f):
+        if is_ignored(cfg, f):
             why_file[f] = ["ignored (documentation or board data)"]
             continue
         hits = [r for r in static if r.get("paths") and globs_match(r["paths"], f)]
         dyn = dynamic_rules(f)
-        if dyn or any(not r.get("fallback") for r in hits):
+        main = [r for r in hits if not r.get("extra")]
+        if dyn or any(not r.get("fallback") for r in main):
             hits = [r for r in hits if not r.get("fallback")]
         hits = hits + dyn
-        if not hits:
-            hits = fallback_rules(f, cfg, users, notes)
+        if not [h for h in hits if not h.get("extra")]:
+            hits = hits + fallback_rules(f, cfg, users, notes)
         if not hits:
             notes.append("no rule or crate covers %s" % f)
         why_file[f] = [h["id"] for h in hits] or ["nothing"]
@@ -328,6 +421,8 @@ def assign_rules(files, cfg, users, notes):
     for r in cfg["rule"]:
         if r.get("always"):
             rules.setdefault(r["id"], Rule(r, []))
+    for r in rules.values():
+        r.commands = expand_commands(r.spec, r.files)
     # Named examples are swept by a rule of their own, less relevant than the
     # rule's direct tests, unless the examples are what changed.
     for key, r in list(rules.items()):
@@ -339,6 +434,29 @@ def assign_rules(files, cfg, users, notes):
             r.examples = []
             rules[key + "/sweeps"] = sweep
     return rules, why_file
+
+
+def widen_for_helpers(rules, inv):
+    """A changed test file whose diff names functions that are not tests (a
+    helper the tests share) can affect any test in the file: the whole binary
+    becomes the most relevant rule, in place of the named tests."""
+    changed = rules.get("test-file-changed")
+    whole = rules.get("test-file")
+    if not changed or not whole:
+        return
+    for sel in changed.select:
+        body = sel["test"].removeprefix("^").removesuffix("$")
+        names = body[body.index("(") + 1:-1].split("|")
+        # A merged test binary's tests are `module::name`; the diff names the
+        # function alone, so compare it with the module prefix the select has.
+        prefix = sel["test"].split("(", 1)[0].lstrip("^")
+        binary = {k: v for k, v in sel.items() if k != "test"}
+        have = {t["name"] for t in inv if selector_matches(binary, t)}
+        if have and any(prefix + n not in have for n in names):
+            whole.rank, whole.cheap_only = 1, False
+            whole.why = "the changed test file, whose diff touches code the tests share"
+            del rules["test-file-changed"]
+            return
 
 
 def example_selectors(examples):
@@ -394,12 +512,15 @@ def is_sweep(t):
 def select(files, cfg, inv_mod, inv, budget, notes, use_crate_graph=True, names=None):
     users = crate_graph() if use_crate_graph else None
     rules, why_file = assign_rules(files, cfg, users if use_crate_graph else {}, notes)
+    widen_for_helpers(rules, inv)
     names = example_names() if names is None else names
     ordered = sorted(rules.values(), key=lambda r: (r.rank, r.id))
     sets = {}
+    empty = []
     for r in ordered:
         sets[r.id + id(r).__str__()] = tests_of(r, inv)
         if not sets[r.id + id(r).__str__()] and r.rank > 0 and (r.select or r.examples):
+            empty.append(r.id)
             notes.append("rule %s selects no test in the inventory (stale inventory or a rule to fix)" % r.id)
     kept = list(ordered)
     cut = []
@@ -409,68 +530,143 @@ def select(files, cfg, inv_mod, inv, budget, notes, use_crate_graph=True, names=
         which = kept if which is None else which
         examples, _ = pick_examples(which, names, [])
         ids = set().union(*[sets[r.id + id(r).__str__()] for r in which]) if which else set()
-        return ids, examples, estimate_of(inv_mod, inv, ids, examples)
+        est = estimate_of(inv_mod, inv, ids, examples)
+        cmds = {}
+        for r in which:
+            cmds.update(r.commands)
+        est = dict(est, estimate=round(est["estimate"] + sum(cmds.values()), 1), commands=len(cmds),
+                   command_seconds=round(sum(cmds.values()), 1))
+        return ids, examples, est
 
     ids, examples, est = current()
-    # Over the budget: cut whole rules, the least relevant rank first and,
-    # within a rank, the one that lowers the estimate most. The most
-    # relevant rank keeps its last rule. Then put back what still fits,
-    # most relevant first, so a cut that overshot is undone.
-    ranks_of = lambda: sorted({r.rank for r in kept if r.rank >= 1}, reverse=True)
+    # Over the budget: cut whole rules, the least relevant rank first, and
+    # every rule of a rank before any of the next (a rank-3 rule that fits
+    # never stays while a rank-2 rule goes). Within a rank, the rule that
+    # lowers the estimate most goes first, then the one with the most time of
+    # its own (sweeps run one at a time, so a rule may not move the estimate).
+    # The most relevant rank keeps its last rule. Then put back what still
+    # fits, most relevant first, stopping at the first rank that cannot all
+    # come back, so a cut that overshot is undone without skipping a rank.
+    def own_time(r, among):
+        others = set().union(*[sets[x.id + id(x).__str__()] for x in among if x is not r])
+        mine = {c: s for c, s in r.commands.items() if not any(c in x.commands for x in among if x is not r)}
+        return sum(by_id[i]["time"] if by_id[i]["time_known"] else inv_mod.UNKNOWN_SECONDS
+                   for i in sets[r.id + id(r).__str__()] - others) + sum(mine.values())
+
+    # The changed code's own tests (a rank 1 rule that a changed file maps to)
+    # are protected: every other rule goes first, whatever its rank. Only when
+    # those alone are over the budget are they trimmed, keeping the cheapest
+    # (by the inventory's times) that fit, and `res["unprotected_files"]`
+    # names the changed files left without any of their own tests.
+    def is_protected(r):
+        return r.rank == 1 and bool(r.files)
+
     while est["estimate"] > budget:
+        ranks = sorted({r.rank for r in kept if r.rank >= 1 and not is_protected(r)}, reverse=True)
         best = None
-        for rank in ranks_of():
-            group = [r for r in kept if r.rank == rank]
-            if rank == min(ranks_of()) and len(group) == 1:
-                continue
-            trial = [(est["estimate"] - current([x for x in kept if x is not r])[2]["estimate"], r) for r in group]
-            trial = [t for t in trial if t[0] > 0]
-            if trial:
-                best = max(trial, key=lambda t: t[0])
-                break
-        if not best:
-            # Sweeps are one at a time, so no single rule may move the
-            # estimate: cut the one with the most time of its own.
-            for rank in ranks_of():
-                group = [r for r in kept if r.rank == rank]
-                if rank == min(ranks_of()) and len(group) == 1:
-                    continue
-                spend = []
-                for r in group:
-                    others = set().union(*[sets[x.id + id(x).__str__()] for x in kept if x is not r])
-                    own = sets[r.id + id(r).__str__()] - others
-                    spend.append((sum(by_id[i]["time"] if by_id[i]["time_known"] else inv_mod.UNKNOWN_SECONDS for i in own), r))
-                spend = [t for t in spend if t[0] > 0]
-                if spend:
-                    best = max(spend, key=lambda t: t[0])
-                    break
+        for rank in ranks:
+            group = [r for r in kept if r.rank == rank and not is_protected(r)]
+            best = max(((est["estimate"] - current([x for x in kept if x is not r])[2]["estimate"],
+                         own_time(r, kept)), r.id, r) for r in group)[2]
+            break
         if not best:
             break
-        kept.remove(best[1])
-        cut.append(best[1])
+        kept.remove(best)
+        cut.append(best)
         ids, examples, est = current()
+    trimmed = []
+    if est["estimate"] > budget:
+        mine = sorted((r for r in kept if is_protected(r)),
+                      key=lambda r: (current([r])[2]["estimate"], r.id))
+        kept = [r for r in kept if not is_protected(r)]
+        for r in mine:
+            if not any(is_protected(k) for k in kept) or current(kept + [r])[2]["estimate"] <= budget:
+                kept.append(r)
+            else:
+                cut.append(r)
+                trimmed.append(r)
+        ids, examples, est = current()
+    blocked = None
     for r in sorted(cut, key=lambda r: (r.rank, r.id)):
+        if blocked is not None and r.rank > blocked:
+            break
         if current(kept + [r])[2]["estimate"] <= budget:
             kept.append(r)
             cut.remove(r)
+        else:
+            blocked = r.rank
     kept.sort(key=lambda r: ordered.index(r))
     def own_seconds(r):
         others = set().union(*[sets[x.id + id(x).__str__()] for x in kept])
+        mine = sum(s for c, s in r.commands.items() if not any(c in x.commands for x in kept))
         return round(sum(by_id[i]["time"] if by_id[i]["time_known"] else inv_mod.UNKNOWN_SECONDS
-                         for i in sets[r.id + id(r).__str__()] - others), 1)
+                         for i in sets[r.id + id(r).__str__()] - others) + mine, 1)
     cut = [(r, own_seconds(r)) for r in cut]
     examples, wanted = pick_examples(kept, names, notes)
     ids, _, est = current()
-    return {"rules": kept, "cut": cut, "ids": ids, "examples": examples, "estimate": est,
+    left_bare = [f for f in files if not is_ignored(cfg, f)
+                 and any(is_protected(r) and f in r.files for r in trimmed)
+                 and not any(is_protected(r) and f in r.files for r in kept)]
+    return {"empty": empty, "rules": kept, "cut": cut, "unprotected_files": left_bare, "trimmed": [r.id for r in trimmed], "ids": ids, "examples": examples, "estimate": est,
             "why_file": why_file, "sets": {r.id: sets[r.id + id(r).__str__()] for r in ordered}}
 
 
-def build_filter(kept, profiles):
+def render_cheap(sel, chosen, inv, profiles):
+    """A selector of a `cheap_only` rule: the tests it matches that the rule
+    kept, as the selector less the slow ones it left out (or, when those are
+    most of it, the kept ones by name), since a filterset has no times."""
+    matching = [t for t in inv if selector_matches(sel, t)]
+    kept = [t for t in matching if t["id"] in chosen]
+    slow = [t for t in matching if t["id"] not in chosen]
+    if not slow:
+        return render_selector(sel, profiles)
+    if not kept:
+        return None
+
+    def by_binary(tests):
+        per = {}
+        for t in tests:
+            per.setdefault(t["binary"], []).append(t["name"])
+        return " | ".join("(binary_id(=%s) & (%s))" % (b, " | ".join("test(=%s)" % n for n in sorted(ns)))
+                          for b, ns in sorted(per.items()))
+    if len(slow) <= len(kept):
+        return "(%s & !(%s))" % (render_selector(sel, profiles), by_binary(slow))
+    return "(%s)" % by_binary(kept)
+
+
+def command_list(rules):
+    """[(command, seconds, rule id)] of the kept rules, each command once."""
+    seen, out = set(), []
+    for r in rules:
+        for c, s in r.commands.items():
+            if c not in seen:
+                seen.add(c)
+                out.append((c, s, r.id))
+    return out
+
+
+def run_commands(cmds):
+    """Run the commands, each in the repository root, and return
+    [(command, passed)]; a failing command's output is shown."""
+    results = []
+    for c, s, _ in cmds:
+        print(">> %s" % c, flush=True)
+        r = subprocess.run(c, shell=True, cwd=ROOT)
+        results.append((c, r.returncode == 0))
+    return results
+
+
+def command_summary(results):
+    return "COMMAND RESULTS:\n" + "\n".join("  %s  %s" % ("pass" if ok else "FAIL", c) for c, ok in results)
+
+
+def build_filter(kept, profiles, inv, sets):
     clauses = []
     for r in kept:
         for s in rule_selectors(r):
-            c = render_selector(s, profiles)
-            if c not in clauses:
+            c = render_cheap(s, sets[r.id], inv, profiles) if r.cheap_only and "profile" not in s \
+                else render_selector(s, profiles)
+            if c and c not in clauses:
                 clauses.append(c)
     return " | ".join(clauses)
 
@@ -479,16 +675,32 @@ def build_filter(kept, profiles):
 
 def report(res, files, profiles, budget, explain, inv):
     out = []
-    flt = build_filter(res["rules"], profiles)
+    flt = build_filter(res["rules"], profiles, inv, res["sets"])
     est = res["estimate"]
     out.append("FILTER: %s" % flt)
     out.append("EXAMPLES: %s" % (res["examples"] or "none"))
-    out.append("ESTIMATE: %s s (%d tests, %d of unknown time); budget %g s" % (
-        est["estimate"], est["count"], est["unknown"], budget))
+    out.append("ESTIMATE: %s s (%d tests, %d of unknown time%s); budget %g s" % (
+        est["estimate"], est["count"], est["unknown"],
+        ", %d commands, %g s" % (est["commands"], est["command_seconds"]) if est["commands"] else "", budget))
+    cmds = command_list(res["rules"])
+    if cmds:
+        out.append("COMMANDS (%d; %s):" % (len(cmds), "quick ones run before nextest, the rest after"))
+        for c, s, r in cmds:
+            out.append("  %s (about %g s; %s)" % (c, s, r))
+    for r in res["rules"]:
+        for m in r.manual:
+            out.append("RUN BY HAND: %s (%s)" % (m, r.why or r.id))
     if res["cut"]:
         out.append("WARNING: over the %g s budget; cut, least relevant first:" % budget)
         for r, saved in res["cut"]:
             out.append("  - %s (rank %d, about %s s of its tests are its own): %s" % (r.id, r.rank, saved, r.why))
+    if res.get("trimmed"):
+        out.append("WARNING: the changed code's own tests alone are over the budget; kept the cheapest that fit, dropped "
+                   + ", ".join(res["trimmed"]))
+        if res["unprotected_files"]:
+            out.append("WARNING: no test of its own runs for %d changed files: %s%s" % (
+                len(res["unprotected_files"]), ", ".join(res["unprotected_files"][:4]),
+                ", ..." if len(res["unprotected_files"]) > 4 else ""))
     elif est["estimate"] > budget:
         out.append("WARNING: over the %g s budget with only the most relevant tests; nothing left to cut" % budget)
     notes = [r.note for r in res["rules"] if r.note]
@@ -526,6 +738,24 @@ def find_inventory(path):
     sys.exit("FAIL: no test inventory; run `task test:inventory` first")
 
 
+def refresh_inventory(path):
+    """Rebuild this checkout's inventory (tests added or renamed since it was
+    made); a checkout with no timings of its own starts from the main
+    checkout's, so the estimate keeps its times."""
+    timings = os.path.join(ROOT, "target", "test-timings.json")
+    if not os.path.exists(timings):
+        common = git("rev-parse", "--git-common-dir").strip()
+        main = os.path.join(os.path.dirname(os.path.abspath(os.path.join(ROOT, common))), "target", "test-timings.json")
+        if os.path.exists(main):
+            os.makedirs(os.path.dirname(timings), exist_ok=True)
+            shutil.copy(main, timings)
+    print("refreshing the test inventory (a rule selected no test)...", file=sys.stderr)
+    r = subprocess.run([os.path.join(ROOT, "dev", "test-inventory")], cwd=ROOT)
+    if r.returncode != 0:
+        sys.exit("FAIL: the inventory could not be refreshed")
+    return os.path.join(ROOT, "target", "test-inventory.json")
+
+
 def nextest_count(flt):
     r = subprocess.run(["cargo", "nextest", "list", "--release", "--workspace", "--ignore-default-filter",
                         "--message-format", "json", "-E", flt], cwd=ROOT, capture_output=True, text=True)
@@ -544,6 +774,7 @@ def main():
     ap.add_argument("--dry-run", action="store_true", help="print the selection only (the default)")
     ap.add_argument("--run", action="store_true", help="run the selection with task test:selected")
     ap.add_argument("--validate", action="store_true", help="ask nextest how many tests the filter selects (builds the tests)")
+    ap.add_argument("--refresh", action="store_true", help="rebuild the inventory first (--run does so by itself when a rule selects no test)")
     ap.add_argument("--inventory")
     ap.add_argument("--rules", default=os.path.join(ROOT, "dev", "test-affected.toml"))
     ap.add_argument("--no-crate-graph", action="store_true")
@@ -559,32 +790,55 @@ def main():
     if not files:
         print("No changed files (on main with a clean tree? give --range OLD..NEW).")
         return 0
-    live = [f for f in files if not globs_match(cfg.get("ignore", []), f)]
+    live = [f for f in files if not is_ignored(cfg, f)]
     if not live:
         print("NOTHING TO RUN: only documentation and board files changed (%d files)." % len(files))
         return 0
+    invpath = find_inventory(a.inventory)
+    if a.refresh and not a.inventory:
+        invpath = refresh_inventory(invpath)
+        inv = json.load(open(invpath))["tests"]
     res = select(files, cfg, inv_mod, inv, a.budget, notes, use_crate_graph=not a.no_crate_graph)
+    if res["empty"] and a.run and not a.dry_run and not a.refresh and not a.inventory:
+        inv = json.load(open(refresh_inventory(invpath)))["tests"]
+        notes.clear()
+        res = select(files, cfg, inv_mod, inv, a.budget, notes, use_crate_graph=not a.no_crate_graph)
+    elif res["empty"]:
+        notes.append("the inventory may be stale: `task test:affected -- --refresh --dry-run` rebuilds it (--run does so by itself)")
     text, flt = report(res, files, profiles, a.budget, a.explain, inv)
     print(text)
     for n in dict.fromkeys(notes):
         print("NOTE: " + n)
-    if not res["ids"]:
+    if not res["ids"] and not command_list(res["rules"]):
         print("FAIL: the selection is empty", file=sys.stderr)
         return 2
-    if (a.run and not a.dry_run) or a.validate:
+    if res["ids"] and ((a.run and not a.dry_run) or a.validate):
         n = nextest_count(flt)
         print("validated: nextest selects %d tests (inventory: %d)" % (n, res["estimate"]["count"]))
         if n == 0:
             print("FAIL: the filter selects no tests", file=sys.stderr)
             return 2
     if a.run and not a.dry_run:
-        env = dict(os.environ, SELECTOR_ESTIMATE=str(res["estimate"]["estimate"]))
-        if res["examples"]:
-            env["EXAMPLES"] = res["examples"]
-        else:
-            env.pop("EXAMPLES", None)
-        return subprocess.call(["task", "test:selected", "--", flt], cwd=ROOT, env=env)
+        cmds = command_list(res["rules"])
+        results = run_commands([c for c in cmds if c[1] <= FAST_COMMAND])
+        code = 0
+        if res["ids"]:
+            code = run_nextest(res, flt)
+        results += run_commands([c for c in cmds if c[1] > FAST_COMMAND])
+        if results:
+            print(command_summary(results))
+        return code or int(not all(ok for _, ok in results))
     return 0
+
+
+def run_nextest(res, flt):
+    est = res["estimate"]
+    env = dict(os.environ, SELECTOR_ESTIMATE=str(round(est["estimate"] - est["command_seconds"], 1)))
+    if res["examples"]:
+        env["EXAMPLES"] = res["examples"]
+    else:
+        env.pop("EXAMPLES", None)
+    return subprocess.call(["task", "test:selected", "--", flt], cwd=ROOT, env=env)
 
 
 if __name__ == "__main__":

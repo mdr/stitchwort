@@ -1,0 +1,32 @@
+---
+source: crates/rt/tests/it/lower.rs
+expression: "ir(r#\"\nimport Std (Nat, Text, Int)\ntype Point = { x: Nat, y: Nat }\n\ndef swap (p: Point): Point := { x = p.y, y = p.x }\n\ndef main(): {IO} () :=\n  let p := swap { x = 1, y = 2 }\n  IO.print (Nat.toText p.x)\n\"#)"
+---
+native Std.Nat.toText = %NatToText/1
+native Std.Effect.lift = %Effect.lift/1
+fn Main.Point.x(v0) {2 slots} =
+  match v0: Point (record) {
+    %mk(x: v1) => v1
+  }
+fn Main.Point.y(v0) {2 slots} =
+  match v0: Point (record) {
+    %mk(y: v1) => v1
+  }
+fn Main.swap(v0) {2 slots} =
+  %mk({
+    match v0: Point (record) {
+      %mk(y: v1) => v1
+    }
+  }, {
+    match v0: Point (record) {
+      %mk(x: v1) => v1
+    }
+  })
+fn Main.main(v0) {2 slots} =
+  let v1 = %NatToText(2)
+  Call(L(%print(v1)), done-k)
+entry {1 slots} =
+  %Effect.lift({
+    let v0 = %NatToText(2)
+    Call(L(%print(v0)), done-k)
+  })

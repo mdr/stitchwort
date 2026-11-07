@@ -818,7 +818,7 @@ same path (`check.rs:276`).
 Measured (release build, the prelude, `List.length xs` as the body):
 checking `let xs := List.range 200000; …` takes about 3 µs, the same as the
 function form (about 4 µs); evaluating the value, which a strict rule would
-add, takes about 83 ms. Tests: `crates/core/tests/let_term.rs`
+add, takes about 83 ms. Tests: `crates/core/tests/it/let_term.rs`
 (`a_value_no_type_needs_is_not_computed_while_checking`, which also shows a
 value used twice in types is computed once, and
 `a_pending_let_computes_the_ones_its_value_mentions`).

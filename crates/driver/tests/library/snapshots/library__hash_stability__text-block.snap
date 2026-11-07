@@ -1,0 +1,15 @@
+---
+source: crates/driver/tests/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+Main.example 4284ae2fabf6f18161a36fcfb59120f38a29aea66e92346a49c4418d4b763096
+Main.test "the example has ten lines" b1fcd9161fc8e3b77d3321b42ddec7b83c6ab4fe3f931704d5e43e747b4a3a8d
+Main.test "its first line" 04c5b47ec6e5d58f130956460fe5e49001694047d91b0d2918f4347e95331578
+Main.test "it is the same as one line" 5533310df88f03bbe4a24775bb5e019bbbed155f0cc2dd171ee173d518ef74d3
+Main.test "no trailing newline" f94d97ac801f458896ed5b1a16025c357d9c56d6026937b89af9231eccbee312
+Main.test "relative indentation and blank lines" 9f08e0e18811766e7d33afd02e4b370ef4dc236e7e7f8b646471f7368a701c27
+Main.test "the closing line sets the indentation" 29ca7ff3f975b392436f6bf3656582e328bee2afc1c122c6f94a401f17148604
+Main.test "quotes, escapes and interpolation" 6eaf47e7687ddf9a3329d668b0ad8b48a8b11000171b668187d9515d494d6f1b
+Main.twice fbce0dca2f606ca687c4018f8b79f0c57a1d018b957acab98405052f9a6142c2
+Main.test "interpolation over lines" b582c7f4fe0d0b4c199da5a0681f428130d056601c955a88b786e173bc65d921
+Main.main 30672b077ea1f2ba961a7531ccbde8505211fe53232b55276d9ae1fb45de01f3

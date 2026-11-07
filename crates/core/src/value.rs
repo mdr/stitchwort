@@ -57,29 +57,97 @@ pub enum Value {
 
 /// The unfolding of a [`Value::Call`] once computed: the value the call
 /// unfolds to, forced (no `Call` or solved metavariable at its top), with
-/// the [`Metas::epoch`](crate::ev::Metas::epoch) it was computed at. One
-/// from another epoch may have used a metavariable solution that's since
-/// been taken back, so it's computed again; one from epoch 0 was made with
-/// no metavariables (by the kernel: `Def::ty_value`), so it holds in any.
+/// the [`Metas::epoch`](crate::ev::Metas::epoch) and the [`Modes`] it was
+/// computed in. A reader uses it only if it could have computed it itself
+/// ([`Kept::fits`]); otherwise it computes the unfolding again and keeps
+/// that instead. So what a call unfolds to never depends on who forced it
+/// first (SW-1782, D2570).
 ///
 /// For a call whose spine ends in a projection, `base` is the unfolding of
-/// the call without it, so the fields of one call share its unfolding.
+/// the call without it, so the fields of one call share its unfolding. Each
+/// keeps its own [`Kept`], checked on its own: the field's may be served
+/// while the base's is recomputed, or the reverse.
+///
+/// Record eta's `no_eta` mark isn't one of the [`Modes`]: rule 2 reads a
+/// type's `eta` flag, which is fixed when the type becomes final and
+/// `no_eta` can be set only while it's pending, so no unfolding is computed
+/// under one value of it and read under another. What rule 2 does depend on
+/// that can change, whether a program is running, is in the modes already.
 #[derive(Debug, Default)]
 pub struct Unfolding {
-    value: std::cell::RefCell<Option<(u64, Value)>>,
+    kept: std::cell::RefCell<Option<Kept>>,
     base: Option<Rc<Unfolding>>,
+}
+
+#[derive(Debug)]
+struct Kept {
+    epoch: u64,
+    modes: Modes,
+    value: Value,
+}
+
+/// The machine's modes that change what a call unfolds to
+/// ([`crate::machine::Machine`]).
+#[derive(Debug)]
+struct Modes {
+    /// Gluing: unfolded with it off, the value has no calls left in it, so a
+    /// folded read-back of it writes all of it out.
+    glue: bool,
+    /// Erasure: proofs and types erased.
+    erasing: bool,
+    /// A program running: every opaque definition's body is visible.
+    program: bool,
+    /// The opaque definitions whose bodies were visible.
+    transparent: Rc<[DefId]>,
+}
+
+impl Modes {
+    fn now(g: &Ev) -> Modes {
+        Modes {
+            glue: g.machine.glue.get(),
+            erasing: g.machine.erasure.active(),
+            program: g.machine.erasure.program_running(),
+            transparent: g.machine.transparent.0.borrow().clone(),
+        }
+    }
+}
+
+impl Kept {
+    /// Whether a reader now may use this unfolding: from epoch 0 (made with
+    /// no metavariables, by the kernel: `Def::ty_value`) or the current one
+    /// (one from another epoch may have used a metavariable solution that's
+    /// since been taken back), and made in the reader's modes, except that
+    /// one made glued serves a reader with gluing off: such a reader forces
+    /// the calls in it as it meets them, and sees what it would have
+    /// computed. Not the reverse: the folded read-back writes a call as the
+    /// call, and one unfolded unglued has none left.
+    fn fits(&self, g: &Ev) -> bool {
+        let m = &self.modes;
+        (self.epoch == 0 || self.epoch == g.metas.epoch())
+            && (m.glue || !g.machine.glue.get())
+            && m.erasing == g.machine.erasure.active()
+            && m.program == g.machine.erasure.program_running()
+            && {
+                let now = g.machine.transparent.0.borrow();
+                Rc::ptr_eq(&m.transparent, &now) || *m.transparent == **now
+            }
+    }
 }
 
 impl Unfolding {
     fn get(&self, g: &Ev) -> Option<Value> {
-        match &*self.value.borrow() {
-            Some((epoch, value)) if *epoch == 0 || *epoch == g.metas.epoch() => Some(value.clone()),
+        match &*self.kept.borrow() {
+            Some(kept) if kept.fits(g) => Some(kept.value.clone()),
             _ => None,
         }
     }
 
     fn set(&self, g: &Ev, value: Value) {
-        *self.value.borrow_mut() = Some((g.metas.epoch(), value));
+        *self.kept.borrow_mut() = Some(Kept {
+            epoch: g.metas.epoch(),
+            modes: Modes::now(g),
+            value,
+        });
     }
 }
 
@@ -434,7 +502,7 @@ fn detach(value: Value, empty: &Rc<[Value]>, pending: &mut Vec<Value>) {
         }
         Value::Call(_, spine, unfolding) => {
             if let Ok(unfolding) = Rc::try_unwrap(unfolding)
-                && let Some((_, value)) = unfolding.value.into_inner()
+                && let Some(Kept { value, .. }) = unfolding.kept.into_inner()
             {
                 pending.push(value);
             }
@@ -1859,7 +1927,7 @@ pub fn project_call(d: DataId, i: usize, call: Value) -> Value {
     };
     spine.push(Elim::Proj(d, i));
     let unfolding = Rc::new(Unfolding {
-        value: Default::default(),
+        kept: Default::default(),
         base: Some(unfolding),
     });
     Value::Call(id, spine, unfolding)
@@ -2235,7 +2303,33 @@ pub fn quote_at_most(g: &Ev, level: usize, value: &Value, cap: u64) -> Result<Op
 /// computes to. The two terms are convertible. Without gluing (the kernel)
 /// there are no calls, and this is [`quote`].
 pub fn quote_folded(g: &Ev, level: usize, value: &Value) -> Result<Term> {
+    if g.machine.glue.get() && force_unglued_first() {
+        force_unglued(g, level, value);
+    }
     Ok(quote_as(g, level, value, Readback::Folded, None)?.expect("no cap"))
+}
+
+/// Instrumentation (SW-1782): with `STITCHWORT_DEBUG_FORCE_UNGLUED` set,
+/// every folded read-back is preceded by an unfolded one with gluing off,
+/// which fills the cells of every call it reaches. Its result, steps and
+/// errors are thrown away.
+fn force_unglued_first() -> bool {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ON.get_or_init(|| std::env::var_os("STITCHWORT_DEBUG_FORCE_UNGLUED").is_some())
+}
+
+#[cold]
+fn force_unglued(g: &Ev, level: usize, value: &Value) {
+    let saved = g.machine.budget.start_attempt(crate::budget::Limits {
+        work: 2_000_000,
+        stack: 1 << 40,
+        size: 1_000_000,
+        frames: 100_000,
+    });
+    let glue = g.machine.glue.replace(false);
+    let _ = quote(g, level, value);
+    g.machine.glue.set(glue);
+    g.machine.budget.restore(saved);
 }
 
 /// [`quote_folded`] for display: a call that steps at once is written as

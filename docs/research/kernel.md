@@ -726,7 +726,7 @@ nat-add-recursion.md §9.4 argues confluence by the critical pair lemma and Newm
 | A recursive function passed as an argument (C26, 72705) | Every occurrence of a member must be saturated; a bare one is refused (docs/core.md:151); lambda-bound arguments are "unknown" (docs/core.md:154) | [checked: docs]; outcome [inferred] | T1 |
 | Bit-level shortcut silently wrong (C4 `looseBVarRange`) | Not audited | — | T1 audit hint |
 | K-like reduction too eager (C24 `k-rec-conv`) | K is a unification rule (deletion), not a reduction; `J` only on `rfl` (docs/core.md:121, :139) | [checked: docs] | T1 test |
-| Only panics are looked for | `crates/core/tests/fuzz.rs:1-3`: "The kernel must never panic" | [checked] | T1 (Stérin's method; SW-687 is the fuzzing analogue) |
+| Only panics are looked for | `crates/core/tests/it/fuzz.rs:1-3`: "The kernel must never panic" | [checked] | T1 (Stérin's method; SW-687 is the fuzzing analogue) |
 
 **Mapping summary.** Three shapes are closed by construction. Two are covered by design, to be
 confirmed by tests. One (natives) is a small real gap, of the kind Lean4Lean described as
@@ -739,13 +739,13 @@ same "unsupported configuration" **[inferred]**.
 refused **[checked: run]**, in about 0.13 s of CPU each. The `.sw` files are in
 `examples/soundness/`, with snapshots, and their accepted neighbours are in
 `examples/accept/kernel-2026-neighbours.sw`. Because the `.sw` versions are refused by the
-elaborator, `crates/core/tests/kernel_bugs_2026.rs` builds the same terms by hand and checks
+elaborator, `crates/core/tests/it/kernel_bugs_2026.rs` builds the same terms by hand and checks
 that the kernel refuses them with the same code.
 
 - *Bit-level shortcut (C4).* This was **not** closed. The previous lane's first program,
   `def wrap: Type 0 := Type 4294967295`, was accepted, because the step to the next universe
   wrapped at `u32::MAX`. It was fixed as SW-902, with tests `universe-*.sw` and
-  `crates/core/tests/universe_levels.rs`.
+  `crates/core/tests/it/universe_levels.rs`.
 - *72703, cross-calls only (C26).* `mutual-cross-calls-grow.sw` and
   `mutual-cross-calls-three.sw` give `E-TERMINATION`.
 - *72705, a recursive function passed to a recursive function (C26).*

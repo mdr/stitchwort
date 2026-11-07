@@ -19,7 +19,7 @@ use stitchwort_core::{DataId, DefId, Ev, Limits, ResourceError};
 /// A prelude text operation with a native implementation, where a `Text` is
 /// a native string (in JS, with the backend's `Options::native_text`). Like the
 /// number natives, these are trusted, and tested against the definitions
-/// they replace (`crates/cli/tests/extract.rs`). Each works on Unicode scalar
+/// they replace (`crates/cli/tests/extraction/extract.rs`). Each works on Unicode scalar
 /// values, never on UTF-16 code units, and none uses JS stack space
 /// proportional to the length of a text.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -333,7 +333,7 @@ pub fn safe_int_data(g: &Ev) -> Option<DataId> {
 /// is a native number (in JS a `bigint`, with the backend's
 /// `Options::native_int`). Like the
 /// number and text natives, these are trusted, and tested against the
-/// definitions they replace (`crates/cli/tests/extract.rs`). A division's
+/// definitions they replace (`crates/cli/tests/extraction/extract.rs`). A division's
 /// proof that the divisor isn't zero is erased, but it exists (or an
 /// export's precondition check has just established it), so none of these
 /// divides by zero.

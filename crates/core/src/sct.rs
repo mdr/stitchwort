@@ -11,7 +11,7 @@
 //! strict arc from some parameter to itself.
 //!
 //! The rules that matter for soundness, each tested against an independent
-//! reference implementation (`crates/core/tests/sct.rs`):
+//! reference implementation (`crates/core/tests/it/sct.rs`):
 //!
 //! - **Graphs are never merged.** Two calls with the same endpoints (say, in
 //!   different branches of a `case`) stay two graphs. One branch decreasing

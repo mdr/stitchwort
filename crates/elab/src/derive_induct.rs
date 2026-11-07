@@ -57,7 +57,7 @@ use stitchwort_core::Ev;
 
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::Branch;
-use stitchwort_core::value::{conv, eval, quote};
+use stitchwort_core::value::{conv, eval, quote, quote_folded};
 use stitchwort_core::{DataId, DefId, Icit, Name, Sort, Term, Value};
 use stitchwort_syntax::Diagnostic;
 
@@ -421,7 +421,9 @@ impl Elaborator {
     }
 
     /// Field `i` of constructor `c` of `d`, its type in normal form in the
-    /// generic context (parameters, then the earlier fields).
+    /// generic context (parameters, then the earlier fields). In normal
+    /// form, not as written: [`Self::classify`] matches its head, which a
+    /// type written as a call (`Children A`) would hide.
     fn field_type(&self, d: DataId, c: usize, i: usize) -> R<Term> {
         let g = &self.ev();
         let data = g.data(d);
@@ -816,7 +818,7 @@ impl Elaborator {
         };
         for k in (0..ni).rev() {
             let value = eval(g, &index_env(k), &data.indices()[k].1)?;
-            let dom = quote(g, np + preds.len() + k, &value)?;
+            let dom = quote_folded(g, np + preds.len() + k, &value)?;
             ty = pi(&data.indices()[k].0, Icit::Implicit, dom, ty);
         }
         for (k, &j) in preds.iter().enumerate().rev() {
@@ -932,7 +934,7 @@ impl Elaborator {
             Pred::Motive(is) => {
                 let mut args = Vec::new();
                 for v in is {
-                    args.push(quote(g, depth, v)?);
+                    args.push(quote_folded(g, depth, v)?);
                 }
                 apps(var(depth, motive.expect("a motive")), explicit(args))
             }
@@ -945,7 +947,7 @@ impl Elaborator {
             } => {
                 let mut t = Term::Def(*all);
                 for v in params {
-                    t = Term::app_icit(t, quote(g, depth, v)?, Icit::Implicit);
+                    t = Term::app_icit(t, quote_folded(g, depth, v)?, Icit::Implicit);
                 }
                 let view = self.view(pred_data(pred), true);
                 for (j, p) in preds.iter().enumerate() {
@@ -954,7 +956,7 @@ impl Elaborator {
                     }
                 }
                 for v in indices {
-                    t = Term::app_icit(t, quote(g, depth, v)?, Icit::Implicit);
+                    t = Term::app_icit(t, quote_folded(g, depth, v)?, Icit::Implicit);
                 }
                 t
             }
@@ -1118,7 +1120,7 @@ impl Elaborator {
                 .chain((0..k).map(|j| Value::var(first + j)))
                 .collect();
             let value = eval(g, &env, &data.indices()[k].1)?;
-            let dom = quote(g, first + k, &value)?;
+            let dom = quote_folded(g, first + k, &value)?;
             ty = pi(&data.indices()[k].0, Icit::Implicit, dom, ty);
         }
         Ok(ty)
@@ -1190,7 +1192,7 @@ impl Elaborator {
             Pred::Motive(is) => {
                 let mut args = implicit(ps);
                 for v in is {
-                    args.push((quote(g, depth, v)?, Icit::Implicit));
+                    args.push((quote_folded(g, depth, v)?, Icit::Implicit));
                 }
                 args.push((var(depth, at), Icit::Explicit));
                 apps(Term::Def(sizes.size), args)
@@ -1201,7 +1203,7 @@ impl Elaborator {
                 let mut args = implicit(ps);
                 args.extend(explicit(self.scope_args(st, m, depth, here, scope_levels)));
                 for v in indices {
-                    args.push((quote(g, depth, v)?, Icit::Implicit));
+                    args.push((quote_folded(g, depth, v)?, Icit::Implicit));
                 }
                 args.push((var(depth, at), Icit::Explicit));
                 apps(Term::Def(id), args)
@@ -1246,6 +1248,9 @@ impl Elaborator {
         let np = st.np;
         // Seen from a constructor of `T`, the pred's values have the fields
         // at their levels there; a member's are at `np…`. Bring them over.
+        // Read back unfolded, as `pred_levels` reads them: the slots left
+        // `unused` must be levels the term doesn't mention, and a call's
+        // arguments may mention more than its unfolding does.
         let (params, preds) = match here {
             None => (params.clone(), preds.clone()),
             Some(f) => {
@@ -1317,7 +1322,7 @@ impl Elaborator {
         // (x: D args indices)
         let mut args = Vec::new();
         for v in &member.params {
-            args.push(quote(g, x_level, v)?);
+            args.push(quote_folded(g, x_level, v)?);
         }
         args.extend((0..ne_i).map(|k| var(x_level, first_index + k)));
         ty = pi("x", Icit::Explicit, Term::data(member.data, args), ty);
@@ -1332,7 +1337,7 @@ impl Elaborator {
             ty = pi(
                 &e.indices()[k].0,
                 Icit::Implicit,
-                quote(g, first_index + k, &value)?,
+                quote_folded(g, first_index + k, &value)?,
                 ty,
             );
         }
@@ -1343,7 +1348,7 @@ impl Elaborator {
             for k in (0..n).rev() {
                 let value = eval(g, &vars(0..np + k), &g.data(st.d).ctors()[c].fields[k].1)?;
                 let x = &g.data(st.d).ctors()[c].fields[k].0;
-                ty = pi(x, Icit::Explicit, quote(g, np + k, &value)?, ty);
+                ty = pi(x, Icit::Explicit, quote_folded(g, np + k, &value)?, ty);
             }
         }
         Ok(self.wrap_params_pi(st.d, ty))
@@ -1490,7 +1495,7 @@ impl Elaborator {
         let size_t = |g: &Ev, depth: usize, at: Term| -> R<Term> {
             let mut args = implicit((0..np).map(|j| var(depth, j)).collect());
             for v in &is {
-                args.push((quote(g, depth, v)?, Icit::Implicit));
+                args.push((quote_folded(g, depth, v)?, Icit::Implicit));
             }
             args.push((at, Icit::Explicit));
             Ok(apps(Term::Def(sizes.size), args))
@@ -1520,7 +1525,7 @@ impl Elaborator {
             let mem = apps(
                 Term::Def(lib.list_mem),
                 vec![
-                    (quote(g, depth, &elem)?, Icit::Implicit),
+                    (quote_folded(g, depth, &elem)?, Icit::Implicit),
                     (var(depth, q), Icit::Explicit),
                     (var(depth, xs), Icit::Explicit),
                 ],
@@ -1530,17 +1535,17 @@ impl Elaborator {
         ty = pi(
             "xs",
             Icit::Explicit,
-            Term::data(lib.list, vec![quote(g, xs, &elem)?]),
+            Term::data(lib.list, vec![quote_folded(g, xs, &elem)?]),
             ty,
         );
-        ty = pi("q", Icit::Explicit, quote(g, q, &elem)?, ty);
+        ty = pi("q", Icit::Explicit, quote_folded(g, q, &elem)?, ty);
         if let Some((c, n)) = st.members[m].scope {
             for k in (0..n).rev() {
                 let value = eval(g, &vars(0..np + k), &g.data(st.d).ctors()[c].fields[k].1)?;
                 ty = pi(
                     &g.data(st.d).ctors()[c].fields[k].0,
                     Icit::Explicit,
-                    quote(g, np + k, &value)?,
+                    quote_folded(g, np + k, &value)?,
                     ty,
                 );
             }
@@ -1749,7 +1754,7 @@ impl Elaborator {
         let elem_ty = Term::data(d, {
             let mut a: Vec<Term> = (0..np).map(|j| var(depth_all, j)).collect();
             for v in &elem_is {
-                a.push(quote(g, depth_all, v)?);
+                a.push(quote_folded(g, depth_all, v)?);
             }
             a
         });
@@ -1775,7 +1780,7 @@ impl Elaborator {
                 }
             }
             let v = eval(g, &env, t)?;
-            Ok(quote(g, to, &v)?)
+            Ok(quote_folded(g, to, &v)?)
         };
         let nk = kept.len();
         let q = np + nk;
@@ -1784,7 +1789,7 @@ impl Elaborator {
         let sq = {
             let mut args = implicit((0..np).map(|j| var(depth, j)).collect());
             for v in &elem_is {
-                let t = quote(g, depth_all, v)?;
+                let t = quote_folded(g, depth_all, v)?;
                 args.push((reindex(&t, depth_all, depth)?, Icit::Implicit));
             }
             args.push((var(depth, q), Icit::Explicit));
@@ -2042,7 +2047,7 @@ impl Elaborator {
             ty = pi(
                 &data.indices()[k].0,
                 Icit::Explicit,
-                quote(g, depth + k, &value)?,
+                quote_folded(g, depth + k, &value)?,
                 ty,
             );
         }
@@ -2122,7 +2127,7 @@ impl Elaborator {
             .collect();
         let mut args = Vec::new();
         for t in &ctor.result {
-            args.push(quote(g, end, &eval(g, &env, t)?)?);
+            args.push(quote_folded(g, end, &eval(g, &env, t)?)?);
         }
         args.push(Term::ctor(
             d,
@@ -2146,7 +2151,12 @@ impl Elaborator {
                 .chain((0..k).map(|j| Value::var(depth + j)))
                 .collect();
             let value = eval(g, &env, &ctor.fields[k].1)?;
-            ty = pi(&fields[k], Icit::Explicit, quote(g, depth + k, &value)?, ty);
+            ty = pi(
+                &fields[k],
+                Icit::Explicit,
+                quote_folded(g, depth + k, &value)?,
+                ty,
+            );
         }
         Ok(ty)
     }
@@ -2185,7 +2195,7 @@ impl Elaborator {
         let inner = depth + 2;
         let mut margs = Vec::new();
         for v in is {
-            margs.push(quote(g, inner, v)?);
+            margs.push(quote_folded(g, inner, v)?);
         }
         margs.push(var(inner, q));
         let result = apps(var(inner, motive), explicit(margs));
@@ -2193,13 +2203,13 @@ impl Elaborator {
             apps(
                 Term::Def(st.lib.list_mem),
                 vec![
-                    (quote(g, depth + 1, elem)?, Icit::Implicit),
+                    (quote_folded(g, depth + 1, elem)?, Icit::Implicit),
                     (var(depth + 1, q), Icit::Explicit),
                     (var(depth + 1, f), Icit::Explicit),
                 ],
             )
         } else {
-            let opt = Term::data(st.lib.option, vec![quote(g, depth + 1, elem)?]);
+            let opt = Term::data(st.lib.option, vec![quote_folded(g, depth + 1, elem)?]);
             Term::Eq(
                 Some(Rc::new(opt)),
                 Rc::new(var(depth + 1, f)),
@@ -2209,7 +2219,7 @@ impl Elaborator {
         Ok(pi(
             "q",
             Icit::Explicit,
-            quote(g, depth, elem)?,
+            quote_folded(g, depth, elem)?,
             pi("member", Icit::Explicit, member, result),
         ))
     }
@@ -2234,7 +2244,7 @@ impl Elaborator {
                 here.cases.iter().map(|l| var(depth, *l)).collect(),
             ));
             for v in indices {
-                args.push((quote(g, depth, v)?, Icit::Implicit));
+                args.push((quote_folded(g, depth, v)?, Icit::Implicit));
             }
             args.push((var(depth, at), Icit::Explicit));
             Ok(apps(Term::Def(head), args))
@@ -2471,7 +2481,7 @@ impl Elaborator {
                     let d2 = inner + 2;
                     let mut margs = Vec::new();
                     for v in is {
-                        margs.push(quote(g, d2, v)?);
+                        margs.push(quote_folded(g, d2, v)?);
                     }
                     let pred = apps(var(d2, motive), explicit(margs));
                     let lemma = if list {
@@ -2482,7 +2492,7 @@ impl Elaborator {
                     let call = apps(
                         Term::Def(lemma),
                         vec![
-                            (quote(g, d2, &params[0])?, Icit::Implicit),
+                            (quote_folded(g, d2, &params[0])?, Icit::Implicit),
                             (pred, Icit::Explicit),
                             (var(d2, depth + i), Icit::Explicit),
                             (var(d2, depth + nf + h), Icit::Explicit),

@@ -1314,11 +1314,11 @@ impl<'g> Printer<'g> {
     /// The operator a call of `id` is shown with, and its precedence.
     fn infix(&self, id: DefId) -> Option<(&'static str, Prec)> {
         match self.g.env.registry().def_builtin(id)? {
-            Builtin::Add | Builtin::IntAdd => Some(("+", Prec::Add)),
-            Builtin::Sub | Builtin::IntSub => Some(("-", Prec::Add)),
-            Builtin::Mul | Builtin::IntMul => Some(("*", Prec::Mul)),
-            Builtin::Div | Builtin::IntDiv => Some(("/", Prec::Mul)),
-            Builtin::Mod | Builtin::IntMod => Some(("%", Prec::Mul)),
+            Builtin::Add | Builtin::IntAdd | Builtin::FloatAdd => Some(("+", Prec::Add)),
+            Builtin::Sub | Builtin::IntSub | Builtin::FloatSub => Some(("-", Prec::Add)),
+            Builtin::Mul | Builtin::IntMul | Builtin::FloatMul => Some(("*", Prec::Mul)),
+            Builtin::Div | Builtin::IntDiv | Builtin::FloatDiv => Some(("/", Prec::Mul)),
+            Builtin::Mod | Builtin::IntMod | Builtin::FloatRem => Some(("%", Prec::Mul)),
             Builtin::LessEq | Builtin::IntLessEq | Builtin::FloatLessEq => {
                 Some((self.sym("≤", "<="), Prec::Eq))
             }
@@ -2815,7 +2815,7 @@ fn nat_literal(g: &Ev, term: &Term) -> Option<BigUint> {
         match term {
             Term::Nat(k) => return Some(&**k + n),
             Term::Ctor(d, 0, _) if is(g, Builtin::Nat, *d) => return Some(n.into()),
-            Term::Ctor(d, 1, args) if is(g, Builtin::Nat, *d) => {
+            Term::Ctor(d, 1, args) if is(g, Builtin::Nat, *d) && args.len() == 1 => {
                 n += 1;
                 term = args[0].strip_loc();
             }
@@ -2872,7 +2872,7 @@ fn char_list(g: &Ev, term: &Term) -> Option<Vec<char>> {
                 return Some(chars);
             }
             Term::Ctor(d, 0, _) if is(g, Builtin::List, *d) => return Some(chars),
-            Term::Ctor(d, 1, args) if is(g, Builtin::List, *d) => {
+            Term::Ctor(d, 1, args) if is(g, Builtin::List, *d) && args.len() == 2 => {
                 chars.push(char_literal(g, &args[0])?);
                 term = args[1].strip_loc();
             }
@@ -2920,7 +2920,7 @@ fn list_literal<'t>(g: &Ev, term: &'t Term) -> Option<Vec<&'t Term>> {
     loop {
         match term {
             Term::Ctor(d, 0, _) if is(g, Builtin::List, *d) => return Some(items),
-            Term::Ctor(d, 1, args) if is(g, Builtin::List, *d) => {
+            Term::Ctor(d, 1, args) if is(g, Builtin::List, *d) && args.len() == 2 => {
                 items.push(&args[0]);
                 term = args[1].strip_loc();
             }

@@ -42,10 +42,12 @@
       "done": [
         "Design note and decisions (D2498-D2505)",
         "Kernel primitive projections, eta rules 1 and 2, with accept and must-reject tests (SW-1642, on lane/SW-1642)",
-        "Fields of glued calls stay calls; std, roguelike and 2021 day 13 pass at about +2% cost (SW-1667, on lane/SW-1642)"
+        "Fields of glued calls stay calls; std, roguelike and 2021 day 13 pass at about +2% cost (SW-1667, on lane/SW-1642)",
+        "Opus review: kernel sound; merge after the cache fix (SW-1764)",
+        "Review fixes: the cache keeps the no-eta mark; more must-reject tests (SW-1768)"
       ],
       "now": [
-        "SW-1667 resumed with the Float.add hold"
+        "Ready to merge after one whole-AoC and roguelike run on the branch (needs Matt's OK)"
       ],
       "next": [
         "Resume SW-1667 with the Float.add hold (D2551, D2552)"
@@ -70,10 +72,13 @@
         "Signature help and parameter names on hover (SW-1334, SW-1383)",
         "Run icons and the Testing panel over stitchwort test --json (SW-1682, SW-1684)",
         "Outline answers before the file is checked (SW-1681)",
-        "Hover on ? shows its goal; notes numbered like the CLI (SW-1675, SW-1676)"
+        "Hover on ? shows its goal; notes numbered like the CLI (SW-1675, SW-1676)",
+        "Completion in a warm editor 480 ms → 1 ms: one std-loaded session per search thread, rewound (SW-1798)",
+        "Code action crash on an unapplied Succ or Cons fixed (SW-1799)"
       ],
       "now": [],
       "next": [
+        "Text-only searches and the playground keep std loaded too (SW-1807)",
         "Quieter light-bulb suggestions on a bare ? (SW-1677)",
         "Editor hint on a recursive function: runs as a loop, or a frame per call (SW-1223; Matt said yes in D2315, now that @[tailrec] has landed)",
         "Case split for header parameters (SW-1499), then types for unused pattern binders (SW-1500)"
@@ -228,10 +233,12 @@
         "Proof irrelevance stage 1 and 2 (SW-93, SW-1429)",
         "Unifier fixes: one-step unfolding and arguments-from-conclusion (SW-1226, SW-1227)",
         "Tail-resumptive and checked @[tailrec] (SW-1222, SW-1232)",
-        "Decision-match proposal decided: warn and document, not a new matching mode (SW-1694, D2525-D2527)"
+        "Decision-match proposal decided: warn and document, not a new matching mode (SW-1694, D2525-D2527)",
+        "Dot-call caches keyed by address: the reproduced wrong-hit case fixed (SW-1797, SW-1800); full fix designed (syntax-node-ids.md, SW-1801)"
       ],
       "now": [],
       "next": [
+        "Syntax ids for dot calls, so no cache depends on memory addresses (SW-1803, D2577-D2580)",
         "Fix the check that hangs on a theorem whose statement names a large computation: the kernel evaluates a closed statement unfolded (SW-1534)",
         "Postponement: close the two queue gaps and keep the expected type folded (SW-1003, SW-1008, SW-1009)",
         "Well-founded recursion: the remaining stage 3 items (SW-199); kernel: refine context types lazily at case splits (SW-1066)"
@@ -334,8 +341,9 @@
       ],
       "now": [],
       "next": [
-        "Slow tests: lsp features (SW-1686, SW-1501), guide test (SW-1549), merge tier (SW-1386)",
-        "Daily-tier follow-ups: re-record the bench baseline and find the rises (SW-1342, SW-1622), report every stale extract snapshot (SW-1703), unsupported natives in the rt harness (SW-1710)"
+        "Slow tests: guide test (SW-1549), merge tier (SW-1386)",
+        "Daily-tier follow-ups: re-record the bench baseline and find the rises (SW-1342, SW-1622), report every stale extract snapshot (SW-1703), unsupported natives in the rt harness (SW-1710)",
+        "Bench baseline times re-recorded on a quiet machine; a smaller example set (SW-1806)"
       ],
       "links": [
         "docs/workflow.md",
@@ -459,18 +467,34 @@
         "LSP AoC tests: shutdown cancels the check; 465 s → 194 s (SW-1731)",
         "Daily tier in one run again, 27.9 min, no memory kills; test time 11,295 → 11,111 s (D2546)",
         "task test:affected picks tests from a diff, within a budget (SW-1752)",
-        "Web AoC test 417 → 169 s, AoC answers 444 → 174 s (SW-1732, SW-1733)"
+        "Web AoC test 417 → 169 s, AoC answers 444 → 174 s (SW-1732, SW-1733)",
+        "Merge tier trimmed: 104 s of tests on main, from 153-172 s (SW-1751)",
+        "Cache key design: narrowing would help 3-4% of changes; fill once per run instead (SW-1753)",
+        "Merge tier 76 s on main, cold (from 153-172 s): std replayed where checking it isn't the point (SW-1761)",
+        "Daily tier replays std in the sweeps: examples + hash_stability cold 111 → 48 s (SW-1765)",
+        "test:affected: memory-safe lsp group, self-refreshing inventory (SW-1760)",
+        "Next slowest daily binaries roughly halved in CPU: operators, rewind, std_library, extract, run_js (SW-1770)",
+        "Navigation index 2× faster, also in the editor (SW-1771); lsp memory tests 1.7 → 0.45 GB (SW-1769)",
+        "lld linking: 13-17% less CPU per rebuild (SW-1754)",
+        "Plan: don't split elab; build its unit tests into the library (SW-1737)",
+        "Targeted tests reach every binary: 84 were reached by no rule (SW-1775)",
+        "Selector: cuts by rank, honest timings, merge filter generated (SW-1778); merge tier 1148 tests in 78 s",
+        "Fewer test binaries: plan, script, rt pilot 13 → 3 (SW-1736)",
+        "AoC check 18% fewer steps: a glued call no longer computed in full where only part is needed (SW-1779)",
+        "Fewer test binaries: rt, core, syntax, native, fmt, lsp (166 → ~120; SW-1780, SW-1781)",
+        "Test binaries 166 → ~35: a core edit relinks 38 programs, not 136, 21% less CPU (SW-1790)",
+        "task bench 11 → 2 min: examples on 8 fixed workers, run once (SW-1792)",
+        "test:affected runs the non-Rust checks too: board, shell, dev tools, flake (SW-1794)",
+        "lsp test binary 228 → 74 s warm (SW-1796); concurrency limit kept at 3 (SW-1795)",
+        "mimalloc: 12% less CPU on the std check, measured idle; in the library binary (SW-1742)",
+        "Check cache's own sweeps left unsampled: daily already samples 1 in 8 (SW-1773, D2571)"
       ],
-      "now": [
-        "Merge tier profile (SW-1751)",
-        "Caches that survive a compiler change: design (SW-1753)"
-      ],
+      "now": [],
       "next": [
-        "Merge tier profile (SW-1751); affected-test selection (SW-1752)",
-        "Caches that survive a compiler change (SW-1753, SW-1745)",
-        "Compile time after incremental builds (SW-1754); kache (SW-1735); mimalloc (SW-1742)",
-        "Std cache once per run (SW-1741); sweeps not overlapping (SW-1734)",
-        "Bigger: one test binary per crate (SW-1736); split elab, plan only (SW-1737)"
+        "Measure the overnight savings with one daily run on a quiet machine (SW-1804, D2556)",
+        "mimalloc in the other test binaries, and kache, measured on a quiet machine (SW-1802, SW-1735)",
+        "elab unit tests in the library, if Matt takes the three-edit cost (SW-1776, D2565)",
+        "Lane rules in CLAUDE.md: dev/stop-mine, rm on variables, test:affected wording (SW-1805, D2574, D2576)"
       ],
       "links": [
         "D2532",

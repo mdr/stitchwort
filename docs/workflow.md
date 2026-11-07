@@ -173,12 +173,26 @@ files. Long runs (the daily tier, browser tests, builds) go in the
 background.
 
 Before committing, run `stitchwort fmt` on the `.sw` files you touched. The
-test `crates/cli/tests/fmt_repo.rs` fails, naming the files, if any tracked
+test `crates/cli/tests/tools/fmt_repo.rs` fails, naming the files, if any tracked
 `.sw` file is not formatted. It skips `examples/reject`, `examples/soundness`,
-`examples/projects/reject`, `crates/fmt/tests/golden` and
+`examples/projects/reject`, `crates/fmt/tests/it/golden` and
 `examples/accept/list-literal-layout.sw`, so leave those as written.
 
 Pushing to GitHub happens only when Matt asks.
+
+## Stopping a lane's own test runs
+
+Every worktree builds test binaries with the same names (`target/release/deps/<name>-<hash>`),
+and VS Code's `stitchwort lsp` shares the release binary's name. A bare
+`pkill <name>` or `killall` therefore also kills the same tests in other
+lanes and the verifier in the main checkout (three SIGTERMed runs on the night
+of 6 Nov 2026, SW-1774). A lane stops its own processes with
+`dev/stop-mine`: it signals only processes whose executable lies under
+`<this checkout>/target/` (an absolute-path prefix match) and their
+descendants, and prints each one. `dev/stop-mine --dry-run` only lists them;
+`dev/stop-mine --tree PID` stops one pid and its children, refusing a pid
+whose executable is outside the checkout. A lane never runs `pkill` or
+`killall`.
 
 ## Lanes and the task list
 

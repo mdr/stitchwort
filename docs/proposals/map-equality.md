@@ -1509,7 +1509,7 @@ starts. Step 1.0 is independent of the rest and can run in parallel with 1.1–1
 - **1.1 The form, its checks, and the rejection suite — tests first.** First write the rejection
   tests, each asserting its final error code and naming the check (C1–C6) or rule it exercises:
   R1–R3, R5–R9 and R11–R14 as kernel tests over hand-built core terms (a new
-  `crates/core/tests/quot.rs`, in the style of `kernel.rs`), and each with surface syntax also as
+  `crates/core/tests/it/quot.rs`, in the style of `kernel.rs`), and each with surface syntax also as
   an `examples/soundness/` file paired with a nearby accepted program (the suite's convention,
   `examples/README.md`). Then add `Term::Quot(QuotForm, args)` and its `Value` forms with every
   traversal of §7.7's table (including the `term.rs` unit tests), its hash tags, pretty-printing,
@@ -1560,7 +1560,7 @@ starts. Step 1.0 is independent of the rest and can run in parallel with 1.1–1
   only those with `lift_leaf`. Every path that sets a body computes the flag, so nothing broke,
   but a call folded without the flag would never be unfolded for a comparison, which breaks
   §7.2's condition. Both evaluators now fold only when `lift_leaf` is set.
-- **Tests.** A1: `crates/core/tests/quot.rs` (`a1_*`), and `examples/accept/quot-lift.sw`. A4:
+- **Tests.** A1: `crates/core/tests/it/quot.rs` (`a1_*`), and `examples/accept/quot-lift.sw`. A4:
   the `hash.rs` unit tests from 1.1, plus `quotient_forms_round_trip_through_the_cache` in
   `crates/driver/tests/check_cache.rs` (all five forms, through a project namespace). A8:
   `a8_a_folded_lift_is_still_its_body`; `funext` through named `evalAt`/`rebuild` in
@@ -1729,7 +1729,7 @@ and `run --js`; all four print the same nine lines for the prototype's `main`
 | 2 | Equality composes | `type Inventory = { owner: Text, counts: ProtoMap Text Nat }` derives `==` with no deriving change (A10's route): `rfl` for equal and for differing owners; `ProtoMap Text (ProtoMap Text Nat)` uses the instance at both levels: `rfl` for equal (inner maps built in different orders) and for different inner maps; tests and `main` lines 3–4 in every runner | pass |
 | 3 | Extensionality is general | `ProtoMap.ext` and `ProtoMap.toListInjective` at `ProtoMap Nat (Nat -> Nat)` (`functionMapsExt`, `functionMapsByEntries`), and `functionMapsEqual: fns1 = fns2` for closed maps of functions built in different orders. No `DecEq v`, no funext | pass |
 | 4 | Ordinary computation survives | `rfl` for `get` (present and missing), `toList` after `insert`, `size` after an insert and after a replace, `foldLeft`, `isEmpty`, applying a function value got from the map, and `compare` (`Greater`, `Equal`) | pass |
-| 5 | Representation can't escape | `crates/core/tests/quot.rs`: R1–R3, R5–R9, R11–R14 refused by the kernel (34 tests pass); their `soundness/quot-*` files refused for their stated codes; R4: `soundness/quot-derive-eq.sw`, with A10 (`accept/quot-deceq.sw`) passing. On the prototype: `soundness/quot-protomap-tree.sw` (reading the tree by matching on `raw`) is `E-NOT-A-CONSTRUCTOR`; the only way in is `Quot.lift` with a respects proof | pass |
+| 5 | Representation can't escape | `crates/core/tests/it/quot.rs`: R1–R3, R5–R9, R11–R14 refused by the kernel (34 tests pass); their `soundness/quot-*` files refused for their stated codes; R4: `soundness/quot-derive-eq.sw`, with A10 (`accept/quot-deceq.sw`) passing. On the prototype: `soundness/quot-protomap-tree.sw` (reading the tree by matching on `raw`) is `E-NOT-A-CONSTRUCTOR`; the only way in is `Quot.lift` with a respects proof | pass |
 | 6 | Computation limits are deliberate | A3 and A6 as in 1.3; on the prototype, `transported` (`J` along `forwardsIsBackwards`, through `Quot.sound`) is stuck in the kernel (`reject/quot-protomap-transport-stuck.sw`, `E-REFL`, the note showing `J … (Quot.sound rfl)`), and so is `transportedByInd` (along `sizeToList forwards`, `Quot.ind` only; checked by hand, the same `E-REFL` with `Quot.ind` in the stuck term); both are `0` in every runner (test "transport runs", `main`'s last line) | pass |
 | 7 | The raw invariant is sufficient | `size`, `isEmpty` and `foldLeft` lift with `Map.sizeRespects`, `isEmptyRespects` and `foldLeftRespects` unchanged; `ProtoMap.sizeToList` holds for every map; `reject/map-wrong-size.sw` still refuses the forged-size representative (`E-REFL`), so no `ProtoMap` can be made from one | pass |
 | 8 | Recursive declarations have a clear outcome | R10: `soundness/quot-recursive.sw`, `quot-recursive-wrapped.sw`, and on the prototype `soundness/quot-protomap-recursive.sw` (`type Tree = { name: Text, children: ProtoMap Text Tree }`): `E-POSITIVITY`, "`Tree` is used inside a quotient type", with §11.2's notes. R13: `soundness/quot-recursive-relation.sw` and the kernel's `r13_*` tests | pass |

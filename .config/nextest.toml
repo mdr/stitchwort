@@ -58,40 +58,44 @@ path = "junit.xml"
 
 # The merge tier: the lane areas together but for `lane-goals`, plus every
 # accepted, rejected and soundness example on the merge sample (a quarter), a
-# quarter of the examples' and projects' hash snapshots, half of the AoC days'
+# quarter of the examples' and projects' hash snapshots, 14 of the AoC days'
 # answers (spread across the years, and every day in `lane-aoc`), and every
 # extraction example's generated JS and `.d.ts` against their snapshots
 # (`generated_code_is_stable`, about 4 s; `tsc` on them is daily), and the
 # driver navigation snapshot that prints the prelude's line numbers. The
-# `goal_index` tests are in `lane-goals` and the daily tier, not here.
+# `goal_index` tests are in `lane-goals` and the daily tier, not here (nor the
+# web crate's).
+#
+# The default-filter below is generated from the lane profiles: edit them (or
+# `EXTRAS` and `NOT_IN_MERGE` in `dev/nextest-merge`), then run
+# `dev/nextest-merge`. `python3 dev/test-affected_test.py` fails when it is stale.
 [profile.merge]
 test-threads = "num-cpus"
 fail-fast = false
 slow-timeout = { period = "30s" }
 default-filter = """
-package(stitchwort-syntax)
+(package(stitchwort-syntax))
+| ((package(stitchwort-core) & (kind(lib) | (binary(it) & test(/^kernel::/)) | (binary(it) & test(/^hash::/)) | (binary(it) & test(/^admission::/)) | (binary(it) & test(/^opaque::/)) | (binary(it) & test(/^trusted::/)) | (binary(it) & test(/^universe_levels::/)) | (binary(it) & test(/^kernel_bugs_2026::/)))) | (package(stitchwort-driver) & ((binary(proofs) & test(/^nested_oracle::/)) | (binary(elaboration) & test(/^division::/)))))
+| ((package(stitchwort-elab) & !test(/^omega_search::tests::(replay_refuses_a_missing_case|integer_model|needs_nonnegativity|not_equal_splits|disconnected)$/)) | (package(stitchwort-driver) & binary(proofs) & test(=conv_shortcut::a_solved_unknown_is_seen_through_by_the_identity_shortcut)) | (package(stitchwort-driver) & ((binary(proofs) & test(/^function_equations::/)) | (binary(proofs) & test(/^function_induct::/)))))
+| ((package(stitchwort-driver) & binary(elaboration) & test(/^ability_errors::/)) | (package(stitchwort-driver) & binary(elaboration) & test(/^empty_row_kernel::/)) | (package(stitchwort-rt) & binary(it) & test(/^effect_runtime::(state_handlers_run_as_a_loop_where_they_fit|io_operations_cross_translations_on_their_way_to_the_runner|closed_signature_maps_are_constants|bind_of_done_is_a_direct_call)$/)) | (package(stitchwort-cli) & binary(running) & test(/^effect_runtime::(closed_signature_maps_are_built_once|known_calls_pass_their_arguments_together|empty_row_non_tail_handlers_keep_the_stack_limit)$/)))
+| (package(stitchwort-driver) & binary(library) & test(/^std_library::/) & !test(/^std_library::(lazy_loading_changes_nothing_for_.*|the_core_alone_runs_every_example_that_uses_no_library_name|every_builtin_is_bound_once_every_file_has_loaded|no_library_file_declares_a_decision_procedure|small_programs_load_only_the_library_files_they_can_use|the_index_holds_exactly_the_names_an_eager_load_makes|library_tests_run_only_under_the_library_target|the_standard_library_passes_its_own_tests|the_order_never_depends_on_how_the_program_mentions_things)$/))
+| (package(stitchwort-host) | (package(stitchwort-rt) & (kind(lib) | (binary(it) & test(/^tick_counts::/)) | (binary(it) & test(/^alloc_trace::/)) | (binary(it) & test(/^live_run::/)) | (binary(it) & test(/^partial_handlers::(only_resuming_more_than_once_copies|capture_and_restore_leak_nothing)$/)) | (binary(it) & test(=machine::library_tests_agree)) | (binary(it) & test(/^linked::/)) | (binary(it) & test(/^codec::(micro_call_round_trips|foreign_bytes_are_refused|absurd_nesting_is_refused)$/)) | (binary(it) & test(/^effect_runtime::(closed_signature_maps_are_constants|bind_of_done_is_a_direct_call)$/)))))
+| (package(stitchwort-js) | (package(stitchwort-cli) & binary(extraction) & test(/^extract::(int_crosses_the_boundary_strictly|options_cross_the_boundary_as_undefined|records_cross_the_boundary_strictly|awkward_names_never_collide|more_tail_calls_are_loops)$/)))
+| (package(stitchwort-native) & !test(=tail_calls_of_every_shape_run_in_constant_stack))
+| ((package(stitchwort-cli) & binary(server) & test(/^lsp::(hover_over_a_selection_gives_the_type_of_the_expression|formatting_replaces_the_open_text|a_file_on_its_own_as_you_type|goal_at_answers_for_the_goal_at_or_near_the_cursor|small_navigation_issues|eq_sym_and_eq_trans_navigate_to_their_definitions)$/)) | (package(stitchwort-lsp) & (kind(lib) | (binary(it) & test(/^features::(completion_offers_locals_then_the_namespace_then_imports_and_defaults|semantic_tokens_colour_names_by_what_they_resolve_to|signature_help_shows_the_function_and_the_current_parameter|signature_help_tells_two_functions_with_the_same_short_name_apart|the_outline_asked_as_the_file_opens_is_not_empty)$/)))))
+| ((package(stitchwort-fmt) & !(binary(it) & test(/^repo::/)) & !(binary(it) & test(/^fuzz::/))) | (package(stitchwort-cli) & binary(tools) & test(/^fmt::/)))
+| (package(stitchwort-cli) & binary(running) & test(/^aoc_answers::(year2024_day02|year2024_day04|year2024_day07|year2025_day01|year2025_day05|year2025_day07)$/))
+| (package(stitchwort-standalone) | (package(stitchwort-cli) & ((binary(server) & test(/^session::/)) | (binary(running) & test(/^keys_mode::/)) | (binary(tools) & test(/^audit::/)) | (binary(running) & test(/^run::/) & !test(/^run::(a_failure_deep_in_partial_recursion_doesnt_overflow|a_partial_main_that_may_fail_runs_three_ways|a_total_main_that_may_fail_runs_three_ways|an_endless_partial_main_runs_until_stopped|the_example_prints_what_simulate_records)$/)) | (kind(bin) & test(/^build::/)) | (binary(running) & test(/^build::/) & !test(/^build::the_roguelike_(built_native_)?plays_as_it_does_under_run$/)))))
+| ((package(stitchwort-driver) & binary(library) & test(/^hash_stability::(examples|projects|prelude)$/)) | (package(stitchwort-driver) & binary(library) & test(/^pinned_hashes::/)))
+| (package(stitchwort-cli) & binary(running) & test(/^examples::/))
+| (package(stitchwort-bench) & (kind(lib) | (binary(check_work) & !test(=checking_does_not_compute_unneeded_values))))
+| ((package(stitchwort-driver) & binary(library) & test(/^search_match::/)) | (package(stitchwort-driver) & binary(library) & test(/^search_bench::/)) | (package(stitchwort-driver) & binary(library) & test(/^search_at::/)) | (package(stitchwort-cli) & ((binary(server) & test(/^search::/)) | (binary(tools) & test(/^doc::/)))))
 | package(stitchwort-core)
-| (package(stitchwort-driver) & (binary(nested_oracle) | binary(pinned_hashes) | binary(division) | (binary(navigation) & test(=references_of_a_project)) | (binary(named_arguments) & test(=named_calls_keep_every_hash))))
-| (package(stitchwort-elab) & !test(/^omega_search::tests::(replay_refuses_a_missing_case|integer_model|needs_nonnegativity|not_equal_splits|disconnected)$/))
-| binary(ability_errors) | binary(empty_row_kernel)
-| (package(stitchwort-rt) & binary(effect_runtime) & test(/^(state_handlers_run_as_a_loop_where_they_fit|io_operations_cross_translations_on_their_way_to_the_runner|closed_signature_maps_are_constants|bind_of_done_is_a_direct_call)$/))
-| (package(stitchwort-cli) & binary(effect_runtime) & test(/^(closed_signature_maps_are_built_once|known_calls_pass_their_arguments_together|empty_row_non_tail_handlers_keep_the_stack_limit)$/))
-| (binary(std_library) & !test(/^(lazy_loading_changes_nothing_for_.*|the_core_alone_runs_every_example_that_uses_no_library_name|every_builtin_is_bound_once_every_file_has_loaded|no_library_file_declares_a_decision_procedure|small_programs_load_only_the_library_files_they_can_use|the_index_holds_exactly_the_names_an_eager_load_makes|library_tests_run_only_under_the_library_target|the_standard_library_passes_its_own_tests|the_order_never_depends_on_how_the_program_mentions_things)$/))
-| (package(stitchwort-rt) & (kind(lib) | binary(tick_counts) | binary(alloc_trace) | binary(live_run) | (binary(partial_handlers) & test(/^(only_resuming_more_than_once_copies|capture_and_restore_leak_nothing)$/)) | (binary(machine) & test(=library_tests_agree)) | binary(linked) | (binary(codec) & test(/^(micro_call_round_trips|foreign_bytes_are_refused|absurd_nesting_is_refused)$/))))
-| package(stitchwort-host)
-| package(stitchwort-js)
 | package(stitchwort-native)
-| (binary(extract) & test(/^(int_crosses_the_boundary_strictly|options_cross_the_boundary_as_undefined|records_cross_the_boundary_strictly|awkward_names_never_collide|more_tail_calls_are_loops|generated_code_is_stable)$/))
-| (binary(lsp) & test(/^(hover_over_a_selection_gives_the_type_of_the_expression|formatting_replaces_the_open_text|a_file_on_its_own_as_you_type|goal_at_answers_for_the_goal_at_or_near_the_cursor|small_navigation_issues|eq_sym_and_eq_trans_navigate_to_their_definitions)$/))
-| (package(stitchwort-fmt) & !binary(repo) & !binary(fuzz))
-| (package(stitchwort-cli) & binary(fmt))
-| (binary(aoc_answers) & test(/^(year2021_day(01|03|05|07|09|11|13|17)|year2024_day(01|02|03|04|05|07|09)|year2025_day(01|03|05|07|09))$/))
-| (package(stitchwort-cli) & (binary(session) | binary(keys_mode) | (binary(run) & !test(/^(a_failure_deep_in_partial_recursion_doesnt_overflow|a_partial_main_that_may_fail_runs_three_ways|a_total_main_that_may_fail_runs_three_ways|an_endless_partial_main_runs_until_stopped|the_example_prints_what_simulate_records)$/))))
-| package(stitchwort-standalone) | (package(stitchwort-cli) & ((kind(bin) & test(/^build::/)) | binary(build)))
-| (binary(hash_stability) & test(/^(examples|projects|prelude)$/))
-| (package(stitchwort-cli) & binary(examples))
-| (package(stitchwort-bench) & binary(check_work) & !test(=checking_does_not_compute_unneeded_values))
-| binary(search_match) | binary(search_bench) | binary(search_at) | (package(stitchwort-cli) & (binary(search) | binary(doc)))
+| (package(stitchwort-cli) & binary(running) & test(/^build::/))
+| (package(stitchwort-driver) & ((binary(projects) & test(=navigation::references_of_a_project)) | (binary(elaboration) & test(=named_arguments::named_calls_keep_every_hash))))
+| (package(stitchwort-cli) & binary(extraction) & test(=extract::generated_code_is_stable))
+| (package(stitchwort-cli) & binary(running) & test(/^aoc_answers::(year2021_day(01|03|07)|year2024_day(01|02|03|04|05|07|09)|year2025_day(01|03|05|07))$/))
 """
 
 # Every test's time, for cutting the tier when it grows past its budget:
@@ -104,68 +108,71 @@ path = "junit.xml"
 # `task test:lane AREA=…`: one area's handful of fast tests, under 10 s with
 # the release test binaries built. Keep each to tests that take about a
 # second; the merge tier above is the union of them but for `lane-goals`, plus
-# a sample of the examples' hash snapshots, half the AoC answers and the
+# a sample of the examples' hash snapshots, 14 AoC answers and the
 # extraction snapshots.
 
 [profile.lane-syntax]
 default-filter = "package(stitchwort-syntax)"
 
 [profile.lane-core]
-default-filter = "(package(stitchwort-core) & (kind(lib) | binary(kernel) | binary(hash) | binary(admission) | binary(opaque) | binary(trusted) | binary(universe_levels) | binary(kernel_bugs_2026))) | (package(stitchwort-driver) & (binary(nested_oracle) | binary(division)))"
+default-filter = "(package(stitchwort-core) & (kind(lib) | (binary(it) & test(/^kernel::/)) | (binary(it) & test(/^hash::/)) | (binary(it) & test(/^admission::/)) | (binary(it) & test(/^opaque::/)) | (binary(it) & test(/^trusted::/)) | (binary(it) & test(/^universe_levels::/)) | (binary(it) & test(/^kernel_bugs_2026::/)))) | (package(stitchwort-driver) & ((binary(proofs) & test(/^nested_oracle::/)) | (binary(elaboration) & test(/^division::/))))"
 
 [profile.lane-elab]
-default-filter = "(package(stitchwort-elab) & !test(/^omega_search::tests::(replay_refuses_a_missing_case|integer_model|needs_nonnegativity|not_equal_splits|disconnected)$/)) | (package(stitchwort-driver) & binary(conv_shortcut) & test(=a_solved_unknown_is_seen_through_by_the_identity_shortcut)) | (package(stitchwort-driver) & (binary(function_equations) | binary(function_induct)))"
+default-filter = "(package(stitchwort-elab) & !test(/^omega_search::tests::(replay_refuses_a_missing_case|integer_model|needs_nonnegativity|not_equal_splits|disconnected)$/)) | (package(stitchwort-driver) & binary(proofs) & test(=conv_shortcut::a_solved_unknown_is_seen_through_by_the_identity_shortcut)) | (package(stitchwort-driver) & ((binary(proofs) & test(/^function_equations::/)) | (binary(proofs) & test(/^function_induct::/))))"
 
 [profile.lane-effects]
 default-filter = """
-binary(ability_errors) | binary(empty_row_kernel)
-| (package(stitchwort-rt) & binary(effect_runtime) & test(/^(state_handlers_run_as_a_loop_where_they_fit|io_operations_cross_translations_on_their_way_to_the_runner|closed_signature_maps_are_constants|bind_of_done_is_a_direct_call)$/))
-| (package(stitchwort-cli) & binary(effect_runtime) & test(/^(closed_signature_maps_are_built_once|known_calls_pass_their_arguments_together|empty_row_non_tail_handlers_keep_the_stack_limit)$/))
+(package(stitchwort-driver) & binary(elaboration) & test(/^ability_errors::/)) | (package(stitchwort-driver) & binary(elaboration) & test(/^empty_row_kernel::/))
+| (package(stitchwort-rt) & binary(it) & test(/^effect_runtime::(state_handlers_run_as_a_loop_where_they_fit|io_operations_cross_translations_on_their_way_to_the_runner|closed_signature_maps_are_constants|bind_of_done_is_a_direct_call)$/))
+| (package(stitchwort-cli) & binary(running) & test(/^effect_runtime::(closed_signature_maps_are_built_once|known_calls_pass_their_arguments_together|empty_row_non_tail_handlers_keep_the_stack_limit)$/))
 """
 
 [profile.lane-std]
-default-filter = "binary(std_library) & !test(/^(lazy_loading_changes_nothing_for_.*|the_core_alone_runs_every_example_that_uses_no_library_name|every_builtin_is_bound_once_every_file_has_loaded|no_library_file_declares_a_decision_procedure|small_programs_load_only_the_library_files_they_can_use|the_index_holds_exactly_the_names_an_eager_load_makes|library_tests_run_only_under_the_library_target|the_standard_library_passes_its_own_tests|the_order_never_depends_on_how_the_program_mentions_things)$/)"
+default-filter = "package(stitchwort-driver) & binary(library) & test(/^std_library::/) & !test(/^std_library::(lazy_loading_changes_nothing_for_.*|the_core_alone_runs_every_example_that_uses_no_library_name|every_builtin_is_bound_once_every_file_has_loaded|no_library_file_declares_a_decision_procedure|small_programs_load_only_the_library_files_they_can_use|the_index_holds_exactly_the_names_an_eager_load_makes|library_tests_run_only_under_the_library_target|the_standard_library_passes_its_own_tests|the_order_never_depends_on_how_the_program_mentions_things)$/)"
 
 [profile.lane-rt]
-default-filter = "package(stitchwort-host) | (package(stitchwort-rt) & (kind(lib) | binary(tick_counts) | binary(alloc_trace) | binary(live_run) | (binary(partial_handlers) & test(/^(only_resuming_more_than_once_copies|capture_and_restore_leak_nothing)$/)) | (binary(machine) & test(=library_tests_agree)) | binary(linked) | (binary(codec) & test(/^(micro_call_round_trips|foreign_bytes_are_refused|absurd_nesting_is_refused)$/)) | (binary(effect_runtime) & test(/^(closed_signature_maps_are_constants|bind_of_done_is_a_direct_call)$/))))"
+default-filter = "package(stitchwort-host) | (package(stitchwort-rt) & (kind(lib) | (binary(it) & test(/^tick_counts::/)) | (binary(it) & test(/^alloc_trace::/)) | (binary(it) & test(/^live_run::/)) | (binary(it) & test(/^partial_handlers::(only_resuming_more_than_once_copies|capture_and_restore_leak_nothing)$/)) | (binary(it) & test(=machine::library_tests_agree)) | (binary(it) & test(/^linked::/)) | (binary(it) & test(/^codec::(micro_call_round_trips|foreign_bytes_are_refused|absurd_nesting_is_refused)$/)) | (binary(it) & test(/^effect_runtime::(closed_signature_maps_are_constants|bind_of_done_is_a_direct_call)$/))))"
 
 [profile.lane-js]
-default-filter = "package(stitchwort-js) | (binary(extract) & test(/^(int_crosses_the_boundary_strictly|options_cross_the_boundary_as_undefined|records_cross_the_boundary_strictly|awkward_names_never_collide|more_tail_calls_are_loops)$/))"
+default-filter = "package(stitchwort-js) | (package(stitchwort-cli) & binary(extraction) & test(/^extract::(int_crosses_the_boundary_strictly|options_cross_the_boundary_as_undefined|records_cross_the_boundary_strictly|awkward_names_never_collide|more_tail_calls_are_loops)$/))"
 
 [profile.lane-native]
 default-filter = "package(stitchwort-native) & !test(=tail_calls_of_every_shape_run_in_constant_stack)"
 
+# The server's quick session tests (`stitchwort-lsp` `features`, about 3 s each
+# warm) and unit tests beside the `cli` `lsp` tests that drive it over stdio;
+# the slow `features` tests and `memory` are for `task test:affected`'s `lsp` rule.
 [profile.lane-lsp]
-default-filter = "binary(lsp) & test(/^(hover_over_a_selection_gives_the_type_of_the_expression|formatting_replaces_the_open_text|a_file_on_its_own_as_you_type|goal_at_answers_for_the_goal_at_or_near_the_cursor|small_navigation_issues|eq_sym_and_eq_trans_navigate_to_their_definitions)$/)"
+default-filter = "(package(stitchwort-cli) & binary(server) & test(/^lsp::(hover_over_a_selection_gives_the_type_of_the_expression|formatting_replaces_the_open_text|a_file_on_its_own_as_you_type|goal_at_answers_for_the_goal_at_or_near_the_cursor|small_navigation_issues|eq_sym_and_eq_trans_navigate_to_their_definitions)$/)) | (package(stitchwort-lsp) & (kind(lib) | (binary(it) & test(/^features::(completion_offers_locals_then_the_namespace_then_imports_and_defaults|semantic_tokens_colour_names_by_what_they_resolve_to|signature_help_shows_the_function_and_the_current_parameter|signature_help_tells_two_functions_with_the_same_short_name_apart|the_outline_asked_as_the_file_opens_is_not_empty)$/))))"
 
 # Goals end to end with the built command (`crates/cli/tests/goal_index.rs`):
 # `check --index`'s goals and lemmas, each lemma and printed goal pasted back
 # and checked again. About 12 s, its lemma test the longest.
 [profile.lane-goals]
-default-filter = "package(stitchwort-cli) & binary(goal_index)"
+default-filter = "package(stitchwort-cli) & binary(server) & test(/^goal_index::/)"
 
 [profile.lane-fmt]
-default-filter = "(package(stitchwort-fmt) & !binary(repo) & !binary(fuzz)) | (package(stitchwort-cli) & binary(fmt))"
+default-filter = "(package(stitchwort-fmt) & !(binary(it) & test(/^repo::/)) & !(binary(it) & test(/^fuzz::/))) | (package(stitchwort-cli) & binary(tools) & test(/^fmt::/))"
 
 [profile.lane-aoc]
-default-filter = "binary(aoc_answers) & test(/^(year2024_day02|year2024_day04|year2024_day07|year2025_day01|year2025_day05|year2025_day07)$/)"
+default-filter = "package(stitchwort-cli) & binary(running) & test(/^aoc_answers::(year2024_day02|year2024_day04|year2024_day07|year2025_day01|year2025_day05|year2025_day07)$/)"
 
 [profile.lane-cli]
 # Also `stitchwort build` (crates/standalone, `build.rs`), but for the
 # roguelike's tests (built with and without --native), which check the game
 # twice each. And `stitchwort audit` (`audit`, about 2 s).
-default-filter = "package(stitchwort-standalone) | (package(stitchwort-cli) & (binary(session) | binary(keys_mode) | binary(audit) | (binary(run) & !test(/^(a_failure_deep_in_partial_recursion_doesnt_overflow|a_partial_main_that_may_fail_runs_three_ways|a_total_main_that_may_fail_runs_three_ways|an_endless_partial_main_runs_until_stopped|the_example_prints_what_simulate_records)$/)) | (kind(bin) & test(/^build::/)) | (binary(build) & !test(/^the_roguelike_(built_native_)?plays_as_it_does_under_run$/))))"
+default-filter = "package(stitchwort-standalone) | (package(stitchwort-cli) & ((binary(server) & test(/^session::/)) | (binary(running) & test(/^keys_mode::/)) | (binary(tools) & test(/^audit::/)) | (binary(running) & test(/^run::/) & !test(/^run::(a_failure_deep_in_partial_recursion_doesnt_overflow|a_partial_main_that_may_fail_runs_three_ways|a_total_main_that_may_fail_runs_three_ways|an_endless_partial_main_runs_until_stopped|the_example_prints_what_simulate_records)$/)) | (kind(bin) & test(/^build::/)) | (binary(running) & test(/^build::/) & !test(/^build::the_roguelike_(built_native_)?plays_as_it_does_under_run$/))))"
 
 # With NAME (EXAMPLES): only the examples whose names contain it (or any of a
 # comma-separated list).
 [profile.lane-hashes]
-default-filter = "(binary(hash_stability) & test(/^(examples|projects|prelude)$/)) | (package(stitchwort-driver) & binary(pinned_hashes))"
+default-filter = "(package(stitchwort-driver) & binary(library) & test(/^hash_stability::(examples|projects|prelude)$/)) | (package(stitchwort-driver) & binary(library) & test(/^pinned_hashes::/))"
 
 # With NAME (EXAMPLES): only the examples whose names contain it (or any of a
 # comma-separated list); without,
 # the lane sample (a quarter of each folder).
 [profile.lane-examples]
-default-filter = "package(stitchwort-cli) & binary(examples)"
+default-filter = "package(stitchwort-cli) & binary(running) & test(/^examples::/)"
 
 [profile.lane-bench]
 default-filter = "package(stitchwort-bench) & (kind(lib) | (binary(check_work) & !test(=checking_does_not_compute_unneeded_values)))"
@@ -179,7 +186,7 @@ default-filter = "package(stitchwort-web) & !test(/(effectful_maps_run_at_a_mill
 # command end to end, and `stitchwort doc` (SW-1019) end to end. About 8 s
 # with the check cache the tests share filled.
 [profile.lane-search]
-default-filter = "binary(search_match) | binary(search_bench) | binary(search_at) | (package(stitchwort-cli) & (binary(search) | binary(doc)))"
+default-filter = "(package(stitchwort-driver) & binary(library) & test(/^search_match::/)) | (package(stitchwort-driver) & binary(library) & test(/^search_bench::/)) | (package(stitchwort-driver) & binary(library) & test(/^search_at::/)) | (package(stitchwort-cli) & ((binary(server) & test(/^search::/)) | (binary(tools) & test(/^doc::/))))"
 
 [test-groups]
 # crates/cli/tests/lsp.rs keeps one warm copy of the AoC project under
@@ -201,9 +208,21 @@ lsp-aoc-copy = { max-threads = 1 }
 # beside them.
 corpus-sweeps = { max-threads = 2 }
 
+# The language server's session tests (`stitchwort-lsp` `features` and
+# `memory`): each opens a Session on the library, 0.4 GB when the check cache is
+# warm and up to 1.9 GB while it is cold, in the one process that fills the cache
+# (the others wait for it; both binaries share it, SW-1769). Ten at once on a cold cache passed the
+# merge tier's 4 GB cap (SW-1760). Three at a time peaked at 3.1 GB cold, and
+# the whole set takes about the same warm (28 s).
+lsp-sessions = { max-threads = 3 }
+
 # Overrides in the default profile apply to every profile.
 [[profile.default.overrides]]
-filter = "package(stitchwort-cli) & binary(lsp) & test(/^(aoc_navigation_matches_check_index|workspace_symbols_cover_namespaces_not_checked_yet|a_newer_edit_cancels_the_check_running)$/)"
+filter = "package(stitchwort-lsp) & ((binary(it) & test(/^features::/)) | (binary(it) & test(/^memory::/)))"
+test-group = "lsp-sessions"
+
+[[profile.default.overrides]]
+filter = "package(stitchwort-cli) & binary(server) & test(/^lsp::(aoc_navigation_matches_check_index|workspace_symbols_cover_namespaces_not_checked_yet|a_newer_edit_cancels_the_check_running)$/)"
 test-group = "lsp-aoc-copy"
 
 # resources' running_out_at_any_point_only_ever_means_no_answer was here for
@@ -217,27 +236,27 @@ test-group = "lsp-aoc-copy"
 # whose last tests are this group's, by its own 4 to 7 s.
 [[profile.default.overrides]]
 filter = """
-(package(stitchwort-rt) & binary(machine) & test(=examples_agree))
-| (package(stitchwort-rt) & binary(lower) & test(=every_example_lowers))
-| (package(stitchwort-rt) & binary(machine) & test(=aoc_agrees))
-| (package(stitchwort-rt) & binary(lower) & test(=every_aoc_main_lowers))
-| (package(stitchwort-driver) & binary(differential) & test(=the_evaluators_agree_on_the_prelude_and_every_example))
-| (package(stitchwort-driver) & binary(conv_shortcut) & test(=every_rejected_example_gets_the_same_verdict_without_the_shortcut))
-| (package(stitchwort-driver) & binary(check_cache) & test(/^(the_cache_changes_nothing_for_the_examples|the_cache_changes_nothing_for_the_aoc_project|aocs_namespaces_load_on_their_own_from_the_whole_projects_cache)$/))
-| (package(stitchwort-driver) & binary(hash_stability) & test(/^(examples|projects|a_namespace_checked_alone_has_the_same_hashes)$/))
-| (package(stitchwort-driver) & binary(std_library) & test(/^(lazy_loading_changes_nothing_for_.*|the_core_alone_runs_every_example_that_uses_no_library_name)$/))
-| (package(stitchwort-driver) & binary(rewind) & test(/^(rewinding_changes_nothing_for_the_examples|rewinding_changes_nothing_for_the_aoc_project|a_check_cancelled_part_way_rewinds)$/))
-| (package(stitchwort-driver) & binary(erasure) & test(=erasure_doesnt_change_what_examples_print_or_test))
-| (package(stitchwort-driver) & binary(named_arguments) & test(=named_calls_keep_every_hash))
-| (package(stitchwort-driver) & binary(fmt_hashes) & test(=formatting_changes_no_declaration_hash))
+(package(stitchwort-rt) & binary(it) & test(=machine::examples_agree))
+| (package(stitchwort-rt) & binary(it) & test(=lower::every_example_lowers))
+| (package(stitchwort-rt) & binary(it) & test(=machine::aoc_agrees))
+| (package(stitchwort-rt) & binary(it) & test(=lower::every_aoc_main_lowers))
+| (package(stitchwort-driver) & binary(proofs) & test(=differential::the_evaluators_agree_on_the_prelude_and_every_example))
+| (package(stitchwort-driver) & binary(proofs) & test(=conv_shortcut::every_rejected_example_gets_the_same_verdict_without_the_shortcut))
+| (package(stitchwort-driver) & binary(projects) & test(/^check_cache::(the_cache_changes_nothing_for_the_examples|the_cache_changes_nothing_for_the_aoc_project|aocs_namespaces_load_on_their_own_from_the_whole_projects_cache)$/))
+| (package(stitchwort-driver) & binary(library) & test(/^hash_stability::(examples|projects|a_namespace_checked_alone_has_the_same_hashes)$/))
+| (package(stitchwort-driver) & binary(library) & test(/^std_library::(lazy_loading_changes_nothing_for_.*|the_core_alone_runs_every_example_that_uses_no_library_name)$/))
+| (package(stitchwort-driver) & binary(projects) & test(/^rewind::(rewinding_changes_nothing_for_the_examples|rewinding_changes_nothing_for_the_aoc_project|a_check_cancelled_part_way_rewinds)$/))
+| (package(stitchwort-driver) & binary(elaboration) & test(=erasure::erasure_doesnt_change_what_examples_print_or_test))
+| (package(stitchwort-driver) & binary(elaboration) & test(=named_arguments::named_calls_keep_every_hash))
+| (package(stitchwort-driver) & binary(library) & test(=fmt_hashes::formatting_changes_no_declaration_hash))
 | (package(stitchwort-driver) & binary(fuzz_elab))
 | (package(stitchwort-driver) & binary(soundness_fuzz))
 | (package(stitchwort-driver) & binary(search_at_aoc))
-| (package(stitchwort-cli) & binary(check_cache) & test(=the_index_is_the_same_from_the_cache_for_the_example_projects))
-| (package(stitchwort-cli) & binary(examples) & test(/^(accepted|rejected|soundness|goal)_(examples|projects)_/))
-| (package(stitchwort-cli) & binary(run_js) & test(=examples_print_the_same_both_ways))
-| (package(stitchwort-cli) & binary(run_reference) & test(=examples_print_the_same_both_ways))
-| (package(stitchwort-cli) & binary(aoc_answers) & test(=every_day_from_the_whole_projects_cache))
+| (package(stitchwort-cli) & binary(server) & test(=check_cache::the_index_is_the_same_from_the_cache_for_the_example_projects))
+| (package(stitchwort-cli) & binary(running) & test(/^examples::(accepted|rejected|soundness|goal)_(examples|projects)_/))
+| (package(stitchwort-cli) & binary(running) & test(=run_js::examples_print_the_same_both_ways))
+| (package(stitchwort-cli) & binary(running) & test(=run_reference::examples_print_the_same_both_ways))
+| (package(stitchwort-cli) & binary(running) & test(=aoc_answers::every_day_from_the_whole_projects_cache))
 """
 test-group = "corpus-sweeps"
 
@@ -250,9 +269,9 @@ test-group = "corpus-sweeps"
 # profile.
 [[profile.default.overrides]]
 filter = """
-(package(stitchwort-cli) & binary(lsp) & test(/^(a_newer_edit_cancels_the_check_running|aoc_navigation_matches_check_index)$/))
-| (package(stitchwort-cli) & binary(aoc_answers) & test(=every_day_from_the_whole_projects_cache))
-| (package(stitchwort-driver) & binary(operators) & test(=primitive_and_uniform_lowering_agree_on_the_library_and_aoc))
+(package(stitchwort-cli) & binary(server) & test(/^lsp::(a_newer_edit_cancels_the_check_running|aoc_navigation_matches_check_index)$/))
+| (package(stitchwort-cli) & binary(running) & test(=aoc_answers::every_day_from_the_whole_projects_cache))
+| (package(stitchwort-driver) & binary(elaboration) & test(=operators::primitive_and_uniform_lowering_agree_on_the_library_and_aoc))
 | (package(stitchwort-web) & test(=project::tests::every_aoc_day_checks_passes_its_tests_and_runs_on_its_example))
 """
 priority = 100
@@ -262,15 +281,47 @@ priority = 100
 [[profile.default.overrides]]
 filter = """
 (package(stitchwort-driver) & binary(search_at_aoc) & test(=search_at_on_aoc_goals))
-| (package(stitchwort-driver) & binary(rewind) & test(=rewinding_changes_nothing_for_the_examples))
-| (package(stitchwort-driver) & binary(erasure) & test(=erasure_doesnt_change_what_examples_print_or_test))
-| (package(stitchwort-cli) & binary(examples) & test(/^(accepted|rejected)_examples_/))
-| (package(stitchwort-driver) & binary(check_cache) & test(=the_cache_changes_nothing_for_the_examples))
-| (package(stitchwort-driver) & binary(differential) & test(=the_evaluators_agree_on_the_prelude_and_every_example))
+| (package(stitchwort-driver) & binary(projects) & test(=rewind::rewinding_changes_nothing_for_the_examples))
+| (package(stitchwort-driver) & binary(elaboration) & test(=erasure::erasure_doesnt_change_what_examples_print_or_test))
+| (package(stitchwort-cli) & binary(running) & test(/^examples::(accepted|rejected)_examples_/))
+| (package(stitchwort-driver) & binary(projects) & test(=check_cache::the_cache_changes_nothing_for_the_examples))
+| (package(stitchwort-driver) & binary(proofs) & test(=differential::the_evaluators_agree_on_the_prelude_and_every_example))
 | (package(stitchwort-driver) & binary(search_at_aoc) & test(=search_at_on_real_2021_goals))
-| (package(stitchwort-rt) & binary(effect_runtime) & test(=every_shape_runs_at_a_million_elements))
-| (package(stitchwort-cli) & binary(extract) & test(=the_declarations_type_check))
-| (package(stitchwort-driver) & binary(float) & test(=with_every_native_off_float_runs_out_of_budget))
-| (package(stitchwort-driver) & binary(number_patterns) & test(=every_number_case_in_the_examples_has_an_expansion_that_checks))
+| (package(stitchwort-rt) & binary(it) & test(=effect_runtime::every_shape_runs_at_a_million_elements))
+| (package(stitchwort-cli) & binary(extraction) & test(=extract::the_declarations_type_check))
+| (package(stitchwort-driver) & binary(elaboration) & test(=float::with_every_native_off_float_runs_out_of_budget))
+| (package(stitchwort-driver) & binary(elaboration) & test(=number_patterns::every_number_case_in_the_examples_has_an_expansion_that_checks))
 """
 priority = 50
+
+# The tests that share one check cache of the library
+# (CARGO_TARGET_TMPDIR/search-cache: the `doc` and `search` commands' tests and
+# the driver's search benchmarks) each find it empty after a compiler change,
+# and each check the whole library themselves (13 s alone, 25 s or more at a
+# time with its 40 siblings). One of them goes first, at the top priority, and
+# the rest go after every test of the default priority has started, so that
+# the cache is full by then (SW-1751: this halved the CPU time of the search
+# lane, from 239 s to 125 s, and about 300 s of the merge tier's test time).
+# Order only, not a dependency: a test that does start early fills the cache
+# itself, as before.
+[[profile.default.overrides]]
+filter = "package(stitchwort-cli) & binary(tools) & test(=doc::a_library_name_shows_header_doc_location_and_theorems)"
+priority = 100
+
+[[profile.default.overrides]]
+filter = """
+(package(stitchwort-driver) & binary(library) & test(/^search_bench::/)) | (package(stitchwort-driver) & binary(library) & test(/^search_at::/)) | (package(stitchwort-cli) & binary(tools) & test(/^doc_equations::/))
+| (package(stitchwort-cli) & ((binary(server) & test(/^search::/)) | (binary(tools) & test(/^doc::/))))
+"""
+priority = -10
+
+# The same for the test std cache (`Session::eager_for_stack`,
+# `use_test_std_cache`; `TestCacheTurn`): after a compiler change one process
+# fills it while every other test that loads the library waits on a lock,
+# holding a slot. `pinned_hashes`' first test does nothing else but load the
+# library through the cache, so it goes first, at the top priority, and the
+# slots are not spent waiting beside it. Order only: a test that starts first
+# for another reason fills the cache itself.
+[[profile.default.overrides]]
+filter = "package(stitchwort-driver) & binary(library) & test(=pinned_hashes::every_binding_by_hash_applies_to_the_library)"
+priority = 100

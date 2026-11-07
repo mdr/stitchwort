@@ -88,16 +88,16 @@
               ./clippy.toml # disallows the standard library's hash maps
               ./.config/nextest.toml # test threads and test groups
               ./examples # example programs are the main test suite
-              ./aoc # the lazy-versus-eager library comparison checks it (crates/driver/tests/std_library.rs)
+              ./aoc # the lazy-versus-eager library comparison checks it (crates/driver/tests/library/std_library.rs)
               (lib.fileset.fileFilter (file: file.hasExt "snap") ./crates)
               (lib.fileset.fileFilter (file: file.hasExt "sw") ./crates) # the standard library, read from the source tree by the tests
               ./crates/elab/src/std/core/order.txt # the core's file list
               ./web/index.html # the playground's examples are checked
               ./web/guide # so are the guide's (crates/web)
-              ./docs/guide # the language guide's examples and quoted output are checked (crates/cli/tests/guide.rs)
+              ./docs/guide # the language guide's examples and quoted output are checked (crates/cli/tests/tools/guide.rs)
               ./web/tests/effect-shapes.sw # the effect-shape tests run it (crates/web)
               ./bench # benchmark counts are checked against the baseline
-              ./games/rogue # a goals test checks its proofs with holes added (crates/cli/tests/project.rs)
+              ./games/rogue # a goals test checks its proofs with holes added (crates/cli/tests/tools/project.rs)
             ];
           };
           # What the playground bundles of the AoC project (its sources and
@@ -364,6 +364,7 @@
             pkgs.cargo-llvm-cov # test coverage
             pkgs.cargo-mutants # mutation testing: do the tests notice when code changes?
             pkgs.cargo-nextest # runs the test tiers (.config/nextest.toml)
+            pkgs.lld # faster linking of the many test binaries (see env below)
             pkgs.go-task # `task`: the menu of what to run (Taskfile.yml)
             pkgs.python3 # dev/memguard, which every test task runs under
             pkgs.jq # task test:lanes-nonempty reads `cargo nextest list` JSON
@@ -387,6 +388,14 @@
             # the devShell sets this; the package and check builds above do not
             # inherit it, so the distributed binary is built from scratch.
             CARGO_PROFILE_RELEASE_INCREMENTAL = "true";
+          }
+          // pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isDarwin {
+            # Link with lld: a rebuild links about 150 test binaries, and lld
+            # takes about 15% off its CPU time (SW-1754). A target-specific
+            # variable, not RUSTFLAGS, so `.cargo/config.toml`'s wasm32
+            # rustflags still apply; the package and check builds don't see it.
+            CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS = "-C link-arg=-fuse-ld=lld";
+            CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS = "-C link-arg=-fuse-ld=lld";
           }
           // pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux (muslEnv pkgs);
         };

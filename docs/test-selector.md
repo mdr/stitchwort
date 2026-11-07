@@ -55,7 +55,7 @@ runs `task test:features` and `cargo fmt --check` first.
 |---|---|---|
 | kernel and core | `package(stitchwort-core)` | 37 s |
 | parser | `package(stitchwort-syntax)` | 13 s |
-| one fast AoC day, end to end | `binary(aoc_answers) & test(=year2024_day04)` | 1 s |
+| one fast AoC day, end to end | `binary(running) & test(=aoc_answers::year2024_day04)` | 1 s |
 
 Why: the kernel is where an unsound result would come from, and the parser
 is under everything else; both are fast. One AoC day exercises the whole
@@ -103,15 +103,15 @@ lane profiles exclude on purpose (the exclusion lists in
 `.config/nextest.toml` are for tests that are slow or flaky in the merge
 tier).
 
-- **Memory-heavy tests.** Leave `binary(run_js)` (`cli`) out of a selection
-  unless `crates/js`, `crates/cli/tests/run_js.rs` or the JS runtime changed:
+- **Memory-heavy tests.** Leave `binary(running) & test(/^run_js::/)` (`cli`) out of a selection
+  unless `crates/js`, `crates/cli/tests/running/run_js.rs` or the JS runtime changed:
   its node processes take about 1 GB each, and including it pushed a
   selection over the merge tier's 4 GB cap. The same goes for the `cli`
   `extract` tests that run `node test.mjs` (all but
   `generated_code_is_stable`): one node took 2.1 GB. Include them only for
   changes to `crates/js` or `extract.rs`, and then with little else.
 - **Filters.** `task test:one -- NAME` matches test names only. For a whole
-  test binary use a filterset, `task test:one -- -E 'binary(hash_stability)'`
+  test binary use a filterset, `task test:one -- -E 'binary(library) & test(/^hash_stability::/)'`
   (with `EXAMPLES=` for particular examples).
 
 ## Output
@@ -148,7 +148,7 @@ and six parse/effect examples). The lane ran `lane-std` and its own snapshots.
 
 ## Scoring
 
-`task test:selected` appends to `dev/selector-log.tsv`. During the trial the
+`task test:selected` appends to `dev/selector-log.tsv` (in the main checkout only). During the trial the
 verifier also runs the fixed merge tier; a failure the merge tier caught that
 the selection did not is a miss and counts against the selector. See
 docs/workflow.md, "Checks after a merge".

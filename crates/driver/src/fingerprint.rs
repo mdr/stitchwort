@@ -72,6 +72,19 @@ pub fn source_crates(root: &std::path::Path, start: &str) -> Vec<String> {
     crates
 }
 
+/// The crates the build fingerprint covers: the driver's graph, and
+/// `dev-features`. That is a dev-dependency, which [`source_crates`] doesn't
+/// follow, yet it turns on `core` and `syntax` features (`stack-check`,
+/// `test-bypass`, `reference`) that change what a dev build computes, so a
+/// change to it must miss the check caches too (SW-1741).
+pub fn check_crates(root: &std::path::Path) -> Vec<String> {
+    let mut crates = source_crates(root, "crates/driver");
+    crates.push("crates/dev-features".to_string());
+    crates.sort();
+    crates.dedup();
+    crates
+}
+
 /// The files of `crate_dir` (relative to `root`) that the fingerprint
 /// hashes: its manifest (features change what's compiled), its build
 /// script, and the Rust sources under `src`, by path
@@ -227,14 +240,32 @@ mod tests {
     #[test]
     fn the_fingerprint_covers_the_crate_graph() {
         let root = root();
-        let expected = metadata_graph(&root, "stitchwort-driver");
+        let mut expected = metadata_graph(&root, "stitchwort-driver");
+        // The dev-dependency that switches on features (SW-1741).
+        expected.push("crates/dev-features".into());
+        expected.sort();
         let built: Vec<&str> = crate::driver::FINGERPRINT_CRATES.split(',').collect();
         assert_eq!(built, expected);
-        assert_eq!(super::source_crates(&root, "crates/driver"), expected);
+        assert_eq!(super::check_crates(&root), expected);
         assert!(
             built.contains(&"crates/rt"),
             "the runtime that runs the tests"
         );
+    }
+
+    /// `dev-features` is a dev-dependency, so the manifests don't lead to
+    /// it, but its sources are among the files the build fingerprint hashes.
+    #[test]
+    fn the_fingerprint_hashes_the_dev_features_sources() {
+        let dir = fake_workspace();
+        let crates = super::check_crates(dir.path());
+        assert!(crates.contains(&"crates/dev-features".to_string()));
+        let files: Vec<_> = crates
+            .iter()
+            .flat_map(|c| super::source_files(dir.path(), c))
+            .collect();
+        assert!(files.contains(&PathBuf::from("crates/dev-features/src/lib.rs")));
+        assert!(files.contains(&PathBuf::from("crates/dev-features/Cargo.toml")));
     }
 
     /// The bundle-staleness fingerprint covers web's graph, not just the

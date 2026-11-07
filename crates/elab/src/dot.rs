@@ -2143,7 +2143,12 @@ fn call_or_block(cx: &mut Ctx, recv: &Expr, field: &AstName, args: &[Arg]) -> Re
 
 /// Which dot call: the receiver expression (by address and span), the
 /// field's span, and the generated-source epoch the address belongs to
-/// (`Elaborator::source_epoch`).
+/// (`Elaborator::source_epoch`). The address stands for one piece of
+/// syntax only while that stays allocated, which is why the tables are
+/// emptied before each declaration and keep the queue's copies alive
+/// (`Caches::forget_dot_calls`). Syntax the
+/// elaborator builds for itself and frees within a declaration isn't
+/// covered (SW-1800).
 pub(crate) type CallKey = (usize, Span, Span, usize);
 
 fn call_key(cx: &Ctx, recv: &Expr, field: &AstName) -> CallKey {

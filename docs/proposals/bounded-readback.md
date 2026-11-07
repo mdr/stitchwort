@@ -754,6 +754,21 @@ otherwise change. 4 comes before 3, as D2545 orders, so the reader module is cre
   hash snapshots and the bound-to-the-prelude tests updated. Accept: accessor types print as
   declared; `examples/accept/and-or-not.sw` keeps `Nat.decLessEq y 9`. *Risk:* a proof that
   relied on an accessor's type being in normal form for a syntactic test.
+
+  **Left unfolded in stage 1b.** Stage 1b (SW-1748) folded the remaining output terms of
+  §2.5. These sites were deliberately left unfolded; a later stage should not fold them
+  until it does the work named. Lines are current on `main` (grep).
+
+  | Site | Why it stays unfolded | Stage |
+  |---|---|---|
+  | `derive_induct.rs:427` (`field_type`; `quote` at `:432`) | `classify` matches the head of the field type, so a type written as a call (`Children A`) would hide it. Fold the output only once `classify` reads a separate unfolded copy (SW-1747 item 7). | 1, later |
+  | `derive_induct.rs:1257` (`move_to`; `quote` at `:1259`) | Re-evaluates with `unused` placeholder slots that must agree with `pred_levels`' unfolded reading; it needs a real substitution first. | 4 |
+  | `derive_induct.rs:629` (`pred_levels`; `quote` at `:632`), `effects.rs:616` (`same_results`; `:619`), `:3692` (`row_in_result`; `:3699`), `:3997` (`written_outside`; `:4010`), `:5105` (`partial_mismatch`; `:5118`), `interfaces.rs:1399` (`scanned`) | Mentions tests: they read the term back to walk its variables, so they need `mentions`. | 4 |
+  | `effects.rs:3985` (`unsettled`; `quote` at `:3986`, `zonk_keeping` at `:3987`) | Zonk: checks the zonked type for an unknown nothing has solved. | 4 |
+  | `effects.rs:4133` (`escapes`; `quote` at `:4135`, `:4142`) | Message text: builds the `E-EFFECT-ESCAPE` note from the result type. | 5 |
+  | `families.rs:678` (`enter`; `quote` at `:702`), `rows.rs:248` (`refresh_at`; `quote` at `:250`) | Round trips whose results feed unification, so folding them could change what is solved. | 4 |
+  | `rewrite.rs:574` (`discharge`; `quote` at `:588`) | Round trip feeding the premise hypothesis search, so folding it could change what is found. | 6a |
+
 - **0b. The remaining sites classified** (no build). The ~200 unread sites into §2's kinds, as
   a table appended to this note: `equations.rs` (stays unfolded or folded per site; §11),
   `omega.rs`, `effects.rs`, `derive_induct.rs`, `interfaces.rs`. `interfaces.rs` is no longer

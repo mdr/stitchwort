@@ -1,5 +1,5 @@
 {
-  "next": 1761,
+  "next": 1808,
   "tickets": [
     {
       "id": 47,
@@ -12165,9 +12165,9 @@
         "kernel"
       ],
       "epic": "record-eta",
-      "body": "D2498-D2505 (Matt, 6 Nov 2026): all as recommended in docs/proposals/record-eta.md: kernel record eta with primitive projections (no parameters) and the two rules; eta by shape incl. Pair; no no-eta opt-out now; no eta for interface dictionaries; accept goals changing shape; keep T.ext; accept ~5% checking cost (profile it); staged kernel (Opus), unifier, Pair, clean-up sweep (Sonnet). Opus, expected: 180 min.\n\nStarted on Opus, expected: 180 min.\n\nD2507 (Matt, 6 Nov 2026): after merge the orchestrator's verifier runs one whole-AoC + roguelike check --no-cache in the background, stopped at 6 min: 'two to three minutes is okay, but not 20 minutes.' Not inside the lane.\n\nLane stopped short (603b4acd6, a48ac7eb6): kernel Proj, has_eta, rules 1 and 2 built; 175 core + 16 record_eta tests (9 accept, 7 must-reject) pass; std fails at Set/Spec.sw:503,601 (rewrites no longer find Set.foldLeft/Set.map) and rogue Rules.sw:51, because a primitive Proj can't wait on a glued call (§6.4). Three shortcuts tried, each fails std or rogue. Cost so far +1-2% on rogue. D2509-D2511 (Matt, 6 Nov 2026): all as recommended: next an Opus lane on lane/SW-1642 building glued calls whose spine may end in projections (about half a day), before the unifier and Pair stages; for now eta only for types declared as records (departs from D2499 until stage 3); rule 2 fires on unknowns and the unifier compares two records first when both sides end in the same projection. Model result: Opus, stopped short (glued-call projections unspecified), 170 min (est. 180).",
+      "body": "D2498-D2505 (Matt, 6 Nov 2026): all as recommended in docs/proposals/record-eta.md: kernel record eta with primitive projections (no parameters) and the two rules; eta by shape incl. Pair; no no-eta opt-out now; no eta for interface dictionaries; accept goals changing shape; keep T.ext; accept ~5% checking cost (profile it); staged kernel (Opus), unifier, Pair, clean-up sweep (Sonnet). Opus, expected: 180 min.\n\nStarted on Opus, expected: 180 min.\n\nD2507 (Matt, 6 Nov 2026): after merge the orchestrator's verifier runs one whole-AoC + roguelike check --no-cache in the background, stopped at 6 min: 'two to three minutes is okay, but not 20 minutes.' Not inside the lane.\n\nLane stopped short (603b4acd6, a48ac7eb6): kernel Proj, has_eta, rules 1 and 2 built; 175 core + 16 record_eta tests (9 accept, 7 must-reject) pass; std fails at Set/Spec.sw:503,601 (rewrites no longer find Set.foldLeft/Set.map) and rogue Rules.sw:51, because a primitive Proj can't wait on a glued call (§6.4). Three shortcuts tried, each fails std or rogue. Cost so far +1-2% on rogue. D2509-D2511 (Matt, 6 Nov 2026): all as recommended: next an Opus lane on lane/SW-1642 building glued calls whose spine may end in projections (about half a day), before the unifier and Pair stages; for now eta only for types declared as records (departs from D2499 until stage 3); rule 2 fires on unknowns and the unifier compares two records first when both sides end in the same projection. Model result: Opus, stopped short (glued-call projections unspecified), 170 min (est. 180).\n\n7 Nov 08:00: waiting on Matt's D2575 (one whole-AoC + roguelike run on lane/SW-1642, then merge; expect the value.rs Unfolding conflict with SW-1782). Moved to review: no lane is working on it.\n\nD2575 withdrawn (the whole-AoC + roguelike run was already approved as D2507, after merge). D2581 (Matt, 7 Nov 2026): yes, an Opus lane merges main into lane/SW-1642 (188 commits behind: value.rs conflict with SW-1782's Unfolding modes, ~46 snapshot conflicts), then the orchestrator merges and runs the D2507 check. Expected: 45 min.",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -12533,16 +12533,16 @@
     {
       "id": 1667,
       "title": "Record eta stage 1b: glued calls whose spine may end in projections (~64 Value::Call sites plus omega/auto/ring call_args users), on lane/SW-1642; then std and rogue pass, snapshots, profile rule 2 (D2509)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1642",
       "labels": [
         "kernel"
       ],
       "epic": "record-eta",
-      "body": "D2509-D2511 (Matt, 6 Nov 2026): all as recommended: next an Opus lane on lane/SW-1642 building glued calls whose spine may end in projections (about half a day), before the unifier and Pair stages; for now eta only for types declared as records (departs from D2499 until stage 3); rule 2 fires on unknowns and the unifier compares two records first when both sides end in the same projection. Opus, expected: 240 min; an Opus review follows.\n\nStarted 14:35 by resuming SW-1642's lane (same context and branch).\n\nLane progress (be69745c3, 8943bf9fe, c91991954 on lane/SW-1642): fields of glued calls stay calls (project_call, Frame::CallField); std's own test, roguelike Rules.sw:51 and 2021 day 13 pass; cost roguelike +2.2%, days −5%. Blocked: trip-journal example project fails (rule 2 computes under binders, unfolded quote hits 'too large to show'); a_namespace_checked_alone_has_the_same_hashes likely the same. Waiting on D2514 (how to bound unfolded readback). 2 h 15 min of est. 4 h.\n\nD2514 (Matt, 6 Nov 2026): as recommended: bound unfolded readback by making the elaborator's searches look at goals as written, starting with a short design note on Opus that revisits D484; accessor types read back as written too. Not started yet.\n\nDecided by the orchestrator (Matt, 6 Nov 2026 ~23:00: 'you need to make your best choices on those'): D2551 yes, the general rule 'a definition with a native implementation keeps its record patterns stuck on unknowns' (today only Float.add), on lane/SW-1642. D2552 yes, SW-1667 resumes ahead of bounded-readback stages 1-6b (amends D2545; those stages stay for main). D2553 yes, no per-definition 'stays folded' marker until a second definition needs one. Why: SW-1744 traced the blowup to one cause, the prototype removes every failure stage 0a found, std and the pinned Float hashes check, and on main it changes nothing. Whole-AoC and roguelike checks on the branch still need Matt's OK before SW-1667 merges.\n\nResumed 23:00 6 Nov on Opus with the SW-1744 hold, expected: 2 h.",
+      "body": "D2509-D2511 (Matt, 6 Nov 2026): all as recommended: next an Opus lane on lane/SW-1642 building glued calls whose spine may end in projections (about half a day), before the unifier and Pair stages; for now eta only for types declared as records (departs from D2499 until stage 3); rule 2 fires on unknowns and the unifier compares two records first when both sides end in the same projection. Opus, expected: 240 min; an Opus review follows.\n\nStarted 14:35 by resuming SW-1642's lane (same context and branch).\n\nLane progress (be69745c3, 8943bf9fe, c91991954 on lane/SW-1642): fields of glued calls stay calls (project_call, Frame::CallField); std's own test, roguelike Rules.sw:51 and 2021 day 13 pass; cost roguelike +2.2%, days −5%. Blocked: trip-journal example project fails (rule 2 computes under binders, unfolded quote hits 'too large to show'); a_namespace_checked_alone_has_the_same_hashes likely the same. Waiting on D2514 (how to bound unfolded readback). 2 h 15 min of est. 4 h.\n\nD2514 (Matt, 6 Nov 2026): as recommended: bound unfolded readback by making the elaborator's searches look at goals as written, starting with a short design note on Opus that revisits D484; accessor types read back as written too. Not started yet.\n\nDecided by the orchestrator (Matt, 6 Nov 2026 ~23:00: 'you need to make your best choices on those'): D2551 yes, the general rule 'a definition with a native implementation keeps its record patterns stuck on unknowns' (today only Float.add), on lane/SW-1642. D2552 yes, SW-1667 resumes ahead of bounded-readback stages 1-6b (amends D2545; those stages stay for main). D2553 yes, no per-definition 'stays folded' marker until a second definition needs one. Why: SW-1744 traced the blowup to one cause, the prototype removes every failure stage 0a found, std and the pinned Float hashes check, and on main it changes nothing. Whole-AoC and roguelike checks on the branch still need Matt's OK before SW-1667 merges.\n\nResumed 23:00 6 Nov on Opus with the SW-1744 hold, expected: 2 h.\n\nMerge-ready on lane/SW-1642 (4f0a8a8ce, 560720804, fac0006fa merge of main, 98873e547) except whole-AoC + roguelike (needs Matt's OK) and the Opus review. Builtins::has_native keys the hold (value::eta_held shared by value.rs and reference.rs); examples float-sum-in-a-proof-field (accept), float-sum-stays-a-sum (reject); the_trip_journal_checks in every tier. ~230 hash snapshots regenerated (interface dictionaries carry the no-eta tag; projections in record proofs). All targeted checks pass; trip-journal and 2021 day 13 cost as main; Rogue.Proofs +28%, nearly all resolveOutOfWalls (proof term 4.6k → 106k nodes, from record eta itself). 34 min this session.\n\n7 Nov ~00:35: review fixes in (SW-1768). Ready to merge once Matt OKs one whole-AoC + roguelike run on lane/SW-1642 (no cache, 6 min).\n\n7 Nov: SW-1782 (merged on main) restructures Unfolding in value.rs (Kept/Modes); lane/SW-1642 adds a base field there: expect a textual conflict when record eta merges (SW-1791).",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -13535,16 +13535,16 @@
     {
       "id": 1734,
       "title": "nextest threads-required for the heavy sweeps, so they don't overlap in memory and thrash",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "review",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1734",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From the SW-1716 profile, fix 6. See docs/reviews/SW-1716-dev-loop-profile.md §6.",
+      "body": "From the SW-1716 profile, fix 6. See docs/reviews/SW-1716-dev-loop-profile.md §6.\n\n7 Nov ~02:05, lane/SW-1734 (7f5082978): corpus-sweeps threads-required=5, pooled tests 5 or 2, daily/full test-threads 10, test:merge STITCHWORT_TEST_THREADS=5. Merge tier neutral (A/B within 1%, CPU equal). Daily sweeps subset under load 16-34: per-test times 25-50% lower, wall not better (590 s old vs 665/1152 s new, too noisy). Held in review, not merged: no measured benefit yet; needs one daily run on a quiet machine (with D2556). Model result: Sonnet, worked, 60 min (est. 45).\n\n7 Nov: needs a quiet daily run to show a benefit; folded into D2556's daily run.",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -13557,54 +13557,54 @@
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From the SW-1716 profile, fix 12. See docs/reviews/SW-1716-dev-loop-profile.md §6.",
+      "body": "From the SW-1716 profile, fix 12. See docs/reviews/SW-1716-dev-loop-profile.md §6.\n\n7 Nov: not run overnight (the quiet window went to SW-1742). Needs a quiet machine; pair with SW-1802.",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
       "id": 1736,
       "title": "One integration-test binary per crate (137 now): 6-8 s off each incremental rebuild, ~2.5 GB disk per target",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1736",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From the SW-1716 profile, fix 5. See docs/reviews/SW-1716-dev-loop-profile.md §6.",
+      "body": "From the SW-1716 profile, fix 5. See docs/reviews/SW-1716-dev-loop-profile.md §6.\n\nPilot merged: docs/proposals/fewer-test-binaries.md (166 binaries → ~21; four allocator binaries stay; cli and driver in groups of 3-4); dev/merge-test-binaries (moves files into tests/it, rewrites binary() filters, --verify maps names one to one); rt 13 → 3 binaries. Measured under load 23-46: 10 fewer relinks saved ~20 s CPU on a core edit (~2 s per binary; ~300 CPU-s projected for the roll-out). On main: rt 113/113, selector tests OK, nextest-merge --check OK. Roll-out per crate on DeepSeek: core first, then syntax/native/fmt/lsp, then cli/driver after a --group option. Model result: Sonnet, worked, 32 min (est. 75).",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
       "id": 1737,
       "title": "[Opus plan] Split the elab crate (115,700 lines, the serial step of a clean build): 30-50 s off a clean build",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "done",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1737",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From the SW-1716 profile, fix 13. See docs/reviews/SW-1716-dev-loop-profile.md §6.",
+      "body": "From the SW-1716 profile, fix 13. See docs/reviews/SW-1716-dev-loop-profile.md §6.\n\nDone: docs/proposals/split-elab.md. Don't split (89% of elab is one cycle through Elaborator/Ctx; a split saves 5-15 s clean, 0-4 s incremental). Instead build elab's 148 unit tests into the library behind a unit-tests feature that dev-features turns on (like core's test-bypass): ~20-30 s off a clean build, frees a core on every elab rebuild. D2563 (don't split now; stage 1 instead) and D2564 (a feature, not moving tests to tests/): yes, my calls (implementation sequencing), listed for Matt. Model result: Opus, worked, 10 min (est. 60).",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
       "id": 1738,
       "title": "Try lld as the linker (23% faster links, 2-3 s per rebuild)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From the SW-1716 profile, fix 11. See docs/reviews/SW-1716-dev-loop-profile.md §6.",
+      "body": "From the SW-1716 profile, fix 11. See docs/reviews/SW-1716-dev-loop-profile.md §6.\n\nDone by SW-1754 (lld in the devShell on macOS).",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -13640,14 +13640,14 @@
     {
       "id": 1741,
       "title": "Fill the test std cache once per run: a nextest setup script for the eager-session binaries plus a shared stack-size constant (14 s per binary that checks std from source; SW-1729's plan)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1741",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From SW-1729, 6 Nov 2026. Estimate 45-60 min.",
+      "body": "From SW-1729, 6 Nov 2026. Estimate 45-60 min.\n\nNow the fix for SW-1745 (D2560). SW-1751's TestCacheTurn already fills an empty std cache once per stack size within a run; check what's left. Also: the check cache's fingerprint doesn't cover crates/dev-features (a dev-dependency that switches on core features stack-check/test-bypass); add it (SW-1753). Started on Sonnet, expected: 45 min.\n\nDone, merged (5c9cd6b9c): lsp features tests take TestCacheTurn (cold CPU 371 → 181 s for the measured set); fingerprint covers crates/dev-features (with tests). On main: the lsp features and memory binaries pass cold, 21/21 in 28 s. The first affected-test run had 10 lsp tests SIGTERMed: dev/run-selected's 4 GB memguard (STITCHWORT_MEM_CAP_GB_MERGE) killed cold lsp processes, not a fault in this change. Model result: Sonnet, worked, 30 min (est. 45).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -13655,31 +13655,31 @@
     {
       "id": 1742,
       "title": "Re-measure mimalloc in test binaries on an idle machine (user CPU of hash_stability prelude) before any sweep over the ~100 test files",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1742",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From SW-1729, 6 Nov 2026: no reliable 5% gain at load 25-35.",
+      "body": "From SW-1729, 6 Nov 2026: no reliable 5% gain at load 25-35.\n\nDone, merged: docs/reviews/SW-1742-mimalloc.md. Idle machine (load 2-3.5): hash_stability prelude user 12.57 → 11.07 s (spread 0.03 s), RSS 262 → 246 MB; std_library group CPU ~17% less (2 pairs). mimalloc set in the driver library binary only. SW-1729's null result was load noise. On main: library binary (std_library excepted) 49/49. Model result: Sonnet, worked, 33 min (est. 40).",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
       "id": 1743,
       "title": "ignorable_arguments (check.rs) swallows its size error with .ok()? yet each swallowed failure still costs a 10M-node read-back (SW-1740)",
       "status": "backlog",
-      "agent": "",
-      "where": "",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1743",
       "labels": [
         "perf"
       ],
       "epic": "goal-as-written",
-      "body": "From SW-1740, 6 Nov 2026.\n\nSW-1747: also rewrite.rs:707 and lib.rs:4954 answer 'no' when the read-back fails; all three are stage 4. And effects.rs:4131, induct_match.rs:429, rewrite.rs:1918-1919 read back with ? only for a note or hint, so they can replace the intended error: stage 5.",
+      "body": "From SW-1740, 6 Nov 2026.\n\nSW-1747: also rewrite.rs:707 and lib.rs:4954 answer 'no' when the read-back fails; all three are stage 4. And effects.rs:4131, induct_match.rs:429, rewrite.rs:1918-1919 read back with ? only for a note or hint, so they can replace the intended error: stage 5.\n\n7 Nov ~03:10, lane/SW-1743 (340435397): quote_at_most(4096) with a quote_folded fallback; synthetic P18 case 7.1 s → 1.6 s in ignorable_arguments; 1354 affected tests pass, no hash moved. Not merged (my call): it adds a limit that chooses (answers differ by cap), which D2543 rules out; the fix belongs to stage 4's memoised mentions reader (decide from the value). Branch kept for stage 4. The rest of the cost is forcing a glued call like P18 n, exponential in depth because its args aren't shared. rewrite.rs:707 and lib.rs:4954 run only while building errors: stage 4. Model result: Sonnet, worked (but against D2543; brief should have said so), 26 min (est. 45).",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -13700,14 +13700,14 @@
     {
       "id": 1745,
       "title": "Every compiler change leaves the test check caches cold (keyed by build fingerprint), so a daily run after any merge pays every std/AoC check from source; consider a cache keyed by the checker's semantics version for tests, or warming once per run (SW-1741)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From the D2546 daily run, 6 Nov 2026.\n\nDesign lane: SW-1753.",
+      "body": "From the D2546 daily run, 6 Nov 2026.\n\nDesign lane: SW-1753.\n\nClosed by SW-1753's note: Decided by the orchestrator overnight (Matt delegated small and medium calls, 6 Nov): D2560 yes, SW-1741 (fill once per run) is the fix for SW-1745, no narrower key; D2561 yes, one key for CLI, editor and test check caches (no change); D2562 no, the test std cache isn't shared across checkouts.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -13745,16 +13745,16 @@
     {
       "id": 1748,
       "title": "Bounded readback stage 1b: the remaining output-term sites (effects.rs 31, derive_induct.rs 30, interfaces.rs 10; 10 eval(quote(v)) round trips to check); hashes of derived and effectful std declarations move",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "done",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1748",
       "labels": [
         "design"
       ],
       "epic": "goal-as-written",
-      "body": "From SW-1747's site table (docs/reviews/SW-1747-stage-0b-sites.md). SW-1746 keeps to the note's §2.5 list.",
+      "body": "From SW-1747's site table (docs/reviews/SW-1747-stage-0b-sites.md). SW-1746 keeps to the note's §2.5 list.\n\n7 Nov ~03:35, lane/SW-1748 (861f426d2): effects.rs 31, derive_induct.rs 28, interfaces.rs 10, omega/ring 3 round trips read back folded; deciding sites left and listed by stage. 37 std hashes and 64 example snapshots moved: equality dictionaries now name the instance's definition (Char.decEq x y, not its unfolding); two effects examples. 18 definitions smaller (12,855 → 12,205 nodes), none grew; statement changes convertible (checked by instrumented conversion; 39 out of budget). Targeted tests all pass. Waits on: Opus review (D2364, kernel terms; started) and whole AoC + roguelike (Matt's OK). Model result: Opus, worked, 41 min (est. 90).\n\nMerged after SW-1784 (verdict merge; targeted AoC and roguelike --no-cache pass). On main: affected 777/777, hash_stability 9/9.",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -13790,14 +13790,14 @@
     {
       "id": 1751,
       "title": "[Sonnet] Profile the merge tier (task test:merge, meant to be under 90 s): time it on main, find what's slow, trim or fix",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1751",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "Overnight 6-7 Nov 2026 (Matt: focus on test suites, merge gates, compile times). Run test:merge once before and once after.",
+      "body": "Overnight 6-7 Nov 2026 (Matt: focus on test suites, merge gates, compile times). Run test:merge once before and once after.\n\nDone, merged (ff5e3cde7): one doc test fills the shared search cache first (priorities); merge tier runs 14 AoC days, not 20 (rest stay in daily); named_calls_keep_every_hash takes a quarter in merge; TestCacheTurn: one process fills an empty test std cache, the others wait and replay (sweep cold 133 s CPU → 22 s). Merge tier cold 153-172 s → 121.5 s under load (CPU 1141 → 1031 s). Floor ~105 s on 10 cores at that CPU. Model result: Sonnet, worked (90 s target not reached), 39 min (est. 75).\nOn main after merge: task test:merge 1094/1094, tests 104 s (175 s incl. rebuild after the merge), load ~20.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -13820,14 +13820,14 @@
     {
       "id": 1753,
       "title": "[Opus] Design: test check caches that survive a compiler change without hiding failures (SW-1745); note first, build if clear",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1753",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "Overnight 6-7 Nov 2026 (Matt: focus on test suites, merge gates, compile times). Stale caches must never mask a real failure.",
+      "body": "Overnight 6-7 Nov 2026 (Matt: focus on test suites, merge gates, compile times). Stale caches must never mask a real failure.\n\nDone, merged (4812f6de9): docs/proposals/check-cache-key.md. 91% of fingerprint-changing commits touch elab/core/syntax, so a safe narrower key stays warm for ~3-4%; lsp/cli/web/native/fmt changes already keep caches warm. Decided by the orchestrator overnight (Matt delegated small and medium calls, 6 Nov): D2560 yes, SW-1741 (fill once per run) is the fix for SW-1745, no narrower key; D2561 yes, one key for CLI, editor and test check caches (no change); D2562 no, the test std cache isn't shared across checkouts. Model result: Opus, worked, 15 min (est. 90).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
       "commits": []
@@ -13835,16 +13835,16 @@
     {
       "id": 1754,
       "title": "[Sonnet] Compile time after incremental builds: where a 21 s rebuild goes now; try test-profile settings (codegen-units, per-crate opt-level), lld (SW-1738); measure alone",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1754",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "Overnight 6-7 Nov 2026 (Matt: focus on test suites, merge gates, compile times). Builds timed on a quiet machine.",
+      "body": "Overnight 6-7 Nov 2026 (Matt: focus on test suites, merge gates, compile times). Builds timed on a quiet machine.\n\nDone, on main (f14bf4891, cherry-picked without the lane's board commit): devShell on macOS links with lld (CARGO_TARGET_<darwin>_RUSTFLAGS, so wasm32 flags stay). elab edit 68 → 61 s and 203 → 177 s CPU; 13-17% less CPU in all six comparisons; test time unchanged. codegen-units 16 and opt-level 1 for cli/driver: no gain. Package/check drvPaths identical. On main: full rebuild with lld 109 s real; hash_stability prelude passes. Model result: Sonnet, worked, 66 min (est. 75).",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -13925,16 +13925,722 @@
     {
       "id": 1760,
       "title": "test:affected follow-ups: refresh the test inventory after merges that add tests; map std files to the examples/AoC days that use them; dev/selector-log.tsv is tracked, so lanes that run test:selected dirty it (git-ignore or log in main only)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1760",
       "labels": [
         "tooling"
       ],
       "epic": "dev-loop-speed",
-      "body": "From SW-1752, 6 Nov 2026.",
+      "body": "From SW-1752, 6 Nov 2026.\n\nAlso: test:selected runs under the merge tier's 4 GB memguard, so a selection that includes several cold lsp features tests gets SIGTERMed (SW-1741's verifier, 6 Nov 23:49). The selector should know heavy tests' memory, or test:selected should get a higher cap. And dev/selector-log.tsv now merges by union (.gitattributes).\n\nDone, merged (ae1e748a5): lsp-sessions group (max 3) keeps cold lsp features+memory under 4 GB (3.07 GB peak); test:selected cap 16 GB; inventory rebuilt when a rule selects nothing; test-file-changed rule fixed for helper-only diffs; selector log only in the main checkout. Std-file→users mapping skipped (dot calls reach std files without naming them). On main: 22 Python tests; affected 598/598. Model result: Sonnet, worked, 13 min (est. 60).",
+      "created": "2026-11-06",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1761,
+      "title": "[Sonnet] Merge tier toward 90 s: pinned_hashes, hash_stability prelude and validate_cong each check std from source (~13 s CPU each); hash_stability sweep workers each build a session from source; cli build tests 82-105 s; the examples/hash sweeps are the tier's long poles",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1761",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1751, 6 Nov 2026. Expected: 75 min.\n\nDone, merged (9b9b44c07). On main after the merge (cold caches, load ~11-29): task test:merge 1094/1094, **76 s** of tests (104 s before SW-1761, 153-172 s before SW-1751); 140 s real including the rebuild. Left: a fill-the-cache-first group so waiters don't hold slots; replay in the daily tier for examples and hash sweeps (prelude stays from source); STITCHWORT_TIER unset means daily, so test:one checks from source. Model result: Sonnet, worked, 35 min (est. 75).",
       "created": "2026-11-06",
       "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1762,
+      "title": "Record eta: resolveOutOfWalls (games/rogue/src/Rogue/Proofs/Walls.sw:32) proof term 4.6k → 106k nodes, 248 → 933 ms; probably the motive of match phase: state.phase over resolve (SW-1667)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "record-eta",
+      "body": "From SW-1667, 6 Nov 2026.\n\nSW-1764: a cost, not a deeper problem: record updates open into full State constructors, and the match motive is read back unfolded (D2514's direction; bounded readback stages).",
+      "created": "2026-11-06",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1763,
+      "title": "A Float sum prints as x.add y, not x + y (SW-1708's dot-call printing); keep the operator for Float.add as for Nat",
+      "status": "done",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1763",
+      "labels": [
+        "diagnostics"
+      ],
+      "epic": "diagnostics",
+      "body": "From SW-1667, 6 Nov 2026; on main too.\n\nDone, merged: the printer's infix table lacked Float's builtins (FloatAdd/Sub/Mul/Div/Rem); now x + y. New reject example float-sum-prints-as-a-sum; float-rfl-rounding snapshot now 0.1 + 0.2. % on Float elaborates to rem, so the % form reads back. On main: core pretty + examples rejected 24/24. Model result: DeepSeek, worked, 9 min (est. 20).",
+      "created": "2026-11-06",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1764,
+      "title": "[Opus] Review record eta (lane/SW-1642 since c91991954 plus the SW-1642 kernel work): kernel primitive projections and eta rules, the native hold (Builtins::has_native, value::eta_held), the main merge's hash moves",
+      "status": "done",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1642",
+      "labels": [
+        "review"
+      ],
+      "epic": "record-eta",
+      "body": "D2364 (kernel change). Started on Opus, expected: 60 min.\n\nDone (5612ab59e on lane/SW-1642): docs/reviews/SW-1764-record-eta-review.md. Verdict: merge after one fix (check cache drops the no_eta mark, so a replayed interface gets eta back; warm accepts dictEta, cold rejects), then whole AoC + roguelike (D2507). Kernel sound; hold keeps all three evaluators in agreement; walk_tree and reference::same_trees lack the hold (harmless today). Missing tests listed. Departure: the elaborator never emits Proj for p.field. SW-1762 is a cost (record updates open into full State constructors; motive read back unfolded). Model result: Opus, worked, 25 min (est. 60).",
+      "created": "2026-11-06",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1765,
+      "title": "Daily tier: replay std from the test cache in the examples and hash_stability sweeps (hash_stability prelude stays the single from-source check), and a fill-the-cache-first group so waiting tests don't hold slots (SW-1761)",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1765",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1761, 6 Nov 2026.\n\nDone, merged (18bc65337): daily replays std in examples and hash_stability sweeps (full keeps source checks; prelude is the from-source check everywhere); pinned_hashes' binding test starts first to fill the cache. Daily examples + hash_stability cold 111 → 48 s wall, 956 → 351 s CPU. STITCHWORT_TIER default left as daily (test:one now replays anyway). On main: affected 699/699 in 40 s. Model result: Sonnet, worked, 13 min (est. 60).",
+      "created": "2026-11-06",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1766,
+      "title": "Record eta: the elaborator never emits Proj for p.field (field access stays an accessor call that rule 2 opens); update record-eta.md §6.4 or emit Proj in a later stage (SW-1764)",
+      "status": "review",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1766",
+      "labels": [
+        "design"
+      ],
+      "epic": "record-eta",
+      "body": "From SW-1764, 7 Nov 2026.\n\n7 Nov 2026, 03:08-03:23 (est. 45 min): design only. record-eta.md §6.4 revised on lane/SW-1766: keep accessor calls for p.field; at stage 3 (Pair) measure accessor-opening cost and, if visible, give eta types' accessors the body Proj(D, i, x). Probes on lane/SW-1642's build (646b91ccf): rewrite both spellings, omega, match motives: all accepted, no difference found. D2566 opened (rec: yes). Moved to review.\n\nMerged (note only). D2566 for Matt: keep p.field as an accessor call, measure at the Pair stage, switch accessor bodies to Proj if the cost shows [rec: yes]. Model result: Opus, worked, 15 min (est. 45).\n\n7 Nov: note merged; waiting on Matt's D2566 (keep p.field as an accessor call).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1767,
+      "title": "Record eta code quality: two has_eta functions with different meanings, folded_call's doc, tuple-typed Frame::CallField, an omega spot that would drop a projection (SW-1764)",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1642",
+      "labels": [
+        "cleanup"
+      ],
+      "epic": "record-eta",
+      "body": "From SW-1764.\n\nDone on lane/SW-1642 (646b91ccf): has_eta split into qualifies_for_eta (check) and is_eta_type (value); folded_call doc fixed; Frame::CallField a named struct; omega Ranges::parts keeps a field call of Mem as an atom (unreachable in practice: Mem is a Prop). New examples omega-projected-field-atom (accept) and -false (reject). No hash moved. 792 affected tests pass. Merges with record eta. Model result: Sonnet, worked, 12 min (est. 40).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1768,
+      "title": "[Opus] Record eta review fixes on lane/SW-1642: check cache saves and restores no_eta (warm/cold test); the hold in walk_tree and reference::same_trees; missing tests (a reject that depends on the hold, a reference-evaluator test, which definitions are held, mutual records, projection of a type being declared)",
+      "status": "done",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1642",
+      "labels": [
+        "kernel"
+      ],
+      "epic": "record-eta",
+      "body": "From SW-1764. Started on Opus, expected: 60 min.\n\nDone on lane/SW-1642 (454f60197): the cache saves and restores no_eta (FORMAT 28 → 29; the canonical dump prints eta/no_eta so differential tests compare it); the hold in walk_tree and reference::same_trees; tests the_cache_keeps_an_interface_without_eta, eta_hold.rs (both evaluators; only Float.add is held), reject float-add-is-held, mutual records, a type being declared. Each new test shown to fail with its fix switched off. 63/63 targeted + 807/807 affected. Model result: Opus, worked, 23 min (est. 60).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1769,
+      "title": "lsp memory tests hold 1.1-1.3 GB each even warm, high for in-memory project checks (SW-1760)",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1769",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1760, 7 Nov 2026.\n\nDone, merged: the memory tests used Memory::default() (no cache), so each checked std from source: 1.7 GB peak. Now they share features.rs's cached_memory (crates/lsp/tests/common): 0.45 GB warm, binary 2.4 s. A real warm editor session is ~0.45 GB; the cold std check ~1.9 GB once. On main: lsp memory + features 21/21. Left: lsp-sessions max-threads 3 could go up; breakdown of the 0.45 GB. Model result: Sonnet, worked, 26 min (est. 60).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1770,
+      "title": "[Sonnet] Daily tier's next slowest binaries: rewind (807 s), extract (544 s), std_library (510 s), check_cache (376 s), run_js (332 s), operators (267 s); find why each is slow and fix what's cheap, keeping guarantees",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1770",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "Overnight 7 Nov 2026, from the D2546 daily run. Expected: 75 min.\n\nDone, merged (686fd3fe1). CPU before → after, each binary alone, daily, warm: operators 3m17 → 36 s (AoC sample outside full); rewind 22m22 → 8m05 (std replay, no counterexample search outside full except *counterexample* examples, pristine dump once, cancel sweep every third point); std_library 15m34 → 8m20 (workers rewind one core-alone and one full session); extract 5m19 → 2m21 (replay; tsc on the pool); run_js 5m54 → 2m51 (shared cache). check_cache left (its own differential). Full tier unchanged. On main: affected 723/723 (233 s). Model result: Sonnet, worked, 50 min (est. 75).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1771,
+      "title": "rewind tests: the session dump (canonical dump, every definition's hash, navigation index) is about half the file's remaining cost; a cheaper or incremental dump (SW-1770)",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1771",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1770, 7 Nov 2026.\n\nDone, merged (b37d491fd): hashing the dump wouldn't help (building it is the cost); nav.rs parses library docs and imports once per process, keyed by file and text hash (index 18 → 8.5 ms; rewind sweeps CPU 263 → 240 s and 124 → 112 s). The LSP's index gets the same speed-up. On main: affected 706/707 (the SW-1772 threshold, fixed), cli lsp + doc 67/67. Left: elab navigation_index (~5 ms) and canonical_dump (~11 ms) per build. Model result: Sonnet, worked, 22 min (est. 60, shared with SW-1772).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1772,
+      "title": "std_library the_core_alone_runs_every_example isn't sampled in daily (every accept and extract example); sample it (SW-1770)",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1771",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1770, 7 Nov 2026.\n\nDone, merged with SW-1771: tier_sample(4) outside full (17 → 3.6 s daily). Needed a fix: the minimum (>10) failed in merge, where the sample is a sixteenth (9 ran); the minimum now follows the tier (fixup on main). Model result: Sonnet, needed fixes (merge-tier threshold), 22 min (est. 60, shared).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1773,
+      "title": "check_cache differential sweeps (whole-library ~70 s, examples 92 s): sample in daily? The cache's own differential, so Matt's call on coverage (SW-1770)",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1773",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1770, 7 Nov 2026.\n\nDone: docs/reviews/SW-1773-check-cache-sampling.md. The examples sweep is already sampled 1 in 8 in daily (57 s wall, 250 s CPU); the whole-library tests are ~33 s CPU each, single-threaded, alongside the sweep, so cutting them saves no wall time; the no-navigation library test is the only one replaying every std file through the cache. D2571 (leave as is): my call, yes, since it changes nothing; listed for Matt. The optional change (full-tier only) stays on lane/SW-1773. Model result: Sonnet, worked, 15 min (est. 40).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1774,
+      "title": "A test was SIGTERMed from outside nextest during SW-1734's run (rewind sweep at 10.7 s, ~01:30 7 Nov), like SW-1741's verifier: find who sends it (another lane's pkill? memguard of a different run?)",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1774",
+      "labels": [
+        "tooling"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1734.\n\nLikely cause: lane agents use pkill by binary or test name to stop their own runs (SW-1769's agent did, ~01:50), which also kills other worktrees' runs of the same test binaries. Fix: a lane brief rule and a helper that kills only its own process tree (memory: process-matching).\n\nDone, merged: dev/stop-mine (absolute-path prefix <checkout>/target/, descendants, TERM then KILL; --dry-run; --tree PID refuses outside the checkout); docs/workflow.md section. Fixup on main: never matches 'stitchwort lsp'. For the morning: the CLAUDE.md lane rule (use dev/stop-mine, never pkill/killall). Until then lane briefs say so. Model result: Sonnet, worked, 5 min (est. 30).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1775,
+      "title": "[Sonnet] Audit test:lane areas and test:affected rules for coverage gaps: does each area run the tests of the code it names (as SW-1686 found for lsp features)? Fix the gaps",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1775",
+      "labels": [
+        "tooling"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "Overnight 7 Nov 2026, from the plan's backup queue. Expected: 45 min.\n\nDone, merged: 84 of ~180 binaries were reached by no rule or area. Fixed: lane-lsp adds lsp unit tests and 5 quick features tests; 14 new test-affected rules (core-all, front-end quick tests, guide, rt/js quick, float, partial-model...); cheap_only now really cuts the filterset (before, only the estimate); docs/guide no longer ignored; dev/t areas for lsp, fmt, native, host, standalone, dev-features; EveryBinaryIsReached test with a NOT_REACHED list of 6 (bench, float_paths, three daily-only fuzz/search). Typical front-end changes now estimate 82-88 s (was 15-55). On main: inventory refreshed (2197 tests), 25 Python tests, lane lsp 26/26. Model result: Sonnet, worked, 15 min (est. 45).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1776,
+      "title": "[Sonnet] elab unit tests built into the library behind a unit-tests feature (dev-features turns it on), run by one small test binary with a guard that no test is left out: same 148 tests pass; one clean --timings build (split-elab.md stage 1)",
+      "status": "review",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1776",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1737, D2563/D2564. Expected: 45 min.\n\n7 Nov ~02:45, lane/SW-1776 (aba0f8be7): elab unit tests behind a unit-tests feature; [lib] test = false; 148 tests via a table (src/unit_tests.rs) and tests/unit.rs wrappers, guard every_unit_test_is_listed; same 145 names, all pass. Clean build: the 36 s elab lib-test compile becomes a 6 s unit binary; net saving not measurable under load (160 s before at load 11-19, 246 s after at load 19-31). Held, not merged: a new elab unit test now needs three edits (marked fn, table, wrapper) and a doc-alias marker instead of #[test]. That workflow cost touches every lane writing elab unit tests; the gain (≈20-30 s per clean build, a core freed per elab rebuild) is unmeasured. For Matt (D2565), after one quiet-machine measurement. Model result: Sonnet, worked, 19 min (est. 45).\n\nMeasured 02:35-02:40 (one run each, back to back, no kache, load 8-23): clean nextest --no-run build 164 s → 144 s real (-20 s, 12%), 1209 → 1075 s CPU (-134 s). D2565 for Matt: take three edits per new elab unit test (and no #[test]/IDE run lens on them) for that? A build.rs-generated table could cut it to one marker.\n\n7 Nov: waiting on Matt's D2565 (rec: yes only if a build.rs generates the table). Branch kept.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1777,
+      "title": "Analysis: do test binaries that never run native code need stitchwort-native, and so cranelift, which gates the clean build's test phase? (split-elab.md stage 3)",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1777",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1737.\n\nDone, merged: split-elab.md §8. Only the CLI (optional native feature) uses stitchwort-native; cranelift-codegen sits under every test binary because dev-features lists it directly for feature unification. Dropping it gains 0 s on the critical path and on rebuilds (cranelift ends before elab's library). Recommendation, taken: don't. Revisit if elab's library falls under ~60 s. Model result: Sonnet, worked, 2 min (est. 45).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1778,
+      "title": "test:affected follow-ups from SW-1775: the cut can drop a rank-2 rule yet keep a rank-3 one that fits; inventory timings from loaded daily runs overstate lane cost; merge profile hand-copies lane filters (generate it); guide-quotes estimate (67 s) needs a warm re-measure",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1778",
+      "labels": [
+        "tooling"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1775, 7 Nov 2026.\n\nDone, merged: the cut drops whole ranks lowest first; inventory time = min of the last 5 per tier (selector log: median actual/estimate 0.76); dev/nextest-merge generates the merge filter from the lane profiles (--check; it had drifted: 33 lane tests missing from merge, now in); guide-quotes 25 s warm, stays rank 3. On main: Python tests OK, --check OK, task test:merge 1148/1148 in 78 s (99 s real, 668 s CPU). Model result: Sonnet, worked, 12 min (est. 50).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1779,
+      "title": "Forcing a glued call like P(i) x := P(i-1) x ∧ P(i-1) x costs time exponential in depth (args not shared), in elaboration and in the kernel's declare_def (SW-1743)",
+      "status": "done",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1779",
+      "labels": [
+        "perf"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-1743, 7 Nov 2026. Case (g18.sw):\n\ndef P0 (x: Nat): Prop := x = x\ndef P1 (x: Nat): Prop := P0 x ∧ P0 x\ndef P2 (x: Nat): Prop := P1 x ∧ P1 x\ndef P3 (x: Nat): Prop := P2 x ∧ P2 x\ndef P4 (x: Nat): Prop := P3 x ∧ P3 x\ndef P5 (x: Nat): Prop := P4 x ∧ P4 x\ndef P6 (x: Nat): Prop := P5 x ∧ P5 x\ndef P7 (x: Nat): Prop := P6 x ∧ P6 x\ndef P8 (x: Nat): Prop := P7 x ∧ P7 x\ndef P9 (x: Nat): Prop := P8 x ∧ P8 x\ndef P10 (x: Nat): Prop := P9 x ∧ P9 x\ndef P11 (x: Nat): Prop := P10 x ∧ P10 x\ndef P12 (x: Nat): Prop := P11 x ∧ P11 x\ndef P13 (x: Nat): Prop := P12 x ∧ P12 x\ndef P14 (x: Nat): Prop := P13 x ∧ P13 x\ndef P15 (x: Nat): Prop := P14 x ∧ P14 x\ndef P16 (x: Nat): Prop := P15 x ∧ P15 x\ndef P17 (x: Nat): Prop := P16 x ∧ P16 x\ndef P18 (x: Nat): Prop := P17 x ∧ P17 x\ndef needs (k: Nat) [auto ok: k ≠ 0]: Nat := k\ndef f (n: Nat) (h: P18 n): Nat := needs 3\n\n7 Nov ~04:05, lane/SW-1779 (f322bb73d): real code hits the mechanism, not the doubling: a glued call computed all the way where only part is needed. Fixes: (1) ignorable_arguments reads types back folded (all of AoC's gain); (2) kernel declare_def glues during the signature check, like admit_group (D483), stored value still unglued; (3) interfaces::locals checks the head glued first. AoC steps 1,342 M → 1,098 M (-18%), check 74 → ~63 s; 2024 day 6 part2Correct 2.9 s → <0.1 s. AoC node counts identical; hash snapshots identical. New test resources::a_doubling_hypothesis_is_never_unfolded_in_full. 509 targeted tests pass. Fix 1 can in principle reject a contrived program (fewer ignorable arguments), never unsound: D2567 (accept fix 1), my call: yes, listed for Matt. Kernel change: Opus review (D2364) started as SW-1786. Left: closed kernel type values computed unglued and kept (2024 day 22, 4.4 s): needs a proposal. Model result: Opus, worked, 20 min (est. 60).\n\nMerged after SW-1786 (merge; two comments fixed by me). On main: affected 1007/1007, resources + prelude 24/24.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1780,
+      "title": "[DeepSeek] Fewer test binaries, core: merge stitchwort-core's integration tests into tests/it with dev/merge-test-binaries (--verify), move the timings keys, measure relinks after a core edit (SW-1736 plan)",
+      "status": "done",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1780",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1736, 7 Nov 2026. Expected: 40 min.\n\nDone, merged: core 21 → 2 binaries (unit + it), 365 tests mapped one to one (--verify); helpers common/ and structural/ moved into it/; no snapshots in core; path mentions updated (docs included). On main: core 365/365, lane core 175/175, selector tests OK, nextest-merge --check OK. Relinks not measured. One selector test fails only in scratch clones (a /worktrees/ path with a real .git): to fix with SW-1781. Model result: DeepSeek, worked, 6 min (est. 40).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1781,
+      "title": "Fewer test binaries roll-out after core: syntax, native, fmt, lsp; then a --group option for cli and driver (SW-1736 plan)",
+      "status": "done",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1781",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1736.\n\nAlso: dev/test-affected_test.py's test_run_selected_logs_only_in_the_main_checkout fails in a scratch clone (path has /worktrees/, .git is a real directory); it should compare --git-dir with --git-common-dir, not look for /worktrees/.\n\nAlso: target/test-timings.json is keyed by the old binary ids, so merged crates' tests show as unknown time (97 after rt and core). Rewrite the keys with the same mapping (dev/merge-test-binaries could do it).\n\nDone for syntax, native, fmt, lsp (merged): 23 → 8 binaries; --verify one to one for each (222, 49, 16, 36 tests); selector follows tests/it (widen_for_helpers compares module-prefixed names); worktree test decides by --git-dir vs --git-common-dir. On main: syntax+native+lsp 307/307, lane fmt 20/20, cli/driver check clean; inventory refreshed; selector tests OK after my fixup naming rt's state_match in the rt rule. Timings keys not rewritten yet. cli and driver (groups) remain. Model result: DeepSeek, worked, 38 min (est. 60).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1782,
+      "title": "[Opus] Determinism: whether a call's unfolding is already cached changes what a later folded read-back writes (SW-1748: an extra unfolded read-back moved 12 Rogue.Proofs hashes; resolveOnFloor.%match3's type 1,144 → 54,784 nodes). Find the cause (steps-at-once forcing in quote_folded, or matching.rs's unfolded motive read-back)",
+      "status": "done",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1782",
+      "labels": [
+        "kernel"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-1748, 7 Nov 2026. Determinism risk; stage 6b should know.\n\nSW-1784: pre-existing, not caused by stage 1b. Likely cause (from the code, not reproduced): a call caches its unfolding without recording whether gluing was on; forced unglued (decide, instrumentation), a later folded read-back can write that full unfolding. Fix: keep a call's unfolding only when computed glued, or record the mode; rerun SW-1748's instrumentation to confirm the twelve Rogue hashes stay. The merged code's result doesn't depend on cache state (roguelike entries byte-identical cold and warm). Stage 6b (match motives) is most exposed.\n\n7 Nov ~05:00, lane/SW-1782 (5a19c406d, 2c831b28e): cause: Unfolding::get checked only the meta epoch, not the mode, so an unglued unfolding served a later folded read-back. Fix: cells record gluing, erasure, program and transparency (Kept/Modes in value.rs); glued may serve unglued, not the reverse. STITCHWORT_DEBUG_FORCE_UNGLUED instrumentation: 317 hashes moved before (std 286, Rogue.Proofs 31), none after; normal dump identical. 3 core tests fail with the old rule. hash_stability 5/5, affected 832/832. Bench: +1,180 steps of 6.48 G. Waits on: Opus review (SW-1791, started); std+AoC hash dump base vs fix (~45 s each), which is a whole-AoC check, so Matt's OK (morning). Model result: Opus, worked, 48 min (est. 90).\n\nMerged after SW-1791 (merge, no fixes). On main: affected 1309/1309, glue + prelude 12/12.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1783,
+      "title": "test:affected: for an elab-only diff the 90 s cut drops every elab group and keeps core and syntax tests, so the run says little about the change; the cut should keep the changed crate's own tests (SW-1748)",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1783",
+      "labels": [
+        "tooling"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1748.\n\nDone, merged: a rank-1 rule matched by a changed file is cut last; if its own tests alone exceed the budget, cheapest first with a warning naming changed files left untested. SW-1748's diff: 107 s keeping only core/syntax → 31.5 s with the four elab rules. On main: 32 Python tests OK. Follow-ups noted on SW-1781's epic: cheap_only within an over-budget own rule. Model result: Sonnet, worked, 3 min (est. 40).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1784,
+      "title": "[Opus] Review bounded readback stage 1b (lane/SW-1748): kernel terms generated (D2364), hash moves, the folded round trips in effects",
+      "status": "done",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1748",
+      "labels": [
+        "review"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "Expected: 45 min.\n\nDone: docs/reviews/SW-1784-stage-1b-review.md (on lane/SW-1748, merged with it). Verdict merge; whole AoC not needed first: AoC Proofs namespaces using Char/Text equality (75 with deps) and the roguelike checked --no-cache, all pass; decEqFrom appears only in std. Model result: Opus, worked, 17 min (est. 45).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1785,
+      "title": "Bounded readback note: add stage 1b's 'left unfolded' list (field_type, move_to, the mentions tests, families/rows/rewrite round trips) to the stage 1 text, so a later stage doesn't fold them (SW-1784)",
+      "status": "done",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1785",
+      "labels": [
+        "docs"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-1784.\n\nDone, merged: a 'Left unfolded in stage 1b' table under stage 1, each site located by grep on main. Model result: DeepSeek, worked, 8 min (est. 15).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1786,
+      "title": "[Opus] Review SW-1779 (lane/SW-1779): kernel declare_def glues during the signature check; ignorable_arguments folded; interfaces::locals head check (D2364)",
+      "status": "done",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1779",
+      "labels": [
+        "review"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "Expected: 40 min.\n\nDone: docs/reviews/SW-1786-glued-signature-review.md. Verdict merge: no glued value escapes the signature check; fix 1 marks fewer arguments ignorable (bounded-readback §2.2 names this site); each fix alone makes the new test fail when reverted. Left: retype_def and data parameter/index/field type checks still unglued (speed only). Model result: Opus, worked, 10 min (est. 40).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1787,
+      "title": "[Opus proposal] Kernel type values of closed definitions are computed unglued and kept (Def::ty_value): 2024 day 22 spends 4.4 s (29% of AoC's kernel time) computing a 130,321-record list in a theorem's type; keeping them glued breaks 'nothing glued outlives a kernel check' (SW-1779)",
+      "status": "done",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1787",
+      "labels": [
+        "kernel"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-1779; reproduction in docs/reviews/SW-1779-exponential-forcing.md (on lane/SW-1779).\n\nDone, merged: docs/proposals/closed-type-values.md. Probe: keeping ty_value glued plus fresh glued evaluation in each kernel check takes day 22's two theorems from 80.6 M + 43.6 M kernel steps to ~2,000; node counts identical. Recommendation: kernel re-evaluates statements glued per check; ty_value glued for the elaborator and tools; cached unfoldings record gluing, transparency and erasure (SW-1782 first). D2568 (reopen D2448) and D2569 (this design) for Matt [rec: yes]; D2570 (unfoldings record modes, as SW-1782's fix) my call: yes. Probe files in the scratchpad (probe-D.patch, repro/). Model result: Opus, worked, 15 min (est. 60).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1788,
+      "title": "[Opus] Closed type values (closed-type-values.md): kernel evaluates statements afresh glued in each check; ty_value glued for the elaborator and tools; remove the proving guide §6 workaround. Waits on D2568/D2569 and SW-1782",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "kernel"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-1787.\n\nSW-1791: one input outside the unfolding modes key: a group's definitions gain their bodies at admission; a glued Def::ty_value (step 2) must handle it.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1789,
+      "title": "Formatter fuzz test fails at case 3166 (fuzz::the_formatter_never_panics_and_is_idempotent, default profile): pre-existing, seen by SW-1781 before and after its merge",
+      "status": "done",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1789",
+      "labels": [
+        "bug"
+      ],
+      "epic": "syntax-language",
+      "body": "From SW-1781, 7 Nov 2026.\n\nDone, merged: reduced input (a result type on its own line after a multi-line parameter); layout.rs treats the result type's first line like a parameter start when reparenting header lines; golden case header-result-after-parameter; examples/accept/opaque-unfolding-layout.sw and aoc 2025 day 3 Best.sw reformatted. On main: fmt 16/16 (fuzz 50,000 cases). Model result: DeepSeek, worked, 28 min (est. 30).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1790,
+      "title": "[Sonnet] Fewer test binaries: cli and driver in groups of 3-4 (add --group to dev/merge-test-binaries; keep the allocator binaries resources and search_at_aoc apart); rewrite target/test-timings.json keys with the mapping",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1790",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1736's plan and SW-1781.\n\nDone, merged: cli 42 → 4 (extraction, running, server, tools), driver 68 → 8 (elaboration, proofs, projects, library + 4 kept); --group, --rewrite-timings; --verify one to one (512, 649). Core edit: executables relinked 136 → 38, CPU 889 → 706 s (-21%). On main: timings rewritten (1157 keys), inventory refreshed, selector OK, task test:merge 1151/1151 (101 s tests, 106 s real under lane load), fmt 16/16. Model result: Sonnet, worked, 33 min (est. 75).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1791,
+      "title": "[Opus] Review SW-1782 (lane/SW-1782): cached unfoldings record their mode (value.rs Kept/Modes); the instrumentation knob",
+      "status": "done",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1782",
+      "labels": [
+        "review"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "Expected: 40 min.\n\nDone: docs/reviews/SW-1791-unfolding-modes-review.md. Verdict merge, no fixes; std+AoC dump useful on record (with the next daily) but not a gate. Mode set complete; glued-serves-unglued sound (only goal-context printing can tell); cells can't cross threads; cost ~24 bytes per entry. Notes: lane/SW-1642 restructures Unfolding (base field), so a textual conflict for whichever merges second; closed-type-values step 2 must handle a group's definitions gaining bodies at admission. Model result: Opus, worked, 10 min (est. 40).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1792,
+      "title": "task bench: says 'about a minute' but the examples step takes 13-15 min; the committed baseline is stale (inputs changed, improvements unrecorded) (SW-1782)",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1792",
+      "labels": [
+        "tooling"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1782.\n\nDone, merged: per-thread allocation counters; examples on 8 workers, assigned by file size (machine-independent); the sweep runs once; --jobs, --parts. Examples step 10 min 47 s → ~110 s under load. Counts per example identical to serial except a few steps in 1-3 examples, which vary between runs (heap layout?): repeated runs now accept 1 part in 100,000 for examples; --jobs 1 exact. Baseline repinned in its own commit (examples steps -2.0%, text-nat-to-text -18%, run-prints visits -38%...); times recorded under load. On main: lane bench 12/12. Model result: Sonnet, worked, 40 min (est. 45).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1793,
+      "title": "dev/t (task test:areas) loops over crates/cli/tests/*.rs and passes --test lsp, --test extract etc., which no longer exist after the test-binary merges (SW-1790); fix it to the new groups or retire it in favour of test:affected",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1793",
+      "labels": [
+        "tooling"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1790, 7 Nov 2026.\n\nDone, merged: dev/t deleted; task test:areas prints a pointer to test:affected and fails; dev/measure-state uses the new binaries. Lost: dev/t also ran the board's node tests, bash -n, a flake parse, clippy, and the VS Code/browser tasks by path; docs/testing.md now lists those to run by hand. Model result: Sonnet, worked, 4 min (est. 35).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1794,
+      "title": "test:affected selects nextest tests only; dev/t also ran non-Rust checks by path (board node tests for board/**, bash -n for dev/**, a flake parse for flake.nix, VS Code and browser tasks): add a small 'extra commands' rule kind (SW-1793)",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1794",
+      "labels": [
+        "tooling"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1793.\n\nDone, merged: commands/seconds/manual rule keys; board, shell, dev tool, flake and colour rules; by-hand lines for browser and VS Code. Its run found the board's epic test failing (dev-loop-speed next list empty, my jq edit): fixed on main. On main: 41 Python tests OK. Model result: Sonnet, worked, 5 min (est. 40).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1795,
+      "title": "[Sonnet] lsp-sessions nextest group: max-threads 3 was set for 1.7 GB cold sessions; with the test cache they hold ~0.45 GB warm (SW-1769), so raise it if memory allows, measured under the 4 GB merge cap",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1795",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1769. Expected: 30 min.\n\nMeasured (lane/SW-1795, 01271a7da, not merged; my call): max-threads 3/4/5/6/unlimited → cold peak 1.63/2.01/3.11/~3.1-3.3/3.87 GB, cold wall 87/83/70/~55/92 s, warm ~30-36 s at every setting. The gain is ~17-30 s only on a cold fill and nothing warm, while the merge tier and test:selected run everything else under the same memory guard, so 3.1 GB for this group alone leaves too little room. Keep 3. The warm 30 s is a few slow tests, not the limit. Model result: Sonnet, worked, 25 min (est. 30).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1796,
+      "title": "[Sonnet] lsp features tests: the warm set takes 30 s+ however many run at once, set by a few slow tests (SW-1795); find why each is slow and speed up or split them",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1796",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1795. Expected: 40 min.\n\nDone, merged: the hover test split; its replayed half keeps the library bundle in the test std cache (library_bundle's own load check now runs once per compiler fingerprint); the non-exhaustive-match test shares one session. Warm lsp it binary 228 → 74 s. Model result: Sonnet, worked, 25 min (est. 40).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1797,
+      "title": "[Sonnet, then Opus if deep] Nondeterminism: a few examples' step counts differ by tens of steps between runs (pure-fold-in-parse-function, postponed-lambda-second-error, reads-weaken-over-map-implicits), apparently with heap layout; find what depends on addresses (pointer-keyed maps, Rc::ptr_eq fast paths, hash order) and whether any output can differ (SW-1792)",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1797",
+      "labels": [
+        "bug"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-1792, 7 Nov 2026.\n\nDiagnosed (no commit): crates/elab/src/dot.rs dot_failed cache (call_key) is keyed by the receiver expression's address; a postponed call re-checked from a copy hits only when the allocator reuses the address. Hit skips prefix_form (20 steps, 2 visits: the observed difference in postponed-lambda-second-error). A structural key made counts exact but moved hashes (hash_stability projects, examples, a_namespace...; e.g. Board.Position.%equal): a hit doesn't always equal a re-run, so the key misses context. Latent correctness hazard: an address collision can give a wrong hit. To Opus: SW-1800. Model result: Sonnet, worked (diagnosis, stopped at design as briefed), 30 min (est. 60).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1798,
+      "title": "Editor: each searched completion, code action or contextAt (Searcher::run → probe_project → load_all_libraries) replays the whole std in a fresh session: a per-request cost in the real server; reuse a search session across requests (SW-1796)",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1798",
+      "labels": [
+        "perf"
+      ],
+      "epic": "editor-playground",
+      "body": "From SW-1796, 7 Nov 2026: 63% of a 31 s test is these replays, six completions = six replays.\n\nDone, merged: each search thread keeps one std-loaded session (thread-local) and rewinds it after each request; panic drops it; check cache reset each time; off for wasm. A project completion ~480 ms → ~1 ms warm (first search per thread still ~0.65 s). New test: 8 searches in a row equal fresh ones. Memory: ~0.45 GB per search thread, held. On main: lsp it 23/23 (release), test:affected 824 passed (its budget cut dropped the lsp rule; the lane ran cli server lsp:: 48/48). Model result: Sonnet, worked, 15 min (est. 60).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1799,
+      "title": "Crash: a code action's closing search on 'def f: Option (Option Nat) -> Nat | Some o => ?' panics at crates/core/src/pretty.rs:2804 (index out of bounds: the len is 0), via Elaborator::plan → fill_premises → plans_for → closing_plans; reproduces without SW-1798's change",
+      "status": "done",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1799",
+      "labels": [
+        "bug"
+      ],
+      "epic": "editor-playground",
+      "body": "From SW-1798, 7 Nov 2026. A panic in the editor's code actions.\n\nDone, merged: nat_literal, char_list and list_literal guard the arity they index (int_literal already did); unapplied Succ/Cons print as their names. Tests: core pretty unit test and an lsp code-action test (both shown failing first). On main: core pretty:: 23/23, the lsp code-action test 1/1. Model result: DeepSeek, worked, 8 min (est. 30).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1800,
+      "title": "[Opus] Address-keyed dot_failed cache (dot.rs call_key): an address collision can return a wrong cached failure; key it by what the failure is valid for (elaboration context, AST node id) or narrow it to repeats of the same attempt; then task bench --jobs 8 repeats exactly (SW-1797)",
+      "status": "done",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1800",
+      "labels": [
+        "bug"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-1797, 7 Nov 2026. Repro: postponed-lambda-second-error loaded repeatedly with a second allocating thread varies 8,888,168 / 8,888,188 steps. A structural key moved hashes (Board.Position.%equal). Expected: 60 min.\n\nDone in part, merged: dot caches emptied before each declaration; resumed checks kept alive until then. postponed-lambda-second-error: 26/102 loads differed before, 0 after (ignored test a_postponed_dot_call_takes_the_same_steps_every_time). No hash moved; the cache can't go (long_dot_chains_are_cheap 5 s → >180 s without it). Left: reads-weaken-over-map-implicits still varies (syntax built and freed within a declaration: pipe rewriting, record args, run_first). docs/reviews/SW-1800-dot-failed-cache.md. On main: dot_prefix, postponement, hash_stability prelude 15/15. Process slip: an unset variable ran rm -f /*; nothing deleted (checked). 68 min (est. 60).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1801,
+      "title": "[Opus] Design note: syntax node ids from the parser so elaborator cache keys never depend on the allocator (the remaining dot-cache variation in reads-weaken-over-map-implicits; also address-keyed tables in logic.rs, check.rs, named.rs) (SW-1800, D2573)",
+      "status": "done",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1801",
+      "labels": [
+        "bug"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-1800. See docs/reviews/SW-1800-dot-failed-cache.md. Also check pure-fold-in-parse-function, never reached.\n\nD2573 (Matt, 7 Nov 2026): yes, a design note first. Started: Opus, expected 60 min.\n\nDone, merged: docs/proposals/syntax-node-ids.md. Recommends an id on Expr::Field (and the queue's DotCall) from a global counter, keying dot_heads/dot_failed by it; copies get new ids, so every lucky hit becomes the miss that's known right. Only the two dot tables are hazards; logic.rs/check.rs/named.rs keys are borrowed for their lifetime. Tables are tiny on AoC (max 98 entries per declaration). D2577-D2580 for Matt. 11 min (est. 60).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1802,
+      "title": "[Sonnet] mimalloc sweep: measure one or two more test binaries that check std (driver elaboration, proofs; elab; cli; lsp) on an idle machine, then set it in those that gain (not resources, search_at_aoc, rt effect_alloc, state_match) (SW-1742)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1742: 12% CPU on hash_stability prelude, 17% on std_library. Needs a quiet machine.\n\nNeeds a quiet machine (load < 4): SW-1729's null result was load noise.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1803,
+      "title": "[Opus] Syntax ids stage 1 (syntax-node-ids.md): Expr::Field and the queue's DotCall get an id from a global counter; dot_heads/dot_failed key by it; drop dot_owners and the spans/epoch from the key; postponed-lambda-second-error, reads-weaken-over-map-implicits and pure-fold-in-parse-function repeat exactly, no hash moves; then bench examples repeat exactly again (tolerance back to 0, SW-1792)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab",
+        "bug"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-1801. Waiting on Matt's D2577-D2580 (rec: yes to all). Expected: 90 min.\n\nMatt's decisions (docs/proposals/syntax-node-ids.md §7): D2577 a copy gets a new id [rec: yes]; D2578 ids only on dot-call syntax for now [rec: yes]; D2579 drop dot_owners and spans/epoch from the key in the same stage [rec: yes]; D2580 run it on Opus [rec: yes].",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1804,
+      "title": "Daily run to measure the overnight savings (D2556): one daily tier on a quiet machine, compared with the last one before 6 Nov; also shows whether threads-required (SW-1734) helps",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "test"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "Waiting on Matt's D2556. Run nothing else alongside.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1805,
+      "title": "CLAUDE.md: lane rules for dev/stop-mine (never pkill/killall, D2576), rm on a variable path (D2574, after SW-1800's rm -f /*), and test wording now that test:areas is retired (test:affected)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "Orchestrator's own edit once Matt answers D2574/D2576. Proposed stop-mine text is in the 7 Nov overnight plan (dev/overnight-2026-11-06.md).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1806,
+      "title": "[Sonnet] Bench: re-record the baseline times on a quiet machine (SW-1792 recorded them at load 12-30, 30-170% high), and consider a cut-down example set for task bench (examples still ~100 s)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "test-infra",
+      "body": "From SW-1792.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1807,
+      "title": "[Sonnet] Editor: the text-only search paths (members_at_text, context_at_text, actions_at_text) still load std per request, one case twice; and the playground (wasm) has the kept session off: measure its memory and turn it on if it fits (SW-1798)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "editor-playground",
+      "body": "From SW-1798.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
       "commits": []
     }
   ]
