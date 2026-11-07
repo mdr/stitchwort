@@ -1,5 +1,5 @@
 {
-  "next": 2022,
+  "next": 2029,
   "tickets": [
     {
       "id": 47,
@@ -11172,9 +11172,9 @@
         "docs"
       ],
       "epic": "docs-tutorials",
-      "body": "Filed overnight 6 Nov 2026 from SW-1571 (2020 day 19).",
+      "body": "Filed overnight 6 Nov 2026 from SW-1571 (2020 day 19).\n\nAbsorbed by SW-2022 and SW-2023 (docs/proposals/compute-once.md).",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -11565,9 +11565,9 @@
         "aoc"
       ],
       "epic": "aoc-2020",
-      "body": "From SW-1473, 6 Nov 2026. Small.\n\nConfirmed by the profiler (SW-1528): 15M List.lengthOnto calls in ~2.5M turns, 4% of the run.",
+      "body": "From SW-1473, 6 Nov 2026. Small.\n\nConfirmed by the profiler (SW-1528): 15M List.lengthOnto calls in ~2.5M turns, 4% of the run.\n\nClosed by SW-2026 when it lands (docs/proposals/compute-once.md).",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -17724,13 +17724,13 @@
     {
       "id": 2014,
       "title": "[Opus] Design note: computing loop-invariant values once (a record method rebuilding a Map per call)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2014",
       "labels": [
         "design"
       ],
-      "body": "From docs/research/aoc-friction-synthesis.md. Absorbs SW-1576, SW-1602; 6 days. 60 min.",
+      "body": "From docs/research/aoc-friction-synthesis.md. Absorbs SW-1576, SW-1602; 6 days. 60 min.\n\nDone, merged: docs/proposals/compute-once.md. Three of six days open (2020 days 15, 19; 2021 day 15). Computed fields (as Lean's computed_fields), then automatic hoisting of small values. D2880-D2885. Tickets SW-2022, SW-2023, SW-2024, SW-2025, SW-2026, SW-2027, SW-2028. 7 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17829,6 +17829,104 @@
         "design"
       ],
       "body": "From docs/proposals/long-chains.md (stages 4-8). D2840, D2842. After SW-2018.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2022,
+      "title": "[DeepSeek] Guide section: keeping a derived value instead of rebuilding it per call",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "body": "From docs/proposals/compute-once.md. Stage 0a; absorbs SW-1576's guide half. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2023,
+      "title": "[Sonnet] Profiler: a line naming a function called many times on few distinct values",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "body": "From docs/proposals/compute-once.md. Stage 0b; replaces SW-1576's lint. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2024,
+      "title": "[Opus] Computed record fields, elaboration: computed table: Map Nat Rule := ruleTable numbered in the braces; the kernel sees a plain definition",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "From docs/proposals/compute-once.md. Stage 1a. D2880-D2882, D2884. Guide, syntax.md and a feature-tour page. 90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2025,
+      "title": "[Opus] Computed record fields, runtimes: a hidden slot filled when the record is built (machine, native, JS)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "runtime"
+      ],
+      "body": "From docs/proposals/compute-once.md. Stage 1b, after SW-2024. 90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2026,
+      "title": "[Sonnet] Use computed fields in 2020 day 19 (6.5 s → 2+ min today) and day 15 if it reads better",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "From docs/proposals/compute-once.md. Stage 1c, after SW-2025. Closes SW-1602. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2027,
+      "title": "[Opus] Move small unchanging values (numbers, Bools, chars) out of lambdas automatically in lowering (fixes 2020 day 15, 2021 day 15)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "runtime"
+      ],
+      "body": "From docs/proposals/compute-once.md. Stage 2. D2883. 75 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2028,
+      "title": "[Opus] Erase data only proofs use (2021 day 9's states)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "runtime"
+      ],
+      "body": "From docs/proposals/compute-once.md. From docs/proposals/compute-once.md (out of scope there). 60 min to design.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
