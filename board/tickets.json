@@ -1,5 +1,5 @@
 {
-  "next": 1778,
+  "next": 1779,
   "tickets": [
     {
       "id": 47,
@@ -14150,14 +14150,14 @@
     {
       "id": 1775,
       "title": "[Sonnet] Audit test:lane areas and test:affected rules for coverage gaps: does each area run the tests of the code it names (as SW-1686 found for lsp features)? Fix the gaps",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1775",
       "labels": [
         "tooling"
       ],
       "epic": "dev-loop-speed",
-      "body": "Overnight 7 Nov 2026, from the plan's backup queue. Expected: 45 min.",
+      "body": "Overnight 7 Nov 2026, from the plan's backup queue. Expected: 45 min.\n\nDone, merged: 84 of ~180 binaries were reached by no rule or area. Fixed: lane-lsp adds lsp unit tests and 5 quick features tests; 14 new test-affected rules (core-all, front-end quick tests, guide, rt/js quick, float, partial-model...); cheap_only now really cuts the filterset (before, only the estimate); docs/guide no longer ignored; dev/t areas for lsp, fmt, native, host, standalone, dev-features; EveryBinaryIsReached test with a NOT_REACHED list of 6 (bench, float_paths, three daily-only fuzz/search). Typical front-end changes now estimate 82-88 s (was 15-55). On main: inventory refreshed (2197 tests), 25 Python tests, lane lsp 26/26. Model result: Sonnet, worked, 15 min (est. 45).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -14188,6 +14188,21 @@
       ],
       "epic": "dev-loop-speed",
       "body": "From SW-1737.\n\nDone, merged: split-elab.md §8. Only the CLI (optional native feature) uses stitchwort-native; cranelift-codegen sits under every test binary because dev-features lists it directly for feature unification. Dropping it gains 0 s on the critical path and on rebuilds (cranelift ends before elab's library). Recommendation, taken: don't. Revisit if elab's library falls under ~60 s. Model result: Sonnet, worked, 2 min (est. 45).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1778,
+      "title": "test:affected follow-ups from SW-1775: the cut can drop a rank-2 rule yet keep a rank-3 one that fits; inventory timings from loaded daily runs overstate lane cost; merge profile hand-copies lane filters (generate it); guide-quotes estimate (67 s) needs a warm re-measure",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1775, 7 Nov 2026.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []

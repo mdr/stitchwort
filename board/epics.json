@@ -470,11 +470,11 @@
         "Next slowest daily binaries roughly halved in CPU: operators, rewind, std_library, extract, run_js (SW-1770)",
         "Navigation index 2× faster, also in the editor (SW-1771); lsp memory tests 1.7 → 0.45 GB (SW-1769)",
         "lld linking: 13-17% less CPU per rebuild (SW-1754)",
-        "Plan: don't split elab; build its unit tests into the library (SW-1737)"
+        "Plan: don't split elab; build its unit tests into the library (SW-1737)",
+        "Targeted tests reach every binary: 84 were reached by no rule (SW-1775)"
       ],
       "now": [
-        "elab unit tests in the library (SW-1776)",
-        "Lane-area coverage audit (SW-1775)"
+        "elab unit tests in the library (SW-1776)"
       ],
       "next": [],
       "links": [
