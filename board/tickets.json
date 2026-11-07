@@ -21821,14 +21821,14 @@
     {
       "id": 2287,
       "title": "[Sonnet] SW-2284 F3-F5: a property test for the walk's compact-text split; known_gap stops listing G1 and G3 (rename the two passing known-failure tests); two core.md wording edits",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2287",
       "labels": [
         "tests"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/SW-2284-tree-scrutinee-head.md. 20 min.",
+      "body": "From docs/reviews/SW-2284-tree-scrutinee-head.md. 20 min.\n\nDone, merged. F3 text pairs (compactness at the walk not confirmed), F4 known_gap cleaned (the three known-failure tests deleted, G2 too), F5 core.md. On main: proof_equivalence passes. Model result: Sonnet, worked, 6 min (est. 20).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
