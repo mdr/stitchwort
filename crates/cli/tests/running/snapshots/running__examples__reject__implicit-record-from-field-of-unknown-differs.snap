@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/implicit-record-from-field-of-unknown-differs.sw:19:20 ]
+    │
+ 19 │   withinTrans once again
+    │                    ──┬──  
+    │                      ╰──── expected `(x: Nat) → x ∈ image.flip.rotate.rows → x ∈ image.rotate.rows`, but this has type `Within image.flip image.flip.rotate`
+    │ 
+    │ Note: `Within image.flip image.flip.rotate` is `(x: Nat) → x ∈ (image.rows.map (row => row + 1)).reverseOnto [] → x ∈ image.rows.map (row => row + 1)`
+────╯
