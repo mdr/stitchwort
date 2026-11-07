@@ -261,3 +261,25 @@ fn every_pin_is_checked_at_binding() {
         "pins nothing checks at binding: {missing:?}"
     );
 }
+
+/// A `…Cong` lemma whose function was renamed (or never existed) fails the
+/// audit, naming both, instead of dropping out of it unnoticed.
+#[test]
+fn a_cong_lemma_whose_function_is_missing_fails_the_audit() {
+    let failures = with_session(
+        STACK,
+        |_| Session::core_alone(),
+        |session| {
+            session
+                .load("orphan", "theorem renamedCong (n: Nat): n = n := rfl\n")
+                .unwrap_or_else(|d| panic!("fixture loads: {d:?}"));
+            stitchwort_elab::std_congruence_failures(&session.elab).1
+        },
+    );
+    assert!(
+        failures
+            .iter()
+            .any(|f| f.starts_with("renamedCong:") && f.contains("`renamed`")),
+        "the orphan is reported with the missing function: {failures:?}"
+    );
+}
