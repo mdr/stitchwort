@@ -1,5 +1,5 @@
 {
-  "next": 2110,
+  "next": 2113,
   "tickets": [
     {
       "id": 47,
@@ -16237,14 +16237,14 @@
     {
       "id": 1914,
       "title": "[Opus] Stuck field calls re-run through unfold_folded and the unfolded read-back (19,261 times in 2020 day 20 Proofs, mostly Parse.State.at): keep the call's cache on them or memoise (core review F1/F12)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1914",
       "labels": [
         "kernel"
       ],
       "epic": "elaborator-kernel",
-      "body": "SW-1829 confirmed the lead but it wasn't the regression; costs little today. Supersedes SW-1884's 'likely cause' framing.\n\nFrom docs/reviews/record-eta-as-merged.md: confirmed still in the code (value.rs:2237, 2614): conversion and the unfolded read-back re-run a stuck field call's base call once per field, the last instance of SW-1829's 2^n shape.\n\nFrom docs/proposals/match-call-field.md: option (b) would make D2992's general form (keep (cave.tiled).level position) cheap.\n\n7 Nov: design first, read-only Opus lane: docs/proposals/stuck-field-calls.md.",
+      "body": "SW-1829 confirmed the lead but it wasn't the regression; costs little today. Supersedes SW-1884's 'likely cause' framing.\n\nFrom docs/reviews/record-eta-as-merged.md: confirmed still in the code (value.rs:2237, 2614): conversion and the unfolded read-back re-run a stuck field call's base call once per field, the last instance of SW-1829's 2^n shape.\n\nFrom docs/proposals/match-call-field.md: option (b) would make D2992's general form (keep (cave.tiled).level position) cheap.\n\n7 Nov: design first, read-only Opus lane: docs/proposals/stuck-field-calls.md.\n\nDesign merged: docs/proposals/stuck-field-calls.md. Calls (orchestrator, 7 Nov): D3020 yes (only the elaborator reads the link; the kernel re-runs as today), D3021 yes (no general (f x).i a form; closes D2992's revisit). Stages SW-2110, SW-2111, SW-2112; stage 2 (memo for self-stuck calls) and 3 (typed spine view) only if needed. Finding: the kernel glues too (check.rs:1828, 1882), so 'gluing on' is not 'elaborator only' — flagged to SW-2096 and SW-2108.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19159,6 +19159,51 @@
       ],
       "epic": "dev-loop-speed",
       "body": "From SW-2098. crates/driver already has mimalloc as a dev-dependency (for tests/resources.rs). Options: a #[global_allocator] in a small crate every test binary links (dev-features?), or per test target. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2110,
+      "title": "[Sonnet] Stuck field calls stage 0: measure re-runs of a field's call (STITCHWORT_FIELD_METRICS counters by site, form, kernel or elaborator, steps) and a growth test",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "performance",
+      "body": "From docs/proposals/stuck-field-calls.md stage 0. Go rule for 1b: re-runs above 1% of a namespace's check steps, or worse-than-linear growth. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2111,
+      "title": "[Sonnet] Stuck field calls stage 1a: Elim::Proj gets an empty link slot, no behaviour change",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "performance",
+      "body": "From docs/proposals/stuck-field-calls.md. After SW-2096 (both edit eta_fields). 40 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2112,
+      "title": "[Opus] Stuck field calls stage 1b: fill and read the link (elaborator only, D3020); absorbs SW-1914, core review F1/F12, record-eta review F1; Opus review after (D2364)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "performance",
+      "body": "From docs/proposals/stuck-field-calls.md. Only if SW-2110 says go. After SW-2111. 90 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
