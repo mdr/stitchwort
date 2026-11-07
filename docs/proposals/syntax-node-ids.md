@@ -1,7 +1,7 @@
 # Syntax identity that doesn't come from the allocator (SW-1801)
 
 **Status:** design note, 7 November 2026, Opus. Nothing implemented. The
-decisions are D2577–D2580 (§7). Follows SW-1797 and SW-1800
+decisions are D2579–D2580 (§7). Follows SW-1797 and SW-1800
 (`docs/reviews/SW-1800-dot-failed-cache.md`).
 
 ## 1. In short
@@ -141,7 +141,7 @@ parser assigns them; syntax the elaborator builds gets fresh ones.
   syntax parsed on one thread can be elaborated on another (the test
   harness, the language server). A `u64` never wraps, and a relaxed
   `fetch_add` costs nothing next to building a node.
-- **Copies.** This is the real choice (D2577):
+- **Copies.** This is the real choice (D2579):
   - *A copy keeps its id* (derived `Clone`). Then the pipe's copies of
     `read.all` all share the source's id and hit each other's entries on
     every run. That's deterministic, but more hits than any run has today.
@@ -345,11 +345,11 @@ Not planned.
 
 ### Decisions for Matt
 
-- **D2577:** Should a copy of syntax get a *new* identity (as today's
+- **D2579:** Should a copy of syntax get a *new* identity (as today's
   addresses do), rather than keep its source's? It's the choice that
   changes nothing but the luck; keeping ids would add hits that SW-1800
   couldn't show are right. [rec: yes, new identity]
-- **D2578:** Put the id only on dot-call syntax (`Expr::Field` and the
+- **D2580:** Put the id only on dot-call syntax (`Expr::Field` and the
   queue's `DotCall`) for now, not on every node? Zero memory cost, about
   ten sites against about 1,600. [rec: yes]
 - **D2579:** In the same stage, drop what only guarded against reuse:
