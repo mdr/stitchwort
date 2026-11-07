@@ -95,3 +95,4 @@ Take these in order, once the speed queue above is empty or blocked.
 - 01:26: SW-1734 held in review (merge tier neutral; daily wall unmeasurable under load; wants a quiet daily run). Filed SW-1774. SW-1769 started.
 - 01:57: SW-1771/1772 merged (with a threshold fixup of mine), SW-1769 merged (lsp memory tests 1.7 → 0.45 GB). SW-1774's SIGTERMs likely from lane pkills.
 - 02:00: SW-1774 merged (dev/stop-mine); lane briefs now forbid pkill. Morning: CLAUDE.md line.
+- 02:08: SW-1754 on main (lld). SW-1737 merged: don't split elab (D2563, D2564 mine). SW-1776 started; SW-1777 filed.

@@ -1,5 +1,5 @@
 {
-  "next": 1776,
+  "next": 1778,
   "tickets": [
     {
       "id": 47,
@@ -13580,14 +13580,14 @@
     {
       "id": 1737,
       "title": "[Opus plan] Split the elab crate (115,700 lines, the serial step of a clean build): 30-50 s off a clean build",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1737",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From the SW-1716 profile, fix 13. See docs/reviews/SW-1716-dev-loop-profile.md §6.",
+      "body": "From the SW-1716 profile, fix 13. See docs/reviews/SW-1716-dev-loop-profile.md §6.\n\nDone: docs/proposals/split-elab.md. Don't split (89% of elab is one cycle through Elaborator/Ctx; a split saves 5-15 s clean, 0-4 s incremental). Instead build elab's 148 unit tests into the library behind a unit-tests feature that dev-features turns on (like core's test-bypass): ~20-30 s off a clean build, frees a core on every elab rebuild. D2563 (don't split now; stage 1 instead) and D2564 (a feature, not moving tests to tests/): yes, my calls (implementation sequencing), listed for Matt. Model result: Opus, worked, 10 min (est. 60).",
       "created": "2026-11-06",
       "updated": "2026-11-07",
       "commits": []
@@ -13595,16 +13595,16 @@
     {
       "id": 1738,
       "title": "Try lld as the linker (23% faster links, 2-3 s per rebuild)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From the SW-1716 profile, fix 11. See docs/reviews/SW-1716-dev-loop-profile.md §6.",
+      "body": "From the SW-1716 profile, fix 11. See docs/reviews/SW-1716-dev-loop-profile.md §6.\n\nDone by SW-1754 (lld in the devShell on macOS).",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -13835,16 +13835,16 @@
     {
       "id": 1754,
       "title": "[Sonnet] Compile time after incremental builds: where a 21 s rebuild goes now; try test-profile settings (codegen-units, per-crate opt-level), lld (SW-1738); measure alone",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1754",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "Overnight 6-7 Nov 2026 (Matt: focus on test suites, merge gates, compile times). Builds timed on a quiet machine.",
+      "body": "Overnight 6-7 Nov 2026 (Matt: focus on test suites, merge gates, compile times). Builds timed on a quiet machine.\n\nDone, on main (f14bf4891, cherry-picked without the lane's board commit): devShell on macOS links with lld (CARGO_TARGET_<darwin>_RUSTFLAGS, so wasm32 flags stay). elab edit 68 → 61 s and 203 → 177 s CPU; 13-17% less CPU in all six comparisons; test time unchanged. codegen-units 16 and opt-level 1 for cli/driver: no gain. Package/check drvPaths identical. On main: full rebuild with lld 109 s real; hash_stability prelude passes. Model result: Sonnet, worked, 66 min (est. 75).",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -14158,6 +14158,36 @@
       ],
       "epic": "dev-loop-speed",
       "body": "Overnight 7 Nov 2026, from the plan's backup queue. Expected: 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1776,
+      "title": "[Sonnet] elab unit tests built into the library behind a unit-tests feature (dev-features turns it on), run by one small test binary with a guard that no test is left out: same 148 tests pass; one clean --timings build (split-elab.md stage 1)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1776",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1737, D2563/D2564. Expected: 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1777,
+      "title": "Analysis: do test binaries that never run native code need stitchwort-native, and so cranelift, which gates the clean build's test phase? (split-elab.md stage 3)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1737.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []

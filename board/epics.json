@@ -468,11 +468,12 @@
         "Daily tier replays std in the sweeps: examples + hash_stability cold 111 → 48 s (SW-1765)",
         "test:affected: memory-safe lsp group, self-refreshing inventory (SW-1760)",
         "Next slowest daily binaries roughly halved in CPU: operators, rewind, std_library, extract, run_js (SW-1770)",
-        "Navigation index 2× faster, also in the editor (SW-1771); lsp memory tests 1.7 → 0.45 GB (SW-1769)"
+        "Navigation index 2× faster, also in the editor (SW-1771); lsp memory tests 1.7 → 0.45 GB (SW-1769)",
+        "lld linking: 13-17% less CPU per rebuild (SW-1754)",
+        "Plan: don't split elab; build its unit tests into the library (SW-1737)"
       ],
       "now": [
-        "Compile time (SW-1754)",
-        "Plan for splitting elab (SW-1737)",
+        "elab unit tests in the library (SW-1776)",
         "Lane-area coverage audit (SW-1775)"
       ],
       "next": [],
