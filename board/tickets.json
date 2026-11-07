@@ -20081,9 +20081,9 @@
     {
       "id": 2171,
       "title": "[Sonnet] Std from AoC, Nat/Int/Bool arithmetic lemmas the days wrote themselves",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2171",
       "labels": [
         "proofs"
       ],
@@ -20471,9 +20471,9 @@
     {
       "id": 2197,
       "title": "[Sonnet] Registry argument shapes (e.g. \"[p] [a] d y n z yesEq noEq\") checked at binding, and a startup check that every library registry entry exists",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2197",
       "labels": [
         "core"
       ],
