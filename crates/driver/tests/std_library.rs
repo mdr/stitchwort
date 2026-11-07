@@ -1080,6 +1080,9 @@ fn lazy_loading_changes_nothing_for_the_aoc_project() {
 fn the_core_alone_runs_every_example_that_uses_no_library_name() {
     let mut sources = example_files("accept");
     sources.extend(example_files("extract"));
+    // Outside the full tier, a fixed sample: what is checked is the core's
+    // independence of the library, which a sample of the examples shows.
+    let sources = tier_sample(sources, 4);
     // Whether each source used no library name (and so the core alone ran it).
     // Each worker keeps one session of each kind and rewinds them before each
     // source (a rewound session gives what a fresh one does: `rewind.rs`);
@@ -1115,7 +1118,8 @@ fn the_core_alone_runs_every_example_that_uses_no_library_name() {
     let ran = ran_alone.iter().filter(|r| **r).count();
     let used_the_library = ran_alone.len() - ran;
     eprintln!("core alone ran {ran}; {used_the_library} use a library name");
-    assert!(ran > 50);
+    let full = stitchwort_driver::driver::tier() == stitchwort_driver::driver::Tier::Full;
+    assert!(ran > if full { 50 } else { 10 });
 }
 
 /// Every compiler path that names a declaration, in a session whose library
