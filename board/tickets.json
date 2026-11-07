@@ -1,5 +1,5 @@
 {
-  "next": 2251,
+  "next": 2252,
   "tickets": [
     {
       "id": 47,
@@ -21274,6 +21274,21 @@
       ],
       "epic": "aoc-older",
       "body": "From Overmind job 9 (7 Nov, 0fa08fe74, seed 0x7): 602 mutants, 586 rejected, 16 accepted, all judged true by reading; 0 findings. Check each: drop the hint if omega reads it from context (and say why), shorten orthogonalIntro, drop descendOutOfWalls's unused hypothesis and fix its callers. Tests: each day's stitchwort test and audit:touched; rogue check. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2251,
+      "title": "[Opus] Independent review of docs/proposals/equality-in-the-round.md (D3250): is the rule right and complete; is design B the right fix; do G1-G6 reproduce; what Lean 4, smalltt, Agda, Coq/Rocq, Idris 2 and the literature actually do about lazy unfolding, glued evaluation and conversion; what it might break or slow",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2251",
+      "labels": [
+        "review"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "D3251 — Matt, 7 Nov 2026: \"do a sort of a full opus review of that idea. Maybe see what you can find in the literature or online discussions about language implementations.\" Read-only; web research. Output docs/reviews/SW-N-equality-rule.md. 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
