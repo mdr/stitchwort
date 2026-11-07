@@ -45,7 +45,7 @@ use std::time::Instant;
 
 use stitchwort_core::DefId;
 use stitchwort_core::budget::Limits;
-use stitchwort_driver::audit::{Options, Status, TheoremAudit};
+use stitchwort_driver::audit::{Check, Options, Severity, Status, TheoremAudit};
 use stitchwort_driver::counterexample::Verdict;
 use stitchwort_driver::driver::{Session, Tier, test_threads, tier, tier_sample};
 use stitchwort_driver::project::{DiskFiles, Target, project_sources};
@@ -801,7 +801,12 @@ fn check_site(corpus: &Corpus, site: &Site, decl: &str, cache: &Path, search: bo
     };
     let namespace = match &site.home {
         Home::File { name } => {
-            let text = format!("{}{}", &site.text[..site.decl.start], decl);
+            let text = format!(
+                "{}{}{}",
+                &site.text[..site.decl.start],
+                decl,
+                &site.text[site.decl.end..]
+            );
             load_error = session.load(name, &text).err().and_then(first_line);
             None
         }
@@ -826,8 +831,9 @@ fn check_site(corpus: &Corpus, site: &Site, decl: &str, cache: &Path, search: bo
                 .map(|(p, t)| {
                     if p == path {
                         // The declarations after the theorem stay: it may
-                        // use them. They can't make a mutant check, since
-                        // only the theorem itself is audited.
+                        // use them. They can't make a mutant check: a
+                        // definition is final only once everything it uses
+                        // is.
                         (
                             p.clone(),
                             format!(
@@ -889,6 +895,11 @@ fn outcome_of(checked: &Checked) -> Outcome {
         return Outcome::Rejected;
     };
     if audit.status != Status::Checked {
+        return Outcome::Rejected;
+    }
+    // An axiom the audit refuses is the user's, not the checker's: a
+    // counterexample to such a theorem is no soundness finding.
+    if (audit.findings.iter()).any(|f| f.check == Check::Axioms && f.severity == Severity::Fail) {
         return Outcome::Rejected;
     }
     match audit.search.as_ref().map(|s| s.verdict) {
@@ -980,6 +991,8 @@ struct JobResult {
     /// Rejected mutants whose statement the search refuted.
     refuted: usize,
     results: Vec<(Mutation, Outcome, String)>,
+    /// Mutants that formatted the same as the original, so weren't checked.
+    no_ops: usize,
     failures: Vec<String>,
 }
 
@@ -1062,6 +1075,7 @@ fn mutated_theorems_have_no_counterexample() {
         let mut out = JobResult {
             calibrated: false,
             refuted: 0,
+            no_ops: 0,
             results: Vec::new(),
             failures: Vec::new(),
         };
@@ -1104,6 +1118,7 @@ fn mutated_theorems_have_no_counterexample() {
         for m in &job.mutations {
             let decl = render(site, m);
             if same_after_formatting(&decl, &original) {
+                out.no_ops += 1;
                 continue;
             }
             let began = Instant::now();
@@ -1158,6 +1173,7 @@ fn mutated_theorems_have_no_counterexample() {
     let mut by_kind: BTreeMap<&str, [usize; 4]> = BTreeMap::new();
     let mut calibrated = 0;
     let refuted: usize = results.iter().map(|r| r.refuted).sum();
+    let no_ops: usize = results.iter().map(|r| r.no_ops).sum();
     let mut failures = Vec::new();
     for (job, r) in jobs.iter().zip(&results) {
         calibrated += usize::from(r.calibrated);
@@ -1182,7 +1198,7 @@ fn mutated_theorems_have_no_counterexample() {
     println!(
         "soundness_fuzz mutants: seed {seed:#x}, {:.1}s, {} theorems ({calibrated} checked unmutated), \
          {total} mutants: {rejected} rejected ({refuted} of them refuted by the search), {} accepted ({searched} searched with no \
-         counterexample, {unsearched} out of the search's scope), {} findings",
+         counterexample, {unsearched} out of the search's scope), {no_ops} no-op mutants skipped, {} findings",
         started.elapsed().as_secs_f64(),
         jobs.len(),
         total - rejected,
