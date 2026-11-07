@@ -14210,14 +14210,14 @@
     {
       "id": 1779,
       "title": "Forcing a glued call like P(i) x := P(i-1) x ∧ P(i-1) x costs time exponential in depth (args not shared), in elaboration and in the kernel's declare_def (SW-1743)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1779",
       "labels": [
         "perf"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-1743, 7 Nov 2026. Case (g18.sw):\n\ndef P0 (x: Nat): Prop := x = x\ndef P1 (x: Nat): Prop := P0 x ∧ P0 x\ndef P2 (x: Nat): Prop := P1 x ∧ P1 x\ndef P3 (x: Nat): Prop := P2 x ∧ P2 x\ndef P4 (x: Nat): Prop := P3 x ∧ P3 x\ndef P5 (x: Nat): Prop := P4 x ∧ P4 x\ndef P6 (x: Nat): Prop := P5 x ∧ P5 x\ndef P7 (x: Nat): Prop := P6 x ∧ P6 x\ndef P8 (x: Nat): Prop := P7 x ∧ P7 x\ndef P9 (x: Nat): Prop := P8 x ∧ P8 x\ndef P10 (x: Nat): Prop := P9 x ∧ P9 x\ndef P11 (x: Nat): Prop := P10 x ∧ P10 x\ndef P12 (x: Nat): Prop := P11 x ∧ P11 x\ndef P13 (x: Nat): Prop := P12 x ∧ P12 x\ndef P14 (x: Nat): Prop := P13 x ∧ P13 x\ndef P15 (x: Nat): Prop := P14 x ∧ P14 x\ndef P16 (x: Nat): Prop := P15 x ∧ P15 x\ndef P17 (x: Nat): Prop := P16 x ∧ P16 x\ndef P18 (x: Nat): Prop := P17 x ∧ P17 x\ndef needs (k: Nat) [auto ok: k ≠ 0]: Nat := k\ndef f (n: Nat) (h: P18 n): Nat := needs 3\n\n7 Nov ~04:05, lane/SW-1779 (f322bb73d): real code hits the mechanism, not the doubling: a glued call computed all the way where only part is needed. Fixes: (1) ignorable_arguments reads types back folded (all of AoC's gain); (2) kernel declare_def glues during the signature check, like admit_group (D483), stored value still unglued; (3) interfaces::locals checks the head glued first. AoC steps 1,342 M → 1,098 M (-18%), check 74 → ~63 s; 2024 day 6 part2Correct 2.9 s → <0.1 s. AoC node counts identical; hash snapshots identical. New test resources::a_doubling_hypothesis_is_never_unfolded_in_full. 509 targeted tests pass. Fix 1 can in principle reject a contrived program (fewer ignorable arguments), never unsound: D2567 (accept fix 1), my call: yes, listed for Matt. Kernel change: Opus review (D2364) started as SW-1786. Left: closed kernel type values computed unglued and kept (2024 day 22, 4.4 s): needs a proposal. Model result: Opus, worked, 20 min (est. 60).",
+      "body": "From SW-1743, 7 Nov 2026. Case (g18.sw):\n\ndef P0 (x: Nat): Prop := x = x\ndef P1 (x: Nat): Prop := P0 x ∧ P0 x\ndef P2 (x: Nat): Prop := P1 x ∧ P1 x\ndef P3 (x: Nat): Prop := P2 x ∧ P2 x\ndef P4 (x: Nat): Prop := P3 x ∧ P3 x\ndef P5 (x: Nat): Prop := P4 x ∧ P4 x\ndef P6 (x: Nat): Prop := P5 x ∧ P5 x\ndef P7 (x: Nat): Prop := P6 x ∧ P6 x\ndef P8 (x: Nat): Prop := P7 x ∧ P7 x\ndef P9 (x: Nat): Prop := P8 x ∧ P8 x\ndef P10 (x: Nat): Prop := P9 x ∧ P9 x\ndef P11 (x: Nat): Prop := P10 x ∧ P10 x\ndef P12 (x: Nat): Prop := P11 x ∧ P11 x\ndef P13 (x: Nat): Prop := P12 x ∧ P12 x\ndef P14 (x: Nat): Prop := P13 x ∧ P13 x\ndef P15 (x: Nat): Prop := P14 x ∧ P14 x\ndef P16 (x: Nat): Prop := P15 x ∧ P15 x\ndef P17 (x: Nat): Prop := P16 x ∧ P16 x\ndef P18 (x: Nat): Prop := P17 x ∧ P17 x\ndef needs (k: Nat) [auto ok: k ≠ 0]: Nat := k\ndef f (n: Nat) (h: P18 n): Nat := needs 3\n\n7 Nov ~04:05, lane/SW-1779 (f322bb73d): real code hits the mechanism, not the doubling: a glued call computed all the way where only part is needed. Fixes: (1) ignorable_arguments reads types back folded (all of AoC's gain); (2) kernel declare_def glues during the signature check, like admit_group (D483), stored value still unglued; (3) interfaces::locals checks the head glued first. AoC steps 1,342 M → 1,098 M (-18%), check 74 → ~63 s; 2024 day 6 part2Correct 2.9 s → <0.1 s. AoC node counts identical; hash snapshots identical. New test resources::a_doubling_hypothesis_is_never_unfolded_in_full. 509 targeted tests pass. Fix 1 can in principle reject a contrived program (fewer ignorable arguments), never unsound: D2567 (accept fix 1), my call: yes, listed for Matt. Kernel change: Opus review (D2364) started as SW-1786. Left: closed kernel type values computed unglued and kept (2024 day 22, 4.4 s): needs a proposal. Model result: Opus, worked, 20 min (est. 60).\n\nMerged after SW-1786 (merge; two comments fixed by me). On main: affected 1007/1007, resources + prelude 24/24.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -14315,14 +14315,14 @@
     {
       "id": 1786,
       "title": "[Opus] Review SW-1779 (lane/SW-1779): kernel declare_def glues during the signature check; ignorable_arguments folded; interfaces::locals head check (D2364)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1779",
       "labels": [
         "review"
       ],
       "epic": "elaborator-kernel",
-      "body": "Expected: 40 min.",
+      "body": "Expected: 40 min.\n\nDone: docs/reviews/SW-1786-glued-signature-review.md. Verdict merge: no glued value escapes the signature check; fix 1 marks fewer arguments ignorable (bounded-readback §2.2 names this site); each fix alone makes the new test fail when reverted. Left: retype_def and data parameter/index/field type checks still unglued (speed only). Model result: Opus, worked, 10 min (est. 40).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
