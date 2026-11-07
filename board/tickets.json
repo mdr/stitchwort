@@ -1,5 +1,5 @@
 {
-  "next": 1982,
+  "next": 1987,
   "tickets": [
     {
       "id": 47,
@@ -15629,7 +15629,7 @@
         "syntax"
       ],
       "epic": "syntax-language",
-      "body": "From the syntax code review (docs/reviews/code-review-syntax.md, tickets to file, 1; F1, F8). D2670 [rec: yes]. 90 min.\n\nConfirmed by the Opus review (docs/reviews/code-review-syntax-opus.md, F2, F12, high): also the namespace-line fallback re-lexes the whole file and fails, so the file drops out of its project and its importers fail. D2690 is the same question as D2670.",
+      "body": "From the syntax code review (docs/reviews/code-review-syntax.md, tickets to file, 1; F1, F8). D2670 [rec: yes]. 90 min.\n\nConfirmed by the Opus review (docs/reviews/code-review-syntax-opus.md, F2, F12, high): also the namespace-line fallback re-lexes the whole file and fails, so the file drops out of its project and its importers fail. D2690 is the same question as D2670.\n\nFrom docs/proposals/parse-recovery.md: this is lane 2 (Opus, 90 min): an error-recording lexer (error token, tab read as a space), absorbs SW-1918's F11; also the language server's declaration regions (lsp/src/lib.rs:1548-1552) and docs.rs lex strictly; update parse_module_recovering's doc (parser.rs:73-82). After SW-1916 and SW-1982. D2784 (unclosed \"\"\" ends at the next column-0 keyword).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -16283,14 +16283,14 @@
     {
       "id": 1917,
       "title": "[Opus] Design note: parser recovery inside a declaration (keep a definition's signature when its body fails), so a half-typed theorem keeps its goals",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1917",
       "labels": [
         "design"
       ],
       "epic": "syntax-language",
-      "body": "From docs/reviews/code-review-syntax-opus.md (F8; lane 9). D2692 [rec: yes, after SW-1916's and SW-1873's lanes]. 60 min.",
+      "body": "From docs/reviews/code-review-syntax-opus.md (F8; lane 9). D2692 [rec: yes, after SW-1916's and SW-1873's lanes]. 60 min.\n\nDone, merged: docs/proposals/parse-recovery.md. Recovery on the current parser, not a lossless tree; one bad character costs only its declaration; a half-typed theorem keeps its signature and goal. Never cached, never reaches the kernel (already true for syntax errors and holes). D2780-D2785. Lanes SW-1982, SW-1873 (lane 2), SW-1983, SW-1984, SW-1985, SW-1986. 10 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17251,6 +17251,81 @@
       ],
       "epic": "editor-playground",
       "body": "From docs/proposals/lsp-failure-policy.md. Stage 7, after SW-1948. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1982,
+      "title": "[Opus] Parse recovery lane 1: one struct for the parser's mode fields, an error list on the parser, strict entry points fail on any error; no behaviour change",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "syntax"
+      ],
+      "epic": "syntax-language",
+      "body": "From docs/proposals/parse-recovery.md. Can start now. task test:lane AREA=syntax. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1983,
+      "title": "[Opus] Parse recovery lane 3: Expr::Missing (checked like a ? hole; a def header always gets a hole body, never none, declarations.rs:375), the expression-ran-out and body recovery points, the elaborator's handling",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "syntax"
+      ],
+      "epic": "syntax-language",
+      "body": "From docs/proposals/parse-recovery.md. After SW-1982. D2780, D2781. AREA=syntax, goals, lsp. 90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1984,
+      "title": "[Opus] Parse recovery lane 4: recovery at block lines and match arms",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "syntax"
+      ],
+      "epic": "syntax-language",
+      "body": "From docs/proposals/parse-recovery.md. After SW-1983. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1985,
+      "title": "[Sonnet] Parse recovery lane 5: a corpus of half-typed files; a test that types each declaration token by token and checks the other declarations don't change; new fuzz checks",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "syntax"
+      ],
+      "epic": "syntax-language",
+      "body": "From docs/proposals/parse-recovery.md. After SW-1984. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1986,
+      "title": "[Sonnet] Record a failed import (syntax review F8)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "syntax"
+      ],
+      "epic": "syntax-language",
+      "body": "From docs/proposals/parse-recovery.md. Lane 6, optional, after SW-1873. 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
