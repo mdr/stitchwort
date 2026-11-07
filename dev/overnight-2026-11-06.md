@@ -125,3 +125,4 @@ Take these in order, once the speed queue above is empty or blocked.
 - 06:04: SW-1796 merged (lsp tests 228 → 74 s warm). Filed SW-1798 (editor replays std per search request).
 - 06:19: SW-1797 diagnosed: dot.rs caches failures by expression address (latent wrong-hit hazard). SW-1800 (Opus) started. Filed SW-1799 (code action panic).
 - 06:24: SW-1798 merged (editor completion 480 ms → 1 ms warm); verified.
+- 06:36: SW-1799 merged (printer crash on unapplied Succ/Cons).

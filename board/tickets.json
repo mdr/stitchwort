@@ -14510,14 +14510,14 @@
     {
       "id": 1799,
       "title": "Crash: a code action's closing search on 'def f: Option (Option Nat) -> Nat | Some o => ?' panics at crates/core/src/pretty.rs:2804 (index out of bounds: the len is 0), via Elaborator::plan → fill_premises → plans_for → closing_plans; reproduces without SW-1798's change",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1799",
       "labels": [
         "bug"
       ],
       "epic": "editor-playground",
-      "body": "From SW-1798, 7 Nov 2026. A panic in the editor's code actions.",
+      "body": "From SW-1798, 7 Nov 2026. A panic in the editor's code actions.\n\nDone, merged: nat_literal, char_list and list_literal guard the arity they index (int_literal already did); unapplied Succ/Cons print as their names. Tests: core pretty unit test and an lsp code-action test (both shown failing first). On main: core pretty:: 23/23, the lsp code-action test 1/1. Model result: DeepSeek, worked, 8 min (est. 30).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
