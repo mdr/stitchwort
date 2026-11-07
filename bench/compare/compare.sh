@@ -3,7 +3,7 @@
 # (docs/proposals/comparative-speed.md). Run inside `nix develop .#compare`.
 #
 #   bash bench/compare/compare.sh --sw path/to/stitchwort [--check] [--runs N]
-#                                 [--all] [NAME...]
+#                                 [--all] [--runners A,B,...] [NAME...]
 #
 # See bench/compare/README.md. The work is in compare.py.
 set -euo pipefail

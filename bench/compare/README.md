@@ -13,6 +13,7 @@ task bench:compare:check                     # every runner once, answers only
 task bench:compare                           # check, then time with hyperfine
 task bench:compare -- --runs 3 pidigits      # options and program names after --
 task bench:compare -- --all                  # also `run --js` and `run --native` (the JIT)
+task bench:compare -- --runners native,cpython,pypy,lean   # only these runners (a slow machine skips `run`, `lean-run`)
 ```
 
 Both tasks build `stitchwort` and its native runtime library, then run
@@ -75,6 +76,17 @@ A program should take at least 0.3 s in its fastest language and at most about
 `null`, `pidigits` and `binary-trees` (the Benchmarks Game classics, at 10,000
 digits and depth 18) and `memory-game` (2020 day 15, part 2 at 30,000,000
 turns) have all four languages. `dijkstra`, `octopus`, `disk`, `expressions`,
-`scan`, `matcher` and `bridge` (AoC days; `expressions` and `scan` read their
-real input repeated 20 and 10 times, from `input.txt`) have Stitchwort and
-Python; their Lean ports are stage 1b's other half.
+`scan`, `matcher` and `bridge` (AoC days) have Stitchwort, Python and Lean.
+
+Most of the AoC days run a scaled copy of the real input so that Lean takes
+0.4 to 0.6 s, not the 20 to 60 ms of the real one. `programs.toml` gives each a
+`source`, a `repeat` and a `scale`; the harness writes the copy to
+`target/compare/inputs/` on every run and hands it to every runner, so nothing
+scaled is committed. `expressions` repeats the real input 180 times, `scan`
+200 and `bridge` 150; `matcher` keeps the rules once and repeats the messages
+16 times; `disk` repeats the disk map 45 times with a `0` between copies, so
+files and gaps still alternate. `octopus` is the real grid tiled 2 by 2, where
+Lean takes about 0.14 s, below the 0.3 s floor: a bigger cavern rarely flashes
+all at once, and the one that does (30 by 30) takes `run` over two minutes.
+After changing a scale, regenerate `expected.txt` from the Lean program and
+check that the other runners agree.

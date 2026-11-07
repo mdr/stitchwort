@@ -31,10 +31,42 @@ def camel(name):
     return "".join(part.capitalize() for part in name.split("-"))
 
 
+def scaled_input(name, entry):
+    """Write the scaled copy of a program's `source` file, once per run, and
+    return its path. `scale` says how the file grows by `repeat`:
+      lines    the whole file, repeated
+      messages the rules (text before the first blank line) once, the rest repeated
+      join0    the one-line file repeated with "0" between copies
+      tile     a grid of lines, repeated `repeat` times across and down
+    """
+    text = (ROOT / entry["source"]).read_text().strip("\n")
+    repeat = entry["repeat"]
+    scale = entry["scale"]
+    if scale == "lines":
+        out = "\n".join([text] * repeat)
+    elif scale == "messages":
+        rules, messages = text.split("\n\n")
+        out = rules + "\n\n" + "\n".join([messages] * repeat)
+    elif scale == "join0":
+        out = "0".join([text] * repeat)
+    elif scale == "tile":
+        rows = [line * repeat for line in text.split("\n")]
+        out = "\n".join(rows * repeat)
+    else:
+        raise ValueError(f"{name}: unknown scale {scale!r}")
+    path = OUT / "inputs" / f"{name}.txt"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(out + "\n")
+    return path
+
+
 class Program:
     def __init__(self, name, entry):
         self.name = name
-        self.input = ROOT / entry["input"] if "input" in entry else None
+        if "source" in entry:
+            self.input = scaled_input(name, entry)
+        else:
+            self.input = ROOT / entry["input"] if "input" in entry else None
         self.args = entry.get("args", [])
         self.target = entry["stitchwort"]
         self.dir = HERE / name
@@ -219,6 +251,7 @@ def main():
     parser.add_argument("--check", action="store_true", help="only check the answers, don't time")
     parser.add_argument("--runs", type=int, default=5, help="hyperfine runs per command (3 for anything over 30 s)")
     parser.add_argument("--all", action="store_true", help="also time run --js and run --native (the JIT)")
+    parser.add_argument("--runners", help="comma-separated runners to use, e.g. native,cpython,pypy,lean (default: all but js and jit)")
     parser.add_argument("names", nargs="*", help="programs to run (default: all)")
     opts = parser.parse_args()
     SW[0] = opts.sw.resolve()
@@ -232,6 +265,12 @@ def main():
     names = ["null"] + [n for n in names if n != "null"]
     programs = [Program(n, config[n]) for n in names]
     runners = [r for r in RUNNERS if opts.all or r not in OPTIONAL]
+    if opts.runners:
+        wanted = opts.runners.split(",")
+        bad = [r for r in wanted if r not in RUNNERS]
+        if bad:
+            sys.exit(f"unknown runner(s) {bad}; known: {', '.join(RUNNERS)}")
+        runners = [r for r in RUNNERS if r in wanted]
 
     print("Checking answers against expected.txt:")
     results, builds = check_all(programs, runners, SW[0])
