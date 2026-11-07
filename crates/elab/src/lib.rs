@@ -1119,9 +1119,11 @@ impl Elaborator {
     /// Rewinds the environment to `mark`, which also clears the
     /// metavariables: the types navigation has noted are printed first,
     /// while their metavariables still have their solutions (SW-1072).
+    /// Called partway through a declaration's check, so the running
+    /// operation's budget is kept (`Kernel::forget_since`, not `rewind`).
     pub(crate) fn rewind_globals(&mut self, mark: &stitchwort_core::globals::KernelMark) {
         self.flush_navigation();
-        self.kernel.rewind(mark);
+        self.kernel.forget_since(mark);
         self.attempt.store.clear_metas();
         let ids = self.ids();
         self.session.owners.truncate(ids);

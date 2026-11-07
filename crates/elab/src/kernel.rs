@@ -221,6 +221,42 @@ mod tests {
 
     use crate::Elaborator;
 
+    /// SW-1995: a skipped equation or induction rewinds the environment
+    /// partway through a declaration's check, which must leave the
+    /// operation's budget as it was; clearing it (as `Kernel::rewind` does)
+    /// left the rest of the declaration with no limits.
+    #[test]
+    fn rewinding_globals_partway_through_an_operation_keeps_its_budget() {
+        use stitchwort_core::budget::Limits;
+
+        let mut e = Elaborator::new();
+        let limits = Limits {
+            size: 12_345,
+            ..Limits::for_stack(1 << 20)
+        };
+        let saved = e.kernel.machine.budget.start(limits);
+        let span = Span::point(SourceMap::new().add("t", ""), 0);
+        let mark = e.kernel.mark();
+        stitchwort_core::check::declare_def(
+            &mut e.kernel,
+            &"t".into(),
+            &"t".into(),
+            &Term::Sort(Sort::Type(1)),
+            false,
+            false,
+            span,
+        )
+        .unwrap();
+        e.rewind_globals(&mark);
+        assert_eq!(e.kernel.mark().defs(), mark.defs(), "the def is gone");
+        assert_eq!(
+            e.kernel.machine.budget.size_limit(),
+            12_345,
+            "the operation's limits survive the rewind"
+        );
+        e.kernel.machine.budget.restore(saved);
+    }
+
     /// Admission sees no metavariable solutions (D2291, globals-split.md
     /// G5): a term mentioning a metavariable the elaborator has solved is
     /// refused, as an unsolved one is, in a type and in a body.
