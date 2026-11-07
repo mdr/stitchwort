@@ -20456,9 +20456,9 @@
     {
       "id": 2196,
       "title": "[Sonnet] Congruence audit hole: the audit silently skips a …Cong lemma whose function was renamed (congruence.rs:702); make it fail",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2196",
       "labels": [
         "core"
       ],
@@ -20681,9 +20681,9 @@
     {
       "id": 2211,
       "title": "[Opus] D3030 disagreement: Succ 0 against J (y e => Nat) (outerN 0) rfl is false glued (and in the kernel row) but true unglued; J on a glued decreasing call doesn't compute through it; also with reflOuter x as the proof. Fix so glued, kernel and unglued agree; add the J forms to proof_equivalence's matrix (left out in SW-2127 with a comment)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2211",
       "labels": [
         "core"
       ],
