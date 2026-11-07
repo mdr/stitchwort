@@ -1,5 +1,5 @@
 {
-  "next": 1989,
+  "next": 1993,
   "tickets": [
     {
       "id": 47,
@@ -11322,9 +11322,9 @@
         "tests"
       ],
       "epic": "test-infra",
-      "body": "From SW-1582, 6 Nov 2026.",
+      "body": "From SW-1582, 6 Nov 2026.\n\nClosed by SW-1991 when it lands (D2791).",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -15809,7 +15809,7 @@
         "kernel"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/code-review-core.md (F2, F16). D2640 [rec: yes]. 45 min.\n\nFrom docs/reviews/code-review-js-native.md (D2710): the effect natives bind, foldComp, translate, runPure are replaced by name and arity on all three backends, and JS's rewrites of ifThenElse, Decidable.elim, Ord.compare, List.append, Nat.add likewise: pin them by content hash with the arrays' loud refusal, in this lane [rec: yes].",
+      "body": "From docs/reviews/code-review-core.md (F2, F16). D2640 [rec: yes]. 45 min.\n\nFrom docs/reviews/code-review-js-native.md (D2710): the effect natives bind, foldComp, translate, runPure are replaced by name and arity on all three backends, and JS's rewrites of ifThenElse, Decidable.elim, Ord.compare, List.append, Nat.add likewise: pin them by content hash with the arrays' loud refusal, in this lane [rec: yes].\n\nFrom docs/proposals/backend-trust.md: rescoped as stage 3: create crates/core/src/pins.rs, one table checked when the library binds a declaration; a stale pin stops the library loading, printing the new hash (D2791); register_native refuses a second registration. SOUNDNESS: with Nat natives unpinned, a changed Nat.sub body plus the old native lets the kernel prove False (reachable only by editing std or a custom prelude, SW-1919). Opus, 60 min, first, alongside SW-1989. The D2710 half moves to SW-1991.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15922,14 +15922,14 @@
     {
       "id": 1893,
       "title": "[Opus] One way to make an Image: native compilation trusts a public-field Image and its match with the program; UB reachable from safe Rust",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1893",
       "labels": [
         "rt"
       ],
       "epic": "effects-native",
-      "body": "From docs/reviews/code-review-rt.md (F3). Unsafe boundary; the 1 Nov finding's open half. 60 min.\n\nFrom docs/reviews/code-review-js-native.md: wider than the rt review said: native picks the direct call by the program's arity while the code's arity comes from the image (a mismatch passes the wrong argument count), and reads fields without checking shape (the machine panics; native reads out of bounds). The standalone path takes the encoded tables as a third input. Make it a design note first (Opus); D2711 in-process only [rec].",
+      "body": "From docs/reviews/code-review-rt.md (F3). Unsafe boundary; the 1 Nov finding's open half. 60 min.\n\nFrom docs/reviews/code-review-js-native.md: wider than the rt review said: native picks the direct call by the program's arity while the code's arity comes from the image (a mismatch passes the wrong argument count), and reads fields without checking shape (the machine panics; native reads out of bounds). The standalone path takes the encoded tables as a third input. Make it a design note first (Opus); D2711 in-process only [rec].\n\nDone, merged: docs/proposals/backend-trust.md. Implementation moved to SW-1989, SW-1990; SW-1885 rescoped; SW-1991, SW-1992. D2711, D2790, D2791. 10 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17355,6 +17355,66 @@
         "research"
       ],
       "body": "Matt (7 Nov 2026): parallel research. Follows docs/research/aoc-2020-friction-days-10-20.md (SW-1598). Expected: 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1989,
+      "title": "[Opus] Backend trust stage 1: Lowered and Prepared (program and image made together, only by lowering); native entry points and the standalone path take them, so arities and tables match by construction",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "backends"
+      ],
+      "epic": "effects-native",
+      "body": "From docs/proposals/backend-trust.md. D2711 [rec: yes]. First; alongside SW-1885. 60-75 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1990,
+      "title": "[Opus] Backend trust stage 2: native code checks a value's shape at every field read (tag and count already in registers), with a bench comparison; re-audit n1.rs for other unchecked reads",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "backends"
+      ],
+      "epic": "effects-native",
+      "body": "From docs/proposals/backend-trust.md. After SW-1989. D2790 [rec: on in release if ≤2%]. 45-60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1991,
+      "title": "[Sonnet] Backend trust stage 4: pins for the runtimes, effect natives (bind, foldComp, translate, runPure, handlePlus) and the rewrites (ifThenElse, toBool, Decidable.elim, JS's), all from core's pin table; JS tags from the registry",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "backends"
+      ],
+      "epic": "effects-native",
+      "body": "From docs/proposals/backend-trust.md. After SW-1885. D2791. Closes SW-1586. 75-90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1992,
+      "title": "[DeepSeek] Backend trust stage 5: one pin test (pinned_hashes.rs); delete the redundant *_bound_to_the_prelude and other pin tests",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "backends"
+      ],
+      "epic": "effects-native",
+      "body": "From docs/proposals/backend-trust.md. After SW-1991. 30-45 min. Then retire the native-hash-pins memory rule.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
