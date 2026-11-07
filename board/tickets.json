@@ -1,5 +1,5 @@
 {
-  "next": 2220,
+  "next": 2222,
   "tickets": [
     {
       "id": 47,
@@ -19983,7 +19983,7 @@
         "core"
       ],
       "epic": "proof-automation",
-      "body": "From docs/reviews/SW-2145-decreasing-plain-if.md. After SW-2030 (same files). 60 min.",
+      "body": "From docs/reviews/SW-2145-decreasing-plain-if.md. After SW-2030 (same files). 60 min.\n\n7 Nov: SW-2208's F2 passed to the running lane.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20636,14 +20636,14 @@
     {
       "id": 2208,
       "title": "[Opus] Review SW-2030 (decreasing stage 2; generates kernel terms, D2364): the unnamed match equation (name check over arms), H.%plain twins and %same lemmas, dropped lets, lift.rs keeping if tags, stale-record reuse after a retry",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2208",
       "labels": [
         "review"
       ],
       "epic": "proof-automation",
-      "body": "Read-only Opus review, docs/reviews/SW-N-decreasing-match-fact.md. 45 min.",
+      "body": "Read-only Opus review, docs/reviews/SW-N-decreasing-match-fact.md. 45 min.\n\nDone, merged: docs/reviews/SW-2208-decreasing-match-fact.md. Sound; 2 medium, 7 low; no D questions. F2 sent to SW-2164 as a message (count %twin too; fallback after twins declared; lifted_helper_body resets keep_plain; F1 now reachable inside arms). Lanes SW-2220, SW-2221.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20809,6 +20809,36 @@
       ],
       "epic": "docs-tutorials",
       "body": "Matt, 7 Nov 2026: 'Is it worth a bit of an opus review of that code to make sure it's sensible and up to date with our current standards and taking advantage of all the features we've added since it was first written?' Status 7 Nov: checks (4 namespaces), 19/19 tests, audit 187 theorems 0 failed 14 with warnings; the_trip_journal_checks runs in every tier. docs/reviews/SW-N-trip-journal.md. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2220,
+      "title": "[Opus] decreasing stage 2 fixes (SW-2208 lane A): run dead_lets again after post (F1); the name check reads pattern guards too (F4); make the stale-record map exact and keep the guard as a check (F6); limit twin() to lifted matches (F7); F8",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "proof-automation",
+      "body": "From docs/reviews/SW-2208-decreasing-match-fact.md. After SW-2164. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2221,
+      "title": "[Sonnet] decreasing stage 2 tests and docs (SW-2208 lane B): a nested match (twin calls twin), a dropped let, an equation used outside a proof, two scrutinees, a match under a lambda's f.unfold form, a pair measure; F5 (the unnamed equation reaches every proof in an arm) and F9 doc fixes",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "proof-automation",
+      "body": "From docs/reviews/SW-2208-decreasing-match-fact.md. Can run with SW-2165. 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
