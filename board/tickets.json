@@ -1,5 +1,5 @@
 {
-  "next": 1828,
+  "next": 1829,
   "tickets": [
     {
       "id": 47,
@@ -7313,16 +7313,16 @@
     {
       "id": 1321,
       "title": "Unifier: audit other places that inspect a stuck call's arguments without re-evaluating after an unknown is solved (blocked_within, meta_against_call, conv's stuck-tree comparison)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1321",
       "labels": [
         "kernel"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-1315, which fixed the same stale-stuck-call gap at the point a comparison fails.",
+      "body": "From SW-1315, which fixed the same stale-stuck-call gap at the point a comparison fails.\n\nD2585 (Matt, 7 Nov 2026): started, Opus, reading only. Expected: 60 min.",
       "created": "2026-11-05",
-      "updated": "2026-11-05",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -14939,6 +14939,21 @@
       ],
       "epic": "performance",
       "body": "From docs/proposals/nat-map.md (SW-1603). D2601.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1828,
+      "title": "[Opus] Bounded readback: plan the remaining stages (design only): the limits that choose rather than fail (SW-1750, SW-1739), omega/ring atoms by unfolded read-back (SW-1749), §2.5's left-unfolded sites (SW-1757), the table of what stage 1b left (SW-1785), and the held stage-4 fix (lane/SW-1743); one staged plan with briefs and D questions",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1828",
+      "labels": [
+        "design"
+      ],
+      "epic": "goal-as-written",
+      "body": "D2585 (Matt, 7 Nov 2026). Expected: 60 min. No builds.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
