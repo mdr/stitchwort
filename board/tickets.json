@@ -22121,14 +22121,14 @@
     {
       "id": 2307,
       "title": "[Sonnet] Comparative speed: scale the AoC inputs so the fastest language runs at least 0.3 s (compiled Lean takes 20-60 ms on most; only dijkstra and memory-game at 30M clear it): repeat or loop inputs, per program, in programs.toml",
-      "status": "doing",
+      "status": "backlog",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2307",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2299. 30 min. After SW-2293 merges. Before stage 2 (SW-2295).",
+      "body": "From SW-2299. 30 min. After SW-2293 merges. Before stage 2 (SW-2295).\n\nCancelled by Matt, 7 Nov 2026 (\"Okay, cancel the lane. Let's not mess about.\") during its timing run. Not merged. Its two commits are kept on branch lane/SW-2307 (16f2637bc, 333dfbda6: inputs scaled; check status on the final inputs unknown). Model result: Sonnet, cancelled at 30 min (est. 30).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
