@@ -1,5 +1,5 @@
 {
-  "next": 2319,
+  "next": 2325,
   "tickets": [
     {
       "id": 47,
@@ -22304,6 +22304,99 @@
       "commits": [
         "c64e680842f43396e3d5d2adb9230aa18e732811"
       ]
+    },
+    {
+      "id": 2319,
+      "title": "Comparative speed: the binary-trees Lean port lets Lean's CSE merge the two Tree.make calls (shared tree, ~1.5M allocations against our 68M); add the dummy argument Lean's own benchmark uses, and read the other ports' generated C for removed work",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From docs/research/lean-runtime-speed.md §1.5, §2.1 (SW-2318). Before SW-2295's measurement. 20 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2320,
+      "title": "AoC grid: O(1) cell lookup in Aoc.Common (array-backed Grid.at/map) and neighbours without building lists, with a lemma the new lookup agrees with the old; switch 2021 day 11 to it",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf",
+        "aoc"
+      ],
+      "epic": "comparative-speed",
+      "body": "From docs/research/lean-runtime-speed.md (SW-2318). A hypothesis from reading code: start only if the SW-2296 profile shows this cost is a meaningful share. Estimated octopus 48x -> 5-10x Lean. 60-90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2321,
+      "title": "Native: allocate and free cells inline, keeping the helper path for trace builds",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From docs/research/lean-runtime-speed.md (SW-2318). A hypothesis from reading code: start only if the SW-2296 profile shows this cost is a meaningful share. Est. 10-25% on allocation-heavy programs. 60-90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2322,
+      "title": "Native: a cheaper call protocol (frame limit and error flag in registers, stack check only where needed), steps and frame limits staying exact",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From docs/research/lean-runtime-speed.md (SW-2318). A hypothesis from reading code: start only if the SW-2296 profile shows this cost is a meaningful share. Est. 5-20%. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2323,
+      "title": "Std: one-pass List.flatMap, today's definition kept as a theorem",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf",
+        "stdlib"
+      ],
+      "epic": "comparative-speed",
+      "body": "From docs/research/lean-runtime-speed.md (SW-2318). A hypothesis from reading code: start only if the SW-2296 profile shows this cost is a meaningful share. Est. 5-15% on matcher. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2324,
+      "title": "Design note: compact values as the runtime's end state (one-word values everywhere, or compact cells keeping three-word registers); changes how Float is held",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "perf",
+        "design"
+      ],
+      "epic": "comparative-speed",
+      "body": "From docs/research/lean-runtime-speed.md (SW-2318), its D3358 (rec: yes, a note first). Not yet brought to Matt: waits for the SW-2296 profile to show object size and allocation matter. 90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
     }
   ]
 }
