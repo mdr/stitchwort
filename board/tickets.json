@@ -19968,7 +19968,7 @@
         "nix"
       ],
       "epic": "dev-loop-speed",
-      "body": "From docs/proposals/cold-std-check.md. Waits on D3120 (Matt). 90 min.",
+      "body": "From docs/proposals/cold-std-check.md. Waits on D3120 (Matt). 90 min.\n\nD3120 — Matt, 7 Nov 2026: \"I have no issues shipping a pre-built cache to speed things up. That seems totally reasonable. I mean, if you're trusting the binary, you might as well trust the cache, right?\"",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
