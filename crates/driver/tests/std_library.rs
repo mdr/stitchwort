@@ -1120,7 +1120,7 @@ fn the_core_alone_runs_every_example_that_uses_no_library_name() {
     eprintln!("core alone ran {ran}; {used_the_library} use a library name");
     // The sample shrinks with the tier (`tier_sample`): about 125 sources
     // in full, a quarter in daily, a sixteenth in merge and lanes.
-    use stitchwort_driver::driver::{tier, Tier};
+    use stitchwort_driver::driver::{Tier, tier};
     let enough = match tier() {
         Tier::Full => 50,
         Tier::Daily => 10,
