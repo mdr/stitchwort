@@ -2,7 +2,8 @@
 
 **Status:** parked, 6 November 2026 (D2448, Matt: option C for now;
 "definitely record any research we've done so far so we can pick it up
-again"). Ticket SW-1534 (from SW-1525); revisit ticket SW-1596. The
+again"). Reopened by [closed-type-values.md](closed-type-values.md)
+(SW-1787: 2024 day 22 is a real proof that hits it). Ticket SW-1534 (from SW-1525); revisit ticket SW-1596. The
 documented workaround is in the proving guide, §6. Read
 [§6](#6-why-parked-and-what-to-do-on-revisiting) before picking it up.
 Related: [folded-calls.md](folded-calls.md) (glued calls, D483; "As built
