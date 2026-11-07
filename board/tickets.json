@@ -21956,14 +21956,14 @@
     {
       "id": 2296,
       "title": "[Opus] Comparative speed 3: where the gaps come from: profile the worst pairs, rank causes with measured shares, tie each to an existing plan, file tickets",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2296",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "Plan: docs/proposals/comparative-speed.md §7 (D3330, D3340 native faces Python and Lean, D3341 no targets, D3342 natural data structures). After SW-2295. 1 h. Absorbs the startup split (SW-2291) if not done by then.",
+      "body": "Plan: docs/proposals/comparative-speed.md §7 (D3330, D3340 native faces Python and Lean, D3341 no targets, D3342 natural data structures). After SW-2295. 1 h. Absorbs the startup split (SW-2291) if not done by then.\n\nStarted 7 Nov 2026 23:33; expected: 90 min. Moved before SW-2295 (Matt, 7 Nov 2026: profile first: analyse, notice, address, recheck; invest in the profiling tools if they cannot show what we need). Confirms or refutes SW-2302, SW-2304, SW-2319-2324 and SW-2135.\n",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -22308,14 +22308,14 @@
     {
       "id": 2319,
       "title": "Comparative speed: the binary-trees Lean port lets Lean's CSE merge the two Tree.make calls (shared tree, ~1.5M allocations against our 68M); add the dummy argument Lean's own benchmark uses, and read the other ports' generated C for removed work",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2319",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/research/lean-runtime-speed.md §1.5, §2.1 (SW-2318). Before SW-2295's measurement. 20 min.",
+      "body": "From docs/research/lean-runtime-speed.md §1.5, §2.1 (SW-2318). Before SW-2295's measurement. 20 min.\n\nStarted 7 Nov 2026 23:33; expected: 20 min.\n",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []

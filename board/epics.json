@@ -430,20 +430,20 @@
         "Each language uses its natural data structures: no hobbled Python (D3342)",
         "Stage 1: harness, Python and Lean ports of ten programs, Lean ports of three days proofs; answer check 66/66 (SW-2292, SW-2293, SW-2299, SW-2294)",
         "Big-number note (SW-2298)",
-        "Proof baseline loads what each day uses: 2020 day 18 went from 37x to about 0.9x Lean, 2024 day 2 from 12x to 2x, 2021 day 15 about 4x (rough, one run, under load; SW-2313)"
+        "Proof baseline loads what each day uses: 2020 day 18 went from 37x to about 0.9x Lean, 2024 day 2 from 12x to 2x, 2021 day 15 about 4x (rough, one run, under load; SW-2313)",
+        "Inputs scaled at run time so Lean takes 0.4-0.6 s; --runners (SW-2307)",
+        "Why compiled Lean is faster: docs/research/lean-runtime-speed.md; binary-trees Lean port invalid (SW-2318)"
       ],
       "now": [
-        "Review fixes on scaled inputs (SW-2307)",
-        "Why compiled Lean is faster, paper lane (SW-2318)",
-        "Big numbers without copying (SW-2302)",
-        "Native inline Int arithmetic (SW-2304)",
-        "Overmind: answer check of all ten programs, then fuzzing"
+        "Profile the native gaps, improving the profiling tools where needed (SW-2296)",
+        "Fix the binary-trees Lean port (SW-2319)",
+        "Overmind: answer check, then fuzzing"
       ],
       "next": [
-        "Run time first (Matt, 7 Nov 2026): Stage 2 runtime-only, native against CPython and compiled Lean, on a quiet Speedwell (SW-2295)",
-        "Stage 3: ranked causes of the native gaps (SW-2296)",
-        "Big-number fixes (SW-2301-2304) and startup (SW-2291), measured before and after",
-        "Proof side later: Stage 2 proofs run, SW-2316, SW-2314"
+        "Stage 2 headline table on Overmind: native, CPython, PyPy, Lean (SW-2295)",
+        "Fixes the profile confirms (SW-2302, SW-2304, SW-2320-2323, SW-2135)",
+        "Compact values design note if the profile says so (SW-2324)",
+        "Proof side later (SW-2316, SW-2314)"
       ],
       "links": [
         "docs/proposals/comparative-speed.md"
