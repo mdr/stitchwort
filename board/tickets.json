@@ -1,5 +1,5 @@
 {
-  "next": 2001,
+  "next": 2022,
   "tickets": [
     {
       "id": 47,
@@ -9672,9 +9672,9 @@
         "std"
       ],
       "epic": "std-library",
-      "body": "From 2020 day 11 (SW-1470), 5 Nov 2026.",
+      "body": "From 2020 day 11 (SW-1470), 5 Nov 2026.\n\nFrom docs/research/aoc-friction-synthesis.md: widen into a fuelled-run kit, including 'enough fuel finishes'.",
       "created": "2026-11-05",
-      "updated": "2026-11-05",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -15809,7 +15809,7 @@
         "kernel"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/code-review-core.md (F2, F16). D2640 [rec: yes]. 45 min.\n\nFrom docs/reviews/code-review-js-native.md (D2710): the effect natives bind, foldComp, translate, runPure are replaced by name and arity on all three backends, and JS's rewrites of ifThenElse, Decidable.elim, Ord.compare, List.append, Nat.add likewise: pin them by content hash with the arrays' loud refusal, in this lane [rec: yes].\n\nFrom docs/proposals/backend-trust.md: rescoped as stage 3: create crates/core/src/pins.rs, one table checked when the library binds a declaration; a stale pin stops the library loading, printing the new hash (D2791); register_native refuses a second registration. SOUNDNESS: with Nat natives unpinned, a changed Nat.sub body plus the old native lets the kernel prove False (reachable only by editing std or a custom prelude, SW-1919). Opus, 60 min, first, alongside SW-1989. The D2710 half moves to SW-1991.",
+      "body": "From docs/reviews/code-review-core.md (F2, F16). D2640 [rec: yes]. 45 min.\n\nFrom docs/reviews/code-review-js-native.md (D2710): the effect natives bind, foldComp, translate, runPure are replaced by name and arity on all three backends, and JS's rewrites of ifThenElse, Decidable.elim, Ord.compare, List.append, Nat.add likewise: pin them by content hash with the arrays' loud refusal, in this lane [rec: yes].\n\nFrom docs/proposals/backend-trust.md: rescoped as stage 3: create crates/core/src/pins.rs, one table checked when the library binds a declaration; a stale pin stops the library loading, printing the new hash (D2791); register_native refuses a second registration. SOUNDNESS: with Nat natives unpinned, a changed Nat.sub body plus the old native lets the kernel prove False (reachable only by editing std or a custom prelude, SW-1919). Opus, 60 min, first, alongside SW-1989. The D2710 half moves to SW-1991.\n\nFrom docs/reviews/code-review-std.md (S5): List.length is swapped for List.lengthOnto at run time by name, unhashed, and isn't in the pin table; the review has a table of every std definition the backends bind or rewrite.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17333,14 +17333,14 @@
     {
       "id": 1987,
       "title": "[Opus] Code review: the standard library's .sw sources (crates/elab/src/std): API consistency, naming, missing lemmas users reach for, docs accuracy, slow definitions, what natives assume",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1987",
       "labels": [
         "review"
       ],
       "epic": "std-library",
-      "body": "Matt (7 Nov 2026): parallel review work; the crate reviews covered Rust only. Expected: 75 min.",
+      "body": "Matt (7 Nov 2026): parallel review work; the crate reviews covered Rust only. Expected: 75 min.\n\nDone, merged: docs/reviews/code-review-std.md. Sound per definition; problems in the API as a whole. 0 high, 5 medium, 8 low. Tickets SW-2001-SW-2008; SW-1885 widened. D2820 (theorem docs: only when the statement doesn't say it all [rec]), D2821-D2823. 12 min (est. 75).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17348,13 +17348,13 @@
     {
       "id": 1988,
       "title": "[Opus] Research: synthesis of the AoC friction notes outside 2020 days 10-20 (2020 days 1-9, 2021, 2024, 2025), and which of SW-1598's findings are now fixed; the language gaps ranked by how often they recur",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1988",
       "labels": [
         "research"
       ],
-      "body": "Matt (7 Nov 2026): parallel research. Follows docs/research/aoc-2020-friction-days-10-20.md (SW-1598). Expected: 60 min.",
+      "body": "Matt (7 Nov 2026): parallel research. Follows docs/research/aoc-2020-friction-days-10-20.md (SW-1598). Expected: 60 min.\n\nDone, merged: docs/research/aoc-friction-synthesis.md. 71 days read. Of SW-1598's 83 tickets: 36 done, 2 next, 45 backlog. Top gap: proof steps act on the computed goal (35+ days, SW-1839/1840). D2830 (6a/6b before print sites [rec]), D2831 (AoC lanes move generic lemmas to std or Common [rec]), D2832-D2834. Tickets SW-2009-SW-2017 (getOr naming is SW-2006). 11 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17422,14 +17422,14 @@
     {
       "id": 1993,
       "title": "[Opus] Design note: the elaborator, kernel and evaluator walk long chains (list literals, + chains, long blocks) without recursion, so the playground handles lists of thousands of elements (D2751)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1993",
       "labels": [
         "design"
       ],
       "epic": "editor-playground",
-      "body": "From docs/proposals/deep-input.md (D2751). Expected: 60 min.",
+      "body": "From docs/proposals/deep-input.md (D2751). Expected: 60 min.\n\nDone, merged: docs/proposals/long-chains.md. D2751's premise out of date (literals chunked since SW-62). D2840-D2844. Tickets SW-2018-SW-2021. 10 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17535,6 +17535,300 @@
       ],
       "epic": "record-eta",
       "body": "From SW-1913. Repro cases-proj.sw. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2001,
+      "title": "[Sonnet] Std lane A: doc fixes (Nat.add's doc predates c + 1 computing; docs naming parameters that don't exist) and bridge lemmas: List.maximum/minimum/maxBy give Ord.max/min but omega knows only Nat.max/min",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From docs/reviews/code-review-std.md (S2, S9). 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2002,
+      "title": "[Sonnet] Std lane B: effectful callbacks (Fail etc.) for Array, Map, Set, Option, Text as List has",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From docs/reviews/code-review-std.md (S1). D2821 [rec: yes]. 75 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2003,
+      "title": "[Sonnet] Std lane C: move the lemmas AoC days wrote themselves into std",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From docs/reviews/code-review-std.md (S3). 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2004,
+      "title": "[Sonnet] Std lane D: move lemmas to the files their names suggest (List/SortLemmas.sw holds the sum and count lemmas)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From docs/reviews/code-review-std.md (S4). 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2005,
+      "title": "[Sonnet] Std lane E: missing family members across List/Array/Map/Set/Text",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From docs/reviews/code-review-std.md. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2006,
+      "title": "[DeepSeek] Std lane F: one name per operation (getOrElse vs getOr, splitOn vs joinWith, Text.fold is a right fold; the list in S7), no aliases",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From docs/reviews/code-review-std.md (S7). D2822 [rec: yes]. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2007,
+      "title": "[Sonnet] Std lane G: Set.fromList and Map.range speedups",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From docs/reviews/code-review-std.md. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2008,
+      "title": "[Opus] Design note: hiding internal step helpers (List.filterStep etc.) from std's public API",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "body": "From docs/reviews/code-review-std.md. D2823 [rec: yes]. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2009,
+      "title": "[Opus] One lane for slow or hung checks: say what a check is computing (SW-1537 with SW-1477, SW-1534); past its budget it fails naming the declaration and what it was unfolding",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "body": "From docs/research/aoc-friction-synthesis.md. 17+ days. D2832 [rec: yes]. 90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2010,
+      "title": "[Sonnet] Built-in Nat bit operations (xor, and, or, shifts) in the runtime (4.3 µs per xor today)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "runtime"
+      ],
+      "body": "From docs/research/aoc-friction-synthesis.md. Split from SW-808. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2011,
+      "title": "[Opus] Design note: rewriting one chosen occurrence",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "body": "From docs/research/aoc-friction-synthesis.md. Split from SW-758; 4 days. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2012,
+      "title": "[DeepSeek] Arity error through definitions: the note names the definition that unfolded",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "errors"
+      ],
+      "body": "From docs/research/aoc-friction-synthesis.md. 3 days. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2013,
+      "title": "[Opus] Design item: a decreasing measure that uses a hypothesis",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "body": "From docs/research/aoc-friction-synthesis.md. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2014,
+      "title": "[Opus] Design note: computing loop-invariant values once (a record method rebuilding a Map per call)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "body": "From docs/research/aoc-friction-synthesis.md. Absorbs SW-1576, SW-1602; 6 days. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2015,
+      "title": "[Sonnet] Triage the old day-findings bundles (SW-808 and similar), which epic aoc-older lists as next but no ticket covers",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "From docs/research/aoc-friction-synthesis.md. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2016,
+      "title": "[DeepSeek] Move misplaced end-of-day friction lists (NOTES-2024.md:1264, 1298, 1633, 1651; NOTES-2021.md:1735)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "From docs/research/aoc-friction-synthesis.md. 20 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2017,
+      "title": "[Sonnet] Check whether ability operations are in scope without an import; fix or close",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "From docs/research/aoc-friction-synthesis.md. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2018,
+      "title": "[Sonnet] Measure chain limits in web/stress.html (blocks, chains) and fix four stale notes (web/build.rs:16-18, stress.html:142-143, deep-input.md §3A and D2751): long list literals have been chunked since SW-62 (20,000 in the browser tests)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "web"
+      ],
+      "body": "From docs/proposals/long-chains.md (stage 1). Needs a wasm build and headless browser: Matt's OK. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2019,
+      "title": "[Sonnet] Fixed-size let split for long list literals instead of stack-dependent append chunking (limits.stack / 2400), so a literal's term and hash are the same on every thread; ~200 fewer steps per element",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "From docs/proposals/long-chains.md (stage 2). D2841 [rec: yes]. Opus reviews (kernel terms). snap:hashes and hash_stability. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2020,
+      "title": "[DeepSeek] Long + - * chains: the depth error suggests [...].sum",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "errors"
+      ],
+      "body": "From docs/proposals/long-chains.md. D2844. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2021,
+      "title": "[Opus] Long blocks: kernel calls body.mentions(0) at every let (core check.rs:356, :535) and the elaborator recomputes a block's span per level: quadratic; then last-child loops (elaborator, kernel, term utilities, rt, JS) if stage 1 shows the playground can't do a 300-line block",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "body": "From docs/proposals/long-chains.md (stages 4-8). D2840, D2842. After SW-2018.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
