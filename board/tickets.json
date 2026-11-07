@@ -22308,17 +22308,19 @@
     {
       "id": 2319,
       "title": "Comparative speed: the binary-trees Lean port lets Lean's CSE merge the two Tree.make calls (shared tree, ~1.5M allocations against our 68M); add the dummy argument Lean's own benchmark uses, and read the other ports' generated C for removed work",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2319",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/research/lean-runtime-speed.md §1.5, §2.1 (SW-2318). Before SW-2295's measurement. 20 min.\n\nStarted 7 Nov 2026 23:33; expected: 20 min.\n",
+      "body": "From docs/research/lean-runtime-speed.md §1.5, §2.1 (SW-2318). Before SW-2295's measurement. 20 min.\n\nStarted 7 Nov 2026 23:33; expected: 20 min.\n\n\nDone 7 Nov 2026 (branch lane/SW-2319): salt argument added; both Tree.make calls now in the C; other ports only hoist small closed constants. Lean 0.20 s -> 0.56 s; native 1.94 s, CPython 5.9 s. Model result: Sonnet, worked, ~10 min (est. 20).\n",
       "created": "2026-11-07",
       "updated": "2026-11-07",
-      "commits": []
+      "commits": [
+        "08f5e96f6a4adea4ff76394631c8e5774a6df84b"
+      ]
     },
     {
       "id": 2320,
