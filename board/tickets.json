@@ -1,5 +1,5 @@
 {
-  "next": 1793,
+  "next": 1794,
   "tickets": [
     {
       "id": 47,
@@ -14405,14 +14405,29 @@
     {
       "id": 1792,
       "title": "task bench: says 'about a minute' but the examples step takes 13-15 min; the committed baseline is stale (inputs changed, improvements unrecorded) (SW-1782)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1792",
       "labels": [
         "tooling"
       ],
       "epic": "dev-loop-speed",
       "body": "From SW-1782.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1793,
+      "title": "dev/t (task test:areas) loops over crates/cli/tests/*.rs and passes --test lsp, --test extract etc., which no longer exist after the test-binary merges (SW-1790); fix it to the new groups or retire it in favour of test:affected",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1793",
+      "labels": [
+        "tooling"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1790, 7 Nov 2026.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
