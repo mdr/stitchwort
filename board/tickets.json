@@ -21581,9 +21581,9 @@
     {
       "id": 2271,
       "title": "[Sonnet] SW-2268 F3: a test for G11 (needSame [a := 1] x rfl, the unifier's same-definition gap SW-2256 fixed)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2271",
       "labels": [
         "tests"
       ],
