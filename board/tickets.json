@@ -1,5 +1,5 @@
 {
-  "next": 2091,
+  "next": 2093,
   "tickets": [
     {
       "id": 47,
@@ -18806,14 +18806,14 @@
     {
       "id": 2086,
       "title": "[Sonnet] HIGH: checker recovery: reopen documents inside the catch (a project that panics while loading stops checking everywhere); diagnostics marked sent only after sending; a retry's first panic re-quarantines",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2086",
       "labels": [
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From SW-1948. 45 min.\n\nFrom docs/reviews/SW-2087-checker-recovery-and-forget-since.md (HIGH, lane 1): reopening loads libraries (cache replay, kernel), so a project that panics while loading kills the successor and stops checking for every project, losing the handover record; do the reopen inside the existing catch so the second panic quarantines that project. Also: one rule for a file's workspace; mark diagnostics sent only after sending (today a mid-publish panic suppresses unsent ones); a retry's first panic re-quarantines (one restart per edit, not two); the missing tests. Sonnet, 75 min.",
+      "body": "From SW-1948. 45 min.\n\nFrom docs/reviews/SW-2087-checker-recovery-and-forget-since.md (HIGH, lane 1): reopening loads libraries (cache replay, kernel), so a project that panics while loading kills the successor and stops checking for every project, losing the handover record; do the reopen inside the existing catch so the second panic quarantines that project. Also: one rule for a file's workspace; mark diagnostics sent only after sending (today a mid-publish panic suppresses unsent ones); a retry's first panic re-quarantines (one restart per edit, not two); the missing tests. Sonnet, 75 min.\n\nDone, merged. Reopen under the catch (Checker::caught; a reopen panic quarantines that workspace, others reopen next round); one restart per edit; publish records after each send; workspace_of/home_of one rule; Faults::load_panic. On main: lsp 26/26, faults:: 18/18 twice. The lane saw one timeout of a_panicking_search_is_answered_and_the_next_search_works under a cold build (passed alone and on both runs here). Not done: review items C6-C9 (tests for a panic in apply, double fault, Close of a quarantined file; doubled panic log line; rebuild time). Model result: Sonnet, worked, 10 min (est. 75).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -18874,6 +18874,36 @@
       ],
       "epic": "elaborator-kernel",
       "body": "From docs/reviews/SW-2087-checker-recovery-and-forget-since.md (lane 4). 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2091,
+      "title": "[Sonnet] Checker recovery leftovers (SW-2087 C6-C9): tests for a panic in apply, a double fault and a Close of a quarantined file; the doubled panic log line; measure the rebuild time after a restart on an AoC project",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "epic": "editor-playground",
+      "body": "From docs/reviews/SW-2087-checker-recovery-and-forget-since.md. After SW-2089/SW-2090 (same file). 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2092,
+      "title": "[Sonnet] Watch for flakiness: a_panicking_search_is_answered_and_the_next_search_works timed out once waiting for the server under a cold build (SW-2086); if it recurs, replace the wait with a deterministic signal",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "flaky"
+      ],
+      "epic": "test-infra",
+      "body": "From SW-2086. 30 min if it recurs.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
