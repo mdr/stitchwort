@@ -202,6 +202,31 @@ fn prints_the_prelude_operators_infix() {
     assert_eq!(show(&p, &names, &nested), "x - y - y");
 }
 
+#[test]
+fn prints_float_operators_infix() {
+    let mut p = Prelude::new();
+    let float = data(&mut p.g, "Float", vec![], Sort::Type(0));
+    stitchwort_core::check::define_ctors(&mut p.g, float, vec![]).expect("Float");
+    registry::bind_data(&mut p.g, float);
+    let float_ty = Term::Data(float, vec![]);
+    let ty = arrow(float_ty.clone(), arrow(float_ty.clone(), float_ty.clone()));
+    let names = ["x", "y"];
+    for (name, op) in [
+        ("Float.add", "+"),
+        ("Float.sub", "-"),
+        ("Float.mul", "*"),
+        ("Float.div", "/"),
+        ("Float.rem", "%"),
+    ] {
+        let id = define(&mut p.g, name, ty.clone(), lam("x", lam("y", v(1)))).unwrap();
+        registry::bind_def(&mut p.g, id);
+        assert_eq!(
+            show(&p, &names, &app(Term::Def(id), [v(1), v(0)])),
+            format!("x {op} y")
+        );
+    }
+}
+
 /// Declares an `Int` (`OfNat n | NegSucc n`), bound as the prelude's if `bind`.
 fn int_type(p: &mut Prelude, bind: bool) -> stitchwort_core::DataId {
     let nat = p.nat_ty();
