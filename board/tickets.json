@@ -19443,7 +19443,7 @@
         "nix"
       ],
       "epic": "dev-loop-speed",
-      "body": "From SW-2105. Linux only; Mac is unchanged. Speedwell can only check that the flake still evaluates and builds on Darwin; Overmind verifies on Linux after a push (build, AoC check, and timing a test build: nextest --no-run before and after). 40 min.\n\nMerged (one flake.nix edit: muslEnv's linker is a musl-cc-mold script, cc -B${mold}/bin -fuse-ld=mold; covers crane and the dev shell; Darwin unchanged). Evaluates for x86_64-linux, aarch64-linux, aarch64-darwin. Not yet built on Linux: Overmind verifies after a push (readelf -p .comment shows mold, AoC check, touched-CLI rebuild ~0.8 s, nextest --no-run before/after, nix build .#stitchwort-bin). Stays in review until then. Model result: Sonnet, worked, 5 min (est. 40).",
+      "body": "From SW-2105. Linux only; Mac is unchanged. Speedwell can only check that the flake still evaluates and builds on Darwin; Overmind verifies on Linux after a push (build, AoC check, and timing a test build: nextest --no-run before and after). 40 min.\n\nMerged (one flake.nix edit: muslEnv's linker is a musl-cc-mold script, cc -B${mold}/bin -fuse-ld=mold; covers crane and the dev shell; Darwin unchanged). Evaluates for x86_64-linux, aarch64-linux, aarch64-darwin. Not yet built on Linux: Overmind verifies after a push (readelf -p .comment shows mold, AoC check, touched-CLI rebuild ~0.8 s, nextest --no-run before/after, nix build .#stitchwort-bin). Stays in review until then. Model result: Sonnet, worked, 5 min (est. 40).\n\nD3110 — Matt, 7 Nov 2026: \"Yes, please feel free to push [main] so that Overmind gets the [latest bits].\"",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
