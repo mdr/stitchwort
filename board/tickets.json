@@ -1,5 +1,5 @@
 {
-  "next": 2255,
+  "next": 2264,
   "tickets": [
     {
       "id": 47,
@@ -21146,14 +21146,14 @@
     {
       "id": 2242,
       "title": "[Sonnet] Equality S1: a plain reference evaluator (test-only switch in reference.rs, every fold off) every mode must agree with; wrapping tests (wrap a subterm in each lazy form and require it stays equal); G1-G6 as known failures each fix lane flips; proof_equivalence under ~5 s",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2242",
       "labels": [
         "tests"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/proposals/equality-in-the-round.md, stage S1, 75 min, after SW-2241 (same file). Can start before D3250: tests only.. Probes in the session scratchpad probes/g1-g6.sw (copy into the test). Waits on D3250 unless noted.\n\nD3250/D3260 — Matt, 7 Nov 2026: \"approve with those changes\" (adopt the equality rule with SW-2251's changes: a call that can be unfolded is compared by its case tree when its arguments differ; the deliberate limits named and shared by every mode; the property suite is the test of record).",
+      "body": "From docs/proposals/equality-in-the-round.md, stage S1, 75 min, after SW-2241 (same file). Can start before D3250: tests only.. Probes in the session scratchpad probes/g1-g6.sw (copy into the test). Waits on D3250 unless noted.\n\nD3250/D3260 — Matt, 7 Nov 2026: \"approve with those changes\" (adopt the equality rule with SW-2251's changes: a call that can be unfolded is compared by its case tree when its arguments differ; the deliberate limits named and shared by every mode; the property suite is the test of record).\n\nDone, merged. Plain evaluator (reference feature only; set_plain, step budget, compact_or_lazy check), agreement in every mode, wrapping (944 pairs), closed ground truth, transitivity; G1-G9 as #[ignore]d known failures. Not done: the fallback assertion (needs its own lane). On main: proof_equivalence/call_fields/eta_fields 16/16, core 181/181. Model result: Sonnet, worked, 23 min (est. 105).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21168,7 +21168,7 @@
         "core"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/proposals/equality-in-the-round.md, stage S2, 60 min, after SW-2242. Probes in the session scratchpad probes/g1-g6.sw (copy into the test). Waits on D3250 unless noted.\n\n7 Nov: rescoped per docs/reviews/SW-2251-equality-rule.md: absorbs SW-2245 (G6), adds G7 (leaf against the other tree's stuck case) and G8 (two alike number-literal matches). Waits on D3260.\n\nD3250/D3260 — Matt, 7 Nov 2026: \"approve with those changes\" (adopt the equality rule with SW-2251's changes: a call that can be unfolded is compared by its case tree when its arguments differ; the deliberate limits named and shared by every mode; the property suite is the test of record).",
+      "body": "From docs/proposals/equality-in-the-round.md, stage S2, 60 min, after SW-2242. Probes in the session scratchpad probes/g1-g6.sw (copy into the test). Waits on D3250 unless noted.\n\n7 Nov: rescoped per docs/reviews/SW-2251-equality-rule.md: absorbs SW-2245 (G6), adds G7 (leaf against the other tree's stuck case) and G8 (two alike number-literal matches). Waits on D3260.\n\nD3250/D3260 — Matt, 7 Nov 2026: \"approve with those changes\" (adopt the equality rule with SW-2251's changes: a call that can be unfolded is compared by its case tree when its arguments differ; the deliberate limits named and shared by every mode; the property suite is the test of record).\n\n7 Nov: split into SW-2255 (rule text), SW-2256, SW-2257, SW-2258, SW-2259; run in that order (same functions).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21183,7 +21183,7 @@
         "core"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/proposals/equality-in-the-round.md, stage S3, 75 min, after SW-2242; beside SW-2243. Probes in the session scratchpad probes/g1-g6.sw (copy into the test). Waits on D3250 unless noted.\n\n7 Nov per docs/reviews/SW-2251-equality-rule.md: fix G2 lazily where a comparison or case reads the sum, not in how + evaluates (evaluation changes visible goals and syntactic search). Through the head view. Waits on D3260.\n\nD3250/D3260 — Matt, 7 Nov 2026: \"approve with those changes\" (adopt the equality rule with SW-2251's changes: a call that can be unfolded is compared by its case tree when its arguments differ; the deliberate limits named and shared by every mode; the property suite is the test of record).",
+      "body": "From docs/proposals/equality-in-the-round.md, stage S3, 75 min, after SW-2242; beside SW-2243. Probes in the session scratchpad probes/g1-g6.sw (copy into the test). Waits on D3250 unless noted.\n\n7 Nov per docs/reviews/SW-2251-equality-rule.md: fix G2 lazily where a comparison or case reads the sum, not in how + evaluates (evaluation changes visible goals and syntactic search). Through the head view. Waits on D3260.\n\nD3250/D3260 — Matt, 7 Nov 2026: \"approve with those changes\" (adopt the equality rule with SW-2251's changes: a call that can be unfolded is compared by its case tree when its arguments differ; the deliberate limits named and shared by every mode; the property suite is the test of record).\n\n7 Nov: split into SW-2260, SW-2261, SW-2262 (G9 found by SW-2242).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21334,6 +21334,141 @@
       ],
       "epic": "elaborator-kernel",
       "body": "From docs/reviews/SW-2251-equality-rule.md (G4 can't run unglued). 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2255,
+      "title": "[Opus] Equality rule text: write D3250/D3260's rule into docs/core.md (say different or stuck only on a rigid head; an unfoldable stuck call compared by its case tree when its arguments differ; same definition with equal arguments an equal-only shortcut; the named limits every mode shares), no code",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2255",
+      "labels": [
+        "core"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "Split from SW-2243 into ~15-min steps (Matt, 7 Nov: small scope near the quota). Flip the gap's #[ignore]d test in proof_equivalence.rs (SW-2242) and its probe in docs/repros/sw-2236/. D3250/D3260. 15-20 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2256,
+      "title": "[Opus] Equality G6: same-definition stuck calls with different arguments are compared by what they unfold to (transitivity)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "Split from SW-2243 into ~15-min steps (Matt, 7 Nov: small scope near the quota). Flip the gap's #[ignore]d test in proof_equivalence.rs (SW-2242) and its probe in docs/repros/sw-2236/. D3250/D3260. 15-20 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2257,
+      "title": "[Opus] Equality G1 and G3: two alike match helpers on a folded call or a number",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "Split from SW-2243 into ~15-min steps (Matt, 7 Nov: small scope near the quota). Flip the gap's #[ignore]d test in proof_equivalence.rs (SW-2242) and its probe in docs/repros/sw-2236/. D3250/D3260. 15-20 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2258,
+      "title": "[Opus] Equality G7: a tree's leaf against the other tree's stuck case",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "Split from SW-2243 into ~15-min steps (Matt, 7 Nov: small scope near the quota). Flip the gap's #[ignore]d test in proof_equivalence.rs (SW-2242) and its probe in docs/repros/sw-2236/. D3250/D3260. 15-20 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2259,
+      "title": "[Opus] Equality G8: two alike number-literal matches",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "Split from SW-2243 into ~15-min steps (Matt, 7 Nov: small scope near the quota). Flip the gap's #[ignore]d test in proof_equivalence.rs (SW-2242) and its probe in docs/repros/sw-2236/. D3250/D3260. 15-20 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2260,
+      "title": "[Opus] Equality G2: + with a folded second argument, fixed where the sum is read, not in how + evaluates",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "Split from SW-2244 into ~15-min steps (Matt, 7 Nov: small scope near the quota). Flip the gap's #[ignore]d test in proof_equivalence.rs (SW-2242) and its probe in docs/repros/sw-2236/. D3250/D3260. 15-20 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2261,
+      "title": "[Opus] Equality G9: native Nat.add on Succ (decreasing call) as the first argument",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "Split from SW-2244 into ~15-min steps (Matt, 7 Nov: small scope near the quota). Flip the gap's #[ignore]d test in proof_equivalence.rs (SW-2242) and its probe in docs/repros/sw-2236/. D3250/D3260. 15-20 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2262,
+      "title": "[Opus] Equality G4 and G5: Float.ofNat of a folded number; a number-literal match on Succ of a folded call",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "Split from SW-2244 into ~15-min steps (Matt, 7 Nov: small scope near the quota). Flip the gap's #[ignore]d test in proof_equivalence.rs (SW-2242) and its probe in docs/repros/sw-2236/. D3250/D3260. 15-20 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2263,
+      "title": "[Sonnet] Equality: a test-build check that panics when plain mode says equal where the fast path said different (SW-2251's item; needs glued values the reference can read)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-2242's not-done list. Scope it to one step before starting. 30 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
