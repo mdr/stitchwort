@@ -14495,14 +14495,14 @@
     {
       "id": 1798,
       "title": "Editor: each searched completion, code action or contextAt (Searcher::run → probe_project → load_all_libraries) replays the whole std in a fresh session: a per-request cost in the real server; reuse a search session across requests (SW-1796)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1798",
       "labels": [
         "perf"
       ],
       "epic": "editor-playground",
-      "body": "From SW-1796, 7 Nov 2026: 63% of a 31 s test is these replays, six completions = six replays.",
+      "body": "From SW-1796, 7 Nov 2026: 63% of a 31 s test is these replays, six completions = six replays.\n\nDone, merged: each search thread keeps one std-loaded session (thread-local) and rewinds it after each request; panic drops it; check cache reset each time; off for wasm. A project completion ~480 ms → ~1 ms warm (first search per thread still ~0.65 s). New test: 8 searches in a row equal fresh ones. Memory: ~0.45 GB per search thread, held. On main: lsp it 23/23 (release), test:affected 824 passed (its budget cut dropped the lsp rule; the lane ran cli server lsp:: 48/48). Model result: Sonnet, worked, 15 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
