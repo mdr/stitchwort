@@ -1,5 +1,5 @@
 {
-  "next": 2128,
+  "next": 2129,
   "tickets": [
     {
       "id": 47,
@@ -19091,14 +19091,14 @@
     {
       "id": 2105,
       "title": "[Sonnet] Later: on Linux (Overmind), measure how much of an incremental build is linking, and try mold or lld as the linker if it's a large share",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "Overmind (laptop)",
       "labels": [
         "tooling"
       ],
       "epic": "dev-loop-speed",
-      "body": "Matt, 7 Nov 2026 (from a suggestion of Simon's): look at mold later. Mac builds use Apple's linker, so this is Linux-only. 45 min.\n\nMatt: mold's GitHub says 'A Modern Linker in Rust' (checked 7 Nov). Also try wild (davidlattimore/wild, Rust, Linux).\n\nSent to Overmind (soak job 4), Matt: \"Yes, work on both tasks for Overmind.\"",
+      "body": "Matt, 7 Nov 2026 (from a suggestion of Simon's): look at mold later. Mac builds use Apple's linker, so this is Linux-only. 45 min.\n\nMatt: mold's GitHub says 'A Modern Linker in Rust' (checked 7 Nov). Also try wild (davidlattimore/wild, Rust, Linux).\n\nSent to Overmind (soak job 4), Matt: \"Yes, work on both tasks for Overmind.\"\n\nOvermind soak job 4 (f06dd23cd): the musl target links with the pkgsStatic gcc wrapper (GNU ld 2.46; flake.nix muslEnv ~75). Touch cli/main.rs: 2.26 s, of which linking 1.70 s (75%); mold 0.83 s (link 0.27), wild 0.80 s (link 0.22). Touch elab/lib.rs: 5.9 s -> mold 4.45 s, wild 4.44 s. Mold's binary passes the whole AoC check (136.5 s vs 141.5 s, noise); wild's segfaults on the AoC check 4 of 4 (warnings: --plugin liblto not supported, -z text not supported) — not usable. Test builds (many binaries) not measured; saving should multiply there. Swapped via a wrapper with -fuse-ld=mold, no tracked change. Done; wiring is SW-2128.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19429,6 +19429,21 @@
       ],
       "epic": "record-eta",
       "body": "From docs/reviews/SW-2125-folded-call-fields.md (lane B: F2, F5; F3 goes to SW-2113). 40 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2128,
+      "title": "[Sonnet] Linux: link with mold (flake.nix muslEnv: -fuse-ld=mold, mold in the dev shell): Overmind measured a CLI relink of 1.70 s -> 0.27 s (a touched-cli rebuild 2.26 s -> 0.83 s); wild segfaults, don't use it",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "nix"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-2105. Linux only; Mac is unchanged. Speedwell can only check that the flake still evaluates and builds on Darwin; Overmind verifies on Linux after a push (build, AoC check, and timing a test build: nextest --no-run before and after). 40 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
