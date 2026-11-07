@@ -734,6 +734,9 @@ struct Searches {
     /// The pop-up saying searches have stopped has been sent: once for the
     /// pool, whichever worker's supervisor finds the budget spent first.
     told_stopped: AtomicBool,
+    /// The budget is spent: a search that is still taken by a live worker
+    /// is answered with null at once.
+    stopped: AtomicBool,
     /// The searches that panicked: document, version and what was asked
     /// ([`Search::key`]). Asking again at the same text would panic again
     /// and spend the budget (VS Code asks whenever the cursor moves), so
@@ -780,6 +783,7 @@ fn keep_search_worker(
             Err(_) => notices.recovered(&format!("search worker {n} died; restarting it")),
         }
         if !lock(&searches.budget).spend() {
+            searches.stopped.store(true, Ordering::SeqCst);
             if !searches.told_stopped.swap(true, Ordering::SeqCst) {
                 notices.always(
                     lsp_types::MessageType::ERROR,
@@ -928,6 +932,17 @@ fn run_search(
 ) -> bool {
     if job.pending.cancel.load(Ordering::Relaxed) {
         lock(&searches.pending).remove(&job.id);
+        return true;
+    }
+    if searches.stopped.load(Ordering::SeqCst) {
+        searched(
+            &job.id,
+            &job.pending,
+            job.version,
+            serde_json::Value::Null,
+            sender,
+            searches,
+        );
         return true;
     }
     let now = searches.running.fetch_add(1, Ordering::SeqCst) + 1;
@@ -2475,6 +2490,8 @@ struct Checker {
     retired: BTreeSet<PathBuf>,
     /// Checking has stopped for good (the restart budget is spent): why.
     stopped: Option<String>,
+    /// Where recovered errors are shown; none when driven inline.
+    notices: Option<Arc<Notices>>,
 }
 
 /// A panic in the checker: the workspace it was working on, if known.
@@ -2513,13 +2530,14 @@ struct Keeper {
 /// Restarts of the checker, from panics anywhere, that stop checking for the
 /// whole session: three projects' worth of their own budget
 /// ([`Budget::RESTARTS`]), so that a few broken projects can't reach it
-/// before each has been quarantined.
+/// before each has been retired. The panic that retires a project is not
+/// counted, since it is the project's budget running out.
 const BACKSTOP: usize = 15;
 
 /// Runs the checker, and starts a new thread for it, from what the old one
 /// kept, whenever it panics. A workspace that panics again with no edit in
 /// between is quarantined; one that spends its own [`Budget`] is quarantined
-/// for the rest of the session. Every panic also counts against a larger
+/// for the rest of the session. Every panic but one that retires a workspace also counts against a larger
 /// budget for the whole session (`BACKSTOP`), which stops checking
 /// altogether: it is the only limit on panics that no workspace can be
 /// blamed for.
@@ -2535,15 +2553,18 @@ fn keep_checker(
     let mut keeper = Keeper::default();
     let mut session = Budget::of(BACKSTOP);
     let mut budgets: BTreeMap<PathBuf, Budget> = BTreeMap::new();
+    let mut told: BTreeSet<PathBuf> = BTreeSet::new();
     loop {
         let thread = {
             let (options, source, sender) = (options.clone(), source.clone(), sender.clone());
             let (nav, cancel, edits) = (nav.clone(), cancel.clone(), edits.clone());
+            let notices = notices.clone();
             std::thread::Builder::new()
                 .name("stitchwort-checker".into())
                 .stack_size(options.stack)
                 .spawn(move || {
-                    Checker::resume(options, source, sender, nav, cancel, keeper).run(&edits)
+                    Checker::resume(options, source, sender, nav, cancel, keeper, notices)
+                        .run(&edits)
                 })
         };
         let exit = match thread.map(|t| t.join()) {
@@ -2573,57 +2594,88 @@ fn keep_checker(
             // them, until the client asks again.
             kept.also.clear();
         }
-        let own_budget_spent = (panic.workspace.as_ref())
-            .is_some_and(|w| !budgets.entry(w.clone()).or_default().spend());
-        if !session.spend() {
+        // Once stopped, a panic only restarts the thread: the pop-up has
+        // been shown, and every file already shows why.
+        let spent = kept.stopped.is_none()
+            && (panic.workspace.as_ref()).is_some_and(|w| {
+                !kept.retired.contains(w) && !budgets.entry(w.clone()).or_default().spend()
+            });
+        if kept.stopped.is_some() {
+        } else if spent {
+            // The panic that retires a project isn't charged to the session
+            // (later ones are):
+            // the project's own budget is what it costs, so `BACKSTOP` holds
+            // that many projects' worth.
+            if let Some(workspace) = panic.workspace {
+                quarantine(&notices, &mut kept, workspace, true, true, &panic.message);
+            }
+        } else if !session.spend() {
             notices.always(
                 lsp_types::MessageType::ERROR,
                 "Stitchwort stopped checking after repeated internal errors. Reload \
                  the window to start again.",
             );
             kept.stopped = Some(
-                "internal error: checking stopped after repeated internal errors; restart \
-                 the language server"
+                "internal error: checking stopped after repeated internal errors; reload \
+                 the window"
                     .to_string(),
             );
-        } else if let Some(workspace) = panic.workspace
-            && (own_budget_spent || !kept.suspects.insert(workspace.clone()))
+        } else if let Some(workspace) = panic.workspace.clone()
+            && !kept.suspects.insert(workspace.clone())
         {
-            let name = (workspace.file_name())
-                .map_or("a file".to_string(), |n| n.to_string_lossy().into_owned());
-            notices.always(
-                lsp_types::MessageType::ERROR,
-                &format!(
-                    "Stitchwort stopped checking {name} after repeated internal errors. {}",
-                    if own_budget_spent {
-                        "Reload the window to start again."
-                    } else {
-                        "Edit one of its files to try again."
-                    }
-                ),
-            );
-            kept.suspects.remove(&workspace);
-            let remedy = if own_budget_spent {
-                "checking it has stopped after repeated internal errors; restart the \
-                 language server"
-            } else {
-                "edit a file of it to try again"
-            };
-            if own_budget_spent {
-                kept.retired.insert(workspace.clone());
-            }
-            kept.quarantined.insert(
-                workspace,
-                format!(
-                    "internal error while checking {name}: {}; {remedy}",
-                    panic.message
-                ),
-            );
+            // Told once for each time it is quarantined: a retry that
+            // panics again is quarantined again, silently.
+            let tell = told.insert(workspace.clone());
+            quarantine(&notices, &mut kept, workspace, false, tell, &panic.message);
         } else {
+            if let Some(workspace) = &panic.workspace {
+                // A first panic starts afresh.
+                told.remove(workspace);
+            }
             notices.tell_recovered();
         }
         keeper = *kept;
     }
+}
+
+/// Quarantines `workspace` in `kept`, for good if `retired`, with a pop-up
+/// if `tell`.
+fn quarantine(
+    notices: &Notices,
+    kept: &mut Keeper,
+    workspace: PathBuf,
+    retired: bool,
+    tell: bool,
+    message: &str,
+) {
+    let name =
+        (workspace.file_name()).map_or("a file".to_string(), |n| n.to_string_lossy().into_owned());
+    if tell {
+        notices.always(
+            lsp_types::MessageType::ERROR,
+            &format!(
+                "Stitchwort stopped checking {name} after repeated internal errors. {}",
+                if retired {
+                    "Reload the window to start again."
+                } else {
+                    "Edit one of its files to try again."
+                }
+            ),
+        );
+    }
+    kept.suspects.remove(&workspace);
+    let remedy = if retired {
+        "checking it has stopped after repeated internal errors; reload the window"
+    } else {
+        "edit a file of it to try again"
+    };
+    if retired {
+        kept.retired.insert(workspace.clone());
+    }
+    kept.quarantined.insert(
+        workspace,
+        format!("internal error while checking {name}: {message}; {remedy}"),
+    );
 }
 
 impl Checker {
@@ -2654,6 +2706,7 @@ impl Checker {
             suspects: BTreeSet::new(),
             retired: BTreeSet::new(),
             stopped: None,
+            notices: None,
         }
     }
 
@@ -2666,8 +2719,10 @@ impl Checker {
         nav: Arc<RwLock<Nav>>,
         cancel: Arc<AtomicBool>,
         keeper: Keeper,
+        notices: Arc<Notices>,
     ) -> Self {
         let mut checker = Checker::new(options, source, sender, nav, cancel);
+        checker.notices = Some(notices);
         let Keeper {
             open,
             homes,
@@ -2807,12 +2862,15 @@ impl Checker {
         match std::panic::catch_unwind(std::panic::AssertUnwindSafe(in_project)) {
             Ok(home) => home.unwrap_or_else(|| path.to_path_buf()),
             Err(payload) => {
-                eprintln!(
-                    "stitchwort lsp: internal error finding the project of {}: {}; checking \
-                     it on its own",
+                let what = format!(
+                    "internal error finding the project of {}: {}; checking it on its own",
                     path.display(),
                     panic_message(&*payload)
                 );
+                match &self.notices {
+                    Some(notices) => notices.recovered(&what),
+                    None => eprintln!("stitchwort lsp: {what}"),
+                }
                 path.to_path_buf()
             }
         }
@@ -2949,10 +3007,10 @@ impl Checker {
                     Err(RecvTimeoutError::Disconnected) => return Ok(()),
                 }
             }
-            if let Some(key) = self.next_key() {
+            if let Some(key) = self.caught(None, |c| c.next_key())? {
                 self.step_caught(&key)?;
             }
-            self.announce();
+            self.caught(None, Checker::announce)?;
         }
     }
 
