@@ -1,7 +1,8 @@
 # Record eta in the kernel
 
-*SW-789 (D1426, D1981, D2457), 6 November 2026. A design note: nothing
-here is merged. It builds on [records.md](records.md) draft 2 §7 ("Stage 2:
+*SW-789 (D1426, D1981, D2457), 6 November 2026; §6.4's field access
+revised by SW-1766, 7 November 2026. A design note: nothing here is
+merged. It builds on [records.md](records.md) draft 2 §7 ("Stage 2:
 projections and eta in the kernel") and brings it up to date with what has
 been built since: proof irrelevance stage 1 (SW-93), glued calls
 (folded-calls.md) and the generated `T.ext` lemmas (SW-263). A throwaway
@@ -231,10 +232,10 @@ record, which definitions are its projections (checked to be the canonical
 A new core form `Proj(D, i, t)` and a neutral elimination `Elim::Proj(D,
 i)`, with **no parameters** in either, as in Lean's `Expr.proj` and Rocq's
 primitive projections. The type of `Proj(D, i, t)` comes from the type of
-`t` when it's inferred. The elaborator emits `Proj` for `p.row` on an eta
-record (instead of calling the generated definition, which stays as a
-compatibility function for partial application `(.row)`, as Rocq's
-compatibility constants do [R1]).
+`t` when it's inferred. Field access `p.row` stays a call of the
+generated definition, which computes to the projection (§6.4, revised by
+SW-1766; Rocq instead emits the projection and keeps the definition as a
+compatibility constant [R1]).
 
 - For: handles parameters; matches the systems with untyped conversion; the
   evaluation rule is one line; a stuck projection is an ordinary neutral.
@@ -348,10 +349,91 @@ records into projections [R1].
 
 The projection definitions themselves stay as they are: `Position.row`'s
 body is a `case` on its argument, and on a neutral `p` it now takes the
-branch and returns `Proj(Position, 0, p)`, which is the right answer. For
-eta records the elaborator emits `Proj` directly for `p.row` (cheaper, and
-what readback prints as `p.row`); the definition remains for `(.row)` and
-partial application.
+branch and returns `Proj(Position, 0, p)`, which is the right answer.
+
+#### Field access stays a call of the accessor (revised, SW-1766)
+
+**The problem.** This section first said the elaborator would emit `Proj`
+for `p.row` on an eta record. Stage 1 (SW-1642) didn't, and the review
+found it (SW-1764 §4): `p.row` is still a call of the generated accessor
+`Position.row`, as any `p.method` is. On an unknown `p`, rule 2 opens the
+accessor's `case` and the result is `Proj(Position, 0, p)`. So `Proj`
+reaches stored terms only through read-back (tactics, motives, `cases`,
+`omega`), and a field of an unknown record has two spellings in the core:
+the call as written, and the projection it computes to. The question was
+whether to switch field access to `Proj`.
+
+**What differs between the two.**
+
+| | Accessor call `Position.row p` | `Proj(Position, 0, p)` |
+|---|---|---|
+| Kernel: conversion | Two calls of one accessor are compared argument by argument without unfolding (glued calls). Against a `Proj`, the call is unfolded once. | Compared directly. |
+| Kernel: rule 1 | `{ row = p.row, … } ≡ p` unfolds each written call once to meet `Proj(…, p)`. | Meets it directly. |
+| Kernel: the native hold (D2551) | No difference: the hold is in the held definition's own tree, and no accessor is a native. `Float`'s `x.bits` compiles to `toCanonicalBits` either way. | Same. |
+| Kernel: typing | Checked as an application against the accessor's type. | `t`'s type is inferred and must be `D` (`infer_proj`). |
+| Term size | `App(Def, p)`, plus the type's parameters as implicit arguments (`Box.get [a] b`). | One node, no parameters. For records without parameters the difference is one node per access. |
+| Hashes | As today. | Every term with a field access on an eta type changes, and through the references every hash above it: most of the prelude, all of aoc/ and the roguelike. A one-off move (migration cost doesn't count). |
+| Printing | `p.row`. | `p.row`, the same. Two printer cases recognise the accessor and would need a `Proj` arm: `Float`'s `.bits`, and `{ x \| f = s }` for a literal whose fields are `x.f`. |
+| Performance | On a record literal: a call, a `case`, the field. On an unknown: rule 2 binds a projection for every field and returns one. Unmeasured; part of Q7's 5% for rule 2. | One step either way. |
+| `rewrite` | Keyed by its head, the accessor: selective. | All projections share one key (`"projection"`), so a `rewrite` of `p.row` would test every field in the goal by conversion. It needs a `Key::Proj(D, i)`. |
+| `simp`, `match` motives, induction | Found by head or by conversion. | The same, through the `Proj` arms stage 1 added. |
+| `omega`, `ring` atoms | Atoms are compared by conversion, so `p.row` is one atom in either spelling (SW-1767). | Same. |
+| Termination | Neither gives evidence of descent: the checker doesn't look through a call or a `Proj`. (§6.6's "a projection of a parameter is a descendant" isn't built; it matters little, since eta types aren't recursive.) | Same. |
+
+**What the mixture costs today: nothing found.** On the stage 1 build
+(`lane/SW-1642` at `646b91ccf`), with `down` defined by a record `match`
+so that `(down p).y` computes to `Proj(P, 1, p)`, all of these check:
+`rewrite h in rfl` with `h: p.y = 3` for the goal `(down p).y + 0 = 3`
+(rewrite falls back to the occurrence as computed); the reverse, with `h:
+(down p).y = 3`; `omega` on both; and `match p.y with …` and `match (down
+p).y with …` where the goal holds the other spelling. Conversion joins the
+two spellings in one unfolding, and the tactics that look at terms either
+compare by conversion or have a computed-form fallback.
+
+**What switching would take.**
+
+- *The elaborator.* Where dot notation resolves `p.row` to a generated
+  projection of an eta type (`RecordInfo.projections`), applied to the
+  receiver, emit `Proj(D, i, p)` and apply any further arguments to it.
+  The same for `Position.row p` written out and `p |> .row`; `(.row)`
+  unapplied stays the accessor. Records without eta (proof-only,
+  recursive, interface dictionaries) and shared-field accessors of
+  several-constructor types keep calls, so `p.field` would have two
+  elaborations, chosen by the type.
+- *Passes that would see `Proj` where they now see an accessor:*
+  `rewrite`'s key (above), the two printer cases, the generated update
+  lemmas (`T.f.update.g`, whose statements are built from accessor
+  calls), `cases`' blocker, the runtime's specialiser, and the code that
+  recognises accessors (in `shared.rs`, `patlet.rs` and `library.rs`,
+  still to be read).
+  `omega` and `ring` are already guarded (SW-1767). Read-back already
+  makes `Proj`, so most passes handle it today.
+- *Caches and hashes.* No format change: `Proj` is in the cache codec
+  already. Every hash above a field access moves once, and the snapshots
+  with it.
+- *Risk.* None to soundness: the kernel already has both forms and joins
+  them. The risk is elaboration churn: tactics that key on heads see a new
+  term in every proof that mentions a field, so the change needs all of
+  aoc/ and the roguelike checked (Matt's call under the test budget). A
+  lane of a few hours, plus that check.
+
+**The change.** Keep `p.field` as a call of the accessor. Revisit at stage
+3 (`Pair`), with a measurement, because that's where it would pay:
+pairs are the commonest records, each `Pair.fst` carries two implicit
+arguments that `Proj` drops, and pattern lambdas (`((row, pixels)) => …`)
+will put many more projections in goals. The measurement is how much of a
+check goes into opening accessors on unknowns (instruction counts on
+aoc/, accessor openings counted). If that's visible, the cheap step comes
+first: generate the accessor of an eta type with the body `Proj(D, i, x)`
+instead of a `case`, so opening it is one step that doesn't go through
+rule 2, with no change to how uses are written. Emit `Proj` at use sites
+only if a tactic is found that trips on the two spellings.
+
+**What it should do.** `p.row` elaborates, prints and hashes as it does
+on stage 1; the kernel joins `Position.row p` and `Proj(Position, 0, p)`
+by one unfolding; no proof sees a difference. Stage 3 reports the cost of
+accessor openings and, from that, whether the accessor bodies switch to
+`Proj` (D2566).
 
 ### 6.5 Glued calls and shortcut mode
 
@@ -374,8 +456,10 @@ As records.md §7.4 and §7.5: rule 1 replaces one comparison with
 comparisons of strictly smaller constructor parts; rule 2 takes one `case`
 node and creates none; following projections of a neutral ends after as
 many steps as the instantiated type's record nesting, because eta types are
-non-recursive. A projection of a parameter is a descendant (`<`) for the
-termination checker; rebuilding a record never is.
+non-recursive. A projection of a parameter could count as a descendant
+(`<`) for the termination checker, but stage 1 doesn't do this: a `Proj`
+gives no evidence, which is conservative. Rebuilding a record never is a
+descendant.
 
 ## 7. Soundness, in plain words
 
@@ -457,9 +541,10 @@ evaluator, so rule 2 comes for free), with three points:
 
 - **Hashes.** Eta types are computed from the declaration, so data
   hashes don't change, except for a `no-eta` mark if Q3 adds one. The new
-  `Proj` form is hashed; code that writes `p.field` on an eta record
-  elaborates to `Proj` and its hash changes once. Snapshot updates are
-  mechanical (migration cost doesn't count).
+  `Proj` form is hashed. Code that writes `p.field` still elaborates to
+  an accessor call (§6.4), so its hash moves only where a tactic reads a
+  computed field back as `Proj`, or a derived instance gains the `no-eta`
+  mark. Snapshot updates are mechanical (migration cost doesn't count).
 - **Accepted programs mostly stay accepted.** The kernel only gains
   equalities: rule 1 turns some "different" answers into "equal", rule 2
   lets some stuck computations go on, so a term the kernel accepted it
@@ -613,11 +698,13 @@ kernel changes).
    must not follow; two layouts never convert; `Box Nat` against `Box
    Bool`; a projection of the wrong type refused; nested `Box (Box (Box
    (List Nat)))` blocks after the record layers; the reference evaluator
-   agreeing). The elaborator emits `Proj` for field access on eta types.
+   agreeing). Field access stays an accessor call (§6.4, D2566).
 2. **Unifier**: rule 1 with metavariables first, not against blocked
    values, off in `first_order`; the records.md §7.3 elaborator tests.
 3. **`Pair`** gains eta (it already passes the conditions; the stage is
-   about measuring and updating snapshots).
+   about measuring and updating snapshots). It also measures what opening
+   accessors on unknowns costs, and decides from that whether eta types'
+   accessors get the body `Proj(D, i, x)` (§6.4, D2566).
 4. **Clean-up sweep** (Sonnet): remove `positionEta`/`templateEta`, the
    all-`rfl` `T.ext` calls and the record matches in proofs that exist only
    to compute; update the guide's records chapter (`docs/guide/`) and
@@ -661,6 +748,16 @@ match records stuck, which is the commoner complaint.
 **Q8. Stage it as §14: kernel (Opus), unifier, `Pair`, then a clean-up
 sweep (Sonnet)?** Rec: yes; stages 1 and 2 could be one lane if the kernel
 lane finishes early.
+
+**D2566 (SW-1766). Keep field access `p.field` as a call of the accessor,
+not `Proj`, and drop §6.4's "the elaborator emits `Proj`"; at stage 3
+(`Pair`), measure what opening accessors costs, and if it shows, give eta
+types' accessors the body `Proj(D, i, x)` rather than switching use
+sites?** Rec: yes. The two spellings print the same, convert in one
+unfolding, and no proof was found that tells them apart (§6.4). Switching
+use sites moves every hash and needs a check of all of aoc/ and the
+roguelike for a speed gain that hasn't been measured. Pairs are where the
+gain would be, so that's when to measure.
 
 ## 16. Sources
 
