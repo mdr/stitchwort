@@ -21063,7 +21063,7 @@
         "design"
       ],
       "epic": "elaborator-kernel",
-      "body": "D3240 — Matt, 7 Nov 2026: \"I think you're right to pick up if there's been a pattern of issues. That might be something we want to invest some time in understanding more deeply and just look at the changes in the round and try to see what our best approach might be.\" Read-only Opus lane, after SW-2157 merges. Output docs/proposals/equality-in-the-round.md. 60 min.\n\nDesign merged: docs/proposals/equality-in-the-round.md. All of this week's fixes are one rule applied piecemeal; six live gaps (G1-G6, all reject true things, none unsound; G6 breaks transitivity). Recommends one rule in core.md + a head function per evaluator (B), tested against a plain reference with every fold off. D3250 to Matt. Stages SW-2242-SW-2247 (S7, design C, only if measured).",
+      "body": "D3240 — Matt, 7 Nov 2026: \"I think you're right to pick up if there's been a pattern of issues. That might be something we want to invest some time in understanding more deeply and just look at the changes in the round and try to see what our best approach might be.\" Read-only Opus lane, after SW-2157 merges. Output docs/proposals/equality-in-the-round.md. 60 min.\n\nDesign merged: docs/proposals/equality-in-the-round.md. All of this week's fixes are one rule applied piecemeal; six live gaps (G1-G6, all reject true things, none unsound; G6 breaks transitivity). Recommends one rule in core.md + a head function per evaluator (B), tested against a plain reference with every fold off. D3250 to Matt. Stages SW-2242-SW-2247 (S7, design C, only if measured).\n\nD3250/D3260 — Matt, 7 Nov 2026: \"approve with those changes\" (adopt the equality rule with SW-2251's changes: a call that can be unfolded is compared by its case tree when its arguments differ; the deliberate limits named and shared by every mode; the property suite is the test of record).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21153,7 +21153,7 @@
         "tests"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/proposals/equality-in-the-round.md, stage S1, 75 min, after SW-2241 (same file). Can start before D3250: tests only.. Probes in the session scratchpad probes/g1-g6.sw (copy into the test). Waits on D3250 unless noted.",
+      "body": "From docs/proposals/equality-in-the-round.md, stage S1, 75 min, after SW-2241 (same file). Can start before D3250: tests only.. Probes in the session scratchpad probes/g1-g6.sw (copy into the test). Waits on D3250 unless noted.\n\nD3250/D3260 — Matt, 7 Nov 2026: \"approve with those changes\" (adopt the equality rule with SW-2251's changes: a call that can be unfolded is compared by its case tree when its arguments differ; the deliberate limits named and shared by every mode; the property suite is the test of record).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21168,7 +21168,7 @@
         "core"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/proposals/equality-in-the-round.md, stage S2, 60 min, after SW-2242. Probes in the session scratchpad probes/g1-g6.sw (copy into the test). Waits on D3250 unless noted.\n\n7 Nov: rescoped per docs/reviews/SW-2251-equality-rule.md: absorbs SW-2245 (G6), adds G7 (leaf against the other tree's stuck case) and G8 (two alike number-literal matches). Waits on D3260.",
+      "body": "From docs/proposals/equality-in-the-round.md, stage S2, 60 min, after SW-2242. Probes in the session scratchpad probes/g1-g6.sw (copy into the test). Waits on D3250 unless noted.\n\n7 Nov: rescoped per docs/reviews/SW-2251-equality-rule.md: absorbs SW-2245 (G6), adds G7 (leaf against the other tree's stuck case) and G8 (two alike number-literal matches). Waits on D3260.\n\nD3250/D3260 — Matt, 7 Nov 2026: \"approve with those changes\" (adopt the equality rule with SW-2251's changes: a call that can be unfolded is compared by its case tree when its arguments differ; the deliberate limits named and shared by every mode; the property suite is the test of record).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21183,7 +21183,7 @@
         "core"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/proposals/equality-in-the-round.md, stage S3, 75 min, after SW-2242; beside SW-2243. Probes in the session scratchpad probes/g1-g6.sw (copy into the test). Waits on D3250 unless noted.\n\n7 Nov per docs/reviews/SW-2251-equality-rule.md: fix G2 lazily where a comparison or case reads the sum, not in how + evaluates (evaluation changes visible goals and syntactic search). Through the head view. Waits on D3260.",
+      "body": "From docs/proposals/equality-in-the-round.md, stage S3, 75 min, after SW-2242; beside SW-2243. Probes in the session scratchpad probes/g1-g6.sw (copy into the test). Waits on D3250 unless noted.\n\n7 Nov per docs/reviews/SW-2251-equality-rule.md: fix G2 lazily where a comparison or case reads the sum, not in how + evaluates (evaluation changes visible goals and syntactic search). Through the head view. Waits on D3260.\n\nD3250/D3260 — Matt, 7 Nov 2026: \"approve with those changes\" (adopt the equality rule with SW-2251's changes: a call that can be unfolded is compared by its case tree when its arguments differ; the deliberate limits named and shared by every mode; the property suite is the test of record).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21213,7 +21213,7 @@
         "core"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/proposals/equality-in-the-round.md, stage S5, 90 min, after SW-2243-SW-2245. Probes in the session scratchpad probes/g1-g6.sw (copy into the test). Waits on D3250 unless noted.\n\n7 Nov per docs/reviews/SW-2251-equality-rule.md: split into S5a and S5b; measure first (per site: how often each lazy form is met, each folded call re-unfolded, the unifier fallback's cost). Consider small types (Rigid; a shortcut result with no 'different').",
+      "body": "From docs/proposals/equality-in-the-round.md, stage S5, 90 min, after SW-2243-SW-2245. Probes in the session scratchpad probes/g1-g6.sw (copy into the test). Waits on D3250 unless noted.\n\n7 Nov per docs/reviews/SW-2251-equality-rule.md: split into S5a and S5b; measure first (per site: how often each lazy form is met, each folded call re-unfolded, the unifier fallback's cost). Consider small types (Rigid; a shortcut result with no 'different').\n\nD3250/D3260 — Matt, 7 Nov 2026: \"approve with those changes\" (adopt the equality rule with SW-2251's changes: a call that can be unfolded is compared by its case tree when its arguments differ; the deliberate limits named and shared by every mode; the property suite is the test of record).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21288,7 +21288,7 @@
         "review"
       ],
       "epic": "elaborator-kernel",
-      "body": "D3251 — Matt, 7 Nov 2026: \"do a sort of a full opus review of that idea. Maybe see what you can find in the literature or online discussions about language implementations.\" Read-only; web research. Output docs/reviews/SW-N-equality-rule.md. 60 min.\n\nDone, merged: docs/reviews/SW-2251-equality-rule.md. Verdict: adopt D3250 with changes (D3260). All six gaps reproduce (G4 not unglued: SW-2254); two more, G7, G8. Plain oracle shares helpers so it misses G3, G6, G7, G8: test of record should be the property laws. Prior art checked: Lean, Rocq, smalltt try arguments then unfold both; lean4#14806 (transitive cache -> False) to avoid. Lanes: SW-2243 rescoped (+G6, G7, G8; absorbs SW-2245), SW-2244 lazy G2, SW-2246 measure first and split, SW-2253 elaborator, SW-2254 Float pins, SW-2242 widened.",
+      "body": "D3251 — Matt, 7 Nov 2026: \"do a sort of a full opus review of that idea. Maybe see what you can find in the literature or online discussions about language implementations.\" Read-only; web research. Output docs/reviews/SW-N-equality-rule.md. 60 min.\n\nDone, merged: docs/reviews/SW-2251-equality-rule.md. Verdict: adopt D3250 with changes (D3260). All six gaps reproduce (G4 not unglued: SW-2254); two more, G7, G8. Plain oracle shares helpers so it misses G3, G6, G7, G8: test of record should be the property laws. Prior art checked: Lean, Rocq, smalltt try arguments then unfold both; lean4#14806 (transitive cache -> False) to avoid. Lanes: SW-2243 rescoped (+G6, G7, G8; absorbs SW-2245), SW-2244 lazy G2, SW-2246 measure first and split, SW-2253 elaborator, SW-2254 Float pins, SW-2242 widened.\n\nD3250/D3260 — Matt, 7 Nov 2026: \"approve with those changes\" (adopt the equality rule with SW-2251's changes: a call that can be unfolded is compared by its case tree when its arguments differ; the deliberate limits named and shared by every mode; the property suite is the test of record).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21318,7 +21318,7 @@
         "core"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/SW-2251-equality-rule.md. Probes in the session scratchpad probes/. Waits on D3260. 60 min.",
+      "body": "From docs/reviews/SW-2251-equality-rule.md. Probes in the session scratchpad probes/. Waits on D3260. 60 min.\n\nD3250/D3260 — Matt, 7 Nov 2026: \"approve with those changes\" (adopt the equality rule with SW-2251's changes: a call that can be unfolded is compared by its case tree when its arguments differ; the deliberate limits named and shared by every mode; the property suite is the test of record).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
