@@ -535,6 +535,18 @@ tasks:
       - cargo build --release -p stitchwort-cli -p stitchwort-standalone {{.DEV_FEATURES}}
       - nix develop .#compare -c bash bench/compare/compare.sh --check --sw {{.SW}} {{.CLI_ARGS}}
 
+  bench:compare:proofs:
+    desc: 'Checking speed, Stitchwort against Lean (bench/compare/lean-proofs): three AoC days, cold, library load apart; on a quiet machine (args after --: --runs N, day names)'
+    summary: |
+      Builds `stitchwort` and runs bench/compare/proofs.py in `nix develop
+      .#compare`: `stitchwort check --no-cache` on each day's proof
+      namespaces against `lean` on the ported file and a cold `lake build`,
+      each net of the library load. A measurement, not a test:
+      docs/proposals/comparative-speed.md section 3.
+    cmds:
+      - cargo build --release -p stitchwort-cli {{.DEV_FEATURES}}
+      - nix develop .#compare -c python3 -I bench/compare/proofs.py --sw {{.SW}} {{.CLI_ARGS}}
+
   # ------------------------------------------------- formatting and lints
 
   fmt:

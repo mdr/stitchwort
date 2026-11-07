@@ -1,0 +1,18 @@
+name = "proofs"
+defaultTargets = ["Day2024_02", "Day2020_18", "Day2021_15"]
+
+[[lean_lib]]
+name = "Lib"
+roots = ["Lib"]
+
+[[lean_lib]]
+name = "Day2024_02"
+roots = ["Proofs.Day2024_02"]
+
+[[lean_lib]]
+name = "Day2020_18"
+roots = ["Proofs.Day2020_18"]
+
+[[lean_lib]]
+name = "Day2021_15"
+roots = ["Proofs.Day2021_15"]
