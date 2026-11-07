@@ -14375,9 +14375,9 @@
     {
       "id": 1790,
       "title": "[Sonnet] Fewer test binaries: cli and driver in groups of 3-4 (add --group to dev/merge-test-binaries; keep the allocator binaries resources and search_at_aoc apart); rewrite target/test-timings.json keys with the mapping",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1790",
       "labels": [
         "perf"
       ],
