@@ -1,5 +1,5 @@
 {
-  "next": 1958,
+  "next": 1965,
   "tickets": [
     {
       "id": 47,
@@ -16883,14 +16883,119 @@
     {
       "id": 1957,
       "title": "[Opus] Analysis: what would have caught record eta's two regressions (the 2^n field re-unfolding, six broken AoC proofs) before the merge, at what cost; a merge gate for kernel and core-language lanes (D2734)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1957",
       "labels": [
         "design"
       ],
       "epic": "dev-loop-speed",
-      "body": "Matt (7 Nov 2026): parallel design work; the record eta merge took a day and a half. Expected: 60 min.",
+      "body": "Matt (7 Nov 2026): parallel design work; the record eta merge took a day and a half. Expected: 60 min.\n\nDone, merged: docs/proposals/kernel-merge-gate.md. The 2^n slowdown entered the branch at be69745c3 (6 Nov 15:41); whole AoC on the branch (~75 s) would have caught both regressions ~16 h before the merge; nothing lanes ran could (aoc_answers runs main without checking proofs; none of the merge tier's 14 days was broken). The stale-branch wait was ~4.5 h idle. D2760-D2763. Tickets SW-1958-SW-1963; SW-1964 from D2735. 7 min (est. 60).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1958,
+      "title": "[Sonnet] task gate:corpus: whole AoC and roguelike from cold, 200 s cap, for kernel/unifier/tactics/std-core lanes; the selector prints a GATE: line for those paths; workflow and CLAUDE.md text",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "test-infra"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From docs/proposals/kernel-merge-gate.md. Ticket 1. D2760, D2763. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1959,
+      "title": "[Sonnet] eta_fields test fails on faster-than-linear growth instead of hanging for hours",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "test-infra"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From docs/proposals/kernel-merge-gate.md. Ticket 2. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1960,
+      "title": "[DeepSeek] Set nextest terminate-after in the merge and lane profiles, so a hang fails instead of running forever",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "test-infra"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From docs/proposals/kernel-merge-gate.md. Ticket 3. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1961,
+      "title": "[Sonnet] check --steps: evaluation steps per namespace from check, after confirming they're deterministic (no time-limited search inside check)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "test-infra"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From docs/proposals/kernel-merge-gate.md. Ticket 4. 60-90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1962,
+      "title": "[Sonnet] Per-day step baseline file for AoC with a 3x ceiling: a blowup fails in seconds and names its day",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "test-infra"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From docs/proposals/kernel-merge-gate.md. Ticket 5. D2762, after gate:corpus has run on a few lanes. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1963,
+      "title": "[Sonnet] Merge tier's AoC days check answers, not proofs (aoc_answers uses run …main); have them check the day's Proofs too, and see if AoC 2024 days 11-24 can get answers tests",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "test-infra"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From docs/proposals/kernel-merge-gate.md. Findings. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1964,
+      "title": "[Sonnet] Check AoC days in parallel: the whole-AoC check uses one core (real ≈ user, ~70 s); about 15 s on 10 cores would cut every gate and post-merge check",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "test-infra"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From docs/proposals/kernel-merge-gate.md. D2735 [rec: yes]. 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
