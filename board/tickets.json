@@ -14120,9 +14120,9 @@
     {
       "id": 1773,
       "title": "check_cache differential sweeps (whole-library ~70 s, examples 92 s): sample in daily? The cache's own differential, so Matt's call on coverage (SW-1770)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1773",
       "labels": [
         "perf"
       ],
