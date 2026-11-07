@@ -906,6 +906,8 @@ impl Elaborator {
         self.decl.reset();
         if self.options.clear_caches_per_declaration {
             self.caches.clear();
+        } else {
+            self.caches.forget_dot_calls();
         }
         let was = self.kernel.machine.glue.replace(self.options.glue);
         let out = f(self);

@@ -1356,6 +1356,7 @@ impl Elaborator {
             .queue
             .set(i, State::Running, &self.attempt.store);
         count(&self.session.stats.resumed);
+        self.caches.keep_dot_owner(&check);
         // What it queues while it runs is made inside its constructs too.
         let outer = (self.attempt.queue.frames.resuming).replace(item.all_frames());
         let mut cx = item.saved.ctx(self);

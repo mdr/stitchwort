@@ -68,3 +68,57 @@ fn long_dot_chains_are_cheap() {
     );
     assert!(inner.load("inner.sw", &source).is_err());
 }
+
+/// A postponed dot call is checked again from a copy of its syntax, and the
+/// dot-call caches are keyed by where syntax sits in memory: a copy put
+/// where an earlier, freed one had been found what that one left, so this
+/// file took 20 steps fewer on some runs (SW-1797, SW-1800). Loaded 102
+/// times on three threads at once, from varied heap layouts, it takes the
+/// same steps every time.
+#[test]
+#[ignore = "about 30 s: run by name, or in the full tier"]
+fn a_postponed_dot_call_takes_the_same_steps_every_time() {
+    same_steps_every_time("reject/postponed-lambda-second-error.sw");
+}
+
+fn same_steps_every_time(file: &str) {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples")
+        .join(file);
+    let text = std::fs::read_to_string(path).unwrap();
+    let steps = || {
+        let mut session = Session::new();
+        let _ = session.load(file, &text);
+        session.elab.kernel.machine.budget.total_work()
+    };
+    let first = steps();
+    let counts: Vec<u64> = std::thread::scope(|s| {
+        let loaders: Vec<_> = (0..3)
+            .map(|_| {
+                s.spawn(|| {
+                    (0..34)
+                        .map(|k| {
+                            // Freed blocks of varied sizes, so that loads
+                            // start from different heap layouts.
+                            let noise: Vec<Vec<u8>> =
+                                (0..64).map(|j| vec![0; 16 + 48 * ((j + k) % 7)]).collect();
+                            drop(noise);
+                            steps()
+                        })
+                        .collect::<Vec<_>>()
+                })
+            })
+            .collect();
+        loaders
+            .into_iter()
+            .flat_map(|l| l.join().unwrap())
+            .collect()
+    });
+    let differing: Vec<&u64> = counts.iter().filter(|c| **c != first).collect();
+    assert!(
+        differing.is_empty(),
+        "{file}: {first} steps first, then {} of {} loads differed: {differing:?}",
+        differing.len(),
+        counts.len()
+    );
+}
