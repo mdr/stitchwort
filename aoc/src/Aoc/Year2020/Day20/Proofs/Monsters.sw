@@ -170,10 +170,6 @@ theorem roughnessTurned (image: Image) (monster: Image) (found: image.monsterTur
 
 -- `roughAt` lists each `#` once
 
-theorem withIndexDistinct (xs: List a) (fallback: a): List.Distinct xs.withIndex :=
-  rewrite List.withIndexFromRange xs fallback 0 in
-    List.distinctMap (List.range 0 xs.length) (List.distinctRange 0 xs.length) _ (i j same => omega [Eq.cong Pair.fst same])
-
 theorem rowCellsDistinct (row: Nat) (pixels: List Pixel):
     List.Distinct (pixels.withIndex.filterMap (match some | (column, Rough) => [row, column])) :=
   let f: (Nat, Pixel) → Option (List Nat) := match some | (column, Rough) => [row, column]
@@ -191,7 +187,7 @@ theorem rowCellsDistinct (row: Nat) (pixels: List Pixel):
 --| so cells of different rows differ.
 theorem roughAtDistinct (image: Image): List.Distinct image.roughAt :=
   let rowOf := (at: List Nat) => (at.headOr 0, (image.rows.get (at.headOr 0)).getOrElse [])
-  List.distinctFlatMap _ rowOf image.rows.withIndex (withIndexDistinct image.rows [])
+  List.distinctFlatMap _ rowOf image.rows.withIndex (List.withIndexDistinct image.rows)
     (entry member => rowCellsDistinct entry.fst entry.snd)
     (entry member at inRow =>
       match entry with

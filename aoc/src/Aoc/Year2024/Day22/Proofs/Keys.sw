@@ -27,13 +27,6 @@ theorem sequencesFrom (changes: List Int) (first: Int) (second: Int) (third: Int
 --| Membership carried across an equation, without computing the list.
 theorem memOfEq (xs: List a) [x y: a] (same: x = y) (member: x ∈ xs): y ∈ xs := J (other same => other ∈ xs) member same
 
---| What is in a suffix of a list is in the list.
-theorem memTails (x: a): (xs: List a) → (later: List a) → later ∈ xs.tails → x ∈ later → x ∈ xs
-  | [], later, Inl same, inLater => rewrite Eq.sym same at inLater in inLater
-  | [], later, Inr none, inLater => Void.exfalso none
-  | [first, ..rest], later, Inl same, inLater => rewrite Eq.sym same at inLater in inLater
-  | [first, ..rest], later, Inr deeper, inLater => Inr (memTails x rest later deeper inLater)
-
 theorem findMapAny (f: a → Option b) (found: b): (xs: List a) → xs.findMap f = Some found → List.Any (x => f x = Some found) xs
   | [], some => Void.exfalso (Option.noneNotSome found some)
   | [x, ..rest], some =>
@@ -81,7 +74,7 @@ theorem salesIn (possible: List Changes) (contains: HoldsDigitChanges possible) 
   let sells := Eq.trans (Eq.sym (firstSalesSells pricesOf key)) found
   List.anyElim _ (key ∈ possible) pricesOf.tails (findMapAny (sellsAt key) price pricesOf.tails sells)
     (later member sellsHere =>
-      sellsAtIn possible contains key price later (x inLater => pricesDigits count buyer x (memTails x pricesOf later member inLater)) sellsHere)
+      sellsAtIn possible contains key price later (x inLater => pricesDigits count buyer x (List.memOfMemTails x pricesOf later member inLater)) sellsHere)
 
 --| A merged total comes from one side or the other.
 theorem mergeSides (holds: Prop) (value: Nat): (x: Option Nat) → (y: Option Nat) → x.merge y Nat.add = Some value →

@@ -2526,6 +2526,137 @@ theorem List.allFilterMapElim (q: b → Prop) (f: a → Option b): (xs: List a) 
 theorem List.memFilterMapExample: 4 ∈ List.filterMap [1, 2, 3] (x => if x == 2 then Some (x * 2) else None) :=
   List.memFilterMapIntro (x => if x == 2 then Some (x * 2) else None) 2 4 [1, 2, 3] (Inr (Inl rfl)) rfl
 
+--| Counting the values of a `filterMap` that pass `p` counts the elements
+--| whose value passes: `(xs.filterMap f).count p = xs.count (x => (f x).any p)`.
+--| An element with no value (`f x = None`) is counted by neither side.
+theorem List.countFilterMap (f: a → Option b) (p: b → Bool): (xs: List a) → (xs.filterMap f).count p = xs.count (x => (f x).any p)
+  | [] => rfl
+  | [x, ..rest] =>
+    rewrite List.countCons rest x (x => (f x).any p) in
+    match f x with
+      | None => rewrite List.countFilterMap f p rest in rfl
+      | Some y => rewrite List.countCons (rest.filterMap f) y p, List.countFilterMap f p rest in rfl
+
+--| Counting one value `wanted` among the results of a `filterMap` is counting
+--| the elements that give `Some wanted`. The `==` form of
+--| [`List.countFilterMap`].
+theorem List.countFilterMapEq [auto eq: DecEq b] (f: a → Option b) (wanted: b):
+    (xs: List a) → (xs.filterMap f).count (== wanted) = xs.count (x => f x == Some wanted)
+  | [] => rfl
+  | [x, ..rest] =>
+    rewrite List.countCons rest x (y => f y == Some wanted)
+    in match e: f x with
+      | None => List.countFilterMapEq f wanted rest
+      | Some found =>
+        rewrite List.countCons (rest.filterMap f) found (== wanted), Option.someBeqSome found wanted
+        in Eq.cong (count => Bool.toNat (found == wanted) + count) (List.countFilterMapEq f wanted rest)
+
+--| `filterMap` keeps at most every element.
+theorem List.lengthFilterMapLe (f: a → Option b): (xs: List a) → (xs.filterMap f).length ≤ xs.length
+  | [] => rfl
+  | [x, ..rest] =>
+    let shorter := List.lengthFilterMapLe f rest
+    match f x with
+      | None => omega
+      | Some y => omega
+
+--| A `filterMap` to `Bool`s is as long as the number of elements that give
+--| `Some True` plus the number that give `Some False`: every value it keeps is
+--| one or the other.
+theorem List.lengthFilterMapBool (f: a → Option Bool): (xs: List a) →
+    (xs.filterMap f).length = xs.count (x => f x == Some True) + xs.count (x => f x == Some False)
+  | [] => rfl
+  | [x, ..rest] =>
+    rewrite List.countCons rest x (x => f x == Some True),
+      List.countCons rest x (x => f x == Some False) in
+      match f x with
+        | None => List.lengthFilterMapBool f rest
+        | Some bit => rewrite List.lengthFilterMapBool f rest in cases
+
+--| Mapping over a `concat` is the `concat` of mapping over each part.
+theorem List.mapConcat: (xss: List (List a)) → (k: a → b) → xss.concat.map k = (xss.map (xs => xs.map k)).concat
+  | [], k => rfl
+  | [xs, ..rest], k => rewrite List.mapAppend xs (List.concat rest) k, List.mapConcat rest k in rfl
+
+--| A list whose keys are distinct is distinct. The converse needs `key` to
+--| be injective ([`List.distinctMap`]).
+theorem List.distinctOfMap (key: a → k): (xs: List a) → List.Distinct (xs.map key) → List.Distinct xs
+  | [], distinct => Trivial
+  | [x, ..rest], Both fresh distinct => Both (member => fresh (List.memMap rest x member key)) (List.distinctOfMap key rest distinct)
+
+--| Putting an element not in a list with no repeats at its end leaves no
+--| repeats. (`List.distinctSnoc` is about the function `List.distinct`.)
+theorem List.distinctSnocIntro: (xs: List a) → (y: a) → y ∉ xs → List.Distinct xs → List.Distinct (xs ++ [y])
+  | [], y, out, distinct => Both (m => m) Trivial
+  | [x, ..xs], y, out, Both xOut distinct =>
+    Both
+      (m =>
+        match List.memAppend x xs [y] m with
+          | Inl inRest => xOut inRest
+          | Inr (Inl same) => out (Inl (Eq.sym same))
+          | Inr (Inr none) => none)
+      (List.distinctSnocIntro xs y (m => out (Inr m)) distinct)
+
+--| Replacing one element of a list with no repeats by one that is not among
+--| the others leaves no repeats: `before ++ [x, ..after]` becomes
+--| `before ++ [y, ..after]` when `y` is not in `before ++ after`.
+theorem List.distinctSwapMiddle (x: a) (y: a) (after: List a): (before: List a) →
+    List.Distinct (before ++ [x, ..after]) → y ∉ before ++ after → List.Distinct (before ++ [y, ..after])
+  | [], Both notMem rest, fresh => Both fresh rest
+  | [first, ..others], Both notMem rest, fresh =>
+    let away: first ∉ others ++ [y, ..after] := inside =>
+      match List.memAppend first others [y, ..after] inside with
+        | Inl early => notMem (List.memAppendLeft first others [x, ..after] early)
+        | Inr (Inl same) => fresh (Inl (Eq.sym same))
+        | Inr (Inr late) => notMem (List.memAppendRight first others [x, ..after] (Inr late))
+    Both away (List.distinctSwapMiddle x y after others rest (inside => fresh (Inr inside)))
+
+--| A `filterMap` whose function never gives the same value for two different
+--| elements keeps a list free of repeats free of repeats. See
+--| [`List.distinctMapFilterMap`] when only a key of the values is known to
+--| be determined by the element.
+theorem List.distinctFilterMap (f: a → Option b) (inj: (x: a) → (z: a) → (y: b) → f x = Some y → f z = Some y → x = z):
+    (xs: List a) → List.Distinct xs → List.Distinct (List.filterMap xs f)
+  | [], d => Trivial
+  | [x, ..xs], Both notMem d =>
+    match e: f x with
+      | None => List.distinctFilterMap f inj xs d
+      | Some y =>
+        Both
+          (m => List.anyElim (z => f z = Some y) Void xs (List.memFilterMapElim f y xs m)
+            (z inXs fz => notMem (rewrite inj x z y e fz in inXs)))
+          (List.distinctFilterMap f inj xs d)
+
+--| What is in a suffix of a list is in the list: the elements of any member
+--| of `xs.tails` are elements of `xs`.
+theorem List.memOfMemTails (x: a): (xs: List a) → (later: List a) → later ∈ xs.tails → x ∈ later → x ∈ xs
+  | [], later, Inl same, inLater => rewrite Eq.sym same at inLater in inLater
+  | [], later, Inr none, inLater => Void.exfalso none
+  | [first, ..rest], later, Inl same, inLater => rewrite Eq.sym same at inLater in inLater
+  | [first, ..rest], later, Inr deeper, inLater => Inr (List.memOfMemTails x rest later deeper inLater)
+
+--| What holds of every element and its image under `g` holds along a zip of
+--| a list with that `zipWith`: `xs.zip (xs.zipWith ys g)` pairs each `x` with
+--| `g x y` for the `y` in its place.
+theorem List.allZipWithSelf (holds: a → c → Prop) (g: a → b → c) (each: (x: a) → (y: b) → holds x (g x y)):
+    (xs: List a) → (ys: List b) → List.All (pair => holds pair.fst pair.snd) (xs.zip (xs.zipWith ys g))
+  | [], ys => Trivial
+  | [x, ..rest], [] => Trivial
+  | [x, ..rest], [y, ..others] => Both (each x y) (List.allZipWithSelf holds g each rest others)
+
+--| A member of a list of rows that all have length `n` has length `n`.
+theorem List.allLengthMem [row: List a]: (rows: List (List a)) → (n: Nat) → List.AllLength n rows → row ∈ rows → row.length = n
+  | [], n, sized, member => Void.exfalso member
+  | [first, ..rest], n, Both sized more, Inl same => rewrite <- same in sized
+  | [first, ..rest], n, Both sized more, Inr later => List.allLengthMem rest n more later
+
+--| `reverseOnto` keeps every row the length `n`: reversing `xs` onto `acc`
+--| gives rows all of length `n` when `xs` and `acc` have.
+theorem List.allLengthReverseOnto (n: Nat): (xs: List (List a)) → (acc: List (List a)) → List.AllLength n xs → List.AllLength n acc →
+    List.AllLength n (List.reverseOnto xs acc)
+  | [], acc, sized, accSized => accSized
+  | [x, ..rest], acc, Both sized more, accSized => List.allLengthReverseOnto n rest [x, ..acc] more (Both sized accSized)
+
 --| `List.all` and `List.any` (the `Bool`s a program computes) are `List.All`
 --| and `List.Any` (the propositions proofs use), so a lemma needs only one
 --| form.

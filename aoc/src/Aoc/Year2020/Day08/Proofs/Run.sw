@@ -33,17 +33,6 @@ theorem executeSteps (program: Program) (state: State) (instruction: Instruction
     | { operation = Jmp, argument } => Both rfl rfl
     | { operation = Nop, argument } => Both rfl rfl))
 
-theorem distinctSnoc: (xs: List a) → (y: a) → y ∉ xs → List.Distinct xs → List.Distinct (xs ++ [y])
-  | [], y, out, distinct => Both (m => m) ()
-  | [x, ..xs], y, out, Both xOut distinct =>
-    Both
-      (m =>
-        match List.memAppend x xs [y] m with
-          | Inl inRest => xOut inRest
-          | Inr (Inl same) => out (Inl (Eq.sym same))
-          | Inr (Inr none) => none)
-      (distinctSnoc xs y (m => out (Inr m)) distinct)
-
 theorem unvisitedRemove (length: Nat) (done: List Int) (unvisited: Set Nat) (left: Unvisited length done unvisited) (position: Nat):
     Unvisited length (done ++ [position.toInt]) (unvisited.remove position) :=
   other =>
@@ -93,7 +82,7 @@ theorem runFromRuns (program: Program) (code: Code) (holds: Holds code program) 
                 let at: instructionAt program state.next = Some instruction := rewrite e in listed
                 let ih :=
                   runFromRuns program code holds (unvisited.remove position) (instruction.execute state) (done ++ [position.toInt])
-                    (unvisitedRemove code.length done unvisited left position) (distinctSnoc done position.toInt out distinct)
+                    (unvisitedRemove code.length done unvisited left position) (List.distinctSnocIntro done position.toInt out distinct)
                     [decreasing := omega [Set.sizeRemovePresent unvisited position c, Set.sizePositive unvisited position c]]
                 match ih with
                   | Witness positions (Witness last (Both runs (Both distinctAll ended))) =>
