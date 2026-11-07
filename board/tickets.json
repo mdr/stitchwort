@@ -11573,16 +11573,16 @@
     {
       "id": 1603,
       "title": "Design question: a Nat-keyed map (Haskell's IntMap) for sparse keys, separate from arrays (SW-1473)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1603",
       "labels": [
         "design"
       ],
       "epic": "performance",
-      "body": "From SW-1473, 6 Nov 2026.",
+      "body": "From SW-1473, 6 Nov 2026.\n\nMatt (7 Nov 2026): kick off as design work. Started: Opus, design note only, no builds. Expected: 60 min.",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
