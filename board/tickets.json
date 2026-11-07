@@ -15756,9 +15756,9 @@
     },
     {
       "id": 1882,
-      "title": "[Sonnet] Code review: crates/driver (sessions, mark and rewind, projects, check cache, test std cache, navigation probes; 16.4k lines)",
+      "title": "[Opus] Code review: crates/driver (sessions, mark and rewind, projects, check cache, test std cache, navigation probes; 16.4k lines)",
       "status": "doing",
-      "agent": "Sonnet",
+      "agent": "Opus",
       "where": ".claude/worktrees/SW-1882",
       "labels": [
         "review"
