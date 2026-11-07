@@ -17960,7 +17960,7 @@
         "elab"
       ],
       "epic": "proof-automation",
-      "body": "From docs/proposals/decreasing-with-hypothesis.md. Stage 1. D2870 [rec: yes]. docs/syntax.md, guide 07-recursion; decreasing examples, a new accept example, changed reject snapshots, snap:hashes, hash_stability. 75 min.",
+      "body": "From docs/proposals/decreasing-with-hypothesis.md. Stage 1. D2870 [rec: yes]. docs/syntax.md, guide 07-recursion; decreasing examples, a new accept example, changed reject snapshots, snap:hashes, hash_stability. 75 min.\n\nD2870 — Matt, 7 Nov 2026: \"just proceed with D2870 as planned.\" D2871, D2872 yes (orchestrator's call). Order: 2029, 2030, then 2032; 2031 any time.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17975,7 +17975,7 @@
         "elab"
       ],
       "epic": "proof-automation",
-      "body": "From docs/proposals/decreasing-with-hypothesis.md. Stage 2, after SW-2029. Takes over SW-809's match found: item for decreasing definitions. Check omega uses n - k = Succ j. 90 min.",
+      "body": "From docs/proposals/decreasing-with-hypothesis.md. Stage 2, after SW-2029. Takes over SW-809's match found: item for decreasing definitions. Check omega uses n - k = Succ j. 90 min.\n\nD2870 — Matt, 7 Nov 2026: \"just proceed with D2870 as planned.\" D2871, D2872 yes (orchestrator's call). Order: 2029, 2030, then 2032; 2031 any time.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17990,7 +17990,7 @@
         "docs"
       ],
       "epic": "proof-automation",
-      "body": "From docs/proposals/decreasing-with-hypothesis.md. Stage 3. D2871. 30 min.",
+      "body": "From docs/proposals/decreasing-with-hypothesis.md. Stage 3. D2871. 30 min.\n\nD2870 — Matt, 7 Nov 2026: \"just proceed with D2870 as planned.\" D2871, D2872 yes (orchestrator's call). Order: 2029, 2030, then 2032; 2031 any time.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -18005,7 +18005,7 @@
         "aoc"
       ],
       "epic": "proof-automation",
-      "body": "From docs/proposals/decreasing-with-hypothesis.md. Stage 4, after SW-2030. D2872. Targeted check and test, snap:hashes, hash_stability, audit:touched. 60 min.",
+      "body": "From docs/proposals/decreasing-with-hypothesis.md. Stage 4, after SW-2030. D2872. Targeted check and test, snap:hashes, hash_stability, audit:touched. 60 min.\n\nD2870 — Matt, 7 Nov 2026: \"just proceed with D2870 as planned.\" D2871, D2872 yes (orchestrator's call). Order: 2029, 2030, then 2032; 2031 any time.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
