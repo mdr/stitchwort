@@ -1,5 +1,5 @@
 {
-  "next": 1883,
+  "next": 1884,
   "tickets": [
     {
       "id": 47,
@@ -15765,6 +15765,21 @@
       ],
       "epic": "test-infra",
       "body": "Matt (7 Nov 2026): crate-by-crate code reviews, reading only. Expected: 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1883,
+      "title": "[Opus] Code review: crates/syntax, an independent second pass (the first, SW-1872, ran on Sonnet); compare afterwards and keep or drop SW-1873-SW-1881",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1883",
+      "labels": [
+        "review"
+      ],
+      "epic": "syntax-language",
+      "body": "D2672 (Matt, 7 Nov 2026). Reading only. Expected: 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
