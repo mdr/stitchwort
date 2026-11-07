@@ -1,5 +1,5 @@
 {
-  "next": 1987,
+  "next": 1989,
   "tickets": [
     {
       "id": 47,
@@ -17326,6 +17326,35 @@
       ],
       "epic": "syntax-language",
       "body": "From docs/proposals/parse-recovery.md. Lane 6, optional, after SW-1873. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1987,
+      "title": "[Opus] Code review: the standard library's .sw sources (crates/elab/src/std): API consistency, naming, missing lemmas users reach for, docs accuracy, slow definitions, what natives assume",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1987",
+      "labels": [
+        "review"
+      ],
+      "epic": "std-library",
+      "body": "Matt (7 Nov 2026): parallel review work; the crate reviews covered Rust only. Expected: 75 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1988,
+      "title": "[Opus] Research: synthesis of the AoC friction notes outside 2020 days 10-20 (2020 days 1-9, 2021, 2024, 2025), and which of SW-1598's findings are now fixed; the language gaps ranked by how often they recur",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1988",
+      "labels": [
+        "research"
+      ],
+      "body": "Matt (7 Nov 2026): parallel research. Follows docs/research/aoc-2020-friction-days-10-20.md (SW-1598). Expected: 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
