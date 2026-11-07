@@ -130,6 +130,8 @@ pub struct Faults {
     /// The checker's next steps of the workspace holding this file panic,
     /// this many times (`usize::MAX`: always).
     pub checker_panic: Mutex<Option<(PathBuf, usize)>>,
+    /// Loading the project in this folder panics, every time.
+    pub load_panic: Mutex<Option<PathBuf>>,
 }
 
 impl Faults {
@@ -151,6 +153,10 @@ impl Faults {
             *left -= 1;
         }
         true
+    }
+
+    fn load_panics_now(&self, dir: &Path) -> bool {
+        lock(&self.load_panic).as_deref() == Some(dir)
     }
 
     fn request_panics_now(&self, method: &str) -> bool {
@@ -2284,13 +2290,7 @@ impl ProjectWork {
     /// Whether `relative` (a path within the project) is one of its
     /// source files.
     fn holds(&self, relative: &str) -> bool {
-        relative.ends_with(".sw")
-            && self.sources.iter().any(|s| {
-                s.is_empty()
-                    || relative
-                        .strip_prefix(s.as_str())
-                        .is_some_and(|r| r.starts_with('/'))
-            })
+        sources_hold(&self.sources, relative)
     }
 
     /// Whether every file is as on disk.
@@ -2536,13 +2536,21 @@ impl Checker {
         checker.stopped = stopped;
         checker.also = also;
         checker.open = open;
-        checker.reopen();
         checker.last = last;
         checker
     }
 
-    /// Opens the recorded documents again.
-    fn reopen(&mut self) {
+    /// Opens the recorded documents again, each under the catch: a panic
+    /// is blamed on the workspace of the document, as with an edit, and
+    /// `open` stays whole for the next successor.
+    fn reopen(&mut self) -> Result<(), Panic> {
+        let last = self.last.clone();
+        let result = self.reopen_documents();
+        self.last = last;
+        result
+    }
+
+    fn reopen_documents(&mut self) -> Result<(), Panic> {
         let open = self.open.clone();
         if let Some(why) = self.stopped.clone() {
             let keys: Vec<PathBuf> = {
@@ -2556,16 +2564,16 @@ impl Checker {
                 self.versions.insert(path.clone(), version);
                 self.show_error(&path, &why);
             }
-            return;
+            return Ok(());
         }
         let keys: Vec<PathBuf> = self.quarantined.keys().cloned().collect();
         for key in keys {
             self.forget(&key);
         }
         for (path, (version, text)) in open {
-            self.open_text(&path, text, version);
+            self.caught(Some(&path), |c| c.open_text(&path, text, version))?;
         }
-        self.give_also();
+        self.caught(None, Checker::give_also)
     }
 
     /// The document `path` is open at `version` with `text`, unless its
@@ -2585,15 +2593,12 @@ impl Checker {
         if self.quarantined.is_empty() {
             return None;
         }
-        let project = self
-            .source
-            .find_project(path.parent().unwrap_or(Path::new("/")));
-        (self.quarantined.keys())
-            .find(|k| k.as_path() == path || project.as_deref() == Some(k.as_path()))
-            .cloned()
+        let key = self.workspace_of(path);
+        self.quarantined.contains_key(&key).then_some(key)
     }
 
-    /// The workspace of `path`, loaded or not.
+    /// The workspace of `path`, loaded or not: the key it is (or would be)
+    /// kept under in `work`. Quarantine, suspicion and checking all use it.
     fn workspace_of(&self, path: &Path) -> PathBuf {
         if self.work.contains_key(path) {
             return path.to_path_buf();
@@ -2601,10 +2606,22 @@ impl Checker {
         if let Some((key, _)) = self.project_of(path) {
             return key;
         }
-        (self
-            .source
-            .find_project(path.parent().unwrap_or(Path::new("/"))))
-        .unwrap_or_else(|| path.to_path_buf())
+        self.home_of(path)
+    }
+
+    /// Where a file that isn't loaded is kept: in its project's folder if
+    /// the project can be read and lists the file among its sources, or
+    /// else on its own, under its own path.
+    fn home_of(&self, path: &Path) -> PathBuf {
+        let in_project = || {
+            let dir = self
+                .source
+                .find_project(path.parent().unwrap_or(Path::new("/")))?;
+            let relative = relative(&dir, path)?;
+            let project = self.source.project(&dir)?;
+            sources_hold(&project.sources, &relative).then_some(dir)
+        };
+        in_project().unwrap_or_else(|| path.to_path_buf())
     }
 
     /// Shows `message` as the only diagnostic of the open file `path`.
@@ -2628,9 +2645,9 @@ impl Checker {
             diagnostics: shown.1.clone(),
             version,
         };
-        self.published.insert(uri, shown);
         let n = Notification::new(notification::PublishDiagnostics::METHOD.to_string(), params);
         let _ = self.sender.send(n.into());
+        self.published.insert(uri, shown);
     }
 
     /// What the successor needs, if the checker panicked. Drops the sessions.
@@ -2651,12 +2668,22 @@ impl Checker {
     /// Applies an edit, catching a panic.
     fn apply_caught(&mut self, edit: Edit) -> Result<(), Panic> {
         let path = edit.path().map(Path::to_path_buf);
-        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.apply(edit))).map_err(
-            |payload| Panic {
-                workspace: path.map(|p| self.workspace_of(&p)),
+        self.caught(path.as_deref(), |c| c.apply(edit))
+    }
+
+    /// Runs `f`, catching a panic and blaming it on the workspace of
+    /// `path`, if there is one.
+    fn caught<T>(
+        &mut self,
+        path: Option<&Path>,
+        f: impl FnOnce(&mut Self) -> T,
+    ) -> Result<T, Panic> {
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f(self))).map_err(|payload| {
+            Panic {
+                workspace: path.map(|p| self.workspace_of(p)),
                 message: panic_message(&*payload),
-            },
-        )
+            }
+        })
     }
 
     /// [`Checker::step`], catching a panic.
@@ -2684,6 +2711,7 @@ impl Checker {
     }
 
     fn run_caught(&mut self, edits: &Receiver<Edit>) -> Result<(), Panic> {
+        self.reopen()?;
         loop {
             let idle = !self.work.values().any(Work::pending);
             let mut edited = false;
@@ -2884,7 +2912,6 @@ impl Checker {
                     ws.store(place, file);
                     continue;
                 }
-                self.published.insert(uri.clone(), shown);
                 notes.push(PublishDiagnosticsParams {
                     uri,
                     diagnostics,
@@ -2895,8 +2922,11 @@ impl Checker {
         }
         drop(guard);
         for params in notes {
+            let shown = (params.version, params.diagnostics.clone());
+            let uri = params.uri.clone();
             let n = Notification::new(notification::PublishDiagnostics::METHOD.to_string(), params);
             let _ = self.sender.send(n.into());
+            self.published.insert(uri, shown);
         }
         // The names and types the editor draws are from these answers.
         for (wanted, method) in [
@@ -2972,10 +3002,13 @@ impl Checker {
             return;
         }
         let workspace = self.workspace_of(path);
-        self.suspects.remove(&workspace);
+        // A workspace let out of quarantine stays a suspect, so that if the
+        // retry panics it is quarantined again, at one restart per edit.
         if self.quarantined.remove(&workspace).is_none() {
+            self.suspects.remove(&workspace);
             return;
         }
+        self.suspects.insert(workspace.clone());
         let others: Vec<_> = (self.open.iter())
             .filter(|(p, _)| p.as_path() != path)
             .map(|(p, (v, t))| (p.clone(), *v, t.clone()))
@@ -3139,10 +3172,10 @@ impl Checker {
     /// its own.
     fn open_workspace(&mut self, path: &Path) {
         let folder = path.parent().unwrap_or(Path::new("/"));
-        if let Some(dir) = self.source.find_project(folder)
+        let dir = self.home_of(path);
+        if dir != path
             && !self.work.contains_key(&dir)
             && let Some(work) = self.load_project(&dir)
-            && relative(&dir, path).is_some_and(|r| work.holds(&r))
         {
             self.work.insert(dir, Work::Project(Box::new(work)));
             return;
@@ -3167,6 +3200,9 @@ impl Checker {
 
     /// Reads the project in folder `dir`.
     fn load_project(&self, dir: &Path) -> Option<ProjectWork> {
+        if self.options.faults.load_panics_now(dir) {
+            panic!("injected load fault");
+        }
         let name = dir
             .file_name()
             .map_or("project".to_string(), |n| n.to_string_lossy().into_owned());
@@ -3436,6 +3472,16 @@ fn trace(line: impl FnOnce() -> String) {
 }
 
 /// `path` within the folder `dir`, components joined by `/`.
+/// Whether `relative` (a path within a project) is a `.sw` file in one of
+/// its source folders.
+fn sources_hold(sources: &[String], relative: &str) -> bool {
+    relative.ends_with(".sw")
+        && sources.iter().any(|s| {
+            let s = s.trim_end_matches('/');
+            s.is_empty() || relative.strip_prefix(s).is_some_and(|r| r.starts_with('/'))
+        })
+}
+
 fn relative(dir: &Path, path: &Path) -> Option<String> {
     let rest = path.strip_prefix(dir).ok()?;
     let parts: Option<Vec<&str>> = rest.iter().map(|c| c.to_str()).collect();

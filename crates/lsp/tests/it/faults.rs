@@ -242,6 +242,76 @@ fn a_repeating_panic_quarantines_its_project_until_the_next_edit() {
     s.stop();
 }
 
+/// SW-2086: a project that panics while it loads is quarantined, from
+/// the successor's reopening of the documents as well, and another project
+/// goes on.
+#[test]
+fn a_project_that_panics_while_reopened_is_quarantined_and_another_goes_on() {
+    let options = Options::new(STACK);
+    let faults = options.faults.clone();
+    *faults.load_panic.lock().unwrap() = Some("/memory/proj".into());
+    let mut s = Server::bare(options);
+    s.open(URI, TEXT);
+    let shown = s.diagnostics(URI, internal_error);
+    assert_eq!(shown["params"]["diagnostics"].as_array().unwrap().len(), 1);
+    s.open(OTHER, OTHER_TEXT);
+    s.diagnostics(OTHER, |p| !internal_error(p));
+    s.wait_for(|m| m["method"] == "stitchwort/checked" && m["params"]["versions"][OTHER] == 1);
+    let pop_ups = s.pop_ups();
+    assert!(
+        pop_ups.iter().any(|p| p.contains("stopped checking proj")),
+        "{pop_ups:?}"
+    );
+    // An edit tries the project again.
+    *faults.load_panic.lock().unwrap() = None;
+    s.change(URI, 2, &format!("{TEXT}-- edited\n"));
+    let fresh = s.diagnostics(URI, |p| p["version"] == 2);
+    assert!(!internal_error(&fresh["params"]), "{fresh}");
+    assert!(s.hover().get("error").is_none());
+    s.stop();
+}
+
+/// SW-2086: an edit lifts the quarantine, and the retry's first panic
+/// quarantines again, so each edit costs one restart (the budget is 5).
+#[test]
+fn an_edit_to_a_project_that_keeps_panicking_costs_one_restart() {
+    let options = Options::new(STACK);
+    *options.faults.checker_panic.lock().unwrap() =
+        Some(("/memory/proj/src/Demo.sw".into(), usize::MAX));
+    let s = Server::bare(options);
+    s.open(URI, TEXT);
+    s.diagnostics(URI, internal_error);
+    // The open cost two restarts: three edits are three more.
+    for version in 2..=4 {
+        s.change(URI, version, &format!("{TEXT}-- edit {version}\n"));
+        let shown = s.diagnostics(URI, |p| p["version"] == version && internal_error(p));
+        let message = shown["params"]["diagnostics"][0]["message"]
+            .as_str()
+            .unwrap();
+        assert!(!message.contains("checking stopped"), "{message}");
+    }
+    s.stop();
+}
+
+/// SW-2086: a file on its own inside a project folder is a workspace of
+/// its own, for quarantine as for checking: an edit to it lifts its
+/// quarantine.
+#[test]
+fn a_file_on_its_own_in_a_project_folder_is_quarantined_by_its_own_key() {
+    const LOOSE: &str = "file:///memory/proj/Loose.sw";
+    let options = Options::new(STACK);
+    let faults = options.faults.clone();
+    *faults.checker_panic.lock().unwrap() = Some(("/memory/proj/Loose.sw".into(), usize::MAX));
+    let s = Server::bare(options);
+    s.open(LOOSE, "namespace Loose\n\ndef h: Nat := 1\n");
+    s.diagnostics(LOOSE, internal_error);
+    *faults.checker_panic.lock().unwrap() = None;
+    s.change(LOOSE, 2, "namespace Loose\n\ndef h: Nat := 2\n");
+    let fresh = s.diagnostics(LOOSE, |p| p["version"] == 2);
+    assert!(!internal_error(&fresh["params"]), "{fresh}");
+    s.stop();
+}
+
 #[test]
 fn the_checker_budget_runs_out_with_a_message() {
     let options = Options::new(STACK);
@@ -250,12 +320,12 @@ fn the_checker_budget_runs_out_with_a_message() {
     let mut s = Server::bare(options);
     s.open(URI, TEXT);
     s.diagnostics(URI, internal_error);
-    // Two panics for each edit, one to suspect and one to quarantine; the
-    // sixth is one too many.
-    for version in 2..=3 {
+    // Two restarts for the open and one for each edit: the sixth is one too
+    // many.
+    for version in 2..=5 {
         s.change(URI, version, &format!("{TEXT}-- edit {version}\n"));
         let shown = s.diagnostics(URI, |p| p["version"] == version && internal_error(p));
-        if version == 3 {
+        if version == 5 {
             let message = shown["params"]["diagnostics"][0]["message"]
                 .as_str()
                 .unwrap();
