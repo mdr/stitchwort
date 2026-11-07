@@ -1,5 +1,5 @@
 {
-  "next": 1818,
+  "next": 1824,
   "tickets": [
     {
       "id": 47,
@@ -14646,14 +14646,14 @@
     {
       "id": 1808,
       "title": "[Opus] Review: the language server's kept search session (SW-1798): does rewinding one std-loaded session give exactly what a fresh one would for every request kind, across panics, cancellations, file edits and project changes; code reading, no builds",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1808",
       "labels": [
         "review"
       ],
       "epic": "editor-playground",
-      "body": "D2582 (Matt, 7 Nov 2026). Expected: 45 min.",
+      "body": "D2582 (Matt, 7 Nov 2026). Expected: 45 min.\n\nDone, merged: docs/reviews/SW-1808-kept-search-session.md. Answers sound for all four request kinds across edits and config changes; two slow leaks (counterexample logs, apart_sets), panic kills the worker (predates SW-1798), shutdown and reset hardening, clean-ups; the new test would catch none of them. D2583 (randomised test in daily, 10-step in lane) [yes], D2584 (catch search panics) [yes]. Tickets: SW-1818 SW-1819 SW-1820 SW-1821 SW-1822 SW-1823. 11 min (est. 45).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -14789,6 +14789,96 @@
       ],
       "epic": "performance",
       "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T9). Small. Ready now.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1818,
+      "title": "[Sonnet] Kept search session leak: each probe reruns failing theorems' counterexample searches and appends a log the rewind never removes; turn counterexamples off in probe sessions (also faster) or cut the log on rewind",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "epic": "editor-playground",
+      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 1). Expected: 45 min. Ready now.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1819,
+      "title": "[Opus] Machine::apart_sets gains an entry per number match with a _ arm on every request (kept session leak); reuse equal entries",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "epic": "editor-playground",
+      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 2). Kernel state. Expected: 45 min. Ready now.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1820,
+      "title": "[Sonnet] A panic in an editor search kills the search worker (no catch_unwind; with one worker, no more searches until restart): catch it, answer 'no result' and log; and either wire cancellation into project searches or correct the comment that says they honour it",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "epic": "editor-playground",
+      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 3, 6). Waiting on D2584 (rec: yes). Expected: 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1821,
+      "title": "[Opus] Kept session hardening: Machine::reset leaves glue and erasure as they were (harmless today, a lasting wrong answer if a panic is ever caught mid-request); drop the kept session at the end of search_worker, not in thread-local teardown (recursive frees at shutdown)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "epic": "editor-playground",
+      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 4, 5). Two small fixes. Expected: 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1822,
+      "title": "[Sonnet] Kept session clean-ups: cache key relies on the bundle's pointer address; library loaded twice when it fails to load; dead run closure in searches_in_a_row_give_what_fresh_ones_do; its code-action comparison depends on wall-clock limits (flaky risk)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "epic": "editor-playground",
+      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 6). Small. Expected: 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1823,
+      "title": "[Sonnet] Randomised kept-session test: a seeded ~60-step driver-level sequence of searches with edits between, each answer compared with a fresh session, state growth checked every 10 steps; 10-step version in the lane tier",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "epic": "editor-playground",
+      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding test proposal). Waiting on D2583 (rec: yes). Expected: 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
