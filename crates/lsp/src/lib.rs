@@ -747,21 +747,35 @@ fn keep_search_worker(
 /// How often a part of the server may be started again after a panic: 5
 /// times in 3 minutes, as VS Code does for the server process. Past that,
 /// that part stops and says so, rather than looping.
-#[derive(Default)]
 struct Budget {
     restarts: std::collections::VecDeque<std::time::Instant>,
+    limit: usize,
+}
+
+impl Default for Budget {
+    fn default() -> Self {
+        Budget::of(Self::RESTARTS)
+    }
 }
 
 impl Budget {
     const RESTARTS: usize = 5;
     const WITHIN: Duration = Duration::from_secs(180);
 
+    /// A budget of `limit` restarts in the usual time.
+    fn of(limit: usize) -> Self {
+        Budget {
+            restarts: Default::default(),
+            limit,
+        }
+    }
+
     /// Counts a restart; false if it is one too many.
     fn spend(&mut self) -> bool {
         let now = std::time::Instant::now();
         self.restarts
             .retain(|t| now.duration_since(*t) < Self::WITHIN);
-        if self.restarts.len() >= Self::RESTARTS {
+        if self.restarts.len() >= self.limit {
             return false;
         }
         self.restarts.push_back(now);
@@ -2379,6 +2393,9 @@ struct Checker {
     /// The workspaces that panicked since they were last edited: another
     /// panic quarantines them.
     suspects: BTreeSet<PathBuf>,
+    /// The quarantined workspaces whose own restart budget is spent: only a
+    /// new session checks them again.
+    retired: BTreeSet<PathBuf>,
     /// Checking has stopped for good (the restart budget is spent): why.
     stopped: Option<String>,
 }
@@ -2411,12 +2428,23 @@ struct Keeper {
     published: HashMap<Url, (Option<i32>, Vec<lsp_types::Diagnostic>)>,
     quarantined: BTreeMap<PathBuf, String>,
     suspects: BTreeSet<PathBuf>,
+    retired: BTreeSet<PathBuf>,
     stopped: Option<String>,
 }
 
+/// Restarts of the checker, from panics anywhere, that stop checking for the
+/// whole session: three projects' worth of their own budget
+/// ([`Budget::RESTARTS`]), so that a few broken projects can't reach it
+/// before each has been quarantined.
+const BACKSTOP: usize = 15;
+
 /// Runs the checker, and starts a new thread for it, from what the old one
-/// kept, whenever it panics ([`Budget`] permitting); a workspace that
-/// panics again with no edit in between is quarantined.
+/// kept, whenever it panics. A workspace that panics again with no edit in
+/// between is quarantined; one that spends its own [`Budget`] is quarantined
+/// for the rest of the session. Every panic also counts against a larger
+/// budget for the whole session (`BACKSTOP`), which stops checking
+/// altogether: it is the only limit on panics that no workspace can be
+/// blamed for.
 fn keep_checker(
     options: Options,
     source: Arc<dyn Source>,
@@ -2427,7 +2455,8 @@ fn keep_checker(
     notices: Arc<Notices>,
 ) {
     let mut keeper = Keeper::default();
-    let mut budget = Budget::default();
+    let mut session = Budget::of(BACKSTOP);
+    let mut budgets: BTreeMap<PathBuf, Budget> = BTreeMap::new();
     loop {
         let thread = {
             let (options, source, sender) = (options.clone(), source.clone(), sender.clone());
@@ -2462,7 +2491,9 @@ fn keep_checker(
             "stitchwort lsp: the checker panicked{place}: {}",
             panic.message
         );
-        if !budget.spend() {
+        let own_budget_spent = (panic.workspace.as_ref())
+            .is_some_and(|w| !budgets.entry(w.clone()).or_default().spend());
+        if !session.spend() {
             notices.always(
                 lsp_types::MessageType::ERROR,
                 "Stitchwort stopped checking after repeated internal errors. Reload \
@@ -2474,22 +2505,35 @@ fn keep_checker(
                     .to_string(),
             );
         } else if let Some(workspace) = panic.workspace
-            && !kept.suspects.insert(workspace.clone())
+            && (own_budget_spent || !kept.suspects.insert(workspace.clone()))
         {
             let name = (workspace.file_name())
                 .map_or("a file".to_string(), |n| n.to_string_lossy().into_owned());
             notices.always(
                 lsp_types::MessageType::ERROR,
                 &format!(
-                    "Stitchwort stopped checking {name} after repeated internal errors. \
-                     Edit one of its files to try again."
+                    "Stitchwort stopped checking {name} after repeated internal errors. {}",
+                    if own_budget_spent {
+                        "Reload the window to start again."
+                    } else {
+                        "Edit one of its files to try again."
+                    }
                 ),
             );
             kept.suspects.remove(&workspace);
+            let remedy = if own_budget_spent {
+                "checking it has stopped after repeated internal errors; restart the \
+                 language server"
+            } else {
+                "edit a file of it to try again"
+            };
+            if own_budget_spent {
+                kept.retired.insert(workspace.clone());
+            }
             kept.quarantined.insert(
                 workspace,
                 format!(
-                    "internal error while checking {name}: {}; edit a file of it to try again",
+                    "internal error while checking {name}: {}; {remedy}",
                     panic.message
                 ),
             );
@@ -2525,6 +2569,7 @@ impl Checker {
             open: BTreeMap::new(),
             quarantined: BTreeMap::new(),
             suspects: BTreeSet::new(),
+            retired: BTreeSet::new(),
             stopped: None,
         }
     }
@@ -2549,6 +2594,7 @@ impl Checker {
             published,
             quarantined,
             suspects,
+            retired,
             stopped,
         } = keeper;
         checker.announced = announced;
@@ -2556,6 +2602,7 @@ impl Checker {
         checker.published = published;
         checker.quarantined = quarantined;
         checker.suspects = suspects;
+        checker.retired = retired;
         checker.stopped = stopped;
         checker.also = also;
         checker.open = open;
@@ -2684,6 +2731,7 @@ impl Checker {
             published: self.published,
             quarantined: self.quarantined,
             suspects: self.suspects,
+            retired: self.retired,
             stopped: self.stopped,
         }
     }
@@ -3025,6 +3073,9 @@ impl Checker {
             return;
         }
         let workspace = self.workspace_of(path);
+        if self.retired.contains(&workspace) {
+            return;
+        }
         // A workspace let out of quarantine stays a suspect, so that if the
         // retry panics it is quarantined again, at one restart per edit.
         if self.quarantined.remove(&workspace).is_none() {
@@ -3060,7 +3111,10 @@ impl Checker {
             return;
         }
         match &edit {
-            Edit::Open { path, .. } | Edit::Change { path, .. } => self.edited(path),
+            // Only a change to the text lifts a quarantine: opening a file
+            // of a quarantined workspace shows why it isn't checked.
+            Edit::Open { path, .. } if self.quarantine_key(path).is_none() => self.edited(path),
+            Edit::Change { path, .. } => self.edited(path),
             Edit::Close { path } if self.quarantine_key(path).is_some() => {
                 self.versions.remove(path);
                 if let Ok(uri) = Url::from_file_path(path) {
@@ -3091,8 +3145,7 @@ impl Checker {
                 text,
                 version,
             } => {
-                self.versions.insert(path.clone(), version);
-                self.set_text(&path, Some(text), true);
+                self.open_text(&path, text, version);
             }
             Edit::Close { path } => {
                 self.versions.remove(&path);

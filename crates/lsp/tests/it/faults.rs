@@ -312,11 +312,13 @@ fn a_file_on_its_own_in_a_project_folder_is_quarantined_by_its_own_key() {
     s.stop();
 }
 
+/// SW-2089: a project has a budget of its own. When it is spent the project
+/// stays quarantined, whatever is edited, and another project goes on.
 #[test]
-fn the_checker_budget_runs_out_with_a_message() {
+fn a_projects_budget_runs_out_and_another_project_goes_on() {
     let options = Options::new(STACK);
-    *options.faults.checker_panic.lock().unwrap() =
-        Some(("/memory/proj/src/Demo.sw".into(), usize::MAX));
+    let faults = options.faults.clone();
+    *faults.checker_panic.lock().unwrap() = Some(("/memory/proj/src/Demo.sw".into(), usize::MAX));
     let mut s = Server::bare(options);
     s.open(URI, TEXT);
     s.diagnostics(URI, internal_error);
@@ -329,17 +331,55 @@ fn the_checker_budget_runs_out_with_a_message() {
             let message = shown["params"]["diagnostics"][0]["message"]
                 .as_str()
                 .unwrap();
-            assert!(message.contains("checking stopped"), "{message}");
+            assert!(message.contains("restart the language server"), "{message}");
         }
     }
     let pop_ups = s.pop_ups();
+    let stopped = |p: &&String| p.contains("stopped checking proj");
+    assert_eq!(pop_ups.iter().filter(stopped).count(), 5, "{pop_ups:?}");
     assert!(
-        pop_ups
-            .iter()
-            .any(|p| p.contains("stopped checking after repeated")),
+        pop_ups.iter().any(|p| p.contains("Reload the window")),
         "{pop_ups:?}"
     );
+    assert!(!pop_ups.iter().any(|p| p.contains("checking after")));
+    // Even with the fault gone, an edit doesn't bring the project back.
+    *faults.checker_panic.lock().unwrap() = None;
+    s.change(URI, 6, &format!("{TEXT}-- edit 6\n"));
+    let shown = s.diagnostics(URI, |p| p["version"] == 6);
+    assert!(internal_error(&shown["params"]), "{shown}");
+    // Another project still publishes diagnostics.
+    s.open(OTHER, OTHER_TEXT);
+    s.diagnostics(OTHER, |p| !internal_error(p));
+    s.wait_for(|m| m["method"] == "stitchwort/checked" && m["params"]["versions"][OTHER] == 1);
+    s.change(OTHER, 2, &format!("{OTHER_TEXT}-- edited\n"));
+    let fresh = s.diagnostics(OTHER, |p| p["version"] == 2);
+    assert!(!internal_error(&fresh["params"]), "{fresh}");
     assert!(s.hover().get("error").is_none());
+    s.stop();
+}
+
+/// SW-2089 (D3000): only a change to a file's text retries a quarantined
+/// project, not opening one of its files.
+#[test]
+fn opening_a_file_of_a_quarantined_project_does_not_retry_it() {
+    let options = Options::new(STACK);
+    let faults = options.faults.clone();
+    *faults.checker_panic.lock().unwrap() = Some(("/memory/proj/src/Demo.sw".into(), usize::MAX));
+    let s = Server::bare(options);
+    s.open(URI, TEXT);
+    s.diagnostics(URI, internal_error);
+    *faults.checker_panic.lock().unwrap() = None;
+    s.notify(
+        "textDocument/didClose",
+        json!({"textDocument": {"uri": URI}}),
+    );
+    s.open(URI, TEXT);
+    let shown = s.diagnostics(URI, |p| p["version"] == 1 && internal_error(p));
+    assert_eq!(shown["params"]["diagnostics"].as_array().unwrap().len(), 1);
+    // A change does.
+    s.change(URI, 2, &format!("{TEXT}-- edited\n"));
+    let fresh = s.diagnostics(URI, |p| p["version"] == 2);
+    assert!(!internal_error(&fresh["params"]), "{fresh}");
     s.stop();
 }
 
