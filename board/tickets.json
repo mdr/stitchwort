@@ -1,5 +1,5 @@
 {
-  "next": 2318,
+  "next": 2319,
   "tickets": [
     {
       "id": 47,
@@ -22281,6 +22281,22 @@
       ],
       "epic": "comparative-speed",
       "body": "From SW-2313: import Std (...) of unused names took 180 ms; using Parse.Reads and Runs took 7.2 s.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2318,
+      "title": "Paper lane: why compiled Lean is 5-50x faster than Stitchwort native on the comparison programs, and what to take from it (Lean's compiler pipeline, data representation, runtime; its generated C for our ports against our native code), building on docs/research/in-place-reuse.md and compilation.md",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2318",
+      "labels": [
+        "perf",
+        "design"
+      ],
+      "epic": "comparative-speed",
+      "body": "Matt, 7 Nov 2026: research on the web, code repositories and the literature into why Lean's implementation is so optimised, and what we might steal. Output docs/research/lean-runtime-speed.md. Started 7 Nov 2026, expected: 75 min. D base D3358.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
