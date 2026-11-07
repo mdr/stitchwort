@@ -1,5 +1,5 @@
 {
-  "next": 1842,
+  "next": 1849,
   "tickets": [
     {
       "id": 47,
@@ -7313,14 +7313,14 @@
     {
       "id": 1321,
       "title": "Unifier: audit other places that inspect a stuck call's arguments without re-evaluating after an unknown is solved (blocked_within, meta_against_call, conv's stuck-tree comparison)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1321",
       "labels": [
         "kernel"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-1315, which fixed the same stale-stuck-call gap at the point a comparison fails.\n\nD2585 (Matt, 7 Nov 2026): started, Opus, reading only. Expected: 60 min.",
+      "body": "From SW-1315, which fixed the same stale-stuck-call gap at the point a comparison fails.\n\nD2585 (Matt, 7 Nov 2026): started, Opus, reading only. Expected: 60 min.\n\nDone, merged: docs/reviews/SW-1321-stale-stuck-calls.md. Eight sites can read a stuck call as stuck after its unknown is solved; none unsound (wrong failures or needless waits). Record eta and bounded readback add no new path beyond F1/F2. D2603: per site or systemic? [rec: both: SW-1842 SW-1843 SW-1844 now; SW-1845 design note; SW-1846 SW-1847 SW-1848 wait for it]. 12 min (est. 60).",
       "created": "2026-11-05",
       "updated": "2026-11-07",
       "commits": []
@@ -15150,6 +15150,111 @@
       ],
       "epic": "goal-as-written",
       "body": "Brief in docs/proposals/bounded-readback-remaining.md §5.2 (stage 7). 45 min. After SW-1840.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1842,
+      "title": "[Opus] Unifier: stale_within and blocked_within look inside constructor arguments (pickHead [?b] 5 still fails after ?b is solved); and two stuck calls of the same definition",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-1321's audit (docs/reviews/SW-1321-stale-stuck-calls.md, F1, F1b, F3). Ready now (D2603 rec: now). Repro in the review.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1843,
+      "title": "[Opus] A kept stuck unfolding (Kept::fits, value.rs:124) is never recomputed after a new solution: the epoch only changes when solutions are undone; recompute when an unknown it waits on is solved",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-1321's audit (docs/reviews/SW-1321-stale-stuck-calls.md, F2). Ready now. Kernel-adjacent (SW-1782's modes).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1844,
+      "title": "[Sonnet] tactic_or_wait (queue.rs:905): ring, rewrite and cases evaluate their goal afresh before the first run, not only when resumed (ring treats pick True x as apart from x)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-1321's audit (docs/reviews/SW-1321-stale-stuck-calls.md, F5). Ready now. Expected: 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1845,
+      "title": "[Opus] Design note: stuck values record which unknown they wait on, and looking at one runs it again once that unknown is solved; the systemic fix for SW-1321's findings",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-1321's audit (docs/reviews/SW-1321-stale-stuck-calls.md, D2603). Would make the per-site tickets after it unnecessary.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1846,
+      "title": "[Sonnet] .field on a receiver whose type is a stale stuck call (dot.rs:119 assumes it can't unfold further)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-1321's audit (docs/reviews/SW-1321-stale-stuck-calls.md, F6). Waits on SW-1845's outcome (D2603).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1847,
+      "title": "[Opus] rename's occurs and scope checks re-evaluate a stale call before failing (unify.rs:2353)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-1321's audit (docs/reviews/SW-1321-stale-stuck-calls.md, F4). Waits on SW-1845's outcome (D2603).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1848,
+      "title": "[Sonnet] Sweep the elaborator's ~25 kernel conv calls: conv_now where values may predate a solution (about ten sites not read)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-1321's audit (docs/reviews/SW-1321-stale-stuck-calls.md, F7). Waits on SW-1845's outcome (D2603).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
