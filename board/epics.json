@@ -433,7 +433,11 @@
         "Proof baseline loads what each day uses: 2020 day 18 went from 37x to about 0.9x Lean, 2024 day 2 from 12x to 2x, 2021 day 15 about 4x (rough, one run, under load; SW-2313)"
       ],
       "now": [
-        "Scale inputs past 0.3 s (SW-2307, restarted)"
+        "Review fixes on scaled inputs (SW-2307)",
+        "Why compiled Lean is faster, paper lane (SW-2318)",
+        "Big numbers without copying (SW-2302)",
+        "Native inline Int arithmetic (SW-2304)",
+        "Overmind: answer check of all ten programs, then fuzzing"
       ],
       "next": [
         "Run time first (Matt, 7 Nov 2026): Stage 2 runtime-only, native against CPython and compiled Lean, on a quiet Speedwell (SW-2295)",

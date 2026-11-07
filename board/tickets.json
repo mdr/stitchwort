@@ -22046,14 +22046,14 @@
     {
       "id": 2302,
       "title": "[Sonnet] Big numbers: arithmetic and comparisons work on references, without copying both inputs first (prims.rs:274, value.rs:217)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2302",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/reviews/SW-2298-native-bignum.md (paper lane; confirm with task bench:compare -- --runs 3 pidigits before and after). 30 min.",
+      "body": "From docs/reviews/SW-2298-native-bignum.md (paper lane; confirm with task bench:compare -- --runs 3 pidigits before and after). 30 min.\n\nStarted 7 Nov 2026 23:28; expected: 30 min. Runs beside SW-2302/2304 (both from SW-2298); merge after Overmind's Stage 2 timing of the commit before them.\n",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -22076,14 +22076,14 @@
     {
       "id": 2304,
       "title": "[Sonnet] Native: inline word-sized Int arithmetic, and stop allocating a list on every runtime call",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2304",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/reviews/SW-2298-native-bignum.md (paper lane; confirm with task bench:compare -- --runs 3 pidigits before and after). 45 min.",
+      "body": "From docs/reviews/SW-2298-native-bignum.md (paper lane; confirm with task bench:compare -- --runs 3 pidigits before and after). 45 min.\n\nStarted 7 Nov 2026 23:28; expected: 45 min. Runs beside SW-2302/2304 (both from SW-2298); merge after Overmind's Stage 2 timing of the commit before them.\n",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
