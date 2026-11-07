@@ -744,6 +744,20 @@ def textTag (s: List Char): Nat :=
   match s with
     | Nil => 0
     | Cons c rest => 1
+
+def textA (s: List Char) (x: Nat): Nat :=
+  match s with
+    | Nil => 0
+    | Cons c rest => (match x with
+      | Zero => 0
+      | Succ m => m)
+
+def textB (s: List Char) (x: Nat): Nat :=
+  match s with
+    | Nil => 0
+    | Cons c rest => (match x with
+      | Zero => 0
+      | Succ m => m)
 "#;
 
 fn wrap_sig(g: &Ev) -> Sig {
@@ -763,6 +777,8 @@ fn wrap_sig(g: &Ev) -> Sig {
             "ignoresFirst",
             "alsoIgnores",
             "textTag",
+            "textA",
+            "textB",
             "Nat.add",
             "Nat.mul",
             "Float.ofNat",
@@ -1054,18 +1070,31 @@ fn wrapped_pairs(g: &Ev, sig: &Sig) -> Vec<Wrapped> {
     for (name, text) in [("\"ab\"", chars("ab")), ("\"\"", chars(""))] {
         let spelled = reference::expand_term(g, &text);
         let tag = |t: Term| app(sig.def("textTag"), vec![t]);
+        // Two alike helpers: their trees are compared by the tree walk, which
+        // splits the text scrutinee itself.
+        let alike_a = |t: Term| app(sig.def("textA"), vec![t, var(N, 0)]);
+        let alike_b = |t: Term| app(sig.def("textB"), vec![t, var(N, 0)]);
         for dev in DEVICES.iter().filter(|d| **d != "k * x") {
             for (place, plain, wrapped) in [
                 ("over compact", &spelled, &text),
                 ("over cons cells", &text, &spelled),
             ] {
+                let wrapped = device(g, sig, dev, wrapped.clone());
                 out.push(Wrapped {
                     context: "text match",
                     device: dev,
                     place,
                     base: name.to_string(),
                     left: tag(plain.clone()),
-                    right: tag(device(g, sig, dev, wrapped.clone())),
+                    right: tag(wrapped.clone()),
+                });
+                out.push(Wrapped {
+                    context: "alike helpers over text",
+                    device: dev,
+                    place,
+                    base: name.to_string(),
+                    left: alike_a(plain.clone()),
+                    right: alike_b(wrapped),
                 });
             }
         }
@@ -1079,27 +1108,8 @@ fn wrapped_pairs(g: &Ev, sig: &Sig) -> Vec<Wrapped> {
 /// which, and the lane removes its `#[ignore]`.
 fn known_gap(p: &Wrapped) -> Option<(&'static str, &'static str)> {
     let closed = ["1", "2", "3"].contains(&p.base.as_str());
-    let folded = ["decreasing", "k * x"].contains(&p.device);
     let over = p.place == "over";
     match p.context {
-        // The scrutinee is a folded call, or a number: the tree comparison
-        // of two alike helpers doesn't take its branch.
-        "alike helpers, hole scrutinised"
-            if folded && over && ["n", "Succ n"].contains(&p.base.as_str()) =>
-        {
-            Some(("G1", "SW-2257"))
-        }
-        "alike helpers, hole scrutinised" if closed => Some(("G3", "SW-2257")),
-        "alike helpers, hole in the second place" if p.base == "n" && over => {
-            Some(("G3", "SW-2257"))
-        }
-        // `+` on a folded second argument.
-        "n + hole" | "n + hole, against Succ^k n"
-            if p.device == "decreasing"
-                && (closed || p.base == "0" && over || p.base == "Succ n" && over) =>
-        {
-            Some(("G2", "SW-2244"))
-        }
         // (With `n` a number, the pairs over `n` are these too.)
         "Float.ofNat" if p.device == "decreasing" => Some(("G4", "SW-2244")),
         // A number `match` on `Succ` of a folded call.
@@ -1198,21 +1208,6 @@ fn known_wrapping(gap: &str) {
             bad.join("\n")
         );
     })
-}
-
-#[test]
-fn wrapping_known_failure_g1() {
-    known_wrapping("G1")
-}
-
-#[test]
-fn wrapping_known_failure_g2() {
-    known_wrapping("G2")
-}
-
-#[test]
-fn wrapping_known_failure_g3() {
-    known_wrapping("G3")
 }
 
 #[test]
