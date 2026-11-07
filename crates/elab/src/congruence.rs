@@ -675,7 +675,10 @@ pub(crate) fn sketch(g: &Ev, f: DefId) -> String {
 /// one message for each that fails. `rewrite` also accepts `…CongMem`,
 /// `…CongRange` and `…CongRangeFrom` (their statements have facts in their
 /// premises, which [`validate_cong`] doesn't accept), so this covers only
-/// `…Cong`, the one family [`lookup`] (and so `decreasing`) recognises. For
+/// `…Cong`, the one family [`lookup`] (and so `decreasing`) recognises. A
+/// `…Cong` whose function can't be found fails; the only lemmas skipped
+/// are those of a function with no function parameter (`Int.addCong`),
+/// which `decreasing` never looks up. For
 /// the test `every_std_congruence_lemma_passes_validate_cong` in the driver.
 #[doc(hidden)]
 pub fn std_congruence_failures(e: &Elaborator) -> (usize, Vec<String>) {
@@ -683,6 +686,7 @@ pub fn std_congruence_failures(e: &Elaborator) -> (usize, Vec<String>) {
     // (`lookup`); the others in [`SUFFIXES`] are `rewrite`'s.
     const DECREASING_SUFFIX: &str = "Cong";
     let mut total = 0;
+    let mut exempt_seen = 0;
     let mut failures = Vec::new();
     let g = e.ev();
 
@@ -699,7 +703,21 @@ pub fn std_congruence_failures(e: &Elaborator) -> (usize, Vec<String>) {
                 Some((Global::Def(id), _)) => Some(id),
                 _ => None,
             });
-        let Some(f) = f else { continue };
+        // A `…Cong` whose function is gone has been orphaned, most
+        // likely by a rename of the function alone: `decreasing` and
+        // `rewrite` then stop using it without a word, so it fails here.
+        let Some(f) = f else {
+            if NOT_ABOUT_A_FUNCTION.iter().any(|(n, _)| *n == name) {
+                exempt_seen += 1;
+                continue;
+            }
+            total += 1;
+            failures.push(format!(
+                "{name}: no function `{base}` (or `Std.{base}`) found for it; was the \
+                 function renamed without its `{DECREASING_SUFFIX}` lemmas?"
+            ));
+            continue;
+        };
         // `decreasing` looks a lemma up only for a call that has a
         // function argument containing the recursive call. A
         // function with no function parameter can't have one, so
@@ -724,5 +742,38 @@ pub fn std_congruence_failures(e: &Elaborator) -> (usize, Vec<String>) {
             failures.push(format!("{name}: {why}"));
         }
     }
+    if exempt_seen != NOT_ABOUT_A_FUNCTION.len() {
+        failures.push(format!(
+            "NOT_ABOUT_A_FUNCTION lists {} lemmas but only {exempt_seen} are in the \
+             library and orphaned; remove the stale entries",
+            NOT_ABOUT_A_FUNCTION.len()
+        ));
+    }
     (total, failures)
 }
+
+/// `…Cong` lemmas that have no function by the lemma's base name, on
+/// purpose, each with its reason. [`std_congruence_failures`] skips exactly
+/// these; any other `…Cong` without its function fails.
+const NOT_ABOUT_A_FUNCTION: [(&str, &str); 5] = [
+    (
+        "Nat.leAddCong",
+        "monotonicity of `+` under `≤`; there is no `Nat.leAdd`",
+    ),
+    (
+        "Nat.ltAddCong",
+        "monotonicity of `+` under `<`; there is no `Nat.ltAdd`",
+    ),
+    (
+        "List.leHeadCong",
+        "congruence of the predicate `List.LeHead` (a data type) in its function argument",
+    ),
+    (
+        "List.sortedCong",
+        "congruence of the predicate `List.Sorted` (a data type) in its function argument",
+    ),
+    (
+        "List.numberWithCong",
+        "congruence of the predicate `List.NumberWith` (a data type) in its function argument",
+    ),
+];
