@@ -1,5 +1,5 @@
 {
-  "next": 1808,
+  "next": 1809,
   "tickets": [
     {
       "id": 47,
@@ -4897,16 +4897,16 @@
     {
       "id": 1163,
       "title": "Decide the in-place reuse plan (docs/research/in-place-reuse.md, SW-1159): D2273-D2277, with fresh eyes, soon",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1163",
       "labels": [
         "decision"
       ],
       "epic": "performance",
-      "body": "Matt (3 Nov): this might need fresh eyes; backlog, pick up again soon. D2273 extend code.rs's existing reuse in stages rather than a new ownership pass [rec yes]; D2274 start with a per-site reuse report (hidden --reuse-report) rather than a dbgTraceIfShared-style function [rec yes]; D2275 then inline small helpers so reuse crosses calls, before std rewrites for in-place trees [rec yes if the report confirms Map/Set are the top misses]; D2276 borrowed parameters only as a design note, only if read-only increments exceed ~20% of count operations [rec yes]; D2277 report and helper inlining now, effect-runtime node reuse after SW-593 [rec yes]. Possible tickets from the note: the reuse report; unused params/lets freed only at frame end; Text.append always copies; extra inc/dec per level in tail-recursive constructor loops.",
+      "body": "Matt (3 Nov): this might need fresh eyes; backlog, pick up again soon. D2273 extend code.rs's existing reuse in stages rather than a new ownership pass [rec yes]; D2274 start with a per-site reuse report (hidden --reuse-report) rather than a dbgTraceIfShared-style function [rec yes]; D2275 then inline small helpers so reuse crosses calls, before std rewrites for in-place trees [rec yes if the report confirms Map/Set are the top misses]; D2276 borrowed parameters only as a design note, only if read-only increments exceed ~20% of count operations [rec yes]; D2277 report and helper inlining now, effect-runtime node reuse after SW-593 [rec yes]. Possible tickets from the note: the reuse report; unused params/lets freed only at frame end; Text.append always copies; extra inc/dec per level in tail-recursive constructor loops.\n\nD2582 (Matt, 7 Nov 2026): started, Opus, fresh-eyes review of the note and D2273-D2277; no builds. Expected: 60 min.",
       "created": "2026-11-03",
-      "updated": "2026-11-03",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -14639,6 +14639,21 @@
       ],
       "epic": "editor-playground",
       "body": "From SW-1798.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1808,
+      "title": "[Opus] Review: the language server's kept search session (SW-1798): does rewinding one std-loaded session give exactly what a fresh one would for every request kind, across panics, cancellations, file edits and project changes; code reading, no builds",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1808",
+      "labels": [
+        "review"
+      ],
+      "epic": "editor-playground",
+      "body": "D2582 (Matt, 7 Nov 2026). Expected: 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
