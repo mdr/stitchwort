@@ -115,3 +115,4 @@ Take these in order, once the speed queue above is empty or blocked.
 - 04:02: SW-1779 merged (AoC -18% steps) after SW-1786; 1007/1007 on main.
 - 04:02: SW-1787 merged (closed type values proposal; D2568-D2570). SW-1788 filed, waiting on Matt. SW-1782 started.
 - 04:29: SW-1781 merged (4 crates' binaries 23 → 8); fixup for rt's state_match. Filed SW-1789 (fmt fuzz case), SW-1790 (cli/driver).
+- 04:51: SW-1782 in review (SW-1791): cached unfoldings record their mode; 317 hash moves under instrumentation → 0. Filed SW-1792. AoC dump comparison waits for Matt.
