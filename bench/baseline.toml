@@ -66,11 +66,11 @@ peak_bytes = 4687
 time_ms = 1.8
 
 [check-number-table]
-steps = 17676
+steps = 21057
 visits = 11560
-allocations = 122671
-peak_bytes = 1228681
-time_ms = 10.7
+allocations = 122670
+peak_bytes = 1226309
+time_ms = 8.5
 
 [check-list-rfl]
 steps = 720065
@@ -115,11 +115,11 @@ peak_bytes = 4739
 time_ms = 1.9
 
 [check-number-wide]
-steps = 69012
+steps = 82065
 visits = 45040
-allocations = 852067
-peak_bytes = 5197837
-time_ms = 81.1
+allocations = 852066
+peak_bytes = 5195465
+time_ms = 68.7
 
 [check-number-dependent]
 steps = 78547
