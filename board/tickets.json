@@ -1,5 +1,5 @@
 {
-  "next": 1913,
+  "next": 1916,
   "tickets": [
     {
       "id": 47,
@@ -14961,7 +14961,7 @@
     {
       "id": 1829,
       "title": "[Opus] Regression after record eta (SW-1642): whole-AoC check --no-cache did not finish in 6 min (killed at 360 s; ~69 s on main this morning, SW-1801); roguelike 5 s fine. Find the namespace and declaration, the cause, and fix or say what to revert",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1829",
       "labels": [
@@ -14969,7 +14969,7 @@
         "kernel"
       ],
       "epic": "elaborator-kernel",
-      "body": "From the D2507 check, 7 Nov 08:11. Merge 319c28c0c. Expected: 60 min.\n\nD2586 (open, for Matt): if this lane finds no clear fix within its hour, revert the record eta merge (319c28c0c) on main and fix it on the branch? [rec: yes]. main is not pushed past the merge until this is settled.",
+      "body": "From the D2507 check, 7 Nov 08:11. Merge 319c28c0c. Expected: 60 min.\n\nD2586 (open, for Matt): if this lane finds no clear fix within its hour, revert the record eta merge (319c28c0c) on main and fix it on the branch? [rec: yes]. main is not pushed past the merge until this is settled.\n\nDone, merged: eta_fields gives each rule-2 field call of a glued call the stuck value forcing would compute (Frame::CallField re-unfolded the call per level: 2^n in 2024 day 11's Map.foldLeft proofs). Whole AoC no cache 61.5 s before the merge, 400+ s after, 68.8 s fixed. Test eta_fields (24 levels, 0.8 s). Day 13 audit warnings predate record eta. Six proof errors remain from record eta: SW-1913. Filed SW-1914, SW-1915. 52 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15787,14 +15787,14 @@
     {
       "id": 1884,
       "title": "[Opus] Stuck field calls keep their call's unfolding cell (or are memoised per comparison) and the unfolded read-back gets the base cell; likely cause of SW-1829's slowdown",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "kernel"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/code-review-core.md (F1, F12). After SW-1829 confirms. 90 min.",
+      "body": "From docs/reviews/code-review-core.md (F1, F12). After SW-1829 confirms. 90 min.\n\nSW-1829: not the regression's cause; see SW-1914.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -16215,6 +16215,51 @@
       ],
       "epic": "elaborator-kernel",
       "body": "Matt (7 Nov 2026): crate-by-crate code reviews, reading only. Expected: 90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1913,
+      "title": "[Opus] Record eta broke six AoC proofs (2020 day 20 Orientations.sw:239; 2021 day 2 Proofs.sw:58; 2021 day 11 Parts.sw:30; 2021 day 15 Answers.sw:34 and Levels.sw:82; 2024 day 23 Part2.sw:179): for each, why eta changed it, and fix the proof or file the elaborator gap",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1913",
+      "labels": [
+        "proofs"
+      ],
+      "epic": "record-eta",
+      "body": "From SW-1829, 7 Nov 2026. Each passes before the merge (319c28c0c) and fails after. D2498-D2505 accepted goals changing shape. Expected: 90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1914,
+      "title": "[Opus] Stuck field calls re-run through unfold_folded and the unfolded read-back (19,261 times in 2020 day 20 Proofs, mostly Parse.State.at): keep the call's cache on them or memoise (core review F1/F12)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "kernel"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "SW-1829 confirmed the lead but it wasn't the regression; costs little today. Supersedes SW-1884's 'likely cause' framing.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1915,
+      "title": "[Sonnet] stitchwort check on a day namespace doesn't check its Proofs, Spec and Tests namespaces: easy to mistake for a whole-day check; say so in --help and the output, or include them",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "cli"
+      ],
+      "epic": "diagnostics",
+      "body": "From SW-1829.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
