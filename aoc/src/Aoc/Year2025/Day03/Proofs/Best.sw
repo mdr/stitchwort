@@ -89,8 +89,8 @@ theorem bestSub: (k: Nat) → (bank: Bank) → List.Subsequence (bank.best k) ba
 
 theorem bestLengthStep (k: Nat) (d: Battery) (rest: Bank)
     (ih: (a: Bank) → List.length (a.best k) = Nat.min k a.length):
-      Succ (List.length (Bank.best (Pair.snd (Bank.best.pick (rest.length - k) rest d rest)) k))
-        = Nat.min (Succ k) (Succ rest.length) :=
+    Succ (List.length (Bank.best (Pair.snd (Bank.best.pick (rest.length - k) rest d rest)) k))
+      = Nat.min (Succ k) (Succ rest.length) :=
   match e: Nat.leq k rest.length with
     | True =>
       rewrite ih (Pair.snd (Bank.best.pick (rest.length - k) rest d rest)),
@@ -166,7 +166,7 @@ theorem pickBestStep (k: Nat) (w: Nat) (x: Battery) (more: Bank) (c: Battery) (a
     (rec: (c2: Battery) → (a2: Bank) → PickBeats k w more c2 a2)
     (h1: k + w ≤ more.length) (h2: k ≤ after.length) (hsa: List.Subsequence [x, ..more] after)
     (y: Battery) (s: Bank) (hk: s.length = k) (cand: Candidate k (Succ w) [x, ..more] c after y s):
-      joltageOf [y, ..s] ≤ joltageOf [Pair.fst (if c < x then Bank.best.pick w more x more else Bank.best.pick w more c after), ..Bank.best (Pair.snd (if c < x then Bank.best.pick w more x more else Bank.best.pick w more c after)) k] :=
+    joltageOf [y, ..s] ≤ joltageOf [Pair.fst (if c < x then Bank.best.pick w more x more else Bank.best.pick w more c after), ..Bank.best (Pair.snd (if c < x then Bank.best.pick w more x more else Bank.best.pick w more c after)) k] :=
   match e: c < x, cand with
     | True, Inl (Both ey hs) =>
       pickBeatsSmaller k w more x more h1 omega y s hk (omega [Eq.cong Fin.toNat ey, pickGe w more x more])
