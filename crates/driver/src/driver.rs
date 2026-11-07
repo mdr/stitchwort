@@ -626,6 +626,12 @@ impl Session {
         if let Err(missing) = session.elab.finish_core() {
             return Err(format!("internal error: {}", missing.message));
         }
+        if matches!(library, Library::Standard) {
+            stitchwort_core::registry::check_library_declares_all(|n| {
+                index.owner(&format!("Std.{n}"))
+            })
+            .map_err(|d| format!("internal error: {}", d.message))?;
+        }
         if !matches!(library, Library::None) {
             session.elab.install_library(index);
         }

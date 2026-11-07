@@ -21,6 +21,15 @@
 //!    library built-in is bound when its file loads, and compiler code may
 //!    use only core built-ins by identity, which a debug assertion checks.
 //!
+//! 6. A definition that compiler code applies to arguments by position
+//!    records its leading binders as a *shape* (`"[p] [a] d y n z yesEq
+//!    noEq"`: implicit binders in brackets, names as declared, `_` for an
+//!    anonymous one). Binding it refuses the library, with `E-BUILTIN`, if
+//!    the declaration has other binders ([`check_shape`]); and the standard
+//!    library must declare every library built-in
+//!    ([`check_library_declares_all`]). Entries without a shape are not
+//!    checked; adding one is how a call site gets protected.
+//!
 //! Binding a built-in only says which declaration is meant. Whether a native
 //! implementation may replace it is decided separately, by the checks in
 //! [`crate::native`], [`crate::partial`] and [`crate::chars`] (types, and
@@ -33,7 +42,7 @@ use crate::machine::in_kernel_modes;
 use stitchwort_syntax::Diagnostic;
 
 use crate::globals::{Kernel, State};
-use crate::term::{DataId, DefId};
+use crate::term::{DataId, DefId, Icit, Term};
 
 /// What kind of declaration a built-in is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -137,7 +146,7 @@ const LIBRARY: &[Builtin] = &[
 ];
 
 macro_rules! builtins {
-    ($($variant:ident = $name:literal : $kind:expr,)*) => {
+    ($($variant:ident = $name:literal : $kind:expr $(=> $shape:literal)?,)*) => {
         /// A prelude declaration the compiler refers to.
         #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
         pub enum Builtin {
@@ -162,6 +171,16 @@ macro_rules! builtins {
                 }
             }
 
+            /// The leading binders of the stored type that Rust code builds
+            /// applications with, as [`shape_of`] prints them, if the entry
+            /// records them: checked when the declaration is bound
+            /// ([`check_shape`]).
+            pub fn shape(self) -> Option<&'static str> {
+                match self {
+                    $(Builtin::$variant => builtins!(@shape $($shape)?),)*
+                }
+            }
+
             /// Whether its declaration is in the core or a library file.
             pub fn home(self) -> Home {
                 if LIBRARY.contains(&self) {
@@ -172,6 +191,8 @@ macro_rules! builtins {
             }
         }
     };
+    (@shape) => { None };
+    (@shape $shape:literal) => { Some($shape) };
 }
 
 builtins! {
@@ -188,37 +209,37 @@ builtins! {
     Iff = "Iff": Data,
     Exists = "Exists": Data,
     ListMem = "List.Mem": Def,
-    Cong = "Eq.cong": Def,
+    Cong = "Eq.cong": Def => "[a] [b] f [x] [y] p",
     // `calc` chains combine their steps with these (`crates/elab/src/calc.rs`)
-    EqSym = "Eq.sym": Def,
-    EqTrans = "Eq.trans": Def,
-    LeTrans = "Nat.leTrans": Def,
-    LessTrans = "Nat.lessTrans": Def,
+    EqSym = "Eq.sym": Def => "[a] [x] [y] p",
+    EqTrans = "Eq.trans": Def => "[a] [x] [y] [z] p q",
+    LeTrans = "Nat.leTrans": Def => "a b c _ _",
+    LessTrans = "Nat.lessTrans": Def => "m n p h1 h2",
     // What `decreasing` generates refers to these (crates/elab/src/decreasing.rs)
-    VoidAbsurd = "Void.absurd": Def,
-    VoidExfalso = "Void.exfalso": Def,
-    FalseNotTrue = "Bool.falseNotTrue": Def,
-    LeRefl = "Nat.leRefl": Def,
-    ElimDecCong = "Decidable.elimCong": Def,
-    IfCong = "Bool.ifThenElseCong": Def,
+    VoidAbsurd = "Void.absurd": Def => "[a] v",
+    VoidExfalso = "Void.exfalso": Def => "[p] v",
+    FalseNotTrue = "Bool.falseNotTrue": Def => "",
+    LeRefl = "Nat.leRefl": Def => "n",
+    ElimDecCong = "Decidable.elimCong": Def => "[p] [a] d y1 y2 n1 n2 sameYes sameNo",
+    IfCong = "Bool.ifThenElseCong": Def => "[a] c t1 t2 e1 e2 sameThen sameElse",
     // and these for `f.unfold` showing a plain `if` whose condition a
     // recursive call's proof used (docs/proposals/decreasing-with-hypothesis.md)
-    ElimDecIf = "Decidable.elimIf": Def,
-    ElimDecTrueIf = "Bool.elimDecTrueIf": Def,
+    ElimDecIf = "Decidable.elimIf": Def => "[p] [a] d y n t e sameYes sameNo",
+    ElimDecTrueIf = "Bool.elimDecTrueIf": Def => "[a] c y n t e sameYes sameNo",
     // and these for a lexicographic measure, `decreasing (m1, m2)`
-    ElimDecEq = "Decidable.elimEq": Def,
-    ElimDecProof = "Decidable.elimProof": Def,
+    ElimDecEq = "Decidable.elimEq": Def => "[p] [a] d y n z yesEq noEq",
+    ElimDecProof = "Decidable.elimProof": Def => "[p] [a] d ifYes ifNo",
     LexLess = "Nat.LexLess": Data,
-    LexKeepsFirst = "Nat.lexKeepsFirst": Def,
-    LexSecondLess = "Nat.lexSecondLess": Def,
+    LexKeepsFirst = "Nat.lexKeepsFirst": Def => "a1 a2 b1 b2 k _ _ _",
+    LexSecondLess = "Nat.lexSecondLess": Def => "a1 a2 b1 b2 k _ _ _",
     // Numbers: syntax and natives
     Nat = "Nat": Data,
     Zero = "Zero": Ctor(Builtin::Nat),
     Succ = "Succ": Ctor(Builtin::Nat),
     Add = "Nat.add": Def,
     // The theorems R3 and R4 of `+` are the equations of (`nat_add.rs`)
-    NatAddZero = "Nat.addZero": Def,
-    NatAddSucc = "Nat.addSucc": Def,
+    NatAddZero = "Nat.addZero": Def => "n",
+    NatAddSucc = "Nat.addSucc": Def => "n m",
     Sub = "Nat.sub": Def,
     Mul = "Nat.mul": Def,
     Div = "Nat.div": Def,
@@ -328,28 +349,28 @@ builtins! {
     Fin = "Fin": Data,
     FZero = "FZero": Ctor(Builtin::Fin),
     FSucc = "FSucc": Ctor(Builtin::Fin),
-    FinOfNatLt = "Fin.ofNatLt": Def,
+    FinOfNatLt = "Fin.ofNatLt": Def => "n i lt",
     // Booleans and decisions
     Bool = "Bool": Data,
     False = "False": Ctor(Builtin::Bool),
     True = "True": Ctor(Builtin::Bool),
-    IfThenElse = "Bool.ifThenElse": Def,
+    IfThenElse = "Bool.ifThenElse": Def => "[a] cond ifTrue ifFalse",
     // `not`, by identity, so `not p` on a proposition can mean `Not p`
     BoolNot = "Bool.not": Def,
     Decidable = "Decidable": Data,
     Yes = "Yes": Ctor(Builtin::Decidable),
     No = "No": Ctor(Builtin::Decidable),
-    FromYes = "Decidable.fromYes": Def,
-    ToBool = "Decidable.toBool": Def,
+    FromYes = "Decidable.fromYes": Def => "[p] d yes",
+    ToBool = "Decidable.toBool": Def => "[p] d",
     // `match h: c < x` on a comparison its decision reduces to `Bool.decTrue b`
     // for matches on `b` itself (crates/elab/src/matching.rs)
-    DecTrue = "Bool.decTrue": Def,
-    ElimDec = "Decidable.elim": Def,
+    DecTrue = "Bool.decTrue": Def => "b",
+    ElimDec = "Decidable.elim": Def => "[p] [a] d ifYes ifNo",
     // `if p && q` whose branches use its proof (crates/elab/src/logic.rs),
     // and the parts of such a proof `auto` uses (crates/elab/src/auto.rs)
-    DecAndThen = "Decidable.andThen": Def,
-    AndLeft = "And.left": Def,
-    AndRight = "And.right": Def,
+    DecAndThen = "Decidable.andThen": Def => "[p] [q] dp dq",
+    AndLeft = "And.left": Def => "[p] [q] r",
+    AndRight = "And.right": Def => "[p] [q] r",
     // `Ord.compare` of an instance the code names compiles to that
     // instance's comparison, read from its definition (crates/js): a
     // record, or `Ord.fromCompare` of one
@@ -371,7 +392,7 @@ builtins! {
     // literal with spreads before its first item puts them in front with
     // `prependList` (docs/proposals/non-empty-lists.md §7)
     NonEmptyList = "NonEmptyList": Data,
-    NonEmptyListPrependList = "NonEmptyList.prependList": Def,
+    NonEmptyListPrependList = "NonEmptyList.prependList": Def => "[a] prefix xs",
     Pair = "Pair": Data,
     MkPair = "MkPair": Ctor(Builtin::Pair),
     Fst = "Pair.fst": Def,
@@ -382,7 +403,7 @@ builtins! {
     // Any two proofs of `x = y` in `Bool` are equal: a char pattern's arm
     // uses it to make the matched character its literal (crates/elab,
     // `canonical`)
-    BoolUniqueEq = "Bool.uniqueEq": Def,
+    BoolUniqueEq = "Bool.uniqueEq": Def => "x y p q",
     Text = "Text": Data,
     MkText = "MkText": Ctor(Builtin::Text),
     TextToList = "Text.toList": Def,
@@ -417,61 +438,61 @@ builtins! {
     Comp = "Effect.Comp": Data,
     Done = "Done": Ctor(Builtin::Comp),
     Call = "Call": Ctor(Builtin::Comp),
-    FoldComp = "Effect.foldComp": Def,
-    Bind = "Effect.bind": Def,
+    FoldComp = "Effect.foldComp": Def => "[op] [res] [a] [r] done call comp",
+    Bind = "Effect.bind": Def => "[op] [res] [a] [b] comp next",
     Plus = "Effect.Plus": Data,
-    PlusRes = "Effect.PlusRes": Def,
+    PlusRes = "Effect.PlusRes": Def => "[l] [r] lres rres o",
     SigMap = "Effect.SigMap": Data,
-    SigInject = "Effect.sigInject": Def,
-    SigReply = "Effect.sigReply": Def,
-    Translate = "Effect.translate": Def,
-    SigId = "Effect.sigId": Def,
-    SigCompose = "Effect.sigCompose": Def,
-    SigLeft = "Effect.sigLeft": Def,
-    SigRight = "Effect.sigRight": Def,
+    SigInject = "Effect.sigInject": Def => "[op1] [res1] [op2] [res2] m o",
+    SigReply = "Effect.sigReply": Def => "[op1] [res1] [op2] [res2] m o reply",
+    Translate = "Effect.translate": Def => "[op1] [res1] [op2] [res2] [a] m comp",
+    SigId = "Effect.sigId": Def => "[op] [res]",
+    SigCompose = "Effect.sigCompose": Def => "[op1] [res1] [op2] [res2] [op3] [res3] first second",
+    SigLeft = "Effect.sigLeft": Def => "[l] [r] [lres] [rres]",
+    SigRight = "Effect.sigRight": Def => "[l] [r] [lres] [rres]",
     UnitType = "Builtin.UnitType": Data,
     UnitValue = "UnitValue": Ctor(Builtin::UnitType),
     NoOp = "Effect.NoOp": Data,
-    NoRes = "Effect.NoRes": Def,
-    SigCase = "Effect.sigCase": Def,
-    SigFromNo = "Effect.sigFromNo": Def,
-    HandlePlus = "Effect.handlePlus": Def,
-    RunPure = "Effect.runPure": Def,
+    NoRes = "Effect.NoRes": Def => "o",
+    SigCase = "Effect.sigCase": Def => "[l] [r] [t] [lres] [rres] [tres] ml mr",
+    SigFromNo = "Effect.sigFromNo": Def => "[t] [tres]",
+    HandlePlus = "Effect.handlePlus": Def => "[l] [r] [lres] [rres] [res] fl fr o k",
+    RunPure = "Effect.runPure": Def => "[a] comp",
     // Effect-row parameters (docs/proposals/effect-polymorphism.md, design C)
     Row = "Effect.Effects": Data,
     RowEmpty = "Empty": Ctor(Builtin::Row),
     RowOps = "Ops": Ctor(Builtin::Row),
-    RowOp = "Effect.rowOp": Def,
-    RowRes = "Effect.rowRes": Def,
-    CompIn = "Effect.CompIn": Def,
-    DoneIn = "Effect.doneIn": Def,
-    BindIn = "Effect.bindIn": Def,
-    LiftIn = "Effect.liftIn": Def,
-    LowerIn = "Effect.lowerIn": Def,
-    WidenIn = "Effect.widenIn": Def,
+    RowOp = "Effect.rowOp": Def => "row",
+    RowRes = "Effect.rowRes": Def => "row o",
+    CompIn = "Effect.CompIn": Def => "row a",
+    DoneIn = "Effect.doneIn": Def => "[a] row x",
+    BindIn = "Effect.bindIn": Def => "[a] [b] row comp next",
+    LiftIn = "Effect.liftIn": Def => "[a] row comp",
+    LowerIn = "Effect.lowerIn": Def => "[a] row comp",
+    WidenIn = "Effect.widenIn": Def => "[a] pre preRes row m comp",
     // Partial computations
     Rec = "Effect.Rec": Data,
-    RecRes = "Effect.RecRes": Def,
-    Delay = "Effect.Delay": Def,
-    Now = "Effect.now": Def,
-    Lift = "Effect.lift": Def,
-    BindD = "Effect.bindD": Def,
-    MapSig = "Effect.mapSig": Def,
-    Pfix = "Effect.pfix": Def,
-    FoldD = "Effect.foldD": Def,
+    RecRes = "Effect.RecRes": Def => "[req] ans rec",
+    Delay = "Effect.Delay": Def => "op res a",
+    Now = "Effect.now": Def => "[op] [res] [a] x",
+    Lift = "Effect.lift": Def => "[op] [res] [a] comp",
+    BindD = "Effect.bindD": Def => "[op] [res] [a] [b] delay next",
+    MapSig = "Effect.mapSig": Def => "[op1] [res1] [op2] [res2] [a] m delay",
+    Pfix = "Effect.pfix": Def => "[op] [res] [req] [ans] step x",
+    FoldD = "Effect.foldD": Def => "[op1] [res1] [op2] [res2] [a] [b] done call delay",
     // Partiality through a bare row (docs/proposals/partial-stage-3.md)
     Divergence = "Effect.Divergence": Data,
     DivTotal = "Total": Ctor(Builtin::Divergence),
     DivMay = "MayDiverge": Ctor(Builtin::Divergence),
-    CompD = "Effect.CompD": Def,
-    DoneD = "Effect.doneD": Def,
-    BindDv = "Effect.bindDv": Def,
-    LiftD = "Effect.liftD": Def,
-    DelayD = "Effect.delayD": Def,
+    CompD = "Effect.CompD": Def => "d row a",
+    DoneD = "Effect.doneD": Def => "[a] d row x",
+    BindDv = "Effect.bindDv": Def => "[a] [b] d row comp next",
+    LiftD = "Effect.liftD": Def => "[a] d row comp",
+    DelayD = "Effect.delayD": Def => "[a] d row comp",
     // Partiality through a row with abilities (docs/proposals/partial-handlers.md)
-    FoldCompD = "Effect.foldCompD": Def,
-    TranslateD = "Effect.translateD": Def,
-    CallD = "Effect.callD": Def,
+    FoldCompD = "Effect.foldCompD": Def => "[op1] [res1] [a] [b] d out done call comp",
+    TranslateD = "Effect.translateD": Def => "[a] d from to m comp",
+    CallD = "Effect.callD": Def => "[b] d row o k",
     // Input and output
     Io = "IO": Data,
     Print = "%print": Ctor(Builtin::Io),
@@ -486,7 +507,7 @@ builtins! {
     Console = "Console": Data,
     RandomSeed = "%randomSeed": Ctor(Builtin::Io),
     Args = "%args": Ctor(Builtin::Io),
-    Simulate = "IO.simulate": Def,
+    Simulate = "IO.simulate": Def => "[e] [%div.e] [a] input prog",
     // `Fail` (std/Fail/Fail.sw): a `main` may leave it unhandled, and the
     // runners perform `stop` themselves, as they perform `print`
     // (docs/proposals/partial-stage-2.md)
@@ -743,6 +764,96 @@ pub fn bind_def(g: &mut Kernel, id: DefId) -> Option<Builtin> {
     })
 }
 
+/// The leading binders of a stored type, one word each: `[x]` for an
+/// implicit binder, `[auto x]` for an auto one, `x` for an explicit one, and
+/// `_` for an anonymous name. This is what a [`Builtin::shape`] is written in.
+/// Read without unfolding anything: a definition whose type is a name for a
+/// function type has no binders here.
+pub fn shape_of(ty: &Term) -> String {
+    let mut words: Vec<String> = Vec::new();
+    let mut t = ty.strip_loc();
+    while let Term::Pi(name, icit, _, body) = t {
+        let name = if name.is_empty() || name.starts_with('_') {
+            "_"
+        } else {
+            name
+        };
+        words.push(match icit {
+            Icit::Explicit => name.to_string(),
+            Icit::Implicit => format!("[{name}]"),
+            Icit::Auto => format!("[auto {name}]"),
+        });
+        t = body.strip_loc();
+    }
+    words.join(" ")
+}
+
+/// Refuses definition `id`, bound as `b`, unless its leading binders are the
+/// ones `b`'s shape says the compiler's code applies it to. A built-in with
+/// no shape isn't checked. Like a stale pin, a mismatch is the library's
+/// fault only in that it changed under the compiler: the fix is to update the
+/// row in this file and the code that builds calls from it.
+pub fn check_shape(g: &mut Kernel, id: DefId, b: Builtin) -> Result<(), Diagnostic> {
+    let Some(expected) = b.shape() else {
+        return Ok(());
+    };
+    #[cfg(feature = "test-bypass")]
+    SHAPE_CHECKS.with(|c| c.borrow_mut().push(b));
+    in_kernel_modes(g, |g| {
+        let def = g.def(id);
+        let found = shape_of(&def.ty);
+        if found == expected {
+            return Ok(());
+        }
+        Err(Diagnostic::error(
+            "E-BUILTIN",
+            format!(
+                "the library's `{}` doesn't have the arguments the compiler builds it with: \
+                 expected `{expected}`, found `{found}`",
+                b.name()
+            ),
+        )
+        .with_label(def.span, "declared here")
+        .with_note(
+            "if this change was meant, update the shape of this built-in in \
+             crates/core/src/registry.rs and the code that applies it",
+        ))
+    })
+}
+
+#[cfg(feature = "test-bypass")]
+thread_local! {
+    static SHAPE_CHECKS: std::cell::RefCell<Vec<Builtin>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// The built-ins [`check_shape`] has checked on this thread since the last
+/// call: for the test that every shape is reached at binding.
+#[cfg(feature = "test-bypass")]
+#[doc(hidden)]
+pub fn take_shape_checks() -> Vec<Builtin> {
+    SHAPE_CHECKS.with(|c| std::mem::take(&mut *c.borrow_mut()))
+}
+
+/// Refuses a library that doesn't declare every library built-in: `owner`
+/// says which library file declares a name (a constructor counts as declared
+/// with its data type; its own binding is checked as the file loads). Without this a renamed library
+/// declaration is found out when something first loads its file.
+pub fn check_library_declares_all(owner: impl Fn(&str) -> Option<usize>) -> Result<(), Diagnostic> {
+    let missing: Vec<Builtin> = Builtin::ALL
+        .iter()
+        .copied()
+        .filter(|b| {
+            // A constructor is declared with its data type.
+            let declared = match b.kind() {
+                Kind::Ctor(parent) => parent,
+                _ => *b,
+            };
+            b.home() == Home::Library && owner(declared.name()).is_none_or(|f| f == 0)
+        })
+        .collect();
+    complete(&missing)
+}
+
 fn unbound(g: &Ev, name: &str, kind: impl Fn(Kind) -> bool) -> Option<Builtin> {
     Builtin::ALL
         .iter()
@@ -800,6 +911,30 @@ mod tests {
     fn an_unloaded_library_constructor_is_not_loaded() {
         let registry = Registry::default();
         assert_eq!(registry.loaded_ctor(Builtin::FSucc), None);
+    }
+
+    #[test]
+    fn a_library_without_a_library_builtin_is_refused() {
+        let all = check_library_declares_all(|_| Some(1));
+        assert!(all.is_ok());
+        let without = check_library_declares_all(|n| (n != "Int.tdiv").then_some(1));
+        let message = without.unwrap_err().message;
+        assert!(message.contains("`Int.tdiv`"), "{message}");
+        // A core declaration doesn't stand in for a library one.
+        assert!(check_library_declares_all(|_| Some(0)).is_err());
+    }
+
+    #[test]
+    fn every_shape_is_well_formed() {
+        for b in Builtin::ALL {
+            let Some(shape) = b.shape() else { continue };
+            assert_eq!(b.kind(), Kind::Def, "{b:?}: only definitions have shapes");
+            assert_eq!(
+                shape.matches('[').count(),
+                shape.matches(']').count(),
+                "{b:?}: {shape}"
+            );
+        }
     }
 
     #[test]

@@ -360,3 +360,75 @@ fn a_programs_own_list_crosses_the_js_boundary_as_itself() {
     );
     assert!(out.dts.contains("readonly $tag: \"Cons\""), "{}", out.dts);
 }
+
+/// The core loaded with `from` replaced by `to` in its text: the diagnostics
+/// that refuse it.
+fn refused_after_editing_the_core(from: &str, to: &str) -> Vec<stitchwort_syntax::Diagnostic> {
+    let prelude = prelude();
+    assert!(prelude.contains(from), "the core has no `{from}`");
+    let prelude = prelude.replace(from, to);
+    let mut session = Session {
+        sources: SourceMap::new(),
+        elab: stitchwort_elab::Elaborator::new(),
+        warnings: Vec::new(),
+    };
+    session.elab.set_loading_prelude(true);
+    session
+        .load("<prelude>", &prelude)
+        .expect_err("the edited core is refused")
+}
+
+#[test]
+fn a_renamed_binder_of_a_shaped_builtin_is_refused() {
+    let errors =
+        refused_after_editing_the_core("(yesEq: (h: p) → y h = z)", "(yesEqual: (h: p) → y h = z)");
+    let e = errors
+        .iter()
+        .find(|d| d.code == "E-BUILTIN")
+        .unwrap_or_else(|| panic!("{errors:#?}"));
+    assert!(e.message.contains("`Decidable.elimEq`"), "{}", e.message);
+    assert!(
+        e.message.contains("expected `[p] [a] d y n z yesEq noEq`")
+            && e.message.contains("found `[p] [a] d y n z yesEqual noEq`"),
+        "{}",
+        e.message
+    );
+}
+
+#[test]
+fn a_reordered_binder_of_a_shaped_builtin_is_refused() {
+    let errors = refused_after_editing_the_core(
+        "theorem Decidable.elimEq: [p: Prop] → [a: Type] →",
+        "theorem Decidable.elimEq: [a: Type] → [p: Prop] →",
+    );
+    let e = errors
+        .iter()
+        .find(|d| d.code == "E-BUILTIN")
+        .unwrap_or_else(|| panic!("{errors:#?}"));
+    assert!(e.message.contains("`Decidable.elimEq`"), "{}", e.message);
+    assert!(
+        e.message.contains("found `[a] [p] d y n z yesEq noEq`"),
+        "{}",
+        e.message
+    );
+}
+
+/// Every shape is checked where its built-in is bound, so a shape added
+/// without a binding site would still be enforced.
+#[test]
+fn every_shape_is_checked_at_binding() {
+    with_stack(STACK, || {
+        stitchwort_core::registry::take_shape_checks();
+        let _session = Session::eager_from_source_for_stack(STACK);
+        let checked = stitchwort_core::registry::take_shape_checks();
+        let unchecked: Vec<&str> = Builtin::ALL
+            .iter()
+            .filter(|b| b.shape().is_some() && !checked.contains(b))
+            .map(|b| b.name())
+            .collect();
+        assert!(
+            unchecked.is_empty(),
+            "shapes nothing checked: {unchecked:?}"
+        );
+    });
+}

@@ -2558,7 +2558,11 @@ impl Elaborator {
             self.scope.insert(&key, Global::Def(ids[0]), n.span, false);
             match stitchwort_core::partial::define_primitive(&mut self.kernel, ids[0], prim) {
                 Ok(()) => {
-                    registry::bind_def(&mut self.kernel, ids[0]);
+                    if let Some(b) = registry::bind_def(&mut self.kernel, ids[0])
+                        && let Err(d) = registry::check_shape(&mut self.kernel, ids[0], b)
+                    {
+                        out.push((*item, d));
+                    }
                 }
                 Err(d) => out.push((*item, d)),
             }
@@ -2574,7 +2578,11 @@ impl Elaborator {
             self.scope.insert(&key, Global::Def(ids[0]), n.span, false);
             match stitchwort_core::float::define_primitive(&mut self.kernel, ids[0], op) {
                 Ok(()) => {
-                    registry::bind_def(&mut self.kernel, ids[0]);
+                    if let Some(b) = registry::bind_def(&mut self.kernel, ids[0])
+                        && let Err(d) = registry::check_shape(&mut self.kernel, ids[0], b)
+                    {
+                        out.push((*item, d));
+                    }
                 }
                 Err(d) => out.push((*item, d)),
             }
@@ -3044,6 +3052,7 @@ impl Elaborator {
         let Some(b) = registry::bind_def(&mut self.kernel, id) else {
             return Ok(());
         };
+        registry::check_shape(&mut self.kernel, id, b)?;
         if self.pins_fall_back() && pins::stale_def(&mut self.kernel, id, b) {
             return Ok(());
         }
