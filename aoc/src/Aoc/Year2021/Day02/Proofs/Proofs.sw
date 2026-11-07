@@ -55,7 +55,13 @@ theorem aimedDepthAfter (start: AimedSubmarine): (commands: List Command) →
     (commands.foldLeft start AimedSubmarine.follow).depth = start.depth + aimedDepth start.aim commands
   | [] => omega
   | [command, ..rest] =>
-    rewrite aimedDepthAfter (start.follow command) rest, aimedDepthCons start.aim command rest in cases
+    rewrite aimedDepthAfter (start.follow command) rest, aimedDepthCons start.aim command rest in
+    -- `cases` would leave the forward move's `start.aim + 0` as it is: it
+    -- doesn't split a record's field (SW-1913).
+    match command with
+      | Forward _ => rewrite Int.addZero start.aim in omega
+      | Down _ => omega
+      | Up _ => omega
 
 def aimedSurface: AimedSubmarine := { horizontal = 0, depth = 0, aim = 0 }
 
