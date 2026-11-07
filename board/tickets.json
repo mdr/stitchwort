@@ -1,5 +1,5 @@
 {
-  "next": 2101,
+  "next": 2103,
   "tickets": [
     {
       "id": 47,
@@ -18693,7 +18693,7 @@
         "core"
       ],
       "epic": "record-eta",
-      "body": "From docs/reviews/record-eta-as-merged.md. Stop at 30 min with no repro. 60 min.\n\nFrom SW-1998: include the put-aside path for ?r.f (blocked_within now postpones it; re-evaluation can reach project's panic if first_order solved ?r with a value of another type).",
+      "body": "From docs/reviews/record-eta-as-merged.md. Stop at 30 min with no repro. 60 min.\n\nFrom SW-1998: include the put-aside path for ?r.f (blocked_within now postpones it; re-evaluation can reach project's panic if first_order solved ?r with a value of another type).\n\nFrom docs/reviews/SW-2094-unifier-gaps-and-recovery.md: correction — SW-1998's extra exposure is marginal: blocked_within already forced ?r.f before that merge.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -18873,14 +18873,14 @@
         "cache"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/SW-2087-checker-recovery-and-forget-since.md (lane 4). 45 min.",
+      "body": "From docs/reviews/SW-2087-checker-recovery-and-forget-since.md (lane 4). 45 min.\n\nFrom docs/reviews/SW-2094-unifier-gaps-and-recovery.md: also assert the stack floor and cancellation flag in rewinding_globals_partway_through_an_operation_keeps_its_budget (it checks only the size limit); trace whether project.rs:166's full rewind can run inside an editor check (it would clear a pending cancellation).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
     },
     {
       "id": 2091,
-      "title": "[Sonnet] Checker recovery leftovers (SW-2087 C6-C9): tests for a panic in apply, a double fault and a Close of a quarantined file; the doubled panic log line; measure the rebuild time after a restart on an AoC project",
+      "title": "[Sonnet] Checker recovery follow-ups (SW-2087 C6-C9, SW-2094 lane 1): panic attribution inside its own catch (MEDIUM); home_of reads only sources; only an edit retries a quarantined project (D3000); tests that can fail",
       "status": "backlog",
       "agent": "",
       "where": "",
@@ -18888,7 +18888,7 @@
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From docs/reviews/SW-2087-checker-recovery-and-forget-since.md. After SW-2088/SW-2089 (same file). 45 min.",
+      "body": "From docs/reviews/SW-2087-checker-recovery-and-forget-since.md. After SW-2088/SW-2089 (same file). 45 min.\n\nAlso from docs/reviews/SW-2094-unifier-gaps-and-recovery.md (lane 1): work out which workspace to blame for a panic inside its own catch, with a fallback (MEDIUM: today reading a project that panics escapes and stops checking everywhere); home_of reads only the config's sources, not every .sw file; open_workspace reads the project once; build the Keeper before sessions drop; make the loose-file test able to fail (it passes on the old code); relative's doc comment; the in-memory source's copy of the source-folder rule. D3000 yes (orchestrator's call): only a change of a file's text retries a quarantined project, not an open or a peek. Now 60 min; after SW-2088/SW-2089.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -18926,14 +18926,14 @@
     {
       "id": 2094,
       "title": "[Opus] Fresh-eyes review of SW-1998 (unifier: field of an unknown counts as blocked; stuck field of a kept call compares by the call), SW-1995 and SW-2086 (checker reopen under the catch)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2094",
       "labels": [
         "review"
       ],
       "epic": "record-eta",
-      "body": "Read-only Opus lane, 7 Nov. Expected: 60 min.",
+      "body": "Read-only Opus lane, 7 Nov. Expected: 60 min.\n\nDone, merged: docs/reviews/SW-2094-unifier-gaps-and-recovery.md. All three sound; 0 high, 2 medium, 12 low. SW-2091 widened, SW-2101, SW-2102 filed; D3000 taken (yes). 12 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19024,6 +19024,36 @@
       ],
       "epic": "audit-fuzzing",
       "body": "From Overmind soak report 1 (Matt's laptop, NixOS i7-6700HQ 8 threads, 15 GiB; 7 Nov, commit a3c652a63). D2853, D2854: yes (orchestrator's call, 7 Nov). Calibration: whole AoC no cache 134 s (Speedwell 65 s, ~2x); incremental CLI build 2m10s; syntax fuzzer 100k cases 4 s; elab fuzzer 2,000 cases 40 min. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2101,
+      "title": "[Sonnet] SW-1998 tests: pin the unifier's 'no further' limit (a frozen unknown, ?m x, (?m x).f, gluing off) with examples; a reject example that fails without the change; fix same_field_records's comment; add the two rules to record-eta.md §8",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "record-eta",
+      "body": "From docs/reviews/SW-2094-unifier-gaps-and-recovery.md (lane 2). Ask for snap:hashes and hash_stability (adds examples). 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2102,
+      "title": "[Sonnet] Look first: the record-from-field reject error prints the expected type unfolded (x ∈ image.flip.rotate.rows → …) while the actual stays folded",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "diagnostics",
+      "body": "From docs/reviews/SW-2094-unifier-gaps-and-recovery.md (lane 3). 30 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
