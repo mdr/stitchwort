@@ -11,19 +11,11 @@ theorem triangleDouble: (k: Nat) → 2 * (triangle k).toInt = k.toInt * (k.toInt
   | 0 => rfl
   | Succ k => ring [triangleDouble k]
 
---| The product of two consecutive integers is never negative.
-theorem consecutiveNonneg (d: Int): 0 ≤ d * (d + 1) :=
-  match e: Int.leq 0 d with
-    | True => Int.mulNonneg d (d + 1) (omega) (omega)
-    | False =>
-      let flipped: d * (d + 1) = (-d) * (-d - 1) := ring
-      omega [Int.mulNonneg (-d) (-d - 1) (omega) (omega)]
-
 --| Twice the height after `n` steps (`yFlight`) is at most twice the peak.
 theorem twiceBelowPeak: (dy: Int) → (n: Nat) → n.toInt * (2 * dy + 1 - n.toInt) ≤ 2 * (triangle dy.toNat).toInt
   | OfNat k, n =>
     let gap: k.toInt * (k.toInt + 1) - n.toInt * (2 * k.toInt + 1 - n.toInt) = (k.toInt - n.toInt) * (k.toInt - n.toInt + 1) := ring
-    omega [triangleDouble k, consecutiveNonneg (k.toInt - n.toInt)]
+    omega [triangleDouble k, Int.mulNonnegSucc (k.toInt - n.toInt)]
   | NegSucc k, n =>
     let flipped: n.toInt * (2 * NegSucc k + 1 - n.toInt) = -(n.toInt * (n.toInt - 2 * NegSucc k - 1)) := ring
     omega [Int.mulNonneg n.toInt (n.toInt - 2 * NegSucc k - 1) (omega) (omega)]

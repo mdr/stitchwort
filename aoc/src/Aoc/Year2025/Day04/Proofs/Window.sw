@@ -160,11 +160,6 @@ theorem nearSum (g: Nat → Nat) (n: Nat) (hz: (x: Nat) → n ≤ x → g x = 0)
     _ = shift g r + g r + g (Succ r)
       := rewrite pickBelow g n hz r, List.sumRangePick g n r (hz r), List.sumRangePick g n (Succ r) (hz (Succ r))
 
---| Bool facts for splitting the sums.
-theorem toNatAnd: (a: Bool) → [b: Bool] → Bool.toNat (a ∧ b) = b.toNat.keepIf a
-  | True => rfl
-  | False => rfl
-
 theorem isRollCount: (a: Cell) → Bool.toNat (a == Roll) = a.count
   | Roll => rfl
   | Floor => rfl
@@ -234,7 +229,7 @@ theorem nineSum (grid: Grid) (cells: Cells) (below: (r: Nat) → (c: Nat) → gr
       = rowSum cells r c + rowSum cells (Succ r) c + rowSum cells (Succ (Succ r)) c :=
   calc List.sumBy (List.range 0 grid.height) (x => List.sumBy (List.range 0 grid.width) (y => Bool.toNat (near r x ∧ near c y ∧ cells x y == Roll)))
     _ = List.sumBy (List.range 0 grid.height) (x => Nat.keepIf (List.sumBy (List.range 0 grid.width) (y => Nat.keepIf ((cells x y).count) (near c y))) (near r x))
-      := rewrite toNatAnd _, toNatAnd _, isRollCount _, <- Nat.keepIfSumBy _
+      := rewrite Bool.toNatAnd _, Bool.toNatAnd _, isRollCount _, <- Nat.keepIfSumBy _
     _ = List.sumBy (List.range 0 grid.height) (x => Nat.keepIf (rowSum cells (Succ x) c) (near r x))
       := rewrite nearSum (y => (cells _ y).count) grid.width (y h => Eq.cong Cell.count (right _ y h)) c,
         bordRowShift cells _ c, bordRowShift cells _ (Succ c), bordRowShift cells _ (Succ (Succ c))

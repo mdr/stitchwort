@@ -25,15 +25,6 @@ theorem offsetExt: (offset: Offset) → (other: Offset) → offset.rows = other.
 
 -- Where an offset lands
 
---| A number that `toNatChecked` takes is that number.
-theorem toNatCheckedSome: (x: Int) → (n: Nat) → x.toNatChecked = Some n → x = n.toInt
-  | OfNat m, n, checked => Eq.cong OfNat (Option.someInjective checked)
-  | NegSucc m, n, checked => Void.exfalso (Option.noneNotSome n checked)
-
-theorem toNatCheckedNone: (x: Int) → x.toNatChecked = None → x < 0
-  | OfNat m, checked => Void.exfalso (Option.noneNotSome m (Eq.sym checked))
-  | NegSucc m, checked => omega
-
 --| Where `offset` lands, as rows and columns.
 theorem offsetSome (position: Position) (offset: Offset) (next: Position) (landed: position.offset offset = Some next):
     (next.row.toInt = position.row.toInt + offset.rows) ∧ (next.column.toInt = position.column.toInt + offset.columns) :=
@@ -45,7 +36,7 @@ theorem offsetSome (position: Position) (offset: Offset) (next: Position) (lande
         | Some column =>
           let same: ({ row, column }: Position) = next := Option.someInjective landed
           rewrite <- same in
-            Both (Eq.sym (toNatCheckedSome _ row rowAt)) (Eq.sym (toNatCheckedSome _ column columnAt))
+            Both (Eq.sym (Int.toNatCheckedSome _ row rowAt)) (Eq.sym (Int.toNatCheckedSome _ column columnAt))
 
 --| A position whose row and column are `offset` away is where it lands.
 theorem offsetOf (position: Position) (offset: Offset) (next: Position) (rows: next.row.toInt = position.row.toInt + offset.rows)
@@ -58,10 +49,10 @@ theorem offsetOf (position: Position) (offset: Offset) (next: Position) (rows: n
 theorem offsetNone (position: Position) (offset: Offset) (off: position.offset offset = None):
     (position.row.toInt + offset.rows < 0) ∨ (position.column.toInt + offset.columns < 0) :=
   match rowAt: (position.row.toInt + offset.rows).toNatChecked with
-    | None => Inl (toNatCheckedNone _ rowAt)
+    | None => Inl (Int.toNatCheckedNone _ rowAt)
     | Some row =>
       match columnAt: (position.column.toInt + offset.columns).toNatChecked with
-        | None => Inr (toNatCheckedNone _ columnAt)
+        | None => Inr (Int.toNatCheckedNone _ columnAt)
         | Some column => Void.exfalso (Option.noneNotSome ({ row, column }: Position) (Eq.sym off))
 
 theorem offsetNoneOf (position: Position) (offset: Offset)
@@ -159,17 +150,12 @@ theorem wrapWithin (position: Position) (offset: Offset) (height: Nat) (width: N
   let columnBelow := Int.modNatLt (position.column.toInt + offset.columns) width [ok := wide]
   Bool.andIntro (omega [rowBelow]) (omega [columnBelow])
 
---| A number on a line of `size` wraps to itself.
-theorem modNatSmall: (size: Nat) → (x: Nat) → x < size → x.toInt.modNat size = x
-  | Zero, x, inside => Void.exfalso (Bool.falseNotTrue inside)
-  | Succ n, x, inside => Nat.modSmall x (Succ n) inside
-
 --| By zero, a position on the board stays put.
 theorem wrapZero (position: Position) (height: Nat) (width: Nat)
     (inside: position.within height width = True): position.wrap Offset.zero height width = position :=
   positionExt (position.wrap Offset.zero height width) position
-    (rewrite (omega: position.row.toInt + 0 = position.row.toInt) in modNatSmall height position.row (omega [Bool.andLeft inside]))
-    (rewrite (omega: position.column.toInt + 0 = position.column.toInt) in modNatSmall width position.column (omega [Bool.andRight inside]))
+    (rewrite (omega: position.row.toInt + 0 = position.row.toInt) in Int.modNatOfLt height position.row (omega [Bool.andLeft inside]))
+    (rewrite (omega: position.column.toInt + 0 = position.column.toInt) in Int.modNatOfLt width position.column (omega [Bool.andRight inside]))
 
 --| Wrapping twice is wrapping by the sum.
 theorem wrapPlus (position: Position) (first: Offset) (second: Offset) (height: Nat) (width: Nat) [auto tall: height ≠ 0] [auto wide: width ≠ 0]:

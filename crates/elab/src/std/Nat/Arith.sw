@@ -629,3 +629,14 @@ theorem Nat.lessNotLe: (x: Nat) → (u: Nat) → Nat.leq (Succ x) u = Bool.not (
   | x, Zero => rfl
   | Zero, Succ u => rfl
   | Succ x, Succ u => Nat.lessNotLe x u
+
+--| Dividing a bigger number by the same `d` gives a bigger quotient, for any
+--| `d` (both quotients are 0 when `d` is 0).
+theorem Nat.divMonoLeft (a: Nat) (b: Nat): (d: Nat) → a ≤ b → a / d ≤ b / d
+  | Zero, below => rewrite Nat.divZero a in rfl
+  | Succ n, below => Nat.leDivOfMulLe (a / Succ n) b (Succ n) (Nat.leTrans ((a / Succ n) * Succ n) a b (Nat.divMulLe a (Succ n)) below)
+
+--| `row * width + column` with `column < width` determines `row`: the cell
+--| number of a grid stored row by row divides back to its row.
+theorem Nat.mulAddDivSmall (row: Nat) (width: Nat) (column: Nat) (small: column < width): (row * width + column) / width = row :=
+  Nat.divUnique (row * width + column) width row column small rfl

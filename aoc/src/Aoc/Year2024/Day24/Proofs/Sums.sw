@@ -19,14 +19,10 @@ def carryInto (x: Nat) (y: Nat) (bit: Nat): Bool := carryFrom x y False bit
 
 theorem testBitZero (n: Nat): n.testBit 0 = (n % 2 == 1) := rewrite Nat.shiftRightNone n in rfl
 
-theorem toNatOdd: (carry: Bool) → (carry.toNat % 2 == 1) = carry
-  | False => rfl
-  | True => rfl
-
 --| The lowest bit of a sum of two numbers and a carry.
 theorem lowSumBit (x: Nat) (y: Nat) (carry: Bool):
     Nat.testBit (x + y + carry.toNat) 0 = ((x.testBit 0).xor (y.testBit 0)).xor carry :=
-  rewrite testBitZero (x + y + carry.toNat), testBitZero x, testBitZero y, Nat.oddSum (x + y) carry.toNat, Nat.oddSum x y, toNatOdd carry in rfl
+  rewrite testBitZero (x + y + carry.toNat), testBitZero x, testBitZero y, Nat.oddSum (x + y) carry.toNat, Nat.oddSum x y, Bool.toNatOdd carry in rfl
 
 --| Half the sum of two bits and a carry is the carry out.
 theorem halfBits: (a: Nat) → (b: Nat) → (carry: Bool) → a < 2 → b < 2 → (a + b + carry.toNat) / 2 = (carryOut (a == 1) (b == 1) carry).toNat

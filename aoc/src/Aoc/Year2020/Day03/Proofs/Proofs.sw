@@ -9,11 +9,6 @@ import Aoc.Year2020.Day03 (..)
 import Aoc.Year2020.Day03.Spec (..)
 import Std (Bool, Eq, List, Nat, Option)
 
-theorem modSubSelf (column: Nat) (width: Nat) (nonEmpty: width ≠ 0) (past: width ≤ column): (column - width) % width = column % width :=
-  let back: column - width + 1 * width = column := omega
-  let shifted := Nat.modAddMul (column - width) 1 width
-  rewrite back at shifted in Eq.sym shifted
-
 --| The repeating pattern is the pattern at the column's remainder.
 theorem repeatingAtMod (pattern: List Square) (nonEmpty: pattern.length ≠ 0) (column: Nat):
     repeatingAt pattern column = pattern.get (column % pattern.length) decreasing column :=
@@ -22,7 +17,7 @@ theorem repeatingAtMod (pattern: List Square) (nonEmpty: pattern.length ≠ 0) (
   else
     rewrite repeatingAt.eq.ifFalse.ifTrue pattern column within nonEmpty,
       repeatingAtMod pattern nonEmpty (column - pattern.length) [decreasing := omega],
-      modSubSelf column pattern.length nonEmpty omega in rfl
+      Nat.subModSelf column pattern.length omega in rfl
 
 --| The program's lookup at the wrapped column is the repeating map's
 --| square.

@@ -35,7 +35,7 @@ theorem periodicLaps (space: Space) (seconds: Nat) (robot: Robot):
       periodic space (seconds + laps * space.period) robot
     in periodicLaps space seconds robot laps
 
-theorem periodPositive (space: Space): space.period ≠ 0 := mulNeZero space.width space.height space.widthPositive space.heightPositive
+theorem periodPositive (space: Space): space.period ≠ 0 := Nat.mulNeZero space.width space.height space.widthPositive space.heightPositive
 
 --| Only the seconds modulo the period matter.
 theorem positionsModPeriod (space: Space) (robots: List Robot) (seconds: Nat) (ok: space.period ≠ 0):

@@ -95,10 +95,6 @@ theorem divisorWeightsAll (w: Nat → Int): (m: Nat) → 1 ≤ m → (c: Nat) �
         := rewrite Nat.dividesSmall _ (Succ k) rfl, List.sumByZero [add := Int.instAdd] (List.rangeFrom (c - k) (2 + k))
       _ = List.sumBy (List.rangeFrom k 2) f := ring
 
-theorem mulKeep (v: Int) (x: Nat): (b: Bool) → v * (x.keepIf b).toInt = x.toInt * (if b then v else 0)
-  | True => ring
-  | False => ring
-
 -- (3) Periods ----------------------------------------------------------------
 
 --| Rotating the first `len` values of g by p places leaves them unchanged.
@@ -323,7 +319,7 @@ theorem idTermsDivisors (w: Nat → Int) (size: Nat) (x: Nat) (hL: digitCount x 
       := List.sumBySwap (List.rangeFrom (size - 1) 2) (List.rangeFrom size 1) (k n => w n * (Nat.keepIf x (writtenAs (Nat.digits x).toList k n)).toInt)
     _ = List.sumBy (List.rangeFrom (size - 1) 2) (n => x.toInt * (if Nat.divides n (blockCount x) then w n else 0))
       := rewrite Int.sumByMulLeft (w _), <- Int.toIntSumBy _ (List.rangeFrom size 1), collapse x _ _ size hL, copiesDivides x,
-        mulKeep (w _) x
+        Int.mulKeepIf (w _) x
     _ = x.toInt * divisorWeights w (blockCount x) (size - 1)
       := Int.sumByMulLeft x.toInt (n => if Nat.divides n (blockCount x) then w n else 0) (List.rangeFrom (size - 1) 2)
 

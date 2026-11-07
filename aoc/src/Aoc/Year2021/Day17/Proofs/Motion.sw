@@ -30,15 +30,9 @@ theorem yAfter: (n: Nat) → (probe: Probe) → 2 * (Nat.iterate n step probe).p
   | 0, probe => ring
   | Succ n, probe => ring [yAfter n (step probe)]
 
---| Drag takes `dx` one toward 0: what `Int.sign` is, by the sign of `dx`.
-theorem signCases: (dx: Int) → (dx.sign = 1 ∧ 0 < dx) ∨ (dx.sign = 0 ∧ dx = 0) ∨ (dx.sign = -1 ∧ dx < 0)
-  | OfNat 0 => Inr (Inl (Both rfl rfl))
-  | OfNat (Succ k) => Inl (Both rfl (omega))
-  | NegSucc k => Inr (Inr (Both rfl (omega)))
-
 --| Once past the target, the probe stays past it.
 theorem pastStays (target: Target) (probe: Probe) (h: past target probe = True): past target (step probe) = True :=
-  omega [signCases probe.velocity.x]
+  omega [Int.signCases probe.velocity.x]
 
 --| A probe past the target isn't in it.
 theorem pastOutside (target: Target) (probe: Probe) (h: past target probe = True): inTarget target probe = False := cases
