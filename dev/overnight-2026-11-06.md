@@ -86,3 +86,4 @@ Take these in order, once the speed queue above is empty or blocked.
 - 23:16: SW-1753 note merged; I decided D2560 yes, D2561 yes and D2562 no (listed for the morning). SW-1741 started, with the dev-features fingerprint hole.
 - 23:35: SW-1667 merge-ready apart from whole-AoC/roguelike (Matt's OK) and review; SW-1764 (Opus review) started; filed SW-1762, SW-1763.
 - 23:54: SW-1741 merged; the scare in its first check was test:selected's 4 GB memguard (SW-1760). SW-1761 merged: merge tier 1094/1094 in 76 s of tests on main, cold. Filed SW-1765.
+- 00:01: SW-1764 says merge after one fix (the cache drops no_eta); SW-1768 (Opus) started on lane/SW-1642.

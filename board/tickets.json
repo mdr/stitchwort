@@ -1,5 +1,5 @@
 {
-  "next": 1766,
+  "next": 1769,
   "tickets": [
     {
       "id": 47,
@@ -13962,9 +13962,9 @@
         "perf"
       ],
       "epic": "record-eta",
-      "body": "From SW-1667, 6 Nov 2026.",
+      "body": "From SW-1667, 6 Nov 2026.\n\nSW-1764: a cost, not a deeper problem: record updates open into full State constructors, and the match motive is read back unfolded (D2514's direction; bounded readback stages).",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -13985,16 +13985,16 @@
     {
       "id": 1764,
       "title": "[Opus] Review record eta (lane/SW-1642 since c91991954 plus the SW-1642 kernel work): kernel primitive projections and eta rules, the native hold (Builtins::has_native, value::eta_held), the main merge's hash moves",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1642",
       "labels": [
         "review"
       ],
       "epic": "record-eta",
-      "body": "D2364 (kernel change). Started on Opus, expected: 60 min.",
+      "body": "D2364 (kernel change). Started on Opus, expected: 60 min.\n\nDone (5612ab59e on lane/SW-1642): docs/reviews/SW-1764-record-eta-review.md. Verdict: merge after one fix (check cache drops the no_eta mark, so a replayed interface gets eta back; warm accepts dictEta, cold rejects), then whole AoC + roguelike (D2507). Kernel sound; hold keeps all three evaluators in agreement; walk_tree and reference::same_trees lack the hold (harmless today). Missing tests listed. Departure: the elaborator never emits Proj for p.field. SW-1762 is a cost (record updates open into full State constructors; motive read back unfolded). Model result: Opus, worked, 25 min (est. 60).",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -14010,6 +14010,51 @@
       "body": "From SW-1761, 6 Nov 2026.",
       "created": "2026-11-06",
       "updated": "2026-11-06",
+      "commits": []
+    },
+    {
+      "id": 1766,
+      "title": "Record eta: the elaborator never emits Proj for p.field (field access stays an accessor call that rule 2 opens); update record-eta.md §6.4 or emit Proj in a later stage (SW-1764)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "epic": "record-eta",
+      "body": "From SW-1764, 7 Nov 2026.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1767,
+      "title": "Record eta code quality: two has_eta functions with different meanings, folded_call's doc, tuple-typed Frame::CallField, an omega spot that would drop a projection (SW-1764)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "cleanup"
+      ],
+      "epic": "record-eta",
+      "body": "From SW-1764.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1768,
+      "title": "[Opus] Record eta review fixes on lane/SW-1642: check cache saves and restores no_eta (warm/cold test); the hold in walk_tree and reference::same_trees; missing tests (a reject that depends on the hold, a reference-evaluator test, which definitions are held, mutual records, projection of a type being declared)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1642",
+      "labels": [
+        "kernel"
+      ],
+      "epic": "record-eta",
+      "body": "From SW-1764. Started on Opus, expected: 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
       "commits": []
     }
   ]
