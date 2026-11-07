@@ -22008,7 +22008,7 @@
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "Split from SW-2293. Plan: docs/proposals/comparative-speed.md. 90 min.\n\nDone, merged. 8 ports, lake build ok, check 40 ok / 14 skipped (Python not yet) / 0 failed. Smoke: octopus native/Lean 48x, matcher 16x (but Lean runs 31 ms, under the floor: SW-2307). Model result: Sonnet, worked, 7 min (est. 90).",
+      "body": "Split from SW-2293. Plan: docs/proposals/comparative-speed.md. 90 min.\n\nDone, merged. 8 ports, lake build ok, check 40 ok / 14 skipped (Python not yet) / 0 failed. Smoke: octopus native/Lean 48x, matcher 16x (but Lean runs 31 ms, under the floor: SW-2307). Model result: Sonnet, worked, 7 min (est. 90).\n\nD3350 (Lean .lake build output, 165 files, 32 MB raw / 10 MB packed, in pushed history since ~20:20 via SW-2292 and SW-2299): Matt, 7 Nov 2026: \"Let's wait until everything is quiescent and merged. Don't kick off any more lanes. And then we'll think about it.\"",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
