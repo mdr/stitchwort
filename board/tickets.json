@@ -17513,14 +17513,14 @@
     {
       "id": 1999,
       "title": "[Opus] match and the field of a call (f x).i: for non-recursive calls match doesn't look inside the call; for well-founded ones it shows their internals (2021 day 15, 2024 day 23); core value.rs Frame::CallField and its readback",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1999",
       "labels": [
         "core"
       ],
       "epic": "record-eta",
-      "body": "From SW-1913. Repros match-field.sw, call-field-match3.sw. Then drop the SW-1913 workarounds in those days. 90 min.\n\nFrom docs/reviews/record-eta-as-merged.md: match's check of its as-written result has no case for Proj, so it drops that result on exactly the goals eta changed; may be part of this.",
+      "body": "From SW-1913. Repros match-field.sw, call-field-match3.sw. Then drop the SW-1913 workarounds in those days. 90 min.\n\nFrom docs/reviews/record-eta-as-merged.md: match's check of its as-written result has no case for Proj, so it drops that result on exactly the goals eta changed; may be part of this.\n\nDesign first (read-only Opus lane, spare capacity, 7 Nov): docs/proposals/match-call-field.md.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
