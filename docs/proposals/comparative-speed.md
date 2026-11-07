@@ -246,7 +246,7 @@ the same input and prints a constant answer, and is timed the same way.
 
 **One quiet machine: Overmind.**
 - The published numbers come from Overmind, Matt's NixOS laptop, about 2×
-  slower than this Mac (AoC 134 s there, per the notes on it).
+  slower than this Mac (the AoC answers take 134 s there [measured earlier, the orchestrator's notes on Overmind]).
 - On mains power, with no lanes, builds or tests running, and the
   performance governor set. The report records the commit, the tool
   versions and the load average.
@@ -350,7 +350,7 @@ one-edit runs of §3.
 
 | Program | `run` | native | `--js` | CPython | PyPy | Lean exe | `lean --run` | `run` / CPython | native / Lean |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| dijkstra | … | … | … | … | … | … | … | 12.0× | 3.1× |
+| dijkstra | … | … | … | … | … | … | … | …× | …× |
 | … | | | | | | | | | |
 | startup | 0.20 s | … | … | 0.02 s | … | … | … | | |
 | **geometric mean** | | | | | | | | **…×** | **…×** |
