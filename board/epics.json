@@ -17,13 +17,14 @@
         "Bounded readback note revision 3 (SW-1728)",
         "Stage 0a: trip-journal fails through Float arithmetic on symbolic record fields; 33 failing sites mapped (SW-1740)",
         "Stage 0b: all 288 read-back sites classified (SW-1747)",
-        "Stage 1: output terms and decide read back folded; field types shown as declared (SW-1746, reviewed SW-1756)"
+        "Stage 1: output terms and decide read back folded; field types shown as declared (SW-1746, reviewed SW-1756)",
+        "Bounded readback stages 0b, 1, 1b and the plan for the rest (SW-1747, SW-1746, SW-1748, SW-1828)"
       ],
       "now": [],
       "next": [
-        "Finish the design note that bounds unfolded readback by making the searches look at goals as written everywhere, revisiting D484 (SW-1712, D2514); it also unblocks record eta",
-        "Stage 5: rewrite f means one unfolding step of f (SW-1631; SW-796 is the same ticket)",
-        "Recover the 109 'motive unchecked' fallbacks (SW-1654), then tidy the stage 4 error cases (SW-1687, SW-1691, SW-1697, SW-1699)"
+        "Bounded readback, the remaining stages (docs/proposals/bounded-readback-remaining.md; D2610-D2614): first 0c metrics, 1c output sites and R rewrite f side by side (SW-1830, SW-1831, SW-1631)",
+        "Then the shared reader: limits answer exactly or fail (4a, SW-1832), and omega/ring atoms by conversion (O, SW-1837)",
+        "Then rewrite, match and cases under D2542 (6a, 6b; SW-1839, SW-1840), absorbing the stage 4 error cases (SW-1654, SW-1687, SW-1691, SW-1699)"
       ],
       "links": [
         "docs/proposals/goal-as-written.md",
