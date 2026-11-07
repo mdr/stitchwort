@@ -1467,3 +1467,68 @@ fn the_plain_evaluator_folds_nothing() {
         assert!(lazy, "{name}: {ordinary:?}");
     }
 }
+
+/// Two calls of one definition nested [`DEEP`] times over different stuck
+/// bases (`pred (pred (… a))` against `pred (pred (… b))`) differ, and
+/// saying so costs about a step per level: the argument try and then the
+/// tree try both compare the same inner pair, so without a record of pairs
+/// found different the cost doubles with each level (SW-2268, F2).
+#[test]
+fn nested_stuck_calls_of_one_definition_differ_quickly() {
+    let mut session = Session::eager();
+    session.load("pred.sw", PRED_PROGRAM).expect("loads");
+    let g = &session.elab.ev();
+    let pred = Term::Def(signature(g, &[], &["pred"]).defs[0].1);
+    let nested = |base: Term| (0..DEEP).fold(base, |t, _| app(pred.clone(), vec![t]));
+    let env: Vec<Value> = (0..LEVEL).map(Value::var).collect();
+    for how in MODES.into_iter().filter(|how| how.shortcuts) {
+        let mut steps = 100_000;
+        let answer = in_mode(g, how, || {
+            let a = eval_how(g, &env, &nested(var(0, 0)), how);
+            let b = eval_how(g, &env, &nested(var(1, 0)), how);
+            g.machine
+                .budget
+                .limited(&mut steps, || {
+                    if how.reference {
+                        reference::conv(g, LEVEL, &a, &b)
+                    } else {
+                        conv(g, LEVEL, &a, &b)
+                    }
+                })
+                .unwrap()
+        });
+        assert_eq!(answer, Some(false), "{}", how.name());
+    }
+}
+
+/// The same pair met by the unifier: a plain mismatch, not E-RESOURCE.
+#[test]
+fn nested_stuck_calls_of_one_definition_are_a_mismatch_in_the_elaborator() {
+    let nested = |base: &str| (0..DEEP).fold(base.to_string(), |t, _| format!("pred ({t})"));
+    let source = format!(
+        "{PRED_PROGRAM}\ndef bad (a: Nat) (b: Nat): {} = {} := rfl\n",
+        nested("a"),
+        nested("b")
+    );
+    let mut session = Session::eager();
+    let before = session.elab.ev().machine.budget.total_work();
+    let err = format!(
+        "{:?}",
+        session.load("bad.sw", &source).expect_err("rejected")
+    );
+    let steps = session.elab.ev().machine.budget.total_work() - before;
+    assert!(!err.contains("E-RESOURCE"), "{err}");
+    assert!(
+        err.contains("E-REFL") || err.contains("E-MISMATCH"),
+        "{err}"
+    );
+    assert!(steps < 1_000_000, "{steps} steps");
+}
+
+const DEEP: usize = 30;
+
+const PRED_PROGRAM: &str = r#"
+import Std (Nat)
+
+def pred (n: Nat): Nat := match n with | Zero => Zero | Succ m => m
+"#;
