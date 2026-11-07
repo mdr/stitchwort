@@ -1,5 +1,5 @@
 {
-  "next": 2269,
+  "next": 2272,
   "tickets": [
     {
       "id": 47,
@@ -21363,7 +21363,7 @@
         "core"
       ],
       "epic": "elaborator-kernel",
-      "body": "Split from SW-2243 into ~15-min steps (Matt, 7 Nov: small scope near the quota). Flip the gap's #[ignore]d test in proof_equivalence.rs (SW-2242) and its probe in docs/repros/sw-2236/. D3250/D3260. 15-20 min.\n\nDone, merged. On main: proof_equivalence/call_fields/eta_fields/hash_stability 27/27, elab 158/158, AoC --no-cache 287/0 errors, 64.7 s user (was ~70). G11 (unifier, needSame) also fixed. Unifier case with unknowns in the arguments left as before -> SW-2267 (backlog). Review SW-2268. Model result: Opus, worked, 10 min (est. 20).",
+      "body": "Split from SW-2243 into ~15-min steps (Matt, 7 Nov: small scope near the quota). Flip the gap's #[ignore]d test in proof_equivalence.rs (SW-2242) and its probe in docs/repros/sw-2236/. D3250/D3260. 15-20 min.\n\nDone, merged. On main: proof_equivalence/call_fields/eta_fields/hash_stability 27/27, elab 158/158, AoC --no-cache 287/0 errors, 64.7 s user (was ~70). G11 (unifier, needSame) also fixed. Unifier case with unknowns in the arguments left as before -> SW-2267 (backlog). Review SW-2268. Model result: Opus, worked, 10 min (est. 20).\n\nReview SW-2268: sound; follow-ups SW-2269 (cost, first), SW-2270, SW-2271.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21536,14 +21536,59 @@
     {
       "id": 2268,
       "title": "[Opus] Review SW-2256 (G6: same-definition stuck calls fall back to case trees; changes what conversion accepts, D2364): the argument try uses the current mode not shortcut mode (a skipped proof argument counts as equal); pairs found different aren't recorded in CallMemo; the unifier's undo_since around the tree try",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2268",
       "labels": [
         "review"
       ],
       "epic": "elaborator-kernel",
-      "body": "Read-only. 15 min.",
+      "body": "Read-only. 15 min.\n\nDone, merged: docs/reviews/SW-2268-same-definition-trees.md. Sound. F2 (cost doubling) -> SW-2269, F1/F4 -> SW-2270, F3 -> SW-2271; F5 keep the undo.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2269,
+      "title": "[Opus] SW-2268 F2: a failed same-definition argument try is followed by a tree try that compares the same inner pair again, so cost doubles per level (pred (pred (... a))) against (... b) gives E-RESOURCE at ~25 levels instead of a mismatch); TreeMemo remembers pairs found different; a nested-pred cost test",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2269",
+      "labels": [
+        "core"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/SW-2268-same-definition-trees.md. Regression risk from SW-2256: do first. Step 1 (~15 min): the cost test, showing the blow-up. Step 2 (~15 min): the memo.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2270,
+      "title": "[Opus] SW-2268 F1/F4: the same-definition argument try runs in the current mode, so a skipped proof field leaves a transitivity break (pre-existing); probe first, then shortcut mode at all three sites; fix rule C's wording in core.md and add G11 to the gaps table",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/SW-2268-same-definition-trees.md. Probe first (~15 min). After SW-2269.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2271,
+      "title": "[Sonnet] SW-2268 F3: a test for G11 (needSame [a := 1] x rfl, the unifier's same-definition gap SW-2256 fixed)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/SW-2268-same-definition-trees.md. 15 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
