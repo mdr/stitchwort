@@ -21821,9 +21821,9 @@
     {
       "id": 2287,
       "title": "[Sonnet] SW-2284 F3-F5: a property test for the walk's compact-text split; known_gap stops listing G1 and G3 (rename the two passing known-failure tests); two core.md wording edits",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2287",
       "labels": [
         "tests"
       ],
@@ -21836,9 +21836,9 @@
     {
       "id": 2288,
       "title": "[Opus] TreeMemo::known's identical walk isn't charged to the budget, so a memo with many entries can get past a small budget (SW-2285's cause); charge it, or look pairs up by pointer or hash; same pattern in reference.rs",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2288",
       "labels": [
         "perf"
       ],
@@ -21896,9 +21896,9 @@
     {
       "id": 2292,
       "title": "[Sonnet] Comparative speed 1a: the harness: bench/compare/, compare.sh, programs.toml, a 'compare' dev shell (Lean, hyperfine, PyPy), task bench:compare and bench:compare:check, null programs, the two classics (pidigits, binary-trees) in Stitchwort, the 2020 day 15 turn-count entry point; Mac runs only",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2292",
       "labels": [
         "perf"
       ],
