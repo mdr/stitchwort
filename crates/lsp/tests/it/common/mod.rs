@@ -26,16 +26,20 @@ pub fn cached_memory(stack: usize) -> Arc<Memory> {
                 sources: vec!["src".into()],
                 files: Arc::new([("src/Demo.sw".to_string(), text.to_string())].into()),
             });
+            // The two fills write different units of the cache and share
+            // nothing else, so they run side by side: a cold run waits for
+            // the slower, not for both.
             let searches = dir.clone();
-            std::thread::Builder::new()
-                .stack_size(stack)
-                .spawn(move || {
-                    fill(text, memory, stack);
-                    fill_for_searches(&searches, stack);
-                })
-                .unwrap()
-                .join()
-                .unwrap();
+            let spawn = |body: Box<dyn FnOnce() + Send>| {
+                std::thread::Builder::new()
+                    .stack_size(stack)
+                    .spawn(body)
+                    .unwrap()
+            };
+            let checker = spawn(Box::new(move || fill(text, memory, stack)));
+            let searcher = spawn(Box::new(move || fill_for_searches(&searches, stack)));
+            checker.join().unwrap();
+            searcher.join().unwrap();
             turn.finish();
         }
     });
