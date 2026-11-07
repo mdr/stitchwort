@@ -1,5 +1,5 @@
 {
-  "next": 1869,
+  "next": 1873,
   "tickets": [
     {
       "id": 47,
@@ -15555,6 +15555,66 @@
       ],
       "epic": "elaborator-kernel",
       "body": "Brief and design in docs/proposals/stuck-blockers.md (SW-1845). D2622 [rec: not now]. 90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1869,
+      "title": "[Opus] Code review: crates/core (kernel, values, evaluation, pretty printer; 23.6k lines)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "review"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "Matt (7 Nov 2026): crate-by-crate code reviews, reading only (no edits to code, no builds or runs); output a document of recommendations. Expected: 75 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1870,
+      "title": "[Opus] Code review: crates/elab part 1, checking and solving (check.rs, unify.rs, queue.rs, state/, postponement, local/scope/named, dot.rs, rewind/undo)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "review"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "Matt (7 Nov 2026): crate-by-crate code reviews, reading only (no edits to code, no builds or runs); output a document of recommendations. Expected: 90 min. Part 2 (tactics) and part 3 (derive, interfaces, effects, the rest) follow.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1871,
+      "title": "[Opus] Code review: crates/rt (fast runtime, machine, code.rs, opt.rs, native ABI and unsafe code; 19.4k lines)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "review"
+      ],
+      "epic": "effects-native",
+      "body": "Matt (7 Nov 2026): crate-by-crate code reviews, reading only (no edits to code, no builds or runs); output a document of recommendations. Expected: 75 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1872,
+      "title": "[Sonnet] Code review: crates/syntax (lexer, parser, syntax tree, desugaring; 14.5k lines)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "review"
+      ],
+      "epic": "syntax-language",
+      "body": "Matt (7 Nov 2026): crate-by-crate code reviews, reading only (no edits to code, no builds or runs); output a document of recommendations. Expected: 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
