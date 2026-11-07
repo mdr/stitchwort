@@ -21041,14 +21041,14 @@
     {
       "id": 2235,
       "title": "[Sonnet] SW-2234 F1/F2: reword value.rs:3255's 'this happens once a side' (it can fire twice: wrap 0 against 0, def wrap (x) := outerV x); add to proof_equivalence's matrix a non-decreasing definition returning a field of a call (valueOf x := (countDown x).value) and a decreasing definition whose leaf is that call",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2235",
       "labels": [
         "tests"
       ],
       "epic": "record-eta",
-      "body": "From docs/reviews/SW-2234-glued-call-against-number.md. After SW-2157 merges (same files). 30 min.\n\n7 Nov: F1 obsolete: SW-2157 removed the rule and its comment. F2 (the two matrix terms) stands; can run now.",
+      "body": "From docs/reviews/SW-2234-glued-call-against-number.md. After SW-2157 merges (same files). 30 min.\n\n7 Nov: F1 obsolete: SW-2157 removed the rule and its comment. F2 (the two matrix terms) stands; can run now.\n\nDone, merged. valueOf and leafOf in FIELD_OPS plus three deeper terms; no disagreement. On main: proof_equivalence and call_fields pass. Model result: Sonnet, worked, 5 min (est. 25).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
