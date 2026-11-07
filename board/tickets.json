@@ -1,5 +1,5 @@
 {
-  "next": 2286,
+  "next": 2288,
   "tickets": [
     {
       "id": 47,
@@ -21416,14 +21416,14 @@
     {
       "id": 2260,
       "title": "[Opus] Equality G2: + with a folded second argument, fixed where the sum is read, not in how + evaluates",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2260",
       "labels": [
         "core"
       ],
       "epic": "elaborator-kernel",
-      "body": "Split from SW-2244 into ~15-min steps (Matt, 7 Nov: small scope near the quota). Flip the gap's #[ignore]d test in proof_equivalence.rs (SW-2242) and its probe in docs/repros/sw-2236/. D3250/D3260. 15-20 min.",
+      "body": "Split from SW-2244 into ~15-min steps (Matt, 7 Nov: small scope near the quota). Flip the gap's #[ignore]d test in proof_equivalence.rs (SW-2242) and its probe in docs/repros/sw-2236/. D3250/D3260. 15-20 min.\n\nDone, merged (core.md gaps table conflict resolved by hand). nat_add::reread at comparisons, case and number match; evaluation unchanged. Steps flat (dependent +0.1%). On main: proof_equivalence, call_fields, nat_add_rule, hash_stability 41/41; core 182/182. SW-2253 step 1 (omega) can rerun now. Note: SW-2262 (G5) will conflict with the NumCase arm in branch. Model result: Opus, worked, 22 min (est. 20).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21746,14 +21746,14 @@
     {
       "id": 2282,
       "title": "[Sonnet] Profile the whole-AoC check after SW-2257 (G1/G3): the lane timed it ~9% slower under load (73 s vs 67 s user) though the benchmark step counts stayed within 10%; time both binaries on a quiet machine and, if real, find which comparisons now walk deeper",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "performance",
-      "body": "From SW-2257. 20 min. Best on Overmind or a quiet Speedwell.",
+      "body": "From SW-2257. 20 min. Best on Overmind or a quiet Speedwell.\n\n7 Nov: absorbed into SW-2286 (SW-2284 found the likely cause).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21776,14 +21776,14 @@
     {
       "id": 2284,
       "title": "[Opus] Review SW-2257 (G1/G3: walk_tree and the reference's settle bring a scrutinee to its head: forced, unfolded, numbers and compact text split): definitional, budget, agreement, and whether it explains the ~9% AoC time rise",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2284",
       "labels": [
         "review"
       ],
       "epic": "elaborator-kernel",
-      "body": "D2364. Read-only. 15 min.",
+      "body": "D2364. Read-only. 15 min.\n\nDone, merged: docs/reviews/SW-2284-tree-scrutinee-head.md. Sound. F1 (medium, likely the AoC slowdown) and F2 -> SW-2286; F3-F5 -> SW-2287.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21799,6 +21799,36 @@
       ],
       "epic": "elaborator-kernel",
       "body": "Found by Overmind job 11 (fuzz seed 0x6 cases 629, 2652 hit the 60 s hang limit; the unmutated example times out at 120 s). Confirmed on Speedwell at 19:08: still running at 90 s, 88.7 s user. Likely one of today's conversion merges (SW-2126, 2127, 2211, 2157, 2256, 2269, 2257). Bisect first (~20 min), fix after.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2286,
+      "title": "[Opus] SW-2284 F1/F2: the tree walk repeats every unfolding evaluation already did, on both sides; stop after the first walk gives up (same_trees_of), unfold a shared scrutinee once; count tree_scrutinee's unfoldings on one AoC day; F2: a scrutinee that stays a stuck folded call no longer answers different (probe, core.md G1 row)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/SW-2284-tree-scrutinee-head.md. Absorbs SW-2282. Wait for SW-2285 (the slow-check bisect): it may point here. Step 1 (~15 min): count and the two guards. Step 2 (~15 min): F2.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2287,
+      "title": "[Sonnet] SW-2284 F3-F5: a property test for the walk's compact-text split; known_gap stops listing G1 and G3 (rename the two passing known-failure tests); two core.md wording edits",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/SW-2284-tree-scrutinee-head.md. 20 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
