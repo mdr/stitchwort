@@ -467,12 +467,11 @@
         "Merge tier 76 s on main, cold (from 153-172 s): std replayed where checking it isn't the point (SW-1761)",
         "Daily tier replays std in the sweeps: examples + hash_stability cold 111 → 48 s (SW-1765)",
         "test:affected: memory-safe lsp group, self-refreshing inventory (SW-1760)",
-        "Next slowest daily binaries roughly halved in CPU: operators, rewind, std_library, extract, run_js (SW-1770)"
+        "Next slowest daily binaries roughly halved in CPU: operators, rewind, std_library, extract, run_js (SW-1770)",
+        "Navigation index 2× faster, also in the editor (SW-1771); lsp memory tests 1.7 → 0.45 GB (SW-1769)"
       ],
       "now": [
-        "Compile time (SW-1754)",
-        "Thread counts for pooled tests (SW-1734)",
-        "rewind dump and core-alone sample (SW-1771, SW-1772)"
+        "Compile time (SW-1754)"
       ],
       "next": [],
       "links": [

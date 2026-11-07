@@ -93,3 +93,4 @@ Take these in order, once the speed queue above is empty or blocked.
 - 01:00: found that SW-1754 had a worktree since 23:48 but no agent (I created the worktree and never launched it); started it now. Lesson: check ListAgents against the board's doing list at each heartbeat. Usage 76%.
 - 01:21: SW-1770 merged; the five slow daily binaries now use about half the CPU; 723/723 on main. SW-1771/1772 started.
 - 01:26: SW-1734 held in review (merge tier neutral; daily wall unmeasurable under load; wants a quiet daily run). Filed SW-1774. SW-1769 started.
+- 01:57: SW-1771/1772 merged (with a threshold fixup of mine), SW-1769 merged (lsp memory tests 1.7 → 0.45 GB). SW-1774's SIGTERMs likely from lane pkills.

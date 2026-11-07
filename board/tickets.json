@@ -14060,14 +14060,14 @@
     {
       "id": 1769,
       "title": "lsp memory tests hold 1.1-1.3 GB each even warm, high for in-memory project checks (SW-1760)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1769",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From SW-1760, 7 Nov 2026.",
+      "body": "From SW-1760, 7 Nov 2026.\n\nDone, merged: the memory tests used Memory::default() (no cache), so each checked std from source: 1.7 GB peak. Now they share features.rs's cached_memory (crates/lsp/tests/common): 0.45 GB warm, binary 2.4 s. A real warm editor session is ~0.45 GB; the cold std check ~1.9 GB once. On main: lsp memory + features 21/21. Left: lsp-sessions max-threads 3 could go up; breakdown of the 0.45 GB. Model result: Sonnet, worked, 26 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -14090,14 +14090,14 @@
     {
       "id": 1771,
       "title": "rewind tests: the session dump (canonical dump, every definition's hash, navigation index) is about half the file's remaining cost; a cheaper or incremental dump (SW-1770)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1771",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From SW-1770, 7 Nov 2026.",
+      "body": "From SW-1770, 7 Nov 2026.\n\nDone, merged (b37d491fd): hashing the dump wouldn't help (building it is the cost); nav.rs parses library docs and imports once per process, keyed by file and text hash (index 18 → 8.5 ms; rewind sweeps CPU 263 → 240 s and 124 → 112 s). The LSP's index gets the same speed-up. On main: affected 706/707 (the SW-1772 threshold, fixed), cli lsp + doc 67/67. Left: elab navigation_index (~5 ms) and canonical_dump (~11 ms) per build. Model result: Sonnet, worked, 22 min (est. 60, shared with SW-1772).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -14105,14 +14105,14 @@
     {
       "id": 1772,
       "title": "std_library the_core_alone_runs_every_example isn't sampled in daily (every accept and extract example); sample it (SW-1770)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1771",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From SW-1770, 7 Nov 2026.",
+      "body": "From SW-1770, 7 Nov 2026.\n\nDone, merged with SW-1771: tier_sample(4) outside full (17 → 3.6 s daily). Needed a fix: the minimum (>10) failed in merge, where the sample is a sixteenth (9 ran); the minimum now follows the tier (fixup on main). Model result: Sonnet, needed fixes (merge-tier threshold), 22 min (est. 60, shared).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -14142,7 +14142,7 @@
         "tooling"
       ],
       "epic": "dev-loop-speed",
-      "body": "From SW-1734.",
+      "body": "From SW-1734.\n\nLikely cause: lane agents use pkill by binary or test name to stop their own runs (SW-1769's agent did, ~01:50), which also kills other worktrees' runs of the same test binaries. Fix: a lane brief rule and a helper that kills only its own process tree (memory: process-matching).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
