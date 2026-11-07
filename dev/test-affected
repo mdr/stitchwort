@@ -384,10 +384,14 @@ def widen_for_helpers(rules, inv):
     if not changed or not whole:
         return
     for sel in changed.select:
-        names = sel["test"].removeprefix("^(").removesuffix(")$").split("|")
+        body = sel["test"].removeprefix("^").removesuffix("$")
+        names = body[body.index("(") + 1:-1].split("|")
+        # A merged test binary's tests are `module::name`; the diff names the
+        # function alone, so compare it with the module prefix the select has.
+        prefix = sel["test"].split("(", 1)[0].lstrip("^")
         binary = {k: v for k, v in sel.items() if k != "test"}
         have = {t["name"] for t in inv if selector_matches(binary, t)}
-        if have and any(n not in have for n in names):
+        if have and any(prefix + n not in have for n in names):
             whole.rank, whole.cheap_only = 1, False
             whole.why = "the changed test file, whose diff touches code the tests share"
             del rules["test-file-changed"]
