@@ -1,5 +1,5 @@
 {
-  "next": 1899,
+  "next": 1901,
   "tickets": [
     {
       "id": 47,
@@ -16005,6 +16005,36 @@
       ],
       "epic": "effects-native",
       "body": "From docs/reviews/code-review-rt.md (F6, F11, F12). D2661 [rec: yes]. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1899,
+      "title": "[Opus] Code review: crates/elab part 2, the tactics (rewrite, omega, omega_search, ring, search, closing, cases, calc, chain, congruence, saturate, counterexample, induct_match, decreasing, auto)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1899",
+      "labels": [
+        "review"
+      ],
+      "epic": "proof-automation",
+      "body": "Matt (7 Nov 2026): crate-by-crate code reviews, reading only. Expected: 90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1900,
+      "title": "[Opus] Code review: crates/js and crates/native (JS backend, native code generator and its unsafe boundary; 15.8k lines)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1900",
+      "labels": [
+        "review"
+      ],
+      "epic": "effects-native",
+      "body": "Matt (7 Nov 2026): crate-by-crate code reviews, reading only. Expected: 75 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
