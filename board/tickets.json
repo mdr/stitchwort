@@ -14120,14 +14120,14 @@
     {
       "id": 1773,
       "title": "check_cache differential sweeps (whole-library ~70 s, examples 92 s): sample in daily? The cache's own differential, so Matt's call on coverage (SW-1770)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1773",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From SW-1770, 7 Nov 2026.",
+      "body": "From SW-1770, 7 Nov 2026.\n\nDone: docs/reviews/SW-1773-check-cache-sampling.md. The examples sweep is already sampled 1 in 8 in daily (57 s wall, 250 s CPU); the whole-library tests are ~33 s CPU each, single-threaded, alongside the sweep, so cutting them saves no wall time; the no-navigation library test is the only one replaying every std file through the cache. D2571 (leave as is): my call, yes, since it changes nothing; listed for Matt. The optional change (full-tier only) stays on lane/SW-1773. Model result: Sonnet, worked, 15 min (est. 40).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []

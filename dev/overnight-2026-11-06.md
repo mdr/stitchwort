@@ -119,3 +119,4 @@ Take these in order, once the speed queue above is empty or blocked.
 - 05:09: SW-1782 merged (determinism). SW-1789 and SW-1790 merged as a batch: merge tier 1151/1151 on main. Test binaries now ~35.
 - 05:11: SW-1793 merged (test:areas retired). Filed SW-1794.
 - 05:17: SW-1794 merged; it caught my emptied epic next list (board test 24), fixed.
+- 05:33: SW-1773: leave check_cache sweeps as they are (D2571 mine); doc brought to main.
