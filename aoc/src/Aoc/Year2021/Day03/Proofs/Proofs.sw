@@ -21,24 +21,12 @@ theorem onesInColumn (bitOf: Bits → Option Bool): (numbers: List Bits) →
         | None => omega
         | Some bit => rewrite List.countCons (List.filterMap rest bitOf) bit (bit => bit) in cases
 
---| Its length is the numbers whose bit is a 1, and those whose bit is a 0.
-theorem columnLength (bitOf: Bits → Option Bool): (numbers: List Bits) →
-    (numbers.filterMap bitOf).length
-      = numbers.count (number => bitOf number == Some True) + numbers.count (number => bitOf number == Some False)
-  | [] => rfl
-  | [number, ..rest] =>
-    rewrite List.countCons rest number (number => bitOf number == Some True),
-      List.countCons rest number (number => bitOf number == Some False) in
-      match bitOf number with
-        | None => columnLength bitOf rest
-        | Some bit => rewrite columnLength bitOf rest in cases
-
 --| So the program's most common bit of a column is 1 when it has no more 0s
 --| than 1s.
 theorem mostCommonColumn (bitOf: Bits → Option Bool) (numbers: List Bits):
     mostCommon (numbers.filterMap bitOf)
       = (numbers.count (number => bitOf number == Some False) ≤ numbers.count (number => bitOf number == Some True)) :=
-  rewrite columnLength bitOf numbers, onesInColumn bitOf numbers in cases
+  rewrite List.lengthFilterMapBool bitOf numbers, onesInColumn bitOf numbers in cases
 
 --| The spec's most common bit at a position is the program's for the column
 --| there.

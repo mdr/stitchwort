@@ -23,28 +23,6 @@ theorem memAppendRight (x: a) (ys: List a): (xs: List a) → List.Mem x ys → L
   | [], inside => inside
   | [first, ..rest], inside => Inr (memAppendRight x ys rest inside)
 
---| One element of a list with no repeats replaced by one not among the others.
-theorem distinctSwap (x: a) (y: a) (after: List a): (before: List a) →
-    List.Distinct (before ++ [x, ..after]) → ¬(List.Mem y (before ++ after)) → List.Distinct (before ++ [y, ..after])
-  | [], Both notMem rest, fresh => Both fresh rest
-  | [first, ..others], Both notMem rest, fresh =>
-    let away: ¬(List.Mem first (others ++ [y, ..after])) := inside =>
-      match List.memAppend first others [y, ..after] inside with
-        | Inl early => notMem (memAppendLeft first [x, ..after] others early)
-        | Inr (Inl same) => fresh (Inl (Eq.sym same))
-        | Inr (Inr late) => notMem (memAppendRight first [x, ..after] others (Inr late))
-    Both away (distinctSwap x y after others rest (inside => fresh (Inr inside)))
-
-theorem distinctSnoc (y: a): (xs: List a) → List.Distinct xs → ¬(List.Mem y xs) → List.Distinct (xs ++ [y])
-  | [], none, fresh => Both (inside => inside) Trivial
-  | [first, ..rest], Both notMem others, fresh =>
-    let away: ¬(List.Mem first (rest ++ [y])) := inside =>
-      match List.memAppend first rest [y] inside with
-        | Inl early => notMem early
-        | Inr (Inl same) => fresh (Inl (Eq.sym same))
-        | Inr (Inr none) => none
-    Both away (distinctSnoc y rest others (inside => fresh (Inr inside)))
-
 --| A cell with no monster on it isn't among their positions.
 theorem vacantNotMem (position: Position): (monsters: List Monster) → monsterAt position monsters = None → ¬(List.Mem position (positions monsters))
   | [], vacant, inside => inside
@@ -86,7 +64,7 @@ theorem apartMove (moved: List Monster) (monster: Monster) (destination: Positio
     Apart ((moved ++ [{ monster | position = destination }]) ++ waiting) :=
   let fresh := vacantNotMem destination (moved ++ waiting) vacant
   rewrite List.appendAssoc moved [{ monster | position = destination }] waiting, positionsAppend moved [{ monster | position = destination }, ..waiting] in
-    distinctSwap monster.position destination (positions waiting) (positions moved)
+    List.distinctSwapMiddle monster.position destination (positions waiting) (positions moved)
       (rewrite <- positionsAppend moved [monster, ..waiting] in apart)
       (rewrite <- positionsAppend moved waiting in fresh)
 
@@ -136,7 +114,7 @@ theorem placeMonstersApart (level: Level) (start: Position):
     match picked: pickFree level [monster.position] start placed with
       | Some position =>
         let fresh := vacantNotMem position placed (pickFreeVacant level start placed [monster.position] position picked)
-        let joined: Apart (placed ++ [{ monster | position }]) := rewrite positionsAppend placed [{ monster | position }] in distinctSnoc position (positions placed) apart fresh
+        let joined: Apart (placed ++ [{ monster | position }]) := rewrite positionsAppend placed [{ monster | position }] in List.distinctSnocIntro (positions placed) position fresh apart
         placeMonstersApart level start (placed ++ [{ monster | position }]) rest joined
       | None => placeMonstersApart level start placed rest apart
 

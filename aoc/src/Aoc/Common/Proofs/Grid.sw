@@ -110,7 +110,7 @@ theorem directionOfStep: (position: Position) → (direction: Direction) → (ne
 
 --| No position is a neighbour twice...
 theorem neighboursDistinct (position: Position): List.Distinct position.neighbours :=
-  distinctOfMap (directionTo position) position.neighbours
+  List.distinctOfMap (directionTo position) position.neighbours
     (List.distinctMapFilterMap position.step (direction => direction) (directionTo position)
       (direction next stepped => directionOfStep position direction next stepped) directions directionsDistinct)
 
@@ -134,23 +134,7 @@ theorem notMemDirections (direction: Direction): (others: List Direction) →
   | [other, ..rest], differ, Inr later => notMemDirections direction rest (Bool.andRight differ) later
 
 --| ...and there are at most four.
-theorem neighboursAtMost4 (position: Position): position.neighbours.length ≤ 4 := lengthFilterMapLe position.step directions
-
---| A list whose keys are distinct is.
--- (A general list lemma: a std candidate.)
-theorem distinctOfMap (key: a → k): (xs: List a) → List.Distinct (xs.map key) → List.Distinct xs
-  | [], distinct => Trivial
-  | [x, ..rest], (Both fresh distinct) => Both (member => fresh (List.memMap rest x member key)) (distinctOfMap key rest distinct)
-
---| `filterMap` keeps at most every element.
--- (A std candidate.)
-theorem lengthFilterMapLe (f: a → Option b): (xs: List a) → (xs.filterMap f).length ≤ xs.length
-  | [] => rfl
-  | [x, ..rest] =>
-    let shorter := lengthFilterMapLe f rest
-    match f x with
-      | None => omega
-      | Some y => omega
+theorem neighboursAtMost4 (position: Position): position.neighbours.length ≤ 4 := List.lengthFilterMapLe position.step directions
 
 -- The eight around
 

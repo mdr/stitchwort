@@ -12,16 +12,6 @@ import Aoc.Common (Grid, Offset, Position)
 import Aoc.Common.Proofs (lookupAt, mapWidth)
 import Std (Bool, Eq, List, Nat, Option, Void)
 
---| Counting the values of a `filterMap` counts the elements whose value
---| passes.
-theorem countFilterMap (f: a → Option b) (p: b → Bool): (xs: List a) → (xs.filterMap f).count p = xs.count (x => (f x).any p)
-  | [] => rfl
-  | [x, ..rest] =>
-    rewrite List.countCons rest x (x => (f x).any p) in
-    match f x with
-      | None => rewrite countFilterMap f p rest in rfl
-      | Some y => rewrite List.countCons (rest.filterMap f) y p, countFilterMap f p rest in rfl
-
 --| The walk depends only on what `find` says at each position.
 theorem firstSeatCong (f: Position → Option Seat) (g: Position → Option Seat) (same: (position: Position) → f position = g position)
     (from: Position) (direction: Offset): (distance: Nat) → (steps: Nat) → firstSeat f from direction distance steps = firstSeat g from direction distance steps
@@ -93,7 +83,7 @@ theorem compassDirections: compass = Spec.directions := rfl
 theorem sightOccupied (layout: Layout) (reach: Nat) (fits: reach = layout.grid.height + layout.grid.width) (position: Position):
     (compass.filterMap (direction => firstSeat layout.grid.lookup position direction 1 reach)).count (near => layout.grid.lookup near == Some Occupied)
       = Spec.occupiedSeen layout position :=
-  rewrite countFilterMap (direction => firstSeat layout.grid.lookup position direction 1 reach) (near => layout.grid.lookup near == Some Occupied) compass,
+  rewrite List.countFilterMap (direction => firstSeat layout.grid.lookup position direction 1 reach) (near => layout.grid.lookup near == Some Occupied) compass,
     List.countCongMem compass (direction => (firstSeat layout.grid.lookup position direction 1 reach).any (near => layout.grid.lookup near == Some Occupied))
       (direction => (Spec.firstSeen layout position direction).any (((_, seat)) => seat == Occupied))
       (direction member => seenOccupied layout position direction reach fits) in rfl

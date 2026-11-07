@@ -328,3 +328,45 @@ theorem List.sumByRangeSkipZeros (k: Nat) (f: Nat → Nat) (g: Nat → Nat) (n: 
     _ = List.sumBy (List.rangeFrom n k) f := rewrite first, back in rfl
     _ = List.sumBy (List.range 0 n) (i => f (k + i)) := List.sumByRangeOffset f k n
     _ = List.sumBy (List.range 0 n) g := rewrite later _
+
+--| `withIndexFrom s` of a list made by mapping over `withIndexFrom s`: the
+--| indices are the same, so it is `withIndexFrom s xs` with each element
+--| (index, element) pair sent to `(index, h pair)`.
+theorem List.withIndexFromMap: (s: Nat) → (xs: List a) → (h: (Nat, a) → b) →
+    List.withIndexFrom s (List.map (List.withIndexFrom s xs) h) = List.map (List.withIndexFrom s xs) (p => (p.fst, h p))
+  | s, [], h => rfl
+  | s, [x, ..rest], h => Eq.cong (Cons (s, h (s, x))) (List.withIndexFromMap (Succ s) rest h)
+
+--| Every index of `withIndexFrom t xs` is `t` or more.
+theorem List.memWithIndexFromLe: (t: Nat) → (xs: List a) → (p: (Nat, a)) → p ∈ List.withIndexFrom t xs → t ≤ p.fst
+  | t, [], p, member => Void.exfalso member
+  | t, [x, ..rest], p, Inl same => rewrite <- same in Nat.leRefl t
+  | t, [x, ..rest], p, Inr later =>
+    let above := List.memWithIndexFromLe (Succ t) rest p later
+    omega
+
+--| `withIndexFrom s xs` has no repeats: its indices are all different.
+theorem List.distinctWithIndexFrom: (s: Nat) → (xs: List a) → List.Distinct (List.withIndexFrom s xs)
+  | s, [] => Trivial
+  | s, [x, ..rest] =>
+    Both
+      (member =>
+        let above := List.memWithIndexFromLe (Succ s) rest (s, x) member
+        omega)
+      (List.distinctWithIndexFrom (Succ s) rest)
+
+--| `xs.withIndex` has no repeats, whether or not `xs` does.
+theorem List.distinctWithIndex (xs: List a): List.Distinct xs.withIndex := List.distinctWithIndexFrom 0 xs
+
+--| The positions `(s, t)`, `(s, t + 1)`, … of `withIndexFrom t xs` have no
+--| repeats, for any fixed first part `s`.
+theorem List.distinctWithIndexFromPaired (s: b): (t: Nat) → (xs: List a) → List.Distinct (List.map (List.withIndexFrom t xs) (p => (s, p.fst)))
+  | t, [] => Trivial
+  | t, [x, ..rest] =>
+    Both
+      (member =>
+        Exists.elim (List.memMapElim (p => (s, p.fst)) (s, t) (List.withIndexFrom (Succ t) rest) member) (p both =>
+          let above := List.memWithIndexFromLe (Succ t) rest p (And.left both)
+          let same: p.fst = t := Eq.cong Pair.snd (And.right both)
+          omega))
+      (List.distinctWithIndexFromPaired s (Succ t) rest)

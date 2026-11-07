@@ -39,13 +39,6 @@ theorem moveFileKeeps (free: FreeSpace) (file: File): (free.moveFile file).snd.i
     | None => rfl
     | Some span => rfl
 
---| What holds of each element and its image holds along the zip.
-theorem allZipWith (holds: a → c → Prop) (g: a → b → c) (each: (x: a) → (y: b) → holds x (g x y)):
-    (xs: List a) → (ys: List b) → List.All (pair => holds pair.fst pair.snd) (xs.zip (xs.zipWith ys g))
-  | [], ys => Trivial
-  | [x, ..rest], [] => Trivial
-  | [x, ..rest], [y, ..others] => Both (each x y) (allZipWith holds g each rest others)
-
 --| The files are moved once each, highest number first, and keep their
 --| numbers and lengths.
 theorem eachFileOnce (diskMap: DiskMap): (compactFiles diskMap).map .idAndLength = (filesOf diskMap).reverse.map .idAndLength :=
@@ -61,7 +54,7 @@ theorem filesMoveLeft (diskMap: DiskMap):
   let layout := layoutFrom 0 0 diskMap.lengths
   let initial := FreeSpace.of (joinTouching layout.snd)
   rewrite List.mapAccumLeftList layout.fst.reverse initial FreeSpace.moveFile in
-    allZipWith MovedLeft (file free => (free.moveFile file).snd) (file free => moveFileLeft free file) layout.fst.reverse
+    List.allZipWithSelf MovedLeft (file free => (free.moveFile file).snd) (file free => moveFileLeft free file) layout.fst.reverse
       (List.scanLeft layout.fst.reverse initial (free file => (free.moveFile file).fst))
 
 theorem moveFileBlocks (free: FreeSpace) (file: File): (free.moveFile file).snd.blocks = file.blocks :=

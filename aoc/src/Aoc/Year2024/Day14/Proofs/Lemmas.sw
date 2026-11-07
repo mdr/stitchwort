@@ -14,19 +14,6 @@ theorem forwardWrap: (size: Nat) → (x: Nat) → x < size →
       | True => rewrite (omega [DecEq.sound e]: x = n) in Eq.sym (Nat.modSelf (Succ n))
       | False => Eq.sym (Nat.modSmall (x + 1) (Succ n) omega)
 
---| Counting `wanted` among the `Some` results is counting the elements that
---| give `Some wanted`.
-theorem countFilterMap [auto eq: DecEq b] (f: a → Option b) (wanted: b):
-    (xs: List a) → (xs.filterMap f).count (== wanted) = xs.count (x => f x == Some wanted)
-  | [] => rfl
-  | [x, ..rest] =>
-    rewrite List.countCons rest x (y => f y == Some wanted)
-    in match e: f x with
-      | None => countFilterMap f wanted rest
-      | Some found =>
-        rewrite List.countCons (rest.filterMap f) found (== wanted), Option.someBeqSome found wanted
-        in Eq.cong (count => Bool.toNat (found == wanted) + count) (countFilterMap f wanted rest)
-
 theorem mulNeZero: (a: Nat) → (b: Nat) → a ≠ 0 → b ≠ 0 → a * b ≠ 0
   | Zero, b, aPositive, bPositive, zero => aPositive rfl
   | a, Zero, aPositive, bPositive, zero => bPositive rfl

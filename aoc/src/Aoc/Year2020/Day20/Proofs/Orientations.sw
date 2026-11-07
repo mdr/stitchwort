@@ -77,11 +77,6 @@ theorem lastColumn (fallback: a): (k: Nat) → (rows: List (List a)) → List.Al
   | Succ k, rows, sized =>
     Eq.trans (lastColumn fallback k (rows.map (.drop 1)) (List.tailsAllLength rows (Succ k) sized)) (lastsDrop fallback rows k sized)
 
-theorem allLengthMem [row: List a]: (rows: List (List a)) → (n: Nat) → List.AllLength n rows → row ∈ rows → row.length = n
-  | [], n, sized, member => Void.exfalso member
-  | [first, ..rest], n, Both sized more, Inl same => rewrite <- same in sized
-  | [first, ..rest], n, Both sized more, Inr later => allLengthMem rest n more later
-
 --| The first cell of each column is the first row.
 theorem columnsFirst (fallback: a): (width: Nat) → (first: List a) → (rest: List (List a)) → List.AllLength width [first, ..rest] →
     (List.transposeN width [first, ..rest]).map (column => column.headOr fallback) = first
@@ -100,9 +95,9 @@ theorem consHeadDrop (fallback: a): (row: List a) → (k: Nat) → row.length = 
 
 theorem columnsLastRow (fallback: a): (width: Nat) → (rows: List (List a)) → (row: List a) → List.AllLength width rows → List.last rows = Some row →
     (List.transposeN width rows).map (column => column.last.getOrElse fallback) = row
-  | Zero, rows, row, sized, found => Eq.sym (List.lengthZero row (allLengthMem rows 0 sized (List.lastMem rows row found)))
+  | Zero, rows, row, sized, found => Eq.sym (List.lengthZero row (List.allLengthMem rows 0 sized (List.lastMem rows row found)))
   | Succ k, rows, row, sized, found =>
-    let sizedRow := allLengthMem rows (Succ k) sized (List.lastMem rows row found)
+    let sizedRow := List.allLengthMem rows (Succ k) sized (List.lastMem rows row found)
     let foundTail: List.last (rows.map (.drop 1)) = Some (row.drop 1) := rewrite List.lastMap rows (.drop 1), found in rfl
     let later := columnsLastRow fallback k (rows.map (.drop 1)) (row.drop 1) (List.tailsAllLength rows k sized) foundTail
     let head: (List.filterMap rows (.get 0)).last.getOrElse fallback = row.headOr fallback :=
@@ -115,10 +110,6 @@ theorem columnsLast (fallback: a) (width: Nat) (first: List a) (rest: List (List
   match lastMemCons first rest with
     | Witness row found => rewrite found in columnsLastRow fallback width [first, ..rest] row sized found
 
-theorem allLengthReverseOnto (n: Nat): (xs: List (List a)) → (acc: List (List a)) → List.AllLength n xs → List.AllLength n acc → List.AllLength n (List.reverseOnto xs acc)
-  | [], acc, sized, accSized => accSized
-  | [x, ..rest], acc, Both sized more, accSized => allLengthReverseOnto n rest [x, ..acc] more (Both sized accSized)
-
 theorem reverseNil (xs: List a) (empty: xs.reverse = []): xs = [] :=
   List.lengthZero xs (rewrite <- List.lengthReverse xs, empty in rfl)
 
@@ -128,7 +119,7 @@ theorem reverseNil (xs: List a) (empty: xs.reverse = []): xs = [] :=
 theorem rotateEdges (image: Image) (k: Nat) (sized: List.AllLength (Succ k) image.rows) (nonEmpty: image.rows ≠ []):
     Spec.edges image.rotate
       = [(image.rows.map (row => row.headOr Calm)).reverse, image.rows.headOr [], (image.rows.map (row => row.last.getOrElse Calm)).reverse, image.rows.last.getOrElse []] :=
-  let reversedSized: List.AllLength (Succ k) image.rows.reverse := allLengthReverseOnto (Succ k) image.rows [] sized Trivial
+  let reversedSized: List.AllLength (Succ k) image.rows.reverse := List.allLengthReverseOnto (Succ k) image.rows [] sized Trivial
   let left := (image.rows.map (row => row.headOr Calm)).reverse
   let right := (image.rows.map (row => row.last.getOrElse Calm)).reverse
   let shaped: (turned: List (List Pixel)) → turned = image.rows.reverse →
@@ -172,7 +163,7 @@ theorem rectangleFlip (image: Image) (rectangle: Rectangle image): Rectangle ima
 theorem rectangleRotate (image: Image) (rectangle: Rectangle image): Rectangle image.rotate :=
   match rectangle with
     | Witness k (Both sized nonEmpty) =>
-      let reversedSized: List.AllLength (Succ k) image.rows.reverse := allLengthReverseOnto (Succ k) image.rows [] sized Trivial
+      let reversedSized: List.AllLength (Succ k) image.rows.reverse := List.allLengthReverseOnto (Succ k) image.rows [] sized Trivial
       let shaped: (turned: List (List Pixel)) → turned = image.rows.reverse → Rectangle { rows = turned.transpose } :=
         turned same =>
           match turned with
