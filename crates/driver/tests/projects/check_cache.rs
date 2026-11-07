@@ -1063,8 +1063,7 @@ fn std_with_cacheable_float() -> PathBuf {
 /// it has bound `Float` and `Float.add`'s native is undone completely, the
 /// Float bindings included. The undo is checked when it is done, against
 /// the kernel at the mark (`admit_replayed`): checking afterwards would
-/// pass anyway, since elaborating the file binds the same ids again. With
-/// the undo that removed only declarations, this fails on `float`.
+/// pass anyway, since elaborating the file binds the same ids again.
 ///
 /// It reads its own copy of the library, which a process reads once: it
 /// needs a process of its own, as nextest gives every test.

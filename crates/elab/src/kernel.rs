@@ -216,6 +216,10 @@ pub fn def_ty(g: &Ev, id: DefId) -> stitchwort_core::budget::Result<stitchwort_c
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::Ordering;
+
+    use stitchwort_core::budget::{Limits, Saved};
+    use stitchwort_core::globals::KernelMark;
     use stitchwort_core::{Sort, Term, Value};
     use stitchwort_syntax::{SourceMap, Span};
 
@@ -227,14 +231,72 @@ mod tests {
     /// left the rest of the declaration with no limits.
     #[test]
     fn rewinding_globals_partway_through_an_operation_keeps_its_budget() {
-        use stitchwort_core::budget::Limits;
-
         let mut e = Elaborator::new();
-        let limits = Limits {
+        let (saved, floor) = start_operation(&mut e);
+        let mark = declare_one(&mut e);
+        note_cancellation(&e);
+        e.rewind_globals(&mark);
+        assert_eq!(e.kernel.mark().defs(), mark.defs(), "the def is gone");
+        assert_operation_kept(&e, floor);
+        e.kernel.machine.budget.restore(saved);
+    }
+
+    /// `Kernel::forget_since` leaves the running operation alone, and
+    /// `Kernel::rewind` ends it: the difference admitting a replayed check
+    /// cache entry depends on (it uses the first, partway through a
+    /// namespace's check).
+    #[test]
+    fn forget_since_keeps_the_operation_and_rewind_ends_it() {
+        let mut e = Elaborator::new();
+        let (saved, floor) = start_operation(&mut e);
+        let mark = declare_one(&mut e);
+        note_cancellation(&e);
+        e.kernel.forget_since(&mark);
+        assert_eq!(e.kernel.mark().defs(), mark.defs(), "the def is gone");
+        assert_operation_kept(&e, floor);
+
+        e.kernel.rewind(&mark);
+        let budget = &e.kernel.machine.budget;
+        assert_eq!(budget.size_limit(), u64::MAX, "the limits are cleared");
+        assert_eq!(budget.stack_floor(), 0, "the stack floor is cleared");
+        assert!(!budget.cancelled(), "the noted cancellation is cleared");
+        assert!(
+            budget.cancel_flag().unwrap().load(Ordering::Relaxed),
+            "the shared flag is its owner's to clear"
+        );
+        e.kernel.machine.budget.restore(saved);
+    }
+
+    fn limits() -> Limits {
+        Limits {
             size: 12_345,
             ..Limits::for_stack(1 << 20)
-        };
-        let saved = e.kernel.machine.budget.start(limits);
+        }
+    }
+
+    /// Starts an operation with a size limit, and returns what ends it and
+    /// its stack floor.
+    fn start_operation(e: &mut Elaborator) -> (Saved, usize) {
+        let budget = &e.kernel.machine.budget;
+        let saved = budget.start(limits());
+        let floor = budget.stack_floor();
+        assert_ne!(floor, 0, "the operation has a stack floor");
+        (saved, floor)
+    }
+
+    /// Sets the cancellation flag, and has the operation see it: any
+    /// operation started now notes it.
+    fn note_cancellation(e: &Elaborator) {
+        let budget = &e.kernel.machine.budget;
+        budget.set_cancel_flag(Default::default());
+        budget.watch_cancel(true);
+        budget.cancel_flag().unwrap().store(true, Ordering::Relaxed);
+        let inner = budget.start(limits());
+        budget.restore(inner);
+        assert!(budget.cancelled());
+    }
+
+    fn declare_one(e: &mut Elaborator) -> KernelMark {
         let span = Span::point(SourceMap::new().add("t", ""), 0);
         let mark = e.kernel.mark();
         stitchwort_core::check::declare_def(
@@ -247,14 +309,14 @@ mod tests {
             span,
         )
         .unwrap();
-        e.rewind_globals(&mark);
-        assert_eq!(e.kernel.mark().defs(), mark.defs(), "the def is gone");
-        assert_eq!(
-            e.kernel.machine.budget.size_limit(),
-            12_345,
-            "the operation's limits survive the rewind"
-        );
-        e.kernel.machine.budget.restore(saved);
+        mark
+    }
+
+    fn assert_operation_kept(e: &Elaborator, floor: usize) {
+        let budget = &e.kernel.machine.budget;
+        assert_eq!(budget.size_limit(), 12_345, "the size limit survives");
+        assert_eq!(budget.stack_floor(), floor, "the stack floor survives");
+        assert!(budget.cancelled(), "the noted cancellation survives");
     }
 
     /// Admission sees no metavariable solutions (D2291, globals-split.md

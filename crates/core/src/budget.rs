@@ -599,6 +599,12 @@ impl Budget {
         self.exhausted.get()
     }
 
+    /// The lowest stack position the running operation may reach (0 outside
+    /// one): what a rewind that keeps the operation must leave alone.
+    pub fn stack_floor(&self) -> usize {
+        self.stack_floor.get()
+    }
+
     /// The largest term [`crate::value::quote`] may build.
     pub fn size_limit(&self) -> u64 {
         self.limits.get().map_or(u64::MAX, |l| l.size)
