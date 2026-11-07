@@ -34,7 +34,8 @@
 //! r y…) … = H' …`, and `f.%plain` calls `H'` wherever the proof reaches,
 //! the call proved by that lemma. So `f.unfold` shows the `match` with no
 //! equation, which a proof can generalise. `let`s only the dropped proofs
-//! used go too.
+//! used go too, including those only an inner twin's call dropped (the
+//! `dead_lets` pass after `post`).
 
 use std::rc::Rc;
 

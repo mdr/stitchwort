@@ -6,7 +6,7 @@
 -- can match on the same scrutinee, or rewrite it, as on any other
 -- (docs/proposals/decreasing-with-hypothesis.md, stage 2).
 
-import Std (Bool, Eq, List, Nat, Option, Set, Void)
+import Std (Bool, Eq, Int, List, Nat, Option, Set, Void)
 
 -- Unnamed: `omega` reads `n - k = Succ j` as it stands.
 def countUp (n: Nat) (k: Nat): Nat
@@ -88,7 +88,108 @@ theorem drainWhileStep (bound: Nat) (set: Set Nat) (total: Nat) (least: Nat) (re
     | True => rfl
     | False => Void.exfalso (omega [more, fits])
 
+-- A `match` in an arm of another: the inner call's proof reads both
+-- equations, and the plain form is made for both, the inner one first.
+def countBoth (n: Nat) (m: Nat) (k: Nat): Nat
+    decreasing n - k
+:=
+  match n - k with
+    | Zero => k
+    | Succ j =>
+      match m - k with
+        | Zero => k
+        | Succ _ => countBoth n m (k + 1)
+
+theorem countBothStep (n: Nat) (m: Nat) (k: Nat) (j: Nat) (i: Nat) (outer: n - k = Succ j) (inner: m - k = Succ i):
+    countBoth n m k = countBoth n m (k + 1) :=
+  rewrite countBoth.unfold n m k, outer, inner in rfl
+
+-- Two scrutinees: each is an expression, so each has an equation.
+def countTwo (n: Nat) (m: Nat) (k: Nat): Nat
+    decreasing n - k
+:=
+  match n - k, m - k with
+    | Succ _, Succ _ => countTwo n m (k + 1)
+    | _, _ => k
+
+theorem countTwoStep (n: Nat) (m: Nat) (k: Nat) (i: Nat) (j: Nat) (first: n - k = Succ i) (second: m - k = Succ j):
+    countTwo n m k = countTwo n m (k + 1) :=
+  rewrite countTwo.unfold n m k, first, second in rfl
+
+-- A `let` only the call's proof uses is gone from `f.unfold` with the
+-- equation, so the rewrite works as in `drainStep`.
+def drainLet (set: Set Nat) (total: Nat): Nat
+    decreasing set.size
+:=
+  match found: set.popMin with
+    | None => total
+    | Some (least, rest) =>
+      let fewer := Set.sizePopMin set least rest found
+      drainLet rest (total + least) [decreasing := fewer]
+
+theorem drainLetStep (set: Set Nat) (total: Nat) (least: Nat) (rest: Set Nat) (popped: set.popMin = Some (least, rest)):
+    drainLet set total = drainLet rest (total + least) :=
+  rewrite drainLet.unfold set total, popped in rfl
+
+-- A proof other than the call's uses the unnamed equation (`predOf`'s
+-- `omega` argument), so `f.unfold` keeps it: its statement names the
+-- `match` to say so, and a `rewrite` of `n - k` would be an `E-REWRITE-MOTIVE`.
+def predOf (m: Nat) (positive: 0 < m): Nat := m - 1
+
+def countUsed (n: Nat) (k: Nat): Nat
+    decreasing n - k
+:=
+  match n - k with
+    | Zero => k
+    | Succ _ => predOf (n - k) omega + countUsed n (k + 1)
+
+theorem countUsedUnfolds (n: Nat) (k: Nat):
+    countUsed n k = (match found: n - k with | Zero => k | Succ _ => predOf (n - k) omega + countUsed n (k + 1)) :=
+  countUsed.unfold n k
+
+-- Under a lambda passed to another function the equation stays in
+-- `f.unfold` too, because the lifted function is called with it.
+def sumTo (n: Nat) (k: Nat): Int
+    decreasing n - k
+:=
+  [1].sumBy (_ => match n - k with | Zero => 1 | Succ _ => 1 + sumTo n (k + 1))
+
+theorem sumToUnfolds (n: Nat) (k: Nat):
+    sumTo n k = [1].sumBy (_ => match found: n - k with | Zero => 1 | Succ _ => 1 + sumTo n (k + 1)) :=
+  sumTo.unfold n k
+
+-- A pair of measures: the first goes down in the arm, by the equation.
+def lexDown (n: Nat) (m: Nat) (k: Nat): Nat
+    decreasing (n - k, m)
+:=
+  match n - k with
+    | Zero => m
+    | Succ _ => lexDown n m (k + 1)
+
+theorem lexDownStep (n: Nat) (m: Nat) (k: Nat) (j: Nat) (left: n - k = Succ j):
+    lexDown n m k = lexDown n m (k + 1) :=
+  rewrite lexDown.unfold n m k, left in rfl
+
+-- A call in a pattern guard gets the equation too.
+def countGuard (n: Nat) (k: Nat): Nat
+    decreasing n - k
+:=
+  match n - k with
+    | Zero => k
+    | Succ _ if countGuard n (k + 1) == n => n
+    | Succ _ => k
+
+theorem countGuardZero (n: Nat) (k: Nat) (zero: n - k = Zero): countGuard n k = k :=
+  rewrite countGuard.unfold n k, zero in rfl
+
 test "countUp" := countUp 10 3 == 10
 test "drain" := drain [3, 1, 2].toSet 0 == 6
 test "drainBelow" := drainBelow 2 [3, 1, 2].toSet 0 == 3
 test "drainWhile" := drainWhile 3 [3, 1, 2].toSet 0 == 5
+test "countBoth" := countBoth 5 4 0 == 4
+test "countTwo" := countTwo 5 3 0 == 3
+test "drainLet" := drainLet [3, 1, 2].toSet 0 == 6
+test "countUsed" := countUsed 3 0 == 6
+test "sumTo" := sumTo 3 0 == 4
+test "lexDown" := lexDown 3 7 0 == 7
+test "countGuard" := countGuard 4 0 == 4
