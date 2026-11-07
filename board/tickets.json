@@ -1,5 +1,5 @@
 {
-  "next": 2230,
+  "next": 2231,
   "tickets": [
     {
       "id": 47,
@@ -19976,14 +19976,14 @@
     {
       "id": 2164,
       "title": "[Opus] decreasing stage 1 fixes (SW-2145 lane A): mark strips tags from elim's proposition/type arguments and a kept if's own tag, then checks the kept count (F1, F7); keep the old f.unfold when the new lemmas aren't loaded (F4); keep_plain only around the final settle (F5); tests for both error examples and Decidable.elimIf; on a generator failure, fall back to today's f.unfold with a warning naming it a compiler bug (D3100)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2164",
       "labels": [
         "core"
       ],
       "epic": "proof-automation",
-      "body": "From docs/reviews/SW-2145-decreasing-plain-if.md. After SW-2030 (same files). 60 min.\n\n7 Nov: SW-2208's F2 passed to the running lane.",
+      "body": "From docs/reviews/SW-2145-decreasing-plain-if.md. After SW-2030 (same files). 60 min.\n\n7 Nov: SW-2208's F2 passed to the running lane.\n\nDone, merged. F1 (mark strips unreachable tags), F7 (kept count checked, %twin included), F4 (no view without the core lemmas; twins still work), F5 (keep_plain a parameter, fixing SW-2208's reset), D3100 fallback (rewind past the view and twins, f.unfold over the step, W-DECREASING-UNFOLD; Options::refuse_plain_view test switch). Both review F1 shapes are refused earlier, one with an internal error: SW-2230. New: countDown (Decidable.elimIf), reject decreasing-call-in-condition, decreasing_fallback tests. Lane: AoC 0 errors, no fallbacks, 66 s. On main: hash_stability 9/9, decreasing_fallback 2/2, goal_index 6/6, decreasing examples 12/12, rogue clean. Model result: Opus, worked, 27 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20456,14 +20456,14 @@
     {
       "id": 2196,
       "title": "[Sonnet] Congruence audit hole: the audit silently skips a …Cong lemma whose function was renamed (congruence.rs:702); make it fail",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2196",
       "labels": [
         "core"
       ],
       "epic": "std-library",
-      "body": "From docs/proposals/std-lemma-references.md, stage 1. Before the naming sweep. 20 min.",
+      "body": "From docs/proposals/std-lemma-references.md, stage 1. Before the naming sweep. 20 min.\n\nDone, merged. Audit fails on a …Cong lemma with no function; NOT_ABOUT_A_FUNCTION lists five deliberate ones (Nat.leAddCong, ltAddCong, List.leHeadCong, sortedCong, numberWithCong) and a stale entry fails too. New test. On main: the audit test passes. Model result: Sonnet, worked, 13 min (est. 20).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20959,6 +20959,21 @@
       ],
       "epic": "audit-fuzzing",
       "body": "From docs/reviews/SW-2219-trip-journal.md. D3221: design note first (orchestrator's call). Read-only. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2230,
+      "title": "[Opus] Internal error: a recursive call inside a named if's condition in a decreasing body (an unnamed one is cleanly refused); the guard at decreasing.rs ~2468 (ordinary_used && (f == p.elim || …)) misses it",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "proof-automation",
+      "body": "From SW-2164. Repro:\ndef weird2 (n: Nat) (i: Nat): Nat\n    decreasing n - i\n:=\n  if h: i + 1 ≤ n then\n    (if big: (if i + 2 ≤ n then weird2 n (i + 2) else 0) < 100 then 1 else 0) + weird2 n (i + 1)\n  else 0\nRefuse it cleanly as the unnamed case is (or support it). 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
