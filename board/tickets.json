@@ -21101,9 +21101,9 @@
     {
       "id": 2239,
       "title": "[Opus] Review SW-2157 (number comparison unfolds folded bases under Succ in all four places; removes SW-2211's rule): soundness; the unifier unfolding before plus_rule; the lazy path passing a non-call base with glued calls inside to assign",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2239",
       "labels": [
         "review"
       ],
