@@ -1,5 +1,5 @@
 {
-  "next": 2196,
+  "next": 2202,
   "tickets": [
     {
       "id": 47,
@@ -8382,14 +8382,14 @@
     {
       "id": 1392,
       "title": "[Opus] Design: Rust code builds calls to std lemmas by name and argument position (omega.rs Bool.or*, derive_finite.rs List.memAppend*, equations.rs/check.rs Decidable.elimEq …): inventory every such site, and a design that makes std renames and binder changes fail loudly at build or test time",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1392",
       "labels": [
         "elab"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-1381, 5 Nov 2026. Small improvement.\n\n7 Nov: read-only Opus design first (docs/proposals/std-lemma-references.md), because the std naming sweep (SW-2179) and the SW-2159 moves are about to rename and add lemmas. 60 min.",
+      "body": "From SW-1381, 5 Nov 2026. Small improvement.\n\n7 Nov: read-only Opus design first (docs/proposals/std-lemma-references.md), because the std naming sweep (SW-2179) and the SW-2159 moves are about to rename and add lemmas. 60 min.\n\nDesign merged: docs/proposals/std-lemma-references.md. ~370 text references outside the 251-entry registry; many renames switch features off silently. D3180 no for now (orchestrator's call: the load-time error suffices). Stages SW-2196-SW-2201. Rename lanes touching compiler-used names wait for stages 2-4; until then they follow §5's check.",
       "created": "2026-11-05",
       "updated": "2026-11-07",
       "commits": []
@@ -20343,7 +20343,7 @@
         "naming"
       ],
       "epic": "std-library",
-      "body": "From docs/proposals/std-naming.md, lane N1; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. Before SW-2174. 45 min.",
+      "body": "From docs/proposals/std-naming.md, lane N1; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. Before SW-2174. 45 min.\n\n7 Nov: before merging, run docs/proposals/std-lemma-references.md §5's check (grep with and without Std., rename f with its fCong family, the four registry/congruence/pin/prelude tests). If a renamed name is one the compiler uses, wait for SW-2197-SW-2199 or flag it.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20358,7 +20358,7 @@
         "naming"
       ],
       "epic": "std-library",
-      "body": "From docs/proposals/std-naming.md, lane N2; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. 45 min.\n\nD3151 — Matt, 7 Nov 2026: \"Yeah, happy to go with maximum, minimum.\"",
+      "body": "From docs/proposals/std-naming.md, lane N2; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. 45 min.\n\nD3151 — Matt, 7 Nov 2026: \"Yeah, happy to go with maximum, minimum.\"\n\n7 Nov: before merging, run docs/proposals/std-lemma-references.md §5's check (grep with and without Std., rename f with its fCong family, the four registry/congruence/pin/prelude tests). If a renamed name is one the compiler uses, wait for SW-2197-SW-2199 or flag it.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20373,7 +20373,7 @@
         "naming"
       ],
       "epic": "std-library",
-      "body": "From docs/proposals/std-naming.md, lane N3; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. 50 min.",
+      "body": "From docs/proposals/std-naming.md, lane N3; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. 50 min.\n\n7 Nov: before merging, run docs/proposals/std-lemma-references.md §5's check (grep with and without Std., rename f with its fCong family, the four registry/congruence/pin/prelude tests). If a renamed name is one the compiler uses, wait for SW-2197-SW-2199 or flag it.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20388,7 +20388,7 @@
         "naming"
       ],
       "epic": "std-library",
-      "body": "From docs/proposals/std-naming.md, lane N4; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. Waits on D3150. 45 min.\n\nD3150 — Matt, 7 Nov 2026: \"I prefer unique to distinct anyway, that's fine.\"",
+      "body": "From docs/proposals/std-naming.md, lane N4; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. Waits on D3150. 45 min.\n\nD3150 — Matt, 7 Nov 2026: \"I prefer unique to distinct anyway, that's fine.\"\n\n7 Nov: before merging, run docs/proposals/std-lemma-references.md §5's check (grep with and without Std., rename f with its fCong family, the four registry/congruence/pin/prelude tests). If a renamed name is one the compiler uses, wait for SW-2197-SW-2199 or flag it.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20403,7 +20403,7 @@
         "naming"
       ],
       "epic": "std-library",
-      "body": "From docs/proposals/std-naming.md, lane N5; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. 45 min.",
+      "body": "From docs/proposals/std-naming.md, lane N5; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. 45 min.\n\n7 Nov: before merging, run docs/proposals/std-lemma-references.md §5's check (grep with and without Std., rename f with its fCong family, the four registry/congruence/pin/prelude tests). If a renamed name is one the compiler uses, wait for SW-2197-SW-2199 or flag it.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20418,7 +20418,7 @@
         "naming"
       ],
       "epic": "std-library",
-      "body": "From docs/proposals/std-naming.md, lane S1; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. Run extract's bound_to_the_prelude tests. 60 min.",
+      "body": "From docs/proposals/std-naming.md, lane S1; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. Run extract's bound_to_the_prelude tests. 60 min.\n\n7 Nov: before merging, run docs/proposals/std-lemma-references.md §5's check (grep with and without Std., rename f with its fCong family, the four registry/congruence/pin/prelude tests). If a renamed name is one the compiler uses, wait for SW-2197-SW-2199 or flag it.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20433,7 +20433,7 @@
         "naming"
       ],
       "epic": "std-library",
-      "body": "From docs/proposals/std-naming.md, lane O1; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. Last of the renames; after SW-1392's design. 75 min.",
+      "body": "From docs/proposals/std-naming.md, lane O1; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. Last of the renames; after SW-1392's design. 75 min.\n\n7 Nov: before merging, run docs/proposals/std-lemma-references.md §5's check (grep with and without Std., rename f with its fCong family, the four registry/congruence/pin/prelude tests). If a renamed name is one the compiler uses, wait for SW-2197-SW-2199 or flag it.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20449,6 +20449,96 @@
       ],
       "epic": "std-library",
       "body": "From docs/proposals/std-naming.md, lane O2; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2196,
+      "title": "[Sonnet] Congruence audit hole: the audit silently skips a …Cong lemma whose function was renamed (congruence.rs:702); make it fail",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "std-library",
+      "body": "From docs/proposals/std-lemma-references.md, stage 1. Before the naming sweep. 20 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2197,
+      "title": "[Sonnet] Registry argument shapes (e.g. \"[p] [a] d y n z yesEq noEq\") checked at binding, and a startup check that every library registry entry exists",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "std-library",
+      "body": "From docs/proposals/std-lemma-references.md, stage 2. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2198,
+      "title": "[Sonnet] omega and ring reach std through the registry (shapes checked)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "std-library",
+      "body": "From docs/proposals/std-lemma-references.md, stage 3. After SW-2197. Opus review after (generates kernel terms). 75 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2199,
+      "title": "[Sonnet] equations, derive_induct, auto, decreasing and the guard lemmas reach std through the registry",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "std-library",
+      "body": "From docs/proposals/std-lemma-references.md, stage 4. After SW-2197. Opus review after. 75 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2200,
+      "title": "[DeepSeek] Syntax generators, name checks and messages reach std through the registry",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "std-library",
+      "body": "From docs/proposals/std-lemma-references.md, stage 5. After SW-2197. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2201,
+      "title": "[Sonnet] Registry statement snapshot and a source scan refusing new \"Std.…\" strings outside the table",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "std-library",
+      "body": "From docs/proposals/std-lemma-references.md, stage 6. After SW-2198-SW-2200. 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
