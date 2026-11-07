@@ -3,6 +3,9 @@
 //! and its restoring are in [`terminal`]; [`with_stack`] runs a closure on a
 //! thread with a chosen stack.
 
+#[cfg(test)]
+use stitchwort_test_alloc as _;
+
 #[cfg(unix)]
 pub mod stack;
 #[cfg(unix)]

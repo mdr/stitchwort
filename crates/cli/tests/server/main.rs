@@ -8,3 +8,5 @@ mod lsp;
 mod navigation;
 mod search;
 mod session;
+
+// test-alloc: global allocator is stitchwort_bench::alloc::Counting, which wraps mimalloc.

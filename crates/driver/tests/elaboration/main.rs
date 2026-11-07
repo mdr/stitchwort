@@ -28,3 +28,5 @@ mod prelude_errors;
 mod records;
 mod signature_defaults;
 mod text_interpolation;
+
+use stitchwort_test_alloc as _;

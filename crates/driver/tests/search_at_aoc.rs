@@ -28,11 +28,10 @@ use stitchwort_syntax::{SourceMap, parse_module_recovering};
 
 const STACK: usize = 64 * 1024 * 1024;
 
-/// Each goal is a fresh session of the whole library and project (about
-/// 600 MB), dropped after; with the system allocator macOS keeps what they
-/// free, and four workers passed 10 GB. mimalloc, as the CLI uses.
-#[global_allocator]
-static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
+// Each goal is a fresh session of the whole library and project (about
+// 600 MB), dropped after; with the system allocator macOS keeps what they
+// free, and four workers passed 10 GB. Hence mimalloc, as the CLI uses.
+use stitchwort_test_alloc as _;
 
 /// A project's files, with only the source folders under `keep` (and the
 /// folders above them) visible.

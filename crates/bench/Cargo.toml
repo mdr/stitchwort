@@ -10,6 +10,7 @@ name = "stitchwort-bench"
 path = "src/main.rs"
 
 [dependencies]
+mimalloc.workspace = true
 stitchwort-syntax.workspace = true
 stitchwort-driver.workspace = true
 blake3.workspace = true

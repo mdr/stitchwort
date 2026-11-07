@@ -1,0 +1,39 @@
+#!/usr/bin/env node
+// Fails if a test binary of the workspace could be built without mimalloc as
+// its global allocator (docs/testing.md, "Allocator"). Every target cargo
+// runs as a test (a library's or binary's unit tests, each integration test)
+// must have, in its root source file, `use stitchwort_test_alloc as _;`,
+// its own `#[global_allocator]`, or a `// test-alloc:` line saying where the
+// allocator comes from (one reached through another crate). Reads the file
+// list from `cargo metadata`; compiles nothing.
+"use strict";
+const { execFileSync } = require("child_process");
+const fs = require("fs");
+const path = require("path");
+
+const root = path.resolve(__dirname, "..");
+// No code, or the allocator crate itself.
+const exempt = new Set(["stitchwort-dev-features", "stitchwort-test-alloc"]);
+const meta = JSON.parse(
+  execFileSync("cargo", ["metadata", "--no-deps", "--format-version", "1", "--offline"], {
+    cwd: root,
+    maxBuffer: 1 << 28,
+    stdio: ["ignore", "pipe", "ignore"],
+  }),
+);
+const marks = [/use stitchwort_test_alloc as _;/, /#\[global_allocator\]/, /^\/\/ test-alloc:/m];
+const missing = [];
+for (const pkg of meta.packages) {
+  if (exempt.has(pkg.name)) continue;
+  for (const t of pkg.targets) {
+    if (!t.test || t.kind.includes("custom-build")) continue;
+    const text = fs.readFileSync(t.src_path, "utf8");
+    if (!marks.some((m) => m.test(text))) missing.push(path.relative(root, t.src_path));
+  }
+}
+if (missing.length) {
+  console.error("test targets without mimalloc (add `use stitchwort_test_alloc as _;` and the dev-dependency):");
+  for (const m of missing) console.error("  " + m);
+  process.exit(1);
+}
+console.log("test-alloc-check: every test target has the shared allocator");

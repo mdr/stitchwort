@@ -4,3 +4,5 @@ mod common;
 mod faults;
 mod features;
 mod memory;
+
+use stitchwort_test_alloc as _;

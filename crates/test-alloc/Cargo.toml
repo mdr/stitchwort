@@ -1,0 +1,12 @@
+[package]
+name = "stitchwort-test-alloc"
+description = "mimalloc as the global allocator of every test binary (docs/testing.md, \"Allocator\")"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+mimalloc.workspace = true
+
+[lints]
+workspace = true

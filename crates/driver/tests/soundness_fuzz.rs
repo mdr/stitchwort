@@ -1976,3 +1976,5 @@ fn void_attempts_are_rejected() {
         failures.join("\n\n")
     );
 }
+
+use stitchwort_test_alloc as _;

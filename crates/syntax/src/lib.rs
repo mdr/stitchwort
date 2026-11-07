@@ -1,6 +1,9 @@
 //! Surface syntax for Stitchwort: source files, spans, diagnostics, the lexer,
 //! the parser and the surface syntax tree.
 
+#[cfg(test)]
+use stitchwort_test_alloc as _;
+
 pub mod ast;
 mod diagnostic;
 pub mod docs;

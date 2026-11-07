@@ -41,3 +41,5 @@ fn counts_have_not_regressed() {
         failures.join("\n")
     );
 }
+
+// test-alloc: global allocator is stitchwort_bench::alloc::Counting, which wraps mimalloc.

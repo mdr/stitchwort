@@ -25,6 +25,8 @@ blake3.workspace = true
 test-bypass = ["stitchwort-elab/test-bypass"]
 
 [dev-dependencies]
+# mimalloc in the unit-test and integration-test binaries (docs/testing.md, "Allocator").
+stitchwort-test-alloc.workspace = true
 insta.workspace = true
 # An independent implementation of integer division, for `tests/int.rs`.
 num-bigint.workspace = true

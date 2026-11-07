@@ -277,3 +277,5 @@ fn comparing_a_counted_list_counts_it_only_as_needed() {
         "checking took {grew} more steps for 18,000 more elements"
     );
 }
+
+// test-alloc: global allocator is stitchwort_bench::alloc::Counting, which wraps mimalloc.

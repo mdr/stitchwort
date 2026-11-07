@@ -20,6 +20,9 @@
 //! - [`typed`]: the proposal's types on top, so `rustc` checks which programs
 //!   the request translation can express.
 
+#[cfg(test)]
+use stitchwort_test_alloc as _;
+
 pub mod delay;
 pub mod machine;
 pub mod reference;

@@ -146,8 +146,11 @@ tasks:
       workspace crates' libraries, features and dependencies' included
       (docs/testing.md, "Features"). Run it after adding a crate, a feature
       or a dev-dependency.
+      dev/test-alloc-check also fails if a test binary lacks the shared
+      mimalloc allocator (docs/testing.md, "Allocator").
     cmds:
       - '{{.ROOT_DIR}}/dev/features-check'
+      - '{{.ROOT_DIR}}/dev/test-alloc-check'
 
   test:lanes-nonempty:
     desc: Fail if any `lane-*` nextest profile selects no tests (lists only, runs nothing)
