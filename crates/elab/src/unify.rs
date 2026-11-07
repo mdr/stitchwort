@@ -265,7 +265,7 @@ fn run(g: &Unifier<'_>, mut work: Vec<Task>, mode: Mode) -> Result<bool> {
             Task::Proof(level, a, b) => proof_position(g, level, &a, &b)?,
             Task::Values(level, a, b) => {
                 if let Some(at) = call_key(g, mode, level, &a, &b)? {
-                    if known_different(g, &at, &a, &b) {
+                    if known_different(g, &at, &a, &b)? {
                         record_different(g, &work);
                         return Ok(false);
                     }
@@ -1092,12 +1092,11 @@ fn call_key(
 
 /// Whether `a` against `b`, filed at `at`, was found different
 /// ([`CallMemo`]).
-fn known_different(g: &Unifier<'_>, at: &ShapeKey<CallKey>, a: &Value, b: &Value) -> bool {
-    g.attempt
-        .call_memo
-        .borrow()
-        .as_ref()
-        .is_some_and(|memo| memo.0.contains(at, a, b))
+fn known_different(g: &Unifier<'_>, at: &ShapeKey<CallKey>, a: &Value, b: &Value) -> Result<bool> {
+    match g.attempt.call_memo.borrow().as_ref() {
+        Some(memo) => memo.0.contains(&g.ev, at, a, b),
+        None => Ok(false),
+    }
 }
 
 /// Records as different the pairs whose comparison was open when the

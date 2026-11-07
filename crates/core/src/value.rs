@@ -3803,14 +3803,14 @@ pub fn same_stuck_trees(
         (Term::peel_lams_rc(body, def.arity), args, eta_held(g, *id))
     };
     let memo = TreeMemo::enter(g, level, a, b, relation, mode, settled)?;
-    if let Some(answer) = memo.known() {
+    if let Some(answer) = memo.known(g)? {
         return Ok(answer);
     }
     // A pair equal by its arguments isn't recorded: a lookup (`known`) walks
-    // each recorded pair with `identical`, which the budget doesn't count, so
-    // recording every such pair let a check with a small budget run for
-    // minutes (SW-2285). Only "different" needs remembering to keep nested
-    // calls linear (SW-2269).
+    // each recorded pair under its key, so recording every such pair made
+    // lookups slow enough to exhaust a small budget where none was needed
+    // (SW-2285). Only "different" needs remembering to keep nested calls
+    // linear (SW-2269).
     if arguments(same)? {
         return Ok(true);
     }
@@ -4029,28 +4029,32 @@ impl TreeMemo {
     }
 
     /// Whether this pair was already found equal (`Some(true)`) or
-    /// different (`Some(false)`).
-    fn known(&self) -> Option<bool> {
+    /// different (`Some(false)`). Telling the pairs filed under the key
+    /// apart costs a budget step per layer compared ([`identical_charged`]):
+    /// a key can collect many pairs, each walked on every lookup.
+    fn known(&self, g: &Ev) -> Result<Option<bool>> {
         if shortcuts_disabled() {
-            return None;
+            return Ok(None);
         }
-        let among = |pairs: &HashMap<MemoKey, Vec<(Value, Value)>>| {
-            pairs.get(&self.key).is_some_and(|pairs| {
-                pairs.iter().any(|(x, y)| {
-                    identical(Same::Values(x, &self.a), None)
-                        && identical(Same::Values(y, &self.b), None)
-                })
-            })
+        let among = |pairs: &HashMap<MemoKey, Vec<(Value, Value)>>| -> Result<bool> {
+            for (x, y) in pairs.get(&self.key).into_iter().flatten() {
+                if identical_charged(g, Same::Values(x, &self.a))?
+                    && identical_charged(g, Same::Values(y, &self.b))?
+                {
+                    return Ok(true);
+                }
+            }
+            Ok(false)
         };
         TREE_MEMO.with(|m| {
             let m = m.borrow();
-            if among(&m.pairs) {
+            Ok(if among(&m.pairs)? {
                 Some(true)
-            } else if among(&m.different) {
+            } else if among(&m.different)? {
                 Some(false)
             } else {
                 None
-            }
+            })
         })
     }
 
@@ -4133,14 +4137,20 @@ impl<K: std::hash::Hash + Eq> ShapeMemo<K> {
         Ok((key, ha, hb))
     }
 
-    /// Whether a pair identical to `a` against `b` is filed at `at`.
-    pub fn contains(&self, at: &ShapeKey<K>, a: &Value, b: &Value) -> bool {
-        !shortcuts_disabled()
-            && self.pairs.get(at).is_some_and(|pairs| {
-                pairs.iter().any(|(x, y)| {
-                    identical(Same::Values(x, a), None) && identical(Same::Values(y, b), None)
-                })
-            })
+    /// Whether a pair identical to `a` against `b` is filed at `at`: a
+    /// budget step per layer compared, as for [`TreeMemo`]'s lookups.
+    pub fn contains(&self, g: &Ev, at: &ShapeKey<K>, a: &Value, b: &Value) -> Result<bool> {
+        if shortcuts_disabled() {
+            return Ok(false);
+        }
+        for (x, y) in self.pairs.get(at).into_iter().flatten() {
+            if identical_charged(g, Same::Values(x, a))?
+                && identical_charged(g, Same::Values(y, b))?
+            {
+                return Ok(true);
+            }
+        }
+        Ok(false)
     }
 
     /// Files `a` against `b` at `at`. With the shortcuts off this keeps
@@ -4532,8 +4542,24 @@ enum Same<'v> {
 /// `g`, a solved metavariable is alike to its solution
 /// ([`same_when_solved`]), which applies the solution.
 fn identical(first: Same, g: Option<&Ev>) -> bool {
+    identical_within(first, g, None).unwrap_or(false)
+}
+
+/// [`identical`] at a budget step per pair of layers compared, for the
+/// memos' lookups, which may walk many recorded pairs. Solved
+/// metavariables aren't looked through, as with `identical`'s `None`.
+fn identical_charged(g: &Ev, first: Same) -> Result<bool> {
+    identical_within(first, None, Some(g))
+}
+
+/// [`identical`], charging a step per pair of layers to `charge`'s budget
+/// where given (and so failing only when that runs out).
+fn identical_within(first: Same, g: Option<&Ev>, charge: Option<&Ev>) -> Result<bool> {
     let mut work = vec![first];
     while let Some(pair) = work.pop() {
+        if let Some(charge) = charge {
+            charge.machine.budget.step()?;
+        }
         let alike = match pair {
             Same::Values(a, b) => {
                 let len = work.len();
@@ -4547,10 +4573,10 @@ fn identical(first: Same, g: Option<&Ev>) -> bool {
             Same::Terms(a, b) => same_term_layer(a, b, &mut work),
         };
         if !alike {
-            return false;
+            return Ok(false);
         }
     }
-    true
+    Ok(true)
 }
 
 /// Compares two closures for [`identical`]: pushes their bodies and the
