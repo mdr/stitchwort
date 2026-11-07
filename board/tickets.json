@@ -1,5 +1,5 @@
 {
-  "next": 2300,
+  "next": 2301,
   "tickets": [
     {
       "id": 47,
@@ -19353,7 +19353,7 @@
         "elab"
       ],
       "epic": "diagnostics",
-      "body": "Found by Overmind's soak run 2 (SW-2098, fuzz case 1095). Repro: docs/repros/sw-2098/ask-before-checked.sw; reproduces on Speedwell in 1 s. Make it an ordinary error, add it as a reject example (snap:hashes not needed for rejects; check the reject snapshot), and see whether the fuzzer's other E-INTERNAL oracle paths have the same shape. 45 min.\n\n7 Nov, Overmind job 7 (0fa08fe74), seed 0x6 case 2736: the same E-INTERNAL with an ability operation: 'choose is used before it's checked' from\nability Choose where\n  choose: () → {Choose} choose\n(mutated from reject/handler-missing-return.sw). Add as a second repro.",
+      "body": "Found by Overmind's soak run 2 (SW-2098, fuzz case 1095). Repro: docs/repros/sw-2098/ask-before-checked.sw; reproduces on Speedwell in 1 s. Make it an ordinary error, add it as a reject example (snap:hashes not needed for rejects; check the reject snapshot), and see whether the fuzzer's other E-INTERNAL oracle paths have the same shape. 45 min.\n\n7 Nov, Overmind job 7 (0fa08fe74), seed 0x6 case 2736: the same E-INTERNAL with an ability operation: 'choose is used before it's checked' from\nability Choose where\n  choose: () → {Choose} choose\n(mutated from reject/handler-missing-return.sw). Add as a second repro.\n\n7 Nov, Overmind job 12: no E-INTERNAL in seed 0x6 (3000 cases) or 0x5eede1ab00000685 (2000); repros not rerun on this commit, so still open.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21798,7 +21798,7 @@
         "core"
       ],
       "epic": "elaborator-kernel",
-      "body": "Found by Overmind job 11 (fuzz seed 0x6 cases 629, 2652 hit the 60 s hang limit; the unmutated example times out at 120 s). Confirmed on Speedwell at 19:08: still running at 90 s, 88.7 s user. Likely one of today's conversion merges (SW-2126, 2127, 2211, 2157, 2256, 2269, 2257). Bisect first (~20 min), fix after.\n\nDone, merged. Bad commit e089948d1 (SW-2269's merge), bisected over first-parent merges from 0fa08fe74. Cause: pairs found equal by arguments recorded in TreeMemo; known() scans with identical, unbudgeted. Fix: don't record those. On main: example gives E-RESOURCE in 1.29 s user; proof_equivalence and nested_stuck_calls 16/16. Finding 2 (unify.rs settled without may_mention_meta) already fixed on main by SW-2273. Follow-ups SW-2288, SW-2289. Model result: Opus, worked, 20 min (est. 20).",
+      "body": "Found by Overmind job 11 (fuzz seed 0x6 cases 629, 2652 hit the 60 s hang limit; the unmutated example times out at 120 s). Confirmed on Speedwell at 19:08: still running at 90 s, 88.7 s user. Likely one of today's conversion merges (SW-2126, 2127, 2211, 2157, 2256, 2269, 2257). Bisect first (~20 min), fix after.\n\nDone, merged. Bad commit e089948d1 (SW-2269's merge), bisected over first-parent merges from 0fa08fe74. Cause: pairs found equal by arguments recorded in TreeMemo; known() scans with identical, unbudgeted. Fix: don't record those. On main: example gives E-RESOURCE in 1.29 s user; proof_equivalence and nested_stuck_calls 16/16. Finding 2 (unify.rs settled without may_mention_meta) already fixed on main by SW-2273. Follow-ups SW-2288, SW-2289. Model result: Opus, worked, 20 min (est. 20).\n\nOvermind job 12 confirmed on Linux (ab5c237ed): example E-RESOURCE in 3.0 s; saved mutants 6-629 and 6-2652 about 3 s; seed 0x5eede1ab00000685 passes 2000 cases, peak 1.42 GB (was over 4 GB in 9 s).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -22009,6 +22009,21 @@
       ],
       "epic": "comparative-speed",
       "body": "Split from SW-2293. Plan: docs/proposals/comparative-speed.md. 90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2300,
+      "title": "[Opus] Slow failure: examples/accept/reads-nested-binds.sw with one line of p12 duplicated ('let x2 := nat()') takes 89 s to fail with E-TYPE-MISMATCH (the example itself checks in 10 s); likely the SW-1226 per-level doubling back on the failing path",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "Overmind job 12 (ab5c237ed), fuzz:elab seed 0x6 case 1983, oracle 4 (budget), rng 0x7782aecdf2b3cfff; saved on Overmind at target/fuzz-elab/6-1983.sw. Repro: in p12, after 'let x2 := nat()' add a second 'let x2 := nat()'; leave reads12's nested Parse.readsBind proof. Job 1's case 558 came from the same file, so possibly longstanding, not SW-2269. Step 1 (20 min): time on 0fa08fe74 vs main; profile where the failing path spends its time.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
