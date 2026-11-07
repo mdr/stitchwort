@@ -4808,6 +4808,43 @@ mod tests {
         (with, middle - before, after - middle)
     }
 
+    fn stuck_call(def: usize) -> Value {
+        Value::Neutral(Head::Def(DefId(def)), Spine::from(Vec::new()))
+    }
+
+    /// How many pairs the memo holds as different.
+    fn remembered_different() -> usize {
+        TREE_MEMO.with(|m| m.borrow().different.values().map(Vec::len).sum())
+    }
+
+    #[test]
+    fn conv_inside_an_open_unification_remembers_nothing_as_different() {
+        let g = crate::globals::Kernel::default();
+        let ev = g.ev();
+        let (a, b) = (stuck_call(0), stuck_call(1));
+        {
+            let outer =
+                TreeMemo::enter(&ev, 0, &a, &b, Relation::Unify, Mode::Normal, true).unwrap();
+            let inner =
+                TreeMemo::enter(&ev, 0, &a, &b, Relation::Conv, Mode::Normal, true).unwrap();
+            inner.record(false);
+            assert_eq!(remembered_different(), 0, "conv under unification");
+            outer.record(false);
+            assert_eq!(remembered_different(), 1, "a settled unification pair");
+        }
+        assert_eq!(remembered_different(), 0, "emptied with the outermost");
+        {
+            let alone =
+                TreeMemo::enter(&ev, 0, &a, &b, Relation::Conv, Mode::Normal, true).unwrap();
+            alone.record(false);
+            assert_eq!(remembered_different(), 1, "conv on its own");
+        }
+        let unsettled =
+            TreeMemo::enter(&ev, 0, &a, &b, Relation::Unify, Mode::Normal, false).unwrap();
+        unsettled.record(false);
+        assert_eq!(remembered_different(), 0, "an unsettled pair");
+    }
+
     #[test]
     fn the_same_body_with_the_same_values_is_the_same_closure() {
         // Separately built bodies, one wrapped in a location and named

@@ -1605,8 +1605,8 @@ fn unify_step(
                     // different ones don't make them different, so then
                     // they're compared by their case trees, as `conv` does
                     // (G6, docs/core.md). Whatever the failed try solved is
-                    // taken back first. With no unknown in either spine, a
-                    // "different" can be remembered (`same_stuck_trees`).
+                    // taken back first. A "different" is remembered only if
+                    // neither spine may mention an unknown (`same_stuck_trees`).
                     Some(pairs) if opens_by_tree(g, &a) && opens_by_tree(g, &b) => {
                         let trail = g.store.meta_trail.borrow().len();
                         let arguments = |_: CompareAt<'_>| -> Result<bool> {
@@ -1624,7 +1624,9 @@ fn unify_step(
                             &b,
                             Relation::Unify,
                             mode,
-                            !NO_ETA.with(|c| c.get()),
+                            !NO_ETA.with(|c| c.get())
+                                && !may_mention_meta(s1)
+                                && !may_mention_meta(s2),
                             arguments,
                             &mut |l, x, y| unify_in(g, l, x, y, mode),
                         )?;
