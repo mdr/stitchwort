@@ -266,3 +266,12 @@ theorem Int.modNatPeriodic (size: Nat) (laps: Nat) (start: Int) (seconds: Nat) (
     Int.modNat (start + velocity * (seconds + size * laps).toInt) size = Int.modNat (start + velocity * seconds.toInt) size :=
   rewrite (ring: start + velocity * (seconds + size * laps).toInt = start + velocity * seconds.toInt + size.toInt * (laps.toInt * velocity))
   in Int.modNatAddMulInt (start + velocity * seconds.toInt) size (laps.toInt * velocity)
+
+test "Int.toNatCheckedSome, Int.toNatCheckedNone" := (5: Int).toNatChecked == Some 5 ∧ (-5: Int).toNatChecked == None
+test "Int.natAbsSign" := (-7: Int).natAbs.toInt == (-7: Int).sign * -7 ∧ (4: Int).natAbs.toInt == (4: Int).sign * 4
+test "Int.mulNonnegSucc" := 0 ≤ (-4: Int) * (-4 + 1) ∧ 0 ≤ (3: Int) * (3 + 1)
+test "Int.mulKeepIf" := (-3: Int) * (Nat.keepIf 4 True).toInt == (4: Nat).toInt * -3 ∧ (-3: Int) * (Nat.keepIf 4 False).toInt == (4: Nat).toInt * 0
+test "Int.divExact" := (3: Nat).toInt * (-12 / (3: Nat).toInt) == -12
+test "Int.modNatOfLt" := Int.modNat (2: Nat).toInt 5 == 2
+test "Int.modNatSuccWrap, Int.modNatPredWrap" := (if 4 + 1 == 5 then 0 else 4 + 1) == Int.modNat ((4: Nat).toInt + 1) 5 ∧ (if 0 == 0 then 5 - 1 else 0 - 1) == Int.modNat ((0: Nat).toInt - 1) 5
+test "Int.modNatPeriodic" := Std.Int.modNat (2 + -3 * (1 + 5 * 4: Nat).toInt) 5 == Std.Int.modNat (2 + -3 * (1: Nat).toInt) 5

@@ -264,22 +264,6 @@ theorem Nat.keepIfKeepIf (x: Nat): (a: Bool) → (b: Bool) → Nat.keepIf (Nat.k
   | False, True => ring
   | False, False => ring
 
---| A `Bool` whose `toNat` is 0 is `False`.
-theorem Bool.toNatEqZero: (b: Bool) → Bool.toNat b = 0 → b = False
-  | False, h => rfl
-  | True, h => Void.exfalso (Nat.succNotZero 0 h)
-
---| `toNat` of a conjunction: the second `Bool`'s count, kept only when the
---| first holds.
-theorem Bool.toNatAnd: (a: Bool) → [b: Bool] → Bool.toNat (a ∧ b) = b.toNat.keepIf a
-  | True => rfl
-  | False => rfl
-
---| The parity of a `Bool`'s `toNat` is the `Bool`.
-theorem Bool.toNatOdd: (b: Bool) → (b.toNat % 2 == 1) = b
-  | False => rfl
-  | True => rfl
-
 theorem List.sumByAdd [auto add: Add c]: (xs: List a) → (f: a → c) → (g: a → c) → List.sumBy xs (x => f x + g x) = List.sumBy xs f + List.sumBy xs g
   | [], f, g => Eq.sym (add.zeroAdd Add.zero)
   | [x, ..xs], f, g =>
