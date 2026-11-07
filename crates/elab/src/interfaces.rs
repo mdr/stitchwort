@@ -1272,6 +1272,18 @@ fn locals(cx: &Ctx) -> Result<Vec<Candidate>> {
     let g = cx.g();
     let mut out = Vec::new();
     for level in (0..cx.level()).rev() {
+        // The head is looked at glued first: forcing a glued call with
+        // gluing off (as `decide` searches) evaluates it all the way down,
+        // which for a hypothesis like `h: P20 n` with `P20 x := P19 x ∧ P19
+        // x` takes 2^20 steps (SW-1779). Gluing changes when a value is
+        // computed, not its head, so a local skipped here is one the
+        // unglued force would skip too; an interface is forced as before.
+        let was = g.machine.glue.replace(true);
+        let head = force(&g, cx.types[level].clone());
+        g.machine.glue.set(was);
+        if !matches!(head?, Value::Data(i, _) if cx.e.is_interface(i)) {
+            continue;
+        }
         let Value::Data(i, args) = force(&g, cx.types[level].clone())? else {
             continue;
         };

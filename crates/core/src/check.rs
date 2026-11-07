@@ -1825,7 +1825,17 @@ pub fn declare_def(
         }
         // A failed reference is let through: `define_def` finds it again.
         admissible(&cx, [ty], None)?;
-        let (ty, sort) = check_type(&mut cx, ty)?;
+        // Glued, as a body is (`admit_group`, D483): binding `h: P n` then
+        // keeps `P n` a call instead of unfolding it all, which for a
+        // proposition that doubles at each level is exponential (SW-1779).
+        // The values made here are dropped with `cx`; the type's kept
+        // value is made unglued by `push_def`. The checked term is rebuilt
+        // from `ty`, or read back with `quote`, which unfolds calls, so it
+        // is the same term either way.
+        let was = g.machine.glue.replace(true);
+        let checked = check_type(&mut cx, ty);
+        g.machine.glue.set(was);
+        let (ty, sort) = checked?;
         if theorem && sort != Sort::Prop {
             let ty_value = cx.eval(&ty)?;
             return Err(Diagnostic::error(

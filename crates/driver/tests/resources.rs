@@ -653,3 +653,29 @@ fn a_match_whose_goal_is_too_large_to_read_back_uses_the_goal_as_written() {
         session.warnings
     );
 }
+
+/// A proposition that doubles at each level, `P(i) x := P(i-1) x ∧ P(i-1) x`,
+/// is 2^40 conjuncts unfolded but 41 calls glued. A hypothesis of it costs
+/// nothing to bind in the kernel's signature check, nor in scope of an
+/// `auto` argument decided by search (SW-1779: each of these once unfolded
+/// it all, so depth 25 took minutes).
+#[test]
+fn a_doubling_hypothesis_is_never_unfolded_in_full() {
+    let mut source = String::from("def P0 (x: Nat): Prop := x = x\n");
+    for i in 1..=40 {
+        source.push_str(&format!(
+            "def P{i} (x: Nat): Prop := P{j} x ∧ P{j} x\n",
+            j = i - 1
+        ));
+    }
+    source.push_str(
+        "def needs (k: Nat) [auto ok: k ≠ 0]: Nat := k\n\
+         def f (n: Nat) (h: P40 n): Nat := needs 3\n",
+    );
+    let mut session = Session::new();
+    session.elab.options.limits = Limits {
+        work: 5_000_000,
+        ..Limits::default()
+    };
+    session.load("doubling.sw", &source).expect("checks");
+}

@@ -3885,8 +3885,13 @@ pub(crate) fn implicit_arg(cx: &mut Ctx, icit: Icit, ty: &Value) -> Term {
 fn ignorable_arguments(cx: &Ctx, goal: &Value) -> Option<std::rc::Rc<[bool]>> {
     let level = cx.level();
     let mut mentioned = vec![false; level];
+    // Read back folded: unfolded, a hypothesis like `h: P20 n` with `P20 x
+    // := P19 x ∧ P19 x` is 2^20 nodes, written out at every `auto` argument
+    // in its scope (SW-1779). A call's arguments mention every variable its
+    // unfolding does, and maybe more, so this can only mark an argument
+    // not ignorable where the unfolding would have allowed it.
     let mut mark = |value: &Value| -> Option<()> {
-        let term = quote(&cx.g(), level, value).ok()?;
+        let term = stitchwort_core::value::quote_folded(&cx.g(), level, value).ok()?;
         for (t, binders) in term.subterms() {
             if let Term::Var(i) | Term::Case(i, ..) | Term::NumCase(i, ..) = t
                 && *i >= binders
