@@ -204,6 +204,7 @@ tasks:
     cmds:
       - '{{.STEP}} features -- task test:features'
       - '{{.STEP}} fmt -- cargo fmt --check'
+      - '{{.STEP}} "wasm check" -- cargo check -p stitchwort-web --target wasm32-unknown-unknown --release'
       - '{{.STEP}} "nextest build" -- {{.GUARD}} --cap-gb {{.MEM_CAP_MERGE}} -- cargo nextest run --release --workspace --profile merge --no-run {{.CLI_ARGS}}'
       - '{{.STEP}} "nextest run" -- {{.GUARD}} --cap-gb {{.MEM_CAP_MERGE}} -- cargo nextest run --release --workspace --profile merge {{.CLI_ARGS}}'
 
