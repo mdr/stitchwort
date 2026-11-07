@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 data Main.Stack 484e234bafe2755745453dc7dd213e979e1b8592345ce49eafb6c3977e6c4adb
@@ -49,7 +49,12 @@ Main.sumDigits.%go 0ac113d85264d640b10cab1c5f3757e9938a7bc582c96c62ede0eac770a2a
 Main.sumDigits.%step.%respects ee128de00b7729ce1267de553f815630d5b2a9c53fbb884e6c4a89157fb90b66
 Main.sumDigits.%step.%match1.%respects 197be4a77c46c8df4f1e857b315bd7099638ebd450fd84d5cf55b131f09edb06
 Main.sumDigits.%irrel a896bf31d0d47d910a922e6910c065c59641d064036780d1790149a9f722579a
-Main.sumDigits.unfold ae4d3a718a472258068523e4ff0e69754dd55ada6cbe3e8d435b54796bcdbfd7
+Main.sumDigits.%step.%match1.%plain 7a0f2f8503edfd55e2f442fe505f47b1eb3ab7ce51164a2cdb22e628422547ce
+Main.sumDigits.%step.%match1.%plain.%same ba70ba950e04334a3fe8df6383058104419f72745cf5c8338a4ac7743c1ddf93
+Main.sumDigits.%plain 221d345d1c53126f999e28936a12d918da06b2347f7129107ea4697155abfa5e
+Main.sumDigits.%plain.%same f06abc27111fa01b24a122ba7f0649ad6f936a49a89cf01459c8f5251a344a2c
+Main.sumDigits.unfold 871591feb6706cf6d71d6037a31052616fa880e69778a279c3d1cdd23b308744
+Main.sumDigits.%unfoldStep ae4d3a718a472258068523e4ff0e69754dd55ada6cbe3e8d435b54796bcdbfd7
 Main.sumDigits.eq.true 5d3c29e203de725fea2191017a90e7e5ff9351aef7df3ec351c4c3a24bb4a5c1
 Main.sumDigits.eq.false c21c851eb2326153ab04f4323464a95fbcca7c6656aa172571b2b755f38e44c8
 Main.sumDigits.induct 343a0d9cc03dce3a52576ba7238fb1af9bab5d9b9390b802e6751fc4b1bda689

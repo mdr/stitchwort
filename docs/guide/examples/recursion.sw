@@ -1,5 +1,5 @@
 -- Chapter 7: recursion and termination.
-import Std (List, Nat, Text)
+import Std (List, Nat, Set, Text)
 
 -- begin structural
 def length: List a → Nat
@@ -38,6 +38,17 @@ def gcd (a: Nat) (b: Nat): Nat
 
 test "gcd" := gcd 84 36 == 12
 -- end gcd
+
+-- begin match-fact
+def total (set: Set Nat): Nat
+    decreasing set.size
+:=
+  match found: set.popMin with
+    | None => 0
+    | Some (least, rest) => least + total rest [decreasing := Set.sizePopMin set least rest found]
+
+test "total" := total [3, 1, 2].toSet == 6
+-- end match-fact
 
 -- begin lexicographic
 def ackermann (m: Nat) (n: Nat): Nat

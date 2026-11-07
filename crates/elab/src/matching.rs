@@ -465,6 +465,7 @@ fn lifted(
     // elaborated, to be generalised.
     let mut columns = Vec::new();
     let mut exprs: Vec<Scrut> = Vec::new();
+    let calls_itself = crate::decreasing::arms_call_itself(cx, alts);
     for s in scrutinees {
         if let Some(level) = variable(cx, s) {
             let Expr::Var(x) = &s.expr else {
@@ -527,13 +528,23 @@ fn lifted(
                 .filter(|&l| cx.lets[l].is_some() && cx.local(&x.text).ok().flatten().is_none()),
             _ => None,
         };
+        // In a `decreasing` body, an arm's recursive call gets the equation
+        // whether or not it is named, for its decrease proof; `f.unfold`
+        // shows the `match` without it (`decreasing/plain.rs`).
+        let name = match &s.name {
+            None if calls_itself && alias.is_none() => Some(ast::Name {
+                text: crate::decreasing::FOUND.into(),
+                span: s.expr.span(),
+            }),
+            name => name.clone(),
+        };
         columns.push(Column::Expr(exprs.len()));
         exprs.push(Scrut {
             term,
             normal,
             ty,
             ty_term,
-            name: s.name.clone(),
+            name,
             span: s.expr.span(),
             alias,
         });
@@ -1242,7 +1253,11 @@ fn in_arms(
             // to be unused, so is given only when its arms fail: a pass
             // there is a case split for evidence.
             let unused = warning.code == "W-MATCH-DECISION-IF"
-                || if exprs[i].name.is_none() {
+                || if exprs[i]
+                    .name
+                    .as_ref()
+                    .is_none_or(|n| n.text == crate::decreasing::FOUND)
+                {
                     body.is_err()
                 } else {
                     (equations.iter()).any(|&(j, level)| {

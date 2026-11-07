@@ -1,6 +1,6 @@
 //! `f.unfold` over the body as written, when a plain `if` gave a recursive
-//! call under it its condition (docs/proposals/decreasing-with-hypothesis.md,
-//! stage 1).
+//! call under it its condition, or a `match` its equation
+//! (docs/proposals/decreasing-with-hypothesis.md, stages 1 and 2).
 //!
 //! In a `decreasing` body a plain `if` is elaborated as `if _: …` would be,
 //! `Decidable.elim d (h => a) (h => b)`, its decision tagged with the `Bool`
@@ -21,11 +21,24 @@
 //!
 //! `f.unfold` is then `f x… = f.%plain x… (y… => f y…)`. An `if` whose `h`
 //! something else uses, or that sits where the proof doesn't go (inside a
-//! function passed to another, a `match` inside a leaf, a condition), stays
-//! a `Decidable.elim` in `f.%plain` too.
+//! function passed to another, a condition), stays a `Decidable.elim` in
+//! `f.%plain` too.
+//!
+//! Stage 2: a `match` in the body, lifted to `H` (`f.%step.%match1`), is
+//! passed its equation `e = s` (`rfl`), named or not, when an arm calls the
+//! definition (`matching.rs`, [`super::FOUND`]). Such an `H` gets a twin `H'`
+//! (`H.%plain`), made the same way as `f.%plain` from its own case tree
+//! (its plain `if`s are kept tagged for this, `lifted_helper_body`), and
+//! without the parameters its plain body doesn't need: the equation, and
+//! any fact only a call's proof used. `H.%plain.%same` says `H x… (y… p =>
+//! r y…) … = H' …`, and `f.%plain` calls `H'` wherever the proof reaches,
+//! the call proved by that lemma. So `f.unfold` shows the `match` with no
+//! equation, which a proof can generalise. `let`s only the dropped proofs
+//! used go too.
 
 use std::rc::Rc;
 
+use stitchwort_core::collections::HashMap;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::{Branch, NumArm};
 use stitchwort_core::value::same_term;
@@ -57,6 +70,8 @@ struct Lemmas {
     true_if: DefId,
     elim_cong: DefId,
     if_cong: DefId,
+    /// The twins made so far, by the lifted `match` they're of.
+    twins: HashMap<DefId, Twin>,
 }
 
 /// Which lemma turns a tagged `if` into the plain one.
@@ -179,10 +194,74 @@ fn children(
     })
 }
 
-/// Whether `t` holds a tagged `if`.
+/// The name of the `let` [`Lemmas::mark`] wraps around a call of a lifted
+/// `match` that has a twin, `let %twin := Refl in call`, for `pre`, `post`
+/// and the proof to find. It never reaches the kernel.
+const TWIN: &str = "%twin";
+
+/// Whether `t` holds a tagged `if` or a marked call of a twin.
 fn tagged(t: &Term) -> bool {
     t.subterms()
-        .any(|(t, _)| matches!(t, Term::Let(name, ..) if &**name == PLAIN))
+        .any(|(t, _)| matches!(t, Term::Let(name, ..) if &**name == PLAIN || &**name == TWIN))
+}
+
+/// The call `let %twin := Refl in call` marks.
+fn twin_call(
+    g: &Ev,
+    t: &Term,
+) -> std::result::Result<Option<Term>, stitchwort_core::budget::ResourceError> {
+    match t.strip_loc() {
+        Term::Let(name, _, v, body, _) if &**name == TWIN => Ok(Some(body.instantiate(g, v)?)),
+        _ => Ok(None),
+    }
+}
+
+/// `t` without the `let`s nothing uses, such as a fact only recursive calls'
+/// proofs used, once they're dropped: the same by computation, and the
+/// plain form doesn't show them.
+fn dead_lets(g: &Ev, t: &Term) -> Result<Term> {
+    Ok(t.rewrite_up(g, &mut |node| match node {
+        Term::Let(name, _, _, body, _) if !name.starts_with('%') && !body.mentions(0) => {
+            Ok(Some(body.instantiate(g, &Term::Refl)?))
+        }
+        _ => Ok(None),
+    })?)
+}
+
+/// `r`, for `y… p => r y…` with `k` binders (`Rec::adapter`).
+fn unadapt(t: &Term, k: usize) -> Option<Term> {
+    let mut body = t.strip_loc();
+    for _ in 0..k {
+        body = match body {
+            Term::Lam(_, _, b) => b.strip_loc(),
+            _ => return None,
+        };
+    }
+    let (head, args) = spine_owned(body);
+    let Term::Var(ix) = head else {
+        return None;
+    };
+    let plain = args.len() + 1 == k
+        && (args.iter().enumerate())
+            .all(|(j, (a, _))| matches!(a.strip_loc(), Term::Var(v) if *v == k - 1 - j));
+    (plain && ix >= k).then(|| Term::Var(ix - k))
+}
+
+/// A lifted `match` whose arms call `%rec`, and its twin for `f.%plain`:
+/// the same with `%rec` taking no proof, and without the parameters only
+/// proofs used (the `match`'s equation `e = s`, passed `rfl`, and any fact
+/// only a recursive call's proof used).
+struct Twin {
+    twin: DefId,
+    /// `H x… (y… p => r y…) … = H' …`, for all of `H`'s parameters.
+    same: DefId,
+    /// `H`'s arity, and which of its parameters is `%rec`.
+    arity: usize,
+    rec: usize,
+    /// `rec`'s parameters, the proof included.
+    rec_arity: usize,
+    /// `H`'s parameters that `H'` takes, in order.
+    kept: Vec<usize>,
 }
 
 /// The tag of decision `d`, `let %plain := b in d'`: `b` and `d'`.
@@ -276,6 +355,7 @@ impl Lemmas {
             true_if: def(Builtin::ElimDecTrueIf)?,
             elim_cong: def(Builtin::ElimDecCong)?,
             if_cong: def(Builtin::IfCong)?,
+            twins: HashMap::default(),
         })
     }
 
@@ -350,10 +430,32 @@ impl Lemmas {
         count: &mut usize,
     ) -> Result<Term> {
         g.machine.budget.nesting(super::PASS)?;
-        if !tagged(t) {
+        let work = |t: &Term| {
+            t.subterms().any(|(t, _)| match t {
+                Term::Let(name, ..) => &**name == PLAIN,
+                Term::Def(d) => self.twins.contains_key(d),
+                _ => false,
+            })
+        };
+        if !work(t) {
             return Ok(t.clone());
         }
         let (head, args) = spine_owned(t);
+        if allowed
+            && let Term::Def(h) = head
+            && let Some(twin) = self.twins.get(&h)
+            && args.len() == twin.arity
+            && unadapt(&args[twin.rec].0, twin.rec_arity).is_some()
+        {
+            // Its arguments are left as `f.%step` has them, so the twin's
+            // lemma is all the proof needs here.
+            let args = (args.iter())
+                .map(|(a, icit)| Ok((self.mark(g, a, depth, false, false, count)?, *icit)))
+                .collect::<Result<Vec<_>>>()?;
+            *count += 1;
+            let call = apps(head, args).shift(g, 1, 0)?;
+            return Ok(Term::let_(TWIN.into(), Term::Refl, Term::Refl, call));
+        }
         let branch = |this: &Lemmas, a: &Term, count: &mut usize| -> Result<Term> {
             match a.strip_loc() {
                 Term::Lam(x, i, body) => Ok(Term::Lam(
@@ -372,12 +474,16 @@ impl Lemmas {
             let decision = self.mark(g, &decision, depth, false, false, count)?;
             let y = branch(self, &args[3].0, count)?;
             let n = branch(self, &args[4].0, count)?;
-            let unused = |b: &Term| matches!(b, Term::Lam(_, _, body) if !body.mentions(0));
+            // As `f.%plain` has them: a twin's call there may leave out a
+            // fact the branch's `match` was passed.
+            let unused = |b: &Term| -> Result<bool> {
+                Ok(matches!(&self.post(g, b)?, Term::Lam(_, _, body) if !body.mentions(0)))
+            };
             let decision = match tag {
                 Some(b)
                     if allowed
-                        && unused(&y)
-                        && unused(&n)
+                        && unused(&y)?
+                        && unused(&n)?
                         && self.kind(&b, &decision).is_some() =>
                 {
                     *count += 1;
@@ -477,6 +583,9 @@ impl Lemmas {
     /// `t` as `f.%step` has it: every tag dropped.
     fn pre(&self, g: &Ev, t: &Term) -> Result<Term> {
         Ok(t.rewrite_up(g, &mut |node| {
+            if let Some(call) = twin_call(g, node)? {
+                return Ok(Some(call));
+            }
             let (head, args) = spine_owned(node);
             if !self.is(&head, self.elim) || args.len() != 5 {
                 return Ok(None);
@@ -493,6 +602,23 @@ impl Lemmas {
     /// `t` as `f.%plain` has it: every tagged `if` the plain `if`.
     fn post(&self, g: &Ev, t: &Term) -> Result<Term> {
         Ok(t.rewrite_up(g, &mut |node| {
+            if let Some(call) = twin_call(g, node)? {
+                // `mark` made sure the call has `%rec` as `y… p => r y…`.
+                let Some((args, twin)) = self.twin_of(&call) else {
+                    return Ok(Some(call));
+                };
+                let Some(r) = unadapt(&args[twin.rec].0, twin.rec_arity) else {
+                    return Ok(Some(call));
+                };
+                let args = (twin.kept.iter()).map(|&i| {
+                    if i == twin.rec {
+                        (r.clone(), args[i].1)
+                    } else {
+                        args[i].clone()
+                    }
+                });
+                return Ok(Some(apps(Term::Def(twin.twin), args)));
+            }
             let (head, args) = spine_owned(node);
             if !self.is(&head, self.elim) || args.len() != 5 {
                 return Ok(None);
@@ -584,8 +710,20 @@ impl Lemmas {
         })
     }
 
+    /// The head, arguments and twin of `call`, a call [`Lemmas::mark`]
+    /// marked.
+    fn twin_of(&self, call: &Term) -> Option<(Vec<(Term, Icit)>, &Twin)> {
+        let (head, args) = spine_owned(call);
+        let Term::Def(h) = head else {
+            return None;
+        };
+        let twin = self.twins.get(&h)?;
+        (args.len() == twin.arity).then_some((args, twin))
+    }
+
     /// A proof for `t` when it is one step of its own: a tagged `if`, an
-    /// `if` around one, or, where its type `ty` is known, a `let` around one.
+    /// `if` around one, a marked call of a twin, or, where its type `ty` is
+    /// known, a `let` around one.
     fn hole_proof(
         &self,
         g: &Ev,
@@ -594,6 +732,15 @@ impl Lemmas {
         depth: usize,
     ) -> Result<Option<Term>> {
         let t = t.strip_loc();
+        if let Some(call) = twin_call(g, t)? {
+            // H x… (y… p => r y…) … = H' …, H's lemma at the same arguments
+            // but `r` for `%rec`.
+            let (mut args, twin) = (self.twin_of(&call))
+                .ok_or_else(|| internal_error("a marked call that isn't of a twin"))?;
+            args[twin.rec].0 = unadapt(&args[twin.rec].0, twin.rec_arity)
+                .ok_or_else(|| internal_error("a twin's call without its `%rec`"))?;
+            return Ok(Some(apps(Term::Def(twin.same), args)));
+        }
         if let (Term::Let(x, vty, v, b, e), Some(ty)) = (t, ty) {
             let inner = self.proof(g, b, &ty.shift(g, 1, 0)?, depth + 1)?;
             return Ok(inner.map(|p| Term::Let(x.clone(), vty.clone(), v.clone(), Rc::new(p), *e)));
@@ -716,72 +863,218 @@ fn rebuild(
 
 impl Elaborator {
     /// `f.%plain` and `f.%plain.%same` for `f.%step` (`step`), whose body
-    /// with its plain `if`s still tagged is `tagged`; `None` when no `if`
-    /// can be shown plainly.
+    /// with its plain `if`s still tagged is `tagged` (`None`: it has none),
+    /// and the twins of the `match`es lifted from it (`helpers`), which are
+    /// pushed to `made`; `None` when nothing can be shown plainly.
     pub(super) fn plain_view(
         &mut self,
         plan: &Plan,
         step: DefId,
-        tagged: &Term,
+        tagged: Option<&Term>,
+        helpers: &[DefId],
+        made: &mut Vec<DefId>,
     ) -> Result<Option<PlainView>> {
         let g = &self.ev();
-        let l = Lemmas::new(g)?;
+        let mut l = Lemmas::new(g)?;
+        for &h in helpers {
+            if let Some(twin) = self.twin(&l, h, helpers)? {
+                made.extend([twin.twin, twin.same]);
+                l.twins.insert(h, twin);
+            }
+        }
+        let g = &self.ev();
+        let body = match tagged {
+            Some(t) => t.clone(),
+            None if l.twins.is_empty() => return Ok(None),
+            None => (g.def(step).body())
+                .ok_or_else(|| internal_error("a step without a body"))?
+                .as_ref()
+                .clone(),
+        };
         let a = plan.n() + 1;
-        let c = plan.header;
         let (tel, result) = split_pis(g.def(step).ty(), Some(a));
         if tel.len() != a {
             return Err(internal_error(
                 "a step whose type doesn't show its parameters",
             ));
         }
-        let (rec_tel, rec_result) = split_pis(&tel[c].ty, None);
+        let name = |suffix: &str| -> Name { format!("{}.{suffix}", plan.name).into() };
+        let Some(made_view) = self.plain_def(
+            &l,
+            &tel,
+            &result,
+            plan.header,
+            step,
+            &body,
+            false,
+            &name("%plain"),
+            plan.span,
+        )?
+        else {
+            return Ok(None);
+        };
+        Ok(Some(PlainView {
+            view: made_view.twin,
+            same: made_view.same,
+        }))
+    }
+
+    /// The twin of `h`, a `match` lifted from the step, if its arms call
+    /// `%rec` and the twin differs from it: it drops a parameter, or calls
+    /// a twin itself. `helpers`: all those lifted from the step (one that
+    /// calls itself or one after it, in a group, gets none).
+    fn twin(&mut self, l: &Lemmas, h: DefId, helpers: &[DefId]) -> Result<Option<Twin>> {
+        let g = &self.ev();
+        let def = g.def(h);
+        let Some(body) = def.body().cloned() else {
+            return Ok(None);
+        };
+        // With its plain `if`s still tagged, if it has any (and the record
+        // is of this helper, not of one an abandoned attempt made).
+        let recorded = (self.decl.decreasing.borrow().as_ref())
+            .and_then(|a| a.tagged_helpers.borrow().get(&h).cloned());
+        let body = match recorded {
+            Some(tagged) if same_term(&self.settle_tagged(&tagged)?, &body) => Rc::new(tagged),
+            _ => body,
+        };
+        let g = &self.ev();
+        let def = g.def(h);
+        if body
+            .subterms()
+            .any(|(t, _)| matches!(t, Term::Def(d) if *d >= h && helpers.contains(d)))
+        {
+            return Ok(None);
+        }
+        let arity = body.count_lams();
+        let (tel, result) = split_pis(def.ty(), Some(arity));
+        if tel.len() != arity {
+            return Ok(None);
+        }
+        let Some(rec) = tel.iter().position(|b| &*b.name == super::REC) else {
+            return Ok(None);
+        };
+        let name: Name = format!("{}.%plain", def.name()).into();
+        let lifted = (self.tables.lifted.iter())
+            .find(|(id, _)| *id == h)
+            .map(|(_, span)| *span);
+        let span = lifted.unwrap_or(def.span());
+        let Some(made) = self.plain_def(l, &tel, &result, rec, h, &body, true, &name, span)? else {
+            return Ok(None);
+        };
+        if let Some(span) = lifted {
+            self.tables.lifted.push((made.twin, span));
+        }
+        Ok(Some(made))
+    }
+
+    /// The plain form of a definition with parameters `tel`, result type
+    /// `result` and body `body` (its lambdas around a case tree), whose
+    /// parameter `rec` is `%rec`: `name`, the same with `%rec` taking no
+    /// proof and its plain `if`s and twins' calls plain, and `name.%same`,
+    /// that the definition with `y… p => r y…` for `%rec` is it with `r`.
+    /// With `drop`, parameters the plain body doesn't need are left out
+    /// (a lifted `match`'s); `None` if it would be the definition itself.
+    #[allow(clippy::too_many_arguments)]
+    fn plain_def(
+        &mut self,
+        l: &Lemmas,
+        tel: &[Binder],
+        result: &Term,
+        rec_at: usize,
+        orig: DefId,
+        body: &Term,
+        drop: bool,
+        name: &Name,
+        span: Span,
+    ) -> Result<Option<Twin>> {
+        let g = &self.ev();
+        let a = tel.len();
+        let (rec_tel, rec_result) = split_pis(&tel[rec_at].ty, None);
         if rec_tel.last().is_none_or(|b| b.icit != Icit::Auto) {
             return Err(internal_error("a recursive call's type without its proof"));
         }
         let rec = Rec {
-            level: c,
+            level: rec_at,
             tel: rec_tel,
         };
-        let tree = Term::peel_lams_rc(&Rc::new(tagged.clone()), a);
-        let adapted = rec.adapt(g, &tree, a)?;
+        let tree = Term::peel_lams_rc(&Rc::new(body.clone()), a);
+        let adapted = dead_lets(g, &rec.adapt(g, &tree, a)?)?;
         let mut count = 0;
         let marked = l.mark_tree(g, &adapted, a, &mut count)?;
-        if count == 0 {
-            return Ok(None);
-        }
+        let post = l.post(g, &marked)?;
         // `%rec` without its proof: `(y…) -> B`.
         let k = rec.arity();
         let plain_rec = pis(&rec.tel[..k - 1], instantiate(g, &rec_result, &Term::Refl)?);
-        let mut view_tel = tel.clone();
-        view_tel[c].ty = plain_rec;
-        let names: Vec<(Name, Icit)> = tel.iter().map(|b| (b.name.clone(), b.icit)).collect();
-        let view_name: Name = format!("{}.%plain", plan.name).into();
-        let view = kernel::declare_def(
+        let mut view_tel = tel.to_vec();
+        view_tel[rec_at].ty = plain_rec;
+        // What the plain body needs: `%rec`, what it mentions, and what the
+        // types of those and of the result mention.
+        let mut needed = vec![!drop; a];
+        needed[rec_at] = true;
+        for (i, need) in needed.iter_mut().enumerate() {
+            *need |= post.mentions(a - 1 - i) || result.mentions(a - 1 - i);
+        }
+        for j in (0..a).rev() {
+            if needed[j] {
+                let ty = &view_tel[j].ty;
+                for (i, need) in needed[..j].iter_mut().enumerate() {
+                    *need |= ty.mentions(j - 1 - i);
+                }
+            }
+        }
+        let kept: Vec<usize> = (0..a).filter(|&i| needed[i]).collect();
+        if count == 0 && kept.len() == a {
+            return Ok(None);
+        }
+        let new_level = |l: usize| kept.iter().position(|&k| k == l).unwrap_or(0);
+        let twin_tel = (kept.iter().enumerate())
+            .map(|(j, &i)| {
+                Ok(Binder {
+                    name: view_tel[i].name.clone(),
+                    icit: view_tel[i].icit,
+                    ty: super::reindex(g, &view_tel[i].ty, i, j, &new_level)?,
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let twin_result = super::reindex(g, result, a, kept.len(), &new_level)?;
+        let twin = kernel::declare_def(
             &mut self.kernel,
             &self.tables,
             &self.unit,
-            &view_name,
-            &pis(&view_tel, result.clone()),
+            name,
+            &pis(&twin_tel, twin_result),
             false,
             false,
-            plan.span,
+            span,
         )?;
         let g = &self.ev();
-        let body = lams(&names, l.post(g, &marked)?);
-        kernel::define_group(&mut self.kernel, &self.tables, &[(view, body)])?;
-        // f.%step x… (y… p => r y…) c… = f.%plain x… r c…
-        let args = |at_rec: Term| -> Vec<(Term, Icit)> {
-            (0..a)
-                .map(|i| {
-                    let t = if i == c { at_rec.clone() } else { var(a, i) };
-                    (t, tel[i].icit)
-                })
-                .collect()
+        let names = |tel: &[Binder]| -> Vec<(Name, Icit)> {
+            tel.iter().map(|b| (b.name.clone(), b.icit)).collect()
         };
-        let lhs = apps(Term::Def(step), args(rec.adapter(a)));
-        let rhs = apps(Term::Def(view), args(var(a, c)));
+        let twin_body = super::reindex(g, &post, a, kept.len(), &new_level)?;
+        kernel::define_group(
+            &mut self.kernel,
+            &self.tables,
+            &[(twin, lams(&names(&twin_tel), twin_body))],
+        )?;
+        // H x… (y… p => r y…) … = H' (those of x… r … it takes)
+        let lhs = apps(
+            Term::Def(orig),
+            (0..a).map(|i| {
+                let t = if i == rec_at {
+                    rec.adapter(a)
+                } else {
+                    var(a, i)
+                };
+                (t, tel[i].icit)
+            }),
+        );
+        let rhs = apps(
+            Term::Def(twin),
+            kept.iter().map(|&i| (var(a, i), tel[i].icit)),
+        );
         let same_ty = pis(&view_tel, Term::Eq(None, Rc::new(lhs), Rc::new(rhs)));
-        let same_name: Name = format!("{}.%plain.%same", plan.name).into();
+        let same_name: Name = format!("{name}.%same").into();
         let same = kernel::declare_def(
             &mut self.kernel,
             &self.tables,
@@ -790,16 +1083,23 @@ impl Elaborator {
             &same_ty,
             true,
             false,
-            plan.span,
+            span,
         )?;
         let g = &self.ev();
-        let proof = l.tree_proof(g, &marked, &result, a, a)?;
+        let proof = l.tree_proof(g, &marked, result, a, a)?;
         kernel::define_group(
             &mut self.kernel,
             &self.tables,
-            &[(same, lams(&names, proof))],
+            &[(same, lams(&names(&view_tel), proof))],
         )?;
-        Ok(Some(PlainView { view, same }))
+        Ok(Some(Twin {
+            twin,
+            same,
+            arity: a,
+            rec: rec_at,
+            rec_arity: k,
+            kept,
+        }))
     }
 }
 

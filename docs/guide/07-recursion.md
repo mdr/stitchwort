@@ -130,7 +130,25 @@ def gcd (a: Nat) (b: Nat): Nat
 test "gcd" := gcd 84 36 == 12
 ```
 
-Here the `else` runs only when `b` is 0 (`a % 0` is `a`, [chapter 2](02-values-and-definitions.md#dividing-by-zero)), where `gcd a 0` is `a` anyway; the test is there to give the compiler the fact. Proofs about `gcd` see the `if` as written, without the fact it gave the call. A proof can also be given directly, as `[decreasing := proof]` after the call. With a pair of measures, `decreasing (m, n)`, each call makes `m` smaller, or keeps `m` and makes `n` smaller, as in Ackermann's function, whose calls `omega` proves:
+Here the `else` runs only when `b` is 0 (`a % 0` is `a`, [chapter 2](02-values-and-definitions.md#dividing-by-zero)), where `gcd a 0` is `a` anyway; the test is there to give the compiler the fact. Proofs about `gcd` see the `if` as written, without the fact it gave the call.
+
+A `match` does the same for its arms: a recursive call in one has the `match`'s equation in scope, here `set.popMin = Some (least, rest)`. `omega` can't read that one, but the library's `Set.sizePopMin` turns it into `rest.size < set.size`, so the `match` names it, `found:`, to pass it to the lemma:
+
+<!-- snippet: recursion.sw#match-fact -->
+```stitchwort
+def total (set: Set Nat): Nat
+    decreasing set.size
+:=
+  match found: set.popMin with
+    | None => 0
+    | Some (least, rest) => least + total rest [decreasing := Set.sizePopMin set least rest found]
+
+test "total" := total [3, 1, 2].toSet == 6
+```
+
+An equation `omega` can read needs no name: with `decreasing n - k`, `match n - k with | Zero => k | Succ j => countUp n (k + 1)` is proved from `n - k = Succ j`. Either way, proofs about `total` see `match set.popMin with` as written, without the equation, and can match on `set.popMin` themselves.
+
+A proof can also be given directly, as `[decreasing := proof]` after the call. With a pair of measures, `decreasing (m, n)`, each call makes `m` smaller, or keeps `m` and makes `n` smaller, as in Ackermann's function, whose calls `omega` proves:
 
 <!-- snippet: recursion.sw#lexicographic -->
 ```stitchwort

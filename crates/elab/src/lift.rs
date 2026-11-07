@@ -780,7 +780,7 @@ impl Elaborator {
             let mut bodies = Vec::new();
             for &(i, id) in &members {
                 let (_, lam, _) = self.parts(&drafts[i], &ordered[i], &|_| false, true)?;
-                bodies.push((id, self.settle_tagged(&lam)?));
+                bodies.push((id, self.lifted_helper_body(id, &lam)?));
                 if let Some(run) = self.run_body(&drafts[i], &ordered[i])? {
                     self.decl
                         .pending_run_bodies
