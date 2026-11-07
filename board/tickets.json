@@ -21716,9 +21716,9 @@
     {
       "id": 2280,
       "title": "[Sonnet] SW-2278 F1-F4: count skipped no-op mutants in the summary; stop cutting examples/accept theorems after the declaration (line ~803); a mutant using a refused axiom is rejected, not accepted; fix the comment at line 828 (the kernel's finality rule is the reason)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2280",
       "labels": [
         "tests"
       ],
