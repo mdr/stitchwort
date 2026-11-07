@@ -8381,17 +8381,17 @@
     },
     {
       "id": 1392,
-      "title": "Rust code builds calls to std lemmas by name and argument position (omega.rs Bool.or*, derive_finite.rs List.memAppend*, equations.rs/check.rs Decidable.elimEq): an icit-aware helper, or a test that fails when the lemma's binders change",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "title": "[Opus] Design: Rust code builds calls to std lemmas by name and argument position (omega.rs Bool.or*, derive_finite.rs List.memAppend*, equations.rs/check.rs Decidable.elimEq …): inventory every such site, and a design that makes std renames and binder changes fail loudly at build or test time",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1392",
       "labels": [
         "elab"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-1381, 5 Nov 2026. Small improvement.",
+      "body": "From SW-1381, 5 Nov 2026. Small improvement.\n\n7 Nov: read-only Opus design first (docs/proposals/std-lemma-references.md), because the std naming sweep (SW-2179) and the SW-2159 moves are about to rename and add lemmas. 60 min.",
       "created": "2026-11-05",
-      "updated": "2026-11-05",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
