@@ -188,6 +188,13 @@ impl Elaborator {
         self.options.check_cache = Some(store);
     }
 
+    /// Stops using a check cache: files are checked, not replayed, until
+    /// [`Elaborator::set_check_cache`] is called again. (A rewind keeps the
+    /// cache, which is not part of what it restores.)
+    pub fn clear_check_cache(&mut self) {
+        self.options.check_cache = None;
+    }
+
     /// What the cache has done so far.
     pub fn check_cache_stats(&self) -> Stats {
         self.session.cache_stats

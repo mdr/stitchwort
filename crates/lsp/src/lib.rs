@@ -2886,9 +2886,7 @@ fn with_context<R>(
     cancel: Arc<AtomicBool>,
     then: impl FnOnce(&Session, Option<pos::Context>) -> R,
 ) -> R {
-    let mut session = search_session(server);
-    session.share_cancel_flag(cancel);
-    let found = match target.project {
+    match target.project {
         Some((root, relative, open)) => {
             let base = source.files(&root);
             let files = stitchwort_driver::search_at::Overlay {
@@ -2899,18 +2897,30 @@ fn with_context<R>(
                 .file_name()
                 .map_or("project".to_string(), |n| n.to_string_lossy().into_owned());
             let cache = source.project_cache(&root);
-            session.context_at_project(&name, &files, &relative, cache.as_deref(), line, character)
+            with_project_session(server, cache.as_deref(), cancel, |session| {
+                let found = session.context_at_project(
+                    &name,
+                    &files,
+                    &relative,
+                    cache.as_deref(),
+                    line,
+                    character,
+                );
+                then(session, found)
+            })
         }
         None => {
+            let mut session = search_session(server);
+            session.share_cancel_flag(cancel);
             let name = target
                 .path
                 .file_name()
                 .and_then(|n| n.to_str())
                 .unwrap_or("file.sw");
-            session.context_at_text(name, &target.text, line, character)
+            let found = session.context_at_text(name, &target.text, line, character);
+            then(&session, found)
         }
-    };
-    then(&session, found)
+    }
 }
 
 /// A session for a proof search. With the library's check cache loaded
@@ -2926,6 +2936,82 @@ fn search_session(server: &Options) -> Session {
     }
 }
 
+/// A session with the library loaded that a search thread keeps between the
+/// searches of projects' files, rewound to just after the load: a rewound
+/// session gives what a fresh one does (`rewind.rs`), and loading the
+/// library again is most of a search of a small project.
+#[cfg(not(target_family = "wasm"))]
+struct Warm {
+    /// What the session was made from; another stack or library bundle
+    /// makes another session.
+    key: (usize, Option<usize>),
+    session: Session,
+    mark: stitchwort_driver::rewind::Mark,
+}
+
+#[cfg(not(target_family = "wasm"))]
+thread_local! {
+    static WARM: std::cell::RefCell<Option<Warm>> = const { std::cell::RefCell::new(None) };
+}
+
+/// Runs `f` on a session for a search of a project's file, set up as
+/// [`search_session`] makes one except that the library is loaded already:
+/// from the project's check cache `cache` (the first time, or when the
+/// library bundle changes) or the bundle. The session is kept, rewound,
+/// for the next search on this thread: about 0.45 GB for as long as the
+/// thread lives. Not in the browser, where memory is dearer and a page
+/// has one search worker.
+fn with_project_session<T>(
+    server: &Options,
+    cache: Option<&Path>,
+    cancel: Arc<AtomicBool>,
+    f: impl FnOnce(&mut Session) -> T,
+) -> T {
+    #[cfg(target_family = "wasm")]
+    {
+        let mut session = search_session(server);
+        session.share_cancel_flag(cancel);
+        f(&mut session)
+    }
+    #[cfg(not(target_family = "wasm"))]
+    {
+        let key = (
+            server.stack,
+            server.library.get().map(|b| Arc::as_ptr(b) as usize),
+        );
+        // Taken out while in use, so that a panic leaves none behind.
+        let kept = WARM.with(|w| w.borrow_mut().take());
+        let mut warm = match kept.filter(|w| w.key == key) {
+            Some(warm) => warm,
+            None => {
+                let mut session = search_session(server);
+                if let Some(dir) = cache {
+                    session.use_check_cache(dir);
+                }
+                if !session.load_libraries_for_probes() {
+                    session.share_cancel_flag(cancel);
+                    return f(&mut session);
+                }
+                let mark = session.mark();
+                Warm { key, session, mark }
+            }
+        };
+        // The check cache isn't part of what a rewind restores: back to the
+        // bundle's, or none, as in a new session.
+        warm.session.elab.clear_check_cache();
+        if let Some(bundle) = server.library.get() {
+            warm.session
+                .elab
+                .set_check_cache(Rc::new(BundleStore(bundle.clone())));
+        }
+        warm.session.share_cancel_flag(cancel);
+        let found = f(&mut warm.session);
+        warm.session.rewind(&warm.mark);
+        WARM.with(|w| *w.borrow_mut() = Some(warm));
+        found
+    }
+}
+
 /// The completion items after the `.` at byte `dot` of the document
 /// `target` ([`SearchKind::Members`]). It costs a check of the file, so a
 /// file on its own reads the library from its folder's check cache when
@@ -2938,14 +3024,6 @@ fn members_at(
     wanted: usize,
     cancel: Arc<AtomicBool>,
 ) -> serde_json::Value {
-    let mut session = search_session(server);
-    session.share_cancel_flag(cancel);
-    if target.project.is_none()
-        && server.library.get().is_none()
-        && let Some(dir) = target.path.parent().and_then(|dir| source.file_cache(dir))
-    {
-        session.use_check_cache(&dir);
-    }
     let key = members_key(&target, dot, wanted);
     let cached = lock(&server.members)
         .as_ref()
@@ -2967,9 +3045,19 @@ fn members_at(
                         .file_name()
                         .map_or("project".to_string(), |n| n.to_string_lossy().into_owned());
                     let cache = source.project_cache(&root);
-                    session.members_at_project(&name, &files, &relative, cache.as_deref(), dot)
+                    with_project_session(server, cache.as_deref(), cancel, |session| {
+                        session.members_at_project(&name, &files, &relative, cache.as_deref(), dot)
+                    })
                 }
                 None => {
+                    let mut session = search_session(server);
+                    session.share_cancel_flag(cancel);
+                    if server.library.get().is_none()
+                        && let Some(dir) =
+                            target.path.parent().and_then(|dir| source.file_cache(dir))
+                    {
+                        session.use_check_cache(&dir);
+                    }
                     let name = target
                         .path
                         .file_name()
@@ -2984,7 +3072,6 @@ fn members_at(
             found
         }
     };
-    drop(session);
     // Most of a type's members are lemmas (a list has ~450 members): they
     // wait for a first letter, which makes the client ask again.
     let found = found.unwrap_or_default();
@@ -3060,19 +3147,17 @@ fn project_closing_actions(
         .file_name()
         .map_or("project".to_string(), |n| n.to_string_lossy().into_owned());
     let cache = source.project_cache(root);
-    let mut session = search_session(server);
-    session.share_cancel_flag(cancel);
-    let found = session.actions_at_project(
-        &name,
-        &files,
-        relative,
-        cache.as_deref(),
-        &text,
-        ranged(range),
-        options,
-    );
-    drop(session);
-    found
+    with_project_session(server, cache.as_deref(), cancel, |session| {
+        session.actions_at_project(
+            &name,
+            &files,
+            relative,
+            cache.as_deref(),
+            &text,
+            ranged(range),
+            options,
+        )
+    })
 }
 
 /// A range as the driver has it.

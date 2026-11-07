@@ -749,6 +749,18 @@ impl Session {
         Some(found)
     }
 
+    /// Turns navigation recording on and loads every library file, as the
+    /// probes of a project's file need; false if the library doesn't load.
+    /// A session marked ([`Session::mark`]) after this and rewound to the
+    /// mark keeps the library, so the probes that follow don't do it again.
+    pub fn load_libraries_for_probes(&mut self) -> bool {
+        if self.elab.all_libraries_loaded() {
+            return true;
+        }
+        self.elab.enable_navigation();
+        self.elab.load_all_libraries().is_ok()
+    }
+
     /// Loads what the namespace of the project's file `path` uses, and that
     /// namespace with the probe `probe` sets (given the file's id and
     /// text): its text, if it got that far.
@@ -766,8 +778,7 @@ impl Session {
         if let Some(include) = files.include_files() {
             self.include_from(include);
         }
-        self.elab.enable_navigation();
-        self.elab.load_all_libraries().ok()?;
+        self.load_libraries_for_probes().then_some(())?;
         let sources = crate::project::project_sources(files, project, &mut self.sources).ok()?;
         if !sources.iter().any(|(p, _)| p == path) {
             return None;
