@@ -1417,6 +1417,7 @@ dependencies = [
  "insta",
  "libc",
  "num-bigint",
+ "num-integer",
  "smallvec",
  "stitchwort-core",
  "stitchwort-dev-features",
