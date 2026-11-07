@@ -43,10 +43,11 @@
         "Design note and decisions (D2498-D2505)",
         "Kernel primitive projections, eta rules 1 and 2, with accept and must-reject tests (SW-1642, on lane/SW-1642)",
         "Fields of glued calls stay calls; std, roguelike and 2021 day 13 pass at about +2% cost (SW-1667, on lane/SW-1642)",
-        "Opus review: kernel sound; merge after the cache fix (SW-1764)"
+        "Opus review: kernel sound; merge after the cache fix (SW-1764)",
+        "Review fixes: the cache keeps the no-eta mark; more must-reject tests (SW-1768)"
       ],
       "now": [
-        "Review fixes (SW-1768); then whole AoC and the roguelike, with Matt's OK"
+        "Ready to merge after one whole-AoC and roguelike run on the branch (needs Matt's OK)"
       ],
       "next": [
         "Resume SW-1667 with the Float.add hold (D2551, D2552)"
