@@ -14270,14 +14270,14 @@
     {
       "id": 1783,
       "title": "test:affected: for an elab-only diff the 90 s cut drops every elab group and keeps core and syntax tests, so the run says little about the change; the cut should keep the changed crate's own tests (SW-1748)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1783",
       "labels": [
         "tooling"
       ],
       "epic": "dev-loop-speed",
-      "body": "From SW-1748.",
+      "body": "From SW-1748.\n\nDone, merged: a rank-1 rule matched by a changed file is cut last; if its own tests alone exceed the budget, cheapest first with a warning naming changed files left untested. SW-1748's diff: 107 s keeping only core/syntax → 31.5 s with the four elab rules. On main: 32 Python tests OK. Follow-ups noted on SW-1781's epic: cheap_only within an over-budget own rule. Model result: Sonnet, worked, 3 min (est. 40).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
