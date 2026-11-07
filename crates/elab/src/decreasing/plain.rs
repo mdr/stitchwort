@@ -979,9 +979,9 @@ impl Elaborator {
         }))
     }
 
-    /// The twin of `h`, a `match` lifted from the step, if its arms call
-    /// `%rec` and the twin differs from it: it drops a parameter, or calls
-    /// a twin itself. `helpers`: all those lifted from the step (one that
+    /// The twin of `h`, if it is a `match` lifted from the step, its arms
+    /// call `%rec` and the twin differs from it: it drops a parameter, or
+    /// calls a twin itself. `helpers`: all those lifted from the step (one that
     /// calls itself or one after it, in a group, gets none).
     fn twin(
         &mut self,
@@ -990,13 +990,23 @@ impl Elaborator {
         helpers: &[DefId],
         lifted: &mut Vec<(DefId, Span)>,
     ) -> Result<Option<Twin>> {
+        // Only a lifted `match`: a local `def` keeps its own name in
+        // `f.unfold`, which its local equations are about.
+        let Some(span) = (self.tables.lifted.iter())
+            .find(|(id, _)| *id == h)
+            .map(|(_, span)| *span)
+        else {
+            return Ok(None);
+        };
         let g = &self.ev();
         let def = g.def(h);
         let Some(body) = def.body().cloned() else {
             return Ok(None);
         };
-        // With its plain `if`s still tagged, if it has any (and the record
-        // is of this helper, not of one an abandoned attempt made).
+        // With its plain `if`s still tagged, if it has any. The records are
+        // kept exact (`lifted_helper_body`), so this only checks that the
+        // record tags the body the kernel has: a kernel rewind could give
+        // the id to a definition that wasn't lifted, and keep the record.
         let recorded = (self.decl.decreasing.borrow().as_ref())
             .and_then(|a| a.tagged_helpers.borrow().get(&h).cloned());
         let body = match recorded {
@@ -1020,16 +1030,10 @@ impl Elaborator {
             return Ok(None);
         };
         let name: Name = format!("{}.%plain", def.name()).into();
-        let lifted_at = (self.tables.lifted.iter())
-            .find(|(id, _)| *id == h)
-            .map(|(_, span)| *span);
-        let span = lifted_at.unwrap_or(def.span());
         let Some(made) = self.plain_def(l, &tel, &result, rec, h, &body, true, &name, span)? else {
             return Ok(None);
         };
-        if let Some(span) = lifted_at {
-            lifted.push((made.twin, span));
-        }
+        lifted.push((made.twin, span));
         Ok(Some(made))
     }
 
@@ -1072,7 +1076,10 @@ impl Elaborator {
                 "the plain `if`s marked aren't the ones counted",
             ));
         }
-        let post = l.post(g, &marked)?;
+        // Again after `post`: a twin's call drops the arguments its twin
+        // doesn't take, which may have been a `let`'s only use. The kernel
+        // sees the two forms as the same by unfolding the `let`s.
+        let post = dead_lets(g, &l.post(g, &marked)?)?;
         // `%rec` without its proof: `(y…) -> B`.
         let k = rec.arity();
         let plain_rec = pis(&rec.tel[..k - 1], instantiate(g, &rec_result, &Term::Refl)?);
