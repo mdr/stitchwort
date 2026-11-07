@@ -11648,14 +11648,14 @@
     {
       "id": 1608,
       "title": "Std: List.distinctFilterMap (Distinct xs → Distinct (xs.filterMap f) for an f that keeps a key), to shorten proofs like day 20's roughAtDistinct (SW-1594)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "std"
       ],
       "epic": "std-library",
-      "body": "From SW-1594, 6 Nov 2026. Small.\n\n7 Nov: docs/reviews/SW-2159-aoc-lemmas-to-std.md says which of its lanes absorbs this (SW-2169-SW-2175).",
+      "body": "From SW-1594, 6 Nov 2026. Small.\n\n7 Nov: docs/reviews/SW-2159-aoc-lemmas-to-std.md says which of its lanes absorbs this (SW-2169-SW-2175).\n\n7 Nov: done in SW-2169 (List.distinctFilterMap).",
       "created": "2026-11-06",
       "updated": "2026-11-07",
       "commits": []
@@ -20028,7 +20028,7 @@
         "proofs"
       ],
       "epic": "aoc-common",
-      "body": "From docs/reviews/SW-2159-aoc-lemmas-to-std.md, lane D0; its brief paragraph is in the report. No std edits. audit:touched on each changed namespace. 45 min.\n\n7 Nov: run SW-2182 first, so the restated lemmas are still there to test search on.",
+      "body": "From docs/reviews/SW-2159-aoc-lemmas-to-std.md, lane D0; its brief paragraph is in the report. No std edits. audit:touched on each changed namespace. 45 min.\n\n7 Nov: run SW-2182 first, so the restated lemmas are still there to test search on.\n\n7 Nov: include rogue's now-unused memAppendLeft/memAppendRight (SW-2169).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20051,14 +20051,14 @@
     {
       "id": 2169,
       "title": "[Sonnet] Std from AoC, List 1: filterMap, map, distinct, index lemmas the days wrote themselves",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2169",
       "labels": [
         "proofs"
       ],
       "epic": "std-library",
-      "body": "From docs/reviews/SW-2159-aoc-lemmas-to-std.md, lane L1; its brief paragraph is in the report. Absorbs part of SW-2003; note SW-1608. snap:hashes, hash_stability, audit:touched per AoC namespace. 60 min.\n\n7 Nov: docs/proposals/std-naming.md corrects some of SW-2159's names; check §1.6 there before naming lemmas.",
+      "body": "From docs/reviews/SW-2159-aoc-lemmas-to-std.md, lane L1; its brief paragraph is in the report. Absorbs part of SW-2003; note SW-1608. snap:hashes, hash_stability, audit:touched per AoC namespace. 60 min.\n\n7 Nov: docs/proposals/std-naming.md corrects some of SW-2159's names; check §1.6 there before naming lemmas.\n\nDone, merged. 16 lemmas moved (Common Grid/GridCells, 2020 days 8, 11, 20, 2021 day 3, 2024 days 9, 14, 22, rogue Apart) plus distinctFilterMap (SW-1608) and distinctWithIndexFrom; all copies deleted; no AoC statement changed. distinctSnocIntro is temporary until SW-2191 frees distinctSnoc. Orchestrator checked the std statements. Lane audits all clean (Std.List 858). On main: hash_stability 9/9, AoC 287 and rogue checked. Rogue's memAppendLeft/Right now unused (SW-2167). Model result: Sonnet, worked, 27 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20381,14 +20381,14 @@
     {
       "id": 2191,
       "title": "[DeepSeek] Std renames N4: List.distinct -> List.unique, distinctEq -> uniqueDecEq, allDistinct -> isDistinct (frees List.distinctSnoc for the List.Distinct lemma)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-2191",
       "labels": [
         "naming"
       ],
       "epic": "std-library",
-      "body": "From docs/proposals/std-naming.md, lane N4; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. Waits on D3150. 45 min.\n\nD3150 — Matt, 7 Nov 2026: \"I prefer unique to distinct anyway, that's fine.\"\n\n7 Nov: before merging, run docs/proposals/std-lemma-references.md §5's check (grep with and without Std., rename f with its fCong family, the four registry/congruence/pin/prelude tests). If a renamed name is one the compiler uses, wait for SW-2197-SW-2199 or flag it.",
+      "body": "From docs/proposals/std-naming.md, lane N4; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. Waits on D3150. 45 min.\n\nD3150 — Matt, 7 Nov 2026: \"I prefer unique to distinct anyway, that's fine.\"\n\n7 Nov: before merging, run docs/proposals/std-lemma-references.md §5's check (grep with and without Std., rename f with its fCong family, the four registry/congruence/pin/prelude tests). If a renamed name is one the compiler uses, wait for SW-2197-SW-2199 or flag it.\n\n7 Nov: then rename List.distinctSnocIntro (SW-2169) to List.distinctSnoc.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
