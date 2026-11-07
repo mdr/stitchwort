@@ -1,5 +1,5 @@
 {
-  "next": 2109,
+  "next": 2110,
   "tickets": [
     {
       "id": 47,
@@ -18993,7 +18993,7 @@
         "fuzz"
       ],
       "epic": "audit-fuzzing",
-      "body": "From Overmind soak report 1 (Matt's laptop, NixOS i7-6700HQ 8 threads, 15 GiB; 7 Nov, commit a3c652a63). Mutated from reject/reads-weaken-over-map-implicits, accept/reads-done-spec-from-expected, reads-named-parser, int-literals-auto, reads-nested-binds, reject/parser-count-differs-from-lemma, accept/pure-fold-in-parse-function. Whole run 2,402 s there. The orchestrator is rerunning the seed on Speedwell to compare. 60 min.\n\nSpeedwell rerun, same seed and 2,000 cases (7 Nov, with three lanes building): passed, no case near the limit, 328 s (55.0% parsed, 78.3% reached the elaborator). The laptop took 2,402 s, 7x slower, against 2x on the AoC check. So likely slow there, not hangs. Suspect: the laptop's binary is the musl target, whose allocator is slow under threads. First step: on the laptop, time one of the 7 saved inputs with a glibc build against the musl one.\n\nSharper suspect: the CLI sets mimalloc as its global allocator (crates/cli/src/main.rs:515), so the AoC check (2x slower on the laptop) uses it; the fuzzer is a test binary (crates/driver/tests/fuzz_elab.rs) with no global allocator, so on Linux it uses musl's malloc (flake.nix builds for musl), which is slow with many threads (7x slower). Matt is asking Overmind to compare 200 cases with and without mimalloc in the test binary.",
+      "body": "From Overmind soak report 1 (Matt's laptop, NixOS i7-6700HQ 8 threads, 15 GiB; 7 Nov, commit a3c652a63). Mutated from reject/reads-weaken-over-map-implicits, accept/reads-done-spec-from-expected, reads-named-parser, int-literals-auto, reads-nested-binds, reject/parser-count-differs-from-lemma, accept/pure-fold-in-parse-function. Whole run 2,402 s there. The orchestrator is rerunning the seed on Speedwell to compare. 60 min.\n\nSpeedwell rerun, same seed and 2,000 cases (7 Nov, with three lanes building): passed, no case near the limit, 328 s (55.0% parsed, 78.3% reached the elaborator). The laptop took 2,402 s, 7x slower, against 2x on the AoC check. So likely slow there, not hangs. Suspect: the laptop's binary is the musl target, whose allocator is slow under threads. First step: on the laptop, time one of the 7 saved inputs with a glibc build against the musl one.\n\nSharper suspect: the CLI sets mimalloc as its global allocator (crates/cli/src/main.rs:515), so the AoC check (2x slower on the laptop) uses it; the fuzzer is a test binary (crates/driver/tests/fuzz_elab.rs) with no global allocator, so on Linux it uses musl's malloc (flake.nix builds for musl), which is slow with many threads (7x slower). Matt is asking Overmind to compare 200 cases with and without mimalloc in the test binary.\n\nConfirmed on Overmind (ad49343d0), 200 cases, same seed: default allocator 229.5 s and 225.3 s (warm), mimalloc in the test binary 37.5 s, same work (identical rates). About 6x: musl's allocator in test binaries. None of the 200 hit 60 s even on the default allocator; cases 558, 737, 1619 not reached. Fix: SW-2109. Then rerun the 2,000 on Overmind to settle the 7.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19144,6 +19144,21 @@
       ],
       "epic": "record-eta",
       "body": "Read-only. Core evaluator change near the kernel (D2364). Expected: 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2109,
+      "title": "[Sonnet] Every test binary uses mimalloc, like the CLI: on Linux (musl) the default allocator made the elaborator fuzzer 6x slower (Overmind: 229 s vs 37.5 s for 200 cases); measure the Mac effect on one heavy test too",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2109",
+      "labels": [
+        "tests"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-2098. crates/driver already has mimalloc as a dev-dependency (for tests/resources.rs). Options: a #[global_allocator] in a small crate every test binary links (dev-features?), or per test target. 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
