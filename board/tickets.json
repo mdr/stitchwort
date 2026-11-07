@@ -19676,9 +19676,9 @@
     {
       "id": 2144,
       "title": "[Sonnet] Three lsp feature tests (semantic_tokens_colour_names..., signature_help_shows..., completion_offers_locals...) each take ~121 s on Overmind's merge tier and finish within a second of each other: likely all waiting on one cold check-cache fill; find what they wait for and make the fill shared or cheap",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2144",
       "labels": [
         "tests"
       ],
