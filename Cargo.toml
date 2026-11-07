@@ -44,6 +44,7 @@ num-bigint = "0.5.1"
 # Writing `program.o` for `stitchwort build` (docs/proposals/standalone-
 # executables.md §4): the major version cranelift-object uses.
 object = { version = "0.40.0", default-features = false }
+num-integer = "0.1.47"
 num-traits = "0.2.19"
 rustix = { version = "1.1.5", features = ["termios"] }
 rustyline = "18.0.1"

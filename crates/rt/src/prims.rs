@@ -17,6 +17,7 @@ use std::cmp::Ordering;
 use std::rc::Rc;
 
 use num_bigint::{BigInt, BigUint, Sign};
+use num_integer::Integer;
 use stitchwort_core::native::Native;
 use stitchwort_core::partial::Primitive;
 
@@ -277,10 +278,54 @@ fn int2(
 /// Truncating division of `a` by `d`, total: `(0, a)` for a zero `d`.
 fn trunc(a: &BigInt, d: &BigInt) -> (BigInt, BigInt) {
     if d.sign() == Sign::NoSign {
-        (BigInt::ZERO, a.clone())
-    } else {
-        (a / d, a % d)
+        return (BigInt::ZERO, a.clone());
     }
+    let (q, r) = div_rem_magnitude(a.magnitude(), d.magnitude());
+    let q_sign = if (a.sign() == Sign::Minus) == (d.sign() == Sign::Minus) {
+        Sign::Plus
+    } else {
+        Sign::Minus
+    };
+    (
+        BigInt::from_biguint(q_sign, q),
+        BigInt::from_biguint(a.sign(), r),
+    )
+}
+
+/// The most bits the quotient of [`div_rem_magnitude`]'s fast path may have.
+const SMALL_QUOTIENT_BITS: u64 = 62;
+
+/// Quotient and remainder of `a` by a non-zero `d`, in one pass.
+///
+/// A quotient that fits a machine word (`pidigits` divides numbers of some
+/// hundred thousand bits by ones of nearly the same size) is found by
+/// dividing the top words and fixing the estimate with a multiply and a
+/// subtract. `num-bigint`'s general division is Burnikel-Ziegler for big
+/// operands, which costs far more than the linear work this needs.
+fn div_rem_magnitude(a: &BigUint, d: &BigUint) -> (BigUint, BigUint) {
+    let (la, ld) = (a.bits(), d.bits());
+    if la >= ld && la - ld < SMALL_QUOTIENT_BITS && ld >= 64 {
+        // `dtop` and `atop` are `d` and `a` with the same low `shift` bits
+        // dropped, so `dtop` has exactly 64 bits and `atop` at most 126.
+        // Since `atop * 2^shift <= a` and `d < (dtop + 1) * 2^shift`, the
+        // estimate `atop / (dtop + 1)` is never above the true quotient, and
+        // is below it by at most a few (the quotient is under 2^62 and `dtop`
+        // is at least 2^63).
+        let shift = (ld - 64) as usize;
+        let dtop = u64::try_from(d >> shift).expect("64 bits");
+        let atop = u128::try_from(a >> shift).expect("at most 126 bits");
+        let mut q = u64::try_from(atop / (u128::from(dtop) + 1)).expect("below 2^62");
+        let product = d * q;
+        if product <= *a {
+            let mut r = a - product;
+            while r >= *d {
+                r -= d;
+                q += 1;
+            }
+            return (BigUint::from(q), r);
+        }
+    }
+    Integer::div_rem(a, d)
 }
 
 /// Euclidean division of `a` by `d`: the remainder is never negative, except
@@ -998,5 +1043,147 @@ mod hole_tests {
             at = &fields[1];
         }
         assert_eq!(seen, [1, 2, 3, 4]);
+    }
+}
+
+#[cfg(test)]
+mod division_tests {
+    use super::*;
+
+    /// xorshift64*: a fixed seed keeps failures reproducible.
+    struct Rng(u64);
+
+    impl Rng {
+        fn next(&mut self) -> u64 {
+            self.0 ^= self.0 >> 12;
+            self.0 ^= self.0 << 25;
+            self.0 ^= self.0 >> 27;
+            self.0.wrapping_mul(0x2545_F491_4F6C_DD1D)
+        }
+
+        /// A number of exactly `bits` bits (none for 0), random below the top bit.
+        fn bits(&mut self, bits: u64) -> BigUint {
+            if bits == 0 {
+                return BigUint::ZERO;
+            }
+            let words = bits.div_ceil(64);
+            let mut n = BigUint::ZERO;
+            for _ in 0..words {
+                n = (n << 64u32) | BigUint::from(self.next());
+            }
+            let extra = words * 64 - bits;
+            (n >> extra) | (BigUint::from(1u8) << (bits - 1))
+        }
+
+        fn signed(&mut self, magnitude: BigUint) -> BigInt {
+            let sign = if self.next() & 1 == 0 {
+                Sign::Plus
+            } else {
+                Sign::Minus
+            };
+            BigInt::from_biguint(sign, magnitude)
+        }
+    }
+
+    /// All three divisions of `a` by `d` against `num-bigint`'s own operators
+    /// and floor division.
+    fn check(a: &BigInt, d: &BigInt) {
+        let want_trunc = (a / d, a % d);
+        assert_eq!(trunc(a, d), want_trunc, "trunc {a} / {d}");
+        let (fq, fr) = a.div_mod_floor(d);
+        assert_eq!(floor(a, d), (fq, fr), "floor {a} / {d}");
+        let (q, r) = euclid(a, d);
+        assert_eq!(&q * d + &r, *a, "euclid {a} / {d}");
+        assert!(
+            r.sign() != Sign::Minus && r.magnitude() < d.magnitude(),
+            "euclid {a} / {d}"
+        );
+    }
+
+    #[test]
+    fn division_by_zero_is_total() {
+        let a = BigInt::from(-7);
+        assert_eq!(trunc(&a, &BigInt::ZERO), (BigInt::ZERO, a.clone()));
+        assert_eq!(euclid(&a, &BigInt::ZERO), (BigInt::ZERO, a.clone()));
+        assert_eq!(floor(&a, &BigInt::ZERO), (BigInt::ZERO, a));
+    }
+
+    #[test]
+    fn random_operands_of_every_size_divide_like_num_bigint() {
+        let mut rng = Rng(0x9E37_79B9_7F4A_7C15);
+        let sizes = [
+            1, 2, 31, 63, 64, 65, 100, 127, 128, 129, 200, 500, 1_000, 3_000, 10_000,
+        ];
+        for &da in &sizes {
+            for &dd in &sizes {
+                for _ in 0..6 {
+                    let a = rng.bits(da);
+                    let d = rng.bits(dd);
+                    let (a, d) = (rng.signed(a), rng.signed(d));
+                    check(&a, &d);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn small_quotients_near_the_fast_path_limit_are_right() {
+        let mut rng = Rng(0xD1B5_4A32_D192_ED03);
+        for ld in [64, 65, 127, 128, 129, 1_000, 10_000] {
+            // Quotients of 0, 1, 2, and around 2^61 and 2^62, 2^63.
+            for gap in [0, 1, 2, 3, 30, 58, 59, 60, 61, 62, 63, 64] {
+                for _ in 0..8 {
+                    let d = rng.bits(ld);
+                    let a = rng.bits(ld + gap);
+                    let (a, d) = (rng.signed(a), rng.signed(d));
+                    check(&a, &d);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn exact_multiples_and_their_neighbours_divide_exactly() {
+        let mut rng = Rng(0xA076_1D64_78BD_642F);
+        let words = [
+            0u64,
+            1,
+            2,
+            u64::MAX,
+            u64::MAX - 1,
+            1 << 62,
+            (1 << 62) - 1,
+            1 << 63,
+            (1 << 63) - 1,
+            (1 << 63) + 1,
+        ];
+        for ld in [64u64, 100, 192, 5_000] {
+            // `d` with a top word of exactly 2^63 (top bit only) or all ones.
+            let top_only = BigUint::from(1u8) << (ld - 1);
+            let all_ones = (BigUint::from(1u8) << ld) - 1u8;
+            for d in [
+                top_only.clone(),
+                top_only + 1u8,
+                all_ones.clone(),
+                rng.bits(ld),
+                all_ones,
+            ] {
+                for &q in &words {
+                    let multiple = &d * q;
+                    for a in [
+                        multiple.clone(),
+                        &multiple + 1u8,
+                        &multiple + &d - 1u8,
+                        &multiple + &d,
+                    ] {
+                        for (sa, sd) in [(1, 1), (1, -1), (-1, 1), (-1, -1)] {
+                            let a = BigInt::from(a.clone()) * sa;
+                            let d = BigInt::from(d.clone()) * sd;
+                            check(&a, &d);
+                        }
+                    }
+                }
+            }
+        }
     }
 }
