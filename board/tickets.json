@@ -17968,9 +17968,9 @@
     {
       "id": 2030,
       "title": "[Opus] decreasing: a match's equation reaches the decrease proof, named or not, and stays out of f.unfold (2021 day 12's stuck proof, 2024 day 23's popMin)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2030",
       "labels": [
         "elab"
       ],
