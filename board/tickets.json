@@ -17354,6 +17354,7 @@
       "labels": [
         "research"
       ],
+      "epic": "aoc-older",
       "body": "Matt (7 Nov 2026): parallel research. Follows docs/research/aoc-2020-friction-days-10-20.md (SW-1598). Expected: 60 min.\n\nDone, merged: docs/research/aoc-friction-synthesis.md. 71 days read. Of SW-1598's 83 tickets: 36 done, 2 next, 45 backlog. Top gap: proof steps act on the computed goal (35+ days, SW-1839/1840). D2830 (6a/6b before print sites [rec]), D2831 (AoC lanes move generic lemmas to std or Common [rec]), D2832-D2834. Tickets SW-2009-SW-2017 (getOr naming is SW-2006). 11 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
@@ -17548,6 +17549,7 @@
       "labels": [
         "std"
       ],
+      "epic": "std-library",
       "body": "From docs/reviews/code-review-std.md (S2, S9). 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
@@ -17562,6 +17564,7 @@
       "labels": [
         "std"
       ],
+      "epic": "std-library",
       "body": "From docs/reviews/code-review-std.md (S1). D2821 [rec: yes]. 75 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
@@ -17576,6 +17579,7 @@
       "labels": [
         "std"
       ],
+      "epic": "std-library",
       "body": "From docs/reviews/code-review-std.md (S3). 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
@@ -17590,6 +17594,7 @@
       "labels": [
         "std"
       ],
+      "epic": "std-library",
       "body": "From docs/reviews/code-review-std.md (S4). 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
@@ -17604,6 +17609,7 @@
       "labels": [
         "std"
       ],
+      "epic": "std-library",
       "body": "From docs/reviews/code-review-std.md. 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
@@ -17618,6 +17624,7 @@
       "labels": [
         "std"
       ],
+      "epic": "std-library",
       "body": "From docs/reviews/code-review-std.md (S7). D2822 [rec: yes]. 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
@@ -17632,6 +17639,7 @@
       "labels": [
         "std"
       ],
+      "epic": "std-library",
       "body": "From docs/reviews/code-review-std.md. 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
@@ -17646,6 +17654,7 @@
       "labels": [
         "std"
       ],
+      "epic": "std-library",
       "body": "From docs/reviews/code-review-std.md. D2823 [rec: yes]. 60 min.\n\nDone, merged: docs/proposals/private-helpers.md. A list-only @[internal], not an enforced private (helpers appear in goals; users prove lemmas about them). D2890-D2893. Tickets SW-2037-SW-2040. 7 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
@@ -17688,6 +17697,7 @@
       "labels": [
         "design"
       ],
+      "epic": "proof-automation",
       "body": "From docs/research/aoc-friction-synthesis.md. Split from SW-758; 4 days. 60 min.\n\nDone, merged: docs/proposals/rewrite-occurrence.md. Four days were three problems: a copy hidden in what % computes to (6a fixes), two visible copies with one wanted (within), a _ matching one instance when all were wanted (failure note). D2860-D2864. Tickets SW-2033-SW-2035. 8 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
@@ -17716,6 +17726,7 @@
       "labels": [
         "design"
       ],
+      "epic": "proof-automation",
       "body": "From docs/research/aoc-friction-synthesis.md. 60 min.\n\nDone, merged: docs/proposals/decreasing-with-hypothesis.md. Parameter hypotheses already work (std uses it three times); gaps: what a match found, what a plain if tested, what a recursive call returned. Facts from match/if reach the decrease proof automatically; f.unfold states the program as written. D2870-D2872. Tickets SW-2029-SW-2032. ~8 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
@@ -17730,6 +17741,7 @@
       "labels": [
         "design"
       ],
+      "epic": "performance",
       "body": "From docs/research/aoc-friction-synthesis.md. Absorbs SW-1576, SW-1602; 6 days. 60 min.\n\nDone, merged: docs/proposals/compute-once.md. Three of six days open (2020 days 15, 19; 2021 day 15). Computed fields (as Lean's computed_fields), then automatic hoisting of small values. D2880-D2885. Tickets SW-2022, SW-2023, SW-2024, SW-2025, SW-2026, SW-2027, SW-2028. 7 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
@@ -17842,6 +17854,7 @@
       "labels": [
         "docs"
       ],
+      "epic": "performance",
       "body": "From docs/proposals/compute-once.md. Stage 0a; absorbs SW-1576's guide half. 30 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
@@ -17856,6 +17869,7 @@
       "labels": [
         "tooling"
       ],
+      "epic": "performance",
       "body": "From docs/proposals/compute-once.md. Stage 0b; replaces SW-1576's lint. 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
@@ -17870,6 +17884,7 @@
       "labels": [
         "elab"
       ],
+      "epic": "performance",
       "body": "From docs/proposals/compute-once.md. Stage 1a. D2880-D2882, D2884. Guide, syntax.md and a feature-tour page. 90 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
@@ -17884,6 +17899,7 @@
       "labels": [
         "runtime"
       ],
+      "epic": "performance",
       "body": "From docs/proposals/compute-once.md. Stage 1b, after SW-2024. 90 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
@@ -17898,6 +17914,7 @@
       "labels": [
         "aoc"
       ],
+      "epic": "performance",
       "body": "From docs/proposals/compute-once.md. Stage 1c, after SW-2025. Closes SW-1602. 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
@@ -17912,6 +17929,7 @@
       "labels": [
         "runtime"
       ],
+      "epic": "performance",
       "body": "From docs/proposals/compute-once.md. Stage 2. D2883. 75 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
@@ -17926,6 +17944,7 @@
       "labels": [
         "runtime"
       ],
+      "epic": "performance",
       "body": "From docs/proposals/compute-once.md. From docs/proposals/compute-once.md (out of scope there). 60 min to design.\n\nDone, merged: docs/proposals/erase-proof-data.md. A ghost mark checked by the kernel (E-GHOST), erased not irrelevant (record eta still compares ghost fields; Agda #2170). Fallback D2905: a thunk. D2900-D2905. Tickets SW-2041-SW-2045. 10 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
@@ -17940,6 +17959,7 @@
       "labels": [
         "elab"
       ],
+      "epic": "proof-automation",
       "body": "From docs/proposals/decreasing-with-hypothesis.md. Stage 1. D2870 [rec: yes]. docs/syntax.md, guide 07-recursion; decreasing examples, a new accept example, changed reject snapshots, snap:hashes, hash_stability. 75 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
@@ -17954,6 +17974,7 @@
       "labels": [
         "elab"
       ],
+      "epic": "proof-automation",
       "body": "From docs/proposals/decreasing-with-hypothesis.md. Stage 2, after SW-2029. Takes over SW-809's match found: item for decreasing definitions. Check omega uses n - k = Succ j. 90 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
@@ -17968,6 +17989,7 @@
       "labels": [
         "docs"
       ],
+      "epic": "proof-automation",
       "body": "From docs/proposals/decreasing-with-hypothesis.md. Stage 3. D2871. 30 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
@@ -17982,6 +18004,7 @@
       "labels": [
         "aoc"
       ],
+      "epic": "proof-automation",
       "body": "From docs/proposals/decreasing-with-hypothesis.md. Stage 4, after SW-2030. D2872. Targeted check and test, snap:hashes, hash_stability, audit:touched. 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
@@ -17996,6 +18019,7 @@
       "labels": [
         "tactics"
       ],
+      "epic": "proof-automation",
       "body": "From docs/proposals/rewrite-occurrence.md. Ticket 1. D2860-D2864. Can start now. task test:one -- rewrite, parser tests, snap:hashes NAME=rewrite-within, hash_stability, guide example check. Absorbs SW-758's occurrence item. 90 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
@@ -18010,6 +18034,7 @@
       "labels": [
         "errors"
       ],
+      "epic": "proof-automation",
       "body": "From docs/proposals/rewrite-occurrence.md. Ticket 2, after SW-1839 (builds on its E-REFL note). D2862. 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
@@ -18024,6 +18049,7 @@
       "labels": [
         "aoc"
       ],
+      "epic": "proof-automation",
       "body": "From docs/proposals/rewrite-occurrence.md. Ticket 3, after SW-2033. Those two days' tests only. 30 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
@@ -18053,6 +18079,7 @@
       "labels": [
         "std"
       ],
+      "epic": "std-library",
       "body": "From docs/proposals/private-helpers.md. Ticket 1. D2890-D2892. 75 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
@@ -18067,6 +18094,7 @@
       "labels": [
         "std"
       ],
+      "epic": "std-library",
       "body": "From docs/proposals/private-helpers.md. Ticket 2, after SW-2037. snap:hashes, hash_stability, bound_to_the_prelude. 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
@@ -18081,6 +18109,7 @@
       "labels": [
         "std"
       ],
+      "epic": "std-library",
       "body": "From docs/proposals/private-helpers.md. Ticket 3, after SW-2038. 45-90 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
@@ -18095,6 +18124,7 @@
       "labels": [
         "std"
       ],
+      "epic": "std-library",
       "body": "From docs/proposals/private-helpers.md. Finding from docs/proposals/private-helpers.md. 30 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
@@ -18109,6 +18139,7 @@
       "labels": [
         "kernel"
       ],
+      "epic": "performance",
       "body": "From docs/proposals/erase-proof-data.md. D2900-D2903. 90 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
@@ -18123,6 +18154,7 @@
       "labels": [
         "elab"
       ],
+      "epic": "performance",
       "body": "From docs/proposals/erase-proof-data.md. After SW-2041. 90 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
@@ -18137,6 +18169,7 @@
       "labels": [
         "runtime"
       ],
+      "epic": "performance",
       "body": "From docs/proposals/erase-proof-data.md. After SW-2042. 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
@@ -18151,6 +18184,7 @@
       "labels": [
         "aoc"
       ],
+      "epic": "performance",
       "body": "From docs/proposals/erase-proof-data.md. After SW-2043. 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
@@ -18165,6 +18199,7 @@
       "labels": [
         "tooling"
       ],
+      "epic": "performance",
       "body": "From docs/proposals/erase-proof-data.md. Stage 3, optional. D2904. 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
@@ -18524,7 +18559,7 @@
         "review"
       ],
       "epic": "docs-tutorials",
-      "body": "Matt (7 Nov 2026): spare capacity, no-build Opus lanes. Expected: 75 min.\n\nDone, merged: docs/proposals/README.md. 153 notes: 102 built, 16 in progress, 19 proposed, 4 superseded, 4 parked, 8 records. 20 built notes say 'nothing is built'; 85 cite moved paths. D2950-D2955. Tickets SW-2071, SW-2072, SW-2073; SW-1642 moved to done. 8 min (est. 75).",
+      "body": "Matt (7 Nov 2026): spare capacity, no-build Opus lanes. Expected: 75 min.\n\nDone, merged: docs/proposals/README.md. 153 notes: 102 built, 16 in progress, 19 proposed, 4 superseded, 4 parked, 8 records. 20 built notes say 'nothing is built'; 85 cite moved paths. D2950-D2955. Tickets SW-2071, SW-2072, SW-2073; SW-1642 moved to done. 8 min (est. 75).\n\nThe questions in full (from the lane's report): D2950: move the six reviews (effect-runtime-review, effect-runtime-external-review, effect-rows-external-review, computation-values-external-review, negative-arguments-review, proof-irrelevance-review) into docs/reviews/ [rec: yes]. D2951: archive eight superseded, parked or record notes (effectful-map, computation-values, folded-goals, goal-readback, record-argument-braces, proof-check-speed, match-generalisation-evaluation, check-cache-key) into docs/proposals/archive/ [rec: yes; no wider archive]. D2952: fix the 20 stale status lines by a DeepSeek sweep (SW-2071) [rec: yes]. D2953: add 'update docs/proposals/README.md' to the workflow step where a lane merges or adds a note [rec: yes]. D2954: fix the moved cited paths in one sweep [rec: not now]. D2955: check the widenIn prototype (done: SW-2072).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -18756,14 +18791,14 @@
     {
       "id": 2085,
       "title": "[Opus] Digest of open decisions: every D question still open on the board and in today's notes and reviews, grouped by epic, each with its recommendation, what it blocks, and whether it can be answered in a word",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2085",
       "labels": [
         "review"
       ],
       "epic": "docs-tutorials",
-      "body": "Matt (7 Nov 2026): spare capacity, no-build Opus lanes. Today raised D2556-D2970. Expected: 60 min.",
+      "body": "Matt (7 Nov 2026): spare capacity, no-build Opus lanes. Today raised D2556-D2970. Expected: 60 min.\n\nDone, merged: docs/reviews/open-decisions-2026-11-07.md. 155 open, 29 answered or overtaken, 3 duplicates, 8 overnight calls to ratify, 70 in a bulk-accept list. D2950-D2955 wording recorded on SW-2069. 16 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
