@@ -13565,16 +13565,16 @@
     {
       "id": 1736,
       "title": "One integration-test binary per crate (137 now): 6-8 s off each incremental rebuild, ~2.5 GB disk per target",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1736",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
       "body": "From the SW-1716 profile, fix 5. See docs/reviews/SW-1716-dev-loop-profile.md §6.",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
