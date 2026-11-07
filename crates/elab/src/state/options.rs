@@ -48,6 +48,10 @@ pub struct Options {
     /// For tests: every namespace replay fails part way
     /// (`fail_namespace_replays_late`).
     pub(crate) fail_replays_late: bool,
+    /// For tests: a replayed entry is refused right after the group with
+    /// the declaration of this full path is admitted and bound
+    /// (`refuse_replays_after`).
+    pub(crate) refuse_replays_after: Option<String>,
     /// For the rewind test: a project's driver checks each namespace, rewinds
     /// to just before it, and checks it again (`rewind.rs`).
     #[doc(hidden)]
@@ -108,6 +112,7 @@ impl Options {
             // Where entries are kept, and a test's way of making replays fail.
             check_cache: _,
             fail_replays_late: _,
+            refuse_replays_after: _,
             // Drives the rewind test.
             recheck_namespaces: _,
             // Caches only save work.

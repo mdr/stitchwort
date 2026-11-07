@@ -697,15 +697,6 @@ impl Kernel {
         self.env.data(id)
     }
 
-    /// Removes the definitions from `defs` on and the data types from
-    /// `datas` on, with the registry entries and cached hashes of them: for
-    /// undoing declarations a check cache entry added before the kernel
-    /// refused part of it. Nothing may refer to them yet.
-    pub fn forget_declarations_from(&mut self, defs: usize, datas: usize) {
-        self.env.truncate(defs, datas);
-        self.caches.forget_from(defs, datas);
-    }
-
     pub fn find_data(&self, name: &str) -> Option<DataId> {
         self.env
             .datas()
@@ -714,9 +705,10 @@ impl Kernel {
             .map(DataId)
     }
 
-    /// Where the environment is now, for [`Kernel::rewind`]. Taken between
-    /// declarations (no operation running): the elaborator's `mark` is the
-    /// only caller.
+    /// Where the environment is now, for [`Kernel::forget_since`] and
+    /// [`Kernel::rewind`]. Taken between declarations, or inside one by
+    /// the elaborator's equations and induction (`rewind_globals`) and by
+    /// a check cache replay, which may run inside another operation.
     pub fn mark(&self) -> KernelMark {
         KernelMark {
             defs: self.env.defs().len(),
@@ -725,20 +717,26 @@ impl Kernel {
         }
     }
 
-    /// Puts the environment back as it was at `mark`: the definitions and
-    /// data types declared since are removed, with everything recorded
-    /// about them (built-ins bound, natives registered, hashes, erasure),
-    /// and the budget is cleared, as if no operation were running.
-    /// Declarations from before the mark are never changed after they are
-    /// final, so nothing else needs undoing; the elaborator rewinds its own
-    /// state, metavariables included. The settings (the `disable_*`
-    /// switches, erasure's) and the cancellation flag stay as they are.
+    /// Puts the declarations back as they were at `mark`: the definitions
+    /// and data types declared since are removed, with everything recorded
+    /// about them (registry entries, built-ins bound, natives, primitives
+    /// and Float bindings registered, hashes, erasure). Declarations from
+    /// before the mark are never changed after they are final, so nothing
+    /// else needs undoing; the elaborator undoes its own state.
+    ///
+    /// The running operation's budget (step limit, stack floor,
+    /// cancellation) is left alone, so this is safe partway through an
+    /// operation: a check cache replay refused by the kernel undoes with it
+    /// while a namespace that needs the file may be elaborating
+    /// (docs/proposals/check-cache-trust.md §3). The settings (the
+    /// `disable_*` switches, erasure's) stay as they are too.
     ///
     /// Every field is named here, so a new one can't be forgotten.
-    pub fn rewind(&mut self, mark: &KernelMark) {
+    pub fn forget_since(&mut self, mark: &KernelMark) {
         let Kernel {
             env,
-            machine,
+            // The running operation's, not the declarations'.
+            machine: _,
             caches,
         } = self;
         assert!(
@@ -747,11 +745,40 @@ impl Kernel {
         );
         env.rewind(mark.defs, mark.datas, &mark.builtins);
         caches.forget_from(mark.defs, mark.datas);
-        machine.reset();
+    }
+
+    /// [`Kernel::forget_since`], then the budget is cleared, as if no
+    /// operation were running: for rewinding a session between checks (the
+    /// language server), when none is. The cancellation flag is cleared
+    /// with the rest of the budget.
+    pub fn rewind(&mut self, mark: &KernelMark) {
+        self.forget_since(mark);
+        self.machine.reset();
+    }
+
+    /// The bindings that [`Kernel::forget_since`] must undo, as text: how
+    /// many declarations there are, the registry and every field of
+    /// [`Builtins`](crate::native::Builtins). Cheap, unlike a dump of the
+    /// declarations themselves: for checking an undo, compared with the
+    /// same taken at the mark.
+    pub fn bindings_dump(&self) -> String {
+        let mut out = format!(
+            "defs {} datas {}\n",
+            self.env.defs().len(),
+            self.env.datas().len()
+        );
+        self.env.registry().dump(&mut out);
+        self.env.builtins().dump(&mut out);
+        out
     }
 }
 
-/// A point [`Kernel::rewind`] goes back to.
+/// Whether undos are checked against a dump taken at their mark: in builds
+/// with the reference evaluator, which every dev and test build has
+/// (`stitchwort-dev-features`).
+pub const CHECK_UNDOS: bool = cfg!(feature = "reference");
+
+/// A point [`Kernel::forget_since`] and [`Kernel::rewind`] go back to.
 #[derive(Clone)]
 pub struct KernelMark {
     defs: usize,

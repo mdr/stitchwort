@@ -245,43 +245,138 @@ impl Builtins {
         self.text.as_ref().filter(|_| !self.disable_compact_text)
     }
 
-    /// What [`Builtins::rewind`] puts back.
+    /// What [`Builtins::rewind`] puts back. Every field is named, so a new
+    /// one has to say how it is undone.
     pub(crate) fn mark(&self) -> BuiltinsMark {
-        BuiltinsMark {
-            nat: self.nat,
-            bool: self.bool,
-            decidable: self.decidable,
-            nat_neq: self.nat_neq,
-            nat_add_rule: self.nat_add_rule,
-            text: self.text.clone(),
-            float: self.float.clone(),
-        }
-    }
-
-    /// Forgets what was registered since `mark`, when the definitions from
-    /// `defs` on are removed again ([`Kernel::rewind`]). The switches
-    /// (`disable_*`) are settings, and stay as they are.
-    pub(crate) fn rewind(&mut self, mark: &BuiltinsMark, defs: usize) {
-        self.natives.retain(|id, _| id.0 < defs);
-        self.native_defs.retain(|_, id| id.0 < defs);
-        self.primitives.retain(|id, _| id.0 < defs);
-        self.float_defs.retain(|id, _| id.0 < defs);
-        let BuiltinsMark {
+        let Builtins {
             nat,
             bool,
             decidable,
             nat_neq,
+            // Keyed by definition: cut by id.
+            natives: _,
+            native_defs: _,
+            primitives: _,
+            float_defs: _,
             nat_add_rule,
             text,
             float,
+            // Settings.
+            disable_natives: _,
+            disable_compact_text: _,
+            disable_float_natives: _,
+            float_natives_outside_runs: _,
+        } = self;
+        BuiltinsMark {
+            nat: *nat,
+            bool: *bool,
+            decidable: *decidable,
+            nat_neq: *nat_neq,
+            nat_add_rule: *nat_add_rule,
+            text: text.clone(),
+            float: float.clone(),
+        }
+    }
+
+    /// Forgets what was registered since `mark`, when the definitions from
+    /// `defs` on are removed again ([`crate::Kernel::forget_since`]). The
+    /// switches (`disable_*`) are settings, and stay as they are.
+    pub(crate) fn rewind(&mut self, mark: &BuiltinsMark, defs: usize) {
+        let Builtins {
+            nat,
+            bool,
+            decidable,
+            nat_neq,
+            natives,
+            native_defs,
+            primitives,
+            float_defs,
+            nat_add_rule,
+            text,
+            float,
+            disable_natives: _,
+            disable_compact_text: _,
+            disable_float_natives: _,
+            float_natives_outside_runs: _,
+        } = self;
+        natives.retain(|id, _| id.0 < defs);
+        native_defs.retain(|_, id| id.0 < defs);
+        primitives.retain(|id, _| id.0 < defs);
+        float_defs.retain(|id, _| id.0 < defs);
+        let BuiltinsMark {
+            nat: was_nat,
+            bool: was_bool,
+            decidable: was_decidable,
+            nat_neq: was_nat_neq,
+            nat_add_rule: was_nat_add_rule,
+            text: was_text,
+            float: was_float,
         } = mark.clone();
-        self.nat_add_rule = nat_add_rule;
-        self.float = float;
-        self.nat = nat;
-        self.bool = bool;
-        self.decidable = decidable;
-        self.nat_neq = nat_neq;
-        self.text = text;
+        *nat = was_nat;
+        *bool = was_bool;
+        *decidable = was_decidable;
+        *nat_neq = was_nat_neq;
+        *nat_add_rule = was_nat_add_rule;
+        *text = was_text;
+        *float = was_float;
+    }
+
+    /// Every field, as text, in an order that doesn't depend on hashing:
+    /// for the check cache's canonical dump and for checking an undo
+    /// ([`crate::Kernel::bindings_dump`]). Every field is named, so a new
+    /// one isn't printed only if it says why.
+    pub fn dump(&self, out: &mut String) {
+        use std::fmt::Write;
+        let Builtins {
+            nat,
+            bool,
+            decidable,
+            nat_neq,
+            natives,
+            native_defs,
+            primitives,
+            float_defs,
+            nat_add_rule,
+            text,
+            float,
+            disable_natives,
+            disable_compact_text,
+            disable_float_natives,
+            float_natives_outside_runs,
+        } = self;
+        let _ = writeln!(
+            out,
+            "builtins nat {nat:?} bool {bool:?} decidable {decidable:?} nat_neq {nat_neq:?} \
+             nat_add_rule {nat_add_rule:?}"
+        );
+        // `small` is made from the two, so it isn't printed.
+        let text = text.as_ref().map(|t| (t.list, t.char));
+        let _ = writeln!(out, "builtins text {text:?} float {float:?}");
+        let _ = writeln!(
+            out,
+            "builtins off natives {disable_natives} compact_text {disable_compact_text} \
+             float_natives {disable_float_natives} float_outside_runs {float_natives_outside_runs}"
+        );
+        let mut sorted: Vec<_> = natives.iter().map(|(id, n)| (id.0, *n)).collect();
+        sorted.sort_by_key(|(id, _)| *id);
+        for (id, n) in sorted {
+            let _ = writeln!(out, "native {} = def {id}", n.name());
+        }
+        let mut sorted: Vec<_> = native_defs.iter().map(|(n, id)| (id.0, *n)).collect();
+        sorted.sort_by_key(|(id, _)| *id);
+        for (id, n) in sorted {
+            let _ = writeln!(out, "native_def {} = def {id}", n.name());
+        }
+        let mut sorted: Vec<_> = primitives.iter().map(|(id, p)| (id.0, *p)).collect();
+        sorted.sort_by_key(|(id, _)| *id);
+        for (id, p) in sorted {
+            let _ = writeln!(out, "primitive {p:?} = def {id}");
+        }
+        let mut sorted: Vec<_> = float_defs.iter().map(|(id, f)| (id.0, *f)).collect();
+        sorted.sort_by_key(|(id, _)| *id);
+        for (id, f) in sorted {
+            let _ = writeln!(out, "float {f:?} = def {id}");
+        }
     }
 }
 

@@ -13,7 +13,7 @@ use std::fmt::Write;
 
 use stitchwort_core::globals::{FieldDefaults, ParamDefaults, UpdateShown};
 use stitchwort_core::js_repr::JsRepr;
-use stitchwort_core::{Icit, Term};
+use stitchwort_core::{Ev, Icit, Term};
 use stitchwort_syntax::Span;
 
 use crate::Elaborator;
@@ -203,6 +203,26 @@ fn term(out: &mut String, t: &Term) {
 pub fn canonical_dump(e: &Elaborator) -> String {
     let mut out = String::new();
     let g = &e.ev();
+    declarations(g, &mut out);
+    // Every binding, with every field of `Builtins`: a replay that skips,
+    // repeats or leaves behind a native or Float registration shows here.
+    g.env.registry().dump(&mut out);
+    g.env.builtins().dump(&mut out);
+
+    e.scope.dump(&mut out);
+
+    e.tables.dump(&mut out);
+    let _ = writeln!(out, "module {:?}", e.unit.module_path);
+    let _ = writeln!(out, "library {:?}", e.loaded_library_files());
+    // What navigation recorded, which its index is made from.
+    e.present
+        .dump(&mut out, &|key| e.scope.get(key).map(|(g, _)| g));
+    out
+}
+
+/// The kernel's definitions and data types, as the canonical dump prints
+/// them.
+pub(super) fn declarations(g: &Ev, out: &mut String) {
     for (i, def) in g.env.defs().iter().enumerate() {
         let _ = write!(
             out,
@@ -222,12 +242,12 @@ pub fn canonical_dump(e: &Elaborator) -> String {
             def.tailrec(),
             def.unfolding().iter().map(|d| d.0).collect::<Vec<_>>(),
         );
-        span(&mut out, def.span());
+        span(out, def.span());
         out.push_str("\n  ty ");
-        term(&mut out, def.ty());
+        term(out, def.ty());
         out.push_str("\n  body ");
         match def.body() {
-            Some(b) => term(&mut out, b),
+            Some(b) => term(out, b),
             None => out.push('-'),
         }
         // What admission works out besides the body, so that a trusted
@@ -242,11 +262,11 @@ pub fn canonical_dump(e: &Elaborator) -> String {
         );
         if let Some(run) = def.own_run_body() {
             out.push_str("\n  run ");
-            term(&mut out, run);
+            term(out, run);
         }
         for v in def.validators() {
             let _ = write!(out, "\n  validator {} ", v.param);
-            term(&mut out, &v.decision);
+            term(out, &v.decision);
         }
         out.push('\n');
     }
@@ -267,14 +287,14 @@ pub fn canonical_dump(e: &Elaborator) -> String {
             data.defs_before(),
             data.datas_before(),
         );
-        span(&mut out, data.span());
+        span(out, data.span());
         for (x, t) in data.params().iter() {
             let _ = write!(out, "\n  param {x} ");
-            term(&mut out, t);
+            term(out, t);
         }
         for (x, t) in data.indices().iter() {
             let _ = write!(out, "\n  index {x} ");
-            term(&mut out, t);
+            term(out, t);
         }
         for ctor in data.ctors() {
             let _ = write!(
@@ -288,50 +308,19 @@ pub fn canonical_dump(e: &Elaborator) -> String {
             );
             for (x, t) in &ctor.fields {
                 let _ = write!(out, "\n    field {x} ");
-                term(&mut out, t);
+                term(out, t);
             }
             for r in &ctor.result {
                 out.push_str("\n    result ");
-                term(&mut out, r);
+                term(out, r);
             }
         }
         for v in data.validators() {
             let _ = write!(out, "\n  validator {} {} ", v.ctor, v.field);
-            term(&mut out, &v.decision);
+            term(out, &v.decision);
         }
         out.push('\n');
     }
-    let _ = writeln!(out, "registry missing {:?}", g.env.registry().missing());
-    for id in 0..g.env.defs().len() {
-        let id = stitchwort_core::DefId(id);
-        if let Some(b) = g.env.registry().def_builtin(id) {
-            let _ = writeln!(out, "builtin {b:?} = def {}", id.0);
-        }
-        if let Some(n) = g.env.builtins().native(id) {
-            let _ = writeln!(out, "native {} = def {}", n.name(), id.0);
-        }
-    }
-    // (A library built-in whose file hasn't loaded is missing, and may not
-    // be asked for.)
-    let missing = g.env.registry().missing();
-    for b in stitchwort_core::registry::Builtin::ALL {
-        if missing.contains(b) {
-            continue;
-        }
-        if let Some(d) = g.env.registry().data(*b) {
-            let _ = writeln!(out, "builtin {b:?} = data {}", d.0);
-        }
-    }
-
-    e.scope.dump(&mut out);
-
-    e.tables.dump(&mut out);
-    let _ = writeln!(out, "module {:?}", e.unit.module_path);
-    let _ = writeln!(out, "library {:?}", e.loaded_library_files());
-    // What navigation recorded, which its index is made from.
-    e.present
-        .dump(&mut out, &|key| e.scope.get(key).map(|(g, _)| g));
-    out
 }
 
 impl Dump for DefId {

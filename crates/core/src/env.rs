@@ -142,7 +142,7 @@ impl Env {
         self.registry.forget_from(defs, datas);
     }
 
-    /// What [`crate::Kernel::rewind`] does to the environment: lengths and
+    /// What [`crate::Kernel::forget_since`] does to the environment: lengths and
     /// bindings only.
     pub(crate) fn rewind(&mut self, defs: usize, datas: usize, builtins: &BuiltinsMark) {
         self.truncate(defs, datas);
