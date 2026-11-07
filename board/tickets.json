@@ -1,5 +1,5 @@
 {
-  "next": 2129,
+  "next": 2137,
   "tickets": [
     {
       "id": 47,
@@ -1144,12 +1144,12 @@
     {
       "id": 813,
       "title": "Interpreter speed: about 6.5 ns per instruction is the main cost in every AoC day (20-100x slower than Python on generated inputs)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-813",
       "labels": [],
       "epic": "performance",
-      "body": "Map lane profile (28 Oct): ~2,060 of 3,000 samples in the machine's main loop, then value freeing and register-vector resizing. Day 19: ~11M small closure calls dominate 8.1 s. Investigate dispatch, frame setup and register allocation before data-structure work.\n\n7 Nov: design first (read-only Opus lane, no measurements; names the evidence to collect): docs/proposals/interpreter-speed.md. From the AoC gap check (docs/reviews/aoc-gaps-status-2026-11-07.md): no plan yet, and the main cost behind Map speed too.",
+      "body": "Map lane profile (28 Oct): ~2,060 of 3,000 samples in the machine's main loop, then value freeing and register-vector resizing. Day 19: ~11M small closure calls dominate 8.1 s. Investigate dispatch, frame setup and register allocation before data-structure work.\n\n7 Nov: design first (read-only Opus lane, no measurements; names the evidence to collect): docs/proposals/interpreter-speed.md. From the AoC gap check (docs/reviews/aoc-gaps-status-2026-11-07.md): no plan yet, and the main cost behind Map speed too.\n\nDesign done, merged: docs/proposals/interpreter-speed.md. Cost is the work around each instruction (calls/returns ~900 host instructions), not dispatch; keep the match loop and shared bytecode; est. 1.5-2x on Map/Set days, 2-3x on call-heavy code. D3060 yes (orchestrator's call: no unsafe in the machine for now). D3061 (about four lane-days worth it?) goes to Matt with stage 0b's profile. Stages SW-2129..SW-2135, SW-2136. Day 19's 8.1 s is out of date (SW-1636: 2.3 s).",
       "created": "2026-10-28",
       "updated": "2026-11-07",
       "commits": []
@@ -19444,6 +19444,126 @@
       ],
       "epic": "dev-loop-speed",
       "body": "From SW-2105. Linux only; Mac is unchanged. Speedwell can only check that the flake still evaluates and builds on Darwin; Overmind verifies on Linux after a push (build, AoC check, and timing a test build: nextest --no-run before and after). 40 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2129,
+      "title": "[Sonnet] Interpreter speed stage 0a: runtime benchmarks run-machine-calls/-loop/-closures/-set plus AoC 2020 day 19, 2021 day 11, 2024 day 9 (bytecode instructions, frames, allocations, time); check whether 2021 day 15 part 1 can be one",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "rt"
+      ],
+      "epic": "performance",
+      "body": "From docs/proposals/interpreter-speed.md. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2130,
+      "title": "[Opus] Interpreter speed stage 0b: opcode counts (separate cargo feature) and a profile, written up in docs/reviews/SW-N-machine-profile.md",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "rt"
+      ],
+      "epic": "performance",
+      "body": "From docs/proposals/interpreter-speed.md. After SW-2129. Its data goes with D3061 to Matt. 90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2131,
+      "title": "[Opus] Interpreter speed stage 1: calls and returns inside the instruction loop; one register stack not resized per call",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "rt"
+      ],
+      "epic": "performance",
+      "body": "From docs/proposals/interpreter-speed.md. After SW-2130 and D3061. 90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2132,
+      "title": "[Sonnet] Interpreter speed stage 2: fast paths for the hot number primitives (extra match arms, no new shared instructions)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "rt"
+      ],
+      "epic": "performance",
+      "body": "From docs/proposals/interpreter-speed.md. After SW-2131. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2133,
+      "title": "[Sonnet] Interpreter speed stage 3: freeing pushes only uniquely owned children onto the work list",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "rt"
+      ],
+      "epic": "performance",
+      "body": "From docs/proposals/interpreter-speed.md. Can run beside stage 1, ideally after SW-1810. After D3061. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2134,
+      "title": "[Sonnet] Interpreter speed stage 4a: a cheaper Apply",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "rt"
+      ],
+      "epic": "performance",
+      "body": "From docs/proposals/interpreter-speed.md. After SW-2131. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2135,
+      "title": "[Opus] Interpreter speed stage 4b: copies of recursive functions for the capturing lambdas they're given (opt.rs); absorbs SW-1672; one after the other with SW-1812",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "rt"
+      ],
+      "epic": "performance",
+      "body": "From docs/proposals/interpreter-speed.md. After SW-2131. 90 min. Stages 5 (pre-processed form) and 6 (validator + unchecked registers, needs D3060 reopened) only if 0b's profile supports them.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2136,
+      "title": "[DeepSeek] Bench hygiene: the bench binary is built with allocation-trace hooks on, so runtime timings overstate the shipped binary; the run- benchmarks' steps count is the checker's, not the machine's",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bench"
+      ],
+      "epic": "performance",
+      "body": "From docs/proposals/interpreter-speed.md. 30 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
