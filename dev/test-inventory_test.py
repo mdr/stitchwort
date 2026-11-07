@@ -36,13 +36,28 @@ class T(unittest.TestCase):
     def test_groups(self):
         self.assertEqual(inv.parse_groups(GROUPS), {("p::b", "a"): "corpus-sweeps"})
 
-    def test_latest_wins_and_scale(self):
+    def test_the_fastest_recent_run_counts_and_scale_applies(self):
         store = {}
-        inv.fold(store, "merge", "2026-01-02", {("p::b", "a"): 2.0})
+        inv.fold(store, "merge", "2026-01-02", {("p::b", "a"): 4.0})
         inv.fold(store, "merge", "2026-01-01", {("p::b", "a"): 9.0})
+        self.assertEqual(store["p::b a"]["merge"]["time"], 4.0)
+        self.assertEqual(store["p::b a"]["merge"]["at"], "2026-01-02")
+        inv.fold(store, "merge", "2026-01-03", {("p::b", "a"): 10.0}, 0.2)
         self.assertEqual(store["p::b a"]["merge"]["time"], 2.0)
-        inv.fold(store, "merge", "2026-01-03", {("p::b", "a"): 10.0}, 0.5)
-        self.assertEqual(store["p::b a"]["merge"]["time"], 5.0)
+
+    def test_the_same_run_folded_twice_counts_once_and_old_runs_age_out(self):
+        store = {}
+        inv.fold(store, "daily", "2026-01-00", {("p::b", "a"): 1.0})
+        for day in range(1, inv.RECENT_RUNS + 1):
+            inv.fold(store, "daily", "2026-01-0%d" % day, {("p::b", "a"): 5.0})
+            inv.fold(store, "daily", "2026-01-0%d" % day, {("p::b", "a"): 5.0})
+        self.assertEqual(len(store["p::b a"]["daily"]["runs"]), inv.RECENT_RUNS)
+        self.assertEqual(store["p::b a"]["daily"]["time"], 5.0)
+
+    def test_an_old_store_without_runs_still_folds(self):
+        store = {"p::b a": {"merge": {"time": 3.0, "at": "2026-01-01"}}}
+        inv.fold(store, "merge", "2026-01-02", {("p::b", "a"): 7.0})
+        self.assertEqual(store["p::b a"]["merge"]["time"], 3.0)
 
     def test_best_time_prefers_merge(self):
         slot = {"merge": {"time": 1, "at": "1"}, "daily": {"time": 5, "at": "2"}}

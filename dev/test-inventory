@@ -77,13 +77,25 @@ def parse_junit(path):
     return stamp, times
 
 
+RECENT_RUNS = 5
+
+
 def fold(store, tier, stamp, times, scale=1.0):
-    """Latest wins, by timestamp, per test and tier."""
+    """Keep each test's last RECENT_RUNS observations per tier (one per
+    JUnit timestamp). Its time is the fastest of them: the daily runs that
+    supply most observations run on a loaded machine, and a test costs about
+    its best time in a lane. A test that really got slower shows once the
+    faster runs age out."""
     for (bid, name), t in times.items():
         slot = store.setdefault("%s %s" % (bid, name), {})
         old = slot.get(tier)
-        if old is None or old["at"] <= stamp:
-            slot[tier] = {"time": round(t * scale, 3), "at": stamp}
+        runs = {}
+        if old:
+            runs = {at: tm for at, tm in old.get("runs", [[old["at"], old["time"]]])}
+        runs[stamp] = round(t * scale, 3)
+        recent = sorted(runs.items())[-RECENT_RUNS:]
+        slot[tier] = {"time": min(tm for _, tm in recent), "at": recent[-1][0],
+                      "runs": [list(r) for r in recent]}
 
 
 def best_time(slot):

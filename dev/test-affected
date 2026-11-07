@@ -442,47 +442,43 @@ def select(files, cfg, inv_mod, inv, budget, notes, use_crate_graph=True, names=
         return ids, examples, estimate_of(inv_mod, inv, ids, examples)
 
     ids, examples, est = current()
-    # Over the budget: cut whole rules, the least relevant rank first and,
-    # within a rank, the one that lowers the estimate most. The most
-    # relevant rank keeps its last rule. Then put back what still fits,
-    # most relevant first, so a cut that overshot is undone.
-    ranks_of = lambda: sorted({r.rank for r in kept if r.rank >= 1}, reverse=True)
+    # Over the budget: cut whole rules, the least relevant rank first, and
+    # every rule of a rank before any of the next (a rank-3 rule that fits
+    # never stays while a rank-2 rule goes). Within a rank, the rule that
+    # lowers the estimate most goes first, then the one with the most time of
+    # its own (sweeps run one at a time, so a rule may not move the estimate).
+    # The most relevant rank keeps its last rule. Then put back what still
+    # fits, most relevant first, stopping at the first rank that cannot all
+    # come back, so a cut that overshot is undone without skipping a rank.
+    def own_time(r, among):
+        others = set().union(*[sets[x.id + id(x).__str__()] for x in among if x is not r])
+        return sum(by_id[i]["time"] if by_id[i]["time_known"] else inv_mod.UNKNOWN_SECONDS
+                   for i in sets[r.id + id(r).__str__()] - others)
+
     while est["estimate"] > budget:
+        ranks = sorted({r.rank for r in kept if r.rank >= 1}, reverse=True)
         best = None
-        for rank in ranks_of():
+        for rank in ranks:
             group = [r for r in kept if r.rank == rank]
-            if rank == min(ranks_of()) and len(group) == 1:
+            if rank == ranks[-1] and len(group) == 1:
                 continue
-            trial = [(est["estimate"] - current([x for x in kept if x is not r])[2]["estimate"], r) for r in group]
-            trial = [t for t in trial if t[0] > 0]
-            if trial:
-                best = max(trial, key=lambda t: t[0])
-                break
-        if not best:
-            # Sweeps are one at a time, so no single rule may move the
-            # estimate: cut the one with the most time of its own.
-            for rank in ranks_of():
-                group = [r for r in kept if r.rank == rank]
-                if rank == min(ranks_of()) and len(group) == 1:
-                    continue
-                spend = []
-                for r in group:
-                    others = set().union(*[sets[x.id + id(x).__str__()] for x in kept if x is not r])
-                    own = sets[r.id + id(r).__str__()] - others
-                    spend.append((sum(by_id[i]["time"] if by_id[i]["time_known"] else inv_mod.UNKNOWN_SECONDS for i in own), r))
-                spend = [t for t in spend if t[0] > 0]
-                if spend:
-                    best = max(spend, key=lambda t: t[0])
-                    break
+            best = max(((est["estimate"] - current([x for x in kept if x is not r])[2]["estimate"],
+                         own_time(r, kept)), r.id, r) for r in group)[2]
+            break
         if not best:
             break
-        kept.remove(best[1])
-        cut.append(best[1])
+        kept.remove(best)
+        cut.append(best)
         ids, examples, est = current()
+    blocked = None
     for r in sorted(cut, key=lambda r: (r.rank, r.id)):
+        if blocked is not None and r.rank > blocked:
+            break
         if current(kept + [r])[2]["estimate"] <= budget:
             kept.append(r)
             cut.remove(r)
+        else:
+            blocked = r.rank
     kept.sort(key=lambda r: ordered.index(r))
     def own_seconds(r):
         others = set().union(*[sets[x.id + id(x).__str__()] for x in kept])
