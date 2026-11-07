@@ -195,10 +195,17 @@
           # The CLI binary alone, without running the test suite: what `nix run`
           # and `nix build` give by default. The tested build is `stitchwort`
           # (in `checks`, so `nix flake check` still runs every test).
+          #
+          # It builds `-p` the crates it ships. A root `cargo build` would also
+          # build stitchwort-bench, which depends on stitchwort-dev-features,
+          # and Cargo would give the shipped binary the dev feature set
+          # (`test-bypass` and the rest). `dev/features-check` (the merge tier)
+          # fails if these arguments' feature set has any of them.
           stitchwort-bin = craneLib.buildPackage (
             commonArgs
             // {
               inherit cargoArtifacts;
+              cargoExtraArgs = "--locked -p stitchwort-cli -p stitchwort-standalone";
               doCheck = false;
               postInstall = installRuntime;
               meta.mainProgram = "stitchwort";

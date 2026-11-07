@@ -12,7 +12,9 @@ publish.workspace = true
 # selects. Cargo unifies features per invocation, and only over what the
 # invocation builds; this is how a single-package invocation gets the same set
 # as `--workspace`. Distributed builds (the flake's package, the browser
-# bundle) don't depend on it and keep their own features.
+# bundle) don't depend on it and keep their own features: they build `-p` the
+# crates they ship, since a root build would also build stitchwort-bench, which
+# depends on this crate, and Cargo would unify the features into the binary.
 [dependencies]
 # The reference evaluator, for the differential tests; and the stack-limit
 # check; and the test-only functions that write a declaration without
