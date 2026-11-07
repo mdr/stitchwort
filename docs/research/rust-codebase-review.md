@@ -152,7 +152,7 @@ The strongest aspect is the use of comparisons that are likely to expose mistake
 - Runtime and native tests compare behavior across execution paths, including effects, resource counts and cleanup on error exits.
 - [check_cache.rs](../../crates/driver/tests/check_cache.rs) compares fresh and cached sessions using a canonical dump, diagnostics and navigation.
 - [rewind.rs](../../crates/driver/tests/rewind.rs) compares rewound/cancelled sessions with a fresh check.
-- Kernel tests construct malformed terms directly, bypassing the elaborator; [kernel fuzzing](../../crates/core/tests/fuzz.rs) extends this beyond hand-selected examples.
+- Kernel tests construct malformed terms directly, bypassing the elaborator; [kernel fuzzing](../../crates/core/tests/it/fuzz.rs) extends this beyond hand-selected examples.
 - [Soundness fuzzing](../../crates/driver/tests/soundness_fuzz.rs) mutates statements and proofs and searches accepted mutants for counterexamples.
 - The formatter reparses its output and checks that it represents the same program before returning it. See [fmt/lib.rs](../../crates/fmt/src/lib.rs).
 

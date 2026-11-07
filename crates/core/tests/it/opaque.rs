@@ -6,11 +6,9 @@
 //! example. The terms are built by hand through the core API: the surface
 //! syntax (`opaque def`, `unfolding`) comes in lane 2.
 
-mod common;
-
 use std::rc::Rc;
 
-use common::*;
+use crate::common::*;
 use stitchwort_core::check::{self, define_group};
 use stitchwort_core::hash::{ContentHash, def_hash};
 use stitchwort_core::term::Term;

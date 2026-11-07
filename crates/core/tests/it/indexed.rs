@@ -6,9 +6,7 @@
 //! example, numbered as in the table. The terms are built by hand: the
 //! surface syntax comes later.
 
-mod common;
-
-use common::*;
+use crate::common::*;
 use stitchwort_core::check::{self, DataDecl, infer_closed};
 use stitchwort_core::hash::{data_hash, def_hash};
 use stitchwort_core::term::Term;

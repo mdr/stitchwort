@@ -1551,7 +1551,7 @@ The elaborator's record flag is not trusted for anything but the JS form.
 - Hashes: renaming a field changes the type's hash, for a record and for an
   ordinary data type; making a data type a record changes it too.
 
-**Stage 2** (raw-kernel tests, as in `crates/core/tests/admission.rs`, and
+**Stage 2** (raw-kernel tests, as in `crates/core/tests/it/admission.rs`, and
 elaborator tests)
 - `Proj(D, i, t)` with `t : E`, `E ≠ D`, both with one constructor and
   compatible field counts (the Lean CVE shape [L4]); `i` out of range;

@@ -1165,7 +1165,7 @@ folded by name (theorems, dictionaries), have no `Quot.lift` leaf and aren't
 native; any other shape is "different", as before. Unification keeps what
 it solves only if the trees are equal. Not built: sharing helpers by content
 hash, which the unfolding makes unnecessary for equality. `docs/core.md`
-(conversion) states the rule; kernel tests in `crates/core/tests/kernel.rs`.
+(conversion) states the rule; kernel tests in `crates/core/tests/it/kernel.rs`.
 
 Limits: a helper that calls the definition it's written in (a `match` inside
 a recursive definition) joins that definition's group, so it's recursive

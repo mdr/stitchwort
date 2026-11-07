@@ -17,11 +17,9 @@
 //! Unit tests of the unifier at both universes (test 24 of the note's §9)
 //! are the fixed problems below.
 
-mod common;
-
 use std::collections::BTreeSet;
 
-use common::*;
+use crate::common::*;
 use stitchwort_core::check;
 use stitchwort_core::term::Term;
 use stitchwort_core::unify_index::{Outcome, Scope, unify};

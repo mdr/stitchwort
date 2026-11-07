@@ -2,12 +2,10 @@
 //! or rejects it with a diagnostic. This feeds it thousands of random, mostly
 //! ill-formed terms, generated from a fixed seed so failures are reproducible.
 
-mod common;
-
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::rc::Rc;
 
-use common::*;
+use crate::common::*;
 use stitchwort_core::check::{self, infer_closed};
 use stitchwort_core::term::Branch;
 use stitchwort_core::{DataId, DefId, Icit, Sort, Term};

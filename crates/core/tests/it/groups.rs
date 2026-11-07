@@ -4,11 +4,9 @@
 //! run to an answer whenever they're accepted. These call the kernel
 //! directly, in orders the elaborator never uses.
 
-mod common;
-
 use std::rc::Rc;
 
-use common::*;
+use crate::common::*;
 use stitchwort_core::check::{self, define_group};
 use stitchwort_core::globals::State;
 use stitchwort_core::hash::def_hash;

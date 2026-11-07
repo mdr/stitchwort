@@ -376,7 +376,7 @@ tasks:
 
   fuzz:kernel:
     desc: 'Kernel fuzzer, release (fixed 3000 terms and seed; no knobs)'
-    summary: Runs crates/core/tests/fuzz.rs, which reads no environment variables.
+    summary: Runs crates/core/tests/it/fuzz.rs, which reads no environment variables.
     cmds:
       - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace --no-capture -E ''package(stitchwort-core) & binary(fuzz)'' {{.CLI_ARGS}}'
 

@@ -4,9 +4,7 @@
 //! everywhere by default, so these tests are what exercises it: everything
 //! that looks inside a value must see the same as without gluing.
 
-mod common;
-
-use common::*;
+use crate::common::*;
 use stitchwort_core::value::{Value, apply, conv, eval, force, quote, quote_folded};
 use stitchwort_core::{DefId, Kernel, Term};
 

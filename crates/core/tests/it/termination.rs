@@ -4,12 +4,11 @@
 //! (docs/proposals/mutual-recursion.md §5.3, §6.2, §6.3), and a comparison
 //! with the structural checker it replaced on generated programs.
 
-mod common;
-mod structural;
+use crate::structural;
 
 use std::rc::Rc;
 
-use common::*;
+use crate::common::*;
 use stitchwort_core::check::{self, define_def};
 use stitchwort_core::hash::def_hash;
 use stitchwort_core::term::{NumArm, Term};

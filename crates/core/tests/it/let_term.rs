@@ -4,12 +4,10 @@
 //! hashing and termination. The elaborator doesn't produce `Let` yet
 //! (stage 3), so everything here is the kernel's own checking.
 
-mod common;
-
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
-use common::*;
+use crate::common::*;
 use stitchwort_core::check::{self, infer_closed};
 use stitchwort_core::hash::def_hash;
 use stitchwort_core::value::{conv, eval, quote};

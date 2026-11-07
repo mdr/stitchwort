@@ -2,11 +2,9 @@
 //! elaborator, so these include terms the elaborator would never produce. Every
 //! rejection must be a diagnostic with the expected code, never a panic.
 
-mod common;
-
 use std::rc::Rc;
 
-use common::*;
+use crate::common::*;
 use stitchwort_core::check::infer_closed;
 use stitchwort_core::value::{conv, eval, quote};
 use stitchwort_core::{Icit, Kernel, Sort, Term, Value};
