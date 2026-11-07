@@ -1,5 +1,5 @@
 {
-  "next": 1979,
+  "next": 1982,
   "tickets": [
     {
       "id": 47,
@@ -14833,7 +14833,7 @@
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 3, 6). Waiting on D2584 (rec: yes). Expected: 60 min.\n\nFrom docs/reviews/code-review-elab-tactics.md (F3): search.rs:1402 already catches a panic per comparison and carries on in the same session, so the caught-panic case is live. D2701: remove that catch, let this ticket's worker-level catch answer 'no result' and drop the kept session [rec: yes].\n\nFrom docs/reviews/code-review-cli-lsp-web-fmt.md (lane A): the checker thread has the same problem and worse (the editor freezes, high): SW-1948. Do them together.",
+      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 3, 6). Waiting on D2584 (rec: yes). Expected: 60 min.\n\nFrom docs/reviews/code-review-elab-tactics.md (F3): search.rs:1402 already catches a panic per comparison and carries on in the same session, so the caught-panic case is live. D2701: remove that catch, let this ticket's worker-level catch answer 'no result' and drop the kept session [rec: yes].\n\nFrom docs/reviews/code-review-cli-lsp-web-fmt.md (lane A): the checker thread has the same problem and worse (the editor freezes, high): SW-1948. Do them together.\n\nFrom docs/proposals/lsp-failure-policy.md: stage 1: a hidden Options::faults field for tests, search worker recovery on a fresh thread, a catch per main-thread request (Sonnet, 75 min). Absorbs D2584, SW-1821 finding 8, cli review F9.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -14848,7 +14848,7 @@
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 4, 5). Two small fixes. Expected: 30 min.\n\nFrom docs/reviews/code-review-core.md (F10): Machine::reset should also clear glue and erasure's active flag (confirmed).\n\nFrom docs/reviews/code-review-elab-tactics.md (F3): the caught-panic case is already live (search.rs:1402); see SW-1820, D2701.",
+      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 4, 5). Two small fixes. Expected: 30 min.\n\nFrom docs/reviews/code-review-core.md (F10): Machine::reset should also clear glue and erasure's active flag (confirmed).\n\nFrom docs/reviews/code-review-elab-tactics.md (F3): the caught-panic case is already live (search.rs:1402); see SW-1820, D2701.\n\nFrom docs/proposals/lsp-failure-policy.md: mostly absorbed by SW-1820 (finding 8) and SW-1979.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -16755,7 +16755,7 @@
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From docs/reviews/code-review-cli-lsp-web-fmt.md (lane A). D2730 [rec: recover; exit if recovery panics]. With SW-1820. 60 min.",
+      "body": "From docs/reviews/code-review-cli-lsp-web-fmt.md (lane A). D2730 [rec: recover; exit if recovery panics]. With SW-1820. 60 min.\n\nFrom docs/proposals/lsp-failure-policy.md: stage 3: recover on a fresh thread rebuilt from a handover record (open texts and versions, focus, last published); quarantine a project that panics twice with no edit; 5 restarts in 3 minutes then stop and say so. D2740 replaces D2730 [rec: recover in-process]; D2741, D2742. Sonnet (Opus if it stalls), 90 min, after SW-1820.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -16785,7 +16785,7 @@
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From docs/reviews/code-review-cli-lsp-web-fmt.md (lane C). D2733 [rec: yes]. 60-90 min.",
+      "body": "From docs/reviews/code-review-cli-lsp-web-fmt.md (lane C). D2733 [rec: yes]. 60-90 min.\n\nFrom docs/proposals/lsp-failure-policy.md: stages 4 (reread stitchwort.yaml; unreadable projects shown in the editor, D2744) and 5 (unload closed projects, D2733), after SW-1948, one after the other.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -16853,14 +16853,14 @@
     {
       "id": 1955,
       "title": "[Opus] Design note: the language server's failure policy (panics in the checker thread, search worker and comparisons; recover, rebuild or exit; what the user sees; project load and unload)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1955",
       "labels": [
         "design"
       ],
       "epic": "editor-playground",
-      "body": "Matt (7 Nov 2026): parallel design work. One policy for SW-1948 (checker panic freezes the editor), SW-1820, SW-1821, D2701, D2730, D2733, SW-1950. Expected: 60 min.",
+      "body": "Matt (7 Nov 2026): parallel design work. One policy for SW-1948 (checker panic freezes the editor), SW-1820, SW-1821, D2701, D2730, D2733, SW-1950. Expected: 60 min.\n\nDone, merged: docs/proposals/lsp-failure-policy.md. Recover on a fresh thread, not drop-the-session, because per-thread state (NO_ETA) can survive a panic. D2740-D2744. Stages on SW-1820, SW-1979, SW-1948, SW-1950, SW-1980, SW-1981. 9 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17206,6 +17206,51 @@
       ],
       "epic": "elaborator-kernel",
       "body": "From docs/proposals/error-kinds.md. Finding. 30 min to decide and fix.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1979,
+      "title": "[Opus] Panic hygiene: remove search.rs:1402's per-candidate catch (editor and CLI); guards for NO_ETA (unify.rs:1672, set/reset with no guard at :2030-2032: a panic between leaves eta off on that thread for good) and cancellable_at; Machine::reset",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "epic": "editor-playground",
+      "body": "From docs/proposals/lsp-failure-policy.md. Stage 2. D2701, D2743. Absorbs the rest of SW-1821, tactics review F3, driver review L7. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1980,
+      "title": "[DeepSeek] VS Code extension: a Restart Server command; watch **/*.sw (client.js:36 watches only stitchwort.yaml, so files changed on disk while closed, after a branch switch or fmt, keep old text until restart)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "epic": "editor-playground",
+      "body": "From docs/proposals/lsp-failure-policy.md. Stage 6 and finding. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1981,
+      "title": "[DeepSeek] Playground worker: the same restart budget and notice wording as the language server",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "epic": "editor-playground",
+      "body": "From docs/proposals/lsp-failure-policy.md. Stage 7, after SW-1948. 30 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
