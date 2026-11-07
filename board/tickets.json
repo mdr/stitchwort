@@ -1,5 +1,5 @@
 {
-  "next": 2143,
+  "next": 2144,
   "tickets": [
     {
       "id": 47,
@@ -19654,6 +19654,21 @@
       ],
       "epic": "aoc-common",
       "body": "From docs/proposals/map-set-list-model.md. After SW-2138. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2143,
+      "title": "[Opus] Design note: goals that print forms the source doesn't have, outside the bounded readback plan: lifted match helpers by internal name (SW-1004, f.%match1), spreads and sumBy/count printed unfolded (SW-1469), record updates and expected types after record eta (SW-2076, SW-2102)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2143",
+      "labels": [
+        "design"
+      ],
+      "epic": "diagnostics",
+      "body": "From docs/reviews/aoc-gaps-status-2026-11-07.md gap 4 (24+ days): these have tickets but no plan. Read-only Opus lane, 7 Nov. Expected: 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
