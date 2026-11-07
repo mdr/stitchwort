@@ -1,5 +1,5 @@
 {
-  "next": 2074,
+  "next": 2075,
   "tickets": [
     {
       "id": 47,
@@ -15802,14 +15802,14 @@
     {
       "id": 1885,
       "title": "[Opus] Pin the Nat natives' content hashes in register_native and register_nat_neq (as Float's are), refuse a second registration",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1885",
       "labels": [
         "kernel"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/code-review-core.md (F2, F16). D2640 [rec: yes]. 45 min.\n\nFrom docs/reviews/code-review-js-native.md (D2710): the effect natives bind, foldComp, translate, runPure are replaced by name and arity on all three backends, and JS's rewrites of ifThenElse, Decidable.elim, Ord.compare, List.append, Nat.add likewise: pin them by content hash with the arrays' loud refusal, in this lane [rec: yes].\n\nFrom docs/proposals/backend-trust.md: rescoped as stage 3: create crates/core/src/pins.rs, one table checked when the library binds a declaration; a stale pin stops the library loading, printing the new hash (D2791); register_native refuses a second registration. SOUNDNESS: with Nat natives unpinned, a changed Nat.sub body plus the old native lets the kernel prove False (reachable only by editing std or a custom prelude, SW-1919). Opus, 60 min, first, alongside SW-1989. The D2710 half moves to SW-1991.\n\nFrom docs/reviews/code-review-std.md (S5): List.length is swapped for List.lengthOnto at run time by name, unhashed, and isn't in the pin table; the review has a table of every std definition the backends bind or rewrite.\n\nD2855/D2792 (Matt, 7 Nov 2026): \"Proceed with those 3\": start now. Expected: 60 min.",
+      "body": "From docs/reviews/code-review-core.md (F2, F16). D2640 [rec: yes]. 45 min.\n\nFrom docs/reviews/code-review-js-native.md (D2710): the effect natives bind, foldComp, translate, runPure are replaced by name and arity on all three backends, and JS's rewrites of ifThenElse, Decidable.elim, Ord.compare, List.append, Nat.add likewise: pin them by content hash with the arrays' loud refusal, in this lane [rec: yes].\n\nFrom docs/proposals/backend-trust.md: rescoped as stage 3: create crates/core/src/pins.rs, one table checked when the library binds a declaration; a stale pin stops the library loading, printing the new hash (D2791); register_native refuses a second registration. SOUNDNESS: with Nat natives unpinned, a changed Nat.sub body plus the old native lets the kernel prove False (reachable only by editing std or a custom prelude, SW-1919). Opus, 60 min, first, alongside SW-1989. The D2710 half moves to SW-1991.\n\nFrom docs/reviews/code-review-std.md (S5): List.length is swapped for List.lengthOnto at run time by name, unhashed, and isn't in the pin table; the review has a table of every std definition the backends bind or rewrite.\n\nD2855/D2792 (Matt, 7 Nov 2026): \"Proceed with those 3\": start now. Expected: 60 min.\n\nDone, merged. pins.rs: 23 pinned declarations checked when the library binds them; a stale pin is E-BUILTIN naming the declaration and its new hash; register_native/register_nat_neq refuse a second registration; NATIVE_HASHES, FLOAT_DATA_HASH, NAT_ADD_HASH gone; task pins:show; Session::with_prelude_falling_back for tests that change the prelude. On main after merge: core 179/179, pins 4/4, pinned_hashes 3/3, bound_to_the_prelude 4/4, a_changed_* 6/6, the two new tests, hashes 6/6, whole AoC no cache 0 errors 67 s, rogue clean. D2791 still open (refusal applied to kernel natives only). Filed SW-2074. Model result: Opus, worked, 15 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -16403,14 +16403,14 @@
     {
       "id": 1925,
       "title": "[Opus] Check-cache replay: when the kernel refuses part of an entry, undo through the kernel's mark and rewind (today native and Float bindings survive, so a later definition under a reused id could run as a native); dump all Builtins; bind builtins on replay only for library entries; a forced-refusal test",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1925",
       "labels": [
         "elab"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/code-review-elab-rest.md (ticket 1). F1, F10, F11. Trust boundary. 45-60 min. First.\n\nFrom docs/proposals/check-cache-trust.md: F1's suggested fix (Kernel::rewind) is wrong: it also resets the machine's step limit, stack floor and cancel flag mid-load. Instead a new Kernel::forget_since(&mark) that undoes declarations only; delete forget_declarations_from. Add a refusal count (asserted zero in the differential tests, D2800), a forced-refusal hook, a dump check at the moment of undo (a recheck binds the same id, so after-the-fact tests pass with the bug), a Float scenario test. Opus, 75 min.",
+      "body": "From docs/reviews/code-review-elab-rest.md (ticket 1). F1, F10, F11. Trust boundary. 45-60 min. First.\n\nFrom docs/proposals/check-cache-trust.md: F1's suggested fix (Kernel::rewind) is wrong: it also resets the machine's step limit, stack floor and cancel flag mid-load. Instead a new Kernel::forget_since(&mark) that undoes declarations only; delete forget_declarations_from. Add a refusal count (asserted zero in the differential tests, D2800), a forced-refusal hook, a dump check at the moment of undo (a recheck binds the same id, so after-the-fact tests pass with the bug), a Float scenario test. Opus, 75 min.\n\nD2856 (Matt, 7 Nov 2026): \"proceed\": start now, per docs/proposals/check-cache-trust.md. Expected: 75 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -16748,14 +16748,14 @@
     {
       "id": 1948,
       "title": "[Sonnet] HIGH: a panic in the language server's checker thread freezes the editor: the thread dies silently, hover answers from old results, diagnostics never update, VS Code doesn't restart it; catch it, rebuild the workspace and show a message, or exit so the editor restarts the server",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1948",
       "labels": [
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From docs/reviews/code-review-cli-lsp-web-fmt.md (lane A). D2730 [rec: recover; exit if recovery panics]. With SW-1820. 60 min.\n\nFrom docs/proposals/lsp-failure-policy.md: stage 3: recover on a fresh thread rebuilt from a handover record (open texts and versions, focus, last published); quarantine a project that panics twice with no edit; 5 restarts in 3 minutes then stop and say so. D2740 replaces D2730 [rec: recover in-process]; D2741, D2742. Sonnet (Opus if it stalls), 90 min, after SW-1820.\n\nFrom docs/reviews/code-review-tests.md: add a hook that panics the checker on a marked file, so the fix is tested.",
+      "body": "From docs/reviews/code-review-cli-lsp-web-fmt.md (lane A). D2730 [rec: recover; exit if recovery panics]. With SW-1820. 60 min.\n\nFrom docs/proposals/lsp-failure-policy.md: stage 3: recover on a fresh thread rebuilt from a handover record (open texts and versions, focus, last published); quarantine a project that panics twice with no edit; 5 restarts in 3 minutes then stop and say so. D2740 replaces D2730 [rec: recover in-process]; D2741, D2742. Sonnet (Opus if it stalls), 90 min, after SW-1820.\n\nFrom docs/reviews/code-review-tests.md: add a hook that panics the checker on a marked file, so the fix is tested.\n\nD2856 (Matt, 7 Nov 2026): \"proceed\": start now; D2741 (quarantine a project that panics twice with no edit; 5 restarts in 3 minutes then stop and say so) and D2742 (pop-up for the first recovered panic only) yes as recommended. Expected: 90 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17399,7 +17399,7 @@
         "backends"
       ],
       "epic": "effects-native",
-      "body": "From docs/proposals/backend-trust.md. After SW-1885. D2791. Closes SW-1586. 75-90 min.",
+      "body": "From docs/proposals/backend-trust.md. After SW-1885. D2791. Closes SW-1586. 75-90 min.\n\nFrom SW-1885: the table is crates/core/src/pins.rs (23 entries: Nat natives, natNeq, Float; R3/R4 use Nat.add's pin). Add entries plus a new 'relied on by' value. Compact text's pins (chars.rs) still switch off silently when stale: move them here per D2791. A stale Float type refuses even in fallback sessions (no body to fall back to): decide whether right.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -18584,6 +18584,21 @@
         "std"
       ],
       "body": "From docs/proposals/README.md. 20 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2074,
+      "title": "[Sonnet] A std whose core doesn't check makes the CLI panic with 'internal error: the prelude doesn't check' (Session::new); a normal error instead",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "cli"
+      ],
+      "epic": "diagnostics",
+      "body": "From SW-1885. 30 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
