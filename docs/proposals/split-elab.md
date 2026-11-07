@@ -222,3 +222,55 @@ lane is building.
   behind a `unit-tests` feature, rather than moving the tests to
   `tests/` and making the items they use `pub`. [rec: the feature; it
   changes no visibility in the shipped crate]
+
+## 8. Stage 3 analysis: does native hold up the test binaries? (SW-1777)
+
+No build was run; this is from `cargo tree` and the timings quoted in
+section 1 (no `--timings` reports are left on disk).
+
+**Who uses `stitchwort-native`.** Only `stitchwort-cli`, as an optional
+dependency behind its `native` feature (`dev` turns it on), and
+`stitchwort-native`'s own tests. `stitchwort-dev-features` does **not**
+depend on it, so section 1's "through `stitchwort-dev-features` that
+includes `stitchwort-native`" is wrong. Native code is called from
+`cli/src/main.rs` and `cli/src/build.rs` (`n1::compile`, `aot::compile_object`,
+`checks::report`) and from the native crate's tests. `driver`, `elab`,
+`core`, `rt`, `host`, `js`, `lsp`, `standalone` and `web` never reference
+it (`rt/src/native_abi.rs` and `standalone/src/aot.rs` only mention the
+name).
+
+**What does reach `cranelift-codegen`.** `stitchwort-dev-features` itself
+lists `cranelift-codegen` with `x86` and `arm64`, to unify the feature set
+so that a `-p` build doesn't compile it again. Every crate's dev-dependency
+on `dev-features` therefore puts `cranelift-codegen` under every test binary,
+including `elab`'s unit tests, whether or not the crate runs native code.
+Making `native` optional in the CLI would change nothing: it already is.
+
+**What would help: drop that line from `dev-features`.**
+
+- Change: remove `cranelift-codegen` from `dev-features`; give
+  `stitchwort-native` an `all-isas` feature (`cranelift-codegen/x86`,
+  `/arm64`) that the CLI's `dev` feature and native's tests turn on, so that
+  `cli` and `native` builds agree under `-p` and `--workspace`. `task
+  test:features` checks that no selection compiles a crate twice.
+- Test meaning: no test loses native coverage. The CLI's and native's tests
+  keep the full native build. The risk is only a feature-set mismatch that
+  compiles `cranelift-codegen` twice for some `-p` selection (more build
+  time, not wrong results).
+- Clean build: `cranelift-codegen` ends at 99.8 s (264.6 s run) and 92.6 s
+  (175.6 s run), always before `elab`'s library (113.8 s and 93.2 s), and the
+  tail is `elab`'s and `core`'s unit tests, which wait for `elab`/`core` as
+  well. So the critical path gains **0 s**. The test binaries that don't
+  depend on `elab` (`core`, `rt`, `syntax`, `host`, `js`) could start up to
+  the 0.6 to 14 s earlier, but they are not last.
+- Incremental rebuild: **0 s**; `cranelift-codegen` isn't recompiled.
+- Where it does pay: a single-package run (`task test:one -- stitchwort_elab`,
+  a lane's first test) in a worktree whose kache is cold would skip about 67 s
+  of `cranelift-codegen` CPU, about one core's work. With a warm kache it is
+  seconds.
+
+**Recommendation:** don't. It saves nothing on the clean build's critical
+path or on rebuilds, and it takes apart a mechanism built to stop duplicate
+compiles. Stage 3 is closed; correct section 1's sentence if this document
+is edited again. Revisit only if `elab`'s library gets under about 60 s,
+when `cranelift-codegen` becomes the last library.
