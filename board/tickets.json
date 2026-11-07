@@ -1,5 +1,5 @@
 {
-  "next": 1971,
+  "next": 1972,
   "tickets": [
     {
       "id": 47,
@@ -16418,9 +16418,9 @@
     {
       "id": 1926,
       "title": "[Opus] Effect rows: retry a call's own postponed row comparisons before settling its row to empty (comp_app, SW-1564), then retry SW-1581",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1926",
       "labels": [
         "elab"
       ],
@@ -17086,6 +17086,21 @@
       ],
       "epic": "test-infra",
       "body": "From docs/proposals/deep-input.md. Stage 9. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1971,
+      "title": "[Opus] Design note: what the check cache trusts (replay skips the kernel): replay undo and native bindings (SW-1925), custom prelude keys (SW-1919), shared dev/release entries (D2680), the canonical dump; whether some tier rechecks replayed entries",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1971",
+      "labels": [
+        "design"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "Matt (7 Nov 2026): parallel design work. Expected: 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
