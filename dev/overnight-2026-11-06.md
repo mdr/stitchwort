@@ -101,3 +101,4 @@ Take these in order, once the speed queue above is empty or blocked.
 - 02:27: SW-1763 (DeepSeek, 9 min) merged: Float sums print as x + y.
 - 02:28: SW-1776 held in review (three edits per new elab unit test vs an unmeasured ~25 s per clean build): D2565 for the morning. SW-1763 merged. SW-1743 started.
 - 02:34: SW-1778 merged; merge tier 1148/1148 in 78 s.
+- 02:40: measured SW-1776: clean build 164 → 144 s, CPU -134 s. D2565 stands.
