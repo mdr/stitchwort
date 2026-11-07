@@ -1,5 +1,5 @@
 {
-  "next": 1829,
+  "next": 1830,
   "tickets": [
     {
       "id": 47,
@@ -14954,6 +14954,22 @@
       ],
       "epic": "goal-as-written",
       "body": "D2585 (Matt, 7 Nov 2026). Expected: 60 min. No builds.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1829,
+      "title": "[Opus] Regression after record eta (SW-1642): whole-AoC check --no-cache did not finish in 6 min (killed at 360 s; ~69 s on main this morning, SW-1801); roguelike 5 s fine. Find the namespace and declaration, the cause, and fix or say what to revert",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1829",
+      "labels": [
+        "bug",
+        "kernel"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From the D2507 check, 7 Nov 08:11. Merge 319c28c0c. Expected: 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
