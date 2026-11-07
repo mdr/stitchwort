@@ -564,3 +564,180 @@ impl QualifierLevels for PrePass<'_, '_> {
         }
     }
 }
+
+// ---- Checking only some theorems ---------------------------------------
+
+/// A namespace's syntax, for [`plan_theorems`].
+pub struct PlanNamespace<'a> {
+    pub name: &'a str,
+    pub modules: Vec<&'a Module>,
+    /// Whether the theorems nothing needs are left out: the namespaces the
+    /// command named (the others are what those use, checked in full).
+    pub pruned: bool,
+}
+
+/// Which theorems a check of only some of them leaves unchecked.
+#[derive(Debug, Default)]
+pub struct TheoremPlan {
+    /// For each namespace with any: the names of its theorems left out, as
+    /// written in the namespace (`Proofs.foo` is written `foo`, or
+    /// `List.foo` for a theorem declared under `List`).
+    pub skip: BTreeMap<String, BTreeSet<String>>,
+    /// The theorems of the namespaces pruned, and how many of them are
+    /// checked.
+    pub total: usize,
+    pub checked: usize,
+}
+
+/// The name of a theorem's declaration, as written.
+fn theorem_name(decl: &Decl) -> Option<&str> {
+    match decl {
+        Decl::Signature {
+            name,
+            theorem: true,
+            ..
+        } => Some(name.text.as_str()),
+        _ => None,
+    }
+}
+
+/// The last segment of a written name.
+fn last_segment(text: &str) -> &str {
+    text.rsplit('.').next().unwrap_or(text)
+}
+
+/// Which theorems of the pruned namespaces must still be checked for
+/// `only` (full names) to be: the named ones; and every theorem that a
+/// declaration kept refers to, by name, in its own namespace or in a
+/// namespace after it. Every declaration that isn't a theorem is kept (and
+/// so what it refers to), as are all the declarations of the namespaces not
+/// pruned. `namespaces` are in canonical order (each after what it uses).
+///
+/// This is worked out from the names written alone, without resolving
+/// them, so it errs towards keeping: a theorem is kept if any kept
+/// declaration writes a name with the same last segment, or a dot call to a
+/// method with that name. What it can't see is a theorem that checking
+/// would use without writing its name, which no part of the language does
+/// for the theorems a project declares. Should one be skipped that was
+/// needed, the use fails (the name is unchecked), never passes.
+///
+/// `Err` has a message for a name in `only` that is no theorem of a
+/// namespace pruned.
+pub fn plan_theorems(namespaces: &[PlanNamespace], only: &[String]) -> Result<TheoremPlan, String> {
+    // Every name in `only` must be a theorem of a pruned namespace.
+    for full in only {
+        let mut found: Option<(&str, bool, bool)> = None;
+        for ns in namespaces {
+            let Some(written) = full
+                .strip_prefix(ns.name)
+                .and_then(|rest| rest.strip_prefix('.'))
+            else {
+                continue;
+            };
+            for decl in ns.modules.iter().flat_map(|m| &m.decls) {
+                match decl {
+                    Decl::Signature { name, theorem, .. } if name.text == written => {
+                        found = Some((ns.name, ns.pruned, *theorem));
+                    }
+                    Decl::Data { name, .. } | Decl::Ability { name, .. }
+                        if name.text == written =>
+                    {
+                        found = Some((ns.name, ns.pruned, false));
+                    }
+                    _ => {}
+                }
+            }
+        }
+        match found {
+            None => {
+                return Err(format!(
+                    "there's no theorem `{full}` in the namespaces being checked"
+                ));
+            }
+            Some((_, _, false)) => {
+                return Err(format!("`{full}` is not a theorem"));
+            }
+            Some((ns, false, true)) => {
+                return Err(format!(
+                    "theorem `{full}` is in namespace {ns}, which is only checked as what \
+                     others use; name {ns} too"
+                ));
+            }
+            Some((_, true, true)) => {}
+        }
+    }
+    let only: BTreeSet<&str> = only.iter().map(String::as_str).collect();
+    let mut plan = TheoremPlan::default();
+    // Last segments of the names that kept declarations of later
+    // namespaces write.
+    let mut wanted: BTreeSet<String> = BTreeSet::new();
+    for ns in namespaces.iter().rev() {
+        let groups: Vec<(&Decl, &[Decl])> =
+            ns.modules.iter().flat_map(|m| grouped(&m.decls)).collect();
+        let refs: Vec<BTreeSet<String>> = groups
+            .iter()
+            .map(|(decl, equations)| {
+                decl_refs(decl, equations)
+                    .into_iter()
+                    .flat_map(|(r, _)| match r {
+                        Ref::Name(n) => vec![last_segment(&n.text).to_string()],
+                        Ref::Dot(n, field, _) => {
+                            vec![last_segment(&n.text).to_string(), field]
+                        }
+                    })
+                    .collect()
+            })
+            .collect();
+        let mut kept: Vec<bool> = groups
+            .iter()
+            .map(|(decl, _)| match theorem_name(decl) {
+                None => true,
+                Some(written) => {
+                    !ns.pruned
+                        || only.contains(format!("{}.{written}", ns.name).as_str())
+                        || wanted.contains(last_segment(written))
+                }
+            })
+            .collect();
+        loop {
+            let mut changed = false;
+            let used: BTreeSet<&String> = refs
+                .iter()
+                .zip(&kept)
+                .filter(|(_, k)| **k)
+                .flat_map(|(r, _)| r)
+                .collect();
+            for (i, (decl, _)) in groups.iter().enumerate() {
+                if !kept[i]
+                    && let Some(written) = theorem_name(decl)
+                    && used.contains(&last_segment(written).to_string())
+                {
+                    kept[i] = true;
+                    changed = true;
+                }
+            }
+            if !changed {
+                break;
+            }
+        }
+        for (i, (decl, _)) in groups.iter().enumerate() {
+            if let Some(written) = theorem_name(decl)
+                && ns.pruned
+            {
+                plan.total += 1;
+                if kept[i] {
+                    plan.checked += 1;
+                } else {
+                    plan.skip
+                        .entry(ns.name.to_string())
+                        .or_default()
+                        .insert(written.to_string());
+                }
+            }
+            if kept[i] {
+                wanted.extend(refs[i].iter().cloned());
+            }
+        }
+    }
+    Ok(plan)
+}

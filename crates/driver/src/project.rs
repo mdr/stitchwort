@@ -6,7 +6,9 @@ use std::cmp::Reverse;
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, VecDeque};
 use std::path::{Path, PathBuf};
 
-use stitchwort_elab::project::{Edge, NamespaceSyntax, SourceUnit, direct_names};
+use stitchwort_elab::project::{
+    Edge, NamespaceSyntax, PlanNamespace, SourceUnit, direct_names, plan_theorems,
+};
 use stitchwort_syntax::ast::{Decl, Module};
 use stitchwort_syntax::{
     Diagnostic, FileId, Severity, SourceMap, Span, parse_module_recovering, parse_namespace_line,
@@ -21,6 +23,14 @@ pub enum Target {
     /// Each name's namespace (if there is one) and every namespace under it
     /// (`Aoc.Year2025.Day01` and `Aoc.Year2025.Day01.Tests`), and what they use.
     Subtrees(Vec<String>),
+    /// Like `Namespaces`, but checking only the theorems `only` names (full
+    /// names), and those they need, in the namespaces named; the namespaces
+    /// are those of the theorems if none is named. What they use is checked
+    /// in full. [`Loaded::theorems`] says how many theorems were checked.
+    Theorems {
+        namespaces: Vec<String>,
+        only: Vec<String>,
+    },
 }
 
 /// What the command loading a project does with it.
@@ -41,6 +51,15 @@ pub struct Loaded {
     pub project: String,
     /// The namespaces checked, in canonical order.
     pub checked: Vec<String>,
+    /// For [`Target::Theorems`]: how many of the theorems of the namespaces
+    /// named were checked, and how many there are.
+    pub theorems: Option<TheoremCount>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TheoremCount {
+    pub checked: usize,
+    pub total: usize,
 }
 
 impl Session {
@@ -94,7 +113,49 @@ impl Session {
             return Err(analysis.diagnostics);
         }
         let known: BTreeSet<String> = analysis.namespaces.iter().map(|n| n.name.clone()).collect();
+        // For `Target::Theorems`: the namespaces whose unneeded theorems are
+        // left out, and the theorems wanted.
+        let mut pruned: Vec<String> = Vec::new();
         let needed: BTreeSet<String> = match target {
+            Target::Theorems { namespaces, only } => {
+                let names: Vec<String> = if namespaces.is_empty() {
+                    let mut own = BTreeSet::new();
+                    for full in only {
+                        let owner = known
+                            .iter()
+                            .filter(|n| {
+                                full.strip_prefix(n.as_str())
+                                    .is_some_and(|r| r.starts_with('.'))
+                            })
+                            .max_by_key(|n| n.len());
+                        match owner {
+                            Some(n) => {
+                                own.insert(n.clone());
+                            }
+                            None => {
+                                return Err(vec![Diagnostic::error(
+                                    "E-UNKNOWN-THEOREM",
+                                    format!("there's no theorem `{full}` in the project"),
+                                )]);
+                            }
+                        }
+                    }
+                    own.into_iter().collect()
+                } else {
+                    namespaces.clone()
+                };
+                let unknown: Vec<Diagnostic> = names
+                    .iter()
+                    .filter(|n| !known.contains(*n))
+                    .map(|n| unknown_namespace(project, n, &known))
+                    .collect();
+                if !unknown.is_empty() {
+                    return Err(unknown);
+                }
+                let needed = closure(&analysis, &names).into_iter().collect();
+                pruned = names;
+                needed
+            }
             Target::Everything => known.clone(),
             Target::Namespaces(names) => {
                 let unknown: Vec<Diagnostic> = names
@@ -136,11 +197,35 @@ impl Session {
                     .collect());
             }
         };
+        let mut counted = None;
+        if let Target::Theorems { only, .. } = target {
+            let syntax: Vec<PlanNamespace> = order
+                .iter()
+                .map(|name| {
+                    let ns = analysis.namespace(name).expect("a namespace");
+                    PlanNamespace {
+                        name,
+                        modules: ns.modules.iter().collect(),
+                        pruned: pruned.contains(name),
+                    }
+                })
+                .collect();
+            let plan = plan_theorems(&syntax, only)
+                .map_err(|message| vec![Diagnostic::error("E-UNKNOWN-THEOREM", message)])?;
+            self.elab.options.skip_theorems = plan.skip;
+            counted = Some(TheoremCount {
+                checked: plan.checked,
+                total: plan.total,
+            });
+        }
         if self.elab.uses_check_cache() {
             let sources = self.namespace_sources(project, &analysis);
             self.elab.set_namespace_sources(sources);
         }
+        // (A namespace read from the cache is not elaborated, so its theorems
+        // couldn't be counted: `check --only` loads everything.)
         let skipped = if load == Load::Diagnostics
+            && counted.is_none()
             && skip_unneeded_enabled()
             && self.elab.uses_check_cache()
             && !self.elab.options.recheck_namespaces
@@ -172,6 +257,7 @@ impl Session {
             }
         };
         self.elab.leave_namespace();
+        self.elab.options.skip_theorems.clear();
         if diagnostics.iter().any(|d| d.severity == Severity::Error) {
             return Err(diagnostics);
         }
@@ -179,6 +265,7 @@ impl Session {
         Ok(Loaded {
             project: project.to_string(),
             checked: order,
+            theorems: counted,
         })
     }
 

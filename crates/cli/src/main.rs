@@ -7,7 +7,7 @@ use clap::{Parser, Subcommand};
 use rustyline::error::ReadlineError;
 use stitchwort_cli::driver::{Cache, Outcome, Session, TestResult};
 use stitchwort_cli::project::{
-    DiskFiles, Load, Target, analyse, find_project, namespace_of, project_sources,
+    DiskFiles, Load, Target, TheoremCount, analyse, find_project, namespace_of, project_sources,
     run_unknown_namespace,
 };
 use stitchwort_cli::render::render;
@@ -100,6 +100,19 @@ enum Command {
         /// output for `-`. One file or any number of namespaces
         #[arg(long, value_name = "FILE")]
         index: Option<String>,
+        /// Check only this theorem (its full name; repeat the option, or
+        /// separate names with commas, for several), and the theorems it
+        /// needs, in the namespaces named, or in its own namespace if none
+        /// is. The other theorems of those namespaces are not checked, and
+        /// the output says how many were. Everything that isn't a theorem
+        /// is checked as usual
+        #[arg(
+            long,
+            value_name = "THEOREM",
+            value_delimiter = ',',
+            conflicts_with_all = ["index", "counterexamples"]
+        )]
+        only: Vec<String>,
         #[command(flatten)]
         counterexamples: CounterexampleArgs,
         #[command(flatten)]
@@ -589,12 +602,14 @@ fn run(cli: Cli) -> ExitCode {
             targets,
             project,
             index,
+            only,
             counterexamples,
             cache,
         } => check(
             &targets,
             project.as_deref(),
             index.as_deref(),
+            &only,
             &counterexamples,
             &cache,
         ),
@@ -982,12 +997,12 @@ fn load_project_counting(
     target: &Target,
     load: Load,
     reported: &mut Vec<Diagnostic>,
-) -> Option<usize> {
+) -> Option<(usize, Option<TheoremCount>)> {
     match session.load_project_for(&project.files, &project.name, target, load) {
         Ok(loaded) => {
             reported.extend(std::mem::take(&mut session.warnings));
             report(&session.sources, reported);
-            Some(loaded.checked.len())
+            Some((loaded.checked.len(), loaded.theorems))
         }
         Err(diagnostics) => {
             report(&session.sources, &diagnostics);
@@ -1128,10 +1143,15 @@ fn check(
     targets: &[String],
     project: Option<&Path>,
     index: Option<&str>,
+    only: &[String],
     counterexamples: &CounterexampleArgs,
     cache: &CacheArgs,
 ) -> ExitCode {
     let files = targets.iter().filter(|t| is_file_target(t)).count();
+    if files > 0 && !only.is_empty() {
+        eprintln!("error: --only names theorems of a project's namespaces, not of a file");
+        return ExitCode::FAILURE;
+    }
     if files > 0 && files < targets.len() {
         eprintln!("error: give either files or names in the project, not both");
         return ExitCode::FAILURE;
@@ -1172,7 +1192,12 @@ fn check(
     let Some(project) = locate_project(project, "check", "check hello.sw") else {
         return ExitCode::FAILURE;
     };
-    let target = if targets.is_empty() {
+    let target = if !only.is_empty() {
+        Target::Theorems {
+            namespaces: targets.to_vec(),
+            only: only.to_vec(),
+        }
+    } else if targets.is_empty() {
         Target::Everything
     } else {
         Target::Namespaces(targets.to_vec())
@@ -1191,9 +1216,24 @@ fn check(
     let goals = goals_open(&reported);
     report_goals(goals);
     let mut ok = checked.is_some() && goals == 0;
-    if let (true, Some(count)) = (ok, checked) {
+    if let (true, Some((count, theorems))) = (ok, checked) {
         let plural = if count == 1 { "" } else { "s" };
-        eprintln!("checked {count} namespace{plural} of {}", project.name);
+        match theorems {
+            Some(t) if t.checked < t.total => eprintln!(
+                "checked {} of {} theorems of the namespaces named: the other {} were NOT \
+                 checked ({count} namespace{plural} of {} loaded)",
+                t.checked,
+                t.total,
+                t.total - t.checked,
+                project.name
+            ),
+            Some(t) => eprintln!(
+                "checked {} of {} theorems of the namespaces named: all of them were needed \
+                 ({count} namespace{plural} of {} loaded)",
+                t.checked, t.total, project.name
+            ),
+            None => eprintln!("checked {count} namespace{plural} of {}", project.name),
+        }
     }
     if let Some(index) = index {
         let root = format!("{}/", project.name);

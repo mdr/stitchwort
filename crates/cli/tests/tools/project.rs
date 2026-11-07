@@ -548,6 +548,66 @@ theorem clearHoles (dice: Dice) (state: State):
     | False => ?
 ";
 
+const ONLY_PROOFS: &str = "namespace P.Proofs
+
+def double (n: Nat): Nat := n + n
+
+theorem helper : double 2 = 4 := rfl
+
+theorem usesHelper : double 2 + 0 = 4 := helper
+
+theorem unrelated : double 3 = 6 := rfl
+
+theorem broken : double 3 = 7 := rfl
+";
+
+/// `check --only` checks the theorems named and what they use, and says
+/// how many it checked; an unnamed theorem that is wrong isn't noticed, and
+/// a name that is no theorem is an error.
+#[test]
+fn check_only_named_theorems() {
+    let dir = project(
+        "check_only",
+        &[("stitchwort.yaml", ""), ("src/proofs.sw", ONLY_PROOFS)],
+    );
+    let named = |names: &str| stitchwort(&dir, &["check", "--only", names]);
+
+    let output = named("P.Proofs.unrelated");
+    assert!(output.status.success(), "{}", err(&output));
+    assert!(
+        err(&output).contains("checked 1 of 4 theorems") && err(&output).contains("NOT checked"),
+        "{}",
+        err(&output)
+    );
+
+    // `helper` is needed by `usesHelper`, so it is checked too.
+    let output = named("P.Proofs.usesHelper,P.Proofs.unrelated");
+    assert!(output.status.success(), "{}", err(&output));
+    assert!(
+        err(&output).contains("checked 3 of 4 theorems"),
+        "{}",
+        err(&output)
+    );
+
+    // Named, the broken one is checked and fails.
+    let output = named("P.Proofs.broken");
+    assert!(!output.status.success(), "{}", err(&output));
+
+    // The whole namespace still finds it.
+    let output = stitchwort(&dir, &["check", "P.Proofs"]);
+    assert!(!output.status.success(), "{}", err(&output));
+
+    for (name, message) in [
+        ("P.Proofs.nope", "there's no theorem `P.Proofs.nope`"),
+        ("P.Proofs.double", "`P.Proofs.double` is not a theorem"),
+    ] {
+        let output = named(name);
+        assert_eq!(output.status.code(), Some(1), "{name}: {}", err(&output));
+        assert!(err(&output).contains(message), "{name}: {}", err(&output));
+        assert!(!err(&output).contains("NOT checked"), "{}", err(&output));
+    }
+}
+
 fn copy_tree(from: &Path, to: &Path) {
     std::fs::create_dir_all(to).unwrap();
     for entry in std::fs::read_dir(from).unwrap() {
