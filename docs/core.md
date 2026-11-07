@@ -290,6 +290,7 @@ Each of these not marked fixed fails today in every mode, glued and unglued. Non
 | G7 | one tree's leaf against the other's stuck `case` | `viaHelper c x = inline c x` | SW-2258 |
 | G8 | two alike trees with `NumCase` nodes (a limit until fixed) | `isThreeA n = isThreeB n` | SW-2259 |
 | G9 | native `Nat.add` with `Succ` of a folded call as its first argument | `Succ (two 0) + n`, in the wrapping test only | SW-2261 |
+| G11 | fixed (SW-2256): the unifier had G6's break, comparing two calls of one definition by arguments alone, so a given `a := 1` made `rfl` fail | `needSame [a := 1] x rfl`, for `ignoresFirst a x = ignoresFirst 2 x` (`examples/accept/same-definition-unify.sw`) | SW-2256 |
 
 (`two`, `yes`: `decreasing` definitions computing `2` and `True`; `pickA`/`pickB`, `ignoresFirst`/`alsoIgnores`: helpers with the same tree; the definitions are in the probes.) The elaborator's own shape-reading rules have the same kind of gap (`cases` on `pick 3 b`, `omega` on `x + two 0`): SW-2253.
 

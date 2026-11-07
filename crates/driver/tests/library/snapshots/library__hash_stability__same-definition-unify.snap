@@ -1,0 +1,13 @@
+---
+source: crates/driver/tests/library/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+Main.ignoresFirst e2c66a3d1ab96e35c21cb765b772ad3ab28129e159b7c3e776fde3dbf50668e3
+Main.ignoresFirst.eq1 b1f6d20797cacbb336821c042bce9333aa0c76ce3535921ab7bf95728b5d72dc
+Main.ignoresFirst.eq2 d1c2454ccb3e9a98810867fb87ea5af4add44fc5fdf74b2f94eceb1205e7dc2e
+Main.needSame 5866d0be18619aaf9b405ddb66ba1df3ee3c99ed6eb0c0b3d7dbd191f52a19e2
+Main.sameAnswer 0c5d8ea8ef39dc6aa6df545142726e6cb6d2750e2a14a16f65e2a484edc80cf1
+Main.givenA 02b0c55526ce41290a339f7442ab9500663c2742ac7cc40462f814c6f79af5f8
+Main.solvedA a4b3afb46279dc5dc389b79a28b7a92af396c5818bd176c3e393707240a2db34
+Main.test "the unifier accepts the differing calls" 7babda6f4e237a5b4fabf68e46c325f9a343f1de6d1f5258ffdd0d1134ff8bf1
+Main.test "the unifier solves from the matching call" c3a9480c40168dd5b45e1cd487873c097dad4e8d60c9c4817f2e9a3f759ed1f9
