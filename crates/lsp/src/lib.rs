@@ -112,6 +112,38 @@ pub struct Options {
     /// were found from ([`members_at`]), so that the request after the
     /// first letter typed, which asks again, doesn't check the file again.
     pub members: Arc<Mutex<Option<FoundMembers>>>,
+    /// Panics to cause on purpose, for the tests of how the server recovers
+    /// (nothing set in use).
+    #[doc(hidden)]
+    pub faults: Arc<Faults>,
+}
+
+/// Panics a test asks the server to cause ([`Options::faults`]). A relaxed
+/// load per search or request when nothing is set.
+#[doc(hidden)]
+#[derive(Debug, Default)]
+pub struct Faults {
+    /// How many of the next proof searches panic before they start.
+    pub search_panics: std::sync::atomic::AtomicUsize,
+    /// A request method answered on the main thread that panics, once.
+    pub request_panic: Mutex<Option<String>>,
+}
+
+impl Faults {
+    fn search_panics_now(&self) -> bool {
+        self.search_panics
+            .try_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1))
+            .is_ok()
+    }
+
+    fn request_panics_now(&self, method: &str) -> bool {
+        let mut armed = lock(&self.request_panic);
+        if armed.as_deref() == Some(method) {
+            *armed = None;
+            return true;
+        }
+        false
+    }
 }
 
 /// The members found for a document text (see [`Options::members`]).
@@ -132,6 +164,7 @@ impl Options {
             refresh_tokens: false,
             refresh_hints: false,
             members: Arc::default(),
+            faults: Arc::default(),
         }
     }
 }
@@ -263,9 +296,8 @@ pub fn serve_from(
             let options = options.clone();
             let source = source.clone();
             std::thread::Builder::new()
-                .name(format!("stitchwort-search-{n}"))
-                .stack_size(options.stack)
-                .spawn(move || search_worker(jobs, sender, searches, options, source))
+                .name(format!("stitchwort-search-supervisor-{n}"))
+                .spawn(move || keep_search_worker(n, jobs, sender, searches, options, source))
                 .map_err(|e| e.to_string())
         })
         .collect::<Result<Vec<_>, _>>()?;
@@ -280,6 +312,7 @@ pub fn serve_from(
         searches,
         to_searches,
         document_changes,
+        faults: options.faults.clone(),
     };
     let result = main.run();
     // Stops the check in progress; the checker then sees the channel closed.
@@ -569,8 +602,12 @@ struct PendingSearch {
     uri: Url,
     /// What it was asked for (`codeAction`, `contextAt`).
     kind: &'static str,
-    /// Stops a search that is running (the project path honours it) and
-    /// skips one still queued.
+    /// Skips a search still queued, and stops one in its pause
+    /// ([`Options::search_delay`]). A search already running is not
+    /// stopped: the sessions only carry the flag
+    /// (`Session::share_cancel_flag`), and nothing turns on the check of it
+    /// (`Session::cancellable`), so it runs to its end and `searched`
+    /// answers null.
     cancel: Arc<AtomicBool>,
     answered: AtomicBool,
 }
@@ -596,33 +633,86 @@ fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
     m.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-/// A worker of the proof-search pool: separate from the checker, so a
-/// search never delays diagnostics and the number running is bounded. A
-/// result is sent only if its request wasn't cancelled and its document is
-/// still at the version it was computed from.
-fn search_worker(
+/// Keeps worker `n` of the proof-search pool running: when its thread ends
+/// because a search panicked, starts another, once the old thread is gone
+/// and with it everything it kept (the kept session, `WARM`). The server
+/// doesn't trust anything a panicking search could have touched.
+fn keep_search_worker(
+    n: usize,
     jobs: Receiver<SearchJob>,
     sender: Sender<Message>,
     searches: Arc<Searches>,
     options: Options,
     source: Arc<dyn Source>,
 ) {
-    for job in jobs {
-        run_search(job, &sender, &searches, &options, &*source);
+    loop {
+        let worker = {
+            let (jobs, sender, searches) = (jobs.clone(), sender.clone(), searches.clone());
+            let (options, source) = (options.clone(), source.clone());
+            std::thread::Builder::new()
+                .name(format!("stitchwort-search-{n}"))
+                .stack_size(options.stack)
+                .spawn(move || search_worker(jobs, sender, searches, options, source))
+        };
+        let worker = match worker {
+            Ok(worker) => worker,
+            Err(e) => {
+                eprintln!("stitchwort lsp: could not start a search worker: {e}");
+                return;
+            }
+        };
+        match worker.join() {
+            Ok(false) => return,
+            Ok(true) => eprintln!("stitchwort lsp: search worker {n} restarted after a panic"),
+            Err(_) => eprintln!("stitchwort lsp: search worker {n} died; restarting it"),
+        }
     }
 }
 
-/// Runs one queued search and answers its request.
+/// A worker of the proof-search pool: separate from the checker, so a
+/// search never delays diagnostics and the number running is bounded. A
+/// result is sent only if its request wasn't cancelled and its document is
+/// still at the version it was computed from. Returns whether it ended
+/// because a search panicked (the request answered with null).
+fn search_worker(
+    jobs: Receiver<SearchJob>,
+    sender: Sender<Message>,
+    searches: Arc<Searches>,
+    options: Options,
+    source: Arc<dyn Source>,
+) -> bool {
+    for job in jobs {
+        if !run_search(job, &sender, &searches, &options, &*source) {
+            return true;
+        }
+    }
+    // Dropped here rather than while the thread's other thread-locals are
+    // being destroyed.
+    #[cfg(not(target_family = "wasm"))]
+    drop(WARM.with(|w| w.borrow_mut().take()));
+    false
+}
+
+/// The text of a panic's payload.
+fn panic_message(payload: &(dyn std::any::Any + Send)) -> String {
+    (payload.downcast_ref::<&str>().map(|s| s.to_string()))
+        .or_else(|| payload.downcast_ref::<String>().cloned())
+        .unwrap_or_else(|| "unknown panic".to_string())
+}
+
+/// Runs one queued search and answers its request: with null if the search
+/// panicked, when it returns false and the caller must drop everything the
+/// thread owned.
 fn run_search(
     job: SearchJob,
     sender: &Sender<Message>,
     searches: &Searches,
     options: &Options,
     source: &dyn Source,
-) {
+) -> bool {
     if job.pending.cancel.load(Ordering::Relaxed) {
         lock(&searches.pending).remove(&job.id);
-        return;
+        return true;
     }
     let now = searches.running.fetch_add(1, Ordering::SeqCst) + 1;
     options.search_peak.fetch_max(now, Ordering::SeqCst);
@@ -635,14 +725,31 @@ fn run_search(
             std::thread::sleep(Duration::from_millis(5));
         }
     }
+    let mut survived = true;
     let result = if job.pending.cancel.load(Ordering::Relaxed) {
         serde_json::Value::Null
     } else {
         let cancel = job.pending.cancel.clone();
-        (job.search).run(options, source, cancel)
+        let search = job.search;
+        let ran = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            if options.faults.search_panics_now() {
+                panic!("injected search fault");
+            }
+            search.run(options, source, cancel)
+        }));
+        ran.unwrap_or_else(|payload| {
+            eprintln!(
+                "stitchwort lsp: a {} search panicked, answered with no result: {}",
+                job.pending.kind,
+                panic_message(&*payload)
+            );
+            survived = false;
+            serde_json::Value::Null
+        })
     };
     searches.running.fetch_sub(1, Ordering::SeqCst);
     searched(&job.id, &job.pending, job.version, result, sender, searches);
+    survived
 }
 
 /// Answers the search for request `id` with `result`, if it wasn't
@@ -685,6 +792,7 @@ struct Main {
     to_searches: Sender<SearchJob>,
     /// Whether the client applies versioned `documentChanges` edits.
     document_changes: bool,
+    faults: Arc<Faults>,
 }
 
 impl Main {
@@ -708,8 +816,31 @@ impl Main {
         Ok(())
     }
 
-    /// Answers a request other than `shutdown`, now or from a search.
+    /// Answers a request other than `shutdown`, now or from a search. A
+    /// panic in answering it is caught and answered with an error: the
+    /// handlers read the server's state without changing it, so the main
+    /// thread is still sound. (Notifications are not caught: they change it.)
     fn request(&self, request: Request) {
+        let id = request.id.clone();
+        let method = request.method.clone();
+        let ran = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            self.request_uncaught(request)
+        }));
+        let Err(payload) = ran else { return };
+        let message = panic_message(&*payload);
+        eprintln!("stitchwort lsp: {method} panicked: {message}");
+        // A search already queued is answered by its worker.
+        if !lock(&self.searches.pending).contains_key(&id) {
+            let response = Response::new_err(
+                id,
+                ErrorCode::InternalError as i32,
+                format!("internal error in {method}: {message}"),
+            );
+            let _ = self.connection.sender.send(response.into());
+        }
+    }
+
+    fn request_uncaught(&self, request: Request) {
         let request = if request.method == request::CodeActionRequest::METHOD {
             self.code_action(request);
             return;
@@ -1306,6 +1437,9 @@ impl Main {
     }
 
     fn answer(&self, request: Request) -> Response {
+        if self.faults.request_panics_now(&request.method) {
+            panic!("injected request fault");
+        }
         let id = request.id.clone();
         let nav = self.nav.read().unwrap_or_else(|e| e.into_inner());
         let result = match request.method.as_str() {
@@ -2619,6 +2753,7 @@ impl Inline {
             searches: Arc::default(),
             to_searches,
             document_changes: false,
+            faults: options.faults.clone(),
         };
         Ok(Inline {
             main,
