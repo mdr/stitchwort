@@ -101,7 +101,8 @@ Details and examples are in "Reporting to Matt" in `docs/workflow.md`.
   (day 8's lookup lemmas into std)". Status replies go by epic, using the
   names Matt gave the work, each item's status first.
 - "aw" means a table of active work. Every table of running work has the
-  same six columns: Ticket, Epic, Machine, Model, Running for, Summary.
+  same seven columns: Ticket, Epic, Machine, Model, Paper, Running for,
+  Summary.
 - Before quoting how long a job takes, look up how long it took before, and
   set a stop point up front (Matt stopped a "two-minute" job at 25 min,
   5 Nov 2026).

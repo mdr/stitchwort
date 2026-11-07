@@ -392,7 +392,7 @@ when finished work under ticket names read as not started).
 **Active work.** "aw" means a table with one row for every lane running:
 the board's `doing` tickets, background agents, DeepSeek runs and
 Overmind's jobs. Every table of running work, not only for "aw", has these
-six columns (Matt, 2 and 7 Nov 2026), with nothing around it beyond what's
+seven columns (Matt, 2 and 7 Nov 2026), with nothing around it beyond what's
 needed:
 
 | Column | What goes in it |
@@ -401,6 +401,7 @@ needed:
 | Epic | the epic's title |
 | Machine | **Speedwell** (this Mac) or **Overmind** (the soak laptop): "Overmind isn't a model, it's a computer" |
 | Model | Opus, Sonnet or DeepSeek; "DeepSeek, then an Opus review" when a review is part of the lane |
+| Paper | ✓ for a paper lane (no builds or tests), empty otherwise (Matt, 7 Nov 2026) |
 | Running for | measured fresh each time: `ps -o etime=` on a DeepSeek run's opencode process; an agent's launch time, or its worktree's creation (`/usr/bin/stat -f '%SB' -t '%H:%M' .claude/worktrees/SW-N`); an Overmind job's sending time |
 | Summary | one sentence |
 
