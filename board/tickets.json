@@ -1,5 +1,5 @@
 {
-  "next": 2108,
+  "next": 2109,
   "tickets": [
     {
       "id": 47,
@@ -18941,14 +18941,14 @@
     {
       "id": 2095,
       "title": "[Opus] Match on a call's field, stage 1: an applied stuck field computes first, like any over-applied call; plus the Proj arm in match's as-written check",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2095",
       "labels": [
         "elab"
       ],
       "epic": "record-eta",
-      "body": "From docs/proposals/match-call-field.md stage 1 (D2990, D2992, orchestrator's call 7 Nov). Checks: match-field.sw as an accept example, an rfl conversion example, audit:touched on Aoc.Year2021.Day15 with the workarounds put back (incl. the let (Both ...) in Answers.sw:34); check reference.rs. 75 min.",
+      "body": "From docs/proposals/match-call-field.md stage 1 (D2990, D2992, orchestrator's call 7 Nov). Checks: match-field.sw as an accept example, an rfl conversion example, audit:touched on Aoc.Year2021.Day15 with the workarounds put back (incl. the let (Both ...) in Answers.sw:34); check reference.rs. 75 min.\n\nDone, merged. apply_step sends a neutral ending in a projection to apply_field (cold): with gluing on, the call's case tree runs and Frame::FieldOf takes the field then applies it (D2992); J likewise; stuck in its own tree, the field stays stuck. Kernel evaluation unchanged (gluing off); reference.rs unchanged (never glues). Proj arm in Finder::agree. 2021 day 15: both workarounds gone (tiledIsTiles deleted; let (Both ...) back), no statement changed. 3 accept examples. On main: core 179, elab 156, targeted 59, whole AoC 0 errors 77 s (loaded; lane measured 69.4 s), rogue clean, audit 2020 day 20 87/87. Model result: Opus, worked, 24 min (est. 75).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -18956,9 +18956,9 @@
     {
       "id": 2096,
       "title": "[Opus] Match on a call's field, stage 2: rule 2 keeps folded calls (decreasing, Quot.lift leaf) as (f x).i, elaborator only",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2096",
       "labels": [
         "elab"
       ],
@@ -19106,14 +19106,14 @@
     {
       "id": 2106,
       "title": "[Sonnet] The flake's default package (stitchwort-bin) builds the whole workspace, so stitchwort-bench's normal dependency on dev-features turns on test-bypass, reference, stack-check and alloc-trace in the shipped binary: build it with -p, and add a check that the shipped feature set has none of them",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2106",
       "labels": [
         "nix"
       ],
       "epic": "test-infra",
-      "body": "From docs/reviews/SW-2103-pins-at-binding.md (F1, medium). Confirmed by the orchestrator: cargo tree --workspace shows all four features on stitchwort-core; -p stitchwort-cli shows none. Since SW-1091 (3 Nov). reference and stack-check may also slow the nix-built binary. Confirm with one nix build. 45 min.",
+      "body": "From docs/reviews/SW-2103-pins-at-binding.md (F1, medium). Confirmed by the orchestrator: cargo tree --workspace shows all four features on stitchwort-core; -p stitchwort-cli shows none. Since SW-1091 (3 Nov). reference and stack-check may also slow the nix-built binary. Confirm with one nix build. 45 min.\n\nDone, merged. stitchwort-bin: cargoExtraArgs --locked -p stitchwort-cli -p stitchwort-standalone (the old package also installed stitchwort-bench); dev/features-check (task test:features, in the merge tier) fails on test-bypass/reference/stack-check/alloc-trace, shown to catch the workspace case; three comments fixed. Speed on a loaded machine: no measurable cost from the dev features (after was 5-7% more user time, noise). On main: features-check passes, flake evaluates. Note: a plain root cargo build --release still gets dev features. Model result: Sonnet, worked, 15 min (est. 45).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19129,6 +19129,21 @@
       ],
       "epic": "effects-native",
       "body": "From docs/reviews/SW-2103-pins-at-binding.md (F2-F4). Tests: a_second_registration_is_refused_by_name, a_native_is_registered_once, every_pin_is_checked_at_binding. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2108,
+      "title": "[Opus] Fresh-eyes review of SW-2095 (evaluator: an applied stuck field of a call computes the call first, Frame::FieldOf, gluing only; Proj arm in match's as-written check)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2108",
+      "labels": [
+        "review"
+      ],
+      "epic": "record-eta",
+      "body": "Read-only. Core evaluator change near the kernel (D2364). Expected: 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
