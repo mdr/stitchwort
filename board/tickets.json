@@ -1,5 +1,5 @@
 {
-  "next": 2275,
+  "next": 2279,
   "tickets": [
     {
       "id": 47,
@@ -21626,14 +21626,74 @@
     {
       "id": 2274,
       "title": "[Opus] Review SW-2254 (std always elaborates glued: Elaborator::gluing() = options.glue || loading_prelude): is the trade-off right (STITCHWORT_GLUE=0 no longer tests std unglued), does any of the 13 sites need the old switch, and does the check cache's glue key now mislead",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2274",
       "labels": [
         "review"
       ],
       "epic": "elaborator-kernel",
-      "body": "Read-only. 15 min.",
+      "body": "Read-only. 15 min.\n\nDone, merged: docs/reviews/SW-2274-std-always-glued.md. Right fix. F1 (medium) -> SW-2275, F2 -> SW-2276, F3 -> SW-2277 (backlog), F4 -> SW-2275.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2275,
+      "title": "[Sonnet] SW-2274 F1/F4: library equations made on demand (in_library_file, library.rs:1381) set the glue switch like std loading, so search, doc and STITCHWORT_GLUE=0 get the same equation as a proof; a hash test (search vs proof); fix four stale comments (proof_equivalence.rs:1284, options.rs:30-36, lib.rs:665, lib.rs:912)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/SW-2274-std-always-glued.md. Step 1 (~15 min): F1 and its test. Step 2 (~10 min): F4.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2276,
+      "title": "[Sonnet] SW-2274 F2: leave glue out of the check cache key for library files (keep it for namespaces); split the_cache_keeps_glued_results_from_an_unglued_run into two assertions",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/SW-2274-std-always-glued.md. 20 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2277,
+      "title": "[Sonnet] SW-2274 F3: an opt-in test that loads std unglued with the pins bypassed (std is no longer elaborated unglued anywhere)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "test-infra",
+      "body": "From docs/reviews/SW-2274-std-always-glued.md. Backlog (orchestrator's call: test strategy, reversible). 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2278,
+      "title": "[Opus] Review SW-2266 (the soundness fuzzer no longer cuts the file after the theorem under test; mutants equal to the source after formatting are skipped): can a later declaration now make a false mutant look accepted, or hide a finding; is the no-op check safe when the formatter rejects a fragment",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2278",
+      "labels": [
+        "review"
+      ],
+      "epic": "audit-fuzzing",
+      "body": "Read-only. The fuzzer is a trust tool. 15 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
