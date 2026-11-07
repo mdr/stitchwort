@@ -13745,16 +13745,16 @@
     {
       "id": 1748,
       "title": "Bounded readback stage 1b: the remaining output-term sites (effects.rs 31, derive_induct.rs 30, interfaces.rs 10; 10 eval(quote(v)) round trips to check); hashes of derived and effectful std declarations move",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1748",
       "labels": [
         "design"
       ],
       "epic": "goal-as-written",
       "body": "From SW-1747's site table (docs/reviews/SW-1747-stage-0b-sites.md). SW-1746 keeps to the note's §2.5 list.",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
