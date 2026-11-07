@@ -1,5 +1,5 @@
 {
-  "next": 2147,
+  "next": 2151,
   "tickets": [
     {
       "id": 47,
@@ -9672,7 +9672,7 @@
         "std"
       ],
       "epic": "std-library",
-      "body": "From 2020 day 11 (SW-1470), 5 Nov 2026.\n\nFrom docs/research/aoc-friction-synthesis.md: widen into a fuelled-run kit, including 'enough fuel finishes'.",
+      "body": "From 2020 day 11 (SW-1470), 5 Nov 2026.\n\nFrom docs/research/aoc-friction-synthesis.md: widen into a fuelled-run kit, including 'enough fuel finishes'.\n\n7 Nov: widened into the std loop kit (docs/proposals/enough-fuel.md, D3080); enough-fuel half in SW-2147, iterateUntilStableWithin in SW-2148, which closes this.",
       "created": "2026-11-05",
       "updated": "2026-11-07",
       "commits": []
@@ -19571,14 +19571,14 @@
     {
       "id": 2137,
       "title": "[Opus] Design item: an 'enough fuel finishes' lemma (a fuelled function given more fuel than its measure gives the same answer), so AoC days that use fuel can prove their answers without counting steps",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2137",
       "labels": [
         "design"
       ],
       "epic": "proof-automation",
-      "body": "From docs/reviews/aoc-gaps-status-2026-11-07.md (no plan yet; termination and fuel is synthesis gap 7, 15+ days). Read-only Opus lane, 7 Nov. Expected: 60 min.",
+      "body": "From docs/reviews/aoc-gaps-status-2026-11-07.md (no plan yet; termination and fuel is synthesis gap 7, 15+ days). Read-only Opus lane, 7 Nov. Expected: 60 min.\n\nDesign merged: docs/proposals/enough-fuel.md. Std loop kit (Sonnet, ~3¾ h, ~80-90 proof lines removed; completeness half for 2024 day 17). D3080 yes, D3081 yes (2020 day 19's fuel waits for a second grammar day or SW-199) — orchestrator's calls, per the decision-scope rule. Stages SW-2147-SW-2150.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19714,6 +19714,66 @@
       ],
       "epic": "proof-automation",
       "body": "From SW-2029's report. The callback part may belong with SW-2030; check first. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2147,
+      "title": "[Sonnet] Std loop kit: std/Nat/Loop.sw (LoopStep Continue/Stop, Loop.run, Loop.after, runAfter, runMore, runAgree, runEnough, runMeasure, Nat.iterateCongOn) and a guide section with a checked example",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proofs"
+      ],
+      "epic": "std-library",
+      "body": "From docs/proposals/enough-fuel.md. Stage 1, §-brief in the note. Absorbs SW-1476's enough-fuel half. snap:hashes, hash_stability. Guide and syntax.md per the language-feature rule. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2148,
+      "title": "[Sonnet] Nat.iterateUntilStableWithin on the loop kit (…Sound, …Complete, Nat.iterateFixedUnique); closes SW-1476",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proofs"
+      ],
+      "epic": "std-library",
+      "body": "From docs/proposals/enough-fuel.md. Stage 2, after SW-2147. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2149,
+      "title": "[Sonnet] 2020 day 11 (Settle.sw:13-70) and 2021 day 11 (Cascade.sw) onto the loop kit; firstSeat as decreasing if SW-2030 has landed (stop at 15 min if it resists); top statements unchanged",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proofs"
+      ],
+      "epic": "aoc-older",
+      "body": "From docs/proposals/enough-fuel.md. Stage 3, after SW-2148. audit:touched for both namespaces. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2150,
+      "title": "[Sonnet] 2024 day 17 onto Loop.run: runMoreFuel removed, haltsStops added (a halting run finishes given enough fuel), the 'Not proved' line narrowed",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proofs"
+      ],
+      "epic": "aoc-older",
+      "body": "From docs/proposals/enough-fuel.md. Stage 4, after SW-2147; beside SW-2149. audit:touched -- Aoc.Year2024.Day17. 50 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
