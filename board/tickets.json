@@ -22031,9 +22031,9 @@
     {
       "id": 2301,
       "title": "[Sonnet] Big numbers: Int / and % make one divmod call, not two, with a fast path when the quotient fits one word (pidigits' quotients are single digits); property tests",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2301",
       "labels": [
         "perf"
       ],
@@ -22121,9 +22121,9 @@
     {
       "id": 2307,
       "title": "[Sonnet] Comparative speed: scale the AoC inputs so the fastest language runs at least 0.3 s (compiled Lean takes 20-60 ms on most; only dijkstra and memory-game at 30M clear it): repeat or loop inputs, per program, in programs.toml",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2307",
       "labels": [
         "perf"
       ],
@@ -22136,9 +22136,9 @@
     {
       "id": 2308,
       "title": "[Opus] SW-2306 F2+F1: shape_hash gives every glued call the same hash (likely the real cause of SW-2285's 90 s): hash a glued call by definition and spine; then record pairs equal by their arguments again and let the kernel's CallMemo remember equal, so f n a a chains are linear (tests glued and unglued); core.md F4 (SW-395 sentence)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2308",
       "labels": [
         "core"
       ],
