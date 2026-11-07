@@ -324,7 +324,7 @@ second, against 44 million a second for plain computation like `threeChecked`).
    (ignoring names and locations) and identical values (same representation, no evaluation)
    for the variables the body uses (`value.rs`, `same_closure`). Identical values are
    convertible, and unifying them solves nothing, so no answer can change; a differential test
-   (`crates/driver/tests/conv_shortcut.rs`) checks every example, the soundness suite
+   (`crates/driver/tests/proofs/conv_shortcut.rs`) checks every example, the soundness suite
    included, gets the same diagnostics with the shortcut off.
 2. **Shared spines**: `Value::Neutral` holds a `Spine` (`Rc<SmallVec<[Elim; 2]>>`, copied only
    when an elimination is added to a shared one), so copying a value is constant time.
@@ -351,7 +351,7 @@ trusted kernel: a design note first.
 
 **Decided (Matt, 20 October 2026).** D72: keep `smallvec` in the core crate for the inline spine.
 D73: accept the examples bench's peak memory rising 14% (111 to 126 MB). D74: the
-shortcut-off comparison (`crates/driver/tests/conv_shortcut.rs`) covers only the rejected and
+shortcut-off comparison (`crates/driver/tests/proofs/conv_shortcut.rs`) covers only the rejected and
 soundness examples, since the shortcut can only answer "equal"; that takes it from about 100 s
 to about 58 s. D75: the next step is caching evaluated closed statements, after the AoC proofs
 are converted to `rewrite`/`calc` (SW-157).

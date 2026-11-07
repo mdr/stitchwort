@@ -104,7 +104,7 @@ lane profiles exclude on purpose (the exclusion lists in
 tier).
 
 - **Memory-heavy tests.** Leave `binary(run_js)` (`cli`) out of a selection
-  unless `crates/js`, `crates/cli/tests/run_js.rs` or the JS runtime changed:
+  unless `crates/js`, `crates/cli/tests/running/run_js.rs` or the JS runtime changed:
   its node processes take about 1 GB each, and including it pushed a
   selection over the merge tier's 4 GB cap. The same goes for the `cli`
   `extract` tests that run `node test.mjs` (all but

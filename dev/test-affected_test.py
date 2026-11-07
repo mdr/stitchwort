@@ -38,25 +38,25 @@ def test(binary, name, time=1.0, package=None, profiles=()):
 INV = [
     test("core", "kernel_ok", 1),
     test("syntax", "parses", 1),
-    test("cli::aoc_answers", "year2024_day04", 1),
-    test("cli::aoc_answers", "year2024_day07", 1),
-    test("cli::aoc_answers", "year2021_day01", 1),
+    test("cli::running", "aoc_answers::year2024_day04", 1),
+    test("cli::running", "aoc_answers::year2024_day07", 1),
+    test("cli::running", "aoc_answers::year2021_day01", 1),
     test("elab", "omega_search::tests::budget", 1),
     test("elab", "unify::tests::other", 1, profiles=["lane-elab"]),
-    test("driver::search_at", "premises_are_filled_by_omega", 1),
-    test("driver::hash_stability", "prelude", 30),
-    test("driver::hash_stability", "examples", 30),
-    test("driver::hash_stability", "projects", 30),
-    test("driver::pinned_hashes", "pins", 3),
-    test("driver::std_library", "the_standard_library_passes_its_own_tests", 20),
-    test("driver::std_library", "a_cycle", 1, profiles=["lane-std"]),
-    test("cli::examples", "accepted_examples_check", 40),
-    test("cli::examples", "rejected_examples_fail_for_the_expected_reason", 25),
-    test("cli::fmt", "the_repository_sources_are_formatted", 18),
-    test("cli::build", "the_roguelike_plays_as_it_does_under_run", 5),
-    test("cli::lsp", "hover", 2, profiles=["lane-lsp"]),
-    test("cli::lsp", "heavy_one", 200),
-    test("cli::extract", "int_is_bound_to_the_prelude", 20),
+    test("driver::library", "search_at::premises_are_filled_by_omega", 1),
+    test("driver::library", "hash_stability::prelude", 30),
+    test("driver::library", "hash_stability::examples", 30),
+    test("driver::library", "hash_stability::projects", 30),
+    test("driver::library", "pinned_hashes::pins", 3),
+    test("driver::library", "std_library::the_standard_library_passes_its_own_tests", 20),
+    test("driver::library", "std_library::a_cycle", 1, profiles=["lane-std"]),
+    test("cli::running", "examples::accepted_examples_check", 40),
+    test("cli::running", "examples::rejected_examples_fail_for_the_expected_reason", 25),
+    test("cli::tools", "fmt::the_repository_sources_are_formatted", 18),
+    test("cli::running", "build::the_roguelike_plays_as_it_does_under_run", 5),
+    test("cli::server", "lsp::hover", 2, profiles=["lane-lsp"]),
+    test("cli::server", "lsp::heavy_one", 200),
+    test("cli::extraction", "extract::int_is_bound_to_the_prelude", 20),
     test("web", "tests::escapes_json_strings", 0.1, profiles=["lane-web"]),
 ]
 
@@ -93,6 +93,7 @@ class Render(unittest.TestCase):
             ({"package": "core"}, "package(stitchwort-core)"),
             ({"package": "elab", "lib": True}, "(package(stitchwort-elab) & kind(lib))"),
             ({"binary": "aoc_answers", "test": "^year2024_day04$"}, "(binary(aoc_answers) & test(=year2024_day04))"),
+            ({"package": "cli", "binary": "running", "test": "^aoc_answers::year2024_day04$"}, "(package(stitchwort-cli) & binary(running) & test(=aoc_answers::year2024_day04))"),
             ({"test": "omega"}, "test(/omega/)"),
             ({"package": "cli", "binary": "fmt", "not_test": "^x$"}, "(package(stitchwort-cli) & binary(fmt) & !test(=x))"),
         ]
@@ -108,18 +109,18 @@ class Mapping(unittest.TestCase):
     """Changed paths to the tests they must pick (and some they must not)."""
 
     TABLE = [
-        ("crates/elab/src/omega.rs", {"omega_search::tests::budget", "premises_are_filled_by_omega"}, {"hover"}),
-        ("crates/elab/src/omega_search.rs", {"omega_search::tests::budget"}, {"the_standard_library_passes_its_own_tests"}),
+        ("crates/elab/src/omega.rs", {"omega_search::tests::budget", "search_at::premises_are_filled_by_omega"}, {"lsp::hover"}),
+        ("crates/elab/src/omega_search.rs", {"omega_search::tests::budget"}, {"std_library::the_standard_library_passes_its_own_tests"}),
         ("crates/elab/src/std/List/List.sw",
-         {"a_cycle", "the_standard_library_passes_its_own_tests", "prelude", "examples", "pins",
-          "the_repository_sources_are_formatted"}, {"hover", "year2021_day01"}),
-        ("crates/elab/src/std/core/Nat.sw", {"int_is_bound_to_the_prelude", "prelude"}, set()),
-        ("aoc/src/Aoc/Year2024/Day07/Part1.sw", {"year2024_day07", "year2024_day04"}, {"year2021_day01"}),
-        ("games/rogue/src/Rogue/Map.sw", {"the_roguelike_plays_as_it_does_under_run"}, {"hover"}),
-        ("crates/lsp/src/lib.rs", {"hover"}, {"heavy_one"}),
-        ("crates/syntax/src/lexer.rs", {"parses", "hover"}, {"year2021_day01"}),
-        ("crates/cli/tests/snapshots/examples__reject__abort.snap", {"rejected_examples_fail_for_the_expected_reason"}, {"hover"}),
-        ("examples/accept/abort.sw", {"accepted_examples_check", "examples", "the_repository_sources_are_formatted"}, {"hover"}),
+         {"std_library::a_cycle", "std_library::the_standard_library_passes_its_own_tests", "hash_stability::prelude", "hash_stability::examples", "pinned_hashes::pins",
+          "fmt::the_repository_sources_are_formatted"}, {"lsp::hover", "aoc_answers::year2021_day01"}),
+        ("crates/elab/src/std/core/Nat.sw", {"extract::int_is_bound_to_the_prelude", "hash_stability::prelude"}, set()),
+        ("aoc/src/Aoc/Year2024/Day07/Part1.sw", {"aoc_answers::year2024_day07", "aoc_answers::year2024_day04"}, {"aoc_answers::year2021_day01"}),
+        ("games/rogue/src/Rogue/Map.sw", {"build::the_roguelike_plays_as_it_does_under_run"}, {"lsp::hover"}),
+        ("crates/lsp/src/lib.rs", {"lsp::hover"}, {"lsp::heavy_one"}),
+        ("crates/syntax/src/lexer.rs", {"parses", "lsp::hover"}, {"aoc_answers::year2021_day01"}),
+        ("crates/cli/tests/running/snapshots/running__examples__reject__abort.snap", {"examples::rejected_examples_fail_for_the_expected_reason"}, {"lsp::hover"}),
+        ("examples/accept/abort.sw", {"examples::accepted_examples_check", "hash_stability::examples", "fmt::the_repository_sources_are_formatted"}, {"lsp::hover"}),
     ]
 
     def test_table(self):
@@ -135,7 +136,7 @@ class Mapping(unittest.TestCase):
 
     def test_the_fixed_core_is_always_in(self):
         res, _ = pick(["crates/js/src/x.rs"])
-        self.assertTrue({"kernel_ok", "parses", "year2024_day04"} <= ids_of(res))
+        self.assertTrue({"kernel_ok", "parses", "aoc_answers::year2024_day04"} <= ids_of(res))
 
     def test_a_narrow_rule_takes_its_file_out_of_the_broad_one(self):
         res, _ = pick(["crates/elab/src/omega.rs"])
@@ -144,8 +145,8 @@ class Mapping(unittest.TestCase):
         self.assertIn("elab-general", [r.id for r in res["rules"]])
 
     def test_a_test_binary_is_its_own_rule(self):
-        res, _ = pick(["crates/driver/tests/pinned_hashes.rs"])
-        self.assertIn("pins", ids_of(res))
+        res, _ = pick(["crates/driver/tests/library/pinned_hashes.rs"])
+        self.assertIn("pinned_hashes::pins", ids_of(res))
 
 
 class Examples(unittest.TestCase):
@@ -188,8 +189,8 @@ class Budget(unittest.TestCase):
     def test_a_cut_of_a_rank_that_does_not_move_the_estimate_still_comes_before_a_lower_rank(self):
         # guide-quotes (rank 3) is hidden behind a longer test, so dropping it
         # alone does not lower the estimate; it still goes before rank 2.
-        inv = INV + [test("cli::guide", "the_guide_quotes_its_examples_and_the_compiler", 2, package="stitchwort-cli"),
-                     test("cli::lsp", "heavy_one", 200)]
+        inv = INV + [test("cli::tools", "guide::the_guide_quotes_its_examples_and_the_compiler", 2, package="stitchwort-cli"),
+                     test("cli::server", "lsp::heavy_one", 200)]
         res, _ = pick(["crates/core/src/kernel.rs"], inv=inv, budget=60)
         kept = {r.id: r.rank for r in res["rules"]}
         cut = {r.id: r.rank for r, _ in res["cut"]}
@@ -208,8 +209,8 @@ class Budget(unittest.TestCase):
         self.assertEqual(res["trimmed"], [])
 
     def test_when_the_changed_codes_own_tests_are_over_budget_the_cheapest_are_kept_and_the_rest_named(self):
-        inv = [t for t in INV if t["name"] != "heavy_one"] + [
-            test("driver::search_at", "omega_big", 100),
+        inv = [t for t in INV if t["name"] != "lsp::heavy_one"] + [
+            test("driver::library", "search_at::omega_big", 100),
             test("elab", "ring_small", 3, profiles=["lane-rewrite"])]
         files = ["crates/elab/src/omega.rs", "crates/elab/src/ring.rs"]
         res, _ = pick(files, inv=inv, budget=30)
@@ -223,7 +224,7 @@ class Budget(unittest.TestCase):
         self.assertIn("crates/elab/src/omega.rs", text)
 
     def test_the_single_cheapest_own_rule_is_kept_even_when_it_is_over_budget(self):
-        inv = INV + [test("driver::search_at", "omega_big", 100)]
+        inv = INV + [test("driver::library", "search_at::omega_big", 100)]
         res, _ = pick(["crates/elab/src/omega.rs"], inv=inv, budget=5)
         self.assertIn("elab-omega", {r.id for r in res["rules"]})
 
@@ -236,7 +237,7 @@ class Budget(unittest.TestCase):
         self.assertIn("fixed-core", [r.id for r in res["rules"]])
 
     def test_the_estimate_counts_sweeps_one_at_a_time(self):
-        inv = [dict(t, group="corpus-sweeps") if t["name"] in ("examples", "prelude") else t for t in INV]
+        inv = [dict(t, group="corpus-sweeps") if t["name"] in ("hash_stability::examples", "hash_stability::prelude") else t for t in INV]
         res, _ = pick(["crates/elab/src/std/List/List.sw"], inv=inv, budget=1000)
         self.assertGreaterEqual(res["estimate"]["estimate"], 60)
 
@@ -348,7 +349,6 @@ class RealInventory(unittest.TestCase):
 NOT_REACHED = {
     "stitchwort-bench::baseline": "check counts against the committed baseline, 145 s; run by `task bench`",
     "stitchwort-bench::repeat": "repeatability of the counts, 12 s; run by `task bench`",
-    "stitchwort-cli::float_paths": "needs the playground's web/pkg bundle and skips (passes) without it; daily sets STITCHWORT_REQUIRE_WASM",
     "stitchwort-driver::fuzz_elab": "mutated-example fuzzing, 100 s; daily tier",
     "stitchwort-driver::soundness_fuzz": "soundness fuzzing, 95 s; daily tier",
     "stitchwort-driver::search_at_aoc": "`search --at` over AoC goals, 250 s; daily tier",

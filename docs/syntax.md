@@ -1353,8 +1353,8 @@ ignores the motive's last argument.
 
 Examples: `examples/reject/function-equations-*.sw`,
 `examples/accept/function-induct.sw`,
-`crates/driver/tests/function_equations.rs`,
-`crates/driver/tests/function_induct.rs`.
+`crates/driver/tests/proofs/function_equations.rs`,
+`crates/driver/tests/proofs/function_induct.rs`.
 
 **`match induct (f args) with`** (SW-1058) is `f.induct` written as a `match`,
 with the motive worked out from the goal. `induct` is a keyword only after
@@ -1524,13 +1524,13 @@ def example: Text := """
 - **The closing `"""` decides the ending.** Alone on its own line, the text ends with a newline after its last line (`Text.lines` ignores it, so `example.lines` is the ten lines above and nothing more). Right after the last character, there is none: `"""⏎  a⏎  b"""` is `"a\nb"`. `"""⏎"""` is `""`.
 - **Escapes and `${…}` are as in `"…"`**, read after the indentation is removed: `\n`, `\t`, `\u{…}`, `\$`, `\"`. A `"` or `""` needs no escape; three in a row do (`\"""`; `\"\"\"` also works). A `${…}` stays on one line (`E-PARSE` otherwise).
 - **Line endings are read as `\n`**: a CR before an LF is dropped.
-- **It is an ordinary text literal**: the same term as the `"…\n…"` it stands for, with the same hash (`crates/driver/tests/compact_text.rs`), and still compact. Examples: `examples/accept/text-block.sw`.
+- **It is an ordinary text literal**: the same term as the `"…\n…"` it stands for, with the same hash (`crates/driver/tests/projects/compact_text.rs`), and still compact. Examples: `examples/accept/text-block.sw`.
 
 A partially applied constructor is a function: `Succ` on its own means `n => Succ n`.
 
 ### Named arguments
 
-`(x := e)` passes `e` for the explicit parameter named `x`, and `[x := e]` for the implicit or `auto` parameter named `x`: the brackets are the declaration's. They go in any order, mixed with positional arguments, and the call is exactly the positional one, with the same term and hash (`crates/driver/tests/named_arguments.rs` names the arguments of every call in `examples/accept` and compares the hashes).
+`(x := e)` passes `e` for the explicit parameter named `x`, and `[x := e]` for the implicit or `auto` parameter named `x`: the brackets are the declaration's. They go in any order, mixed with positional arguments, and the call is exactly the positional one, with the same term and hash (`crates/driver/tests/elaboration/named_arguments.rs` names the arguments of every call in `examples/accept` and compares the hashes).
 
 ```
 def clampTo (low: Nat) (high: Nat) (value: Nat): Nat := …

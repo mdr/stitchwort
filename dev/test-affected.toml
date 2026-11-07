@@ -23,14 +23,14 @@
 #
 # `select` clauses are ANDed inside a clause and ORed between clauses:
 #   package   short crate name (`elab` for stitchwort-elab)
-#   binary    test binary (`hash_stability`); the crate's own unit tests are
+#   binary    test binary (`library`); the crate's own unit tests are
 #             `lib = true`
 #   test      regex searched in the test name (`^omega`, a nextest `test(/…/)`)
 #   not_test  regex of names to leave out
 #   profile   every test of a nextest profile (`lane-std`); the profile's
 #             filterset is pasted in, and its tests are read from the inventory
 # `examples = ["name"]` adds those names to EXAMPLES and selects the example
-# sweeps (cli `examples`, driver `hash_stability`), which then cover only the
+# sweeps (cli `running` `examples::`, driver `library` `hash_stability::`), which then cover only the
 # named examples. `sample = true` is a rule that wants the sweeps' ordinary
 # sample, so a diff that also names examples keeps EXAMPLES unset.
 
@@ -100,7 +100,7 @@ paths = ["crates/elab/src/std/core/**", "crates/elab/src/std/order.txt", "crates
 why = "core files are what natives and printed positions are bound to"
 select = [
   { test = "bound_to_the_(prelude|library)" },
-  { binary = "navigation", test = "^references_of_a_project$" },
+  { package = "driver", binary = "navigation", test = "^references_of_a_project$" },
 ]
 
 [[rule]]
@@ -576,7 +576,9 @@ note = "proof lanes: also task audit:touched -- Aoc.Common"
 
 # Rules the script builds from the path itself (see `dynamic` in the script):
 #   crates/X/tests/NAME.rs         the binary NAME of package X
+#   crates/X/tests/BIN/NAME.rs     the tests `NAME::` of the merged binary BIN of package X
+#                                  (its main.rs and helper folders: the whole binary)
 #   examples/<folder>/NAME.sw      EXAMPLES=NAME and the sweeps
 #   examples/projects/<f>/NAME/**  EXAMPLES=NAME and the sweeps
-#   crates/cli/tests/snapshots/examples__<folder>__NAME.snap   the same
-#   aoc/src/Aoc/YearYYYY/DayDD/**  aoc_answers yearYYYY_dayDD
+#   crates/cli/tests/running/snapshots/running__examples__<folder>__NAME.snap   the same
+#   aoc/src/Aoc/YearYYYY/DayDD/**  cli running aoc_answers::yearYYYY_dayDD
