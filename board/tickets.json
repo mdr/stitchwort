@@ -1,5 +1,5 @@
 {
-  "next": 1948,
+  "next": 1955,
   "tickets": [
     {
       "id": 47,
@@ -12915,9 +12915,9 @@
         "cli"
       ],
       "epic": "editor-playground",
-      "body": "From SW-1675, 6 Nov 2026.",
+      "body": "From SW-1675, 6 Nov 2026.\n\nSettled by SW-1952 if Matt says D2732 yes.",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -14578,7 +14578,7 @@
         "bug"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-1801. Waiting on Matt's D2577-D2580 (rec: yes to all). Expected: 90 min.\n\nMatt's decisions (docs/proposals/syntax-node-ids.md §7): D2577 a copy gets a new id [rec: yes]; D2578 ids only on dot-call syntax for now [rec: yes]; D2579 drop dot_owners and spans/epoch from the key in the same stage [rec: yes]; D2580 run it on Opus [rec: yes].\n\nFrom the syntax review (docs/reviews/code-review-syntax.md): Expr::Field can carry an id cheaply. A derived Clone would copy it, so the id needs its own type whose Clone takes a fresh number (D2577: copies get new ids); its Debug prints _ under the span-hiding flag so equivalence::shape still matches; use u64 (u32 can wrap in a long server session).\n\nFrom docs/reviews/code-review-elab-checking.md (F8): a cached dot-call head is reused stale across attempts; fold into this work. See also SW-1902.",
+      "body": "From SW-1801. Waiting on Matt's D2577-D2580 (rec: yes to all). Expected: 90 min.\n\nMatt's decisions (docs/proposals/syntax-node-ids.md §7): D2577 a copy gets a new id [rec: yes]; D2578 ids only on dot-call syntax for now [rec: yes]; D2579 drop dot_owners and spans/epoch from the key in the same stage [rec: yes]; D2580 run it on Opus [rec: yes].\n\nFrom the syntax review (docs/reviews/code-review-syntax.md): Expr::Field can carry an id cheaply. A derived Clone would copy it, so the id needs its own type whose Clone takes a fresh number (D2577: copies get new ids); its Debug prints _ under the span-hiding flag so equivalence::shape still matches; use u64 (u32 can wrap in a long server session).\n\nFrom docs/reviews/code-review-elab-checking.md (F8): a cached dot-call head is reused stale across attempts; fold into this work. See also SW-1902.\n\nFrom docs/reviews/code-review-cli-lsp-web-fmt.md (lane F): the bench's step counts change with which thread runs an example; that's this work (SW-1797, SW-1800, SW-1801), not a new ticket.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -14833,7 +14833,7 @@
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 3, 6). Waiting on D2584 (rec: yes). Expected: 60 min.\n\nFrom docs/reviews/code-review-elab-tactics.md (F3): search.rs:1402 already catches a panic per comparison and carries on in the same session, so the caught-panic case is live. D2701: remove that catch, let this ticket's worker-level catch answer 'no result' and drop the kept session [rec: yes].",
+      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 3, 6). Waiting on D2584 (rec: yes). Expected: 60 min.\n\nFrom docs/reviews/code-review-elab-tactics.md (F3): search.rs:1402 already catches a panic per comparison and carries on in the same session, so the caught-panic case is live. D2701: remove that catch, let this ticket's worker-level catch answer 'no result' and drop the kept session [rec: yes].\n\nFrom docs/reviews/code-review-cli-lsp-web-fmt.md (lane A): the checker thread has the same problem and worse (the editor freezes, high): SW-1948. Do them together.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -16388,14 +16388,14 @@
     {
       "id": 1924,
       "title": "[Opus] Code review: crates/cli, lsp, web, fmt, bench, partial-model, standalone, host (the last crates; ~17k lines)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1924",
       "labels": [
         "review"
       ],
       "epic": "editor-playground",
-      "body": "Matt (7 Nov 2026): crate-by-crate code reviews, reading only. Expected: 75 min.",
+      "body": "Matt (7 Nov 2026): crate-by-crate code reviews, reading only. Expected: 75 min.\n\nDone, merged: docs/reviews/code-review-cli-lsp-web-fmt.md. The 1 Nov finding is fixed (bounded pool, version-tagged results, cancelling, tests). 1 high (checker panic freezes the editor), 7 medium, 14 low. Tickets SW-1948-SW-1954; lane F is SW-1803's existing work. D2730-D2733. 15 min (est. 75).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -16741,6 +16741,111 @@
       ],
       "epic": "effects-native",
       "body": "From docs/reviews/code-review-js-native.md. 45 min. The 1 Nov finding.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1948,
+      "title": "[Sonnet] HIGH: a panic in the language server's checker thread freezes the editor: the thread dies silently, hover answers from old results, diagnostics never update, VS Code doesn't restart it; catch it, rebuild the workspace and show a message, or exit so the editor restarts the server",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "epic": "editor-playground",
+      "body": "From docs/reviews/code-review-cli-lsp-web-fmt.md (lane A). D2730 [rec: recover; exit if recovery panics]. With SW-1820. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1949,
+      "title": "[Sonnet] Code action replaces the wrong text: the goal's range comes from the last check but the edit carries the current document version; take the range from the editor's goal diagnostic, or check a ? is there first",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "epic": "editor-playground",
+      "body": "From docs/reviews/code-review-cli-lsp-web-fmt.md (lane B). 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1950,
+      "title": "[Sonnet] Language server: reread stitchwort.yaml when it changes (a new source folder is checked file by file until restart); drop a project's session when its last file closes, keeping the last one for a minute",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "epic": "editor-playground",
+      "body": "From docs/reviews/code-review-cli-lsp-web-fmt.md (lane C). D2733 [rec: yes]. 60-90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1951,
+      "title": "[DeepSeek] CLI fixes: fmt DIR skips hidden folders (fmt . reformats every lane's checkout), doesn't follow symlinks, writes atomically; check and audit on several files drop each session when done",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "cli"
+      ],
+      "epic": "diagnostics",
+      "body": "From docs/reviews/code-review-cli-lsp-web-fmt.md (lane D). D2731 [rec: yes]. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1952,
+      "title": "[Sonnet] The --json contract: every --json run prints exactly one JSON object, ok true only when the exit status is 0 (test --json, --verify-cache's text line, search --json's early errors)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "cli"
+      ],
+      "epic": "diagnostics",
+      "body": "From docs/reviews/code-review-cli-lsp-web-fmt.md (lane E). D2732 [rec: yes]; settles SW-1692. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1953,
+      "title": "[DeepSeek] Bench tidy-ups (see the review)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bench"
+      ],
+      "epic": "test-infra",
+      "body": "From docs/reviews/code-review-cli-lsp-web-fmt.md (lane G). 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1954,
+      "title": "[DeepSeek] Small editor and formatter fixes (see the review)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "epic": "editor-playground",
+      "body": "From docs/reviews/code-review-cli-lsp-web-fmt.md (lane H). 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
