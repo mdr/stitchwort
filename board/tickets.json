@@ -17580,7 +17580,7 @@
         "std"
       ],
       "epic": "std-library",
-      "body": "From docs/reviews/code-review-std.md (S3). 60 min.",
+      "body": "From docs/reviews/code-review-std.md (S3). 60 min.\n\nD2831 (every AoC lane ends by moving the generic lemmas it wrote to std or Aoc.Common) — answered by Matt's request, 7 Nov 2026: \"if they are reasonably generic facts that might have wider utility than just Advent of Code ... move them there and have a really rich standard library\". SW-2003 folds into SW-2159's lanes.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19908,7 +19908,7 @@
         "design"
       ],
       "epic": "std-library",
-      "body": "Matt, 7 Nov 2026: 'if they are reasonably generic facts that might have wider utility than just Advent of Code ... move them there and have a really rich standard library with a lot of proven facts about the functions. ... spin up an Opus job.' Read-only survey first (docs/reviews/SW-N-aoc-lemmas-to-std.md); moves are Sonnet/DeepSeek lanes per CLAUDE.md. 75 min.",
+      "body": "Matt, 7 Nov 2026: 'if they are reasonably generic facts that might have wider utility than just Advent of Code ... move them there and have a really rich standard library with a lot of proven facts about the functions. ... spin up an Opus job.' Read-only survey first (docs/reviews/SW-N-aoc-lemmas-to-std.md); moves are Sonnet/DeepSeek lanes per CLAUDE.md. 75 min.\n\nD2831 (every AoC lane ends by moving the generic lemmas it wrote to std or Aoc.Common) — answered by Matt's request, 7 Nov 2026: \"if they are reasonably generic facts that might have wider utility than just Advent of Code ... move them there and have a really rich standard library\". SW-2003 folds into SW-2159's lanes.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
