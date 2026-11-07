@@ -1,5 +1,5 @@
 {
-  "next": 2253,
+  "next": 2255,
   "tickets": [
     {
       "id": 47,
@@ -21160,7 +21160,7 @@
     },
     {
       "id": 2243,
-      "title": "[Opus] Equality S2: fix G1 and G3 (two alike match helpers on a folded call or a number: walk_tree value.rs:3640, reference settle reference.rs:858); write the rule into docs/core.md",
+      "title": "[Opus] Equality stuck calls: G1, G3, G6, G7, G8: a stuck call that can be opened is compared by its case tree when its arguments differ (Lean lazy_delta_reduction_step, Rocq conversion.ml, smalltt); write the D3250/D3260 rule into docs/core.md",
       "status": "backlog",
       "agent": "",
       "where": "",
@@ -21168,7 +21168,7 @@
         "core"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/proposals/equality-in-the-round.md, stage S2, 60 min, after SW-2242. Probes in the session scratchpad probes/g1-g6.sw (copy into the test). Waits on D3250 unless noted.",
+      "body": "From docs/proposals/equality-in-the-round.md, stage S2, 60 min, after SW-2242. Probes in the session scratchpad probes/g1-g6.sw (copy into the test). Waits on D3250 unless noted.\n\n7 Nov: rescoped per docs/reviews/SW-2251-equality-rule.md: absorbs SW-2245 (G6), adds G7 (leaf against the other tree's stuck case) and G8 (two alike number-literal matches). Waits on D3260.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21183,7 +21183,7 @@
         "core"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/proposals/equality-in-the-round.md, stage S3, 75 min, after SW-2242; beside SW-2243. Probes in the session scratchpad probes/g1-g6.sw (copy into the test). Waits on D3250 unless noted.",
+      "body": "From docs/proposals/equality-in-the-round.md, stage S3, 75 min, after SW-2242; beside SW-2243. Probes in the session scratchpad probes/g1-g6.sw (copy into the test). Waits on D3250 unless noted.\n\n7 Nov per docs/reviews/SW-2251-equality-rule.md: fix G2 lazily where a comparison or case reads the sum, not in how + evaluates (evaluation changes visible goals and syntactic search). Through the head view. Waits on D3260.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21191,14 +21191,14 @@
     {
       "id": 2245,
       "title": "[Opus] Equality S4: fix G6: conversion isn't transitive (ignoresFirst 1 x = ignoresFirst 2 x fails while both reach alsoIgnores 2 x; value.rs:3380, reference.rs:756, unify.rs:1576)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "core"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/proposals/equality-in-the-round.md, stage S4, 45 min, after SW-2242; beside SW-2243, SW-2244. Probes in the session scratchpad probes/g1-g6.sw (copy into the test). Waits on D3250 unless noted.",
+      "body": "From docs/proposals/equality-in-the-round.md, stage S4, 45 min, after SW-2242; beside SW-2243, SW-2244. Probes in the session scratchpad probes/g1-g6.sw (copy into the test). Waits on D3250 unless noted.\n\n7 Nov: merged into SW-2243 per docs/reviews/SW-2251-equality-rule.md (same three functions).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21213,7 +21213,7 @@
         "core"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/proposals/equality-in-the-round.md, stage S5, 90 min, after SW-2243-SW-2245. Probes in the session scratchpad probes/g1-g6.sw (copy into the test). Waits on D3250 unless noted.",
+      "body": "From docs/proposals/equality-in-the-round.md, stage S5, 90 min, after SW-2243-SW-2245. Probes in the session scratchpad probes/g1-g6.sw (copy into the test). Waits on D3250 unless noted.\n\n7 Nov per docs/reviews/SW-2251-equality-rule.md: split into S5a and S5b; measure first (per site: how often each lazy form is met, each folded call re-unfolded, the unifier fallback's cost). Consider small types (Rigid; a shortcut result with no 'different').",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21281,14 +21281,14 @@
     {
       "id": 2251,
       "title": "[Opus] Independent review of docs/proposals/equality-in-the-round.md (D3250): is the rule right and complete; is design B the right fix; do G1-G6 reproduce; what Lean 4, smalltt, Agda, Coq/Rocq, Idris 2 and the literature actually do about lazy unfolding, glued evaluation and conversion; what it might break or slow",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2251",
       "labels": [
         "review"
       ],
       "epic": "elaborator-kernel",
-      "body": "D3251 — Matt, 7 Nov 2026: \"do a sort of a full opus review of that idea. Maybe see what you can find in the literature or online discussions about language implementations.\" Read-only; web research. Output docs/reviews/SW-N-equality-rule.md. 60 min.",
+      "body": "D3251 — Matt, 7 Nov 2026: \"do a sort of a full opus review of that idea. Maybe see what you can find in the literature or online discussions about language implementations.\" Read-only; web research. Output docs/reviews/SW-N-equality-rule.md. 60 min.\n\nDone, merged: docs/reviews/SW-2251-equality-rule.md. Verdict: adopt D3250 with changes (D3260). All six gaps reproduce (G4 not unglued: SW-2254); two more, G7, G8. Plain oracle shares helpers so it misses G3, G6, G7, G8: test of record should be the property laws. Prior art checked: Lean, Rocq, smalltt try arguments then unfold both; lean4#14806 (transitive cache -> False) to avoid. Lanes: SW-2243 rescoped (+G6, G7, G8; absorbs SW-2245), SW-2244 lazy G2, SW-2246 measure first and split, SW-2253 elaborator, SW-2254 Float pins, SW-2242 widened.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21304,6 +21304,36 @@
       ],
       "epic": "proof-automation",
       "body": "From SW-2220/SW-2221 (SW-2208 F8). Check against SW-2209's design first. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2253,
+      "title": "[Sonnet] Elaborator shape rules against folded calls: cases can't find what pick 3 b is stuck on (cases.rs:1724-1733); omega treats two 0 as an unknown atom (omega.rs:1959); check ring",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/SW-2251-equality-rule.md. Probes in the session scratchpad probes/. Waits on D3260. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2254,
+      "title": "[Sonnet] With STITCHWORT_GLUE=0, std's Float file fails its pinned hashes (E-BUILTIN on Float.neg, abs, sub), so no program importing Float checks unglued",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/SW-2251-equality-rule.md (G4 can't run unglued). 30 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
