@@ -371,14 +371,42 @@ fn hover_in_library(mut s: Session) -> Value {
 }
 
 #[test]
-fn hover_works_in_a_library_file_whether_or_not_the_library_was_replayed() {
+fn hover_works_in_a_library_file_the_library_checked_itself() {
     big_stack(|| {
         let options = Options::new(STACK);
         let checked = hover_in_library(Session::open_loose(USES_LIBRARY, options));
         assert!(checked["contents"].is_object(), "checked itself: {checked}");
+    });
+}
 
+/// The playground's library bundle, made by [`stitchwort_lsp::library_bundle`]
+/// (which checks the whole library, twice) once per build: the bytes are kept
+/// in the test std cache's folder, whose marker holds the build's fingerprint,
+/// so a change to the compiler makes the next run make the bundle again, and
+/// so check that it loads.
+fn cached_bundle(options: &Options) -> Vec<u8> {
+    let dir = stitchwort_driver::driver::test_std_cache_dir(STACK).join("lsp-bundle");
+    let file = dir.join("std.cache");
+    let turn = stitchwort_driver::driver::TestCacheTurn::take(&dir);
+    if !turn.is_filling()
+        && let Ok(bytes) = std::fs::read(&file)
+    {
+        return bytes;
+    }
+    let (bytes, _) = stitchwort_lsp::library_bundle(options).unwrap();
+    if turn.is_filling() {
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(&file, &bytes).unwrap();
+        turn.finish();
+    }
+    bytes
+}
+
+#[test]
+fn hover_works_in_a_library_file_the_library_was_replayed() {
+    big_stack(|| {
         let options = Options::new(STACK);
-        let (bytes, _) = stitchwort_lsp::library_bundle(&options).unwrap();
+        let bytes = cached_bundle(&options);
         let bundle = stitchwort_driver::check_cache::LibraryBundle::decode(&bytes).unwrap();
         options.library.set(Arc::new(bundle)).ok().unwrap();
         let replayed = hover_in_library(Session::open_loose(USES_LIBRARY, options));
@@ -694,9 +722,11 @@ fn completing_a_name_that_needs_an_import_adds_it() {
     });
 }
 
-/// `text` with the first quick fix for its non-exhaustive match applied.
-fn filled(text: &str) -> String {
-    let mut s = Session::open(text);
+/// `text` with the first quick fix for its non-exhaustive match applied,
+/// opened in `s` (one session serves every case: opening one replays the
+/// library).
+fn filled(s: &mut Session, version: i32, text: &str) -> String {
+    s.change(version, text);
     let d = s
         .diagnostics
         .iter()
@@ -735,14 +765,21 @@ fn filled(text: &str) -> String {
 #[test]
 fn a_non_exhaustive_match_gets_its_missing_arms_added() {
     big_stack(|| {
+        let mut s = Session::open("namespace Demo\n");
         // Equations on an Option.
         assert_eq!(
-            filled("namespace Demo\n\ndef b: Option Nat -> Nat\n  | Some n => n\n"),
+            filled(
+                &mut s,
+                2,
+                "namespace Demo\n\ndef b: Option Nat -> Nat\n  | Some n => n\n"
+            ),
             "namespace Demo\n\ndef b: Option Nat -> Nat\n  | Some n => n\n  | None => ?\n"
         );
         // A list: the rest gets a name, and the head avoids the names in use.
         assert_eq!(
             filled(
+                &mut s,
+                3,
                 "namespace Demo\n\ndef f (x: Nat): List Nat -> Nat\n  | [] => x\n  | [y] => y\n"
             ),
             "namespace Demo\n\ndef f (x: Nat): List Nat -> Nat\n  | [] => x\n  | [y] => y\n  | [z, w, ..xs] => ?\n"
@@ -750,6 +787,8 @@ fn a_non_exhaustive_match_gets_its_missing_arms_added() {
         // A user type: the declared field names.
         assert_eq!(
             filled(
+                &mut s,
+                4,
                 "namespace Demo\n\ntype Shape =\n  | Dot (ref: Nat)\n  | Circle (ref: Nat) (text: Text)\n\ndef a: Shape -> Nat\n  | Dot r => r\n\ndef z: Nat := 0\n"
             ),
             "namespace Demo\n\ntype Shape =\n  | Dot (ref: Nat)\n  | Circle (ref: Nat) (text: Text)\n\ndef a: Shape -> Nat\n  | Dot r => r\n  | Circle ref text => ?\n\ndef z: Nat := 0\n"
@@ -757,6 +796,8 @@ fn a_non_exhaustive_match_gets_its_missing_arms_added() {
         // A nested pattern in a tuple, and a `match` expression.
         assert_eq!(
             filled(
+                &mut s,
+                5,
                 "namespace Demo\n\ndef n (xs: List Nat): Nat := 1 + match xs with\n  | [] => 0\n"
             ),
             "namespace Demo\n\ndef n (xs: List Nat): Nat := 1 + match xs with\n  | [] => 0\n  | [x, ..xs1] => ?\n"
