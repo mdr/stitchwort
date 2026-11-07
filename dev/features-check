@@ -49,7 +49,22 @@ for (const args of invocations) {
   });
 }
 
-let bad = 0;
+// The flake's `stitchwort-bin` (cargoExtraArgs in flake.nix) must not get the
+// dev feature set: a root build includes stitchwort-bench, which depends on
+// stitchwort-dev-features, and Cargo unifies features across one build.
+const shipped = ["-p", "stitchwort-cli", "-p", "stitchwort-standalone"];
+const devOnly = /^stitchwort-\S+ feature "(test-bypass|reference|stack-check|alloc-trace)"/;
+const tree = execFileSync("cargo", ["tree", "--locked", "-e", "features,no-dev", "--prefix", "none", ...shipped], {
+  cwd: root,
+  maxBuffer: 1 << 28,
+  stdio: ["ignore", "pipe", "ignore"],
+}).toString();
+const leaked = [...new Set(tree.split("\n").filter((l) => devOnly.test(l)))];
+
+let bad = leaked.length;
+if (leaked.length) {
+  console.error(`the shipped binary (${shipped.join(" ")}) has dev-only features:\n  ${leaked.join("\n  ")}`);
+}
 for (const [name, sigs] of Object.entries(variants)) {
   if (Object.keys(sigs).length > 1) {
     bad++;

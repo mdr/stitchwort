@@ -26,7 +26,8 @@ reference = []
 stack-check = ["stitchwort-syntax/stack-check"]
 # Functions that write a declaration's body or state without admission, for
 # tests that build deliberately broken states. Only the dev feature set
-# (`stitchwort-dev-features`) enables it, so no release build has them.
+# (`stitchwort-dev-features`) enables it. The flake's `stitchwort-bin` builds
+# `-p` the crates it ships, so it has none of these (`dev/features-check`).
 test-bypass = []
 
 [dev-dependencies]

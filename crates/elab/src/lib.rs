@@ -3048,7 +3048,7 @@ impl Elaborator {
     }
 
     /// Whether a stale pin falls back to the definition as written (tests
-    /// only; shipped builds always refuse).
+    /// only; the flake's binaries always refuse).
     fn pins_fall_back(&self) -> bool {
         #[cfg(feature = "test-bypass")]
         return self.options.stale_pins_fall_back;
