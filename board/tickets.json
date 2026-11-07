@@ -18731,14 +18731,14 @@
     {
       "id": 2081,
       "title": "[Sonnet] Pins: check every pinned builtin in bind_builtin_def/bind_builtin_data (today each pin is checked only in its own registration function, so a pin added later can go unchecked); fix two over-claiming comments (pinned_hashes.rs stops at the first stale pin; chars.rs still has pins)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2081",
       "labels": [
         "core"
       ],
       "epic": "effects-native",
-      "body": "From docs/reviews/SW-2080-merges-7-nov.md (P1-P4). With or before SW-1991. 45 min.",
+      "body": "From docs/reviews/SW-2080-merges-7-nov.md (P1-P4). With or before SW-1991. 45 min.\n\nDone, merged. pins::check_bound_def/check_bound_data at binding for every pinned builtin (registration guards kept); every_pin_is_checked_at_binding; fallback (stale_pins_fall_back, with_prelude_falling_back) behind test-bypass, so shipped builds always refuse; specific second-registration messages, tested. On main: core 179/179, pin tests 19/19, whole AoC 0 errors 69 s, rogue clean. Model result: Sonnet, worked, 8 min (est. 45).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -18993,7 +18993,7 @@
         "fuzz"
       ],
       "epic": "audit-fuzzing",
-      "body": "From Overmind soak report 1 (Matt's laptop, NixOS i7-6700HQ 8 threads, 15 GiB; 7 Nov, commit a3c652a63). Mutated from reject/reads-weaken-over-map-implicits, accept/reads-done-spec-from-expected, reads-named-parser, int-literals-auto, reads-nested-binds, reject/parser-count-differs-from-lemma, accept/pure-fold-in-parse-function. Whole run 2,402 s there. The orchestrator is rerunning the seed on Speedwell to compare. 60 min.",
+      "body": "From Overmind soak report 1 (Matt's laptop, NixOS i7-6700HQ 8 threads, 15 GiB; 7 Nov, commit a3c652a63). Mutated from reject/reads-weaken-over-map-implicits, accept/reads-done-spec-from-expected, reads-named-parser, int-literals-auto, reads-nested-binds, reject/parser-count-differs-from-lemma, accept/pure-fold-in-parse-function. Whole run 2,402 s there. The orchestrator is rerunning the seed on Speedwell to compare. 60 min.\n\nSpeedwell rerun, same seed and 2,000 cases (7 Nov, with three lanes building): passed, no case near the limit, 328 s (55.0% parsed, 78.3% reached the elaborator). The laptop took 2,402 s, 7x slower, against 2x on the AoC check. So likely slow there, not hangs. Suspect: the laptop's binary is the musl target, whose allocator is slow under threads. First step: on the laptop, time one of the 7 saved inputs with a glibc build against the musl one.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
