@@ -6,8 +6,8 @@ use std::rc::Rc;
 use stitchwort_core::budget::{ResourceError, Result};
 use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::value::{
-    Closure, Elim, Head, Mode, Relation, ShapeKey, ShapeMemo, Spine, apply_icit, conv, eval,
-    expand_step, force, force_solved, is_call_field, is_eta_type, is_folded, matches_at_once,
+    Closure, CompareAt, Elim, Head, Mode, Relation, ShapeKey, ShapeMemo, Spine, apply_icit, conv,
+    eval, expand_step, force, force_solved, is_call_field, is_eta_type, is_folded, matches_at_once,
     opens_by_tree, project, project_call, proof_field, proof_param, quote, quote_at_most,
     quote_folded, same_closure_solved, same_stuck_trees, sealed, underapplied, unfold_folded,
     unfold_once,
@@ -1605,28 +1605,33 @@ fn unify_step(
                     // different ones don't make them different, so then
                     // they're compared by their case trees, as `conv` does
                     // (G6, docs/core.md). Whatever the failed try solved is
-                    // taken back first.
+                    // taken back first. With no unknown in either spine, a
+                    // "different" can be remembered (`same_stuck_trees`).
                     Some(pairs) if opens_by_tree(g, &a) && opens_by_tree(g, &b) => {
                         let trail = g.store.meta_trail.borrow().len();
-                        let spines = nested(g, || run(g, pairs.into_iter().rev().collect(), mode))?;
-                        if spines {
-                            true
-                        } else {
-                            undo_since(g, trail);
-                            let same = same_stuck_trees(
-                                g,
-                                level,
-                                &a,
-                                &b,
-                                Relation::Unify,
-                                mode,
-                                &mut |l, x, y| unify_in(g, l, x, y, mode),
-                            )?;
-                            if !same {
+                        let arguments = |_: CompareAt<'_>| -> Result<bool> {
+                            let spines =
+                                nested(g, || run(g, pairs.into_iter().rev().collect(), mode))?;
+                            if !spines {
                                 undo_since(g, trail);
                             }
-                            same
+                            Ok(spines)
+                        };
+                        let same = same_stuck_trees(
+                            g,
+                            level,
+                            &a,
+                            &b,
+                            Relation::Unify,
+                            mode,
+                            !NO_ETA.with(|c| c.get()),
+                            arguments,
+                            &mut |l, x, y| unify_in(g, l, x, y, mode),
+                        )?;
+                        if !same {
+                            undo_since(g, trail);
                         }
+                        same
                     }
                     Some(pairs) => {
                         work.extend(pairs.into_iter().rev());
@@ -1662,14 +1667,23 @@ fn unify_step(
         // rest of the outermost such comparison, and forgotten if a solution
         // is taken back (a new `meta_epoch`), so a chain of helpers each
         // calling the next in several branches is compared once per level.
-        (Value::Neutral(Head::Def(i1), _), Value::Neutral(Head::Def(i2), _))
+        (Value::Neutral(Head::Def(i1), s1), Value::Neutral(Head::Def(i2), s2))
             if i1 != i2 && opens_by_tree(g, &a) && opens_by_tree(g, &b) =>
         {
             let trail = g.store.meta_trail.borrow().len();
-            let same =
-                same_stuck_trees(g, level, &a, &b, Relation::Unify, mode, &mut |l, x, y| {
-                    unify_in(g, l, x, y, mode)
-                })?;
+            let settled =
+                !NO_ETA.with(|c| c.get()) && !may_mention_meta(s1) && !may_mention_meta(s2);
+            let same = same_stuck_trees(
+                g,
+                level,
+                &a,
+                &b,
+                Relation::Unify,
+                mode,
+                settled,
+                |_| Ok(false),
+                &mut |l, x, y| unify_in(g, l, x, y, mode),
+            )?;
             if !same {
                 undo_since(g, trail);
             }

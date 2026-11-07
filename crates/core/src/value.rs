@@ -3387,25 +3387,31 @@ fn conv_step(
                 // isn't transitive (G6, docs/core.md). The arguments are
                 // compared here, each by a `conv` of its own, which recurses
                 // as the tree comparison does.
-                let same = match spine_pairs(g, level, def_head(h1), s1, s2) {
-                    Some(pairs) => {
-                        let mut same = true;
-                        for pair in pairs {
-                            let ConvTask::Values(l, x, y) = pair else {
-                                unreachable!()
-                            };
-                            if !conv_with(g, l, &x, &y, memo, mode)? {
-                                same = false;
-                                break;
-                            }
+                let arguments = |same: CompareAt<'_>| -> Result<bool> {
+                    let Some(pairs) = spine_pairs(g, level, def_head(h1), s1, s2) else {
+                        return Ok(false);
+                    };
+                    for pair in pairs {
+                        let ConvTask::Values(l, x, y) = pair else {
+                            unreachable!()
+                        };
+                        if !same(l, &x, &y)? {
+                            return Ok(false);
                         }
-                        same
                     }
-                    None => false,
+                    Ok(true)
                 };
-                same || same_stuck_trees(g, level, &a, &b, Relation::Conv, mode, &mut |l, x, y| {
-                    conv_with(g, l, x, y, memo, mode)
-                })?
+                same_stuck_trees(
+                    g,
+                    level,
+                    &a,
+                    &b,
+                    Relation::Conv,
+                    mode,
+                    true,
+                    arguments,
+                    &mut |l, x, y| conv_with(g, l, x, y, memo, mode),
+                )?
             } else if underapplied(g, &a).is_none() && underapplied(g, &b).is_none() {
                 // Eta for definitions doesn't apply, so the spines must match.
                 match spine_pairs(g, level, def_head(h1), s1, s2) {
@@ -3438,9 +3444,17 @@ fn conv_step(
         (Value::Neutral(Head::Def(i1), _), Value::Neutral(Head::Def(i2), _))
             if i1 != i2 && opens_by_tree(g, &a) && opens_by_tree(g, &b) =>
         {
-            same_stuck_trees(g, level, &a, &b, Relation::Conv, mode, &mut |l, x, y| {
-                conv_with(g, l, x, y, memo, mode)
-            })?
+            same_stuck_trees(
+                g,
+                level,
+                &a,
+                &b,
+                Relation::Conv,
+                mode,
+                true,
+                |_| Ok(false),
+                &mut |l, x, y| conv_with(g, l, x, y, memo, mode),
+            )?
         }
         // Calls are compared by their unfoldings: two calls of the same
         // definition whose arguments differ (tried at the top), or a call
@@ -3689,11 +3703,18 @@ fn walk_tree(g: &Ev, mut tree: Rc<Term>, mut env: Vec<Value>, held: bool) -> Res
     }
 }
 
-/// Whether two different definitions, each applied to all its arguments and
-/// stuck ([`opens_by_tree`] holds for both), are equal by their case trees,
-/// with `same` comparing values (the scrutinees, then the leaves) by
-/// `relation`. A pair already found equal in the same outermost comparison
-/// is answered at once (see the comment above [`Relation`]).
+/// Whether two calls, each applied to all its arguments and stuck
+/// ([`opens_by_tree`] holds for both), are equal: by `arguments` (for two
+/// calls of one definition, whether their arguments are equal; `false` for
+/// two definitions), or else by their case trees, with `same` comparing
+/// values (the scrutinees, then the leaves) by `relation`. A pair already
+/// found equal in the same outermost comparison is answered at once, and
+/// so is one found different where that answer can't change (see the
+/// comment above [`Relation`]). For unification, `settled` says no
+/// solution made later can make this pair equal: it mentions no unknown,
+/// and the comparison isn't a weakened one. `conv` solves nothing and
+/// passes `true`, which counts only when no unification is open around it.
+#[allow(clippy::too_many_arguments)]
 pub fn same_stuck_trees(
     g: &Ev,
     level: usize,
@@ -3701,7 +3722,9 @@ pub fn same_stuck_trees(
     b: &Value,
     relation: Relation,
     mode: Mode,
-    same: &mut dyn FnMut(usize, &Value, &Value) -> Result<bool>,
+    settled: bool,
+    arguments: impl FnOnce(CompareAt<'_>) -> Result<bool>,
+    same: CompareAt<'_>,
 ) -> Result<bool> {
     let tree = |value: &Value| -> (Rc<Term>, Vec<Value>, bool) {
         let Value::Neutral(Head::Def(id), spine) = value else {
@@ -3718,12 +3741,31 @@ pub fn same_stuck_trees(
             .collect();
         (Term::peel_lams_rc(body, def.arity), args, eta_held(g, *id))
     };
-    let memo = TreeMemo::enter(g, level, a, b, relation, mode)?;
-    if memo.known_equal() {
+    let memo = TreeMemo::enter(g, level, a, b, relation, mode, settled)?;
+    if let Some(answer) = memo.known() {
+        return Ok(answer);
+    }
+    if arguments(same)? {
+        memo.record(true);
         return Ok(true);
     }
-    let (t1, e1, h1) = tree(a);
-    let (t2, e2, h2) = tree(b);
+    let same = same_trees_of(g, level, tree(a), tree(b), same)?;
+    memo.record(same);
+    Ok(same)
+}
+
+/// How [`same_stuck_trees`] compares two values at a level.
+pub type CompareAt<'a> = &'a mut dyn FnMut(usize, &Value, &Value) -> Result<bool>;
+
+/// [`same_stuck_trees`]'s comparison of the two trees, each with its
+/// arguments and [`eta_held`].
+fn same_trees_of(
+    g: &Ev,
+    level: usize,
+    (t1, e1, h1): (Rc<Term>, Vec<Value>, bool),
+    (t2, e2, h2): (Rc<Term>, Vec<Value>, bool),
+    same: &mut dyn FnMut(usize, &Value, &Value) -> Result<bool>,
+) -> Result<bool> {
     // Pairs of subtrees still to compare, each with its level.
     let mut pending = vec![(level, t1, e1, t2, e2)];
     while let Some((level, t1, e1, t2, e2)) = pending.pop() {
@@ -3773,7 +3815,6 @@ pub fn same_stuck_trees(
             _ => return Ok(false),
         }
     }
-    memo.record_equal();
     Ok(true)
 }
 
@@ -3799,9 +3840,20 @@ pub fn same_stuck_trees(
 // equality found with fewer solutions still holds with more; taking a
 // solution back starts a new epoch, which makes everything remembered before
 // it unusable. (The kernel's `conv` solves nothing, and its epoch is 0
-// (`NoMetas`).) Only "equal" is remembered: a "different" nearly always ends the
-// comparison it's part of, and in the elaborator it may be followed by
-// solutions being taken back. The record lives as long as the outermost tree
+// (`NoMetas`).)
+//
+// Pairs found different are remembered too (SW-2269): a call of one
+// definition is compared by its arguments first and then by its tree, whose
+// scrutinee is often one of those arguments, so in `pred (pred (… a))`
+// against `pred (pred (… b))` each level compared the pair below it twice,
+// 2^n comparisons in all. "Different" isn't kept by adding solutions, as
+// "equal" is, so it is remembered only where no solution can be made before
+// the record is dropped, or none can change the answer: in `conv` when no
+// unification is open around it (`conv` solves nothing, and nothing it
+// calls unifies), and in unification only for a pair its caller calls
+// `settled`, one that mentions no unknown, compared with nothing weakened
+// (the unifier's `NO_ETA`). A pair met again is identical, so it mentions
+// no unknown either. The record lives as long as the outermost tree
 // comparison (the one not inside another) and is dropped when it ends, so
 // nothing outlives the query that found it.
 //
@@ -3843,12 +3895,15 @@ pub enum Relation {
 /// equal in shortcut mode, and one tree comparison can contain both.
 type MemoKey = (Relation, Mode, usize, u64, DefId, DefId, u64, u64);
 
-/// This thread's open tree comparisons: how many, the pairs of calls found
-/// equal since the outermost one started, and the shapes hashed since.
+/// This thread's open tree comparisons: how many, how many of them are
+/// unification's, the pairs of calls found equal and different since the
+/// outermost one started, and the shapes hashed since.
 #[derive(Default)]
 struct Memo {
     open: usize,
+    unifying: usize,
     pairs: HashMap<MemoKey, Vec<(Value, Value)>>,
+    different: HashMap<MemoKey, Vec<(Value, Value)>>,
     shapes: ShapeCache,
 }
 
@@ -3857,12 +3912,14 @@ thread_local! {
     static TREE_MEMO: std::cell::RefCell<Memo> = std::cell::RefCell::new(Memo::default());
 }
 
-/// One open tree comparison, with the pair it compares; dropping it closes
-/// the comparison (even on an error).
+/// One open tree comparison, with the pair it compares and whether a
+/// "different" for it may be remembered; dropping it closes the comparison
+/// (even on an error).
 struct TreeMemo {
     key: MemoKey,
     a: Value,
     b: Value,
+    settled: bool,
 }
 
 impl TreeMemo {
@@ -3873,16 +3930,27 @@ impl TreeMemo {
         b: &Value,
         relation: Relation,
         mode: Mode,
+        settled: bool,
     ) -> Result<TreeMemo> {
         let def = |v: &Value| match v {
             Value::Neutral(Head::Def(id), _) => *id,
             _ => unreachable!("checked by opens_by_tree"),
         };
-        TREE_MEMO.with(|m| m.borrow_mut().open += 1);
+        let settled = TREE_MEMO.with(|m| {
+            let mut m = m.borrow_mut();
+            m.open += 1;
+            if relation == Relation::Unify {
+                m.unifying += 1;
+                settled
+            } else {
+                settled && m.unifying == 0
+            }
+        });
         let mut memo = TreeMemo {
             key: (relation, mode, level, g.metas.epoch(), def(a), def(b), 0, 0),
             a: a.clone(),
             b: b.clone(),
+            settled,
         };
         if !shortcuts_disabled() {
             let (ha, hb) = TREE_MEMO.with(|m| -> Result<(u64, u64)> {
@@ -3895,27 +3963,46 @@ impl TreeMemo {
         Ok(memo)
     }
 
-    /// Whether this pair was already found equal.
-    fn known_equal(&self) -> bool {
-        !shortcuts_disabled()
-            && TREE_MEMO.with(|m| {
-                m.borrow().pairs.get(&self.key).is_some_and(|pairs| {
-                    pairs.iter().any(|(x, y)| {
-                        identical(Same::Values(x, &self.a), None)
-                            && identical(Same::Values(y, &self.b), None)
-                    })
+    /// Whether this pair was already found equal (`Some(true)`) or
+    /// different (`Some(false)`).
+    fn known(&self) -> Option<bool> {
+        if shortcuts_disabled() {
+            return None;
+        }
+        let among = |pairs: &HashMap<MemoKey, Vec<(Value, Value)>>| {
+            pairs.get(&self.key).is_some_and(|pairs| {
+                pairs.iter().any(|(x, y)| {
+                    identical(Same::Values(x, &self.a), None)
+                        && identical(Same::Values(y, &self.b), None)
                 })
             })
+        };
+        TREE_MEMO.with(|m| {
+            let m = m.borrow();
+            if among(&m.pairs) {
+                Some(true)
+            } else if among(&m.different) {
+                Some(false)
+            } else {
+                None
+            }
+        })
     }
 
-    /// Remembers that this pair is equal.
-    fn record_equal(&self) {
-        if shortcuts_disabled() {
+    /// Remembers that this pair is equal, or different where that can't
+    /// change.
+    fn record(&self, equal: bool) {
+        if shortcuts_disabled() || !(equal || self.settled) {
             return;
         }
         TREE_MEMO.with(|m| {
-            m.borrow_mut()
-                .pairs
+            let mut m = m.borrow_mut();
+            let pairs = if equal {
+                &mut m.pairs
+            } else {
+                &mut m.different
+            };
+            pairs
                 .entry(self.key)
                 .or_default()
                 .push((self.a.clone(), self.b.clone()));
@@ -3928,6 +4015,9 @@ impl Drop for TreeMemo {
         TREE_MEMO.with(|m| {
             let mut m = m.borrow_mut();
             m.open -= 1;
+            if self.key.0 == Relation::Unify {
+                m.unifying -= 1;
+            }
             if m.open == 0 {
                 // Moved out first: dropping the values must not find the
                 // memo borrowed.
