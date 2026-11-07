@@ -73,5 +73,8 @@ A program should take at least 0.3 s in its fastest language and at most about
 ## What is here
 
 `null`, `pidigits` and `binary-trees` (the Benchmarks Game classics, at 10,000
-digits and depth 18) and `memory-game` (2020 day 15, part 2 at 3,000,000
-turns) have all four languages. The other AoC days are stage 1b.
+digits and depth 18) and `memory-game` (2020 day 15, part 2 at 30,000,000
+turns) have all four languages. `dijkstra`, `octopus`, `disk`, `expressions`,
+`scan`, `matcher` and `bridge` (AoC days; `expressions` and `scan` read their
+real input repeated 20 and 10 times, from `input.txt`) have Stitchwort and
+Python; their Lean ports are stage 1b's other half.

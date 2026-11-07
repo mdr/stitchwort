@@ -19,8 +19,43 @@ stitchwort = "bench/compare/pidigits/main.sw"
 [binary-trees]
 stitchwort = "bench/compare/binary-trees/main.sw"
 
-# 2020 day 15, part 2 cut from 30,000,000 turns to 3,000,000.
+# 2020 day 15, part 2 at the puzzle's full 30,000,000 turns (14 s on `run`).
 [memory-game]
 input = "aoc/inputs/2020/day15.txt"
-args = ["3000000"]
+args = ["30000000"]
 stitchwort = "Aoc.Year2020.Day15.main"
+
+# 2021 day 15, both parts.
+[dijkstra]
+input = "aoc/inputs/2021/day15.txt"
+stitchwort = "Aoc.Year2021.Day15.main"
+
+# 2021 day 11, both parts.
+[octopus]
+input = "aoc/inputs/2021/day11.txt"
+stitchwort = "Aoc.Year2021.Day11.main"
+
+# 2024 day 9, both parts.
+[disk]
+input = "aoc/inputs/2024/day09.txt"
+stitchwort = "Aoc.Year2024.Day09.main"
+
+# 2020 day 18, the real input repeated 20 times (expressions/input.txt).
+[expressions]
+input = "bench/compare/expressions/input.txt"
+stitchwort = "Aoc.Year2020.Day18.main"
+
+# 2024 day 3, the real input repeated 10 times (scan/input.txt).
+[scan]
+input = "bench/compare/scan/input.txt"
+stitchwort = "Aoc.Year2024.Day03.main"
+
+# 2020 day 19, both parts.
+[matcher]
+input = "aoc/inputs/2020/day19.txt"
+stitchwort = "Aoc.Year2020.Day19.main"
+
+# 2024 day 7, both parts.
+[bridge]
+input = "aoc/inputs/2024/day07.txt"
+stitchwort = "Aoc.Year2024.Day07.main"

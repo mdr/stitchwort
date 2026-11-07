@@ -101,7 +101,7 @@ machine (`stitchwort run`) on this Mac unless marked.
 | # | Name | Program | What it stresses | Today (machine / native / JS) |
 |---|---|---|---|---|
 | 1 | `dijkstra` | 2021 day 15 | graph search with a priority queue (`Set` as the queue, `Map` of costs), 250,000 positions | 17.6 s / 4.5 s / 2.9 s (`aoc/NOTES-2021.md:3802-3803`) |
-| 2 | `memory-game` | 2020 day 15, part 2 cut to 3M turns | one huge `Map` with `Nat` keys, gets and inserts in a hot loop: the Python `dict` case | 357 s / 84 s / 127 s for 30M turns (`aoc/NOTES-2020.md:4041-4043`); about 36 s machine at 3M **[inferred, 11.9 s per million]** |
+| 2 | `memory-game` | 2020 day 15, part 2 at the full 30M turns | one huge `Map` with `Nat` keys, gets and inserts in a hot loop: the Python `dict` case | 357 s / 84 s / 127 s for 30M turns (`aoc/NOTES-2020.md:4041-4043`); 14 s machine at 30M since SW-2297 (13.3 s user, 7 Nov, Mac) |
 | 3 | `octopus` | 2021 day 11 | a grid in a `Map` of positions, neighbour updates, 100+ steps | 4.1 s / 1.3 s (`aoc/NOTES-2021.md:2738-2739`); 6.9 s in the bench crate's dev build (`bench/baseline.toml:249-256`) |
 | 4 | `disk` | 2024 day 9 | array-style work: a long sequence of cells rewritten in place, so in-place reuse shows | 0.85 s (`aoc/NOTES-2024.md:2626`); 3.6M cells, 15.6% reused (`docs/proposals/interpreter-speed.md` §4.1) |
 | 5 | `expressions` | 2020 day 18, input repeated 20 times | parsing with `Std.Parse` and evaluating expression trees: recursion over a small AST | 0.68 s / 0.81 s / 0.98 s on the real input (`aoc/NOTES-2020.md:5167`), mostly startup **[inferred]** |
@@ -121,7 +121,7 @@ machine (`stitchwort run`) on this Mac unless marked.
   are tracked already.
 - 2 is the case where Python's mutable `dict` and our persistent `Map`
   differ most. It must be in the set, because that's where users will
-  notice. Cutting it to 3M turns keeps the run under a minute.
+  notice. At the full 30M turns it runs 14 s on the machine, so it needs no cut.
 - The two classics come from the Benchmarks Game, so anyone can compare
   them with published numbers for other languages. Lean's benchmark suite
   has `binarytrees` too, and its CI tracks it ([lean4 PR bot
