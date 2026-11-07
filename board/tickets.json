@@ -1,5 +1,5 @@
 {
-  "next": 2242,
+  "next": 2248,
   "tickets": [
     {
       "id": 47,
@@ -21056,14 +21056,14 @@
     {
       "id": 2236,
       "title": "[Opus] Design review: how Stitchwort decides two terms are equal, in the round: the principle behind this week's glued/unglued fixes (SW-2126, 2127, 2211, 2157), where the same gap could still hide (conversion, unifier, reference evaluator), whether one shared piece replaces the special cases, and a test that finds the next disagreement",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2236",
       "labels": [
         "design"
       ],
       "epic": "elaborator-kernel",
-      "body": "D3240 — Matt, 7 Nov 2026: \"I think you're right to pick up if there's been a pattern of issues. That might be something we want to invest some time in understanding more deeply and just look at the changes in the round and try to see what our best approach might be.\" Read-only Opus lane, after SW-2157 merges. Output docs/proposals/equality-in-the-round.md. 60 min.",
+      "body": "D3240 — Matt, 7 Nov 2026: \"I think you're right to pick up if there's been a pattern of issues. That might be something we want to invest some time in understanding more deeply and just look at the changes in the round and try to see what our best approach might be.\" Read-only Opus lane, after SW-2157 merges. Output docs/proposals/equality-in-the-round.md. 60 min.\n\nDesign merged: docs/proposals/equality-in-the-round.md. All of this week's fixes are one rule applied piecemeal; six live gaps (G1-G6, all reject true things, none unsound; G6 breaks transitivity). Recommends one rule in core.md + a head function per evaluator (B), tested against a plain reference with every fold off. D3250 to Matt. Stages SW-2242-SW-2247 (S7, design C, only if measured).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21139,6 +21139,96 @@
       ],
       "epic": "record-eta",
       "body": "From docs/reviews/SW-2239-succ-folded-base.md F2, F3 (SW-2235 already added valueOf and leafOf). 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2242,
+      "title": "[Sonnet] Equality S1: a plain reference evaluator (test-only switch in reference.rs, every fold off) every mode must agree with; wrapping tests (wrap a subterm in each lazy form and require it stays equal); G1-G6 as known failures each fix lane flips; proof_equivalence under ~5 s",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/proposals/equality-in-the-round.md, stage S1, 75 min, after SW-2241 (same file). Can start before D3250: tests only.. Probes in the session scratchpad probes/g1-g6.sw (copy into the test). Waits on D3250 unless noted.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2243,
+      "title": "[Opus] Equality S2: fix G1 and G3 (two alike match helpers on a folded call or a number: walk_tree value.rs:3640, reference settle reference.rs:858); write the rule into docs/core.md",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/proposals/equality-in-the-round.md, stage S2, 60 min, after SW-2242. Probes in the session scratchpad probes/g1-g6.sw (copy into the test). Waits on D3250 unless noted.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2244,
+      "title": "[Opus] Equality S3: fix G2 (+ on a folded second argument, nat_add.rs:93), G4 (Float.ofNat of a folded call, float.rs:716/754/815), G5 (number-literal match on Succ of a folded call, value.rs:1971, reference.rs:433), step counts before and after",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/proposals/equality-in-the-round.md, stage S3, 75 min, after SW-2242; beside SW-2243. Probes in the session scratchpad probes/g1-g6.sw (copy into the test). Waits on D3250 unless noted.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2245,
+      "title": "[Opus] Equality S4: fix G6: conversion isn't transitive (ignoresFirst 1 x = ignoresFirst 2 x fails while both reach alsoIgnores 2 x; value.rs:3380, reference.rs:756, unify.rs:1576)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/proposals/equality-in-the-round.md, stage S4, 45 min, after SW-2242; beside SW-2243, SW-2244. Probes in the session scratchpad probes/g1-g6.sw (copy into the test). Waits on D3250 unless noted.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2246,
+      "title": "[Opus] Equality S5: one head function per evaluator that every shape-reading rule calls (design B), replacing the special cases",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/proposals/equality-in-the-round.md, stage S5, 90 min, after SW-2243-SW-2245. Probes in the session scratchpad probes/g1-g6.sw (copy into the test). Waits on D3250 unless noted.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2247,
+      "title": "[Sonnet] Equality S6: completeness fuzz: wrap subterms of theorems proved by computation in lazy forms and require they still check (daily tier only)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/proposals/equality-in-the-round.md, stage S6, 60 min, after SW-2246; needs Matt's OK for one daily-tier run. Probes in the session scratchpad probes/g1-g6.sw (copy into the test). Waits on D3250 unless noted.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
