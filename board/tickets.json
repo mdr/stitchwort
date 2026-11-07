@@ -18836,14 +18836,14 @@
     {
       "id": 2088,
       "title": "[Sonnet] Search budget shared across workers and not spent by the editor's automatic code-action requests (cursor moves at a goal whose search panics turn search off for the session): remember a panicked search and answer null until the text changes; the stop message's wording",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2089",
       "labels": [
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From docs/reviews/SW-2087-checker-recovery-and-forget-since.md. Lane 2, after SW-2086 (same file). 45 min.",
+      "body": "From docs/reviews/SW-2087-checker-recovery-and-forget-since.md. Lane 2, after SW-2086 (same file). 45 min.\n\nStarted 7 Nov in worktree .claude/worktrees/SW-2089 (branch lane/SW-2089: a numbering slip; the work is this ticket's).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -18852,13 +18852,13 @@
       "id": 2089,
       "title": "[Sonnet] A restart budget per project, so one project that keeps panicking after edits can't stop checking everywhere (today one open and two edits do)",
       "status": "doing",
-      "agent": "Sonnet",
-      "where": ".claude/worktrees/SW-2089",
+      "agent": "",
+      "where": "",
       "labels": [
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From docs/reviews/SW-2087-checker-recovery-and-forget-since.md. HIGH. Lane 3, after SW-2086. D2980 [rec: yes]. 45 min.",
+      "body": "From docs/reviews/SW-2087-checker-recovery-and-forget-since.md. HIGH. Lane 3, after SW-2086. D2980 [rec: yes]. 45 min.\n\nD2980: yes (orchestrator's call, 7 Nov). After SW-2088 (same file).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -18873,7 +18873,7 @@
         "cache"
       ],
       "epic": "elaborator-kernel",
-      "body": "\n\nD2980: yes (orchestrator's call, 7 Nov). After SW-2089.",
+      "body": "From docs/reviews/SW-2087-checker-recovery-and-forget-since.md (lane 4). 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -18888,7 +18888,7 @@
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From docs/reviews/SW-2087-checker-recovery-and-forget-since.md. After SW-2089/SW-2090 (same file). 45 min.",
+      "body": "From docs/reviews/SW-2087-checker-recovery-and-forget-since.md. After SW-2088/SW-2089 (same file). 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
