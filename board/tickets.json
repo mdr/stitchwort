@@ -1144,14 +1144,14 @@
     {
       "id": 813,
       "title": "Interpreter speed: about 6.5 ns per instruction is the main cost in every AoC day (20-100x slower than Python on generated inputs)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-813",
       "labels": [],
       "epic": "performance",
-      "body": "Map lane profile (28 Oct): ~2,060 of 3,000 samples in the machine's main loop, then value freeing and register-vector resizing. Day 19: ~11M small closure calls dominate 8.1 s. Investigate dispatch, frame setup and register allocation before data-structure work.",
+      "body": "Map lane profile (28 Oct): ~2,060 of 3,000 samples in the machine's main loop, then value freeing and register-vector resizing. Day 19: ~11M small closure calls dominate 8.1 s. Investigate dispatch, frame setup and register allocation before data-structure work.\n\n7 Nov: design first (read-only Opus lane, no measurements; names the evidence to collect): docs/proposals/interpreter-speed.md. From the AoC gap check (docs/reviews/aoc-gaps-status-2026-11-07.md): no plan yet, and the main cost behind Map speed too.",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -19406,9 +19406,9 @@
     {
       "id": 2126,
       "title": "[Opus] Fields of folded calls: an unfolded folded call that can still compute counts as stuck (FoldedField, eta_fields), so a case on its field may stay stuck glued while unglued computes it (D3030); probe with proof_equivalence matrix terms (a decreasing definition whose last step calls another folded one) and fix if they differ; also a folded call reached through a solved meta still shows its internals (F4)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2126",
       "labels": [
         "core"
       ],
