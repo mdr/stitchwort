@@ -1,5 +1,5 @@
 ---
-source: crates/rt/tests/lower.rs
+source: crates/rt/tests/it/lower.rs
 expression: "ir(r#\"\nimport Std (Nat, Text, Int)\ndef greet (name: Text): {IO} () := IO.print (\"hello \" ++ name)\n\ndef main(): {IO} () :=\n  match IO.readLine() with\n    | Some name => greet name\n    | None => IO.print \"nobody\"\n\"#)"
 ---
 native Std.Text.append = %TextAppend/2

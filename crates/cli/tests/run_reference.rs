@@ -1,7 +1,7 @@
 //! `stitchwort run` (the fast runtime, `crates/rt`) against `stitchwort run
 //! --reference` (the type checker's evaluator, the oracle): the same program
 //! with the same standard input must print the same and end the same way,
-//! through the built command. `crates/rt/tests/machine.rs` compares the two
+//! through the built command. `crates/rt/tests/it/machine.rs` compares the two
 //! as libraries, on more programs; this covers the command itself.
 
 use std::io::Write;

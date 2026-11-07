@@ -192,10 +192,36 @@ def changed_test_names(path, range_):
 TEST_NAMES = {"range": None, "enabled": False}
 
 
+def has_tests(path):
+    try:
+        return "#[test]" in open(os.path.join(ROOT, path)).read()
+    except OSError:
+        return False
+
+
 def dynamic_rules(path):
     """Rules read off one path's own shape (see the end of the rules file)."""
     out = []
-    if m := re.fullmatch(r"crates/(\w+)/tests/(\w+)(?:\.rs|/main\.rs)", path):
+    if (m := re.fullmatch(r"crates/(\w+)/tests/(\w+)/(\w+)\.rs", path)) and \
+            os.path.exists(os.path.join(ROOT, "crates", m.group(1), "tests", m.group(2), "main.rs")):
+        # A module of a crate's one merged test binary (tests/NAME/main.rs;
+        # dev/merge-test-binaries): its tests are `module::name`. main.rs and
+        # helper modules, which no test is named for, select the whole binary.
+        binary = {"package": m.group(1), "binary": m.group(2)}
+        module = m.group(3)
+        if module != "main" and has_tests(path):
+            mod_sel = dict(binary, test="^%s::" % module)
+            names = changed_test_names(path, TEST_NAMES["range"]) if TEST_NAMES["enabled"] else []
+            if names:
+                out.append({"id": "test-file-changed", "rank": 1, "why": "the tests of %s that the diff touches" % path,
+                            "select": [dict(binary, test="^%s::(%s)$" % (module, "|".join(names)))]})
+                out.append({"id": "test-file", "rank": 2, "cheap_only": 5.0, "why": "the rest of %s, its quick tests" % path,
+                            "select": [mod_sel]})
+            else:
+                out.append({"id": "test-file", "rank": 1, "why": "the changed test module itself", "select": [mod_sel]})
+        else:
+            out.append({"id": "test-file", "rank": 1, "why": "the merged test binary's shared code", "select": [binary]})
+    elif m := re.fullmatch(r"crates/(\w+)/tests/(\w+)(?:\.rs|/main\.rs)", path):
         binary = {"package": m.group(1), "binary": m.group(2)}
         names = changed_test_names(path, TEST_NAMES["range"]) if TEST_NAMES["enabled"] else []
         if names:

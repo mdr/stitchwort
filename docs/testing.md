@@ -260,6 +260,7 @@ The test tiers run the counts part (`crates/bench/tests/baseline.rs`): one run o
 - **For a kernel rule, also add a kernel test on core terms.** Prove that the kernel enforces the rule *by itself*, not just that the elaborator does.
 - **The kernel must never panic.** If a malformed term can make it panic, that's a bug: it should be an `E-MALFORMED` error.
 - **For a new export shape or codec, add an extraction example.** The random differential test then exercises it automatically.
+- **A crate's integration tests may be one binary (SW-1736, `docs/proposals/fewer-test-binaries.md`).** `stitchwort-rt` has them as modules of `crates/rt/tests/it/main.rs`: a new test file is `tests/it/NAME.rs` plus `mod NAME;` there, and its tests are `NAME::test_name` in binary `stitchwort-rt::it` (so `task test:one -- lower::`, or `-E 'package(stitchwort-rt) & binary(it) & test(/^lower::/)'`, not `binary(lower)`). `dev/merge-test-binaries` does the move for another crate and rewrites the filters in `.config/nextest.toml`, `dev/nextest-merge` and `dev/test-affected.toml`. Binaries with a `#[global_allocator]` (`effect_alloc`, `state_match`) stay apart.
 - **Before trusting a new test, break the code it tests and watch it fail.** `cargo mutants` does this systematically.
 
 ### The test std cache

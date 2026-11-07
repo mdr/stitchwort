@@ -14,7 +14,7 @@ use stitchwort_rt::{Limits, Policy, RouteCounts, lower_main, run_main_counting};
 const STACK: usize = 256 * 1024 * 1024;
 
 /// Lane A's handled programs, in Stitchwort.
-const HANDLER_DEFINITIONS: &str = include_str!("../../driver/tests/partial_handlers.sw");
+const HANDLER_DEFINITIONS: &str = include_str!("../../../driver/tests/partial_handlers.sw");
 
 /// Loops for the stack tests, under `runCounter` (a state handler).
 const LOOPS: &str = r#"
