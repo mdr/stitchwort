@@ -14360,9 +14360,9 @@
     {
       "id": 1789,
       "title": "Formatter fuzz test fails at case 3166 (fuzz::the_formatter_never_panics_and_is_idempotent, default profile): pre-existing, seen by SW-1781 before and after its merge",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1789",
       "labels": [
         "bug"
       ],
