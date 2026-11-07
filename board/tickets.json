@@ -1,5 +1,5 @@
 {
-  "next": 2126,
+  "next": 2128,
   "tickets": [
     {
       "id": 47,
@@ -19218,7 +19218,7 @@
         "core"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/SW-2108-applied-call-fields.md. Matters only if a long-lived host reuses a session after a panic (the language server drops its sessions after one). 30 min.\n\nFrom SW-2096: the new Machine::kernel flag is also set and restored by hand in in_kernel_modes; include it in the guard.",
+      "body": "From docs/reviews/SW-2108-applied-call-fields.md. Matters only if a long-lived host reuses a session after a panic (the language server drops its sessions after one). 30 min.\n\nFrom SW-2096: the new Machine::kernel flag is also set and restored by hand in in_kernel_modes; include it in the guard.\n\nFrom docs/reviews/SW-2125-folded-call-fields.md (F3): Machine::kernel is restored by hand too.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19391,14 +19391,44 @@
     {
       "id": 2125,
       "title": "[Opus] Fresh-eyes review of SW-2096 (Machine::kernel flag; fields of stuck folded calls kept as (f x).i at rule 2 and ProjForced; J fix; call_fields and proof_equivalence tests)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2125",
       "labels": [
         "review"
       ],
       "epic": "record-eta",
-      "body": "Read-only. Core evaluator change; elaborated std proofs changed hashes (D2364). Expected: 45 min.",
+      "body": "Read-only. Core evaluator change; elaborated std proofs changed hashes (D2364). Expected: 45 min.\n\nDone, merged: docs/reviews/SW-2125-folded-call-fields.md. Sound: kernel unaffected (every admission via in_kernel_modes; the flag carries no trust), no elaborator/kernel disagreement, declining F3 right, reachableIff hash change explained (an improvement). 0 high, 0 medium, 1 low-medium (SW-2126), 5 low (SW-2127, SW-2113). 10 min (est. 45).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2126,
+      "title": "[Opus] Fields of folded calls: an unfolded folded call that can still compute counts as stuck (FoldedField, eta_fields), so a case on its field may stay stuck glued while unglued computes it (D3030); probe with proof_equivalence matrix terms (a decreasing definition whose last step calls another folded one) and fix if they differ; also a folded call reached through a solved meta still shows its internals (F4)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "record-eta",
+      "body": "From docs/reviews/SW-2125-folded-call-fields.md (lane A: F1, F4). 75 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2127,
+      "title": "[Sonnet] Tests for SW-2096: a proof_equivalence row for the kernel's own glued mode (admission runs with Machine::kernel set); the elaborator-versus-kernel test checks debug text so can't fail — make it compare values; check callFound's example says what it tests",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "record-eta",
+      "body": "From docs/reviews/SW-2125-folded-call-fields.md (lane B: F2, F5; F3 goes to SW-2113). 40 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
