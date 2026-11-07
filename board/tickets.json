@@ -1,5 +1,5 @@
 {
-  "next": 2208,
+  "next": 2211,
   "tickets": [
     {
       "id": 47,
@@ -17968,14 +17968,14 @@
     {
       "id": 2030,
       "title": "[Opus] decreasing: a match's equation reaches the decrease proof, named or not, and stays out of f.unfold (2021 day 12's stuck proof, 2024 day 23's popMin)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2030",
       "labels": [
         "elab"
       ],
       "epic": "proof-automation",
-      "body": "From docs/proposals/decreasing-with-hypothesis.md. Stage 2, after SW-2029. Takes over SW-809's match found: item for decreasing definitions. Check omega uses n - k = Succ j. 90 min.\n\nD2870 — Matt, 7 Nov 2026: \"just proceed with D2870 as planned.\" D2871, D2872 yes (orchestrator's call). Order: 2029, 2030, then 2032; 2031 any time.",
+      "body": "From docs/proposals/decreasing-with-hypothesis.md. Stage 2, after SW-2029. Takes over SW-809's match found: item for decreasing definitions. Check omega uses n - k = Succ j. 90 min.\n\nD2870 — Matt, 7 Nov 2026: \"just proceed with D2870 as planned.\" D2871, D2872 yes (orchestrator's call). Order: 2029, 2030, then 2032; 2031 any time.\n\nDone, merged. A match in a decreasing body gives its equation (named or not) to calls in its arms; f.unfold shows it without (H.%plain twins + %same); unused lets dropped; ifs inside such arms plain. E-DECREASING names the arm's equation. syntax.md, guide 07 (checked total example), accept and reject examples. 2024 day 23: guard and dead else gone, largestStep is | False => rfl. 2021 day 12 not done (match inside a map callback): SW-2209. Lane: whole AoC 0 errors. On main: hash_stability 9/9, decreasing examples 12/12, goal_index 6/6, rogue and AoC check clean. Review SW-2208; findings SW-2210. Model result: Opus, worked, 50 min (est. 90).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19976,9 +19976,9 @@
     {
       "id": 2164,
       "title": "[Opus] decreasing stage 1 fixes (SW-2145 lane A): mark strips tags from elim's proposition/type arguments and a kept if's own tag, then checks the kept count (F1, F7); keep the old f.unfold when the new lemmas aren't loaded (F4); keep_plain only around the final settle (F5); tests for both error examples and Decidable.elimIf; on a generator failure, fall back to today's f.unfold with a warning naming it a compiler bug (D3100)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2164",
       "labels": [
         "core"
       ],
@@ -20629,6 +20629,51 @@
       ],
       "epic": "std-library",
       "body": "From docs/reviews/SW-2195-lemma-names.md. Changes statements. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2208,
+      "title": "[Opus] Review SW-2030 (decreasing stage 2; generates kernel terms, D2364): the unnamed match equation (name check over arms), H.%plain twins and %same lemmas, dropped lets, lift.rs keeping if tags, stale-record reuse after a retry",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2208",
+      "labels": [
+        "review"
+      ],
+      "epic": "proof-automation",
+      "body": "Read-only Opus review, docs/reviews/SW-N-decreasing-match-fact.md. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2209,
+      "title": "[Opus] decreasing: show plain ifs and matches inside callbacks (xs.map (x => match …)) through congruence lemmas, as respects does; what 2021 day 12 needs, then move day 12 off its depth bound",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "proof-automation",
+      "body": "From SW-2030 (and SW-2029's report). After SW-2164. 90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2210,
+      "title": "[Sonnet] decreasing small findings from SW-2030: a lifted match's scrutinee is always named s, so a parameter s shows as s✝¹ in E-DECREASING and goals; an if on a comparison whose branch holds a match stays Decidable.elim in statements (Nat.leq works); goals after rewrite f.unfold show f.%plain x … (… => f …) rather than the body",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "epic": "proof-automation",
+      "body": "From SW-2030. 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
