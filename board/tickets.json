@@ -10490,16 +10490,16 @@
     {
       "id": 1531,
       "title": "Std: List.findIndex lemmas (day 15)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "std"
       ],
       "epic": "std-library",
-      "body": "Filed overnight 6 Nov 2026 from SW-1519 (2020 day 15).",
+      "body": "Filed overnight 6 Nov 2026 from SW-1519 (2020 day 15).\n\n7 Nov: done in SW-2138 (List.findIndex lemmas).",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -19586,14 +19586,14 @@
     {
       "id": 2138,
       "title": "[Sonnet] Std: Map-of-sets (Map.containsIn, insertIn, removeIn, removeIn drops an emptied set) with ↔ lemmas; Set.minLeast, Set.minOfContains; List.minByNone, Option.filterEqNone; List.findIndex lemmas (absorbs SW-1531)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2138",
       "labels": [
         "proofs"
       ],
       "epic": "std-library",
-      "body": "From docs/proposals/map-set-list-model.md. Stage S1, §5's brief. D3070 yes (orchestrator's call). snap:hashes, hash_stability. 60 min.",
+      "body": "From docs/proposals/map-set-list-model.md. Stage S1, §5's brief. D3070 yes (orchestrator's call). snap:hashes, hash_stability. 60 min.\n\nDone, merged. Maps of sets (containsIn/insertIn/removeIn) with Bool and ↔ lemmas and get helpers; Set.minLeast, minOfContains, missingOfIsEmpty; List.minByNone; findIndex (and findIndexFrom) lemmas; Option.filterEqNone. Only change from the note: the 'other' equations take ¬(otherKey = key ∧ otherItem = item). Orchestrator checked all 27 statements (D2436). Lane: audit:touched Std.Set 84, Std.List 840, Std.Option 46, all clean; snap:hashes 9/9. On main: hash_stability 9/9, std lane 24/24. No guide Map section exists (filed nothing; the guide's collections chapter is SW-2031's area). Model result: Sonnet, worked, 25 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19601,9 +19601,9 @@
     {
       "id": 2139,
       "title": "[Sonnet] 2024 day 9: port to Map.insertIn/removeIn; a spec of leftmostFit",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2139",
       "labels": [
         "proofs"
       ],
@@ -19616,9 +19616,9 @@
     {
       "id": 2140,
       "title": "[Sonnet] 2024 day 9: drawFiles (the files drawn as a disk) and the checksum of a drawing",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2140",
       "labels": [
         "proofs"
       ],
