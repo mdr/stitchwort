@@ -203,8 +203,8 @@ corpus-sweeps = { max-threads = 2 }
 
 # The language server's session tests (`stitchwort-lsp` `features` and
 # `memory`): each opens a Session on the library, 0.4 GB when the check cache is
-# warm and up to 1.3 GB while it is cold (the `memory` tests check a project and
-# hold 1.1 to 1.3 GB whatever the cache). Ten at once on a cold cache passed the
+# warm and up to 1.9 GB while it is cold, in the one process that fills the cache
+# (the others wait for it; both binaries share it, SW-1769). Ten at once on a cold cache passed the
 # merge tier's 4 GB cap (SW-1760). Three at a time peaked at 3.1 GB cold, and
 # the whole set takes about the same warm (28 s).
 lsp-sessions = { max-threads = 3 }
