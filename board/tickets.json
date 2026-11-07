@@ -14826,14 +14826,14 @@
     {
       "id": 1820,
       "title": "[Sonnet] A panic in an editor search kills the search worker (no catch_unwind; with one worker, no more searches until restart): catch it, answer 'no result' and log; and either wire cancellation into project searches or correct the comment that says they honour it",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1820",
       "labels": [
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 3, 6). Waiting on D2584 (rec: yes). Expected: 60 min.\n\nFrom docs/reviews/code-review-elab-tactics.md (F3): search.rs:1402 already catches a panic per comparison and carries on in the same session, so the caught-panic case is live. D2701: remove that catch, let this ticket's worker-level catch answer 'no result' and drop the kept session [rec: yes].\n\nFrom docs/reviews/code-review-cli-lsp-web-fmt.md (lane A): the checker thread has the same problem and worse (the editor freezes, high): SW-1948. Do them together.\n\nFrom docs/proposals/lsp-failure-policy.md: stage 1: a hidden Options::faults field for tests, search worker recovery on a fresh thread, a catch per main-thread request (Sonnet, 75 min). Absorbs D2584, SW-1821 finding 8, cli review F9.",
+      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 3, 6). Waiting on D2584 (rec: yes). Expected: 60 min.\n\nFrom docs/reviews/code-review-elab-tactics.md (F3): search.rs:1402 already catches a panic per comparison and carries on in the same session, so the caught-panic case is live. D2701: remove that catch, let this ticket's worker-level catch answer 'no result' and drop the kept session [rec: yes].\n\nFrom docs/reviews/code-review-cli-lsp-web-fmt.md (lane A): the checker thread has the same problem and worse (the editor freezes, high): SW-1948. Do them together.\n\nFrom docs/proposals/lsp-failure-policy.md: stage 1: a hidden Options::faults field for tests, search worker recovery on a fresh thread, a catch per main-thread request (Sonnet, 75 min). Absorbs D2584, SW-1821 finding 8, cli review F9.\n\nD2855 (Matt, 7 Nov 2026): \"Proceed with those 3\": start stage 1 of docs/proposals/lsp-failure-policy.md now; D2740 (recover in-process on a fresh thread) yes by the same answer. Expected: 75 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15802,14 +15802,14 @@
     {
       "id": 1885,
       "title": "[Opus] Pin the Nat natives' content hashes in register_native and register_nat_neq (as Float's are), refuse a second registration",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1885",
       "labels": [
         "kernel"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/code-review-core.md (F2, F16). D2640 [rec: yes]. 45 min.\n\nFrom docs/reviews/code-review-js-native.md (D2710): the effect natives bind, foldComp, translate, runPure are replaced by name and arity on all three backends, and JS's rewrites of ifThenElse, Decidable.elim, Ord.compare, List.append, Nat.add likewise: pin them by content hash with the arrays' loud refusal, in this lane [rec: yes].\n\nFrom docs/proposals/backend-trust.md: rescoped as stage 3: create crates/core/src/pins.rs, one table checked when the library binds a declaration; a stale pin stops the library loading, printing the new hash (D2791); register_native refuses a second registration. SOUNDNESS: with Nat natives unpinned, a changed Nat.sub body plus the old native lets the kernel prove False (reachable only by editing std or a custom prelude, SW-1919). Opus, 60 min, first, alongside SW-1989. The D2710 half moves to SW-1991.\n\nFrom docs/reviews/code-review-std.md (S5): List.length is swapped for List.lengthOnto at run time by name, unhashed, and isn't in the pin table; the review has a table of every std definition the backends bind or rewrite.",
+      "body": "From docs/reviews/code-review-core.md (F2, F16). D2640 [rec: yes]. 45 min.\n\nFrom docs/reviews/code-review-js-native.md (D2710): the effect natives bind, foldComp, translate, runPure are replaced by name and arity on all three backends, and JS's rewrites of ifThenElse, Decidable.elim, Ord.compare, List.append, Nat.add likewise: pin them by content hash with the arrays' loud refusal, in this lane [rec: yes].\n\nFrom docs/proposals/backend-trust.md: rescoped as stage 3: create crates/core/src/pins.rs, one table checked when the library binds a declaration; a stale pin stops the library loading, printing the new hash (D2791); register_native refuses a second registration. SOUNDNESS: with Nat natives unpinned, a changed Nat.sub body plus the old native lets the kernel prove False (reachable only by editing std or a custom prelude, SW-1919). Opus, 60 min, first, alongside SW-1989. The D2710 half moves to SW-1991.\n\nFrom docs/reviews/code-review-std.md (S5): List.length is swapped for List.lengthOnto at run time by name, unhashed, and isn't in the pin table; the review has a table of every std definition the backends bind or rewrite.\n\nD2855/D2792 (Matt, 7 Nov 2026): \"Proceed with those 3\": start now. Expected: 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -16267,15 +16267,15 @@
     {
       "id": 1916,
       "title": "[Opus] Lexer panic: a \"\"\" text whose ${...} the pre-scan and the lexer end differently slices text backwards (text[16..10]) and panics in release; the language server lexes on its main thread. Also: byte-order mark skipped (D2691), no-break and zero-width spaces and CR-only line endings, the stale '-- comments are docs' text",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1916",
       "labels": [
         "syntax",
         "bug"
       ],
       "epic": "syntax-language",
-      "body": "From docs/reviews/code-review-syntax-opus.md (F1, F6, F16; lane 1). HIGH: reachable crash. Repro: def t: Text := \"\"\" / ${1'}' ++ \"${x}\"} / \"\"\". Expected: 60 min.",
+      "body": "From docs/reviews/code-review-syntax-opus.md (F1, F6, F16; lane 1). HIGH: reachable crash. Repro: def t: Text := \"\"\" / ${1'}' ++ \"${x}\"} / \"\"\". Expected: 60 min.\n\nD2855/D2693 (Matt, 7 Nov 2026): \"Proceed with those 3\": start now. D2691 (byte-order mark) undecided, so not in this lane. Expected: 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
