@@ -431,7 +431,10 @@
         "Stage 1: harness, Python and Lean ports of ten programs, Lean ports of three days proofs; answer check 66/66 (SW-2292, SW-2293, SW-2299, SW-2294)",
         "Big-number note (SW-2298)"
       ],
-      "now": [],
+      "now": [
+        "Scale inputs past 0.3 s (SW-2307, restarted)",
+        "Proof baseline loads the day's own dependencies (SW-2313)"
+      ],
       "next": [
         "Scale inputs past 0.3 s (SW-2307) and a check subset filter (SW-2310)",
         "Stage 2: first Overmind measurement and report (SW-2295)",
