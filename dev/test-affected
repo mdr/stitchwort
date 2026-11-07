@@ -297,6 +297,12 @@ class Rule:
         self.hash_only = bool(spec.get("hash_only", False))
 
 
+def is_ignored(cfg, path):
+    """Documentation and board data select nothing, but for the `unignore`d
+    folders (the guide's chapters and examples are tests)."""
+    return globs_match(cfg.get("ignore", []), path) and not globs_match(cfg.get("unignore", []), path)
+
+
 def assign_rules(files, cfg, users, notes):
     """{rule id: Rule} for the changed files; files nothing covers are in
     `uncovered`. Also returns the per-file explanation."""
@@ -304,16 +310,17 @@ def assign_rules(files, cfg, users, notes):
     why_file = {}
     static = cfg["rule"]
     for f in files:
-        if globs_match(cfg.get("ignore", []), f):
+        if is_ignored(cfg, f):
             why_file[f] = ["ignored (documentation or board data)"]
             continue
         hits = [r for r in static if r.get("paths") and globs_match(r["paths"], f)]
         dyn = dynamic_rules(f)
-        if dyn or any(not r.get("fallback") for r in hits):
+        main = [r for r in hits if not r.get("extra")]
+        if dyn or any(not r.get("fallback") for r in main):
             hits = [r for r in hits if not r.get("fallback")]
         hits = hits + dyn
-        if not hits:
-            hits = fallback_rules(f, cfg, users, notes)
+        if not [h for h in hits if not h.get("extra")]:
+            hits = hits + fallback_rules(f, cfg, users, notes)
         if not hits:
             notes.append("no rule or crate covers %s" % f)
         why_file[f] = [h["id"] for h in hits] or ["nothing"]
@@ -488,12 +495,36 @@ def select(files, cfg, inv_mod, inv, budget, notes, use_crate_graph=True, names=
             "why_file": why_file, "sets": {r.id: sets[r.id + id(r).__str__()] for r in ordered}}
 
 
-def build_filter(kept, profiles):
+def render_cheap(sel, chosen, inv, profiles):
+    """A selector of a `cheap_only` rule: the tests it matches that the rule
+    kept, as the selector less the slow ones it left out (or, when those are
+    most of it, the kept ones by name), since a filterset has no times."""
+    matching = [t for t in inv if selector_matches(sel, t)]
+    kept = [t for t in matching if t["id"] in chosen]
+    slow = [t for t in matching if t["id"] not in chosen]
+    if not slow:
+        return render_selector(sel, profiles)
+    if not kept:
+        return None
+
+    def by_binary(tests):
+        per = {}
+        for t in tests:
+            per.setdefault(t["binary"], []).append(t["name"])
+        return " | ".join("(binary_id(=%s) & (%s))" % (b, " | ".join("test(=%s)" % n for n in sorted(ns)))
+                          for b, ns in sorted(per.items()))
+    if len(slow) <= len(kept):
+        return "(%s & !(%s))" % (render_selector(sel, profiles), by_binary(slow))
+    return "(%s)" % by_binary(kept)
+
+
+def build_filter(kept, profiles, inv, sets):
     clauses = []
     for r in kept:
         for s in rule_selectors(r):
-            c = render_selector(s, profiles)
-            if c not in clauses:
+            c = render_cheap(s, sets[r.id], inv, profiles) if r.cheap_only and "profile" not in s \
+                else render_selector(s, profiles)
+            if c and c not in clauses:
                 clauses.append(c)
     return " | ".join(clauses)
 
@@ -502,7 +533,7 @@ def build_filter(kept, profiles):
 
 def report(res, files, profiles, budget, explain, inv):
     out = []
-    flt = build_filter(res["rules"], profiles)
+    flt = build_filter(res["rules"], profiles, inv, res["sets"])
     est = res["estimate"]
     out.append("FILTER: %s" % flt)
     out.append("EXAMPLES: %s" % (res["examples"] or "none"))
@@ -601,7 +632,7 @@ def main():
     if not files:
         print("No changed files (on main with a clean tree? give --range OLD..NEW).")
         return 0
-    live = [f for f in files if not globs_match(cfg.get("ignore", []), f)]
+    live = [f for f in files if not is_ignored(cfg, f)]
     if not live:
         print("NOTHING TO RUN: only documentation and board files changed (%d files)." % len(files))
         return 0

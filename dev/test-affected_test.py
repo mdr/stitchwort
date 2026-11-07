@@ -57,6 +57,7 @@ INV = [
     test("cli::lsp", "hover", 2, profiles=["lane-lsp"]),
     test("cli::lsp", "heavy_one", 200),
     test("cli::extract", "int_is_bound_to_the_prelude", 20),
+    test("web", "tests::escapes_json_strings", 0.1, profiles=["lane-web"]),
 ]
 
 
@@ -269,6 +270,66 @@ class RealInventory(unittest.TestCase):
             r = ta.Rule(rule, [])
             with self.subTest(rule=rule["id"]):
                 self.assertTrue(ta.tests_of(r, inv), "%s selects no test" % rule["id"])
+
+
+# Test binaries that no rule and no lane area reaches, with why. Everything
+# else must be reached by some rule of dev/test-affected.toml or a lane area
+# (`EveryBinaryIsReached`), so a new binary gets a place in the table when it
+# is added, not never.
+NOT_REACHED = {
+    "stitchwort-bench::baseline": "check counts against the committed baseline, 145 s; run by `task bench`",
+    "stitchwort-bench::repeat": "repeatability of the counts, 12 s; run by `task bench`",
+    "stitchwort-cli::float_paths": "needs the playground's web/pkg bundle and skips (passes) without it; daily sets STITCHWORT_REQUIRE_WASM",
+    "stitchwort-driver::fuzz_elab": "mutated-example fuzzing, 100 s; daily tier",
+    "stitchwort-driver::soundness_fuzz": "soundness fuzzing, 95 s; daily tier",
+    "stitchwort-driver::search_at_aoc": "`search --at` over AoC goals, 250 s; daily tier",
+}
+
+
+@unittest.skipUnless(real_inventory_path(), "no built inventory")
+class EveryBinaryIsReached(unittest.TestCase):
+    """The lane areas and the rules together run something of every test
+    binary: nothing is left that only a whole tier would ever run, unless
+    `NOT_REACHED` says why."""
+
+    def reached(self, inv):
+        by_binary = {}
+        for t in inv:
+            by_binary.setdefault(t["binary"], False)
+            if any(p.startswith("lane-") for p in t["profiles"]):
+                by_binary[t["binary"]] = True
+        for rule in CFG["rule"]:
+            # A change to the build inputs runs the merge tier, which is not a place for any one binary.
+            if not rule.get("select") or rule["id"] == "build-config":
+                continue
+            for i in ta.tests_of(ta.Rule(rule, []), inv):
+                by_binary[i.split(" ", 1)[0]] = True
+        return by_binary
+
+    def test_no_test_binary_is_left_out(self):
+        inv = json.load(open(real_inventory_path()))["tests"]
+        by_binary = self.reached(inv)
+        missing = sorted(b for b, ok in by_binary.items() if not ok and b not in NOT_REACHED)
+        self.assertEqual(missing, [], "no rule or lane area reaches these test binaries: add them to a rule in "
+                         "dev/test-affected.toml (or a lane in .config/nextest.toml), or to NOT_REACHED with a reason")
+
+    def test_the_list_of_exceptions_is_current(self):
+        inv = json.load(open(real_inventory_path()))["tests"]
+        by_binary = self.reached(inv)
+        stale = sorted(b for b in NOT_REACHED if by_binary.get(b, False) or b not in by_binary)
+        self.assertEqual(stale, [], "NOT_REACHED lists binaries that are now reached or gone")
+
+    def test_the_inventory_has_every_binary_cargo_knows(self):
+        import subprocess
+        r = subprocess.run(["cargo", "metadata", "--no-deps", "--format-version", "1", "--offline"],
+                           capture_output=True, text=True, cwd=os.path.join(here, ".."))
+        if r.returncode != 0:
+            self.skipTest("cargo metadata is not available")
+        known = {t["binary"] for t in json.load(open(real_inventory_path()))["tests"]}
+        targets = {p["name"] + "::" + t["name"] for p in json.loads(r.stdout)["packages"] for t in p["targets"]
+                   if t["kind"] == ["test"]}
+        if targets - known:
+            self.skipTest("the inventory is out of date (task test:inventory): %s" % sorted(targets - known))
 
 
 if __name__ == "__main__":

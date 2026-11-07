@@ -58,13 +58,17 @@ run_task() {
 #   *.rs, Cargo.toml, Cargo.lock,
 #     rust-toolchain.toml                 lint (clippy --all-targets also
 #                                         proves the whole workspace builds)
-#   crates/syntax/**                      syntax elab driver examples
+#   crates/syntax/**                      syntax elab driver examples fmt lsp
 #   crates/core/** (the kernel)           core elab driver examples js rt
 #                                         bench/check_work
 #   crates/elab/src/std/** (library .sw)  std hashes examples bench/check_work
 #   crates/elab/** (the rest)             elab driver examples rt
 #                                         bench/check_work
 #   crates/js/**                          js
+#   crates/lsp/**                         lsp (the server's tests and cli lsp)
+#   crates/fmt/**                         fmt (the formatter and cli fmt)
+#   crates/native/**, host/**,            native; host rt; standalone (and
+#     standalone/**, dev-features/**      cli build); core rt
 #   crates/rt/** (shared with js)         rt js
 #   crates/driver/**                      driver examples
 #   crates/cli/**                         cli (every cli test except aoc)
@@ -149,7 +153,7 @@ affected_map() {
       rest="${p#crates/}"
       affected_hit "${rest%%/*}" "$p" ;;
     crates/syntax/*)
-      for a in syntax elab driver examples; do affected_hit $a "$p"; done ;;
+      for a in syntax elab driver examples fmt lsp; do affected_hit $a "$p"; done ;;
     crates/core/*)
       for a in core elab driver examples js rt bench/check_work; do
         affected_hit $a "$p"
@@ -159,6 +163,14 @@ affected_map() {
     crates/elab/*)
       for a in elab driver examples rt bench/check_work; do affected_hit $a "$p"; done ;;
     crates/js/*) affected_hit js "$p" ;;
+    crates/lsp/*) affected_hit lsp "$p" ;;
+    crates/fmt/*) affected_hit fmt "$p" ;;
+    crates/native/*) affected_hit native "$p" ;;
+    crates/host/*)
+      for a in host rt; do affected_hit $a "$p"; done ;;
+    crates/standalone/*) affected_hit standalone "$p" ;;
+    crates/dev-features/*)
+      for a in core rt; do affected_hit $a "$p"; done ;;
     crates/rt/*)
       for a in rt js; do affected_hit $a "$p"; done ;;
     crates/driver/*)
@@ -208,6 +220,17 @@ affected_specs() {
     web) echo "stitchwort-web|" ;;
     partial-model) echo "stitchwort-partial-model|" ;;
     rt) echo "stitchwort-rt|" ;;
+    host) echo "stitchwort-host|" ;;
+    native) echo "stitchwort-native|" ;;
+    lsp)
+      echo "stitchwort-lsp|"
+      echo "stitchwort-cli|--test lsp" ;;
+    fmt)
+      echo "stitchwort-fmt|"
+      echo "stitchwort-cli|--test fmt --test fmt_repo" ;;
+    standalone)
+      echo "stitchwort-standalone|"
+      echo "stitchwort-cli|--test build" ;;
     */lib) echo "stitchwort-${1%/lib}|--lib" ;;
     */*) echo "stitchwort-${1%%/*}|--test ${1#*/}" ;;
   esac
