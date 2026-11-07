@@ -19616,7 +19616,7 @@
     {
       "id": 2140,
       "title": "[Sonnet] 2024 day 9: drawFiles (the files drawn as a disk) and the checksum of a drawing",
-      "status": "next",
+      "status": "doing",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2140",
       "labels": [
@@ -20816,9 +20816,9 @@
     {
       "id": 2220,
       "title": "[Opus] decreasing stage 2 fixes (SW-2208 lane A): run dead_lets again after post (F1); the name check reads pattern guards too (F4); make the stale-record map exact and keep the guard as a check (F6); limit twin() to lifted matches (F7); F8",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2220",
       "labels": [
         "core"
       ],
@@ -21041,9 +21041,9 @@
     {
       "id": 2235,
       "title": "[Sonnet] SW-2234 F1/F2: reword value.rs:3255's 'this happens once a side' (it can fire twice: wrap 0 against 0, def wrap (x) := outerV x); add to proof_equivalence's matrix a non-decreasing definition returning a field of a call (valueOf x := (countDown x).value) and a decreasing definition whose leaf is that call",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2235",
       "labels": [
         "tests"
       ],
