@@ -37,7 +37,7 @@ use lsp_types::{
     MarkupKind, NumberOrString, Position, PublishDiagnosticsParams, SymbolInformation, SymbolKind,
     Url, WorkspaceSymbolResponse, notification, request,
 };
-use stitchwort_core::collections::HashMap;
+use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_driver::at as pos;
 use stitchwort_driver::check_cache::{BundleRecorder, BundleStore, CheckCache, LibraryBundle};
 use stitchwort_driver::driver::Session;
@@ -538,6 +538,12 @@ enum SearchKind {
 }
 
 impl Search {
+    /// What was asked, as text, to tell one search of a document from
+    /// another.
+    fn key(&self) -> String {
+        serde_json::to_string(&self.kind).unwrap_or_default()
+    }
+
     /// The answer: the code actions, or the context, or null, with the
     /// stack and the check cache of `server`, and as many closing proofs as
     /// it wants.
@@ -669,6 +675,13 @@ struct Searches {
     pending: Mutex<HashMap<lsp_server::RequestId, Arc<PendingSearch>>>,
     versions: Mutex<HashMap<Url, i32>>,
     running: std::sync::atomic::AtomicUsize,
+    /// The restarts the search workers share ([`Budget`]).
+    budget: Mutex<Budget>,
+    /// The searches that panicked: document, version and what was asked
+    /// ([`Search::key`]). Asking again at the same text would panic again
+    /// and spend the budget (VS Code asks whenever the cursor moves), so
+    /// it is answered with null; an edit or close forgets them.
+    panicked: Mutex<HashSet<(Url, i32, String)>>,
 }
 
 fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
@@ -688,7 +701,6 @@ fn keep_search_worker(
     source: Arc<dyn Source>,
     notices: Arc<Notices>,
 ) {
-    let mut budget = Budget::default();
     loop {
         let worker = {
             let (jobs, sender, searches) = (jobs.clone(), sender.clone(), searches.clone());
@@ -710,11 +722,11 @@ fn keep_search_worker(
             Ok(true) => notices.recovered(&format!("search worker {n} restarted after a panic")),
             Err(_) => notices.recovered(&format!("search worker {n} died; restarting it")),
         }
-        if !budget.spend() {
+        if !lock(&searches.budget).spend() {
             notices.always(
                 lsp_types::MessageType::ERROR,
                 "Stitchwort stopped running proof searches after repeated internal errors. \
-                 Restart the language server to get them back.",
+                 Reload the window to get them back.",
             );
             // Answered at once, rather than left waiting for a worker.
             for job in jobs {
@@ -856,6 +868,7 @@ fn run_search(
     } else {
         let cancel = job.pending.cancel.clone();
         let search = job.search;
+        let key = (search.uri.clone(), job.version, search.key());
         let ran = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             if options.faults.search_panics_now() {
                 panic!("injected search fault");
@@ -869,6 +882,9 @@ fn run_search(
                 panic_message(&*payload)
             );
             survived = false;
+            if lock(&searches.versions).get(&key.0) == Some(&key.1) {
+                lock(&searches.panicked).insert(key);
+            }
             serde_json::Value::Null
         })
     };
@@ -1235,12 +1251,18 @@ impl Main {
             cancel: Arc::new(AtomicBool::new(false)),
             answered: AtomicBool::new(false),
         });
+        let search = make(version);
+        let key = (uri.clone(), version, search.key());
+        if lock(&self.searches.panicked).contains(&key) {
+            self.answer_null(id);
+            return;
+        }
         lock(&self.searches.pending).insert(id.clone(), pending.clone());
         let job = SearchJob {
             id: id.clone(),
             pending,
             version,
-            search: make(version),
+            search,
         };
         if self.to_searches.send(job).is_err() {
             lock(&self.searches.pending).remove(&id);
@@ -1256,6 +1278,7 @@ impl Main {
             Some(v) => lock(&self.searches.versions).insert(uri.clone(), v),
             None => lock(&self.searches.versions).remove(uri),
         };
+        lock(&self.searches.panicked).retain(|(u, ..)| u != uri);
         self.supersede(uri, None);
     }
 
@@ -2423,7 +2446,7 @@ fn keep_checker(
                 notices.always(
                     lsp_types::MessageType::ERROR,
                     "Stitchwort stopped checking after an internal error. \
-                     Restart the language server.",
+                     Reload the window.",
                 );
                 return;
             }
@@ -2442,8 +2465,8 @@ fn keep_checker(
         if !budget.spend() {
             notices.always(
                 lsp_types::MessageType::ERROR,
-                "Stitchwort stopped checking after repeated internal errors. Run \
-                 \"Stitchwort: Restart Server\" (or reload the window) to start again.",
+                "Stitchwort stopped checking after repeated internal errors. Reload \
+                 the window to start again.",
             );
             kept.stopped = Some(
                 "internal error: checking stopped after repeated internal errors; restart \

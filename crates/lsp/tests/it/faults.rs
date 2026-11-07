@@ -168,7 +168,7 @@ fn a_panicking_search_is_answered_and_the_next_search_works() {
         first.get("error").is_none() && first["result"].is_null(),
         "{first}"
     );
-    let second = s.code_action();
+    let second = actions_after_edit(&mut s, 2);
     let actions = second["result"]
         .as_array()
         .unwrap_or_else(|| panic!("{second}"));
@@ -343,6 +343,46 @@ fn the_checker_budget_runs_out_with_a_message() {
     s.stop();
 }
 
+/// Edits the text (a new version) and asks for the code action there.
+fn code_action_after_edit(s: &mut Server, version: i32) -> Value {
+    s.change(URI, version, &format!("{TEXT}-- edit {version}\n"));
+    s.diagnostics(URI, |p| p["version"] == version);
+    s.code_action()
+}
+
+/// The actions offered after an edit; asked again while the answer is
+/// empty, as the goals of the new text can be recorded just after its
+/// diagnostics are published.
+fn actions_after_edit(s: &mut Server, version: i32) -> Value {
+    let mut answer = code_action_after_edit(s, version);
+    for _ in 0..40 {
+        if answer["result"].as_array().is_some_and(|a| !a.is_empty()) {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(250));
+        answer = s.code_action();
+    }
+    answer
+}
+
+fn searches_stopped(s: &Server) -> bool {
+    (s.pop_ups().iter()).any(|p| p.contains("stopped running proof searches"))
+}
+
+/// Waits for the pop-up that searches stopped: the worker sends it after
+/// answering the request that panicked.
+fn wait_for_searches_stopped(s: &Server) {
+    if searches_stopped(s) {
+        return;
+    }
+    s.wait_for(|m| {
+        m["method"] == "window/showMessage"
+            && m["params"]["message"]
+                .as_str()
+                .is_some_and(|p| p.contains("stopped running proof searches"))
+    });
+}
+
 #[test]
 fn the_search_budget_runs_out_with_a_message() {
     let options = Options::new(STACK);
@@ -351,19 +391,78 @@ fn the_search_budget_runs_out_with_a_message() {
         .search_panics
         .store(usize::MAX, Ordering::SeqCst);
     let mut s = Server::start(options);
-    for _ in 0..7 {
+    for version in 2..=8 {
+        let answer = code_action_after_edit(&mut s, version);
+        assert!(
+            answer.get("error").is_none() && answer["result"].is_null(),
+            "{answer}"
+        );
+    }
+    wait_for_searches_stopped(&s);
+    let pop_ups = s.pop_ups();
+    assert!(
+        pop_ups.iter().all(|p| !p.contains("Restart Server")),
+        "{pop_ups:?}"
+    );
+    s.stop();
+}
+
+/// SW-2089: VS Code asks again whenever the cursor moves.
+#[test]
+fn repeated_code_actions_at_a_panicking_goal_spend_one_restart() {
+    let options = Options::new(STACK);
+    options
+        .faults
+        .search_panics
+        .store(usize::MAX, Ordering::SeqCst);
+    let mut s = Server::start(options);
+    for _ in 0..8 {
         let answer = s.code_action();
         assert!(
             answer.get("error").is_none() && answer["result"].is_null(),
             "{answer}"
         );
     }
-    let pop_ups = s.pop_ups();
+    assert!(!searches_stopped(&s), "{:?}", s.pop_ups());
+    // One panic used one restart, so four more edits still fit in the budget.
+    for version in 2..=5 {
+        code_action_after_edit(&mut s, version);
+    }
+    assert!(!searches_stopped(&s), "{:?}", s.pop_ups());
+    code_action_after_edit(&mut s, 6);
+    wait_for_searches_stopped(&s);
+    s.stop();
+}
+
+#[test]
+fn after_an_edit_a_panicked_search_is_tried_again() {
+    let options = Options::new(STACK);
+    options.faults.search_panics.store(1, Ordering::SeqCst);
+    let mut s = Server::start(options);
+    assert!(s.code_action()["result"].is_null());
+    assert!(s.code_action()["result"].is_null());
+    let after = actions_after_edit(&mut s, 2);
     assert!(
-        pop_ups
-            .iter()
-            .any(|p| p.contains("stopped running proof searches")),
-        "{pop_ups:?}"
+        after["result"].as_array().is_some_and(|a| !a.is_empty()),
+        "{after}"
     );
+    s.stop();
+}
+
+#[test]
+fn two_search_workers_share_one_budget() {
+    let mut options = Options::new(STACK);
+    options.search_workers = 2;
+    options
+        .faults
+        .search_panics
+        .store(usize::MAX, Ordering::SeqCst);
+    let mut s = Server::start(options);
+    // Alone, each worker could take five restarts; shared, six panics are
+    // too many whichever worker gets them.
+    for version in 2..=7 {
+        code_action_after_edit(&mut s, version);
+    }
+    wait_for_searches_stopped(&s);
     s.stop();
 }
