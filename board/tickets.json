@@ -1,5 +1,5 @@
 {
-  "next": 1830,
+  "next": 1842,
   "tickets": [
     {
       "id": 47,
@@ -12000,9 +12000,9 @@
         "elab"
       ],
       "epic": "goal-as-written",
-      "body": "D2475-D2480 (Matt, 6 Nov 2026): all as recommended in docs/proposals/goal-as-written.md: rewrite/match/cases/transport look as written first with a completeness check and today's search as fallback; the as-written search may solve a rule's unknowns; keep today's reach into hidden copies, no occurrence selection now (D2478); out-of-resources check uses the as-written result; rewrite f later. 'happy to go with your recommendation.' Any time after stage 1.\n\nD2506 (Matt, 6 Nov 2026): SW-1627 stays on Sonnet with the Opus review, but from now on core language changes (kernel, rewrite/match tactics, unifier, syntax, std core) go to Opus: 'core/kernel language changes feel like we can afford a bit more intelligence to be safe!' So: Opus.",
+      "body": "D2475-D2480 (Matt, 6 Nov 2026): all as recommended in docs/proposals/goal-as-written.md: rewrite/match/cases/transport look as written first with a completeness check and today's search as fallback; the as-written search may solve a rule's unknowns; keep today's reach into hidden copies, no occurrence selection now (D2478); out-of-resources check uses the as-written result; rewrite f later. 'happy to go with your recommendation.' Any time after stage 1.\n\nD2506 (Matt, 6 Nov 2026): SW-1627 stays on Sonnet with the Opus review, but from now on core language changes (kernel, rewrite/match tactics, unifier, syntax, std core) go to Opus: 'core/kernel language changes feel like we can afford a bit more intelligence to be safe!' So: Opus.\n\nStage R of docs/proposals/bounded-readback-remaining.md (Opus, 90 min, Opus review). Can start now if Matt says D2610 yes (amends D2545).",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -12345,9 +12345,9 @@
         "elab"
       ],
       "epic": "goal-as-written",
-      "body": "From SW-1627, 6 Nov 2026. Opus (D2506).",
+      "body": "From SW-1627, 6 Nov 2026. Opus (D2506).\n\nCovered by a stage of docs/proposals/bounded-readback-remaining.md (see its §7).",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -12840,9 +12840,9 @@
         "errors"
       ],
       "epic": "goal-as-written",
-      "body": "From SW-1630, 6 Nov 2026.",
+      "body": "From SW-1630, 6 Nov 2026.\n\nCovered by a stage of docs/proposals/bounded-readback-remaining.md (see its §7).",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -12900,9 +12900,9 @@
         "tactics"
       ],
       "epic": "goal-as-written",
-      "body": "From the SW-1630 review, 6 Nov 2026 (s4/m5.sw atHyp).",
+      "body": "From the SW-1630 review, 6 Nov 2026 (s4/m5.sw atHyp).\n\nCovered by a stage of docs/proposals/bounded-readback-remaining.md (see its §7).",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -13005,9 +13005,9 @@
         "kernel"
       ],
       "epic": "goal-as-written",
-      "body": "From the SW-1630 reviews, 6 Nov 2026.",
+      "body": "From the SW-1630 reviews, 6 Nov 2026.\n\nCovered by a stage of docs/proposals/bounded-readback-remaining.md (see its §7).",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -13020,9 +13020,9 @@
         "errors"
       ],
       "epic": "goal-as-written",
-      "body": "From the SW-1630 reviews, 6 Nov 2026.",
+      "body": "From the SW-1630 reviews, 6 Nov 2026.\n\nCovered by a stage of docs/proposals/bounded-readback-remaining.md (see its §7).",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -13377,9 +13377,9 @@
         "design"
       ],
       "epic": "goal-as-written",
-      "body": "From the bounded-readback review and revision, 6 Nov 2026.",
+      "body": "From the bounded-readback review and revision, 6 Nov 2026.\n\nCovered by a stage of docs/proposals/bounded-readback-remaining.md (see its §7).",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -13400,16 +13400,16 @@
     {
       "id": 1725,
       "title": "Check whether lane/SW-1642's unifier has eta for records whose fields are all proofs; affects the bounded reader's skipping rule (SW-1722)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "design"
       ],
       "epic": "goal-as-written",
-      "body": "From the bounded-readback review and revision, 6 Nov 2026.",
+      "body": "From the bounded-readback review and revision, 6 Nov 2026.\n\nAnswered in SW-1828 (§2): proof-only records have no eta; the skipping rule's clause goes.",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -13610,16 +13610,16 @@
     {
       "id": 1739,
       "title": "KNOWN_CAP (unify.rs:973) answers 'may mention' when it runs out instead of failing; the one leftover against D2543 (only makes the unifier postpone)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "design"
       ],
       "epic": "goal-as-written",
-      "body": "From SW-1728, 6 Nov 2026.",
+      "body": "From SW-1728, 6 Nov 2026.\n\nAnswered by SW-1828 §3.2-3.3: true of mentions_unknown only, which SW-1832 changes.",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -13670,14 +13670,14 @@
     {
       "id": 1743,
       "title": "ignorable_arguments (check.rs) swallows its size error with .ok()? yet each swallowed failure still costs a 10M-node read-back (SW-1740)",
-      "status": "backlog",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1743",
       "labels": [
         "perf"
       ],
       "epic": "goal-as-written",
-      "body": "From SW-1740, 6 Nov 2026.\n\nSW-1747: also rewrite.rs:707 and lib.rs:4954 answer 'no' when the read-back fails; all three are stage 4. And effects.rs:4131, induct_match.rs:429, rewrite.rs:1918-1919 read back with ? only for a note or hint, so they can replace the intended error: stage 5.\n\n7 Nov ~03:10, lane/SW-1743 (340435397): quote_at_most(4096) with a quote_folded fallback; synthetic P18 case 7.1 s → 1.6 s in ignorable_arguments; 1354 affected tests pass, no hash moved. Not merged (my call): it adds a limit that chooses (answers differ by cap), which D2543 rules out; the fix belongs to stage 4's memoised mentions reader (decide from the value). Branch kept for stage 4. The rest of the cost is forcing a glued call like P18 n, exponential in depth because its args aren't shared. rewrite.rs:707 and lib.rs:4954 run only while building errors: stage 4. Model result: Sonnet, worked (but against D2543; brief should have said so), 26 min (est. 45).",
+      "body": "From SW-1740, 6 Nov 2026.\n\nSW-1747: also rewrite.rs:707 and lib.rs:4954 answer 'no' when the read-back fails; all three are stage 4. And effects.rs:4131, induct_match.rs:429, rewrite.rs:1918-1919 read back with ? only for a note or hint, so they can replace the intended error: stage 5.\n\n7 Nov ~03:10, lane/SW-1743 (340435397): quote_at_most(4096) with a quote_folded fallback; synthetic P18 case 7.1 s → 1.6 s in ignorable_arguments; 1354 affected tests pass, no hash moved. Not merged (my call): it adds a limit that chooses (answers differ by cap), which D2543 rules out; the fix belongs to stage 4's memoised mentions reader (decide from the value). Branch kept for stage 4. The rest of the cost is forcing a glued call like P18 n, exponential in depth because its args aren't shared. rewrite.rs:707 and lib.rs:4954 run only while building errors: stage 4. Model result: Sonnet, worked (but against D2543; brief should have said so), 26 min (est. 45).\n\nSuperseded by SW-1779 (SW-1828 §3.4): it always reads folded, uncapped. The remaining swallowed error is in SW-1834. Branch lane/SW-1743 deleted.",
       "created": "2026-11-06",
       "updated": "2026-11-07",
       "commits": []
@@ -13760,31 +13760,31 @@
     {
       "id": 1749,
       "title": "Bounded readback gap: omega.rs (21) and ring.rs (1) identify atoms by comparing unfolded read-backs syntactically; no stage covers them; compare by conversion instead",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "design"
       ],
       "epic": "goal-as-written",
-      "body": "From SW-1747. Trip-journal doesn't need it.",
+      "body": "From SW-1747. Trip-journal doesn't need it.\n\nAbsorbed by stage O, SW-1837.",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
       "id": 1750,
       "title": "Limits that choose rather than fail (D2543): interfaces.rs:1388 scanned (instance search reads unfolded to 100k nodes, then folded; 8 uses), matching.rs:1428, unify.rs:177/978 (KNOWN_CAP, SW-1739); add to stage 7's list",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "design"
       ],
       "epic": "goal-as-written",
-      "body": "From SW-1747.",
+      "body": "From SW-1747.\n\nAnswered by SW-1828 §3: scanned and mentions_unknown change in SW-1832 (D2611); on_pending and normals are exact and stay.",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -13880,16 +13880,16 @@
     {
       "id": 1757,
       "title": "Bounded-readback note §2.5: matching.rs 521/657/851 and named.rs:895 aren't output terms (they feed match's searches and a mentions check); say why they stay unfolded (SW-1746, SW-1756)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "design"
       ],
       "epic": "goal-as-written",
-      "body": "From the stage 1 review, 6 Nov 2026.",
+      "body": "From the stage 1 review, 6 Nov 2026.\n\nDone in SW-1828 (main note §2.5).",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -13902,9 +13902,9 @@
         "design"
       ],
       "epic": "goal-as-written",
-      "body": "From the stage 1 review, 6 Nov 2026.",
+      "body": "From the stage 1 review, 6 Nov 2026.\n\nCovered by a stage of docs/proposals/bounded-readback-remaining.md (see its §7).",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -13917,9 +13917,9 @@
         "design"
       ],
       "epic": "goal-as-written",
-      "body": "From the stage 1 review, 6 Nov 2026.",
+      "body": "From the stage 1 review, 6 Nov 2026.\n\nSW-1828: a 15-min DeepSeek chore, any time (OnceLock for the env lookup; document that the extra run's steps aren't refunded).",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -13962,7 +13962,7 @@
         "perf"
       ],
       "epic": "record-eta",
-      "body": "From SW-1667, 6 Nov 2026.\n\nSW-1764: a cost, not a deeper problem: record updates open into full State constructors, and the match motive is read back unfolded (D2514's direction; bounded readback stages).",
+      "body": "From SW-1667, 6 Nov 2026.\n\nSW-1764: a cost, not a deeper problem: record updates open into full State constructors, and the match motive is read back unfolded (D2514's direction; bounded readback stages).\n\nCovered by a stage of docs/proposals/bounded-readback-remaining.md (see its §7).",
       "created": "2026-11-06",
       "updated": "2026-11-07",
       "commits": []
@@ -14946,14 +14946,14 @@
     {
       "id": 1828,
       "title": "[Opus] Bounded readback: plan the remaining stages (design only): the limits that choose rather than fail (SW-1750, SW-1739), omega/ring atoms by unfolded read-back (SW-1749), §2.5's left-unfolded sites (SW-1757), the table of what stage 1b left (SW-1785), and the held stage-4 fix (lane/SW-1743); one staged plan with briefs and D questions",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1828",
       "labels": [
         "design"
       ],
       "epic": "goal-as-written",
-      "body": "D2585 (Matt, 7 Nov 2026). Expected: 60 min. No builds.",
+      "body": "D2585 (Matt, 7 Nov 2026). Expected: 60 min. No builds.\n\nDone, merged: docs/proposals/bounded-readback-remaining.md, and the main note's §2.5 (SW-1757) and proof-only records (SW-1725). ~200 of 290 unfolded sites left; stages 0c, 1c, R, 4a, M, 4b, 4c, 5, O, 3, 6a, 6b, 7, ~1,015 min (Opus 685). Decisions D2610-D2614 (rec: yes to all). Filed: SW-1830 SW-1831 SW-1832 SW-1833 SW-1834 SW-1835 SW-1836 SW-1837 SW-1838 SW-1839 SW-1840 SW-1841. 11 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -14970,6 +14970,186 @@
       ],
       "epic": "elaborator-kernel",
       "body": "From the D2507 check, 7 Nov 08:11. Merge 319c28c0c. Expected: 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1830,
+      "title": "[Sonnet] Bounded readback stage 0c: metrics, where today's limits fire and choose (counts per limit over std, AoC, rogue, examples)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "readback"
+      ],
+      "epic": "goal-as-written",
+      "body": "Brief in docs/proposals/bounded-readback-remaining.md §5.2 (stage 0c). 45 min. Ready now (D2536). Beside 1c and R (SW-1631).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1831,
+      "title": "[Sonnet, Opus review] Bounded readback stage 1c: the ~30 output sites stages 1 and 1b didn't reach",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "readback"
+      ],
+      "epic": "goal-as-written",
+      "body": "Brief in docs/proposals/bounded-readback-remaining.md §5.2 (stage 1c). 60 min. Ready now.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1832,
+      "title": "[Opus] Bounded readback stage 4a: the shared reader (opens only calls whose arguments hold an unknown); scanned and mentions_unknown answer exactly, running out is E-RESOURCE naming the call; SW-1698 first",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "readback"
+      ],
+      "epic": "goal-as-written",
+      "body": "Brief in docs/proposals/bounded-readback-remaining.md §5.2 (stage 4a). 100 min. After SW-1830; D2611. Absorbs SW-1750, SW-1739, SW-1698.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1833,
+      "title": "[Sonnet] Bounded readback stage M: the measured proofs rewritten (main note §7, §8)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "readback"
+      ],
+      "epic": "goal-as-written",
+      "body": "Brief in docs/proposals/bounded-readback-remaining.md §5.2 (stage M). 45 min. After R (SW-1631).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1834,
+      "title": "[Sonnet] Bounded readback stage 4b: the other mentions sites onto the reader; ignorable_arguments' swallowed error propagates",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "readback"
+      ],
+      "epic": "goal-as-written",
+      "body": "Brief in docs/proposals/bounded-readback-remaining.md §5.2 (stage 4b). 75 min. After SW-1832.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1835,
+      "title": "[Opus] Bounded readback stage 4c: zonk on the reader (unify.rs); SW-1758; measure SW-1762",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "readback"
+      ],
+      "epic": "goal-as-written",
+      "body": "Brief in docs/proposals/bounded-readback-remaining.md §5.2 (stage 4c). 75 min. After SW-1832.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1836,
+      "title": "[Sonnet] Bounded readback stage 5: shown; messages",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "readback"
+      ],
+      "epic": "goal-as-written",
+      "body": "Brief in docs/proposals/bounded-readback-remaining.md §5.2 (stage 5). 60 min. After SW-1832.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1837,
+      "title": "[Opus] Bounded readback stage O: omega and ring atoms compared folded first, then by conversion between same-head atoms; running out is an error (SW-1749)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "readback"
+      ],
+      "epic": "goal-as-written",
+      "body": "Brief in docs/proposals/bounded-readback-remaining.md §5.2 (stage O). 90 min. After SW-1830; D2612. Measures old and new answers side by side first.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1838,
+      "title": "[Opus] Bounded readback stage 3: the reader's find",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "readback"
+      ],
+      "epic": "goal-as-written",
+      "body": "Brief in docs/proposals/bounded-readback-remaining.md §5.2 (stage 3). 120 min. After SW-1832.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1839,
+      "title": "[Opus, Opus review] Bounded readback stage 6a: rewrite under D2542 (SW-1723, SW-1691, SW-1699, SW-1654; retires SW-1697, SW-1709; checks SW-1387)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "readback"
+      ],
+      "epic": "goal-as-written",
+      "body": "Brief in docs/proposals/bounded-readback-remaining.md §5.2 (stage 6a). 100 min. After SW-1838 and SW-1833.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1840,
+      "title": "[Opus, Opus review] Bounded readback stage 6b: match, cases and the transport under D2542 (SW-1687; measure SW-1762)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "readback"
+      ],
+      "epic": "goal-as-written",
+      "body": "Brief in docs/proposals/bounded-readback-remaining.md §5.2 (stage 6b). 110 min. After SW-1839.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1841,
+      "title": "[Sonnet, Opus review] Bounded readback stage 7: no recovered E-RESOURCE decides",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "readback"
+      ],
+      "epic": "goal-as-written",
+      "body": "Brief in docs/proposals/bounded-readback-remaining.md §5.2 (stage 7). 45 min. After SW-1840.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
