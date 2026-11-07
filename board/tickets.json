@@ -19878,7 +19878,7 @@
         "core"
       ],
       "epic": "record-eta",
-      "body": "From SW-2126. Repro: scratchpad p/probe.sw theorem a2 (copy it into the ticket's test). A missing equality, not a D3030 disagreement. 60 min.\n\n7 Nov (docs/reviews/SW-2158-glued-leaf-unfolding.md): its own lane, confirmed; add a Succ (outerN 0) term to the matrix.\n\n7 Nov (SW-2211): add the depth-3 case: glued, Succ (withProof (outerN 0)) against Succ (withProof 1) is true, unglued false; and glued isn't transitive with 2 there. Same root: the number comparison doesn't unfold a folded call under Succ.\n\nDone, merged. assign callback unfolds a folded base and compares again (glued, unglued, reference, unifier); SW-2211's rule removed as redundant; core.md rewritten. AoC 287/0 errors, 80 s. Review SW-2239. Model result: Opus, worked, 18 min (est. 60).",
+      "body": "From SW-2126. Repro: scratchpad p/probe.sw theorem a2 (copy it into the ticket's test). A missing equality, not a D3030 disagreement. 60 min.\n\n7 Nov (docs/reviews/SW-2158-glued-leaf-unfolding.md): its own lane, confirmed; add a Succ (outerN 0) term to the matrix.\n\n7 Nov (SW-2211): add the depth-3 case: glued, Succ (withProof (outerN 0)) against Succ (withProof 1) is true, unglued false; and glued isn't transitive with 2 there. Same root: the number comparison doesn't unfold a folded call under Succ.\n\nDone, merged. assign callback unfolds a folded base and compares again (glued, unglued, reference, unifier); SW-2211's rule removed as redundant; core.md rewritten. AoC 287/0 errors, 80 s. Review SW-2239. Model result: Opus, worked, 18 min (est. 60).\n\nBatch check on main (17:13-17:18): proof_equivalence/call_fields/eta_fields/hash_stability 21/21; succ-of-folded-call example 12/12; AoC check --no-cache 287 namespaces, 0 errors, 87.5 s wall / 70.0 s user (3 lanes running); rogue clean; audit Std.List 858 passed, 0 warnings.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20088,7 +20088,7 @@
         "proofs"
       ],
       "epic": "std-library",
-      "body": "From docs/reviews/SW-2159-aoc-lemmas-to-std.md, lane N1; its brief paragraph is in the report. Absorbs part of SW-2003, SW-957's arithmetic. 60 min.\n\nDone, merged. 19 lemmas moved (table in the lane report), Nat.divMonoLeft new (SW-957); day 8 natAbsDiffLt replaced by omega. Placement follows std's load order (Nat/Divides.sw, Int/Lemmas.sw; Bool.toNat* in List/SortLemmas.sw for now, SW-2238). Model result: Sonnet, worked, 25 min (est. 60).",
+      "body": "From docs/reviews/SW-2159-aoc-lemmas-to-std.md, lane N1; its brief paragraph is in the report. Absorbs part of SW-2003, SW-957's arithmetic. 60 min.\n\nDone, merged. 19 lemmas moved (table in the lane report), Nat.divMonoLeft new (SW-957); day 8 natAbsDiffLt replaced by omega. Placement follows std's load order (Nat/Divides.sw, Int/Lemmas.sw; Bool.toNat* in List/SortLemmas.sw for now, SW-2238). Model result: Sonnet, worked, 25 min (est. 60).\n\nBatch check on main (17:13-17:18): proof_equivalence/call_fields/eta_fields/hash_stability 21/21; succ-of-folded-call example 12/12; AoC check --no-cache 287 namespaces, 0 errors, 87.5 s wall / 70.0 s user (3 lanes running); rogue clean; audit Std.List 858 passed, 0 warnings.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20478,7 +20478,7 @@
         "core"
       ],
       "epic": "std-library",
-      "body": "From docs/proposals/std-lemma-references.md, stage 2. 60 min.\n\nDone, merged. 70 definitions have shapes, checked at binding (also the partial Effect and Float primitive sites, which were never checked); std must declare every library entry. On main: builtins, bound_to_the_prelude, pins, hash_stability 31/31; rogue clean. Follow-ups SW-2237. Model result: Sonnet, worked, 24 min (est. 60).",
+      "body": "From docs/proposals/std-lemma-references.md, stage 2. 60 min.\n\nDone, merged. 70 definitions have shapes, checked at binding (also the partial Effect and Float primitive sites, which were never checked); std must declare every library entry. On main: builtins, bound_to_the_prelude, pins, hash_stability 31/31; rogue clean. Follow-ups SW-2237. Model result: Sonnet, worked, 24 min (est. 60).\n\nBatch check on main (17:13-17:18): proof_equivalence/call_fields/eta_fields/hash_stability 21/21; succ-of-folded-call example 12/12; AoC check --no-cache 287 namespaces, 0 errors, 87.5 s wall / 70.0 s user (3 lanes running); rogue clean; audit Std.List 858 passed, 0 warnings.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
