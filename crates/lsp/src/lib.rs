@@ -145,6 +145,13 @@ pub struct Faults {
     pub sources_panic: Mutex<Option<(PathBuf, usize)>>,
     /// Applying the next edits to this file panics, this many times.
     pub apply_panic: Mutex<Option<(PathBuf, usize)>>,
+    /// The project in this folder can't be read, every time, though its
+    /// configuration can: as when a source folder it lists is missing.
+    pub project_unreadable: Mutex<Option<PathBuf>>,
+    /// Telling the projects which files the client asked for
+    /// (`stitchwort/focus`) panics while it asked for this file, this many
+    /// times: a panic no workspace can be blamed for.
+    pub focus_panic: Mutex<Option<(PathBuf, usize)>>,
 }
 
 impl Faults {
@@ -193,6 +200,15 @@ impl Faults {
 
     fn load_panics_now(&self, dir: &Path) -> bool {
         lock(&self.load_panic).as_deref() == Some(dir)
+    }
+
+    fn project_unreadable(&self, dir: &Path) -> bool {
+        lock(&self.project_unreadable).as_deref() == Some(dir)
+    }
+
+    fn focus_panics_now(&self, also: &[PathBuf]) -> bool {
+        also.iter()
+            .any(|path| Self::counted(&self.focus_panic, path))
     }
 
     fn request_panics_now(&self, method: &str) -> bool {
@@ -2436,6 +2452,18 @@ struct Checker {
     /// The text and version of each open document, recorded before an edit
     /// is applied, so that a successor can open them again ([`Keeper`]).
     open: BTreeMap<PathBuf, (i32, String)>,
+    /// The workspace each open document is kept under: its project's folder,
+    /// or its own path. Decided once, when the document is opened, and then
+    /// the only key for it: in `work`, for checking, and for quarantine,
+    /// suspicion, retirement and blame. Working it out again from the disk
+    /// can give another answer (the configuration reads but the project
+    /// doesn't load, or reading it panics), and a panic stored under one key
+    /// and looked up under another is never contained. It changes only when
+    /// the project it names can't be loaded or doesn't list the document,
+    /// which then stays on its own (`open_workspace`), and it goes when the
+    /// document is closed. Rereading a changed `stitchwort.yaml` (SW-1950)
+    /// should be the one other place that changes it.
+    homes: BTreeMap<PathBuf, PathBuf>,
     /// The workspaces not checked, with the panic that led to it, until one
     /// of their files is edited.
     quarantined: BTreeMap<PathBuf, String>,
@@ -2470,6 +2498,7 @@ enum Exit {
 #[derive(Default)]
 struct Keeper {
     open: BTreeMap<PathBuf, (i32, String)>,
+    homes: BTreeMap<PathBuf, PathBuf>,
     last: Option<PathBuf>,
     also: Vec<PathBuf>,
     announced: BTreeMap<String, i32>,
@@ -2538,6 +2567,12 @@ fn keep_checker(
             .map_or(String::new(), |w| format!(" in {}", w.display()));
         let what = format!("the checker panicked{place}: {}", panic.message);
         eprintln!("stitchwort lsp: {what}");
+        if panic.workspace.is_none() {
+            // Nothing to quarantine, and a successor given the same files
+            // asked for would panic in the same place: it starts without
+            // them, until the client asks again.
+            kept.also.clear();
+        }
         let own_budget_spent = (panic.workspace.as_ref())
             .is_some_and(|w| !budgets.entry(w.clone()).or_default().spend());
         if !session.spend() {
@@ -2614,6 +2649,7 @@ impl Checker {
             published: HashMap::default(),
             unanswered: false,
             open: BTreeMap::new(),
+            homes: BTreeMap::new(),
             quarantined: BTreeMap::new(),
             suspects: BTreeSet::new(),
             retired: BTreeSet::new(),
@@ -2634,6 +2670,7 @@ impl Checker {
         let mut checker = Checker::new(options, source, sender, nav, cancel);
         let Keeper {
             open,
+            homes,
             last,
             also,
             announced,
@@ -2653,6 +2690,7 @@ impl Checker {
         checker.stopped = stopped;
         checker.also = also;
         checker.open = open;
+        checker.homes = homes;
         checker.last = last;
         checker
     }
@@ -2714,21 +2752,46 @@ impl Checker {
         self.quarantined.contains_key(&key).then_some(key)
     }
 
-    /// The workspace of `path`, loaded or not: the key it is (or would be)
-    /// kept under in `work`. Quarantine, suspicion and checking all use it.
+    /// The workspace of `path`: for an open document, its recorded home
+    /// ([`Checker::homes`]); for any other path, where it would be kept if
+    /// it were opened now.
     fn workspace_of(&self, path: &Path) -> PathBuf {
+        match self.homes.get(path) {
+            Some(home) => home.clone(),
+            None => self.place(path),
+        }
+    }
+
+    /// Records the home of the open document `path`, if it has none yet.
+    fn settle_home(&mut self, path: &Path) {
+        if !self.homes.contains_key(path) {
+            let home = self.place(path);
+            self.homes.insert(path.to_path_buf(), home);
+        }
+    }
+
+    /// Where `path` would be kept if it were opened now: as it is already,
+    /// or in a project already loaded that lists it, or else where
+    /// [`Checker::home_of`] puts it, unless that is a loaded project that
+    /// doesn't list it.
+    fn place(&self, path: &Path) -> PathBuf {
         if self.work.contains_key(path) {
             return path.to_path_buf();
         }
         if let Some((key, _)) = self.project_of(path) {
             return key;
         }
-        self.home_of(path)
+        let home = self.home_of(path);
+        if home != path && self.work.contains_key(&home) {
+            return path.to_path_buf();
+        }
+        home
     }
 
-    /// Where a file that isn't loaded is kept: in its project's folder if
-    /// the project can be read and lists the file among its sources, or
-    /// else on its own, under its own path.
+    /// The folder of the project whose configuration lists `path` among its
+    /// sources, or else `path` itself, for a file on its own. Reading the
+    /// configuration may panic: that is caught here and logged, and the
+    /// file is then on its own.
     fn home_of(&self, path: &Path) -> PathBuf {
         let in_project = || {
             let dir = self
@@ -2741,7 +2804,18 @@ impl Checker {
             let sources = self.source.sources(&dir)?;
             sources_hold(&sources, &relative).then_some(dir)
         };
-        in_project().unwrap_or_else(|| path.to_path_buf())
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(in_project)) {
+            Ok(home) => home.unwrap_or_else(|| path.to_path_buf()),
+            Err(payload) => {
+                eprintln!(
+                    "stitchwort lsp: internal error finding the project of {}: {}; checking \
+                     it on its own",
+                    path.display(),
+                    panic_message(&*payload)
+                );
+                path.to_path_buf()
+            }
+        }
     }
 
     /// Shows `message` as the only diagnostic of the open file `path`.
@@ -2773,8 +2847,13 @@ impl Checker {
     /// What the successor needs, if the checker panicked, moved out of
     /// `self`: the sessions stay behind to be dropped afterwards.
     fn take_keeper(&mut self) -> Keeper {
+        let open = std::mem::take(&mut self.open);
+        let mut homes = std::mem::take(&mut self.homes);
+        // A panic while closing a document can leave its home behind.
+        homes.retain(|path, _| open.contains_key(path));
         Keeper {
-            open: std::mem::take(&mut self.open),
+            open,
+            homes,
             last: self.last.take(),
             also: std::mem::take(&mut self.also),
             announced: std::mem::take(&mut self.announced),
@@ -2802,18 +2881,10 @@ impl Checker {
     ) -> Result<T, Panic> {
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f(self))).map_err(|payload| {
             Panic {
-                workspace: path.map(|p| self.blame(p)),
+                workspace: path.map(|p| self.workspace_of(p)),
                 message: panic_message(&*payload),
             }
         })
-    }
-
-    /// The workspace to blame for a panic on `path`. Working it out reads
-    /// the project's configuration, which may be what panicked, so it has a
-    /// catch of its own; failing that, the file is blamed on its own.
-    fn blame(&self, path: &Path) -> PathBuf {
-        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.workspace_of(path)))
-            .unwrap_or_else(|_| path.to_path_buf())
     }
 
     /// [`Checker::step`], catching a panic.
@@ -3121,6 +3192,9 @@ impl Checker {
                 version,
             } => {
                 self.open.insert(path.clone(), (*version, text.clone()));
+                if self.stopped.is_none() {
+                    self.settle_home(path);
+                }
             }
             Edit::Close { path } => {
                 self.open.remove(path);
@@ -3187,7 +3261,10 @@ impl Checker {
                     self.versions.insert(path.clone(), *version);
                     self.show_error(path, &why);
                 }
-                Edit::Close { path } => self.close_error(path),
+                Edit::Close { path } => {
+                    self.close_error(path);
+                    self.homes.remove(path);
+                }
                 _ => {}
             }
             return;
@@ -3199,6 +3276,7 @@ impl Checker {
             Edit::Change { path, .. } => self.edited(path),
             Edit::Close { path } if self.quarantine_key(path).is_some() => {
                 self.close_error(path);
+                self.homes.remove(path);
                 return;
             }
             _ => {}
@@ -3218,19 +3296,20 @@ impl Checker {
             }
             Edit::Close { path } => {
                 self.versions.remove(&path);
-                if self.work.contains_key(&path) {
+                if self.workspace_of(&path) == path {
                     // A file on its own: forgotten.
                     self.work.remove(&path);
                     self.forget(&path);
-                    return;
+                } else {
+                    let disk = self.source.read(&path);
+                    self.set_text(&path, disk, false);
+                    if let Some((key, relative)) = self.project_of(&path)
+                        && let Some(Work::Project(p)) = self.work.get_mut(&key)
+                    {
+                        p.disk.remove(&relative);
+                    }
                 }
-                let disk = self.source.read(&path);
-                self.set_text(&path, disk, false);
-                if let Some((key, relative)) = self.project_of(&path)
-                    && let Some(Work::Project(p)) = self.work.get_mut(&key)
-                {
-                    p.disk.remove(&relative);
-                }
+                self.homes.remove(&path);
             }
             Edit::Saved { path, text } => {
                 let text = text.or_else(|| self.source.read(&path));
@@ -3263,6 +3342,9 @@ impl Checker {
 
     /// Tells each project its files among those the client asked for.
     fn give_also(&mut self) {
+        if self.options.faults.focus_panics_now(&self.also) {
+            panic!("injected fault giving the projects the files asked for");
+        }
         let mut by_project: BTreeMap<PathBuf, Vec<String>> = BTreeMap::new();
         for path in &self.also {
             if let Some((key, relative)) = self.project_of(path) {
@@ -3277,13 +3359,18 @@ impl Checker {
     }
 
     /// The project that `path` is a source file of, if it's one the
-    /// checker keeps: its folder, and the path within it.
+    /// checker keeps: its folder, and the path within it. For an open
+    /// document, only the project its home names.
     fn project_of(&self, path: &Path) -> Option<(PathBuf, String)> {
-        self.work.iter().find_map(|(key, work)| {
+        let listing = |(key, work): (&PathBuf, &Work)| {
             let Work::Project(p) = work else { return None };
             let relative = relative(key, path)?;
             p.holds(&relative).then(|| (key.clone(), relative))
-        })
+        };
+        match self.homes.get(path) {
+            Some(home) => self.work.get_key_value(home).and_then(listing),
+            None => self.work.iter().find_map(listing),
+        }
     }
 
     /// The text of the file at `path` is `text` (`None`: it's gone). With
@@ -3313,16 +3400,36 @@ impl Checker {
         }
     }
 
-    /// Starts keeping the project that `path` is in, or `path` as a file on
-    /// its own.
+    /// Starts keeping the open document `path` in the project its home
+    /// names, or on its own: when its home is itself, or the project can't
+    /// be loaded or doesn't list it. Its home then says which.
     fn open_workspace(&mut self, path: &Path) {
         let folder = path.parent().unwrap_or(Path::new("/"));
-        let dir = self.home_of(path);
-        if dir != path
-            && !self.work.contains_key(&dir)
-            && let Some(work) = self.load_project(&dir)
+        self.settle_home(path);
+        let home = self.workspace_of(path);
+        if home != path
+            && !self.work.contains_key(&home)
+            && let Some(work) = self.load_project(&home)
         {
-            self.work.insert(dir, Work::Project(Box::new(work)));
+            self.work
+                .insert(home.clone(), Work::Project(Box::new(work)));
+        }
+        if self.project_of(path).is_some() {
+            return;
+        }
+        if home != path {
+            eprintln!(
+                "stitchwort lsp: {} is checked on its own: its project in {} can't be read \
+                 or doesn't list it",
+                path.display(),
+                home.display()
+            );
+        }
+        self.homes.insert(path.to_path_buf(), path.to_path_buf());
+        // Kept on its own and quarantined before it was last closed: the
+        // check `open_text` made was under the project's folder.
+        if let Some(why) = self.quarantined.get(path).cloned() {
+            self.show_error(path, &why);
             return;
         }
         let mut session = session_for(&self.options);
@@ -3351,6 +3458,9 @@ impl Checker {
         let name = dir
             .file_name()
             .map_or("project".to_string(), |n| n.to_string_lossy().into_owned());
+        if self.options.faults.project_unreadable(dir) {
+            return None;
+        }
         let project = self.source.project(dir)?;
         let mut session = session_for(&self.options);
         session.share_cancel_flag(self.cancel.clone());
