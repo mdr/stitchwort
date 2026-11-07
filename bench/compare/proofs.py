@@ -7,7 +7,8 @@ section 3. For each day it times, with hyperfine:
   sw       `stitchwort check --no-cache <the day's namespaces> --only <the theorems
            the Lean file has>`, from aoc/ (SW-2310: the same theorems Lean checks,
            and what they need; the Lean file's theorem names pick them)
-  sw-load  `stitchwort check --no-cache` of a file importing what the day imports
+  sw-load  `stitchwort check --no-cache` of a file that imports what the day imports
+           from Std and uses its heavy parts (the library Lean has prebuilt in Lib)
   lean     `lean Proofs/<Day>.lean`, Lib already built (the day's file alone)
   lean-load `lean` on a file that only imports Lib
   lake     a cold `lake build <Day>` (.lake deleted first): Lib and the day
@@ -33,17 +34,22 @@ DAYS = {
     "2024-day02": {
         "namespaces": ["Aoc.Year2024.Day02.Proofs"],
         "module": "Day2024_02",
-        "imports": "Bool, Eq, List, Nat",
+        "imports": "Bool, Char, Eq, List, Nat, Parse",
+        "probe": "def probe (read: List Char): Prop := read.all Parse.isDigit = True\n",
     },
     "2020-day18": {
         "namespaces": ["Aoc.Year2020.Day18.Proofs"],
         "module": "Day2020_18",
         "imports": "Bool, Char, DecEq, Eq, Exists, Fail, List, Nat, Option, Parse, Result, Text, Void",
+        "probe": "def probe (p: () → {Parse} a) (spec: List Char → a → Prop) (read rest: List Char) (value: a): Prop :=\n"
+        "  Parse.Reads p spec ∧ Parse.Runs p read rest value\n",
     },
     "2021-day15": {
         "namespaces": ["Aoc.Year2021.Day15.Proofs", "Aoc.Common.Proofs"],
         "module": "Day2021_15",
-        "imports": "Bool, DecEq, Decidable, Eq, Exists, Fin, Graph, List, Map, Nat, Option, Quot, Void",
+        "imports": "Bool, DecEq, Decidable, Eq, Exists, Fin, Graph, List, Map, Nat, Option, Ord, Quot, Void",
+        "probe": "theorem probe [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)):\n"
+        "  Graph.Shortest graph sources (graph.distances sources) := Graph.distancesShortest graph sources\n",
     },
 }
 
@@ -124,7 +130,10 @@ def main():
         for name in names:
             day = DAYS[name]
             load_file = scratch / f"load-{name}.sw"
-            load_file.write_text(f"namespace Load\nimport Std ({day['imports']})\n")
+            # A name only loads (and checks) its Std module when something uses it, so
+            # the probe uses the modules the day's proofs lean on; otherwise their
+            # load lands in "sw net".
+            load_file.write_text(f"namespace Load\nimport Std ({day['imports']})\n{day['probe']}")
             row = {"lean-load": lean_load["median"]}
             print(f"{name}: stitchwort", flush=True)
             row["sw-load"] = hyperfine(f"sw-load-{name}", f"{sw} check --no-cache {load_file}", opts.runs, scratch)["median"]
