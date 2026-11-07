@@ -15563,8 +15563,8 @@
       "id": 1869,
       "title": "[Opus] Code review: crates/core (kernel, values, evaluation, pretty printer; 23.6k lines)",
       "status": "doing",
-      "agent": "",
-      "where": "",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1869",
       "labels": [
         "review"
       ],
@@ -15578,8 +15578,8 @@
       "id": 1870,
       "title": "[Opus] Code review: crates/elab part 1, checking and solving (check.rs, unify.rs, queue.rs, state/, postponement, local/scope/named, dot.rs, rewind/undo)",
       "status": "doing",
-      "agent": "",
-      "where": "",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1870",
       "labels": [
         "review"
       ],
@@ -15593,8 +15593,8 @@
       "id": 1871,
       "title": "[Opus] Code review: crates/rt (fast runtime, machine, code.rs, opt.rs, native ABI and unsafe code; 19.4k lines)",
       "status": "doing",
-      "agent": "",
-      "where": "",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1871",
       "labels": [
         "review"
       ],
@@ -15608,8 +15608,8 @@
       "id": 1872,
       "title": "[Sonnet] Code review: crates/syntax (lexer, parser, syntax tree, desugaring; 14.5k lines)",
       "status": "doing",
-      "agent": "",
-      "where": "",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1872",
       "labels": [
         "review"
       ],
