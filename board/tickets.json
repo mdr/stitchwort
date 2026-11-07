@@ -21506,9 +21506,9 @@
     {
       "id": 2266,
       "title": "[Sonnet] Small: the soundness fuzzer counted a no-op mutant (turnRightFour, := cases unchanged) as accepted; skip mutants equal to the source after formatting. widthCovers (2021 day 13 Picture.sw:22) has a redundant omega hint",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2266",
       "labels": [
         "tests"
       ],
