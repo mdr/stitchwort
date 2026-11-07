@@ -1,5 +1,5 @@
 {
-  "next": 1775,
+  "next": 1776,
   "tickets": [
     {
       "id": 47,
@@ -14143,6 +14143,21 @@
       ],
       "epic": "dev-loop-speed",
       "body": "From SW-1734.\n\nLikely cause: lane agents use pkill by binary or test name to stop their own runs (SW-1769's agent did, ~01:50), which also kills other worktrees' runs of the same test binaries. Fix: a lane brief rule and a helper that kills only its own process tree (memory: process-matching).\n\nDone, merged: dev/stop-mine (absolute-path prefix <checkout>/target/, descendants, TERM then KILL; --dry-run; --tree PID refuses outside the checkout); docs/workflow.md section. Fixup on main: never matches 'stitchwort lsp'. For the morning: the CLAUDE.md lane rule (use dev/stop-mine, never pkill/killall). Until then lane briefs say so. Model result: Sonnet, worked, 5 min (est. 30).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1775,
+      "title": "[Sonnet] Audit test:lane areas and test:affected rules for coverage gaps: does each area run the tests of the code it names (as SW-1686 found for lsp features)? Fix the gaps",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1775",
+      "labels": [
+        "tooling"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "Overnight 7 Nov 2026, from the plan's backup queue. Expected: 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []

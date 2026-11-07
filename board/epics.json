@@ -471,7 +471,9 @@
         "Navigation index 2× faster, also in the editor (SW-1771); lsp memory tests 1.7 → 0.45 GB (SW-1769)"
       ],
       "now": [
-        "Compile time (SW-1754)"
+        "Compile time (SW-1754)",
+        "Plan for splitting elab (SW-1737)",
+        "Lane-area coverage audit (SW-1775)"
       ],
       "next": [],
       "links": [
