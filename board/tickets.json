@@ -1,5 +1,5 @@
 {
-  "next": 2056,
+  "next": 2063,
   "tickets": [
     {
       "id": 47,
@@ -3361,7 +3361,7 @@
     {
       "id": 1064,
       "title": "Automated mutation check: some proof or test must fail when the program is broken (D2169, undecided)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1064",
       "labels": [
@@ -3370,7 +3370,7 @@
         "decision"
       ],
       "epic": "test-infra",
-      "body": "D2169 (not decided; from the language-productivity report). An automated mutation check: break the program (flip a comparison, drop a case, change a constant) and require some proof or test to fail, so a theorem that says nothing useful is caught. Lanes do this by hand today. Recommendation: [yes, as a design ticket after SW-1029 (audit stage 2); Opus].\n",
+      "body": "D2169 (not decided; from the language-productivity report). An automated mutation check: break the program (flip a comparison, drop a case, change a constant) and require some proof or test to fail, so a theorem that says nothing useful is caught. Lanes do this by hand today. Recommendation: [yes, as a design ticket after SW-1029 (audit stage 2); Opus].\n\nDone, merged: docs/proposals/mutation-check.md. Source-level mutants re-checked in one rewound session; outcomes unviable/same/refuted/broken/failed a test/out of steps/survived. ~1,900 stage-1 points on AoC; full run ~1 h here, 1-2 h on the laptop. Prior art mCoq, MutDafny. D2920-D2924. Tickets SW-2056-SW-2060, SW-2061, SW-2062. ~8 min (est. 60).",
       "created": "2026-11-02",
       "updated": "2026-11-07",
       "commits": []
@@ -18315,6 +18315,111 @@
       ],
       "epic": "test-infra",
       "body": "From docs/reviews/code-review-tests.md (§9 lane 10). 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2056,
+      "title": "[Sonnet] audit --mutants on one namespace: simple source edits (< for ≤, + for -, numeral + 1, swapped if) on definitions theorem statements reach; re-check in one LiveProject session rewound per mutant; report survivors, never fail; report real numbers on two days",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "audit"
+      ],
+      "epic": "test-infra",
+      "body": "From docs/proposals/mutation-check.md. Stage 1. D2920-D2922. Share SW-1029's site walk. 90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2057,
+      "title": "[Sonnet] Mutants stage 2: structural operators (drop a case, swap arms) and same-hash skipping",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "audit"
+      ],
+      "epic": "test-infra",
+      "body": "From docs/proposals/mutation-check.md. After SW-2056. 75 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2058,
+      "title": "[Opus] Mutants stage 3: explain survivors (a distinguishing input, 'probably equivalent', an accepted list keyed by source hash, which theorems kill which mutants)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "audit"
+      ],
+      "epic": "test-infra",
+      "body": "From docs/proposals/mutation-check.md. After SW-2057. 90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2059,
+      "title": "[Sonnet] Mutants stage 4: a resumable, sharded batch run, with a task for the laptop soak machine",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "audit"
+      ],
+      "epic": "test-infra",
+      "body": "From docs/proposals/mutation-check.md. After SW-2058. D2924. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2060,
+      "title": "[Opus] Mutants stage 5: first full AoC run and triage",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "audit"
+      ],
+      "epic": "test-infra",
+      "body": "From docs/proposals/mutation-check.md. After SW-2059; overnight on the laptop (D2853). 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2061,
+      "title": "[Sonnet] Soundness fuzzing builds a fresh session per AoC mutant (~1 s each); rewind one session instead",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "audit"
+      ],
+      "epic": "test-infra",
+      "body": "From docs/proposals/mutation-check.md. Finding. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2062,
+      "title": "[Sonnet] Writing a test result deletes that test's other cached results (driver.rs:1050): anything checking program variants evicts the real results; give variant runs the in-memory test cache",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "audit"
+      ],
+      "epic": "test-infra",
+      "body": "From docs/proposals/mutation-check.md. Finding. 30 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
