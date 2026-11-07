@@ -22,7 +22,7 @@ theorem getMapRangePast [b: Type] (f: Nat → b) (n: Nat) (i: Nat) (past: n ≤ 
 theorem widthCovers: (dots: List Point) → (spot: Point) → spot ∈ dots → spot.x < width dots
   | [], spot, member => Void.exfalso member
   | [dot, ..rest], spot, Inl same => rewrite <- same in omega [widthCons dot rest, Nat.leMaxLeft (dot.x + 1) (width rest)]
-  | [dot, ..rest], spot, Inr later => omega [widthCons dot rest, widthCovers rest spot later, Nat.leMaxRight (dot.x + 1) (width rest)]
+  | [dot, ..rest], spot, Inr later => omega [widthCons dot rest, widthCovers rest spot later]
 
 theorem heightCovers: (dots: List Point) → (spot: Point) → spot ∈ dots → spot.y < height dots
   | [], spot, member => Void.exfalso member

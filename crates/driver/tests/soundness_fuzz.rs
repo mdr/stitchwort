@@ -207,9 +207,6 @@ enum Home {
         /// Path within the project.
         path: String,
         namespace: String,
-        /// Its namespace has no other file, so the file can be cut after
-        /// the theorem.
-        alone: bool,
     },
 }
 
@@ -386,17 +383,12 @@ fn read_corpus(parts: &[String]) -> Corpus {
                 .map(|n| n.trim().to_string())
                 .unwrap_or_default()
         };
-        let mut count: BTreeMap<String, usize> = BTreeMap::new();
-        for (_, text) in &files {
-            *count.entry(namespace_of(text)).or_default() += 1;
-        }
         let project = corpus.projects.len();
         for (path, text) in &files {
             let namespace = namespace_of(text);
             let home = Home::Project {
                 project,
                 path: path.clone(),
-                alone: count[&namespace] == 1,
                 namespace,
             };
             corpus.sites.extend(sites_of(&home, text));
@@ -770,6 +762,7 @@ fn check_site(corpus: &Corpus, site: &Site, decl: &str, cache: &Path, search: bo
     let rejected = Checked {
         audit: None,
         refuted: false,
+        load_error: None,
     };
     let mut session = match &site.home {
         Home::Std { path } => {
@@ -799,10 +792,17 @@ fn check_site(corpus: &Corpus, site: &Site, decl: &str, cache: &Path, search: bo
         _ => session(),
     };
     session.use_check_cache(cache);
+    let mut load_error = None;
+    let first_line = |errors: Vec<stitchwort_syntax::Diagnostic>| {
+        errors
+            .first()
+            .and_then(|d| d.message.lines().next())
+            .map(|line| format!("{}: {line}", errors[0].code))
+    };
     let namespace = match &site.home {
         Home::File { name } => {
             let text = format!("{}{}", &site.text[..site.decl.start], decl);
-            let _ = session.load(name, &text);
+            load_error = session.load(name, &text).err().and_then(first_line);
             None
         }
         Home::Std { .. } => {
@@ -815,7 +815,6 @@ fn check_site(corpus: &Corpus, site: &Site, decl: &str, cache: &Path, search: bo
             project,
             path,
             namespace,
-            alone,
         } => {
             let project = &corpus.projects[*project];
             session.include_from(std::rc::Rc::new(DiskFiles {
@@ -826,30 +825,39 @@ fn check_site(corpus: &Corpus, site: &Site, decl: &str, cache: &Path, search: bo
                 .iter()
                 .map(|(p, t)| {
                     if p == path {
-                        let rest = if *alone {
-                            ""
-                        } else {
-                            &site.text[site.decl.end..]
-                        };
+                        // The declarations after the theorem stay: it may
+                        // use them. They can't make a mutant check, since
+                        // only the theorem itself is audited.
                         (
                             p.clone(),
-                            format!("{}{}{}", &site.text[..site.decl.start], decl, rest),
+                            format!(
+                                "{}{}{}",
+                                &site.text[..site.decl.start],
+                                decl,
+                                &site.text[site.decl.end..]
+                            ),
                         )
                     } else {
                         (p.clone(), t.clone())
                     }
                 })
                 .collect();
-            let _ = session.load_project_sources(
-                &project.name,
-                files,
-                &Target::Namespaces(vec![namespace.clone()]),
-            );
+            load_error = session
+                .load_project_sources(
+                    &project.name,
+                    files,
+                    &Target::Namespaces(vec![namespace.clone()]),
+                )
+                .err()
+                .and_then(first_line);
             Some(namespace.as_str())
         }
     };
     let Some((id, name)) = find_theorem(&session.elab.ev(), namespace, &site.name) else {
-        return rejected;
+        return Checked {
+            load_error,
+            ..rejected
+        };
     };
     let options = Options {
         allowed: ["Quot.sound".to_string()].into_iter().collect(),
@@ -861,13 +869,19 @@ fn check_site(corpus: &Corpus, site: &Site, decl: &str, cache: &Path, search: bo
     let refuted = search
         && audit.as_ref().is_some_and(|a| a.status == Status::Failed)
         && session.search_theorem(id, &name, false, SEARCH).verdict().0 == Verdict::False;
-    Checked { audit, refuted }
+    Checked {
+        audit,
+        refuted,
+        load_error,
+    }
 }
 
 struct Checked {
     audit: Option<TheoremAudit>,
     /// It was rejected, and the search refuted its statement.
     refuted: bool,
+    /// The first line of the first error that loading the files gave, if any.
+    load_error: Option<String>,
 }
 
 fn outcome_of(checked: &Checked) -> Outcome {
@@ -1057,14 +1071,22 @@ fn mutated_theorems_have_no_counterexample() {
             Ok(checked) if outcome_of(&checked) != Outcome::Rejected => out.calibrated = true,
             Ok(checked) => {
                 let why = match &checked.audit {
-                    None => "the theorem was not found after loading".to_string(),
+                    None => match &checked.load_error {
+                        Some(error) => format!("the theorem was not found after loading: {error}"),
+                        None => "the theorem was not found after loading".to_string(),
+                    },
                     Some(a) => format!(
-                        "status {:?}: {}",
+                        "status {:?}: {}{}",
                         a.status,
                         a.findings
                             .first()
                             .and_then(|f| f.message.lines().next())
-                            .unwrap_or("no finding")
+                            .unwrap_or("no finding"),
+                        checked
+                            .load_error
+                            .as_ref()
+                            .map(|e| format!(" (loading: {e})"))
+                            .unwrap_or_default()
                     ),
                 };
                 eprintln!("skipped, unmutated check rejected: {}: {why}", site.label());
@@ -1081,7 +1103,7 @@ fn mutated_theorems_have_no_counterexample() {
         let mut refuted = 0;
         for m in &job.mutations {
             let decl = render(site, m);
-            if decl == original {
+            if same_after_formatting(&decl, &original) {
                 continue;
             }
             let began = Instant::now();
@@ -1182,6 +1204,16 @@ fn mutated_theorems_have_no_counterexample() {
         jobs.len() < 10 || calibrated * 2 > jobs.len(),
         "under half the theorems checked unmutated: the harness is broken"
     );
+}
+
+/// Whether the formatter makes the two declarations the same text: a mutant
+/// that is the source again checks as it does, and isn't a mutant.
+fn same_after_formatting(a: &str, b: &str) -> bool {
+    a == b
+        || matches!(
+            (stitchwort_fmt::format(a), stitchwort_fmt::format(b)),
+            (Ok(x), Ok(y)) if x == y
+        )
 }
 
 fn check_one(
