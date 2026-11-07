@@ -1,5 +1,5 @@
 {
-  "next": 1801,
+  "next": 1802,
   "tickets": [
     {
       "id": 47,
@@ -14525,14 +14525,29 @@
     {
       "id": 1800,
       "title": "[Opus] Address-keyed dot_failed cache (dot.rs call_key): an address collision can return a wrong cached failure; key it by what the failure is valid for (elaboration context, AST node id) or narrow it to repeats of the same attempt; then task bench --jobs 8 repeats exactly (SW-1797)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1800",
       "labels": [
         "bug"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-1797, 7 Nov 2026. Repro: postponed-lambda-second-error loaded repeatedly with a second allocating thread varies 8,888,168 / 8,888,188 steps. A structural key moved hashes (Board.Position.%equal). Expected: 60 min.",
+      "body": "From SW-1797, 7 Nov 2026. Repro: postponed-lambda-second-error loaded repeatedly with a second allocating thread varies 8,888,168 / 8,888,188 steps. A structural key moved hashes (Board.Position.%equal). Expected: 60 min.\n\nDone in part, merged: dot caches emptied before each declaration; resumed checks kept alive until then. postponed-lambda-second-error: 26/102 loads differed before, 0 after (ignored test a_postponed_dot_call_takes_the_same_steps_every_time). No hash moved; the cache can't go (long_dot_chains_are_cheap 5 s → >180 s without it). Left: reads-weaken-over-map-implicits still varies (syntax built and freed within a declaration: pipe rewriting, record args, run_first). docs/reviews/SW-1800-dot-failed-cache.md. On main: dot_prefix, postponement, hash_stability prelude 15/15. Process slip: an unset variable ran rm -f /*; nothing deleted (checked). 68 min (est. 60).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1801,
+      "title": "[Opus] Design note: syntax node ids from the parser so elaborator cache keys never depend on the allocator (the remaining dot-cache variation in reads-weaken-over-map-implicits; also address-keyed tables in logic.rs, check.rs, named.rs) (SW-1800, D2573)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-1800. See docs/reviews/SW-1800-dot-failed-cache.md. Also check pure-fold-in-parse-function, never reached.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
