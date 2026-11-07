@@ -19076,14 +19076,14 @@
     {
       "id": 2104,
       "title": "[Sonnet] Language server race: a code action right after an edit's diagnostics are published can come back empty (about 1 run in 6), apparently because the new text's goals are recorded just after the diagnostics go out; the tests work around it with a retry loop (actions_after_edit)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2104",
       "labels": [
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From SW-2088. The editor could show a briefly empty light bulb after an edit. Fix the order, then drop the retry loop. After SW-2089/SW-2091 (same file). 45 min.",
+      "body": "From SW-2088. The editor could show a briefly empty light bulb after an edit. Fix the order, then drop the retry loop. After SW-2089/SW-2091 (same file). 45 min.\n\nDone, merged. No fix needed: Checker::publish stores goals under the nav lock and sends publishDiagnostics after dropping it (closed by SW-2086/SW-2091); the retry loop is gone (tests wait on stitchwort/checked). Added a_code_action_right_after_an_edits_diagnostics_finds_its_goal (asks right after diagnostics, without waiting for checked). The 1-in-6 failure wasn't reproduced. On main: faults:: and lsp pass. Model result: Sonnet, worked, 20 min (est. 45).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19271,9 +19271,9 @@
     {
       "id": 2117,
       "title": "[Opus] HIGH: language server restart loop from an unstable workspace key: record the key each open path was opened under and carry it in the Keeper (R1); home_of catches its own panic (R2); clear 'also' after a panic blamed on nobody (R3); R12; fault tests (config read panicking every time, config parses but files don't load, reopen panic with no project, the backstop reached)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2117",
       "labels": [
         "lsp"
       ],
