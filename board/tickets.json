@@ -1,5 +1,5 @@
 {
-  "next": 2306,
+  "next": 2307,
   "tickets": [
     {
       "id": 47,
@@ -22099,6 +22099,21 @@
       ],
       "epic": "comparative-speed",
       "body": "From docs/reviews/SW-2298-native-bignum.md (paper lane; confirm with task bench:compare -- --runs 3 pidigits before and after). 30 min. Backlog until SW-2301-SW-2304 are measured.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2306,
+      "title": "[Opus] Paper lane: review SW-2285 and SW-2288 (tree memo: argument-equal pairs no longer recorded; memo and CallMemo lookups charged a budget step per layer): sound, answers unchanged, budget charge proportionate, core.md accurate",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2306",
+      "labels": [
+        "review"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "D2364: kernel budget change gets an Opus review. 25 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
