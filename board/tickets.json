@@ -2531,9 +2531,9 @@
     {
       "id": 1014,
       "title": "Postponement: compare a call with its expected type at a fixed point, not only after a failure, so failed searches can wait on any unknown (D2128 part b)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1014",
       "labels": [
         "elaborator",
         "design"
@@ -2541,7 +2541,7 @@
       "epic": "elaborator-kernel",
       "body": "D2140 (Matt, 1 Nov 2026): stage 7 keeps D2128 part (a) only. Part (b) (a failed search waits on any unsolved unknown) broke std/List/Grid.sw:52, four sites in std/Parse/Reads.sw and 9 sites in 7 aoc proof files: the after-expected path only runs when something fails, so a waiting rewrite on a bare ?48 leaves it unsolved (SW-1010 lane trace). Fix needs a design for running the expected-type comparison without depending on failure; then part (b) is safe and case 4 (a search inside a lambda checked before the argument fixing its type, 2024 day 13 / SW-963) checks. Relates to D2129 (Lean per-argument comparison rejected for now).",
       "created": "2026-11-01",
-      "updated": "2026-11-01",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -3361,9 +3361,9 @@
     {
       "id": 1064,
       "title": "Automated mutation check: some proof or test must fail when the program is broken (D2169, undecided)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1064",
       "labels": [
         "design",
         "correctness",
@@ -3372,7 +3372,7 @@
       "epic": "test-infra",
       "body": "D2169 (not decided; from the language-productivity report). An automated mutation check: break the program (flip a comparison, drop a case, change a constant) and require some proof or test to fail, so a theorem that says nothing useful is caught. Lanes do this by hand today. Recommendation: [yes, as a design ticket after SW-1029 (audit stage 2); Opus].\n",
       "created": "2026-11-02",
-      "updated": "2026-11-05",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
