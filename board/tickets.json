@@ -1,5 +1,5 @@
 {
-  "next": 2070,
+  "next": 2071,
   "tickets": [
     {
       "id": 47,
@@ -15659,7 +15659,7 @@
         "syntax"
       ],
       "epic": "syntax-language",
-      "body": "From the syntax code review (docs/reviews/code-review-syntax.md, tickets to file, 3; F3, F7). 60 min. Findings go to tickets.\n\nThe Opus review adds (F7): half the cases are token soup that almost always contains a tab, so never reach the parser; check span invariants; run each case on a thread; it should find SW-1916's panic before that lands.\n\nFrom docs/proposals/deep-input.md: the deep generators move to SW-1965.",
+      "body": "From the syntax code review (docs/reviews/code-review-syntax.md, tickets to file, 3; F3, F7). 60 min. Findings go to tickets.\n\nThe Opus review adds (F7): half the cases are token soup that almost always contains a tab, so never reach the parser; check span invariants; run each case on a thread; it should find SW-1916's panic before that lands.\n\nFrom docs/proposals/deep-input.md: the deep generators move to SW-1965.\n\nFrom SW-1916: the fuzz generator makes no \"\"\" texts, so it couldn't have found SW-1916's panic; add them.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -16267,7 +16267,7 @@
     {
       "id": 1916,
       "title": "[Opus] Lexer panic: a \"\"\" text whose ${...} the pre-scan and the lexer end differently slices text backwards (text[16..10]) and panics in release; the language server lexes on its main thread. Also: byte-order mark skipped (D2691), no-break and zero-width spaces and CR-only line endings, the stale '-- comments are docs' text",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1916",
       "labels": [
@@ -16275,7 +16275,7 @@
         "bug"
       ],
       "epic": "syntax-language",
-      "body": "From docs/reviews/code-review-syntax-opus.md (F1, F6, F16; lane 1). HIGH: reachable crash. Repro: def t: Text := \"\"\" / ${1'}' ++ \"${x}\"} / \"\"\". Expected: 60 min.\n\nD2855/D2693 (Matt, 7 Nov 2026): \"Proceed with those 3\": start now. D2691 (byte-order mark) undecided, so not in this lane. Expected: 60 min.",
+      "body": "From docs/reviews/code-review-syntax-opus.md (F1, F6, F16; lane 1). HIGH: reachable crash. Repro: def t: Text := \"\"\" / ${1'}' ++ \"${x}\"} / \"\"\". Expected: 60 min.\n\nD2855/D2693 (Matt, 7 Nov 2026): \"Proceed with those 3\": start now. D2691 (byte-order mark) undecided, so not in this lane. Expected: 60 min.\n\nDone, merged. Cause: scan_block's own string-skipping rule closed ${1'}' at the wrong }; the lexer trusted it and sliced backwards (confirmed panicking on main's binary). Fix: the pre-scan calls the lexer (lex_from) for each ${, mismatches are E-PARSE not panics, no \"\"\" inside a \"\"\" text's ${…}. Invisible characters named. On main after merge: syntax 225/225, fmt 20/20, hashes 6/6, whole AoC no cache 0 errors, rogue clean; repro gives an ordinary type error. Model result: Opus, worked, 7 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -18525,6 +18525,21 @@
       ],
       "epic": "docs-tutorials",
       "body": "Matt (7 Nov 2026): spare capacity, no-build Opus lanes. Expected: 75 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2070,
+      "title": "[DeepSeek] Syntax small: docs/syntax.md says a number followed by ' lexes as a number then a character (1'…); a lone \\r (old-Mac line endings) is read as a line break, not a space",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "syntax"
+      ],
+      "epic": "syntax-language",
+      "body": "From SW-1916 (syntax review F6, F17). 30 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
