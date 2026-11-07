@@ -848,14 +848,15 @@ fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<boo
         (Value::Neutral(Head::Def(i1), s1), Value::Neutral(Head::Def(i2), s2))
             if crate::value::opens_by_tree(g, a) && crate::value::opens_by_tree(g, b) =>
         {
-            if i1 == i2 && conv_spines(g, level, Some(*i1), s1, s2, mode)? {
-                return Ok(true);
-            }
-            // Pairs already found equal in the outermost tree comparison are
-            // equal again (SW-395): without this, a chain of helpers each
-            // calling the next in two branches takes 2^n comparisons here
-            // too. Looked up by the quoted pair, printed: its own key, not
-            // the machine's `identical`.
+            // Pairs already found equal, or different, in the outermost
+            // tree comparison get the same answer again (SW-395, SW-2269):
+            // without this, a chain of helpers each calling the next in two
+            // branches takes 2^n comparisons here too, and so do nested
+            // calls of one definition that differ, whose arguments and then
+            // scrutinees compare the same inner pair. Nothing is solved
+            // here, so "different" lasts as "equal" does. Looked up by the
+            // quoted pair, printed: its own key, not the machine's
+            // `identical`.
             let open = OpenTrees::enter();
             let key = (
                 mode,
@@ -863,13 +864,12 @@ fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<boo
                 format!("{:?}", quote(g, level, a)?),
                 format!("{:?}", quote(g, level, b)?),
             );
-            if open.known(&key) {
-                true
+            if let Some(same) = open.known(&key) {
+                same
             } else {
-                let same = same_trees(g, level, tree_of(g, a), tree_of(g, b), mode)?;
-                if same {
-                    open.record(key);
-                }
+                let same = (i1 == i2 && conv_spines(g, level, Some(*i1), s1, s2, mode)?)
+                    || same_trees(g, level, tree_of(g, a), tree_of(g, b), mode)?;
+                open.record(key, same);
                 same
             }
         }
@@ -913,9 +913,9 @@ type CallPair = (Mode, usize, String, String);
 
 thread_local! {
     /// How many tree comparisons are open, and the pairs of calls found
-    /// equal since the outermost one started.
-    static EQUAL_CALLS: std::cell::RefCell<(usize, crate::collections::HashSet<CallPair>)> =
-        std::cell::RefCell::new((0, crate::collections::HashSet::default()));
+    /// equal or different since the outermost one started.
+    static KNOWN_CALLS: std::cell::RefCell<(usize, crate::collections::HashMap<CallPair, bool>)> =
+        std::cell::RefCell::new((0, crate::collections::HashMap::default()));
 }
 
 /// One open tree comparison; the record is dropped with the outermost.
@@ -923,22 +923,22 @@ struct OpenTrees;
 
 impl OpenTrees {
     fn enter() -> OpenTrees {
-        EQUAL_CALLS.with(|m| m.borrow_mut().0 += 1);
+        KNOWN_CALLS.with(|m| m.borrow_mut().0 += 1);
         OpenTrees
     }
 
-    fn known(&self, pair: &CallPair) -> bool {
-        EQUAL_CALLS.with(|m| m.borrow().1.contains(pair))
+    fn known(&self, pair: &CallPair) -> Option<bool> {
+        KNOWN_CALLS.with(|m| m.borrow().1.get(pair).copied())
     }
 
-    fn record(&self, pair: CallPair) {
-        EQUAL_CALLS.with(|m| m.borrow_mut().1.insert(pair));
+    fn record(&self, pair: CallPair, same: bool) {
+        KNOWN_CALLS.with(|m| m.borrow_mut().1.insert(pair, same));
     }
 }
 
 impl Drop for OpenTrees {
     fn drop(&mut self) {
-        EQUAL_CALLS.with(|m| {
+        KNOWN_CALLS.with(|m| {
             let mut m = m.borrow_mut();
             m.0 -= 1;
             if m.0 == 0 {
