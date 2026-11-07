@@ -14330,9 +14330,9 @@
     {
       "id": 1787,
       "title": "[Opus proposal] Kernel type values of closed definitions are computed unglued and kept (Def::ty_value): 2024 day 22 spends 4.4 s (29% of AoC's kernel time) computing a 130,321-record list in a theorem's type; keeping them glued breaks 'nothing glued outlives a kernel check' (SW-1779)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1787",
       "labels": [
         "kernel"
       ],
