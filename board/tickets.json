@@ -1,5 +1,5 @@
 {
-  "next": 1769,
+  "next": 1770,
   "tickets": [
     {
       "id": 47,
@@ -13925,14 +13925,14 @@
     {
       "id": 1760,
       "title": "test:affected follow-ups: refresh the test inventory after merges that add tests; map std files to the examples/AoC days that use them; dev/selector-log.tsv is tracked, so lanes that run test:selected dirty it (git-ignore or log in main only)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1760",
       "labels": [
         "tooling"
       ],
       "epic": "dev-loop-speed",
-      "body": "From SW-1752, 6 Nov 2026.\n\nAlso: test:selected runs under the merge tier's 4 GB memguard, so a selection that includes several cold lsp features tests gets SIGTERMed (SW-1741's verifier, 6 Nov 23:49). The selector should know heavy tests' memory, or test:selected should get a higher cap. And dev/selector-log.tsv now merges by union (.gitattributes).",
+      "body": "From SW-1752, 6 Nov 2026.\n\nAlso: test:selected runs under the merge tier's 4 GB memguard, so a selection that includes several cold lsp features tests gets SIGTERMed (SW-1741's verifier, 6 Nov 23:49). The selector should know heavy tests' memory, or test:selected should get a higher cap. And dev/selector-log.tsv now merges by union (.gitattributes).\n\nDone, merged (ae1e748a5): lsp-sessions group (max 3) keeps cold lsp features+memory under 4 GB (3.07 GB peak); test:selected cap 16 GB; inventory rebuilt when a rule selects nothing; test-file-changed rule fixed for helper-only diffs; selector log only in the main checkout. Std-file→users mapping skipped (dot calls reach std files without naming them). On main: 22 Python tests; affected 598/598. Model result: Sonnet, worked, 13 min (est. 60).",
       "created": "2026-11-06",
       "updated": "2026-11-07",
       "commits": []
@@ -14053,6 +14053,21 @@
       ],
       "epic": "record-eta",
       "body": "From SW-1764. Started on Opus, expected: 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1769,
+      "title": "lsp memory tests hold 1.1-1.3 GB each even warm, high for in-memory project checks (SW-1760)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1760, 7 Nov 2026.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []

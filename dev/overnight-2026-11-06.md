@@ -88,3 +88,4 @@ Take these in order, once the speed queue above is empty or blocked.
 - 23:54: SW-1741 merged; the scare in its first check was test:selected's 4 GB memguard (SW-1760). SW-1761 merged: merge tier 1094/1094 in 76 s of tests on main, cold. Filed SW-1765.
 - 00:01: SW-1764 says merge after one fix (the cache drops no_eta); SW-1768 (Opus) started on lane/SW-1642.
 - 00:09: SW-1765 merged (daily examples and hash sweeps cold: 111 s → 48 s), 699/699 on main. SW-1760 started.
+- 00:23: SW-1760 merged. Filed SW-1769.
