@@ -14360,14 +14360,14 @@
     {
       "id": 1789,
       "title": "Formatter fuzz test fails at case 3166 (fuzz::the_formatter_never_panics_and_is_idempotent, default profile): pre-existing, seen by SW-1781 before and after its merge",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1789",
       "labels": [
         "bug"
       ],
       "epic": "syntax-language",
-      "body": "From SW-1781, 7 Nov 2026.",
+      "body": "From SW-1781, 7 Nov 2026.\n\nDone, merged: reduced input (a result type on its own line after a multi-line parameter); layout.rs treats the result type's first line like a parameter start when reparenting header lines; golden case header-result-after-parameter; examples/accept/opaque-unfolding-layout.sw and aoc 2025 day 3 Best.sw reformatted. On main: fmt 16/16 (fuzz 50,000 cases). Model result: DeepSeek, worked, 28 min (est. 30).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -14375,14 +14375,14 @@
     {
       "id": 1790,
       "title": "[Sonnet] Fewer test binaries: cli and driver in groups of 3-4 (add --group to dev/merge-test-binaries; keep the allocator binaries resources and search_at_aoc apart); rewrite target/test-timings.json keys with the mapping",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1790",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From SW-1736's plan and SW-1781.",
+      "body": "From SW-1736's plan and SW-1781.\n\nDone, merged: cli 42 → 4 (extraction, running, server, tools), driver 68 → 8 (elaboration, proofs, projects, library + 4 kept); --group, --rewrite-timings; --verify one to one (512, 649). Core edit: executables relinked 136 → 38, CPU 889 → 706 s (-21%). On main: timings rewritten (1157 keys), inventory refreshed, selector OK, task test:merge 1151/1151 (101 s tests, 106 s real under lane load), fmt 16/16. Model result: Sonnet, worked, 33 min (est. 75).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
