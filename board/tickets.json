@@ -20006,14 +20006,14 @@
     {
       "id": 2166,
       "title": "[Sonnet] Bench: check-number-table and check-number-wide checker steps are up ~19% against bench/baseline.toml (baseline::counts_have_not_regressed fails); find the merge that raised them (suspects: SW-2029 decreasing plain if, SW-2096, SW-2126), and either fix a real regression or re-record with the reason",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2166",
       "labels": [
         "bench"
       ],
       "epic": "performance",
-      "body": "From SW-2129, whose base was 75c41e620..eff1911ed. 45 min.",
+      "body": "From SW-2129, whose base was 75c41e620..eff1911ed. 45 min.\n\nDone, merged. Bisected to SW-1995 (caf327238): rewind_globals now uses Kernel::forget_since, which keeps the budget, so the work of skipped equations (rows past the 64-hypothesis limit) is counted in Budget::total_work; ~13 steps per row, nothing repeated. Expected: re-recorded the two entries (21,057 and 82,065). Bench tests 15/15. Model result: Sonnet, worked, 10 min (est. 45).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
