@@ -333,7 +333,7 @@ fn a_file_on_its_own_in_a_project_folder_is_quarantined_by_its_own_key() {
     let retried = s.diagnostics(LOOSE, |p| p["version"] == 2);
     assert!(internal_error(&retried["params"]), "{retried}");
     let stopped = |p: &String| p.contains("stopped checking Loose.sw");
-    assert_eq!(s.pop_ups().iter().filter(|p| stopped(p)).count(), 2);
+    assert_eq!(s.pop_ups().iter().filter(|p| stopped(p)).count(), 1);
     // The fault is spent: the next edit is checked.
     s.change(LOOSE, 3, "namespace Loose\n\ndef h: Nat := 3\n");
     let fresh = s.diagnostics(LOOSE, |p| p["version"] == 3);
@@ -372,6 +372,14 @@ fn a_configuration_read_that_always_panics_leaves_the_file_on_its_own() {
     let pop_ups = s.pop_ups();
     assert!(
         pop_ups.iter().all(|p| !p.contains("stopped checking")),
+        "{pop_ups:?}"
+    );
+    assert_eq!(
+        pop_ups
+            .iter()
+            .filter(|p| p.contains("internal error"))
+            .count(),
+        1,
         "{pop_ups:?}"
     );
     s.stop();
@@ -424,7 +432,7 @@ fn a_panic_blamed_on_no_project_is_not_repeated_by_the_successor() {
     s.stop();
 }
 
-/// SW-2117 (SW-2116 R11): past the session's restart budget (15), checking
+/// SW-2117 (SW-2116 R11): past the session's restart budget (15; the panic that retires the project is free), checking
 /// stops for every project, with a pop-up, and each open file shows why.
 /// The other tests' `checking_stopped` relies on that pop-up.
 #[test]
@@ -432,8 +440,8 @@ fn the_sessions_restart_budget_stops_checking_everywhere() {
     let options = Options::new(STACK);
     let faults = options.faults.clone();
     let s = Server::start(options);
-    *faults.apply_panic.lock().unwrap() = Some(("/memory/proj/src/Demo.sw".into(), 16));
-    for version in 2..=17 {
+    *faults.apply_panic.lock().unwrap() = Some(("/memory/proj/src/Demo.sw".into(), 17));
+    for version in 2..=18 {
         s.change(URI, version, &format!("{TEXT}-- edit {version}\n"));
     }
     s.wait_for(|m| {
@@ -515,12 +523,12 @@ fn a_projects_budget_runs_out_and_another_project_goes_on() {
             let message = shown["params"]["diagnostics"][0]["message"]
                 .as_str()
                 .unwrap();
-            assert!(message.contains("restart the language server"), "{message}");
+            assert!(message.contains("reload the window"), "{message}");
         }
     }
     let pop_ups = s.pop_ups();
     let stopped = |p: &&String| p.contains("stopped checking proj");
-    assert_eq!(pop_ups.iter().filter(stopped).count(), 5, "{pop_ups:?}");
+    assert_eq!(pop_ups.iter().filter(stopped).count(), 2, "{pop_ups:?}");
     assert!(
         pop_ups.iter().any(|p| p.contains("Reload the window")),
         "{pop_ups:?}"
@@ -703,5 +711,82 @@ fn two_search_workers_share_one_budget() {
         code_action_after_edit(&mut s, version);
     }
     wait_for_searches_stopped(&s);
+    s.stop();
+}
+
+/// Panics until `uri`'s workspace, whose key is `key`, is retired.
+fn retire(s: &Server, uri: &str, text: &str, key: &str) {
+    s.open(uri, text);
+    // Two restarts for the open and one for each edit: the sixth retires it.
+    for version in 2..=5 {
+        s.diagnostics(uri, |p| p["version"] == version - 1 && internal_error(p));
+        s.change(uri, version, &format!("{text}-- edit {version}\n"));
+    }
+    let shown = s.diagnostics(uri, |p| p["version"] == 5 && internal_error(p));
+    let message = shown["params"]["diagnostics"][0]["message"]
+        .as_str()
+        .unwrap();
+    assert!(message.contains("reload the window"), "{key}: {message}");
+}
+
+/// SW-2118 (SW-2116 R4): the panic that retires a project is not charged to
+/// the session, so three retired projects (5 restarts each) do not reach
+/// the session's 15.
+#[test]
+fn three_retired_projects_do_not_stop_checking_everywhere() {
+    const THIRD: &str = "file:///memory/third/Third.sw";
+    const THIRD_TEXT: &str = "namespace Third\n\ndef t: Nat := 1\n";
+    let options = Options::new(STACK);
+    let faults = options.faults.clone();
+    let s = Server::bare(options);
+    for (uri, text, key) in [
+        (URI, TEXT, "/memory/proj/src/Demo.sw"),
+        (OTHER, OTHER_TEXT, "/memory/other/src/Other.sw"),
+        (THIRD, THIRD_TEXT, "/memory/third/Third.sw"),
+    ] {
+        *faults.checker_panic.lock().unwrap() = Some((key.into(), usize::MAX));
+        retire(&s, uri, text, key);
+    }
+    assert!(!checking_stopped(&s), "{:?}", s.pop_ups());
+    s.stop();
+}
+
+/// SW-2118 (SW-2116 R5): editing a project that keeps panicking shows one
+/// pop-up when it is quarantined, and one when it is retired.
+#[test]
+fn a_quarantine_is_told_once_however_many_edits_retry_it() {
+    let options = Options::new(STACK);
+    *options.faults.checker_panic.lock().unwrap() =
+        Some(("/memory/proj/src/Demo.sw".into(), usize::MAX));
+    let s = Server::bare(options);
+    retire(&s, URI, TEXT, "proj");
+    let pop_ups = s.pop_ups();
+    let stopped = |p: &&String| p.contains("stopped checking proj");
+    let told: Vec<_> = pop_ups.iter().filter(stopped).collect();
+    assert_eq!(told.len(), 2, "{pop_ups:?}");
+    assert!(told[0].contains("Edit one of its files"), "{told:?}");
+    assert!(told[1].contains("Reload the window"), "{told:?}");
+    s.stop();
+}
+
+/// SW-2118: once checking has stopped everywhere, a panic applying an edit
+/// restarts the thread without another "stopped checking" pop-up.
+#[test]
+fn a_panic_after_checking_has_stopped_is_not_told_again() {
+    let options = Options::new(STACK);
+    let faults = options.faults.clone();
+    let s = Server::start(options);
+    *faults.apply_panic.lock().unwrap() = Some(("/memory/proj/src/Demo.sw".into(), usize::MAX));
+    for version in 2..=24 {
+        s.change(URI, version, &format!("{TEXT}-- edit {version}\n"));
+    }
+    s.open(OTHER, OTHER_TEXT);
+    s.diagnostics(OTHER, |p| p["version"] == 1);
+    let pop_ups = s.pop_ups();
+    let stopped = pop_ups
+        .iter()
+        .filter(|p| p.contains("stopped checking after"))
+        .count();
+    assert_eq!(stopped, 1, "{pop_ups:?}");
     s.stop();
 }
