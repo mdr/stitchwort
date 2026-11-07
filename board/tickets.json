@@ -1,5 +1,5 @@
 {
-  "next": 1809,
+  "next": 1818,
   "tickets": [
     {
       "id": 47,
@@ -4897,14 +4897,14 @@
     {
       "id": 1163,
       "title": "Decide the in-place reuse plan (docs/research/in-place-reuse.md, SW-1159): D2273-D2277, with fresh eyes, soon",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1163",
       "labels": [
         "decision"
       ],
       "epic": "performance",
-      "body": "Matt (3 Nov): this might need fresh eyes; backlog, pick up again soon. D2273 extend code.rs's existing reuse in stages rather than a new ownership pass [rec yes]; D2274 start with a per-site reuse report (hidden --reuse-report) rather than a dbgTraceIfShared-style function [rec yes]; D2275 then inline small helpers so reuse crosses calls, before std rewrites for in-place trees [rec yes if the report confirms Map/Set are the top misses]; D2276 borrowed parameters only as a design note, only if read-only increments exceed ~20% of count operations [rec yes]; D2277 report and helper inlining now, effect-runtime node reuse after SW-593 [rec yes]. Possible tickets from the note: the reuse report; unused params/lets freed only at frame end; Text.append always copies; extra inc/dec per level in tail-recursive constructor loops.\n\nD2582 (Matt, 7 Nov 2026): started, Opus, fresh-eyes review of the note and D2273-D2277; no builds. Expected: 60 min.",
+      "body": "Matt (3 Nov): this might need fresh eyes; backlog, pick up again soon. D2273 extend code.rs's existing reuse in stages rather than a new ownership pass [rec yes]; D2274 start with a per-site reuse report (hidden --reuse-report) rather than a dbgTraceIfShared-style function [rec yes]; D2275 then inline small helpers so reuse crosses calls, before std rewrites for in-place trees [rec yes if the report confirms Map/Set are the top misses]; D2276 borrowed parameters only as a design note, only if read-only increments exceed ~20% of count operations [rec yes]; D2277 report and helper inlining now, effect-runtime node reuse after SW-593 [rec yes]. Possible tickets from the note: the reuse report; unused params/lets freed only at frame end; Text.append always copies; extra inc/dec per level in tail-recursive constructor loops.\n\nD2582 (Matt, 7 Nov 2026): started, Opus, fresh-eyes review of the note and D2273-D2277; no builds. Expected: 60 min.\n\nDone, merged: docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md. Recommends D2273-D2277 all yes (D2274 split into a site-naming copy note then --profile columns; D2275 conditional on the report). New: D2590 report in the shipped binary [yes], D2591 projection hoist only when a program shows it [yes, conditional], D2592 a pop that always returns the array [no for now]. SW-1678's copies are pushPop's (its None arm keeps the old state), not day 15's (0 copies). Tickets: SW-1809 SW-1810 SW-1811 SW-1812 SW-1813 SW-1814 SW-1815 SW-1816 SW-1817. 6 min (est. 60).",
       "created": "2026-11-03",
       "updated": "2026-11-07",
       "commits": []
@@ -12705,9 +12705,9 @@
         "runtime"
       ],
       "epic": "performance",
-      "body": "From SW-1638, 6 Nov 2026.",
+      "body": "From SW-1638, 6 Nov 2026.\n\nSW-1163 (7 Nov): the copying program is pushPop in examples/extract/arrays.sw (day 15 makes 0 copies); its None arm returns the whole state, so the copy is needed. Fix: SW-1809 (the note names the site) and SW-1815 (destructure first; guide idiom).",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -14654,6 +14654,141 @@
       ],
       "epic": "editor-playground",
       "body": "D2582 (Matt, 7 Nov 2026). Expected: 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1809,
+      "title": "[Sonnet] The copy note names its sites: the end-of-run array copy note lists the top three definitions and natives by copies (stage 1a); test on pushPop",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "performance",
+      "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T1). Expected: 60 min. Ready now: no decision needed beyond D2274.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1810,
+      "title": "[Opus] Reuse columns in run --profile per definition: cells built and reused, token misses, shared Unpacks, array copies, increments by kind; totals equal alloc-trace (stage 1b)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "performance",
+      "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T2). Waiting on D2274, D2590. Expected: 2-3 h.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1811,
+      "title": "[Sonnet] Measure reuse with the new report on in-place-reuse.md's five programs and 2020 days 15, 17, 19, 20; read-only increment share for D2276 (stage 1c, after SW-1810)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "performance",
+      "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T3). Expected: 60 min. Decides D2275 and D2276 from data.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1812,
+      "title": "[Opus] Inlining for reuse in opt.rs: inline a non-recursive callee where the caller holds an unclaimed token of the arity it builds, size and fuel bounded (stage 2a)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "performance",
+      "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T4). Waiting on D2275, which waits on SW-1811's data. 0.5-1 lane-day.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1813,
+      "title": "[Sonnet] code.rs body: drop never-read parameters and lets at entry, not at frame end; trace snapshots regenerate",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "performance",
+      "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T5). Independent of the rest. Expected: 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1814,
+      "title": "[Opus] Projection hoist: projections in argument and scrutinee positions of a record never used whole afterwards, so its fields can be reused (conditional)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "performance",
+      "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T6). Waiting on D2591 and on SW-1811 finding copies or token misses from such records.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1815,
+      "title": "[Sonnet] pushPop (examples/extract/arrays.sw) destructures its state first (0 copies), and the guide's arrays section says 'take the pair apart first' beside the copy note; with SW-1809 closes SW-1678",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "performance",
+      "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T7). Expected: 30 min. Ready now.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1816,
+      "title": "in-place-reuse.md and docs/research/README.md: fix the D numbers (README says D2272-D2276), stage 1's home (--profile, D2590), link SW-1163's review",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "performance",
+      "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T8). Orchestrator, mechanical.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1817,
+      "title": "[Sonnet] Guide arrays section: --js runs version arrays since SW-1638 (not 'on the list'); check the feature-tour's 16 s day 15 figure against SW-1637's 27 s",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "performance",
+      "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T9). Small. Ready now.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
