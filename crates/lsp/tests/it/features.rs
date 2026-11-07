@@ -36,6 +36,7 @@ struct Session {
     /// Runs the searches, keeping what it found for the next ones, as the
     /// playground's second worker does.
     searcher: Arc<stitchwort_lsp::Searcher>,
+    memory: Arc<Memory>,
 }
 
 impl Session {
@@ -71,7 +72,11 @@ impl Session {
             next_id: 1,
             diagnostics: Vec::new(),
             asked: Vec::new(),
-            searcher: Arc::new(stitchwort_lsp::Searcher::new(Options::new(STACK), memory)),
+            searcher: Arc::new(stitchwort_lsp::Searcher::new(
+                Options::new(STACK),
+                memory.clone(),
+            )),
+            memory,
         };
         s.request("initialize", json!({ "capabilities": capabilities }));
         s.notify("initialized", json!({}));
@@ -147,6 +152,21 @@ impl Session {
             }
         }
         panic!("no answer to {method}");
+    }
+
+    /// The searches a request queues, as the strings a [`Searcher`] runs.
+    ///
+    /// [`Searcher`]: stitchwort_lsp::Searcher
+    fn queued_searches(&mut self, method: &str, params: Value) -> Vec<String> {
+        let id = self.next_id;
+        self.next_id += 1;
+        let message = json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params});
+        for m in self.server.receive(&message.to_string()) {
+            self.note(serde_json::from_str(&m).unwrap());
+        }
+        (self.server.take_searches().into_iter())
+            .map(|job| serde_json::from_str::<Value>(&job).unwrap()["search"].to_string())
+            .collect()
     }
 
     /// The reply's `result`.
@@ -858,7 +878,11 @@ fn the_outline_asked_as_the_file_opens_is_not_empty() {
             next_id: 1,
             diagnostics: Vec::new(),
             asked: Vec::new(),
-            searcher: Arc::new(stitchwort_lsp::Searcher::new(Options::new(STACK), memory)),
+            searcher: Arc::new(stitchwort_lsp::Searcher::new(
+                Options::new(STACK),
+                memory.clone(),
+            )),
+            memory,
         };
         s.request("initialize", json!({"capabilities": {}}));
         s.notify("initialized", json!({}));
@@ -882,5 +906,102 @@ fn the_outline_asked_as_the_file_opens_is_not_empty() {
         s.settle();
         let late = s.request("textDocument/documentSymbol", params);
         assert_eq!(names(&early), names(&late));
+    });
+}
+
+/// What searching `jobs` gives: each on a new thread with a searcher of its
+/// own (nothing kept from an earlier one), or all on one thread with one
+/// searcher (each after an earlier one), with how long each took.
+fn run_searches(
+    memory: &Arc<Memory>,
+    jobs: &[String],
+    kept: bool,
+) -> (Vec<Value>, Vec<std::time::Duration>) {
+    let run = |searcher: &stitchwort_lsp::Searcher, jobs: &[String]| {
+        (jobs.iter())
+            .map(|job| {
+                let started = std::time::Instant::now();
+                let found: Value = serde_json::from_str(&searcher.run(job)).unwrap();
+                (found, started.elapsed())
+            })
+            .unzip::<_, _, Vec<_>, Vec<_>>()
+    };
+    let on_thread = |jobs: Vec<String>, memory: Arc<Memory>| {
+        std::thread::Builder::new()
+            .stack_size(STACK)
+            .spawn(move || {
+                let searcher = stitchwort_lsp::Searcher::new(Options::new(STACK), memory);
+                (jobs.iter())
+                    .map(|job| {
+                        let started = std::time::Instant::now();
+                        let found: Value = serde_json::from_str(&searcher.run(job)).unwrap();
+                        (found, started.elapsed())
+                    })
+                    .unzip::<_, _, Vec<_>, Vec<_>>()
+            })
+            .unwrap()
+            .join()
+            .unwrap()
+    };
+    let _ = run;
+    if kept {
+        return on_thread(jobs.to_vec(), memory.clone());
+    }
+    let (mut found, mut took) = (Vec::new(), Vec::new());
+    for job in jobs {
+        let (f, t) = on_thread(vec![job.clone()], memory.clone());
+        found.extend(f);
+        took.extend(t);
+    }
+    (found, took)
+}
+
+const SEARCHED: &str = "namespace Demo\nimport Std (List)\n\n\
+    def f: Option (Option Nat) -> Nat\n  | Some o => ?\n  | None => 0\n\n\
+    def g (xs: List Nat): Nat := xs.length\n\n\
+    def h (n: Nat): n = n := ?\n";
+
+#[test]
+fn searches_in_a_row_give_what_fresh_ones_do() {
+    big_stack(|| {
+        let mut s = Session::open(SEARCHED);
+        let mut jobs = Vec::new();
+        for (edit, typed) in [(2, "xs."), (3, "xs.len"), (4, "xs.ma")] {
+            let typing = SEARCHED.replace("xs.length", typed);
+            s.change(edit, &typing);
+            let character = typing.lines().nth(7).unwrap().chars().count();
+            jobs.extend(s.queued_searches(
+                "textDocument/completion",
+                json!({"textDocument": {"uri": URI},
+                       "position": {"line": 7, "character": character},
+                       "context": {"triggerKind": 2, "triggerCharacter": "."}}),
+            ));
+        }
+        s.change(5, SEARCHED);
+        for (line, character) in [(7, 30), (7, 33), (9, 25)] {
+            jobs.extend(s.queued_searches(
+                "stitchwort/contextAt",
+                json!({"textDocument": {"uri": URI},
+                       "position": {"line": line, "character": character}}),
+            ));
+        }
+        for (line, character) in [(4, 9), (9, 25)] {
+            jobs.extend(s.queued_searches(
+                "textDocument/codeAction",
+                json!({"textDocument": {"uri": URI},
+                       "range": {"start": {"line": line, "character": character},
+                                 "end": {"line": line, "character": character}},
+                       "context": {"diagnostics": []}}),
+            ));
+        }
+        assert_eq!(jobs.len(), 8, "{jobs:?}");
+        let (fresh, fresh_took) = run_searches(&s.memory, &jobs, false);
+        let (kept, kept_took) = run_searches(&s.memory, &jobs, true);
+        eprintln!("fresh: {fresh_took:?}\nkept:  {kept_took:?}");
+        assert_eq!(fresh, kept);
+        assert!(
+            fresh.iter().filter(|f| !f.is_null()).count() >= 6,
+            "{fresh:?}"
+        );
     });
 }

@@ -1162,6 +1162,15 @@ impl Elaborator {
             .collect()
     }
 
+    /// Whether every library file is loaded (also when the session has no
+    /// library: there is nothing to load).
+    pub fn all_libraries_loaded(&self) -> bool {
+        self.session
+            .library
+            .as_ref()
+            .is_none_or(|lib| (1..lib.index.files.len()).all(|f| lib.state[f] == LoadState::Loaded))
+    }
+
     /// Loads every library file, in canonical order: the test-only "eager
     /// `Std`" mode.
     pub fn load_all_libraries(&mut self) -> Result<(), Vec<Diagnostic>> {
