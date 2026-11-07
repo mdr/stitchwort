@@ -172,6 +172,30 @@ class Budget(unittest.TestCase):
         self.assertNotIn("std", cut, "the direct tests are cut last")
         self.assertLessEqual(res["estimate"]["estimate"], 40)
 
+    def test_a_cut_never_keeps_a_rule_of_a_higher_rank_than_one_it_drops(self):
+        paths = [["crates/core/src/kernel.rs"], ["crates/elab/src/std/List/List.sw"],
+                 ["crates/elab/src/omega.rs", "crates/cli/src/main.rs"]]
+        checked = 0
+        for p in paths:
+            for budget in (1, 5, 10, 20, 35, 60):
+                res, _ = pick(p, budget=budget)
+                for c, _ in res["cut"]:
+                    for k in res["rules"]:
+                        checked += 1
+                        self.assertLessEqual(k.rank, c.rank, "%s cut but %s kept at %s/%s" % (c.id, k.id, p, budget))
+        self.assertGreater(checked, 0)
+
+    def test_a_cut_of_a_rank_that_does_not_move_the_estimate_still_comes_before_a_lower_rank(self):
+        # guide-quotes (rank 3) is hidden behind a longer test, so dropping it
+        # alone does not lower the estimate; it still goes before rank 2.
+        inv = INV + [test("cli::guide", "the_guide_quotes_its_examples_and_the_compiler", 2, package="stitchwort-cli"),
+                     test("cli::lsp", "heavy_one", 200)]
+        res, _ = pick(["crates/core/src/kernel.rs"], inv=inv, budget=60)
+        kept = {r.id: r.rank for r in res["rules"]}
+        cut = {r.id: r.rank for r, _ in res["cut"]}
+        if "guide-quotes" in kept:
+            self.assertFalse([i for i, rk in cut.items() if rk == 2], "rank 2 cut while guide-quotes is kept: %s" % cut)
+
     def test_under_budget_cuts_nothing(self):
         res, _ = pick(["crates/elab/src/std/List/List.sw"], budget=1000)
         self.assertEqual(res["cut"], [])
@@ -184,6 +208,20 @@ class Budget(unittest.TestCase):
         inv = [dict(t, group="corpus-sweeps") if t["name"] in ("examples", "prelude") else t for t in INV]
         res, _ = pick(["crates/elab/src/std/List/List.sw"], inv=inv, budget=1000)
         self.assertGreaterEqual(res["estimate"]["estimate"], 60)
+
+
+class MergeProfile(unittest.TestCase):
+    def test_the_merge_filter_is_generated_from_the_lane_filters(self):
+        import subprocess
+        r = subprocess.run([os.path.join(here, "nextest-merge"), "--check"], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+
+    def test_a_stale_merge_filter_is_noticed_and_rewritten(self):
+        nm = load("nextest-merge")
+        text = open(nm.NEXTEST).read()
+        stale = text.replace("binary(ability_errors)", "binary(ability_errorz)", 1)
+        self.assertNotEqual(stale, text)
+        self.assertEqual(nm.rewrite(stale), text)
 
 
 class ChangedTestFile(unittest.TestCase):

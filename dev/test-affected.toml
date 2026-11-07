@@ -261,6 +261,7 @@ select = [
 [[rule]]
 id = "guide-quotes"
 extra = true
+# 25 s warm alone (7 Nov 2026, SW-1778); rank 2 would be 20 s or less.
 rank = 3
 paths = ["crates/syntax/**", "crates/core/**", "crates/elab/**", "crates/driver/**", "crates/cli/**"]
 why = "the guide quotes the compiler's output (error messages, printed terms) and checks it is unchanged"
