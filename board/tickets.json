@@ -21146,9 +21146,9 @@
     {
       "id": 2242,
       "title": "[Sonnet] Equality S1: a plain reference evaluator (test-only switch in reference.rs, every fold off) every mode must agree with; wrapping tests (wrap a subterm in each lazy form and require it stays equal); G1-G6 as known failures each fix lane flips; proof_equivalence under ~5 s",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2242",
       "labels": [
         "tests"
       ],
