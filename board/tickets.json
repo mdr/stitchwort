@@ -1,5 +1,5 @@
 {
-  "next": 2265,
+  "next": 2267,
   "tickets": [
     {
       "id": 47,
@@ -21484,6 +21484,36 @@
       ],
       "epic": "elaborator-kernel",
       "body": "From SW-2251 F11 and SW-2255. Scope to ~15 min: first say what happens at depth 4 with a probe. 15 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2265,
+      "title": "[Sonnet] Soundness fuzz: name the theorem whose unmutated check is rejected (it's skipped silently, soundness_fuzz.rs:1057), and find which one seed 0x8 skips (125 of 126 at f460de933; 182 of 182 before)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2265",
+      "labels": [
+        "tests"
+      ],
+      "epic": "audit-fuzzing",
+      "body": "From Overmind job 10. Could be a theorem that stopped checking after today's conversion changes, or a limit of checking it alone. Print the name and the error; run seed 0x8 with the corpus that hits it. 15 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2266,
+      "title": "[Sonnet] Small: the soundness fuzzer counted a no-op mutant (turnRightFour, := cases unchanged) as accepted; skip mutants equal to the source after formatting. widthCovers (2021 day 13 Picture.sw:22) has a redundant omega hint",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "audit-fuzzing",
+      "body": "From Overmind job 10. 15 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
