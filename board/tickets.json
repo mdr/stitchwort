@@ -20441,9 +20441,9 @@
     {
       "id": 2195,
       "title": "[Opus] Read-only audit of every std lemma name against docs/proposals/std-naming.md's scheme (the plan sampled ~60 of 2,986)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2195",
       "labels": [
         "naming"
       ],
