@@ -1777,7 +1777,8 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
                 }
                 _ if folded_call(g, &value) => unfold_for(g, stack, value, next)?,
                 // A glued call (a `decreasing` definition's fuelled helper)
-                // is forced, and what it computes to looked at again: it may
+                // or a solved metavariable is forced, and what it computes
+                // to looked at again: it may
                 // be another folded call (the helper's leaf `g y`), which
                 // unglued evaluation, where the helper isn't glued, reaches
                 // here as it is and unfolds. Handed to `next` still folded, a
@@ -2510,12 +2511,12 @@ pub fn unfold_folded(g: &Ev, value: &Value) -> Result<Option<Value>> {
         {
             return Ok(current); // stuck
         }
-        // A glued call (a `decreasing` definition's fuelled helper) may
-        // compute to another folded call, its leaf `g y`, which unglued
+        // A glued call (a `decreasing` definition's fuelled helper) or a
+        // solved metavariable may compute to another folded call, its leaf `g y`, which unglued
         // evaluation, where the helper isn't glued, gets here as it is and
         // unfolds too (SW-2126). Otherwise the call is kept, unfolding
         // shared, for conversion to compare lazily.
-        if fields.is_empty() && matches!(next, Value::Call(..)) {
+        if fields.is_empty() && needs_forcing(g, &next) {
             let forced = force(g, next.clone())?;
             if folded_call(g, &forced) {
                 next = forced;

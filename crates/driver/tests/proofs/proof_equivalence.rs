@@ -2,8 +2,8 @@
 //! one type up to depth 2 built from a fixed signature
 //! (docs/proposals/proof-irrelevance.md §8, "Equivalence and gluing,
 //! enumerated"). For every pair it must give one answer with gluing on,
-//! with the shortcuts disabled, with gluing off and from the reference
-//! evaluator; the answers must form an equivalence relation; and a pair
+//! with the shortcuts disabled, with gluing off, in the kernel's own glued mode and from the
+//! reference evaluator; the answers must form an equivalence relation; and a pair
 //! found equal with `n` unknown stays equal once `n` is `0` or `1` (§7.10:
 //! the shortcuts never equate what an unfolding tells apart).
 //!
@@ -186,6 +186,7 @@ fn signature(g: &Ev, datas: &[&'static str], defs: &[&'static str]) -> Sig {
 /// shortcuts on or off, or by the reference evaluator.
 fn matrix(g: &Ev, env: &[Value], terms: &[(String, Term)], how: How) -> Vec<Vec<bool>> {
     let was = g.machine.glue.replace(how.glue);
+    let was_kernel = g.machine.kernel.replace(how.kernel);
     set_shortcuts_disabled(!how.shortcuts);
     let values: Vec<Value> = terms
         .iter()
@@ -214,18 +215,22 @@ fn matrix(g: &Ev, env: &[Value], terms: &[(String, Term)], how: How) -> Vec<Vec<
         .collect();
     set_shortcuts_disabled(false);
     g.machine.glue.set(was);
+    g.machine.kernel.set(was_kernel);
     rows
 }
 
 #[derive(Clone, Copy, Debug)]
 struct How {
     glue: bool,
+    /// The kernel's own mode, as admission runs in (`in_kernel_modes`).
+    kernel: bool,
     shortcuts: bool,
     reference: bool,
 }
 
 const GLUED: How = How {
     glue: true,
+    kernel: false,
     shortcuts: true,
     reference: false,
 };
@@ -254,6 +259,10 @@ import Std (Nat)
 
 type Fn = { at: Nat → Nat }
 
+def NatEq (a: Nat) (b: Nat): Prop := a = b
+
+def liftFn (q: Quot Nat NatEq): Fn := Quot.lift (b => { at = y => b }) (x y h => rewrite h in rfl) q
+
 type Box = { value: Nat }
 
 def fieldOf (x: Nat): Fn :=
@@ -262,10 +271,6 @@ def fieldOf (x: Nat): Fn :=
     | Succ m => { at = y => m }
 
 def viaCall (x: Nat): Fn := fieldOf x
-
-def NatEq (a: Nat) (b: Nat): Prop := a = b
-
-def liftFn (q: Quot Nat NatEq): Fn := Quot.lift (b => { at = y => b }) (x y h => rewrite h in rfl) q
 
 def countDown (x: Nat): Box
   decreasing x
@@ -311,6 +316,51 @@ def onOuterN (x: Nat): Nat :=
   match outerN x with
     | Zero => 0
     | Succ m => m
+
+def keepProof (x: Nat) (h: x = x): Nat := x
+
+theorem reflInner (x: Nat): x = x
+  decreasing x
+:=
+  match x with
+    | Zero => rfl
+    | Succ m => rewrite reflInner m [decreasing := omega] in rfl
+
+theorem reflOuter (x: Nat): x = x
+  decreasing x
+:=
+  match x with
+    | Zero => reflInner x
+    | Succ m => rewrite reflOuter m [decreasing := omega] in rfl
+
+-- Not `J ... (reflOuter x)`: `J` on a glued call is compared glued and
+-- unglued differently (`Succ 0` against `J (y e => Nat) (outerN 0) rfl`).
+def withProof (x: Nat): Nat := keepProof x (reflOuter x)
+
+type Dict = { size: Nat → Nat }
+
+def dictInner (x: Nat): Dict
+  decreasing x
+:=
+  match x with
+    | Zero => { size = y => y }
+    | Succ m => dictInner m [decreasing := omega]
+
+def dictOuter (x: Nat): Dict
+  decreasing x
+:=
+  match x with
+    | Zero => dictInner x
+    | Succ m => dictOuter m [decreasing := omega]
+
+def dict: Dict := dictOuter 2
+
+def liftLeaf (q: Quot Nat NatEq) (x: Nat): Fn
+  decreasing x
+:=
+  match x with
+    | Zero => liftFn q
+    | Succ m => liftLeaf q m [decreasing := omega]
 "#;
 
 /// The operations on fields of calls. `liftFn` takes the context's `t` as
@@ -326,6 +376,9 @@ const FIELD_OPS: &[&str] = &[
     "onOuter",
     "outerN",
     "onOuterN",
+    "dictOuter.size",
+    "dict.size",
+    "liftLeaf.at",
 ];
 
 fn field_op(sig: &Sig, name: &str, x: Term) -> Term {
@@ -342,6 +395,20 @@ fn field_op(sig: &Sig, name: &str, x: Term) -> Term {
         "onOuter" => app(sig.def("onOuter"), vec![x]),
         "outerN" => app(sig.def("outerN"), vec![x]),
         "onOuterN" => app(sig.def("onOuterN"), vec![x]),
+        "withProof" => app(sig.def("withProof"), vec![x]),
+        "dictOuter.size" => app(field("Dict", "dictOuter", x.clone()), vec![x]),
+        "dict.size" => app(
+            Term::Proj(sig.data("Dict"), 0, sig.def("dict").into()),
+            vec![x],
+        ),
+        "liftLeaf.at" => app(
+            Term::Proj(
+                sig.data("Fn"),
+                0,
+                app(sig.def("liftLeaf"), vec![var(T, 0), x.clone()]).into(),
+            ),
+            vec![x],
+        ),
         _ => unreachable!("{name}"),
     }
 }
@@ -353,7 +420,7 @@ fn fields_of_calls_are_compared_alike() {
     let g = &session.elab.ev();
     let sig = signature(
         g,
-        &["Nat", "Fn", "Box"],
+        &["Nat", "Fn", "Box", "Dict"],
         &[
             "fieldOf",
             "viaCall",
@@ -363,6 +430,10 @@ fn fields_of_calls_are_compared_alike() {
             "onOuter",
             "outerN",
             "onOuterN",
+            "withProof",
+            "dictOuter",
+            "dict",
+            "liftLeaf",
         ],
     );
     let terms = terms(&sig, FIELD_OPS, field_op);
@@ -370,14 +441,18 @@ fn fields_of_calls_are_compared_alike() {
     assert!(count > terms.len() && count < terms.len() * terms.len());
 }
 
-/// Checks that every pair of `terms` gets one answer glued, with the
-/// shortcuts disabled, unglued and from the reference evaluator; that the
+/// Checks that every pair of `terms` gets one answer glued, in the kernel's
+/// glued mode, with the shortcuts disabled, unglued and from the reference evaluator; that the
 /// answers form an equivalence; and that equal stays equal once `n` is `0`
 /// or `1`. Returns how many pairs are equal.
 fn compared_alike(g: &Ev, sig: &Sig, terms: &[(String, Term)]) -> usize {
     let env: Vec<Value> = (0..LEVEL).map(Value::var).collect();
     let glued = matrix(g, &env, terms, GLUED);
     let others = [
+        How {
+            kernel: true,
+            ..GLUED
+        },
         How {
             shortcuts: false,
             ..GLUED

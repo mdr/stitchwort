@@ -48,6 +48,26 @@ def countDown (x: Nat): Box
 
 type Box = { value: Nat }
 
+def innerBox (x: Nat): Box
+  decreasing x
+:=
+  match x with
+    | Zero => { value = 1 }
+    | Succ m => innerBox m [decreasing := omega]
+
+-- Its `Zero` leaf is the argument itself, as it was given.
+def passBox (x: Nat) (d: Box): Box
+  decreasing x
+:=
+  match x with
+    | Zero => d
+    | Succ m => passBox m d [decreasing := omega]
+
+def onBox (b: Box): Nat :=
+  match b.value with
+    | Zero => 0
+    | Succ m => m
+
 def valueOf (b: Box): Nat :=
   match b with
     | { value = v } => v
@@ -180,8 +200,10 @@ fn read(g: &Ev, term: &Term, glue: bool, kernel: bool) -> Term {
     t
 }
 
+/// Whether definition `id` occurs anywhere in `term`.
 fn mentions(term: &Term, id: DefId) -> bool {
-    format!("{term:?}").contains(&format!("Def(DefId({}))", id.0))
+    term.subterms()
+        .any(|(t, _)| matches!(t, Term::Def(d) if *d == id))
 }
 
 #[test]
@@ -208,6 +230,9 @@ fn a_folded_calls_field_stays_the_calls_in_the_elaborator_only() {
         matches!(&**call, Term::App(f, _, _) if matches!(**f, Term::Def(id) if id == count_down)),
         "the elaborator keeps the call: {shown:?}"
     );
+    // The walk finds the call where it is, so its absence below means
+    // something.
+    assert!(mentions(&shown, count_down));
     // The kernel, glued or not, projects the unfolding, the fuelled helper.
     for glue in [true, false] {
         let checked = read(g, &term, glue, true);
@@ -402,4 +427,79 @@ theorem caseOnCall: onOuterN 2 = 0 := rfl
 "#,
         )
         .expect("loads");
+}
+
+/// A folded call whose leaf is a solved metavariable standing for another
+/// folded call: `passBox 0 ?m` returns its argument as it was given, and
+/// `?m := innerBox 0` was solved after the call was built (SW-2158 F1).
+/// `unfold_folded` follows the unfolding through `?m`, as `Frame::Unfolding`,
+/// unglued evaluation and the reference do, and a `match` on a field of the
+/// call computes, in the elaborator's mode and the kernel's. (This input
+/// also passes with `unfold_folded` forcing only glued calls: the case tree's
+/// own evaluation seems to force a returned metavariable first, so no input
+/// that tells the two apart is known.)
+#[test]
+fn a_folded_call_ending_in_a_solved_metavariable_computes_to_the_end() {
+    let session = loaded();
+    let g = &session.elab.ev();
+    let zero_term = Term::Ctor(data(g, "Nat"), 0, vec![]);
+    let inner = Term::App(
+        Term::Def(def(g, "innerBox")).into(),
+        zero_term.clone().into(),
+        Icit::Explicit,
+    );
+    let m = session
+        .elab
+        .metas()
+        .new_meta(Span::point(SourceMap::new().add("test", ""), 0));
+    let unforced = Value::Neutral(Head::Meta(m), Vec::new().into());
+    // `passBox 0 d`, with `d` the unforced metavariable.
+    let call = Term::App(
+        Term::App(
+            Term::Def(def(g, "passBox")).into(),
+            zero_term.into(),
+            Icit::Explicit,
+        )
+        .into(),
+        Term::Var(0).into(),
+        Icit::Explicit,
+    );
+    let env = [unforced];
+    g.machine.glue.set(true);
+    // Built before `?m` is solved, so its spine holds the metavariable.
+    let glued_call = eval(g, &env, &call).unwrap();
+    let solution = eval(g, &[], &inner).unwrap();
+    session.elab.metas().solve_meta(m, solution);
+    let unfolded = stitchwort_core::value::unfold_folded(g, &glued_call);
+    g.machine.glue.set(false);
+    let unfolded = unfolded.unwrap().expect("a folded call");
+    assert!(
+        !matches!(unfolded, Value::Neutral(Head::Meta(_), _)),
+        "unfolds through `?m`, not stopping at it: {unfolded:?}"
+    );
+
+    // `onBox (passBox 0 d)`: the `match` computes.
+    let term = Term::App(
+        Term::Def(def(g, "onBox")).into(),
+        call.into(),
+        Icit::Explicit,
+    );
+    let expected = zero(g);
+    let reference = stitchwort_core::reference::eval(g, &env, &term).unwrap();
+    assert!(
+        stitchwort_core::value::conv(g, 1, &reference, &expected).unwrap(),
+        "the reference computes: {reference:?}"
+    );
+    for kernel in [false, true] {
+        g.machine.glue.set(true);
+        g.machine.kernel.set(kernel);
+        let v = eval(g, &env, &term).and_then(|v| force(g, v));
+        g.machine.glue.set(false);
+        g.machine.kernel.set(false);
+        let v = v.unwrap();
+        assert!(
+            stitchwort_core::value::conv(g, 1, &v, &expected).unwrap(),
+            "the `match` computes (kernel {kernel}): {v:?}"
+        );
+    }
 }
