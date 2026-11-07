@@ -189,7 +189,7 @@ impl Elaborator {
     /// An error if the statement doesn't elaborate here.
     pub fn open_goal(&mut self, expr: &Expr, hyps: usize) -> Result<Goal, Diagnostic> {
         self.clear_metas();
-        let was = self.kernel.machine.glue.replace(self.options.glue);
+        let was = self.kernel.machine.glue.replace(self.gluing());
         let saved = self.kernel.machine.budget.start(self.options.limits);
         let result = (|| -> Result<Goal, Diagnostic> {
             let span = expr.span();
@@ -218,7 +218,7 @@ impl Elaborator {
         span: Span,
     ) -> Result<Goal, Diagnostic> {
         self.clear_metas();
-        let was = self.kernel.machine.glue.replace(self.options.glue);
+        let was = self.kernel.machine.glue.replace(self.gluing());
         let saved = self.kernel.machine.budget.start(self.options.limits);
         let result = (|| -> Result<Goal, Diagnostic> {
             let g = &self.ev();
@@ -461,7 +461,7 @@ impl Elaborator {
             metas: g.store.metas.borrow().len(),
             trail: g.store.meta_trail.borrow().len(),
             frozen: g.store.frozen_metas.borrow().len(),
-            glue: g.machine.glue.replace(self.options.glue),
+            glue: g.machine.glue.replace(self.gluing()),
         };
         let span = candidate.item.span(g);
         let made = (|| -> Res<Vec<Plan>> {
@@ -751,7 +751,7 @@ impl Elaborator {
             metas: g.store.metas.borrow().len(),
             trail: g.store.meta_trail.borrow().len(),
             frozen: g.store.frozen_metas.borrow().len(),
-            glue: g.machine.glue.replace(self.options.glue),
+            glue: g.machine.glue.replace(self.gluing()),
         };
         let span = candidate.item.span(g);
         let made = (|| -> Res<Option<Plan>> {
@@ -811,7 +811,7 @@ impl Elaborator {
             metas: g.store.metas.borrow().len(),
             trail: g.store.meta_trail.borrow().len(),
             frozen: g.store.frozen_metas.borrow().len(),
-            glue: g.machine.glue.replace(self.options.glue),
+            glue: g.machine.glue.replace(self.gluing()),
         };
         let made = (|| -> Res<Vec<RecursivePlan>> {
             let _op = g.machine.budget.attempt(ATTEMPT);
