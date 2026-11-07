@@ -31,6 +31,16 @@ researched against how other languages do it. Matt decides the open
 questions, an independent reviewer reads the note, and only then does
 implementation start, usually in stages.
 
+## Paper lanes
+
+A paper lane reads code, docs and the web, and writes one document; it runs
+no builds, tests, benchmarks or long commands, so it adds no load to the
+machine (D3343). Design notes and code reviews are paper lanes. Their shared
+rules are in [`dev/briefs/design.md`](../dev/briefs/design.md) and
+[`dev/briefs/review.md`](../dev/briefs/review.md): a lane brief points at the
+right one and adds the task, the time estimate and the D number range.
+Change those files rather than retyping rules into briefs.
+
 ## Handing a task to DeepSeek
 
 1. Make a scratch clone with no git remote, so the model can't push:
