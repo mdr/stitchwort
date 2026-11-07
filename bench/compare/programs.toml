@@ -6,6 +6,10 @@
 #                         lakefile.toml builds as the `lean_exe` <name with _>
 #
 #   input      stdin for every runner, relative to the repository; default none
+#   source, repeat, scale
+#              instead of `input`: a scaled copy of the source file, written to
+#              target/compare/inputs/ and given to every runner (`scaled_input`
+#              in compare.py lists the scales)
 #   args       command-line arguments for every runner
 #   stitchwort a function of the aoc project ("Aoc.Year2020.Day15.main", run
 #              from aoc/), or a .sw file relative to the repository
@@ -30,32 +34,49 @@ stitchwort = "Aoc.Year2020.Day15.main"
 input = "aoc/inputs/2021/day15.txt"
 stitchwort = "Aoc.Year2021.Day15.main"
 
-# 2021 day 11, both parts.
+# 2021 day 11, both parts, on the real grid tiled 2 by 2 (a 20 by 20 cavern).
+# Lean takes only about 0.14 s here, below the 0.3 s floor: a 30 by 30 cavern
+# never flashes all at once with plain tiling, and one that does makes `run`
+# take over two minutes.
 [octopus]
-input = "aoc/inputs/2021/day11.txt"
+source = "aoc/inputs/2021/day11.txt"
+repeat = 2
+scale = "tile"
 stitchwort = "Aoc.Year2021.Day11.main"
 
-# 2024 day 9, both parts.
+# 2024 day 9, both parts, the real disk map repeated 45 times with a "0"
+# between copies, so files and gaps still alternate.
 [disk]
-input = "aoc/inputs/2024/day09.txt"
+source = "aoc/inputs/2024/day09.txt"
+repeat = 45
+scale = "join0"
 stitchwort = "Aoc.Year2024.Day09.main"
 
-# 2020 day 18, the real input repeated 20 times (expressions/input.txt).
+# 2020 day 18, the real input repeated 180 times.
 [expressions]
-input = "bench/compare/expressions/input.txt"
+source = "aoc/inputs/2020/day18.txt"
+repeat = 180
+scale = "lines"
 stitchwort = "Aoc.Year2020.Day18.main"
 
-# 2024 day 3, the real input repeated 10 times (scan/input.txt).
+# 2024 day 3, the real input repeated 200 times.
 [scan]
-input = "bench/compare/scan/input.txt"
+source = "aoc/inputs/2024/day03.txt"
+repeat = 200
+scale = "lines"
 stitchwort = "Aoc.Year2024.Day03.main"
 
-# 2020 day 19, both parts.
+# 2020 day 19, both parts, the real rules and the real messages repeated 16
+# times.
 [matcher]
-input = "aoc/inputs/2020/day19.txt"
+source = "aoc/inputs/2020/day19.txt"
+repeat = 16
+scale = "messages"
 stitchwort = "Aoc.Year2020.Day19.main"
 
-# 2024 day 7, both parts.
+# 2024 day 7, both parts, the real equations repeated 150 times.
 [bridge]
-input = "aoc/inputs/2024/day07.txt"
+source = "aoc/inputs/2024/day07.txt"
+repeat = 150
+scale = "lines"
 stitchwort = "Aoc.Year2024.Day07.main"
