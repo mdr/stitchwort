@@ -102,7 +102,8 @@ fn num(n: u64) -> Term {
 fn nat_add_is_the_pinned_declaration() {
     let session = Session::new();
     let g = &session.elab.ev();
-    assert_eq!(nat_add::add_hash(g).as_deref(), Some(nat_add::NAT_ADD_HASH));
+    let pin = stitchwort_core::pins::pin(stitchwort_core::registry::Builtin::Add).expect("pinned");
+    assert_eq!(nat_add::add_hash(g).as_deref(), Some(pin.hash));
     assert_eq!(g.env.builtins().nat_add_rule, Some(add_id(g)));
 }
 

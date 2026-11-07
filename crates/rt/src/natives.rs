@@ -590,7 +590,7 @@ pub fn bind_float_natives(g: &Ev) -> Result<Vec<NativeBinding<FloatPrim>>, Resou
 
 /// The library's `Float`, if its file is loaded and it is the declaration
 /// the native double was written for: the kernel binds it only then, by
-/// content hash (`stitchwort_core::float::FLOAT_DATA_HASH`).
+/// content hash (its pin in `stitchwort_core::pins`).
 pub fn float_data(g: &Ev) -> Option<DataId> {
     g.env.builtins().float.data
 }

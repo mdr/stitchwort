@@ -4754,7 +4754,7 @@ console.log("ok");
 #[test]
 fn a_changed_nat_type_turns_the_representation_off() {
     let prelude = changed_prelude("| Succ (n: Nat)", "| Succ (k: Nat)");
-    let mut session = Session::with_prelude(&prelude);
+    let mut session = Session::with_prelude_falling_back(&prelude);
     session
         .load(
             "changed-nat.sw",

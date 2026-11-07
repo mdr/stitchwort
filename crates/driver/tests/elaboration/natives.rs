@@ -261,6 +261,27 @@ fn the_real_prelude_registers_every_native() {
     }
 }
 
+/// A native is bound to one definition, once: a second registration, even
+/// of the pinned definition itself, is refused, so which definition a
+/// native computes never depends on the order things were registered in.
+#[test]
+fn a_native_is_registered_once() {
+    let mut session = Session::new();
+    let g = &mut session.elab.kernel;
+    let add = def(&g.ev(), Native::Add.name());
+    let again = native::register_native(g, add, Native::Add).unwrap_err();
+    assert_eq!(again.code, "E-BUILTIN");
+    assert!(again.message.contains("already"), "{}", again.message);
+    let neq = def(&g.ev(), "Nat.equalFalse");
+    let again = native::register_nat_neq(g, neq).unwrap_err();
+    assert!(again.message.contains("already"), "{}", again.message);
+    // Another definition is refused for its pin before anything else.
+    let sub = def(&g.ev(), Native::Sub.name());
+    let other = native::register_native(g, sub, Native::Add).unwrap_err();
+    assert!(other.message.contains("`Nat.add`"), "{}", other.message);
+    assert_eq!(g.env.builtins().native(add), Some(Native::Add));
+}
+
 #[test]
 fn builtins_with_the_wrong_shape_are_refused() {
     // An extra constructor would make native matching wrong.

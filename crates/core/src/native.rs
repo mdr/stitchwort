@@ -43,7 +43,7 @@ use crate::term::{DataId, DefId, Icit, Sort, Term};
 use crate::value::{Elim, Head, Value, conv, eval, force};
 
 /// A definition with a native implementation.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Native {
     /// `add m n`
     Add,
@@ -133,6 +133,9 @@ pub struct Builtins {
     /// `decEqNat`'s definition puts in its `No`, and so the native does too.
     pub nat_neq: Option<DefId>,
     natives: HashMap<DefId, Native>,
+    /// The same registrations the other way round: each native is
+    /// registered at most once.
+    native_defs: HashMap<Native, DefId>,
     /// `Nat.add`, once R3 and R4 (`nat_add.rs`: `+` computes on its second
     /// argument too) are switched on for it. Not a native: switching the
     /// natives off doesn't switch it off.
@@ -260,6 +263,7 @@ impl Builtins {
     /// (`disable_*`) are settings, and stay as they are.
     pub(crate) fn rewind(&mut self, mark: &BuiltinsMark, defs: usize) {
         self.natives.retain(|id, _| id.0 < defs);
+        self.native_defs.retain(|_, id| id.0 < defs);
         self.primitives.retain(|id, _| id.0 < defs);
         self.float_defs.retain(|id, _| id.0 < defs);
         let BuiltinsMark {
@@ -390,108 +394,140 @@ pub fn register_decidable(g: &mut Kernel, d: DataId) -> Result<()> {
     })
 }
 
-/// Registers a native implementation for definition `id`, after checking its
-/// type. Natives returning `Bool` or `Decidable` need those registered first.
+/// Registers a native implementation for definition `id`, after checking
+/// that it is the declaration the native was written for ([`crate::pins`])
+/// and its type. Natives returning `Bool` or `Decidable` need those
+/// registered first. Each native is registered once, and each definition
+/// has at most one.
 pub fn register_native(g: &mut Kernel, id: DefId, native: Native) -> Result<()> {
     in_kernel_modes(g, |g| {
-        let def = g.def(id);
-        let span = def.span;
-        let (State::Final, Some(nat)) = (def.state, g.env.builtins().nat) else {
-            return Err(shape_error(span, native.name()));
-        };
-        let nat_ty = || Term::Data(nat, Vec::new());
-        let arrow =
-            |dom: Term, cod: Term| Term::Pi("x".into(), Icit::Explicit, Rc::new(dom), Rc::new(cod));
-        let result = match native {
-            Native::Add | Native::Sub | Native::Mul | Native::DivFuel => Some(nat_ty()),
-            Native::Leq | Native::EqNat => g.env.builtins().bool.map(|b| Term::Data(b, Vec::new())),
-            // (m : Nat) -> (n : Nat) -> Decidable (m = n), and `natNeq` must exist.
-            Native::DecEqNat => g
-                .env
-                .builtins()
-                .decidable
-                .filter(|_| g.env.builtins().nat_neq.is_some())
-                .map(|dec| {
-                    Term::data(
-                        dec,
-                        vec![Term::Eq(
-                            Some(Rc::new(nat_ty())),
-                            Rc::new(Term::Var(1)),
-                            Rc::new(Term::Var(0)),
-                        )],
-                    )
-                }),
-            // (m : Nat) -> (n : Nat) -> eqNat m n = True -> m = n
-            Native::EqNatSound => g
-                .env
-                .builtins()
-                .bool
-                .zip(native_def(&g.ev(), Native::EqNat))
-                .map(|(bool, eq_nat)| {
-                    arrow(
-                        Term::Eq(
-                            Some(Rc::new(Term::Data(bool, Vec::new()))),
-                            Rc::new(Term::app(
-                                Term::app(Term::Def(eq_nat), Term::Var(1)),
-                                Term::Var(0),
-                            )),
-                            Rc::new(Term::Ctor(bool, 1, Vec::new())),
-                        ),
-                        Term::Eq(
-                            Some(Rc::new(nat_ty())),
-                            Rc::new(Term::Var(2)),
-                            Rc::new(Term::Var(1)),
-                        ),
-                    )
-                }),
-            // (n : Nat) -> eqNat n n = True
-            Native::EqNatRefl => g
-                .env
-                .builtins()
-                .bool
-                .zip(native_def(&g.ev(), Native::EqNat))
-                .map(|(bool, eq_nat)| {
+        crate::pins::check_def(&g.ev(), id, native.builtin())?;
+        register_shaped(g, id, native)
+    })
+}
+
+/// [`register_native`] without the pin: for core's own tests, which build
+/// a `Nat.add` of their own.
+#[cfg(feature = "test-bypass")]
+#[doc(hidden)]
+pub fn register_native_unpinned(g: &mut Kernel, id: DefId, native: Native) -> Result<()> {
+    in_kernel_modes(g, |g| register_shaped(g, id, native))
+}
+
+/// The rest of [`register_native`], in kernel modes: the type, and that
+/// neither `id` nor `native` is registered already.
+fn register_shaped(g: &mut Kernel, id: DefId, native: Native) -> Result<()> {
+    let def = g.def(id);
+    let span = def.span;
+    let (State::Final, Some(nat)) = (def.state, g.env.builtins().nat) else {
+        return Err(shape_error(span, native.name()));
+    };
+    let nat_ty = || Term::Data(nat, Vec::new());
+    let arrow =
+        |dom: Term, cod: Term| Term::Pi("x".into(), Icit::Explicit, Rc::new(dom), Rc::new(cod));
+    let result = match native {
+        Native::Add | Native::Sub | Native::Mul | Native::DivFuel => Some(nat_ty()),
+        Native::Leq | Native::EqNat => g.env.builtins().bool.map(|b| Term::Data(b, Vec::new())),
+        // (m : Nat) -> (n : Nat) -> Decidable (m = n), and `natNeq` must exist.
+        Native::DecEqNat => g
+            .env
+            .builtins()
+            .decidable
+            .filter(|_| g.env.builtins().nat_neq.is_some())
+            .map(|dec| {
+                Term::data(
+                    dec,
+                    vec![Term::Eq(
+                        Some(Rc::new(nat_ty())),
+                        Rc::new(Term::Var(1)),
+                        Rc::new(Term::Var(0)),
+                    )],
+                )
+            }),
+        // (m : Nat) -> (n : Nat) -> eqNat m n = True -> m = n
+        Native::EqNatSound => g
+            .env
+            .builtins()
+            .bool
+            .zip(native_def(&g.ev(), Native::EqNat))
+            .map(|(bool, eq_nat)| {
+                arrow(
                     Term::Eq(
                         Some(Rc::new(Term::Data(bool, Vec::new()))),
                         Rc::new(Term::app(
-                            Term::app(Term::Def(eq_nat), Term::Var(0)),
+                            Term::app(Term::Def(eq_nat), Term::Var(1)),
                             Term::Var(0),
                         )),
                         Rc::new(Term::Ctor(bool, 1, Vec::new())),
-                    )
-                }),
-        };
-        let Some(mut expected) = result else {
-            return Err(shape_error(span, native.name()));
-        };
-        for _ in 0..native.numbers() {
-            expected = arrow(nat_ty(), expected);
-        }
-        if def.arity != native.arity()
-            || !conv(&g.ev(), 0, &eval(&g.ev(), &[], &expected)?, &def.ty_value)?
-        {
-            return Err(shape_error(span, native.name()));
-        }
-        g.env.builtins_mut().natives.insert(id, native);
-        Ok(())
-    })
+                    ),
+                    Term::Eq(
+                        Some(Rc::new(nat_ty())),
+                        Rc::new(Term::Var(2)),
+                        Rc::new(Term::Var(1)),
+                    ),
+                )
+            }),
+        // (n : Nat) -> eqNat n n = True
+        Native::EqNatRefl => g
+            .env
+            .builtins()
+            .bool
+            .zip(native_def(&g.ev(), Native::EqNat))
+            .map(|(bool, eq_nat)| {
+                Term::Eq(
+                    Some(Rc::new(Term::Data(bool, Vec::new()))),
+                    Rc::new(Term::app(
+                        Term::app(Term::Def(eq_nat), Term::Var(0)),
+                        Term::Var(0),
+                    )),
+                    Rc::new(Term::Ctor(bool, 1, Vec::new())),
+                )
+            }),
+    };
+    let Some(mut expected) = result else {
+        return Err(shape_error(span, native.name()));
+    };
+    for _ in 0..native.numbers() {
+        expected = arrow(nat_ty(), expected);
+    }
+    if def.arity != native.arity()
+        || !conv(&g.ev(), 0, &eval(&g.ev(), &[], &expected)?, &def.ty_value)?
+    {
+        return Err(shape_error(span, native.name()));
+    }
+    let builtins = g.env.builtins();
+    if builtins.natives.contains_key(&id) || builtins.native_defs.contains_key(&native) {
+        return Err(Diagnostic::error(
+            "E-BUILTIN",
+            format!("`{}` is bound to a native already", native.name()),
+        )
+        .with_label(span, "a second binding"));
+    }
+    let builtins = g.env.builtins_mut();
+    builtins.natives.insert(id, native);
+    builtins.native_defs.insert(native, id);
+    Ok(())
 }
 
 /// The definition registered with native implementation `native`.
 fn native_def(g: &Ev, native: Native) -> Option<DefId> {
-    g.env
-        .builtins()
-        .natives
-        .iter()
-        .find(|(_, n)| **n == native)
-        .map(|(id, _)| *id)
+    g.env.builtins().native_defs.get(&native).copied()
 }
 
 /// Registers `natNeq : (m n : Nat) -> eqNat m n = False -> Not (m = n)`.
+/// Like a native, it must be the pinned declaration ([`crate::pins`]), and
+/// it is registered once.
 pub fn register_nat_neq(g: &mut Kernel, id: DefId) -> Result<()> {
     in_kernel_modes(g, |g| {
+        crate::pins::check_def(&g.ev(), id, Builtin::NatNeq)?;
         let def = g.def(id);
         let span = def.span;
+        if g.env.builtins().nat_neq.is_some() {
+            return Err(
+                Diagnostic::error("E-BUILTIN", "`Nat.equalFalse` is bound already")
+                    .with_label(span, "a second binding"),
+            );
+        }
         let (State::Final, Some(nat), Some(bool), Some(eq_nat), Some(void)) = (
             def.state,
             g.env.builtins().nat,
