@@ -1,5 +1,5 @@
 {
-  "next": 1882,
+  "next": 1883,
   "tickets": [
     {
       "id": 47,
@@ -15750,6 +15750,21 @@
       ],
       "epic": "syntax-language",
       "body": "From the syntax code review (docs/reviews/code-review-syntax.md, tickets to file, 9; F13). 30 min. With the node-id work (SW-1803).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1882,
+      "title": "[Sonnet] Code review: crates/driver (sessions, mark and rewind, projects, check cache, test std cache, navigation probes; 16.4k lines)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1882",
+      "labels": [
+        "review"
+      ],
+      "epic": "test-infra",
+      "body": "Matt (7 Nov 2026): crate-by-crate code reviews, reading only. Expected: 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
