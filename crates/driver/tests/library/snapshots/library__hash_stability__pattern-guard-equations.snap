@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 data Main.Vec 4cc4104f40e64ca89957132f93fe7cb53692d7d69310cda043fe66224774bb54
@@ -61,7 +61,10 @@ Main.countDown.%step cca0db2c5e2499fac3cd47456a7fc763c1b06086d03af76d29b4b2cef1d
 Main.countDown.%go 4761e4e413ee49039eab450d15044b6addfc847e39b73a83c314ac49357e5eb9
 Main.countDown.%step.%respects c832586beee8dcbcaddbb955c77221e844902ad8c2d1f160de6dc58b8cc024bf
 Main.countDown.%irrel b5c7de29d936d0edc1f89e571752adb7e4087e2bfd1377bfc1bab7533a90debd
-Main.countDown.unfold 0419911c7e854f977f34ac7f652e49a31f086054f5a152afb608a7e3769304c2
+Main.countDown.%plain a1097e32e3d46d1dcb8d2743379e78d8d8b38c9279b4ea6c5743760c5cdc2bcb
+Main.countDown.%plain.%same 1ddd2cc4886cc75e61908233fd5b15b615741af634f488c4c14870bae6524938
+Main.countDown.unfold 3baab804bd15f079e130ca7a07cff280ccd3ff01922b22e80ecfca86fc1a69bc
+Main.countDown.%unfoldStep 0419911c7e854f977f34ac7f652e49a31f086054f5a152afb608a7e3769304c2
 Main.countDown.eq1 e78ae2d878af591bff7f6310bcfc17ddaa961bfe2b8b989bd5c4fdc13fc65371
 Main.countDown.eq2 3a0a9558c9a46a0dc82eb62b0561a1d5e183d5038036efe5220e4860416a5751
 Main.countDown.induct 2a9993435ca52793412b9220a096ad64ccd7e8b060e13c218cef43cdf17b214a
