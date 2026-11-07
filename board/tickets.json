@@ -1,5 +1,5 @@
 {
-  "next": 1972,
+  "next": 1979,
   "tickets": [
     {
       "id": 47,
@@ -16147,14 +16147,14 @@
     {
       "id": 1908,
       "title": "[Opus] Design note: internal error kinds, so ~25 sites stop choosing paths by Diagnostic::code strings (and two by message text)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1908",
       "labels": [
         "elab"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/code-review-elab-checking.md (tickets to file, 8; F5). D2653 [rec: yes]. 60 min. The 1 Nov review's §3.5.\n\nFrom docs/reviews/code-review-elab-rest.md (F21): take in part 3's new error-code sites too.\n\nFrom docs/reviews/code-review-elab-tactics.md (F8): typed error kinds; the 1 Nov finding still open in the tactics too.",
+      "body": "From docs/reviews/code-review-elab-checking.md (tickets to file, 8; F5). D2653 [rec: yes]. 60 min. The 1 Nov review's §3.5.\n\nFrom docs/reviews/code-review-elab-rest.md (F21): take in part 3's new error-code sites too.\n\nFrom docs/reviews/code-review-elab-tactics.md (F8): typed error kinds; the 1 Nov finding still open in the tactics too.\n\nDone, merged: docs/proposals/error-kinds.md. 115 .code comparisons + 95 undo::fatal calls; ~40 choose a path, ~70 only a note (stay on the public code, D2772), 5 read message text. Design A (kind beside code), no cache format bump (cache stores only warnings). D2770-D2773. Tickets SW-1972-SW-1978. 8 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17101,6 +17101,111 @@
       ],
       "epic": "elaborator-kernel",
       "body": "Matt (7 Nov 2026): parallel design work. Expected: 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1972,
+      "title": "[Sonnet] Error kinds stage 1: a kind field and limit type on Diagnostic; fatal, recoverable and the module report read them; a size assertion",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "errors"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/proposals/error-kinds.md. D2770 [rec: yes]. 45 min. First.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1973,
+      "title": "[DeepSeek] Error kinds stage 2: route the ~23 direct E-RESOURCE comparisons through fatal",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "errors"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/proposals/error-kinds.md. After stage 1 (SW-1972). Absorbs elab-checking F13. 40 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1974,
+      "title": "[Sonnet] Error kinds stage 3: set the other kinds where errors are made; the ~40 deciding sites read them (includes a one-line read in kernel check.rs:372: review that line by line)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "errors"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/proposals/error-kinds.md. After SW-1972. Absorbs elab-checking F5, elab-rest F21, tactics F8. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1975,
+      "title": "[DeepSeek] Error kinds stage 4: the five sites that decide by message text (undo.rs:130, module.rs:214-218, :466, ...) read the kind; named constants for the public-code checks",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "errors"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/proposals/error-kinds.md. After SW-1972, beside SW-1973. 40 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1976,
+      "title": "[DeepSeek] Error kinds stage 5: a test that scans the sources for decisions on .code strings or message text",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "errors"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/proposals/error-kinds.md. After SW-1974 and SW-1975. 20 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1977,
+      "title": "[Opus] Swallowed-limit check: a declaration that succeeds after hitting a resource limit is a compiler bug (asserted in tests and fuzzing, E-INTERNAL in release), except listed attempt limits",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "errors"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/proposals/error-kinds.md. Stage 6. After SW-1841 and D2771 [rec: yes]. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1978,
+      "title": "[Opus] equations.rs:2485-2510: the equation generator's step limit skips an equation lemma instead of failing (a limit that decides whether a lemma exists): a documented exception to D2543, or fail",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "errors"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/proposals/error-kinds.md. Finding. 30 min to decide and fix.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
