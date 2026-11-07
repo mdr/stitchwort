@@ -14480,9 +14480,9 @@
     {
       "id": 1797,
       "title": "[Sonnet, then Opus if deep] Nondeterminism: a few examples' step counts differ by tens of steps between runs (pure-fold-in-parse-function, postponed-lambda-second-error, reads-weaken-over-map-implicits), apparently with heap layout; find what depends on addresses (pointer-keyed maps, Rc::ptr_eq fast paths, hash order) and whether any output can differ (SW-1792)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1797",
       "labels": [
         "bug"
       ],
