@@ -1,5 +1,5 @@
 {
-  "next": 2297,
+  "next": 2299,
   "tickets": [
     {
       "id": 47,
@@ -21843,7 +21843,7 @@
         "perf"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-2285. 20 min.\n\nDone, merged (core.md conflict with SW-2287 resolved by hand). Memo lookups (TreeMemo, ShapeMemo/CallMemo) cost a budget step per layer compared; reference.rs needed nothing (hash lookup). On main: slow-check E-RESOURCE in 1.3 s; proof_equivalence, hash_stability 22/22. Steps within 0.1% except check-closed-* +1.1%, which predates it (stale baseline). Model result: Opus, worked, 15 min (est. 25).",
+      "body": "From SW-2285. 20 min.\n\nDone, merged (core.md conflict with SW-2287 resolved by hand). Memo lookups (TreeMemo, ShapeMemo/CallMemo) cost a budget step per layer compared; reference.rs needed nothing (hash lookup). On main: slow-check E-RESOURCE in 1.3 s; proof_equivalence, hash_stability 22/22. Steps within 0.1% except check-closed-* +1.1%, which predates it (stale baseline). Model result: Opus, worked, 15 min (est. 25).\n\nWhole-AoC check on main after merge: 287 namespaces, 0 errors, 67.7 s user.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21896,14 +21896,14 @@
     {
       "id": 2292,
       "title": "[Sonnet] Comparative speed 1a: the harness: bench/compare/, compare.sh, programs.toml, a 'compare' dev shell (Lean, hyperfine, PyPy), task bench:compare and bench:compare:check, null programs, the two classics (pidigits, binary-trees) in Stitchwort, the 2020 day 15 turn-count entry point; Mac runs only",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2292",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "Plan: docs/proposals/comparative-speed.md §7 (D3330, D3340 native faces Python and Lean, D3341 no targets, D3342 natural data structures). 90 min. First of stage 1.",
+      "body": "Plan: docs/proposals/comparative-speed.md §7 (D3330, D3340 native faces Python and Lean, D3341 no targets, D3342 natural data structures). 90 min. First of stage 1.\n\nDone, merged. On main: nix develop ok, Day15 checks, aoc_answers 57/57. bench:compare:check on the lane: 22 ok, 2 skipped (no Lean memory-game yet), 0 failed. Smoke (Mac, 2 runs): memory-game native/CPython 1.15x; binary-trees native/CPython 0.30x, native/Lean 9.5x; startup run 181 ms, native 3 ms, CPython 16 ms. Plan corrections: native needs libstitchwort_standalone.a; tool versions Lean 4.34.1, hyperfine 1.21.0; bench:compare:check is the answer check (proof side needs another name in 1c); lean --run is as slow as our interpreter on binary-trees. Follow-ups SW-2297, SW-2298. Model result: Sonnet, worked, 16 min (est. 90).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21911,7 +21911,7 @@
     {
       "id": 2293,
       "title": "[Sonnet] Comparative speed 1b: Python and Lean 4 ports of the ten programs (same algorithm, natural data structures, D3342), each with a README; answers checked against expected.txt on the Mac",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
@@ -21926,7 +21926,7 @@
     {
       "id": 2294,
       "title": "[Sonnet] Comparative speed 1c: Lean 4 ports of three days' proofs (2024 day 2, 2020 day 18, 2021 day 15; same statements, same automation, Lean core and Std only) and the proof side of compare.sh",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
@@ -21964,6 +21964,36 @@
       ],
       "epic": "comparative-speed",
       "body": "Plan: docs/proposals/comparative-speed.md §7 (D3330, D3340 native faces Python and Lean, D3341 no targets, D3342 natural data structures). After SW-2295. 1 h. Absorbs the startup split (SW-2291) if not done by then.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2297,
+      "title": "[Sonnet] Comparative speed: 2020 day 15 now runs 3M turns in 1.7 s (Array), so bench at the full 30M turns instead of 3M: recompute expected.txt, update programs.toml and the plan's §2 row",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2292. 15 min. Fold into SW-2293 if that starts first.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2298,
+      "title": "[Opus] Native pidigits is only ~7% faster than the interpreter (7.6 s vs 8.1 s; CPython 5.3 s, Lean 1.0 s): profile where native's time goes on Int big numbers",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2292's check run (rough numbers, Mac). Paper lane first: read the native Int path. 30 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
