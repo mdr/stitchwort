@@ -27,9 +27,7 @@ theorem programRun: (steps: Nat) → (cavern: Cavern) → Run cavern steps (step
     let spec := flashersCorrect cavern
     let rest: Run (after cavern flashed) steps (stepsFrom cavern.step steps) (cavern.step.flashesIn steps) :=
       rewrite <- stepCorrect cavern flashed spec in programRun steps cavern.step
-    -- `Step`'s cavern is given: the unifier can't yet read it off `spec`
-    -- (SW-1913).
-    rewrite zerosCorrect cavern flashed spec in Step [cavern := cavern] flashed spec rest
+    rewrite zerosCorrect cavern flashed spec in Step flashed spec rest
 
 --| ...and every run is the program's.
 theorem runIsProgram [cavern: Cavern] [steps: Nat] [final: Cavern] [total: Nat] (run: Run cavern steps final total):

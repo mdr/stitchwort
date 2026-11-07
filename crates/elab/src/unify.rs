@@ -1120,7 +1120,8 @@ fn record_different(g: &Unifier<'_>, work: &[Task]) {
 /// Whether `v` may be a definition stuck on an unknown, as far as can be
 /// told cheaply: a call of one with an argument that is an unknown not
 /// solved yet (or `k + ` one), or such a call itself, [`BLOCKED_DEPTH`]
-/// calls deep at most.
+/// calls deep at most; or a field of an unknown not solved yet, `?r.f`,
+/// which is what such a call of an accessor is under record eta.
 fn blocked(g: &Unifier<'_>, v: &Value) -> Result<bool> {
     blocked_within(g, v, BLOCKED_DEPTH)
 }
@@ -1221,8 +1222,20 @@ fn may_mention_meta(spine: &[Elim]) -> bool {
 const MENTION_LOOK: usize = 64;
 
 fn blocked_within(g: &Unifier<'_>, v: &Value, depth: usize) -> Result<bool> {
-    let Value::Neutral(Head::Def(_), spine) = force(g, v.clone())? else {
-        return Ok(false);
+    let spine = match force(g, v.clone())? {
+        Value::Neutral(Head::Def(_), spine) => spine,
+        // A field of an unknown, `?r.f` (or `?r.f x`, `(?m x).f`): rule 2
+        // opens an accessor on an unknown record to this, where without eta
+        // it stopped at the call `R.f ?r`, a definition stuck on `?r`. So it
+        // counts as that call did, and no further: an unknown applied to
+        // arguments only, `?m x`, is solved, not waited for. `force` has put
+        // in a solved head, so `m` is unsolved.
+        Value::Neutral(Head::Meta(m), spine)
+            if spine.iter().any(|e| matches!(e, Elim::Proj(..))) =>
+        {
+            return Ok(!frozen(g, m));
+        }
+        _ => return Ok(false),
     };
     for elim in spine.iter() {
         let Elim::App(arg, _) = elim else {
@@ -1696,9 +1709,24 @@ fn same_field_records(
     if (d1, i1) != (d2, i2) {
         return Ok(false);
     }
-    let record = |h: &Head, s: &Spine| Value::Neutral(*h, Spine::from(s[..s.len() - 1].to_vec()));
+    // A stuck field of a call kept by name, `(f x).i` (`Frame::CallField`,
+    // `is_folded`), is a `Def` head whose spine is the call's arguments and
+    // then projections. Its record is the call `f x`, glued, which forces to
+    // what `f x` computed to; as the neutral `f x` it would claim the call
+    // is stuck itself, and so never equal to `?r.f` (`(Cavern.grid c).rows`
+    // against `?c.grid.rows`). Any other `Def` head is a definition that is
+    // stuck, and stays one without the projection.
+    let record = |v: &Value, h: &Head, s: &Spine| {
+        let spine = Spine::from(s[..s.len() - 1].to_vec());
+        match h {
+            Head::Def(id) if g.machine.glue.get() && is_folded(g, v) => {
+                Value::Call(*id, spine, Default::default())
+            }
+            _ => Value::Neutral(*h, spine),
+        }
+    };
     let trail = g.store.meta_trail.borrow().len();
-    let task = Task::Values(level, record(h1, s1), record(h2, s2));
+    let task = Task::Values(level, record(a, h1, s1), record(b, h2, s2));
     if nested(g, || run(g, vec![task], mode))? {
         note_lossy(g, trail);
         Ok(true)
