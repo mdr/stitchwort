@@ -1,5 +1,5 @@
 {
-  "next": 2036,
+  "next": 2037,
   "tickets": [
     {
       "id": 47,
@@ -17640,9 +17640,9 @@
     {
       "id": 2008,
       "title": "[Opus] Design note: hiding internal step helpers (List.filterStep etc.) from std's public API",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2008",
       "labels": [
         "std"
       ],
@@ -17920,9 +17920,9 @@
     {
       "id": 2028,
       "title": "[Opus] Erase data only proofs use (2021 day 9's states)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2028",
       "labels": [
         "runtime"
       ],
@@ -18025,6 +18025,21 @@
         "aoc"
       ],
       "body": "From docs/proposals/rewrite-occurrence.md. Ticket 3, after SW-2033. Those two days' tests only. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2036,
+      "title": "[Opus] Review of the test suites: what each tier and area actually checks, overlap, gaps against the risks today's reviews found, slow tests that check little, flaky or clock-dependent tests",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2036",
+      "labels": [
+        "review"
+      ],
+      "epic": "test-infra",
+      "body": "Matt (7 Nov 2026): parallel review work. Expected: 75 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
