@@ -1,5 +1,5 @@
 {
-  "next": 2182,
+  "next": 2188,
   "tickets": [
     {
       "id": 47,
@@ -20028,7 +20028,7 @@
         "proofs"
       ],
       "epic": "aoc-common",
-      "body": "From docs/reviews/SW-2159-aoc-lemmas-to-std.md, lane D0; its brief paragraph is in the report. No std edits. audit:touched on each changed namespace. 45 min.",
+      "body": "From docs/reviews/SW-2159-aoc-lemmas-to-std.md, lane D0; its brief paragraph is in the report. No std edits. audit:touched on each changed namespace. 45 min.\n\n7 Nov: run SW-2182 first, so the restated lemmas are still there to test search on.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20208,7 +20208,7 @@
         "design"
       ],
       "epic": "std-library",
-      "body": "Read-only Opus lane, 7 Nov: docs/proposals/std-naming.md. Before the SW-2159 move lanes give the new lemmas names. 60 min.",
+      "body": "Read-only Opus lane, 7 Nov: docs/proposals/std-naming.md. Before the SW-2159 move lanes give the new lemmas names. 60 min.\n\n7 Nov (docs/research/std-lemma-libraries.md): fold the outlier renames (less vs lt, sortLength) into the plan; SW-2184 writes the guide after it.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20216,14 +20216,14 @@
     {
       "id": 2180,
       "title": "[Opus] Research: how Lean's Mathlib/Batteries, Agda's stdlib, Coq/Rocq's stdlib and Isabelle's HOL library organise and name lemmas about lists, numbers and finite maps (naming schemes, simp sets, where lemmas live, how users find them), and what Stitchwort's std should adopt as it grows",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2180",
       "labels": [
         "research"
       ],
       "epic": "std-library",
-      "body": "Read-only Opus lane, 7 Nov, for Matt's 'really rich standard library' aim (SW-2159). docs/research/std-lemma-libraries.md. Web and reading only. 60 min.",
+      "body": "Read-only Opus lane, 7 Nov, for Matt's 'really rich standard library' aim (SW-2159). docs/research/std-lemma-libraries.md. Web and reading only. 60 min.\n\nResearch merged: docs/research/std-lemma-libraries.md. 7 of 10 dated restatements predate stitchwort search (31 Oct); 3 predate std's lemma. D3160, D3161 yes (orchestrator's calls). Tickets SW-2182-SW-2187.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20239,6 +20239,96 @@
       ],
       "epic": "test-infra",
       "body": "Matt, 7 Nov 2026: 'do we have basically good telemetry on not just how long the daily tier takes as a whole, but like where that time is going?' Today only nextest's junit.xml and SLOW lines give per-test times; the other steps, the builtins run beside nextest and the build are untimed. D3170 — Matt, 7 Nov: run the daily tier once on Overmind, timed, to see how long it takes; not yet as a standing job. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2182,
+      "title": "[DeepSeek] Run the ~30 restated AoC lemmas (SW-2159's list) through stitchwort search and search --at; record each miss and its cause",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "search"
+      ],
+      "epic": "std-library",
+      "body": "From docs/research/std-lemma-libraries.md, T1. Before SW-2167 deletes them. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2183,
+      "title": "[Sonnet] Duplicate check: a merge-tier test that std has no two theorems with the same statement (content hash), plus a command that lists a project's theorems duplicating std",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "std-library",
+      "body": "From docs/research/std-lemma-libraries.md, T2. D3161 yes (orchestrator's call). 75 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2184,
+      "title": "[Sonnet] Std lemma naming guide (Lean's conclusion-first scheme in camelCase; lt/le not less; facts in the spelling user code writes) and an expected-lemma checklist per std type; list outlier names for the sweep",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "epic": "std-library",
+      "body": "From docs/research/std-lemma-libraries.md, T3, after SW-2179. D3160 yes (orchestrator's call; within Matt's rich-std aim). 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2185,
+      "title": "[Sonnet] search --duplicates NAMESPACE: report project theorems an existing lemma already proves (Isabelle's solve_direct)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "search"
+      ],
+      "epic": "std-library",
+      "body": "From docs/research/std-lemma-libraries.md, T4, after SW-2183. 90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2186,
+      "title": "[Opus] Search fixes from SW-2182's misses: split ∧ goals, read ↔ premises as two implications, match == with each type's own equality function",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "search"
+      ],
+      "epic": "std-library",
+      "body": "From docs/research/std-lemma-libraries.md, T5, after SW-2182. 60-90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2187,
+      "title": "[DeepSeek] Order List/Lemmas.sw by operation",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "epic": "std-library",
+      "body": "From docs/research/std-lemma-libraries.md, T6, after SW-2169 and SW-2170. 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
