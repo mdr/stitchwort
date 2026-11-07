@@ -18,9 +18,10 @@
 //! A second, smaller matrix does the same for fields of calls
 //! (docs/proposals/match-call-field.md): a field of a call stuck in its own
 //! case tree, of a call whose leaf is another call, and of a call with a
-//! `Quot.lift` leaf, applied; and a field of a `decreasing` definition's
-//! call, which the elaborator keeps as `(f x).i` (D3030: glued and unglued
-//! evaluation agree on what's equal).
+//! `Quot.lift` leaf, applied; a field of a `decreasing` definition's call,
+//! which the elaborator keeps as `(f x).i`; and such a call returned by a
+//! definition that isn't `decreasing`, past a proof or through `J` (D3030:
+//! glued and unglued evaluation agree on what's equal).
 
 use stitchwort_core::term::Term;
 use stitchwort_core::value::{Value, conv, eval, set_shortcuts_disabled};
@@ -333,9 +334,11 @@ theorem reflOuter (x: Nat): x = x
     | Zero => reflInner x
     | Succ m => rewrite reflOuter m [decreasing := omega] in rfl
 
--- Not `J ... (reflOuter x)`: `J` on a glued call is compared glued and
--- unglued differently (`Succ 0` against `J (y e => Nat) (outerN 0) rfl`).
 def withProof (x: Nat): Nat := keepProof x (reflOuter x)
+
+def jOuter (x: Nat): Nat := J (y e => Nat) (outerN x) (rfl: x = x)
+
+def jRefl (x: Nat): Nat := J (y e => Nat) x (reflOuter x)
 
 type Dict = { size: Nat → Nat }
 
@@ -376,6 +379,9 @@ const FIELD_OPS: &[&str] = &[
     "onOuter",
     "outerN",
     "onOuterN",
+    "withProof",
+    "jOuter",
+    "jRefl",
     "dictOuter.size",
     "dict.size",
     "liftLeaf.at",
@@ -396,6 +402,8 @@ fn field_op(sig: &Sig, name: &str, x: Term) -> Term {
         "outerN" => app(sig.def("outerN"), vec![x]),
         "onOuterN" => app(sig.def("onOuterN"), vec![x]),
         "withProof" => app(sig.def("withProof"), vec![x]),
+        "jOuter" => app(sig.def("jOuter"), vec![x]),
+        "jRefl" => app(sig.def("jRefl"), vec![x]),
         "dictOuter.size" => app(field("Dict", "dictOuter", x.clone()), vec![x]),
         "dict.size" => app(
             Term::Proj(sig.data("Dict"), 0, sig.def("dict").into()),
@@ -431,6 +439,8 @@ fn fields_of_calls_are_compared_alike() {
             "outerN",
             "onOuterN",
             "withProof",
+            "jOuter",
+            "jRefl",
             "dictOuter",
             "dict",
             "liftLeaf",
