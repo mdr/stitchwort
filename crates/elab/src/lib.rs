@@ -2995,7 +2995,11 @@ impl Elaborator {
     /// data type `d` is, if any, and tells the evaluator about it. Replaying
     /// a library file from the check cache binds through this too.
     pub(crate) fn bind_builtin_data(&mut self, d: DataId) -> Result<()> {
-        match registry::bind_data(&mut self.kernel, d) {
+        let bound = registry::bind_data(&mut self.kernel, d);
+        if let Some(b) = bound {
+            pins::check_bound_data(&mut self.kernel, d, b)?;
+        }
+        match bound {
             Some(Builtin::Nat) => native::register_nat(&mut self.kernel, d)?,
             Some(Builtin::Bool) => native::register_bool(&mut self.kernel, d)?,
             Some(Builtin::Decidable) => native::register_decidable(&mut self.kernel, d)?,
@@ -3022,9 +3026,10 @@ impl Elaborator {
         let Some(b) = registry::bind_def(&mut self.kernel, id) else {
             return Ok(());
         };
-        if self.options.stale_pins_fall_back && pins::stale_def(&mut self.kernel, id, b) {
+        if self.pins_fall_back() && pins::stale_def(&mut self.kernel, id, b) {
             return Ok(());
         }
+        pins::check_bound_def(&mut self.kernel, id, b)?;
         match b {
             Builtin::NatNeq => native::register_nat_neq(&mut self.kernel, id)?,
             // `+` computes on its second argument too from here on.
@@ -3040,6 +3045,15 @@ impl Elaborator {
             }
         }
         Ok(())
+    }
+
+    /// Whether a stale pin falls back to the definition as written (tests
+    /// only; shipped builds always refuse).
+    fn pins_fall_back(&self) -> bool {
+        #[cfg(feature = "test-bypass")]
+        return self.options.stale_pins_fall_back;
+        #[cfg(not(feature = "test-bypass"))]
+        false
     }
 
     /// Makes `List.length` (`id`) run as `List.lengthOnto xs 0`, a loop, so

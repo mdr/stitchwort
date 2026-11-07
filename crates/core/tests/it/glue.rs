@@ -456,3 +456,34 @@ impl stitchwort_core::Metas for Epoch {
         self.0.get()
     }
 }
+
+/// A native is registered for one definition only, and a definition has one
+/// native: each second registration is refused, naming the right thing.
+#[test]
+fn a_second_registration_is_refused_by_name() {
+    use stitchwort_core::native::{Native, register_nat, register_native_unpinned};
+    let mut p = Prelude::new();
+    let nat_ty = p.nat_ty();
+    register_nat(&mut p.g, p.nat).expect("Nat");
+    let binary = arrow(nat_ty.clone(), arrow(nat_ty.clone(), nat_ty));
+    let other = declare(&mut p.g, "other", binary);
+    let body = lam("m", lam("n", v(0)));
+    stitchwort_core::check::define_def(&mut p.g, other, &body).expect("other");
+    register_native_unpinned(&mut p.g, p.add, Native::Add).expect("add");
+    // The native already has a definition.
+    let e = register_native_unpinned(&mut p.g, other, Native::Add).unwrap_err();
+    assert!(
+        e.message.contains("`Nat.add` is bound to a definition"),
+        "{}",
+        e.message
+    );
+    // The definition already has a native: the message names the
+    // definition and its native, not the one being added.
+    let e = register_native_unpinned(&mut p.g, p.add, Native::Mul).unwrap_err();
+    assert!(
+        e.message.contains("is bound to `Nat.add` already"),
+        "{}",
+        e.message
+    );
+    assert!(!e.message.contains("Nat.mul"), "{}", e.message);
+}

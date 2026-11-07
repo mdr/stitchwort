@@ -37,8 +37,9 @@ fn data(g: &stitchwort_core::Ev, name: &str) -> DataId {
 /// and whether that is the pinned one.
 fn bindings(g: &stitchwort_core::Ev) -> Vec<(String, Option<String>, bool)> {
     let mut out = Vec::new();
-    // The kernel's pins (`stitchwort_core::pins`); a stale one refuses the
-    // library, so this is a second line that lists every stale one at once.
+    // The kernel's pins (`stitchwort_core::pins`). A stale one refuses the
+    // library at start-up, so by here every pin holds; `task pins:show`
+    // lists stale ones without refusing.
     for (pin, hash) in pins::table(g) {
         let on = hash.as_deref() == Some(pin.hash);
         out.push((format!("{} (kernel)", pin.builtin.name()), hash, on));
@@ -234,5 +235,29 @@ fn every_std_congruence_lemma_passes_validate_cong() {
         "{} of {total} std congruence lemmas fail validate_cong:\n{}",
         failures.len(),
         failures.join("\n")
+    );
+}
+
+/// Every pin is checked where its builtin is bound, not only by the
+/// registration function for it, so a pin added without a call site is
+/// still enforced.
+#[test]
+fn every_pin_is_checked_at_binding() {
+    let checked: BTreeSet<&str> = with_session(
+        STACK,
+        |stack| {
+            pins::take_bound_checks();
+            Session::eager_for_stack(stack)
+        },
+        |_| pins::take_bound_checks().iter().map(|b| b.name()).collect(),
+    );
+    let missing: Vec<&str> = pins::PINS
+        .iter()
+        .map(|p| p.builtin.name())
+        .filter(|n| !checked.contains(n))
+        .collect();
+    assert!(
+        missing.is_empty(),
+        "pins nothing checks at binding: {missing:?}"
     );
 }

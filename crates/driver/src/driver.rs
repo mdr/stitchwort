@@ -495,6 +495,7 @@ impl Session {
     /// its native, instead of refusing the prelude: for the tests that
     /// check what a changed declaration falls back to.
     #[doc(hidden)]
+    #[cfg(feature = "test-bypass")]
     pub fn with_prelude_falling_back(prelude: &str) -> Self {
         Self::try_with_prelude_falling_back(prelude).unwrap_or_else(|report| panic!("{report}"))
     }
@@ -502,6 +503,7 @@ impl Session {
     /// [`Session::with_prelude_falling_back`], giving a prelude that
     /// doesn't check as its rendered diagnostics.
     #[doc(hidden)]
+    #[cfg(feature = "test-bypass")]
     pub fn try_with_prelude_falling_back(prelude: &str) -> Result<Self, String> {
         let mut elab = Elaborator::new();
         elab.options.stale_pins_fall_back = true;

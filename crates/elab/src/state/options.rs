@@ -77,6 +77,7 @@ pub struct Options {
     /// (`stitchwort_core::pins`) that isn't the pinned one is bound without
     /// its native, and runs as written, instead of refusing the library.
     #[doc(hidden)]
+    #[cfg(feature = "test-bypass")]
     pub stale_pins_fall_back: bool,
 }
 
@@ -123,7 +124,8 @@ impl Options {
             no_counterexamples: _,
             untimed_counterexamples: _,
             // Only for a changed prelude, which is checked from source.
-            stale_pins_fall_back: _,
+            #[cfg(feature = "test-bypass")]
+                stale_pins_fall_back: _,
         } = self;
         format!(
             "succ {} limits {} {} {} {} rewrite {:?} instances {:?} uniform {} glue {}",
