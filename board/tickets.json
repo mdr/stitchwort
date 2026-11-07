@@ -14195,14 +14195,14 @@
     {
       "id": 1778,
       "title": "test:affected follow-ups from SW-1775: the cut can drop a rank-2 rule yet keep a rank-3 one that fits; inventory timings from loaded daily runs overstate lane cost; merge profile hand-copies lane filters (generate it); guide-quotes estimate (67 s) needs a warm re-measure",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1778",
       "labels": [
         "tooling"
       ],
       "epic": "dev-loop-speed",
-      "body": "From SW-1775, 7 Nov 2026.",
+      "body": "From SW-1775, 7 Nov 2026.\n\nDone, merged: the cut drops whole ranks lowest first; inventory time = min of the last 5 per tier (selector log: median actual/estimate 0.76); dev/nextest-merge generates the merge filter from the lane profiles (--check; it had drifted: 33 lane tests missing from merge, now in); guide-quotes 25 s warm, stays rank 3. On main: Python tests OK, --check OK, task test:merge 1148/1148 in 78 s (99 s real, 668 s CPU). Model result: Sonnet, worked, 12 min (est. 50).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
