@@ -20951,9 +20951,9 @@
     {
       "id": 2229,
       "title": "[Opus] Design note: should the audit stop warning about a theorem that checked code applies to concrete arguments (as Tests.extendedPinKept does)? That's a proved instance, not a random one (D2357)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2229",
       "labels": [
         "design"
       ],
