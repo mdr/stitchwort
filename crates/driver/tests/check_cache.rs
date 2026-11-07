@@ -386,6 +386,70 @@ fn the_cache_replays_parameter_defaults() {
     assert!(warm.dump.contains(" ParamDefaults {"));
 }
 
+/// An interface's dictionary has no record eta (D2502): a mark the
+/// elaborator sets, which the kernel can't recompute, so the entry keeps
+/// it. Replayed from the cache, the dictionary must neither get eta back
+/// (`dictEta` is rejected warm as it is fresh) nor hash differently.
+#[test]
+fn the_cache_keeps_an_interface_without_eta() {
+    let project = temp_dir("no-eta-project");
+    std::fs::create_dir_all(project.join("src")).unwrap();
+    std::fs::write(project.join("stitchwort.yaml"), "# Sizes and Use\n").unwrap();
+    std::fs::write(
+        project.join("src/sizes.sw"),
+        "namespace Sizes\n\ninterface Sized (k: Type) =\n  { size: k → Nat }\n",
+    )
+    .unwrap();
+    std::fs::write(
+        project.join("src/use.sw"),
+        "namespace Use\n\nimport Sizes (Sized)\n\n\
+         theorem dictEta (s: Sized Nat): s = { size = s.size } := rfl\n",
+    )
+    .unwrap();
+    let source = Source::Project("no-eta".into(), project.clone());
+    let fresh = run(&source, false, None);
+    assert!(
+        fresh.dump.contains("\naccepted false\n") && fresh.dump.contains("E-REFL"),
+        "{}",
+        fresh.dump
+    );
+    assert!(fresh.dump.contains(" record true eta false no_eta true "));
+    assert_cache_changes_nothing(&source, false);
+
+    // The dictionary's hash, computed afresh rather than taken from the
+    // entry that was replayed.
+    let sized_hash = |cache: Option<&Path>| {
+        with_stack(STACK, || {
+            let mut session = Session::for_stack(STACK);
+            if let Some(dir) = cache {
+                session.use_check_cache(dir);
+            }
+            let _ = session.load_project(
+                &DiskFiles {
+                    root: project.clone(),
+                },
+                "no-eta",
+                &Target::Everything,
+            );
+            let hits = session.elab.check_cache_stats().namespace_hits;
+            let ev = session.elab.ev();
+            ev.caches.hashes.borrow_mut().clear();
+            let sized = (0..ev.env.datas().len())
+                .map(stitchwort_core::DataId)
+                .find(|&d| ev.env.data(d).path().to_string() == "Sizes.Sized")
+                .expect("Sizes.Sized is declared");
+            (stitchwort_core::hash::data_hash(&ev, sized).unwrap(), hits)
+        })
+    };
+    let cache = temp_dir("no-eta-cache");
+    let (cold, _) = sized_hash(Some(&cache));
+    let (warm, hits) = sized_hash(Some(&cache));
+    let _ = std::fs::remove_dir_all(&project);
+    let _ = std::fs::remove_dir_all(&cache);
+    assert_eq!(hits, 1, "`Sizes` wasn't loaded from the cache");
+    assert_eq!(cold, warm, "the dictionary hashes differently warm");
+}
+
 /// `@[tailrec]` is a flag of the definition, kept in the entry: a namespace
 /// loaded from the cache has it on the definition, local `go` included (the
 /// dump lists it, so the warm dump must equal the fresh one).

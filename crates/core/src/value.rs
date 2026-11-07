@@ -3191,8 +3191,9 @@ enum TreeEnd {
 }
 
 /// Walks case tree `tree` in `env`, taking every branch a constructor
-/// selects, to the first `case` that's stuck or to a leaf.
-fn walk_tree(g: &Ev, mut tree: Rc<Term>, mut env: Vec<Value>) -> Result<TreeEnd> {
+/// selects, to the first `case` that's stuck or to a leaf. `held` is
+/// [`eta_held`] of the tree's definition, as for [`branch`].
+fn walk_tree(g: &Ev, mut tree: Rc<Term>, mut env: Vec<Value>, held: bool) -> Result<TreeEnd> {
     loop {
         g.machine.budget.step()?;
         let node = Term::strip_loc_rc(&tree);
@@ -3210,7 +3211,9 @@ fn walk_tree(g: &Ev, mut tree: Rc<Term>, mut env: Vec<Value>) -> Result<TreeEnd>
                     }
                     // Record eta's rule 2, as evaluation takes it (`branch`):
                     // so a tree is compared from where its call is stuck.
-                    Value::Neutral(..) if !folded_call(g, &scrutinee) && eta_case(g, *d) => {
+                    Value::Neutral(..)
+                        if !folded_call(g, &scrutinee) && !held && eta_case(g, *d) =>
+                    {
                         let Some(body) = branches[0].body.clone() else {
                             return Ok(TreeEnd::Other);
                         };
@@ -3244,7 +3247,7 @@ pub fn same_stuck_trees(
     mode: Mode,
     same: &mut dyn FnMut(usize, &Value, &Value) -> Result<bool>,
 ) -> Result<bool> {
-    let tree = |value: &Value| -> (Rc<Term>, Vec<Value>) {
+    let tree = |value: &Value| -> (Rc<Term>, Vec<Value>, bool) {
         let Value::Neutral(Head::Def(id), spine) = value else {
             unreachable!("checked by opens_by_tree")
         };
@@ -3257,18 +3260,18 @@ pub fn same_stuck_trees(
                 Elim::J { .. } | Elim::Proj(..) => unreachable!("checked by opens_by_tree"),
             })
             .collect();
-        (Term::peel_lams_rc(body, def.arity), args)
+        (Term::peel_lams_rc(body, def.arity), args, eta_held(g, *id))
     };
     let memo = TreeMemo::enter(g, level, a, b, relation, mode)?;
     if memo.known_equal() {
         return Ok(true);
     }
-    let (t1, e1) = tree(a);
-    let (t2, e2) = tree(b);
+    let (t1, e1, h1) = tree(a);
+    let (t2, e2, h2) = tree(b);
     // Pairs of subtrees still to compare, each with its level.
     let mut pending = vec![(level, t1, e1, t2, e2)];
     while let Some((level, t1, e1, t2, e2)) = pending.pop() {
-        match (walk_tree(g, t1, e1)?, walk_tree(g, t2, e2)?) {
+        match (walk_tree(g, t1, e1, h1)?, walk_tree(g, t2, e2, h2)?) {
             (TreeEnd::Leaf(t1, e1), TreeEnd::Leaf(t2, e2)) => {
                 if !same(level, &eval(g, &e1, &t1)?, &eval(g, &e2, &t2)?)? {
                     return Ok(false);

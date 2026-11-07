@@ -2836,8 +2836,8 @@ fn check_result_indices(
 // member of the group), `case` only in a case tree, and the shapes match
 // (arities, one sort and erasure flag per field, one result index per
 // index). The marks (`mark_folded`, `mark_instance`, `mark_opaque`,
-// `set_unfolding`, `mark_auto_params`) check nothing anyway, and are the
-// same for both paths. Any refusal is an error the caller treats as a cache
+// `set_unfolding`, `mark_auto_params`, `mark_no_eta`) check nothing
+// anyway, and are the same for both paths. Any refusal is an error the caller treats as a cache
 // miss.
 
 /// Adds a definition with type `ty` and no body, as [`declare_def`] does,

@@ -717,9 +717,7 @@ fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<boo
             if open.known(&key) {
                 true
             } else {
-                let (t1, e1) = tree_of(g, a);
-                let (t2, e2) = tree_of(g, b);
-                let same = same_trees(g, level, &t1, e1, &t2, e2, mode)?;
+                let same = same_trees(g, level, tree_of(g, a), tree_of(g, b), mode)?;
                 if same {
                     open.record(key);
                 }
@@ -801,8 +799,16 @@ impl Drop for OpenTrees {
     }
 }
 
+/// A case tree in its environment, with [`crate::value::eta_held`] of the
+/// definition it belongs to.
+struct Tree {
+    term: Rc<Term>,
+    env: Vec<Value>,
+    held: bool,
+}
+
 /// A stuck call's case tree and arguments.
-fn tree_of(g: &Ev, value: &Value) -> (Rc<Term>, Vec<Value>) {
+fn tree_of(g: &Ev, value: &Value) -> Tree {
     let Value::Neutral(Head::Def(id), spine) = value else {
         unreachable!()
     };
@@ -814,28 +820,23 @@ fn tree_of(g: &Ev, value: &Value) -> (Rc<Term>, Vec<Value>) {
             Elim::J { .. } | Elim::Proj(..) => unreachable!(),
         })
         .collect();
-    (
-        Term::peel_lams_rc(def.body().expect("a body"), def.arity),
-        args,
-    )
+    Tree {
+        term: Term::peel_lams_rc(def.body().expect("a body"), def.arity),
+        env: args,
+        held: crate::value::eta_held(g, *id),
+    }
 }
 
 /// Two case trees in their environments: both stuck on equal scrutinees with
 /// equal branches (fields as fresh variables), or both leaves with equal
 /// values. A constructor scrutinee takes its branch first.
-fn same_trees(
-    g: &Ev,
-    level: usize,
-    t1: &Rc<Term>,
-    mut e1: Vec<Value>,
-    t2: &Rc<Term>,
-    mut e2: Vec<Value>,
-    mode: Mode,
-) -> Result<bool> {
-    // Steps a tree along constructor scrutinees; `None` if it reaches
-    // anything but a stuck `Case` or a leaf.
-    let settle = |t: &Rc<Term>, e: &mut Vec<Value>| -> Result<Option<(Rc<Term>, Option<Value>)>> {
-        let mut t = t.clone();
+fn same_trees(g: &Ev, level: usize, mut a: Tree, mut b: Tree, mode: Mode) -> Result<bool> {
+    // Steps a tree along constructor scrutinees, and by rule 2 unless its
+    // definition is held, as `eval_tree` does; `None` if it reaches anything
+    // but a stuck `Case` or a leaf.
+    let settle = |tree: &mut Tree| -> Result<Option<(Rc<Term>, Option<Value>)>> {
+        let mut t = tree.term.clone();
+        let (e, held) = (&mut tree.env, tree.held);
         loop {
             match t.strip_loc() {
                 Term::Case(ix, d, branches) => {
@@ -848,7 +849,7 @@ fn same_trees(
                             }
                             None => return Ok(None),
                         },
-                        Value::Neutral(..) if !is_folded(g, &s) && eta_case(g, *d) => {
+                        Value::Neutral(..) if !is_folded(g, &s) && !held && eta_case(g, *d) => {
                             match &branches[0].body {
                                 Some(body) => {
                                     let k = g.data(*d).ctors[0].fields.len();
@@ -869,9 +870,10 @@ fn same_trees(
             }
         }
     };
-    let (Some((t1, s1)), Some((t2, s2))) = (settle(t1, &mut e1)?, settle(t2, &mut e2)?) else {
+    let (Some((t1, s1)), Some((t2, s2))) = (settle(&mut a)?, settle(&mut b)?) else {
         return Ok(false);
     };
+    let (e1, e2) = (a.env, b.env);
     match (s1, s2) {
         (None, None) => conv_in(g, level, &eval(g, &e1, &t1)?, &eval(g, &e2, &t2)?, mode),
         (Some(s1), Some(s2)) => {
@@ -899,7 +901,17 @@ fn same_trees(
                         let mut f2 = e2.clone();
                         f1.extend(fresh.iter().cloned());
                         f2.extend(fresh);
-                        if !same_trees(g, level + k, x, f1, y, f2, mode)? {
+                        let x = Tree {
+                            term: x.clone(),
+                            env: f1,
+                            held: a.held,
+                        };
+                        let y = Tree {
+                            term: y.clone(),
+                            env: f2,
+                            held: b.held,
+                        };
+                        if !same_trees(g, level + k, x, y, mode)? {
                             return Ok(false);
                         }
                     }

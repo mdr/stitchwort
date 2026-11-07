@@ -253,12 +253,14 @@ pub fn canonical_dump(e: &Elaborator) -> String {
     for (i, data) in g.env.datas().iter().enumerate() {
         let _ = write!(
             out,
-            "data {i} {} {} {:?} {:?} record {} auto {:?} proofs {:?} group {:?} before {} {} ",
+            "data {i} {} {} {:?} {:?} record {} eta {} no_eta {} auto {:?} proofs {:?} group {:?} before {} {} ",
             data.name(),
             data.path(),
             data.state(),
             data.sort(),
             data.record(),
+            data.eta(),
+            data.no_eta(),
             data.auto_params(),
             data.proof_params(),
             data.group().iter().map(|d| d.0).collect::<Vec<_>>(),

@@ -342,6 +342,83 @@ fn a_type_with_two_constructors_has_no_eta() {
 }
 
 #[test]
+fn a_mutual_group_of_records_has_no_eta() {
+    let mut p = Prelude::new();
+    let nat = p.nat_ty();
+    // `type A = { n: Nat, b: B }` and `type B = { m: Nat }`, declared
+    // together. Neither field mentions its own type: only the group's size
+    // withholds eta.
+    let ids = check::declare_data_group_as(
+        &mut p.g,
+        vec![],
+        Sort::Type(0),
+        vec![
+            ("A".into(), "A".into(), span(), true),
+            ("B".into(), "B".into(), span(), true),
+        ],
+    )
+    .expect("parameters check");
+    let (a, b) = (ids[0], ids[1]);
+    check::define_data_group(
+        &mut p.g,
+        vec![
+            (
+                a,
+                vec![ctor(
+                    "MkA",
+                    vec![("n", nat.clone()), ("b", Term::data(b, vec![]))],
+                )],
+            ),
+            (b, vec![ctor("MkB", vec![("m", nat.clone())])]),
+        ],
+    )
+    .expect("A and B");
+    assert!(!p.g.data(a).eta());
+    assert!(!p.g.data(b).eta());
+    let b_ty = Term::data(b, vec![]);
+    assert!(
+        define(
+            &mut p.g,
+            "m",
+            arrow(b_ty.clone(), nat.clone()),
+            lam("y", proj(b, 0, v(0)))
+        )
+        .is_err(),
+        "no projections"
+    );
+    // A case on an unknown `B` stays stuck.
+    let get = define(
+        &mut p.g,
+        "getM",
+        arrow(b_ty.clone(), nat),
+        lam("y", case(0, b, vec![(vec!["m"], v(0))])),
+    )
+    .expect("getM");
+    let zero = p.num(0);
+    assert!(rfl_about(&mut p, "getMZero", b_ty, app(Term::Def(get), [v(0)]), zero).is_err());
+}
+
+#[test]
+fn a_type_still_being_declared_has_no_projections() {
+    let mut p = Prelude::new();
+    let nat = p.nat_ty();
+    // `type R = { n: Nat, k: R.n x = 0 }`: a later field projects from its
+    // own type, which has no eta (nor constructors) until it's final.
+    let r = record(&mut p.g, "R", vec![], Sort::Type(0));
+    let later = eq(Some(nat.clone()), proj(r, 0, v(0)), p.num(0));
+    let err = check::define_ctors(
+        &mut p.g,
+        r,
+        vec![ctor("MkR", vec![("n", nat), ("k", later)])],
+    )
+    .expect_err("a projection of a pending type");
+    assert!(
+        err.labels.iter().any(|l| l.message.contains("has no eta")),
+        "{err:?}"
+    );
+}
+
+#[test]
 fn a_proposition_has_no_eta() {
     // `type Has: Prop = MkHas (n: Nat) (ok: n = n)`.
     let mut p = Prelude::new();
