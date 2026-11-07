@@ -201,6 +201,10 @@ builtins! {
     LeRefl = "Nat.leRefl": Def,
     ElimDecCong = "Decidable.elimCong": Def,
     IfCong = "Bool.ifThenElseCong": Def,
+    // and these for `f.unfold` showing a plain `if` whose condition a
+    // recursive call's proof used (docs/proposals/decreasing-with-hypothesis.md)
+    ElimDecIf = "Decidable.elimIf": Def,
+    ElimDecTrueIf = "Bool.elimDecTrueIf": Def,
     // and these for a lexicographic measure, `decreasing (m1, m2)`
     ElimDecEq = "Decidable.elimEq": Def,
     ElimDecProof = "Decidable.elimProof": Def,

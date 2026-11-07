@@ -11,5 +11,5 @@ expression: output
     │ 
     │ Note 1: in scope: `big: (n <= 9) = False`
     │ 
-    │ Note 2: give a proof with `[decreasing := …]`, or test it with `if h: n - step < n then … else …`
+    │ Note 2: give a proof with `[decreasing := …]`, or test it with `if n - step < n then … else …`
 ────╯

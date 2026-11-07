@@ -59,6 +59,21 @@ theorem Bool.ifThenElseCong: [a: Type] → (c: Bool) → (t1: Unit → a) → (t
   | True, t1, t2, e1, e2, et, ee => et Trivial
   | False, t1, t2, e1, e2, et, ee => ee Trivial
 
+--| An `if` that decides `p` is the plain `if` on `Decidable.toBool d` when its
+--| branches agree with the plain ones.
+-- `f.unfold` of a `decreasing` definition shows the plain `if` where only the
+-- recursive calls' proofs used the condition, and is proved with this and
+-- [`Bool.elimDecTrueIf`] (docs/proposals/decreasing-with-hypothesis.md).
+theorem Decidable.elimIf: [p: Prop] → [a: Type] → (d: Decidable p) → (y: p → a) → (n: ¬p → a) → (t: Unit → a) → (e: Unit → a) → (sameYes: (h: p) → y h = t Trivial) → (sameNo: (r: ¬p) → n r = e Trivial) → Decidable.elim d y n = Bool.ifThenElse (Decidable.toBool d) t e
+  | Yes h, y, n, t, e, sy, sn => sy h
+  | No r, y, n, t, e, sy, sn => sn r
+
+--| [`Decidable.elimIf`] for a `Bool` condition `c`, decided by `Bool.decTrue c`
+--| (and for a comparison, whose decision is that).
+theorem Bool.elimDecTrueIf: [a: Type] → (c: Bool) → (y: c = True → a) → (n: ¬(c = True) → a) → (t: Unit → a) → (e: Unit → a) → (sameYes: (h: c = True) → y h = t Trivial) → (sameNo: (r: ¬(c = True)) → n r = e Trivial) → Decidable.elim (Bool.decTrue c) y n = Bool.ifThenElse c t e
+  | True, y, n, t, e, sy, sn => sy rfl
+  | False, y, n, t, e, sy, sn => sn Bool.falseNotTrue
+
 -- Decision procedures. `auto` and `if h: …` use those marked `instance`
 -- (docs/proposals/interfaces.md §5.12); `=` is decided through `DecEq`
 -- instead (below), and the procedures for `=` here are what its instances

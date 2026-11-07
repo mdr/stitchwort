@@ -709,6 +709,47 @@ pub(crate) fn tag_decision(cx: &Ctx, decision: &Term, tag: &Term) -> Result<Term
     ))
 }
 
+/// The name of the `let` that carries the `Bool` a plain `if` in a
+/// `decreasing` body is on, around the decision its branches' proofs come
+/// from ([`tag_plain`]). No source can write it.
+pub(crate) const PLAIN: &str = "%plain";
+
+/// Whether a `decreasing` definition's body is being elaborated, where a
+/// plain `if` gives its branches its condition
+/// (docs/proposals/decreasing-with-hypothesis.md, stage 1).
+pub(crate) fn in_decreasing(cx: &Ctx) -> bool {
+    cx.e.decl.decreasing.borrow().is_some()
+}
+
+/// `decided`, `elimDec [p] [a] decision y n` for a plain `if` in a
+/// `decreasing` body, with its decision as `let %plain := plain in
+/// decision`: `plain`, the `Bool` the `if` is on when its branches don't use
+/// the proof. [`settle_tagged`] makes it the plain `if` if they don't, and
+/// otherwise keeps the tag for `f.unfold` (`decreasing.rs`, `plain_view`)
+/// while the step's own body is finished, or drops it.
+pub(crate) fn tag_plain(cx: &Ctx, decided: &Term, plain: &Term) -> Result<Term> {
+    let Term::App(rest, otherwise, i3) = decided else {
+        return Ok(decided.clone());
+    };
+    let Term::App(rest, then, i2) = &**rest else {
+        return Ok(decided.clone());
+    };
+    let Term::App(head, decision, i1) = &**rest else {
+        return Ok(decided.clone());
+    };
+    let bool_ty = Term::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
+    let tagged = Term::let_(
+        PLAIN.into(),
+        bool_ty,
+        plain.clone(),
+        decision.shift(&cx.g(), 1, 0)?,
+    );
+    cx.e.decl.tagged_conjunctions.set(true);
+    let rebuilt = Term::App(Rc::clone(head), Rc::new(tagged), *i1);
+    let rebuilt = Term::App(Rc::new(rebuilt), Rc::clone(then), *i2);
+    Ok(Term::App(Rc::new(rebuilt), Rc::clone(otherwise), *i3))
+}
+
 /// An `if` on a conjunction whose branches' helpers weren't lifted when it
 /// was written ([`tag_decision`]), in `term`, a finished body: on its `Bool`
 /// if neither branch mentions the proof, as `unused_proof_if` makes one whose
@@ -722,6 +763,7 @@ pub(crate) fn settle_tagged(e: &crate::Elaborator, term: &Term) -> Result<Term> 
     ) else {
         return Ok(term.clone());
     };
+    let keep_plain = (e.decl.decreasing.borrow().as_ref()).is_some_and(|a| a.keep_plain.get());
     Ok(term.rewrite_up(g, &mut |node| {
         let (head, args) = spine_icit(node);
         if !matches!(head, Term::Def(id) if *id == elim) || args.len() != 5 {
@@ -730,7 +772,8 @@ pub(crate) fn settle_tagged(e: &crate::Elaborator, term: &Term) -> Result<Term> 
         let Term::Let(name, _, tag, decision, _) = args[2].0.strip_loc() else {
             return Ok(None);
         };
-        if &**name != TAG {
+        let plain = &**name == PLAIN;
+        if &**name != TAG && !plain {
             return Ok(None);
         }
         let unused = |branch: &Term| {
@@ -743,6 +786,9 @@ pub(crate) fn settle_tagged(e: &crate::Elaborator, term: &Term) -> Result<Term> 
                 args[4].0.clone(),
             );
             return Ok(Some(node));
+        }
+        if plain && keep_plain {
+            return Ok(None);
         }
         let decision = decision.instantiate_var(g, 0)?;
         let mut out = Term::Def(elim);

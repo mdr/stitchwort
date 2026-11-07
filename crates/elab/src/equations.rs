@@ -2047,15 +2047,22 @@ impl Elaborator {
         let Some(unfold) = self.lookup_def(&format!("{key}.unfold")) else {
             return Ok(());
         };
-        let step_name = format!("{}.%step", crate::scope::display(&key));
         let g = &self.ev();
-        let Some(step) = (0..g.env.defs().len())
-            .rev()
-            .map(DefId)
-            .find(|id| &**g.def(*id).name() == step_name.as_str())
-        else {
+        let generated = |suffix: &str| {
+            let name = format!("{}.{suffix}", crate::scope::display(&key));
+            (0..g.env.defs().len())
+                .rev()
+                .map(DefId)
+                .find(|id| &**g.def(*id).name() == name.as_str())
+        };
+        let Some(step) = generated("%step") else {
             return Ok(());
         };
+        // Where `f.unfold` shows plain `if`s (`decreasing/plain.rs`), the
+        // equation about `f.%step`'s own tree is `f.%unfoldStep`.
+        let unfold = generated("%unfoldStep")
+            .filter(|u| *u > step)
+            .unwrap_or(unfold);
         let (tel, _) = split_pis(g.def(step).ty(), None);
         let Some(header) = tel.iter().position(|b| &*b.name == crate::decreasing::REC) else {
             return Ok(());

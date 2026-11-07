@@ -9,5 +9,5 @@ expression: output
     │                                                 ────┬───  
     │                                                     ╰───── this recursive call
     │ 
-    │ Note: give a proof with `[decreasing := …]`, or test it with `if h: d < n then … else …`
+    │ Note: give a proof with `[decreasing := …]`, or test it with `if d < n then … else …`
 ────╯

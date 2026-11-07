@@ -5122,6 +5122,16 @@ fn check_if_in(
             let waiting =
                 matches!(condition, crate::logic::Condition::Waiting { .. }).then(|| cond.span());
             let (prop, decision, unused) = match condition.decided_now(cx, cond.span())? {
+                // In a `decreasing` body the branches get `cond = True` (or
+                // its negation), so a recursive call under the `if` can use
+                // it; `f.unfold` shows the plain `if` all the same
+                // (docs/proposals/decreasing-with-hypothesis.md, stage 1).
+                crate::logic::Condition::Bool(cond) if crate::logic::in_decreasing(cx) => {
+                    let prop = crate::logic::true_prop(cx, cond.clone())?;
+                    let dec_true = builtin_def(cx, Builtin::DecTrue)?;
+                    let decision = Term::app(Term::Def(dec_true), cond.clone());
+                    (prop, decision, Unused::Bool(cond))
+                }
                 crate::logic::Condition::Bool(cond) => {
                     let unit = Value::Data(unit_data, Vec::new());
                     let then = branch(cx, "_", unit.clone(), then)?;
@@ -5242,11 +5252,11 @@ fn unused_proof_if(
             })
             .collect();
         if unsolved.is_empty() || !cx.e.solve_ready_instances_keeping(&[], Some(&unsolved))? {
-            return tagged_if(cx, decided, &unused, !unsolved.is_empty());
+            return kept_if(cx, decided, unused, prop, !unsolved.is_empty());
         }
         branches = [zonked(cx, then)?, zonked(cx, otherwise)?];
         if branches.iter().any(uses_proof) {
-            return tagged_if(cx, decided, &unused, true);
+            return kept_if(cx, decided, unused, prop, true);
         }
     }
     let cond = match unused {
@@ -5263,6 +5273,24 @@ fn unused_proof_if(
         Term::app(Term::app(head, cond), (**then).clone()),
         (**otherwise).clone(),
     ))
+}
+
+/// `decided`, an `if` whose branches use (or may use) its proof. In a
+/// `decreasing` body its decision is tagged with the `Bool` the plain `if`
+/// would be on (`logic::tag_plain`), so that `f.unfold` can show that `if`
+/// when only recursive calls' proofs use it; elsewhere as [`tagged_if`].
+fn kept_if(cx: &mut Ctx, decided: Term, unused: Unused, prop: Term, maybe: bool) -> Result<Term> {
+    if crate::logic::in_decreasing(cx) {
+        let plain = match &unused {
+            Unused::Decision(decision) => Some(decision.clone().into_bool(cx, prop)?),
+            Unused::Bool(c) => Some(c.clone()),
+            Unused::Waiting(_) => None,
+        };
+        if let Some(plain) = plain {
+            return crate::logic::tag_plain(cx, &decided, &plain);
+        }
+    }
+    tagged_if(cx, decided, &unused, maybe)
 }
 
 /// `decided`, an `if` on a conjunction `a && b` whose branches are not known

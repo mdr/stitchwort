@@ -1014,12 +1014,12 @@ def digitsOnto (n: Nat) (acc: List Nat): List Nat
   then digitsOnto (n / 10) (Cons (n % 10) acc) [decreasing := Nat.divTenLess n big]
   else Cons n acc
 
--- The guard style: the `if` puts the proof in scope, and `auto` finds it.
+-- The guard style: the `if` puts its condition in scope, and `auto` finds it.
 def halvings (n: Nat) (count: Nat): Nat
     decreasing n
 :=
   let next := n / 2
-  if h: next < n then halvings next (count + 1) else count
+  if next < n then halvings next (count + 1) else count
 
 -- A theorem recursing on the same measure; `evens.unfold n` is `evens n`'s
 -- own equation.
@@ -1032,6 +1032,20 @@ theorem evensShort (n: Nat): List.length (evens n) <= n
 
 - `:=` may start a line of its own after `decreasing e`, at the
   declaration's column. On one line: `def f (n: Nat): Nat decreasing n := …`.
+- **A plain `if` gives its condition to the recursive calls under it**
+  (docs/proposals/decreasing-with-hypothesis.md, stage 1): `c = True` in the
+  `then` branch and `¬(c = True)` in the `else` for a `Bool` `c` (`if
+  Nat.leq (i + 1) bound then f bound (i + 1) else i`, which `omega` proves
+  from it), or the proposition and its negation for one such as `a % b < b`,
+  as `if _: …` would. Naming it, `if h: …`, is needed only to use `h` in a
+  proof written out. `f.unfold` shows such an `if` as written, a plain `if`
+  with no proof, wherever only the calls' proofs used the condition; one
+  whose condition something else uses, or that sits inside a function passed
+  to another (`xs.map (x => if … then f … else …)`), in a `match` that isn't
+  the definition's own case split, or in an `if`'s condition, shows the
+  `if _:` form, as an `if h:` always does. An `if` whose branches don't use
+  its condition is the plain `if` as before
+  (`examples/accept/decreasing-plain-if.sw`).
 - **A pair of measures**, `decreasing (m1, m2)`, is lexicographic (stage
   3d): every recursive call makes `m1` smaller (and `m2` may then be
   anything), or keeps `m1` the same and makes `m2` smaller. A call's proof
