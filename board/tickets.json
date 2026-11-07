@@ -1078,9 +1078,9 @@
       "where": "",
       "labels": [],
       "epic": "aoc-older",
-      "body": "Triage, 28 Oct (Opus, checked on main 38069cf5):\n- DONE: low-bits xor lemmas into Nat/Bits.sw (f7264e47; Nat.xorMod, Nat.xorDiv at Nat/Bits.sw:73-80).\n- SPLIT: 'f -2' message -> SW-840 (reproduced); hangs name their declaration -> SW-843.\n- DUPLICATE: array with constant-time indexing -> SW-112.\n- DONE since: hangs name their declaration (SW-843), 'f -2' message (SW-840).\n- OPEN here: built-in Nat xor/and/or/shifts in the runtime (4.3 µs per xor); lazy unfolding when comparing large closed definitions (130,321-element list hangs); omega facts for % by a literal; rewrite notes print % not Nat.divFuel.\n",
+      "body": "Triage, 28 Oct (Opus, checked on main 38069cf5):\n- DONE: low-bits xor lemmas into Nat/Bits.sw (f7264e47; Nat.xorMod, Nat.xorDiv at Nat/Bits.sw:73-80).\n- SPLIT: 'f -2' message -> SW-840 (reproduced); hangs name their declaration -> SW-843.\n- DUPLICATE: array with constant-time indexing -> SW-112.\n- DONE since: hangs name their declaration (SW-843), 'f -2' message (SW-840).\n- OPEN here: built-in Nat xor/and/or/shifts in the runtime (4.3 µs per xor); lazy unfolding when comparing large closed definitions (130,321-element list hangs); omega facts for % by a literal; rewrite notes print % not Nat.divFuel.\n\nSW-1603 (docs/proposals/nat-map.md, 7 Nov): Nat bit operations are written in Stitchwort (4.3 us per XOR); worth making native on their own, whatever happens to the map work.",
       "created": "2026-10-28",
-      "updated": "2026-11-04",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -1162,9 +1162,9 @@
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "Options listed by the Map lane: fused balance means re-proving balanceWithin, balanceSized, balanceOnto; an IntMap is a new std type with its own proofs. Day 20 part 2: ~1.7 µs per Map lookup.",
+      "body": "Options listed by the Map lane: fused balance means re-proving balanceWithin, balanceSized, balanceOnto; an IntMap is a new std type with its own proofs. Day 20 part 2: ~1.7 µs per Map lookup.\n\nSW-1603 (docs/proposals/nat-map.md, 7 Nov): a fused balance is lower priority once native Map.Tree get/insertWith (SW-1825) lands.",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -14893,7 +14893,7 @@
         "perf"
       ],
       "epic": "performance",
-      "body": "From docs/proposals/nat-map.md (SW-1603). Waiting on D2595, D2596. Expected: 45 min. Needs a quiet machine.",
+      "body": "From docs/proposals/nat-map.md (SW-1603). Waiting on D2595, D2596. Expected: 45 min. Needs a quiet machine.\n\nMatt (7 Nov 2026): may not get to this for a while; the note (docs/proposals/nat-map.md) holds the full reasoning, measurements to take and success numbers.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -14908,7 +14908,7 @@
         "perf"
       ],
       "epic": "performance",
-      "body": "From docs/proposals/nat-map.md (SW-1603). Waiting on SW-1824's go and D2597-D2599.",
+      "body": "From docs/proposals/nat-map.md (SW-1603). Waiting on SW-1824's go and D2597-D2599.\n\nMatt's decisions (docs/proposals/nat-map.md): D2597 native functions over the existing tree values, not a new runtime map type [rec: yes]; D2598 native path for built-in key orders (Nat, Int, Char, Text, Bool, Ordering) and derived Ord over them incl. Pair, List, Option; not Float or hand-written orders [rec: yes]; D2599 a native that stops matching its definition falls back quietly, checked in the fast std lane, rather than refusing the program [rec: yes].",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []

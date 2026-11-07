@@ -387,14 +387,17 @@
         "Runtime profiler for stitchwort run (SW-1528)",
         "Check cache: build the library index once, drop repeated work per namespace (SW-1199, SW-1202, SW-1203)",
         "Elaborator and kernel hot spots: eager number compare, quote in unify_index (SW-1153, SW-1154)",
-        "Day 15 and 19 hot paths (SW-1657, SW-1659)"
+        "Day 15 and 19 hot paths (SW-1657, SW-1659)",
+        "Number-keyed map designed: no NatMap; speed up Map itself, measured first (SW-1603)",
+        "In-place reuse reviewed with fresh eyes: plan holds, report in --profile (SW-1163)"
       ],
       "now": [],
       "next": [
         "In-place reuse stage 1: the copy note names its sites, then reuse columns in --profile and a measurement (SW-1809, SW-1810, SW-1811; D2273-D2277, D2590)",
         "Array follow-ups from day 15: stop copying the array on every pop, and the JS memory peak (SW-1678, SW-1679)",
         "Interpreter speed: about 6.5 ns per instruction (SW-813) and Map speed (SW-814)",
-        "Language-server edit loop: re-check less than a whole file, and the memory of the per-namespace marks (SW-1382, SW-1141); later the in-place reuse plan (SW-1163)"
+        "Language-server edit loop: re-check less than a whole file, and the memory of the per-namespace marks (SW-1382, SW-1141); later the in-place reuse plan (SW-1163)",
+        "Faster Map without a new type: profile first, then native Map.Tree functions for structural keys (docs/proposals/nat-map.md; SW-1824 to SW-1827; D2595-D2601)"
       ],
       "links": [
         "docs/proposals/arrays.md",
