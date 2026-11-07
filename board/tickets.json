@@ -1,5 +1,5 @@
 {
-  "next": 2248,
+  "next": 2250,
   "tickets": [
     {
       "id": 47,
@@ -21086,14 +21086,14 @@
     {
       "id": 2238,
       "title": "[Sonnet] Std: move Bool.toNatEqZero/toNatAnd/toNatOdd out of List/SortLemmas.sw into their own Bool file after List/Sort.sw; usage examples for the SW-2171 lemmas; check other natAbs helpers in AoC that omega proves in one word (fold into SW-2167)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2238",
       "labels": [
         "std"
       ],
       "epic": "std-library",
-      "body": "From SW-2171. 30 min.",
+      "body": "From SW-2171. 30 min.\n\nDone, merged. Bool/ToNat.sw; test lines for the SW-2171 lemmas. On main: stdlib own tests, hash_stability pass. Model result: Sonnet, worked, 10 min (est. 30).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21131,14 +21131,14 @@
     {
       "id": 2241,
       "title": "[Sonnet] Equality matrix: Succ (Succ (withProof (0))) (the lazy path's non-call base), an unknown solved through the unfolding; Value::NatAdd's doc line: compare_lazily can now build k + call",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2241",
       "labels": [
         "tests"
       ],
       "epic": "record-eta",
-      "body": "From docs/reviews/SW-2239-succ-folded-base.md F2, F3 (SW-2235 already added valueOf and leafOf). 30 min.",
+      "body": "From docs/reviews/SW-2239-succ-folded-base.md F2, F3 (SW-2235 already added valueOf and leafOf). 30 min.\n\nDone, merged. On main: proof_equivalence, hash_stability pass. Model result: Sonnet, worked, 8 min (est. 30).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21229,6 +21229,36 @@
       ],
       "epic": "elaborator-kernel",
       "body": "From docs/proposals/equality-in-the-round.md, stage S6, 60 min, after SW-2246; needs Matt's OK for one daily-tier run. Probes in the session scratchpad probes/g1-g6.sw (copy into the test). Waits on D3250 unless noted.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2248,
+      "title": "[Sonnet] Daily tier under load on Overmind (8 threads, 15 GiB): 8 LSP tests time out (each passes alone), load average 15.8 mean; builtins took 966 s beside nextest. Make LSP test timeouts scale with load or run them in a serial group; consider lower test-threads on small machines",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "test-infra",
+      "body": "From Overmind job 8 (7 Nov, 0fa08fe74): daily tier 67 min, 2264 tests, 12 failed. Real: web build (wasm32 overflow, fixed on main), fmt_repo (docs/repros, fixed on main), float_paths x2 (followed the web build), baseline (already re-pinned by SW-2166). Load-only: the 8 LSP tests listed in the report. Slowest: web every_aoc_day 1046 s, aoc_answers whole cache 912 s, search_at_on_aoc_goals 803 s. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2249,
+      "title": "[Sonnet] Catch wasm32-only compile errors before the daily tier: a cargo check of stitchwort-web for wasm32-unknown-unknown in the merge tier or the lane test for core (5a19c406d's 1 << 40 broke the web build and only the daily tier saw it)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "test-infra",
+      "body": "From Overmind job 8. 30 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
