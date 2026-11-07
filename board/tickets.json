@@ -19421,9 +19421,9 @@
     {
       "id": 2127,
       "title": "[Sonnet] Tests for SW-2096: a proof_equivalence row for the kernel's own glued mode (admission runs with Machine::kernel set); the elaborator-versus-kernel test checks debug text so can't fail — make it compare values; check callFound's example says what it tests",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2127",
       "labels": [
         "tests"
       ],
