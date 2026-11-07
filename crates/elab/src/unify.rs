@@ -1354,6 +1354,17 @@ fn unify_step(
             return Ok(true);
         }
     }
+    // A sum stuck on its first argument, with a folded call in its second,
+    // as what R3 and R4 make of it (G2), as in `conv`.
+    let reread = |v: &Value| nat_add::reread(g, v, force, |x| unfold_folded(g, x));
+    if let Some(a2) = reread(&a)? {
+        work.push(Task::Values(level, a2, b));
+        return Ok(true);
+    }
+    if let Some(b2) = reread(&b)? {
+        work.push(Task::Values(level, a, b2));
+        return Ok(true);
+    }
     // A sum stuck on an unknown, by the rules of `+` read backwards.
     if let Some(answer) = plus_rule(g, level, &a, &b, work)? {
         return Ok(answer);
@@ -1377,6 +1388,9 @@ fn unify_step(
                 // A folded call against a different count of `Succ`s, as
                 // in `conv` (SW-2157).
                 if let Some(x) = unfold_folded(g, x)? {
+                    return nested(g, || run(g, vec![Task::Values(level, x, v.clone())], mode));
+                }
+                if let Some(x) = reread(x)? {
                     return nested(g, || run(g, vec![Task::Values(level, x, v.clone())], mode));
                 }
                 let mut work = Vec::new();

@@ -113,6 +113,46 @@ pub fn stuck_value(
     Ok(stuck(g, id, m, n, force)?.map(|(k, rest)| crate::native::from_view(k, Some(rest))))
 }
 
+/// `value` read by rule E (docs/core.md, "The equality rule"; SW-2251 F6),
+/// if it's a stuck `m + n` whose second argument, under its `Succ`s, is a
+/// call folded by name: R3 and R4 read the head of `n`, unfolding it with
+/// `unfold` (the evaluator's own, `None` when there's nothing to unfold),
+/// and this is what they make of the sum. `None` if `value` isn't such a
+/// sum, or nothing unfolds, or the sum stays stuck once `n` is unfolded.
+///
+/// Evaluation doesn't do this (it reads `n` with `force` only), so goals
+/// and read-back keep `x + two 0`, and `rewrite` and `match` find the sum
+/// as written; only the comparisons and `case`s that read the sum call it.
+pub fn reread(
+    g: &Ev,
+    value: &Value,
+    force: Force,
+    unfold: impl Fn(&Value) -> budget::Result<Option<Value>>,
+) -> budget::Result<Option<Value>> {
+    let Value::Neutral(Head::Def(id), spine) = value else {
+        return Ok(None);
+    };
+    let [Elim::App(m, _), Elim::App(n, _)] = &spine[..] else {
+        return Ok(None);
+    };
+    if g.env.builtins().nat_add_rule != Some(*id) {
+        return Ok(None);
+    }
+    let mut n = n.clone();
+    let mut unfolded = false;
+    loop {
+        let (k, base) = view_with(g, &n, force)?;
+        let Some(base) = base else { break };
+        let Some(next) = unfold(&base)? else { break };
+        n = crate::native::from_view(k, Some(next));
+        unfolded = true;
+    }
+    if !unfolded {
+        return Ok(None);
+    }
+    stuck_value(g, *id, m, &n, force)
+}
+
 /// The stuck call `add m n`.
 pub fn call(id: DefId, m: Value, n: Value) -> Value {
     Value::Neutral(

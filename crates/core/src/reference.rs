@@ -515,6 +515,25 @@ fn unfold_folded(g: &Ev, value: Value) -> Result<Value> {
     Ok(value)
 }
 
+/// `nat_add::reread` with this evaluator's unfolding: a stuck `m + n` with
+/// a folded call in `n`, as what R3 and R4 make of it.
+fn reread_sum(g: &Ev, value: &Value) -> Result<Option<Value>> {
+    crate::nat_add::reread(g, value, force, |x| {
+        if !is_folded(g, x) {
+            return Ok(None);
+        }
+        let x2 = unfold_folded(g, x.clone())?;
+        Ok(match (x, &x2) {
+            (Value::Neutral(Head::Def(i1), s1), Value::Neutral(Head::Def(i2), s2))
+                if i1 == i2 && s1.ptr_eq(s2) =>
+            {
+                None
+            }
+            _ => Some(x2),
+        })
+    })
+}
+
 /// The number `value` is, as `k` plus what's unknown, a folded definition
 /// taken apart first as `value.rs` does. Its own frame, so `eval_tree`'s
 /// recursion keeps a small one.
@@ -768,6 +787,14 @@ fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<boo
             return conv_in(g, level, &a2, &b2, mode);
         }
     }
+    // A sum stuck on its first argument, with a folded call in its second,
+    // as what R3 and R4 make of it (G2).
+    if let Some(a2) = reread_sum(g, a)? {
+        return conv_in(g, level, &a2, b, mode);
+    }
+    if let Some(b2) = reread_sum(g, b)? {
+        return conv_in(g, level, a, &b2, mode);
+    }
     if matches!(a, Value::Chars(_)) || matches!(b, Value::Chars(_)) {
         return conv_in(g, level, &force(g, a.clone())?, &force(g, b.clone())?, mode);
     }
@@ -780,6 +807,9 @@ fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<boo
             b,
             |x, y| conv_in(g, level, x, y, mode),
             |x, rest| {
+                if let Some(x2) = reread_sum(g, x)? {
+                    return conv_in(g, level, &x2, rest, mode);
+                }
                 if !is_folded(g, x) {
                     return Ok(false);
                 }

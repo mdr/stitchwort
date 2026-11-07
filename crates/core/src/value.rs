@@ -3248,12 +3248,24 @@ fn conv_step(
             return Ok(true);
         }
     }
+    // A sum stuck on its first argument, with a folded call in its second:
+    // compared as what R3 and R4 make of it once that is unfolded (G2).
+    let reread = |v: &Value| crate::nat_add::reread(g, v, force, |x| unfold_folded(g, x));
+    if let Some(a2) = reread(&a)? {
+        work.push(ConvTask::Values(level, a2, b));
+        return Ok(true);
+    }
+    if let Some(b2) = reread(&b)? {
+        work.push(ConvTask::Values(level, a, b2));
+        return Ok(true);
+    }
     // Numbers, `k + x`, `Zero` and `Succ` all compare by their `k + x` forms:
     // `3` and `Succ x` are equal when `x` is `2`. Glued calls in them are
     // unfolded only as far as that needs (`compare_lazily`, SW-1153). A
     // base left against a different count of `Succ`s is unequal unless it's
     // a folded call, which is unfolded and compared again (`Succ (f 0)`
-    // against `2`, SW-2157), as the rule above does at the top.
+    // against `2`, SW-2157), as the rule above does at the top, or a sum
+    // that R3 and R4 read further (G2).
     if native::nat_like(g, &a) || native::nat_like(g, &b) {
         let mut unfolded = None;
         let same = |x: &Value, y: &Value| {
@@ -3261,7 +3273,11 @@ fn conv_step(
             Ok(true)
         };
         let assign = |x: &Value, rest: &Value| {
-            Ok(match unfold_folded(g, x)? {
+            let x = match unfold_folded(g, x)? {
+                Some(x) => Some(x),
+                None => reread(x)?,
+            };
+            Ok(match x {
                 Some(x) => {
                     unfolded = Some((x, rest.clone()));
                     true
