@@ -1,5 +1,5 @@
 {
-  "next": 1797,
+  "next": 1798,
   "tickets": [
     {
       "id": 47,
@@ -14405,14 +14405,14 @@
     {
       "id": 1792,
       "title": "task bench: says 'about a minute' but the examples step takes 13-15 min; the committed baseline is stale (inputs changed, improvements unrecorded) (SW-1782)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1792",
       "labels": [
         "tooling"
       ],
       "epic": "dev-loop-speed",
-      "body": "From SW-1782.",
+      "body": "From SW-1782.\n\nDone, merged: per-thread allocation counters; examples on 8 workers, assigned by file size (machine-independent); the sweep runs once; --jobs, --parts. Examples step 10 min 47 s → ~110 s under load. Counts per example identical to serial except a few steps in 1-3 examples, which vary between runs (heap layout?): repeated runs now accept 1 part in 100,000 for examples; --jobs 1 exact. Baseline repinned in its own commit (examples steps -2.0%, text-nat-to-text -18%, run-prints visits -38%...); times recorded under load. On main: lane bench 12/12. Model result: Sonnet, worked, 40 min (est. 45).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -14473,6 +14473,21 @@
       ],
       "epic": "dev-loop-speed",
       "body": "From SW-1795. Expected: 40 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1797,
+      "title": "[Sonnet, then Opus if deep] Nondeterminism: a few examples' step counts differ by tens of steps between runs (pure-fold-in-parse-function, postponed-lambda-second-error, reads-weaken-over-map-implicits), apparently with heap layout; find what depends on addresses (pointer-keyed maps, Rc::ptr_eq fast paths, hash order) and whether any output can differ (SW-1792)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-1792, 7 Nov 2026.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []

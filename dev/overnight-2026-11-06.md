@@ -121,3 +121,4 @@ Take these in order, once the speed queue above is empty or blocked.
 - 05:17: SW-1794 merged; it caught my emptied epic next list (board test 24), fixed.
 - 05:33: SW-1773: leave check_cache sweeps as they are (D2571 mine); doc brought to main.
 - 05:37: SW-1795 measured, not merged: raising lsp-sessions saves only cold time and eats the memory guard's margin.
+- 05:48: SW-1792 merged (bench examples 11 → 2 min). Filed SW-1797 (step counts vary between runs).
