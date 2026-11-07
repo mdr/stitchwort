@@ -112,6 +112,21 @@ def Map.removeAll [auto ord: Ord k] (m: Map k v) (ks: Set k): Map k v := m.filte
 --| The entries whose keys are in `ks`.
 def Map.keepOnly [auto ord: Ord k] (m: Map k v) (ks: Set k): Map k v := Map.filter m (key value => Set.contains ks key)
 
+--| Whether `item` is in the set at `key`: `False` when the map has no entry
+--| for `key`.
+def Map.containsIn [auto ord: Ord k] [auto itemOrd: Ord v] (m: Map k (Set v)) (key: k) (item: v): Bool :=
+  m.getOr key Set.empty |> .contains item
+
+--| The map with `item` added to the set at `key`, which starts empty if there
+--| is none.
+def Map.insertIn [auto ord: Ord k] [auto itemOrd: Ord v] (m: Map k (Set v)) (key: k) (item: v): Map k (Set v) :=
+  m.alter key (items => items.getOrElse Set.empty |> .insert item |> Some)
+
+--| The map with `item` taken out of the set at `key`. A set left empty is
+--| dropped, so maps holding the same pairs are equal.
+def Map.removeIn [auto ord: Ord k] [auto itemOrd: Ord v] (m: Map k (Set v)) (key: k) (item: v): Map k (Set v) :=
+  m.alter key (items => items.map (.remove item) |> .filter (rest => !rest.isEmpty))
+
 theorem Set.containsInsert [auto ord: Ord k] (key: k) (s: Set k): (s |> Set.insert key |> Set.contains key) = True :=
   rewrite Map.getInsert key () s.items in rfl
 
@@ -218,3 +233,9 @@ test "map: keySet, fromKeys" :=
 test "map: removeAll, keepOnly" :=
   Map.keys (Map.removeAll (Map.fromKeys Set.example (n => n)) (Set.fromList [1, 9])) == [2, 3]
     ∧ Map.keys (Map.keepOnly (Map.fromKeys Set.example (n => n)) (Set.fromList [1, 9])) == [1]
+test "map of sets: containsIn, insertIn, removeIn" :=
+  let m: Map Nat (Set Nat) := Map.empty |> .insertIn 1 10 |> .insertIn 1 11 |> .insertIn 2 20
+  m.containsIn 1 10 ∧ m.containsIn 1 11 ∧ m.containsIn 2 20 ∧ ¬(m.containsIn 2 10) ∧ ¬(m.containsIn 3 10)
+    ∧ ¬((m.removeIn 1 10).containsIn 1 10) ∧ (m.removeIn 1 10).containsIn 1 11
+    ∧ Map.keys (m.removeIn 2 20) == [1] ∧ m.removeIn 3 30 == m
+    ∧ (m.removeIn 1 10 |> .removeIn 1 11 |> .removeIn 2 20) == Map.empty
