@@ -12180,7 +12180,7 @@
         "unifier"
       ],
       "epic": "record-eta",
-      "body": "D2498-D2505 (Matt, 6 Nov 2026): all as recommended in docs/proposals/record-eta.md: kernel record eta with primitive projections (no parameters) and the two rules; eta by shape incl. Pair; no no-eta opt-out now; no eta for interface dictionaries; accept goals changing shape; keep T.ext; accept ~5% checking cost (profile it); staged kernel (Opus), unifier, Pair, clean-up sweep (Sonnet). After SW-1642.\n\nOpus (kernel/unifier soundness; Matt, 6 Nov 2026).\n\nSW-1849 (docs/proposals/record-eta-remaining.md, 7 Nov): stage 1 already built unifier eta (rule 1 with §8's restrictions, D2511's same-field rule). Becomes stage 2': elaborator-level tests (records.md §7.3/§14), a surface example in examples/, and the guide and syntax.md text stage 1 missed. Opus, 60 min, brief in §5. After SW-1829; not beside bounded readback 4a/4c (all edit unify.rs). D2630 [rec: yes].\n\nSW-1850: the guide's record eta text and a tour page are SW-1859; do them together.\n\nFrom SW-1913: update record-eta.md §6.4 (rule 2 does fire on unsolved metas, on purpose, in branch); the unifier gaps are SW-1998.",
+      "body": "D2498-D2505 (Matt, 6 Nov 2026): all as recommended in docs/proposals/record-eta.md: kernel record eta with primitive projections (no parameters) and the two rules; eta by shape incl. Pair; no no-eta opt-out now; no eta for interface dictionaries; accept goals changing shape; keep T.ext; accept ~5% checking cost (profile it); staged kernel (Opus), unifier, Pair, clean-up sweep (Sonnet). After SW-1642.\n\nOpus (kernel/unifier soundness; Matt, 6 Nov 2026).\n\nSW-1849 (docs/proposals/record-eta-remaining.md, 7 Nov): stage 1 already built unifier eta (rule 1 with §8's restrictions, D2511's same-field rule). Becomes stage 2': elaborator-level tests (records.md §7.3/§14), a surface example in examples/, and the guide and syntax.md text stage 1 missed. Opus, 60 min, brief in §5. After SW-1829; not beside bounded readback 4a/4c (all edit unify.rs). D2630 [rec: yes].\n\nSW-1850: the guide's record eta text and a tour page are SW-1859; do them together.\n\nFrom SW-1913: update record-eta.md §6.4 (rule 2 does fire on unsolved metas, on purpose, in branch); the unifier gaps are SW-1998.\n\nD2630, D2631, D2634: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-06",
       "updated": "2026-11-07",
       "commits": []
@@ -12210,7 +12210,7 @@
         "style"
       ],
       "epic": "record-eta",
-      "body": "D2498-D2505 (Matt, 6 Nov 2026): all as recommended in docs/proposals/record-eta.md: kernel record eta with primitive projections (no parameters) and the two rules; eta by shape incl. Pair; no no-eta opt-out now; no eta for interface dictionaries; accept goals changing shape; keep T.ext; accept ~5% checking cost (profile it); staged kernel (Opus), unifier, Pair, clean-up sweep (Sonnet). Sonnet, after SW-1644.\n\nSW-1849 (docs/proposals/record-eta-remaining.md, 7 Nov): split (D2631, rec: yes). This ticket is now stage 4a, the record sweep: 17 hand-written eta lemmas about declared records are already rfl on main (2020 days 2-13 Complete.sw, positionEta, templateEta; greps and list in §3). Sonnet, 60 min, after SW-1829. The pair sweep is stage 4b, after stage 3.",
+      "body": "D2498-D2505 (Matt, 6 Nov 2026): all as recommended in docs/proposals/record-eta.md: kernel record eta with primitive projections (no parameters) and the two rules; eta by shape incl. Pair; no no-eta opt-out now; no eta for interface dictionaries; accept goals changing shape; keep T.ext; accept ~5% checking cost (profile it); staged kernel (Opus), unifier, Pair, clean-up sweep (Sonnet). Sonnet, after SW-1644.\n\nSW-1849 (docs/proposals/record-eta-remaining.md, 7 Nov): split (D2631, rec: yes). This ticket is now stage 4a, the record sweep: 17 hand-written eta lemmas about declared records are already rfl on main (2020 days 2-13 Complete.sw, positionEta, templateEta; greps and list in §3). Sonnet, 60 min, after SW-1829. The pair sweep is stage 4b, after stage 3.\n\nD2630, D2631, D2634: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-06",
       "updated": "2026-11-07",
       "commits": []
@@ -13857,7 +13857,7 @@
         "tests"
       ],
       "epic": "record-eta",
-      "body": "From SW-1744, 6 Nov 2026.\n\nSW-1849: done by SW-1667 once the float-sum-stays-a-sum snapshot is confirmed (D2634, rec: close).",
+      "body": "From SW-1744, 6 Nov 2026.\n\nSW-1849: done by SW-1667 once the float-sum-stays-a-sum snapshot is confirmed (D2634, rec: close).\n\nD2630, D2631, D2634: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-06",
       "updated": "2026-11-07",
       "commits": []
@@ -14578,7 +14578,7 @@
         "bug"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-1801. Waiting on Matt's D2577-D2580 (rec: yes to all). Expected: 90 min.\n\nMatt's decisions (docs/proposals/syntax-node-ids.md §7): D2577 a copy gets a new id [rec: yes]; D2578 ids only on dot-call syntax for now [rec: yes]; D2579 drop dot_owners and spans/epoch from the key in the same stage [rec: yes]; D2580 run it on Opus [rec: yes].\n\nFrom the syntax review (docs/reviews/code-review-syntax.md): Expr::Field can carry an id cheaply. A derived Clone would copy it, so the id needs its own type whose Clone takes a fresh number (D2577: copies get new ids); its Debug prints _ under the span-hiding flag so equivalence::shape still matches; use u64 (u32 can wrap in a long server session).\n\nFrom docs/reviews/code-review-elab-checking.md (F8): a cached dot-call head is reused stale across attempts; fold into this work. See also SW-1902.\n\nFrom docs/reviews/code-review-cli-lsp-web-fmt.md (lane F): the bench's step counts change with which thread runs an example; that's this work (SW-1797, SW-1800, SW-1801), not a new ticket.\n\nFrom docs/reviews/code-review-tests.md: un-ignore a_postponed_dot_call_takes_the_same_steps_every_time in daily once this makes it pass every time.",
+      "body": "From SW-1801. Waiting on Matt's D2577-D2580 (rec: yes to all). Expected: 90 min.\n\nMatt's decisions (docs/proposals/syntax-node-ids.md §7): D2577 a copy gets a new id [rec: yes]; D2578 ids only on dot-call syntax for now [rec: yes]; D2579 drop dot_owners and spans/epoch from the key in the same stage [rec: yes]; D2580 run it on Opus [rec: yes].\n\nFrom the syntax review (docs/reviews/code-review-syntax.md): Expr::Field can carry an id cheaply. A derived Clone would copy it, so the id needs its own type whose Clone takes a fresh number (D2577: copies get new ids); its Debug prints _ under the span-hiding flag so equivalence::shape still matches; use u64 (u32 can wrap in a long server session).\n\nFrom docs/reviews/code-review-elab-checking.md (F8): a cached dot-call head is reused stale across attempts; fold into this work. See also SW-1902.\n\nFrom docs/reviews/code-review-cli-lsp-web-fmt.md (lane F): the bench's step counts change with which thread runs an example; that's this work (SW-1797, SW-1800, SW-1801), not a new ticket.\n\nFrom docs/reviews/code-review-tests.md: un-ignore a_postponed_dot_call_takes_the_same_steps_every_time in daily once this makes it pass every time.\n\nD2577-D2580: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -14668,7 +14668,7 @@
         "perf"
       ],
       "epic": "performance",
-      "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T1). Expected: 60 min. Ready now: no decision needed beyond D2274.",
+      "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T1). Expected: 60 min. Ready now: no decision needed beyond D2274.\n\nD2273-D2277, D2590-D2592: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -14683,7 +14683,7 @@
         "perf"
       ],
       "epic": "performance",
-      "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T2). Waiting on D2274, D2590. Expected: 2-3 h.",
+      "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T2). Waiting on D2274, D2590. Expected: 2-3 h.\n\nD2273-D2277, D2590-D2592: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -14698,7 +14698,7 @@
         "perf"
       ],
       "epic": "performance",
-      "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T3). Expected: 60 min. Decides D2275 and D2276 from data.",
+      "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T3). Expected: 60 min. Decides D2275 and D2276 from data.\n\nD2273-D2277, D2590-D2592: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -14713,7 +14713,7 @@
         "perf"
       ],
       "epic": "performance",
-      "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T4). Waiting on D2275, which waits on SW-1811's data. 0.5-1 lane-day.",
+      "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T4). Waiting on D2275, which waits on SW-1811's data. 0.5-1 lane-day.\n\nD2273-D2277, D2590-D2592: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -14728,7 +14728,7 @@
         "perf"
       ],
       "epic": "performance",
-      "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T5). Independent of the rest. Expected: 60 min.",
+      "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T5). Independent of the rest. Expected: 60 min.\n\nD2273-D2277, D2590-D2592: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -14743,7 +14743,7 @@
         "perf"
       ],
       "epic": "performance",
-      "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T6). Waiting on D2591 and on SW-1811 finding copies or token misses from such records.",
+      "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T6). Waiting on D2591 and on SW-1811 finding copies or token misses from such records.\n\nD2273-D2277, D2590-D2592: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -14758,7 +14758,7 @@
         "perf"
       ],
       "epic": "performance",
-      "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T7). Expected: 30 min. Ready now.",
+      "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T7). Expected: 30 min. Ready now.\n\nD2273-D2277, D2590-D2592: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -14773,7 +14773,7 @@
         "perf"
       ],
       "epic": "performance",
-      "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T8). Orchestrator, mechanical.",
+      "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T8). Orchestrator, mechanical.\n\nD2273-D2277, D2590-D2592: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15509,7 +15509,7 @@
         "elab"
       ],
       "epic": "elaborator-kernel",
-      "body": "Brief and design in docs/proposals/stuck-blockers.md (SW-1845). Waiting on D2620. 40 min.",
+      "body": "Brief and design in docs/proposals/stuck-blockers.md (SW-1845). Waiting on D2620. 40 min.\n\nD2620-D2623: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15524,7 +15524,7 @@
         "elab"
       ],
       "epic": "elaborator-kernel",
-      "body": "Brief and design in docs/proposals/stuck-blockers.md (SW-1845). After SW-1865; D2620, D2621, D2623 (bench counts before and after). 150 min. Covers SW-1842-SW-1844; makes SW-1846-SW-1848 unnecessary.",
+      "body": "Brief and design in docs/proposals/stuck-blockers.md (SW-1845). After SW-1865; D2620, D2621, D2623 (bench counts before and after). 150 min. Covers SW-1842-SW-1844; makes SW-1846-SW-1848 unnecessary.\n\nD2620-D2623: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15629,7 +15629,7 @@
         "syntax"
       ],
       "epic": "syntax-language",
-      "body": "From the syntax code review (docs/reviews/code-review-syntax.md, tickets to file, 1; F1, F8). D2670 [rec: yes]. 90 min.\n\nConfirmed by the Opus review (docs/reviews/code-review-syntax-opus.md, F2, F12, high): also the namespace-line fallback re-lexes the whole file and fails, so the file drops out of its project and its importers fail. D2690 is the same question as D2670.\n\nFrom docs/proposals/parse-recovery.md: this is lane 2 (Opus, 90 min): an error-recording lexer (error token, tab read as a space), absorbs SW-1918's F11; also the language server's declaration regions (lsp/src/lib.rs:1548-1552) and docs.rs lex strictly; update parse_module_recovering's doc (parser.rs:73-82). After SW-1916 and SW-1982. D2784 (unclosed \"\"\" ends at the next column-0 keyword).",
+      "body": "From the syntax code review (docs/reviews/code-review-syntax.md, tickets to file, 1; F1, F8). D2670 [rec: yes]. 90 min.\n\nConfirmed by the Opus review (docs/reviews/code-review-syntax-opus.md, F2, F12, high): also the namespace-line fallback re-lexes the whole file and fails, so the file drops out of its project and its importers fail. D2690 is the same question as D2670.\n\nFrom docs/proposals/parse-recovery.md: this is lane 2 (Opus, 90 min): an error-recording lexer (error token, tab read as a space), absorbs SW-1918's F11; also the language server's declaration regions (lsp/src/lib.rs:1548-1552) and docs.rs lex strictly; update parse_module_recovering's doc (parser.rs:73-82). After SW-1916 and SW-1982. D2784 (unclosed \"\"\" ends at the next column-0 keyword).\n\nD2670, D2691, D2780-D2785: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -16320,7 +16320,7 @@
         "driver"
       ],
       "epic": "test-infra",
-      "body": "From docs/reviews/code-review-driver.md (lane A). M1, L3, L4. 45 min.\n\nFrom docs/proposals/check-cache-trust.md: the M1 part becomes: key on the prelude text actually elaborated (D2801), plus D2680's invariant comment in check_cache.rs (profiles change only whether a check runs out or asserts, never what it accepts). L3, L4 stay. Sonnet, 45 min; can run beside SW-1925.",
+      "body": "From docs/reviews/code-review-driver.md (lane A). M1, L3, L4. 45 min.\n\nFrom docs/proposals/check-cache-trust.md: the M1 part becomes: key on the prelude text actually elaborated (D2801), plus D2680's invariant comment in check_cache.rs (profiles change only whether a check runs out or asserts, never what it accepts). L3, L4 stay. Sonnet, 45 min; can run beside SW-1925.\n\nD2800-D2802, D2680: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17115,7 +17115,7 @@
         "errors"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/proposals/error-kinds.md. D2770 [rec: yes]. 45 min. First.",
+      "body": "From docs/proposals/error-kinds.md. D2770 [rec: yes]. 45 min. First.\n\nD2770-D2773: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17130,7 +17130,7 @@
         "errors"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/proposals/error-kinds.md. After stage 1 (SW-1972). Absorbs elab-checking F13. 40 min.",
+      "body": "From docs/proposals/error-kinds.md. After stage 1 (SW-1972). Absorbs elab-checking F13. 40 min.\n\nD2770-D2773: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17145,7 +17145,7 @@
         "errors"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/proposals/error-kinds.md. After SW-1972. Absorbs elab-checking F5, elab-rest F21, tactics F8. 60 min.",
+      "body": "From docs/proposals/error-kinds.md. After SW-1972. Absorbs elab-checking F5, elab-rest F21, tactics F8. 60 min.\n\nD2770-D2773: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17160,7 +17160,7 @@
         "errors"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/proposals/error-kinds.md. After SW-1972, beside SW-1973. 40 min.",
+      "body": "From docs/proposals/error-kinds.md. After SW-1972, beside SW-1973. 40 min.\n\nD2770-D2773: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17175,7 +17175,7 @@
         "errors"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/proposals/error-kinds.md. After SW-1974 and SW-1975. 20 min.",
+      "body": "From docs/proposals/error-kinds.md. After SW-1974 and SW-1975. 20 min.\n\nD2770-D2773: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17190,7 +17190,7 @@
         "errors"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/proposals/error-kinds.md. Stage 6. After SW-1841 and D2771 [rec: yes]. 60 min.",
+      "body": "From docs/proposals/error-kinds.md. Stage 6. After SW-1841 and D2771 [rec: yes]. 60 min.\n\nD2770-D2773: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17205,7 +17205,7 @@
         "errors"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/proposals/error-kinds.md. Finding. 30 min to decide and fix.",
+      "body": "From docs/proposals/error-kinds.md. Finding. 30 min to decide and fix.\n\nD2770-D2773: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17265,7 +17265,7 @@
         "syntax"
       ],
       "epic": "syntax-language",
-      "body": "From docs/proposals/parse-recovery.md. Can start now. task test:lane AREA=syntax. 45 min.",
+      "body": "From docs/proposals/parse-recovery.md. Can start now. task test:lane AREA=syntax. 45 min.\n\nD2670, D2691, D2780-D2785: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17280,7 +17280,7 @@
         "syntax"
       ],
       "epic": "syntax-language",
-      "body": "From docs/proposals/parse-recovery.md. After SW-1982. D2780, D2781. AREA=syntax, goals, lsp. 90 min.",
+      "body": "From docs/proposals/parse-recovery.md. After SW-1982. D2780, D2781. AREA=syntax, goals, lsp. 90 min.\n\nD2670, D2691, D2780-D2785: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17295,7 +17295,7 @@
         "syntax"
       ],
       "epic": "syntax-language",
-      "body": "From docs/proposals/parse-recovery.md. After SW-1983. 60 min.",
+      "body": "From docs/proposals/parse-recovery.md. After SW-1983. 60 min.\n\nD2670, D2691, D2780-D2785: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17310,7 +17310,7 @@
         "syntax"
       ],
       "epic": "syntax-language",
-      "body": "From docs/proposals/parse-recovery.md. After SW-1984. 60 min.",
+      "body": "From docs/proposals/parse-recovery.md. After SW-1984. 60 min.\n\nD2670, D2691, D2780-D2785: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17325,7 +17325,7 @@
         "syntax"
       ],
       "epic": "syntax-language",
-      "body": "From docs/proposals/parse-recovery.md. Lane 6, optional, after SW-1873. 45 min.",
+      "body": "From docs/proposals/parse-recovery.md. Lane 6, optional, after SW-1873. 45 min.\n\nD2670, D2691, D2780-D2785: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17370,7 +17370,7 @@
         "backends"
       ],
       "epic": "effects-native",
-      "body": "From docs/proposals/backend-trust.md. D2711 [rec: yes]. First; alongside SW-1885. 60-75 min.",
+      "body": "From docs/proposals/backend-trust.md. D2711 [rec: yes]. First; alongside SW-1885. 60-75 min.\n\nD2711, D2790, D2791: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17385,7 +17385,7 @@
         "backends"
       ],
       "epic": "effects-native",
-      "body": "From docs/proposals/backend-trust.md. After SW-1989. D2790 [rec: on in release if ≤2%]. 45-60 min.",
+      "body": "From docs/proposals/backend-trust.md. After SW-1989. D2790 [rec: on in release if ≤2%]. 45-60 min.\n\nD2711, D2790, D2791: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17400,7 +17400,7 @@
         "backends"
       ],
       "epic": "effects-native",
-      "body": "From docs/proposals/backend-trust.md. After SW-1885. D2791. Closes SW-1586. 75-90 min.\n\nFrom SW-1885: the table is crates/core/src/pins.rs (23 entries: Nat natives, natNeq, Float; R3/R4 use Nat.add's pin). Add entries plus a new 'relied on by' value. Compact text's pins (chars.rs) still switch off silently when stale: move them here per D2791. A stale Float type refuses even in fallback sessions (no body to fall back to): decide whether right.",
+      "body": "From docs/proposals/backend-trust.md. After SW-1885. D2791. Closes SW-1586. 75-90 min.\n\nFrom SW-1885: the table is crates/core/src/pins.rs (23 entries: Nat natives, natNeq, Float; R3/R4 use Nat.add's pin). Add entries plus a new 'relied on by' value. Compact text's pins (chars.rs) still switch off silently when stale: move them here per D2791. A stale Float type refuses even in fallback sessions (no body to fall back to): decide whether right.\n\nD2711, D2790, D2791: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17415,7 +17415,7 @@
         "backends"
       ],
       "epic": "effects-native",
-      "body": "From docs/proposals/backend-trust.md. After SW-1991. 30-45 min. Then retire the native-hash-pins memory rule.",
+      "body": "From docs/proposals/backend-trust.md. After SW-1991. 30-45 min. Then retire the native-hash-pins memory rule.\n\nD2711, D2790, D2791: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17475,7 +17475,7 @@
         "cache"
       ],
       "epic": "test-infra",
-      "body": "From docs/proposals/check-cache-trust.md (ticket 4). D2802 [rec: yes]. 75 min. Also fix check-cache.md's stale 'the gates still run the kernel' (untrue since SW-1751).",
+      "body": "From docs/proposals/check-cache-trust.md (ticket 4). D2802 [rec: yes]. 75 min. Also fix check-cache.md's stale 'the gates still run the kernel' (untrue since SW-1751).\n\nD2800-D2802, D2680: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
