@@ -213,7 +213,7 @@ fn a_partial_main_that_fails_deep_in_recursion() {
 // every limit.
 
 /// Lane A's handled programs, in Stitchwort.
-const HANDLER_DEFINITIONS: &str = include_str!("../../driver/tests/partial_handlers.sw");
+const HANDLER_DEFINITIONS: &str = include_str!("../../../driver/tests/partial_handlers.sw");
 
 fn handler_program(body: &str) -> String {
     format!("{HANDLER_DEFINITIONS}\ndef main (): {{IO, Partial}} () :=\n  {body}\n")

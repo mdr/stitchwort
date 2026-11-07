@@ -1,5 +1,5 @@
 ---
-source: crates/rt/tests/alloc_trace.rs
+source: crates/rt/tests/it/alloc_trace.rs
 expression: trace.render()
 ---
 alloc #0 tag=0 arity=1

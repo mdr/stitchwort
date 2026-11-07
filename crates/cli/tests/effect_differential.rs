@@ -1765,7 +1765,7 @@ fn the_generator_is_deterministic() {
     assert_eq!(make(), make());
 }
 
-/// `crates/rt/tests/effect_runtime.rs`'s program whose `IO` operations go
+/// `crates/rt/tests/it/effect_runtime.rs`'s program whose `IO` operations go
 /// through a partial recursion and a forwarding handler.
 const CROSSING: &str = r#"import Std (Fail, IO, Nat, Option, Result, Text)
 

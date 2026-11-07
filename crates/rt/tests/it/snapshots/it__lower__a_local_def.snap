@@ -1,5 +1,5 @@
 ---
-source: crates/rt/tests/lower.rs
+source: crates/rt/tests/it/lower.rs
 expression: "ir(r#\"\nimport Std (Nat, Text, Int)\ndef sumTo (n: Nat): Nat :=\n  def go: Nat -> Nat -> Nat\n    | 0, acc => acc\n    | Succ k, acc => go k (acc + k + 1)\n  go n 0\n\ndef main(): {IO} () := IO.print (Nat.toText (sumTo 10))\n\"#)"
 ---
 native Std.Nat.add = %Nat.add/2

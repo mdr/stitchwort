@@ -1,5 +1,5 @@
 ---
-source: crates/rt/tests/lower.rs
+source: crates/rt/tests/it/lower.rs
 expression: "ir(r#\"\nimport Std (Nat, Text, Int)\ndef total: List Nat -> Nat\n  | [] => 0\n  | [x, ..rest] => x + total rest\n\ndef double: List Nat -> List Nat\n  | [] => []\n  | [x, ..rest] => Cons (x * 2) (double rest)\n\ndef main(): {IO} () := IO.print (Nat.toText (total (double [1, 2, 3])))\n\"#)"
 ---
 native Std.Nat.add = %Nat.add/2

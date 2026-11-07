@@ -1,5 +1,5 @@
 ---
-source: crates/rt/tests/lower.rs
+source: crates/rt/tests/it/lower.rs
 expression: "ir(r#\"\nimport Std (Nat, Text, Int)\ntype Point = { x: Nat, y: Nat }\n\ndef swap (p: Point): Point := { x = p.y, y = p.x }\n\ndef main(): {IO} () :=\n  let p := swap { x = 1, y = 2 }\n  IO.print (Nat.toText p.x)\n\"#)"
 ---
 native Std.Nat.toText = %NatToText/1

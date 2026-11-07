@@ -11,7 +11,7 @@ use stitchwort_driver::driver::{Cache, Outcome, Session, par_map, with_stack};
 use stitchwort_driver::project::{DiskFiles, Target};
 use stitchwort_rt::{Program, lower_definitions, lower_main};
 
-mod interp;
+use crate::interp;
 
 const STACK: usize = 256 * 1024 * 1024;
 

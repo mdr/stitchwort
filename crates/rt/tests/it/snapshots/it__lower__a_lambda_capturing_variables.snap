@@ -1,5 +1,5 @@
 ---
-source: crates/rt/tests/lower.rs
+source: crates/rt/tests/it/lower.rs
 expression: "ir(r#\"\nimport Std (Nat, Text, Int)\ndef scale (a: Nat) (b: Nat) (xs: List Nat): List Nat := xs.map (x => a * x + b)\n\n-- The fold is in a pure function: an unannotated lambda inside `main`'s\n-- `{IO}` takes the ambient row, so `foldLeft` there would be called at `{IO}`.\ndef total (k: Nat) (xs: List Nat): Nat := xs.foldLeft 0 (acc x => acc + x + k)\n\ndef main(): {IO} () :=\n  let k := 3\n  IO.print (Nat.toText (total k (scale k 1 [1, 2])))\n\"#)"
 ---
 native Std.Nat.add = %Nat.add/2

@@ -247,7 +247,7 @@ fn same_trace(what: &str, got: &Trace, expected: &Trace) {
 
 /// examples/accept/terminal-walk.sw: `readBytes` in total code under
 /// `Terminal.toIO`.
-const WALK: &str = include_str!("../../../examples/accept/terminal-walk.sw");
+const WALK: &str = include_str!("../../../../examples/accept/terminal-walk.sw");
 
 #[test]
 fn the_walk_a_key_per_pause_is_the_walk_all_at_once() {

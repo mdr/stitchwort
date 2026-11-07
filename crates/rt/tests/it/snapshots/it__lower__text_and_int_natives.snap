@@ -1,5 +1,5 @@
 ---
-source: crates/rt/tests/lower.rs
+source: crates/rt/tests/it/lower.rs
 assertion_line: 291
 expression: "ir(r#\"\nimport Std (Nat, Text, Int)\ndef signed (t: Text): Int :=\n  match Text.toInt t with\n    | Some n => n * -3 + 7\n    | None => 0\n\ndef main(): {IO} () :=\n  let parts := Text.split \"12,-5,x\" ','\n  IO.print (Text.join (parts.map (t => Int.toText (signed t))) ' ')\n  IO.print (if Text.length \"abc\" == 3 && \"a\" < \"b\" then \"yes\" else \"no\")\n\"#)"
 ---

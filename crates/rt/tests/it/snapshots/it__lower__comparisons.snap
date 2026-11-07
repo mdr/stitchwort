@@ -1,5 +1,5 @@
 ---
-source: crates/rt/tests/lower.rs
+source: crates/rt/tests/it/lower.rs
 expression: "ir(r#\"\nimport Std (Nat, Text, Int)\ndef nats (a: Nat) (b: Nat): Bool := a == b || a < b\ndef ints (a: Int) (b: Int): Bool := a == b || a < b\ndef chars (a: Char) (b: Char): Bool := a == b\ndef texts (a: Text) (b: Text): Bool := a == b\n\ndef main(): {IO} () :=\n  if nats 1 2 && ints 3 (-4) && chars 'a' 'b' && texts \"x\" \"y\" then IO.print \"yes\" else ()\n\"#)"
 ---
 fn Std.Bool.ifThenElse(v0, v1, v2) {3 slots} =
