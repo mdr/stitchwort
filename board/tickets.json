@@ -20681,14 +20681,14 @@
     {
       "id": 2211,
       "title": "[Opus] D3030 disagreement: Succ 0 against J (y e => Nat) (outerN 0) rfl is false glued (and in the kernel row) but true unglued; J on a glued decreasing call doesn't compute through it; also with reflOuter x as the proof. Fix so glued, kernel and unglued agree; add the J forms to proof_equivalence's matrix (left out in SW-2127 with a comment)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2211",
       "labels": [
         "core"
       ],
       "epic": "record-eta",
-      "body": "From SW-2127. Rejects true proofs, never accepts false ones; still a D3030 bug. Possibly related to SW-2157 (numeric comparison misses folded call bases). Opus review after. 75 min.",
+      "body": "From SW-2127. Rejects true proofs, never accepts false ones; still a D3030 bug. Possibly related to SW-2157 (numeric comparison misses folded call bases). Opus review after. 75 min.\n\n7 Nov, lane (lane/SW-2211, 3ba6189de, 23 min): cause not in `J`: a glued call against a number went to `native::compare_lazily`, which forced it to a folded `decreasing` call and kept that as a stuck base; unglued, the folded call is the whole side and conv's folded-call rule unfolds it. Also hit by `withProof (outerN 0)` (no `J`). Fix: `conv_step` forces a glued call met against a number and compares again from the top (compare_lazily forced it first anyway). Matrix gains withProof, jOuter, jRefl (failed before, pass now). docs/core.md conversion rule updated (D3210). Tests: proof_equivalence/call_fields/eta_fields 12 pass; test:lane core 179, elab 158 pass; AoC check --no-cache 287 namespaces, 0 errors, 73 s; rogue 3 namespaces, 0 errors, 12 s. No term changes, so no snap:hashes. SW-2157 is the general case (folded bases under `Succ`), not fixed here.\n",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20853,7 +20853,7 @@
         "proofs"
       ],
       "epic": "docs-tutorials",
-      "body": "From docs/reviews/SW-2219-trip-journal.md, lane L1. Waits on D3220. 90 min. Tests: the project's check, test and audit Trip; the_trip_journal_checks; hash_stability::projects.",
+      "body": "From docs/reviews/SW-2219-trip-journal.md, lane L1. Waits on D3220. 90 min. Tests: the project's check, test and audit Trip; the_trip_journal_checks; hash_stability::projects.\n\nD3220 parked — Matt, 7 Nov 2026: \"Let's put it on the backlog, because I need to go and remind myself exactly what our translated example is.\" Don't start until he answers.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20868,7 +20868,7 @@
         "refactor"
       ],
       "epic": "docs-tutorials",
-      "body": "From docs/reviews/SW-2219-trip-journal.md, lane L2, after SW-2222. Keep the Float sums of unknowns under binders (SW-1744's shape). 60 min. Tests: the project's check, test and audit Trip; the_trip_journal_checks; hash_stability::projects.",
+      "body": "From docs/reviews/SW-2219-trip-journal.md, lane L2, after SW-2222. Keep the Float sums of unknowns under binders (SW-1744's shape). 60 min. Tests: the project's check, test and audit Trip; the_trip_journal_checks; hash_stability::projects.\n\n7 Nov: waits with SW-2222 (D3220 parked by Matt).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20883,7 +20883,7 @@
         "refactor"
       ],
       "epic": "docs-tutorials",
-      "body": "From docs/reviews/SW-2219-trip-journal.md, lane L3, after SW-2223. 75 min. Tests: the project's check, test and audit Trip; the_trip_journal_checks; hash_stability::projects.",
+      "body": "From docs/reviews/SW-2219-trip-journal.md, lane L3, after SW-2223. 75 min. Tests: the project's check, test and audit Trip; the_trip_journal_checks; hash_stability::projects.\n\n7 Nov: waits with SW-2222 (D3220 parked by Matt).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20898,7 +20898,7 @@
         "proofs"
       ],
       "epic": "docs-tutorials",
-      "body": "From docs/reviews/SW-2219-trip-journal.md, lane L4, after SW-2222. 60 min. Tests: the project's check, test and audit Trip; the_trip_journal_checks; hash_stability::projects.",
+      "body": "From docs/reviews/SW-2219-trip-journal.md, lane L4, after SW-2222. 60 min. Tests: the project's check, test and audit Trip; the_trip_journal_checks; hash_stability::projects.\n\n7 Nov: waits with SW-2222 (D3220 parked by Matt).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20913,7 +20913,7 @@
         "proofs"
       ],
       "epic": "docs-tutorials",
-      "body": "From docs/reviews/SW-2219-trip-journal.md, lane L5, after SW-2222; waits on D3220. 90 min. Tests: the project's check, test and audit Trip; the_trip_journal_checks; hash_stability::projects.",
+      "body": "From docs/reviews/SW-2219-trip-journal.md, lane L5, after SW-2222; waits on D3220. 90 min. Tests: the project's check, test and audit Trip; the_trip_journal_checks; hash_stability::projects.\n\nD3220 parked — Matt, 7 Nov 2026: \"Let's put it on the backlog, because I need to go and remind myself exactly what our translated example is.\" Don't start until he answers.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21018,7 +21018,7 @@
         "proofs"
       ],
       "epic": "docs-tutorials",
-      "body": "From docs/proposals/audit-proved-instances.md stage 4, after SW-2231. Could fold into SW-2225. 30 min.",
+      "body": "From docs/proposals/audit-proved-instances.md stage 4, after SW-2231. Could fold into SW-2225. 30 min.\n\n7 Nov: waits with SW-2222 (D3220 parked by Matt).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
