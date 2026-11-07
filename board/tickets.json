@@ -20381,14 +20381,14 @@
     {
       "id": 2191,
       "title": "[DeepSeek] Std renames N4: List.distinct -> List.unique, distinctEq -> uniqueDecEq, allDistinct -> isDistinct (frees List.distinctSnoc for the List.Distinct lemma)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2191",
       "labels": [
         "naming"
       ],
       "epic": "std-library",
-      "body": "From docs/proposals/std-naming.md, lane N4; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. Waits on D3150. 45 min.\n\nD3150 — Matt, 7 Nov 2026: \"I prefer unique to distinct anyway, that's fine.\"\n\n7 Nov: before merging, run docs/proposals/std-lemma-references.md §5's check (grep with and without Std., rename f with its fCong family, the four registry/congruence/pin/prelude tests). If a renamed name is one the compiler uses, wait for SW-2197-SW-2199 or flag it.\n\n7 Nov: then rename List.distinctSnocIntro (SW-2169) to List.distinctSnoc.",
+      "body": "From docs/proposals/std-naming.md, lane N4; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. Waits on D3150. 45 min.\n\nD3150 — Matt, 7 Nov 2026: \"I prefer unique to distinct anyway, that's fine.\"\n\n7 Nov: before merging, run docs/proposals/std-lemma-references.md §5's check (grep with and without Std., rename f with its fCong family, the four registry/congruence/pin/prelude tests). If a renamed name is one the compiler uses, wait for SW-2197-SW-2199 or flag it.\n\n7 Nov: then rename List.distinctSnocIntro (SW-2169) to List.distinctSnoc.\n\nDone, merged (DeepSeek, reviewed). 31 function names renamed (unique, uniqueDecEq, uniqueFrom, uniqueLoop, their lemmas, isDistinct*); List.Distinct and its lemmas untouched; distinctSnocIntro -> distinctSnoc. 33 files. On main: hash_stability 9/9, bound_to_the_prelude 4/4, AoC and rogue check clean. Model result: DeepSeek, worked, ~35 min (est. 45).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
