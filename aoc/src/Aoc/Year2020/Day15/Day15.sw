@@ -7,6 +7,9 @@
 --|
 --|   $ cd aoc && stitchwort run Aoc.Year2020.Day15.main < inputs/2020/day15.txt
 --|
+--| A number of turns after `--` replaces part 2's 30,000,000 (bench/compare
+--| times it at 3,000,000).
+--|
 --| The game keeps an `Array`, by number, of the turn each number was last
 --| spoken (before the latest turn), 0 for one not spoken yet, so a turn is a
 --| read and a write, each O(1) and the write in place. The proofs,
@@ -19,9 +22,17 @@ namespace Aoc.Year2020.Day15
 import Std (Array, Fail, IO, List, Nat, NonEmptyList, Parse)
 
 def main(): {IO, Fail} () :=
+  let turns := turnsFrom IO.args()
   let starting := parseStarting IO.readAll()
   IO.print "Part 1: ${starting.numberSpoken 2020}"
-  IO.print "Part 2: ${starting.numberSpoken 30000000}"
+  IO.print "Part 2: ${starting.numberSpoken turns}"
+
+def turnsFrom (args: List Text): {Fail} Nat :=
+  let usage := "expected no arguments, or the number of turns for part 2"
+  match args with
+    | [] => 30000000
+    | [turnsText] => Fail.need turnsText.toNat usage
+    | _ => Fail.fail usage
 
 type Starting = { numbers: NonEmptyList Nat }
 

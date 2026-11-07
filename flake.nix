@@ -372,51 +372,69 @@
         }
       );
 
-      devShells = forAllSystems (pkgs: {
-        default = pkgs.mkShell {
-          packages = [
-            (toolchainFor pkgs)
-            pkgs.cargo-insta # snapshot tests for example programs
-            pkgs.cargo-watch
-            pkgs.cargo-llvm-cov # test coverage
-            pkgs.cargo-mutants # mutation testing: do the tests notice when code changes?
-            pkgs.cargo-nextest # runs the test tiers (.config/nextest.toml)
-            pkgs.lld # faster linking of the many test binaries (see env below)
-            pkgs.go-task # `task`: the menu of what to run (Taskfile.yml)
-            pkgs.python3 # dev/memguard, which every test task runs under
-            pkgs.jq # task test:lanes-nonempty reads `cargo nextest list` JSON
-            pkgs.kache # compiler cache for lane checkouts only (task worktree:new, D2200)
+      devShells = forAllSystems (
+        pkgs:
+        let
+          default = pkgs.mkShell {
+            packages = [
+              (toolchainFor pkgs)
+              pkgs.cargo-insta # snapshot tests for example programs
+              pkgs.cargo-watch
+              pkgs.cargo-llvm-cov # test coverage
+              pkgs.cargo-mutants # mutation testing: do the tests notice when code changes?
+              pkgs.cargo-nextest # runs the test tiers (.config/nextest.toml)
+              pkgs.lld # faster linking of the many test binaries (see env below)
+              pkgs.go-task # `task`: the menu of what to run (Taskfile.yml)
+              pkgs.python3 # dev/memguard, which every test task runs under
+              pkgs.jq # task test:lanes-nonempty reads `cargo nextest list` JSON
+              pkgs.kache # compiler cache for lane checkouts only (task worktree:new, D2200)
 
-            # Browser playground: Rust -> WASM
-            pkgs.wasm-bindgen-cli
-            pkgs.binaryen # wasm-opt
+              # Browser playground: Rust -> WASM
+              pkgs.wasm-bindgen-cli
+              pkgs.binaryen # wasm-opt
 
-            # Running and type-checking extracted JS/TS
-            pkgs.nodejs_22
-            pkgs.typescript
-            pkgs.esbuild # web/editor/build.sh bundles the playground's editor
+              # Running and type-checking extracted JS/TS
+              pkgs.nodejs_22
+              pkgs.typescript
+              pkgs.esbuild # web/editor/build.sh bundles the playground's editor
 
-            # Nix
-            pkgs.nixfmt
-          ];
-          env = {
-            # Local release builds (every test build) recompile incrementally:
-            # a one-line `elab` edit rebuilds in about 20 s, not 130 s. Only
-            # the devShell sets this; the package and check builds above do not
-            # inherit it, so the distributed binary is built from scratch.
-            CARGO_PROFILE_RELEASE_INCREMENTAL = "true";
-          }
-          // pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isDarwin {
-            # Link with lld: a rebuild links about 150 test binaries, and lld
-            # takes about 15% off its CPU time (SW-1754). A target-specific
-            # variable, not RUSTFLAGS, so `.cargo/config.toml`'s wasm32
-            # rustflags still apply; the package and check builds don't see it.
-            CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS = "-C link-arg=-fuse-ld=lld";
-            CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS = "-C link-arg=-fuse-ld=lld";
-          }
-          // pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux (muslEnv pkgs);
-        };
-      });
+              # Nix
+              pkgs.nixfmt
+            ];
+            env = {
+              # Local release builds (every test build) recompile incrementally:
+              # a one-line `elab` edit rebuilds in about 20 s, not 130 s. Only
+              # the devShell sets this; the package and check builds above do not
+              # inherit it, so the distributed binary is built from scratch.
+              CARGO_PROFILE_RELEASE_INCREMENTAL = "true";
+            }
+            // pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isDarwin {
+              # Link with lld: a rebuild links about 150 test binaries, and lld
+              # takes about 15% off its CPU time (SW-1754). A target-specific
+              # variable, not RUSTFLAGS, so `.cargo/config.toml`'s wasm32
+              # rustflags still apply; the package and check builds don't see it.
+              CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS = "-C link-arg=-fuse-ld=lld";
+              CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS = "-C link-arg=-fuse-ld=lld";
+            }
+            // pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux (muslEnv pkgs);
+          };
+        in
+        {
+          inherit default;
+
+          # `nix develop .#compare`: the default shell plus the other languages
+          # of `task bench:compare` (bench/compare). Lean is a large closure, so
+          # it stays out of the shell every lane enters.
+          compare = pkgs.mkShell {
+            inputsFrom = [ default ];
+            packages = [
+              pkgs.lean4
+              pkgs.hyperfine
+              pkgs.pypy3
+            ];
+          };
+        }
+      );
 
       formatter = forAllSystems (pkgs: pkgs.nixfmt);
     };

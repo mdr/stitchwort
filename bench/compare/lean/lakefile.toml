@@ -1,0 +1,14 @@
+name = "compare"
+defaultTargets = ["null", "pidigits", "binary_trees"]
+
+[[lean_exe]]
+name = "null"
+root = "Compare.Null"
+
+[[lean_exe]]
+name = "pidigits"
+root = "Compare.Pidigits"
+
+[[lean_exe]]
+name = "binary_trees"
+root = "Compare.BinaryTrees"
