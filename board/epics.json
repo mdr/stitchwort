@@ -474,7 +474,8 @@
         "Targeted tests reach every binary: 84 were reached by no rule (SW-1775)",
         "Selector: cuts by rank, honest timings, merge filter generated (SW-1778); merge tier 1148 tests in 78 s",
         "Fewer test binaries: plan, script, rt pilot 13 → 3 (SW-1736)",
-        "AoC check 18% fewer steps: a glued call no longer computed in full where only part is needed (SW-1779)"
+        "AoC check 18% fewer steps: a glued call no longer computed in full where only part is needed (SW-1779)",
+        "Fewer test binaries: rt, core, syntax, native, fmt, lsp (166 → ~120; SW-1780, SW-1781)"
       ],
       "now": [
         "Fewer test binaries: core (SW-1780)"

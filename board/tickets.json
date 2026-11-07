@@ -1,5 +1,5 @@
 {
-  "next": 1789,
+  "next": 1791,
   "tickets": [
     {
       "id": 47,
@@ -14240,14 +14240,14 @@
     {
       "id": 1781,
       "title": "Fewer test binaries roll-out after core: syntax, native, fmt, lsp; then a --group option for cli and driver (SW-1736 plan)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1781",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From SW-1736.\n\nAlso: dev/test-affected_test.py's test_run_selected_logs_only_in_the_main_checkout fails in a scratch clone (path has /worktrees/, .git is a real directory); it should compare --git-dir with --git-common-dir, not look for /worktrees/.\n\nAlso: target/test-timings.json is keyed by the old binary ids, so merged crates' tests show as unknown time (97 after rt and core). Rewrite the keys with the same mapping (dev/merge-test-binaries could do it).",
+      "body": "From SW-1736.\n\nAlso: dev/test-affected_test.py's test_run_selected_logs_only_in_the_main_checkout fails in a scratch clone (path has /worktrees/, .git is a real directory); it should compare --git-dir with --git-common-dir, not look for /worktrees/.\n\nAlso: target/test-timings.json is keyed by the old binary ids, so merged crates' tests show as unknown time (97 after rt and core). Rewrite the keys with the same mapping (dev/merge-test-binaries could do it).\n\nDone for syntax, native, fmt, lsp (merged): 23 → 8 binaries; --verify one to one for each (222, 49, 16, 36 tests); selector follows tests/it (widen_for_helpers compares module-prefixed names); worktree test decides by --git-dir vs --git-common-dir. On main: syntax+native+lsp 307/307, lane fmt 20/20, cli/driver check clean; inventory refreshed; selector tests OK after my fixup naming rt's state_match in the rt rule. Timings keys not rewritten yet. cli and driver (groups) remain. Model result: DeepSeek, worked, 38 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -14353,6 +14353,36 @@
       ],
       "epic": "elaborator-kernel",
       "body": "From SW-1787.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1789,
+      "title": "Formatter fuzz test fails at case 3166 (fuzz::the_formatter_never_panics_and_is_idempotent, default profile): pre-existing, seen by SW-1781 before and after its merge",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "epic": "syntax-language",
+      "body": "From SW-1781, 7 Nov 2026.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1790,
+      "title": "[Sonnet] Fewer test binaries: cli and driver in groups of 3-4 (add --group to dev/merge-test-binaries; keep the allocator binaries resources and search_at_aoc apart); rewrite target/test-timings.json keys with the mapping",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1736's plan and SW-1781.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
