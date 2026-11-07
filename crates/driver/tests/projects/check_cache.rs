@@ -81,22 +81,34 @@ const UNCACHEABLE: &[&str] = &["Float/Float.sw"];
 /// Loads `source` in a new session (navigation recorded or not), through
 /// the cache in `cache` if there is one.
 fn run(source: &Source, nav: bool, cache: Option<&Path>) -> Run {
-    with_stack(STACK, || run_here(source, nav, cache, None))
+    with_stack(STACK, || run_here(source, nav, cache, None, None))
 }
 
 /// [`run`], with glued evaluation set to `glue` after the session is made
 /// (so the core, loaded then, is the same as in every other run).
 fn run_with_glue(source: &Source, nav: bool, cache: Option<&Path>, glue: bool) -> Run {
-    with_stack(STACK, || run_here(source, nav, cache, Some(glue)))
+    with_stack(STACK, || run_here(source, nav, cache, Some(glue), None))
 }
 
 /// [`run`], on this thread.
-fn run_here(source: &Source, nav: bool, cache: Option<&Path>, glue: Option<bool>) -> Run {
+/// With `refuse`, the replay of an entry declaring that full path is
+/// refused right after its group is admitted
+/// (`Elaborator::refuse_replays_after`).
+fn run_here(
+    source: &Source,
+    nav: bool,
+    cache: Option<&Path>,
+    glue: Option<bool>,
+    refuse: Option<&str>,
+) -> Run {
     let mut session = if nav {
         Session::navigable_for_stack(STACK)
     } else {
         Session::for_stack(STACK)
     };
+    if let Some(path) = refuse {
+        session.elab.refuse_replays_after(path);
+    }
     if let Some(glue) = glue {
         session.elab.options.glue = glue;
     }
@@ -202,6 +214,11 @@ fn assert_cache_changes_nothing(source: &Source, nav: bool) {
         (cold.stats.late_misses, warm.stats.late_misses),
         (0, 0),
         "{n} (nav {nav}): a replay failed part way"
+    );
+    assert_eq!(
+        (cold.stats.refused, warm.stats.refused),
+        (0, 0),
+        "{n} (nav {nav}): the kernel refused a replayed entry"
     );
     if matches!(source, Source::Project(..)) && fresh.dump.contains("\naccepted true\n") {
         assert!(
@@ -817,7 +834,7 @@ fn run_target_recording(
     exprs: bool,
 ) -> (Run, Vec<String>) {
     with_stack(STACK, || {
-        run_target_here(dir, target, cache, fail_late, exprs)
+        run_target_here(dir, target, cache, fail_late, exprs, None)
     })
 }
 
@@ -828,8 +845,12 @@ fn run_target_here(
     cache: Option<&Path>,
     fail_late: bool,
     exprs: bool,
+    refuse: Option<&str>,
 ) -> (Run, Vec<String>) {
     let mut session = Session::navigable_for_stack(STACK);
+    if let Some(path) = refuse {
+        session.elab.refuse_replays_after(path);
+    }
     if exprs {
         session.elab.enable_expression_types();
     }
@@ -886,6 +907,10 @@ fn assert_targets_share(dir: &Path, writer: &[&str], reader: &[&str]) {
     assert_eq!(
         cached.stats.late_misses, 0,
         "{what}: a replay failed part way"
+    );
+    assert_eq!(
+        cached.stats.refused, 0,
+        "{what}: the kernel refused a replayed entry"
     );
     let shared = checked.iter().filter(|n| written.contains(n)).count();
     assert_eq!(
@@ -968,6 +993,114 @@ fn a_replay_that_fails_part_way_gives_the_same_result() {
     }
     let _ = std::fs::remove_dir_all(&dir);
     let _ = std::fs::remove_dir_all(&cache);
+}
+
+/// SW-1925: a namespace's entry the kernel refuses after its first group
+/// is undone (the undo is checked at once, against the kernel at the
+/// mark: `admit_replayed`), and the namespace elaborated in what is left
+/// gives what a fresh check gives.
+#[test]
+fn a_namespace_entry_refused_part_way_gives_the_same_result() {
+    let dir = temp_project("refused", SPLIT);
+    let cache = temp_dir("refused-cache");
+    let (fresh, _) = run_target(&dir, &target(&[]), None, false);
+    run_target(&dir, &target(&[]), Some(&cache), false);
+    let (refused, _) = with_stack(STACK, || {
+        run_target_here(
+            &dir,
+            &target(&[]),
+            Some(&cache),
+            false,
+            false,
+            Some("A.two"),
+        )
+    });
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(&cache);
+    assert!(
+        refused.dump == fresh.dump,
+        "a refused namespace replay changed the result: {}",
+        first_difference(&fresh.dump, &refused.dump)
+    );
+    assert_eq!(
+        (refused.stats.refused, refused.stats.late_misses),
+        (1, 1),
+        "A's entry wasn't refused (and nothing else was)"
+    );
+}
+
+/// The standard library with `Float/Float.sw` cut before its primitives,
+/// which keep it out of the cache, so that its entry, with the Float
+/// built-ins it binds, can be written and replayed. In a new directory.
+fn std_with_cacheable_float() -> PathBuf {
+    fn copy(from: &Path, to: &Path) {
+        std::fs::create_dir_all(to).unwrap();
+        for entry in std::fs::read_dir(from).unwrap() {
+            let entry = entry.unwrap();
+            let target = to.join(entry.file_name());
+            if entry.file_type().unwrap().is_dir() {
+                copy(&entry.path(), &target);
+            } else {
+                std::fs::copy(entry.path(), &target).unwrap();
+            }
+        }
+    }
+    let std = temp_dir("float-std");
+    copy(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../elab/src/std"),
+        &std,
+    );
+    let float = std.join("Float/Float.sw");
+    let text = std::fs::read_to_string(&float).unwrap();
+    let cut = text
+        .find("\n-- The other rounding operations")
+        .expect("Float.sw's primitives, after `Float.sub`");
+    std::fs::write(&float, &text[..cut + 1]).unwrap();
+    std
+}
+
+/// SW-1925 (the elab review's F1): a library entry the kernel refuses after
+/// it has bound `Float` and `Float.add`'s native is undone completely, the
+/// Float bindings included. The undo is checked when it is done, against
+/// the kernel at the mark (`admit_replayed`): checking afterwards would
+/// pass anyway, since elaborating the file binds the same ids again. With
+/// the undo that removed only declarations, this fails on `float`.
+///
+/// It reads its own copy of the library, which a process reads once: it
+/// needs a process of its own, as nextest gives every test.
+#[test]
+fn a_refused_library_entry_takes_back_its_float_bindings() {
+    let std = std_with_cacheable_float();
+    stitchwort_elab::use_std_dir(&std)
+        .expect("the library was read already: run this test in a process of its own (nextest)");
+    let cache = temp_dir("refused-float-cache");
+    let source = Source::File(
+        "main.sw".to_string(),
+        "import Std (Float)\n\ndef x: Float := Float.add Float.nan Float.nan\n".to_string(),
+    );
+    let fresh = run(&source, false, None);
+    let cold = run(&source, false, Some(&cache));
+    let refused = with_stack(STACK, || {
+        run_here(&source, false, Some(&cache), None, Some("Std.Float.add"))
+    });
+    let _ = std::fs::remove_dir_all(&std);
+    let _ = std::fs::remove_dir_all(&cache);
+    assert!(
+        fresh.dump.contains("\naccepted true\n") && fresh.dump.contains("float Native("),
+        "Float.sw didn't load and bind its natives: {}",
+        fresh.dump
+    );
+    assert_eq!(
+        (cold.stats.uncacheable, cold.stats.written),
+        (0, cold.loaded),
+        "the cut Float.sw still can't be cached"
+    );
+    assert!(
+        refused.dump == fresh.dump,
+        "a refused replay changed the result: {}",
+        first_difference(&fresh.dump, &refused.dump)
+    );
+    assert_eq!(refused.stats.refused, 1, "Float.sw's entry wasn't refused");
 }
 
 /// The types of expressions (for hovering over a selection) are in the

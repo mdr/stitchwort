@@ -561,6 +561,30 @@ impl Registry {
         self.library
     }
 
+    /// Every binding, in [`Builtin`]'s order: for the check cache's
+    /// canonical dump and for checking an undo. Unlike [`Registry::def`]
+    /// and [`Registry::data`], it reads a library built-in whose file
+    /// hasn't loaded too.
+    pub fn dump(&self, out: &mut String) {
+        use std::fmt::Write;
+        let Registry { entries, library } = self;
+        let _ = writeln!(out, "registry library {library}");
+        for b in Builtin::ALL {
+            match entries.get(b) {
+                Some(Entry::Def(id)) => {
+                    let _ = writeln!(out, "builtin {b:?} = def {}", id.0);
+                }
+                Some(Entry::Data(d)) => {
+                    let _ = writeln!(out, "builtin {b:?} = data {}", d.0);
+                }
+                Some(Entry::Ctor(d, c)) => {
+                    let _ = writeln!(out, "builtin {b:?} = ctor {} {c}", d.0);
+                }
+                None => {}
+            }
+        }
+    }
+
     /// Built-in definition `b` if it is bound yet. Unlike [`Registry::def`]
     /// this is for a library built-in too: it asks whether the library file
     /// that declares `b` has loaded, and a program that hasn't loaded it

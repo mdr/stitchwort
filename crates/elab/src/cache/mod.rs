@@ -37,9 +37,13 @@
 //!   with a hash of their text, and read again to check them.
 //! - **An entry that doesn't fit is a miss**: a corrupt one (checksum), one
 //!   for another key or cache directory (salt), one whose dependencies don't
-//!   have the expected hashes, or one the kernel refuses (whose effects are
-//!   undone). The unit is then elaborated, and the entry rewritten. Only
-//!   units without errors are written (D284).
+//!   have the expected hashes. The unit is then elaborated, and the entry
+//!   rewritten. Only units without errors are written (D284). An entry the
+//!   kernel refuses partway through its replay is undone to where it began
+//!   (`Kernel::forget_since`) and is a miss too, but it is never expected:
+//!   it means a key that misses an input or an encoder that is wrong, so
+//!   it is counted (`Stats::refused`) and the differential tests check
+//!   there are none (docs/proposals/check-cache-trust.md).
 //!
 //! This module only encodes and replays. Where entries are kept is the
 //! [`Store`] a host gives the elaborator (the CLI's is a directory).
@@ -121,6 +125,13 @@ pub struct Stats {
     /// elaborated in what the replay left. Never expected; the differential
     /// test checks there are none.
     pub late_misses: usize,
+    /// Entries, of library files or namespaces, whose declarations the
+    /// kernel refused partway through their replay, or that bound other
+    /// built-ins than they say: what they added is undone, and the unit
+    /// elaborated. With a complete key and a correct encoder this never
+    /// happens (docs/proposals/check-cache-trust.md, D2800), so the
+    /// differential tests check there are none.
+    pub refused: usize,
     /// Namespaces a plain `check` reported from their entries without
     /// loading them, because nothing it checked needed them (SW-1193).
     /// Not counted in `namespace_hits`.
@@ -206,6 +217,16 @@ impl Elaborator {
     #[doc(hidden)]
     pub fn fail_namespace_replays_late(&mut self) {
         self.options.fail_replays_late = true;
+    }
+
+    /// For tests: from now on, the replay of an entry (a library file's or
+    /// a namespace's) that declares `path` (a full path, `Std.Float.add`)
+    /// is refused, as the kernel would refuse it, right after the group
+    /// with that declaration is admitted and its built-ins bound. So the
+    /// undo is reached with something to take back.
+    #[doc(hidden)]
+    pub fn refuse_replays_after(&mut self, path: &str) {
+        self.options.refuse_replays_after = Some(path.to_string());
     }
 
     /// Whether library files may be loaded from, and written to, the cache
@@ -922,7 +943,7 @@ impl Elaborator {
         let d = self.decode(&deps, head, &pre.early).map_err(late)?;
         let warnings = std::mem::take(&mut pre.warnings);
         let base_defs = self.kernel.env.defs().len();
-        self.admit_replayed(&d.defs, &d.datas, &d.bound, &d.rest.tables)
+        self.admit_replayed(&d.defs, &d.datas, &d.bound, &d.rest.tables, false)
             .map_err(late)?;
         self.replay_tables(d.rest, &pre.early);
         self.tables
@@ -1306,6 +1327,24 @@ fn static_code(code: &str) -> &'static str {
     let c: &'static str = Box::leak(code.to_string().into_boxed_str());
     codes.insert(c);
     c
+}
+
+/// The first line where `a` and `b` differ, both ways, for a message.
+fn first_line_differing(a: &str, b: &str) -> String {
+    let (mut la, mut lb) = (a.lines(), b.lines());
+    loop {
+        match (la.next(), lb.next()) {
+            (Some(x), Some(y)) if x == y => continue,
+            (None, None) => return "no line differs".to_string(),
+            (x, y) => {
+                return format!(
+                    "at the mark `{}`, after the undo `{}`",
+                    x.unwrap_or("(end)"),
+                    y.unwrap_or("(end)")
+                );
+            }
+        }
+    }
 }
 
 /// With `STITCHWORT_CACHE_DEBUG` set, says why an entry wasn't used or
@@ -2543,7 +2582,7 @@ impl Elaborator {
         if !d.rest.tables.tests.is_empty() {
             return bad("a library file's entry with tests");
         }
-        self.admit_replayed(&d.defs, &d.datas, &d.bound, &d.rest.tables)?;
+        self.admit_replayed(&d.defs, &d.datas, &d.bound, &d.rest.tables, true)?;
         self.replay_tables(d.rest, &[]);
         Ok(())
     }
@@ -2559,22 +2598,35 @@ impl Elaborator {
     /// is defined as soon as everything it refers to is final, which is no
     /// later than the elaborator defined it. Each final declaration is
     /// bound as a built-in, if it is one, as elaborating binds it, and the
-    /// built-ins bound must be the entry's `bound`. If the kernel refuses
-    /// anything (its structural checks: dependencies final, shapes right),
-    /// or other built-ins are bound, what was added is removed and the file
-    /// is elaborated instead.
+    /// built-ins bound must be the entry's `bound`: only a `library` file's
+    /// declarations are bound, as only elaborating the library binds them,
+    /// so a namespace's entry that says it binds any is refused before
+    /// anything is admitted. If the kernel refuses anything (its structural
+    /// checks: dependencies final, shapes right), or other built-ins are
+    /// bound, what was added is removed and the file is elaborated instead.
+    /// That is never expected (`Stats::refused`).
     fn admit_replayed(
         &mut self,
         defs: &[DefEntry],
         datas: &[DataEntry],
         bound: &[(u8, usize, Builtin)],
         tables: &state::TablesDelta,
+        library: bool,
     ) -> Read<()> {
+        if !library && !bound.is_empty() {
+            self.session.cache_stats.refused += 1;
+            return bad("a namespace's entry that binds built-ins");
+        }
         let param_defaults: HashSet<DefId> = tables.param_default_helpers().collect();
-        let base_defs = self.kernel.env.defs().len();
-        let base_datas = self.kernel.env.datas().len();
+        let mark = self.kernel.mark();
+        let (base_defs, base_datas) = (mark.defs(), mark.datas());
+        // Taken here, compared once the undo is done (below). Every binding,
+        // always; the declarations too when a test forces the refusal,
+        // since dumping them for every entry would cost too much.
+        let forced = self.options.refuse_replays_after.is_some();
+        let witness = stitchwort_core::globals::CHECK_UNDOS.then(|| self.undo_witness(forced));
         let result = self
-            .submit(defs, datas, &param_defaults, base_defs, base_datas)
+            .submit(defs, datas, &param_defaults, base_defs, base_datas, library)
             .and_then(|()| {
                 if bound_builtins(&self.ev(), base_defs, base_datas) != bound {
                     return bad("other built-ins were bound");
@@ -2582,9 +2634,19 @@ impl Elaborator {
                 Ok(())
             });
         if let Err(why) = result {
-            // Undo: nothing else refers to what was added yet.
-            let g = &mut self.kernel;
-            g.forget_declarations_from(base_defs, base_datas);
+            self.session.cache_stats.refused += 1;
+            // Nothing else refers to what was added yet. Not
+            // `Kernel::rewind`: an operation may be running (a namespace
+            // that needs this file), whose budget must stay as it is.
+            self.kernel.forget_since(&mark);
+            if let Some(witness) = witness {
+                let now = self.undo_witness(forced);
+                assert!(
+                    now == witness,
+                    "a refused replay's undo left something behind: {}",
+                    first_line_differing(&witness, &now)
+                );
+            }
             let ids = crate::state::Ids {
                 defs: base_defs,
                 datas: base_datas,
@@ -2618,6 +2680,7 @@ impl Elaborator {
         param_defaults: &HashSet<DefId>,
         base_defs: usize,
         base_datas: usize,
+        library: bool,
     ) -> Read<()> {
         let refused = |d: stitchwort_syntax::Diagnostic| Bad(format!("refused: {}", d.message));
         // The groups, each with the entry's own declarations its terms
@@ -2775,8 +2838,10 @@ impl Elaborator {
                             .map_err(refused)?;
                         for m in &group.members {
                             data_final[*m] = true;
-                            self.bind_builtin_data(DataId(base_datas + m))
-                                .map_err(refused)?;
+                            if library {
+                                self.bind_builtin_data(DataId(base_datas + m))
+                                    .map_err(refused)?;
+                            }
                         }
                     } else {
                         let members: Vec<(DefId, Term)> = group
@@ -2788,8 +2853,10 @@ impl Elaborator {
                             .map_err(refused)?;
                         for m in &group.members {
                             def_final[*m] = true;
-                            self.bind_builtin_def(DefId(base_defs + m))
-                                .map_err(refused)?;
+                            if library {
+                                self.bind_builtin_def(DefId(base_defs + m))
+                                    .map_err(refused)?;
+                            }
                         }
                         for m in &group.members {
                             if let Some(run) = &defs[*m].run_body {
@@ -2802,6 +2869,18 @@ impl Elaborator {
                     }
                     group.done = true;
                     progress = true;
+                    if let Some(path) = &self.options.refuse_replays_after
+                        && group.members.iter().any(|&m| {
+                            let declared = if group.data {
+                                &datas[m].path
+                            } else {
+                                &defs[m].path
+                            };
+                            **declared == **path
+                        })
+                    {
+                        return bad("a test made the kernel refuse it");
+                    }
                 }
             }
             // Then the next declaration.
@@ -2894,6 +2973,17 @@ impl Elaborator {
             return bad("some declarations could never be defined");
         }
         Ok(())
+    }
+
+    /// What [`Self::admit_replayed`] compares before and after an undo: the
+    /// kernel's bindings, and with `declarations` its definitions and data
+    /// types as the canonical dump prints them.
+    fn undo_witness(&self, declarations: bool) -> String {
+        let mut out = self.kernel.bindings_dump();
+        if declarations {
+            dump::declarations(&self.ev(), &mut out);
+        }
+        out
     }
 
     /// Runs one kernel call as its own operation, with its own resource
