@@ -1,5 +1,5 @@
 {
-  "next": 2179,
+  "next": 2181,
   "tickets": [
     {
       "id": 47,
@@ -20194,6 +20194,36 @@
       ],
       "epic": "std-library",
       "body": "From docs/reviews/SW-2159-aoc-lemmas-to-std.md. D3130: only lemmas move now (orchestrator's call).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2179,
+      "title": "[Opus] Plan the std naming sweep (SW-2006, S7 of code-review-std.md, plus SW-2177's Distinct/distinct clash): pick one name per operation, with reasons and precedent, list every rename and its call sites, and split into DeepSeek lanes",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2179",
+      "labels": [
+        "design"
+      ],
+      "epic": "std-library",
+      "body": "Read-only Opus lane, 7 Nov: docs/proposals/std-naming.md. Before the SW-2159 move lanes give the new lemmas names. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2180,
+      "title": "[Opus] Research: how Lean's Mathlib/Batteries, Agda's stdlib, Coq/Rocq's stdlib and Isabelle's HOL library organise and name lemmas about lists, numbers and finite maps (naming schemes, simp sets, where lemmas live, how users find them), and what Stitchwort's std should adopt as it grows",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2180",
+      "labels": [
+        "research"
+      ],
+      "epic": "std-library",
+      "body": "Read-only Opus lane, 7 Nov, for Matt's 'really rich standard library' aim (SW-2159). docs/research/std-lemma-libraries.md. Web and reading only. 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
