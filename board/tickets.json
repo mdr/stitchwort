@@ -14270,9 +14270,9 @@
     {
       "id": 1783,
       "title": "test:affected: for an elab-only diff the 90 s cut drops every elab group and keeps core and syntax tests, so the run says little about the change; the cut should keep the changed crate's own tests (SW-1748)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1783",
       "labels": [
         "tooling"
       ],
