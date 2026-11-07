@@ -20358,7 +20358,7 @@
         "naming"
       ],
       "epic": "std-library",
-      "body": "From docs/proposals/std-naming.md, lane N2; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. 45 min.\n\nD3151 — Matt, 7 Nov 2026: \"Yeah, happy to go with maximum, minimum.\"\n\n7 Nov: before merging, run docs/proposals/std-lemma-references.md §5's check (grep with and without Std., rename f with its fCong family, the four registry/congruence/pin/prelude tests). If a renamed name is one the compiler uses, wait for SW-2197-SW-2199 or flag it.",
+      "body": "From docs/proposals/std-naming.md, lane N2; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. 45 min.\n\nD3151 — Matt, 7 Nov 2026: \"Yeah, happy to go with maximum, minimum.\"\n\n7 Nov: before merging, run docs/proposals/std-lemma-references.md §5's check (grep with and without Std., rename f with its fCong family, the four registry/congruence/pin/prelude tests). If a renamed name is one the compiler uses, wait for SW-2197-SW-2199 or flag it.\n\nD3152 — Matt, 7 Nov 2026: Map.min/max return the entry with the smallest/largest key, so Map.minimum would mislead; \"maybe something like map.entry with smallest key ... Or max entry by key ... Given that this probably isn't going to be used all that often, maybe it's better to be explicit and clear.\" Names (orchestrator's pick within that): Map.minEntryByKey, Map.maxEntryByKey, Map.popMinEntryByKey (and its lemmas). Set.min/max -> Set.minimum/maximum as D3151.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
