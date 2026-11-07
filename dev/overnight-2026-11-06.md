@@ -91,3 +91,4 @@ Take these in order, once the speed queue above is empty or blocked.
 - 00:23: SW-1760 merged. Filed SW-1769.
 - 00:25: SW-1768 done; record eta is ready to merge once Matt OKs the whole-AoC/roguelike run.
 - 01:00: found that SW-1754 had a worktree since 23:48 but no agent (I created the worktree and never launched it); started it now. Lesson: check ListAgents against the board's doing list at each heartbeat. Usage 76%.
+- 01:21: SW-1770 merged; the five slow daily binaries now use about half the CPU; 723/723 on main. SW-1771/1772 started.

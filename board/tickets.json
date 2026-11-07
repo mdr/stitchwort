@@ -14075,14 +14075,14 @@
     {
       "id": 1770,
       "title": "[Sonnet] Daily tier's next slowest binaries: rewind (807 s), extract (544 s), std_library (510 s), check_cache (376 s), run_js (332 s), operators (267 s); find why each is slow and fix what's cheap, keeping guarantees",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1770",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "Overnight 7 Nov 2026, from the D2546 daily run. Expected: 75 min.",
+      "body": "Overnight 7 Nov 2026, from the D2546 daily run. Expected: 75 min.\n\nDone, merged (686fd3fe1). CPU before → after, each binary alone, daily, warm: operators 3m17 → 36 s (AoC sample outside full); rewind 22m22 → 8m05 (std replay, no counterexample search outside full except *counterexample* examples, pristine dump once, cancel sweep every third point); std_library 15m34 → 8m20 (workers rewind one core-alone and one full session); extract 5m19 → 2m21 (replay; tsc on the pool); run_js 5m54 → 2m51 (shared cache). check_cache left (its own differential). Full tier unchanged. On main: affected 723/723 (233 s). Model result: Sonnet, worked, 50 min (est. 75).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []

@@ -466,12 +466,13 @@
         "Cache key design: narrowing would help 3-4% of changes; fill once per run instead (SW-1753)",
         "Merge tier 76 s on main, cold (from 153-172 s): std replayed where checking it isn't the point (SW-1761)",
         "Daily tier replays std in the sweeps: examples + hash_stability cold 111 → 48 s (SW-1765)",
-        "test:affected: memory-safe lsp group, self-refreshing inventory (SW-1760)"
+        "test:affected: memory-safe lsp group, self-refreshing inventory (SW-1760)",
+        "Next slowest daily binaries roughly halved in CPU: operators, rewind, std_library, extract, run_js (SW-1770)"
       ],
       "now": [
-        "Compile time after incremental builds (SW-1754)",
-        "Next slowest daily binaries (SW-1770)",
-        "Heavy sweeps not overlapping (SW-1734)"
+        "Compile time (SW-1754)",
+        "Thread counts for pooled tests (SW-1734)",
+        "rewind dump and core-alone sample (SW-1771, SW-1772)"
       ],
       "next": [],
       "links": [
