@@ -1,5 +1,5 @@
 {
-  "next": 2285,
+  "next": 2286,
   "tickets": [
     {
       "id": 47,
@@ -21716,14 +21716,14 @@
     {
       "id": 2280,
       "title": "[Sonnet] SW-2278 F1-F4: count skipped no-op mutants in the summary; stop cutting examples/accept theorems after the declaration (line ~803); a mutant using a refused axiom is rejected, not accepted; fix the comment at line 828 (the kernel's finality rule is the reason)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2280",
       "labels": [
         "tests"
       ],
       "epic": "audit-fuzzing",
-      "body": "From docs/reviews/SW-2278-fuzzer-whole-file.md. Test: mutated_theorems_have_no_counterexample, summary compared with a run before. 25 min.",
+      "body": "From docs/reviews/SW-2278-fuzzer-whole-file.md. Test: mutated_theorems_have_no_counterexample, summary compared with a run before. 25 min.\n\nDone, merged. Seed 0x8 aoc,rogue: 125/125, 399 mutants, 390 rejected, 9 accepted, 1 no-op skipped, 0 findings. Model result: Sonnet, worked, 6 min (est. 25).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21784,6 +21784,21 @@
       ],
       "epic": "elaborator-kernel",
       "body": "D2364. Read-only. 15 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2285,
+      "title": "[Opus] Regression: examples/reject/as-written-unconfirmed-slow-check.sw takes over 90 s under check --no-cache on main (it should fail at once with E-RESOURCE: the match's check has its own small budget); bisect from 0fa08fe74 to main and report the commit",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2285",
+      "labels": [
+        "core"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "Found by Overmind job 11 (fuzz seed 0x6 cases 629, 2652 hit the 60 s hang limit; the unmutated example times out at 120 s). Confirmed on Speedwell at 19:08: still running at 90 s, 88.7 s user. Likely one of today's conversion merges (SW-2126, 2127, 2211, 2157, 2256, 2269, 2257). Bisect first (~20 min), fix after.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
