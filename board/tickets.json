@@ -1,5 +1,5 @@
 {
-  "next": 2124,
+  "next": 2125,
   "tickets": [
     {
       "id": 47,
@@ -17953,9 +17953,9 @@
     {
       "id": 2029,
       "title": "[Opus] decreasing: a plain if's condition reaches the decrease proof when a recursive call is under it; f.unfold still shows the plain if",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2029",
       "labels": [
         "elab"
       ],
@@ -18866,14 +18866,14 @@
     {
       "id": 2090,
       "title": "[Sonnet] SW-1925 follow-ups: a cancelled replay counted as a refusal; the undo check skips the hash caches; it formats the whole registry per replayed entry in dev/test/bench builds (measure); Kernel::rewind's doc on the cancel flag; two missing tests; two narrating comments",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2090",
       "labels": [
         "cache"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/SW-2087-checker-recovery-and-forget-since.md (lane 4). 45 min.\n\nFrom docs/reviews/SW-2094-unifier-gaps-and-recovery.md: also assert the stack floor and cancellation flag in rewinding_globals_partway_through_an_operation_keeps_its_budget (it checks only the size limit); trace whether project.rs:166's full rewind can run inside an editor check (it would clear a pending cancellation).",
+      "body": "From docs/reviews/SW-2087-checker-recovery-and-forget-since.md (lane 4). 45 min.\n\nFrom docs/reviews/SW-2094-unifier-gaps-and-recovery.md: also assert the stack floor and cancellation flag in rewinding_globals_partway_through_an_operation_keeps_its_budget (it checks only the size limit); trace whether project.rs:166's full rewind can run inside an editor check (it would clear a pending cancellation).\n\nDone, merged. Cancelled replays not counted (resource exhaustion still is); Kernel::derived_state_since checks hash and erasure caches after an undo (reference builds, refusal path only); bindings_dump measured at ~18 us per replayed entry (0.65% of replay time), left as is; Kernel::rewind doc fixed; Budget::stack_floor; new tests forget_since_keeps_the_operation_and_rewind_ends_it and a_namespace_entry_that_binds_builtins_is_refused_before_anything_is_admitted; two comments reworded. project.rs:166 runs inside an editor check and can clear a noted cancellation: harmless but wasteful (SW-2124). On main: rewind:: 7/7, new tests 5/5, check_cache:: 50/50, core 179/179. Model result: Sonnet, worked, 27 min (est. 45).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19369,6 +19369,21 @@
       ],
       "epic": "elaborator-kernel",
       "body": "Found by Overmind's soak run 2 (SW-2098, fuzz case 1834, from reject/index-missing-arm.sw). Repro: docs/repros/sw-2098/huge-index.sw. D2543: limits fail, never choose. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2124,
+      "title": "[Sonnet] Driver: project.rs:166's full Kernel::rewind runs inside an editor check and clears a noted cancellation, so a cancelled check still starts its full recheck; skip the recheck if the budget is cancelled before rewinding",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "driver"
+      ],
+      "epic": "editor-playground",
+      "body": "From SW-2090. Harmless (the shared flag stays set) but wasted work on every cancelled edit. 30 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
