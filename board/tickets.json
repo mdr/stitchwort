@@ -1,5 +1,5 @@
 {
-  "next": 2066,
+  "next": 2070,
   "tickets": [
     {
       "id": 47,
@@ -14826,14 +14826,14 @@
     {
       "id": 1820,
       "title": "[Sonnet] A panic in an editor search kills the search worker (no catch_unwind; with one worker, no more searches until restart): catch it, answer 'no result' and log; and either wire cancellation into project searches or correct the comment that says they honour it",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1820",
       "labels": [
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 3, 6). Waiting on D2584 (rec: yes). Expected: 60 min.\n\nFrom docs/reviews/code-review-elab-tactics.md (F3): search.rs:1402 already catches a panic per comparison and carries on in the same session, so the caught-panic case is live. D2701: remove that catch, let this ticket's worker-level catch answer 'no result' and drop the kept session [rec: yes].\n\nFrom docs/reviews/code-review-cli-lsp-web-fmt.md (lane A): the checker thread has the same problem and worse (the editor freezes, high): SW-1948. Do them together.\n\nFrom docs/proposals/lsp-failure-policy.md: stage 1: a hidden Options::faults field for tests, search worker recovery on a fresh thread, a catch per main-thread request (Sonnet, 75 min). Absorbs D2584, SW-1821 finding 8, cli review F9.\n\nD2855 (Matt, 7 Nov 2026): \"Proceed with those 3\": start stage 1 of docs/proposals/lsp-failure-policy.md now; D2740 (recover in-process on a fresh thread) yes by the same answer. Expected: 75 min.",
+      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 3, 6). Waiting on D2584 (rec: yes). Expected: 60 min.\n\nFrom docs/reviews/code-review-elab-tactics.md (F3): search.rs:1402 already catches a panic per comparison and carries on in the same session, so the caught-panic case is live. D2701: remove that catch, let this ticket's worker-level catch answer 'no result' and drop the kept session [rec: yes].\n\nFrom docs/reviews/code-review-cli-lsp-web-fmt.md (lane A): the checker thread has the same problem and worse (the editor freezes, high): SW-1948. Do them together.\n\nFrom docs/proposals/lsp-failure-policy.md: stage 1: a hidden Options::faults field for tests, search worker recovery on a fresh thread, a catch per main-thread request (Sonnet, 75 min). Absorbs D2584, SW-1821 finding 8, cli review F9.\n\nD2855 (Matt, 7 Nov 2026): \"Proceed with those 3\": start stage 1 of docs/proposals/lsp-failure-policy.md now; D2740 (recover in-process on a fresh thread) yes by the same answer. Expected: 75 min.\n\nDone, merged. Fault injection (Options::faults), search worker caught and restarted on a fresh thread by a supervisor after the old thread is joined (kept session and thread-locals freed), main-thread requests catch panics (InternalError). Cancellation comment corrected, not wired: SW-2066. No restart budget yet: SW-2067. Playground path catches but doesn't restart. lsp area 26/26 on main after merge. Model result: Sonnet, worked, 20 min (est. 75).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -18465,6 +18465,66 @@
       ],
       "epic": "elaborator-kernel",
       "body": "From docs/proposals/postpone-fixed-point.md. After SW-2064 and D2931 (an exception to the lane test budget) [rec: yes]. 30-45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2066,
+      "title": "[Sonnet] Wire cancellation into the editor's project searches (nothing calls Session::cancellable, so a cancelled search runs to its end): six search paths handle Err(Cancelled); set cancel on every pending search at shutdown",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "epic": "editor-playground",
+      "body": "From SW-1820 (SW-1808 review finding 6). 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2067,
+      "title": "[Sonnet] Restart budget for the language server's workers (5 restarts in 3 minutes, then stop and say so): today a search that always panics restarts its worker, reloading the library, every time",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "epic": "editor-playground",
+      "body": "From SW-1820; docs/proposals/lsp-failure-policy.md (D2741). With SW-1948. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2068,
+      "title": "[Opus] Fresh-eyes review of record eta as merged (kernel Elim::Proj and Term::Proj, eta rules 1 and 2, Unfolding's kept/base, SW-1829's eta_fields, SW-1997's Bind::Alias): soundness, termination and cost of each rule, consumers of Proj on every backend, tests that are missing",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2068",
+      "labels": [
+        "review"
+      ],
+      "epic": "record-eta",
+      "body": "Matt (7 Nov 2026): spare capacity, no-build Opus lanes. CLAUDE.md: Opus reviews changes that generate kernel terms. Expected: 75 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2069,
+      "title": "[Opus] Audit of docs/proposals (about 160 notes): which are implemented, in progress, superseded or abandoned; stale claims; an index page with each note's status and tickets",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2069",
+      "labels": [
+        "review"
+      ],
+      "epic": "docs-tutorials",
+      "body": "Matt (7 Nov 2026): spare capacity, no-build Opus lanes. Expected: 75 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
