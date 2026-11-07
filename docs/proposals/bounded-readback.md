@@ -29,6 +29,11 @@ nothing under `crates/` that they cite was re-read for revision 3. Migration cos
 snapshots, pins, sweeps, the proofs of §8) is not counted; options are judged by where they
 end up.
 
+**The remaining work** (stages 0c to 7 after stages 0a, 0b, 1 and 1b merged, with record
+eta on `main`) is planned in [bounded-readback-remaining.md](bounded-readback-remaining.md)
+(SW-1828, 7 Nov 2026). It also corrects §2.5 and §4.2 below, and reads two of §4.4's limits
+as exact.
+
 **Why a note of its own, not a section of goal-as-written.md.** That note is about two
 tactics (`rewrite`, `match`), and its stages 1–4 are built. This one covers every unfolded
 read-back in the elaborator: the unifier, implicit arguments, error notes, `decide`, record
@@ -322,9 +327,8 @@ difference does. **[inferred]**
 | `shared.rs:246` (`accessors`) | **each record accessor's result type** |
 | `shared.rs:600`, `:633`, `:644`; `records.rs:1448`, `:1470`, `:1543` | a record update's `let` types, annotations and parameters |
 | `auto.rs:352` (`from_yes`) | the goal in `fromYes [p := goal] decision Trivial` |
-| `bind.rs:108`, `named.rs:726–727`, `:895` | binder types of elaborated lambdas |
+| `bind.rs:108`, `named.rs:726–727` | binder types of elaborated lambdas |
 | `lib.rs:956`, `:1036`, `:1080`, `:1375` | types of a checked input, a goal hole's target |
-| `matching.rs:521`, `:657`, `:851` | scrutinee types in the motive |
 | `rewrite.rs:1605`, `check.rs:4980` | carrier and type terms handed to the kernel's inference |
 
 The kernel checks every one of these up to conversion. A folded term is convertible to the
@@ -332,9 +336,16 @@ unfolded one and smaller (folded-calls.md stage 3 moved the others: "for terms t
 elaboration produces, such as annotations and helper types", `check.rs:651–653`). So nothing
 needs the unfolded form here. It changes hashes only. The review checked the sites for later
 syntactic comparisons and found none: `check.rs:4980` and `rewrite.rs:1605` are evaluated
-again with gluing off, and the `matching.rs` ones are motive types the kernel checks.
+again with gluing off.
 `equations.rs` is deliberately not in this table (§9). **[checked; cited, SW-1717 §6
 D2523]**
+
+*Corrected (SW-1757, SW-1828).* Earlier drafts listed `matching.rs:521`, `:657` and `:851`
+here as scrutinee types in the motive, and `named.rs:895` as a binder type. They are
+neither. The `matching.rs` terms are targets that `match`'s occurrence search then searches,
+and `named.rs:895` (`dependencies`) is a mentions test (SW-1756 §5). They stay unfolded
+until stages 6b and 4b ([bounded-readback-remaining.md](bounded-readback-remaining.md)
+§1.2).
 
 ### 2.6 `decide` (D484 itself)
 
@@ -514,6 +525,8 @@ one is large. **[inferred]**
    for them. They are computed again after `interfaces::refresh` re-reads the needle
    mid-search (`rewrite.rs:1395–1402`); computing them once is still safe, because a solved
    unknown only widens them. **[checked the three code positions in revision 2]**
+   *(SW-1828: the last clause doesn't apply. Records whose fields are all proofs have no
+   eta (`qualifies_for_eta`), so their variables stay relevant (SW-1725).)*
 2. **Skipping.** If some relevant variable is mentioned by no argument of a call (solved
    unknowns replaced, as `force_solved` does), the call's unfolding can't contain an
    occurrence, and it is read as written. Otherwise it is unfolded one step (`unfold_once`,
@@ -599,6 +612,9 @@ Every limit on this path fails; none chooses.
   for what it bounds (the motive check) when the unconfirmed paths go (6a). **[checked]**
 - **`KNOWN_CAP`** (`unify.rs:973`, 4,096): "too large" counts as "may mention", which only
   makes the unifier postpone, never accept. It is not on a search path and is left as it is.
+  *(SW-1828: that is true of `mentions_unknown` only, and stage 4a makes it exact (D2611).
+  `on_pending`'s use of the same cap falls back to an exact occurs check, so it doesn't
+  choose.)*
 - **A recovered `E-RESOURCE`** (D2540, study S6). Today a read-back that runs out of size is
   recoverable (`undo.rs:126`), and sites that swallow it with `.ok()` can then take a
   different branch, so a result depends on where a shared budget ran out. After stages 4–6b
