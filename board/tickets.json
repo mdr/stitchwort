@@ -1,5 +1,5 @@
 {
-  "next": 2288,
+  "next": 2290,
   "tickets": [
     {
       "id": 47,
@@ -21558,7 +21558,7 @@
         "core"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/SW-2268-same-definition-trees.md. Regression risk from SW-2256: do first. Step 1 (~15 min): the cost test, showing the blow-up. Step 2 (~15 min): the memo.\n\nDone, merged. One memo for the argument and tree tries; 'different' remembered when no solution can arrive. New tests nested_stuck_calls_* (kernel one failed before). On main: proof_equivalence, call_fields, nested tests, hash_stability 28/28; elab 158/158; AoC --no-cache 64.0 s user (lane: 287/0 errors); rogue clean. Review SW-2272. Model result: Opus, worked, 15 min (est. 20).\n\nReview SW-2272: sound; SW-2273.",
+      "body": "From docs/reviews/SW-2268-same-definition-trees.md. Regression risk from SW-2256: do first. Step 1 (~15 min): the cost test, showing the blow-up. Step 2 (~15 min): the memo.\n\nDone, merged. One memo for the argument and tree tries; 'different' remembered when no solution can arrive. New tests nested_stuck_calls_* (kernel one failed before). On main: proof_equivalence, call_fields, nested tests, hash_stability 28/28; elab 158/158; AoC --no-cache 64.0 s user (lane: 287/0 errors); rogue clean. Review SW-2272. Model result: Opus, worked, 15 min (est. 20).\n\nReview SW-2272: sound; SW-2273.\n\nRegression found by Overmind job 11 and fixed in SW-2285: recording argument-equal pairs made the slow-check example take 90 s.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21791,14 +21791,14 @@
     {
       "id": 2285,
       "title": "[Opus] Regression: examples/reject/as-written-unconfirmed-slow-check.sw takes over 90 s under check --no-cache on main (it should fail at once with E-RESOURCE: the match's check has its own small budget); bisect from 0fa08fe74 to main and report the commit",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2285",
       "labels": [
         "core"
       ],
       "epic": "elaborator-kernel",
-      "body": "Found by Overmind job 11 (fuzz seed 0x6 cases 629, 2652 hit the 60 s hang limit; the unmutated example times out at 120 s). Confirmed on Speedwell at 19:08: still running at 90 s, 88.7 s user. Likely one of today's conversion merges (SW-2126, 2127, 2211, 2157, 2256, 2269, 2257). Bisect first (~20 min), fix after.",
+      "body": "Found by Overmind job 11 (fuzz seed 0x6 cases 629, 2652 hit the 60 s hang limit; the unmutated example times out at 120 s). Confirmed on Speedwell at 19:08: still running at 90 s, 88.7 s user. Likely one of today's conversion merges (SW-2126, 2127, 2211, 2157, 2256, 2269, 2257). Bisect first (~20 min), fix after.\n\nDone, merged. Bad commit e089948d1 (SW-2269's merge), bisected over first-parent merges from 0fa08fe74. Cause: pairs found equal by arguments recorded in TreeMemo; known() scans with identical, unbudgeted. Fix: don't record those. On main: example gives E-RESOURCE in 1.29 s user; proof_equivalence and nested_stuck_calls 16/16. Finding 2 (unify.rs settled without may_mention_meta) already fixed on main by SW-2273. Follow-ups SW-2288, SW-2289. Model result: Opus, worked, 20 min (est. 20).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21829,6 +21829,36 @@
       ],
       "epic": "elaborator-kernel",
       "body": "From docs/reviews/SW-2284-tree-scrutinee-head.md. 20 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2288,
+      "title": "[Opus] TreeMemo::known's identical walk isn't charged to the budget, so a memo with many entries can get past a small budget (SW-2285's cause); charge it, or look pairs up by pointer or hash; same pattern in reference.rs",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-2285. 20 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2289,
+      "title": "[Sonnet] Memory: task test:lane AREA=examples NAME=as-written goes over the 3 GB lane cap on main (each as-written-unconfirmed*.sw peaks ~1.35 GB and they run together); lower the examples' peak or run them serially",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "test-infra",
+      "body": "From SW-2285. 20 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
