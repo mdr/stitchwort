@@ -1,5 +1,5 @@
 {
-  "next": 2041,
+  "next": 2046,
   "tickets": [
     {
       "id": 47,
@@ -17920,13 +17920,13 @@
     {
       "id": 2028,
       "title": "[Opus] Erase data only proofs use (2021 day 9's states)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2028",
       "labels": [
         "runtime"
       ],
-      "body": "From docs/proposals/compute-once.md. From docs/proposals/compute-once.md (out of scope there). 60 min to design.",
+      "body": "From docs/proposals/compute-once.md. From docs/proposals/compute-once.md (out of scope there). 60 min to design.\n\nDone, merged: docs/proposals/erase-proof-data.md. A ghost mark checked by the kernel (E-GHOST), erased not irrelevant (record eta still compares ghost fields; Agda #2170). Fallback D2905: a thunk. D2900-D2905. Tickets SW-2041-SW-2045. 10 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -18096,6 +18096,76 @@
         "std"
       ],
       "body": "From docs/proposals/private-helpers.md. Finding from docs/proposals/private-helpers.md. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2041,
+      "title": "[Opus] Ghost stage 1a: kernel marks on record fields, definition parameters and definitions, and the E-GHOST check (a ghost appears only where nothing runs), at admission and in set_run_body; record eta still compares ghost fields",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "kernel"
+      ],
+      "body": "From docs/proposals/erase-proof-data.md. D2900-D2903. 90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2042,
+      "title": "[Opus] Ghost stage 1b: the ghost keyword, elaboration, derived-instance rules (no ==/Ord/Finite with a ghost field; Show leaves it out), E-EXPORT, guide, syntax.md, fmt",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "body": "From docs/proposals/erase-proof-data.md. After SW-2041. 90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2043,
+      "title": "[Sonnet] Ghost stage 1c: confirm the runtimes skip ghosts; differential run tests",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "runtime"
+      ],
+      "body": "From docs/proposals/erase-proof-data.md. After SW-2042. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2044,
+      "title": "[Sonnet] Ghost stage 2: mark std Graph.states and the grid code ghost; revert 2021 day 9 to the per-low-point version and time it (~0.8 s expected); std Graph doc warns that states is computed when built until then",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "From docs/proposals/erase-proof-data.md. After SW-2043. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2045,
+      "title": "[Sonnet] run --profile hint: a value computed but read only by proofs",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "body": "From docs/proposals/erase-proof-data.md. Stage 3, optional. D2904. 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
