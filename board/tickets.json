@@ -1,5 +1,5 @@
 {
-  "next": 1955,
+  "next": 1958,
   "tickets": [
     {
       "id": 47,
@@ -16846,6 +16846,51 @@
       ],
       "epic": "editor-playground",
       "body": "From docs/reviews/code-review-cli-lsp-web-fmt.md (lane H). 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1955,
+      "title": "[Opus] Design note: the language server's failure policy (panics in the checker thread, search worker and comparisons; recover, rebuild or exit; what the user sees; project load and unload)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "epic": "editor-playground",
+      "body": "Matt (7 Nov 2026): parallel design work. One policy for SW-1948 (checker panic freezes the editor), SW-1820, SW-1821, D2701, D2730, D2733, SW-1950. Expected: 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1956,
+      "title": "[Opus] Design note: one policy for deep input (stack overflows outside the parser's depth check: patterns and chains SW-1874, omega/ring readers SW-1936, nested array drop SW-1892, rt compiler SW-1895, the formatter's equivalence SW-1877): depth guards, loops, a bigger stack, or a test that finds them",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "epic": "test-infra",
+      "body": "Matt (7 Nov 2026): parallel design work. The reviews found the same failure in five crates. Expected: 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1957,
+      "title": "[Opus] Analysis: what would have caught record eta's two regressions (the 2^n field re-unfolding, six broken AoC proofs) before the merge, at what cost; a merge gate for kernel and core-language lanes (D2734)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "Matt (7 Nov 2026): parallel design work; the record eta merge took a day and a half. Expected: 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
