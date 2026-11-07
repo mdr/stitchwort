@@ -1,5 +1,5 @@
 {
-  "next": 2181,
+  "next": 2182,
   "tickets": [
     {
       "id": 47,
@@ -20224,6 +20224,21 @@
       ],
       "epic": "std-library",
       "body": "Read-only Opus lane, 7 Nov, for Matt's 'really rich standard library' aim (SW-2159). docs/research/std-lemma-libraries.md. Web and reading only. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2181,
+      "title": "[Sonnet] Tier telemetry: time each step of test:daily/test:full/test:merge (web:pkg, fmt, lanes-nonempty, clippy, the builtins build and run, nextest, doctests, board) and the build vs run split, and write a summary after each run (steps, slowest tests from junit.xml, tests grouped by binary/area, wall vs sum of test times, peak memory) to target/tier-report/<tier>.md; keep history so runs can be compared",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "test-infra",
+      "body": "Matt, 7 Nov 2026: 'do we have basically good telemetry on not just how long the daily tier takes as a whole, but like where that time is going?' Today only nextest's junit.xml and SLOW lines give per-test times; the other steps, the builtins run beside nextest and the build are untimed. D3170 — Matt, 7 Nov: run the daily tier once on Overmind, timed, to see how long it takes; not yet as a standing job. 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
