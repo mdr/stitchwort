@@ -19428,7 +19428,7 @@
         "tests"
       ],
       "epic": "record-eta",
-      "body": "From docs/reviews/SW-2125-folded-call-fields.md (lane B: F2, F5; F3 goes to SW-2113). 40 min.",
+      "body": "From docs/reviews/SW-2125-folded-call-fields.md (lane B: F2, F5; F3 goes to SW-2113). 40 min.\n\n7 Nov, widened from docs/reviews/SW-2158-glued-leaf-unfolding.md: F1 (unfold_folded forces only a glued Value::Call between levels, not a solved metavariable; use needs_forcing, add a test; Frame::Unfolding's comment to say it handles solved metas) and F2 (matrix rows for the kernel's own glued mode and the untested chains: theorem ending in theorem, a dictionary whose body is a glued call, a Quot.lift leaf, F1's case). Now ~70 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19878,7 +19878,7 @@
         "core"
       ],
       "epic": "record-eta",
-      "body": "From SW-2126. Repro: scratchpad p/probe.sw theorem a2 (copy it into the ticket's test). A missing equality, not a D3030 disagreement. 60 min.",
+      "body": "From SW-2126. Repro: scratchpad p/probe.sw theorem a2 (copy it into the ticket's test). A missing equality, not a D3030 disagreement. 60 min.\n\n7 Nov (docs/reviews/SW-2158-glued-leaf-unfolding.md): its own lane, confirmed; add a Succ (outerN 0) term to the matrix.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19886,14 +19886,14 @@
     {
       "id": 2158,
       "title": "[Opus] Review SW-2126 (value.rs: Frame::Unfolding forces a glued call and unfolds again; unfold_folded the same; eta_fields through solved metas; ReplayElim): changes kernel conversion (accepts more), D2364; termination and budget, the Force->Return change in the default arm, cost",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2158",
       "labels": [
         "review"
       ],
       "epic": "record-eta",
-      "body": "Read-only Opus review, docs/reviews/SW-N-glued-leaf-unfolding.md. Next free read-only slot. 40 min.",
+      "body": "Read-only Opus review, docs/reviews/SW-N-glued-leaf-unfolding.md. Next free read-only slot. 40 min.\n\nDone, merged: docs/reviews/SW-2158-glued-leaf-unfolding.md. Sound: every new equality is a genuine delta step and the one unglued/reference already gave. 0 high, 0 medium, 3 low; F1 and F2 into SW-2127.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
