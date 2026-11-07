@@ -1,5 +1,5 @@
 {
-  "next": 2214,
+  "next": 2219,
   "tickets": [
     {
       "id": 47,
@@ -19998,7 +19998,7 @@
         "tests"
       ],
       "epic": "proof-automation",
-      "body": "From docs/reviews/SW-2145-decreasing-plain-if.md. Absorbs SW-2146 (the hash snapshot already lists f.eq.*/f.induct). After SW-2164. 45 min.",
+      "body": "From docs/reviews/SW-2145-decreasing-plain-if.md. Absorbs SW-2146 (the hash snapshot already lists f.eq.*/f.induct). After SW-2164. 45 min.\n\n7 Nov (docs/reviews/SW-2213-guide-coverage.md): write the syntax.md sentence against stage 2's text, not SW-2145's.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20231,14 +20231,14 @@
     {
       "id": 2181,
       "title": "[Sonnet] Tier telemetry: time each step of test:daily/test:full/test:merge (web:pkg, fmt, lanes-nonempty, clippy, the builtins build and run, nextest, doctests, board) and the build vs run split, and write a summary after each run (steps, slowest tests from junit.xml, tests grouped by binary/area, wall vs sum of test times, peak memory) to target/tier-report/<tier>.md; keep history so runs can be compared",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2181",
       "labels": [
         "tests"
       ],
       "epic": "test-infra",
-      "body": "Matt, 7 Nov 2026: 'do we have basically good telemetry on not just how long the daily tier takes as a whole, but like where that time is going?' Today only nextest's junit.xml and SLOW lines give per-test times; the other steps, the builtins run beside nextest and the build are untimed. D3170 — Matt, 7 Nov: run the daily tier once on Overmind, timed, to see how long it takes; not yet as a standing job. 60 min.",
+      "body": "Matt, 7 Nov 2026: 'do we have basically good telemetry on not just how long the daily tier takes as a whole, but like where that time is going?' Today only nextest's junit.xml and SLOW lines give per-test times; the other steps, the builtins run beside nextest and the build are untimed. D3170 — Matt, 7 Nov: run the daily tier once on Overmind, timed, to see how long it takes; not yet as a standing job. 60 min.\n\nDone, merged. dev/tier-step, dev/tier-report (run/history/report), memguard peak file; test:merge/daily/full split into timed steps; task tier:report; docs/testing.md. 9 unit tests. One real merge run (cold worktree): nextest build 182 s (62%), run 105 s. Daily/full wiring untested until their first run. The failing what_closes_a_goal was a stale snapshot (std growth), accepted on main. Model result: Sonnet, worked, 8 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20343,7 +20343,7 @@
         "naming"
       ],
       "epic": "std-library",
-      "body": "From docs/proposals/std-naming.md, lane N1; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. Before SW-2174. 45 min.\n\n7 Nov: before merging, run docs/proposals/std-lemma-references.md §5's check (grep with and without Std., rename f with its fCong family, the four registry/congruence/pin/prelude tests). If a renamed name is one the compiler uses, wait for SW-2197-SW-2199 or flag it.",
+      "body": "From docs/proposals/std-naming.md, lane N1; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. Before SW-2174. 45 min.\n\n7 Nov: before merging, run docs/proposals/std-lemma-references.md §5's check (grep with and without Std., rename f with its fCong family, the four registry/congruence/pin/prelude tests). If a renamed name is one the compiler uses, wait for SW-2197-SW-2199 or flag it.\n\n7 Nov (docs/reviews/SW-2213-guide-coverage.md): include docs/proving-guide.md in the docs to update.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20403,7 +20403,7 @@
         "naming"
       ],
       "epic": "std-library",
-      "body": "From docs/proposals/std-naming.md, lane N5; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. 45 min.\n\n7 Nov: before merging, run docs/proposals/std-lemma-references.md §5's check (grep with and without Std., rename f with its fCong family, the four registry/congruence/pin/prelude tests). If a renamed name is one the compiler uses, wait for SW-2197-SW-2199 or flag it.",
+      "body": "From docs/proposals/std-naming.md, lane N5; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. 45 min.\n\n7 Nov: before merging, run docs/proposals/std-lemma-references.md §5's check (grep with and without Std., rename f with its fCong family, the four registry/congruence/pin/prelude tests). If a renamed name is one the compiler uses, wait for SW-2197-SW-2199 or flag it.\n\n7 Nov (docs/reviews/SW-2213-guide-coverage.md): include docs/proving-guide.md in the docs to update.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20553,7 +20553,7 @@
         "naming"
       ],
       "epic": "std-library",
-      "body": "From docs/reviews/SW-2195-lemma-names.md, lane L1; brief in the review. Follow docs/proposals/std-lemma-references.md §5's check. First. Renames only, no statement or tactic change, so Sonnet. 45 min.",
+      "body": "From docs/reviews/SW-2195-lemma-names.md, lane L1; brief in the review. Follow docs/proposals/std-lemma-references.md §5's check. First. Renames only, no statement or tactic change, so Sonnet. 45 min.\n\n7 Nov (docs/reviews/SW-2213-guide-coverage.md): include docs/proving-guide.md in the docs to update.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20568,7 +20568,7 @@
         "naming"
       ],
       "epic": "std-library",
-      "body": "From docs/reviews/SW-2195-lemma-names.md, lane L2; brief in the review. Follow docs/proposals/std-lemma-references.md §5's check. After SW-2202. 45 min.",
+      "body": "From docs/reviews/SW-2195-lemma-names.md, lane L2; brief in the review. Follow docs/proposals/std-lemma-references.md §5's check. After SW-2202. 45 min.\n\n7 Nov (docs/reviews/SW-2213-guide-coverage.md): include docs/proving-guide.md in the docs to update.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20711,14 +20711,89 @@
     {
       "id": 2213,
       "title": "[Opus] Read-only audit: do the language guide (docs/guide), docs/syntax.md and the feature tour (web/guide) cover what landed 6-7 Nov (decreasing stages 1 and 2, record eta, maps of sets, the List lemmas moved from AoC, the coming renames), accurately and with checked examples; is anything a newcomer would enjoy missing from the tour?",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2213",
       "labels": [
         "review"
       ],
       "epic": "docs-tutorials",
-      "body": "Read-only Opus lane, 7 Nov: docs/reviews/SW-N-guide-coverage.md. 45 min.",
+      "body": "Read-only Opus lane, 7 Nov: docs/reviews/SW-N-guide-coverage.md. 45 min.\n\nDone, merged: docs/reviews/SW-2213-guide-coverage.md. 0 high, 3 medium, 7 low. Lanes SW-2214-SW-2218. D3210 (core.md rule in CLAUDE.md) to Matt.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2214,
+      "title": "[Sonnet] docs/core.md up to date: the Proj term form, record eta's rules, and f.unfold after decreasing stages 1 and 2 (core.md:195, :240 still calls record eta hypothetical)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "epic": "docs-tutorials",
+      "body": "From docs/reviews/SW-2213-guide-coverage.md, lane A. Opus review after. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2215,
+      "title": "[DeepSeek] Tour page web/guide/30-decreasing.sw:9 and docs/proving-guide.md:286-287 still write if h:; show the unnamed forms from decreasing stages 1 and 2",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "epic": "docs-tutorials",
+      "body": "From docs/reviews/SW-2213-guide-coverage.md, lane B. Not beside SW-2165. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2216,
+      "title": "[Sonnet] Guide chapter 6's Map and Set section: maps of sets (insertIn, containsIn, removeIn), popMin/minimum, getOr, Map.counts, alter; a line on tour page 14",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "epic": "docs-tutorials",
+      "body": "From docs/reviews/SW-2213-guide-coverage.md, lane C. After SW-2189 (renames). Chapter 7 already uses set.popMin before the guide introduces it. 40 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2217,
+      "title": "[DeepSeek] W-MATCH-NOT-FOUND in docs/syntax.md; a paragraph on the language server's recovery pop-ups (what they mean, what to do) in editors/vscode/README.md",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "epic": "docs-tutorials",
+      "body": "From docs/reviews/SW-2213-guide-coverage.md, lane D. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2218,
+      "title": "[Sonnet] Feature tour pages for cases, counterexamples to a false theorem, and multi-line \"\"\" text (check the web build runs counterexample search first)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "epic": "docs-tutorials",
+      "body": "From docs/reviews/SW-2213-guide-coverage.md, lane E. 75 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
