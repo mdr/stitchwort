@@ -21641,14 +21641,14 @@
     {
       "id": 2275,
       "title": "[Sonnet] SW-2274 F1/F4: library equations made on demand (in_library_file, library.rs:1381) set the glue switch like std loading, so search, doc and STITCHWORT_GLUE=0 get the same equation as a proof; a hash test (search vs proof); fix four stale comments (proof_equivalence.rs:1284, options.rs:30-36, lib.rs:665, lib.rs:912)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2275",
       "labels": [
         "core"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/SW-2274-std-always-glued.md. Step 1 (~15 min): F1 and its test. Step 2 (~10 min): F4.",
+      "body": "From docs/reviews/SW-2274-std-always-glued.md. Step 1 (~15 min): F1 and its test. Step 2 (~10 min): F4.\n\nDone, merged. in_library_file sets glue to gluing() around run; guard test (241 equations match; it also passes without the fix: no std equation differs today); F4 comments. On main: new test, hash_stability, pins pass. Model result: Sonnet, worked (test is a guard only), 16 min (est. 25).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
