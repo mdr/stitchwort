@@ -21986,9 +21986,9 @@
     {
       "id": 2298,
       "title": "[Opus] Native pidigits is only ~7% faster than the interpreter (7.6 s vs 8.1 s; CPython 5.3 s, Lean 1.0 s): profile where native's time goes on Int big numbers",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2298",
       "labels": [
         "perf"
       ],
