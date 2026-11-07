@@ -1,5 +1,5 @@
 {
-  "next": 2310,
+  "next": 2311,
   "tickets": [
     {
       "id": 47,
@@ -21911,14 +21911,14 @@
     {
       "id": 2293,
       "title": "[Sonnet] Comparative speed 1b (Python): Python ports of the eight AoC programs (dijkstra, octopus, disk, expressions, scan, matcher, bridge; memory-game exists), same algorithm, natural data structures (D3342); also SW-2297 (memory-game at 30M turns)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2293",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "Plan: docs/proposals/comparative-speed.md §7 (D3330, D3340 native faces Python and Lean, D3341 no targets, D3342 natural data structures). After SW-2292. 2-3 h: split into Python and Lean lanes side by side.",
+      "body": "Plan: docs/proposals/comparative-speed.md §7 (D3330, D3340 native faces Python and Lean, D3341 no targets, D3342 natural data structures). After SW-2292. 2-3 h: split into Python and Lean lanes side by side.\n\nDone, merged. On main: bench:compare:check over all ten programs, every runner: 66 ok, 0 skipped, 0 failed. memory-game now 30M turns. Too-short inputs (disk, scan, bridge) -> SW-2307. Model result: Sonnet, worked, 25 min (est. 90).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21926,14 +21926,14 @@
     {
       "id": 2294,
       "title": "[Sonnet] Comparative speed 1c: Lean 4 ports of three days' proofs (2024 day 2, 2020 day 18, 2021 day 15; same statements, same automation, Lean core and Std only) and the proof side of compare.sh",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2294",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "Plan: docs/proposals/comparative-speed.md §7 (D3330, D3340 native faces Python and Lean, D3341 no targets, D3342 natural data structures). After SW-2292; side by side with SW-2293. 2 h; Opus only if a port fights back.",
+      "body": "Plan: docs/proposals/comparative-speed.md §7 (D3330, D3340 native faces Python and Lean, D3341 no targets, D3342 natural data structures). After SW-2292; side by side with SW-2293. 2 h; Opus only if a port fights back.\n\nDone, merged. 2024 day 2 all 17; 2020 day 18 23 of 49 (Std.Parse Reads/Runs layer not ported); 2021 day 15 20 of 23 (parser). task bench:compare:proofs. Smoke (busy Mac): check net / Lean net 11x, 35x, 12x, overstated by the subset mismatch -> SW-2310. Model result: Sonnet, worked, 50 min (est. 120).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -22159,6 +22159,21 @@
       ],
       "epic": "elaborator-kernel",
       "body": "From docs/reviews/SW-2306-memo-budget.md. 30-45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2310,
+      "title": "[Sonnet] stitchwort check takes a theorem filter or file subset, so the comparative proof benchmark can time the same theorems as the Lean port (2020 day 18 has 23 of 49 ported, 2021 day 15 20 of 23)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2294. 45 min. Until then the proof ratios overstate our cost.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
