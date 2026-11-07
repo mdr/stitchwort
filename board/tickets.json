@@ -1,5 +1,5 @@
 {
-  "next": 2267,
+  "next": 2269,
   "tickets": [
     {
       "id": 47,
@@ -21356,14 +21356,14 @@
     {
       "id": 2256,
       "title": "[Opus] Equality G6: same-definition stuck calls with different arguments are compared by what they unfold to (transitivity)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2256",
       "labels": [
         "core"
       ],
       "epic": "elaborator-kernel",
-      "body": "Split from SW-2243 into ~15-min steps (Matt, 7 Nov: small scope near the quota). Flip the gap's #[ignore]d test in proof_equivalence.rs (SW-2242) and its probe in docs/repros/sw-2236/. D3250/D3260. 15-20 min.",
+      "body": "Split from SW-2243 into ~15-min steps (Matt, 7 Nov: small scope near the quota). Flip the gap's #[ignore]d test in proof_equivalence.rs (SW-2242) and its probe in docs/repros/sw-2236/. D3250/D3260. 15-20 min.\n\nDone, merged. On main: proof_equivalence/call_fields/eta_fields/hash_stability 27/27, elab 158/158, AoC --no-cache 287/0 errors, 64.7 s user (was ~70). G11 (unifier, needSame) also fixed. Unifier case with unknowns in the arguments left as before -> SW-2267 (backlog). Review SW-2268. Model result: Opus, worked, 10 min (est. 20).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21514,6 +21514,36 @@
       ],
       "epic": "audit-fuzzing",
       "body": "From Overmind job 10. 15 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2267,
+      "title": "[Opus] Unifier: two calls of one definition whose arguments may mention an unknown don't fall back to their case trees (SW-2256 kept the old behaviour; rule C records it). Only if a real program hits it",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-2256. Orchestrator's call: backlog, completeness only. 15 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2268,
+      "title": "[Opus] Review SW-2256 (G6: same-definition stuck calls fall back to case trees; changes what conversion accepts, D2364): the argument try uses the current mode not shortcut mode (a skipped proof argument counts as equal); pairs found different aren't recorded in CallMemo; the unifier's undo_since around the tree try",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2268",
+      "labels": [
+        "review"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "Read-only. 15 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
