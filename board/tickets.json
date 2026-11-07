@@ -1,5 +1,5 @@
 {
-  "next": 1780,
+  "next": 1782,
   "tickets": [
     {
       "id": 47,
@@ -13565,14 +13565,14 @@
     {
       "id": 1736,
       "title": "One integration-test binary per crate (137 now): 6-8 s off each incremental rebuild, ~2.5 GB disk per target",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1736",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From the SW-1716 profile, fix 5. See docs/reviews/SW-1716-dev-loop-profile.md §6.",
+      "body": "From the SW-1716 profile, fix 5. See docs/reviews/SW-1716-dev-loop-profile.md §6.\n\nPilot merged: docs/proposals/fewer-test-binaries.md (166 binaries → ~21; four allocator binaries stay; cli and driver in groups of 3-4); dev/merge-test-binaries (moves files into tests/it, rewrites binary() filters, --verify maps names one to one); rt 13 → 3 binaries. Measured under load 23-46: 10 fewer relinks saved ~20 s CPU on a core edit (~2 s per binary; ~300 CPU-s projected for the roll-out). On main: rt 113/113, selector tests OK, nextest-merge --check OK. Roll-out per crate on DeepSeek: core first, then syntax/native/fmt/lsp, then cli/driver after a --group option. Model result: Sonnet, worked, 32 min (est. 75).",
       "created": "2026-11-06",
       "updated": "2026-11-07",
       "commits": []
@@ -14218,6 +14218,36 @@
       ],
       "epic": "elaborator-kernel",
       "body": "From SW-1743, 7 Nov 2026. Case (g18.sw):\n\ndef P0 (x: Nat): Prop := x = x\ndef P1 (x: Nat): Prop := P0 x ∧ P0 x\ndef P2 (x: Nat): Prop := P1 x ∧ P1 x\ndef P3 (x: Nat): Prop := P2 x ∧ P2 x\ndef P4 (x: Nat): Prop := P3 x ∧ P3 x\ndef P5 (x: Nat): Prop := P4 x ∧ P4 x\ndef P6 (x: Nat): Prop := P5 x ∧ P5 x\ndef P7 (x: Nat): Prop := P6 x ∧ P6 x\ndef P8 (x: Nat): Prop := P7 x ∧ P7 x\ndef P9 (x: Nat): Prop := P8 x ∧ P8 x\ndef P10 (x: Nat): Prop := P9 x ∧ P9 x\ndef P11 (x: Nat): Prop := P10 x ∧ P10 x\ndef P12 (x: Nat): Prop := P11 x ∧ P11 x\ndef P13 (x: Nat): Prop := P12 x ∧ P12 x\ndef P14 (x: Nat): Prop := P13 x ∧ P13 x\ndef P15 (x: Nat): Prop := P14 x ∧ P14 x\ndef P16 (x: Nat): Prop := P15 x ∧ P15 x\ndef P17 (x: Nat): Prop := P16 x ∧ P16 x\ndef P18 (x: Nat): Prop := P17 x ∧ P17 x\ndef needs (k: Nat) [auto ok: k ≠ 0]: Nat := k\ndef f (n: Nat) (h: P18 n): Nat := needs 3",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1780,
+      "title": "[DeepSeek] Fewer test binaries, core: merge stitchwort-core's integration tests into tests/it with dev/merge-test-binaries (--verify), move the timings keys, measure relinks after a core edit (SW-1736 plan)",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1780",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1736, 7 Nov 2026. Expected: 40 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1781,
+      "title": "Fewer test binaries roll-out after core: syntax, native, fmt, lsp; then a --group option for cli and driver (SW-1736 plan)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1736.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []

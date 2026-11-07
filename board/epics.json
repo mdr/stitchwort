@@ -472,10 +472,11 @@
         "lld linking: 13-17% less CPU per rebuild (SW-1754)",
         "Plan: don't split elab; build its unit tests into the library (SW-1737)",
         "Targeted tests reach every binary: 84 were reached by no rule (SW-1775)",
-        "Selector: cuts by rank, honest timings, merge filter generated (SW-1778); merge tier 1148 tests in 78 s"
+        "Selector: cuts by rank, honest timings, merge filter generated (SW-1778); merge tier 1148 tests in 78 s",
+        "Fewer test binaries: plan, script, rt pilot 13 → 3 (SW-1736)"
       ],
       "now": [
-        "Cheap decision where a read-back is thrown away (SW-1743)"
+        "Fewer test binaries: core (SW-1780)"
       ],
       "next": [],
       "links": [
