@@ -1,5 +1,5 @@
 {
-  "next": 2085,
+  "next": 2086,
   "tickets": [
     {
       "id": 47,
@@ -18749,6 +18749,21 @@
       ],
       "epic": "syntax-language",
       "body": "From docs/reviews/SW-2080-merges-7-nov.md. D2970 [rec: yes]. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2085,
+      "title": "[Opus] Digest of open decisions: every D question still open on the board and in today's notes and reviews, grouped by epic, each with its recommendation, what it blocks, and whether it can be answered in a word",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2085",
+      "labels": [
+        "review"
+      ],
+      "epic": "docs-tutorials",
+      "body": "Matt (7 Nov 2026): spare capacity, no-build Opus lanes. Today raised D2556-D2970. Expected: 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
