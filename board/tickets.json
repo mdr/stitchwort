@@ -21491,14 +21491,14 @@
     {
       "id": 2265,
       "title": "[Sonnet] Soundness fuzz: name the theorem whose unmutated check is rejected (it's skipped silently, soundness_fuzz.rs:1057), and find which one seed 0x8 skips (125 of 126 at f460de933; 182 of 182 before)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2265",
       "labels": [
         "tests"
       ],
       "epic": "audit-fuzzing",
-      "body": "From Overmind job 10. Could be a theorem that stopped checking after today's conversion changes, or a limit of checking it alone. Print the name and the error; run seed 0x8 with the corpus that hits it. 15 min.",
+      "body": "From Overmind job 10. Could be a theorem that stopped checking after today's conversion changes, or a limit of checking it alone. Print the name and the error; run seed 0x8 with the corpus that hits it. 15 min.\n\nDone, merged. Skipped theorem: Aoc.Year2025.Day01.Proofs.part2Puzzle; checks normally (not a regression). Cause: the fuzzer's alone mode cuts the file after the declaration, and part2Puzzle depends on later lemmas (turnAt, turnCount). Fix folded into SW-2266. Model result: Sonnet, worked, 12 min (est. 15).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21513,7 +21513,7 @@
         "tests"
       ],
       "epic": "audit-fuzzing",
-      "body": "From Overmind job 10. 15 min.",
+      "body": "From Overmind job 10. 15 min.\n\n7 Nov, from SW-2265: also, alone mode cuts everything after the declaration, which drops later lemmas it depends on (2025 day 1 part2Puzzle); keep the declarations it depends on, or the rest of the file. And carry the load error into the skip message.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
