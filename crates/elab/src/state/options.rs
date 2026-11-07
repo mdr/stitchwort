@@ -62,6 +62,12 @@ pub struct Options {
     /// to just before it, and checks it again (`rewind.rs`).
     #[doc(hidden)]
     pub recheck_namespaces: bool,
+    /// Theorems of project namespaces that are not checked, by namespace
+    /// and the name as written there: a `check` of only some theorems
+    /// (`project::plan_theorems`, which says which are safe to leave out).
+    /// A namespace with any is never read from or written to the check
+    /// cache.
+    pub skip_theorems: std::collections::BTreeMap<String, std::collections::BTreeSet<String>>,
     /// For the rewind test: every cache is emptied before every declaration
     /// (`Caches::clear`), which must change nothing.
     #[doc(hidden)]
@@ -124,6 +130,8 @@ impl Options {
             refuse_plain_view: _,
             // Drives the rewind test.
             recheck_namespaces: _,
+            // Namespaces with theorems skipped bypass the cache.
+            skip_theorems: _,
             // Caches only save work.
             clear_caches_per_declaration: _,
             // Counterexample searches only run when a theorem fails, and

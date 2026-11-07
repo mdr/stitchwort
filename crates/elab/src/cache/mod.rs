@@ -596,6 +596,10 @@ impl Elaborator {
         let (Some(ns), Some(closure)) = (namespace, closure) else {
             return None;
         };
+        // An entry says every theorem was checked.
+        if self.options.skip_theorems.contains_key(ns) {
+            return None;
+        }
         let source = self.session.namespace_sources.get(ns)?;
         let store = self.options.check_cache.as_ref()?;
         let library = self.library_interface();

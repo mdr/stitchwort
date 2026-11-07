@@ -4,7 +4,9 @@ Run through `task bench:compare:proofs` (inside `nix develop .#compare`); see
 bench/compare/lean-proofs/README.md and docs/proposals/comparative-speed.md
 section 3. For each day it times, with hyperfine:
 
-  sw       `stitchwort check --no-cache <the day's namespaces>`, from aoc/
+  sw       `stitchwort check --no-cache <the day's namespaces> --only <the theorems
+           the Lean file has>`, from aoc/ (SW-2310: the same theorems Lean checks,
+           and what they need; the Lean file's theorem names pick them)
   sw-load  `stitchwort check --no-cache` of a file importing what the day imports
   lean     `lean Proofs/<Day>.lean`, Lib already built (the day's file alone)
   lean-load `lean` on a file that only imports Lib
@@ -15,6 +17,7 @@ import argparse
 import datetime
 import json
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -43,6 +46,31 @@ DAYS = {
         "imports": "Bool, DecEq, Decidable, Eq, Exists, Fin, Graph, List, Map, Nat, Option, Quot, Void",
     },
 }
+
+
+THEOREM = re.compile(r"^(?:protected |private )?(?:theorem|lemma)\s+([^\s(:\[{]+)", re.M)
+
+
+def lean_theorem_names(module):
+    """The last segments of the theorem names in the day's Lean file."""
+    text = (LEAN / "Proofs" / f"{module}.lean").read_text()
+    return {name.rsplit(".", 1)[-1] for name in THEOREM.findall(text)}
+
+
+def ported_theorems(day):
+    """The full names of the day's Stitchwort theorems that its Lean file also
+    has (same name), in the day's namespaces."""
+    wanted = lean_theorem_names(day["module"])
+    found = []
+    for path in sorted((ROOT / "aoc" / "src").rglob("*.sw")):
+        text = path.read_text()
+        header = re.search(r"^namespace\s+(\S+)", text, re.M)
+        if not header or header.group(1) not in day["namespaces"]:
+            continue
+        for name in re.findall(r"^theorem\s+([^\s(:\[{]+)", text, re.M):
+            if name.rsplit(".", 1)[-1] in wanted:
+                found.append(f"{header.group(1)}.{name}")
+    return found
 
 
 def hyperfine(name, command, runs, scratch, prepare=None, cwd=None):
@@ -100,8 +128,14 @@ def main():
             row = {"lean-load": lean_load["median"]}
             print(f"{name}: stitchwort", flush=True)
             row["sw-load"] = hyperfine(f"sw-load-{name}", f"{sw} check --no-cache {load_file}", opts.runs, scratch)["median"]
-            row["sw"] = hyperfine(f"sw-{name}", f"{sw} check --no-cache {' '.join(day['namespaces'])}", opts.runs,
-                                  scratch, cwd=ROOT / "aoc")["median"]
+            ported = ported_theorems(day)
+            if not ported:
+                sys.exit(f"{name}: no theorem of the Lean file found in {day['namespaces']}")
+            print(f"{name}: {len(ported)} theorems in common with the Lean file", flush=True)
+            only = ",".join(ported)
+            row["sw"] = hyperfine(f"sw-{name}", f"{sw} check --no-cache {' '.join(day['namespaces'])} --only {only}",
+                                  opts.runs, scratch, cwd=ROOT / "aoc")["median"]
+            row["theorems"] = len(ported)
             print(f"{name}: lean", flush=True)
             row["lean"] = hyperfine(f"lean-{name}", f"{env_lean} {LEAN / 'Proofs' / (day['module'] + '.lean')}",
                                     opts.runs, scratch)["median"]
@@ -109,13 +143,13 @@ def main():
                                     prepare="rm -rf .lake", cwd=LEAN)["median"]
             rows[name] = row
 
-    head = ["Day", "sw check", "sw load", "sw net", "lean file", "lean load", "lean net", "sw net / lean net", "lake build (cold, with Lib)"]
+    head = ["Day", "theorems", "sw check", "sw load", "sw net", "lean file", "lean load", "lean net", "sw net / lean net", "lake build (cold, with Lib)"]
     lines = ["| " + " | ".join(head) + " |", "|---|" + "---:|" * (len(head) - 1)]
     for name, r in rows.items():
         sw_net = max(r["sw"] - r["sw-load"], 0.0)
         lean_net = max(r["lean"] - r["lean-load"], 0.0)
         ratio = f"{sw_net / lean_net:.2f}x" if lean_net > 0 else "-"
-        lines.append("| " + " | ".join([name, fmt(r["sw"]), fmt(r["sw-load"]), fmt(sw_net), fmt(r["lean"]),
+        lines.append("| " + " | ".join([name, str(r["theorems"]), fmt(r["sw"]), fmt(r["sw-load"]), fmt(sw_net), fmt(r["lean"]),
                                         fmt(r["lean-load"]), fmt(lean_net), ratio, fmt(r["lake"])]) + " |")
     md = "\n".join(lines)
     OUT.mkdir(parents=True, exist_ok=True)

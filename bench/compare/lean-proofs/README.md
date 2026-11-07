@@ -16,9 +16,10 @@ not counted in a day's `lean` time (it is in the cold `lake build`).
 
 Differences from the Stitchwort side, which the numbers must be read with:
 
-- Stitchwort's `check` always covers the whole namespace: for days 18 and 15
-  that is more theorems than Lean's file has. The `sw net / lean net` ratio
-  overstates Stitchwort's cost for those two days by roughly the unported share.
+- Stitchwort's side checks `stitchwort check --only` the theorems whose names
+  the day's Lean file also has (and what those use), so it does the same
+  theorems' work as Lean does; the other theorems of the namespaces are not
+  checked. A namespace's remaining definitions are still all checked.
 - Std's Dijkstra (`Graph.distancesShortest`) is a hypothesis (`Dijkstra`), and
   its result map is a function `Position -> Option Nat`, not a `TreeMap`.
 - `Nat.iterate` is defined in the file (core has none).

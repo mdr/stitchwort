@@ -327,6 +327,8 @@ The same path rule applies to the other commands:
 ```
 stitchwort check                  -- the whole project
 stitchwort check Day05            -- Day05 and what it depends on
+stitchwort check Day05.Proofs --only Day05.Proofs.sumSpec,...
+                                  -- only those theorems and what they use
 stitchwort check path/file.sw     -- file mode
 
 stitchwort test                   -- every test in the project
@@ -370,6 +372,7 @@ the working directory. `--cache-dir` overrides both.
 | `E-EXTENSION-CLASH` | A function added to another namespace's type has the name of one of the type's own. |
 | `E-NAMESPACE-FAILED` | A namespace wasn't checked because a namespace it depends on has errors. |
 | `E-NAMESPACE-UNKNOWN` | A command named a namespace the project doesn't have. |
+| `E-UNKNOWN-THEOREM` | `check --only` named something that is not a theorem of the namespaces being checked. |
 | `E-IMPORT-WILDCARD` | `import N (..)` names the file's own namespace, `Std`, or a part of a namespace instead of a whole one. |
 | `E-RUN-TYPE` | The named function doesn't have a main-like type. |
 | `E-RUN-UNKNOWN` | There's no function with that full name. |

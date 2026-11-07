@@ -707,6 +707,17 @@ theorem orElseIsGetOrElse (fallback: a) (t: () → {Fail} a): Fail.orElse fallba
 
 In each clause, the computation in the goal is replaced by what it did, and both handlers compute. `reify` is only allowed in proofs: a program can run a computation or hand it to a handler, but can't look inside it.
 
+## Checking one theorem
+
+In a project with many theorems, `stitchwort check --only` checks just the ones you name, by full name, and the theorems they use:
+
+```sh
+stitchwort check --only Shop.Proofs.totalNonNegative
+stitchwort check Shop.Proofs --only Shop.Proofs.totalNonNegative,Shop.Proofs.discountBounded
+```
+
+The other theorems of those namespaces are left unchecked, and the command says so in its last line (`checked 2 of 49 theorems of the namespaces named: the other 47 were NOT checked`), so it is never mistaken for a full check. Definitions, tests and the namespaces the proofs use are checked as usual. A name that is not a theorem is an error. Run a plain `stitchwort check` before you rely on the result: `--only` is for working on a theorem, and for timing it.
+
 ## Axioms
 
 A proof is only as good as what it assumes. Stitchwort has one axiom, `Quot.sound` (that equal elements of a quotient type are equal), and `stitchwort axioms` lists the axioms a theorem depends on, through everything it uses:

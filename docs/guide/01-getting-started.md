@@ -123,6 +123,7 @@ Inside a project, commands take namespaces and full names instead of files, and 
 
 ```sh
 stitchwort check                       # the whole project
+stitchwort check --only Shop.Proofs.total   # one theorem and what it uses (chapter 10)
 stitchwort test Shop                   # Shop's tests, those of namespaces under it, and of what they use
 stitchwort run Shop.Report.main        # a function, by its full name
 stitchwort fmt                         # format every source file

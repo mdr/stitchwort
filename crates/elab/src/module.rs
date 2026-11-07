@@ -389,7 +389,19 @@ impl Elaborator {
         }
         let order = self.components();
 
+        let skipped_theorems = namespace.and_then(|ns| self.options.skip_theorems.get(ns).cloned());
         for component in order {
+            // A theorem nothing being checked needs (`check --only`).
+            if let Some(skip) = &skipped_theorems
+                && component.iter().all(|&i| {
+                    matches!(
+                        items[i].decl,
+                        Decl::Signature { name, theorem: true, .. } if skip.contains(&name.text)
+                    )
+                })
+            {
+                continue;
+            }
             // Each component is one operation, with its own resource limits.
             let saved = self.kernel.machine.budget.start(self.options.limits);
             self.unit.module.current = component.clone();
