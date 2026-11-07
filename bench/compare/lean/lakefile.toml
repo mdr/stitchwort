@@ -12,3 +12,35 @@ root = "Compare.Pidigits"
 [[lean_exe]]
 name = "binary_trees"
 root = "Compare.BinaryTrees"
+
+[[lean_exe]]
+name = "dijkstra"
+root = "Compare.Dijkstra"
+
+[[lean_exe]]
+name = "octopus"
+root = "Compare.Octopus"
+
+[[lean_exe]]
+name = "disk"
+root = "Compare.Disk"
+
+[[lean_exe]]
+name = "expressions"
+root = "Compare.Expressions"
+
+[[lean_exe]]
+name = "scan"
+root = "Compare.Scan"
+
+[[lean_exe]]
+name = "matcher"
+root = "Compare.Matcher"
+
+[[lean_exe]]
+name = "bridge"
+root = "Compare.Bridge"
+
+[[lean_exe]]
+name = "memory_game"
+root = "Compare.MemoryGame"
