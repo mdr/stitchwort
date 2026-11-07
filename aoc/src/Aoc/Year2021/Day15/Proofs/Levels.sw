@@ -53,15 +53,6 @@ theorem iterateRaise: (count: Nat) → (level: Nat) → level ≤ 9 → level + 
         let same: level + 1 + count = level + Succ count := omega
         rewrite later, same in rfl
 
---| With rows and columns, the full cave is its five tiles each way.
-theorem tiledIsTiles (cave: Cave) (tall: cave.height ≠ 0) (wide: cave.width ≠ 0): cave.tiled = cave.tiles :=
-  match h: Nat.decEq cave.height 0 with
-    | Yes zero => Void.exfalso (tall zero)
-    | No _ =>
-      match w: Nat.decEq cave.width 0 with
-        | Yes zero => Void.exfalso (wide zero)
-        | No _ => rfl
-
 --| On a rectangle, the full cave's map has the spec's levels.
 theorem tiledLevelsAgree (cave: Cave) (rectangle: Rectangle cave) (position: Position): tiledLevelAt cave position = cave.tiled.levelAt position :=
   let wide: cave.width ≠ 0 := omega [And.left rectangle]
@@ -88,9 +79,7 @@ theorem tiledLevelsAgree (cave: Cave) (rectangle: Rectangle cave) (position: Pos
                   let raised :=
                     iterateRaise (position.row / cave.height + position.column / cave.width) base (omega [levelBelow10 cave place base found])
                       (omega [levelBelow10 cave place base found, tileRow, tileColumn])
-                  -- The `match`es above don't reach into the field call
-                  -- `cave.tiled.level` (SW-1913).
-                  rewrite found, raised, tiledIsTiles cave tall wide in rfl
+                  rewrite found, raised in rfl
 
 --| A rectangle has a row.
 theorem heightNotZero (cave: Cave) (rectangle: Rectangle cave): cave.height ≠ 0 :=
