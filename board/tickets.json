@@ -20058,7 +20058,7 @@
         "proofs"
       ],
       "epic": "std-library",
-      "body": "From docs/reviews/SW-2159-aoc-lemmas-to-std.md, lane L1; its brief paragraph is in the report. Absorbs part of SW-2003; note SW-1608. snap:hashes, hash_stability, audit:touched per AoC namespace. 60 min.\n\n7 Nov: docs/proposals/std-naming.md corrects some of SW-2159's names; check §6 there before naming lemmas.",
+      "body": "From docs/reviews/SW-2159-aoc-lemmas-to-std.md, lane L1; its brief paragraph is in the report. Absorbs part of SW-2003; note SW-1608. snap:hashes, hash_stability, audit:touched per AoC namespace. 60 min.\n\n7 Nov: docs/proposals/std-naming.md corrects some of SW-2159's names; check §1.6 there before naming lemmas.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
