@@ -82,7 +82,7 @@ package(stitchwort-syntax)
 | package(stitchwort-js)
 | package(stitchwort-native)
 | (binary(extract) & test(/^(int_crosses_the_boundary_strictly|options_cross_the_boundary_as_undefined|records_cross_the_boundary_strictly|awkward_names_never_collide|more_tail_calls_are_loops|generated_code_is_stable)$/))
-| (binary(lsp) & test(/^(hover_over_a_selection_gives_the_type_of_the_expression|formatting_replaces_the_open_text|a_file_on_its_own_as_you_type|goal_at_answers_for_the_goal_at_or_near_the_cursor|small_navigation_issues|eq_sym_and_eq_trans_navigate_to_their_definitions)$/))
+| (binary(lsp) & test(/^(hover_over_a_selection_gives_the_type_of_the_expression|formatting_replaces_the_open_text|a_file_on_its_own_as_you_type|goal_at_answers_for_the_goal_at_or_near_the_cursor|small_navigation_issues|eq_sym_and_eq_trans_navigate_to_their_definitions)$/)) | (package(stitchwort-lsp) & (kind(lib) | (binary(features) & test(/^(completion_offers_locals_then_the_namespace_then_imports_and_defaults|semantic_tokens_colour_names_by_what_they_resolve_to|signature_help_shows_the_function_and_the_current_parameter|signature_help_tells_two_functions_with_the_same_short_name_apart|the_outline_asked_as_the_file_opens_is_not_empty)$/))))
 | (package(stitchwort-fmt) & !binary(repo) & !binary(fuzz))
 | (package(stitchwort-cli) & binary(fmt))
 | (binary(aoc_answers) & test(/^(year2021_day(01|03|07)|year2024_day(01|02|03|04|05|07|09)|year2025_day(01|03|05|07))$/))
@@ -135,8 +135,11 @@ default-filter = "package(stitchwort-js) | (binary(extract) & test(/^(int_crosse
 [profile.lane-native]
 default-filter = "package(stitchwort-native) & !test(=tail_calls_of_every_shape_run_in_constant_stack)"
 
+# The server's quick session tests (`stitchwort-lsp` `features`, about 3 s each
+# warm) and unit tests beside the `cli` `lsp` tests that drive it over stdio;
+# the slow `features` tests and `memory` are for `task test:affected`'s `lsp` rule.
 [profile.lane-lsp]
-default-filter = "binary(lsp) & test(/^(hover_over_a_selection_gives_the_type_of_the_expression|formatting_replaces_the_open_text|a_file_on_its_own_as_you_type|goal_at_answers_for_the_goal_at_or_near_the_cursor|small_navigation_issues|eq_sym_and_eq_trans_navigate_to_their_definitions)$/)"
+default-filter = "(binary(lsp) & test(/^(hover_over_a_selection_gives_the_type_of_the_expression|formatting_replaces_the_open_text|a_file_on_its_own_as_you_type|goal_at_answers_for_the_goal_at_or_near_the_cursor|small_navigation_issues|eq_sym_and_eq_trans_navigate_to_their_definitions)$/)) | (package(stitchwort-lsp) & (kind(lib) | (binary(features) & test(/^(completion_offers_locals_then_the_namespace_then_imports_and_defaults|semantic_tokens_colour_names_by_what_they_resolve_to|signature_help_shows_the_function_and_the_current_parameter|signature_help_tells_two_functions_with_the_same_short_name_apart|the_outline_asked_as_the_file_opens_is_not_empty)$/))))"
 
 # Goals end to end with the built command (`crates/cli/tests/goal_index.rs`):
 # `check --index`'s goals and lemmas, each lemma and printed goal pasted back
