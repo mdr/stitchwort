@@ -1,5 +1,5 @@
 {
-  "next": 2076,
+  "next": 2080,
   "tickets": [
     {
       "id": 47,
@@ -12195,9 +12195,9 @@
         "kernel"
       ],
       "epic": "record-eta",
-      "body": "D2498-D2505 (Matt, 6 Nov 2026): all as recommended in docs/proposals/record-eta.md: kernel record eta with primitive projections (no parameters) and the two rules; eta by shape incl. Pair; no no-eta opt-out now; no eta for interface dictionaries; accept goals changing shape; keep T.ext; accept ~5% checking cost (profile it); staged kernel (Opus), unifier, Pair, clean-up sweep (Sonnet). After SW-1643.\n\nOpus (kernel/unifier soundness; Matt, 6 Nov 2026).",
+      "body": "D2498-D2505 (Matt, 6 Nov 2026): all as recommended in docs/proposals/record-eta.md: kernel record eta with primitive projections (no parameters) and the two rules; eta by shape incl. Pair; no no-eta opt-out now; no eta for interface dictionaries; accept goals changing shape; keep T.ext; accept ~5% checking cost (profile it); staged kernel (Opus), unifier, Pair, clean-up sweep (Sonnet). After SW-1643.\n\nOpus (kernel/unifier soundness; Matt, 6 Nov 2026).\n\nFrom docs/reviews/record-eta-as-merged.md: D2940: hold stage 3 until SW-1914, SW-1998 and SW-1999 land (stage 3 multiplies rule 2's firings) [rec: yes].",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -16244,7 +16244,7 @@
         "kernel"
       ],
       "epic": "elaborator-kernel",
-      "body": "SW-1829 confirmed the lead but it wasn't the regression; costs little today. Supersedes SW-1884's 'likely cause' framing.",
+      "body": "SW-1829 confirmed the lead but it wasn't the regression; costs little today. Supersedes SW-1884's 'likely cause' framing.\n\nFrom docs/reviews/record-eta-as-merged.md: confirmed still in the code (value.rs:2237, 2614): conversion and the unfolded read-back re-run a stuck field call's base call once per field, the last instance of SW-1829's 2^n shape.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17220,7 +17220,7 @@
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From docs/proposals/lsp-failure-policy.md. Stage 2. D2701, D2743. Absorbs the rest of SW-1821, tactics review F3, driver review L7. 45 min.",
+      "body": "From docs/proposals/lsp-failure-policy.md. Stage 2. D2701, D2743. Absorbs the rest of SW-1821, tactics review F3, driver review L7. 45 min.\n\nFrom docs/reviews/record-eta-as-merged.md: the NO_ETA panic leak is also SW-1901; do them as one.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17519,7 +17519,7 @@
         "core"
       ],
       "epic": "record-eta",
-      "body": "From SW-1913. Repros match-field.sw, call-field-match3.sw. Then drop the SW-1913 workarounds in those days. 90 min.",
+      "body": "From SW-1913. Repros match-field.sw, call-field-match3.sw. Then drop the SW-1913 workarounds in those days. 90 min.\n\nFrom docs/reviews/record-eta-as-merged.md: match's check of its as-written result has no case for Proj, so it drops that result on exactly the goals eta changed; may be part of this.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -18502,14 +18502,14 @@
     {
       "id": 2068,
       "title": "[Opus] Fresh-eyes review of record eta as merged (kernel Elim::Proj and Term::Proj, eta rules 1 and 2, Unfolding's kept/base, SW-1829's eta_fields, SW-1997's Bind::Alias): soundness, termination and cost of each rule, consumers of Proj on every backend, tests that are missing",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2068",
       "labels": [
         "review"
       ],
       "epic": "record-eta",
-      "body": "Matt (7 Nov 2026): spare capacity, no-build Opus lanes. CLAUDE.md: Opus reviews changes that generate kernel terms. Expected: 75 min.",
+      "body": "Matt (7 Nov 2026): spare capacity, no-build Opus lanes. CLAUDE.md: Opus reviews changes that generate kernel terms. Expected: 75 min.\n\nDone, merged: docs/reviews/record-eta-as-merged.md. Sound: eta conditions read from the final declaration (proof-only records, Prop records, cross-type projections excluded; Agda #2170 excluded); both rules terminate; every Proj consumer handles it. 0 high, 4 medium, 6 low. Tickets SW-2076-SW-2079; notes on SW-1914, SW-1999, SW-1979, SW-1644. D2940, D2941. 17 min (est. 75).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -18614,6 +18614,66 @@
       ],
       "epic": "effects-native",
       "body": "From docs/reviews/SW-2072-widen-in-prototype.md. snap:hashes, hash_stability. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2076,
+      "title": "[Sonnet] Goal printers recognise Proj: record updates ({ state | message = … }) and Float's .bits print in full once rule 2 opens an update on an unknown record (pretty.rs:2109, 1620)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "errors"
+      ],
+      "epic": "record-eta",
+      "body": "From docs/reviews/record-eta-as-merged.md. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2077,
+      "title": "[Sonnet] Fuzz record eta: the kernel fuzzer generates Proj and data types with eta; eta attempts in the soundness corpus; the missing tests (F10)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "record-eta",
+      "body": "From docs/reviews/record-eta-as-merged.md. D2941: then one background fuzz:soundness run [rec: yes]. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2078,
+      "title": "[Opus] Possible panic: rule 2 fires on unsolved metas, the unifier's first_order fallback can solve one with a value of another type, then forcing its projection panics in project (SW-924's class): repro, then guard",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "record-eta",
+      "body": "From docs/reviews/record-eta-as-merged.md. Stop at 30 min with no repro. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2079,
+      "title": "[Sonnet] Bring record-eta.md up to date: five places it disagrees with the code (§6.4: rule 2 does fire on unsolved metas, D2511)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "epic": "record-eta",
+      "body": "From docs/reviews/record-eta-as-merged.md. 20 min. Absorbs SW-1643's §6.4 item.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
