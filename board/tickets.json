@@ -1,5 +1,5 @@
 {
-  "next": 2113,
+  "next": 2114,
   "tickets": [
     {
       "id": 47,
@@ -18948,7 +18948,7 @@
         "elab"
       ],
       "epic": "record-eta",
-      "body": "From docs/proposals/match-call-field.md stage 1 (D2990, D2992, orchestrator's call 7 Nov). Checks: match-field.sw as an accept example, an rfl conversion example, audit:touched on Aoc.Year2021.Day15 with the workarounds put back (incl. the let (Both ...) in Answers.sw:34); check reference.rs. 75 min.\n\nDone, merged. apply_step sends a neutral ending in a projection to apply_field (cold): with gluing on, the call's case tree runs and Frame::FieldOf takes the field then applies it (D2992); J likewise; stuck in its own tree, the field stays stuck. Kernel evaluation unchanged (gluing off); reference.rs unchanged (never glues). Proj arm in Finder::agree. 2021 day 15: both workarounds gone (tiledIsTiles deleted; let (Both ...) back), no statement changed. 3 accept examples. On main: core 179, elab 156, targeted 59, whole AoC 0 errors 77 s (loaded; lane measured 69.4 s), rogue clean, audit 2020 day 20 87/87. Model result: Opus, worked, 24 min (est. 75).",
+      "body": "From docs/proposals/match-call-field.md stage 1 (D2990, D2992, orchestrator's call 7 Nov). Checks: match-field.sw as an accept example, an rfl conversion example, audit:touched on Aoc.Year2021.Day15 with the workarounds put back (incl. the let (Both ...) in Answers.sw:34); check reference.rs. 75 min.\n\nDone, merged. apply_step sends a neutral ending in a projection to apply_field (cold): with gluing on, the call's case tree runs and Frame::FieldOf takes the field then applies it (D2992); J likewise; stuck in its own tree, the field stays stuck. Kernel evaluation unchanged (gluing off); reference.rs unchanged (never glues). Proj arm in Finder::agree. 2021 day 15: both workarounds gone (tiledIsTiles deleted; let (Both ...) back), no statement changed. 3 accept examples. On main: core 179, elab 156, targeted 59, whole AoC 0 errors 77 s (loaded; lane measured 69.4 s), rogue clean, audit 2020 day 20 87/87. Model result: Opus, worked, 24 min (est. 75).\n\nCorrection (SW-2108): the kernel does reach the new path; sound.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -18963,7 +18963,7 @@
         "elab"
       ],
       "epic": "record-eta",
-      "body": "From docs/proposals/match-call-field.md stage 2 (D2991). After SW-2095. Checks: call-field-match3.sw as an accept example, audit:touched -- Aoc.Year2024.Day23 timed against main, audit:touched on namespaces with decreasing definitions returning records. 75 min.",
+      "body": "From docs/proposals/match-call-field.md stage 2 (D2991). After SW-2095. Checks: call-field-match3.sw as an accept example, audit:touched -- Aoc.Year2024.Day23 timed against main, audit:touched on namespaces with decreasing definitions returning records. 75 min.\n\nScope widened 7 Nov with docs/reviews/SW-2108-applied-call-fields.md's fixes (F1 comment and proposal correction, F2 J panic: push JProof not JForced, F3 Quot.lift flag so glued/unglued/reference agree, F4 tests). D3030 yes (orchestrator's call): glued and unglued evaluation must agree on what's equal. Now 120 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19136,14 +19136,14 @@
     {
       "id": 2108,
       "title": "[Opus] Fresh-eyes review of SW-2095 (evaluator: an applied stuck field of a call computes the call first, Frame::FieldOf, gluing only; Proj arm in match's as-written check)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2108",
       "labels": [
         "review"
       ],
       "epic": "record-eta",
-      "body": "Read-only. Core evaluator change near the kernel (D2364). Expected: 45 min.",
+      "body": "Read-only. Core evaluator change near the kernel (D2364). Expected: 45 min.\n\nDone, merged: docs/reviews/SW-2108-applied-call-fields.md. Kernel does reach apply_field (gluing on in check.rs:1828,1882) — sound, computes only what the kernel would. F2 medium (J panic), F3 low-medium (lift divergence), F4 tests: all sent to SW-2096. SW-2113 filed. D3030 taken. 6 min (est. 45).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19204,6 +19204,21 @@
       ],
       "epic": "performance",
       "body": "From docs/proposals/stuck-field-calls.md. Only if SW-2110 says go. After SW-2111. 90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2113,
+      "title": "[Sonnet] Gluing is switched on and off by hand in check.rs, inert.rs and reference.rs, so a panic leaves it on (1 Nov review §4.1): restore it with a guard",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/SW-2108-applied-call-fields.md. Matters only if a long-lived host reuses a session after a panic (the language server drops its sessions after one). 30 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
