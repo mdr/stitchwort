@@ -424,7 +424,8 @@ that with a hole we already have.
   kept. Do the same with a `"`, a tab or a `∀` inserted at random
   positions. This is the test that "an error costs only its own
   declaration".
-- **Invariants on every parse**, added to the fuzz test (F7): no panic; every span in bounds and on character boundaries;
+- **Invariants on every parse**, added to the fuzz test (F7): no panic;
+  every span in bounds and on character boundaries;
   the error list is empty exactly when the tree has no `Missing` and the
   strict parse succeeds.
 - **One end-to-end test per downstream consumer:** an editor session on the
