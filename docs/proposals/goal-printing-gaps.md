@@ -234,7 +234,7 @@ mine to settle:
   `lemma_of` refuses text with `…` (`goals.rs:843-852`). **[checked]**
 - Messages print through the same printer. Today `explain_lifted` finds `owner.%matchN` in a
   message to add its "this `match`" label and D229 note (`lift.rs:1596-1660`). The hook should
-  record which helpers it printed (as `note_failed_mentioned` does, `ev.rs:89`). Then
+  record which helpers it printed (as `note_failed_mentioned` does, `ev.rs:90`). Then
   `explain_lifted` reads that record instead of searching the text. Its string replacement
   stays for kernel messages that name a helper by key (termination).
 
