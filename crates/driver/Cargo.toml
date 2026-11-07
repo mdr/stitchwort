@@ -20,6 +20,10 @@ serde-saphyr.workspace = true
 [build-dependencies]
 blake3.workspace = true
 
+[features]
+# `Session::with_prelude_falling_back`, for tests (see `stitchwort-elab`).
+test-bypass = ["stitchwort-elab/test-bypass"]
+
 [dev-dependencies]
 insta.workspace = true
 # An independent implementation of integer division, for `tests/int.rs`.

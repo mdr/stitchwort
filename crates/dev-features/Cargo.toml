@@ -19,6 +19,9 @@ publish.workspace = true
 # admission (D2295).
 stitchwort-core = { workspace = true, features = ["reference", "stack-check", "test-bypass"] }
 stitchwort-syntax = { workspace = true, features = ["stack-check"] }
+# The option that lets a test's changed prelude fall back from a stale pin.
+stitchwort-elab = { workspace = true, features = ["test-bypass"] }
+stitchwort-driver = { workspace = true, features = ["test-bypass"] }
 # The bring-up allocation trace (recorded only when a run asks for it).
 stitchwort-rt = { workspace = true, features = ["alloc-trace"] }
 # Features that other crates in the workspace switch on in third-party crates

@@ -1285,6 +1285,8 @@ dependencies = [
  "rustix",
  "smallvec",
  "stitchwort-core",
+ "stitchwort-driver",
+ "stitchwort-elab",
  "stitchwort-rt",
  "stitchwort-syntax",
  "syn",

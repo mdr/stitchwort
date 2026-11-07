@@ -18,8 +18,8 @@
 //! checked them against the changed declaration; the hash is never copied
 //! from somewhere else without that.
 //!
-//! The pins live here, beside the error that names them, and nowhere else
-//! in the compiler's source: `crates/driver/tests/library/pinned_hashes.rs`
+//! The kernel's natives' pins live here, beside the error that names them:
+//! `crates/driver/tests/library/pinned_hashes.rs`
 //! checks every pin against the whole library, and that no other 64-digit
 //! hex literal hides from it. The runtimes' and JS's pins (their natives,
 //! the effect natives and the rewrites) are to move here too, each listing
@@ -221,6 +221,44 @@ pub fn holds_data(g: &Ev, d: DataId, b: Builtin) -> bool {
 /// written, without its native.
 pub fn stale_def(g: &mut Kernel, id: DefId, b: Builtin) -> bool {
     in_kernel_modes(g, |g| pin(b).is_some() && !holds(&g.ev(), id, b))
+}
+
+/// The check made where a builtin is bound (`bind_builtin_def` and
+/// `bind_builtin_data` in the elaborator), for every builtin with a pin, so
+/// that a pin is checked whether or not the registration function for its
+/// builtin remembers to. The registration functions check as well, so the
+/// kernel's guard doesn't depend on the elaborator.
+pub fn check_bound_def(g: &mut Kernel, id: DefId, b: Builtin) -> Result<(), Diagnostic> {
+    if pin(b).is_none() {
+        return Ok(());
+    }
+    #[cfg(feature = "test-bypass")]
+    BOUND_CHECKS.with(|c| c.borrow_mut().push(b));
+    in_kernel_modes(g, |g| check_def(&g.ev(), id, b))
+}
+
+/// [`check_bound_def`] for data type `d`, bound as `b`.
+pub fn check_bound_data(g: &mut Kernel, d: DataId, b: Builtin) -> Result<(), Diagnostic> {
+    if pin(b).is_none() {
+        return Ok(());
+    }
+    #[cfg(feature = "test-bypass")]
+    BOUND_CHECKS.with(|c| c.borrow_mut().push(b));
+    in_kernel_modes(g, |g| check_data(&g.ev(), d, b))
+}
+
+#[cfg(feature = "test-bypass")]
+thread_local! {
+    static BOUND_CHECKS: std::cell::RefCell<Vec<Builtin>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// The builtins [`check_bound_def`] and [`check_bound_data`] have checked on
+/// this thread since the last call: for the test that every pin is reached
+/// by the check at binding.
+#[cfg(feature = "test-bypass")]
+#[doc(hidden)]
+pub fn take_bound_checks() -> Vec<Builtin> {
+    BOUND_CHECKS.with(|c| std::mem::take(&mut *c.borrow_mut()))
 }
 
 /// Refuses definition `id`, bound as `b`, unless it is the declaration

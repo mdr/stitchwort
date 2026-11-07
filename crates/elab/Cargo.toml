@@ -11,6 +11,11 @@ stitchwort-core.workspace = true
 num-bigint.workspace = true
 blake3.workspace = true
 
+[features]
+# `Options::stale_pins_fall_back`, for tests; on in dev and test builds only
+# (through `stitchwort-dev-features`).
+test-bypass = []
+
 [dev-dependencies]
 # The one feature set of every dev and test build (docs/testing.md, "Features").
 stitchwort-dev-features.workspace = true
