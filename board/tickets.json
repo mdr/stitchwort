@@ -21416,9 +21416,9 @@
     {
       "id": 2260,
       "title": "[Opus] Equality G2: + with a folded second argument, fixed where the sum is read, not in how + evaluates",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2260",
       "labels": [
         "core"
       ],
@@ -21581,14 +21581,14 @@
     {
       "id": 2271,
       "title": "[Sonnet] SW-2268 F3: a test for G11 (needSame [a := 1] x rfl, the unifier's same-definition gap SW-2256 fixed)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2271",
       "labels": [
         "tests"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/SW-2268-same-definition-trees.md. 15 min.",
+      "body": "From docs/reviews/SW-2268-same-definition-trees.md. 15 min.\n\nDone, merged. examples/accept/same-definition-unify.sw (sameAnswer, givenA, solvedA); fails with E-REFL before SW-2256. On main: example sweep passes. Model result: Sonnet, worked, 3 min (est. 15).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
