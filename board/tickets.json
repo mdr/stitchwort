@@ -19023,7 +19023,7 @@
         "tooling"
       ],
       "epic": "audit-fuzzing",
-      "body": "From Overmind soak report 1 (Matt's laptop, NixOS i7-6700HQ 8 threads, 15 GiB; 7 Nov, commit a3c652a63). D2853, D2854: yes (orchestrator's call, 7 Nov). Calibration: whole AoC no cache 134 s (Speedwell 65 s, ~2x); incremental CLI build 2m10s; syntax fuzzer 100k cases 4 s; elab fuzzer 2,000 cases 40 min. 60 min.",
+      "body": "From Overmind soak report 1 (Matt's laptop, NixOS i7-6700HQ 8 threads, 15 GiB; 7 Nov, commit a3c652a63). D2853, D2854: yes (orchestrator's call, 7 Nov). Calibration: whole AoC no cache 134 s (Speedwell 65 s, ~2x); incremental CLI build 2m10s; syntax fuzzer 100k cases 4 s; elab fuzzer 2,000 cases 40 min. 60 min.\n\nOvermind soak job 3 (f06dd23cd, 14:08-14:28): fuzz:elab 3000 cases seed 0x3 596 s PASS, seed 0x4 595 s PASS (about 5 cases/s); fuzz:syntax CASES=1000000 14.6 s PASS (5x the time of 100k, so the count is probably honoured; it still prints no count, SW-2099).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
