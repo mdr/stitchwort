@@ -1,5 +1,5 @@
 {
-  "next": 1916,
+  "next": 1919,
   "tickets": [
     {
       "id": 47,
@@ -15629,7 +15629,7 @@
         "syntax"
       ],
       "epic": "syntax-language",
-      "body": "From the syntax code review (docs/reviews/code-review-syntax.md, tickets to file, 1; F1, F8). D2670 [rec: yes]. 90 min.",
+      "body": "From the syntax code review (docs/reviews/code-review-syntax.md, tickets to file, 1; F1, F8). D2670 [rec: yes]. 90 min.\n\nConfirmed by the Opus review (docs/reviews/code-review-syntax-opus.md, F2, F12, high): also the namespace-line fallback re-lexes the whole file and fails, so the file drops out of its project and its importers fail. D2690 is the same question as D2670.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15644,7 +15644,7 @@
         "syntax"
       ],
       "epic": "syntax-language",
-      "body": "From the syntax code review (docs/reviews/code-review-syntax.md, tickets to file, 2; F2). 45 min.",
+      "body": "From the syntax code review (docs/reviews/code-review-syntax.md, tickets to file, 2; F2). 45 min.\n\nWidened by the Opus review (docs/reviews/code-review-syntax-opus.md, F3, F4, F14): also long comparison chains and exists with many typed parameters recurse after parsing; drop test per boxed variant.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15659,7 +15659,7 @@
         "syntax"
       ],
       "epic": "syntax-language",
-      "body": "From the syntax code review (docs/reviews/code-review-syntax.md, tickets to file, 3; F3, F7). 60 min. Findings go to tickets.",
+      "body": "From the syntax code review (docs/reviews/code-review-syntax.md, tickets to file, 3; F3, F7). 60 min. Findings go to tickets.\n\nThe Opus review adds (F7): half the cases are token soup that almost always contains a tab, so never reach the parser; check span invariants; run each case on a thread; it should find SW-1916's panic before that lands.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15674,7 +15674,7 @@
         "syntax"
       ],
       "epic": "syntax-language",
-      "body": "From the syntax code review (docs/reviews/code-review-syntax.md, tickets to file, 4; F4, F5). 60 min.",
+      "body": "From the syntax code review (docs/reviews/code-review-syntax.md, tickets to file, 4; F4, F5). 60 min.\n\nThe Opus review agrees (F9, F10): per-token depth table, push and reverse, own-span comparison.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15704,7 +15704,7 @@
         "syntax"
       ],
       "epic": "syntax-language",
-      "body": "From the syntax code review (docs/reviews/code-review-syntax.md, tickets to file, 6; F11). 90 min. Also the 1 Nov review's open item.",
+      "body": "From the syntax code review (docs/reviews/code-review-syntax.md, tickets to file, 6; F11). 90 min. Also the 1 Nov review's open item.\n\nThe Opus review: DeepSeek can do steps 1-2 (tests, patterns) mechanically, after the recursion and quadratic lanes.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15712,14 +15712,14 @@
     {
       "id": 1879,
       "title": "[Sonnet] One ${...} scanner for \"\"\" text (possible silent mis-lex with nested ${})",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "syntax"
       ],
       "epic": "syntax-language",
-      "body": "From the syntax code review (docs/reviews/code-review-syntax.md, tickets to file, 7; F7). 45 min. After SW-1875.",
+      "body": "From the syntax code review (docs/reviews/code-review-syntax.md, tickets to file, 7; F7). 45 min. After SW-1875.\n\nSuperseded by SW-1916: the Opus review (F1) shows the double scan panics, not just mis-lexes.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15772,14 +15772,14 @@
     {
       "id": 1883,
       "title": "[Opus] Code review: crates/syntax, an independent second pass (the first, SW-1872, ran on Sonnet); compare afterwards and keep or drop SW-1873-SW-1881",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1883",
       "labels": [
         "review"
       ],
       "epic": "syntax-language",
-      "body": "D2672 (Matt, 7 Nov 2026). Reading only. Expected: 60 min.",
+      "body": "D2672 (Matt, 7 Nov 2026). Reading only. Expected: 60 min.\n\nDone: docs/reviews/code-review-syntax-opus.md on main beside the Sonnet one. 2 high, 6 medium, 9 low, vs Sonnet's 0 high, 3 medium, 10 low. Opus found a reachable lexer panic Sonnet rated a low-confidence mis-lex, a wider recursion set, recovery losing whole declarations, invisible-character and CR line-ending cases. Both found lexical recovery, Pattern recursion, fuzz gaps, the quadratic equivalence check, parser.rs size. Tickets: SW-1916 (new, high), SW-1917, SW-1918; SW-1879 superseded; SW-1873-SW-1876, SW-1878 annotated. D2690 = D2670; D2691 BOM; D2692 in-declaration recovery. 12 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -16260,6 +16260,52 @@
       ],
       "epic": "diagnostics",
       "body": "From SW-1829.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1916,
+      "title": "[Opus] Lexer panic: a \"\"\" text whose ${...} the pre-scan and the lexer end differently slices text backwards (text[16..10]) and panics in release; the language server lexes on its main thread. Also: byte-order mark skipped (D2691), no-break and zero-width spaces and CR-only line endings, the stale '-- comments are docs' text",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "syntax",
+        "bug"
+      ],
+      "epic": "syntax-language",
+      "body": "From docs/reviews/code-review-syntax-opus.md (F1, F6, F16; lane 1). HIGH: reachable crash. Repro: def t: Text := \"\"\" / ${1'}' ++ \"${x}\"} / \"\"\". Expected: 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1917,
+      "title": "[Opus] Design note: parser recovery inside a declaration (keep a definition's signature when its body fails), so a half-typed theorem keeps its goals",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "epic": "syntax-language",
+      "body": "From docs/reviews/code-review-syntax-opus.md (F8; lane 9). D2692 [rec: yes, after SW-1916's and SW-1873's lanes]. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1918,
+      "title": "[DeepSeek] Syntax small fixes from the Opus review: F11, F17 (a file starting with := silently ignored, and the other low items)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "syntax"
+      ],
+      "epic": "syntax-language",
+      "body": "From docs/reviews/code-review-syntax-opus.md (lane 7). 30 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
