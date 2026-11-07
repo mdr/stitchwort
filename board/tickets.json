@@ -1,5 +1,5 @@
 {
-  "next": 2063,
+  "next": 2066,
   "tickets": [
     {
       "id": 47,
@@ -2531,7 +2531,7 @@
     {
       "id": 1014,
       "title": "Postponement: compare a call with its expected type at a fixed point, not only after a failure, so failed searches can wait on any unknown (D2128 part b)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1014",
       "labels": [
@@ -2539,7 +2539,7 @@
         "design"
       ],
       "epic": "elaborator-kernel",
-      "body": "D2140 (Matt, 1 Nov 2026): stage 7 keeps D2128 part (a) only. Part (b) (a failed search waits on any unsolved unknown) broke std/List/Grid.sw:52, four sites in std/Parse/Reads.sw and 9 sites in 7 aoc proof files: the after-expected path only runs when something fails, so a waiting rewrite on a bare ?48 leaves it unsolved (SW-1010 lane trace). Fix needs a design for running the expected-type comparison without depending on failure; then part (b) is safe and case 4 (a search inside a lambda checked before the argument fixing its type, 2024 day 13 / SW-963) checks. Relates to D2129 (Lean per-argument comparison rejected for now).",
+      "body": "D2140 (Matt, 1 Nov 2026): stage 7 keeps D2128 part (a) only. Part (b) (a failed search waits on any unsolved unknown) broke std/List/Grid.sw:52, four sites in std/Parse/Reads.sw and 9 sites in 7 aoc proof files: the after-expected path only runs when something fails, so a waiting rewrite on a bare ?48 leaves it unsolved (SW-1010 lane trace). Fix needs a design for running the expected-type comparison without depending on failure; then part (b) is safe and case 4 (a search inside a lambda checked before the argument fixing its type, 2024 day 13 / SW-963) checks. Relates to D2129 (Lean per-argument comparison rejected for now).\n\nDesign done, merged: docs/proposals/postpone-fixed-point.md. Part (b) broke the 14 sites because a wait doesn't fail, so the enclosing try-and-undo place never tried again (Grid.sw:52's ?48 needs a second elaboration; medium confidence). Design B instead of a fixed point. D2930-D2932. Stages SW-2063, SW-2064, SW-2065. ~12 min (est. 75).",
       "created": "2026-11-01",
       "updated": "2026-11-07",
       "commits": []
@@ -18420,6 +18420,51 @@
       ],
       "epic": "test-infra",
       "body": "From docs/proposals/mutation-check.md. Finding. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2063,
+      "title": "[Opus] Postponement stage 0: count open try-and-undo places (a guard on snapshots), measurement only; part (b) behind an unmerged switch; classify the 14 breakages and case 4",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/proposals/postpone-fixed-point.md. No behaviour change. Targeted checks of std, the two examples, the 7 AoC files' namespaces. 75 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2064,
+      "title": "[Opus] Postponement stage 1: a failed search waits on any unknown only where no enclosing try-and-undo place would act on its failure (part (b) of D2128, made safe)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/proposals/postpone-fixed-point.md. After SW-2063 and D2930. Case 4 accept example; lambda-after-expected-unfolded.sw to accept if it checks; queue unit tests; snap:hashes, hash_stability. Closes SW-963 (2). 60-90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2065,
+      "title": "[Sonnet] Postponement stage 2: corpus check that design B changes no accepted program (whole AoC no cache, rogue, all examples, hash snapshots)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/proposals/postpone-fixed-point.md. After SW-2064 and D2931 (an exception to the lane test budget) [rec: yes]. 30-45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
