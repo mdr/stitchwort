@@ -14435,14 +14435,14 @@
     {
       "id": 1794,
       "title": "test:affected selects nextest tests only; dev/t also ran non-Rust checks by path (board node tests for board/**, bash -n for dev/**, a flake parse for flake.nix, VS Code and browser tasks): add a small 'extra commands' rule kind (SW-1793)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1794",
       "labels": [
         "tooling"
       ],
       "epic": "dev-loop-speed",
-      "body": "From SW-1793.",
+      "body": "From SW-1793.\n\nDone, merged: commands/seconds/manual rule keys; board, shell, dev tool, flake and colour rules; by-hand lines for browser and VS Code. Its run found the board's epic test failing (dev-loop-speed next list empty, my jq edit): fixed on main. On main: 41 Python tests OK. Model result: Sonnet, worked, 5 min (est. 40).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
