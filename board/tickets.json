@@ -1,5 +1,5 @@
 {
-  "next": 2125,
+  "next": 2126,
   "tickets": [
     {
       "id": 47,
@@ -16244,7 +16244,7 @@
         "kernel"
       ],
       "epic": "elaborator-kernel",
-      "body": "SW-1829 confirmed the lead but it wasn't the regression; costs little today. Supersedes SW-1884's 'likely cause' framing.\n\nFrom docs/reviews/record-eta-as-merged.md: confirmed still in the code (value.rs:2237, 2614): conversion and the unfolded read-back re-run a stuck field call's base call once per field, the last instance of SW-1829's 2^n shape.\n\nFrom docs/proposals/match-call-field.md: option (b) would make D2992's general form (keep (cave.tiled).level position) cheap.\n\n7 Nov: design first, read-only Opus lane: docs/proposals/stuck-field-calls.md.\n\nDesign merged: docs/proposals/stuck-field-calls.md. Calls (orchestrator, 7 Nov): D3020 yes (only the elaborator reads the link; the kernel re-runs as today), D3021 yes (no general (f x).i a form; closes D2992's revisit). Stages SW-2110, SW-2111, SW-2112; stage 2 (memo for self-stuck calls) and 3 (typed spine view) only if needed. Finding: the kernel glues too (check.rs:1828, 1882), so 'gluing on' is not 'elaborator only' — flagged to SW-2096 and SW-2108.",
+      "body": "SW-1829 confirmed the lead but it wasn't the regression; costs little today. Supersedes SW-1884's 'likely cause' framing.\n\nFrom docs/reviews/record-eta-as-merged.md: confirmed still in the code (value.rs:2237, 2614): conversion and the unfolded read-back re-run a stuck field call's base call once per field, the last instance of SW-1829's 2^n shape.\n\nFrom docs/proposals/match-call-field.md: option (b) would make D2992's general form (keep (cave.tiled).level position) cheap.\n\n7 Nov: design first, read-only Opus lane: docs/proposals/stuck-field-calls.md.\n\nDesign merged: docs/proposals/stuck-field-calls.md. Calls (orchestrator, 7 Nov): D3020 yes (only the elaborator reads the link; the kernel re-runs as today), D3021 yes (no general (f x).i a form; closes D2992's revisit). Stages SW-2110, SW-2111, SW-2112; stage 2 (memo for self-stuck calls) and 3 (typed spine view) only if needed. Finding: the kernel glues too (check.rs:1828, 1882), so 'gluing on' is not 'elaborator only' — flagged to SW-2096 and SW-2108.\n\nFrom SW-2096: the field names now kept on folded calls have no stored call result, so 1b has nothing to reuse there; option 1b is also what showing an applied lift-leaf field as written needs.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -18956,14 +18956,14 @@
     {
       "id": 2096,
       "title": "[Opus] Match on a call's field, stage 2: rule 2 keeps folded calls (decreasing, Quot.lift leaf) as (f x).i, elaborator only",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2096",
       "labels": [
         "elab"
       ],
       "epic": "record-eta",
-      "body": "From docs/proposals/match-call-field.md stage 2 (D2991). After SW-2095. Checks: call-field-match3.sw as an accept example, audit:touched -- Aoc.Year2024.Day23 timed against main, audit:touched on namespaces with decreasing definitions returning records. 75 min.\n\nScope widened 7 Nov with docs/reviews/SW-2108-applied-call-fields.md's fixes (F1 comment and proposal correction, F2 J panic: push JProof not JForced, F3 Quot.lift flag so glued/unglued/reference agree, F4 tests). D3030 yes (orchestrator's call): glued and unglued evaluation must agree on what's equal. Now 120 min.",
+      "body": "From docs/proposals/match-call-field.md stage 2 (D2991). After SW-2095. Checks: call-field-match3.sw as an accept example, audit:touched -- Aoc.Year2024.Day23 timed against main, audit:touched on namespaces with decreasing definitions returning records. 75 min.\n\nScope widened 7 Nov with docs/reviews/SW-2108-applied-call-fields.md's fixes (F1 comment and proposal correction, F2 J panic: push JProof not JForced, F3 Quot.lift flag so glued/unglued/reference agree, F4 tests). D3030 yes (orchestrator's call): glued and unglued evaluation must agree on what's equal. Now 120 min.\n\nDone, merged. Cause: a folded (decreasing) call's field became the field of its fuelled unfolding, at rule 2 and at Frame::ProjForced; now stays (f x).i when the unfolding is stuck and not an unsolved meta, gated on Machine::kernel (set by in_kernel_modes), so the kernel's values are unchanged (tested). F1 docs and proposal fixed (§10 As built); F2 J pushes JProof (tested); F3 not taken — its premise was wrong (unglued evaluation also goes through the lift; the flag would break D3030), tested; F4 tests in driver/tests/proofs/call_fields.rs and a proof_equivalence matrix. 2024 day 23 back to its original proof (largestFromAnswersAt gone), no statement changed; Std.Graph.reachableIff hashes changed (snap:hashes). Day 23 audit 12.2 s -> 9.5 s. On main: core 179, elab 158, targeted 18/18, whole AoC 0 errors 74 s (loaded), rogue clean. Model result: Opus, worked, 52 min (est. 120).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -18971,14 +18971,14 @@
     {
       "id": 2097,
       "title": "[Sonnet] Match on a call's field, stage 3: remove the SW-1913 workarounds in 2021 day 15 and 2024 day 23",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "aoc"
       ],
       "epic": "record-eta",
-      "body": "From docs/proposals/match-call-field.md stage 3. After SW-2096. audit:touched on the two days. 30 min.",
+      "body": "From docs/proposals/match-call-field.md stage 3. After SW-2096. audit:touched on the two days. 30 min.\n\nMoot: both workarounds are gone (2021 day 15 in SW-2095, 2024 day 23 in SW-2096). Closed.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19143,7 +19143,7 @@
         "review"
       ],
       "epic": "record-eta",
-      "body": "Read-only. Core evaluator change near the kernel (D2364). Expected: 45 min.\n\nDone, merged: docs/reviews/SW-2108-applied-call-fields.md. Kernel does reach apply_field (gluing on in check.rs:1828,1882) — sound, computes only what the kernel would. F2 medium (J panic), F3 low-medium (lift divergence), F4 tests: all sent to SW-2096. SW-2113 filed. D3030 taken. 6 min (est. 45).",
+      "body": "Read-only. Core evaluator change near the kernel (D2364). Expected: 45 min.\n\nDone, merged: docs/reviews/SW-2108-applied-call-fields.md. Kernel does reach apply_field (gluing on in check.rs:1828,1882) — sound, computes only what the kernel would. F2 medium (J panic), F3 low-medium (lift divergence), F4 tests: all sent to SW-2096. SW-2113 filed. D3030 taken. 6 min (est. 45).\n\nCorrection (SW-2096): F3's premise was wrong. Unglued evaluation and reference.rs also go through the lift, so the suggested flag would make glued and unglued disagree; kept false, with a test.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19218,7 +19218,7 @@
         "core"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/SW-2108-applied-call-fields.md. Matters only if a long-lived host reuses a session after a panic (the language server drops its sessions after one). 30 min.",
+      "body": "From docs/reviews/SW-2108-applied-call-fields.md. Matters only if a long-lived host reuses a session after a panic (the language server drops its sessions after one). 30 min.\n\nFrom SW-2096: the new Machine::kernel flag is also set and restored by hand in in_kernel_modes; include it in the guard.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19384,6 +19384,21 @@
       ],
       "epic": "editor-playground",
       "body": "From SW-2090. Harmless (the shared flag stays set) but wasted work on every cancelled edit. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2125,
+      "title": "[Opus] Fresh-eyes review of SW-2096 (Machine::kernel flag; fields of stuck folded calls kept as (f x).i at rule 2 and ProjForced; J fix; call_fields and proof_equivalence tests)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2125",
+      "labels": [
+        "review"
+      ],
+      "epic": "record-eta",
+      "body": "Read-only. Core evaluator change; elaborated std proofs changed hashes (D2364). Expected: 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
