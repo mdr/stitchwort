@@ -1,5 +1,5 @@
 {
-  "next": 2237,
+  "next": 2240,
   "tickets": [
     {
       "id": 47,
@@ -19871,14 +19871,14 @@
     {
       "id": 2157,
       "title": "[Opus] Numeric comparison misses folded call bases: Succ (innerN 0) = 2 := rfl fails though innerN 0 = 1 holds, in glued, unglued and the reference evaluator alike (native::compare_lazily, compare_with's always-no callbacks in value.rs and reference.rs, the unifier's native::compare); unfold folded call bases everywhere at once so the proof_equivalence matrix stays consistent",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2157",
       "labels": [
         "core"
       ],
       "epic": "record-eta",
-      "body": "From SW-2126. Repro: scratchpad p/probe.sw theorem a2 (copy it into the ticket's test). A missing equality, not a D3030 disagreement. 60 min.\n\n7 Nov (docs/reviews/SW-2158-glued-leaf-unfolding.md): its own lane, confirmed; add a Succ (outerN 0) term to the matrix.\n\n7 Nov (SW-2211): add the depth-3 case: glued, Succ (withProof (outerN 0)) against Succ (withProof 1) is true, unglued false; and glued isn't transitive with 2 there. Same root: the number comparison doesn't unfold a folded call under Succ.",
+      "body": "From SW-2126. Repro: scratchpad p/probe.sw theorem a2 (copy it into the ticket's test). A missing equality, not a D3030 disagreement. 60 min.\n\n7 Nov (docs/reviews/SW-2158-glued-leaf-unfolding.md): its own lane, confirmed; add a Succ (outerN 0) term to the matrix.\n\n7 Nov (SW-2211): add the depth-3 case: glued, Succ (withProof (outerN 0)) against Succ (withProof 1) is true, unglued false; and glued isn't transitive with 2 there. Same root: the number comparison doesn't unfold a folded call under Succ.\n\nDone, merged. assign callback unfolds a folded base and compares again (glued, unglued, reference, unifier); SW-2211's rule removed as redundant; core.md rewritten. AoC 287/0 errors, 80 s. Review SW-2239. Model result: Opus, worked, 18 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20081,14 +20081,14 @@
     {
       "id": 2171,
       "title": "[Sonnet] Std from AoC, Nat/Int/Bool arithmetic lemmas the days wrote themselves",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2171",
       "labels": [
         "proofs"
       ],
       "epic": "std-library",
-      "body": "From docs/reviews/SW-2159-aoc-lemmas-to-std.md, lane N1; its brief paragraph is in the report. Absorbs part of SW-2003, SW-957's arithmetic. 60 min.",
+      "body": "From docs/reviews/SW-2159-aoc-lemmas-to-std.md, lane N1; its brief paragraph is in the report. Absorbs part of SW-2003, SW-957's arithmetic. 60 min.\n\nDone, merged. 19 lemmas moved (table in the lane report), Nat.divMonoLeft new (SW-957); day 8 natAbsDiffLt replaced by omega. Placement follows std's load order (Nat/Divides.sw, Int/Lemmas.sw; Bool.toNat* in List/SortLemmas.sw for now, SW-2238). Model result: Sonnet, worked, 25 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20471,14 +20471,14 @@
     {
       "id": 2197,
       "title": "[Sonnet] Registry argument shapes (e.g. \"[p] [a] d y n z yesEq noEq\") checked at binding, and a startup check that every library registry entry exists",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2197",
       "labels": [
         "core"
       ],
       "epic": "std-library",
-      "body": "From docs/proposals/std-lemma-references.md, stage 2. 60 min.",
+      "body": "From docs/proposals/std-lemma-references.md, stage 2. 60 min.\n\nDone, merged. 70 definitions have shapes, checked at binding (also the partial Effect and Float primitive sites, which were never checked); std must declare every library entry. On main: builtins, bound_to_the_prelude, pins, hash_stability 31/31; rogue clean. Follow-ups SW-2237. Model result: Sonnet, worked, 24 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21048,7 +21048,7 @@
         "tests"
       ],
       "epic": "record-eta",
-      "body": "From docs/reviews/SW-2234-glued-call-against-number.md. After SW-2157 merges (same files). 30 min.",
+      "body": "From docs/reviews/SW-2234-glued-call-against-number.md. After SW-2157 merges (same files). 30 min.\n\n7 Nov: F1 obsolete: SW-2157 removed the rule and its comment. F2 (the two matrix terms) stands; can run now.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21056,14 +21056,59 @@
     {
       "id": 2236,
       "title": "[Opus] Design review: how Stitchwort decides two terms are equal, in the round: the principle behind this week's glued/unglued fixes (SW-2126, 2127, 2211, 2157), where the same gap could still hide (conversion, unifier, reference evaluator), whether one shared piece replaces the special cases, and a test that finds the next disagreement",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2236",
       "labels": [
         "design"
       ],
       "epic": "elaborator-kernel",
       "body": "D3240 — Matt, 7 Nov 2026: \"I think you're right to pick up if there's been a pattern of issues. That might be something we want to invest some time in understanding more deeply and just look at the changes in the round and try to see what our best approach might be.\" Read-only Opus lane, after SW-2157 merges. Output docs/proposals/equality-in-the-round.md. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2237,
+      "title": "[Sonnet] Registry shapes for the remaining ~110 definitions, and constructors by field count (Done, Call are built by position); check constructor presence for library data types at startup; replace the linear unbound search with a map",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "std-library",
+      "body": "From SW-2197. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2238,
+      "title": "[Sonnet] Std: move Bool.toNatEqZero/toNatAnd/toNatOdd out of List/SortLemmas.sw into their own Bool file after List/Sort.sw; usage examples for the SW-2171 lemmas; check other natAbs helpers in AoC that omega proves in one word (fold into SW-2167)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "epic": "std-library",
+      "body": "From SW-2171. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2239,
+      "title": "[Opus] Review SW-2157 (number comparison unfolds folded bases under Succ in all four places; removes SW-2211's rule): soundness; the unifier unfolding before plus_rule; the lazy path passing a non-call base with glued calls inside to assign",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "review"
+      ],
+      "epic": "record-eta",
+      "body": "D2364. Read-only; may fold into SW-2236. 30 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
