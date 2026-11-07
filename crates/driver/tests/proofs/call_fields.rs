@@ -12,6 +12,7 @@ use stitchwort_core::term::Term;
 use stitchwort_core::value::{Elim, Head, Value, eval, force, quote};
 use stitchwort_core::{DataId, DefId, Ev, Icit};
 use stitchwort_driver::driver::Session;
+use stitchwort_syntax::{SourceMap, Span};
 
 const PROGRAM: &str = r#"
 import Std (Nat)
@@ -46,6 +47,10 @@ def countDown (x: Nat): Box
     | Succ m => countDown m [decreasing := omega]
 
 type Box = { value: Nat }
+
+def valueOf (b: Box): Nat :=
+  match b with
+    | { value = v } => v
 "#;
 
 fn def(g: &Ev, name: &str) -> DefId {
@@ -274,4 +279,127 @@ fn a_lift_leaf_calls_applied_field_is_the_same_glued_and_unglued() {
             "glued and {name} agree: {glued:?} against {other:?}"
         );
     }
+}
+
+/// `countDown n`, with `n` the variable at level 0, as a metavariable's
+/// solution: the metavariable.
+fn solved_to_count_down(session: &Session) -> usize {
+    let g = &session.elab.ev();
+    let call = Term::App(
+        Term::Def(def(g, "countDown")).into(),
+        Term::Var(0).into(),
+        Icit::Explicit,
+    );
+    g.machine.glue.set(true);
+    let solution = eval(g, &[Value::var(0)], &call).unwrap();
+    g.machine.glue.set(false);
+    let m = session
+        .elab
+        .metas()
+        .new_meta(Span::point(SourceMap::new().add("test", ""), 0));
+    session.elab.metas().solve_meta(m, solution);
+    m
+}
+
+/// A folded call reached through a solved metavariable has its field kept
+/// as the call's, `(countDown n).value`, as when it's reached directly
+/// (review SW-2125 F4): by a projection stuck on the metavariable before it
+/// was solved (`Frame::ReplayElim`), and by a `match` on it (rule 2,
+/// `eta_fields`).
+#[test]
+fn a_folded_calls_field_through_a_solved_metavariable_stays_the_calls() {
+    let session = loaded();
+    let m = solved_to_count_down(&session);
+    let g = &session.elab.ev();
+    let count_down = def(g, "countDown");
+    let box_ = data(g, "Box");
+    let keeps_call = |t: &Term| {
+        matches!(t, Term::Proj(_, 0, call)
+            if matches!(&**call, Term::App(f, _, _) if matches!(**f, Term::Def(id) if id == count_down)))
+    };
+    g.machine.glue.set(true);
+    let stuck = Value::Neutral(Head::Meta(m), vec![Elim::Proj(box_, 0)].into());
+    let replayed = force(g, stuck).and_then(|v| quote(g, 1, &v));
+    // The metavariable as a variable's value, unforced, as a `match` in a
+    // body checked before it was solved finds it.
+    let unforced = Value::Neutral(Head::Meta(m), Vec::new().into());
+    let matched = eval(
+        g,
+        &[Value::var(0), unforced],
+        &Term::App(
+            Term::Def(def(g, "valueOf")).into(),
+            Term::Var(0).into(),
+            Icit::Explicit,
+        ),
+    )
+    .and_then(|v| quote(g, 2, &v));
+    g.machine.glue.set(false);
+    let replayed = replayed.unwrap();
+    assert!(keeps_call(&replayed), "a replayed projection: {replayed:?}");
+    let matched = matched.unwrap();
+    assert!(keeps_call(&matched), "a `match`: {matched:?}");
+}
+
+/// A `decreasing` definition whose last step calls another: `outer 0`
+/// unfolds to its fuelled helper's call, which computes to `inner 0`,
+/// itself folded. Glued evaluation follows that to the end, as unglued
+/// evaluation does, so these hold by `rfl` (SW-2126, review SW-2125 F1;
+/// D3030). Before, each failed: the `match`es stayed stuck on `inner 0`,
+/// and conversion stopped at it.
+#[test]
+fn a_folded_call_ending_in_another_computes_to_the_end() {
+    let mut session = Session::eager();
+    session
+        .load(
+            "chained.sw",
+            r#"
+import Std (Nat)
+
+type Box = { value: Nat }
+
+def inner (x: Nat): Box
+  decreasing x
+:=
+  match x with
+    | Zero => { value = 1 }
+    | Succ m => inner m [decreasing := omega]
+
+def outer (x: Nat): Box
+  decreasing x
+:=
+  match x with
+    | Zero => inner x
+    | Succ m => outer m [decreasing := omega]
+
+def innerN (x: Nat): Nat
+  decreasing x
+:=
+  match x with
+    | Zero => 1
+    | Succ m => innerN m [decreasing := omega]
+
+def outerN (x: Nat): Nat
+  decreasing x
+:=
+  match x with
+    | Zero => innerN x
+    | Succ m => outerN m [decreasing := omega]
+
+def onOuter (x: Nat): Nat :=
+  match (outer x).value with
+    | Zero => 0
+    | Succ m => m
+
+def onOuterN (x: Nat): Nat :=
+  match outerN x with
+    | Zero => 0
+    | Succ m => m
+
+theorem field: (outer 2).value = 1 := rfl
+theorem number: outerN 2 = 1 := rfl
+theorem caseOnField: onOuter 2 = 0 := rfl
+theorem caseOnCall: onOuterN 2 = 0 := rfl
+"#,
+        )
+        .expect("loads");
 }
