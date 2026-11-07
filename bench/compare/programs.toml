@@ -1,0 +1,26 @@
+# One entry per program: what the Stitchwort side runs and what every
+# language is given. Everything else is found by name, in this folder:
+#   <name>/main.py        CPython and PyPy
+#   <name>/expected.txt   the answer all runners must print, byte for byte
+#   lean/Compare/<Name>.lean   (CamelCase of <name>) the Lean program, which
+#                         lakefile.toml builds as the `lean_exe` <name with _>
+#
+#   input      stdin for every runner, relative to the repository; default none
+#   args       command-line arguments for every runner
+#   stitchwort a function of the aoc project ("Aoc.Year2020.Day15.main", run
+#              from aoc/), or a .sw file relative to the repository
+
+[null]
+stitchwort = "bench/compare/null/main.sw"
+
+[pidigits]
+stitchwort = "bench/compare/pidigits/main.sw"
+
+[binary-trees]
+stitchwort = "bench/compare/binary-trees/main.sw"
+
+# 2020 day 15, part 2 cut from 30,000,000 turns to 3,000,000.
+[memory-game]
+input = "aoc/inputs/2020/day15.txt"
+args = ["3000000"]
+stitchwort = "Aoc.Year2020.Day15.main"
