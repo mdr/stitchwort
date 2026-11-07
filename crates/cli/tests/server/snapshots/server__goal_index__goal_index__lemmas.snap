@@ -1,8 +1,9 @@
 ---
-source: crates/cli/tests/goal_index.rs
+source: crates/cli/tests/server/goal_index.rs
+assertion_line: 199
 expression: "format!(\"{made} lemmas, {} goals without one\\n\\n{}\", summary.len() - made,\nsummary.join(\"\\n\"))"
 ---
-58 lemmas, 12 goals without one
+60 lemmas, 12 goals without one
 
 beside-error goal 1: theorem zeroMulGoal1: 0 = 0 := ?
 bool-constant-branches goal 1: theorem orFalseGoal1 (b: Bool): b = (if b then True else False) := ?
@@ -34,6 +35,8 @@ logic-notation goal 1: theorem shownGoal1 (x: Nat) (y: Nat) (xs: List Nat) (p: P
 match-arm-pattern-order goal 1: def sumRestOrZeroGoal1 (xs: List Nat) (x: Nat) (rest: List Nat) (h: xs = [x, ..rest]): Nat := ?
 match-branches goal 1: theorem addZeroGoal1: 0 = 0 := ?
 match-branches goal 2: theorem addZeroGoal2 (k: Nat): Succ k = Succ k := ?
+match-call-field-folded goal 1: theorem fitsGoal1 (n: Nat) (small: n ≤ 1): (pick n { items = [] }).items.length ≤ 100 := ?
+match-call-field-folded goal 2: theorem fitsGoal2 (n: Nat) (small: (n <= 1) = False): (pick n { items = [] }).items.length ≤ 100 := ?
 match-hypothesis goal 1: def describeGoal1 (xs: List Nat) (k: Nat) (h: xs.length = Succ k): Text := ?
 match-hypothesis-folded goal 1: theorem steppedGoal1 (row: Nat) (column: Nat) (wall: isWall row column = False): row = row := ?
 match-induct goal 1: theorem firstBigIsBigGoal1 (xs: List Nat) (y: Nat) (found: None = Some y): 10 ≤ y := ?
