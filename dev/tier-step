@@ -1,0 +1,65 @@
+#!/usr/bin/env python3
+"""Run one step of a test tier and log its wall time.
+
+Usage: dev/tier-step [--parallel] NAME -- COMMAND [ARG...]
+
+Runs COMMAND with this process's stdin, stdout and stderr and exits with its
+status. When STITCHWORT_TIER_LOG names a file (dev/tier-report run sets it),
+appends one tab-separated line to it when the command ends: NAME, the kind
+(`step`, or `parallel` for a step that runs inside another and beside others,
+so its time is not part of the tier's sum), the start in epoch seconds, the
+wall time in seconds, the exit code and the peak memory in bytes if the
+command ran under dev/memguard (else empty). Without the variable it only runs
+the command. Python 3's standard library only. See docs/testing.md, "Tier
+reports".
+"""
+
+import os
+import subprocess
+import sys
+import tempfile
+import time
+
+
+def main():
+    args = sys.argv[1:]
+    kind = "step"
+    if args and args[0] == "--parallel":
+        kind, args = "parallel", args[1:]
+    if len(args) < 3 or args[1] != "--":
+        sys.exit("usage: dev/tier-step [--parallel] NAME -- COMMAND [ARG...]")
+    name, command = args[0], args[2:]
+    log = os.environ.get("STITCHWORT_TIER_LOG")
+    if not log:
+        os.execvp(command[0], command)
+    fd, peak_path = tempfile.mkstemp(prefix="tier-step-peak-")
+    os.close(fd)
+    env = dict(os.environ, STITCHWORT_MEM_PEAK_FILE=peak_path)
+    start, t0 = time.time(), time.monotonic()
+    try:
+        code = subprocess.call(command, env=env)
+    except KeyboardInterrupt:
+        code = 130
+    except OSError as e:
+        sys.stderr.write(f"tier-step: {command[0]}: {e}\n")
+        code = 127
+    wall = time.monotonic() - t0
+    peak = ""
+    try:
+        peak = open(peak_path).read().strip()
+    except OSError:
+        pass
+    try:
+        os.unlink(peak_path)
+    except OSError:
+        pass
+    code = 128 - code if code < 0 else code
+    # One write: lines from steps running together don't interleave.
+    line = f"{name}\t{kind}\t{start:.3f}\t{wall:.2f}\t{code}\t{peak}\n"
+    with open(log, "a") as f:
+        f.write(line)
+    sys.exit(code)
+
+
+if __name__ == "__main__":
+    main()
