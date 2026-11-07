@@ -6,7 +6,7 @@
 //! independent of the formatter's own parser-level checks.
 //!
 //! Scope is D1019: `examples/reject`, `examples/soundness` and
-//! `examples/projects/reject` are left out, and so is `crates/fmt/tests/golden`
+//! `examples/projects/reject` are left out, and so is `crates/fmt/tests/it/golden`
 //! (kept as written). The core and library under `crates/elab/src/std` are
 //! compiled into the compiler and can't be loaded as a file, so they're
 //! skipped (reported).
@@ -21,7 +21,7 @@ use stitchwort_core::{DataId, DefId};
 use stitchwort_driver::driver::{Session, full_tier, par_map, tier_sample};
 use stitchwort_driver::project::{DiskFiles, Entry, Files, Target};
 
-#[path = "../../fmt/tests/support/repo_files.rs"]
+#[path = "../../fmt/tests/it/support/repo_files.rs"]
 mod repo_files;
 
 const STACK: usize = 16 * 1024 * 1024;
@@ -30,7 +30,7 @@ const EXCLUDED: [&str; 4] = [
     "examples/reject/",
     "examples/soundness/",
     "examples/projects/reject/",
-    "crates/fmt/tests/golden/",
+    "crates/fmt/tests/it/golden/",
 ];
 
 /// Compiled into the compiler: not loadable as files.

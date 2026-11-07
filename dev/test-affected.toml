@@ -340,8 +340,8 @@ rank = 2
 paths = ["crates/fmt/**", "crates/syntax/**"]
 why = "lane-fmt leaves out the formatter's fuzzing and its run over every file in the repository (30 s)"
 select = [
-  { package = "fmt", binary = "repo" },
-  { package = "fmt", binary = "fuzz" },
+  { package = "fmt", binary = "it", test = "^repo::" },
+  { package = "fmt", binary = "it", test = "^fuzz::" },
   { package = "cli", binary = "fmt_repo" },
 ]
 

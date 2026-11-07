@@ -9,7 +9,7 @@ use stitchwort_fmt::{format, format_with_stats};
 
 #[test]
 fn golden_files_format_as_expected_and_idempotently() {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/golden");
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/it/golden");
     let bless = std::env::var_os("BLESS").is_some();
     let mut names: Vec<String> = std::fs::read_dir(&dir)
         .expect("the golden folder exists")
