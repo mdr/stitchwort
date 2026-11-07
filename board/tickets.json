@@ -1,5 +1,5 @@
 {
-  "next": 2315,
+  "next": 2316,
   "tickets": [
     {
       "id": 47,
@@ -22234,6 +22234,21 @@
       ],
       "epic": "comparative-speed",
       "body": "From SW-2310's soundness caveat (auto, rewrite, lemma sets not audited). Skipped theorems aren't in scope, so the risk is a failure, not a false pass. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2315,
+      "title": "[Opus] Move the orchestrator's process rules from its private memory (~/.claude/projects/.../memory, 41 notes) into the repo: short rules in CLAUDE.md, detail in docs/workflow.md; transient project state onto the board or epics",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2315",
+      "labels": [
+        "docs"
+      ],
+      "epic": "test-infra",
+      "body": "D3355 — Matt, 7 Nov 2026: \"just move the process rules into the repo from memory. I don't even know what we'd leave in memory ... procedure and process, yeah, move into CLAUDE.md.\" Before the switch to the agent user. 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
