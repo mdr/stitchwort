@@ -13,6 +13,6 @@ def orderedOneWay (precedes: Nat → Nat → Bool) (update: Update): Bool :=
   update.pages.all (page => update.pages.all (other => page == other || precedes page other != precedes other page))
 
 def rulesOrderPages (precedes: Nat → Nat → Bool) (update: Update): Bool :=
-  update.pages.distinct.length == update.pages.length && orderedOneWay precedes update && inOrder precedes (update.reorder precedes).pages
+  update.pages.unique.length == update.pages.length && orderedOneWay precedes update && inOrder precedes (update.reorder precedes).pages
 
 theorem everyUpdateOrdered: inputQueue.updates.all (rulesOrderPages (mustPrecede (ruleSet inputQueue.rules))) = True := rfl

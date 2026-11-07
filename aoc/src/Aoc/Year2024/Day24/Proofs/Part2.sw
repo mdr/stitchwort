@@ -95,7 +95,7 @@ theorem wellFormedInputs (bits: Nat) (x: Nat) (y: Nat) (gates: List Gate) (wired
       List.distinctMap (List.range 0 bits) (List.distinctRangeFrom bits 0) _ (i j same => Option.someInjective (Eq.cong Wire.yBit same))
   let disjoint: List.Disjoint (xPairs.map .fst) (yPairs.map .fst) :=
     List.allOfMem _ _ (wire inX inY => notXAndY wire (xNamed bits x wire inX) (yNamed bits y wire inY))
-  Both ((List.allDistinctCorrect (gates.map .output)).forward (Bool.andLeft wired))
+  Both ((List.isDistinctIff (gates.map .output)).forward (Bool.andLeft wired))
     (Both (List.distinctMapAppend .fst xPairs yPairs xDistinct yDistinct disjoint)
       (gate member named =>
         let notInput := List.allMember (gate => gate.output.xBit.isNone ∧ gate.output.yBit.isNone) gates (Bool.andRight wired) gate member

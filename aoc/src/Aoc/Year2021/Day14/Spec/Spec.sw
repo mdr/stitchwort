@@ -31,7 +31,7 @@ def quantity (polymer: List Char) (element: Char): Nat := polymer.count (== elem
 
 --| The quantity of the most common element less that of the least common.
 def spreadOf (polymer: List Char): Nat :=
-  let quantities := polymer.distinct.map (quantity polymer)
+  let quantities := polymer.unique.map (quantity polymer)
   quantities.maximum.getOrElse 0 - quantities.minimum.getOrElse 0
 
 --| The answer after `steps` steps (10 for part 1, 40 for part 2).

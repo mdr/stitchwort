@@ -89,10 +89,10 @@ def checkPassages (passages: List Passage): {Fail} List Passage :=
 def firstBigPair (passages: List Passage): Option (Nat, Passage) := passages.withIndex.find (((_, passage)) => passage.joinsBig)
 
 --| Every cave named in a passage, each once.
-def caves (passages: List Passage): List Cave := passages.flatMap (passage => [passage.from, passage.to]) |> .distinct
+def caves (passages: List Passage): List Cave := passages.flatMap (passage => [passage.from, passage.to]) |> .unique
 
 --| The caves a passage leads to from `cave`, each once.
-def neighboursOf (passages: List Passage) (cave: Cave): List Cave := passages.flatMap (passage => passage.leadsTo cave) |> .distinct
+def neighboursOf (passages: List Passage) (cave: Cave): List Cave := passages.flatMap (passage => passage.leadsTo cave) |> .unique
 
 --| Each cave with its neighbours, worked out once.
 def neighbourTable (passages: List Passage): List (Cave, List Cave) := caves passages |> .map (cave => (cave, neighboursOf passages cave))

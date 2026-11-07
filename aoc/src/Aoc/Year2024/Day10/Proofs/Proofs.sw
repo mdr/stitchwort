@@ -124,12 +124,12 @@ theorem scoreCorrect (map: TopographicMap) (start: Position) (zero: map.heightAt
   let ends := map.trailEnds 9 start
   let reached := (nine: Position) => map.heightAt nine == Some 9 && (trailsFrom map start).any (trail => trail.last == Some nine)
   rewrite <- List.lengthFilter map.positions reached in
-    List.permLength ends.distinct (map.positions.filter reached)
-      (List.permOfSameMembers ends.distinct (map.positions.filter reached) (List.distinctNoRepeats ends)
+    List.permLength ends.unique (map.positions.filter reached)
+      (List.permOfSameMembers ends.unique (map.positions.filter reached) (List.distinctUnique ends)
         (List.distinctFilter map.positions reached (positionsDistinct map))
         (nine member =>
           List.anyTrueElim (pathsOf map 9) (rest => climbs map start rest && [start, ..rest].last == Some nine) _
-            ((memTrailEnds map 9 start nine).forward ((List.memDistinct nine ends).forward member))
+            ((memTrailEnds map 9 start nine).forward ((List.memUnique nine ends).forward member))
             (rest restIn found =>
               let climbing := Bool.andLeft found
               let last := Bool.andRight found
@@ -150,7 +150,7 @@ theorem scoreCorrect (map: TopographicMap) (start: Position) (zero: map.heightAt
                 let hiking: isHikingTrail map [start, ..rest] = True := rewrite <- built at trailHiking
                 let climbing := Bool.andRight (rewrite trailCons map start rest at hiking)
                 let ending: ([start, ..rest].last == Some nine) = True := rewrite <- built at last
-                (List.memDistinct nine ends).backward
+                (List.memUnique nine ends).backward
                   ((memTrailEnds map 9 start nine).backward
                     (List.anyOfMem (pathsOf map 9) (rest => climbs map start rest && [start, ..rest].last == Some nine) rest
                       (Bool.andIntro climbing ending) restIn))))))

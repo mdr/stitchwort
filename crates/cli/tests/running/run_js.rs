@@ -932,15 +932,15 @@ fn std_list_functions_over_long_lists_are_stack_safe() {
     stack_safe_everywhere(&source_file("lists.sw", &source), &names);
 }
 
-/// `List.distinct` (SW-454) is a loop with a `Set` of what it has seen: on
+/// `List.unique` (SW-454) is a loop with a `Set` of what it has seen: on
 /// 1,000,000 elements, 100,000 of them different, natively, with `run --js`
 /// and from a plain Node. The fold over the result depends on its order, so
 /// the backends must agree on which occurrence each keeps.
 #[test]
-fn std_distinct_over_a_million_elements_is_stack_safe() {
+fn std_unique_over_a_million_elements_is_stack_safe() {
     let defs = [(
         "distinctFold",
-        "List.foldLeft (List.distinct (List.map (List.range 0 n) (x => (x * 7) % 100000))) 0 (acc x => (acc * 31 + x) % 1000003)",
+        "List.foldLeft (List.unique (List.map (List.range 0 n) (x => (x * 7) % 100000))) 0 (acc x => (acc * 31 + x) % 1000003)",
     )];
     let source = exports_program_at("IO, List, Nat", "", &defs, 1_000_000);
     stack_safe_everywhere_at(

@@ -238,7 +238,7 @@ def applySwaps (gates: List Gate) (swaps: List (Wire, Wire)): List Gate := swaps
 --| Each wire is the output of at most one gate, and no gate outputs onto an
 --| x or y wire.
 def wellWired (gates: List Gate): Bool :=
-  gates.map .output |> .allDistinct && gates.all (gate => (gate.output.xBit.isNone ∧ gate.output.yBit.isNone))
+  gates.map .output |> .isDistinct && gates.all (gate => (gate.output.xBit.isNone ∧ gate.output.yBit.isNone))
 
 def Wire.yBit: Wire → Option Nat := match some | Y bit => bit
 

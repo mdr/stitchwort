@@ -104,4 +104,4 @@ def Space.period (space: Space): Nat := space.width * space.height
 
 --| The first second at which no two robots share a tile, if there is one.
 def solvePart2 (space: Space) (robots: List Robot): Option Nat :=
-  List.range 0 space.period |> .find (seconds => space.positionsAfter seconds robots |> .allDistinct)
+  List.range 0 space.period |> .find (seconds => space.positionsAfter seconds robots |> .isDistinct)

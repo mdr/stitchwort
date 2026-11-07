@@ -114,7 +114,7 @@ theorem placeMonstersApart (level: Level) (start: Position):
     match picked: pickFree level [monster.position] start placed with
       | Some position =>
         let fresh := vacantNotMem position placed (pickFreeVacant level start placed [monster.position] position picked)
-        let joined: Apart (placed ++ [{ monster | position }]) := rewrite positionsAppend placed [{ monster | position }] in List.distinctSnocIntro (positions placed) position fresh apart
+        let joined: Apart (placed ++ [{ monster | position }]) := rewrite positionsAppend placed [{ monster | position }] in List.distinctSnoc (positions placed) position fresh apart
         placeMonstersApart level start (placed ++ [{ monster | position }]) rest joined
       | None => placeMonstersApart level start placed rest apart
 

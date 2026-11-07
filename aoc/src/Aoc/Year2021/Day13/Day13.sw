@@ -95,10 +95,10 @@ def foldDot (fold: Fold) (dot: Point): Point :=
 
 --| One fold: every dot moves to where it lands, and dots that land
 --| together become one.
-def foldOnce (dots: List Point) (fold: Fold): List Point := dots.map (foldDot fold) |> .distinct
+def foldOnce (dots: List Point) (fold: Fold): List Point := dots.map (foldDot fold) |> .unique
 
 --| The dots after the folds, in order, each once.
-def foldAll (folds: List Fold) (dots: List Point): List Point := folds.foldLeft dots.distinct foldOnce
+def foldAll (folds: List Fold) (dots: List Point): List Point := folds.foldLeft dots.unique foldOnce
 
 --| Part 1: how many dots are left after the first fold.
 def solvePart1 (paper: Paper): Nat := (foldAll (paper.folds.take 1) paper.dots).length

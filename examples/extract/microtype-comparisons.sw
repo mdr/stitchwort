@@ -5,7 +5,7 @@
 -- `Nat` field, whose order is a record of fields rather than
 -- `Ord.fromCompare`, and for a field with a proof beside it. Since these
 -- only pass their arguments on, they are the field's functions and
--- instances, the same JS objects: `Map` and `List.distinct` are passed
+-- instances, the same JS objects: `Map` and `List.unique` are passed
 -- `Text.instOrd` itself (SW-603).
 --
 -- run: same { value = "c1" } { value = "c1" }
@@ -46,13 +46,13 @@ export def unseen (cards: List Card) (seen: List CardId): List Card := cards.fil
 
 export def byId (cards: List Card): Map CardId Card := Map.indexBy cards (c => c.id)
 
-export def distinctIds (ids: List CardId): List CardId := List.distinct ids
+export def distinctIds (ids: List CardId): List CardId := List.unique ids
 
 export def sameCount (a: Count) (b: Count): Bool := a == b
 
 export def orderCount (a: Count) (b: Count): Ordering := Ord.compare a b
 
-export def distinctCounts (counts: List Count): List Count := List.distinct counts
+export def distinctCounts (counts: List Count): List Count := List.unique counts
 
 export def sameEmail (a: Email) (b: Email): Bool := a == b
 
