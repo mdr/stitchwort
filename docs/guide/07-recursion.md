@@ -114,23 +114,23 @@ def countDown (n: Nat) (step: Nat): Nat
    │                            ────────────┬────────────
    │                                        ╰────────────── this recursive call
    │
-   │ Note: give a proof with `[decreasing := …]`, or test it with `if h: n - step < n then … else …`
+   │ Note: give a proof with `[decreasing := …]`, or test it with `if n - step < n then … else …`
 ───╯
 ```
 
-The message shows the fact as you wrote it. The note gives the usual fix: test the fact with `if h: … then … else …`. In the `then` branch the fact is in scope, and the call finds it. Euclid's algorithm needs this, since `omega` doesn't reason about `%` by a variable: `a % b < b` holds whenever `b != 0`, and the test puts it in scope:
+The message shows the fact as you wrote it. The note gives the usual fix: test the fact with an `if`. In a definition with `decreasing`, an `if` puts its condition in scope for the recursive calls under it, true in the `then` branch and false in the `else`, and the call finds it there. The test needs no name; `if h: … then … else …` still works when a proof needs `h` itself. Euclid's algorithm needs this, since `omega` doesn't reason about `%` by a variable: `a % b < b` holds whenever `b != 0`, and the test puts it in scope:
 
 <!-- snippet: recursion.sw#gcd -->
 ```stitchwort
 def gcd (a: Nat) (b: Nat): Nat
     decreasing b
 :=
-  if smaller: a % b < b then gcd b (a % b) else a
+  if a % b < b then gcd b (a % b) else a
 
 test "gcd" := gcd 84 36 == 12
 ```
 
-Here the `else` runs only when `b` is 0 (`a % 0` is `a`, [chapter 2](02-values-and-definitions.md#dividing-by-zero)), where `gcd a 0` is `a` anyway; the test is there to give the compiler the fact. A proof can also be given directly, as `[decreasing := proof]` after the call. With a pair of measures, `decreasing (m, n)`, each call makes `m` smaller, or keeps `m` and makes `n` smaller, as in Ackermann's function, whose calls `omega` proves:
+Here the `else` runs only when `b` is 0 (`a % 0` is `a`, [chapter 2](02-values-and-definitions.md#dividing-by-zero)), where `gcd a 0` is `a` anyway; the test is there to give the compiler the fact. Proofs about `gcd` see the `if` as written, without the fact it gave the call. A proof can also be given directly, as `[decreasing := proof]` after the call. With a pair of measures, `decreasing (m, n)`, each call makes `m` smaller, or keeps `m` and makes `n` smaller, as in Ackermann's function, whose calls `omega` proves:
 
 <!-- snippet: recursion.sw#lexicographic -->
 ```stitchwort

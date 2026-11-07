@@ -23,7 +23,9 @@
 //!    `Decidable.elimCong`/`Bool.ifThenElseCong`.
 //! 5. `f.%irrel`: the amount of fuel doesn't matter, by induction on it.
 //! 6. `f.unfold (x: A) (c: C): f x c = f.%step x (y c' => f y c') c`, the
-//!    definition's own equation (Lean's `f.eq_def`).
+//!    definition's own equation (Lean's `f.eq_def`). Where a plain `if` gave
+//!    a recursive call its condition, it is `f x c = f.%plain x (y c' => f y
+//!    c') c` instead, with that `if` plain ([`plain`]).
 //!
 //! The runtimes run `f.%step x (y c' => f y c') c` instead of the fuelled
 //! body ([`stitchwort_core::globals::Def::run_body`]). A `theorem` gets 1 to
@@ -32,6 +34,8 @@
 //! A pair `decreasing (m1, m2)` is lexicographic (stage 3d): the proof is a
 //! `Nat.LexLess`, and 2, 3, 5 and 6 have two fuels ([`Plan::lex_parts`],
 //! `lex_go`, `lex_irrel`, `lex_unfold_parts`).
+
+mod plain;
 
 use std::cell::Cell;
 use std::rc::Rc;
@@ -70,6 +74,9 @@ pub(crate) struct Active {
     /// The second measure of a lexicographic pair, `decreasing (m1, m2)`.
     pub second: Option<Term>,
     pub header: usize,
+    /// While the step's own body is finished: plain `if`s whose proof the
+    /// branches use keep their tag (`logic::tag_plain`), for `plain.rs`.
+    pub keep_plain: Cell<bool>,
 }
 
 /// A parameter in a telescope: its name, how it's passed, and its type (in
@@ -1035,9 +1042,8 @@ impl Elaborator {
             p,
         };
         // 1. The step.
-        let step = self.decreasing_step(&plan, &key, def_name, equations)?;
-        let first_helper = step.1;
-        let step = step.0;
+        let (step, first_helper, tagged) =
+            self.decreasing_step(&plan, &key, def_name, equations)?;
         let g = &self.ev();
         let n = plan.n();
         if g.def(step).arity() != n + 1 {
@@ -1074,8 +1080,17 @@ impl Elaborator {
             made.extend(st.made.iter().copied());
             let irrel = self.generated(&plan, |e| e.decreasing_irrel(&plan, step, go, respects))?;
             made.push(irrel);
+            let view = match &tagged {
+                Some(tagged) => self
+                    .plain_view(&plan, step, tagged)
+                    .map_err(|d| self.generator_failed(&plan, d))?,
+                None => None,
+            };
+            if let Some(v) = &view {
+                made.extend([v.view, v.same]);
+            }
             let unfold = self.generated(&plan, |e| {
-                e.decreasing_unfold(&plan, step, go, irrel, respects)
+                e.decreasing_unfold(&plan, step, go, irrel, respects, view.as_ref())
             })?;
             made.push(unfold);
             // What the runtimes run: the recursion as written.
@@ -1297,7 +1312,7 @@ impl Elaborator {
         key: &str,
         def_name: &ast::Name,
         equations: &[Decl],
-    ) -> Result<(DefId, usize)> {
+    ) -> Result<(DefId, usize, Option<Term>)> {
         let g = &self.ev();
         let (n, s) = (plan.n(), plan.header);
         // Parameter `l` of `f` is at level `l` before `%rec` and `l + 1` after.
@@ -1377,6 +1392,7 @@ impl Elaborator {
             measure: plan.measure.clone(),
             second: plan.second.clone(),
             header: s,
+            keep_plain: Cell::new(false),
         });
         let ty_value = self.kernel.def(step).ty_value().clone();
         let written = Rc::new(self.kernel.def(step).ty().clone());
@@ -1392,16 +1408,29 @@ impl Elaborator {
                 )
             })?;
             let joined = e.lift(&step_key, true)?;
-            Ok((e.finish(&term, 0)?, joined))
+            let keep = |e: &Elaborator, on: bool| {
+                if let Some(active) = e.decl.decreasing.borrow().as_ref() {
+                    active.keep_plain.set(on);
+                }
+            };
+            keep(e, true);
+            let finished = e.finish(&term, 0);
+            keep(e, false);
+            Ok((finished?, joined))
         })?;
         if !joined.is_empty() {
             return Err(internal_error(
                 "a `match` in a definition with `decreasing` refers to it directly",
             ));
         }
-        kernel::define_group(&mut self.kernel, &self.tables, &[(step, body)])
+        // The plain `if`s whose proofs the branches use are still tagged
+        // (`logic::tag_plain`): the step decides them, and `f.unfold` is
+        // stated with them plain (`plain.rs`).
+        let stripped = self.settle_tagged(&body)?;
+        let tagged = (!same_term(&stripped, &body)).then_some(body);
+        kernel::define_group(&mut self.kernel, &self.tables, &[(step, stripped)])
             .map_err(|d| self.explain_lifted(d))?;
-        Ok((step, first_helper))
+        Ok((step, first_helper, tagged))
     }
 
     /// Runs one step of generating, turning a refusal into a message that
@@ -1673,11 +1702,17 @@ impl Elaborator {
         go: DefId,
         irrel: DefId,
         respects: DefId,
+        view: Option<&plain::PlainView>,
     ) -> Result<DefId> {
         let g = &self.ev();
         let (n, s) = (plan.n(), plan.header);
         let id = |l: usize| l;
         let r_f = plan_rec_f(plan, g, n)?;
+        // `y… => f y…`, `%rec` of `f.%plain`.
+        let r_plain = lams(
+            &plan.lam_names(),
+            apps(Term::Def(plan.f), plan.args(2 * n, &|l| n + l, 0..n)),
+        );
         let step_call = |r: Term| {
             apps(
                 Term::Def(step),
@@ -1688,9 +1723,19 @@ impl Elaborator {
             )
         };
         let lhs = apps(Term::Def(plan.f), plan.args(n, &id, 0..n));
+        let shown = match view {
+            Some(v) => apps(
+                Term::Def(v.view),
+                plan.args(n, &id, 0..s)
+                    .into_iter()
+                    .chain([(r_plain.clone(), Icit::Explicit)])
+                    .chain(plan.args(n, &id, s..n)),
+            ),
+            None => step_call(r_f.clone()),
+        };
         let ty = pis(
             &plan.binders(g, 0)?,
-            Term::Eq(None, Rc::new(lhs), Rc::new(step_call(r_f.clone()))),
+            Term::Eq(None, Rc::new(lhs.clone()), Rc::new(shown)),
         );
         let name: Name = format!("{}.unfold", plan.name).into();
         let unfold = kernel::declare_def(
@@ -1719,9 +1764,59 @@ impl Elaborator {
             Term::Def(respects),
             plan.args(n, &id, 0..s)
                 .into_iter()
-                .chain(explicit([r_go, r_f, e]))
+                .chain(explicit([r_go, r_f.clone(), e]))
                 .chain(plan.args(n, &id, s..n)),
         );
+        // With plain `if`s that proof is `f.%unfoldStep`, which the
+        // generated equations use, being about `f.%step`'s tree; then
+        // `f.%step x… (y… p => f y…) = f.%plain x… (y… => f y…)`, by `J`.
+        let proof = match view {
+            Some(v) => {
+                let old_ty = pis(
+                    &plan.binders(g, 0)?,
+                    Term::Eq(None, Rc::new(lhs.clone()), Rc::new(step_call(r_f.clone()))),
+                );
+                let old_name: Name = format!("{}.%unfoldStep", plan.name).into();
+                let old = kernel::declare_def(
+                    &mut self.kernel,
+                    &self.tables,
+                    &self.unit,
+                    &old_name,
+                    &old_ty,
+                    true,
+                    false,
+                    plan.span,
+                )?;
+                if self.kernel.def(plan.f).opaque() {
+                    kernel::mark_opaque(&mut self.kernel, old);
+                    kernel::set_unfolding(&mut self.kernel, old, &[plan.f]);
+                }
+                kernel::define_group(
+                    &mut self.kernel,
+                    &self.tables,
+                    &[(old, lams(&plan.lam_names(), proof))],
+                )?;
+                let g = &self.ev();
+                let proof = apps(Term::Def(old), plan.args(n, &id, 0..n));
+                let same = apps(
+                    Term::Def(v.same),
+                    plan.args(n, &id, 0..s)
+                        .into_iter()
+                        .chain([(r_plain, Icit::Explicit)])
+                        .chain(plan.args(n, &id, s..n)),
+                );
+                let motive = lams(
+                    &[("y".into(), Icit::Explicit), ("p".into(), Icit::Explicit)],
+                    Term::Eq(
+                        Some(Rc::new(plan.result_at(g, n + 2, &id)?)),
+                        Rc::new(lhs.shift(g, 2, 0)?),
+                        Rc::new(Term::Var(1)),
+                    ),
+                );
+                Term::J(Rc::new(motive), Rc::new(proof), Rc::new(same))
+            }
+            None => proof,
+        };
         kernel::define_group(
             &mut self.kernel,
             &self.tables,
@@ -2753,7 +2848,7 @@ pub(crate) fn explain_obligation(cx: &mut Ctx, goal: &Value, error: Diagnostic) 
     )
     .with_label(cx.span, "this recursive call");
     in_scope(cx, d).with_note(format!(
-        "give a proof with `[decreasing := …]`, or test it with `if h: {shown} then … else …`"
+        "give a proof with `[decreasing := …]`, or test it with `if {shown} then … else …`"
     ))
 }
 
