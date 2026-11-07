@@ -1,5 +1,5 @@
 {
-  "next": 2301,
+  "next": 2306,
   "tickets": [
     {
       "id": 47,
@@ -21986,14 +21986,14 @@
     {
       "id": 2298,
       "title": "[Opus] Native pidigits is only ~7% faster than the interpreter (7.6 s vs 8.1 s; CPython 5.3 s, Lean 1.0 s): profile where native's time goes on Int big numbers",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2298",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2292's check run (rough numbers, Mac). Paper lane first: read the native Int path. 30 min.",
+      "body": "From SW-2292's check run (rough numbers, Mac). Paper lane first: read the native Int path. 30 min.\n\nDone, merged: docs/reviews/SW-2298-native-bignum.md. Tickets SW-2301 SW-2302 SW-2303 SW-2304 SW-2305. Model result: Opus paper lane, worked, 5 min (est. 30).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -22024,6 +22024,81 @@
       ],
       "epic": "elaborator-kernel",
       "body": "Overmind job 12 (ab5c237ed), fuzz:elab seed 0x6 case 1983, oracle 4 (budget), rng 0x7782aecdf2b3cfff; saved on Overmind at target/fuzz-elab/6-1983.sw. Repro: in p12, after 'let x2 := nat()' add a second 'let x2 := nat()'; leave reads12's nested Parse.readsBind proof. Job 1's case 558 came from the same file, so possibly longstanding, not SW-2269. Step 1 (20 min): time on 0fa08fe74 vs main; profile where the failing path spends its time.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2301,
+      "title": "[Sonnet] Big numbers: Int / and % make one divmod call, not two, with a fast path when the quotient fits one word (pidigits' quotients are single digits); property tests",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From docs/reviews/SW-2298-native-bignum.md (paper lane; confirm with task bench:compare -- --runs 3 pidigits before and after). 60 min. Highest expected gain.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2302,
+      "title": "[Sonnet] Big numbers: arithmetic and comparisons work on references, without copying both inputs first (prims.rs:274, value.rs:217)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From docs/reviews/SW-2298-native-bignum.md (paper lane; confirm with task bench:compare -- --runs 3 pidigits before and after). 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2303,
+      "title": "[Sonnet] Big numbers: in-place Int/Nat + - * when nothing else holds the number, keeping the step charge",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From docs/reviews/SW-2298-native-bignum.md (paper lane; confirm with task bench:compare -- --runs 3 pidigits before and after). 60 min. After SW-2302.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2304,
+      "title": "[Sonnet] Native: inline word-sized Int arithmetic, and stop allocating a list on every runtime call",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From docs/reviews/SW-2298-native-bignum.md (paper lane; confirm with task bench:compare -- --runs 3 pidigits before and after). 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2305,
+      "title": "[Opus] Paper lane: survey bignum libraries (num-bigint, ibig/dashu, malachite, rug/GMP) only if a large gap to Lean remains after the other fixes; GMP raises a licensing and static-build question for Matt",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From docs/reviews/SW-2298-native-bignum.md (paper lane; confirm with task bench:compare -- --runs 3 pidigits before and after). 30 min. Backlog until SW-2301-SW-2304 are measured.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
