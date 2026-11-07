@@ -323,6 +323,65 @@ class Quoting(unittest.TestCase):
         self.assertEqual(out, flt)
 
 
+class Commands(unittest.TestCase):
+    """Rules with shell `commands` (and `manual` lines), for the checks that
+    are not nextest tests."""
+
+    def cmds(self, res):
+        return [c for c, _, _ in ta.command_list(res["rules"])]
+
+    def test_a_board_change_runs_the_board_node_tests(self):
+        res, _ = pick(["board/lib.js"])
+        self.assertIn("cd board && node --test board.test.js", self.cmds(res))
+
+    def test_board_ticket_data_alone_selects_nothing(self):
+        self.assertTrue(ta.is_ignored(CFG, "board/tickets.json"))
+        self.assertFalse(ta.is_ignored(CFG, "board/epics.json"))
+
+    def test_a_shell_script_gets_bash_n_and_a_python_tool_does_not(self):
+        res, _ = pick(["dev/stop-mine", "dev/docsort"])
+        cmds = self.cmds(res)
+        self.assertIn("bash -n dev/stop-mine", cmds)
+        self.assertNotIn("bash -n dev/docsort", cmds)
+
+    def test_a_dev_tool_runs_its_test_file_once_and_only_if_it_has_one(self):
+        res, _ = pick(["dev/docsort", "dev/docsort_test.py", "dev/crate-graph"])
+        cmds = self.cmds(res)
+        self.assertEqual(cmds.count("python3 dev/docsort_test.py"), 1)
+        self.assertFalse([c for c in cmds if "crate-graph" in c])
+
+    def test_a_deleted_file_gets_no_command(self):
+        res, _ = pick(["dev/no-such-script"])
+        self.assertEqual([c for c in self.cmds(res) if "no-such" in c], [])
+
+    def test_flake_nix_is_parsed(self):
+        res, _ = pick(["flake.nix"])
+        self.assertIn("nix-instantiate --parse flake.nix >/dev/null", self.cmds(res))
+
+    def test_the_commands_count_towards_the_estimate_and_are_cut_over_budget(self):
+        without, _ = pick(["crates/syntax/src/lexer.rs"])
+        both, _ = pick(["crates/syntax/src/lexer.rs", "board/lib.js"])
+        self.assertEqual(both["estimate"]["commands"], 1)
+        self.assertEqual(both["estimate"]["estimate"], round(without["estimate"]["estimate"] + 6, 1))
+        tight, _ = pick(["crates/syntax/src/lexer.rs", "flake.nix"], budget=1.0)
+        self.assertNotIn("nix flake show --no-write-lock-file >/dev/null", self.cmds(tight))
+        self.assertIn("flake-parse", [r.id for r, _ in tight["cut"]])
+
+    def test_the_slow_checks_are_listed_to_run_by_hand(self):
+        res, _ = pick(["editors/vscode/client.js", "web/lsp-worker.js"])
+        text, _ = ta.report(res, ["editors/vscode/client.js"], PROFILES, 90.0, False, INV)
+        self.assertIn("RUN BY HAND: task test:vscode", text)
+        self.assertIn("RUN BY HAND: task test:browser", text)
+        self.assertIn("node --test web/tests/colour.test.mjs", text)
+
+    def test_run_commands_reports_each_pass_and_fail(self):
+        results = ta.run_commands([("true", 0, "x"), ("false", 0, "x")])
+        self.assertEqual(results, [("true", True), ("false", False)])
+        summary = ta.command_summary(results)
+        self.assertIn("pass  true", summary)
+        self.assertIn("FAIL  false", summary)
+
+
 def real_inventory_path():
     try:
         return ta.find_inventory(os.environ.get("TEST_INVENTORY"))

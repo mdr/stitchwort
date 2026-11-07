@@ -21,6 +21,15 @@
 #   3  the crate-graph fallback for dependents, and one slow check of wide reach
 # The `fixed-core` rule (rank 0) is never cut.
 #
+# A rule may have `commands` instead of (or besides) `select`: shell commands
+# run from the repository root, for the checks that are not nextest tests.
+# `seconds` is the estimate for each command and counts towards the budget.
+# A command with `{path}` or `{test}` runs once per changed file ({test} is the
+# `_test.py` beside it, and the file is skipped if there is none); `shebang`, a
+# regex for the first line, limits the files. `manual` lists checks to run by
+# hand (too slow or heavy for here); they are shown, never run. `task
+# test:affected` runs commands of up to 10 s before nextest, the rest after.
+#
 # `select` clauses are ANDed inside a clause and ORed between clauses:
 #   package   short crate name (`elab` for stitchwort-elab)
 #   binary    test binary (`library`); the crate's own unit tests are
@@ -34,7 +43,7 @@
 # named examples. `sample = true` is a rule that wants the sweeps' ordinary
 # sample, so a diff that also names examples keeps EXAMPLES unset.
 
-ignore = ["docs/**", "board/**", "**/*.md", "web/**/*.html", "LICENSE", ".gitignore", ".github/**", ".claude/**", "dev/*.md", ".gitattributes", "dev/selector-log.tsv"]
+ignore = ["docs/**", "board/tickets.json", "board/archive/**", "**/*.md", "web/**/*.html", "LICENSE", ".gitignore", ".github/**", ".claude/**", "dev/*.md", ".gitattributes", "dev/selector-log.tsv"]
 
 # The guide's chapters and examples are tests (docs/guide, docs/tutorial), so
 # they are the exception to `ignore`.
@@ -552,6 +561,61 @@ select = [
   { package = "cli", binary = "tools", test = "^audit::" },
 ]
 note = "also run: task test:lanes-nonempty (every lane profile selects tests)"
+
+# ------------------------------------------------- non-nextest checks
+# What the retired dev/t ran by changed path (SW-1794).
+
+[[rule]]
+id = "board-node-tests"
+rank = 1
+paths = ["board/*.js", "board/*.mjs", "board/board", "board/serve.sh", "board/*.html", "board/epics.json", "board/epic-tags.json"]
+why = "the board's node tests (board/board.test.js)"
+commands = ["cd board && node --test board.test.js"]
+seconds = 6
+
+[[rule]]
+id = "shell-syntax"
+rank = 1
+extra = true
+paths = ["**/*.sh", "dev/*", "board/board"]
+shebang = '^#!.*\b(ba)?sh\b'
+why = "bash -n on a changed shell script"
+commands = ["bash -n {path}"]
+seconds = 0.2
+
+[[rule]]
+id = "dev-tool-tests"
+rank = 1
+extra = true
+paths = ["dev/*"]
+why = "the _test.py beside a changed dev tool"
+commands = ["python3 {test}"]
+seconds = 3
+
+[[rule]]
+id = "flake-parse"
+rank = 2
+extra = true
+paths = ["flake.nix"]
+why = "flake.nix still parses and its outputs list"
+commands = ["nix-instantiate --parse flake.nix >/dev/null", "nix flake show --no-write-lock-file >/dev/null"]
+seconds = 2
+
+[[rule]]
+id = "playground-colour"
+rank = 1
+paths = ["web/**/*.js", "web/**/*.mjs", "web/tests/**"]
+why = "the playground tokenizer's colouring tests (no browser)"
+commands = ["node --test web/tests/colour.test.mjs"]
+seconds = 1
+manual = ["task test:browser (the playground in headless Chrome, builds the WebAssembly bundle, about 35 s)"]
+
+[[rule]]
+id = "vscode-extension"
+rank = 1
+paths = ["editors/vscode/**"]
+why = "the VS Code extension's client tests"
+manual = ["task test:vscode (needs npm ci in editors/vscode first)"]
 
 # ---------------------------------------------------------------- data
 
