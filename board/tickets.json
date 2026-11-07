@@ -1,5 +1,5 @@
 {
-  "next": 2114,
+  "next": 2115,
   "tickets": [
     {
       "id": 47,
@@ -19219,6 +19219,21 @@
       ],
       "epic": "elaborator-kernel",
       "body": "From docs/reviews/SW-2108-applied-call-fields.md. Matters only if a long-lived host reuses a session after a panic (the language server drops its sessions after one). 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2114,
+      "title": "[Opus] Rank the parked language-feature proposals (rewrite within, decreasing from the body, computed fields, @[internal], ghost, and the std review's D2821/D2822) by measured AoC impact, with a plain one-paragraph pitch each, so Matt can decide them one at a time",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2114",
+      "labels": [
+        "review"
+      ],
+      "epic": "syntax-language",
+      "body": "Read-only Opus lane, 7 Nov. Expected: 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
