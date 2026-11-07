@@ -19886,9 +19886,9 @@
     {
       "id": 2158,
       "title": "[Opus] Review SW-2126 (value.rs: Frame::Unfolding forces a glued call and unfolds again; unfold_folded the same; eta_fields through solved metas; ReplayElim): changes kernel conversion (accepts more), D2364; termination and budget, the Force->Return change in the default arm, cost",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2158",
       "labels": [
         "review"
       ],
