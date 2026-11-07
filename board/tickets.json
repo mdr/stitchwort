@@ -15922,9 +15922,9 @@
     {
       "id": 1893,
       "title": "[Opus] One way to make an Image: native compilation trusts a public-field Image and its match with the program; UB reachable from safe Rust",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1893",
       "labels": [
         "rt"
       ],
@@ -16147,9 +16147,9 @@
     {
       "id": 1908,
       "title": "[Opus] Design note: internal error kinds, so ~25 sites stop choosing paths by Diagnostic::code strings (and two by message text)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1908",
       "labels": [
         "elab"
       ],
@@ -16283,9 +16283,9 @@
     {
       "id": 1917,
       "title": "[Opus] Design note: parser recovery inside a declaration (keep a definition's signature when its body fails), so a half-typed theorem keeps its goals",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1917",
       "labels": [
         "design"
       ],
@@ -16853,9 +16853,9 @@
     {
       "id": 1955,
       "title": "[Opus] Design note: the language server's failure policy (panics in the checker thread, search worker and comparisons; recover, rebuild or exit; what the user sees; project load and unload)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1955",
       "labels": [
         "design"
       ],
@@ -16868,9 +16868,9 @@
     {
       "id": 1956,
       "title": "[Opus] Design note: one policy for deep input (stack overflows outside the parser's depth check: patterns and chains SW-1874, omega/ring readers SW-1936, nested array drop SW-1892, rt compiler SW-1895, the formatter's equivalence SW-1877): depth guards, loops, a bigger stack, or a test that finds them",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1956",
       "labels": [
         "design"
       ],
@@ -16883,9 +16883,9 @@
     {
       "id": 1957,
       "title": "[Opus] Analysis: what would have caught record eta's two regressions (the 2^n field re-unfolding, six broken AoC proofs) before the merge, at what cost; a merge gate for kernel and core-language lanes (D2734)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1957",
       "labels": [
         "design"
       ],
