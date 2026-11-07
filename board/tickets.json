@@ -19323,7 +19323,7 @@
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From docs/reviews/SW-2116-lsp-recovery-round-3.md (R10). Related: SW-957. 30 min.",
+      "body": "From docs/reviews/SW-2116-lsp-recovery-round-3.md (R10). Related: SW-957. 30 min.\n\n7 Nov (SW-2144): std's cold check is ~27 s release on Speedwell, ~120 s on Overmind; it's what every lsp test waits for on a cold cache.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19676,14 +19676,14 @@
     {
       "id": 2144,
       "title": "[Sonnet] Three lsp feature tests (semantic_tokens_colour_names..., signature_help_shows..., completion_offers_locals...) each take ~121 s on Overmind's merge tier and finish within a second of each other: likely all waiting on one cold check-cache fill; find what they wait for and make the fill shared or cheap",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2144",
       "labels": [
         "tests"
       ],
       "epic": "test-infra",
-      "body": "Overmind soak job 5 (f06dd23cd, Linux): merge tier 1183/1183 passed, 282 s of tests (target 90 s on the M1 Pro), load ~10.6 on 8 cores; these three dominate. Also slow there: doc::a_library_name_shows_header_doc_location_and_theorems 93.5 s, pinned_hashes::every_binding_by_hash_applies_to_the_library 85 s. Related: SW-2120 (cold first search). 45 min.",
+      "body": "Overmind soak job 5 (f06dd23cd, Linux): merge tier 1183/1183 passed, 282 s of tests (target 90 s on the M1 Pro), load ~10.6 on 8 cores; these three dominate. Also slow there: doc::a_library_name_shows_header_doc_location_and_theorems 93.5 s, pinned_hashes::every_binding_by_hash_applies_to_the_library 85 s. Related: SW-2120 (cold first search). 45 min.\n\nDone, merged. Cause: the three are just the first to take cached_memory's cold-fill lock (crates/lsp/tests/it/common/mod.rs); the fill ran the checker and search halves in sequence. Now side by side: cold 55 s -> 30 s here (warm ~1.4 s). Server not at fault. Remaining cost is std's cold check itself (~27 s here, ~120 s Overmind): SW-2120's area. lsp 26/26 on main. Model result: Sonnet, worked, 7 min (est. 45).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
