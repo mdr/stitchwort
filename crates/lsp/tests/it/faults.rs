@@ -341,25 +341,112 @@ fn a_file_on_its_own_in_a_project_folder_is_quarantined_by_its_own_key() {
     s.stop();
 }
 
-/// SW-2091 (SW-2094 L1): working out which project to blame reads the
-/// project's configuration. When that panics too, the panic is still
-/// caught: the file is blamed on its own, and checking goes on.
+/// Whether checking has stopped for every project: the session's restart
+/// budget is spent.
+fn checking_stopped(s: &Server) -> bool {
+    s.pop_ups()
+        .iter()
+        .any(|p| p.contains("stopped checking after"))
+}
+
+/// SW-2117 (SW-2116 R2, SW-2094 L1): reading the project's configuration,
+/// to find where a file is kept, panics every time. The panic is caught
+/// there: the file is checked on its own, nothing restarts, and another
+/// project goes on.
 #[test]
-fn a_panic_while_blaming_is_caught_too() {
+fn a_configuration_read_that_always_panics_leaves_the_file_on_its_own() {
     let options = Options::new(STACK);
     let faults = options.faults.clone();
-    // The open's own read panics, and so does the blame's.
-    *faults.sources_panic.lock().unwrap() = Some(("/memory/proj".into(), 2));
+    *faults.sources_panic.lock().unwrap() = Some(("/memory/proj".into(), usize::MAX));
     let s = Server::bare(options);
     s.open(URI, TEXT);
     let shown = s.diagnostics(URI, |p| p["version"] == 1);
     assert!(!internal_error(&shown["params"]), "{shown}");
     s.wait_for(|m| m["method"] == "stitchwort/checked" && m["params"]["versions"][URI] == 1);
+    s.change(URI, 2, &format!("{TEXT}-- edited\n"));
+    let fresh = s.diagnostics(URI, |p| p["version"] == 2);
+    assert!(!internal_error(&fresh["params"]), "{fresh}");
+    s.open(OTHER, OTHER_TEXT);
+    let other = s.diagnostics(OTHER, |p| p["version"] == 1);
+    assert!(!internal_error(&other["params"]), "{other}");
     let pop_ups = s.pop_ups();
     assert!(
-        pop_ups.iter().all(|p| !p.contains("Reload the window")),
+        pop_ups.iter().all(|p| !p.contains("stopped checking")),
         "{pop_ups:?}"
     );
+    s.stop();
+}
+
+/// SW-2117 (SW-2116 R1): the project's configuration reads, but the project
+/// doesn't load (a source folder it lists is missing), so its file is
+/// checked on its own. A panic there is quarantined under the key the file
+/// is kept under, and stays quarantined: working the key out again from the
+/// configuration would give the project's folder, and loop through the
+/// restarts until checking stopped everywhere.
+#[test]
+fn a_file_whose_project_does_not_load_stays_quarantined() {
+    let options = Options::new(STACK);
+    let faults = options.faults.clone();
+    *faults.project_unreadable.lock().unwrap() = Some("/memory/proj".into());
+    *faults.checker_panic.lock().unwrap() = Some(("/memory/proj/src/Demo.sw".into(), usize::MAX));
+    let s = Server::bare(options);
+    s.open(URI, TEXT);
+    s.diagnostics(URI, internal_error);
+    s.open(OTHER, OTHER_TEXT);
+    s.wait_for(|m| m["method"] == "stitchwort/checked" && m["params"]["versions"][OTHER] == 1);
+    s.change(OTHER, 2, &format!("{OTHER_TEXT}-- edited\n"));
+    let other = s.diagnostics(OTHER, |p| p["version"] == 2);
+    assert!(!internal_error(&other["params"]), "{other}");
+    assert!(!checking_stopped(&s), "{:?}", s.pop_ups());
+    let quarantined = |p: &&String| p.contains("stopped checking Demo.sw");
+    assert_eq!(s.pop_ups().iter().filter(quarantined).count(), 1);
+    s.stop();
+}
+
+/// SW-2117 (SW-2116 R3): a panic no workspace can be blamed for, from the
+/// files the client asked for (`stitchwort/focus`), costs one restart. The
+/// successor isn't given those files again, so it doesn't panic in the
+/// same place while reopening, and the project goes on being checked.
+#[test]
+fn a_panic_blamed_on_no_project_is_not_repeated_by_the_successor() {
+    let options = Options::new(STACK);
+    let faults = options.faults.clone();
+    let s = Server::start(options);
+    *faults.focus_panic.lock().unwrap() = Some(("/memory/proj/src/Demo.sw".into(), usize::MAX));
+    s.notify("stitchwort/focus", json!({"uris": [URI]}));
+    s.change(URI, 2, &format!("{TEXT}-- edited\n"));
+    let fresh = s.diagnostics(URI, |p| p["version"] == 2);
+    assert!(!internal_error(&fresh["params"]), "{fresh}");
+    s.wait_for(|m| m["method"] == "stitchwort/checked" && m["params"]["versions"][URI] == 2);
+    let pop_ups = s.pop_ups();
+    assert_eq!(pop_ups.len(), 1, "{pop_ups:?}");
+    assert!(pop_ups[0].contains("recovered"), "{pop_ups:?}");
+    s.stop();
+}
+
+/// SW-2117 (SW-2116 R11): past the session's restart budget (15), checking
+/// stops for every project, with a pop-up, and each open file shows why.
+/// The other tests' `checking_stopped` relies on that pop-up.
+#[test]
+fn the_sessions_restart_budget_stops_checking_everywhere() {
+    let options = Options::new(STACK);
+    let faults = options.faults.clone();
+    let s = Server::start(options);
+    *faults.apply_panic.lock().unwrap() = Some(("/memory/proj/src/Demo.sw".into(), 16));
+    for version in 2..=17 {
+        s.change(URI, version, &format!("{TEXT}-- edit {version}\n"));
+    }
+    s.wait_for(|m| {
+        m["method"] == "window/showMessage"
+            && (m["params"]["message"].as_str())
+                .is_some_and(|p| p.contains("stopped checking after"))
+    });
+    s.open(OTHER, OTHER_TEXT);
+    let other = s.diagnostics(OTHER, |p| p["version"] == 1);
+    let message = other["params"]["diagnostics"][0]["message"]
+        .as_str()
+        .unwrap();
+    assert!(message.contains("checking stopped"), "{other}");
     s.stop();
 }
 
