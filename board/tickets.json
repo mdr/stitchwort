@@ -19092,8 +19092,8 @@
       "id": 2105,
       "title": "[Sonnet] Later: on Linux (Overmind), measure how much of an incremental build is linking, and try mold or lld as the linker if it's a large share",
       "status": "doing",
-      "agent": "",
-      "where": "",
+      "agent": "Opus",
+      "where": "Overmind (laptop)",
       "labels": [
         "tooling"
       ],
