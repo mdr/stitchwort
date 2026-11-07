@@ -482,6 +482,11 @@ fn fields_of_calls_are_compared_alike() {
             "Succ (withProof (Succ (0)))",
             succ(call("withProof", nat(1))),
         ),
+        // The base isn't a call, but a glued call is still inside it.
+        (
+            "Succ (Succ (withProof (0)))",
+            succ(succ(call("withProof", nat(0)))),
+        ),
     ];
     // `countDown` always returns 0, past a plain or a `decreasing` wrapper.
     let zeros = [
@@ -505,6 +510,7 @@ fn fields_of_calls_are_compared_alike() {
         "Succ (innerN (0))",
         "Succ (withProof (outerN (0)))",
         "Succ (withProof (Succ (0)))",
+        "Succ (Succ (withProof (0)))",
     ] {
         assert!(glued[at(name)][two], "{name} isn't 2");
     }
@@ -517,6 +523,8 @@ fn fields_of_calls_are_compared_alike() {
     ] {
         assert!(glued[at(name)][zero], "{name} isn't 0");
     }
+    assert!(glued[at("Succ (Succ (withProof (0)))")][at("Succ (Succ (0))")]);
+    assert!(glued[at("Succ (Succ (withProof (0)))")][at("Succ (innerN (0))")]);
     assert!(glued[at("valueOf (Succ (Succ (0)))")][at("leafOf (Succ (Succ (0)))")]);
     assert!(glued[at("Succ (valueOf (leafOf (0)))")][at("Succ (0)")]);
 }

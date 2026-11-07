@@ -29,7 +29,8 @@ pub enum Value {
     /// A number, standing for `Succ (Succ … Zero)`. See [`native`].
     Nat(Rc<BigUint>),
     /// `k + x` for a number `k ≥ 1` and an `x` not built from numbers:
-    /// `Succ` applied `k` times to `x`. See [`native::view`].
+    /// `Succ` applied `k` times to `x`. See [`native::view`]. The exception
+    /// is `compare_lazily`, which can build `k + call` for a folded call.
     NatAdd(Rc<BigUint>, Rc<Value>),
     /// A `List Char`, standing for `Cons (MkChar c rfl) … Nil`. Never empty
     /// when made by evaluation (that's `Nil`). See [`chars`].
