@@ -338,25 +338,25 @@ theorem List.withIndexFromMap: (s: Nat) → (xs: List a) → (h: (Nat, a) → b)
   | s, [x, ..rest], h => Eq.cong (Cons (s, h (s, x))) (List.withIndexFromMap (Succ s) rest h)
 
 --| Every index of `withIndexFrom t xs` is `t` or more.
-theorem List.indexFromAbove: (t: Nat) → (xs: List a) → (p: (Nat, a)) → p ∈ List.withIndexFrom t xs → t ≤ p.fst
+theorem List.memWithIndexFromLe: (t: Nat) → (xs: List a) → (p: (Nat, a)) → p ∈ List.withIndexFrom t xs → t ≤ p.fst
   | t, [], p, member => Void.exfalso member
   | t, [x, ..rest], p, Inl same => rewrite <- same in Nat.leRefl t
   | t, [x, ..rest], p, Inr later =>
-    let above := List.indexFromAbove (Succ t) rest p later
+    let above := List.memWithIndexFromLe (Succ t) rest p later
     omega
 
 --| `withIndexFrom s xs` has no repeats: its indices are all different.
-theorem List.withIndexFromDistinct: (s: Nat) → (xs: List a) → List.Distinct (List.withIndexFrom s xs)
+theorem List.distinctWithIndexFrom: (s: Nat) → (xs: List a) → List.Distinct (List.withIndexFrom s xs)
   | s, [] => Trivial
   | s, [x, ..rest] =>
     Both
       (member =>
-        let above := List.indexFromAbove (Succ s) rest (s, x) member
+        let above := List.memWithIndexFromLe (Succ s) rest (s, x) member
         omega)
-      (List.withIndexFromDistinct (Succ s) rest)
+      (List.distinctWithIndexFrom (Succ s) rest)
 
 --| `xs.withIndex` has no repeats, whether or not `xs` does.
-theorem List.withIndexDistinct (xs: List a): List.Distinct xs.withIndex := List.withIndexFromDistinct 0 xs
+theorem List.distinctWithIndex (xs: List a): List.Distinct xs.withIndex := List.distinctWithIndexFrom 0 xs
 
 --| The positions `(s, t)`, `(s, t + 1)`, … of `withIndexFrom t xs` have no
 --| repeats, for any fixed first part `s`.
@@ -366,7 +366,7 @@ theorem List.distinctWithIndexFromPaired (s: b): (t: Nat) → (xs: List a) → L
     Both
       (member =>
         Exists.elim (List.memMapElim (p => (s, p.fst)) (s, t) (List.withIndexFrom (Succ t) rest) member) (p both =>
-          let above := List.indexFromAbove (Succ t) rest p (And.left both)
+          let above := List.memWithIndexFromLe (Succ t) rest p (And.left both)
           let same: p.fst = t := Eq.cong Pair.snd (And.right both)
           omega))
       (List.distinctWithIndexFromPaired s (Succ t) rest)

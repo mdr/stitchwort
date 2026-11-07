@@ -187,7 +187,7 @@ theorem rowCellsDistinct (row: Nat) (pixels: List Pixel):
 --| so cells of different rows differ.
 theorem roughAtDistinct (image: Image): List.Distinct image.roughAt :=
   let rowOf := (at: List Nat) => (at.headOr 0, (image.rows.get (at.headOr 0)).getOrElse [])
-  List.distinctFlatMap _ rowOf image.rows.withIndex (List.withIndexDistinct image.rows)
+  List.distinctFlatMap _ rowOf image.rows.withIndex (List.distinctWithIndex image.rows)
     (entry member => rowCellsDistinct entry.fst entry.snd)
     (entry member at inRow =>
       match entry with

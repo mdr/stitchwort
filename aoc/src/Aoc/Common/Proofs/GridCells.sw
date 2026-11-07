@@ -127,7 +127,7 @@ theorem rowsAbove (s: Nat) (rows: List (List a)) (q: (Nat, Nat))
     List.anyElim (p => cell ∈ rowCells p.fst p.snd) (s ≤ q.fst) (List.withIndexFrom s rows)
       (List.memFlatMapElim (p => rowCells p.fst p.snd) cell (List.withIndexFrom s rows) (And.left both))
       (p inRows inRow =>
-        let above := List.indexFromAbove s rows p inRows
+        let above := List.memWithIndexFromLe s rows p inRows
         let atRow := rowCellsRow p.fst p.snd cell inRow
         let same: cell.fst = q := And.right both
         rewrite <- same in omega))
