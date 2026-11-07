@@ -1,5 +1,5 @@
 {
-  "next": 1965,
+  "next": 1971,
   "tickets": [
     {
       "id": 47,
@@ -15644,7 +15644,7 @@
         "syntax"
       ],
       "epic": "syntax-language",
-      "body": "From the syntax code review (docs/reviews/code-review-syntax.md, tickets to file, 2; F2). 45 min.\n\nWidened by the Opus review (docs/reviews/code-review-syntax-opus.md, F3, F4, F14): also long comparison chains and exists with many typed parameters recurse after parsing; drop test per boxed variant.",
+      "body": "From the syntax code review (docs/reviews/code-review-syntax.md, tickets to file, 2; F2). 45 min.\n\nWidened by the Opus review (docs/reviews/code-review-syntax-opus.md, F3, F4, F14): also long comparison chains and exists with many typed parameters recurse after parsing; drop test per boxed variant.\n\nFrom docs/proposals/deep-input.md (stage 3): also build comparison chains in a loop and make Expr's child list exhaustive.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15659,7 +15659,7 @@
         "syntax"
       ],
       "epic": "syntax-language",
-      "body": "From the syntax code review (docs/reviews/code-review-syntax.md, tickets to file, 3; F3, F7). 60 min. Findings go to tickets.\n\nThe Opus review adds (F7): half the cases are token soup that almost always contains a tab, so never reach the parser; check span invariants; run each case on a thread; it should find SW-1916's panic before that lands.",
+      "body": "From the syntax code review (docs/reviews/code-review-syntax.md, tickets to file, 3; F3, F7). 60 min. Findings go to tickets.\n\nThe Opus review adds (F7): half the cases are token soup that almost always contains a tab, so never reach the parser; check span invariants; run each case on a thread; it should find SW-1916's panic before that lands.\n\nFrom docs/proposals/deep-input.md: the deep generators move to SW-1965.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15914,7 +15914,7 @@
         "rt"
       ],
       "epic": "effects-native",
-      "body": "From docs/reviews/code-review-rt.md (F2). 45 min.",
+      "body": "From docs/reviews/code-review-rt.md (F2). 45 min.\n\nFrom docs/proposals/deep-input.md (stage 5): possibly fold in SW-1898's chain drop.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15959,7 +15959,7 @@
         "rt"
       ],
       "epic": "effects-native",
-      "body": "From docs/reviews/code-review-rt.md (F5). 45 min.",
+      "body": "From docs/reviews/code-review-rt.md (F5). 45 min.\n\nFrom docs/proposals/deep-input.md: see SW-1967.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -16575,7 +16575,7 @@
         "tactics"
       ],
       "epic": "proof-automation",
-      "body": "From docs/reviews/code-review-elab-tactics.md (F1, F2, F16). 45 min.",
+      "body": "From docs/reviews/code-review-elab-tactics.md (F1, F2, F16). 45 min.\n\nFrom docs/proposals/deep-input.md (stage 4): after SW-1886.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -16868,14 +16868,14 @@
     {
       "id": 1956,
       "title": "[Opus] Design note: one policy for deep input (stack overflows outside the parser's depth check: patterns and chains SW-1874, omega/ring readers SW-1936, nested array drop SW-1892, rt compiler SW-1895, the formatter's equivalence SW-1877): depth guards, loops, a bigger stack, or a test that finds them",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1956",
       "labels": [
         "design"
       ],
       "epic": "test-infra",
-      "body": "Matt (7 Nov 2026): parallel design work. The reviews found the same failure in five crates. Expected: 60 min.",
+      "body": "Matt (7 Nov 2026): parallel design work. The reviews found the same failure in five crates. Expected: 60 min.\n\nDone, merged: docs/proposals/deep-input.md. Policy: loops where depth comes from length or there's no error path (Drop, Clone, Debug, comparisons); guards with E-RESOURCE elsewhere; every entry point in an operation (a guard outside one does nothing today); 64 MiB stack as headroom; no stacker (no help in the browser). D2750-D2754 (D2751: elaborator walks long chains without recursion, the playground's main win; note later). Tickets SW-1965-SW-1970; stages 3-5 on SW-1874, SW-1936, SW-1892. 7 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -16996,6 +16996,96 @@
       ],
       "epic": "dev-loop-speed",
       "body": "From docs/proposals/kernel-merge-gate.md. D2735 [rec: yes]. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1965,
+      "title": "[Sonnet] Deep-input corpus: a table of deep and long shapes run through every consumer in a child process; each gives an answer or E-RESOURCE, never a crash; known gaps listed with their ticket so it lands green",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "robustness"
+      ],
+      "epic": "test-infra",
+      "body": "From docs/proposals/deep-input.md. Stage 1. Absorbs SW-1875's deep generators. D2754 tier [rec: subset in merge tier under 5 s, full daily]. 75 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1966,
+      "title": "[DeepSeek] Lint: self-recursive functions with no guard and no // Depth: comment; a test-build panic when a stack guard is reached outside an operation (today it silently does nothing, budget.rs:178, :652)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "robustness"
+      ],
+      "epic": "test-infra",
+      "body": "From docs/proposals/deep-input.md. Stage 2. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1967,
+      "title": "[Sonnet] Runtime compile becomes fallible and runs inside lowering's operation, so its depth guard works",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "robustness"
+      ],
+      "epic": "test-infra",
+      "body": "From docs/proposals/deep-input.md. Stage 6; with SW-1895. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1968,
+      "title": "[Sonnet] Formatter depth: run inside an operation; the stack part of SW-1876 and DEFAULT_STACK part of SW-1877",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "robustness"
+      ],
+      "epic": "test-infra",
+      "body": "From docs/proposals/deep-input.md. Stage 7. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1969,
+      "title": "[Sonnet] Stack overflow on the language server's thread: a message instead of a silent abort (cli review F11)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "robustness"
+      ],
+      "epic": "test-infra",
+      "body": "From docs/proposals/deep-input.md. Stage 8. With SW-1955's policy. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1970,
+      "title": "[DeepSeek] Depth error wording: the pass name 'equations' reads as 'nested too deeply for the equations'",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "robustness"
+      ],
+      "epic": "test-infra",
+      "body": "From docs/proposals/deep-input.md. Stage 9. 30 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
