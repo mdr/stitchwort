@@ -28,7 +28,7 @@ theorem lookupLastMem [auto ord: Ord k] (key: k) (value: v): (pairs: List (k, v)
 
 --| The lowest bit of a number written lowest first, and the rest.
 theorem fromBitsLow (bit: Bool) (rest: List Bool): Nat.testBit ((Bits.fromLowFirst [bit, ..rest]).value) 0 = bit :=
-  rewrite Bits.valueFromLowFirst bit rest, testBitZero (Bool.toNat bit + (Bits.fromLowFirst rest).value * 2), Nat.modAddMul bit.toNat (Bits.fromLowFirst rest).value 2 in toNatOdd bit
+  rewrite Bits.valueFromLowFirst bit rest, testBitZero (Bool.toNat bit + (Bits.fromLowFirst rest).value * 2), Nat.modAddMul bit.toNat (Bits.fromLowFirst rest).value 2 in Bool.toNatOdd bit
 
 theorem fromBitsHigh (bit: Bool) (rest: List Bool) (index: Nat): Nat.testBit ((Bits.fromLowFirst [bit, ..rest]).value) (Succ index) = Nat.testBit ((Bits.fromLowFirst rest).value) index :=
   rewrite Bits.valueFromLowFirst bit rest, Nat.testBitSucc (Bool.toNat bit + (Bits.fromLowFirst rest).value * 2) index, (omega [Bool.toNatLeOne bit]: (Bool.toNat bit + (Bits.fromLowFirst rest).value * 2) / 2 = (Bits.fromLowFirst rest).value) in rfl
