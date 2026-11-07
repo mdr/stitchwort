@@ -1,0 +1,40 @@
+diff --git a/crates/elab/src/unify.rs b/crates/elab/src/unify.rs
+index 65965f23a..1774a4fa8 100644
+--- a/crates/elab/src/unify.rs
++++ b/crates/elab/src/unify.rs
+@@ -1221,8 +1221,15 @@ fn may_mention_meta(spine: &[Elim]) -> bool {
+ const MENTION_LOOK: usize = 64;
+ 
+ fn blocked_within(g: &Unifier<'_>, v: &Value, depth: usize) -> Result<bool> {
+-    let Value::Neutral(Head::Def(_), spine) = force(g, v.clone())? else {
+-        return Ok(false);
++    let spine = match force(g, v.clone())? {
++        Value::Neutral(Head::Def(_), spine) => spine,
++        // A field of an unknown, `?r.f`: rule 2 opens an accessor on an
++        // unknown record to this, where without eta it stopped at the call
++        // `R.f ?r`, stuck on `?r`.
++        Value::Neutral(Head::Meta(m), spine) if matches!(spine.last(), Some(Elim::Proj(..))) => {
++            return Ok(!frozen(g, m));
++        }
++        _ => return Ok(false),
+     };
+     for elim in spine.iter() {
+         let Elim::App(arg, _) = elim else {
+@@ -1696,7 +1703,16 @@ fn same_field_records(
+     if (d1, i1) != (d2, i2) {
+         return Ok(false);
+     }
+-    let record = |h: &Head, s: &Spine| Value::Neutral(*h, Spine::from(s[..s.len() - 1].to_vec()));
++    // A field of a call kept by name (`(f x).i`, `Frame::CallField`) is a
++    // `Def` head whose spine ends in the projection: its record is the call
++    // `f x`, glued, not `f x` as a stuck neutral, which it may not be.
++    let record = |h: &Head, s: &Spine| {
++        let spine = Spine::from(s[..s.len() - 1].to_vec());
++        match h {
++            Head::Def(id) if g.machine.glue.get() => Value::Call(*id, spine, Default::default()),
++            _ => Value::Neutral(*h, spine),
++        }
++    };
+     let trail = g.store.meta_trail.borrow().len();
+     let task = Task::Values(level, record(h1, s1), record(h2, s2));
+     if nested(g, || run(g, vec![task], mode))? {
