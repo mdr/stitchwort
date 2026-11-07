@@ -12,10 +12,13 @@
 //! have to copy them (2 MB a mark on the AoC project, 15,000 rows: most of
 //! what a language server's mark cost, elaborator-state.md §9 F11); the
 //! namespaces checked again fill them again, at no measured cost (SW-1179).
+//! They are also emptied before each declaration, whose syntax may take the
+//! addresses of the one before (SW-1800).
 //! The content hashes are a cache too, but live in `core`, in the kernel's
 //! `EvalCaches`.
 
 use std::cell::RefCell;
+use std::rc::Rc;
 
 use stitchwort_core::DataId;
 use stitchwort_core::DefId;
@@ -33,6 +36,13 @@ pub(crate) struct Caches {
     /// Dot calls whose prefix form failed, with the metavariable state it
     /// failed in: not tried again until that changes (`dot::infer_call`).
     pub(crate) dot_failed: RefCell<HashSet<(dot::CallKey, usize, usize)>>,
+    /// The queue's checks that have been resumed since the dot-call tables
+    /// were last emptied, kept so that the syntax they own stays where it
+    /// is: the tables' keys are addresses of syntax, and a check's copy of
+    /// its syntax, freed, could be followed by another one at the same
+    /// address, which would find what the first one's calls left there
+    /// (SW-1800, [`Caches::forget_dot_calls`]).
+    pub(crate) dot_owners: RefCell<Vec<Rc<dyn crate::queue::Check>>>,
     /// Each definition's congruence lemmas for `rewrite`
     /// (`congruence::candidates`), with how many definitions there were
     /// when they were looked up: a later declaration may add one.
@@ -62,20 +72,44 @@ pub(crate) struct Mark;
 impl Caches {
     /// Empties every cache. The elaborator gives the same results.
     pub(crate) fn clear(&mut self) {
+        self.forget_dot_calls();
         let Caches {
-            dot_heads,
-            dot_failed,
+            dot_heads: _,
+            dot_failed: _,
+            dot_owners: _,
             cong_candidates,
             result_heads,
             decision_order,
             performs,
         } = self;
-        dot_heads.get_mut().clear();
-        dot_failed.get_mut().clear();
         cong_candidates.get_mut().clear();
         result_heads.get_mut().clear();
         *decision_order.get_mut() = None;
         performs.get_mut().clear();
+    }
+
+    /// Empties the dot-call tables, which are keyed by the addresses of the
+    /// syntax being checked, and lets go of the syntax kept for them. Done
+    /// before each declaration ([`crate::Elaborator::glued`]): a key is
+    /// only valid while the syntax at its address is the syntax it was made
+    /// for, which the declaration's own syntax (borrowed while it is
+    /// checked) and the queue's copies ([`Caches::keep_dot_owner`]) are
+    /// until then. Another declaration, the next derived one say, may be at
+    /// the same addresses with the same spans, and a fresh metavariable
+    /// state that matches the one an entry was made in.
+    pub(crate) fn forget_dot_calls(&mut self) {
+        self.dot_heads.get_mut().clear();
+        self.dot_failed.get_mut().clear();
+        self.dot_owners.get_mut().clear();
+    }
+
+    /// Keeps `check`, about to be resumed, until the dot-call tables are
+    /// emptied, so that no other syntax takes the addresses of its own.
+    pub(crate) fn keep_dot_owner(&self, check: &Rc<dyn crate::queue::Check>) {
+        let mut owners = self.dot_owners.borrow_mut();
+        if !owners.last().is_some_and(|last| Rc::ptr_eq(last, check)) {
+            owners.push(check.clone());
+        }
     }
 
     pub(crate) fn mark(&self) -> Mark {
@@ -86,17 +120,17 @@ impl Caches {
     /// definitions in the world that remains: what may no longer be true
     /// goes.
     pub(crate) fn rewind(&mut self, _: &Mark, defs: usize) {
+        // Their keys' addresses may be reused by what is checked next.
+        self.forget_dot_calls();
         let Caches {
-            dot_heads,
-            dot_failed,
+            dot_heads: _,
+            dot_failed: _,
+            dot_owners: _,
             cong_candidates,
             result_heads,
             decision_order,
             performs,
         } = self;
-        // Their keys' addresses may be reused by what is checked next.
-        dot_heads.get_mut().clear();
-        dot_failed.get_mut().clear();
         cong_candidates.get_mut().clear();
         result_heads.get_mut().truncate(defs);
         // It may list definitions declared since the mark, whose numbers the
