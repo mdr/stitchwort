@@ -1,5 +1,5 @@
 {
-  "next": 2240,
+  "next": 2242,
   "tickets": [
     {
       "id": 47,
@@ -19878,7 +19878,7 @@
         "core"
       ],
       "epic": "record-eta",
-      "body": "From SW-2126. Repro: scratchpad p/probe.sw theorem a2 (copy it into the ticket's test). A missing equality, not a D3030 disagreement. 60 min.\n\n7 Nov (docs/reviews/SW-2158-glued-leaf-unfolding.md): its own lane, confirmed; add a Succ (outerN 0) term to the matrix.\n\n7 Nov (SW-2211): add the depth-3 case: glued, Succ (withProof (outerN 0)) against Succ (withProof 1) is true, unglued false; and glued isn't transitive with 2 there. Same root: the number comparison doesn't unfold a folded call under Succ.\n\nDone, merged. assign callback unfolds a folded base and compares again (glued, unglued, reference, unifier); SW-2211's rule removed as redundant; core.md rewritten. AoC 287/0 errors, 80 s. Review SW-2239. Model result: Opus, worked, 18 min (est. 60).\n\nBatch check on main (17:13-17:18): proof_equivalence/call_fields/eta_fields/hash_stability 21/21; succ-of-folded-call example 12/12; AoC check --no-cache 287 namespaces, 0 errors, 87.5 s wall / 70.0 s user (3 lanes running); rogue clean; audit Std.List 858 passed, 0 warnings.",
+      "body": "From SW-2126. Repro: scratchpad p/probe.sw theorem a2 (copy it into the ticket's test). A missing equality, not a D3030 disagreement. 60 min.\n\n7 Nov (docs/reviews/SW-2158-glued-leaf-unfolding.md): its own lane, confirmed; add a Succ (outerN 0) term to the matrix.\n\n7 Nov (SW-2211): add the depth-3 case: glued, Succ (withProof (outerN 0)) against Succ (withProof 1) is true, unglued false; and glued isn't transitive with 2 there. Same root: the number comparison doesn't unfold a folded call under Succ.\n\nDone, merged. assign callback unfolds a folded base and compares again (glued, unglued, reference, unifier); SW-2211's rule removed as redundant; core.md rewritten. AoC 287/0 errors, 80 s. Review SW-2239. Model result: Opus, worked, 18 min (est. 60).\n\nBatch check on main (17:13-17:18): proof_equivalence/call_fields/eta_fields/hash_stability 21/21; succ-of-folded-call example 12/12; AoC check --no-cache 287 namespaces, 0 errors, 87.5 s wall / 70.0 s user (3 lanes running); rogue clean; audit Std.List 858 passed, 0 warnings.\n\nReview SW-2239: sound; SW-2240, SW-2241.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21101,14 +21101,44 @@
     {
       "id": 2239,
       "title": "[Opus] Review SW-2157 (number comparison unfolds folded bases under Succ in all four places; removes SW-2211's rule): soundness; the unifier unfolding before plus_rule; the lazy path passing a non-call base with glued calls inside to assign",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2239",
       "labels": [
         "review"
       ],
       "epic": "record-eta",
-      "body": "D2364. Read-only; may fold into SW-2236. 30 min.",
+      "body": "D2364. Read-only; may fold into SW-2236. 30 min.\n\nDone, merged: docs/reviews/SW-2239-succ-folded-base.md. Sound: all four places agree, transitivity holds, removing SW-2211's rule safe (wrap 0 against 0 equal everywhere). F1 -> SW-2240; F2, F3 -> SW-2241.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2240,
+      "title": "[Opus] Unifier: the Succ folded-base rule (unify.rs:1379) starts a nested unification per level; push the pair onto the work list as conv_step does, so a deep chain (count 5000 = 5000 := rfl) doesn't hit a resource error and a pair waiting on an unknown is postponed, not failed; accept examples for both",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "record-eta",
+      "body": "From docs/reviews/SW-2239-succ-folded-base.md F1. D2506 (unifier work on Opus). 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2241,
+      "title": "[Sonnet] Equality matrix: Succ (Succ (withProof (0))) (the lazy path's non-call base), an unknown solved through the unfolding; Value::NatAdd's doc line: compare_lazily can now build k + call",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "record-eta",
+      "body": "From docs/reviews/SW-2239-succ-folded-base.md F2, F3 (SW-2235 already added valueOf and leafOf). 30 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
