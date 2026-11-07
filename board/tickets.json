@@ -1,5 +1,5 @@
 {
-  "next": 2157,
+  "next": 2158,
   "tickets": [
     {
       "id": 47,
@@ -19406,14 +19406,14 @@
     {
       "id": 2126,
       "title": "[Opus] Fields of folded calls: an unfolded folded call that can still compute counts as stuck (FoldedField, eta_fields), so a case on its field may stay stuck glued while unglued computes it (D3030); probe with proof_equivalence matrix terms (a decreasing definition whose last step calls another folded one) and fix if they differ; also a folded call reached through a solved meta still shows its internals (F4)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2126",
       "labels": [
         "core"
       ],
       "epic": "record-eta",
-      "body": "From docs/reviews/SW-2125-folded-call-fields.md (lane A: F1, F4). 75 min.",
+      "body": "From docs/reviews/SW-2125-folded-call-fields.md (lane A: F1, F4). 75 min.\n\nMerged. F1 was real: glued left a decreasing helper's leaf folded call (inner 0) unfolded where unglued computes it, in Frame::Unfolding and in conversion's unfold_folded (outerN 0 = 1 := rfl was rejected). Both now force the glued call and unfold again. F4 fixed (eta_fields sees through solved metas; ReplayElim names the field) plus a ReplayElim panic projecting a glued helper call. Probe rows in the matrix, two call_fields tests. Lane: core 179, elab 158, snap:hashes unchanged, AoC 0 errors (62 s). Two goal_index snapshots SW-2096 missed accepted (orchestrator's call). Follow-up SW-2157. Changes kernel conversion (accepts more): covered by SW-2145's reviewer? no — filed below. Model result: Opus, worked, 36 min (est. 75).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19864,6 +19864,21 @@
       ],
       "epic": "dev-loop-speed",
       "body": "Read-only Opus lane, 7 Nov. From SW-2144 and SW-2120. Expected: 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2157,
+      "title": "[Opus] Numeric comparison misses folded call bases: Succ (innerN 0) = 2 := rfl fails though innerN 0 = 1 holds, in glued, unglued and the reference evaluator alike (native::compare_lazily, compare_with's always-no callbacks in value.rs and reference.rs, the unifier's native::compare); unfold folded call bases everywhere at once so the proof_equivalence matrix stays consistent",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "record-eta",
+      "body": "From SW-2126. Repro: scratchpad p/probe.sw theorem a2 (copy it into the ticket's test). A missing equality, not a D3030 disagreement. 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
