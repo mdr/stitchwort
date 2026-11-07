@@ -14495,9 +14495,9 @@
     {
       "id": 1798,
       "title": "Editor: each searched completion, code action or contextAt (Searcher::run → probe_project → load_all_libraries) replays the whole std in a fresh session: a per-request cost in the real server; reuse a search session across requests (SW-1796)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1798",
       "labels": [
         "perf"
       ],
