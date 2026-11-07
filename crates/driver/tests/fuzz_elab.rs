@@ -5,7 +5,7 @@
 //! a whole check, with the check cache and the elaborator's limits; the
 //! syntax, formatter and kernel fuzzers sit in their own crates.
 //!
-//! The generator is the syntax fuzzer's (`crates/syntax/tests/fuzz.rs`: the
+//! The generator is the syntax fuzzer's (`crates/syntax/tests/it/fuzz.rs`: the
 //! xorshift `Rng`, `TOKENS`, and the character-level edits `swap_ranges` and
 //! range delete or duplicate), copied rather than shared, because a test
 //! file can't be depended on and a new crate for 60 lines isn't worth it.

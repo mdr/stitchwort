@@ -3,7 +3,7 @@
 //! checks) is a formatter bug. Every output must also be stable: formatting it
 //! again changes nothing. This feeds it thousands of mutated example programs
 //! and random token soup, from the same generator and seed as
-//! `crates/syntax/tests/fuzz.rs`, so failures are reproducible.
+//! `crates/syntax/tests/it/fuzz.rs`, so failures are reproducible.
 
 use std::ops::Range;
 use std::panic::{AssertUnwindSafe, catch_unwind};
