@@ -1,5 +1,5 @@
 {
-  "next": 1865,
+  "next": 1869,
   "tickets": [
     {
       "id": 47,
@@ -15014,7 +15014,7 @@
         "readback"
       ],
       "epic": "goal-as-written",
-      "body": "Brief in docs/proposals/bounded-readback-remaining.md §5.2 (stage 4a). 100 min. After SW-1830; D2611. Absorbs SW-1750, SW-1739, SW-1698.\n\nD2613, D2614 apply here too (see SW-1830's note).",
+      "body": "Brief in docs/proposals/bounded-readback-remaining.md §5.2 (stage 4a). 100 min. After SW-1830; D2611. Absorbs SW-1750, SW-1739, SW-1698.\n\nD2613, D2614 apply here too (see SW-1830's note).\n\nFrom SW-1845: the reader's memo must not outlive one question unless its key moves when new solutions are added; keying by the epoch alone would keep stale 'doesn't mention' answers.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15164,7 +15164,7 @@
         "elab"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-1321's audit (docs/reviews/SW-1321-stale-stuck-calls.md, F1, F1b, F3). Ready now (D2603 rec: now). Repro in the review.",
+      "body": "From SW-1321's audit (docs/reviews/SW-1321-stale-stuck-calls.md, F1, F1b, F3). Ready now (D2603 rec: now). Repro in the review.\n\nSW-1845 (docs/proposals/stuck-blockers.md): covered by stuck blockers stage 1 (SW-1866) if Matt takes D2620 (systemic first) [rec: yes]; otherwise this per-site fix stands (D2603).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15179,7 +15179,7 @@
         "elab"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-1321's audit (docs/reviews/SW-1321-stale-stuck-calls.md, F2). Ready now. Kernel-adjacent (SW-1782's modes).",
+      "body": "From SW-1321's audit (docs/reviews/SW-1321-stale-stuck-calls.md, F2). Ready now. Kernel-adjacent (SW-1782's modes).\n\nSW-1845 (docs/proposals/stuck-blockers.md): covered by stuck blockers stage 1 (SW-1866) if Matt takes D2620 (systemic first) [rec: yes]; otherwise this per-site fix stands (D2603).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15194,7 +15194,7 @@
         "elab"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-1321's audit (docs/reviews/SW-1321-stale-stuck-calls.md, F5). Ready now. Expected: 45 min.",
+      "body": "From SW-1321's audit (docs/reviews/SW-1321-stale-stuck-calls.md, F5). Ready now. Expected: 45 min.\n\nSW-1845 (docs/proposals/stuck-blockers.md): covered by stuck blockers stage 1 (SW-1866) if Matt takes D2620 (systemic first) [rec: yes]; otherwise this per-site fix stands (D2603).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15202,14 +15202,14 @@
     {
       "id": 1845,
       "title": "[Opus] Design note: stuck values record which unknown they wait on, and looking at one runs it again once that unknown is solved; the systemic fix for SW-1321's findings",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1845",
       "labels": [
         "elab"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-1321's audit (docs/reviews/SW-1321-stale-stuck-calls.md, D2603). Would make the per-site tickets after it unnecessary.\n\nMatt (7 Nov 2026): more design work; started as a note only (D2603 still open: implementation waits for it). Opus, expected 60 min.",
+      "body": "From SW-1321's audit (docs/reviews/SW-1321-stale-stuck-calls.md, D2603). Would make the per-site tickets after it unnecessary.\n\nMatt (7 Nov 2026): more design work; started as a note only (D2603 still open: implementation waits for it). Opus, expected 60 min.\n\nDone, merged: docs/proposals/stuck-blockers.md. One blocker per stuck call (a case tree stops at one scrutinee), 4 bytes in Head::Def, ignored by equality and hashing; kernel never sets or acts on it (NoMetas). Stages: SW-1865 (DeepSeek), SW-1866 (Opus), SW-1867, SW-1868 (backlog). D2620 systemic first, over D2603's per-site-first [rec: yes]; D2621 folded read-back re-evaluates stale stuck calls too [yes]; D2622 stage 3 not now; D2623 bench counts before and after [yes]. Finding: the bounded readback reader's memo must not outlive one question unless keyed on new solutions, not the epoch alone (noted on SW-1832). 9 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15224,7 +15224,7 @@
         "elab"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-1321's audit (docs/reviews/SW-1321-stale-stuck-calls.md, F6). Waits on SW-1845's outcome (D2603).",
+      "body": "From SW-1321's audit (docs/reviews/SW-1321-stale-stuck-calls.md, F6). Waits on SW-1845's outcome (D2603).\n\nSW-1845: made unnecessary by SW-1866 if D2620 is yes.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15239,7 +15239,7 @@
         "elab"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-1321's audit (docs/reviews/SW-1321-stale-stuck-calls.md, F4). Waits on SW-1845's outcome (D2603).",
+      "body": "From SW-1321's audit (docs/reviews/SW-1321-stale-stuck-calls.md, F4). Waits on SW-1845's outcome (D2603).\n\nSW-1845: made unnecessary by SW-1866 if D2620 is yes.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15254,7 +15254,7 @@
         "elab"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-1321's audit (docs/reviews/SW-1321-stale-stuck-calls.md, F7). Waits on SW-1845's outcome (D2603).",
+      "body": "From SW-1321's audit (docs/reviews/SW-1321-stale-stuck-calls.md, F7). Waits on SW-1845's outcome (D2603).\n\nSW-1845: made unnecessary by SW-1866 if D2620 is yes.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15495,6 +15495,66 @@
       ],
       "epic": "docs-tutorials",
       "body": "From SW-1850's audit (docs/reviews/SW-1850-guide-accuracy.md §6, ticket 11). 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1865,
+      "title": "[DeepSeek] Stuck blockers stage 0: mechanical sweep of the ~156 Head::Def uses for a blocker field (ignored by equality and hashing), size assertions, a cheap is_solved check (needs_forcing stops cloning a solution); no behaviour change",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "Brief and design in docs/proposals/stuck-blockers.md (SW-1845). Waiting on D2620. 40 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1866,
+      "title": "[Opus] Stuck blockers stage 1: blockers set when a case tree gets stuck, kept through arguments and projections; force and Unfolding::get re-evaluate once solved; SW-1321's repros as named tests",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "Brief and design in docs/proposals/stuck-blockers.md (SW-1845). After SW-1865; D2620, D2621, D2623 (bench counts before and after). 150 min. Covers SW-1842-SW-1844; makes SW-1846-SW-1848 unnecessary.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1867,
+      "title": "[Sonnet] Stuck blockers stage 2: remove refreshes that existed only for staleness",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "Brief and design in docs/proposals/stuck-blockers.md (SW-1845). After SW-1866. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1868,
+      "title": "[Opus] Stuck blockers stage 3 (backlog until a friction note shows the case): waiting checks also wait on a stuck type's blocker",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "Brief and design in docs/proposals/stuck-blockers.md (SW-1845). D2622 [rec: not now]. 90 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []

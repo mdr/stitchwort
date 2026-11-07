@@ -248,7 +248,7 @@
         "Record eta merged; whole-AoC check 69 s → over 6 min, being fixed (SW-1829; D2586 revert if no clear fix)"
       ],
       "next": [
-        "Stale stuck calls: unknowns inside constructor arguments, cached stuck results recomputed, tactics re-evaluate first (SW-1842, SW-1843, SW-1844); design note for the general fix (SW-1845, D2603)",
+        "Stale stuck calls, fixed at the root: a stuck call records the unknown that stopped it (docs/proposals/stuck-blockers.md; SW-1865, SW-1866, SW-1867; D2620-D2623), else per site (SW-1842-SW-1844)",
         "Syntax ids for dot calls, so no cache depends on memory addresses (SW-1803, D2577-D2580)",
         "Fix the check that hangs on a theorem whose statement names a large computation: the kernel evaluates a closed statement unfolded (SW-1534)",
         "Postponement: close the two queue gaps and keep the expected type folded (SW-1003, SW-1008, SW-1009)",
