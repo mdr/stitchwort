@@ -21310,10 +21310,10 @@
     },
     {
       "id": 2253,
-      "title": "[Sonnet] Elaborator shape rules against folded calls: cases can't find what pick 3 b is stuck on (cases.rs:1724-1733); omega treats two 0 as an unknown atom (omega.rs:1959); check ring",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "title": "[Sonnet] Elaborator shape rules against folded calls, step 1: omega treats a folded call like two 0 as an unknown atom (omega.rs:1959); see through it (cases and ring are later steps)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2253",
       "labels": [
         "core"
       ],
@@ -21371,9 +21371,9 @@
     {
       "id": 2257,
       "title": "[Opus] Equality G1 and G3: two alike match helpers on a folded call or a number",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2257",
       "labels": [
         "core"
       ],
@@ -21596,9 +21596,9 @@
     {
       "id": 2272,
       "title": "[Opus] Review SW-2269 (TreeMemo remembers pairs found different; recorded only when no unification is open, or the spines have no unknowns and eta is on): could a cached 'different' ever be stale (completeness, not soundness)?",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2272",
       "labels": [
         "review"
       ],
