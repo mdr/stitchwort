@@ -1,5 +1,5 @@
 {
-  "next": 1854,
+  "next": 1865,
   "tickets": [
     {
       "id": 47,
@@ -12180,7 +12180,7 @@
         "unifier"
       ],
       "epic": "record-eta",
-      "body": "D2498-D2505 (Matt, 6 Nov 2026): all as recommended in docs/proposals/record-eta.md: kernel record eta with primitive projections (no parameters) and the two rules; eta by shape incl. Pair; no no-eta opt-out now; no eta for interface dictionaries; accept goals changing shape; keep T.ext; accept ~5% checking cost (profile it); staged kernel (Opus), unifier, Pair, clean-up sweep (Sonnet). After SW-1642.\n\nOpus (kernel/unifier soundness; Matt, 6 Nov 2026).\n\nSW-1849 (docs/proposals/record-eta-remaining.md, 7 Nov): stage 1 already built unifier eta (rule 1 with §8's restrictions, D2511's same-field rule). Becomes stage 2': elaborator-level tests (records.md §7.3/§14), a surface example in examples/, and the guide and syntax.md text stage 1 missed. Opus, 60 min, brief in §5. After SW-1829; not beside bounded readback 4a/4c (all edit unify.rs). D2630 [rec: yes].",
+      "body": "D2498-D2505 (Matt, 6 Nov 2026): all as recommended in docs/proposals/record-eta.md: kernel record eta with primitive projections (no parameters) and the two rules; eta by shape incl. Pair; no no-eta opt-out now; no eta for interface dictionaries; accept goals changing shape; keep T.ext; accept ~5% checking cost (profile it); staged kernel (Opus), unifier, Pair, clean-up sweep (Sonnet). After SW-1642.\n\nOpus (kernel/unifier soundness; Matt, 6 Nov 2026).\n\nSW-1849 (docs/proposals/record-eta-remaining.md, 7 Nov): stage 1 already built unifier eta (rule 1 with §8's restrictions, D2511's same-field rule). Becomes stage 2': elaborator-level tests (records.md §7.3/§14), a surface example in examples/, and the guide and syntax.md text stage 1 missed. Opus, 60 min, brief in §5. After SW-1829; not beside bounded readback 4a/4c (all edit unify.rs). D2630 [rec: yes].\n\nSW-1850: the guide's record eta text and a tour page are SW-1859; do them together.",
       "created": "2026-11-06",
       "updated": "2026-11-07",
       "commits": []
@@ -14781,14 +14781,14 @@
     {
       "id": 1817,
       "title": "[Sonnet] Guide arrays section: --js runs version arrays since SW-1638 (not 'on the list'); check the feature-tour's 16 s day 15 figure against SW-1637's 27 s",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "performance",
-      "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T9). Small. Ready now.",
+      "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T9). Small. Ready now.\n\nSW-1850: absorbed by SW-1854; the feature tour's 16 s day 15 figure is correct (SW-1657).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15277,14 +15277,14 @@
     {
       "id": 1850,
       "title": "[Opus] Language guide audit: does docs/guide (and docs/syntax.md) still say what the language does after the last two weeks' changes (record eta, bounded readback, Float operators, match warnings, arrays under --js, test:affected); list each stale passage with a fix; reading only",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1850",
       "labels": [
         "docs"
       ],
       "epic": "docs-tutorials",
-      "body": "Matt (7 Nov 2026): more analysis work. Expected: 60 min. No builds.",
+      "body": "Matt (7 Nov 2026): more analysis work. Expected: 60 min. No builds.\n\nDone, merged: docs/reviews/SW-1850-guide-accuracy.md. Eight wrong passages (arrays under --js, chapter 11's profile, record literals, Unicode in messages, three in syntax.md, the arrays tour page); missing: record eta, @[tailrec], test --only/--json, W-MATCH-NOT-FOUND, holes, Float. Tickets SW-1854-SW-1864. D2635 record eta docs now, not after the sweep [rec: yes]; D2636 a 5-20 s profiled run for SW-1855 [rec: yes]. 8 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15330,6 +15330,171 @@
       ],
       "epic": "record-eta",
       "body": "Brief in docs/proposals/record-eta-remaining.md §5. 60 min. After SW-1851.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1854,
+      "title": "[Sonnet] Guide arrays under --js (version arrays since SW-1638, not 'on the list'), the std Array doc too, the tour's 'arrays are for numbers', and the 'take the pair apart first' idiom",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "epic": "docs-tutorials",
+      "body": "From SW-1850's audit (docs/reviews/SW-1850-guide-accuracy.md §6, ticket 1). Absorbs SW-1817 and the guide half of SW-1815. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1855,
+      "title": "[Sonnet] Requote chapter 11's profile: rerun 2020 day 11 (about 5 s on arrays now; Grid.lookup no longer Map.Tree.get)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "epic": "docs-tutorials",
+      "body": "From SW-1850's audit (docs/reviews/SW-1850-guide-accuracy.md §6, ticket 2). Needs one profiled run of 5-20 s (D2636). 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1856,
+      "title": "[DeepSeek] Guide prose fixes: chapter 3 record literal types (field names are a fallback, SW-805), chapter 10 Unicode in messages (Bool operations print ASCII), and the rest of §1",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "epic": "docs-tutorials",
+      "body": "From SW-1850's audit (docs/reviews/SW-1850-guide-accuracy.md §6, ticket 3). 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1857,
+      "title": "[DeepSeek] Guide and tour house-style sweep: the seven (.field) sections, List.range where ..= reads better, Set.fromList and qualified calls in tour pages",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "epic": "docs-tutorials",
+      "body": "From SW-1850's audit (docs/reviews/SW-1850-guide-accuracy.md §6, ticket 4). 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1858,
+      "title": "[Sonnet] @[tailrec] in the guide, with a checked snippet and a tour page",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "epic": "docs-tutorials",
+      "body": "From SW-1850's audit (docs/reviews/SW-1850-guide-accuracy.md §6, ticket 5). 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1859,
+      "title": "[Sonnet] Record eta in the guide and syntax.md, with a tour page: a record equals the record of its fields by rfl; a match on a record computes on an unknown one; check examples/accept/records.sw:57-61's 'until stage 2' note",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "epic": "docs-tutorials",
+      "body": "From SW-1850's audit (docs/reviews/SW-1850-guide-accuracy.md §6, ticket 6). Overlaps SW-1643 (stage 2' docs): run as part of it or right after. D2635. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1860,
+      "title": "[DeepSeek] Tour prose for omega, ranges, Float and tests (guide.html:10, :91, ...)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "epic": "docs-tutorials",
+      "body": "From SW-1850's audit (docs/reviews/SW-1850-guide-accuracy.md §6, ticket 7). 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1861,
+      "title": "[Sonnet] W-MATCH-NOT-FOUND in chapter 10's match section, with a checked example",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "epic": "docs-tutorials",
+      "body": "From SW-1850's audit (docs/reviews/SW-1850-guide-accuracy.md §6, ticket 8). 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1862,
+      "title": "[Sonnet] Tour page: holes and live goals (? in a proof, the goal it reports, the editor's hover)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "epic": "docs-tutorials",
+      "body": "From SW-1850's audit (docs/reviews/SW-1850-guide-accuracy.md §6, ticket 9). 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1863,
+      "title": "[DeepSeek] syntax.md accuracy: split's argument order (line 379), the printing rule (1871: Bool operations print ASCII), E-MATCH-EQUATION documented but not in the code (2017)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "epic": "docs-tutorials",
+      "body": "From SW-1850's audit (docs/reviews/SW-1850-guide-accuracy.md §6, ticket 10). 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1864,
+      "title": "[DeepSeek] syntax.md house-style sweep: Cons/Nil, Not, List.range",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "epic": "docs-tutorials",
+      "body": "From SW-1850's audit (docs/reviews/SW-1850-guide-accuracy.md §6, ticket 11). 30 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
