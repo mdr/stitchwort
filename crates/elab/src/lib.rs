@@ -1954,6 +1954,9 @@ impl Elaborator {
                 interface: true, ..
             } = decl
             {
+                // Dictionaries are folded by name and compared by instance:
+                // no record eta (D2502).
+                kernel::mark_no_eta(&mut self.kernel, *d);
                 group_interfaces.push(*d);
             }
             if let Decl::Data { name: n, .. } = decl

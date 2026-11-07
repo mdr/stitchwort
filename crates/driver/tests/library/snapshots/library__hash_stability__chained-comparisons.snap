@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Main.inRange ddb850517d998e0cf007e0400828023c4ceae3070f7d43068da68643393c8d0c
@@ -26,10 +26,10 @@ Main.test "guarded" dda72a43f84d9dbaaed5d6c5e79eab49a8bfca3aad6a598cc3fbfa2e2448
 Main.inLambda 60d184db64f1e03ac1975feb0cfffea983c0e44e3683ec7bb9f2a29bbd7cbcd8
 Main.test "in a lambda" 1ba410663013a504d2cbc805d90a3cc4169ea469b74c4cc7b83856ea20f37a71
 Main.digit aceb655109a38eab32045556bb131cd5fab8740f15821157878d3f612a54abc4
-Main.test "once" a6d613b4a686e2e08334e274d4c6a26eb7c0f92f7a430fb689a42bc8826547c9
-Main.test "too big" f4bac28a695f502293cc84b277223d3edd23fccf6ef2769c732a11bd6f5f74df
+Main.test "once" f1b1c54d8310efd5b6711abdc41b19a355101b095592c7d8ad768c68aa786c77
+Main.test "too big" 87a91427e8e57403f0f7e5942945b5700395ca86792a4ba1064ece33075c35f3
 Main.skipped 8c0a215717a283448f16843c1f743ab1024c3f5350bd995062ef3cca93dbf6f0
-Main.test "short-circuits" 1b6b4b2e74552e33a82e623c7dbb0bbe07c2c2405d93c2a0ee2b0b186fedee9d
+Main.test "short-circuits" 0257a60df486535ffc43c13f086653de80c2ae93c453f91daf5544b505f0662a
 Main.nestedNamed 1eb14acf9eac9702df32b5baed40ee98a1de363bcb67e54274456989e3d764db
 Main.nestedNamed.eq.ifTrue eb9fcd00b91e9e876e9d477a3e4de649250cea4a7eb69604d773f8509b8162b0
 Main.nestedNamed.eq.ifFalse e797400c0f546fd624c1efea3dd3f63422a4e56a69df5a91ae5330babe649361
@@ -39,4 +39,4 @@ Main.nestedEither.eq.ifTrue 36468aec7f54c91442b531df3565e63d2d3902cdab5c61a62c2f
 Main.nestedEither.eq.ifFalse 639df44c316895ebc3e0486b5d7ee788e68bab0b87cc528ea94d0dbd4c4e1385
 Main.test "nested or" 2ae30b047d04124cbd7c86433970391226052d42924944813c15467dc8a93e84
 Main.guardedDigit c72899290f5c644f7d3e8c1a66e078fc7ea56369d01818e2af1c57e4cea0c1e0
-Main.test "once, after &&" f400c4826b40f2ac1ea13c7bdceefea6fe28c4572da159cd92bf6a56f0cd459f
+Main.test "once, after &&" a4b5d3b72569998c3350c27d1f3c24cefbfd1f4300ca4d42be45f971a34602dc

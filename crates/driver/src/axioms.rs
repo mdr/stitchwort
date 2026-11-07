@@ -252,7 +252,10 @@ fn from_scratch(globals: &Ev, root: DefId) -> BTreeSet<&'static str> {
                         found.insert("Quot.sound");
                     }
                     Term::Def(id) => pending.push(Node::Def(*id)),
-                    Term::Data(id, _) | Term::Ctor(id, _, _) | Term::Case(_, id, _) => {
+                    Term::Data(id, _)
+                    | Term::Ctor(id, _, _)
+                    | Term::Case(_, id, _)
+                    | Term::Proj(id, ..) => {
                         pending.push(Node::Data(*id));
                     }
                     _ => {}
@@ -291,7 +294,10 @@ fn scan(globals: &Ev, node: Node) -> (BTreeSet<&'static str>, Vec<Node>) {
                     found.insert("Quot.sound");
                 }
                 Term::Def(id) => successors.push(Node::Def(*id)),
-                Term::Data(id, _) | Term::Ctor(id, _, _) | Term::Case(_, id, _) => {
+                Term::Data(id, _)
+                | Term::Ctor(id, _, _)
+                | Term::Case(_, id, _)
+                | Term::Proj(id, ..) => {
                     successors.push(Node::Data(*id));
                 }
                 _ => {}

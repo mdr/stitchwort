@@ -223,6 +223,7 @@ impl Walker<'_> {
                 self.walk(b)?;
                 self.walk(p)?;
             }
+            Term::Proj(_, _, t) => self.walk(t)?,
         }
         Ok(())
     }

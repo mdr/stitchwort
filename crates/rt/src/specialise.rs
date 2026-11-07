@@ -401,6 +401,7 @@ impl<'g> Specialiser<'g> {
                 *erased,
             ),
             Term::J(m, b, p) => Term::J(m.clone(), go(b, fuel)?, p.clone()),
+            Term::Proj(d, i, t) => Term::Proj(*d, *i, go(t, fuel)?),
             Term::Case(ix, d, branches) => Term::Case(
                 *ix,
                 *d,
@@ -615,6 +616,7 @@ impl<'g> Specialiser<'g> {
                 go(b, depth)?,
             ),
             Term::J(m, b, p) => Term::J(go(m, depth)?, go(b, depth)?, go(p, depth)?),
+            Term::Proj(d, i, t) => Term::Proj(*d, *i, go(t, depth)?),
             Term::Loc(span, t) => Term::Loc(*span, go(t, depth)?),
             Term::Case(ix, d, branches) => match scrutinee(*ix, depth)? {
                 Scrutinee::Var(ix) => Term::Case(

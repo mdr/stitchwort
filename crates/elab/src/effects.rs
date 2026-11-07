@@ -567,7 +567,7 @@ pub fn comp_parts_at(cx: &Ctx, level: usize, ty: &Value) -> Result<Option<(Row, 
         Value::Neutral(Head::Def(d), spine) if Some(d) == delay && spine.len() == 3 => {
             let arg = |i: usize| match &spine[i] {
                 Elim::App(v, _) => Some(v.clone()),
-                Elim::J { .. } => None,
+                Elim::J { .. } | Elim::Proj(..) => None,
             };
             match (arg(0), arg(1), arg(2)) {
                 (Some(op), Some(res), Some(t)) => match decode(cx, &op)? {

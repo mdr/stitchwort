@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Main.tenths 3a6781ce0af748a46287f3340a1eabf95b26e2b82e25c537b2beb6c39ff5d74a
@@ -37,7 +37,7 @@ Main.test "SafeNat.toFloat" fa0667430ab1817cd6509b8d3f1663427f45e3e93fd54b45e6ce
 Main.test "isFinite" 2916ec0f84b53f3b5fb9f1f998076a089ca811bfad110babd131f85d41d4b7c7
 Main.zeros 9bc3693f35b3d9be8760a6c929d0c8603ce8970be30eabf287cb9ed3bacbb1e1
 Main.test "NaN is greatest" a4638bb6a9627098450e4b0935328de89826daee81e2a5fc6e37b47301a250cb
-Main.test "sorted" 2cd9d84dc77470c7b0b612a303777f3b6f75f654361ca859135932eb3b3eb88d
+Main.test "sorted" c4bc7e487dfcc5272131004616320d592f193d3d611aa2982fd22b9a999c422d
 Main.test "ieeeLt zeros" ad6550b694a91181d83ff4a121d866549d1b71011088fa02d04d0f28849b2221
 Main.test "ieeeLe zeros" 605fece4fc66470074be2fced8074394a04506234e9b3b8af105a4f387c2cec6
 Main.test "ieeeLt NaN" f644d3708b0e821c465fa65e86ad9cebe73993dd4f50526a911f97261a66c867

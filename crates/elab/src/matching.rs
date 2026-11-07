@@ -1898,14 +1898,22 @@ pub(crate) fn same(a: &Term, b: &Term) -> bool {
             types && same(a1, a2) && same(b1, b2)
         }
         (J(m1, b1, p1), J(m2, b2, p2)) => same(m1, m2) && same(b1, b2) && same(p1, p2),
+        (Proj(d1, i1, t1), Proj(d2, i2, t2)) => d1 == d2 && i1 == i2 && same(t1, t2),
         // Their erasure flags are worked out from the rest (hashing ignores
         // them too).
         (Let(_, t1, v1, b1, _), Let(_, t2, v2, b2, _)) => {
             same(t1, t2) && same(v1, v2) && same(b1, b2)
         }
         (Quot(f1, xs, _), Quot(f2, ys, _)) => f1 == f2 && all(xs, ys),
-        // Case trees aren't in types or scrutinees.
-        _ => false,
+        // Every other pair differs (case trees aren't in types or
+        // scrutinees); listed by the left side so that a new kind of term is
+        // a compile error here.
+        (
+            Var(_) | Def(_) | Data(..) | Ctor(..) | Nat(_) | Chars(_) | Sort(_) | Pi(..) | Lam(..)
+            | App(..) | Ann(..) | Let(..) | Case(..) | NumCase(..) | Eq(..) | Refl | J(..)
+            | Proj(..) | Quot(..) | Loc(..) | Meta(_),
+            _,
+        ) => false,
     }
 }
 
@@ -1948,12 +1956,18 @@ pub(crate) fn same_shifted(a: &Term, b: &Term, by: usize, cutoff: usize) -> bool
         (J(m1, b1, p1), J(m2, b2, p2)) => {
             go(m1, m2, cutoff) && go(b1, b2, cutoff) && go(p1, p2, cutoff)
         }
+        (Proj(d1, i1, t1), Proj(d2, i2, t2)) => d1 == d2 && i1 == i2 && go(t1, t2, cutoff),
         (Let(_, t1, v1, b1, _), Let(_, t2, v2, b2, _)) => {
             go(t1, t2, cutoff) && go(v1, v2, cutoff) && go(b1, b2, cutoff + 1)
         }
         (Quot(f1, xs, _), Quot(f2, ys, _)) => f1 == f2 && all(xs, ys),
         // As in `same`.
-        _ => false,
+        (
+            Var(_) | Def(_) | Data(..) | Ctor(..) | Nat(_) | Chars(_) | Sort(_) | Pi(..) | Lam(..)
+            | App(..) | Ann(..) | Let(..) | Case(..) | NumCase(..) | Eq(..) | Refl | J(..)
+            | Proj(..) | Quot(..) | Loc(..) | Meta(_),
+            _,
+        ) => false,
     }
 }
 

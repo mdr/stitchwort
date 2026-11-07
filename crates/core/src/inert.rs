@@ -230,6 +230,8 @@ fn offences(
                 work.push((a, depth, Why::Type));
                 work.push((b, depth, Why::Type));
             }
+            // A projection takes its value apart, as a `case` does.
+            Term::Proj(_, _, t) => work.push((t, depth, Why::TakenApart)),
             Term::J(m, b, p) => {
                 work.push((m, depth, Why::Type));
                 work.push((b, depth, why));

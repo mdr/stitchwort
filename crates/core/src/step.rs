@@ -466,7 +466,9 @@ fn constant(g: &Ev, s: &Shapes, d: Value) -> Result<Built> {
         .into_iter()
         .map(|e| match e {
             Elim::App(v, _) => v,
-            Elim::J { .. } => panic!("internal error: a `Delay` stuck on `J`"),
+            Elim::J { .. } | Elim::Proj(..) => {
+                panic!("internal error: a `Delay` stuck on `J` or a projection")
+            }
         })
         .collect();
     match prim {

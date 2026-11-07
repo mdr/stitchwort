@@ -89,7 +89,9 @@ fn step_value(g: &Ev, value: Value) -> Result<Step> {
     // say an inferred type that came from one: try its namespace before
     // unfolding it.
     let value = force_solved(g, value)?;
-    if let Value::Call(id, ..) = &value {
+    if let Value::Call(id, spine, _) = &value
+        && !stitchwort_core::value::is_call_field(spine)
+    {
         return Ok(Step::Head(TyHead::Def(*id), Some(Ty::Value(value))));
     }
     Ok(match force(g, value)? {

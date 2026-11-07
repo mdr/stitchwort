@@ -1,19 +1,19 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 data Main.Box 6ee707a6de19e365ffe26e9a6403ee3431fbd197c2919bff7599a2044ce1fb6e
 Main.Box.v 8fb7b8e18c3788228e98b5c9f470b5b896c14ce4f481d3d2be86ee1dc0edadcc
 Main.Box.%%mk%0 e110199604e12d425ff6dab9b10a2ab80257f7f065d0a33a82866cbedfb17423
 Main.Box.%decEq eb062f580443e18452d5bd8d2b21fa84fe202b88fee083e97c69e75e957f4440
-Main.Box.%instDecEq bbf8f48e0a5ed71da4a4a758aef0229d01f4ebf535673f772ebb5899b355553d
-Main.Box.%show 93142a065183ccc789700f4b6bdeed3ed9f5b337935423fac4ce45eb5278fde9
-Main.Box.%instShow b2232fef902feb7be3a01bd5d32cf081f20b207ef7e74f65754924652ea909e3
-Main.Box.%compare f1ffd79b07d3291b60a7a5231fa821eae684583da34a40a22c5ebe754ee7421d
-Main.Box.%equal 5fb61f850794c6a9b3b9a50156e436ef661a1c5a1a1f6b45ba286f4e82d74a20
-Main.Box.%flip 6163c0f37476847ed256a086414ed69192afa8c8db370e5c66e0e31c4232802a
-Main.Box.%trans f44abfac4649c2f0261cb0f08de4d336982cdd9b6c1760fe6c2335c789652a76
-Main.Box.%instOrd 73ba6857103e19af9f197e9528a14af61b6971638b7350ad4bde834731b58818
+Main.Box.%instDecEq 573f7abe44a323779ebaa98c7f57a07d699ea4f6eae96264b00460e5195bc936
+Main.Box.%show f6f9b38e7d6124f8444d0e8d32722b17d14696066f929864f9a1629a596deb8b
+Main.Box.%instShow 0eb53ca3d0f1c1abe73fcab83c56a4631e4cb0f89462c26ecc95b7a495f908bb
+Main.Box.%compare 0dc0fadd744640fbe113e36041570ffaed3b6c487d557c39e5475326ac886501
+Main.Box.%equal 0eb7d4bd37b6e732bffd6fc967c2a83d9ed1972d9e1e13d51877074a8c343e61
+Main.Box.%flip 3cfdff795fef740284fa3bbcf221b99437d37f5f41304d03b10529c17ca63a9f
+Main.Box.%trans 463678b1313c6b6eaeea9303c4c1901a0559cbcefa9d2171636588d2a4db8f44
+Main.Box.%instOrd cb41fc99bf5cbc66e96e5a4bcf571755208b92d96eb03c8c25f97ce63a11745f
 Main.Box.ext 1026ba16b3bfed703a7b61a9970d148c88159a9506db8ec48fb723772e29f750
 Main.Box.say f7e4cd2cd5dfb79d1c10589db5b13ee60e5171ba373b0be2b8c97f9ec833fc47
 Main.Box.wrap 21301fbe33f2c85fb2c7c8ba0604d3e24fbe7d735937aa1c58713b770b274dff
@@ -30,11 +30,11 @@ Main.test "a chain" d4439b3669c8f39232c98f77005c1cfa9a747b4b85839c8610ca6d758a22
 Main.test "a chain in a sum" a031647b7e8be997f133c4663b60201107838cac73db2a450da05c912247b8eb
 Main.test "a chain in a pair" 053d64807bdb945f98f3da0f0608f4021cdf34d8a86d8eee20120d168365926a
 Main.spaced f6c340de20dd7e0dc464118f2f3cadbde036cdfae1a3669ffbb38f4153161766
-Main.test "a literal's dot call, last" 0a2ee7ad5e2e055075b24e7ff5ca8890d1934f60f4db55b1f152aeb83940220c
-Main.test "as the full-name call" 853a2fc33de6aa2336ca05315828404aef056743a04d986553ee61f6e7d0409a
+Main.test "a literal's dot call, last" 5c9c1fe93db084825fe09e79e3dd3a8cbdc81de03e444423505398a5f19dc873
+Main.test "as the full-name call" e188a2d509fc9c44f08336182f776db2aeafdfd5ca0c2fc7700d8454e036fbf9
 Main.test "a literal's chain, with Abort" 0b7825ad0747bc580b9dd9309f6d47c86abb0470d0878636d241df2bd971e337
-Main.test "a chain after a pure call" 5866aa72316445abc6b1a952816c8c10549a951852b1187b58d7f1c2d7514264
-Main.test "an appended receiver" ed6a4a485f88d28902c6be1909ce8eabd89b3b1c7053f883393548014ee16355
-Main.test "in a let" 967638c31d851afb0d67216f0da3355ddc02d9be626d2c6ead6c543413c203c2
+Main.test "a chain after a pure call" b60a8f1d48f48516317e3447d93812a59c76f62659b819a6f15e6215377ea720
+Main.test "an appended receiver" ed9c0df16ea4f38e770dfc7e64cd4270e18425c759b6f1e198fd217733f2177e
+Main.test "in a let" 99b1ab3ca31e5e03df3271341e82ca4fe97e2f997a0e1232645d5c7d7e9a470d
 Main.test "a literal's chain in a sum" acc079a712f64da94fac91cc150bb5142a8c7fdfceefe38be47a66fd9263bf51
 Main.test "pure dot calls are values" 6d7e144defb9fdec9d94d6e7a5beb48bb1f9b69fc086afe0e4ae4a33fc212406

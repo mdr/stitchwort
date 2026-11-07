@@ -729,12 +729,12 @@ fn def_args(value: &Value) -> Option<(DefId, Vec<Value>)> {
                 .iter()
                 .map(|e| match e {
                     Elim::App(v, _) => Some(v.clone()),
-                    Elim::J { .. } => None,
+                    Elim::J { .. } | Elim::Proj(..) => None,
                 })
                 .collect();
             Some((*id, args?))
         }
-        Value::Call(id, spine, _) => Some((
+        Value::Call(id, spine, _) if !stitchwort_core::value::is_call_field(spine) => Some((
             *id,
             stitchwort_core::value::call_args(spine)
                 .into_iter()

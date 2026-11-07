@@ -75,7 +75,7 @@ pub fn eval(g: &Ev, env: &[Value], term: &Term) -> Result<Value> {
             env.push(eval(g, &env, value)?);
             eval(g, &env, body)?
         }
-        Term::Case(..) | Term::NumCase(..) => eval_tree(g, env.to_vec(), term, false)?
+        Term::Case(..) | Term::NumCase(..) => eval_tree(g, env.to_vec(), term, false, false)?
             .expect("internal error: a case outside a definition's case tree got stuck"),
         Term::Eq(ty, a, b) => Value::Eq(
             Rc::new(eval(
@@ -102,7 +102,27 @@ pub fn eval(g: &Ev, env: &[Value], term: &Term) -> Result<Value> {
         // The one computation rule: `Quot.lift f h (Quot.mk a)` is `f a`.
         Term::Quot(form, args, _) => eval_quot(g, env, *form, args)?,
         Term::Loc(_, t) => eval(g, env, t)?,
+        Term::Proj(d, i, t) => project(g, *d, *i, eval(g, env, t)?)?,
     })
+}
+
+/// Field `i` of a value of data type `d`, which has eta: the constructor's
+/// field, or the projection stuck on an unknown.
+fn project(g: &Ev, d: crate::term::DataId, i: usize, value: Value) -> Result<Value> {
+    Ok(match unfold_folded(g, force(g, value)?)? {
+        Value::Ctor(d2, 0, fields) if d2 == d => fields[i].clone(),
+        Value::Neutral(head, mut spine) => {
+            spine.push(Elim::Proj(d, i));
+            Value::Neutral(head, spine)
+        }
+        _ => panic!("internal error: a projection of a non-record"),
+    })
+}
+
+/// Whether a `case` on type `d` takes its only branch on a neutral by
+/// record eta's rule 2: `d` has eta.
+fn eta_case(g: &Ev, d: crate::term::DataId) -> bool {
+    g.env.datas().get(d.0).is_some_and(|data| data.eta())
 }
 
 pub fn apply_closure(g: &Ev, closure: &Closure, arg: Value) -> Result<Value> {
@@ -138,6 +158,7 @@ fn apply_spine(g: &Ev, mut value: Value, spine: &[Elim]) -> Result<Value> {
                 }
                 _ => panic!("internal error: J applied to a non-proof"),
             },
+            Elim::Proj(d, i) => project(g, *d, *i, value)?,
         };
     }
     Ok(value)
@@ -224,6 +245,7 @@ pub fn expand_term(g: &Ev, term: &Term) -> Term {
         ),
         Term::Eq(ty, a, b) => Term::Eq(ty.as_ref().map(go), go(a), go(b)),
         Term::J(m, b, p) => Term::J(go(m), go(b), go(p)),
+        Term::Proj(d, i, t) => Term::Proj(*d, *i, go(t)),
         Term::Quot(form, args, e) => Term::Quot(*form, args.iter().map(go).collect(), *e),
         Term::Loc(span, t) => Term::Loc(*span, go(t)),
     }
@@ -274,12 +296,17 @@ fn unfold(g: &Ev, id: DefId, spine: Vec<Elim>) -> Result<Value> {
             .iter()
             .map(|e| match e {
                 Elim::App(v, _) => Some(v.clone()),
-                Elim::J { .. } => None,
+                Elim::J { .. } | Elim::Proj(..) => None,
             })
             .collect();
         if let Some(args) = args
-            && let Some(value) =
-                eval_tree(g, args, body.peel_lams(def.arity), folds_on_lift(g, id))?
+            && let Some(value) = eval_tree(
+                g,
+                args,
+                body.peel_lams(def.arity),
+                folds_on_lift(g, id),
+                crate::value::eta_held(g, id),
+            )?
         {
             return Ok(value);
         }
@@ -340,11 +367,17 @@ fn unfold_folded(g: &Ev, value: Value) -> Result<Value> {
             .iter()
             .map(|e| match e {
                 Elim::App(v, _) => Some(v.clone()),
-                Elim::J { .. } => None,
+                Elim::J { .. } | Elim::Proj(..) => None,
             })
             .collect();
         if let Some(args) = args
-            && let Some(next) = eval_tree(g, args, body.peel_lams(g.def(*id).arity), false)?
+            && let Some(next) = eval_tree(
+                g,
+                args,
+                body.peel_lams(g.def(*id).arity),
+                false,
+                crate::value::eta_held(g, *id),
+            )?
         {
             return unfold_folded(g, force(g, next)?);
         }
@@ -361,11 +394,26 @@ fn number_view(g: &Ev, value: &Value) -> Result<(num_bigint::BigUint, Option<Val
     native::view_with(g, &value, force)
 }
 
-fn eval_tree(g: &Ev, mut env: Vec<Value>, term: &Term, fold_lifts: bool) -> Result<Option<Value>> {
+fn eval_tree(
+    g: &Ev,
+    mut env: Vec<Value>,
+    term: &Term,
+    fold_lifts: bool,
+    eta_held: bool,
+) -> Result<Option<Value>> {
     match term.strip_loc() {
         Term::Case(ix, d, branches) => {
             let (c, fields) = match unfold_folded(g, force(g, env[env.len() - 1 - ix].clone())?)? {
                 Value::Ctor(_, c, fields) => (c, fields.to_vec()),
+                // Record eta, rule 2: the only branch, with the fields
+                // projected.
+                n @ Value::Neutral(..) if eta_case(g, *d) && !eta_held => {
+                    let k = g.data(*d).ctors[0].fields.len();
+                    let fields = (0..k)
+                        .map(|i| project(g, *d, i, n.clone()))
+                        .collect::<Result<Vec<_>>>()?;
+                    (0, fields)
+                }
                 other @ (Value::Nat(_) | Value::NatAdd(..)) if Some(*d) == g.env.builtins().nat => {
                     match native::split_value(&other) {
                         Some(split) => split,
@@ -379,7 +427,7 @@ fn eval_tree(g: &Ev, mut env: Vec<Value>, term: &Term, fold_lifts: bool) -> Resu
                 return Ok(None);
             };
             env.extend(fields);
-            eval_tree(g, env, body, fold_lifts)
+            eval_tree(g, env, body, fold_lifts, eta_held)
         }
         Term::NumCase(ix, arms, default) => {
             let (k, base) = number_view(g, &env[env.len() - 1 - ix])?;
@@ -402,7 +450,7 @@ fn eval_tree(g: &Ev, mut env: Vec<Value>, term: &Term, fold_lifts: bool) -> Resu
             } else {
                 return Ok(None);
             };
-            eval_tree(g, env, body, fold_lifts)
+            eval_tree(g, env, body, fold_lifts, eta_held)
         }
         // A `Quot.lift` leaf counts as a case on its quotient: stuck, the
         // definition stays folded (`fold_lifts`: only one marked for it,
@@ -518,6 +566,7 @@ pub fn quote(g: &Ev, level: usize, value: &Value) -> Result<Term> {
                     Elim::J { motive, base } => {
                         Term::J(Rc::new(q(motive)?), Rc::new(q(base)?), Rc::new(term))
                     }
+                    Elim::Proj(d, i) => Term::Proj(*d, *i, Rc::new(term)),
                 };
             }
             term
@@ -548,7 +597,7 @@ fn quote_quot<'s>(
         .iter()
         .map(|e| match e {
             Elim::App(v, _) => quote(g, level, v).map(Rc::new),
-            Elim::J { .. } => unreachable!("counted applications"),
+            Elim::J { .. } | Elim::Proj(..) => unreachable!("counted applications"),
         })
         .collect::<Result<_>>()?;
     Ok((Term::Quot(form, args, false), &spine[n..]))
@@ -668,14 +717,26 @@ fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<boo
             if open.known(&key) {
                 true
             } else {
-                let (t1, e1) = tree_of(g, a);
-                let (t2, e2) = tree_of(g, b);
-                let same = same_trees(g, level, &t1, e1, &t2, e2, mode)?;
+                let same = same_trees(g, level, tree_of(g, a), tree_of(g, b), mode)?;
                 if same {
                     open.record(key);
                 }
                 same
             }
+        }
+        // Record eta, rule 1: a constructor against an unknown, field by
+        // field against its projections.
+        (Value::Ctor(d, 0, fs), n @ Value::Neutral(..))
+        | (n @ Value::Neutral(..), Value::Ctor(d, 0, fs))
+            if g.env.datas().get(d.0).is_some_and(|data| data.eta()) =>
+        {
+            for (k, x) in fs.iter().enumerate() {
+                let proof = mode == Mode::Normal && crate::value::proof_field(g, *d, 0, k);
+                if !proof && !conv_in(g, level, x, &project(g, *d, k, n.clone())?, mode)? {
+                    return Ok(false);
+                }
+            }
+            true
         }
         (Value::Neutral(h1, s1), Value::Neutral(h2, s2)) => {
             let def = match h1 {
@@ -738,8 +799,16 @@ impl Drop for OpenTrees {
     }
 }
 
+/// A case tree in its environment, with [`crate::value::eta_held`] of the
+/// definition it belongs to.
+struct Tree {
+    term: Rc<Term>,
+    env: Vec<Value>,
+    held: bool,
+}
+
 /// A stuck call's case tree and arguments.
-fn tree_of(g: &Ev, value: &Value) -> (Rc<Term>, Vec<Value>) {
+fn tree_of(g: &Ev, value: &Value) -> Tree {
     let Value::Neutral(Head::Def(id), spine) = value else {
         unreachable!()
     };
@@ -748,34 +817,29 @@ fn tree_of(g: &Ev, value: &Value) -> (Rc<Term>, Vec<Value>) {
         .iter()
         .map(|e| match e {
             Elim::App(v, _) => v.clone(),
-            Elim::J { .. } => unreachable!(),
+            Elim::J { .. } | Elim::Proj(..) => unreachable!(),
         })
         .collect();
-    (
-        Term::peel_lams_rc(def.body().expect("a body"), def.arity),
-        args,
-    )
+    Tree {
+        term: Term::peel_lams_rc(def.body().expect("a body"), def.arity),
+        env: args,
+        held: crate::value::eta_held(g, *id),
+    }
 }
 
 /// Two case trees in their environments: both stuck on equal scrutinees with
 /// equal branches (fields as fresh variables), or both leaves with equal
 /// values. A constructor scrutinee takes its branch first.
-fn same_trees(
-    g: &Ev,
-    level: usize,
-    t1: &Rc<Term>,
-    mut e1: Vec<Value>,
-    t2: &Rc<Term>,
-    mut e2: Vec<Value>,
-    mode: Mode,
-) -> Result<bool> {
-    // Steps a tree along constructor scrutinees; `None` if it reaches
-    // anything but a stuck `Case` or a leaf.
-    let settle = |t: &Rc<Term>, e: &mut Vec<Value>| -> Result<Option<(Rc<Term>, Option<Value>)>> {
-        let mut t = t.clone();
+fn same_trees(g: &Ev, level: usize, mut a: Tree, mut b: Tree, mode: Mode) -> Result<bool> {
+    // Steps a tree along constructor scrutinees, and by rule 2 unless its
+    // definition is held, as `eval_tree` does; `None` if it reaches anything
+    // but a stuck `Case` or a leaf.
+    let settle = |tree: &mut Tree| -> Result<Option<(Rc<Term>, Option<Value>)>> {
+        let mut t = tree.term.clone();
+        let (e, held) = (&mut tree.env, tree.held);
         loop {
             match t.strip_loc() {
-                Term::Case(ix, _, branches) => {
+                Term::Case(ix, d, branches) => {
                     let s = force(g, e[e.len() - 1 - ix].clone())?;
                     match &s {
                         Value::Ctor(_, c, fields) => match &branches[*c].body {
@@ -785,6 +849,18 @@ fn same_trees(
                             }
                             None => return Ok(None),
                         },
+                        Value::Neutral(..) if !is_folded(g, &s) && !held && eta_case(g, *d) => {
+                            match &branches[0].body {
+                                Some(body) => {
+                                    let k = g.data(*d).ctors[0].fields.len();
+                                    for i in 0..k {
+                                        e.push(project(g, *d, i, s.clone())?);
+                                    }
+                                    t = body.clone();
+                                }
+                                None => return Ok(None),
+                            }
+                        }
                         Value::Neutral(..) if !is_folded(g, &s) => return Ok(Some((t, Some(s)))),
                         _ => return Ok(None),
                     }
@@ -794,9 +870,10 @@ fn same_trees(
             }
         }
     };
-    let (Some((t1, s1)), Some((t2, s2))) = (settle(t1, &mut e1)?, settle(t2, &mut e2)?) else {
+    let (Some((t1, s1)), Some((t2, s2))) = (settle(&mut a)?, settle(&mut b)?) else {
         return Ok(false);
     };
+    let (e1, e2) = (a.env, b.env);
     match (s1, s2) {
         (None, None) => conv_in(g, level, &eval(g, &e1, &t1)?, &eval(g, &e2, &t2)?, mode),
         (Some(s1), Some(s2)) => {
@@ -824,7 +901,17 @@ fn same_trees(
                         let mut f2 = e2.clone();
                         f1.extend(fresh.iter().cloned());
                         f2.extend(fresh);
-                        if !same_trees(g, level + k, x, f1, y, f2, mode)? {
+                        let x = Tree {
+                            term: x.clone(),
+                            env: f1,
+                            held: a.held,
+                        };
+                        let y = Tree {
+                            term: y.clone(),
+                            env: f2,
+                            held: b.held,
+                        };
+                        if !same_trees(g, level + k, x, y, mode)? {
                             return Ok(false);
                         }
                     }
@@ -878,6 +965,7 @@ fn conv_spines(
                 true
             }
             (Elim::App(x, _), Elim::App(y, _)) => conv_in(g, level, x, y, mode)?,
+            (Elim::Proj(d1, i1), Elim::Proj(d2, i2)) => d1 == d2 && i1 == i2,
             (
                 Elim::J {
                     motive: m1,
@@ -1085,6 +1173,15 @@ fn unshielded(g: &Ev, body: &Term, arity: usize, marks: &[bool]) -> Option<(usiz
                 todo.push((m, binders, shielded));
                 todo.push((b, binders, shielded));
                 todo.push((p, binders, shielded));
+            }
+            // A projection of a marked parameter takes it apart.
+            Term::Proj(_, _, t) => {
+                if let Term::Var(ix) = t.strip_loc()
+                    && let Some(p) = marked_param(*ix, binders)
+                {
+                    return Some((p, "it is taken apart by a projection"));
+                }
+                todo.push((t, binders, shielded));
             }
             Term::Def(_)
             | Term::Nat(_)

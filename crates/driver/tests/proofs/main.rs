@@ -4,6 +4,7 @@ mod conv_shortcut;
 mod counterexamples;
 mod decision_search;
 mod differential;
+mod eta_hold;
 mod function_equations;
 mod function_induct;
 mod generated_rows;

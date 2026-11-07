@@ -423,6 +423,17 @@ pub struct Data {
     /// the group is declared, on both paths; empty if that ran out of budget.
     /// Not hashed: a function of what is.
     pub(crate) proof_params: Rc<[bool]>,
+    /// Whether the elaborator marked it as having no eta
+    /// ([`crate::check::mark_no_eta`]): interface dictionaries, which are
+    /// folded by name and compared by instance (D2502). Only removes
+    /// equalities, so nothing about soundness rests on it; hashed when set,
+    /// since what's accepted depends on it.
+    pub(crate) no_eta: bool,
+    /// Whether it has record eta (docs/proposals/record-eta.md §6.1): set
+    /// when the group becomes final, from the declaration alone
+    /// (`check::qualifies_for_eta`), on both admission paths. Not hashed: a function
+    /// of what is.
+    pub(crate) eta: bool,
     /// How many definitions, and data types, existed when this type's group
     /// was declared. Its fields may only use those (and its group's
     /// members), since anything declared later could mention this type and
@@ -495,6 +506,18 @@ impl Data {
     /// Which parameters are proofs (see the field).
     pub fn proof_params(&self) -> &[bool] {
         &self.proof_params
+    }
+
+    /// Whether it has record eta: a value of it is convertible with the
+    /// constructor applied to its projections, and a `case` on an unknown
+    /// value of it takes its only branch (docs/proposals/record-eta.md).
+    pub fn eta(&self) -> bool {
+        self.eta
+    }
+
+    /// Whether the elaborator marked it as having no eta (see the field).
+    pub fn no_eta(&self) -> bool {
+        self.no_eta
     }
 
     /// Whether parameter `i` is a proof (see the field).

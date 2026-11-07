@@ -231,6 +231,7 @@ impl Saturator<'_> {
                     Some(Rc::new(Term::Eq(ty, a, b)))
                 }
             }
+            Term::Proj(d, i, t) => self.expand(t)?.map(|t| Rc::new(Term::Proj(*d, *i, t))),
             Term::J(m, b, p) => {
                 let parts = [m.clone(), b.clone(), p.clone()];
                 self.all(&parts)?.map(|parts| {

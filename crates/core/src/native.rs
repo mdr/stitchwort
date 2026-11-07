@@ -222,6 +222,14 @@ impl Builtins {
         }
     }
 
+    /// Whether `id` has a native implementation, a number one or a float
+    /// one, whatever the switches say: a property of the definition, which
+    /// record eta's rule 2 depends on ([`crate::value::eta_held`]), so
+    /// conversion is the same with natives on and off.
+    pub fn has_native(&self, id: DefId) -> bool {
+        self.natives.contains_key(&id) || self.float_native(id).is_some()
+    }
+
     pub fn native(&self, id: DefId) -> Option<Native> {
         if self.disable_natives {
             return None;

@@ -654,7 +654,9 @@ impl Elaborator {
         let arg = |i: usize| -> Result<Term> {
             match &spine[i] {
                 Elim::App(v, _) => Ok(quote(g, n, v)?),
-                Elim::J { .. } => unreachable!("a `Delay` is applied to its arguments"),
+                Elim::J { .. } | Elim::Proj(..) => {
+                    unreachable!("a `Delay` is applied to its arguments")
+                }
             }
         };
         Ok(Member {

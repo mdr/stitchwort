@@ -155,6 +155,10 @@ fn term(out: &mut String, t: &Term) {
                 out.push_str("(J");
                 children.extend([&**m, &**b, &**p]);
             }
+            Term::Proj(d, i, t) => {
+                let _ = write!(out, "(Proj D{}.{i}", d.0);
+                children.push(t);
+            }
             Term::Quot(form, args, erased) => {
                 let _ = write!(out, "({} {erased}", form.name());
                 children.extend(args.iter().map(|a| &**a));
@@ -181,6 +185,7 @@ fn term(out: &mut String, t: &Term) {
                 | Term::NumCase(..)
                 | Term::Eq(..)
                 | Term::J(..)
+                | Term::Proj(..)
                 | Term::Quot(..)
                 | Term::Loc(..)
         );
@@ -248,12 +253,14 @@ pub fn canonical_dump(e: &Elaborator) -> String {
     for (i, data) in g.env.datas().iter().enumerate() {
         let _ = write!(
             out,
-            "data {i} {} {} {:?} {:?} record {} auto {:?} proofs {:?} group {:?} before {} {} ",
+            "data {i} {} {} {:?} {:?} record {} eta {} no_eta {} auto {:?} proofs {:?} group {:?} before {} {} ",
             data.name(),
             data.path(),
             data.state(),
             data.sort(),
             data.record(),
+            data.eta(),
+            data.no_eta(),
             data.auto_params(),
             data.proof_params(),
             data.group().iter().map(|d| d.0).collect::<Vec<_>>(),

@@ -382,6 +382,7 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
             ))
         }
         Term::J(motive, base, proof) => infer_j(cx, motive, base, proof),
+        Term::Proj(d, i, t) => infer_proj(cx, *d, *i, t),
         Term::Quot(form, args, _) => infer_quot(cx, *form, args),
         // A constructor of a data type without parameters has only one possible type.
         Term::Ctor(d, _, _)
@@ -673,6 +674,50 @@ fn infer_j(cx: &mut Ctx, motive: &Term, base: &Term, proof: &Term) -> Result<(Te
         Term::J(Rc::new(motive), Rc::new(base), Rc::new(proof)),
         result,
     ))
+}
+
+/// The typing rule of a projection `t.i` of data type `d`
+/// (docs/proposals/record-eta.md §6.2): `t`'s type, inferred, must be `d`
+/// itself applied to parameters `ps` (never another type with the same
+/// layout: the Lean projection bug, records.md §7.6), and `d` must have eta,
+/// which says it has one constructor, no indices and is in `Type`, so taking
+/// a field out never takes data out of a proof. The type is field `i`'s
+/// declared type with `ps` for the parameters and `t.j` for each earlier
+/// field `j`, which it may mention.
+fn infer_proj(cx: &mut Ctx, d: DataId, i: usize, t: &Term) -> Result<(Term, Value)> {
+    let g = cx.g;
+    let Some(data) = g.env.datas().get(d.0) else {
+        return Err(malformed(cx, "reference to an unknown data type"));
+    };
+    if !data.eta {
+        return Err(malformed(
+            cx,
+            format!("`{}` has no eta, so it has no projections", data.name),
+        ));
+    }
+    let fields = &data.ctors[0].fields;
+    if i >= fields.len() {
+        return Err(malformed(cx, format!("`{}` has no field {i}", data.name)));
+    }
+    let (t, t_ty) = infer(cx, t)?;
+    let t_ty = force(&g, t_ty)?;
+    let params = match t_ty {
+        Value::Data(d2, params) if d2 == d => params,
+        other => {
+            return Err(cx.error(
+                "E-TYPE-MISMATCH",
+                format!("a projection of `{}` needs a value of that type", data.name),
+                format!("this has type `{}`", cx.show(&other)),
+            ));
+        }
+    };
+    let t = Rc::new(t);
+    let mut env = params;
+    for j in 0..i {
+        env.push(cx.eval(&Term::Proj(d, j, t.clone()))?);
+    }
+    let ty = eval(&g, &env, &fields[i].1)?;
+    Ok((Term::Proj(d, i, t), ty))
 }
 
 /// The typing rules of the quotient forms (docs/proposals/map-equality.md
@@ -1544,6 +1589,7 @@ impl<'g, K: Fn(usize) -> Option<Apart>> Unchanged<'g, K> {
                 match elim {
                     Elim::App(arg, _) => todo.push(arg),
                     Elim::J { motive, base } => todo.extend([&**motive, &**base]),
+                    Elim::Proj(..) => {}
                 }
             }
         }
@@ -2149,6 +2195,82 @@ pub fn mark_auto_params(g: &mut Kernel, id: DataId, auto: Vec<bool>) {
     })
 }
 
+/// Marks pending data type `id` as having no record eta (D2502: interface
+/// dictionaries). Hashed when set. Turning eta off only removes
+/// equalities, so the kernel needn't trust why it's set.
+pub fn mark_no_eta(g: &mut Kernel, id: DataId) {
+    in_kernel_modes(g, |g| {
+        let data = &mut g.env.datas_mut()[id.0];
+        if data.state == State::Pending {
+            data.no_eta = true;
+        }
+    })
+}
+
+// Which types have record eta (docs/proposals/record-eta.md §6.1, §7;
+// D2498, D2499, D1981).
+//
+// Eta adds two rules (`value.rs`): a constructor is convertible with an
+// unknown value `n` when each field converts with `n`'s projection (rule 1),
+// and a `case` on an unknown value takes its only branch with the fields
+// bound to `n`'s projections (rule 2). Both are true in the model where a
+// type is the set of tuples of its fields, so they can't prove anything
+// false, provided that:
+//
+// 1. It has one constructor and no indices: every value *is* that
+//    constructor applied to its fields (with indices, an unknown value's
+//    indices needn't be the ones the constructor's result has).
+// 2. It's in `Type`, not `Prop`: a proof can't be taken apart into data
+//    (`E-PROP-ELIM`), and proofs are irrelevant anyway.
+// 3. It isn't recursive: its group is itself alone and no field's type
+//    mentions it. Following projections of an unknown then ends after as
+//    many steps as the type's nesting (rule 2 creates no `case`, rule 1
+//    compares strictly smaller parts), so conversion still terminates; a
+//    recursive type would make `n ≡ C n.1 …` unfold without end.
+// 4. At least one field isn't a proof (D1981). Conversion is untyped and
+//    skips proofs by position, so for a type whose fields are all proofs,
+//    eta and proof irrelevance together would make any two unknowns `x`,
+//    `y` equal through `x ≡ C x.1 ≡ C y.1 ≡ y` while `x ≡ y` directly says
+//    "different": not transitive, the bug Lean had and Rocq rules out by
+//    requiring a relevant field. With a non-proof field the chain needs
+//    `x.f ≡ y.f` for two unknowns, which holds only when `x ≡ y` does. The
+//    test is the one the proof masks use (`field_sorts`, `proof_field`),
+//    and universes are exact, so a field in `Type` never holds a proof.
+// 5. It isn't marked `no_eta` (interface dictionaries; that only removes
+//    equalities).
+// 6. For now, it was declared as a record (`Data::record`, fixed and hashed
+//    when declared). Eta by shape (D2499: `Pair`, `Char`, `Text` and other
+//    one-constructor types written with `|`) is stage 3 (SW-1644): it
+//    changes far more goals (every function matching a `Char` computes on
+//    an unknown one), so it's measured and its proofs updated there. Like
+//    5, this only withholds equalities.
+//
+// All of it is read from the declaration, so the elaborator is trusted
+// with nothing but the mark in 5. Rule 1 doesn't check that `n` is a value
+// of the type: it relies on conversion's same-type contract (both sides
+// of every comparison have one type; docs/proposals/proof-irrelevance.md
+// §7.4), which proof irrelevance already needs.
+
+/// Whether final data type `data` has record eta (see above).
+pub(crate) fn qualifies_for_eta(data: &Data) -> bool {
+    let [ctor] = &data.ctors[..] else {
+        return false;
+    };
+    let me = data.group[0];
+    data.state == State::Final
+        && data.record
+        && !data.no_eta
+        && data.indices.is_empty()
+        && data.sort != Sort::Prop
+        && data.group.len() == 1
+        && ctor.field_sorts.iter().any(|s| *s != Sort::Prop)
+        && !ctor.fields.iter().any(|(_, ty)| {
+            ty.subterms().any(|(t, _)| {
+                matches!(t, Term::Data(d, _) | Term::Ctor(d, ..) | Term::Proj(d, ..) if *d == me)
+            })
+        })
+}
+
 /// Checks a data type's parameters and adds it with no constructors yet, so
 /// its constructors can refer to it: a data group of one
 /// ([`declare_data_group`]).
@@ -2350,6 +2472,8 @@ fn push_data_group(
             group: group.clone(),
             nestable: Rc::from([]),
             proof_params: proof_params.clone(),
+            no_eta: false,
+            eta: false,
             defs_before,
             datas_before,
             state: State::Pending,
@@ -2497,6 +2621,10 @@ fn install_data_group<C>(
             for (d, ctors) in ctors {
                 g.env.datas_mut()[d.0].ctors = ctors;
                 g.env.datas_mut()[d.0].state = State::Final;
+            }
+            for d in group.iter() {
+                let eta = qualifies_for_eta(g.data(*d));
+                g.env.datas_mut()[d.0].eta = eta;
             }
             // Which parameters later groups may nest in, now that the
             // constructors are final.
@@ -2719,8 +2847,8 @@ fn check_result_indices(
 // member of the group), `case` only in a case tree, and the shapes match
 // (arities, one sort and erasure flag per field, one result index per
 // index). The marks (`mark_folded`, `mark_instance`, `mark_opaque`,
-// `set_unfolding`, `mark_auto_params`) check nothing anyway, and are the
-// same for both paths. Any refusal is an error the caller treats as a cache
+// `set_unfolding`, `mark_auto_params`, `mark_no_eta`) check nothing
+// anyway, and are the same for both paths. Any refusal is an error the caller treats as a cache
 // miss.
 
 /// Adds a definition with type `ty` and no body, as [`declare_def`] does,

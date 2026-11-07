@@ -74,7 +74,7 @@ use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 28;
+pub const FORMAT: u32 = 29;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -1616,6 +1616,9 @@ impl Elaborator {
                 e.w.bool(ctor.braced);
             }
             e.w.bool(data.record());
+            // The elaborator's mark, which the kernel can't recompute
+            // (interface dictionaries, D2502); `eta` itself is recomputed.
+            e.w.bool(data.no_eta());
             e.w.usize(data.group().len());
             for m in data.group().iter() {
                 if m.0 < before.datas {
@@ -1985,6 +1988,7 @@ struct DataEntry {
     sort: Sort,
     ctors: Vec<CtorEntry>,
     record: bool,
+    no_eta: bool,
     group: Vec<usize>,
     defs_before: usize,
     datas_before: usize,
@@ -2432,6 +2436,7 @@ impl Elaborator {
                 sort,
                 ctors,
                 record: body.r.bool()?,
+                no_eta: body.r.bool()?,
                 group: body.offsets(n)?,
                 defs_before: body.r.usize()?,
                 datas_before: body.r.usize()?,
@@ -2836,6 +2841,9 @@ impl Elaborator {
                     }
                     if !data.auto_params.is_empty() {
                         kernel::mark_auto_params(&mut self.kernel, *id, data.auto_params.clone());
+                    }
+                    if data.no_eta {
+                        kernel::mark_no_eta(&mut self.kernel, *id);
                     }
                 }
                 next_data_group += 1;

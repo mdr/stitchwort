@@ -41,8 +41,7 @@ theorem heightCons (dot: Point) (rest: List Point): height [dot, ..rest] = Nat.m
 --| isn't...
 theorem cellInside (dots: List Point) (spot: Point) (inY: spot.y < height dots) (inX: spot.x < width dots):
     cellAt (render dots) spot = Some (if dots.any (== spot) then '#' else '.') :=
-  rewrite getMapRange _ (height dots) spot.y inY in rewrite getMapRange _ (width dots) spot.x inX in
-    rewrite Point.ext ({ x = spot.x, y = spot.y }) spot rfl rfl in rfl
+  rewrite getMapRange _ (height dots) spot.y inY in rewrite getMapRange _ (width dots) spot.x inX in rfl
 
 --| ...and outside it there is nothing.
 theorem cellOutside (dots: List Point) (spot: Point) (out: height dots ≤ spot.y ∨ width dots ≤ spot.x): cellAt (render dots) spot = None :=

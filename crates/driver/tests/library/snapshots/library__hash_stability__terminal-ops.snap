@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Main.showBytes 631df1777a45c486abffa98d490a76a3962cf8886f2964fdbe386cdb5658e338
@@ -11,10 +11,10 @@ Main.textOr.eq2 a0658c7e458d38142235d3809c16c01c94240090cb2d8a0f2d1ca341e0de50b7
 Main.yesNo 4b6c4fd6b2949e9aa2be975c5be96e725d21002e8479a8ebe5a0bf9f2ee447f7
 Main.yesNo.eq.ifTrue fef6803361b7d9d6697321f59cbd8a0d551ab231daecbffb04a7ab24da8d3254
 Main.yesNo.eq.ifFalse c088d84037ecb5427c962dbe5759dcf08c41ce2d41dc88643a81f7085d023aff
-Main.main 062ea3d68832506334af73b76f0c946e429e0066f7d3060fbdda56cf7a8927f6
-Main.transcript 507a7948b6642dc129227534175a42e1708ee5ec11a48bf6290fb28100ac590a
-Main.test "what main does under IO.simulate" 8d5e441add88141564fd12b86cf91a88fd10cce20a26929b3daf49a81b2f0498
-Main.test "with no input, readBytes gives None" 67ece9305c655f89cadeb9f64d8c730f7fdaf205182c320be20914c3f9a20cbc
+Main.main c7ced55e8d8c470650cca6465ecb9ddff1a0940d4c51eb2dd1c5a3ade47c45ec
+Main.transcript 187dc7e5471e584c5f7e556479ac04a72ca580d99b862fab4bc08687f7a735e1
+Main.test "what main does under IO.simulate" eb203312c6b54c1e111d5debf583cec35cb0ff59b9cade95a6d5e1747d4a65b6
+Main.test "with no input, readBytes gives None" fbdb95fd4bb3eeb726f66db795417e6a91b52cc27255706487456a76e0dc81c6
 Main.console fc21b3f57c8188e915e2ba24c5c6deba2c542470c2fda3e8053311fdb7dbce6a
 Main.test "console: no terminals, size unknown" cd57ce2ff876cbcc9406149b0fa1406b010393fdb41cb5061f2a72b4fd315d17
 Main.keysThenRead 531582e5d65470f8795be305f0283d3a772578668b84898909797036614d1d29

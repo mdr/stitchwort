@@ -208,6 +208,7 @@ pub(crate) fn map_vars(
             go(b, depth)?,
         ),
         Term::J(m, b, p) => Term::J(go(m, depth)?, go(b, depth)?, go(p, depth)?),
+        Term::Proj(d, i, t) => Term::Proj(*d, *i, go(t, depth)?),
         Term::Quot(form, args, e) => Term::Quot(
             *form,
             args.iter().map(|a| go(a, depth)).collect::<Result<_>>()?,
@@ -275,6 +276,7 @@ fn zeta(g: &Ev, t: &Term) -> Result<Term> {
         Term::Ann(a, b) => Term::Ann(go(a)?, go(b)?),
         Term::Eq(ty, a, b) => Term::Eq(ty.as_ref().map(go).transpose()?, go(a)?, go(b)?),
         Term::J(m, b, p) => Term::J(go(m)?, go(b)?, go(p)?),
+        Term::Proj(d, i, t) => Term::Proj(*d, *i, go(t)?),
         Term::Quot(form, args, e) => {
             Term::Quot(*form, args.iter().map(go).collect::<Result<_>>()?, *e)
         }

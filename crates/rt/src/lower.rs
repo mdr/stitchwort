@@ -612,6 +612,10 @@ impl<'g> Lowerer<'g> {
             Term::Ctor(d, c, args) => self.ctor(term, *d, *c, args)?,
             // Proofs are erased, and transport along an equality does nothing.
             Term::J(_, base, _) => self.expr(base)?,
+            Term::Proj(d, i, t) => {
+                let fields = self.g.data(*d).ctors()[0].fields.len();
+                self.expr(&Term::proj_as_match(*d, *i, fields, t.clone()))?
+            }
             Term::Data(..)
             | Term::Sort(_)
             | Term::Pi(..)

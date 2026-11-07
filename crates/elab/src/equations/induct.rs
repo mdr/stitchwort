@@ -308,6 +308,7 @@ fn calls(g: &Ev, d: &Def, t: &Term, depth: usize, under: usize, out: &mut Vec<Ih
             calls(g, d, b, depth, under, out)?;
             calls(g, d, p, depth, under, out)
         }
+        Term::Proj(_, _, t) => calls(g, d, t, depth, under, out),
         Term::Case(..) | Term::NumCase(..) => {
             skip("a branch's right side is a case tree, which stage 2a doesn't follow")
         }
