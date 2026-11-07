@@ -1,5 +1,5 @@
 {
-  "next": 2159,
+  "next": 2160,
   "tickets": [
     {
       "id": 47,
@@ -19894,6 +19894,21 @@
       ],
       "epic": "record-eta",
       "body": "Read-only Opus review, docs/reviews/SW-N-glued-leaf-unfolding.md. Next free read-only slot. 40 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2159,
+      "title": "[Opus] Survey: generic lemmas in aoc/ (about lists, Nat, Int, Map, Set, Option, strings, folds, grids) that belong in std; dedupe against std and the open std-lemma tickets (SW-957, 1486, 1493, 1531, 1577, 1588 …); rank by generality and reuse; plan migration lanes",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2159",
+      "labels": [
+        "design"
+      ],
+      "epic": "std-library",
+      "body": "Matt, 7 Nov 2026: 'if they are reasonably generic facts that might have wider utility than just Advent of Code ... move them there and have a really rich standard library with a lot of proven facts about the functions. ... spin up an Opus job.' Read-only survey first (docs/reviews/SW-N-aoc-lemmas-to-std.md); moves are Sonnet/DeepSeek lanes per CLAUDE.md. 75 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
