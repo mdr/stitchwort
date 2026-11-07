@@ -1,5 +1,5 @@
 {
-  "next": 2081,
+  "next": 2085,
   "tickets": [
     {
       "id": 47,
@@ -14833,7 +14833,7 @@
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 3, 6). Waiting on D2584 (rec: yes). Expected: 60 min.\n\nFrom docs/reviews/code-review-elab-tactics.md (F3): search.rs:1402 already catches a panic per comparison and carries on in the same session, so the caught-panic case is live. D2701: remove that catch, let this ticket's worker-level catch answer 'no result' and drop the kept session [rec: yes].\n\nFrom docs/reviews/code-review-cli-lsp-web-fmt.md (lane A): the checker thread has the same problem and worse (the editor freezes, high): SW-1948. Do them together.\n\nFrom docs/proposals/lsp-failure-policy.md: stage 1: a hidden Options::faults field for tests, search worker recovery on a fresh thread, a catch per main-thread request (Sonnet, 75 min). Absorbs D2584, SW-1821 finding 8, cli review F9.\n\nD2855 (Matt, 7 Nov 2026): \"Proceed with those 3\": start stage 1 of docs/proposals/lsp-failure-policy.md now; D2740 (recover in-process on a fresh thread) yes by the same answer. Expected: 75 min.\n\nDone, merged. Fault injection (Options::faults), search worker caught and restarted on a fresh thread by a supervisor after the old thread is joined (kept session and thread-locals freed), main-thread requests catch panics (InternalError). Cancellation comment corrected, not wired: SW-2066. No restart budget yet: SW-2067. Playground path catches but doesn't restart. lsp area 26/26 on main after merge. Model result: Sonnet, worked, 20 min (est. 75).",
+      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 3, 6). Waiting on D2584 (rec: yes). Expected: 60 min.\n\nFrom docs/reviews/code-review-elab-tactics.md (F3): search.rs:1402 already catches a panic per comparison and carries on in the same session, so the caught-panic case is live. D2701: remove that catch, let this ticket's worker-level catch answer 'no result' and drop the kept session [rec: yes].\n\nFrom docs/reviews/code-review-cli-lsp-web-fmt.md (lane A): the checker thread has the same problem and worse (the editor freezes, high): SW-1948. Do them together.\n\nFrom docs/proposals/lsp-failure-policy.md: stage 1: a hidden Options::faults field for tests, search worker recovery on a fresh thread, a catch per main-thread request (Sonnet, 75 min). Absorbs D2584, SW-1821 finding 8, cli review F9.\n\nD2855 (Matt, 7 Nov 2026): \"Proceed with those 3\": start stage 1 of docs/proposals/lsp-failure-policy.md now; D2740 (recover in-process on a fresh thread) yes by the same answer. Expected: 75 min.\n\nDone, merged. Fault injection (Options::faults), search worker caught and restarted on a fresh thread by a supervisor after the old thread is joined (kept session and thread-locals freed), main-thread requests catch panics (InternalError). Cancellation comment corrected, not wired: SW-2066. No restart budget yet: SW-2067. Playground path catches but doesn't restart. lsp area 26/26 on main after merge. Model result: Sonnet, worked, 20 min (est. 75).\n\nCorrection (docs/reviews/SW-2080-merges-7-nov.md): in the browser nothing catches: wasm aborts on a panic, and the page restarting its worker is what recovers.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -18681,14 +18681,74 @@
     {
       "id": 2080,
       "title": "[Opus] Fresh-eyes review of today's three merges: SW-1885 (pin table in core), SW-1916 (lexer ${…} scan), SW-1820 (search worker recovery)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2080",
       "labels": [
         "review"
       ],
       "epic": "test-infra",
-      "body": "Matt (7 Nov 2026): spare capacity, no-build Opus lanes. Expected: 60 min.",
+      "body": "Matt (7 Nov 2026): spare capacity, no-build Opus lanes. Expected: 60 min.\n\nDone, merged: docs/reviews/SW-2080-merges-7-nov.md. SW-1885 closes the soundness hole (pins checked before binding and on cache replay; no shipped path to the unpinned registration); SW-1916 linear and can't disagree; SW-1820 no double answers, clean joins. 0 high, 2 medium, 9 low. Tickets SW-2081-SW-2084. D2970. 10 min (est. 60).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2081,
+      "title": "[Sonnet] Pins: check every pinned builtin in bind_builtin_def/bind_builtin_data (today each pin is checked only in its own registration function, so a pin added later can go unchecked); fix two over-claiming comments (pinned_hashes.rs stops at the first stale pin; chars.rs still has pins)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "effects-native",
+      "body": "From docs/reviews/SW-2080-merges-7-nov.md (P1-P4). With or before SW-1991. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2082,
+      "title": "[Sonnet] Language server stage 1 follow-ups: a search-panic test that panics mid-search (today it panics before the search starts); queue_search inserts into pending before building the job; Main::request's comment says handlers don't change state",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "epic": "editor-playground",
+      "body": "From docs/reviews/SW-2080-merges-7-nov.md (S1-S4). Before or with SW-2067 (both touch keep_search_worker). 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2083,
+      "title": "[DeepSeek] Lexer messages for hidden characters (L1, L2) and error-span tests",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "syntax"
+      ],
+      "epic": "syntax-language",
+      "body": "From docs/reviews/SW-2080-merges-7-nov.md. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2084,
+      "title": "[Sonnet] Warn on invisible text-direction characters in comments and text literals ('Trojan Source'), as Rust does, with an escape for text that needs one",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "syntax"
+      ],
+      "epic": "syntax-language",
+      "body": "From docs/reviews/SW-2080-merges-7-nov.md. D2970 [rec: yes]. 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
