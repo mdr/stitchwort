@@ -663,7 +663,8 @@ impl Elaborator {
 
     pub fn new() -> Self {
         // Glued evaluation (docs/proposals/folded-calls.md) is on while
-        // elaborating; `STITCHWORT_GLUE=0` turns it off, for comparison.
+        // elaborating; `STITCHWORT_GLUE=0` turns it off for programs, for
+        // comparison (the library always glues: `Elaborator::gluing`).
         let e = Self {
             options: state::Options::from_env(),
             ..Self::default()
@@ -910,7 +911,7 @@ impl Elaborator {
         self.options.glue || self.unit.loading_prelude
     }
 
-    /// `f` with gluing on if [`Elaborator::glue`] is set: around the
+    /// `f` with gluing on if [`Elaborator::gluing`] says so: around the
     /// elaboration of one declaration (or component) or one expression.
     /// Evaluation outside it (running a program, the driver's own uses of
     /// the environment) never sees a glued call. `f` starts with an empty

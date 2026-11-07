@@ -1133,3 +1133,68 @@ def usesH (xs: List Nat): Bool := match h: xs.length with
         generated(s, "usesH.eq.succ");
     });
 }
+
+/// Equations of library functions are made on demand, and come out the
+/// same whoever asks (SW-1068, SW-2275): from a program that names them
+/// (glued, as the default is), or from the driver outside any declaration,
+/// as `search` and `doc` do (the machine's switch is off there). Each is
+/// compared by content hash. (Today no std equation happens to differ
+/// glued and unglued, so this guards the property rather than a known
+/// failure.)
+#[test]
+fn library_equations_come_out_the_same_whoever_asks() {
+    std::thread::Builder::new()
+        .stack_size(64 << 20)
+        .spawn(|| {
+            let imports = "import Std (List, Nat)\n\n";
+            let mut driven = Session::new();
+            driven.elab.options.glue = false;
+            driven
+                .load(
+                    "driven.sw",
+                    &format!("{imports}def one: List Nat := [1].filter (n => n == 0)\n"),
+                )
+                .unwrap();
+            driven.elab.generate_deferred_equations().unwrap();
+            let names: Vec<String> = driven
+                .elab
+                .ev()
+                .env
+                .defs()
+                .iter()
+                .map(|d| d.name().to_string())
+                .filter(|n| {
+                    n.rsplit(".eq").next().is_some_and(|s| {
+                        n.contains(".eq") && s.starts_with(|c: char| c.is_ascii_digit())
+                    })
+                })
+                .collect();
+            assert!(names.len() > 100, "{} equations", names.len());
+
+            let mut asked = Session::new();
+            for (i, name) in names.iter().enumerate() {
+                let source = format!("{imports}def use{i}: _ := {name}\n");
+                let _ = asked.load(&format!("asked{i}.sw"), &source);
+            }
+
+            let hashed = |s: &Session, name: &str| {
+                let g = &s.elab.ev();
+                let (i, _) =
+                    (g.env.defs().iter().enumerate().rev()).find(|(_, d)| &**d.name() == name)?;
+                let hash = stitchwort_core::hash::def_hash(g, stitchwort_core::DefId(i));
+                Some(format!("{:?}", hash.unwrap()))
+            };
+            let mut compared = 0;
+            for name in names {
+                let Some(theirs) = hashed(&asked, &name) else {
+                    continue;
+                };
+                compared += 1;
+                assert_eq!(Some(theirs), hashed(&driven, &name), "{name}");
+            }
+            assert!(compared > 100, "only {compared} compared");
+        })
+        .unwrap()
+        .join()
+        .unwrap();
+}
