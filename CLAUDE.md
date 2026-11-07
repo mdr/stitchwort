@@ -31,17 +31,32 @@ does not do significant work itself:
   5 Nov 2026: "we don't want to slow down the whole software factory
   because of overcaution"; replaces D2221's one at a time; see "Checks
   after a merge" in `docs/workflow.md`).
-- It keeps the board up to date (`board/board move`, `commit`, `add`). New
-  findings go in `backlog`, unless they block work in progress.
-- It brings Matt the decisions that are his as D questions, numbered up from
-  the highest in use. After each turn it lists the open ones, each with a
-  recommendation: `D2189: start these lanes? [rec: yes]`. The answer is
-  recorded on the ticket.
+- It keeps the board up to date (`board/board move`, `commit`, `add`), and
+  each epic's `now`, `done` and `next` in `board/epics.json` (D2517); new
+  tickets get `--epic`. New findings go in `backlog`, unless they block work
+  in progress. It files every small finding from a lane's report as it
+  arrives and schedules it ("I'm a fan of doing small improvements", Matt,
+  5 Nov 2026), including generic lemmas proved in `aoc/` that belong in std
+  and logic repeated across AoC days that belongs in `Aoc.Common`.
+- It brings Matt only the decisions that are his, as D questions numbered up
+  from the highest in use, each with a recommendation: `D2189: start these
+  lanes? [rec: yes]`. His are direction, scope, a design's end state,
+  user-visible language, trust and process; at most one or two a turn, and
+  only when a lane is about to need the answer (Matt, 7 Nov 2026: "I can't
+  possibly review 80 decisions"). Sequencing, implementation details and
+  reversible calls it makes itself, records on the ticket as the
+  orchestrator's call, and mentions in one line. The answer is recorded on
+  the ticket. See "Reporting to Matt" in `docs/workflow.md`.
 - It may do small mechanical work itself: board edits, merge commits, staging
   regenerated snapshots, one-line fixups found in review. Anything bigger
   (code, proofs, design notes, investigations) goes to an agent, including
   fixes for problems found in review.
-- Lanes that touch the same area run one after another, not side by side.
+- It starts any work that doesn't depend on something running at once: only
+  merges wait for verifiers (Matt, 4 Nov 2026: "schedule work in parallel
+  when you can"). Moderate merge-conflict risk is fine; only lanes known to
+  clash heavily (two sweeps, two lanes rewriting the same files) run one
+  after another. Slots that would sit idle get paper lanes (designs,
+  reviews, research: no builds or tests; D3343).
 - It creates each lane's worktree itself, from the main checkout:
   `nix develop -c task worktree:new -- SW-N` (`.claude/worktrees/SW-N`,
   branch `lane/SW-N`, from local `main`), and gives the agent the path.
@@ -55,7 +70,48 @@ does not do significant work itself:
   2 Nov 2026).
 - Once a lane's work is merged or dropped, it deletes the worktree and its
   branch (`task worktree:rm -- SW-N`), or the scratch clone (`rm -rf`).
-  Each holds gigabytes of build output.
+  Each holds gigabytes of build output. `worktree:rm` deletes the branch
+  too: to keep one, use `git worktree remove` (see "Merging" in
+  `docs/workflow.md`).
+- It joins the steps of a merge with `&&`, never `;` or a pipe, so a
+  conflict stops the board commit and `worktree:rm` after it (a conflict
+  was once committed with its markers, 6 Nov 2026).
+- It keeps the agent list honest: after each merge, verifier report and
+  context compaction, and before any status table, it compares the running
+  agents with the board's `doing` tickets and stops every agent whose result
+  it has acted on (Matt, 3 Nov 2026: no zombie subagents).
+- It never signals processes by binary name or path: VS Code's `stitchwort
+  lsp` runs the main checkout's release binary. It selects a run by its
+  process tree (see "Stopping a lane's own test runs" in
+  `docs/workflow.md`).
+- Opus reviews, and long lane reports worth keeping, go in the repo as
+  `docs/reviews/SW-N-topic.md`, linked from the ticket (D2530).
+
+## Talking to Matt
+
+Details and examples are in "Reporting to Matt" in `docs/workflow.md`.
+
+- Explain a proposal in three short parts, in everyday words: **the
+  problem**, **the change**, and **what it should do** (with numbers, saying
+  measured or estimated). Lead with the user-visible benefit; Matt defers
+  work whose impact he can't see (3 Nov 2026).
+- Every SW number gets a few-word hint in brackets, every time: "SW-1421
+  (day 8's lookup lemmas into std)". Status replies go by epic, using the
+  names Matt gave the work, each item's status first.
+- "aw" means a table of active work. Every table of running work has the
+  same six columns: Ticket, Epic, Machine, Model, Running for, Summary.
+- Before quoting how long a job takes, look up how long it took before, and
+  set a stop point up front (Matt stopped a "two-minute" job at 25 min,
+  5 Nov 2026).
+- An instruction is meant for the situation it was given in, unless Matt
+  says "always" or "from now on". Before treating one as a standing rule,
+  ask (5 Nov 2026). There is no standing usage cap.
+- Migration cost never counts against a change: changed hashes, a cache
+  format bump, snapshot churn or a sweep. Judge options by the end state
+  (D2303, Matt, 4 Nov 2026: "Migration cost doesn't matter. It's the end
+  state. I keep trying to remind you of this.").
+- Committing AoC inputs is fine; don't raise their visibility again (Matt,
+  4 Nov 2026).
 
 ## Choosing the model
 
@@ -72,7 +128,9 @@ Use the cheapest model that can do the work well. Provisional (D2208, Matt,
   keeps its meaning (D2436, Matt, 5 Nov 2026). New AoC days are Opus's too: not
   because they are hard, but because the day's friction notes are the
   analysis of Stitchwort's gaps that drives the next work (D2427, Matt,
-  5 Nov 2026).
+  5 Nov 2026). Every code review or code audit is Opus's, whatever the
+  crate; Sonnet and DeepSeek do the fixes it files (Matt, 7 Nov 2026: "We
+  shouldn't be using [Sonnet] for code review").
 - **Sonnet:** routine work, follow-ups on AoC days and their proofs, refactors, std
   lemmas, work near the kernel or proof generation, tasks where generality
   and design judgement matter, and changes across several crates where a
@@ -124,6 +182,9 @@ Use the cheapest model that can do the work well. Provisional (D2208, Matt,
   regardless. A DeepSeek run can't be talked to while it runs, so the
   orchestrator also watches its elapsed time (`ps -o etime=`) and stops it at 2× if its log
   shows it going in circles.
+- **Briefs** carry the standard lines for the work they hand out (new
+  examples' hash snapshots, std core's native pins, which comment rules
+  apply): see "Writing a brief" in `docs/workflow.md`.
 
 ## Lane agents
 
@@ -166,6 +227,10 @@ Use the cheapest model that can do the work well. Provisional (D2208, Matt,
   `pixels.withIndex.filterMap (match some | (column, Rough) => [row,
   column])`, a test of a pattern is `matches | …`, and a lambda straight
   into a `match` is `match | …` (Matt, 6 Nov 2026).
+- Report what belongs elsewhere: a generic lemma proved in `aoc/` or
+  `games/rogue` belongs in std (Matt, 7 Nov 2026: "a really rich standard
+  library with a lot of proven facts"), and the same few lines in two AoC
+  days belong in `aoc/src/Aoc/Common` with a lemma (D2381).
 - Before committing, run `stitchwort fmt` on the `.sw` files you touched,
   plus `cargo fmt` and clippy.
 
@@ -177,12 +242,13 @@ Use the cheapest model that can do the work well. Provisional (D2208, Matt,
   check the work your change directly affects: `task test:one -- NAME` for
   the tests you touched, and `task test:lane AREA=…` when it fits. No single
   run takes more than a minute or two. Don't run broader suites "to be
-  safe"; the orchestrator runs the merge tier after merging. After a
+  safe"; the orchestrator's verifier checks each batch after merging. After a
   failure, rerun only the failing tests.
 - Exceptions (a lane working on the test suites themselves, say) are agreed
   with Matt before the lane starts: the orchestrator asks, and the brief
   states the agreed strategy. A brief never allows a broader suite on the
-  orchestrator's own judgement.
+  orchestrator's own judgement. A whole-AoC or roguelike `check
+  --no-cache`, or a profile across all of `aoc/`, is a broader suite.
 - Spend test time according to risk, within a stated budget.
 - Run long jobs (builds, browser tests, the daily tier when it's approved)
   in the background.
