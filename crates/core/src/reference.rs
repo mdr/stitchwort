@@ -515,13 +515,51 @@ fn unfold_folded(g: &Ev, value: Value) -> Result<Value> {
     Ok(value)
 }
 
+/// A `case`'s scrutinee with its head computed: folded calls unfolded, and
+/// a stuck `m + n` read by R3 and R4 through a folded `n` (G2).
+fn scrutinee(g: &Ev, value: Value) -> Result<Value> {
+    let value = unfold_folded(g, force(g, value)?)?;
+    Ok(match reread_sum(g, &value)? {
+        Some(value) => unfold_folded(g, force(g, value)?)?,
+        None => value,
+    })
+}
+
+/// `nat_add::reread` with this evaluator's unfolding: a stuck `m + n` with
+/// a folded call in `n`, as what R3 and R4 make of it.
+fn reread_sum(g: &Ev, value: &Value) -> Result<Option<Value>> {
+    crate::nat_add::reread(g, value, force, |x| {
+        if !is_folded(g, x) {
+            return Ok(None);
+        }
+        let x2 = unfold_folded(g, x.clone())?;
+        Ok(match (x, &x2) {
+            (Value::Neutral(Head::Def(i1), s1), Value::Neutral(Head::Def(i2), s2))
+                if i1 == i2 && s1.ptr_eq(s2) =>
+            {
+                None
+            }
+            _ => Some(x2),
+        })
+    })
+}
+
 /// The number `value` is, as `k` plus what's unknown, a folded definition
 /// taken apart first as `value.rs` does. Its own frame, so `eval_tree`'s
 /// recursion keeps a small one.
 #[inline(never)]
 fn number_view(g: &Ev, value: &Value) -> Result<(num_bigint::BigUint, Option<Value>)> {
     let value = unfold_folded(g, force(g, value.clone())?)?;
-    native::view_with(g, &value, force)
+    let (k, base) = native::view_with(g, &value, force)?;
+    match base
+        .as_ref()
+        .map(|b| reread_sum(g, b))
+        .transpose()?
+        .flatten()
+    {
+        Some(base) => number_view(g, &native::from_view(k, Some(base))),
+        None => Ok((k, base)),
+    }
 }
 
 fn eval_tree(
@@ -533,7 +571,7 @@ fn eval_tree(
 ) -> Result<Option<Value>> {
     match term.strip_loc() {
         Term::Case(ix, d, branches) => {
-            let (c, fields) = match unfold_folded(g, force(g, env[env.len() - 1 - ix].clone())?)? {
+            let (c, fields) = match scrutinee(g, env[env.len() - 1 - ix].clone())? {
                 Value::Ctor(_, c, fields) => (c, fields.to_vec()),
                 // Record eta, rule 2: the only branch, with the fields
                 // projected.
@@ -768,6 +806,14 @@ fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<boo
             return conv_in(g, level, &a2, &b2, mode);
         }
     }
+    // A sum stuck on its first argument, with a folded call in its second,
+    // as what R3 and R4 make of it (G2).
+    if let Some(a2) = reread_sum(g, a)? {
+        return conv_in(g, level, &a2, b, mode);
+    }
+    if let Some(b2) = reread_sum(g, b)? {
+        return conv_in(g, level, a, &b2, mode);
+    }
     if matches!(a, Value::Chars(_)) || matches!(b, Value::Chars(_)) {
         return conv_in(g, level, &force(g, a.clone())?, &force(g, b.clone())?, mode);
     }
@@ -780,6 +826,9 @@ fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<boo
             b,
             |x, y| conv_in(g, level, x, y, mode),
             |x, rest| {
+                if let Some(x2) = reread_sum(g, x)? {
+                    return conv_in(g, level, &x2, rest, mode);
+                }
                 if !is_folded(g, x) {
                     return Ok(false);
                 }

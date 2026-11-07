@@ -1206,7 +1206,6 @@ fn wrapping_known_failure_g1() {
 }
 
 #[test]
-#[ignore = "known failure G2 (`+` on a folded number), fixed by SW-2244"]
 fn wrapping_known_failure_g2() {
     known_wrapping("G2")
 }
@@ -1261,7 +1260,6 @@ fn probe_g1_folded_scrutinee() {
 }
 
 #[test]
-#[ignore = "known failure G2 (`+` on a folded number), fixed by SW-2244"]
 fn probe_g2_sum_with_a_folded_number() {
     load_probe(
         "g2.sw",

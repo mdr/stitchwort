@@ -1983,7 +1983,13 @@ fn branch(
                 (k, Some(base)) => match arms.last() {
                     Some(last) if *last.value < k => default.clone(),
                     _ if apart_of(&base).excludes(g, &k, arms) => default.clone(),
-                    _ => return stuck_tree(g, stuck),
+                    _ => match reread_sum(g, &base)? {
+                        Some(base) => {
+                            let value = native::from_view(k, Some(base));
+                            return branch(g, tree, env, stuck, value);
+                        }
+                        None => return stuck_tree(g, stuck),
+                    },
                 },
             };
             return Ok(Control::Tree(next, env, stuck));
@@ -2032,7 +2038,10 @@ fn branch(
             let k = g.data(*d).ctors[0].fields.len();
             (0, eta_fields(g, *d, k, scrutinee, n)?)
         }
-        _ => return stuck_tree(g, stuck),
+        other => match reread_sum(g, &other)? {
+            Some(value) => return branch(g, tree, env, stuck, value),
+            None => return stuck_tree(g, stuck),
+        },
     };
     let Some(body) = branches[c].body.clone() else {
         // An impossible branch is never reached by a well-typed value
@@ -2045,6 +2054,14 @@ fn branch(
     };
     env.extend(fields);
     Ok(Control::Tree(body, env, stuck))
+}
+
+/// A stuck `m + n` with a call folded by name in `n`, as what R3 and R4
+/// make of it once that is unfolded ([`crate::nat_add::reread`]): for a
+/// comparison or a `case` that reads the sum (rule E, G2), never for
+/// evaluation itself.
+fn reread_sum(g: &Ev, value: &Value) -> Result<Option<Value>> {
+    crate::nat_add::reread(g, value, force, |x| unfold_folded(g, x))
 }
 
 /// Field `i` of `value`, a forced value of data type `d`, which has eta
@@ -3248,12 +3265,24 @@ fn conv_step(
             return Ok(true);
         }
     }
+    // A sum stuck on its first argument, with a folded call in its second:
+    // compared as what R3 and R4 make of it once that is unfolded (G2).
+    let reread = |v: &Value| reread_sum(g, v);
+    if let Some(a2) = reread(&a)? {
+        work.push(ConvTask::Values(level, a2, b));
+        return Ok(true);
+    }
+    if let Some(b2) = reread(&b)? {
+        work.push(ConvTask::Values(level, a, b2));
+        return Ok(true);
+    }
     // Numbers, `k + x`, `Zero` and `Succ` all compare by their `k + x` forms:
     // `3` and `Succ x` are equal when `x` is `2`. Glued calls in them are
     // unfolded only as far as that needs (`compare_lazily`, SW-1153). A
     // base left against a different count of `Succ`s is unequal unless it's
     // a folded call, which is unfolded and compared again (`Succ (f 0)`
-    // against `2`, SW-2157), as the rule above does at the top.
+    // against `2`, SW-2157), as the rule above does at the top, or a sum
+    // that R3 and R4 read further (G2).
     if native::nat_like(g, &a) || native::nat_like(g, &b) {
         let mut unfolded = None;
         let same = |x: &Value, y: &Value| {
@@ -3261,7 +3290,11 @@ fn conv_step(
             Ok(true)
         };
         let assign = |x: &Value, rest: &Value| {
-            Ok(match unfold_folded(g, x)? {
+            let x = match unfold_folded(g, x)? {
+                Some(x) => Some(x),
+                None => reread(x)?,
+            };
+            Ok(match x {
                 Some(x) => {
                     unfolded = Some((x, rest.clone()));
                     true
