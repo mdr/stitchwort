@@ -14255,9 +14255,9 @@
     {
       "id": 1782,
       "title": "[Opus] Determinism: whether a call's unfolding is already cached changes what a later folded read-back writes (SW-1748: an extra unfolded read-back moved 12 Rogue.Proofs hashes; resolveOnFloor.%match3's type 1,144 → 54,784 nodes). Find the cause (steps-at-once forcing in quote_folded, or matching.rs's unfolded motive read-back)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1782",
       "labels": [
         "kernel"
       ],
