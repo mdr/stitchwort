@@ -21266,9 +21266,9 @@
     {
       "id": 2250,
       "title": "[Sonnet] Proof tidy-ups from soundness fuzz job 9: movesWalkBack (2024 day 16 Part2.sw:69) and sameTile (2024 day 15 Widen.sw:34) omega hints look redundant (a swapped hint still closes); orthogonalIntro (2024 day 12 Steps.sw:18) a 12-line proof omega closes; Rogue descendOutOfWalls (Walls.sw:27) has an unused hypothesis (inside)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2250",
       "labels": [
         "proofs"
       ],
@@ -21326,9 +21326,9 @@
     {
       "id": 2254,
       "title": "[Sonnet] With STITCHWORT_GLUE=0, std's Float file fails its pinned hashes (E-BUILTIN on Float.neg, abs, sub), so no program importing Float checks unglued",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2254",
       "labels": [
         "core"
       ],
