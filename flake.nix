@@ -364,6 +364,7 @@
             pkgs.cargo-llvm-cov # test coverage
             pkgs.cargo-mutants # mutation testing: do the tests notice when code changes?
             pkgs.cargo-nextest # runs the test tiers (.config/nextest.toml)
+            pkgs.lld # faster linking of the many test binaries (see env below)
             pkgs.go-task # `task`: the menu of what to run (Taskfile.yml)
             pkgs.python3 # dev/memguard, which every test task runs under
             pkgs.jq # task test:lanes-nonempty reads `cargo nextest list` JSON
@@ -387,6 +388,14 @@
             # the devShell sets this; the package and check builds above do not
             # inherit it, so the distributed binary is built from scratch.
             CARGO_PROFILE_RELEASE_INCREMENTAL = "true";
+          }
+          // pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isDarwin {
+            # Link with lld: a rebuild links about 150 test binaries, and lld
+            # takes about 15% off its CPU time (SW-1754). A target-specific
+            # variable, not RUSTFLAGS, so `.cargo/config.toml`'s wasm32
+            # rustflags still apply; the package and check builds don't see it.
+            CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS = "-C link-arg=-fuse-ld=lld";
+            CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS = "-C link-arg=-fuse-ld=lld";
           }
           // pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux (muslEnv pkgs);
         };
