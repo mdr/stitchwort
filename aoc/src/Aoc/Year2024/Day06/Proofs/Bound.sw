@@ -104,11 +104,6 @@ theorem guardExt: (one: Guard) → (other: Guard) → one.position.row = other.p
   | { position = { row, column }, facing }, { position = { row = otherRow, column = otherColumn }, facing = otherFacing }, rows, columns, facings =>
     rewrite rows, columns, facings in rfl
 
---| A cell's row: `row * width + column` with `column < width` determines
---| `row`.
-theorem rowOfCell (width: Nat) (positive: width ≠ 0) (row: Nat) (column: Nat) (small: column < width): (row * width + column) / width = row :=
-  rewrite (omega: row * width + column = column + row * width), Nat.divAddMul column row width [ok := positive], Nat.divSmall column width small in rfl
-
 --| Different states on the map have different numbers.
 theorem stateCodeInjective (lab: Lab) (one: Guard) (other: Guard) (oneInside: onMap lab one.position = True) (otherInside: onMap lab other.position = True)
     (same: stateCode lab one = stateCode lab other): one = other :=
@@ -119,9 +114,9 @@ theorem stateCodeInjective (lab: Lab) (one: Guard) (other: Guard) (oneInside: on
   let positive: lab.width ≠ 0 := omega [oneInside]
   let rows: one.position.row = other.position.row :=
     calc one.position.row
-      _ = (one.position.row * lab.width + one.position.column) / lab.width := Eq.sym (rowOfCell lab.width positive one.position.row one.position.column (omega [oneInside]))
+      _ = (one.position.row * lab.width + one.position.column) / lab.width := Eq.sym (Nat.mulAddDivSmall one.position.row lab.width one.position.column (omega [oneInside]))
       _ = (other.position.row * lab.width + other.position.column) / lab.width := rewrite cells in rfl
-      _ = other.position.row := rowOfCell lab.width positive other.position.row other.position.column (omega [otherInside])
+      _ = other.position.row := Nat.mulAddDivSmall other.position.row lab.width other.position.column (omega [otherInside])
   let columns: one.position.column = other.position.column := omega [rewrite rows at cells]
   guardExt one other rows columns (directionIndexInjective one.facing other.facing indexes)
 

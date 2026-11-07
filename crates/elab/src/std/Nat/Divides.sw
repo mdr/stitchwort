@@ -174,3 +174,55 @@ theorem Nat.gcdBezout (a: Nat) (b: Nat): ∃ (s: Int) => ∃ (t: Int) => s * a.t
         | Witness s (Witness t h) =>
           rewrite Nat.gcdStep a c in
           Witness t (Witness (s - t * (a / Succ c).toInt) (ring [h, t * divided]))
+
+--| `v * d + r` is `target`, for a remainder `r < d`, exactly when `target`
+--| leaves remainder `r` and quotient `v`: the test a program makes to undo
+--| a multiplication and an addition.
+theorem Nat.mulAddDivMatch (d: Nat) (r: Nat) (small: r < d) (v: Nat) (target: Nat):
+    (v * d + r == target) = (target % d == r && v == target / d) :=
+  Bool.eqOf (v * d + r == target) (target % d == r && v == target / d)
+    (matches =>
+      let same := DecEq.sound matches
+      rewrite Nat.modUnique target d v r small (Eq.sym same), Nat.divUnique target d v r small (Eq.sym same)
+        in Bool.andIntro (DecEq.refl r) (DecEq.refl v))
+    (both =>
+      let remainder := DecEq.sound (Bool.andLeft both)
+      let quotient := DecEq.sound (Bool.andRight both)
+      rewrite quotient, <- remainder, <- Nat.divModEq target d in DecEq.refl target)
+
+--| A product of two nonzero numbers is nonzero. (`omega` doesn't multiply
+--| two variables, so it needs this as a hint: `omega [Nat.mulNeZero a b ha hb]`.)
+theorem Nat.mulNeZero: (a: Nat) → (b: Nat) → a ≠ 0 → b ≠ 0 → a * b ≠ 0
+  | Zero, b, aPositive, bPositive, zero => aPositive rfl
+  | a, Zero, aPositive, bPositive, zero => bPositive rfl
+  | Succ a, Succ b, aPositive, bPositive, zero => omega
+
+--| Taking one `w` off a number at least `w` leaves its remainder by `w`.
+theorem Nat.subModSelf (column: Nat): (width: Nat) → width ≤ column → (column - width) % width = column % width
+  | Zero, past => rewrite (omega: column - 0 = column) in rfl
+  | Succ n, past =>
+    let back: column - Succ n + 1 * Succ n = column := omega
+    let shifted := Nat.modAddMul (column - Succ n) 1 (Succ n)
+    rewrite back at shifted in Eq.sym shifted
+
+--| Stepping a counter that wraps at `d`: from a position `a < d`, one step
+--| then `n` more cross the same number of multiples of `d` as `Succ n` steps
+--| from `a`. The first step crosses one (the `Bool.toNat`) exactly when it
+--| lands on a multiple of `d`, that is, wraps back to 0.
+theorem Nat.divSuccStep (d: Nat) (a: Nat) (h: a < d) (n: Nat):
+    Bool.toNat ((a + 1) % d == 0) + ((a + 1) % d + n) / d = (a + Succ n) / d :=
+  match Nat.decEq (Succ a) d with
+    | Yes same =>
+      calc Bool.toNat ((a + 1) % d == 0) + ((a + 1) % d + n) / d
+        _ = Succ (n / d) := rewrite (Eq.trans (Eq.cong (t => t % d) same) (Nat.modSelf d): (a + 1) % d = 0)
+        _ = (d + n) / d := Eq.sym (Nat.addDivSelf d n)
+        _ = (Succ a + n) / d := rewrite (omega: d = Succ a)
+        _ = (a + Succ n) / d := rewrite (ring: a + Succ n = Succ a + n)
+    | No differ =>
+      rewrite Nat.modSmall (Succ a) d (omega [differ]: Succ a < d) in rfl
+
+--| Counting backwards from the top of a dial of `Succ m` positions: the
+--| position `Succ m - v` is on a multiple of `Succ m` exactly when `v` is 0.
+theorem Nat.subModBeqZero (m: Nat): (v: Nat) → v < Succ m → ((Succ m - v) % Succ m == 0) = (v == 0)
+  | Zero, h => rewrite Nat.modSelf (Succ m)
+  | Succ w, h => rewrite Nat.modSmall (m - w) (Succ m) omega, (omega: m - w = Succ (m - Succ w))

@@ -210,7 +210,7 @@ theorem toPointSome (coords: Coords YDown) (point: Point) (converts: coords.toPo
         | None => Void.exfalso (Option.noneNotSome point converts)
         | Some y =>
           rewrite <- Option.someInjective converts in
-            coordsExt _ _ (Eq.sym (toNatCheckedSome coords.x x xAt)) (Eq.sym (toNatCheckedSome coords.y y yAt))
+            coordsExt _ _ (Eq.sym (Int.toNatCheckedSome coords.x x xAt)) (Eq.sym (Int.toNatCheckedSome coords.y y yAt))
 
 --| Negative coordinates are not a point.
 theorem toPointNone (coords: Coords YDown) (negative: coords.x < 0 ∨ coords.y < 0): coords.toPoint = None := cases

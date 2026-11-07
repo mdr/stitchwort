@@ -60,12 +60,12 @@ theorem canMakeReaches (operators: List Operator) (first: Nat): (reversed: List 
                 rewrite before (target / Succ less) in
                   Eq.sym (Eq.trans (reachesCong operators _ (value => target % Succ less == 0 && value == target / Succ less)
                       (value => Eq.trans (Eq.cong (product => product == target) (Eq.sym (Nat.addZero (value * Succ less))))
-                        (divModMatch (Succ less) 0 rfl value target)) rest first)
+                        (Nat.mulAddDivMatch (Succ less) 0 rfl value target)) rest first)
                     (reachesAnd operators (target % Succ less == 0) (== target / Succ less) rest first))
           | Concatenate =>
             rewrite before (target / placeValue last) in
               Eq.sym (Eq.trans (reachesCong operators _ (value => target % placeValue last == last && value == target / placeValue last)
-                  (value => rewrite concatenateArithmetic value last in divModMatch (placeValue last) last (belowPlaceValue last) value target) rest first)
+                  (value => rewrite concatenateArithmetic value last in Nat.mulAddDivMatch (placeValue last) last (belowPlaceValue last) value target) rest first)
                 (reachesAnd operators (target % placeValue last == last) (== target / placeValue last) rest first)))
 
 --| The program's check is the puzzle's "could possibly be true", for any

@@ -12,24 +12,6 @@ import Aoc.Year2024.Day08 (..)
 import Aoc.Year2024.Day08.Spec (..)
 import Std (And, Bool, DecEq, Decidable, Eq, Exists, Int, Iff, List, Nat, Or, Set, Void)
 
---| Dividing a multiple of a positive number by it.
-theorem divExact: (value: Int) → (below: Nat) → (times: Nat) → value.natAbs = times * Succ below →
-    (Succ below).toInt * (value / (Succ below).toInt) = value
-  | OfNat n, below, times, multiple =>
-    let quotient := Nat.divUnique n (Succ below) times 0 (omega) (rewrite multiple in ring)
-    rewrite quotient in Eq.cong OfNat (rewrite multiple in ring)
-  | NegSucc m, below, Zero, multiple => Void.exfalso (omega [multiple])
-  | NegSucc m, below, Succ times, multiple =>
-    let whole: m = times * Succ below + below := omega [multiple, (ring: Succ times * Succ below = times * Succ below + Succ below)]
-    let quotient := Nat.divUnique m (Succ below) times below (omega) whole
-    rewrite quotient in Eq.cong NegSucc (omega [whole, (ring: times + below * Succ times = times * Succ below + below)])
-
---| `|x|` is `x` times its sign.
-theorem natAbsSign: (x: Int) → x.natAbs.toInt = x.sign * x
-  | OfNat Zero => rfl
-  | OfNat (Succ n) => Eq.cong OfNat (omega)
-  | NegSucc n => Eq.cong OfNat (omega)
-
 --| `divideBy` the gcd, with the gcd as a variable: the difference is a
 --| nonzero multiple of the result, whose parts are coprime.
 theorem divideByFacts (difference: Offset) (goal: Prop) (rowTimes: Nat) (columnTimes: Nat) (s: Int) (t: Int)
@@ -45,12 +27,12 @@ theorem divideByFacts (difference: Offset) (goal: Prop) (rowTimes: Nat) (columnT
   | Succ below, rows, columns, bezout, use =>
     let scale := (Succ below).toInt
     let step := divideBy difference (Succ below)
-    let rowLaw: scale * step.rows = difference.rows := divExact difference.rows below rowTimes rows
-    let columnLaw: scale * step.columns = difference.columns := divExact difference.columns below columnTimes columns
+    let rowLaw: scale * step.rows = difference.rows := Int.divExact difference.rows below rowTimes rows
+    let columnLaw: scale * step.columns = difference.columns := Int.divExact difference.columns below columnTimes columns
     let rowSign := Int.sign difference.rows
     let columnSign := Int.sign difference.columns
     let scaled: scale * (s * rowSign * step.rows + t * columnSign * step.columns) = scale * 1 :=
-      ring [bezout, s * natAbsSign difference.rows, t * natAbsSign difference.columns, s * rowSign * rowLaw, t * columnSign * columnLaw]
+      ring [bezout, s * Int.natAbsSign difference.rows, t * Int.natAbsSign difference.columns, s * rowSign * rowLaw, t * columnSign * columnLaw]
     use scale (omega) (Eq.sym rowLaw) (Eq.sym columnLaw) (s * rowSign) (t * columnSign) (Int.mulCancelLeft scale _ 1 (omega) scaled)
 
 --| The step to grid points from `start` towards `end`: the offset between
@@ -89,20 +71,12 @@ theorem onLineOfCross (fr: Int) (fc: Int) (er: Int) (ec: Int) (scale: Int) (s: I
   let parallel := Int.mulCancelLeft scale ((pc - fc) * er - (pr - fr) * ec) 0 nonzero crossScaled
   Both (ring [(pr - fr) * bezout, t * parallel]) (ring [(pc - fc) * bezout, s * parallel])
 
---| Two numbers below `n` are less than `n` apart.
-theorem natAbsFrom (p: Nat) (a: Nat) (n: Nat) (below: p < n) (aBelow: a < n): (gap: Nat) → a - p = gap → Int.natAbs (Int.subNatNatFrom p a gap) < n
-  | Zero, e => omega
-  | Succ gap, e => omega
-
-theorem natAbsDiffLt (p: Nat) (a: Nat) (n: Nat) (below: p < n) (aBelow: a < n): Int.natAbs (p.toInt - a.toInt) < n :=
-  rewrite Int.subOfNats p a in natAbsFrom p a n below aBelow (a - p) rfl
-
 --| Between two locations on a map `n` high, fewer than `n` steps of a
 --| nonzero size.
 theorem stepsBound (a: Nat) (p: Nat) (er: Int) (k: Int) (n: Nat) (aBelow: a < n) (pBelow: p < n) (on: p.toInt = a.toInt + er * k)
     (nonzero: er ≠ 0):
     k.natAbs < n :=
-  let gap: Int.natAbs (er * k) < n := rewrite (ring [on]: er * k = p.toInt - a.toInt) in natAbsDiffLt p a n pBelow aBelow
+  let gap: Int.natAbs (er * k) < n := rewrite (ring [on]: er * k = p.toInt - a.toInt) in omega
   let positive: Int.natAbs er ≠ 0 := z => nonzero (Int.natAbsZero er z)
   omega [Int.natAbsMul er k, Nat.leMulPos (Int.natAbs k) (Int.natAbs er) (omega)]
 

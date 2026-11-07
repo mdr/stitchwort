@@ -28,7 +28,7 @@ theorem dxAtMostRight (target: Target) (right: 0 < target.left) (velocity: Veloc
       match e: Int.leq velocity.x target.right with
         | True => rfl
         | False =>
-          let fast: overshot target (step (launch velocity)) = True := omega [signCases velocity.x]
+          let fast: overshot target (step (launch velocity)) = True := omega [Int.signCases velocity.x]
           Void.exfalso (neverHits target (step (launch velocity)) (Bool.orLeft fast) m h)
 
 theorem dyAtLeastBottom (target: Target) (below: target.top < 0) (velocity: Velocity) (n: Nat) (h: inTarget target (flight n velocity) = True):
