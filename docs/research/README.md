@@ -15,6 +15,7 @@ file records how it was searched, so it can be refreshed.
 | Agentic theorem proving (SW-909) | [agentic-proving.md](agentic-proving.md) | 69 / 24 / 12 in full + 12 in part / 0 | New 30 Oct; not yet audited; with a friction count from the AoC and rogue notes; D2040–D2041 |
 | Congruence closure in `cases` (SW-904, D2000) | [congruence-closure-evidence.md](congruence-closure-evidence.md) | evidence survey of the repo, not literature | New 30 Oct; recommends defer: about 150 sites, about 0 lines saved each |
 | Perceus-style in-place reuse (SW-1159) | [in-place-reuse.md](in-place-reuse.md) | evidence survey of the repo (allocation traces), literature from compilation.md C1, C4, C5 plus the Perceus TR | New 3 Nov; recommends a per-site reuse report first, then reuse across small helpers; D2272-D2276 |
+| Why compiled Lean is faster (SW-2318) | [lean-runtime-speed.md](lean-runtime-speed.md) | Lean's generated C for the bench/compare ports, our native compiler and runtime, lean4 master | New 7 Nov; binary-trees Lean port invalid (CSE); ranks grid lookup, closure specialisation, inline allocation, compact values; all inferred, to confirm by profile; D3358-D3359 |
 | Parser proofs (SW-1611, D2454) | [parser-proofs-literature.md](parser-proofs-literature.md) | 15 / 15 / 8 in part (relevant sections) / 7 abstract only | New 6 Nov; verdict: standard (Reads/Runs = the soundness/completeness pair of Vermillion and Jourdan–Pottier–Leroy); proceed with SW-1584 |
 
 **Summary report:** [summary/literature-review.pdf](summary/literature-review.pdf)
