@@ -21131,9 +21131,9 @@
     {
       "id": 2241,
       "title": "[Sonnet] Equality matrix: Succ (Succ (withProof (0))) (the lazy path's non-call base), an unknown solved through the unfolding; Value::NatAdd's doc line: compare_lazily can now build k + call",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2241",
       "labels": [
         "tests"
       ],
