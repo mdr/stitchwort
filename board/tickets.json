@@ -1,5 +1,5 @@
 {
-  "next": 2290,
+  "next": 2291,
   "tickets": [
     {
       "id": 47,
@@ -21859,6 +21859,21 @@
       ],
       "epic": "test-infra",
       "body": "From SW-2285. 20 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2290,
+      "title": "[Opus] Comparative speed, stage 0: design note (read-only): which benchmarks (mostly solved AoC days: a Dijkstra like 2021 day 15, a set-heavy day, a parsing day, plain recursion, big numbers; plus 2-3 days' proofs for checking speed), fairness rules (same algorithm, each language's usual data structures, startup counted separately), which backends to compare (interpreter vs CPython, native vs compiled Lean, interpreter vs Lean's interpreter: recommend, with reasons), the harness (task bench:compare, hyperfine, on Overmind), and stages with estimates",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "epic": "comparative-speed",
+      "body": "D3330 — Matt, 7 Nov 2026: \"Yes, I think so. I think that's pretty much the shape of what I'm thinking. Obviously, there's some decisions to dig into. Like, do we compare our interpreter against Python, or do we compare our native against Python? Exactly which programs are good benchmarks. I'm not too worried about like porting stuff to Lean ... performance is a key part of a practical programming language. And being competitive with industry languages is.\"\nStart after the weekly reset (no new lanes tonight). Output docs/proposals/comparative-speed.md. Read docs/proposals/interpreter-speed.md, docs/research/compilation.md, crates/bench, bench/baseline.toml. Python and Lean via nix (nixpkgs#python3, nixpkgs#lean4). Lean ports are cheap (Matt): don't let porting cost decide the benchmark choice. 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []

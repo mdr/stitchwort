@@ -420,6 +420,18 @@
       ]
     },
     {
+      "id": "comparative-speed",
+      "title": "Comparative speed",
+      "goal": "For the same program, using the same algorithm, Stitchwort runs at least as fast as Python and Lean, and checks equivalent proofs about as fast as Lean (D3330).",
+      "status": "active",
+      "done": [],
+      "now": [],
+      "next": [
+        "Stage 0: design note: benchmarks, fairness rules, which backends to compare, the harness (SW-2290, after the weekly reset)"
+      ],
+      "links": []
+    },
+    {
       "id": "aoc-common",
       "title": "AoC shared library (Aoc.Common)",
       "goal": "Logic repeated across AoC days lives once in Aoc.Common, with its lemmas, so each day reads in the problem's terms.",
