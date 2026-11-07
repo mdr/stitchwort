@@ -2,7 +2,7 @@
 
 **Status:** plan, 7 November 2026 (SW-2290, epic Comparative speed, D3330).
 Read only: nothing was built, run or measured for it. Matt decided D3340 (the native build faces Python) and D3341 (no
-targets until the first measurement); D3342 is open, [at the end](#8-questions-for-matt).
+targets until the first measurement), and D3342 (each language uses its natural data structures).
 
 **Matt's goal (D3330).** For the same program, using the same algorithm,
 Stitchwort should run at least as fast as Python and Lean, and check
@@ -427,13 +427,16 @@ are elaboration of parser proofs (2021 day 16's 14 s) and the kernel's
 conversion checks. The checker's own counters (`steps`, `visits`) are where
 stage 3 would start.
 
-## 8. Questions for Matt
+## 8. Decisions
 
 **D3342: compare Python's `dict` against our `Map` as they are, with no
 "fair" persistent Python?** I recommend yes. It's the program a Python
 user writes, and the gap it shows is the case for arrays and a faster map.
 Lean's in-place `HashMap` is the control that says whether a pure
 language can close it. [rec: yes, as they are]
+
+**Decided (D3342, Matt, 7 Nov 2026):** "don't deliberately try and hobble
+Python. Just use natural data structures in that language."
 
 Decided by me, reversible:
 - the ten programs and three proof days;

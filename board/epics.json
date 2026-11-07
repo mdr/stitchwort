@@ -426,11 +426,11 @@
       "status": "active",
       "done": [
         "Plan: ten programs, backends, fairness rules, harness, stages (SW-2290, docs/proposals/comparative-speed.md)",
-        "Native build faces Python and compiled Lean; interpreter reported (D3340); no targets until the first measurement (D3341)"
+        "Native build faces Python and compiled Lean; interpreter reported (D3340); no targets until the first measurement (D3341)",
+        "Each language uses its natural data structures: no hobbled Python (D3342)"
       ],
       "now": [],
       "next": [
-        "Matt: D3342 (Python dict against our Map as they are)",
         "Stage 1: harness and ports (Sonnet, ~5 h over three lanes)",
         "Stage 2: first Overmind measurement and report",
         "Stage 3: ranked causes of the gaps (Opus)"
