@@ -3806,8 +3806,12 @@ pub fn same_stuck_trees(
     if let Some(answer) = memo.known() {
         return Ok(answer);
     }
+    // A pair equal by its arguments isn't recorded: a lookup (`known`) walks
+    // each recorded pair with `identical`, which the budget doesn't count, so
+    // recording every such pair let a check with a small budget run for
+    // minutes (SW-2285). Only "different" needs remembering to keep nested
+    // calls linear (SW-2269).
     if arguments(same)? {
-        memo.record(true);
         return Ok(true);
     }
     let same = same_trees_of(g, level, tree(a), tree(b), same)?;
