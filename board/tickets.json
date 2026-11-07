@@ -1,5 +1,5 @@
 {
-  "next": 1901,
+  "next": 1912,
   "tickets": [
     {
       "id": 47,
@@ -14578,7 +14578,7 @@
         "bug"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-1801. Waiting on Matt's D2577-D2580 (rec: yes to all). Expected: 90 min.\n\nMatt's decisions (docs/proposals/syntax-node-ids.md §7): D2577 a copy gets a new id [rec: yes]; D2578 ids only on dot-call syntax for now [rec: yes]; D2579 drop dot_owners and spans/epoch from the key in the same stage [rec: yes]; D2580 run it on Opus [rec: yes].\n\nFrom the syntax review (docs/reviews/code-review-syntax.md): Expr::Field can carry an id cheaply. A derived Clone would copy it, so the id needs its own type whose Clone takes a fresh number (D2577: copies get new ids); its Debug prints _ under the span-hiding flag so equivalence::shape still matches; use u64 (u32 can wrap in a long server session).",
+      "body": "From SW-1801. Waiting on Matt's D2577-D2580 (rec: yes to all). Expected: 90 min.\n\nMatt's decisions (docs/proposals/syntax-node-ids.md §7): D2577 a copy gets a new id [rec: yes]; D2578 ids only on dot-call syntax for now [rec: yes]; D2579 drop dot_owners and spans/epoch from the key in the same stage [rec: yes]; D2580 run it on Opus [rec: yes].\n\nFrom the syntax review (docs/reviews/code-review-syntax.md): Expr::Field can carry an id cheaply. A derived Clone would copy it, so the id needs its own type whose Clone takes a fresh number (D2577: copies get new ids); its Debug prints _ under the span-hiding flag so equivalence::shape still matches; use u64 (u32 can wrap in a long server session).\n\nFrom docs/reviews/code-review-elab-checking.md (F8): a cached dot-call head is reused stale across attempts; fold into this work. See also SW-1902.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15577,14 +15577,14 @@
     {
       "id": 1870,
       "title": "[Opus] Code review: crates/elab part 1, checking and solving (check.rs, unify.rs, queue.rs, state/, postponement, local/scope/named, dot.rs, rewind/undo)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1870",
       "labels": [
         "review"
       ],
       "epic": "elaborator-kernel",
-      "body": "Matt (7 Nov 2026): crate-by-crate code reviews, reading only (no edits to code, no builds or runs); output a document of recommendations. Expected: 90 min. Part 2 (tactics) and part 3 (derive, interfaces, effects, the rest) follow.",
+      "body": "Matt (7 Nov 2026): crate-by-crate code reviews, reading only (no edits to code, no builds or runs); output a document of recommendations. Expected: 90 min. Part 2 (tactics) and part 3 (derive, interfaces, effects, the rest) follow.\n\nDone, merged: docs/reviews/code-review-elab-checking.md. No soundness risk; 0 high, 6 medium, 12 low. Top: stale dot failures across re-checks (SW-1902), queue invariants never run (SW-1903), settings not put back (SW-1901), file sizes (SW-1904-SW-1906), choosing by error-code strings (SW-1908). Tickets SW-1901-SW-1911. D2650-D2653. 16 min (est. 90).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -16035,6 +16035,171 @@
       ],
       "epic": "effects-native",
       "body": "Matt (7 Nov 2026): crate-by-crate code reviews, reading only. Expected: 75 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1901,
+      "title": "[Sonnet] Put back what's set: auto::decide_from forces glue on (proof_equivalence compares less than it says); NO_ETA thread-local restored by hand (a caught panic leaves eta off for the thread); LeafPath guard; F10, F15",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/code-review-elab-checking.md (tickets to file, 1; F2, F4, F9, F10, F15). 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1902,
+      "title": "[Opus] Dot-call tables replay a stale failure when a declaration is checked twice with unknowns cleared (divergence re-check, local-definition and partial-test retries): empty them on clear_metas, key by trail serials; regression example",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/code-review-elab-checking.md (tickets to file, 2; F1, F16). 60-90 min. Coordinate with SW-1803 (syntax ids).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1903,
+      "title": "[Sonnet] Run queue.rs's 17 invariant debug_asserts in the test tiers via an invariants feature (every tier builds --release, so they never run)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/code-review-elab-checking.md (tickets to file, 3; F3). D2651 [rec: yes]. 30-45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1904,
+      "title": "[Sonnet] Split check.rs (7,228 lines), pure move: ctx, messages, apply, the match-equation transport",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/code-review-elab-checking.md (tickets to file, 4; F6). D2652: one file at a time, when no lane touches it. 90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1905,
+      "title": "[Sonnet] Split lib.rs's impl Elaborator (~3,750 lines), pure move: patterns.rs, data_decl.rs",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/code-review-elab-checking.md (tickets to file, 5; F6). D2652. After SW-1904. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1906,
+      "title": "[Sonnet] Split unify.rs, pure move: rules, solve, zonk",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/code-review-elab-checking.md (tickets to file, 6; F6). D2652. Not beside bounded readback 4a/4c. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1907,
+      "title": "[DeepSeek] elab duplicates: matching::same vs same_shifted, three copies of a parameter-walk helper in check.rs",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/code-review-elab-checking.md (tickets to file, 7; F11-F13). 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1908,
+      "title": "[Opus] Design note: internal error kinds, so ~25 sites stop choosing paths by Diagnostic::code strings (and two by message text)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/code-review-elab-checking.md (tickets to file, 8; F5). D2653 [rec: yes]. 60 min. The 1 Nov review's §3.5.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1909,
+      "title": "[Sonnet] Partial-test retry after helpers are admitted: repro first (low confidence)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/code-review-elab-checking.md (tickets to file, 9; F7). 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1910,
+      "title": "[Sonnet] Property test: with no unknowns, unify(a, b) agrees with conv(a, b) over the fuzz corpus's closed values",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/code-review-elab-checking.md (tickets to file, 10). 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1911,
+      "title": "[Sonnet] elab small fixes: go-to-definition links kept from an undone attempt (F14), F17, F18's comments",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/code-review-elab-checking.md (tickets to file, 11). 30 min. F17 after SW-1902.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
