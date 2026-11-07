@@ -13580,16 +13580,16 @@
     {
       "id": 1737,
       "title": "[Opus plan] Split the elab crate (115,700 lines, the serial step of a clean build): 30-50 s off a clean build",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1737",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
       "body": "From the SW-1716 profile, fix 13. See docs/reviews/SW-1716-dev-loop-profile.md §6.",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -14135,9 +14135,9 @@
     {
       "id": 1774,
       "title": "A test was SIGTERMed from outside nextest during SW-1734's run (rewind sweep at 10.7 s, ~01:30 7 Nov), like SW-1741's verifier: find who sends it (another lane's pkill? memguard of a different run?)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1774",
       "labels": [
         "tooling"
       ],
