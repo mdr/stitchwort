@@ -1581,8 +1581,9 @@ impl<'g, K: Fn(usize) -> Option<Apart>> Unchanged<'g, K> {
 // Only read-backs whose term is used up here: never one put in a checked
 // term (`Term::Eq`'s type, in `infer`), so checked terms and their hashes
 // don't change; and not `unify_index`'s searches for free variables, since
-// `konst x y` mentions `y` where its unfolding doesn't. Outside a body
-// (types, `declare_def`) there are no calls, and these read back as `quote`.
+// `konst x y` mentions `y` where its unfolding doesn't. Outside a body and a
+// definition's signature (`declare_def`, SW-1779) there are no calls, and
+// these read back as `quote`.
 
 /// Whether the types of the binders after binder `i` in a telescope (data
 /// parameters, or constructor fields) mention it. If not, checking doesn't
@@ -1825,7 +1826,17 @@ pub fn declare_def(
         }
         // A failed reference is let through: `define_def` finds it again.
         admissible(&cx, [ty], None)?;
-        let (ty, sort) = check_type(&mut cx, ty)?;
+        // Glued, as a body is (`admit_group`, D483): binding `h: P n` then
+        // keeps `P n` a call instead of unfolding it all, which for a
+        // proposition that doubles at each level is exponential (SW-1779).
+        // The values made here are dropped with `cx`; the type's kept
+        // value is made unglued by `push_def`. The checked term is rebuilt
+        // from `ty`, or read back with `quote`, which unfolds calls, so it
+        // is the same term either way.
+        let was = g.machine.glue.replace(true);
+        let checked = check_type(&mut cx, ty);
+        g.machine.glue.set(was);
+        let (ty, sort) = checked?;
         if theorem && sort != Sort::Prop {
             let ty_value = cx.eval(&ty)?;
             return Err(Diagnostic::error(
