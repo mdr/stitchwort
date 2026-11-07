@@ -14030,14 +14030,14 @@
     {
       "id": 1767,
       "title": "Record eta code quality: two has_eta functions with different meanings, folded_call's doc, tuple-typed Frame::CallField, an omega spot that would drop a projection (SW-1764)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1642",
       "labels": [
         "cleanup"
       ],
       "epic": "record-eta",
-      "body": "From SW-1764.",
+      "body": "From SW-1764.\n\nDone on lane/SW-1642 (646b91ccf): has_eta split into qualifies_for_eta (check) and is_eta_type (value); folded_call doc fixed; Frame::CallField a named struct; omega Ranges::parts keeps a field call of Mem as an atom (unreachable in practice: Mem is a Prop). New examples omega-projected-field-atom (accept) and -false (reject). No hash moved. 792 affected tests pass. Merges with record eta. Model result: Sonnet, worked, 12 min (est. 40).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
