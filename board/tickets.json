@@ -1,5 +1,5 @@
 {
-  "next": 1798,
+  "next": 1799,
   "tickets": [
     {
       "id": 47,
@@ -14465,14 +14465,14 @@
     {
       "id": 1796,
       "title": "[Sonnet] lsp features tests: the warm set takes 30 s+ however many run at once, set by a few slow tests (SW-1795); find why each is slow and speed up or split them",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1796",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From SW-1795. Expected: 40 min.",
+      "body": "From SW-1795. Expected: 40 min.\n\nDone, merged: the hover test split; its replayed half keeps the library bundle in the test std cache (library_bundle's own load check now runs once per compiler fingerprint); the non-exhaustive-match test shares one session. Warm lsp it binary 228 → 74 s. Model result: Sonnet, worked, 25 min (est. 40).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -14488,6 +14488,21 @@
       ],
       "epic": "elaborator-kernel",
       "body": "From SW-1792, 7 Nov 2026.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1798,
+      "title": "Editor: each searched completion, code action or contextAt (Searcher::run → probe_project → load_all_libraries) replays the whole std in a fresh session: a per-request cost in the real server; reuse a search session across requests (SW-1796)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "editor-playground",
+      "body": "From SW-1796, 7 Nov 2026: 63% of a 31 s test is these replays, six completions = six replays.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
