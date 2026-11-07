@@ -1,10 +1,8 @@
 //! Content hashes distinguish everything that matters about a declaration.
 
-mod common;
-
 use std::rc::Rc;
 
-use common::*;
+use crate::common::*;
 use stitchwort_core::check;
 use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
 use stitchwort_core::{DataId, Icit, Kernel, Sort, Term};

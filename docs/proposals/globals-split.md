@@ -330,7 +330,7 @@ kernel's messages use the defaults.
    `E-MALFORMED` "unsolved metavariable" (`check.rs:408`), whether or not
    the elaborator has solved it, and `check` falls through to `infer` for
    it. The test `rejects_an_unsolved_metavariable`
-   (`crates/core/tests/kernel.rs:103`) covers the unsolved case. No test
+   (`crates/core/tests/it/kernel.rs:103`) covers the unsolved case. No test
    submits a solved one.
 3. Hashing a `Term::Meta` panics (`hash.rs:649`).
 4. So the values the kernel evaluates during admission come from checked,

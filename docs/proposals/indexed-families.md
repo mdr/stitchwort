@@ -1341,7 +1341,7 @@ and differences. None changes a rule above.
 - **Evaluation.** A well-typed value never reaches an impossible branch.
   If an ill-typed term does while checking, the definition stays folded;
   while running (with erasure), it panics with `unreachable`, as §6.8 asks.
-- **The reference oracle** (`crates/core/tests/unify_index.rs`) compares
+- **The reference oracle** (`crates/core/tests/it/unify_index.rs`) compares
   outcomes and effects on 4,000 generated problems over `Nat`, `Fin`, a `W`
   with a dependent field, `P` and `Hidden` in `Prop`, a `Type` with a proof
   field first, an opaque `g` and type formers. Disabling the `Prop` guard

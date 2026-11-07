@@ -3,11 +3,9 @@
 //! orders the elaborator never uses, since the kernel mustn't rely on the
 //! elaborator's order.
 
-mod common;
-
 use std::rc::Rc;
 
-use common::*;
+use crate::common::*;
 use stitchwort_core::check::{self, infer_closed};
 use stitchwort_core::hash::{data_hash, def_hash};
 use stitchwort_core::{DataId, DefId, Icit, Limits, Sort, Term};

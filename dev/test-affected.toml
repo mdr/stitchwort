@@ -277,7 +277,7 @@ rank = 1
 paths = ["crates/core/src/pretty*"]
 why = "terms print in every error message"
 select = [
-  { package = "core", binary = "pretty" },
+  { package = "core", binary = "it", test = "^pretty::" },
   { package = "core", lib = true },
   { package = "cli", binary = "examples", test = "^rejected_examples_" },
 ]

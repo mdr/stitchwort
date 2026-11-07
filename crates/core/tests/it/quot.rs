@@ -12,11 +12,9 @@
 //! `False` and `True`: anything that reads a representative back out of
 //! `same: Quot.mk False = Quot.mk True` proves `False = True`.
 
-mod common;
-
 use std::rc::Rc;
 
-use common::*;
+use crate::common::*;
 use stitchwort_core::check::{self, infer_closed};
 use stitchwort_core::value::{conv, eval, quote};
 use stitchwort_core::{DataId, DefId, Kernel, QuotForm, Sort, Term, Value};

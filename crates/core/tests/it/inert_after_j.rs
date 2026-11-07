@@ -5,9 +5,7 @@
 //! have this shape (a `J` needs an equation, and `f x` is a function); the
 //! bound is pinned so that no comparison relies on it being absent.
 
-mod common;
-
-use common::*;
+use crate::common::*;
 use stitchwort_core::value::{Elim, Head, Value, conv};
 use stitchwort_core::{Icit, Sort, check, reference};
 

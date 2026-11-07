@@ -1,10 +1,8 @@
 //! The pretty-printer, used in error messages and the REPL.
 
-mod common;
-
 use std::rc::Rc;
 
-use common::*;
+use crate::common::*;
 use stitchwort_core::registry;
 use stitchwort_core::{Icit, Sort, Term, pretty};
 

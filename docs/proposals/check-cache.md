@@ -923,7 +923,7 @@ works out that it didn't show before: each definition's transparency set,
 It already showed arity, group, state, every flag, types, bodies, and each
 constructor's field sorts and erasure.
 
-`crates/core/tests/trusted.rs` tests the kernel side on its own:
+`crates/core/tests/it/trusted.rs` tests the kernel side on its own:
 
 - an environment copied by trusted admission, one declaration at a time,
   has the same content hashes and metadata as the checked one;

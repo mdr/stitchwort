@@ -3,9 +3,7 @@
 //! What it installs must be exactly what checking installs, and what it
 //! still refuses is only structural.
 
-mod common;
-
-use common::*;
+use crate::common::*;
 use stitchwort_core::check::{self, DataDecl};
 use stitchwort_core::globals::{Ctor, Kernel, State};
 use stitchwort_core::hash::{data_hash, def_hash};

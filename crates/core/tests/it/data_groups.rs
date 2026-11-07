@@ -6,11 +6,9 @@
 //! hashing it as a unit. These call the kernel directly, in orders the
 //! elaborator never uses.
 
-mod common;
-
 use std::rc::Rc;
 
-use common::*;
+use crate::common::*;
 use stitchwort_core::check::{self, CtorDecl, declare_data_group, define_data_group};
 use stitchwort_core::globals::State;
 use stitchwort_core::hash::{ContentHash, data_hash, def_hash};

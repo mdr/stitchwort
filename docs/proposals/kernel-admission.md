@@ -98,7 +98,7 @@ error, which already explains them.
 
 ## Tests
 
-Raw-kernel tests in `crates/core/tests/admission.rs`, each must-reject one
+Raw-kernel tests in `crates/core/tests/it/admission.rs`, each must-reject one
 paired with an accepted neighbour where there is one. From §5.5, those that
 apply to single declarations:
 
@@ -126,12 +126,12 @@ apply to single declarations:
     no hash (§5.5 test 10).
 11. References to declarations that don't exist, and defining one that was
     never declared: refused, and nothing is added.
-12. A pending data type has no hash (in `crates/core/tests/hash.rs`).
+12. A pending data type has no hash (in `crates/core/tests/it/hash.rs`).
 
 §5.5 test 9 (incorrect partitions of a group), §5.3's group admission and
 the mixed-group rule are built with function groups (mutual-recursion.md
-§10.2, tests in `crates/core/tests/groups.rs`). §5.5 test 8 (adding a member
+§10.2, tests in `crates/core/tests/it/groups.rs`). §5.5 test 8 (adding a member
 to an existing data group) and §5.4 are built with data groups
-(mutual-recursion.md §10.3, tests in `crates/core/tests/data_groups.rs`).
+(mutual-recursion.md §10.3, tests in `crates/core/tests/it/data_groups.rs`).
 A data type's fields may now mention the members of its group as types:
 row 3 of the table above, for a group of one, is the data type itself.

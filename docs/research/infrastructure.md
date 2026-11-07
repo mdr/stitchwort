@@ -773,7 +773,7 @@ sides are sorts, `check.rs:202-224`; `E-REFL` for `rfl` at an equation whose sid
 :500–510). Acceptance is a kernel soundness bug, unless the "incompatible" type was in fact
 convertible, which the harness must rule out with the kernel's own conversion check under a
 budget; an undecided comparison drops the variant **[inferred]**. This turns
-`crates/core/tests/kernel_bugs_2026.rs`, which hand-builds six shapes "that skip the parser and
+`crates/core/tests/it/kernel_bugs_2026.rs`, which hand-builds six shapes "that skip the parser and
 the elaborator" (its lines 1–6) **[checked]**, into a generator of such shapes. The harness
 needs the checker's `Term` API only, as that file does.
 

@@ -781,7 +781,7 @@ definition, and a definition can't refer to a pending data type.
 
 ### 5.5 Must-reject raw-kernel tests
 
-Built directly on core terms (`crates/core/tests/kernel.rs` style), each with
+Built directly on core terms (`crates/core/tests/it/kernel.rs` style), each with
 the expected error code, and each paired with an accepted neighbour:
 
 1. The split cycle, `define_group [f]` then `[g]` (§5.2). Neighbour: `[f, g]`
@@ -1701,7 +1701,7 @@ tied shapes (documented: may change); changing only one member's signature
 (every member's hash changes); changing one constructor of one data-group
 member (every member's hash changes); references to two constructors of the
 same sibling (distinct); a single self-recursive definition (hash unchanged
-from today, against the existing `crates/core/tests/hash.rs` snapshots); a
+from today, against the existing `crates/core/tests/it/hash.rs` snapshots); a
 failed group (no hash).
 
 ### 8.5 Abilities
@@ -1893,10 +1893,10 @@ including tail calls with permuted arguments). New must-reject files:
 `soundness/constant-loop.sw` and `soundness/constant-loop-function.sw`
 (arity zero).
 
-Tests: `crates/core/tests/termination.rs` has kernel tests for each rule
+Tests: `crates/core/tests/it/termination.rs` has kernel tests for each rule
 above (both directions), the arity contract, running out (graph limit and
 step budget), and a comparison with the old checker, which is kept
-verbatim in `crates/core/tests/structural/mod.rs`: on 20 000 generated
+verbatim in `crates/core/tests/it/structural/mod.rs`: on 20 000 generated
 programs over `Nat` (case trees, calls, `add`, lambdas and partial calls
 passed to a helper), everything the old checker accepts the new one
 accepts, except programs with a partial recursive call, and every program
@@ -2056,7 +2056,7 @@ two, two constants defined as each other, a signature mentioning a member),
 `reject/own-constructor-in-field.sw` and the three `reject/auto-*.sw`
 cases.
 
-**Tests.** `crates/core/tests/groups.rs`: the §5.5 tests that need groups
+**Tests.** `crates/core/tests/it/groups.rs`: the §5.5 tests that need groups
 (the split cycle with its neighbour, both incorrect partitions of a 3-cycle
 with the neighbour, non-pending and duplicate members, unknown ids leaving
 the tables unchanged, a pending data type or outside definition in a body,
@@ -2226,7 +2226,7 @@ surface: `E-MUTUAL-KIND`), `reject/mutual-sibling-constructor.sw`,
 `reject/mutual-data-header.sw`, `reject/mutual-ability.sw` and
 `reject/nested-data.sw` (`List Rose`; accepted since SW-704 stage 1, nested-data-types.md, and the file removed).
 
-**Tests.** `crates/core/tests/data_groups.rs`, each must-reject case with its
+**Tests.** `crates/core/tests/it/data_groups.rs`, each must-reject case with its
 neighbour: `Tree`/`Forest` with `size` running; rebuilding a tree from a
 forest (`E-TERMINATION`); `Bad1`/`Bad2` refused with every member failed,
 unhashed and unmatchable, and the same pair split into two single types

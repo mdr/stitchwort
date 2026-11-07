@@ -5,11 +5,9 @@
 //! `examples/soundness/kernel-2026-*.sw`; those are refused by the
 //! elaborator first, so these are the trust-boundary tests.
 
-mod common;
-
 use std::rc::Rc;
 
-use common::*;
+use crate::common::*;
 use stitchwort_core::check::{self, define_group};
 use stitchwort_core::{DataId, DefId, Sort, Term};
 

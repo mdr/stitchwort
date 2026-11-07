@@ -4,9 +4,7 @@
 //! and the hierarchy was cyclic. These are the trust-boundary tests: the
 //! parser's and the elaborator's limits are only conveniences.
 
-mod common;
-
-use common::*;
+use crate::common::*;
 use stitchwort_core::check::{self, DataDecl, infer_closed};
 use stitchwort_core::{MAX_LEVEL, Sort, Term};
 

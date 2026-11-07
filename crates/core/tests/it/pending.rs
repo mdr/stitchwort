@@ -5,9 +5,7 @@
 //! constructor proof fields: while pending, the kernel must not find equal
 //! two calls that the admitted body tells apart.
 
-mod common;
-
-use common::*;
+use crate::common::*;
 use stitchwort_core::term::Term;
 use stitchwort_core::value::{Value, conv, eval};
 use stitchwort_core::{Kernel, Sort, check, reference};

@@ -390,7 +390,7 @@ type, `J`'s proof type, a case's scrutinee type, `telescope`,
 `is_type_former`); on its own values these return the value unchanged.
 Elaborator sites that took values apart without forcing were routed
 (`auto.rs`, `calc.rs`, `check.rs` `annotate`, `library.rs`).
-`crates/core/tests/glue.rs` exercises the form directly.
+`crates/core/tests/it/glue.rs` exercises the form directly.
 `STITCHWORT_GLUE=1` turns gluing on in `Elaborator::new`, as a testing aid
 for the next stages.
 
@@ -762,7 +762,7 @@ among the shortcuts `set_shortcuts_disabled` turns off, so the
 `conv_shortcut` sweep checks that every rejected example gets the same
 diagnostics without them.
 
-*Tests.* `crates/core/tests/kernel.rs`, `same_call_*`: `mix 40 s = mix 40 s`
+*Tests.* `crates/core/tests/it/kernel.rs`, `same_call_*`: `mix 40 s = mix 40 s`
 and `mix 40 (konst s t) = mix 40 s` accepted within 100,000 steps, where the
 same definition under another name runs out (2^40 parts to compare);
 `konst 0 a = konst 0 b` and `mix 2 0 = mix 1 0` (different arguments, equal
