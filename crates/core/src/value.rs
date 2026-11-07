@@ -903,6 +903,10 @@ enum Frame {
     /// ending in projection `d`, `i`; [`project_call`]) takes field `i`
     /// of ([`CallField`]). (Boxed: it's large, and rare.)
     CallField(Box<CallField>),
+    /// What the call of a stuck field of a call computed to, for an
+    /// elimination of the field ([`unfold_field_for`]). (Boxed: it's large,
+    /// and rare.)
+    FieldOf(Box<FieldOf>),
 }
 
 /// What a [`Frame::CallField`] waits for: field call `id spine`, whose spine
@@ -914,6 +918,24 @@ pub struct CallField {
     spine: Spine,
     /// Whether the call has been unfolded already, if it was a folded call.
     unfolded: bool,
+}
+
+/// What a [`Frame::FieldOf`] waits for: the call `id call` of stuck field
+/// call `id spine` (`call` then the projections), whose field `then` takes
+/// apart.
+struct FieldOf {
+    id: DefId,
+    spine: Spine,
+    call: Spine,
+    then: FieldUse,
+}
+
+/// An elimination of a stuck field of a call that computes the field first.
+enum FieldUse {
+    /// Applying it to an argument.
+    App(Value, Icit),
+    /// `J` on it, as the proof (the `J` term, and its environment).
+    J { term: Rc<Term>, env: Env },
 }
 
 #[cfg(any(test, feature = "reference"))]
@@ -936,6 +958,9 @@ fn apply_step(f: Value, arg: Value, icit: Icit) -> Control {
     }
     match f {
         Value::Lam(_, _, closure) => enter(&closure, arg),
+        // A stuck field of a call names a projection, not a call short of
+        // arguments: `run` computes it first ([`apply_field`]).
+        f @ Value::Neutral(Head::Def(_), _) if ends_in_field(&f) => apply_later(f, arg, icit),
         Value::Neutral(Head::Def(id), mut spine) => {
             spine.push(Elim::App(arg, icit));
             Control::Unfold(id, spine)
@@ -953,7 +978,15 @@ fn apply_step(f: Value, arg: Value, icit: Icit) -> Control {
 // The machine's steps for calls (`Value::Call`), out of line: they only
 // happen while gluing, and the evaluator's hot path stays as it was.
 
-/// Applying call `f` to `arg`: `run` forces `f` first ([`apply_call`]).
+/// Whether neutral `f` ends in a projection, as a stuck field of a call
+/// does ([`is_call_field`]).
+#[inline(always)]
+fn ends_in_field(f: &Value) -> bool {
+    matches!(f, Value::Neutral(_, spine) if is_call_field(spine))
+}
+
+/// Applying call `f` to `arg`, or a stuck field of a call
+/// ([`apply_field`]): `run` forces `f` first ([`apply_call`]).
 #[cold]
 #[inline(never)]
 fn apply_later(f: Value, arg: Value, icit: Icit) -> Control {
@@ -966,6 +999,34 @@ fn apply_later(f: Value, arg: Value, icit: Icit) -> Control {
 fn apply_call(g: &Ev, stack: &mut Vec<Frame>, f: Value, arg: Value, icit: Icit) -> Result<Control> {
     push(g, stack, Frame::AppTo(arg, icit))?;
     Ok(Control::Force(f))
+}
+
+/// Applying `f`, a neutral definition whose spine ends in a projection, to
+/// `arg`. A stuck field of a call ([`is_folded`]), `(f x).i a`, is the
+/// field of the call's unfolding applied, as a call applied beyond its
+/// arguments is ([`apply_call`]): left as `f x .i a`, it would be a stuck
+/// term headed by `f` that names nothing, which neither conversion nor the
+/// unfolded read-back looks inside, so the unknown the call is stuck on
+/// would be hidden from `match` and `rfl` (docs/proposals/match-call-field.md
+/// §2.1). Anything else (an opaque call's field) stays stuck, as it was.
+/// Only while gluing ([`computes_field`]).
+#[cold]
+#[inline(never)]
+fn apply_field(
+    g: &Ev,
+    stack: &mut Vec<Frame>,
+    f: Value,
+    arg: Value,
+    icit: Icit,
+) -> Result<Control> {
+    if computes_field(g, &f) {
+        return unfold_field_for(g, stack, f, FieldUse::App(arg, icit));
+    }
+    let Value::Neutral(Head::Def(id), mut spine) = f else {
+        unreachable!("checked by the caller")
+    };
+    spine.push(Elim::App(arg, icit));
+    Ok(Control::Unfold(id, spine))
 }
 
 /// Forcing a call: its kept unfolding, or else unfolding it now, to be
@@ -1033,10 +1094,12 @@ fn run(g: &Ev, mut control: Control) -> Result<Value> {
             Control::Eval(term, env) => eval_step(g, term, env, &mut stack)?,
             Control::Apply(application) => {
                 let (f, arg, icit) = *application;
-                if let Value::Call(..) = f {
-                    apply_call(g, &mut stack, f, arg, icit)?
-                } else {
-                    apply_step(f, arg, icit)
+                match f {
+                    Value::Call(..) => apply_call(g, &mut stack, f, arg, icit)?,
+                    Value::Neutral(Head::Def(_), _) if ends_in_field(&f) => {
+                        apply_field(g, &mut stack, f, arg, icit)?
+                    }
+                    f => apply_step(f, arg, icit),
                 }
             }
             Control::Unfold(id, spine) => unfold(g, id, spine)?,
@@ -1566,6 +1629,10 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
         Frame::JForced { term, env } if folded_call(g, &value) => {
             unfold_for(g, stack, value, Frame::JReady { term, env })?
         }
+        // So is a stuck field of a call, as when it's applied ([`apply_field`]).
+        Frame::JForced { term, env } if computes_field(g, &value) => {
+            unfold_field_for(g, stack, value, FieldUse::J { term, env })?
+        }
         Frame::JForced { term, env } | Frame::JReady { term, env } => {
             let Term::J(motive, base, _) = &*term else {
                 unreachable!("a `JForced` frame is for `J`")
@@ -1695,6 +1762,46 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
                     Control::Force(value)
                 }
             }
+        }
+        Frame::FieldOf(field) => {
+            let FieldOf {
+                id,
+                spine,
+                call,
+                then,
+            } = *field;
+            // Stuck in its own case tree, the call has no unfolding to take a
+            // field of: the field is eliminated as it is, stuck.
+            if matches!(&value, Value::Neutral(Head::Def(i2), s2) if *i2 == id && s2.ptr_eq(&call))
+            {
+                return Ok(match then {
+                    FieldUse::App(arg, icit) => {
+                        let mut spine = spine;
+                        spine.push(Elim::App(arg, icit));
+                        Control::Unfold(id, spine)
+                    }
+                    FieldUse::J { term, env } => {
+                        push(g, stack, Frame::JReady { term, env })?;
+                        Control::Return(Value::Neutral(Head::Def(id), spine))
+                    }
+                });
+            }
+            push(
+                g,
+                stack,
+                match then {
+                    FieldUse::App(arg, icit) => Frame::AppTo(arg, icit),
+                    FieldUse::J { term, env } => Frame::JForced { term, env },
+                },
+            )?;
+            let arity = g.def(id).arity;
+            for elim in spine[arity..].iter().rev() {
+                let &Elim::Proj(d, i) = elim else {
+                    unreachable!("checked by is_folded")
+                };
+                push(g, stack, Frame::ProjOf(d, i))?;
+            }
+            Control::Return(value)
         }
         Frame::Replay { spine, next } => match spine.get(next) {
             None => Control::Force(value),
@@ -2131,6 +2238,47 @@ fn unfold_for(g: &Ev, stack: &mut Vec<Frame>, value: Value, next: Frame) -> Resu
     let body = def.body.as_ref().expect("checked by is_folded");
     let (args, call, _) = folded_parts(g, id, &spine);
     let tree = Term::peel_lams_rc(body, def.arity);
+    push(
+        g,
+        stack,
+        Frame::Unfolding(Box::new((id, call.clone(), next))),
+    )?;
+    Ok(Control::Tree(tree, args, Some((id, call, false))))
+}
+
+/// Whether `value` is a stuck field of a call ([`is_folded`]) that an
+/// application or `J` computes first ([`unfold_field_for`]): only while
+/// gluing, where `Frame::CallField` and rule 2 name fields of calls stuck
+/// anywhere inside. Without gluing, such a value is a field of a call stuck
+/// in its own case tree, which computes to itself; the kernel's evaluation,
+/// and the reference evaluator's agreement with it, stay as they were.
+fn computes_field(g: &Ev, value: &Value) -> bool {
+    g.machine.glue.get() && ends_in_field(value) && is_folded(g, value)
+}
+
+/// Stuck field of a call `value` ([`is_folded`]), `(f x).i`, eliminated by
+/// `then`: the call's case tree runs in this machine (as in
+/// [`unfold_folded`], which conversion uses), and `then` takes apart that
+/// field of what it computes to ([`Frame::FieldOf`]).
+fn unfold_field_for(
+    g: &Ev,
+    stack: &mut Vec<Frame>,
+    value: Value,
+    then: FieldUse,
+) -> Result<Control> {
+    let Value::Neutral(Head::Def(id), spine) = value else {
+        unreachable!("checked by is_folded")
+    };
+    let def = g.def(id);
+    let body = def.body.as_ref().expect("checked by is_folded");
+    let (args, call, _) = folded_parts(g, id, &spine);
+    let tree = Term::peel_lams_rc(body, def.arity);
+    let next = Frame::FieldOf(Box::new(FieldOf {
+        id,
+        spine,
+        call: call.clone(),
+        then,
+    }));
     push(
         g,
         stack,

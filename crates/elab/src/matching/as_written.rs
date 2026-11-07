@@ -761,6 +761,9 @@ impl Finder<'_, '_> {
                     && self.agree(g, p1, p2, under)?
             }
             (Quot(f1, xs, _), Quot(f2, ys, _)) => f1 == f2 && all(xs, ys, under)?,
+            (Proj(d1, i1, t1), Proj(d2, i2, t2)) => {
+                d1 == d2 && i1 == i2 && self.agree(g, t1, t2, under)?
+            }
             _ => false,
         })
     }
