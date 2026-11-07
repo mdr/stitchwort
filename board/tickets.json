@@ -1,5 +1,5 @@
 {
-  "next": 2098,
+  "next": 2101,
   "tickets": [
     {
       "id": 47,
@@ -18979,6 +18979,51 @@
       ],
       "epic": "record-eta",
       "body": "From docs/proposals/match-call-field.md stage 3. After SW-2096. audit:touched on the two days. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2098,
+      "title": "[Sonnet] Elaborator fuzzer: 7 of 2,000 cases (seed 0x5eede1ab00000685: cases 105, 148, 150, 168, 558, 737, 1619) hit the 60 s hang limit on the laptop; find out whether they hang or are slow, and fix",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "fuzz"
+      ],
+      "epic": "audit-fuzzing",
+      "body": "From Overmind soak report 1 (Matt's laptop, NixOS i7-6700HQ 8 threads, 15 GiB; 7 Nov, commit a3c652a63). Mutated from reject/reads-weaken-over-map-implicits, accept/reads-done-spec-from-expected, reads-named-parser, int-literals-auto, reads-nested-binds, reject/parser-count-differs-from-lemma, accept/pure-fold-in-parse-function. Whole run 2,402 s there. The orchestrator is rerunning the seed on Speedwell to compare. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2099,
+      "title": "[DeepSeek] Fuzzer housekeeping from the first soak run: fuzz_elab.rs's timing comment (2,000 cases took 40 min on the laptop); explain or fix 54% parsed vs 77% reached the elaborator; the fuzz tasks' 16 GB memory cap exceeds a 15 GiB machine (scale it to RAM); the syntax fuzzer prints no case count",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "fuzz"
+      ],
+      "epic": "audit-fuzzing",
+      "body": "From Overmind soak report 1 (Matt's laptop, NixOS i7-6700HQ 8 threads, 15 GiB; 7 Nov, commit a3c652a63). 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2100,
+      "title": "[Sonnet] dev/soak/run: a script for the soak laptop (Overmind, NixOS) that pulls main, builds, runs the AoC check and long fuzz runs, and writes a short report; no /usr/bin/time on NixOS, binary under target/x86_64-unknown-linux-musl/release",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "epic": "audit-fuzzing",
+      "body": "From Overmind soak report 1 (Matt's laptop, NixOS i7-6700HQ 8 threads, 15 GiB; 7 Nov, commit a3c652a63). D2853, D2854: yes (orchestrator's call, 7 Nov). Calibration: whole AoC no cache 134 s (Speedwell 65 s, ~2x); incremental CLI build 2m10s; syntax fuzzer 100k cases 4 s; elab fuzzer 2,000 cases 40 min. 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
