@@ -1,5 +1,5 @@
 {
-  "next": 2075,
+  "next": 2076,
   "tickets": [
     {
       "id": 47,
@@ -18554,7 +18554,7 @@
         "docs"
       ],
       "epic": "docs-tutorials",
-      "body": "From docs/proposals/README.md. D2952 [rec: yes]. 30 min.",
+      "body": "From docs/proposals/README.md. D2952 [rec: yes]. 30 min.\n\nFrom docs/reviews/SW-2072-widen-in-prototype.md: also fix delayed-translate.md's status line and §5 (merged 24 Oct as 8046d40cc, unreviewed; D1152's limit never written), the stale limit bullet in proof-reification.md:589-594, line numbers cited in effect-runtime.md:228, and the delayed-translate row and stale claim 16 in docs/proposals/README.md. About 15 min more.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -18562,14 +18562,14 @@
     {
       "id": 2072,
       "title": "[Opus] Check the SW-424 Effect.widenIn prototype on main: commit 626d63d56 says 'PROTOTYPE … not for merging as is', delayed-translate.md:3 says it's on a side branch for review, yet Effect.widenIn is live (Effect.sw:210, effects.rs:1326); is it the design as decided, and what's missing",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2072",
       "labels": [
         "review"
       ],
       "epic": "effects-native",
-      "body": "From docs/proposals/README.md. D2955. Read-only. 60 min.",
+      "body": "From docs/proposals/README.md. D2955. Read-only. 60 min.\n\nDone, merged: docs/reviews/SW-2072-widen-in-prototype.md. Merged by the orchestrator 24 Oct as internal encoding (D1150 a, D1151, D1152), 33 s after the note said 'stopped for review'; never reviewed; matches option B; sound (an ordinary std definition the kernel rechecks). Keep: note fixes into SW-2071, tests SW-2075. D2960 (ratify SW-424's D1150-D1152 [rec: yes]), D2961 (a PROTOTYPE commit blocks a merge until each caveat is answered [rec: yes]). ~6 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -18599,6 +18599,21 @@
       ],
       "epic": "diagnostics",
       "body": "From SW-1885. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2075,
+      "title": "[Sonnet] Effect.widenIn's missing tests: the new case in lift, an example where the row turns out non-empty and a law still applies, a program can't name widenIn (E-STD-INTERNAL); check whether pure_at_empty (equations.rs:5195) should compute widenIn Empty away",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "effects-native",
+      "body": "From docs/reviews/SW-2072-widen-in-prototype.md. snap:hashes, hash_stability. 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
