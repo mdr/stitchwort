@@ -106,3 +106,4 @@ Take these in order, once the speed queue above is empty or blocked.
 - 02:54: SW-1743 not merged: its fix is a choosing cap, against D2543; back to backlog for stage 4. Filed SW-1779.
 - 03:07: SW-1767 done on lane/SW-1642.
 - 03:21: SW-1736 pilot merged (rt 13 → 3 binaries); SW-1780 (core, DeepSeek) started; SW-1781 filed.
+- 03:22: SW-1766 merged (keep accessor calls); D2566 for the morning.

@@ -14015,14 +14015,14 @@
     {
       "id": 1766,
       "title": "Record eta: the elaborator never emits Proj for p.field (field access stays an accessor call that rule 2 opens); update record-eta.md §6.4 or emit Proj in a later stage (SW-1764)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1766",
       "labels": [
         "design"
       ],
       "epic": "record-eta",
-      "body": "From SW-1764, 7 Nov 2026.",
+      "body": "From SW-1764, 7 Nov 2026.\n\n7 Nov 2026, 03:08-03:23 (est. 45 min): design only. record-eta.md §6.4 revised on lane/SW-1766: keep accessor calls for p.field; at stage 3 (Pair) measure accessor-opening cost and, if visible, give eta types' accessors the body Proj(D, i, x). Probes on lane/SW-1642's build (646b91ccf): rewrite both spellings, omega, match motives: all accepted, no difference found. D2566 opened (rec: yes). Moved to review.\n\nMerged (note only). D2566 for Matt: keep p.field as an accessor call, measure at the Pair stage, switch accessor bodies to Proj if the cost shows [rec: yes]. Model result: Opus, worked, 15 min (est. 45).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
