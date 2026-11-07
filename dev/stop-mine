@@ -37,6 +37,8 @@ snapshot=$(ps -axo pid=,ppid=,command=)
 roots=$(printf '%s\n' "$snapshot" | awk -v p="$prefix" -v me="$me" -v tree="$tree" '
   { pid=$1; ppid=$2; cmd=$0; sub(/^ *[0-9]+ +[0-9]+ +/, "", cmd) }
   pid==me || ppid==me { next }
+  # VS Code: the language server runs the main checkout release binary.
+  cmd ~ /\/stitchwort lsp( |$)/ { next }
   tree != "" && pid != tree { next }
   substr(cmd, 1, length(p)) == p { print pid }')
 if [ -z "$roots" ]; then
