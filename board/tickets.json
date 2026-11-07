@@ -1,5 +1,5 @@
 {
-  "next": 1788,
+  "next": 1789,
   "tickets": [
     {
       "id": 47,
@@ -14330,14 +14330,29 @@
     {
       "id": 1787,
       "title": "[Opus proposal] Kernel type values of closed definitions are computed unglued and kept (Def::ty_value): 2024 day 22 spends 4.4 s (29% of AoC's kernel time) computing a 130,321-record list in a theorem's type; keeping them glued breaks 'nothing glued outlives a kernel check' (SW-1779)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1787",
       "labels": [
         "kernel"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-1779; reproduction in docs/reviews/SW-1779-exponential-forcing.md (on lane/SW-1779).",
+      "body": "From SW-1779; reproduction in docs/reviews/SW-1779-exponential-forcing.md (on lane/SW-1779).\n\nDone, merged: docs/proposals/closed-type-values.md. Probe: keeping ty_value glued plus fresh glued evaluation in each kernel check takes day 22's two theorems from 80.6 M + 43.6 M kernel steps to ~2,000; node counts identical. Recommendation: kernel re-evaluates statements glued per check; ty_value glued for the elaborator and tools; cached unfoldings record gluing, transparency and erasure (SW-1782 first). D2568 (reopen D2448) and D2569 (this design) for Matt [rec: yes]; D2570 (unfoldings record modes, as SW-1782's fix) my call: yes. Probe files in the scratchpad (probe-D.patch, repro/). Model result: Opus, worked, 15 min (est. 60).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1788,
+      "title": "[Opus] Closed type values (closed-type-values.md): kernel evaluates statements afresh glued in each check; ty_value glued for the elaborator and tools; remove the proving guide §6 workaround. Waits on D2568/D2569 and SW-1782",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "kernel"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-1787.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
