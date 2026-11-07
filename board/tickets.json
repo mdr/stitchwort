@@ -1,5 +1,5 @@
 {
-  "next": 1800,
+  "next": 1801,
   "tickets": [
     {
       "id": 47,
@@ -14480,14 +14480,14 @@
     {
       "id": 1797,
       "title": "[Sonnet, then Opus if deep] Nondeterminism: a few examples' step counts differ by tens of steps between runs (pure-fold-in-parse-function, postponed-lambda-second-error, reads-weaken-over-map-implicits), apparently with heap layout; find what depends on addresses (pointer-keyed maps, Rc::ptr_eq fast paths, hash order) and whether any output can differ (SW-1792)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1797",
       "labels": [
         "bug"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-1792, 7 Nov 2026.",
+      "body": "From SW-1792, 7 Nov 2026.\n\nDiagnosed (no commit): crates/elab/src/dot.rs dot_failed cache (call_key) is keyed by the receiver expression's address; a postponed call re-checked from a copy hits only when the allocator reuses the address. Hit skips prefix_form (20 steps, 2 visits: the observed difference in postponed-lambda-second-error). A structural key made counts exact but moved hashes (hash_stability projects, examples, a_namespace...; e.g. Board.Position.%equal): a hit doesn't always equal a re-run, so the key misses context. Latent correctness hazard: an address collision can give a wrong hit. To Opus: SW-1800. Model result: Sonnet, worked (diagnosis, stopped at design as briefed), 30 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -14518,6 +14518,21 @@
       ],
       "epic": "editor-playground",
       "body": "From SW-1798, 7 Nov 2026. A panic in the editor's code actions.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1800,
+      "title": "[Opus] Address-keyed dot_failed cache (dot.rs call_key): an address collision can return a wrong cached failure; key it by what the failure is valid for (elaboration context, AST node id) or narrow it to repeats of the same attempt; then task bench --jobs 8 repeats exactly (SW-1797)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1800",
+      "labels": [
+        "bug"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-1797, 7 Nov 2026. Repro: postponed-lambda-second-error loaded repeatedly with a second allocating thread varies 8,888,168 / 8,888,188 steps. A structural key moved hashes (Board.Position.%equal). Expected: 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
