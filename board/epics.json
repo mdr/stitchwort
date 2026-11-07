@@ -436,11 +436,10 @@
         "Scale inputs past 0.3 s (SW-2307, restarted)"
       ],
       "next": [
-        "Scale inputs past 0.3 s (SW-2307) and a check subset filter (SW-2310)",
-        "Stage 2: first Overmind measurement and report (SW-2295)",
-        "Stage 3: ranked causes (SW-2296)",
-        "Big-number fixes (SW-2301-2304)",
-        "Startup (SW-2291)"
+        "Run time first (Matt, 7 Nov 2026): Stage 2 runtime-only, native against CPython and compiled Lean, on a quiet Speedwell (SW-2295)",
+        "Stage 3: ranked causes of the native gaps (SW-2296)",
+        "Big-number fixes (SW-2301-2304) and startup (SW-2291), measured before and after",
+        "Proof side later: Stage 2 proofs run, SW-2316, SW-2314"
       ],
       "links": [
         "docs/proposals/comparative-speed.md"
