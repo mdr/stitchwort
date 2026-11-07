@@ -131,7 +131,10 @@ tasks:
       OLD..NEW` or `-- --paths F...` change that. `-- --dry-run` prints the
       filter, EXAMPLES, estimated time and what was cut for the budget
       (`--budget SECONDS`, default 90) without running; `--explain` adds why
-      each test was chosen. Needs the inventory (task test:inventory).
+      each test was chosen. Rules may also run shell commands (the board's
+      node tests, bash -n on changed scripts, ...), listed and reported with
+      their results; checks left to you are printed as RUN BY HAND. Needs the
+      inventory (task test:inventory).
     cmds:
       - '{{.ROOT_DIR}}/dev/test-affected --run {{.CLI_ARGS}}'
 
