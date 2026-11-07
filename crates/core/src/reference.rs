@@ -15,6 +15,31 @@
 //! count resources.
 //!
 //! Only compiled for tests (the `reference` feature).
+//!
+//! **The plain evaluator.** [`set_plain`] turns every fold off on this
+//! thread (docs/proposals/equality-in-the-round.md, T1): the evaluator that
+//! says what is *equal*, against which each lazy mode must agree. In plain
+//! mode no value is kept folded or compact, so every call computes as
+//! written, whenever its case tree can step:
+//!
+//! - [`folds`], [`folds_on_lift`] and [`folds_mul`] are false, and they are
+//!   the only places this module asks whether a call stays folded
+//!   (dictionaries, theorems, `decreasing` definitions, calls folded on a
+//!   `Quot.lift`, `k * x`); so `is_folded` and `unfold_folded` find nothing.
+//!   Fields of calls follow: `(f x).i` projects the computed value.
+//! - A number is built from `Zero` and `Succ` only: [`Term::Nat`], a
+//!   constructor term ([`native::ctor`] is not used), a compact list's
+//!   character codes and the result of `+`'s rules R3 and R4 ([`nat`]).
+//! - The number natives are not run (`Nat.add` and the others compute by
+//!   their definitions). Float primitives have no definition to run, so
+//!   they still do.
+//! - It never glues, as always, and a compact list is expanded on sight.
+//!
+//! What it still keeps is `+`'s rules R3 and R4 (they define what is equal,
+//! not how it's computed) and the number view that a number `match` reads
+//! its `Succ`s through, which is a way of looking at a chain of `Succ`s, not
+//! a second spelling of one. [`compact_or_lazy`] checks a value for any
+//! compact spelling or glued call that slipped in.
 
 use crate::ev::Ev;
 use std::rc::Rc;
@@ -24,7 +49,111 @@ use crate::native;
 use crate::term::{Branch, DefId, Icit, QuotForm, Sort, Term};
 use crate::value::{Closure, Elim, Head, Mode, Spine, Value, quot_mk_rep, quot_value};
 
+thread_local! {
+    static PLAIN: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Turns the plain evaluator (see the module doc) on or off on this thread.
+/// Not reachable from the CLI: only tests call it.
+pub fn set_plain(plain: bool) {
+    PLAIN.with(|p| p.set(plain));
+}
+
+fn plain() -> bool {
+    PLAIN.with(|p| p.get())
+}
+
+thread_local! {
+    /// Steps left to the plain evaluator.
+    static PLAIN_STEPS: std::cell::Cell<u64> = const { std::cell::Cell::new(u64::MAX) };
+}
+
+/// Gives the plain evaluator `steps` evaluations and comparisons before it
+/// fails with [`crate::budget::ResourceError::Work`] (never "different":
+/// D2543), so that a term that computes slowly can't hang a test. The
+/// ordinary reference evaluator counts nothing.
+pub fn set_plain_budget(steps: u64) {
+    PLAIN_STEPS.with(|s| s.set(steps));
+}
+
+/// One step of the plain evaluator.
+fn plain_step() -> Result<()> {
+    if !plain() {
+        return Ok(());
+    }
+    PLAIN_STEPS.with(|s| match s.get().checked_sub(1) {
+        Some(left) => {
+            s.set(left);
+            Ok(())
+        }
+        None => Err(crate::budget::ResourceError::Work),
+    })
+}
+
+/// The number `n` as the evaluator builds it: compact, or in plain mode
+/// `Succ` applied to `Zero` that many times.
+fn nat(g: &Ev, n: &num_bigint::BigUint) -> Value {
+    if !plain() {
+        return Value::Nat(Rc::new(n.clone()));
+    }
+    let data = g.env.builtins().nat.expect("a number needs `Nat`");
+    let mut value = Value::Ctor(data, 0, Vec::new().into());
+    let mut left = n.clone();
+    while !num_traits::Zero::is_zero(&left) {
+        value = Value::Ctor(data, 1, vec![value].into());
+        left -= 1u32;
+    }
+    value
+}
+
+/// `k + base` as `Succ` applied `k` times, or compact outside plain mode.
+fn nat_from_view(g: &Ev, k: num_bigint::BigUint, base: Option<Value>) -> Value {
+    if !plain() {
+        return native::from_view(k, base);
+    }
+    let data = g.env.builtins().nat.expect("a number needs `Nat`");
+    let mut value = base.unwrap_or_else(|| Value::Ctor(data, 0, Vec::new().into()));
+    let mut left = k;
+    while !num_traits::Zero::is_zero(&left) {
+        value = Value::Ctor(data, 1, vec![value].into());
+        left -= 1u32;
+    }
+    value
+}
+
+/// [`native::folds_mul`], never in plain mode.
+fn folds_mul(g: &Ev, id: DefId, spine: &[Elim]) -> bool {
+    !plain() && native::folds_mul(g, id, spine)
+}
+
+/// A compact number or list, a glued call or a lazy field of a call
+/// anywhere in `value`: what plain mode must never produce. Looks through
+/// constructors, data types, equations and spines, not into closures, nor
+/// into a `Float`, whose bits the float primitives always make a number.
+pub fn compact_or_lazy(g: &Ev, value: &Value) -> Option<&'static str> {
+    let find = |xs: &[Value]| xs.iter().find_map(|v| compact_or_lazy(g, v));
+    match value {
+        Value::Nat(_) | Value::NatAdd(..) => Some("a compact number"),
+        Value::Chars(_) => Some("a compact list"),
+        Value::Call(..) => Some("a glued call"),
+        Value::Ctor(d, _, _) if Some(*d) == g.env.builtins().float.data => None,
+        Value::Ctor(_, _, xs) => find(xs),
+        Value::Data(_, xs) => find(xs),
+        Value::Eq(t, a, b) => [t, a, b].into_iter().find_map(|v| compact_or_lazy(g, v)),
+        Value::Pi(_, _, a, _) => compact_or_lazy(g, a),
+        Value::Neutral(_, spine) => spine.iter().find_map(|e| match e {
+            Elim::App(v, _) => compact_or_lazy(g, v),
+            Elim::J { motive, base } => {
+                compact_or_lazy(g, motive).or_else(|| compact_or_lazy(g, base))
+            }
+            Elim::Proj(..) => None,
+        }),
+        _ => None,
+    }
+}
+
 pub fn eval(g: &Ev, env: &[Value], term: &Term) -> Result<Value> {
+    plain_step()?;
     let eval_all = |args: &[Rc<Term>]| -> Result<Vec<Value>> {
         args.iter().map(|a| eval(g, env, a)).collect()
     };
@@ -42,8 +171,9 @@ pub fn eval(g: &Ev, env: &[Value], term: &Term) -> Result<Value> {
             None => Value::Neutral(Head::Meta(*m), Spine::new()),
         },
         Term::Data(d, args) => Value::Data(*d, eval_all(args)?),
+        Term::Ctor(d, c, args) if plain() => Value::Ctor(*d, *c, eval_all(args)?.into()),
         Term::Ctor(d, c, args) => native::ctor(g, *d, *c, eval_all(args)?),
-        Term::Nat(n) => Value::Nat(n.clone()),
+        Term::Nat(n) => nat(g, n),
         // A compact list is its expansion, built here in full: this evaluator
         // doesn't share the machine's rules for ranges.
         Term::Chars(chars) => expand(g, chars.as_slice()),
@@ -180,7 +310,7 @@ fn expand(g: &Ev, chars: &[char]) -> Value {
         .expect("a compact list needs `Char`");
     let mut value = Value::Ctor(list, 0, Vec::new().into());
     for c in chars.iter().rev() {
-        let code = Value::Nat(Rc::new(u32::from(*c).into()));
+        let code = nat(g, &u32::from(*c).into());
         let head = Value::Ctor(char, 0, vec![code, Value::Refl].into());
         value = Value::Ctor(list, 1, vec![head, value].into());
     }
@@ -277,7 +407,7 @@ fn unfold(g: &Ev, id: DefId, spine: Vec<Elim>) -> Result<Value> {
     if let Some(value) = crate::float::run(g, id, &spine, force)? {
         return Ok(value);
     }
-    if let Some(op) = g.env.builtins().native(id)
+    if let Some(op) = g.env.builtins().native(id).filter(|_| !plain())
         && op.arity() == spine.len()
     {
         match native::run(g, id, op, &spine, force)? {
@@ -290,7 +420,7 @@ fn unfold(g: &Ev, id: DefId, spine: Vec<Elim>) -> Result<Value> {
     if let Some(body) = &def.body
         && def.arity == spine.len()
         && !folds(g, id)
-        && !native::folds_mul(g, id, &spine)
+        && !folds_mul(g, id, &spine)
     {
         let args: Option<Vec<Value>> = spine
             .iter()
@@ -313,9 +443,9 @@ fn unfold(g: &Ev, id: DefId, spine: Vec<Elim>) -> Result<Value> {
         // Stuck: `Nat.add` stuck on its first argument may compute on its
         // second (R3 and R4, `nat_add.rs`).
         if let [Elim::App(m, _), Elim::App(n, _)] = &spine[..]
-            && let Some(value) = crate::nat_add::stuck_value(g, id, m, n, force)?
+            && let Some((k, rest)) = crate::nat_add::stuck(g, id, m, n, force)?
         {
-            return Ok(value);
+            return Ok(nat_from_view(g, k, Some(rest)));
         }
     }
     Ok(Value::Neutral(Head::Def(id), spine.into()))
@@ -334,14 +464,14 @@ fn seen<'a>(g: &Ev<'a>, id: DefId) -> Option<&'a Rc<Term>> {
 /// all its arguments, except while a program runs.
 fn folds(g: &Ev, id: DefId) -> bool {
     let def = g.def(id);
-    (def.fold || def.theorem) && !g.machine.erasure.program_running()
+    !plain() && (def.fold || def.theorem) && !g.machine.erasure.program_running()
 }
 
 /// Whether a definition with all its arguments stays folded when its case
 /// tree reaches a `Quot.lift` on a quotient that isn't a `Quot.mk`, except
 /// while a program runs.
 fn folds_on_lift(g: &Ev, id: DefId) -> bool {
-    g.def(id).lift_leaf && !g.machine.erasure.program_running()
+    !plain() && g.def(id).lift_leaf && !g.machine.erasure.program_running()
 }
 
 /// Whether `value` is a folded definition with all its arguments (or may
@@ -349,7 +479,7 @@ fn folds_on_lift(g: &Ev, id: DefId) -> bool {
 /// (`native::folds_mul`).
 fn is_folded(g: &Ev, value: &Value) -> bool {
     matches!(value, Value::Neutral(Head::Def(id), spine)
-        if (folds(g, *id) || folds_on_lift(g, *id) || native::folds_mul(g, *id, spine))
+        if (folds(g, *id) || folds_on_lift(g, *id) || folds_mul(g, *id, spine))
             && spine.len() == g.def(*id).arity
             && seen(g, *id).is_some())
 }
@@ -359,7 +489,7 @@ fn is_folded(g: &Ev, value: &Value) -> bool {
 /// or a comparison; anything else as it is.
 fn unfold_folded(g: &Ev, value: Value) -> Result<Value> {
     if let Value::Neutral(Head::Def(id), spine) = &value
-        && (folds(g, *id) || folds_on_lift(g, *id) || native::folds_mul(g, *id, spine))
+        && (folds(g, *id) || folds_on_lift(g, *id) || folds_mul(g, *id, spine))
         && spine.len() == g.def(*id).arity
         && let Some(body) = seen(g, *id).cloned()
     {
@@ -615,6 +745,7 @@ pub fn conv(g: &Ev, level: usize, a: &Value, b: &Value) -> Result<bool> {
 /// partially applied definitions and hidden opaque calls, each compared by
 /// its spine in shortcut mode.
 fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<bool> {
+    plain_step()?;
     // Folded calls: the same one applied to equal arguments is equal;
     // otherwise they're compared unfolded.
     if is_folded(g, a) || is_folded(g, b) {
