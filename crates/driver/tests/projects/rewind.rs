@@ -361,8 +361,8 @@ fn rewinding_changes_nothing_for_the_aoc_project() {
 }
 
 /// `mark_and_rewind_cost` on its own, for `dev/measure-state` (SW-1172):
-/// `cargo test --release -p stitchwort-driver --test rewind -- --ignored
-/// --nocapture mark_and_rewind_cost_alone`.
+/// `cargo test --release -p stitchwort-driver --test projects -- --ignored
+/// --nocapture rewind::mark_and_rewind_cost_alone`.
 #[test]
 #[ignore]
 fn mark_and_rewind_cost_alone() {
