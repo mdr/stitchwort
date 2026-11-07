@@ -22121,14 +22121,14 @@
     {
       "id": 2307,
       "title": "[Sonnet] Comparative speed: scale the AoC inputs so the fastest language runs at least 0.3 s (compiled Lean takes 20-60 ms on most; only dijkstra and memory-game at 30M clear it): repeat or loop inputs, per program, in programs.toml",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2307",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2299. 30 min. After SW-2293 merges. Before stage 2 (SW-2295).\n\nCancelled by Matt, 7 Nov 2026 (\"Okay, cancel the lane. Let's not mess about.\") during its timing run. Not merged. Its two commits are kept on branch lane/SW-2307 (16f2637bc, 333dfbda6: inputs scaled; check status on the final inputs unknown). Model result: Sonnet, cancelled at 30 min (est. 30).\n\nRestarted 7 Nov 2026 23:05 as agent user, fresh from main (earlier attempt cancelled for a reboot). Expected: 45 min; any single timing command capped at 5 min.\n",
+      "body": "From SW-2299. 30 min. After SW-2293 merges. Before stage 2 (SW-2295).\n\nCancelled by Matt, 7 Nov 2026 (\"Okay, cancel the lane. Let's not mess about.\") during its timing run. Not merged. Its two commits are kept on branch lane/SW-2307 (16f2637bc, 333dfbda6: inputs scaled; check status on the final inputs unknown). Model result: Sonnet, cancelled at 30 min (est. 30).\n\nRestarted 7 Nov 2026 23:05 as agent user, fresh from main (earlier attempt cancelled for a reboot). Expected: 45 min; any single timing command capped at 5 min.\n\nProgress (23:05-23:30, lane/SW-2307, commit 52914c29c): inputs scaled for expressions (x180), scan (x200), bridge (x150), matcher (messages x16), disk (x45); each answer-checked on all 6 runners. octopus left unscaled: a 30x30 cavern gives Lean 0.4 s but run 131 s. Model result: Sonnet, worked with one program left unscaled (octopus), about 25 min (est. 45).\n",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
