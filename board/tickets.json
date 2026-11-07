@@ -14540,14 +14540,14 @@
     {
       "id": 1801,
       "title": "[Opus] Design note: syntax node ids from the parser so elaborator cache keys never depend on the allocator (the remaining dot-cache variation in reads-weaken-over-map-implicits; also address-keyed tables in logic.rs, check.rs, named.rs) (SW-1800, D2573)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1801",
       "labels": [
         "bug"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-1800. See docs/reviews/SW-1800-dot-failed-cache.md. Also check pure-fold-in-parse-function, never reached.",
+      "body": "From SW-1800. See docs/reviews/SW-1800-dot-failed-cache.md. Also check pure-fold-in-parse-function, never reached.\n\nD2573 (Matt, 7 Nov 2026): yes, a design note first. Started: Opus, expected 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
