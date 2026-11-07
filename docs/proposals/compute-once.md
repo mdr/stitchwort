@@ -400,8 +400,8 @@ In order. Stage 0 can run alongside stage 1.
 1. **Stage 0a: guide section "Keeping a derived value"** (`docs/guide/11-running-and-shipping.md`,
    Performance notes, or the records chapter). It covers the slow method, the `let` outside
    the loop, and a constructor function, with examples checked. B's syntax is added
-   when stage 1 lands. DeepSeek, 30 min. Tests: `task test:one -- guide` (the guide's
-   example check). **Absorbs SW-1576's guide half.**
+   when stage 1 lands. DeepSeek, 30 min. Tests: the guide example check
+   (`crates/cli/tests/tools/guide.rs`), by `task test:one`. **Absorbs SW-1576's guide half.**
 2. **Stage 0b: profiler hint, a function called many times on few distinct values.** In
    `crates/rt/src/profile.rs`, count the distinct first runtime arguments per row, by
    pointer, in `--profile` runs only. Report rows over a threshold in the summary. Sonnet,
