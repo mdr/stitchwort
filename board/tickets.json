@@ -1,5 +1,5 @@
 {
-  "next": 1925,
+  "next": 1936,
   "tickets": [
     {
       "id": 47,
@@ -11247,9 +11247,9 @@
         "elab"
       ],
       "epic": "effects-native",
-      "body": "From SW-1564, 6 Nov 2026.",
+      "body": "From SW-1564, 6 Nov 2026.\n\nFrom docs/reviews/code-review-elab-rest.md (F2): SW-1564's settle-to-empty runs before the call's own postponed row comparisons are retried, probably why the same settle broke List.cross; see SW-1926.",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -16154,7 +16154,7 @@
         "elab"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/code-review-elab-checking.md (tickets to file, 8; F5). D2653 [rec: yes]. 60 min. The 1 Nov review's §3.5.",
+      "body": "From docs/reviews/code-review-elab-checking.md (tickets to file, 8; F5). D2653 [rec: yes]. 60 min. The 1 Nov review's §3.5.\n\nFrom docs/reviews/code-review-elab-rest.md (F21): take in part 3's new error-code sites too.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -16207,14 +16207,14 @@
     {
       "id": 1912,
       "title": "[Opus] Code review: crates/elab part 3 (derive*, interfaces, effects and rows, std loading and library, nav, module/project, data_auto, families, partial, tailrec, quot, opaque, reify, the rest)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1912",
       "labels": [
         "review"
       ],
       "epic": "elaborator-kernel",
-      "body": "Matt (7 Nov 2026): crate-by-crate code reviews, reading only. Expected: 90 min.",
+      "body": "Matt (7 Nov 2026): crate-by-crate code reviews, reading only. Expected: 90 min.\n\nDone, merged: docs/reviews/code-review-elab-rest.md. No way for a wrong proof through; only trusted path is cache replay, with a latent undo bug (SW-1925). Instance search deterministic and terminating. 0 high, 7 medium, 17 low. Tickets SW-1925-SW-1935. D2720, D2721 [rec: yes]. 9 min (est. 90).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -16396,6 +16396,171 @@
       ],
       "epic": "editor-playground",
       "body": "Matt (7 Nov 2026): crate-by-crate code reviews, reading only. Expected: 75 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1925,
+      "title": "[Opus] Check-cache replay: when the kernel refuses part of an entry, undo through the kernel's mark and rewind (today native and Float bindings survive, so a later definition under a reused id could run as a native); dump all Builtins; bind builtins on replay only for library entries; a forced-refusal test",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/code-review-elab-rest.md (ticket 1). F1, F10, F11. Trust boundary. 45-60 min. First.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1926,
+      "title": "[Opus] Effect rows: retry a call's own postponed row comparisons before settling its row to empty (comp_app, SW-1564), then retry SW-1581",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "effects-native",
+      "body": "From docs/reviews/code-review-elab-rest.md (ticket 2). F2, F16. 60-90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1927,
+      "title": "[DeepSeek] Small row and instance robustness",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "effects-native",
+      "body": "From docs/reviews/code-review-elab-rest.md (ticket 3). F8, F9, F15, F17. 40 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1928,
+      "title": "[DeepSeek] Glue and timing guards (kernel::without_glue manual save/restore)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/code-review-elab-rest.md (ticket 4). F12, F23; with SW-1901 if not done. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1929,
+      "title": "[Sonnet] Derive budgets: a budget per deriver (today the data type's own; some grow with constructors squared), measured on a 100-constructor type",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/code-review-elab-rest.md (ticket 5). F5, F24. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1930,
+      "title": "[Sonnet] One failure path for generated declarations: a derive failure the deriver should rule out is E-INTERNAL on the type (five ways today, some hide compiler bugs)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/code-review-elab-rest.md (ticket 6). F6, F18. D2721 [rec: yes]. 60-90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1931,
+      "title": "[Sonnet] Library load state: a std file that fails to check fails every later request for it with its original errors (today it stays marked loaded and later namespaces get misleading errors)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/code-review-elab-rest.md (ticket 7). F3, F20. D2720 [rec: yes]. 30-45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1932,
+      "title": "[Sonnet] Navigation cost: no expression types recorded during library loads (the language server records and discards one per std expression); cheaper index rebuilds",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "editor-playground",
+      "body": "From docs/reviews/code-review-elab-rest.md (ticket 8). F4, F19. 45-60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1933,
+      "title": "[Sonnet] Instance hints computed lazily; the budget error in findable",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/code-review-elab-rest.md (ticket 9). F13, F14. 40 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1934,
+      "title": "[DeepSeek] Branch-equation lemma list: one list and a resolve test",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/code-review-elab-rest.md (ticket 10). F22. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1935,
+      "title": "[Sonnet] Split effects.rs (2,379 → 5,231 lines since 20 Oct) with unit tests for align and mapping; split module.rs's elaborate_namespace_untimed",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/code-review-elab-rest.md (ticket 11). F7. In a quiet window (D2652). 60-90 min each.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
