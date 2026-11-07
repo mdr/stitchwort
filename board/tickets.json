@@ -1,5 +1,5 @@
 {
-  "next": 2046,
+  "next": 2047,
   "tickets": [
     {
       "id": 47,
@@ -16673,14 +16673,14 @@
     {
       "id": 1943,
       "title": "[Sonnet] JS: a projection out of an Array compiles to (x).toList, undefined on a version array; compile projections as matches (low confidence it's reachable: check first)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "backends"
       ],
       "epic": "effects-native",
-      "body": "From docs/reviews/code-review-js-native.md. 60 min.",
+      "body": "From docs/reviews/code-review-js-native.md. 60 min.\n\nFixed in SW-1997 (listOfArray), without a test: no source program produces such a projection.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17482,14 +17482,14 @@
     {
       "id": 1997,
       "title": "[Opus] HIGH, record eta regression: lowering Term::Proj of a one-field (unboxed) record panics (crates/rt/src/lower.rs:537, index out of bounds, via proj_as_match and case's unboxed-field path); crashes stitchwort test on 2020 day 20, the audit's counterexample search, and the counterexample note for failing proofs that mention such a field",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1997",
       "labels": [
         "bug"
       ],
       "epic": "record-eta",
-      "body": "From SW-1913. Repro docs/repros/sw-1913/panic10.sw: type Cave = { rows: Nat }; theorem probe (cave: Cave) (big: cave.rows = 0): cave.rows = 1 := ?. Two-field records fine. Blocks the push. Expected: 45 min.",
+      "body": "From SW-1913. Repro docs/repros/sw-1913/panic10.sw: type Cave = { rows: Nat }; theorem probe (cave: Cave) (big: cave.rows = 0): cave.rows = 1 := ?. Two-field records fine. Blocks the push. Expected: 45 min.\n\nDone, merged. Cause predates eta: case bound an unboxed record's field by copying its slot to a new level, so a closure captured a level its frame lacked; eta's Term::Proj reaches it via proj_as_match. Fix Bind::Alias. Tests rt lower + driver counterexample, both fail on the old code. On main after merge: whole AoC no cache 0 errors 65 s, rogue clean, 2020 day 20 tests 21/21, three regression tests pass. Model result: Opus, worked, 21 min (est. 45).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -18166,6 +18166,20 @@
         "tooling"
       ],
       "body": "From docs/proposals/erase-proof-data.md. Stage 3, optional. D2904. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2046,
+      "title": "[Sonnet] When Text gets record eta (SW-1644), JS projections need Text handled as charsOfText(x), not a property read",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "backends"
+      ],
+      "body": "From SW-1997. Not reachable today.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
