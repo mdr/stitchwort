@@ -22031,14 +22031,14 @@
     {
       "id": 2301,
       "title": "[Sonnet] Big numbers: Int / and % make one divmod call, not two, with a fast path when the quotient fits one word (pidigits' quotients are single digits); property tests",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2301",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/reviews/SW-2298-native-bignum.md (paper lane; confirm with task bench:compare -- --runs 3 pidigits before and after). 60 min. Highest expected gain.",
+      "body": "From docs/reviews/SW-2298-native-bignum.md (paper lane; confirm with task bench:compare -- --runs 3 pidigits before and after). 60 min. Highest expected gain.\n\nDone, merged. One div_rem per op; fast path for quotients under 62 bits. pidigits (Mac, 3 runs): run 11.11 -> 2.56 s, native 7.42 -> 2.10 s; native/CPython 0.38x, native/Lean 1.98x. On main: rt 57/57, pidigits check 12/12. Tests use a seeded xorshift (no proptest in repo). Model result: Sonnet, worked, 10 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -22166,9 +22166,9 @@
     {
       "id": 2310,
       "title": "[Sonnet] stitchwort check takes a theorem filter or file subset, so the comparative proof benchmark can time the same theorems as the Lean port (2020 day 18 has 23 of 49 ported, 2021 day 15 20 of 23)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2310",
       "labels": [
         "perf"
       ],
