@@ -19091,14 +19091,14 @@
     {
       "id": 2105,
       "title": "[Sonnet] Later: on Linux (Overmind), measure how much of an incremental build is linking, and try mold or lld as the linker if it's a large share",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
         "tooling"
       ],
       "epic": "dev-loop-speed",
-      "body": "Matt, 7 Nov 2026 (from a suggestion of Simon's): look at mold later. Mac builds use Apple's linker, so this is Linux-only. 45 min.\n\nMatt: mold's GitHub says 'A Modern Linker in Rust' (checked 7 Nov). Also try wild (davidlattimore/wild, Rust, Linux).",
+      "body": "Matt, 7 Nov 2026 (from a suggestion of Simon's): look at mold later. Mac builds use Apple's linker, so this is Linux-only. 45 min.\n\nMatt: mold's GitHub says 'A Modern Linker in Rust' (checked 7 Nov). Also try wild (davidlattimore/wild, Rust, Linux).\n\nSent to Overmind (soak job 4), Matt: \"Yes, work on both tasks for Overmind.\"",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19271,14 +19271,14 @@
     {
       "id": 2117,
       "title": "[Opus] HIGH: language server restart loop from an unstable workspace key: record the key each open path was opened under and carry it in the Keeper (R1); home_of catches its own panic (R2); clear 'also' after a panic blamed on nobody (R3); R12; fault tests (config read panicking every time, config parses but files don't load, reopen panic with no project, the backstop reached)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2117",
       "labels": [
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From docs/reviews/SW-2116-lsp-recovery-round-3.md (lane 1). Opus: third review round on this code found a regression, so the stateful part goes to Opus. After SW-2104 (same file). 75 min.",
+      "body": "From docs/reviews/SW-2116-lsp-recovery-round-3.md (lane 1). Opus: third review round on this code found a regression, so the stateful part goes to Opus. After SW-2104 (same file). 75 min.\n\nDone, merged. Cause: each file's workspace was recomputed from disk at every lookup and could differ from the key it was kept under, so a quarantine was never found and the successor re-panicked until the 15 were spent. New model: Checker::homes records each open document's key once (on open or first change), carried in the Keeper, the only key for checking, quarantine, retirement, blame and edited; it changes only when open_workspace finds the project unloadable (then the file's own path). home_of catches its own panic; a panic blamed on nobody clears also. Three new tests fail on main's code; backstop test added. On main: lsp 26/26, faults:: 29/29 twice. Model result: Opus, worked, 23 min (est. 75).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19286,14 +19286,14 @@
     {
       "id": 2118,
       "title": "[Sonnet] Language server recovery polish: a retired project shouldn't use 6 of the backstop's 15 (R4); one pop-up per quarantine, not per retried edit (R5); R8; the same remedy text in pop-ups and diagnostics (R9)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2118",
       "labels": [
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From docs/reviews/SW-2116-lsp-recovery-round-3.md (lane 2). After SW-2117 (same function). 40 min.",
+      "body": "From docs/reviews/SW-2116-lsp-recovery-round-3.md (lane 2). After SW-2117 (same function). 40 min.\n\nFrom SW-2117: a config read that always panics now leaves the file checked on its own with only a log line; D2742 suggests the once-per-session pop-up (Checker can't reach Notices today) — do it here. Also: in stopped mode a panic early in apply restarts the thread and sends another pop-up on every edit; announce() and next_key() in run_caught are outside every catch.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
