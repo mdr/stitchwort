@@ -273,6 +273,44 @@ def countDown (x: Nat): Box
   match x with
     | Zero => { value = 0 }
     | Succ m => countDown m [decreasing := omega]
+
+def inner (x: Nat): Box
+  decreasing x
+:=
+  match x with
+    | Zero => { value = 1 }
+    | Succ m => inner m [decreasing := omega]
+
+def outer (x: Nat): Box
+  decreasing x
+:=
+  match x with
+    | Zero => inner x
+    | Succ m => outer m [decreasing := omega]
+
+def onOuter (x: Nat): Nat :=
+  match (outer x).value with
+    | Zero => 0
+    | Succ m => m
+
+def innerN (x: Nat): Nat
+  decreasing x
+:=
+  match x with
+    | Zero => 1
+    | Succ m => innerN m [decreasing := omega]
+
+def outerN (x: Nat): Nat
+  decreasing x
+:=
+  match x with
+    | Zero => innerN x
+    | Succ m => outerN m [decreasing := omega]
+
+def onOuterN (x: Nat): Nat :=
+  match outerN x with
+    | Zero => 0
+    | Succ m => m
 "#;
 
 /// The operations on fields of calls. `liftFn` takes the context's `t` as
@@ -284,6 +322,10 @@ const FIELD_OPS: &[&str] = &[
     "viaCall.at",
     "liftFn.at",
     "countDown.value",
+    "outer.value",
+    "onOuter",
+    "outerN",
+    "onOuterN",
 ];
 
 fn field_op(sig: &Sig, name: &str, x: Term) -> Term {
@@ -296,6 +338,10 @@ fn field_op(sig: &Sig, name: &str, x: Term) -> Term {
         "viaCall.at" => app(field("Fn", "viaCall", x.clone()), vec![x]),
         "liftFn.at" => app(field("Fn", "liftFn", var(T, 0)), vec![x]),
         "countDown.value" => field("Box", "countDown", x),
+        "outer.value" => field("Box", "outer", x),
+        "onOuter" => app(sig.def("onOuter"), vec![x]),
+        "outerN" => app(sig.def("outerN"), vec![x]),
+        "onOuterN" => app(sig.def("onOuterN"), vec![x]),
         _ => unreachable!("{name}"),
     }
 }
@@ -308,7 +354,16 @@ fn fields_of_calls_are_compared_alike() {
     let sig = signature(
         g,
         &["Nat", "Fn", "Box"],
-        &["fieldOf", "viaCall", "liftFn", "countDown"],
+        &[
+            "fieldOf",
+            "viaCall",
+            "liftFn",
+            "countDown",
+            "outer",
+            "onOuter",
+            "outerN",
+            "onOuterN",
+        ],
     );
     let terms = terms(&sig, FIELD_OPS, field_op);
     let count = compared_alike(g, &sig, &terms);

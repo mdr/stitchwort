@@ -832,9 +832,9 @@ enum Frame {
     /// The forced value a projection takes a field of, already unfolded if
     /// it was a folded call.
     ProjReady(DataId, usize),
-    /// What folded call `f x` computed to, for its field `(f x).i`, kept
-    /// as that stuck form if what it computed to is stuck
-    /// ([`names_folded_fields`]). (Boxed: it's rare.)
+    /// What folded call `f x` computed to (to the end, `Frame::Unfolding`),
+    /// for its field `(f x).i`, kept as that stuck form if what it computed
+    /// to is stuck ([`names_folded_fields`]). (Boxed: it's rare.)
     FoldedField(Box<(DataId, usize, Value)>),
     /// The motive of a stuck `J` (the base is next).
     JMotive {
@@ -890,7 +890,10 @@ enum Frame {
     },
     /// The unfolding of a folded call (a dictionary or a theorem, [`folds`])
     /// that the frame `next` takes apart: unfolded again if it's another
-    /// folded call, and given to `next` as it is if it's this call, stuck.
+    /// folded call, directly or once a glued call it ends in is forced, and
+    /// given to `next` as it is if it's this call, stuck. So `next` gets
+    /// what unglued evaluation would: never a folded call that can still
+    /// compute.
     /// (Boxed: it's large, and rare.)
     Unfolding(Box<(DefId, Spine, Frame)>),
     /// A metavariable's solution, or the result of applying it so far:
@@ -1773,9 +1776,20 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
                     resume(g, next, value, stack)?
                 }
                 _ if folded_call(g, &value) => unfold_for(g, stack, value, next)?,
+                // A glued call (a `decreasing` definition's fuelled helper)
+                // is forced, and what it computes to looked at again: it may
+                // be another folded call (the helper's leaf `g y`), which
+                // unglued evaluation, where the helper isn't glued, reaches
+                // here as it is and unfolds. Handed to `next` still folded, a
+                // `case` on it, or on a field of it, would stay stuck glued
+                // where unglued evaluation computes (SW-2126, D3030).
+                _ if needs_forcing(g, &value) => {
+                    push(g, stack, Frame::Unfolding(Box::new((id, spine, next))))?;
+                    Control::Force(value)
+                }
                 _ => {
                     push(g, stack, next)?;
-                    Control::Force(value)
+                    Control::Return(value)
                 }
             }
         }
@@ -1856,10 +1870,26 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
             // Only while elaborating (a metavariable's solution), so the
             // machine this starts for a folded value is bounded by the
             // program.
-            let value = unfold_folded(g, &value)?.unwrap_or(value);
+            // What it unfolds to may be a glued call (a `decreasing`
+            // definition's fuelled helper), which a projection can't take
+            // apart unforced.
+            let unfolded = match unfold_folded(g, &value)? {
+                Some(unfolded) => Some(force(g, unfolded)?),
+                None => None,
+            };
             let result = match &elim {
-                Elim::Proj(d, i) => project(*d, *i, value),
-                Elim::J { base, .. } => match value {
+                // A field of a folded call whose unfolding is stuck is kept
+                // as the call's, as `Frame::FoldedField` keeps it.
+                Elim::Proj(d, i)
+                    if names_folded_fields(g)
+                        && is_eta_type(g, *d)
+                        && folded_call(g, &value)
+                        && matches!(&unfolded, Some(Value::Neutral(head, _)) if !matches!(head, Head::Meta(_))) =>
+                {
+                    project(*d, *i, value)
+                }
+                Elim::Proj(d, i) => project(*d, *i, unfolded.unwrap_or(value)),
+                Elim::J { base, .. } => match unfolded.unwrap_or(value) {
                     Value::Refl => (**base).clone(),
                     Value::Neutral(head, mut s) => {
                         s.push(elim.clone());
@@ -2114,20 +2144,29 @@ pub fn eta_held(g: &Ev, id: DefId) -> bool {
 /// body tests would rewrite inside the call (docs/proposals/match-call-field.md
 /// §2.2, D2991). Only when `forced` is stuck and not an unknown: then every
 /// field is stuck either way, so this names it without changing what it
-/// computes to; conversion unfolds the stuck form ([`unfold_folded`]). Only
-/// in the elaborator, where goals are shown and searched: the kernel's
+/// computes to; conversion unfolds the stuck form ([`unfold_folded`]).
+/// `forced` is the call unfolded to the end ([`Frame::Unfolding`]), so it
+/// isn't a folded call that can still compute; at most one stuck in its own
+/// case tree. A solved metavariable standing for the call is seen through,
+/// as `Frame::ReplayElim` does for a projection of one. Only in the
+/// elaborator, where goals are shown and searched: the kernel's
 /// evaluation is left as it was, gluing or not ([`Machine::kernel`]).
 ///
 /// [`Machine::kernel`]: crate::machine::Machine::kernel
 fn eta_fields(g: &Ev, d: DataId, k: usize, unforced: &Value, forced: Value) -> Result<Vec<Value>> {
     let Value::Call(id, spine, _) = unforced else {
-        let base = if names_folded_fields(g)
-            && matches!(&forced, Value::Neutral(head, _) if !matches!(head, Head::Meta(_)))
-            && folded_call(g, unforced)
-        {
-            unforced
+        let named = names_folded_fields(g)
+            && matches!(&forced, Value::Neutral(head, _) if !matches!(head, Head::Meta(_)));
+        // A folded call reached through solved metavariables is named too,
+        // as it would be reached directly.
+        let base = match unforced {
+            Value::Neutral(Head::Meta(_), _) if named => force_solved(g, unforced.clone())?,
+            _ => unforced.clone(),
+        };
+        let base = if named && folded_call(g, &base) {
+            base
         } else {
-            &forced
+            forced
         };
         return Ok((0..k).map(|i| project(d, i, base.clone())).collect());
     };
@@ -2470,6 +2509,17 @@ pub fn unfold_folded(g: &Ev, value: &Value) -> Result<Option<Value>> {
             && s2.ptr_eq(&call)
         {
             return Ok(current); // stuck
+        }
+        // A glued call (a `decreasing` definition's fuelled helper) may
+        // compute to another folded call, its leaf `g y`, which unglued
+        // evaluation, where the helper isn't glued, gets here as it is and
+        // unfolds too (SW-2126). Otherwise the call is kept, unfolding
+        // shared, for conversion to compare lazily.
+        if fields.is_empty() && matches!(next, Value::Call(..)) {
+            let forced = force(g, next.clone())?;
+            if folded_call(g, &forced) {
+                next = forced;
+            }
         }
         // A field of the call: the fields of its unfolding.
         for (d, i) in fields {

@@ -473,6 +473,19 @@ both.
 - **A call with a `Quot.lift` leaf is glued** (`folds` covers dictionaries, theorems and
   `decreasing` definitions only), so its fields already took rule 2's glued branch; stage 2
   matters for it only in values made unglued.
+- **A folded call's unfolding is followed to the end** (SW-2126, review SW-2125 F1). A
+  `decreasing` definition's body is a glued call of its fuelled helper, and the helper's leaf can
+  be another folded call (`outer x` ending in `inner x`). `Frame::Unfolding` forces such a glued
+  call and unfolds the folded call it gives, as unglued evaluation, where the helper isn't
+  glued, does; `unfold_folded` (conversion) too. Before, a `case` on `outer 0`, or on
+  `(outer 0).value`, stayed stuck glued where unglued evaluation computed, and `outerN 0 = 1`
+  failed `rfl` (`proof_equivalence::fields_of_calls_are_compared_alike` has these terms). So the
+  forced value rule 2 and `Frame::FoldedField` test is never a folded call that can still
+  compute, and naming its fields changes no computation.
+- **Through a solved metavariable** (F4): rule 2 sees through solved metavariables
+  (`force_solved`) before testing for a folded call, and `Frame::ReplayElim` names a projection
+  of one the same way, so the field reads `(f x).i` there too. `ReplayElim` also forces what the
+  call unfolds to before projecting it: a glued helper call used to reach `project` and panic.
 - **Stage 2 is elaborator-only by a flag.** `Machine::kernel`, set by `in_kernel_modes`, says
   the kernel is checking; folded calls keep their fields as `(f x).i` only when gluing is on and
   it isn't (`names_folded_fields`). The kernel's values are as before. Two sites name them:
