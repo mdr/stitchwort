@@ -3247,6 +3247,19 @@ fn conv_step(
             return Ok(true);
         }
     }
+    // A glued call against a number is forced and compared again from the
+    // top: what it computes to may be a folded call (`withProof (outerN 0)`
+    // is `outerN 0`), which is compared unfolded (above), as it is without
+    // gluing, where the folded call is this side as it is. The numbers'
+    // comparison below would force the call first too, but takes no folded
+    // call apart (SW-2211, D3030). The forced value is never a call, so
+    // this happens once a side.
+    if (matches!(a, Value::Call(..)) && native::nat_like(g, &b))
+        || (matches!(b, Value::Call(..)) && native::nat_like(g, &a))
+    {
+        work.push(ConvTask::Values(level, force(g, a)?, force(g, b)?));
+        return Ok(true);
+    }
     // Numbers, `k + x`, `Zero` and `Succ` all compare by their `k + x` forms:
     // `3` and `Succ x` are equal when `x` is `2`. Glued calls in them are
     // unfolded only as far as that needs (`compare_lazily`, SW-1153).
