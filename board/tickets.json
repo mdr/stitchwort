@@ -1,5 +1,5 @@
 {
-  "next": 2284,
+  "next": 2285,
   "tickets": [
     {
       "id": 47,
@@ -21769,6 +21769,21 @@
       ],
       "epic": "proof-automation",
       "body": "From docs/reviews/SW-2281-decreasing-stage2-fixes.md. Step 1 (~15 min): R2, R3, R4, R5. Step 2 (~20 min): R1. Test: decreasing_twins, decreasing examples.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2284,
+      "title": "[Opus] Review SW-2257 (G1/G3: walk_tree and the reference's settle bring a scrutinee to its head: forced, unfolded, numbers and compact text split): definitional, budget, agreement, and whether it explains the ~9% AoC time rise",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2284",
+      "labels": [
+        "review"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "D2364. Read-only. 15 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
