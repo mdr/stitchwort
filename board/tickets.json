@@ -14435,9 +14435,9 @@
     {
       "id": 1794,
       "title": "test:affected selects nextest tests only; dev/t also ran non-Rust checks by path (board node tests for board/**, bash -n for dev/**, a flake parse for flake.nix, VS Code and browser tasks): add a small 'extra commands' rule kind (SW-1793)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1794",
       "labels": [
         "tooling"
       ],
