@@ -1,5 +1,5 @@
 {
-  "next": 2094,
+  "next": 2095,
   "tickets": [
     {
       "id": 47,
@@ -18731,9 +18731,9 @@
     {
       "id": 2081,
       "title": "[Sonnet] Pins: check every pinned builtin in bind_builtin_def/bind_builtin_data (today each pin is checked only in its own registration function, so a pin added later can go unchecked); fix two over-claiming comments (pinned_hashes.rs stops at the first stale pin; chars.rs still has pins)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2081",
       "labels": [
         "core"
       ],
@@ -18761,9 +18761,9 @@
     {
       "id": 2083,
       "title": "[DeepSeek] Lexer messages for hidden characters (L1, L2) and error-span tests",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-2083",
       "labels": [
         "syntax"
       ],
@@ -18919,6 +18919,21 @@
       ],
       "epic": "proof-automation",
       "body": "From docs/proposals/match-call-field.md. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2094,
+      "title": "[Opus] Fresh-eyes review of SW-1998 (unifier: field of an unknown counts as blocked; stuck field of a kept call compares by the call), SW-1995 and SW-2086 (checker reopen under the catch)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2094",
+      "labels": [
+        "review"
+      ],
+      "epic": "record-eta",
+      "body": "Read-only Opus lane, 7 Nov. Expected: 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
