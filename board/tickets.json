@@ -17453,14 +17453,14 @@
     {
       "id": 1995,
       "title": "[Sonnet] Equations and induction call rewind_globals (Kernel::rewind, which resets the machine's step limit, stack floor and cancel flag) mid-declaration (equations.rs:2460, induct.rs:349): after a skipped equation the rest of the declaration probably runs unguarded; move them to forget_since",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1995",
       "labels": [
         "elab"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/proposals/check-cache-trust.md (ticket 3). After SW-1925. 40 min.\n\nFrom SW-1925: in rewind_globals (crates/elab/src/lib.rs ~1122) change self.kernel.rewind(mark) to self.kernel.forget_since(mark); check Kernel::mark's doc; unit test that after a skipped equation the budget limit is still the operation's. The language server and driver rewinds keep Kernel::rewind.",
+      "body": "From docs/proposals/check-cache-trust.md (ticket 3). After SW-1925. 40 min.\n\nFrom SW-1925: in rewind_globals (crates/elab/src/lib.rs ~1122) change self.kernel.rewind(mark) to self.kernel.forget_since(mark); check Kernel::mark's doc; unit test that after a skipped equation the budget limit is still the operation's. The language server and driver rewinds keep Kernel::rewind.\n\nDone, merged. rewind_globals now uses forget_since; its four callers (equations.rs:2464, 2469; induct.rs:356, 363) all run inside an operation after attempt restored the budget. New test fails on the old code (size limit u64::MAX instead of 12345). On main: the test, function_equations/induct 14/14, whole AoC 0 errors. Model result: Sonnet, worked, 15 min (est. 40).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17498,9 +17498,9 @@
     {
       "id": 1998,
       "title": "[Opus] Unifier eta gaps: blocked_within doesn't count a projection of an unsolved meta as blocked (2020 day 20: ?b.rows); same_field_records drops the projection from a field call (f x).i and gets a stuck neutral (2021 day 11). Reverted patch in docs/repros/sw-1913/unify-fixes.patch; then drop the SW-1913 workarounds in those two days",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1998",
       "labels": [
         "unifier"
       ],
