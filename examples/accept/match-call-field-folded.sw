@@ -1,7 +1,8 @@
 -- A field of a call of a `decreasing` definition stays a field of the call,
 -- `(pick n empty).items`, rather than a field of what the call unfolds to
 -- (docs/proposals/match-call-field.md §2.2; AoC 2024 day 23,
--- `largestFromAnswers`). So a `match` on the call finds it there, and one
+-- `largestFromAnswers`). So a `match` on the call finds it there (it
+-- abstracts the call out of the goal, so `h` is then about `result`), and one
 -- on the test inside `pick` leaves the call alone, as for `pick n empty`
 -- standing alone: each arm's goal still holds the call, which
 -- `pick.unfold` then rewrites.
