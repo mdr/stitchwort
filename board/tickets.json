@@ -17772,7 +17772,7 @@
       "labels": [
         "elab"
       ],
-      "body": "From docs/research/aoc-friction-synthesis.md. 30 min.\n\nFrom docs/proposals/decreasing-with-hypothesis.md: the brief's example already works (a parameter steps ≤ fuel); the gap is facts from inside the body. 2024 day 23's measure proof is SW-841, a missing std lemma.",
+      "body": "From docs/research/aoc-friction-synthesis.md. 30 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
