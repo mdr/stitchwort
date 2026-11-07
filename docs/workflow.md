@@ -41,6 +41,16 @@ rules are in [`dev/briefs/design.md`](../dev/briefs/design.md) and
 right one and adds the task, the time estimate and the D number range.
 Change those files rather than retyping rules into briefs.
 
+Paper lanes are how idle slots get filled: while a heavy job (the daily
+tier, a long build) holds the machine, or whenever a slot would otherwise
+wait, pick a design note, a review of recent merges, a literature survey or
+a friction synthesis from the backlog (Matt, 6 Nov 2026: "we can do a lot
+with analysis-only [lanes]: doing designs or code review or literature
+review"). They run beside the build lanes, not in place of them: with spare
+weekly capacity Matt asked for one or two Opus paper lanes to be kept going
+alongside (7 Nov 2026). How many is a matter of the week's quota, so ask
+when it's unclear.
+
 ## Handing a task to DeepSeek
 
 1. Make a scratch clone with no git remote, so the model can't push:
@@ -64,17 +74,57 @@ Change those files rather than retyping rules into briefs.
    and record it on SW-1097 (D2217).
 3. Opus reviews the diff line by line and reruns the tests it relies on.
    DeepSeek has introduced real bugs before, and once handed over a test it
-   had never run, so its own "tests pass" isn't enough.
+   had never run, so its own "tests pass" isn't enough. Fixes from the
+   review go to the same OpenCode session, which keeps the run's context
+   (D2438, Matt, 5 Nov 2026): `opencode run --continue` (or `--session
+   <id>`) with the same flags and `</dev/null`, the review comments as the
+   message, in the same clone. OpenCode 2.1.4 also has `--fork` on `run`,
+   but no `--attach`; messages to a run in progress (`opencode serve` and
+   `POST /session/:id/prompt_async`) aren't reliable yet, so don't use them.
 4. Commit in the clone with the trailer "Done by OpenCode with DeepSeek V4.1
    Flash (OpenCode Go) from a spec by Claude; reviewed by Claude", check the
    commit author, then fetch and merge into `main`.
-5. Regenerate snapshots and the benchmark baseline, stage them, and run the
-   merge tier (below). For playground changes also run `task test:browser`.
+5. Regenerate snapshots and the benchmark baseline, stage them, and let the
+   batch's check run (below). For playground changes also run `task test:browser`.
 6. Update the ticket: move it to done and record the commits (`board/board commit N HASH`, `board/board move N done`).
-7. Delete the clone (`rm -rf .claude/worktrees/scratch-sw-N`).
+7. Delete the clone (`rm -rf .claude/worktrees/scratch-sw-N`), only once
+   the lane is merged: review fixes need its session.
 
 Claude's own lanes work the same way, in git worktrees instead of scratch
 clones.
+
+## Merging
+
+A failed merge must stop everything after it: the board edits, the commit
+and the worktree removal all assume it worked. On 6 Nov 2026 two merges
+joined with `;` carried on past a conflict: `git commit -qam` committed the
+conflict markers as the merge, the second merge never ran, and
+`task worktree:rm` deleted both lane branches. The same day a merge piped
+through `grep CONFLICT` hid its failure the same way. So:
+
+- Join a merge's steps with `&&`, or merge in one call and do the board and
+  worktree steps in the next, after `git status` shows it clean:
+
+  ```
+  git merge --no-ff lane/SW-N -m "Merge SW-N: …" \
+    && board/board commit N $(git rev-parse HEAD) && board/board move N done \
+    && git commit -m "Board: SW-N done" board/tickets.json \
+    && nix develop -c task worktree:rm -- SW-N
+  ```
+
+- Never pipe a merge's output, and never run `git commit -a` in the same
+  chain as a merge.
+- Remove a worktree only after the merge commit is confirmed.
+- `task worktree:rm -- SW-N` deletes the branch `lane/SW-N` as well as the
+  worktree. When the branch must survive (work held back, an optional change
+  for Matt), run `git worktree remove .claude/worktrees/SW-N` instead. A
+  deleted branch is recovered from the reflog or `git fsck --unreachable`;
+  `git branch lane/SW-N` doesn't recreate it, it points a new branch at the
+  current `HEAD`.
+- A lane that adds examples needs their hash snapshots. After merging one,
+  check `git status` for its new `.snap` files; if they're missing, make them
+  with `INSTA_UPDATE=always` on the `hash_stability` `examples` and
+  `projects` tests.
 
 ## Checks after a merge
 
@@ -129,6 +179,31 @@ changed; they run at the daily and full tiers and before a push, where a
 failure that the selections missed is recorded on SW-1098 and the merges
 since the last pass are the suspects. The inventory is refreshed only when
 a batch adds or renames many tests.
+
+Ways a selection has gone wrong before (5-6 Nov 2026), each turning a
+two-minute check into six or more:
+
+- Pick test names, not whole binaries or packages beyond core and syntax,
+  and look up how long the slow ones took before including them. All of
+  `package(stitchwort-web)` pulled in the every-AoC-day test (about 3.5
+  min); `goal_index` and `search` single tests take about 350 s under load;
+  the lsp memory tests about 30 s each.
+- `test(=name)` must match the whole name, module path included: the web
+  crate's tests are `project::tests::…`, so `test(=every_aoc_day…)` selects
+  nothing. Compare nextest's "N tests run" with what you expected.
+- A filter naming a binary that doesn't exist makes nextest fail before any
+  test runs, which through a `grep` looks like a pass. Check for nextest's
+  Summary line.
+- A Haiku verifier saves the estimator's output to a file and greps it for
+  `ESTIMATE`, rather than piping it through `tail`.
+
+**After a core-language lane** (record eta, `match`, the kernel), the
+verifier may add one whole-AoC and roguelike `check --no-cache` in the
+background, if it takes two or three minutes (D2507, Matt, 6 Nov 2026: "two
+to three minutes is okay, but not 20 minutes"); it stops at 6 minutes and
+reports. Measured 6 Nov: 1 min 10 s on a quiet machine, 2-3 min loaded,
+plus the release build. Lanes don't run it; any other wide check needs
+Matt's agreement first.
 
 ## Lane checkouts
 
@@ -204,6 +279,16 @@ descendants, and prints each one. `dev/stop-mine --dry-run` only lists them;
 whose executable is outside the checkout. A lane never runs `pkill` or
 `killall`.
 
+The orchestrator follows the same rule when it pauses or stops a run: it
+selects the run by its process tree (the background job's pid and its
+descendants, `pgrep -P` recursively), never by the binary's path. Matching
+`target/release/stitchwort` also matches the language server that VS Code
+runs from the main checkout (`stitchwort lsp`, `stitchwort.path` in
+Matt's settings): on 3 Nov 2026 pausing a daily run that way froze Matt's
+editor for about 55 minutes and then killed its server (SW-1110). Check the
+list before signalling. In zsh, `kill $pids` doesn't split a
+newline-separated variable; use `xargs`.
+
 ## Lanes and the task list
 
 Work runs in lanes (up to three at once), each in its own git worktree and
@@ -233,15 +318,163 @@ own tickets as described in [board/README.md](../board/README.md).
 - Questions for Matt in a session get a D number (D1454, D1455, …),
   counting up from the highest in use so each is unique. D numbers are
   handles for the session's open questions, not a permanent record: the
-  answer goes on the SW- ticket it concerns. After each turn the
-  orchestrator lists the session's unanswered D questions, each followed by
-  its recommendation in square brackets (`D1454: start these lanes? [rec:
-  yes]`).
+  answer goes on the SW- ticket it concerns. Which questions are his, and
+  how many to bring, is under "Decisions" below.
 - New findings become tickets in `backlog` (label `bug` for known issues),
   not straight into `next`, unless they block what's in progress.
 - Design detail lives in `DESIGN.md` and `docs/proposals/`; tickets only
   track what is to do and why. Finished work is in git log;
   [history.md](history.md) keeps what the old `TODO.md` recorded as done.
+
+### Writing a brief
+
+Every brief states the worktree, the estimate and the targeted tests (CLAUDE.md,
+"Test budget"). Some kinds of work also need standard lines, each added after a
+lane missed it and a batch failed:
+
+- **May add examples:** "new examples get a hash snapshot: `nix develop -c
+  task snap:hashes NAME=<the example's file stem>` (comma-separated for
+  several), and run `task test:one -- -E 'binary(hash_stability)'`". `NAME`
+  filters example file names, so it's the stem, not `examples` or `prelude`
+  (5 Nov 2026: SW-1359, SW-1379, SW-1420; a name matching nothing now fails,
+  SW-1440). For a std change, "commit the regenerated prelude snapshot
+  (additions only)" (SW-1494).
+- **Changes std core** (Int, Nat, Text, Char, Bool definitions or lemmas):
+  "run `task test:one -- -E 'binary(extract) & test(/bound_to_the_prelude/)'`
+  (about 20 s); if it fails, check the computation is unchanged and repin
+  the hash in `crates/rt/src/natives.rs`". Natives bind by content hash, so
+  editing a definition or anything it depends on unbinds one with no build
+  error: on 6 Nov 2026 SW-1558 made an `Int` lemma's arguments implicit and
+  `DecEqInt` silently stopped binding (SW-1582 repinned it; SW-1586 is the
+  structural fix). The batch's check includes `binary(extract)` for such
+  lanes.
+- **Touches comments:** say which rules apply ([syntax.md, "What to
+  write"](syntax.md#what-to-write)): std's full API docs, or application
+  code's few comments. Never "document every X" outside std. Lanes keep
+  writing comments that narrate the next line or the change, so review
+  diffs for them.
+- **AoC and other application code:** small domain types, forward-reading
+  call sites, statements with operators (CLAUDE.md, "Lane agents").
+- **A new AoC day** (Opus, D2427) asks for the gap analysis in its friction
+  notes: a newcomer's view, and what would have shortened each step.
+- **Proofs** link [proving-guide.md](proving-guide.md).
+- **Design notes and reviews** point at `dev/briefs/` ("Paper lanes" above)
+  and ask for few D questions.
+
+### Reporting to Matt
+
+**Proposals.** For a proposal or D question, three short labelled parts:
+**The problem** (what the user does, what happens, and why, in everyday
+words), **The change** (what the code will do differently, a sentence or
+two), **What it should do** (the effect, with numbers, saying measured or
+estimated). Then at most a short "not known yet". Define internal terms or
+avoid them; tables come after those parts, if at all. Open a lane proposal
+with one line of impact: which real programs or workflows change, by how
+much, and whether that's measured. If it's a guess, propose a cheap
+measurement first. Matt asked for this after two explanations led with
+context, tables and internal terms (4 Nov 2026: "say what the problem is,
+and ... what you're proposing the change is, and what you expect the change
+to do"), and declined a mechanism-first proposal whose benefit was only
+inferred (D2282, 3 Nov 2026).
+
+**Tickets and epics.** Every SW number gets a few-word hint in brackets,
+every mention, even one repeated in the same message: "SW-1421 (day 8's
+lookup lemmas into std)" (Matt, 5 Nov 2026: "I can't remember what that
+is"). Tables of running or finished work have an Epic column, and prose
+names the epic once per group of tickets, by its title in
+`board/epics.json`, not its id. Status replies ("aw", "where are we") go by
+epic, a line or two each (D2517). A summary of a run is organised by the
+items Matt asked for, under his names for them ("partial lambdas", "AoC
+cleanup"), each with its status first (done, partly, not started); check
+every item against the board before saying it wasn't done (5 Nov 2026,
+when finished work under ticket names read as not started).
+
+**Active work.** "aw" means a table with one row for every lane running:
+the board's `doing` tickets, background agents, DeepSeek runs and
+Overmind's jobs. Every table of running work, not only for "aw", has these
+six columns (Matt, 2 and 7 Nov 2026), with nothing around it beyond what's
+needed:
+
+| Column | What goes in it |
+|---|---|
+| Ticket | SW-N with its hint |
+| Epic | the epic's title |
+| Machine | **Speedwell** (this Mac) or **Overmind** (the soak laptop): "Overmind isn't a model, it's a computer" |
+| Model | Opus, Sonnet or DeepSeek; "DeepSeek, then an Opus review" when a review is part of the lane |
+| Running for | measured fresh each time: `ps -o etime=` on a DeepSeek run's opencode process; an agent's launch time, or its worktree's creation (`/usr/bin/stat -f '%SB' -t '%H:%M' .claude/worktrees/SW-N`); an Overmind job's sending time |
+| Summary | one sentence |
+
+**Decisions.** The D questions that are Matt's are direction, scope, a
+design's end state, trade-offs he can judge (speed against safety, what
+ships, what the language does), user-visible language, trust and process.
+Sequencing and implementation details inside an approved design, and
+technical soundness details inside an approved kernel design, are the
+orchestrator's: he has answered such questions "not sure, you decide"
+(D2243), "happy to go with your recommendation" (D2260) and "above my pay
+grade" (D2352-D2355, 4 Nov 2026). Bring him the user-visible consequence
+instead of the mechanism. Record each such call on its ticket as "the
+orchestrator's call" and mention it in a line so he can object. Review and
+design lanes produce questions faster than he can answer them (about 150 on
+7 Nov 2026: "I can't possibly review 80 decisions. Come on."), so take every
+reversible, low-risk or within-a-direction question as recommended, and
+bring at most one or two a turn, most important first, only when a lane is
+about to need the answer. The rest stay in their notes, unlisted. Never
+block a lane on a minor call, overnight least of all (4 Nov 2026: "I'd hate
+to wake up and discover that you blocked on a minor decision").
+
+**Time.** Before quoting how long a job takes, look it up (a previous run's
+log, nextest's timings, `time` on a small run) and allow for the load of
+running lanes. If you can't, say so: "I don't know; probably N, I'll stop it
+at 2N". Set the stop point up front and keep it. Matt agrees to low-value
+work on the strength of the estimate (5 Nov 2026: a "two-minute" baseline
+re-record was still running at 25 min).
+
+**Instructions in context.** An instruction usually fits the situation it
+was given in (that night, that lane, that file). Unless Matt says "always",
+"from now on" or "put it in CLAUDE.md", ask once before keeping it as a
+standing rule, and when writing it down, record its context (5 Nov 2026,
+after a one-night usage limit was quoted back as a rule: "when I tell you
+something, it's probably contextual"). There is no standing usage cap; ask
+if usage looks like it matters.
+
+### Keeping the agent list honest
+
+Claude Code keeps listing subagents after they finish. Matt doesn't want to
+see zombies (3 Nov 2026), and they make the active-work table wrong:
+
+- Run `ListAgents` after each merge or dropped lane, after a verifier
+  reports, after a context compaction, and before any status table. Compare
+  it with `board/board list --status doing`: a `doing` ticket with a worktree and
+  no agent is a lane that was set up and never launched (SW-1754 sat an
+  hour that way).
+- `TaskStop` every agent whose result has been acted on (merged, dropped or
+  superseded), at once, including those that reported "waiting on its own
+  background work", and every background watcher whose job is done. After
+  a compaction, stop every completed agent, not only the ones remembered.
+- Match an agent's status line by its elapsed time and tokens against each
+  agent's usage report, not by its activity text.
+- Never stop a lane or verifier still awaited; if one looks stalled, check
+  its worktree's commits or message it first. Mention what was closed in a
+  line.
+
+### Overmind, the soak laptop
+
+Overmind is Matt's old laptop: NixOS, x86_64, an i7-6700HQ (8 threads),
+15 GiB RAM. It runs long fuzz and soak runs (SW-2100's `dev/soak/run`), not
+merge checks. Its Claude Code session shows in `ListAgents` as `overmind`
+(Remote Control): `SendMessage` reaches it, and it answers with
+`SendMessage` to "Stitchwort Orchestrator". It runs Matt's default model
+(Opus as of 7 Nov 2026). Its checkout, `~/repos/mdr/stitchwort`, pulls from
+GitHub, so it sees only what has been pushed, and pushing needs Matt's OK.
+
+First soak report (7 Nov 2026): whole-AoC `check --no-cache` 134 s against
+65 s on Speedwell (about 2x slower; std's cold check about 4x); an
+incremental CLI build 2 min 10 s; 100k syntax fuzz cases 4 s; 2,000 elab
+fuzz cases 40 min. Quirks: no `/usr/bin/time` (use Nix's `time`); the
+binary is at `target/x86_64-unknown-linux-musl/release/stitchwort`; it has
+a desktop session and an existing checkout, so it isn't a clean machine;
+its Claude Code moves commands into the background after 10 min; the 16 GB
+fuzz memory cap is more than its RAM.
 
 ### How a proof lane finishes
 
