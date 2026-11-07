@@ -21,7 +21,7 @@ use stitchwort_core::{DataId, DefId};
 use stitchwort_driver::driver::{Session, full_tier, par_map, tier_sample};
 use stitchwort_driver::project::{DiskFiles, Entry, Files, Target};
 
-#[path = "../../fmt/tests/it/support/repo_files.rs"]
+#[path = "../../../fmt/tests/it/support/repo_files.rs"]
 mod repo_files;
 
 const STACK: usize = 16 * 1024 * 1024;

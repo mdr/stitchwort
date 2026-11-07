@@ -221,7 +221,7 @@ fn aoc() -> Session {
 }
 
 /// The answers each AoC day prints on its real input, as
-/// `crates/cli/tests/aoc_answers.rs` checks `stitchwort run` prints them.
+/// `crates/cli/tests/running/aoc_answers.rs` checks `stitchwort run` prints them.
 const AOC_ANSWERS: &[(&str, &str, &str, &str)] = &[
     ("2025", "01", "1076", "6379"),
     ("2025", "02", "16793817782", "27469417404"),

@@ -77,9 +77,9 @@ sample = true
 why = "a library file changes its own tests, the prelude and example hashes, and the formatting of .sw sources"
 select = [
   { profile = "lane-std" },
-  { binary = "hash_stability", test = "^(prelude|examples)$" },
-  { binary = "pinned_hashes" },
-  { binary = "std_library", test = "^the_standard_library_passes_its_own_tests$" },
+  { package = "driver", binary = "library", test = "^hash_stability::(prelude|examples)$" },
+  { package = "driver", binary = "library", test = "^pinned_hashes::" },
+  { package = "driver", binary = "library", test = "^std_library::the_standard_library_passes_its_own_tests$" },
 ]
 
 [[rule]]
@@ -100,7 +100,7 @@ paths = ["crates/elab/src/std/core/**", "crates/elab/src/std/order.txt", "crates
 why = "core files are what natives and printed positions are bound to"
 select = [
   { test = "bound_to_the_(prelude|library)" },
-  { package = "driver", binary = "navigation", test = "^references_of_a_project$" },
+  { package = "driver", binary = "projects", test = "^navigation::references_of_a_project$" },
 ]
 
 [[rule]]
@@ -122,9 +122,9 @@ examples = ["omega", "auto-omega"]
 why = "the omega procedure"
 select = [
   { package = "elab", test = "omega" },
-  { package = "driver", binary = "search_at", test = "omega" },
-  { package = "driver", binary = "std_library", test = "omega" },
-  { package = "driver", binary = "number_patterns" },
+  { package = "driver", binary = "library", test = "^search_at::.*omega" },
+  { package = "driver", binary = "library", test = "^std_library::.*omega" },
+  { package = "driver", binary = "elaboration", test = "^number_patterns::" },
 ]
 
 [[rule]]
@@ -135,8 +135,8 @@ examples = ["match", "pattern", "redundant"]
 why = "match elaboration and its coverage and redundancy checks"
 select = [
   { package = "elab", lib = true },
-  { package = "driver", binary = "number_patterns" },
-  { package = "driver", binary = "int_patterns" },
+  { package = "driver", binary = "elaboration", test = "^number_patterns::" },
+  { package = "driver", binary = "elaboration", test = "^int_patterns::" },
   { package = "cli", binary = "tools", test = "^redundant_arms::" },
 ]
 
@@ -148,8 +148,8 @@ examples = ["rewrite", "calc"]
 why = "rewriting and calculation proofs"
 select = [
   { package = "elab", lib = true },
-  { package = "driver", binary = "rewrite" },
-  { package = "driver", binary = "update_lemmas" },
+  { package = "driver", binary = "proofs", test = "^rewrite::" },
+  { package = "driver", binary = "proofs", test = "^update_lemmas::" },
 ]
 
 [[rule]]
@@ -160,8 +160,8 @@ examples = ["equation", "induct", "derive"]
 why = "function equations, induction and derived instances"
 select = [
   { package = "elab", lib = true },
-  { package = "driver", binary = "function_equations" },
-  { package = "driver", binary = "function_induct" },
+  { package = "driver", binary = "proofs", test = "^function_equations::" },
+  { package = "driver", binary = "proofs", test = "^function_induct::" },
   { package = "cli", binary = "tools", test = "^doc_equations::" },
 ]
 
@@ -172,7 +172,7 @@ paths = ["crates/elab/src/search.rs", "crates/elab/src/nav.rs", "crates/elab/src
 why = "the search and navigation over goals"
 select = [
   { profile = "lane-search" },
-  { package = "driver", binary = "navigation" },
+  { package = "driver", binary = "projects", test = "^navigation::" },
 ]
 
 [[rule]]
@@ -204,9 +204,9 @@ sample = true
 why = "the elaborator decides every example's verdict and hashes"
 select = [
   { package = "cli", binary = "running", test = "^examples::(accepted|rejected|soundness)_examples_" },
-  { binary = "hash_stability", test = "^(prelude|examples)$" },
-  { package = "driver", binary = "pinned_hashes" },
-  { package = "driver", binary = "named_arguments" },
+  { package = "driver", binary = "library", test = "^hash_stability::(prelude|examples)$" },
+  { package = "driver", binary = "library", test = "^pinned_hashes::" },
+  { package = "driver", binary = "elaboration", test = "^named_arguments::" },
 ]
 
 # The front end's own feature tests live in the driver's and the CLI's test
@@ -310,7 +310,7 @@ paths = ["crates/core/**"]
 sample = true
 why = "every hash comes from the kernel"
 select = [
-  { binary = "hash_stability", test = "^(prelude|examples)$" },
+  { package = "driver", binary = "library", test = "^hash_stability::(prelude|examples)$" },
 ]
 
 [[rule]]
@@ -352,7 +352,7 @@ rank = 3
 paths = ["crates/fmt/**", "crates/syntax/**"]
 why = "formatting must change no declaration's hash (a sweep, about 75 s)"
 select = [
-  { package = "driver", binary = "fmt_hashes" },
+  { package = "driver", binary = "library", test = "^fmt_hashes::" },
 ]
 
 # ---------------------------------------------------------------- runtime and tools
@@ -479,8 +479,8 @@ paths = ["crates/partial-model/**"]
 why = "the model of partial functions and the driver tests that check the elaborator against it"
 select = [
   { package = "partial-model" },
-  { package = "driver", binary = "partial" },
-  { package = "driver", binary = "partial_kernel" },
+  { package = "driver", binary = "proofs", test = "^partial::" },
+  { package = "driver", binary = "proofs", test = "^partial_kernel::" },
 ]
 
 [[rule]]
@@ -518,9 +518,9 @@ paths = ["crates/driver/**"]
 why = "the driver: loading and the project tests"
 select = [
   { profile = "lane-core" },
-  { package = "driver", binary = "project" },
-  { package = "driver", binary = "namespaces" },
-  { package = "driver", binary = "multi_file" },
+  { package = "driver", binary = "projects", test = "^project::" },
+  { package = "driver", binary = "projects", test = "^namespaces::" },
+  { package = "driver", binary = "projects", test = "^multi_file::" },
 ]
 
 [[rule]]

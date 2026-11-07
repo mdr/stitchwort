@@ -208,7 +208,7 @@ fn a_partial_main_that_fails_deep_in_recursion() {
 // Handlers around partial code (docs/proposals/partial-handlers.md, lane C):
 // lane A's programs, as lane B's trace test runs them on the reference
 // runner (`handled_traces_agree_with_the_model` in
-// `crates/driver/tests/partial.rs`), with the ticks the model's own tests
+// `crates/driver/tests/proofs/partial.rs`), with the ticks the model's own tests
 // expect. The machine must need the same ticks, and print the same, at
 // every limit.
 

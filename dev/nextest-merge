@@ -31,7 +31,7 @@ EXTRAS = [
     "package(stitchwort-core)",
     "package(stitchwort-native)",
     "(package(stitchwort-cli) & binary(running) & test(/^build::/))",
-    "(package(stitchwort-driver) & ((binary(navigation) & test(=references_of_a_project)) | (binary(named_arguments) & test(=named_calls_keep_every_hash))))",
+    "(package(stitchwort-driver) & ((binary(projects) & test(=navigation::references_of_a_project)) | (binary(elaboration) & test(=named_arguments::named_calls_keep_every_hash))))",
     "(package(stitchwort-cli) & binary(extraction) & test(=extract::generated_code_is_stable))",
     "(package(stitchwort-cli) & binary(running) & test(/^aoc_answers::(year2021_day(01|03|07)|year2024_day(01|02|03|04|05|07|09)|year2025_day(01|03|05|07))$/))",
 ]

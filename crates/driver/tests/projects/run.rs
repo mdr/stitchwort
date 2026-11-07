@@ -1,6 +1,6 @@
 //! Running `main` against real input and output (docs/proposals/text-and-io.md,
 //! "`main` and `stitchwort run`"), with the input and output in memory. The
-//! command itself is tested end to end in `crates/cli/tests/run.rs`.
+//! command itself is tested end to end in `crates/cli/tests/running/run.rs`.
 //!
 //! The reference is the prelude's `simulate`: a program run with some lines
 //! of input must print exactly what `simulate` records, each payload followed

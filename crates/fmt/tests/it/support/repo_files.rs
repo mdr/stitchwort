@@ -1,6 +1,6 @@
 //! The repo's files of some kinds, for the tests that check every one of
-//! them (`crates/fmt/tests/it/repo.rs`, `crates/cli/tests/fmt_repo.rs`,
-//! `crates/driver/tests/fmt_hashes.rs`, which include this file by path).
+//! them (`crates/fmt/tests/it/repo.rs`, `crates/cli/tests/tools/fmt_repo.rs`,
+//! `crates/driver/tests/library/fmt_hashes.rs`, which include this file by path).
 //!
 //! In a git checkout these are the tracked files (`git ls-files`). The Nix
 //! build's source is a copy of the tracked files the flake selects, with no

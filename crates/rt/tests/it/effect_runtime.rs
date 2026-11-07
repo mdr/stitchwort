@@ -1,5 +1,5 @@
 //! The native effect runtime (docs/proposals/effect-runtime.md §9, D1162,
-//! stages 4b and 4d), as `crates/cli/tests/effect_runtime.rs` tests the JS
+//! stages 4b and 4d), as `crates/cli/tests/running/effect_runtime.rs` tests the JS
 //! one: the handler shapes of `examples/extract/effect-runtime.sw` over
 //! 1,000,000 elements on the machine, counts of the runtime's work, which
 //! must grow linearly with the input, which state-passing handlers run as a
@@ -648,7 +648,7 @@ fn routing_work_is_independent_of_control_depth() {
 /// `Partial` mixed with other forwarded abilities, a million levels deep,
 /// within the default limits (`partial-forwarding.sw`; the reference
 /// evaluator and `run --js` agree with this runner on it in
-/// `crates/cli/tests/run_reference.rs` and `run_js.rs`).
+/// `crates/cli/tests/running/run_reference.rs` and `run_js.rs`).
 #[test]
 fn partial_with_forwarded_abilities_runs_a_million_levels_deep() {
     with_stack(STACK, || {

@@ -49,7 +49,7 @@
 //! the only overlaps with the rest of the kernel's reduction. Each of R2 and
 //! R4 replaces a sum by a sum of proper subterms under a `Succ`, and R1 and
 //! R3 remove the sum, so the four rules terminate (§9.5). The test
-//! `crates/driver/tests/nat_add_rule.rs` checks the critical pairs, and that
+//! `crates/driver/tests/proofs/nat_add_rule.rs` checks the critical pairs, and that
 //! the evaluators reach the parallel rule's right side, with both
 //! evaluators, natives on and off.
 //!

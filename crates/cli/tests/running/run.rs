@@ -1,7 +1,7 @@
 //! `stitchwort run`, end to end: the built command, with real standard input
 //! and output (docs/proposals/text-and-io.md, "`main` and `stitchwort run`").
 //! The runner's contract is tested in detail, in memory, in
-//! `crates/driver/tests/run.rs`.
+//! `crates/driver/tests/projects/run.rs`.
 
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};

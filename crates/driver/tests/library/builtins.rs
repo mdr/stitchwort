@@ -76,7 +76,7 @@ fn the_library_hashes_as_in_the_release_build() {
 fn library_hashes_as_in_the_release_build() {
     use stitchwort_core::hash::{data_hash, def_hash};
     use stitchwort_core::{DataId, DefId};
-    let snapshot = include_str!("snapshots/hash_stability__prelude.snap");
+    let snapshot = include_str!("snapshots/library__hash_stability__prelude.snap");
     let pinned: stitchwort_core::collections::HashMap<&str, &str> = snapshot
         .lines()
         .filter_map(|line| line.rsplit_once(' '))

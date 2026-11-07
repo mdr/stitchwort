@@ -110,7 +110,7 @@ fn run_js(name: &str, text: &str) -> Run {
 }
 
 /// `stitchwort run --reference` on `text`: what it printed. Lane B's
-/// `handled_traces_agree_with_the_model` (`crates/driver/tests/partial.rs`)
+/// `handled_traces_agree_with_the_model` (`crates/driver/tests/proofs/partial.rs`)
 /// checks that the reference runner's traces are the model's.
 fn run_reference(name: &str, text: &str) -> String {
     let dir = std::env::temp_dir().join(format!(

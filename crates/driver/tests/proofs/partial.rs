@@ -10,7 +10,7 @@
 //! performed inside a step; ticks and resource limits are separate; tail
 //! loops run in constant space.
 
-#[path = "../../partial-model/tests/programs/mod.rs"]
+#[path = "../../../partial-model/tests/programs/mod.rs"]
 mod programs;
 
 use programs::*;
@@ -516,7 +516,7 @@ fn adder_reads_until_the_end() {
 // Here the runner must give the same traces, ticks included.
 
 /// Lane A's handled programs, in Stitchwort.
-const HANDLER_DEFINITIONS: &str = include_str!("partial_handlers.sw");
+const HANDLER_DEFINITIONS: &str = include_str!("../partial_handlers.sw");
 
 fn handler_program(body: &str) -> String {
     format!("{HANDLER_DEFINITIONS}\ndef main (): {{IO, Partial}} () :=\n  {body}\n")

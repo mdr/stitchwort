@@ -296,7 +296,7 @@ def move_files(crate, groups):
             s = open(p).read()
             cfgs = re.findall(r"^#!\[(cfg\(.*\))\]\n", s, re.M)
             s2 = re.sub(r"^#!\[cfg\(.*\)\]\n", "", s, flags=re.M)
-            s2 = re.sub(r'(include_(?:str|bytes)!\(")((?:\.\./)+)', lambda mm: mm.group(1) + "../" + mm.group(2), s2)
+            s2 = re.sub(r'(include_(?:str|bytes)!\((?:concat!\(\s*)?")((?:\.\./)+)', lambda mm: mm.group(1) + "../" + mm.group(2), s2)
             s2 = re.sub(r'(#\[path = ")((?:\.\./)+)', lambda mm: mm.group(1) + "../" + mm.group(2), s2)
             for mm in re.finditer(r"^(?:pub )?mod (\w+);", s2, re.M):
                 sys.stderr.write("note: %s.rs declares `mod %s;`: move the module to tests/%s/, declare it once in main.rs and `use crate::%s;` here\n" % (m, mm.group(1), name, mm.group(1)))
