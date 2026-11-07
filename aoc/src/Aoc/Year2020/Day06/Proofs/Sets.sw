@@ -41,7 +41,7 @@ theorem anyQuestion: (lines: List (List Char)) → (people: List Person) → Lis
   | [_, .._], [], impossible, question, found => Void.exfalso impossible
 
 theorem questionsDistinct: List.Distinct Spec.questions :=
-  (List.allDistinctCorrect Spec.questions).forward rfl
+  (List.isDistinctIff Spec.questions).forward rfl
 
 --| Whatever every line has is a question: there is a first line, and it is all questions.
 theorem everyQuestion: (lines: List (List Char)) → (people: List Person) → List.All2 PersonWritten lines people → people ≠ [] → (question: Char) →

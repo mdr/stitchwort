@@ -2585,7 +2585,7 @@ impl<'g> Gen<'g> {
     /// comparison that only passes its arguments on to another's (an
     /// unboxed record's derived `Ord`, which compares its one field: SW-603)
     /// is that one, the same JS object, and code that takes a dictionary
-    /// (`Map`, `List.distinct`) sees one instance rather than one per type:
+    /// (`Map`, `List.unique`) sees one instance rather than one per type:
     /// its calls through the dictionary stay monomorphic for the engine.
     ///
     /// `f` is `g` when

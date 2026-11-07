@@ -2585,8 +2585,8 @@ theorem List.distinctOfMap (key: a → k): (xs: List a) → List.Distinct (xs.ma
   | [x, ..rest], Both fresh distinct => Both (member => fresh (List.memMap rest x member key)) (List.distinctOfMap key rest distinct)
 
 --| Putting an element not in a list with no repeats at its end leaves no
---| repeats. (`List.distinctSnoc` is about the function `List.distinct`.)
-theorem List.distinctSnocIntro: (xs: List a) → (y: a) → y ∉ xs → List.Distinct xs → List.Distinct (xs ++ [y])
+--| repeats. (`List.uniqueSnoc` is about the function `List.unique`.)
+theorem List.distinctSnoc: (xs: List a) → (y: a) → y ∉ xs → List.Distinct xs → List.Distinct (xs ++ [y])
   | [], y, out, distinct => Both (m => m) Trivial
   | [x, ..xs], y, out, Both xOut distinct =>
     Both
@@ -2595,7 +2595,7 @@ theorem List.distinctSnocIntro: (xs: List a) → (y: a) → y ∉ xs → List.Di
           | Inl inRest => xOut inRest
           | Inr (Inl same) => out (Inl (Eq.sym same))
           | Inr (Inr none) => none)
-      (List.distinctSnocIntro xs y (m => out (Inr m)) distinct)
+      (List.distinctSnoc xs y (m => out (Inr m)) distinct)
 
 --| Replacing one element of a list with no repeats by one that is not among
 --| the others leaves no repeats: `before ++ [x, ..after]` becomes

@@ -34,8 +34,8 @@ theorem lookupMissing (f: Cave → List Cave) (cave: Cave): (cs: List Cave) → 
 theorem endsNamed (passages: List Passage) (passage: Passage) (member: passage ∈ passages):
     passage.from ∈ caves passages ∧ passage.to ∈ caves passages :=
   Both
-    ((List.memDistinct passage.from _).backward (List.memFlatMapIntro (p => [p.from, p.to]) passage passage.from passages member (Inl rfl)))
-    ((List.memDistinct passage.to _).backward (List.memFlatMapIntro (p => [p.from, p.to]) passage passage.to passages member (Inr (Inl rfl))))
+    ((List.memUnique passage.from _).backward (List.memFlatMapIntro (p => [p.from, p.to]) passage passage.from passages member (Inl rfl)))
+    ((List.memUnique passage.to _).backward (List.memFlatMapIntro (p => [p.from, p.to]) passage passage.to passages member (Inr (Inl rfl))))
 
 --| Both caves of a connection are named in a passage.
 theorem connectedNamed (passages: List Passage) (a: Cave) (b: Cave) (h: connected passages a b = True):
@@ -56,7 +56,7 @@ theorem connectedNamed (passages: List Passage) (a: Cave) (b: Cave) (h: connecte
 theorem neighboursOfMem (passages: List Passage) (cave: Cave) (y: Cave): y ∈ neighboursOf passages cave ↔ connected passages cave y = True := {
   forward = found =>
     let leadsTo := passage => passage.leadsTo cave
-    List.anyElim (edge => y ∈ leadsTo edge) _ passages (List.memFlatMapElim leadsTo y passages ((List.memDistinct y _).forward found)) (edge member inEdge =>
+    List.anyElim (edge => y ∈ leadsTo edge) _ passages (List.memFlatMapElim leadsTo y passages ((List.memUnique y _).forward found)) (edge member inEdge =>
       match edge with
         | { from, to } =>
           match fc: from == cave with
@@ -85,7 +85,7 @@ theorem neighboursOfMem (passages: List Passage) (cave: Cave) (y: Cave): y ∈ n
                 match fc: from == cave with
                   | True => Inl (Eq.trans (DecEq.sound tc) (Eq.trans (Eq.sym (DecEq.sound fc)) fy))
                   | False => rewrite tc in Inl fy)
-          (List.memDistinct y _).backward (List.memFlatMapIntro leadsTo { from, to } y passages member inEdge))
+          (List.memUnique y _).backward (List.memFlatMapIntro leadsTo { from, to } y passages member inEdge))
 }
 
 --| ...and the table gives them.
@@ -104,7 +104,7 @@ theorem tableDistinct (passages: List Passage) (cave: Cave): List.Distinct (look
   match named: (caves passages).contains cave with
     | True =>
       rewrite lookupBuilt (neighboursOf passages) cave (caves passages) ((List.memContains (caves passages) cave).forward named) in
-        List.distinctNoRepeats _
+        List.distinctUnique _
     | False =>
       rewrite lookupMissing (neighboursOf passages) cave (caves passages) (member => Bool.trueNotFalse (rewrite (List.memContains (caves passages) cave).backward member at named)) in
         List.distinctNil [a := Cave]

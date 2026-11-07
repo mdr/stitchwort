@@ -184,11 +184,11 @@ fn hidden_helpers_are_searched_only_with_all() {
 #[test]
 fn rewrite_mode_takes_iff_sides_and_conditional_equations() {
     let dir = folder("rewrite");
-    let (code, report) = json(&dir, &["_ ∈ List.distinct _", "--rewrite"]);
+    let (code, report) = json(&dir, &["_ ∈ List.unique _", "--rewrite"]);
     assert_eq!(code, 0, "{report}");
-    let distinct = result(&report, "Std.List.memDistinct");
-    assert_eq!(distinct["place"], "left");
-    assert_eq!(distinct["equation"], "iff");
+    let unique = result(&report, "Std.List.memUnique");
+    assert_eq!(unique["place"], "left");
+    assert_eq!(unique["equation"], "iff");
     // `Nat.minLeft: m ≤ n → Nat.min m n = m`: its premise is left open,
     // and counted.
     let (_, report) = json(&dir, &["Nat.min ?a ?b", "--rewrite"]);

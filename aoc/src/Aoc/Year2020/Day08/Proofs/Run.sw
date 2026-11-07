@@ -82,7 +82,7 @@ theorem runFromRuns (program: Program) (code: Code) (holds: Holds code program) 
                 let at: instructionAt program state.next = Some instruction := rewrite e in listed
                 let ih :=
                   runFromRuns program code holds (unvisited.remove position) (instruction.execute state) (done ++ [position.toInt])
-                    (unvisitedRemove code.length done unvisited left position) (List.distinctSnocIntro done position.toInt out distinct)
+                    (unvisitedRemove code.length done unvisited left position) (List.distinctSnoc done position.toInt out distinct)
                     [decreasing := omega [Set.sizeRemovePresent unvisited position c, Set.sizePositive unvisited position c]]
                 match ih with
                   | Witness positions (Witness last (Both runs (Both distinctAll ended))) =>

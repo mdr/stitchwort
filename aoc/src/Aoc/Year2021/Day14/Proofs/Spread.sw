@@ -43,30 +43,30 @@ theorem pairCounted (counts: PairCounts) (polymer: List Char) (represents: Repre
 
 --| The counts the program looks at, for a polymer starting with `first`.
 def programQuantities (first: Char) (counts: PairCounts): List Nat :=
-  [first, ..counts.keys.map ElementPair.second] |> .distinct |> .map (elementCount first counts) |> .filter (quantity => 0 < quantity)
+  [first, ..counts.keys.map ElementPair.second] |> .unique |> .map (elementCount first counts) |> .filter (quantity => 0 < quantity)
 
 --| The puzzle's: each element's count, once per element.
-def puzzleQuantities (polymer: List Char): List Nat := polymer.distinct.map (quantity polymer)
+def puzzleQuantities (polymer: List Char): List Nat := polymer.unique.map (quantity polymer)
 
 theorem quantitiesInto (first: Char) (tail: List Char) (counts: PairCounts) (represents: Represents counts [first, ..tail]) (v: Nat)
     (member: v ∈ programQuantities first counts): v ∈ puzzleQuantities [first, ..tail] :=
-  let candidates := List.distinct [first, ..List.map (Map.keys counts) ElementPair.second]
+  let candidates := List.unique [first, ..List.map (Map.keys counts) ElementPair.second]
   let (Both inMapped positive) := List.memFilter (List.map candidates (elementCount first counts)) (quantity => 0 < quantity) member
   match List.memMapElim (elementCount first counts) v candidates inMapped with
     | Witness c (Both _ same) =>
       let equal := elementCountQuantity first tail counts represents c
       let counted: 0 < List.count [first, ..tail] (== c) := omega [equal, same, positive]
       let inPolymer := List.memOfCountPositive c [first, ..tail] counted
-      let inDistinct := (List.memDistinct c [first, ..tail]).backward inPolymer
-      rewrite <- same, equal in List.memMap (List.distinct [first, ..tail]) c inDistinct (quantity [first, ..tail])
+      let inDistinct := (List.memUnique c [first, ..tail]).backward inPolymer
+      rewrite <- same, equal in List.memMap (List.unique [first, ..tail]) c inDistinct (quantity [first, ..tail])
 
 theorem quantitiesBack (first: Char) (tail: List Char) (counts: PairCounts) (represents: Represents counts [first, ..tail]) (v: Nat)
     (member: v ∈ puzzleQuantities [first, ..tail]): v ∈ programQuantities first counts :=
   let polymer := [first, ..tail]
   let keyEnds := List.map (Map.keys counts) ElementPair.second
-  match List.memMapElim (quantity polymer) v (List.distinct polymer) member with
+  match List.memMapElim (quantity polymer) v (List.unique polymer) member with
     | Witness c (Both inDistinct same) =>
-      let inPolymer := (List.memDistinct c polymer).forward inDistinct
+      let inPolymer := (List.memUnique c polymer).forward inDistinct
       let candidate: c ∈ [first, ..keyEnds] :=
         match inPolymer with
           | Inl isFirst => Inl isFirst
@@ -74,11 +74,11 @@ theorem quantitiesBack (first: Char) (tail: List Char) (counts: PairCounts) (rep
             match memAfterFirst c first tail inTail with
               | Witness pair (Both inPairs ends) =>
                 Inr (rewrite <- ends in List.memMap (Map.keys counts) pair (pairCounted counts polymer represents pair inPairs) ElementPair.second)
-      let inCandidates := (List.memDistinct c [first, ..keyEnds]).backward candidate
+      let inCandidates := (List.memUnique c [first, ..keyEnds]).backward candidate
       let equal := elementCountQuantity first tail counts represents c
       let positive := List.countPositive polymer (== c) c inPolymer (DecEq.refl c)
-      List.memFilterIntro (List.map (List.distinct [first, ..keyEnds]) (elementCount first counts)) (quantity => 0 < quantity)
-        (rewrite <- same, <- equal in List.memMap (List.distinct [first, ..keyEnds]) c inCandidates (elementCount first counts))
+      List.memFilterIntro (List.map (List.unique [first, ..keyEnds]) (elementCount first counts)) (quantity => 0 < quantity)
+        (rewrite <- same, <- equal in List.memMap (List.unique [first, ..keyEnds]) c inCandidates (elementCount first counts))
         (cases)
 
 --| The program's answer from counts that stand for a polymer is the

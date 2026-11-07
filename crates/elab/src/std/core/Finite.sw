@@ -27,7 +27,7 @@ theorem List.memConcatMap (f: a → List b) (x: a) (y: b): (xs: List a) → x �
 
 --| A type with a list of every value: `all`, and `complete`, the proof that
 --| every value is on it. The list may repeat a value; nothing here needs it not
---| to (with `DecEq`, `List.distinctEq Finite.all` is the list without repeats).
+--| to (with `DecEq`, `List.uniqueDecEq Finite.all` is the list without repeats).
 --| A data type or record declared in a program gets one derived when its
 --| constructors' fields all have one and it isn't recursive (`T.%instFinite`):
 --| the constructors in the order they're declared, each with every value of its

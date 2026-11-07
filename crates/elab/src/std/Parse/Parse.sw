@@ -686,7 +686,7 @@ def Parse.Failure.expectations (failure: Parse.Failure) (endOfInput: Text): List
   failure.expected
     |> .filter (what => ¬(endsLine ∧ what == "the end"))
     |> .map (what => if endsLine ∧ what == "a line break" then "the end of the line" else if what == "the end" then endOfInput else what)
-    |> .distinctEq
+    |> .uniqueDecEq
 
 --| What was found `failure.offset` characters into `chars`, for "got 'x'".
 --| It is as many characters as the longest text expected there, up to a line

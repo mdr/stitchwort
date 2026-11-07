@@ -64,7 +64,7 @@ def TopographicMap.trailEnds (map: TopographicMap): (steps: Nat) → (position: 
 def TopographicMap.trailheads (map: TopographicMap): List Position := map.positions |> .filter (position => map.heightAt position == Some 0)
 
 --| A trailhead's score: the distinct 9s its trails reach, nine steps up.
-def TopographicMap.score (map: TopographicMap) (trailhead: Position): Nat := map.trailEnds 9 trailhead |> .distinct |> .length
+def TopographicMap.score (map: TopographicMap) (trailhead: Position): Nat := map.trailEnds 9 trailhead |> .unique |> .length
 
 --| A trailhead's rating: its trails, one end each.
 def TopographicMap.rating (map: TopographicMap) (trailhead: Position): Nat := map.trailEnds 9 trailhead |> .length

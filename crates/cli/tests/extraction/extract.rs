@@ -1796,7 +1796,7 @@ console.log("ok");
 /// Since those only pass their arguments on, they *are* the field's (SW-603):
 /// `const CardId.decEq = Text.decEq;`, and so the derived instances are the
 /// field's instances, the same JS objects, and code that takes the
-/// dictionary (`Map`, `List.distinct`) is passed `Text.instOrd` itself. Its
+/// dictionary (`Map`, `List.unique`) is passed `Text.instOrd` itself. Its
 /// calls through the dictionary then see one instance for `Text` and every
 /// microtype over it, and stay monomorphic for the engine.
 #[test]
@@ -1826,7 +1826,7 @@ fn microtype_comparisons_are_their_fields() {
     for line in [
         "const $Main$dorder = $Std$dText$dcompare;",
         "const $Main$dsame = (v0, v1) => $Std$dDecidable$dtoBool($Std$dText$ddecEq(v0, v1));",
-        "const $Main$ddistinctIds = (v0) => $Std$dList$ddistinct($Std$dText$dinstOrd, v0);",
+        "const $Main$ddistinctIds = (v0) => $Std$dList$dunique($Std$dText$dinstOrd, v0);",
     ] {
         assert!(output.js.contains(line), "no `{line}` in:\n{}", output.js);
     }

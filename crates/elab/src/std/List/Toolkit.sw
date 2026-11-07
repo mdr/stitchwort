@@ -492,7 +492,7 @@ def List.Distinct: (xs: List a) → Prop
   | [x, ..xs] => (x ∉ xs) ∧ (List.Distinct xs)
 
 --| Decides `List.Distinct xs` by checking each element against those after
---| it (quadratic; `List.allDistinct` is the faster test, given an `Ord`).
+--| it (quadratic; `List.isDistinct` is the faster test, given an `Ord`).
 -- Its type spells out `List.Distinct`, as `List.decMem`'s does.
 instance List.decDistinct [auto eq: DecEq a]: (xs: List a) → Decidable (List.Distinct xs)
   | [] => Yes Trivial
@@ -600,15 +600,15 @@ def List.chunksOf (xs: List a) (size: Nat): List (List a) :=
 --| order. `seen` is what came before. Needs only `DecEq`, so it is quadratic:
 --| each element is compared with every one kept before it.
 @[noReceiver]
-def List.distinctFrom [auto eq: DecEq a] (seen: List a): (xs: List a) → List a
+def List.uniqueFrom [auto eq: DecEq a] (seen: List a): (xs: List a) → List a
   | [] => []
-  | [x, ..xs] => if List.any seen (== x) then List.distinctFrom seen xs else [x, ..List.distinctFrom [x, ..seen] xs]
+  | [x, ..xs] => if List.any seen (== x) then List.uniqueFrom seen xs else [x, ..List.uniqueFrom [x, ..seen] xs]
 
---| `List.distinct` for a type with `==` but no ordering: the same result,
---| quadratic. `[3, 1, 3, 2, 1].distinctEq` is `[3, 1, 2]`. With an ordering,
---| use `List.distinct` (std/List/Distinct.sw, with the theorems about both),
+--| `List.unique` for a type with `==` but no ordering: the same result,
+--| quadratic. `[3, 1, 3, 2, 1].uniqueDecEq` is `[3, 1, 2]`. With an ordering,
+--| use `List.unique` (std/List/Distinct.sw, with the theorems about both),
 --| O(n log n).
-def List.distinctEq [auto eq: DecEq a] (xs: List a): List a := List.distinctFrom [] xs
+def List.uniqueDecEq [auto eq: DecEq a] (xs: List a): List a := List.uniqueFrom [] xs
 
 test "List.mapAccumLeft" := [1, 2, 3].mapAccumLeft 0 (s x => MkPair (s + x) (s * x)) == MkPair 6 [0, 2, 9]
 test "List.mapAccumLeft empty" := ([]: List Nat).mapAccumLeft 7 (s x => MkPair (s + x) x) == MkPair 7 []
@@ -619,10 +619,10 @@ test "List.chunksOf exact" := List.chunksOf [1, 2, 3, 4] 2 == [[1, 2], [3, 4]]
 test "List.chunksOf bigger than the list" := List.chunksOf [1, 2] 5 == [[1, 2]]
 test "List.chunksOf empty" := List.chunksOf ([]: List Nat) 3 == []
 test "List.chunksOf zero is one chunk" := List.chunksOf [1, 2, 3] 0 == [[1, 2, 3]] ∧ List.chunksOf ([]: List Nat) 0 == []
-test "List.distinctEq" := [3, 1, 3, 2, 1].distinctEq == [3, 1, 2]
-test "List.distinctEq empty" := ([]: List Nat).distinctEq == []
-test "List.distinctEq all repeats" := [4, 4, 4].distinctEq == [4]
-test "List.distinctEq already distinct" := [2, 5, 1].distinctEq == [2, 5, 1]
+test "List.uniqueDecEq" := [3, 1, 3, 2, 1].uniqueDecEq == [3, 1, 2]
+test "List.uniqueDecEq empty" := ([]: List Nat).uniqueDecEq == []
+test "List.uniqueDecEq all repeats" := [4, 4, 4].uniqueDecEq == [4]
+test "List.uniqueDecEq already distinct" := [2, 5, 1].uniqueDecEq == [2, 5, 1]
 
 --| One step of `List.maxBy`: `x` if its key is larger than `best`'s, otherwise `best`.
 def List.maxByStep [auto ord: Ord b] (f: a → b) (best: a) (x: a): a := match Ord.compare (f best) (f x) with

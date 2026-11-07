@@ -1,28 +1,28 @@
---| `List.distinct`: the elements without repeats, for a type with an
+--| `List.unique`: the elements without repeats, for a type with an
 --| ordering, in O(n log n). A `Set` holds what has been seen, so each element
 --| costs a lookup, not a scan of the elements kept before it as
---| `List.distinctEq` (the `DecEq`-only version, std/List/Toolkit.sw) does.
---| The result is the same ([`List.distinctIsDistinctEq`]), so what is proved
---| here for `distinctEq` holds for `distinct` too.
+--| `List.uniqueDecEq` (the `DecEq`-only version, std/List/Toolkit.sw) does.
+--| The result is the same ([`List.uniqueUniqueDecEq`]), so what is proved
+--| here for `uniqueDecEq` holds for `unique` too.
 -- (SW-454, D1191)
--- The theorems are here, not beside `distinctEq`, so that programs using the
+-- The theorems are here, not beside `uniqueDecEq`, so that programs using the
 -- list toolkit don't load the files they need.
 
---| One step of `List.distinct`: `seen` is the set of elements kept so far, and
+--| One step of `List.unique`: `seen` is the set of elements kept so far, and
 --| `acc` those elements, last first. A loop, so it is stack-safe on long lists.
 @[noReceiver]
 @[tailrec]
-def List.distinctLoop [auto ord: Ord a] (seen: Set a) (acc: List a): (xs: List a) → List a
+def List.uniqueLoop [auto ord: Ord a] (seen: Set a) (acc: List a): (xs: List a) → List a
   | [] => List.reverseOnto acc []
-  | [x, ..xs] => if Set.contains seen x then List.distinctLoop seen acc xs else List.distinctLoop (Set.insert seen x) [x, ..acc] xs
+  | [x, ..xs] => if Set.contains seen x then List.uniqueLoop seen acc xs else List.uniqueLoop (Set.insert seen x) [x, ..acc] xs
 
 --| The elements without repeats, keeping the first occurrence of each, in the
---| original order: `[3, 1, 3, 2, 1].distinct` is `[3, 1, 2]`. It has exactly
---| the list's elements ([`List.memDistinct`]). O(n log n); for a type with `==`
---| but no ordering, `List.distinctEq`.
-def List.distinct [auto ord: Ord a] (xs: List a): List a := List.distinctLoop Set.empty [] xs
+--| original order: `[3, 1, 3, 2, 1].unique` is `[3, 1, 2]`. It has exactly
+--| the list's elements ([`List.memUnique`]). O(n log n); for a type with `==`
+--| but no ordering, `List.uniqueDecEq`.
+def List.unique [auto ord: Ord a] (xs: List a): List a := List.uniqueLoop Set.empty [] xs
 
--- What `distinctFrom` (so `distinctEq`) keeps: elements of the list, none of
+-- What `uniqueFrom` (so `uniqueDecEq`) keeps: elements of the list, none of
 -- them in `seen`, none twice, and every element of the list not in `seen`.
 
 theorem List.anyConsSelf [auto eq: DecEq a] (y: a) (s: List a): List.any [y, ..s] (== y) = True :=
@@ -35,104 +35,104 @@ theorem List.anyTailFalse (p: a → Bool) (y: a) (s: List a) (h: List.any [y, ..
     | True => Void.exfalso (Bool.trueNotFalse h)
     | False => h
 
-theorem List.memDistinctFromElim [auto eq: DecEq a] (x: a): (seen: List a) → (xs: List a) → x ∈ List.distinctFrom seen xs → x ∈ xs
+theorem List.memUniqueFromElim [auto eq: DecEq a] (x: a): (seen: List a) → (xs: List a) → x ∈ List.uniqueFrom seen xs → x ∈ xs
   | seen, [], m => m
   | seen, [y, ..ys], m =>
     match c: List.any seen (== y) with
-      | True => Inr (List.memDistinctFromElim x seen ys m)
+      | True => Inr (List.memUniqueFromElim x seen ys m)
       | False =>
         match m with
           | Inl q => Inl q
-          | Inr later => Inr (List.memDistinctFromElim x [y, ..seen] ys later)
+          | Inr later => Inr (List.memUniqueFromElim x [y, ..seen] ys later)
 
-theorem List.memDistinctFromIntro [auto eq: DecEq a] (x: a): (seen: List a) → (xs: List a) → x ∈ xs →
-    List.any seen (== x) = True ∨ x ∈ List.distinctFrom seen xs
+theorem List.memUniqueFromIntro [auto eq: DecEq a] (x: a): (seen: List a) → (xs: List a) → x ∈ xs →
+    List.any seen (== x) = True ∨ x ∈ List.uniqueFrom seen xs
   | seen, [], m => Void.exfalso m
   | seen, [y, ..ys], m =>
     match c: List.any seen (== y) with
       | True =>
         match m with
           | Inl q => Inl (rewrite <- q in c)
-          | Inr later => List.memDistinctFromIntro x seen ys later
+          | Inr later => List.memUniqueFromIntro x seen ys later
       | False =>
         match m with
           | Inl q => Inr (Inl q)
           | Inr later =>
-            match List.memDistinctFromIntro x [y, ..seen] ys later with
+            match List.memUniqueFromIntro x [y, ..seen] ys later with
               | Inr inRest => Inr (Inr inRest)
               | Inl hit =>
                 match d: y == x with
                   | True => Inr (Inl (DecEq.sound d))
                   | False => Inl hit
 
-theorem List.distinctFromFresh [auto eq: DecEq a] (z: a): (seen: List a) → (xs: List a) → z ∈ List.distinctFrom seen xs → List.any seen (== z) = False
+theorem List.uniqueFromFresh [auto eq: DecEq a] (z: a): (seen: List a) → (xs: List a) → z ∈ List.uniqueFrom seen xs → List.any seen (== z) = False
   | seen, [], m => Void.exfalso m
   | seen, [y, ..ys], m =>
     match c: List.any seen (== y) with
-      | True => List.distinctFromFresh z seen ys m
+      | True => List.uniqueFromFresh z seen ys m
       | False =>
         match m with
           | Inl q => rewrite <- q in c
-          | Inr later => List.anyTailFalse (== z) y seen (List.distinctFromFresh z [y, ..seen] ys later)
+          | Inr later => List.anyTailFalse (== z) y seen (List.uniqueFromFresh z [y, ..seen] ys later)
 
-theorem List.distinctFromNoRepeats [auto eq: DecEq a]: (seen: List a) → (xs: List a) → List.Distinct (List.distinctFrom seen xs)
+theorem List.uniqueFromNoRepeats [auto eq: DecEq a]: (seen: List a) → (xs: List a) → List.Distinct (List.uniqueFrom seen xs)
   | seen, [] => Trivial
   | seen, [y, ..ys] =>
     match c: List.any seen (== y) with
-      | True => List.distinctFromNoRepeats seen ys
+      | True => List.uniqueFromNoRepeats seen ys
       | False =>
-        Both (m => Bool.trueNotFalse (Eq.trans (Eq.sym (List.anyConsSelf y seen)) (List.distinctFromFresh y [y, ..seen] ys m)))
-          (List.distinctFromNoRepeats [y, ..seen] ys)
+        Both (m => Bool.trueNotFalse (Eq.trans (Eq.sym (List.anyConsSelf y seen)) (List.uniqueFromFresh y [y, ..seen] ys m)))
+          (List.uniqueFromNoRepeats [y, ..seen] ys)
 
---| `distinctEq` keeps exactly the list's elements.
-theorem List.memDistinctEq [auto eq: DecEq a] (x: a) (xs: List a): x ∈ List.distinctEq xs ↔ x ∈ xs := {
-  forward = m => List.memDistinctFromElim x [] xs m,
+--| `uniqueDecEq` keeps exactly the list's elements.
+theorem List.memUniqueDecEq [auto eq: DecEq a] (x: a) (xs: List a): x ∈ List.uniqueDecEq xs ↔ x ∈ xs := {
+  forward = m => List.memUniqueFromElim x [] xs m,
   backward = m =>
-    match List.memDistinctFromIntro x [] xs m with
+    match List.memUniqueFromIntro x [] xs m with
       | Inl none => Void.exfalso (Bool.falseNotTrue none)
       | Inr found => found
 }
 
---| `distinctEq` keeps each element once.
-theorem List.distinctEqNoRepeats [auto eq: DecEq a] (xs: List a): List.Distinct (List.distinctEq xs) := List.distinctFromNoRepeats [] xs
+--| `uniqueDecEq` keeps each element once.
+theorem List.uniqueDecEqNoRepeats [auto eq: DecEq a] (xs: List a): List.Distinct (List.uniqueDecEq xs) := List.uniqueFromNoRepeats [] xs
 
--- The loop is `distinctFrom` when the set has the same elements as the list
--- `distinctFrom` keeps.
+-- The loop is `uniqueFrom` when the set has the same elements as the list
+-- `uniqueFrom` keeps.
 
-theorem List.distinctSeenInsert [auto ord: Ord a] (seen: Set a) (seenList: List a) (same: (z: a) → Set.contains seen z = List.any seenList (== z))
+theorem List.uniqueSeenInsert [auto ord: Ord a] (seen: Set a) (seenList: List a) (same: (z: a) → Set.contains seen z = List.any seenList (== z))
     (x: a) (z: a): Set.contains (Set.insert seen x) z = List.any [x, ..seenList] (== z) :=
   match e: x == z with
     | True => rewrite DecEq.sound e in Set.containsInsert z seen
     | False => rewrite Set.containsInsertOther seen x z (eq => DecEq.soundFalse x z e (Eq.sym eq)) in same z
 
-theorem List.distinctLoopFrom [auto ord: Ord a]: (seen: Set a) → (seenList: List a) → ((z: a) → Set.contains seen z = List.any seenList (== z)) →
-    (acc: List a) → (xs: List a) → List.distinctLoop seen acc xs = List.reverseOnto acc (List.distinctFrom seenList xs)
+theorem List.uniqueLoopFrom [auto ord: Ord a]: (seen: Set a) → (seenList: List a) → ((z: a) → Set.contains seen z = List.any seenList (== z)) →
+    (acc: List a) → (xs: List a) → List.uniqueLoop seen acc xs = List.reverseOnto acc (List.uniqueFrom seenList xs)
   | seen, seenList, same, acc, [] => rfl
   | seen, seenList, same, acc, [x, ..xs] =>
     match c: Set.contains seen x with
       | True =>
         match d: List.any seenList (== x) with
-          | True => List.distinctLoopFrom seen seenList same acc xs
+          | True => List.uniqueLoopFrom seen seenList same acc xs
           | False => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym c) (Eq.trans (same x) d)))
       | False =>
         match d: List.any seenList (== x) with
           | True => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym c) (Eq.trans (same x) d)))
           | False =>
-            List.distinctLoopFrom (Set.insert seen x) [x, ..seenList] (z => List.distinctSeenInsert seen seenList same x z) [x, ..acc] xs
+            List.uniqueLoopFrom (Set.insert seen x) [x, ..seenList] (z => List.uniqueSeenInsert seen seenList same x z) [x, ..acc] xs
 
---| `distinct` is `distinctEq`, deciding `==` by the ordering's equality.
-theorem List.distinctIsDistinctEq [auto ord: Ord a] (xs: List a): List.distinct xs = List.distinctEq [eq := ord.eq] xs :=
-  List.distinctLoopFrom Set.empty [] (z => rfl) [] xs
+--| `unique` is `uniqueDecEq`, deciding `==` by the ordering's equality.
+theorem List.uniqueUniqueDecEq [auto ord: Ord a] (xs: List a): List.unique xs = List.uniqueDecEq [eq := ord.eq] xs :=
+  List.uniqueLoopFrom Set.empty [] (z => rfl) [] xs
 
---| `distinct` keeps exactly the list's elements.
-theorem List.memDistinct [auto ord: Ord a] (x: a) (xs: List a): x ∈ List.distinct xs ↔ x ∈ xs :=
-  rewrite List.distinctIsDistinctEq xs in List.memDistinctEq [eq := ord.eq] x xs
+--| `unique` keeps exactly the list's elements.
+theorem List.memUnique [auto ord: Ord a] (x: a) (xs: List a): x ∈ List.unique xs ↔ x ∈ xs :=
+  rewrite List.uniqueUniqueDecEq xs in List.memUniqueDecEq [eq := ord.eq] x xs
 
---| `distinct` keeps each element once.
-theorem List.distinctNoRepeats [auto ord: Ord a] (xs: List a): List.Distinct (List.distinct xs) :=
-  rewrite List.distinctIsDistinctEq xs in List.distinctEqNoRepeats [eq := ord.eq] xs
+--| `unique` keeps each element once.
+theorem List.distinctUnique [auto ord: Ord a] (xs: List a): List.Distinct (List.unique xs) :=
+  rewrite List.uniqueUniqueDecEq xs in List.uniqueDecEqNoRepeats [eq := ord.eq] xs
 
--- What `distinctFrom` keeps of lists built up: a list with no repeats and
+-- What `uniqueFrom` keeps of lists built up: a list with no repeats and
 -- nothing seen is kept whole; elements all seen are all dropped; elements
 -- appended that are seen or earlier are dropped; a new element appended is
 -- kept.
@@ -149,94 +149,94 @@ theorem List.anyConsEqFalse [auto eq: DecEq a] (x: a) (y: a) (seen: List a) (ne:
     | True => Void.exfalso (ne (DecEq.sound d))
     | False => h
 
-theorem List.distinctFromKeep [auto eq: DecEq a]: (seen: List a) → (xs: List a) → List.Distinct xs →
-    ((z: a) → List.Mem z xs → List.any seen (== z) = False) → List.distinctFrom seen xs = xs
+theorem List.uniqueFromKeep [auto eq: DecEq a]: (seen: List a) → (xs: List a) → List.Distinct xs →
+    ((z: a) → List.Mem z xs → List.any seen (== z) = False) → List.uniqueFrom seen xs = xs
   | seen, [], d, fresh => rfl
   | seen, [y, ..ys], Both notMem d, fresh =>
     rewrite fresh y (Inl rfl) in
     Eq.cong (Cons y)
-      (List.distinctFromKeep [y, ..seen] ys d (z m =>
+      (List.uniqueFromKeep [y, ..seen] ys d (z m =>
         List.anyConsEqFalse y z seen (e => notMem (rewrite e in m)) (fresh z (Inr m))))
 
-theorem List.distinctFromSeen [auto eq: DecEq a]: (seen: List a) → (ys: List a) →
-    ((y: a) → List.Mem y ys → List.any seen (== y) = True) → List.distinctFrom seen ys = []
+theorem List.uniqueFromSeen [auto eq: DecEq a]: (seen: List a) → (ys: List a) →
+    ((y: a) → List.Mem y ys → List.any seen (== y) = True) → List.uniqueFrom seen ys = []
   | seen, [], h => rfl
-  | seen, [y, ..ys], h => rewrite h y (Inl rfl) in List.distinctFromSeen seen ys (z m => h z (Inr m))
+  | seen, [y, ..ys], h => rewrite h y (Inl rfl) in List.uniqueFromSeen seen ys (z m => h z (Inr m))
 
-theorem List.distinctFromAppendSeen [auto eq: DecEq a]: (seen: List a) → (xs: List a) → (ys: List a) →
+theorem List.uniqueFromAppendSeen [auto eq: DecEq a]: (seen: List a) → (xs: List a) → (ys: List a) →
     ((y: a) → List.Mem y ys → (List.any seen (== y) = True) ∨ (List.Mem y xs)) →
-    List.distinctFrom seen (List.append xs ys) = List.distinctFrom seen xs
+    List.uniqueFrom seen (List.append xs ys) = List.uniqueFrom seen xs
   | seen, [], ys, cov =>
-    List.distinctFromSeen seen ys (y m =>
+    List.uniqueFromSeen seen ys (y m =>
       match cov y m with
         | Inl s => s
         | Inr none => Void.exfalso none)
   | seen, [x, ..xs], ys, cov =>
     match c: List.any seen (== x) with
       | True =>
-        List.distinctFromAppendSeen seen xs ys (y m =>
+        List.uniqueFromAppendSeen seen xs ys (y m =>
           match cov y m with
             | Inl s => Inl s
             | Inr (Inl q) => Inl (rewrite <- q in c)
             | Inr (Inr later) => Inr later)
       | False =>
         Eq.cong (Cons x)
-          (List.distinctFromAppendSeen [x, ..seen] xs ys (y m =>
+          (List.uniqueFromAppendSeen [x, ..seen] xs ys (y m =>
             match cov y m with
               | Inl s =>
                 Inl (List.anyConsEqTrue x y seen s)
               | Inr (Inl q) => Inl (rewrite <- q in List.anyConsSelf x seen)
               | Inr (Inr later) => Inr later))
 
-theorem List.distinctFromSnoc [auto eq: DecEq a] (y: a): (seen: List a) → (xs: List a) → ¬(List.Mem y xs) →
-    List.any seen (== y) = False → List.distinctFrom seen (List.append xs [y]) = List.append (List.distinctFrom seen xs) [y]
+theorem List.uniqueFromSnoc [auto eq: DecEq a] (y: a): (seen: List a) → (xs: List a) → ¬(List.Mem y xs) →
+    List.any seen (== y) = False → List.uniqueFrom seen (List.append xs [y]) = List.append (List.uniqueFrom seen xs) [y]
   | seen, [], out, fresh => rewrite fresh in rfl
   | seen, [x, ..xs], out, fresh =>
     match c: List.any seen (== x) with
-      | True => List.distinctFromSnoc y seen xs (m => out (Inr m)) fresh
+      | True => List.uniqueFromSnoc y seen xs (m => out (Inr m)) fresh
       | False =>
         Eq.cong (Cons x)
-          (List.distinctFromSnoc y [x, ..seen] xs (m => out (Inr m))
+          (List.uniqueFromSnoc y [x, ..seen] xs (m => out (Inr m))
             (List.anyConsEqFalse x y seen (e => out (Inl e)) fresh))
 
---| A list with no repeats is its own `distinct`.
-theorem List.distinctOfNoRepeats [auto ord: Ord a] (xs: List a) (d: List.Distinct xs): List.distinct xs = xs :=
-  rewrite List.distinctIsDistinctEq xs in List.distinctFromKeep [eq := ord.eq] [] xs d (z m => rfl)
+--| A list with no repeats is its own `unique`.
+theorem List.uniqueOfDistinct [auto ord: Ord a] (xs: List a) (d: List.Distinct xs): List.unique xs = xs :=
+  rewrite List.uniqueUniqueDecEq xs in List.uniqueFromKeep [eq := ord.eq] [] xs d (z m => rfl)
 
---| `distinct` twice is `distinct` once.
-theorem List.distinctDistinct [auto ord: Ord a] (xs: List a): List.distinct (List.distinct xs) = List.distinct xs :=
-  List.distinctOfNoRepeats (List.distinct xs) (List.distinctNoRepeats xs)
+--| `unique` twice is `unique` once.
+theorem List.uniqueUnique [auto ord: Ord a] (xs: List a): List.unique (List.unique xs) = List.unique xs :=
+  List.uniqueOfDistinct (List.unique xs) (List.distinctUnique xs)
 
---| Appending elements the list has already doesn't change its `distinct`.
-theorem List.distinctAppendSeen [auto ord: Ord a] (xs: List a) (ys: List a) (sub: (y: a) → List.Mem y ys → List.Mem y xs):
-    List.distinct (List.append xs ys) = List.distinct xs :=
-  rewrite List.distinctIsDistinctEq (List.append xs ys), List.distinctIsDistinctEq xs in
-  List.distinctFromAppendSeen [eq := ord.eq] [] xs ys (y m => Inr (sub y m))
+--| Appending elements the list has already doesn't change its `unique`.
+theorem List.uniqueAppendSeen [auto ord: Ord a] (xs: List a) (ys: List a) (sub: (y: a) → List.Mem y ys → List.Mem y xs):
+    List.unique (List.append xs ys) = List.unique xs :=
+  rewrite List.uniqueUniqueDecEq (List.append xs ys), List.uniqueUniqueDecEq xs in
+  List.uniqueFromAppendSeen [eq := ord.eq] [] xs ys (y m => Inr (sub y m))
 
---| Appending a new element appends it to the list's `distinct`.
-theorem List.distinctSnoc [auto ord: Ord a] (xs: List a) (y: a) (out: ¬(List.Mem y xs)):
-    List.distinct (List.append xs [y]) = List.append (List.distinct xs) [y] :=
-  rewrite List.distinctIsDistinctEq (List.append xs [y]), List.distinctIsDistinctEq xs in
-  List.distinctFromSnoc [eq := ord.eq] y [] xs out rfl
+--| Appending a new element appends it to the list's `unique`.
+theorem List.uniqueSnoc [auto ord: Ord a] (xs: List a) (y: a) (out: ¬(List.Mem y xs)):
+    List.unique (List.append xs [y]) = List.append (List.unique xs) [y] :=
+  rewrite List.uniqueUniqueDecEq (List.append xs [y]), List.uniqueUniqueDecEq xs in
+  List.uniqueFromSnoc [eq := ord.eq] y [] xs out rfl
 
-theorem List.distinctAppendSeenExample (xs: List Nat): List.distinct (List.append xs xs) = List.distinct xs :=
-  List.distinctAppendSeen xs xs (y m => m)
+theorem List.uniqueAppendSeenExample (xs: List Nat): List.unique (List.append xs xs) = List.unique xs :=
+  List.uniqueAppendSeen xs xs (y m => m)
 
 --| Whether no element appears twice: `List.Distinct` as a `Bool`
---| ([`List.allDistinctCorrect`]). A `Set` holds what has been seen, so it is
+--| ([`List.isDistinctIff`]). A `Set` holds what has been seen, so it is
 --| O(n log n) and stops at the first repeat.
 @[noReceiver]
 @[tailrec]
-def List.allDistinctFrom [auto ord: Ord a] (seen: Set a): (xs: List a) → Bool
+def List.isDistinctFrom [auto ord: Ord a] (seen: Set a): (xs: List a) → Bool
   | [] => True
-  | [x, ..rest] => if Set.contains seen x then False else List.allDistinctFrom (Set.insert seen x) rest
+  | [x, ..rest] => if Set.contains seen x then False else List.isDistinctFrom (Set.insert seen x) rest
 
---| Whether no element appears twice, in O(n log n): `List.Distinct` as a `Bool` ([`List.allDistinctCorrect`]).
-def List.allDistinct [auto ord: Ord a] (xs: List a): Bool := List.allDistinctFrom Set.empty xs
+--| Whether no element appears twice, in O(n log n): `List.Distinct` as a `Bool` ([`List.isDistinctIff`]).
+def List.isDistinct [auto ord: Ord a] (xs: List a): Bool := List.isDistinctFrom Set.empty xs
 
 --| What has been seen is not ahead in a list that passes.
-theorem List.allDistinctSeenNotAhead [auto ord: Ord a] (seen: Set a) (x: a) (isSeen: Set.contains seen x = True):
-    (xs: List a) → List.allDistinctFrom seen xs = True → ¬(List.Mem x xs)
+theorem List.isDistinctSeenNotAhead [auto ord: Ord a] (seen: Set a) (x: a) (isSeen: Set.contains seen x = True):
+    (xs: List a) → List.isDistinctFrom seen xs = True → ¬(List.Mem x xs)
   | [], ok, member => member
   | [next, ..rest], ok, member =>
     match c: Set.contains seen next with
@@ -244,39 +244,39 @@ theorem List.allDistinctSeenNotAhead [auto ord: Ord a] (seen: Set a) (x: a) (isS
       | False =>
         match member with
           | Inl same => Bool.falseNotTrue (Eq.trans (Eq.sym c) (rewrite same in isSeen))
-          | Inr later => List.allDistinctSeenNotAhead (Set.insert seen next) x (Set.containsInsertMono seen next x isSeen) rest ok later
+          | Inr later => List.isDistinctSeenNotAhead (Set.insert seen next) x (Set.containsInsertMono seen next x isSeen) rest ok later
 
 --| Passing means no repeats.
-theorem List.allDistinctFromSound [auto ord: Ord a]: (seen: Set a) → (xs: List a) → List.allDistinctFrom seen xs = True → List.Distinct xs
+theorem List.isDistinctFromSound [auto ord: Ord a]: (seen: Set a) → (xs: List a) → List.isDistinctFrom seen xs = True → List.Distinct xs
   | seen, [], ok => Trivial
   | seen, [next, ..rest], ok =>
     match c: Set.contains seen next with
       | True => Void.exfalso (Bool.falseNotTrue ok)
       | False =>
-        Both (List.allDistinctSeenNotAhead (Set.insert seen next) next (Set.containsInsert next seen) rest ok)
-          (List.allDistinctFromSound (Set.insert seen next) rest ok)
+        Both (List.isDistinctSeenNotAhead (Set.insert seen next) next (Set.containsInsert next seen) rest ok)
+          (List.isDistinctFromSound (Set.insert seen next) rest ok)
 
 --| No repeats, and nothing seen already, passes.
-theorem List.allDistinctFromComplete [auto ord: Ord a]: (seen: Set a) → (xs: List a) → List.Distinct xs →
-    ((x: a) → List.Mem x xs → Set.contains seen x = False) → List.allDistinctFrom seen xs = True
+theorem List.isDistinctFromComplete [auto ord: Ord a]: (seen: Set a) → (xs: List a) → List.Distinct xs →
+    ((x: a) → List.Mem x xs → Set.contains seen x = False) → List.isDistinctFrom seen xs = True
   | seen, [], distinct, unseen => rfl
   | seen, [next, ..rest], distinct, unseen =>
     rewrite unseen next (Inl rfl)
-    in List.allDistinctFromComplete (Set.insert seen next) rest (And.right distinct) (x member =>
+    in List.isDistinctFromComplete (Set.insert seen next) rest (And.right distinct) (x member =>
       rewrite Set.containsInsertOther seen next x (same => And.left distinct (rewrite <- same in member))
       in unseen x (Inr member))
 
-theorem List.allDistinctCorrect [auto ord: Ord a] (xs: List a): List.allDistinct xs = True ↔ List.Distinct xs := {
-  forward = ok => List.allDistinctFromSound Set.empty xs ok,
-  backward = distinct => List.allDistinctFromComplete Set.empty xs distinct (x member => rfl)
+theorem List.isDistinctIff [auto ord: Ord a] (xs: List a): List.isDistinct xs = True ↔ List.Distinct xs := {
+  forward = ok => List.isDistinctFromSound Set.empty xs ok,
+  backward = distinct => List.isDistinctFromComplete Set.empty xs distinct (x member => rfl)
 }
 
-test "List.distinct" := [3, 1, 3, 2, 1].distinct == [3, 1, 2]
-test "List.distinct empty" := ([]: List Nat).distinct == []
-test "List.distinct all repeats" := [4, 4, 4].distinct == [4]
-test "List.distinct already distinct keeps the order" := [2, 5, 1].distinct == [2, 5, 1]
-test "List.distinct keeps first occurrences in order" := ["b", "a", "b", "c", "a"].distinct == ["b", "a", "c"]
+test "List.unique" := [3, 1, 3, 2, 1].unique == [3, 1, 2]
+test "List.unique empty" := ([]: List Nat).unique == []
+test "List.unique all repeats" := [4, 4, 4].unique == [4]
+test "List.unique already distinct keeps the order" := [2, 5, 1].unique == [2, 5, 1]
+test "List.unique keeps first occurrences in order" := ["b", "a", "b", "c", "a"].unique == ["b", "a", "c"]
 -- (Here rather than in std/Text/Text.sw: this file needs that one, through `Set`.)
-test "List.distinct texts" := ["a", "b", "a"].distinct == ["a", "b"]
-test "List.allDistinct" := [3, 1, 2].allDistinct && ![3, 1, 3].allDistinct && ([]: List Nat).allDistinct
-test "List.distinct agrees with distinctEq" := [5, 2, 5, 9, 2, 0].distinct == [5, 2, 5, 9, 2, 0].distinctEq
+test "List.unique texts" := ["a", "b", "a"].unique == ["a", "b"]
+test "List.isDistinct" := [3, 1, 2].isDistinct && ![3, 1, 3].isDistinct && ([]: List Nat).isDistinct
+test "List.unique agrees with uniqueDecEq" := [5, 2, 5, 9, 2, 0].unique == [5, 2, 5, 9, 2, 0].uniqueDecEq

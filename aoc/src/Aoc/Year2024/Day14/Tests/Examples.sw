@@ -95,9 +95,9 @@ test "everyone in the middle is a safety factor of 0" := exampleSpace.safetyFact
 test "an empty quadrant makes 0" := exampleSpace.safetyFactor [tile 0 0, tile 10 0, tile 0 6] == 0
 test "one robot in each quadrant" := exampleSpace.safetyFactor [tile 0 0, tile 10 0, tile 0 6, tile 10 6, tile 10 6] == 2
 
-test "no overlap" := [tile 0 0, tile 1 0, tile 0 1].allDistinct
-test "an overlap" := ![tile 0 0, tile 1 0, tile 0 0].allDistinct
-test "no robots don't overlap" := ([]: List Position).allDistinct
+test "no overlap" := [tile 0 0, tile 1 0, tile 0 1].isDistinct
+test "an overlap" := ![tile 0 0, tile 1 0, tile 0 0].isDistinct
+test "no robots don't overlap" := ([]: List Position).isDistinct
 test "a robot already in place" := solvePart2 exampleSpace [robotAt 0 0 1 1] == Some 0
 test "the period is width times height" := exampleSpace.period == 77 && puzzleSpace.period == 10403
 

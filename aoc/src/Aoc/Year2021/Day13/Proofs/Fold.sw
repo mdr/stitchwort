@@ -34,11 +34,11 @@ theorem foldOnceHolds (dots: List Point) (marked: Point → Prop) (fold: Fold) (
     Holds (foldOnce dots fold) (AfterFold fold marked) :=
   spot => {
     forward = member =>
-      let mapped := (List.memDistinct spot (dots.map (foldDot fold))).forward member
+      let mapped := (List.memUnique spot (dots.map (foldDot fold))).forward member
       Exists.elim (List.memMapElim (foldDot fold) spot dots mapped) (dot moved =>
         Witness dot (Both ((holds dot).forward moved.left) (rewrite <- moved.right in landsFoldDot fold dot (clear dot ((holds dot).forward moved.left))))),
     backward = after =>
       Exists.elim after (dot lands =>
         let mapped := List.memMap dots dot ((holds dot).backward lands.left) (foldDot fold)
-        (List.memDistinct spot (dots.map (foldDot fold))).backward (rewrite landsOnly fold dot spot lands.right in mapped))
+        (List.memUnique spot (dots.map (foldDot fold))).backward (rewrite landsOnly fold dot spot lands.right in mapped))
   }

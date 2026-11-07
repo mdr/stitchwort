@@ -115,7 +115,7 @@ def spread (template: List Char) (counts: PairCounts): Nat :=
     | [first, .._] =>
       let quantities :=
         [first, ..counts.keys.map .second]
-          |> .distinct
+          |> .unique
           |> .map (elementCount first counts)
           |> .filter (quantity => 0 < quantity)
       quantities.maximum.getOrElse 0 - quantities.minimum.getOrElse 0
