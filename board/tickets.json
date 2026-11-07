@@ -19451,9 +19451,9 @@
     {
       "id": 2129,
       "title": "[Sonnet] Interpreter speed stage 0a: runtime benchmarks run-machine-calls/-loop/-closures/-set plus AoC 2020 day 19, 2021 day 11, 2024 day 9 (bytecode instructions, frames, allocations, time); check whether 2021 day 15 part 1 can be one",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2129",
       "labels": [
         "rt"
       ],
