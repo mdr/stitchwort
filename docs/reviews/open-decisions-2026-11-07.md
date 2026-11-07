@@ -343,3 +343,24 @@ search panic answers "no result", built in SW-1820).
 
 The numbers between these (D2557-D2559, D2572, D2587-D2589 and so on) were
 never used: each note took a block of ten.
+
+## Taken by the orchestrator, 7 Nov 2026
+
+Matt (7 Nov 2026): "I can't possibly review 80 decisions." So the
+orchestrator took these as recommended. Each is reversible, and Matt can
+overrule any of them:
+
+- the whole bulk list above (70 numbers);
+- the top 10 above except #2 (D2760-D2763, the merge gate, a process rule:
+  parked until it blocks something);
+- D2970 (warn on text-direction characters), D2980 (a restart allowance
+  per project), D2990-D2992 (a field of a call behaves like the call;
+  folded calls keep their fields; an applied function field shows the
+  unfolding for now).
+
+Still Matt's, asked one at a time and only when a lane needs the answer:
+the user-visible language features (D2860-D2864, D2870-D2872,
+D2880-D2885, D2890-D2893, D2900-D2904, D2821, D2822), the merge gate
+(D2760-D2763) and the other process rules (D2565, D2574, D2576, D2831),
+the remaining directions (D2568, D2569, D2632, D2633, D2940, D2830) and
+the test-budget exceptions (D2556, D2913, D2931).
