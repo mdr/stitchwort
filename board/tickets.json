@@ -1,5 +1,5 @@
 {
-  "next": 1849,
+  "next": 1851,
   "tickets": [
     {
       "id": 47,
@@ -15202,14 +15202,14 @@
     {
       "id": 1845,
       "title": "[Opus] Design note: stuck values record which unknown they wait on, and looking at one runs it again once that unknown is solved; the systemic fix for SW-1321's findings",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1845",
       "labels": [
         "elab"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-1321's audit (docs/reviews/SW-1321-stale-stuck-calls.md, D2603). Would make the per-site tickets after it unnecessary.",
+      "body": "From SW-1321's audit (docs/reviews/SW-1321-stale-stuck-calls.md, D2603). Would make the per-site tickets after it unnecessary.\n\nMatt (7 Nov 2026): more design work; started as a note only (D2603 still open: implementation waits for it). Opus, expected 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15255,6 +15255,36 @@
       ],
       "epic": "elaborator-kernel",
       "body": "From SW-1321's audit (docs/reviews/SW-1321-stale-stuck-calls.md, F7). Waits on SW-1845's outcome (D2603).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1849,
+      "title": "[Opus] Record eta: plan the remaining stages (unifier, Pair, clean-up sweep; D2498-D2505, D2509-D2511) now stage 1 and 1b are merged, with a brief per stage; design only",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1849",
+      "labels": [
+        "design"
+      ],
+      "epic": "record-eta",
+      "body": "Matt (7 Nov 2026): more design work. Expected: 60 min. No builds.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1850,
+      "title": "[Opus] Language guide audit: does docs/guide (and docs/syntax.md) still say what the language does after the last two weeks' changes (record eta, bounded readback, Float operators, match warnings, arrays under --js, test:affected); list each stale passage with a fix; reading only",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1850",
+      "labels": [
+        "docs"
+      ],
+      "epic": "docs-tutorials",
+      "body": "Matt (7 Nov 2026): more analysis work. Expected: 60 min. No builds.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
