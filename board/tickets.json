@@ -1,5 +1,5 @@
 {
-  "next": 1993,
+  "next": 1994,
   "tickets": [
     {
       "id": 47,
@@ -17415,6 +17415,21 @@
       ],
       "epic": "effects-native",
       "body": "From docs/proposals/backend-trust.md. After SW-1991. 30-45 min. Then retire the native-hash-pins memory rule.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1993,
+      "title": "[Opus] Design note: the elaborator, kernel and evaluator walk long chains (list literals, + chains, long blocks) without recursion, so the playground handles lists of thousands of elements (D2751)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1993",
+      "labels": [
+        "design"
+      ],
+      "epic": "editor-playground",
+      "body": "From docs/proposals/deep-input.md (D2751). Expected: 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
