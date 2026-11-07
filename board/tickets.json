@@ -1,5 +1,5 @@
 {
-  "next": 2325,
+  "next": 2326,
   "tickets": [
     {
       "id": 47,
@@ -22394,6 +22394,22 @@
       ],
       "epic": "comparative-speed",
       "body": "From docs/research/lean-runtime-speed.md (SW-2318), its D3358 (rec: yes, a note first). Not yet brought to Matt: waits for the SW-2296 profile to show object size and allocation matter. 90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2325,
+      "title": "Design note: should the optimiser merge repeated pure calls (common subexpression elimination, and its cousins: let-floating, full laziness), given in-place reuse? What Lean, Idris 2, Agda, Koka, GHC, OCaml/flambda and MLton do and what the literature recommends; which automatic forms are safe for space and reuse; how a user would control it",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2325",
+      "labels": [
+        "design",
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "Matt, 7 Nov 2026, on D3359 (from SW-2318: Lean's CSE merged binary-trees' two Tree.make calls): 'that needs some paper design ... a careful analysis of what other languages do, Idris, Agda, Lean ... what the literature recommends ... I don't think we just jump to doing it.' Output docs/proposals/sharing-repeated-calls.md. Paper lane. Started 7 Nov 2026; expected: 75 min. D base D3390.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
