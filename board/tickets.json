@@ -1,5 +1,5 @@
 {
-  "next": 1774,
+  "next": 1775,
   "tickets": [
     {
       "id": 47,
@@ -13535,14 +13535,14 @@
     {
       "id": 1734,
       "title": "nextest threads-required for the heavy sweeps, so they don't overlap in memory and thrash",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1734",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From the SW-1716 profile, fix 6. See docs/reviews/SW-1716-dev-loop-profile.md §6.",
+      "body": "From the SW-1716 profile, fix 6. See docs/reviews/SW-1716-dev-loop-profile.md §6.\n\n7 Nov ~02:05, lane/SW-1734 (7f5082978): corpus-sweeps threads-required=5, pooled tests 5 or 2, daily/full test-threads 10, test:merge STITCHWORT_TEST_THREADS=5. Merge tier neutral (A/B within 1%, CPU equal). Daily sweeps subset under load 16-34: per-test times 25-50% lower, wall not better (590 s old vs 665/1152 s new, too noisy). Held in review, not merged: no measured benefit yet; needs one daily run on a quiet machine (with D2556). Model result: Sonnet, worked, 60 min (est. 45).",
       "created": "2026-11-06",
       "updated": "2026-11-07",
       "commits": []
@@ -14060,9 +14060,9 @@
     {
       "id": 1769,
       "title": "lsp memory tests hold 1.1-1.3 GB each even warm, high for in-memory project checks (SW-1760)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1769",
       "labels": [
         "perf"
       ],
@@ -14128,6 +14128,21 @@
       ],
       "epic": "dev-loop-speed",
       "body": "From SW-1770, 7 Nov 2026.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1774,
+      "title": "A test was SIGTERMed from outside nextest during SW-1734's run (rewind sweep at 10.7 s, ~01:30 7 Nov), like SW-1741's verifier: find who sends it (another lane's pkill? memguard of a different run?)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1734.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
