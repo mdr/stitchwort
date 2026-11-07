@@ -90,3 +90,11 @@ Lean takes about 0.14 s, below the 0.3 s floor: a bigger cavern rarely flashes
 all at once, and the one that does (30 by 30) takes `run` over two minutes.
 After changing a scale, regenerate `expected.txt` from the Lean program and
 check that the other runners agree.
+
+Lean's compiler merges repeated identical pure calls, so a port must not make
+the same call twice where the others build two separate values. `binary-trees`
+passes a `salt` that differs between the two `Tree.make` calls, as Lean's own
+benchmark does. The other ports' generated C (`lean/.lake/build/ir/Compare/*.c`)
+was read for removed or hoisted work: only small closed constants (numerals,
+an empty `Array`) are hoisted to start-up, and no function makes the same call
+twice.
