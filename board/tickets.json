@@ -14210,9 +14210,9 @@
     {
       "id": 1779,
       "title": "Forcing a glued call like P(i) x := P(i-1) x ∧ P(i-1) x costs time exponential in depth (args not shared), in elaboration and in the kernel's declare_def (SW-1743)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1779",
       "labels": [
         "perf"
       ],
