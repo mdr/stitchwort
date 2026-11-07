@@ -196,6 +196,37 @@ class Budget(unittest.TestCase):
         if "guide-quotes" in kept:
             self.assertFalse([i for i, rk in cut.items() if rk == 2], "rank 2 cut while guide-quotes is kept: %s" % cut)
 
+    def test_the_changed_codes_own_tests_outlast_unrelated_ones(self):
+        # The omega rule's tests cost more than the whole budget's slack, but
+        # the downstream quick tests (rank 2) go first and the omega tests stay.
+        inv = [dict(t) for t in INV] + [
+            test("elab", "omega_big_%d" % i, 10, profiles=["lane-omega"]) for i in range(3)]
+        res, _ = pick(["crates/elab/src/omega.rs"], inv=inv, budget=45)
+        kept = {r.id for r in res["rules"]}
+        self.assertIn("elab-omega", kept)
+        self.assertFalse([r.id for r, _ in res["cut"] if r.rank == 1 and r.id not in res["trimmed"]])
+        self.assertEqual(res["trimmed"], [])
+
+    def test_when_the_changed_codes_own_tests_are_over_budget_the_cheapest_are_kept_and_the_rest_named(self):
+        inv = [t for t in INV if t["name"] != "heavy_one"] + [
+            test("driver::search_at", "omega_big", 100),
+            test("elab", "ring_small", 3, profiles=["lane-rewrite"])]
+        files = ["crates/elab/src/omega.rs", "crates/elab/src/ring.rs"]
+        res, _ = pick(files, inv=inv, budget=30)
+        kept = {r.id for r in res["rules"]}
+        self.assertIn("fixed-core", kept)
+        self.assertNotIn("elab-omega", kept)
+        self.assertIn("elab-omega", res["trimmed"])
+        self.assertEqual(res["unprotected_files"], ["crates/elab/src/omega.rs"])
+        text, _ = ta.report(res, files, PROFILES, 30, False, inv)
+        self.assertIn("own tests alone are over the budget", text)
+        self.assertIn("crates/elab/src/omega.rs", text)
+
+    def test_the_single_cheapest_own_rule_is_kept_even_when_it_is_over_budget(self):
+        inv = INV + [test("driver::search_at", "omega_big", 100)]
+        res, _ = pick(["crates/elab/src/omega.rs"], inv=inv, budget=5)
+        self.assertIn("elab-omega", {r.id for r in res["rules"]})
+
     def test_under_budget_cuts_nothing(self):
         res, _ = pick(["crates/elab/src/std/List/List.sw"], budget=1000)
         self.assertEqual(res["cut"], [])
