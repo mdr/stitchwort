@@ -395,6 +395,11 @@ tasks:
       - '{{.GUARD}} --cap-gb {{.MEM_CAP_FULL}} -- cargo nextest run --release -p stitchwort-cli --test running --no-fail-fast examples::'
       - git status --short -- '*.snap'
 
+  pins:show:
+    desc: 'Print the pin table (crates/core/src/pins.rs) with each declaration''s hash now; never writes it'
+    cmds:
+      - cargo run --release -q -p stitchwort-driver --example pins
+
   snap:hashes:
     desc: 'Update the hash-stability snapshots (NAME=part of an example file name, e.g. NAME=ranges-omega, or a comma-separated list; all if unset; std changes run it without NAME), then list them'
     env:

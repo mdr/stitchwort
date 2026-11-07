@@ -43,8 +43,7 @@
 //! well typed only if `isValid k` computes to `True` for the bit patterns it
 //! makes), and on each native's definition being the one it was checked
 //! against. So `Float` and each definition with a native are bound by
-//! content hash ([`FLOAT_DATA_HASH`], [`NATIVE_HASHES`]), as `List` and
-//! `Char` are for compact text; a library that doesn't match is refused.
+//! content hash ([`crate::pins`]); a library that doesn't match is refused.
 //!
 //! The contract the reduction rules follow (§3.3) is versioned:
 //! [`FLOAT_CONTRACT`] is hashed into every primitive's hash, so changing what
@@ -58,9 +57,8 @@ use num_bigint::{BigInt, BigUint, Sign};
 use num_traits::{ToPrimitive, Zero};
 use stitchwort_syntax::Diagnostic;
 
-use crate::budget::{self, Limits};
+use crate::budget;
 use crate::globals::{Kernel, State};
-use crate::hash::{data_hash, def_hash};
 use crate::native::{Force, as_nat_with, nat_value};
 use crate::registry::Builtin;
 use crate::term::{DataId, DefId, Icit, Sort, Term};
@@ -71,62 +69,21 @@ use crate::value::{Elim, Head, Value, conv, eval};
 /// §3.6). Bump it for any deliberate change of meaning.
 pub const FLOAT_CONTRACT: u32 = 1;
 
-/// The content hash (DESIGN.md §11) of the library's `Float`, which covers
-/// `Float.isValid` and everything it uses.
-pub const FLOAT_DATA_HASH: &str =
-    "e4ff60202ca96f2ac20c3db9d79474c8def3839c88836496a736df95675bceb7";
-
-/// The content hashes of the definitions with natives here, and of the
-/// theorems `decEq`'s native puts in its result.
-pub const NATIVE_HASHES: &[(Builtin, &str)] = &[
-    (
-        Builtin::FloatNeg,
-        "d7e335e52415922a571501427d5c926b00e50b9bc224473f91a8893806f3f28a",
-    ),
-    (
-        Builtin::FloatAbs,
-        "80f08cd495e3c27142f3558f0a57f21c3051651d318e403b1bd3614377ebaebe",
-    ),
-    (
-        Builtin::FloatIsNaN,
-        "79ba98ccc2ff711113b447f8f494d8f60a52ad7d3073ffecb925ee4f07225fe8",
-    ),
-    (
-        Builtin::FloatDecEq,
-        "d2bafb2f9f556f54aee0c70bfc03387a3e1dfa78203ba103f75567e9e2cd979b",
-    ),
-    (
-        Builtin::FloatIsFinite,
-        "16540775350f744d0f0ed958df5191b2bf9accc0e0db79731ff8c5656f910787",
-    ),
-    (
-        Builtin::FloatIeeeLt,
-        "6a9574474272226699bc08034b905e8e3416cdbe65491f8778d113dcd2036b0b",
-    ),
-    (
-        Builtin::FloatIeeeLe,
-        "06c93fa67525bdff3f19579c82798b569db55bba61604b8d6f017edcf10fc7f3",
-    ),
-    (
-        Builtin::FloatToInt,
-        "333b00241e0d3551d40c53d39c1aed97abdd4d2298d8924ee8b5d49d8ece285d",
-    ),
-    (
-        Builtin::FloatAdd,
-        "be6ff45c7df219b92a805d1ee897189237b557010e35e4aebdc981b44b18b120",
-    ),
-    (
-        Builtin::FloatSub,
-        "070244faf9c40ada75cb11622e6f1ef7cc7f705685681ed1c2e6ad081c912a2a",
-    ),
-    (
-        Builtin::FloatBitsExt,
-        "89edffd7b5e9fb3ae8e3157f90cbe96893843a760424acb64cc9fcf26e499c25",
-    ),
-    (
-        Builtin::FloatBitsNe,
-        "561015c695f767e73dd71a5ea634eb2bbfe4135074d987499f3b2823d4704b81",
-    ),
+/// The definitions bound here, each with a native or put in one's result,
+/// all pinned in [`crate::pins`].
+pub const PINNED_DEFS: [Builtin; 12] = [
+    Builtin::FloatNeg,
+    Builtin::FloatAbs,
+    Builtin::FloatIsNaN,
+    Builtin::FloatDecEq,
+    Builtin::FloatIsFinite,
+    Builtin::FloatIeeeLt,
+    Builtin::FloatIeeeLe,
+    Builtin::FloatToInt,
+    Builtin::FloatAdd,
+    Builtin::FloatSub,
+    Builtin::FloatBitsExt,
+    Builtin::FloatBitsNe,
 ];
 
 /// The sign bit.
@@ -597,39 +554,19 @@ fn refused(span: stitchwort_syntax::Span, name: &str, why: &str) -> Diagnostic {
         format!("the library's `{name}` isn't the declaration the compiler's `Float` support was written for"),
     )
     .with_label(span, why.to_string())
-    .with_note("its content hash is pinned in crates/core/src/float.rs; a test prints the new hashes")
-}
-
-/// Hashes, with an operation running for the hasher's depth guard.
-fn hex_of(
-    g: &Ev,
-    f: impl FnOnce() -> budget::Result<Option<crate::hash::ContentHash>>,
-) -> Option<String> {
-    let _op = g
-        .machine
-        .budget
-        .operation(Limits::stack_only(Limits::default().stack));
-    f().ok().flatten().map(|h| h.hex())
 }
 
 /// The content hash of `Float` and of each definition bound here, against
 /// the pinned one: for the test that fails when the library changes them,
 /// which prints the new ones.
 pub fn bindings(g: &Ev) -> Vec<(String, Option<String>, &'static str)> {
-    let mut out = Vec::new();
-    if let Some(d) = g.env.registry().loaded_data(Builtin::Float) {
-        out.push((
-            "Float".to_string(),
-            hex_of(g, || data_hash(g, d)),
-            FLOAT_DATA_HASH,
-        ));
-    }
-    for &(b, pinned) in NATIVE_HASHES {
-        if let Some(id) = g.env.registry().loaded_def(b) {
-            out.push((b.name().to_string(), hex_of(g, || def_hash(g, id)), pinned));
-        }
-    }
-    out
+    crate::pins::table(g)
+        .into_iter()
+        .filter(|(p, now)| {
+            now.is_some() && (p.builtin == Builtin::Float || PINNED_DEFS.contains(&p.builtin))
+        })
+        .map(|(p, now)| (p.builtin.name().to_string(), now, p.hash))
+        .collect()
 }
 
 /// Binds the library's `Float`, which must be a record of a `Nat` and a
@@ -649,13 +586,7 @@ pub fn register_data(g: &mut Kernel, d: DataId) -> Result<()> {
         if !shaped {
             return Err(refused(span, "Float", "not the record of a double's bits"));
         }
-        if hex_of(&g.ev(), || data_hash(&g.ev(), d)).as_deref() != Some(FLOAT_DATA_HASH) {
-            return Err(refused(
-                span,
-                "Float",
-                "its content hash isn't the pinned one",
-            ));
-        }
+        crate::pins::check_data(&g.ev(), d, Builtin::Float)?;
         g.env.builtins_mut().float.data = Some(d);
         Ok(())
     })
@@ -743,20 +674,14 @@ pub fn define_primitive(g: &mut Kernel, id: DefId, op: FloatOp) -> Result<()> {
 /// type and its definition). `Float` must be bound first.
 pub fn register_def(g: &mut Kernel, id: DefId, b: Builtin) -> Result<()> {
     in_kernel_modes(g, |g| {
-        let Some(&(_, pinned)) = NATIVE_HASHES.iter().find(|(nb, _)| *nb == b) else {
+        if !PINNED_DEFS.contains(&b) {
             return Ok(());
-        };
+        }
         let span = g.def(id).span;
         if g.env.builtins().float.data.is_none() {
             return Err(refused(span, b.name(), "`Float` isn't bound"));
         }
-        if hex_of(&g.ev(), || def_hash(&g.ev(), id)).as_deref() != Some(pinned) {
-            return Err(refused(
-                span,
-                b.name(),
-                "its content hash isn't the pinned one",
-            ));
-        }
+        crate::pins::check_def(&g.ev(), id, b)?;
         match b {
             Builtin::FloatBitsExt => g.env.builtins_mut().float.bits_ext = Some(id),
             Builtin::FloatBitsNe => g.env.builtins_mut().float.bits_ne = Some(id),

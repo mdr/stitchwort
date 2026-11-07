@@ -54,7 +54,7 @@
 //! evaluators, natives on and off.
 //!
 //! **Binding.** The rules are only for the library's own `Nat.add`, by
-//! content hash ([`NAT_ADD_HASH`], which covers `Nat` too), and are switched
+//! content hash (its pin in [`crate::pins`], which covers `Nat` too), and are switched
 //! on when the prelude binds `Nat.addSucc`, after checking that it and
 //! `Nat.addZero` have the types of R3 and R4 ([`register`]); for another
 //! `Nat.add` they stay off. The theorems
@@ -70,17 +70,12 @@ use num_bigint::BigUint;
 use num_traits::Zero;
 use stitchwort_syntax::{Diagnostic, Span};
 
-use crate::budget::{self, Limits};
+use crate::budget;
 use crate::globals::{Kernel, State};
-use crate::hash::def_hash;
 use crate::native::{Force, view_with};
 use crate::registry::Builtin;
 use crate::term::{DefId, Icit, Term};
 use crate::value::{Elim, Head, Value, conv, eval};
-
-/// The content hash (DESIGN.md §11) of the prelude's `Nat.add`, which
-/// covers `Nat`: the definition R3 and R4 were written for.
-pub const NAT_ADD_HASH: &str = "f3f3581f05751a4470b1254229a1905626119a6eff6ac5a241a62568d7111af1";
 
 /// `add m n`, already stuck on `m` (not a number, `Zero` or a `Succ`):
 /// what R3 and R4 make of it, as `k + rest`, or `None` if it stays stuck
@@ -189,12 +184,7 @@ fn refused(span: Span, why: &str) -> Diagnostic {
 /// The content hash of the bound `Nat.add`, if it has one: for the test
 /// that fails when the library changes it, which prints the new one.
 pub fn add_hash(g: &Ev) -> Option<String> {
-    let id = g.env.registry().def(Builtin::Add)?;
-    let _op = g
-        .machine
-        .budget
-        .operation(Limits::stack_only(Limits::default().stack));
-    def_hash(g, id).ok().flatten().map(|h| h.hex())
+    crate::pins::def_hex(g, g.env.registry().def(Builtin::Add)?)
 }
 
 /// Switches R3 and R4 on for the prelude's `Nat.add`, when it binds
@@ -218,10 +208,9 @@ pub fn register(g: &mut Kernel, add_succ: DefId) -> Result<(), Diagnostic> {
             ));
         };
         // Another `Nat.add` (or `Nat`): the rules stay off, and `+` is its
-        // definition alone, as compact text falls back to constructors for
-        // another `List` or `Char`. The library's own is checked by the test
-        // `nat_add_is_the_pinned_declaration`, which prints the new hash.
-        if add_hash(&g.ev()).as_deref() != Some(NAT_ADD_HASH) {
+        // definition alone. Its native has refused the library already,
+        // unless a test let stale pins fall back.
+        if !crate::pins::holds(&g.ev(), add, Builtin::Add) {
             return Ok(());
         }
         let nat_ty = || Term::Data(nat, Vec::new());

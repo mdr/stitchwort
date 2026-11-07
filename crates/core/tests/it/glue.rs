@@ -185,9 +185,11 @@ fn looking_inside_forces_a_call_everywhere() {
 #[test]
 fn natives_never_glue() {
     let mut d = defs();
-    use stitchwort_core::native::{Native, register_nat, register_native};
+    use stitchwort_core::native::{Native, register_nat, register_native_unpinned};
     register_nat(&mut d.p.g, d.p.nat).expect("Nat");
-    register_native(&mut d.p.g, d.p.add, Native::Add).expect("add");
+    register_native_unpinned(&mut d.p.g, d.p.add, Native::Add).expect("add");
+    // A second registration is refused.
+    assert!(register_native_unpinned(&mut d.p.g, d.p.add, Native::Add).is_err());
     let g = &d.p.g;
     // A native computes on numbers at once, as without gluing.
     g.machine.glue.set(true);

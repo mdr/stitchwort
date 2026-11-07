@@ -490,6 +490,33 @@ impl Session {
         .unwrap_or_else(|report| panic!("{report}"))
     }
 
+    /// [`Session::with_prelude`], except that a pinned declaration the
+    /// prelude changed (`stitchwort_core::pins`) runs as written, without
+    /// its native, instead of refusing the prelude: for the tests that
+    /// check what a changed declaration falls back to.
+    #[doc(hidden)]
+    pub fn with_prelude_falling_back(prelude: &str) -> Self {
+        Self::try_with_prelude_falling_back(prelude).unwrap_or_else(|report| panic!("{report}"))
+    }
+
+    /// [`Session::with_prelude_falling_back`], giving a prelude that
+    /// doesn't check as its rendered diagnostics.
+    #[doc(hidden)]
+    pub fn try_with_prelude_falling_back(prelude: &str) -> Result<Self, String> {
+        let mut elab = Elaborator::new();
+        elab.options.stale_pins_fall_back = true;
+        Self::start_in(
+            elab,
+            prelude,
+            Library::Standard,
+            false,
+            false,
+            false,
+            Limits::default(),
+            StdCache::Source,
+        )
+    }
+
     /// Loads the core (the prelude text given), then makes the library's
     /// names known, and loads its files too if `eager`.
     fn start(
@@ -501,9 +528,33 @@ impl Session {
         limits: Limits,
         std_cache: StdCache,
     ) -> Result<Self, String> {
+        Self::start_in(
+            Elaborator::new(),
+            prelude,
+            library,
+            eager,
+            library_tests,
+            navigation,
+            limits,
+            std_cache,
+        )
+    }
+
+    /// [`Session::start`] with the elaborator given, before anything loads.
+    #[allow(clippy::too_many_arguments)]
+    fn start_in(
+        elab: Elaborator,
+        prelude: &str,
+        library: Library,
+        eager: bool,
+        library_tests: bool,
+        navigation: bool,
+        limits: Limits,
+        std_cache: StdCache,
+    ) -> Result<Self, String> {
         let mut session = Session {
             sources: SourceMap::new(),
-            elab: Elaborator::new(),
+            elab,
             warnings: Vec::new(),
         };
         session.elab.options.limits = limits;

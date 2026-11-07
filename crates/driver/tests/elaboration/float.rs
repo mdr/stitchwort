@@ -57,7 +57,8 @@ fn with_every_native_off_float_runs_out_of_budget() {
 /// `Float` and the definitions with float natives are the declarations the
 /// kernel's float support was written for. If this fails, the library
 /// changed one: check the natives in crates/core/src/float.rs still compute
-/// what the definitions do, then update the hashes there to these.
+/// what the definitions do, then update the hashes in crates/core/src/pins.rs
+/// to these.
 #[test]
 fn the_float_bindings_are_the_pinned_declarations() {
     let mut session = Session::new();
@@ -65,7 +66,7 @@ fn the_float_bindings_are_the_pinned_declarations() {
     // all the same (fix `Float`'s first: the others depend on it).
     let loaded = session.load("uses.sw", "import Std (Float)\ndef zero: Float := 0.0\n");
     let bindings = float::bindings(&session.elab.ev());
-    assert_eq!(bindings.len(), 1 + float::NATIVE_HASHES.len());
+    assert_eq!(bindings.len(), 1 + float::PINNED_DEFS.len());
     let wrong: Vec<String> = bindings
         .iter()
         .filter(|(_, actual, pinned)| actual.as_deref() != Some(*pinned))

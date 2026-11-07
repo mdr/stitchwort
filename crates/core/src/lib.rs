@@ -22,6 +22,7 @@ pub mod machine;
 pub mod nat_add;
 pub mod native;
 pub mod partial;
+pub mod pins;
 pub mod pretty;
 #[cfg(any(test, feature = "reference"))]
 pub mod reference;

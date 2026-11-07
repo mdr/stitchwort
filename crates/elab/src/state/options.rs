@@ -69,6 +69,11 @@ pub struct Options {
     /// load. `Elaborator::new` starts it from
     /// `STITCHWORT_UNTIMED_COUNTEREXAMPLES=1`.
     pub untimed_counterexamples: bool,
+    /// For tests that change the prelude: a pinned declaration
+    /// (`stitchwort_core::pins`) that isn't the pinned one is bound without
+    /// its native, and runs as written, instead of refusing the library.
+    #[doc(hidden)]
+    pub stale_pins_fall_back: bool,
 }
 
 impl Options {
@@ -112,6 +117,8 @@ impl Options {
             counterexample_runner: _,
             no_counterexamples: _,
             untimed_counterexamples: _,
+            // Only for a changed prelude, which is checked from source.
+            stale_pins_fall_back: _,
         } = self;
         format!(
             "succ {} limits {} {} {} {} rewrite {:?} instances {:?} uniform {} glue {}",

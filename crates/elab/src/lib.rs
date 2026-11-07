@@ -108,6 +108,7 @@ use num_bigint::BigUint;
 use stitchwort_core::chars;
 use stitchwort_core::native::{self, Native};
 use stitchwort_core::partial::Primitive;
+use stitchwort_core::pins;
 use stitchwort_core::registry::{self, Builtin};
 use stitchwort_core::term::{Branch, NumArm};
 use stitchwort_core::value::{Apart, Head, Spine, eval, force};
@@ -3013,32 +3014,28 @@ impl Elaborator {
     /// Binds the built-in definition the prelude's or a library file's
     /// final definition `id` is, if any, with its native implementation.
     /// Replaying a library file from the check cache binds through this too.
+    /// A pinned definition that isn't the pinned one refuses the library
+    /// (`stitchwort_core::pins`), unless a test lets it fall back.
     pub(crate) fn bind_builtin_def(&mut self, id: DefId) -> Result<()> {
-        match registry::bind_def(&mut self.kernel, id) {
-            Some(Builtin::NatNeq) => native::register_nat_neq(&mut self.kernel, id)?,
+        let Some(b) = registry::bind_def(&mut self.kernel, id) else {
+            return Ok(());
+        };
+        if self.options.stale_pins_fall_back && pins::stale_def(&mut self.kernel, id, b) {
+            return Ok(());
+        }
+        match b {
+            Builtin::NatNeq => native::register_nat_neq(&mut self.kernel, id)?,
             // `+` computes on its second argument too from here on.
-            Some(Builtin::NatAddSucc) => stitchwort_core::nat_add::register(&mut self.kernel, id)?,
-            Some(
-                b @ (Builtin::FloatNeg
-                | Builtin::FloatAbs
-                | Builtin::FloatIsNaN
-                | Builtin::FloatDecEq
-                | Builtin::FloatIsFinite
-                | Builtin::FloatIeeeLt
-                | Builtin::FloatIeeeLe
-                | Builtin::FloatToInt
-                | Builtin::FloatAdd
-                | Builtin::FloatSub
-                | Builtin::FloatBitsExt
-                | Builtin::FloatBitsNe),
-            ) => stitchwort_core::float::register_def(&mut self.kernel, id, b)?,
-            Some(Builtin::ListLength) => self.length_run_body(id)?,
-            Some(b) => {
+            Builtin::NatAddSucc => stitchwort_core::nat_add::register(&mut self.kernel, id)?,
+            b if stitchwort_core::float::PINNED_DEFS.contains(&b) => {
+                stitchwort_core::float::register_def(&mut self.kernel, id, b)?;
+            }
+            Builtin::ListLength => self.length_run_body(id)?,
+            b => {
                 if let Some(op) = Native::ALL.into_iter().find(|n| n.builtin() == b) {
                     native::register_native(&mut self.kernel, id, op)?;
                 }
             }
-            None => {}
         }
         Ok(())
     }

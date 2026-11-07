@@ -2,8 +2,8 @@
 //!
 //! Natives, native representations and kernel rules are bound to library
 //! declarations by content hash (DESIGN.md §11): `R3`/`R4` of `+`
-//! (`stitchwort_core::nat_add`), compact text (`chars`), `Float` and its
-//! kernel natives (`float`), and the runtimes' representations and natives
+//! (`stitchwort_core::nat_add`), compact text (`chars`), the kernel's
+//! natives and `Float` (`pins`), and the runtimes' representations and natives
 //! (`stitchwort_rt::natives`). A binding whose declaration changed is
 //! dropped without a word, by design (except arrays', which refuse the
 //! program instead): the declaration then runs as written,
@@ -22,7 +22,7 @@ use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::{DataId, chars, float, nat_add};
+use stitchwort_core::{DataId, chars, nat_add, pins};
 use stitchwort_driver::driver::{Session, with_session};
 use stitchwort_rt::natives;
 
@@ -37,22 +37,20 @@ fn data(g: &stitchwort_core::Ev, name: &str) -> DataId {
 /// and whether that is the pinned one.
 fn bindings(g: &stitchwort_core::Ev) -> Vec<(String, Option<String>, bool)> {
     let mut out = Vec::new();
+    // The kernel's pins (`stitchwort_core::pins`); a stale one refuses the
+    // library, so this is a second line that lists every stale one at once.
+    for (pin, hash) in pins::table(g) {
+        let on = hash.as_deref() == Some(pin.hash);
+        out.push((format!("{} (kernel)", pin.builtin.name()), hash, on));
+    }
     // R3 and R4 of `+`: off unless `Nat.add` is the pinned declaration.
-    let add = nat_add::add_hash(g);
-    let on =
-        add.as_deref() == Some(nat_add::NAT_ADD_HASH) && g.env.builtins().nat_add_rule.is_some();
-    out.push(("Nat.add (R3, R4)".to_string(), add, on));
+    let on = g.env.builtins().nat_add_rule.is_some();
+    out.push(("Nat.add (R3, R4)".to_string(), nat_add::add_hash(g), on));
     // Compact text.
     let text = chars::binding(g, data(g, "List"), data(g, "Char"));
     let on = text.bound && g.env.builtins().text.is_some();
     out.push(("List (compact text)".to_string(), text.list_hash, on));
     out.push(("Char (compact text)".to_string(), text.char_hash, on));
-    // `Float` and its kernel natives; a mismatch refuses the library, so
-    // this is a second line.
-    for (name, hash, pinned) in float::bindings(g) {
-        let on = hash.as_deref() == Some(pinned);
-        out.push((format!("{name} (kernel)"), hash, on));
-    }
     // The runtimes' representations and natives.
     let rt =
         |name: &str, hash: Option<String>, bound: bool| (format!("{name} (runtimes)"), hash, bound);
