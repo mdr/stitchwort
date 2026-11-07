@@ -796,14 +796,14 @@
     {
       "id": 745,
       "title": "Std lemmas tying Map.alter/adjust, Set.insert/remove/min to a list model, then AoC 2024 day 9 part 2 proved equal to the spec (~1,000 lines est.)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-745",
       "labels": [],
       "epic": "aoc-older",
-      "body": "",
+      "body": "\n\n7 Nov: plan first (read-only Opus lane): docs/proposals/map-set-list-model.md, stages and briefs. From the AoC gap check: next since 28 Oct with an empty body.",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
