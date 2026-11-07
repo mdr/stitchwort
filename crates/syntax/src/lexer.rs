@@ -99,11 +99,11 @@ pub enum Tok {
     /// `handle e with | clause …`
     KwHandle,
     KwWith,
-    /// `match e with | p -> …`
+    /// `match e with | p => …`
     KwMatch,
-    /// `return x -> …`, a handler's clause for the result.
+    /// `| return x => …`, a handler's clause for the result.
     KwReturn,
-    /// `let x = e`, binding `x` for the following lines of a block.
+    /// `let x := e`, binding `x` for the following lines of a block.
     KwLet,
     /// `import List (map, filter)`, at the top of a file.
     KwImport,
@@ -134,7 +134,8 @@ pub enum Tok {
     KwUnfolding,
     LBrace,
     RBrace,
-    /// `=>`, in a handler clause: `get () => k -> …`.
+    /// `=>`: a lambda `x => e`, a `match` arm `| p => e`, a handler clause
+    /// `| get (), k => e`.
     FatArrow,
     Underscore,
     /// `?`: an open goal, a part of a proof or program still to write
@@ -295,6 +296,22 @@ pub fn lex_with_trivia(file: FileId, text: &str) -> Result<Lexed, Diagnostic> {
 /// `trivia` and `eof` are empty). Only the formatter needs it, and it takes
 /// more memory than the tokens, so checking doesn't record it.
 fn lex_keeping(file: FileId, text: &str, keep_trivia: bool) -> Result<Lexed, Diagnostic> {
+    lex_from(file, text, 0, keep_trivia, None).map(|(lexed, _)| lexed)
+}
+
+/// Lexes `text` from `from`. With `interp: Some(dollar)`, `from` is just
+/// after the `${` at `dollar` in a `"""` text, and lexing stops at the `}`
+/// that closes it, returning its position. `scan_block` uses that to find
+/// where each `${…}` ends, so it ends exactly where the main pass, lexing the
+/// same bytes in the same state, will close it. Otherwise lexing runs to the
+/// end of the text, and the position is its length.
+fn lex_from(
+    file: FileId,
+    text: &str,
+    from: usize,
+    keep_trivia: bool,
+    interp: Option<usize>,
+) -> Result<(Lexed, usize), Diagnostic> {
     let bytes = text.as_bytes();
     let mut tokens: Vec<Token> = Vec::new();
     let mut trivia: Vec<Trivia> = Vec::new();
@@ -305,10 +322,20 @@ fn lex_keeping(file: FileId, text: &str, keep_trivia: bool) -> Result<Lexed, Dia
     // tokens there were when we last looked.
     let mut line_blank = true;
     let mut seen = 0;
-    let mut i = 0;
-    let mut line_start = 0;
+    let mut i = from;
+    let mut line_start = from;
     let mut fresh_line = true;
+    // In `interp` mode the bottom entry stands for the `${` being scanned.
     let mut interps: Vec<Interp> = Vec::new();
+    if let Some(dollar) = interp {
+        interps.push(Interp {
+            depth: 0,
+            start: dollar,
+            block: None,
+            scanned: true,
+        });
+    }
+    let mut closed_at = None;
     let mut bars: Vec<Span> = Vec::new();
 
     while i < bytes.len() {
@@ -328,9 +355,18 @@ fn lex_keeping(file: FileId, text: &str, keep_trivia: bool) -> Result<Lexed, Dia
             b'\n' => {
                 if let Some(&Interp {
                     start: string_start,
+                    scanned,
                     ..
                 }) = interps.last()
                 {
+                    if scanned {
+                        return Err(error(
+                            file,
+                            string_start,
+                            i,
+                            "a `${…}` in a `\"\"\"` text stays on one line",
+                        ));
+                    }
                     return Err(error(
                         file,
                         string_start,
@@ -482,10 +518,22 @@ fn lex_keeping(file: FileId, text: &str, keep_trivia: bool) -> Result<Lexed, Dia
             }
         } else if c == b'"' {
             let block = text[i..].starts_with("\"\"\"");
+            if block && let Some(dollar) = interp {
+                // A `"""` text needs a line of its own, so it can't be in a
+                // one-line `${…}`. Refusing it here also keeps `scan_block`
+                // from recursing.
+                return Err(error(
+                    file,
+                    dollar,
+                    i + 3,
+                    "a `${…}` in a `\"\"\"` text stays on one line, so it can't hold a \
+                     `\"\"\"` text",
+                ));
+            }
             let (chars, stop, interpolation, rest) = if block {
                 let mut segs = scan_block(file, text, i)?;
-                let (chars, stop, interpolation) = segs.pop_front().expect("a block has a piece");
-                (chars, stop, interpolation, Some(segs))
+                let piece = segs.pop_front().expect("a block has a piece");
+                (piece.text, piece.stop, piece.interpolation, Some(segs))
             } else {
                 let (chars, stop, interpolation) = scan_string(file, text, i + 1, i)?;
                 (chars, stop, interpolation, None)
@@ -502,6 +550,7 @@ fn lex_keeping(file: FileId, text: &str, keep_trivia: bool) -> Result<Lexed, Dia
                     depth: 0,
                     start,
                     block: rest,
+                    scanned: false,
                 });
                 i = stop + 2;
             } else {
@@ -586,9 +635,30 @@ fn lex_keeping(file: FileId, text: &str, keep_trivia: bool) -> Result<Lexed, Dia
             }
             if c == b'}' && matches!(interps.last(), Some(Interp { depth: 0, .. })) {
                 let mut interp = interps.pop().expect("checked");
+                if interp.scanned {
+                    closed_at = Some(start);
+                    break;
+                }
                 let text_start = i;
                 let (chars, stop, interpolation) = match &mut interp.block {
-                    Some(pieces) => pieces.pop_front().expect("a block's last piece closes it"),
+                    Some(pieces) => {
+                        // `scan_block` found this `}` with this same lexer, so
+                        // the two agree; if they ever don't, say so rather
+                        // than slice the text backwards.
+                        let piece = pieces
+                            .pop_front()
+                            .filter(|piece| piece.from == text_start)
+                            .ok_or_else(|| {
+                                error(
+                                    file,
+                                    interp.start,
+                                    text_start,
+                                    "this `${…}` can't be read: the `\"\"\"` text's pieces \
+                                     don't line up with it (a compiler bug; please report it)",
+                                )
+                            })?;
+                        (piece.text, piece.stop, piece.interpolation)
+                    }
                     None => scan_string(file, text, i, interp.start)?,
                 };
                 let close_len = if interp.block.is_some() { 3 } else { 1 };
@@ -728,7 +798,7 @@ fn lex_keeping(file: FileId, text: &str, keep_trivia: bool) -> Result<Lexed, Dia
                         file,
                         start,
                         i,
-                        format!("unexpected character `{}`", c as char),
+                        format!("unexpected character {}", shown(c as char)),
                     ));
                 }
             }
@@ -740,6 +810,25 @@ fn lex_keeping(file: FileId, text: &str, keep_trivia: bool) -> Result<Lexed, Dia
             line_start: fresh_line,
         });
         fresh_line = false;
+    }
+    if let Some(dollar) = interp {
+        return match closed_at {
+            Some(close) => Ok((
+                Lexed {
+                    tokens: Vec::new(),
+                    trivia: Vec::new(),
+                    eof: Trivia::default(),
+                    bars: Vec::new(),
+                },
+                close,
+            )),
+            None => Err(error(
+                file,
+                dollar,
+                bytes.len(),
+                "this `${…}` isn't closed with `}`",
+            )),
+        };
     }
     if let Some(&Interp {
         start: string_start,
@@ -760,16 +849,19 @@ fn lex_keeping(file: FileId, text: &str, keep_trivia: bool) -> Result<Lexed, Dia
             trailing: None,
         });
     }
-    Ok(Lexed {
-        tokens,
-        trivia,
-        eof: Trivia {
-            leading: pending,
-            blank_lines_before: blank_run,
-            trailing: None,
+    Ok((
+        Lexed {
+            tokens,
+            trivia,
+            eof: Trivia {
+                leading: pending,
+                blank_lines_before: blank_run,
+                trailing: None,
+            },
+            bars,
         },
-        bars,
-    })
+        bytes.len(),
+    ))
 }
 
 /// A text literal whose `${…}` is being lexed.
@@ -781,11 +873,22 @@ struct Interp {
     /// For a `"""` literal, the rest of its pieces, already de-indented
     /// (see `scan_block`).
     block: Option<VecDeque<Piece>>,
+    /// Whether this is the `${` that `lex_from` was asked to find the end of.
+    scanned: bool,
 }
 
-/// A piece of a literal's text: the text, the position of the `${` or the
-/// closing `"""` after it, and whether it was a `${`.
-type Piece = (String, usize, bool);
+/// A piece of a `"""` literal's text.
+struct Piece {
+    /// The text, de-indented and with its escapes read.
+    text: String,
+    /// Where the piece's text starts in the source: after the opening line,
+    /// or just after the `}` of the `${…}` before it.
+    from: usize,
+    /// The position of the `${` or the closing `"""` after it.
+    stop: usize,
+    /// Whether it was a `${`.
+    interpolation: bool,
+}
 
 /// The pieces of the `"""` literal starting at `open`. The text is the lines
 /// after the opening line, with the common indentation removed (the
@@ -834,48 +937,13 @@ fn scan_block(file: FileId, text: &str, open: usize) -> Result<VecDeque<Piece>, 
             }
             Some(b'"') if text[i..].starts_with("\"\"\"") => break i,
             Some(b'$') if bytes.get(i + 1) == Some(&b'{') => {
+                // The `}` that closes it, found by the lexer itself, so that
+                // a `}` in a nested literal (`${"}"}`, `${1'}'}`) is read the
+                // same way here as in the main pass.
                 let dollar = i;
-                i += 2;
-                let mut depth = 0;
-                loop {
-                    match bytes.get(i) {
-                        None => return Err(unclosed()),
-                        Some(b'\n') => {
-                            return Err(error(
-                                file,
-                                dollar,
-                                i,
-                                "a `${…}` in a `\"\"\"` text stays on one line",
-                            ));
-                        }
-                        Some(b'{') => depth += 1,
-                        Some(b'}') if depth == 0 => break,
-                        Some(b'}') => depth -= 1,
-                        Some(&quote @ (b'"' | b'\''))
-                            if quote == b'"'
-                                || !(bytes[i - 1].is_ascii_alphanumeric()
-                                    || bytes[i - 1] == b'_'
-                                    || bytes[i - 1] == b'\'') =>
-                        {
-                            // A one-line text or character literal: skip to
-                            // its end, since it may hold a `}`.
-                            i += 1;
-                            while let Some(&b) = bytes.get(i) {
-                                if b == quote || b == b'\n' {
-                                    break;
-                                }
-                                i += if b == b'\\' { 2 } else { 1 };
-                            }
-                            if bytes.get(i) != Some(&quote) {
-                                continue;
-                            }
-                        }
-                        _ => {}
-                    }
-                    i += 1;
-                }
-                interps.push((dollar, i));
-                i += 1;
+                let (_, close) = lex_from(file, text, i + 2, false, Some(dollar))?;
+                interps.push((dollar, close));
+                i = close + 1;
             }
             Some(_) => i += 1,
         }
@@ -912,6 +980,7 @@ fn scan_block(file: FileId, text: &str, open: usize) -> Result<VecDeque<Piece>, 
     // Pass 2: the pieces.
     let mut pieces = VecDeque::new();
     let mut chars = String::new();
+    let mut from = body;
     let mut next_interp = 0;
     for (k, line) in lines.iter().enumerate() {
         let (ls, le) = *line;
@@ -922,8 +991,26 @@ fn scan_block(file: FileId, text: &str, open: usize) -> Result<VecDeque<Piece>, 
         while j < le {
             match bytes[j] {
                 b'$' if bytes.get(j + 1) == Some(&b'{') => {
-                    pieces.push_back((std::mem::take(&mut chars), j, true));
-                    j = interps[next_interp].1 + 1;
+                    let close = match interps.get(next_interp) {
+                        Some(&(dollar, close)) if dollar == j => close,
+                        _ => {
+                            return Err(error(
+                                file,
+                                j,
+                                j + 2,
+                                "this `${…}` can't be read: the `\"\"\"` text's scans \
+                                 disagree about it (a compiler bug; please report it)",
+                            ));
+                        }
+                    };
+                    pieces.push_back(Piece {
+                        text: std::mem::take(&mut chars),
+                        from,
+                        stop: j,
+                        interpolation: true,
+                    });
+                    j = close + 1;
+                    from = j;
                     next_interp += 1;
                 }
                 b'\\' => {
@@ -943,7 +1030,12 @@ fn scan_block(file: FileId, text: &str, open: usize) -> Result<VecDeque<Piece>, 
             chars.push('\n');
         }
     }
-    pieces.push_back((chars, close, false));
+    pieces.push_back(Piece {
+        text: chars,
+        from,
+        stop: close,
+        interpolation: false,
+    });
     Ok(pieces)
 }
 
@@ -1123,7 +1215,15 @@ const UNSUPPORTED: &[(char, &str)] = &[
 /// logic or mathematics it says what to write instead, or that it isn't
 /// supported (D1208).
 fn unicode_error(file: FileId, start: usize, end: usize, ch: char) -> Diagnostic {
-    let d = error(file, start, end, format!("unexpected character `{ch}`"));
+    let d = error(
+        file,
+        start,
+        end,
+        format!("unexpected character {}", shown(ch)),
+    );
+    if let Some(note) = invisible(ch).and_then(|(_, note)| note) {
+        return d.with_note(note);
+    }
     if let Some((_, hint)) = UNSUPPORTED.iter().find(|(c, _)| *c == ch) {
         return d.with_note(format!("`{ch}` isn't supported: {hint}"));
     }
@@ -1136,6 +1236,65 @@ fn unicode_error(file: FileId, start: usize, end: usize, ch: char) -> Diagnostic
         ));
     }
     d
+}
+
+/// A character for a message: in backticks, or by its code point and name
+/// if it would show as nothing or as a plain space (`U+00A0 NO-BREAK SPACE`).
+fn shown(ch: char) -> String {
+    match invisible(ch) {
+        Some((name, _)) if !name.is_empty() => format!("U+{:04X} {name}", ch as u32),
+        Some(_) => format!("U+{:04X}", ch as u32),
+        None => format!("`{ch}`"),
+    }
+}
+
+/// For a character that shows as nothing or as a space: its Unicode name
+/// (empty if it isn't in the table) and what to do about it. The table holds
+/// the ones text pasted from the web or a word processor tends to carry.
+fn invisible(ch: char) -> Option<(&'static str, Option<&'static str>)> {
+    const SPACE: Option<&str> = Some("it looks like a space but isn't one: type a plain space");
+    const NOTHING: Option<&str> = Some("it shows as nothing: delete it");
+    let entry = match ch {
+        '\u{00A0}' => ("NO-BREAK SPACE", SPACE),
+        '\u{1680}' => ("OGHAM SPACE MARK", SPACE),
+        '\u{2000}' => ("EN QUAD", SPACE),
+        '\u{2001}' => ("EM QUAD", SPACE),
+        '\u{2002}' => ("EN SPACE", SPACE),
+        '\u{2003}' => ("EM SPACE", SPACE),
+        '\u{2004}' => ("THREE-PER-EM SPACE", SPACE),
+        '\u{2005}' => ("FOUR-PER-EM SPACE", SPACE),
+        '\u{2006}' => ("SIX-PER-EM SPACE", SPACE),
+        '\u{2007}' => ("FIGURE SPACE", SPACE),
+        '\u{2008}' => ("PUNCTUATION SPACE", SPACE),
+        '\u{2009}' => ("THIN SPACE", SPACE),
+        '\u{200A}' => ("HAIR SPACE", SPACE),
+        '\u{202F}' => ("NARROW NO-BREAK SPACE", SPACE),
+        '\u{205F}' => ("MEDIUM MATHEMATICAL SPACE", SPACE),
+        '\u{3000}' => ("IDEOGRAPHIC SPACE", SPACE),
+        '\u{00AD}' => ("SOFT HYPHEN", NOTHING),
+        '\u{200B}' => ("ZERO WIDTH SPACE", NOTHING),
+        '\u{200C}' => ("ZERO WIDTH NON-JOINER", NOTHING),
+        '\u{200D}' => ("ZERO WIDTH JOINER", NOTHING),
+        '\u{200E}' => ("LEFT-TO-RIGHT MARK", NOTHING),
+        '\u{200F}' => ("RIGHT-TO-LEFT MARK", NOTHING),
+        '\u{2060}' => ("WORD JOINER", NOTHING),
+        '\u{FEFF}' => ("ZERO WIDTH NO-BREAK SPACE (byte-order mark)", NOTHING),
+        '\u{2028}' => ("LINE SEPARATOR", Some("end lines with an ordinary newline")),
+        '\u{2029}' => (
+            "PARAGRAPH SEPARATOR",
+            Some("end lines with an ordinary newline"),
+        ),
+        '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}' => (
+            "",
+            Some(
+                "it's a text-direction control, which changes how the line shows without showing \
+             itself: delete it",
+            ),
+        ),
+        _ if ch.is_whitespace() || ch.is_control() => ("", None),
+        _ => return None,
+    };
+    Some(entry)
 }
 
 /// The Unicode spellings and the ASCII each stands for, for messages.
@@ -1643,6 +1802,111 @@ mod tests {
         ] {
             assert_eq!(tokens(bad), Err("E-PARSE"), "{bad:?}");
         }
+    }
+
+    fn failure(text: &str) -> Diagnostic {
+        let mut sources = SourceMap::new();
+        let file = sources.add("test.sw", text);
+        lex(file, text).expect_err("doesn't lex")
+    }
+
+    // F1 of docs/reviews/code-review-syntax-opus.md: the `"""` pre-scan once
+    // ended a `${…}` by its own rules, at a `}` the lexer read as part of a
+    // literal, and the lexer then sliced the text backwards and panicked.
+    #[test]
+    fn text_block_interpolation_ends_where_the_lexer_says() {
+        // `1'}'` is the number `1` and the character `'}'`.
+        assert_eq!(
+            tokens("def t: Text := \"\"\"\n  ${1'}' ++ \"${x}\"}\n  \"\"\""),
+            Ok(vec![
+                Tok::KwDef,
+                Tok::Lower("t".into()),
+                Tok::Colon,
+                Tok::Upper("Text".into()),
+                Tok::ColonEq,
+                Tok::StrStart("".into()),
+                Tok::Num(1u32.into()),
+                Tok::Char('}'),
+                Tok::PlusPlus,
+                Tok::StrStart("".into()),
+                Tok::Lower("x".into()),
+                Tok::StrEnd("".into()),
+                Tok::StrEnd("\n".into()),
+            ])
+        );
+        // A nested interpolated text holding a `}` and a quote.
+        assert_eq!(
+            tokens("\"\"\"\n  ${\"${\"}\"}\"} ${y}\n  \"\"\""),
+            Ok(vec![
+                Tok::StrStart("".into()),
+                Tok::StrStart("".into()),
+                Tok::Str("}".into()),
+                Tok::StrEnd("".into()),
+                Tok::StrMid(" ".into()),
+                Tok::Lower("y".into()),
+                Tok::StrEnd("\n".into()),
+            ])
+        );
+        // A name ending in `'` doesn't start a character.
+        assert_eq!(
+            tokens("\"\"\"\n  ${x'} ${y}\n  \"\"\""),
+            Ok(vec![
+                Tok::StrStart("".into()),
+                Tok::Lower("x'".into()),
+                Tok::StrMid(" ".into()),
+                Tok::Lower("y".into()),
+                Tok::StrEnd("\n".into()),
+            ])
+        );
+    }
+
+    #[test]
+    fn text_block_interpolation_errors_instead_of_panicking() {
+        for bad in [
+            // A comment runs to the end of the line, taking the `}`.
+            "\"\"\"\n  ${x -- }\n  \"\"\"",
+            // A `"""` text can't be in a one-line `${…}`.
+            "\"\"\"\n  ${\"\"\"\n  x\n  \"\"\"}\n  \"\"\"",
+            // Unclosed at the end of the file.
+            "\"\"\"\n  ${x",
+            "\"\"\"\n  ${\"${x",
+            // A one-line text inside, unclosed.
+            "\"\"\"\n  ${\"a}\n  \"\"\"",
+        ] {
+            assert_eq!(tokens(bad), Err("E-PARSE"), "{bad:?}");
+        }
+        assert!(
+            failure("\"\"\"\n  ${\"\"\"\n  x\n  \"\"\"}\n  \"\"\"")
+                .message
+                .contains("stays on one line")
+        );
+    }
+
+    // F6: a character that shows as nothing, or as a plain space, is named.
+    #[test]
+    fn invisible_characters_are_named() {
+        for (text, shown) in [
+            ("a\u{00A0}b", "U+00A0 NO-BREAK SPACE"),
+            ("a\u{200B}b", "U+200B ZERO WIDTH SPACE"),
+            ("a\u{2028}b", "U+2028 LINE SEPARATOR"),
+            ("\u{FEFF}def x := 1", "U+FEFF ZERO WIDTH NO-BREAK SPACE"),
+            ("a\u{202E}b", "U+202E"),
+            ("a\u{0B}b", "U+000B"),
+            ("a\u{85}b", "U+0085"),
+        ] {
+            let d = failure(text);
+            assert_eq!(d.code, "E-PARSE");
+            assert!(
+                d.message
+                    .starts_with(&format!("unexpected character {shown}")),
+                "{text:?}: {}",
+                d.message
+            );
+            assert!(!d.message.contains('`'), "{text:?}: {}", d.message);
+        }
+        assert!(failure("a\u{00A0}b").notes[0].contains("plain space"));
+        assert_eq!(failure("a ∀ b").message, "unexpected character `∀`");
+        assert_eq!(failure("a # b").message, "unexpected character `#`");
     }
 
     #[test]
