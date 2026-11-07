@@ -13925,16 +13925,16 @@
     {
       "id": 1760,
       "title": "test:affected follow-ups: refresh the test inventory after merges that add tests; map std files to the examples/AoC days that use them; dev/selector-log.tsv is tracked, so lanes that run test:selected dirty it (git-ignore or log in main only)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1760",
       "labels": [
         "tooling"
       ],
       "epic": "dev-loop-speed",
       "body": "From SW-1752, 6 Nov 2026.\n\nAlso: test:selected runs under the merge tier's 4 GB memguard, so a selection that includes several cold lsp features tests gets SIGTERMed (SW-1741's verifier, 6 Nov 23:49). The selector should know heavy tests' memory, or test:selected should get a higher cap. And dev/selector-log.tsv now merges by union (.gitattributes).",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
