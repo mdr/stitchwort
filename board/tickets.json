@@ -14300,9 +14300,9 @@
     {
       "id": 1785,
       "title": "Bounded readback note: add stage 1b's 'left unfolded' list (field_type, move_to, the mentions tests, families/rows/rewrite round trips) to the stage 1 text, so a later stage doesn't fold them (SW-1784)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-1785",
       "labels": [
         "docs"
       ],
