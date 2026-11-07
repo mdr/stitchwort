@@ -1,5 +1,5 @@
 {
-  "next": 2222,
+  "next": 2230,
   "tickets": [
     {
       "id": 47,
@@ -20801,14 +20801,14 @@
     {
       "id": 2219,
       "title": "[Opus] Read-only review of the trip-journal example project (examples/projects/accept/trip-journal, SW-996): is it sensible, up to current standards (domain records, call-site style, operators, bracket lists, clause lambdas, comment style), and does it use features added since 1 Nov (record eta, decreasing without names, match found:, maps of sets, the std lemmas moved from AoC, std renames coming); what could be simpler; the 14 audit warnings; the open 'where an item lands in a moved leg' theorem",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2219",
       "labels": [
         "review"
       ],
       "epic": "docs-tutorials",
-      "body": "Matt, 7 Nov 2026: 'Is it worth a bit of an opus review of that code to make sure it's sensible and up to date with our current standards and taking advantage of all the features we've added since it was first written?' Status 7 Nov: checks (4 namespaces), 19/19 tests, audit 187 theorems 0 failed 14 with warnings; the_trip_journal_checks runs in every tier. docs/reviews/SW-N-trip-journal.md. 60 min.",
+      "body": "Matt, 7 Nov 2026: 'Is it worth a bit of an opus review of that code to make sure it's sensible and up to date with our current standards and taking advantage of all the features we've added since it was first written?' Status 7 Nov: checks (4 namespaces), 19/19 tests, audit 187 theorems 0 failed 14 with warnings; the_trip_journal_checks runs in every tier. docs/reviews/SW-N-trip-journal.md. 60 min.\n\nDone, merged: docs/reviews/SW-2219-trip-journal.md. Two merge bugs on well-formed trips (stop relinked by position; shared pin lost), no stated theorem broken. Missing headline: syncing again changes nothing. ~200 of 1,558 lines saveable (record eta, operators, .id, implicits, named entry lists). 14 audit warnings: none a real narrow hypothesis. Still the only test of Float sums of unknowns in proofs. Lanes SW-2222-SW-2229. D3220 to Matt; D3221 design note first (orchestrator's call).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20839,6 +20839,126 @@
       ],
       "epic": "proof-automation",
       "body": "From docs/reviews/SW-2208-decreasing-match-fact.md. Can run with SW-2165. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2222,
+      "title": "[Sonnet] Trip journal L1: fix two merge bugs: a planned stop can be relinked to a different place (stops point by list position, and merging reorders the plan); a pin both devices have is lost when the remote position no longer fits the merged leg. Also: a stop clamped to a shortened leg's end drifts into the next leg on later syncs; repros in the review",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proofs"
+      ],
+      "epic": "docs-tutorials",
+      "body": "From docs/reviews/SW-2219-trip-journal.md, lane L1. Waits on D3220. 90 min. Tests: the project's check, test and audit Trip; the_trip_journal_checks; hash_stability::projects.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2223,
+      "title": "[Sonnet] Trip journal L2: style refresh 1: record eta (lemmas become rfl, mergeSelf's 22-line calc one rewrite), operators (Float.leq a b -> a <= b, 40 sites), .id for leg => leg.id (~115), implicit parameters (D2422), List.decSorted, drop the one-line Ord aliases; fix the stale 'no eta rule' comment",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "refactor"
+      ],
+      "epic": "docs-tutorials",
+      "body": "From docs/reviews/SW-2219-trip-journal.md, lane L2, after SW-2222. Keep the Float sums of unknowns under binders (SW-1744's shape). 60 min. Tests: the project's check, test and audit Trip; the_trip_journal_checks; hash_stability::projects.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2224,
+      "title": "[Sonnet] Trip journal L3: style refresh 2: name the merge's entry lists once in Merge.sw instead of restating them 68 times in the proofs; free functions as methods; clamp with named arguments",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "refactor"
+      ],
+      "epic": "docs-tutorials",
+      "body": "From docs/reviews/SW-2219-trip-journal.md, lane L3, after SW-2223. 75 min. Tests: the project's check, test and audit Trip; the_trip_journal_checks; hash_stability::projects.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2225,
+      "title": "[Sonnet] Trip journal L4: the missing kept theorems (local legs and pins kept, the kept leg has the most points, the plan's places kept); README fixes (stops and albums land in the trip, not proved in their own leg; nothing is deleted; the merge isn't symmetric; why stops follow local and pins remote); make the 4 ill-formed fixtures well-formed",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proofs"
+      ],
+      "epic": "docs-tutorials",
+      "body": "From docs/reviews/SW-2219-trip-journal.md, lane L4, after SW-2222. 60 min. Tests: the project's check, test and audit Trip; the_trip_journal_checks; hash_stability::projects.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2226,
+      "title": "[Opus] Trip journal L5: the headline theorem, syncing again changes nothing: merge l (merge l r) = merge l r for well-formed trips",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proofs"
+      ],
+      "epic": "docs-tutorials",
+      "body": "From docs/reviews/SW-2219-trip-journal.md, lane L5, after SW-2222; waits on D3220. 90 min. Tests: the project's check, test and audit Trip; the_trip_journal_checks; hash_stability::projects.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2227,
+      "title": "[Opus] Std: + and - are monotone on finite doubles (from the rounding lemmas); then the trip journal's items keep their order within a moved leg (SW-996's open theorem)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proofs"
+      ],
+      "epic": "std-library",
+      "body": "From docs/reviews/SW-2219-trip-journal.md, lane L6. 90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2228,
+      "title": "[Sonnet] Std: Bool.ifSelf; a decision for List.All (from the trip-journal review)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "epic": "std-library",
+      "body": "From docs/reviews/SW-2219-trip-journal.md. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2229,
+      "title": "[Opus] Design note: should the audit stop warning about a theorem that checked code applies to concrete arguments (as Tests.extendedPinKept does)? That's a proved instance, not a random one (D2357)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "epic": "audit-fuzzing",
+      "body": "From docs/reviews/SW-2219-trip-journal.md. D3221: design note first (orchestrator's call). Read-only. 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
