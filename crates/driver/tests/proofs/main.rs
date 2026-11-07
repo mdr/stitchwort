@@ -5,6 +5,7 @@ mod conv_shortcut;
 mod counterexamples;
 mod decision_search;
 mod decreasing_fallback;
+mod decreasing_twins;
 mod differential;
 mod eta_fields;
 mod eta_hold;

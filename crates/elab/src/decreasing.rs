@@ -61,9 +61,10 @@ pub(crate) const REC: &str = "%rec";
 pub(crate) const FOUND: &str = "%found";
 
 /// Whether a `match` with alternatives `alts` is in a `decreasing` body and
-/// an alternative may call the definition: by name, as a function or a dot
-/// call, which is enough to give the `match` its equation (an unused one
-/// costs nothing, since `f.unfold` leaves it out).
+/// an alternative may call the definition, in its guard or its body: by
+/// name, as a function or a dot call, which is enough to give the `match`
+/// its equation (an unused one costs nothing: the lifted helper captures
+/// only what it uses, so it never takes the equation).
 pub(crate) fn arms_call_itself(cx: &Ctx, alts: &[ast::Alt]) -> bool {
     let Some(target) = cx.e.decl.decreasing.borrow().as_ref().map(|a| a.target) else {
         return false;
@@ -72,14 +73,14 @@ pub(crate) fn arms_call_itself(cx: &Ctx, alts: &[ast::Alt]) -> bool {
     let full = g.def(target).name().to_string();
     let last = full.rsplit('.').next().unwrap_or(&full);
     let last_of = |text: &str| text.rsplit('.').next() == Some(last);
-    alts.iter().any(|alt| {
-        crate::module::free_names_of(&alt.body)
-            .iter()
-            .any(|r| match r {
-                crate::module::Ref::Name(n) => last_of(&n.text),
-                crate::module::Ref::Dot(_, method, _) => method == last,
-            })
-    })
+    let calls = |e: &Expr| {
+        crate::module::free_names_of(e).iter().any(|r| match r {
+            crate::module::Ref::Name(n) => last_of(&n.text),
+            crate::module::Ref::Dot(_, method, _) => method == last,
+        })
+    };
+    alts.iter()
+        .any(|alt| alt.guard.as_ref().is_some_and(|g| calls(&g.cond)) || calls(&alt.body))
 }
 
 /// The name of the auto parameter a recursive call's proof is passed as:
@@ -1462,10 +1463,15 @@ impl Elaborator {
         }
         let tagged = self.settle_tagged_keeping(lam, true)?;
         let stripped = self.settle_tagged(&tagged)?;
-        if !same_term(&stripped, &tagged)
-            && let Some(active) = self.decl.decreasing.borrow().as_ref()
-        {
-            active.tagged_helpers.borrow_mut().insert(id, tagged);
+        if let Some(active) = self.decl.decreasing.borrow().as_ref() {
+            // Exact for `id`'s latest body: a kernel rewind can give the id
+            // to another helper, whose record mustn't be the first's.
+            let mut records = active.tagged_helpers.borrow_mut();
+            if same_term(&stripped, &tagged) {
+                records.remove(&id);
+            } else {
+                records.insert(id, tagged);
+            }
         }
         Ok(stripped)
     }

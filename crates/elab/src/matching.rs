@@ -465,7 +465,8 @@ fn lifted(
     // elaborated, to be generalised.
     let mut columns = Vec::new();
     let mut exprs: Vec<Scrut> = Vec::new();
-    let calls_itself = crate::decreasing::arms_call_itself(cx, alts);
+    // Read only for an expression scrutinee with no name: it walks every arm.
+    let mut calls_itself = None;
     for s in scrutinees {
         if let Some(level) = variable(cx, s) {
             let Expr::Var(x) = &s.expr else {
@@ -532,10 +533,15 @@ fn lifted(
         // whether or not it is named, for its decrease proof; `f.unfold`
         // shows the `match` without it (`decreasing/plain.rs`).
         let name = match &s.name {
-            None if calls_itself && alias.is_none() => Some(ast::Name {
-                text: crate::decreasing::FOUND.into(),
-                span: s.expr.span(),
-            }),
+            None if alias.is_none()
+                && *calls_itself
+                    .get_or_insert_with(|| crate::decreasing::arms_call_itself(cx, alts)) =>
+            {
+                Some(ast::Name {
+                    text: crate::decreasing::FOUND.into(),
+                    span: s.expr.span(),
+                })
+            }
             name => name.clone(),
         };
         columns.push(Column::Expr(exprs.len()));
