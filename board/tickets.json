@@ -16237,14 +16237,14 @@
     {
       "id": 1914,
       "title": "[Opus] Stuck field calls re-run through unfold_folded and the unfolded read-back (19,261 times in 2020 day 20 Proofs, mostly Parse.State.at): keep the call's cache on them or memoise (core review F1/F12)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1914",
       "labels": [
         "kernel"
       ],
       "epic": "elaborator-kernel",
-      "body": "SW-1829 confirmed the lead but it wasn't the regression; costs little today. Supersedes SW-1884's 'likely cause' framing.\n\nFrom docs/reviews/record-eta-as-merged.md: confirmed still in the code (value.rs:2237, 2614): conversion and the unfolded read-back re-run a stuck field call's base call once per field, the last instance of SW-1829's 2^n shape.\n\nFrom docs/proposals/match-call-field.md: option (b) would make D2992's general form (keep (cave.tiled).level position) cheap.",
+      "body": "SW-1829 confirmed the lead but it wasn't the regression; costs little today. Supersedes SW-1884's 'likely cause' framing.\n\nFrom docs/reviews/record-eta-as-merged.md: confirmed still in the code (value.rs:2237, 2614): conversion and the unfolded read-back re-run a stuck field call's base call once per field, the last instance of SW-1829's 2^n shape.\n\nFrom docs/proposals/match-call-field.md: option (b) would make D2992's general form (keep (cave.tiled).level position) cheap.\n\n7 Nov: design first, read-only Opus lane: docs/proposals/stuck-field-calls.md.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
