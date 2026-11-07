@@ -1,5 +1,5 @@
 {
-  "next": 2080,
+  "next": 2081,
   "tickets": [
     {
       "id": 47,
@@ -18674,6 +18674,21 @@
       ],
       "epic": "record-eta",
       "body": "From docs/reviews/record-eta-as-merged.md. 20 min. Absorbs SW-1643's §6.4 item.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2080,
+      "title": "[Opus] Fresh-eyes review of today's three merges: SW-1885 (pin table in core), SW-1916 (lexer ${…} scan), SW-1820 (search worker recovery)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2080",
+      "labels": [
+        "review"
+      ],
+      "epic": "test-infra",
+      "body": "Matt (7 Nov 2026): spare capacity, no-build Opus lanes. Expected: 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
