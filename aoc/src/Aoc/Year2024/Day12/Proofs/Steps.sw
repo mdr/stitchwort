@@ -16,17 +16,7 @@ def Orthogonal (from: Position) (to: Position): Prop :=
 theorem eqTrue [x: Nat] [y: Nat] (same: x = y): (x == y) = True := rewrite same in DecEq.refl y
 
 theorem orthogonalIntro (from: Position) (to: Position) (orthogonal: Orthogonal from to): isOrthogonalStep from to = True :=
-  match orthogonal with
-    | Inl (Both rows columns) =>
-      Bool.orLeft (Bool.andIntro (eqTrue rows)
-        (match columns with
-          | Inl right => Bool.orLeft (eqTrue right)
-          | Inr left => Bool.orRight (eqTrue left)))
-    | Inr (Both columns rows) =>
-      Bool.orRight (Bool.andIntro (eqTrue columns)
-        (match rows with
-          | Inl down => Bool.orLeft (eqTrue down)
-          | Inr up => Bool.orRight (eqTrue up)))
+  omega
 
 theorem orthogonalElim (from: Position) (to: Position) (step: isOrthogonalStep from to = True): Orthogonal from to :=
   Bool.orElim step

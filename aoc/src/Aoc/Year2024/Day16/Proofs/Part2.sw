@@ -84,8 +84,7 @@ theorem movesWalkBack (maze: Maze): (reindeer: Reindeer) → maze.holds reindeer
                 Graph.costAppend path [(reindeer, way.points)],
                 Graph.costCons reindeer way.points [],
                 Graph.costNil [s := Reindeer],
-                scoreCons way rest,
-                And.right both
+                scoreCons way rest
               ])))
 
 --| Moves from an open tile to the end score at least the search back's

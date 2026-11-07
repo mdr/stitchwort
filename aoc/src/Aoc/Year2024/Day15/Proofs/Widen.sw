@@ -35,7 +35,7 @@ theorem sameTile (position: Cell) (other: Cell) (cell: Cell) (half: cell ∈ cel
     position = other :=
   let here := cellOfWide position cell half
   let there := cellOfWide other cell otherHalf
-  offsetExt position other (omega [And.left here, And.left there]) (omega [And.right here, And.right there])
+  offsetExt position other (omega) (omega)
 
 --| Widening keeps everything apart.
 theorem widenSeparate (warehouse: Warehouse) (separate: Separate warehouse): WideSeparate warehouse.widen :=
