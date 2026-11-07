@@ -103,4 +103,4 @@ Take these in order, once the speed queue above is empty or blocked.
 - 02:34: SW-1778 merged; merge tier 1148/1148 in 78 s.
 - 02:40: measured SW-1776: clean build 164 → 144 s, CPU -134 s. D2565 stands.
 - 02:40: SW-1748 (stage 1b, Opus) started. SW-1742 (mimalloc) and SW-1735 (kache) wait for an idle machine: run them when lanes stop (from 90% or near 8am).
-- 02:54: SW-1743 not merged: its fix is a choosing cap, against D2543; back to backlog for stage 4. Filed .
+- 02:54: SW-1743 not merged: its fix is a choosing cap, against D2543; back to backlog for stage 4. Filed SW-1779.
