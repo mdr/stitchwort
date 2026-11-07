@@ -1,5 +1,5 @@
 {
-  "next": 2279,
+  "next": 2280,
   "tickets": [
     {
       "id": 47,
@@ -21611,14 +21611,14 @@
     {
       "id": 2273,
       "title": "[Sonnet] SW-2272 F1/F2/F3: unify.rs:1627 checks for unknowns explicitly (or debug_assert) before remembering different; tests that a pair with an unknown found different then equal after a sibling solves it, and that conv inside an open unification records nothing; core.md: the tree memo is separate from CallMemo",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2273",
       "labels": [
         "tests"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/SW-2272-different-memo.md. Step 1 (~15 min): F1 and F3. Step 2 (~20 min): F2's tests.",
+      "body": "From docs/reviews/SW-2272-different-memo.md. Step 1 (~15 min): F1 and F3. Step 2 (~20 min): F2's tests.\n\nDone, merged. F1, F3, F2's unit test; the end-to-end test -> SW-2279. On main: memo unit test, proof_equivalence, nested_stuck_calls pass. Model result: Sonnet, worked, 15 min (est. 20).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21641,9 +21641,9 @@
     {
       "id": 2275,
       "title": "[Sonnet] SW-2274 F1/F4: library equations made on demand (in_library_file, library.rs:1381) set the glue switch like std loading, so search, doc and STITCHWORT_GLUE=0 get the same equation as a proof; a hash test (search vs proof); fix four stale comments (proof_equivalence.rs:1284, options.rs:30-36, lib.rs:665, lib.rs:912)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2275",
       "labels": [
         "core"
       ],
@@ -21694,6 +21694,21 @@
       ],
       "epic": "audit-fuzzing",
       "body": "Read-only. The fuzzer is a trust tool. 15 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2279,
+      "title": "[Sonnet] Test: a pair mentioning an unknown found different, then equal after a sibling solves it, within one comparison (guards SW-2273's explicit check)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-2273. 20 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
