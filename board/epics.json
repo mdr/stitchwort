@@ -320,10 +320,12 @@
         "std, aoc and the roguelike sorted into doc comments and notes (SW-1024, SW-1037)",
         "Commenting rule in two regimes (SW-1099)",
         "Guide and feature tour brought up to date (SW-1105, SW-1331)",
-        "Tutorial part 1: a .sw file that teaches theorem proving, checked in tests (SW-1666, SW-1673)"
+        "Tutorial part 1: a .sw file that teaches theorem proving, checked in tests (SW-1666, SW-1673)",
+        "Guide accuracy audit (SW-1850)"
       ],
       "now": [],
       "next": [
+        "Guide accuracy: eight wrong passages and the missing record eta, @[tailrec], tests, holes and Float coverage (docs/reviews/SW-1850-guide-accuracy.md; SW-1854 to SW-1864; D2635, D2636)",
         "Make the guide and syntax.md agree on record literals (SW-1616), and add the rewrite h at h idiom to the proving guide (SW-1546)",
         "Tutorial part 2, and a feature-tour page for each new language feature",
         "stitchwort doc lists generated T.ext and f.eq.* declarations properly (SW-1487, SW-1497); point the array copy note at the guide (SW-1671)"
