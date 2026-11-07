@@ -1,5 +1,5 @@
 {
-  "next": 2283,
+  "next": 2284,
   "tickets": [
     {
       "id": 47,
@@ -20823,7 +20823,7 @@
         "core"
       ],
       "epic": "proof-automation",
-      "body": "From docs/reviews/SW-2208-decreasing-match-fact.md. After SW-2164. 45 min.\n\nDone, merged. F1 (dead_lets after post), F4 (name check reads guards), F6 (exact map, guard kept), F7 (twins only of lifted matches), F8 (lazy name check). New decreasing_twins tests (each fails without its fix). Lane: AoC 287/0 errors, no fallback, 102 s; rogue clean. On main: decreasing_twins, fallback, goal_index, hash_stability 20/20; decreasing examples 12/12. Open: F8's unused twins under a lambda; abandoned-and-retried lifted helpers still in tables.lifted. Model result: Opus, worked, 25 min (est. 45).",
+      "body": "From docs/reviews/SW-2208-decreasing-match-fact.md. After SW-2164. 45 min.\n\nDone, merged. F1 (dead_lets after post), F4 (name check reads guards), F6 (exact map, guard kept), F7 (twins only of lifted matches), F8 (lazy name check). New decreasing_twins tests (each fails without its fix). Lane: AoC 287/0 errors, no fallback, 102 s; rogue clean. On main: decreasing_twins, fallback, goal_index, hash_stability 20/20; decreasing examples 12/12. Open: F8's unused twins under a lambda; abandoned-and-retried lifted helpers still in tables.lifted. Model result: Opus, worked, 25 min (est. 45).\n\nReview SW-2281: sound; SW-2283.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21731,14 +21731,14 @@
     {
       "id": 2281,
       "title": "[Opus] Review SW-2220 (decreasing stage 2 fixes: dead lets after post, guard calls get equations, exact stale-record map, twins only of lifted matches, lazy name check): generates kernel terms (D2364)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2281",
       "labels": [
         "review"
       ],
       "epic": "proof-automation",
-      "body": "Read-only. 15 min.",
+      "body": "Read-only. 15 min.\n\nDone, merged: docs/reviews/SW-2281-decreasing-stage2-fixes.md. Sound (everything kernel-checked; a mistake gives W-DECREASING-UNFOLD, never a wrong theorem). R1-R5 low -> SW-2283.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21754,6 +21754,21 @@
       ],
       "epic": "performance",
       "body": "From SW-2257. 20 min. Best on Overmind or a quiet Speedwell.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2283,
+      "title": "[Sonnet] SW-2281 R1-R5: no twins for helpers left by a retried attempt; debug_assert that rewind_globals lifts no match; make the F6 fallback loud in checked builds; a theorem stating countGuard.unfold's shape; update twin()'s comment and stop its per-helper search of tables.lifted",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "proof-automation",
+      "body": "From docs/reviews/SW-2281-decreasing-stage2-fixes.md. Step 1 (~15 min): R2, R3, R4, R5. Step 2 (~20 min): R1. Test: decreasing_twins, decreasing examples.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
