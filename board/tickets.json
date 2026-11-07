@@ -20231,9 +20231,9 @@
     {
       "id": 2181,
       "title": "[Sonnet] Tier telemetry: time each step of test:daily/test:full/test:merge (web:pkg, fmt, lanes-nonempty, clippy, the builtins build and run, nextest, doctests, board) and the build vs run split, and write a summary after each run (steps, slowest tests from junit.xml, tests grouped by binary/area, wall vs sum of test times, peak memory) to target/tier-report/<tier>.md; keep history so runs can be compared",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2181",
       "labels": [
         "tests"
       ],
