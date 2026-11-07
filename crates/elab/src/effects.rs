@@ -182,7 +182,7 @@ fn def(cx: &Ctx, b: Builtin) -> Result<DefId> {
 fn call(cx: &Ctx, b: Builtin, implicits: &[Value], explicits: Vec<Term>) -> Result<Term> {
     let mut term = Term::Def(def(cx, b)?);
     for v in implicits {
-        term = Term::app_icit(term, cx.quote(v)?, Icit::Implicit);
+        term = Term::app_icit(term, cx.quote_folded(v)?, Icit::Implicit);
     }
     for t in explicits {
         term = Term::app(term, t);
@@ -1121,7 +1121,7 @@ fn lift(cx: &mut Ctx, term: Term, from: Row, to: &Row, t: &Value) -> Result<Term
                 cx,
                 Builtin::LiftD,
                 std::slice::from_ref(t),
-                vec![cx.quote(&dt)?, cx.quote(&rv)?, moved],
+                vec![cx.quote_folded(&dt)?, cx.quote_folded(&rv)?, moved],
             )
         }
         (Some(df), None) => {
@@ -1135,7 +1135,7 @@ fn lift(cx: &mut Ctx, term: Term, from: Row, to: &Row, t: &Value) -> Result<Term
                 cx,
                 Builtin::DelayD,
                 std::slice::from_ref(t),
-                vec![cx.quote(&df)?, cx.quote(&rv)?, term],
+                vec![cx.quote_folded(&df)?, cx.quote_folded(&rv)?, term],
             )?;
             let partial = Row {
                 partial: true,
@@ -1174,7 +1174,13 @@ fn lift(cx: &mut Ctx, term: Term, from: Row, to: &Row, t: &Value) -> Result<Term
                 cx,
                 Builtin::TranslateD,
                 std::slice::from_ref(t),
-                vec![cx.quote(&df)?, cx.quote(&rf)?, cx.quote(&rt)?, m, term],
+                vec![
+                    cx.quote_folded(&df)?,
+                    cx.quote_folded(&rf)?,
+                    cx.quote_folded(&rt)?,
+                    m,
+                    term,
+                ],
             )
         }
     }
@@ -1295,7 +1301,7 @@ fn lift_plain(cx: &mut Ctx, term: Term, from: Row, to: &Row, t: &Value) -> Resul
                 cx,
                 Builtin::LiftIn,
                 std::slice::from_ref(t),
-                vec![cx.quote(tail)?, term],
+                vec![cx.quote_folded(tail)?, term],
             )?;
         }
         // Otherwise `f` is a row with abilities, so `CompIn f t` is that
@@ -1322,7 +1328,7 @@ fn lift_plain(cx: &mut Ctx, term: Term, from: Row, to: &Row, t: &Value) -> Resul
         // leaves no trace then (docs/proposals/delayed-translate.md).
         let m = mapping(cx, &from, to)?;
         let tail = to.tail.as_ref().expect("checked above");
-        widen(cx, &from, t, cx.quote(tail)?, m, term)?
+        widen(cx, &from, t, cx.quote_folded(tail)?, m, term)?
     } else {
         let m = mapping(cx, &from, to)?;
         call(
@@ -1357,7 +1363,7 @@ fn lift_plain(cx: &mut Ctx, term: Term, from: Row, to: &Row, t: &Value) -> Resul
             cx,
             Builtin::LowerIn,
             std::slice::from_ref(t),
-            vec![cx.quote(tail)?, moved],
+            vec![cx.quote_folded(tail)?, moved],
         );
     }
     Ok(moved)
@@ -1395,7 +1401,7 @@ fn res_ending(cx: &Ctx, labels: &[Label], end_ops: Value, end_res: Value) -> Res
 fn widen(cx: &Ctx, from: &Row, t: &Value, tail: Term, m: Term, term: Term) -> Result<Term> {
     let level = cx.level();
     let quote_at =
-        |depth: usize, v: &Value| stitchwort_core::value::quote(&cx.g(), level + depth, v);
+        |depth: usize, v: &Value| stitchwort_core::value::quote_folded(&cx.g(), level + depth, v);
     // `t => Plus A (Plus B … t)`.
     let pre_body = ops_ending(cx, &from.labels, Value::var(level))?;
     let pre = Term::Lam("t".into(), Icit::Explicit, Rc::new(quote_at(1, &pre_body)?));
@@ -1428,12 +1434,17 @@ fn bind_term(cx: &Ctx, row: &Row, a: Value, b: Value, c: Term, next: Term) -> Re
             cx,
             Builtin::BindDv,
             &[a, b],
-            vec![cx.quote(d)?, cx.quote(&rv)?, c, next],
+            vec![cx.quote_folded(d)?, cx.quote_folded(&rv)?, c, next],
         );
     }
     if row.is_bare() {
         let tail = row.tail.as_ref().expect("a bare row has a tail");
-        return call(cx, Builtin::BindIn, &[a, b], vec![cx.quote(tail)?, c, next]);
+        return call(
+            cx,
+            Builtin::BindIn,
+            &[a, b],
+            vec![cx.quote_folded(tail)?, c, next],
+        );
     }
     let name = if row.partial {
         Builtin::BindD
@@ -1454,7 +1465,7 @@ fn refresh(cx: &Ctx, row: &Row) -> Result<Row> {
     if row.tail.is_none() {
         return Ok(row);
     }
-    let ty = cx.eval(&cx.quote(&ops(cx, &row)?)?)?;
+    let ty = cx.eval(&cx.quote_folded(&ops(cx, &row)?)?)?;
     Ok(match decode(cx, &ty)? {
         Some(fresh) => Row {
             partial: row.partial,
@@ -1578,7 +1589,7 @@ pub fn settle_let_lambda(cx: &Ctx, value: &Expr, ty: Value) -> Result<Value> {
     // The row is made outside the parameters, so it's settled where the
     // lambda stands.
     crate::rows::settling_empty(cx, || settle_empty_at(cx, level, &rest))?;
-    cx.eval(&cx.quote(&ty)?)
+    cx.eval(&cx.quote_folded(&ty)?)
 }
 
 /// Closes `row`, the row a lambda's body worked out, if it has abilities
@@ -1831,7 +1842,7 @@ pub fn effect_type(
             "this is in a larger universe, or a proposition",
         ));
     }
-    Ok((cx.quote(&ty)?, stitchwort_core::Sort::Type(0)))
+    Ok((cx.quote_folded(&ty)?, stitchwort_core::Sort::Type(0)))
 }
 
 /// `State s` in a row.
@@ -2581,7 +2592,7 @@ fn done(cx: &Ctx, row: &Row, t: &Value, v: Term) -> Result<Term> {
             cx,
             Builtin::DoneD,
             std::slice::from_ref(t),
-            vec![cx.quote(d)?, cx.quote(&rv)?, v],
+            vec![cx.quote_folded(d)?, cx.quote_folded(&rv)?, v],
         );
     }
     if row.is_bare() {
@@ -2590,7 +2601,7 @@ fn done(cx: &Ctx, row: &Row, t: &Value, v: Term) -> Result<Term> {
             cx,
             Builtin::DoneIn,
             std::slice::from_ref(t),
-            vec![cx.quote(tail)?, v],
+            vec![cx.quote_folded(tail)?, v],
         );
     }
     if row.partial {
@@ -2604,7 +2615,7 @@ fn done(cx: &Ctx, row: &Row, t: &Value, v: Term) -> Result<Term> {
     let ty = comp_type(cx, row, t.clone())?;
     Ok(Term::Ann(
         Rc::new(Term::ctor(data(cx, Builtin::Comp)?, 0, vec![v])),
-        Rc::new(cx.quote(&ty)?),
+        Rc::new(cx.quote_folded(&ty)?),
     ))
 }
 
@@ -3615,7 +3626,7 @@ fn comp_app(
         ty
     } else {
         settle_empty(cx, &ty)?;
-        cx.eval(&cx.quote(&ty)?)?
+        cx.eval(&cx.quote_folded(&ty)?)?
     };
     let mut written = None;
     let (result, result_ty) = match comp_parts(cx, &ty)? {
@@ -4526,7 +4537,7 @@ fn make_call(
         injected = Term::ctor(plus, 1, vec![injected]);
     }
     let comp = comp_type(cx, &row.total(), result_ty.clone())?;
-    let comp_inner = stitchwort_core::value::quote(&cx.g(), cx.level() + 1, &comp)?;
+    let comp_inner = stitchwort_core::value::quote_folded(&cx.g(), cx.level() + 1, &comp)?;
     let done = Term::Ann(
         Rc::new(Term::ctor(data(cx, Builtin::Comp)?, 0, vec![Term::Var(0)])),
         Rc::new(comp_inner),
@@ -4538,7 +4549,7 @@ fn make_call(
             1,
             vec![injected, rest],
         )),
-        Rc::new(cx.quote(&comp)?),
+        Rc::new(cx.quote_folded(&comp)?),
     );
     let row = &settle_div(cx, row.clone())?;
     if let Some(d) = &row.div {
@@ -4549,7 +4560,7 @@ fn make_call(
             cx,
             Builtin::LiftD,
             std::slice::from_ref(&result_ty),
-            vec![cx.quote(d)?, cx.quote(&rv)?, op_call],
+            vec![cx.quote_folded(d)?, cx.quote_folded(&rv)?, op_call],
         )?;
         return Ok((lifted, result_ty));
     }
@@ -4588,13 +4599,13 @@ pub fn op_value(cx: &mut Ctx, a: usize, i: usize) -> Result<(Term, Value)> {
     let mark = cx.mark();
     cx.bind_hidden("x".into(), dom.clone());
     let result = make_call(cx, op_data, i, &label, 0, &row, Term::Var(0));
-    let cod = result.and_then(|(call, b)| Ok((call, cx.quote(&comp_type(cx, &row, b)?)?)));
+    let cod = result.and_then(|(call, b)| Ok((call, cx.quote_folded(&comp_type(cx, &row, b)?)?)));
     cx.reset(mark);
     let (call, cod) = cod?;
     let ty = Term::Pi(
         "x".into(),
         Icit::Explicit,
-        Rc::new(cx.quote(&dom)?),
+        Rc::new(cx.quote_folded(&dom)?),
         Rc::new(cod),
     );
     let ty = cx.eval(&ty)?;
@@ -4853,9 +4864,9 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
     // op x => k -> …, for each operation in order.
     let mut elim_term = Term::Def(elim);
     for v in &handled.args {
-        elim_term = Term::app_icit(elim_term, cx.quote(v)?, Icit::Implicit);
+        elim_term = Term::app_icit(elim_term, cx.quote_folded(v)?, Icit::Implicit);
     }
-    elim_term = Term::app_icit(elim_term, cx.quote(&r)?, Icit::Implicit);
+    elim_term = Term::app_icit(elim_term, cx.quote_folded(&r)?, Icit::Implicit);
     for (i, (_, arg, k, body)) in op_clauses.into_iter().enumerate() {
         let field_ty = cx.g().data(op_data).ctors()[i].fields[0].1.clone();
         let dom = stitchwort_core::value::eval(&cx.g(), &handled.args, &field_ty)?;
@@ -4889,7 +4900,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
             Rc::new(b),
             stitchwort_core::value::Closure {
                 env: cx.env.as_slice().into(),
-                body: Rc::new(cx.quote(&r)?.shift(&cx.g(), 1, 0)?),
+                body: Rc::new(cx.quote_folded(&r)?.shift(&cx.g(), 1, 0)?),
             },
         );
         cx.bind(&k.text, k_ty);
@@ -4924,7 +4935,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
         let with_implicits = |b: Builtin, depth: usize| -> Result<Term> {
             let mut term = Term::Def(def(cx, b)?);
             for v in [&rest_ops, &rest_res, &out_ops, &out_res] {
-                let v = stitchwort_core::value::quote(&cx.g(), level + depth, v)?;
+                let v = stitchwort_core::value::quote_folded(&cx.g(), level + depth, v)?;
                 term = Term::app_icit(term, v, Icit::Implicit);
             }
             Ok(term)
@@ -4957,8 +4968,9 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
             // `callD d out (sigInject m o) (y => k (…))`: the operation
             // performed in a row that may be partial, then the handler goes
             // on.
-            let quoted =
-                |v: &Value, depth: usize| stitchwort_core::value::quote(&cx.g(), level + depth, v);
+            let quoted = |v: &Value, depth: usize| {
+                stitchwort_core::value::quote_folded(&cx.g(), level + depth, v)
+            };
             let out_row = row_value(cx, &out.without_div())?;
             let mut call_d = Term::app_icit(
                 Term::Def(def(cx, Builtin::CallD)?),
@@ -4973,7 +4985,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
             // `bindD (lift (Call (sigInject m o) Done)) (\y -> k (…))`: the
             // carrier is a `Delay`, so the operation is performed, and then
             // the handler goes on.
-            let quoted = |v: &Value| stitchwort_core::value::quote(&cx.g(), level + 2, v);
+            let quoted = |v: &Value| stitchwort_core::value::quote_folded(&cx.g(), level + 2, v);
             let ans = Term::app(quoted(&out_res)?, inject.clone());
             let done = Term::Lam(
                 "y".into(),
@@ -4994,8 +5006,9 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
             // the handler's result is a `CompIn e t`, and an operation
             // forwarded to `{e}` is a tree.
             let tail = out.tail.as_ref().expect("bare");
-            let quoted =
-                |v: &Value, depth: usize| stitchwort_core::value::quote(&cx.g(), level + depth, v);
+            let quoted = |v: &Value, depth: usize| {
+                stitchwort_core::value::quote_folded(&cx.g(), level + depth, v)
+            };
             let lift_in = Term::app(
                 Term::app(
                     Term::app_icit(
@@ -5050,7 +5063,13 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
             cx,
             Builtin::FoldCompD,
             &[ops(cx, &inner)?, res(cx, &inner)?, t_in, t.clone()],
-            vec![cx.quote(d)?, cx.quote(&out_row)?, done_fn, step, body_c],
+            vec![
+                cx.quote_folded(d)?,
+                cx.quote_folded(&out_row)?,
+                done_fn,
+                step,
+                body_c,
+            ],
         );
     }
     if inner.partial {
@@ -5065,7 +5084,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
             t_in,
             t.clone(),
         ] {
-            fold = Term::app_icit(fold, cx.quote(&v)?, Icit::Implicit);
+            fold = Term::app_icit(fold, cx.quote_folded(&v)?, Icit::Implicit);
         }
         return Ok(Term::app(Term::app(Term::app(fold, done_fn), step), body_c));
     }

@@ -39,19 +39,19 @@ Main.atlas ba2c7c867bb4ff88189c399bc39fbe229ced43c6c479bbc38a9cf0ce1af3a780
 Main.shelf de86eb2ca710e532c899f95a229cd43db2db7dbd4bbd918efa4528696875acd0
 Main.test "find, then orAbort" 24e16140798700f96b284c5b68811fe2d676a2abcc9d3a5f0417d64309427b03
 Main.test "nothing found" 0106213401485fc4ba9eca72d4f1a4937c73dfa9f3a915514134c0aa09a8db03
-Main.test "map, head, then orAbort" c4d846da2abc4c8090e0ce318a438e6e6d978c6e9a73b9debf6be183042336fe
-Main.test "an empty shelf" 02944a43b2adc00feb57be72c07e1cdb0ce4a77258ed292f9010dd140a6643f0
-Main.test "filter, map, head, then orAbort" 5a8013820ac6d0fdccdbeb7b1d4c48435c4701f0f3cffad12d614d307126b432
-Main.test "nothing available" e94cec022a32925e01dc2e739ad6f659dcc447f26a989fc2e39dd0291f069972
+Main.test "map, head, then orAbort" a1a816cd6694e4ab09d5bb134195fc0d3a926dcfab51985bc57671a0a386139c
+Main.test "an empty shelf" 2222fa95a0dc98632dcc93471932523340f4308baa3f6509629322ba8d2b8358
+Main.test "filter, map, head, then orAbort" 84d6fb901483d5d76198dbf2a891a554c8049d521117225e8117311de02fad9a
+Main.test "nothing available" 3d4680b15d44e3e3f2f6bd0058cb3b102ca694f4abab8f627ed4dd3262e75df0
 Main.test "as a dot chain" 24e16140798700f96b284c5b68811fe2d676a2abcc9d3a5f0417d64309427b03
-Main.test "map then head as a dot chain" c4d846da2abc4c8090e0ce318a438e6e6d978c6e9a73b9debf6be183042336fe
+Main.test "map then head as a dot chain" a1a816cd6694e4ab09d5bb134195fc0d3a926dcfab51985bc57671a0a386139c
 Main.test "the same as the let form" 5ad60a8bfabf25d7121416fea94305b05d54c482f8b427f1b7a2ec213d3a408d
 Main.test "in a block" 3673265e0057900797578e52fc8f4185322dc9454f6e9fb8e3a919c566238d0d
 Main.test "in a block, nothing found" 395134652bbcc16f09796ab4b39c574f2f0d5587c42ae749f26febe76217b6ed
-Main.test "find, then orFail" a5b7a45d8df897b84e0a3066fdd232f4e6bb766639054fc2cffb282dd2157bcf
-Main.test "orFail's message" 1ed19dcb2066ec4ff25a5349b805c09f183f53207b92180c48b5c93e38551b86
-Main.test "filter and map, then orFail" cb835e5e7e4b1fee5bcf51e5e44d7b4c67f46833097d79b10db070d384e498ba
-Main.test "fold in a map, then orFail" 296b32384420af417cb1adf88cf50e0fab1e078c342039d6c8fff4a9812b0fb0
-Main.test "every shelf empty" aa5dc500289b700e471bad7a89b774e834fbee27608bbf6bdf67c1ee90209d2d
-Main.test "callback runs first, in order" 93128fa96255cb0c6252cbc0611533f929161ebddd0c2f0068cf1ecbe5abe4fb
-Main.test "callback runs for every book when none is found" e66c174ad794fe08c841ccc4a3e48fdc2794d2305100c8679a8f2b3e69152987
+Main.test "find, then orFail" 930ca48870e7d3e9b84bdbb33aed389a77a0dc07181d9f247939c675bee81e07
+Main.test "orFail's message" 800da89b20439ffd07a321ed11454a3da9eb0c099c613cd7a1ca547b4953118e
+Main.test "filter and map, then orFail" d23e5387e99c3912254c3e2c314e8ff6ebffb0823a84df2defe206667d2ccff0
+Main.test "fold in a map, then orFail" aacb1c0bbe9e56769e080faccccfd4f7d4d6028c79824d9bc3a5906fced801bb
+Main.test "every shelf empty" 62400d06eebe57a3bd6dc7327ee4c06877a178e5e60ae67ce11b63263b2c5b0b
+Main.test "callback runs first, in order" 709d453d3f5a2a550431217167e0998fd56a22befe0a4fa8fc11caa00290a51c
+Main.test "callback runs for every book when none is found" ade576b4c3a780d3f80879e3fd32d43ace22b2a12aaabdb0850cfc39fdc4f851

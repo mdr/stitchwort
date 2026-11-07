@@ -87,7 +87,7 @@ Main.corner aae46c80c2ee02b9471dad0e4b738e2b7e49922207862d47a2f65ac709fc7080
 Main.test "dot notation by name" c261cc52d933e3200394262a11d0d85d58095f056bbfa7501f51db692d0ec12c
 Main.test "dot notation with a parameter left out" c261cc52d933e3200394262a11d0d85d58095f056bbfa7501f51db692d0ec12c
 Main.test "a named section" a1dad794e201e205c461e7ac9c4f43120850557986520104528587ca624f14df
-Main.test "a section of the library" 33fe7529a39408f6080ceda52a935dbb442fd85f5f2dd5d038a4a9d159a762b3
+Main.test "a section of the library" b296eb96b51dbebe8e65027bbfb091deb8fe96dc86b4764a17933fbb74d29f56
 Main.clampValue 5e94fce589d99a86850793cec508e059f764b760ccd4d8d04c664fd5002129c4
 Main.test "a pipe fills the first parameter" f3f51cf08f531f6410d38e6e4d3fbca6e827159261f770be3d6f206a0b5f7d6e
 Main.test "a pipe after a named argument" 6aed1a9b696515a33452fb507717cc4c22f9678fb969b860322085649505f152

@@ -87,4 +87,4 @@ Main.test "not enough" dbeb2051c3ea93fa84264c92ca50b162d48081fddd18a15ab2715c7c0
 Main.test "no such bin" 1b4afb83069a173a48de8a1a7b4e69d120b80b566f800658d8a412cd2df2eecd
 Main.test "no such item" be9479deb6e59f99cab966780b6b119e7652b12f1007f0e1eddf49a2b2bf8d12
 Main.test "the bin" 3450469a586b474d9c259e051d4a356b4cd071cbb11cfb13ff4666ffc663c54a
-Main.test "a failure says why" 96c41548a5e1c11878b7cb896a091e2de14a0f38accd448413119b20abf3c1f6
+Main.test "a failure says why" 1ba7950b4e4a0c3d142920b68edacb7cc4da94bfe208df06b418fb3e36676086

@@ -612,18 +612,18 @@ Trip.Tests.test "merging a trip with itself changes nothing" 3eaa8d26f83ac6fd592
 Trip.Tests.longWalk 9f83ff1064f3c566243de2748e452ac81fd2dc081f78c929118d38e7dd8edbff
 Trip.Tests.extended 4a9ea1d2f6b6742c287de6d26b579e8c7a836721e2948d54c86b4c0326fb22b6
 Trip.Tests.localPin 4ccf24dfbae7ec16203e91ceb57d41eb8acbafffdc4b6e94084c75f79668aa9a
-Trip.Tests.test "an extended leg moves the legs after it, and what is pinned in them" 6e0706f9a7bfa428dd387ad8bf649d18e083e67e840ac0f4ca4b23f6153df0d7
-Trip.Tests.test "the ferry's points and notes move with it" 16f24f2aeedd77b62ed96945db515cd3c51ae3521b98d9110bbd062d8c80de84
+Trip.Tests.test "an extended leg moves the legs after it, and what is pinned in them" fdae631953a4e75e0a860746bf402e3b535b9db7d743d26e5f81bb2afed49c02
+Trip.Tests.test "the ferry's points and notes move with it" 12eacfb5a77c42ac2527d0ff636d3af7e3c016d1e69c3d84964beb8f166535b5
 Trip.Tests.test "a summary made from the merged legs is kept" fdb9ef2716d8c38be4ae4548901596ecc811a89ddbbf4296f9158884130f1403
 Trip.Tests.test "route notes come from the remote copy" 90065e87a0545ec2a80b01d834ff6cc17f19826aa844cf1c1a94a2950301165d
 Trip.Tests.shortFerry 547ca412f716b3d0269cc5d11a6701f0db33917dcbfafe451fece310c8bdbf5b
 Trip.Tests.shortened c4eef19d5660d4ceb214a5d40bb6664914f7c6863ee85e7d4cee747291d8b2ac
 Trip.Tests.test "a shortened leg drops the pins that no longer fit" 3740d3bd2abeaed22e5f7f3540e95c12ae23d2be070a362456e2733ca3e2c4ce
 Trip.Tests.lateStop 0cf77b4b481aa33db5431fc2fd3d3ce4dcf0e788a6dc303f74b99e50919809f5
-Trip.Tests.test "a stop past its shortened leg is clamped to the leg's end" e1d1f4bc99da1fe5b0c86693001c7d7c4aef7f8a0e5287190387085a3b69f1c8
+Trip.Tests.test "a stop past its shortened leg is clamped to the leg's end" 31299ef10488b9db531535b301b3a1806cd224b15c386909f45deaf65771d933
 Trip.Tests.movedPin e98bd9fde5f523b8bac69cd4b5fb9053cd9da25fa9e3ca3d8fe3c479c3234d68
 Trip.Tests.extraPin 9a56e5d68545a5809ac10ac3c1fb60a00991247c8181924f4e95544b7baede75
-Trip.Tests.test "pins take the remote position and are sorted by start" 482fb580b817b01295c6ba242d6166a6d521fd4bebe460b8399ac862b8046b97
+Trip.Tests.test "pins take the remote position and are sorted by start" 7f0286314002736d98428e67164ee86425ce028eda2517f93a2e8fb349bd4106
 Trip.Tests.withPhoto 2898e36cf663f858fb05b8c4c3d82c2b39d409781ee564561ef41f49f73e743e
 Trip.Tests.test "an album edited on both devices has the remote photos, then the new local ones" 29d97c713fbfd87e21a62e55c3fa82cb13e1f1e2b735b308fd00ed17ad2cd778
 Trip.Tests.movedLocally df7b79840285a92efc95ba72bb42c9436c8762438860230f1f426a8a34cdaeb4

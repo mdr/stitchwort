@@ -23,10 +23,10 @@ Main.test "readAll gives every line, each followed by LF" fee3f4b547453c27195015
 Main.test "IO.readAll is the same operation" a2e1b55c435dc8df7e6274ff8b9e702091bdd553eeee392c0bd7a5f35891c0a0
 Main.test "readAll of empty input is empty" 0480d4209c38242c0eea9d5a063f40dc3eb8c5f59a74bead5dcf55815e246987
 Main.test "an empty line is kept" 78f45d1fe58518679a66735526d3e8fcb8bc66f4187559d7438182883dfbe465
-Main.test "readAll after a readLine gives the rest" 953f7d294c279c3c50e3dc55a81fc0efc03d2ddef2c3a050a7552748e57cac71
-Main.test "readAll after the last line is empty" da91951fbb258433489a1a767736d6973ba5920a96ade4847dfea111012a6a29
-Main.test "readLine after readAll is end of input" 6176548336f70969b2c33ae94b0aaf2d4de4ee8235c25027082065ac2dd0cf02
-Main.test "a second readAll is empty" f860ddfa8c409d3ac2e5e6a7212b2d41b32bdba686bcb59dba1685a2514e5c4e
+Main.test "readAll after a readLine gives the rest" e36e714989f3b7058a4fd95326a06ba8be7171b39a4952de59da4adb789db47a
+Main.test "readAll after the last line is empty" 8ab6967f5819d09301bec88e64c6bfaf12209806240821ed7d93d954e471babb
+Main.test "readLine after readAll is end of input" 41026ab671e92a64493572b6d055427a3be596ca4be4b136b8b569235514bdec
+Main.test "a second readAll is empty" 562c8c2ef6a570e02c2aa49304bb5e266e97fa6a85fc7de18b0352bbd61dd3e0
 Main.test "lines splits on LF" d8369db6680123b1ee5c1cfd06e5555453302b0385440e0b4fc6138ca7e5ff3f
 Main.test "a trailing LF ends the last line" 4cf9a5ff5943c4412bbe709a13d3b80dee6a31c5aebf2656e934dcf706560f49
 Main.test "no trailing LF is fine" 056fe582bd81f670840f0f1ff34d7413d0f3976b4fc06370584c5c81ccfbde3f
@@ -44,7 +44,7 @@ Main.test "readAllLines is total under simulate" b939bf6239ee19c85a4702890510fe8
 Main.test "readAllLines of empty input is empty" 73ca72c8d74bdb9e2fbd854b4692d960a5547cf3352501a00f39e29c3d5ed64f
 Main.test "readAllLines keeps an empty line" f508566b3645ef3570b01fcc9c289eff6c94e06d005fcfdf35b85c91c2ccbaed
 Main.inputLines 1642eb7f0279f8f4cf5e70067d39b3a4d268edd751eecc7cc29b2243e6739e6f
-Main.test "dot notation applies to the result of a zero-argument call" 10bc08762cf28937a0482af35d7c1e4f3621071365d0a1fd6909769d56816801
+Main.test "dot notation applies to the result of a zero-argument call" 9f3928a2a2902fba80b9c90ba45abd2e5d19417e2862ac100a550ddfd769b88c
 Main.countLines cb771a7bcf02f6d36fdfa1002b8d53c3b6375a0ae2461e49d80efb5d8b62d775
 Main.lineCount 71264594b52c2c0bd40630b241e2206865f02cf799f694be3fa1a8f63e684e4e
 Main.test "a call with no space is a single argument" 599d3fd48b8ce808f2731b64f25440837df59353592e8d8b4e4d7b114dadd604
