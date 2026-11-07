@@ -14135,14 +14135,14 @@
     {
       "id": 1774,
       "title": "A test was SIGTERMed from outside nextest during SW-1734's run (rewind sweep at 10.7 s, ~01:30 7 Nov), like SW-1741's verifier: find who sends it (another lane's pkill? memguard of a different run?)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1774",
       "labels": [
         "tooling"
       ],
       "epic": "dev-loop-speed",
-      "body": "From SW-1734.\n\nLikely cause: lane agents use pkill by binary or test name to stop their own runs (SW-1769's agent did, ~01:50), which also kills other worktrees' runs of the same test binaries. Fix: a lane brief rule and a helper that kills only its own process tree (memory: process-matching).",
+      "body": "From SW-1734.\n\nLikely cause: lane agents use pkill by binary or test name to stop their own runs (SW-1769's agent did, ~01:50), which also kills other worktrees' runs of the same test binaries. Fix: a lane brief rule and a helper that kills only its own process tree (memory: process-matching).\n\nDone, merged: dev/stop-mine (absolute-path prefix <checkout>/target/, descendants, TERM then KILL; --dry-run; --tree PID refuses outside the checkout); docs/workflow.md section. Fixup on main: never matches 'stitchwort lsp'. For the morning: the CLAUDE.md lane rule (use dev/stop-mine, never pkill/killall). Until then lane briefs say so. Model result: Sonnet, worked, 5 min (est. 30).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
