@@ -391,6 +391,7 @@
       ],
       "now": [],
       "next": [
+        "In-place reuse stage 1: the copy note names its sites, then reuse columns in --profile and a measurement (SW-1809, SW-1810, SW-1811; D2273-D2277, D2590)",
         "Array follow-ups from day 15: stop copying the array on every pop, and the JS memory peak (SW-1678, SW-1679)",
         "Interpreter speed: about 6.5 ns per instruction (SW-813) and Map speed (SW-814)",
         "Language-server edit loop: re-check less than a whole file, and the memory of the per-namespace marks (SW-1382, SW-1141); later the in-place reuse plan (SW-1163)"
