@@ -8,9 +8,7 @@
 //! `SIGBUS`). Running the linked code is tested in
 //! `crates/cli/tests/build.rs`.
 
-mod common;
-
-use common::*;
+use crate::common::*;
 use object::{Object as _, ObjectSection as _, ObjectSymbol as _, RelocationFlags};
 use stitchwort_driver::driver::with_stack;
 use stitchwort_native::aot::compile_object;

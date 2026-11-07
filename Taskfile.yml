@@ -360,19 +360,19 @@ tasks:
 
   fuzz:syntax:
     desc: 'Lexer and parser fuzzer, release (task fuzz:syntax CASES=100000)'
-    summary: Runs crates/syntax/tests/fuzz.rs.
+    summary: Runs crates/syntax/tests/it/fuzz.rs.
     env:
       FUZZ_CASES: '{{.CASES}}'
     cmds:
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace --no-capture -E ''package(stitchwort-syntax) & binary(fuzz)'' {{.CLI_ARGS}}'
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace --no-capture -E ''package(stitchwort-syntax) & binary(it) & test(/^fuzz::/)'' {{.CLI_ARGS}}'
 
   fuzz:fmt:
     desc: 'Formatter fuzzer, release (task fuzz:fmt CASES=5000)'
-    summary: Runs crates/fmt/tests/fuzz.rs.
+    summary: Runs crates/fmt/tests/it/fuzz.rs.
     env:
       FUZZ_CASES: '{{.CASES}}'
     cmds:
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace --no-capture -E ''package(stitchwort-fmt) & binary(fuzz)'' {{.CLI_ARGS}}'
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace --no-capture -E ''package(stitchwort-fmt) & binary(it) & test(/^fuzz::/)'' {{.CLI_ARGS}}'
 
   fuzz:kernel:
     desc: 'Kernel fuzzer, release (fixed 3000 terms and seed; no knobs)'

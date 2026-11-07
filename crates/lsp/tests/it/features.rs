@@ -6,7 +6,7 @@ use std::sync::Arc;
 use serde_json::{Value, json};
 use stitchwort_lsp::{Inline, Memory, MemoryProject, Options};
 
-mod common;
+use crate::common;
 
 const STACK: usize = 256 * 1024 * 1024;
 const URI: &str = "file:///memory/proj/src/Demo.sw";

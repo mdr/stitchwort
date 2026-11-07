@@ -33,9 +33,9 @@ stitchwort-rt.workspace = true
 # N4 parses the effect examples' `-- run:` lines.
 stitchwort-syntax.workspace = true
 # The frame-size test compiles for x86-64 and arm64 whatever the host
-# (tests/frames.rs).
+# (tests/it/frames.rs).
 cranelift-codegen = { version = "=0.136.2", features = ["x86", "arm64"] }
-# Reading back the object `aot::compile_object` writes (tests/object.rs).
+# Reading back the object `aot::compile_object` writes (tests/it/object.rs).
 object = { workspace = true, features = ["read_core", "macho", "elf"] }
 
 [lints]

@@ -7,9 +7,7 @@
 //! the same allocation trace event for event, stop at the same step and
 //! frame limits freeing everything, and tail-apply in constant stack.
 
-mod common;
-
-use common::*;
+use crate::common::*;
 use stitchwort_driver::driver::{Tier, tier, with_stack};
 use stitchwort_rt::Limits;
 

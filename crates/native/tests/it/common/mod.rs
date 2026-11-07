@@ -1,7 +1,7 @@
 //! What the native tests share: checking and lowering a program, running it
 //! on the machine and natively, and comparing the two.
 
-#![allow(dead_code)] // each test binary uses some of these
+#![allow(dead_code)] // the modules use some of these
 
 use std::path::Path;
 

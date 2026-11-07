@@ -1,4 +1,4 @@
-//! Shared by the session test binaries.
+//! Shared by the session tests.
 
 use std::sync::Arc;
 

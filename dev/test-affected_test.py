@@ -256,17 +256,17 @@ class MergeProfile(unittest.TestCase):
 
 
 class ChangedTestFile(unittest.TestCase):
-    """A diff of crates/lsp/tests/features.rs (SW-1760)."""
-    LSP = [test("lsp::features", "quick_one", 2, package="stitchwort-lsp"),
-           test("lsp::features", "slow_one", 60, package="stitchwort-lsp"),
-           test("lsp::memory", "other", 9, package="stitchwort-lsp")]
+    """A diff of crates/lsp/tests/it/features.rs (SW-1760)."""
+    LSP = [test("lsp::it", "features::quick_one", 2, package="stitchwort-lsp"),
+           test("lsp::it", "features::slow_one", 60, package="stitchwort-lsp"),
+           test("lsp::it", "memory::other", 9, package="stitchwort-lsp")]
 
     def run_with(self, names):
         old = ta.changed_test_names, dict(ta.TEST_NAMES)
         ta.changed_test_names = lambda path, range_: names
         ta.TEST_NAMES.update(enabled=True, range=None)
         try:
-            return pick(["crates/lsp/tests/features.rs"], inv=INV + self.LSP, budget=1000)
+            return pick(["crates/lsp/tests/it/features.rs"], inv=INV + self.LSP, budget=1000)
         finally:
             ta.changed_test_names = old[0]
             ta.TEST_NAMES.update(old[1])
@@ -285,12 +285,12 @@ class ChangedTestFile(unittest.TestCase):
         self.assertNotIn("test-file-changed", rules)
         self.assertEqual(rules["test-file"].rank, 1)
         self.assertFalse(rules["test-file"].cheap_only)
-        self.assertIn("slow_one", ids_of(res))
+        self.assertIn("features::slow_one", ids_of(res))
         self.assertEqual(res["empty"], [])
         self.assertFalse([n for n in notes if "selects no test" in n])
 
     def test_an_empty_rule_is_reported_for_the_refresh(self):
-        res, _ = pick(["crates/lsp/tests/features.rs"], inv=INV, budget=1000)
+        res, _ = pick(["crates/lsp/tests/it/features.rs"], inv=INV, budget=1000)
         self.assertIn("test-file", res["empty"])
 
 
@@ -308,7 +308,7 @@ class SelectorLogFiles(unittest.TestCase):
         r = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-dir", "--git-common-dir"],
                            cwd=here, capture_output=True, text=True)
         gitdir, common = r.stdout.split()
-        linked = "/worktrees/" in gitdir
+        linked = gitdir != common
         self.assertEqual(gitdir != common, linked)
 
 

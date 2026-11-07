@@ -82,8 +82,8 @@ default-filter = """
 | (package(stitchwort-host) | (package(stitchwort-rt) & (kind(lib) | (binary(it) & test(/^tick_counts::/)) | (binary(it) & test(/^alloc_trace::/)) | (binary(it) & test(/^live_run::/)) | (binary(it) & test(/^partial_handlers::(only_resuming_more_than_once_copies|capture_and_restore_leak_nothing)$/)) | (binary(it) & test(=machine::library_tests_agree)) | (binary(it) & test(/^linked::/)) | (binary(it) & test(/^codec::(micro_call_round_trips|foreign_bytes_are_refused|absurd_nesting_is_refused)$/)) | (binary(it) & test(/^effect_runtime::(closed_signature_maps_are_constants|bind_of_done_is_a_direct_call)$/)))))
 | (package(stitchwort-js) | (binary(extract) & test(/^(int_crosses_the_boundary_strictly|options_cross_the_boundary_as_undefined|records_cross_the_boundary_strictly|awkward_names_never_collide|more_tail_calls_are_loops)$/)))
 | (package(stitchwort-native) & !test(=tail_calls_of_every_shape_run_in_constant_stack))
-| ((binary(lsp) & test(/^(hover_over_a_selection_gives_the_type_of_the_expression|formatting_replaces_the_open_text|a_file_on_its_own_as_you_type|goal_at_answers_for_the_goal_at_or_near_the_cursor|small_navigation_issues|eq_sym_and_eq_trans_navigate_to_their_definitions)$/)) | (package(stitchwort-lsp) & (kind(lib) | (binary(features) & test(/^(completion_offers_locals_then_the_namespace_then_imports_and_defaults|semantic_tokens_colour_names_by_what_they_resolve_to|signature_help_shows_the_function_and_the_current_parameter|signature_help_tells_two_functions_with_the_same_short_name_apart|the_outline_asked_as_the_file_opens_is_not_empty)$/)))))
-| ((package(stitchwort-fmt) & !binary(repo) & !binary(fuzz)) | (package(stitchwort-cli) & binary(fmt)))
+| ((binary(lsp) & test(/^(hover_over_a_selection_gives_the_type_of_the_expression|formatting_replaces_the_open_text|a_file_on_its_own_as_you_type|goal_at_answers_for_the_goal_at_or_near_the_cursor|small_navigation_issues|eq_sym_and_eq_trans_navigate_to_their_definitions)$/)) | (package(stitchwort-lsp) & (kind(lib) | (binary(it) & test(/^features::(completion_offers_locals_then_the_namespace_then_imports_and_defaults|semantic_tokens_colour_names_by_what_they_resolve_to|signature_help_shows_the_function_and_the_current_parameter|signature_help_tells_two_functions_with_the_same_short_name_apart|the_outline_asked_as_the_file_opens_is_not_empty)$/)))))
+| ((package(stitchwort-fmt) & !(binary(it) & test(/^repo::/)) & !(binary(it) & test(/^fuzz::/))) | (package(stitchwort-cli) & binary(fmt)))
 | (binary(aoc_answers) & test(/^(year2024_day02|year2024_day04|year2024_day07|year2025_day01|year2025_day05|year2025_day07)$/))
 | (package(stitchwort-standalone) | (package(stitchwort-cli) & (binary(session) | binary(keys_mode) | binary(audit) | (binary(run) & !test(/^(a_failure_deep_in_partial_recursion_doesnt_overflow|a_partial_main_that_may_fail_runs_three_ways|a_total_main_that_may_fail_runs_three_ways|an_endless_partial_main_runs_until_stopped|the_example_prints_what_simulate_records)$/)) | (kind(bin) & test(/^build::/)) | (binary(build) & !test(/^the_roguelike_(built_native_)?plays_as_it_does_under_run$/)))))
 | ((binary(hash_stability) & test(/^(examples|projects|prelude)$/)) | (package(stitchwort-driver) & binary(pinned_hashes)))
@@ -143,7 +143,7 @@ default-filter = "package(stitchwort-native) & !test(=tail_calls_of_every_shape_
 # warm) and unit tests beside the `cli` `lsp` tests that drive it over stdio;
 # the slow `features` tests and `memory` are for `task test:affected`'s `lsp` rule.
 [profile.lane-lsp]
-default-filter = "(binary(lsp) & test(/^(hover_over_a_selection_gives_the_type_of_the_expression|formatting_replaces_the_open_text|a_file_on_its_own_as_you_type|goal_at_answers_for_the_goal_at_or_near_the_cursor|small_navigation_issues|eq_sym_and_eq_trans_navigate_to_their_definitions)$/)) | (package(stitchwort-lsp) & (kind(lib) | (binary(features) & test(/^(completion_offers_locals_then_the_namespace_then_imports_and_defaults|semantic_tokens_colour_names_by_what_they_resolve_to|signature_help_shows_the_function_and_the_current_parameter|signature_help_tells_two_functions_with_the_same_short_name_apart|the_outline_asked_as_the_file_opens_is_not_empty)$/))))"
+default-filter = "(binary(lsp) & test(/^(hover_over_a_selection_gives_the_type_of_the_expression|formatting_replaces_the_open_text|a_file_on_its_own_as_you_type|goal_at_answers_for_the_goal_at_or_near_the_cursor|small_navigation_issues|eq_sym_and_eq_trans_navigate_to_their_definitions)$/)) | (package(stitchwort-lsp) & (kind(lib) | (binary(it) & test(/^features::(completion_offers_locals_then_the_namespace_then_imports_and_defaults|semantic_tokens_colour_names_by_what_they_resolve_to|signature_help_shows_the_function_and_the_current_parameter|signature_help_tells_two_functions_with_the_same_short_name_apart|the_outline_asked_as_the_file_opens_is_not_empty)$/))))"
 
 # Goals end to end with the built command (`crates/cli/tests/goal_index.rs`):
 # `check --index`'s goals and lemmas, each lemma and printed goal pasted back
@@ -152,7 +152,7 @@ default-filter = "(binary(lsp) & test(/^(hover_over_a_selection_gives_the_type_o
 default-filter = "package(stitchwort-cli) & binary(goal_index)"
 
 [profile.lane-fmt]
-default-filter = "(package(stitchwort-fmt) & !binary(repo) & !binary(fuzz)) | (package(stitchwort-cli) & binary(fmt))"
+default-filter = "(package(stitchwort-fmt) & !(binary(it) & test(/^repo::/)) & !(binary(it) & test(/^fuzz::/))) | (package(stitchwort-cli) & binary(fmt))"
 
 [profile.lane-aoc]
 default-filter = "binary(aoc_answers) & test(/^(year2024_day02|year2024_day04|year2024_day07|year2025_day01|year2025_day05|year2025_day07)$/)"
@@ -218,7 +218,7 @@ lsp-sessions = { max-threads = 3 }
 
 # Overrides in the default profile apply to every profile.
 [[profile.default.overrides]]
-filter = "package(stitchwort-lsp) & (binary(features) | binary(memory))"
+filter = "package(stitchwort-lsp) & ((binary(it) & test(/^features::/)) | (binary(it) & test(/^memory::/)))"
 test-group = "lsp-sessions"
 
 [[profile.default.overrides]]

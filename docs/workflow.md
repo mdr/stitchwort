@@ -175,7 +175,7 @@ background.
 Before committing, run `stitchwort fmt` on the `.sw` files you touched. The
 test `crates/cli/tests/fmt_repo.rs` fails, naming the files, if any tracked
 `.sw` file is not formatted. It skips `examples/reject`, `examples/soundness`,
-`examples/projects/reject`, `crates/fmt/tests/golden` and
+`examples/projects/reject`, `crates/fmt/tests/it/golden` and
 `examples/accept/list-literal-layout.sw`, so leave those as written.
 
 Pushing to GitHub happens only when Matt asks.

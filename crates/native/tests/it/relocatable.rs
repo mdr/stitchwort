@@ -7,9 +7,7 @@
 //! integer constant against the host's objects, which every native test
 //! runs in debug builds.
 
-mod common;
-
-use common::*;
+use crate::common::*;
 use stitchwort_driver::driver::with_stack;
 use stitchwort_native::n1::{Options, listing};
 use stitchwort_rt::Program;

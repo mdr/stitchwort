@@ -5,9 +5,7 @@
 use std::path::Path;
 use stitchwort_fmt::{Error, Stats, format_with_stats};
 
-mod support {
-    pub mod repo_files;
-}
+use crate::support::repo_files;
 
 /// Folders whose layout may be what's tested (D1019).
 const EXCLUDED: [&str; 3] = [
@@ -19,7 +17,7 @@ const EXCLUDED: [&str; 3] = [
 #[test]
 fn every_repo_file_formats_idempotently_or_is_refused() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let files: Vec<String> = support::repo_files::repo_files(&root, &[".sw"])
+    let files: Vec<String> = repo_files::repo_files(&root, &[".sw"])
         .into_iter()
         .filter(|path| !EXCLUDED.iter().any(|folder| path.starts_with(folder)))
         .collect();

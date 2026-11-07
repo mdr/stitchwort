@@ -4,9 +4,7 @@
 //! make the same allocation trace event for event, and run out of frames
 //! and steps at exactly the machine's points (D1253).
 
-mod common;
-
-use common::*;
+use crate::common::*;
 use stitchwort_driver::driver::with_stack;
 use stitchwort_native::n1::{Options, compile, stack_for};
 use stitchwort_rt::host::NoTerminal;

@@ -4,7 +4,7 @@
 
 use std::path::PathBuf;
 
-#[path = "../../fmt/tests/support/repo_files.rs"]
+#[path = "../../fmt/tests/it/support/repo_files.rs"]
 mod repo_files;
 
 /// Paths (prefixes, or whole files) the formatter leaves alone.
@@ -17,7 +17,7 @@ const EXCLUDED: [&str; 7] = [
     "dev/repros/sw-1599/spelled-iff.sw",
     "dev/repros/sw-1599/spelled-iff2.sw",
     // Formatter test data.
-    "crates/fmt/tests/golden/",
+    "crates/fmt/tests/it/golden/",
     // Exercises layouts the formatter normalises.
     "examples/accept/list-literal-layout.sw",
 ];
