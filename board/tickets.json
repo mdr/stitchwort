@@ -14015,9 +14015,9 @@
     {
       "id": 1766,
       "title": "Record eta: the elaborator never emits Proj for p.field (field access stays an accessor call that rule 2 opens); update record-eta.md §6.4 or emit Proj in a later stage (SW-1764)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1766",
       "labels": [
         "design"
       ],
