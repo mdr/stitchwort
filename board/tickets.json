@@ -19616,7 +19616,7 @@
     {
       "id": 2140,
       "title": "[Sonnet] 2024 day 9: drawFiles (the files drawn as a disk) and the checksum of a drawing",
-      "status": "doing",
+      "status": "next",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2140",
       "labels": [
