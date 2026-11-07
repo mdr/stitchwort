@@ -1,5 +1,5 @@
 {
-  "next": 2106,
+  "next": 2108,
   "tickets": [
     {
       "id": 47,
@@ -19061,14 +19061,14 @@
     {
       "id": 2103,
       "title": "[Opus] Fresh-eyes review of SW-2081 (every pin checked at binding; the stale-pin fallback made test-only; dev-features dependency cycle)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2103",
       "labels": [
         "review"
       ],
       "epic": "effects-native",
-      "body": "Read-only Opus lane, 7 Nov. Expected: 40 min.",
+      "body": "Read-only Opus lane, 7 Nov. Expected: 40 min.\n\nDone, merged: docs/reviews/SW-2103-pins-at-binding.md. Sound: every binding path checks the pin. 1 medium (F1, SW-2106), 4 low (SW-2107). 6 min (est. 40).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19098,7 +19098,37 @@
         "tooling"
       ],
       "epic": "dev-loop-speed",
-      "body": "Matt, 7 Nov 2026 (from a suggestion of Simon's): look at mold later. Mac builds use Apple's linker, so this is Linux-only. 45 min.",
+      "body": "Matt, 7 Nov 2026 (from a suggestion of Simon's): look at mold later. Mac builds use Apple's linker, so this is Linux-only. 45 min.\n\nMatt: mold's GitHub says 'A Modern Linker in Rust' (checked 7 Nov). Also try wild (davidlattimore/wild, Rust, Linux).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2106,
+      "title": "[Sonnet] The flake's default package (stitchwort-bin) builds the whole workspace, so stitchwort-bench's normal dependency on dev-features turns on test-bypass, reference, stack-check and alloc-trace in the shipped binary: build it with -p, and add a check that the shipped feature set has none of them",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2106",
+      "labels": [
+        "nix"
+      ],
+      "epic": "test-infra",
+      "body": "From docs/reviews/SW-2103-pins-at-binding.md (F1, medium). Confirmed by the orchestrator: cargo tree --workspace shows all four features on stitchwort-core; -p stitchwort-cli shows none. Since SW-1091 (3 Nov). reference and stack-check may also slow the nix-built binary. Confirm with one nix build. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2107,
+      "title": "[DeepSeek] Pin follow-ups: an on/off switch for the pin-check log (it grows forever in dev language servers); messages that don't read 'Nat.add is bound to Nat.add'; debug_asserts at the two primitive-binding sites (elab/src/lib.rs:2543, 2559)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "effects-native",
+      "body": "From docs/reviews/SW-2103-pins-at-binding.md (F2-F4). Tests: a_second_registration_is_refused_by_name, a_native_is_registered_once, every_pin_is_checked_at_binding. 30 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
