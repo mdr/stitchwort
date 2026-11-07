@@ -1,5 +1,5 @@
 {
-  "next": 1799,
+  "next": 1800,
   "tickets": [
     {
       "id": 47,
@@ -14503,6 +14503,21 @@
       ],
       "epic": "editor-playground",
       "body": "From SW-1796, 7 Nov 2026: 63% of a 31 s test is these replays, six completions = six replays.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1799,
+      "title": "Crash: a code action's closing search on 'def f: Option (Option Nat) -> Nat | Some o => ?' panics at crates/core/src/pretty.rs:2804 (index out of bounds: the len is 0), via Elaborator::plan → fill_premises → plans_for → closing_plans; reproduces without SW-1798's change",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "epic": "editor-playground",
+      "body": "From SW-1798, 7 Nov 2026. A panic in the editor's code actions.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
