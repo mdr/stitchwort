@@ -1,8 +1,8 @@
 # Comparative speed: Stitchwort against Python and Lean
 
 **Status:** plan, 7 November 2026 (SW-2290, epic Comparative speed, D3330).
-Read only: nothing was built, run or measured for it. The questions for
-Matt are D3340 to D3342, [at the end](#8-questions-for-matt).
+Read only: nothing was built, run or measured for it. Matt decided D3340 (the native build faces Python) and D3341 (no
+targets until the first measurement); D3342 is open, [at the end](#8-questions-for-matt).
 
 **Matt's goal (D3330).** For the same program, using the same algorithm,
 Stitchwort should run at least as fast as Python and Lean, and check
@@ -40,9 +40,10 @@ and to Lean 4 with the same algorithm and each language's usual data
 structures. Three days' proofs ported to Lean for checking speed. A
 `task bench:compare` script runs them all under hyperfine on Overmind, checks
 that every language prints the same answers, and writes one table. The
-headline comparison is **what a user runs by default**: `stitchwort run`
-against `python3`, and Stitchwort's native executable against Lean's
-compiled one. The other pairs are reported, not targeted.
+headline comparison is **what you would deploy** (D3340): Stitchwort's native
+executable against `python3` and against Lean's compiled one. The
+interpreter (`stitchwort run`) against `python3` is reported too. No
+targets are set until the first measurement (D3341).
 
 **Stages.** 1: harness and ports (Sonnet, about 5 h over three lanes).
 2: first measurement on Overmind and a report (about 1.5 h). 3: a ranked
@@ -74,20 +75,18 @@ design: the IR interpreter calls native code for compiled declarations]**.
 
 | Stitchwort | Against | Role | Why |
 |---|---|---|---|
-| `stitchwort run` (machine) | CPython `python3` | **headline, targeted** | Both are "run the source": what each language's users do by default. It is the experience Matt's goal is about. |
-| `build --native` executable | compiled Lean (`lake build` exe) | **headline, targeted** | Both are "compile, then run": the speed each language offers when you ask for it. Lean is the nearest language to ours (pure, functional, reference counted, dependent types), so this pair says most about our compiler and runtime. |
+| `stitchwort run` (machine) | CPython `python3` | reported (D3340) | Both are "run the source": what each language's users do by default. It is the experience Matt's goal is about. |
+| `build --native` executable | CPython `python3` | **headline** (D3340) | What a program run in production would use. Matt, 7 Nov 2026: "if ever this is going to be running production ... you'd use native ... maybe we should optimize the native one." |
+| `build --native` executable | compiled Lean (`lake build` exe) | **headline** | Both are "compile, then run": the speed each language offers when you ask for it. Lean is the nearest language to ours (pure, functional, reference counted, dependent types), so this pair says most about our compiler and runtime. |
 | `stitchwort run` | `lean --run` | reported | Interpreter against interpreter, but Lean's is helped by compiled core code, so a win or loss here is hard to read. Cheap to collect, so collect it. |
-| `build --native` | CPython | reported | A compiled program should beat CPython easily. Today it doesn't (10–12×, Summary), which is worth showing, but beating it isn't a goal worth stating. |
 | `run --js` | (none) | reported | It's the playground's backend. Node isn't a language users compare us with; the column shows whether `--js` regresses. |
 | `run --native` (JIT) | (none) | reported, until it's the default | JIT compile time is part of the run, so it sits between the two headlines. |
 
-**The rule behind it: the target follows the default.** The Python target
-attaches to *whatever `stitchwort run` does by default*. If native code
-becomes the default for `run` one day, the Python comparison moves with it,
-and nothing in the harness changes but a column's meaning. This answers
-Matt's open question ("our interpreter against CPython, or our native
-backend?"): the interpreter today, because that is what users get, and the
-native backend the day it becomes what users get. See D3340.
+**Decided (D3340, Matt, 7 Nov 2026: "Yes, native build").** The native
+build faces both Python and compiled Lean. The interpreter is measured
+against Python in every report, but its speed is tracked as part of the
+workflow-speed epics: it runs `test`s, the counterexample search and the
+playground. If native becomes what `run` uses by default, the two meet.
 
 **PyPy** (nixpkgs has 7.3.20) is worth one extra column, not a target: it
 shows what a JIT gets on the same Python source **[inferred]**.
@@ -373,18 +372,9 @@ The checking table has, per day:
   `task native:bench`. The deterministic `run-machine-*` counts in
   `bench/baseline.toml` stay the regression gate.
 
-**Targets, per pair.** Matt's goal sets the end state. The plan needs
-milestones too, or the first report will just say "35× behind" and stop.
-
-| Pair | End target (D3330) | First milestone | Why the milestone |
-|---|---|---|---|
-| `run` / CPython | geometric mean ≤ 1.0×, no program over 2× | ≤ 5× | Today's 20–50× (Summary) won't close in one step. Interpreter-speed stages 1–4 promise 1.5–3× (`docs/proposals/interpreter-speed.md` §5), so 5× needs the data-structure work too. |
-| native / Lean exe | geometric mean ≤ 1.0×, no program over 2× | ≤ 3× | Lean is the closest design to ours. A gap above 3× means representation (boxed values, persistent structures), not tuning. |
-| check / Lean (cold, net of library) | ≤ 1.5× ("about as fast") | ≤ 3× | "About as fast" in Matt's words; 1.5× is my reading of "about". |
-
-The "no program over 2×" clause matters. A good mean can hide one program
-that users meet and find unusable, which is what 2020 day 15 is today.
-See D3341.
+**No targets yet (D3341, Matt, 7 Nov 2026: "Let's not set targets now. I
+think, let's measure and see how far away we are.").** The first report
+states the ratios per pair and per program; targets, if any, come after it.
 
 ## 7. Stages
 
@@ -438,18 +428,6 @@ conversion checks. The checker's own counters (`steps`, `visits`) are where
 stage 3 would start.
 
 ## 8. Questions for Matt
-
-**D3340: which Stitchwort backend carries the Python target?** I recommend
-the default `stitchwort run`: the interpreter today, native code if it
-becomes the default. Both pairs are reported either way, and native also
-faces compiled Lean. Reason: the goal is about what users experience, and
-CPython is what Python users run. [rec: the default `run`; native against
-compiled Lean]
-
-**D3341: the targets and milestones of §6?** End targets as Matt stated
-them, with "no program over 2×" added: geometric mean ≤ 1.0× CPython for
-`run`, ≤ 1.0× compiled Lean for native, ≤ 1.5× Lean for cold checking.
-First milestones ≤ 5×, ≤ 3× and ≤ 3×. [rec: yes]
 
 **D3342: compare Python's `dict` against our `Map` as they are, with no
 "fair" persistent Python?** I recommend yes. It's the program a Python
