@@ -1,5 +1,5 @@
 {
-  "next": 2291,
+  "next": 2292,
   "tickets": [
     {
       "id": 47,
@@ -21874,6 +21874,21 @@
       ],
       "epic": "comparative-speed",
       "body": "D3330 — Matt, 7 Nov 2026: \"Yes, I think so. I think that's pretty much the shape of what I'm thinking. Obviously, there's some decisions to dig into. Like, do we compare our interpreter against Python, or do we compare our native against Python? Exactly which programs are good benchmarks. I'm not too worried about like porting stuff to Lean ... performance is a key part of a practical programming language. And being competitive with industry languages is.\"\nStart after the weekly reset (no new lanes tonight). Output docs/proposals/comparative-speed.md. Read docs/proposals/interpreter-speed.md, docs/research/compilation.md, crates/bench, bench/baseline.toml. Python and Lean via nix (nixpkgs#python3, nixpkgs#lean4). Lean ports are cheap (Matt): don't let porting cost decide the benchmark choice. 45 min.\n\nStarted 7 Nov evening on Matt's go-ahead (\"since we still have a little bit of quota left ... an opus lane to come up with a plan\").\n\nDone, merged: docs/proposals/comparative-speed.md. Open for Matt: D3340 (run carries the Python target), D3341 (targets and milestones), D3342 (dict vs persistent Map as is). Finding: startup (~0.2 s warm) has no plan. Model result: Opus, worked, 6 min (est. 45).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2291,
+      "title": "[Opus] Startup time: stitchwort run takes ~0.2 s warm before any user code (CPython ~tens of ms); measure where it goes (std load, cache read) and plan the cut",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2290 (docs/proposals/comparative-speed.md): no existing plan covers startup, and it dominates every short program. 30 min to measure.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
