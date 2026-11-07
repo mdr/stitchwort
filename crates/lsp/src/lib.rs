@@ -19,6 +19,9 @@
 //!
 //! Files and threads live here; the engine (`live`) has neither (D498).
 
+#[cfg(test)]
+use stitchwort_test_alloc as _;
+
 use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};

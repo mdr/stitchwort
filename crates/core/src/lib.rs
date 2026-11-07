@@ -4,6 +4,9 @@
 //! The checker here is the small trusted kernel that re-checks every
 //! definition the elaborator produces (DESIGN.md §11). See `docs/core.md`.
 
+#[cfg(test)]
+use stitchwort_test_alloc as _;
+
 pub mod backend;
 pub mod budget;
 pub mod caches;

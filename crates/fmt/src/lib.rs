@@ -11,6 +11,9 @@
 //! they continue, brackets that span lines get the D1012 layout, and spacing
 //! follows R3 to R6. [`Stats`] counts what a rule still doesn't decide.
 
+#[cfg(test)]
+use stitchwort_test_alloc as _;
+
 mod check;
 pub mod doc;
 mod layout;

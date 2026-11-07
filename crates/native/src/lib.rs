@@ -15,6 +15,9 @@
 //! depends on it. Workspace builds (the test tiers) do build it, so its tests
 //! run in the test tiers.
 
+#[cfg(test)]
+use stitchwort_test_alloc as _;
+
 pub mod aot;
 pub mod checks;
 pub mod frames;

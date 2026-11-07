@@ -4,3 +4,5 @@ mod fuzz;
 mod keywords;
 mod layout;
 mod trivia;
+
+use stitchwort_test_alloc as _;

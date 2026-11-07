@@ -154,3 +154,5 @@ fn main() -> ExitCode {
         ExitCode::SUCCESS
     }
 }
+
+// test-alloc: the library's global allocator, stitchwort_bench::alloc::Counting, wraps mimalloc.

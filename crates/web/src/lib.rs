@@ -8,6 +8,9 @@
 //! likewise as `"goals": ["…", …]`. (The page checks
 //! before anything else, so it gets them from there.)
 
+#[cfg(test)]
+use stitchwort_test_alloc as _;
+
 mod live;
 mod lsp;
 mod project;

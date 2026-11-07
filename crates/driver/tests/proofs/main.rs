@@ -17,3 +17,5 @@ mod proof_equivalence;
 mod proof_masks;
 mod rewrite;
 mod update_lemmas;
+
+use stitchwort_test_alloc as _;

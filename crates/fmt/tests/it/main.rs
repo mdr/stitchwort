@@ -5,3 +5,5 @@ mod fuzz;
 mod golden;
 mod repo;
 mod support;
+
+use stitchwort_test_alloc as _;

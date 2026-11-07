@@ -6,6 +6,9 @@
 //! (`stitchwort-core`), so a bug here can cause a confusing error but can't
 //! make the kernel accept something false.
 
+#[cfg(test)]
+use stitchwort_test_alloc as _;
+
 mod attributes;
 mod auto;
 mod autobind;

@@ -5,6 +5,9 @@
 //! (`Nat`, `Bool`, `Text`, `Char`, `List`, and data types built from them,
 //! such as `Option Text`), and their proof arguments are checked at runtime.
 
+#[cfg(test)]
+use stitchwort_test_alloc as _;
+
 use std::cell::{Cell, OnceCell, RefCell};
 use std::fmt::Write;
 use std::rc::Rc;

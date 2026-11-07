@@ -833,3 +833,5 @@ fn clauses_that_run_partial_code() {
     );
     assert_eq!((finished(&r), r.ticks), (Val::Nat(100 * 4 + 1), 4));
 }
+
+use stitchwort_test_alloc as _;

@@ -49,6 +49,8 @@ native = ["dep:stitchwort-native"]
 alloc-trace = ["stitchwort-rt/alloc-trace"]
 
 [dev-dependencies]
+# mimalloc in the unit-test and integration-test binaries (docs/testing.md, "Allocator").
+stitchwort-test-alloc.workspace = true
 # Driving the language server over an in-memory connection (`tests/lsp.rs`).
 lsp-server.workspace = true
 lsp-types.workspace = true

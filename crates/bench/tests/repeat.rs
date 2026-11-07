@@ -46,3 +46,5 @@ fn counts_repeat_within_a_process() {
 
 /// The benchmarks repeated outside the slow tier.
 const FAST: &[&str] = &["eval-lengths", "run-prints", "check-long-sum"];
+
+// test-alloc: global allocator is stitchwort_bench::alloc::Counting, which wraps mimalloc.

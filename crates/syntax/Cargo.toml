@@ -12,6 +12,8 @@ num-bigint.workspace = true
 libc = { workspace = true, optional = true }
 
 [dev-dependencies]
+# mimalloc in the unit-test and integration-test binaries (docs/testing.md, "Allocator").
+stitchwort-test-alloc.workspace = true
 serde_json.workspace = true
 
 [features]

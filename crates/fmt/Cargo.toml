@@ -8,5 +8,9 @@ publish.workspace = true
 [dependencies]
 stitchwort-syntax.workspace = true
 
+[dev-dependencies]
+# mimalloc in the unit-test and integration-test binaries (docs/testing.md, "Allocator").
+stitchwort-test-alloc.workspace = true
+
 [lints]
 workspace = true

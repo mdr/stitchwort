@@ -1,6 +1,9 @@
 //! The compiler pipeline, diagnostic rendering and the runner for `main`,
 //! shared by the `stitchwort` command and the browser playground.
 
+#[cfg(test)]
+use stitchwort_test_alloc as _;
+
 pub mod at;
 pub mod audit;
 pub mod axioms;

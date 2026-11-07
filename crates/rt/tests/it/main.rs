@@ -12,3 +12,5 @@ mod machine;
 mod partial_handlers;
 mod profile;
 mod tick_counts;
+
+use stitchwort_test_alloc as _;

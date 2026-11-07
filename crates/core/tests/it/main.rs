@@ -23,3 +23,5 @@ mod termination;
 mod trusted;
 mod unify_index;
 mod universe_levels;
+
+use stitchwort_test_alloc as _;

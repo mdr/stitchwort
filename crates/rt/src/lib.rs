@@ -11,6 +11,9 @@
 //! The erasure decisions and native bindings are shared with the JS backend
 //! ([`erasure`], [`natives`]; D389).
 
+#[cfg(test)]
+use stitchwort_test_alloc as _;
+
 pub mod alloc_trace;
 pub mod census;
 pub mod code;

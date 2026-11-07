@@ -2,3 +2,5 @@
 
 mod effect_differential;
 mod extract;
+
+use stitchwort_test_alloc as _;

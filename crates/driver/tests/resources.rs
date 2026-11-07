@@ -8,17 +8,16 @@
 use stitchwort_core::{Limits, ResourceError};
 use stitchwort_driver::driver::{Cache, Outcome, Session, tier_sample};
 
-/// The CLI's allocator, and so the language server's. With macOS's own,
-/// `running_out_at_any_point_only_ever_means_no_answer` grew to 6.7 GB,
-/// though every session's memory is freed when it's dropped (SW-921): at
-/// about 30 of its limits about 50 of the library's theorems fail, the
-/// counterexample searches on them grow the fast runtime's registers to as
-/// much as 162 MB, and the
-/// system allocator kept those freed blocks, 229 MB more for each such
-/// session (with `MallocLargeCache=0` the same run stays at 61 MB). With
-/// mimalloc it stays under 400 MB.
-#[global_allocator]
-static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
+// mimalloc, the CLI's allocator, and so the language server's. With macOS's own,
+// `running_out_at_any_point_only_ever_means_no_answer` grew to 6.7 GB,
+// though every session's memory is freed when it's dropped (SW-921): at
+// about 30 of its limits about 50 of the library's theorems fail, the
+// counterexample searches on them grow the fast runtime's registers to as
+// much as 162 MB, and the
+// system allocator kept those freed blocks, 229 MB more for each such
+// session (with `MallocLargeCache=0` the same run stays at 61 MB). With
+// mimalloc it stays under 400 MB.
+use stitchwort_test_alloc as _;
 
 const REPLICATE: &str = "
 import Std (List)

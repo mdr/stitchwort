@@ -1219,6 +1219,7 @@ version = "0.1.0"
 dependencies = [
  "blake3",
  "clap",
+ "mimalloc",
  "stitchwort-core",
  "stitchwort-dev-features",
  "stitchwort-driver",
@@ -1254,6 +1255,7 @@ dependencies = [
  "stitchwort-rt",
  "stitchwort-standalone",
  "stitchwort-syntax",
+ "stitchwort-test-alloc",
 ]
 
 [[package]]
@@ -1266,6 +1268,7 @@ dependencies = [
  "smallvec",
  "stitchwort-dev-features",
  "stitchwort-syntax",
+ "stitchwort-test-alloc",
  "web-time",
 ]
 
@@ -1314,6 +1317,7 @@ dependencies = [
  "stitchwort-partial-model",
  "stitchwort-rt",
  "stitchwort-syntax",
+ "stitchwort-test-alloc",
 ]
 
 [[package]]
@@ -1325,6 +1329,7 @@ dependencies = [
  "stitchwort-core",
  "stitchwort-dev-features",
  "stitchwort-syntax",
+ "stitchwort-test-alloc",
 ]
 
 [[package]]
@@ -1332,6 +1337,7 @@ name = "stitchwort-fmt"
 version = "0.1.0"
 dependencies = [
  "stitchwort-syntax",
+ "stitchwort-test-alloc",
 ]
 
 [[package]]
@@ -1343,6 +1349,7 @@ dependencies = [
  "rustix",
  "stitchwort-dev-features",
  "stitchwort-rt",
+ "stitchwort-test-alloc",
 ]
 
 [[package]]
@@ -1353,6 +1360,7 @@ dependencies = [
  "stitchwort-dev-features",
  "stitchwort-rt",
  "stitchwort-syntax",
+ "stitchwort-test-alloc",
 ]
 
 [[package]]
@@ -1370,6 +1378,7 @@ dependencies = [
  "stitchwort-elab",
  "stitchwort-fmt",
  "stitchwort-syntax",
+ "stitchwort-test-alloc",
 ]
 
 [[package]]
@@ -1389,11 +1398,15 @@ dependencies = [
  "stitchwort-driver",
  "stitchwort-rt",
  "stitchwort-syntax",
+ "stitchwort-test-alloc",
 ]
 
 [[package]]
 name = "stitchwort-partial-model"
 version = "0.1.0"
+dependencies = [
+ "stitchwort-test-alloc",
+]
 
 [[package]]
 name = "stitchwort-rt"
@@ -1409,6 +1422,7 @@ dependencies = [
  "stitchwort-driver",
  "stitchwort-elab",
  "stitchwort-syntax",
+ "stitchwort-test-alloc",
 ]
 
 [[package]]
@@ -1433,6 +1447,14 @@ dependencies = [
  "libc",
  "num-bigint",
  "serde_json",
+ "stitchwort-test-alloc",
+]
+
+[[package]]
+name = "stitchwort-test-alloc"
+version = "0.1.0"
+dependencies = [
+ "mimalloc",
 ]
 
 [[package]]
@@ -1447,6 +1469,7 @@ dependencies = [
  "stitchwort-lsp",
  "stitchwort-rt",
  "stitchwort-syntax",
+ "stitchwort-test-alloc",
  "wasm-bindgen",
 ]
 

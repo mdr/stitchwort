@@ -24,6 +24,8 @@ cranelift-object = "=0.136.2"
 libc = "0.2.190"
 
 [dev-dependencies]
+# mimalloc in the unit-test and integration-test binaries (docs/testing.md, "Allocator").
+stitchwort-test-alloc.workspace = true
 # The one feature set of every dev and test build (docs/testing.md, "Features").
 stitchwort-dev-features.workspace = true
 # The N1 tests check and lower programs from source, and compare allocation

@@ -10,3 +10,5 @@ mod object;
 mod relocatable;
 mod s6;
 mod spike;
+
+use stitchwort_test_alloc as _;

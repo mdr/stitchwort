@@ -828,3 +828,5 @@ fn mutated_examples_check_without_internal_errors() {
         );
     }
 }
+
+use stitchwort_test_alloc as _;
