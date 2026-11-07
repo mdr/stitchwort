@@ -14262,7 +14262,7 @@
         "kernel"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-1748, 7 Nov 2026. Determinism risk; stage 6b should know.",
+      "body": "From SW-1748, 7 Nov 2026. Determinism risk; stage 6b should know.\n\nSW-1784: pre-existing, not caused by stage 1b. Likely cause (from the code, not reproduced): a call caches its unfolding without recording whether gluing was on; forced unglued (decide, instrumentation), a later folded read-back can write that full unfolding. Fix: keep a call's unfolding only when computed glued, or record the mode; rerun SW-1748's instrumentation to confirm the twelve Rogue hashes stay. The merged code's result doesn't depend on cache state (roguelike entries byte-identical cold and warm). Stage 6b (match motives) is most exposed.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -14285,14 +14285,14 @@
     {
       "id": 1784,
       "title": "[Opus] Review bounded readback stage 1b (lane/SW-1748): kernel terms generated (D2364), hash moves, the folded round trips in effects",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1748",
       "labels": [
         "review"
       ],
       "epic": "elaborator-kernel",
-      "body": "Expected: 45 min.",
+      "body": "Expected: 45 min.\n\nDone: docs/reviews/SW-1784-stage-1b-review.md (on lane/SW-1748, merged with it). Verdict merge; whole AoC not needed first: AoC Proofs namespaces using Char/Text equality (75 with deps) and the roguelike checked --no-cache, all pass; decEqFrom appears only in std. Model result: Opus, worked, 17 min (est. 45).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
