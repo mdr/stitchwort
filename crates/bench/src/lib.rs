@@ -62,28 +62,22 @@ pub struct PartCounts {
     pub steps: u64,
     pub visits: u64,
     pub allocations: u64,
+    /// The most heap the part had in use at once, on its thread.
+    pub peak_bytes: u64,
 }
 
-/// Where a benchmark's work records its parts' counts. Room for them all is
-/// made before measuring starts, so recording them doesn't allocate and
-/// doesn't change the counts.
+/// Where a benchmark's work records its parts' counts, in the order of
+/// [`Prepared::parts`]. A benchmark with parts measures them on threads of
+/// its own, so its totals are the parts' (see [`measure`]). Room for them
+/// all is made before measuring starts, so recording them doesn't allocate.
 pub struct Parts(Vec<PartCounts>);
 
 impl Parts {
-    /// Starts a part: pass the result to [`Parts::finish`].
-    pub fn start(&self) -> u64 {
-        alloc::allocations()
-    }
-
-    /// Records a part, started at `start`, that did `work`.
-    pub fn finish(&mut self, start: u64, work: Work) {
+    /// Records the next part.
+    pub fn record(&mut self, counts: PartCounts) {
         // Past the room made for them, recording would allocate: drop it.
         if self.0.len() < self.0.capacity() {
-            self.0.push(PartCounts {
-                steps: work.steps,
-                visits: work.visits,
-                allocations: alloc::allocations() - start,
-            });
+            self.0.push(counts);
         }
     }
 }
@@ -148,11 +142,12 @@ impl Counts {
 }
 
 impl PartCounts {
-    fn named(&self) -> [(&'static str, u64); 3] {
+    fn named(&self) -> [(&'static str, u64); 4] {
         [
             ("steps", self.steps),
             ("visits", self.visits),
             ("allocations", self.allocations),
+            ("peak bytes", self.peak_bytes),
         ]
     }
 }
@@ -187,8 +182,15 @@ pub fn measure(benchmark: &Benchmark) -> Result<Measurement, String> {
         let start = Instant::now();
         let work = (prepared.run)(&mut parts);
         let time = start.elapsed();
-        let (allocations, peak_bytes) = alloc::since(before);
+        let (mut allocations, mut peak_bytes) = alloc::since(before);
         let work = work?;
+        // Parts run on threads of their own: the benchmark's totals are
+        // theirs, and its peak the heaviest part's, since the heap in use
+        // overall would depend on how the threads interleave.
+        if !parts.0.is_empty() {
+            allocations = parts.0.iter().map(|p| p.allocations).sum();
+            peak_bytes = parts.0.iter().map(|p| p.peak_bytes).max().unwrap_or(0);
+        }
         Ok(Measurement {
             counts: Counts {
                 steps: work.steps,
@@ -218,6 +220,8 @@ pub struct Outcome {
     pub record: Record,
     /// If the counts differed between runs, which they shouldn't: how.
     pub variation: Option<String>,
+    /// Each part's counts from the first run ([`Prepared::parts`]).
+    pub parts: Vec<(String, PartCounts)>,
 }
 
 /// Runs `benchmark` `runs` times (at least once), timing it if `timed`.
@@ -241,6 +245,7 @@ pub fn run(benchmark: &Benchmark, runs: usize, timed: bool) -> Result<Outcome, S
             time_ms: timed.then_some(median.as_secs_f64() * 1000.0),
         },
         variation: (!variations.is_empty()).then(|| variations.concat()),
+        parts: first.parts,
     })
 }
 

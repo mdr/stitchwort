@@ -16,7 +16,8 @@ use stitchwort_bench::{Record, programs, run};
 struct Cli {
     /// Run only benchmarks whose names contain one of these
     filters: Vec<String>,
-    /// Runs of each benchmark; the time recorded is their median
+    /// Runs of each benchmark (the `examples` sweep is run once); the time
+    /// recorded is their median
     #[arg(long, default_value_t = 5)]
     runs: usize,
     /// Only the deterministic counts, from one run of each benchmark: no times
@@ -28,6 +29,15 @@ struct Cli {
     /// The baseline file
     #[arg(long, default_value_os_t = baseline::default_path())]
     baseline: PathBuf,
+    /// Write each benchmark part's counts (one example file, say) from the
+    /// first run to this file, one line per part: for comparing two builds
+    #[arg(long)]
+    parts: Option<PathBuf>,
+    /// Threads the `examples` benchmark spreads its examples over. The counts
+    /// depend a little on it (a thread's buffers grow as it goes), so only
+    /// compare runs with the same number
+    #[arg(long, default_value_t = 8)]
+    jobs: usize,
     /// List the benchmarks
     #[arg(long)]
     list: bool,
@@ -35,6 +45,7 @@ struct Cli {
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
+    programs::JOBS.store(cli.jobs, std::sync::atomic::Ordering::Relaxed);
     let selected: Vec<_> = programs::ALL
         .iter()
         .filter(|b| cli.filters.is_empty() || cli.filters.iter().any(|f| b.name.contains(f)))
@@ -65,8 +76,13 @@ fn main() -> ExitCode {
 
     let mut records: Vec<(&str, Record)> = Vec::new();
     let mut failures = Vec::new();
+    let mut part_lines = String::new();
     for b in &selected {
         eprint!("{} ...", b.name);
+        // The sweep takes a minute even spread over threads, its counts are
+        // checked for repeating by `tests/repeat.rs`, and its time is far
+        // above the noise: one run of it, not five.
+        let runs = if b.name == "examples" { 1 } else { runs };
         match run(b, runs, timed) {
             Ok(outcome) => {
                 eprintln!(" done");
@@ -75,6 +91,12 @@ fn main() -> ExitCode {
                         "{}: the counts differed between runs, so they aren't a reliable signal:\n{variation}",
                         b.name
                     ));
+                }
+                for (part, c) in &outcome.parts {
+                    part_lines += &format!(
+                        "{} {part} steps={} visits={} allocations={} peak_bytes={}\n",
+                        b.name, c.steps, c.visits, c.allocations, c.peak_bytes
+                    );
                 }
                 records.push((b.name, outcome.record));
             }
@@ -85,6 +107,11 @@ fn main() -> ExitCode {
         }
     }
 
+    if let Some(path) = &cli.parts
+        && let Err(e) = std::fs::write(path, part_lines)
+    {
+        eprintln!("error: can't write {}: {e}", path.display());
+    }
     let results: Vec<(&str, &Record)> = records.iter().map(|(n, r)| (*n, r)).collect();
     let comparison = baseline::compare(&old, &results, !cli.filters.is_empty());
     println!(

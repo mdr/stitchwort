@@ -4,11 +4,11 @@
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-use stitchwort_driver::driver::{Cache, Outcome, Session};
+use stitchwort_driver::driver::{Cache, Outcome, Session, with_stack};
 use stitchwort_driver::render::render;
 use stitchwort_syntax::Diagnostic;
 
-use crate::{Benchmark, Prepared, STACK, Work};
+use crate::{Benchmark, PartCounts, Prepared, STACK, Work, alloc};
 
 pub const ALL: &[Benchmark] = &[
     Benchmark {
@@ -455,9 +455,49 @@ fn fingerprint(files: &[(String, String)]) -> String {
     )
 }
 
+/// How many threads the `examples` benchmark spreads its examples over. Fixed
+/// rather than the machine's cores, so that the counts are the same on every
+/// machine: see [`spread`].
+pub static JOBS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(8);
+
+/// What one example counted, or why it failed.
+type Done = Result<(Work, PartCounts), String>;
+
+/// One example of the `examples` benchmark.
+struct Example {
+    name: String,
+    text: String,
+    /// Accepted examples are checked and their tests run; rejected ones are
+    /// checked and their errors rendered.
+    accepted: bool,
+}
+
+/// Which of `weights` each of `jobs` workers takes, as lists of indices:
+/// heaviest first onto the least loaded worker, so that the workers finish
+/// together. It depends only on the weights, never on timing, and a worker
+/// takes its items in order: the thread-local buffers that grow as a thread
+/// goes (the freeing work lists) make an example's allocation count depend
+/// on what the same thread did before it, so a schedule that varied from run
+/// to run would vary the counts.
+fn spread(weights: &[usize], jobs: usize) -> Vec<Vec<usize>> {
+    let mut order: Vec<usize> = (0..weights.len()).collect();
+    order.sort_by_key(|&i| (std::cmp::Reverse(weights[i]), i));
+    let mut load = vec![0usize; jobs];
+    let mut lists = vec![Vec::new(); jobs];
+    for i in order {
+        let worker = (0..jobs).min_by_key(|&w| (load[w], w)).unwrap_or(0);
+        load[worker] += weights[i];
+        lists[worker].push(i);
+    }
+    lists
+}
+
 /// What `crates/cli/tests/running/examples.rs` does, without comparing snapshots:
 /// accepted examples are checked and their tests run; rejected ones are
-/// checked and their errors rendered. Each example has its own session.
+/// checked and their errors rendered. Each example has its own session, and
+/// each worker thread ([`JOBS`] of them) counts its own allocations, so an
+/// example's counts are the same as when they run one after another, and
+/// the benchmark's are their sum.
 fn examples() -> Result<Prepared, String> {
     let accepted = [example_files("accept")?, example_files("extract")?].concat();
     let rejected = [example_files("reject")?, example_files("soundness")?].concat();
@@ -471,41 +511,103 @@ fn examples() -> Result<Prepared, String> {
         .chain(&rejected)
         .map(|(name, _)| name.clone())
         .collect();
+    let examples: Vec<Example> = accepted
+        .into_iter()
+        .map(|(name, text)| (name, text, true))
+        .chain(rejected.into_iter().map(|(name, text)| (name, text, false)))
+        .map(|(name, text, accepted)| Example {
+            name,
+            text,
+            accepted,
+        })
+        .collect();
     Ok(Prepared {
         inputs: Some(inputs),
         parts,
         run: Box::new(move |parts| {
-            let mut total = Work::default();
-            for (name, text) in &accepted {
-                let start = parts.start();
-                let mut session = untimed(Session::for_stack(16 * 1024 * 1024));
-                if let Err(ds) = session.load(name, text) {
-                    return Err(format!("{name}:\n{}", rendered(&session, &ds)));
-                }
-                for result in session.run_tests(&Cache::disabled()) {
-                    if result.outcome != Outcome::Passed {
-                        return Err(format!("{name}: test \"{}\" failed", result.name));
-                    }
-                }
-                let done = work(&session);
-                drop(session);
-                parts.finish(start, done);
-                total = total + done;
+            let jobs = JOBS.load(std::sync::atomic::Ordering::Relaxed).max(1);
+            let weights: Vec<usize> = examples.iter().map(|e| e.text.len()).collect();
+            let lists = spread(&weights, jobs);
+            let results: Vec<Vec<(usize, Done)>> = std::thread::scope(|scope| {
+                let workers: Vec<_> = lists
+                    .iter()
+                    .map(|list| {
+                        let examples = &examples;
+                        scope.spawn(move || {
+                            with_stack(STACK, || {
+                                let mut done = Vec::with_capacity(list.len());
+                                alloc::measure_this_thread(true);
+                                for &i in list {
+                                    let result = run_example(&examples[i]);
+                                    let failed = result.is_err();
+                                    done.push((i, result));
+                                    if failed {
+                                        break;
+                                    }
+                                }
+                                alloc::measure_this_thread(false);
+                                done
+                            })
+                        })
+                    })
+                    .collect();
+                workers
+                    .into_iter()
+                    .map(|w| w.join().expect("an example worker panicked"))
+                    .collect()
+            });
+            let mut by_example: Vec<Option<Done>> = (0..examples.len()).map(|_| None).collect();
+            for (i, result) in results.into_iter().flatten() {
+                by_example[i] = Some(result);
             }
-            for (name, text) in &rejected {
-                let start = parts.start();
-                let mut session = untimed(Session::new());
-                if let Err(ds) = session.load(name, text) {
-                    std::hint::black_box(rendered(&session, &ds));
-                }
-                let done = work(&session);
-                drop(session);
-                parts.finish(start, done);
+            let mut total = Work::default();
+            for result in by_example.into_iter().flatten() {
+                let (done, counts) = result?;
+                parts.record(counts);
                 total = total + done;
             }
             Ok(total)
         }),
     })
+}
+
+/// Checks (and for an accepted one, tests) one example in a session of its
+/// own, on the thread of the caller, counting what that took.
+fn run_example(example: &Example) -> Done {
+    let Example {
+        name,
+        text,
+        accepted,
+    } = example;
+    let mark = alloc::part_start();
+    let done = if *accepted {
+        let mut session = untimed(Session::for_stack(16 * 1024 * 1024));
+        if let Err(ds) = session.load(name, text) {
+            return Err(format!("{name}:\n{}", rendered(&session, &ds)));
+        }
+        for result in session.run_tests(&Cache::disabled()) {
+            if result.outcome != Outcome::Passed {
+                return Err(format!("{name}: test \"{}\" failed", result.name));
+            }
+        }
+        work(&session)
+    } else {
+        let mut session = untimed(Session::new());
+        if let Err(ds) = session.load(name, text) {
+            std::hint::black_box(rendered(&session, &ds));
+        }
+        work(&session)
+    };
+    let (allocations, peak_bytes) = alloc::part_end(mark);
+    Ok((
+        done,
+        PartCounts {
+            steps: done.steps,
+            visits: done.visits,
+            allocations,
+            peak_bytes,
+        },
+    ))
 }
 
 /// Generating JS for each extraction example, already loaded.

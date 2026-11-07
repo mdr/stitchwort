@@ -185,7 +185,7 @@ cargo nextest run --release --workspace --profile merge    # a tier without Task
 cargo insta review                             # after changing an error message
 cargo llvm-cov --workspace --summary-only      # coverage per file
 cargo mutants --package stitchwort-core --test-workspace=true --jobs 6   # slow: minutes to an hour
-task bench                                     # benchmarks against the baseline: about a minute
+task bench                                     # benchmarks against the baseline: about 4 minutes on a quiet machine
 task test:gate                                 # nix flake check: the daily tier, as CI would
 task test:browser                              # the playground in headless Chrome: about 35 s
 ```
@@ -241,19 +241,20 @@ No program is known to crash the compiler any more (its depth guards stop deep p
 
 Each benchmark is measured in two ways:
 
-- **Counts**, the regression signal. *Steps* are evaluation steps, from the resource budget (`Budget::total_work`). *Visits* are levels of the recursive passes that aren't evaluation, like the elaborator and type checker (`Budget::total_visits`). *Allocations* and *peak heap* come from a counting allocator in the benchmark binary. They depend only on the program and the compiler, not on how busy the machine is, so they're identical on every run (checked: separate processes give identical numbers, and `crates/bench/tests/repeat.rs` checks two runs in one process) and the threshold can be tight: **+10%**. Two things keep them so: hash maps hash the same on every run (`stitchwort_core::collections`; `clippy.toml` disallows the standard library's, whose random hashing now and then changes when a map grows), and the benchmarks' counterexample searches stop at their count of inputs, never at their time limit (`Elaborator::untimed_counterexamples`). They don't see everything: a loop that neither evaluates, recurses through a guarded pass nor allocates costs time without changing them.
-- **Time**, the median of 5 runs of a release build. It's what matters in the end, but other builds on the same machine make it noisy, so its threshold is loose (**+50%**, and at least 20 ms more) and it's never checked automatically.
+- **Counts**, the regression signal. *Steps* are evaluation steps, from the resource budget (`Budget::total_work`). *Visits* are levels of the recursive passes that aren't evaluation, like the elaborator and type checker (`Budget::total_visits`). *Allocations* and *peak heap* come from a counting allocator in the benchmark binary. They depend only on the program and the compiler, not on how busy the machine is, so they're identical on every run (checked: separate processes give identical numbers, and `crates/bench/tests/repeat.rs` checks two runs in one process) and the threshold can be tight: **+10%**. Two things keep them so: hash maps hash the same on every run (`stitchwort_core::collections`; `clippy.toml` disallows the standard library's, whose random hashing now and then changes when a map grows), and the benchmarks' counterexample searches stop at their count of inputs, never at their time limit (`Elaborator::untimed_counterexamples`). The `examples` benchmark spreads its examples over 8 threads (`--jobs`), each counting its own allocations and peak heap; the peak is the heaviest example's. Which thread takes which example depends only on file sizes, not timing, because a thread's buffers grow as it goes and an example's allocation count depends a little on what the thread did before it. So the counts are the same on every run, but not exactly those of a single thread (on 7 Nov 2026, across 1,498 examples: one example's steps differed by 138 in 67 million, and 33 allocation counts by a few); compare runs with the same `--jobs`. They don't see everything: a loop that neither evaluates, recurses through a guarded pass nor allocates costs time without changing them.
+- **Time**, the median of 5 runs (the `examples` sweep is run once) of a release build. It's what matters in the end, but other builds on the same machine make it noisy, so its threshold is loose (**+50%**, and at least 20 ms more) and it's never checked automatically.
 
 ```sh
 cargo run --release -p stitchwort-bench                  # run, compare with the baseline; fails on a regression
 cargo run --release -p stitchwort-bench -- check-number  # only benchmarks whose names contain this
-cargo run --release -p stitchwort-bench -- --no-time     # counts only, one run each: about 10 s
+cargo run --release -p stitchwort-bench -- --no-time     # counts only, one run each: about 80 s, most of it `examples`
+cargo run --release -p stitchwort-bench -- --parts FILE  # also write each example's counts to FILE, to compare two builds
 cargo run --release -p stitchwort-bench -- --update      # record this run as the baseline
 ```
 
 The baseline is `bench/baseline.toml`: one table per benchmark, so a change reads well in a diff. Update it deliberately: after an improvement (the comparison says so, and the baseline should keep it), or after a regression that's worth its cost, saying why in the commit. Record times on a quiet machine. The example suite and JS generation read `examples/`, so the baseline records a fingerprint of those files, and when they change the counts aren't compared (a note says so) until the baseline is updated.
 
-The test tiers run the counts part (`crates/bench/tests/baseline.rs`): one run of each benchmark, failing if a count grew past the threshold. Being deterministic, it can't fail by chance. The `examples` benchmark checks the whole example corpus on one thread (allocations are counted per process), over a minute and most of the test's time, so only the full tier compares its counts; the daily tier compares the rest, in about 30 s. It's skipped in debug builds (`cargo test`), where the benchmarks are slow and allocation counts may differ from the release build's.
+The test tiers run the counts part (`crates/bench/tests/baseline.rs`): one run of each benchmark, failing if a count grew past the threshold. Being deterministic, it can't fail by chance. The `examples` benchmark checks the whole example corpus (each example in a session of its own, from the library's source, so that the elaborator's work on the library is part of what it counts), over a minute and most of the test's time, so only the full tier compares its counts; the daily tier compares the rest, in about 30 s. It's skipped in debug builds (`cargo test`), where the benchmarks are slow and allocation counts may differ from the release build's.
 
 ## Writing tests
 
