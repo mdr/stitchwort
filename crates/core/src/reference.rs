@@ -989,15 +989,27 @@ fn same_trees(g: &Ev, level: usize, mut a: Tree, mut b: Tree, mode: Mode) -> Res
         loop {
             match t.strip_loc() {
                 Term::Case(ix, d, branches) => {
-                    let s = force(g, e[e.len() - 1 - ix].clone())?;
-                    match &s {
-                        Value::Ctor(_, c, fields) => match &branches[*c].body {
+                    // Rule E: the scrutinee's head, a folded call unfolded
+                    // and a number split, as `eval_tree` takes it (G1, G3).
+                    let s = unfold_folded(g, force(g, e[e.len() - 1 - ix].clone())?)?;
+                    let split = match &s {
+                        Value::Ctor(_, c, fields) => Some((*c, fields.to_vec())),
+                        Value::Nat(_) | Value::NatAdd(..) if Some(*d) == g.env.builtins().nat => {
+                            native::split_value(&s)
+                        }
+                        _ => None,
+                    };
+                    if let Some((c, fields)) = split {
+                        match &branches[c].body {
                             Some(body) => {
-                                e.extend(fields.iter().cloned());
+                                e.extend(fields);
                                 t = body.clone();
                             }
                             None => return Ok(None),
-                        },
+                        }
+                        continue;
+                    }
+                    match &s {
                         Value::Neutral(..) if !is_folded(g, &s) && !held && eta_case(g, *d) => {
                             match &branches[0].body {
                                 Some(body) => {

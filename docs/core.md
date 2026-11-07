@@ -281,9 +281,9 @@ Each of these not marked fixed fails today in every mode, glued and unglued. Non
 
 | Gap | What's answered "different" or "stuck" on a head that isn't rigid | Example | Ticket |
 |---|---|---|---|
-| G1 | the tree comparison's scrutinee is a folded call | `pickA (yes 0) x = pickB (yes 0) x` | SW-2257 |
+| G1 | fixed (SW-2257): the tree comparison's scrutinee was a folded call, which the walk didn't unfold to its head | `pickA (yes 0) x = pickB (yes 0) x` | SW-2257 |
 | G2 | R3 and R4 read `+`'s second argument without its head | `x + two 0 = Succ (Succ x)` | SW-2260 |
-| G3 | the tree comparison's scrutinee is a number or a range | `pickA 3 x = pickB 3 x` | SW-2257 |
+| G3 | fixed (SW-2257): the tree comparison's scrutinee was a number or a range, which the walk didn't split into `Succ` or `Cons` | `pickA 3 x = pickB 3 x` | SW-2257 |
 | G4 | a float primitive's argument is a folded call | `Float.ofNat (two 0) = Float.ofNat 2` | SW-2262 |
 | G5 | a `NumCase` on `Succ` of a folded call | `isThree (Succ (two 0)) = 10` | SW-2262 |
 | G6 | fixed (SW-2256): two stuck calls of one definition with different arguments were compared by arguments only, which broke transitivity | `ignoresFirst 1 x = ignoresFirst 2 x` | SW-2256 |

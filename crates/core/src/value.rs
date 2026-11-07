@@ -3626,11 +3626,11 @@ pub fn underapplied(g: &Ev, value: &Value) -> Option<Icit> {
 // Only for definitions that aren't recursive (a recursive one compared this
 // way could unfold forever), aren't folded by name (dictionaries and
 // theorems, compared above) and have no `Quot.lift` leaf. A tree is compared
-// node by node: a `case` whose scrutinee is a constructor takes its branch,
-// as running it would; one stuck on a neutral value is compared with the
+// node by node: a `case` whose scrutinee's head is a constructor (a folded
+// call unfolded, a number or a compact list split, as running it would)
+// takes its branch; one stuck on a neutral value is compared with the
 // other side's; leaves are compared as values. Any other shape (a `NumCase`,
-// a number or a list as scrutinee, one side a leaf and the other a `case`)
-// answers "different", as before.
+// one side a leaf and the other a `case`) answers "different", as before.
 
 /// Whether `value` is a definition applied to all its arguments that
 /// [`same_stuck_trees`] can compare with another by its case tree.
@@ -3670,15 +3670,27 @@ fn walk_tree(g: &Ev, mut tree: Rc<Term>, mut env: Vec<Value>, held: bool) -> Res
         match &*node {
             Term::Case(ix, d, branches) => {
                 let unforced = env[env.len() - 1 - ix].clone();
-                let scrutinee = force(g, unforced.clone())?;
-                match &scrutinee {
-                    Value::Ctor(_, c, fields) => {
-                        let Some(body) = branches[*c].body.clone() else {
-                            return Ok(TreeEnd::Other);
-                        };
-                        env.extend(fields.iter().cloned());
-                        tree = body;
+                let scrutinee = tree_scrutinee(g, unforced.clone())?;
+                let split = match &scrutinee {
+                    Value::Ctor(_, c, fields) => Some((*c, fields.to_vec())),
+                    Value::Nat(_) | Value::NatAdd(..) if Some(*d) == g.env.builtins().nat => {
+                        native::split_value(&scrutinee)
                     }
+                    Value::Chars(chars) => match &g.env.builtins().text {
+                        Some(text) if text.list == *d => Some(chars::split(text, chars)),
+                        _ => None,
+                    },
+                    _ => None,
+                };
+                if let Some((c, fields)) = split {
+                    let Some(body) = branches[c].body.clone() else {
+                        return Ok(TreeEnd::Other);
+                    };
+                    env.extend(fields);
+                    tree = body;
+                    continue;
+                }
+                match &scrutinee {
                     // Record eta's rule 2, as evaluation takes it (`branch`):
                     // so a tree is compared from where its call is stuck.
                     Value::Neutral(..)
@@ -3701,6 +3713,22 @@ fn walk_tree(g: &Ev, mut tree: Rc<Term>, mut env: Vec<Value>, held: bool) -> Res
             _ => return Ok(TreeEnd::Leaf(node, env)),
         }
     }
+}
+
+/// The head of `value` as a `case` in [`walk_tree`] decides on it (rule E,
+/// docs/core.md): forced, and a folded call unfolded (G1), as `branch` sees
+/// it after `Frame::Scrutinee`. A folded call that stays stuck is returned
+/// as it is. Each unfolding runs in the machine's budget, so this ends.
+fn tree_scrutinee(g: &Ev, value: Value) -> Result<Value> {
+    let mut value = force(g, value)?;
+    while folded_call(g, &value) {
+        g.machine.budget.step()?;
+        match unfold_folded(g, &value)? {
+            Some(next) => value = force(g, next)?,
+            None => break,
+        }
+    }
+    Ok(value)
 }
 
 /// Whether two calls, each applied to all its arguments and stuck
