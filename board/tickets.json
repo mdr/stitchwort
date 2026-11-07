@@ -1,5 +1,5 @@
 {
-  "next": 2219,
+  "next": 2220,
   "tickets": [
     {
       "id": 47,
@@ -20794,6 +20794,21 @@
       ],
       "epic": "docs-tutorials",
       "body": "From docs/reviews/SW-2213-guide-coverage.md, lane E. 75 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2219,
+      "title": "[Opus] Read-only review of the trip-journal example project (examples/projects/accept/trip-journal, SW-996): is it sensible, up to current standards (domain records, call-site style, operators, bracket lists, clause lambdas, comment style), and does it use features added since 1 Nov (record eta, decreasing without names, match found:, maps of sets, the std lemmas moved from AoC, std renames coming); what could be simpler; the 14 audit warnings; the open 'where an item lands in a moved leg' theorem",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2219",
+      "labels": [
+        "review"
+      ],
+      "epic": "docs-tutorials",
+      "body": "Matt, 7 Nov 2026: 'Is it worth a bit of an opus review of that code to make sure it's sensible and up to date with our current standards and taking advantage of all the features we've added since it was first written?' Status 7 Nov: checks (4 namespaces), 19/19 tests, audit 187 theorems 0 failed 14 with warnings; the_trip_journal_checks runs in every tier. docs/reviews/SW-N-trip-journal.md. 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
