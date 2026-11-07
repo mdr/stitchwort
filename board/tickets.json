@@ -18761,14 +18761,14 @@
     {
       "id": 2083,
       "title": "[DeepSeek] Lexer messages for hidden characters (L1, L2) and error-span tests",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2083",
       "labels": [
         "syntax"
       ],
       "epic": "syntax-language",
-      "body": "From docs/reviews/SW-2080-merges-7-nov.md. 30 min.",
+      "body": "From docs/reviews/SW-2080-merges-7-nov.md. 30 min.\n\nDone, merged. Comment inside ${…} named as the cause (span = the comment); invisible table adds U+2061-2064, U+180E, U+034F, U+FFF9-FFFB, tags; U+061C with direction controls; error_spans_point_at_the_problem. One docs fixup in review (the message prints U+2061 unnamed). On main: syntax 226/226, fmt and hash_stability 15/15. Model result: DeepSeek, worked (one docs fixup), 20 min (est. 30).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
