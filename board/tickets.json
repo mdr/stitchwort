@@ -1,5 +1,5 @@
 {
-  "next": 2307,
+  "next": 2308,
   "tickets": [
     {
       "id": 47,
@@ -22001,14 +22001,14 @@
     {
       "id": 2299,
       "title": "[Sonnet] Comparative speed 1b (Lean): Lean 4 ports of the eight AoC programs (dijkstra, octopus, disk, expressions, scan, matcher, bridge, memory-game) in bench/compare/lean, same algorithm, natural data structures (D3342)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2299",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "Split from SW-2293. Plan: docs/proposals/comparative-speed.md. 90 min.",
+      "body": "Split from SW-2293. Plan: docs/proposals/comparative-speed.md. 90 min.\n\nDone, merged. 8 ports, lake build ok, check 40 ok / 14 skipped (Python not yet) / 0 failed. Smoke: octopus native/Lean 48x, matcher 16x (but Lean runs 31 ms, under the floor: SW-2307). Model result: Sonnet, worked, 7 min (est. 90).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -22114,6 +22114,21 @@
       ],
       "epic": "elaborator-kernel",
       "body": "D2364: kernel budget change gets an Opus review. 25 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2307,
+      "title": "[Sonnet] Comparative speed: scale the AoC inputs so the fastest language runs at least 0.3 s (compiled Lean takes 20-60 ms on most; only dijkstra and memory-game at 30M clear it): repeat or loop inputs, per program, in programs.toml",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2299. 30 min. After SW-2293 merges. Before stage 2 (SW-2295).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
