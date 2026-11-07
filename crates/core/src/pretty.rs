@@ -1301,11 +1301,11 @@ impl<'g> Printer<'g> {
     /// The operator a call of `id` is shown with, and its precedence.
     fn infix(&self, id: DefId) -> Option<(&'static str, Prec)> {
         match self.g.env.registry().def_builtin(id)? {
-            Builtin::Add | Builtin::IntAdd => Some(("+", Prec::Add)),
-            Builtin::Sub | Builtin::IntSub => Some(("-", Prec::Add)),
-            Builtin::Mul | Builtin::IntMul => Some(("*", Prec::Mul)),
-            Builtin::Div | Builtin::IntDiv => Some(("/", Prec::Mul)),
-            Builtin::Mod | Builtin::IntMod => Some(("%", Prec::Mul)),
+            Builtin::Add | Builtin::IntAdd | Builtin::FloatAdd => Some(("+", Prec::Add)),
+            Builtin::Sub | Builtin::IntSub | Builtin::FloatSub => Some(("-", Prec::Add)),
+            Builtin::Mul | Builtin::IntMul | Builtin::FloatMul => Some(("*", Prec::Mul)),
+            Builtin::Div | Builtin::IntDiv | Builtin::FloatDiv => Some(("/", Prec::Mul)),
+            Builtin::Mod | Builtin::IntMod | Builtin::FloatRem => Some(("%", Prec::Mul)),
             Builtin::LessEq | Builtin::IntLessEq | Builtin::FloatLessEq => {
                 Some((self.sym("≤", "<="), Prec::Eq))
             }
