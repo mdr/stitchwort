@@ -4,6 +4,8 @@
 
 use std::collections::BTreeMap;
 use std::fmt::Write;
+use std::hash::{Hash, Hasher};
+use std::sync::{Arc, Mutex};
 
 use stitchwort_core::collections::HashMap;
 use stitchwort_elab::{NavIndex, NavTarget};
@@ -11,6 +13,9 @@ use stitchwort_syntax::{
     Counterexample, Diagnostic, FileId, GoalData, MissingCases, Severity, SourceMap, Span,
     SuggestedImport, Tok,
 };
+
+use stitchwort_syntax::ast::Import;
+use stitchwort_syntax::docs::Doc;
 
 use crate::driver::Session;
 
@@ -148,6 +153,38 @@ pub struct IndexDiagnostic {
     pub missing: Option<MissingCases>,
     /// The import that would bring in the unknown name.
     pub import: Option<SuggestedImport>,
+}
+
+/// What was parsed from a library file's text, by file and text. The
+/// library's files don't change while a process runs but are indexed at
+/// every request (and at every comparison in the rewind tests), and
+/// parsing their docs and imports is most of an index's cost.
+type ParseCache<T> = Mutex<BTreeMap<(usize, u64), Arc<T>>>;
+
+static DOCS: ParseCache<BTreeMap<u32, Doc>> = Mutex::new(BTreeMap::new());
+static IMPORTS: ParseCache<Vec<Import>> = Mutex::new(BTreeMap::new());
+
+/// `parse` of `text`, shared with earlier calls on the same text unless the
+/// file is the user's (which is parsed afresh: it changes with every edit).
+fn file_parse<T>(
+    cache: &ParseCache<T>,
+    file: FileId,
+    text: &str,
+    user: bool,
+    parse: impl FnOnce() -> T,
+) -> Arc<T> {
+    if user {
+        return Arc::new(parse());
+    }
+    let mut hasher = std::hash::DefaultHasher::new();
+    text.hash(&mut hasher);
+    let key = (file.index(), hasher.finish());
+    if let Some(found) = cache.lock().unwrap().get(&key) {
+        return found.clone();
+    }
+    let parsed = Arc::new(parse());
+    cache.lock().unwrap().insert(key, parsed.clone());
+    parsed
 }
 
 /// The index of everything `session` has loaded, with `enable_navigation`
@@ -377,12 +414,12 @@ pub fn index_data_of(
     };
     let mut parens: HashMap<FileId, Parens> = HashMap::default();
     // Each file's docs, read once from the text the session checked.
-    let mut docs: HashMap<FileId, BTreeMap<u32, stitchwort_syntax::docs::Doc>> = HashMap::default();
+    let mut docs: HashMap<FileId, Arc<BTreeMap<u32, Doc>>> = HashMap::default();
     // Each file's namespace, from its first top-level declaration, which a
     // doc link in it may name things in.
     let mut namespaces: HashMap<FileId, Option<String>> = HashMap::default();
     // Each file's `import` lines, which a doc link in it may use (SW-1045).
-    let mut imports: HashMap<FileId, Vec<stitchwort_syntax::ast::Import>> = HashMap::default();
+    let mut imports: HashMap<FileId, Arc<Vec<Import>>> = HashMap::default();
     for symbol in &index.symbols {
         if symbol.container.is_none()
             && symbol.kind != "test"
@@ -419,7 +456,14 @@ pub fn index_data_of(
         let doc = docs
             .entry(symbol.span.file)
             .or_insert_with(|| {
-                stitchwort_syntax::docs::docs(symbol.span.file, &sources.get(symbol.span.file).text)
+                let text = &sources.get(symbol.span.file).text;
+                file_parse(
+                    &DOCS,
+                    symbol.span.file,
+                    text,
+                    user(symbol.span.file),
+                    || stitchwort_syntax::docs::docs(symbol.span.file, text),
+                )
             })
             .get(&symbol.span.start)
             .map(|doc| SymbolDoc {
@@ -435,9 +479,18 @@ pub fn index_data_of(
                             &link.name,
                             namespaces.get(&symbol.span.file).and_then(|n| n.as_deref()),
                             imports.entry(symbol.span.file).or_insert_with(|| {
-                                stitchwort_syntax::docs::file_imports(
+                                let text = &sources.get(symbol.span.file).text;
+                                file_parse(
+                                    &IMPORTS,
                                     symbol.span.file,
-                                    &sources.get(symbol.span.file).text,
+                                    text,
+                                    user(symbol.span.file),
+                                    || {
+                                        stitchwort_syntax::docs::file_imports(
+                                            symbol.span.file,
+                                            text,
+                                        )
+                                    },
                                 )
                             }),
                         ),
