@@ -640,3 +640,7 @@ theorem Nat.divMonoLeft (a: Nat) (b: Nat): (d: Nat) → a ≤ b → a / d ≤ b 
 --| number of a grid stored row by row divides back to its row.
 theorem Nat.mulAddDivSmall (row: Nat) (width: Nat) (column: Nat) (small: column < width): (row * width + column) / width = row :=
   Nat.divUnique (row * width + column) width row column small rfl
+
+test "Nat.divMonoLeft" := 7 / 2 ≤ 9 / 2 ∧ 7 / 0 ≤ 9 / 0
+test "Nat.mulAddDivSmall" := (3 * 10 + 4) / 10 == 3
+test "Nat.mulAddDivMatch" := (3 * 10 + 4 == 34) == (34 % 10 == 4 && 3 == 34 / 10)

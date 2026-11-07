@@ -226,3 +226,8 @@ theorem Nat.divSuccStep (d: Nat) (a: Nat) (h: a < d) (n: Nat):
 theorem Nat.subModBeqZero (m: Nat): (v: Nat) → v < Succ m → ((Succ m - v) % Succ m == 0) = (v == 0)
   | Zero, h => rewrite Nat.modSelf (Succ m)
   | Succ w, h => rewrite Nat.modSmall (m - w) (Succ m) omega, (omega: m - w = Succ (m - Succ w))
+
+test "Nat.mulNeZero" := 3 * 4 != 0
+test "Nat.subModSelf" := (17 - 5) % 5 == 17 % 5
+test "Nat.divSuccStep" := Bool.toNat ((4 + 1) % 5 == 0) + ((4 + 1) % 5 + 7) / 5 == (4 + Succ 7) / 5
+test "Nat.subModBeqZero" := ((Succ 9 - 0) % Succ 9 == 0) == (0 == 0) ∧ ((Succ 9 - 4) % Succ 9 == 0) == (4 == 0)
