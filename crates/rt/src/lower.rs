@@ -277,6 +277,12 @@ enum Bind {
     Erased,
     /// Slot `slot` of frame `frame` (an index into [`Lowerer::frames`]).
     Slot { frame: usize, slot: Slot },
+    /// Another name for the variable at this (lower) level, never itself an
+    /// alias: an unboxed record's field stands for the record. It must not
+    /// copy that level's `Slot`, since a closure records what it captures
+    /// by level, and the copy's level may be one the frame that makes the
+    /// closure doesn't have.
+    Alias(usize),
 }
 
 /// A function's or lambda's frame, while its body is lowered.
@@ -536,6 +542,7 @@ impl<'g> Lowerer<'g> {
         let current = self.frames.len() - 1;
         match self.env[level] {
             Bind::Erased => Expr::Erased,
+            Bind::Alias(original) => self.level(original),
             Bind::Slot { frame, slot } if frame == current => {
                 self.frames[current].used[slot as usize] = true;
                 Expr::Local(slot)
@@ -1131,7 +1138,11 @@ impl<'g> Lowerer<'g> {
             let Some(branch) = branches.first() else {
                 return Ok(Expr::Unreachable);
             };
-            let bound = self.env[self.env.len() - 1 - ix];
+            let level = self.env.len() - 1 - ix;
+            let bound = match self.env[level] {
+                Bind::Slot { .. } => Bind::Alias(level),
+                other => other,
+            };
             let mark = self.mark();
             for i in 0..data.ctors()[0].fields.len() {
                 self.env.push(if i == field { bound } else { Bind::Erased });
