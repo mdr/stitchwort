@@ -1087,11 +1087,11 @@ fn known_gap(p: &Wrapped) -> Option<(&'static str, &'static str)> {
         "alike helpers, hole scrutinised"
             if folded && over && ["n", "Succ n"].contains(&p.base.as_str()) =>
         {
-            Some(("G1", "SW-2243"))
+            Some(("G1", "SW-2257"))
         }
-        "alike helpers, hole scrutinised" if closed => Some(("G3", "SW-2243")),
+        "alike helpers, hole scrutinised" if closed => Some(("G3", "SW-2257")),
         "alike helpers, hole in the second place" if p.base == "n" && over => {
-            Some(("G3", "SW-2243"))
+            Some(("G3", "SW-2257"))
         }
         // `+` on a folded second argument.
         "n + hole" | "n + hole, against Succ^k n"
@@ -1201,7 +1201,6 @@ fn known_wrapping(gap: &str) {
 }
 
 #[test]
-#[ignore = "known failure G1 (folded scrutinee of alike helpers), fixed by SW-2243"]
 fn wrapping_known_failure_g1() {
     known_wrapping("G1")
 }
@@ -1213,7 +1212,6 @@ fn wrapping_known_failure_g2() {
 }
 
 #[test]
-#[ignore = "known failure G3 (a number scrutinee of alike helpers), fixed by SW-2243"]
 fn wrapping_known_failure_g3() {
     known_wrapping("G3")
 }
@@ -1255,7 +1253,6 @@ fn load_probe(name: &str, source: &str) {
 }
 
 #[test]
-#[ignore = "known failure G1 (a folded call as the scrutinee of alike helpers), fixed by SW-2243"]
 fn probe_g1_folded_scrutinee() {
     load_probe(
         "g1.sw",
@@ -1273,7 +1270,6 @@ fn probe_g2_sum_with_a_folded_number() {
 }
 
 #[test]
-#[ignore = "known failure G3 (a number as the scrutinee of alike helpers), fixed by SW-2243"]
 fn probe_g3_number_scrutinee() {
     load_probe(
         "g3.sw",
