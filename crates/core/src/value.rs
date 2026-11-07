@@ -833,9 +833,19 @@ enum Frame {
     Unfolded(Rc<Unfolding>, DefId),
     /// The forced value of the call that field call `id spine` (spine
     /// ending in projection `d`, `i`; [`project_call`]) takes field `i`
-    /// of, and whether it's been unfolded already if it was a folded call.
-    /// (Boxed: it's large, and rare.)
-    CallField(Box<(DataId, usize, DefId, Spine, bool)>),
+    /// of ([`CallField`]). (Boxed: it's large, and rare.)
+    CallField(Box<CallField>),
+}
+
+/// What a [`Frame::CallField`] waits for: field call `id spine`, whose spine
+/// ends in projection `data`, `index`.
+pub struct CallField {
+    data: DataId,
+    index: usize,
+    id: DefId,
+    spine: Spine,
+    /// Whether the call has been unfolded already, if it was a folded call.
+    unfolded: bool,
 }
 
 #[cfg(any(test, feature = "reference"))]
@@ -915,7 +925,13 @@ fn force_call(
                 push(
                     g,
                     stack,
-                    Frame::CallField(Box::new((d, i, id, spine, false))),
+                    Frame::CallField(Box::new(CallField {
+                        data: d,
+                        index: i,
+                        id,
+                        spine,
+                        unfolded: false,
+                    })),
                 )?;
                 Control::Force(base)
             }
@@ -1519,17 +1535,35 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
             unfold_for(g, stack, value, Frame::ProjReady(d, i))?
         }
         Frame::ProjForced(d, i) | Frame::ProjReady(d, i) => Control::Return(project(d, i, value)),
-        Frame::CallField(field) if !field.4 && folded_call(g, &value) => {
-            let (d, i, id, spine, _) = *field;
+        Frame::CallField(field) if !field.unfolded && folded_call(g, &value) => {
+            let CallField {
+                data: d,
+                index: i,
+                id,
+                spine,
+                ..
+            } = *field;
             unfold_for(
                 g,
                 stack,
                 value,
-                Frame::CallField(Box::new((d, i, id, spine, true))),
+                Frame::CallField(Box::new(CallField {
+                    data: d,
+                    index: i,
+                    id,
+                    spine,
+                    unfolded: true,
+                })),
             )?
         }
         Frame::CallField(field) => {
-            let (d, i, id, spine, _) = *field;
+            let CallField {
+                data: d,
+                index: i,
+                id,
+                spine,
+                ..
+            } = *field;
             // A call that steps at once is named by its step, as it's read
             // back (`(if True then x else y).i` is `x.i`).
             if matches!(value, Value::Neutral(ref head, _) if !matches!(head, Head::Meta(_)))
@@ -1754,7 +1788,7 @@ fn branch(
         // on an unknown value of a type with eta takes its only branch, its
         // fields bound to the value's projections. Sound because every value
         // of such a type is its constructor applied to its fields (the
-        // conditions are at `check::has_eta`), so whatever `n` turns out to
+        // conditions are at `check::qualifies_for_eta`), so whatever `n` turns out to
         // be, this is the branch it takes, with these fields; and it ends,
         // since it removes a `case` and adds none. An unsolved metavariable
         // counts as unknown too: the kernel never sees one, and to the
@@ -1833,14 +1867,14 @@ pub fn project_call(d: DataId, i: usize, call: Value) -> Value {
 
 /// Whether data type `d` has record eta. A type the environment doesn't hold
 /// (only unit tests build such values) has none.
-pub fn has_eta(g: &Ev, d: DataId) -> bool {
+pub fn is_eta_type(g: &Ev, d: DataId) -> bool {
     g.env.datas().get(d.0).is_some_and(|data| data.eta)
 }
 
 /// Whether a `case` on type `d` takes its only branch on a neutral by
 /// record eta (rule 2, [`branch`]): `d` has eta and no program is running.
 fn eta_case(g: &Ev, d: DataId) -> bool {
-    has_eta(g, d) && !g.machine.erasure.program_running()
+    is_eta_type(g, d) && !g.machine.erasure.program_running()
 }
 
 /// Whether rule 2 is off in the case tree of definition `id`: it has a
@@ -2043,8 +2077,9 @@ pub fn is_folded(g: &Ev, value: &Value) -> bool {
     }
 }
 
-/// [`is_folded`] but for fields of calls: a folded call the machine unfolds
-/// to take it apart.
+/// Whether `value` is a folded call that the machine unfolds to take it
+/// apart: [`is_folded`] without the fields of calls (`(f x).i`), which the
+/// machine takes apart as they are.
 fn folded_call(g: &Ev, value: &Value) -> bool {
     matches!(value, Value::Neutral(Head::Def(id), spine)
         if (folds(g, *id) || folds_on_lift(g, *id) || native::folds_mul(g, *id, spine))
@@ -2999,7 +3034,7 @@ fn conv_step(
         // constructor of a type with eta against an unknown `n` is equal when
         // each field is equal to `n`'s projection. True because every value
         // of such a type is its constructor applied to its fields (the
-        // conditions are at `check::has_eta`). Nothing checks that `n` is a
+        // conditions are at `check::qualifies_for_eta`). Nothing checks that `n` is a
         // value of that type: both sides have one type (the precondition of
         // `conv`), the constructor's. Fields go left to right, so each pair
         // has one type once the earlier ones are equal (or skipped as
@@ -3011,7 +3046,7 @@ fn conv_step(
         // forced (above), so it never sees a call.
         (Value::Ctor(d, 0, fs), n @ Value::Neutral(..))
         | (n @ Value::Neutral(..), Value::Ctor(d, 0, fs))
-            if has_eta(g, *d) =>
+            if is_eta_type(g, *d) =>
         {
             for (k, x) in fs.iter().enumerate().rev() {
                 if mode == Mode::Shortcut || !proof_field(g, *d, 0, k) {

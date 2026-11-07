@@ -431,7 +431,7 @@ pub struct Data {
     pub(crate) no_eta: bool,
     /// Whether it has record eta (docs/proposals/record-eta.md §6.1): set
     /// when the group becomes final, from the declaration alone
-    /// (`check::has_eta`), on both admission paths. Not hashed: a function
+    /// (`check::qualifies_for_eta`), on both admission paths. Not hashed: a function
     /// of what is.
     pub(crate) eta: bool,
     /// How many definitions, and data types, existed when this type's group

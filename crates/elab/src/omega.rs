@@ -527,13 +527,17 @@ impl Ranges {
             {
                 stitchwort_core::value::call_args(spine)
             }
-            Value::Neutral(Head::Def(id), spine) if *id == self.mem => spine
-                .iter()
-                .filter_map(|e| match e {
-                    Elim::App(v, icit) => Some((v.clone(), *icit)),
-                    Elim::J { .. } | Elim::Proj(..) => None,
-                })
-                .collect(),
+            Value::Neutral(Head::Def(id), spine)
+                if *id == self.mem && !stitchwort_core::value::is_call_field(spine) =>
+            {
+                spine
+                    .iter()
+                    .filter_map(|e| match e {
+                        Elim::App(v, icit) => Some((v.clone(), *icit)),
+                        Elim::J { .. } | Elim::Proj(..) => None,
+                    })
+                    .collect()
+            }
             // `Mem x xs` unfolded: `Any (y => y = x) xs`.
             Value::Neutral(Head::Def(id), spine) if *id == self.any => {
                 let [Elim::App(elem, _), Elim::App(pred, _), Elim::App(xs, _)] =

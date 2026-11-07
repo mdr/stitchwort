@@ -2241,7 +2241,7 @@ pub fn mark_no_eta(g: &mut Kernel, id: DataId) {
 // §7.4), which proof irrelevance already needs.
 
 /// Whether final data type `data` has record eta (see above).
-pub(crate) fn has_eta(data: &Data) -> bool {
+pub(crate) fn qualifies_for_eta(data: &Data) -> bool {
     let [ctor] = &data.ctors[..] else {
         return false;
     };
@@ -2612,7 +2612,7 @@ fn install_data_group<C>(
                 g.env.datas_mut()[d.0].state = State::Final;
             }
             for d in group.iter() {
-                let eta = has_eta(g.data(*d));
+                let eta = qualifies_for_eta(g.data(*d));
                 g.env.datas_mut()[d.0].eta = eta;
             }
             // Which parameters later groups may nest in, now that the

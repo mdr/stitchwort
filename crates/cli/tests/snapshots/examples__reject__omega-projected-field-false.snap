@@ -1,0 +1,22 @@
+---
+source: crates/cli/tests/examples.rs
+assertion_line: 688
+expression: output
+---
+[E-OMEGA] Error: `omega` can't prove `p.x < p.y`
+   ╭─[ reject/omega-projected-field-false.sw:7:44 ]
+   │
+ 7 │ theorem fieldAtom (p: P): p.x + 1 ≤ p.y := omega
+   │                                            ──┬──  
+   │                                              ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
+   │ 
+   │ Note 1: facts: none in scope
+   │ 
+   │ Note 2: atoms: `p.x`, `p.y`
+   │ 
+   │ Note 3: an integer model of the arithmetic abstraction (it may not be a real counterexample): p.x = 0, p.y = 0
+   │ 
+   │ Note 4: this statement is false; a counterexample:
+   │           p = { x = 0, y = 0 }
+   │         `p.x + 1 ≤ p.y` is false
+───╯

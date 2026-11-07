@@ -7,7 +7,7 @@ use stitchwort_core::budget::{ResourceError, Result};
 use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::value::{
     Closure, Elim, Head, Mode, Relation, ShapeKey, ShapeMemo, Spine, apply_icit, conv, eval,
-    expand_step, force, force_solved, has_eta, is_call_field, is_folded, matches_at_once,
+    expand_step, force, force_solved, is_call_field, is_eta_type, is_folded, matches_at_once,
     opens_by_tree, project, project_call, proof_field, proof_param, quote, quote_at_most,
     quote_folded, same_closure_solved, same_stuck_trees, sealed, underapplied, unfold_folded,
     unfold_once,
@@ -1315,7 +1315,7 @@ fn unify_step(
     // A constructor against a stuck field of a call (`(f x).i`, folded) is
     // left to rule 1 below, which keeps the call in what it solves.
     let ctor_against_field = |x: &Value, y: &Value| {
-        matches!(x, Value::Ctor(d, 0, _) if has_eta(&g.ev, *d))
+        matches!(x, Value::Ctor(d, 0, _) if is_eta_type(&g.ev, *d))
             && matches!(y, Value::Neutral(Head::Def(_), s) if is_call_field(s))
     };
     // Dictionaries left folded by name (`Def::fold`), as in `conv`: the same
@@ -1639,7 +1639,7 @@ fn unify_step(
         // (the same-type contract rule 1 relies on).
         (Value::Ctor(d, 0, fs), n @ Value::Neutral(..))
         | (n @ Value::Neutral(..), Value::Ctor(d, 0, fs))
-            if has_eta(&g.ev, *d) && !NO_ETA.with(|c| c.get()) && !blocked(g, n)? =>
+            if is_eta_type(&g.ev, *d) && !NO_ETA.with(|c| c.get()) && !blocked(g, n)? =>
         {
             // The fields of a call that computed to `n` are taken of the
             // call ([`project_call`]): the same values, by definition, with
