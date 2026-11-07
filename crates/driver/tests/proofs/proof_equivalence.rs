@@ -441,14 +441,48 @@ fn fields_of_calls_are_compared_alike() {
             "withProof",
             "jOuter",
             "jRefl",
+            "innerN",
             "dictOuter",
             "dict",
             "liftLeaf",
         ],
     );
-    let terms = terms(&sig, FIELD_OPS, field_op);
+    let mut terms = terms(&sig, FIELD_OPS, field_op);
+    // Deeper terms around a folded call under `Succ`, each `2` (SW-2157):
+    // the number comparison has to unfold the call to see it.
+    let nat = |k: usize| {
+        (0..k).fold(Term::ctor(sig.data("Nat"), 0, vec![]), |t, _| {
+            Term::ctor(sig.data("Nat"), 1, vec![t])
+        })
+    };
+    let succ = |t: Term| Term::ctor(sig.data("Nat"), 1, vec![t]);
+    let call = |def: &str, t: Term| app(sig.def(def), vec![t]);
+    let twos = [
+        ("Succ (innerN (0))", succ(call("innerN", nat(0)))),
+        (
+            "Succ (withProof (outerN (0)))",
+            succ(call("withProof", call("outerN", nat(0)))),
+        ),
+        (
+            "Succ (withProof (Succ (0)))",
+            succ(call("withProof", nat(1))),
+        ),
+    ];
+    terms.extend(twos.into_iter().map(|(name, t)| (name.to_string(), t)));
     let count = compared_alike(g, &sig, &terms);
     assert!(count > terms.len() && count < terms.len() * terms.len());
+    let env: Vec<Value> = (0..LEVEL).map(Value::var).collect();
+    let glued = matrix(g, &env, &terms, GLUED);
+    let at = |name: &str| terms.iter().position(|(n, _)| n == name).expect(name);
+    let two = at("Succ (Succ (0))");
+    for name in [
+        "Succ (outerN (0))",
+        "Succ (innerN (0))",
+        "Succ (withProof (outerN (0)))",
+        "Succ (withProof (Succ (0)))",
+    ] {
+        assert!(glued[at(name)][two], "{name} isn't 2");
+    }
 }
 
 /// Checks that every pair of `terms` gets one answer glued, in the kernel's

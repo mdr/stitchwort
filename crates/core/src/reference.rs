@@ -640,13 +640,28 @@ fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<boo
     if matches!(a, Value::Chars(_)) || matches!(b, Value::Chars(_)) {
         return conv_in(g, level, &force(g, a.clone())?, &force(g, b.clone())?, mode);
     }
+    // A base left against a different count of `Succ`s is unequal unless
+    // it's a folded call, compared unfolded as above (SW-2157).
     if native::nat_like(g, a) || native::nat_like(g, b) {
         return native::compare_with(
             g,
             a,
             b,
             |x, y| conv_in(g, level, x, y, mode),
-            |_, _| Ok(false),
+            |x, rest| {
+                if !is_folded(g, x) {
+                    return Ok(false);
+                }
+                let x2 = unfold_folded(g, x.clone())?;
+                match (x, &x2) {
+                    (Value::Neutral(Head::Def(i1), s1), Value::Neutral(Head::Def(i2), s2))
+                        if i1 == i2 && s1.ptr_eq(s2) =>
+                    {
+                        Ok(false)
+                    }
+                    _ => conv_in(g, level, &x2, rest, mode),
+                }
+            },
             force,
         );
     }
