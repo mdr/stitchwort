@@ -1055,7 +1055,21 @@ fn mutated_theorems_have_no_counterexample() {
         let base = check_one(corpus, site, &original, cache, false);
         match base {
             Ok(checked) if outcome_of(&checked) != Outcome::Rejected => out.calibrated = true,
-            Ok(_) => return out,
+            Ok(checked) => {
+                let why = match &checked.audit {
+                    None => "the theorem was not found after loading".to_string(),
+                    Some(a) => format!(
+                        "status {:?}: {}",
+                        a.status,
+                        a.findings
+                            .first()
+                            .and_then(|f| f.message.lines().next())
+                            .unwrap_or("no finding")
+                    ),
+                };
+                eprintln!("skipped, unmutated check rejected: {}: {why}", site.label());
+                return out;
+            }
             Err(panic) => {
                 out.failures.push(format!(
                     "{}: the unmutated theorem panicked: {panic}",
