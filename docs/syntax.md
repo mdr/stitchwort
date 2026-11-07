@@ -1064,7 +1064,10 @@ theorem evensShort (n: Nat): List.length (evens n) <= n
   or rewrites it (`rewrite f.unfold x, popped in …`), as on any other: no
   `E-MATCH-MOTIVE`. A plain `if` in such an arm is shown plain too. A
   `match` inside a function passed to another (`xs.map (x => match … with
-  …)`) keeps its equation in `f.unfold`
+  …)`) keeps its equation in `f.unfold` if a call's proof used it.
+  The unnamed equation is in scope for every proof in the arm, not only
+  the decrease proofs: if another proof uses it (`predOf (n - k) omega`),
+  `f.unfold` keeps it too, and says so by naming the `match`
   (`examples/accept/decreasing-match-fact.sw`).
 - **A pair of measures**, `decreasing (m1, m2)`, is lexicographic (stage
   3d): every recursive call makes `m1` smaller (and `m2` may then be
