@@ -14578,7 +14578,7 @@
         "bug"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-1801. Waiting on Matt's D2577-D2580 (rec: yes to all). Expected: 90 min.",
+      "body": "From SW-1801. Waiting on Matt's D2577-D2580 (rec: yes to all). Expected: 90 min.\n\nMatt's decisions (docs/proposals/syntax-node-ids.md §7): D2577 a copy gets a new id [rec: yes]; D2578 ids only on dot-call syntax for now [rec: yes]; D2579 drop dot_owners and spans/epoch from the key in the same stage [rec: yes]; D2580 run it on Opus [rec: yes].",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
