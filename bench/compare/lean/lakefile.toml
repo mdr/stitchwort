@@ -12,3 +12,7 @@ root = "Compare.Pidigits"
 [[lean_exe]]
 name = "binary_trees"
 root = "Compare.BinaryTrees"
+
+[[lean_exe]]
+name = "dijkstra"
+root = "Compare.Dijkstra"
