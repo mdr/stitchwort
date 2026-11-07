@@ -1,5 +1,5 @@
 {
-  "next": 2202,
+  "next": 2208,
   "tickets": [
     {
       "id": 47,
@@ -20268,7 +20268,7 @@
         "tests"
       ],
       "epic": "std-library",
-      "body": "From docs/research/std-lemma-libraries.md, T2. D3161 yes (orchestrator's call). 75 min.",
+      "body": "From docs/research/std-lemma-libraries.md, T2. D3161 yes (orchestrator's call). 75 min.\n\n7 Nov: start from SW-2195's scripts (scratchpad o2/), which found every duplicate pair in seconds.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20283,7 +20283,7 @@
         "docs"
       ],
       "epic": "std-library",
-      "body": "From docs/research/std-lemma-libraries.md, T3, after SW-2179. D3160 yes (orchestrator's call; within Matt's rich-std aim). 45 min.",
+      "body": "From docs/research/std-lemma-libraries.md, T3, after SW-2179. D3160 yes (orchestrator's call; within Matt's rich-std aim). 45 min.\n\n7 Nov: include docs/reviews/SW-2195-lemma-names.md's five §1.4 clarifications (zeroAdd/takeAppendDrop read left to right; compound names that are already a function's; one word for 'keeps a membership'; Eq before False/True; one Elim form).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20358,7 +20358,7 @@
         "naming"
       ],
       "epic": "std-library",
-      "body": "From docs/proposals/std-naming.md, lane N2; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. 45 min.\n\nD3151 — Matt, 7 Nov 2026: \"Yeah, happy to go with maximum, minimum.\"\n\n7 Nov: before merging, run docs/proposals/std-lemma-references.md §5's check (grep with and without Std., rename f with its fCong family, the four registry/congruence/pin/prelude tests). If a renamed name is one the compiler uses, wait for SW-2197-SW-2199 or flag it.\n\nD3152 — Matt, 7 Nov 2026: Map.min/max return the entry with the smallest/largest key, so Map.minimum would mislead; \"maybe something like map.entry with smallest key ... Or max entry by key ... Given that this probably isn't going to be used all that often, maybe it's better to be explicit and clear.\" Names (orchestrator's pick within that): Map.minEntryByKey, Map.maxEntryByKey, Map.popMinEntryByKey (and its lemmas). Set.min/max -> Set.minimum/maximum as D3151.",
+      "body": "From docs/proposals/std-naming.md, lane N2; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. 45 min.\n\nD3151 — Matt, 7 Nov 2026: \"Yeah, happy to go with maximum, minimum.\"\n\n7 Nov: before merging, run docs/proposals/std-lemma-references.md §5's check (grep with and without Std., rename f with its fCong family, the four registry/congruence/pin/prelude tests). If a renamed name is one the compiler uses, wait for SW-2197-SW-2199 or flag it.\n\nD3152 — Matt, 7 Nov 2026: Map.min/max return the entry with the smallest/largest key, so Map.minimum would mislead; \"maybe something like map.entry with smallest key ... Or max entry by key ... Given that this probably isn't going to be used all that often, maybe it's better to be explicit and clear.\" Names (orchestrator's pick within that): Map.minEntryByKey, Map.maxEntryByKey, Map.popMinEntryByKey (and its lemmas). Set.min/max -> Set.minimum/maximum as D3151.\n\n7 Nov (docs/reviews/SW-2195-lemma-names.md): also the two Vec.ofList…ToList lemmas.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20433,7 +20433,7 @@
         "naming"
       ],
       "epic": "std-library",
-      "body": "From docs/proposals/std-naming.md, lane O1; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. Last of the renames; after SW-1392's design. 75 min.\n\n7 Nov: before merging, run docs/proposals/std-lemma-references.md §5's check (grep with and without Std., rename f with its fCong family, the four registry/congruence/pin/prelude tests). If a renamed name is one the compiler uses, wait for SW-2197-SW-2199 or flag it.",
+      "body": "From docs/proposals/std-naming.md, lane O1; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. Last of the renames; after SW-1392's design. 75 min.\n\n7 Nov: before merging, run docs/proposals/std-lemma-references.md §5's check (grep with and without Std., rename f with its fCong family, the four registry/congruence/pin/prelude tests). If a renamed name is one the compiler uses, wait for SW-2197-SW-2199 or flag it.\n\n7 Nov (docs/reviews/SW-2195-lemma-names.md): also take the memRangeFrom/memRangeBounds family (omega.rs:492-516) and the four sumRange…None lemmas.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20441,14 +20441,14 @@
     {
       "id": 2195,
       "title": "[Opus] Read-only audit of every std lemma name against docs/proposals/std-naming.md's scheme (the plan sampled ~60 of 2,986)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2195",
       "labels": [
         "naming"
       ],
       "epic": "std-library",
-      "body": "From docs/proposals/std-naming.md, lane O2; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. 45 min.",
+      "body": "From docs/proposals/std-naming.md, lane O2; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. 45 min.\n\nDone, merged: docs/reviews/SW-2195-lemma-names.md. Checked all 2,986: ~150 break §1.4; 118 renames (~700 sites), 20 duplicates. Lanes SW-2202-SW-2206, SW-2207. D3160 already yes. Its scripts (scratchpad o2/) seed SW-2183's duplicate check.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20539,6 +20539,96 @@
       ],
       "epic": "std-library",
       "body": "From docs/proposals/std-lemma-references.md, stage 6. After SW-2198-SW-2200. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2202,
+      "title": "[Sonnet] Lemma renames L1: names the elaborator uses in its own code (registry.rs, omega.rs, derive_induct.rs, calc.rs, equations.rs); merge Nat.modLess into Nat.modLt; List.memOfAll -> List.allMem",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "naming"
+      ],
+      "epic": "std-library",
+      "body": "From docs/reviews/SW-2195-lemma-names.md, lane L1; brief in the review. Follow docs/proposals/std-lemma-references.md §5's check. First. Renames only, no statement or tactic change, so Sonnet. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2203,
+      "title": "[DeepSeek] Lemma renames L2: the remaining less -> lt for < in Nat, Int and Ord (29 names; Ordering.Less, Int.less, Float.less stay)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "naming"
+      ],
+      "epic": "std-library",
+      "body": "From docs/reviews/SW-2195-lemma-names.md, lane L2; brief in the review. Follow docs/proposals/std-lemma-references.md §5's check. After SW-2202. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2204,
+      "title": "[DeepSeek] Lemma renames L3: delete the 20 duplicate lemmas (Float copies of Bool/Or facts, Ring, Omega, Quot, Map) and point uses at the kept one",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "naming"
+      ],
+      "epic": "std-library",
+      "body": "From docs/reviews/SW-2195-lemma-names.md, lane L3; brief in the review. Follow docs/proposals/std-lemma-references.md §5's check. After SW-2203. 40 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2205,
+      "title": "[DeepSeek] Lemma renames L4: List conclusion-first (sortLength, permLength, mergeMap/sortByMap family, getSomeLt, getInRange, toListToNonEmpty) and the mem Intro/Elim halves",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "naming"
+      ],
+      "epic": "std-library",
+      "body": "From docs/reviews/SW-2195-lemma-names.md, lane L4; brief in the review. Follow docs/proposals/std-lemma-references.md §5's check. After SW-2191 and SW-2192. 50 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2206,
+      "title": "[DeepSeek] Lemma renames L5: Map, Set, Vec and NonEmptyList names against the scheme",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "naming"
+      ],
+      "epic": "std-library",
+      "body": "From docs/reviews/SW-2195-lemma-names.md, lane L5; brief in the review. Follow docs/proposals/std-lemma-references.md §5's check. After SW-2188 and SW-2189. 40 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2207,
+      "title": "[Sonnet] One statement form for mem…Elim lemmas: memMapElim concludes with ∃ while memMapAny, memFlatMapElim, memFilterMapElim use List.Any; pick one and restate",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "proofs"
+      ],
+      "epic": "std-library",
+      "body": "From docs/reviews/SW-2195-lemma-names.md. Changes statements. 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
