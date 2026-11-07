@@ -1,5 +1,5 @@
 {
-  "next": 1884,
+  "next": 1899,
   "tickets": [
     {
       "id": 47,
@@ -13005,7 +13005,7 @@
         "kernel"
       ],
       "epic": "goal-as-written",
-      "body": "From the SW-1630 reviews, 6 Nov 2026.\n\nCovered by a stage of docs/proposals/bounded-readback-remaining.md (see its §7).",
+      "body": "From the SW-1630 reviews, 6 Nov 2026.\n\nCovered by a stage of docs/proposals/bounded-readback-remaining.md (see its §7).\n\nConfirmed by docs/reviews/code-review-core.md (F5); see SW-1887.",
       "created": "2026-11-06",
       "updated": "2026-11-07",
       "commits": []
@@ -14397,7 +14397,7 @@
         "review"
       ],
       "epic": "elaborator-kernel",
-      "body": "Expected: 40 min.\n\nDone: docs/reviews/SW-1791-unfolding-modes-review.md. Verdict merge, no fixes; std+AoC dump useful on record (with the next daily) but not a gate. Mode set complete; glued-serves-unglued sound (only goal-context printing can tell); cells can't cross threads; cost ~24 bytes per entry. Notes: lane/SW-1642 restructures Unfolding (base field), so a textual conflict for whichever merges second; closed-type-values step 2 must handle a group's definitions gaining bodies at admission. Model result: Opus, worked, 10 min (est. 40).",
+      "body": "Expected: 40 min.\n\nDone: docs/reviews/SW-1791-unfolding-modes-review.md. Verdict merge, no fixes; std+AoC dump useful on record (with the next daily) but not a gate. Mode set complete; glued-serves-unglued sound (only goal-context printing can tell); cells can't cross threads; cost ~24 bytes per entry. Notes: lane/SW-1642 restructures Unfolding (base field), so a textual conflict for whichever merges second; closed-type-values step 2 must handle a group's definitions gaining bodies at admission. Model result: Opus, worked, 10 min (est. 40).\n\nFrom docs/reviews/code-review-core.md (F17): add nat_add_rule to the list of environment settings, with the cell caveat.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -14818,7 +14818,7 @@
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 2). Kernel state. Expected: 45 min. Ready now.",
+      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 2). Kernel state. Expected: 45 min. Ready now.\n\nFrom docs/reviews/code-review-core.md: dedup apart sets by set (confirmed).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -14848,7 +14848,7 @@
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 4, 5). Two small fixes. Expected: 30 min.",
+      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 4, 5). Two small fixes. Expected: 30 min.\n\nFrom docs/reviews/code-review-core.md (F10): Machine::reset should also clear glue and erasure's active flag (confirmed).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15562,14 +15562,14 @@
     {
       "id": 1869,
       "title": "[Opus] Code review: crates/core (kernel, values, evaluation, pretty printer; 23.6k lines)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1869",
       "labels": [
         "review"
       ],
       "epic": "elaborator-kernel",
-      "body": "Matt (7 Nov 2026): crate-by-crate code reviews, reading only (no edits to code, no builds or runs); output a document of recommendations. Expected: 75 min.",
+      "body": "Matt (7 Nov 2026): crate-by-crate code reviews, reading only (no edits to code, no builds or runs); output a document of recommendations. Expected: 75 min.\n\nDone, merged: docs/reviews/code-review-core.md. Sound; better than 1 Nov (declarations can't be changed outside core since SW-1186). 0 high, 9 medium, 10 low. Likely SW-1829 cause passed to that lane (SW-1884). Tickets SW-1884-SW-1890; notes on SW-1819, SW-1821, SW-1791, SW-1698. D2640, D2641 [rec: yes]. 14 min (est. 75).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15592,14 +15592,14 @@
     {
       "id": 1871,
       "title": "[Opus] Code review: crates/rt (fast runtime, machine, code.rs, opt.rs, native ABI and unsafe code; 19.4k lines)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1871",
       "labels": [
         "review"
       ],
       "epic": "effects-native",
-      "body": "Matt (7 Nov 2026): crate-by-crate code reviews, reading only (no edits to code, no builds or runs); output a document of recommendations. Expected: 75 min.",
+      "body": "Matt (7 Nov 2026): crate-by-crate code reviews, reading only (no edits to code, no builds or runs); output a document of recommendations. Expected: 75 min.\n\nDone, merged: docs/reviews/code-review-rt.md. Reuse can't change a shared value (no unsafe in the machine; every in-place change checks sharing at run time). 1 Nov findings fixed except the Image half (F3). 0 high, 4 medium, 8 low. Tickets SW-1891-SW-1898. D2660, D2661. 15 min (est. 75).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -15780,6 +15780,231 @@
       ],
       "epic": "syntax-language",
       "body": "D2672 (Matt, 7 Nov 2026). Reading only. Expected: 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1884,
+      "title": "[Opus] Stuck field calls keep their call's unfolding cell (or are memoised per comparison) and the unfolded read-back gets the base cell; likely cause of SW-1829's slowdown",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "kernel"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/code-review-core.md (F1, F12). After SW-1829 confirms. 90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1885,
+      "title": "[Opus] Pin the Nat natives' content hashes in register_native and register_nat_neq (as Float's are), refuse a second registration",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "kernel"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/code-review-core.md (F2, F16). D2640 [rec: yes]. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1886,
+      "title": "[Sonnet] Core limits fail, never choose: group_marks and proof_params install empty marks when they run out; restore lacks attempt()'s stack and deadline propagation, so equations.rs can skip an equation by build or clock",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "kernel"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/code-review-core.md (F3, F4, F13). 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1887,
+      "title": "[Opus] Budget steps for the uncounted walks: identical, free_variables, matches_at_once, the content hasher",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "kernel"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/code-review-core.md (F5, F6, F9). Overlaps SW-1698 and bounded readback 4a (SW-1832): fold in or run alongside. 90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1888,
+      "title": "[Sonnet] Kernel encapsulation part 2: apart_sets and hashes private, a TrustedReplay token for trusted admission, Proj in admissible/declared_later, the auto_params length check",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "kernel"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/code-review-core.md (F7, F8, F14, F15). D2641 [rec: yes]. 75 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1889,
+      "title": "[DeepSeek] Unchanged.seen without removals (address-keyed, changes allocation counts with heap layout), and a debug_assert for F18",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "kernel"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/code-review-core.md (F11, F18). 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1890,
+      "title": "[Sonnet] Split value.rs mechanically",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "kernel"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/code-review-core.md (F19). After SW-1884. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1891,
+      "title": "[Sonnet] Native code charges Array.replicate its count in steps, as the machine does (step counts differ; a huge count aborts natively)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "rt"
+      ],
+      "epic": "effects-native",
+      "body": "From docs/reviews/code-review-rt.md (F1). 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1892,
+      "title": "[Sonnet] Nested arrays freed by a work list, not recursion (an Array Rose chain overflows the stack on drop)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "rt"
+      ],
+      "epic": "effects-native",
+      "body": "From docs/reviews/code-review-rt.md (F2). 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1893,
+      "title": "[Opus] One way to make an Image: native compilation trusts a public-field Image and its match with the program; UB reachable from safe Rust",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "rt"
+      ],
+      "epic": "effects-native",
+      "body": "From docs/reviews/code-review-rt.md (F3). Unsafe boundary; the 1 Nov finding's open half. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1894,
+      "title": "[DeepSeek] rt small fixes: profiler timer failure (F7), uniqueness checks in two native helpers and the hole fill in release (F9), validator rejects an arm binding a field twice (F10)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "rt"
+      ],
+      "epic": "effects-native",
+      "body": "From docs/reviews/code-review-rt.md (F7, F9, F10). 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1895,
+      "title": "[Sonnet] Depth guard for code.rs's compiler and the validator",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "rt"
+      ],
+      "epic": "effects-native",
+      "body": "From docs/reviews/code-review-rt.md (F5). 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1896,
+      "title": "[Sonnet] Share the reuse logic between the machine and the native helpers",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "rt"
+      ],
+      "epic": "effects-native",
+      "body": "From docs/reviews/code-review-rt.md (F8). After SW-1892. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1897,
+      "title": "[Sonnet] Text natives charged by size in the counterexample search (forty doublings ask for a terabyte)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "rt"
+      ],
+      "epic": "effects-native",
+      "body": "From docs/reviews/code-review-rt.md (F4). D2660 [rec: size charge in the search only; memory limit only if a real program needs it]. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1898,
+      "title": "[Sonnet] Pending over-applications count as frames (machine and reference fail alike); the array-copy note via the caller, not stderr; profiler sample cost",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "rt"
+      ],
+      "epic": "effects-native",
+      "body": "From docs/reviews/code-review-rt.md (F6, F11, F12). D2661 [rec: yes]. 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
