@@ -1374,6 +1374,11 @@ fn unify_step(
                 if is_meta(x) {
                     return unify(g, level, x, v);
                 }
+                // A folded call against a different count of `Succ`s, as
+                // in `conv` (SW-2157).
+                if let Some(x) = unfold_folded(g, x)? {
+                    return nested(g, || run(g, vec![Task::Values(level, x, v.clone())], mode));
+                }
                 let mut work = Vec::new();
                 match plus_rule(g, level, x, v, &mut work)? {
                     Some(true) => nested(g, || run(g, work, mode)),

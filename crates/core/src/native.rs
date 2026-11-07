@@ -767,8 +767,9 @@ pub fn nat_like(g: &Ev, value: &Value) -> bool {
 
 /// Compares two numbers by their `k + base` forms, after taking off the
 /// `Succ`s they share. Two bases are compared with `same`. A base on its own
-/// against anything else is handed to `assign`: never equal for conversion,
-/// but the unifier can solve a metavariable there.
+/// against anything else is handed to `assign`: the unifier can solve a
+/// metavariable there, and a folded call there (`Succ (f 0)` against `2`)
+/// is unfolded and compared again; anything else is never equal.
 pub fn compare(
     g: &Ev,
     a: &Value,
@@ -816,20 +817,23 @@ pub fn compare_with(
 /// compares as it does any call: by its arguments first if the other is a
 /// call of the same definition, and otherwise unfolded.
 ///
-/// It answers as [`compare`] does with `assign` always `false`. Unfolding a
-/// call gives its value, so the `Succ`s counted and the bases reached are
+/// It answers as [`compare`] does with the same `assign`. Unfolding a call
+/// gives its value, so the `Succ`s counted and the bases reached are
 /// [`compare`]'s whenever this unfolds every call; it stops early only by
 /// handing `same` two bases with no `Succ`s on either side, and those are
 /// equal exactly when their values, the bases and counts [`compare`] would
 /// reach, are (the same counts on both sides: none here, and then equal
-/// bases, or equal numbers). Only the work differs: a call is compared by
-/// its arguments, which only answers "equal" where unfolding would too
-/// (`CallMemo` in value.rs).
+/// bases, or equal numbers); or by handing `assign` a base that isn't a
+/// call against the other side with its calls still in, which is equal
+/// exactly when it is with them unfolded. Only the work differs: a call is
+/// compared by its arguments, which only answers "equal" where unfolding
+/// would too (`CallMemo` in value.rs).
 pub fn compare_lazily(
     g: &Ev,
     a: &Value,
     b: &Value,
     same: impl FnOnce(&Value, &Value) -> budget::Result<bool>,
+    assign: impl FnOnce(&Value, &Value) -> budget::Result<bool>,
 ) -> budget::Result<bool> {
     let (mut k1, mut b1) = view_to_call(g, a.clone(), BigUint::zero())?;
     let (mut k2, mut b2) = view_to_call(g, b.clone(), BigUint::zero())?;
@@ -839,14 +843,21 @@ pub fn compare_lazily(
         k2 -= &shared;
         let call = |b: &Option<Value>| matches!(b, Some(Value::Call(..)));
         // Which side to unfold a step: one with no `Succ`s left whose base
-        // is a call, when the other has `Succ`s left or is a number (a
-        // side with `Succ`s left and a base that isn't a call can't be
-        // equal to the other then, as `compare` finds).
+        // is a call, when the other has `Succ`s left or is a number. A
+        // base that isn't a call, with no `Succ`s left, goes to `assign`
+        // as in `compare`; a side with `Succ`s left against a number with
+        // none can't be equal to it.
         let unfold_first = match (&b1, &b2) {
             (Some(x), Some(y)) if k1.is_zero() && k2.is_zero() => return same(x, y),
             (None, None) => return Ok(k1 == k2),
             _ if k1.is_zero() && call(&b1) => true,
             _ if k2.is_zero() && call(&b2) => false,
+            (Some(x), other) if k1.is_zero() => {
+                return assign(x, &from_view(k2.clone(), other.clone()));
+            }
+            (other, Some(y)) if k2.is_zero() => {
+                return assign(y, &from_view(k1.clone(), other.clone()));
+            }
             _ => return Ok(false),
         };
         if unfold_first {
