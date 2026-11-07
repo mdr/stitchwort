@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# Stop only the processes this checkout started (SW-1774). A lane that runs
+# `pkill <test binary>` also kills the same-named binaries of other
+# worktrees and of the main checkout's verifier, because the names are
+# identical and only the paths differ. This matches by absolute path.
+#
+#   dev/stop-mine [--dry-run]       processes whose executable is under
+#                                   <this checkout>/target/, plus their descendants
+#   dev/stop-mine [--dry-run] --tree PID
+#                                   PID and its descendants, but only if PID's
+#                                   executable is under this checkout
+#
+# Prints each process it stops (TERM, then KILL after 3 s for stragglers).
+# The prefix is "<checkout root>/target/" with the trailing slash, compared as
+# a literal string at the start of the command, never a bare name. Nothing
+# outside the checkout is ever signalled, whatever the pid.
+set -u
+dry=0 tree=
+while [ $# -gt 0 ]; do
+  case $1 in
+    --dry-run|-n) dry=1 ;;
+    --tree) tree=${2:?--tree needs a pid}; shift ;;
+    -h|--help) sed -n '2,16p' "$0"; exit 0 ;;
+    *) echo "usage: dev/stop-mine [--dry-run] [--tree PID]" >&2; exit 2 ;;
+  esac
+  shift
+done
+root=$(cd "$(dirname "$0")/.." && pwd -P)
+case $root in /?*) ;; *) echo "stop-mine: cannot resolve checkout root" >&2; exit 1 ;; esac
+prefix=$root/target/
+[ -n "$tree" ] && prefix=$root/
+me=$$
+
+snapshot=$(ps -axo pid=,ppid=,command=)
+# Matching roots: command starts with the prefix. awk compares with substr,
+# not a regex, so path characters mean nothing special.
+roots=$(printf '%s\n' "$snapshot" | awk -v p="$prefix" -v me="$me" -v tree="$tree" '
+  { pid=$1; ppid=$2; cmd=$0; sub(/^ *[0-9]+ +[0-9]+ +/, "", cmd) }
+  pid==me || ppid==me { next }
+  tree != "" && pid != tree { next }
+  substr(cmd, 1, length(p)) == p { print pid }')
+if [ -z "$roots" ]; then
+  [ -n "$tree" ] && echo "stop-mine: pid $tree is not an executable under $root/" >&2 \
+                 || echo "stop-mine: nothing running from $prefix"
+  exit 0
+fi
+# Add descendants of the roots.
+pids=$(printf '%s\n' "$snapshot" | awk -v roots="$roots" -v me="$me" '
+  BEGIN { n=split(roots, r, "\n"); for (i=1;i<=n;i++) keep[r[i]]=1 }
+  { pid[NR]=$1; ppid[NR]=$2; line[NR]=$0 }
+  END {
+    do { changed=0
+      for (i=1;i<=NR;i++) if (!(pid[i] in keep) && (ppid[i] in keep) && pid[i] != me) { keep[pid[i]]=1; changed=1 }
+    } while (changed)
+    for (i=1;i<=NR;i++) if (pid[i] in keep) print pid[i]
+  }')
+for p in $pids; do
+  line=$(ps -o pid=,command= -p "$p" 2>/dev/null) || continue
+  if [ $dry = 1 ]; then echo "would stop: $line"; else echo "stopping: $line"; kill -TERM "$p" 2>/dev/null; fi
+done
+[ $dry = 1 ] && exit 0
+sleep 3
+for p in $pids; do
+  if kill -0 "$p" 2>/dev/null; then echo "killing: $(ps -o pid=,command= -p "$p")"; kill -KILL "$p" 2>/dev/null; fi
+done
+exit 0
