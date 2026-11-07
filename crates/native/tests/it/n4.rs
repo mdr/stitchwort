@@ -13,11 +13,9 @@
 //! limits freeing everything (inside handlers included), and run effect
 //! loops in constant stack.
 
-mod common;
-
 use std::path::Path;
 
-use common::*;
+use crate::common::*;
 use stitchwort_driver::driver::{Session, with_stack};
 use stitchwort_native::n1::{Options, compile, stack_for};
 use stitchwort_rt::code;

@@ -6,9 +6,7 @@
 //! limits, with the edge cases: numbers beyond a machine word, division by
 //! zero (`n / 0 = 0`, `n % 0 = n`), empty text.
 
-mod common;
-
-use common::*;
+use crate::common::*;
 use stitchwort_driver::driver::with_stack;
 
 /// `Nat` division and remainder: words on the inline path, numbers beyond a
