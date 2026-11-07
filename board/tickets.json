@@ -1,5 +1,5 @@
 {
-  "next": 2311,
+  "next": 2312,
   "tickets": [
     {
       "id": 47,
@@ -21903,7 +21903,7 @@
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "Plan: docs/proposals/comparative-speed.md §7 (D3330, D3340 native faces Python and Lean, D3341 no targets, D3342 natural data structures). 90 min. First of stage 1.\n\nDone, merged. On main: nix develop ok, Day15 checks, aoc_answers 57/57. bench:compare:check on the lane: 22 ok, 2 skipped (no Lean memory-game yet), 0 failed. Smoke (Mac, 2 runs): memory-game native/CPython 1.15x; binary-trees native/CPython 0.30x, native/Lean 9.5x; startup run 181 ms, native 3 ms, CPython 16 ms. Plan corrections: native needs libstitchwort_standalone.a; tool versions Lean 4.34.1, hyperfine 1.21.0; bench:compare:check is the answer check (proof side needs another name in 1c); lean --run is as slow as our interpreter on binary-trees. Follow-ups SW-2297, SW-2298. Model result: Sonnet, worked, 16 min (est. 90).",
+      "body": "Plan: docs/proposals/comparative-speed.md §7 (D3330, D3340 native faces Python and Lean, D3341 no targets, D3342 natural data structures). 90 min. First of stage 1.\n\nDone, merged. On main: nix develop ok, Day15 checks, aoc_answers 57/57. bench:compare:check on the lane: 22 ok, 2 skipped (no Lean memory-game yet), 0 failed. Smoke (Mac, 2 runs): memory-game native/CPython 1.15x; binary-trees native/CPython 0.30x, native/Lean 9.5x; startup run 181 ms, native 3 ms, CPython 16 ms. Plan corrections: native needs libstitchwort_standalone.a; tool versions Lean 4.34.1, hyperfine 1.21.0; bench:compare:check is the answer check (proof side needs another name in 1c); lean --run is as slow as our interpreter on binary-trees. Follow-ups SW-2297, SW-2298. Model result: Sonnet, worked, 16 min (est. 90).\n\nOvermind job 13 (015615d99, Linux, quiet-ish, 5 runs): no Linux-specific failures; check 22 ok, 2 skipped, 0 failed. native/CPython: pidigits 2.70x, binary-trees 0.42x, memory-game (3M) 1.19x; native/Lean: pidigits 5.0x, binary-trees 13.6x. Startup: run 409 ms, native 1 ms, CPython 21 ms. The tracked .lake (already untracked on main) was rewritten by the Linux build. Memguard gap -> SW-2311.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -22174,6 +22174,21 @@
       ],
       "epic": "comparative-speed",
       "body": "From SW-2294. 45 min. Until then the proof ratios overstate our cost.\n\nMatt, 7 Nov 2026: \"Allowing Stitchwort checks to take a little theorem seems pretty sensible.\" User-visible CLI option: update the CLI docs and docs/guide where check is described. Next build slot.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2311,
+      "title": "[Sonnet] bench:compare and bench:compare:check don't run under dev/memguard, so STITCHWORT_MEM_CAP_GB has no effect; run them under the guard (it samples at a few % of one core: measure its effect on one timing first)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From Overmind job 13. 15 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
