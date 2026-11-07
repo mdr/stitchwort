@@ -337,6 +337,8 @@ fn lex_from(
     }
     let mut closed_at = None;
     let mut bars: Vec<Span> = Vec::new();
+    // The span of the last comment lexed, if the last thing lexed was one.
+    let mut last_comment: Option<(usize, usize)> = None;
 
     while i < bytes.len() {
         if tokens.len() != seen {
@@ -360,6 +362,15 @@ fn lex_from(
                 }) = interps.last()
                 {
                     if scanned {
+                        if let Some((start, end)) = last_comment {
+                            return Err(error(
+                                file,
+                                start,
+                                end,
+                                "a comment in a `${…}` runs to the end of the line, so it \
+                                 takes the `}`",
+                            ));
+                        }
                         return Err(error(
                             file,
                             string_start,
@@ -405,6 +416,7 @@ fn lex_from(
                 } else {
                     i
                 };
+                last_comment = Some((start, end));
                 if fresh_line && bytes[start..end].starts_with(b"--|") {
                     bars.push(Span::new(file, start as u32, end as u32));
                 }
@@ -432,6 +444,8 @@ fn lex_from(
             _ => {}
         }
 
+        // A token from here on is the last thing lexed, not a comment.
+        last_comment = None;
         let start = i;
         let column = (start - line_start) as u32;
         let tok = if c.is_ascii_alphabetic() || c == b'_' {
@@ -1272,25 +1286,30 @@ fn invisible(ch: char) -> Option<(&'static str, Option<&'static str>)> {
         '\u{205F}' => ("MEDIUM MATHEMATICAL SPACE", SPACE),
         '\u{3000}' => ("IDEOGRAPHIC SPACE", SPACE),
         '\u{00AD}' => ("SOFT HYPHEN", NOTHING),
+        '\u{034F}' => ("COMBINING GRAPHEME JOINER", NOTHING),
+        '\u{180E}' => ("MONGOLIAN VOWEL SEPARATOR", NOTHING),
         '\u{200B}' => ("ZERO WIDTH SPACE", NOTHING),
         '\u{200C}' => ("ZERO WIDTH NON-JOINER", NOTHING),
         '\u{200D}' => ("ZERO WIDTH JOINER", NOTHING),
         '\u{200E}' => ("LEFT-TO-RIGHT MARK", NOTHING),
         '\u{200F}' => ("RIGHT-TO-LEFT MARK", NOTHING),
         '\u{2060}' => ("WORD JOINER", NOTHING),
+        '\u{2061}'..='\u{2064}' => ("", NOTHING),
         '\u{FEFF}' => ("ZERO WIDTH NO-BREAK SPACE (byte-order mark)", NOTHING),
         '\u{2028}' => ("LINE SEPARATOR", Some("end lines with an ordinary newline")),
         '\u{2029}' => (
             "PARAGRAPH SEPARATOR",
             Some("end lines with an ordinary newline"),
         ),
-        '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}' => (
+        '\u{061C}' | '\u{202A}'..='\u{202E}' | '\u{2066}'..='\u{2069}' => (
             "",
             Some(
                 "it's a text-direction control, which changes how the line shows without showing \
              itself: delete it",
             ),
         ),
+        '\u{FFF9}'..='\u{FFFB}' => ("", NOTHING),
+        '\u{E0001}' | '\u{E0020}'..='\u{E007F}' => ("", NOTHING),
         _ if ch.is_whitespace() || ch.is_control() => ("", None),
         _ => return None,
     };
@@ -1893,6 +1912,19 @@ mod tests {
             ("a\u{202E}b", "U+202E"),
             ("a\u{0B}b", "U+000B"),
             ("a\u{85}b", "U+0085"),
+            ("a\u{034F}b", "U+034F COMBINING GRAPHEME JOINER"),
+            ("a\u{180E}b", "U+180E MONGOLIAN VOWEL SEPARATOR"),
+            ("a\u{2061}b", "U+2061"),
+            ("a\u{2062}b", "U+2062"),
+            ("a\u{2063}b", "U+2063"),
+            ("a\u{2064}b", "U+2064"),
+            ("a\u{061C}b", "U+061C"),
+            ("a\u{FFF9}b", "U+FFF9"),
+            ("a\u{FFFA}b", "U+FFFA"),
+            ("a\u{FFFB}b", "U+FFFB"),
+            ("a\u{E0001}b", "U+E0001"),
+            ("a\u{E0020}b", "U+E0020"),
+            ("a\u{E007F}b", "U+E007F"),
         ] {
             let d = failure(text);
             assert_eq!(d.code, "E-PARSE");
@@ -1905,8 +1937,54 @@ mod tests {
             assert!(!d.message.contains('`'), "{text:?}: {}", d.message);
         }
         assert!(failure("a\u{00A0}b").notes[0].contains("plain space"));
+        assert!(failure("a\u{2061}b").notes[0].contains("delete it"));
+        assert!(failure("a\u{061C}b").notes[0].contains("text-direction control"));
         assert_eq!(failure("a ∀ b").message, "unexpected character `∀`");
         assert_eq!(failure("a # b").message, "unexpected character `#`");
+    }
+
+    #[test]
+    fn error_spans_point_at_the_problem() {
+        // A comment in a `${…}` runs to the end of the line and takes the `}`,
+        // so the comment is the problem, not the `${`.
+        let text = "\"\"\"\n  ${x -- }\n  \"\"\"";
+        let d = failure(text);
+        assert_eq!(
+            d.message,
+            "a comment in a `${…}` runs to the end of the line, so it takes the `}`"
+        );
+        let span = d.primary_span().expect("a label");
+        assert_eq!((span.start, span.end), (10, 14));
+        assert_eq!(&text[span.start as usize..span.end as usize], "-- }");
+        assert_eq!(d.labels[0].message, d.message);
+
+        // A `${…}` that really does reach the newline spans from `${` to it.
+        let text = "\"\"\"\n  ${f\n  x}\n  \"\"\"";
+        let d = failure(text);
+        assert_eq!(d.message, "a `${…}` in a `\"\"\"` text stays on one line");
+        let span = d.primary_span().expect("a label");
+        assert_eq!((span.start, span.end), (6, 9));
+        assert_eq!(&text[span.start as usize..span.end as usize], "${f");
+
+        // An invisible character's span is exactly the character.
+        for ch in [
+            '\u{2061}',
+            '\u{2064}',
+            '\u{034F}',
+            '\u{180E}',
+            '\u{061C}',
+            '\u{FFF9}',
+            '\u{FFFB}',
+            '\u{E0001}',
+            '\u{E0020}',
+            '\u{E007F}',
+        ] {
+            let text = format!("a{ch}b");
+            let d = failure(&text);
+            let span = d.primary_span().expect("a label");
+            assert_eq!(span.start, 1, "{ch:?}");
+            assert_eq!(span.end, 1 + ch.len_utf8() as u32, "{ch:?}");
+        }
     }
 
     #[test]
