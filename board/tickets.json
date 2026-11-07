@@ -20816,14 +20816,14 @@
     {
       "id": 2220,
       "title": "[Opus] decreasing stage 2 fixes (SW-2208 lane A): run dead_lets again after post (F1); the name check reads pattern guards too (F4); make the stale-record map exact and keep the guard as a check (F6); limit twin() to lifted matches (F7); F8",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2220",
       "labels": [
         "core"
       ],
       "epic": "proof-automation",
-      "body": "From docs/reviews/SW-2208-decreasing-match-fact.md. After SW-2164. 45 min.",
+      "body": "From docs/reviews/SW-2208-decreasing-match-fact.md. After SW-2164. 45 min.\n\nDone, merged. F1 (dead_lets after post), F4 (name check reads guards), F6 (exact map, guard kept), F7 (twins only of lifted matches), F8 (lazy name check). New decreasing_twins tests (each fails without its fix). Lane: AoC 287/0 errors, no fallback, 102 s; rogue clean. On main: decreasing_twins, fallback, goal_index, hash_stability 20/20; decreasing examples 12/12. Open: F8's unused twins under a lambda; abandoned-and-retried lifted helpers still in tables.lifted. Model result: Opus, worked, 25 min (est. 45).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20838,7 +20838,7 @@
         "tests"
       ],
       "epic": "proof-automation",
-      "body": "From docs/reviews/SW-2208-decreasing-match-fact.md. Can run with SW-2165. 45 min.",
+      "body": "From docs/reviews/SW-2208-decreasing-match-fact.md. Can run with SW-2165. 45 min.\n\n7 Nov: SW-2220 merged (F4 in), so the guard-call example can land. Add F8's unused twins under a lambda if SW-2209 doesn't cover them.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
