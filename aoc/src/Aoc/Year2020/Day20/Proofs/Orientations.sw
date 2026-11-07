@@ -234,18 +234,21 @@ theorem withinRotate (image: Image) (rectangle: Rectangle image): Within image i
 
 --| Every edge of every orientation of a rectangle fits one of its own edges.
 theorem withinOrientations (image: Image) (rectangle: Rectangle image) (turned: Image) (member: turned ∈ image.orientations): Within image turned :=
+  -- Each `withinTrans` is given its middle and last images: the unifier
+  -- doesn't yet solve them from `Within`'s unfolding, where record eta has
+  -- opened `image.rotate` (SW-1913).
   let r1 := withinRotate image rectangle
   let rect1 := rectangleRotate image rectangle
-  let r2 := withinTrans r1 (withinRotate image.rotate rect1)
+  let r2 := withinTrans [b := image.rotate] [c := image.rotate.rotate] r1 (withinRotate image.rotate rect1)
   let rect2 := rectangleRotate image.rotate rect1
-  let r3 := withinTrans r2 (withinRotate image.rotate.rotate rect2)
+  let r3 := withinTrans [b := image.rotate.rotate] [c := image.rotate.rotate.rotate] r2 (withinRotate image.rotate.rotate rect2)
   let f0 := withinFlip image
   let flipped := rectangleFlip image rectangle
-  let f1 := withinTrans f0 (withinRotate image.flip flipped)
+  let f1 := withinTrans [b := image.flip] [c := image.flip.rotate] f0 (withinRotate image.flip flipped)
   let flipped1 := rectangleRotate image.flip flipped
-  let f2 := withinTrans f1 (withinRotate image.flip.rotate flipped1)
+  let f2 := withinTrans [b := image.flip.rotate] [c := image.flip.rotate.rotate] f1 (withinRotate image.flip.rotate flipped1)
   let flipped2 := rectangleRotate image.flip.rotate flipped1
-  let f3 := withinTrans f2 (withinRotate image.flip.rotate.rotate flipped2)
+  let f3 := withinTrans [b := image.flip.rotate.rotate] [c := image.flip.rotate.rotate.rotate] f2 (withinRotate image.flip.rotate.rotate flipped2)
   match member with
     | Inl same => rewrite <- same in withinSelf image
     | Inr (Inl same) => rewrite <- same in r1

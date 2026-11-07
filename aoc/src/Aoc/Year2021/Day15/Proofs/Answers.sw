@@ -31,7 +31,10 @@ theorem tiledSize (cave: Cave) (rectangle: Rectangle cave): cave.tiled.height = 
 --| Part 2 is the lowest total risk through the full cave.
 theorem part2Correct (cave: Cave) (rectangle: Rectangle cave): Part2Answer cave (solvePart2 cave) :=
   let same := Quot.funext Position (_ => Option Nat) (tiledLevelAt cave) cave.tiled.levelAt (tiledLevelsAgree cave rectangle)
-  let (Both height width) := tiledSize cave rectangle
+  -- `let (Both height width) :=` here fails the motive check (SW-1913).
+  let size := tiledSize cave rectangle
+  let height := size.left
+  let width := size.right
   let tall := heightNotZero cave rectangle
   let found := lowestRiskCorrect cave.tiled (omega [height, tall]) (omega [width, And.left rectangle])
   let target := bottomRight (5 * cave.height) (5 * cave.width)

@@ -163,20 +163,26 @@ theorem withinWithoutCandidate (clique: Set Computer) (candidates: Set Computer)
           | Yes same => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym hasNot) (rewrite <- same in held)))
           | No same => Set.containsUnionRight clique others key (othersIntro candidates candidate others othersAre key wasCandidate same))
 
-theorem largestFromAnswers (network: Network) (clique: Set Computer) (candidates: Set Computer) (best: Set Computer)
-    (cliqueOk: Clique network clique) (candidatesOk: Candidates network clique candidates) (bestOk: Clique network best):
-    Answers network clique candidates best (network.links.largestFrom clique candidates best)
+-- The search's answer is named `result` so that the `match`es below don't
+-- rewrite inside the call of `Links.largestFrom`, which the goal would then
+-- show unfolded, without the call the step lemmas rewrite (SW-1913).
+theorem largestFromAnswersAt (network: Network) (clique: Set Computer) (candidates: Set Computer) (best: Set Computer)
+    (cliqueOk: Clique network clique) (candidatesOk: Candidates network clique candidates) (bestOk: Clique network best)
+    (result: Set Computer) (same: network.links.largestFrom clique candidates best = result):
+    Answers network clique candidates best result
     decreasing candidates.size
 :=
   match fits: Nat.leq (clique.size + candidates.size) best.size with
     | True =>
       let joined := sizeCliqueAndCandidates network clique candidates candidatesOk
-      rewrite largestPruned network.links clique candidates best (omega [fits]) in
+      rewrite largestPruned network.links clique candidates best (omega [fits]) at same in
+      rewrite <- same in
       Both bestOk (Both (omega) (other otherOk inside within => omega [sizeWithin other (clique.union candidates) within, joined, fits]))
     | False =>
       match found: candidates.popMin with
         | None =>
-          rewrite largestDone network.links clique candidates best (omega [fits]) found in
+          rewrite largestDone network.links clique candidates best (omega [fits]) found at same in
+          rewrite <- same in
           Both cliqueOk
             (Both (omega [fits, sizeNone candidates found])
               (other otherOk inside within =>
@@ -193,15 +199,16 @@ theorem largestFromAnswers (network: Network) (clique: Set Computer) (candidates
           let fewer := Set.sizePopMin candidates candidate others found
           let withIt := network.links.largestFrom (clique.insert candidate) narrowed best
           let withItOk: Answers network (clique.insert candidate) narrowed best withIt :=
-            largestFromAnswers network (clique.insert candidate) narrowed best
+            largestFromAnswersAt network (clique.insert candidate) narrowed best
               (cliqueInsert network clique candidate cliqueOk candidateLinked candidateNeighbours)
-              (candidatesNarrowed network clique candidates candidate others candidatesOk othersAre) bestOk
+              (candidatesNarrowed network clique candidates candidate others candidatesOk othersAre) bestOk _ rfl
               [decreasing := omega [withinOthers, fewer]]
           let restOk: Answers network clique others withIt (network.links.largestFrom clique others withIt) :=
-            largestFromAnswers network clique others withIt cliqueOk
-              (key held => candidatesOk key (othersElim candidates candidate others othersAre key held).left) withItOk.left
+            largestFromAnswersAt network clique others withIt cliqueOk
+              (key held => candidatesOk key (othersElim candidates candidate others othersAre key held).left) withItOk.left _ rfl
               [decreasing := omega [fewer]]
-          rewrite largestStep network.links clique candidates best (omega [fits]) candidate others found in
+          rewrite largestStep network.links clique candidates best (omega [fits]) candidate others found at same in
+          rewrite <- same in
           Both restOk.left
             (Both (omega [withItOk.right.left, restOk.right.left])
               (other otherOk inside within =>
@@ -216,6 +223,11 @@ theorem largestFromAnswers (network: Network) (clique: Set Computer) (candidates
                     ]
                   | False =>
                     restOk.right.right other otherOk inside (withinWithoutCandidate clique candidates candidate others othersAre other has within)))
+
+theorem largestFromAnswers (network: Network) (clique: Set Computer) (candidates: Set Computer) (best: Set Computer)
+    (cliqueOk: Clique network clique) (candidatesOk: Candidates network clique candidates) (bestOk: Clique network best):
+    Answers network clique candidates best (network.links.largestFrom clique candidates best) :=
+  largestFromAnswersAt network clique candidates best cliqueOk candidatesOk bestOk _ rfl
 
 theorem emptyClique (network: Network): Clique network Set.empty :=
   Both (member held => Void.exfalso (Bool.falseNotTrue held)) (one other heldOne heldOther different => Void.exfalso (Bool.falseNotTrue heldOne))
