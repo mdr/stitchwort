@@ -1,5 +1,5 @@
 {
-  "next": 1771,
+  "next": 1774,
   "tickets": [
     {
       "id": 47,
@@ -14083,6 +14083,51 @@
       ],
       "epic": "dev-loop-speed",
       "body": "Overnight 7 Nov 2026, from the D2546 daily run. Expected: 75 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1771,
+      "title": "rewind tests: the session dump (canonical dump, every definition's hash, navigation index) is about half the file's remaining cost; a cheaper or incremental dump (SW-1770)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1771",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1770, 7 Nov 2026.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1772,
+      "title": "std_library the_core_alone_runs_every_example isn't sampled in daily (every accept and extract example); sample it (SW-1770)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1771",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1770, 7 Nov 2026.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1773,
+      "title": "check_cache differential sweeps (whole-library ~70 s, examples 92 s): sample in daily? The cache's own differential, so Matt's call on coverage (SW-1770)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1770, 7 Nov 2026.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
