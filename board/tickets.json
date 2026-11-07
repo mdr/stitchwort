@@ -1,5 +1,5 @@
 {
-  "next": 2117,
+  "next": 2121,
   "tickets": [
     {
       "id": 47,
@@ -19256,14 +19256,74 @@
     {
       "id": 2116,
       "title": "[Opus] Fresh-eyes review of the language server's recovery work since SW-2094: SW-2088 (panicked-search memory, shared budget), SW-2089 (per-project budget, retired set, backstop), SW-2091 (blame under catch, Source::sources, Keeper order, test fixes)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2116",
       "labels": [
         "review"
       ],
       "epic": "editor-playground",
-      "body": "Read-only Opus lane, 7 Nov. Expected: 45 min.",
+      "body": "Read-only Opus lane, 7 Nov. Expected: 45 min.\n\nDone, merged: docs/reviews/SW-2116-lsp-recovery-round-3.md. 1 high (unstable workspace key -> restart loop -> checking stopped everywhere), 1 medium, 10 low. SW-2117 (Opus, after SW-2104), SW-2118, SW-2119, SW-2120. 10 min (est. 45).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2117,
+      "title": "[Opus] HIGH: language server restart loop from an unstable workspace key: record the key each open path was opened under and carry it in the Keeper (R1); home_of catches its own panic (R2); clear 'also' after a panic blamed on nobody (R3); R12; fault tests (config read panicking every time, config parses but files don't load, reopen panic with no project, the backstop reached)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "epic": "editor-playground",
+      "body": "From docs/reviews/SW-2116-lsp-recovery-round-3.md (lane 1). Opus: third review round on this code found a regression, so the stateful part goes to Opus. After SW-2104 (same file). 75 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2118,
+      "title": "[Sonnet] Language server recovery polish: a retired project shouldn't use 6 of the backstop's 15 (R4); one pop-up per quarantine, not per retried edit (R5); R8; the same remedy text in pop-ups and diagnostics (R9)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "epic": "editor-playground",
+      "body": "From docs/reviews/SW-2116-lsp-recovery-round-3.md (lane 2). After SW-2117 (same function). 40 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2119,
+      "title": "[DeepSeek] Panicked-search memory: include the other open files, the config and the cache in its key (R6); close the small race (R7)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "epic": "editor-playground",
+      "body": "From docs/reviews/SW-2116-lsp-recovery-round-3.md (lane 3). Only ever causes a null answer that an edit cures. After SW-2118. 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2120,
+      "title": "[Sonnet] Measure first: in the real language server, a cold first search re-checks all of std (over a minute in release, by the test's comment); measure it, then decide",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "epic": "editor-playground",
+      "body": "From docs/reviews/SW-2116-lsp-recovery-round-3.md (R10). Related: SW-957. 30 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
