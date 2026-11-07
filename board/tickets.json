@@ -18851,7 +18851,7 @@
     {
       "id": 2089,
       "title": "[Sonnet] A restart budget per project, so one project that keeps panicking after edits can't stop checking everywhere (today one open and two edits do)",
-      "status": "doing",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [
