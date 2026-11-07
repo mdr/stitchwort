@@ -1,5 +1,5 @@
 {
-  "next": 2312,
+  "next": 2313,
   "tickets": [
     {
       "id": 47,
@@ -22136,14 +22136,14 @@
     {
       "id": 2308,
       "title": "[Opus] SW-2306 F2+F1: shape_hash gives every glued call the same hash (likely the real cause of SW-2285's 90 s): hash a glued call by definition and spine; then record pairs equal by their arguments again and let the kernel's CallMemo remember equal, so f n a a chains are linear (tests glued and unglued); core.md F4 (SW-395 sentence)",
-      "status": "doing",
+      "status": "next",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2308",
       "labels": [
         "core"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/SW-2306-memo-budget.md. 60-90 min: split into F2 (~30 min, measure the slow-check example before and after) then F1.",
+      "body": "From docs/reviews/SW-2306-memo-budget.md. 60-90 min: split into F2 (~30 min, measure the slow-check example before and after) then F1.\n\nStep 1 (F2) done, merged: shape_hash files a glued call by definition and spine. It wasn't the cause of SW-2285's 90 s: with the record re-enabled the example still times out, in same_closure (SW-2312). On main: slow-check E-RESOURCE 1.3 s; proof_equivalence, hash_stability 22/22; whole AoC 287 namespaces 0 errors (77 s user under three lanes' load); rogue ok. Step 2 (F1) waits for SW-2312. Model result: Opus, worked, 18 min (est. 30).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -22189,6 +22189,21 @@
       ],
       "epic": "comparative-speed",
       "body": "From Overmind job 13. 15 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2312,
+      "title": "[Opus] Kernel same_closure shortcut uses the uncharged identical, walking the whole body term (free_variables, Term::subterms) for every closure pair; bound it (charge it, or cache free_variables per body). Blocks SW-2308 step 2",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-2308 step 1: with memo.record(true) re-enabled in same_stuck_trees, the slow-check example still times out at 30 s; sample shows check::infer -> Ctx::conv -> conv_with -> same_closure -> identical_within -> free_variables -> Term::subterms. SW-2306 F5 with a concrete case. 30-45 min. Repro: re-enable the record, time examples/reject/as-written-unconfirmed-slow-check.sw.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
