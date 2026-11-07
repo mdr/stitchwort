@@ -20733,7 +20733,7 @@
         "docs"
       ],
       "epic": "docs-tutorials",
-      "body": "From docs/reviews/SW-2213-guide-coverage.md, lane A. Opus review after. 45 min.",
+      "body": "From docs/reviews/SW-2213-guide-coverage.md, lane A. Opus review after. 45 min.\n\nD3210 — Matt, 7 Nov 2026: \"it sounds sensible for us to update docs if we're changing the kernel.\" Added to CLAUDE.md's Always list.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
