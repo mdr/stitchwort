@@ -19353,7 +19353,7 @@
         "elab"
       ],
       "epic": "diagnostics",
-      "body": "Found by Overmind's soak run 2 (SW-2098, fuzz case 1095). Repro: docs/repros/sw-2098/ask-before-checked.sw; reproduces on Speedwell in 1 s. Make it an ordinary error, add it as a reject example (snap:hashes not needed for rejects; check the reject snapshot), and see whether the fuzzer's other E-INTERNAL oracle paths have the same shape. 45 min.\n\n7 Nov, Overmind job 7 (0fa08fe74), seed 0x6 case 2736: the same E-INTERNAL with an ability operation: 'choose is used before it's checked' from\nability Choose where\n  choose: () → {Choose} choose\n(mutated from reject/handler-missing-return.sw). Add as a second repro.\n\n7 Nov, Overmind job 12: no E-INTERNAL in seed 0x6 (3000 cases) or 0x5eede1ab00000685 (2000); repros not rerun on this commit, so still open.",
+      "body": "Found by Overmind's soak run 2 (SW-2098, fuzz case 1095). Repro: docs/repros/sw-2098/ask-before-checked.sw; reproduces on Speedwell in 1 s. Make it an ordinary error, add it as a reject example (snap:hashes not needed for rejects; check the reject snapshot), and see whether the fuzzer's other E-INTERNAL oracle paths have the same shape. 45 min.\n\n7 Nov, Overmind job 7 (0fa08fe74), seed 0x6 case 2736: the same E-INTERNAL with an ability operation: 'choose is used before it's checked' from\nability Choose where\n  choose: () → {Choose} choose\n(mutated from reject/handler-missing-return.sw). Add as a second repro.\n\n7 Nov, Overmind job 12: no E-INTERNAL in seed 0x6 (3000 cases) or 0x5eede1ab00000685 (2000); repros not rerun on this commit, so still open.\n\nOvermind job 14 (047d1fb66): both repros still E-INTERNAL (ask: 2.1 s; choose: 0.6 s).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -22023,7 +22023,7 @@
         "perf"
       ],
       "epic": "elaborator-kernel",
-      "body": "Overmind job 12 (ab5c237ed), fuzz:elab seed 0x6 case 1983, oracle 4 (budget), rng 0x7782aecdf2b3cfff; saved on Overmind at target/fuzz-elab/6-1983.sw. Repro: in p12, after 'let x2 := nat()' add a second 'let x2 := nat()'; leave reads12's nested Parse.readsBind proof. Job 1's case 558 came from the same file, so possibly longstanding, not SW-2269. Step 1 (20 min): time on 0fa08fe74 vs main; profile where the failing path spends its time.",
+      "body": "Overmind job 12 (ab5c237ed), fuzz:elab seed 0x6 case 1983, oracle 4 (budget), rng 0x7782aecdf2b3cfff; saved on Overmind at target/fuzz-elab/6-1983.sw. Repro: in p12, after 'let x2 := nat()' add a second 'let x2 := nat()'; leave reads12's nested Parse.readsBind proof. Job 1's case 558 came from the same file, so possibly longstanding, not SW-2269. Step 1 (20 min): time on 0fa08fe74 vs main; profile where the failing path spends its time.\n\nOvermind job 14 (047d1fb66 and 0fa08fe74, quiet, memguard 4 GB): longstanding, not today's. Mutant 92.4 s / 90.3 s; example 10.8 / 10.3 s (all no-cache library load). Before/after SW-1226 (f7663539f) with that era's example plus the duplicated line: passing path 35.8 -> 5.7 s, failing path 61.8 -> 59.2 s: SW-1226 fixed only the passing path. Scaling on 047d1fb66, extra time over the 10.8 s baseline by steps: 4: 0, 6: 0.5, 8: 4.1, 10: 17.8, 12: 80.1 s, about 2.1x per step: per-level doubling on the failing path. Not profiled. Generated inputs on Overmind: soak14/adapt in its scratchpad.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
