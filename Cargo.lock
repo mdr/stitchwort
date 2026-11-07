@@ -1223,6 +1223,7 @@ dependencies = [
  "stitchwort-core",
  "stitchwort-dev-features",
  "stitchwort-driver",
+ "stitchwort-rt",
  "stitchwort-syntax",
 ]
 

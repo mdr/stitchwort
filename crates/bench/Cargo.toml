@@ -13,6 +13,7 @@ path = "src/main.rs"
 mimalloc.workspace = true
 stitchwort-syntax.workspace = true
 stitchwort-driver.workspace = true
+stitchwort-rt.workspace = true
 blake3.workspace = true
 clap.workspace = true
 # The one feature set of every dev and test build (docs/testing.md, "Features"),

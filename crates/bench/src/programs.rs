@@ -8,6 +8,9 @@ use stitchwort_driver::driver::{Cache, Outcome, Session, with_stack};
 use stitchwort_driver::render::render;
 use stitchwort_syntax::Diagnostic;
 
+use stitchwort_driver::project::{DiskFiles, Target, project_sources};
+use stitchwort_driver::run::{Main, NoTerminal};
+
 use crate::{Benchmark, PartCounts, Prepared, STACK, Work, alloc};
 
 pub const ALL: &[Benchmark] = &[
@@ -75,6 +78,104 @@ pub const ALL: &[Benchmark] = &[
         name: "run-proof-fields",
         about: "runs a `main` that threads a record with a proof field through 200 lines of input",
         prepare: run_proof_fields,
+    },
+    // The runtime's machine (`stitchwort-rt`), as `stitchwort run` runs a
+    // program, on the programs of bench/native and some AoC days
+    // (docs/proposals/interpreter-speed.md, section 4.1). They record the
+    // machine's bytecode instructions, not the checker's steps, and time
+    // the run alone: checking and lowering `main` aren't measured.
+    Benchmark {
+        name: "run-machine-calls",
+        about: "the machine on bench/native/micro_call.sw: 200,000 times, 20 non-tail calls deep",
+        prepare: || {
+            machine_source(
+                include_str!("../../../bench/native/micro_call.sw"),
+                ("outer 1000 0", "outer 200000 0"),
+                "4000000",
+            )
+        },
+    },
+    Benchmark {
+        name: "run-machine-loop",
+        about: "the machine on bench/native/micro_tail.sw: a self tail call 4,000,000 times, adding Nats",
+        prepare: || {
+            machine_source(
+                include_str!("../../../bench/native/micro_tail.sw"),
+                ("spin 1000 0", "spin 4000000 0"),
+                "7999998000000",
+            )
+        },
+    },
+    Benchmark {
+        name: "run-machine-closures",
+        about: "the machine on bench/native/closures.sw: map, filter and fold with closures over 200,000 elements",
+        prepare: || {
+            machine_source(
+                include_str!("../../../bench/native/closures.sw"),
+                ("run 1000}", "run 200000}"),
+                CLOSURES_ANSWER,
+            )
+        },
+    },
+    Benchmark {
+        name: "run-machine-set",
+        about: "the machine on bench/native/set_nat.sw: a Set of 100,000 Nat keys",
+        prepare: || {
+            let source =
+                include_str!("../../../bench/native/set_nat.sw").replace("% 1009", "% 1000000");
+            machine_source(&source, ("keys 1000)", "keys 100000)"), "100000")
+        },
+    },
+    Benchmark {
+        name: "run-machine-aoc-2020-19",
+        about: "the machine on AoC 2020 day 19 (rules matched by closures and Map lookups), real input",
+        prepare: || {
+            aoc_day(
+                "Aoc.Year2020.Day19",
+                "inputs/2020/day19.txt",
+                None,
+                "Part 1: 182\nPart 2: 334\n",
+            )
+        },
+    },
+    Benchmark {
+        name: "run-machine-aoc-2021-11",
+        about: "the machine on AoC 2021 day 11 (octopus grid in a Map), real input",
+        prepare: || {
+            aoc_day(
+                "Aoc.Year2021.Day11",
+                "inputs/2021/day11.txt",
+                None,
+                "Part 1: 1773\nPart 2: 494\n",
+            )
+        },
+    },
+    Benchmark {
+        name: "run-machine-aoc-2024-09",
+        about: "the machine on AoC 2024 day 9 (a disk of cells moved about), real input",
+        prepare: || {
+            aoc_day(
+                "Aoc.Year2024.Day09",
+                "inputs/2024/day09.txt",
+                None,
+                "Part 1: 6242766523059\nPart 2: 6272188244509\n",
+            )
+        },
+    },
+    Benchmark {
+        name: "run-machine-aoc-2021-15-part1",
+        about: "the machine on part 1 of AoC 2021 day 15 alone (10,000 positions, std Dijkstra), real input: a main added in memory",
+        prepare: || {
+            aoc_day(
+                "Bench.Day15Part1",
+                "inputs/2021/day15.txt",
+                Some((
+                    "src/Bench/Day15Part1.sw",
+                    "namespace Bench.Day15Part1\nimport Aoc.Year2021.Day15 (parseCave, solvePart1)\nimport Std (Fail, IO)\n\ndef main(): {IO, Fail} () :=\n  IO.print \"Part 1: ${solvePart1 (parseCave IO.readAll())}\"\n",
+                )),
+                "Part 1: 656\n",
+            )
+        },
     },
     Benchmark {
         name: "check-number-pattern",
@@ -295,6 +396,7 @@ fn work(session: &Session) -> Work {
     Work {
         steps: budget.total_work(),
         visits: budget.total_visits(),
+        machine_instructions: 0,
     }
 }
 
@@ -381,6 +483,102 @@ fn run_prints() -> Result<Prepared, String> {
             n => Err(format!("printed {n} lines, not 20,000")),
         }
     }))
+}
+
+/// Runs `main` on the runtime's machine, which must print `expected`. Only
+/// the run is measured (lowering is done here, in the set-up), and what it
+/// records is the machine's instructions: `steps` and `visits` are the
+/// checker's, and stay 0.
+///
+/// Frames entered aren't recorded: the machine keeps that count only per
+/// stretch between operations (`State::steps`, reset by `reset_steps`), and
+/// doesn't expose a total.
+fn machine_run(
+    session: &Session,
+    main: &Main,
+    input: String,
+    expected: &'static str,
+) -> Result<Prepared, String> {
+    let program = session
+        .lower_fast(main)
+        .map_err(|e| format!("lowering `main`: {e:?}"))?;
+    let limits = stitchwort_rt::Limits::from_core(session.elab.options.limits);
+    Ok(Prepared::new(move || {
+        let before = stitchwort_rt::machine::instructions_executed();
+        let mut output = Vec::new();
+        stitchwort_rt::run_main_on(
+            &program,
+            limits,
+            &mut input.as_bytes(),
+            &mut output,
+            &mut NoTerminal,
+        )
+        .map_err(|e| format!("the machine failed: {e:?}"))?;
+        let executed = stitchwort_rt::machine::instructions_executed() - before;
+        let printed = String::from_utf8_lossy(&output).into_owned();
+        if printed.trim_end() != expected.trim_end() {
+            return Err(format!("printed {printed:?}, not {expected:?}"));
+        }
+        Ok(Work {
+            steps: 0,
+            visits: 0,
+            machine_instructions: executed,
+        })
+    }))
+}
+
+/// A program of bench/native, with one edit to its size (`from` to `to`),
+/// whose `main` prints `expected`.
+fn machine_source(
+    source: &str,
+    (from, to): (&str, &str),
+    expected: &'static str,
+) -> Result<Prepared, String> {
+    if !source.contains(from) {
+        return Err(format!("`{from}` isn't in the program"));
+    }
+    let mut session = loaded(&source.replace(from, to))?;
+    let main = session.main().map_err(|d| rendered(&session, &[d]))?;
+    machine_run(&session, &main, String::new(), expected)
+}
+
+/// The answer of `closures.sw` at 200,000 elements (checked against the
+/// same arithmetic in Python).
+const CLOSURES_ANSWER: &str = "911749270";
+
+/// The AoC project's `namespace` (and what it uses), and its `main` run
+/// on the committed `input` (a path under aoc/): the input's fingerprint
+/// goes in the baseline, so a different input isn't compared. `extra` is a
+/// file to add to the project, `(path, text)`, whose namespace is then
+/// the one run.
+fn aoc_day(
+    namespace: &str,
+    input: &str,
+    extra: Option<(&str, &str)>,
+    expected: &'static str,
+) -> Result<Prepared, String> {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../aoc");
+    let input_text =
+        std::fs::read_to_string(root.join(input)).map_err(|e| format!("{input}: {e}"))?;
+    let mut session = untimed(Session::for_stack(STACK));
+    let files = DiskFiles { root };
+    session.include_from(std::rc::Rc::new(DiskFiles {
+        root: files.root.clone(),
+    }));
+    let mut sources = project_sources(&files, "aoc", &mut session.sources)
+        .map_err(|ds| rendered(&session, &ds))?;
+    if let Some((path, text)) = extra {
+        sources.push((path.to_string(), text.to_string()));
+    }
+    session
+        .load_project_sources("aoc", sources, &Target::Namespaces(vec![namespace.into()]))
+        .map_err(|ds| rendered(&session, &ds))?;
+    let main = session
+        .main_named(&format!("{namespace}.main"), "aoc")
+        .map_err(|d| rendered(&session, &[d]))?;
+    let mut prepared = machine_run(&session, &main, input_text.clone(), expected)?;
+    prepared.inputs = Some(fingerprint(&[(input.to_string(), input_text)]));
+    Ok(prepared)
 }
 
 /// A record with a proof field, rebuilt for each of 200 input lines: erasure
