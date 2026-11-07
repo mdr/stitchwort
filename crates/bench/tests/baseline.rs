@@ -19,9 +19,8 @@ fn counts_have_not_regressed() {
     let baseline = Baseline::read(&baseline::default_path()).expect("a readable baseline");
     let mut records: Vec<(&str, Record)> = Vec::new();
     let mut failures = Vec::new();
-    // The `examples` benchmark checks the whole example corpus on one thread
-    // (allocations are counted per process): most of this test's time, so
-    // only the full tier compares its counts.
+    // The `examples` benchmark checks the whole example corpus: most of this
+    // test's time, so only the full tier compares its counts.
     let whole_corpus = stitchwort_driver::driver::full_tier("the `examples` benchmark");
     for b in programs::ALL
         .iter()

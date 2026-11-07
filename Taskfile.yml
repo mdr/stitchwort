@@ -421,7 +421,7 @@ tasks:
       - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release -p stitchwort-cli --test tools guide::'
 
   bench:
-    desc: 'Benchmarks against bench/baseline.toml: counts and time (about a minute; args after --, e.g. -- --no-time)'
+    desc: 'Benchmarks against bench/baseline.toml: counts and time (about 4 minutes on a quiet machine, 80 s with -- --no-time; args after --)'
     cmds:
       - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo run --release -p stitchwort-bench -- {{.CLI_ARGS}}'
 
