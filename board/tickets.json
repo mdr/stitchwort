@@ -1,5 +1,5 @@
 {
-  "next": 2280,
+  "next": 2282,
   "tickets": [
     {
       "id": 47,
@@ -21686,14 +21686,14 @@
     {
       "id": 2278,
       "title": "[Opus] Review SW-2266 (the soundness fuzzer no longer cuts the file after the theorem under test; mutants equal to the source after formatting are skipped): can a later declaration now make a false mutant look accepted, or hide a finding; is the no-op check safe when the formatter rejects a fragment",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2278",
       "labels": [
         "review"
       ],
       "epic": "audit-fuzzing",
-      "body": "Read-only. The fuzzer is a trust tool. 15 min.",
+      "body": "Read-only. The fuzzer is a trust tool. 15 min.\n\nDone, merged: docs/reviews/SW-2278-fuzzer-whole-file.md. Sound; F1-F4 low -> SW-2280.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21709,6 +21709,36 @@
       ],
       "epic": "elaborator-kernel",
       "body": "From SW-2273. 20 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2280,
+      "title": "[Sonnet] SW-2278 F1-F4: count skipped no-op mutants in the summary; stop cutting examples/accept theorems after the declaration (line ~803); a mutant using a refused axiom is rejected, not accepted; fix the comment at line 828 (the kernel's finality rule is the reason)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "audit-fuzzing",
+      "body": "From docs/reviews/SW-2278-fuzzer-whole-file.md. Test: mutated_theorems_have_no_counterexample, summary compared with a run before. 25 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2281,
+      "title": "[Opus] Review SW-2220 (decreasing stage 2 fixes: dead lets after post, guard calls get equations, exact stale-record map, twins only of lifted matches, lazy name check): generates kernel terms (D2364)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2281",
+      "labels": [
+        "review"
+      ],
+      "epic": "proof-automation",
+      "body": "Read-only. 15 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
