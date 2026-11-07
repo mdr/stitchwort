@@ -1,5 +1,5 @@
 {
-  "next": 2088,
+  "next": 2091,
   "tickets": [
     {
       "id": 47,
@@ -18805,15 +18805,15 @@
     },
     {
       "id": 2086,
-      "title": "[Sonnet] Language server: a panic while the successor checker reopens documents kills it (a double fault: it stops with a pop-up); keep a copy of the handover record and test it",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "title": "[Sonnet] HIGH: checker recovery: reopen documents inside the catch (a project that panics while loading stops checking everywhere); diagnostics marked sent only after sending; a retry's first panic re-quarantines",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2086",
       "labels": [
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From SW-1948. 45 min.",
+      "body": "From SW-1948. 45 min.\n\nFrom docs/reviews/SW-2087-checker-recovery-and-forget-since.md (HIGH, lane 1): reopening loads libraries (cache replay, kernel), so a project that panics while loading kills the successor and stops checking for every project, losing the handover record; do the reopen inside the existing catch so the second panic quarantines that project. Also: one rule for a file's workspace; mark diagnostics sent only after sending (today a mid-publish panic suppresses unsent ones); a retry's first panic re-quarantines (one restart per edit, not two); the missing tests. Sonnet, 75 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -18821,14 +18821,59 @@
     {
       "id": 2087,
       "title": "[Opus] Fresh-eyes review of SW-1948 (lsp checker recovery, 547 lines by Sonnet) and SW-1925 (Kernel::forget_since, Builtins::rewind)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2087",
       "labels": [
         "review"
       ],
       "epic": "editor-playground",
-      "body": "Spare capacity, no-build Opus lane. Expected: 60 min.",
+      "body": "Spare capacity, no-build Opus lane. Expected: 60 min.\n\nDone, merged: docs/reviews/SW-2087-checker-recovery-and-forget-since.md. SW-1925 sound (registry, all of Builtins and pins undone; budget rightly untouched). SW-1948: 2 high (reopen outside the catch; one project spends the session-wide budget), 2 medium, 13 low; no thread-local survives, no deadlock. Lanes SW-2086 (reshaped), SW-2088, SW-2089, SW-2090. D2980. 15 min (est. 60).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2088,
+      "title": "[Sonnet] Search budget shared across workers and not spent by the editor's automatic code-action requests (cursor moves at a goal whose search panics turn search off for the session): remember a panicked search and answer null until the text changes; the stop message's wording",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "epic": "editor-playground",
+      "body": "From docs/reviews/SW-2087-checker-recovery-and-forget-since.md. Lane 2, after SW-2086 (same file). 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2089,
+      "title": "[Sonnet] A restart budget per project, so one project that keeps panicking after edits can't stop checking everywhere (today one open and two edits do)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "epic": "editor-playground",
+      "body": "From docs/reviews/SW-2087-checker-recovery-and-forget-since.md. HIGH. Lane 3, after SW-2086. D2980 [rec: yes]. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2090,
+      "title": "[Sonnet] SW-1925 follow-ups: a cancelled replay counted as a refusal; the undo check skips the hash caches; it formats the whole registry per replayed entry in dev/test/bench builds (measure); Kernel::rewind's doc on the cancel flag; two missing tests; two narrating comments",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "cache"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/SW-2087-checker-recovery-and-forget-since.md (lane 4). 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
