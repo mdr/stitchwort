@@ -18851,9 +18851,9 @@
     {
       "id": 2089,
       "title": "[Sonnet] A restart budget per project, so one project that keeps panicking after edits can't stop checking everywhere (today one open and two edits do)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2089",
       "labels": [
         "lsp"
       ],
