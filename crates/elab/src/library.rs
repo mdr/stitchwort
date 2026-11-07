@@ -1417,7 +1417,12 @@ impl Elaborator {
         self.add_imports(&file.module.imports, true, &mut errors);
         self.present.nav = nav;
         let saved_core_only = std::mem::replace(&mut self.scope.core_only, core_only);
+        // Glued as while the file loaded (the library always is), not as the
+        // caller's switch happens to be, so the result is the same whoever
+        // asks.
+        let was = self.kernel.machine.glue.replace(self.gluing());
         let result = run(self);
+        self.kernel.machine.glue.set(was);
         self.scope.core_only = saved_core_only;
         self.leave_nested_unit(saved);
         result

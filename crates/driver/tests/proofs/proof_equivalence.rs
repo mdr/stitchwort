@@ -1281,9 +1281,6 @@ fn probe_g3_number_scrutinee() {
     );
 }
 
-/// Run glued only: with `STITCHWORT_GLUE=0` std's `Float` file fails its
-/// pins (SW-2254), so the probe can't load unglued. (The wrapping pairs of
-/// G4 do run unglued: they switch gluing off after loading.)
 #[test]
 #[ignore = "known failure G4 (a float primitive on a folded number), fixed by SW-2244"]
 fn probe_g4_float_of_a_folded_number() {

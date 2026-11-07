@@ -29,7 +29,8 @@ pub struct Options {
     pub numbers_as_succ: bool,
     /// Whether declarations are elaborated with glued evaluation
     /// (`Kernel::glue`, docs/proposals/folded-calls.md): on unless
-    /// `STITCHWORT_GLUE=0`. The switch in the `Machine` is on only while a
+    /// `STITCHWORT_GLUE=0` (the library always glues, whatever this says:
+    /// [`crate::Elaborator::gluing`]). The switch in the `Machine` is on only while a
     /// declaration or an expression typed in is elaborated
     /// ([`crate::Elaborator::glued`]), never while it is checked by the
     /// kernel or run.
