@@ -1,5 +1,5 @@
 {
-  "next": 1795,
+  "next": 1796,
   "tickets": [
     {
       "id": 47,
@@ -14443,6 +14443,21 @@
       ],
       "epic": "dev-loop-speed",
       "body": "From SW-1793.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1795,
+      "title": "[Sonnet] lsp-sessions nextest group: max-threads 3 was set for 1.7 GB cold sessions; with the test cache they hold ~0.45 GB warm (SW-1769), so raise it if memory allows, measured under the 4 GB merge cap",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1795",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1769. Expected: 30 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
