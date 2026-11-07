@@ -22166,14 +22166,14 @@
     {
       "id": 2310,
       "title": "[Sonnet] stitchwort check takes a theorem filter or file subset, so the comparative proof benchmark can time the same theorems as the Lean port (2020 day 18 has 23 of 49 ported, 2021 day 15 20 of 23)",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2294. 45 min. Until then the proof ratios overstate our cost.",
+      "body": "From SW-2294. 45 min. Until then the proof ratios overstate our cost.\n\nMatt, 7 Nov 2026: \"Allowing Stitchwort checks to take a little theorem seems pretty sensible.\" User-visible CLI option: update the CLI docs and docs/guide where check is described. Next build slot.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
