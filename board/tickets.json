@@ -1,5 +1,5 @@
 {
-  "next": 1997,
+  "next": 2001,
   "tickets": [
     {
       "id": 47,
@@ -12180,7 +12180,7 @@
         "unifier"
       ],
       "epic": "record-eta",
-      "body": "D2498-D2505 (Matt, 6 Nov 2026): all as recommended in docs/proposals/record-eta.md: kernel record eta with primitive projections (no parameters) and the two rules; eta by shape incl. Pair; no no-eta opt-out now; no eta for interface dictionaries; accept goals changing shape; keep T.ext; accept ~5% checking cost (profile it); staged kernel (Opus), unifier, Pair, clean-up sweep (Sonnet). After SW-1642.\n\nOpus (kernel/unifier soundness; Matt, 6 Nov 2026).\n\nSW-1849 (docs/proposals/record-eta-remaining.md, 7 Nov): stage 1 already built unifier eta (rule 1 with §8's restrictions, D2511's same-field rule). Becomes stage 2': elaborator-level tests (records.md §7.3/§14), a surface example in examples/, and the guide and syntax.md text stage 1 missed. Opus, 60 min, brief in §5. After SW-1829; not beside bounded readback 4a/4c (all edit unify.rs). D2630 [rec: yes].\n\nSW-1850: the guide's record eta text and a tour page are SW-1859; do them together.",
+      "body": "D2498-D2505 (Matt, 6 Nov 2026): all as recommended in docs/proposals/record-eta.md: kernel record eta with primitive projections (no parameters) and the two rules; eta by shape incl. Pair; no no-eta opt-out now; no eta for interface dictionaries; accept goals changing shape; keep T.ext; accept ~5% checking cost (profile it); staged kernel (Opus), unifier, Pair, clean-up sweep (Sonnet). After SW-1642.\n\nOpus (kernel/unifier soundness; Matt, 6 Nov 2026).\n\nSW-1849 (docs/proposals/record-eta-remaining.md, 7 Nov): stage 1 already built unifier eta (rule 1 with §8's restrictions, D2511's same-field rule). Becomes stage 2': elaborator-level tests (records.md §7.3/§14), a surface example in examples/, and the guide and syntax.md text stage 1 missed. Opus, 60 min, brief in §5. After SW-1829; not beside bounded readback 4a/4c (all edit unify.rs). D2630 [rec: yes].\n\nSW-1850: the guide's record eta text and a tour page are SW-1859; do them together.\n\nFrom SW-1913: update record-eta.md §6.4 (rule 2 does fire on unsolved metas, on purpose, in branch); the unifier gaps are SW-1998.",
       "created": "2026-11-06",
       "updated": "2026-11-07",
       "commits": []
@@ -16222,14 +16222,14 @@
     {
       "id": 1913,
       "title": "[Opus] Record eta broke six AoC proofs (2020 day 20 Orientations.sw:239; 2021 day 2 Proofs.sw:58; 2021 day 11 Parts.sw:30; 2021 day 15 Answers.sw:34 and Levels.sw:82; 2024 day 23 Part2.sw:179): for each, why eta changed it, and fix the proof or file the elaborator gap",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1913",
       "labels": [
         "proofs"
       ],
       "epic": "record-eta",
-      "body": "From SW-1829, 7 Nov 2026. Each passes before the merge (319c28c0c) and fails after. D2498-D2505 accepted goals changing shape. Expected: 90 min.",
+      "body": "From SW-1829, 7 Nov 2026. Each passes before the merge (319c28c0c) and fails after. D2498-D2505 accepted goals changing shape. Expected: 90 min.\n\nDone, merged. All six check; four are workarounds for gaps eta exposed, marked SW-1913: SW-1998 (unifier: 2020 day 20, 2021 day 11), SW-1999 (match on a call's field: 2021 day 15 twice, 2024 day 23), SW-2000 (cases: 2021 day 2). No eta bug (nothing equal stopped being equal). New theorems tiledIsTiles, largestFromAnswersAt checked by statement. Whole AoC no cache 287 namespaces, 0 errors, 67 s; five days rechecked on main after the merge, 0 errors. Found a record eta crash: SW-1997. 50 min (est. 90).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17475,6 +17475,66 @@
       ],
       "epic": "test-infra",
       "body": "From docs/proposals/check-cache-trust.md (ticket 4). D2802 [rec: yes]. 75 min. Also fix check-cache.md's stale 'the gates still run the kernel' (untrue since SW-1751).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1997,
+      "title": "[Opus] HIGH, record eta regression: lowering Term::Proj of a one-field (unboxed) record panics (crates/rt/src/lower.rs:537, index out of bounds, via proj_as_match and case's unboxed-field path); crashes stitchwort test on 2020 day 20, the audit's counterexample search, and the counterexample note for failing proofs that mention such a field",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1997",
+      "labels": [
+        "bug"
+      ],
+      "epic": "record-eta",
+      "body": "From SW-1913. Repro docs/repros/sw-1913/panic10.sw: type Cave = { rows: Nat }; theorem probe (cave: Cave) (big: cave.rows = 0): cave.rows = 1 := ?. Two-field records fine. Blocks the push. Expected: 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1998,
+      "title": "[Opus] Unifier eta gaps: blocked_within doesn't count a projection of an unsolved meta as blocked (2020 day 20: ?b.rows); same_field_records drops the projection from a field call (f x).i and gets a stuck neutral (2021 day 11). Reverted patch in docs/repros/sw-1913/unify-fixes.patch; then drop the SW-1913 workarounds in those two days",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "unifier"
+      ],
+      "epic": "record-eta",
+      "body": "From SW-1913. Repros meta-record.sw, nested-implicit.sw. Fits stage 2' (SW-1643). D2850 [rec: keep the workarounds until this lands]. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1999,
+      "title": "[Opus] match and the field of a call (f x).i: for non-recursive calls match doesn't look inside the call; for well-founded ones it shows their internals (2021 day 15, 2024 day 23); core value.rs Frame::CallField and its readback",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "record-eta",
+      "body": "From SW-1913. Repros match-field.sw, call-field-match3.sw. Then drop the SW-1913 workarounds in those days. 90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2000,
+      "title": "[Sonnet] cases' fallback doesn't split a field of a record variable (start.aim + 0 stays, 2021 day 2): with record eta, start.aim is a projection, not a call stuck on start",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tactics"
+      ],
+      "epic": "record-eta",
+      "body": "From SW-1913. Repro cases-proj.sw. 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
