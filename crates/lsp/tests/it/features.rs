@@ -825,6 +825,32 @@ fn a_non_exhaustive_match_gets_its_missing_arms_added() {
     });
 }
 
+/// The closing search prints each candidate as a bare term, so a constructor
+/// it shows unapplied (`Succ`, with no argument) must print as its name
+/// (SW-1799).
+#[test]
+fn a_code_action_on_a_goal_prints_unapplied_constructors() {
+    big_stack(|| {
+        let text =
+            "namespace Demo\n\ndef f: Option (Option Nat) -> Nat\n  | Some o => ?\n  | None => 0\n";
+        let mut s = Session::open(text);
+        let actions = s.request_searched(
+            "textDocument/codeAction",
+            json!({"textDocument": {"uri": URI},
+                   "range": {"start": {"line": 3, "character": 14},
+                             "end": {"line": 3, "character": 14}},
+                   "context": {"diagnostics": []}}),
+        );
+        let actions = actions.as_array().unwrap_or_else(|| panic!("{actions}"));
+        assert!(
+            actions.iter().any(|a| a["title"]
+                .as_str()
+                .is_some_and(|t| t.starts_with("Replace ? with `0`"))),
+            "{actions:?}"
+        );
+    });
+}
+
 #[test]
 fn a_variable_of_an_arm_splits_into_its_types_constructors() {
     big_stack(|| {

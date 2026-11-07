@@ -33,6 +33,13 @@ fn prints_numbers_and_lists_as_literals() {
 }
 
 #[test]
+fn prints_unapplied_constructors_as_their_names() {
+    let p = Prelude::new();
+    assert_eq!(show(&p, &[], &Term::Ctor(p.nat, 1, vec![])), "Succ");
+    assert_eq!(show(&p, &[], &Term::Ctor(p.list, 1, vec![])), "Cons");
+}
+
+#[test]
 fn prints_other_data_types_by_constructor_name() {
     let mut p = Prelude::new();
     let tree = data(&mut p.g, "Tree", vec![], Sort::Type(0));
