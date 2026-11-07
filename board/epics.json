@@ -468,7 +468,9 @@
         "test:affected: memory-safe lsp group, self-refreshing inventory (SW-1760)"
       ],
       "now": [
-        "Compile time after incremental builds (SW-1754)"
+        "Compile time after incremental builds (SW-1754)",
+        "Next slowest daily binaries (SW-1770)",
+        "Heavy sweeps not overlapping (SW-1734)"
       ],
       "next": [],
       "links": [

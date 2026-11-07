@@ -1,5 +1,5 @@
 {
-  "next": 1770,
+  "next": 1771,
   "tickets": [
     {
       "id": 47,
@@ -13535,16 +13535,16 @@
     {
       "id": 1734,
       "title": "nextest threads-required for the heavy sweeps, so they don't overlap in memory and thrash",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1734",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
       "body": "From the SW-1716 profile, fix 6. See docs/reviews/SW-1716-dev-loop-profile.md §6.",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -14068,6 +14068,21 @@
       ],
       "epic": "dev-loop-speed",
       "body": "From SW-1760, 7 Nov 2026.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1770,
+      "title": "[Sonnet] Daily tier's next slowest binaries: rewind (807 s), extract (544 s), std_library (510 s), check_cache (376 s), run_js (332 s), operators (267 s); find why each is slow and fix what's cheap, keeping guarantees",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1770",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "Overnight 7 Nov 2026, from the D2546 daily run. Expected: 75 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
