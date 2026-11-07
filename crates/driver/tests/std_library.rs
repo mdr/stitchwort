@@ -9,9 +9,7 @@ use std::path::{Path, PathBuf};
 use stitchwort_core::hash::{data_hash, def_hash};
 use stitchwort_core::registry::{Builtin, Home, Kind};
 use stitchwort_core::{DataId, DefId};
-use stitchwort_driver::driver::{
-    Cache, Outcome, Session, full_tier, par_map, par_map_with, tier_sample,
-};
+use stitchwort_driver::driver::{Cache, Outcome, Session, full_tier, par_map_with, tier_sample};
 use stitchwort_driver::project::{DiskFiles, Target};
 use stitchwort_driver::render::render;
 use stitchwort_elab::{LibraryIndex, library_files, prelude};
@@ -1083,12 +1081,24 @@ fn the_core_alone_runs_every_example_that_uses_no_library_name() {
     let mut sources = example_files("accept");
     sources.extend(example_files("extract"));
     // Whether each source used no library name (and so the core alone ran it).
-    let ran_alone = par_map(STACK, &sources, |source| {
+    // Each worker keeps one session of each kind and rewinds them before each
+    // source (a rewound session gives what a fresh one does: `rewind.rs`);
+    // loading the core is most of what a small example costs.
+    let workers = || {
         let mut core = Session::core_alone();
         core.elab.options.limits = stitchwort_core::Limits::for_stack(STACK);
         let mut full = Session::for_stack(STACK);
-        let a = run(&mut core, source);
-        let b = run(&mut full, source);
+        // The library's files are not what is compared (the core alone has
+        // none): replaying them gives the program the same declarations.
+        full.use_test_std_cache();
+        let marks = (core.mark(), full.mark());
+        (core, full, marks)
+    };
+    let ran_alone = par_map_with(STACK, &sources, workers, |(core, full, marks), source| {
+        core.rewind(&marks.0);
+        full.rewind(&marks.1);
+        let a = run(core, source);
+        let b = run(full, source);
         let n = name(source);
         if full.elab.loaded_library_files().is_empty() {
             // It uses no library file: the core alone does the same.

@@ -49,8 +49,40 @@ impl Source {
     }
 }
 
-fn session() -> Session {
-    Session::navigable_for_stack(STACK)
+/// A navigable session. Outside the full tier:
+/// - the library's files replay from the test std cache instead of being
+///   checked from source in every one of the many sessions here
+///   (docs/testing.md, "The test std cache"): the differential is of the
+///   program's check;
+/// - no counterexample search runs when a theorem fails, but for the
+///   examples about it ([`searches`]): a search is much of the time of a
+///   rejected example, and what rewinding must restore of one is the same
+///   in all of them.
+///
+/// The full tier checks the library and searches in every session.
+fn session(source: &Source) -> Session {
+    let mut session = Session::navigable_for_stack(STACK);
+    session.use_test_std_cache();
+    session.elab.options.no_counterexamples = !searches(source);
+    session
+}
+
+/// Whether the counterexample search runs when a theorem of `source` fails:
+/// always in the full tier, and in the others for the examples named for it.
+fn searches(source: &Source) -> bool {
+    stitchwort_driver::driver::tier() == stitchwort_driver::driver::Tier::Full
+        || source.name().contains("counterexample")
+}
+
+/// What a session holds before anything is checked in it ([`outcome`]):
+/// every session made by [`session`] starts so, and the dump is a large
+/// part of the cost of this file's checks, so it is made once.
+fn pristine() -> &'static str {
+    static PRISTINE: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    PRISTINE.get_or_init(|| {
+        let nothing = Source::File(String::new(), String::new());
+        with_stack(STACK, || outcome(&session(&nothing), &Ok(())))
+    })
 }
 
 /// Checks `source` in `session`: its diagnostics, `Ok` if it has no errors.
@@ -118,7 +150,7 @@ fn assert_same(source: &Source, how: &str, fresh: &str, rewound: &str) {
 
 /// The outcome of checking `source` in a fresh session.
 fn fresh(source: &Source) -> String {
-    let mut s = session();
+    let mut s = session(source);
     let result = check(&mut s, source);
     outcome(&s, &result)
 }
@@ -126,15 +158,15 @@ fn fresh(source: &Source) -> String {
 /// Check, rewind to the mark before the check, check again. The rewound
 /// session must also be the fresh session again.
 fn check_rewind_check(source: &Source, fresh: &str) {
-    let mut s = session();
-    let before = outcome(&s, &Ok(()));
+    let mut s = session(source);
+    let before = pristine();
     let mark = s.mark();
     let _ = check(&mut s, source);
     s.rewind(&mark);
     assert_same(
         source,
         "rewound to before the check",
-        &before,
+        before,
         &outcome(&s, &Ok(())),
     );
     let result = check(&mut s, source);
@@ -152,7 +184,7 @@ fn check_rewind_check(source: &Source, fresh: &str) {
 
 /// Each namespace of a project checked, rewound and checked again.
 fn recheck_each_namespace(source: &Source, fresh: &str) {
-    let mut s = session();
+    let mut s = session(source);
     s.elab.options.recheck_namespaces = true;
     let result = check(&mut s, source);
     assert_same(
@@ -167,7 +199,7 @@ fn recheck_each_namespace(source: &Source, fresh: &str) {
 /// (`Options::clear_caches_per_declaration`): the caches only save work, so
 /// the outcome is a fresh check's.
 fn check_with_cleared_caches(source: &Source, fresh: &str) {
-    let mut s = session();
+    let mut s = session(source);
     s.elab.options.clear_caches_per_declaration = true;
     let result = check(&mut s, source);
     assert_same(
@@ -181,8 +213,8 @@ fn check_with_cleared_caches(source: &Source, fresh: &str) {
 /// A check cancelled at the start of its first operation: it says so,
 /// leaves the session as it was, and the next check is a fresh one's.
 fn cancel_then_check(source: &Source, fresh: &str) {
-    let mut s = session();
-    let before = outcome(&s, &Ok(()));
+    let mut s = session(source);
+    let before = pristine();
     let flag = s.cancel_flag();
     let mark = s.mark();
     let cancelled = s.cancellable(|s| {
@@ -201,7 +233,7 @@ fn cancel_then_check(source: &Source, fresh: &str) {
     assert_same(
         source,
         "after a cancelled check",
-        &before,
+        before,
         &outcome(&s, &Ok(())),
     );
     let result = s.cancellable(|s| check(s, source));
@@ -273,7 +305,8 @@ fn example_projects(dir: &str) -> Vec<Source> {
 /// Every example: files and projects, accepted and rejected. Outside the
 /// full tier, a fixed sample ([`tier_sample`]: in the daily tier every
 /// eighth file and every fourth project), and every one with open goals
-/// (`goals/`, few; their tables are new).
+/// (`goals/`, few; their tables are new) and every one about counterexample
+/// searches ([`searches`]).
 fn examples() -> Vec<Source> {
     let mut files = Vec::new();
     for dir in ["accept", "extract", "reject", "soundness"] {
@@ -284,8 +317,10 @@ fn examples() -> Vec<Source> {
     let mut goals = example_files("goals");
     goals.extend(example_projects("goals"));
     assert!(!files.is_empty() && !projects.is_empty() && !goals.is_empty());
+    let (searching, files): (Vec<_>, Vec<_>) = files.into_iter().partition(searches);
     let mut sources = tier_sample(files, 8);
     sources.extend(tier_sample(projects, 4));
+    sources.extend(searching);
     sources.extend(goals);
     sources
 }
@@ -348,7 +383,7 @@ fn rss_kb() -> Option<u64> {
 /// roughly what a mark holds (the resident set's growth over ten marks):
 /// `--nocapture` shows it.
 fn mark_and_rewind_cost(source: &Source) {
-    let mut s = session();
+    let mut s = session(source);
     let empty = s.mark();
     let _ = check(&mut s, source);
     let t = std::time::Instant::now();
@@ -407,7 +442,7 @@ fn a_check_cancelled_part_way_rewinds() {
     let was_cancelled = par_map(STACK, &delays, |&delay_ms| {
         let mut cancelled = false;
         {
-            let mut s = session();
+            let mut s = session(&source);
             let flag = s.cancel_flag();
             let mark = s.mark();
             let setter = flag.clone();
@@ -483,7 +518,12 @@ fn live_project(name: &str, files: &BTreeMap<String, String>) -> LiveProject {
         .filter(|(p, _)| p.ends_with(".sw"))
         .map(|(p, t)| (p.clone(), t.clone()))
         .collect();
-    LiveProject::new(session(), name, config, sources)
+    LiveProject::new(
+        session(&Source::Project(name.to_string(), PathBuf::new())),
+        name,
+        config,
+        sources,
+    )
 }
 
 /// Steps `live` until everything is checked.
@@ -735,7 +775,7 @@ fn a_check_cancelled_at_each_use_of_the_cache_rewinds() {
     ];
     // A fresh check of each, and how many times it uses the cache.
     let fresh: Vec<(String, usize)> = par_map(STACK, &sources, |source| {
-        let mut s = session();
+        let mut s = session(source);
         let store = CancellingStore::new(Arc::new(AtomicBool::new(false)), 0);
         s.elab.set_check_cache(store.clone());
         let result = check(&mut s, source);
@@ -748,12 +788,16 @@ fn a_check_cancelled_at_each_use_of_the_cache_rewinds() {
         );
         (outcome(&s, &result), uses)
     });
+    // Every use in the full tier; in the others a fixed sample, every third
+    // (neighbouring uses are a library file's lookup and its write, or
+    // the next file's).
     let points: Vec<(usize, usize)> = (fresh.iter().enumerate())
         .flat_map(|(i, (_, uses))| (1..=*uses).map(move |at| (i, at)))
         .collect();
+    let points = tier_sample(points, 3);
     let cancelled = par_map(STACK, &points, |&(i, at)| {
         let source = &sources[i];
-        let mut s = session();
+        let mut s = session(source);
         let store = CancellingStore::new(s.cancel_flag(), at);
         s.elab.set_check_cache(store.clone());
         let before = s.elab.journal_stats().open;
