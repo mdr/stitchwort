@@ -479,9 +479,16 @@
         "Test binaries 166 → ~35: a core edit relinks 38 programs, not 136, 21% less CPU (SW-1790)"
       ],
       "now": [
-        "Fewer test binaries: core (SW-1780)"
+        "Bench honest and faster (SW-1792)",
+        "Non-Rust checks in test:affected (SW-1794)",
+        "Editor tests' concurrency limit (SW-1795)"
       ],
-      "next": [],
+      "next": [
+        "mimalloc and kache measured on an idle machine (SW-1742, SW-1735)",
+        "elab unit tests in the library, if Matt takes the three-edit cost (SW-1776, D2565)",
+        "check_cache sweeps sampled in daily? Matt's call (SW-1773)",
+        "Measure the night's savings with one daily run (D2556)"
+      ],
       "links": [
         "D2532",
         "docs/reviews/SW-1716-dev-loop-profile.md"
