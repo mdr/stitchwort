@@ -601,15 +601,15 @@ impl Session {
     }
 
     /// For a test of what a program does, not of how the library checks:
-    /// in the merge tier and the lanes, library files load through the test
+    /// in every tier but the full one, library files load through the test
     /// std cache (the one [`Session::eager_for_stack`] fills), where they
     /// would each be checked from source in every session, which was most
-    /// of the CPU of the tests that make many. The daily and full tiers
-    /// still check from source. `Session::eager_from_source_for_stack` is
+    /// of the CPU of the tests that make many. The full tier still checks
+    /// from source, as a second guard beside `hash_stability`'s `prelude`. `Session::eager_from_source_for_stack` is
     /// for the tests of that check.
     #[doc(hidden)]
     pub fn use_test_std_cache(&mut self) {
-        if !matches!(tier(), Tier::Merge | Tier::Lane) {
+        if tier() == Tier::Full {
             return;
         }
         let dir = test_std_cache_dir(self.elab.options.limits.stack);
