@@ -1,5 +1,5 @@
 {
-  "next": 2033,
+  "next": 2036,
   "tickets": [
     {
       "id": 47,
@@ -814,9 +814,9 @@
       "where": "",
       "labels": [],
       "epic": "aoc-older",
-      "body": "",
+      "body": "\n\nFrom docs/proposals/rewrite-occurrence.md: the occurrence item moves to SW-2033; drop it from the title once that lands.",
       "created": "2026-10-28",
-      "updated": "2026-10-28",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
@@ -15119,7 +15119,7 @@
         "readback"
       ],
       "epic": "goal-as-written",
-      "body": "Brief in docs/proposals/bounded-readback-remaining.md §5.2 (stage 6a). 100 min. After SW-1838 and SW-1833.",
+      "body": "Brief in docs/proposals/bounded-readback-remaining.md §5.2 (stage 6a). 100 min. After SW-1838 and SW-1833.\n\nFrom docs/proposals/rewrite-occurrence.md: three of the four occurrence days are a copy hidden inside what % computes to, which 6a fixes (it drops the check at as_written.rs:390-416). Also check Bits.sw:439 passes with its rules in the order first written.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17682,13 +17682,13 @@
     {
       "id": 2011,
       "title": "[Opus] Design note: rewriting one chosen occurrence",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2011",
       "labels": [
         "design"
       ],
-      "body": "From docs/research/aoc-friction-synthesis.md. Split from SW-758; 4 days. 60 min.",
+      "body": "From docs/research/aoc-friction-synthesis.md. Split from SW-758; 4 days. 60 min.\n\nDone, merged: docs/proposals/rewrite-occurrence.md. Four days were three problems: a copy hidden in what % computes to (6a fixes), two visible copies with one wanted (within), a _ matching one instance when all were wanted (failure note). D2860-D2864. Tickets SW-2033-SW-2035. 8 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -17983,6 +17983,48 @@
         "aoc"
       ],
       "body": "From docs/proposals/decreasing-with-hypothesis.md. Stage 4, after SW-2030. D2872. Targeted check and test, snap:hashes, hash_stability, audit:touched. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2033,
+      "title": "[Opus] rewrite p within P: only occurrences inside parts of the goal (as printed) matching the pattern P are replaced; E-REWRITE-WITHIN; syntax.md, guide 10-proofs with a checked example, accept and reject examples",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tactics"
+      ],
+      "body": "From docs/proposals/rewrite-occurrence.md. Ticket 1. D2860-D2864. Can start now. task test:one -- rewrite, parser tests, snap:hashes NAME=rewrite-within, hash_stability, guide example check. Absorbs SW-758's occurrence item. 90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2034,
+      "title": "[Sonnet] rewrite failure notes when a rewrite replaced too much or too little (rewrite-first-instance.sw says nothing about instances left behind; 2024 day 4)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "errors"
+      ],
+      "body": "From docs/proposals/rewrite-occurrence.md. Ticket 2, after SW-1839 (builds on its E-REFL note). D2862. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2035,
+      "title": "[DeepSeek] Convert repAbove, recombineHalves and rightHalfSmall (2024 day 11 Split.sw:36, 2025 day 2 Repeated.sw:259) to rewrite … within, dropping the hand-written J",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "body": "From docs/proposals/rewrite-occurrence.md. Ticket 3, after SW-2033. Those two days' tests only. 30 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
