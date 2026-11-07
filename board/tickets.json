@@ -1,5 +1,5 @@
 {
-  "next": 2211,
+  "next": 2213,
   "tickets": [
     {
       "id": 47,
@@ -19353,7 +19353,7 @@
         "elab"
       ],
       "epic": "diagnostics",
-      "body": "Found by Overmind's soak run 2 (SW-2098, fuzz case 1095). Repro: docs/repros/sw-2098/ask-before-checked.sw; reproduces on Speedwell in 1 s. Make it an ordinary error, add it as a reject example (snap:hashes not needed for rejects; check the reject snapshot), and see whether the fuzzer's other E-INTERNAL oracle paths have the same shape. 45 min.",
+      "body": "Found by Overmind's soak run 2 (SW-2098, fuzz case 1095). Repro: docs/repros/sw-2098/ask-before-checked.sw; reproduces on Speedwell in 1 s. Make it an ordinary error, add it as a reject example (snap:hashes not needed for rejects; check the reject snapshot), and see whether the fuzzer's other E-INTERNAL oracle paths have the same shape. 45 min.\n\n7 Nov, Overmind job 7 (0fa08fe74), seed 0x6 case 2736: the same E-INTERNAL with an ability operation: 'choose is used before it's checked' from\nability Choose where\n  choose: () → {Choose} choose\n(mutated from reject/handler-missing-return.sw). Add as a second repro.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19421,14 +19421,14 @@
     {
       "id": 2127,
       "title": "[Sonnet] Tests for SW-2096: a proof_equivalence row for the kernel's own glued mode (admission runs with Machine::kernel set); the elaborator-versus-kernel test checks debug text so can't fail — make it compare values; check callFound's example says what it tests",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2127",
       "labels": [
         "tests"
       ],
       "epic": "record-eta",
-      "body": "From docs/reviews/SW-2125-folded-call-fields.md (lane B: F2, F5; F3 goes to SW-2113). 40 min.\n\n7 Nov, widened from docs/reviews/SW-2158-glued-leaf-unfolding.md: F1 (unfold_folded forces only a glued Value::Call between levels, not a solved metavariable; use needs_forcing, add a test; Frame::Unfolding's comment to say it handles solved metas) and F2 (matrix rows for the kernel's own glued mode and the untested chains: theorem ending in theorem, a dictionary whose body is a glued call, a Quot.lift leaf, F1's case). Now ~70 min.",
+      "body": "From docs/reviews/SW-2125-folded-call-fields.md (lane B: F2, F5; F3 goes to SW-2113). 40 min.\n\n7 Nov, widened from docs/reviews/SW-2158-glued-leaf-unfolding.md: F1 (unfold_folded forces only a glued Value::Call between levels, not a solved metavariable; use needs_forcing, add a test; Frame::Unfolding's comment to say it handles solved metas) and F2 (matrix rows for the kernel's own glued mode and the untested chains: theorem ending in theorem, a dictionary whose body is a glued call, a Quot.lift leaf, F1's case). Now ~70 min.\n\nDone, merged. Kernel-mode row in proof_equivalence; terms for theorem-ending-in-theorem, a record whose body is a glued call, a Quot.lift leaf; F1 (needs_forcing in unfold_folded; its test can't tell old from new, as noted); call_fields' kernel half walks subterms and asserts it finds the call; callFound was right, comment clarified. New disagreement found: SW-2211. On main: proof_equivalence, call_fields, eta_fields pass. Model result: Sonnet, worked, 32 min (est. 70).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20674,6 +20674,36 @@
       ],
       "epic": "proof-automation",
       "body": "From SW-2030. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2211,
+      "title": "[Opus] D3030 disagreement: Succ 0 against J (y e => Nat) (outerN 0) rfl is false glued (and in the kernel row) but true unglued; J on a glued decreasing call doesn't compute through it; also with reflOuter x as the proof. Fix so glued, kernel and unglued agree; add the J forms to proof_equivalence's matrix (left out in SW-2127 with a comment)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "record-eta",
+      "body": "From SW-2127. Rejects true proofs, never accepts false ones; still a D3030 bug. Possibly related to SW-2157 (numeric comparison misses folded call bases). Opus review after. 75 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2212,
+      "title": "[DeepSeek] Syntax fuzzer: take its seed from an env var (FUZZ_SEED) instead of the hard-coded SEED (crates/syntax/tests/it/fuzz.rs:15), and print the case count, so soak runs can vary it",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "test-infra",
+      "body": "From Overmind job 7. 20 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
