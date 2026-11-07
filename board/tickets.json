@@ -1,5 +1,5 @@
 {
-  "next": 2160,
+  "next": 2166,
   "tickets": [
     {
       "id": 47,
@@ -19316,14 +19316,14 @@
     {
       "id": 2120,
       "title": "[Sonnet] Measure first: in the real language server, a cold first search re-checks all of std (over a minute in release, by the test's comment); measure it, then decide",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From docs/reviews/SW-2116-lsp-recovery-round-3.md (R10). Related: SW-957. 30 min.\n\n7 Nov (SW-2144): std's cold check is ~27 s release on Speedwell, ~120 s on Overmind; it's what every lsp test waits for on a cold cache.",
+      "body": "From docs/reviews/SW-2116-lsp-recovery-round-3.md (R10). Related: SW-957. 30 min.\n\n7 Nov (SW-2144): std's cold check is ~27 s release on Speedwell, ~120 s on Overmind; it's what every lsp test waits for on a cold cache.\n\n7 Nov: replaced by SW-2160 (docs/proposals/cold-std-check.md).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19691,14 +19691,14 @@
     {
       "id": 2145,
       "title": "[Opus] Review SW-2029 (decreasing stage 1, generates kernel terms, D2364): decreasing/plain.rs's marking pass and f.%plain.%same proof, Decidable.elimIf / Bool.elimDecTrueIf, f.%unfoldStep for equations.rs, the wider reach (an unnamed proposition if also shows plain), generator failure as an error",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2145",
       "labels": [
         "review"
       ],
       "epic": "proof-automation",
-      "body": "Read-only Opus review, docs/reviews/SW-N-decreasing-plain-if.md. Expected: 45 min.",
+      "body": "Read-only Opus review, docs/reviews/SW-N-decreasing-plain-if.md. Expected: 45 min.\n\nDone, merged: docs/reviews/SW-2145-decreasing-plain-if.md. Sound (nothing generated is trusted). 0 high, 5 medium, 5 low. D3100 yes (orchestrator's call: fall back with a warning, as the design's §6 promised). D3101 already done: whole AoC 0 errors on the merge and on main. Lanes SW-2164, SW-2165.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19706,14 +19706,14 @@
     {
       "id": 2146,
       "title": "[Sonnet] decreasing: a test that asserts f.eq.* and f.induct exist for decreasing definitions (only a hash snapshot caught them vanishing in SW-2029); and plain ifs inside callbacks (xs.map (x => if …)) through congruence lemmas",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "tests"
       ],
       "epic": "proof-automation",
-      "body": "From SW-2029's report. The callback part may belong with SW-2030; check first. 45 min.",
+      "body": "From SW-2029's report. The callback part may belong with SW-2030; check first. 45 min.\n\n7 Nov: folded into SW-2165.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19856,14 +19856,14 @@
     {
       "id": 2156,
       "title": "[Opus] Design: why checking std from a cold cache takes ~27 s (Speedwell release) and ~120 s (Overmind), what it costs users (first editor session, first search, CI, fresh worktrees), and the options: ship a prebuilt std cache with the binary, check std lazily per namespace, parallelise, or speed the check itself",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2156",
       "labels": [
         "design"
       ],
       "epic": "dev-loop-speed",
-      "body": "Read-only Opus lane, 7 Nov. From SW-2144 and SW-2120. Expected: 60 min.",
+      "body": "Read-only Opus lane, 7 Nov. From SW-2144 and SW-2120. Expected: 60 min.\n\nDesign merged: docs/proposals/cold-std-check.md. The editor checks all std twice (checker mode, then search mode whose entries nothing else reads). D3121 no for now (orchestrator's call: SW-1170's ceiling is 2.2x). D3120 (ship a std cache) to Matt. Stages SW-2160-SW-2163.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19909,6 +19909,96 @@
       ],
       "epic": "std-library",
       "body": "Matt, 7 Nov 2026: 'if they are reasonably generic facts that might have wider utility than just Advent of Code ... move them there and have a really rich standard library with a lot of proven facts about the functions. ... spin up an Opus job.' Read-only survey first (docs/reviews/SW-N-aoc-lemmas-to-std.md); moves are Sonnet/DeepSeek lanes per CLAUDE.md. 75 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2160,
+      "title": "[Sonnet] Cold std stage 1, measure: per-file std check times in each session mode (CLI, editor checker, editor search) on Speedwell and Overmind, std's critical path, the real server cold",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bench"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From docs/proposals/cold-std-check.md. Replaces SW-2120. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2161,
+      "title": "[Sonnet] Cold std stage 2: the editor's searches replay the checker's std entries instead of checking all of std again in their own mode (as the playground does, SW-1458)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From docs/proposals/cold-std-check.md; can start beside SW-2160. lsp features search/completion and memory tests, cold and warm, against SW-2144's 30 s. 40 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2162,
+      "title": "[Sonnet] Cold std stage 3: make the slowest std file or two cheaper (Float/Theory.sw suspected), from stage 1's table",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From docs/proposals/cold-std-check.md, after SW-2160. Opus if the cause is in the elaborator. hash_stability prelude, snap:hashes, pinned_hashes, std_library. May replace SW-985. 60-90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2163,
+      "title": "[Sonnet] Cold std stage 4: ship a prebuilt std cache with installed binaries, built by the flake, trusted as the playground's std.cache is",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "nix"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From docs/proposals/cold-std-check.md. Waits on D3120 (Matt). 90 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2164,
+      "title": "[Opus] decreasing stage 1 fixes (SW-2145 lane A): mark strips tags from elim's proposition/type arguments and a kept if's own tag, then checks the kept count (F1, F7); keep the old f.unfold when the new lemmas aren't loaded (F4); keep_plain only around the final settle (F5); tests for both error examples and Decidable.elimIf; on a generator failure, fall back to today's f.unfold with a warning naming it a compiler bug (D3100)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "proof-automation",
+      "body": "From docs/reviews/SW-2145-decreasing-plain-if.md. After SW-2030 (same files). 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2165,
+      "title": "[Sonnet] decreasing stage 1 tests and tidying (SW-2145 lane B): missing tests (F9: lexicographic measures, a call in a Bool if's else, cases that keep if _:), structural %unfoldStep selection and add it to made (F6), doc fixes (F8, F3's syntax.md sentence on Bool ifs giving their fact everywhere)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "proof-automation",
+      "body": "From docs/reviews/SW-2145-decreasing-plain-if.md. Absorbs SW-2146 (the hash snapshot already lists f.eq.*/f.induct). After SW-2164. 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
