@@ -1,5 +1,5 @@
 {
-  "next": 2308,
+  "next": 2310,
   "tickets": [
     {
       "id": 47,
@@ -22106,14 +22106,14 @@
     {
       "id": 2306,
       "title": "[Opus] Paper lane: review SW-2285 and SW-2288 (tree memo: argument-equal pairs no longer recorded; memo and CallMemo lookups charged a budget step per layer): sound, answers unchanged, budget charge proportionate, core.md accurate",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2306",
       "labels": [
         "review"
       ],
       "epic": "elaborator-kernel",
-      "body": "D2364: kernel budget change gets an Opus review. 25 min.",
+      "body": "D2364: kernel budget change gets an Opus review. 25 min.\n\nDone, merged: docs/reviews/SW-2306-memo-budget.md. Sound. F1, F2 (medium) -> SW-2308; F3-F7 -> SW-2309. Model result: Opus paper lane, worked, 6 min (est. 25).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -22129,6 +22129,36 @@
       ],
       "epic": "comparative-speed",
       "body": "From SW-2299. 30 min. After SW-2293 merges. Before stage 2 (SW-2295).",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2308,
+      "title": "[Opus] SW-2306 F2+F1: shape_hash gives every glued call the same hash (likely the real cause of SW-2285's 90 s): hash a glued call by definition and spine; then record pairs equal by their arguments again and let the kernel's CallMemo remember equal, so f n a a chains are linear (tests glued and unglued); core.md F4 (SW-395 sentence)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "core"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/SW-2306-memo-budget.md. 60-90 min: split into F2 (~30 min, measure the slow-check example before and after) then F1.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2309,
+      "title": "[Sonnet] SW-2306 F3/F5/F6/F7: core.md 'never changes an answer' is too strong under Budget::limited caps (rewrite, as-written match, motive check); the uncharged identical turns an error into different (make it unreachable); note closures/text/bignums per-layer cost; unit tests for a charged lookup under small and large caps",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "tests"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From docs/reviews/SW-2306-memo-budget.md. 30-45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
