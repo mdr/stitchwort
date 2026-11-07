@@ -4,7 +4,7 @@
 
 use std::path::PathBuf;
 
-#[path = "../../fmt/tests/it/support/repo_files.rs"]
+#[path = "../../../fmt/tests/it/support/repo_files.rs"]
 mod repo_files;
 
 /// Paths (prefixes, or whole files) the formatter leaves alone.

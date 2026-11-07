@@ -877,7 +877,7 @@ fn wildcard_precedence_across_namespaces() {
     macro_rules! source {
         ($name:literal) => {
             include_str!(concat!(
-                "../../../examples/projects/accept/wildcard-precedence/src/",
+                "../../../../examples/projects/accept/wildcard-precedence/src/",
                 $name
             ))
         };

@@ -88,16 +88,16 @@
               ./clippy.toml # disallows the standard library's hash maps
               ./.config/nextest.toml # test threads and test groups
               ./examples # example programs are the main test suite
-              ./aoc # the lazy-versus-eager library comparison checks it (crates/driver/tests/std_library.rs)
+              ./aoc # the lazy-versus-eager library comparison checks it (crates/driver/tests/library/std_library.rs)
               (lib.fileset.fileFilter (file: file.hasExt "snap") ./crates)
               (lib.fileset.fileFilter (file: file.hasExt "sw") ./crates) # the standard library, read from the source tree by the tests
               ./crates/elab/src/std/core/order.txt # the core's file list
               ./web/index.html # the playground's examples are checked
               ./web/guide # so are the guide's (crates/web)
-              ./docs/guide # the language guide's examples and quoted output are checked (crates/cli/tests/guide.rs)
+              ./docs/guide # the language guide's examples and quoted output are checked (crates/cli/tests/tools/guide.rs)
               ./web/tests/effect-shapes.sw # the effect-shape tests run it (crates/web)
               ./bench # benchmark counts are checked against the baseline
-              ./games/rogue # a goals test checks its proofs with holes added (crates/cli/tests/project.rs)
+              ./games/rogue # a goals test checks its proofs with holes added (crates/cli/tests/tools/project.rs)
             ];
           };
           # What the playground bundles of the AoC project (its sources and

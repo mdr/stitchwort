@@ -2,12 +2,20 @@
 """Merge a crate's integration-test binaries into one (SW-1736).
 
   dev/merge-test-binaries CRATE [--name it] [--keep BIN]... [--dry-run]
-  dev/merge-test-binaries --verify BEFORE.json AFTER.json
+  dev/merge-test-binaries CRATE --group NAME=a,b,c [--group NAME2=*]... [--keep BIN]...
+  dev/merge-test-binaries --verify BEFORE.json AFTER.json CRATE
+  dev/merge-test-binaries --rewrite-timings [FILE]
 
 Every `crates/CRATE/tests/foo.rs` (but the --keep ones) becomes a module of
 one binary, `crates/CRATE/tests/NAME/main.rs` + `tests/NAME/foo.rs`, so the
 crate links one test binary instead of one per file. A test `x` of `foo.rs`
 is then `foo::x` in binary `stitchwort-CRATE::NAME`.
+
+With `--group NAME=a,b,c` (repeatable) the crate becomes several binaries, one
+per group, `tests/NAME/main.rs`, for a crate too big to compile as one unit
+(the groups build in parallel). Every file not kept must be in a group; one
+group may say `NAME=*` for all the files no other group names. A file-level
+`#![cfg(...)]` moves to the `mod` line in main.rs.
 
 The script moves the files (git mv), writes `main.rs`, deepens relative
 `include_str!` paths, and rewrites the references that name the old
@@ -27,6 +35,16 @@ It then lists what it cannot reach: other mentions in Taskfile.yml, docs and
 Rust files, and `mod x;` lines in the moved files (a helper module moves to
 the binary's folder and is declared once in main.rs; the moved files then
 `use crate::x`).
+
+Insta snapshots of the moved modules (`tests/snapshots/foo__x.snap`) are
+renamed and moved to `tests/NAME/snapshots/NAME__foo__x.snap`, which is where
+insta looks for the test `NAME::foo::x`.
+
+`--rewrite-timings [FILE]` renames the keys of the timings store
+(`target/test-timings.json`, `BINARY_ID TEST`) for every crate already merged,
+read off the tree: each `mod x;` of a `crates/C/tests/NAME/main.rs` says the
+old binary `stitchwort-C::x` is now `stitchwort-C::NAME`, its tests `x::t`.
+A key already present under the new name is kept. Idempotent.
 
 `--verify` compares two `cargo nextest list --message-format json` outputs
 and fails unless every old test of the crate has exactly one new name,
@@ -133,8 +151,9 @@ def preds(node):
 
 
 class Rewriter:
-    def __init__(self, crate, name, merged, elsewhere):
-        self.crate, self.name, self.merged, self.elsewhere = crate, name, merged, elsewhere
+    def __init__(self, crate, binary_of, elsewhere):
+        self.crate, self.binary_of, self.elsewhere = crate, binary_of, elsewhere
+        self.merged = set(binary_of)
         self.pkg = "stitchwort-" + crate
         self.edits = []  # (start, end, new text)
 
@@ -197,7 +216,8 @@ class Rewriter:
             self.walk(k, pkgs, True)
 
     def replace(self, b, pkgs, bare, narrowed=False):
-        new = "binary(%s)" % self.name if narrowed else "binary(%s) & test(/^%s::/)" % (self.name, b.arg)
+        name = self.binary_of[b.arg]
+        new = "binary(%s)" % name if narrowed else "binary(%s) & test(/^%s::/)" % (name, b.arg)
         if self.pkg not in pkgs:
             new = "package(%s) & %s" % (self.pkg, new)
         self.edits.append((b.start, b.end, "(" + new + ")" if bare else new))
@@ -233,7 +253,7 @@ def rewrite_extras(text, rw):
     return text[:m.start(1)] + "\n".join(out) + text[m.end(1):]
 
 
-def rewrite_affected(text, rw, merged, crate, name):
+def rewrite_affected(text, rw, merged, crate):
     """Inline-table selects in dev/test-affected.toml."""
     def sub(m):
         line = m.group(0)
@@ -253,7 +273,7 @@ def rewrite_affected(text, rw, merged, crate, name):
                 t[key] = "^%s::%s" % (b, t[key][1:])
         if "test" not in t:
             t["test"] = "^%s::" % b
-        t["package"], t["binary"] = crate, name
+        t["package"], t["binary"] = crate, rw.binary_of[b]
         order = ["package", "binary", "test", "not_test"]
         parts = ", ".join('%s = "%s"' % (k, t[k].replace("\\", "\\\\")) for k in order if k in t)
         return re.match(r"\s*", line).group(0) + "{ " + parts + " },"
@@ -262,27 +282,72 @@ def rewrite_affected(text, rw, merged, crate, name):
 
 # ------------------------------------------------------------------- files
 
-def move_files(crate, name, keep, mods):
+def move_files(crate, groups):
+    """groups: {binary name: [modules]}."""
     tests = os.path.join(ROOT, "crates", crate, "tests")
-    dest = os.path.join(tests, name)
-    os.makedirs(dest, exist_ok=True)
-    for m in mods:
-        subprocess.check_call(["git", "mv", os.path.join(tests, m + ".rs"), os.path.join(dest, m + ".rs")], cwd=ROOT)
     snaps = os.path.join(tests, "snapshots")
-    if os.path.isdir(snaps):
-        sys.stderr.write("note: tests/snapshots holds insta snapshots: move those of merged modules to tests/%s/snapshots\n" % name)
-    open(os.path.join(dest, "main.rs"), "w").write(
-        "//! The crate's integration tests in one binary (docs/proposals/fewer-test-binaries.md).\n\n"
-        + "".join("mod %s;\n" % m for m in mods))
-    subprocess.check_call(["git", "add", os.path.join(dest, "main.rs")], cwd=ROOT)
-    for m in mods:
-        p = os.path.join(dest, m + ".rs")
-        s = open(p).read()
-        s2 = re.sub(r'(include_(?:str|bytes)!\(")((?:\.\./)+)', lambda mm: mm.group(1) + "../" + mm.group(2), s)
-        for mm in re.finditer(r"^(?:pub )?mod (\w+);", s2, re.M):
-            sys.stderr.write("note: %s.rs declares `mod %s;`: move the module to tests/%s/ and declare it in main.rs\n" % (m, mm.group(1), name))
-        if s2 != s:
-            open(p, "w").write(s2)
+    for name, mods in groups.items():
+        dest = os.path.join(tests, name)
+        os.makedirs(dest, exist_ok=True)
+        main = ["//! The crate's integration tests in one binary (docs/proposals/fewer-test-binaries.md).\n\n"]
+        for m in mods:
+            subprocess.check_call(["git", "mv", os.path.join(tests, m + ".rs"), os.path.join(dest, m + ".rs")], cwd=ROOT)
+            p = os.path.join(dest, m + ".rs")
+            s = open(p).read()
+            cfgs = re.findall(r"^#!\[(cfg\(.*\))\]\n", s, re.M)
+            s2 = re.sub(r"^#!\[cfg\(.*\)\]\n", "", s, flags=re.M)
+            s2 = re.sub(r'(include_(?:str|bytes)!\((?:concat!\(\s*)?")((?:\.\./)+)', lambda mm: mm.group(1) + "../" + mm.group(2), s2)
+            s2 = re.sub(r'(#\[path = ")((?:\.\./)+)', lambda mm: mm.group(1) + "../" + mm.group(2), s2)
+            for mm in re.finditer(r"^(?:pub )?mod (\w+);", s2, re.M):
+                sys.stderr.write("note: %s.rs declares `mod %s;`: move the module to tests/%s/, declare it once in main.rs and `use crate::%s;` here\n" % (m, mm.group(1), name, mm.group(1)))
+            if s2 != s:
+                open(p, "w").write(s2)
+            main.extend("#[%s]\n" % c for c in cfgs)
+            main.append("mod %s;\n" % m)
+        open(os.path.join(dest, "main.rs"), "w").write("".join(main))
+        subprocess.check_call(["git", "add", os.path.join(dest, "main.rs")], cwd=ROOT)
+        # insta looks for `NAME::module::test` in NAME's own snapshots folder
+        if os.path.isdir(snaps):
+            sdest = os.path.join(dest, "snapshots")
+            for f in sorted(os.listdir(snaps)):
+                mod = f.split("__", 1)[0]
+                if mod in mods and f.endswith(".snap"):
+                    os.makedirs(sdest, exist_ok=True)
+                    subprocess.check_call(["git", "mv", os.path.join(snaps, f), os.path.join(sdest, name + "__" + f)], cwd=ROOT)
+    if os.path.isdir(snaps) and os.listdir(snaps):
+        sys.stderr.write("note: tests/snapshots still holds %d files (of kept binaries or none of the modules)\n" % len(os.listdir(snaps)))
+
+
+def rewrite_timings(path):
+    """Rename the timings store's keys for every merged crate, off the tree."""
+    store = json.load(open(path))
+    renames = {}  # old binary id -> (new binary id, module)
+    crates = os.path.join(ROOT, "crates")
+    for c in sorted(os.listdir(crates)):
+        tdir = os.path.join(crates, c, "tests")
+        if not os.path.isdir(tdir):
+            continue
+        pkg = "stitchwort-" + c
+        for d in sorted(os.listdir(tdir)):
+            main = os.path.join(tdir, d, "main.rs")
+            if os.path.exists(main):
+                for m in re.finditer(r"^\s*mod (\w+);", open(main).read(), re.M):
+                    renames["%s::%s" % (pkg, m.group(1))] = ("%s::%s" % (pkg, d), m.group(1))
+    out, moved, kept = {}, 0, 0
+    for k, v in store.items():
+        bid, _, name = k.partition(" ")
+        if bid in renames:
+            nb, mod = renames[bid]
+            nk = "%s %s::%s" % (nb, mod, name)
+            if nk in store:
+                kept += 1
+                continue
+            out[nk] = v
+            moved += 1
+        else:
+            out[k] = v
+    json.dump(out, open(path, "w"), indent=0)
+    print("%s: %d keys renamed, %d dropped (already present under the new name), %d total" % (path, moved, kept, len(out)))
 
 
 def verify(before, after, crate):
@@ -321,41 +386,75 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("crate", nargs="?")
     ap.add_argument("--name", default="it")
+    ap.add_argument("--group", action="append", default=[], metavar="NAME=a,b,c",
+                    help="one binary NAME of the listed files (NAME=* for the rest); repeat for several")
     ap.add_argument("--keep", action="append", default=[])
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--verify", nargs=3, metavar=("BEFORE", "AFTER", "CRATE"))
+    ap.add_argument("--rewrite-timings", nargs="?", const=os.path.join(ROOT, "target", "test-timings.json"), metavar="FILE")
     a = ap.parse_args()
     if a.verify:
         return verify(*a.verify)
+    if a.rewrite_timings:
+        return rewrite_timings(a.rewrite_timings)
     crate = a.crate
     tests = os.path.join(ROOT, "crates", crate, "tests")
-    mods = sorted(f[:-3] for f in os.listdir(tests) if f.endswith(".rs") and f[:-3] not in a.keep)
+    files = sorted(f[:-3] for f in os.listdir(tests) if f.endswith(".rs") and f[:-3] not in a.keep)
+    groups = {}
+    if a.group:
+        rest = None
+        for g in a.group:
+            name, _, lst = g.partition("=")
+            if lst == "*":
+                rest = name
+                groups[name] = []
+                continue
+            groups[name] = lst.split(",")
+        named = [m for ms in groups.values() for m in ms]
+        for m in named:
+            if m not in files:
+                sys.exit("--group names %s, which is not a test file to merge" % m)
+        if len(named) != len(set(named)):
+            sys.exit("a file is in two groups")
+        left = [m for m in files if m not in named]
+        if rest:
+            groups[rest] = left
+        elif left:
+            sys.exit("files in no group: " + ", ".join(left))
+        for name in groups:
+            if name in files or name in a.keep:
+                sys.exit("group name %s is also a test file or kept binary" % name)
+    else:
+        groups[a.name] = files
+    binary_of = {m: n for n, ms in groups.items() for m in ms}
+    mods = sorted(binary_of)
     elsewhere = set()
     for d in os.listdir(os.path.join(ROOT, "crates")):
         t = os.path.join(ROOT, "crates", d, "tests")
         if d != crate and os.path.isdir(t):
             elsewhere |= {f[:-3] for f in os.listdir(t) if f.endswith(".rs")}
             elsewhere |= {f for f in os.listdir(t) if os.path.exists(os.path.join(t, f, "main.rs"))}
-    rw = Rewriter(crate, a.name, set(mods), elsewhere)
+    rw = Rewriter(crate, binary_of, elsewhere)
     cfg = os.path.join(ROOT, ".config", "nextest.toml")
     nm = os.path.join(ROOT, "dev", "nextest-merge")
     ta = os.path.join(ROOT, "dev", "test-affected.toml")
     new = {
         cfg: rewrite_nextest(open(cfg).read(), rw),
         nm: rewrite_extras(open(nm).read(), rw),
-        ta: rewrite_affected(open(ta).read(), rw, set(mods), crate, a.name),
+        ta: rewrite_affected(open(ta).read(), rw, set(mods), crate),
     }
     if a.dry_run:
         for p, t in new.items():
             print(os.path.relpath(p, ROOT), "changes" if t != open(p).read() else "unchanged")
-        print("would merge:", ", ".join(mods))
+        for n, ms in groups.items():
+            print("would merge into %s: %s" % (n, ", ".join(ms)))
         return
-    move_files(crate, a.name, a.keep, mods)
+    move_files(crate, groups)
     for p, t in new.items():
         open(p, "w").write(t)
     print("other mentions to check by hand:")
     subprocess.call(["git", "grep", "-nE", r"(binary\(|--test |--test=|binary = \"|tests/)(%s)\b" % "|".join(mods),
-                     "--", "Taskfile.yml", "flake.nix", "docs", "dev", "web", ":!docs/reviews", ":!dev/overnight*"], cwd=ROOT)
+                     "--", "Taskfile.yml", "flake.nix", "docs", "dev", "web", ":!docs/reviews", ":!docs/proposals", ":!docs/research", ":!dev/overnight*"], cwd=ROOT)
 
 
 if __name__ == "__main__":

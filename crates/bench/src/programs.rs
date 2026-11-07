@@ -455,7 +455,7 @@ fn fingerprint(files: &[(String, String)]) -> String {
     )
 }
 
-/// What `crates/cli/tests/examples.rs` does, without comparing snapshots:
+/// What `crates/cli/tests/running/examples.rs` does, without comparing snapshots:
 /// accepted examples are checked and their tests run; rejected ones are
 /// checked and their errors rendered. Each example has its own session.
 fn examples() -> Result<Prepared, String> {

@@ -51,7 +51,7 @@
 //!
 //! [`Elaborator::rewind`] names every field of the elaborator, so a new
 //! field doesn't compile until it says how it rewinds; the differential test
-//! (`crates/driver/tests/rewind.rs`) catches a field that rewinds wrongly.
+//! (`crates/driver/tests/projects/rewind.rs`) catches a field that rewinds wrongly.
 
 use stitchwort_core::globals::KernelMark;
 

@@ -4,7 +4,7 @@
 //! runs, a manifest of another version, one with no code, tables it can't
 //! read (corrupt, or written by another build) and tables that don't match
 //! the code. (Code that does run is tested end to end, linked, in
-//! `crates/cli/tests/build.rs`.)
+//! `crates/cli/tests/running/build.rs`.)
 
 use super::{AotIslands, Mismatch};
 use stitchwort_driver::driver::{Session, with_stack};

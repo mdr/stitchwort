@@ -10,7 +10,7 @@
 //   node web/tests/float-wasm.mjs evaluate FILE EXPR
 //       loads the program in FILE and prints the value of EXPR, as the
 //       playground's Evaluate tab does (the WebAssembly kernel's path of
-//       crates/cli/tests/float_paths.rs)
+//       crates/cli/tests/running/float_paths.rs)
 //
 // Needs web/pkg (web/build.sh, or its cargo and wasm-bindgen steps); PKG=dir
 // points elsewhere. Run inside `nix develop`.

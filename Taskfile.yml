@@ -35,7 +35,7 @@ vars:
   SW: '{{.ROOT_DIR}}/target/{{if .CARGO_BUILD_TARGET}}{{.CARGO_BUILD_TARGET}}/{{end}}release/stitchwort'
   # The one feature set of every dev and test build (docs/testing.md,
   # "Features"): native code, so that `build --native` is tested
-  # (crates/cli/tests/build.rs), and what crates/dev-features turns on. Test
+  # (crates/cli/tests/running/build.rs), and what crates/dev-features turns on. Test
   # builds get it from the crates' dev-dependencies, whatever `-p` selects;
   # a build of the CLI has to ask. The default (distributed) binary has none.
   DEV_FEATURES: '--features stitchwort-cli/dev'
@@ -114,7 +114,7 @@ tasks:
     summary: |
       Runs the tests matching the nextest arguments after `--`: a name
       substring (`task test:one -- named_calls`) or a filterset
-      (`task test:one -- -E 'binary(lsp)'`). A bare name matches test names
+      (`task test:one -- -E 'binary(server) & test(/^lsp::/)'`). A bare name matches test names
       only, so for a whole test binary use `-E 'binary(name)'`.
       Corpus sweeps take the daily sample; set STITCHWORT_TIER=lane for the
       smallest, full for all.
@@ -223,7 +223,7 @@ tasks:
     summary: |
       Everything but the full tier's exhaustive runs, with corpus sweeps on a
       fixed sample: rustfmt, clippy, the `daily` nextest profile, the
-      doctests, and `builtins` in the debug profile (run beside the nextest
+      doctests, and `library`'s `builtins::` tests in the debug profile (run beside the nextest
       profile). `task test:gate` runs
       the same in the Nix sandbox.
     env:
@@ -238,15 +238,15 @@ tasks:
       - cargo fmt --check
       - task: test:lanes-nonempty
       - cargo clippy --release --all-targets -- --deny warnings
-      # `builtins` in the debug profile loads the whole library twice in an
+      # `library`'s `builtins::` tests in the debug profile loads the whole library twice in an
       # unoptimised build, about 70 to 90 s of one core. It is built first
       # (17 s; cargo takes a lock on the build folder), then runs beside
       # nextest, one cap over both.
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo test -p stitchwort-driver --test builtins --no-run'
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo test -p stitchwort-driver --test library --no-run'
       - |
         {{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- bash -c '
           log=$(mktemp)
-          cargo test -p stitchwort-driver --test builtins >"$log" 2>&1 &
+          cargo test -p stitchwort-driver --test library builtins:: >"$log" 2>&1 &
           pid=$!
           cargo nextest run --release --workspace --profile daily {{.CLI_ARGS}}
           status=$?
@@ -378,7 +378,7 @@ tasks:
     desc: 'Kernel fuzzer, release (fixed 3000 terms and seed; no knobs)'
     summary: Runs crates/core/tests/it/fuzz.rs, which reads no environment variables.
     cmds:
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace --no-capture -E ''package(stitchwort-core) & binary(fuzz)'' {{.CLI_ARGS}}'
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace --no-capture -E ''package(stitchwort-core) & binary(it) & test(/^fuzz::/)'' {{.CLI_ARGS}}'
 
   # ------------------------------------------- snapshots and generated text
 
@@ -389,7 +389,7 @@ tasks:
       INSTA_UPDATE: always
       EXAMPLES: '{{.NAME}}'
     cmds:
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_FULL}} -- cargo nextest run --release -p stitchwort-cli --test examples --no-fail-fast'
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_FULL}} -- cargo nextest run --release -p stitchwort-cli --test running --no-fail-fast examples::'
       - git status --short -- '*.snap'
 
   snap:hashes:
@@ -399,7 +399,7 @@ tasks:
       INSTA_UPDATE: always
       EXAMPLES: '{{.NAME}}'
     cmds:
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_FULL}} -- cargo nextest run --release -p stitchwort-driver --test hash_stability --no-fail-fast'
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_FULL}} -- cargo nextest run --release -p stitchwort-driver --test library --no-fail-fast hash_stability::'
       - git status --short -- '*.snap'
 
   snap:one:
@@ -415,7 +415,7 @@ tasks:
     env:
       STITCHWORT_GUIDE_UPDATE: '1'
     cmds:
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release -p stitchwort-cli --test guide'
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release -p stitchwort-cli --test tools guide::'
 
   bench:
     desc: 'Benchmarks against bench/baseline.toml: counts and time (about a minute; args after --, e.g. -- --no-time)'

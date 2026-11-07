@@ -18,7 +18,7 @@
 
 use std::path::{Path, PathBuf};
 
-mod common;
+use crate::common;
 
 use stitchwort_cli::driver::{Cache, Outcome, Session, par_map, tier_sample};
 use stitchwort_cli::project::{DiskFiles, Target};

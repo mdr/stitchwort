@@ -1013,7 +1013,7 @@ mod tests {
     /// no terminal, keys mode changes nothing, and `readBytes` gives the
     /// input box's remaining text in one read. The same output as `stitchwort
     /// run` and `run --reference` give it piped
-    /// (crates/cli/tests/run_reference.rs).
+    /// (crates/cli/tests/running/run_reference.rs).
     #[test]
     fn runs_the_terminal_operations_in_the_form_for_pipes() {
         let ops = include_str!("../../../examples/accept/terminal-ops.sw");

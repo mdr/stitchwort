@@ -7,7 +7,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 
-mod common;
+use crate::common;
 
 use stitchwort_cli::driver::par_map;
 
@@ -688,7 +688,7 @@ def main(): {{IO}} () :=
 /// test runs it (`examples/accept/partial-forwarding.sw`, 50 levels there):
 /// 2,000 levels of non-tail partial recursion, each printing through
 /// handlers that forward `IO`. A million levels are in
-/// `crates/cli/tests/effect_runtime.rs` (JS) and
+/// `crates/cli/tests/running/effect_runtime.rs` (JS) and
 /// `crates/rt/tests/it/effect_runtime.rs` (native).
 #[test]
 fn partial_with_forwarded_abilities_prints_the_same_both_ways() {

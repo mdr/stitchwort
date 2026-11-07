@@ -173,7 +173,7 @@ files. Long runs (the daily tier, browser tests, builds) go in the
 background.
 
 Before committing, run `stitchwort fmt` on the `.sw` files you touched. The
-test `crates/cli/tests/fmt_repo.rs` fails, naming the files, if any tracked
+test `crates/cli/tests/tools/fmt_repo.rs` fails, naming the files, if any tracked
 `.sw` file is not formatted. It skips `examples/reject`, `examples/soundness`,
 `examples/projects/reject`, `crates/fmt/tests/it/golden` and
 `examples/accept/list-literal-layout.sw`, so leave those as written.

@@ -5,7 +5,7 @@
 //! neither elaborates nor runs anything.
 //!
 //! The canonical dump of the elaborator is compared in
-//! `crates/driver/tests/check_cache.rs`; this checks what the user sees.
+//! `crates/driver/tests/projects/check_cache.rs`; this checks what the user sees.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};

@@ -6,7 +6,7 @@
 //! linker, and its code is position-independent: no absolute address in
 //! the text (§1.2: macOS can't relocate one, and the binary dies with
 //! `SIGBUS`). Running the linked code is tested in
-//! `crates/cli/tests/build.rs`.
+//! `crates/cli/tests/running/build.rs`.
 
 use crate::common::*;
 use object::{Object as _, ObjectSection as _, ObjectSymbol as _, RelocationFlags};

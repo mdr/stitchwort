@@ -37,8 +37,8 @@ DEFAULT_BUDGET = 90.0
 EXAMPLE_FIXED, EXAMPLE_EACH = 1.0, 0.7
 
 SWEEP_BINARIES = [
-    {"package": "cli", "binary": "examples", "test": "^(accepted|rejected|soundness|goal)_(examples|projects)_"},
-    {"binary": "hash_stability", "test": "^(examples|projects)$"},
+    {"package": "cli", "binary": "running", "test": "^examples::(accepted|rejected|soundness|goal)_(examples|projects)_"},
+    {"package": "driver", "binary": "library", "test": "^hash_stability::(examples|projects)$"},
 ]
 SWEEP_NARROW = {"accept": r"^accepted_", "reject": r"^rejected_", "goals": r"^goal_"}
 
@@ -231,6 +231,11 @@ def dynamic_rules(path):
                         "select": [binary]})
         else:
             out.append({"id": "test-file", "rank": 1, "why": "the changed test file itself", "select": [binary]})
+    if (m := re.fullmatch(r"crates/(\w+)/tests/(\w+)/(?!snapshots/)(?:\w+/)+[^/]+", path)) and \
+            os.path.exists(os.path.join(ROOT, "crates", m.group(1), "tests", m.group(2), "main.rs")):
+        # A helper folder (common/, pty/, a fixture) of a merged binary.
+        out.append({"id": "test-helper", "rank": 1, "why": "shared code of the merged test binary",
+                    "select": [{"package": m.group(1), "binary": m.group(2)}]})
     if m := re.fullmatch(r"crates/(\w+)/tests/common/.*", path):
         out.append({"id": "test-common", "rank": 1, "why": "shared test code is used by the crate's tests",
                     "select": [{"package": m.group(1)}]})
@@ -239,22 +244,22 @@ def dynamic_rules(path):
         name, folder = m.group(2), m.group(1)
     elif m := re.fullmatch(r"examples/(\w+)/([^/]+)\.sw", path):
         name, folder = m.group(2), m.group(1)
-    elif m := re.fullmatch(r"crates/cli/tests/snapshots/examples__(\w+)__(.+)\.snap", path):
+    elif m := re.fullmatch(r"crates/cli/tests/running/snapshots/running__examples__(\w+)__(.+)\.snap", path):
         name, folder = m.group(2), m.group(1)
-    elif m := re.fullmatch(r"crates/driver/tests/snapshots/hash_stability__(.+)\.snap", path):
+    elif m := re.fullmatch(r"crates/driver/tests/library/snapshots/library__hash_stability__(.+)\.snap", path):
         name, folder = m.group(1), "hash"
     if name:
         extra = []
         if folder == "extract":
-            extra.append({"package": "cli", "binary": "extract", "test": "^generated_code_is_stable$"})
+            extra.append({"package": "cli", "binary": "extraction", "test": "^extract::generated_code_is_stable$"})
         if folder == "hash":
-            extra.append({"binary": "hash_stability", "test": "^(examples|projects)$"})
+            extra.append({"package": "driver", "binary": "library", "test": "^hash_stability::(examples|projects)$"})
         out.append({"id": "example", "rank": 1, "examples": [name], "hash_only": folder == "hash",
                     "why": "the example %s, in the sweeps that check it" % name, "select": extra})
     if m := re.fullmatch(r"aoc/src/Aoc/Year(\d{4})/Day(\d{2})(?:/.*|\.sw)", path):
         out.append({"id": "aoc-day", "rank": 1,
                     "why": "that day's answers",
-                    "select": [{"binary": "aoc_answers", "test": "^year%s_day%s$" % m.groups()}],
+                    "select": [{"package": "cli", "binary": "running", "test": "^aoc_answers::year%s_day%s$" % m.groups()}],
                     "note": "proof lanes: also task audit:touched -- Aoc.Year%s.Day%s" % m.groups()})
     return out
 

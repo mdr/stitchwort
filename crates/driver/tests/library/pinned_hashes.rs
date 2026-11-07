@@ -201,7 +201,7 @@ fn every_binding_by_hash_applies_to_the_library() {
     assert!(
         unchecked.is_empty(),
         "hashes pinned in the source that this test doesn't check; add their bindings to \
-         `bindings` in crates/driver/tests/pinned_hashes.rs:\n{}",
+         `bindings` in crates/driver/tests/library/pinned_hashes.rs:\n{}",
         unchecked.join("\n")
     );
 }
