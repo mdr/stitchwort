@@ -14180,14 +14180,14 @@
     {
       "id": 1777,
       "title": "Analysis: do test binaries that never run native code need stitchwort-native, and so cranelift, which gates the clean build's test phase? (split-elab.md stage 3)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1777",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From SW-1737.",
+      "body": "From SW-1737.\n\nDone, merged: split-elab.md §8. Only the CLI (optional native feature) uses stitchwort-native; cranelift-codegen sits under every test binary because dev-features lists it directly for feature unification. Dropping it gains 0 s on the critical path and on rebuilds (cranelift ends before elab's library). Recommendation, taken: don't. Revisit if elab's library falls under ~60 s. Model result: Sonnet, worked, 2 min (est. 45).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
