@@ -13670,16 +13670,16 @@
     {
       "id": 1743,
       "title": "ignorable_arguments (check.rs) swallows its size error with .ok()? yet each swallowed failure still costs a 10M-node read-back (SW-1740)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1743",
       "labels": [
         "perf"
       ],
       "epic": "goal-as-written",
       "body": "From SW-1740, 6 Nov 2026.\n\nSW-1747: also rewrite.rs:707 and lib.rs:4954 answer 'no' when the read-back fails; all three are stage 4. And effects.rs:4131, induct_match.rs:429, rewrite.rs:1918-1919 read back with ? only for a note or hint, so they can replace the intended error: stage 5.",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
