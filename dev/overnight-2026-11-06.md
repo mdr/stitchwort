@@ -109,3 +109,4 @@ Take these in order, once the speed queue above is empty or blocked.
 - 03:22: SW-1766 merged (keep accessor calls); D2566 for the morning.
 - 03:23: SW-1748 in review: Opus review SW-1784 started; whole AoC needs Matt. Filed SW-1782 (determinism), SW-1783.
 - 03:26: SW-1783 merged (the cut keeps the changed crate's tests).
+- 03:28: SW-1780 merged (core 21 → 2 binaries); SW-1781 (DeepSeek) started.
