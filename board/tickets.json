@@ -17682,9 +17682,9 @@
     {
       "id": 2011,
       "title": "[Opus] Design note: rewriting one chosen occurrence",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2011",
       "labels": [
         "design"
       ],
@@ -17710,9 +17710,9 @@
     {
       "id": 2013,
       "title": "[Opus] Design item: a decreasing measure that uses a hypothesis",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2013",
       "labels": [
         "design"
       ],
@@ -17724,9 +17724,9 @@
     {
       "id": 2014,
       "title": "[Opus] Design note: computing loop-invariant values once (a record method rebuilding a Map per call)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2014",
       "labels": [
         "design"
       ],
