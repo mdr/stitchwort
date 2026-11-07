@@ -13655,16 +13655,16 @@
     {
       "id": 1742,
       "title": "Re-measure mimalloc in test binaries on an idle machine (user CPU of hash_stability prelude) before any sweep over the ~100 test files",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1742",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
       "body": "From SW-1729, 6 Nov 2026: no reliable 5% gain at load 25-35.",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-07",
       "commits": []
     },
     {
