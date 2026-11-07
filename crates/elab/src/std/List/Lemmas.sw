@@ -1493,6 +1493,108 @@ theorem List.findRangeNone (passes: Nat → Bool) (count: Nat) (h: (List.range 0
 
 test "List.findRangeSome" := List.range 0 10 |> .find (n => n * n > 20) == Some 5
 
+-- `List.findIndex`: what the first index that passes is, in the form that
+-- carries the induction, `findIndexFrom` (a cons step moves its start).
+
+--| What `findIndexFrom` finds passes, and nothing before it does.
+theorem List.findIndexFromSome (p: a → Bool): (start: Nat) → (xs: List a) → (index: Nat) → List.findIndexFrom start p xs = Some index →
+    (start ≤ index) ∧ (∃ (x: a) => (xs.get (index - start) = Some x) ∧ (p x = True))
+      ∧ ((earlier: Nat) → start ≤ earlier → earlier < index → (y: a) → xs.get (earlier - start) = Some y → p y = False)
+  | start, [], index, h => Void.exfalso (Option.noneNotSome index h)
+  | start, [x, ..rest], index, h =>
+    match e: p x with
+      | True =>
+        let isStart: start = index := Option.someInjective h
+        let zero: index - start = 0 := omega
+        Both (Nat.leOfEq start index isStart)
+          (Both (Witness x (rewrite zero in Both rfl e))
+            (earlier lo hi y g =>
+              let impossible: earlier < earlier := omega
+              Void.exfalso (Nat.lessIrrefl earlier impossible)))
+      | False =>
+        let (Both lo (Both there before)) := List.findIndexFromSome p (Succ start) rest index h
+        let shift: index - start = Succ (index - Succ start) := omega
+        let ok: start ≤ index := omega
+        Both ok
+          (Both (Exists.elim there (w both => Witness w (Both (rewrite shift in both.left) both.right)))
+            (earlier lo2 hi y g =>
+              match same: earlier == start with
+                | True =>
+                  let zero: earlier - start = 0 := omega [DecEq.sound same]
+                  rewrite <- Option.someInjective (rewrite zero at g in g) in e
+                | False =>
+                  let ne: earlier ≠ start := DecEq.soundFalse earlier start same
+                  let later: Succ start ≤ earlier := omega
+                  let shift2: earlier - start = Succ (earlier - Succ start) := omega
+                  before earlier later hi y (rewrite shift2 at g in g)))
+
+--| What `findIndexFrom` does not find: no member passes.
+theorem List.findIndexFromNone (p: a → Bool): (start: Nat) → (xs: List a) → List.findIndexFrom start p xs = None → (x: a) → x ∈ xs → p x = False
+  | start, [], h, x, member => Void.exfalso member
+  | start, [z, ..rest], h, x, member =>
+    match e: p z with
+      | True => Void.exfalso (Option.someNotNone start h)
+      | False =>
+        match member with
+          | Inl isZ => rewrite <- isZ in e
+          | Inr later => List.findIndexFromNone p (Succ start) rest h x later
+
+--| The first index that passes is what `findIndexFrom` finds.
+theorem List.findIndexFromOf (p: a → Bool): (start: Nat) → (xs: List a) → (index: Nat) → (x: a) → start ≤ index → xs.get (index - start) = Some x → p x = True →
+    ((earlier: Nat) → start ≤ earlier → earlier < index → (y: a) → xs.get (earlier - start) = Some y → p y = False) → List.findIndexFrom start p xs = Some index
+  | start, [], index, x, lo, g, passes, before => Void.exfalso (Option.noneNotSome x g)
+  | start, [z, ..rest], index, x, lo, g, passes, before =>
+    match e: p z with
+      | True =>
+        match same: index == start with
+          | True => rewrite DecEq.sound same in rfl
+          | False =>
+            let ne: index ≠ start := DecEq.soundFalse index start same
+            let less: start < index := omega
+            let zero: start - start = 0 := omega
+            Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (before start (Nat.leRefl start) less z (rewrite zero in rfl))) e))
+      | False =>
+        match same: index == start with
+          | True =>
+            let zero: index - start = 0 := omega [DecEq.sound same]
+            let isZ: z = x := Option.someInjective (rewrite zero at g in g)
+            Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym e) (rewrite isZ in passes)))
+          | False =>
+            let ne: index ≠ start := DecEq.soundFalse index start same
+            let later: Succ start ≤ index := omega
+            let shift: index - start = Succ (index - Succ start) := omega
+            List.findIndexFromOf p (Succ start) rest index x later (rewrite shift at g in g) passes
+              (earlier lo2 hi y g2 =>
+                let shift2: earlier - start = Succ (earlier - Succ start) := omega
+                before earlier (Nat.leTrans start (Succ start) earlier (Nat.leSucc start) lo2) hi y (rewrite shift2 in g2))
+
+--| What `findIndex` finds passes, and nothing before it does.
+theorem List.findIndexSome (xs: List a) (p: a → Bool) (index: Nat) (found: xs.findIndex p = Some index):
+    (∃ (x: a) => (xs.get index = Some x) ∧ (p x = True)) ∧ ((earlier: Nat) → earlier < index → (y: a) → xs.get earlier = Some y → p y = False) :=
+  let (Both lo (Both there before)) := List.findIndexFromSome p 0 xs index found
+  let zero: index - 0 = index := omega
+  Both (rewrite zero at there in there)
+    (earlier below y g =>
+      let zero2: earlier - 0 = earlier := omega
+      before earlier (Nat.zeroLe earlier) below y (rewrite zero2 in g))
+
+--| `findIndex` finds nothing only if no member passes.
+theorem List.findIndexNone (xs: List a) (p: a → Bool) (found: xs.findIndex p = None) (x: a) (member: x ∈ xs): p x = False :=
+  List.findIndexFromNone p 0 xs found x member
+
+--| The first index that passes is what `findIndex` finds.
+theorem List.findIndexOf (xs: List a) (p: a → Bool) (index: Nat) (x: a) (at: xs.get index = Some x) (passes: p x = True)
+    (before: (earlier: Nat) → earlier < index → (y: a) → xs.get earlier = Some y → p y = False): xs.findIndex p = Some index :=
+  let zero: index - 0 = index := omega
+  List.findIndexFromOf p 0 xs index x (Nat.zeroLe index) (rewrite zero in at) passes
+    (earlier lo below y g =>
+      let zero2: earlier - 0 = earlier := omega
+      before earlier below y (rewrite zero2 at g in g))
+
+test "List.findIndexSome" :=
+  let xs := [5, 6, 7, 8]
+  xs.findIndex (x => Nat.leq 7 x) == Some 2 ∧ xs.get 2 == Some 7 ∧ xs.findIndex (x => Nat.leq 9 x) == None
+
 -- `List.minimum`: the least of a list that holds `least` and nothing else
 -- is `least`, an empty list has none, and what it finds is in the list and
 -- at most each element.
@@ -1696,6 +1798,12 @@ theorem List.minBySome [auto ord: Ord b] (xs: List a) (f: a → b) (least: a) (f
             match member with
               | Inl isY => rewrite Eq.sym isY in List.foldMinByLeStart f ys y
               | Inr inRest => List.foldMinByLeMember f ys y x inRest)
+
+--| `minBy` finds nothing only in an empty list.
+theorem List.minByNone [auto ord: Ord b] (xs: List a) (f: a → b) (found: List.minBy xs f = None): xs = [] :=
+  match xs with
+    | [] => rfl
+    | [y, ..ys] => Void.exfalso (Option.someNotNone (List.foldLeft ys y (best z => List.minByStep f best z)) found)
 
 --| `List.minBy` finds the FIRST element with the smallest key: the list
 --| splits around the result, and every element before it has a strictly

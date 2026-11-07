@@ -103,6 +103,30 @@ theorem Set.containsMin [auto ord: Ord k] (s: Set k) (least: k) (found: Set.min 
       let first: Set.min s = Some entry.fst := rewrite Map.minToList s.items, entries in rfl
       Map.containsOfMemToList s.items least entry (rewrite entries in Inl rfl) (Option.someInjective (Eq.trans (Eq.sym first) found))
 
+--| The smallest key is at most every key of the set.
+theorem Set.minLeast [auto ord: Ord k] (s: Set k) (least: k) (found: Set.min s = Some least) (key: k) (there: Set.contains s key = True): least <= key :=
+  match entries: Map.toList s.items with
+    | [] => Void.exfalso (Option.someNotNone least (Eq.trans (Eq.sym found) (rewrite Map.minToList s.items, entries in rfl)))
+    | [(first, unit), ..rest] =>
+      let isMin: Set.min s = Some first := rewrite Map.minToList s.items, entries in rfl
+      let same: first = least := Option.someInjective (Eq.trans (Eq.sym isMin) found)
+      let member := Map.memKeysOfContains s.items key there
+      rewrite entries at member in
+        match member with
+          | Inl here => rewrite <- same, <- here in Ord.leRefl first
+          | Inr later =>
+            let sorted := Map.toListSorted s.items
+            rewrite entries at sorted in
+              let (Both bottom ascending) := sorted
+              let above := Map.Spec.keysAbove ord key (Some first) rest ascending later
+              rewrite <- same in Ord.lessLe first key (ord.lessThanOf first key above)
+
+--| A set holding a key has a smallest one.
+theorem Set.minOfContains [auto ord: Ord k] (s: Set k) (key: k) (there: Set.contains s key = True): ∃ (least: k) => Set.min s = Some least :=
+  match least: Set.min s with
+    | Some smallest => Witness smallest rfl
+    | None => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (Set.missingOfMinNone s least key)) there))
+
 --| `popMin` is `min` and `remove` together.
 theorem Set.popMinSpec [auto ord: Ord k] (s: Set k): Set.popMin s = Option.map (Set.min s) (key => (key, Set.remove s key)) :=
   rewrite Map.popMinSpec s.items in
@@ -708,3 +732,132 @@ theorem Set.sizeOfMembers [auto ord: Ord k] (set: Set k) (universe: List k) (yes
         match List.memFilter universe yes member with
           | Both there held => (Set.memToList set key).backward (rewrite agree key ((List.memContains universe key).backward there) in held))
   Eq.trans (Set.sizeToList set) (List.permLength (Set.toList set) (List.filter universe yes) same)
+
+--| An empty set holds no key.
+theorem Set.missingOfIsEmpty [auto ord: Ord k] (s: Set k) (empty: Set.isEmpty s = True) (key: k): Set.contains s key = False :=
+  match there: Set.contains s key with
+    | False => rfl
+    | True =>
+      let zero: Set.size s = 0 := Nat.equalSound _ _ empty
+      Void.exfalso (omega [Set.sizePositive s key there])
+
+-- Maps of sets: what `get` finds after each operation, then `containsIn`
+
+theorem Map.containsInEq [auto ord: Ord k] [auto itemOrd: Ord v] (m: Map k (Set v)) (key: k) (item: v):
+    m.containsIn key item = ((m.get key).getOrElse Set.empty).contains item := rfl
+
+theorem Map.getInsertIn [auto ord: Ord k] [auto itemOrd: Ord v] (m: Map k (Set v)) (key: k) (item: v):
+    (m.insertIn key item).get key = Some (((m.get key).getOrElse Set.empty).insert item) :=
+  Map.getAlter m key _
+
+theorem Map.getInsertInOther [auto ord: Ord k] [auto itemOrd: Ord v] (m: Map k (Set v)) (key: k) (item: v) (otherKey: k) (ne: otherKey ≠ key):
+    (m.insertIn key item).get otherKey = m.get otherKey :=
+  Map.getAlterOther m key otherKey ne _
+
+theorem Map.getRemoveIn [auto ord: Ord k] [auto itemOrd: Ord v] (m: Map k (Set v)) (key: k) (item: v):
+    (m.removeIn key item).get key = ((m.get key).map (.remove item) |> .filter (rest => !rest.isEmpty)) :=
+  Map.getAlter m key _
+
+theorem Map.getRemoveInOther [auto ord: Ord k] [auto itemOrd: Ord v] (m: Map k (Set v)) (key: k) (item: v) (otherKey: k) (ne: otherKey ≠ key):
+    (m.removeIn key item).get otherKey = m.get otherKey :=
+  Map.getAlterOther m key otherKey ne _
+
+theorem Map.containsInEmpty [auto ord: Ord k] [auto itemOrd: Ord v] (key: k) (item: v):
+    (Map.empty: Map k (Set v)).containsIn key item = False := rfl
+
+--| The pair just inserted is there.
+theorem Map.containsInInsertIn [auto ord: Ord k] [auto itemOrd: Ord v] (m: Map k (Set v)) (key: k) (item: v):
+    (m.insertIn key item).containsIn key item = True :=
+  rewrite Map.containsInEq (m.insertIn key item) key item, Map.getInsertIn m key item in
+    Set.containsInsert item ((m.get key).getOrElse Set.empty)
+
+--| Inserting a pair leaves every other pair as it was.
+theorem Map.containsInInsertInOther [auto ord: Ord k] [auto itemOrd: Ord v] (m: Map k (Set v)) (key: k) (item: v) (otherKey: k) (otherItem: v)
+    (ne: ¬(otherKey = key ∧ otherItem = item)): (m.insertIn key item).containsIn otherKey otherItem = m.containsIn otherKey otherItem :=
+  match sameKey: otherKey == key with
+    | False =>
+      rewrite Map.containsInEq (m.insertIn key item) otherKey otherItem, Map.containsInEq m otherKey otherItem,
+        Map.getInsertInOther m key item otherKey (DecEq.soundFalse otherKey key sameKey) in rfl
+    | True =>
+      let isKey: otherKey = key := DecEq.sound sameKey
+      match sameItem: otherItem == item with
+        | True => Void.exfalso (ne (Both isKey (DecEq.sound sameItem)))
+        | False =>
+          rewrite isKey, Map.containsInEq (m.insertIn key item) key otherItem, Map.containsInEq m key otherItem, Map.getInsertIn m key item in
+            Set.containsInsertOther ((m.get key).getOrElse Set.empty) item otherItem (DecEq.soundFalse otherItem item sameItem)
+
+--| The pair just removed is gone.
+theorem Map.containsInRemoveIn [auto ord: Ord k] [auto itemOrd: Ord v] (m: Map k (Set v)) (key: k) (item: v):
+    (m.removeIn key item).containsIn key item = False :=
+  rewrite Map.containsInEq (m.removeIn key item) key item, Map.getRemoveIn m key item in
+    match found: m.get key with
+      | None => rfl
+      | Some s =>
+        match gone: Set.isEmpty (Set.remove s item) with
+          | True => rfl
+          | False => Set.containsRemove s item
+
+--| Removing a pair leaves every other pair as it was.
+theorem Map.containsInRemoveInOther [auto ord: Ord k] [auto itemOrd: Ord v] (m: Map k (Set v)) (key: k) (item: v) (otherKey: k) (otherItem: v)
+    (ne: ¬(otherKey = key ∧ otherItem = item)): (m.removeIn key item).containsIn otherKey otherItem = m.containsIn otherKey otherItem :=
+  match sameKey: otherKey == key with
+    | False =>
+      rewrite Map.containsInEq (m.removeIn key item) otherKey otherItem, Map.containsInEq m otherKey otherItem,
+        Map.getRemoveInOther m key item otherKey (DecEq.soundFalse otherKey key sameKey) in rfl
+    | True =>
+      let isKey: otherKey = key := DecEq.sound sameKey
+      match sameItem: otherItem == item with
+        | True => Void.exfalso (ne (Both isKey (DecEq.sound sameItem)))
+        | False =>
+          let differs: otherItem ≠ item := DecEq.soundFalse otherItem item sameItem
+          rewrite isKey, Map.containsInEq (m.removeIn key item) key otherItem, Map.containsInEq m key otherItem, Map.getRemoveIn m key item in
+            match found: m.get key with
+              | None => rfl
+              | Some s =>
+                match gone: Set.isEmpty (Set.remove s item) with
+                  | True =>
+                    rewrite <- Set.containsRemoveOther s item otherItem differs in
+                      Eq.sym (Set.missingOfIsEmpty (Set.remove s item) gone otherItem)
+                  | False => Set.containsRemoveOther s item otherItem differs
+
+theorem Map.containsInInsertInIff [auto ord: Ord k] [auto itemOrd: Ord v] (m: Map k (Set v)) (key: k) (item: v) (otherKey: k) (otherItem: v):
+    ((m.insertIn key item).containsIn otherKey otherItem = True) ↔ ((otherKey = key ∧ otherItem = item) ∨ m.containsIn otherKey otherItem = True) := {
+  forward = there =>
+    match same: otherKey == key with
+      | False => Inr (rewrite <- Map.containsInInsertInOther m key item otherKey otherItem (pair => DecEq.soundFalse otherKey key same pair.left) in there)
+      | True =>
+        match sameItem: otherItem == item with
+          | True => Inl (Both (DecEq.sound same) (DecEq.sound sameItem))
+          | False => Inr (rewrite <- Map.containsInInsertInOther m key item otherKey otherItem (pair => DecEq.soundFalse otherItem item sameItem pair.right) in there),
+  backward = found =>
+    match found with
+      | Inl pair => rewrite pair.left, pair.right in Map.containsInInsertIn m key item
+      | Inr old =>
+        match same: otherKey == key with
+          | False => rewrite Map.containsInInsertInOther m key item otherKey otherItem (pair => DecEq.soundFalse otherKey key same pair.left) in old
+          | True =>
+            match sameItem: otherItem == item with
+              | True => rewrite DecEq.sound same, DecEq.sound sameItem in Map.containsInInsertIn m key item
+              | False => rewrite Map.containsInInsertInOther m key item otherKey otherItem (pair => DecEq.soundFalse otherItem item sameItem pair.right) in old
+}
+
+theorem Map.containsInRemoveInIff [auto ord: Ord k] [auto itemOrd: Ord v] (m: Map k (Set v)) (key: k) (item: v) (otherKey: k) (otherItem: v):
+    ((m.removeIn key item).containsIn otherKey otherItem = True) ↔ (¬(otherKey = key ∧ otherItem = item) ∧ m.containsIn otherKey otherItem = True) := {
+  forward = there =>
+    let differs: ¬(otherKey = key ∧ otherItem = item) := pair =>
+      Bool.falseNotTrue (Eq.trans (Eq.sym (rewrite pair.left, pair.right in Map.containsInRemoveIn m key item)) there)
+    Both differs (rewrite <- Map.containsInRemoveInOther m key item otherKey otherItem differs in there),
+  backward = found => rewrite Map.containsInRemoveInOther m key item otherKey otherItem found.left in found.right
+}
+
+--| The entries `toList` walks hold exactly the pairs.
+theorem Map.containsInToList [auto ord: Ord k] [auto itemOrd: Ord v] (m: Map k (Set v)) (key: k) (item: v):
+    (m.containsIn key item = True) ↔ (∃ (items: Set v) => ((key, items) ∈ m.toList) ∧ (items.contains item = True)) := {
+  forward = there =>
+    match found: m.get key with
+      | None => Void.exfalso (Bool.falseNotTrue there)
+      | Some s => Witness s (Both ((Map.memToList m key s).backward found) there),
+  backward = found =>
+    let (Witness s (Both member there)) := found
+    rewrite Map.containsInEq m key item, (Map.memToList m key s).forward member in there
+}

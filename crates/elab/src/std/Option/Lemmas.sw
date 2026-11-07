@@ -161,6 +161,14 @@ theorem Option.filterEqSome: (x: Option a) → (p: a → Bool) → [v: a] → Op
       | False => Void.exfalso (Option.noneNotSome v h)
   | None, p, h => Void.exfalso (Option.noneNotSome v h)
 
+--| What `filter` drops: nothing, or something that failed the test.
+theorem Option.filterEqNone: (x: Option a) → (p: a → Bool) → Option.filter x p = None → (x = None) ∨ (∃ (v: a) => (x = Some v) ∧ (p v = False))
+  | None, p, h => Inl rfl
+  | Some u, p, h =>
+    match e: p u with
+      | True => Void.exfalso (Option.someNotNone u h)
+      | False => Inr (Witness u (Both rfl e))
+
 --| `orElse` of an option with itself is the option.
 theorem Option.orElseSelf: (x: Option a) → Option.orElse x x = x
   | Some w => rfl
