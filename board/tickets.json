@@ -1,5 +1,5 @@
 {
-  "next": 2188,
+  "next": 2196,
   "tickets": [
     {
       "id": 47,
@@ -17618,14 +17618,14 @@
     {
       "id": 2006,
       "title": "[DeepSeek] Std lane F: one name per operation (getOrElse vs getOr, splitOn vs joinWith, Text.fold is a right fold; the list in S7), no aliases",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "std"
       ],
       "epic": "std-library",
-      "body": "From docs/reviews/code-review-std.md (S7). D2822 [rec: yes]. 45 min.",
+      "body": "From docs/reviews/code-review-std.md (S7). D2822 [rec: yes]. 45 min.\n\n7 Nov: replaced by docs/proposals/std-naming.md's lanes (SW-2188-SW-2195).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -19743,7 +19743,7 @@
         "proofs"
       ],
       "epic": "std-library",
-      "body": "From docs/proposals/enough-fuel.md. Stage 2, after SW-2147. 45 min.",
+      "body": "From docs/proposals/enough-fuel.md. Stage 2, after SW-2147. 45 min.\n\n7 Nov (docs/proposals/std-naming.md): take arguments as (fuel) (step) (x).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20058,7 +20058,7 @@
         "proofs"
       ],
       "epic": "std-library",
-      "body": "From docs/reviews/SW-2159-aoc-lemmas-to-std.md, lane L1; its brief paragraph is in the report. Absorbs part of SW-2003; note SW-1608. snap:hashes, hash_stability, audit:touched per AoC namespace. 60 min.",
+      "body": "From docs/reviews/SW-2159-aoc-lemmas-to-std.md, lane L1; its brief paragraph is in the report. Absorbs part of SW-2003; note SW-1608. snap:hashes, hash_stability, audit:touched per AoC namespace. 60 min.\n\n7 Nov: docs/proposals/std-naming.md corrects some of SW-2159's names; check §6 there before naming lemmas.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20178,7 +20178,7 @@
         "naming"
       ],
       "epic": "std-library",
-      "body": "From docs/reviews/SW-2159-aoc-lemmas-to-std.md; for SW-2006's naming sweep.",
+      "body": "From docs/reviews/SW-2159-aoc-lemmas-to-std.md; for SW-2006's naming sweep.\n\n7 Nov: answered by SW-2191 (List.distinct -> List.unique), pending D3150.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20201,14 +20201,14 @@
     {
       "id": 2179,
       "title": "[Opus] Plan the std naming sweep (SW-2006, S7 of code-review-std.md, plus SW-2177's Distinct/distinct clash): pick one name per operation, with reasons and precedent, list every rename and its call sites, and split into DeepSeek lanes",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2179",
       "labels": [
         "design"
       ],
       "epic": "std-library",
-      "body": "Read-only Opus lane, 7 Nov: docs/proposals/std-naming.md. Before the SW-2159 move lanes give the new lemmas names. 60 min.\n\n7 Nov (docs/research/std-lemma-libraries.md): fold the outlier renames (less vs lt, sortLength) into the plan; SW-2184 writes the guide after it.",
+      "body": "Read-only Opus lane, 7 Nov: docs/proposals/std-naming.md. Before the SW-2159 move lanes give the new lemmas names. 60 min.\n\n7 Nov (docs/research/std-lemma-libraries.md): fold the outlier renames (less vs lt, sortLength) into the plan; SW-2184 writes the guide after it.\n\nDesign merged: docs/proposals/std-naming.md. Lanes SW-2188 SW-2189 SW-2190 SW-2191 SW-2192 SW-2193 SW-2194 SW-2195. D3150 (distinct -> unique) and D3151 (Set/Map min/max -> minimum/maximum) to Matt. Corrects 11 of SW-2159's proposed names; SW-2148 to take (fuel) (step) (x).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20329,6 +20329,126 @@
       ],
       "epic": "std-library",
       "body": "From docs/research/std-lemma-libraries.md, T6, after SW-2169 and SW-2170. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2188,
+      "title": "[DeepSeek] Std renames N1: getOrElse -> getOr (Option, Result); iterateUntilStable takes its start last; user code concatMap -> flatMap with a bridge lemma",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "naming"
+      ],
+      "epic": "std-library",
+      "body": "From docs/proposals/std-naming.md, lane N1; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. Before SW-2174. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2189,
+      "title": "[DeepSeek] Std renames N2: set and map nouns (Set.intersection, Map.intersectionWith, Set.isDisjoint), Vec.fromListChecked; Set/Map min/max -> minimum/maximum if D3151",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "naming"
+      ],
+      "epic": "std-library",
+      "body": "From docs/proposals/std-naming.md, lane N2; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2190,
+      "title": "[DeepSeek] Std renames N3: Char.isAsciiDigit, Char.isSpaceOrTab (from Parse), Nat.inRange; delete List.elem",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "naming"
+      ],
+      "epic": "std-library",
+      "body": "From docs/proposals/std-naming.md, lane N3; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. 50 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2191,
+      "title": "[DeepSeek] Std renames N4: List.distinct -> List.unique, distinctEq -> uniqueDecEq, allDistinct -> isDistinct (frees List.distinctSnoc for the List.Distinct lemma)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "naming"
+      ],
+      "epic": "std-library",
+      "body": "From docs/proposals/std-naming.md, lane N4; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. Waits on D3150. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2192,
+      "title": "[DeepSeek] Std renames N5: older lemmas onto the scheme (memMap -> memMapIntro, memFilter -> memFilterElim, memContains -> containsIff, countNone -> countEqZero, …, the note's list)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "naming"
+      ],
+      "epic": "std-library",
+      "body": "From docs/proposals/std-naming.md, lane N5; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. 45 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2193,
+      "title": "[Sonnet] Std renames S1: Text.fold -> Text.foldRight plus a new Text.foldLeft; Text.join -> List.join, Text.joinWith/List.joinWith -> List.joinOn (registry and native code)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "naming"
+      ],
+      "epic": "std-library",
+      "body": "From docs/proposals/std-naming.md, lane S1; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. Run extract's bound_to_the_prelude tests. 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2194,
+      "title": "[Opus] Std renames O1: List.rangeFrom and Nat.firstFrom take the start before the count (omega and the unifier read the argument positions; ~380 sites)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "naming"
+      ],
+      "epic": "std-library",
+      "body": "From docs/proposals/std-naming.md, lane O1; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. Last of the renames; after SW-1392's design. 75 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2195,
+      "title": "[Opus] Read-only audit of every std lemma name against docs/proposals/std-naming.md's scheme (the plan sampled ~60 of 2,986)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "naming"
+      ],
+      "epic": "std-library",
+      "body": "From docs/proposals/std-naming.md, lane O2; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. 45 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
