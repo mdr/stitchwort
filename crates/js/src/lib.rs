@@ -4163,6 +4163,10 @@ impl<'g> Gen<'g> {
                     let x = self.expr(t, env)?;
                     if Some(*d) == self.float {
                         format!("toCanonicalBits({x})")
+                    } else if Some(*d) == self.array {
+                        // A version array: its `toList` is built, as a
+                        // `match` on it builds it.
+                        format!("listOfArray({x})")
                     } else if self.unboxed(*d).is_some() {
                         x
                     } else {

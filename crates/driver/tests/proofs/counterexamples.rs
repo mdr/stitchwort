@@ -23,7 +23,11 @@ fn example(name: &str) -> String {
 /// Loads example `name` (it may fail), with the fast runtime or without:
 /// the notes on its diagnostics, and the searches' log.
 fn search(name: &str, fast: bool) -> (Vec<String>, Vec<SearchLog>) {
-    let text = example(name);
+    search_source(name, example(name), fast)
+}
+
+/// As [`search`], for source `text` loaded as file `name`.
+fn search_source(name: &str, text: String, fast: bool) -> (Vec<String>, Vec<SearchLog>) {
     let name = name.to_string();
     with_stack(STACK, move || {
         let mut session = Session::for_stack(STACK);
@@ -169,6 +173,23 @@ fn a_statement_with_a_huge_normal_form_is_not_searched() {
 fn a_counterexample_at_a_goal() {
     let log = only("goals/counterexample-at-hole.sw");
     assert_eq!(found(&log), ["n = 1"]);
+}
+
+/// SW-1997: a one-field record is stored as its field, and the statement's
+/// `cave.rows` is a projection (record eta), which the fast runtime lowered
+/// at a level its closure's maker didn't have, and crashed.
+#[test]
+fn a_projection_of_a_one_field_record_is_searched() {
+    let source = "type Cave = { rows: Nat }\n\n\
+                  theorem probe (cave: Cave) (big: cave.rows = 0): cave.rows = 1 := ?\n";
+    let (notes, log) = search_source("one-field.sw", source.into(), true);
+    assert_eq!(log.len(), 1, "{log:?}");
+    assert_eq!(log[0].runner, Some(Runner::Fast), "{log:?}");
+    assert_eq!(found(&log[0]), ["cave = { rows = 0 }"]);
+    assert!(
+        notes.iter().all(|n| !n.contains("internal error")),
+        "{notes:?}"
+    );
 }
 
 #[test]

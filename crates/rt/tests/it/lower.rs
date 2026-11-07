@@ -6,7 +6,7 @@
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-use stitchwort_core::DefId;
+use stitchwort_core::{DataId, DefId, Term};
 use stitchwort_driver::driver::{Cache, Outcome, Session, par_map, with_stack};
 use stitchwort_driver::project::{DiskFiles, Target};
 use stitchwort_rt::{Program, lower_definitions, lower_main};
@@ -458,5 +458,77 @@ fn loops_over_arguments_that_bind_are_well_formed() {
         names.sort();
         names.dedup();
         assert_eq!(names.len(), count, "two globals share a name");
+    });
+}
+
+/// A one-field record is stored as its field (D866), so the match a
+/// projection lowers to binds the field to the record's own variable. Read
+/// inside a closure that captures the record, the field must be captured as
+/// the record is: it was captured at its own level, which the frame making
+/// the closure doesn't have (SW-1997). The projection, `Term::Proj`, comes
+/// from record eta, which nothing in a program's source makes, so it's put
+/// in place of the accessor's calls.
+#[test]
+fn a_closure_reads_a_projection_of_a_captured_one_field_record() {
+    let source = r#"
+import Std (Nat, Text, Int)
+type Cave = { rows: Nat }
+
+-- The record comes from the input, so that specialisation doesn't fold it
+-- into the closure.
+def main(): {IO} () :=
+  let rows := match IO.readLine() with
+    | Some line => line.length
+    | None => 0
+  IO.print (Nat.toText ((cave => ([1, 2].map (x => x + cave.rows)).sum) { rows = rows }))
+"#;
+    with_stack(STACK, || {
+        let mut session = Session::for_stack(STACK);
+        session
+            .load("test.sw", source)
+            .unwrap_or_else(|e| panic!("doesn't check: {e:?}"));
+        let main = session.main().expect("main");
+        let g = &session.elab.ev();
+        let rows = (0..g.env.defs().len())
+            .map(DefId)
+            .rfind(|id| &**g.def(*id).name() == "Cave.rows")
+            .expect("the accessor");
+        let cave = (0..g.env.datas().len())
+            .map(DataId)
+            .rfind(|d| &**g.data(*d).name() == "Cave")
+            .expect("the record");
+        assert!(g.data(cave).unboxed_field().is_some());
+        // `main`'s body, with the projection, in place of `main` in the
+        // term that runs it.
+        let main_def = (0..g.env.defs().len())
+            .map(DefId)
+            .rfind(|id| &**g.def(*id).name() == "main")
+            .expect("main");
+        let mut projections = 0;
+        let body = g
+            .def(main_def)
+            .body()
+            .expect("main has a body")
+            .rewrite_up(g, &mut |t| {
+                let (head, args) = t.spine();
+                Ok(match (head, &args[..]) {
+                    (Term::Def(id), [record]) if *id == rows => {
+                        projections += 1;
+                        Some(Term::Proj(cave, 0, Rc::new((*record).clone())))
+                    }
+                    _ => None,
+                })
+            })
+            .expect("within limits");
+        let term = main
+            .term()
+            .rewrite_up(g, &mut |t| {
+                Ok(matches!(t, Term::Def(id) if *id == main_def).then(|| body.clone()))
+            })
+            .expect("within limits");
+        assert_eq!(projections, 1, "{body:?}");
+        let program = lower_main(g, session.elab.options.limits, &term, main.row)
+            .unwrap_or_else(|e| panic!("lowering: {e:?}"));
+        well_formed(&program, "main");
     });
 }
