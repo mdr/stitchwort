@@ -158,8 +158,8 @@ fn examples(dir: &str) -> Vec<Example> {
 /// in time, so the rendering differed (the flaky
 /// `rejected_examples_fail_for_the_expected_reason`, 26 Oct 2026).
 ///
-/// The library loads through the test std cache (in the merge tier and the
-/// lanes): it's the examples that are checked here.
+/// The library loads through the test std cache (in every tier but the full
+/// one): it's the examples that are checked here.
 fn untimed(mut session: Session) -> Session {
     session.use_test_std_cache();
     session.elab.options.untimed_counterexamples = true;

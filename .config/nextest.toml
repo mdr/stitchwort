@@ -295,3 +295,14 @@ binary(search_bench) | binary(search_at) | binary(doc_equations)
 | (package(stitchwort-cli) & (binary(search) | binary(doc)))
 """
 priority = -10
+
+# The same for the test std cache (`Session::eager_for_stack`,
+# `use_test_std_cache`; `TestCacheTurn`): after a compiler change one process
+# fills it while every other test that loads the library waits on a lock,
+# holding a slot. `pinned_hashes`' first test does nothing else but load the
+# library through the cache, so it goes first, at the top priority, and the
+# slots are not spent waiting beside it. Order only: a test that starts first
+# for another reason fills the cache itself.
+[[profile.default.overrides]]
+filter = "package(stitchwort-driver) & binary(pinned_hashes) & test(=every_binding_by_hash_applies_to_the_library)"
+priority = 100

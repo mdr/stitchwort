@@ -100,15 +100,15 @@ fn workers() -> usize {
 /// without loading the library again for every example. The rewind tests
 /// check that rewinding gives exactly what a fresh session does.
 ///
-/// In the merge tier and the lanes the library is replayed from the test std
-/// cache: `prelude` checks it from source in the same run and holds every
-/// hash of it to its snapshot, and an example's hashes come out the same only
-/// if the library it uses does. The daily and full tiers check it from source
-/// in every worker.
+/// Except in the full tier the library is replayed from the test std cache:
+/// `prelude` checks it from source in the same run and holds every hash of it
+/// to its snapshot, and an example's hashes come out the same only if the
+/// library it uses does. The full tier checks it from source in every worker,
+/// as a second guard.
 fn eager_worker() -> (Session, Mark) {
     let mut session = match tier() {
-        Tier::Merge | Tier::Lane => Session::eager_for_stack(STACK),
-        _ => Session::eager_from_source_for_stack(STACK),
+        Tier::Full => Session::eager_from_source_for_stack(STACK),
+        _ => Session::eager_for_stack(STACK),
     };
     let mark = session.mark();
     (session, mark)
