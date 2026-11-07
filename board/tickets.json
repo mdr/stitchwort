@@ -19436,14 +19436,14 @@
     {
       "id": 2128,
       "title": "[Sonnet] Linux: link with mold (flake.nix muslEnv: -fuse-ld=mold, mold in the dev shell): Overmind measured a CLI relink of 1.70 s -> 0.27 s (a touched-cli rebuild 2.26 s -> 0.83 s); wild segfaults, don't use it",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2128",
       "labels": [
         "nix"
       ],
       "epic": "dev-loop-speed",
-      "body": "From SW-2105. Linux only; Mac is unchanged. Speedwell can only check that the flake still evaluates and builds on Darwin; Overmind verifies on Linux after a push (build, AoC check, and timing a test build: nextest --no-run before and after). 40 min.",
+      "body": "From SW-2105. Linux only; Mac is unchanged. Speedwell can only check that the flake still evaluates and builds on Darwin; Overmind verifies on Linux after a push (build, AoC check, and timing a test build: nextest --no-run before and after). 40 min.\n\nMerged (one flake.nix edit: muslEnv's linker is a musl-cc-mold script, cc -B${mold}/bin -fuse-ld=mold; covers crane and the dev shell; Darwin unchanged). Evaluates for x86_64-linux, aarch64-linux, aarch64-darwin. Not yet built on Linux: Overmind verifies after a push (readelf -p .comment shows mold, AoC check, touched-CLI rebuild ~0.8 s, nextest --no-run before/after, nix build .#stitchwort-bin). Stays in review until then. Model result: Sonnet, worked, 5 min (est. 40).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
