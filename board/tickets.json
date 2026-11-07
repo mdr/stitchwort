@@ -18941,9 +18941,9 @@
     {
       "id": 2095,
       "title": "[Opus] Match on a call's field, stage 1: an applied stuck field computes first, like any over-applied call; plus the Proj arm in match's as-written check",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2095",
       "labels": [
         "elab"
       ],
