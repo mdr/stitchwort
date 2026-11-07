@@ -4239,8 +4239,13 @@ impl Part<'_> {
 /// follows [`identical`]'s rules, so identical values hash alike: names and
 /// source locations are left out, and a closure hashes as its body and the
 /// values of the variables the body uses. A glued call ([`Value::Call`])
-/// hashes as just a call, since `identical` takes two with the same
-/// unfolding cell as identical without looking further. Built bottom-up, each
+/// hashes as its definition and spine, not its unfolding cell: `identical`
+/// compares two calls with different cells by definition and spine, and two
+/// with the same cell have the same definition and spine too, since a cell
+/// is only ever made with its call (a field of a call, [`project_call`], gets
+/// a new one). Hashing every call alike would file all pairs that differ only
+/// inside glued calls under one key, for every lookup to walk (SW-2308).
+/// Built bottom-up, each
 /// layer from its own data and its parts' hashes, so a shared allocation is
 /// hashed once ([`ShapeCache`]). A work list, as values can nest deeply; a
 /// budget step per part hashed.
@@ -4294,7 +4299,11 @@ fn shape_hash(g: &Ev, cache: &mut ShapeCache, value: &Value) -> Result<u64> {
                             Value::Eq(t, x, y) => {
                                 parts.extend([Part::Boxed(t), Part::Boxed(x), Part::Boxed(y)]);
                             }
-                            Value::Refl | Value::Call(..) => {}
+                            Value::Refl => {}
+                            Value::Call(id, spine, _) => {
+                                id.hash(&mut h);
+                                parts.push(Part::Spine(spine));
+                            }
                             Value::Resumption(r) => Rc::as_ptr(r).hash(&mut h),
                             Value::Neutral(head, spine) => {
                                 head.hash(&mut h);
