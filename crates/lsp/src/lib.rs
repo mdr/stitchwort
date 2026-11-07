@@ -127,6 +127,9 @@ pub struct Faults {
     pub search_panics: std::sync::atomic::AtomicUsize,
     /// A request method answered on the main thread that panics, once.
     pub request_panic: Mutex<Option<String>>,
+    /// The checker's next steps of the workspace holding this file panic,
+    /// this many times (`usize::MAX`: always).
+    pub checker_panic: Mutex<Option<(PathBuf, usize)>>,
 }
 
 impl Faults {
@@ -134,6 +137,20 @@ impl Faults {
         self.search_panics
             .try_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1))
             .is_ok()
+    }
+
+    fn checker_panics_now(&self, workspace: &Path) -> bool {
+        let mut armed = lock(&self.checker_panic);
+        let Some((file, left)) = armed.as_mut() else {
+            return false;
+        };
+        if !file.starts_with(workspace) || *left == 0 {
+            return false;
+        }
+        if *left != usize::MAX {
+            *left -= 1;
+        }
+        true
     }
 
     fn request_panics_now(&self, method: &str) -> bool {
@@ -274,16 +291,17 @@ pub fn serve_from(
     let nav = Arc::new(RwLock::new(Nav::default()));
     let cancel = Arc::new(AtomicBool::new(false));
     let (to_checker, edits) = crossbeam_channel::unbounded();
+    let notices = Arc::new(Notices::new(connection.sender.clone()));
     let checker = {
         let nav = nav.clone();
         let cancel = cancel.clone();
         let sender = connection.sender.clone();
         let options = options.clone();
         let source = source.clone();
+        let notices = notices.clone();
         std::thread::Builder::new()
-            .name("stitchwort-checker".into())
-            .stack_size(options.stack)
-            .spawn(move || Checker::new(options, source, sender, nav, cancel).run(edits))
+            .name("stitchwort-checker-supervisor".into())
+            .spawn(move || keep_checker(options, source, sender, nav, cancel, edits, notices))
             .map_err(|e| e.to_string())?
     };
     let searches = Arc::new(Searches::default());
@@ -295,9 +313,12 @@ pub fn serve_from(
             let searches = searches.clone();
             let options = options.clone();
             let source = source.clone();
+            let notices = notices.clone();
             std::thread::Builder::new()
                 .name(format!("stitchwort-search-supervisor-{n}"))
-                .spawn(move || keep_search_worker(n, jobs, sender, searches, options, source))
+                .spawn(move || {
+                    keep_search_worker(n, jobs, sender, searches, options, source, notices)
+                })
                 .map_err(|e| e.to_string())
         })
         .collect::<Result<Vec<_>, _>>()?;
@@ -313,6 +334,7 @@ pub fn serve_from(
         to_searches,
         document_changes,
         faults: options.faults.clone(),
+        notices,
     };
     let result = main.run();
     // Stops the check in progress; the checker then sees the channel closed.
@@ -452,6 +474,20 @@ enum Edit {
     Focus {
         paths: Vec<PathBuf>,
     },
+}
+
+impl Edit {
+    /// The file the edit is about.
+    fn path(&self) -> Option<&Path> {
+        match self {
+            Edit::Open { path, .. }
+            | Edit::Change { path, .. }
+            | Edit::Close { path }
+            | Edit::Saved { path, .. }
+            | Edit::Disk { path } => Some(path),
+            Edit::Focus { .. } => None,
+        }
+    }
 }
 
 /// A proof search for a code action, queued for a worker.
@@ -644,7 +680,9 @@ fn keep_search_worker(
     searches: Arc<Searches>,
     options: Options,
     source: Arc<dyn Source>,
+    notices: Arc<Notices>,
 ) {
+    let mut budget = Budget::default();
     loop {
         let worker = {
             let (jobs, sender, searches) = (jobs.clone(), sender.clone(), searches.clone());
@@ -663,9 +701,90 @@ fn keep_search_worker(
         };
         match worker.join() {
             Ok(false) => return,
-            Ok(true) => eprintln!("stitchwort lsp: search worker {n} restarted after a panic"),
-            Err(_) => eprintln!("stitchwort lsp: search worker {n} died; restarting it"),
+            Ok(true) => notices.recovered(&format!("search worker {n} restarted after a panic")),
+            Err(_) => notices.recovered(&format!("search worker {n} died; restarting it")),
         }
+        if !budget.spend() {
+            notices.always(
+                lsp_types::MessageType::ERROR,
+                "Stitchwort stopped running proof searches after repeated internal errors. \
+                 Restart the language server to get them back.",
+            );
+            // Answered at once, rather than left waiting for a worker.
+            for job in jobs {
+                searched(
+                    &job.id,
+                    &job.pending,
+                    job.version,
+                    serde_json::Value::Null,
+                    &sender,
+                    &searches,
+                );
+            }
+            return;
+        }
+    }
+}
+
+/// How often a part of the server may be started again after a panic: 5
+/// times in 3 minutes, as VS Code does for the server process. Past that,
+/// that part stops and says so, rather than looping.
+#[derive(Default)]
+struct Budget {
+    restarts: std::collections::VecDeque<std::time::Instant>,
+}
+
+impl Budget {
+    const RESTARTS: usize = 5;
+    const WITHIN: Duration = Duration::from_secs(180);
+
+    /// Counts a restart; false if it is one too many.
+    fn spend(&mut self) -> bool {
+        let now = std::time::Instant::now();
+        self.restarts
+            .retain(|t| now.duration_since(*t) < Self::WITHIN);
+        if self.restarts.len() >= Self::RESTARTS {
+            return false;
+        }
+        self.restarts.push_back(now);
+        true
+    }
+}
+
+/// What the user is told about internal errors (`window/showMessage`).
+struct Notices {
+    sender: Sender<Message>,
+    /// The first recovered panic of the session has been shown.
+    told: AtomicBool,
+}
+
+impl Notices {
+    fn new(sender: Sender<Message>) -> Self {
+        Notices {
+            sender,
+            told: AtomicBool::new(false),
+        }
+    }
+
+    /// A panic the server recovered from: logged, and shown the first time
+    /// in the session only.
+    fn recovered(&self, what: &str) {
+        eprintln!("stitchwort lsp: {what}");
+        if !self.told.swap(true, Ordering::SeqCst) {
+            self.always(
+                lsp_types::MessageType::WARNING,
+                "Stitchwort hit an internal error and recovered. Details are in the \
+                 Stitchwort output; please report it.",
+            );
+        }
+    }
+
+    fn always(&self, kind: lsp_types::MessageType, message: &str) {
+        let n = Notification::new(
+            "window/showMessage".to_string(),
+            serde_json::json!({ "type": kind, "message": message }),
+        );
+        let _ = self.sender.send(n.into());
     }
 }
 
@@ -793,6 +912,7 @@ struct Main {
     /// Whether the client applies versioned `documentChanges` edits.
     document_changes: bool,
     faults: Arc<Faults>,
+    notices: Arc<Notices>,
 }
 
 impl Main {
@@ -828,7 +948,8 @@ impl Main {
         }));
         let Err(payload) = ran else { return };
         let message = panic_message(&*payload);
-        eprintln!("stitchwort lsp: {method} panicked: {message}");
+        self.notices
+            .recovered(&format!("{method} panicked: {message}"));
         // A search already queued is answered by its worker.
         if !lock(&self.searches.pending).contains_key(&id) {
             let response = Response::new_err(
@@ -2226,6 +2347,134 @@ struct Checker {
     /// An edit's diagnostics are still to be published (for
     /// `Options::cancellations`).
     unanswered: bool,
+    /// The text and version of each open document, recorded before an edit
+    /// is applied, so that a successor can open them again ([`Keeper`]).
+    open: BTreeMap<PathBuf, (i32, String)>,
+    /// The workspaces not checked, with the panic that led to it, until one
+    /// of their files is edited.
+    quarantined: BTreeMap<PathBuf, String>,
+    /// The workspaces that panicked since they were last edited: another
+    /// panic quarantines them.
+    suspects: BTreeSet<PathBuf>,
+    /// Checking has stopped for good (the restart budget is spent): why.
+    stopped: Option<String>,
+}
+
+/// A panic in the checker: the workspace it was working on, if known.
+struct Panic {
+    workspace: Option<PathBuf>,
+    message: String,
+}
+
+/// How a checker thread ended.
+enum Exit {
+    /// The client has gone.
+    Closed,
+    /// A panic: what is left to hand to the successor.
+    Panicked(Panic, Box<Keeper>),
+}
+
+/// What a checker thread hands to its successor when it panics: plain data
+/// only. The sessions it held (`Rc`s, caches and whatever per-thread state
+/// the panic left behind) are dropped with the thread; the successor builds
+/// them again from the open texts.
+#[derive(Default)]
+struct Keeper {
+    open: BTreeMap<PathBuf, (i32, String)>,
+    last: Option<PathBuf>,
+    also: Vec<PathBuf>,
+    announced: BTreeMap<String, i32>,
+    requests: u32,
+    published: HashMap<Url, (Option<i32>, Vec<lsp_types::Diagnostic>)>,
+    quarantined: BTreeMap<PathBuf, String>,
+    suspects: BTreeSet<PathBuf>,
+    stopped: Option<String>,
+}
+
+/// Runs the checker, and starts a new thread for it, from what the old one
+/// kept, whenever it panics ([`Budget`] permitting); a workspace that
+/// panics again with no edit in between is quarantined.
+fn keep_checker(
+    options: Options,
+    source: Arc<dyn Source>,
+    sender: Sender<Message>,
+    nav: Arc<RwLock<Nav>>,
+    cancel: Arc<AtomicBool>,
+    edits: Receiver<Edit>,
+    notices: Arc<Notices>,
+) {
+    let mut keeper = Keeper::default();
+    let mut budget = Budget::default();
+    loop {
+        let thread = {
+            let (options, source, sender) = (options.clone(), source.clone(), sender.clone());
+            let (nav, cancel, edits) = (nav.clone(), cancel.clone(), edits.clone());
+            std::thread::Builder::new()
+                .name("stitchwort-checker".into())
+                .stack_size(options.stack)
+                .spawn(move || {
+                    Checker::resume(options, source, sender, nav, cancel, keeper).run(&edits)
+                })
+        };
+        let exit = match thread.map(|t| t.join()) {
+            Ok(Ok(exit)) => exit,
+            Ok(Err(_)) | Err(_) => {
+                // Nothing to build a successor from.
+                notices.always(
+                    lsp_types::MessageType::ERROR,
+                    "Stitchwort stopped checking after an internal error. \
+                     Restart the language server.",
+                );
+                return;
+            }
+        };
+        let Exit::Panicked(panic, mut kept) = exit else {
+            return;
+        };
+        let place = panic
+            .workspace
+            .as_ref()
+            .map_or(String::new(), |w| format!(" in {}", w.display()));
+        eprintln!(
+            "stitchwort lsp: the checker panicked{place}: {}",
+            panic.message
+        );
+        if !budget.spend() {
+            notices.always(
+                lsp_types::MessageType::ERROR,
+                "Stitchwort stopped checking after repeated internal errors. Run \
+                 \"Stitchwort: Restart Server\" (or reload the window) to start again.",
+            );
+            kept.stopped = Some(
+                "internal error: checking stopped after repeated internal errors; restart \
+                 the language server"
+                    .to_string(),
+            );
+        } else if let Some(workspace) = panic.workspace
+            && !kept.suspects.insert(workspace.clone())
+        {
+            let name = (workspace.file_name())
+                .map_or("a file".to_string(), |n| n.to_string_lossy().into_owned());
+            notices.always(
+                lsp_types::MessageType::ERROR,
+                &format!(
+                    "Stitchwort stopped checking {name} after repeated internal errors. \
+                     Edit one of its files to try again."
+                ),
+            );
+            kept.suspects.remove(&workspace);
+            kept.quarantined.insert(
+                workspace,
+                format!(
+                    "internal error while checking {name}: {}; edit a file of it to try again",
+                    panic.message
+                ),
+            );
+        } else {
+            notices.recovered(&format!("the checker panicked{place}: {}", panic.message));
+        }
+        keeper = *kept;
+    }
 }
 
 impl Checker {
@@ -2250,44 +2499,225 @@ impl Checker {
             requests: 0,
             published: HashMap::default(),
             unanswered: false,
+            open: BTreeMap::new(),
+            quarantined: BTreeMap::new(),
+            suspects: BTreeSet::new(),
+            stopped: None,
         }
     }
 
-    fn run(mut self, edits: Receiver<Edit>) {
+    /// A checker that takes over from one that panicked: its documents are
+    /// opened again from `keeper`, and nothing else is carried over.
+    fn resume(
+        options: Options,
+        source: Arc<dyn Source>,
+        sender: Sender<Message>,
+        nav: Arc<RwLock<Nav>>,
+        cancel: Arc<AtomicBool>,
+        keeper: Keeper,
+    ) -> Self {
+        let mut checker = Checker::new(options, source, sender, nav, cancel);
+        let Keeper {
+            open,
+            last,
+            also,
+            announced,
+            requests,
+            published,
+            quarantined,
+            suspects,
+            stopped,
+        } = keeper;
+        checker.announced = announced;
+        checker.requests = requests;
+        checker.published = published;
+        checker.quarantined = quarantined;
+        checker.suspects = suspects;
+        checker.stopped = stopped;
+        checker.also = also;
+        checker.open = open;
+        checker.reopen();
+        checker.last = last;
+        checker
+    }
+
+    /// Opens the recorded documents again.
+    fn reopen(&mut self) {
+        let open = self.open.clone();
+        if let Some(why) = self.stopped.clone() {
+            let keys: Vec<PathBuf> = {
+                let nav = self.nav.read().unwrap_or_else(|e| e.into_inner());
+                nav.workspaces.keys().cloned().collect()
+            };
+            for key in keys {
+                self.forget(&key);
+            }
+            for (path, (version, _)) in open {
+                self.versions.insert(path.clone(), version);
+                self.show_error(&path, &why);
+            }
+            return;
+        }
+        let keys: Vec<PathBuf> = self.quarantined.keys().cloned().collect();
+        for key in keys {
+            self.forget(&key);
+        }
+        for (path, (version, text)) in open {
+            self.open_text(&path, text, version);
+        }
+        self.give_also();
+    }
+
+    /// The document `path` is open at `version` with `text`, unless its
+    /// workspace is quarantined, which then shows why.
+    fn open_text(&mut self, path: &Path, text: String, version: i32) {
+        self.versions.insert(path.to_path_buf(), version);
+        if let Some(key) = self.quarantine_key(path) {
+            let why = self.quarantined[&key].clone();
+            self.show_error(path, &why);
+            return;
+        }
+        self.set_text(path, Some(text), true);
+    }
+
+    /// The quarantined workspace that `path` belongs to, if any.
+    fn quarantine_key(&self, path: &Path) -> Option<PathBuf> {
+        if self.quarantined.is_empty() {
+            return None;
+        }
+        let project = self
+            .source
+            .find_project(path.parent().unwrap_or(Path::new("/")));
+        (self.quarantined.keys())
+            .find(|k| k.as_path() == path || project.as_deref() == Some(k.as_path()))
+            .cloned()
+    }
+
+    /// The workspace of `path`, loaded or not.
+    fn workspace_of(&self, path: &Path) -> PathBuf {
+        if self.work.contains_key(path) {
+            return path.to_path_buf();
+        }
+        if let Some((key, _)) = self.project_of(path) {
+            return key;
+        }
+        (self
+            .source
+            .find_project(path.parent().unwrap_or(Path::new("/"))))
+        .unwrap_or_else(|| path.to_path_buf())
+    }
+
+    /// Shows `message` as the only diagnostic of the open file `path`.
+    fn show_error(&mut self, path: &Path, message: &str) {
+        let Ok(uri) = Url::from_file_path(path) else {
+            return;
+        };
+        let version = self.versions.get(path).copied();
+        let diagnostic = lsp_types::Diagnostic {
+            severity: Some(DiagnosticSeverity::ERROR),
+            source: Some("stitchwort".to_string()),
+            message: message.to_string(),
+            ..Default::default()
+        };
+        let shown = (version, vec![diagnostic]);
+        if self.published.get(&uri) == Some(&shown) {
+            return;
+        }
+        let params = PublishDiagnosticsParams {
+            uri: uri.clone(),
+            diagnostics: shown.1.clone(),
+            version,
+        };
+        self.published.insert(uri, shown);
+        let n = Notification::new(notification::PublishDiagnostics::METHOD.to_string(), params);
+        let _ = self.sender.send(n.into());
+    }
+
+    /// What the successor needs, if the checker panicked. Drops the sessions.
+    fn into_keeper(self) -> Keeper {
+        Keeper {
+            open: self.open,
+            last: self.last,
+            also: self.also,
+            announced: self.announced,
+            requests: self.requests,
+            published: self.published,
+            quarantined: self.quarantined,
+            suspects: self.suspects,
+            stopped: self.stopped,
+        }
+    }
+
+    /// Applies an edit, catching a panic.
+    fn apply_caught(&mut self, edit: Edit) -> Result<(), Panic> {
+        let path = edit.path().map(Path::to_path_buf);
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.apply(edit))).map_err(
+            |payload| Panic {
+                workspace: path.map(|p| self.workspace_of(&p)),
+                message: panic_message(&*payload),
+            },
+        )
+    }
+
+    /// [`Checker::step`], catching a panic.
+    fn step_caught(&mut self, key: &Path) -> Result<(), Panic> {
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            if self.options.faults.checker_panics_now(key) {
+                panic!("injected checker fault");
+            }
+            self.step(key)
+        }))
+        .map_err(|payload| Panic {
+            workspace: Some(key.to_path_buf()),
+            message: panic_message(&*payload),
+        })
+    }
+
+    /// Checks until the client goes or something panics. Only the catches
+    /// are around the steps: the sessions are dropped here, after the unwind
+    /// has finished, by the thread that is about to end.
+    fn run(mut self, edits: &Receiver<Edit>) -> Exit {
+        match self.run_caught(edits) {
+            Ok(()) => Exit::Closed,
+            Err(panic) => Exit::Panicked(panic, Box::new(self.into_keeper())),
+        }
+    }
+
+    fn run_caught(&mut self, edits: &Receiver<Edit>) -> Result<(), Panic> {
         loop {
             let idle = !self.work.values().any(Work::pending);
             let mut edited = false;
             if idle {
                 match edits.recv() {
                     Ok(edit) => {
-                        self.apply(edit);
+                        self.apply_caught(edit)?;
                         edited = true;
                     }
-                    Err(_) => return,
+                    Err(_) => return Ok(()),
                 }
             }
             loop {
                 match edits.try_recv() {
                     Ok(edit) => {
-                        self.apply(edit);
+                        self.apply_caught(edit)?;
                         edited = true;
                     }
                     Err(TryRecvError::Empty) => break,
                     // The client has gone: the rest of the project isn't
                     // worth checking.
-                    Err(TryRecvError::Disconnected) => return,
+                    Err(TryRecvError::Disconnected) => return Ok(()),
                 }
             }
             // Wait for typing to pause.
             while edited && !self.options.debounce.is_zero() {
                 match edits.recv_timeout(self.options.debounce) {
-                    Ok(edit) => self.apply(edit),
+                    Ok(edit) => self.apply_caught(edit)?,
                     Err(RecvTimeoutError::Timeout) => break,
-                    Err(RecvTimeoutError::Disconnected) => return,
+                    Err(RecvTimeoutError::Disconnected) => return Ok(()),
                 }
             }
             if let Some(key) = self.next_key() {
-                self.step(&key);
+                self.step_caught(&key)?;
             }
             self.announce();
         }
@@ -2512,18 +2942,95 @@ impl Checker {
         }
     }
 
-    fn apply(&mut self, edit: Edit) {
-        self.unanswered = true;
+    /// Notes an open document's new text first, so that a panic while
+    /// applying the edit doesn't lose it.
+    fn record(&mut self, edit: &Edit) {
         match edit {
             Edit::Open {
                 path,
                 text,
                 version,
-            } => {
-                self.versions.insert(path.clone(), version);
-                self.set_text(&path, Some(text), true);
             }
-            Edit::Change {
+            | Edit::Change {
+                path,
+                text,
+                version,
+            } => {
+                self.open.insert(path.clone(), (*version, text.clone()));
+            }
+            Edit::Close { path } => {
+                self.open.remove(path);
+            }
+            _ => {}
+        }
+    }
+
+    /// An open file of a workspace was edited: it is no longer under
+    /// suspicion, and if it was quarantined, it is checked again.
+    fn edited(&mut self, path: &Path) {
+        if self.suspects.is_empty() && self.quarantined.is_empty() {
+            return;
+        }
+        let workspace = self.workspace_of(path);
+        self.suspects.remove(&workspace);
+        if self.quarantined.remove(&workspace).is_none() {
+            return;
+        }
+        let others: Vec<_> = (self.open.iter())
+            .filter(|(p, _)| p.as_path() != path)
+            .map(|(p, (v, t))| (p.clone(), *v, t.clone()))
+            .collect();
+        for (other, version, text) in others {
+            if self.workspace_of(&other) == workspace {
+                self.open_text(&other, text, version);
+            }
+        }
+    }
+
+    fn apply(&mut self, edit: Edit) {
+        self.unanswered = true;
+        self.record(&edit);
+        if let Some(why) = self.stopped.clone() {
+            match &edit {
+                Edit::Open { path, version, .. } | Edit::Change { path, version, .. } => {
+                    self.versions.insert(path.clone(), *version);
+                    self.show_error(path, &why);
+                }
+                Edit::Close { path } => {
+                    self.versions.remove(path);
+                }
+                _ => {}
+            }
+            return;
+        }
+        match &edit {
+            Edit::Open { path, .. } | Edit::Change { path, .. } => self.edited(path),
+            Edit::Close { path } if self.quarantine_key(path).is_some() => {
+                self.versions.remove(path);
+                if let Ok(uri) = Url::from_file_path(path) {
+                    self.published.remove(&uri);
+                    let params = PublishDiagnosticsParams {
+                        uri,
+                        diagnostics: Vec::new(),
+                        version: None,
+                    };
+                    let n = Notification::new(
+                        notification::PublishDiagnostics::METHOD.to_string(),
+                        params,
+                    );
+                    let _ = self.sender.send(n.into());
+                }
+                return;
+            }
+            _ => {}
+        }
+        match edit {
+            Edit::Open {
+                path,
+                text,
+                version,
+            }
+            | Edit::Change {
                 path,
                 text,
                 version,
@@ -2743,6 +3250,7 @@ impl Inline {
             nav.clone(),
             cancel.clone(),
         );
+        let notices = Arc::new(Notices::new(server.sender.clone()));
         let main = Main {
             connection: server,
             source,
@@ -2754,6 +3262,7 @@ impl Inline {
             to_searches,
             document_changes: false,
             faults: options.faults.clone(),
+            notices,
         };
         Ok(Inline {
             main,
