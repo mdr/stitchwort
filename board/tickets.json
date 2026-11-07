@@ -1,5 +1,5 @@
 {
-  "next": 2156,
+  "next": 2157,
   "tickets": [
     {
       "id": 47,
@@ -19849,6 +19849,21 @@
       ],
       "epic": "diagnostics",
       "body": "From docs/proposals/goal-printing-gaps.md. Lane E; replaces SW-1469's second half. Its AoC run needs Matt's OK. 20 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2156,
+      "title": "[Opus] Design: why checking std from a cold cache takes ~27 s (Speedwell release) and ~120 s (Overmind), what it costs users (first editor session, first search, CI, fresh worktrees), and the options: ship a prebuilt std cache with the binary, check std lazily per namespace, parallelise, or speed the check itself",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2156",
+      "labels": [
+        "design"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "Read-only Opus lane, 7 Nov. From SW-2144 and SW-2120. Expected: 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
