@@ -1,5 +1,5 @@
 {
-  "next": 1912,
+  "next": 1913,
   "tickets": [
     {
       "id": 47,
@@ -16200,6 +16200,21 @@
       ],
       "epic": "elaborator-kernel",
       "body": "From docs/reviews/code-review-elab-checking.md (tickets to file, 11). 30 min. F17 after SW-1902.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1912,
+      "title": "[Opus] Code review: crates/elab part 3 (derive*, interfaces, effects and rows, std loading and library, nav, module/project, data_auto, families, partial, tailrec, quot, opaque, reify, the rest)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1912",
+      "labels": [
+        "review"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "Matt (7 Nov 2026): crate-by-crate code reviews, reading only. Expected: 90 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
