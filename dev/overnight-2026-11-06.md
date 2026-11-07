@@ -107,3 +107,4 @@ Take these in order, once the speed queue above is empty or blocked.
 - 03:07: SW-1767 done on lane/SW-1642.
 - 03:21: SW-1736 pilot merged (rt 13 → 3 binaries); SW-1780 (core, DeepSeek) started; SW-1781 filed.
 - 03:22: SW-1766 merged (keep accessor calls); D2566 for the morning.
+- 03:23: SW-1748 in review: Opus review SW-1784 started; whole AoC needs Matt. Filed SW-1782 (determinism), SW-1783.
