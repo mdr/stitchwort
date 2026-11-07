@@ -21836,14 +21836,14 @@
     {
       "id": 2288,
       "title": "[Opus] TreeMemo::known's identical walk isn't charged to the budget, so a memo with many entries can get past a small budget (SW-2285's cause); charge it, or look pairs up by pointer or hash; same pattern in reference.rs",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2288",
       "labels": [
         "perf"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-2285. 20 min.",
+      "body": "From SW-2285. 20 min.\n\nDone, merged (core.md conflict with SW-2287 resolved by hand). Memo lookups (TreeMemo, ShapeMemo/CallMemo) cost a budget step per layer compared; reference.rs needed nothing (hash lookup). On main: slow-check E-RESOURCE in 1.3 s; proof_equivalence, hash_stability 22/22. Steps within 0.1% except check-closed-* +1.1%, which predates it (stale baseline). Model result: Opus, worked, 15 min (est. 25).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
