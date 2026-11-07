@@ -16,7 +16,7 @@ use std::fmt::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use stitchwort_cli::driver::{Session, par_map_with, tier_sample};
+use stitchwort_cli::driver::{Session, par_map, par_map_with, tier_sample};
 use stitchwort_cli::render::render;
 use stitchwort_core::backend::View;
 use stitchwort_core::hash::data_hash;
@@ -127,6 +127,16 @@ fn random_inputs_agree_with_the_reference_evaluator() {
     }
 }
 
+/// A session whose library files replay from the test std cache outside the
+/// full tier (docs/testing.md, "The test std cache"): these tests are of the
+/// extracted code, and the full tier still checks the library from source in
+/// each.
+fn new_session() -> Session {
+    let mut session = Session::new();
+    session.use_test_std_cache();
+    session
+}
+
 /// Examples are checked on threads with this much stack.
 const STACK: usize = 16 * 1024 * 1024;
 
@@ -142,7 +152,7 @@ fn generated_code_is_stable() {
         STACK,
         &examples().paths(),
         || {
-            let mut session = Session::new();
+            let mut session = new_session();
             let mark = session.mark();
             (session, mark)
         },
@@ -167,7 +177,10 @@ fn generated_code_is_stable() {
 /// in the merge tier.
 #[test]
 fn the_declarations_type_check() {
-    for (name, _, session) in examples() {
+    // Checking an example and its `tsc` run are both slow and independent of
+    // the other examples': one per worker thread.
+    par_map(STACK, &examples().paths(), |path| {
+        let (name, _, session) = check_example(path);
         let output = stitchwort_js::generate(&session.elab.backend(), session.elab.options.limits)
             .expect("extraction succeeds");
         let stem = name.trim_end_matches(".sw");
@@ -193,7 +206,7 @@ fn the_declarations_type_check() {
             output.dts
         );
         let _ = std::fs::remove_dir_all(&dir);
-    }
+    });
 }
 
 struct Case {
@@ -230,7 +243,7 @@ struct Examples(Vec<(PathBuf, std::cell::OnceCell<(String, String, Session)>)>);
 /// Checks the example at `path`, panicking with its diagnostics if it
 /// doesn't check.
 fn check_example(path: &Path) -> (String, String, Session) {
-    let mut session = Session::new();
+    let mut session = new_session();
     let (name, text) = read_and_load(&mut session, path);
     (name, text, session)
 }
@@ -1923,7 +1936,7 @@ fn the_default_tag_key_written_out_changes_nothing() {
     let generated: Vec<stitchwort_js::Output> = ["", "@[js.tag \"$tag\"]\n"]
         .iter()
         .map(|attr| {
-            let mut session = Session::new();
+            let mut session = new_session();
             session.load("shape.sw", &source(attr)).expect("checks");
             stitchwort_js::generate(&session.elab.backend(), session.elab.options.limits)
                 .expect("extraction succeeds")
@@ -1967,7 +1980,7 @@ type Both (a : Type) (b : Type) : Type =
 
 export def echoBoth (p : Both (List Nat) (List Text)) : Both (List Nat) (List Text) := p
 ";
-    let mut session = Session::new();
+    let mut session = new_session();
     session.load("shared.sw", source).expect("checks");
     let script = r#"
 import * as m from "./shared.mjs";
@@ -2054,7 +2067,7 @@ export def sumX : List Point -> Nat
   | Nil       => 0
   | Cons p ps => p.x + sumX ps
 ";
-    let mut session = Session::new();
+    let mut session = new_session();
     session.load("fast.sw", source).expect("checks");
     let script = r#"
 import * as m from "./fast.mjs";
@@ -2127,7 +2140,7 @@ def helper (n : Nat) : Nat := True
 
 export def f (n : Nat) : Nat := helper n
 ";
-    let mut session = Session::new();
+    let mut session = new_session();
     assert!(session.load("broken.sw", source).is_err());
     let g = &session.elab.backend();
     let helper = (0..g.env.defs().len())
@@ -2780,7 +2793,7 @@ console.log("ok");
 #[test]
 fn a_type_without_values_refuses_everything() {
     let source = "type Never : Type\n\nexport def fromNever (n : Never) : Nat := 0\n";
-    let mut session = Session::new();
+    let mut session = new_session();
     session.load("never.sw", source).expect("checks");
     let output = stitchwort_js::generate(&session.elab.backend(), session.elab.options.limits)
         .expect("extraction succeeds");
@@ -3113,7 +3126,7 @@ fn awkward_names_never_collide() {
         }
 
         let name = format!("awkward-{round}.sw");
-        let mut session = Session::new();
+        let mut session = new_session();
         if let Err(diagnostics) = session.load(&name, &source) {
             let rendered: String = diagnostics
                 .iter()
@@ -3435,7 +3448,7 @@ export def countdownLength (n: Nat): Nat := List.foldLeft (countdownNamed n) 0 (
 
 export def digitCount (n: Nat): Nat := List.foldLeft (Nat.digits n).toList 0 (count d => count + 1)
 "#;
-    let mut session = Session::new();
+    let mut session = new_session();
     if let Err(diagnostics) = session.load("decreasing.sw", source) {
         let rendered: String = diagnostics
             .iter()
@@ -3495,7 +3508,7 @@ fn a_group_member_with_only_erased_parameters_is_a_thunk() {
     use stitchwort_core::check::{declare_def, define_def, define_group};
     use stitchwort_core::{Icit, Sort};
 
-    let mut session = Session::new();
+    let mut session = new_session();
     session
         .load("empty.sw", "")
         .expect("an empty module checks");
@@ -3608,7 +3621,7 @@ fn long_literals_extract_as_strings() {
          | t => []\n\n\
          export def longChars (b : Bool) : List Char := Text.toList {literal}\n"
     );
-    let mut session = Session::new();
+    let mut session = new_session();
     if let Err(errors) = session.load("long.sw", &source) {
         panic!("{:?}", errors.iter().map(|d| d.code).collect::<Vec<_>>());
     }
@@ -3656,7 +3669,7 @@ fn an_inlined_text_comparison_calls_the_native() {
         List.length (List.filter xs (r => r.id == target))\n\n\
         export def findWith (xs: List Item) (target: Text): Nat :=\n  \
         Option.getOrElse (Option.map (List.find xs (r => r.id == target)) (r => r.n)) 0\n";
-    let mut session = Session::new();
+    let mut session = new_session();
     if let Err(errors) = session.load("compare.sw", source) {
         panic!("{:?}", errors.iter().map(|d| d.code).collect::<Vec<_>>());
     }
@@ -3715,7 +3728,7 @@ fn a_text_comparison_in_a_match_scrutinee_calls_the_native() {
         match List.find xs (t => thingId t == id) with\n    \
         | None => 0\n    \
         | Some _ => 1\n";
-    let mut session = Session::new();
+    let mut session = new_session();
     if let Err(errors) = session.load("scrutinee.sw", source) {
         panic!("{:?}", errors.iter().map(|d| d.code).collect::<Vec<_>>());
     }
@@ -3763,7 +3776,7 @@ fn a_let_bound_value_is_not_written_out_at_its_uses() {
         let m := work n\n  \
         let e := m.map (i => i + 1)\n  \
         if decode e == m then Some e else None\n";
-    let mut session = Session::new();
+    let mut session = new_session();
     if let Err(errors) = session.load("share.sw", source) {
         panic!("{:?}", errors.iter().map(|d| d.code).collect::<Vec<_>>());
     }
@@ -4215,7 +4228,7 @@ console.log("ok");
     run_script("safe-numbers", &[("safe-numbers.mjs", session)], script);
 
     // A program's own `SafeNat` is an ordinary record, not the library's.
-    let mut own = Session::new();
+    let mut own = new_session();
     own.load(
         "own.sw",
         "type SafeNat = { value: Nat, fits: value <= 9007199254740991 }\n\
@@ -4498,7 +4511,7 @@ console.log("ok");
 #[test]
 fn only_text_keyed_maps_cross_as_objects() {
     let refuse = |name: &str, source: &str| -> String {
-        let mut session = Session::new();
+        let mut session = new_session();
         if let Err(diagnostics) = session.load(name, source) {
             let rendered: String = diagnostics
                 .iter()
@@ -5074,7 +5087,7 @@ fn a_tailrec_definition_that_is_not_a_loop_is_an_internal_error() {
     use stitchwort_core::Icit;
     use stitchwort_core::check::{declare_def, define_def, mark_tailrec};
 
-    let mut session = Session::new();
+    let mut session = new_session();
     session
         .load("empty.sw", "")
         .expect("an empty module checks");

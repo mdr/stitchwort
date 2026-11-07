@@ -11,6 +11,13 @@ mod common;
 
 use stitchwort_cli::driver::par_map;
 
+/// The check cache every test here shares: the library replays from it
+/// instead of being checked from source by each of the many `stitchwort`
+/// processes (about 10 s of CPU each). Keys hold the sources by content, so
+/// sharing is safe; the first writers fill it concurrently, which the cache
+/// allows (as in `build.rs`).
+const CACHE: &str = concat!(env!("CARGO_TARGET_TMPDIR"), "/run-js-tests-cache");
+
 /// Stack for the pool threads that wait on child processes.
 const STACK: usize = 8 * 1024 * 1024;
 
@@ -88,7 +95,7 @@ fn filtering() -> bool {
 /// Runs `stitchwort run [--js] path` with `input` piped to it.
 fn run(path: &Path, js: bool, input: &[u8]) -> Output {
     let mut command = Command::new(env!("CARGO_BIN_EXE_stitchwort"));
-    command.args(["run", "--no-cache"]);
+    command.args(["run", "--cache-dir", CACHE]);
     if js {
         command.arg("--js");
     }
@@ -329,7 +336,7 @@ def main () : {IO} () := IO.print (Nat.toText (build 20000000).length)
 fn a_missing_node_is_reported() {
     let path = examples().join("collatz.sw");
     let output = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
-        .args(["run", "--no-cache", "--js"])
+        .args(["run", "--cache-dir", CACHE, "--js"])
         .arg(&path)
         .env("PATH", "")
         .output()
@@ -486,7 +493,7 @@ export def total (n: Nat): Nat := app2 (tagged (slow n))
     );
     let out = path.parent().unwrap().join("once-out");
     let built = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
-        .args(["build", "--js", "--no-cache", "-o"])
+        .args(["build", "--js", "--cache-dir", CACHE, "-o"])
         .arg(&out)
         .arg(&path)
         .output()
@@ -752,7 +759,7 @@ fn stack_safe_everywhere_at(path: &Path, exports: &[&str], n: u64) {
     let stem = path.file_stem().unwrap().to_str().unwrap();
     let out = path.parent().unwrap().join(format!("{stem}-out"));
     let built = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
-        .args(["build", "--js", "--no-cache", "-o"])
+        .args(["build", "--js", "--cache-dir", CACHE, "-o"])
         .arg(&out)
         .arg(path)
         .output()
@@ -1041,7 +1048,7 @@ fn the_arguments_after_a_double_dash_are_the_programs() {
         "import Std (IO, List, Text)\ndef main () : {IO} () := IO.print (Text.joinWith (IO.args ()) \"|\")\n",
     );
     let output = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
-        .args(["run", "--no-cache", "--js"])
+        .args(["run", "--cache-dir", CACHE, "--js"])
         .arg(&path)
         .args(["--", "1", "two words", "--js"])
         .output()

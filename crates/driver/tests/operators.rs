@@ -176,22 +176,54 @@ fn primitive_and_uniform_lowering_agree() {
     }
 }
 
+/// The names of the folders in `dir`, in order.
+fn sorted_dirs(dir: &std::path::Path) -> Vec<String> {
+    let mut names: Vec<String> = std::fs::read_dir(dir)
+        .unwrap_or_else(|e| panic!("{}: {e}", dir.display()))
+        .map(|entry| entry.unwrap())
+        .filter(|entry| entry.path().is_dir())
+        .map(|entry| entry.file_name().to_string_lossy().into_owned())
+        .collect();
+    names.sort();
+    names
+}
+
 /// The same on a larger sample: the library files the AoC project uses,
 /// and the project, loaded both ways, give every definition the same hash.
+/// The whole project in the full tier; in the others a fixed sample of its
+/// days ([`tier_sample`]), with what they use (`Aoc.Common`, the library).
 /// On a 16 MiB stack, as the CLI and the other tests that load the project
 /// check it: day 22's `part1Correct` recurses more deeply than a default
 /// (2 MiB) session allows.
 #[test]
 fn primitive_and_uniform_lowering_agree_on_the_library_and_aoc() {
     use stitchwort_core::hash::def_hash;
-    use stitchwort_driver::driver::par_map;
+    use stitchwort_driver::driver::{par_map, tier_sample};
     use stitchwort_driver::project::{DiskFiles, Target};
     const STACK: usize = 16 * 1024 * 1024;
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../aoc");
+    let mut days = Vec::new();
+    for year in sorted_dirs(&root.join("src/Aoc")) {
+        let Some(year) = year.strip_prefix("Year") else {
+            continue;
+        };
+        for day in sorted_dirs(&root.join(format!("src/Aoc/Year{year}"))) {
+            days.push(format!("Aoc.Year{year}.{day}"));
+        }
+    }
+    assert!(days.len() > 50, "{} days", days.len());
+    let all = days.len();
+    let sample = tier_sample(days, 8);
+    let target = if sample.len() == all {
+        Target::Everything
+    } else {
+        Target::Subtrees(sample)
+    };
     let hashes = |uniform: bool| {
         let mut session = Session::for_stack(STACK);
         session.elab.options.uniform_operators = uniform;
-        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../aoc");
-        if let Err(errors) = session.load_project(&DiskFiles { root }, "aoc", &Target::Everything) {
+        let files = DiskFiles { root: root.clone() };
+        if let Err(errors) = session.load_project(&files, "aoc", &target) {
             panic!("aoc doesn't load: {errors:#?}");
         }
         let g = &session.elab.ev();
@@ -207,7 +239,7 @@ fn primitive_and_uniform_lowering_agree_on_the_library_and_aoc() {
     let [primitive, uniform]: [_; 2] = par_map(STACK, &[false, true], |&u| hashes(u))
         .try_into()
         .unwrap();
-    assert!(primitive.len() > 1000, "{} definitions", primitive.len());
+    assert!(primitive.len() > 500, "{} definitions", primitive.len());
     assert_eq!(primitive.len(), uniform.len());
     for (name, h) in &primitive {
         assert_eq!(Some(h), uniform.get(name), "{name}");
