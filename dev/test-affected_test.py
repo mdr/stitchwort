@@ -185,6 +185,63 @@ class Budget(unittest.TestCase):
         self.assertGreaterEqual(res["estimate"]["estimate"], 60)
 
 
+class ChangedTestFile(unittest.TestCase):
+    """A diff of crates/lsp/tests/features.rs (SW-1760)."""
+    LSP = [test("lsp::features", "quick_one", 2, package="stitchwort-lsp"),
+           test("lsp::features", "slow_one", 60, package="stitchwort-lsp"),
+           test("lsp::memory", "other", 9, package="stitchwort-lsp")]
+
+    def run_with(self, names):
+        old = ta.changed_test_names, dict(ta.TEST_NAMES)
+        ta.changed_test_names = lambda path, range_: names
+        ta.TEST_NAMES.update(enabled=True, range=None)
+        try:
+            return pick(["crates/lsp/tests/features.rs"], inv=INV + self.LSP, budget=1000)
+        finally:
+            ta.changed_test_names = old[0]
+            ta.TEST_NAMES.update(old[1])
+
+    def test_changed_tests_come_first_and_the_rest_is_only_its_quick_tests(self):
+        res, _ = self.run_with(["quick_one"])
+        rules = {r.id: r for r in res["rules"]}
+        self.assertEqual(rules["test-file-changed"].rank, 1)
+        self.assertEqual(rules["test-file"].rank, 2)
+
+    def test_a_changed_helper_selects_the_whole_binary_at_the_top_rank(self):
+        """`cached_memory` is not a test: the diff must not leave a rule that
+        selects nothing, and every test of the file may be affected."""
+        res, notes = self.run_with(["cached_memory"])
+        rules = {r.id: r for r in res["rules"]}
+        self.assertNotIn("test-file-changed", rules)
+        self.assertEqual(rules["test-file"].rank, 1)
+        self.assertFalse(rules["test-file"].cheap_only)
+        self.assertIn("slow_one", ids_of(res))
+        self.assertEqual(res["empty"], [])
+        self.assertFalse([n for n in notes if "selects no test" in n])
+
+    def test_an_empty_rule_is_reported_for_the_refresh(self):
+        res, _ = pick(["crates/lsp/tests/features.rs"], inv=INV, budget=1000)
+        self.assertIn("test-file", res["empty"])
+
+
+class SelectorLogFiles(unittest.TestCase):
+    def test_the_log_and_gitattributes_select_nothing(self):
+        for f in ("dev/selector-log.tsv", ".gitattributes"):
+            self.assertTrue(ta.globs_match(CFG.get("ignore", []), f), f)
+
+    def test_run_selected_logs_only_in_the_main_checkout(self):
+        import subprocess
+        text = open(os.path.join(here, "run-selected")).read()
+        self.assertIn("--git-common-dir", text)
+        self.assertIn('[ "$main_checkout" = 1 ]', text)
+        # The test the script applies: a linked worktree's git dir is not the common one.
+        r = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-dir", "--git-common-dir"],
+                           cwd=here, capture_output=True, text=True)
+        gitdir, common = r.stdout.split()
+        linked = "/worktrees/" in gitdir
+        self.assertEqual(gitdir != common, linked)
+
+
 class Quoting(unittest.TestCase):
     def test_a_filter_with_spaces_and_regexes_survives_the_task_pipeline(self):
         """The filter goes to `task test:selected` as one argv element, never

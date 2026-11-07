@@ -54,6 +54,9 @@ vars:
   # function equations; the rest is many 0.1 to 0.4 GB processes. 4 GB leaves
   # a quarter of headroom.
   MEM_CAP_MERGE: 4
+  # test:selected runs the selector's choice, which may include tests the merge
+  # tier leaves out (SW-1760); it takes the daily cap, as test:one does.
+  MEM_CAP_SELECTED: 16
   MEM_CAP_DAILY: 16
   MEM_CAP_FULL: 16
 
@@ -205,9 +208,11 @@ tasks:
       dev/selector-log.tsv (date, commit, estimated and actual seconds,
       result, failed tests, filter). It folds its JUnit times into
       target/test-timings.json at the end. SELECTOR_ESTIMATE=N records the
-      selector's own estimate.
+      selector's own estimate. The log line is written only in the main
+      checkout (the file is tracked; a lane's worktree would dirty it). The
+      memory cap is the daily tier's, not the merge tier's.
     env:
-      STITCHWORT_MEM_CAP_GB_MERGE: '{{.MEM_CAP_MERGE}}'
+      STITCHWORT_MEM_CAP_GB_SELECTED: '{{.MEM_CAP_SELECTED}}'
     cmds:
       - task: test:features
       - cargo fmt --check

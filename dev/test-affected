@@ -26,6 +26,7 @@ import importlib.util
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tomllib
@@ -341,6 +342,25 @@ def assign_rules(files, cfg, users, notes):
     return rules, why_file
 
 
+def widen_for_helpers(rules, inv):
+    """A changed test file whose diff names functions that are not tests (a
+    helper the tests share) can affect any test in the file: the whole binary
+    becomes the most relevant rule, in place of the named tests."""
+    changed = rules.get("test-file-changed")
+    whole = rules.get("test-file")
+    if not changed or not whole:
+        return
+    for sel in changed.select:
+        names = sel["test"].removeprefix("^(").removesuffix(")$").split("|")
+        binary = {k: v for k, v in sel.items() if k != "test"}
+        have = {t["name"] for t in inv if selector_matches(binary, t)}
+        if have and any(n not in have for n in names):
+            whole.rank, whole.cheap_only = 1, False
+            whole.why = "the changed test file, whose diff touches code the tests share"
+            del rules["test-file-changed"]
+            return
+
+
 def example_selectors(examples):
     return list(SWEEP_BINARIES) if examples else []
 
@@ -394,12 +414,15 @@ def is_sweep(t):
 def select(files, cfg, inv_mod, inv, budget, notes, use_crate_graph=True, names=None):
     users = crate_graph() if use_crate_graph else None
     rules, why_file = assign_rules(files, cfg, users if use_crate_graph else {}, notes)
+    widen_for_helpers(rules, inv)
     names = example_names() if names is None else names
     ordered = sorted(rules.values(), key=lambda r: (r.rank, r.id))
     sets = {}
+    empty = []
     for r in ordered:
         sets[r.id + id(r).__str__()] = tests_of(r, inv)
         if not sets[r.id + id(r).__str__()] and r.rank > 0 and (r.select or r.examples):
+            empty.append(r.id)
             notes.append("rule %s selects no test in the inventory (stale inventory or a rule to fix)" % r.id)
     kept = list(ordered)
     cut = []
@@ -461,7 +484,7 @@ def select(files, cfg, inv_mod, inv, budget, notes, use_crate_graph=True, names=
     cut = [(r, own_seconds(r)) for r in cut]
     examples, wanted = pick_examples(kept, names, notes)
     ids, _, est = current()
-    return {"rules": kept, "cut": cut, "ids": ids, "examples": examples, "estimate": est,
+    return {"empty": empty, "rules": kept, "cut": cut, "ids": ids, "examples": examples, "estimate": est,
             "why_file": why_file, "sets": {r.id: sets[r.id + id(r).__str__()] for r in ordered}}
 
 
@@ -526,6 +549,24 @@ def find_inventory(path):
     sys.exit("FAIL: no test inventory; run `task test:inventory` first")
 
 
+def refresh_inventory(path):
+    """Rebuild this checkout's inventory (tests added or renamed since it was
+    made); a checkout with no timings of its own starts from the main
+    checkout's, so the estimate keeps its times."""
+    timings = os.path.join(ROOT, "target", "test-timings.json")
+    if not os.path.exists(timings):
+        common = git("rev-parse", "--git-common-dir").strip()
+        main = os.path.join(os.path.dirname(os.path.abspath(os.path.join(ROOT, common))), "target", "test-timings.json")
+        if os.path.exists(main):
+            os.makedirs(os.path.dirname(timings), exist_ok=True)
+            shutil.copy(main, timings)
+    print("refreshing the test inventory (a rule selected no test)...", file=sys.stderr)
+    r = subprocess.run([os.path.join(ROOT, "dev", "test-inventory")], cwd=ROOT)
+    if r.returncode != 0:
+        sys.exit("FAIL: the inventory could not be refreshed")
+    return os.path.join(ROOT, "target", "test-inventory.json")
+
+
 def nextest_count(flt):
     r = subprocess.run(["cargo", "nextest", "list", "--release", "--workspace", "--ignore-default-filter",
                         "--message-format", "json", "-E", flt], cwd=ROOT, capture_output=True, text=True)
@@ -544,6 +585,7 @@ def main():
     ap.add_argument("--dry-run", action="store_true", help="print the selection only (the default)")
     ap.add_argument("--run", action="store_true", help="run the selection with task test:selected")
     ap.add_argument("--validate", action="store_true", help="ask nextest how many tests the filter selects (builds the tests)")
+    ap.add_argument("--refresh", action="store_true", help="rebuild the inventory first (--run does so by itself when a rule selects no test)")
     ap.add_argument("--inventory")
     ap.add_argument("--rules", default=os.path.join(ROOT, "dev", "test-affected.toml"))
     ap.add_argument("--no-crate-graph", action="store_true")
@@ -563,7 +605,17 @@ def main():
     if not live:
         print("NOTHING TO RUN: only documentation and board files changed (%d files)." % len(files))
         return 0
+    invpath = find_inventory(a.inventory)
+    if a.refresh and not a.inventory:
+        invpath = refresh_inventory(invpath)
+        inv = json.load(open(invpath))["tests"]
     res = select(files, cfg, inv_mod, inv, a.budget, notes, use_crate_graph=not a.no_crate_graph)
+    if res["empty"] and a.run and not a.dry_run and not a.refresh and not a.inventory:
+        inv = json.load(open(refresh_inventory(invpath)))["tests"]
+        notes.clear()
+        res = select(files, cfg, inv_mod, inv, a.budget, notes, use_crate_graph=not a.no_crate_graph)
+    elif res["empty"]:
+        notes.append("the inventory may be stale: `task test:affected -- --refresh --dry-run` rebuilds it (--run does so by itself)")
     text, flt = report(res, files, profiles, a.budget, a.explain, inv)
     print(text)
     for n in dict.fromkeys(notes):

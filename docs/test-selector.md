@@ -148,7 +148,7 @@ and six parse/effect examples). The lane ran `lane-std` and its own snapshots.
 
 ## Scoring
 
-`task test:selected` appends to `dev/selector-log.tsv`. During the trial the
+`task test:selected` appends to `dev/selector-log.tsv` (in the main checkout only). During the trial the
 verifier also runs the fixed merge tier; a failure the merge tier caught that
 the selection did not is a miss and counts against the selector. See
 docs/workflow.md, "Checks after a merge".

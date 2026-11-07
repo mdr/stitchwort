@@ -30,7 +30,7 @@
 # named examples. `sample = true` is a rule that wants the sweeps' ordinary
 # sample, so a diff that also names examples keeps EXAMPLES unset.
 
-ignore = ["docs/**", "board/**", "**/*.md", "web/**/*.html", "LICENSE", ".gitignore", ".github/**", ".claude/**", "dev/*.md"]
+ignore = ["docs/**", "board/**", "**/*.md", "web/**/*.html", "LICENSE", ".gitignore", ".github/**", ".claude/**", "dev/*.md", ".gitattributes", "dev/selector-log.tsv"]
 
 # The crate each lane area is named for, used for the fallback's dependents.
 [lane_of]
