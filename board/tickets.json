@@ -1,5 +1,5 @@
 {
-  "next": 1802,
+  "next": 1803,
   "tickets": [
     {
       "id": 47,
@@ -13655,14 +13655,14 @@
     {
       "id": 1742,
       "title": "Re-measure mimalloc in test binaries on an idle machine (user CPU of hash_stability prelude) before any sweep over the ~100 test files",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1742",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From SW-1729, 6 Nov 2026: no reliable 5% gain at load 25-35.",
+      "body": "From SW-1729, 6 Nov 2026: no reliable 5% gain at load 25-35.\n\nDone, merged: docs/reviews/SW-1742-mimalloc.md. Idle machine (load 2-3.5): hash_stability prelude user 12.57 → 11.07 s (spread 0.03 s), RSS 262 → 246 MB; std_library group CPU ~17% less (2 pairs). mimalloc set in the driver library binary only. SW-1729's null result was load noise. On main: library binary (std_library excepted) 49/49. Model result: Sonnet, worked, 33 min (est. 40).",
       "created": "2026-11-06",
       "updated": "2026-11-07",
       "commits": []
@@ -14548,6 +14548,21 @@
       ],
       "epic": "elaborator-kernel",
       "body": "From SW-1800. See docs/reviews/SW-1800-dot-failed-cache.md. Also check pure-fold-in-parse-function, never reached.\n\nD2573 (Matt, 7 Nov 2026): yes, a design note first. Started: Opus, expected 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1802,
+      "title": "[Sonnet] mimalloc sweep: measure one or two more test binaries that check std (driver elaboration, proofs; elab; cli; lsp) on an idle machine, then set it in those that gain (not resources, search_at_aoc, rt effect_alloc, state_match) (SW-1742)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "dev-loop-speed",
+      "body": "From SW-1742: 12% CPU on hash_stability prelude, 17% on std_library. Needs a quiet machine.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []

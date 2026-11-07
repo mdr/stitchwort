@@ -127,3 +127,4 @@ Take these in order, once the speed queue above is empty or blocked.
 - 06:24: SW-1798 merged (editor completion 480 ms → 1 ms warm); verified.
 - 06:36: SW-1799 merged (printer crash on unapplied Succ/Cons).
 - 07:29: SW-1800 merged (dot caches per declaration; one of the varying examples now exact). SW-1801 filed for node ids (D2573).
+- 07:40: SW-1742 merged (mimalloc 12% CPU, idle-measured). SW-1802 filed (sweep). SW-1801 (Opus, D2573) running. Overnight run closed.
