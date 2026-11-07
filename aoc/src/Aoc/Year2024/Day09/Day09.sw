@@ -121,10 +121,9 @@ def joinTouching (spans: List Span): List Span :=
 def FreeSpace: Type := Map Nat (Set Nat)
 
 def FreeSpace.add (free: FreeSpace) (span: Span): FreeSpace :=
-  if span.length == 0 then free
-  else free.alter span.length (starts => starts.getOrElse Set.empty |> .insert span.start |> Some)
+  if span.length == 0 then free else free.insertIn span.length span.start
 
-def FreeSpace.remove (free: FreeSpace) (span: Span): FreeSpace := free.adjust span.length (.remove span.start)
+def FreeSpace.remove (free: FreeSpace) (span: Span): FreeSpace := free.removeIn span.length span.start
 
 def FreeSpace.of (spans: List Span): FreeSpace := spans.foldLeft Map.empty FreeSpace.add
 
