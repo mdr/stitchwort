@@ -1,5 +1,5 @@
 {
-  "next": 1824,
+  "next": 1828,
   "tickets": [
     {
       "id": 47,
@@ -11573,14 +11573,14 @@
     {
       "id": 1603,
       "title": "Design question: a Nat-keyed map (Haskell's IntMap) for sparse keys, separate from arrays (SW-1473)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1603",
       "labels": [
         "design"
       ],
       "epic": "performance",
-      "body": "From SW-1473, 6 Nov 2026.\n\nMatt (7 Nov 2026): kick off as design work. Started: Opus, design note only, no builds. Expected: 60 min.",
+      "body": "From SW-1473, 6 Nov 2026.\n\nMatt (7 Nov 2026): kick off as design work. Started: Opus, design note only, no builds. Expected: 60 min.\n\nDone, merged: docs/proposals/nat-map.md. No NatMap now: arrays fixed the dense cases (day 15 357 → 16 s, day 11 23 → 5.4 s); slow maps left are record-keyed ~5:1; Map's cost is mostly the interpreter (~1,480 instructions an insert). Proposes native Map.Tree functions for structural key orders, same trees, no API or proof change. D2595-D2601 for Matt (rec: yes to all). Tickets: SW-1824 SW-1825 SW-1826 SW-1827. Notes for SW-814 (lower priority after stage 1) and SW-808 (worth doing alone). 8 min (est. 60).",
       "created": "2026-11-06",
       "updated": "2026-11-07",
       "commits": []
@@ -14879,6 +14879,66 @@
       ],
       "epic": "editor-playground",
       "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding test proposal). Waiting on D2583 (rec: yes). Expected: 60 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1824,
+      "title": "[Sonnet] Map stage 0: profile 2020 day 17, 2021 day 15, 2020 day 14 and Map micro-benchmarks (Nat, Position, List Int keys); go on to native Map only if Map is >= 50% of time on two of three days; under 30% on all, the effort goes to SW-813",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "performance",
+      "body": "From docs/proposals/nat-map.md (SW-1603). Waiting on D2595, D2596. Expected: 45 min. Needs a quiet machine.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1825,
+      "title": "[Opus] Map stage 1: native Map.Tree get and insertWith for structural key orders (built-ins, derived Ord over them), building the same trees as the definitions; inserts <= 1 us, 2020 day 17 <= 3 s, 2021 day 15 <= 8 s",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "performance",
+      "body": "From docs/proposals/nat-map.md (SW-1603). Waiting on SW-1824's go and D2597-D2599.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1826,
+      "title": "[Sonnet] Map stage 2: the other hot Map.Tree functions natively (2a), then JS versions (2b)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "performance",
+      "body": "From docs/proposals/nat-map.md (SW-1603). After SW-1825; D2600.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 1827,
+      "title": "[Opus] Map stage 3 (conditional): a native-backed Nat map with Map Nat v as its model, only if stage 1-2 leave Nat-keyed programs slow",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "performance",
+      "body": "From docs/proposals/nat-map.md (SW-1603). D2601.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
