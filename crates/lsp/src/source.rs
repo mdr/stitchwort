@@ -38,6 +38,11 @@ pub trait Source: Send + Sync {
     /// it can't be read.
     fn project(&self, dir: &Path) -> Option<ProjectFiles>;
 
+    /// The source folders of the project in `dir`, reading only its
+    /// configuration, or `None` (with the reason logged) if that can't be
+    /// read.
+    fn sources(&self, dir: &Path) -> Option<Vec<String>>;
+
     /// The files in folder `dir`, by path within it: for `include`, and for
     /// a search to read a project again.
     fn files(&self, dir: &Path) -> Box<dyn Files>;
@@ -48,6 +53,16 @@ pub trait Source: Send + Sync {
     /// The check cache in folder `dir`, for a file on its own: only if it
     /// is there already.
     fn file_cache(&self, dir: &Path) -> Option<PathBuf>;
+}
+
+/// Whether `relative` (a path within a project) is a `.sw` file in one of
+/// its source folders. The one rule for what a project's sources are.
+pub fn sources_hold(sources: &[String], relative: &str) -> bool {
+    relative.ends_with(".sw")
+        && sources.iter().any(|s| {
+            let s = s.trim_end_matches('/');
+            s.is_empty() || relative.strip_prefix(s).is_some_and(|r| r.starts_with('/'))
+        })
 }
 
 /// The disk, as `stitchwort lsp` reads it.
@@ -89,6 +104,19 @@ impl Source for Disk {
             sources: config.sources,
             files: found.into_iter().collect(),
         })
+    }
+
+    fn sources(&self, dir: &Path) -> Option<Vec<String>> {
+        let text = std::fs::read_to_string(dir.join("stitchwort.yaml")).ok()?;
+        let mut sources = SourceMap::new();
+        let id = sources.add("stitchwort.yaml", &text);
+        match parse_config(id, "stitchwort.yaml", &text) {
+            Ok(config) => Some(config.sources),
+            Err(e) => {
+                eprintln!("stitchwort lsp: {}: {}", dir.display(), e.message);
+                None
+            }
+        }
     }
 
     fn files(&self, dir: &Path) -> Box<dyn Files> {
@@ -191,16 +219,8 @@ impl Source for Memory {
         if !relative.is_empty() {
             return None;
         }
-        let within = |path: &str| {
-            project.sources.iter().any(|s| {
-                s.is_empty()
-                    || path
-                        .strip_prefix(s.as_str())
-                        .is_some_and(|r| r.starts_with('/'))
-            })
-        };
         let files = (project.files.iter())
-            .filter(|(path, _)| path.ends_with(".sw") && within(path))
+            .filter(|(path, _)| sources_hold(&project.sources, path))
             .map(|(path, text)| (path.clone(), text.clone()))
             .collect();
         Some(ProjectFiles {
@@ -208,6 +228,11 @@ impl Source for Memory {
             sources: project.sources.clone(),
             files,
         })
+    }
+
+    fn sources(&self, dir: &Path) -> Option<Vec<String>> {
+        let (project, relative) = self.locate(dir)?;
+        relative.is_empty().then_some(project.sources)
     }
 
     fn files(&self, dir: &Path) -> Box<dyn Files> {
