@@ -13970,14 +13970,14 @@
     {
       "id": 1763,
       "title": "A Float sum prints as x.add y, not x + y (SW-1708's dot-call printing); keep the operator for Float.add as for Nat",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-1763",
       "labels": [
         "diagnostics"
       ],
       "epic": "diagnostics",
-      "body": "From SW-1667, 6 Nov 2026; on main too.",
+      "body": "From SW-1667, 6 Nov 2026; on main too.\n\nDone, merged: the printer's infix table lacked Float's builtins (FloatAdd/Sub/Mul/Div/Rem); now x + y. New reject example float-sum-prints-as-a-sum; float-rfl-rounding snapshot now 0.1 + 0.2. % on Float elaborates to rem, so the % form reads back. On main: core pretty + examples rejected 24/24. Model result: DeepSeek, worked, 9 min (est. 20).",
       "created": "2026-11-06",
       "updated": "2026-11-07",
       "commits": []
