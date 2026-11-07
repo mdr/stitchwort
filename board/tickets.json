@@ -21506,14 +21506,14 @@
     {
       "id": 2266,
       "title": "[Sonnet] Small: the soundness fuzzer counted a no-op mutant (turnRightFour, := cases unchanged) as accepted; skip mutants equal to the source after formatting. widthCovers (2021 day 13 Picture.sw:22) has a redundant omega hint",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2266",
       "labels": [
         "tests"
       ],
       "epic": "audit-fuzzing",
-      "body": "From Overmind job 10. 15 min.\n\n7 Nov, from SW-2265: also, alone mode cuts everything after the declaration, which drops later lemmas it depends on (2025 day 1 part2Puzzle); keep the declarations it depends on, or the rest of the file. And carry the load error into the skip message.",
+      "body": "From Overmind job 10. 15 min.\n\n7 Nov, from SW-2265: also, alone mode cuts everything after the declaration, which drops later lemmas it depends on (2025 day 1 part2Puzzle); keep the declarations it depends on, or the rest of the file. And carry the load error into the skip message.\n\nDone, merged. Seed 0x8 aoc,rogue: 125 of 125 checked unmutated (every theorem the sample picked now checks), 399 mutants, 390 rejected, 9 accepted, 0 findings. On main: day 13 tests pass. Model result: Sonnet, worked, 9 min (est. 20).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
