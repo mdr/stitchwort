@@ -14450,14 +14450,14 @@
     {
       "id": 1795,
       "title": "[Sonnet] lsp-sessions nextest group: max-threads 3 was set for 1.7 GB cold sessions; with the test cache they hold ~0.45 GB warm (SW-1769), so raise it if memory allows, measured under the 4 GB merge cap",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1795",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From SW-1769. Expected: 30 min.",
+      "body": "From SW-1769. Expected: 30 min.\n\nMeasured (lane/SW-1795, 01271a7da, not merged; my call): max-threads 3/4/5/6/unlimited → cold peak 1.63/2.01/3.11/~3.1-3.3/3.87 GB, cold wall 87/83/70/~55/92 s, warm ~30-36 s at every setting. The gain is ~17-30 s only on a cold fill and nothing warm, while the merge tier and test:selected run everything else under the same memory guard, so 3.1 GB for this group alone leaves too little room. Keep 3. The warm 30 s is a few slow tests, not the limit. Model result: Sonnet, worked, 25 min (est. 30).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
