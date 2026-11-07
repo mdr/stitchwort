@@ -19586,9 +19586,9 @@
     {
       "id": 2138,
       "title": "[Sonnet] Std: Map-of-sets (Map.containsIn, insertIn, removeIn, removeIn drops an emptied set) with ↔ lemmas; Set.minLeast, Set.minOfContains; List.minByNone, Option.filterEqNone; List.findIndex lemmas (absorbs SW-1531)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2138",
       "labels": [
         "proofs"
       ],
