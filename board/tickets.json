@@ -20178,7 +20178,7 @@
         "naming"
       ],
       "epic": "std-library",
-      "body": "From docs/reviews/SW-2159-aoc-lemmas-to-std.md; for SW-2006's naming sweep.\n\n7 Nov: answered by SW-2191 (List.distinct -> List.unique), pending D3150.",
+      "body": "From docs/reviews/SW-2159-aoc-lemmas-to-std.md; for SW-2006's naming sweep.\n\n7 Nov: answered by SW-2191 (List.distinct -> List.unique), pending D3150.\n\nD3150 yes (Matt): List.unique.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20358,7 +20358,7 @@
         "naming"
       ],
       "epic": "std-library",
-      "body": "From docs/proposals/std-naming.md, lane N2; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. 45 min.",
+      "body": "From docs/proposals/std-naming.md, lane N2; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. 45 min.\n\nD3151 — Matt, 7 Nov 2026: \"Yeah, happy to go with maximum, minimum.\"",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -20388,7 +20388,7 @@
         "naming"
       ],
       "epic": "std-library",
-      "body": "From docs/proposals/std-naming.md, lane N4; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. Waits on D3150. 45 min.",
+      "body": "From docs/proposals/std-naming.md, lane N4; brief in the note. Sweep crates/**/*.rs too (embedded source). Update the guide and docs/syntax.md where a renamed function appears. Waits on D3150. 45 min.\n\nD3150 — Matt, 7 Nov 2026: \"I prefer unique to distinct anyway, that's fine.\"",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
