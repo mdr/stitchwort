@@ -18851,14 +18851,14 @@
     {
       "id": 2089,
       "title": "[Sonnet] A restart budget per project, so one project that keeps panicking after edits can't stop checking everywhere (today one open and two edits do)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2089",
       "labels": [
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From docs/reviews/SW-2087-checker-recovery-and-forget-since.md. HIGH. Lane 3, after SW-2086. D2980 [rec: yes]. 45 min.\n\nD2980: yes (orchestrator's call, 7 Nov). After SW-2088 (same file).",
+      "body": "From docs/reviews/SW-2087-checker-recovery-and-forget-since.md. HIGH. Lane 3, after SW-2086. D2980 [rec: yes]. 45 min.\n\nD2980: yes (orchestrator's call, 7 Nov). After SW-2088 (same file).\n\nDone, merged. Per-project Budget (5 in 3 min); a project that spends it is retired (quarantined for the session, error diagnostic and one pop-up); session backstop 15 in 3 min; only a Change retries a quarantined project (D3000). On main: lsp 26/26, faults:: 22/22 twice. Model result: Sonnet, worked, 10 min (est. 45).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -18881,9 +18881,9 @@
     {
       "id": 2091,
       "title": "[Sonnet] Checker recovery follow-ups (SW-2087 C6-C9, SW-2094 lane 1): panic attribution inside its own catch (MEDIUM); home_of reads only sources; only an edit retries a quarantined project (D3000); tests that can fail",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2091",
       "labels": [
         "lsp"
       ],
@@ -18903,7 +18903,7 @@
         "flaky"
       ],
       "epic": "test-infra",
-      "body": "From SW-2086. 30 min if it recurs.",
+      "body": "From SW-2086. 30 min if it recurs.\n\nAgain in SW-2089's lane: a_panicking_search_is_answered_and_the_next_search_works and after_an_edit_a_panicked_search_is_tried_again timed out ('the server went quiet') once under load, passed on rerun; both take over 60 s cold. Recurred, so this is now worth doing.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
