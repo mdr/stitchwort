@@ -11,7 +11,9 @@ rules that are easy to forget.
 The main session in `~/repos/mdr/stitchwort` (on `main`) orchestrates. It
 does not do significant work itself:
 
-- It picks lanes from the board (up to three at once), writes each lane's
+- It picks lanes from the board (up to three build lanes at once; paper
+  lanes, which put no load on the machine, run beside them and don't count
+  towards the three), writes each lane's
   brief, and starts a background agent for it in its own git worktree and
   branch, using the model that fits the work (below). Lanes use the agent
   types `sonnet-lane` and `opus-lane` (`.claude/agents/`), not

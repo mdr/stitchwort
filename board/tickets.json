@@ -22241,14 +22241,14 @@
     {
       "id": 2315,
       "title": "[Opus] Move the orchestrator's process rules from its private memory (~/.claude/projects/.../memory, 41 notes) into the repo: short rules in CLAUDE.md, detail in docs/workflow.md; transient project state onto the board or epics",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2315",
       "labels": [
         "docs"
       ],
       "epic": "test-infra",
-      "body": "D3355 — Matt, 7 Nov 2026: \"just move the process rules into the repo from memory. I don't even know what we'd leave in memory ... procedure and process, yeah, move into CLAUDE.md.\" Before the switch to the agent user. 45 min.",
+      "body": "D3355 — Matt, 7 Nov 2026: \"just move the process rules into the repo from memory. I don't even know what we'd leave in memory ... procedure and process, yeah, move into CLAUDE.md.\" Before the switch to the agent user. 45 min.\n\nDone, merged (plus a line in CLAUDE.md: paper lanes don't count towards the three build lanes). Group (b): audit deprioritised and the AoC 2020 track's shape recorded on their epics; overnight-run and near-quota notes dropped as stale. Memory pruned. Model result: Opus, worked, 4 min (est. 45, revised 10-15).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []

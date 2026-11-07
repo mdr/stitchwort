@@ -98,7 +98,7 @@
     {
       "id": "aoc-2020",
       "title": "Advent of Code 2020",
-      "goal": "Every 2020 puzzle solved efficiently in Stitchwort, with a spec and proofs that the program answers the puzzle, and friction notes that show where the language falls short.",
+      "goal": "Every 2020 puzzle solved efficiently in Stitchwort, with a spec and proofs that the program answers the puzzle, and friction notes that show where the language falls short. How the track runs (D2305, 4 Nov 2026): one day per lane, in order, on Opus, from Matt's ~/repos/mdr/aoc (github mdr/aoc) inputs, with his Scala solutions to cross-check answers; each day has a naive spec, an efficient solution, a proof they agree where natural, its input as a test, and friction notes in aoc/NOTES-2020.md. The next day starts only after Matt's friction review of the last.",
       "status": "active",
       "done": [
         "Days 1-6 with specs, proofs and friction notes (SW-1206, SW-1211, SW-1231, SW-1249, SW-1269, SW-1278)",
@@ -490,7 +490,7 @@
       ],
       "now": [],
       "next": [
-        "Audit stage 2: --base and minima (SW-1029)"
+        "Audit feature work (vacuity check, witnesses, --minimal, SW-1029 --base and minima) is on the backlog: Matt, 7 Nov 2026, \"not obviously high priority\". No lanes or D questions on it unless he reopens it. Fuzzing continues."
       ],
       "links": []
     },
