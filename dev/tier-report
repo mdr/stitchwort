@@ -1,0 +1,340 @@
+#!/usr/bin/env python3
+"""Run a test tier and report where its time went (SW-2181).
+
+  dev/tier-report run TIER -- COMMAND [ARG...]
+      Runs COMMAND (a tier's steps) with STITCHWORT_TIER_LOG set, so each
+      `dev/tier-step` in it logs its wall time; then writes
+      target/tier-report/TIER-TIMESTAMP.md and latest-TIER.md and appends a
+      line to target/tier-report/history.tsv. Exits with COMMAND's status.
+      The report is for a person: a failure to write it is a warning, never
+      a different exit code.
+  dev/tier-report history [-n N] [--tier TIER]
+      The last N runs (default 10) from history.tsv.
+  dev/tier-report report TIER --log FILE --junit FILE [--areas FILE] ...
+      Writes the report for a finished run again (what `run` does at the end).
+
+The report has the step table, the 15 slowest tests (from nextest's JUnit
+file), test time per test binary and per lane area, the run's wall time
+against the sum of the test times, the peak memory the guard saw, and the
+load average at the start and end. A test is in the first `lane-*` profile of
+.config/nextest.toml that lists it. Python 3's standard library only; see
+docs/testing.md, "Tier reports". Test it with: python3 dev/tier-report_test.py
+"""
+
+import argparse
+import concurrent.futures
+import datetime
+import hashlib
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+import xml.etree.ElementTree as ET
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+OUT = os.path.join(ROOT, "target", "tier-report")
+HISTORY = os.path.join(OUT, "history.tsv")
+HISTORY_COLUMNS = ["date", "tier", "commit", "exit", "wall_s", "tests", "failures", "test_sum_s", "peak_gb", "steps"]
+SLOWEST = 15
+NEXTEST_RUN_STEP = "nextest run"
+
+
+# ------------------------------------------------------------------ the inputs
+
+
+def read_steps(path):
+    """The step log: [{name, kind, start, wall, code, peak}] in start order."""
+    steps = []
+    if os.path.exists(path):
+        for line in open(path):
+            f = line.rstrip("\n").split("\t")
+            if len(f) < 5:
+                continue
+            steps.append({
+                "name": f[0], "kind": f[1], "start": float(f[2]), "wall": float(f[3]),
+                "code": int(f[4]), "peak": int(f[5]) if len(f) > 5 and f[5] else None,
+            })
+    return sorted(steps, key=lambda s: s["start"])
+
+
+def read_junit(path):
+    """(wall seconds of the run, [{binary, name, time, failed}]) from nextest's JUnit file."""
+    root = ET.parse(path).getroot()
+    tests = []
+    for case in root.iter("testcase"):
+        failed = case.find("failure") is not None or case.find("error") is not None
+        tests.append({
+            "binary": case.get("classname", "?"), "name": case.get("name", "?"),
+            "time": float(case.get("time", 0)), "failed": failed,
+        })
+    return float(root.get("time", 0)), tests
+
+
+def lane_profiles(toml_text):
+    return re.findall(r"^\[profile\.(lane-[A-Za-z0-9_-]+)\]", toml_text, re.M)
+
+
+def list_profile(profile):
+    r = subprocess.run(
+        ["cargo", "nextest", "list", "--release", "--workspace", "--profile", profile, "--message-format", "json"],
+        cwd=ROOT, capture_output=True, text=True,
+    )
+    if r.returncode != 0:
+        return profile, set()
+    out = set()
+    for bid, suite in json.loads(r.stdout)["rust-suites"].items():
+        for name, case in suite["testcases"].items():
+            if case["filter-match"]["status"] == "matches":
+                out.add((bid, name))
+    return profile, out
+
+
+def area_map(cache_dir=OUT):
+    """{(binary id, test name): area}: the first lane profile listing the test.
+    Listing is about a second a profile, so the map is cached per commit and
+    nextest.toml."""
+    toml = open(os.path.join(ROOT, ".config", "nextest.toml")).read()
+    key = hashlib.sha1((toml + git("rev-parse", "HEAD")).encode()).hexdigest()[:12]
+    cache = os.path.join(cache_dir, f"areas-{key}.json")
+    profiles = lane_profiles(toml)
+    if os.path.exists(cache):
+        raw = json.load(open(cache))
+    else:
+        with concurrent.futures.ThreadPoolExecutor(4) as pool:
+            sets = dict(pool.map(list_profile, profiles))
+        raw = {}
+        for p in profiles:
+            for bid, name in sorted(sets[p]):
+                raw.setdefault(f"{bid}\t{name}", p.removeprefix("lane-"))
+        os.makedirs(cache_dir, exist_ok=True)
+        for old in os.listdir(cache_dir):
+            if old.startswith("areas-"):
+                os.unlink(os.path.join(cache_dir, old))
+        json.dump(raw, open(cache, "w"))
+    return {tuple(k.split("\t", 1)): v for k, v in raw.items()}
+
+
+def git(*args):
+    r = subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True)
+    return r.stdout.strip()
+
+
+# ---------------------------------------------------------------- the analysis
+
+
+def sum_by(tests, key):
+    """[(key, count, seconds)] biggest first."""
+    acc = {}
+    for t in tests:
+        n, s = acc.get(key(t), (0, 0.0))
+        acc[key(t)] = (n + 1, s + t["time"])
+    return sorted(((k, n, s) for k, (n, s) in acc.items()), key=lambda r: (-r[2], r[0]))
+
+
+def summarise(steps, tests, junit_wall, start, end):
+    """The numbers both the report and the history line use."""
+    counted = [s for s in steps if s["kind"] == "step"]
+    run = next((s for s in steps if s["name"] == NEXTEST_RUN_STEP), None)
+    peaks = [s["peak"] for s in steps if s["peak"]]
+    return {
+        "wall": end - start,
+        "steps_total": sum(s["wall"] for s in counted),
+        "tests": len(tests),
+        "failures": sum(t["failed"] for t in tests),
+        "test_sum": sum(t["time"] for t in tests),
+        "run_wall": run["wall"] if run else junit_wall,
+        "peak": max(peaks) if peaks else None,
+        "code": next((s["code"] for s in counted if s["code"]), 0),
+    }
+
+
+def mins(seconds):
+    seconds = float(seconds)
+    return f"{seconds:.1f} s" if seconds < 60 else f"{int(seconds // 60)} min {seconds % 60:.0f} s"
+
+
+def table(header, rows):
+    out = ["| " + " | ".join(header) + " |", "|" + "|".join("---" for _ in header) + "|"]
+    out += ["| " + " | ".join(str(c) for c in r) + " |" for r in rows]
+    return out
+
+
+def render(tier, commit, start, end, load_start, load_end, steps, tests, junit_wall, areas):
+    sm = summarise(steps, tests, junit_wall, start, end)
+    stamp = lambda t: datetime.datetime.fromtimestamp(t).strftime("%Y-%m-%d %H:%M:%S")
+    md = [
+        f"# Tier report: {tier}, {commit}",
+        "",
+        f"{stamp(start)} to {stamp(end)}, wall {mins(sm['wall'])}, "
+        + ("passed" if sm["code"] == 0 else f"failed (exit {sm['code']})") + ".",
+        "",
+        "## Steps",
+        "",
+    ]
+    rows = []
+    for s in steps:
+        parallel = s["kind"] == "parallel"
+        share = "" if parallel or sm["wall"] <= 0 else f"{100 * s['wall'] / sm['wall']:.0f}%"
+        rows.append([
+            ("&nbsp;&nbsp;beside: " if parallel else "") + s["name"], f"{s['wall']:.1f}", share,
+            s["code"], f"{s['peak'] / 1024**3:.2f}" if s["peak"] else "",
+        ])
+    untimed = sm["wall"] - sm["steps_total"]
+    rows.append(["(between steps)", f"{untimed:.1f}", f"{100 * untimed / sm['wall']:.0f}%" if sm["wall"] > 0 else "", "", ""])
+    rows.append(["**total**", f"{sm['wall']:.1f}", "100%", sm["code"], f"{sm['peak'] / 1024**3:.2f}" if sm["peak"] else ""])
+    md += table(["step", "wall s", "share", "exit", "peak GB"], rows)
+    md += ["", "A `beside:` step runs inside another step, alongside it; its time is not in the shares.", ""]
+
+    if tests:
+        md += [f"## {SLOWEST} slowest tests", ""]
+        slow = sorted(tests, key=lambda t: -t["time"])[:SLOWEST]
+        md += table(["s", "test", "binary"], [[f"{t['time']:.2f}", f"`{t['name']}`", t["binary"]] for t in slow])
+        md += ["", "## Test time per binary", ""]
+        md += table(["binary", "tests", "sum s"], [[b, n, f"{s:.1f}"] for b, n, s in sum_by(tests, lambda t: t["binary"])[:20]])
+        md += ["", "(The 20 biggest.)", ""]
+        if areas:
+            md += ["## Test time per area", ""]
+            md += table(
+                ["area", "tests", "sum s"],
+                [[a, n, f"{s:.1f}"] for a, n, s in sum_by(tests, lambda t: areas.get((t["binary"], t["name"]), "(no lane area)"))],
+            )
+            md += ["", "A test counts in the first `lane-*` profile that lists it.", ""]
+        md += ["## Wall time against test time", ""]
+        par = sm["test_sum"] / sm["run_wall"] if sm["run_wall"] > 0 else 0
+        md += [
+            f"- tests run: {sm['tests']} ({sm['failures']} failed)",
+            f"- sum of the tests' own times: {mins(sm['test_sum'])}",
+            f"- nextest's run: {mins(sm['run_wall'])}, so about {par:.1f} tests at once on average",
+            f"- the whole tier's wall time: {mins(sm['wall'])}; the tests' sum is {100 * sm['test_sum'] / sm['wall']:.0f}% of it" if sm["wall"] > 0 else "",
+            "",
+        ]
+    else:
+        md += ["## Tests", "", "No JUnit file from this run (the tier stopped before nextest ran, or wrote none).", ""]
+    md += [
+        "## Machine",
+        "",
+        f"- load average (1, 5, 15 min) at the start: {', '.join(f'{x:.1f}' for x in load_start)}",
+        f"- load average at the end: {', '.join(f'{x:.1f}' for x in load_end)}",
+        f"- peak memory under the guard: {sm['peak'] / 1024**3:.2f} GB" if sm["peak"] else "- peak memory: not reported (no guarded step ran)",
+        "",
+    ]
+    return "\n".join(md), sm
+
+
+def history_row(tier, commit, start, steps, sm):
+    peak = f"{sm['peak'] / 1024**3:.2f}" if sm["peak"] else ""
+    step_text = " ".join(f"{s['name'].replace(' ', '_')}={s['wall']:.0f}" for s in steps if s["kind"] == "step")
+    return [
+        datetime.datetime.fromtimestamp(start).strftime("%Y-%m-%d %H:%M"), tier, commit, str(sm["code"]),
+        f"{sm['wall']:.0f}", str(sm["tests"]), str(sm["failures"]), f"{sm['test_sum']:.0f}", peak, step_text,
+    ]
+
+
+def append_history(path, row):
+    new = not os.path.exists(path)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "a") as f:
+        if new:
+            f.write("\t".join(HISTORY_COLUMNS) + "\n")
+        f.write("\t".join(row) + "\n")
+
+
+def show_history(path, n, tier):
+    if not os.path.exists(path):
+        print("no runs yet (target/tier-report/history.tsv)")
+        return
+    lines = [l.rstrip("\n").split("\t") for l in open(path)][1:]
+    if tier:
+        lines = [l for l in lines if l[1] == tier]
+    for r in lines[-n:]:
+        r += [""] * (len(HISTORY_COLUMNS) - len(r))
+        d = dict(zip(HISTORY_COLUMNS, r))
+        print(
+            f"{d['date']}  {d['tier']:<6} {d['commit']:<10} exit {d['exit']:<3} wall {d['wall_s']:>5} s  "
+            f"{d['tests']} tests, {d['failures']} failed, tests sum {d['test_sum_s']} s"
+            + (f", peak {d['peak_gb']} GB" if d["peak_gb"] else "")
+        )
+        print(f"    {d['steps']}")
+
+
+# ---------------------------------------------------------------------- the CLI
+
+
+def write_report(tier, log, junit, start, end, load_start, load_end, areas_fn=area_map, out=OUT, history=None):
+    commit = git("rev-parse", "--short", "HEAD") + ("*" if git("status", "--porcelain", "-uno") else "")
+    steps = read_steps(log)
+    tests, junit_wall = [], 0.0
+    if junit and os.path.exists(junit) and os.path.getmtime(junit) >= start - 1:
+        junit_wall, tests = read_junit(junit)
+    areas = None
+    if tests:
+        try:
+            areas = areas_fn()
+        except Exception as e:  # nextest not built, say: the rest of the report stands
+            sys.stderr.write(f"tier-report: no area map: {e}\n")
+    text, sm = render(tier, commit, start, end, load_start, load_end, steps, tests, junit_wall, areas)
+    os.makedirs(out, exist_ok=True)
+    stamped = os.path.join(out, f"{tier}-{datetime.datetime.fromtimestamp(start).strftime('%Y%m%d-%H%M%S')}.md")
+    for path in (stamped, os.path.join(out, f"latest-{tier}.md")):
+        open(path, "w").write(text)
+    append_history(history or os.path.join(out, "history.tsv"), history_row(tier, commit, start, steps, sm))
+    return stamped, text
+
+
+def run(tier, command):
+    os.makedirs(os.path.join(OUT, "logs"), exist_ok=True)
+    start = time.time()
+    log = os.path.join(OUT, "logs", f"{tier}-{datetime.datetime.fromtimestamp(start).strftime('%Y%m%d-%H%M%S')}.tsv")
+    load_start = os.getloadavg()
+    env = dict(os.environ, STITCHWORT_TIER_LOG=log)
+    try:
+        code = subprocess.call(command, env=env, cwd=ROOT)
+    except KeyboardInterrupt:
+        code = 130
+    code = 128 - code if code < 0 else code
+    end, load_end = time.time(), os.getloadavg()
+    junit = os.path.join(ROOT, "target", "nextest", tier, "junit.xml")
+    try:
+        path, _ = write_report(tier, log, junit, start, end, load_start, load_end)
+        sys.stderr.write(f"tier-report: {os.path.relpath(path, ROOT)} (and latest-{tier}.md)\n")
+    except Exception as e:
+        sys.stderr.write(f"tier-report: could not write the report: {e!r}\n")
+    sys.exit(code)
+
+
+def main():
+    argv = sys.argv[1:]
+    if "--" in argv:
+        i = argv.index("--")
+        argv, command = argv[:i], argv[i + 1 :]
+    else:
+        command = []
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    r = sub.add_parser("run")
+    r.add_argument("tier")
+    h = sub.add_parser("history")
+    h.add_argument("-n", type=int, default=10)
+    h.add_argument("--tier")
+    g = sub.add_parser("report")
+    g.add_argument("tier")
+    g.add_argument("--log", required=True)
+    g.add_argument("--junit")
+    g.add_argument("--start", type=float, default=time.time() - 1)
+    g.add_argument("--end", type=float, default=time.time())
+    a = ap.parse_args(argv)
+    if a.cmd == "run":
+        if not command:
+            sys.exit("usage: dev/tier-report run TIER -- COMMAND [ARG...]")
+        run(a.tier, command)
+    elif a.cmd == "history":
+        show_history(HISTORY, a.n, a.tier)
+    else:
+        path, text = write_report(a.tier, a.log, a.junit, a.start, a.end, os.getloadavg(), os.getloadavg())
+        print(text)
+
+
+if __name__ == "__main__":
+    main()

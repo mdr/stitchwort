@@ -14,7 +14,9 @@ and exits 137.
 The cap is --cap-gb (the tier's default), unless STITCHWORT_MEM_CAP_GB is
 set, which wins; 0 means no cap. --report (or STITCHWORT_MEM_REPORT=1)
 prints the peak and the biggest processes at the peak when COMMAND ends, for
-measuring a tier.
+measuring a tier. If STITCHWORT_MEM_PEAK_FILE names a file, the peak in bytes
+is also written there when COMMAND ends or is killed (dev/tier-step reads it
+for the tier report).
 
 The memory of a process is its physical footprint on macOS (what Activity
 Monitor and `top` show as MEM: resident plus compressed, which RSS leaves
@@ -182,6 +184,16 @@ def biggest(processes, count=5):
     return lines
 
 
+def write_peak(peak):
+    path = os.environ.get("STITCHWORT_MEM_PEAK_FILE")
+    if path:
+        try:
+            with open(path, "w") as f:
+                f.write(f"{peak}\n")
+        except OSError:
+            pass
+
+
 def say(*lines):
     sys.stderr.write("".join(f"memguard: {line}\n" if i == 0 else f"{line}\n" for i, line in enumerate(lines)))
     sys.stderr.flush()
@@ -279,8 +291,10 @@ def main():
                 "The cap is per tier (docs/testing.md, \"Memory\"); STITCHWORT_MEM_CAP_GB overrides it.",
             )
             kill_tree(child)
+            write_peak(peak)
             sys.exit(137)
         time.sleep(POLL_SECONDS)
+    write_peak(peak)
     # Descendants the command left running stay ours to watch no longer.
     if report:
         say(

@@ -106,6 +106,20 @@ The peaks are from 26 Oct 2026; the lane and merge caps are about 1.5 to 2 times
 
 **Daily and full are run only by the orchestrator, on a quiet machine**, never by a lane: they are the tiers with the large caps, and two of them at once, or one beside other worktrees' builds, can still fill the machine. Lanes run `test:lane` and the named tests they changed (`test:one`).
 
+### Tier reports
+
+`task test:merge`, `task test:daily` and `task test:full` time their own steps and end with a report of where the time went (SW-2181). Each tier is a wrapper, `dev/tier-report run TIER`, around a hidden task of the steps (`test:merge:steps` and so on; call those only to skip the report). Each step runs under `dev/tier-step NAME -- COMMAND`, which runs the command unchanged, with the same exit code, and appends a line to the run's log (`target/tier-report/logs/TIER-TIMESTAMP.tsv`): name, start, wall seconds, exit code and, for a step under `dev/memguard`, its peak memory (memguard writes the peak to the file named by `STITCHWORT_MEM_PEAK_FILE`). Building is its own step from running: `nextest build` is `cargo nextest run --no-run`, then `nextest run` finds everything built. The steps are `features`, `fmt`, `nextest build`, `nextest run` for merge; `web:pkg`, `fmt`, `lanes-nonempty`, `clippy`, `nextest build`, `builtins build`, `nextest run (with builtins)`, `doctests`, `board:test` for daily; `nextest build`, `nextest run`, `doctests`, `verify-cache` for full. In daily, the `builtins` run and nextest's run are also timed apart, as `beside:` rows that are not in the shares, since they run together.
+
+When the tier ends (passed or failed), `target/tier-report/TIER-TIMESTAMP.md` and `latest-TIER.md` hold:
+
+- the step table (wall seconds, share of the tier, exit code, peak memory) and the time between steps;
+- the 15 slowest tests, from nextest's `target/nextest/TIER/junit.xml`;
+- test time summed per test binary and per area (a test counts in the first `lane-*` profile of `.config/nextest.toml` that lists it; the map comes from `cargo nextest list` on each lane profile, cached per commit in `target/tier-report/areas-*.json`);
+- the tier's wall time against the sum of the tests' own times, and the average number of tests running at once (the sum over nextest's run);
+- the load average at the start and the end, and the peak memory.
+
+`target/tier-report/history.tsv` gets a line per run: date, tier, commit (`*` if the tree had uncommitted changes), exit code, wall seconds, tests, failures, the tests' summed seconds, peak GB and each step's seconds. `task tier:report` prints the last ten (`task tier:report -- -n 30 --tier daily`). `target/` is not shared between worktrees, so each checkout has its own history. If the report can't be written (nextest never ran, say) the tier's exit code is unchanged and the report says so. `python3 dev/tier-report_test.py` tests the scripts against a sample JUnit file.
+
 ### Lane areas
 
 `task test:lane AREA=…` runs the nextest profile `lane-AREA`. Each is a handful of fast tests, chosen so the whole run (with nix and nextest starting) stays under 10 s; the times are from 25 Oct 2026.

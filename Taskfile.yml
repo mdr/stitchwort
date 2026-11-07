@@ -47,6 +47,10 @@ vars:
   # (dev/test-scope; docs/testing.md, "Features").
   SCOPE: '{{.ROOT_DIR}}/dev/test-scope'
   GUARD: '{{.ROOT_DIR}}/dev/memguard'
+  # Times a step of a tier into the run's log, which dev/tier-report writes
+  # up after the tier (docs/testing.md, "Tier reports").
+  STEP: '{{.ROOT_DIR}}/dev/tier-step'
+  REPORT: '{{.ROOT_DIR}}/dev/tier-report'
   MEM_CAP_LANE: 3
   # Merge: 2.5 to 3.1 GB measured (2 Nov 2026, SW-1076; killed twice at 3). One
   # process is 1.4 to 1.5 GB: `search --at` of a goal that mentions `≤` (cli
@@ -185,12 +189,33 @@ tasks:
       a sample of the accepted and rejected examples, 14 of the AoC days'
       answers, a quarter of the examples' hash snapshots, and more (the
       `merge` profile in .config/nextest.toml). Clippy is in the daily tier.
+      Each step is timed, and the run ends with a report of where the time
+      went: target/tier-report/latest-merge.md (`task tier:report` lists the
+      runs; docs/testing.md, "Tier reports").
     env:
       STITCHWORT_TIER: merge
     cmds:
-      - task: test:features
-      - cargo fmt --check
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_MERGE}} -- cargo nextest run --release --workspace --profile merge {{.CLI_ARGS}}'
+      - '{{.REPORT}} run merge -- task test:merge:steps -- {{.CLI_ARGS}}'
+
+  test:merge:steps:
+    # The merge tier's steps, without the report around them.
+    env:
+      STITCHWORT_TIER: merge
+    cmds:
+      - '{{.STEP}} features -- task test:features'
+      - '{{.STEP}} fmt -- cargo fmt --check'
+      - '{{.STEP}} "nextest build" -- {{.GUARD}} --cap-gb {{.MEM_CAP_MERGE}} -- cargo nextest run --release --workspace --profile merge --no-run {{.CLI_ARGS}}'
+      - '{{.STEP}} "nextest run" -- {{.GUARD}} --cap-gb {{.MEM_CAP_MERGE}} -- cargo nextest run --release --workspace --profile merge {{.CLI_ARGS}}'
+
+  tier:report:
+    desc: "The last runs of the test tiers and where their time went (task tier:report -- -n 20 --tier daily)"
+    summary: |
+      Prints the last N runs (default 10) from target/tier-report/history.tsv:
+      date, tier, commit, exit code, wall time, tests, failures, the sum of the
+      tests' times, the peak memory and each step's seconds. The full report of
+      the latest run of a tier is target/tier-report/latest-TIER.md.
+    cmds:
+      - '{{.REPORT}} history {{.CLI_ARGS}}'
 
   test:inventory:
     desc: 'Build target/test-inventory.json: every test, its profiles and last known time (task test:inventory -- --junit PATH)'
@@ -240,27 +265,39 @@ tasks:
       # The float tests fail, not skip, when web/pkg is missing or stale.
       STITCHWORT_REQUIRE_WASM: '1'
     cmds:
-      - task: web:pkg
-      - cargo fmt --check
-      - task: test:lanes-nonempty
-      - cargo clippy --release --all-targets -- --deny warnings
+      - '{{.REPORT}} run daily -- task test:daily:steps -- {{.CLI_ARGS}}'
+
+  test:daily:steps:
+    # The daily tier's steps, without the report around them.
+    env:
+      STITCHWORT_TIER: daily
+      STITCHWORT_TEST_THREADS: '5'
+      STITCHWORT_REQUIRE_WASM: '1'
+    cmds:
+      - '{{.STEP}} web:pkg -- task web:pkg'
+      - '{{.STEP}} fmt -- cargo fmt --check'
+      - '{{.STEP}} lanes-nonempty -- task test:lanes-nonempty'
+      - '{{.STEP}} clippy -- cargo clippy --release --all-targets -- --deny warnings'
+      - '{{.STEP}} "nextest build" -- {{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace --profile daily --no-run {{.CLI_ARGS}}'
       # `library`'s `builtins::` tests in the debug profile loads the whole library twice in an
       # unoptimised build, about 70 to 90 s of one core. It is built first
       # (17 s; cargo takes a lock on the build folder), then runs beside
-      # nextest, one cap over both.
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo test -p stitchwort-driver --test library --no-run'
+      # nextest, one cap over both. The two runs are timed apart (the second
+      # row of each is "beside"), and nextest's, which the tier waits for
+      # longest, stands for the step.
+      - '{{.STEP}} "builtins build" -- {{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo test -p stitchwort-driver --test library --no-run'
       - |
-        {{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- bash -c '
+        {{.STEP}} "nextest run (with builtins)" -- {{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- bash -c '
           log=$(mktemp)
-          cargo test -p stitchwort-driver --test library builtins:: >"$log" 2>&1 &
+          {{.STEP}} --parallel "builtins run" -- cargo test -p stitchwort-driver --test library builtins:: >"$log" 2>&1 &
           pid=$!
-          cargo nextest run --release --workspace --profile daily {{.CLI_ARGS}}
+          {{.STEP}} --parallel "nextest run" -- cargo nextest run --release --workspace --profile daily {{.CLI_ARGS}}
           status=$?
           wait "$pid" || { cat "$log"; status=1; }
           rm -f "$log"
           exit "$status"'
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo test --release --doc --workspace'
-      - task: board:test
+      - '{{.STEP}} doctests -- {{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo test --release --doc --workspace'
+      - '{{.STEP}} board:test -- task board:test'
 
   test:full:
     desc: 'Full tier: every test, every corpus sweep in full. Only when Matt asks'
@@ -274,9 +311,18 @@ tasks:
       # Two corpus sweeps run at once, each on a pool of 5 threads.
       STITCHWORT_TEST_THREADS: '5'
     cmds:
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_FULL}} -- cargo nextest run --release --workspace --profile full {{.CLI_ARGS}}'
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_FULL}} -- cargo test --release --doc --workspace'
-      - task: test:verify-cache
+      - '{{.REPORT}} run full -- task test:full:steps -- {{.CLI_ARGS}}'
+
+  test:full:steps:
+    # The full tier's steps, without the report around them.
+    env:
+      STITCHWORT_TIER: full
+      STITCHWORT_TEST_THREADS: '5'
+    cmds:
+      - '{{.STEP}} "nextest build" -- {{.GUARD}} --cap-gb {{.MEM_CAP_FULL}} -- cargo nextest run --release --workspace --profile full --no-run {{.CLI_ARGS}}'
+      - '{{.STEP}} "nextest run" -- {{.GUARD}} --cap-gb {{.MEM_CAP_FULL}} -- cargo nextest run --release --workspace --profile full {{.CLI_ARGS}}'
+      - '{{.STEP}} doctests -- {{.GUARD}} --cap-gb {{.MEM_CAP_FULL}} -- cargo test --release --doc --workspace'
+      - '{{.STEP}} verify-cache -- task test:verify-cache'
 
   test:verify-cache:
     desc: "Run aoc's and the roguelike's tests afresh and compare with the cached results (D2379; about 3 min)"
