@@ -1,5 +1,5 @@
 {
-  "next": 2282,
+  "next": 2283,
   "tickets": [
     {
       "id": 47,
@@ -21371,14 +21371,14 @@
     {
       "id": 2257,
       "title": "[Opus] Equality G1 and G3: two alike match helpers on a folded call or a number",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2257",
       "labels": [
         "core"
       ],
       "epic": "elaborator-kernel",
-      "body": "Split from SW-2243 into ~15-min steps (Matt, 7 Nov: small scope near the quota). Flip the gap's #[ignore]d test in proof_equivalence.rs (SW-2242) and its probe in docs/repros/sw-2236/. D3250/D3260. 15-20 min.",
+      "body": "Split from SW-2243 into ~15-min steps (Matt, 7 Nov: small scope near the quota). Flip the gap's #[ignore]d test in proof_equivalence.rs (SW-2242) and its probe in docs/repros/sw-2236/. D3250/D3260. 15-20 min.\n\nDone, merged. tree_scrutinee forces and unfolds; walk_tree branches on constructors, Nat/NatAdd and Chars; reference settle the same. On the lane: counts_have_not_regressed passes (steps within 10%). AoC 287/0 errors; user time 73 s vs 67 s for main under load -> SW-2282. On main: proof_equivalence, call_fields, hash_stability pass. G7/G8 ignore notes still name SW-2243: their lanes fix them. Model result: Opus, worked, 16 min (est. 20).",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
@@ -21739,6 +21739,21 @@
       ],
       "epic": "proof-automation",
       "body": "Read-only. 15 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2282,
+      "title": "[Sonnet] Profile the whole-AoC check after SW-2257 (G1/G3): the lane timed it ~9% slower under load (73 s vs 67 s user) though the benchmark step counts stayed within 10%; time both binaries on a quiet machine and, if real, find which comparisons now walk deeper",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "performance",
+      "body": "From SW-2257. 20 min. Best on Overmind or a quiet Speedwell.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
