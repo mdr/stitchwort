@@ -1,5 +1,5 @@
 {
-  "next": 2236,
+  "next": 2237,
   "tickets": [
     {
       "id": 47,
@@ -21049,6 +21049,21 @@
       ],
       "epic": "record-eta",
       "body": "From docs/reviews/SW-2234-glued-call-against-number.md. After SW-2157 merges (same files). 30 min.",
+      "created": "2026-11-07",
+      "updated": "2026-11-07",
+      "commits": []
+    },
+    {
+      "id": 2236,
+      "title": "[Opus] Design review: how Stitchwort decides two terms are equal, in the round: the principle behind this week's glued/unglued fixes (SW-2126, 2127, 2211, 2157), where the same gap could still hide (conversion, unifier, reference evaluator), whether one shared piece replaces the special cases, and a test that finds the next disagreement",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "D3240 — Matt, 7 Nov 2026: \"I think you're right to pick up if there's been a pattern of issues. That might be something we want to invest some time in understanding more deeply and just look at the changes in the round and try to see what our best approach might be.\" Read-only Opus lane, after SW-2157 merges. Output docs/proposals/equality-in-the-round.md. 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-07",
       "commits": []
