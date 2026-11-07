@@ -365,6 +365,9 @@ why = "the runtime"
 select = [
   { profile = "lane-rt" },
   { profile = "lane-effects" },
+  # Its own binary (it has a global allocator); its one test, about 3.4 s,
+  # sits just over rt-quick's 3 s line.
+  { package = "rt", binary = "state_match" },
 ]
 
 [[rule]]
