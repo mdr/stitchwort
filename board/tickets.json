@@ -23389,7 +23389,7 @@
         "std"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/reviews/SW-2371-map-rebuild-reuse.md. After SW-2382. 60-90 min.\n\nHeld 8 Nov 09:20 (orchestrator) for SW-2384: Matt prefers a general compiler fix over reshaping std code.\n",
+      "body": "From docs/reviews/SW-2371-map-rebuild-reuse.md. After SW-2382. 60-90 min.\n\nHeld 8 Nov 09:20 (orchestrator) until SW-2384 reports. Matt, 8 Nov: \"not absolutely opposed to reshaping the standard library to make it more performant. But ... if we could solve this in the compiler, that makes it a stronger language overall ... it's just a balance.\"\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
