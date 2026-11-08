@@ -24194,17 +24194,19 @@
     {
       "id": 2433,
       "title": "Share JumpK: one shared Rc<Fun> instead of one allocation per state-passing handler step (18.6M in expressions, 22.4M in scan; 1.3-1.6 GB of allocation) at machine.rs:891 and native_abi.rs:2938",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2425. 30 min.\nStarted 19:53 UTC, Sonnet, expected 30 min.\n",
+      "body": "From SW-2425. 30 min.\nStarted 19:53 UTC, Sonnet, expected 30 min.\n\nMerged. Model result: Sonnet, worked, 20 min (est. 30).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "bcf91079d"
+      ]
     },
     {
       "id": 2434,
