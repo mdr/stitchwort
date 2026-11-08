@@ -15,6 +15,7 @@
 //!   a long chain of closures) frees it with a work list (`Drop` for
 //!   [`Fields`], [`Fun`] and [`Delay`]).
 
+use std::borrow::Cow;
 use std::rc::Rc;
 
 use num_bigint::{BigInt, BigUint};
@@ -218,6 +219,24 @@ impl Value {
         match self {
             Value::Int(n) => BigInt::from(*n),
             Value::BigInt(n) => (**n).clone(),
+            other => panic!("internal error: expected an `Int`, got {other:?}"),
+        }
+    }
+
+    /// A `Nat` value as a `BigUint`, borrowed when it is already one.
+    pub fn as_biguint(&self) -> Cow<'_, BigUint> {
+        match self {
+            Value::Nat(n) => Cow::Owned(BigUint::from(*n)),
+            Value::BigNat(n) => Cow::Borrowed(&**n),
+            other => panic!("internal error: expected a `Nat`, got {other:?}"),
+        }
+    }
+
+    /// An `Int` value as a `BigInt`, borrowed when it is already one.
+    pub fn as_bigint(&self) -> Cow<'_, BigInt> {
+        match self {
+            Value::Int(n) => Cow::Owned(BigInt::from(*n)),
+            Value::BigInt(n) => Cow::Borrowed(&**n),
             other => panic!("internal error: expected an `Int`, got {other:?}"),
         }
     }
