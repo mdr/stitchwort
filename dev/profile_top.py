@@ -10,7 +10,9 @@ time, and for each --focus function its callers and direct callees. In a
 native executable, `stitchwort build --native` names each compiled body after
 its Stitchwort definition (`Std.List.get#67`; a lambda is
 `Owner/lambda12#340`; a global's function-value adapter `Name/value`), so
-these are definition names. A tail call replaces its caller's frame, so
+these are definition names. Inclusive entries marked `*` have the runtime's loop beneath them in at least a tenth
+of their samples: the function installed an effect handler, and the rest of
+the program ran as its continuation, so the figure includes that. A tail call replaces its caller's frame, so
 inclusive time follows the stack as it is, not the source's calls.
 
 With --pc-map FILE (the `OUT.pcmap.json` of `stitchwort build --native
@@ -61,6 +63,11 @@ def demangle(name):
 GENERATED = re.compile(r".*(#\d+|/value)|apply\d+|rt_loop|rt_resume|rt_text_fold|(sw_)?cross_\w+")
 
 
+# Frames of the effect runtime's loop. A handler's continuation runs from
+# one, beneath the frame of the definition that installed the handler.
+LOOP_FRAMES = {"rt_loop", "rt_resume"}
+
+
 def kind(name, lib, exe):
     if lib != exe:
         return f"system: {lib}"
@@ -71,6 +78,19 @@ def kind(name, lib, exe):
     if name.startswith("mi_") or name.startswith("_mi_") or "alloc" in name.lower():
         return "allocator"
     return "runtime (Rust)"
+
+
+def under_loop_names(frames, exe):
+    """The generated functions in one sample's stack (innermost first) that
+    have a runtime loop frame beneath them: they started a handler or
+    continuation, so their inclusive time includes what ran after them."""
+    names, seen_loop = set(), False
+    for name, lib in frames:
+        if name in LOOP_FRAMES:
+            seen_loop = True
+        elif seen_loop and lib == exe and re.fullmatch(r".*(#\d+|/value)", name):
+            names.add(name)
+    return names
 
 
 def load_pc_map(path):
@@ -184,11 +204,16 @@ def main():
     total = sum(w for _, w in samples) or 1
 
     self_c, incl_c, kinds = Counter(), Counter(), Counter()
+    # Per generated function, the samples where a runtime loop frame lies
+    # beneath its own frame.
+    under_loop = Counter()
     for frames, w in samples:
         self_c[frames[0][0]] += w
         kinds[kind(*frames[0], exe)] += w
         for name in {n for n, _ in frames}:
             incl_c[name] += w
+        for name in under_loop_names(frames, exe):
+            under_loop[name] += w
 
     def pct(c):
         return f"{100 * c / total:5.1f}%"
@@ -207,8 +232,16 @@ def main():
     for name, c in self_c.most_common(opts.top):
         print(f"  {pct(c)}  {name}")
     print(f"\nTop {opts.top} by inclusive time:")
+    marked = False
     for name, c in incl_c.most_common(opts.top):
-        print(f"  {pct(c)}  {name}")
+        # Only a mark when the continuation is a real part of the figure.
+        flag = under_loop[name] * 10 >= c
+        marked |= flag
+        print(f"  {pct(c)}{' *' if flag else '  '} {name}")
+    if marked:
+        print("  * runs a handler: inclusive time includes the continuation after it"
+              " (runtime loop frames beneath), so it overstates the definition's own work;"
+              " read it with the stage cuts or self time.")
     for target in opts.focus:
         callers, callees = Counter(), Counter()
         for frames, w in samples:
