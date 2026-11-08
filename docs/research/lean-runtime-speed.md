@@ -524,6 +524,9 @@ named.
 8. **Notes on existing tickets, not new ones:**
    - SW-2302: also drop the two whole-number shifts in `div_rem_magnitude`'s
      small-quotient path (`prims.rs:315-316`); read the top limbs instead.
+     *Correction (SW-2302, 8 Nov 2026): in num-bigint 0.5.1 `&BigUint >> n` copies only
+     the digits above the shift, one or two words here, so these aren't whole-number
+     copies; left as they are.*
    - SW-1811: add matcher and octopus to the programs whose read-only increment share it
      measures.
    - SW-2295: run after ticket 1, and record allocations per program beside the times.
