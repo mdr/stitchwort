@@ -1,6 +1,7 @@
 """The top functions of a samply profile saved with --unstable-presymbolicate.
 
     python3 -I dev/profile_top.py PROFILE.json.gz [--top N] [--focus NAME ...]
+        [--group PREFIX ...]
 
 Prints, for the thread with the most samples: the share of self time by kind
 (generated code, the runtime's entry points, the rest of the runtime, the
@@ -11,6 +12,12 @@ its Stitchwort definition (`Std.List.get#67`; a lambda is
 `Owner/lambda12#340`; a global's function-value adapter `Name/value`), so
 these are definition names. A tail call replaces its caller's frame, so
 inclusive time follows the stack as it is, not the source's calls.
+
+Each --group PREFIX adds a line, before the usual tables, for the samples with
+a frame whose name starts with PREFIX (`--group Std.Parse.`): inclusive, and
+self (the samples whose innermost frame matches). Code run by the effect
+runtime loses its caller, so a group can undercount what a definition
+started; read it as the time spent in or below those definitions' frames.
 """
 
 import argparse
@@ -61,6 +68,7 @@ def main():
     parser.add_argument("profile")
     parser.add_argument("--top", type=int, default=25)
     parser.add_argument("--focus", action="append", default=[])
+    parser.add_argument("--group", action="append", default=[], metavar="PREFIX")
     opts = parser.parse_args()
 
     prof = json.load(gzip.open(opts.profile))
@@ -115,6 +123,12 @@ def main():
         return f"{100 * c / total:5.1f}%"
 
     print(f"{opts.profile}: {total} samples (thread {thread['name']})")
+    if opts.group:
+        print("\nGroups (frame names starting with the prefix):")
+        for prefix in opts.group:
+            inclusive = sum(w for frames, w in samples if any(n.startswith(prefix) for n, _ in frames))
+            own = sum(w for frames, w in samples if frames[0][0].startswith(prefix))
+            print(f"  {pct(inclusive)} inclusive, {pct(own)} self  {prefix}*")
     print("\nSelf time by kind:")
     for k, c in kinds.most_common():
         print(f"  {pct(c)}  {k}")

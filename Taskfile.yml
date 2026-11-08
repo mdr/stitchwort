@@ -536,7 +536,7 @@ tasks:
       - nix develop .#compare -c bash bench/compare/compare.sh --check --sw {{.SW}} {{.CLI_ARGS}}
 
   profile:native:
-    desc: 'Profile the native executables of bench/compare programs: samply top functions by Stitchwort definition, and counts of runtime calls (args after --: program names, --top N, --focus FUNCTION, --no-counts)'
+    desc: 'Profile the native executables of bench/compare programs: samply top functions by Stitchwort definition, and counts of runtime calls (args after --: program names, --top N, --focus FUNCTION, --group PREFIX, --no-counts)'
     summary: |
       Builds `stitchwort` and its runtime library (as `task build`), then
       dev/profile-native: for each program, its native executable is
