@@ -23869,14 +23869,14 @@
     {
       "id": 2413,
       "title": "Full tier on Overmind (15 GiB) was stopped for low memory at test 1105/2321 by Claude Code's shell reaper, under memguard's 16 GB cap (peak 12.7 GB RSS); MEM_CAP_FULL=12 wasn't passed on to the nested task test:full:steps (log shows --cap-gb 16). Pass the cap through, and set a per-machine cap or fewer test threads so the full tier fits a 15 GiB machine",
-      "status": "backlog",
-      "agent": "Sonnet",
+      "status": "doing",
+      "agent": "Opus",
       "where": "",
       "labels": [
         "test-infra"
       ],
       "epic": "test-infra",
-      "body": "Job 22, 8 Nov 2026, f4bb28f91, 11:26-~13:00. Log: Overmind scratchpad j22-full.log. Related: SW-2412 (daily tier over 16 GB on Speedwell). 45 min.",
+      "body": "Job 22, 8 Nov 2026, f4bb28f91, 11:26-~13:00. Log: Overmind scratchpad j22-full.log. Related: SW-2412 (daily tier over 16 GB on Speedwell). 45 min.\nStarted 15:57 UTC on Overmind (its own session), expected 60 min. Orchestrator's call: Overmind is the machine it concerns.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
