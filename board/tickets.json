@@ -23351,7 +23351,7 @@
     {
       "id": 2382,
       "title": "Std Graph.searchFrom: stop holding the queue twice (it is passed as an argument for proofs and also popped), so popMin and relaxEdges meet unique cells; restate without the shared queue, or wait for ghost parameters (D2900-D2905); measured -17% on day 15 by hand",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -23359,7 +23359,7 @@
         "std"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/reviews/SW-2371-map-rebuild-reuse.md. Spec statements unchanged. 60 min.",
+      "body": "From docs/reviews/SW-2371-map-rebuild-reuse.md. Spec statements unchanged. 60 min.\n\nStarted 05:32 UTC, Opus, expected 60 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
