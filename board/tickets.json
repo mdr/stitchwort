@@ -22048,17 +22048,19 @@
     {
       "id": 2302,
       "title": "[Sonnet] Big numbers: arithmetic and comparisons work on references, without copying both inputs first (prims.rs:274, value.rs:217)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2302",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/reviews/SW-2298-native-bignum.md (paper lane; confirm with task bench:compare -- --runs 3 pidigits before and after). 30 min.\n\nStarted 7 Nov 2026 23:28; expected: 30 min. Runs beside SW-2302/2304 (both from SW-2298); merge after Overmind's Stage 2 timing of the commit before them.\n\nCancelled after a few minutes (Matt, 7 Nov 2026: profile first, then change only a measured hotspot). Waits for the profiling lane SW-2296; restart only if its profile shows this cost is a meaningful share. Unfinished diff kept in the orchestrator scratchpad (SW-2302-unfinished.patch), not merged. Model result: Sonnet, cancelled at ~5 min (est. 30).\n\nStarted 8 Nov 2026 00:08, overnight wave 1 (Matt: focus on comparative performance; profile, address, recheck); expected: 30 min.\n",
+      "body": "From docs/reviews/SW-2298-native-bignum.md (paper lane; confirm with task bench:compare -- --runs 3 pidigits before and after). 30 min.\n\nStarted 7 Nov 2026 23:28; expected: 30 min. Runs beside SW-2302/2304 (both from SW-2298); merge after Overmind's Stage 2 timing of the commit before them.\n\nCancelled after a few minutes (Matt, 7 Nov 2026: profile first, then change only a measured hotspot). Waits for the profiling lane SW-2296; restart only if its profile shows this cost is a meaningful share. Unfinished diff kept in the orchestrator scratchpad (SW-2302-unfinished.patch), not merged. Model result: Sonnet, cancelled at ~5 min (est. 30).\n\nStarted 8 Nov 2026 00:08, overnight wave 1 (Matt: focus on comparative performance; profile, address, recheck); expected: 30 min.\n\nDone 8 Nov 2026 00:15 (~7 min). Value::as_biguint/as_bigint (Cow) used in Nat/Int add, sub, mul, divFuel, cmp, neg, abs, Int-mod-Nat; no operand cloned. The division fast path's shifts only copy the top words in num-bigint 0.5.1 (not whole numbers), so left. pidigits native 1.26 s -> 1.14 s (3 runs, noisy). Remaining memmove is the non-in-place add/sub result (SW-2303). Tests: rt lane 60 pass, bench:compare:check pidigits ok, two new unit tests. Model result: Sonnet, worked, 7 min (est. 30).\n",
       "created": "2026-11-07",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "ea2d9410f"
+      ]
     },
     {
       "id": 2303,
