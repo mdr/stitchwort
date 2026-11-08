@@ -1,5 +1,5 @@
 {
-  "next": 2433,
+  "next": 2436,
   "tickets": [
     {
       "id": 47,
@@ -24068,17 +24068,19 @@
     {
       "id": 2425,
       "title": "Compact values V0: census of the values and cells a run makes (kinds, sizes, bytes allocated) on the decision set; no-go for two-word values if allocated bytes fall under 25% on half the set",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/proposals/compact-values.md §5. Waits for D3432. 1.5 h.\n\nD3432, Matt, 8 Nov 2026 ~18:30: yes, \"run the measurements\" (end state C then E; A/D gated).\nStarted 18:34 UTC.\n",
+      "body": "From docs/proposals/compact-values.md §5. Waits for D3432. 1.5 h.\n\nD3432, Matt, 8 Nov 2026 ~18:30: yes, \"run the measurements\" (end state C then E; A/D gated).\nStarted 18:34 UTC.\n\nLane notes (18:52 UTC, ~20 min): done on lane/SW-2425 (afcdc4679). Cargo feature `value-census` on stitchwort-rt; report docs/reviews/SW-2425-value-census.md. Go for E: allocated bytes cut 30-37% on all six decision programs (A 62-67%, C 6-12%); no Float and no Nat >= 2^61 stored anywhere. Ran on the machine (`stitchwort run`), full comparison sizes, none over a minute.\nModel result: Sonnet, worked, 20 min (est. 90 min)\n\nMerged. Go for E: 30-37% of allocated bytes on all six decision programs (C 6-12%, A 62-67%). No floats or Nats >= 2^61 in fields. Closures are 47% of the parsers' bytes. Follow-ups SW-2433 SW-2434 SW-2435. Model result: Sonnet, worked, 20 min (est. 90).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "9392e35dd"
+      ]
     },
     {
       "id": 2426,
@@ -24183,6 +24185,51 @@
       ],
       "epic": "comparative-speed",
       "body": "From SW-2426. Fold into SW-2427 (V2).",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2433,
+      "title": "Share JumpK: one shared Rc<Fun> instead of one allocation per state-passing handler step (18.6M in expressions, 22.4M in scan; 1.3-1.6 GB of allocation) at machine.rs:891 and native_abi.rs:2938",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2425. 30 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2434,
+      "title": "Erased values stored in cells (24% of matcher's cell fields; 3.7-19% in octopus, disk, dijkstra, pidigits): find which constructors store them and whether lowering can drop them",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "rt"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2425; joins SW-2415's stored_fields. Investigate 1 h.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2435,
+      "title": "task census: build the value-census binary and run the bench/compare programs, so V4 can rerun it at decision time",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "bench"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2425. 30 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
