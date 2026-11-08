@@ -1,5 +1,5 @@
 {
-  "next": 2396,
+  "next": 2397,
   "tickets": [
     {
       "id": 47,
@@ -23564,7 +23564,7 @@
     {
       "id": 2394,
       "title": "Graph.distances over a cost table, stage 1: update docs/proposals/dense-distances.md to one Graph.distances with an optional index argument (D3417), then generalise the Dijkstra search over a cost table (Map table only, no index yet); distances' statements and speed kept",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -23572,10 +23572,12 @@
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "D3416, Matt, 8 Nov 2026: yes. D3417, Matt, 8 Nov 2026: one Graph.distances with an optional named index argument instead of a separate distancesIndexed (\"Yeah, proceed with that\"). D3418 moot (returns a Map as today). D3419 (Index type shape) to bring to Matt from the updated note before stage 2. 90 min.",
+      "body": "D3416, Matt, 8 Nov 2026: yes. D3417, Matt, 8 Nov 2026: one Graph.distances with an optional named index argument instead of a separate distancesIndexed (\"Yeah, proceed with that\"). D3418 moot (returns a Map as today). D3419 (Index type shape) to bring to Matt from the updated note before stage 2. 90 min.\n\nProgress (lane, 8 Nov 2026): note draft 2 committed (1884994b0): one `distances` with optional `(index := …)`, theorems take the same argument, D3419 options with rec (b) a `Graph.Index s` record with size inside and `Nat` numbers, since `Fin` is unary at run time. Stage 1 committed (dee64d833): Dijkstra generic over `Graph.Costs` (laws + derived `has` facts), `Graph.distancesWith`, `distances` at `Graph.mapCosts`; public statements' text unchanged. dijkstra native instructions 44.01 G -> 41.62 G. Checks: audit:touched Std.Graph 70/70, aoc:check 287 namespaces, test:lane std 24/24, prelude-bound + extraction 5/5, bench:compare:check dijkstra ok. Prelude hash snapshot regenerated. Took about 25 min (est. 90).\n\nMerged. Public statements unchanged (distances signature; distancesCorrect re-proved through distancesWithCorrect). New public: Graph.Costs and laws, mapCosts, Costs.has facts, distancesWith(Correct), BoundBy, SearchResultBy, unsettledAt(Fewer). dijkstra 44.01 -> 41.62 G instructions. Finding: Fin is unary at run time, so a Fin-indexed Array would walk n constructors. Stage 2 is SW-2396. Model result: Opus, worked, 15 min (est. 90).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "1d9690668"
+      ]
     },
     {
       "id": 2395,
@@ -23588,6 +23590,22 @@
       ],
       "epic": "comparative-speed",
       "body": "From SW-2393 F3; required by SW-2391 but useful alone. Measure on matcher (3.5M misses) and dijkstra. 45 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2396,
+      "title": "Graph.distances over a cost table, stage 2: the optional (index := …) argument, the Array table and the side Map, per dense-distances.md draft 2; then day 15 passes a grid index (Position numbering in Aoc.Common); acceptance: zero array copies on day 15",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "std",
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "After SW-2394. Waits for D3419 (index shape; rec (b) Graph.Index record with size, number, decode and two erased proofs). 90-120 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
