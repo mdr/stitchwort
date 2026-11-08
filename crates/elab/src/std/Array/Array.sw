@@ -12,8 +12,12 @@
 --| right. `stitchwort run` counts those copies and says so at the end of a
 --| run that made many. Keep an array unshared by passing the new version on
 --| and not using the old one again. Whole-array operations (`map`,
---| `foldLeft`, …) and `toList` are O(n). Under `--js` every operation runs
---| as written, on the list.
+--| `foldLeft`, …) and `toList` are O(n). Under `--js` an array is a version
+--| array: the newest version holds the buffer and each older one a record of
+--| the change that tells it apart, so `get`, `set`, `push` and `pop` on the
+--| newest are O(1) however many versions were made. An older version is
+--| rebuilt (in a loop) the first time it is read or changed, which costs the
+--| number of changes since. Whole-array operations are O(n) as above.
 --|
 --| **Reading.** Three ways, none of which can fail: `get` gives an `Option`,
 --| `getOr` takes a fallback, and `getLt` takes a proof that the index is in
