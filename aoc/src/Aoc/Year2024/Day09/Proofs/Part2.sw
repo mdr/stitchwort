@@ -125,5 +125,8 @@ theorem checksumFileRun (id: Nat): (length: Nat) → (from: Nat) →
 theorem fileChecksumCorrect (file: File):
     file.checksum = filesystemChecksum { blocks = List.replicate file.span.start Free ++ List.replicate file.span.length (FileBlock file.id) } :=
   rewrite <- checksumCorrect { blocks = List.replicate file.span.start Free ++ List.replicate file.span.length (FileBlock file.id) } in
-    Eq.sym (Eq.trans (checksumSkipFree (List.replicate file.span.length (FileBlock file.id)) file.span.start 0)
-      (rewrite Nat.addZero file.span.start in checksumFileRun file.id file.span.length file.span.start))
+    Eq.trans (fileChecksumSpec file)
+      (Eq.trans
+        (Eq.sym (Eq.trans (checksumSkipFree (List.replicate file.span.length (FileBlock file.id)) file.span.start 0)
+          (rewrite Nat.addZero file.span.start in checksumFileRun file.id file.span.length file.span.start)))
+        (Eq.sym (checksumSum { blocks = List.replicate file.span.start Free ++ List.replicate file.span.length (FileBlock file.id) })))

@@ -85,9 +85,14 @@ def compactBlocks (blocks: List Block): List Block :=
 
 def Disk.compact (disk: Disk): Disk := { blocks = compactBlocks disk.blocks }
 
+--| One block of the checksum, counting positions as it goes: the checksum so
+--| far and the block's position, then the checksum with this block's part
+--| added and the next position.
+def Disk.checksumStep (running: (Nat, Nat)) (block: Block): (Nat, Nat) :=
+  (running.fst + running.snd * block.idOr 0, running.snd + 1)
+
 --| Each file block's position times its file number, added up.
-def Disk.checksum (disk: Disk): Nat :=
-  disk.blocks.withIndex |> .sumBy (pair => pair.fst * pair.snd.idOr 0)
+def Disk.checksum (disk: Disk): Nat := (disk.blocks.foldLeft (0, 0) Disk.checksumStep).fst
 
 def solvePart1 (diskMap: DiskMap): Nat := diskMap.blocks.compact.checksum
 
@@ -150,7 +155,10 @@ def compactFiles (diskMap: DiskMap): List File :=
   let layout := layoutFrom (id := 0) (position := 0) diskMap.lengths
   layout.fst.reverse.mapAccumLeft (FreeSpace.of (joinTouching layout.snd)) FreeSpace.moveFile |> .snd
 
---| A file's part of the checksum: its blocks' positions times its number.
-def File.checksum (file: File): Nat := List.rangeFrom (count := file.span.length) (start := file.span.start) |> .sumBy (* file.id)
+--| A file's part of the checksum: its blocks' positions times its number
+--| (the positions add up by Gauss's rule).
+def File.checksum (file: File): Nat :=
+  let length := file.span.length
+  file.id * (length * file.span.start + length * (length - 1) / 2)
 
 def solvePart2 (diskMap: DiskMap): Nat := compactFiles diskMap |> .sumBy .checksum
