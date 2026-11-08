@@ -127,6 +127,38 @@ def main(): {IO} () :=
     same_trace(source);
 }
 
+/// The cell-by-cell loops behind `map`, `filter`, `append` and `concat`
+/// build their result with the hole operations (`New`, `Fill`, `Take`),
+/// which native code does as a store and a load. The elements are shared
+/// (the same lists and texts are used again after the loops, and appear
+/// several times in the results), so every `Fill` takes a count on a value
+/// others hold, and every `Take` a count on the chain: the traces equal the
+/// machine's, and nothing leaks.
+#[test]
+fn list_loops_building_cells_agree_and_free_everything() {
+    let source = r#"import Std (IO, List, Text)
+
+def nothing: List Nat := []
+
+def main(): {IO} () :=
+  let words := ["ab", "cd", "ef"]
+  let rows := [words, [], words]
+  let longer := words.map (w => "${w}!")
+  let both := words ++ longer ++ words
+  let flat := rows.concat
+  let kept := both.filter (w => w != "cd!")
+  IO.print "${longer} ${both.length} ${flat.length} ${kept.length}"
+  IO.print "${words} ${rows.length} ${List.map nothing (n => n + 1)}"
+"#;
+    let out = agrees(source);
+    assert!(
+        out.starts_with("[\"ab!\", \"cd!\", \"ef!\"] 9 6 8\n"),
+        "{out}"
+    );
+    assert!(out.contains("[\"ab\", \"cd\", \"ef\"] 3 []"), "{out}");
+    same_trace(source);
+}
+
 /// The instructions the machine executed in a native run of `program`
 /// (`machine::instructions_executed`: none since stage NO4 of
 /// native-only.md), and how it ended.
