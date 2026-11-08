@@ -1,5 +1,5 @@
 {
-  "next": 2345,
+  "next": 2346,
   "tickets": [
     {
       "id": 47,
@@ -22377,7 +22377,7 @@
     {
       "id": 2323,
       "title": "Std: one-pass List.flatMap, today's definition kept as a theorem",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2323",
       "labels": [
@@ -22385,10 +22385,13 @@
         "stdlib"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/research/lean-runtime-speed.md (SW-2318). A hypothesis from reading code: start only if the SW-2296 profile shows this cost is a meaningful share. Est. 5-15% on matcher. 30 min.\n\nStarted 8 Nov 2026 00:16, overnight wave 2; expected: 40 min.\n",
+      "body": "From docs/research/lean-runtime-speed.md (SW-2318). A hypothesis from reading code: start only if the SW-2296 profile shows this cost is a meaningful share. Est. 5-15% on matcher. 30 min.\n\nStarted 8 Nov 2026 00:16, overnight wave 2; expected: 40 min.\n\n\nDone 8 Nov 2026 00:25 (9 min), commit ea3e72f77 on lane/SW-2323: List.flatMap one-pass, List.flatMapEqConcatMap theorem. matcher sw_prim 99M to 47M; native 7.7 s (SW-2296) to 6.3 s.\n",
       "created": "2026-11-07",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "deff2c0c6",
+        "bc57a7106"
+      ]
     },
     {
       "id": 2324,
@@ -22714,6 +22717,21 @@
       ],
       "epic": "aoc-older",
       "body": "From the SW-2320 batch verifier, 8 Nov 2026. Statements unchanged by SW-2320. 20 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2345,
+      "title": "docs/workflow.md 'Writing a brief': the std-core line's filter -E 'binary(extract) & test(/bound_to_the_prelude/)' matches no binary (SW-2323 used the test filter alone); correct it to the real binary name",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "epic": "test-infra",
+      "body": "From SW-2323's report, 8 Nov 2026. 10 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
