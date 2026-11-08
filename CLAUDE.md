@@ -189,6 +189,29 @@ Use the cheapest model that can do the work well. Provisional (D2208, Matt,
   examples' hash snapshots, std core's native pins, which comment rules
   apply): see "Writing a brief" in `docs/workflow.md`.
 
+## Choosing work by pace (D3427, Matt, 8 Nov 2026)
+
+Tokens and machine time are separate budgets. The orchestrator reads the
+week's pace (`seven_day.pace` in `~/.claude/usage.json`: share of the
+week's allowance used over share of the week gone) before starting work and
+at every status table, and picks the kind of work to fit it:
+
+- **At or under pace** (up to 1): the normal mix of token-heavy work:
+  lanes on code, proofs and designs, reviews, AoC days.
+- **Over pace** (above 1): no new token-heavy lanes; running lanes finish
+  and are merged as usual. Instead the machines are kept busy with
+  compute-heavy, token-light work, started without asking Matt: the fuzzers
+  (`task fuzz:*`, large counts and fresh seeds), the full audit, the daily
+  and full tiers (still never back to back), uncached whole-AoC checks and
+  Overmind comparison runs. One heavy job per machine at a time, as plain
+  background commands that no agent watches; Overmind gets one long job
+  per message.
+- **Findings made while over pace** are filed as tickets with their
+  reproducers and investigated once pace is back, since triage is
+  token-heavy.
+- **Switching back:** normal lanes resume once pace falls to about 0.95,
+  so the choice doesn't flip back and forth each hour.
+
 ## Lane agents
 
 - Work only in your worktree and branch. Don't merge into `main` or push.
@@ -241,16 +264,8 @@ Use the cheapest model that can do the work well. Provisional (D2208, Matt,
 
 - Don't run the daily tier (`task test:daily`, `nix flake check`) or the
   full tier without asking Matt first. Never run them back to back.
-- Except when over pace (D3427, Matt, 8 Nov 2026): while the week's usage
-  pace (`seven_day.pace` in `~/.claude/usage.json`) is over 1, the
-  orchestrator starts no new token-heavy lanes and fills the machines with
-  compute-heavy, token-light work without asking: the fuzzers
-  (`task fuzz:*`, with large counts and fresh seeds), the full audit, the
-  daily and full tiers (still not back to back), uncached whole-AoC checks
-  and Overmind comparison runs. One heavy job per machine at a time, as
-  plain background commands, not watched by agents. A finding is filed as a
-  ticket with its reproducer and investigated once pace is back; normal
-  lanes resume when pace falls to about 0.95.
+- Except when over pace: then the orchestrator may run these without
+  asking (D3427; see "Choosing work by pace" below).
 - Lanes are very selective about tests. Run only targeted, fast tests that
   check the work your change directly affects: `task test:one -- NAME` for
   the tests you touched, and `task test:lane AREA=…` when it fits. No single
