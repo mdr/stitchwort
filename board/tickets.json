@@ -1,5 +1,5 @@
 {
-  "next": 2369,
+  "next": 2370,
   "tickets": [
     {
       "id": 47,
@@ -22536,14 +22536,14 @@
     {
       "id": 2332,
       "title": "Profiling: attribute samples in generated native code to bytecode instructions",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
         "tooling"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/reviews/SW-2296-native-profiles.md §5 (measured). §3. 1-2 h.",
+      "body": "From docs/reviews/SW-2296-native-profiles.md §5 (measured). §3. 1-2 h.\n\nStarted 04:51 UTC, Opus, expected 90 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -23133,6 +23133,21 @@
       "commits": [
         "e0f542fe0"
       ]
+    },
+    {
+      "id": 2369,
+      "title": "Profile study: why dijkstra (14x CPython) and disk (7.8x) are slow in native code after tonight's fixes; name the top costs with numbers and a fix for each",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "8 Nov 2026 04:52, after the third headline run. Measure only; file fixes. 40 min.\n\nStarted 04:51 UTC, Sonnet, expected 40 min.\n",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
     }
   ]
 }
