@@ -35,6 +35,7 @@
 
 mod live;
 
+use crate::value_census::new_fun;
 use std::io::{self, BufRead, Read, Write};
 use std::rc::Rc;
 
@@ -956,7 +957,7 @@ impl<'t, E: Executor> Runner<'t, E> {
             cont,
             back,
         };
-        let k = Value::Fun(Rc::new(Fun::DelayK(Rc::new(capture))));
+        let k = Value::Fun(new_fun(Fun::DelayK(Rc::new(capture))));
         Ok(Focus::Eval(self.m.call(call, vec![op, k])?))
     }
 
@@ -1035,12 +1036,12 @@ impl<'t, E: Executor> Runner<'t, E> {
         } else if tag == s.read_line {
             self.before_read(ReadNeed::Line, output)?;
             match read_line(input, &mut self.lines)? {
-                Some(line) => Value::data(s.some, [Value::Text(line.into())]),
+                Some(line) => Value::data(s.some, [Value::text(line.into())]),
                 None => Value::Tag(s.none),
             }
         } else if tag == s.read_all {
             self.before_read(ReadNeed::All, output)?;
-            Value::Text(read_all(input, &mut self.lines)?.into())
+            Value::text(read_all(input, &mut self.lines)?.into())
         } else if tag == s.console {
             let console = self.terminal.console();
             let flag = |b: bool| Value::Tag(if b { s.true_ } else { s.false_ });
@@ -1077,7 +1078,7 @@ impl<'t, E: Executor> Runner<'t, E> {
         } else if tag == s.args {
             let mut list = Value::Tag(s.nil);
             for arg in crate::host::args().iter().rev() {
-                list = Value::data(s.cons, [Value::Text(arg.clone().into()), list]);
+                list = Value::data(s.cons, [Value::text(arg.clone().into()), list]);
             }
             list
         } else {

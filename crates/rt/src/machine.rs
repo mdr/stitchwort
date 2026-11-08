@@ -23,6 +23,7 @@
 //!   operations or ticks, and the frames, are bounded by [`Limits`], as for
 //!   the reference evaluator, and running out is a [`ResourceError`].
 
+use crate::value_census::{new_fun, new_handler, new_resume};
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -220,7 +221,7 @@ impl<'p> Machine<'p> {
             &self.image,
             c,
             Value::Erased,
-            Rc::new(Handler::Step),
+            new_handler(Handler::Step),
             Value::Erased,
             Ret::Host,
         );
@@ -370,7 +371,7 @@ impl State {
         }
         let v = match &program.globals[g as usize].kind {
             GlobalKind::Native(op) if op.arity() == 0 => Value::Erased,
-            _ => Value::Fun(Rc::new(Fun::Global(g))),
+            _ => Value::Fun(new_fun(Fun::Global(g))),
         };
         self.globals[g as usize] = Some(v.clone());
         v
@@ -529,7 +530,7 @@ impl State {
                 head: head.clone(),
                 args: self.regs.drain(at..).collect(),
             };
-            return Ok(Some((Value::Fun(Rc::new(pap)), ret)));
+            return Ok(Some((Value::Fun(new_fun(pap)), ret)));
         }
         let ret = if total > arity {
             let rest = self.regs.drain(at + arity..).collect();
@@ -854,7 +855,7 @@ impl State {
                 ..
             } => match forwarded(s, table, o) {
                 Ok(o) => {
-                    let resume = Rc::new(Resume {
+                    let resume = new_resume(Resume {
                         handler,
                         rest,
                         pending,
@@ -867,7 +868,7 @@ impl State {
             _ => o,
         };
         let resume = |handler, op| {
-            Rc::new(Resume {
+            new_resume(Resume {
                 handler,
                 rest,
                 pending,
@@ -878,7 +879,7 @@ impl State {
             Handler::Fold { call, lazy, .. } => {
                 self.counts.routes += 1;
                 let (call, lazy) = (call.clone(), *lazy);
-                let k = Value::Fun(Rc::new(Fun::Resume(resume(handler, Value::Erased), lazy)));
+                let k = Value::Fun(new_fun(Fun::Resume(resume(handler, Value::Erased), lazy)));
                 self.regs.extend([o, k]);
                 self.apply(program, image, call, 2, ret)
             }
@@ -887,8 +888,8 @@ impl State {
                 self.counts.routes += 1;
                 let call = call.clone();
                 let resume = resume(handler, Value::Erased);
-                let k = Value::Fun(Rc::new(Fun::StateK(resume.clone())));
-                let jump = Value::Fun(Rc::new(Fun::JumpK));
+                let k = Value::Fun(new_fun(Fun::StateK(resume.clone())));
+                let jump = Value::Fun(new_fun(Fun::JumpK));
                 let then = Ret::Step(Box::new((resume, ret)));
                 self.regs.extend([o, k, jump, state]);
                 self.apply(program, image, call, 4, then)
@@ -896,12 +897,12 @@ impl State {
             Handler::Translate { inject, .. } => {
                 self.counts.routes += 1;
                 let inject = inject.clone();
-                let k = Value::Fun(Rc::new(Fun::Resume(resume(handler, o.clone()), false)));
+                let k = Value::Fun(new_fun(Fun::Resume(resume(handler, o.clone()), false)));
                 self.regs.push(o);
                 self.apply(program, image, inject, 1, Ret::Inject(Box::new((k, ret))))
             }
             Handler::Step => {
-                let k = Value::Fun(Rc::new(Fun::Resume(resume(handler, Value::Erased), false)));
+                let k = Value::Fun(new_fun(Fun::Resume(resume(handler, Value::Erased), false)));
                 Ok(Some((Value::data(s.call, [o, k]), ret)))
             }
             Handler::RunPure => panic!("internal error: an operation reached `runPure`"),
@@ -1230,7 +1231,7 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                 Instr::Pap { dst, g, args } => {
                     let held = args!(args);
                     let head = st.function_value(program, g);
-                    reg!(dst) = Value::Fun(Rc::new(Fun::Pap {
+                    reg!(dst) = Value::Fun(new_fun(Fun::Pap {
                         head,
                         args: held.into(),
                     }));
@@ -1291,7 +1292,7 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                 }
                 Instr::Closure { dst, lambda, args } => {
                     let captures = args!(args);
-                    reg!(dst) = Value::Fun(Rc::new(Fun::Closure {
+                    reg!(dst) = Value::Fun(new_fun(Fun::Closure {
                         lambda,
                         captures: captures.into(),
                     }));

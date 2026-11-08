@@ -32,6 +32,7 @@
 //! crossed, and the frames pending grow only with the program's own
 //! non-tail calls.
 
+use crate::value_census::{new_fun, new_handler};
 use std::rc::Rc;
 
 use stitchwort_core::collections::HashMap;
@@ -427,7 +428,7 @@ pub(crate) fn pair(mut fields: Fields) -> (Value, Value) {
 pub(crate) fn state_handler(s: &Shapes, op: EffectOp, mut arg: impl FnMut() -> Value) -> Value {
     let (done, call, c) = (arg(), arg(), arg());
     let comp = op == EffectOp::FoldStateComp;
-    let handler = Rc::new(Handler::State { done, call, comp });
+    let handler = new_handler(Handler::State { done, call, comp });
     let run = StateRun {
         handler,
         rest: Value::Erased,
@@ -440,7 +441,7 @@ pub(crate) fn state_handler(s: &Shapes, op: EffectOp, mut arg: impl FnMut() -> V
 /// A state-passing handler's function of the state, `Done` of it if the
 /// handler's carrier is a computation.
 fn state_fn(s: &Shapes, comp: bool, run: StateRun) -> Value {
-    let f = Value::Fun(Rc::new(Fun::StateRun(Rc::new(run))));
+    let f = Value::Fun(new_fun(Fun::StateRun(Rc::new(run))));
     if comp { Value::data(s.done, [f]) } else { f }
 }
 
@@ -484,9 +485,9 @@ pub(crate) fn handler_for(
                 panic!("internal error: a `SigMap` that isn't `MkSigMap`")
             };
             let (inject, reply) = pair(m);
-            (Rc::new(Handler::Translate { inject, reply }), c)
+            (new_handler(Handler::Translate { inject, reply }), c)
         }
-        EffectOp::RunPure => (Rc::new(Handler::RunPure), arg()),
+        EffectOp::RunPure => (new_handler(Handler::RunPure), arg()),
         _ => unreachable!("an effect native that runs a loop"),
     }
 }
@@ -723,7 +724,7 @@ pub(crate) fn skipped(
     resume: Rc<Resume>,
 ) -> Value {
     counts.forwards += 1;
-    let r = Value::Fun(Rc::new(Fun::Resume(resume, false)));
+    let r = Value::Fun(new_fun(Fun::Resume(resume, false)));
     Value::data(s.call, [o, r])
 }
 
@@ -738,7 +739,7 @@ pub(crate) fn resume_lazily(
     y: Value,
 ) -> Value {
     counts.resumes += 1;
-    let k = Value::Fun(Rc::new(Fun::Resume(resume.clone(), false)));
+    let k = Value::Fun(new_fun(Fun::Resume(resume.clone(), false)));
     Value::data(s.bind_node, [Value::data(s.done, [y]), k])
 }
 
@@ -772,7 +773,7 @@ pub(crate) fn state_k(s: &Shapes, resume: &Resume, y: Value) -> Value {
 /// to find (`state_step`).
 #[inline]
 pub(crate) fn jump_k(v: Value, s: Value) -> Value {
-    Value::Fun(Rc::new(Fun::Jumped(v, s)))
+    Value::Fun(new_fun(Fun::Jumped(v, s)))
 }
 
 /// A resumption of a handler around partial code (`DelayK`): `k y` is a

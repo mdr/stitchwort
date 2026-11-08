@@ -54,6 +54,7 @@ pub(crate) fn recording() -> bool {
 /// A new cell of `tag` with `fields`.
 #[inline(always)]
 pub(crate) fn alloc(tag: u32, fields: &Rc<[Value]>) {
+    crate::value_census::cell(fields);
     #[cfg(feature = "alloc-trace")]
     if enabled::recording() {
         enabled::record(
@@ -82,6 +83,7 @@ pub(crate) fn alloc_at(tag: u32, fields: *const u8, len: usize) {
 /// A cell refilled in place as `tag`.
 #[inline(always)]
 pub(crate) fn reuse(tag: u32, fields: &Rc<[Value]>) {
+    crate::value_census::cell_reuse(fields);
     #[cfg(feature = "alloc-trace")]
     if enabled::recording() {
         enabled::record(

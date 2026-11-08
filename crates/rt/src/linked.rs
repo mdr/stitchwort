@@ -371,7 +371,7 @@ impl Reader<'_> {
         for _ in 0..n {
             let v = match self.u8()? {
                 ERASED => Value::Erased,
-                DONE_K => Value::Fun(Rc::new(Fun::DoneK)),
+                DONE_K => Value::Fun(crate::value_census::new_fun(Fun::DoneK)),
                 NAT => Value::Nat(self.uint()?),
                 BIG_NAT => Value::BigNat(Rc::new(self.big()?)),
                 INT => Value::Int(self.signed()?),
