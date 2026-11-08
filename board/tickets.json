@@ -1,5 +1,5 @@
 {
-  "next": 2445,
+  "next": 2447,
   "tickets": [
     {
       "id": 47,
@@ -24294,14 +24294,14 @@
     {
       "id": 2439,
       "title": "Kernel rejected an elaborated term (fuzz oracle 3): case 11979 of seed 0x2438, mutated from accept/lambda-pattern-annotations.sw; the elaborator reported E-CANNOT-INFER after building a term the kernel refused",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [
         "elab"
       ],
       "epic": "elaborator-kernel",
-      "body": "Found by fuzz:elab CASES=15000 SEED=0x2438 (8 Nov 2026 20:33). Input dev/fuzz-findings/2438-11979.sw. Repro: task fuzz:elab CASES=15000 SEED=0x2438 ONLY=11979 DUMP=1. The kernel caught it (not a soundness hole), but the elaborator produced an ill-typed term: find where (lambda patterns with annotations), fix, add a regression example. Opus (elaborator soundness boundary). 60 min.\nStarted 20:33 UTC.\n",
+      "body": "Found by fuzz:elab CASES=15000 SEED=0x2438 (8 Nov 2026 20:33). Input dev/fuzz-findings/2438-11979.sw. Repro: task fuzz:elab CASES=15000 SEED=0x2438 ONLY=11979 DUMP=1. The kernel caught it (not a soundness hole), but the elaborator produced an ill-typed term: find where (lambda patterns with annotations), fix, add a regression example. Opus (elaborator soundness boundary). 60 min.\nStarted 20:33 UTC.\n\n21:22: done, lane/SW-2439 5893f8d88. Minimal: `let f := ((i, s)) => i + s.size` then `f (1, Circle 4) == 5` (no annotation; both the waiting `.size` and the waiting `==` needed). Cause: queue::placeholder_call inlines `let` values the placeholder isn't applied to and relies on zonk's refold to fold them back; here the fold missed and the kernel got the bare redex `(%arg0 => …) (1, Circle 4)` (kernel E-CANNOT-INFER, reported as is). Fix: such a lambda is annotated with its type where applied (lift::replace_annotating_heads), and zonk_call drops `(x : A) a` annotations on a variable head after refolding, so no existing hash changes (hash_stability all pass, prelude included). Regression: examples/accept/postpone-let-lambda-compared.sw. Moved to review.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -24379,6 +24379,36 @@
       ],
       "epic": "comparative-speed",
       "body": "From SW-2422; ties to compact-values.md and SW-2417. Paper, 90 min.\n\nFrom SW-2442: each forwarded operation allocates an Rc<Resume> and an Rc<Fun> around it (~29 M pairs on expressions). One allocation would work if Fun::Resume held the Resume inline when unshared; StateK and Ret::Step share the Rc<Resume> today. Include this in the design.\n",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2445,
+      "title": "Elaborator gap: `let f := (s) => s.size` then `f (Circle 4)` fails E-TYPE-MISMATCH 'expected Nat, but this has type ?2 (Circle 4)' (the pair-pattern version checks); fix inference or the message",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-2439. 45 min. Add an accept/ (or reject/ with a clear message) example.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2446,
+      "title": "Zonk's let fold-back matches syntactically and misses when operator specialisation differs (generic + with dictionary vs Nat.add); make it robust, then SW-2439's head annotation may become unnecessary. Also check siblings: lift.rs:1028 helper lifting, Proj of an inlined constructor value, an inlined match applied",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-2439 findings 2-4. Design first. 90 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
