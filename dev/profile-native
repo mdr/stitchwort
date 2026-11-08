@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+"""Profile a comparison program's native executable (bench/compare).
+
+    task profile:native -- NAME... [--top N] [--focus FUNCTION]... [--no-counts]
+
+`task profile:native` builds `stitchwort` and the runtime library first, and
+runs this inside `nix develop`. For each program named in
+bench/compare/programs.toml it:
+1. builds the native executable (`stitchwort build --native`, whose symbols
+   are the Stitchwort definitions' names) and the program's input, as
+   `task bench:compare` does;
+2. records it with samply (`nix shell nixpkgs#samply`) to
+   target/profile/NAME.json.gz, and prints the top functions by self and
+   inclusive time (dev/profile_top.py; `samply load` on the file opens the
+   whole profile in a browser);
+3. unless --no-counts: builds it again against a runtime library with the
+   `call-counts` feature (in target/profiling/, built here), runs it with
+   STITCHWORT_CALL_COUNTS set, and prints how many times native code called
+   each runtime helper, and each operation `sw_prim` ran. That run's time
+   is not the program's: the counting adds to every helper call.
+
+Each run is capped at 5 minutes. Shares within a profile are what to read;
+absolute times depend on the machine's load.
+"""
+
+import argparse
+import os
+import subprocess
+import sys
+import tomllib
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "bench" / "compare"))
+import compare  # noqa: E402  (its main runs only as a script)
+
+OUT = ROOT / "target" / "profile"
+COUNTING = ROOT / "target" / "profiling"
+CAP = 300
+
+
+def build(program, sw, exe, runtime=None):
+    target = str(ROOT / program.target) if program.is_file else program.target
+    cwd = ROOT if program.is_file else ROOT / "aoc"
+    env = dict(os.environ)
+    if runtime:
+        env["STITCHWORT_RUNTIME"] = str(runtime)
+    done = subprocess.run([str(sw), "build", "--native", target, "-o", str(exe)], cwd=cwd, env=env)
+    if done.returncode != 0:
+        sys.exit(f"{program.name}: the native build failed")
+
+
+def run(command, program, env=None):
+    stdin = open(program.input, "rb") if program.input else subprocess.DEVNULL
+    try:
+        return subprocess.run(command + program.args, stdin=stdin, stdout=subprocess.DEVNULL,
+                              env=env, timeout=CAP).returncode
+    except subprocess.TimeoutExpired:
+        print(f"{program.name}: stopped after {CAP} s")
+        return 1
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser.add_argument("names", nargs="+", help="programs of bench/compare/programs.toml")
+    parser.add_argument("--sw", type=Path, default=ROOT / "target" / "release" / "stitchwort")
+    parser.add_argument("--top", type=int, default=25, help="how many functions to list")
+    parser.add_argument("--focus", action="append", default=[], help="also list this function's callers and callees")
+    parser.add_argument("--no-counts", action="store_true", help="skip the counting build and run")
+    opts = parser.parse_args()
+
+    config = tomllib.loads((ROOT / "bench" / "compare" / "programs.toml").read_text())
+    unknown = [n for n in opts.names if n not in config]
+    if unknown:
+        sys.exit(f"unknown program(s) {unknown}; known: {', '.join(config)}")
+    OUT.mkdir(parents=True, exist_ok=True)
+    if not opts.no_counts:
+        env = dict(os.environ, CARGO_TARGET_DIR=str(COUNTING))
+        subprocess.run(["cargo", "build", "--release", "-p", "stitchwort-standalone", "--features", "call-counts"],
+                       cwd=ROOT, env=env, check=True)
+
+    for name in opts.names:
+        program = compare.Program(name, config[name])
+        exe = OUT / "bin" / name
+        exe.parent.mkdir(parents=True, exist_ok=True)
+        build(program, opts.sw, exe)
+        profile = OUT / f"{name}.json.gz"
+        print(f"\n== {name}: recording", flush=True)
+        status = run(["nix", "shell", "nixpkgs#samply", "-c", "samply", "record", "--save-only",
+                      "--unstable-presymbolicate", "-o", str(profile), str(exe)], program)
+        if status != 0:
+            print(f"{name}: the run failed ({status})")
+            continue
+        focus = [a for f in opts.focus for a in ("--focus", f)]
+        subprocess.run([sys.executable, "-I", str(ROOT / "dev" / "profile_top.py"), str(profile),
+                        "--top", str(opts.top)] + focus, check=True)
+        if not opts.no_counts:
+            counting = OUT / "bin" / f"{name}-counts"
+            build(program, opts.sw, counting, COUNTING / "release" / "libstitchwort_standalone.a")
+            print(f"\n== {name}: counting runtime calls", flush=True)
+            run([str(counting)], program, env=dict(os.environ, STITCHWORT_CALL_COUNTS="1"))
+        print(f"\n{name}: the profile is {profile} (open it with `samply load`)")
+
+
+main()

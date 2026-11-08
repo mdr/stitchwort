@@ -250,6 +250,7 @@ fn run_native_on(
         terminal,
     )
     .0;
+    crate::call_counts::print_if_asked();
     match result {
         Ok(_) => output.flush().map_err(RunError::Write),
         Err(e) => {

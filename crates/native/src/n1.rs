@@ -253,6 +253,60 @@ pub(crate) fn body_name(program: &Program, image: &Image, code: u32) -> String {
     }
 }
 
+/// Each body's symbol, for a profiler or debugger reading the executable
+/// (`nm`, samply): a global's body is its full name, a lambda's is the
+/// symbol of the body that makes it plus `/lambda{l}`, so a sample in a
+/// lambda says which definition it belongs to. Every symbol ends `#{code}`,
+/// the body's number in `STITCHWORT_NATIVE_DUMP`, which also keeps it apart
+/// from the runtime's and the stubs' symbols.
+fn body_symbols(program: &Program, image: &Image) -> BTreeMap<u32, String> {
+    let mut maker: BTreeMap<u32, u32> = BTreeMap::new();
+    for (code, body) in image.codes.iter().enumerate() {
+        for instr in &body.instrs {
+            if let Instr::Closure { lambda, .. } = instr {
+                maker.entry(*lambda).or_insert(code as u32);
+            }
+        }
+    }
+    let mut names: BTreeMap<u32, String> = BTreeMap::new();
+    for (g, code) in image.global_code.iter().enumerate() {
+        if let Some(code) = code {
+            names.insert(*code, program.globals[g].name.to_string());
+        }
+    }
+    fn lambda_name(
+        l: u32,
+        image: &Image,
+        maker: &BTreeMap<u32, u32>,
+        names: &BTreeMap<u32, String>,
+        depth: usize,
+    ) -> String {
+        let owner = match maker.get(&l) {
+            Some(&code) if depth < 16 => match names.get(&code) {
+                Some(name) => name.clone(),
+                None => match image.lambda_code.iter().position(|c| *c == code) {
+                    Some(outer) => lambda_name(outer as u32, image, maker, names, depth + 1),
+                    None => format!("body{code}"),
+                },
+            },
+            _ => "?".to_string(),
+        };
+        format!("{owner}/lambda{l}")
+    }
+    let mut symbols = BTreeMap::new();
+    for code in 0..image.codes.len() as u32 {
+        let base = match names.get(&code) {
+            Some(name) => name.clone(),
+            None => match image.lambda_code.iter().position(|c| *c == code) {
+                Some(l) => lambda_name(l as u32, image, &maker, &names, 0),
+                None => "body".to_string(),
+            },
+        };
+        symbols.insert(code, format!("{base}#{code}"));
+    }
+    symbols
+}
+
 /// The targets native code is compiled for (§4 of
 /// docs/proposals/native-only.md, as stage S5 of
 /// standalone-executables.md): the ones Cranelift and the runtime support.
@@ -766,6 +820,7 @@ pub(crate) fn emit(
         .map(|(l, code)| (*code, l as u32))
         .collect();
     // Every body, declared first so that they can call each other.
+    let symbols = body_symbols(program, image);
     let mut functions: BTreeMap<u32, FuncId> = BTreeMap::new();
     for &code in &plan.bodies {
         let params = image.codes[code as usize].params;
@@ -775,7 +830,7 @@ pub(crate) fn emit(
             body_signature(pointer, params)
         };
         let id = module
-            .declare_function(&format!("body{code}"), Linkage::Local, &signature)
+            .declare_function(&symbols[&code], Linkage::Local, &signature)
             .map_err(|e| fail(e.to_string()))?;
         functions.insert(code, id);
     }
@@ -790,7 +845,7 @@ pub(crate) fn emit(
         {
             let id = module
                 .declare_function(
-                    &format!("value{g}"),
+                    &format!("{}/value", global.name),
                     Linkage::Local,
                     &value_signature(pointer, params),
                 )

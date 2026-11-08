@@ -535,6 +535,20 @@ tasks:
       - cargo build --release -p stitchwort-cli -p stitchwort-standalone {{.DEV_FEATURES}}
       - nix develop .#compare -c bash bench/compare/compare.sh --check --sw {{.SW}} {{.CLI_ARGS}}
 
+  profile:native:
+    desc: 'Profile the native executables of bench/compare programs: samply top functions by Stitchwort definition, and counts of runtime calls (args after --: program names, --top N, --focus FUNCTION, --no-counts)'
+    summary: |
+      Builds `stitchwort` and its runtime library (as `task build`), then
+      dev/profile-native: for each program, its native executable is
+      recorded with samply (target/profile/NAME.json.gz, `samply load` to
+      browse) and summarised by dev/profile_top.py, then rebuilt against a
+      runtime with the `call-counts` feature (target/profiling/) to count
+      native code's calls into the runtime. One program at a time, 5 min
+      cap each. docs/reviews/SW-2296-native-profiles.md.
+    cmds:
+      - cargo build --release -p stitchwort-cli -p stitchwort-standalone {{.DEV_FEATURES}}
+      - python3 -I dev/profile-native --sw {{.SW}} {{.CLI_ARGS}}
+
   bench:compare:proofs:
     desc: 'Checking speed, Stitchwort against Lean (bench/compare/lean-proofs): three AoC days, cold, library load apart; on a quiet machine (args after --: --runs N, day names)'
     summary: |

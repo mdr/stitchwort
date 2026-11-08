@@ -99,3 +99,55 @@ fn the_object_exports_its_manifest_and_trampolines_and_its_code_is_relocatable()
         assert!(relocations > 0, "the code calls the helpers");
     });
 }
+
+/// A profiler reading the executable (`nm`, samply) sees each compiled body
+/// by its Stitchwort definition: a global's body by its name, a lambda's by
+/// the body that makes it, each ending in the body's number.
+#[test]
+fn each_body_is_named_after_its_definition() {
+    with_stack(STACK, || {
+        let (program, _) = lowered(&bench("effects.sw"));
+        let image = code::compile(&program);
+        let options = Options {
+            trace_refcounts: false,
+        };
+        let limits = stitchwort_rt::Limits::from_core(Default::default());
+        let tables = stitchwort_rt::linked::encode(&program, &image, &limits);
+        let compiled = compile_object(&program, &image, &tables, options, limits.frames as u64)
+            .expect("compiles");
+        let bytes = compiled.object.write().expect("writes");
+        let file = object::File::parse(&*bytes).expect("parses");
+        let prefix = if cfg!(target_os = "macos") { "_" } else { "" };
+        let names: Vec<String> = file
+            .symbols()
+            .filter(|s| s.is_definition())
+            .filter_map(|s| s.name().ok().map(str::to_string))
+            .collect();
+        let island = stitchwort_rt::census::island(&image, image.entry_code);
+        let mut globals = 0;
+        for (g, code) in image.global_code.iter().enumerate() {
+            if let Some(code) = code
+                && island.contains(code)
+            {
+                let name = format!("{prefix}{}#{code}", program.globals[g].name);
+                assert!(names.contains(&name), "no {name} in {names:?}");
+                globals += 1;
+            }
+        }
+        assert!(globals > 0, "no global body compiled");
+        let lambdas = image
+            .lambda_code
+            .iter()
+            .filter(|code| island.contains(code))
+            .count();
+        assert!(lambdas > 0, "no lambda body compiled");
+        let named = names
+            .iter()
+            .filter(|n| n.contains("/lambda") && !n.starts_with(&format!("{prefix}?/")))
+            .count();
+        assert_eq!(
+            named, lambdas,
+            "each lambda is named after its maker: {names:?}"
+        );
+    });
+}

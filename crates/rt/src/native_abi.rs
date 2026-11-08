@@ -1287,6 +1287,7 @@ unsafe fn from_words(w0: u64, w1: u64, w2: u64) -> Value {
 #[allow(unsafe_code)]
 #[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_drop_words(w0: u64, w1: u64, w2: u64) {
+    crate::call_counts::hit(crate::call_counts::Helper::DropWords);
     // SAFETY: the caller's contract.
     drop(unsafe { from_words(w0, w1, w2) });
 }
@@ -1374,6 +1375,7 @@ pub unsafe extern "C" fn sw_release_up(regs: *mut Value, n: u64) {
 #[allow(unsafe_code)]
 #[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_ctor(tag: u32, fields: *mut Value, n: u64, out: *mut Value) {
+    crate::call_counts::hit(crate::call_counts::Helper::Ctor);
     // SAFETY: the caller's contract; the values are moved out (copied
     // bitwise into the new cell, which is then the only owner), and the
     // caller doesn't use them again.
@@ -1402,6 +1404,7 @@ pub unsafe extern "C" fn sw_ctor(tag: u32, fields: *mut Value, n: u64, out: *mut
 #[allow(unsafe_code)]
 #[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_free_emptied(w0: u64, w1: u64, w2: u64) {
+    crate::call_counts::hit(crate::call_counts::Helper::FreeEmptied);
     // SAFETY: the caller's contract.
     let Value::Data(_, fields) = (unsafe { from_words(w0, w1, w2) }) else {
         unreachable!("an emptied cell is a constructor's")
@@ -1433,6 +1436,7 @@ pub unsafe extern "C" fn sw_ctor_reuse(
     token: *mut Value,
     out: *mut Value,
 ) {
+    crate::call_counts::hit(crate::call_counts::Helper::CtorReuse);
     let n = n as usize;
     // SAFETY: the caller's contract.
     let v = match std::mem::take(unsafe { &mut *token }) {
@@ -1474,6 +1478,7 @@ pub unsafe extern "C" fn sw_unpack(
     n: u64,
     token: u32,
 ) {
+    crate::call_counts::hit(crate::call_counts::Helper::Unpack);
     // SAFETY: the caller's contract.
     let reg = |r: u32| unsafe { &mut *regs.add(r as usize) };
     let pairs = unsafe { std::slice::from_raw_parts(pairs, 2 * n as usize) };
@@ -1522,6 +1527,7 @@ pub unsafe extern "C" fn sw_empty_cell(cell: u64, n: u64) {
 #[allow(unsafe_code)]
 #[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_drop_reuse(src: *mut Value, token: *mut Value) {
+    crate::call_counts::hit(crate::call_counts::Helper::DropReuse);
     // SAFETY: the caller's contract.
     let v = match std::mem::take(unsafe { &mut *src }) {
         Value::Data(tag, mut cell) if unique(&cell.0) => {
@@ -1553,7 +1559,9 @@ pub unsafe extern "C" fn sw_prim(
 ) {
     // SAFETY: the caller's contract.
     unsafe {
+        let number = op;
         let (shapes, op) = shapes_and_op(context, op);
+        crate::call_counts::hit_op(number, op, false);
         let refs: Vec<&Value> = (0..n as usize).map(|i| &**args.add(i)).collect();
         let v = crate::prims::eval(shapes, op, &refs);
         *dst = v;
@@ -1579,7 +1587,9 @@ pub unsafe extern "C" fn sw_prim_owned(
     // SAFETY: the caller's contract; each value is read out once, after
     // which the caller treats its slot as empty.
     unsafe {
+        let number = op;
         let (shapes, op) = shapes_and_op(context, op);
+        crate::call_counts::hit_op(number, op, true);
         let owned = (0..n as usize).map(|i| args.add(i).read());
         let v = crate::prims::eval_owned(shapes, op, owned.collect::<Vec<Value>>());
         dst.write(v);
@@ -1613,6 +1623,7 @@ pub unsafe extern "C" fn sw_test(
     args: *const *const Value,
     n: u64,
 ) -> u64 {
+    crate::call_counts::hit(crate::call_counts::Helper::Test);
     // SAFETY: the caller's contract.
     unsafe {
         let (s, op) = shapes_and_op(context, op);
@@ -1632,6 +1643,7 @@ pub unsafe extern "C" fn sw_test(
 #[allow(unsafe_code)]
 #[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_nat_pred(src: *const Value, dst: *mut Value) {
+    crate::call_counts::hit(crate::call_counts::Helper::NatPred);
     // SAFETY: the caller's contract.
     unsafe {
         let v = match &*src {
@@ -1654,6 +1666,7 @@ pub unsafe extern "C" fn sw_num_switch(
     table: u32,
     v: *const Value,
 ) -> u64 {
+    crate::call_counts::hit(crate::call_counts::Helper::NumSwitch);
     // SAFETY: the caller's contract: the tables outlive the native call,
     // and `table` is within them.
     let table = unsafe { &**(*(*context).tables).num_tables.add(table as usize) };
@@ -1776,6 +1789,7 @@ pub unsafe extern "C" fn sw_apply_cached(
     n: u64,
     cache: *mut ApplyCache,
 ) -> u64 {
+    crate::call_counts::hit(crate::call_counts::Helper::ApplyCached);
     // SAFETY: the caller's contract; the tables have an entry for every
     // global and every lambda.
     let (program, functions, lambdas) = unsafe {
@@ -1903,6 +1917,7 @@ pub unsafe extern "C" fn sw_apply_prepare(
     n: u64,
     plan: *mut ApplyPlan,
 ) {
+    crate::call_counts::hit(crate::call_counts::Helper::ApplyPrepare);
     // SAFETY: the caller's contract; the values are moved out and not used
     // again by the caller.
     let (run, functions, lambdas) = unsafe {
@@ -2186,6 +2201,7 @@ pub fn into_word(f: Rc<Fun>) -> u64 {
 #[allow(unsafe_code)]
 #[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_closure(lambda: u32, args: *mut Value, n: u64, out: *mut Value) {
+    crate::call_counts::hit(crate::call_counts::Helper::Closure);
     // SAFETY: the caller's contract.
     let captures: Box<[Value]> = (0..n as usize)
         .map(|i| unsafe { args.add(i).read() })
@@ -2207,6 +2223,7 @@ pub unsafe extern "C" fn sw_pap(
     n: u64,
     out: *mut Value,
 ) {
+    crate::call_counts::hit(crate::call_counts::Helper::Pap);
     // SAFETY: the caller's contract.
     let held: Box<[Value]> = (0..n as usize)
         .map(|i| unsafe { args.add(i).read() })
@@ -2250,6 +2267,7 @@ pub unsafe extern "C" fn sw_unary(
     src: *const Value,
     dst: *mut Value,
 ) {
+    crate::call_counts::hit(crate::call_counts::Helper::Unary);
     // SAFETY: the caller's contract.
     unsafe {
         let shapes = &(*(*context).run).outline.shapes;
@@ -2288,6 +2306,7 @@ pub unsafe extern "C" fn sw_bind(
     k: *mut Value,
     out: *mut Value,
 ) -> u64 {
+    crate::call_counts::hit(crate::call_counts::Helper::Bind);
     // SAFETY: the caller's contract.
     let run = unsafe { &mut *(*context).run };
     let s = run.outline.shapes;
@@ -2498,6 +2517,7 @@ pub unsafe extern "C" fn sw_eff_step(
     out: *mut Value,
     resume_out: *mut u64,
 ) -> u64 {
+    crate::call_counts::hit(crate::call_counts::Helper::EffStep);
     // SAFETY: the caller's contract.
     let run = unsafe { &mut *(*context).run };
     let s = &run.outline.shapes;

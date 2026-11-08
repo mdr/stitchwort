@@ -11,6 +11,11 @@ publish.workspace = true
 # tests depend on the crate, which builds the static library for them.
 crate-type = ["staticlib", "rlib"]
 
+[features]
+# A runtime library that counts native code's calls into it
+# (`stitchwort_rt::call_counts`), for `dev/profile-native`.
+call-counts = ["stitchwort-rt/call-counts"]
+
 [dependencies]
 stitchwort-core.workspace = true
 stitchwort-rt.workspace = true
