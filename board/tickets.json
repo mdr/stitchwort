@@ -23812,7 +23812,7 @@
         "test-infra"
       ],
       "epic": "audit-fuzzing",
-      "body": "Found under D3427 (over pace), 8 Nov 2026 11:45-12:01 on Speedwell at a3d951195. Repro: nix develop -c task fuzz:elab CASES=20000 SEED=0x2409. Log: scratchpad fuzz-elab-0x2409.log (no per-case progress printed). Investigate once pace is back. 60 min.\n\nData point (13:18-13:26): CASES=5000 SEED=0x2416 passed in 457 s with no internal errors (stays under the 16 GB cap). So the 20k failure is either memory growing with the case count, or a case peculiar to seed 0x2409; a peak-memory line per run would tell them apart.\n",
+      "body": "Found under D3427 (over pace), 8 Nov 2026 11:45-12:01 on Speedwell at a3d951195. Repro: nix develop -c task fuzz:elab CASES=20000 SEED=0x2409. Log: scratchpad fuzz-elab-0x2409.log (no per-case progress printed). Investigate once pace is back. 60 min.\n\nData point (13:18-13:26): CASES=5000 SEED=0x2416 passed in 457 s with no internal errors (stays under the 16 GB cap). So the 20k failure is either memory growing with the case count, or a case peculiar to seed 0x2409; a peak-memory line per run would tell them apart.\n\nSeed 0x2409: 5k cases pass (423 s), 10k pass (836 s). The 20k run was killed at 970 s, i.e. near case 11,600 at that rate: a case between 10k and ~11.6k, or growth. Next: 12k.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
