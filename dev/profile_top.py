@@ -25,7 +25,9 @@ own work, checks of steps, frames and errors, reference counts taken and
 given up, calls, returns with their epilogue, the prologue, error exits) and
 by bytecode instruction. A sample can land on the instruction after a slow
 one (skid), so one instruction's count is fuzzy; parts summed over a body
-are reliable enough. `untagged` is code Cranelift's optimiser made or moved
+are reliable enough. A sample at a call's return address is counted as the
+call's, since the cost is the call's, not the check after it; the report marks
+those "(incl. return)". `untagged` is code Cranelift's optimiser made or moved
 with no instruction of its own (constants, shared values).
 
 Each --group PREFIX adds a line, before the usual tables, for the samples with
@@ -110,27 +112,35 @@ def load_pc_map(path):
 
 def fold(offsets, body):
     """Counters by part and by pc (with each pc's parts) of the weighted
-    `(offset, weight)` samples in one body of `load_pc_map`."""
+    `(offset, weight)` samples in one body of `load_pc_map`, and the weight
+    moved to each call instruction from the instruction after it."""
     size, _, starts, rest = body
-    parts, pcs, pc_parts = Counter(), Counter(), defaultdict(Counter)
+    parts, pcs, pc_parts, moved = Counter(), Counter(), defaultdict(Counter), Counter()
     for offset, w in offsets:
         i = bisect.bisect_right(starts, offset) - 1
         if i < 0 or offset >= rest[i][0]:
             parts["outside the map"] += w
             continue
         _, pc, part = rest[i]
+        # The first byte after a call is its return address: a sample there
+        # is the call's cost, taken as the call returned, so it counts as
+        # the call's (not the check that follows).
+        if i > 0 and offset == starts[i] and rest[i - 1][2] == "call":
+            _, pc, part = rest[i - 1]
+            if pc is not None:
+                moved[pc] += w
         parts[part] += w
         if pc is not None:
             pcs[pc] += w
             pc_parts[pc][part] += w
-    return parts, pcs, pc_parts
+    return parts, pcs, pc_parts, moved
 
 
 def print_pc_split(name, offsets, body, total, lines=15):
     """`fold`'s split of one body, as shares of its self time (and, in
     brackets, of the profile's)."""
     own = sum(w for _, w in offsets) or 1
-    parts, pcs, pc_parts = fold(offsets, body)
+    parts, pcs, pc_parts, moved = fold(offsets, body)
     instrs = body[1]
 
     def share(c):
@@ -143,7 +153,8 @@ def print_pc_split(name, offsets, body, total, lines=15):
     for pc, c in pcs.most_common(lines):
         split = ", ".join(f"{p} {100 * n / c:.0f}%" for p, n in pc_parts[pc].most_common())
         text = instrs[pc] if len(instrs[pc]) <= 60 else instrs[pc][:57] + "..."
-        print(f"  {share(c)}  {pc:4}  {text}  [{split}]")
+        incl = f" (incl. return: {100 * moved[pc] / c:.0f}%)" if moved[pc] else ""
+        print(f"  {share(c)}  {pc:4}  {text}  [{split}]{incl}")
 
 
 def match_focus(target, names):
