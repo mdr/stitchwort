@@ -137,6 +137,85 @@ def run_once(program, command):
     return done.stdout, seconds, done.returncode, done.stderr.decode(errors="replace")[-300:]
 
 
+def parse_instructions(text, system):
+    """Instructions retired from a tool's stderr, or None.
+
+    macOS `/usr/bin/time -l` prints "  123456  instructions retired".
+    Linux `perf stat -x,` prints "123456,,instructions,..." (the count is
+    "<not counted>" or "<not supported>" when the kernel won't say).
+    """
+    for line in text.splitlines():
+        if system == "Darwin" and line.rstrip().endswith("instructions retired"):
+            digits = line.split()[0]
+            return int(digits) if digits.isdigit() else None
+        if system == "Linux":
+            fields = line.split(",")
+            if len(fields) > 2 and fields[0].strip().isdigit() and fields[2].startswith("instructions"):
+                return int(fields[0])
+    return None
+
+
+def instructions_wrapper(system):
+    """The argv prefix that reports instructions retired, or None if this
+    machine can't (no `perf` on Linux, or another OS)."""
+    if system == "Darwin" and Path("/usr/bin/time").exists():
+        return ["/usr/bin/time", "-l"]
+    if system == "Linux" and have("perf"):
+        return ["perf", "stat", "-e", "instructions", "-x,"]
+    return None
+
+
+def count_instructions(program, command):
+    """Instructions retired by one run of a command (children included), or
+    None. Run apart from hyperfine, once, since the count is stable."""
+    system = platform.system()
+    wrapper = instructions_wrapper(system)
+    if wrapper is None:
+        return None
+    stdin = open(program.input, "rb") if program.input else subprocess.DEVNULL
+    try:
+        done = subprocess.run(wrapper + ["sh", "-c", command], stdin=stdin, capture_output=True)
+    finally:
+        if program.input:
+            stdin.close()
+    return parse_instructions(done.stderr.decode(errors="replace"), system)
+
+
+def fmt_count(n):
+    if n is None:
+        return "n/a"
+    for unit, size in (("G", 1e9), ("M", 1e6), ("k", 1e3)):
+        if n >= size:
+            return f"{n / size:.2f} {unit}"
+    return str(n)
+
+
+def instruction_table(counts, order, shown):
+    """Markdown rows of instructions retired net of the null program's, with
+    the same ratios as the time table."""
+    startup = counts.get("null", {})
+    head = ["Program (instructions)"] + shown + ["run / CPython", "native / CPython", "native / Lean"]
+    lines = ["| " + " | ".join(head) + " |", "|---|" + "---:|" * (len(head) - 1)]
+    for name in order:
+        cells, net = [], {}
+        for runner in shown:
+            n = counts[name].get(runner)
+            if n is None:
+                cells.append("n/a" if runner in counts[name] else "-")
+                continue
+            net[runner] = max(n - (startup.get(runner) or 0), 0)
+            cells.append(fmt_count(net[runner]))
+
+        def ratio(a, b):
+            if a in net and b in net and net[b] > 0:
+                return f"{net[a] / net[b]:.2f}x"
+            return "-"
+
+        lines.append("| " + " | ".join([name] + cells + [ratio("run", "cpython"), ratio("native", "cpython"), ratio("native", "lean")]) + " |")
+    lines.append("| " + " | ".join(["startup"] + [fmt_count(startup.get(r)) if r in startup else "-" for r in shown] + ["", "", ""]) + " |")
+    return "\n".join(lines)
+
+
 def have(tool):
     return shutil.which(tool) is not None
 
@@ -251,6 +330,7 @@ def main():
     parser.add_argument("--check", action="store_true", help="only check the answers, don't time")
     parser.add_argument("--runs", type=int, default=5, help="hyperfine runs per command (3 for anything over 30 s)")
     parser.add_argument("--all", action="store_true", help="also time run --js and run --native (the JIT)")
+    parser.add_argument("--instructions", action="store_true", help="also report instructions retired, one run per program and runner after timing (macOS /usr/bin/time -l, Linux perf stat); steadier than wall time on a busy machine")
     parser.add_argument("--runners", help="comma-separated runners to use, e.g. native,cpython,pypy,lean (default: all but js and jit)")
     parser.add_argument("names", nargs="*", help="programs to run (default: all)")
     opts = parser.parse_args()
@@ -284,6 +364,7 @@ def main():
         sys.exit("hyperfine is not on PATH: run inside `nix develop .#compare`")
     OUT.mkdir(parents=True, exist_ok=True)
     timings = {}
+    counts = {}
     with tempfile.TemporaryDirectory() as scratch:
         for program in programs:
             ok = [r for r in runners if results[(program.name, r)][0] == "ok"]
@@ -296,11 +377,18 @@ def main():
                 runs = 3 if results[(program.name, runner)][1] > 30 else opts.runs
                 print(f"timing {program.name} / {runner} ({runs} runs)", flush=True)
                 timings[program.name].update(hyperfine(program, [runner], runs, Path(scratch)))
+                if opts.instructions:
+                    counts.setdefault(program.name, {})[runner] = count_instructions(program, program.command(runner, SW[0]))
 
     startup = {r: t["median"] for r, t in timings["null"].items()}
     shown = [r for r in runners if any(r in timings[n] for n in timings)]
     order = [n for n in names if n != "null"]
     md = table(timings, startup, order, shown)
+    if opts.instructions:
+        if instructions_wrapper(platform.system()) is None:
+            md += "\n\nInstructions retired: n/a (needs macOS /usr/bin/time or Linux perf)"
+        else:
+            md += "\n\n" + instruction_table(counts, order, shown)
     if builds:
         md += "\n\nBuild times (not in the run times): " + ", ".join(f"{k} {v:.1f} s" for k, v in builds.items())
     if failed:
@@ -312,7 +400,9 @@ def main():
             versions[tool] = subprocess.run([tool, flag], capture_output=True, text=True).stdout.strip().splitlines()[0]
     commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
     meta = {"commit": commit, "host": platform.node(), "versions": versions, "load": list(__import__("os").getloadavg()), "builds": builds}
-    (OUT / f"{stamp}.json").write_text(json.dumps({"meta": meta, "timings": timings}, indent=1))
+    if opts.instructions:
+        meta["instructions_note"] = "instructions retired by one run, startup not subtracted"
+    (OUT / f"{stamp}.json").write_text(json.dumps({"meta": meta, "timings": timings, **({"instructions": counts} if opts.instructions else {})}, indent=1))
     (OUT / f"{stamp}.md").write_text(md + "\n")
     print()
     print(md)

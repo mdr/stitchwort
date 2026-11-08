@@ -13,6 +13,7 @@ task bench:compare:check                     # every runner once, answers only
 task bench:compare                           # check, then time with hyperfine
 task bench:compare -- --runs 3 pidigits      # options and program names after --
 task bench:compare -- --all                  # also `run --js` and `run --native` (the JIT)
+task bench:compare -- --instructions         # also instructions retired (second table, JSON "instructions")
 task bench:compare -- --runners native,cpython,pypy,lean   # only these runners (a slow machine skips `run`, `lean-run`)
 ```
 
@@ -20,6 +21,17 @@ Both tasks build `stitchwort` and its native runtime library, then run
 `compare.sh` in `nix develop .#compare` (the default shell plus Lean 4,
 hyperfine and PyPy). Output goes to `target/compare/<date>-<host>.json` and
 `.md`.
+
+`--instructions` adds a second table after timing: for each program and
+runner one more run, apart from hyperfine, counts instructions retired
+(macOS: `/usr/bin/time -l`; Linux: `perf stat -e instructions -x,`, needs
+`perf` on PATH and a kernel that allows it, else the cell is `n/a`). The
+null program's count is subtracted as startup is. Use it where wall time is
+noisy (a loaded laptop); the count barely moves with load. It is not
+comparable across CPUs or languages as a measure of time, only as a steady
+proxy for one machine. Raw counts (startup not subtracted) are in the JSON
+under `instructions`. Parsing is tested by
+`python3 -I bench/compare/test_instructions.py`.
 
 The runners, named as in the table:
 
