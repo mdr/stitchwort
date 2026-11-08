@@ -24275,17 +24275,19 @@
     {
       "id": 2438,
       "title": "Elaborator internal error: an operation (`get`, `ask`) 'is used before it's checked' (E-INTERNAL) on mutated ability examples; fuzz seed 0x2438 cases 6042 and 13700",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "elab"
       ],
       "epic": "elaborator-kernel",
-      "body": "Found by fuzz:elab CASES=15000 SEED=0x2438 (8 Nov 2026 20:33). Inputs: dev/fuzz-findings/2438-6042.sw (from reject/operation-in-pure-function.sw), dev/fuzz-findings/2438-13700.sw (from reject/pattern-guard-ability.sw). Repro: task fuzz:elab CASES=15000 SEED=0x2438 ONLY=6042, or stitchwort check on the file. Fix: a proper diagnostic (or acceptance), plus a reject/ example. 45 min.\nStarted 20:33 UTC.\n",
+      "body": "Found by fuzz:elab CASES=15000 SEED=0x2438 (8 Nov 2026 20:33). Inputs: dev/fuzz-findings/2438-6042.sw (from reject/operation-in-pure-function.sw), dev/fuzz-findings/2438-13700.sw (from reject/pattern-guard-ability.sw). Repro: task fuzz:elab CASES=15000 SEED=0x2438 ONLY=6042, or stitchwort check on the file. Fix: a proper diagnostic (or acceptance), plus a reject/ example. 45 min.\nStarted 20:33 UTC.\n\nMerged. Model result: Sonnet, worked, 8 min (est. 45).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "362c4f3c2"
+      ]
     },
     {
       "id": 2439,
