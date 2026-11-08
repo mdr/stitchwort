@@ -192,8 +192,9 @@ fn same_trace_under(program: &Program, limits: Limits, what: &str) {
 // ------------------------------------------------------------ stack sizing
 
 /// A non-tail recursion `deep` on `width` Nat arguments, each live across
-/// the call, `depth` deep: wide frames
-/// with many live values.
+/// the call, `depth` deep: wide frames with many live values. (The call's
+/// result goes through `Nat.max`: a sum with the call as a term would be a
+/// loop, `stitchwort_rt::sums`.)
 fn wide_recursion(width: usize, depth: u64) -> String {
     let names: Vec<String> = (0..width).map(|i| format!("a{i}")).collect();
     let pattern = names.join(", ");
@@ -206,13 +207,13 @@ fn wide_recursion(width: usize, depth: u64) -> String {
     let live = names.join(" + ");
     let zeros = vec!["0"; width].join(" ");
     format!(
-        r#"import Std (IO, List)
+        r#"import Std (IO, List, Nat)
 
 def deep: Nat → {arrows}
   | Zero, {pattern} => {live}
   | Succ p, {pattern} =>
     let r := deep p {shifted}
-    r + {live}
+    Nat.max r 1 + {live}
 
 def main(): {{IO}} () :=
   IO.print "${{deep {depth} {zeros}}}"

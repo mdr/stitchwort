@@ -6,11 +6,7 @@ native Std.Nat.add = %Nat.add/2
 native Std.Nat.mul = %Nat.mul/2
 native Std.Nat.toText = %NatToText/1
 native Std.Effect.lift = %Effect.lift/1
-fn Main.total(v0) {3 slots} =
-  match v0: List {
-    Nil => 0
-    Cons(head: v1, tail: v2) => %Nat.add(v1, Main.total(v2))
-  }
+fn Main.total(v0) {1 slots} = Main.total[sum](v0, 0)
 fn Main.double(v0) {3 slots} =
   let v1 = %HoleNew()
   let v2 = Main.double[cells](v0, v1, 0)
@@ -18,6 +14,11 @@ fn Main.double(v0) {3 slots} =
 fn Main.main(v0) {2 slots} =
   let v1 = %NatToText(Main.total(Main.double(Cons(1, Cons(2, Cons(3, Nil))))))
   Call(L(%print(v1)), done-k)
+fn Main.total[sum](v0, v1) {4 slots} =
+  match v0: List {
+    Nil => v1
+    Cons(head: v2, tail: v3) => Main.total[sum](v3, %Nat.add(v1, v2))
+  }
 fn Main.double[cells](v0, v1, v2) {7 slots} =
   match v0: List {
     Nil => %HoleFill(v1, v2, Nil)

@@ -376,7 +376,7 @@ fn a_program_out_of_frames_reports_as_run_does() {
     let source = "import Std (Nat)\n\n\
                   def count : Nat -> Nat\n  \
                     | 0      => 0\n  \
-                    | Succ n => 1 + count n\n\n\
+                    | Succ n => 2 * count n\n\n\
                   def main () : {IO} () :=\n  \
                     IO.print \"before\"\n  \
                     IO.print (Nat.toText (count (5 * 1000 * 1000)))\n";
@@ -986,7 +986,7 @@ fn native_code_out_of_frames_reports_as_run_does() {
     let source = "import Std (Nat)\n\n\
                   def count : Nat -> Nat\n  \
                     | 0      => 0\n  \
-                    | Succ n => 1 + count n\n\n\
+                    | Succ n => 2 * count n\n\n\
                   def main () : {IO} () :=\n  \
                     IO.print (Nat.toText (count (5 * 1000 * 1000)))\n";
     std::fs::write(dir.join("runaway.sw"), source).expect("write the source");

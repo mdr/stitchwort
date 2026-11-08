@@ -443,8 +443,9 @@ def main(): {IO} () :=
     );
 }
 
-/// A list of a million numbers, built and summed by non-tail recursion:
-/// a million frames deep, on the machine's own stack, then freed.
+/// A list of a million numbers, built and searched by non-tail recursion
+/// (a sum would be a loop, `stitchwort_rt::sums`): a million frames deep,
+/// on the machine's own stack, then freed.
 #[test]
 fn deep_recursion_over_a_long_list() {
     let (out, result) = on_the_machine(
@@ -455,20 +456,21 @@ def build: Nat -> List Nat
   | 0 => []
   | Succ n => Cons (n + 1) (build n)
 
-def total: List Nat -> Nat
+def largest: List Nat -> Nat
   | [] => 0
-  | [x, ..rest] => x + total rest
+  | [x, ..rest] => Nat.max x (largest rest)
 
-def main(): {IO} () := IO.print (Nat.toText (total (build 1000000)))
+def main(): {IO} () := IO.print (Nat.toText (largest (build 1000000)))
 "#,
         Limits::default(),
     );
     assert_eq!(result, Ok(()));
-    assert_eq!(out, "500000500000\n");
+    assert_eq!(out, "1000000\n");
 }
 
 /// Recursing more deeply than the frame limit allows is `E-RESOURCE`, not a
-/// crash.
+/// crash. (A product, not a sum, which would be a loop:
+/// `stitchwort_rt::sums`.)
 #[test]
 fn recursing_too_deeply_runs_out() {
     let (out, result) = on_the_machine(
@@ -477,7 +479,7 @@ import Std (Nat, Text)
 
 def count: Nat -> Nat
   | 0 => 0
-  | Succ n => 1 + count n
+  | Succ n => 2 * count n
 
 def main(): {IO} () :=
   IO.print "before"
@@ -548,6 +550,112 @@ def main(): {IO} () := IO.print (Nat.toText (loop 3000000 0))
     );
     assert_eq!(result, Ok(()));
     assert_eq!(out, "6000000\n");
+}
+
+/// Functions that add to a call of themselves (`Succ (f x)`, `x + f xs`,
+/// on `Nat` and `Int`, through a `let`, with a branch that is a plain tail
+/// call), and two that don't qualify (a product, a sum with two calls).
+const CALLS_PLUS_A_NUMBER: &str = r#"
+import Std (Int, List, Nat, Text)
+
+def size: List Nat -> Nat
+  | [] => 0
+  | [x, ..rest] => Succ (size rest)
+
+def total: List Nat -> Nat
+  | [] => 0
+  | [x, ..rest] => x + total rest
+
+def bumped: List Nat -> Nat
+  | [] => 5
+  | [x, ..rest] =>
+    let r := bumped rest
+    r + 2 + x
+
+def evens: List Nat -> Nat
+  | [] => 0
+  | [x, ..rest] => if x % 2 == 0 then Succ (Succ (evens rest)) else evens rest
+
+def signed: List Nat -> Int
+  | [] => -7
+  | [x, ..rest] => signed rest + (Nat.toInt x - 3)
+
+def product: List Nat -> Nat
+  | [] => 1
+  | [x, ..rest] => (x % 3 + 1) * product rest
+
+def fib: Nat -> Nat
+  | 0 => 0
+  | 1 => 1
+  | Succ (Succ n) => fib (Succ n) + fib n
+
+def run (n: Nat): Text :=
+  let xs := List.range 0 n
+  Text.join [Nat.toText (size xs), Nat.toText (total xs), Nat.toText (bumped xs),
+    Nat.toText (evens xs), Int.toText (signed xs), Nat.toText (product (xs.take 12)),
+    Nat.toText (fib 15)] ' '
+"#;
+
+/// [`CALLS_PLUS_A_NUMBER`] gives the same numbers on the machine as on the
+/// reference evaluator, which doesn't run them as loops; the sums are
+/// loops, and the product and `fib` aren't.
+#[test]
+fn calls_plus_a_number_agree() {
+    let source = format!("{CALLS_PLUS_A_NUMBER}\ndef main(): {{IO}} () := IO.print (run 50)\n");
+    let (out, result) = both_ways(&source, b"");
+    assert_eq!(result, Ok(()));
+    assert_eq!(out, "50 1225 1330 50 1068 1296 610\n");
+    with_stack(STACK, || {
+        let mut session = Session::for_stack(STACK);
+        session.load("test.sw", &source).expect("checks");
+        let main = session.main().expect("main");
+        let program = lowered(&session, &main, "test.sw");
+        let loops: Vec<&str> = program
+            .globals
+            .iter()
+            .filter_map(|g| g.name.strip_suffix("[sum]")?.strip_prefix("Main."))
+            .collect();
+        assert_eq!(loops, ["size", "total", "bumped", "evens", "signed"]);
+    });
+}
+
+/// A function that adds to a call of itself runs as a loop carrying the
+/// sum (`stitchwort_rt::sums`): 100,000 elements in 100 frames.
+#[test]
+fn calls_plus_a_number_dont_grow_the_stack() {
+    let source = r#"
+import Std (Int, List, Nat, Text)
+
+def size: List Nat -> Nat
+  | [] => 0
+  | [x, ..rest] => Succ (size rest)
+
+def total: List Nat -> Nat
+  | [] => 0
+  | [x, ..rest] => x + total rest
+
+def signed: List Nat -> Int
+  | [] => -7
+  | [x, ..rest] => signed rest + (Nat.toInt x - 3)
+
+def build: Nat -> List Nat -> List Nat
+  | 0, acc => acc
+  | Succ n, acc => build n (Cons n acc)
+
+def main(): {IO} () :=
+  let xs := build 100000 []
+  IO.print (Text.join [Nat.toText (size xs), Nat.toText (total xs), Int.toText (signed xs)] ' ')
+"#;
+    let (out, result) = on_the_machine(
+        source,
+        Limits {
+            steps: u64::MAX,
+            frames: 100,
+            number_words: false,
+        },
+    );
+    assert_eq!(result, Ok(()));
+    assert_eq!(out, "100000 4999950000 4999649993\n");
 }
 
 /// `List.length` runs as a loop (`List.lengthOnto`), so a list longer than
@@ -1073,7 +1181,7 @@ def spin: Nat -> Nat
 
 def deep: Nat -> Nat
   | 0 => 0
-  | Succ n => 1 + deep n
+  | Succ n => 2 * deep n
 
 def main(): {IO} () :=
   IO.print "before"
