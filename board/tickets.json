@@ -24360,17 +24360,19 @@
     {
       "id": 2443,
       "title": "Drop worklist with one local slot: keep the first child in a local, use a Vec only for a second (est. 1.5-2.5%); with SW-2421's A/B (thread-local and SmallVec both measured worse)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2422 cut 1; also cut 4 (skip the worklist call for cells with no deep field, est. 0.5-1%). Instruction-count A/B on expressions, scan, octopus. 1 h.\nStarted 21:10 UTC.\n\nResult (21:50): cut 1 (one-slot Pending) cost +2.1% expressions, +3.3% scan, +2.4% octopus, not kept. Cut 4 alone (Fields::drop skips the worklist when no field is deep): -2.2%, -2.1%, -2.3% (318.01G/304.08G/26.46G to 310.99G/297.65G/25.86G). Cuts 1+4 together only -1.5%, -0.2%, -1.4%. Committed 6b926adfd on lane/SW-2443. rt and native lanes pass.\n",
+      "body": "From SW-2422 cut 1; also cut 4 (skip the worklist call for cells with no deep field, est. 0.5-1%). Instruction-count A/B on expressions, scan, octopus. 1 h.\nStarted 21:10 UTC.\n\nResult (21:50): cut 1 (one-slot Pending) cost +2.1% expressions, +3.3% scan, +2.4% octopus, not kept. Cut 4 alone (Fields::drop skips the worklist when no field is deep): -2.2%, -2.1%, -2.3% (318.01G/304.08G/26.46G to 310.99G/297.65G/25.86G). Cuts 1+4 together only -1.5%, -0.2%, -1.4%. Committed 6b926adfd on lane/SW-2443. rt and native lanes pass.\n\nMerged: cut 4 only (cut 1 measured +2.1 to +3.3%). Follow-up SW-2448. Model result: Sonnet, worked, 34 min (est. 60).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "d73ad4e06"
+      ]
     },
     {
       "id": 2444,
