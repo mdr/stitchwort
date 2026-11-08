@@ -1,5 +1,5 @@
 {
-  "next": 2421,
+  "next": 2423,
   "tickets": [
     {
       "id": 47,
@@ -23940,17 +23940,19 @@
     {
       "id": 2417,
       "title": "Profile native expressions and scan on main: what share of time and instructions is still effect machinery (sw_eff_step, sw_bind, sw_apply_prepare's runtime values, resumptions, handler frames) vs the parsers' own code; bound what operations in place stage D (and E) can gain",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "Decides whether SW-2350 (stage C, held) merges with stage D or is dropped. No code changes. 30 min.",
+      "body": "Decides whether SW-2350 (stage C, held) merges with stage D or is dropped. No code changes. 30 min.\n\nMerged (docs/reviews/SW-2417-native-effect-share.md). Follow-ups SW-2421 SW-2422. Model result: Sonnet, worked, 35 min (est. 30).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "30409dd48"
+      ]
     },
     {
       "id": 2418,
@@ -23993,6 +23995,36 @@
       ],
       "epic": "comparative-speed",
       "body": "From SW-2405. 60-90 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2421,
+      "title": "Effect loop: a Vec<Vec<Value>> grows repeatedly (grow_one/finish_grow 3.7% inclusive on expressions); find the push site and reserve",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2417. 30 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2422,
+      "title": "Call-graph profile of allocation and freeing on expressions and scan (52% of native time): split by cause (closures, Bind nodes, cells, Resume/Handler, clones), and name the cheapest cuts",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2417. No code. 45 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
