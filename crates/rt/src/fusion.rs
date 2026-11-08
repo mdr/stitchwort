@@ -493,7 +493,7 @@ impl StateFusion {
 }
 
 /// Whether `id` is a `match` lifted out of a definition (`f.%match1`).
-fn is_lifted_match(g: &Ev, id: DefId) -> bool {
+pub(crate) fn is_lifted_match(g: &Ev, id: DefId) -> bool {
     g.def(id)
         .path()
         .rsplit('.')
@@ -504,7 +504,7 @@ fn is_lifted_match(g: &Ev, id: DefId) -> bool {
 /// `tree`, under one binder per argument, applied to `args`: a variable argument replaces its
 /// parameter, and any other is bound to it by an applied lambda, so that a
 /// case tree's scrutinee stays a variable.
-fn inline(g: &Ev, tree: &Term, args: &[&Term]) -> Result<Term> {
+pub(crate) fn inline(g: &Ev, tree: &Term, args: &[&Term]) -> Result<Term> {
     let mut lams = tree.clone();
     for _ in args {
         lams = Term::Lam("x".into(), Icit::Explicit, Rc::new(lams));
@@ -534,7 +534,7 @@ fn bind(g: &Ev, lams: &Term, args: &[&Term], bound: usize) -> Result<Term> {
 }
 
 /// Locations and annotations taken off.
-fn strip(term: &Term) -> &Term {
+pub(crate) fn strip(term: &Term) -> &Term {
     let mut term = term;
     while let Term::Loc(_, t) | Term::Ann(t, _) = term {
         term = t;
@@ -544,7 +544,7 @@ fn strip(term: &Term) -> &Term {
 
 /// `f a b c` as `f` and its arguments with how each is applied, looking
 /// through locations; `None` if it isn't an application.
-fn spine_icit(term: &Term) -> Option<(&Term, Vec<(&Term, Icit)>)> {
+pub(crate) fn spine_icit(term: &Term) -> Option<(&Term, Vec<(&Term, Icit)>)> {
     let mut args = Vec::new();
     let mut head = strip(term);
     while let Term::App(f, a, icit) = head {
