@@ -22691,14 +22691,14 @@
     {
       "id": 2342,
       "title": "Std: move sumFrom and sumFromRangeFrom (generic Nat/List facts proved in Aoc.Common) into std",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "stdlib"
       ],
       "epic": "std-library",
-      "body": "From SW-2320's report. 30 min.",
+      "body": "From SW-2320's report. 30 min.\n\nStarted 03:50 UTC, Sonnet, expected 30 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
