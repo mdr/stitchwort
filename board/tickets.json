@@ -22935,17 +22935,19 @@
     {
       "id": 2357,
       "title": "test:affected: a change to std .sw files should select the extraction snapshot tests (extract::generated_code_is_stable); SW-2323's flatMap change left effect-lists.js stale until a later batch picked it up",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "tooling"
       ],
       "epic": "test-infra",
-      "body": "8 Nov 2026 overnight. Also microtype-comparisons.js had been stale since an older distinct -> unique rename, so this has happened before. 30 min.\n\nStarted 03:52 UTC, Sonnet, expected 30 min.\n",
+      "body": "8 Nov 2026 overnight. Also microtype-comparisons.js had been stale since an older distinct -> unique rename, so this has happened before. 30 min.\n\nStarted 03:52 UTC, Sonnet, expected 30 min.\n\nMerged. Not wired: three rt lowering snapshots and server goal_index::reify-return mention List functions (lowering output, probably not std text). Model result: Sonnet, worked, 5 min (est. 30).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "183990a73"
+      ]
     },
     {
       "id": 2358,
