@@ -255,3 +255,36 @@ fn absurd_nesting_is_refused() {
         std::mem::forget(program);
     });
 }
+
+/// A program that stores `Fin` as cells under `checking_rebuilds` and as
+/// machine numbers otherwise.
+const FIN_SOURCE: &str = r#"
+import Std (Fin, Nat, Text)
+
+def main(): {IO} () :=
+  IO.print "${Fin.toNat (FSucc (FSucc FZero): Fin 3)}"
+"#;
+
+/// Bytes written under one setting of `STITCHWORT_CHECK_REBUILDS` (which
+/// decides the layout of `Fin` and other types with determined fields) are
+/// not read back under the other.
+#[test]
+fn bytes_are_only_read_under_the_rebuild_checking_they_were_lowered_under() {
+    with_stack(STACK, || {
+        let plain = {
+            let (program, limits) = lowered_source("fin_layout.sw", FIN_SOURCE);
+            encode(&program, &limits)
+        };
+        let checked = {
+            let _check = stitchwort_rt::erasure::checking_rebuilds();
+            let (program, limits) = lowered_source("fin_layout.sw", FIN_SOURCE);
+            encode(&program, &limits)
+        };
+        assert_ne!(plain, checked, "the layouts should differ");
+        assert!(decode(&plain).is_ok());
+        assert!(decode(&checked).is_err(), "checked bytes read unchecked");
+        let _check = stitchwort_rt::erasure::checking_rebuilds();
+        assert!(decode(&plain).is_err(), "unchecked bytes read checked");
+        assert!(decode(&checked).is_ok());
+    });
+}

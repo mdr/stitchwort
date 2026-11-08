@@ -196,6 +196,7 @@ pub fn encode(program: &Program, limits: &Limits) -> Vec<u8> {
     w.u8(FORMAT_VERSION);
     w.str(env!("CARGO_PKG_VERSION"));
     w.uint(BUILD_HASH);
+    w.u8(u8::from(crate::erasure::check_rebuilds()));
     w.uint(limits.steps);
     w.usize(limits.frames);
     w.u8(match program.main_row {
@@ -431,6 +432,11 @@ pub fn decode(bytes: &[u8]) -> Result<(Program, Limits), CodecError> {
     }
     if r.uint()? != BUILD_HASH {
         return bad("written by a different build of the runtime");
+    }
+    // Whether cells keep the fields indices determine decides the layout
+    // lowering gave `Fin` and others; the build hash can't see the setting.
+    if (r.u8()? != 0) != crate::erasure::check_rebuilds() {
+        return bad("written under another setting of STITCHWORT_CHECK_REBUILDS");
     }
     let limits = Limits {
         steps: r.uint()?,
