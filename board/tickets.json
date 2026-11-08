@@ -1,5 +1,5 @@
 {
-  "next": 2386,
+  "next": 2387,
   "tickets": [
     {
       "id": 47,
@@ -23338,17 +23338,19 @@
     {
       "id": 2381,
       "title": "Std: Eq.cong2 (congruence in two arguments)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "std"
       ],
       "epic": "std-library",
-      "body": "From SW-2374 (worked around with rewrite and ring). 15 min.\n\nStarted 05:32 UTC, Opus (std core), expected 15 min, in worktree SW-2379 (orchestrator misnumbered the worktree).\n",
+      "body": "From SW-2374 (worked around with rewrite and ring). 15 min.\n\nStarted 05:32 UTC, Opus (std core), expected 15 min, in worktree SW-2379 (orchestrator misnumbered the worktree).\n\nDone 05:37 UTC, lane/SW-2379 9025e717c. No existing equivalent in std (grepped cong2, congArg2, congr; only the Int-specific Int.addCong/Int.mulCong). Added `theorem Eq.cong2 (f: a → b → c) [x1 x2: a] [y1 y2: b] (p: x1 = x2) (q: y1 = y2): f x1 y1 = f x2 y2 := J (x' p' => f x1 y1 = f x' y2) (Eq.cong (f x1) q) p` in core/Equality.sw with API doc. Prelude hash snapshot: one added line, nothing else changed. Passed: native pins (4), extract generated_code_is_stable, test:lane std (24), audit Std.Eq (5 passed), aoc:check cached (287 namespaces).\n\nMerged. Follow-up SW-2386. Model result: Opus, worked, 6 min (est. 15).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "28e424898"
+      ]
     },
     {
       "id": 2382,
@@ -23408,6 +23410,21 @@
       ],
       "epic": "comparative-speed",
       "body": "From SW-2379: Linux path untested. 20 min, needs Overmind.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2386,
+      "title": "Std: Int.addCong and Int.mulCong as Eq.cong2 one-liners; Day09's rewrite-plus-ring workaround (SW-2374) to Eq.cong2",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "epic": "std-library",
+      "body": "From SW-2381. Hash changes; check native pins (bound_to_the_prelude). 20 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
