@@ -1,5 +1,5 @@
 {
-  "next": 2448,
+  "next": 2449,
   "tickets": [
     {
       "id": 47,
@@ -24360,14 +24360,14 @@
     {
       "id": 2443,
       "title": "Drop worklist with one local slot: keep the first child in a local, use a Vec only for a second (est. 1.5-2.5%); with SW-2421's A/B (thread-local and SmallVec both measured worse)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2422 cut 1; also cut 4 (skip the worklist call for cells with no deep field, est. 0.5-1%). Instruction-count A/B on expressions, scan, octopus. 1 h.\nStarted 21:10 UTC.\n",
+      "body": "From SW-2422 cut 1; also cut 4 (skip the worklist call for cells with no deep field, est. 0.5-1%). Instruction-count A/B on expressions, scan, octopus. 1 h.\nStarted 21:10 UTC.\n\nResult (21:50): cut 1 (one-slot Pending) cost +2.1% expressions, +3.3% scan, +2.4% octopus, not kept. Cut 4 alone (Fields::drop skips the worklist when no field is deep): -2.2%, -2.1%, -2.3% (318.01G/304.08G/26.46G to 310.99G/297.65G/25.86G). Cuts 1+4 together only -1.5%, -0.2%, -1.4%. Committed 6b926adfd on lane/SW-2443. rt and native lanes pass.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -24428,6 +24428,21 @@
       ],
       "epic": "comparative-speed",
       "body": "From SW-2398 (introduced with SW-2415; not yet confirmed to happen). Confirm with a repro (run with the check on, then off, same cache), then put the setting in the key. 30 min.\nStarted 21:44 UTC.\n",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2448,
+      "title": "Fun::drop and Delay::drop: skip the worklist for closures and delays with no deep captures, as SW-2443 did for cells (cells: -2.1 to -2.3% instructions)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2443. Instruction A/B on expressions, scan, octopus, matcher. 30 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
