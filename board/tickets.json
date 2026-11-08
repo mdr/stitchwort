@@ -22839,7 +22839,7 @@
     {
       "id": 2350,
       "title": "Operations in place stage C: the handler stack, consumer link and in-place calls on the machine, behind a flag",
-      "status": "backlog",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -22847,7 +22847,7 @@
         "effects"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/proposals/operations-in-place.md (SW-2339); D3400 yes (Matt). After SW-2349. 90 min.\n\nD3412, Matt, 8 Nov 2026 ~09:38: yes, \"I think we should proceed with this.\" Stages B-D may change effect and step counts (not results).\nStarted 15:07 UTC, Opus, expected 120 min.\n\nProgress (lane, 8 Nov): built on the machine behind STITCHWORT_IN_PLACE=1 (internal; off by default; native forces it off). Entries, consumer link as a property of Ret (Eff / LinkedReg / InPlace), thunked fold and translate bodies in lowering (FoldInPlace, FoldState[Comp]InPlace, TranslateInPlace), Perform/TailPerform, Tail/Abort/aimed unwind, state in entries. No §3.3 case failed. Flag on: all 116 run lines of the effect examples plus a new fixture agree with the reference evaluator; step limits agree. Measured on the machine (x20 inputs): effect-loop steps 3.1x/3.3x/26x fewer on expressions/scan/bridge, machine steps 1.14-1.19x, time 1.04-1.11x. Row-generic code (List.map via bindIn) isn't reached: stage E. Notes in the proposal, section 12.\n\nStage C built (901a93884, lane/SW-2350, kept unmerged): flag on, effect-loop steps 3.1x/3.3x/26x fewer on expressions/scan/bridge but machine time only 1.11x/1.09x/1.04x (est. 2-3x). Flag off vs main: steps identical; instructions machine scan +1.6%, expressions +0.7%, native +0.9%. Orchestrator's call: hold the merge until a native profile shows what stage D can gain; then merge plus D, or drop (Matt). Model result: Opus, worked (well below estimate), 70 min (est. 120).\n",
+      "body": "From docs/proposals/operations-in-place.md (SW-2339); D3400 yes (Matt). After SW-2349. 90 min.\n\nD3412, Matt, 8 Nov 2026 ~09:38: yes, \"I think we should proceed with this.\" Stages B-D may change effect and step counts (not results).\nStarted 15:07 UTC, Opus, expected 120 min.\n\nProgress (lane, 8 Nov): built on the machine behind STITCHWORT_IN_PLACE=1 (internal; off by default; native forces it off). Entries, consumer link as a property of Ret (Eff / LinkedReg / InPlace), thunked fold and translate bodies in lowering (FoldInPlace, FoldState[Comp]InPlace, TranslateInPlace), Perform/TailPerform, Tail/Abort/aimed unwind, state in entries. No §3.3 case failed. Flag on: all 116 run lines of the effect examples plus a new fixture agree with the reference evaluator; step limits agree. Measured on the machine (x20 inputs): effect-loop steps 3.1x/3.3x/26x fewer on expressions/scan/bridge, machine steps 1.14-1.19x, time 1.04-1.11x. Row-generic code (List.map via bindIn) isn't reached: stage E. Notes in the proposal, section 12.\n\nStage C built (901a93884, lane/SW-2350, kept unmerged): flag on, effect-loop steps 3.1x/3.3x/26x fewer on expressions/scan/bridge but machine time only 1.11x/1.09x/1.04x (est. 2-3x). Flag off vs main: steps identical; instructions machine scan +1.6%, expressions +0.7%, native +0.9%. Orchestrator's call: hold the merge until a native profile shows what stage D can gain; then merge plus D, or drop (Matt). Model result: Opus, worked (well below estimate), 70 min (est. 120).\n\nD3430, Matt, 8 Nov 2026 ~17:05: yes, stop operations in place after stage B (\"focus on the biggest slice of the pie ... if we've discovered that this is not the big win we think it is, ... pivot\"). SW-2417: effect machinery about 21% of native time, allocation and freeing about 52%; stage D ceiling about 1.3x. Dropped; stage C branch deleted (as built: docs note §12 was on the branch only).\nCorrection: branch lane/SW-2350 (901a93884) kept as the record; worktree removed.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -22855,7 +22855,7 @@
     {
       "id": 2351,
       "title": "Operations in place stage D: the same in native code; flag on, then removed",
-      "status": "backlog",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -22863,7 +22863,7 @@
         "effects"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/proposals/operations-in-place.md (SW-2339); D3400 yes (Matt). After SW-2350. Est. 2-3x on expressions and scan, 1.2-1.5x bridge. 90 min. D3411 (guide paragraph on which clauses are cheap) to bring to Matt when this lands.\n\nD3412, Matt, 8 Nov 2026 ~09:38: yes, \"I think we should proceed with this.\" Stages B-D may change effect and step counts (not results).\n",
+      "body": "From docs/proposals/operations-in-place.md (SW-2339); D3400 yes (Matt). After SW-2350. Est. 2-3x on expressions and scan, 1.2-1.5x bridge. 90 min. D3411 (guide paragraph on which clauses are cheap) to bring to Matt when this lands.\n\nD3412, Matt, 8 Nov 2026 ~09:38: yes, \"I think we should proceed with this.\" Stages B-D may change effect and step counts (not results).\n\nD3430, Matt, 8 Nov 2026 ~17:05: yes, stop operations in place after stage B (\"focus on the biggest slice of the pie ... if we've discovered that this is not the big win we think it is, ... pivot\"). SW-2417: effect machinery about 21% of native time, allocation and freeing about 52%; stage D ceiling about 1.3x. Dropped; stage C branch deleted (as built: docs note §12 was on the branch only).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
