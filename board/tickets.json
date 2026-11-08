@@ -1,5 +1,5 @@
 {
-  "next": 2354,
+  "next": 2357,
   "tickets": [
     {
       "id": 47,
@@ -22781,7 +22781,7 @@
     {
       "id": 2348,
       "title": "Operations in place stage A: classify each handler clause (resumes once at the end / never resumes / only forwards / other) and count the kinds over std, aoc/ and bench/compare",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -22789,10 +22789,12 @@
         "effects"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/proposals/operations-in-place.md (SW-2339); D3400 yes (Matt). Takes over SW-2338's classifying half. 60-90 min.\n\nStarted 02:46 UTC, Opus, expected 75 min.\n",
+      "body": "From docs/proposals/operations-in-place.md (SW-2339); D3400 yes (Matt). Takes over SW-2338's classifying half. 60-90 min.\n\nStarted 02:46 UTC, Opus, expected 75 min.\n\nLane (Opus, 8 Nov 2026, lane/SW-2348, commit b7e483460): `crates/rt/src/clauses.rs` classifies clauses (Forward/Tail/Abort/General, forward shape, fold position); not wired into the lowering (no IR or behaviour change). Tests in `crates/rt/tests/it/clause_kinds.rs`; `clause_census` ignored (~1 min, 5 s warm cache). Census in operations-in-place.md §10: std 37 folds (23 Forward, 7 Tail, 33 Abort, 57 General); aoc/ defines no handlers; bench programs reach only optionalFrom/attemptFrom/runFrom (+ labelWholeFrom in matcher), all Forward/Tail/Abort except labelWhole. Findings: Fail's handlers are foldCompD on a variable index in generic code (opaque step at run time); their variants forward via callD. Tests: state_handlers_run_as_a_loop_where_they_fit pass, clause_kinds 2/2 pass, test:lane AREA=rt 60/60 pass, clippy clean.\n\nMerged. The pass is not wired in (the IR is unchanged); passing clauses to the fold native moves to stage B. Census in note section 10. Run-time weighting per kind not measured. Model result: Opus, worked, 17 min (est. 75).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "f32c43cb4"
+      ]
     },
     {
       "id": 2349,
@@ -22870,6 +22872,52 @@
       ],
       "epic": "comparative-speed",
       "body": "From docs/proposals/operations-in-place.md (SW-2339); D3400 yes (Matt). Optional, after SW-2352. 90 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2354,
+      "title": "Operations in place: the forward recogniser accepts callD at Total, or foldCompD is specialised at Total, so Fail and Abort handlers are covered",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "perf",
+        "effects"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2348: generic Fail/Abort handlers go through foldCompD with a variable divergence index; the empty-row variants forward with callD. Part of stage B or C (SW-2349/SW-2350).",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2355,
+      "title": "Investigate 30 aoc/ proof errors (Proofs/ and Tests/ files, e.g. Common/Proofs/GridCells.sw E-REWRITE-NOTHING) seen when the clause census loads aoc/ through the test library cache; check whether stitchwort check aoc reproduces",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "epic": "test-infra",
+      "body": "From SW-2348, 8 Nov 2026. Could be a stale test library cache or a real regression after SW-2320. 30 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2356,
+      "title": "Fusion: accept Store.keep's eta-reduced put clause (k () rather than Done of a function), so the handler runs as a loop",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2348. Small. 20 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
