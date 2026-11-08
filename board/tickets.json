@@ -1,5 +1,5 @@
 {
-  "next": 2379,
+  "next": 2382,
   "tickets": [
     {
       "id": 47,
@@ -23226,17 +23226,19 @@
     {
       "id": 2374,
       "title": "disk (2024 day 9): FreeSpace bulk build and cached minimum per length; part 1 as a counter loop; checksum as an arithmetic series with its lemma in std",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/reviews/SW-2369-dijkstra-disk.md. Est. 10-15% of disk together. 45 min.\n\nStarted 05:09 UTC, Sonnet, expected 45 min.\n",
+      "body": "From docs/reviews/SW-2369-dijkstra-disk.md. Est. 10-15% of disk together. 45 min.\n\nStarted 05:09 UTC, Sonnet, expected 45 min.\n\nProgress (Sonnet, 05:25): profile confirmed the review. Measured by instructions retired (wall time swings 8-16 s with load 11-19): baseline 125.4 G. A Map.foldLeft leftmostFit was WORSE (142.4 G), dropped. Checksums as counter fold plus Gauss closed form (List.sumRangeFrom in std): 121.5 G (-3.1%), user 8.08 s to 7.79 s. Not done: FreeSpace bulk build/cached minimum (type change, all FreeSpace proofs) and part 1 as a counter loop (compactBlocks proofs). Commit 36f7ead96 on lane/SW-2374.\n\nMerged: checksum half only (FreeSpace and part 1 loop not done: large proof rework). Follow-ups SW-2379 SW-2380 SW-2381. Model result: Sonnet, worked (partly), 16 min (est. 45).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "7db29e7bf"
+      ]
     },
     {
       "id": 2375,
@@ -23294,6 +23296,51 @@
       ],
       "epic": "comparative-speed",
       "body": "From SW-2373. 15 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2379,
+      "title": "bench:compare: report instructions retired (stable under load) beside wall time, from /usr/bin/time -l on macOS and perf stat on Linux",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2374: wall time varied 8-16 s for one binary at load 11-19; instructions were stable. 30 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2380,
+      "title": "Std Map.foldLeft is slower than toList plus filterMap (SW-2374's leftmostFit experiment +13.5% instructions); profile Map.foldLeft (Quot.lift, Map.Raw.foldLeft) alone",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "std-library",
+      "body": "From SW-2374. Measure first. 30 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2381,
+      "title": "Std: Eq.cong2 (congruence in two arguments)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "epic": "std-library",
+      "body": "From SW-2374 (worked around with rewrite and ring). 15 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
