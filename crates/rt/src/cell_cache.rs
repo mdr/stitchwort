@@ -107,6 +107,7 @@ impl CellCache {
         for (i, &head) in self.heads.iter().enumerate() {
             let mut block = head;
             while block != 0 {
+                census(block, i as u64 + 1);
                 held += block_bytes(i as u64 + 1);
                 // SAFETY: a cached block's strong-count word is the next.
                 block = unsafe { next(block) };
@@ -170,6 +171,53 @@ pub fn drained() -> u64 {
     DRAINED.load(Ordering::Relaxed)
 }
 
+/// SW-2428, a measurement only: cached blocks seen when a cache is cut or
+/// dropped, and how many of them are smaller than a dilated cell (cells
+/// built outside `sw_cell_new`'s fixed path, which the cache's lists, keyed
+/// by field count, take as well). Printed at exit with
+/// `SW_DILATION_REPORT=1`.
+pub static SEEN: AtomicU64 = AtomicU64::new(0);
+pub static UNDILATED: AtomicU64 = AtomicU64::new(0);
+
+#[cfg(not(target_arch = "wasm32"))]
+#[allow(unsafe_code)]
+unsafe extern "C" {
+    fn mi_usable_size(p: *const std::ffi::c_void) -> usize;
+}
+
+/// Counts `block` (a cached cell of `n` fields) in [`SEEN`] and, if its
+/// allocation is too small to hold the dilation, [`UNDILATED`].
+#[allow(unsafe_code)]
+fn census(block: u64, n: u64) {
+    // A build of its own (`SW_DILATION_CENSUS=1` at build time): counting
+    // in `full`'s walk adds about 5% to binary-trees' instructions, so the
+    // timed builds leave it out.
+    if crate::native_abi::DILATION == 0 || option_env!("SW_DILATION_CENSUS").is_none() {
+        return;
+    }
+    SEEN.fetch_add(1, Ordering::Relaxed);
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let want = block_bytes(n) as usize + crate::native_abi::DILATION;
+        // SAFETY: a cached block is a live allocation from mimalloc.
+        if unsafe { mi_usable_size(block as *const std::ffi::c_void) } < want {
+            UNDILATED.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+}
+
+/// Prints [`SEEN`] and [`UNDILATED`] if `SW_DILATION_REPORT=1`.
+pub fn dilation_report() {
+    if std::env::var_os("SW_DILATION_REPORT").is_some_and(|v| v == "1") {
+        eprintln!(
+            "dilation {}: cached blocks seen {}, undilated {}",
+            crate::native_abi::DILATION,
+            SEEN.load(Ordering::Relaxed),
+            UNDILATED.load(Ordering::Relaxed)
+        );
+    }
+}
+
 impl Drop for CellCache {
     #[allow(unsafe_code)]
     fn drop(&mut self) {
@@ -178,6 +226,7 @@ impl Drop for CellCache {
             let n = i as u64 + 1;
             let mut block = std::mem::take(head);
             while block != 0 {
+                census(block, n);
                 // SAFETY: a cached block is an `Rc<[Value]>` allocation of
                 // `n` fields that nothing else refers to (the module's
                 // invariant), whose strong-count word holds the next.

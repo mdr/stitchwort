@@ -1491,13 +1491,54 @@ pub unsafe extern "C" fn sw_cell_new(tag: u32, n: u64) -> u64 {
     cell_new(tag, n)
 }
 
+/// SW-2428, a measurement only (never merged): the spare bytes each cell on
+/// the fixed-size path is given after its fields, from `SW_CELL_DILATION`
+/// at build time (0, 24 or 40; a multiple of 8). Nothing reads or writes
+/// them, and the value's length word stays `n`. The cell is freed with the
+/// smaller layout of `n` fields, which is sound only because the standalone
+/// runtime's allocator frees with `mi_free`, which ignores the size.
+pub const DILATION: usize = parse_dilation(option_env!("SW_CELL_DILATION"));
+
+const fn parse_dilation(text: Option<&str>) -> usize {
+    let Some(text) = text else { return 0 };
+    let bytes = text.as_bytes();
+    let mut i = 0;
+    let mut k = 0;
+    while i < bytes.len() {
+        assert!(bytes[i].is_ascii_digit(), "SW_CELL_DILATION: digits only");
+        k = k * 10 + (bytes[i] - b'0') as usize;
+        i += 1;
+    }
+    assert!(k % 8 == 0, "SW_CELL_DILATION: a multiple of 8");
+    k
+}
+
+/// A fixed-size cell's fields with [`DILATION`] spare bytes after them.
+#[repr(C)]
+struct Dilated<const N: usize> {
+    fields: [MaybeUninit<Value>; N],
+    spare: [MaybeUninit<u8>; DILATION],
+}
+
 #[inline(always)]
 fn cell_new(tag: u32, n: u64) -> u64 {
-    fn fixed<const N: usize>() -> Rc<[MaybeUninit<Value>]> {
-        Rc::new([const { MaybeUninit::uninit() }; N])
+    fn fixed<const N: usize>() -> *const u8 {
+        if DILATION == 0 {
+            let cell: Rc<[MaybeUninit<Value>]> = Rc::new([const { MaybeUninit::uninit() }; N]);
+            Rc::into_raw(cell).cast::<u8>()
+        } else {
+            let cell = Rc::new(Dilated::<N> {
+                fields: [const { MaybeUninit::uninit() }; N],
+                spare: [MaybeUninit::uninit(); DILATION],
+            });
+            Rc::into_raw(cell).cast::<u8>()
+        }
     }
-    let cell = by_arity!(n, fixed(), Rc::<[Value]>::new_uninit_slice(n as usize));
-    let fields = Rc::into_raw(cell).cast::<u8>();
+    let fields = by_arity!(
+        n,
+        fixed(),
+        Rc::into_raw(Rc::<[Value]>::new_uninit_slice(n as usize)).cast::<u8>()
+    );
     crate::alloc_trace::alloc_at(tag, fields, n as usize);
     fields as u64 - RC_VALUE_AT as u64
 }
