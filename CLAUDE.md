@@ -241,6 +241,16 @@ Use the cheapest model that can do the work well. Provisional (D2208, Matt,
 
 - Don't run the daily tier (`task test:daily`, `nix flake check`) or the
   full tier without asking Matt first. Never run them back to back.
+- Except when over pace (D3427, Matt, 8 Nov 2026): while the week's usage
+  pace (`seven_day.pace` in `~/.claude/usage.json`) is over 1, the
+  orchestrator starts no new token-heavy lanes and fills the machines with
+  compute-heavy, token-light work without asking: the fuzzers
+  (`task fuzz:*`, with large counts and fresh seeds), the full audit, the
+  daily and full tiers (still not back to back), uncached whole-AoC checks
+  and Overmind comparison runs. One heavy job per machine at a time, as
+  plain background commands, not watched by agents. A finding is filed as a
+  ticket with its reproducer and investigated once pace is back; normal
+  lanes resume when pace falls to about 0.95.
 - Lanes are very selective about tests. Run only targeted, fast tests that
   check the work your change directly affects: `task test:one -- NAME` for
   the tests you touched, and `task test:lane AREA=…` when it fits. No single
