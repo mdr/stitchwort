@@ -22839,7 +22839,7 @@
     {
       "id": 2350,
       "title": "Operations in place stage C: the handler stack, consumer link and in-place calls on the machine, behind a flag",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -22847,7 +22847,7 @@
         "effects"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/proposals/operations-in-place.md (SW-2339); D3400 yes (Matt). After SW-2349. 90 min.\n\nD3412, Matt, 8 Nov 2026 ~09:38: yes, \"I think we should proceed with this.\" Stages B-D may change effect and step counts (not results).\n",
+      "body": "From docs/proposals/operations-in-place.md (SW-2339); D3400 yes (Matt). After SW-2349. 90 min.\n\nD3412, Matt, 8 Nov 2026 ~09:38: yes, \"I think we should proceed with this.\" Stages B-D may change effect and step counts (not results).\nStarted 15:07 UTC, Opus, expected 120 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
