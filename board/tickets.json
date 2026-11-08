@@ -24341,14 +24341,14 @@
     {
       "id": 2442,
       "title": "Resume wrapper: stop allocating a new Fun just to flip a resumption's eager/lazy flag (est. 2-3% on expressions and scan)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2422 cut 2. Measure native instructions on expressions and scan. 1-2 h.\nStarted 20:51 UTC.\n",
+      "body": "From SW-2422 cut 2. Measure native instructions on expressions and scan. 1-2 h.\nStarted 20:51 UTC.\n\nDropped (orchestrator's call): the premise was wrong (flag flips are rare); the in-place version measured +0.18% / +0.19% instructions. Branch deleted. Model result: Sonnet, worked (negative result), 18 min (est. 90).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -24378,7 +24378,7 @@
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2422; ties to compact-values.md and SW-2417. Paper, 90 min.",
+      "body": "From SW-2422; ties to compact-values.md and SW-2417. Paper, 90 min.\n\nFrom SW-2442: each forwarded operation allocates an Rc<Resume> and an Rc<Fun> around it (~29 M pairs on expressions). One allocation would work if Fun::Resume held the Resume inline when unshared; StateK and Ret::Step share the Rc<Resume> today. Include this in the design.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []

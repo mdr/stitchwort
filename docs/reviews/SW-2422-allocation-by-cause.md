@@ -259,6 +259,10 @@ compact values (docs/proposals/compact-values.md) land with option A.
    row is 8.7-8.8% on expressions and scan; the wrappers are 42% of its objects. **Saves 2-3%** on
    expressions and scan, nothing on the others (matcher has 2.5 M resumes: about 0.3%). Effort small to
    medium (Sonnet, 1-2 h; `effect.rs`, `native_abi.rs` apply). Not moot.
+   **Correction (SW-2442, 8 Nov 2026):** measured, this cut saves nothing (+0.2% instructions).
+   The flag flip is rare (only `resume_lazily`, for lazy folds); the wrappers come from `skipped` and the
+   routing code, each around a fresh `Resume`. The real cost is two allocations per forwarded operation
+   (`Rc<Resume>` plus the `Rc<Fun>` around it), which SW-2444 takes up.
 3. **Make closure and pap captures without the `Vec` machinery and the Rust allocator shim.**
    `sw_closure` and `sw_pap` collect `(0..n).map(read)` into a `Box<[Value]>`
    (`into_boxed_slice` 0.6% self, `finish_grow`), and each allocation goes through
