@@ -132,3 +132,44 @@ Geometric means of the time ratios: native / CPython **5.5 → 4.7 → 3.9 → 3
 **23 → 20 → 16 → 14.9**. Raw files: Overmind's `target/compare/2026-11-08T104311-overmind.{json,md}`.
 On Speedwell since then (instructions, macOS): SW-2394 dijkstra −5%, SW-2349 expressions 1.44×
 and scan 1.32× fewer, SW-2391 dijkstra −11%; these go in the next Overmind run.
+
+## After this morning's runtime work (Overmind, 8 Nov 2026 13:28, `663bd9c53`)
+
+Same command and machine as the previous run, 44 answers ok, 27.3 min, load about 1 while
+timing. Adds SW-2394 and SW-2396 (Dijkstra over a cost table; day 15 passes a grid index, so
+costs live in an array), SW-2349 (operations in place stage B: forwarding clauses skipped),
+SW-2391 (reuse across calls) and SW-2336 (apply fast paths). Reference runners within about 2%
+of the previous run.
+
+| Program | native | CPython | PyPy | Lean | native / CPython | native / Lean | native change |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| pidigits | 1.32 s | 3.77 s | 3.30 s | 2.01 s | 0.35 | 0.65 | |
+| binary-trees | 3.10 s | 10.15 s | 1.57 s | 1.01 s | 0.31 | 3.07 | |
+| memory-game | 4.62 s | 8.30 s | 5.38 s | 821 ms | 0.56 | 5.63 | |
+| dijkstra | 2.82 s | 842 ms | 510 ms | 204 ms | 3.35 | 13.85 | 5.85 → 2.82 s |
+| octopus | 3.25 s | 1.52 s | 470 ms | 221 ms | 2.15 | 14.76 | |
+| disk | 14.07 s | 2.24 s | 1.91 s | 753 ms | 6.29 | 18.68 | 15.96 → 14.07 s |
+| expressions | 51.30 s | 2.14 s | 1.77 s | 660 ms | 24.03 | 77.75 | 77.82 → 51.30 s |
+| scan | 50.62 s | 827 ms | 136 ms | 581 ms | 61.23 | 87.15 | 74.42 → 50.62 s |
+| matcher | 9.02 s | 4.58 s | 2.86 s | 849 ms | 1.97 | 10.62 | 10.52 → 9.02 s |
+| bridge | 16.33 s | 3.47 s | 1.21 s | 825 ms | 4.71 | 19.80 | 20.22 → 16.33 s |
+
+Instructions retired:
+
+| Program | native | CPython | PyPy | Lean | native / CPython | native / Lean | native change |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| pidigits | 9.44 G | 44.45 G | 32.92 G | 13.28 G | 0.21 | 0.71 | |
+| binary-trees | 29.39 G | 91.50 G | 8.73 G | 9.82 G | 0.32 | 2.99 | |
+| memory-game | 35.37 G | 37.93 G | 13.06 G | 2.26 G | 0.93 | 15.68 | |
+| dijkstra | 20.00 G | 7.23 G | 3.39 G | 1.50 G | 2.77 | 13.37 | −57% |
+| octopus | 29.56 G | 15.15 G | 3.28 G | 2.47 G | 1.95 | 11.96 | |
+| disk | 114.47 G | 18.70 G | 10.12 G | 6.36 G | 6.12 | 18.00 | −10% |
+| expressions | 356.01 G | 20.35 G | 11.15 G | 6.09 G | 17.49 | 58.47 | −37% |
+| scan | 362.03 G | 7.90 G | 956.77 M | 5.99 G | 45.81 | 60.40 | −32% |
+| matcher | 76.01 G | 42.64 G | 15.27 G | 8.07 G | 1.78 | 9.42 | −12% |
+| bridge | 121.98 G | 32.65 G | 6.78 G | 7.05 G | 3.74 | 17.31 | −19% |
+
+Geometric means of the time ratios: native / CPython **5.5 → 4.7 → 3.9 → 3.5 → 2.9**, native /
+Lean **23 → 20 → 16 → 14.9 → 12.0**. memory-game, binary-trees and pidigits fell in time only
+(the previous run's noise going away; instructions unchanged). Raw files: Overmind's
+`target/compare/2026-11-08T132842-overmind.{json,md}`.
