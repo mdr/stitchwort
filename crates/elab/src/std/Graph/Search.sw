@@ -357,40 +357,79 @@ theorem Graph.relaxedQueued [auto ord: Ord s] (graph: Graph s) (sources: List (s
     | Inr (Witness weight (Both edge costs)) =>
       List.memAppendRight state (sources.map Pair.fst) graph.states (graph.listed from state weight edge)
 
---| Dijkstra's algorithm: `queue` holds (cost, state) pairs still to look at,
---| least first; `settled` the least cost found for each state settled so
---| far; `best` the least cost each state has been queued at. The least
---| pair, `popped` with the rest of the queue, settles its state, unless it
---| already is, and queues the states its edges get to for less than
---| `best` has. A pair left behind by a cheaper one for its state is
---| dropped when popped, its state settled by then.
+--| What the search knows about the queue it popped `popped` from, once it
+--| no longer holds that queue: some queue pops as `popped`, and every state
+--| on it is in the universe. Being a proposition, it costs nothing at run
+--| time, so the search holds only the popped pair and the rest.
+def Graph.Queued [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)) (popped: Option ((Nat, s), Set (Nat, s))): Prop :=
+  ∃ (queue: Set (Nat, s)) => (queue.popMin = popped) ∧ ((cost: Nat) → (state: s) → queue.contains (cost, state) = True → state ∈ graph.universe sources)
+
+--| Popping a queue whose states are all in the universe.
+theorem Graph.queuedPop [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)) (queue: Set (Nat, s))
+    (queued: (cost: Nat) → (state: s) → queue.contains (cost, state) = True → state ∈ graph.universe sources): Graph.Queued graph sources queue.popMin :=
+  Witness queue (Both rfl queued)
+
+--| Every state left on the queue after popping is in the universe.
+theorem Graph.queuedRest [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)) (popped: (Nat, s)) (rest: Set (Nat, s))
+    (queued: Graph.Queued graph sources (Some (popped, rest))) (cost: Nat) (state: s) (there: rest.contains (cost, state) = True):
+    state ∈ graph.universe sources :=
+  Exists.elim queued (queue facts => Graph.restQueued graph sources queue popped rest (And.left facts) (And.right facts) cost state there)
+
+--| The popped state is in the universe.
+theorem Graph.queuedLeast [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)) (cost: Nat) (state: s) (rest: Set (Nat, s))
+    (queued: Graph.Queued graph sources (Some ((cost, state), rest))): state ∈ graph.universe sources :=
+  Exists.elim queued (queue facts =>
+    And.right facts cost state (Set.containsMin queue (cost, state) (And.left (Set.popMinSome queue (cost, state) rest (And.left facts)))))
+
+--| How many pairs the queue popped as `popped` held.
+def Graph.poppedSize [auto ord: Ord s] (popped: Option ((Nat, s), Set (Nat, s))): Nat :=
+  match popped with
+    | None => 0
+    | Some (least, rest) => rest.size + 1
+
+--| Popping a queue tells of no more pairs than it holds.
+theorem Graph.poppedSizeAtMost [auto ord: Ord s] (queue: Set (Nat, s)): Graph.poppedSize queue.popMin ≤ queue.size :=
+  match found: queue.popMin with
+    | None => rfl
+    | Some (least, rest) => Set.sizePopMin queue least rest found
+
+--| Dijkstra's algorithm: `popped` is the least (cost, state) pair still to
+--| look at with the rest of the queue, or nothing when the queue is empty;
+--| `settled` the least cost found for each state settled so far; `best` the
+--| least cost each state has been queued at. The popped pair settles its
+--| state, unless it already is, and queues the states its edges get to for
+--| less than `best` has. A pair left behind by a cheaper one for its state
+--| is dropped when popped, its state settled by then. The queue it was
+--| popped from is not an argument, only `queued`, a proof about it: an
+--| argument would keep that queue alive while `rest` is popped and pushed
+--| to, so none of its cells could be updated in place.
 @[tailrec]
-def Graph.searchFrom [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)) (queue: Set (Nat, s)) (settled: Map s Nat) (best: Map s Nat)
-    (queued: (cost: Nat) → (state: s) → queue.contains (cost, state) = True → state ∈ graph.universe sources):
-    (popped: Option ((Nat, s), Set (Nat, s))) → (found: queue.popMin = popped) → Map s Nat
-    decreasing (Graph.unsettledIn (graph.universe sources) settled, queue.size)
-  | None, found => settled
-  | Some ((cost, state), rest), found =>
-    let restQueued := Graph.restQueued graph sources queue (cost, state) rest found queued
-    if fresh: settled.contains state = False then
-      let relaxed := Graph.relaxEdges cost (graph.edges state) rest best
-      Graph.searchFrom graph sources relaxed.fst (settled.insert state cost) relaxed.snd
-        (Graph.relaxedQueued graph sources state cost rest best restQueued) relaxed.fst.popMin rfl
-        [decreasing :=
-          Nat.LexLess.First
-            (Graph.unsettledFewer (graph.universe sources) settled (settled.insert state cost)
-              (other there => Map.containsInsertKeeps settled state cost other there) state
-              (queued cost state (Set.containsMin queue (cost, state) (And.left (Set.popMinSome queue (cost, state) rest found)))) fresh
-              (Map.containsInsertSame settled state cost))]
-    else
-      Graph.searchFrom graph sources rest settled best restQueued rest.popMin rfl
-        [decreasing := Nat.LexLess.Second rfl (Set.sizePopMin queue (cost, state) rest found)]
+def Graph.searchFrom [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)) (settled: Map s Nat) (best: Map s Nat)
+    (popped: Option ((Nat, s), Set (Nat, s))) (queued: Graph.Queued graph sources popped): Map s Nat
+    decreasing (Graph.unsettledIn (graph.universe sources) settled, Graph.poppedSize popped)
+:=
+  match popped with
+    | None => settled
+    | Some ((cost, state), rest) =>
+      let restQueued := Graph.queuedRest graph sources (cost, state) rest queued
+      if fresh: settled.contains state = False then
+        let relaxed := Graph.relaxEdges cost (graph.edges state) rest best
+        Graph.searchFrom graph sources (settled.insert state cost) relaxed.snd relaxed.fst.popMin
+          (Graph.queuedPop graph sources relaxed.fst (Graph.relaxedQueued graph sources state cost rest best restQueued))
+          [decreasing :=
+            Nat.LexLess.First
+              (Graph.unsettledFewer (graph.universe sources) settled (settled.insert state cost)
+                (other there => Map.containsInsertKeeps settled state cost other there) state
+                (Graph.queuedLeast graph sources cost state rest queued) fresh (Map.containsInsertSame settled state cost))]
+      else
+        Graph.searchFrom graph sources settled best rest.popMin (Graph.queuedPop graph sources rest restQueued)
+          [decreasing := Nat.LexLess.Second rfl (omega [Graph.poppedSizeAtMost rest])]
 
 --| The least cost to each state reachable from one of the sources, each
 --| given with the cost of starting there.
 def Graph.distances [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)): Map s Nat :=
   let start := Graph.relaxEdges 0 sources Set.empty Map.empty
-  graph.searchFrom sources start.fst Map.empty start.snd (Graph.startQueued graph sources) start.fst.popMin rfl
+  graph.searchFrom sources Map.empty start.snd start.fst.popMin (Graph.queuedPop graph sources start.fst (Graph.startQueued graph sources))
 
 --| A cost the search still has to account for: the state is queued for no
 --| more, or settled for no more.
@@ -523,38 +562,38 @@ theorem Graph.settleKeeps [auto ord: Ord s] (graph: Graph s) (sources: List (s, 
 theorem Graph.searchFromCorrect [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)) (reach: s → Nat → Prop)
     (edgesReach: (state: s) → (cost: Nat) → reach state cost → (next: s) → (weight: Nat) → (next, weight) ∈ graph.edges state →
       reach next (cost + weight))
-    (queue: Set (Nat, s)) (settled: Map s Nat) (best: Map s Nat)
-    (queued: (cost: Nat) → (state: s) → queue.contains (cost, state) = True → state ∈ graph.universe sources):
-    (popped: Option ((Nat, s), Set (Nat, s))) → (found: queue.popMin = popped) → Graph.SearchState graph sources reach queue settled best →
-      Graph.SearchResult graph sources reach (graph.searchFrom sources queue settled best queued popped found)
+    (queue: Set (Nat, s)) (settled: Map s Nat) (best: Map s Nat):
+    (popped: Option ((Nat, s), Set (Nat, s))) → (queued: Graph.Queued graph sources popped) → (found: queue.popMin = popped) →
+      Graph.SearchState graph sources reach queue settled best →
+      Graph.SearchResult graph sources reach (graph.searchFrom sources settled best popped queued)
     decreasing (Graph.unsettledIn (graph.universe sources) settled, queue.size)
-  | None, found, invariant =>
-    rewrite Graph.searchFrom.eq1 graph sources queue settled best queued found in
+  | None, queued, found, invariant =>
+    rewrite Graph.searchFrom.eq1 graph sources settled best queued in
       let (Both queuedReach (Both settledReached (Both sourcesPending (Both edgesPending others)))) := invariant
       Both settledReached
         (Both (source start member => Graph.boundOfPending queue settled found start source (sourcesPending source start member))
           (from fromCost got next weight edge =>
             Graph.boundOfPending queue settled found (fromCost + weight) next (edgesPending from fromCost got next weight edge)))
-  | Some ((cost, state), rest), found, invariant =>
+  | Some ((cost, state), rest), queued, found, invariant =>
     let (Both least restIs) := Set.popMinSome queue (cost, state) rest found
-    let restQueued := Graph.restQueued graph sources queue (cost, state) rest found queued
+    let restQueued := Graph.queuedRest graph sources (cost, state) rest queued
     match taken: settled.contains state with
       | True =>
-        rewrite Graph.searchFrom.eq2.ifFalse graph sources queue settled best queued cost state rest found taken in
-          Graph.searchFromCorrect graph sources reach edgesReach rest settled best restQueued rest.popMin rfl
+        rewrite Graph.searchFrom.eq2.ifFalse graph sources settled best cost state rest queued taken in
+          Graph.searchFromCorrect graph sources reach edgesReach rest settled best rest.popMin (Graph.queuedPop graph sources rest restQueued) rfl
             (rewrite restIs in Graph.skipKeeps graph sources reach queue settled best cost state least taken invariant)
             [decreasing := Nat.LexLess.Second rfl (Set.sizePopMin queue (cost, state) rest found)]
       | False =>
         let relaxed := Graph.relaxEdges cost (graph.edges state) rest best
-        rewrite Graph.searchFrom.eq2.ifTrue graph sources queue settled best queued cost state rest found taken in
-          Graph.searchFromCorrect graph sources reach edgesReach relaxed.fst (settled.insert state cost) relaxed.snd
-            (Graph.relaxedQueued graph sources state cost rest best restQueued) relaxed.fst.popMin rfl
+        rewrite Graph.searchFrom.eq2.ifTrue graph sources settled best cost state rest queued taken in
+          Graph.searchFromCorrect graph sources reach edgesReach relaxed.fst (settled.insert state cost) relaxed.snd relaxed.fst.popMin
+            (Graph.queuedPop graph sources relaxed.fst (Graph.relaxedQueued graph sources state cost rest best restQueued)) rfl
             (rewrite restIs in Graph.settleKeeps graph sources reach edgesReach queue settled best cost state least taken invariant)
             [decreasing :=
               Nat.LexLess.First
                 (Graph.unsettledFewer (graph.universe sources) settled (settled.insert state cost)
                   (other there => Map.containsInsertKeeps settled state cost other there) state
-                  (queued cost state (Set.containsMin queue (cost, state) least)) taken (Map.containsInsertSame settled state cost))]
+                  (Graph.queuedLeast graph sources cost state rest queued) taken (Map.containsInsertSame settled state cost))]
 
 --| Dijkstra's search returns what `SearchResult` says, for any `reach` that
 --| holds at each source for its starting cost and along each edge.
@@ -584,7 +623,8 @@ theorem Graph.distancesCorrect [auto ord: Ord s] (graph: Graph s) (sources: List
             Graph.pendingWeaken start.fst Map.empty found begin source (startBest source found got) (omega [le]))
           (Both (state cost got => Void.exfalso (Option.noneNotSome cost got))
             (Both (state cost got => Void.exfalso (Option.noneNotSome cost got)) startBest))))
-  Graph.searchFromCorrect graph sources reach edgesReach start.fst Map.empty start.snd (Graph.startQueued graph sources) start.fst.popMin rfl initial
+  Graph.searchFromCorrect graph sources reach edgesReach start.fst Map.empty start.snd start.fst.popMin
+    (Graph.queuedPop graph sources start.fst (Graph.startQueued graph sources)) rfl initial
 
 --| Each cost Dijkstra's search finds is a walk's from a source, and no walk
 --| from a source costs less.
