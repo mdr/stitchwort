@@ -42,8 +42,8 @@ instance Int.instMul: Mul Int :=
 
 --| Equal summands give equal sums.
 theorem Int.addCong [a a2 b b2: Int] (p: a = a2) (q: b = b2): a + b = a2 + b2 :=
-  Eq.trans (Eq.cong (t => Int.add t b) p) (Eq.cong (Int.add a2) q)
+  Eq.cong2 Int.add p q
 
 --| Equal factors give equal products.
 theorem Int.mulCong [a a2 b b2: Int] (p: a = a2) (q: b = b2): Int.mul a b = Int.mul a2 b2 :=
-  Eq.trans (Eq.cong (t => Int.mul t b) p) (Eq.cong (Int.mul a2) q)
+  Eq.cong2 Int.mul p q

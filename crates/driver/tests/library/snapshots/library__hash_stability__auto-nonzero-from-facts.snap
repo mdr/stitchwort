@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Main.rem 724899d9d9208e8b7bfd747fdb2fe591bb3d8c9abe9e1c9591802818a1556a73
@@ -10,7 +10,7 @@ Main.quotientIfPositive d9af804fbe4c619139978bae355ec817ac43f648ab929fd92c7245c7
 Main.quotientIfPositive.eq.ifTrue 95c3f1d880edc56499435c916dafdf4873f8da9c45f206d15c357402a345f48e
 Main.quotientIfPositive.eq.ifFalse 871887972549f4738e1770137713d3253f550b77f2dccb83dcac64e489f30210
 Main.fromLet 922ceb3c70215c9de6602dd3cd363b71979f0ba36997e171c510f158685e6441
-Main.placeValue 8b3760f3e4fae85d1004af438ac5da9dfff8c8c1cd03afe791af7e56fb9eacc8
-Main.lastDigits 65ef09d8aa82dbe27d421791228b4cb86b5219c211f61502061970c442fec9b7
+Main.placeValue ee9efc9f4aaa26772d0e0e25da2bafd65bded3fe28a005b3601af82a4d640203
+Main.lastDigits 39654ff313f949284e885d76307c0b37b6e8cee86488a733e5f656c33032f734
 Main.test "remainder" 2a7e6a1b34d872addfa532d14aa1dabeb337eac4422780d076b18fc528efb074
-Main.test "lastDigits" 501ad3df7329a92f58b67b239f46206dfe4843d91626d355e80136a13c3fb567
+Main.test "lastDigits" a85b2d38c39d9234a1aa45431cb0daf8090eb95cbaca6760c9cfcfdc76ee3416
