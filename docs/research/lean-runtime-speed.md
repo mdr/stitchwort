@@ -143,6 +143,11 @@ means more memory traffic and more cache misses.
 a small-object allocator. Our native code stages the fields on the stack and calls into
 Rust, which then allocates through `Rc`.
 
+**Correction (SW-2360).** Lean 4.13 had its own small-object allocator; 4.34 (the version
+compared here) calls mimalloc's small-object entry inline instead, with mimalloc compiled
+into the same C file (`lean.h:510-600`, `runtime/mimalloc.cpp`). See
+docs/proposals/cell-allocator.md.
+
 **Evidence.**
 - Lean: `lean_alloc_ctor` → `lean_alloc_ctor_memory` → `lean_alloc_small_object`
   (`lean.h:527-560`, `:864`, all `static inline`) **[read]**. The fields are then
