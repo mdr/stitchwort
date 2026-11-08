@@ -249,6 +249,7 @@ Not in the hypotheses, and measured:
    That would turn the SW-2322 and refcount questions into a table. Skid (a sample
    landing on the instruction after a slow one) makes single-instruction counts fuzzy;
    kinds summed over blocks are reliable enough. About 1–2 h.
+   Done (SW-2332): `task profile:native -- NAME --by-instruction` builds with `build --native --pc-map` (`Options::pc_map`, a map beside the executable) and splits the top bodies by part and by bytecode instruction.
 2. **Call counts per definition in native code.** The machine's `run --profile` has
    them; native code has none. Tail calls and TRMC loops hide callers on the machine
    stack, so inclusive times are approximate. Fix: an `Options` flag that makes each

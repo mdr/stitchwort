@@ -55,6 +55,7 @@ fn listed(program: &Program, image: &Image, trace_refcounts: bool) -> String {
     let options = Options {
         trace_refcounts,
         count_bodies: false,
+        pc_map: false,
     };
     listing(program, image, options).unwrap_or_else(|e| panic!("{e:#?}"))
 }

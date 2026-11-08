@@ -447,6 +447,13 @@ enum Command {
         /// the usual runtime it does nothing but slow the program
         #[arg(long, requires = "native")]
         count_bodies: bool,
+        /// With --native, also write OUT.pcmap.json: for each compiled
+        /// body, which bytecode instruction, and which part of it (checks,
+        /// reference counts, calls, its own work), each stretch of its
+        /// machine code is for, for `task profile:native --by-instruction`.
+        /// The code is the same as without it
+        #[arg(long, requires = "native")]
+        pc_map: bool,
         /// The project folder, if not the folder you're in or the nearest
         /// one above it
         #[arg(long)]
@@ -848,6 +855,7 @@ fn run(cli: Cli) -> ExitCode {
             native,
             verbose,
             count_bodies,
+            pc_map,
             project,
             cache,
             ..
@@ -856,7 +864,10 @@ fn run(cli: Cli) -> ExitCode {
             out.as_deref(),
             project.as_deref(),
             native.then_some(verbose),
-            count_bodies,
+            build::Profiling {
+                count_bodies,
+                pc_map,
+            },
             &cache,
         ),
         Command::Dev(DevCommand::NativeSpike { rounds, memory }) => {
@@ -3046,6 +3057,7 @@ fn compile_native(
     let options = stitchwort_native::n1::Options {
         trace_refcounts: trace,
         count_bodies: false,
+        pc_map: false,
     };
     let compiled = stitchwort_native::n1::compile(&program, image, options).and_then(|islands| {
         let stack = stitchwort_native::n1::stack_for(

@@ -413,6 +413,7 @@ fn effect_examples_agree_with_the_machine() {
                         let options = Options {
                             trace_refcounts: trace,
                             count_bodies: false,
+                            pc_map: false,
                         };
                         let image = code::compile(&program);
                         let islands = compile(&program, image, options)

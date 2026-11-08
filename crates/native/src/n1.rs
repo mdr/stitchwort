@@ -106,7 +106,10 @@
 //! **Looking at the code.** With `STITCHWORT_NATIVE_DUMP` set, compiling
 //! writes to stderr each body's Cranelift IR, its machine code as Cranelift
 //! prints it and as an assembler's `.byte` line, and each global function's
-//! address (to place a profiler's samples).
+//! address (to place a profiler's samples). With [`Options::pc_map`],
+//! each body's machine code is mapped to the bytecode instruction, and the
+//! [`Part`] of it, each stretch is for ([`BodyMap`]), through Cranelift's
+//! source locations, which leave the code as it is.
 //!
 //! **Reference counts.** Clones and drops are inline (an increment, or a
 //! decrement unless the count is 1, when the runtime frees the value), as
@@ -157,6 +160,123 @@ pub struct Options {
     /// with the `call-counts` feature. Off, the code is the same as
     /// without the option.
     pub count_bodies: bool,
+    /// Records which bytecode instruction, and which [`Part`] of it, each
+    /// stretch of a body's machine code is for ([`BodyMap`]), so that a
+    /// profiler can fold samples by address into instructions and parts.
+    /// The code is the same as without the option: only Cranelift's
+    /// source locations are set.
+    pub pc_map: bool,
+}
+
+/// What a stretch of a body's machine code does for its instruction, in a
+/// [`BodyMap`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Part {
+    /// Before the first instruction: the parameters into registers (and,
+    /// under `count_bodies`, the count).
+    Entry,
+    /// The instruction's own work: loads, stores, tests, arithmetic, and
+    /// the runtime helpers it calls (`sw_ctor`, `sw_prim`).
+    Work,
+    /// The step count, the frame-limit and stack checks before a call, and
+    /// the error-flag test after one.
+    Check,
+    /// A reference count taken (a clone).
+    Inc,
+    /// A reference count given up (a drop), freeing through the runtime
+    /// when it was the last.
+    Dec,
+    /// A call to compiled code, or a tail call: the call itself and its
+    /// arguments' moves.
+    Call,
+    /// A return, with the epilogue Cranelift puts there.
+    Return,
+    /// An error exit: the registers handed to `sw_unwind` (cold code).
+    Unwind,
+    /// The prologue, which Cranelift emits with no source location.
+    Prologue,
+    /// Code of no instruction: what Cranelift's optimiser made or moved
+    /// (constants, values shared between instructions), which keeps no
+    /// source location, and the register allocator's moves at a block's
+    /// start.
+    Untagged,
+}
+
+impl Part {
+    /// Every part but `Prologue`, by its number in a source location.
+    const TAGGED: [Part; 8] = [
+        Part::Entry,
+        Part::Work,
+        Part::Check,
+        Part::Inc,
+        Part::Dec,
+        Part::Call,
+        Part::Return,
+        Part::Unwind,
+    ];
+
+    /// The source location for this part of instruction `slot - 1` (slot 0:
+    /// before the first instruction): the slot above three bits of part.
+    fn at(self, slot: u32) -> ir::SourceLoc {
+        let part = Part::TAGGED
+            .iter()
+            .position(|p| *p == self)
+            .expect("a part with a source location");
+        ir::SourceLoc::new(slot << 3 | part as u32)
+    }
+
+    /// The instruction (`None` before the first) and part a location
+    /// names, `Untagged` for the default location.
+    fn of(loc: ir::SourceLoc) -> (Option<u32>, Part) {
+        if loc.is_default() {
+            return (None, Part::Untagged);
+        }
+        let bits = loc.bits();
+        (
+            (bits >> 3).checked_sub(1),
+            Part::TAGGED[(bits & 7) as usize],
+        )
+    }
+
+    /// Its name in a profile's report: `entry`, `work`, `check`, and so on.
+    pub fn name(self) -> &'static str {
+        match self {
+            Part::Entry => "entry",
+            Part::Work => "work",
+            Part::Check => "check",
+            Part::Inc => "inc",
+            Part::Dec => "dec",
+            Part::Call => "call",
+            Part::Return => "return",
+            Part::Unwind => "unwind",
+            Part::Prologue => "prologue",
+            Part::Untagged => "untagged",
+        }
+    }
+}
+
+/// Under [`Options::pc_map`], where a body's machine code came from.
+#[derive(Clone, Debug)]
+pub struct BodyMap {
+    /// The body's symbol, as `nm` and samply show it (without Mach-O's `_`).
+    pub symbol: String,
+    /// The size of its machine code, in bytes.
+    pub size: u32,
+    /// Its bytecode instructions, as `Debug` prints them, by `pc`.
+    pub instrs: Vec<String>,
+    /// Stretches of its machine code, by offset from the symbol, in order,
+    /// covering it.
+    pub stretches: Vec<Stretch>,
+}
+
+/// Bytes `start..end` of a body's code are `part` of instruction `pc`
+/// (`None`: of no instruction, for `Entry`, `Prologue` and `Untagged`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Stretch {
+    pub start: u32,
+    pub end: u32,
+    pub pc: Option<u32>,
+    pub part: Part,
 }
 
 /// A program's bodies, compiled, with the image they were compiled for.
@@ -617,6 +737,7 @@ fn compile_audited(
         n_caches,
         max_frame,
         widest,
+        ..
     } = emit(
         &mut module,
         program,
@@ -681,6 +802,64 @@ fn compile_audited(
     })
 }
 
+/// A body's source locations as [`Stretch`]es covering its `size` bytes:
+/// what Cranelift leaves out (moves at a block's start) is `Untagged`, or
+/// `Prologue` before the first tagged code (the arguments moved to their
+/// registers). Untagged code between two stretches of the same
+/// instruction and part (the moves and constants of its blocks) is taken
+/// as theirs, and neighbours alike are merged.
+fn stretches(
+    locs: &[cranelift_codegen::MachSrcLoc<cranelift_codegen::Final>],
+    size: u32,
+) -> Vec<Stretch> {
+    let mut out: Vec<Stretch> = Vec::new();
+    let mut push = |start: u32, end: u32, pc: Option<u32>, part: Part| {
+        if start >= end {
+            return;
+        }
+        match out.last_mut() {
+            Some(last) if last.end == start && last.pc == pc && last.part == part => {
+                last.end = end;
+            }
+            _ => out.push(Stretch {
+                start,
+                end,
+                pc,
+                part,
+            }),
+        }
+    };
+    let mut at = 0;
+    let mut tagged = false;
+    for loc in locs {
+        let (pc, part) = Part::of(loc.loc);
+        let (gap, part) = match (tagged, part) {
+            (false, Part::Untagged) => (Part::Prologue, Part::Prologue),
+            (false, _) => (Part::Prologue, part),
+            (true, _) => (Part::Untagged, part),
+        };
+        tagged |= part != Part::Prologue;
+        push(at, loc.start, None, gap);
+        push(loc.start, loc.end, pc, part);
+        at = at.max(loc.end);
+    }
+    push(at, size, None, Part::Untagged);
+    let mut merged: Vec<Stretch> = Vec::with_capacity(out.len());
+    for s in out {
+        if let [.., before, gap] = &merged[..]
+            && gap.part == Part::Untagged
+            && (before.pc, before.part) == (s.pc, s.part)
+        {
+            merged.pop();
+        }
+        match merged.last_mut() {
+            Some(last) if (last.pc, last.part) == (s.pc, s.part) => last.end = s.end,
+            _ => merged.push(s),
+        }
+    }
+    merged
+}
+
 /// What [`emit`] declared in the module.
 pub(crate) struct Emitted {
     /// Each body's function.
@@ -699,6 +878,8 @@ pub(crate) struct Emitted {
     pub(crate) max_frame: usize,
     /// The body with the widest frame.
     pub(crate) widest: u32,
+    /// Under [`Options::pc_map`], each body's map.
+    pub(crate) pc_map: Option<Vec<BodyMap>>,
 }
 
 /// The check that generated code holds no host address (stage S4 of
@@ -972,6 +1153,7 @@ pub(crate) fn emit(
     let mut builder_context = FunctionBuilderContext::new();
     let mut max_frame = 0;
     let mut widest = image.entry_code;
+    let mut pc_map = options.pc_map.then(Vec::new);
     for &code in &plan.bodies {
         let params = image.codes[code as usize].params;
         let lambda = lambda_of.get(&code).copied();
@@ -1020,6 +1202,7 @@ pub(crate) fn emit(
                 frames: IrValue::from_u32(0),
                 env: None,
                 entry_name,
+                slot: 0,
             };
             generator.body();
             generator.b.seal_all_blocks();
@@ -1043,6 +1226,19 @@ pub(crate) fn emit(
             let bound = frames::frame_bound(&context.func, compiled);
             if bound > max_frame {
                 (max_frame, widest) = (bound, code);
+            }
+            if let Some(map) = &mut pc_map {
+                let size = compiled.code_buffer().len() as u32;
+                map.push(BodyMap {
+                    symbol: symbols[&code].clone(),
+                    size,
+                    instrs: image.codes[code as usize]
+                        .instrs
+                        .iter()
+                        .map(|i| format!("{i:?}"))
+                        .collect(),
+                    stretches: stretches(compiled.buffer.get_srclocs_sorted(), size),
+                });
             }
         }
         if dump && let Some(c) = context.compiled_code() {
@@ -1340,6 +1536,7 @@ pub(crate) fn emit(
         n_caches: caches as usize,
         max_frame,
         widest,
+        pc_map,
     })
 }
 
@@ -2617,6 +2814,9 @@ struct Gen<'a, 'm> {
     /// Under `Options::count_bodies`, the data holding this body's symbol
     /// name and its length.
     entry_name: Option<(cranelift_module::DataId, u64)>,
+    /// Under `Options::pc_map`, the instruction being compiled, as
+    /// [`Part::at`] numbers it.
+    slot: u32,
 }
 
 /// Defines read-only data holding `name`, for a body to report itself by.
@@ -2648,6 +2848,20 @@ fn fixed() -> MemFlagsData {
 }
 
 impl Gen<'_, '_> {
+    /// Runs `emit` with what it emits tagged as `part` of the current
+    /// instruction, under [`Options::pc_map`]. Nested, the innermost part
+    /// wins: a drop on an error exit is a `Dec`, not `Unwind`.
+    fn tagged<R>(&mut self, part: Part, emit: impl FnOnce(&mut Self) -> R) -> R {
+        if !self.options.pc_map {
+            return emit(self);
+        }
+        let outer = self.b.srcloc();
+        self.b.set_srcloc(part.at(self.slot));
+        let r = emit(self);
+        self.b.set_srcloc(outer);
+        r
+    }
+
     fn func_ref(&mut self, id: FuncId) -> FuncRef {
         if let Some(r) = self.refs.get(&id) {
             return *r;
@@ -2791,22 +3005,28 @@ impl Gen<'_, '_> {
     /// A copy of the value at `loc`: its words, with its count taken.
     fn clone_from(&mut self, loc: Loc) -> Val {
         let v = self.load(loc);
-        let owns = self.owns(v);
-        let trace = self.options.trace_refcounts;
-        self.when(owns, false, |g| {
-            if trace {
-                g.call_helper(g.helpers.inc, &v.0);
-            } else {
-                let strong = g.b.ins().load(types::I64, flags(), v.0[1], STRONG_AT);
-                let strong = g.b.ins().iadd_imm_s(strong, 1);
-                g.b.ins().store(flags(), strong, v.0[1], STRONG_AT);
-            }
+        self.tagged(Part::Inc, |g| {
+            let owns = g.owns(v);
+            let trace = g.options.trace_refcounts;
+            g.when(owns, false, |g| {
+                if trace {
+                    g.call_helper(g.helpers.inc, &v.0);
+                } else {
+                    let strong = g.b.ins().load(types::I64, flags(), v.0[1], STRONG_AT);
+                    let strong = g.b.ins().iadd_imm_s(strong, 1);
+                    g.b.ins().store(flags(), strong, v.0[1], STRONG_AT);
+                }
+            });
         });
         v
     }
 
     /// Drops a value native code holds.
     fn drop_value(&mut self, v: Val) {
+        self.tagged(Part::Dec, |g| g.drop_value_untagged(v));
+    }
+
+    fn drop_value_untagged(&mut self, v: Val) {
         let owns = self.owns(v);
         let trace = self.options.trace_refcounts;
         self.when(owns, false, |g| {
@@ -2919,6 +3139,12 @@ impl Gen<'_, '_> {
     /// Leaves the frame on an error, as [`Gen::exit_with`] does when its
     /// condition holds (in the current block, which this ends).
     fn exit_now(&mut self, live: &Regs, error: Option<u64>, extra: &[Val], tail: &[Reg]) {
+        self.tagged(Part::Unwind, |g| {
+            g.exit_now_untagged(live, error, extra, tail)
+        });
+    }
+
+    fn exit_now_untagged(&mut self, live: &Regs, error: Option<u64>, extra: &[Val], tail: &[Reg]) {
         if let Some(error) = error {
             if error == OUT_OF_STEPS {
                 // One step over the limit, as the machine counts it.
@@ -2985,7 +3211,7 @@ impl Gen<'_, '_> {
     fn drop_env(&mut self) {
         if let Some(env) = self.env {
             let drop_words = self.func_ref(self.helpers.drop_words);
-            drop_fun(&mut self.b, drop_words, env);
+            self.tagged(Part::Dec, |g| drop_fun(&mut g.b, drop_words, env));
         }
     }
 
@@ -2999,11 +3225,13 @@ impl Gen<'_, '_> {
     fn count_step_with(&mut self, live: &Regs, extra: &[Val], tail: &[Reg]) {
         // The steps left are in the pinned register: none left means this
         // step is one over the limit.
-        let left = self.b.ins().get_pinned_reg(types::I64);
-        let over = self.b.ins().icmp_imm_u(IntCC::Equal, left, 0);
-        self.exit_with(over, live, Some(OUT_OF_STEPS), extra, tail);
-        let left = self.b.ins().iadd_imm_s(left, -1);
-        self.b.ins().set_pinned_reg(left);
+        self.tagged(Part::Check, |g| {
+            let left = g.b.ins().get_pinned_reg(types::I64);
+            let over = g.b.ins().icmp_imm_u(IntCC::Equal, left, 0);
+            g.exit_with(over, live, Some(OUT_OF_STEPS), extra, tail);
+            let left = g.b.ins().iadd_imm_s(left, -1);
+            g.b.ins().set_pinned_reg(left);
+        });
     }
 
     /// A frame about to be pushed: out of frames if as many are pending as
@@ -3015,6 +3243,10 @@ impl Gen<'_, '_> {
 
     /// [`Gen::push_frame`], with `extra` as for [`Gen::exit_with`].
     fn push_frame_with(&mut self, live: &Regs, extra: &[Val]) -> IrValue {
+        self.tagged(Part::Check, |g| g.push_frame_untagged(live, extra))
+    }
+
+    fn push_frame_untagged(&mut self, live: &Regs, extra: &[Val]) -> IrValue {
         let frames = self.frames;
         let limit = self.ctx_load(Context::FRAME_LIMIT_AT);
         let over = self
@@ -3034,6 +3266,10 @@ impl Gen<'_, '_> {
     /// After a call returned `r`: its result. An error in the callee
     /// unwinds this frame too.
     fn call_result(&mut self, live: &Regs, r: &[IrValue]) -> Val {
+        self.tagged(Part::Check, |g| g.call_result_untagged(live, r))
+    }
+
+    fn call_result_untagged(&mut self, live: &Regs, r: &[IrValue]) -> Val {
         let error = self.ctx_load(Context::ERROR_AT);
         let done = self.b.create_block();
         for _ in 0..3 {
@@ -3196,6 +3432,12 @@ impl Gen<'_, '_> {
         }
 
         self.b.switch_to_block(entry);
+        if self.options.pc_map {
+            // The base every location is relative to: the smallest, so no
+            // location is stored as Cranelift's "none".
+            self.b.func.params.ensure_base_srcloc(Part::Entry.at(0));
+            self.b.set_srcloc(Part::Entry.at(0));
+        }
         self.ctx = self.b.block_params(entry)[0];
         self.frames = self.b.block_params(entry)[1];
         let mut args: Vec<IrValue> = self.b.block_params(entry)[2..].to_vec();
@@ -3242,6 +3484,10 @@ impl Gen<'_, '_> {
             }
             if !open {
                 continue;
+            }
+            if self.options.pc_map {
+                self.slot = pc as u32 + 1;
+                self.b.set_srcloc(Part::Work.at(self.slot));
             }
             open = self.instr(pc);
         }
@@ -3300,7 +3546,7 @@ impl Gen<'_, '_> {
                 let f = self.func_ref(self.functions[&callee]);
                 let mut call_args = vec![self.ctx, frames];
                 call_args.extend(Self::words(&values));
-                let call = self.b.ins().call(f, &call_args);
+                let call = self.tagged(Part::Call, |g| g.b.ins().call(f, &call_args));
                 let r = self.b.inst_results(call).to_vec();
                 let v = self.call_result(&live, &r);
                 self.assign(pc, dst, v);
@@ -3322,7 +3568,7 @@ impl Gen<'_, '_> {
                     let f = self.func_ref(self.functions[&callee]);
                     let mut call_args = vec![self.ctx, self.frames];
                     call_args.extend(words);
-                    self.b.ins().return_call(f, &call_args);
+                    self.tagged(Part::Call, |g| g.b.ins().return_call(f, &call_args));
                 }
                 return false;
             }
@@ -3350,7 +3596,7 @@ impl Gen<'_, '_> {
                 left.remove(src);
                 self.release(&left);
                 self.drop_env();
-                self.b.ins().return_(&v.0);
+                self.tagged(Part::Return, |g| g.b.ins().return_(&v.0));
                 return false;
             }
             Instr::Captured { dst, i } => {
@@ -3594,7 +3840,7 @@ impl Gen<'_, '_> {
         let frames = self.push_frame(&live);
         let code = self.image.global_code[g as usize].expect("a constant has code");
         let f = self.func_ref(self.functions[&code]);
-        let call = self.b.ins().call(f, &[self.ctx, frames]);
+        let call = self.tagged(Part::Call, |g| g.b.ins().call(f, &[g.ctx, frames]));
         let r = self.b.inst_results(call).to_vec();
         let v = self.call_result(&live, &r);
         let out = self.temp_address(0);
@@ -3716,7 +3962,9 @@ impl Gen<'_, '_> {
         let mut call_args = vec![self.ctx, frames];
         call_args.extend(Self::words(&values));
         call_args.push(fv.0[1]);
-        let call = self.b.ins().call_indirect(sig, target, &call_args);
+        let call = self.tagged(Part::Call, |g| {
+            g.b.ins().call_indirect(sig, target, &call_args)
+        });
         let r = self.b.inst_results(call).to_vec();
         let v = self.call_result(&after_args, &r);
         self.assign(pc, dst, v);
@@ -3730,7 +3978,7 @@ impl Gen<'_, '_> {
         let mut call_args = vec![self.ctx, self.frames, none, none];
         call_args.extend(fv.0);
         call_args.extend(Self::words(&values));
-        let call = self.b.ins().call(apply, &call_args);
+        let call = self.tagged(Part::Call, |g| g.b.ins().call(apply, &call_args));
         let r = self.b.inst_results(call).to_vec();
         let v = self.call_result(&after_args, &r);
         self.assign(pc, dst, v);
@@ -3770,7 +4018,9 @@ impl Gen<'_, '_> {
         let mut call_args = vec![self.ctx, self.frames];
         call_args.extend(Self::words(&values));
         call_args.push(fv.0[1]);
-        self.b.ins().return_call_indirect(sig, target, &call_args);
+        self.tagged(Part::Call, |g| {
+            g.b.ins().return_call_indirect(sig, target, &call_args)
+        });
 
         // As the machine: this frame popped and its registers released,
         // then eval/apply with the frames below, which drops this frame's
@@ -3789,7 +4039,7 @@ impl Gen<'_, '_> {
         let mut call_args = vec![self.ctx, below, none, env];
         call_args.extend(fv.0);
         call_args.extend(Self::words(&values));
-        self.b.ins().return_call(apply, &call_args);
+        self.tagged(Part::Call, |g| g.b.ins().return_call(apply, &call_args));
     }
 
     /// `bind c k` (the operands `args`), as the machine's `Bind`: for `c` =
@@ -3846,7 +4096,7 @@ impl Gen<'_, '_> {
                 // As the machine drops the popped frame's closure: once the
                 // native has run.
                 self.drop_env();
-                self.b.ins().return_(&v.0);
+                self.tagged(Part::Return, |g| g.b.ins().return_(&v.0));
             }
         }
     }
@@ -3907,13 +4157,13 @@ impl Gen<'_, '_> {
             call_args.extend([handler, none, env]);
             match dst {
                 Some(dst) => {
-                    let call = self.b.ins().call(run_loop, &call_args);
+                    let call = self.tagged(Part::Call, |g| g.b.ins().call(run_loop, &call_args));
                     let r = self.b.inst_results(call).to_vec();
                     let v = self.call_result(&live, &r);
                     self.assign(pc, dst, v);
                 }
                 None => {
-                    self.b.ins().return_call(run_loop, &call_args);
+                    self.tagged(Part::Call, |g| g.b.ins().return_call(run_loop, &call_args));
                 }
             }
             return;
@@ -3936,7 +4186,7 @@ impl Gen<'_, '_> {
             Some(dst) => self.assign(pc, dst, v),
             None => {
                 self.drop_env();
-                self.b.ins().return_(&v.0);
+                self.tagged(Part::Return, |g| g.b.ins().return_(&v.0));
             }
         }
     }
@@ -3956,7 +4206,7 @@ impl Gen<'_, '_> {
             .text_fold
             .expect("the plan has `Text.fold` where a body uses it");
         let fold = self.func_ref(fold);
-        let call = self.b.ins().call(fold, &call_args);
+        let call = self.tagged(Part::Call, |g| g.b.ins().call(fold, &call_args));
         let r = self.b.inst_results(call).to_vec();
         let v = self.call_result(&live, &r);
         self.assign(pc, dst, v);

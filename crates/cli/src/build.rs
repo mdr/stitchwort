@@ -95,15 +95,14 @@ const LINK_FLAGS: &[&str] = if cfg!(target_env = "musl") {
 /// function's namespace's, in the current folder. `native`: with
 /// `--native`, `Some(verbose)`: the bodies `main` reaches are compiled
 /// into the object where they compile, and with `verbose` it says on standard
-/// error what was compiled, and why anything wasn't. `count_bodies` (with
-/// `--native`): each body counts its entries, for a profiling runtime
-/// (`Options::count_bodies`).
+/// error what was compiled, and why anything wasn't. `profiling` (with
+/// `--native`) is for `task profile:native`.
 pub fn build_executable(
     target: &str,
     out: Option<&Path>,
     project: Option<&Path>,
     native: Option<bool>,
-    count_bodies: bool,
+    profiling: Profiling,
     cache: &CacheArgs,
 ) -> ExitCode {
     #[cfg(not(feature = "native"))]
@@ -160,20 +159,66 @@ pub fn build_executable(
     };
     let limits = stitchwort_rt::Limits::from_core(session.elab.options.limits);
     discard(session);
-    let object = match native {
-        Some(verbose) => match native_object(&program, &limits, verbose, count_bodies) {
+    let (object, pc_map) = match native {
+        Some(verbose) => match native_object(&program, &limits, verbose, profiling) {
             Some(object) => object,
             None => return ExitCode::FAILURE,
         },
-        None => program_object(&stitchwort_rt::encode(&program, &limits)),
+        None => (
+            program_object(&stitchwort_rt::encode(&program, &limits)),
+            None,
+        ),
     };
-    match link(&object, &out) {
-        Ok(()) => ExitCode::SUCCESS,
-        Err(message) => {
-            eprint!("{message}");
-            ExitCode::FAILURE
+    if let Err(message) = link(&object, &out) {
+        eprint!("{message}");
+        return ExitCode::FAILURE;
+    }
+    if let Some(map) = pc_map {
+        let mut path = out.into_os_string();
+        path.push(".pcmap.json");
+        if let Err(e) = std::fs::write(&path, map) {
+            eprintln!("error: can't write {}: {e}", Path::new(&path).display());
+            return ExitCode::FAILURE;
         }
     }
+    ExitCode::SUCCESS
+}
+
+/// What a native build adds for profiling; both off by default.
+#[derive(Clone, Copy, Debug, Default)]
+#[cfg_attr(not(feature = "native"), allow(dead_code))]
+pub struct Profiling {
+    /// Each body counts its entries, for a profiling runtime
+    /// (`Options::count_bodies`).
+    pub count_bodies: bool,
+    /// The machine code's map to bytecode, written beside the executable
+    /// as `OUT.pcmap.json` (`Options::pc_map`, [`pc_map_json`]).
+    pub pc_map: bool,
+}
+
+/// The `--pc-map` file: `{"bodies": [{"symbol", "size", "instrs",
+/// "stretches": [[start, end, pc, part], ...]}]}`, offsets from the
+/// body's symbol, `pc` null before the first instruction, `part` a
+/// `Part::name`.
+#[cfg(feature = "native")]
+fn pc_map_json(map: &[stitchwort_native::n1::BodyMap]) -> String {
+    let bodies: Vec<serde_json::Value> = map
+        .iter()
+        .map(|body| {
+            let stretches: Vec<serde_json::Value> = body
+                .stretches
+                .iter()
+                .map(|s| serde_json::json!([s.start, s.end, s.pc, s.part.name()]))
+                .collect();
+            serde_json::json!({
+                "symbol": body.symbol,
+                "size": body.size,
+                "instrs": body.instrs,
+                "stretches": stretches,
+            })
+        })
+        .collect();
+    serde_json::json!({ "bodies": bodies }).to_string()
 }
 
 /// The function a project folder's executable runs: `main` of the one
@@ -258,13 +303,14 @@ fn native_object(
     program: &stitchwort_rt::Program,
     limits: &stitchwort_rt::Limits,
     verbose: bool,
-    count_bodies: bool,
-) -> Option<Vec<u8>> {
+    profiling: Profiling,
+) -> Option<(Vec<u8>, Option<String>)> {
     let image = stitchwort_rt::code::compile(program);
     let tables = stitchwort_rt::linked::encode(program, &image, limits);
     let options = stitchwort_native::n1::Options {
         trace_refcounts: false,
-        count_bodies,
+        count_bodies: profiling.count_bodies,
+        pc_map: profiling.pc_map,
     };
     match stitchwort_native::aot::compile_object(
         program,
@@ -279,7 +325,8 @@ fn native_object(
                     eprintln!("{line}");
                 }
             }
-            Some(finish_object(code.object))
+            let map = code.pc_map.as_deref().map(pc_map_json);
+            Some((finish_object(code.object), map))
         }
         Err(why) => {
             let mut lines = why.iter();
@@ -299,8 +346,8 @@ fn native_object(
     _program: &stitchwort_rt::Program,
     _limits: &stitchwort_rt::Limits,
     _verbose: bool,
-    _count_bodies: bool,
-) -> Option<Vec<u8>> {
+    _profiling: Profiling,
+) -> Option<(Vec<u8>, Option<String>)> {
     unreachable!("`build --native` is refused without the `native` feature")
 }
 
