@@ -41,3 +41,26 @@ run) and bridge/lean (outliers). The raw JSON is Overmind's
 `target/compare/2026-11-08-overmind.json`.
 
 The next run, on `main` after tonight's fixes, goes in a new section below with what changed.
+
+## After the first fixes (Overmind, 8 Nov 2026 00:59, `53c59e6be`)
+
+Same command and machine; adds SW-2302 (big numbers by reference), SW-2320 (octopus grid) and
+SW-2323 (one-pass `flatMap`). Not yet SW-2328 (native hole operations inline). 44 answers ok;
+CPython, PyPy and Lean within about 1% of the first run, so the two are comparable.
+
+| Program | native | CPython | PyPy | Lean | native / CPython | native / Lean | native change |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| pidigits | 1.32 s | 3.77 s | 3.29 s | 2.00 s | 0.35 | 0.66 | 1.55 → 1.32 s (SW-2302) |
+| binary-trees | 4.29 s | 10.08 s | 1.56 s | 998 ms | 0.43 | 4.30 | |
+| memory-game | 8.26 s | 8.10 s | 5.18 s | 782 ms | 1.02 | 10.56 | |
+| dijkstra | 13.00 s | 836 ms | 504 ms | 204 ms | 15.54 | 63.75 | |
+| octopus | 5.13 s | 1.52 s | 465 ms | 219 ms | 3.38 | 23.46 | 15.94 → 5.13 s (SW-2320) |
+| disk | 21.08 s | 2.25 s | 1.90 s | 754 ms | 9.39 | 27.94 | |
+| expressions | 86.51 s | 2.13 s | 1.76 s | 658 ms | 40.54 | 131.54 | |
+| scan | 81.94 s | 825 ms | 135 ms | 581 ms | 99.32 | 141.01 | |
+| matcher | 12.57 s | 4.61 s | 2.83 s | 857 ms | 2.72 | 14.66 | 15.73 → 12.57 s (SW-2323) |
+| bridge | 22.36 s | 3.46 s | 1.21 s | 823 ms | 6.46 | 27.17 | |
+
+Geometric means: native / CPython **5.5 → 4.7**, native / Lean **23 → 20**. Unchanged programs
+moved under 1%. expressions and scan wait for the operations-in-place work
+(docs/proposals/operations-in-place.md).
