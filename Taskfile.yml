@@ -693,7 +693,6 @@ tasks:
 
   web:pkg:
     desc: Build web/pkg/ unless it is already built from the current sources
-    internal: true
     # Every input build.sh reads, directly or through the scripts it calls:
     # the Cargo workspace (manifests, sources, build scripts, target config),
     # the scripts themselves, the worker script write-version.sh hashes, and
