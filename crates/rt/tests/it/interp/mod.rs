@@ -353,9 +353,15 @@ impl<'p> Interp<'p> {
     fn effect(&self, op: EffectOp, args: Vec<V>) -> R<V> {
         let s = &self.p.shapes;
         let mut args = args.into_iter();
-        if op == EffectOp::FoldIn {
+        if matches!(op, EffectOp::FoldIn | EffectOp::FoldForwarding) {
             args.next();
         }
+        // The forwards are the runtime's shortcut, not the tree's meaning.
+        let forwards = (op == EffectOp::FoldForwarding).then_some(2);
+        let mut args = args
+            .enumerate()
+            .filter(|(i, _)| Some(*i) != forwards)
+            .map(|(_, a)| a);
         let mut arg = || args.next().ok_or("too few arguments");
         let fun = |k: EffK| V::Fun(Rc::new(Fun::Eff(k)));
         match op {
@@ -373,7 +379,7 @@ impl<'p> Interp<'p> {
                     other => Err(format!("bind of {other:?}")),
                 }
             }
-            EffectOp::Fold | EffectOp::FoldLazy | EffectOp::FoldIn => {
+            EffectOp::Fold | EffectOp::FoldLazy | EffectOp::FoldIn | EffectOp::FoldForwarding => {
                 let (done, call, c) = (arg()?, arg()?, arg()?);
                 match c {
                     V::Ctor(t, f) if t == s.done => self.apply(done, vec![f[0].clone()]),

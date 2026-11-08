@@ -361,6 +361,38 @@ fn bind_of_done_is_a_direct_call() {
     });
 }
 
+/// A clause that only passes its operation on (`k Counter.next()`) is
+/// stepped over (stage B of docs/proposals/operations-in-place.md): each
+/// `next` under `depth` relays reaches the counter with one route, the
+/// relays counted as forwards; and the answers are the reference
+/// evaluator's (`run_lines_agree_with_the_reference_evaluator`).
+#[test]
+fn forwarding_clauses_are_skipped() {
+    with_stack(STACK, || {
+        let (session, _) = example("effect-forwarding.sw");
+        let limits = Limits::from_core(session.elab.options.limits);
+        let export = Export::new(&session, "counted");
+        let p = &export.program;
+        for depth in [0u64, 1, 5] {
+            let xs: Vec<u64> = (0..100).collect();
+            let (result, c) = export.call(limits, vec![Value::Nat(depth), nat_list(p, &xs)]);
+            result.unwrap_or_else(|e| panic!("counted {depth}: {e}"));
+            assert_eq!(c.routes, 100, "counted {depth}: {c:?}");
+            assert_eq!(c.forwards, 100 * depth, "counted {depth}: {c:?}");
+        }
+        // `Pick`'s relays pass the counter's `next` on by their generated
+        // forwards, also skipped; `Pick.all`'s, into a bare row, isn't.
+        let export = Export::new(&session, "tallied");
+        let p = &export.program;
+        for depth in [0u64, 1, 5] {
+            let xs: Vec<u64> = (0..100).collect();
+            let (result, c) = export.call(limits, vec![Value::Nat(depth), nat_list(p, &xs)]);
+            result.unwrap_or_else(|e| panic!("tallied {depth}: {e}"));
+            assert_eq!(c.forwards, 100 * depth, "tallied {depth}: {c:?}");
+        }
+    });
+}
+
 /// The list of these numbers, as the machine's value.
 fn nat_list(p: &Program, xs: &[u64]) -> Value {
     let s = &p.shapes;
@@ -506,7 +538,12 @@ fn same(a: &Value, b: &Value) -> bool {
 fn run_lines_agree_with_the_reference_evaluator() {
     with_stack(STACK, || {
         let mut ran = 0;
-        for name in ["effect-runtime.sw", "effect-handlers.sw", "effect-state.sw"] {
+        for name in [
+            "effect-runtime.sw",
+            "effect-handlers.sw",
+            "effect-state.sw",
+            "effect-forwarding.sw",
+        ] {
             let (mut session, text) = example(name);
             for line in text.lines().filter_map(|l| l.strip_prefix("-- run:")) {
                 let source = line.trim();

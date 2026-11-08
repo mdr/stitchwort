@@ -557,6 +557,7 @@ pub(crate) fn runs_loop(op: EffectOp) -> bool {
         EffectOp::Fold
             | EffectOp::FoldLazy
             | EffectOp::FoldIn
+            | EffectOp::FoldForwarding
             | EffectOp::Translate
             | EffectOp::RunPure
     )

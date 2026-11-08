@@ -63,6 +63,12 @@ pub enum EffectOp {
     /// The same for a carrier `Comp NoOp NoRes (S -> R)`: the result, and
     /// `k`'s, are `Done` of the state's function.
     FoldStateComp,
+    /// `row`, the fold's [`Forwards`] (a text), then `foldComp done call
+    /// c`: [`EffectOp::FoldIn`] (lazy if `row` isn't `Empty`, so `Erased`
+    /// for a carrier that is a computation) for a fold some of whose
+    /// clauses only forward their operation, which the loop then skips
+    /// (stage B of docs/proposals/operations-in-place.md).
+    FoldForwarding,
     /// `translate m c`.
     Translate,
     /// `runPure c`.
@@ -73,7 +79,7 @@ impl EffectOp {
     /// Every effect native, in a fixed order: native code names one by its
     /// place here (`native_abi::sw_eff_begin`, `sw_eff_state`), not by an
     /// address.
-    pub const ALL: [EffectOp; 8] = [
+    pub const ALL: [EffectOp; 9] = [
         EffectOp::Bind,
         EffectOp::Fold,
         EffectOp::FoldLazy,
@@ -82,6 +88,7 @@ impl EffectOp {
         EffectOp::FoldStateComp,
         EffectOp::Translate,
         EffectOp::RunPure,
+        EffectOp::FoldForwarding,
     ];
 
     /// Its place in [`EffectOp::ALL`].
@@ -100,6 +107,7 @@ impl EffectOp {
                 3
             }
             EffectOp::FoldIn => 4,
+            EffectOp::FoldForwarding => 5,
         }
     }
 }
@@ -223,6 +231,8 @@ pub enum Handler {
         done: Value,
         call: Value,
         lazy: bool,
+        /// The clauses the loop skips, if any.
+        forwards: Option<Rc<str>>,
     },
     /// A state-passing handler ([`EffectOp::FoldState`]): `done v s` at the
     /// end; at an operation, `call o k jump s`, whose result, if it's a
@@ -320,6 +330,11 @@ pub struct EffectCounts {
     /// Resumptions a state-passing handler made as a jump of its loop
     /// (stage 4d), not as a call.
     pub jumps: u64,
+    /// Operations that reached a fold whose clause for them only performs
+    /// an operation outwards and resumes with its answer, and went on as
+    /// that operation without the clause being called (not counted in
+    /// `routes`).
+    pub forwards: u64,
 }
 
 // ------------------------------------------------- shared with native code
@@ -446,14 +461,28 @@ pub(crate) fn handler_for(
     mut arg: impl FnMut() -> Value,
 ) -> (Rc<Handler>, Value) {
     match op {
-        EffectOp::Fold | EffectOp::FoldLazy | EffectOp::FoldIn => {
+        EffectOp::Fold | EffectOp::FoldLazy | EffectOp::FoldIn | EffectOp::FoldForwarding => {
             let lazy = match op {
                 EffectOp::FoldLazy => true,
-                EffectOp::FoldIn => arg().tag() != Some(s.row_empty),
+                EffectOp::FoldIn | EffectOp::FoldForwarding => arg().tag() != Some(s.row_empty),
                 _ => false,
             };
-            let (done, call, c) = (arg(), arg(), arg());
-            (Rc::new(Handler::Fold { done, call, lazy }), c)
+            let (done, call) = (arg(), arg());
+            let forwards = match op {
+                EffectOp::FoldForwarding => match arg() {
+                    Value::Text(table) => Some(table),
+                    _ => panic!("internal error: a fold's forwards that aren't a text"),
+                },
+                _ => None,
+            };
+            let c = arg();
+            let handler = Handler::Fold {
+                done,
+                call,
+                lazy,
+                forwards,
+            };
+            (Rc::new(handler), c)
         }
         EffectOp::Translate => {
             let (m, c) = (arg(), arg());
@@ -466,6 +495,242 @@ pub(crate) fn handler_for(
         EffectOp::RunPure => (Rc::new(Handler::RunPure), arg()),
         _ => unreachable!("an effect native that runs a loop"),
     }
+}
+
+// ------------------------------------------- skipped forwarding clauses
+//
+// Stage B of docs/proposals/operations-in-place.md. A clause `x, k => bind
+// (Call O (r => Done r)) k` (`optional`'s `span`: `k (Parse.span passes)`)
+// gives `Call O (y => k y)`, whatever its handler's state: the tree says
+// `foldComp d c (Call o rest) = c o (y => foldComp d c (rest y))`, so the
+// fold's result is `Call O r`, `r` the eager resumption from where the
+// operation was. The loop gives exactly that, without calling the clause,
+// and the operation goes on to whoever consumes the fold's result, as the
+// clause's would have. Nothing about the handlers between changes, so
+// masking, multi-shot and stored resumptions and error exits are as they
+// were; only the clause's own work (its frame, `Call`, `Bind` node, closure
+// and lazy resumption) is gone.
+
+/// How a Forward clause's operation is built from the one the clause was
+/// given (`L` of the handled ability's operation): from the outside in,
+/// `L`s and `R`s (`Plus`'s tags), then a constructor of the outer ability.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Reperform {
+    pub wraps: Vec<u32>,
+    pub ctor: u32,
+    pub field: Field,
+}
+
+/// How a generated forward renames an operation of the other abilities:
+/// one with `from`'s `L`s and `R`s outermost (`Plus`'s tags, 0 and 1) goes
+/// out with `to`'s in their place. Built from the elaborator's row
+/// mappings, whose replies all give the answer back as it is.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Rule {
+    pub from: Vec<u32>,
+    pub to: Vec<u32>,
+}
+
+/// What a fold's loop skips: each clause's [`Reperform`], if it is one,
+/// in the order of the ability's constructors, and the generated forward's
+/// rules if it is skipped too.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Skips {
+    pub clauses: Vec<Option<Reperform>>,
+    pub rules: Option<Vec<Rule>>,
+}
+
+/// The run-time field of a [`Reperform`]'s constructor.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Field {
+    /// None: the operation is the constructor's tag.
+    None,
+    /// The given operation's one run-time field, the clause's argument.
+    Arg,
+    /// `()`.
+    Unit,
+}
+
+/// A fold's skippable clauses, as the text the lowering passes to
+/// [`EffectOp::FoldForwarding`], read in place at each operation (no
+/// allocation when the handler is made). Two hex digits give the record
+/// width `w`; then one record of `w` bytes per clause, in the order of the
+/// ability's constructors: `-` for a clause that isn't skipped, else the
+/// field (`n`, `a` or `u`), the constructor's tag in four hex digits, and
+/// the wraps' tags as hex digits, padded with `.`. If the generated
+/// forward is skipped too, `|` and its [`Rule`]s follow, each `from`'s
+/// digits, `:`, `to`'s and `;`.
+pub struct Forwards;
+
+impl Forwards {
+    /// The text for `skips`; `None` if a tag doesn't fit the format.
+    pub fn encode(skips: &Skips) -> Option<String> {
+        let clauses = &skips.clauses;
+        let wraps = clauses
+            .iter()
+            .flatten()
+            .map(|r| r.wraps.len())
+            .max()
+            .unwrap_or(0);
+        let width = 5 + wraps;
+        if width > 0xff {
+            return None;
+        }
+        let mut out = format!("{width:02x}");
+        for clause in clauses {
+            let Some(r) = clause else {
+                out.push_str(&"-".repeat(width));
+                continue;
+            };
+            if r.ctor > 0xffff || r.wraps.iter().any(|w| *w > 0xf) {
+                return None;
+            }
+            out.push(match r.field {
+                Field::None => 'n',
+                Field::Arg => 'a',
+                Field::Unit => 'u',
+            });
+            out.push_str(&format!("{:04x}", r.ctor));
+            for w in &r.wraps {
+                out.push(char::from_digit(*w, 16).expect("checked"));
+            }
+            out.push_str(&".".repeat(wraps - r.wraps.len()));
+        }
+        if let Some(rules) = &skips.rules {
+            out.push('|');
+            for rule in rules {
+                for (part, end) in [(&rule.from, ':'), (&rule.to, ';')] {
+                    for t in part {
+                        out.push(char::from_digit(*t, 16).filter(|_| *t < 2)?);
+                    }
+                    out.push(end);
+                }
+            }
+        }
+        Some(out)
+    }
+}
+
+fn hex(bytes: &[u8]) -> Option<u32> {
+    bytes
+        .iter()
+        .try_fold(0u32, |n, b| Some(n * 16 + char::from(*b).to_digit(16)?))
+}
+
+/// The operation that clause `o`'s handler (`table`, [`Forwards`]) would
+/// perform for it, if that clause is skipped: `Ok` of it, or `Err(o)` back.
+/// When the record rebuilds `o` itself (the same constructor, under one
+/// `L`, with the argument), `o` is reused.
+pub(crate) fn forwarded(s: &Shapes, table: &str, o: Value) -> Result<Value, Value> {
+    let bytes = table.as_bytes();
+    let Value::Data(tag, fields) = &o else {
+        return Err(o);
+    };
+    if *tag != s.left {
+        return renamed(s, bytes, o);
+    }
+    let inner = &fields[0];
+    let Some(ctor) = inner.tag() else {
+        return Err(o);
+    };
+    let Some(width) = bytes.get(..2).and_then(hex) else {
+        return Err(o);
+    };
+    let at = 2 + ctor as usize * width as usize;
+    let Some(record) = bytes.get(at..at + width as usize) else {
+        return Err(o);
+    };
+    let (field, rest) = (record[0], &record[1..]);
+    let Some(outer) = hex(&rest[..4]) else {
+        return Err(o);
+    };
+    let wraps = &rest[4..];
+    let wraps = &wraps[..wraps.iter().position(|b| *b == b'.').unwrap_or(wraps.len())];
+    let arg = match (field, inner) {
+        (b'a', Value::Data(_, f)) if f.len() == 1 => {
+            if outer == ctor && wraps.len() == 1 && hex(wraps) == Some(s.left) {
+                return Ok(o);
+            }
+            Some(f[0].clone())
+        }
+        (b'u', _) => Some(Value::Tag(s.unit)),
+        (b'n', _) => None,
+        _ => return Err(o),
+    };
+    let mut op = match arg {
+        Some(a) => Value::data(outer, [a]),
+        None => Value::Tag(outer),
+    };
+    for w in wraps.iter().rev() {
+        let w = char::from(*w).to_digit(16).expect("encoded");
+        op = Value::data(w, [op]);
+    }
+    Ok(op)
+}
+
+/// An operation `R o′` of the other abilities, renamed by the fold's
+/// generated forward as its rules say (after the table's `|`): `Ok` of
+/// `inject o′`, or `Err` of the operation back if the forward isn't skipped
+/// or no rule matches.
+fn renamed(s: &Shapes, bytes: &[u8], o: Value) -> Result<Value, Value> {
+    let Some(at) = bytes.iter().position(|b| *b == b'|') else {
+        return Err(o);
+    };
+    let Value::Data(tag, fields) = &o else {
+        return Err(o);
+    };
+    if *tag != s.right {
+        return Err(o);
+    }
+    for rule in bytes[at + 1..].split(|b| *b == b';') {
+        let Some(colon) = rule.iter().position(|b| *b == b':') else {
+            continue;
+        };
+        let (from, to) = (&rule[..colon], &rule[colon + 1..]);
+        // `o′` under `from`'s wraps.
+        let mut inner = &fields[0];
+        let mut matched = true;
+        for t in from {
+            match inner {
+                Value::Data(tag, f) if u32::from(*t - b'0') == *tag && f.len() == 1 => {
+                    inner = &f[0];
+                }
+                _ => {
+                    matched = false;
+                    break;
+                }
+            }
+        }
+        if !matched {
+            continue;
+        }
+        if from == to {
+            let Value::Data(_, fields) = o else {
+                unreachable!("matched above")
+            };
+            return Ok(field(fields, 0));
+        }
+        let mut op = inner.clone();
+        for t in to.iter().rev() {
+            op = Value::data(u32::from(*t - b'0'), [op]);
+        }
+        return Ok(op);
+    }
+    Err(o)
+}
+
+/// The fold `resume`'s handler skipped its clause for an operation, which
+/// goes on as `o`: `Call o r`, `r` the resumption, eager.
+#[inline]
+pub(crate) fn skipped(
+    s: &Shapes,
+    counts: &mut EffectCounts,
+    o: Value,
+    resume: Rc<Resume>,
+) -> Value {
+    counts.forwards += 1;
+    let r = Value::Fun(Rc::new(Fun::Resume(resume, false)));
+    Value::data(s.call, [o, r])
 }
 
 /// A lazy resumption `resume` called with `y`: `Bind (Done y) r`, `r` the

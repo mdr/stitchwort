@@ -2660,8 +2660,10 @@ pub unsafe extern "C" fn sw_eff_begin(
 /// Where the handler is done with (every outcome but [`STEP_AGAIN`] and
 /// [`STEP_APPLY`]) it's taken, and the pending list is then `Erased`; for
 /// [`STEP_STATE_CALL`] so is the state, and the resumption's word is
-/// written to `resume`. The step itself is native code's to count; the
-/// effect counts are counted here.
+/// written to `resume`. An operation whose fold's clause only forwards it
+/// is [`STEP_RETURN`] with the operation it goes on as
+/// ([`crate::effect::forwarded`]), the clause not called. The step itself
+/// is native code's to count; the effect counts are counted here.
 ///
 /// # Safety
 /// `context` is the running context; `c`, `pending` and `state` point at
@@ -2764,6 +2766,28 @@ pub unsafe extern "C" fn sw_eff_step(
     let (o, rest) = crate::effect::pair(fields);
     if crate::call_counts::ENABLED {
         crate::call_counts::hit_chain_op();
+    }
+    let o = match &*handler {
+        Handler::Fold {
+            forwards: Some(table),
+            ..
+        } => match crate::effect::forwarded(s, table, o) {
+            Ok(o) => {
+                crate::call_counts::hit_event(crate::call_counts::Event::Forward);
+                let resume = Rc::new(Resume {
+                    handler,
+                    rest,
+                    pending: list,
+                    op: Value::Erased,
+                });
+                write(0, crate::effect::skipped(s, counts, o, resume));
+                return STEP_RETURN;
+            }
+            Err(o) => o,
+        },
+        _ => o,
+    };
+    if crate::call_counts::ENABLED {
         count_route(run.outline, &handler, &o);
     }
     let resume = |handler, op| {

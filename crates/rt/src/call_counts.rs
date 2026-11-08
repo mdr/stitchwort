@@ -140,6 +140,9 @@ pub(crate) enum Event {
     Route,
     /// An operation reaching `Handler::Step`.
     RouteStep,
+    /// An operation's forwarding clause skipped (stage B of
+    /// operations-in-place.md): not a route.
+    Forward,
     /// `sw_resume_begin`: an eager resumption or state function entered.
     ResumeBegin,
     /// `sw_state_step`.
@@ -162,6 +165,7 @@ const EVENT_NAMES: [&str; EVENTS] = [
     "computation finished (Done, none pending)",
     "operation routed to a handler clause (fold/state/translate)",
     "operation reached Handler::Step",
+    "forwarding clause skipped (not routed)",
     "sw_resume_begin",
     "sw_state_step",
     "apply-cache miss served with code (global/closure)",
