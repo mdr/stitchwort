@@ -1,11 +1,9 @@
 -- expect-error: E-REFL
--- A type argument of a definition is compared, though erased: only proofs
--- are skipped. Partner: `sameMod` in accept/proof-irrelevance.sw.
+-- A type argument is compared, though erased: only proofs are skipped.
+-- `f` has no body, so neither side unfolds and only the arguments can
+-- decide; a defined function that ignored its type argument would unfold
+-- to the same thing on both sides, and that theorem is true.
+-- Partner: `sameMod` in accept/proof-irrelevance.sw.
 import Std (Bool, Nat)
 
-def choose (t: Type) (n: Nat): Nat :=
-  match n with
-    | Zero => 0
-    | Succ m => m
-
-theorem t2 (n: Nat): choose Nat n = choose Bool n := rfl
+theorem t2 (f: Type → Nat → Nat) (n: Nat): f Nat n = f Bool n := rfl
