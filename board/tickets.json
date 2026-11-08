@@ -23442,17 +23442,19 @@
     {
       "id": 2387,
       "title": "bench:compare: name its output by date, time and host, so a second run on the same day doesn't overwrite the first's .md and .json",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "tooling"
       ],
       "epic": "comparative-speed",
-      "body": "Overmind job 20 overwrote job 19's report. 10 min.\n\nStarted 06:02 UTC, Sonnet, expected 10 min.\n",
+      "body": "Overmind job 20 overwrote job 19's report. 10 min.\n\nStarted 06:02 UTC, Sonnet, expected 10 min.\n\nMerged. Model result: Sonnet, worked, 2 min (est. 10).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "823c9765a"
+      ]
     },
     {
       "id": 2388,
