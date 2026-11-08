@@ -1,5 +1,5 @@
 {
-  "next": 2365,
+  "next": 2367,
   "tickets": [
     {
       "id": 47,
@@ -22714,7 +22714,7 @@
     {
       "id": 2343,
       "title": "Elaboration: in a lambda with an unconstrained result type, 9 < n elaborates as a Prop rather than Bool, giving misleading type mismatches; and Eq.trans / Grid.ext with _ struggle on higher-order arguments (?x cavern flashed)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -22722,10 +22722,12 @@
         "bug"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-2320's report. Found writing day 11's bridge proofs. Repro to extract. 30 min to triage.\n\nStarted 04:12 UTC, Sonnet, expected 30 min.\n",
+      "body": "From SW-2320's report. Found writing day 11's bridge proofs. Repro to extract. 30 min to triage.\n\nStarted 04:12 UTC, Sonnet, expected 30 min.\n\nMerged. Problem 1 by design, new note on List Bool vs List Prop (orchestrator's call on wording, listed for Matt). Problem 2 not reproducible (an unsolved proof _ prints as ?x cavern flashed). Follow-ups SW-2365 SW-2366. Model result: Sonnet, worked, 6 min (est. 30).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "1c4106a4d"
+      ]
     },
     {
       "id": 2344,
@@ -23063,6 +23065,36 @@
       ],
       "epic": "comparative-speed",
       "body": "From docs/proposals/cell-allocator.md (SW-2360). Profile first: drop code is about 10% of matcher's self time; measure the Vec's share before changing. 30 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2365,
+      "title": "E-AUTO-NONE for a Prop where a Bool is used: note that an unannotated comparison earlier (n => 9 < n) is the likely source",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "epic": "diagnostics",
+      "body": "From SW-2343. Small. 20 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2366,
+      "title": "Design: settle a written lambda's comparison to Bool when its result type is left unsolved (as settle_section_comparison does for sections), so xs.map (n => 9 < n) is a List Bool",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-2343. Changes what let p := n => n < 3 means: a language decision for Matt (D question first). Paper 45 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
