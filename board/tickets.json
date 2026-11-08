@@ -23246,14 +23246,14 @@
     {
       "id": 2375,
       "title": "profile_top --by-instruction: count the check a call's return lands on as part of the call (skid), so per-call bookkeeping isn't overstated",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "tooling"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2332. 20 min.",
+      "body": "From SW-2332. 20 min.\n\nStarted 05:50 UTC, Sonnet, expected 30 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
