@@ -22483,7 +22483,7 @@
     {
       "id": 2329,
       "title": "Native: inline fast paths for Nat comparisons (Leq, EqNat, DecEqNat) beside Add/Sub, and Array.GetOr/Set without the generic path (memory-game ~25-29%)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -22765,7 +22765,7 @@
     {
       "id": 2347,
       "title": "Parse runtime stage 0b: count re-dispatch depth (a depth field on Call and resumptions, or operations counted where first performed) so stage 3 (skip forwarding handlers) is sized on measurement",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
