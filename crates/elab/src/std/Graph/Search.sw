@@ -806,6 +806,13 @@ theorem Graph.visitBound [auto ord: Ord s] (depth: Nat) (edges: List (s, Nat)) (
     (bound: Graph.Bound settled cost state): Graph.Bound (Graph.visitEdges depth edges settled next).fst cost state :=
   Exists.elim bound (found both => Witness found (Both (Graph.visitGrows depth edges settled next state found (And.left both)) (And.right both)))
 
+--| What breadth-first search returns, whatever its edges cost: `SearchResult`
+--| with each edge adding one, since the search counts edges. A `reach` that
+--| holds at the sources and one more along each edge is all it needs.
+def Graph.StepResult [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)) (reach: s → Nat → Prop) (result: Map s Nat): Prop :=
+  ((state: s) → (cost: Nat) → result.get state = Some cost → reach state cost) ∧ (((source: s) → (start: Nat) → (source, start) ∈ sources → Graph.Bound result start source) ∧ ((state: s) → (cost: Nat) → result.get state = Some cost → (next: s) → (weight: Nat) → (next, weight) ∈ graph.edges state →
+    Graph.Bound result (cost + 1) next))
+
 --| Each edge out of the frontier leads to a state settled for one more at
 --| most, after visiting it.
 theorem Graph.frontierClosed [auto ord: Ord s] (graph: Graph s) (sources: List s) (reach: s → Nat → Prop) (depth: Nat) (settled: Map s Nat)
@@ -823,9 +830,8 @@ theorem Graph.frontierClosed [auto ord: Ord s] (graph: Graph s) (sources: List s
 --| With no next frontier, the search state is the search result.
 theorem Graph.breadthDoneCorrect [auto ord: Ord s] (graph: Graph s) (sources: List s) (reach: s → Nat → Prop) (depth: Nat) (settled: Map s Nat)
     (frontier: List s) (more: Map s Nat) (found: graph.visitFrontier (depth + 1) frontier settled = (more, []))
-    (invariant: Graph.BreadthState graph sources reach depth settled frontier)
-    (unit: (state: s) → (next: s) → (weight: Nat) → (next, weight) ∈ graph.edges state → weight = 1):
-    Graph.SearchResult graph (sources.map (source => (source, 0))) reach more :=
+    (invariant: Graph.BreadthState graph sources reach depth settled frontier):
+    Graph.StepResult graph (sources.map (source => (source, 0))) reach more :=
   let (Both settledReach (Both atFrontier (Both closedBelow sourcesBound))) := invariant
   let edges := frontier.flatMap graph.edges
   let moreIs: (Graph.visitEdges (depth + 1) edges settled []).fst = more := Eq.cong Pair.fst found
@@ -845,19 +851,17 @@ theorem Graph.breadthDoneCorrect [auto ord: Ord s] (graph: Graph s) (sources: Li
             rewrite <- Eq.cong Pair.snd same, <- Eq.cong Pair.fst same in grows 0 other (sourcesBound other inSources)))
       (state cost got next weight edge =>
         let was := old state cost got
-        rewrite unit state next weight edge in
-          match Nat.decLessThan cost depth with
-            | Yes below => grows (cost + 1) next (closedBelow state cost was below next weight edge)
-            | No notBelow =>
-              let atDepth: cost = depth := omega [And.right (settledReach state cost was), notBelow]
-              let inFrontier := (atFrontier state).backward (rewrite <- atDepth in was)
-              rewrite atDepth, <- moreIs in Graph.frontierClosed graph sources reach depth settled frontier invariant state inFrontier next weight edge))
+        match Nat.decLessThan cost depth with
+          | Yes below => grows (cost + 1) next (closedBelow state cost was below next weight edge)
+          | No notBelow =>
+            let atDepth: cost = depth := omega [And.right (settledReach state cost was), notBelow]
+            let inFrontier := (atFrontier state).backward (rewrite <- atDepth in was)
+            rewrite atDepth, <- moreIs in Graph.frontierClosed graph sources reach depth settled frontier invariant state inFrontier next weight edge))
 
 --| One level keeps the search state.
 theorem Graph.breadthKeeps [auto ord: Ord s] (graph: Graph s) (sources: List s) (reach: s → Nat → Prop)
     (edgesReach: (state: s) → (cost: Nat) → reach state cost → (next: s) → (weight: Nat) → (next, weight) ∈ graph.edges state →
-      reach next (cost + weight))
-    (unit: (state: s) → (next: s) → (weight: Nat) → (next, weight) ∈ graph.edges state → weight = 1) (depth: Nat) (settled: Map s Nat)
+      reach next (cost + 1)) (depth: Nat) (settled: Map s Nat)
     (frontier: List s) (more: Map s Nat) (nextFrontier: List s) (found: graph.visitFrontier (depth + 1) frontier settled = (more, nextFrontier))
     (invariant: Graph.BreadthState graph sources reach depth settled frontier): Graph.BreadthState graph sources reach (depth + 1) more nextFrontier :=
   let (Both settledReach (Both atFrontier (Both closedBelow sourcesBound))) := invariant
@@ -882,7 +886,7 @@ theorem Graph.breadthKeeps [auto ord: Ord s] (graph: Graph s) (sources: List s) 
             (List.memFlatMapElim graph.edges (state, weight) frontier edge) (from inFrontier fromEdge =>
               let fromGot := (atFrontier from).forward inFrontier
               let reached := edgesReach from depth (And.left (settledReach from depth fromGot)) state weight fromEdge
-              rewrite costs in Both (rewrite unit from state weight fromEdge at reached) (Nat.leRefl (depth + 1))))
+              rewrite costs in Both reached (Nat.leRefl (depth + 1))))
     (Both
       (state => {
         forward = listed =>
@@ -910,32 +914,30 @@ theorem Graph.breadthKeeps [auto ord: Ord s] (graph: Graph s) (sources: List s) 
 --| The search returns what `SearchResult` says, from any search state.
 theorem Graph.breadthFromCorrect [auto ord: Ord s] (graph: Graph s) (sources: List s) (reach: s → Nat → Prop)
     (edgesReach: (state: s) → (cost: Nat) → reach state cost → (next: s) → (weight: Nat) → (next, weight) ∈ graph.edges state →
-      reach next (cost + weight))
-    (unit: (state: s) → (next: s) → (weight: Nat) → (next, weight) ∈ graph.edges state → weight = 1) (depth: Nat) (settled: Map s Nat)
+      reach next (cost + 1)) (depth: Nat) (settled: Map s Nat)
     (frontier: List s):
     (visited: (Map s Nat, List s)) → (found: graph.visitFrontier (depth + 1) frontier settled = visited) →
       Graph.BreadthState graph sources reach depth settled frontier →
-      Graph.SearchResult graph (sources.map (source => (source, 0))) reach (graph.breadthFrom depth settled frontier visited found)
+      Graph.StepResult graph (sources.map (source => (source, 0))) reach (graph.breadthFrom depth settled frontier visited found)
     decreasing Graph.unsettledIn graph.states settled
   | (more, []), found, invariant =>
     rewrite Graph.breadthDone graph depth settled frontier more found in
-      Graph.breadthDoneCorrect graph sources reach depth settled frontier more found invariant unit
+      Graph.breadthDoneCorrect graph sources reach depth settled frontier more found invariant
   | (more, [first, ..rest]), found, invariant =>
     rewrite Graph.breadthStep graph depth settled frontier more first rest found in
-      Graph.breadthFromCorrect graph sources reach edgesReach unit (depth + 1) more [first, ..rest]
+      Graph.breadthFromCorrect graph sources reach edgesReach (depth + 1) more [first, ..rest]
         (graph.visitFrontier (depth + 1 + 1) [first, ..rest] more) rfl
-        (Graph.breadthKeeps graph sources reach edgesReach unit depth settled frontier more [first, ..rest] found invariant)
+        (Graph.breadthKeeps graph sources reach edgesReach depth settled frontier more [first, ..rest] found invariant)
         [decreasing := Graph.visitFewer graph (depth + 1) frontier settled more first rest found]
 
---| Breadth-first search returns what `SearchResult` says, for a graph whose
---| edges each cost 1 and any `reach` that holds at each source for 0 and
---| along each edge.
-theorem Graph.breadthFirstCorrect [auto ord: Ord s] (graph: Graph s) (sources: List s) (reach: s → Nat → Prop)
+--| Breadth-first search returns what `StepResult` says, whatever its edges
+--| cost, for any `reach` that holds at each source for 0 and one more along
+--| each edge.
+theorem Graph.breadthFirstSteps [auto ord: Ord s] (graph: Graph s) (sources: List s) (reach: s → Nat → Prop)
     (sourcesReach: (source: s) → source ∈ sources → reach source 0)
     (edgesReach: (state: s) → (cost: Nat) → reach state cost → (next: s) → (weight: Nat) → (next, weight) ∈ graph.edges state →
-      reach next (cost + weight))
-    (unit: (state: s) → (next: s) → (weight: Nat) → (next, weight) ∈ graph.edges state → weight = 1):
-    Graph.SearchResult graph (sources.map (source => (source, 0))) reach (graph.breadthFirst sources) :=
+      reach next (cost + 1)):
+    Graph.StepResult graph (sources.map (source => (source, 0))) reach (graph.breadthFirst sources) :=
   let edges := sources.map (source => (source, 0))
   let start := Graph.visitEdges 0 edges Map.empty []
   let fromSource: (state: s) → (weight: Nat) → (state, weight) ∈ edges → state ∈ sources :=
@@ -966,7 +968,22 @@ theorem Graph.breadthFirstCorrect [auto ord: Ord s] (graph: Graph s) (sources: L
             let covered := Graph.visitCovers 0 edges Map.empty [] source 0 (List.memMap sources source member (other => (other, 0)))
             Exists.elim (Map.getOfContains _ source covered) (cost got =>
               Witness cost (Both got (omega [And.left (origin source cost got)]))))))
-  Graph.breadthFromCorrect graph sources reach edgesReach unit 0 start.fst start.snd (graph.visitFrontier (0 + 1) start.snd start.fst) rfl initial
+  Graph.breadthFromCorrect graph sources reach edgesReach 0 start.fst start.snd (graph.visitFrontier (0 + 1) start.snd start.fst) rfl initial
+
+--| Breadth-first search returns what `SearchResult` says, for a graph whose
+--| edges each cost 1 and any `reach` that holds at each source for 0 and
+--| along each edge.
+theorem Graph.breadthFirstCorrect [auto ord: Ord s] (graph: Graph s) (sources: List s) (reach: s → Nat → Prop)
+    (sourcesReach: (source: s) → source ∈ sources → reach source 0)
+    (edgesReach: (state: s) → (cost: Nat) → reach state cost → (next: s) → (weight: Nat) → (next, weight) ∈ graph.edges state →
+      reach next (cost + weight))
+    (unit: (state: s) → (next: s) → (weight: Nat) → (next, weight) ∈ graph.edges state → weight = 1):
+    Graph.SearchResult graph (sources.map (source => (source, 0))) reach (graph.breadthFirst sources) :=
+  let (Both settledReach (Both sourcesBound closed)) :=
+    Graph.breadthFirstSteps graph sources reach sourcesReach (state cost reached next weight edge =>
+      rewrite unit state next weight edge at edgesReach state cost reached next weight edge)
+  Both settledReach (Both sourcesBound (state cost got next weight edge =>
+    rewrite unit state next weight edge in closed state cost got next weight edge))
 
 --| On a graph whose edges each cost 1, each count breadth-first search finds
 --| is a walk's from a source, and no walk from a source has fewer edges.
@@ -986,26 +1003,41 @@ def Graph.Reachable (graph: Graph s) (sources: List s) (state: s): Prop :=
 
 --| The states reachable from `sources` (the sources themselves included),
 --| whatever the edges cost: [`Graph.reachableIff`] says `contains` is
---| [`Graph.Reachable`]. It runs Dijkstra's search ([`Graph.distances`]) with
---| every source starting at 0, so it costs about an edge-count of set
---| operations; [`Graph.breadthFirst`] is the faster search for the fewest
---| edges, but is only proved for edges that each cost 1.
+--| [`Graph.Reachable`]. It is the keys of breadth-first search
+--| ([`Graph.breadthFirst`]), which ignores the costs and so does a set
+--| operation or two per edge rather than Dijkstra's queue work.
 def Graph.reachable [auto ord: Ord s] (graph: Graph s) (sources: List s): Set s :=
-  (graph.distances (sources.map (source => (source, 0)))).keySet
+  (graph.breadthFirst sources).keySet
+
+--| A walk from a state with a value in `result` ends at one, when each edge
+--| out of a state with a value leads to one.
+theorem Graph.valueAlong [auto ord: Ord s] (graph: Graph s) (result: Map s Nat)
+    (closed: (state: s) → (cost: Nat) → result.get state = Some cost → (next: s) → (weight: Nat) → (next, weight) ∈ graph.edges state →
+      Graph.Bound result (cost + 1) next):
+    (start: s) → Exists Nat (cost => result.get start = Some cost) → (path: List (s, Nat)) → (finish: s) → graph.Walk start path finish →
+      Exists Nat (cost => result.get finish = Some cost)
+  | start, has, [], finish, walked => rewrite <- walked in has
+  | start, has, [(next, weight), ..rest], finish, (Both edge later) =>
+    let (Witness cost got) := has
+    let (Witness found (Both gotNext le)) := closed start cost got next weight edge
+    Graph.valueAlong graph result closed next (Witness found gotNext) rest finish later
 
 --| The states `Graph.reachable` returns are exactly those a walk from a
 --| source ends at.
 theorem Graph.reachableIff [auto ord: Ord s] (graph: Graph s) (sources: List s) (state: s):
     ((graph.reachable sources).contains state = True) ↔ graph.Reachable sources state :=
-  let starts := sources.map (source => (source, 0))
-  let (Both found complete) := Graph.distancesShortest graph starts
+  let steps :=
+    Graph.breadthFirstSteps graph sources (state cost => graph.Reachable sources state)
+      (source member => Witness source (Witness [] (Both member rfl)))
+      (state cost (Witness source (Witness path (Both member walked))) next weight edge =>
+        Witness source (Witness (path ++ [(next, weight)]) (Both member (Graph.walkSnoc graph source path state walked next weight edge))))
+  let (Both settledReach (Both sourcesBound closed)) := steps
   {
     forward = there =>
-      let (Witness cost got) := Map.getOfContains _ state (Eq.trans (Eq.sym (Map.containsKeySet (graph.distances starts) state)) there)
-      let (Witness source (Witness start (Witness path (Both member (Both walked costs))))) := found state cost got
-      let (Witness origin (Both inSources same)) := List.memMapElim (source => (source, 0)) (source, start) sources member
-      Witness source (Witness path (Both (rewrite <- Eq.cong Pair.fst same in inSources) walked)),
+      let (Witness cost got) := Map.getOfContains _ state (Eq.trans (Eq.sym (Map.containsKeySet (graph.breadthFirst sources) state)) there)
+      settledReach state cost got,
     backward = (Witness source (Witness path (Both inSources walked))) =>
-      let (Witness cost (Both got bound)) := complete source 0 (List.memMap sources source inSources (other => (other, 0))) path state walked
-      Eq.trans (Map.containsKeySet (graph.distances starts) state) (Map.containsOfGet _ state cost got)
+      let (Witness start (Both got bound)) := sourcesBound source 0 (List.memMap sources source inSources (other => (other, 0)))
+      let (Witness cost gotEnd) := Graph.valueAlong graph (graph.breadthFirst sources) closed source (Witness start got) path state walked
+      Eq.trans (Map.containsKeySet (graph.breadthFirst sources) state) (Map.containsOfGet _ state cost gotEnd)
   }
