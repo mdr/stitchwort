@@ -6,7 +6,10 @@
 Prints, for the thread with the most samples: the share of self time by kind
 (generated code, the runtime's entry points, the rest of the runtime, the
 allocator, system libraries), the top functions by self and by inclusive
-time, and for each --focus function its callers and direct callees. In a
+time, and for each --focus function its callers and direct callees. A
+--focus NAME means the definition's compiled bodies (`NAME#N`, `NAME/...`),
+else every frame whose name contains NAME; a name or prefix that matches
+nothing is an error listing the closest names. In a
 native executable, `stitchwort build --native` names each compiled body after
 its Stitchwort definition (`Std.List.get#67`; a lambda is
 `Owner/lambda12#340`; a global's function-value adapter `Name/value`), so
@@ -34,6 +37,7 @@ started; read it as the time spent in or below those definitions' frames.
 
 import argparse
 import bisect
+import difflib
 import gzip
 import json
 import re
@@ -142,6 +146,24 @@ def print_pc_split(name, offsets, body, total, lines=15):
         print(f"  {share(c)}  {pc:4}  {text}  [{split}]")
 
 
+def match_focus(target, names):
+    """The frame names a --focus argument means, and how they matched.
+
+    A definition's compiled bodies are `Name#N` and `Name/...`, so those count
+    as the exact name; failing that, any name containing the argument.
+    """
+    exact = sorted(n for n in names if n == target or n.startswith((target + "#", target + "/")))
+    if exact:
+        return exact, "name"
+    return sorted(n for n in names if target in n), "substring"
+
+
+def fail_no_match(what, target, names):
+    close = difflib.get_close_matches(target, sorted(names), n=5, cutoff=0.0)
+    lines = "".join(f"\n  {n}" for n in close)
+    raise SystemExit(f"error: no frame matches {what} {target!r}. Closest names:{lines}")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("profile")
@@ -218,6 +240,18 @@ def main():
     def pct(c):
         return f"{100 * c / total:5.1f}%"
 
+    # Resolve every --focus and --group before printing, so a miss is an error
+    # and not an empty section.
+    focus_sets = []
+    for target in opts.focus:
+        found, how = match_focus(target, incl_c)
+        if not found:
+            fail_no_match("--focus", target, incl_c)
+        focus_sets.append((target, found, how))
+    for prefix in opts.group:
+        if not any(n.startswith(prefix) for n in incl_c):
+            fail_no_match("--group prefix", prefix, incl_c)
+
     print(f"{opts.profile}: {total} samples (thread {thread['name']})")
     if opts.group:
         print("\nGroups (frame names starting with the prefix):")
@@ -242,16 +276,22 @@ def main():
         print("  * runs a handler: inclusive time includes the continuation after it"
               " (runtime loop frames beneath), so it overstates the definition's own work;"
               " read it with the stage cuts or self time.")
-    for target in opts.focus:
+    for target, found, how in focus_sets:
+        wanted = set(found)
         callers, callees = Counter(), Counter()
         for frames, w in samples:
             fr = [n for n, _ in frames]
-            if target in fr:
-                i = fr.index(target)
+            i = next((i for i, n in enumerate(fr) if n in wanted), None)
+            if i is not None:
                 if i + 1 < len(fr):
                     callers[fr[i + 1]] += w
                 callees[fr[i - 1] if i > 0 else "(self)"] += w
-        print(f"\n{target}, {pct(incl_c[target])} inclusive. Callers:")
+        inclusive = sum(w for frames, w in samples if any(n in wanted for n, _ in frames))
+        label = found[0] if len(found) == 1 else f"{target} ({len(found)} definitions, {how} match)"
+        print(f"\n{label}, {pct(inclusive)} inclusive. Callers:")
+        if len(found) > 1:
+            for n in found:
+                print(f"  matched: {n}")
         for name, c in callers.most_common(12):
             print(f"  {pct(c)}  {name}")
         print("Direct callees, inclusive:")
