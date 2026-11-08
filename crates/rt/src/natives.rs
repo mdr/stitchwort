@@ -600,6 +600,9 @@ pub fn float_data(g: &Ev) -> Option<DataId> {
 /// representation was written for), and the operations bound to their
 /// definitions. The switches say whether a backend wants native text and
 /// integers at all (the JS backend turns them off for differential tests).
+/// Besides these, the fast runtime stores a type shaped like `Nat` (`Fin`,
+/// say) as a `Nat` by its shape alone ([`crate::erasure::nat_shape`]), and a
+/// record with one stored field as that field (D866).
 pub struct Representation {
     /// The prelude's `Nat`, if a number is native.
     pub nat: Option<DataId>,

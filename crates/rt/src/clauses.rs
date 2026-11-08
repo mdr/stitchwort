@@ -303,7 +303,10 @@ impl Classifier {
         };
         let ops_id = *ops_id;
         let ops = g.data(ops_id);
-        if ops.unboxed_field().is_some() || ops.ctors().len() != clauses.len() {
+        if ops.unboxed_field().is_some()
+            || crate::erasure::nat_shape(g, ops_id).is_some()
+            || ops.ctors().len() != clauses.len()
+        {
             return None;
         }
         let out: Vec<Option<Reperform>> = clauses
@@ -468,7 +471,10 @@ impl Classifier {
             return None;
         };
         let data = g.data(*d);
-        if wraps.is_empty() || data.unboxed_field().is_some() {
+        if wraps.is_empty()
+            || data.unboxed_field().is_some()
+            || crate::erasure::nat_shape(g, *d).is_some()
+        {
             return None;
         }
         data.ctors().get(*c)?;

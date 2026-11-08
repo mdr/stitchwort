@@ -7,6 +7,7 @@ mod n1;
 mod n2b;
 mod n3;
 mod n4;
+mod nat_shaped;
 mod object;
 mod relocatable;
 mod reuse;
