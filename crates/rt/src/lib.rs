@@ -37,6 +37,7 @@ pub mod pretty;
 mod prims;
 pub use prims::{ArrayCopies, array_copies, array_copy_note, reset_array_copies};
 pub mod profile;
+pub mod reuse;
 pub mod run;
 pub mod shared;
 pub mod specialise;

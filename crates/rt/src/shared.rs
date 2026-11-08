@@ -94,19 +94,15 @@ pub(crate) fn arity(program: &impl Arities, head: &Value) -> usize {
     }
 }
 
-/// The bodies with the most of `codes` (the pending frames' bodies, one
-/// each): the three with the most, and how many each has, most first.
-/// Shared with native code's executor, which counts the frames that left
-/// with the error (stage NO5 of docs/proposals/native-only.md).
+/// How many of `codes` (the pending frames' bodies, one each) each body
+/// has. Shared with native code's executor, which counts the frames that
+/// left with the error (stage NO5 of docs/proposals/native-only.md).
 pub(crate) fn deepest(codes: impl IntoIterator<Item = u32>) -> Vec<(u32, usize)> {
     let mut counts: stitchwort_core::collections::HashMap<u32, usize> = Default::default();
     for code in codes {
         *counts.entry(code).or_insert(0) += 1;
     }
-    let mut counts: Vec<(u32, usize)> = counts.into_iter().collect();
-    counts.sort_by_key(|&(code, count)| (std::cmp::Reverse(count), code));
-    counts.truncate(3);
-    counts
+    counts.into_iter().collect()
 }
 
 /// What the depth note calls body `code`: the global whose body it is
@@ -127,12 +123,25 @@ pub(crate) fn body_name<'a>(
     "an anonymous function".to_string()
 }
 
-/// The depth note for `deepest` ([`deepest`]), naming each body with
-/// `name` ([`body_name`]): `Machine::depth_report`, and native code's.
+/// The depth note for `deepest` ([`deepest`]): the three bodies with the
+/// most frames, most first, each named with `name` ([`body_name`]), a
+/// copy taking a reuse token counted as its original (`folds`, from a
+/// copy's code to its original's): `Machine::depth_report`, and native
+/// code's.
 pub(crate) fn depth_report(
     deepest: &[(u32, usize)],
+    folds: &stitchwort_core::collections::HashMap<u32, u32>,
     name: impl Fn(u32) -> String,
 ) -> Option<String> {
+    let mut counts: stitchwort_core::collections::HashMap<u32, usize> = Default::default();
+    for &(code, count) in deepest {
+        *counts
+            .entry(folds.get(&code).copied().unwrap_or(code))
+            .or_insert(0) += count;
+    }
+    let mut deepest: Vec<(u32, usize)> = counts.into_iter().collect();
+    deepest.sort_by_key(|&(code, count)| (std::cmp::Reverse(count), code));
+    deepest.truncate(3);
     let &(_, most) = deepest.first()?;
     let parts: Vec<String> = deepest
         .iter()

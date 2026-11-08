@@ -54,7 +54,7 @@ use num_bigint::BigUint;
 use stitchwort_core::DefId;
 
 use crate::ir::{
-    Arm, Body, Expr, Global, GlobalId, GlobalKind, HoleOp, Lit, PrimOp, Program, Slot,
+    Arm, Body, Expr, Global, GlobalId, GlobalKind, HoleOp, Lit, PrimOp, Program, Reuse, Slot,
 };
 use crate::opt::{MAX_NESTING, nesting, reads, size};
 
@@ -96,6 +96,7 @@ pub fn apply(program: &mut Program) {
                         expr: member.expr,
                     },
                 },
+                reuse: Reuse::None,
             });
         }
         // The function: its twin, called with a new cell.
@@ -507,7 +508,7 @@ fn passes_on(body: &Expr, helper: GlobalId, k: Slot, params: u32) -> bool {
 }
 
 /// Calls `f` on `e` and every expression in it.
-fn each(e: &Expr, f: &mut impl FnMut(&Expr)) {
+pub(crate) fn each(e: &Expr, f: &mut impl FnMut(&Expr)) {
     f(e);
     match e {
         Expr::Local(_)
@@ -621,7 +622,7 @@ fn rewrite(
 }
 
 /// `e` with the slots from `from` on moved up by `by`.
-fn shift(e: &Expr, from: Slot, by: u32) -> Expr {
+pub(crate) fn shift(e: &Expr, from: Slot, by: u32) -> Expr {
     rewrite(e, &|s| if s >= from { s + by } else { s }, &|g, a| {
         Expr::Call(g, a)
     })

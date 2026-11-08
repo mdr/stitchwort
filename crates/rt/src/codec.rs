@@ -22,7 +22,7 @@ use stitchwort_core::{DataId, DefId};
 
 use crate::ir::{
     Arm, Body, CtorInfo, Expr, Global, GlobalId, GlobalKind, Lambda, LambdaId, Lit, MainRow,
-    MatchKind, Program, TypeId, TypeInfo,
+    MatchKind, Program, Reuse, TypeId, TypeInfo,
 };
 use crate::shared::Limits;
 pub use crate::wire::CodecError;
@@ -31,7 +31,7 @@ use crate::wire::{BUILD_HASH, Read, Reader, Writer, bad, read_shapes, write_shap
 const MAGIC: &[u8; 4] = b"SWRT";
 
 /// Bumped when the layout changes.
-pub const FORMAT_VERSION: u8 = 1;
+pub const FORMAT_VERSION: u8 = 2;
 
 /// How deeply an expression may nest when read, so that a corrupt program
 /// can't overflow the stack. Lowered code nests far less (`Rogue.main`'s
@@ -234,6 +234,22 @@ pub fn encode(program: &Program, limits: &Limits) -> Vec<u8> {
             GlobalKind::Native(op) => {
                 w.u8(2);
                 w.prim(*op);
+            }
+        }
+        match &global.reuse {
+            Reuse::None => w.u8(0),
+            Reuse::Copies(copies) => {
+                w.u8(1);
+                w.usize(copies.len());
+                for (size, copy) in copies {
+                    w.uint(u64::from(*size));
+                    w.uint(u64::from(copy.0));
+                }
+            }
+            Reuse::Copy { of, size } => {
+                w.u8(2);
+                w.uint(u64::from(of.0));
+                w.uint(u64::from(*size));
             }
         }
     }
@@ -469,7 +485,29 @@ pub fn decode(bytes: &[u8]) -> Result<(Program, Limits), CodecError> {
             2 => GlobalKind::Native(r.prim()?),
             t => return bad(format!("no global tagged {t}")),
         };
-        globals.push(Global { name, def, kind });
+        let reuse = match r.u8()? {
+            0 => Reuse::None,
+            1 => {
+                let n = r.count()?;
+                let mut copies = Vec::with_capacity(n);
+                for _ in 0..n {
+                    let size = r.u32()?;
+                    copies.push((size, GlobalId(r.u32()?)));
+                }
+                Reuse::Copies(copies)
+            }
+            2 => Reuse::Copy {
+                of: GlobalId(r.u32()?),
+                size: r.u32()?,
+            },
+            t => return bad(format!("no reuse tagged {t}")),
+        };
+        globals.push(Global {
+            name,
+            def,
+            kind,
+            reuse,
+        });
     }
     let n = r.count()?;
     let mut lambdas = Vec::with_capacity(n);

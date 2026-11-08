@@ -1,7 +1,15 @@
 # Reuse across calls: letting a cell taken apart in one function be rebuilt in another
 
 SW-2384, 8 November 2026. Paper lane: code, papers and other compilers' source
-read, nothing built or run. Status: proposed; the questions in §7 are open.
+read, nothing built or run. Status: option (b) built (SW-2391, D3420), with the
+changes of the independent review
+([SW-2393](../reviews/SW-2393-reuse-across-calls-review.md)); what was built
+and measured is in [SW-2391](../reviews/SW-2391-reuse-across-calls.md). The
+estimates below are the note's own, kept as written, with two corrections
+from the review: dijkstra's gain was estimated at 4–10% (the 15% upper end
+wasn't supported) and measured at 11.0% of instructions; and lists get
+nothing (`List.map`, `filter`, `append` are TRMC loops, which get no copies),
+nor do small record methods, which are inlined and already reuse locally.
 
 Labels: **[measured]** a number from a run (the run is named), **[cited]** read
 in the source or paper named, **[checked]** read in our code for this note,

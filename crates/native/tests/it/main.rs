@@ -8,6 +8,7 @@ mod n3;
 mod n4;
 mod object;
 mod relocatable;
+mod reuse;
 mod s6;
 mod spike;
 

@@ -24,7 +24,7 @@ use crate::fusion::StateFusion;
 use crate::hoist::SigMaps;
 use crate::ir::{
     Arm, Body, CtorInfo, Expr, Global, GlobalId, GlobalKind, Lambda, LambdaId, Lit, MainRow,
-    MatchKind, PrimOp, Program, Shapes, Slot, TypeId, TypeInfo,
+    MatchKind, PrimOp, Program, Reuse, Shapes, Slot, TypeId, TypeInfo,
 };
 use crate::natives::{ArrayNative, FloatPrim, IntNative, Representation, TextNative, bind_array};
 use crate::opt::{Types, optimize};
@@ -162,6 +162,7 @@ fn lower_roots(g: &Ev, limits: Limits, roots: Vec<DefId>, entry: &Term) -> Resul
             },
             def: id,
             kind,
+            reuse: Reuse::None,
         });
     }
     let entry = cx.frame_body(&[], |cx| cx.expr(entry))?;
@@ -185,6 +186,7 @@ fn lower_roots(g: &Ev, limits: Limits, roots: Vec<DefId>, entry: &Term) -> Resul
     };
     optimize(&mut program, types);
     crate::trmc::apply(&mut program);
+    crate::reuse::apply(&mut program);
     program
         .validate()
         .map_err(|e| internal(format!("the program isn't well formed after loops: {e}")))?;
@@ -754,6 +756,7 @@ impl<'g> Lowerer<'g> {
                 name: format!("{}[map {}]", self.g.def(id).path(), self.hoisted.len()).into(),
                 def: id,
                 kind: GlobalKind::Constant { body },
+                reuse: Reuse::None,
             });
             self.hoisted_of.insert(key, gid);
             return Ok(Expr::Global(gid));

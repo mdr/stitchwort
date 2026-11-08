@@ -12,6 +12,7 @@ mod lower;
 mod machine;
 mod partial_handlers;
 mod profile;
+mod reuse;
 mod tick_counts;
 
 use stitchwort_test_alloc as _;

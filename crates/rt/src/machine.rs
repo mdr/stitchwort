@@ -231,7 +231,7 @@ impl<'p> Machine<'p> {
     /// the most pending calls, as "`List.append` (120000 calls), …". A
     /// function value that isn't a definition is "a lambda".
     pub fn depth_report(&self) -> Option<String> {
-        crate::shared::depth_report(&self.st.deepest, |code| {
+        crate::shared::depth_report(&self.st.deepest, &self.image.folds, |code| {
             body_name(
                 &self.image.global_code,
                 self.image.entry_code,
