@@ -22551,7 +22551,7 @@
     {
       "id": 2333,
       "title": "2021 day 11: compute the cavern's cell count once, not cavern.cells.length every step",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
