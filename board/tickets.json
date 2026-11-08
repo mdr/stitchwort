@@ -1,5 +1,5 @@
 {
-  "next": 2357,
+  "next": 2358,
   "tickets": [
     {
       "id": 47,
@@ -22931,6 +22931,21 @@
       "commits": [
         "ad2f6b113"
       ]
+    },
+    {
+      "id": 2357,
+      "title": "test:affected: a change to std .sw files should select the extraction snapshot tests (extract::generated_code_is_stable); SW-2323's flatMap change left effect-lists.js stale until a later batch picked it up",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "epic": "test-infra",
+      "body": "8 Nov 2026 overnight. Also microtype-comparisons.js had been stale since an older distinct -> unique rename, so this has happened before. 30 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
     }
   ]
 }
