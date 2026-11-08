@@ -22566,7 +22566,7 @@
     {
       "id": 2334,
       "title": "test:affected --dry-run prints 'over the 90 s budget; cut ... build-config' while its own estimate is 68.9 s and the real run cuts nothing; make the warning match what it does",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -22574,10 +22574,12 @@
         "bug"
       ],
       "epic": "test-infra",
-      "body": "From the SW-2296 batch verifier, 8 Nov 2026. Also: no rule covers bench/compare/compare.py. 20 min.\n\nStarted 04:12 UTC, Sonnet, expected 20 min.\n",
+      "body": "From the SW-2296 batch verifier, 8 Nov 2026. Also: no rule covers bench/compare/compare.py. 20 min.\n\nStarted 04:12 UTC, Sonnet, expected 20 min.\n\nMerged. The cuts were real (uncut total 122.8 s); the message now says so. No test covers compare.py, so no rule added. Model result: Sonnet, worked, 2 min (est. 20).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "07caec134"
+      ]
     },
     {
       "id": 2335,
