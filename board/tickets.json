@@ -1,5 +1,5 @@
 {
-  "next": 2370,
+  "next": 2375,
   "tickets": [
     {
       "id": 47,
@@ -23140,14 +23140,92 @@
     {
       "id": 2369,
       "title": "Profile study: why dijkstra (14x CPython) and disk (7.8x) are slow in native code after tonight's fixes; name the top costs with numbers and a fix for each",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "8 Nov 2026 04:52, after the third headline run. Measure only; file fixes. 40 min.\n\nStarted 04:51 UTC, Sonnet, expected 40 min.\n",
+      "body": "8 Nov 2026 04:52, after the third headline run. Measure only; file fixes. 40 min.\n\nStarted 04:51 UTC, Sonnet, expected 40 min.\n\nMerged. Tickets SW-2370 SW-2371 SW-2372 SW-2373 SW-2374. D3415 for Matt (fairness: idiomatic programs or algorithm alone?). Model result: Sonnet, worked, 12 min (est. 40).\n",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": [
+        "ea9e89ccd"
+      ]
+    },
+    {
+      "id": 2370,
+      "title": "Std Graph.distances: push a neighbour only when its distance improves (and an Array-indexed variant for dense integer vertices), keeping the verified spec; measured 2.2x (4.6x with Array) on 2021 day 15",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "perf",
+        "std"
+      ],
+      "epic": "comparative-speed",
+      "body": "From docs/reviews/SW-2369-dijkstra-disk.md. Re-proves searchFrom; statements of the spec unchanged. 90 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2371,
+      "title": "Why does sw_ctor_reuse fire 1.9M times against 25M Map.Tree node rebuilds on dijkstra? (reuse of the dead node in rebuild)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From docs/reviews/SW-2369-dijkstra-disk.md. Measure first. 30 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2372,
+      "title": "Std.Heap: a priority queue with O(1) insert, with its spec, for Graph.distances and AoC",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "epic": "std-library",
+      "body": "From docs/reviews/SW-2369-dijkstra-disk.md. Est. 15-20% on dijkstra on top of the improvement test. Design first (API, proofs). 90 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2373,
+      "title": "profile_top: inclusive time under an effect handler is misleading (the handler runs the rest of main from rt_loop); say so in the output, or attribute by the handler's caller",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "epic": "comparative-speed",
+      "body": "From docs/reviews/SW-2369-dijkstra-disk.md. 30 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2374,
+      "title": "disk (2024 day 9): FreeSpace bulk build and cached minimum per length; part 1 as a counter loop; checksum as an arithmetic series with its lemma in std",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From docs/reviews/SW-2369-dijkstra-disk.md. Est. 10-15% of disk together. 45 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
