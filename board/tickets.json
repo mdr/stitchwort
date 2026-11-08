@@ -1,5 +1,5 @@
 {
-  "next": 2361,
+  "next": 2362,
   "tickets": [
     {
       "id": 47,
@@ -22973,14 +22973,14 @@
     {
       "id": 2359,
       "title": "Native: CtorReuse refills a unique cell of the same size in place, falling back to sw_cell_new (3.5M sw_ctor_reuse calls on matcher)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2321. 30 min.\n\nStarted 04:03 UTC, Sonnet, expected 30 min.\n",
+      "body": "From SW-2321. 30 min.\n\nStarted 04:03 UTC, Sonnet, expected 30 min.\n\nDropped (orchestrator's call): removed 3.46M sw_ctor_reuse calls on matcher but time unchanged (5.29 -> 5.26 s, noise); not a clear gain. Patch kept at scratchpad SW-2359-dropped.patch. Follow-up SW-2361. Model result: Sonnet, worked (no gain), 9 min (est. 30).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -22997,6 +22997,21 @@
       ],
       "epic": "comparative-speed",
       "body": "From SW-2321. ABI and runtime design: a note in docs/proposals first; Matt decides. Paper lane 60 min.\n\nStarted 04:03 UTC, Opus, expected 60 min.\n",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2361,
+      "title": "Why does no CtorReuse on matcher find a unique token of the same size? All 3.46M reuses fall back (token erased, shared or another size); find whether it is call-site sharing or the reuse analysis pairing the wrong cells, and whether fixing it turns them into in-place overwrites",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2359 (8 Nov 2026). Investigation first: profile and STITCHWORT_NATIVE_DUMP, no code change until the cause is measured. 45 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
