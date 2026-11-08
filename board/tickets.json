@@ -24542,7 +24542,7 @@
         "bench"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2450 (rank 1). 1.5 h. Port faithfully; note any algorithmic difference in the README.",
+      "body": "From SW-2450 (rank 1). 1.5 h. Port faithfully; note any algorithmic difference in the README.\n\nOrchestrator's call (SW-2450 D-b, reversible reporting): the wide set is a separate geomean beside the core ten, never folded into the ten's history.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
