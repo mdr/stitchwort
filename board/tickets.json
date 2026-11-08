@@ -24408,7 +24408,7 @@
         "elab"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-2439 findings 2-4. Design first. 90 min.",
+      "body": "From SW-2439 findings 2-4. Design first. 90 min.\n\nFrom the SW-2439 Opus review (8 Nov 2026): (a) applied let-bound matches (Case/NumCase are uninferable too) and Proj of a let-bound parameterised constructor, inside postponed checks: try repros, e.g. let p := (1 + 1, Circle 4) then p.1 + p.2.size == 6; widen lambda() to \"the kernel can't infer it\" and cover Proj operands; (b) refold matches lambdas type-blind (Term::Lam has no domain): two lets with the same lambda at different types may fold to the wrong one; (c) design: deterministic fold-back by slot (placeholder_call records each inlined value's let slot; zonk_call maps it to the Var), which retires SW-2439's annotation; (d) lift.rs:1053 unrefine_before with lets == false may apply an inlined let lambda.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
