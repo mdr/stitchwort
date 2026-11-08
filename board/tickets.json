@@ -23159,7 +23159,7 @@
     {
       "id": 2370,
       "title": "Std Graph.distances: push a neighbour only when its distance improves (and an Array-indexed variant for dense integer vertices), keeping the verified spec; measured 2.2x (4.6x with Array) on 2021 day 15",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -23167,7 +23167,7 @@
         "std"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/reviews/SW-2369-dijkstra-disk.md. Re-proves searchFrom; statements of the spec unchanged. 90 min.",
+      "body": "From docs/reviews/SW-2369-dijkstra-disk.md. Re-proves searchFrom; statements of the spec unchanged. 90 min.\n\nStarted 05:04 UTC, Opus, expected 90 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
