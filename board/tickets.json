@@ -24309,14 +24309,14 @@
     {
       "id": 2440,
       "title": "Native uniqueness tests: compare only the strong count (nothing creates a Weak; n1.rs:4629-4635 loads and compares the weak count on every test)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2324 and SW-2429 (predicted 1.005x geomean, binary-trees 1.02x). Check nothing in crates/rt or native makes a Weak; measure instructions on binary-trees. 30 min.",
+      "body": "From SW-2324 and SW-2429 (predicted 1.005x geomean, binary-trees 1.02x). Check nothing in crates/rt or native makes a Weak; measure instructions on binary-trees. 30 min.\nStarted 20:51 UTC.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -24339,14 +24339,14 @@
     {
       "id": 2442,
       "title": "Resume wrapper: stop allocating a new Fun just to flip a resumption's eager/lazy flag (est. 2-3% on expressions and scan)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2422 cut 2. Measure native instructions on expressions and scan. 1-2 h.",
+      "body": "From SW-2422 cut 2. Measure native instructions on expressions and scan. 1-2 h.\nStarted 20:51 UTC.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
