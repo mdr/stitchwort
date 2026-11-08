@@ -24251,17 +24251,19 @@
     {
       "id": 2436,
       "title": "Kernel fuzzer: take SEED and CASES (like fuzz:elab), so over-pace runs can explore new terms; today it's fixed at 3000 terms and one seed",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "test-infra"
       ],
       "epic": "audit-fuzzing",
-      "body": "Found while choosing over-pace compute jobs, 8 Nov 2026. crates/core/tests/it/fuzz.rs; Taskfile fuzz:kernel. 20 min.\nStarted 22:08 UTC.\n",
+      "body": "Found while choosing over-pace compute jobs, 8 Nov 2026. crates/core/tests/it/fuzz.rs; Taskfile fuzz:kernel. 20 min.\nStarted 22:08 UTC.\n\nMerged. Model result: Sonnet, worked, 6 min (est. 20).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "3fef4274a"
+      ]
     },
     {
       "id": 2437,
