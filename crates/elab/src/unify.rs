@@ -2368,6 +2368,11 @@ type Renamed<T> = std::result::Result<T, Fail>;
 /// changes how solutions are written, not what is solved (as decided after
 /// stage 2 for matching calls by their arguments). Such an argument fails
 /// instead, and the unfolding is written.
+///
+/// The term written is a tree, while the value may share its parts (`grow n
+/// (Node t t)`), so it can be exponentially larger: like [`quote`], it may
+/// have at most the budget's size limit of nodes, or fails with
+/// [`ResourceError::Size`] (SW-2409).
 fn rename(
     g: &Unifier<'_>,
     m: usize,
@@ -2377,13 +2382,49 @@ fn rename(
     value: &Value,
     in_call: bool,
 ) -> Renamed<Term> {
+    let size = Sized {
+        nodes: std::cell::Cell::new(0),
+        limit: g.machine.budget.size_limit(),
+        root_def: match value {
+            Value::Neutral(Head::Def(id), _) | Value::Call(id, ..) => Some(id.0),
+            _ => None,
+        },
+    };
+    rename_in(g, &size, m, renaming, dom, cod, value, in_call)
+}
+
+/// How many nodes [`rename`] has written, of how many it may.
+struct Sized {
+    nodes: std::cell::Cell<u64>,
+    limit: u64,
+    /// The definition whose call the whole value was, for the report.
+    root_def: Option<usize>,
+}
+
+#[allow(clippy::too_many_arguments)]
+fn rename_in(
+    g: &Unifier<'_>,
+    size: &Sized,
+    m: usize,
+    renaming: &HashMap<usize, usize>,
+    dom: usize,
+    cod: usize,
+    value: &Value,
+    in_call: bool,
+) -> Renamed<Term> {
     g.machine.budget.step()?;
-    let go = |v: &Value| rename(g, m, renaming, dom, cod, v, in_call);
+    let nodes = size.nodes.get() + 1;
+    size.nodes.set(nodes);
+    if nodes > size.limit {
+        g.machine.budget.set_too_large(size.root_def);
+        return Err(Fail::Out(ResourceError::Size));
+    }
+    let go = |v: &Value| rename_in(g, size, m, renaming, dom, cod, v, in_call);
     let under = |closure: &Closure| -> Renamed<Term> {
         let mut renaming = renaming.clone();
         renaming.insert(cod, dom);
         let body = closure.apply(g, Value::var(cod))?;
-        rename(g, m, &renaming, dom + 1, cod + 1, &body, in_call)
+        rename_in(g, size, m, &renaming, dom + 1, cod + 1, &body, in_call)
     };
     let value = match force_solved(g, value.clone())? {
         Value::Call(id, spine, unfolding) if !matches_at_once(g, id, &spine)? => {
@@ -2399,7 +2440,7 @@ fn rename(
                     }
                     Elim::J { .. } => unreachable!("a call's spine has no `J`"),
                 };
-                match rename(g, m, renaming, dom, cod, arg, true) {
+                match rename_in(g, size, m, renaming, dom, cod, arg, true) {
                     Ok(arg) => term = Term::app_icit(term, arg, icit),
                     Err(e) => {
                         written = Err(e);
