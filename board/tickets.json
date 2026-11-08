@@ -1,5 +1,5 @@
 {
-  "next": 2437,
+  "next": 2438,
   "tickets": [
     {
       "id": 47,
@@ -24102,17 +24102,19 @@
     {
       "id": 2427,
       "title": "Compact values V2: count the instructions that exist because a value is three words (moves, spills, saves) in native code on the decision set; under 5% means stop after the header change",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From compact-values.md §5. Waits for D3432. 1.5 h.\n\nD3432, Matt, 8 Nov 2026 ~18:30: yes, \"run the measurements\" (end state C then E; A/D gated).\nStarted 18:51 UTC.\nCorrection: not started; needs perf record, so it runs on Overmind after SW-2428 (V3). Include SW-2432 (parsers' low IPC).\nStarted 19:56 UTC on Overmind.\n",
+      "body": "From compact-values.md §5. Waits for D3432. 1.5 h.\n\nD3432, Matt, 8 Nov 2026 ~18:30: yes, \"run the measurements\" (end state C then E; A/D gated).\nStarted 18:51 UTC.\nCorrection: not started; needs perf record, so it runs on Overmind after SW-2428 (V3). Include SW-2432 (parsers' low IPC).\nStarted 19:56 UTC on Overmind.\n\nMerged (docs/reviews/SW-2427-value-width-instructions.md). Go/no-go met: E 7.0%, A 13.1% (decision-set mean; binary-trees 11.5%/20.6%); most of it is stack and callee-saved traffic scaled by rule, untested until E is built. SW-2432 answered here; follow-up SW-2437. Ran on Overmind, 23 min (est. 90).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "0bf9b7391"
+      ]
     },
     {
       "id": 2428,
@@ -24179,7 +24181,7 @@
     {
       "id": 2432,
       "title": "Parsers' low IPC (expressions 1.99, scan 2.11 vs Lean 2.66, 2.94) isn't memory: look at frontend and bad speculation (branch misses, icache) in V2",
-      "status": "backlog",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -24249,6 +24251,21 @@
       ],
       "epic": "audit-fuzzing",
       "body": "Found while choosing over-pace compute jobs, 8 Nov 2026. crates/core/tests/it/fuzz.rs; Taskfile fuzz:kernel. 20 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2437,
+      "title": "Store forwarding in the runtime's value copies: expressions and scan stall on a full store buffer (5.9-6.2% of cycles vs Lean 0.05-0.09%) and blocked store forwards (10.6-11.2 per 1000 instructions vs 0.06-0.27); hot in value::free, sw_apply_prepare, Value::data::<2>, sw_closure, sw_eff_step. Copy 24-byte values with matching load/store widths there, measure on Overmind",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2427 (SW-2432). Inference, not traced: find the mismatched widths first (perf ld_blocks.store_forward with addresses, or read the asm). Overmind (perf). 60 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
