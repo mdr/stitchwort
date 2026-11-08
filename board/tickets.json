@@ -24441,14 +24441,14 @@
     {
       "id": 2448,
       "title": "Fun::drop and Delay::drop: skip the worklist for closures and delays with no deep captures, as SW-2443 did for cells (cells: -2.1 to -2.3% instructions)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2443. Instruction A/B on expressions, scan, octopus, matcher. 30 min.\nStarted 21:51 UTC.\n",
+      "body": "From SW-2443. Instruction A/B on expressions, scan, octopus, matcher. 30 min.\nStarted 21:51 UTC.\n\nClosed, no change (orchestrator's call): Fun skip -0.5/-0.7% on expressions/scan but +0.3/+0.7% on matcher/octopus; Delay skip nothing. Model result: Sonnet, worked (negative result), 18 min (est. 30).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
