@@ -22604,14 +22604,14 @@
     {
       "id": 2336,
       "title": "Parse runtime stage 1: fast paths for the effect runtime's own function values (no argument Vec), and a small multi-entry apply cache at the run loop's continuation call site",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/proposals/parse-runtime.md (SW-2327). After SW-2335. Est. 1.2-1.3x on expressions/scan. 60-90 min.\n\nSW-2335 measured: DoneK, JumpK and resumptions are 44-48% of sw_apply_prepare calls; the fast-path PAP is the single largest kind (38%) and still calls sw_apply_prepare; rt_loop's continuation site misses its one-entry cache on 86-100% of pops; DoneK/JumpK/resumption caches never fill, so those sites make two calls (sw_apply_cached then sw_apply_prepare) where one would do.\n",
+      "body": "From docs/proposals/parse-runtime.md (SW-2327). After SW-2335. Est. 1.2-1.3x on expressions/scan. 60-90 min.\n\nSW-2335 measured: DoneK, JumpK and resumptions are 44-48% of sw_apply_prepare calls; the fast-path PAP is the single largest kind (38%) and still calls sw_apply_prepare; rt_loop's continuation site misses its one-entry cache on 86-100% of pops; DoneK/JumpK/resumption caches never fill, so those sites make two calls (sw_apply_cached then sw_apply_prepare) where one would do.\n\nMatt, 8 Nov 2026 ~09:35: \"let's do this, but do a quick Opus design note first. If Opus is happy, let's proceed to implement.\" Started 09:29 UTC, Opus: note then implementation, expected 20 + 90 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
