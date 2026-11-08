@@ -162,7 +162,7 @@ def main():
                                         fmt(r["lean-load"]), fmt(lean_net), ratio, fmt(r["lake"])]) + " |")
     md = "\n".join(lines)
     OUT.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.date.today().isoformat() + "-" + platform.node().split(".")[0]
+    stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H%M%S") + "-" + platform.node().split(".")[0]
     commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
     meta = {"commit": commit, "host": platform.node(), "runs": opts.runs,
             "lean": subprocess.run(["lean", "--version"], capture_output=True, text=True).stdout.strip(),

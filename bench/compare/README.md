@@ -19,7 +19,7 @@ task bench:compare -- --runners native,cpython,pypy,lean   # only these runners 
 
 Both tasks build `stitchwort` and its native runtime library, then run
 `compare.sh` in `nix develop .#compare` (the default shell plus Lean 4,
-hyperfine and PyPy). Output goes to `target/compare/<date>-<host>.json` and
+hyperfine and PyPy). Output goes to `target/compare/<YYYY-MM-DD>T<HHMMSS>-<host>.json` and
 `.md`.
 
 On Linux the `compare` shell also carries `perf` (nixpkgs' top-level `perf`,
