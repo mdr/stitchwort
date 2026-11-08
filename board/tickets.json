@@ -1,5 +1,5 @@
 {
-  "next": 2431,
+  "next": 2433,
   "tickets": [
     {
       "id": 47,
@@ -24083,17 +24083,19 @@
     {
       "id": 2426,
       "title": "Compact values V1: hardware counters on Overmind (perf: cycles, instructions, cache misses, memory stalls) for native on the decision set",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From compact-values.md §5. Waits for D3432. Runs on Overmind. 1 h.\n\nD3432, Matt, 8 Nov 2026 ~18:30: yes, \"run the measurements\" (end state C then E; A/D gated).\nStarted 18:34 UTC.\n",
+      "body": "From compact-values.md §5. Waits for D3432. Runs on Overmind. 1 h.\n\nD3432, Matt, 8 Nov 2026 ~18:30: yes, \"run the measurements\" (end state C then E; A/D gated).\nStarted 18:34 UTC.\n\nMerged (docs/reviews/SW-2426-hardware-counters.md). Go/no-go: not met by the note's rule (memory-game 14.3%), so option B not ruled out; other four decision programs 4.8-8.6%. Follow-ups SW-2431 SW-2432. Ran on Overmind, 16 min (est. 60).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "67ede76d2"
+      ]
     },
     {
       "id": 2427,
@@ -24151,6 +24153,36 @@
       ],
       "epic": "comparative-speed",
       "body": "From SW-2324. 20 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2431,
+      "title": "Huge pages for native's heap: dTLB misses are ~580-1100x Lean's on memory-game and binary-trees (SW-2426); try mimalloc large OS pages / THP madvise on Linux and measure dTLB misses and time on Overmind",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2426. THP is madvise on Overmind; mimalloc may not ask for huge pages. Measure first (perf stat dTLB-load-misses, time). 45 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2432,
+      "title": "Parsers' low IPC (expressions 1.99, scan 2.11 vs Lean 2.66, 2.94) isn't memory: look at frontend and bad speculation (branch misses, icache) in V2",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2426. Fold into SW-2427 (V2).",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
