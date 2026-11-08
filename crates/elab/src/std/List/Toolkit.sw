@@ -792,8 +792,7 @@ def List.flatMap: (xs: List a) → (f: a → {e} List b) → {e} List b
     let ys := f x
     List.append ys (List.flatMap rest f)
 
---| `flatMap` is `concat` of `map`: the definition it replaced, which
---| built the list of lists first.
+--| `flatMap` is `concat` of `map`.
 theorem List.flatMapEqConcatMap (f: a → List b): (xs: List a) → List.flatMap xs f = List.concat (List.map xs f)
   | [] => rfl
   | [x, ..rest] => Eq.cong (ys => List.append (f x) ys) (List.flatMapEqConcatMap f rest)
