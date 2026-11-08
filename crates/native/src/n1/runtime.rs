@@ -60,8 +60,8 @@ use cranelift_codegen::isa::CallConv;
 use cranelift_frontend::{FunctionBuilder, Switch, Variable};
 use cranelift_module::{FuncId, Module};
 use stitchwort_rt::native_abi::{
-    self as abi, Context, FUN_KEY_MASK, OUT_OF_FRAMES, OUT_OF_STEPS, RC_VALUE_AT, TAG_DATA,
-    TAG_FUN, Tables, VALUE_SIZE,
+    self as abi, Context, FUN_CLOSURE, FUN_KEY_MASK, OUT_OF_FRAMES, OUT_OF_STEPS, RC_VALUE_AT,
+    TAG_DATA, TAG_FUN, Tables, VALUE_SIZE,
 };
 
 use super::{Helpers, drop_deferred, drop_fun, fixed, flags, value_signature};
@@ -338,10 +338,12 @@ impl Rt<'_, '_> {
             .icmp_imm_u(IntCC::Equal, tag, i64::from(TAG_FUN));
         let check = self.b.create_block();
         let cached = self.b.create_block();
+        let other = self.b.create_block();
         let miss = self.b.create_block();
         let after = self.b.create_block();
         self.b.append_block_param(after, self.pointer);
-        self.b.ins().brif(is_fun, check, &[], miss, &[]);
+        let none = self.b.ins().iconst(self.pointer, 0);
+        self.b.ins().brif(is_fun, check, &[], after, &[none.into()]);
         self.b.switch_to_block(check);
         let first = self.b.ins().load(types::I64, flags(), fv[1], RC_VALUE_AT);
         let mine = self.b.ins().band_imm_s(first, FUN_KEY_MASK as i64);
@@ -352,7 +354,21 @@ impl Rt<'_, '_> {
             offset + abi::ApplyCache::KEY_AT,
         );
         let hit = self.b.ins().icmp(IntCC::Equal, key, mine);
-        self.b.ins().brif(hit, cached, &[], miss, &[]);
+        self.b.ins().brif(hit, cached, &[], other, &[]);
+        // Only a global function or a closure can be cached
+        // (`sw_apply_cached`); anything else goes to the stub without
+        // asking.
+        self.b.switch_to_block(other);
+        self.b.set_cold_block(other);
+        let variant = self.b.ins().band_imm_s(first, 0xff);
+        let cacheable = self.b.ins().icmp_imm_u(
+            IntCC::UnsignedLessThanOrEqual,
+            variant,
+            i64::from(FUN_CLOSURE),
+        );
+        self.b
+            .ins()
+            .brif(cacheable, miss, &[], after, &[none.into()]);
         self.b.switch_to_block(cached);
         let code = self.b.ins().load(
             self.pointer,
