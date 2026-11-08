@@ -23492,7 +23492,7 @@
         "std"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2382. Small; measure. 30 min.",
+      "body": "From SW-2382. Small; measure. 30 min.\n\nParked 8 Nov (Matt: \"If you're suggesting park it, let's park it\"), with SW-2383 under D3421: revisit after the reuse-across-calls fix (SW-2391) is measured, since it is a change to std's Map code.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
