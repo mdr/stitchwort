@@ -21,6 +21,9 @@ blake3.workspace = true
 [features]
 # The bring-up allocation trace (`alloc_trace`); off in release builds.
 alloc-trace = []
+# Counts of native code's calls into the runtime (`call_counts`), for a
+# profiling build of the runtime library; never on in shipped or test builds.
+call-counts = []
 
 [dev-dependencies]
 # mimalloc in the unit-test and integration-test binaries (docs/testing.md, "Allocator").
