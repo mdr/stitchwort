@@ -131,7 +131,7 @@ use stitchwort_core::native::Native;
 use stitchwort_rt::census::{island, n1_blocker};
 use stitchwort_rt::code::{Code, Image, Instr, MOVE, NO_REG, Ops, Reg};
 use stitchwort_rt::effect::EffectOp;
-use stitchwort_rt::ir::{GlobalKind, PrimOp, Program};
+use stitchwort_rt::ir::{GlobalKind, HoleOp, PrimOp, Program};
 use stitchwort_rt::linked::Outline;
 use stitchwort_rt::native_abi::{
     self as abi, ApplyPlan, Context, CrossingCode, FUN_CAPTURES_AT, FUN_KEY_MASK, NativeIslands,
@@ -3953,9 +3953,18 @@ impl Gen<'_, '_> {
         let division = matches!(op, PrimOp::Nat(Native::DivFuel)) && o.len() == 3;
         let fast = division
             || matches!(op, PrimOp::Nat(Native::Add | Native::Sub | Native::Mul)) && o.len() == 2;
+        if op == PrimOp::Hole(HoleOp::New) && o.is_empty() {
+            // The head of a chain: a one-field cell holding a hole.
+            let hole = self.small(0, 0, 0);
+            let v = self.new_cell(0, &[hole]);
+            self.assign(pc, dst, v);
+            return;
+        }
         let slow = self.b.create_block();
         let after = self.b.create_block();
-        if fast {
+        if let (PrimOp::Hole(h @ (HoleOp::Fill | HoleOp::Take)), 1 | 3) = (op, o.len()) {
+            self.hole(pc, dst, h, &o, slow, after);
+        } else if fast {
             let loaded: Vec<Val> = o.iter().map(|r| self.load(Loc::Reg(*r))).collect();
             let mut both = self.is_tag(loaded[0], TAG_NAT);
             for v in &loaded[1..] {
@@ -4017,6 +4026,51 @@ impl Gen<'_, '_> {
         self.assign(pc, dst, v);
         self.b.ins().jump(after, &[]);
         self.b.switch_to_block(after);
+    }
+
+    /// `Take cell` and `Fill cell i v` on a cell of a chain a loop is
+    /// building ([`crate::trmc`]), as `prims::hole` does them: a load and a
+    /// store, not a call. Anything the checks don't cover (a cell that isn't
+    /// data, an index that isn't a small number or is past the fields) goes
+    /// to `slow`, which is the generic call and panics as the machine does.
+    ///
+    /// Ownership: `Take` hands the caller a new count on field 0. `Fill`
+    /// takes a new count on `v` for the field and overwrites the hole
+    /// without dropping it: the hole is `Erased`, which owns nothing, and
+    /// the cell is reached only from the loop that made it, so nothing reads
+    /// the field during the write (see `prims::fill`). Both leave the cell's
+    /// own count alone, as the operands are borrowed.
+    fn hole(&mut self, pc: usize, dst: Reg, op: HoleOp, o: &[Reg], slow: Block, after: Block) {
+        let cell = self.load(Loc::Reg(o[0]));
+        let is_data = self.is_tag(cell, TAG_DATA);
+        let checked = self.b.create_block();
+        if op == HoleOp::Take {
+            let some = self.b.ins().icmp_imm_u(IntCC::NotEqual, cell.0[2], 0);
+            let ok = self.b.ins().band(is_data, some);
+            self.b.ins().brif(ok, checked, &[], slow, &[]);
+            self.b.switch_to_block(checked);
+            let v = self.clone_from(Loc::Mem(cell.0[1], RC_VALUE_AT));
+            self.assign(pc, dst, v);
+        } else {
+            let index = self.load(Loc::Reg(o[1]));
+            let small = self.is_tag(index, TAG_NAT);
+            let inside = self
+                .b
+                .ins()
+                .icmp(IntCC::UnsignedLessThan, index.0[1], cell.0[2]);
+            let both = self.b.ins().band(is_data, small);
+            let all = self.b.ins().band(both, inside);
+            self.b.ins().brif(all, checked, &[], slow, &[]);
+            self.b.switch_to_block(checked);
+            let v = self.clone_from(Loc::Reg(o[2]));
+            let stride = self.b.ins().imul_imm_s(index.0[1], VALUE_SIZE as i64);
+            let field = self.b.ins().iadd(cell.0[1], stride);
+            self.store(Loc::Mem(field, RC_VALUE_AT), v);
+            let erased = self.small(0, 0, 0);
+            self.assign(pc, dst, erased);
+        }
+        self.b.ins().jump(after, &[]);
+        self.b.set_cold_block(slow);
     }
 
     /// 1 if the test holds.
