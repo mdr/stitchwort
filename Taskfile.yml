@@ -438,8 +438,11 @@ tasks:
       - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace --no-capture -E ''package(stitchwort-fmt) & binary(it) & test(/^fuzz::/)'' {{.CLI_ARGS}}'
 
   fuzz:kernel:
-    desc: 'Kernel fuzzer, release (fixed 3000 terms and seed; no knobs)'
-    summary: Runs crates/core/tests/it/fuzz.rs, which reads no environment variables.
+    desc: 'Kernel fuzzer, release (task fuzz:kernel CASES=20000 SEED=0x2)'
+    summary: Runs crates/core/tests/it/fuzz.rs, 3000 cases from a fixed seed by default. SEED is decimal or 0x...; the run prints the seed and case count, and a failure names the seed and case.
+    env:
+      FUZZ_CASES: '{{.CASES}}'
+      FUZZ_SEED: '{{.SEED}}'
     cmds:
       - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace --no-capture -E ''package(stitchwort-core) & binary(it) & test(/^fuzz::/)'' {{.CLI_ARGS}}'
 

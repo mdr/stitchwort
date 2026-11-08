@@ -1,6 +1,8 @@
 //! The kernel must never panic: whatever term it's given, it either accepts it
 //! or rejects it with a diagnostic. This feeds it thousands of random, mostly
-//! ill-formed terms, generated from a fixed seed so failures are reproducible.
+//! ill-formed terms, generated from a seed so failures are reproducible. The
+//! seed defaults to a fixed one; `FUZZ_CASES` and `FUZZ_SEED` (decimal or
+//! `0x...`) change the count and the seed.
 
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::rc::Rc;
@@ -107,15 +109,33 @@ impl Gen<'_> {
     }
 }
 
+const CASES: u64 = 3000;
+const SEED: u64 = 0x5717_c4f0_1d5e_ed42;
+
+/// An environment number, decimal or `0x...`; unset or empty is `None`, and an
+/// unparsable one fails the run rather than silently using the default.
+fn env_number(name: &str) -> Option<u64> {
+    let value = std::env::var(name).ok().filter(|v| !v.is_empty())?;
+    let parsed = match value.strip_prefix("0x") {
+        Some(hex) => u64::from_str_radix(hex, 16),
+        None => value.parse(),
+    };
+    Some(parsed.unwrap_or_else(|_| panic!("{name}={value:?} is not a number")))
+}
+
 #[test]
 fn the_kernel_never_panics_on_random_terms() {
+    let cases = env_number("FUZZ_CASES").unwrap_or(CASES);
+    let seed = env_number("FUZZ_SEED").unwrap_or(SEED);
+    eprintln!("fuzz kernel: {cases} cases, seed {seed:#x}");
     let prelude = Prelude::new();
     let mut generator = Gen {
-        rng: Rng(0x5717_c4f0_1d5e_ed42),
+        rng: Rng(seed),
         p: &prelude,
     };
     let mut accepted = 0;
-    for case in 0..3000 {
+    for case in 0..cases {
+        let state = generator.rng.0;
         let ty = generator.term(4, 0);
         let body = generator.term(4, 0);
         let outcome = catch_unwind(AssertUnwindSafe(|| {
@@ -137,7 +157,9 @@ fn the_kernel_never_panics_on_random_terms() {
             Ok(Some(())) => accepted += 1,
             Ok(None) => {}
             Err(_) => {
-                panic!("case {case}: the kernel panicked on\n  type: {ty:?}\n  body: {body:?}")
+                panic!(
+                    "case {case} (seed {seed:#x}, rng state {state:#x}): the kernel panicked on\n  type: {ty:?}\n  body: {body:?}"
+                )
             }
         }
     }
