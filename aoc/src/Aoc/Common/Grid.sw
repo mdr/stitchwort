@@ -13,7 +13,7 @@
 --| (Offset.sw).
 
 namespace Aoc.Common
-import Std (Array, Decidable, DecEq, Fail, Fin, List, Nat, Option, Parse, Text)
+import Std (Array, Bool, Decidable, DecEq, Fail, Fin, List, Nat, Option, Parse, Text)
 import Std.Parse (many1)
 
 --| A position on a grid: row 0 is the top row, column 0 the left column.
@@ -73,6 +73,23 @@ def Position.around (at: Position): List Position :=
   List.range (at.row - 1) (at.row + 1 + 1)
     |> .flatMap (row => List.range (at.column - 1) (at.column + 1 + 1) |> .map (column => ({ row, column }: Position)))
     |> .filter (near => not (near.row == at.row && near.column == at.column))
+
+--| The sum of `f` over `length` numbers counting up from `start`, without
+--| listing them.
+def sumFrom (start: Nat) (f: Nat → Nat): (length: Nat) → Nat
+  | Zero => 0
+  | Succ more => f start + sumFrom (Succ start) f more
+
+--| How many of the eight positions around `at` pass `keep`: what
+--| `at.around.count keep` is (`Aoc.Common.Proofs.countAroundIsAround`), but
+--| without building the positions as lists, which cost most of the time of
+--| a search that asks it at every cell.
+def Position.countAround (at: Position) (keep: Position → Bool): Nat :=
+  sumFrom (at.row - 1) (row =>
+    sumFrom (at.column - 1) (column =>
+      if row == at.row && column == at.column then 0 else Bool.toNat (keep { row, column }))
+      (at.column + 1 + 1 - (at.column - 1)))
+    (at.row + 1 + 1 - (at.row - 1))
 
 --| Up, down, left or right of each other: one column apart in the same row,
 --| or one row apart in the same column. (What `neighbours` lists: see

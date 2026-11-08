@@ -66,10 +66,22 @@ def Cavern.noFlashers (cavern: Cavern): Flashed := cavern.flash (_ _ => False)
 --| 1, plus 1 for each octopus around it that has flashed.
 def Flashed.energy (flashed: Flashed) (at: Position) (level: Nat): Nat := level + 1 + at.around.count flashed.has
 
+--| `Flashed.has`, through a table built once (`Grid.lookupOr`): O(1) per
+--| octopus where `has` walks the rows. Partly applied, `flashed.lookup`
+--| builds the table once for a whole round or step.
+def Flashed.lookup (flashed: Flashed): Position → Bool := flashed.grid.lookupOr False
+
+--| `Flashed.energy`, from the flashers' table `has` (`flashed.lookup`) and
+--| without building the positions around as lists
+--| (`Aoc.Year2021.Day11.Proofs.energyWithIsEnergy`).
+def energyWith (has: Position → Bool) (at: Position) (level: Nat): Nat := level + 1 + at.countAround has
+
 --| One round: an octopus flashes if its energy, given those that have
---| flashed so far, is above 9.
+--| flashed so far, is above 9. (`Aoc.Year2021.Day11.Proofs.flashRoundIsSpec`
+--| says it is `energy`, octopus by octopus.)
 def Cavern.flashRound (cavern: Cavern) (flashed: Flashed): Flashed :=
-  cavern.flash (at level => 9 < flashed.energy at level)
+  let has := flashed.lookup
+  cavern.flash (at level => 9 < energyWith has at level)
 
 --| Rounds until one adds nobody, at most `rounds` of them.
 def Cavern.cascade (cavern: Cavern) (flashed: Flashed): (rounds: Nat) → Flashed
@@ -86,8 +98,8 @@ def Cavern.flashers (cavern: Cavern): Flashed := cavern.cascade cavern.noFlasher
 --| One step: every octopus that flashed is at 0, the others at their
 --| energy.
 def Cavern.step (cavern: Cavern): Cavern :=
-  let flashed := cavern.flashers
-  cavern.map (at level => if flashed.has at then 0 else flashed.energy at level)
+  let has := cavern.flashers.lookup
+  cavern.map (at level => if has at then 0 else energyWith has at level)
 
 --| The octopuses at 0 after a step: those that flashed in it.
 def Cavern.zeros (cavern: Cavern): Nat := cavern.cells.count (((_, level)) => level == 0)

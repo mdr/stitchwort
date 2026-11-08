@@ -22,7 +22,7 @@ def flashedAfter (cavern: Cavern): Nat → Flashed
 --| Only octopuses on the grid flash in any round.
 theorem onGridAfter (cavern: Cavern): (k: Nat) → OnGrid cavern ((flashedAfter cavern k).has)
   | Zero, q, flashes => onGridFlash cavern (_ _ => False) q flashes
-  | Succ k, q, flashes => onGridFlash cavern (at level => 9 < (flashedAfter cavern k).energy at level) q flashes
+  | Succ k, q, flashes => onGridFlash cavern (at level => 9 < energyWith (flashedAfter cavern k).lookup at level) q flashes
 
 --| Before the first round nobody has flashed.
 theorem noneAtStart (cavern: Cavern): (q: Position) → (flashedAfter cavern 0).has q = False
