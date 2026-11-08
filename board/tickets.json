@@ -24251,14 +24251,14 @@
     {
       "id": 2436,
       "title": "Kernel fuzzer: take SEED and CASES (like fuzz:elab), so over-pace runs can explore new terms; today it's fixed at 3000 terms and one seed",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "test-infra"
       ],
       "epic": "audit-fuzzing",
-      "body": "Found while choosing over-pace compute jobs, 8 Nov 2026. crates/core/tests/it/fuzz.rs; Taskfile fuzz:kernel. 20 min.",
+      "body": "Found while choosing over-pace compute jobs, 8 Nov 2026. crates/core/tests/it/fuzz.rs; Taskfile fuzz:kernel. 20 min.\nStarted 22:08 UTC.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -24394,14 +24394,14 @@
     {
       "id": 2445,
       "title": "Elaborator gap: `let f := (s) => s.size` then `f (Circle 4)` fails E-TYPE-MISMATCH 'expected Nat, but this has type ?2 (Circle 4)' (the pair-pattern version checks); fix inference or the message",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "elab"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-2439. 45 min. Add an accept/ (or reject/ with a clear message) example.",
+      "body": "From SW-2439. 45 min. Add an accept/ (or reject/ with a clear message) example.\nStarted 22:08 UTC.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
