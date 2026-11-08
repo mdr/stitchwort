@@ -29,11 +29,19 @@ class Fold(unittest.TestCase):
         finally:
             os.unlink(f.name)
         samples = [(0, 1), (12, 2), (16, 3), (23, 1), (24, 5), (39, 4), (40, 7)]
-        parts, pcs, pc_parts = profile_top.fold(samples, body)
-        self.assertEqual(parts, {"prologue": 1, "work": 2, "check": 3, "call": 1, "untagged": 5,
-                                 "return": 4, "outside the map": 7})
-        self.assertEqual(pcs, {0: 2, 1: 4, 2: 4})
-        self.assertEqual(pc_parts[1], {"check": 3, "call": 1})
+        parts, pcs, pc_parts, moved = profile_top.fold(samples, body)
+        # 24 is the first byte after the call at 20..24: its sample is the call's.
+        self.assertEqual(parts, {"prologue": 1, "work": 2, "check": 3, "call": 6, "return": 4,
+                                 "outside the map": 7})
+        self.assertEqual(pcs, {0: 2, 1: 9, 2: 4})
+        self.assertEqual(pc_parts[1], {"check": 3, "call": 6})
+        self.assertEqual(moved, {1: 5})
+
+    def test_no_move_without_a_call_before(self):
+        body = (40, ["A", "B"], [0, 8], [(8, 0, "work"), (16, 1, "check")])
+        _, pcs, _, moved = profile_top.fold([(8, 3)], body)
+        self.assertEqual(pcs, {1: 3})
+        self.assertEqual(moved, {})
 
 
 class UnderLoop(unittest.TestCase):
