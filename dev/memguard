@@ -11,8 +11,9 @@ and the five biggest processes with their command lines (a nextest child's
 names its test), sends SIGTERM to the tree, then SIGKILL two seconds later,
 and exits 137.
 
-The cap is --cap-gb (the tier's default), unless STITCHWORT_MEM_CAP_GB is
-set, which wins; 0 means no cap. --report (or STITCHWORT_MEM_REPORT=1)
+The cap is --cap-gb (the tier's default), lowered to three quarters of the
+machine's memory where it is more (see fit_machine), unless
+STITCHWORT_MEM_CAP_GB is set, which wins as given; 0 means no cap. --report (or STITCHWORT_MEM_REPORT=1)
 prints the peak and the biggest processes at the peak when COMMAND ends, for
 measuring a tier. If STITCHWORT_MEM_PEAK_FILE names a file, the peak in bytes
 is also written there when COMMAND ends or is killed (dev/tier-step reads it
@@ -35,6 +36,9 @@ import time
 POLL_SECONDS = 0.5
 GRACE_SECONDS = 2.0
 GB = 1024**3
+# The most of the machine's memory a tier's cap may claim: the rest is the
+# desktop, the editor and the agent running the tier.
+MACHINE_SHARE = 0.75
 
 
 # ------------------------------------------------------------ the process table
@@ -261,7 +265,31 @@ def parse(argv):
         cap_gb = float(override)
     if cap_gb is None:
         sys.exit("memguard: no cap: pass --cap-gb or set STITCHWORT_MEM_CAP_GB (0 for none)")
+    if not override:
+        cap_gb = fit_machine(cap_gb)
     return cap_gb, report, command
+
+
+def machine_gb():
+    """The machine's physical memory in GB, or None if it can't be read."""
+    try:
+        return os.sysconf("SC_PHYS_PAGES") * os.sysconf("SC_PAGE_SIZE") / GB
+    except (ValueError, OSError, AttributeError):
+        return None
+
+
+def fit_machine(cap_gb):
+    """A tier's cap, lowered to MACHINE_SHARE of the machine's memory. A cap
+    above what the machine has never fires: the tier is stopped by the
+    system's out-of-memory handling instead, with nothing saying which test
+    grew (the 16 GB full tier on a 15 GiB laptop, SW-2413)."""
+    total = machine_gb()
+    if cap_gb <= 0 or total is None or cap_gb <= total * MACHINE_SHARE:
+        return cap_gb
+    fitted = round(total * MACHINE_SHARE, 1)
+    say(f"cap {cap_gb:g} GB lowered to {fitted:g} GB, {MACHINE_SHARE:.0%} of this machine's {total:.1f} GB "
+        "(STITCHWORT_MEM_CAP_GB overrides)")
+    return fitted
 
 
 def main():
