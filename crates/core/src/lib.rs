@@ -13,6 +13,7 @@ pub mod caches;
 pub mod chars;
 pub mod check;
 pub mod collections;
+pub mod determined;
 pub mod env;
 pub mod erase;
 pub mod ev;

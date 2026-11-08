@@ -57,6 +57,10 @@ const FUEL: usize = 1000;
 /// say) is left as it is, since the passes here recurse over it.
 const MAX_NESTING: usize = 1000;
 
+/// A row parameter of an empty-row variant, by level, and the constructor
+/// (a data type and its index) it's fixed at.
+pub type RowConstant = (usize, (DataId, usize));
+
 /// Why a variant can't be made: the backends then call the generic code.
 enum Fail {
     Resource(stitchwort_core::ResourceError),
@@ -234,6 +238,37 @@ impl<'g> Specialiser<'g> {
             .collect())
     }
 
+    /// The constructor each of `rows` (row parameters of `id`, by level) is
+    /// specialised on in its empty-row variant.
+    fn constants(&self, id: DefId, rows: &[usize]) -> Step<Vec<RowConstant>> {
+        let def = self.g.def(id);
+        let tel = telescope(self.g, def.ty_value(), def.span()).map_err(|_| Fail::Unsupported)?;
+        let mut constants = Vec::new();
+        for &level in rows {
+            let (_, ty, _) = tel.params.get(level).ok_or(Fail::Unsupported)?;
+            let Value::Data(d, _) = force(self.g, ty.clone())? else {
+                return Err(Fail::Unsupported);
+            };
+            constants.push((level, self.driver_of(d).ok_or(Fail::Unsupported)?));
+        }
+        Ok(constants)
+    }
+
+    /// The constructor (a data type and its index) each row parameter of
+    /// `id`'s empty-row variant is fixed at, by the parameter's level: what
+    /// the variant's body knows that the definition's doesn't.
+    pub fn row_constants(&self, id: DefId) -> std::result::Result<Vec<RowConstant>, Diagnostic> {
+        let rows = self.rows(id)?;
+        match self.constants(id, &rows) {
+            Ok(constants) => Ok(constants),
+            Err(Fail::Resource(e)) => Err(Diagnostic::from(e)),
+            Err(Fail::Unsupported) => Err(Diagnostic::error(
+                "E-RUNTIME",
+                "internal error: an empty-row variant whose rows aren't known",
+            )),
+        }
+    }
+
     fn make_body(&self, id: DefId, rows: &[usize]) -> Step<Term> {
         let def = self.g.def(id);
         let arity = def.arity();
@@ -242,16 +277,8 @@ impl<'g> Specialiser<'g> {
         if nesting(tree) > MAX_NESTING {
             return Err(Fail::Unsupported);
         }
-        // The constant each row parameter is specialised on, by level.
-        let tel = telescope(self.g, def.ty_value(), def.span()).map_err(|_| Fail::Unsupported)?;
-        let mut constants: HashMap<usize, (DataId, usize)> = HashMap::default();
-        for &level in rows {
-            let (_, ty, _) = tel.params.get(level).ok_or(Fail::Unsupported)?;
-            let Value::Data(d, _) = force(self.g, ty.clone())? else {
-                return Err(Fail::Unsupported);
-            };
-            constants.insert(level, self.driver_of(d).ok_or(Fail::Unsupported)?);
-        }
+        let constants: HashMap<usize, (DataId, usize)> =
+            self.constants(id, rows)?.into_iter().collect();
         // Variable `ix` under `depth` binders is the parameter at level
         // `arity - 1 - (ix - depth)`.
         let row_at = |ix: usize, depth: usize| {

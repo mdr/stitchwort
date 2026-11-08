@@ -11,6 +11,7 @@ use std::rc::Rc;
 
 use num_bigint::BigInt;
 use stitchwort_core::collections::HashMap;
+use stitchwort_core::determined::{Rebuild, Replay, ctor_determined};
 use stitchwort_core::native::Native;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::{Branch, NumArm};
@@ -19,7 +20,9 @@ use stitchwort_syntax::Diagnostic;
 
 use crate::clauses::Classifier;
 use crate::effect::{Carrier, EffectNatives, EffectOp, Forwards};
-use crate::erasure::{DefShape, def_shape, is_done_continuation, text_literal};
+use crate::erasure::{
+    DefShape, def_shape, is_done_continuation, stored_count, stored_fields, text_literal,
+};
 use crate::fusion::StateFusion;
 use crate::hoist::SigMaps;
 use crate::ir::{
@@ -28,7 +31,7 @@ use crate::ir::{
 };
 use crate::natives::{ArrayNative, FloatPrim, IntNative, Representation, TextNative, bind_array};
 use crate::opt::{Types, optimize};
-use crate::specialise::{self, Specialiser};
+use crate::specialise::{self, RowConstant, Specialiser};
 
 type Result<T> = std::result::Result<T, Diagnostic>;
 
@@ -210,7 +213,7 @@ fn shape(g: &Ev, d: DataId, c: usize, fields: usize) -> Result<u32> {
             data.name()
         )));
     }
-    let runtime = ctor.field_erased.iter().filter(|erased| !**erased).count();
+    let runtime = stored_count(g, d, c);
     if runtime != fields {
         return Err(internal(format!(
             "`{}` has {runtime} runtime fields, not {fields}",
@@ -288,6 +291,34 @@ enum Bind {
     Alias(usize),
 }
 
+/// Where lowering is in a definition's case tree: the path from its root,
+/// which the kernel's refinements are replayed along when a branch has a
+/// field to rebuild ([`stitchwort_core::determined`]).
+struct Tree {
+    def: DefId,
+    /// The row parameters an empty-row variant fixes, by level, and the
+    /// constructor each is fixed at.
+    assumed: Vec<RowConstant>,
+    steps: Vec<TreeStep>,
+}
+
+/// A step down a case tree.
+#[derive(Clone)]
+enum TreeStep {
+    /// Into the branch for constructor `c` of a case on the variable at
+    /// level `x` of data type `d`, with `level` variables in scope.
+    Branch {
+        x: usize,
+        d: DataId,
+        c: usize,
+        level: usize,
+    },
+    /// Into the arm for `k` of a number case on the variable at `x`.
+    NumArm { x: usize, k: Rc<BigUint> },
+    /// Into the default of a number case on the variable at `x`.
+    NumDefault { x: usize, arms: Rc<[NumArm]> },
+}
+
 /// A function's or lambda's frame, while its body is lowered.
 struct Frame {
     /// The next free slot. Slots are given out in scope order and reused by
@@ -346,6 +377,8 @@ struct Lowerer<'g> {
     /// Whether a map's own code is being lowered (a map inside it is part
     /// of the same constant).
     hoisting: bool,
+    /// Where lowering is in the case tree of the definition being lowered.
+    tree: Option<Tree>,
 }
 
 impl<'g> Lowerer<'g> {
@@ -397,6 +430,7 @@ impl<'g> Lowerer<'g> {
             hoisted_of: HashMap::default(),
             hoisted_base: 0,
             hoisting: false,
+            tree: None,
         })
     }
 
@@ -443,13 +477,12 @@ impl<'g> Lowerer<'g> {
         let ctors = data
             .ctors()
             .iter()
-            .map(|ctor| CtorInfo {
+            .enumerate()
+            .map(|(c, ctor)| CtorInfo {
                 name: ctor.name.clone(),
-                fields: ctor
-                    .fields
-                    .iter()
-                    .zip(&ctor.field_erased)
-                    .filter(|(_, erased)| !**erased)
+                fields: (ctor.fields.iter())
+                    .zip(stored_fields(self.g, d, c))
+                    .filter(|(_, stored)| *stored)
                     .map(|((name, _), _)| name.clone())
                     .collect(),
             })
@@ -590,7 +623,80 @@ impl<'g> Lowerer<'g> {
         let tree = simplified
             .as_deref()
             .unwrap_or_else(|| body.peel_lams(arity));
-        self.frame_body(&params, |cx| cx.expr(tree))
+        self.in_tree(id, Vec::new(), |cx| {
+            cx.frame_body(&params, |cx| cx.expr(tree))
+        })
+    }
+
+    /// Runs `lower` on `id`'s case tree, with `assumed` the row parameters
+    /// its body has fixed.
+    fn in_tree<T>(
+        &mut self,
+        id: DefId,
+        assumed: Vec<RowConstant>,
+        lower: impl FnOnce(&mut Self) -> Result<T>,
+    ) -> Result<T> {
+        let outer = self.tree.replace(Tree {
+            def: id,
+            assumed,
+            steps: Vec::new(),
+        });
+        let out = lower(self);
+        self.tree = outer;
+        out
+    }
+
+    /// Lowers `lower` one step further down the case tree.
+    fn step<T>(&mut self, step: TreeStep, lower: impl FnOnce(&mut Self) -> T) -> T {
+        if let Some(tree) = &mut self.tree {
+            tree.steps.push(step);
+        }
+        let out = lower(self);
+        if let Some(tree) = &mut self.tree {
+            tree.steps.pop();
+        }
+        out
+    }
+
+    /// The rebuild of each determined field in the branch lowering is in
+    /// (the last step down the tree), found by replaying the kernel's
+    /// refinements from the root of the tree.
+    fn replay_branch(&self) -> Result<Vec<Option<Rebuild>>> {
+        let g = self.g;
+        let tree = (self.tree.as_ref())
+            .ok_or_else(|| internal("a field to rebuild outside a case tree"))?;
+        let mut replay = Replay::of_def(g, tree.def)?;
+        for (x, (d, c)) in &tree.assumed {
+            replay.assume_ctor(g, *x, *d, *c)?;
+        }
+        let Some((last, path)) = tree.steps.split_last() else {
+            return Err(internal("a field to rebuild outside a branch"));
+        };
+        let branch = |replay: &mut Replay, step: &TreeStep| match step {
+            TreeStep::Branch { x, d, c, level } => {
+                if replay.level() != *level {
+                    return Err(internal(format!(
+                        "replaying `{}`'s case tree, a match has {} variables in scope, not {level}",
+                        g.def(tree.def).name(),
+                        replay.level(),
+                    )));
+                }
+                replay
+                    .branch(g, *x, *d, *c)?
+                    .ok_or_else(|| internal("a branch the kernel found impossible has a body"))
+            }
+            TreeStep::NumArm { x, k } => replay.num_arm(g, *x, k).map(|()| Vec::new()),
+            TreeStep::NumDefault { x, arms } => {
+                replay.num_default(g, *x, arms).map(|()| Vec::new())
+            }
+        };
+        for step in path {
+            branch(&mut replay, step)?;
+        }
+        match last {
+            TreeStep::Branch { .. } => branch(&mut replay, last),
+            _ => Err(internal("a field to rebuild outside a branch")),
+        }
     }
 
     /// The body of `id`'s empty-row variant: its row parameters are erased.
@@ -603,7 +709,10 @@ impl<'g> Lowerer<'g> {
         let params: Vec<bool> = (0..self.g.def(id).arity())
             .map(|i| mask.get(i).copied().unwrap_or(false))
             .collect();
-        self.frame_body(&params, |cx| cx.expr(&body))
+        let assumed = self.spec.row_constants(id)?;
+        self.in_tree(id, assumed, |cx| {
+            cx.frame_body(&params, |cx| cx.expr(&body))
+        })
     }
 
     // -------------------------------------------------------- expressions
@@ -1110,8 +1219,8 @@ impl<'g> Lowerer<'g> {
         }
         let t = self.type_id(d);
         let mut fields = Vec::new();
-        for (erased, arg) in data.ctors()[c].field_erased.iter().zip(args) {
-            if !erased {
+        for (stored, arg) in stored_fields(self.g, d, c).into_iter().zip(args) {
+            if stored {
                 fields.push(self.expr(arg)?);
             }
         }
@@ -1151,10 +1260,12 @@ impl<'g> Lowerer<'g> {
             for _ in &data.ctors()[0].fields {
                 self.env.push(Bind::Erased);
             }
-            let out = match &branch.body {
-                Some(body) => self.expr(body),
-                None => Ok(Expr::Unreachable),
-            };
+            let out = self.step(self.branch_step(ix, d, 0, mark.0), |cx| {
+                match &branch.body {
+                    Some(body) => cx.expr(body),
+                    None => Ok(Expr::Unreachable),
+                }
+            });
             self.leave(mark);
             return out;
         }
@@ -1177,10 +1288,12 @@ impl<'g> Lowerer<'g> {
             for i in 0..data.ctors()[0].fields.len() {
                 self.env.push(if i == field { bound } else { Bind::Erased });
             }
-            let out = match &branch.body {
-                Some(body) => self.expr(body),
-                None => Ok(Expr::Unreachable),
-            };
+            let out = self.step(self.branch_step(ix, d, 0, mark.0), |cx| {
+                match &branch.body {
+                    Some(body) => cx.expr(body),
+                    None => Ok(Expr::Unreachable),
+                }
+            });
             self.leave(mark);
             return out;
         }
@@ -1193,10 +1306,12 @@ impl<'g> Lowerer<'g> {
             };
             let mark = self.mark();
             let slot = self.bind_slot();
-            let body = match &branch.body {
-                Some(body) => self.expr(body),
-                None => Ok(Expr::Unreachable),
-            };
+            let body = self.step(self.branch_step(ix, d, 0, mark.0), |cx| {
+                match &branch.body {
+                    Some(body) => cx.expr(body),
+                    None => Ok(Expr::Unreachable),
+                }
+            });
             let used = self.slot_used(slot);
             self.leave(mark);
             let body = body?;
@@ -1222,10 +1337,12 @@ impl<'g> Lowerer<'g> {
             let mark = self.mark();
             let slot = self.bind_slot();
             self.env.push(Bind::Erased);
-            let body = match &branch.body {
-                Some(body) => self.expr(body),
-                None => Ok(Expr::Unreachable),
-            };
+            let body = self.step(self.branch_step(ix, d, 0, mark.0), |cx| {
+                match &branch.body {
+                    Some(body) => cx.expr(body),
+                    None => Ok(Expr::Unreachable),
+                }
+            });
             let used = self.slot_used(slot);
             self.leave(mark);
             let body = body?;
@@ -1251,22 +1368,37 @@ impl<'g> Lowerer<'g> {
         let mut arms = Vec::new();
         for (c, branch) in branches.iter().enumerate() {
             let mark = self.mark();
+            let erased = &data.ctors()[c].field_erased;
+            let stored = stored_fields(self.g, d, c);
+            let determined = ctor_determined(self.g, d, c);
             let mut fields = Vec::new();
+            // The determined fields: each one's index and slot, and
+            // whether it's stored as well (to check its rebuild).
+            let mut rebuilt = Vec::new();
             let mut runtime = 0u32;
-            for erased in &data.ctors()[c].field_erased {
-                if *erased {
+            for (i, stored) in stored.into_iter().enumerate() {
+                if erased[i] {
                     self.env.push(Bind::Erased);
-                } else {
-                    fields.push((runtime, self.bind_slot()));
+                } else if stored {
+                    let slot = self.bind_slot();
+                    fields.push((runtime, slot));
                     runtime += 1;
+                    if determined[i] {
+                        rebuilt.push((i, slot, true));
+                    }
+                } else {
+                    rebuilt.push((i, self.bind_slot(), false));
                 }
             }
-            let body = match &branch.body {
-                Some(body) => self.expr(body),
-                // An impossible branch (docs/proposals/indexed-families.md
-                // §6.8): never reached by a well-typed value.
-                None => Ok(Expr::Unreachable),
-            };
+            let body = self.step(self.branch_step(ix, d, c, mark.0), |cx| {
+                let Some(body) = &branch.body else {
+                    // An impossible branch (docs/proposals/indexed-families.md
+                    // §6.8): never reached by a well-typed value.
+                    return Ok(Expr::Unreachable);
+                };
+                let body = cx.expr(body)?;
+                cx.rebuild_fields(body, mark.0, &rebuilt)
+            });
             fields.retain(|(_, slot)| self.slot_used(*slot));
             self.leave(mark);
             arms.push(Arm {
@@ -1278,13 +1410,139 @@ impl<'g> Lowerer<'g> {
         Ok(Expr::Match(Box::new(scrutinee), kind, arms))
     }
 
-    fn num_case(&mut self, ix: usize, arms: &[NumArm], default: &Term) -> Result<Expr> {
+    /// How the census of rebuilds shows the rebuild of field `i` in the
+    /// branch lowering is in: the definition, the constructor and field,
+    /// and the rebuild's source term.
+    fn census_line(&self, i: usize, rebuild: &Rebuild) -> String {
+        let Some(tree) = &self.tree else {
+            return format!("field {i}: {:?}", rebuild.source);
+        };
+        let ctor = match tree.steps.last() {
+            Some(TreeStep::Branch { d, c, .. }) => Some(&self.g.data(*d).ctors()[*c]),
+            _ => None,
+        };
+        let field = ctor.map_or_else(
+            || format!("field {i}"),
+            |c| format!("{}.{}", c.name, c.fields[i].0),
+        );
+        let names: Vec<stitchwort_core::term::Name> = (0..self.env.len())
+            .map(|l| format!("x{l}").into())
+            .collect();
+        let source = stitchwort_core::pretty::term(self.g, &names, &rebuild.source);
+        format!(
+            "{}: {field} := {source} - {}",
+            self.g.def(tree.def).name(),
+            rebuild.minus
+        )
+    }
+
+    /// The step into the branch for constructor `c` of a case on variable
+    /// `ix` of type `d`, with `level` variables in scope before its fields.
+    fn branch_step(&self, ix: usize, d: DataId, c: usize, level: usize) -> TreeStep {
+        TreeStep::Branch {
+            x: level - 1 - ix,
+            d,
+            c,
+            level,
+        }
+    }
+
+    /// `body`, a branch's whose fields are bound from level `base`, with the
+    /// determined fields it uses rebuilt around it. Each of `rebuilt` is a
+    /// field's index, its slot and whether the cell stores it as well
+    /// ([`crate::erasure::check_rebuilds`]). A field that isn't stored is
+    /// bound by a `let` of its rebuild if the body (or another rebuild)
+    /// reads its slot, outside the rebuilds that read it. A stored one is
+    /// compared with its rebuild, and the run stops as at unreachable code
+    /// unless they're equal.
+    fn rebuild_fields(
+        &mut self,
+        body: Expr,
+        base: usize,
+        rebuilt: &[(usize, Slot, bool)],
+    ) -> Result<Expr> {
+        let checked = rebuilt.iter().any(|(_, _, stored)| *stored);
+        if !checked && !rebuilt.iter().any(|(_, slot, _)| self.slot_used(*slot)) {
+            return Ok(body);
+        }
+        let rebuilds = self.replay_branch()?;
+        let level = self.env.len();
+        let rebuild = |cx: &mut Self, i: usize| -> Result<(Expr, Vec<usize>)> {
+            let Some(rebuild) = &rebuilds[i] else {
+                return Err(internal("a determined field without a rebuild"));
+            };
+            if !rebuild.is_trivial() {
+                crate::erasure::note_rebuild(|| cx.census_line(i, rebuild));
+            }
+            let source = cx.expr(&rebuild.source)?;
+            let reads = free_levels(&rebuild.source, level);
+            Ok(if rebuild.minus == BigUint::ZERO {
+                (source, reads)
+            } else {
+                let minus = Expr::Lit(Lit::Nat(rebuild.minus.clone()));
+                (
+                    Expr::Prim(PrimOp::Nat(Native::Sub), vec![source, minus]),
+                    reads,
+                )
+            })
+        };
+        let mut body = body;
+        if checked {
+            for (i, slot, _) in rebuilt.iter().filter(|(_, _, stored)| *stored) {
+                let (value, _) = rebuild(self, *i)?;
+                self.frame().used[*slot as usize] = true;
+                let same = Expr::Prim(PrimOp::Nat(Native::EqNat), vec![value, Expr::Local(*slot)]);
+                body = Expr::If(Box::new(same), Box::new(body), Box::new(Expr::Unreachable));
+            }
+            return Ok(body);
+        }
+        // The rebuilds whose slots are read, found until no rebuild reads
+        // another's slot that isn't among them, each with the levels it
+        // reads.
+        let mut lets: Vec<(usize, Slot, Expr, Vec<usize>)> = Vec::new();
+        loop {
+            let next = rebuilt
+                .iter()
+                .find(|(i, slot, _)| self.slot_used(*slot) && !lets.iter().any(|(j, ..)| j == i));
+            let Some((i, slot, _)) = next else { break };
+            let (value, reads) = rebuild(self, *i)?;
+            lets.push((*i, *slot, value, reads));
+        }
+        // Innermost first: a rebuild that no other one left reads.
+        while !lets.is_empty() {
+            let inner = (0..lets.len())
+                .find(|&k| {
+                    let at = base + lets[k].0;
+                    !lets.iter().any(|(_, _, _, reads)| reads.contains(&at))
+                })
+                .ok_or_else(|| internal("rebuilt fields that read each other"))?;
+            let (_, slot, value, _) = lets.swap_remove(inner);
+            body = Expr::Let(slot, Box::new(value), Box::new(body));
+        }
+        Ok(body)
+    }
+
+    fn num_case(&mut self, ix: usize, all_arms: &Rc<[NumArm]>, default: &Term) -> Result<Expr> {
         let scrutinee = self.var(ix);
-        let arms = arms
+        let x = self.env.len() - 1 - ix;
+        let arms = all_arms
             .iter()
-            .map(|arm| Ok(((*arm.value).clone(), self.expr(&arm.body)?)))
+            .map(|arm| {
+                let step = TreeStep::NumArm {
+                    x,
+                    k: arm.value.clone(),
+                };
+                Ok((
+                    (*arm.value).clone(),
+                    self.step(step, |cx| cx.expr(&arm.body))?,
+                ))
+            })
             .collect::<Result<Vec<_>>>()?;
-        let default = self.expr(default)?;
+        let step = TreeStep::NumDefault {
+            x,
+            arms: all_arms.clone(),
+        };
+        let default = self.step(step, |cx| cx.expr(default))?;
         Ok(Expr::NumSwitch(
             Box::new(scrutinee),
             arms,
@@ -1309,4 +1567,18 @@ fn apply(f: Expr, args: Vec<Expr>) -> Expr {
     } else {
         Expr::Apply(Box::new(f), args)
     }
+}
+
+/// The levels of the free variables of `term`, with `level` variables in
+/// scope.
+fn free_levels(term: &Term, level: usize) -> Vec<usize> {
+    term.subterms()
+        .filter_map(|(t, binders)| match t {
+            Term::Var(ix) | Term::Case(ix, ..) | Term::NumCase(ix, ..) => {
+                let ix = ix.checked_sub(binders)?;
+                level.checked_sub(ix + 1)
+            }
+            _ => None,
+        })
+        .collect()
 }
