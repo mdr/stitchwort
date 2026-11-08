@@ -59,6 +59,7 @@ use std::rc::Rc;
 
 use stitchwort_core::ResourceError;
 
+use crate::cell_cache::CellCache;
 use crate::code::{Image, Instr, NO_REG};
 use crate::effect::{EffectCounts, EffectOp, Handler, Resume};
 use crate::ir::{MainRow, PrimOp, Program, Shapes};
@@ -506,6 +507,8 @@ pub struct Context {
     /// when this isn't 0, at the next point it drops a function value it
     /// was given to drop.
     pub deferred: u64,
+    /// The run's freed cells, lent for the call ([`crate::cell_cache`]).
+    pub cells: CellCache,
 }
 
 impl Context {
@@ -517,6 +520,7 @@ impl Context {
     pub const STACK_LIMIT_AT: i32 = std::mem::offset_of!(Context, stack_limit) as i32;
     pub const TABLES_AT: i32 = std::mem::offset_of!(Context, tables) as i32;
     pub const DEFERRED_AT: i32 = std::mem::offset_of!(Context, deferred) as i32;
+    pub const CELLS_AT: i32 = std::mem::offset_of!(Context, cells) as i32;
 
     /// The error native code stopped with, if any.
     pub fn result(&self) -> Result<(), ResourceError> {
@@ -745,6 +749,8 @@ pub(crate) struct NativeRun<'a> {
     /// [`Context::stack_limit`]: the lowest stack address native code may
     /// call from.
     pub stack_floor: u64,
+    /// The run's freed cells, lent to each call's context.
+    pub cells: &'a mut CellCache,
 }
 
 impl NativeRun<'_> {
@@ -1014,6 +1020,7 @@ impl Crossing {
             tables: self.tables.tables(),
             resumes: u64::from(self.resumes),
             deferred: 0,
+            cells: run.cells.lend(),
         }
     }
 
@@ -1024,13 +1031,14 @@ impl Crossing {
     /// error).
     #[allow(unsafe_code)]
     unsafe fn finish(
-        context: &Context,
+        context: &mut Context,
         out: MaybeUninit<Value>,
         run: &mut NativeRun<'_>,
     ) -> Result<Value, ResourceError> {
         // SAFETY: the caller's contract.
         let result = unsafe { out.assume_init() };
         run.steps = context.steps;
+        *run.cells = std::mem::take(&mut context.cells);
         context.result().map(|()| result)
     }
 
@@ -1054,7 +1062,7 @@ impl Crossing {
         // pointers are to locals.
         unsafe { (self.enter)(&mut context, out.as_mut_ptr()) };
         // SAFETY: the entry wrote a whole value.
-        unsafe { Crossing::finish(&context, out, run) }
+        unsafe { Crossing::finish(&mut context, out, run) }
     }
 
     /// `f` applied to `args` (one or two) through the apply stub, as the
@@ -1086,7 +1094,7 @@ impl Crossing {
         unsafe {
             args.set_len(0);
             std::mem::ManuallyDrop::drop(&mut args);
-            Crossing::finish(&context, out, run)
+            Crossing::finish(&mut context, out, run)
         }
     }
 
@@ -1116,7 +1124,7 @@ impl Crossing {
         unsafe { trampoline(&mut context, &mut *c, handler, out.as_mut_ptr()) };
         // SAFETY: the loop took the computation and the handler, and wrote
         // a whole value.
-        unsafe { Crossing::finish(&context, out, run) }
+        unsafe { Crossing::finish(&mut context, out, run) }
     }
 }
 
@@ -1153,6 +1161,8 @@ pub struct NativeExecutor {
     /// The bodies with the most frames pending when the frame limit was
     /// last hit, as the machine's `deepest`.
     deepest: Vec<(u32, usize)>,
+    /// The run's freed cells, freed when it ends.
+    cells: CellCache,
 }
 
 impl NativeExecutor {
@@ -1178,6 +1188,7 @@ impl NativeExecutor {
             stack_size,
             stack_floor: None,
             deepest: Vec::new(),
+            cells: CellCache::default(),
         }
     }
 
@@ -1241,6 +1252,7 @@ impl NativeExecutor {
             deferred: Vec::new(),
             bodies: Vec::new(),
             stack_floor,
+            cells: &mut self.cells,
         };
         let out = call(crossing, &mut run);
         self.steps = run.steps;
@@ -1252,6 +1264,8 @@ impl NativeExecutor {
         }
         if out.is_err() {
             run.release_failed();
+            // A failed crossing ends the run.
+            *run.cells = CellCache::default();
         }
         // Compiled code drops every function value it put off
         // (`sw_defer_fun`) at the next one it was given to drop, so none is
@@ -1506,6 +1520,17 @@ pub unsafe extern "C" fn sw_cell_free(cell: u64, n: u64) {
     crate::call_counts::hit(crate::call_counts::Helper::CellFree);
     let fields = (cell + RC_VALUE_AT as u64) as *const MaybeUninit<Value>;
     crate::alloc_trace::dec_at(fields.cast(), n as usize, true);
+    // SAFETY: the caller's contract.
+    unsafe { free_emptied(cell, n) };
+}
+
+/// [`sw_cell_free`], unrecorded: also how the cell cache frees a block.
+///
+/// # Safety
+/// As [`sw_cell_free`]'s.
+#[allow(unsafe_code)]
+pub(crate) unsafe fn free_emptied(cell: u64, n: u64) {
+    let fields = (cell + RC_VALUE_AT as u64) as *const MaybeUninit<Value>;
     // SAFETY (both paths): the cell is an `Rc<[Value]>` of `n` fields
     // (however it was built), so its data has the size and alignment of
     // `n` `MaybeUninit<Value>`s, which is what `Rc::from_raw` asks of a

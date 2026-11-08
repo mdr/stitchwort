@@ -1,0 +1,147 @@
+//! A run's cache of freed cells, which native code takes from and gives
+//! back to inline, in front of the global allocator (docs/proposals/cell-allocator.md,
+//! option C; a trial, SW-2363).
+//!
+//! A cached block is the allocation of an `Rc<[Value]>` of 1 to
+//! [`ARITIES`] fields that native code's `Unpack` emptied while it was
+//! unique (strong and weak counts 1), and so would otherwise have freed.
+//! It is never deallocated while cached, so when it's taken again it's an
+//! allocation of exactly the layout an `Rc<[Value]>` of that many fields
+//! frees, as [`sw_cell_new`](crate::native_abi::sw_cell_new)'s are, and any
+//! Rust drop can free it. A block is in at most one list, and is either
+//! cached or live, never both: only the code that held its last reference
+//! caches it, and taking it removes it from the list.
+//!
+//! The lists are threaded through the blocks' strong-count words (the next
+//! block's address, or 0); a cached block's weak count stays 1, so taking
+//! a block only stores its strong count. Native code fills every field of
+//! a taken cell before it's read, as it does a new one.
+//!
+//! The cache belongs to a [`NativeExecutor`](crate::native_abi::NativeExecutor),
+//! which lends it to each crossing's [`Context`](crate::native_abi::Context)
+//! and takes it back after; dropping it (when the run ends, or a crossing
+//! fails) frees every block it holds. Code compiled with `trace_refcounts`
+//! doesn't use it, and other code is lent an empty cache with no room while
+//! a trace may be recording ([`CellCache::lend`]), so the allocation trace
+//! sees every allocation and free.
+
+use std::sync::atomic::{AtomicU64, Ordering};
+
+use crate::native_abi::{RC_VALUE_AT, STRONG_AT, WEAK_AT};
+use crate::value::Value;
+
+/// Whether native code uses the cache: the one switch. Off, the generated
+/// code is as it was before the cache, and the lists stay empty.
+pub const ENABLED: bool = true;
+
+/// The most fields a cached cell has (the helpers' fixed sizes).
+pub const ARITIES: u64 = 8;
+
+/// The most bytes the cache holds, so the blocks it keeps from the
+/// allocator are bounded.
+pub const CAP: u64 = 64 << 20;
+
+/// The size of a cell of `n` fields' allocation: what the cache counts
+/// against [`CAP`].
+pub const fn block_bytes(n: u64) -> u64 {
+    RC_VALUE_AT as u64 + n * size_of::<Value>() as u64
+}
+
+/// The lists, at the offsets native code reads (`repr(C)`).
+#[repr(C)]
+pub struct CellCache {
+    /// For cells of `n` fields, at `n - 1`: the first cached block's
+    /// address (where its counts are), or 0.
+    pub heads: [u64; ARITIES as usize],
+    /// The bytes more the cache may hold.
+    pub room: u64,
+}
+
+impl CellCache {
+    /// The offset of the list of cells of `n` fields (1 to [`ARITIES`]).
+    pub const fn head_at(n: u64) -> i32 {
+        assert!(n >= 1 && n <= ARITIES);
+        (std::mem::offset_of!(CellCache, heads) + (n as usize - 1) * 8) as i32
+    }
+
+    pub const ROOM_AT: i32 = std::mem::offset_of!(CellCache, room) as i32;
+
+    /// The cache for a crossing's context, taken from the run's. While an
+    /// allocation trace may be recording, an empty one with no room, so
+    /// native code makes and frees every cell through the runtime, which
+    /// records it (the tests compare untraced code's trace with the
+    /// machine's too).
+    pub(crate) fn lend(&mut self) -> CellCache {
+        if crate::alloc_trace::recording() {
+            *self = CellCache::default();
+            CellCache {
+                heads: [0; ARITIES as usize],
+                room: 0,
+            }
+        } else {
+            std::mem::take(self)
+        }
+    }
+}
+
+impl Default for CellCache {
+    fn default() -> CellCache {
+        CellCache {
+            heads: [0; ARITIES as usize],
+            room: CAP,
+        }
+    }
+}
+
+/// Blocks freed by draining caches, in this process: for tests, to see
+/// that a run cached something.
+static DRAINED: AtomicU64 = AtomicU64::new(0);
+
+/// How many cached blocks caches have freed so far, in this process.
+pub fn drained() -> u64 {
+    DRAINED.load(Ordering::Relaxed)
+}
+
+impl Drop for CellCache {
+    #[allow(unsafe_code)]
+    fn drop(&mut self) {
+        let mut freed = 0;
+        for (i, head) in self.heads.iter_mut().enumerate() {
+            let n = i as u64 + 1;
+            let mut block = std::mem::take(head);
+            while block != 0 {
+                // SAFETY: a cached block is an `Rc<[Value]>` allocation of
+                // `n` fields that nothing else refers to (the module's
+                // invariant), whose strong-count word holds the next.
+                unsafe {
+                    let at = block as *const u8;
+                    debug_assert_eq!(at.add(WEAK_AT as usize).cast::<u64>().read(), 1);
+                    let next = at.add(STRONG_AT as usize).cast::<u64>().read();
+                    free_block(block, n);
+                    block = next;
+                }
+                freed += 1;
+            }
+        }
+        self.room = CAP;
+        if freed > 0 {
+            DRAINED.fetch_add(freed, Ordering::Relaxed);
+        }
+    }
+}
+
+/// Frees the block of a cell of `n` fields at `cell`, as
+/// [`sw_cell_free`](crate::native_abi::sw_cell_free) frees an emptied
+/// cell, once its strong count (the list's link) is 1 again.
+///
+/// # Safety
+/// `cell` is the address of an `Rc<[Value]>` allocation of `n` fields
+/// that nothing else refers to, with a weak count of 1.
+#[allow(unsafe_code)]
+unsafe fn free_block(cell: u64, n: u64) {
+    // SAFETY: the caller's contract.
+    unsafe {
+        (cell as *mut u64).add(STRONG_AT as usize / 8).write(1);
+        crate::native_abi::free_emptied(cell, n);
+    }
+}

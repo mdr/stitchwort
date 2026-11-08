@@ -42,6 +42,15 @@ use crate::value::Value;
 /// Whether this build records traces.
 pub const ENABLED: bool = cfg!(feature = "alloc-trace");
 
+/// Whether a recording may be in progress, on any thread.
+#[inline(always)]
+pub(crate) fn recording() -> bool {
+    #[cfg(feature = "alloc-trace")]
+    return enabled::recording();
+    #[cfg(not(feature = "alloc-trace"))]
+    false
+}
+
 /// A new cell of `tag` with `fields`.
 #[inline(always)]
 pub(crate) fn alloc(tag: u32, fields: &Rc<[Value]>) {
