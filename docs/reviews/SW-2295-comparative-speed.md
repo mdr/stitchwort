@@ -202,3 +202,25 @@ native / Lean **23 → 20 → 16 → 14.9 → 12.0 → 11.7**. binary-trees' tim
 instructions: the cell cache removed cheap instructions (SW-2363's report). What's left on
 expressions and scan is mostly allocation and freeing (SW-2417; D3430). Raw files: Overmind's
 `target/compare/2026-11-08T175841-overmind.{json,md}`.
+
+## After the evening's small fixes (Overmind, 8 Nov 2026 22:59, `610279d59`)
+
+Same command and machine, 1619 s. Adds SW-2433 (shared JumpK), SW-2440 (strong count only), SW-2443
+(freeing cells with no deep fields), SW-2398/SW-2399 (Fin as numbers; AoC only). The reference runners
+drifted 0–4% faster over the same interval, so about 2–3% of each native time change is common drift.
+
+| Program | native | CPython | PyPy | Lean | native / CPython | native / Lean | native time vs previous | native instructions vs previous |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| pidigits | 1.29 s | 3.71 s | 3.22 s | 1.97 s | 0.35 | 0.65 | −2.3% | −0.1% |
+| binary-trees | 2.66 s | 9.81 s | 1.46 s | 969 ms | 0.27 | 2.74 | −7.6% | −1.7% |
+| memory-game | 4.34 s | 8.09 s | 5.20 s | 785 ms | 0.54 | 5.53 | −6.3% | +0.5% |
+| dijkstra | 2.63 s | 840 ms | 507 ms | 204 ms | 3.13 | 12.88 | −1.5% | −3.8% |
+| octopus | 3.09 s | 1.51 s | 474 ms | 220 ms | 2.04 | 14.07 | −4.0% | −5.1% |
+| disk | 13.31 s | 2.24 s | 1.92 s | 754 ms | 5.95 | 17.64 | −6.1% | −7.4% |
+| expressions | 47.61 s | 2.13 s | 1.76 s | 657 ms | 22.35 | 72.49 | −4.4% | −5.1% |
+| scan | 43.94 s | 826 ms | 141 ms | 584 ms | 53.21 | 75.22 | −2.9% | −5.1% |
+| matcher | 8.66 s | 4.61 s | 2.84 s | 853 ms | 1.88 | 10.15 | −1.5% | −2.5% |
+| bridge | 15.47 s | 3.46 s | 1.21 s | 820 ms | 4.47 | 18.88 | −4.0% | −5.1% |
+
+Geometric means: native / CPython **… → 2.8 → 2.7** (2.68), native / Lean **… → 11.7 → 11.3** (11.26).
+Raw files: Overmind's `target/compare/2026-11-08T225859-overmind.{json,md}`.
