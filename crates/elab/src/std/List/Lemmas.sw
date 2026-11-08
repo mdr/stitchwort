@@ -343,6 +343,20 @@ theorem List.sumByFrom [auto add: Add b]: (xs: List a) → (z: b) → (f: a → 
 theorem List.sumByCons [auto add: Add b] (xs: List a) (x: a) (f: a → b): List.sumBy [x, ..xs] f = f x + List.sumBy xs f :=
   Eq.trans (Eq.cong (t => List.foldLeft xs t (acc x => acc + f x)) (add.zeroAdd (f x))) (List.sumByFrom xs (f x) f)
 
+--| The sum of `f` over `length` numbers counting up from `start`, without
+--| building the list of them: `Nat.sumFrom 3 f 2` is `f 3 + f 4`. It is
+--| `List.sumBy (List.rangeFrom length start) f` ([`Nat.sumFromRangeFrom`]).
+def Nat.sumFrom (start: Nat) (f: Nat → Nat): (length: Nat) → Nat
+  | Zero => 0
+  | Succ more => f start + Nat.sumFrom (Succ start) f more
+
+--| Summing over numbers counting up from `start` is summing over the list
+--| of them, `List.rangeFrom length start`: the specification of [`Nat.sumFrom`].
+theorem Nat.sumFromRangeFrom (f: Nat → Nat): (length: Nat) → (start: Nat) → Nat.sumFrom start f length = List.sumBy (List.rangeFrom length start) f
+  | Zero, start => rfl
+  | Succ more, start =>
+    rewrite List.sumByCons (List.rangeFrom more (Succ start)) start f, Nat.sumFromRangeFrom f more (Succ start) in rfl
+
 theorem List.sumByAppend [auto add: Add b] (xs: List a) (ys: List a) (f: a → b): List.sumBy (List.append xs ys) f = List.sumBy xs f + List.sumBy ys f :=
   Eq.trans (List.foldLeftAppend xs Add.zero ys (acc x => acc + f x)) (List.sumByFrom ys (List.sumBy xs f) f)
 

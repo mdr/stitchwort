@@ -5,7 +5,7 @@
 
 namespace Aoc.Common.Proofs
 import Aoc.Common (..)
-import Std (Bool, Eq, List, Option, Void)
+import Std (Bool, Eq, List, Nat, Option, Void)
 
 --| How many of the cells around `at` pass `keep`, looked up position by
 --| position, is how many cells touching `at` pass it.
@@ -38,13 +38,6 @@ theorem countAround (rows: List (List a)) (keep: a → Bool) (at: Position):
           match cell with
             | (other, x) => rewrite cellAtOfMemCells rows other x member in rfl)
 
---| Summing over numbers counting up from `start` is summing over the list
---| of them.
-theorem sumFromRangeFrom (f: Nat → Nat): (length: Nat) → (start: Nat) → sumFrom start f length = List.sumBy (List.rangeFrom length start) f
-  | Zero, start => rfl
-  | Succ more, start =>
-    rewrite List.sumByCons (List.rangeFrom more (Succ start)) start f, sumFromRangeFrom f more (Succ start) in rfl
-
 --| Counting the positions around `at` that pass `keep` without building
 --| them as lists is counting them in the list `at.around`.
 theorem countAroundIsAround (at: Position) (keep: Position → Bool): at.countAround keep = at.around.count keep :=
@@ -62,8 +55,8 @@ theorem countAroundIsAround (at: Position) (keep: Position → Bool): at.countAr
           | False => rfl))
   calc at.countAround keep
     _ = List.sumBy rows (row => List.sumBy columns (column => cell row column)) :=
-      rewrite sumFromRangeFrom (row => sumFrom (at.column - 1) (column => cell row column) (at.column + 1 + 1 - (at.column - 1))) (at.row + 1 + 1 - (at.row - 1)) (at.row - 1) in
-        List.sumByCong rows _ _ (row => sumFromRangeFrom (column => cell row column) (at.column + 1 + 1 - (at.column - 1)) (at.column - 1))
+      rewrite Nat.sumFromRangeFrom (row => Nat.sumFrom (at.column - 1) (column => cell row column) (at.column + 1 + 1 - (at.column - 1))) (at.row + 1 + 1 - (at.row - 1)) (at.row - 1) in
+        List.sumByCong rows _ _ (row => Nat.sumFromRangeFrom (column => cell row column) (at.column + 1 + 1 - (at.column - 1)) (at.column - 1))
     _ = List.sumBy (List.flatMap rows (row => List.map columns (column => mk row column))) weight :=
       Eq.sym (Eq.trans (List.sumByFlatMap rows weight (row => List.map columns (column => mk row column))) (List.sumByCong rows _ _ rowSum))
     _ = List.sumBy (at.around) (position => Bool.toNat (keep position)) :=
