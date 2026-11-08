@@ -23389,7 +23389,7 @@
         "std"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/reviews/SW-2371-map-rebuild-reuse.md. After SW-2382. 60-90 min.",
+      "body": "From docs/reviews/SW-2371-map-rebuild-reuse.md. After SW-2382. 60-90 min.\n\nHeld 8 Nov 09:20 (orchestrator) for SW-2384: Matt prefers a general compiler fix over reshaping std code.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -23397,14 +23397,14 @@
     {
       "id": 2384,
       "title": "Compiler: carry a reuse token into a callee (or inline balance/rebuild), so an Unpack in one body can be reused by a Ctor in the function it calls",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/reviews/SW-2371-map-rebuild-reuse.md. Design first. 60 min paper.",
+      "body": "From docs/reviews/SW-2371-map-rebuild-reuse.md. Design first. 60 min paper.\n\nStarted 09:20 UTC, Opus paper lane (research), expected 75 min. Matt, 8 Nov: research how Lean, Koka and others implement reuse in general and how ours could carry it across calls, so std code needn't be reshaped to suit the compiler.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
