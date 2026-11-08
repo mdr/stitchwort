@@ -61,6 +61,18 @@ theorem List.gaussSum: (d: Nat) → (x: Nat) →
   | Zero, x => ring
   | Succ d, x => rewrite List.sumCons x (List.rangeFrom (Succ d) (Succ x)) in ring [List.gaussSum d (Succ x)]
 
+--| The sum of `count` consecutive numbers from `start`, closed form:
+--| `(List.rangeFrom 4 10).sum` is `4 * 10 + 4 * 3 / 2`, 46. Gauss's rule
+--| ([`List.gaussSum`]) with the product `count * (count - 1)` always even.
+theorem List.sumRangeFrom (count: Nat) (start: Nat): List.sum (List.rangeFrom count start) = count * start + count * (count - 1) / 2 :=
+  match count with
+    | Zero => rfl
+    | Succ d =>
+      let gauss := List.gaussSum d start
+      let expand: d * (start + (start + d)) = 2 * (d * start) + d * d := ring
+      let shape: Succ d * start = start + d * start := ring
+      omega [gauss, expand, shape]
+
 theorem Nat.spanEmpty (x: Nat) (y: Nat) (h: y ≤ x): Nat.span x y = 0 := Eq.cong (t => List.sum (List.rangeFrom t x)) (Nat.subEqZero y x h)
 
 theorem Nat.spanStep (s: Nat) (y: Nat) (h: Succ s ≤ y): Nat.span s y = s + Nat.span (Succ s) y :=

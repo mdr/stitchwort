@@ -136,6 +136,14 @@ theorem notCoversBefore (span: Span) (position: Nat) (before: position < span.st
     | True => Void.exfalso (omega [(Span.coversIff span position).forward e])
     | False => rfl
 
+--| A file's part of the checksum is its number times its blocks' positions added up.
+theorem fileChecksumSpec (file: File): file.checksum = List.sumBy (List.rangeFrom file.span.length file.span.start) (* file.id) :=
+  calc file.checksum
+    _ = file.id * (file.span.length * file.span.start + file.span.length * (file.span.length - 1) / 2) := rfl
+    _ = file.id * List.sum (List.rangeFrom file.span.length file.span.start) := rewrite List.sumRangeFrom file.span.length file.span.start in rfl
+    _ = List.sumBy (List.rangeFrom file.span.length file.span.start) (x => file.id * x) := Eq.sym (List.sumByMulLeft _ file.id (x => x))
+    _ = List.sumBy (List.rangeFrom file.span.length file.span.start) (* file.id) := List.sumByCong _ _ _ (x => Nat.mulComm file.id x)
+
 --| A file's part of the checksum is the sum, over the disk's positions, of the position times the file's number there.
 theorem fileChecksumRange (file: File) (size: Nat) (within: file.span.end ≤ size):
     (List.range 0 size).sumBy (position => position * file.numberAt position) = file.checksum :=
@@ -151,7 +159,7 @@ theorem fileChecksumRange (file: File) (size: Nat) (within: file.span.end ≤ si
     _ = (List.range 0 file.span.length).sumBy (i => (file.span.start + i) * file.id) :=
       List.sumByCongRange _ _ 0 file.span.length (i low high =>
         rewrite (Span.coversIff file.span (file.span.start + i)).backward (Both (omega) (omega)) in rfl)
-    _ = file.checksum := Eq.sym (List.sumByRangeOffset (position => position * file.id) file.span.start file.span.length)
+    _ = file.checksum := Eq.trans (Eq.sym (List.sumByRangeOffset (position => position * file.id) file.span.start file.span.length)) (Eq.sym (fileChecksumSpec file))
 
 --| The program's checksum of a drawing, as a sum over the positions.
 theorem drawFilesChecksum (size: Nat) (files: List File):
@@ -161,7 +169,7 @@ theorem drawFilesChecksum (size: Nat) (files: List File):
   let term := (pair: (Nat, Block)) => pair.fst * pair.snd.idOr 0
   calc disk.checksum
     _ = (List.map (List.range 0 disk.blocks.length) (i => (i, disk.blocks.getOr i Free))).sumBy term :=
-      Eq.cong (.sumBy term) (List.withIndexRange disk.blocks Free)
+      Eq.trans (checksumSum disk) (Eq.cong (.sumBy term) (List.withIndexRange disk.blocks Free))
     _ = (List.range 0 disk.blocks.length).sumBy (i => i * (disk.at i).idOr 0) :=
       List.sumByMap (List.range 0 disk.blocks.length) term (i => (i, disk.blocks.getOr i Free))
     _ = (List.range 0 size).sumBy (i => i * (disk.at i).idOr 0) := rewrite length in rfl

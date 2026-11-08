@@ -169,12 +169,31 @@ theorem blockChecksumCorrect (position: Nat): (block: Block) → position * bloc
   | Free => Nat.mulZero position
   | FileBlock id => rfl
 
+--| The checksum's running pair after some blocks, from any starting total and position.
+theorem checksumFold: (blocks: List Block) → (total: Nat) → (position: Nat) →
+    blocks.foldLeft (total, position) Disk.checksumStep
+      = (total + (List.withIndexFrom position blocks).sumBy (pair => pair.fst * pair.snd.idOr 0), position + blocks.length)
+  | [], total, position => rfl
+  | [block, ..rest], total, position =>
+    rewrite checksumFold rest (total + position * block.idOr 0) (Succ position),
+      List.sumByCons (List.withIndexFrom (Succ position) rest) (position, block) (pair => pair.fst * pair.snd.idOr 0) in
+      let sums: total + position * block.idOr 0 + (List.withIndexFrom (Succ position) rest).sumBy (pair => pair.fst * pair.snd.idOr 0)
+        = total + (position * block.idOr 0 + (List.withIndexFrom (Succ position) rest).sumBy (pair => pair.fst * pair.snd.idOr 0)) := ring
+      let lengths: Succ position + rest.length = position + Succ rest.length := ring
+      rewrite sums, lengths in rfl
+
+--| The checksum counted as the program does is the sum over the indexed blocks.
+theorem checksumSum (disk: Disk): disk.checksum = disk.blocks.withIndex.sumBy (pair => pair.fst * pair.snd.idOr 0) :=
+  rewrite checksumFold disk.blocks 0 0 in ring
+
 --| The program's checksum is the puzzle's.
 theorem checksumCorrect (disk: Disk): disk.checksum = filesystemChecksum disk :=
   Eq.trans
+    (checksumSum disk)
+    (Eq.trans
     (List.sumByCongMem disk.blocks.withIndex (pair => pair.fst * pair.snd.idOr 0) (pair => Option.getOrElse (Option.map pair.snd.id (id => pair.fst * id)) 0)
       (pair member => blockChecksumCorrect pair.fst pair.snd))
-    (Eq.sym (List.sumFilterMap (pair => pair.snd.id.map (id => pair.fst * id)) disk.blocks.withIndex))
+    (Eq.sym (List.sumFilterMap (pair => pair.snd.id.map (id => pair.fst * id)) disk.blocks.withIndex)))
 
 --| Part 1 is the puzzle's moves, one block at a time, then the checksum.
 theorem part1Correct (diskMap: DiskMap): solvePart1 diskMap = part1 diskMap :=
