@@ -924,6 +924,67 @@ fn map_reuses_its_cells() {
     });
 }
 
+/// A call's arguments read for the last time are moved in, even when a
+/// later argument binds the same slot for its own variable: here `a` and `c`
+/// share a slot, and each `total` call is the last read of its list
+/// (SW-2388: `a` was copied, so the list passed on had a count of 2 and
+/// couldn't be reused in place).
+#[test]
+fn arguments_are_moved_past_siblings_sharing_slots() {
+    with_stack(STACK, || {
+        let mut session = Session::for_stack(STACK);
+        session
+            .load(
+                "test.sw",
+                "import Std (Nat, Text, List)\n\
+                 def total (xs: List Nat) (ys: List Nat): Nat :=\n\
+                 \x20 match xs with\n\
+                 \x20   | [] => ys.length\n\
+                 \x20   | [x, ..rest] => x + total rest ys\n\
+                 def step (n: Nat) (m: Nat): Nat :=\n\
+                 \x20 (let a := List.range 0 n; total a (a.map (x => x + m)))\n\
+                 \x20   * (let c := List.range 0 m; total c (c.map (x => x + n)))\n\
+                 def main(): {IO} () := IO.print (Nat.toText (step 3 4))\n",
+            )
+            .unwrap_or_else(|e| panic!("doesn't check: {e:?}"));
+        let main = session.main().expect("main");
+        let program = lowered(&session, &main, "test.sw");
+        let image = stitchwort_rt::code::compile(&program);
+        let global = |name: &str| {
+            program
+                .globals
+                .iter()
+                .position(|g| &*g.name == name)
+                .unwrap_or_else(|| panic!("{name} is used"))
+        };
+        let total = u32::try_from(global("Main.total")).expect("fits");
+        let step = global("Main.step");
+        let code = &image.codes[image.global_code[step].expect("step has code") as usize];
+        let calls: Vec<_> = code
+            .instrs
+            .iter()
+            .filter_map(|i| match i {
+                stitchwort_rt::code::Instr::Call { g, args, .. }
+                | stitchwort_rt::code::Instr::TailCall { g, args }
+                    if *g == total =>
+                {
+                    Some(*args)
+                }
+                _ => None,
+            })
+            .collect();
+        assert_eq!(calls.len(), 2, "{:?}", code.instrs);
+        for args in calls {
+            let ops = &code.ops[args.start as usize..(args.start + args.len) as usize];
+            assert!(
+                ops.iter().all(|r| r & stitchwort_rt::code::MOVE != 0),
+                "copied: {ops:?} in {:?}",
+                code.instrs
+            );
+        }
+    });
+}
+
 /// Partial application, over-application and closures, both ways.
 #[test]
 fn functions_as_values() {
