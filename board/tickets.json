@@ -1,5 +1,5 @@
 {
-  "next": 2394,
+  "next": 2395,
   "tickets": [
     {
       "id": 47,
@@ -23555,6 +23555,22 @@
       ],
       "epic": "comparative-speed",
       "body": "D3420 yes with 'think quite carefully'. Paper. 60 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2394,
+      "title": "Graph.distances over a cost table, stage 1: update docs/proposals/dense-distances.md to one Graph.distances with an optional index argument (D3417), then generalise the Dijkstra search over a cost table (Map table only, no index yet); distances' statements and speed kept",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "std",
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "D3416, Matt, 8 Nov 2026: yes. D3417, Matt, 8 Nov 2026: one Graph.distances with an optional named index argument instead of a separate distancesIndexed (\"Yeah, proceed with that\"). D3418 moot (returns a Map as today). D3419 (Index type shape) to bring to Matt from the updated note before stage 2. 90 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
