@@ -1,5 +1,5 @@
 {
-  "next": 2375,
+  "next": 2376,
   "tickets": [
     {
       "id": 47,
@@ -22536,17 +22536,19 @@
     {
       "id": 2332,
       "title": "Profiling: attribute samples in generated native code to bytecode instructions",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
         "tooling"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/reviews/SW-2296-native-profiles.md §5 (measured). §3. 1-2 h.\n\nStarted 04:51 UTC, Opus, expected 90 min.\n",
+      "body": "From docs/reviews/SW-2296-native-profiles.md §5 (measured). §3. 1-2 h.\n\nStarted 04:51 UTC, Opus, expected 90 min.\n\nMerged. binary-trees Tree.check: work 38%, return+epilogue 22%, untagged 14%, check 11%, prologue 8%, dec 7% (matches the hand numbers). Follow-up SW-2375. Model result: Opus, worked, 12 min (est. 90).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "a80b6172e"
+      ]
     },
     {
       "id": 2333,
@@ -23226,6 +23228,21 @@
       ],
       "epic": "comparative-speed",
       "body": "From docs/reviews/SW-2369-dijkstra-disk.md. Est. 10-15% of disk together. 45 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2375,
+      "title": "profile_top --by-instruction: count the check a call's return lands on as part of the call (skid), so per-call bookkeeping isn't overstated",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2332. 20 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
