@@ -435,18 +435,21 @@
         "Why compiled Lean is faster: docs/research/lean-runtime-speed.md; binary-trees Lean port invalid (SW-2318)",
         "Native profiles of ten programs: grid code 68% of octopus, Std.Parse most of expressions/scan, sw_ctor 37% of binary-trees; compiled bodies named after definitions, call counts, task profile:native (SW-2296)",
         "Big numbers by reference: pidigits native 1.26 -> 1.14 s, Lean 1.03 s (SW-2302)",
-        "Std.Parse run-time note: the cost is the effect machinery, not reading characters; staged plan (SW-2327)"
+        "Std.Parse run-time note: the cost is the effect machinery, not reading characters; staged plan (SW-2327)",
+        "First headline table, Overmind on e8e9acd1e: native/CPython 5.5x, native/Lean 23x geomean; faster than CPython on pidigits and binary-trees (SW-2295, docs/reviews/SW-2295-comparative-speed.md, bench/compare/history.toml)",
+        "O(1) grid cells for octopus: about 48x -> 19x Lean (SW-2320)",
+        "One-pass flatMap: matcher sw_prim calls 99.5M -> 47.1M (SW-2323)",
+        "Native hole fill/take inline: matcher sw_prim 0.5M, octopus 16.4M; Speedwell octopus 9.4 -> 2.4 s, matcher 12.9 -> 5.8 s (rough; SW-2328)",
+        "Parse stage 0 counts confirm the cost model; effect-runtime values 44-48% of slow applies; continuation site misses its cache on 86-100% of pops (SW-2335)",
+        "Operations in place for every effect: design note, sound with a consumer-link condition; stages A-F (SW-2339, docs/proposals/operations-in-place.md); D3410 no (orchestrator call)"
       ],
       "now": [
-        "Headline table on Overmind (SW-2295)",
-        "O(1) grid cells (SW-2320)",
-        "Native hole operations inline (SW-2328)",
-        "One-pass flatMap (SW-2323)"
+        "After-fixes table on Overmind (job 18, main 53c59e6be)"
       ],
       "next": [
-        "Parse runtime stage 0: measure (SW-2335), then stages 1 and 2 (SW-2336, SW-2337)",
-        "Native Nat comparisons and Array fast paths (SW-2329), inline allocation (SW-2321): after SW-2328",
-        "Parse stage 3 (SW-2338); operations-in-place note after D3400 (SW-2339)",
+        "Operations in place stage A: classify clauses (SW-2348), then re-dispatch depth count (SW-2347) and stage B (SW-2349), then C, D, E (SW-2350-SW-2352); F optional (SW-2353)",
+        "Parse stage 2: error formatting (SW-2337); stage 1 fast paths (SW-2336) after stage B",
+        "Native Nat comparisons and Array fast paths (SW-2329), inline allocation (SW-2321)",
         "Specialise capturing closures (SW-2135)",
         "Rerun the table after each wave",
         "Widen the program set when the ten stop teaching us much (SW-2346)"
