@@ -565,6 +565,48 @@ impl Data {
         }
     }
 
+    /// Whether values of it are stored as natural numbers, and how
+    /// (docs/proposals/nat-shaped-types.md, D3423, D3424): a data type (in
+    /// `Type`, not a proposition, alone in its group) with two constructors
+    /// where one stores no fields and the other exactly one, whose type is
+    /// the type itself at any parameters and indices. `stored(c)` says, for
+    /// each field of constructor `c`, whether the backend stores it: not
+    /// erased, and for the fast runtime not determined by the constructor's
+    /// indices either ([`crate::determined::ctor_stored`]), which is what
+    /// makes `Fin` one. `Nat` is one, with the same layout. The zero
+    /// constructor is 0, and the successor of `x` is `x + 1`. Every backend
+    /// that stores it so decides by this one function, as for
+    /// [`unboxed_field`](Self::unboxed_field), so construction and matching
+    /// agree. Only how a value is stored changes: nothing about the type,
+    /// its checking or its hash.
+    pub fn nat_shape(&self, stored: impl Fn(usize) -> Vec<bool>) -> Option<NatShape> {
+        if self.record || self.sort == Sort::Prop || self.ctors.len() != 2 || self.group.len() != 1
+        {
+            return None;
+        }
+        let runtime = |c: usize| -> Vec<usize> {
+            stored(c)
+                .iter()
+                .enumerate()
+                .filter(|(_, stored)| **stored)
+                .map(|(i, _)| i)
+                .collect()
+        };
+        let (zero, succ, field) = match (runtime(0).as_slice(), runtime(1).as_slice()) {
+            ([], [field]) => (0, 1, *field),
+            ([field], []) => (1, 0, *field),
+            _ => return None,
+        };
+        let mut ty = &self.ctors[succ].fields[field].1;
+        while let Term::Loc(_, inner) | Term::Ann(inner, _) = ty {
+            ty = inner;
+        }
+        match ty {
+            Term::Data(d, _) if *d == self.group[0] => Some(NatShape { zero, succ, field }),
+            _ => None,
+        }
+    }
+
     /// Where the type is in its admission.
     pub fn state(&self) -> State {
         self.state
@@ -575,6 +617,19 @@ impl Data {
     pub fn set_state_unchecked_for_tests(&mut self, state: State) {
         self.state = state;
     }
+}
+
+/// How a data type shaped like `Nat` is stored as a number
+/// ([`Data::nat_shape`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct NatShape {
+    /// The constructor that is 0, which has no run-time fields.
+    pub zero: usize,
+    /// The constructor that is one more than its field.
+    pub succ: usize,
+    /// That field's index among all of the successor's fields, erased ones
+    /// included.
+    pub field: usize,
 }
 
 /// A decision procedure for proof field `field` of constructor `ctor`, in the

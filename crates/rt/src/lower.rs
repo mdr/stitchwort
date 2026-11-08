@@ -21,7 +21,7 @@ use stitchwort_syntax::Diagnostic;
 use crate::clauses::Classifier;
 use crate::effect::{Carrier, EffectNatives, EffectOp, Forwards};
 use crate::erasure::{
-    DefShape, def_shape, is_done_continuation, stored_count, stored_fields, text_literal,
+    DefShape, def_shape, is_done_continuation, nat_shape, stored_count, stored_fields, text_literal,
 };
 use crate::fusion::StateFusion;
 use crate::hoist::SigMaps;
@@ -207,8 +207,8 @@ fn shape(g: &Ev, d: DataId, c: usize, fields: usize) -> Result<u32> {
         .get(c)
         .ok_or_else(|| internal(format!("`{}` has no constructor {c}", data.name())))?;
     // The runtime takes these apart as cells, so none may be a record stored
-    // as its field (D866).
-    if data.unboxed_field().is_some() {
+    // as its field (D866) or a type stored as a number.
+    if data.unboxed_field().is_some() || nat_shape(g, d).is_some() {
         return Err(internal(format!(
             "`{}` is stored unboxed, not as a cell",
             data.name()
@@ -1214,6 +1214,28 @@ impl<'g> Lowerer<'g> {
                 (_, None) => Expr::Prim(PrimOp::NegSucc, vec![self.expr(&args[0])?]),
             });
         }
+        if let Some(shape) = nat_shape(self.g, d) {
+            // A number, as for `Nat`: successors around the zero are a
+            // literal, and around anything else an addition.
+            let mut count = 0u64;
+            let (mut c, mut args) = (c, args);
+            while c == shape.succ {
+                count += 1;
+                let inner = &args[shape.field];
+                match strip(inner) {
+                    Term::Ctor(e, ic, inner_args) if *e == d => {
+                        (c, args) = (*ic, inner_args);
+                    }
+                    _ => {
+                        return Ok(Expr::Prim(
+                            PrimOp::Nat(Native::Add),
+                            vec![self.expr(inner)?, Expr::Lit(Lit::Nat(BigUint::from(count)))],
+                        ));
+                    }
+                }
+            }
+            return Ok(Expr::Lit(Lit::Nat(BigUint::from(count))));
+        }
         // A record with one run-time field is that field (D866).
         if let Some(i) = data.unboxed_field() {
             return self.expr(&args[i]);
@@ -1357,7 +1379,8 @@ impl<'g> Lowerer<'g> {
                 body
             });
         }
-        let kind = if Some(d) == self.repr.nat {
+        let nat_shape = nat_shape(self.g, d).filter(|_| Some(d) != self.repr.nat);
+        let kind = if Some(d) == self.repr.nat || nat_shape.is_some() {
             MatchKind::Nat
         } else if Some(d) == self.repr.int {
             MatchKind::Int
@@ -1366,8 +1389,17 @@ impl<'g> Lowerer<'g> {
         } else {
             MatchKind::Data(self.type_id(d))
         };
+        // `MatchKind::Nat`'s arms are the zero's then the successor's,
+        // whichever order a Nat-shaped type declares them in.
+        let order: Vec<usize> = match nat_shape {
+            Some(shape) => vec![shape.zero, shape.succ],
+            None => (0..branches.len()).collect(),
+        };
         let mut arms = Vec::new();
-        for (c, branch) in branches.iter().enumerate() {
+        for (arm, c) in order.into_iter().enumerate() {
+            let branch = branches.get(c).ok_or_else(|| {
+                internal(format!("a match on `{}` without an arm {c}", data.name()))
+            })?;
             let mark = self.mark();
             let erased = &data.ctors()[c].field_erased;
             let stored = stored_fields(self.g, d, c);
@@ -1403,7 +1435,7 @@ impl<'g> Lowerer<'g> {
             fields.retain(|(_, slot)| self.slot_used(*slot));
             self.leave(mark);
             arms.push(Arm {
-                ctor: u32::try_from(c).expect("ctors fit"),
+                ctor: u32::try_from(arm).expect("ctors fit"),
                 fields,
                 body: body?,
             });

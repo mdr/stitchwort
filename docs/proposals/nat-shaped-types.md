@@ -4,6 +4,18 @@
 nothing was built or run for it except a read-only scan of the sources. The
 questions for Matt are in [§9](#9-open-questions).
 
+**Stage 1 as built** (SW-2398, after SW-2415 and SW-2405): `Data::nat_shape`
+takes which fields a backend stores, and the fast runtime passes
+`erasure::stored_fields`, so `Fin` qualifies once SW-2415 stopped storing
+its determined index (while `STITCHWORT_CHECK_REBUILDS` is on, cells keep
+that field and `Fin` stays cells). Steps and frames are unchanged (the
+example's limits, 562 steps and 11 frames, are the same either way, since
+SW-2405 makes `Succ (f x)` a loop as TRMC did for the cell). Native
+instructions, same build with and without the rule: 2025 day 3 1.487 G →
+1.428 G (-4.0%), 2021 day 9 1.736 G → 1.660 G (-4.3%), 2021 day 15 -0.2%,
+2021 day 11 and 2025 days 4 and 7 within ±0.1%. The rest of the gain
+waits for stage 2's natives (`Fin.toNat` still walks).
+
 Claims about Stitchwort were checked at commit `36dfba35d`. Labels:
 
 - **[checked: S]**: read in S (a file in this repository, or a URL);

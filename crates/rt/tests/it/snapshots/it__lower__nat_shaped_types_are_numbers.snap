@@ -1,0 +1,39 @@
+---
+source: crates/rt/tests/it/lower.rs
+expression: "ir(r#\"\nimport Std (Nat, Text, Fin)\ntype Count =\n  | More (rest: Count) (ok: 1 = 1)\n  | Stop\n\ndef Count.size: Count → Nat\n  | Stop => 0\n  | More rest _ => Succ (Count.size rest)\n\ndef Count.grow (c: Count): Count := More (More c rfl) rfl\n\ndef last: Fin 5 → Nat\n  | FSucc (FSucc i) => Fin.toNat i\n  | _ => 7\n\ndef main(): {IO} () :=\n  IO.print (Nat.toText (Count.size (Count.grow (More Stop rfl)) + last (FSucc (FSucc FZero))))\n\"#)"
+---
+native Std.Nat.add = %Nat.add/2
+native Std.Nat.toText = %NatToText/1
+native Std.Effect.lift = %Effect.lift/1
+fn Std.Fin.toNat(v0, v1) {2 slots} = Std.Fin.toNat[sum](v0, v1, 0)
+fn Main.Count.size(v0) {1 slots} = Main.Count.size[sum](v0, 0)
+fn Main.Count.grow(v0) {1 slots} = %Nat.add(v0, 2)
+fn Main.last(v0) {3 slots} =
+  match v0: Nat {
+    Zero => 7
+    Succ(pred: v1) =>
+      match v1: Nat {
+        Zero => 7
+        Succ(pred: v2) => Std.Fin.toNat(3, v2)
+      }
+  }
+fn Main.main(v0) {2 slots} =
+  let v1 = %NatToText(%Nat.add(Main.Count.size(3), Std.Fin.toNat(3, 0)))
+  Call(L(%print(v1)), done-k)
+fn Std.Fin.toNat[sum](v0, v1, v2) {5 slots} =
+  match v1: Nat {
+    Zero => v2
+    Succ(pred: v3) =>
+      let v4 = %Nat.sub(v0, 1)
+      Std.Fin.toNat[sum](v4, v3, %Nat.add(v2, 1))
+  }
+fn Main.Count.size[sum](v0, v1) {3 slots} =
+  match v0: Nat {
+    Zero => v1
+    Succ(pred: v2) => Main.Count.size[sum](v2, %Nat.add(v1, 1))
+  }
+entry {1 slots} =
+  %Effect.lift({
+    let v0 = %NatToText(%Nat.add(Main.Count.size(3), Std.Fin.toNat(3, 0)))
+    Call(L(%print(v0)), done-k)
+  })

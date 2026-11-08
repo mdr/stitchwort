@@ -588,9 +588,10 @@ def main(): {IO} () :=
 }
 
 /// Fields the result indices determine aren't stored
-/// (docs/proposals/erase-determined-fields.md): `Fin`'s cells hold only the
-/// predecessor and `Vec`'s no length, and a match that reads one rebuilds
-/// it from the matched value's index: `Fin.toNat`'s recursive call passes
+/// (docs/proposals/erase-determined-fields.md): `Fin`'s successor stores
+/// only the predecessor, which makes `Fin` a number
+/// (docs/proposals/nat-shaped-types.md), `Vec`'s cells store no length, and
+/// a match that reads one rebuilds it from the matched value's index: `Fin.toNat`'s recursive call passes
 /// `n - 1`, and `height` computes `Succ (n - 1)`.
 #[test]
 fn determined_fields_are_rebuilt() {
@@ -609,4 +610,91 @@ def main(): {IO} () :=
   let v: Vec Nat 2 := Vec.map (VCons 1 (VCons 2 VNil)) (x => x + 1)
   IO.print "${Fin.toNat (FSucc FZero: Fin 3)} ${height (Floor 1 Ground)} ${Vec.toList v}"
 "#));
+}
+
+/// Types shaped like `Nat` (docs/proposals/nat-shaped-types.md) are
+/// numbers: successors around the zero are a literal, around anything else
+/// an addition, and a match is a `Nat` match with the zero's arm first,
+/// whichever order the type declares them in.
+#[test]
+fn nat_shaped_types_are_numbers() {
+    insta::assert_snapshot!(ir(r#"
+import Std (Nat, Text, Fin)
+type Count =
+  | More (rest: Count) (ok: 1 = 1)
+  | Stop
+
+def Count.size: Count → Nat
+  | Stop => 0
+  | More rest _ => Succ (Count.size rest)
+
+def Count.grow (c: Count): Count := More (More c rfl) rfl
+
+def last: Fin 5 → Nat
+  | FSucc (FSucc i) => Fin.toNat i
+  | _ => 7
+
+def main(): {IO} () :=
+  IO.print (Nat.toText (Count.size (Count.grow (More Stop rfl)) + last (FSucc (FSucc FZero))))
+"#));
+}
+
+/// Which types the runtime stores as numbers
+/// ([`stitchwort_rt::erasure::nat_shape`]), in the library and in a
+/// program: two constructors, one storing no fields and one storing a
+/// single field of the type itself, alone in its group and not a
+/// proposition. `Fin` is one, since its index fields are determined by its
+/// result index and not stored.
+#[test]
+fn which_types_are_nat_shaped() {
+    let source = r#"
+import Std (Fin, Nat)
+-- Shaped like `Nat`: a parameter, an index, either order.
+type Count (a: Type) =
+  | More (rest: Count a)
+  | Stop
+type Depth: Type → Type 1 =
+  | Flat: Depth Nat
+  | Deeper (inner: Depth b): Depth (List b)
+-- Not: two run-time fields, a field of another type, a proposition, a
+-- mutual pair, an implicit field (D141) the result index doesn't
+-- determine, since it isn't a `Nat`.
+type Two =
+  | Leaf
+  | Node (left: Two) (right: Two)
+type Wrap =
+  | Nothing
+  | Just (n: Nat)
+type Small: Nat → Prop =
+  | SmallZero: Small 0
+  | SmallSucc (s: Small n): Small (Succ n)
+type Even =
+  | EvenZero
+  | EvenSucc (odd: Odd)
+type Odd =
+  | OddZero
+  | OddSucc (even: Even)
+type Rank: Bool → Type =
+  | Low: Rank False
+  | Up (below: Rank b): Rank True
+"#;
+    with_stack(STACK, || {
+        let mut session = Session::for_stack(STACK);
+        session
+            .load("test.sw", source)
+            .unwrap_or_else(|e| panic!("doesn't check: {e:?}"));
+        let g = &session.elab.ev();
+        let shaped: Vec<String> = (0..g.env.datas().len())
+            .map(DataId)
+            .filter(|d| stitchwort_rt::erasure::nat_shape(g, *d).is_some())
+            .map(|d| g.data(d).name().to_string())
+            .collect();
+        assert_eq!(shaped, ["Nat", "Count", "Depth"]);
+        let count = (0..g.env.datas().len())
+            .map(DataId)
+            .find(|d| &**g.data(*d).name() == "Count")
+            .expect("Count");
+        let shape = stitchwort_rt::erasure::nat_shape(g, count).expect("shaped");
+        assert_eq!((shape.zero, shape.succ, shape.field), (1, 0, 0));
+    });
 }

@@ -5,6 +5,7 @@
 //! docs/core.md, "Erasure and JS extraction".
 
 use stitchwort_core::check::telescope;
+use stitchwort_core::globals::NatShape;
 use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Head, force};
@@ -236,6 +237,16 @@ pub fn stored_fields(g: &Ev, d: DataId, c: usize) -> Vec<bool> {
 /// How many fields [`stored_fields`] stores.
 pub fn stored_count(g: &Ev, d: DataId, c: usize) -> usize {
     stored_fields(g, d, c).into_iter().filter(|s| *s).count()
+}
+
+/// Whether the runtime stores values of `d` as numbers, and how
+/// ([`stitchwort_core::globals::Data::nat_shape`] over [`stored_fields`]).
+/// While [`check_rebuilds`], cells hold the fields the indices determine,
+/// so `Fin`'s successor has two and `Fin` is stored as cells. Every part of
+/// the runtime that builds or takes apart values decides by this one
+/// function.
+pub fn nat_shape(g: &Ev, d: DataId) -> Option<NatShape> {
+    g.data(d).nat_shape(|c| stored_fields(g, d, c))
 }
 
 thread_local! {
