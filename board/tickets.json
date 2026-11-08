@@ -22811,7 +22811,7 @@
         "effects"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/proposals/operations-in-place.md (SW-2339); D3400 yes (Matt). After SW-2348 and SW-2347 (depth count). Est. 1.2-1.5x on expressions. 60-90 min.\n\nTarget from SW-2347 (measured, upper bound): skipping forwarding hops removes about 30M of 49M routes on expressions, 25M of 47M on scan, 3M of 9.5M on bridge.\n",
+      "body": "From docs/proposals/operations-in-place.md (SW-2339); D3400 yes (Matt). After SW-2348 and SW-2347 (depth count). Est. 1.2-1.5x on expressions. 60-90 min.\n\nTarget from SW-2347 (measured, upper bound): skipping forwarding hops removes about 30M of 49M routes on expressions, 25M of 47M on scan, 3M of 9.5M on bridge.\n\nHeld overnight 8 Nov (orchestrator): stages B-D change effect and step counts, which the overnight rules leave for Matt. D3412 for the morning: start stages B-D (they change effect and step counts, not results)? [rec: yes].\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
