@@ -1432,6 +1432,7 @@ name = "stitchwort-standalone"
 version = "0.1.0"
 dependencies = [
  "cc",
+ "libmimalloc-sys",
  "mimalloc",
  "nix",
  "stitchwort-core",
