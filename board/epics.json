@@ -433,18 +433,20 @@
         "Proof baseline loads what each day uses: 2020 day 18 went from 37x to about 0.9x Lean, 2024 day 2 from 12x to 2x, 2021 day 15 about 4x (rough, one run, under load; SW-2313)",
         "Inputs scaled at run time so Lean takes 0.4-0.6 s; --runners (SW-2307)",
         "Why compiled Lean is faster: docs/research/lean-runtime-speed.md; binary-trees Lean port invalid (SW-2318)",
-        "Native profiles of ten programs: grid code 68% of octopus, Std.Parse most of expressions/scan, sw_ctor 37% of binary-trees; compiled bodies named after definitions, call counts, task profile:native (SW-2296)"
+        "Native profiles of ten programs: grid code 68% of octopus, Std.Parse most of expressions/scan, sw_ctor 37% of binary-trees; compiled bodies named after definitions, call counts, task profile:native (SW-2296)",
+        "Big numbers by reference: pidigits native 1.26 -> 1.14 s, Lean 1.03 s (SW-2302)",
+        "Std.Parse run-time note: the cost is the effect machinery, not reading characters; staged plan (SW-2327)"
       ],
       "now": [
         "Headline table on Overmind (SW-2295)",
         "O(1) grid cells (SW-2320)",
-        "Big numbers by reference (SW-2302)",
         "Native hole operations inline (SW-2328)",
-        "Std.Parse run-time design note (SW-2327)"
+        "One-pass flatMap (SW-2323)"
       ],
       "next": [
-        "Native Nat comparisons and Array fast paths (SW-2329), then inline allocation (SW-2321): after SW-2328, same code",
-        "One-pass flatMap (SW-2323), no argument Vec per runtime call (SW-2304), profiling --group (SW-2330)",
+        "Parse runtime stage 0: measure (SW-2335), then stages 1 and 2 (SW-2336, SW-2337)",
+        "Native Nat comparisons and Array fast paths (SW-2329), inline allocation (SW-2321): after SW-2328",
+        "Parse stage 3 (SW-2338); operations-in-place note after D3400 (SW-2339)",
         "Specialise capturing closures (SW-2135)",
         "Rerun the table after each wave"
       ],
