@@ -24309,17 +24309,19 @@
     {
       "id": 2440,
       "title": "Native uniqueness tests: compare only the strong count (nothing creates a Weak; n1.rs:4629-4635 loads and compares the weak count on every test)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2324 and SW-2429 (predicted 1.005x geomean, binary-trees 1.02x). Check nothing in crates/rt or native makes a Weak; measure instructions on binary-trees. 30 min.\nStarted 20:51 UTC.\n",
+      "body": "From SW-2324 and SW-2429 (predicted 1.005x geomean, binary-trees 1.02x). Check nothing in crates/rt or native makes a Weak; measure instructions on binary-trees. 30 min.\nStarted 20:51 UTC.\n\nMerged. Model result: Sonnet, worked, 10 min (est. 30).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "01fa1938c"
+      ]
     },
     {
       "id": 2441,
