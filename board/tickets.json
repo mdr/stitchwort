@@ -22450,7 +22450,7 @@
         "design"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/reviews/SW-2296-native-profiles.md §5 (measured). Paper lane; implementation waits for Matt's decisions. 90 min.\n\nStarted 8 Nov 2026 00:08, overnight wave 1 (Matt: focus on comparative performance; profile, address, recheck); expected: 90 min.\n\nNote merged. D3400 (operations in place for every effect, not a Parse-only lowering) waits on Matt. D3401 taken as the orchestrator's call: yes. Tickets: SW-2335 SW-2336 SW-2337 SW-2338 SW-2339. Model result: Opus, worked, 8 min (est. 90).\n",
+      "body": "From docs/reviews/SW-2296-native-profiles.md §5 (measured). Paper lane; implementation waits for Matt's decisions. 90 min.\n\nStarted 8 Nov 2026 00:08, overnight wave 1 (Matt: focus on comparative performance; profile, address, recheck); expected: 90 min.\n\nNote merged. D3400 (operations in place for every effect, not a Parse-only lowering) waits on Matt. D3401 taken as the orchestrator's call: yes. Tickets: SW-2335 SW-2336 SW-2337 SW-2338 SW-2339. Model result: Opus, worked, 8 min (est. 90).\n\nD3400, Matt, 8 Nov 2026: yes. \"special case parsing feels desperate and much better if we can avoid it and do something a bit more generic ... an opus design note that reasons it through and does some literature review and comparisons with comparable languages ... do the design review and then maybe proceed based on the results.\"\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": [
@@ -22628,15 +22628,15 @@
     {
       "id": 2339,
       "title": "Design note: effect operations that answer and carry on run as a direct call where performed (Koka's operations in place), for every effect, with the soundness argument for multi-shot resumptions",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": ".claude/worktrees/SW-2339",
       "labels": [
         "design",
         "effects"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/proposals/parse-runtime.md (SW-2327). Waits on Matt's D3400 (rec yes). Est. 3-6x on what's left of expressions/scan after stages 1-3. Paper, 90 min.",
+      "body": "From docs/proposals/parse-runtime.md (SW-2327). Waits on Matt's D3400 (rec yes). Est. 3-6x on what's left of expressions/scan after stages 1-3. Paper, 90 min.\n\nD3400, Matt, 8 Nov 2026: yes. \"special case parsing feels desperate and much better if we can avoid it and do something a bit more generic ... an opus design note that reasons it through and does some literature review and comparisons with comparable languages ... do the design review and then maybe proceed based on the results.\" Started 8 Nov 2026 00:23; expected: 90 min. D base D3410.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
