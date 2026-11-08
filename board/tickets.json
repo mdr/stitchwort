@@ -23966,7 +23966,7 @@
         "elab"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-2409. 60 min.",
+      "body": "From SW-2409. 60 min.\n\nNew data (8 Nov 17:26, main after SW-2409): fuzz:elab CASES=20000 SEED=0x2409 still killed at 16.24 GB after 1684 s; slow-check lines named case 14673 and case 15746 (seed 0x2409), the latter most likely. Repro: task fuzz:elab SEED=0x2409 ONLY=15746 DUMP=1 (and 14673) under dev/memguard --cap-gb 4. Start here.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
