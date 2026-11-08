@@ -22500,17 +22500,19 @@
     {
       "id": 2330,
       "title": "Profiling: dev/profile_top.py --group PREFIX (code run by the effect runtime loses its caller in profiles)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "tooling"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/reviews/SW-2296-native-profiles.md §5 (measured). §3. 15 min.\n\nStarted 03:32 UTC, Sonnet, expected 15 min.\n",
+      "body": "From docs/reviews/SW-2296-native-profiles.md §5 (measured). §3. 15 min.\n\nStarted 03:32 UTC, Sonnet, expected 15 min.\n\nModel result: Sonnet, worked, 8 min (est. 15).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "7188da9f7"
+      ]
     },
     {
       "id": 2331,
@@ -22916,17 +22918,19 @@
     {
       "id": 2356,
       "title": "Fusion: accept Store.keep's eta-reduced put clause (k () rather than Done of a function), so the handler runs as a loop",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2348. Small. 20 min.\n\nStarted 03:32 UTC, Sonnet, expected 20 min.\n",
+      "body": "From SW-2348. Small. 20 min.\n\nStarted 03:32 UTC, Sonnet, expected 20 min.\n\nModel result: Sonnet, worked, 4 min (est. 20).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "ad2f6b113"
+      ]
     }
   ]
 }
