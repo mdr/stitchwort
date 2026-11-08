@@ -1,5 +1,5 @@
 {
-  "next": 2452,
+  "next": 2453,
   "tickets": [
     {
       "id": 47,
@@ -24498,6 +24498,21 @@
       ],
       "epic": "elaborator-kernel",
       "body": "From SW-2445. 45 min. Also: SW-2445 made DotCall::settles_type always true; check with an elaborator fuzz run on a fresh seed.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2452,
+      "title": "Elaborator stack overflow: fuzz:elab CASES=15000 SEED=0x2451 aborts the test process with 'fatal runtime error: stack overflow' after ~95 s (on 4c577908c, before SW-2445's new example changed case numbering)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "Found 8 Nov 2026 22:21 in compute mode. Bisecting in .claude/worktrees/SW-2452 at 4c577908c with FROM/TO (scratchpad bisect-overflow.sh); the case number and dumped input go here. Then: find the unbounded recursion, bound it or make it iterative, add the input as a regression example. Investigate in lanes mode.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
