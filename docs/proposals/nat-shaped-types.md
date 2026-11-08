@@ -59,6 +59,14 @@ type Fin: Nat → Type =
   | FSucc (i: Fin n): Fin (Succ n)
 ```
 
+**Correction (SW-2406):** the next sentence is wrong. D141 stores the
+implicit `n` at run time (`FSucc(4, FSucc(3, FZero(2)))`, and `Fin.toNat`
+reads it to pass its own implicit argument), so `FSucc` has two run-time
+fields and `Fin` isn't Nat-shaped until those fields are dropped:
+[erase-determined-fields.md](erase-determined-fields.md). The same
+correction applies to §2.2's "`Fin` … yes" and §2.3's "Extra erased fields"
+and "A field of the same family at another index".
+
 The implicit `n` in each constructor is an erased field; `FSucc`'s `i` is
 its only runtime field. `Fin.toNat` is structural recursion
 (`FSucc i => Succ (Fin.toNat i)`), `Fin.ofNatLt n i lt` builds `i` `FSucc`s.
@@ -180,6 +188,10 @@ Nothing in `aoc/` or `games/` declares a Nat-shaped type of its own. So
 in practice the rule means `Fin`, and whatever users write later.
 
 ### 2.3 Edge cases
+
+(Correction, SW-2406: a constructor's implicit index field, `FSucc`'s `n`,
+is stored at run time under D141, not erased; see §1.1's note and
+[erase-determined-fields.md](erase-determined-fields.md).)
 
 - **Parameters.** Not stored in values, so they don't matter: a
   `type Count (a: Type) = | None | One (rest: Count a)` qualifies.
