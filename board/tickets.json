@@ -1,5 +1,5 @@
 {
-  "next": 2358,
+  "next": 2359,
   "tickets": [
     {
       "id": 47,
@@ -22722,14 +22722,14 @@
     {
       "id": 2344,
       "title": "Audit warnings on 2021 day 11: stableOfCount and stableAtSize show 'no input made the hypotheses true' (0 of ~780 cases) in the SW-2320 batch audit, though the lane's own audit showed none; pre-existing statements (Cascade.sw:81, :105). Check whether the Stable premise (flashes) is just rarely satisfiable by the search or the statements are vacuous",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "proof"
       ],
       "epic": "aoc-older",
-      "body": "From the SW-2320 batch verifier, 8 Nov 2026. Statements unchanged by SW-2320. 20 min.\n\nAlso 2021 day 12: parseNoBigNeighbours and endsVisited give the same warning (0 of 1500 cases) in the SW-2355 audit; statements untouched by that lane.\n\nStarted 03:46 UTC, Sonnet, expected 30 min.\n",
+      "body": "From the SW-2320 batch verifier, 8 Nov 2026. Statements unchanged by SW-2320. 20 min.\n\nAlso 2021 day 12: parseNoBigNeighbours and endsVisited give the same warning (0 of 1500 cases) in the SW-2355 audit; statements untouched by that lane.\n\nStarted 03:46 UTC, Sonnet, expected 30 min.\n\nVerdict: all false alarms (rfl witnesses in Tests/Examples.sw); stableAtSize no longer warns. Nothing changed. Follow-up SW-2358. Model result: Sonnet, worked, 12 min (est. 30).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -22943,6 +22943,21 @@
       ],
       "epic": "test-infra",
       "body": "8 Nov 2026 overnight. Also microtype-comparisons.js had been stale since an older distinct -> unique rename, so this has happened before. 30 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2358,
+      "title": "Audit vacuity check: accept a witness (a theorem in the namespace proving the hypotheses hold for a concrete input), and skip generated equation lemmas (step.eq.*), so false alarms like 2021 day 11/12 stop warning",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "epic": "test-infra",
+      "body": "From SW-2344 (8 Nov 2026): stableOfCount, parseNoBigNeighbours, endsVisited are false alarms with rfl witnesses in Tests/Examples.sw; three Day12 step.eq.* equation lemmas warn too. Design choice (how to name a witness) may be Matt's if user-visible syntax. 45 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
