@@ -781,13 +781,25 @@ def List.findMap (xs: List a) (f: a → {e} Option b): {e} Option b :=
     | [] => None
     | [x, ..ys] => List.findMapStep (f x) (() => List.findMap ys f)
 
---| Maps, then joins: `xs.flatMap f` is `List.concat (List.map xs f)`. `f` may
---| perform abilities, which run in list order. Its length is the sum of the
---| lengths ([`List.lengthFlatMap`]).
-def List.flatMap (xs: List a) (f: a → {e} List b): {e} List b := List.concat (List.map xs f)
+--| Maps, then joins: `xs.flatMap f` is `List.concat (List.map xs f)`
+--| ([`List.flatMapEqConcatMap`]). `f` may perform abilities, which run in list
+--| order. It builds the result in one pass, without the list of lists that
+--| `concat (map …)` would make. Its length is the sum of the lengths
+--| ([`List.lengthFlatMap`]).
+def List.flatMap: (xs: List a) → (f: a → {e} List b) → {e} List b
+  | [], f => []
+  | [x, ..rest], f =>
+    let ys := f x
+    List.append ys (List.flatMap rest f)
+
+--| `flatMap` is `concat` of `map`: the definition it replaced, which
+--| built the list of lists first.
+theorem List.flatMapEqConcatMap (f: a → List b): (xs: List a) → List.flatMap xs f = List.concat (List.map xs f)
+  | [] => rfl
+  | [x, ..rest] => Eq.cong (ys => List.append (f x) ys) (List.flatMapEqConcatMap f rest)
 
 theorem List.flatMapCong (xs: List a) (f1: a → List b) (f2: a → List b) (ef: (x: a) → f1 x = f2 x): List.flatMap xs f1 = List.flatMap xs f2 :=
-  Eq.cong List.concat (List.mapCong xs f1 f2 ef)
+  Eq.trans (List.flatMapEqConcatMap f1 xs) (Eq.trans (Eq.cong List.concat (List.mapCong xs f1 f2 ef)) (Eq.sym (List.flatMapEqConcatMap f2 xs)))
 
 --| Every pair, the first elements in order and the second elements within each:
 --| `[1, 2].cross ["a", "b"]` is `[(1, "a"), (1, "b"), (2, "a"), (2, "b")]`.
