@@ -651,6 +651,8 @@ def main(): {IO} () :=
 fn which_types_are_nat_shaped() {
     let source = r#"
 import Std (Fin, Nat)
+-- Loads `Fin`, which is shaped like `Nat` (its index is determined).
+def first: Fin 3 := FZero
 -- Shaped like `Nat`: a parameter, an index, either order.
 type Count (a: Type) =
   | More (rest: Count a)
@@ -691,7 +693,7 @@ type Rank: Bool → Type =
             .filter(|d| stitchwort_rt::erasure::nat_shape(g, *d).is_some())
             .map(|d| g.data(d).name().to_string())
             .collect();
-        assert_eq!(shaped, ["Nat", "Count", "Depth"]);
+        assert_eq!(shaped, ["Nat", "Fin", "Count", "Depth"]);
         let count = (0..g.env.datas().len())
             .map(DataId)
             .find(|d| &**g.data(*d).name() == "Count")
