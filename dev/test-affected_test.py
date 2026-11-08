@@ -234,6 +234,21 @@ class Budget(unittest.TestCase):
         res, _ = pick(["crates/elab/src/omega.rs"], inv=inv, budget=5)
         self.assertIn("elab-omega", {r.id for r in res["rules"]})
 
+    def test_the_report_says_one_thing_about_the_budget(self):
+        files = ["crates/elab/src/std/List/List.sw"]
+        res, _ = pick(files, budget=35)
+        text, _ = ta.report(res, files, PROFILES, 35, False, INV)
+        self.assertTrue(res["cut"])
+        self.assertLessEqual(res["estimate"]["estimate"], 35)
+        self.assertGreater(res["uncut_estimate"], 35)
+        # The kept estimate fits, so nothing may call the run over budget;
+        # the line about the cuts gives the uncut total they came from.
+        self.assertNotIn("WARNING: over the", text)
+        self.assertIn("CUT: all the relevant rules would take about %g s, over the 35 s budget" % res["uncut_estimate"], text)
+        res, _ = pick(files, budget=1000)
+        text, _ = ta.report(res, files, PROFILES, 1000, False, INV)
+        self.assertNotIn("CUT:", text)
+
     def test_under_budget_cuts_nothing(self):
         res, _ = pick(["crates/elab/src/std/List/List.sw"], budget=1000)
         self.assertEqual(res["cut"], [])
