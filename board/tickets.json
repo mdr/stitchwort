@@ -23077,17 +23077,19 @@
     {
       "id": 2365,
       "title": "E-AUTO-NONE for a Prop where a Bool is used: note that an unannotated comparison earlier (n => 9 < n) is the likely source",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "diagnostics"
       ],
       "epic": "diagnostics",
-      "body": "From SW-2343. Small. 20 min.\n\nStarted 05:04 UTC, Sonnet, expected 20 min.\n",
+      "body": "From SW-2343. Small. 20 min.\n\nStarted 05:04 UTC, Sonnet, expected 20 min.\n\nMerged (wording is the orchestrator's call, listed for Matt). Model result: Sonnet, worked, 4 min (est. 20).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "548923e23"
+      ]
     },
     {
       "id": 2366,
