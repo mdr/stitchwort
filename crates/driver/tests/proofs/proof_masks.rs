@@ -34,10 +34,14 @@ def tokNat (t: Tok) (k: Nat): Nat :=
 type TBox: Type 1 =
   | MkTBox (t: Type)
 
+-- Recursive, so its stuck calls are compared by their arguments alone: a
+-- definition that opens by tree would also be compared by its case tree,
+-- where an argument it never computes with makes no difference (G6,
+-- docs/core.md). `t` is only passed on, as an inert proof would be.
 def choose (t: Type) (n: Nat): Nat :=
   match n with
     | Zero => 0
-    | Succ m => m
+    | Succ m => choose t m
 
 type R (p: Prop): Type =
   | MkR
