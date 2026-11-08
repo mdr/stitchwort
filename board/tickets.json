@@ -23406,17 +23406,19 @@
     {
       "id": 2385,
       "title": "Overmind: put perf in the .#compare dev shell (or document how) and check bench:compare --instructions works there (perf_event_paranoid)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "tooling"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2379: Linux path untested. 20 min, needs Overmind.\n\nStarted 05:52 UTC, Sonnet, expected 20 min (flake change here; Overmind runs it after merge).\n",
+      "body": "From SW-2379: Linux path untested. 20 min, needs Overmind.\n\nStarted 05:52 UTC, Sonnet, expected 20 min (flake change here; Overmind runs it after merge).\n\nMerged; Mac shell drvPath unchanged. Waiting on an Overmind run to close. Model result: Sonnet, worked, 2 min (est. 20).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "267f541c7"
+      ]
     },
     {
       "id": 2386,
