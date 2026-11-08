@@ -22483,17 +22483,19 @@
     {
       "id": 2329,
       "title": "Native: inline fast paths for Nat comparisons (Leq, EqNat, DecEqNat) beside Add/Sub, and Array.GetOr/Set without the generic path (memory-game ~25-29%)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/reviews/SW-2296-native-profiles.md §5 (measured). 45 min.\n\nStarted 03:19 UTC, Sonnet, expected 45 min.\n",
+      "body": "From docs/reviews/SW-2296-native-profiles.md §5 (measured). 45 min.\n\nStarted 03:19 UTC, Sonnet, expected 45 min.\n\nMerged. DecEqNat not done (builds proof data, 0 calls in the benchmark). Model result: Sonnet, worked, 15 min (est. 45).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "a89d88794"
+      ]
     },
     {
       "id": 2330,
