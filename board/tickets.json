@@ -22781,7 +22781,7 @@
     {
       "id": 2348,
       "title": "Operations in place stage A: classify each handler clause (resumes once at the end / never resumes / only forwards / other) and count the kinds over std, aoc/ and bench/compare",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -22789,7 +22789,7 @@
         "effects"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/proposals/operations-in-place.md (SW-2339); D3400 yes (Matt). Takes over SW-2338's classifying half. 60-90 min.",
+      "body": "From docs/proposals/operations-in-place.md (SW-2339); D3400 yes (Matt). Takes over SW-2338's classifying half. 60-90 min.\n\nStarted 02:46 UTC, Opus, expected 75 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
