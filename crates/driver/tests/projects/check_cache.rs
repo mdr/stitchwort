@@ -1031,7 +1031,8 @@ fn a_namespace_entry_refused_part_way_gives_the_same_result() {
 
 /// The standard library with `Float/Float.sw` cut before its primitives,
 /// which keep it out of the cache, so that its entry, with the Float
-/// built-ins it binds, can be written and replayed. In a new directory.
+/// built-ins it binds, can be written and replayed; the rest goes to
+/// `Float/Rest.sw`. In a new directory.
 fn std_with_cacheable_float() -> PathBuf {
     fn copy(from: &Path, to: &Path) {
         std::fs::create_dir_all(to).unwrap();
@@ -1056,6 +1057,12 @@ fn std_with_cacheable_float() -> PathBuf {
         .find("\n-- The other rounding operations")
         .expect("Float.sw's primitives, after `Float.sub`");
     std::fs::write(&float, &text[..cut + 1]).unwrap();
+    // The library must still declare every Float built-in, so the rest of
+    // the file, primitives included, moves to a file of its own, which this
+    // test never loads. Its instances become plain definitions: an instance
+    // must be declared in its type's file.
+    let rest = text[cut + 1..].replace("\ninstance ", "\ndef ");
+    std::fs::write(std.join("Float/Rest.sw"), rest).unwrap();
     std
 }
 
