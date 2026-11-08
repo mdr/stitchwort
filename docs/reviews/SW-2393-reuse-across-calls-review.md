@@ -229,8 +229,9 @@ doesn't count against the change).
   dijkstra may still share some of its maps.
 - **Costs the note leaves out:**
   - three more words per call along each chain: `balance`'s four arguments
-    are already twelve words plus the context and frames, past the integer
-    argument registers, so the token words go on the stack;
+    are already twelve words plus the context and frames, likely past the
+    argument registers of Cranelift's `tail` convention, so the token words
+    probably go on the stack [inferred];
   - the F3 miss at the bottom of each insert;
   - tokens held to frame end instead of freed at `Unpack`.
 - **The cross-check is on another base.** The SW-2371 B scratch measured
