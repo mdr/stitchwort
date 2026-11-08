@@ -22,6 +22,7 @@ stitchwort-rt.workspace = true
 stitchwort-syntax.workspace = true
 stitchwort-host.workspace = true
 mimalloc.workspace = true
+libmimalloc-sys = { version = "0.1.49", default-features = false }
 
 [target.'cfg(unix)'.dependencies]
 # Ignoring `SIGPIPE`, as Rust's own start-up does before a Rust `main`.
