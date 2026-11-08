@@ -58,7 +58,7 @@ def checks: Nat → Nat → Nat → Nat
 
 def count: Nat → Nat
   | Zero => 0
-  | Succ n => 1 + count n
+  | Succ n => 2 * count n
 
 def main(): {{IO, Fail}} () :=
   IO.print \"${{checks 200 8 0}}\"
