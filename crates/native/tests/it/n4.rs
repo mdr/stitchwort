@@ -492,3 +492,98 @@ fn effect_examples_agree_with_the_machine() {
         assert!(ran >= 30, "{ran}");
     });
 }
+
+/// The effect runtime's own function values take the apply fast paths
+/// (docs/proposals/apply-fast-paths.md, A and B): a cache miss asks
+/// `sw_apply_cached` only for a global function or a closure, so the misses
+/// it sends on are at most the globals and closures `sw_apply_prepare`
+/// enters, and every leaf or resumption
+/// `sw_apply_prepare` enters is planned without the argument `Vec`. Counted
+/// only in a build with the `call-counts` feature; otherwise the run is
+/// checked against the machine.
+#[test]
+fn runtime_values_take_the_apply_fast_paths() {
+    use stitchwort_rt::call_counts;
+    let source = r#"import Std (IO, Nat)
+
+ability Counter where
+  bump: () → {Counter} Nat
+
+def Counter.from (init: Nat) (prog: () → {Counter | e} a): {e} a :=
+  let run: Nat → {e} a :=
+    handle prog() with
+      | return x => s => x
+      | Counter.bump u, k => s => k s (s + 1)
+  run init
+
+def Counter.alone (init: Nat) (prog: () → {Counter} a): a :=
+  let run: Nat → a :=
+    handle prog() with
+      | return x => s => x
+      | Counter.bump u, k => s => k s (s + 1)
+  run init
+
+def bumps: Nat → Nat → {Counter} Nat
+  | 0, acc => acc
+  | Succ n, acc => bumps n (acc + Counter.bump() % 2)
+
+def main(): {IO} () :=
+  IO.print "${Counter.alone 0 (() => bumps 1000 0)} ${Counter.from 0 (() => bumps 1000 0)}"
+"#;
+    with_stack(STACK, || {
+        let (program, limits) = lowered(source);
+        let machine = on_machine(&program, limits);
+        assert_eq!(machine, ("500 500\n".to_string(), Ok(())));
+        let (native, notes) = native_on(&program, limits, false, STACK);
+        assert!(ran_natively(&notes), "{notes:#?}");
+        assert_eq!(native, machine);
+        let report = call_counts::report();
+        if !call_counts::ENABLED {
+            assert!(report.is_empty());
+            return;
+        }
+        let count = |name: &str| {
+            report
+                .iter()
+                .find_map(|l| {
+                    let (n, what) = l.trim_start().split_once("  ")?;
+                    (what == name).then(|| n.parse::<u64>().ok()).flatten()
+                })
+                .unwrap_or(0)
+        };
+        // Only a global or a closure (taking another number of arguments,
+        // or a native) is sent on by `sw_apply_cached`.
+        let cacheable: u64 = [
+            "global function (not a fast-path pap)",
+            "global native",
+            "effect native: bind",
+            "effect native: fold/translate/runPure/state handler",
+            "closure",
+        ]
+        .iter()
+        .map(|kind| count(kind))
+        .sum();
+        assert!(
+            count("apply-cache miss sent to sw_apply_prepare") <= cacheable,
+            "{report:#?}"
+        );
+        let leaves: u64 = [
+            "DoneK",
+            "StateK",
+            "JumpK",
+            "DelayK",
+            "lazy resumption",
+            "eager resumption",
+            "StateRun",
+        ]
+        .iter()
+        .map(|kind| count(kind))
+        .sum();
+        assert!(leaves >= 1000, "{report:#?}");
+        assert_eq!(
+            count("sw_apply_prepare: runtime leaf or resumption, no argument Vec"),
+            leaves,
+            "{report:#?}"
+        );
+    });
+}

@@ -2062,60 +2062,76 @@ pub unsafe extern "C" fn sw_apply_prepare(
     };
     let program = run.outline;
     let f = unsafe { f.read() };
-    // A partial application given exactly the rest of its arguments, whose
-    // head is a compiled global function or a closure: the common case of
-    // `List.map xs (add offset)`. Built in the plan directly, with no
-    // vectors: the new arguments moved up (they may lie in the plan), the
-    // held ones cloned in front, the function value dropped last, as below.
-    if let Value::Fun(fun) = &f
-        && let Fun::Pap { head, args: held } = &**fun
-        && let Value::Fun(h) = head
-    {
+    // A compiled global function or closure, bare or partly applied, given
+    // at least the rest of its arguments: the common case of `List.map xs
+    // (add offset)`, and of a clause given more than it takes. Built in the
+    // plan directly, with no vectors: the new arguments moved up (they may
+    // lie in the plan), the held ones cloned in front, any beyond the head's
+    // arity left after them as an over-application's rest, the function
+    // value dropped last, as below. Too few arguments take the general path.
+    if let Value::Fun(fun) = &f {
+        let (head, held): (&Value, &[Value]) = match &**fun {
+            Fun::Pap { head, args } => (head, args),
+            _ => (&f, &[]),
+        };
         let total = held.len() + n as usize;
-        let target = match &**h {
-            Fun::Global(g)
-                if matches!(program.globals[*g as usize].kind, Kind::Function { .. }) =>
-            {
-                // SAFETY: the table has an entry for every global.
-                Some((unsafe { *functions.add(*g as usize) }, false))
-            }
-            Fun::Closure { lambda, .. } => {
-                // SAFETY: the table has an entry for every lambda.
-                Some((unsafe { *lambdas.add(*lambda as usize) }, true))
-            }
+        let target = match head {
+            Value::Fun(h) => match &**h {
+                Fun::Global(g)
+                    if matches!(program.globals[*g as usize].kind, Kind::Function { .. }) =>
+                {
+                    // SAFETY: the table has an entry for every global.
+                    Some((h, unsafe { *functions.add(*g as usize) }, false))
+                }
+                Fun::Closure { lambda, .. } => {
+                    // SAFETY: the table has an entry for every lambda.
+                    Some((h, unsafe { *lambdas.add(*lambda as usize) }, true))
+                }
+                _ => None,
+            },
             _ => None,
         };
-        if let Some((code, closure)) = target
+        if let Some((h, code, closure)) = target
             && !code.is_null()
-            && total == crate::shared::arity(program, head)
             && total <= unsafe { (*plan).cap } as usize
         {
-            // A closure head's reference becomes the callee's `env`, as below.
-            let env = if closure {
-                let held_ref = std::mem::ManuallyDrop::new(Value::Fun(h.clone()));
-                words(&held_ref)[1]
-            } else {
-                0
-            };
-            // SAFETY: the caller's contract: `args` holds `n` values to
-            // move, `plan` room for `cap >= total` values after its header.
-            unsafe {
-                let to = plan
-                    .cast::<u8>()
-                    .add(ApplyPlan::ARGS_AT as usize)
-                    .cast::<Value>();
-                std::ptr::copy(args, to.add(held.len()), n as usize);
-                for (i, v) in held.iter().enumerate() {
-                    to.add(i).write(v.clone());
+            let arity = crate::shared::arity(program, head);
+            if total >= arity {
+                // A closure head's reference becomes the callee's `env`, as
+                // below.
+                let env = if closure {
+                    let held_ref = std::mem::ManuallyDrop::new(Value::Fun(h.clone()));
+                    words(&held_ref)[1]
+                } else {
+                    0
+                };
+                // SAFETY: the caller's contract: `args` holds `n` values to
+                // move, `plan` room for `cap >= total` values after its
+                // header.
+                unsafe {
+                    let to = plan
+                        .cast::<u8>()
+                        .add(ApplyPlan::ARGS_AT as usize)
+                        .cast::<Value>();
+                    std::ptr::copy(args, to.add(held.len()), n as usize);
+                    for (i, v) in held.iter().enumerate() {
+                        to.add(i).write(v.clone());
+                    }
+                    (*plan).code = code as u64;
+                    (*plan).env = env;
+                    (*plan).arity = arity as u64;
+                    (*plan).rest = (total - arity) as u64;
                 }
-                (*plan).code = code as u64;
-                (*plan).env = env;
-                (*plan).arity = total as u64;
-                (*plan).rest = 0;
+                if crate::call_counts::ENABLED {
+                    crate::call_counts::hit_apply(if held.is_empty() {
+                        apply_kind(program, fun)
+                    } else {
+                        crate::call_counts::ApplyKind::PapFast
+                    });
+                }
+                drop(f);
+                return;
             }
-            drop(f);
-            crate::call_counts::hit_apply(crate::call_counts::ApplyKind::PapFast);
-            return;
         }
     }
     // SAFETY: the running context.
