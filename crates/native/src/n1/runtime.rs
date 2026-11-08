@@ -64,7 +64,7 @@ use stitchwort_rt::native_abi::{
     TAG_DATA, TAG_FUN, Tables, VALUE_SIZE,
 };
 
-use super::{Helpers, drop_deferred, drop_fun, fixed, flags, value_signature};
+use super::{Helpers, W, drop_deferred, drop_fun, fixed, flags, narrow, value_signature, widen};
 
 /// The runtime bodies, declared.
 #[derive(Clone, Copy)]
@@ -97,7 +97,9 @@ pub(crate) fn loop_signature(pointer: ir::Type) -> ir::Signature {
     signature.params.push(AbiParam::new(types::I64));
     signature.params.push(AbiParam::new(pointer));
     signature.params.push(AbiParam::new(pointer));
-    for _ in 0..3 {
+    // Returning call words ([`W`] a value), as the bodies they tail-call
+    // and are tail-called from do; taking three a value.
+    for _ in 0..W {
         signature.returns.push(AbiParam::new(types::I64));
     }
     signature
@@ -116,7 +118,9 @@ pub(crate) fn resume_signature(pointer: ir::Type) -> ir::Signature {
     }
     signature.params.push(AbiParam::new(types::I64));
     signature.params.push(AbiParam::new(pointer));
-    for _ in 0..3 {
+    // Returning call words ([`W`] a value), as the bodies they tail-call
+    // and are tail-called from do; taking three a value.
+    for _ in 0..W {
         signature.returns.push(AbiParam::new(types::I64));
     }
     signature
@@ -258,7 +262,7 @@ impl Rt<'_, '_> {
     /// Returns, after an error.
     fn leave(&mut self) {
         let zero = self.iconst(0);
-        self.b.ins().return_(&[zero, zero, zero]);
+        self.b.ins().return_(&[zero; W]);
     }
 
     /// A step, as the machine's `enter_frame` counts one: to `fail` if none
@@ -409,7 +413,7 @@ impl Rt<'_, '_> {
         let exact = self.b.create_block();
         let slow = self.b.create_block();
         let returned = self.b.create_block();
-        for _ in 0..3 {
+        for _ in 0..W {
             self.b.append_block_param(returned, types::I64);
         }
         self.b.ins().brif(target, exact, &[], slow, &[]);
@@ -428,7 +432,7 @@ impl Rt<'_, '_> {
         }
         let pushed = self.b.ins().iadd_imm_s(self.frames, 1);
         let mut call_args = vec![self.ctx, pushed];
-        call_args.extend(args.iter().flatten());
+        call_args.extend(widen(&args.concat()));
         call_args.push(fv[1]);
         let signature = self.b.import_signature(value_signature(self.pointer, n));
         let call = self.b.ins().call_indirect(signature, target, &call_args);
@@ -462,8 +466,8 @@ impl Rt<'_, '_> {
             None => self.iconst(0),
         };
         let mut call_args = vec![self.ctx, self.frames, drops, drop_env];
-        call_args.extend(fv);
-        call_args.extend(args.iter().flatten());
+        call_args.extend(widen(&fv));
+        call_args.extend(widen(&args.concat()));
         let r = self.call(self.apply_any[&n], &call_args);
         let r: Vec<ir::BlockArg> = r.into_iter().map(Into::into).collect();
         self.b.ins().jump(returned, &r);
@@ -494,7 +498,7 @@ impl Rt<'_, '_> {
             .ins()
             .load(types::I64, flags(), self.ctx, Context::ERROR_AT);
         let ok = self.b.create_block();
-        for _ in 0..3 {
+        for _ in 0..W {
             self.b.append_block_param(ok, types::I64);
         }
         let failed = self.b.create_block();
@@ -506,7 +510,7 @@ impl Rt<'_, '_> {
         self.leave();
 
         self.b.switch_to_block(ok);
-        let p = self.b.block_params(ok);
+        let p = narrow(self.b.block_params(ok));
         [p[0], p[1], p[2]]
     }
 
@@ -528,7 +532,7 @@ impl Rt<'_, '_> {
         self.drop_fun_var(env);
         let pushed = self.b.ins().iadd_imm_s(self.frames, 1);
         let mut call_args = vec![self.ctx, pushed];
-        call_args.extend(args.iter().flatten());
+        call_args.extend(widen(&args.concat()));
         call_args.push(fv[1]);
         let signature = self.b.import_signature(value_signature(self.pointer, n));
         self.b
@@ -551,8 +555,8 @@ impl Rt<'_, '_> {
         let drops = self.b.use_var(pre);
         let drop_env = self.b.use_var(env);
         let mut call_args = vec![self.ctx, self.frames, drops, drop_env];
-        call_args.extend(fv);
-        call_args.extend(args.iter().flatten());
+        call_args.extend(widen(&fv));
+        call_args.extend(widen(&args.concat()));
         let apply = self.fref(self.apply_any[&n]);
         self.b.ins().return_call(apply, &call_args);
     }
@@ -694,7 +698,7 @@ pub(crate) fn emit_loop(
     let v = rt.load(out_slot, 0);
     rt.drop_pre(pre);
     rt.drop_fun_var(env);
-    rt.b.ins().return_(&v);
+    rt.b.ins().return_(&widen(&v));
 
     // A fold's `done x`.
     rt.b.switch_to_block(done);
@@ -727,7 +731,7 @@ pub(crate) fn emit_loop(
         }
     }
     let w0 = rt.iconst(u64::from(TAG_DATA) | (u64::from(emit.call_tag) << 32));
-    rt.b.ins().return_(&[w0, cell, two]);
+    rt.b.ins().return_(&widen(&[w0, cell, two]));
 
     // A state-passing handler's `done x s` (stage NO3): `done x`, holding
     // the state (the machine's `Ret::Apply`), then its result applied to
@@ -786,7 +790,7 @@ pub(crate) fn emit_loop(
 
         rt.b.switch_to_block(value_block);
         let v = rt.load(out_slot, 0);
-        rt.b.ins().return_(&v);
+        rt.b.ins().return_(&widen(&v));
 
         rt.b.switch_to_block(jump_block);
         let word = rt.b.ins().load(types::I64, flags(), handler_at, 0);

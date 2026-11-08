@@ -1437,16 +1437,7 @@ pub(crate) fn emit(
                 .ins()
                 .load(types::I64, MemFlagsData::trusted(), ctx, Context::FRAMES_AT);
             let words = |b: &mut FunctionBuilder<'_>, at: IrValue, values: usize| {
-                let mut words = Vec::new();
-                for i in 0..values * 3 {
-                    words.push(b.ins().load(
-                        types::I64,
-                        MemFlagsData::trusted(),
-                        at,
-                        (i * 8) as i32,
-                    ));
-                }
-                words
+                load_words(b, at, 0, values)
             };
             let zero = b.ins().iconst(types::I64, 0);
             let (callee, call_args) = match kind {
@@ -1465,7 +1456,8 @@ pub(crate) fn emit(
                 // pending, state, handler, function value, closure)`.
                 Trampoline::Step => {
                     let mut call_args = vec![ctx, frames];
-                    call_args.extend(words(&mut b, p[1], 1));
+                    // The effect runtime's bodies take three words a value.
+                    call_args.extend(narrow(&words(&mut b, p[1], 1)));
                     call_args.extend([zero; 6]);
                     call_args.extend([p[2], zero, zero]);
                     let ids = runtime.expect("the effect runtime");
@@ -1475,7 +1467,7 @@ pub(crate) fn emit(
             let callee = module.declare_func_in_func(callee, b.func);
             let call = b.ins().call(callee, &call_args);
             let results = b.inst_results(call).to_vec();
-            for (w, r) in results.into_iter().enumerate() {
+            for (w, r) in results.into_iter().take(3).enumerate() {
                 b.ins()
                     .store(MemFlagsData::trusted(), r, out, (w * 8) as i32);
             }
@@ -1612,10 +1604,10 @@ fn body_signature(pointer: ir::Type, params: u32) -> ir::Signature {
     let mut signature = ir::Signature::new(CallConv::Tail);
     signature.params.push(AbiParam::new(pointer));
     signature.params.push(AbiParam::new(types::I64));
-    for _ in 0..params * 3 {
+    for _ in 0..params as usize * W {
         signature.params.push(AbiParam::new(types::I64));
     }
-    for _ in 0..3 {
+    for _ in 0..W {
         signature.returns.push(AbiParam::new(types::I64));
     }
     signature
@@ -1645,10 +1637,10 @@ fn apply_signature(pointer: ir::Type, n: u32) -> ir::Signature {
     signature.params.push(AbiParam::new(types::I64));
     signature.params.push(AbiParam::new(pointer));
     signature.params.push(AbiParam::new(pointer));
-    for _ in 0..(n + 1) * 3 {
+    for _ in 0..(n as usize + 1) * W {
         signature.params.push(AbiParam::new(types::I64));
     }
-    for _ in 0..3 {
+    for _ in 0..W {
         signature.returns.push(AbiParam::new(types::I64));
     }
     signature
@@ -1721,7 +1713,7 @@ fn emit_adapter(
     b.ins().jump(call, &[]);
     b.switch_to_block(call);
     let callee = module.declare_func_in_func(body, b.func);
-    let args = &all[..2 + params as usize * 3];
+    let args = &all[..2 + params as usize * W];
     let _ = pointer;
     b.ins().return_call(callee, args);
 }
@@ -1800,8 +1792,9 @@ fn emit_apply_any(
             .store(flags(), params[4 + w], fun_at, (w * 8) as i32);
     }
     let in_at = b.ins().stack_addr(pointer, in_slot, 0);
-    for i in 0..n as usize * 3 {
-        b.ins().store(flags(), params[7 + i], in_at, (i * 8) as i32);
+    let in_words = narrow(&params[4 + W..4 + W + n as usize * W]);
+    for (i, x) in in_words.iter().enumerate() {
+        b.ins().store(flags(), *x, in_at, (i * 8) as i32);
     }
     let plan = b.ins().stack_addr(pointer, plan_slot, 0);
     let cap_value = b.ins().iconst(types::I64, i64::from(cap));
@@ -1890,16 +1883,11 @@ fn emit_apply_any(
 
     // A value now: the result, or applied to what's left.
     let again = b.create_block();
-    for _ in 0..3 {
+    for _ in 0..W {
         b.append_block_param(again, types::I64);
     }
     b.switch_to_block(ready);
-    let v: Vec<IrValue> = (0..3)
-        .map(|w| {
-            b.ins()
-                .load(types::I64, flags(), plan, ApplyPlan::VALUE_AT + 8 * w)
-        })
-        .collect();
+    let v = load_words(b, plan, ApplyPlan::VALUE_AT, 1);
     let rest = b.ins().load(types::I64, flags(), plan, ApplyPlan::REST_AT);
     let done = b.create_block();
     let v_args: Vec<ir::BlockArg> = v.iter().map(|x| (*x).into()).collect();
@@ -1910,7 +1898,7 @@ fn emit_apply_any(
     // The result applied to the rest of an over-application.
     b.switch_to_block(again);
     let v = b.block_params(again).to_vec();
-    for (w, x) in v.iter().enumerate() {
+    for (w, x) in v.iter().take(3).enumerate() {
         b.ins().store(flags(), *x, fun_at, (w * 8) as i32);
     }
     let arity = b.ins().load(types::I64, flags(), plan, ApplyPlan::ARITY_AT);
@@ -2059,12 +2047,7 @@ fn emit_apply_any(
     for (k, arm) in arms {
         b.switch_to_block(arm);
         let mut call_args = vec![ctx, pushed];
-        for i in 0..k as i32 * 3 {
-            call_args.push(
-                b.ins()
-                    .load(types::I64, flags(), plan, ApplyPlan::ARGS_AT + 8 * i),
-            );
-        }
+        call_args.extend(load_words(b, plan, ApplyPlan::ARGS_AT, k as usize));
         call_args.push(b.ins().load(pointer, flags(), plan, ApplyPlan::ENV_AT));
         let signature = b.import_signature(value_signature(pointer, k));
         let rest = b.ins().load(types::I64, flags(), plan, ApplyPlan::REST_AT);
@@ -2096,12 +2079,7 @@ fn emit_apply_any(
         Some(fold) => {
             let fold = module.declare_func_in_func(fold, b.func);
             let mut call_args = vec![ctx, frames];
-            for i in 0..9 {
-                call_args.push(
-                    b.ins()
-                        .load(types::I64, flags(), plan, ApplyPlan::ARGS_AT + 8 * i),
-                );
-            }
+            call_args.extend(load_words(b, plan, ApplyPlan::ARGS_AT, 3));
             runtime_call(b, fold, &call_args);
         }
         None => {
@@ -2146,7 +2124,7 @@ fn emit_apply_any(
     b.switch_to_block(gone);
     b.ins().call(release, &[values, arity]);
     let zero = b.ins().iconst(types::I64, 0);
-    b.ins().return_(&[zero, zero, zero]);
+    b.ins().return_(&[zero; W]);
 
     // The machine failed in `sw_apply_prepare`: the function value, the
     // over-application's rest (the plan's only values then) and the
@@ -2176,7 +2154,7 @@ fn emit_apply_any(
     b.switch_to_block(leave);
     b.set_cold_block(leave);
     let zero = b.ins().iconst(types::I64, 0);
-    b.ins().return_(&[zero, zero, zero]);
+    b.ins().return_(&[zero; W]);
 
     // A callee's error, with an over-application's rest still held: the
     // callee's frame holds the rest in its `Ret`, so it goes with the
@@ -2192,7 +2170,7 @@ fn emit_apply_any(
     let no_body = b.ins().iconst(types::I64, 0);
     b.ins().call(unwind, &[ctx, from, rest, join, no_body]);
     let zero = b.ins().iconst(types::I64, 0);
-    b.ins().return_(&[zero, zero, zero]);
+    b.ins().return_(&[zero; W]);
 }
 
 /// The compiled `Text.fold text initial f` (stage NO1 of
@@ -2244,7 +2222,11 @@ fn emit_text_fold(
     b.switch_to_block(entry);
     let params = b.block_params(entry).to_vec();
     let (ctx, frames) = (params[0], params[1]);
-    let (t, z, f) = (&params[2..5], &params[5..8], &params[8..11]);
+    let (t, z, f) = (
+        &params[2..2 + W],
+        &params[2 + W..2 + 2 * W],
+        &params[2 + 2 * W..2 + 3 * W],
+    );
     let t_at = b.ins().stack_addr(pointer, t_slot, 0);
     let f_at = b.ins().stack_addr(pointer, f_slot, 0);
     for w in 0..3 {
@@ -2257,19 +2239,18 @@ fn emit_text_fold(
     let target = b.inst_results(call)[0];
     let looping = b.create_block();
     b.append_block_param(looping, types::I64);
-    for _ in 0..3 {
+    for _ in 0..W {
         b.append_block_param(looping, types::I64);
     }
     let whole = b.ins().iconst(types::I64, -1);
-    b.ins().jump(
-        looping,
-        &[whole.into(), z[0].into(), z[1].into(), z[2].into()],
-    );
+    let mut start: Vec<ir::BlockArg> = vec![whole.into()];
+    start.extend(z.iter().map(|x| ir::BlockArg::from(*x)));
+    b.ins().jump(looping, &start);
 
     // The next character from the end, if any.
     b.switch_to_block(looping);
     let p = b.block_params(looping).to_vec();
-    let (end, acc) = (p[0], [p[1], p[2], p[3]]);
+    let (end, acc) = (p[0], p[1..].to_vec());
     let c_at = b.ins().stack_addr(pointer, c_slot, 0);
     let call = b.ins().call(text_last, &[ctx, t_at, end, c_at]);
     let next = b.inst_results(call)[0];
@@ -2278,15 +2259,13 @@ fn emit_text_fold(
     let got = b.create_block();
     b.ins().brif(none_left, finish, &[], got, &[]);
     b.switch_to_block(got);
-    let c: Vec<IrValue> = (0..3)
-        .map(|w| b.ins().load(types::I64, flags(), c_at, 8 * w))
-        .collect();
+    let c = load_words(b, c_at, 0, 1);
     let direct = b.create_block();
     let slow = b.create_block();
     b.ins().brif(target, direct, &[], slow, &[]);
 
     let returned = b.create_block();
-    for _ in 0..3 {
+    for _ in 0..W {
         b.append_block_param(returned, types::I64);
     }
     // `f`'s copy for the call, which the callee owns.
@@ -2326,7 +2305,7 @@ fn emit_text_fold(
     let pushed = b.ins().iadd_imm_s(frames, 1);
     let mut call_args = vec![ctx, pushed];
     call_args.extend(&c);
-    call_args.extend(acc);
+    call_args.extend(&acc);
     call_args.push(f[1]);
     let signature = b.import_signature(value_signature(pointer, 2));
     let call = b.ins().call_indirect(signature, target, &call_args);
@@ -2340,7 +2319,7 @@ fn emit_text_fold(
     let mut call_args = vec![ctx, frames, none, none];
     call_args.extend(f);
     call_args.extend(&c);
-    call_args.extend(acc);
+    call_args.extend(&acc);
     let call = b.ins().call(apply, &call_args);
     let r: Vec<ir::BlockArg> = b.inst_results(call).iter().map(|x| (*x).into()).collect();
     b.ins().jump(returned, &r);
@@ -2355,7 +2334,10 @@ fn emit_text_fold(
         failed,
         &[],
         looping,
-        &[next.into(), r[0].into(), r[1].into(), r[2].into()],
+        &std::iter::once(next)
+            .chain(r.iter().copied())
+            .map(ir::BlockArg::from)
+            .collect::<Vec<_>>(),
     );
 
     // The callee failed: `f` with its group, as the machine has it in the
@@ -2366,9 +2348,9 @@ fn emit_text_fold(
     let join = b.ins().iconst(types::I64, 3);
     let no_body = b.ins().iconst(types::I64, 0);
     b.ins().call(unwind, &[ctx, f_at, one, join, no_body]);
-    b.ins().call(drop_words, t);
+    b.ins().call(drop_words, &t[..3]);
     let zero = b.ins().iconst(types::I64, 0);
-    b.ins().return_(&[zero, zero, zero]);
+    b.ins().return_(&[zero; W]);
 
     // Out of steps or frames before the call: as the machine's `push`.
     let unready = b.create_block();
@@ -2386,18 +2368,18 @@ fn emit_text_fold(
     b.ins().jump(unready, &[]);
     b.switch_to_block(unready);
     b.set_cold_block(unready);
-    b.ins().call(drop_words, &c);
-    b.ins().call(drop_words, &acc);
-    b.ins().call(drop_words, f);
-    b.ins().call(drop_words, t);
+    b.ins().call(drop_words, &c[..3]);
+    b.ins().call(drop_words, &acc[..3]);
+    b.ins().call(drop_words, &f[..3]);
+    b.ins().call(drop_words, &t[..3]);
     let zero = b.ins().iconst(types::I64, 0);
-    b.ins().return_(&[zero, zero, zero]);
+    b.ins().return_(&[zero; W]);
 
     // No character left: `f` and the text dropped, as the machine drops the
     // `Fold` before delivering the value.
     b.switch_to_block(finish);
-    b.ins().call(drop_words, f);
-    b.ins().call(drop_words, t);
+    b.ins().call(drop_words, &f[..3]);
+    b.ins().call(drop_words, &t[..3]);
     b.ins().return_(&acc);
 }
 
@@ -2742,9 +2724,78 @@ fn maybe_full(code: &Code) -> Vec<Regs> {
 
 // -------------------------------------------------------------- generation
 
-/// A value in three words.
+/// Register dilation (SW-2441, an experiment for compact-values.md §7):
+/// built with `SW_REGISTER_DILATION` set, every value native code holds in
+/// registers or passes in a call takes a fourth word, which is copied,
+/// passed, spilled and returned but never read for meaning, and never
+/// stored in memory (cells, stack slots, the runtime's structs stay three
+/// words). A value read from memory gets one more load as its fourth word
+/// (32 bits of its third, so Cranelift can't merge it with that load); one
+/// built in registers shares its third word's SSA value, as a real fourth
+/// word that is a constant would.
+const DILATE: bool = option_env!("SW_REGISTER_DILATION").is_some();
+
+/// The words a value takes in registers and calls.
+const W: usize = if DILATE { 4 } else { 3 };
+
+/// A value in three words (four under [`DILATE`]).
 #[derive(Clone, Copy)]
-struct Val([IrValue; 3]);
+struct Val([IrValue; W]);
+
+impl Val {
+    /// The value of three words `w`, its fourth (under [`DILATE`]) the third.
+    fn new(w: [IrValue; 3]) -> Val {
+        let mut all = [w[2]; W];
+        all[..3].copy_from_slice(&w);
+        Val(all)
+    }
+
+    /// The value of a call's or a block's `W` words.
+    fn of(w: &[IrValue]) -> Val {
+        Val(w.try_into().expect("a value's words"))
+    }
+
+    /// The three words that are the value, as memory and the runtime's
+    /// helpers take it.
+    fn mem(&self) -> &[IrValue] {
+        &self.0[..3]
+    }
+}
+
+/// `words` (three per value, from registers) as call words: [`W`] per value.
+fn widen(words: &[IrValue]) -> Vec<IrValue> {
+    assert_eq!(words.len() % 3, 0);
+    words
+        .chunks(3)
+        .flat_map(|w| Val::new([w[0], w[1], w[2]]).0)
+        .collect()
+}
+
+/// Call words ([`W`] per value) as the three words per value memory holds.
+fn narrow(words: &[IrValue]) -> Vec<IrValue> {
+    assert_eq!(words.len() % W, 0);
+    words.chunks(W).flat_map(|w| w[..3].to_vec()).collect()
+}
+
+/// The words of `values` values at `at + offset` in memory, as call words.
+fn load_words(
+    b: &mut FunctionBuilder<'_>,
+    at: IrValue,
+    offset: i32,
+    values: usize,
+) -> Vec<IrValue> {
+    let mut words = Vec::new();
+    for v in 0..values as i32 {
+        let base = offset + v * VALUE_SIZE as i32;
+        for w in 0..3 {
+            words.push(b.ins().load(types::I64, flags(), at, base + 8 * w));
+        }
+        if DILATE {
+            words.push(b.ins().uload32(flags(), at, base + 16));
+        }
+    }
+    words
+}
 
 /// An application's arguments ([`Gen::apply`]): registers, taken once the
 /// frame is counted, as `Apply` takes them; or values already taken (`bind`'s
@@ -2791,7 +2842,7 @@ struct Gen<'a, 'm> {
     /// Each register's three words, as Cranelift variables, so that they
     /// live in machine registers (stage N2a). An empty register's words are
     /// all 0 (`Erased`).
-    vars: Vec<[Variable; 3]>,
+    vars: Vec<[Variable; W]>,
     /// Room for registers written out: for a helper that takes values by
     /// pointer, or to release them on an error exit.
     spill: StackSlot,
@@ -2916,22 +2967,23 @@ impl Gen<'_, '_> {
     }
 
     fn load(&mut self, loc: Loc) -> Val {
-        let mut w = [IrValue::from_u32(0); 3];
-        for (i, word) in w.iter_mut().enumerate() {
-            *word = match loc {
-                Loc::Reg(r) => self.b.use_var(self.vars[r as usize][i]),
-                Loc::Mem(base, at) => {
-                    self.b
-                        .ins()
-                        .load(types::I64, flags(), base, at + 8 * i as i32)
+        match loc {
+            Loc::Reg(r) => {
+                let mut w = [IrValue::from_u32(0); W];
+                for (i, word) in w.iter_mut().enumerate() {
+                    *word = self.b.use_var(self.vars[r as usize][i]);
                 }
-            };
+                Val(w)
+            }
+            Loc::Mem(base, at) => Val::of(&load_words(&mut self.b, base, at, 1)),
         }
-        Val(w)
     }
 
     fn store(&mut self, loc: Loc, v: Val) {
         for (i, word) in v.0.iter().enumerate() {
+            if i >= 3 && matches!(loc, Loc::Mem(..)) {
+                break;
+            }
             match loc {
                 Loc::Reg(r) => self.b.def_var(self.vars[r as usize][i], *word),
                 Loc::Mem(base, at) => {
@@ -2948,7 +3000,7 @@ impl Gen<'_, '_> {
         match loc {
             Loc::Reg(_) => {
                 let zero = self.iconst(0);
-                self.store(loc, Val([zero; 3]));
+                self.store(loc, Val([zero; W]));
             }
             Loc::Mem(base, at) => {
                 let zero = self.b.ins().iconst(types::I8, 0);
@@ -2985,13 +3037,13 @@ impl Gen<'_, '_> {
         let w0 = self.iconst(u64::from(tag) | (u64::from(payload_hi) << 32));
         let w1 = self.iconst(payload);
         let w2 = self.iconst(0);
-        Val([w0, w1, w2])
+        Val::new([w0, w1, w2])
     }
 
     fn nat(&mut self, n: IrValue) -> Val {
         let w0 = self.iconst(u64::from(TAG_NAT));
         let w2 = self.iconst(0);
-        Val([w0, n, w2])
+        Val::new([w0, n, w2])
     }
 
     /// Runs `then` in a new block if `cond` (otherwise skips it), then
@@ -3017,7 +3069,7 @@ impl Gen<'_, '_> {
             let trace = g.options.trace_refcounts;
             g.when(owns, false, |g| {
                 if trace {
-                    g.call_helper(g.helpers.inc, &v.0);
+                    g.call_helper(g.helpers.inc, v.mem());
                 } else {
                     let strong = g.b.ins().load(types::I64, flags(), v.0[1], STRONG_AT);
                     let strong = g.b.ins().iadd_imm_s(strong, 1);
@@ -3038,7 +3090,7 @@ impl Gen<'_, '_> {
         let trace = self.options.trace_refcounts;
         self.when(owns, false, |g| {
             if trace {
-                g.call_helper(g.helpers.drop_words, &v.0);
+                g.call_helper(g.helpers.drop_words, v.mem());
                 return;
             }
             let strong = g.b.ins().load(types::I64, flags(), v.0[1], STRONG_AT);
@@ -3048,7 +3100,7 @@ impl Gen<'_, '_> {
             let after = g.b.create_block();
             g.b.ins().brif(last, free, &[], keep, &[]);
             g.b.switch_to_block(free);
-            g.call_helper(g.helpers.drop_words, &v.0);
+            g.call_helper(g.helpers.drop_words, v.mem());
             g.b.ins().jump(after, &[]);
             g.b.switch_to_block(keep);
             let fewer = g.b.ins().iadd_imm_s(strong, -1);
@@ -3179,7 +3231,7 @@ impl Gen<'_, '_> {
         }
         self.unwind(regs.len(), false);
         let zero = self.iconst(0);
-        self.b.ins().return_(&[zero, zero, zero]);
+        self.b.ins().return_(&[zero; W]);
     }
 
     /// Hands the first `n` spill slots' values to the runtime (`sw_unwind`).
@@ -3205,7 +3257,7 @@ impl Gen<'_, '_> {
         if let Some(env) = self.env {
             let tag = self.iconst(u64::from(TAG_FUN));
             let zero = self.iconst(0);
-            self.spill_value(0, Val([tag, env, zero]));
+            self.spill_value(0, Val::new([tag, env, zero]));
             self.unwind_mode(1, 2);
         } else {
             // Every leaving frame pushes a group (the last frame's pending
@@ -3279,7 +3331,7 @@ impl Gen<'_, '_> {
     fn call_result_untagged(&mut self, live: &Regs, r: &[IrValue]) -> Val {
         let error = self.ctx_load(Context::ERROR_AT);
         let done = self.b.create_block();
-        for _ in 0..3 {
+        for _ in 0..W {
             self.b.append_block_param(done, types::I64);
         }
         let fail = self.b.create_block();
@@ -3289,8 +3341,8 @@ impl Gen<'_, '_> {
         self.b.set_cold_block(fail);
         self.exit_now(live, None, &[], &[]);
         self.b.switch_to_block(done);
-        let p = self.b.block_params(done);
-        Val([p[0], p[1], p[2]])
+        let p = self.b.block_params(done).to_vec();
+        Val::of(&p)
     }
 
     /// `regs` without the registers `o` moves out (marked `MOVE`).
@@ -3434,7 +3486,7 @@ impl Gen<'_, '_> {
         let entry = self.b.create_block();
         self.b.append_block_params_for_function_params(entry);
         self.top = self.b.create_block();
-        for _ in 0..code.params * 3 {
+        for _ in 0..code.params as usize * W {
             self.b.append_block_param(self.top, types::I64);
         }
 
@@ -3466,8 +3518,8 @@ impl Gen<'_, '_> {
         }
         let params: Vec<IrValue> = self.b.block_params(self.top).to_vec();
         for r in 0..code.params {
-            let i = r as usize * 3;
-            self.store(Loc::Reg(r), Val([params[i], params[i + 1], params[i + 2]]));
+            let i = r as usize * W;
+            self.store(Loc::Reg(r), Val::of(&params[i..i + W]));
         }
         for r in code.params..code.regs {
             self.erase(Loc::Reg(r));
@@ -3818,7 +3870,7 @@ impl Gen<'_, '_> {
             self.store(Loc::Mem(cell, at), *v);
         }
         let w0 = self.iconst(u64::from(TAG_DATA) | (u64::from(tag) << 32));
-        Val([w0, cell, len])
+        Val::new([w0, cell, len])
     }
 
     /// Whether cells of `n` fields go through the run's cell cache
@@ -4250,7 +4302,7 @@ impl Gen<'_, '_> {
             };
             let none = self.b.ins().iconst(self.pointer, 0);
             let mut call_args = vec![self.ctx, frames];
-            call_args.extend(c.0);
+            call_args.extend(c.mem());
             call_args.extend([zero; 6]);
             call_args.extend([handler, none, env]);
             match dst {
@@ -4621,7 +4673,7 @@ impl Gen<'_, '_> {
         let high = self.b.ins().ishl_imm_u(ctor, 32);
         let w0 = self.b.ins().bor_imm_u(high, i64::from(TAG_TAG));
         let zero = self.iconst(0);
-        self.assign(pc, dst, Val([w0, zero, zero]));
+        self.assign(pc, dst, Val::new([w0, zero, zero]));
     }
 
     /// Whether the cell whose address is `cell` is unique.
@@ -4722,7 +4774,7 @@ impl Gen<'_, '_> {
                     self.erase(Loc::Mem(cell, field_at(i)));
                 }
             }
-            self.call_helper(self.helpers.drop_words, &v.0);
+            self.call_helper(self.helpers.drop_words, v.mem());
             self.b.ins().jump(freed, &[]);
             self.b.switch_to_block(freed);
         } else {
@@ -4791,7 +4843,7 @@ impl Gen<'_, '_> {
                 self.store(Loc::Mem(cell, RC_VALUE_AT + (i * VALUE_SIZE) as i32), v);
             }
             let w0 = self.iconst(u64::from(TAG_DATA) | (u64::from(tag) << 32));
-            self.assign(pc, dst, Val([w0, cell, t.0[2]]));
+            self.assign(pc, dst, Val::new([w0, cell, t.0[2]]));
             self.b.ins().jump(after, &[]);
             self.b.set_cold_block(slow);
         } else {
