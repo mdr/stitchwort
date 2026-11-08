@@ -23746,14 +23746,14 @@
     {
       "id": 2405,
       "title": "Nat's own Succ (f x) recursion gets no constant-stack loop (TRMC handles constructors, not call plus k); add an accumulator loop for call-plus-constant",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
         "rt"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2398. Existing gap; also needed if Nat-shaped types go ahead. Changes frames and steps for such Nat functions (results unchanged). 90 min.",
+      "body": "From SW-2398. Existing gap; also needed if Nat-shaped types go ahead. Changes frames and steps for such Nat functions (results unchanged). 90 min.\nStarted 15:55 UTC, Opus.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -23761,14 +23761,14 @@
     {
       "id": 2406,
       "title": "Design note: erase constructor fields the type's indices determine at run time (overturning D141 for run time), rebuilding them at a match from the scrutinee's type, so Fin and similar indexed types are Nat-shaped; all backends incl. JS; correct nat-shaped-types.md §1.1/§2.3",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
         "design"
       ],
       "epic": "comparative-speed",
-      "body": "D3426, Matt, 8 Nov 2026: yes, design note approved. From SW-2398's blocker 1. Paper, 60-90 min. Queued until usage pace drops back under 1 (Matt: \"we need to pause a little bit and wait until ... pace drops back\").",
+      "body": "D3426, Matt, 8 Nov 2026: yes, design note approved. From SW-2398's blocker 1. Paper, 60-90 min. Queued until usage pace drops back under 1 (Matt: \"we need to pause a little bit and wait until ... pace drops back\").\nStarted 15:56 UTC, Opus.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
