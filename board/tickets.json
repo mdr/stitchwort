@@ -23263,14 +23263,14 @@
     {
       "id": 2376,
       "title": "Graph.reachable: a breadth-first walk without costs instead of running Dijkstra, with its own proof of reachableIff",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "std"
       ],
       "epic": "std-library",
-      "body": "From SW-2370. 45 min.",
+      "body": "From SW-2370. 45 min.\n\nStarted 06:05 UTC, Sonnet, expected 45 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
