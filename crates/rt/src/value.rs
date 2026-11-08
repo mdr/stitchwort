@@ -394,6 +394,19 @@ impl Drop for Fields {
     }
 }
 
+thread_local! {
+    static JUMP_K: Rc<Fun> = crate::value_census::new_fun(Fun::JumpK);
+}
+
+/// The `JumpK` every state-passing handler step hands its clause: it carries
+/// no data, so one per thread is cloned (a count increment) rather than one
+/// allocated per step. Never unique, which nothing relies on for a `Fun`
+/// of this kind.
+#[inline]
+pub fn shared_jump_k() -> Rc<Fun> {
+    JUMP_K.with(Rc::clone)
+}
+
 impl Drop for Fun {
     fn drop(&mut self) {
         crate::value_census::fun_freed(self);
