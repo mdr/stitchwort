@@ -152,8 +152,7 @@ export def stateInState (numbers: List Nat): List Nat :=
 -- A store whose `put` doesn't take the state's function apart: `k ()` is
 -- already a function of the state (`s => k () s`, as the backends read it).
 -- At the closed empty row that clause is a computation, not `Done` of a
--- function, so the handler isn't run as a loop there: the plain handler is
--- the fallback.
+-- function, and fusion reads it as a jump all the same.
 ability Store where
   get: () → {Store} Nat
   put: Nat → {Store} ()

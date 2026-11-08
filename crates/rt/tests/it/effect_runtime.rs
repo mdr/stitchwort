@@ -374,8 +374,9 @@ fn nat_list(p: &Program, xs: &[u64]) -> Value {
 /// Which handlers of `effect-state.sw` run as a loop (stage 4d,
 /// `stitchwort_rt::fusion`), told by the jumps their operations make: a
 /// state-passing handler at the empty row with a tail resumption, whatever
-/// else its clauses do with `k`; not one with an ability outside it, nor
-/// one with a clause that isn't `Done` of a function at the closed empty
+/// else its clauses do with `k` (a clause that is `k v` itself counts, as
+/// `storesEta` shows); not one with an ability outside it, nor one with a
+/// clause that is neither `Done` of a function nor `k v` at the closed empty
 /// row, nor one that never resumes in tail position. (Their answers are the
 /// reference evaluator's: `run_lines_agree_with_the_reference_evaluator`.)
 #[test]
@@ -395,7 +396,7 @@ fn state_handlers_run_as_a_loop_where_they_fit() {
             ("talliedChecked", codes, 10),
             // `get`, `put` and `get` again for each element.
             ("stores", &[4, 0, 7], 9),
-            ("storesEta", &[4, 0, 7], 0),
+            ("storesEta", &[4, 0, 7], 9),
             ("storesEtaOpen", &[4, 0, 7], 9),
             ("nestedState", &[1, 2, 3], 3),
             ("stateInState", &[1, 2, 3], 3),
