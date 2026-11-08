@@ -22894,8 +22894,8 @@
     },
     {
       "id": 2355,
-      "title": "Investigate 30 aoc/ proof errors (Proofs/ and Tests/ files, e.g. Common/Proofs/GridCells.sw E-REWRITE-NOTHING) seen when the clause census loads aoc/ through the test library cache; check whether stitchwort check aoc reproduces",
-      "status": "backlog",
+      "title": "aoc/ proofs broken by SW-2323's one-pass List.flatMap: Aoc.Common.Proofs.GridCells relied on flatMap unfolding to concat of map; repair with List.flatMapEqConcatMap",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
