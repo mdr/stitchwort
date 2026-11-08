@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Profile a comparison program's native executable (bench/compare).
 
-    task profile:native -- NAME... [--top N] [--focus FUNCTION]... [--no-counts]
+    task profile:native -- NAME... [--top N] [--focus FUNCTION]... [--group PREFIX]...
+                                  [--no-counts]
 
 `task profile:native` builds `stitchwort` and the runtime library first, and
 runs this inside `nix develop`. For each program named in
@@ -66,6 +67,7 @@ def main():
     parser.add_argument("--sw", type=Path, default=ROOT / "target" / "release" / "stitchwort")
     parser.add_argument("--top", type=int, default=25, help="how many functions to list")
     parser.add_argument("--focus", action="append", default=[], help="also list this function's callers and callees")
+    parser.add_argument("--group", action="append", default=[], help="also total the time in frames named PREFIX*")
     parser.add_argument("--no-counts", action="store_true", help="skip the counting build and run")
     opts = parser.parse_args()
 
@@ -92,6 +94,7 @@ def main():
             print(f"{name}: the run failed ({status})")
             continue
         focus = [a for f in opts.focus for a in ("--focus", f)]
+        focus += [a for g in opts.group for a in ("--group", g)]
         subprocess.run([sys.executable, "-I", str(ROOT / "dev" / "profile_top.py"), str(profile),
                         "--top", str(opts.top)] + focus, check=True)
         if not opts.no_counts:
