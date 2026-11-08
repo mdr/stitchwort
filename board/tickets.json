@@ -24068,14 +24068,14 @@
     {
       "id": 2425,
       "title": "Compact values V0: census of the values and cells a run makes (kinds, sizes, bytes allocated) on the decision set; no-go for two-word values if allocated bytes fall under 25% on half the set",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/proposals/compact-values.md §5. Waits for D3432. 1.5 h.\n\nD3432, Matt, 8 Nov 2026 ~18:30: yes, \"run the measurements\" (end state C then E; A/D gated).\n",
+      "body": "From docs/proposals/compact-values.md §5. Waits for D3432. 1.5 h.\n\nD3432, Matt, 8 Nov 2026 ~18:30: yes, \"run the measurements\" (end state C then E; A/D gated).\nStarted 18:34 UTC.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -24083,14 +24083,14 @@
     {
       "id": 2426,
       "title": "Compact values V1: hardware counters on Overmind (perf: cycles, instructions, cache misses, memory stalls) for native on the decision set",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From compact-values.md §5. Waits for D3432. Runs on Overmind. 1 h.\n\nD3432, Matt, 8 Nov 2026 ~18:30: yes, \"run the measurements\" (end state C then E; A/D gated).\n",
+      "body": "From compact-values.md §5. Waits for D3432. Runs on Overmind. 1 h.\n\nD3432, Matt, 8 Nov 2026 ~18:30: yes, \"run the measurements\" (end state C then E; A/D gated).\nStarted 18:34 UTC.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
