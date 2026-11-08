@@ -189,16 +189,9 @@ fn example_handler_clauses() {
         assert!(c.state, "Tally.runIn's variant is fused");
         assert_eq!(c.clauses, tally);
         // `get` and `put` jump. `keep`'s `put` is `k ()`, not `Done` of a
-        // function, so fusion leaves the fold alone: `put` resumes as its
-        // last step, and `get`'s `k` is under the state's lambda.
+        // function, and fusion reads it as the jump `s => k () s`.
         check(g, "Store.run", true, ForwardShape::Plain, &[Tail, Tail]);
-        check(
-            g,
-            "Store.keep",
-            false,
-            ForwardShape::Plain,
-            &[General, Tail],
-        );
+        check(g, "Store.keep", true, ForwardShape::Plain, &[Tail, Tail]);
         check(g, "Offer.counted", false, ForwardShape::Plain, &[General]);
         // A reader at an open row: `k value`.
         check(g, "Env.give", false, ForwardShape::Divergence, &[Tail]);

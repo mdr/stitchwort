@@ -44,6 +44,9 @@
 //!   reduced that (an empty-row variant of a handler written for `{e}`):
 //!   any clauses, since `doneIn Empty` is the identity.
 //!
+//! A clause that is `k v` itself, at the closed empty row (where `k v` is
+//! `Done` of the state's function), is `s => k v s`: a jump.
+//!
 //! A clause whose `e` isn't a lambda is eta-expanded (`s => e s`), which
 //! is sound since generated code is pure and total. A fold none of whose
 //! clauses has a tail `k v s′` is left alone.
@@ -285,7 +288,34 @@ impl StateFusion {
         let f = if comp {
             match self.done_field(body) {
                 Some(f) => f,
-                None => return Ok(None),
+                None => {
+                    // `k v` itself, not `Done` of a function: `k` gives
+                    // `Done` of the state's function, so the clause is
+                    // `s => k v s`, a jump.
+                    let Term::App(kf, v, _) = strip(body) else {
+                        return Ok(None);
+                    };
+                    if !matches!(strip(kf), Term::Var(0)) || v.mentions(0) {
+                        return Ok(None);
+                    }
+                    walk.jumps += 1;
+                    let v = v.shift(g, 2, 0)?;
+                    let body = Term::app(Term::app(Term::Var(1), v), Term::Var(0));
+                    let lam = |name, icit, body| Term::Lam(name, icit, Rc::new(body));
+                    return Ok(Some(lam(
+                        x.clone(),
+                        *xi,
+                        lam(
+                            k.clone(),
+                            *ki,
+                            lam(
+                                "jump".into(),
+                                Icit::Explicit,
+                                lam("s".into(), Icit::Explicit, body),
+                            ),
+                        ),
+                    )));
+                }
             }
         } else {
             &**body
