@@ -105,6 +105,11 @@ pub const LEN_AT: i32 = 16;
 pub const STRONG_AT: i32 = 0;
 pub const WEAK_AT: i32 = 8;
 pub const RC_VALUE_AT: i32 = 16;
+/// In an `Array`'s `Rc` allocation (an `RcInner<Vec<Value>>`): where the
+/// `Vec`'s buffer address and its length are. `Vec`'s field order is
+/// unspecified; [`probe_layout`] checks these.
+pub const ARRAY_ITEMS_AT: i32 = RC_VALUE_AT + 8;
+pub const ARRAY_LEN_AT: i32 = RC_VALUE_AT + 16;
 
 /// A function value's variant ([`Fun`] is `repr(u8)`): its first byte.
 pub const FUN_GLOBAL: u8 = 0;
@@ -169,6 +174,22 @@ fn counts_at(at: *const u8) -> (u64, u64) {
     unsafe {
         let p = at.cast::<u64>();
         (p.read(), p.add(1).read())
+    }
+}
+
+/// The buffer address and length of the `Vec` in the array allocation at `at`.
+#[allow(unsafe_code)]
+fn array_words_at(at: *const u8) -> (*const Value, u64) {
+    // SAFETY: called only on the address of a live array's allocation, an
+    // `RcInner<Vec<Value>>` ([`probe_layout`] is checking the offsets), whose
+    // `Vec` words are initialised.
+    unsafe {
+        (
+            at.add(ARRAY_ITEMS_AT as usize)
+                .cast::<*const Value>()
+                .read(),
+            at.add(ARRAY_LEN_AT as usize).cast::<u64>().read(),
+        )
     }
 }
 
@@ -273,6 +294,17 @@ fn probe() -> Result<(), String> {
         "a text's address and length",
     )?;
     check(counts_at(allocation(&tv)).0 == 2, "a text's count")?;
+    // A spare capacity, so the capacity word can't be mistaken for the length.
+    let mut items = Vec::with_capacity(7);
+    items.extend([Value::Nat(1), Value::Nat(2), Value::Nat(3)]);
+    let items = Rc::new(items);
+    let array = Value::Array(items.clone());
+    let at = allocation(&array);
+    let (buffer, len) = array_words_at(at);
+    check(
+        buffer == items.as_ptr() && len == 3,
+        "an array's buffer address and length",
+    )?;
     probe_functions()?;
     for v in [&tags[2].0, &tags[4].0, &tags[9].0, &tags[10].0, &tags[11].0] {
         let copy = v.clone();
