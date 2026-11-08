@@ -388,11 +388,15 @@ tasks:
 
   fuzz:elab:
     desc: 'Elaborator fuzzer, release (task fuzz:elab CASES=2000 SEED=0x2 CORPUS=1)'
-    summary: Runs crates/driver/tests/fuzz_elab.rs. SEED is decimal or 0x...; CORPUS=1 checks the unmutated examples. A failure saves its input to target/fuzz-elab/<seed>-<case>.sw.
+    summary: Runs crates/driver/tests/fuzz_elab.rs. SEED is decimal or 0x...; CORPUS=1 checks the unmutated examples. FROM and TO (or ONLY=n) check only those cases of the CASES generated, and DUMP=1 also writes their inputs out; a case whose check runs over 5 s is named on stderr. A failure saves its input to target/fuzz-elab/<seed>-<case>.sw.
     env:
       FUZZ_CASES: '{{.CASES}}'
       FUZZ_SEED: '{{.SEED}}'
       FUZZ_CORPUS: '{{.CORPUS}}'
+      FUZZ_FROM: '{{.FROM}}'
+      FUZZ_TO: '{{.TO}}'
+      FUZZ_ONLY: '{{.ONLY}}'
+      FUZZ_DUMP: '{{.DUMP}}'
     cmds:
       - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace --no-capture -E ''binary(fuzz_elab)'' {{.CLI_ARGS}}'
 

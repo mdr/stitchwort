@@ -37,6 +37,14 @@
 //! `target/fuzz-elab/<seed>-<case>.sw`. `FUZZ_CASES` and `FUZZ_SEED` (decimal or
 //! `0x…`) control a longer or different run; `FUZZ_CORPUS=1` skips the
 //! mutation and checks the unmutated examples (a calibration of the oracles).
+//!
+//! Every case is generated, so case `n` is the same program whatever the
+//! count (for the same examples: a new one changes every case), but only cases `FUZZ_FROM..FUZZ_TO` are checked (default: all), and
+//! `FUZZ_ONLY=n` checks case `n` alone; with `FUZZ_DUMP=1` the checked cases'
+//! inputs are also written to `target/fuzz-elab/<seed>-<case>.sw`. A case
+//! whose check runs longer than `SLOW` is named on standard error, so one
+//! that runs away in memory, which the watchdog is too slow for, can be
+//! found from the log.
 
 use std::ops::Range;
 use std::panic::{AssertUnwindSafe, catch_unwind};
@@ -59,6 +67,9 @@ const STACK: usize = 16 * 1024 * 1024;
 const WORK: u64 = 300_000_000;
 /// A case still running after this long is a hang.
 const WATCHDOG: Duration = Duration::from_secs(60);
+/// A check of a case running this long is named as it runs. Short, because
+/// a case that runs away in memory can fill 16 GB in under ten seconds.
+const SLOW: Duration = Duration::from_secs(5);
 /// Every this many cases also check the cold and warm cache agree.
 const CACHE_EVERY: usize = 10;
 
@@ -636,7 +647,9 @@ struct Tally {
     failures: Vec<(usize, String)>,
 }
 
-fn run_case(case: &Case, seed: u64, out_dir: &Path, tally: &mut Tally) {
+/// Checks `case`, calling `starting` before each check of it (the slow-case
+/// report times each one).
+fn run_case(case: &Case, seed: u64, out_dir: &Path, tally: &mut Tally, starting: &dyn Fn()) {
     let fail = |tally: &mut Tally, oracle: &str, detail: String| {
         let path = out_dir.join(format!("{seed:x}-{}.sw", case.number));
         let _ = std::fs::create_dir_all(out_dir);
@@ -652,6 +665,7 @@ fn run_case(case: &Case, seed: u64, out_dir: &Path, tally: &mut Tally) {
             ),
         ));
     };
+    starting();
     let report = match run_watched(&case.text, None) {
         Ran::Done(report) => *report,
         Ran::Panicked(message) => {
@@ -689,7 +703,9 @@ fn run_case(case: &Case, seed: u64, out_dir: &Path, tally: &mut Tally) {
     if case.number.is_multiple_of(CACHE_EVERY) && report.reached {
         tally.cache_checked += 1;
         let dir = temp_dir(case.number);
+        starting();
         let cold = run_watched(&case.text, Some(&dir));
+        starting();
         let warm = run_watched(&case.text, Some(&dir));
         let _ = std::fs::remove_dir_all(&dir);
         match (cold, warm) {
@@ -716,6 +732,9 @@ fn run_case(case: &Case, seed: u64, out_dir: &Path, tally: &mut Tally) {
         }
     }
 }
+
+/// A case being checked: its number, and when it started.
+type Started = (usize, Instant);
 
 fn env_number(name: &str) -> Option<u64> {
     let value = std::env::var(name).ok()?;
@@ -769,13 +788,56 @@ fn mutated_examples_check_without_internal_errors() {
             .collect()
     };
 
+    let only = env_number("FUZZ_ONLY").map(|n| n as usize);
+    let from = only
+        .or(env_number("FUZZ_FROM").map(|n| n as usize))
+        .unwrap_or(0);
+    let to = only
+        .map(|n| n + 1)
+        .or(env_number("FUZZ_TO").map(|n| n as usize))
+        .unwrap_or(all.len())
+        .min(all.len());
+    let mut all = all;
+    all.truncate(to);
+    all.drain(..from.min(to));
+    if std::env::var("FUZZ_DUMP").is_ok_and(|v| v == "1") {
+        std::fs::create_dir_all(&out_dir).unwrap();
+        for case in &all {
+            let path = out_dir.join(format!("{seed:x}-{}.sw", case.number));
+            std::fs::write(path, &case.text).unwrap();
+        }
+    }
+
     let next = Arc::new(Mutex::new(0usize));
     let all = Arc::new(all);
+    // What each worker is checking, and since when, for the slow-case report.
+    let running: Arc<Mutex<Vec<Option<Started>>>> =
+        Arc::new(Mutex::new(vec![None; test_threads().min(4)]));
+    let finished = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let tallies: Vec<Tally> = std::thread::scope(|scope| {
+        {
+            let running = Arc::clone(&running);
+            let finished = Arc::clone(&finished);
+            scope.spawn(move || {
+                let mut reported = std::collections::BTreeSet::new();
+                while !finished.load(std::sync::atomic::Ordering::Relaxed) {
+                    std::thread::sleep(Duration::from_millis(500));
+                    for (number, since) in running.lock().unwrap().iter().flatten() {
+                        if since.elapsed() >= SLOW && reported.insert(*number) {
+                            eprintln!(
+                                "fuzz_elab: case {number} (seed {seed:#x}) still running after {}s",
+                                SLOW.as_secs()
+                            );
+                        }
+                    }
+                }
+            });
+        }
         let handles: Vec<_> = (0..test_threads().min(4))
-            .map(|_| {
+            .map(|worker| {
                 let next = Arc::clone(&next);
                 let all = Arc::clone(&all);
+                let running = Arc::clone(&running);
                 let out_dir = out_dir.clone();
                 scope.spawn(move || {
                     let mut tally = Tally::default();
@@ -787,12 +849,24 @@ fn mutated_examples_check_without_internal_errors() {
                             i
                         };
                         let Some(case) = all.get(i) else { break };
-                        run_case(case, seed, &out_dir, &mut tally);
+                        let starting = || {
+                            running.lock().unwrap()[worker] = Some((case.number, Instant::now()))
+                        };
+                        run_case(case, seed, &out_dir, &mut tally, &starting);
+                        running.lock().unwrap()[worker] = None;
                     }
                     tally
                 })
             })
             .collect();
+        // Stops the reporter even if a worker panicked.
+        struct Finish(Arc<std::sync::atomic::AtomicBool>);
+        impl Drop for Finish {
+            fn drop(&mut self) {
+                self.0.store(true, std::sync::atomic::Ordering::Relaxed);
+            }
+        }
+        let _finish = Finish(Arc::clone(&finished));
         handles.into_iter().map(|h| h.join().unwrap()).collect()
     });
 
@@ -823,7 +897,7 @@ fn mutated_examples_check_without_internal_errors() {
     if !corpus_only {
         // The generator must keep producing programs the elaborator sees.
         assert!(
-            cases < 100 || reached * 4 > total,
+            total < 100 || reached * 4 > total,
             "under a quarter of the cases reached the elaborator"
         );
     }
