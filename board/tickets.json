@@ -22465,14 +22465,14 @@
     {
       "id": 2328,
       "title": "Native: inline the hole operations (New/Fill/Take) as a store and a load instead of sw_prim with an argument Vec and a clone (octopus ~17%, matcher ~15%, disk ~7%)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2328",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/reviews/SW-2296-native-profiles.md §5 (measured). 45-60 min.\n\nStarted 8 Nov 2026 00:08, overnight wave 1 (Matt: focus on comparative performance; profile, address, recheck); expected: 50 min.\n",
+      "body": "From docs/reviews/SW-2296-native-profiles.md §5 (measured). 45-60 min.\n\nStarted 8 Nov 2026 00:08, overnight wave 1 (Matt: focus on comparative performance; profile, address, recheck); expected: 50 min.\n\nProgress (lane): commit 94e49528b on lane/SW-2328. Fill/Take inline (store/load, count on the value); New via the ctor helper. octopus sw_prim calls 141M -> 16M, matcher 99M -> 0.5M. bench:compare:check ok (24/24).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -22571,7 +22571,7 @@
     {
       "id": 2335,
       "title": "Parse runtime stage 0: split the slow-apply count by kind of function value (DoneK, JumpK, resumptions, closures) and print effect-step counts in the call-counts report, to check the note's cost model before stages 1-3",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2335",
       "labels": [
@@ -22579,7 +22579,7 @@
         "tooling"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/proposals/parse-runtime.md (SW-2327). 30 min. First.\n\nStarted 8 Nov 2026 00:19; expected: 30 min.\n",
+      "body": "\nFrom docs/proposals/parse-runtime.md (SW-2327). 30 min. First.\n\nStarted 8 Nov 2026 00:19; expected: 30 min.\n\n\nDone 8 Nov 2026 00:30 (11 min), branch lane/SW-2335 commit a20fe20a2. call-counts build now splits sw_apply_prepare by function-value kind, counts apply-cache misses per call site, and counts pushes/pops/routes (routes per handler clause and operation). Per char, expressions/scan: closures 20/33, steps 38/57, prepare 38/69; effect-runtime values (DoneK, JumpK, resumptions) are 77%/71% of the slow (non-fast-pap) applies. Re-dispatch depth not obtainable without a depth field; see report. Cache hits aren't countable (inline in compiled code).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -22726,7 +22726,7 @@
     {
       "id": 2345,
       "title": "docs/workflow.md 'Writing a brief': the std-core line's filter -E 'binary(extract) & test(/bound_to_the_prelude/)' matches no binary (SW-2323 used the test filter alone); correct it to the real binary name",
-      "status": "backlog",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -22736,7 +22736,9 @@
       "body": "From SW-2323's report, 8 Nov 2026. 10 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "9dfcc1a97"
+      ]
     },
     {
       "id": 2346,
