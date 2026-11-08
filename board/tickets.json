@@ -1,5 +1,5 @@
 {
-  "next": 2407,
+  "next": 2409,
   "tickets": [
     {
       "id": 47,
@@ -23603,7 +23603,7 @@
     {
       "id": 2396,
       "title": "Graph.distances over a cost table, stage 2: the optional (index := …) argument, the Array table and the side Map, per dense-distances.md draft 2; then day 15 passes a grid index (Position numbering in Aoc.Common); acceptance: zero array copies on day 15",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -23611,10 +23611,12 @@
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "After SW-2394. Waits for D3419 (index shape; rec (b) Graph.Index record with size, number, decode and two erased proofs). 90-120 min.\n\nD3419, Matt, 8 Nov 2026: delegated (\"if you can make a reasonable call, I'm happy for you to do so\"). Orchestrator's call: (b) a Graph.Index s record with size, number: s -> Option Nat, decode: Nat -> s, and two erased proofs (numbers below size; decode of a number gives the state back). Not Fin-based, since Fin is unary at run time until SW-2397 and implicit parameters can't have defaults. Starts when a build slot frees.\nStarted 10:40 UTC, Opus, expected 120 min.\n",
+      "body": "After SW-2394. Waits for D3419 (index shape; rec (b) Graph.Index record with size, number, decode and two erased proofs). 90-120 min.\n\nD3419, Matt, 8 Nov 2026: delegated (\"if you can make a reasonable call, I'm happy for you to do so\"). Orchestrator's call: (b) a Graph.Index s record with size, number: s -> Option Nat, decode: Nat -> s, and two erased proofs (numbers below size; decode of a number gives the state back). Not Fin-based, since Fin is unary at run time until SW-2397 and implicit parameters can't have defaults. Starts when a build slot frees.\nStarted 10:40 UTC, Opus, expected 120 min.\n\nLane notes (Opus, branch lane/SW-2396, commit 561fea1f3, about 55 min):\n- Built Graph.Index (decode returns Option s: Graph.Index.none must exist for every s), Graph.IndexTable with the Costs laws (Graph.indexCosts), the result map lemma (Graph.IndexTable.getToMap), the optional index on distances/distancesCorrect/distancesShortest, boxIndex in Aoc.Common, day 15 passing it.\n- Day 15 native: 2.69 s / 41.56 G before, 1.26-1.30 s / 19.65-19.69 G after (est. 1.45 s). Map path 41.57 G (unchanged).\n- Copies: 2 per search (one per table, from the empty table the Costs record holds), none per operation; rt test an_indexed_search_changes_its_tables_in_place.\n- Audits: Std.Graph + new Map lemmas 85/85; Aoc.Year2021.Day15 38 (2 vacuity warnings, same as main); Aoc.Common 366/366. aoc:check, hash tests, test:lane std, bench:compare:check dijkstra all pass.\n\nMerged. Orchestrator's calls (D3419 delegated): decode returns Option (the default index needs it); accept 2 array copies per search (O(n) once). Statements checked: distancesCorrect/Shortest now hold for any index; day 15 cheapestPath/noCheaperPath only renamed their got call. Follow-ups SW-2407 SW-2408. Model result: Opus, worked, 55 min (est. 120).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "3496aee5f"
+      ]
     },
     {
       "id": 2397,
@@ -23765,6 +23767,37 @@
       ],
       "epic": "comparative-speed",
       "body": "D3426, Matt, 8 Nov 2026: yes, design note approved. From SW-2398's blocker 1. Paper, 60-90 min. Queued until usage pace drops back under 1 (Matt: \"we need to pause a little bit and wait until ... pace drops back\").",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2407,
+      "title": "Destructuring let (Both ...) on day 15's part2Correct reads the goal back and fails with 'a value was too large to show', no hint of the cause; better error or avoid the readback",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "diagnostics",
+      "body": "From SW-2396 (worked around with And.left/And.right). 60 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2408,
+      "title": "Optimiser inlines only bodies of size <= 24, so std performance silently depends on body size (Graph.distances kept small on purpose); an inline attribute or specialising known dictionaries through non-recursive calls",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "rt",
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2396. Design first. 60-90 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
