@@ -1,5 +1,5 @@
 {
-  "next": 2326,
+  "next": 2327,
   "tickets": [
     {
       "id": 47,
@@ -22403,7 +22403,7 @@
     {
       "id": 2325,
       "title": "Design note: should the optimiser merge repeated pure calls (common subexpression elimination, and its cousins: let-floating, full laziness), given in-place reuse? What Lean, Idris 2, Agda, Koka, GHC, OCaml/flambda and MLton do and what the literature recommends; which automatic forms are safe for space and reuse; how a user would control it",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2325",
       "labels": [
@@ -22411,12 +22411,27 @@
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "Matt, 7 Nov 2026, on D3359 (from SW-2318: Lean's CSE merged binary-trees' two Tree.make calls): 'that needs some paper design ... a careful analysis of what other languages do, Idris, Agda, Lean ... what the literature recommends ... I don't think we just jump to doing it.' Output docs/proposals/sharing-repeated-calls.md. Paper lane. Started 7 Nov 2026; expected: 75 min. D base D3390.\n\nNote merged (docs/proposals/sharing-repeated-calls.md). Waits on Matt: D3390 (optimiser never merges calls that build new values; numbers/booleans allowed later) and D3391 (let is the user control, documented in the guide). Its tickets are filed once he answers. Model result: Opus, worked, 10 min (est. 75).\n",
+      "body": "Matt, 7 Nov 2026, on D3359 (from SW-2318: Lean's CSE merged binary-trees' two Tree.make calls): 'that needs some paper design ... a careful analysis of what other languages do, Idris, Agda, Lean ... what the literature recommends ... I don't think we just jump to doing it.' Output docs/proposals/sharing-repeated-calls.md. Paper lane. Started 7 Nov 2026; expected: 75 min. D base D3390.\n\nNote merged (docs/proposals/sharing-repeated-calls.md). Waits on Matt: D3390 (optimiser never merges calls that build new values; numbers/booleans allowed later) and D3391 (let is the user control, documented in the guide). Its tickets are filed once he answers. Model result: Opus, worked, 10 min (est. 75).\n\nD3390, Matt, 8 Nov 2026: \"I wouldn't say barred, but let's not jump to sharing. It might be something we consider and come back to later, but there's no need to unless it emerges as a clear general purpose optimization that's good for Stitchwort.\" So: no merging pass now, no rule written into opt.rs; revisit only on evidence. D3391 (let as the user control) not asked. The note's tickets 1, 2 and 4 are not filed; ticket 3 (count repeats after inlining) is filed in backlog as the evidence that would reopen it.\n",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-08",
       "commits": [
         "133260535ecb8e6463080020233967abceaf4b17"
       ]
+    },
+    {
+      "id": 2326,
+      "title": "Evidence for D3390: a debug counter of repeated pure expressions after inlining, compiled (not run) over ten AoC days and bench/compare; reports how often merging would fire and on what",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From docs/proposals/sharing-repeated-calls.md (SW-2325), its ticket 3. Matt, 8 Nov 2026: merging repeated calls only if it emerges as a clear general-purpose win. Low priority. 45 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
     }
   ]
 }
