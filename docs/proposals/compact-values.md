@@ -45,6 +45,11 @@ at an effect, with the reasoning; **[cited]** from a paper or a project's source
   step has a go/no-go stated in advance. My estimate before measuring: C gives 1.01–1.03×
   on the geometric mean against Lean, C+E 1.05–1.12×, A+D another 1.05–1.10× on top, with
   binary-trees the largest single gain (C+E about 1.15–1.3×) **[estimated]**.
+- **V4's result** (§7, from the measurements). C about 1.01× (lower than estimated above);
+  C+E 1.09× on the decision set's geometric mean and 1.21× on binary-trees (range
+  1.03–1.21× and 1.09–1.46×); A another 1.08×. Each is just under its gate (1.10×, 1.25×,
+  1.10×), so the recommendation there is to hold E, do four cheap changes first, and rerun
+  the model after operations in place stage D **[estimated from measured inputs]**.
 - **Work.** Measurement 5–6.5 lane-hours; C 4–6 h; E 10–16 h; A+D 25–40 h more.
 
 ## 1. The problem, measured
@@ -499,6 +504,9 @@ native/Lean from 11.7 to about 10.5 after E, and about 9.5–10 after A, with to
 gaps unchanged. It is a real but secondary lever: the parsers' effect machinery and
 unspecialised closures are bigger, and get bigger shares as they are fixed.
 
+*Superseded by V4 (§7.6):* C is about 1.01×, not 1.01–1.03×; C+E's and A's estimates hold
+at their middles (1.09× and another 1.08×), which is just under the gate.
+
 ### Open questions for Matt
 
 - **Is C then E the end state, with A+D held back until the measurements justify it?**
@@ -523,7 +531,249 @@ unspecialised closures are bigger, and get bigger shares as they are fixed.
 - Putting the header (C) first and keeping it even if neutral.
 - Self-describing scalars as my default inside A, for the generic readers.
 
-## 7. Not done, and findings
+## 7. V4: the model and the decision
+
+SW-2429, 8 Nov 2026, Opus, paper lane (nothing built or run). It combines V0
+([SW-2425](../reviews/SW-2425-value-census.md)), V1
+([SW-2426](../reviews/SW-2426-hardware-counters.md)), V2
+([SW-2427](../reviews/SW-2427-value-width-instructions.md)) and V3
+([SW-2428](../reviews/SW-2428-dilation.md)), with the times of SW-2295's latest run
+(`e11c7b3c2`). The arithmetic is a 60-line script kept in the lane's scratchpad; every input
+is in the tables below, so it can be redone by hand.
+
+### 7.1 The model
+
+For each program and option, the share of cycles saved is
+
+    S = k × I + F + W,    predicted speed-up = 1 / (1 − S)
+
+- **I, instructions removed** (V2, shares of *all* retired instructions, cumulative: E
+  includes C's weak count, A includes E's word 2):
+  - generated code by V2's rule (word 2, the weak count, a third of stack traffic and
+    callee-saved saves for E, two thirds and word 1 too for A) **[measured classes, rule
+    estimated]**;
+  - plus a share m of V2's register-move column (low 0, central ½, high all);
+  - plus a share r of V2's runtime bound (drop walk, apply stubs, `Value::clone`): low 0,
+    central 0.3, high 0.6. V2 says the drop walk rarely touches word 2, so the bound is well
+    above the truth for E.
+- **k, how much time a removed instruction was worth**, calibrated where instructions and
+  time have both moved **[measured pairs, ratios derived]**:
+
+  | Change | instructions | time | k = time saved ÷ instructions removed |
+  |---|---:|---:|---:|
+  | SW-2363, cell cache, binary-trees (mimalloc's fast path removed) | −30.5% | −10.6% | 0.35 |
+  | Same change, SW-2295's runs (13:28 → 17:58) | −26.4% | −7.1% | 0.27 |
+  | SW-2394/2396, dijkstra over a cost table | −57.2% | −51.8% | 0.91 |
+  | SW-2349, operations in place stage B, expressions | −37.1% | −34.1% | 0.92 |
+  | SW-2323/SW-2391 era, matcher | −12.2% | −14.3% | 1.17 |
+  | bridge, same run | −19.2% | −19.2% | 1.00 |
+  | SW-2337, Parse stage 2, scan | −8.6% | −10.6% | 1.23 |
+
+  - Removing *whole work* (calls, branches and the loads they wait on) is worth about its
+    share: k ≈ 0.9–1.2.
+  - Removing *cheap, independent* instructions beside a slow dependent chain is worth about
+    a third: k ≈ 0.3 (SW-2363's lesson).
+  - SW-2433 (sharing `JumpK`) and SW-2421 (the drop worklist) moved instructions only, with
+    no time measured, so they don't calibrate k. What they do show: an allocation and its
+    free cost about 140 instructions (SW-2433: 2.66 G for 18.6 M), about 1% of the parsers;
+    1.3 GB fewer bytes allocated showed nothing beyond those instructions; and mimalloc's
+    small path is cheaper than any clever replacement tried (SW-2421: +3–4%).
+  - What E and A remove is mostly the cheap kind: spills and reloads that hit L1,
+    callee-saved pushes and pops, register moves (which Skylake mostly eliminates at
+    renaming). Some reloads sit on a dependent chain, and binary-trees' high backend share
+    (26% against Lean's 4%) may be the store port, where removed spill stores are worth
+    more. So **k: low 0.3, central 0.6, high 1.0** **[estimated]**.
+- **F, footprint**, only where V1 shows memory stalls above Lean's (binary-trees and
+  memory-game); elsewhere V3 measured ±1% at +40 B, so F is 0 (high case: 1% for E, 1.5% for
+  A) **[measured flatness; small high case estimated]**.
+  - *binary-trees.* V3's cost is convex in the cell's size: +32 B of size class (64 → 96)
+    cost +20.2% of cycles, +48 B (64 → 112) +35.0%. A curve through those points gives about
+    −7% of cycles for E's −24 B (64 → 40), and the straight line to K = 24 gives −15%. A
+    second bound: native's memory stalls are 23.1% of cycles against Lean's 8.2% (V1), so
+    shrinking to Lean's 24-byte cells can remove at most about 15 points; E goes 24 of the
+    40 bytes of the way. So **E: 5 / 9 / 15%, A: 10 / 15 / 20%** of cycles **[derived from
+    measured points; extrapolation estimated]**. V3's wall time grew more than its cycles
+    (+61% against +35%), but that was kernel time that appeared *with* the bigger cells
+    (about 0.07–0.17 s at K = 0, 0.6 s at K = 24, 0.8 s at K = 40; the range at K = 0 is from
+    not knowing the clock), so shrinking cells can't remove much of it. I don't count it.
+  - *memory-game.* V3 didn't dilate its 720 MB array (only cells). Native's stall cycles
+    are 2.0 G against Lean's 0.85 G, an excess of about 8% of native's cycles (V1); that's
+    the most any footprint change can remove. A random access touches one line however wide
+    the element, so shrinking the array 720 → 480 MB (E) or 240 MB (A) removes only part of
+    it: **E: 1 / 3 / 5%, A: 2 / 5 / 8%** **[estimated]**.
+- **W, store-forwarding stalls** on expressions and scan (SW-2432's finding in V2):
+  native's backend share is 17.5–18% of slots against Lean's 2–3%, with the store buffer
+  full 6% of cycles and 11 blocked forwards per 1000 instructions. If the cause is values
+  copied with one width and read with another, a 16-byte value may copy as one store and
+  one load. **E: 0 / 3 / 8%, A: 0 / 4 / 10%** of cycles on those two **[estimated; the cause
+  is an inference not yet traced]**.
+- **Programs V2 didn't measure:** disk and bridge take matcher's figures; pidigits is 0
+  (its time is `num-bigint`).
+
+### 7.2 Predictions
+
+Speed-up of native code, low / central / high **[estimated by the model above from measured
+inputs]**:
+
+| Program | C | E (C+E) | A (C+E+A) | A beyond E |
+|---|---|---|---|---:|
+| binary-trees * | 1.02 / 1.03 / 1.06 | 1.09 / **1.21** / 1.46 | 1.19 / 1.44 / 2.03 | 1.19 |
+| matcher * | 1.00 / 1.00 / 1.00 | 1.02 / **1.06** / 1.14 | 1.04 / 1.12 / 1.30 | 1.06 |
+| dijkstra * | 1.00 / 1.00 / 1.01 | 1.02 / **1.06** / 1.15 | 1.05 / 1.14 / 1.34 | 1.07 |
+| octopus * | 1.00 / 1.00 / 1.01 | 1.02 / **1.06** / 1.13 | 1.04 / 1.13 / 1.30 | 1.07 |
+| memory-game * | 1.00 / 1.01 / 1.02 | 1.03 / **1.09** / 1.19 | 1.06 / 1.18 / 1.40 | 1.08 |
+| expressions * | 1.00 / 1.00 / 1.00 | 1.01 / **1.06** / 1.19 | 1.01 / 1.11 / 1.34 | 1.05 |
+| scan | 1.00 / 1.00 / 1.00 | 1.01 / 1.06 / 1.20 | 1.01 / 1.11 / 1.36 | 1.05 |
+| disk (matcher's figures) | 1.00 / 1.00 / 1.00 | 1.02 / 1.06 / 1.14 | 1.04 / 1.12 / 1.30 | 1.06 |
+| bridge (matcher's figures) | 1.00 / 1.00 / 1.00 | 1.02 / 1.06 / 1.14 | 1.04 / 1.12 / 1.30 | 1.06 |
+| pidigits | 1.00 | 1.00 | 1.00 | 1.00 |
+| **decision set, geometric mean** | 1.004 / 1.008 / 1.015 | 1.03 / **1.09** / 1.21 | 1.07 / 1.18 / 1.43 | **1.08** |
+| all ten, geometric mean | 1.002 / 1.005 / 1.010 | 1.02 / 1.07 / 1.17 | 1.05 / 1.14 / 1.35 | 1.07 |
+
+`*` the decision set. "A beyond E" is the central A over the central E.
+
+**Which input decides it.** Moving one input from its low to its high value, the others
+central (E, decision-set geomean and binary-trees):
+
+| Input | geomean, low → high | binary-trees, low → high |
+|---|---|---|
+| k (worth of a removed instruction) | 1.06 → 1.14 | 1.15 → 1.30 |
+| F (footprint) | 1.08 → 1.11 | 1.16 → 1.31 |
+| m (register moves) | 1.08 → 1.10 | 1.19 → 1.23 |
+| r (runtime side) | 1.08 → 1.10 | 1.21 → 1.21 |
+| W (store forwarding) | 1.08 → 1.10 | 1.21 → 1.21 |
+
+The uncertainty is dominated by **k times V2's "a third of the spills and saves" rule**: the
+two multiply, and only E's actual register count tests the rule. On binary-trees, footprint
+counts almost as much. E clears the gate on both counts at k ≥ 0.8.
+
+**Check against Lean's per-node counts** (§1.4): binary-trees runs about 315 instructions
+per node against Lean's 143. E removes 36 of them by the rule (52 with register moves), A 65
+(96): inside the 20–50 the note guessed for E. After A, native would still run about 1.5×
+Lean's instructions on binary-trees, so a 2× high case for A is the edge of plausible, not
+the middle.
+
+### 7.3 The gate
+
+The gate (D3432): E only if V4 predicts at least 1.10× on the decision set's geometric mean
+and at least 1.25× on binary-trees; A beyond E only if another 1.10×.
+
+- **E, geometric mean:** (1.211 × 1.058 × 1.063 × 1.056 × 1.091 × 1.060)^(1/6) = e^(0.509 / 6)
+  = **1.088**. Below 1.10.
+- **E, binary-trees:** S = 0.6 × (11.5 + ½ × 5.0 + 0.3 × 0.1) + 9 = 17.4% of cycles, 1 / (1 −
+  0.174) = **1.21**. Below 1.25.
+- **A beyond E:** 1.18 / 1.09 = **1.08**. Below 1.10. (A's other condition, boxed floats and
+  mid-sized numbers in under 1% of field stores, passes: V0 found none.)
+
+**So by the rule as written, E does not go, narrowly**: the central prediction is 1.09
+against 1.10 and 1.21 against 1.25, and the range (1.03–1.21, 1.09–1.46) straddles both
+lines. A beyond E misses too. C passes its own test trivially (it is kept if nothing is over
+1% slower) but predicts only about 1% on the mean.
+
+**Estimates the measurements overturned.** The note's C (1.01–1.03× on the mean) is about
+1.005–1.015×; its C+E (1.05–1.12×, binary-trees 1.15–1.3×) and A beyond E (1.05–1.10×) hold,
+at their middles. V3's footprint estimates were wrong both ways (binary-trees bigger, the
+rest smaller; SW-2428). V1's binary-trees stall share (23%) was just under its estimate.
+
+### 7.4 What it would mean against Lean and CPython
+
+Geometric means over the ten, from SW-2295's latest run, with today's other gaps unchanged
+**[derived from the predictions]**:
+
+| | today | C | E (low / central / high) | A (low / central / high) |
+|---|---:|---:|---|---|
+| native / Lean | 11.7 | 11.6 | 11.4 / **10.9** / 10.0 | 11.1 / **10.2** / 8.7 |
+| native / CPython | 2.8 | 2.8 | 2.7 / **2.6** / 2.4 | 2.65 / **2.4** / 2.1 |
+
+binary-trees against Lean goes from 2.85× to about 2.35× under E and about 2.0× under A.
+The parsers stay at 71–73× Lean under E: their gap is effect machinery and allocation
+count (SW-2417), which value width barely touches.
+
+### 7.5 Cheaper changes the measurements point to
+
+Each on the same model (share of cycles saved, low / central / high) **[estimated]**:
+
+| Change | Where it pays | Decision-set geomean | Largest single gain (central) | Work |
+|---|---|---|---|---|
+| **SW-2431**, huge pages for native's heap | binary-trees, memory-game: page walks and page faults | 1.002 / **1.009** / 1.023 | binary-trees, memory-game 1.03 | 45 min, maybe only a mimalloc option |
+| **SW-2437**, copy runtime values with matching widths | expressions, scan (store buffer, blocked forwards); a little on matcher, dijkstra | 1.000 / **1.009** / 1.025 (all ten 1.011) | expressions, scan 1.04 (up to 1.11) | 1 h |
+| **weak-count load** (the part of C that costs instructions) | binary-trees | 1.002 / **1.005** / 1.013 | binary-trees 1.02 | 30 min |
+| **SW-2434**, erased fields not stored | matcher (24% of its fields), octopus | 1.000 / **1.002** / 1.009 | matcher 1.01 (up to 1.03) | 1 h to find, then lowering |
+| **SW-2422**, allocation by cause | expressions, scan | (a measurement, not a change) | | running |
+
+Notes on each:
+
+- **Huge pages.** The dTLB ratio is striking (580–1100× Lean's), but the count is small: 1.5
+  M page walks on binary-trees and 1.0 M on memory-game, at 30–100 cycles each, are 0.2–1.8%
+  of their cycles. The rest of the possible gain is kernel page-fault time, which V1's
+  user-space counters don't see. V3's kernel time growing from about 0.1 s to 0.8 s as cells
+  grew suggests mimalloc returns and refaults pages; SW-2431 should try mimalloc's large-page
+  and purge-delay options, which need no rebuild, before anything else.
+- **Store forwarding** is the one alternative aimed at the parsers, where E does least. It
+  overlaps E's W term: if it lands first, E's prediction on expressions and scan drops by
+  about the same amount.
+- **The weak-count load** is a lower bound in V2 (the compare isn't counted). C makes it moot;
+  done alone it is worth it only if C is weeks away, which it is if E waits.
+- **Erased fields** pay most if dropping one turns a two-field cell into a one-field record,
+  which D866 already unboxes: then a whole allocation (about 140 instructions, SW-2433) goes,
+  not just a slot. It composes with every width.
+- **SW-2422** is the input for the levers bigger than any of these on the parsers:
+  operations in place stages D and D+E, bounded at 1.25–1.5× on expressions and scan
+  (SW-2417), against E's 1.06 there.
+
+Together the four changes predict about **1.025× on the decision-set geomean (central) for
+about 4 hours**, against C+E's 1.09× for 14–22 hours: similar gain per hour, with far less
+risk, and none of it waits on a gate. They should go before E. They take a little of
+E's gain with them (store forwarding on the parsers, the weak count, a little footprint on
+binary-trees), so E's central prediction after them is about 1.08× on the mean.
+
+**One measurement would settle the gate cheaply.** k and V2's rule decide it, and only E's
+register count tests them directly. A throwaway "register dilation" branch (the mirror of
+V3) would: native code carrying a fourth, unused word in every register, argument and
+result, kept live across calls so Cranelift can't drop it. What a fourth word costs is close
+to what removing the third saves (a little more, since register pressure is convex). If it
+costs at least about 11% of binary-trees' cycles and 6–7% on the decision set's mean, E
+clears the gate. Opus, 2–4 h **[estimated; how mechanical adding a word to `n1.rs`'s
+`Val([w0, w1, w2])` is wasn't checked]**.
+
+### 7.6 Recommendation
+
+**The problem.** Our run-time values are three machine words, and our cells 2.7 times
+Lean's. The four measurements agree on where that costs: on binary-trees, both in
+instructions and in waiting for memory; everywhere else, almost only in extra instructions,
+mostly spills and register saves (7% of instructions under E's rule, measured), while
+memory size itself is worth under 1% outside binary-trees and memory-game (measured).
+
+**The change.** Don't start two-word values (E) yet. First the four cheap changes in §7.5
+(huge pages, value copies with matching widths, the weak-count load, erased fields), about
+4 lane-hours. Then rerun this model on `main` once operations in place stage D and
+SW-2422's cuts have landed, which make value width a larger share of what's left, with the
+register-dilation experiment if the answer is still close.
+
+**What it should do.** The cheap changes: about 1.025× on the decision set (estimated),
+mostly on binary-trees, memory-game and the parsers. E, if built today: about 1.09× on the
+decision set and 1.21× on binary-trees (estimated, range 1.03–1.21× and 1.09–1.46×), native
+against Lean from 11.7× to about 10.9×; just short of the 1.10× and 1.25× the gate asks
+for. One-word values (A) beyond E: about 1.08× more (estimated), also short.
+
+**The decision for Matt.** Hold E (and A) below the gate, do the four cheap changes now,
+and rerun V4 after operations in place stage D, rather than lowering the gate or building E
+on a prediction that straddles it? **Recommendation: yes.** E's prediction is close enough
+that one 2–4 h experiment, or the rerun, could flip it; 10–16 hours of wide unsafe change on
+a coin-flip is the kind of refactor the note set out not to commit to. C (the header) waits
+with E, since alone it is worth about 1% and the weak-count change takes most of that for
+30 minutes.
+
+### 7.7 Calls I made (implementation, reversible)
+
+- k's range (0.3–1.0, central 0.6) from the calibration table; register moves at half and
+  the runtime side at 0.3 of V2's bound in the central case.
+- binary-trees' footprint from V3's convex curve and V1's stall excess, not V3's straight
+  line; V3's kernel time left out of what shrinking saves.
+- disk and bridge on matcher's figures; pidigits at 1.00.
+- Means over the six-program decision set, as the gate says, with all ten shown beside.
+
+## 8. Not done, and findings
 
 **Not done:** nothing was built, run or profiled. Every share is from the reports cited;
 every effect is an estimate. Lean's header and Koka's float boxing were read from their
