@@ -1,5 +1,5 @@
 {
-  "next": 2409,
+  "next": 2410,
   "tickets": [
     {
       "id": 47,
@@ -23798,6 +23798,21 @@
       ],
       "epic": "comparative-speed",
       "body": "From SW-2396. Design first. 60-90 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2409,
+      "title": "Elab fuzzer at CASES=20000 SEED=0x2409 grew to 16.6 GB and was killed by memguard after 970 s (no case reported, nothing saved): a runaway case or memory kept across cases; find which, and make the fuzzer bound or report per-case memory",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "test-infra"
+      ],
+      "epic": "audit-fuzzing",
+      "body": "Found under D3427 (over pace), 8 Nov 2026 11:45-12:01 on Speedwell at a3d951195. Repro: nix develop -c task fuzz:elab CASES=20000 SEED=0x2409. Log: scratchpad fuzz-elab-0x2409.log (no per-case progress printed). Investigate once pace is back. 60 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
