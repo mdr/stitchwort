@@ -152,6 +152,11 @@ pub struct Options {
     /// Count references through the runtime, so the allocation trace sees
     /// every count (for comparing native code with the machine).
     pub trace_refcounts: bool,
+    /// Each body counts its own entries (`sw_count_body`, a call with the
+    /// body's symbol name), for a profiling build linked against a runtime
+    /// with the `call-counts` feature. Off, the code is the same as
+    /// without the option.
+    pub count_bodies: bool,
 }
 
 /// A program's bodies, compiled, with the image they were compiled for.
@@ -959,7 +964,8 @@ pub(crate) fn emit(
             slot.insert(id);
         }
     }
-    let helpers = Helpers::declare(module, pointer, call_conv).map_err(fail)?;
+    let helpers =
+        Helpers::declare(module, pointer, call_conv, options.count_bodies).map_err(fail)?;
     let numbering = Numbering::of(image);
     let mut caches = 0u32;
     let mut context = module.make_context();
@@ -975,6 +981,11 @@ pub(crate) fn emit(
             body_signature(pointer, params)
         };
         context.func.name = ir::UserFuncName::user(0, functions[&code].as_u32());
+        let entry_name = if options.count_bodies {
+            Some(define_name(module, &symbols[&code]).map_err(fail)?)
+        } else {
+            None
+        };
         {
             let b = FunctionBuilder::new(&mut context.func, &mut builder_context);
             let mut generator = Gen {
@@ -1008,6 +1019,7 @@ pub(crate) fn emit(
                 ctx: IrValue::from_u32(0),
                 frames: IrValue::from_u32(0),
                 env: None,
+                entry_name,
             };
             generator.body();
             generator.b.seal_all_blocks();
@@ -2227,6 +2239,7 @@ fn helper_addresses() -> Vec<(&'static str, *const u8)> {
         ("sw_unwind_resume", abi::sw_unwind_resume as *const u8),
         ("sw_defer_fun", abi::sw_defer_fun as *const u8),
         ("sw_drop_deferred", abi::sw_drop_deferred as *const u8),
+        ("sw_count_body", abi::sw_count_body as *const u8),
     ]
 }
 
@@ -2266,6 +2279,8 @@ struct Helpers {
     unwind_resume: FuncId,
     defer_fun: FuncId,
     drop_deferred: FuncId,
+    /// Only under `Options::count_bodies`.
+    count_body: Option<FuncId>,
 }
 
 impl Helpers {
@@ -2273,6 +2288,7 @@ impl Helpers {
         module: &mut dyn Module,
         pointer: ir::Type,
         cc: CallConv,
+        count_bodies: bool,
     ) -> Result<Helpers, String> {
         use types::{I32, I64};
         let p = pointer;
@@ -2319,6 +2335,11 @@ impl Helpers {
             unwind_resume: declare("sw_unwind_resume", &[p, I64], &[])?,
             defer_fun: declare("sw_defer_fun", &[p, I64], &[])?,
             drop_deferred: declare("sw_drop_deferred", &[p], &[])?,
+            count_body: if count_bodies {
+                Some(declare("sw_count_body", &[p, I64], &[])?)
+            } else {
+                None
+            },
         })
     }
 }
@@ -2593,6 +2614,23 @@ struct Gen<'a, 'm> {
     /// drops it (after the registers on a return; before them on a tail
     /// call; with them on an error exit).
     env: Option<IrValue>,
+    /// Under `Options::count_bodies`, the data holding this body's symbol
+    /// name and its length.
+    entry_name: Option<(cranelift_module::DataId, u64)>,
+}
+
+/// Defines read-only data holding `name`, for a body to report itself by.
+fn define_name(
+    module: &mut dyn Module,
+    name: &str,
+) -> Result<(cranelift_module::DataId, u64), String> {
+    let id = module
+        .declare_data(&format!("{name}.name"), Linkage::Local, false, false)
+        .map_err(|e| e.to_string())?;
+    let mut data = cranelift_module::DataDescription::new();
+    data.define(name.as_bytes().to_vec().into_boxed_slice());
+    module.define_data(id, &data).map_err(|e| e.to_string())?;
+    Ok((id, name.len() as u64))
 }
 
 const fn spill_at(i: usize) -> i32 {
@@ -3170,6 +3208,13 @@ impl Gen<'_, '_> {
         self.b.ins().jump(self.top, &args);
 
         self.b.switch_to_block(self.top);
+        if let (Some(count), Some((name, len))) = (self.helpers.count_body, self.entry_name) {
+            // At `top`, so a self tail call counts as a call too.
+            let global = self.module.declare_data_in_func(name, self.b.func);
+            let at = self.b.ins().symbol_value(self.pointer, global);
+            let len = self.iconst(len);
+            self.call_helper(count, &[at, len]);
+        }
         let params: Vec<IrValue> = self.b.block_params(self.top).to_vec();
         for r in 0..code.params {
             let i = r as usize * 3;

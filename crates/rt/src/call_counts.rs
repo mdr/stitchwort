@@ -11,6 +11,11 @@
 //! (docs/proposals/parse-runtime.md, stage 0). Cache hits are not counted:
 //! they are decided inline in compiled code, which has no hook.
 //!
+//! Native code compiled with `Options::count_bodies` also counts the
+//! entries of each of its bodies, by the body's symbol name
+//! (`Definition#code`, `maker/lambdaL#code`), through `hit_body`; the
+//! report lists the most called.
+//!
 //! With the cargo feature `call-counts`, every counted helper adds one to a
 //! relaxed atomic, and a native run prints the counts to standard error at
 //! its end when the environment variable `STITCHWORT_CALL_COUNTS` is set.
@@ -164,6 +169,10 @@ const EVENT_NAMES: [&str; EVENTS] = [
     "apply-cache miss in a cold cache",
 ];
 
+/// How many bodies the report lists.
+#[cfg(feature = "call-counts")]
+const BODY_ROWS: usize = 40;
+
 /// Whether this build counts.
 pub const ENABLED: bool = cfg!(feature = "call-counts");
 
@@ -206,6 +215,11 @@ mod enabled {
     /// it; the last bucket takes the longer ones.
     pub(super) static DEPTHS: [AtomicU64; MAX_DEPTH + 1] =
         [const { AtomicU64::new(0) }; MAX_DEPTH + 1];
+
+    /// Entries per body, by the address of the body's name (static data in
+    /// the compiled program): the name's bytes, and the count.
+    pub(super) static BODIES: Mutex<BTreeMap<usize, (&'static [u8], u64)>> =
+        Mutex::new(BTreeMap::new());
 
     thread_local! {
         /// The routes so far of the operation being re-dispatched: `None`
@@ -253,6 +267,18 @@ pub(crate) fn hit_event(event: Event) {
     enabled::EVENT_COUNTS[event as usize].fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     #[cfg(not(feature = "call-counts"))]
     let _ = event;
+}
+
+/// One entry of the compiled body named by `name` (bytes that live as long
+/// as the run: the executable's data).
+#[cfg(feature = "call-counts")]
+pub(crate) fn hit_body(name: &'static [u8]) {
+    enabled::BODIES
+        .lock()
+        .unwrap()
+        .entry(name.as_ptr() as usize)
+        .or_insert((name, 0))
+        .1 += 1;
 }
 
 /// A miss in the apply cache at address `site`.
@@ -396,6 +422,20 @@ pub fn report() -> Vec<String> {
         for (n, addr) in by_site.into_iter().take(8) {
             lines.push(format!("  {n:>14}  site {addr:#x}"));
         }
+        let bodies = enabled::BODIES.lock().unwrap();
+        let mut by_body: Vec<(u64, String)> = bodies
+            .values()
+            .map(|&(name, n)| (n, String::from_utf8_lossy(name).into_owned()))
+            .collect();
+        by_body.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
+        lines.push(format!(
+            "entries of compiled bodies ({} bodies counted; top {BODY_ROWS}):",
+            by_body.len()
+        ));
+        for (n, name) in by_body.into_iter().take(BODY_ROWS) {
+            lines.push(format!("  {n:>14}  {name}"));
+        }
+        drop(bodies);
         enabled::end_chain();
         let firsts = enabled::FIRST_PERFORMS.load(Relaxed);
         let routed: u64 = enabled::EVENT_COUNTS[Event::Route as usize].load(Relaxed);

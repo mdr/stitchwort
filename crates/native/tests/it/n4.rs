@@ -412,6 +412,7 @@ fn effect_examples_agree_with_the_machine() {
                     let (v, counts) = if native {
                         let options = Options {
                             trace_refcounts: trace,
+                            count_bodies: false,
                         };
                         let image = code::compile(&program);
                         let islands = compile(&program, image, options)

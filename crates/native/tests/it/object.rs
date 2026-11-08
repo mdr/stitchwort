@@ -22,6 +22,7 @@ fn the_object_exports_its_manifest_and_trampolines_and_its_code_is_relocatable()
         let image = code::compile(&program);
         let options = Options {
             trace_refcounts: false,
+            count_bodies: false,
         };
         let frames = stitchwort_rt::Limits::from_core(Default::default()).frames as u64;
         let limits = stitchwort_rt::Limits::from_core(Default::default());
@@ -110,6 +111,7 @@ fn each_body_is_named_after_its_definition() {
         let image = code::compile(&program);
         let options = Options {
             trace_refcounts: false,
+            count_bodies: false,
         };
         let limits = stitchwort_rt::Limits::from_core(Default::default());
         let tables = stitchwort_rt::linked::encode(&program, &image, &limits);

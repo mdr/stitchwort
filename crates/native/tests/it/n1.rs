@@ -523,3 +523,60 @@ fn the_code_keeps_its_image() {
         assert_eq!(ended(output, result), expected);
     });
 }
+
+/// `count(n)` enters `down` n + 1 times (a self tail call each time), and
+/// `count` once.
+const COUNTED: &str = r#"import Std (IO)
+
+def down: Nat → Nat → Nat
+  | Zero, acc => acc
+  | Succ n, acc => down n (acc + 2)
+
+def count (n: Nat): Nat := down n 0
+
+def main(): {IO} () :=
+  IO.print "${count 1000}"
+"#;
+
+#[test]
+fn bodies_count_their_entries_when_asked() {
+    use stitchwort_rt::call_counts;
+    with_stack(STACK, || {
+        let (program, limits) = lowered(COUNTED);
+        let counting = Options {
+            trace_refcounts: false,
+            count_bodies: true,
+        };
+        // The name's address (a data symbol) and the count call are in the
+        // code only when asked for.
+        let image = stitchwort_rt::code::compile(&program);
+        let plain = stitchwort_native::n1::listing(&program, &image, Options::default())
+            .unwrap_or_else(|e| panic!("{e:#?}"));
+        let asked = stitchwort_native::n1::listing(&program, &image, counting)
+            .unwrap_or_else(|e| panic!("{e:#?}"));
+        assert!(!plain.contains("symbol_value"));
+        assert!(asked.contains("symbol_value"));
+
+        let (ran, notes) = native_with(&program, limits, counting, STACK);
+        assert!(ran_natively(&notes), "{notes:#?}");
+        assert_eq!(ran, ("2000\n".to_string(), Ok(())));
+        let report = call_counts::report();
+        if call_counts::ENABLED {
+            // `down`'s body is entered 1001 times, the self tail calls
+            // included, and `count` (probably inlined into `main`) and
+            // `main` at most once.
+            let entries = |name: &str| {
+                report.iter().find_map(|l| {
+                    let (n, symbol) = l.trim_start().split_once("  ")?;
+                    symbol
+                        .starts_with(name)
+                        .then(|| n.parse::<u64>().ok())
+                        .flatten()
+                })
+            };
+            assert_eq!(entries("Main.down#"), Some(1001), "{report:#?}");
+        } else {
+            assert!(report.is_empty());
+        }
+    });
+}

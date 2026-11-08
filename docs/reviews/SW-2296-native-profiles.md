@@ -253,6 +253,7 @@ Not in the hypotheses, and measured:
    them; native code has none. Tail calls and TRMC loops hide callers on the machine
    stack, so inclusive times are approximate. Fix: an `Options` flag that makes each
    body increment its own counter on entry, printed by the counting runtime. About 1 h.
+   Done (SW-2331): `build --native --count-bodies` (`Options::count_bodies`); `task profile:native` prints the top 40 bodies by entries, by symbol name.
 3. **Effectful code loses its caller.** A handler's continuation runs from `rt_loop`, so
    inclusive time of, say, parsing can't be summed under the function that parses. Only
    self time grouped by name prefix works (how the parse shares above were made). A

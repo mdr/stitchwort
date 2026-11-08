@@ -78,7 +78,10 @@ fn native_run(
     trace_refcounts: bool,
     stack: usize,
 ) -> (Vec<u8>, Result<(), RunError>, Vec<String>) {
-    let options = Options { trace_refcounts };
+    let options = Options {
+        trace_refcounts,
+        count_bodies: false,
+    };
     let mut output = Vec::new();
     // Compiled as `run --native` compiles it (stage NO5 of
     // docs/proposals/native-only.md): every body or a refusal, and a stack
