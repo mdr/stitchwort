@@ -22895,17 +22895,19 @@
     {
       "id": 2355,
       "title": "aoc/ proofs broken by SW-2323's one-pass List.flatMap: Aoc.Common.Proofs.GridCells relied on flatMap unfolding to concat of map; repair with List.flatMapEqConcatMap",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "bug"
       ],
       "epic": "test-infra",
-      "body": "From SW-2348, 8 Nov 2026. Could be a stale test library cache or a real regression after SW-2320. 30 min.",
+      "body": "From SW-2348, 8 Nov 2026. Could be a stale test library cache or a real regression after SW-2320. 30 min.\n\nCause: SW-2323 changed flatMap's definition and its batch check did not run aoc:check. Orchestrator's slip; the verifier now runs the cached aoc:check when a std definition changes. Model result: Sonnet, worked, 12 min (est. 30).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "79e418fbd"
+      ]
     },
     {
       "id": 2356,
