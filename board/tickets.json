@@ -23419,14 +23419,14 @@
     {
       "id": 2386,
       "title": "Std: Int.addCong and Int.mulCong as Eq.cong2 one-liners; Day09's rewrite-plus-ring workaround (SW-2374) to Eq.cong2",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "std"
       ],
       "epic": "std-library",
-      "body": "From SW-2381. Hash changes; check native pins (bound_to_the_prelude). 20 min.",
+      "body": "From SW-2381. Hash changes; check native pins (bound_to_the_prelude). 20 min.\n\nStarted 05:40 UTC, Sonnet, expected 20 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
