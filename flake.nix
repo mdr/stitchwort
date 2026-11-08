@@ -431,7 +431,9 @@
               pkgs.lean4
               pkgs.hyperfine
               pkgs.pypy3
-            ];
+            ]
+            # `--instructions` counts with `perf stat` on Linux.
+            ++ pkgs.lib.optionals pkgs.stdenv.isLinux [ pkgs.perf ];
           };
         }
       );
