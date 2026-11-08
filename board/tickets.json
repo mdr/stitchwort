@@ -23027,17 +23027,20 @@
     {
       "id": 2362,
       "title": "Cell allocator stage 1: the allocator wrapper calls mi_malloc/mi_free rather than the aligned variants, and a longer purge delay; kept only if binary-trees moves 2% or more",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/proposals/cell-allocator.md (SW-2360). Profile before and after. 30-45 min.\n\nStarted 04:39 UTC, Sonnet, expected 40 min.\n",
+      "body": "From docs/proposals/cell-allocator.md (SW-2360). Profile before and after. 30-45 min.\n\nStarted 04:39 UTC, Sonnet, expected 40 min.\n\nMerged with an orchestrator fixup (plain calls also need align <= size: small mimalloc blocks are aligned to their size class). binary-trees min 1.59 -> 1.55 s (2.8%, three interleaved pairs); purge delay no effect, not set. CLI and bench allocators unchanged. Model result: Sonnet, needed fixes (small-block alignment), 12 min (est. 40).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "982959514",
+        "66462cac1"
+      ]
     },
     {
       "id": 2363,
