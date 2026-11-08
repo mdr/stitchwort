@@ -63,6 +63,12 @@ vars:
   MEM_CAP_SELECTED: 16
   MEM_CAP_DAILY: 16
   MEM_CAP_FULL: 16
+  # The daily and full tiers' nextest runs on a machine under 24 GiB: 4 tests
+  # at once, not the profile's 6 or 8. The full tier peaked at 12.7 GB on 6
+  # (a 15 GiB laptop, 8 Nov 2026, SW-2413) and was stopped for low memory.
+  # Empty elsewhere (macOS has no /proc/meminfo; docs/testing.md, "Memory").
+  TIER_THREADS:
+    sh: awk '/^MemTotal:/ { if ($2 < 24 * 1024 * 1024) print "--test-threads 4" }' /proc/meminfo 2>/dev/null || true
 
 tasks:
   default:
@@ -266,7 +272,7 @@ tasks:
       # The float tests fail, not skip, when web/pkg is missing or stale.
       STITCHWORT_REQUIRE_WASM: '1'
     cmds:
-      - '{{.REPORT}} run daily -- task test:daily:steps -- {{.CLI_ARGS}}'
+      - '{{.REPORT}} run daily -- task test:daily:steps MEM_CAP_DAILY={{.MEM_CAP_DAILY}} -- {{.CLI_ARGS}}'
 
   test:daily:steps:
     # The daily tier's steps, without the report around them.
@@ -292,7 +298,7 @@ tasks:
           log=$(mktemp)
           {{.STEP}} --parallel "builtins run" -- cargo test -p stitchwort-driver --test library builtins:: >"$log" 2>&1 &
           pid=$!
-          {{.STEP}} --parallel "nextest run" -- cargo nextest run --release --workspace --profile daily {{.CLI_ARGS}}
+          {{.STEP}} --parallel "nextest run" -- cargo nextest run --release --workspace --profile daily {{.TIER_THREADS}} {{.CLI_ARGS}}
           status=$?
           wait "$pid" || { cat "$log"; status=1; }
           rm -f "$log"
@@ -312,7 +318,7 @@ tasks:
       # Two corpus sweeps run at once, each on a pool of 5 threads.
       STITCHWORT_TEST_THREADS: '5'
     cmds:
-      - '{{.REPORT}} run full -- task test:full:steps -- {{.CLI_ARGS}}'
+      - '{{.REPORT}} run full -- task test:full:steps MEM_CAP_FULL={{.MEM_CAP_FULL}} -- {{.CLI_ARGS}}'
 
   test:full:steps:
     # The full tier's steps, without the report around them.
@@ -321,7 +327,7 @@ tasks:
       STITCHWORT_TEST_THREADS: '5'
     cmds:
       - '{{.STEP}} "nextest build" -- {{.GUARD}} --cap-gb {{.MEM_CAP_FULL}} -- cargo nextest run --release --workspace --profile full --no-run {{.CLI_ARGS}}'
-      - '{{.STEP}} "nextest run" -- {{.GUARD}} --cap-gb {{.MEM_CAP_FULL}} -- cargo nextest run --release --workspace --profile full {{.CLI_ARGS}}'
+      - '{{.STEP}} "nextest run" -- {{.GUARD}} --cap-gb {{.MEM_CAP_FULL}} -- cargo nextest run --release --workspace --profile full {{.TIER_THREADS}} {{.CLI_ARGS}}'
       - '{{.STEP}} doctests -- {{.GUARD}} --cap-gb {{.MEM_CAP_FULL}} -- cargo test --release --doc --workspace'
       - '{{.STEP}} verify-cache -- task test:verify-cache'
 
