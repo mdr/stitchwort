@@ -24102,21 +24102,6 @@
     {
       "id": 2427,
       "title": "Compact values V2: count the instructions that exist because a value is three words (moves, spills, saves) in native code on the decision set; under 5% means stop after the header change",
-      "status": "next",
-      "agent": "Opus",
-      "where": "",
-      "labels": [
-        "perf"
-      ],
-      "epic": "comparative-speed",
-      "body": "From compact-values.md §5. Waits for D3432. 1.5 h.\n\nD3432, Matt, 8 Nov 2026 ~18:30: yes, \"run the measurements\" (end state C then E; A/D gated).\nStarted 18:51 UTC.\nCorrection: not started; needs perf record, so it runs on Overmind after SW-2428 (V3). Include SW-2432 (parsers' low IPC).\n",
-      "created": "2026-11-08",
-      "updated": "2026-11-08",
-      "commits": []
-    },
-    {
-      "id": 2428,
-      "title": "Compact values V3: dilation experiment on a throwaway branch (cells get 40 unused bytes; size grows, instructions don't); under 3% slowdown means size alone can't justify one-word values",
       "status": "doing",
       "agent": "Opus",
       "where": "",
@@ -24124,10 +24109,27 @@
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From compact-values.md §5. Waits for D3432. 1.5 h. Never merged.\n\nD3432, Matt, 8 Nov 2026 ~18:30: yes, \"run the measurements\" (end state C then E; A/D gated).\nStarted 18:51 UTC.\n",
+      "body": "From compact-values.md §5. Waits for D3432. 1.5 h.\n\nD3432, Matt, 8 Nov 2026 ~18:30: yes, \"run the measurements\" (end state C then E; A/D gated).\nStarted 18:51 UTC.\nCorrection: not started; needs perf record, so it runs on Overmind after SW-2428 (V3). Include SW-2432 (parsers' low IPC).\nStarted 19:56 UTC on Overmind.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
+    },
+    {
+      "id": 2428,
+      "title": "Compact values V3: dilation experiment on a throwaway branch (cells get 40 unused bytes; size grows, instructions don't); under 3% slowdown means size alone can't justify one-word values",
+      "status": "done",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From compact-values.md §5. Waits for D3432. 1.5 h. Never merged.\n\nD3432, Matt, 8 Nov 2026 ~18:30: yes, \"run the measurements\" (end state C then E; A/D gated).\nStarted 18:51 UTC.\n\nReport cherry-picked to main (docs/reviews/SW-2428-dilation.md); patch e4e3898af stays on origin/lane/SW-2428, never merged. Go/no-go over 3%: decision-set geomean +5.65% cycles at +40 B, nearly all binary-trees (+35% cycles, +61% wall); the other five +0.6%. Ran on Overmind, 64 min (est. 90).\n",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": [
+        "b21bbe025"
+      ]
     },
     {
       "id": 2429,
