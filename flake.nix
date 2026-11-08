@@ -433,7 +433,7 @@
               pkgs.pypy3
             ]
             # `--instructions` counts with `perf stat` on Linux.
-            ++ pkgs.lib.optionals pkgs.stdenv.isLinux [ pkgs.perf ];
+            ++ pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux [ pkgs.perf ];
           };
         }
       );
