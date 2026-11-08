@@ -23495,7 +23495,7 @@
     {
       "id": 2390,
       "title": "Std Array doc comment: drop 'Under --js every operation runs as written, on the list' (SW-1638 added version arrays under --js)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
