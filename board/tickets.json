@@ -24023,14 +24023,14 @@
     {
       "id": 2422,
       "title": "Call-graph profile of allocation and freeing on expressions and scan (52% of native time): split by cause (closures, Bind nodes, cells, Resume/Handler, clones), and name the cheapest cuts",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2417. No code. 45 min.\n\nFrom SW-2421: the Vec<Vec<Value>> growth is the drop worklist; don't retry the worklist fixes (thread-local, SmallVec) — both measured worse.\n",
+      "body": "From SW-2417. No code. 45 min.\n\nFrom SW-2421: the Vec<Vec<Value>> growth is the drop worklist; don't retry the worklist fixes (thread-local, SmallVec) — both measured worse.\nStarted 20:31 UTC.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -24136,14 +24136,14 @@
     {
       "id": 2429,
       "title": "Compact values V4: cost model combining V0-V3; go to two-word values only if it predicts >= 1.10x geomean and >= 1.25x binary-trees",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "After SW-2425 SW-2426 SW-2427 SW-2428. 1 h.\n\nD3432, Matt, 8 Nov 2026 ~18:30: yes, \"run the measurements\" (end state C then E; A/D gated).\n",
+      "body": "After SW-2425 SW-2426 SW-2427 SW-2428. 1 h.\n\nD3432, Matt, 8 Nov 2026 ~18:30: yes, \"run the measurements\" (end state C then E; A/D gated).\nStarted 20:31 UTC.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
