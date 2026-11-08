@@ -24471,7 +24471,7 @@
         "test-infra"
       ],
       "epic": "audit-fuzzing",
-      "body": "From Overmind job 25 (8 Nov 2026 22:01, 7aae7269c). No counterexample before the kill. Repro: STITCHWORT_MEM_REPORT=1 task fuzz:soundness MUTANTS=2000 VOID=0 SEED=0x2439 CORPUS=aoc,rogue, sampling memory as it runs (memory should stay flat if nothing accumulates). 60 min.",
+      "body": "From Overmind job 25 (8 Nov 2026 22:01, 7aae7269c). No counterexample before the kill. Repro: STITCHWORT_MEM_REPORT=1 task fuzz:soundness MUTANTS=2000 VOID=0 SEED=0x2439 CORPUS=aoc,rogue, sampling memory as it runs (memory should stay flat if nothing accumulates). 60 min.\n\nData (8 Nov 2026 23:04): on Speedwell (macOS), MUTANTS=5000 VOID=3000 SEED=0x2466 peaked at 2.69 GB physical footprint (the mutants test 2.67 GB), 1754 s, 0 findings. Overmind (Linux) reached 11.63 GB RSS by 5920 s with MUTANTS=8000. Not linear in mutants: suspect the allocator not returning memory on Linux, or RSS vs footprint. Measure on Overmind with MUTANTS=2000 and MIMALLOC options first.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
