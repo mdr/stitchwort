@@ -22825,7 +22825,7 @@
         "effects"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/proposals/operations-in-place.md (SW-2339); D3400 yes (Matt). After SW-2348 and SW-2347 (depth count). Est. 1.2-1.5x on expressions. 60-90 min.\n\nTarget from SW-2347 (measured, upper bound): skipping forwarding hops removes about 30M of 49M routes on expressions, 25M of 47M on scan, 3M of 9.5M on bridge.\n\nHeld overnight 8 Nov (orchestrator): stages B-D change effect and step counts, which the overnight rules leave for Matt. D3412 for the morning: start stages B-D (they change effect and step counts, not results)? [rec: yes].\n\nD3412, Matt, 8 Nov 2026 ~09:38: yes, \"I think we should proceed with this.\" Stages B-D may change effect and step counts (not results).\nStarted 09:38 UTC, Opus, expected 90 min.\n",
+      "body": "From docs/proposals/operations-in-place.md (SW-2339); D3400 yes (Matt). After SW-2348 and SW-2347 (depth count). Est. 1.2-1.5x on expressions. 60-90 min.\n\nTarget from SW-2347 (measured, upper bound): skipping forwarding hops removes about 30M of 49M routes on expressions, 25M of 47M on scan, 3M of 9.5M on bridge.\n\nHeld overnight 8 Nov (orchestrator): stages B-D change effect and step counts, which the overnight rules leave for Matt. D3412 for the morning: start stages B-D (they change effect and step counts, not results)? [rec: yes].\n\nD3412, Matt, 8 Nov 2026 ~09:38: yes, \"I think we should proceed with this.\" Stages B-D may change effect and step counts (not results).\nStarted 09:38 UTC, Opus, expected 90 min.\n\nProgress (lane, 10:15): forwarding clauses (`bind (Call O DoneK) k`) and plain generated forwards with elaborator-built mappings skipped in both runtimes via a shared leaf (`effect::forwarded`, new `EffectOp::FoldForwarding`). Native call counts after: expressions routes 49.18M -> 20.05M (29.1M skipped), scan 47.50M -> 26.25M (21.3M skipped). Results unchanged (bench:compare:check 66 ok); no count expectation or snapshot moved.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -23637,7 +23637,7 @@
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/proposals/nat-shaped-types.md (SW-2397). Waits for D3424 and D3425. 1.5-2 h.",
+      "body": "From docs/proposals/nat-shaped-types.md (SW-2397). Waits for D3424 and D3425. 1.5-2 h.\n\nD3424, Matt, 8 Nov 2026: yes, \"Every type with Nat's shape\" (automatic). D3425, delegated by Matt (\"Happy to go with your best recommendation if there's a clear choice\"): orchestrator's call, accept: the conversion natives cost a constant number of steps instead of one per FSucc, as Nat's natives do; results unchanged. Starts when a build slot frees, after SW-2396.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
