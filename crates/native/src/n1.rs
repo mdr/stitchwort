@@ -131,6 +131,7 @@ use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Switch, Variab
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{FuncId, Linkage, Module, default_libcall_names};
 use stitchwort_core::native::Native;
+use stitchwort_rt::cell_cache::{self, CellCache};
 use stitchwort_rt::census::{island, n1_blocker};
 use stitchwort_rt::code::{Code, Image, Instr, MOVE, NO_REG, Ops, Reg};
 use stitchwort_rt::effect::EffectOp;
@@ -2428,6 +2429,7 @@ fn helper_addresses() -> Vec<(&'static str, *const u8)> {
         ("sw_int_negative", abi::sw_int_negative as *const u8),
         ("sw_unary", abi::sw_unary as *const u8),
         ("sw_cell_free", abi::sw_cell_free as *const u8),
+        ("sw_cell_cache_full", abi::sw_cell_cache_full as *const u8),
         ("sw_bind", abi::sw_bind as *const u8),
         ("sw_text_last", abi::sw_text_last as *const u8),
         ("sw_eff_begin", abi::sw_eff_begin as *const u8),
@@ -2468,6 +2470,7 @@ struct Helpers {
     int_negative: FuncId,
     unary: FuncId,
     cell_free: FuncId,
+    cell_cache_full: FuncId,
     bind: FuncId,
     text_last: FuncId,
     eff_begin: FuncId,
@@ -2524,6 +2527,7 @@ impl Helpers {
             int_negative: declare("sw_int_negative", &[p], &[I64])?,
             unary: declare("sw_unary", &[p, I32, p, p], &[])?,
             cell_free: declare("sw_cell_free", &[I64, I64], &[])?,
+            cell_cache_full: declare("sw_cell_cache_full", &[p, I64, I64], &[])?,
             bind: declare("sw_bind", &[p, p, p, p], &[I64])?,
             text_last: declare("sw_text_last", &[p, p, I64, p], &[I64])?,
             eff_begin: declare("sw_eff_begin", &[p, I32, p, p], &[I64])?,
@@ -3802,15 +3806,90 @@ impl Gen<'_, '_> {
     /// A new cell of `tag` with `values` (moved into it).
     fn new_cell(&mut self, tag: u32, values: &[Val]) -> Val {
         let n = values.len() as u64;
-        let t = self.i32const(tag);
         let len = self.iconst(n);
-        let cell = self.call_helper(self.helpers.cell_new, &[t, len])[0];
+        let cell = if self.caches_cells(n) {
+            self.cached_cell(tag, n)
+        } else {
+            let t = self.i32const(tag);
+            self.call_helper(self.helpers.cell_new, &[t, len])[0]
+        };
         for (i, v) in values.iter().enumerate() {
             let at = RC_VALUE_AT + (i * VALUE_SIZE) as i32;
             self.store(Loc::Mem(cell, at), *v);
         }
         let w0 = self.iconst(u64::from(TAG_DATA) | (u64::from(tag) << 32));
         Val([w0, cell, len])
+    }
+
+    /// Whether cells of `n` fields go through the run's cell cache
+    /// (`stitchwort_rt::cell_cache`): not under the trace, which must see
+    /// every allocation and free.
+    fn caches_cells(&self, n: u64) -> bool {
+        cell_cache::ENABLED
+            && !self.options.trace_refcounts
+            && (1..=cell_cache::ARITIES).contains(&n)
+    }
+
+    /// A new cell of `n` fields (uninitialised, counts 1): the cache's first
+    /// block of that size, or a new one if it has none.
+    fn cached_cell(&mut self, tag: u32, n: u64) -> IrValue {
+        let head_at = Context::CELLS_AT + CellCache::head_at(n);
+        let head = self.b.ins().load(types::I64, flags(), self.ctx, head_at);
+        let hit = self.b.create_block();
+        let miss = self.b.create_block();
+        let after = self.b.create_block();
+        let cell = self.b.append_block_param(after, types::I64);
+        self.b.ins().brif(head, hit, &[], miss, &[]);
+        self.b.switch_to_block(hit);
+        let next = self.b.ins().load(types::I64, flags(), head, STRONG_AT);
+        self.b.ins().store(flags(), next, self.ctx, head_at);
+        let one = self.iconst(1);
+        self.b.ins().store(flags(), one, head, STRONG_AT);
+        self.b.ins().jump(after, &[head.into()]);
+        self.b.switch_to_block(miss);
+        self.b.set_cold_block(miss);
+        let t = self.i32const(tag);
+        let len = self.iconst(n);
+        let new = self.call_helper(self.helpers.cell_new, &[t, len])[0];
+        self.b.ins().jump(after, &[new.into()]);
+        self.b.switch_to_block(after);
+        cell
+    }
+
+    /// Frees the unique, emptied cell of `n` fields at `cell`: into the
+    /// cache if its room says so, otherwise through the runtime, which
+    /// counts the room again (`sw_cell_cache_full`).
+    fn free_emptied(&mut self, cell: IrValue, n: u64) {
+        if !self.caches_cells(n) {
+            let n = self.iconst(n);
+            self.call_helper(self.helpers.cell_free, &[cell, n]);
+            return;
+        }
+        let head_at = Context::CELLS_AT + CellCache::head_at(n);
+        let room_at = Context::CELLS_AT + CellCache::ROOM_AT;
+        let bytes = cell_cache::block_bytes(n) as i64;
+        let room = self.b.ins().load(types::I64, flags(), self.ctx, room_at);
+        let fits = self
+            .b
+            .ins()
+            .icmp_imm_u(IntCC::UnsignedGreaterThanOrEqual, room, bytes);
+        let keep = self.b.create_block();
+        let free = self.b.create_block();
+        let after = self.b.create_block();
+        self.b.ins().brif(fits, keep, &[], free, &[]);
+        self.b.switch_to_block(keep);
+        let head = self.b.ins().load(types::I64, flags(), self.ctx, head_at);
+        self.b.ins().store(flags(), head, cell, STRONG_AT);
+        self.b.ins().store(flags(), cell, self.ctx, head_at);
+        let room = self.b.ins().iadd_imm_s(room, -bytes);
+        self.b.ins().store(flags(), room, self.ctx, room_at);
+        self.b.ins().jump(after, &[]);
+        self.b.switch_to_block(free);
+        self.b.set_cold_block(free);
+        let n = self.iconst(n);
+        self.call_helper(self.helpers.cell_cache_full, &[self.ctx, cell, n]);
+        self.b.ins().jump(after, &[]);
+        self.b.switch_to_block(after);
     }
 
     fn global(&mut self, pc: usize, dst: Reg, g: u32) {
@@ -4628,8 +4707,7 @@ impl Gen<'_, '_> {
             let freed = self.b.create_block();
             self.b.ins().brif(all, emptied, &[], partial, &[]);
             self.b.switch_to_block(emptied);
-            let n = self.iconst(taken as u64);
-            self.call_helper(self.helpers.cell_free, &[cell, n]);
+            self.free_emptied(cell, taken as u64);
             self.b.ins().jump(freed, &[]);
             self.b.switch_to_block(partial);
             if later {

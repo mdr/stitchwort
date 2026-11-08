@@ -16,6 +16,7 @@ use stitchwort_test_alloc as _;
 
 pub mod alloc_trace;
 pub mod call_counts;
+pub mod cell_cache;
 pub mod census;
 pub mod clauses;
 pub mod code;
