@@ -720,6 +720,68 @@ with `fun` and `ctl`. No new syntax.]
   isn't in a consuming position): the census should count it.
 - The SW-2335 counts, which hadn't landed.
 
+## 10. Stage A census
+
+SW-2348, 8 Nov 2026. `stitchwort_rt::clauses` gives each clause of a
+`foldComp` or `foldCompD` whose step is `handlePlus (A.%elim …) forward`
+one of §2.3's classes, reading the bodies the runtime lowers (generic
+bodies, with row eliminators at `Empty` inlined, and empty-row variants).
+State-passing folds are classed on fusion.rs's own rewrite of their
+clauses: Tail if every `k v s′` became a jump and no other `k` is left. The
+lowering doesn't use the classes yet; nothing a backend does has changed.
+The census is `clause_census` in `crates/rt/tests/it/clause_kinds.rs`
+(ignored by default: it loads all of `aoc/`, about a minute, 5 s with a
+warm check cache) **[measured]**. Theorems, and `match`es lifted from
+them, are left out: they never run.
+
+| | folds | Forward | Tail | Abort | General | fused state folds |
+|---|---|---|---|---|---|---|
+| std, generic bodies and variants | 37 (2 unrecognised) | 23 | 7 | 33 | 57 | 1 (`runFrom`) |
+| `aoc/`'s own definitions | 0 | | | | | |
+| `expressions`, `bridge`, `disk`, `octopus`, `dijkstra`, `memory-game` (reachable from `main`) | 2: `optionalFrom`, `runFrom` | 6 | 6 | 4 | 0 | 1 |
+| `scan` | 3: + `attemptFrom` | 12 | 6 | 6 | 0 | 1 |
+| `matcher` | 3: + `labelWholeFrom` | 6 | 6 | 6 | 6 | 1 |
+
+Each library handler (generic body; variants alike unless said):
+
+| handler | clauses |
+|---|---|
+| `Parse.optionalFrom`, `attemptFrom`, `sectionLineFrom` | 6 Forward (`span` … `note`), `stop` and `fatal` Abort |
+| `Parse.labelFrom` | 5 Forward, `note` Tail, 2 Abort |
+| `Parse.runFrom` | fused; 6 Tail (`next`'s and `literal`'s through their `match`es), 2 Abort |
+| `Parse.labelWholeFrom` | 6 General, 2 Abort: a state handler at `{Parse}`, not fused, so each `k` is under the state's lambda |
+| `Fail.toResult`, `toOption`, `orElse`, `recover`, `context`, `toAbort`; `Abort.orElse`, `orFail`, `toOption` | Abort |
+| `Each.collect`, `collectIn` | `fork` General (twice, under `both`'s lambda), `stop` Abort |
+| `IO.simulateWith`, `Terminal.toIO`, `simulate`, `scriptedHost` | all General: open-row state handlers (§3.5, stage F) |
+
+What this says for the next stages **[inferred from the counts]**:
+
+- **Everything the benchmarks perform goes to Forward, Tail or Abort
+  clauses**, except `matcher`'s `labelWhole`. AoC writes no handlers of its
+  own, so the library's handlers are the whole story.
+- **The consumer link blocks nothing statically.** 29 of the 37 folds are
+  in a consuming position of their body; the other 8 are the open-row state
+  handlers (`let run := handle …; run input []` under row helpers), whose
+  clauses are all General anyway. Whether a definition's own frame is
+  linked is a run-time fact this census can't see; stage C's counts will.
+  `runFrom`'s fold is the body of a `runPure` that is itself a `let`'s
+  value (`let go := …; go initial`): its activation starts at `go
+  initial`, which stage C must treat as the fold's start.
+- **`Fail`'s handlers reach the runtime as `foldCompD` on a variable
+  divergence index** in their generic bodies: the runtime calls the
+  library's `foldCompD`, whose `foldComp` sees the step as an opaque
+  function, so a lookup stops there. Only their empty-row variants are a
+  `foldComp` with known clauses, and those still forward with `callD` (the
+  Divergence form), not the plain `Call`. Stage B's and C's recogniser of
+  forwards must take `callD … Total …` too, or the backends must
+  specialise `foldCompD` at `Total`.
+- `effect-state.sw`'s `Store.keep` (`put v, k => k ()`) isn't fused, since
+  that clause isn't `Done` of a function; there `put` is Tail and `get`
+  General.
+- Not counted: how many *performs* each class answers at run time (the
+  note's stage A measure). That needs a counter in the effect runtime,
+  which is a runtime change; stage C's in-place counts give it directly.
+
 ## Tickets to file
 
 In order. A first; B and C can run side by side after it; D after C; E

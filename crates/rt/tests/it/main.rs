@@ -2,6 +2,7 @@
 
 mod alloc_trace;
 mod arrays;
+mod clause_kinds;
 mod codec;
 mod effect_runtime;
 mod interp;
