@@ -1,5 +1,5 @@
 {
-  "next": 2393,
+  "next": 2394,
   "tickets": [
     {
       "id": 47,
@@ -23524,7 +23524,7 @@
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2384. Waits for D3420. Est. dijkstra 8-15%. 2-3 h.",
+      "body": "From SW-2384. Waits for D3420. Est. dijkstra 8-15%. 2-3 h.\n\nD3420, Matt, 8 Nov 2026: yes. \"let's explore this. Let's see if we can do an invisible optimization that helps us. It feels like we're pushing the boundaries here, so we need to think quite carefully. But hey, maybe we're innovating.\" Orchestrator: an independent Opus review of the design (soundness first) before implementation.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -23540,6 +23540,21 @@
       ],
       "epic": "comparative-speed",
       "body": "From SW-2384. After SW-2391. 30 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2393,
+      "title": "Review (fresh eyes, soundness first): docs/proposals/reuse-across-calls.md, the hidden reuse-token argument to copied callees, before implementation (SW-2391)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "review"
+      ],
+      "epic": "comparative-speed",
+      "body": "D3420 yes with 'think quite carefully'. Paper. 60 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
