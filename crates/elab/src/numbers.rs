@@ -1123,7 +1123,7 @@ fn group_with(
             };
             for (i, leaf) in g.leaves.iter().enumerate() {
                 if let State::Inferred(_, ty) = &leaf.state
-                    && !cx.unify(ty, &t)?
+                    && !unify_leaf(cx, ty, &t)?
                 {
                     return Err(mixed(cx, &g, i, ty, &t, Decider::Default, what));
                 }
@@ -1172,6 +1172,15 @@ fn group_with(
     finish(cx, expr, g, top, sides, expected, &t, decider)
 }
 
+/// A leaf's inferred type `ty` against the group's type `t`: they unify, or
+/// the comparison waits for an unknown the postponement queue will settle
+/// (a leaf `f x` whose function's result type is a waiting dot call's, as
+/// in `let f := (s) => s.size`, `f (Circle 4) == 4`).
+fn unify_leaf(cx: &mut Ctx, ty: &Value, t: &Value) -> Result<bool> {
+    Ok(cx.unify(ty, t)?
+        || crate::queue::compare_waiting(cx, ty, t, crate::queue::Failure::Mismatch)?)
+}
+
 /// Steps 7 and 8 of a group whose type `t` is decided: its leaves finished
 /// at `t`, and its term built.
 #[expect(
@@ -1195,7 +1204,7 @@ fn finish(
         let term = match state {
             State::Done(term) => term,
             State::Inferred(term, ty) => {
-                if !cx.unify(&ty, t)? {
+                if !unify_leaf(cx, &ty, t)? {
                     return Err(mixed(cx, &g, i, &ty, t, decider, what));
                 }
                 term
@@ -1270,7 +1279,7 @@ fn queue_group(
     };
     for (i, leaf) in g.leaves.iter().enumerate() {
         if let State::Inferred(_, ty) = &leaf.state
-            && !cx.unify(ty, &t)?
+            && !unify_leaf(cx, ty, &t)?
         {
             return Err(mixed(cx, &g, i, ty, &t, Decider::Default, what(top)));
         }

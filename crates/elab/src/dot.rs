@@ -565,6 +565,14 @@ fn keep_receiver(
 }
 
 impl crate::queue::Check for DotCall {
+    /// A waiting dot call's type is its method's result, which resuming it
+    /// fixes: a comparison meeting that unknown meanwhile waits for it, as
+    /// `f (Circle 4)` does for `f := (s) => s.size`, whose result type is
+    /// `?r s`, with `?r` not applicable to a constructor call yet.
+    fn settles_type(&self) -> bool {
+        true
+    }
+
     fn display(&self, _cx: &Ctx) -> Option<String> {
         let field = Expr::Field(Box::new(self.recv.clone()), self.field.clone());
         let mut text = crate::queue::syntax(&field);
