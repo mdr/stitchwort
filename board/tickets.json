@@ -1,5 +1,5 @@
 {
-  "next": 2397,
+  "next": 2398,
   "tickets": [
     {
       "id": 47,
@@ -23606,6 +23606,21 @@
       ],
       "epic": "comparative-speed",
       "body": "After SW-2394. Waits for D3419 (index shape; rec (b) Graph.Index record with size, number, decode and two erased proofs). 90-120 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2397,
+      "title": "Design note: types with Nat's shape after erasure (Fin first) represented at run time as machine numbers: shape detection, native pins for toNat/ofNatLt, step counts, interpreter/native/JS agreement, comparison with Idris 2, Lean, Agda and others",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "epic": "comparative-speed",
+      "body": "D3423, Matt, 8 Nov 2026: yes, design note first. \"do the design note first and compare with other implementations. ... it seems to me reasonable that numeric types or things isomorphic to them should be ... represented at runtime for optimization reasons as machine numbers just because of the tremendous speed ups we can get.\" Paper. 60 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
