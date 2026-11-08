@@ -23517,14 +23517,14 @@
     {
       "id": 2391,
       "title": "Reuse across calls: pass an emptied cell as a hidden argument to the callee that rebuilds it (a copied callee per token), pass after trmc::apply plus code.rs; docs/proposals/reuse-across-calls.md",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2384. Waits for D3420. Est. dijkstra 8-15%. 2-3 h.\n\nD3420, Matt, 8 Nov 2026: yes. \"let's explore this. Let's see if we can do an invisible optimization that helps us. It feels like we're pushing the boundaries here, so we need to think quite carefully. But hey, maybe we're innovating.\" Orchestrator: an independent Opus review of the design (soundness first) before implementation.\n\nReview SW-2393 (docs/reviews/SW-2393-reuse-across-calls-review.md): sound with changes. Required before or in this lane: F1 validate never reads the token slot and a copy is never a function value, debug assertion on token operands; F2 store copies on the global, encoded and validated (built executables); F3 inline empty-token path (SW-2395); F4 depth limit 4, cap on copies and IR growth, copy counts reported; F5 state exactly whether a local Ctor or a call gets the token first. Estimate revised to 4-10% on dijkstra (review) / 8-12% (note's own arithmetic); show cells unique on dijkstra itself. Orchestrator's call: profiler folds copies into their definition's row. Ready to start when a build slot frees.\n",
+      "body": "From SW-2384. Waits for D3420. Est. dijkstra 8-15%. 2-3 h.\n\nD3420, Matt, 8 Nov 2026: yes. \"let's explore this. Let's see if we can do an invisible optimization that helps us. It feels like we're pushing the boundaries here, so we need to think quite carefully. But hey, maybe we're innovating.\" Orchestrator: an independent Opus review of the design (soundness first) before implementation.\n\nReview SW-2393 (docs/reviews/SW-2393-reuse-across-calls-review.md): sound with changes. Required before or in this lane: F1 validate never reads the token slot and a copy is never a function value, debug assertion on token operands; F2 store copies on the global, encoded and validated (built executables); F3 inline empty-token path (SW-2395); F4 depth limit 4, cap on copies and IR growth, copy counts reported; F5 state exactly whether a local Ctor or a call gets the token first. Estimate revised to 4-10% on dijkstra (review) / 8-12% (note's own arithmetic); show cells unique on dijkstra itself. Orchestrator's call: profiler folds copies into their definition's row. Ready to start when a build slot frees.\nStarted 09:58 UTC, Opus, expected 180 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
