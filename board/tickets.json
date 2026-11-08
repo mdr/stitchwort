@@ -1,5 +1,5 @@
 {
-  "next": 2417,
+  "next": 2418,
   "tickets": [
     {
       "id": 47,
@@ -22839,7 +22839,7 @@
     {
       "id": 2350,
       "title": "Operations in place stage C: the handler stack, consumer link and in-place calls on the machine, behind a flag",
-      "status": "review",
+      "status": "backlog",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -22847,7 +22847,7 @@
         "effects"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/proposals/operations-in-place.md (SW-2339); D3400 yes (Matt). After SW-2349. 90 min.\n\nD3412, Matt, 8 Nov 2026 ~09:38: yes, \"I think we should proceed with this.\" Stages B-D may change effect and step counts (not results).\nStarted 15:07 UTC, Opus, expected 120 min.\n\nProgress (lane, 8 Nov): built on the machine behind STITCHWORT_IN_PLACE=1 (internal; off by default; native forces it off). Entries, consumer link as a property of Ret (Eff / LinkedReg / InPlace), thunked fold and translate bodies in lowering (FoldInPlace, FoldState[Comp]InPlace, TranslateInPlace), Perform/TailPerform, Tail/Abort/aimed unwind, state in entries. No §3.3 case failed. Flag on: all 116 run lines of the effect examples plus a new fixture agree with the reference evaluator; step limits agree. Measured on the machine (x20 inputs): effect-loop steps 3.1x/3.3x/26x fewer on expressions/scan/bridge, machine steps 1.14-1.19x, time 1.04-1.11x. Row-generic code (List.map via bindIn) isn't reached: stage E. Notes in the proposal, section 12.\n",
+      "body": "From docs/proposals/operations-in-place.md (SW-2339); D3400 yes (Matt). After SW-2349. 90 min.\n\nD3412, Matt, 8 Nov 2026 ~09:38: yes, \"I think we should proceed with this.\" Stages B-D may change effect and step counts (not results).\nStarted 15:07 UTC, Opus, expected 120 min.\n\nProgress (lane, 8 Nov): built on the machine behind STITCHWORT_IN_PLACE=1 (internal; off by default; native forces it off). Entries, consumer link as a property of Ret (Eff / LinkedReg / InPlace), thunked fold and translate bodies in lowering (FoldInPlace, FoldState[Comp]InPlace, TranslateInPlace), Perform/TailPerform, Tail/Abort/aimed unwind, state in entries. No §3.3 case failed. Flag on: all 116 run lines of the effect examples plus a new fixture agree with the reference evaluator; step limits agree. Measured on the machine (x20 inputs): effect-loop steps 3.1x/3.3x/26x fewer on expressions/scan/bridge, machine steps 1.14-1.19x, time 1.04-1.11x. Row-generic code (List.map via bindIn) isn't reached: stage E. Notes in the proposal, section 12.\n\nStage C built (901a93884, lane/SW-2350, kept unmerged): flag on, effect-loop steps 3.1x/3.3x/26x fewer on expressions/scan/bridge but machine time only 1.11x/1.09x/1.04x (est. 2-3x). Flag off vs main: steps identical; instructions machine scan +1.6%, expressions +0.7%, native +0.9%. Orchestrator's call: hold the merge until a native profile shows what stage D can gain; then merge plus D, or drop (Matt). Model result: Opus, worked (well below estimate), 70 min (est. 120).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -23927,6 +23927,21 @@
       ],
       "epic": "comparative-speed",
       "body": "After SW-2415. 1.5-2 h.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2417,
+      "title": "Profile native expressions and scan on main: what share of time and instructions is still effect machinery (sw_eff_step, sw_bind, sw_apply_prepare's runtime values, resumptions, handler frames) vs the parsers' own code; bound what operations in place stage D (and E) can gain",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "Decides whether SW-2350 (stage C, held) merges with stage D or is dropped. No code changes. 30 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
