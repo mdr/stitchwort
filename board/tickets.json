@@ -23661,14 +23661,14 @@
     {
       "id": 2399,
       "title": "Nat-shaped types stage 2: Fin.toNat and Fin.ofNatLt as pinned identity natives (constant time)",
-      "status": "next",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "After SW-2398. 1 h.\n\nAfter SW-2398 (Fin as numbers, -4% instructions on 2025 day 3 and 2021 day 9): Fin.toNat still walks one frame per successor and computes the unread index (%Nat.sub(v0, 1)) each step; this stage removes both. Next.\n",
+      "body": "After SW-2398. 1 h.\n\nAfter SW-2398 (Fin as numbers, -4% instructions on 2025 day 3 and 2021 day 9): Fin.toNat still walks one frame per successor and computes the unread index (%Nat.sub(v0, 1)) each step; this stage removes both. Next.\nStarted 21:44 UTC.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -24420,14 +24420,14 @@
     {
       "id": 2447,
       "title": "Lowered-program cache key ignores STITCHWORT_CHECK_REBUILDS: programs lowered with the rebuild check on (Fin as cells with the extra field) and off (Fin as numbers since SW-2398) share a key, so one could be read back under the other setting",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "rt"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2398 (introduced with SW-2415; not yet confirmed to happen). Confirm with a repro (run with the check on, then off, same cache), then put the setting in the key. 30 min.",
+      "body": "From SW-2398 (introduced with SW-2415; not yet confirmed to happen). Confirm with a repro (run with the check on, then off, same cache), then put the setting in the key. 30 min.\nStarted 21:44 UTC.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
