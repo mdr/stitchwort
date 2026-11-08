@@ -44,7 +44,7 @@ theorem lowestRiskCorrect (risks: RiskMap) (tall: 0 < risks.height) (wide: 0 < r
     LowestRisk risks.levelAt (bottomRight risks.height risks.width) risks.lowestRisk :=
   let target := bottomRight risks.height risks.width
   let sources := [(risks.start, 0)]
-  let shortest := Graph.distancesShortest risks.graph sources
+  let shortest := Graph.distancesShortest risks.graph (index := risks.index) sources
   let routeWalk := pathWalk risks topLeft (route risks.height risks.width) target (routeOnMap risks tall wide)
   Exists.elim (And.right shortest risks.start 0 (Inl rfl) _ target routeWalk) (found both =>
     let got := And.left both
@@ -52,9 +52,9 @@ theorem lowestRiskCorrect (risks: RiskMap) (tall: 0 < risks.height) (wide: 0 < r
     rewrite answer in Both (cheapestPath risks target found got) (steps path => noCheaperPath risks target found got steps path))
 
 --| The cost the search finds is some path's total risk...
-theorem cheapestPath (risks: RiskMap) (target: Position) (found: Nat) (got: (risks.graph.distances [(risks.start, 0)]).get target = Some found):
+theorem cheapestPath (risks: RiskMap) (target: Position) (found: Nat) (got: (risks.graph.distances (index := risks.index) [(risks.start, 0)]).get target = Some found):
     ∃ (steps: List Position) => isPath risks.levelAt topLeft steps target = True ∧ totalRisk risks.levelAt steps = found :=
-  Exists.elim (And.left (Graph.distancesShortest risks.graph [(risks.start, 0)]) target found got) (source rest =>
+  Exists.elim (And.left (Graph.distancesShortest risks.graph (index := risks.index) [(risks.start, 0)]) target found got) (source rest =>
     Exists.elim rest (start rest2 =>
       Exists.elim rest2 (path parts =>
         let (Both isSource (Both walked costs)) := parts
@@ -67,10 +67,10 @@ theorem cheapestPath (risks: RiskMap) (target: Position) (found: Nat) (got: (ris
             Witness (path.map Pair.fst) (Both (rewrite fromStart in stepsPath) (omega [costs, startZero, stepsCost])))))
 
 --| ...and no path costs less.
-theorem noCheaperPath (risks: RiskMap) (target: Position) (found: Nat) (got: (risks.graph.distances [(risks.start, 0)]).get target = Some found)
+theorem noCheaperPath (risks: RiskMap) (target: Position) (found: Nat) (got: (risks.graph.distances (index := risks.index) [(risks.start, 0)]).get target = Some found)
     (steps: List Position) (path: isPath risks.levelAt topLeft steps target = True): found ≤ totalRisk risks.levelAt steps :=
   let walked := pathWalk risks topLeft steps target path
-  Exists.elim (And.right (Graph.distancesShortest risks.graph [(risks.start, 0)]) risks.start 0 (Inl rfl) _ target walked) (other both =>
+  Exists.elim (And.right (Graph.distancesShortest risks.graph (index := risks.index) [(risks.start, 0)]) risks.start 0 (Inl rfl) _ target walked) (other both =>
     let (Both gotOther below) := both
     let same: other = found := Option.someInjective (Eq.trans (Eq.sym gotOther) got)
     omega [same, below, pathWalkCost risks.levelAt steps])

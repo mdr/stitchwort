@@ -58,3 +58,10 @@ def reached (grid: Grid Nat): List Position :=
 test "a grid's graph" := reached (Grid.of [[1, 9, 1], [1, 9, 1], [1, 1, 1]]) == [at 0 0, at 0 2, at 1 0, at 1 2, at 2 0, at 2 1, at 2 2]
 test "a wall" := reached (Grid.of [[1, 9, 1], [9, 9, 1]]) == [at 0 0]
 test "a box's distances" := ((boxGraph 2 2 (p => p.row + p.column)).distances [(at 0 0, 0)]).get (at 1 1) == Some 3
+
+test "a box's distances with its index" :=
+  let graph := boxGraph 3 4 (p => p.row + p.column)
+  graph.distances (index := boxIndex 3 4) [(at 0 0, 0)] |> .toList == (graph.distances [(at 0 0, 0)] |> .toList)
+
+test "a box numbers its positions row by row" :=
+  (boxIndex 3 4).number (at 2 1) == Some 9 ∧ (boxIndex 3 4).number (at 1 4) == None ∧ (boxIndex 3 4).decode 9 == Some (at 2 1)

@@ -4,8 +4,8 @@
 revised by SW-2394 after Matt's decisions D3416 (yes, std gets the
 array-backed search), D3417 (one function, `Graph.distances`, with an
 optional named `index`), D3418 (moot: the result is a `Map`, as today). The
-index's shape is still open: D3419, [§8](#8-open-questions). Stage 1
-([§9](#9-plan-and-estimate)) is built by SW-2394; nothing of stage 2 is.
+index's shape was D3419, (b). Stage 1 ([§9](#9-plan-and-estimate)) was
+built by SW-2394, stages 2 and 2b by SW-2396 (§4.4, "As built").
 Draft 1's two-function design (`Graph.distancesIndexed` beside
 `distances`, proved equal to it) is kept below, marked **superseded**, for
 its reasoning. Numbers are taken from
@@ -343,6 +343,26 @@ def Graph.distances [auto ord: Ord s] (graph: Graph s) (index: Graph.Index s := 
   longer on the path. It would give `graph.distances (index := i) sources
   = graph.distances sources` in a few lines, which is worth adding only if
   a caller wants to move between the two calls inside a proof; none does.
+
+**As built (SW-2396, stage 2).** D3419 went to (b), with one change:
+`decode: Nat → Option s` (with `roundTrip` giving `Some state`), since
+`Graph.Index.none` must exist for every `s`, an empty one included, and so
+can't decode to an `s`. The table is `Graph.IndexTable s index` (`cells`,
+`rest`, and three erased proofs: the size, each cell with a cost belongs to
+the state its number decodes to, and `rest` holds only unnumbered states),
+whose laws are `Graph.indexCosts`; `Graph.IndexTable.getToMap` is §5's
+lemma. `distances` matches on `index.size`: `Zero` is stage 1's map search,
+`Succ` calls `Graph.distancesByIndex`. Two run-time findings: the table's
+`set` takes the record apart with a `match` (projecting `cells` then `rest`
+kept the old table holding the array, and every `set` copied it), and the
+indexed branch has to be a call, so that `distances` stays small enough to
+be inlined and the map branch keeps its `Ord` specialisation (otherwise 6%
+more instructions on the map path). Each search makes two copies in all,
+one per table, from the empty table the `Graph.Costs` record holds, and
+none per operation (`an_indexed_search_changes_its_tables_in_place`). Day
+15 native **[measured]**, `bench:compare --runs 3 --instructions`: 2.69 s
+and 41.56 G instructions before, 1.26-1.30 s and 19.65-19.69 G after; the
+map path (day 15 without the index) 41.57 G.
 
 ## 5. The result: a `Map` built at the end
 
