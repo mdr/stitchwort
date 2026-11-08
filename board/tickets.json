@@ -1,5 +1,5 @@
 {
-  "next": 2368,
+  "next": 2369,
   "tickets": [
     {
       "id": 47,
@@ -23102,14 +23102,32 @@
     {
       "id": 2367,
       "title": "Two driver tests fail on main: proof_masks::every_case_gets_its_answer_four_ways (t2: choose Nat n vs choose Bool n now convertible, all four ways) and check_cache::a_refused_library_entry_takes_back_its_float_bindings (internal error: the prelude doesn't declare Float.mul ...); find the commit and the cause",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
         "bug"
       ],
       "epic": "elaborator-kernel",
-      "body": "Found by the SW-2343 batch, 8 Nov 2026 04:21. Both fail alone on main 2541bba88+. Bisect first (were they failing before tonight, e8e9acd1e?). 45 min.",
+      "body": "Found by the SW-2343 batch, 8 Nov 2026 04:21. Both fail alone on main 2541bba88+. Bisect first (were they failing before tonight, e8e9acd1e?). 45 min.\n\nLane (Opus, 8 Nov 04:36): both predate tonight (fail at e8e9acd1e). check_cache float test first fails at ef84181c3 (Merge SW-2197: std must declare every library entry; the test's cut Float.sw dropped Float.mul..decLessThan). proof_masks t2 first fails at 3da301476 (Merge SW-2256, G6: same-definition stuck calls fall back to case trees; `choose` ignores `t`, so true is correct). Fixes, test-only, in f3b9ecf44: `choose` made recursive (not opened by tree, so arguments alone decide; guard kept); the cut tail goes to Float/Rest.sw in the test's copy, instances as defs. proof_masks:: + check_cache:: 43/43 pass.\n\nMerged. Both predate tonight (broken at SW-2256 and SW-2197). Test-only fixes. Follow-up SW-2368. Model result: Opus, worked, 15 min (est. 45).\n",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": [
+        "f3b9ecf44",
+        "a14fb6985"
+      ]
+    },
+    {
+      "id": 2368,
+      "title": "test:affected rules: core value.rs/reference.rs changes select proof_masks::; core registry.rs changes select check_cache::a_refused_library_entry_*",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "epic": "test-infra",
+      "body": "From SW-2367: both tests broke silently at SW-2256 and SW-2197 because their merges didn't select them. 20 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
