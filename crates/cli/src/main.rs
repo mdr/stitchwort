@@ -441,6 +441,12 @@ enum Command {
         /// With --native, say on standard error what was compiled
         #[arg(long, requires = "native")]
         verbose: bool,
+        /// With --native, each compiled body counts its own entries, which
+        /// a runtime built with the `call-counts` feature reports when
+        /// `STITCHWORT_CALL_COUNTS` is set (`task profile:native`). With
+        /// the usual runtime it does nothing but slow the program
+        #[arg(long, requires = "native")]
+        count_bodies: bool,
         /// The project folder, if not the folder you're in or the nearest
         /// one above it
         #[arg(long)]
@@ -841,6 +847,7 @@ fn run(cli: Cli) -> ExitCode {
             out,
             native,
             verbose,
+            count_bodies,
             project,
             cache,
             ..
@@ -849,6 +856,7 @@ fn run(cli: Cli) -> ExitCode {
             out.as_deref(),
             project.as_deref(),
             native.then_some(verbose),
+            count_bodies,
             &cache,
         ),
         Command::Dev(DevCommand::NativeSpike { rounds, memory }) => {
@@ -3037,6 +3045,7 @@ fn compile_native(
     let image = stitchwort_rt::code::compile(&program);
     let options = stitchwort_native::n1::Options {
         trace_refcounts: trace,
+        count_bodies: false,
     };
     let compiled = stitchwort_native::n1::compile(&program, image, options).and_then(|islands| {
         let stack = stitchwort_native::n1::stack_for(

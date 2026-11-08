@@ -95,12 +95,15 @@ const LINK_FLAGS: &[&str] = if cfg!(target_env = "musl") {
 /// function's namespace's, in the current folder. `native`: with
 /// `--native`, `Some(verbose)`: the bodies `main` reaches are compiled
 /// into the object where they compile, and with `verbose` it says on standard
-/// error what was compiled, and why anything wasn't.
+/// error what was compiled, and why anything wasn't. `count_bodies` (with
+/// `--native`): each body counts its entries, for a profiling runtime
+/// (`Options::count_bodies`).
 pub fn build_executable(
     target: &str,
     out: Option<&Path>,
     project: Option<&Path>,
     native: Option<bool>,
+    count_bodies: bool,
     cache: &CacheArgs,
 ) -> ExitCode {
     #[cfg(not(feature = "native"))]
@@ -158,7 +161,7 @@ pub fn build_executable(
     let limits = stitchwort_rt::Limits::from_core(session.elab.options.limits);
     discard(session);
     let object = match native {
-        Some(verbose) => match native_object(&program, &limits, verbose) {
+        Some(verbose) => match native_object(&program, &limits, verbose, count_bodies) {
             Some(object) => object,
             None => return ExitCode::FAILURE,
         },
@@ -255,11 +258,13 @@ fn native_object(
     program: &stitchwort_rt::Program,
     limits: &stitchwort_rt::Limits,
     verbose: bool,
+    count_bodies: bool,
 ) -> Option<Vec<u8>> {
     let image = stitchwort_rt::code::compile(program);
     let tables = stitchwort_rt::linked::encode(program, &image, limits);
     let options = stitchwort_native::n1::Options {
         trace_refcounts: false,
+        count_bodies,
     };
     match stitchwort_native::aot::compile_object(
         program,
@@ -294,6 +299,7 @@ fn native_object(
     _program: &stitchwort_rt::Program,
     _limits: &stitchwort_rt::Limits,
     _verbose: bool,
+    _count_bodies: bool,
 ) -> Option<Vec<u8>> {
     unreachable!("`build --native` is refused without the `native` feature")
 }

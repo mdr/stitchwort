@@ -80,7 +80,20 @@ pub fn native_on(
     trace_refcounts: bool,
     stack: usize,
 ) -> (Ran, Vec<String>) {
-    let options = Options { trace_refcounts };
+    let options = Options {
+        trace_refcounts,
+        count_bodies: false,
+    };
+    native_with(program, limits, options, stack)
+}
+
+/// [`native_on`], compiled with `options`.
+pub fn native_with(
+    program: &Program,
+    limits: Limits,
+    options: Options,
+    stack: usize,
+) -> (Ran, Vec<String>) {
     let mut output = Vec::new();
     let executed_before = stitchwort_rt::machine::instructions_executed();
     // Compiled as `run --native` compiles it (stage NO5 of

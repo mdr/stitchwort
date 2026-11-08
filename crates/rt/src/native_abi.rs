@@ -3025,6 +3025,21 @@ pub unsafe extern "C" fn sw_drop_deferred(context: *mut Context) {
     }
 }
 
+/// One entry of the body named `name[..len]`, from a build with
+/// `Options::count_bodies`. The name is static data in the executable.
+///
+/// # Safety
+/// `name` points at `len` bytes that live as long as the run.
+#[allow(unsafe_code)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
+pub unsafe extern "C" fn sw_count_body(name: *const u8, len: u64) {
+    #[cfg(feature = "call-counts")]
+    // SAFETY: the caller's contract.
+    crate::call_counts::hit_body(unsafe { std::slice::from_raw_parts(name, len as usize) });
+    #[cfg(not(feature = "call-counts"))]
+    let _ = (name, len);
+}
+
 #[cfg(test)]
 mod tests {
     /// The layout probe holds on this target. Small enough for Miri, which
