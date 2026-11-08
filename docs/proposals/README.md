@@ -161,6 +161,7 @@ status line now says the wrong thing; the details are in
 | [fast-runtime.md](fast-runtime.md) | A fast runtime: erased IR and bytecode machine | built, stages 1-4: `crates/rt/` | SW-230-SW-233 |
 | [native-compilation.md](native-compilation.md) | Running as machine code (Cranelift) | built, N1-N4: `crates/native/` | (D1250-D1253) |
 | [native-only.md](native-only.md) | Native executables with no machine inside | built, mostly; IO and effect representation open | SW-559-SW-561; open SW-562, SW-593 |
+| [apply-fast-paths.md](apply-fast-paths.md) | Native `Apply` of the effect runtime's own function values without a failed cache lookup or an argument `Vec` | in progress | SW-2336 |
 | [standalone-executables.md](standalone-executables.md) | `stitchwort build`: standalone executables | built: `crates/standalone/` | SW-528 |
 | [native-numbers.md](native-numbers.md) | `Nat` arithmetic as natives | built | — |
 | [compact-text.md](compact-text.md) | Compact `Text` in JS and in the checking evaluator | built (stale), all three stages | SW-36, SW-52, SW-58 |
