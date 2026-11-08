@@ -22566,15 +22566,15 @@
     {
       "id": 2335,
       "title": "Parse runtime stage 0: split the slow-apply count by kind of function value (DoneK, JumpK, resumptions, closures) and print effect-step counts in the call-counts report, to check the note's cost model before stages 1-3",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2335",
       "labels": [
         "perf",
         "tooling"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/proposals/parse-runtime.md (SW-2327). 30 min. First.",
+      "body": "From docs/proposals/parse-runtime.md (SW-2327). 30 min. First.\n\nStarted 8 Nov 2026 00:19; expected: 30 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
