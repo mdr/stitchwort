@@ -23325,14 +23325,14 @@
     {
       "id": 2380,
       "title": "Std Map.foldLeft is slower than toList plus filterMap (SW-2374's leftmostFit experiment +13.5% instructions); profile Map.foldLeft (Quot.lift, Map.Raw.foldLeft) alone",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "std-library",
-      "body": "From SW-2374. Measure first. 30 min.\n\nStarted 05:37 UTC, Sonnet, expected 30 min.\n",
+      "body": "From SW-2374. Measure first. 30 min.\n\nStarted 05:37 UTC, Sonnet, expected 30 min.\n\nClosed, no change: Map.foldLeft is faster than toList+foldLeft (1M entries 124 M vs 669 M instructions; Quot.lift erased). SW-2374's +13.5% was its own fold shape, not Map.foldLeft. A fold-based leftmostFit measured -2.5% on day 9 but needs new proofs: not filed (small). Model result: Sonnet, worked (finding only), 15 min (est. 30).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
