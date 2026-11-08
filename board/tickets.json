@@ -23495,17 +23495,19 @@
     {
       "id": 2390,
       "title": "Std Array doc comment: drop 'Under --js every operation runs as written, on the list' (SW-1638 added version arrays under --js)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "docs"
       ],
       "epic": "std-library",
-      "body": "From SW-2377. 5 min.",
+      "body": "From SW-2377. 5 min.\n\nMerged; no hashes changed. Model result: Sonnet, worked, 3 min (est. 5).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "77d96ac33"
+      ]
     }
   ]
 }
