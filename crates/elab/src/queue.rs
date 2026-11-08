@@ -1230,8 +1230,12 @@ fn head_meta(g: &Ev, v: &Value) -> Result<Option<usize>> {
 /// it in place of the placeholder applied to any arguments, as it does for
 /// a lifted helper's call (`unify::zonk_call`). A `let`'s variable or one a
 /// case split replaced, which the placeholder isn't applied to, is replaced
-/// by its value. `None` if that value isn't in those variables either:
-/// zonking then reads the placeholder's solution back, as for any unknown.
+/// by its value. Where that value is a lambda applied to arguments, it is
+/// annotated with its type: zonking folds it back to the variable if it
+/// can (and drops the annotation), and otherwise the kernel, which infers
+/// no type for a lambda, still has one (SW-2439). `None` if a value isn't
+/// in the placeholder's variables either: zonking then reads the
+/// placeholder's solution back, as for any unknown.
 fn placeholder_call(cx: &Ctx, placeholder: &Term, term: &Term) -> Result<Option<(usize, Term)>> {
     let g = cx.g();
     let depth = cx.level();
@@ -1251,16 +1255,32 @@ fn placeholder_call(cx: &Ctx, placeholder: &Term, term: &Term) -> Result<Option<
             )),
         }
     };
+    let value = |level: usize| cx.quote_folded(&cx.env[level]);
     let variable = |level: usize| -> Result<Term> {
         applied(level).or_else(|_| {
-            let value = cx.quote_folded(&cx.env[level])?;
-            crate::lift::replace_with(&g, &value, depth, &applied, &|_, _| None)
+            crate::lift::replace_with(&g, &value(level)?, depth, &applied, &|_, _| None)
         })
     };
-    match crate::lift::replace_with(&g, term, depth, &variable, &|_, _| None) {
+    let head = |level: usize| -> Result<Option<Term>> {
+        if spine.contains(&level) || !lambda(&value(level)?) {
+            return Ok(None);
+        }
+        let ty = cx.quote_folded(&cx.types[level])?;
+        crate::lift::replace_with(&g, &ty, depth, &applied, &|_, _| None).map(Some)
+    };
+    match crate::lift::replace_annotating_heads(&g, term, depth, &variable, &head) {
         Ok(call) => Ok(Some((s, call))),
         Err(e) if crate::undo::fatal(&e) => Err(e),
         Err(_) => Ok(None),
+    }
+}
+
+/// Whether `term` is a lambda, under any `let`s.
+fn lambda(term: &Term) -> bool {
+    match term.strip_loc() {
+        Term::Lam(..) => true,
+        Term::Let(_, _, _, body, _) => lambda(body),
+        _ => false,
     }
 }
 

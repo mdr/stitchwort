@@ -2945,10 +2945,22 @@ fn zonk_call(
     }) {
         return Err(ZonkError::Unsolved(m));
     }
+    // A queued check's term annotates a `let`'s lambda it applies
+    // (`queue::placeholder_call`); folded back to the variable, the
+    // annotation says nothing the variable's type doesn't, and is dropped.
+    let annotated = (call.subterms())
+        .any(|(t, _)| matches!(t, Term::App(h, _, _) if matches!(h.strip_loc(), Term::Ann(..))));
+    let refold = |term: Term| {
+        let term = refold(g, term, level, lets)?;
+        if !annotated {
+            return Ok(term);
+        }
+        Ok(unannotate_variable_heads(g, &term)?.unwrap_or(term))
+    };
     // A call of no arguments (a waiting literal's number, say) has no
     // variable to replace.
     if n == 0 {
-        return refold(g, call.clone(), level, lets);
+        return refold(call.clone());
     }
     let failed = std::cell::Cell::new(false);
     let hook = |t: &Term, under: usize| {
@@ -2971,7 +2983,39 @@ fn zonk_call(
         )));
     }
     let out = out.ok().flatten().unwrap_or_else(|| call.clone());
-    refold(g, out, level, lets)
+    refold(out)
+}
+
+/// `term` with each annotated variable applied to an argument, `(x : A) a`,
+/// as the variable applied, `x a`: the kernel infers a variable's type, to
+/// which `A`, having been checked, is convertible. `None` if there's none.
+fn unannotate_variable_heads(g: &Ev, term: &Term) -> Result<Option<Term>> {
+    let failed = std::cell::RefCell::new(None);
+    let hook = |t: &Term, _: usize| {
+        let Term::App(h, a, i) = t else { return None };
+        let Term::Ann(e, _) = h.strip_loc() else {
+            return None;
+        };
+        if !matches!(e.strip_loc(), Term::Var(_)) {
+            return None;
+        }
+        match unannotate_variable_heads(g, a) {
+            Ok(new) => Some(Term::App(
+                e.clone(),
+                new.map_or_else(|| a.clone(), Rc::new),
+                *i,
+            )),
+            Err(err) => {
+                failed.replace(Some(err));
+                None
+            }
+        }
+    };
+    let out = fold_back(g, term, 0, &hook)?;
+    match failed.into_inner() {
+        Some(err) => Err(err),
+        None => Ok(out),
+    }
 }
 
 /// [`zonk_in`]'s pass: `None` if `term` has nothing to replace. What's

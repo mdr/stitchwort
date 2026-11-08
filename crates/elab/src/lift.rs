@@ -326,7 +326,7 @@ impl Elaborator {
 /// variable, by level, replaced by `f(level)`: a term in the target context.
 /// A case split's variable must be replaced by a variable.
 fn replace(g: &Ev, term: &Term, depth: usize, f: &dyn Fn(usize) -> Result<Term>) -> Result<Term> {
-    go_replace(g, term, depth, 0, f, &|_, _| None)
+    go_replace(g, term, depth, 0, f, &|_, _| None, &|_| Ok(None))
 }
 
 /// [`replace`], where `hook(t, binders)` may replace a whole sub-term `t` first.
@@ -337,7 +337,23 @@ pub(crate) fn replace_with(
     f: &dyn Fn(usize) -> Result<Term>,
     hook: &dyn Fn(&Term, usize) -> Option<Term>,
 ) -> Result<Term> {
-    go_replace(g, term, depth, 0, f, hook)
+    go_replace(g, term, depth, 0, f, hook, &|_| Ok(None))
+}
+
+/// [`replace`], where a variable applied to arguments, at a level that
+/// `head` gives a type for (a term in the target context), is replaced
+/// annotated with that type: for a variable whose replacement is a value
+/// the kernel infers no type for, such as a lambda, which applied would
+/// otherwise be a redex it can't check. Elsewhere such a value is checked,
+/// and needs no annotation.
+pub(crate) fn replace_annotating_heads(
+    g: &Ev,
+    term: &Term,
+    depth: usize,
+    f: &dyn Fn(usize) -> Result<Term>,
+    head: &dyn Fn(usize) -> Result<Option<Term>>,
+) -> Result<Term> {
+    go_replace(g, term, depth, 0, f, &|_, _| None, head)
 }
 
 fn go_replace(
@@ -347,12 +363,13 @@ fn go_replace(
     under: usize,
     f: &dyn Fn(usize) -> Result<Term>,
     hook: &dyn Fn(&Term, usize) -> Option<Term>,
+    head: &dyn Fn(usize) -> Result<Option<Term>>,
 ) -> Result<Term> {
     g.machine.budget.nesting(crate::check::PASS)?;
     if let Some(t) = hook(term, under) {
         return Ok(t);
     }
-    let go = |t: &Rc<Term>, under| go_replace(g, t, depth, under, f, hook).map(Rc::new);
+    let go = |t: &Rc<Term>, under| go_replace(g, t, depth, under, f, hook, head).map(Rc::new);
     let var = |ix: usize| -> Result<Term> {
         if ix < under {
             return Ok(Term::Var(ix));
@@ -387,7 +404,19 @@ fn go_replace(
         ),
         Term::Pi(x, i, a, b) => Term::Pi(x.clone(), *i, go(a, under)?, go(b, under + 1)?),
         Term::Lam(x, i, b) => Term::Lam(x.clone(), *i, go(b, under + 1)?),
-        Term::App(h, a, i) => Term::App(go(h, under)?, go(a, under)?, *i),
+        Term::App(h, a, i) => {
+            let h = match h.strip_loc() {
+                Term::Var(ix) if *ix >= under => match head(depth - 1 - (ix - under))? {
+                    Some(ty) => Rc::new(Term::Ann(
+                        Rc::new(var(*ix)?),
+                        Rc::new(ty.shift(g, under, 0)?),
+                    )),
+                    None => go(h, under)?,
+                },
+                _ => go(h, under)?,
+            };
+            Term::App(h, go(a, under)?, *i)
+        }
         Term::Ann(e, t) => Term::Ann(go(e, under)?, go(t, under)?),
         Term::Let(x, a, v, b, e) => Term::Let(
             x.clone(),
