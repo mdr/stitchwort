@@ -22048,16 +22048,16 @@
     {
       "id": 2302,
       "title": "[Sonnet] Big numbers: arithmetic and comparisons work on references, without copying both inputs first (prims.rs:274, value.rs:217)",
-      "status": "next",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2302",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/reviews/SW-2298-native-bignum.md (paper lane; confirm with task bench:compare -- --runs 3 pidigits before and after). 30 min.\n\nStarted 7 Nov 2026 23:28; expected: 30 min. Runs beside SW-2302/2304 (both from SW-2298); merge after Overmind's Stage 2 timing of the commit before them.\n\nCancelled after a few minutes (Matt, 7 Nov 2026: profile first, then change only a measured hotspot). Waits for the profiling lane SW-2296; restart only if its profile shows this cost is a meaningful share. Unfinished diff kept in the orchestrator scratchpad (SW-2302-unfinished.patch), not merged. Model result: Sonnet, cancelled at ~5 min (est. 30).\n",
+      "body": "From docs/reviews/SW-2298-native-bignum.md (paper lane; confirm with task bench:compare -- --runs 3 pidigits before and after). 30 min.\n\nStarted 7 Nov 2026 23:28; expected: 30 min. Runs beside SW-2302/2304 (both from SW-2298); merge after Overmind's Stage 2 timing of the commit before them.\n\nCancelled after a few minutes (Matt, 7 Nov 2026: profile first, then change only a measured hotspot). Waits for the profiling lane SW-2296; restart only if its profile shows this cost is a meaningful share. Unfinished diff kept in the orchestrator scratchpad (SW-2302-unfinished.patch), not merged. Model result: Sonnet, cancelled at ~5 min (est. 30).\n\nStarted 8 Nov 2026 00:08, overnight wave 1 (Matt: focus on comparative performance; profile, address, recheck); expected: 30 min.\n",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-08",
       "commits": []
     },
     {
@@ -22327,17 +22327,17 @@
     {
       "id": 2320,
       "title": "AoC grid: O(1) cell lookup in Aoc.Common (array-backed Grid.at/map) and neighbours without building lists, with a lemma the new lookup agrees with the old; switch 2021 day 11 to it",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2320",
       "labels": [
         "perf",
         "aoc"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/research/lean-runtime-speed.md (SW-2318). A hypothesis from reading code: start only if the SW-2296 profile shows this cost is a meaningful share. Estimated octopus 48x -> 5-10x Lean. 60-90 min.",
+      "body": "From docs/research/lean-runtime-speed.md (SW-2318). A hypothesis from reading code: start only if the SW-2296 profile shows this cost is a meaningful share. Estimated octopus 48x -> 5-10x Lean. 60-90 min.\n\nStarted 8 Nov 2026 00:08, overnight wave 1 (Matt: focus on comparative performance; profile, address, recheck); expected: 75 min.\n",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-08",
       "commits": []
     },
     {
@@ -22438,15 +22438,15 @@
     {
       "id": 2327,
       "title": "Design note: Std.Parse's run-time shape (slow-path apply 22%, effect steps 15-19%, closure frees 14% on expressions/scan, the two slowest programs; matcher 24%, bridge 17%): a PAP fast path in native Apply, specialised combinators (SW-2135 widened), or Parse compiled as a state-passing loop",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": ".claude/worktrees/SW-2327",
       "labels": [
         "perf",
         "design"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/reviews/SW-2296-native-profiles.md §5 (measured). Paper lane; implementation waits for Matt's decisions. 90 min.",
+      "body": "From docs/reviews/SW-2296-native-profiles.md §5 (measured). Paper lane; implementation waits for Matt's decisions. 90 min.\n\nStarted 8 Nov 2026 00:08, overnight wave 1 (Matt: focus on comparative performance; profile, address, recheck); expected: 90 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -22454,14 +22454,14 @@
     {
       "id": 2328,
       "title": "Native: inline the hole operations (New/Fill/Take) as a store and a load instead of sw_prim with an argument Vec and a clone (octopus ~17%, matcher ~15%, disk ~7%)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2328",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/reviews/SW-2296-native-profiles.md §5 (measured). 45-60 min.",
+      "body": "From docs/reviews/SW-2296-native-profiles.md §5 (measured). 45-60 min.\n\nStarted 8 Nov 2026 00:08, overnight wave 1 (Matt: focus on comparative performance; profile, address, recheck); expected: 50 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []

@@ -432,18 +432,21 @@
         "Big-number note (SW-2298)",
         "Proof baseline loads what each day uses: 2020 day 18 went from 37x to about 0.9x Lean, 2024 day 2 from 12x to 2x, 2021 day 15 about 4x (rough, one run, under load; SW-2313)",
         "Inputs scaled at run time so Lean takes 0.4-0.6 s; --runners (SW-2307)",
-        "Why compiled Lean is faster: docs/research/lean-runtime-speed.md; binary-trees Lean port invalid (SW-2318)"
+        "Why compiled Lean is faster: docs/research/lean-runtime-speed.md; binary-trees Lean port invalid (SW-2318)",
+        "Native profiles of ten programs: grid code 68% of octopus, Std.Parse most of expressions/scan, sw_ctor 37% of binary-trees; compiled bodies named after definitions, call counts, task profile:native (SW-2296)"
       ],
       "now": [
-        "Profile the native gaps, improving the profiling tools where needed (SW-2296)",
-        "Fix the binary-trees Lean port (SW-2319)",
-        "Overmind: answer check, then fuzzing"
+        "Headline table on Overmind (SW-2295)",
+        "O(1) grid cells (SW-2320)",
+        "Big numbers by reference (SW-2302)",
+        "Native hole operations inline (SW-2328)",
+        "Std.Parse run-time design note (SW-2327)"
       ],
       "next": [
-        "Stage 2 headline table on Overmind: native, CPython, PyPy, Lean (SW-2295)",
-        "Fixes the profile confirms (SW-2302, SW-2304, SW-2320-2323, SW-2135)",
-        "Compact values design note if the profile says so (SW-2324)",
-        "Proof side later (SW-2316, SW-2314)"
+        "Native Nat comparisons and Array fast paths (SW-2329), then inline allocation (SW-2321): after SW-2328, same code",
+        "One-pass flatMap (SW-2323), no argument Vec per runtime call (SW-2304), profiling --group (SW-2330)",
+        "Specialise capturing closures (SW-2135)",
+        "Rerun the table after each wave"
       ],
       "links": [
         "docs/proposals/comparative-speed.md"
