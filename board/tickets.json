@@ -22725,7 +22725,7 @@
         "proof"
       ],
       "epic": "aoc-older",
-      "body": "From the SW-2320 batch verifier, 8 Nov 2026. Statements unchanged by SW-2320. 20 min.",
+      "body": "From the SW-2320 batch verifier, 8 Nov 2026. Statements unchanged by SW-2320. 20 min.\n\nAlso 2021 day 12: parseNoBigNeighbours and endsVisited give the same warning (0 of 1500 cases) in the SW-2355 audit; statements untouched by that lane.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
