@@ -401,6 +401,28 @@ select = [
 ]
 
 [[rule]]
+id = "conversion-proof-masks"
+extra = true
+rank = 1
+paths = ["crates/core/src/value.rs", "crates/core/src/reference.rs", "crates/elab/src/unify.rs"]
+why = "the proof-mask comparison reads conversion and stuck calls; its tests are under 1 s each (SW-2256 broke one unselected)"
+cheap_only = 3.0
+select = [
+  { package = "driver", binary = "proofs", test = "^proof_masks::" },
+]
+
+[[rule]]
+id = "registry-check-cache"
+extra = true
+rank = 1
+paths = ["crates/core/src/registry.rs", "crates/driver/src/driver.rs"]
+why = "built-in registry entries are bound and taken back through the check cache; its quick tests (SW-2197 broke one unselected)"
+cheap_only = 3.0
+select = [
+  { package = "driver", binary = "projects", test = "^check_cache::" },
+]
+
+[[rule]]
 id = "reference-evaluator"
 extra = true
 rank = 2
