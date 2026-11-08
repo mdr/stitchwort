@@ -765,7 +765,7 @@ impl Elaborator {
                 self.metas()
                     .lifted_calls
                     .borrow_mut()
-                    .insert(d.meta, (s, Rc::new(call.clone())));
+                    .insert(d.meta, (s, Rc::new(call.clone()), false));
                 for _ in 0..s {
                     call = Term::Lam("x".into(), Icit::Explicit, Rc::new(call));
                 }
