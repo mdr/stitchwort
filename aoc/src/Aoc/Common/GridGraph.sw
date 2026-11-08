@@ -91,3 +91,40 @@ theorem memCellsOfCellAt (rows: List (List a)): (position: Position) → (x: a) 
       | Some cells =>
         let inGrid := (List.memGridCells rows row column x).backward (Witness cells (Both r found))
         List.memMap rows.gridCells ((row, column), x) inGrid (arg => (({ row = arg.fst.fst, column = arg.fst.snd }: Position), arg.snd))
+
+--| Numbers the positions of the first `height` rows and `width` columns row
+--| by row, `row * width + column`, so that std's search keeps their costs
+--| in an array: `(boxGraph height width cost).distances (index := boxIndex
+--| height width) sources`. Positions outside the box have no number.
+def boxIndex (height: Nat) (width: Nat): Graph.Index Position := {
+  size = height * width,
+  number = position => if position.within height width then Some (position.row * width + position.column) else None,
+  decode = number => Some { row = number / width, column = number % width },
+  below = position number numbered => boxIndexBelow height width position number numbered,
+  roundTrip = position number numbered => boxIndexRoundTrip height width position number numbered
+}
+
+--| A position within the box is numbered below `height * width`.
+theorem boxIndexBelow (height: Nat) (width: Nat): (position: Position) → (number: Nat) →
+    (if position.within height width then Some (position.row * width + position.column) else None) = Some number → number < height * width
+  | { row, column }, number, numbered =>
+    match inside: ({ row, column }: Position).within height width with
+      | False => Void.exfalso (Option.noneNotSome number numbered)
+      | True =>
+        let below: row < height := Bool.andLeft inside
+        let before: column < width := Bool.andRight inside
+        let rows := Nat.leMulRight (row + 1) height width (omega [below])
+        let spread: (row + 1) * width = row * width + width := ring
+        omega [Option.someInjective numbered, rows, spread, before]
+
+--| Decoding a position's number gives the position back.
+theorem boxIndexRoundTrip (height: Nat) (width: Nat): (position: Position) → (number: Nat) →
+    (if position.within height width then Some (position.row * width + position.column) else None) = Some number →
+      Some ({ row = number / width, column = number % width }: Position) = Some position
+  | { row, column }, number, numbered =>
+    match inside: ({ row, column }: Position).within height width with
+      | False => Void.exfalso (Option.noneNotSome number numbered)
+      | True =>
+        let before: column < width := Bool.andRight inside
+        rewrite <- Option.someInjective numbered in
+          rewrite Nat.modUnique (row * width + column) width row column before rfl, Nat.mulAddDivSmall row width column before in rfl

@@ -635,6 +635,39 @@ theorem Map.getMap [auto ord: Ord k] (m: Map k v) (key: k) (f: v → w): Map.get
 theorem Map.getFromList [auto ord: Ord k] (key: k) (xs: List (k, v)): Map.get (Map.fromList xs) key = Map.lookupLast key xs :=
   Map.Raw.getFromListFast key xs
 
+--| The last pair for a key is in the second list, if it has one.
+theorem Map.lookupLastAppendRight [auto ord: Ord k] (key: k) (ys: List (k, v)) [found: v] (got: Map.lookupLast key ys = Some found):
+    (xs: List (k, v)) → Map.lookupLast key (xs ++ ys) = Some found
+  | [] => got
+  | [(kk, vv), ..rest] => rewrite Map.lookupLastAppendRight key ys got rest in rfl
+
+--| With no pair for the key in the second list, the last is the first list's.
+theorem Map.lookupLastAppendLeft [auto ord: Ord k] (key: k) (ys: List (k, v)) (missing: Map.lookupLast key ys = None):
+    (xs: List (k, v)) → Map.lookupLast key (xs ++ ys) = Map.lookupLast key xs
+  | [] => missing
+  | [(kk, vv), ..rest] => rewrite Map.lookupLastAppendLeft key ys missing rest in rfl
+
+--| A first pair with another key doesn't change the last pair for `key`.
+theorem Map.lookupLastConsOther [auto ord: Ord k] (key: k) (kk: k) (vv: v) (rest: List (k, v)) (apart: key ≠ kk):
+    Map.lookupLast key [(kk, vv), ..rest] = Map.lookupLast key rest :=
+  match found: Map.lookupLast key rest with
+    | Some x => rfl
+    | None =>
+      match e: Ord.compare key kk with
+        | Equal => Void.exfalso (apart (ord.equal key kk e))
+        | Less => rfl
+        | Greater => rfl
+
+--| A first pair for `key` is the last one when the rest has none.
+theorem Map.lookupLastConsSame [auto ord: Ord k] (key: k) (vv: v) (rest: List (k, v)) (missing: Map.lookupLast key rest = None):
+    Map.lookupLast key [(key, vv), ..rest] = Some vv :=
+  rewrite missing, Ord.compareSelf key in rfl
+
+--| In a map's own list each key appears once, so the last pair for a key is
+--| what `get` finds.
+theorem Map.lookupLastToList [auto ord: Ord k] (m: Map k v) (key: k): Map.lookupLast key (Map.toList m) = Map.get m key :=
+  Eq.trans (Map.Spec.lookupLastAscending key None (Map.toList m) (Map.toListSorted m)) (Eq.sym (Map.getToList m key))
+
 theorem Map.getInsertWithOther [auto ord: Ord k] (m: Map k v) (key: k) (value: v) (other: k) (ne: other ≠ key) (f: v → v → v):
     Map.get (Map.insertWith m key value f) other = Map.get m other :=
   Map.indRaw [p := m' => Map.get (Map.insertWith m' key value f) other = Map.get m' other] (r => Map.Raw.getInsertWithOther f key value other ne r) m

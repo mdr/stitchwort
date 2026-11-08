@@ -20,7 +20,7 @@
 --| `Aoc.Year2021.Day15.Tests` (Tests/); `run` checks neither.
 
 namespace Aoc.Year2021.Day15
-import Aoc.Common (Grid, Position, boxEnter, boxGraph, parseGrid)
+import Aoc.Common (Grid, Position, boxEnter, boxGraph, boxIndex, parseGrid)
 import Std (Bool, Fail, Fin, Graph, IO, List, Map, Nat, Option, Parse, Text)
 import Std.Parse (digit)
 
@@ -54,13 +54,17 @@ def RiskMap.levelAt (risks: RiskMap) (position: Position): Option Nat := boxEnte
 --| map, costing its level.
 def RiskMap.graph (risks: RiskMap): Graph Position := boxGraph risks.height risks.width risks.level
 
+--| The map's positions numbered row by row, for the search to keep their
+--| costs in arrays.
+def RiskMap.index (risks: RiskMap): Graph.Index Position := boxIndex risks.height risks.width
+
 def RiskMap.start (risks: RiskMap): Position := { row = 0, column = 0 }
 
 def RiskMap.target (risks: RiskMap): Position := { row = risks.height - 1, column = risks.width - 1 }
 
 --| The lowest total risk from the top left to the bottom right: Dijkstra's
 --| search from the top left, starting at 0 (its level isn't counted).
-def RiskMap.lowestRisk (risks: RiskMap): Nat := risks.graph.distances [(risks.start, 0)] |> .getOr risks.target 0
+def RiskMap.lowestRisk (risks: RiskMap): Nat := risks.graph.distances (index := risks.index) [(risks.start, 0)] |> .getOr risks.target 0
 
 --| The levels, looked up in O(log n); 0 off the cave.
 def Cave.levels (cave: Cave): Position → Nat := (cave.grid.map (_ digit => digit.toNat)).lookupOr 0

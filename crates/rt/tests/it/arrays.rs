@@ -134,3 +134,32 @@ fn an_array_in_a_record_is_changed_in_place() {
     assert_eq!(out, "7");
     assert_eq!(copies, ArrayCopies::default());
 }
+
+/// Std's Dijkstra search with an index (`Graph.distances (index := …)`)
+/// keeps its two cost tables in arrays and changes them in place: each
+/// table is copied once, from the empty table the cost-table record keeps,
+/// and never again however many states are settled (dense-distances.md
+/// §7, risk 1).
+#[test]
+fn an_indexed_search_changes_its_tables_in_place() {
+    let (out, copies) = run("import Std (Graph, List, Map, Nat, Option, Void)\n\n\
+         def chainIndex (n: Nat): Graph.Index Nat := {\n  \
+         size = n,\n  \
+         number = k => if k < n then Some k else None,\n  \
+         decode = k => Some k,\n  \
+         below = k i numbered =>\n    \
+         match lt: k < n with\n      \
+         | True => rewrite <- Option.someInjective numbered in omega\n      \
+         | False => Void.exfalso (Option.noneNotSome i numbered),\n  \
+         roundTrip = k i numbered =>\n    \
+         match lt: k < n with\n      \
+         | True => rewrite <- Option.someInjective numbered in rfl\n      \
+         | False => Void.exfalso (Option.noneNotSome i numbered)\n\
+         }\n\n\
+         def chain (n: Nat): Graph Nat := Graph.fromEdges (k => [(k + 1, 2), (k + 2, 3)]) (List.range 0 n)\n\n\
+         def main (): {IO} () :=\n  \
+         let found := (chain 5000).distances (index := chainIndex 5000) [(0, 0)]\n  \
+         IO.print (Show.toText (found.get 4999) ++ \" \" ++ Show.toText found.size)\n");
+    assert_eq!(out, "Some 7499 5000");
+    assert_eq!(copies.count, 2, "{copies:?}");
+}

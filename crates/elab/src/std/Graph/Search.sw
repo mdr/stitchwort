@@ -249,6 +249,267 @@ theorem Graph.Costs.getSetKeeps [auto ord: Ord s] (costs: Graph.Costs s t) (tabl
       Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym fresh) (rewrite <- equal in costs.hasOfGet there)))
     | False => Eq.trans (costs.getSetOther table state cost other (DecEq.soundFalse other state same)) there
 
+-- Numbered states
+
+--| Numbers some states from `0` to `size - 1`, each with its own number, so
+--| that a search can keep their costs in an array: `graph.distances (index
+--| := grid.index) sources`. `decode` gives a state's number back as the
+--| state. States without a number are allowed; their costs are kept in a
+--| map. The two proofs are erased at run time, so an index is its size and
+--| two functions.
+type Graph.Index (s: Type) = {
+  size: Nat,
+  number: s → Option Nat,
+  decode: Nat → Option s,
+  --| Every number is below `size`.
+  below: (state: s) → (i: Nat) → number state = Some i → i < size,
+  --| Decoding a state's number gives the state back.
+  roundTrip: (state: s) → (i: Nat) → number state = Some i → decode i = Some state
+}
+
+--| The index that numbers no state, and so has size 0: [`Graph.distances`]
+--| without an index keeps its costs in maps.
+def Graph.Index.none: Graph.Index s := {
+  size = 0,
+  number = _ => None,
+  decode = _ => None,
+  below = state i numbered => Void.exfalso (Option.noneNotSome i numbered),
+  roundTrip = state i numbered => Void.exfalso (Option.noneNotSome i numbered)
+}
+
+--| Two states with the same number are the same state.
+theorem Graph.Index.sameNumber (index: Graph.Index s) [a: s] [b: s] [i: Nat] (numberA: index.number a = Some i) (numberB: index.number b = Some i):
+    a = b :=
+  Option.someInjective (Eq.trans (Eq.sym (index.roundTrip a i numberA)) (index.roundTrip b i numberB))
+
+--| Costs by state for [`Graph.indexCosts`]: a cell for each number below
+--| the index's size, holding the cost of the state with that number if it
+--| has one, and a map for the states without a number. The proofs are
+--| erased at run time.
+type Graph.IndexTable (s: Type) (index: Graph.Index s) [auto ord: Ord s] = {
+  cells: Array (Option Nat),
+  rest: Map s Nat,
+  --| There is a cell for every number.
+  sized: cells.size = index.size,
+  --| A cell with a cost belongs to the state its number decodes to.
+  numbered: (i: Nat) → (cost: Nat) → (state: s) → cells.getOr i None = Some cost → index.decode i = Some state → index.number state = Some i,
+  --| The map has only states without a number.
+  unnumbered: (state: s) → rest.contains state = True → index.number state = None
+}
+
+--| The table with no costs.
+def Graph.IndexTable.empty [auto ord: Ord s] (index: Graph.Index s): Graph.IndexTable s index := {
+  cells = Array.replicate index.size None,
+  rest = Map.empty,
+  sized = Array.sizeReplicate index.size None,
+  numbered = i cost state there decoded => Void.exfalso (Option.noneNotSome cost (rewrite Array.getOrReplicate index.size None i at there in there)),
+  unnumbered = state there => Void.exfalso (Bool.falseNotTrue there)
+}
+
+--| The cost the table has for `state`: its cell's, or the map's for a state
+--| without a number.
+@[noReceiver]
+def Graph.IndexTable.get [auto ord: Ord s] (index: Graph.Index s) (table: Graph.IndexTable s index) (state: s): Option Nat :=
+  match index.number state with
+    | Some i => table.cells.getOr i None
+    | None => table.rest.get state
+
+--| Setting a numbered state's cell keeps every cell with a cost belonging
+--| to its state.
+theorem Graph.IndexTable.setNumbered (index: Graph.Index s) (cells: Array (Option Nat))
+    (kept: (i: Nat) → (cost: Nat) → (state: s) → cells.getOr i None = Some cost → index.decode i = Some state → index.number state = Some i)
+    (state: s) (cost: Nat) (i: Nat) (numbered: index.number state = Some i) (j: Nat) (found: Nat) (other: s)
+    (there: (cells.set i (Some cost)).getOr j None = Some found) (decoded: index.decode j = Some other): index.number other = Some j :=
+  if same: j = i then
+    let isState: other = state := Option.someInjective (Eq.trans (Eq.sym decoded) (rewrite same in index.roundTrip state i numbered))
+    rewrite isState, same in numbered
+  else kept j found other (rewrite Array.getOrSetOther cells i (Some cost) j None same at there in there) decoded
+
+--| Putting a state without a number in the map keeps the map to such
+--| states.
+theorem Graph.IndexTable.insertUnnumbered [auto ord: Ord s] (index: Graph.Index s) (rest: Map s Nat)
+    (kept: (state: s) → rest.contains state = True → index.number state = None) (state: s) (cost: Nat)
+    (unnumbered: index.number state = None) (other: s) (there: (rest.insert state cost).contains other = True): index.number other = None :=
+  match same: other == state with
+    | True => rewrite DecEq.sound same in unnumbered
+    | False => kept other (rewrite Map.getInsertOther state cost other (DecEq.soundFalse other state same) rest at there in there)
+
+--| The table with `state` given `cost`. The array is changed in place when
+--| nothing else holds the table.
+@[noReceiver]
+def Graph.IndexTable.set [auto ord: Ord s] (index: Graph.Index s) (table: Graph.IndexTable s index) (state: s) (cost: Nat): Graph.IndexTable s index :=
+  Graph.IndexTable.setAt index table state cost (index.number state) rfl
+
+--| `set`, given the state's number.
+@[noReceiver]
+def Graph.IndexTable.setAt [auto ord: Ord s] (index: Graph.Index s) (table: Graph.IndexTable s index) (state: s) (cost: Nat):
+    (number: Option Nat) → index.number state = number → Graph.IndexTable s index
+  | Some i, numbered =>
+    -- Taken apart rather than projected, so that the array is moved out of
+    -- the table and changed in place: projecting `cells` and then `rest`
+    -- would leave the table holding the array while `set` runs.
+    match table with
+      | { cells, rest, sized, numbered = kept, unnumbered } => {
+          cells = cells.set i (Some cost),
+          rest,
+          sized = rewrite Array.sizeSet cells i (Some cost) in sized,
+          numbered = Graph.IndexTable.setNumbered index cells kept state cost i numbered,
+          unnumbered
+        }
+  | None, numbered =>
+    match table with
+      | { cells, rest, sized, numbered = kept, unnumbered = restKept } => {
+        cells,
+        rest = rest.insert state cost,
+        sized,
+        numbered = kept,
+        unnumbered = Graph.IndexTable.insertUnnumbered index rest restKept state cost numbered
+      }
+
+--| A state has the cost it was last set to.
+theorem Graph.IndexTable.getSetAt [auto ord: Ord s] (index: Graph.Index s) (table: Graph.IndexTable s index) (state: s) (cost: Nat):
+    (number: Option Nat) → (numbered: index.number state = number) →
+      Graph.IndexTable.get index (Graph.IndexTable.setAt index table state cost number numbered) state = Some cost
+  | Some i, numbered => rewrite numbered in Array.getOrSet table.cells i (Some cost) None (rewrite table.sized in index.below state i numbered)
+  | None, numbered => rewrite numbered in Map.getInsert state cost table.rest
+
+--| Setting one state's cost leaves every other state's as it was.
+theorem Graph.IndexTable.getSetAtOther [auto ord: Ord s] (index: Graph.Index s) (table: Graph.IndexTable s index) (state: s) (cost: Nat)
+    (other: s) (apart: other ≠ state): (number: Option Nat) → (numbered: index.number state = number) →
+      Graph.IndexTable.get index (Graph.IndexTable.setAt index table state cost number numbered) other = Graph.IndexTable.get index table other
+  | Some i, numbered =>
+    match otherNumbered: index.number other with
+      | Some j =>
+        Array.getOrSetOther table.cells i (Some cost) j None
+          (same => apart (Graph.Index.sameNumber index otherNumbered (rewrite <- same at numbered in numbered)))
+      | None => rfl
+  | None, numbered =>
+    match otherNumbered: index.number other with
+      | Some j => rfl
+      | None => Map.getInsertOther state cost other apart table.rest
+
+--| Costs kept by number in an array, for the states `index` numbers, and in
+--| a `Map` for the rest: what [`Graph.distances`] uses when given an index.
+def Graph.indexCosts [auto ord: Ord s] (index: Graph.Index s): Graph.Costs s (Graph.IndexTable s index) := {
+  empty = Graph.IndexTable.empty index,
+  get = table state => Graph.IndexTable.get index table state,
+  set = table state cost => Graph.IndexTable.set index table state cost,
+  getEmpty = state =>
+    match numbered: index.number state with
+      | Some i => Array.getOrReplicate index.size None i
+      | None => Map.getEmpty state,
+  getSet = table state cost => Graph.IndexTable.getSetAt index table state cost (index.number state) rfl,
+  getSetOther = table state cost other apart => Graph.IndexTable.getSetAtOther index table state cost other apart (index.number state) rfl
+}
+
+--| Cell `j` of the cells after the one numbered `start` is numbered
+--| `start + Succ j`.
+theorem Graph.Index.shift (start: Nat) (j: Nat): start + 1 + j = start + Succ j := omega
+
+--| The state and cost of each cell with a cost, numbering the cells from
+--| `start`, in order.
+def Graph.Index.entries (index: Graph.Index s): (start: Nat) → (cells: List (Option Nat)) → List (s, Nat)
+  | start, [] => []
+  | start, [None, ..rest] => index.entries (start + 1) rest
+  | start, [Some cost, ..rest] =>
+    match index.decode start with
+      | Some state => [(state, cost), ..index.entries (start + 1) rest]
+      | None => index.entries (start + 1) rest
+
+--| The entries have no pair for a state whose number isn't a cell's, when
+--| each cell with a cost belongs to the state its number decodes to.
+theorem Graph.Index.lookupEntriesOff [auto ord: Ord s] (index: Graph.Index s) (state: s): (start: Nat) → (cells: List (Option Nat)) →
+    ((j: Nat) → (cost: Nat) → (other: s) → cells.getOr j None = Some cost → index.decode (start + j) = Some other → index.number other = Some (start + j)) →
+    ((j: Nat) → index.number state ≠ Some (start + j)) → Map.lookupLast state (index.entries start cells) = None
+  | start, [], numbered, off => rfl
+  | start, [None, ..rest], numbered, off =>
+    index.lookupEntriesOff state (start + 1) rest
+      (j cost other there decoded => rewrite <- Graph.Index.shift start j in numbered (Succ j) cost other there (rewrite Graph.Index.shift start j at decoded in decoded))
+      (j same => off (Succ j) (rewrite Graph.Index.shift start j at same in same))
+  | start, [Some cost, ..rest], numbered, off =>
+    let tail :=
+      index.lookupEntriesOff state (start + 1) rest
+        (j found other there decoded =>
+          rewrite <- Graph.Index.shift start j in numbered (Succ j) found other there (rewrite Graph.Index.shift start j at decoded in decoded))
+        (j same => off (Succ j) (rewrite Graph.Index.shift start j at same in same))
+    match decoded: index.decode start with
+      | None => tail
+      | Some other =>
+        rewrite Map.lookupLastConsOther state other cost (index.entries (start + 1) rest)
+          (same => off 0 (rewrite same in numbered 0 cost other rfl (rewrite Nat.addZero start in decoded))) in
+          tail
+
+--| The entries' pair for a state numbered `start + j` has the cost in cell
+--| `j`, when each cell with a cost belongs to the state its number decodes
+--| to.
+theorem Graph.Index.lookupEntriesAt [auto ord: Ord s] (index: Graph.Index s) (state: s): (start: Nat) → (cells: List (Option Nat)) → (j: Nat) →
+    ((j: Nat) → (cost: Nat) → (other: s) → cells.getOr j None = Some cost → index.decode (start + j) = Some other → index.number other = Some (start + j)) →
+    index.number state = Some (start + j) → Map.lookupLast state (index.entries start cells) = cells.getOr j None
+  | start, [], j, numbered, at => rfl
+  | start, [None, ..rest], Zero, numbered, at =>
+    index.lookupEntriesOff state (start + 1) rest
+      (j cost other there decoded => rewrite <- Graph.Index.shift start j in numbered (Succ j) cost other there (rewrite Graph.Index.shift start j at decoded in decoded))
+      (k same => omega [Option.someInjective (Eq.trans (Eq.sym at) same)])
+  | start, [Some cost, ..rest], Zero, numbered, at =>
+    let atStart: index.number state = Some start := rewrite Nat.addZero start at at in at
+    let tail :=
+      index.lookupEntriesOff state (start + 1) rest
+        (j found other there decoded =>
+          rewrite <- Graph.Index.shift start j in numbered (Succ j) found other there (rewrite Graph.Index.shift start j at decoded in decoded))
+        (k same => omega [Option.someInjective (Eq.trans (Eq.sym atStart) same)])
+    rewrite index.roundTrip state start atStart in Map.lookupLastConsSame state cost (index.entries (start + 1) rest) tail
+  | start, [None, ..rest], Succ k, numbered, at =>
+    index.lookupEntriesAt state (start + 1) rest k
+      (j cost other there decoded => rewrite <- Graph.Index.shift start j in numbered (Succ j) cost other there (rewrite Graph.Index.shift start j at decoded in decoded))
+      (rewrite Graph.Index.shift start k in at)
+  | start, [Some cost, ..rest], Succ k, numbered, at =>
+    let tail :=
+      index.lookupEntriesAt state (start + 1) rest k
+        (j found other there decoded =>
+          rewrite <- Graph.Index.shift start j in numbered (Succ j) found other there (rewrite Graph.Index.shift start j at decoded in decoded))
+        (rewrite Graph.Index.shift start k in at)
+    match decoded: index.decode start with
+      | None => tail
+      | Some other =>
+        rewrite Map.lookupLastConsOther state other cost (index.entries (start + 1) rest)
+          (same =>
+            let otherAt := numbered 0 cost other rfl (rewrite Nat.addZero start in decoded)
+            omega [Option.someInjective (Eq.trans (Eq.sym at) (rewrite <- same at otherAt in otherAt))]) in
+          tail
+
+--| The table as a map: the cells with a cost in order of their numbers,
+--| with the states their numbers decode to, then the states without a
+--| number. When the numbers follow the states' order, as a grid's do row by
+--| row, the map is built in O(n).
+@[noReceiver]
+def Graph.IndexTable.toMap [auto ord: Ord s] (index: Graph.Index s) (table: Graph.IndexTable s index): Map s Nat :=
+  Map.fromList (index.entries 0 table.cells.toList ++ table.rest.toList)
+
+--| The map has what the table has.
+theorem Graph.IndexTable.getToMap [auto ord: Ord s] (index: Graph.Index s) (table: Graph.IndexTable s index) (state: s):
+    (Graph.IndexTable.toMap index table).get state = Graph.IndexTable.get index table state :=
+  let entries := index.entries 0 table.cells.toList
+  let restGot := Map.lookupLastToList table.rest state
+  let cellsNumbered: (j: Nat) → (cost: Nat) → (other: s) → table.cells.toList.getOr j None = Some cost → index.decode (0 + j) = Some other →
+      index.number other = Some (0 + j) :=
+    j cost other there decoded => table.numbered j cost other there decoded
+  rewrite Map.getFromList state (entries ++ table.rest.toList) in
+    match numberedAs: index.number state with
+      | None =>
+        match got: table.rest.get state with
+          | Some cost => Map.lookupLastAppendRight state table.rest.toList (Eq.trans restGot got) entries
+          | None =>
+            Eq.trans (Map.lookupLastAppendLeft state table.rest.toList (Eq.trans restGot got) entries)
+              (index.lookupEntriesOff state 0 table.cells.toList cellsNumbered (j same => Option.noneNotSome (0 + j) (Eq.trans (Eq.sym numberedAs) same)))
+      | Some i =>
+        let restMissing: table.rest.get state = None :=
+          match got: table.rest.get state with
+            | None => rfl
+            | Some cost =>
+              Void.exfalso (Option.noneNotSome i (Eq.trans (Eq.sym (table.unnumbered state (Map.containsOfGet table.rest state cost got))) numberedAs))
+        Eq.trans (Map.lookupLastAppendLeft state table.rest.toList (Eq.trans restGot restMissing) entries)
+          (index.lookupEntriesAt state 0 table.cells.toList i cellsNumbered numberedAs)
+
 -- Dijkstra's algorithm
 
 --| `Graph.Bound` for costs read by `get`: `state` has a cost of no more
@@ -547,8 +808,27 @@ def Graph.distancesWith [auto ord: Ord s] (graph: Graph s) (costs: Graph.Costs s
     (Graph.queuedPop graph sources start.fst (Graph.startQueued graph costs sources))
 
 --| The least cost to each state reachable from one of the sources, each
---| given with the cost of starting there.
-def Graph.distances [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)): Map s Nat := graph.distancesWith Graph.mapCosts sources
+--| given with the cost of starting there. With an `index` that numbers the
+--| states densely, such as a grid's positions row by row, the search keeps
+--| the numbered states' costs in arrays rather than maps, which is faster;
+--| [`Graph.distancesCorrect`] and [`Graph.distancesShortest`] hold for any
+--| index, so the costs are the same. Without one (an index of size 0) every
+--| cost is kept in a map.
+def Graph.distances [auto ord: Ord s] (graph: Graph s) (index: Graph.Index s := Graph.Index.none) (sources: List (s, Nat)): Map s Nat :=
+  -- Kept small enough for the optimiser to inline at each call, so that
+  -- the map branch's `Ord` is the caller's own instance and the tree's
+  -- lookups are specialised to it, as they were before there was an index
+  -- (6% of day 15's instructions otherwise). So the indexed branch is a
+  -- call, of a definition too large to inline.
+  match index.size with
+    | Zero => graph.distancesWith Graph.mapCosts sources
+    | Succ _ => graph.distancesByIndex index sources
+
+--| `Graph.distances` with the costs of the states `index` numbers in arrays:
+--| the search's table, as [`Graph.IndexTable.toMap`] reads it.
+def Graph.distancesByIndex [auto ord: Ord s] (graph: Graph s) (index: Graph.Index s) (sources: List (s, Nat)): Map s Nat :=
+  let table := graph.distancesWith (Graph.indexCosts index) sources
+  Map.fromList (index.entries 0 table.cells.toList ++ table.rest.toList)
 
 --| A cost the search still has to account for: the state is queued for no
 --| more, or settled for no more.
@@ -748,20 +1028,39 @@ theorem Graph.distancesWithCorrect [auto ord: Ord s] (graph: Graph s) (costs: Gr
   Graph.searchFromCorrect graph costs sources reach edgesReach start.fst costs.empty start.snd start.fst.popMin
     (Graph.queuedPop graph sources start.fst (Graph.startQueued graph costs sources)) rfl initial
 
+--| `SearchResultBy` for one lookup holds for any lookup that agrees with
+--| it.
+theorem Graph.searchResultBySame (graph: Graph s) (sources: List (s, Nat)) (reach: s → Nat → Prop) (get: s → Option Nat) (other: s → Option Nat)
+    (same: (state: s) → other state = get state) (result: Graph.SearchResultBy graph sources reach get): Graph.SearchResultBy graph sources reach other :=
+  let (Both reached (Both sourcesBound closed)) := result
+  let bound: (cost: Nat) → (state: s) → Graph.BoundBy get cost state → Graph.BoundBy other cost state :=
+    cost state (Witness found (Both got le)) => Witness found (Both (Eq.trans (same state) got) le)
+  Both (state cost got => reached state cost (Eq.trans (Eq.sym (same state)) got))
+    (Both (source start member => bound start source (sourcesBound source start member))
+      (state cost got next weight edge => bound (cost + weight) next (closed state cost (Eq.trans (Eq.sym (same state)) got) next weight edge)))
+
 --| Dijkstra's search returns what `SearchResult` says, for any `reach` that
---| holds at each source for its starting cost and along each edge.
-theorem Graph.distancesCorrect [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)) (reach: s → Nat → Prop)
+--| holds at each source for its starting cost and along each edge, with
+--| any `index`.
+theorem Graph.distancesCorrect [auto ord: Ord s] (graph: Graph s) (index: Graph.Index s := Graph.Index.none) (sources: List (s, Nat)) (reach: s → Nat → Prop)
     (sourcesReach: (source: s) → (start: Nat) → (source, start) ∈ sources → reach source start)
     (edgesReach: (state: s) → (cost: Nat) → reach state cost → (next: s) → (weight: Nat) → (next, weight) ∈ graph.edges state →
       reach next (cost + weight)):
-    Graph.SearchResult graph sources reach (graph.distances sources) :=
-  Graph.distancesWithCorrect graph Graph.mapCosts sources reach sourcesReach edgesReach
+    Graph.SearchResult graph sources reach (graph.distances (index := index) sources) :=
+  match empty: index.size with
+    | Zero => Graph.distancesWithCorrect graph Graph.mapCosts sources reach sourcesReach edgesReach
+    | Succ _ =>
+      let table := graph.distancesWith (Graph.indexCosts index) sources
+      Graph.searchResultBySame graph sources reach ((Graph.indexCosts index).get table) (state => (Graph.IndexTable.toMap index table).get state)
+        (state => Graph.IndexTable.getToMap index table state)
+        (Graph.distancesWithCorrect graph (Graph.indexCosts index) sources reach sourcesReach edgesReach)
 
 --| Each cost Dijkstra's search finds is a walk's from a source, and no walk
---| from a source costs less.
-theorem Graph.distancesShortest [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)): Graph.Shortest graph sources (graph.distances sources) :=
-  Graph.shortestOfResult graph sources (graph.distances sources)
-    (Graph.distancesCorrect graph sources (graph.Reached sources) (Graph.reachedSources graph sources) (Graph.reachedEdges graph sources))
+--| from a source costs less, with any `index`.
+theorem Graph.distancesShortest [auto ord: Ord s] (graph: Graph s) (index: Graph.Index s := Graph.Index.none) (sources: List (s, Nat)):
+    Graph.Shortest graph sources (graph.distances (index := index) sources) :=
+  Graph.shortestOfResult graph sources (graph.distances (index := index) sources)
+    (Graph.distancesCorrect graph (index := index) sources (graph.Reached sources) (Graph.reachedSources graph sources) (Graph.reachedEdges graph sources))
 
 -- Breadth-first search
 
